@@ -71,25 +71,21 @@ Depois de um join pela CLI, um cliente MCP pode reaproveitar a sessão sem novo 
 
 ### Raias
 
-A primeira leva do backlog ([backlog.md](backlog.md), itens 1 a 6) está sendo implementada por uma thread na nuvem em **branches empilhadas** (um PR por item, cada um com base no anterior). Esses itens reescrevem o modelo do documento, então os caminhos abaixo são da **raia A** até essa pilha ser mergeada:
+A primeira leva do backlog ([backlog.md](backlog.md)) é implementada por uma thread na nuvem em branches empilhadas, um PR por item. Os itens 1 a 5 já foram mergeados. Falta o item 6 (camada de agentes: `structuredContent`, mensagens para agentes em inglês, guia em inglês para agentes, transações agrupadas, autor a partir do `clientInfo`), então estes caminhos são da **raia A** até ele entrar:
 
-- `packages/core/src/**` (schema, ops, history, style, displayList, query, render)
 - `packages/server/src/mcp.ts`, `packages/server/src/http.ts`, `packages/server/src/store.ts`
-- `server-go/internal/**`, `server-go/contract/**`
-- `apps/web/src/Canvas.tsx`, `apps/web/src/Layers.tsx`, `apps/web/src/Inspector.tsx`, `apps/web/src/useDocument.ts`
-- `examples/*.paprika.json`, `docs/backlog.md`, `docs/pt-BR/backlog.md`
-- `apps/web/src/App.tsx`, `apps/web/src/Pages.tsx`, `apps/web/src/styles.css`, `apps/web/src/wasmLayer.ts`
-- `packages/server/src/screenshot.ts`, `packages/server/test/**`, `packages/core/test/**`, `server-go/scripts/gen-golden.mjs`
-- `crates/render/**` (itens 4 e 5 do backlog)
-- `README.md`, `README.pt-BR.md`, `server-go/README*.md`, `docs/architecture.md`, `docs/pt-BR/arquitetura.md`, `docs/agent-feedback.md`, `docs/pt-BR/feedback-agentes.md`
+- `packages/core/src/**` (o item 6 também traduz as mensagens de erro, aviso e lint voltadas a agentes em todo o core)
+- `server-go/internal/**`, `server-go/contract/**`, `server-go/scripts/gen-golden.mjs`, `server-go/scripts/gen-contract.mjs`
+- `packages/server/test/**`, `packages/core/test/**`
+- `README.md`, `README.pt-BR.md`, `server-go/README*.md`, `docs/agent-feedback.md`, `docs/pt-BR/feedback-agentes.md`, `docs/backlog.md`, `docs/pt-BR/backlog.md` e qualquer guia novo para agentes em `docs/`
+
+O resto fica aberto à raia B, incluindo `apps/web/**` e `crates/render/**`, desde que o payload da tarefa nomeie os arquivos.
 
 A **raia B** (agentes do barramento) pega trabalho cujos arquivos não se sobrepõem à raia A, por exemplo:
 
-- itens do backlog restritos a arquivos novos fora da raia A (um módulo novo com testes próprios num diretório novo), ligados depois por um PR de continuação após o merge da raia A;
-- `bench/**`, scripts de CI em `.github/scripts/**`;
+- itens do backlog (P2 em diante) cujos arquivos ficam fora da raia A;
+- `bench/**`, `.github/**`;
 - documentação fora dos arquivos listados acima.
-
-Arquivos novos em `apps/web/src/` só são da raia B quando o supervisor os nomeia no payload da tarefa: a raia A também cria arquivos ali.
 
 Um agente do barramento que precise mexer num caminho da raia A manda um `query` para `agent:leonardo` antes de editar; nunca edita por conta própria.
 

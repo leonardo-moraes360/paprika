@@ -71,25 +71,21 @@ After a CLI join, an MCP client can reuse the session without a new invite: `tb 
 
 ### Lanes
 
-The first backlog slice ([backlog.md](backlog.md), items 1 to 6) is being implemented by a cloud thread in **stacked branches** (one PR per item, each based on the previous one). Those items rewrite the document model, so the following paths belong to **lane A** until that stack is merged:
+The first backlog slice ([backlog.md](backlog.md)) is implemented by a cloud thread in stacked branches, one PR per item. Items 1 to 5 are merged. Item 6 (agent layer: `structuredContent`, English agent-facing messages, an English guide for agents, grouped transactions, actor from `clientInfo`) is still to come, so these paths belong to **lane A** until it merges:
 
-- `packages/core/src/**` (schema, ops, history, style, displayList, query, render)
 - `packages/server/src/mcp.ts`, `packages/server/src/http.ts`, `packages/server/src/store.ts`
-- `server-go/internal/**`, `server-go/contract/**`
-- `apps/web/src/Canvas.tsx`, `apps/web/src/Layers.tsx`, `apps/web/src/Inspector.tsx`, `apps/web/src/useDocument.ts`
-- `examples/*.paprika.json`, `docs/backlog.md`, `docs/pt-BR/backlog.md`
-- `apps/web/src/App.tsx`, `apps/web/src/Pages.tsx`, `apps/web/src/styles.css`, `apps/web/src/wasmLayer.ts`
-- `packages/server/src/screenshot.ts`, `packages/server/test/**`, `packages/core/test/**`, `server-go/scripts/gen-golden.mjs`
-- `crates/render/**` (backlog items 4 and 5)
-- `README.md`, `README.pt-BR.md`, `server-go/README*.md`, `docs/architecture.md`, `docs/pt-BR/arquitetura.md`, `docs/agent-feedback.md`, `docs/pt-BR/feedback-agentes.md`
+- `packages/core/src/**` (item 6 also translates the agent-facing error, warning and lint messages across core)
+- `server-go/internal/**`, `server-go/contract/**`, `server-go/scripts/gen-golden.mjs`, `server-go/scripts/gen-contract.mjs`
+- `packages/server/test/**`, `packages/core/test/**`
+- `README.md`, `README.pt-BR.md`, `server-go/README*.md`, `docs/agent-feedback.md`, `docs/pt-BR/feedback-agentes.md`, `docs/backlog.md`, `docs/pt-BR/backlog.md`, and any new agent guide under `docs/`
+
+Everything else is open to lane B, including `apps/web/**` and `crates/render/**`, as long as the task payload names the files.
 
 **Lane B** (bus agents) takes work whose files don't overlap lane A, for example:
 
-- backlog items limited to new files outside lane A (a new module with its own tests in a new directory), wired in by a follow-up PR after lane A merges;
-- `bench/**`, CI scripts under `.github/scripts/**`;
+- backlog items (P2 and later) whose files stay outside lane A;
+- `bench/**`, `.github/**`;
 - documentation outside the files listed above.
-
-New files under `apps/web/src/` are lane B only when the supervisor names them in the task payload: lane A also adds files there.
 
 A bus agent that needs to touch a lane A path sends a `query` to `agent:leonardo` before editing; it never edits it on its own.
 
