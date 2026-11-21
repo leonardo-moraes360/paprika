@@ -24,7 +24,21 @@ import { fileURLToPath } from "node:url";
 export const DEFAULT_ROOTS = [".github/workflows", ".github/actions"];
 export const SHA_LENGTH = 40;
 
-const USES = /^\s*(?:-\s+)?uses:\s*(.*)$/;
+// A step line is `uses: <value>`, optionally prefixed by a list dash. Anchored patterns plus string
+// slices instead of one regex with ambiguous whitespace runs (Sonar S8786): nothing here can
+// backtrack, so a 100 kB line of spaces costs a single pass.
+const LEADING_WHITESPACE = /^[ \t]+/;
+const LIST_DASH = /^-[ \t]+/;
+const USES_KEY = "uses:";
+
+/** The value of a step's `uses:` key, or null when the line is not a step. */
+export function usesValue(line) {
+  const start = line.replace(LEADING_WHITESPACE, "");
+  const key = LIST_DASH.test(start) ? start.replace(LIST_DASH, "") : start;
+  if (!key.startsWith(USES_KEY)) return null;
+  return key.slice(USES_KEY.length).replace(LEADING_WHITESPACE, "");
+}
+
 // The comment beside a pin: `# v7.0.1`, `# 1.2.3`, `# stable`.
 const VERSION_COMMENT = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/;
 
@@ -76,11 +90,10 @@ export function scanFile(path) {
   let container = 0;
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
-    if (/^\s*#/.test(line)) continue;
-    const match = USES.exec(line);
-    if (!match) continue;
+    if (/^[ \t]*#/.test(line)) continue;
+    const raw = usesValue(line);
+    if (raw === null) continue;
     checked++;
-    const raw = match[1];
     const hash = raw.indexOf("#");
     const value = (hash === -1 ? raw : raw.slice(0, hash)).trim();
     const comment = hash === -1 ? null : raw.slice(hash + 1).trim();
@@ -102,7 +115,9 @@ export function collectFiles(paths) {
     if (statSync(path).isDirectory()) files.push(...walkYaml(path));
     else if (/\.ya?ml$/.test(path)) files.push(path);
   }
-  return [...new Set(files)].sort();
+  // Explicit comparator (Sonar S2871): the default sort() stringifies, and here the values are
+  // already strings whose code-point order is what the scan should report.
+  return [...new Set(files)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 function walkYaml(dir) {
