@@ -120,3 +120,8 @@ egm:
     max_stdout_bytes: 1048576
     ci:
         max_docs: 5
+    drift:
+        ci: warn
+        max_docs: 5
+    bootstrap:
+        max_bytes: 32768
