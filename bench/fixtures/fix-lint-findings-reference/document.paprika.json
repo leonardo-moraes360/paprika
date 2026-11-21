@@ -1,0 +1,132 @@
+{
+  "format": "paprika/1",
+  "id": "bench-fix-lint-findings-reference",
+  "name": "Bench: fix the lint findings (reference solution)",
+  "tokens": {
+    "paper": "#ffffff",
+    "ink": "#101828",
+    "muted": "#5f6368",
+    "brand": "#1d4ed8"
+  },
+  "rootIds": [
+    "hero"
+  ],
+  "nodes": {
+    "hero": {
+      "id": "hero",
+      "type": "frame",
+      "name": "hero",
+      "parentId": null,
+      "x": 0,
+      "y": 0,
+      "width": 800,
+      "height": 400,
+      "fill": "$paper",
+      "clip": true,
+      "children": [
+        "headline",
+        "sub",
+        "caption",
+        "logo",
+        "accent",
+        "cta"
+      ]
+    },
+    "headline": {
+      "id": "headline",
+      "type": "text",
+      "name": "headline",
+      "parentId": "hero",
+      "x": 40,
+      "y": 40,
+      "width": 480,
+      "height": 44,
+      "text": "Design with your agent",
+      "color": "$ink",
+      "fontSize": 32,
+      "fontWeight": 700
+    },
+    "sub": {
+      "id": "sub",
+      "type": "text",
+      "name": "subhead",
+      "parentId": "hero",
+      "x": 40,
+      "y": 92,
+      "width": 480,
+      "height": 24,
+      "text": "A canvas the agent can read and write",
+      "color": "$muted",
+      "fontSize": 16
+    },
+    "caption": {
+      "id": "caption",
+      "type": "text",
+      "name": "caption",
+      "parentId": "hero",
+      "x": 40,
+      "y": 124,
+      "width": 400,
+      "height": 18,
+      "text": "Local file, local server, no account",
+      "color": "$muted",
+      "fontSize": 12
+    },
+    "logo": {
+      "id": "logo",
+      "type": "image",
+      "name": "logo",
+      "parentId": "hero",
+      "x": 640,
+      "y": 40,
+      "width": 120,
+      "height": 40,
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
+      "fit": "cover",
+      "alt": "Paprika wordmark"
+    },
+    "accent": {
+      "id": "accent",
+      "type": "rect",
+      "name": "accent-bar",
+      "parentId": "hero",
+      "x": 560,
+      "y": 300,
+      "width": 200,
+      "height": 24,
+      "fill": "$brand",
+      "radius": 4
+    },
+    "cta": {
+      "id": "cta",
+      "type": "frame",
+      "name": "cta",
+      "parentId": "hero",
+      "x": 40,
+      "y": 300,
+      "width": 200,
+      "height": 48,
+      "fill": "$brand",
+      "radius": 8,
+      "clip": true,
+      "children": [
+        "cta-label"
+      ]
+    },
+    "cta-label": {
+      "id": "cta-label",
+      "type": "text",
+      "name": "cta-label",
+      "parentId": "cta",
+      "x": 0,
+      "y": 12,
+      "width": 200,
+      "height": 24,
+      "text": "Open the canvas",
+      "color": "$paper",
+      "fontSize": 14,
+      "fontWeight": 600,
+      "textAlign": "center"
+    }
+  }
+}
