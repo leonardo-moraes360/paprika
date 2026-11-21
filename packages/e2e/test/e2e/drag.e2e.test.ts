@@ -29,10 +29,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
 
   /** Opens the canvas with the given renderer (the WASM one paints shapes on a <canvas> under the DOM). */
   const open = async (renderer: "dom" | "wasm") => {
-    await page.goto(server.url);
-    await page.locator(".workspace-card.is-active").click();
-    await page.waitForSelector(NODE);
-    await page.goto(`${page.url().split("?")[0]}?renderer=${renderer}`);
+    // Straight to the active workspace's canvas (`/` is the overview), no clicks to race with the first render.
+    const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
+    await page.goto(`${server.url}/w/${encodeURIComponent(active)}?renderer=${renderer}`);
     await page.waitForSelector(NODE);
     if (renderer === "wasm") {
       await page.waitForFunction(() => ["cpu", "webgpu"].includes(document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')?.dataset.backend ?? ""));
