@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
-import { DEFAULT_ROOTS, checkPaths, kindOf, scanFile, violation } from "../check-actions-pinned.mjs";
+import { DEFAULT_ROOTS, checkPaths, kindOf, scanFile, usesValue, violation } from "../check-actions-pinned.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..", "..");
@@ -141,6 +141,30 @@ describe("the CLI", () => {
     const { status, stderr } = run([fixtures], join(repoRoot, "docs"));
     assert.equal(status, 1, stderr);
     assert.match(stderr, /bad-tag\.yml:8: /);
+  });
+});
+
+describe("the line parser", () => {
+  it("reads a step and nothing else", () => {
+    assert.equal(usesValue("      - uses: actions/checkout@abc # v1"), "actions/checkout@abc # v1");
+    assert.equal(usesValue("uses: ./.github/actions/x"), "./.github/actions/x");
+    assert.equal(usesValue("\t-   uses:   x"), "x");
+    assert.equal(usesValue("uses:"), "");
+    assert.equal(usesValue("name: checkout"), null);
+    assert.equal(usesValue("      name: uses: not-a-step"), null);
+  });
+
+  it("does not backtrack on a hostile line", () => {
+    // The pattern this replaces had two adjacent whitespace runs (`\s*(?:-\s+)?uses:`), so a long
+    // run of spaces with no `uses:` made the engine try every split before failing. The timing is a
+    // coarse guard rather than a benchmark: the point is that the parse is one pass over the line.
+    const hostile = " ".repeat(200_000) + "no-key-here";
+    const started = performance.now();
+    assert.equal(usesValue(hostile), null);
+    const seconds = (performance.now() - started) / 1000;
+    assert.ok(seconds < 0.05, `parsing a 200 kB line took ${seconds.toFixed(3)}s`);
+    // A real step behind the same run of spaces is still found.
+    assert.equal(usesValue(" ".repeat(200_000) + "uses: actions/checkout@v4"), "actions/checkout@v4");
   });
 });
 
