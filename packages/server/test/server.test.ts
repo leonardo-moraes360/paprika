@@ -129,7 +129,7 @@ describe("MCP", () => {
     const c = await connect();
     await call(c, "create_nodes", { nodes: [{ type: "rect", id: "r", width: 50, height: 40, fill: "#ff278c" }] });
     const r = await call(c, "render_screenshot", { rootId: "r", scale: 2 });
-    expect(r.isError).toBeFalsy();
+    expect(r.isError, textOf(r)).toBeFalsy();
     const img = r.content.find((x) => x.type === "image");
     expect(img?.mimeType).toBe("image/png");
     const png = Buffer.from(img!.data!, "base64");
