@@ -164,7 +164,7 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "component", Schema: z.Optional(z.Bool())},
 		z.Field{Name: "instanceOf", Schema: z.Optional(z.String())},
 		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.01).Max(100))},
-		z.Field{Name: "overrides", Schema: z.Optional(z.Record(z.String(), z.Record(z.String(), z.Unknown())))},
+		z.Field{Name: "overrides", Schema: z.Optional(overridesSchema())},
 	),
 	"rect":    nodeSchema("rect"),
 	"ellipse": nodeSchema("ellipse"),
@@ -274,4 +274,11 @@ func ParentID(n *Node) (string, bool) {
 	v, _ := n.Get("parentId")
 	s, ok := v.(string)
 	return s, ok
+}
+
+// overridesSchema is Overrides in schema.ts: keys shaped like node ids and field names.
+func overridesSchema() z.Schema {
+	source := z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id deve ser [A-Za-z0-9_-]{1,64}")
+	field := z.String().Regex(`^[A-Za-z]{1,32}$`, `/^[A-Za-z]{1,32}$/`, "campo deve ser [A-Za-z]{1,32}")
+	return z.Record(source, z.Record(field, z.Unknown()))
 }

@@ -589,6 +589,10 @@ func (r record) parse(v any, present bool, path []any, c *ctx) (any, bool) {
 	}
 	out := jsonv.NewObject()
 	for _, k := range in.Keys() {
+		// zod skips "__proto__" in records: assigning it in JavaScript would replace the prototype.
+		if k == "__proto__" {
+			continue
+		}
 		sub := &ctx{}
 		r.key.parse(k, true, nil, sub)
 		if len(sub.issues) > 0 {

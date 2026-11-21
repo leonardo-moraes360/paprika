@@ -81,6 +81,8 @@ export function sourceValue(n: NodeT | undefined, key: string): unknown {
  * Grava um override: `v` null (ou igual ao componente) remove; senão substitui. Muta a instância.
  */
 export function setOverride(inst: FrameNode, srcId: string, key: string, v: unknown, src: NodeT | undefined) {
+  // Nunca grava chaves que mexem no protótipo (o schema já as recusa; isto protege chamadas internas).
+  if (srcId === "__proto__" || key === "__proto__") return;
   const all: Record<string, Record<string, unknown>> = { ...(inst.overrides ?? {}) };
   const ov: Record<string, unknown> = { ...(all[srcId] ?? {}) };
   if (v === null || jsonEqual(v, sourceValue(src, key))) delete ov[key];

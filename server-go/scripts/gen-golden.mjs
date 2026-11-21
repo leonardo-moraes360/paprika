@@ -103,6 +103,10 @@ const docs = {
 // ---- operation cases: [baseDoc, ops] ----
 const R = (extra) => ({ op: "create", node: { type: "rect", id: "r", ...extra } });
 const opCases = [
+  ["comp", [{ op: "create", node: { type: "frame", id: "px", instanceOf: "btn", overrides: JSON.parse('{"__proto__":{"text":"x"},"ok":{"fill":"#fff","bad-key":1,"__proto__":2}}') } }]],
+  ["comp", [{ op: "update", id: "i1", props: { overrides: { "a b": {}, lbl: { text: "ok" } } } }]],
+  ["comp", [{ op: "create", node: { type: "frame", id: "py", instanceOf: "btn", overrides: JSON.parse('{"__proto__":{"text":"x"},"lbl":{"text":"ok","__proto__":2}}') } }]],
+  ["card", [{ op: "set_tokens", tokens: JSON.parse('{"__proto__":"#fff","ok":1}') }]],
   ["empty", [R({})]],
   ["empty", [R({ width: "big" })]],
   ["empty", [R({ width: -1 })]],

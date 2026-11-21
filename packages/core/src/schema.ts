@@ -63,7 +63,10 @@ const Base = {
 };
 
 /** Overrides de uma instância: por id de nó do componente, os campos trocados (ver component.ts). */
-export const Overrides = z.record(z.string(), z.record(z.string(), z.unknown()));
+// Chaves no formato de id e de nome de campo (o zod já descarta "__proto__" em records).
+const OverrideSource = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id deve ser [A-Za-z0-9_-]{1,64}");
+const OverrideField = z.string().regex(/^[A-Za-z]{1,32}$/, "campo deve ser [A-Za-z]{1,32}");
+export const Overrides = z.record(OverrideSource, z.record(OverrideField, z.unknown()));
 
 export const FrameNode = z.object({
   ...Base,
