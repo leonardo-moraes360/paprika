@@ -140,16 +140,26 @@ Task: `outputSchema` + `structuredContent` on the JSON tools, `batch` on every w
 | 50 | Same actor name after a server restart | Over HTTP the name lives in an in-memory map keyed by `Mcp-Session-Id`; after a restart the client keeps its old session id and the actor falls back to the User-Agent until it initializes again | Accept unknown session ids with a 404, as the spec suggests, so clients re-initialize | P3 |
 | 51 | One language in the activity list | Default history labels from the tools are now English (`create 1 node(s)`) while the canvas's own labels and UI stay in pt-BR | Translate the canvas UI or localize both by a setting | P3 |
 
+## 2026-11-21: workspace overview
+
+Task: an overview of the workspaces as the home page, with `list_workspaces`, `open_workspace` and `create_workspace` on both servers.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 52 | Work in a second workspace without moving the human | The active workspace is shared on purpose, so `open_workspace` also switches the human's canvas; the guide asks the agent to check with the human first | An optional `workspace` argument on the read tools (outline, nodes, screenshot), so an agent can look at another workspace without switching | P2 |
+| 53 | Know that someone else switched the workspace | A later call just sees another document; nothing in the result says the active workspace changed since the agent's last call | Add the active workspace id to `get_document_outline`'s first line and to write results | P2 |
+| 54 | Undo after a switch (TypeScript server) | History is in memory, so a workspace opened again starts with an empty undo stack; the Go server restores it from SQLite | Keep one `History` per workspace for the life of the process | P3 |
+
 ## 2026-11-21: diagrams (shapes, connectors, `draw_diagram`)
 
 Task: `shape` and `connector` nodes, canvas tools, and `draw_diagram` for agents, with TS/Go parity. Notes from drawing flowcharts through MCP while building it.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 52 | Delete a shape and its arrow in one call | `delete_nodes` with the shape first and then its connector failed: the shape's delete had already taken the connector. Fixed: a connector removed that way earlier in the same transaction is skipped (deleting it twice is still an error) | — | — |
-| 53 | Know the ids of the arrows `draw_diagram` made | They default to `<from>-to-<to>` (with `-2`, `-3` for repeats) and come back in `edges`, in input order | — | — |
-| 54 | Say what an arrow means ("yes", "no") | Connectors have no label yet; agents put a small text node next to the arrow, which does not follow it | A `label` on connectors, placed at the middle of the route | P1 |
-| 55 | Move one shape of a drawn diagram without crossing others | Elbow routes ignore obstacles, so a moved shape can make an arrow cross another shape | Obstacle-aware elbow routing, or a `relayout` mode on `draw_diagram` for existing ids | P2 |
+| 55 | Delete a shape and its arrow in one call | `delete_nodes` with the shape first and then its connector failed: the shape's delete had already taken the connector. Fixed: a connector removed that way earlier in the same transaction is skipped (deleting it twice is still an error) | — | — |
+| 56 | Know the ids of the arrows `draw_diagram` made | They default to `<from>-to-<to>` (with `-2`, `-3` for repeats) and come back in `edges`, in input order | — | — |
+| 57 | Say what an arrow means ("yes", "no") | Connectors have no label yet; agents put a small text node next to the arrow, which does not follow it | A `label` on connectors, placed at the middle of the route | P1 |
+| 58 | Move one shape of a drawn diagram without crossing others | Elbow routes ignore obstacles, so a moved shape can make an arrow cross another shape | Obstacle-aware elbow routing, or a `relayout` mode on `draw_diagram` for existing ids | P2 |
 
 ## What worked well
 

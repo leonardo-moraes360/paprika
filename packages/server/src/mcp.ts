@@ -84,6 +84,7 @@ Recommended flow:
 To bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes); export_code with format "svg" returns vector SVG.
 Every write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. "draw proposal 3"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.
 Results: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.
+Workspaces: the server holds several documents (list_workspaces); every tool works on the active one, which is also the one on the human's canvas. open_workspace switches it for everyone, so ask the human first; create_workspace makes an empty one.
 The human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.
 This guide in Brazilian Portuguese: get_design_guide {language: "pt-BR"}.`;
 
@@ -140,6 +141,7 @@ Fluxo recomendado:
 Para trazer um ícone ou um trecho de página pronto, use import_svg ou import_html (viram nós editáveis); export_code com format "svg" devolve SVG vetorial.
 Toda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. Para várias chamadas virarem um passo só de undo (ex.: "desenhar a proposta 3"), passe o mesmo batch em cada uma; o batch fecha quando outra pessoa escreve ou desfaz no meio.
 Resultados: as ferramentas que devolvem JSON também devolvem structuredContent conforme o outputSchema; leia esse campo em vez de interpretar o texto.
+Workspaces: o servidor guarda vários documentos (list_workspaces); toda ferramenta trabalha no ativo, que é também o do canvas do humano. open_workspace troca o ativo para todos, então pergunte ao humano antes; create_workspace cria um vazio.
 O humano vê suas edições ao vivo no canvas. Campos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.
 Erros e mensagens das ferramentas são em inglês.`;
 
@@ -173,6 +175,13 @@ const batchField = z
 // Output schemas (structuredContent). Keep them in sync with the handlers' JSON.
 const Written = { created: z.array(z.string()), version: z.number().int() };
 const Bounds = z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() });
+const Workspace = z.object({
+  id: z.string(),
+  name: z.string(),
+  nodes: z.number().int(),
+  updatedAt: z.number().describe("Unix ms of the last write"),
+  active: z.boolean(),
+});
 const Step = { version: z.number().int(), canUndo: z.boolean(), canRedo: z.boolean() };
 
 /** Actor name from the MCP clientInfo: "agent:<name>", trimmed to something printable. */
@@ -590,6 +599,50 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
         const entries = store.recentHistory(limit);
         return json({ entries }, entries);
       }),
+  );
+
+  server.registerTool(
+    "list_workspaces",
+    {
+      title: "List workspaces",
+      description:
+        "Workspaces this server can open (each one is a document), most recently updated first, and which one is active. Every other tool reads and writes the active workspace, the same one the human sees on the canvas.",
+      outputSchema: { active: z.string().describe("Id of the active workspace"), workspaces: z.array(Workspace) },
+      annotations: { readOnlyHint: true },
+    },
+    () =>
+      guard(async () => {
+        const workspaces = await store.listWorkspaces();
+        return json({ active: store.doc.id, workspaces });
+      }),
+  );
+
+  server.registerTool(
+    "open_workspace",
+    {
+      title: "Open workspace",
+      description:
+        "Makes another workspace the active one: every tool and the human's canvas switch to it, and undo history starts from that workspace. Tell the human before switching away from what they are looking at.",
+      inputSchema: { id: z.string().min(1).describe("Workspace id (from list_workspaces)") },
+      outputSchema: { workspace: Workspace, version: z.number().int() },
+    },
+    ({ id }) =>
+      guard(async () => {
+        const workspace = await store.openWorkspace(id, actorOf());
+        if (!workspace) throw new Error(`workspace "${id}" does not exist (see list_workspaces)`);
+        return json({ workspace, version: store.version });
+      }),
+  );
+
+  server.registerTool(
+    "create_workspace",
+    {
+      title: "Create workspace",
+      description: "Creates an empty workspace. It does not become active: call open_workspace to work in it.",
+      inputSchema: { name: z.string().max(120).describe("Workspace name, shown on the overview (blank: \"Sem título\")") },
+      outputSchema: { workspace: Workspace },
+    },
+    ({ name }) => guard(async () => json({ workspace: await store.createWorkspace(name) })),
   );
 
   server.registerTool(
