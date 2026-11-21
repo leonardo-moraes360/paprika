@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { cx } from "./ui";
 
 /** Limites de um painel lateral redimensionável (px). */
 export interface PanelLimits {
@@ -103,7 +104,13 @@ export function PanelResizer({
 
   return (
     <div
-      className={`panel-resizer ${side}${active ? " is-active" : ""}`}
+      className={cx(
+        // The handle splits the panel's grid cell and sits over its border; the bar is the ::after.
+        "relative z-5 w-[9px] cursor-col-resize touch-none overflow-auto bg-panel outline-none max-wide:hidden",
+        "after:absolute after:inset-y-0 after:inset-x-0.75 after:rounded-xs after:transition-[background] after:duration-120",
+        side === "left" ? "-mr-1.25 justify-self-end border-r border-line [grid-area:left]" : "-ml-1.25 justify-self-start border-l border-line [grid-area:right]",
+        active ? "after:bg-accent" : "hover:after:bg-line focus-visible:after:bg-accent",
+      )}
       role="separator"
       aria-orientation="vertical"
       aria-label={label}

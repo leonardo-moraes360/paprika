@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { isContainer, isInstance, pageRoots, type ConnectorEnd, type Document, type Node, type Op } from "@paprika/core";
 import { InlineName } from "./InlineName";
+import { cx, ui } from "./ui";
 
 const ICON: Record<string, string> = { frame: "#", rect: "▭", ellipse: "◯", text: "T", image: "▣", path: "✒", group: "⧉", page: "▤", shape: "▢", connector: "↗" };
 
@@ -16,6 +17,9 @@ function layerFallback(doc: Document, n: Node): string {
   }
   return n.type;
 }
+
+/** Expand/collapse and show/hide glyphs of a layer row. */
+const glyphBtn = "w-4 cursor-pointer border-0 bg-transparent p-0 text-muted";
 
 interface Props {
   doc: Document;
@@ -49,7 +53,11 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
     return (
       <li key={id} role="none">
         <div
-          className={`layer${selected.includes(id) ? " is-selected" : ""}${n.visible ? "" : " is-hidden"}`}
+          className={cx(
+            "layer group flex h-6.5 cursor-default items-center gap-1 rounded-sm pr-1.5",
+            selected.includes(id) ? "is-selected bg-accent-soft text-accent-pale" : "hover:bg-panel-2",
+            !n.visible && "is-hidden",
+          )}
           style={{ paddingLeft: 8 + depth * 14 }}
           // S6848: the row is a control, not a plain div. As a treeitem it is reachable by Tab,
           // announces what is selected and expanded, and answers Enter/Space like a click does.
@@ -66,7 +74,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
           data-layer-id={id}
         >
           <button
-            className="twisty"
+            className={glyphBtn}
             aria-label={open ? "Recolher" : "Expandir"}
             style={{ visibility: kids.length ? "visible" : "hidden" }}
             onClick={(e) => {
@@ -76,10 +84,10 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
           >
             {open ? "▾" : "▸"}
           </button>
-          <span className="layer-icon">{n.type === "frame" && n.component ? "◆" : isInstance(n) ? "◇" : ICON[n.type]}</span>
+          <span className="w-4 text-center text-muted">{n.type === "frame" && n.component ? "◆" : isInstance(n) ? "◇" : ICON[n.type]}</span>
           {editing === id ? (
             <InlineName
-              className="layer-name-input"
+              className={cx(ui.renameInput, "h-5 flex-1")}
               label="Nome da camada"
               value={n.name}
               onCommit={(name) => apply([{ op: "update", id, props: { name } }], "renomear camada")}
@@ -87,7 +95,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
             />
           ) : (
             <span
-              className="layer-name"
+              className={cx("layer-name flex-1 truncate", !n.visible && "opacity-45")}
               // Cópias de instância não aceitam nome próprio: o nome vem do componente.
               title={n.sourceId === undefined ? "Duplo clique para renomear" : undefined}
               onDoubleClick={(e) => {
@@ -100,7 +108,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
             </span>
           )}
           <button
-            className="eye"
+            className={cx(glyphBtn, n.visible ? "opacity-0 group-hover:opacity-100" : "opacity-100")}
             aria-label={n.visible ? "Ocultar" : "Mostrar"}
             onClick={(e) => {
               e.stopPropagation();
@@ -116,12 +124,12 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
   };
 
   return (
-    <div className="panel-section">
-      <h2>Camadas</h2>
+    <div className={ui.section}>
+      <h2 className={ui.h2}>Camadas</h2>
       {roots.length === 0 ? (
-        <p className="muted">Vazio. Desenhe um frame (F) ou peça a um agente via MCP.</p>
+        <p className={ui.muted}>Vazio. Desenhe um frame (F) ou peça a um agente via MCP.</p>
       ) : (
-        <ul className="layers" role="tree" aria-label="Camadas">{roots.map((id) => row(id, 0))}</ul>
+        <ul className="m-0 list-none p-0 [&_ul]:m-0 [&_ul]:list-none [&_ul]:p-0" role="tree" aria-label="Camadas">{roots.map((id) => row(id, 0))}</ul>
       )}
     </div>
   );
