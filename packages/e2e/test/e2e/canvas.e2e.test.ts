@@ -34,9 +34,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    // `/` is the workspace overview: the demo is the only (active) workspace; a double click opens its canvas.
+    // `/` is the workspace overview: the demo is the only (active) workspace; one click opens its canvas.
     await page.goto(url);
-    await page.locator(".workspace-card.is-active").dblclick();
+    await page.locator(".workspace-card.is-active").click();
     await page.waitForSelector('[data-paprika-id="login"]');
     expect(new URL(page.url()).pathname).toBe(`/w/${(await doc()).id}`);
     expect(errors).toEqual([]);
@@ -581,7 +581,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.goBack();
     await expect.poll(() => new URL(page.url()).pathname).toBe("/");
     await expect.poll(() => page.locator(`[data-workspace-id="${draft}"]`).textContent()).toMatch(/Rascunho do agente1 nó/);
-    await page.locator(`[data-workspace-id="${draft}"]`).dblclick();
+    await page.locator(`[data-workspace-id="${draft}"]`).click();
     await page.waitForSelector('[data-paprika-id="rasc"]');
     await page.goto(`${url}/w/nao-existe`);
     await expect.poll(() => new URL(page.url()).pathname).toBe("/");
@@ -590,7 +590,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
   });
 
-  it("overview: um clique seleciona, clique duplo no nome renomeia (Enter/Esc) e excluir pede confirmação", async () => {
+  it("overview: card sem salto no hover, um clique abre, lápis/F2 renomeia (Enter/Esc) e excluir pede confirmação", async () => {
     const POLL = { timeout: 10_000 };
     const { id: demo, name: demoName } = await doc();
     const api = async () => (await (await fetch(`${url}/api/workspaces`)).json()) as { active: string; workspaces: { id: string; name: string }[] };
@@ -600,23 +600,35 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const card = page.locator(`[data-workspace-id="${extra}"]`);
     await expect.poll(() => card.textContent(), POLL).toContain("Para apagar");
 
-    // One click selects and stays on the overview.
-    await card.click();
-    await expect.poll(() => card.getAttribute("aria-pressed")).toBe("true");
-    expect(new URL(page.url()).pathname).toBe("/");
-    if (shots) {
-      await page.waitForTimeout(200); // the card's actions fade in
-      await page.screenshot({ path: join(shots, "21-overview-selecionado.png") });
-    }
+    // Hover does not move the card, not even when the pointer goes on to its action buttons
+    // (they sit outside the card), and the hover border holds there.
+    const top = async () => (await card.boundingBox())!.y;
+    const border = () => card.evaluate((el) => getComputedStyle(el).outlineColor);
+    const rest = { y: await top(), border: await border() };
+    await card.hover();
+    await page.waitForTimeout(200); // past the border transition
+    const hovered = await border();
+    expect(hovered).not.toBe(rest.border);
+    expect(await top()).toBe(rest.y);
+    await page.getByRole("button", { name: "Excluir Para apagar" }).hover();
+    await page.waitForTimeout(200);
+    expect(await top()).toBe(rest.y);
+    expect(await border()).toBe(hovered);
+    if (shots) await page.screenshot({ path: join(shots, "21-overview-hover.png") });
 
-    // Double click on the name renames: Esc cancels, Enter commits.
-    await card.locator(".workspace-name").dblclick();
+    // The card's edge is an inset outline, painted over the tile and the cover, so they cannot cut its rounded corners.
+    expect(await card.evaluate((el) => [getComputedStyle(el).outlineStyle, getComputedStyle(el).outlineOffset, getComputedStyle(el).borderTopWidth])).toEqual(["solid", "-1px", "0px"]);
+
+    // The pencil renames without opening: Esc cancels, Enter commits; clicks in the field stay on the overview.
+    await page.getByRole("button", { name: "Renomear Para apagar" }).click();
     const field = page.getByLabel("Novo nome do workspace");
+    await field.click();
     await field.fill("Não vale");
     await field.press("Escape");
     await expect.poll(() => card.locator(".workspace-name").textContent()).toBe("Para apagar");
     expect(new URL(page.url()).pathname).toBe("/");
-    await card.locator(".workspace-name").dblclick();
+    await card.focus();
+    await page.keyboard.press("F2");
     await field.fill("Renomeado");
     if (shots) await page.screenshot({ path: join(shots, "22-overview-renomear.png") });
     await field.press("Enter");
@@ -636,7 +648,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await dialog.getByRole("button", { name: "Cancelar" }).click();
     await expect.poll(() => dialog.isVisible()).toBe(false);
     expect((await api()).workspaces.some((w) => w.id === extra)).toBe(true);
-    await card.click();
+    await card.focus();
     await page.keyboard.press("Delete");
     await expect.poll(() => dialog.isVisible()).toBe(true);
     await dialog.getByRole("button", { name: "Excluir" }).click();
@@ -656,6 +668,18 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => tmpCard.count(), POLL).toBe(0);
     await expect.poll(async () => (await api()).active, POLL).not.toBe(tmp);
     await expect.poll(() => page.locator(".workspace-card.is-active").count(), POLL).toBe(1);
+
+    // One click opens a workspace that is not the active one; from the keyboard, Enter (or Space) opens it.
+    const { active: next, workspaces } = await api();
+    const otherId = workspaces.find((w) => w.id !== next)!.id;
+    await page.locator(`[data-workspace-id="${otherId}"]`).click();
+    await expect.poll(() => new URL(page.url()).pathname, POLL).toBe(`/w/${otherId}`);
+    await expect.poll(async () => (await api()).active, POLL).toBe(otherId);
+    await page.goBack();
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+    await page.locator(`[data-workspace-id="${next}"]`).focus();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => new URL(page.url()).pathname, POLL).toBe(`/w/${next}`);
 
     // Back to the original state for later tests.
     await agent.callTool({ name: "open_workspace", arguments: { id: demo } });

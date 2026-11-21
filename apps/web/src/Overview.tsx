@@ -78,8 +78,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  /** One click selects a card; a double click opens it (on the name: renames). */
-  const [selected, setSelected] = useState<string | null>(null);
+  /** One click opens a card; the pencil button or F2 renames it. */
   const [renaming, setRenaming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Workspace | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -175,7 +174,6 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
       const body = (await res.json()) as { deleted?: string; error?: string };
       if (!res.ok || !body.deleted) throw new Error(body.error ?? res.statusText);
       setError(null);
-      if (selected === w.id) setSelected(null);
     } catch (err) {
       setError(`Não foi possível excluir o workspace: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -183,7 +181,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   };
 
   const onCardKey = (e: KeyboardEvent, w: Workspace) => {
-    if (e.key === "Enter") onOpen(w.id);
+    if (e.key === "Enter" || e.key === " ") onOpen(w.id);
     else if (e.key === "F2") setRenaming(w.id);
     else if ((e.key === "Delete" || e.key === "Backspace") && count > 1) askDelete(w);
     else return;
@@ -210,7 +208,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
             <h1 className="mx-0 mt-0 mb-1.5 text-xl font-[650]">Workspaces</h1>
             <p className="m-0 text-muted">
               {workspaces ? `${count} ${count === 1 ? "workspace" : "workspaces"} neste servidor.` : "Carregando…"} O ativo é o que os agentes
-              enxergam pelo MCP. Clique duplo abre; clique duplo no nome renomeia.
+              enxergam pelo MCP. Clique para abrir; F2 ou o lápis renomeia.
             </p>
           </div>
           {creating ? (
@@ -249,17 +247,19 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
               <div
                 role="button"
                 tabIndex={0}
-                aria-pressed={selected === w.id}
-                aria-label={`Workspace ${w.name}`}
+                aria-label={`Abrir workspace ${w.name}`}
                 className={cx(
-                  // "workspace-card", "is-active" and "is-selected" stay as hooks for the E2E suite.
-                  "workspace-card peer relative flex w-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-panel p-0 text-left",
-                  "transition-[border-color,translate] duration-120 hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
-                  w.active ? "is-active border-accent" : "border-line hover:border-muted",
-                  selected === w.id && "is-selected outline-2 outline-offset-2 outline-select",
+                  // "workspace-card" and "is-active" stay as hooks for the E2E suite.
+                  // No lift on hover: moving onto the action buttons (outside the card) dropped it back, a visible flick.
+                  // The hover color follows the <li>, so it holds while the pointer is on those buttons.
+                  // The edge is an inset outline, not a border: outlines paint over the children, so the cover cannot
+                  // eat the rounded corners. The focus ring is a box-shadow, which overflow-hidden does not clip.
+                  "workspace-card relative flex w-full cursor-pointer flex-col overflow-hidden rounded-xl border-0 bg-panel p-0 text-left",
+                  "outline-1 -outline-offset-1 outline-solid transition-[outline-color] duration-120",
+                  "focus-visible:shadow-[0_0_0_2px_var(--color-night),0_0_0_4px_var(--color-select)]",
+                  w.active ? "is-active outline-accent" : "outline-line group-hover:outline-muted",
                 )}
-                onClick={() => setSelected(w.id)}
-                onDoubleClick={() => renaming !== w.id && onOpen(w.id)}
+                onClick={() => renaming !== w.id && onOpen(w.id)}
                 onKeyDown={(e) => e.target === e.currentTarget && onCardKey(e, w)}
                 onDragOver={(e) => e.dataTransfer.types.includes("Files") && e.preventDefault()}
                 onDrop={(e) => {
@@ -289,17 +289,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                       onDone={() => setRenaming(null)}
                     />
                   ) : (
-                    <span
-                      className="workspace-name truncate text-md font-semibold"
-                      title="Clique duplo para renomear"
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setSelected(w.id);
-                        setRenaming(w.id);
-                      }}
-                    >
-                      {w.name}
-                    </span>
+                    <span className="workspace-name truncate text-md font-semibold">{w.name}</span>
                   )}
                   <span className="text-muted">
                     {w.nodes} {w.nodes === 1 ? "nó" : "nós"} · {relativeTime(w.updatedAt)}
@@ -312,7 +302,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                 )}
               </div>
               {renaming !== w.id && (
-                <span className="absolute right-2.5 bottom-3 flex gap-0.5 opacity-0 transition-opacity duration-120 group-hover:opacity-100 group-focus-within:opacity-100 peer-aria-pressed:opacity-100">
+                <span className="absolute right-2.5 bottom-3 flex gap-0.5 rounded-md bg-panel opacity-0 transition-opacity duration-120 group-hover:opacity-100 group-focus-within:opacity-100">
                   <button type="button" className={cx(ui.iconBtn, "px-1.5 py-1 text-lg")} aria-label={`Renomear ${w.name}`} title="Renomear (F2)" onClick={() => setRenaming(w.id)}>
                     ✎
                   </button>
