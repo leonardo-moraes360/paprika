@@ -251,7 +251,7 @@ function Editor({ live }: { live: LiveDocument }) {
     return (
       <div className={boot}>
         <img className="inline-block size-14 flex-none" src="/icon.svg" alt="" />
-        <p>{live.connected ? "Carregando documento…" : "Conectando ao servidor Paprika…"}</p>
+        <p>{live.connected ? "Carregando workspace…" : "Conectando ao servidor Paprika…"}</p>
       </div>
     );
   }
