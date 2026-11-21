@@ -102,7 +102,7 @@ Edições do agente piscam no canvas e aparecem em "Atividade".
 ```
 
 Tipos: `frame` (único com filhos; layout livre, linha ou coluna), `rect`, `ellipse`, `text`, `image`, `path` (forma vetorial com dados de caminho SVG: retas, curvas bezier cúbicas e quadráticas, arcos; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin` e `viewBox` opcional para escalar um grid de ícone).
-Tamanhos: número, `"hug"` (conteúdo) ou `"fill"` (ocupa o espaço do pai). Detalhes em [docs/pt-BR/arquitetura.md](docs/pt-BR/arquitetura.md).
+Tamanhos: número, `"hug"` (conteúdo) ou `"fill"` (ocupa o espaço do pai). Detalhes em [docs/pt-BR/arquitetura.md](docs/pt-BR/arquitetura.md). O trabalho planejado está em [docs/pt-BR/backlog.md](docs/pt-BR/backlog.md).
 
 ## Estrutura
 

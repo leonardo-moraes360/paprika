@@ -1,0 +1,178 @@
+🇺🇸 English | [🇧🇷 Português](pt-BR/backlog.md)
+
+# Feature backlog
+
+Imported on 2026-11-21 from a capability list the maintainer collected from public sources about design tools built for AI agents. Work starts after the Go server and the WASM canvas evaluation are done.
+
+**Originality rule.** The list is a reference for *capabilities*, not a spec to copy. Paprika keeps its own name, brand, look, document format, tool names and keyboard map. It doesn't copy proprietary fonts, assets or product names, and nothing here is reverse-engineered (see the invariant in `.toolbelt/invariants.yaml`).
+
+Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · **P2** after · **P3** later · **Out** out of scope for a local tool.
+`fb#N` points to an item in the [agent feedback log](agent-feedback.md).
+
+## Suggested first slice (after the Go server and the WASM evaluation)
+
+1. Multi-select, `group` and pages (A, B).
+2. Components and instances (H).
+3. Paste SVG and HTML as nodes, export SVG (F, G, J).
+4. Point-by-point path editing (F).
+5. Theme modes and tokens exported as CSS variables (E).
+6. Agent layer: `structuredContent`, English guide, grouped transactions, actor from `clientInfo` (I).
+
+## A. Document model and layout
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Frames with flex-like layout (row/column, gap, padding, align, wrap) | `frame.layout` | ✅ | — |
+| Pages inside a file | One canvas per file (fb#13) | ⬜ | P1 |
+| Group / wrap selection in a frame, unwrap | No `group` node (fb#8, fb#16) | ⬜ | P1 |
+| Absolute child inside an auto-layout frame ("ignore layout") | Children of row/column always flow | ⬜ | P1 |
+| Corner radius per corner | Single `radius` | 🟡 | P1 |
+| Z-order (forward, backward, front, back) | `move_nodes` with `index`; no canvas shortcuts | 🟡 | P1 |
+| Hide, lock, unlock all | `visible`, `locked`; no "unlock all" | 🟡 | P2 |
+| Align and distribute selection | — | ⬜ | P2 |
+| Constraints (behavior when the parent resizes) | — | ⬜ | P2 |
+| Gap and padding handles on the canvas | Inspector only | ⬜ | P2 |
+| Container and breakpoint tokens, responsive frames | — | ⬜ | P3 |
+| CSS Grid layout | — | ⬜ | P3 |
+
+## B. Selection and canvas navigation
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Multi-select (shift-click, marquee), select all, select siblings | Single selection | ⬜ | P1 |
+| Move down/up the hierarchy, deep select, cycle siblings | `Esc` selects the parent | 🟡 | P2 |
+| Layer tree under the cursor (context menu) | — | ⬜ | P2 |
+| Rotation-aware hit testing and handles | Box-based | ⬜ | P2 |
+| Configurable nudge step | Arrows 1px, Shift 10px | 🟡 | P3 |
+| Eyedropper (sample a color from the canvas) | — | ⬜ | P2 |
+| Duplicate by modifier-drag | `Ctrl+D` duplicate | 🟡 | P3 |
+| Hide UI (focus mode), rename shortcut, collapse layer tree | — | ⬜ | P3 |
+
+## C. Styling
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Fill, border, shadow, opacity, rotation | Base fields | ✅ | — |
+| Multiple shadows, inner shadow, outline | One `shadow`, no outline | 🟡 | P2 |
+| CSS filters (blur, saturate, grayscale, brightness, sepia, invert, hue-rotate) and backdrop filters | — | ⬜ | P2 |
+| Structured gradients (linear, radial, conic) with on-canvas handles and angle | Raw CSS string only; lint ignores it | 🟡 | P2 |
+| Modern color: `oklch()`, `color-mix()`, Display P3, OKLCH picker | Strings pass through to CSS, but lint can't parse them and the picker is sRGB hex | 🟡 | P2 |
+| Blend modes | — | ⬜ | P3 |
+| Selection colors panel (all colors used in the selection) | — | ⬜ | P3 |
+
+## D. Typography
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Font family, size, weight, line height, letter spacing, alignment | `text` node | ✅ | — |
+| Rich text (style per character/word, editable by agents) | One style per node | ⬜ | P2 |
+| Font tokens (family, weight, size, line height, letter spacing) | Size tokens only | 🟡 | P2 |
+| Variable font axes and OpenType features | — | ⬜ | P3 |
+| Text shortcuts (bold, italic, size/weight steps), auto line height | — | ⬜ | P3 |
+| CJK word-keep, combining marks, multi-codepoint emoji checks | Browser default | 🟡 | P3 |
+
+## E. Tokens and themes
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Global tokens (`$name`) for colors and sizes, set by agents | `set_tokens` | ✅ | — |
+| Theme modes (light/dark/compact) and token collections | Global namespace, prefixed by hand (fb#4) | ⬜ | P1 |
+| Frame-scoped token overrides | — (fb#4) | ⬜ | P1 |
+| Tokens exported as CSS variables in HTML/React export | Values are inlined | ⬜ | P1 |
+| Typed tokens (color, radius, spacing, font…) with validation | Untyped string/number | 🟡 | P2 |
+| Detach a token from a node | Manual edit | 🟡 | P2 |
+| Generate tokens from an existing codebase via MCP | — | ⬜ | P2 |
+| Tokens with `calc()` / `color-mix()` | Token chains only | ⬜ | P3 |
+| Copy tokens between files | — | ⬜ | P3 |
+
+## F. Vector
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Vector node from SVG path data (lines, bezier, arcs) | `path` node, `path_info` | ✅ | — |
+| Pen tool to create paths | `P`, bezier handles, close on first point | ✅ | — |
+| Edit points and handles of an existing path | Edit `d` in the inspector (fb#17) | 🟡 | P1 |
+| Import/paste SVG as editable `path` layers | — | ⬜ | P1 |
+| Boolean operations (union, subtract, intersect, exclude) | — (fb#1) | ⬜ | P2 |
+| Convert rect/ellipse to path | — | ⬜ | P2 |
+| Snapping and guides for points, half-pixel snapping | — | ⬜ | P3 |
+| Mirror, repeat, shape builder, vector networks | — | ⬜ | P3 |
+
+## G. Paste and import
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Paste HTML with inline styles as nodes (inverse of `nodeStyle`) | — | ⬜ | P1 |
+| Paste SVG | — (see F) | ⬜ | P1 |
+| Paste or drop images (stored as data URI or local asset) | `image` node via MCP only | 🟡 | P2 |
+| Capture an element from any web page into nodes (browser extension) | — | ⬜ | P3 |
+| Import from other design tools' clipboards | — | ⬜ | Out |
+
+## H. Components and reuse
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Components and instances with overrides and `scale` | — (fb#3) | ⬜ | P1 |
+| Component props and slots | — | ⬜ | P2 |
+| Code components (render real components from the user's repo) | — | ⬜ | P3 |
+| Icon packs / UI kit starters | — | ⬜ | P3 |
+
+## I. Agent layer (MCP and CLI)
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Embedded MCP server (stdio + HTTP), read and write, CLI | `paprika serve`/`mcp`, 17 tools | ✅ | — |
+| Token-efficient reads | `get_document_outline` | ✅ | — |
+| Structured results (`outputSchema` + `structuredContent`) | JSON as text (fb#7) | ⬜ | P1 |
+| Guide and errors in English (pt-BR optional) | pt-BR (fb#12) | ⬜ | P1 |
+| Group several writes into one undo step | One entry per call (fb#11) | ⬜ | P1 |
+| Actor name from MCP `clientInfo` | From User-Agent (fb#10) | 🟡 | P1 |
+| Agent presence on the canvas (cursor, what it is editing) | Flash + activity list | 🟡 | P2 |
+| Comments for humans and agents (create, resolve, filter) | `notes` field only | 🟡 | P2 |
+| Manage files via MCP (list, create, open, rename, archive), several files at once | One file per process | ⬜ | P2 |
+| "Connect your agent" panel with ready configs per client | README snippets | 🟡 | P2 |
+| Geometry help for agents (rotated bounds, origin, geometry lint) | `path_info` only (fb#2, fb#6) | 🟡 | P2 |
+| Visual diff between versions (for CI) | — | ⬜ | P3 |
+| Remote MCP (server outside the user's machine) | Local by design | ⬜ | Out |
+
+## J. Export and handoff
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Standalone HTML, React (inline styles), PNG | `export_code`, `render_screenshot` | ✅ | — |
+| SVG export (frame or selection) | — | ⬜ | P1 |
+| Tailwind classes export | — | ⬜ | P2 |
+| WebP/AVIF, PDF (single or combined frames) | — | ⬜ | P2 |
+| React + CSS module / CSS variables | — (see E) | ⬜ | P2 |
+| Video export of animated frames | — | ⬜ | P3 |
+
+## K. Generative features in the canvas
+
+Paprika's stance: the connected agent does generation through MCP, so the tool stays model-agnostic and needs no API keys.
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Generate SVG/vector from a prompt | Agent writes `path` nodes | 🟡 | P3 |
+| Generate or edit images from a prompt | — | ⬜ | P3 |
+| "Remix" a selection (variations, palettes, font pairs) | — | ⬜ | P3 |
+| Embeds (Lottie, Rive, video) | — | ⬜ | P3 |
+
+## L. Effects and shaders
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Procedural effect layers (mesh gradient, noise, grain, dithering, halftone, warp) | — | ⬜ | P3 |
+| Image filters (texture, glass, distortion) | — | ⬜ | P3 |
+
+Decision pending: write our own effects (WebGL/WebGPU, ties into the WASM evaluation) instead of embedding third-party shader packages, to keep the originality rule simple. Only reuse an open-source package after a license check and under its own name.
+
+## M. Files and collaboration
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Workspace with several files, folders, thumbnails | One file per `serve` | ⬜ | P2 |
+| Tabs for open files | — | ⬜ | P3 |
+| Live data in designs (fetch from an API or sheet) | — | ⬜ | P3 |
+| Real-time multi-user editing (CRDT) | Single writer + watcher | ⬜ | P3 |
+| Script / plugin pane | — | ⬜ | P3 |
+| Sharing settings, SSO, organizations, hosted CDN assets, plans and quotas | — | — | Out |
