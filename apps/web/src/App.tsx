@@ -322,6 +322,7 @@ function Editor({ live }: { live: LiveDocument }) {
           onToolDone={() => setTool("select")}
           apply={live.apply}
           agentTouched={live.agentTouched}
+          agents={live.agents}
           onError={live.showError}
         />
         {live.error && (

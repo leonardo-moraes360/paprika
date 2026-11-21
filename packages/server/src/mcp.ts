@@ -25,6 +25,7 @@ import {
   type Op as OpT,
 } from "@paprika/core";
 import type { DocumentStore } from "./store.js";
+import { presenceKey, presenceTargets } from "./presence.js";
 import { screenshot, svgExport } from "./screenshot.js";
 
 export const VERSION = "0.1.0";
@@ -174,6 +175,8 @@ export interface McpOptions {
   actor?: string;
   /** clientInfo.name known from an earlier initialize (stateless HTTP: looked up by session id). */
   clientName?: string;
+  /** Mcp-Session-Id of the HTTP request: tells apart two agents with the same name on the canvas. */
+  sessionId?: string;
 }
 
 /** Cria o servidor MCP do Paprika sobre um DocumentStore. Uma instância por conexão/sessão. */
@@ -181,6 +184,22 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
   const server = new McpServer({ name: "paprika", version: VERSION }, { instructions: DESIGN_GUIDE });
   // The client's own name (initialize clientInfo) wins over the transport's guess (User-Agent, "stdio").
   const actorOf = () => actorFromClient(server.server.getClientVersion()?.name ?? opts.clientName) ?? opts.actor ?? "agent";
+
+  // Every tool call reports the agent's presence (tool + nodes it acted on) for the canvas cursor.
+  const register = server.registerTool.bind(server) as (name: string, config: unknown, cb: (...a: unknown[]) => unknown) => unknown;
+  server.registerTool = ((name: string, config: unknown, cb: (...a: unknown[]) => unknown) =>
+    register(name, config, async (...a: unknown[]) => {
+      let result: CallToolResult | undefined;
+      try {
+        result = (await cb(...a)) as CallToolResult;
+        return result;
+      } finally {
+        const actor = actorOf();
+        // Tools without an inputSchema get only `extra`.
+        const args = a.length > 1 ? a[0] : undefined;
+        store.presence.report(presenceKey(opts.sessionId, actor), actor, name, presenceTargets(args, result?.structuredContent, store.doc));
+      }
+    })) as typeof server.registerTool;
 
   // Answers the agent only after the transaction is on disk.
   const write = async (ops: OpT[], label: string, batch?: string) => {
