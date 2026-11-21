@@ -29,7 +29,7 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: cargo
-    directory: /experiments/canvas-wasm
+    directory: /crates/render
     schedule:
       interval: weekly
       day: monday
@@ -40,7 +40,7 @@ updates:
       cargo-minor-patch:
         update-types: [minor, patch]
     ignore:
-      # Pinned with `=`: it must match wasm-bindgen-cli in build.sh, so bump both by hand.
+      # Pinned with `=`: it must match wasm-bindgen-cli in crates/render/build.mjs, so bump both by hand.
       - dependency-name: wasm-bindgen
 
   # Actions are pinned by commit SHA in the workflows; Dependabot keeps the SHA and the version
