@@ -57,7 +57,7 @@ To add shards, change `shard: [1, 2]` in the matrix and the `/2` (vitest) or the
 | Go modules + build/test cache | `actions/setup-go` | `server-go/go.sum` |
 | golangci-lint | `golangci-lint-action` | its own key |
 | Rust `target/` and registry | `Swatinem/rust-cache`, one per task | `Cargo.lock` + toolchain |
-| Playwright Chromium | `actions/cache` on `~/.cache/ms-playwright` | Playwright version |
+| Playwright Chromium (server unit tests, e2e) | `actions/cache` on `~/.cache/ms-playwright` (composite action [`setup-playwright`](../.github/actions/setup-playwright/action.yml)) | Playwright version |
 | Build output | `build` artifact (`dist/` + Go binary), built once and reused by 7+ jobs | per run |
 
 ## Security of the workflow

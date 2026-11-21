@@ -99,6 +99,9 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: build
+      # @paprika/server's tests cover render_screenshot, which launches Chromium.
+      - uses: ./.github/actions/setup-playwright
+        if: matrix.target.pkg == '@paprika/server'
       - name: Fetch base commit (for vitest --changed)
         if: matrix.target.mode == 'changed'
         run: git fetch --no-tags --depth=1 origin "$BASE_SHA"
@@ -133,23 +136,9 @@ jobs:
       - name: Make the Go binary executable
         if: matrix.impl == 'go'
         run: chmod +x server-go/bin/paprika
-      - name: Playwright version
+      # The e2e suite drives a browser; parity only talks HTTP/MCP.
+      - uses: ./.github/actions/setup-playwright
         if: matrix.suite == 'e2e'
-        id: pw
-        run: echo "version=$(pnpm --filter @paprika/server exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
-      - name: Cache Playwright browsers
-        if: matrix.suite == 'e2e'
-        id: pw-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
-      - name: Install Chromium (cache miss)
-        if: matrix.suite == 'e2e' && steps.pw-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter @paprika/server exec playwright install --with-deps chromium
-      - name: Install Chromium system deps (cache hit)
-        if: matrix.suite == 'e2e' && steps.pw-cache.outputs.cache-hit == 'true'
-        run: pnpm --filter @paprika/server exec playwright install-deps chromium
       - name: Run ${{ matrix.suite }} against the ${{ matrix.impl }} server
         env:
           SUITE: ${{ matrix.suite }}
