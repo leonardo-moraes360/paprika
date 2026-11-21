@@ -29,10 +29,14 @@ function argPath(index, label) {
   return join(here, raw);
 }
 
-/** Última rede: o valor que vai para o disco precisa estar sob o diretório atual. */
-function insideHere(abs, label) {
-  if (!abs.startsWith(here + sep)) {
-    console.error(`${label} precisa ficar dentro do diretório atual (${here}): ${abs}`);
+/**
+ * Última rede, aplicada dentro da chamada que grava: o caminho que vai para o disco precisa estar
+ * sob o diretório atual, comparado com o próprio `process.cwd()` no momento do sumidor.
+ */
+function sinkPath(label, abs) {
+  const base = process.cwd() + sep;
+  if (!abs.startsWith(base)) {
+    console.error(`${label} precisa ficar dentro do diretório atual (${base.slice(0, -1)}): ${abs}`);
     process.exit(2);
   }
   return abs;
@@ -47,9 +51,9 @@ function printable(text) {
   );
 }
 
-const file = insideHere(argPath(2, "documento"), "documento");
-const png = insideHere(argPath(3, "png"), "png");
-await rm(file, { force: true });
+const file = argPath(2, "documento");
+const png = argPath(3, "png");
+await rm(sinkPath("documento", file), { force: true });
 const store = await DocumentStore.open(file);
 const [a, b] = InMemoryTransport.createLinkedPair();
 await createMcpServer(store, { actor: "agent:bezier-demo" }).connect(a);
@@ -72,5 +76,5 @@ const lint = await call("lint_design", {});
 console.log(printable(lint.content[0].text));
 console.log(printable((await call("path_info", { id: Object.values(store.doc.nodes).find(n => n.name === "Vagem").id })).content[0].text));
 const shot = await call("render_screenshot", { rootId: "board" });
-await writeFile(png, Buffer.from(shot.content.find(x => x.type === "image").data, "base64"));
+await writeFile(sinkPath("png", png), Buffer.from(shot.content.find(x => x.type === "image").data, "base64"));
 await store.flush(); await store.close(); process.exit(0);
