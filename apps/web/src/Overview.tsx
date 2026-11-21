@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
+import { ImageOff, ImagePlus, Pencil, Plus, Trash2 } from "lucide-react";
 import { InlineName } from "./InlineName";
 import { bar, cx, ui } from "./ui";
 
@@ -234,7 +235,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
             </form>
           ) : (
             <button className={button(true)} onClick={() => setCreating(true)}>
-              + Novo workspace
+              <Plus className="-ml-0.5 align-[-3px]" size={15} aria-hidden /> Novo workspace
             </button>
           )}
         </div>
@@ -314,7 +315,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
               {renaming !== w.id && (
                 <span className="absolute right-2.5 bottom-3 flex gap-0.5 opacity-0 transition-opacity duration-120 group-hover:opacity-100 group-focus-within:opacity-100 peer-aria-pressed:opacity-100">
                   <button type="button" className={cx(ui.iconBtn, "px-1.5 py-1 text-lg")} aria-label={`Renomear ${w.name}`} title="Renomear (F2)" onClick={() => setRenaming(w.id)}>
-                    ✎
+                    <Pencil size={16} />
                   </button>
                   <button
                     type="button"
@@ -323,11 +324,11 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                     title={`${w.cover ? "Trocar" : "Adicionar"} capa (ou arraste uma imagem para o card)`}
                     onClick={() => pickCover(w.id)}
                   >
-                    🖼
+                    <ImagePlus size={16} />
                   </button>
                   {w.cover && (
                     <button type="button" className={cx(ui.iconBtn, "px-1.5 py-1 text-lg")} aria-label={`Remover capa de ${w.name}`} title="Remover capa" onClick={() => void setCover(w.id, null)}>
-                      ⊘
+                      <ImageOff size={16} />
                     </button>
                   )}
                   <button
@@ -338,7 +339,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                     disabled={count <= 1}
                     onClick={() => askDelete(w)}
                   >
-                    🗑
+                    <Trash2 size={16} />
                   </button>
                 </span>
               )}
