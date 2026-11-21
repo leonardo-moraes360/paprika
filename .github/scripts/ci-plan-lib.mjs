@@ -29,6 +29,7 @@ export const PLAN_KEYS = [
   "rust",
   "codeql",
   "codeql_matrix",
+  "docker",
 ];
 
 /**
@@ -65,6 +66,9 @@ export function planFor(files, { ciFull = false } = {}) {
   const go = area(/^server-go\//);
   const benchTs = area(/^experiments\/canvas-wasm\/bench\//);
   const actions = area(/^\.github\//);
+  // The image's own files. Everything else that goes into the image (core, web, crates/render,
+  // server-go) is one of the areas above.
+  const dockerfiles = area(/^(Dockerfile|\.dockerignore|compose\.yaml)$/);
 
   // Unit tests per workspace package. A package runs every test when one of its dependencies
   // changed (vitest cannot see through the built `dist/` of a workspace dependency); when only the
@@ -88,6 +92,9 @@ export function planFor(files, { ciFull = false } = {}) {
   if (go) codeql.push("go");
   if (rust) codeql.push("rust");
 
+  // Build the Docker image and smoke-test it when its recipe or anything it packages changed.
+  const docker = dockerfiles || core || web || go;
+
   return {
     full,
     build,
@@ -101,6 +108,7 @@ export function planFor(files, { ciFull = false } = {}) {
     rust,
     codeql: codeql.length > 0,
     codeql_matrix: JSON.stringify(codeql),
+    docker,
   };
 }
 

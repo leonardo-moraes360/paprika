@@ -22,6 +22,7 @@ Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/c
 | **Go test** (shard n/2) | `go test -shuffle=on` nos pacotes afetados, dividido em 2 shards. | `server-go` |
 | **Rust lint / test** | `cargo fmt --check`, clippy (nativo e `wasm32-unknown-unknown`, `-D warnings`), `cargo test`. | `crates/render` |
 | **CodeQL** `<linguagem>` | Consultas `security-and-quality` para `actions`, `javascript-typescript`, `go`, `rust`; os resultados vão para o code scanning da PR. | arquivos da linguagem |
+| **Docker image** | Faz o build do `Dockerfile` (alvo padrão `runtime`, depois `slim`) com o Docker do próprio runner e roda o [`docker-smoke.sh`](../../.github/scripts/docker-smoke.sh) contra cada um: canvas e asset WASM, `Host` estranho recusado, MCP em `/mcp` (com `render_screenshot` no `runtime`), banco mantido após restart. Ainda sem cache de camadas. Veja [docker.md](docker.md). | `Dockerfile`, `.dockerignore`, `compose.yaml`, core, web, `crates/render`, `server-go` |
 | **Secret leak scan** | [gitleaks](https://github.com/gitleaks/gitleaks) em todo o histórico do git (release com checksum fixado, achados mascarados no log, relatório SARIF como artefato em caso de falha). | sempre |
 | **CI OK** | Falha se algum job falhou ou foi cancelado. **É o único check a exigir** na proteção de branch: fica verde quando os jobs que rodaram passaram e os pulados foram pulados pelo plano. | sempre |
 
@@ -116,7 +117,7 @@ O **secret scanning** e o **push protection** do próprio GitHub (gratuitos em r
 
 ## Dependabot
 
-Atualizações de versão semanais (segunda-feira) para npm (workspace pnpm), módulos Go (`server-go`), Cargo (`crates/render`) e GitHub Actions, com bumps minor e patch agrupados por ecossistema. `wasm-bindgen` fica de fora porque está fixado com `=` para casar com o `wasm-bindgen-cli` do `crates/render/build.mjs` e do `setup-rust-wasm`. As PRs do Dependabot passam pelo mesmo CI.
+Atualizações de versão semanais (segunda-feira) para npm (workspace pnpm), módulos Go (`server-go`), Cargo (`crates/render`), as imagens base do `Dockerfile` e GitHub Actions, com bumps minor e patch agrupados por ecossistema. `wasm-bindgen` fica de fora porque está fixado com `=` para casar com o `wasm-bindgen-cli` do `crates/render/build.mjs` e do `setup-rust-wasm`. As PRs do Dependabot passam pelo mesmo CI.
 
 Atualizações de segurança (PRs para dependências vulneráveis fora do calendário) são uma configuração do repositório: **Settings → Code security → Dependabot security updates**.
 

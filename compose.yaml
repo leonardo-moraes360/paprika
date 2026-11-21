@@ -1,0 +1,14 @@
+# docker compose up --build  ->  canvas http://localhost:4777 · MCP http://localhost:4777/mcp
+# See docs/docker.md. The host port must stay 4777 (the server checks Host/Origin against it).
+services:
+  paprika:
+    build: .
+    image: paprika:local
+    ports:
+      - "127.0.0.1:4777:4777"
+    volumes:
+      - paprika-data:/data
+    restart: unless-stopped
+
+volumes:
+  paprika-data:
