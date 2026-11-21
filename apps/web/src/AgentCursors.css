@@ -1,0 +1,110 @@
+/* Agent presence: cursor, selection and roster (AgentCursors.tsx). Kept apart from styles.css. */
+.agent-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.agent {
+  transition: opacity 0.6s ease;
+}
+.agent.is-idle {
+  opacity: 0.45;
+}
+.agent-box {
+  position: absolute;
+  border: 1.5px solid var(--agent);
+  border-radius: 2px;
+  box-sizing: border-box;
+  transition:
+    left 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+    top 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.agent-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  transition: translate 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex;
+  align-items: flex-start;
+}
+.agent-cursor svg {
+  /* The tip of the arrow is at (1.5, 1.5) of the icon. */
+  margin: -1.5px 0 0 -1.5px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+.agent-cursor path {
+  fill: var(--agent);
+  stroke: #fff;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+.agent-tag {
+  margin: 14px 0 0 -2px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--agent);
+  color: #fff;
+  font: 600 11px/16px system-ui, sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.agent-tag em {
+  font-style: normal;
+  font-weight: 400;
+  opacity: 0.85;
+}
+.agent:not(.is-idle) .agent-tag em::after {
+  content: "…";
+}
+.agent-roster {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+  z-index: 6;
+}
+.agent-roster li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 99px;
+  background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--agent) 55%, transparent);
+  color: var(--text, #e8e9f0);
+  font: 600 11px/16px system-ui, sans-serif;
+  transition: opacity 0.6s ease;
+}
+.agent-roster li.is-idle {
+  opacity: 0.55;
+}
+.agent-roster em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--muted);
+}
+.agent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--agent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-box,
+  .agent-cursor {
+    transition: none;
+  }
+}

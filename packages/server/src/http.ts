@@ -9,6 +9,7 @@ import { Op, renderHTML } from "@paprika/core";
 import { z } from "zod";
 import type { DocumentStore, ChangeEvent } from "./store.js";
 import { createMcpServer } from "./mcp.js";
+import type { Presence } from "./presence.js";
 import { screenshot, svgExport } from "./screenshot.js";
 
 export interface HttpOptions {
@@ -135,6 +136,12 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
     for (const ws of sockets) if (ws.readyState === ws.OPEN) ws.send(msg);
   };
   store.on("change", broadcast);
+  const presenceMessage = (p: Presence) => JSON.stringify({ type: "presence", ...p });
+  const broadcastPresence = (p: Presence) => {
+    const msg = presenceMessage(p);
+    for (const ws of sockets) if (ws.readyState === ws.OPEN) ws.send(msg);
+  };
+  store.presence.on("presence", broadcastPresence);
 
   const clients = new ClientNames();
   const handleMcp = async (req: IncomingMessage, res: ServerResponse) => {
@@ -145,7 +152,8 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
     const sid = req.headers["mcp-session-id"];
     const clientName = initName ?? clients.get(typeof sid === "string" ? sid : undefined);
     if (initName) res.setHeader("Mcp-Session-Id", clients.remember(initName));
-    const mcp = createMcpServer(store, { actor: `agent:${String(req.headers["user-agent"] ?? "http").split("/")[0]}`, clientName });
+    const sessionId = initName ? undefined : typeof sid === "string" ? sid : undefined;
+    const mcp = createMcpServer(store, { actor: `agent:${String(req.headers["user-agent"] ?? "http").split("/")[0]}`, clientName, sessionId });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on("close", () => {
       void transport.close();
@@ -238,6 +246,7 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
       sockets.add(ws);
       ws.on("close", () => sockets.delete(ws));
       ws.send(JSON.stringify({ type: "doc", doc: store.doc, version: store.version, actor: "server", label: "", kind: "reload", canUndo: store.canUndo, canRedo: store.canRedo }));
+      for (const p of store.presence.recent()) ws.send(presenceMessage(p));
       ws.on("message", (raw) => {
         let reqId: string | undefined;
         try {
@@ -270,6 +279,7 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
     url: `http://${hostForUrl}:${port}`,
     close: async () => {
       store.off("change", broadcast);
+      store.presence.off("presence", broadcastPresence);
       for (const ws of sockets) ws.terminate();
       wss.close();
       await new Promise<void>((ok) => server.close(() => ok()));

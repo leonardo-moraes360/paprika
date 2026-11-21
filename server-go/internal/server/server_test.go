@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -420,5 +421,49 @@ func TestMCPImportExportSVG(t *testing.T) {
 	}
 	if out, isErr := callText(t, m, "export_code", obj("rootId", created, "format", "svg")); !isErr || out != "SVG export unavailable on this server" {
 		t.Fatalf("export svg without browser: %q", out)
+	}
+}
+
+func TestPresence(t *testing.T) {
+	s, _ := openTemp(t)
+	var got []Presence
+	stop := s.Presence.OnPresence(func(p Presence) { got = append(got, p) })
+	defer stop()
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_nodes","arguments":{"nodes":[{"type":"rect","id":"p1"}]}}}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_nodes","arguments":{"ids":["p1","zz"]}}}
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_nodes","arguments":{"ids":"bad"}}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"undo"}}
+`)
+	var out bytes.Buffer
+	if err := ServeStdio(context.Background(), NewMCP(s, "agent:stdio", nil), in, &out); err != nil {
+		t.Fatal(err)
+	}
+	// The invalid call never reached its handler: no presence (same as the TS SDK).
+	if len(got) != 3 {
+		t.Fatalf("presences: %+v", got)
+	}
+	if m := got[0].Message(); m != `{"type":"presence","agent":"agent:t","actor":"agent:t","tool":"create_nodes","nodes":["p1"],"idle":0}` {
+		t.Fatalf("message: %s", m)
+	}
+	if got[1].Tool != "get_nodes" || len(got[1].Nodes) != 1 || got[2].Tool != "undo" || len(got[2].Nodes) != 0 {
+		t.Fatalf("presences: %+v", got)
+	}
+	if k := PresenceKey("abc", "agent:t"); !strings.HasPrefix(k, "s:") || len(k) != 14 {
+		t.Fatalf("key: %s", k)
+	}
+
+	now := time.Unix(1000, 0)
+	h := NewPresenceHub(func() time.Time { return now })
+	for i := 0; i < 70; i++ {
+		h.Report("k"+strconv.Itoa(i), "agent:x", "get_nodes", nil)
+	}
+	h.Report("k6", "agent:x", "get_nodes", nil) // moves k6 to the end
+	if r := h.Recent(); len(r) != 64 || r[0].Agent != "k7" || r[63].Agent != "k6" {
+		t.Fatalf("recent: %d %s %s", len(r), r[0].Agent, r[len(r)-1].Agent)
+	}
+	now = now.Add(PresenceTTL)
+	if r := h.Recent(); len(r) != 0 {
+		t.Fatalf("ttl: %d", len(r))
 	}
 }

@@ -513,6 +513,46 @@ describe(`paridade (${impl}): HTTP + WebSocket`, () => {
     ws.close();
   });
 
+  it("presença do agente: cada chamada MCP vira cursor no canvas, com replay para quem conecta depois", async () => {
+    type Msg = { type: string; agent?: string; actor?: string; tool?: string; nodes?: string[]; idle?: number };
+    const open = async () => {
+      const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
+      const msgs: Msg[] = [];
+      ws.on("message", (m) => msgs.push(JSON.parse(String(m))));
+      await new Promise((ok) => ws.once("open", ok));
+      return { ws, msgs, presences: () => msgs.filter((m) => m.type === "presence") };
+    };
+    const live = await open();
+    const other = new Client({ name: "parity", version: "0" });
+    await other.connect(new StreamableHTTPClientTransport(new URL(`${srv.url}/mcp`)));
+    try {
+      await call(client, "create_nodes", { nodes: [{ type: "rect", id: "p1" }, { type: "rect", id: "p2" }] });
+      await call(other, "get_nodes", { ids: ["p2", "zz"] });
+      await call(client, "update_nodes", { updates: [{ id: "p1", props: { name: "x" } }] });
+      await call(client, "undo");
+      await waitFor(() => live.presences().length === 4);
+      const [a, b, c, d] = live.presences();
+      expect(a).toEqual({ type: "presence", agent: expect.stringMatching(/^s:[0-9a-f]{12}$/), actor: "agent:parity", tool: "create_nodes", nodes: ["p1", "p2"], idle: 0 });
+      expect(b).toMatchObject({ actor: "agent:parity", tool: "get_nodes", nodes: ["p2"], idle: 0 });
+      expect(b!.agent).not.toBe(a!.agent);
+      expect(c).toMatchObject({ agent: a!.agent, tool: "update_nodes", nodes: ["p1"] });
+      expect(d).toMatchObject({ agent: a!.agent, tool: "undo", nodes: [] });
+
+      const late = await open();
+      await waitFor(() => late.msgs.length === 3);
+      expect(late.msgs.map((m) => [m.type, m.agent, m.tool])).toEqual([
+        ["doc", undefined, undefined],
+        ["presence", b!.agent, "get_nodes"],
+        ["presence", a!.agent, "undo"],
+      ]);
+      expect(late.msgs[1]!.idle).toBeGreaterThanOrEqual(0);
+      late.ws.close();
+    } finally {
+      await other.close();
+      live.ws.close();
+    }
+  });
+
   it("API HTTP: documento, ops, render e erros", async () => {
     const post = (body: unknown) =>
       fetch(`${srv.url}/api/ops`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });

@@ -99,8 +99,10 @@ type MCP struct {
 	// client: clientInfo.name from initialize on this connection (stdio), or remembered for the
 	// HTTP session id. It names the actor ("agent:<name>").
 	client string
-	tools  map[string]tool
-	shot   Screenshotter
+	// session: Mcp-Session-Id of the HTTP request; it tells apart agents with the same name (presence).
+	session string
+	tools   map[string]tool
+	shot    Screenshotter
 }
 
 // Screenshotter renders HTML in a browser: PNG screenshots and the measured SVG export.
@@ -135,6 +137,9 @@ func ActorFromClient(name string) string {
 
 // SetClient records the client's name (from an earlier initialize) for the actor.
 func (m *MCP) SetClient(name string) { m.client = name }
+
+// SetSession records the HTTP session id, so presence tells apart two agents with the same name.
+func (m *MCP) SetSession(id string) { m.session = id }
 
 func (m *MCP) actorName() string {
 	if a := ActorFromClient(m.client); a != "" {
@@ -790,6 +795,13 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 		}()
 		return t.handler(ctx, args)
 	}()
+	// Every tool call that reached its handler reports the agent's presence (canvas cursor).
+	var structured *jsonv.Object
+	if err == nil && res != nil {
+		structured = res.Obj("structuredContent")
+	}
+	actor := m.actorName()
+	m.store.Presence.Report(PresenceKey(m.session, actor), actor, name, PresenceTargets(args, structured, m.store.Doc()))
 	if err != nil {
 		return errorResult(err.Error())
 	}

@@ -127,7 +127,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Guide and errors in English (pt-BR optional) | Guide, tool descriptions, errors, warnings and lint in English; `get_design_guide {language: "pt-BR"}` (2026-11-21). The canvas UI is still pt-BR | ✅ | — |
 | Group several writes into one undo step | `batch` on every write tool (2026-11-21) | ✅ | — |
 | Actor name from MCP `clientInfo` | `agent:<clientInfo.name>` on stdio and HTTP (session id carries the name) (2026-11-21) | ✅ | — |
-| Agent presence on the canvas (cursor, what it is editing) | Flash + activity list | 🟡 | P2 |
+| Agent presence on the canvas (cursor, what it is editing) | Own cursor, outline, name and color per agent session, roster; implicit from every tool call (2026-11-21) | ✅ | — |
 | Comments for humans and agents (create, resolve, filter) | `notes` field only | 🟡 | P2 |
 | Manage files via MCP (list, create, open, rename, archive), several files at once | One file per process | ⬜ | P2 |
 | "Connect your agent" panel with ready configs per client | README snippets | 🟡 | P2 |
