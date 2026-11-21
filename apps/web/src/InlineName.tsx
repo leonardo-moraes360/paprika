@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 interface Props {
   value: string;
@@ -15,6 +15,13 @@ interface Props {
  */
 export function InlineName({ value, label, className, onCommit, onDone }: Props) {
   const settled = useRef(false);
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    // S9379: `autoFocus` fires during render, before the row is in the DOM, and React 19 marks it
+    // deprecated. Focusing the ref after mount is the same UX: the field takes focus, and the existing
+    // onFocus handler selects the current name.
+    field.current?.focus();
+  }, []);
   const finish = (name: string | null) => {
     if (settled.current) return;
     settled.current = true;
@@ -24,7 +31,7 @@ export function InlineName({ value, label, className, onCommit, onDone }: Props)
   };
   return (
     <input
-      autoFocus
+      ref={field}
       className={className}
       aria-label={label}
       defaultValue={value}
