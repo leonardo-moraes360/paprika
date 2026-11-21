@@ -68,15 +68,27 @@ Tarefa: ligar o renderizador Rust/WASM ao canvas como híbrido opcional (o WASM 
 | 27 | Conferir o canvas WASM como o agente confere o DOM | O `render_screenshot` renderiza o export HTML, então nunca mostra o que a camada WASM desenha; só um screenshot do canvas ao vivo mostra | Manter screenshots em HTML (determinístico) e confiar no teste de paridade do E2E; se agentes precisarem, uma opção `renderer: "wasm"` no `render_screenshot` que carrega a página do canvas | P3 |
 | 28 | Saber qual renderizador o humano está vendo | A escolha fica no navegador (localStorage), então o agente não sabe se o humano vê a saída do DOM ou do WASM | Informar o renderizador e o backend ativos no hello do WebSocket e expor nos metadados do `get_document_outline` | P3 |
 
+## 2026-11-21: landing page desenhada no Paprika (`apps/site`)
+
+Tarefa: desenhar a landing page do projeto no Paprika pelo MCP (desktop e mobile, inglês e português, ≈300 nós) e publicá-la como página web gerada a partir do documento.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 29 | Conferir uma página cuja altura segue o conteúdo | O `render_screenshot` de um frame raiz com `height: "hug"` devolveu uma imagem de 1280×1 px (o `rootBounds` transforma `hug` em 1 px), e o agente teve que conferir a página no próprio navegador | Medir raízes `hug`/`fill` no navegador antes do screenshot, ou devolver o tamanho medido no `get_bounds` (#2) | P1 |
+| 30 | Botões e itens de menu com link | Os nós não têm campo de link; o build do site lê uma convenção de nome (`name: "link:<href>"`) e transforma esses nós em `<a>` | Um campo `href` em frames e textos, exportado como `<a>` pelo `export_code` e mantido pelo canvas | P2 |
+| 31 | Uma página para qualquer largura de tela | Os frames raiz têm largura fixa e o `export_code` fixa o body nesse tamanho; a página foi desenhada duas vezes (1280 e 390) e o build estica as raízes até a largura da janela | Variantes de um frame por breakpoint, ou `minWidth`/`maxWidth`, e um export de página com raízes responsivas | P2 |
+| 32 | Reaproveitar a mesma imagem | O data URI do ícone se repete em 8 nós de imagem (documento com ≈200 KB) | Assets no nível do documento (referências `$asset`) ou tokens de imagem | P3 |
+| 33 | Marcar uma imagem como decorativa | O `lint_design` avisa `missing-alt` para `alt: ""`, que é o HTML correto para imagem decorativa | Um campo `decorative: true` (ou tratar `alt` vazio explícito como decorativo) | P3 |
+
 ## 2026-11-21: seleção múltipla, grupos e páginas (leva 1 do backlog)
 
 Tarefa: adicionar nós `group` e `page` ao core (TS e Go), as ferramentas MCP `group_nodes`, `ungroup_nodes` e `create_page`, e seleção múltipla, laço e páginas no canvas. Atende #8, #13 e #16.
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 29 | Agrupar ou desagrupar a partir de um cliente que pode estar atrasado | O canvas expandia `group`/`ungroup` em ops primitivas na própria cópia do documento; quando um agente escrevia no meio, o desagrupar usava a posição antiga do grupo e os filhos pulavam | Feito: `group`, `ungroup` e `add_page` são ops de verdade, expandidas dentro de `applyOps` sobre o documento atual, então clientes e agentes mandam a intenção, não coordenadas | — |
-| 30 | Saber o tamanho de um grupo | A caixa do grupo vem dos filhos ao fim de cada transação, então escrever `width`/`height` nele é rejeitado com uma mensagem que explica o motivo | Manter a regra; `describe_node` já mostra a caixa ajustada | — |
-| 31 | Pôr conteúdo numa página numa chamada | Com páginas, todo nó de topo precisa ser página; a checagem roda no fim da transação, então `create_page` + `create_nodes` com `parentId` funciona, mas um nó solto no topo falha com uma mensagem que o nomeia | Um `pageId` padrão em `create_nodes` (a página que a pessoa está vendo) pouparia uma consulta aos agentes | P3 |
+| 34 | Agrupar ou desagrupar a partir de um cliente que pode estar atrasado | O canvas expandia `group`/`ungroup` em ops primitivas na própria cópia do documento; quando um agente escrevia no meio, o desagrupar usava a posição antiga do grupo e os filhos pulavam | Feito: `group`, `ungroup` e `add_page` são ops de verdade, expandidas dentro de `applyOps` sobre o documento atual, então clientes e agentes mandam a intenção, não coordenadas | — |
+| 35 | Saber o tamanho de um grupo | A caixa do grupo vem dos filhos ao fim de cada transação, então escrever `width`/`height` nele é rejeitado com uma mensagem que explica o motivo | Manter a regra; `describe_node` já mostra a caixa ajustada | — |
+| 36 | Pôr conteúdo numa página numa chamada | Com páginas, todo nó de topo precisa ser página; a checagem roda no fim da transação, então `create_page` + `create_nodes` com `parentId` funciona, mas um nó solto no topo falha com uma mensagem que o nomeia | Um `pageId` padrão em `create_nodes` (a página que a pessoa está vendo) pouparia uma consulta aos agentes | P3 |
 
 ## 2026-11-21: componentes e instâncias (leva 1 do backlog, item 2)
 
@@ -84,9 +96,9 @@ Tarefa: componentes (`component: true`) e instâncias (`instanceOf`, `scale`, `o
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 32 | Trocar algo numa cópia sem saber o id gerado | Os ids das cópias são derivados (instância + id de origem), então o agente não os adivinha | Feito: `create_instance` devolve `copies` (id de origem → id da cópia), e `overrides` pode ser escrito na instância pelo id de origem | — |
-| 33 | Escalar um conjunto de ícones | O mesmo ícone em 4 tamanhos agora é 1 componente + 4 instâncias com `scale`; um `fontSize` que é token não escala | Tokens tipados (backlog E) deixariam `scale` multiplicar tokens de tamanho também | P3 |
-| 34 | Pôr uma instância de botão dentro de um componente de card | Instâncias dentro de componentes ainda são recusadas, então design systems aninhados pedem detach ou componentes planos | Instâncias aninhadas, com overrides endereçados por caminho (`instância/cópia`) | P2 |
+| 37 | Trocar algo numa cópia sem saber o id gerado | Os ids das cópias são derivados (instância + id de origem), então o agente não os adivinha | Feito: `create_instance` devolve `copies` (id de origem → id da cópia), e `overrides` pode ser escrito na instância pelo id de origem | — |
+| 38 | Escalar um conjunto de ícones | O mesmo ícone em 4 tamanhos agora é 1 componente + 4 instâncias com `scale`; um `fontSize` que é token não escala | Tokens tipados (backlog E) deixariam `scale` multiplicar tokens de tamanho também | P3 |
+| 39 | Pôr uma instância de botão dentro de um componente de card | Instâncias dentro de componentes ainda são recusadas, então design systems aninhados pedem detach ou componentes planos | Instâncias aninhadas, com overrides endereçados por caminho (`instância/cópia`) | P2 |
 
 ## 2026-11-21: colar SVG/HTML e exportar SVG (leva 1 do backlog, item 3)
 
@@ -94,9 +106,9 @@ Tarefa: `importSVG`, `importHTML` e `exportSVG` no core (TS e Go), as ferramenta
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 35 | Trazer um ícone de um conjunto SVG | Antes o agente traduzia cada `<rect>`/`<circle>`/arco à mão para `d`; agora o `import_svg` faz isso numa chamada e diz o que ficou de fora em `warnings` | Suportar sprites `<use>`/`<symbol>` e `<text>` (como nós `text`), comuns em ícones e logos | P2 |
-| 36 | Exportar SVG de um nó com layout automático sem navegador | O core não posiciona sozinho filhos `hug`/`fill`/row/column, então o `exportSVG` sem medida falha com uma mensagem que aponta o `export_code` | Um `layout(doc)` no core (#26) deixaria o core exportar tudo e daria as caixas aos agentes | P2 |
-| 37 | Reaproveitar um componente de uma página web | O `import_html` só lê `style=""` inline; o HTML copiado da maioria dos sites depende de classes, então o resultado sai simples | Uma opção que renderiza o HTML no Chromium do servidor e importa os estilos computados | P2 |
+| 40 | Trazer um ícone de um conjunto SVG | Antes o agente traduzia cada `<rect>`/`<circle>`/arco à mão para `d`; agora o `import_svg` faz isso numa chamada e diz o que ficou de fora em `warnings` | Suportar sprites `<use>`/`<symbol>` e `<text>` (como nós `text`), comuns em ícones e logos | P2 |
+| 41 | Exportar SVG de um nó com layout automático sem navegador | O core não posiciona sozinho filhos `hug`/`fill`/row/column, então o `exportSVG` sem medida falha com uma mensagem que aponta o `export_code` | Um `layout(doc)` no core (#26) deixaria o core exportar tudo e daria as caixas aos agentes | P2 |
+| 42 | Reaproveitar um componente de uma página web | O `import_html` só lê `style=""` inline; o HTML copiado da maioria dos sites depende de classes, então o resultado sai simples | Uma opção que renderiza o HTML no Chromium do servidor e importa os estilos computados | P2 |
 
 ## 2026-11-21: edição de path ponto a ponto (leva 1 do backlog, item 4)
 
@@ -112,4 +124,5 @@ Tarefa: funções no core que transformam `d` em âncoras com alças e de volta 
 - `create_nodes` aninhado montou uma proposta inteira (≈60 nós) numa chamada, de forma atômica.
 - O contraste do `lint_design` guiou a escolha de tokens (`brand.dark` para texto branco em botões).
 - `get_document_outline` com `depth: 0` bastou para confirmar o resultado gastando pouco.
+- O `lint_design` pegou toda cor literal da landing page (`raw-color`), o que gerou o token `on.brand`.
 - Um só motor de estilo: os screenshots que o agente conferiu saem do mesmo `nodeStyle` do canvas.

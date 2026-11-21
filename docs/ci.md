@@ -4,6 +4,8 @@
 
 Paprika's CI runs **only on pull requests** (`opened`, `synchronize`, `reopened`, `ready_for_review`). Nothing runs on push or after a merge: the PR run is the gate. A new push to the same PR cancels the run still in progress.
 
+The one workflow that runs on push is [`pages.yml`](../.github/workflows/pages.yml): it is a deployment, not a check. When a change to the site or the docs reaches `main`, it builds `apps/site` and publishes it to GitHub Pages ([apps/site/README.md](../apps/site/README.md)).
+
 Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), plus [`.github/dependabot.yml`](../.github/dependabot.yml).
 
 ## Jobs
@@ -24,6 +26,8 @@ Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workfl
 | **CI OK** | Fails if any job failed or was cancelled. **This is the one check to require** in branch protection: it is green when the jobs that ran passed and the ones skipped were skipped by the plan. | always |
 
 A change to `.github/workflows/`, `.github/scripts/`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` or `tsconfig.base.json` runs **everything**. So does the `ci:full` label (applied on the next push to the PR). Docs-only PRs run only Plan and CI OK.
+
+Go jobs install the latest patch of the minor in `GO_VERSION` (top of `ci.yml`), not the exact `go` line of `server-go/go.mod`: that line is the minimum the modules need (for example `go 1.26.0`), and its standard library would fail govulncheck. Bump `GO_VERSION` when `go.mod` moves to a new minor.
 
 ## Running only what changed
 
