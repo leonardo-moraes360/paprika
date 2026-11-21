@@ -34,7 +34,7 @@ func svgAttrs(attrs []Attr) string {
 func RootBounds(doc *Document, id string) (Bounds, error) {
 	n := GetNode(doc, id)
 	if n == nil {
-		return Bounds{}, fmt.Errorf(`nó "%s" não existe`, id)
+		return Bounds{}, fmt.Errorf(`node "%s" does not exist`, id)
 	}
 	if n.Str("type") == "page" {
 		return CanvasBounds(doc, id), nil
@@ -84,8 +84,16 @@ func childNodes(doc *Document, n *Node) []*Node {
 	return out
 }
 
-func renderNode(doc *Document, node *Node, asRoot bool, offset *Point) string {
-	css := NodeStyle(doc, node, asRoot)
+// modeAttr is data-paprika-mode on a frame/page with a theme mode: the selector of its CSS variables.
+func modeAttr(node *Node) string {
+	if t := node.Str("type"); (t == "frame" || t == "page") && node.Str("mode") != "" {
+		return ` data-paprika-mode="` + EscapeHTML(node.Str("mode")) + `"`
+	}
+	return ""
+}
+
+func renderNode(doc *Document, node *Node, asRoot, vars bool, offset *Point) string {
+	css := NodeStyleVars(doc, node, asRoot, vars)
 	if offset != nil && !asRoot && node.Str("type") != "page" {
 		css.Set("left", jsonv.FormatNumber(node.Num("x")-offset.X)+"px")
 		css.Set("top", jsonv.FormatNumber(node.Num("y")-offset.Y)+"px")
@@ -95,12 +103,12 @@ func renderNode(doc *Document, node *Node, asRoot bool, offset *Point) string {
 		name = ` data-name="` + EscapeHTML(n) + `"`
 	}
 	typ := node.Str("type")
-	attrs := fmt.Sprintf(`data-paprika-id="%s" data-paprika-type="%s"%s style="%s"`, EscapeHTML(node.Str("id")), typ, name, EscapeHTML(CSSToString(css)))
+	attrs := fmt.Sprintf(`data-paprika-id="%s" data-paprika-type="%s"%s%s style="%s"`, EscapeHTML(node.Str("id")), typ, name, modeAttr(node), EscapeHTML(CSSToString(css)))
 	switch typ {
 	case "frame", "group", "page":
 		var kids strings.Builder
 		for _, c := range childNodes(doc, node) {
-			kids.WriteString(renderNode(doc, c, false, nil))
+			kids.WriteString(renderNode(doc, c, false, vars, nil))
 		}
 		return "<div " + attrs + ">" + kids.String() + "</div>"
 	case "text":
@@ -108,16 +116,18 @@ func renderNode(doc *Document, node *Node, asRoot bool, offset *Point) string {
 	case "image":
 		return "<img " + attrs + ` src="` + EscapeHTML(node.Str("src")) + `" alt="` + EscapeHTML(node.Str("alt")) + `">`
 	case "path":
-		svg, path := PathAttrs(doc, node)
+		svg, path := PathAttrsVars(doc, node, vars)
 		return "<svg " + attrs + ` xmlns="http://www.w3.org/2000/svg"` + svgAttrs(svg) + "><path" + svgAttrs(path) + "/></svg>"
 	}
 	return "<div " + attrs + "></div>"
 }
 
-// RenderOptions: RootID renders a single node at 0,0; Background is the page color.
+// RenderOptions: RootID renders a single node at 0,0; Background is the page color;
+// CSSVariables writes tokens as var(--name) with a stylesheet per theme mode.
 type RenderOptions struct {
-	RootID     string
-	Background string
+	RootID       string
+	Background   string
+	CSSVariables bool
 }
 
 // RenderHTML builds a self-contained HTML document (export and screenshot).
@@ -128,7 +138,7 @@ func RenderHTML(doc *Document, opts RenderOptions) (string, Bounds, error) {
 	if opts.RootID != "" {
 		node = GetNode(doc, opts.RootID)
 		if node == nil {
-			return "", Bounds{}, fmt.Errorf(`nó "%s" não existe`, opts.RootID)
+			return "", Bounds{}, fmt.Errorf(`node "%s" does not exist`, opts.RootID)
 		}
 		if node.Str("type") == "page" {
 			page = node
@@ -138,7 +148,7 @@ func RenderHTML(doc *Document, opts RenderOptions) (string, Bounds, error) {
 	}
 	if node != nil && page == nil {
 		bounds, _ = RootBounds(doc, opts.RootID)
-		body = renderNode(doc, node, true, nil)
+		body = renderNode(doc, node, true, opts.CSSVariables, nil)
 	} else {
 		pageID := ""
 		if page != nil {
@@ -149,7 +159,7 @@ func RenderHTML(doc *Document, opts RenderOptions) (string, Bounds, error) {
 		var b strings.Builder
 		for _, id := range roots {
 			if n := GetNode(doc, id); n != nil {
-				b.WriteString(renderNode(doc, n, false, &Point{bounds.X, bounds.Y}))
+				b.WriteString(renderNode(doc, n, false, opts.CSSVariables, &Point{bounds.X, bounds.Y}))
 			}
 		}
 		body = b.String()
@@ -159,14 +169,30 @@ func RenderHTML(doc *Document, opts RenderOptions) (string, Bounds, error) {
 		bg = "#ffffff"
 		if page != nil {
 			if f, ok := page.Get("fill"); ok && f != "" {
-				bg = jsString(ResolveValue(doc, f))
+				bg = jsString(ResolveValue(doc, f, page.Str("mode")))
 			}
+		}
+	}
+	// A loose node inherits its ancestors' mode: in the export it sits in <body>, the new top.
+	inherited := ""
+	if node != nil && page == nil {
+		if modeAttr(node) == "" {
+			inherited = ModeOf(doc, node)
+		}
+	} else if page != nil {
+		inherited = page.Str("mode")
+	}
+	bodyMode, sheet := "", ""
+	if opts.CSSVariables {
+		sheet = TokenStylesheet(doc)
+		if inherited != "" {
+			bodyMode = ` data-paprika-mode="` + EscapeHTML(inherited) + `"`
 		}
 	}
 	html := "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>" + EscapeHTML(doc.Str("name")) + "</title>\n" +
 		"<style>html,body{margin:0;padding:0}body{position:relative;width:" + jsonv.FormatNumber(bounds.Width) + "px;height:" + jsonv.FormatNumber(bounds.Height) +
-		"px;background:" + EscapeHTML(bg) + ";font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n" +
-		"</head><body>" + body + "</body></html>"
+		"px;background:" + EscapeHTML(bg) + ";font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}" + sheet + "</style>\n" +
+		"</head><body" + bodyMode + ">" + body + "</body></html>"
 	return html, bounds, nil
 }
 
@@ -202,17 +228,26 @@ func jsxAttrs(attrs []Attr) string {
 	return b.String()
 }
 
-func jsxNode(doc *Document, node *Node, asRoot bool, indent string) string {
-	style := jsxStyle(NodeStyle(doc, node, asRoot))
+func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool) string {
+	style := jsxStyle(NodeStyleVars(doc, node, asRoot, vars))
 	name := ""
 	if n := node.Str("name"); n != "" {
 		name = " data-name=" + jsonv.Quote(n)
+	}
+	mode := ""
+	if t := node.Str("type"); (t == "frame" || t == "page") && node.Str("mode") != "" {
+		mode = node.Str("mode")
+	} else if asRoot && vars {
+		mode = ModeOf(doc, node)
+	}
+	if mode != "" {
+		name += " data-paprika-mode=" + jsonv.Quote(mode)
 	}
 	switch node.Str("type") {
 	case "frame", "group", "page":
 		kids := []string{}
 		for _, c := range childNodes(doc, node) {
-			kids = append(kids, jsxNode(doc, c, false, indent+"  "))
+			kids = append(kids, jsxNode(doc, c, false, indent+"  ", vars))
 		}
 		if len(kids) > 0 {
 			return indent + "<div" + name + " style=" + style + ">\n" + strings.Join(kids, "\n") + "\n" + indent + "</div>"
@@ -223,7 +258,7 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string) string {
 	case "image":
 		return indent + "<img" + name + " style=" + style + " src=" + jsonv.Quote(node.Str("src")) + " alt=" + jsonv.Quote(node.Str("alt")) + " />"
 	case "path":
-		svg, path := PathAttrs(doc, node)
+		svg, path := PathAttrsVars(doc, node, vars)
 		return indent + "<svg" + name + " style=" + style + jsxAttrs(svg) + ">\n" + indent + "  <path" + jsxAttrs(path) + " />\n" + indent + "</svg>"
 	}
 	return indent + "<div" + name + " style=" + style + " />"
@@ -276,17 +311,21 @@ func componentName(s string) string {
 }
 
 // ExportReact exports a node as a React (TSX) component with inline styles.
-func ExportReact(doc *Document, rootID string) (string, error) {
+func ExportReact(doc *Document, rootID string, cssVariables bool) (string, error) {
 	node := GetNode(doc, rootID)
 	if node == nil {
-		return "", fmt.Errorf(`nó "%s" não existe`, rootID)
+		return "", fmt.Errorf(`node "%s" does not exist`, rootID)
 	}
 	if node.Str("type") == "page" {
-		return "", fmt.Errorf(`"%s" é uma página; exporte um frame dela (export_code com o id do frame)`, rootID)
+		return "", fmt.Errorf(`"%s" is a page; export one of its frames (export_code with the frame id)`, rootID)
 	}
 	n := node.Str("name")
 	if n == "" {
 		n = node.Str("id")
 	}
-	return "export function " + componentName(n) + "() {\n  return (\n" + jsxNode(doc, node, true, "    ") + "\n  );\n}\n", nil
+	css := ""
+	if cssVariables {
+		css = "export const tokensCss = " + jsonv.Quote(TokenStylesheet(doc)) + ";\n\n"
+	}
+	return css + "export function " + componentName(n) + "() {\n  return (\n" + jsxNode(doc, node, true, "    ", cssVariables) + "\n  );\n}\n", nil
 }

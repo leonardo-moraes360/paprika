@@ -558,10 +558,16 @@ func emit(ls []func(ChangeEvent), e ChangeEvent) {
 
 // Apply runs a transaction; it returns only after the change is committed to SQLite.
 func (s *Store) Apply(ops []any, actor, label string) (*core.ApplyResult, error) {
+	return s.ApplyBatch(ops, actor, label, "")
+}
+
+// ApplyBatch is Apply with a batch name: consecutive writes of the same actor and batch share one
+// undo entry (see core.History.ApplyBatch).
+func (s *Store) ApplyBatch(ops []any, actor, label, batch string) (*core.ApplyResult, error) {
 	s.mu.Lock()
 	prevDoc := s.history.Doc()
 	prevUndo, prevRedo := s.history.Entries(), s.history.RedoEntries()
-	r, err := s.history.Apply(ops, actor, label)
+	r, err := s.history.ApplyBatch(ops, actor, label, batch)
 	if err != nil {
 		s.mu.Unlock()
 		return nil, err

@@ -2,7 +2,7 @@
 
 # Servidor do Paprika em Go
 
-Uma implementação em Go do servidor do Paprika com o mesmo contrato do servidor TypeScript (`packages/server`): as mesmas 20 ferramentas MCP (stdio e Streamable HTTP em `/mcp`), as mesmas operações e o mesmo undo/redo compartilhado, o mesmo protocolo WebSocket do canvas (`/ws`), a mesma API HTTP e o mesmo lint, export e screenshot. Os dados ficam em **SQLite**; arquivos `.paprika.json` entram e saem com `import` e `export`. Por que e como: [ADR 0001](../docs/pt-BR/adr/0001-servidor-go-sqlite.md).
+Uma implementação em Go do servidor do Paprika com o mesmo contrato do servidor TypeScript (`packages/server`): as mesmas 25 ferramentas MCP (stdio e Streamable HTTP em `/mcp`), as mesmas operações e o mesmo undo/redo compartilhado, o mesmo protocolo WebSocket do canvas (`/ws`), a mesma API HTTP e o mesmo lint, export e screenshot. Os dados ficam em **SQLite**; arquivos `.paprika.json` entram e saem com `import` e `export`. Por que e como: [ADR 0001](../docs/pt-BR/adr/0001-servidor-go-sqlite.md).
 
 ## Compilar e rodar
 
@@ -70,7 +70,7 @@ scripts/           geradores de fixtures e do contrato (rodam com Node sobre o b
 
 O core TypeScript é a referência. Três camadas conferem que o servidor Go se comporta igual:
 
-1. **Fixtures golden** (`internal/core/testdata/golden.json`, de `scripts/gen-golden.mjs`): resultados e erros de operações, JSON de erro do zod, histórico, outline, lint, HTML, React, CSS de cada nó de 23 documentos, parse/bounds de paths, cores e 500 passos aleatórios com semente. O `go test` compara byte a byte.
+1. **Fixtures golden** (`internal/core/testdata/golden.json`, de `scripts/gen-golden.mjs`): resultados e erros de operações, JSON de erro do zod, histórico, outline, lint, HTML, React, CSS de cada nó de 23 documentos, parse/bounds de paths, cores, import de SVG/HTML, export SVG (com e sem uma medida sintética do navegador) e 500 passos aleatórios com semente. O `go test` compara byte a byte.
 2. **Suíte black-box** (`packages/server/test/external/parity.test.ts`): MCP via HTTP e stdio, WebSocket, API HTTP e checagem de Host/Origin, contra um processo servidor.
 3. **E2E do canvas** (`packages/server/test/e2e`): a mesma suíte Playwright, com o binário Go por trás do canvas.
 

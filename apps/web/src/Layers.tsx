@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { isContainer, pageRoots, type Document, type Op } from "@paprika/core";
+import { isContainer, isInstance, pageRoots, type Document, type Op } from "@paprika/core";
+import { InlineName } from "./InlineName";
 
 const ICON: Record<string, string> = { frame: "#", rect: "▭", ellipse: "◯", text: "T", image: "▣", path: "✒", group: "⧉", page: "▤" };
 
@@ -14,6 +15,7 @@ interface Props {
 export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
   const roots = pageRoots(doc, pageId);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<string | null>(null);
   const toggle = (id: string) =>
     setCollapsed((s) => {
       const n = new Set(s);
@@ -48,8 +50,29 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
           >
             {open ? "▾" : "▸"}
           </button>
-          <span className="layer-icon">{ICON[n.type]}</span>
-          <span className="layer-name">{n.name || (n.type === "text" ? n.text.slice(0, 24) : n.type)}</span>
+          <span className="layer-icon">{n.type === "frame" && n.component ? "◆" : isInstance(n) ? "◇" : ICON[n.type]}</span>
+          {editing === id ? (
+            <InlineName
+              className="layer-name-input"
+              label="Nome da camada"
+              value={n.name}
+              onCommit={(name) => apply([{ op: "update", id, props: { name } }], "renomear camada")}
+              onDone={() => setEditing(null)}
+            />
+          ) : (
+            <span
+              className="layer-name"
+              // Cópias de instância não aceitam nome próprio: o nome vem do componente.
+              title={n.sourceId === undefined ? "Duplo clique para renomear" : undefined}
+              onDoubleClick={(e) => {
+                if (n.sourceId !== undefined) return;
+                e.stopPropagation();
+                setEditing(id);
+              }}
+            >
+              {n.name || (n.type === "text" ? n.text.slice(0, 24) : n.type)}
+            </span>
+          )}
           <button
             className="eye"
             aria-label={n.visible ? "Ocultar" : "Mostrar"}

@@ -26,20 +26,20 @@ export interface GroupPlan {
  * eles é mantida e o desenho não se move (a caixa do grupo é ajustada aos filhos).
  */
 export function groupOps(doc: Document, ids: readonly string[], opts: { id?: string; name?: string } = {}): GroupPlan {
-  if (!ids.length) throw new Error("passe ao menos um id para agrupar");
+  if (!ids.length) throw new Error("pass at least one id to group");
   const unique = [...new Set(ids)];
   const missing = unique.filter((id) => !doc.nodes[id]);
-  if (missing.length) throw new Error(`nós inexistentes: ${missing.join(", ")}`);
+  if (missing.length) throw new Error(`nodes do not exist: ${missing.join(", ")}`);
   const nodes = unique.map((id) => doc.nodes[id]!);
   const page = nodes.find((n) => n.type === "page");
-  if (page) throw new Error(`"${page.id}" é uma página; páginas não entram em grupos`);
+  if (page) throw new Error(`"${page.id}" is a page; pages cannot be grouped`);
   const parentId = nodes[0]!.parentId;
   const other = nodes.find((n) => n.parentId !== parentId);
   if (other)
-    throw new Error(`só nós com o mesmo pai podem ser agrupados ("${other.id}" está em ${other.parentId ?? "canvas"}, "${nodes[0]!.id}" em ${parentId ?? "canvas"})`);
+    throw new Error(`only nodes with the same parent can be grouped ("${other.id}" is in ${other.parentId ?? "canvas"}, "${nodes[0]!.id}" in ${parentId ?? "canvas"})`);
   const parent = parentId ? doc.nodes[parentId] : undefined;
   if (parent?.type === "frame" && parent.layout && parent.layout.mode !== "none")
-    throw new Error(`"${parent.id}" tem layout ${parent.layout.mode}: os filhos seguem o fluxo e não podem ser agrupados; mude o layout para none ou use um frame`);
+    throw new Error(`"${parent.id}" has layout ${parent.layout.mode}: its children follow the flow and cannot be grouped; set the layout to none or use a frame`);
   const siblings = siblingsOf(doc, parentId);
   const ordered = [...unique].sort((a, b) => siblings.indexOf(a) - siblings.indexOf(b));
   const top = siblings.indexOf(ordered[ordered.length - 1]!);
@@ -56,13 +56,13 @@ export function groupOps(doc: Document, ids: readonly string[], opts: { id?: str
  * ids dos filhos liberados (para selecionar).
  */
 export function ungroupOps(doc: Document, ids: readonly string[]): { ops: Op[]; released: string[] } {
-  if (!ids.length) throw new Error("passe ao menos um id de group");
+  if (!ids.length) throw new Error("pass at least one group id");
   const ops: Op[] = [];
   const released: string[] = [];
   for (const id of new Set(ids)) {
     const g = doc.nodes[id];
-    if (!g) throw new Error(`nó "${id}" não existe`);
-    if (g.type !== "group") throw new Error(`nó "${id}" é ${g.type}, não group`);
+    if (!g) throw new Error(`node "${id}" does not exist`);
+    if (g.type !== "group") throw new Error(`node "${id}" is ${g.type}, not a group`);
     const index = siblingsOf(doc, g.parentId).indexOf(id);
     g.children.forEach((cid, k) => {
       const c = doc.nodes[cid];

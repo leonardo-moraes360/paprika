@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { firstPage, newId, type Document, type Op } from "@paprika/core";
+import { InlineName } from "./InlineName";
 
 interface Props {
   doc: Document;
@@ -21,12 +22,6 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
     apply([{ op: "add_page", id }], "criar página");
     onOpen(id);
   };
-  const rename = (id: string, name: string) => {
-    setEditing(null);
-    const v = name.trim();
-    if (v && v !== doc.nodes[id]?.name) apply([{ op: "update", id, props: { name: v } }], "renomear página");
-  };
-
   return (
     <div className="panel-section pages">
       <h2>
@@ -50,15 +45,11 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
             onDoubleClick={() => setEditing(p.id)}
           >
             {editing === p.id ? (
-              <input
-                autoFocus
-                aria-label="Nome da página"
-                defaultValue={p.name}
-                onBlur={(e) => rename(p.id, e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") rename(p.id, (e.target as HTMLInputElement).value);
-                  if (e.key === "Escape") setEditing(null);
-                }}
+              <InlineName
+                label="Nome da página"
+                value={p.name}
+                onCommit={(name) => apply([{ op: "update", id: p.id, props: { name } }], "renomear página")}
+                onDone={() => setEditing(null)}
               />
             ) : (
               <span className="page-name">{p.name || p.id}</span>

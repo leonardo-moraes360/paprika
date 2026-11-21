@@ -14,15 +14,15 @@ Tarefa: um agente desenhou 5 ícones flat de páprica com complexidade crescente
 | 1 | Formas orgânicas (silhueta de pimentão) | Só existem `rect`/`ellipse`; o pimentão foi montado com elipses sobrepostas e rotacionadas | Nó `path` (SVG `d`, fill/stroke) e união booleana de filhos (`path` com curvas bezier feito em 2026-11-21, ver abaixo; união booleana ainda aberta) | P1 |
 | 2 | Pôr o cabo na ponta de uma vagem rotacionada | A rotação gira em torno do centro da caixa e o agente teve de fazer trigonometria; o cálice ficou fora do lugar duas vezes e só o screenshot mostrou | Ferramenta `get_bounds` com a geometria rotacionada (cantos, pontas) e um campo `origin` (transform-origin) | P1 |
 | 3 | O mesmo ícone em 4 tamanhos | Sem componentes/instâncias nem escala: o script regerou todas as formas com um fator (4× os nós, edição não propaga) | Componentes + instâncias com `scale`; `duplicate_nodes` com escala | P1 |
-| 4 | 5 temas lado a lado | Tokens são globais; foi preciso prefixar à mão (`p1.brand` … `p5.brand`) e reescrever em cada nó | Coleções/modos de tokens e override de tokens por frame | P2 |
+| 4 | 5 temas lado a lado | Tokens são globais; foi preciso prefixar à mão (`p1.brand` … `p5.brand`) e reescrever em cada nó | Feito (2026-11-21, ver #45): modos de tema (`set_tokens` com `mode`) e `mode` num frame ou página; coleções nomeadas continuam em aberto | — |
 | 5 | Conferir o resultado na máquina do usuário | `render_screenshot` falhou: o Playwright 1.63 exige o Chromium 1243 e só havia o 1228 | Detectar o browser ausente ao iniciar, devolver o comando exato de correção no erro e cair para renderização via aba do canvas aberta | P1 |
 | 6 | Pegar erro visual sem screenshot | `lint_design` passou com o cálice solto da vagem | Lint geométrico: filhos que não tocam nenhum irmão, quase-encostos (< 4px), formas totalmente encobertas | P2 |
-| 7 | Ler resultados estruturados | As ferramentas devolvem JSON como texto; o agente precisa parsear string | Declarar `outputSchema` e devolver `structuredContent` | P2 |
+| 7 | Ler resultados estruturados | As ferramentas devolvem JSON como texto; o agente precisa parsear string | Feito (2026-11-21, ver #48): `outputSchema` + `structuredContent` em toda ferramenta que responde JSON | — |
 | 8 | Wrappers de layout sem recorte | Todo frame wrapper precisou de `clip: false` e `fill: "transparent"` | Nó `group`, ou `clip: false` por padrão em frame com layout automático | P3 |
 | 9 | Lint menos ruidoso | 21 infos de `raw-color` para literais intencionais (alças brancas, texto preto em botões) | `lintIgnore: ["raw-color"]` por nó e parâmetro `minSeverity` | P3 |
-| 10 | Saber quem fez o quê | O nome do ator vem do User-Agent HTTP (`node`, `brand-agent`), não do cliente MCP | Usar `clientInfo.name` do MCP como ator | P3 |
-| 11 | Um desfazer para "desenhar proposta 3" | 7 entradas no histórico para uma execução do script (nome, tokens, 5 criações) | `begin_transaction`/`commit` ou um rótulo de grupo para mesclar entradas | P3 |
-| 12 | Idioma para agentes | Guia e erros em português; prompts em inglês misturam idiomas | Guia e erros em inglês, com pt-BR como opção | P2 |
+| 10 | Saber quem fez o quê | O nome do ator vem do User-Agent HTTP (`node`, `brand-agent`), não do cliente MCP | Feito (2026-11-21, ver #48): `agent:<clientInfo.name>`, também no HTTP | — |
+| 11 | Um desfazer para "desenhar proposta 3" | 7 entradas no histórico para uma execução do script (nome, tokens, 5 criações) | Feito (2026-11-21, ver #48): `batch` em toda ferramenta de escrita | — |
+| 12 | Idioma para agentes | Guia e erros em português; prompts em inglês misturam idiomas | Feito (2026-11-21, ver #48): guia, descrições e erros em inglês; `get_design_guide {language: "pt-BR"}` | — |
 | 13 | Vários quadros | Tudo divide um canvas só; as propostas foram empilhadas à mão com `y` fixo | Páginas e `layout` na raiz do canvas (empilhar frames de topo) | P3 |
 | 14 | Ver o agente desenhar depois que o servidor trocou de arquivo | A aba aberta reconectou no documento novo mas manteve zoom/pan antigos; os quadros novos podiam ficar fora da tela (corrigido: o canvas reenquadra quando o id do documento muda) | Feito nesta mudança | — |
 
@@ -34,7 +34,7 @@ Tarefa: adicionar curvas bezier para agentes e humanos desenharem formas orgâni
 |---|-----------|-----------------|----------|------|
 | 15 | Caixa do nó igual ao desenho | Sem `width`/`height`, a caixa vai da origem do nó até a borda da curva; um `d` que começa em (40,30) deixa espaço vazio no canto e o lint de overflow mede essa caixa | `normalize: true` no create (leva o desenho para 0,0 e ajusta `x`/`y`), ou informar a folga no `path_info` | P2 |
 | 16 | Camadas de vários paths como uma forma (corpo, sombra, brilho, cálice) | Cada parte repete o mesmo `x`/`y`; mover a pimenta é mover 5 nós | Nó `group` (ver #8) ou lista `paths: []` num nó só | P2 |
-| 17 | Editar um ponto de controle | Mudar uma curva exige reescrever a string `d` inteira | `update_path_points` (mover âncora/alça por índice) e edição de alças no canvas | P3 |
+| 17 | Editar um ponto de controle | Mudar uma curva exige reescrever a string `d` inteira | Parte do canvas feita (2026-11-21, ver #43); `update_path_points` (mover âncora/alça por índice) para agentes continua em aberto | P3 |
 | 18 | Saber o tamanho desenhado antes de posicionar uma parte | `path_info` com `canvasBounds` respondeu numa chamada só; também pegou um erro de digitação (`d inválido: número esperado na posição 12`) | Manter: erros de parse com posição em todo campo string | — |
 
 ## 2026-11-21: servidor em Go com SQLite (`server-go/`)
@@ -89,6 +89,56 @@ Tarefa: adicionar nós `group` e `page` ao core (TS e Go), as ferramentas MCP `g
 | 34 | Agrupar ou desagrupar a partir de um cliente que pode estar atrasado | O canvas expandia `group`/`ungroup` em ops primitivas na própria cópia do documento; quando um agente escrevia no meio, o desagrupar usava a posição antiga do grupo e os filhos pulavam | Feito: `group`, `ungroup` e `add_page` são ops de verdade, expandidas dentro de `applyOps` sobre o documento atual, então clientes e agentes mandam a intenção, não coordenadas | — |
 | 35 | Saber o tamanho de um grupo | A caixa do grupo vem dos filhos ao fim de cada transação, então escrever `width`/`height` nele é rejeitado com uma mensagem que explica o motivo | Manter a regra; `describe_node` já mostra a caixa ajustada | — |
 | 36 | Pôr conteúdo numa página numa chamada | Com páginas, todo nó de topo precisa ser página; a checagem roda no fim da transação, então `create_page` + `create_nodes` com `parentId` funciona, mas um nó solto no topo falha com uma mensagem que o nomeia | Um `pageId` padrão em `create_nodes` (a página que a pessoa está vendo) pouparia uma consulta aos agentes | P3 |
+
+## 2026-11-21: componentes e instâncias (leva 1 do backlog, item 2)
+
+Tarefa: componentes (`component: true`) e instâncias (`instanceOf`, `scale`, `overrides`) no core (TS e Go), as ferramentas MCP `create_component`, `create_instance` e `detach_instance`, e painéis no inspector para instâncias e cópias. Atende #3.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 37 | Trocar algo numa cópia sem saber o id gerado | Os ids das cópias são derivados (instância + id de origem), então o agente não os adivinha | Feito: `create_instance` devolve `copies` (id de origem → id da cópia), e `overrides` pode ser escrito na instância pelo id de origem | — |
+| 38 | Escalar um conjunto de ícones | O mesmo ícone em 4 tamanhos agora é 1 componente + 4 instâncias com `scale`; um `fontSize` que é token não escala | Tokens tipados (backlog E) deixariam `scale` multiplicar tokens de tamanho também | P3 |
+| 39 | Pôr uma instância de botão dentro de um componente de card | Instâncias dentro de componentes ainda são recusadas, então design systems aninhados pedem detach ou componentes planos | Instâncias aninhadas, com overrides endereçados por caminho (`instância/cópia`) | P2 |
+
+## 2026-11-21: colar SVG/HTML e exportar SVG (leva 1 do backlog, item 3)
+
+Tarefa: `importSVG`, `importHTML` e `exportSVG` no core (TS e Go), as ferramentas MCP `import_svg` e `import_html`, `export_code` com formato `svg`, `GET /api/svg`, e colar mais um botão de export no canvas.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 40 | Trazer um ícone de um conjunto SVG | Antes o agente traduzia cada `<rect>`/`<circle>`/arco à mão para `d`; agora o `import_svg` faz isso numa chamada e diz o que ficou de fora em `warnings` | Suportar sprites `<use>`/`<symbol>` e `<text>` (como nós `text`), comuns em ícones e logos | P2 |
+| 41 | Exportar SVG de um nó com layout automático sem navegador | O core não posiciona sozinho filhos `hug`/`fill`/row/column, então o `exportSVG` sem medida falha com uma mensagem que aponta o `export_code` | Um `layout(doc)` no core (#26) deixaria o core exportar tudo e daria as caixas aos agentes | P2 |
+| 42 | Reaproveitar um componente de uma página web | O `import_html` só lê `style=""` inline; o HTML copiado da maioria dos sites depende de classes, então o resultado sai simples | Uma opção que renderiza o HTML no Chromium do servidor e importa os estilos computados | P2 |
+
+## 2026-11-21: edição de path ponto a ponto (leva 1 do backlog, item 4)
+
+Tarefa: funções no core que transformam `d` em âncoras com alças e de volta (`pathToSubpaths`, `moveAnchor`, `moveHandle`, `insertAnchor`, `removeAnchor`, `toggleSmooth`, `pathEditProps`) e um modo de edição de pontos no canvas.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 43 | Ajustar um ponto de um vetor que o agente desenhou | O humano agora arrasta no canvas; o agente ainda reescreve `d`, e depois de uma edição humana o `d` que ele lê vem com outros números (quadráticas e arcos viram cúbicas, a caixa é renormalizada) | Uma ferramenta MCP sobre as mesmas funções (`edit_path` com índice da âncora e posição nova), e as âncoras no `path_info`, para agente e humano endereçarem pontos do mesmo jeito | P2 |
+| 44 | Editar um vetor dentro de um frame com layout automático | A posição do nó vem do layout, então quando a edição move o canto superior esquerdo do desenho a caixa cresce no lugar e a forma se desloca nessa medida | Manter, ou adotar filhos que "ignoram o layout" (backlog A) e posicionar vetores editados em absoluto | P3 |
+
+## 2026-11-21: modos de tema e tokens como variáveis CSS (leva 1 do backlog, item 5)
+
+Tarefa: `document.modes` e `mode` em frames e páginas no core (TS e Go), `set_tokens` com `mode`, `export_code` com `cssVariables`, uma seção de tema no inspector e a regra de lint `unknown-mode`. Atende o #4.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 45 | Mostrar a mesma tela clara e escura | Antes o agente duplicava o frame e reescrevia todas as cores; agora grava os valores escuros uma vez (`set_tokens` com `mode`) e põe `mode` numa cópia | Uma ferramenta `duplicate_nodes` que aceite overrides (`mode`, aqui) deixaria o lado a lado em uma chamada | P2 |
+| 46 | Saber o valor que um nó recebe de fato | O `get_nodes` mostra `$fg`; o valor depende do `mode` mais próximo acima. O outline mostra `mode=` nos frames e os modos com os tokens | Uma opção `resolve` no `get_nodes` que acrescente a pintura resolvida de cada nó | P3 |
+| 47 | Usar um token que só um modo define | Ele resolve dentro desse modo e é erro `unknown-token` fora; no export com variáveis CSS vira `var(--x)` sem valor base | Manter o erro; o agente deve definir também um valor base | — |
+
+## 2026-11-21: camada de agentes (leva 1 do backlog, item 6)
+
+Tarefa: `outputSchema` + `structuredContent` nas ferramentas que respondem JSON, `batch` em toda ferramenta de escrita (um passo só de undo), o ator vindo do `clientInfo` (stdio e HTTP stateless), e guia, descrições das ferramentas, erros, avisos e mensagens do lint em inglês, com o guia em pt-BR sob pedido. Atende #7, #10, #11 e #12.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 48 | Ler resultados sem parsear texto | O `structuredContent` segue o `outputSchema` de cada ferramenta; `get_nodes` e `get_history` mantêm o array puro no texto e o embrulham (`{ nodes }`, `{ entries }`) no `structuredContent`, porque o MCP exige um objeto ali | Na próxima mudança incompatível, deixar o texto igual ao objeto | P3 |
+| 49 | Um passo de undo para um script longo | O `batch` junta escritas seguidas do mesmo agente; qualquer edição ou undo do humano no meio fecha o batch, e a chamada seguinte abre uma segunda entrada | Mostrar o batch aberto na lista de atividade do canvas, para o humano saber que uma edição vai dividi-lo | P3 |
+| 50 | Mesmo nome de ator depois de reiniciar o servidor | No HTTP o nome fica num mapa em memória pelo `Mcp-Session-Id`; depois de reiniciar, o cliente continua com o id antigo e o ator volta ao User-Agent até um novo initialize | Responder 404 a ids de sessão desconhecidos, como a spec sugere, para o cliente reinicializar | P3 |
+| 51 | Um idioma só na lista de atividade | Os rótulos padrão das ferramentas agora são em inglês (`create 1 node(s)`), enquanto os rótulos e a interface do próprio canvas seguem em pt-BR | Traduzir a interface do canvas ou localizar as duas por configuração | P3 |
 
 ## O que funcionou bem
 

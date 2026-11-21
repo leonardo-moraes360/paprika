@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Dumps the MCP contract of the TypeScript server (tools/list, instructions, server info) so the
-// Go server serves exactly the same tool definitions. Usage (repo root, after `pnpm build`):
+// Go server serves exactly the same tool definitions, plus the SVG export's measure script.
+// Usage (repo root, after `pnpm build`):
 //   node server-go/scripts/gen-contract.mjs
 import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,7 +27,11 @@ await client.connect(b);
 const { tools } = await client.listTools();
 const contract = { serverInfo: client.getServerVersion(), capabilities: client.getServerCapabilities(), instructions: client.getInstructions(), tools };
 writeFileSync(join(here, "../contract/mcp.json"), JSON.stringify(contract, null, 2) + "\n");
-console.log(`contract: ${tools.length} tools → server-go/contract/mcp.json`);
+const ptBR = await client.callTool({ name: "get_design_guide", arguments: { language: "pt-BR" } });
+writeFileSync(join(here, "../contract/guide.pt-BR.md"), ptBR.content[0].text);
+const { MEASURE_SCRIPT } = await import(pathToFileURL(join(root, "packages/core/dist/index.js")).href);
+writeFileSync(join(here, "../contract/measure.js"), MEASURE_SCRIPT + "\n");
+console.log(`contract: ${tools.length} tools → server-go/contract/mcp.json (+ guide.pt-BR.md, measure.js)`);
 await client.close();
 await store.close();
 rmSync(dir, { recursive: true, force: true });

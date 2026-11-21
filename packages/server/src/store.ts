@@ -68,8 +68,9 @@ export class DocumentStore extends EventEmitter<{ change: [ChangeEvent]; error: 
       .map((e) => ({ actor: e.actor, label: e.label, at: e.at, ops: e.ops.length }));
   }
 
-  apply(ops: Op[], actor: string, label = ""): ApplyResult {
-    const result = this.history.apply(ops, actor, label);
+  /** `batch`: merge into the previous entry of the same actor and batch (one undo step). */
+  apply(ops: Op[], actor: string, label = "", batch?: string): ApplyResult {
+    const result = this.history.apply(ops, actor, label, batch);
     this.commit(actor, label, "apply");
     return result;
   }

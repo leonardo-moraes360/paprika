@@ -42,16 +42,16 @@ export function parsePath(d: string): Segment[] {
   const num = (): number => {
     skip();
     const m = NUMBER.exec(d.slice(i));
-    if (!m) throw new PathError(`número esperado na posição ${i}${i < d.length ? ` (encontrado "${d[i]}")` : " (fim do texto)"}`, i);
+    if (!m) throw new PathError(`number expected at position ${i}${i < d.length ? ` (found "${d[i]}")` : " (end of text)"}`, i);
     i += m[0].length;
     const v = Number(m[0]);
-    if (!Number.isFinite(v) || Math.abs(v) > 1e7) throw new PathError(`número fora do intervalo na posição ${i}`, i);
+    if (!Number.isFinite(v) || Math.abs(v) > 1e7) throw new PathError(`number out of range at position ${i}`, i);
     return v;
   };
   const flag = (): boolean => {
     skip();
     const c = d[i];
-    if (c !== "0" && c !== "1") throw new PathError(`flag de arco (0 ou 1) esperada na posição ${i}`, i);
+    if (c !== "0" && c !== "1") throw new PathError(`arc flag (0 or 1) expected at position ${i}`, i);
     i++;
     return c === "1";
   };
@@ -63,19 +63,19 @@ export function parsePath(d: string): Segment[] {
   let cmd = "";
 
   skip();
-  if (i < d.length && !/[Mm]/.test(d[i]!)) throw new PathError(`o caminho deve começar com M (posição ${i})`, i);
+  if (i < d.length && !/[Mm]/.test(d[i]!)) throw new PathError(`the path must start with M (position ${i})`, i);
   while (true) {
     skip();
     if (i >= d.length) break;
     const c = d[i]!;
     if (/[A-Za-z]/.test(c)) {
-      if (ARITY[c.toUpperCase()] === undefined) throw new PathError(`comando desconhecido "${c}" na posição ${i}`, i);
+      if (ARITY[c.toUpperCase()] === undefined) throw new PathError(`unknown command "${c}" at position ${i}`, i);
       cmd = c;
       i++;
     } else if (!cmd) {
-      throw new PathError(`comando esperado na posição ${i}`, i);
+      throw new PathError(`command expected at position ${i}`, i);
     } else if (cmd === "Z" || cmd === "z") {
-      throw new PathError(`números após Z na posição ${i}`, i);
+      throw new PathError(`numbers after Z at position ${i}`, i);
     }
     const abs = cmd === cmd.toUpperCase();
     const up = cmd.toUpperCase();
@@ -138,9 +138,9 @@ export function parsePath(d: string): Segment[] {
     if (seg.cmd === "Z") cur = start;
     else cur = seg.to;
     segs.push(seg);
-    if (segs.length > MAX_SEGMENTS) throw new PathError(`caminho com mais de ${MAX_SEGMENTS} segmentos`, i);
+    if (segs.length > MAX_SEGMENTS) throw new PathError(`path with more than ${MAX_SEGMENTS} segments`, i);
   }
-  if (segs.length === 0) throw new PathError("caminho vazio", 0);
+  if (segs.length === 0) throw new PathError("empty path", 0);
   return segs;
 }
 

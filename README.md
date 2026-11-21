@@ -65,7 +65,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 
 | Tool | What it does |
 |---|---|
-| `get_design_guide` | Node model, accepted fields and recommended workflow |
+| `get_design_guide` | Node model, accepted fields and recommended workflow; `language: "pt-BR"` for the Brazilian Portuguese version |
 | `get_document_outline` | Compact tree + tokens + version |
 | `get_nodes` / `find_nodes` | Full node JSON / search by type, name, text |
 | `path_info` | Validates SVG path data and returns the exact bounds (bezier and arc extremes included) and the normalized `d` |
@@ -73,20 +73,31 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `update_nodes` / `move_nodes` / `delete_nodes` | Atomic batch edits |
 | `group_nodes` / `ungroup_nodes` | Wraps sibling nodes in a `group` (the drawing stays put) / puts them back |
 | `create_page` | Adds a page; the first one moves the current canvas into "Página 1" |
-| `apply_ops` | Mixed transaction (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page) |
-| `set_tokens` | Design tokens (`$name`) for colors and sizes |
-| `undo` / `redo` / `get_history` | History shared with the human |
+| `create_component` / `create_instance` / `detach_instance` | Marks a frame as a component / places a copy of it (with `scale` and `overrides`; returns the id of every copy) / turns an instance into plain nodes |
+| `apply_ops` | Mixed transaction (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
+| `set_tokens` | Design tokens (`$name`) for colors and sizes; with `mode`, the values of a theme mode (e.g. `dark`) that frames and pages pick with `mode` |
+| `undo` / `redo` / `get_history` | History shared with the human; every write tool takes `batch`, so several calls with the same batch become one undo step |
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
 | `render_screenshot` | PNG of a node, a page or the whole canvas |
-| `export_code` | Standalone HTML or a React (TSX) component |
+| `import_svg` / `import_html` | Turns pasted SVG (paths, shapes, groups, transforms) or HTML with inline styles into editable nodes; what can't be imported comes back in `warnings` |
+| `export_code` | Standalone HTML, a React (TSX) component or vector SVG (layout measured in headless Chromium); `cssVariables: true` writes tokens as `var(--name)` with one rule per theme mode |
 
-> The agent-facing guide and error messages are currently in Brazilian Portuguese.
+Agent layer:
+- The guide, tool descriptions, errors, warnings and lint messages are in English (the guide also in pt-BR, see above).
+- Tools that answer JSON declare an `outputSchema` and return `structuredContent`; the text block keeps the same JSON (for `get_nodes` and `get_history`, the plain array).
+- The history names the agent after its MCP `clientInfo.name` (`agent:claude-code`). Over HTTP the server is stateless, so `initialize` hands out an `Mcp-Session-Id` that only carries that name; without it, the User-Agent is used as before.
 
 ## Canvas
 
 Shortcuts: `V` select, `F` frame, `R` rectangle, `O` ellipse, `T` text, `P` pen (click = corner point, click and drag = bezier handles, click the first point to close, `Enter`/`Esc`/double-click to finish an open path, `Backspace` removes the last point), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicate, `Delete`, arrows (Shift = 10px), `Esc` selects the parent.
 Selection: `Shift`-click (canvas or layers) adds or removes a node, dragging on empty canvas draws a selection box, `Ctrl+A` selects the siblings (or the whole page), `Ctrl+G` groups the selection, `Ctrl+Shift+G` ungroups. A click inside a group selects the group; double-click selects the node under the cursor. Dragging, arrows, `Delete` and `Ctrl+D` act on the whole selection.
+
+Components: "Make component" in the inspector of a frame, then "New instance". A click inside an instance selects the instance; select a copy in the layers (or double-click it) to override its text, colors, opacity or visibility. Changes to the component reach every instance; "Detach" turns an instance into plain nodes.
+Theme modes: the inspector's document panel lists the tokens of each mode and adds one with `dark: bg = #14161f`; "Theme mode" on a frame or page applies a mode to everything inside it.
+Point editing: double-click a path to edit its points. Drag a point (its handles come along) or a handle (the opposite handle mirrors it; hold `Alt` to move it alone). Double-click a point to switch between corner and smooth, double-click the outline to add a point, `Delete` removes the selected point, `Esc` or `Enter` finish. Each gesture is one undo step. Quadratic curves and arcs become cubic curves once you edit them.
+Paste and export: `Ctrl+V` with SVG markup or HTML (e.g. copied from a web page) in the clipboard creates editable nodes inside the selected frame, or on the page at the center of the view. The `⇩` toolbar button downloads the selection (or the current page) as SVG.
 Pages: the "Páginas" panel on the left switches pages, `+` adds one (the first `+` turns the current canvas into "Página 1"), double-click renames, `×` deletes (undoable).
+Renaming: double-click a layer in the "Camadas" panel or a frame title on the canvas to rename it in place. `Enter` or clicking away confirms, `Esc` cancels; each rename is one undo step. Instance copies take their name from the component.
 Navigation: scroll = pan, `Ctrl`+scroll = zoom, hold `Space` (or `Enter`) and drag = pan (the cursor turns into a hand).
 Agent edits flash on the canvas and show up under "Atividade" (activity).
 
@@ -118,7 +129,7 @@ The WASM renderer is built by `pnpm build` when Rust is installed (`rustup targe
 }
 ```
 
-Types: `frame` (container with paint and free, row or column layout), `group` (wraps nodes without painting; its box follows the children), `page` (a separate canvas in the file; once a document has pages, every top-level node is a page and the frames live inside them), `rect`, `ellipse`, `text`, `image`, `path` (vector shape from SVG path data: lines, cubic and quadratic bezier curves, arcs; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin`, optional `viewBox` to scale an icon grid).
+Types: `frame` (container with paint and free, row or column layout), `group` (wraps nodes without painting; its box follows the children), `frame` with `component: true` (a component) or `instanceOf` (an instance: its children are generated copies of the component, scaled by `scale`, with `overrides`), `page` (a separate canvas in the file; once a document has pages, every top-level node is a page and the frames live inside them), `rect`, `ellipse`, `text`, `image`, `path` (vector shape from SVG path data: lines, cubic and quadratic bezier curves, arcs; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin`, optional `viewBox` to scale an icon grid).
 Sizes: a number, `"hug"` (fit content) or `"fill"` (take the parent's space). Details in [docs/architecture.md](docs/architecture.md). Planned work lives in [docs/backlog.md](docs/backlog.md).
 
 ## Layout

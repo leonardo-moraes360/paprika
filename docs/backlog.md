@@ -46,7 +46,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Configurable nudge step | Arrows 1px, Shift 10px | 🟡 | P3 |
 | Eyedropper (sample a color from the canvas) | — | ⬜ | P2 |
 | Duplicate by modifier-drag | `Ctrl+D` duplicate | 🟡 | P3 |
-| Hide UI (focus mode), rename shortcut, collapse layer tree | — | ⬜ | P3 |
+| Hide UI (focus mode), rename shortcut, collapse layer tree | Double-click a layer or a frame title on the canvas to rename it in place (`Enter` confirms, `Esc` cancels, undoable) (2026-11-21); layer tree collapses; no focus mode | 🟡 | P3 |
 
 ## C. Styling
 
@@ -76,9 +76,9 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
 | Global tokens (`$name`) for colors and sizes, set by agents | `set_tokens` | ✅ | — |
-| Theme modes (light/dark/compact) and token collections | Global namespace, prefixed by hand (fb#4) | ⬜ | P1 |
-| Frame-scoped token overrides | — (fb#4) | ⬜ | P1 |
-| Tokens exported as CSS variables in HTML/React export | Values are inlined | ⬜ | P1 |
+| Theme modes (light/dark/compact) and token collections | `document.modes` + `set_tokens` with `mode`, inspector (2026-11-21); no named collections yet | 🟡 | P2 |
+| Frame-scoped token overrides | `mode` on a frame or page applies a mode to its subtree (2026-11-21) | ✅ | — |
+| Tokens exported as CSS variables in HTML/React export | `export_code` `cssVariables` (2026-11-21): `:root` plus `[data-paprika-mode]` rules; React exports `tokensCss` | ✅ | — |
 | Typed tokens (color, radius, spacing, font…) with validation | Untyped string/number | 🟡 | P2 |
 | Detach a token from a node | Manual edit | 🟡 | P2 |
 | Generate tokens from an existing codebase via MCP | — | ⬜ | P2 |
@@ -91,8 +91,8 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 |---|---|---|---|
 | Vector node from SVG path data (lines, bezier, arcs) | `path` node, `path_info` | ✅ | — |
 | Pen tool to create paths | `P`, bezier handles, close on first point | ✅ | — |
-| Edit points and handles of an existing path | Edit `d` in the inspector (fb#17) | 🟡 | P1 |
-| Import/paste SVG as editable `path` layers | — | ⬜ | P1 |
+| Edit points and handles of an existing path | Double-click a path: drag points and handles, add, remove, corner/smooth (2026-11-21); `d` in the inspector | ✅ | — |
+| Import/paste SVG as editable `path` layers | `import_svg`, `Ctrl+V` in the canvas (2026-11-21): paths, shapes (axis-aligned rect/ellipse stay native), groups, transforms, inherited paint; no text, images, gradients or `<style>` CSS | ✅ | — |
 | Boolean operations (union, subtract, intersect, exclude) | — (fb#1) | ⬜ | P2 |
 | Convert rect/ellipse to path | — | ⬜ | P2 |
 | Snapping and guides for points, half-pixel snapping | — | ⬜ | P3 |
@@ -102,8 +102,8 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
-| Paste HTML with inline styles as nodes (inverse of `nodeStyle`) | — | ⬜ | P1 |
-| Paste SVG | — (see F) | ⬜ | P1 |
+| Paste HTML with inline styles as nodes (inverse of `nodeStyle`) | `import_html`, `Ctrl+V` (2026-11-21): Paprika's own HTML comes back the same; other HTML is approximated (flex → row/column, blocks → column); classes and stylesheets are not applied | ✅ | — |
+| Paste SVG | `Ctrl+V` with SVG markup (see F) | ✅ | — |
 | Paste or drop images (stored as data URI or local asset) | `image` node via MCP only | 🟡 | P2 |
 | Capture an element from any web page into nodes (browser extension) | — | ⬜ | P3 |
 | Import from other design tools' clipboards | — | ⬜ | Out |
@@ -112,7 +112,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
-| Components and instances with overrides and `scale` | — (fb#3) | ⬜ | P1 |
+| Components and instances with overrides and `scale` | `component`/`instanceOf`/`scale`/`overrides` on frames, `create_component`, `create_instance`, `detach_instance` (2026-11-21); no nested instances yet | ✅ | — |
 | Component props and slots | — | ⬜ | P2 |
 | Code components (render real components from the user's repo) | — | ⬜ | P3 |
 | Icon packs / UI kit starters | — | ⬜ | P3 |
@@ -121,12 +121,12 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
-| Embedded MCP server (stdio + HTTP), read and write, CLI | `paprika serve`/`mcp`, 20 tools | ✅ | — |
+| Embedded MCP server (stdio + HTTP), read and write, CLI | `paprika serve`/`mcp`, 23 tools | ✅ | — |
 | Token-efficient reads | `get_document_outline` | ✅ | — |
-| Structured results (`outputSchema` + `structuredContent`) | JSON as text (fb#7) | ⬜ | P1 |
-| Guide and errors in English (pt-BR optional) | pt-BR (fb#12) | ⬜ | P1 |
-| Group several writes into one undo step | One entry per call (fb#11) | ⬜ | P1 |
-| Actor name from MCP `clientInfo` | From User-Agent (fb#10) | 🟡 | P1 |
+| Structured results (`outputSchema` + `structuredContent`) | Every JSON tool declares `outputSchema` and returns `structuredContent` (2026-11-21) | ✅ | — |
+| Guide and errors in English (pt-BR optional) | Guide, tool descriptions, errors, warnings and lint in English; `get_design_guide {language: "pt-BR"}` (2026-11-21). The canvas UI is still pt-BR | ✅ | — |
+| Group several writes into one undo step | `batch` on every write tool (2026-11-21) | ✅ | — |
+| Actor name from MCP `clientInfo` | `agent:<clientInfo.name>` on stdio and HTTP (session id carries the name) (2026-11-21) | ✅ | — |
 | Agent presence on the canvas (cursor, what it is editing) | Flash + activity list | 🟡 | P2 |
 | Comments for humans and agents (create, resolve, filter) | `notes` field only | 🟡 | P2 |
 | Manage files via MCP (list, create, open, rename, archive), several files at once | One file per process | ⬜ | P2 |
@@ -140,7 +140,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
 | Standalone HTML, React (inline styles), PNG | `export_code`, `render_screenshot` | ✅ | — |
-| SVG export (frame or selection) | — | ⬜ | P1 |
+| SVG export (frame or selection) | `export_code` format `svg`, `⇩` in the toolbar, `GET /api/svg` (2026-11-21): layout and text lines measured in headless Chromium; gradients and background images are left out | ✅ | — |
 | Tailwind classes export | — | ⬜ | P2 |
 | WebP/AVIF, PDF (single or combined frames) | — | ⬜ | P2 |
 | React + CSS module / CSS variables | — (see E) | ⬜ | P2 |

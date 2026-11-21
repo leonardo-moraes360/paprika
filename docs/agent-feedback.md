@@ -14,15 +14,15 @@ Task: an agent drew 5 flat paprika icons with increasing complexity (3 → ~20 s
 | 1 | Organic shapes (a pepper silhouette) | Only `rect`/`ellipse` exist; the pepper had to be built from overlapping, rotated ellipses | Add a `path` node (SVG `d`, fill/stroke) and boolean union of children (`path` with bezier curves done on 2026-11-21, see below; boolean union still open) | P1 |
 | 2 | Put a stem on the tip of a rotated pod | Rotation pivots on the box center, so the agent had to do trigonometry; the calyx was misplaced twice and only caught by screenshot | `get_bounds` tool returning the rotated geometry (corners, tips), and an `origin` (transform-origin) field | P1 |
 | 3 | Same icon at 4 sizes | No components/instances or scale: the script regenerated every shape with a scale factor (4× the nodes, edits don't propagate) | Components + instances with `scale`; `duplicate_nodes` with scale | P1 |
-| 4 | 5 themes side by side | Tokens are global, so they had to be namespaced by hand (`p1.brand` … `p5.brand`) and rewritten in every node | Token collections/modes and frame-scoped token overrides (`tokens` on a frame) | P2 |
+| 4 | 5 themes side by side | Tokens are global, so they had to be namespaced by hand (`p1.brand` … `p5.brand`) and rewritten in every node | Done (2026-11-21, see #45): theme modes (`set_tokens` with `mode`) and `mode` on a frame or page; named collections are still open | — |
 | 5 | Check the result visually on the user's machine | `render_screenshot` failed: Playwright 1.63 needs Chromium build 1243, only 1228 was installed | Detect a missing browser at startup, return the exact fix command in the error, and fall back to rendering through an open canvas tab | P1 |
 | 6 | Catch visual mistakes without a screenshot | `lint_design` passed while the calyx floated off the pod | Geometry lint: children that don't touch any sibling, near-misses (< 4px gaps), shapes fully hidden behind others | P2 |
-| 7 | Read structured results | Tools return JSON as text; the agent has to parse strings | Declare `outputSchema` and return `structuredContent` | P2 |
+| 7 | Read structured results | Tools return JSON as text; the agent has to parse strings | Done (2026-11-21, see #48): `outputSchema` + `structuredContent` on every JSON tool | — |
 | 8 | Layout wrappers that don't clip | Every wrapper frame needed `clip: false` and `fill: "transparent"` | A `group` node, or `clip: false` by default when a frame has auto layout | P3 |
 | 9 | Quiet lint | 21 `raw-color` infos for intentional literals (white handles, black text on buttons) | Per-node `lintIgnore: ["raw-color"]` and a `minSeverity` parameter | P3 |
-| 10 | See who did what | The actor name comes from the HTTP User-Agent (`node`, `brand-agent`), not from the MCP client | Use MCP `clientInfo.name` as the actor | P3 |
-| 11 | One undo step for "draw proposal 3" | 7 history entries for one script run (rename, tokens, 5 creates) | `begin_transaction`/`commit` or a `group` label to merge entries | P3 |
-| 12 | Agent-facing language | Guide and errors are in Brazilian Portuguese; English prompts mix languages | Ship the guide and errors in English, keep pt-BR as an option | P2 |
+| 10 | See who did what | The actor name comes from the HTTP User-Agent (`node`, `brand-agent`), not from the MCP client | Done (2026-11-21, see #48): `agent:<clientInfo.name>`, also over HTTP | — |
+| 11 | One undo step for "draw proposal 3" | 7 history entries for one script run (rename, tokens, 5 creates) | Done (2026-11-21, see #48): `batch` on every write tool | — |
+| 12 | Agent-facing language | Guide and errors are in Brazilian Portuguese; English prompts mix languages | Done (2026-11-21, see #48): guide, descriptions and errors in English; `get_design_guide {language: "pt-BR"}` | — |
 | 13 | Several boards | Everything shares one canvas; proposals had to be stacked by hand with fixed `y` offsets | Pages, plus `layout` on the canvas root (auto-stack top-level frames) | P3 |
 | 14 | Watch the agent draw after the server switched files | The open canvas tab reconnected to the new document but kept the old zoom/pan, so the new boards could be off-screen (fixed: the canvas now refits when the document id changes) | Done in this change | — |
 
@@ -34,7 +34,7 @@ Task: add bezier curves so agents and humans can draw organic shapes, then redra
 |---|--------|---------------|----------|------|
 | 15 | A node box that matches the drawing | Without `width`/`height` the box runs from the node origin to the far edge of the curve, so a `d` that starts at (40,30) leaves empty space at the top left, and overflow lint measures that box | `normalize: true` on create (move the drawing to 0,0 and shift `x`/`y`), or report the gap in `path_info` | P2 |
 | 16 | Layer several paths as one shape (body, shadow, highlight, calyx) | Each part repeats the same `x`/`y`; moving the pepper means moving 5 nodes | `group` node (see #8) or a `paths: []` list on one node | P2 |
-| 17 | Edit one control point | Changing a curve means rewriting the whole `d` string | `update_path_points` (move anchor/handle by index), and handle editing on the canvas | P3 |
+| 17 | Edit one control point | Changing a curve means rewriting the whole `d` string | Canvas part done (2026-11-21, see #43); `update_path_points` (move anchor/handle by index) for agents is still open | P3 |
 | 18 | Know the drawn size before placing a part | `path_info` with `canvasBounds` answered it in one call; it also caught a typo (`d inválido: número esperado na posição 12`) | Keep: return position-accurate parse errors for every string field | — |
 
 ## 2026-11-21: Go server with SQLite (`server-go/`)
@@ -89,6 +89,56 @@ Task: add `group` and `page` nodes to the core (TS and Go), the MCP tools `group
 | 34 | Group or ungroup from a client that may be behind | The canvas first expanded `group`/`ungroup` into primitive ops on its own copy of the document; when an agent wrote in between, ungroup used a stale group position and children jumped | Done: `group`, `ungroup` and `add_page` are real ops, expanded inside `applyOps` against the current document, so every client and agent sends intent, not coordinates | — |
 | 35 | Know the size of a group | A group's box is derived from its children at the end of each transaction, so writing `width`/`height` on it is rejected with a message that says why | Keep the rule; `describe_node` already shows the fitted box | — |
 | 36 | Put content on a page in one call | Once a document has pages, every top-level node must be a page; the check runs at the end of the transaction, so `create_page` + `create_nodes` with `parentId` works, but a loose top-level node fails with a message naming it | A `pageId` default on `create_nodes` (the page the human is looking at) would save agents a lookup | P3 |
+
+## 2026-11-21: components and instances (backlog slice 1, item 2)
+
+Task: components (`component: true`) and instances (`instanceOf`, `scale`, `overrides`) in the core (TS and Go), the MCP tools `create_component`, `create_instance` and `detach_instance`, and inspector panels for instances and copies. Addresses #3.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 37 | Override a copy without knowing its generated id | Copy ids are derived (instance + source id), so an agent can't guess them | Done: `create_instance` returns `copies` (source id → copy id), and `overrides` can be written on the instance by source id | — |
+| 38 | Scale an icon set | The same icon at 4 sizes is now 1 component + 4 instances with `scale`; a token `fontSize` is not scaled | Typed tokens (backlog E) would let `scale` multiply size tokens too | P3 |
+| 39 | Put a button instance inside a card component | Instances inside components are rejected for now, so nested design systems need detach or flat components | Nested instances, with overrides addressed by path (`instance/copy`) | P2 |
+
+## 2026-11-21: paste SVG/HTML and export SVG (backlog slice 1, item 3)
+
+Task: `importSVG`, `importHTML` and `exportSVG` in the core (TS and Go), the MCP tools `import_svg` and `import_html`, `export_code` format `svg`, `GET /api/svg`, and paste plus an export button in the canvas.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 40 | Bring an icon from an SVG set | Before, an agent had to translate each `<rect>`/`<circle>`/arc by hand into `d`; `import_svg` now does it in one call and says what it dropped in `warnings` | Support `<use>`/`<symbol>` sprites and `<text>` (as `text` nodes), which icon sets and logos often use | P2 |
+| 41 | Export SVG of a node with auto layout without a browser | The core can't place `hug`/`fill`/row/column children by itself, so `exportSVG` without a measure fails with a message that points to `export_code` | A core `layout(doc)` (#26) would let the core export everything and give agents boxes too | P2 |
+| 42 | Reuse a component from a live web page | `import_html` reads inline `style=""` only; HTML copied from most sites relies on classes, so the result is plain | An option that renders the HTML in the server's Chromium and imports computed styles | P2 |
+
+## 2026-11-21: point-by-point path editing (backlog slice 1, item 4)
+
+Task: core helpers that turn `d` into anchors with handles and back (`pathToSubpaths`, `moveAnchor`, `moveHandle`, `insertAnchor`, `removeAnchor`, `toggleSmooth`, `pathEditProps`), and a point-editing mode in the canvas.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 43 | Nudge one point of a path an agent drew | The human can now drag it on the canvas; an agent still rewrites `d`, and after a human edit the `d` it reads back has new numbers (quadratics and arcs become cubics, the box is renormalized) | An MCP tool over the same helpers (`edit_path` with anchor index and new position), plus anchors in `path_info`, so agent and human address points the same way | P2 |
+| 44 | Edit a path inside an auto-layout frame | The node's position comes from the layout, so when an edit moves the top-left of the drawing the box grows in place and the shape shifts by that amount | Keep, or adopt "ignore layout" children (backlog A) and place edited paths absolutely | P3 |
+
+## 2026-11-21: theme modes and tokens as CSS variables (backlog slice 1, item 5)
+
+Task: `document.modes` and `mode` on frames and pages in the core (TS and Go), `set_tokens` with `mode`, `export_code` with `cssVariables`, a theme section in the inspector, the `unknown-mode` lint rule. Addresses #4.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 45 | Show the same screen light and dark | Before, an agent duplicated the frame and rewrote every color; now it writes the dark values once (`set_tokens` with `mode`) and sets `mode` on a copy | A `duplicate_nodes` tool that takes overrides (`mode` here) would make the side-by-side one call | P2 |
+| 46 | Know which value a node really gets | `get_nodes` shows `$fg`; the value depends on the nearest `mode` above. The outline prints `mode=` on frames and the modes with their tokens | A `resolve` flag on `get_nodes` that adds the resolved paint per node | P3 |
+| 47 | Use a token only one mode defines | It resolves inside that mode and is an `unknown-token` error elsewhere; in a CSS-variables export it becomes `var(--x)` with no base value | Keep the error; agents should set a base value too | — |
+
+## 2026-11-21: agent layer (backlog slice 1, item 6)
+
+Task: `outputSchema` + `structuredContent` on the JSON tools, `batch` on every write tool (one undo step), the actor from `clientInfo` (stdio and stateless HTTP), and the guide, tool descriptions, errors, warnings and lint messages in English, with the pt-BR guide on request. Addresses #7, #10, #11 and #12.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 48 | Read results without parsing text | `structuredContent` now matches each tool's `outputSchema`; `get_nodes` and `get_history` keep the plain array as text and wrap it (`{ nodes }`, `{ entries }`) in `structuredContent`, because MCP requires an object there | In the next breaking change, make the text the same object | P3 |
+| 49 | One undo step for a long script | `batch` merges consecutive writes of the same agent; any human edit or undo in between closes it, and the next call starts a second entry | Show an open batch in the canvas activity list, so the human knows an edit will split it | P3 |
+| 50 | Same actor name after a server restart | Over HTTP the name lives in an in-memory map keyed by `Mcp-Session-Id`; after a restart the client keeps its old session id and the actor falls back to the User-Agent until it initializes again | Accept unknown session ids with a 404, as the spec suggests, so clients re-initialize | P3 |
+| 51 | One language in the activity list | Default history labels from the tools are now English (`create 1 node(s)`) while the canvas's own labels and UI stay in pt-BR | Translate the canvas UI or localize both by a setting | P3 |
 
 ## What worked well
 

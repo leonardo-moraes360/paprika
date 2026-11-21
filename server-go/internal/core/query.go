@@ -37,6 +37,9 @@ func DescribeNode(n *Node) string {
 		if fill, ok := n.Get("fill"); ok {
 			parts = append(parts, "fill="+jsString(fill))
 		}
+		if m := n.Str("mode"); m != "" {
+			parts = append(parts, "mode="+m)
+		}
 		return strings.Join(parts, " ")
 	}
 	w, _ := n.Get("width")
@@ -49,6 +52,24 @@ func DescribeNode(n *Node) string {
 		if l := n.Obj("layout"); l != nil && l.Str("mode") != "none" {
 			parts = append(parts, l.Str("mode")+" gap="+jsString(l.Num("gap")))
 		}
+		if m := n.Str("mode"); m != "" {
+			parts = append(parts, "mode="+m)
+		}
+		if n.Bool("component") {
+			parts = append(parts, "component")
+		}
+		if IsInstance(n) {
+			parts = append(parts, "instanceOf="+n.Str("instanceOf"))
+			if sc, ok := n.Get("scale"); ok && sc != 1.0 {
+				parts = append(parts, "scale="+jsString(sc))
+			}
+			if ov := n.Obj("overrides"); ov != nil {
+				parts = append(parts, "overrides="+jsString(float64(ov.Len())))
+			}
+		}
+	}
+	if src, ok := n.Get("sourceId"); ok {
+		parts = append(parts, "from="+jsString(src))
 	}
 	if typ == "text" {
 		fs, _ := n.Get("fontSize")
@@ -111,7 +132,7 @@ func Outline(doc *Document, rootID string, depth int) string {
 		walk(r, 0)
 	}
 	if len(lines) == 0 {
-		return "(documento vazio)"
+		return "(empty document)"
 	}
 	return strings.Join(lines, "\n")
 }

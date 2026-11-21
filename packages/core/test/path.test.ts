@@ -31,11 +31,11 @@ describe("path: parser", () => {
   });
 
   it("erros apontam a posição", () => {
-    expect(pathError("L 0 0")).toMatch(/começar com M/);
-    expect(pathError("M0 0 C 1 2 3")).toMatch(/número esperado na posição 12/);
-    expect(pathError("M0 0 X 1")).toMatch(/comando desconhecido "X"/);
-    expect(pathError("M0 0 Z 4")).toMatch(/números após Z/);
-    expect(pathError("M0 0 A 1 1 0 2 0 3 3")).toMatch(/flag de arco/);
+    expect(pathError("L 0 0")).toMatch(/start with M/);
+    expect(pathError("M0 0 C 1 2 3")).toMatch(/number expected at position 12/);
+    expect(pathError("M0 0 X 1")).toMatch(/unknown command "X"/);
+    expect(pathError("M0 0 Z 4")).toMatch(/numbers after Z/);
+    expect(pathError("M0 0 A 1 1 0 2 0 3 3")).toMatch(/arc flag/);
     expect(pathError("M0 0 L 1 1 url(#x)")).not.toBeNull();
     expect(pathError("M0 0 C 0 -10 10 -10 10 0")).toBeNull();
   });
@@ -111,7 +111,7 @@ describe("path: nó no documento", () => {
         { op: "create", node: { type: "rect", id: "ok" } },
         { op: "create", node: { type: "path", id: "bad", d: "M0 0 Q 1" } },
       ]),
-    ).toThrow(/d inválido/);
+    ).toThrow(/invalid d/);
     expect(base.nodes.ok).toBeUndefined();
     const { doc } = applyOps(base, [{ op: "create", node: { type: "path", id: "ghost", d: "M0 0 L 5 5" } }]);
     expect(lintDocument(doc).map((i) => i.rule)).toContain("invisible-path");

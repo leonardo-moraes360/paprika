@@ -16,6 +16,7 @@ import (
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
+	"github.com/leonardo-moraes360/paprika/server-go/contract"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
 )
 
@@ -78,7 +79,7 @@ func (c *Chrome) ensure() (context.Context, error) {
 	}
 	path := FindChromium()
 	if path == "" {
-		return nil, errors.New("screenshot indisponível: Chromium não encontrado. Instale com 'npx playwright install chromium' ou defina PAPRIKA_CHROMIUM")
+		return nil, errors.New("screenshot unavailable: Chromium not found. Install it with 'npx playwright install chromium' or set PAPRIKA_CHROMIUM")
 	}
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.ExecPath(path),
@@ -95,7 +96,7 @@ func (c *Chrome) ensure() (context.Context, error) {
 	if err := chromedp.Do(browser); err != nil {
 		stop()
 		allocStop()
-		return nil, fmt.Errorf("screenshot indisponível: falha ao iniciar %s: %w", path, err)
+		return nil, fmt.Errorf("screenshot unavailable: failed to start %s: %w", path, err)
 	}
 	c.allocStop, c.browser, c.stop = allocStop, browser, stop
 	return browser, nil
@@ -137,12 +138,69 @@ func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID stri
 	}()
 	var png []byte
 	err = chromedp.Do(tab,
+		loadHTML(html, width, height, scale, rootID != ""),
+		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
+			fromSurface := true
+			r, err := cdp.Call(ctx, t, page.CaptureScreenshot, page.CaptureScreenshotParams{Format: page.CaptureScreenshotFormatPng, FromSurface: &fromSurface})
+			png = r.Data
+			return err
+		}),
+	)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("screenshot falhou: %w", err)
+	}
+	return png, int(math.Round(width * scale)), int(math.Round(height * scale)), nil
+}
+
+// ExportSVG renders the export HTML, measures boxes and text lines (contract.Measure, the same
+// script as the TypeScript server) and builds the SVG in core.
+func (c *Chrome) ExportSVG(ctx context.Context, doc *core.Document, rootID string) (core.SVGResult, error) {
+	bg := ""
+	if rootID != "" {
+		if n := core.GetNode(doc, rootID); n == nil || n.Str("type") != "page" {
+			bg = "transparent"
+		}
+	}
+	html, bounds, err := core.RenderHTML(doc, core.RenderOptions{RootID: rootID, Background: bg})
+	if err != nil {
+		return core.SVGResult{}, err
+	}
+	width := math.Max(1, math.Ceil(bounds.Width))
+	height := math.Max(1, math.Ceil(bounds.Height))
+	browser, err := c.ensure()
+	if err != nil {
+		return core.SVGResult{}, err
+	}
+	tab, cancel := chromedp.NewContext(browser)
+	defer cancel()
+	tab, cancelTimeout := context.WithTimeout(tab, 15*time.Second)
+	defer cancelTimeout()
+	go func() {
+		select {
+		case <-ctx.Done():
+			cancelTimeout()
+		case <-tab.Done():
+		}
+	}()
+	if err = chromedp.Do(tab, loadHTML(html, width, height, 1, false)); err != nil {
+		return core.SVGResult{}, fmt.Errorf("export SVG falhou: %w", err)
+	}
+	m, err := chromedp.Run(tab, chromedp.Evaluate[core.Measure](contract.Measure))
+	if err != nil {
+		return core.SVGResult{}, fmt.Errorf("export SVG falhou: %w", err)
+	}
+	return core.ExportSVG(doc, rootID, &m)
+}
+
+// loadHTML sizes the viewport, puts the HTML in the tab and waits for its images and fonts.
+func loadHTML(html string, width, height, scale float64, transparent bool) chromedp.Action[chromedp.Void] {
+	return chromedp.Steps(
 		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
 			_, err := cdp.Call(ctx, t, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{Width: int64(width), Height: int64(height), DeviceScaleFactor: scale})
 			return err
 		}),
 		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
-			if rootID == "" {
+			if !transparent {
 				return nil
 			}
 			_, err := cdp.Call(ctx, t, emulation.SetDefaultBackgroundColorOverride, emulation.SetDefaultBackgroundColorOverrideParams{Color: &cdp.RGBA{R: 0, G: 0, B: 0, A: 0}})
@@ -159,17 +217,7 @@ func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID stri
 		}),
 		// Same as Playwright's waitUntil "load": images (http(s) and data:) finish loading.
 		chromedp.Evaluate[chromedp.Void](`Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => document.fonts ? document.fonts.ready.then(() => 1) : 1)`, chromedp.EvalAwaitPromise),
-		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
-			fromSurface := true
-			r, err := cdp.Call(ctx, t, page.CaptureScreenshot, page.CaptureScreenshotParams{Format: page.CaptureScreenshotFormatPng, FromSurface: &fromSurface})
-			png = r.Data
-			return err
-		}),
 	)
-	if err != nil {
-		return nil, 0, 0, fmt.Errorf("screenshot falhou: %w", err)
-	}
-	return png, int(math.Round(width * scale)), int(math.Round(height * scale)), nil
 }
 
 // Close stops the browser.
