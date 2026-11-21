@@ -57,7 +57,9 @@ func ResolveValue(doc *Document, v any, mode string) any {
 }
 
 // CSSVarName is the CSS custom property of a token (`brand.dark` → `--brand\.dark`).
-func CSSVarName(token string) string { return "--" + strings.ReplaceAll(token, ".", `\.`) }
+func CSSVarName(token string) string {
+	return "--" + strings.NewReplacer(`\`, `\\`, ".", `\.`).Replace(token)
+}
 
 func isKnownToken(doc *Document, name string) bool {
 	if Tokens(doc).Has(name) {

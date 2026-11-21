@@ -136,6 +136,7 @@ const opCases = [
   ["comp", [{ op: "update", id: "i1", props: { overrides: { "a b": {}, lbl: { text: "ok" } } } }]],
   ["comp", [{ op: "create", node: { type: "frame", id: "py", instanceOf: "btn", overrides: JSON.parse('{"__proto__":{"text":"x"},"lbl":{"text":"ok","__proto__":2}}') } }]],
   ["card", [{ op: "set_tokens", tokens: JSON.parse('{"__proto__":"#fff","ok":1}') }]],
+  ["themed", [{ op: "set_tokens", mode: "__proto__", tokens: { fg: "#123" } }]],
   ["empty", [R({})]],
   ["empty", [R({ width: "big" })]],
   ["empty", [R({ width: -1 })]],

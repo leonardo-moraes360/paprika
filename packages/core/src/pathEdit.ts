@@ -127,10 +127,15 @@ const clone = (subs: Subpath[]): Subpath[] =>
     anchors: s.anchors.map((a) => ({ ...a, ...(a.in && { in: { ...a.in } }), ...(a.out && { out: { ...a.out } }) })),
   }));
 
+/** The subpath of `ref`, only for integer positions (a caller's "__proto__" never reaches an object). */
+function subOf(subs: Subpath[], ref: AnchorRef): Subpath | undefined {
+  return Number.isInteger(ref.sub) && Number.isInteger(ref.index) && ref.sub >= 0 && ref.index >= 0 ? subs[ref.sub] : undefined;
+}
+
 /** Move uma âncora e as alças dela juntas. */
 export function moveAnchor(subs: Subpath[], ref: AnchorRef, to: Point): Subpath[] {
   const out = clone(subs);
-  const a = out[ref.sub]?.anchors[ref.index];
+  const a = subOf(out, ref)?.anchors[ref.index];
   if (!a) return out;
   const dx = to.x - a.x;
   const dy = to.y - a.y;
@@ -147,8 +152,8 @@ export function moveAnchor(subs: Subpath[], ref: AnchorRef, to: Point): Subpath[
  */
 export function moveHandle(subs: Subpath[], ref: AnchorRef, side: "in" | "out", to: Point, mirror = false): Subpath[] {
   const out = clone(subs);
-  const a = out[ref.sub]?.anchors[ref.index];
-  if (!a) return out;
+  const a = subOf(out, ref)?.anchors[ref.index];
+  if (!a || (side !== "in" && side !== "out")) return out;
   a[side] = { x: to.x, y: to.y };
   const other = side === "in" ? "out" : "in";
   const o = a[other];
@@ -165,7 +170,7 @@ export function moveHandle(subs: Subpath[], ref: AnchorRef, side: "in" | "out", 
 /** Remove uma âncora; um subcaminho sem âncoras some. */
 export function removeAnchor(subs: Subpath[], ref: AnchorRef): Subpath[] {
   const out = clone(subs);
-  const s = out[ref.sub];
+  const s = subOf(out, ref);
   if (!s || !s.anchors[ref.index]) return out;
   s.anchors.splice(ref.index, 1);
   if (s.anchors.length < 2) s.closed = false;
@@ -178,7 +183,7 @@ export function removeAnchor(subs: Subpath[], ref: AnchorRef): Subpath[] {
  */
 export function toggleSmooth(subs: Subpath[], ref: AnchorRef): Subpath[] {
   const out = clone(subs);
-  const s = out[ref.sub];
+  const s = subOf(out, ref);
   const a = s?.anchors[ref.index];
   if (!s || !a) return out;
   if (a.in || a.out) {
@@ -261,7 +266,7 @@ export function nearestOnPath(subs: Subpath[], p: Point): { ref: AnchorRef; t: n
  */
 export function insertAnchor(subs: Subpath[], ref: AnchorRef, t: number): { subs: Subpath[]; ref: AnchorRef } {
   const out = clone(subs);
-  const s = out[ref.sub];
+  const s = subOf(out, ref);
   const seg = s && segmentPoints(s, ref.index);
   if (!s || !seg) return { subs: out, ref };
   const a = s.anchors[ref.index]!;

@@ -376,6 +376,7 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       const prev: Record<string, string | number | null> = {};
       const target = op.mode ? ((doc.modes ??= {})[op.mode] ??= {}) : doc.tokens;
       for (const [k, v] of Object.entries(op.tokens)) {
+        if (k === "__proto__") continue; // rejected by TokenName; never written to a plain object
         prev[k] = target[k] ?? null;
         if (v === null) delete target[k];
         else target[k] = v;
