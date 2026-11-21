@@ -22,6 +22,7 @@ Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workfl
 | **Go test** (shard n/2) | `go test -shuffle=on` on the affected packages, split in 2 shards. | `server-go` |
 | **Rust lint / test** | `cargo fmt --check`, clippy (native and `wasm32-unknown-unknown`, `-D warnings`), `cargo test`. | `crates/render` |
 | **CodeQL** `<language>` | `security-and-quality` queries for `actions`, `javascript-typescript`, `go`, `rust`; results go to the PR's code scanning. | the language's files |
+| **Docker image** | Builds the `Dockerfile` (default `runtime` target, then `slim`) with the runner's own Docker, and runs [`docker-smoke.sh`](../.github/scripts/docker-smoke.sh) against each: canvas and WASM asset, foreign `Host` refused, MCP over `/mcp` (with `render_screenshot` on `runtime`), database kept across a restart. No layer cache yet. See [docker.md](docker.md). | `Dockerfile`, `.dockerignore`, `compose.yaml`, core, web, `crates/render`, `server-go` |
 | **Secret leak scan** | [gitleaks](https://github.com/gitleaks/gitleaks) over the whole git history (checksum-pinned release, findings redacted in the log, SARIF report as an artifact on failure). | always |
 | **CI OK** | Fails if any job failed or was cancelled. **This is the one check to require** in branch protection: it is green when the jobs that ran passed and the ones skipped were skipped by the plan. | always |
 
@@ -115,7 +116,7 @@ GitHub's own **secret scanning** and **push protection** (free on public reposit
 
 ## Dependabot
 
-Weekly (Monday) version updates for npm (pnpm workspace), Go modules (`server-go`), Cargo (`crates/render`) and GitHub Actions, with minor and patch bumps grouped per ecosystem. `wasm-bindgen` is excluded because it is pinned with `=` to match `wasm-bindgen-cli` in `crates/render/build.mjs` and `setup-rust-wasm`. Dependabot PRs go through the same CI.
+Weekly (Monday) version updates for npm (pnpm workspace), Go modules (`server-go`), Cargo (`crates/render`), the `Dockerfile` base images and GitHub Actions, with minor and patch bumps grouped per ecosystem. `wasm-bindgen` is excluded because it is pinned with `=` to match `wasm-bindgen-cli` in `crates/render/build.mjs` and `setup-rust-wasm`. Dependabot PRs go through the same CI.
 
 Security updates (PRs for vulnerable dependencies outside the schedule) are a repository setting: **Settings → Code security → Dependabot security updates**.
 
