@@ -2,15 +2,15 @@
 
 # Paprika server in Go
 
-A Go implementation of the Paprika server with the same contract as the TypeScript one (`packages/server`): the same 25 MCP tools (stdio and Streamable HTTP at `/mcp`), the same operations and shared undo/redo, the same WebSocket protocol for the canvas (`/ws`), the same HTTP API and the same lint, export and screenshot. Data lives in **SQLite**; `.paprika.json` files go in and out with `import` and `export`. Why and how: [ADR 0001](../docs/adr/0001-go-server-sqlite.md).
+The Paprika server: 29 MCP tools (stdio and Streamable HTTP at `/mcp`), atomic operations with shared undo/redo, the WebSocket protocol of the canvas (`/ws`), the HTTP API, and lint, export and screenshot. Data lives in **SQLite**; `.paprika.json` files go in and out with `import` and `export`. It started as a port of the former TypeScript server, removed once the Go one covered everything. Why and how: [ADR 0001](../docs/adr/0001-go-server-sqlite.md).
 
 ## Build and run
 
-Requirements: Go 1.26+ (the `go` command downloads the toolchain if needed). Chromium is only needed for screenshots.
+Requirements: Go 1.26+ (the `go` command downloads the toolchain if needed). Chromium is only needed for screenshots and SVG export: the server uses `$PAPRIKA_CHROMIUM`, then Playwright's browsers (`$PLAYWRIGHT_BROWSERS_PATH` or `~/.cache/ms-playwright`), then `chromium`/`google-chrome` on `PATH`.
 
 ```bash
-pnpm install && pnpm build            # builds the canvas (apps/web/dist) that the Go server serves
-pnpm go:build                         # → server-go/bin/paprika
+pnpm install && pnpm build            # builds the canvas (apps/web/dist) and the server (pnpm go:build)
+                                      # → server-go/bin/paprika
 
 B=server-go/bin/paprika
 $B import examples/demo.paprika.json --db design.db   # prints the document id
@@ -19,7 +19,7 @@ $B serve --db design.db
 $B export --db design.db -o design.paprika.json       # back to a file, e.g. to commit it
 ```
 
-Connect an agent exactly as with the TypeScript server:
+Connect an agent over HTTP:
 
 ```bash
 claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
@@ -58,37 +58,38 @@ Every change (document + history) is one SQLite transaction, committed before th
 
 ```
 cmd/paprika        CLI
-contract/          MCP contract dumped from the TypeScript server (tools/list, instructions), embedded
+contract/          MCP contract served verbatim (tool definitions, instructions, pt-BR guide) + measure script of @paprika/core
 internal/jsonv     JSON values with JavaScript semantics (key order, number formatting, JSON.stringify)
 internal/zod       the subset of zod v4 used by the core, with the same messages
 internal/core      port of @paprika/core: schema, applyOps, History, nodeStyle, render/export, lint, outline, path
 internal/server    SQLite store, MCP (JSON-RPC over stdio and HTTP), HTTP API, WebSocket, screenshot (chromedp)
-scripts/           fixture and contract generators (run with Node against the TypeScript build)
+scripts/           fixture and measure-script generators (run with Node against the @paprika/core build)
 ```
 
-## Parity with the TypeScript server
+## Tests and the reference core
 
-The TypeScript core is the reference. Three layers check that the Go server behaves the same:
+`@paprika/core` (TypeScript) stays the reference: the canvas runs it, and `internal/core` must produce the same results. Three layers check the server:
 
 1. **Golden fixtures** (`internal/core/testdata/golden.json`, from `scripts/gen-golden.mjs`): operation results and errors, zod error JSON, history, outline, lint, HTML, React, CSS of every node of 23 documents, path parsing/bounds, colors, SVG/HTML import, SVG export (with and without a synthetic browser measure) and 500 seeded random steps. `go test` compares byte for byte.
-2. **Black-box suite** (`packages/server/test/external/parity.test.ts`): MCP over HTTP and stdio, WebSocket, HTTP API and Host/Origin checks, run against a server process.
-3. **Canvas E2E** (`packages/server/test/e2e`): the same Playwright suite, with the Go binary behind the canvas.
+2. **Black-box API suite** (`packages/e2e/test/api.test.ts`): MCP over HTTP and stdio (including the served contract), WebSocket, HTTP API and Host/Origin checks, run against a server process.
+3. **Canvas E2E** (`packages/e2e/test/e2e`): Playwright drives the canvas served by the binary, including the WASM renderer.
 
 ```bash
 pnpm go:test            # go vet + go test (fixtures, SQLite, MCP, HTTP, WebSocket)
-pnpm test:parity        # black-box suite against the TypeScript server
-pnpm test:parity:go     # … against the Go server
-pnpm test:e2e:go        # canvas E2E against the Go server
-pnpm check:go           # all of the above + fails if the fixtures or the contract are stale
+pnpm test:api           # black-box API suite against server-go/bin/paprika
+pnpm test:e2e           # canvas E2E against server-go/bin/paprika
+pnpm check              # everything + fails if the fixtures or the measure script are stale
 ```
 
-After changing `packages/core` or the MCP tools in TypeScript: `pnpm build && pnpm go:golden`, then make `pnpm go:test` pass again.
+`PAPRIKA_SERVER_BIN=<path>` runs both suites against another binary.
 
-## Differences from the TypeScript server
+After changing `packages/core`: `pnpm build && pnpm go:golden`, then make `pnpm go:test` pass again. The MCP contract (`contract/mcp.json`, `contract/guide.pt-BR.md`) is edited by hand: a new or changed tool updates it, its handler in `internal/server/mcp.go`, a Go test and a scenario in the API suite.
 
-- Storage: SQLite (`--db`, `--doc`) instead of `--file`; no file watching.
-- `GET /api/health` returns `file` (the database path), `storage: "sqlite"` and `docId`. New `GET /api/export`.
-- Workspaces are the documents of the database (the TypeScript server lists the `*.paprika.json` files next to `--file`); `open_workspace` loads that document's stored undo history instead of starting empty.
+## Behavior notes
+
+- `GET /api/health` returns `file` (the database path), `storage: "sqlite"` and `docId`. `GET /api/export` downloads the active document as `.paprika.json`.
+- Workspaces are the documents of the database; `open_workspace` loads that document's stored undo history.
+- No file watching: edit a `.paprika.json` and `import --replace` it, or go through the server.
 - `GET /mcp` answers 405 (stateless server without a standalone SSE stream; MCP clients handle it).
 - A failing undo keeps its entry in the history instead of dropping it.
 
@@ -96,4 +97,4 @@ After changing `packages/core` or the MCP tools in TypeScript: `pnpm build && pn
 
 - Floating-point math (`Math.pow`, `sin`, `cos`) can differ from V8 in the last bit; the fixtures pass today, but a path whose bounds land exactly on a rounding boundary could round differently.
 - The WebSocket error for malformed JSON is worded differently from `JSON.parse`'s message.
-- Like the TypeScript server: no authentication (`--host 0.0.0.0` exposes the document), and the agent-facing guide and errors are in Brazilian Portuguese.
+- No authentication: `--host 0.0.0.0` exposes the document to the network.

@@ -678,7 +678,7 @@ func (s *Store) Close() error {
 }
 
 // WorkspaceInfo describes a workspace: one document of the database. Same keys and order as the
-// TypeScript server, where the workspaces are the *.paprika.json files next to --file.
+// former TypeScript server, where the workspaces were the *.paprika.json files next to --file.
 type WorkspaceInfo struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`

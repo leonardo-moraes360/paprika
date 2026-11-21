@@ -18,23 +18,23 @@ Paprika is an **original** project. Do not submit code, assets, icons, fonts, sh
 
 | Tool | Version | Needed for |
 |---|---|---|
-| Node.js | 22+ | everything in TypeScript (`packages/`, `apps/web`) |
+| Node.js | 22+ | `packages/core`, the canvas (`apps/web`), the E2E suites (`packages/e2e`) |
 | pnpm | 10+ | workspace and scripts |
-| Go | 1.25+ | `server-go/` |
+| Go | 1.26+ | the server (`server-go/`) |
 | Rust + `wasm32-unknown-unknown` | stable | only `experiments/canvas-wasm` (see its README) |
 
 ```bash
 pnpm install
-pnpm --filter @paprika/server exec playwright install chromium   # for screenshots and E2E
-pnpm check        # build + typecheck + unit/integration tests + E2E
+pnpm --filter @paprika/e2e exec playwright install chromium   # for screenshots and E2E
+pnpm check        # build + typecheck + fixtures + unit and Go tests + API and E2E suites
 ```
 
 Day-to-day:
 
 ```bash
-pnpm dev                              # server with the demo document
+pnpm dev                              # Go server with the demo document
 pnpm --filter @paprika/web dev        # canvas with hot reload (another terminal)
-pnpm check:go                         # Go server: golden fixtures, go test, parity and E2E
+pnpm go:test && pnpm test:api         # Go tests + black-box API suite against the binary
 ```
 
 ## Where things go
@@ -43,8 +43,8 @@ The map and the hard rules live in [AGENTS.md](AGENTS.md); they apply to humans 
 
 - `packages/core` has no I/O. Every document mutation goes through `applyOps`.
 - New visual styling goes into `nodeStyle`, so the canvas, screenshots and exported code stay identical.
-- The TypeScript and Go servers expose the same MCP tools, WebSocket protocol and HTTP API. A change to that surface needs both implementations, regenerated fixtures (`pnpm go:golden`) and passing parity tests.
-- A new MCP tool needs a test in `packages/server/test/server.test.ts` and a row in both READMEs.
+- The server is `server-go/`; `server-go/internal/core` ports `packages/core`, which the canvas runs. A change to `packages/core` needs the same change in Go, regenerated fixtures (`pnpm go:golden`) and passing `pnpm go:test`.
+- A new MCP tool needs its definition in `server-go/contract/mcp.json`, its handler and a Go test, a scenario in `packages/e2e/test/api.test.ts`, and a row in both READMEs.
 
 ## Documentation
 
@@ -54,7 +54,7 @@ English is the primary language (`README.md`, `docs/`, root `*.md`). The Brazili
 
 - Use [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`, e.g. `feat(server-go): …`, `fix(web): …`, `docs: …`. Summaries in English or Portuguese are both fine.
 - Keep each pull request focused on one change; don't mix refactors or formatting of unrelated files.
-- Before opening it, run the checks for what you touched: `pnpm check` for TypeScript, `pnpm check:go` for anything that affects the Go server or the shared contract.
+- Before opening it, run the checks for what you touched: `pnpm check` runs everything; `pnpm go:test`, `pnpm test:api` and `pnpm test:e2e` are the faster subsets.
 - In the description, say what changed, why, how you tested it, and link the issue.
 - Add or update tests for behavior changes. Don't skip or delete failing tests to get a green run.
 

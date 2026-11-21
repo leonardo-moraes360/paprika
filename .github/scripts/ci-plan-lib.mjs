@@ -56,7 +56,8 @@ export function planFor(files, { ciFull = false } = {}) {
   const area = (re) => full || touched(re);
 
   const core = area(/^packages\/core\//);
-  const server = area(/^packages\/server\//);
+  // The black-box suites (MCP, HTTP/WS API and canvas E2E) that run against the Go server.
+  const e2e = area(/^packages\/e2e\//);
   // crates/render is built into apps/web (the canvas's WASM mode), so it also counts as web.
   const rust = area(/^crates\/render\//);
   const web = area(/^apps\/web\//) || rust;
@@ -70,17 +71,15 @@ export function planFor(files, { ciFull = false } = {}) {
   // package itself changed, `vitest --changed` runs just the tests whose import graph was touched.
   const unit = [];
   if (core) unit.push({ pkg: "@paprika/core", mode: full ? "all" : "changed" });
-  if (core || server) unit.push({ pkg: "@paprika/server", mode: full || core ? "all" : "changed" });
 
-  // Black-box suites, each against both server implementations.
+  // Black-box suites of packages/e2e, against the Go server binary. The canvas E2E needs the web
+  // build and the examples it opens; the API suite only talks MCP, HTTP and WebSocket.
   const suites = [];
-  if (core || server || web || examples) suites.push({ suite: "e2e", impl: "ts" });
-  if (core || server || web || examples || go) suites.push({ suite: "e2e", impl: "go" });
-  if (core || server) suites.push({ suite: "parity", impl: "ts" });
-  if (core || server || go) suites.push({ suite: "parity", impl: "go" });
+  if (core || e2e || web || examples || go) suites.push({ suite: "e2e" });
+  if (core || e2e || go) suites.push({ suite: "api" });
 
-  const ts = core || server || web || examples;
-  const golden = core || server || go; // Go fixtures are generated from the TS core and MCP tools.
+  const ts = core || e2e || web || examples;
+  const golden = core || go; // Go fixtures are generated from the TS core.
   const build = ts || go || unit.length > 0 || suites.length > 0;
 
   const codeql = [];

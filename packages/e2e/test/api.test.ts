@@ -1,6 +1,5 @@
-// Same scenarios as server.test.ts, but black-box: the server runs as a separate process and is
-// reached only through MCP (HTTP and stdio), the WebSocket and the HTTP API. Run against the Go
-// server with PAPRIKA_SERVER_BIN=server-go/bin/paprika (see server-go/README.md).
+// Black-box API suite for the Go server: it runs as a separate process and is reached only
+// through MCP (HTTP and stdio), the WebSocket and the HTTP API (see server-go/README.md).
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -9,7 +8,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import WebSocket from "ws";
-import { impl, repoRoot, startServer, waitFor, type ExternalServer } from "./harness.js";
+import type { PathNode } from "@paprika/core";
+import { repoRoot, startServer, waitFor, type ExternalServer } from "./harness.js";
 
 type ToolResult = { isError?: boolean; content: { type: string; text?: string; data?: string; mimeType?: string }[] };
 
@@ -31,11 +31,21 @@ const call = async (c: Client, name: string, args: Record<string, unknown> = {})
   (await c.callTool({ name, arguments: args })) as ToolResult;
 const textOf = (r: ToolResult) => r.content.map((c) => c.text ?? "").join("\n");
 
-describe(`paridade (${impl}): MCP`, () => {
-  it("serve o contrato MCP do servidor de referência", async () => {
+describe("API: MCP", () => {
+  it("serve o contrato MCP (server-go/contract/mcp.json) com JSON Schema de objeto", async () => {
     const { tools } = await client.listTools();
     const contract = JSON.parse(readFileSync(join(repoRoot, "server-go/contract/mcp.json"), "utf8"));
     expect(tools).toEqual(contract.tools);
+    expect(tools.map((t) => t.name).sort()).toEqual(
+      [
+        "apply_ops", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
+        "delete_nodes", "detach_instance", "draw_diagram", "export_code", "find_nodes", "get_design_guide",
+        "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_html", "import_svg",
+        "lint_design", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
+        "render_screenshot", "set_tokens", "undo", "ungroup_nodes", "update_nodes",
+      ].sort(),
+    );
+    for (const t of tools) expect(t.inputSchema.type).toBe("object");
     expect(client.getServerVersion()).toEqual(contract.serverInfo);
     expect(client.getInstructions()).toBe(contract.instructions);
   });
@@ -321,7 +331,7 @@ describe(`paridade (${impl}): MCP`, () => {
       textOf(await call(c, "create_nodes", { nodes: [{ type: "path", id: "wave", d: "M0 40 C 30 -10 70 90 100 40", stroke: { color: "#c43d27", width: 4 } }] })),
     );
     expect(created.created).toEqual(["wave"]);
-    const node = (await srv.doc()).nodes.wave!;
+    const node = (await srv.doc()).nodes.wave as PathNode;
     expect(node.width).toBe(100);
     expect(node.height).toBe(55);
     const info = JSON.parse(textOf(await call(c, "path_info", { id: "wave" })));
@@ -485,7 +495,7 @@ describe(`paridade (${impl}): MCP`, () => {
   }, 30_000);
 });
 
-describe(`paridade (${impl}): HTTP + WebSocket`, () => {
+describe("API: HTTP + WebSocket", () => {
   it("agente via MCP HTTP e canvas via WS veem as mesmas mudanças", async () => {
     const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
     const messages: { type: string; doc?: { nodes: Record<string, unknown> }; actor?: string; kind?: string; reqId?: string; message?: string }[] = [];

@@ -2,15 +2,15 @@
 
 # Servidor do Paprika em Go
 
-Uma implementação em Go do servidor do Paprika com o mesmo contrato do servidor TypeScript (`packages/server`): as mesmas 25 ferramentas MCP (stdio e Streamable HTTP em `/mcp`), as mesmas operações e o mesmo undo/redo compartilhado, o mesmo protocolo WebSocket do canvas (`/ws`), a mesma API HTTP e o mesmo lint, export e screenshot. Os dados ficam em **SQLite**; arquivos `.paprika.json` entram e saem com `import` e `export`. Por que e como: [ADR 0001](../docs/pt-BR/adr/0001-servidor-go-sqlite.md).
+O servidor do Paprika: 29 ferramentas MCP (stdio e Streamable HTTP em `/mcp`), operações atômicas com undo/redo compartilhado, o protocolo WebSocket do canvas (`/ws`), a API HTTP, e lint, export e screenshot. Os dados ficam em **SQLite**; arquivos `.paprika.json` entram e saem com `import` e `export`. Nasceu como port do antigo servidor TypeScript, removido quando o Go passou a cobrir tudo. Por que e como: [ADR 0001](../docs/pt-BR/adr/0001-servidor-go-sqlite.md).
 
 ## Compilar e rodar
 
-Requisitos: Go 1.26+ (o comando `go` baixa o toolchain se precisar). O Chromium só é necessário para screenshots.
+Requisitos: Go 1.26+ (o comando `go` baixa o toolchain se precisar). O Chromium só é necessário para screenshots e export SVG: o servidor usa `$PAPRIKA_CHROMIUM`, depois os navegadores do Playwright (`$PLAYWRIGHT_BROWSERS_PATH` ou `~/.cache/ms-playwright`), depois `chromium`/`google-chrome` no `PATH`.
 
 ```bash
-pnpm install && pnpm build            # compila o canvas (apps/web/dist) que o servidor Go serve
-pnpm go:build                         # → server-go/bin/paprika
+pnpm install && pnpm build            # compila o canvas (apps/web/dist) e o servidor (pnpm go:build)
+                                      # → server-go/bin/paprika
 
 B=server-go/bin/paprika
 $B import examples/demo.paprika.json --db design.db   # imprime o id do documento
@@ -19,7 +19,7 @@ $B serve --db design.db
 $B export --db design.db -o design.paprika.json       # de volta para um arquivo, por exemplo para commitar
 ```
 
-Conecte um agente do mesmo jeito que no servidor TypeScript:
+Conecte um agente via HTTP:
 
 ```bash
 claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
@@ -58,37 +58,38 @@ Cada mudança (documento + histórico) é uma transação SQLite, gravada antes 
 
 ```
 cmd/paprika        CLI
-contract/          contrato MCP extraído do servidor TypeScript (tools/list, instruções), embutido
+contract/          contrato MCP servido como está (definições das ferramentas, instruções, guia pt-BR) + script de medida do @paprika/core
 internal/jsonv     valores JSON com semântica de JavaScript (ordem de chaves, formato de números, JSON.stringify)
 internal/zod       o subconjunto do zod v4 usado pelo core, com as mesmas mensagens
 internal/core      port de @paprika/core: schema, applyOps, History, nodeStyle, render/export, lint, outline, path
 internal/server    store SQLite, MCP (JSON-RPC via stdio e HTTP), API HTTP, WebSocket, screenshot (chromedp)
-scripts/           geradores de fixtures e do contrato (rodam com Node sobre o build TypeScript)
+scripts/           geradores das fixtures e do script de medida (rodam com Node sobre o build do @paprika/core)
 ```
 
-## Paridade com o servidor TypeScript
+## Testes e o core de referência
 
-O core TypeScript é a referência. Três camadas conferem que o servidor Go se comporta igual:
+O `@paprika/core` (TypeScript) continua sendo a referência: o canvas roda ele, e o `internal/core` precisa produzir os mesmos resultados. Três camadas conferem o servidor:
 
 1. **Fixtures golden** (`internal/core/testdata/golden.json`, de `scripts/gen-golden.mjs`): resultados e erros de operações, JSON de erro do zod, histórico, outline, lint, HTML, React, CSS de cada nó de 23 documentos, parse/bounds de paths, cores, import de SVG/HTML, export SVG (com e sem uma medida sintética do navegador) e 500 passos aleatórios com semente. O `go test` compara byte a byte.
-2. **Suíte black-box** (`packages/server/test/external/parity.test.ts`): MCP via HTTP e stdio, WebSocket, API HTTP e checagem de Host/Origin, contra um processo servidor.
-3. **E2E do canvas** (`packages/server/test/e2e`): a mesma suíte Playwright, com o binário Go por trás do canvas.
+2. **Suíte black-box da API** (`packages/e2e/test/api.test.ts`): MCP via HTTP e stdio (incluindo o contrato servido), WebSocket, API HTTP e checagem de Host/Origin, contra um processo servidor.
+3. **E2E do canvas** (`packages/e2e/test/e2e`): o Playwright dirige o canvas servido pelo binário, incluindo o renderizador WASM.
 
 ```bash
 pnpm go:test            # go vet + go test (fixtures, SQLite, MCP, HTTP, WebSocket)
-pnpm test:parity        # suíte black-box contra o servidor TypeScript
-pnpm test:parity:go     # … contra o servidor Go
-pnpm test:e2e:go        # E2E do canvas contra o servidor Go
-pnpm check:go           # tudo acima + falha se as fixtures ou o contrato estiverem desatualizados
+pnpm test:api           # suíte black-box da API contra server-go/bin/paprika
+pnpm test:e2e           # E2E do canvas contra server-go/bin/paprika
+pnpm check              # tudo + falha se as fixtures ou o script de medida estiverem desatualizados
 ```
 
-Depois de mudar `packages/core` ou as ferramentas MCP em TypeScript: `pnpm build && pnpm go:golden`, e faça o `pnpm go:test` passar de novo.
+`PAPRIKA_SERVER_BIN=<caminho>` roda as duas suítes contra outro binário.
 
-## Diferenças em relação ao servidor TypeScript
+Depois de mudar `packages/core`: `pnpm build && pnpm go:golden`, e faça o `pnpm go:test` passar de novo. O contrato MCP (`contract/mcp.json`, `contract/guide.pt-BR.md`) é editado à mão: uma ferramenta nova ou alterada atualiza ele, o handler em `internal/server/mcp.go`, um teste Go e um cenário na suíte da API.
 
-- Armazenamento: SQLite (`--db`, `--doc`) em vez de `--file`; sem observação de arquivo.
-- `GET /api/health` devolve `file` (o caminho do banco), `storage: "sqlite"` e `docId`. Novo `GET /api/export`.
-- Os workspaces são os documentos do banco (o servidor TypeScript lista os `*.paprika.json` ao lado do `--file`); `open_workspace` carrega o histórico de undo gravado daquele documento em vez de começar vazio.
+## Notas de comportamento
+
+- `GET /api/health` devolve `file` (o caminho do banco), `storage: "sqlite"` e `docId`. `GET /api/export` baixa o documento ativo como `.paprika.json`.
+- Os workspaces são os documentos do banco; `open_workspace` carrega o histórico de undo gravado daquele documento.
+- Sem observação de arquivo: edite um `.paprika.json` e rode `import --replace`, ou passe pelo servidor.
 - `GET /mcp` responde 405 (servidor sem estado, sem stream SSE avulso; os clientes MCP lidam com isso).
 - Um undo que falha mantém a entrada no histórico em vez de descartá-la.
 
@@ -96,4 +97,4 @@ Depois de mudar `packages/core` ou as ferramentas MCP em TypeScript: `pnpm build
 
 - Contas de ponto flutuante (`Math.pow`, `sin`, `cos`) podem diferir do V8 no último bit; as fixtures passam hoje, mas um path cujos bounds caiam exatamente num limite de arredondamento poderia arredondar diferente.
 - O erro do WebSocket para JSON malformado tem texto diferente da mensagem do `JSON.parse`.
-- Como no servidor TypeScript: sem autenticação (`--host 0.0.0.0` expõe o documento), e o guia e os erros voltados ao agente estão em português.
+- Sem autenticação: `--host 0.0.0.0` expõe o documento na rede.

@@ -1,23 +1,24 @@
-// Black-box harness: runs a Paprika server as a separate process, so the same tests verify the
-// TypeScript server (default) and the Go server (PAPRIKA_SERVER_BIN=path/to/paprika-go binary).
+// Black-box harness: runs the Go Paprika server as a separate process, reached only through MCP
+// (HTTP and stdio), the WebSocket and the HTTP API. Build it first with `pnpm go:build`;
+// PAPRIKA_SERVER_BIN points at another binary.
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
 import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Document } from "@paprika/core";
 
-export const repoRoot = resolve(import.meta.dirname, "../../../..");
-const tsCli = join(repoRoot, "packages/server/dist/cli.js");
+export const repoRoot = resolve(import.meta.dirname, "../../..");
 
-/** Path of the Go binary under test, or undefined to test the TypeScript server. */
-export const goBin = process.env.PAPRIKA_SERVER_BIN || undefined;
-export const impl = goBin ? "go" : "ts";
+/** Path of the server binary under test. */
+export const serverBin = resolve(process.env.PAPRIKA_SERVER_BIN || join(repoRoot, "server-go/bin/paprika"));
+if (!existsSync(serverBin)) throw new Error(`servidor Go não encontrado em ${serverBin}: rode \`pnpm go:build\``);
 
 export interface ExternalServer {
   url: string;
   dir: string;
   proc: ChildProcess;
-  /** Current document, read over HTTP (works for both implementations). */
+  /** Current document, read over HTTP. */
   doc(): Promise<Document>;
   version(): Promise<number>;
   stop(): Promise<void>;
@@ -27,22 +28,15 @@ export interface ExternalServer {
 
 /** Seeds storage from a `.paprika.json` (or starts empty) and runs `serve` on a random port. */
 export async function startServer(opts: { seed?: string; webRoot?: string } = {}): Promise<ExternalServer> {
-  const dir = await mkdtemp(join(tmpdir(), `paprika-${impl}-`));
+  const dir = await mkdtemp(join(tmpdir(), "paprika-e2e-"));
   const file = join(dir, "doc.paprika.json");
   const db = join(dir, "doc.db");
-  if (opts.seed) await copyFile(opts.seed, file);
-  let args: string[];
-  let command: string;
-  if (goBin) {
-    if (opts.seed) execFileSync(goBin, ["import", file, "--db", db], { stdio: "pipe" });
-    command = goBin;
-    args = ["serve", "--db", db, "--port", "0", ...(opts.webRoot ? ["--web", opts.webRoot] : [])];
-  } else {
-    command = process.execPath;
-    args = [tsCli, "serve", "--file", file, "--port", "0"];
+  if (opts.seed) {
+    await copyFile(opts.seed, file);
+    execFileSync(serverBin, ["import", file, "--db", db], { stdio: "pipe" });
   }
-  const env = { ...process.env, ...(opts.webRoot ? { PAPRIKA_WEB_ROOT: opts.webRoot } : {}) };
-  const proc = spawn(command, args, { env, stdio: ["ignore", "pipe", "pipe"] });
+  const args = ["serve", "--db", db, "--port", "0", ...(opts.webRoot ? ["--web", opts.webRoot] : [])];
+  const proc = spawn(serverBin, args, { stdio: ["ignore", "pipe", "pipe"] });
   let log = "";
   const url = await new Promise<string>((ok, fail) => {
     const timer = setTimeout(() => fail(new Error(`servidor não subiu:\n${log}`)), 15_000);
@@ -66,8 +60,7 @@ export async function startServer(opts: { seed?: string; webRoot?: string } = {}
     proc,
     doc: async () => (await getJSON()).doc,
     version: async () => (await getJSON()).version,
-    stdioCommand: () =>
-      goBin ? { command: goBin, args: ["mcp", "--db", db, "--no-ui"] } : { command: process.execPath, args: [tsCli, "mcp", "--file", file, "--no-ui"] },
+    stdioCommand: () => ({ command: serverBin, args: ["mcp", "--db", db, "--no-ui"] }),
     stop: async () => {
       if (proc.exitCode === null) {
         const exited = new Promise((ok) => proc.once("exit", ok));

@@ -18,23 +18,23 @@ O Paprika é um projeto **original**. Não envie código, assets, ícones, fonte
 
 | Ferramenta | Versão | Para quê |
 |---|---|---|
-| Node.js | 22+ | tudo em TypeScript (`packages/`, `apps/web`) |
+| Node.js | 22+ | `packages/core`, o canvas (`apps/web`), as suítes E2E (`packages/e2e`) |
 | pnpm | 10+ | workspace e scripts |
-| Go | 1.25+ | `server-go/` |
+| Go | 1.26+ | o servidor (`server-go/`) |
 | Rust + `wasm32-unknown-unknown` | stable | só `experiments/canvas-wasm` (veja o README dele) |
 
 ```bash
 pnpm install
-pnpm --filter @paprika/server exec playwright install chromium   # para screenshots e E2E
-pnpm check        # build + typecheck + testes unitários/integração + E2E
+pnpm --filter @paprika/e2e exec playwright install chromium   # para screenshots e E2E
+pnpm check        # build + typecheck + fixtures + testes unitários e Go + suítes da API e E2E
 ```
 
 No dia a dia:
 
 ```bash
-pnpm dev                              # servidor com o documento demo
+pnpm dev                              # servidor Go com o documento demo
 pnpm --filter @paprika/web dev        # canvas com hot reload (outro terminal)
-pnpm check:go                         # servidor Go: fixtures golden, go test, paridade e E2E
+pnpm go:test && pnpm test:api         # testes Go + suíte black-box da API contra o binário
 ```
 
 ## Onde fica cada coisa
@@ -43,8 +43,8 @@ O mapa e as regras obrigatórias estão no [AGENTS.md](AGENTS.md); valem para hu
 
 - `packages/core` não faz I/O. Toda mutação do documento passa por `applyOps`.
 - Estilo visual novo entra no `nodeStyle`, para que canvas, screenshot e código exportado continuem idênticos.
-- Os servidores TypeScript e Go expõem as mesmas ferramentas MCP, o mesmo protocolo WebSocket e a mesma API HTTP. Mudar essa superfície exige as duas implementações, fixtures regeneradas (`pnpm go:golden`) e testes de paridade passando.
-- Ferramenta MCP nova exige um teste em `packages/server/test/server.test.ts` e uma linha nos dois READMEs.
+- O servidor é o `server-go/`; o `server-go/internal/core` é um port do `packages/core`, que o canvas roda. Mudar o `packages/core` exige a mesma mudança em Go, fixtures regeneradas (`pnpm go:golden`) e `pnpm go:test` passando.
+- Ferramenta MCP nova exige a definição em `server-go/contract/mcp.json`, o handler e um teste Go, um cenário em `packages/e2e/test/api.test.ts` e uma linha nos dois READMEs.
 
 ## Documentação
 
@@ -54,7 +54,7 @@ Inglês é o idioma principal (`README.md`, `docs/`, `*.md` da raiz). O espelho 
 
 - Use [Conventional Commits](https://www.conventionalcommits.org/pt-br/): `tipo(escopo): resumo`, por exemplo `feat(server-go): …`, `fix(web): …`, `docs: …`. O resumo pode ser em português ou inglês.
 - Mantenha cada pull request focado em uma mudança; não misture refatorações ou formatação de arquivos sem relação.
-- Antes de abrir, rode as verificações do que você mexeu: `pnpm check` para TypeScript, `pnpm check:go` para qualquer coisa que afete o servidor Go ou o contrato compartilhado.
+- Antes de abrir, rode as verificações do que você mexeu: `pnpm check` roda tudo; `pnpm go:test`, `pnpm test:api` e `pnpm test:e2e` são os subconjuntos mais rápidos.
 - Na descrição, diga o que mudou, por quê, como você testou e linke a issue.
 - Adicione ou atualize testes quando o comportamento mudar. Não pule nem apague testes que falham para ficar verde.
 

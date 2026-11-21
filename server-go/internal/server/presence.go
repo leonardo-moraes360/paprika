@@ -12,7 +12,7 @@ import (
 
 // Agent presence: what each agent is doing right now (last tool and the nodes it touched), so the
 // canvas can draw the agent's own cursor and selection. Ephemeral: memory only, never in SQLite or
-// in the history. Port of packages/server/src/presence.ts.
+// in the history. Ported from the former TypeScript server (packages/server/src/presence.ts).
 
 // PresenceTTL is how long a presence is replayed to a canvas that connects later.
 const PresenceTTL = 120 * time.Second

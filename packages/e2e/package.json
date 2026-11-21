@@ -1,0 +1,23 @@
+{
+  "name": "@paprika/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Black-box suites for the Go server (server-go): MCP, HTTP/WS API and canvas E2E.",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:api": "vitest run test/api.test.ts",
+    "test:e2e": "vitest run test/e2e",
+    "seed": "node scripts/seed-demo.mjs"
+  },
+  "dependencies": {
+    "@paprika/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "@types/ws": "^8.5.0",
+    "playwright": "1.65.1",
+    "vitest": "^5.1.1",
+    "ws": "^8.18.0"
+  }
+}
