@@ -100,3 +100,58 @@
     color: inherit;
   }
 }
+
+/*
+ * Scrollbars of the app chrome (panels, overview): thin, rounded thumb on a transparent track, no arrow
+ * buttons. Chromium and Safari use the ::-webkit-scrollbar pseudo-elements (Chromium ignores them on an
+ * element that sets scrollbar-color/scrollbar-width, so the standard properties stay Firefox-only). The
+ * canvas world is left on the browser defaults, like the rest of the document rendering (ADR 0003).
+ */
+@layer base {
+  :root {
+    --scrollbar-thumb: rgb(166 172 196 / 0.28);
+    --scrollbar-thumb-hover: rgb(166 172 196 / 0.5);
+  }
+
+  @supports (-moz-appearance: none) {
+    :root {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
+
+    .world {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
+  }
+
+  :not(.world, .world *)::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    background: transparent;
+  }
+
+  :not(.world, .world *)::-webkit-scrollbar-track,
+  :not(.world, .world *)::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  :not(.world, .world *)::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  :not(.world, .world *)::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--scrollbar-thumb) padding-box;
+    transition: background-color 0.15s ease;
+  }
+
+  :not(.world, .world *)::-webkit-scrollbar-thumb:hover,
+  :not(.world, .world *)::-webkit-scrollbar-thumb:active {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+}
