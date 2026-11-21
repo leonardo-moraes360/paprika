@@ -687,6 +687,38 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		}
 		return o
 	}
+	add("draw_diagram", z.Object(
+		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
+		z.Field{Name: "direction", Schema: z.Default(z.Enum("down", "right"), "down")},
+		z.Field{Name: "gap", Schema: z.Default(z.Number().Min(0).Max(2000), 64.0)},
+		z.Field{Name: "x", Schema: z.Optional(z.Number())},
+		z.Field{Name: "y", Schema: z.Optional(z.Number())},
+		z.Field{Name: "nodes", Schema: z.Default(z.Array(z.Object(
+			z.Field{Name: "id", Schema: z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id must be [A-Za-z0-9_-]{1,64}")},
+		).Catchall(z.Unknown())).Max(500), []any{})},
+		z.Field{Name: "edges", Schema: z.Default(z.Array(z.Object(
+			z.Field{Name: "from", Schema: z.String()},
+			z.Field{Name: "to", Schema: z.String()},
+			optStr("id"),
+			z.Field{Name: "fromSide", Schema: z.Optional(core.ConnectorSideSchema)},
+			z.Field{Name: "toSide", Schema: z.Optional(core.ConnectorSideSchema)},
+			z.Field{Name: "route", Schema: z.Optional(z.Enum("straight", "elbow"))},
+			z.Field{Name: "startArrow", Schema: z.Optional(z.Enum("none", "arrow"))},
+			z.Field{Name: "endArrow", Schema: z.Optional(z.Enum("none", "arrow"))},
+			z.Field{Name: "dashed", Schema: z.Optional(z.Bool())},
+			z.Field{Name: "stroke", Schema: z.Optional(core.StrokeSchema)},
+			z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+		)).Max(1000), []any{})},
+		label(), batch(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		plan, err := core.DiagramOps(store.Doc(), a)
+		if err != nil {
+			return nil, err
+		}
+		lbl := labelOr(a, "draw diagram ("+count(len(plan.Nodes))+" shapes, "+count(len(plan.Edges))+" connectors)")
+		return writeWith(a, plan.Ops, lbl, "nodes", jsonv.FromGo(plan.Nodes), "edges", jsonv.FromGo(plan.Edges))
+	})
+
 	add("import_svg", importFields(
 		z.Field{Name: "svg", Schema: z.String().Min(1).Max(2_000_000)},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Document, Op } from "@paprika/core";
 import { applyPresence, type AgentPresence, type PresenceMsg } from "./agents";
 
+const OFFLINE = "sem conexão com o servidor";
+
 export interface Activity {
   id: number;
   actor: string;
@@ -64,7 +66,9 @@ export function useDocument() {
       const proto = location.protocol === "https:" ? "wss" : "ws";
       const ws = new WebSocket(`${proto}://${location.host}/ws`);
       wsRef.current = ws;
-      ws.onopen = () => setState((s) => ({ ...s, connected: true, error: null }));
+      // Reconnecting clears only the "offline" error: an error shown before the socket opened (e.g. a
+      // workspace URL that does not exist) must stay on screen.
+      ws.onopen = () => setState((s) => ({ ...s, connected: true, error: s.error === OFFLINE ? null : s.error }));
       ws.onclose = () => {
         setState((s) => ({ ...s, connected: false }));
         if (!closed) retry = setTimeout(connect, 1000);
@@ -117,7 +121,7 @@ export function useDocument() {
   const sendRaw = useCallback((payload: object) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setState((s) => ({ ...s, error: "sem conexão com o servidor" }));
+      setState((s) => ({ ...s, error: OFFLINE }));
       return;
     }
     ws.send(JSON.stringify({ ...payload, reqId: String(++seq.current) }));

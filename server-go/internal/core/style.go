@@ -223,7 +223,8 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		}
 	}
 	css := jsonv.NewObject("boxSizing", "border-box")
-	if parentMode != "" && !asRoot {
+	// Connectors never join the auto layout flow: their geometry comes from their ends.
+	if parentMode != "" && !asRoot && node.Str("type") != "connector" {
 		css.Set("position", "relative")
 	} else {
 		css.Set("position", "absolute")
@@ -253,6 +254,19 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		}
 		return css
 	}
+	if node.Str("type") == "connector" {
+		// The stroke goes on the <path> (see ConnectorAttrs); the arrowheads may leave the box.
+		if o := node.Num("opacity"); o != 1 {
+			css.Set("opacity", o)
+		}
+		css.Set("overflow", "visible")
+		if node.Bool("visible") {
+			css.Set("display", "block")
+		} else {
+			css.Set("display", "none")
+		}
+		return css
+	}
 	if r := node.Num("rotation"); r != 0 {
 		css.Set("transform", "rotate("+jsonv.FormatNumber(round2(r))+"deg)")
 	}
@@ -274,6 +288,27 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		if s := node.Obj("shadow"); s != nil {
 			css.Set("filter", "drop-shadow("+px(s.Num("x"))+" "+px(s.Num("y"))+" "+px(s.Num("blur"))+" "+jsString(paint(s.Str("color")))+")")
 		}
+		return css
+	}
+	if typ == "shape" {
+		// The outline (fill/stroke) is an <svg> behind the text (see ShapeAttrs); here, box and text.
+		if visible {
+			css.Set("display", "flex")
+		} else {
+			css.Set("display", "none")
+		}
+		if node.Str("shape") == "note" {
+			css.Set("alignItems", "flex-start")
+		} else {
+			css.Set("alignItems", "center")
+		}
+		css.Set("justifyContent", "center")
+		pv, ph := ShapePadding(node)
+		css.Set("padding", px(pv)+" "+px(ph))
+		if s := node.Obj("shadow"); s != nil {
+			css.Set("filter", "drop-shadow("+px(s.Num("x"))+" "+px(s.Num("y"))+" "+px(s.Num("blur"))+" "+jsString(paint(s.Str("color")))+")")
+		}
+		textCSS(css, node, paint)
 		return css
 	}
 	if fill, ok := node.Get("fill"); ok {
@@ -313,24 +348,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 			}
 		}
 	case "text":
-		color, _ := node.Get("color")
-		css.Set("color", jsString(paint(color)))
-		css.Set("fontFamily", node.Str("fontFamily"))
-		fsv, _ := node.Get("fontSize")
-		fs := paint(fsv)
-		if n, ok := fs.(float64); ok {
-			css.Set("fontSize", px(n))
-		} else {
-			css.Set("fontSize", jsString(fs))
-		}
-		css.Set("fontWeight", node.Num("fontWeight"))
-		css.Set("lineHeight", node.Num("lineHeight"))
-		if ls := node.Num("letterSpacing"); ls != 0 {
-			css.Set("letterSpacing", px(ls))
-		}
-		css.Set("textAlign", node.Str("textAlign"))
-		css.Set("whiteSpace", "pre-wrap")
-		css.Set("overflowWrap", "anywhere")
+		textCSS(css, node, paint)
 		css.Set("margin", 0.0)
 	case "image":
 		css.Set("objectFit", node.Str("fit"))
@@ -341,6 +359,72 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		}
 	}
 	return css
+}
+
+// textCSS: typography of text and shape nodes (same property order in both).
+func textCSS(css *CSS, node *Node, paint func(any) any) {
+	color, _ := node.Get("color")
+	css.Set("color", jsString(paint(color)))
+	css.Set("fontFamily", node.Str("fontFamily"))
+	fsv, _ := node.Get("fontSize")
+	fs := paint(fsv)
+	if n, ok := fs.(float64); ok {
+		css.Set("fontSize", px(n))
+	} else {
+		css.Set("fontSize", jsString(fs))
+	}
+	css.Set("fontWeight", node.Num("fontWeight"))
+	css.Set("lineHeight", node.Num("lineHeight"))
+	if ls := node.Num("letterSpacing"); ls != 0 {
+		css.Set("letterSpacing", px(ls))
+	}
+	css.Set("textAlign", node.Str("textAlign"))
+	css.Set("whiteSpace", "pre-wrap")
+	css.Set("overflowWrap", "anywhere")
+}
+
+// ShapeSVGCSS and ShapeTextCSS style a shape's outline <svg> and its text block.
+func ShapeSVGCSS() *CSS {
+	return jsonv.NewObject("position", "absolute", "left", 0.0, "top", 0.0, "overflow", "visible")
+}
+
+func ShapeTextCSS() *CSS { return jsonv.NewObject("position", "relative", "width", "100%") }
+
+// ShapeAttrs: the outline <svg> size, the outline <path> and, on a sticky note, the fold.
+func ShapeAttrs(doc *Document, node *Node, vars bool) (svg, path, fold []Attr) {
+	themeMode := ModeOf(doc, node)
+	d, f := ShapeOutline(node)
+	fill := "none"
+	if fv, ok := node.Get("fill"); ok {
+		fill = jsString(paintValue(doc, fv, themeMode, vars))
+	}
+	path = []Attr{{"d", d}, {"fill", fill}, {"strokeLinejoin", "round"}}
+	if st := node.Obj("stroke"); st != nil && st.Num("width") > 0 {
+		path = append(path, Attr{"stroke", jsString(paintValue(doc, st.Str("color"), themeMode, vars))}, Attr{"strokeWidth", st.Num("width")})
+	}
+	svg = []Attr{{"width", node.Num("width")}, {"height", node.Num("height")}}
+	if f != "" {
+		fold = []Attr{{"d", f}, {"fill", NoteFoldFill}}
+	}
+	return svg, path, fold
+}
+
+// ConnectorAttrs: the <path> of a connector (line and arrowheads, no fill).
+func ConnectorAttrs(doc *Document, node *Node, vars bool) []Attr {
+	st := node.Obj("stroke")
+	sw := st.Num("width")
+	a := []Attr{
+		{"d", node.Str("d")},
+		{"fill", "none"},
+		{"stroke", jsString(paintValue(doc, st.Str("color"), ModeOf(doc, node), vars))},
+		{"strokeWidth", sw},
+		{"strokeLinecap", "round"},
+		{"strokeLinejoin", "round"},
+	}
+	if node.Bool("dashed") {
+		a = append(a, Attr{"strokeDasharray", jsonv.FormatNumber(round2(sw*3)) + " " + jsonv.FormatNumber(round2(sw*2.5))})
+	}
+	return a
 }
 
 // Attr is one SVG attribute (value string or float64).

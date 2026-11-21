@@ -195,3 +195,18 @@ Issues abertas do SonarCloud importadas em 2026-11-21 (projeto `leonardo-moraes3
 | S9379 `autoFocus` (1) | Confiabilidade Medium | `apps/web/src/Pages.tsx:54` | Focar via `ref` + `useEffect` ao entrar em edição | ⬜ | P3 |
 | S3923 ternário com ramos iguais (1) | Confiabilidade Medium | `apps/site/scripts/draw-landing.mjs:161` | Usar `"link:./"` direto | ⬜ | P3 |
 | Input sem label (2) | Confiabilidade Medium | `experiments/canvas-wasm/bench/index.html:16, 17` | `<label for>` ou `aria-label` | ⬜ | P3 |
+
+## O. Diagramas
+
+Diagramas simples (fluxogramas, esboços de arquitetura, mapas mentais) desenhados pela pessoa no canvas ou por um agente via MCP. Excalidraw e Whimsical servem só de referência do tipo de recurso; a aparência segue o tema do próprio Paprika.
+
+| Recurso | Paprika hoje | Status | Pri. |
+|---|---|---|---|
+| Formas com texto dentro (caixa, elipse, losango) e notas adesivas | Nó `shape`, ferramentas `S`/`D`/`N`, texto editado no lugar (2026-11-21) | ✅ | — |
+| Setas que prendem nas formas e as acompanham, retas ou em cotovelo | Nó `connector`, ferramenta `A`, geometria derivada das pontas (2026-11-21) | ✅ | — |
+| Agente desenha um diagrama inteiro numa chamada, com layout automático | `draw_diagram` (2026-11-21) | ✅ | — |
+| Rótulos nas setas | — | ⬜ | P1 |
+| Setas que desviam de outras formas | A rota em cotovelo ignora obstáculos | ⬜ | P2 |
+| Setas curvas e mais formas (cilindro, paralelogramo, nuvem) | — | ⬜ | P2 |
+| Prender ou soltar a ponta de uma seta arrastando no canvas | Só pelo inspector | ⬜ | P2 |
+| Estilo desenhado à mão | — | ⬜ | P3 |

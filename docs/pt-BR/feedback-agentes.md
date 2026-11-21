@@ -150,6 +150,17 @@ Tarefa: uma página com os workspaces como tela inicial, com `list_workspaces`, 
 | 53 | Saber que outra pessoa trocou o workspace | A chamada seguinte só vê outro documento; nada no resultado diz que o ativo mudou desde a última chamada do agente | Pôr o id do workspace ativo na primeira linha do `get_document_outline` e nos resultados de escrita | P2 |
 | 54 | Desfazer depois de uma troca (servidor TypeScript) | O histórico fica em memória, então um workspace reaberto começa com a pilha de undo vazia; o servidor Go restaura do SQLite | Manter um `History` por workspace durante a vida do processo | P3 |
 
+## 2026-11-21: diagramas (formas, conectores, `draw_diagram`)
+
+Tarefa: nós `shape` e `connector`, ferramentas no canvas e `draw_diagram` para agentes, com paridade TS/Go. Notas de desenhar fluxogramas via MCP durante a construção.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 55 | Apagar uma forma e a seta dela numa chamada | `delete_nodes` com a forma primeiro e depois o conector falhava: o delete da forma já tinha levado o conector. Corrigido: um conector removido assim antes, na mesma transação, é ignorado (apagar duas vezes continua sendo erro) | — | — |
+| 56 | Saber os ids das setas que o `draw_diagram` criou | O padrão é `<from>-to-<to>` (com `-2`, `-3` nas repetições) e eles voltam em `edges`, na ordem da entrada | — | — |
+| 57 | Dizer o que uma seta significa ("sim", "não") | Conectores ainda não têm rótulo; o agente põe um texto pequeno ao lado da seta, que não a acompanha | Um `label` no conector, posicionado no meio da rota | P1 |
+| 58 | Mover uma forma de um diagrama sem cruzar outras | A rota em cotovelo ignora obstáculos, então uma forma movida pode fazer uma seta cruzar outra forma | Rota em cotovelo que desvia de obstáculos, ou um modo `relayout` no `draw_diagram` para ids existentes | P2 |
+
 ## O que funcionou bem
 
 - `create_nodes` aninhado montou uma proposta inteira (≈60 nós) numa chamada, de forma atômica.

@@ -72,6 +72,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `get_nodes` / `find_nodes` | Full node JSON / search by type, name, text |
 | `path_info` | Validates SVG path data and returns the exact bounds (bezier and arc extremes included) and the normalized `d` |
 | `create_nodes` | Creates nested trees in one call |
+| `draw_diagram` | Draws a diagram (flowchart, architecture, mind map) from a list of shapes and edges: lays the shapes out in layers (`direction`: down or right, to the right of existing content) and connects them with arrows that follow the shapes |
 | `update_nodes` / `move_nodes` / `delete_nodes` | Atomic batch edits |
 | `group_nodes` / `ungroup_nodes` | Wraps sibling nodes in a `group` (the drawing stays put) / puts them back |
 | `create_page` | Adds a page; the first one moves the current canvas into "Página 1" |
@@ -99,6 +100,7 @@ Selection: `Shift`-click (canvas or layers) adds or removes a node, dragging on 
 
 Components: "Make component" in the inspector of a frame, then "New instance". A click inside an instance selects the instance; select a copy in the layers (or double-click it) to override its text, colors, opacity or visibility. Changes to the component reach every instance; "Detach" turns an instance into plain nodes.
 Theme modes: the inspector's document panel lists the tokens of each mode and adds one with `dark: bg = #14161f`; "Theme mode" on a frame or page applies a mode to everything inside it.
+Diagrams: `S` box, `D` diamond (decision), `N` sticky note, `A` arrow. A click creates a shape at its default size (or drag to size it) and starts editing its text; double-click a shape to edit the text again (`Enter` adds a line, `Esc`, `Ctrl+Enter` or clicking away confirms). With the arrow tool, drag from one shape to another: both ends stick to the shapes and the arrow follows them when they move (an end dropped on empty canvas stays at that point). Deleting a shape deletes its arrows; the inspector switches an arrow between elbow and straight, picks the side of each end, the arrowheads and dashes.
 Point editing: double-click a path to edit its points. Drag a point (its handles come along) or a handle (the opposite handle mirrors it; hold `Alt` to move it alone). Double-click a point to switch between corner and smooth, double-click the outline to add a point, `Delete` removes the selected point, `Esc` or `Enter` finish. Each gesture is one undo step. Quadratic curves and arcs become cubic curves once you edit them.
 Paste and export: `Ctrl+V` with SVG markup or HTML (e.g. copied from a web page) in the clipboard creates editable nodes inside the selected frame, or on the page at the center of the view. The `⇩` toolbar button downloads the selection (or the current page) as SVG.
 Pages: the "Páginas" panel on the left switches pages, `+` adds one (the first `+` turns the current canvas into "Página 1"), double-click renames, `×` deletes (undoable).

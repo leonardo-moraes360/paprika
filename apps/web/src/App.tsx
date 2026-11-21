@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type Document, type NodeInput, type Op } from "@paprika/core";
+import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
 import { Layers } from "./Layers";
@@ -16,6 +16,10 @@ const TOOLS: { tool: Tool; key: string; label: string; icon: string }[] = [
   { tool: "ellipse", key: "o", label: "Elipse", icon: "◯" },
   { tool: "text", key: "t", label: "Texto", icon: "T" },
   { tool: "pen", key: "p", label: "Caneta (bezier)", icon: "✒" },
+  { tool: "shape", key: "s", label: "Caixa de diagrama", icon: "▢" },
+  { tool: "diamond", key: "d", label: "Decisão (losango)", icon: "◇" },
+  { tool: "note", key: "n", label: "Nota adesiva", icon: "🗒" },
+  { tool: "connector", key: "a", label: "Seta (prende nas formas)", icon: "↗" },
 ];
 
 /** Converte uma subárvore em NodeInput com ids novos (para duplicar). */
@@ -30,6 +34,8 @@ function toInput(doc: Document, id: string): NodeInput {
     delete input.width;
     delete input.height;
   }
+  // A geometria de um conector é derivada das pontas.
+  if (n.type === "connector") for (const k of ["x", "y", "width", "height", "d"]) delete (input as Record<string, unknown>)[k];
   return input;
 }
 
@@ -182,8 +188,14 @@ function Editor({ live }: { live: LiveDocument }) {
         // Do último para o primeiro, para os índices de inserção continuarem válidos.
         for (const node of [...nodes].reverse()) {
           const input = toInput(doc, node.id);
-          input.x = node.x + 20;
-          input.y = node.y + 20;
+          if (node.type === "connector") {
+            // Pontas livres andam 20; pontas presas continuam nas mesmas formas.
+            const shift = (end: ConnectorEnd): ConnectorEnd => (end.nodeId ? end : { ...end, x: (end.x ?? 0) + 20, y: (end.y ?? 0) + 20 });
+            Object.assign(input, { from: shift(node.from), to: shift(node.to) });
+          } else {
+            input.x = node.x + 20;
+            input.y = node.y + 20;
+          }
           ops.push({ op: "create", node: input, parentId: node.parentId, index: siblingsOf(doc, node.parentId).indexOf(node.id) + 1 });
           ids.unshift(input.id!);
         }
@@ -213,7 +225,7 @@ function Editor({ live }: { live: LiveDocument }) {
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
         const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key] ?? [0, 0];
-        const ops: Op[] = nodes.filter((n) => !n.locked).map((n) => ({ op: "update", id: n.id, props: { x: n.x + d[0]!, y: n.y + d[1]! } }));
+        const ops: Op[] = nodes.filter((n) => !n.locked && n.type !== "connector").map((n) => ({ op: "update", id: n.id, props: { x: n.x + d[0]!, y: n.y + d[1]! } }));
         if (ops.length) live.apply(ops, "mover");
         return;
       }

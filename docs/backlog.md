@@ -195,3 +195,18 @@ Open SonarCloud issues imported on 2026-11-21 (project `leonardo-moraes360_papri
 | S9379 `autoFocus` (1) | Reliability Medium | `apps/web/src/Pages.tsx:54` | Focus through a `ref` + `useEffect` when editing starts | ⬜ | P3 |
 | S3923 ternary with identical branches (1) | Reliability Medium | `apps/site/scripts/draw-landing.mjs:161` | Use `"link:./"` directly | ⬜ | P3 |
 | Input without label (2) | Reliability Medium | `experiments/canvas-wasm/bench/index.html:16, 17` | `<label for>` or `aria-label` | ⬜ | P3 |
+
+## O. Diagrams
+
+Simple diagrams (flowcharts, architecture sketches, mind maps) drawn by the human on the canvas or by an agent over MCP. Excalidraw and Whimsical are references for the kind of feature only; the look follows Paprika's own theme.
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Shapes with text inside (box, ellipse, diamond) and sticky notes | `shape` node, `S`/`D`/`N` tools, text edited in place (2026-11-21) | ✅ | — |
+| Arrows that stick to shapes and follow them, straight or elbow | `connector` node, `A` tool, geometry derived from the ends (2026-11-21) | ✅ | — |
+| Agent draws a whole diagram in one call, with automatic layout | `draw_diagram` (2026-11-21) | ✅ | — |
+| Labels on arrows | — | ⬜ | P1 |
+| Arrows that route around other shapes | Elbow routes ignore obstacles | ⬜ | P2 |
+| Curved arrows and more shapes (cylinder, parallelogram, cloud) | — | ⬜ | P2 |
+| Re-attach or detach an arrow end by dragging it on the canvas | Inspector only | ⬜ | P2 |
+| Hand-drawn style | — | ⬜ | P3 |

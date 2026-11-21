@@ -49,7 +49,7 @@ export function solidColor(doc: Document, value: string | undefined, mode?: stri
   return c ? [c.r / 255, c.g / 255, c.b / 255, c.a] : null;
 }
 
-type Shape = Exclude<SceneNode, { type: "group" | "text" | "image" }>;
+type Shape = Exclude<SceneNode, { type: "group" | "text" | "image" | "shape" | "connector" }>;
 const SHAPES = new Set<Node["type"]>(["frame", "rect", "ellipse", "path"]);
 const isShape = (n: Node): n is Shape => SHAPES.has(n.type);
 

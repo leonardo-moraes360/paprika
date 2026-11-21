@@ -2,7 +2,8 @@
 
 Documento = mapa plano de nós + rootIds (telas/frames de topo, em coordenadas do canvas).
 Tipos: frame (contêiner com estilo e layout), group (agrupa sem pintar), page (canvas separado), rect, ellipse,
-text, image, path (vetor com curvas bezier). Só frame, group e page têm filhos.
+text, image, path (vetor com curvas bezier), shape (forma de diagrama com texto dentro), connector (linha/seta entre
+nós). Só frame, group e page têm filhos.
 
 Campos comuns: name, x, y, width, height (número | "hug" | "fill"), rotation, opacity (0..1),
 visible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.
@@ -27,6 +28,14 @@ path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fil
   o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó
   ganha a caixa do desenho. Curvas: "C c1x c1y c2x c2y x y" (cúbica), "Q cx cy x y" (quadrática), S/T espelham
   o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.
+shape: shape (rect|ellipse|diamond|note), text (centralizado; numa nota, no topo à esquerda), color, fontFamily, fontSize,
+  fontWeight, lineHeight, textAlign. width/height são números (padrão 160×80; nota 160×160). fill/stroke/radius/shadow
+  pintam o contorno; campos omitidos na criação ganham o padrão do tipo (branco com borda escura; note = nota adesiva amarela).
+connector: from/to = {nodeId, side?: auto|top|right|bottom|left} (preso a um nó) ou {x, y} (ponto solto nas coordenadas
+  do pai), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed. x, y, width, height e
+  d são calculados a partir das pontas a cada escrita (só leitura): mover uma forma redesenha os conectores dela, e
+  apagar um nó apaga os conectores presos a ele.
+Diagramas: draw_diagram recebe nodes (formas) + edges (conectores) e posiciona sozinho as formas sem x/y.
 
 Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.
 Modos de tema: set_tokens com mode ("dark", "compact"…) grava só os tokens que mudam; "mode" num frame ou página aplica o modo ao subtree (dá para pôr a mesma tela clara e escura lado a lado). export_code com cssVariables: true sai com var(--token) e uma regra por modo.

@@ -338,6 +338,29 @@ describe(`paridade (${impl}): MCP`, () => {
     expect((await srv.doc()).nodes.wave).toBeUndefined();
   });
 
+  it("diagramas: draw_diagram, setas que seguem a forma, export SVG medido e undo", async () => {
+    const c = client;
+    const r = (await c.callTool({
+      name: "draw_diagram",
+      arguments: {
+        nodes: [{ id: "start", text: "Start", shape: "ellipse" }, { id: "ok", text: "OK?", shape: "diamond" }, { id: "memo", text: "Note", shape: "note", x: 500, y: 0 }],
+        edges: [{ from: "start", to: "ok" }, { from: "memo", to: "ok", route: "straight", dashed: true, startArrow: "arrow" }],
+      },
+    })) as ToolResult & { structuredContent?: unknown };
+    expect(r.structuredContent).toEqual({ nodes: ["start", "ok", "memo"], edges: ["start-to-ok", "memo-to-ok"], created: ["start", "ok", "memo", "start-to-ok", "memo-to-ok"], version: 1 });
+    await call(c, "update_nodes", { updates: [{ id: "ok", props: { x: 200.5 } }] });
+    const doc = await srv.doc();
+    expect(doc.nodes["start-to-ok"]).toMatchObject({ x: 158, y: 38, d: "M2 2 L22.25 2 L22.25 146 L42.5 146 M30.5 152 L42.5 146 L30.5 140" });
+    expect(textOf(await call(c, "get_document_outline"))).toContain("connector#memo-to-ok");
+    const svg = textOf(await call(c, "export_code", { rootId: "memo", format: "svg" }));
+    expect(svg).toContain(">Note</tspan>");
+    const bad = await call(c, "draw_diagram", { nodes: [{ id: "x" }], edges: [{ from: "x", to: "nope" }] });
+    expect(textOf(bad)).toBe('edges[0]: "nope" is neither a diagram node nor an existing node');
+    await call(c, "undo");
+    await call(c, "undo");
+    expect(Object.keys((await srv.doc()).nodes)).toEqual([]);
+  });
+
   it("render_screenshot devolve PNG no tamanho pedido", async () => {
     await call(client, "create_nodes", { nodes: [{ type: "rect", id: "r", width: 50, height: 40, fill: "#ff278c" }] });
     const r = await call(client, "render_screenshot", { rootId: "r", scale: 2 });
