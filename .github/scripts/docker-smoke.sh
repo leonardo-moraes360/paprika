@@ -52,7 +52,7 @@ mcp() {
   local sid
   sid=$(tr -d '\r' <"$headers" | awk -F': ' 'tolower($1)=="mcp-session-id"{print $2}')
   rm -f "$headers"
-  [ -n "$sid" ] && session="$sid"
+  [[ -n "$sid" ]] && session="$sid"
   printf '%s' "$body"
 }
 
@@ -71,33 +71,33 @@ html=$(curl -fsS "$base/") || fail "GET /"
 grep -q '<title>Paprika</title>' <<<"$html" || fail "GET / is not the canvas"
 echo "ok   GET / (canvas)"
 js=$(grep -o '/assets/index-[^"]*\.js' <<<"$html" | head -1)
-[ -n "$js" ] || fail "no script in index.html"
+[[ -n "$js" ]] || fail "no script in index.html"
 # The renderer's JS chunk names the .wasm file (hashed by Vite); works on distroless too.
 chunk=$(curl -fsS "$base$js" | grep -o 'paprika_render-[A-Za-z0-9_-]*\.js' | head -1)
-[ -n "$chunk" ] || fail "WASM renderer chunk not in the canvas build"
+[[ -n "$chunk" ]] || fail "WASM renderer chunk not in the canvas build"
 wasm=$(curl -fsS "$base/assets/$chunk" | grep -o 'paprika_render_bg-[A-Za-z0-9_-]*\.wasm' | head -1)
-[ -n "$wasm" ] || fail "WASM file not referenced by $chunk"
+[[ -n "$wasm" ]] || fail "WASM file not referenced by $chunk"
 wasm_type=$(curl -fsS -o /dev/null -w '%{content_type}' "$base/assets/$wasm") || fail "GET /assets/$wasm"
-[ "$wasm_type" = "application/wasm" ] || fail "WASM served as $wasm_type"
+[[ "$wasm_type" = "application/wasm" ]] || fail "WASM served as $wasm_type"
 echo "ok   GET /assets/$wasm ($wasm_type)"
 
 # Host check survives the container: a foreign Host is refused.
 code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example:4777' "$base/")
-[ "$code" = "403" ] || fail "foreign Host answered $code, expected 403"
+[[ "$code" = "403" ]] || fail "foreign Host answered $code, expected 403"
 echo "ok   foreign Host -> 403"
 
 # MCP over HTTP.
 init
 tools=$(mcp '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | json 'r.result.tools.length')
-[ "$tools" -ge 17 ] || fail "tools/list returned $tools tools"
+[[ "$tools" -ge 17 ]] || fail "tools/list returned $tools tools"
 echo "ok   /mcp initialize + tools/list ($tools tools)"
 
 created=$(tool 3 create_nodes '{"nodes":[{"type":"frame","name":"Docker smoke","x":0,"y":0,"width":320,"height":200,"fill":"#e4572e","children":[{"type":"text","name":"Hello","text":"Hello from Docker","x":24,"y":24,"fontSize":24,"color":"#ffffff"}]}]}')
-[ "$(json 'r.result.isError ? "error" : "ok"' <<<"$created")" = ok ] || fail "create_nodes: $created"
+[[ "$(json 'r.result.isError ? "error" : "ok"' <<<"$created")" = ok ]] || fail "create_nodes: $created"
 root=$(json 'r.result.structuredContent.ids?.[0] ?? r.result.structuredContent.created?.[0] ?? ""' <<<"$created")
 echo "ok   /mcp create_nodes ($root)"
 
-if [ "$screenshot" = "1" ]; then
+if [[ "$screenshot" = "1" ]]; then
   shot=$(tool 4 render_screenshot "{\"rootId\":\"$root\"}")
   kind=$(json '(r.result.content||[]).map(c=>c.type+":"+(c.mimeType||"")).join(",")' <<<"$shot")
   grep -q 'image:image/png' <<<"$kind" || fail "render_screenshot returned $kind: $(head -c 400 <<<"$shot")"
