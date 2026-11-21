@@ -560,7 +560,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => demoCard.textContent()).toMatch(/Demo.*nós.*ativo/);
     if (shots) await page.screenshot({ path: join(shots, "20-overview.png") });
 
-    await page.getByRole("button", { name: "+ Novo workspace" }).click();
+    await page.getByRole("button", { name: "Novo workspace" }).click();
     await page.getByLabel("Nome do workspace").fill("Rascunho do agente");
     await page.getByRole("button", { name: "Criar" }).click();
     await expect.poll(() => new URL(page.url()).pathname).toMatch(/^\/w\//);
