@@ -140,6 +140,16 @@ Tarefa: `outputSchema` + `structuredContent` nas ferramentas que respondem JSON,
 | 50 | Mesmo nome de ator depois de reiniciar o servidor | No HTTP o nome fica num mapa em memória pelo `Mcp-Session-Id`; depois de reiniciar, o cliente continua com o id antigo e o ator volta ao User-Agent até um novo initialize | Responder 404 a ids de sessão desconhecidos, como a spec sugere, para o cliente reinicializar | P3 |
 | 51 | Um idioma só na lista de atividade | Os rótulos padrão das ferramentas agora são em inglês (`create 1 node(s)`), enquanto os rótulos e a interface do próprio canvas seguem em pt-BR | Traduzir a interface do canvas ou localizar as duas por configuração | P3 |
 
+## 2026-11-21: página de workspaces
+
+Tarefa: uma página com os workspaces como tela inicial, com `list_workspaces`, `open_workspace` e `create_workspace` nos dois servidores.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 52 | Trabalhar num segundo workspace sem mexer no humano | O workspace ativo é compartilhado de propósito, então `open_workspace` também troca o canvas do humano; o guia pede ao agente que pergunte antes | Um argumento opcional `workspace` nas ferramentas de leitura (outline, nodes, screenshot), para o agente olhar outro workspace sem trocar | P2 |
+| 53 | Saber que outra pessoa trocou o workspace | A chamada seguinte só vê outro documento; nada no resultado diz que o ativo mudou desde a última chamada do agente | Pôr o id do workspace ativo na primeira linha do `get_document_outline` e nos resultados de escrita | P2 |
+| 54 | Desfazer depois de uma troca (servidor TypeScript) | O histórico fica em memória, então um workspace reaberto começa com a pilha de undo vazia; o servidor Go restaura do SQLite | Manter um `History` por workspace durante a vida do processo | P3 |
+
 ## O que funcionou bem
 
 - `create_nodes` aninhado montou uma proposta inteira (≈60 nós) numa chamada, de forma atômica.
