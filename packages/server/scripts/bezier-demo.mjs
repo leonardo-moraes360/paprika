@@ -9,10 +9,18 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 // Sonar S8707: os dois caminhos vêm da linha de comando. São resolvidos contra o diretório atual e
 // qualquer resultado fora dele é recusado, para um argumento errado não apagar nem sobrescrever
 // arquivos alhures (ex.: `bezier-demo.mjs ../../.bashrc x.png`).
+const SAFE_ARG_PATH = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+
 function argPath(index, label) {
   const raw = process.argv[index];
   if (!raw) {
     console.error(`faltou o argumento ${index}: node packages/server/scripts/bezier-demo.mjs <saida.paprika.json> <saida.png>`);
+    process.exit(2);
+  }
+  // Allow-list first: a plainly spelled, repo-relative path only. No absolute path, no `~`, no
+  // `..` segment, no glob or control characters. Then the containment check below as a second net.
+  if (!SAFE_ARG_PATH.test(raw) || raw === "." || raw.split("/").includes("..")) {
+    console.error(`${label} precisa ser um caminho relativo simples dentro do diretório atual: ${raw}`);
     process.exit(2);
   }
   const abs = resolve(process.cwd(), raw);
