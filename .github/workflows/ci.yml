@@ -18,6 +18,11 @@ env:
   # Label `ci:full` on the PR runs every job on the next push, ignoring change detection.
   CI_FULL: ${{ contains(github.event.pull_request.labels.*.name, 'ci:full') && '1' || '0' }}
   FORCE_COLOR: "1"
+  # Go toolchain for every job: the latest patch of this minor. go.mod's `go` line is only the
+  # minimum the modules need (Dependabot writes it as e.g. `go 1.26.0`), and installing exactly
+  # that would build with a standard library that govulncheck flags. Bump the minor here when
+  # go.mod moves to a new one.
+  GO_VERSION: "1.26"
 
 jobs:
   plan:
@@ -61,7 +66,8 @@ jobs:
       - uses: ./.github/actions/setup-node-pnpm
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          go-version-file: server-go/go.mod
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
           cache-dependency-path: server-go/go.sum
       # The web build includes the WASM canvas renderer; without Rust it would be skipped quietly
       # and the WASM e2e tests with it.
@@ -185,7 +191,8 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          go-version-file: server-go/go.mod
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
           cache: false # golangci-lint-action keeps its own cache
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
@@ -209,7 +216,8 @@ jobs:
       # govulncheck takes the standard-library version from the `go` on PATH.
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          go-version-file: server-go/go.mod
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
           cache-dependency-path: server-go/go.sum
       - name: govulncheck
         working-directory: server-go
@@ -233,7 +241,8 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          go-version-file: server-go/go.mod
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
           cache-dependency-path: server-go/go.sum
       - name: Fetch base commit
         run: git fetch --no-tags --depth=1 origin "$BASE_SHA"
@@ -317,7 +326,8 @@ jobs:
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         if: matrix.language == 'go'
         with:
-          go-version-file: server-go/go.mod
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
           cache-dependency-path: server-go/go.sum
       - uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
         with:
