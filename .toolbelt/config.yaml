@@ -1,0 +1,121 @@
+defaults:
+    sandbox: false
+    timeout: 30s
+    json_output: false
+sandbox:
+    allow_net: []
+    cpu_limit: 100
+    mem_limit: 1G
+    time_limit: 5m
+graph:
+    auto_index: true
+    index_on_change: true
+    infer_relations: false
+    languages:
+        - go
+        - javascript
+        - python
+        - java
+        - kotlin
+        - csharp
+        - cpp
+        - rust
+        - php
+        - ruby
+        - swift
+        - shell
+    docs:
+        - markdown
+        - vault
+        - html
+        - txt
+    frameworks:
+        - react
+        - vue
+        - svelte
+        - astro
+        - angular
+        - routes
+        - mdx
+    max_file_bytes: 524288
+vault:
+    path: .toolbelt/vault
+    sync_on_change: true
+    max_note_bytes: 262144
+    types:
+        - fact
+        - decision
+        - context
+        - log
+    graph: true
+logging:
+    level: info
+    file: .toolbelt/logs/tb.log
+    format: text
+bench:
+    tasks_dir: bench/tasks
+    fixtures_dir: bench/fixtures
+    output_dir: bench/results
+    default_agent: ""
+    repetitions: 5
+    timeout: 10m
+verify:
+    test_cmd: pnpm test
+    hidden_test_cmd: ""
+    build_cmd: pnpm run build
+review:
+    require_approved_sha: false
+env:
+    allow: []
+    pass: []
+router:
+    max_workers: 3
+    strategy: dependency
+    agent_cmd: []
+    direct_delivery:
+        enabled: true
+        subscription_ttl: 30m
+        max_subscriptions_per_worker: 5
+    timeouts:
+        per_ticket: 10m
+        global: 1h
+    retry:
+        max_attempts: 2
+    slow_threshold: 0.8
+    bus:
+        channel: ""
+        as: ""
+        slots: 0
+        to: ""
+        claim_timeout: ""
+egm:
+    path: /usr/bin:/bin
+    vendor: claude
+    tools_check: auto
+    doc_globs:
+        - docs/specs/**
+        - docs/adr/**
+    doc_types:
+        docs/adr/**: adr
+    detail_headings:
+        - '## Detailed Implementation Plan'
+        - '## Plano de Implementação Detalhado'
+        - '## Implementation Plan'
+    refs_ignore:
+        - refs/**
+    match:
+        sim: 0.23
+        stem: 4
+        gap: 3
+    attest:
+        min_quotes: 3
+    max_rounds: 8
+    clean_rounds: 2
+    max_agent_runs: 120
+    max_source_bytes: 65536
+    max_packet_bytes: 409600
+    max_parallel: 4
+    timeout_per_reviewer: 5m
+    max_stdout_bytes: 1048576
+    ci:
+        max_docs: 5

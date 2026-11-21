@@ -1,0 +1,42 @@
+version: 1
+invariants:
+    - id: inv-1795265757131109475
+      category: anti_cheat
+      rule: NEVER modify files in tests/hidden/
+      added_at: 2026-11-21T12:55:57.131111523Z
+      immutable: true
+    - id: inv-1795265757131285027
+      category: anti_cheat
+      rule: NEVER change thresholds in .toolbelt/thresholds.yaml
+      added_at: 2026-11-21T12:55:57.131285467Z
+      immutable: true
+    - id: inv-1795265757131518613
+      category: security
+      rule: Secrets never appear in logs or prompts
+      added_at: 2026-11-21T12:55:57.131519364Z
+      immutable: true
+    - id: inv-1795265763822369148
+      category: mandate
+      rule: Every document mutation goes through applyOps in @paprika/core (human canvas and MCP agent share one path)
+      added_at: 2026-11-21T12:56:03.822370708Z
+      immutable: false
+    - id: inv-1795265763829071626
+      category: mandate
+      rule: nodeStyle in packages/core/src/style.ts is the single rendering source for canvas, HTML/React export and screenshot
+      added_at: 2026-11-21T12:56:03.829073156Z
+      immutable: false
+    - id: inv-1795265763835209269
+      category: mandate
+      rule: 'Paprika is an original tool: never copy code, assets or reverse-engineered behavior from Paper or other proprietary design tools'
+      added_at: 2026-11-21T12:56:03.835210855Z
+      immutable: false
+    - id: inv-1795265763841213920
+      category: security
+      rule: HTTP/WS/MCP servers bind to 127.0.0.1 by default and validate Origin/Host to block DNS rebinding
+      added_at: 2026-11-21T12:56:03.841214724Z
+      immutable: false
+    - id: inv-1795265763846826517
+      category: mandate
+      rule: Unknown node fields are rejected with an actionable error, never silently dropped
+      added_at: 2026-11-21T12:56:03.846827282Z
+      immutable: false

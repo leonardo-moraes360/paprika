@@ -1,0 +1,5 @@
+sources:
+    - AGENTS.md
+hints:
+    - pnpm run build
+    - pnpm test
