@@ -1,0 +1,25 @@
+# Allowlist: the build context is only what the Dockerfile copies (see docs/docker.md).
+# Everything else (node_modules, target/, *.db, .git, local designs) stays out of the context.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!packages/core/
+!apps/web/
+!crates/render/
+!server-go/
+
+# Build outputs and local state that may exist inside the allowed folders.
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+apps/web/src/wasm/
+crates/render/target/
+server-go/bin/
+**/*.db
+**/*.db-wal
+**/*.db-shm
+packages/core/test/
+server-go/**/*_test.go
+server-go/**/testdata/

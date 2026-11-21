@@ -43,6 +43,17 @@ updates:
       # Pinned with `=`: it must match wasm-bindgen-cli in crates/render/build.mjs, so bump both by hand.
       - dependency-name: wasm-bindgen
 
+  # Base images of the Dockerfile (tags such as rust:1.100-slim-trixie). The checksum-pinned
+  # downloads in it (wasm-bindgen, Chrome headless shell) are bumped by hand: see docs/docker.md.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+
   # Actions are pinned by commit SHA in the workflows; Dependabot keeps the SHA and the version
   # comment up to date.
   - package-ecosystem: github-actions

@@ -42,6 +42,7 @@ jobs:
       rust: ${{ steps.plan.outputs.rust }}
       codeql: ${{ steps.plan.outputs.codeql }}
       codeql_matrix: ${{ steps.plan.outputs.codeql_matrix }}
+      docker: ${{ steps.plan.outputs.docker }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -374,6 +375,32 @@ jobs:
         with:
           category: /language:${{ matrix.language }}
 
+  # ---------------------------------------------------------------- Docker
+
+  docker:
+    name: Docker image (build + smoke)
+    needs: plan
+    if: needs.plan.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The runner's own Docker + BuildKit, no third-party action: the Dockerfile pins its inputs
+      # (base image tags, checksums of wasm-bindgen and the Chrome headless shell, lockfiles).
+      - name: Build (runtime target)
+        run: docker build --progress=plain -t paprika:ci .
+      - name: Smoke test (runtime target)
+        run: .github/scripts/docker-smoke.sh paprika:ci
+      # Reuses every stage built above; only the final distroless layer is new.
+      - name: Build + smoke test (slim target)
+        run: |
+          docker build --progress=plain --target slim -t paprika:ci-slim .
+          SCREENSHOT=0 .github/scripts/docker-smoke.sh paprika:ci-slim
+      - name: Image sizes
+        run: docker image ls paprika --format '| {{.Tag}} | {{.Size}} |' | tee -a "$GITHUB_STEP_SUMMARY"
+
   # ---------------------------------------------------------------- Secrets
 
   secrets:
@@ -414,7 +441,7 @@ jobs:
     name: CI OK
     # The one check to require in branch protection: green when every job that ran passed and
     # the skipped ones were skipped on purpose by the plan.
-    needs: [plan, build, unit, suites, golden, go-lint, govulncheck, go-test, rust, codeql, secrets]
+    needs: [plan, build, unit, suites, golden, go-lint, govulncheck, go-test, rust, codeql, docker, secrets]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
