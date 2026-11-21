@@ -1,12 +1,12 @@
 module github.com/leonardo-moraes360/paprika/server-go
 
-go 1.25
+go 1.26
 
 require (
 	github.com/chromedp/cdproto v0.0.0-20250403032234-65de8f5d025b
 	github.com/chromedp/chromedp v0.13.6
 	github.com/coder/websocket v1.8.15
-	golang.org/x/text v0.28.0
+	golang.org/x/text v0.39.0
 	modernc.org/sqlite v1.38.2
 )
 

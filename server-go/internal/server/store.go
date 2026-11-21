@@ -77,9 +77,6 @@ CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '1');
 `
 
-// historyLimit mirrors the TypeScript History (500 entries).
-const historyLimit = 500
-
 // OpenDB opens (and migrates) a Paprika SQLite database.
 func OpenDB(path string) (*sql.DB, error) {
 	if dir := filepath.Dir(path); dir != "" {

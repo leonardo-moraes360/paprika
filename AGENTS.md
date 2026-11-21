@@ -20,4 +20,5 @@
 - `pnpm check` = build + typecheck + tests + E2E. The WASM E2E runs only when the renderer was built (Rust + `wasm-bindgen-cli` 0.2.130 installed); `pnpm test:render` runs the Rust tests.
 - `tb verify run` uses `.toolbelt/config.yaml` (`test_cmd: pnpm test && pnpm test:e2e`, `lint_cmd: pnpm typecheck`).
 - Before calling work done: `tb stack verify guard` (add `--ticket rd.md` for review/drift).
+- CI (pull requests only, see `docs/ci.md`): `node .github/scripts/ci-plan.mjs origin/main HEAD` shows which jobs your change triggers. Go lint: `cd server-go && golangci-lint run`.
 - E2E needs Playwright's Chromium; under `tb`, `PLAYWRIGHT_BROWSERS_PATH` is in `env.allow`.

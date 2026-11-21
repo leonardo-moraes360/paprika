@@ -146,6 +146,8 @@ pnpm check:go     # Go server: fixtures up to date, go test, parity and E2E agai
 pnpm test:render  # Rust renderer (crates/render): native tests with vello_cpu
 ```
 
+CI runs on pull requests only and picks the jobs from the files the PR changes: see [docs/ci.md](docs/ci.md).
+
 This repository uses [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) as its agent harness: invariants live in `.toolbelt/invariants.yaml` (`tb mem list`), and `tb verify run` / `tb stack verify guard` run before work is called done.
 
 ## Security
@@ -154,6 +156,12 @@ This repository uses [toolbelt](https://github.com/leonardo-moraes360/toolbelt) 
 - There is no authentication: `--host 0.0.0.0` exposes the document to the network. Only use it on a trusted network.
 - `https://` images are fetched by Chromium when taking screenshots.
 
+To report a vulnerability, use GitHub's private vulnerability reporting; see [SECURITY.md](SECURITY.md). Please don't open a public issue.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## License
 
-MIT
+[MIT](LICENSE)
