@@ -97,6 +97,7 @@ Theme modes: the inspector's document panel lists the tokens of each mode and ad
 Point editing: double-click a path to edit its points. Drag a point (its handles come along) or a handle (the opposite handle mirrors it; hold `Alt` to move it alone). Double-click a point to switch between corner and smooth, double-click the outline to add a point, `Delete` removes the selected point, `Esc` or `Enter` finish. Each gesture is one undo step. Quadratic curves and arcs become cubic curves once you edit them.
 Paste and export: `Ctrl+V` with SVG markup or HTML (e.g. copied from a web page) in the clipboard creates editable nodes inside the selected frame, or on the page at the center of the view. The `⇩` toolbar button downloads the selection (or the current page) as SVG.
 Pages: the "Páginas" panel on the left switches pages, `+` adds one (the first `+` turns the current canvas into "Página 1"), double-click renames, `×` deletes (undoable).
+Renaming: double-click a layer in the "Camadas" panel or a frame title on the canvas to rename it in place. `Enter` or clicking away confirms, `Esc` cancels; each rename is one undo step. Instance copies take their name from the component.
 Navigation: scroll = pan, `Ctrl`+scroll = zoom, hold `Space` (or `Enter`) and drag = pan (the cursor turns into a hand).
 Agent edits flash on the canvas and show up under "Atividade" (activity).
 

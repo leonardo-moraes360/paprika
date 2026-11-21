@@ -436,6 +436,26 @@ textarea {
   white-space: nowrap;
   cursor: default;
 }
+.frame-label-input,
+.layer-name-input {
+  font: inherit;
+  color: var(--text, inherit);
+  min-width: 0;
+  padding: 0 4px;
+  border: 1px solid var(--select);
+  border-radius: 3px;
+  background: var(--panel, #fff);
+  outline: none;
+}
+.layer-name-input {
+  flex: 1;
+  height: 20px;
+}
+.frame-label-input {
+  width: 180px;
+  height: 18px;
+  pointer-events: auto;
+}
 .frame-label.is-selected {
   color: var(--select);
 }

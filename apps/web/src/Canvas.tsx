@@ -36,6 +36,7 @@ import {
 } from "@paprika/core";
 import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
+import { InlineName } from "./InlineName";
 
 export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen";
 
@@ -224,6 +225,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const [box, setBox] = useState<Rect | null>(null);
   const [boxes, setBoxes] = useState<(Rect & { id: string })[]>([]);
   const roots = pageRoots(doc, pageId);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const [frameLabels, setFrameLabels] = useState<{ id: string; name: string; left: number; top: number }[]>([]);
   const fitted = useRef(false);
   const spaceDown = useRef(false);
@@ -874,13 +876,29 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           key={l.id}
           className={`frame-label${selected.includes(l.id) ? " is-selected" : ""}`}
           style={{ left: l.left, top: l.top - 20 }}
+          data-frame-label={l.id}
+          title="Duplo clique para renomear"
           onPointerDown={(e) => {
             e.stopPropagation();
             const additive = e.shiftKey || e.metaKey || e.ctrlKey;
             onSelect(additive ? (selected.includes(l.id) ? selected.filter((s) => s !== l.id) : [...selected, l.id]) : [l.id]);
           }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            setRenaming(l.id);
+          }}
         >
-          {l.name}
+          {renaming === l.id ? (
+            <InlineName
+              className="frame-label-input"
+              label="Nome do frame"
+              value={doc.nodes[l.id]?.name ?? ""}
+              onCommit={(name) => apply([{ op: "update", id: l.id, props: { name } }], "renomear frame")}
+              onDone={() => setRenaming(null)}
+            />
+          ) : (
+            l.name
+          )}
         </div>
       ))}
       {boxes.map((b) => (
