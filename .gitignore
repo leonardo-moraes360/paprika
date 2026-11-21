@@ -15,3 +15,4 @@ apps/web/src/wasm/
 crates/*/target/
 # Local working designs (e.g. design/marca.paprika.json served by `paprika serve`)
 design/
+.claude/settings.local.json
