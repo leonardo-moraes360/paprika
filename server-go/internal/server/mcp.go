@@ -556,6 +556,34 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return jsonShown(jsonv.NewObject("entries", entries), entries), nil
 		})
 
+	add("list_workspaces", nil, func(context.Context, *jsonv.Object) (ToolResult, error) {
+		ws, err := store.ListWorkspaces()
+		if err != nil {
+			return nil, err
+		}
+		return jsonResult(jsonv.NewObject("active", store.DocID(), "workspaces", jsonv.FromGo(ws))), nil
+	})
+	add("open_workspace", z.Object(z.Field{Name: "id", Schema: z.String().Min(1)}),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			id := a.Str("id")
+			info, err := store.OpenWorkspace(id, m.actorName())
+			if errors.Is(err, ErrNoWorkspace) {
+				return nil, fmt.Errorf(`workspace "%s" does not exist (see list_workspaces)`, id)
+			}
+			if err != nil {
+				return nil, err
+			}
+			return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info), "version", float64(store.Version()))), nil
+		})
+	add("create_workspace", z.Object(z.Field{Name: "name", Schema: z.String().Max(120)}),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			info, err := store.CreateWorkspace(a.Str("name"))
+			if err != nil {
+				return nil, err
+			}
+			return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info))), nil
+		})
+
 	add("lint_design", z.Object(optStr("rootId")), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		issues := core.LintDocument(store.Doc(), a.Str("rootId"))
 		counts := map[string]int{"error": 0, "warning": 0, "info": 0}

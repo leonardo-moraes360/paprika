@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import WebSocket from "ws";
-import { DocumentStore, PresenceHub, closeBrowser, createMcpServer, presenceTargets, startHttpServer, type RunningServer } from "../src/index.js";
+import { DocumentStore, PresenceHub, closeBrowser, createMcpServer, presenceTargets, startHttpServer, workspaceSlug, type RunningServer } from "../src/index.js";
 import { copyId } from "@paprika/core";
 
 type ToolResult = { isError?: boolean; content: { type: string; text?: string; data?: string; mimeType?: string }[] };
@@ -54,6 +54,7 @@ describe("MCP", () => {
         "create_instance",
         "create_nodes",
         "create_page",
+        "create_workspace",
         "delete_nodes",
         "detach_instance",
         "export_code",
@@ -66,7 +67,9 @@ describe("MCP", () => {
         "import_html",
         "import_svg",
         "lint_design",
+        "list_workspaces",
         "move_nodes",
+        "open_workspace",
         "path_info",
         "redo",
         "render_screenshot",
@@ -306,6 +309,57 @@ describe("MCP", () => {
     expect(store.version).toBe(before);
   });
 
+  it("workspaces: listar, criar, abrir; as ferramentas seguem o ativo e cada um grava no seu arquivo", async () => {
+    const c = await connect();
+    await call(c, "create_nodes", { nodes: [{ type: "rect", id: "r1" }] });
+    await store.flush();
+    // Not workspaces: a JSON that is not a Paprika document, a hidden temp file, a copy with the same id.
+    await writeFile(join(dir, "lixo.paprika.json"), "{}");
+    await writeFile(join(dir, ".t.paprika.json.1.tmp"), "{}");
+    await writeFile(join(dir, "copia.paprika.json"), await readFile(store.file, "utf8"));
+
+    const created = await call(c, "create_workspace", { name: "  Landing Page  " });
+    const ws = (created as { structuredContent: { workspace: { id: string; name: string; active: boolean } } }).structuredContent.workspace;
+    expect(ws).toMatchObject({ name: "Landing Page", nodes: 0, active: false });
+    expect(JSON.parse(await readFile(join(dir, "landing-page.paprika.json"), "utf8")).id).toBe(ws.id);
+    await call(c, "create_workspace", { name: "Landing page" });
+    expect(JSON.parse(await readFile(join(dir, "landing-page-2.paprika.json"), "utf8")).name).toBe("Landing page");
+
+    const list = (await call(c, "list_workspaces")) as ToolResult & { structuredContent: { active: string; workspaces: { id: string; active: boolean; nodes: number }[] } };
+    expect(list.structuredContent.active).toBe(store.doc.id);
+    expect(list.structuredContent.workspaces).toHaveLength(3);
+    expect(list.structuredContent.workspaces.filter((w) => w.active)).toEqual([expect.objectContaining({ id: store.doc.id, nodes: 1 })]);
+
+    const first = store.doc.id;
+    const events: string[] = [];
+    store.on("change", (e) => events.push(e.kind));
+    const opened = await call(c, "open_workspace", { id: ws.id });
+    expect(opened.isError, textOf(opened)).toBeFalsy();
+    expect(store.doc.id).toBe(ws.id);
+    expect(store.file).toBe(join(dir, "landing-page.paprika.json"));
+    expect(store.canUndo).toBe(false);
+    expect(events).toEqual(["open"]);
+    expect(textOf(await call(c, "get_document_outline"))).toMatch(/^document "Landing Page"/);
+    await call(c, "create_nodes", { nodes: [{ type: "rect", id: "r2" }] });
+    expect(Object.keys(JSON.parse(await readFile(join(dir, "landing-page.paprika.json"), "utf8")).nodes)).toEqual(["r2"]);
+    expect(Object.keys(JSON.parse(await readFile(join(dir, "t.paprika.json"), "utf8")).nodes)).toEqual(["r1"]);
+
+    await call(c, "open_workspace", { id: first });
+    expect(store.doc.nodes.r1).toBeDefined();
+    const bad = await call(c, "open_workspace", { id: "nope" });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toBe('workspace "nope" does not exist (see list_workspaces)');
+  });
+
+  it("nome de arquivo do workspace: sem acento, minúsculo, palavras com hífen, até 60 caracteres", () => {
+    expect(workspaceSlug("  Marca · Ícones  ")).toBe("marca-icones");
+    expect(workspaceSlug("--a--b--")).toBe("a-b");
+    expect(workspaceSlug("!!!")).toBe("workspace");
+    expect(workspaceSlug("aaa ".repeat(30))).toHaveLength(59);
+    expect(workspaceSlug("x".repeat(80))).toHaveLength(60);
+    expect(workspaceSlug("-".repeat(100_000) + "a")).toBe("a");
+  });
+
   it("render_screenshot devolve PNG", async () => {
     const c = await connect();
     await call(c, "create_nodes", { nodes: [{ type: "rect", id: "r", width: 50, height: 40, fill: "#ff278c" }] });
@@ -425,6 +479,38 @@ describe("HTTP + WebSocket", () => {
     expect(await status(port, { host: `evil.example:${port}` })).toBe(403);
     expect(await status(port, { host: `127.0.0.1:${port}`, origin: "https://evil.example" })).toBe(403);
     expect(await status(port, { host: `127.0.0.1:${port}` })).toBe(200);
+  });
+
+  it("API de workspaces: listar, criar, abrir; o canvas recebe a troca pelo WS", async () => {
+    const ws = new WebSocket(`${http.url.replace("http", "ws")}/ws`, { headers: { origin: http.url } });
+    const messages: { type: string; kind?: string; doc?: { id: string } }[] = [];
+    ws.on("message", (m) => messages.push(JSON.parse(String(m))));
+    await new Promise((ok) => ws.once("open", ok));
+
+    const post = (path: string, body?: unknown) =>
+      fetch(`${http.url}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const created = await post("/api/workspaces", { name: "Novo" });
+    expect(created.status).toBe(201);
+    const { workspace } = (await created.json()) as { workspace: { id: string; name: string } };
+    expect(workspace.name).toBe("Novo");
+    expect(((await (await post("/api/workspaces")).json()) as { workspace: { name: string } }).workspace.name).toBe("Sem título");
+    expect((await post("/api/workspaces", { name: 3 })).status).toBe(400);
+
+    const list = (await (await fetch(`${http.url}/api/workspaces`)).json()) as { active: string; workspaces: { id: string }[] };
+    expect(list.active).toBe(store.doc.id);
+    expect(list.workspaces.map((w) => w.id)).toContain(workspace.id);
+
+    const opened = await post(`/api/workspaces/${encodeURIComponent(workspace.id)}/open`);
+    expect(opened.status).toBe(200);
+    expect(((await opened.json()) as { workspace: { active: boolean } }).workspace.active).toBe(true);
+    await waitFor(() => messages.some((m) => m.type === "doc" && m.kind === "open" && m.doc?.id === workspace.id));
+    expect(store.doc.id).toBe(workspace.id);
+
+    const missing = await post("/api/workspaces/nope/open");
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: 'workspace "nope" não existe' });
+    expect((await fetch(`${http.url}/api/workspaces/${workspace.id}/open`)).status).toBe(405);
+    ws.close();
   });
 
   it("recarrega quando o arquivo é alterado externamente", async () => {

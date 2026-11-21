@@ -133,6 +133,9 @@ var apiOpsBody = z.Object(
 	z.Field{Name: "actor", Schema: z.Optional(z.String().Max(100))},
 )
 
+// POST /api/workspaces: name of the new workspace (blank: "Sem título").
+var workspaceBody = z.Object(z.Field{Name: "name", Schema: z.Optional(z.String().Max(120))})
+
 // RunningServer is a started HTTP server.
 type RunningServer struct {
 	URL    string
@@ -283,6 +286,61 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		}
 		w.Header().Set("content-disposition", `attachment; filename="`+safeFileName(store.Doc().Str("name"))+`.paprika.json"`)
 		send(w, 200, jsonv.Stringify(store.Doc(), "  ")+"\n", "application/json")
+	})
+	mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			ws, err := store.ListWorkspaces()
+			if err != nil {
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			send(w, 200, jsonv.NewObject("active", store.DocID(), "workspaces", jsonv.FromGo(ws)), "")
+		case http.MethodPost:
+			body, present, err := readBody(r)
+			if err != nil {
+				var he *httpError
+				if errors.As(err, &he) {
+					send(w, he.status, errBody(he.msg), "")
+					return
+				}
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			if !present {
+				body = jsonv.NewObject()
+			}
+			parsed, err := z.Parse(workspaceBody, body)
+			if err != nil {
+				send(w, 400, errBody(err.Error()), "")
+				return
+			}
+			info, err := store.CreateWorkspace(parsed.(*jsonv.Object).Str("name"))
+			if err != nil {
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			send(w, 201, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+		default:
+			send(w, 405, errBody("método não permitido"), "")
+		}
+	})
+	mux.HandleFunc("/api/workspaces/{id}/open", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			send(w, 405, errBody("método não permitido"), "")
+			return
+		}
+		id := r.PathValue("id")
+		info, err := store.OpenWorkspace(id, "user")
+		if errors.Is(err, ErrNoWorkspace) {
+			send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+			return
+		}
+		if err != nil {
+			send(w, 500, errBody(err.Error()), "")
+			return
+		}
+		send(w, 200, jsonv.NewObject("workspace", jsonv.FromGo(info), "version", float64(store.Version())), "")
 	})
 	mux.HandleFunc("/api/render", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

@@ -52,8 +52,10 @@ describe.skipIf(!wasmBuilt)(`E2E (${impl}): canvas com renderizador WASM`, () =>
   let agent: Client;
   const errors: string[] = [];
 
+  /** Canvas of the active workspace (`/` is the workspace overview). */
+  const canvasUrl = async () => `${url}/w/${encodeURIComponent(((await (await fetch(`${url}/api/workspaces`)).json()) as { active: string }).active)}`;
   const open = async (renderer: "dom" | "wasm") => {
-    await page.goto(`${url}/?renderer=${renderer}`);
+    await page.goto(`${await canvasUrl()}?renderer=${renderer}`);
     await page.waitForSelector('[data-paprika-id="board"]');
     if (renderer === "wasm") {
       await page.waitForFunction(() => {
@@ -158,7 +160,7 @@ describe.skipIf(!wasmBuilt)(`E2E (${impl}): canvas com renderizador WASM`, () =>
     await open("dom");
     await page.getByTestId("renderer-toggle").click();
     await expect.poll(() => page.getByTestId("renderer-toggle").getAttribute("data-backend")).toMatch(/^(cpu|webgpu)$/);
-    await page.goto(url); // no ?renderer: the saved choice applies
+    await page.goto(await canvasUrl()); // no ?renderer: the saved choice applies
     await page.waitForSelector('[data-testid="wasm-layer"]');
     await page.getByTestId("renderer-toggle").click();
     await expect.poll(() => page.getByTestId("renderer-toggle").getAttribute("data-backend")).toBe("dom");

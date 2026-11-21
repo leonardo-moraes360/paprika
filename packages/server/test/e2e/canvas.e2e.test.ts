@@ -43,8 +43,11 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
+    // `/` is the workspace overview: the demo is the only (active) workspace; opening it shows the canvas.
     await page.goto(url);
+    await page.locator(".workspace-card.is-active").click();
     await page.waitForSelector('[data-paprika-id="login"]');
+    expect(new URL(page.url()).pathname).toBe(`/w/${(await doc()).id}`);
     expect(errors).toEqual([]);
     agent = new Client({ name: "e2e-agent", version: "0" });
     await agent.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
@@ -559,10 +562,48 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     await expect.poll(() => name("login")).toBe("Login · mobile");
   });
 
+  it("overview: volta aos workspaces, cria um, abre no canvas e segue o agente quando ele troca", async () => {
+    const demo = (await doc()).id;
+    await page.getByRole("link", { name: "Paprika" }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+    const demoCard = page.locator(`[data-workspace-id="${demo}"]`);
+    await expect.poll(() => demoCard.textContent()).toMatch(/Demo.*nós.*ativo/);
+    if (shots) await page.screenshot({ path: join(shots, "20-overview.png") });
+
+    await page.getByRole("button", { name: "+ Novo workspace" }).click();
+    await page.getByLabel("Nome do workspace").fill("Rascunho do agente");
+    await page.getByRole("button", { name: "Criar" }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toMatch(/^\/w\//);
+    await expect.poll(async () => (await doc()).name).toBe("Rascunho do agente");
+    await expect.poll(() => page.locator(".doc-name").textContent()).toBe("Rascunho do agente");
+    const draft = (await doc()).id;
+    expect(new URL(page.url()).pathname).toBe(`/w/${draft}`);
+    expect(await page.locator("[data-layer-id]").count()).toBe(0);
+
+    // The agent draws in the open workspace, then switches back to the demo: the canvas follows.
+    await agent.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "frame", id: "rasc", name: "Rascunho", width: 200, height: 120, fill: "#ffffff" }] } });
+    await page.waitForSelector('[data-paprika-id="rasc"]');
+    await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
+    await page.waitForSelector('[data-paprika-id="login"]');
+    await expect.poll(() => new URL(page.url()).pathname).toBe(`/w/${demo}`);
+
+    // Following the agent replaced the URL, so Back goes to the overview; the draft is listed there.
+    await page.goBack();
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+    await expect.poll(() => page.locator(`[data-workspace-id="${draft}"]`).textContent()).toMatch(/Rascunho do agente1 nó/);
+    await page.locator(`[data-workspace-id="${draft}"]`).click();
+    await page.waitForSelector('[data-paprika-id="rasc"]');
+    await page.goto(`${url}/w/nao-existe`);
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+    await expect.poll(() => page.getByRole("alert").textContent()).toContain("nao-existe");
+    // Leave the demo active for any later test.
+    await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
+  });
+
   it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     try {
-      await p.goto(url);
+      await p.goto(`${url}/w/${(await doc()).id}`);
       await p.waitForSelector('[data-paprika-id="login"]');
       const width = (sel: string) => p.locator(sel).evaluate((el) => Math.round(el.getBoundingClientRect().width));
       const left = p.getByRole("separator", { name: "Largura do painel de camadas" });

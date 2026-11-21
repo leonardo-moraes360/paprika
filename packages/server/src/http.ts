@@ -41,6 +41,9 @@ const ClientMessage = z.discriminatedUnion("type", [
   z.object({ type: z.literal("redo"), reqId: z.string().optional() }),
 ]);
 
+/** POST /api/workspaces: name of the new workspace (blank: "Sem título"). */
+const WorkspaceBody = z.object({ name: z.string().max(120).optional() });
+
 function isLoopbackHost(host: string): boolean {
   return host === "127.0.0.1" || host === "localhost" || host === "::1";
 }
@@ -190,6 +193,23 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
         } catch (e) {
           return send(res, 422, { error: (e as Error).message });
         }
+      }
+      if (p === "/api/workspaces" && req.method === "GET") {
+        const workspaces = await store.listWorkspaces();
+        return send(res, 200, { active: store.doc.id, workspaces });
+      }
+      if (p === "/api/workspaces" && req.method === "POST") {
+        const body = WorkspaceBody.safeParse((await readBody(req)) ?? {});
+        if (!body.success) return send(res, 400, { error: body.error.message });
+        return send(res, 201, { workspace: await store.createWorkspace(body.data.name ?? "") });
+      }
+      const open = /^\/api\/workspaces\/([^/]+)\/open$/.exec(p);
+      if (open && req.method !== "POST") return send(res, 405, { error: "método não permitido" });
+      if (open) {
+        const id = decodeURIComponent(open[1]!);
+        const workspace = await store.openWorkspace(id, "user");
+        if (!workspace) return send(res, 404, { error: `workspace "${id}" não existe` });
+        return send(res, 200, { workspace, version: store.version });
       }
       if (p === "/api/render" && req.method === "GET") {
         const rootId = url.searchParams.get("root") ?? undefined;
