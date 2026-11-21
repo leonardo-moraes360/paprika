@@ -76,15 +76,15 @@ O resto no stdout é evento. O sidecar termina quando o stdin fecha.
 
 ### Conjunto de mudanças (`local`)
 
-O Go compara o documento antes e depois de um commit e manda, nesta ordem:
+O Go compara o documento antes e depois de um commit e manda, nesta ordem (movimentos antes das remoções, para um nó tirado de um frame apagado sobreviver em todos os peers):
 
 ```json
 [
-  {"k": "delete", "id": "old"},
   {"k": "create", "id": "n1", "parent": "frame1", "fields": {"type": "rect", "name": "Card", "fill": "$panel"}},
   {"k": "move",   "id": "n2", "parent": null},
   {"k": "set",    "id": "n3", "fields": {"fill": "#fff", "shadow": null}},
   {"k": "order",  "parent": "frame1", "children": ["n2", "n1", "n4"]},
+  {"k": "delete", "id": "old"},
   {"k": "tokens", "mode": "", "set": {"accent": "#e04a2b", "old": null}},
   {"k": "name",   "value": "Checkout"}
 ]
@@ -97,9 +97,11 @@ sidecar move nós da árvore até a ordem bater. Dados derivados nunca viajam: c
 ### Estado materializado (`remote`)
 
 `{name, rootIds, nodes: {id: {…campos, parentId, children?}}, tokens, modes}`: o que o documento Loro tem,
-na ordem da árvore. O Go transforma a diferença com o próprio documento em ops (remoções, criações com o pai
-antes, movimentos, atualizações, `set_tokens`, `rename_document`) e as aplica numa transação fora da pilha
-local de undo.
+na ordem da árvore. O Go transforma a diferença com o próprio documento em ops e as aplica numa transação fora
+da pilha local de undo: nós cujo pai mudou se movem primeiro, depois os que sumiram são apagados, um passeio na
+ordem da árvore cria os que faltam e põe o resto no lugar, e por fim atualizações de campos, `set_tokens` e
+`rename_document` (`server-go/internal/team/diff.go`). A transação fica com ator `peer:<quem>` e tipo `remote`.
+Um workspace que a instância ainda não tem é criado.
 
 ## Protocolo entre peers
 

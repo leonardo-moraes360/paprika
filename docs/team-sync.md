@@ -76,15 +76,15 @@ Everything else on stdout is an event. The sidecar exits when its stdin closes.
 
 ### Change set (`local`)
 
-Go diffs the document before and after a commit and sends, in order:
+Go diffs the document before and after a commit and sends, in order (moves come before deletes, so a node moved out of a deleted frame survives on every peer):
 
 ```json
 [
-  {"k": "delete", "id": "old"},
   {"k": "create", "id": "n1", "parent": "frame1", "fields": {"type": "rect", "name": "Card", "fill": "$panel"}},
   {"k": "move",   "id": "n2", "parent": null},
   {"k": "set",    "id": "n3", "fields": {"fill": "#fff", "shadow": null}},
   {"k": "order",  "parent": "frame1", "children": ["n2", "n1", "n4"]},
+  {"k": "delete", "id": "old"},
   {"k": "tokens", "mode": "", "set": {"accent": "#e04a2b", "old": null}},
   {"k": "name",   "value": "Checkout"}
 ]
@@ -97,8 +97,11 @@ connector's `x`/`y`/`width`/`height`/`d` and a group's `width`/`height`.
 ### Materialized state (`remote`)
 
 `{name, rootIds, nodes: {id: {…fields, parentId, children?}}, tokens, modes}`: what the Loro document holds,
-in tree order. Go turns the difference with its document into ops (deletes, creates parent first, moves,
-updates, `set_tokens`, `rename_document`) and applies them in one transaction outside the local undo stack.
+in tree order. Go turns the difference with its document into ops and applies them in one transaction outside
+the local undo stack: nodes whose parent changed move first, then gone nodes are deleted, a walk in tree order
+creates the missing ones and puts the rest in place, then field updates, `set_tokens` and `rename_document`
+(`server-go/internal/team/diff.go`). The transaction is recorded with actor `peer:<who>` and kind `remote`.
+A workspace the instance does not have yet is created.
 
 ## Peer protocol
 
