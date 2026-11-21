@@ -72,7 +72,8 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `update_nodes` / `move_nodes` / `delete_nodes` | Edição em lote, atômica |
 | `group_nodes` / `ungroup_nodes` | Põe nós irmãos num `group` (o desenho não se move) / devolve ao pai |
 | `create_page` | Cria uma página; a primeira leva o canvas atual para "Página 1" |
-| `apply_ops` | Transação mista (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page) |
+| `create_component` / `create_instance` / `detach_instance` | Marca um frame como componente / põe uma cópia dele (com `scale` e `overrides`; retorna o id de cada cópia) / transforma uma instância em nós comuns |
+| `apply_ops` | Transação mista (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
 | `set_tokens` | Design tokens (`$nome`) para cores e tamanhos |
 | `undo` / `redo` / `get_history` | Histórico compartilhado com o humano |
 | `lint_design` | Contraste WCAG AA, overflow, tokens inexistentes, texto pequeno, alt |
@@ -84,6 +85,8 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 
 Atalhos: `V` selecionar, `F` frame, `R` retângulo, `O` elipse, `T` texto, `P` caneta (clique = vértice reto, clicar e arrastar = alças bezier, clicar no primeiro vértice fecha, `Enter`/`Esc`/duplo clique terminam um traço aberto, `Backspace` remove o último vértice), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicar, `Delete`, setas (Shift = 10px), `Esc` sobe para o pai.
 Seleção: `Shift`+clique (no canvas ou nas camadas) adiciona ou tira um nó, arrastar no vazio desenha a caixa de seleção, `Ctrl+A` seleciona os irmãos (ou a página inteira), `Ctrl+G` agrupa, `Ctrl+Shift+G` desagrupa. Clicar dentro de um grupo seleciona o grupo; duplo clique seleciona o nó sob o cursor. Arrastar, setas, `Delete` e `Ctrl+D` valem para a seleção inteira.
+
+Componentes: "Tornar componente" no inspector de um frame, depois "Nova instância". Clicar dentro de uma instância seleciona a instância; selecione uma cópia nas camadas (ou com duplo clique) para trocar texto, cores, opacidade ou visibilidade. Mudanças no componente chegam a todas as instâncias; "Desanexar" transforma a instância em nós comuns.
 Páginas: o painel "Páginas" à esquerda troca de página, `+` cria uma (o primeiro `+` transforma o canvas atual na "Página 1"), duplo clique renomeia, `×` apaga (dá para desfazer).
 Navegação: rolar = pan, `Ctrl`+rolar = zoom, segurar `Espaço` (ou `Enter`) e arrastar = pan (o cursor vira uma mão).
 Edições do agente piscam no canvas e aparecem em "Atividade".
@@ -116,7 +119,7 @@ O renderizador WASM é compilado pelo `pnpm build` quando o Rust está instalado
 }
 ```
 
-Tipos: `frame` (contêiner com pintura e layout livre, linha ou coluna), `group` (agrupa sem pintar; a caixa segue os filhos), `page` (canvas separado no arquivo; com páginas, todo nó de topo é página e os frames ficam dentro delas), `rect`, `ellipse`, `text`, `image`, `path` (forma vetorial com dados de caminho SVG: retas, curvas bezier cúbicas e quadráticas, arcos; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin` e `viewBox` opcional para escalar um grid de ícone).
+Tipos: `frame` (contêiner com pintura e layout livre, linha ou coluna), `group` (agrupa sem pintar; a caixa segue os filhos), `frame` com `component: true` (componente) ou `instanceOf` (instância: os filhos são cópias geradas do componente, escaladas por `scale`, com `overrides`), `page` (canvas separado no arquivo; com páginas, todo nó de topo é página e os frames ficam dentro delas), `rect`, `ellipse`, `text`, `image`, `path` (forma vetorial com dados de caminho SVG: retas, curvas bezier cúbicas e quadráticas, arcos; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin` e `viewBox` opcional para escalar um grid de ícone).
 Tamanhos: número, `"hug"` (conteúdo) ou `"fill"` (ocupa o espaço do pai). Detalhes em [docs/pt-BR/arquitetura.md](docs/pt-BR/arquitetura.md). O trabalho planejado está em [docs/pt-BR/backlog.md](docs/pt-BR/backlog.md).
 
 ## Estrutura

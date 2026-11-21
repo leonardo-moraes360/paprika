@@ -1,5 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { groupOps, lintDocument, newId, resolveValue, ungroupOps, type Document, type GroupNode, type Node, type Op, type PageNode } from "@paprika/core";
+import {
+  copyOwner,
+  groupOps,
+  isInstance,
+  lintDocument,
+  newId,
+  resolveValue,
+  ungroupOps,
+  type Document,
+  type FrameNode,
+  type GroupNode,
+  type Node,
+  type Op,
+  type PageNode,
+  type SceneNode,
+} from "@paprika/core";
 import type { Activity } from "./useDocument";
 
 interface FieldProps {
@@ -131,7 +146,10 @@ export function Inspector(props: Props) {
   }
   if (!node) return <DocumentPanel doc={doc} apply={apply} activity={activity} onSelect={onSelect} />;
   if (node.type === "page") return <PagePanel doc={doc} page={node} apply={apply} />;
+  const owner = copyOwner(doc, node);
+  if (owner) return <CopyPanel {...props} node={node as SceneNode} instance={owner} />;
   if (node.type === "group") return <GroupPanel {...props} group={node} />;
+  if (isInstance(node)) return <InstancePanel {...props} instance={node} />;
   const set = (props: Record<string, unknown>, label = "editar propriedade") => apply([{ op: "update", id: node.id, props }], label);
   const setNum = (key: string) => (v: string) => {
     const n = num(v);
@@ -196,6 +214,26 @@ export function Inspector(props: Props) {
 
       {node.type === "frame" && (
         <>
+          <h3>Componente</h3>
+          <div className="actions" data-testid="component-actions">
+            {node.component ? (
+              <>
+                <button
+                  onClick={() => {
+                    const id = newId();
+                    const w = typeof node.width === "number" ? node.width : 0;
+                    apply([{ op: "create", parentId: node.parentId, node: { type: "frame", id, name: node.name, instanceOf: node.id, x: node.x + w + 40, y: node.y } }], "criar instância");
+                    props.onSelectMany([id]);
+                  }}
+                >
+                  Nova instância
+                </button>
+                <button onClick={() => set({ component: null }, "deixar de ser componente")}>Deixar de ser componente</button>
+              </>
+            ) : (
+              <button onClick={() => set({ component: true }, "criar componente")}>Tornar componente</button>
+            )}
+          </div>
           <h3>Layout</h3>
           <div className="grid grid-2">
             <label className="field">
@@ -299,6 +337,91 @@ export function Inspector(props: Props) {
       <div className="grid">
         <Field label="Notas" type="textarea" value={node.notes} placeholder="Intenção, restrições, conteúdo real…" onCommit={(v) => set({ notes: v || null })} />
       </div>
+    </div>
+  );
+}
+
+/** Instância: posição e escala são dela; o resto vem do componente (fill aceita override). */
+function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNode & { instanceOf: string } }) {
+  const { doc, apply, onSelect, onError } = props;
+  const comp = doc.nodes[node.instanceOf];
+  const set = (p: Record<string, unknown>, label = "editar instância") => apply([{ op: "update", id: node.id, props: p }], label);
+  const setNum = (key: string) => (v: string) => {
+    const n = num(v);
+    if (n !== undefined) set({ [key]: n });
+  };
+  const overrides = Object.keys(node.overrides ?? {}).length;
+  return (
+    <div className="panel-section" key={node.id} data-testid="instance-panel">
+      <h2>
+        instância <code className="muted">#{node.id}</code>
+      </h2>
+      <p className="muted">
+        de <button className="link" onClick={() => onSelect(node.instanceOf)}>{comp?.name || node.instanceOf}</button>
+        {overrides > 0 && ` · ${overrides} override(s)`}
+      </p>
+      <div className="grid">
+        <Field label="Nome" value={node.name} onCommit={(v) => set({ name: v }, "renomear")} />
+      </div>
+      <div className="grid grid-2">
+        <Field label="X" type="number" value={node.x} onCommit={setNum("x")} />
+        <Field label="Y" type="number" value={node.y} onCommit={setNum("y")} />
+        <Field label="Escala" type="number" value={node.scale ?? 1} title="0.01 a 100" onCommit={setNum("scale")} />
+        <Field label="Rotação" type="number" value={node.rotation} onCommit={setNum("rotation")} />
+        <Field label="Opacidade" type="number" value={node.opacity} onCommit={setNum("opacity")} />
+        <Field label="Tamanho" value={`${node.width}×${node.height}`} onCommit={() => onError("o tamanho vem do componente; mude a escala")} />
+      </div>
+      <div className="grid">
+        <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v }, "override")} />
+      </div>
+      <div className="actions">
+        <button onClick={() => onSelect(node.instanceOf)}>Ir para o componente</button>
+        {overrides > 0 && <button onClick={() => set({ overrides: null }, "limpar overrides")}>Limpar overrides</button>}
+        <button onClick={() => apply([{ op: "detach", ids: [node.id] }], "desanexar instância")}>Desanexar</button>
+      </div>
+      <h3>Notas para agentes</h3>
+      <div className="grid">
+        <Field label="Notas" type="textarea" value={node.notes} onCommit={(v) => set({ notes: v || null })} />
+      </div>
+    </div>
+  );
+}
+
+/** Cópia dentro de uma instância: só os campos de aparência viram override. */
+function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; instance: FrameNode }) {
+  const { doc, apply, onSelect } = props;
+  const set = (p: Record<string, unknown>) => apply([{ op: "update", id: node.id, props: p }], "override");
+  const src = node.sourceId!;
+  const ov = instance.overrides?.[src] ?? {};
+  return (
+    <div className="panel-section" key={node.id} data-testid="copy-panel">
+      <h2>
+        {node.type} <code className="muted">#{node.id}</code>
+      </h2>
+      <p className="muted">
+        cópia de <button className="link" onClick={() => onSelect(src)}>#{src}</button> na instância{" "}
+        <button className="link" onClick={() => onSelect(instance.id)}>{instance.name || instance.id}</button>
+      </p>
+      <div className="grid">
+        {node.type === "text" && <Field label="Conteúdo" type="textarea" value={node.text} onCommit={(v) => set({ text: v })} />}
+        {node.type === "text" && <ColorField doc={doc} label="Cor" value={node.color} onCommit={(v) => set({ color: v })} />}
+        {node.type !== "group" && <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />}
+        {node.type === "image" && <Field label="URL" value={node.src.startsWith("data:") ? "(data URI)" : node.src} onCommit={(v) => set({ src: v })} />}
+        <Field label="Opacidade" type="number" value={node.opacity} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
+        <label className="field">
+          <span>Visível</span>
+          <select value={String(node.visible)} onChange={(e) => set({ visible: e.target.value === "true" })}>
+            <option value="true">sim</option>
+            <option value="false">não</option>
+          </select>
+        </label>
+      </div>
+      {Object.keys(ov).length > 0 && (
+        <div className="actions">
+          <button onClick={() => set(Object.fromEntries(Object.keys(ov).map((k) => [k, null])))}>Restaurar do componente</button>
+        </div>
+      )}
+      <p className="muted">Posição, tamanho e estrutura vêm do componente.</p>
     </div>
   );
 }

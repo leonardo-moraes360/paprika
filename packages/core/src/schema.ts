@@ -58,7 +58,12 @@ const Base = {
   shadow: Shadow.optional(),
   /** Notas livres para humanos e agentes (intenção, restrições, links). */
   notes: z.string().max(4000).optional(),
+  /** Só em cópias dentro de uma instância: id do nó do componente de onde a cópia vem (gerado). */
+  sourceId: z.string().optional(),
 };
+
+/** Overrides de uma instância: por id de nó do componente, os campos trocados (ver component.ts). */
+export const Overrides = z.record(z.string(), z.record(z.string(), z.unknown()));
 
 export const FrameNode = z.object({
   ...Base,
@@ -66,6 +71,15 @@ export const FrameNode = z.object({
   children: z.array(z.string()).default([]),
   clip: z.boolean().default(true),
   layout: Layout.optional(),
+  /** Este frame é um componente: as instâncias copiam o desenho dele. */
+  component: z.boolean().optional(),
+  /**
+   * Este frame é uma instância do componente `instanceOf`: os filhos são cópias geradas ao fim de
+   * cada transação (escaladas por `scale`), e só `overrides` muda o que vem do componente.
+   */
+  instanceOf: z.string().optional(),
+  scale: z.number().min(0.01).max(100).optional(),
+  overrides: Overrides.optional(),
 });
 
 export const RectNode = z.object({ ...Base, type: z.literal("rect") });
@@ -142,6 +156,7 @@ export const GroupNode = z.object({
   visible: Base.visible,
   locked: Base.locked,
   notes: Base.notes,
+  sourceId: Base.sourceId,
   children: z.array(z.string()).default([]),
 });
 

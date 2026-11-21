@@ -3,6 +3,9 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import {
   NodeInputSchema,
+  copyId,
+  isContainer,
+  type NodeInput,
   NodeType,
   newId,
   ungroupOps,
@@ -40,6 +43,12 @@ group: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, wid
 page: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, todo nó de topo é página e os
   frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o
   conteúdo atual para "Página 1". Telas de outra página: get_document_outline {rootId: id da página}.
+Componentes: um frame com component: true é um componente (create_component). Uma instância é um frame com
+  instanceOf = id do componente e scale opcional (create_instance): os filhos são cópias geradas, com ids
+  derivados e sourceId = id do nó de origem; mudar o componente muda todas as instâncias. Numa cópia, update só
+  troca fill, color, text, src, alt, visible e opacity (vira override da instância; null volta ao componente);
+  na raiz, fill vira override e width/height/layout/stroke/radius/shadow/clip vêm do componente (use scale).
+  Cópias não podem ser movidas, apagadas nem receber filhos: edite o componente ou detach_instance.
 path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),
   stroke {color,width} (traço), fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),
   viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,
@@ -314,11 +323,86 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
   );
 
   server.registerTool(
+    "create_component",
+    {
+      title: "Criar componente",
+      description:
+        "Marca um frame como componente (component: true). Depois, create_instance cria cópias dele que acompanham as mudanças no componente.",
+      inputSchema: { id: z.string(), label: z.string().max(200).optional() },
+    },
+    ({ id, label }) =>
+      guard(async () => {
+        const r = await write([{ op: "update", id, props: { component: true } }], label ?? "criar componente");
+        return json({ component: id, ...r });
+      }),
+  );
+
+  server.registerTool(
+    "create_instance",
+    {
+      title: "Criar instância",
+      description:
+        "Cria uma instância de um componente (frame com instanceOf). Por padrão fica no mesmo pai do componente, 40px à direita dele. Retorna o id da instância e, em copies, o id de cada cópia por nó do componente (para overrides com update_nodes).",
+      inputSchema: {
+        componentId: z.string(),
+        parentId: z.string().nullable().optional().describe("Pai da instância (padrão: o pai do componente)"),
+        x: z.number().optional(),
+        y: z.number().optional(),
+        scale: z.number().min(0.01).max(100).optional(),
+        name: z.string().max(200).optional(),
+        overrides: z.record(z.string(), z.record(z.string(), z.unknown())).optional().describe("{ idDoNóNoComponente: { text: ..., fill: ... } }"),
+        id: z.string().optional().describe("Id da instância (padrão: gerado)"),
+        label: z.string().max(200).optional(),
+      },
+    },
+    ({ componentId, parentId, x, y, scale, name, overrides, id, label }) =>
+      guard(async () => {
+        const comp = store.doc.nodes[componentId];
+        const iid = id ?? newId();
+        const node: Record<string, unknown> = { type: "frame", id: iid, instanceOf: componentId };
+        const cx = comp && comp.type !== "page" ? comp.x : 0;
+        const cw = comp && comp.type !== "page" && typeof comp.width === "number" ? comp.width : 0;
+        node.name = name ?? comp?.name ?? "";
+        node.x = x ?? (comp && comp.type !== "page" ? cx + cw + 40 : 0);
+        node.y = y ?? (comp && comp.type !== "page" ? comp.y : 0);
+        if (scale !== undefined) node.scale = scale;
+        if (overrides !== undefined) node.overrides = overrides;
+        const parent = parentId !== undefined ? parentId : (comp?.parentId ?? null);
+        const r = await write([{ op: "create", parentId: parent, node: node as NodeInput }], label ?? "criar instância");
+        const copies: Record<string, string> = {};
+        const walk = (nid: string) => {
+          const n = store.doc.nodes[nid];
+          if (!isContainer(n)) return;
+          for (const c of n.children) {
+            copies[c] = copyId(iid, c);
+            walk(c);
+          }
+        };
+        walk(componentId);
+        return json({ instance: iid, copies, ...r });
+      }),
+  );
+
+  server.registerTool(
+    "detach_instance",
+    {
+      title: "Desanexar instância",
+      description: "Transforma instâncias em frames comuns: as cópias viram nós normais (mesmos ids) e param de seguir o componente.",
+      inputSchema: { ids: z.array(z.string()).min(1).max(500), label: z.string().max(200).optional() },
+    },
+    ({ ids, label }) =>
+      guard(async () => {
+        const r = await write([{ op: "detach", ids }], label ?? `desanexar ${ids.length} instância(s)`);
+        return json({ detached: ids, ...r });
+      }),
+  );
+
+  server.registerTool(
     "apply_ops",
     {
       title: "Transação de operações",
       description:
-        "Aplica uma lista mista de operações (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page) numa única transação atômica.",
+        "Aplica uma lista mista de operações (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) numa única transação atômica.",
       inputSchema: { ops: z.array(Op).min(1).max(1000), label: z.string().max(200).optional() },
     },
     ({ ops, label }) => guard(async () => json(await write(ops as OpT[], label ?? `transação de ${ops.length} op(s)`))),

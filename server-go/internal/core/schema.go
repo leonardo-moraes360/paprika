@@ -77,6 +77,7 @@ func baseFields() []z.Field {
 		{Name: "radius", Schema: z.Default(z.Number().Min(0), 0.0)},
 		{Name: "shadow", Schema: z.Optional(shadowSchema)},
 		{Name: "notes", Schema: z.Optional(z.String().Max(4000))},
+		{Name: "sourceId", Schema: z.Optional(z.String())},
 	}
 }
 
@@ -106,7 +107,7 @@ func groupSchema() *z.ObjectSchema {
 		baseField("x"), baseField("y"),
 		z.Field{Name: "width", Schema: z.Default(z.Number().Min(0), 0.0)},
 		z.Field{Name: "height", Schema: z.Default(z.Number().Min(0), 0.0)},
-		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"),
+		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
 	)
 }
@@ -160,6 +161,10 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
 		z.Field{Name: "clip", Schema: z.Default(z.Bool(), true)},
 		z.Field{Name: "layout", Schema: z.Optional(layoutSchema)},
+		z.Field{Name: "component", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "instanceOf", Schema: z.Optional(z.String())},
+		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.01).Max(100))},
+		z.Field{Name: "overrides", Schema: z.Optional(z.Record(z.String(), z.Record(z.String(), z.Unknown())))},
 	),
 	"rect":    nodeSchema("rect"),
 	"ellipse": nodeSchema("ellipse"),

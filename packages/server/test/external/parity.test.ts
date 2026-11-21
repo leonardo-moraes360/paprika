@@ -40,6 +40,140 @@ describe(`paridade (${impl}): MCP`, () => {
     expect(client.getInstructions()).toBe(contract.instructions);
   });
 
+  it("componentes e instâncias", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "frame", id: "btn", name: "Botão", x: 10, y: 10, width: 100, height: 40, fill: "#3355ff", radius: 6,
+          layout: { mode: "row", gap: 4, padding: 8 },
+          children: [
+            { type: "text", id: "lbl", text: "OK", color: "#ffffff", width: 50, height: 20 },
+            { type: "path", id: "ico", d: "M0 0 L8 8", stroke: { color: "#ffffff", width: 1.5 } },
+          ],
+        },
+      ],
+    });
+    await call(c, "create_component", { id: "btn" });
+    const inst = await call(c, "create_instance", { componentId: "btn", id: "i1", scale: 1.5, overrides: { lbl: { text: "Enviar" } } });
+    expect(textOf(inst)).toMatchInlineSnapshot(`
+      "{
+        "instance": "i1",
+        "copies": {
+          "lbl": "i1-0bzyiqi0vw20y4",
+          "ico": "i1-1qrxohh1a842nx"
+        },
+        "created": [
+          "i1"
+        ],
+        "version": 3
+      }"
+    `);
+    const outline = await call(c, "get_document_outline", {});
+    expect(textOf(outline)).toMatchInlineSnapshot(`
+      "documento "doc" v3 · 6 nós
+      tokens: (nenhum)
+
+      frame#btn "Botão" 100×40 @10,10 fill=#3355ff row gap=4 component
+        text#lbl 50×20 @0,0 "OK" 16/400 color=#ffffff
+        path#ico 8×8 @0,0 d="M0 0 L8 8" stroke=#ffffff/1.5
+      frame#i1 "Botão" 150×60 @150,10 fill=#3355ff row gap=6 instanceOf=btn scale=1.5 overrides=1
+        text#i1-0bzyiqi0vw20y4 75×30 @0,0 from=lbl "Enviar" 24/400 color=#ffffff
+        path#i1-1qrxohh1a842nx 12×12 @0,0 from=ico d="M0 0 L8 8" stroke=#ffffff/2.25 viewBox=0,0,8,8"
+    `);
+    const bad = await call(c, "update_nodes", { updates: [{ id: JSON.parse(textOf(inst)).copies.lbl, props: { x: 3 } }] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toMatchInlineSnapshot(`"op[0]: "i1-0bzyiqi0vw20y4" é cópia dentro da instância "i1": só fill, color, text, src, alt, visible, opacity podem ser trocados (viram overrides); edite o componente ou desanexe (detach) (recebido x)"`);
+    await call(c, "update_nodes", { updates: [{ id: "lbl", props: { fontSize: 20 } }, { id: "i1", props: { fill: "#000000" } }] });
+    const nodes = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["i1", JSON.parse(textOf(inst)).copies.lbl] })));
+    expect(nodes).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            "i1-0bzyiqi0vw20y4",
+            "i1-1qrxohh1a842nx",
+          ],
+          "clip": true,
+          "fill": "#000000",
+          "height": 60,
+          "id": "i1",
+          "instanceOf": "btn",
+          "layout": {
+            "align": "start",
+            "gap": 6,
+            "justify": "start",
+            "mode": "row",
+            "padding": 12,
+            "wrap": false,
+          },
+          "locked": false,
+          "name": "Botão",
+          "opacity": 1,
+          "overrides": {
+            "btn": {
+              "fill": "#000000",
+            },
+            "lbl": {
+              "text": "Enviar",
+            },
+          },
+          "parentId": null,
+          "radius": 9,
+          "rotation": 0,
+          "scale": 1.5,
+          "type": "frame",
+          "visible": true,
+          "width": 150,
+          "x": 150,
+          "y": 10,
+        },
+        {
+          "color": "#ffffff",
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 30,
+          "fontWeight": 400,
+          "height": 30,
+          "id": "i1-0bzyiqi0vw20y4",
+          "letterSpacing": 0,
+          "lineHeight": 1.4,
+          "locked": false,
+          "name": "",
+          "opacity": 1,
+          "parentId": "i1",
+          "radius": 0,
+          "rotation": 0,
+          "sourceId": "lbl",
+          "text": "Enviar",
+          "textAlign": "left",
+          "type": "text",
+          "visible": true,
+          "width": 75,
+          "x": 0,
+          "y": 0,
+        },
+      ]
+    `);
+    const d = await call(c, "detach_instance", { ids: ["i1"] });
+    expect(textOf(d)).toMatchInlineSnapshot(`
+      "{
+        "detached": [
+          "i1"
+        ],
+        "created": [],
+        "version": 5
+      }"
+    `);
+    await call(c, "undo");
+    expect(textOf(await call(c, "get_document_outline", { rootId: "i1" }))).toMatchInlineSnapshot(`
+      "documento "doc" v6 · 6 nós
+      tokens: (nenhum)
+
+      frame#i1 "Botão" 150×60 @150,10 fill=#000000 row gap=6 instanceOf=btn scale=1.5 overrides=2
+        text#i1-0bzyiqi0vw20y4 75×30 @0,0 from=lbl "Enviar" 30/400 color=#ffffff
+        path#i1-1qrxohh1a842nx 12×12 @0,0 from=ico d="M0 0 L8 8" stroke=#ffffff/2.25 viewBox=0,0,8,8"
+    `);
+  });
+
   it("grupos e páginas", async () => {
     const c = client;
     await call(c, "create_nodes", {

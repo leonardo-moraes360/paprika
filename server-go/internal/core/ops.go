@@ -90,7 +90,101 @@ func init() {
 			z.Field{Name: "firstId", Schema: z.Optional(z.String())},
 			z.Field{Name: "firstName", Schema: z.Optional(z.String().Max(200))},
 		)),
+		z.Option("detach", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("detach")},
+			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+		)),
 	)
+}
+
+const sourceIDRule = "sourceId é gerado pelas instâncias; não pode ser escrito"
+
+func inInstance(inst string) string {
+	return fmt.Sprintf(`"%s" é uma instância: o conteúdo vem do componente; edite o componente, use overrides ou desanexe (detach)`, inst)
+}
+
+func copyRule(id, inst string) string {
+	return fmt.Sprintf(`"%s" é cópia dentro da instância "%s": só %s podem ser trocados (viram overrides); edite o componente ou desanexe (detach)`, id, inst, strings.Join(CopyOverrides, ", "))
+}
+
+func updatePlain(doc *Document, node *Node, props *jsonv.Object, i int) (any, error) {
+	id := node.Str("id")
+	allowed := KnownKeys(node.Str("type"))
+	next := node.Spread()
+	prev := jsonv.NewObject()
+	for _, k := range props.Keys() {
+		v, _ := props.Get(k)
+		if ImmutableKeys[k] {
+			return nil, opErr(i, `campo "%s" não pode ser alterado por update (use move/create)`, k)
+		}
+		if !allowed[k] {
+			return nil, opErr(i, "campo desconhecido para %s: %s", node.Str("type"), k)
+		}
+		if node.Str("type") == "group" && (k == "width" || k == "height") {
+			return nil, opErr(i, groupSize)
+		}
+		if old, has := node.Get(k); has {
+			prev.Set(k, jsonv.Clone(old))
+		} else {
+			prev.Set(k, nil)
+		}
+		if v == nil {
+			next.Delete(k)
+		} else {
+			next.Set(k, jsonv.Clone(v))
+		}
+	}
+	parsed, err := z.Parse(NodeSchema, next)
+	if err != nil {
+		return nil, opErr(i, `update inválido em "%s": %s`, id, formatZod(err))
+	}
+	Nodes(doc).Set(id, parsed)
+	return jsonv.NewObject("op", "update", "id", id, "props", prev), nil
+}
+
+// updateOverride: an update on a copy (or on an instance root's fill) is stored in overrides.
+func updateOverride(doc *Document, inst, node *Node, srcID string, props *jsonv.Object, i int) (any, error) {
+	id := node.Str("id")
+	src := GetNode(doc, srcID)
+	prev := jsonv.NewObject()
+	allowed := KnownKeys(node.Str("type"))
+	var unknown []string
+	for _, k := range props.Keys() {
+		if !allowed[k] {
+			unknown = append(unknown, k)
+		}
+	}
+	if len(unknown) > 0 {
+		return nil, opErr(i, "campo desconhecido para %s: %s", node.Str("type"), strings.Join(unknown, ", "))
+	}
+	for _, k := range props.Keys() {
+		v, _ := props.Get(k)
+		setOverride(inst, srcID, k, v, src)
+	}
+	next := GetNode(doc, id).Spread()
+	for _, k := range props.Keys() {
+		v, _ := props.Get(k)
+		if old, has := node.Get(k); has {
+			prev.Set(k, jsonv.Clone(old))
+		} else {
+			prev.Set(k, nil)
+		}
+		if v == nil {
+			if sv, has := src.Get(k); src != nil && has {
+				next.Set(k, jsonv.Clone(sv))
+			} else {
+				next.Delete(k)
+			}
+		} else {
+			next.Set(k, jsonv.Clone(v))
+		}
+	}
+	parsed, err := z.Parse(NodeSchema, next)
+	if err != nil {
+		return nil, opErr(i, `update inválido em "%s": %s`, id, formatZod(err))
+	}
+	Nodes(doc).Set(id, parsed)
+	return jsonv.NewObject("op", "update", "id", id, "props", prev), nil
 }
 
 var nodeInput *z.ObjectSchema
@@ -301,6 +395,17 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 	if typ == "group" && (rest.Has("width") || rest.Has("height")) {
 		return opErr(i, groupSize)
 	}
+	if rest.Has("sourceId") {
+		return opErr(i, sourceIDRule)
+	}
+	if owner := InstanceOwner(doc, parentID); owner != nil {
+		return opErr(i, "%s", inInstance(owner.Str("id")))
+	}
+	if inst, ok := rest.Get("instanceOf"); ok {
+		if _, isStr := inst.(string); isStr && hasChildren && len(childrenV.([]any)) > 0 {
+			return opErr(i, "os filhos de uma instância vêm do componente; crie a instância sem children")
+		}
+	}
 	list, err := container(doc, parentID, i)
 	if err != nil {
 		return err
@@ -397,44 +502,69 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		if node == nil {
 			return nil, opErr(i, `nó "%s" não existe`, id)
 		}
-		allowed := KnownKeys(node.Str("type"))
-		next := node.Spread()
-		prev := jsonv.NewObject()
 		props := op.Obj("props")
+		if owner := CopyOwner(doc, node); owner != nil {
+			var bad []string
+			for _, k := range props.Keys() {
+				if !inList(CopyOverrides, k) {
+					bad = append(bad, k)
+				}
+			}
+			if len(bad) > 0 {
+				return nil, opErr(i, "%s (recebido %s)", copyRule(id, owner.Str("id")), strings.Join(bad, ", "))
+			}
+			return updateOverride(doc, owner, node, node.Str("sourceId"), props, i)
+		}
+		if props.Has("sourceId") && InstanceOwner(doc, mustGet(node, "parentId")) != nil {
+			return nil, opErr(i, sourceIDRule)
+		}
+		if !IsInstance(node) {
+			return updatePlain(doc, node, props, i)
+		}
+		var derived []string
 		for _, k := range props.Keys() {
-			v, _ := props.Get(k)
-			if ImmutableKeys[k] {
-				return nil, opErr(i, `campo "%s" não pode ser alterado por update (use move/create)`, k)
-			}
-			if !allowed[k] {
-				return nil, opErr(i, "campo desconhecido para %s: %s", node.Str("type"), k)
-			}
-			if node.Str("type") == "group" && (k == "width" || k == "height") {
-				return nil, opErr(i, groupSize)
-			}
-			if old, has := node.Get(k); has {
-				prev.Set(k, jsonv.Clone(old))
-			} else {
-				prev.Set(k, nil)
-			}
-			if v == nil {
-				next.Delete(k)
-			} else {
-				next.Set(k, jsonv.Clone(v))
+			if inList(RootDerived, k) && k != "fill" {
+				derived = append(derived, k)
 			}
 		}
-		parsed, err := z.Parse(NodeSchema, next)
-		if err != nil {
-			return nil, opErr(i, `update inválido em "%s": %s`, id, formatZod(err))
+		if len(derived) > 0 {
+			return nil, opErr(i, `%s de "%s" vêm do componente "%s"; edite o componente, mude scale ou desanexe (detach)`, strings.Join(derived, ", "), id, node.Str("instanceOf"))
 		}
-		Nodes(doc).Set(id, parsed)
-		return jsonv.NewObject("op", "update", "id", id, "props", prev), nil
+		rest := props.Spread()
+		rest.Delete("fill")
+		inverse := []any{}
+		if rest.Len() > 0 {
+			inv, err := updatePlain(doc, node, rest, i)
+			if err != nil {
+				return nil, err
+			}
+			inverse = append(inverse, inv)
+		}
+		if fill, ok := props.Get("fill"); ok {
+			cur := GetNode(doc, id)
+			fp := jsonv.NewObject("fill", fill)
+			var inv any
+			var err error
+			if IsInstance(cur) {
+				inv, err = updateOverride(doc, cur, cur, cur.Str("instanceOf"), fp, i)
+			} else {
+				inv, err = updatePlain(doc, cur, fp, i)
+			}
+			if err != nil {
+				return nil, err
+			}
+			inverse = append([]any{inv}, inverse...)
+		}
+		return inverse, nil
 
 	case "delete":
 		id := op.Str("id")
 		node := GetNode(doc, id)
 		if node == nil {
 			return nil, opErr(i, `nó "%s" não existe`, id)
+		}
+		if owner := CopyOwner(doc, node); owner != nil {
+			return nil, opErr(i, "%s; para esconder, use visible: false", copyRule(id, owner.Str("id")))
 		}
 		nodes := subtree(doc, id)
 		parentID, _ := node.Get("parentId")
@@ -489,6 +619,12 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		if ts, ok := target.(string); ok && (ts == id || isDescendant(doc, ts, id)) {
 			return nil, opErr(i, `mover "%s" para dentro de si mesmo criaria um ciclo`, id)
 		}
+		if owner := CopyOwner(doc, node); owner != nil {
+			return nil, opErr(i, "%s", copyRule(id, owner.Str("id")))
+		}
+		if t := InstanceOwner(doc, target); t != nil {
+			return nil, opErr(i, "%s", inInstance(t.Str("id")))
+		}
 		oldParent, _ := node.Get("parentId")
 		from, err := container(doc, oldParent, i)
 		if err != nil {
@@ -531,7 +667,7 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		doc.Set("name", op.Str("name"))
 		return jsonv.NewObject("op", "rename_document", "name", prev), nil
 
-	case "group", "ungroup", "add_page":
+	case "group", "ungroup", "add_page", "detach":
 		// Expanded against the *current* document, inside the same transaction.
 		var plan []any
 		var err error
@@ -540,6 +676,10 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			plan, _, err = GroupOps(doc, op.Strings("ids"), op.Str("id"), op.Str("name"))
 		case "ungroup":
 			plan, _, err = UngroupOps(doc, op.Strings("ids"))
+		case "detach":
+			if err = SyncInstances(doc); err == nil {
+				plan, err = DetachOps(doc, op.Strings("ids"))
+			}
 		default:
 			plan, _ = AddPageOps(doc, op.Str("id"), op.Str("name"), op.Str("firstId"), op.Str("firstName"))
 		}
@@ -583,6 +723,11 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 		if err := checkPages(draft, len(ops)-1); err != nil {
 			return nil, err
 		}
+		inverse = append(fitGroups(draft), inverse...)
+		if err := SyncInstances(draft); err != nil {
+			return nil, opErr(len(ops)-1, "%s", err.Error())
+		}
+		// A group holding instances only knows their size after the sync.
 		inverse = append(fitGroups(draft), inverse...)
 	}
 	if inverse == nil {
@@ -732,7 +877,7 @@ func fitGroups(doc *Document) []any {
 		for _, c := range n.Strings("children") {
 			visit(c)
 		}
-		if n.Str("type") == "group" {
+		if n.Str("type") == "group" && !n.Has("sourceId") {
 			inverse = fitGroup(doc, n, inverse)
 		}
 	}
@@ -782,6 +927,11 @@ func fitGroup(doc *Document, g *Node, inverse []any) []any {
 	g.Set("width", w)
 	g.Set("height", h)
 	return inverse
+}
+
+func mustGet(n *Node, k string) any {
+	v, _ := n.Get(k)
+	return v
 }
 
 // flatten turns applyOne's inverse (one op, or a list for composite ops) into a list.

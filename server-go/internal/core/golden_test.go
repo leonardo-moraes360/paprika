@@ -52,7 +52,7 @@ func baseDocs(t *testing.T, g *jsonv.Object) map[string]*Document {
 	for _, v := range g.Arr("views") {
 		o := v.(*jsonv.Object)
 		switch name := o.Str("name"); name {
-		case "empty", "card", "demo", "bezier", "free", "grouped", "paged":
+		case "empty", "card", "demo", "bezier", "free", "grouped", "paged", "comp":
 			docs[name] = mustDoc(t, o.Str("doc"))
 		}
 	}

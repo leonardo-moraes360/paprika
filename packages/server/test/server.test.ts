@@ -8,6 +8,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import WebSocket from "ws";
 import { DocumentStore, closeBrowser, createMcpServer, startHttpServer, type RunningServer } from "../src/index.js";
+import { copyId } from "@paprika/core";
 
 type ToolResult = { isError?: boolean; content: { type: string; text?: string; data?: string; mimeType?: string }[] };
 
@@ -49,9 +50,12 @@ describe("MCP", () => {
     expect(names).toEqual(
       [
         "apply_ops",
+        "create_component",
+        "create_instance",
         "create_nodes",
         "create_page",
         "delete_nodes",
+        "detach_instance",
         "export_code",
         "find_nodes",
         "get_design_guide",
@@ -114,6 +118,35 @@ describe("MCP", () => {
     expect(textOf(shot)).toContain("10×10px");
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 3 })));
     expect(hist.map((h: { label: string }) => h.label)).toEqual(["desagrupar 1 grupo(s)", "criar página", "criar 1 nó(s)"]);
+  });
+
+  it("componentes: criar, instanciar com escala e overrides, propagar, desanexar", async () => {
+    const c = await connect();
+    await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "frame", id: "btn", name: "Botão", x: 10, y: 10, width: 100, height: 40, fill: "#3355ff",
+          children: [{ type: "text", id: "lbl", text: "OK", color: "#ffffff", width: 50, height: 20 }],
+        },
+      ],
+    });
+    const bad = await call(c, "create_instance", { componentId: "btn" });
+    expect(textOf(bad)).toMatch(/não é componente/);
+    expect(JSON.parse(textOf(await call(c, "create_component", { id: "btn" })))).toMatchObject({ component: "btn" });
+    const inst = JSON.parse(textOf(await call(c, "create_instance", { componentId: "btn", id: "i1", scale: 2, overrides: { lbl: { text: "Enviar" } } })));
+    expect(inst).toMatchObject({ instance: "i1", copies: { lbl: copyId("i1", "lbl") }, created: ["i1"] });
+    expect(store.doc.nodes.i1).toMatchObject({ x: 150, y: 10, width: 200, height: 80, name: "Botão", parentId: null });
+    expect(store.doc.nodes[copyId("i1", "lbl")]).toMatchObject({ text: "Enviar", width: 100, fontSize: 32 });
+    await call(c, "update_nodes", { updates: [{ id: "btn", props: { fill: "#000000" } }] });
+    expect(store.doc.nodes.i1).toMatchObject({ fill: "#000000" });
+    const moved = await call(c, "move_nodes", { moves: [{ id: copyId("i1", "lbl"), parentId: null }] });
+    expect(textOf(moved)).toMatch(/cópia dentro da instância "i1"/);
+    expect(textOf(await call(c, "get_document_outline", {}))).toContain("instanceOf=btn scale=2 overrides=1");
+    const d = JSON.parse(textOf(await call(c, "detach_instance", { ids: ["i1"] })));
+    expect(d.detached).toEqual(["i1"]);
+    expect(store.doc.nodes.i1).not.toHaveProperty("instanceOf");
+    const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
+    expect(hist.map((h: { label: string }) => h.label)).toEqual(["criar componente", "criar instância", "alterar 1 nó(s)", "desanexar 1 instância(s)"]);
   });
 
   it("fluxo completo: tokens → criar → lint → corrigir → exportar → desfazer", async () => {

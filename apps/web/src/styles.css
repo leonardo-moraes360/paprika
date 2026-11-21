@@ -654,3 +654,13 @@ textarea {
 .actions button:hover {
   border-color: var(--select);
 }
+
+button.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--select);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}

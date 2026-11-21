@@ -2,7 +2,7 @@
 
 # Servidor do Paprika em Go
 
-Uma implementação em Go do servidor do Paprika com o mesmo contrato do servidor TypeScript (`packages/server`): as mesmas 20 ferramentas MCP (stdio e Streamable HTTP em `/mcp`), as mesmas operações e o mesmo undo/redo compartilhado, o mesmo protocolo WebSocket do canvas (`/ws`), a mesma API HTTP e o mesmo lint, export e screenshot. Os dados ficam em **SQLite**; arquivos `.paprika.json` entram e saem com `import` e `export`. Por que e como: [ADR 0001](../docs/pt-BR/adr/0001-servidor-go-sqlite.md).
+Uma implementação em Go do servidor do Paprika com o mesmo contrato do servidor TypeScript (`packages/server`): as mesmas 23 ferramentas MCP (stdio e Streamable HTTP em `/mcp`), as mesmas operações e o mesmo undo/redo compartilhado, o mesmo protocolo WebSocket do canvas (`/ws`), a mesma API HTTP e o mesmo lint, export e screenshot. Os dados ficam em **SQLite**; arquivos `.paprika.json` entram e saem com `import` e `export`. Por que e como: [ADR 0001](../docs/pt-BR/adr/0001-servidor-go-sqlite.md).
 
 ## Compilar e rodar
 

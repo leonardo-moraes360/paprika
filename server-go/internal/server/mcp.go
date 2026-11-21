@@ -347,6 +347,92 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return writeWith([]any{op}, labelOr(a, "criar página"), "page", id)
 	})
 
+	add("create_component", z.Object(z.Field{Name: "id", Schema: z.String()}, label()),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			id := a.Str("id")
+			op := jsonv.NewObject("op", "update", "id", id, "props", jsonv.NewObject("component", true))
+			return writeWith([]any{op}, labelOr(a, "criar componente"), "component", id)
+		})
+
+	add("create_instance", z.Object(
+		z.Field{Name: "componentId", Schema: z.String()},
+		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
+		z.Field{Name: "x", Schema: z.Optional(z.Number())},
+		z.Field{Name: "y", Schema: z.Optional(z.Number())},
+		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.01).Max(100))},
+		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+		z.Field{Name: "overrides", Schema: z.Optional(z.Record(z.String(), z.Record(z.String(), z.Unknown())))},
+		optStr("id"),
+		label(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		compID := a.Str("componentId")
+		comp := core.GetNode(store.Doc(), compID)
+		iid := a.Str("id")
+		if !a.Has("id") {
+			iid = core.NewID()
+		}
+		scene := comp != nil && comp.Str("type") != "page"
+		node := jsonv.NewObject("type", "frame", "id", iid, "instanceOf", compID)
+		switch {
+		case a.Has("name"):
+			node.Set("name", a.Str("name"))
+		case comp != nil:
+			node.Set("name", comp.Str("name"))
+		default:
+			node.Set("name", "")
+		}
+		if v, ok := a.Get("x"); ok {
+			node.Set("x", v)
+		} else if scene {
+			w, _ := comp.Get("width")
+			wf, _ := w.(float64)
+			node.Set("x", comp.Num("x")+wf+40)
+		} else {
+			node.Set("x", 0.0)
+		}
+		if v, ok := a.Get("y"); ok {
+			node.Set("y", v)
+		} else if scene {
+			node.Set("y", comp.Num("y"))
+		} else {
+			node.Set("y", 0.0)
+		}
+		if v, ok := a.Get("scale"); ok {
+			node.Set("scale", v)
+		}
+		if v, ok := a.Get("overrides"); ok {
+			node.Set("overrides", v)
+		}
+		var parent any
+		if v, ok := a.Get("parentId"); ok {
+			parent = v
+		} else if comp != nil {
+			parent, _ = comp.Get("parentId")
+		}
+		op := jsonv.NewObject("op", "create", "parentId", parent, "node", node)
+		copies := jsonv.NewObject()
+		var walk func(nid string)
+		walk = func(nid string) {
+			n := core.GetNode(store.Doc(), nid)
+			if n == nil || !core.IsContainer(n.Str("type")) {
+				return
+			}
+			for _, c := range n.Strings("children") {
+				copies.Set(c, core.CopyID(iid, c))
+				walk(c)
+			}
+		}
+		walk(compID)
+		return writeWith([]any{op}, labelOr(a, "criar instância"), "instance", iid, "copies", copies)
+	})
+
+	add("detach_instance", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)}, label()),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			ids := a.Strings("ids")
+			op := jsonv.NewObject("op", "detach", "ids", a.Arr("ids"))
+			return writeWith([]any{op}, labelOr(a, "desanexar "+count(len(ids))+" instância(s)"), "detached", a.Arr("ids"))
+		})
+
 	add("apply_ops", z.Object(z.Field{Name: "ops", Schema: z.Array(core.OpSchema).Min(1).Max(1000)}, label()),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 			ops := a.Arr("ops")
