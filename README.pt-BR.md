@@ -2,6 +2,8 @@
 
 <p align="center"><img src="docs/brand/icon.svg" alt="Ícone do Paprika" width="128"></p>
 
+<p align="center"><img src="docs/assets/paprika-window.png" alt="Canvas do Paprika aberto nas propostas de marca: camadas à esquerda, canvas ao centro, tokens do documento à direita" width="900"></p>
+
 # Paprika
 
 Ferramenta de design **local** para agentes de IA, com **servidor MCP embutido**.

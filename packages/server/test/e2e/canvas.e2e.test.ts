@@ -566,4 +566,51 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     // Leave the demo active for any later test.
     await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
   });
+
+  it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {
+    const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    try {
+      await p.goto(`${url}/w/${(await doc()).id}`);
+      await p.waitForSelector('[data-paprika-id="login"]');
+      const width = (sel: string) => p.locator(sel).evaluate((el) => Math.round(el.getBoundingClientRect().width));
+      const left = p.getByRole("separator", { name: "Largura do painel de camadas" });
+      const right = p.getByRole("separator", { name: "Largura do painel de propriedades" });
+      expect(await width("aside.left")).toBe(240);
+      expect(await width("aside.right")).toBe(280);
+
+      const dragBy = async (handle: typeof left, dx: number) => {
+        const b = (await handle.boundingBox())!;
+        await p.mouse.move(b.x + b.width / 2, b.y + 200);
+        await p.mouse.down();
+        await p.mouse.move(b.x + b.width / 2 + dx / 2, b.y + 200);
+        await p.mouse.move(b.x + b.width / 2 + dx, b.y + 200);
+        await p.mouse.up();
+      };
+      await dragBy(left, 100);
+      expect(await width("aside.left")).toBe(340);
+      await dragBy(left, 1000); // trava no máximo
+      expect(await width("aside.left")).toBe(480);
+      await dragBy(left, -1000); // trava no mínimo
+      expect(await width("aside.left")).toBe(200);
+
+      await dragBy(right, -60); // à direita, arrastar para a esquerda alarga
+      expect(await width("aside.right")).toBe(340);
+      await right.focus();
+      await p.keyboard.press("End");
+      expect(await right.getAttribute("aria-valuenow")).toBe("480");
+      await p.keyboard.press("ArrowRight");
+      expect(await width("aside.right")).toBe(464);
+
+      await p.reload();
+      await p.waitForSelector('[data-paprika-id="login"]');
+      expect(await width("aside.left")).toBe(200);
+      expect(await width("aside.right")).toBe(464);
+
+      await left.dblclick(); // volta ao padrão
+      expect(await width("aside.left")).toBe(240);
+      expect(await p.evaluate(() => localStorage.getItem("paprika.panel.left"))).toBe("240");
+    } finally {
+      await p.close();
+    }
+  });
 });

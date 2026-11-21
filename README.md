@@ -2,6 +2,8 @@
 
 <p align="center"><img src="docs/brand/icon.svg" alt="Paprika icon" width="128"></p>
 
+<p align="center"><img src="docs/assets/paprika-window.png" alt="Paprika canvas open on the brand proposals: layers on the left, canvas in the middle, document tokens on the right" width="900"></p>
+
 # Paprika
 
 A **local** design tool for AI agents, with a **built-in MCP server**.

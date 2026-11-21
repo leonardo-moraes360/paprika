@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
 import { Layers } from "./Layers";
 import { Pages } from "./Pages";
+import { LEFT_PANEL, PanelResizer, RIGHT_PANEL, usePanelWidth } from "./PanelResizer";
 import { Overview } from "./Overview";
 import { navigate, parseRoute, useRoute, workspacePath } from "./route";
 import { useDocument, type LiveDocument } from "./useDocument";
@@ -105,6 +106,8 @@ function Editor({ live }: { live: LiveDocument }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [tool, setTool] = useState<Tool>("select");
   const [pageChoice, setPageChoice] = useState<string | null>(null);
+  const [leftWidth, setLeftWidth] = usePanelWidth("paprika.panel.left", LEFT_PANEL);
+  const [rightWidth, setRightWidth] = usePanelWidth("paprika.panel.right", RIGHT_PANEL);
   // Página ativa: a escolhida, se ainda existe; senão a primeira (null num documento sem páginas).
   const pageId = doc ? (pageChoice && doc.nodes[pageChoice]?.type === "page" ? pageChoice : (firstPage(doc)?.id ?? null)) : null;
 
@@ -253,7 +256,7 @@ function Editor({ live }: { live: LiveDocument }) {
   const lastAgent = live.activity.find((a) => a.actor.startsWith("agent"));
 
   return (
-    <div className="app">
+    <div className="app" style={{ "--left-w": `${leftWidth}px`, "--right-w": `${rightWidth}px` } as CSSProperties}>
       <header className="topbar">
         <div className="brand">
           <a
@@ -283,6 +286,7 @@ function Editor({ live }: { live: LiveDocument }) {
         <Pages doc={doc} pageId={pageId} onOpen={openPage} apply={live.apply} />
         <Layers doc={doc} pageId={pageId} selected={selected} onSelect={setSelected} apply={live.apply} />
       </aside>
+      <PanelResizer side="left" label="Largura do painel de camadas" width={leftWidth} limits={LEFT_PANEL} onChange={setLeftWidth} />
       <main className="center">
         <nav className="tools" aria-label="Ferramentas" onPointerDown={(e) => e.stopPropagation()}>
           {TOOLS.map((t) => (
@@ -326,6 +330,7 @@ function Editor({ live }: { live: LiveDocument }) {
           </div>
         )}
       </main>
+      <PanelResizer side="right" label="Largura do painel de propriedades" width={rightWidth} limits={RIGHT_PANEL} onChange={setRightWidth} />
       <aside className="right">
         <Inspector
           doc={doc}
