@@ -96,37 +96,38 @@ function visibleText(el: MarkupElement, pre: boolean): string {
     .replace(/^\n+|\n+$/g, "");
 }
 
-function textStyleOf(css: Record<string, string>, tag: string, parent: TextStyle, ctx: Ctx): TextStyle {
+function textStyleOf(css: ReadonlyMap<string, string>, tag: string, parent: TextStyle, ctx: Ctx): TextStyle {
   const t: TextStyle = { ...parent };
-  const c = color(css.color, ctx);
+  const c = color(css.get("color"), ctx);
   if (c) t.color = c;
-  if (css["font-family"]) {
-    const f = css["font-family"].replace(/[;{}<>()]/g, "").slice(0, 200);
+  const family = css.get("font-family");
+  if (family) {
+    const f = family.replace(/[;{}<>()]/g, "").slice(0, 200);
     if (f) t.fontFamily = f;
   }
-  const fs = px(css["font-size"]);
+  const fs = px(css.get("font-size"));
   if (fs !== undefined && fs >= 1) t.fontSize = Math.min(1000, fs);
-  else if (css["font-size"]) ctx.warn(`font-size "${css["font-size"]}" is not px; skipped`);
+  else if (css.get("font-size")) ctx.warn(`font-size "${css.get("font-size")}" is not px; skipped`);
   else if (HEADING[tag]) t.fontSize = HEADING[tag];
-  const fw = css["font-weight"];
+  const fw = css.get("font-weight");
   if (fw) {
     const n = fw === "bold" || fw === "bolder" ? 700 : fw === "normal" || fw === "lighter" ? 400 : Number(fw);
     if (Number.isInteger(n) && n >= 100 && n <= 900) t.fontWeight = n;
   } else if (HEADING[tag] || tag === "b" || tag === "strong") t.fontWeight = 700;
-  const lh = css["line-height"];
+  const lh = css.get("line-height");
   if (lh) {
     const p = px(lh);
     if (lh.trim().endsWith("px") && p !== undefined) t.lineHeight = round4(p / (t.fontSize ?? 16));
     else if (lh === "normal") t.lineHeight = 1.2;
     else if (Number.isFinite(Number(lh))) t.lineHeight = Number(lh);
   }
-  const ls = px(css["letter-spacing"]);
+  const ls = px(css.get("letter-spacing"));
   if (ls !== undefined) t.letterSpacing = ls;
-  const ta = css["text-align"];
+  const ta = css.get("text-align");
   if (ta === "left" || ta === "start") t.textAlign = "left";
   else if (ta === "center") t.textAlign = "center";
   else if (ta === "right" || ta === "end") t.textAlign = "right";
-  const ws = css["white-space"];
+  const ws = css.get("white-space");
   if (ws) t.pre = ws === "pre" || ws === "pre-wrap" || ws === "pre-line" || ws === "break-spaces";
   return t;
 }
@@ -142,25 +143,25 @@ function applyText(node: NodeInput, t: TextStyle) {
 }
 
 /** Posição, tamanho e pintura comuns (o inverso de nodeStyle). */
-function boxProps(node: NodeInput, css: Record<string, string>, ctx: Ctx, foreign: boolean) {
-  const absolute = css.position === "absolute" || css.position === "fixed" || !ctx.mode;
-  if (css.position === "fixed" || css.position === "sticky") ctx.warn(`position: ${css.position} tratado como absolute`);
+function boxProps(node: NodeInput, css: ReadonlyMap<string, string>, ctx: Ctx, foreign: boolean) {
+  const absolute = css.get("position") === "absolute" || css.get("position") === "fixed" || !ctx.mode;
+  if (css.get("position") === "fixed" || css.get("position") === "sticky") ctx.warn(`position: ${css.get("position")} tratado como absolute`);
   if (absolute) {
-    const x = px(css.left);
-    const y = px(css.top);
+    const x = px(css.get("left"));
+    const y = px(css.get("top"));
     if (x !== undefined) node.x = x;
     if (y !== undefined) node.y = y;
   }
   const size = (axis: "width" | "height") => {
-    const v = css[axis];
+    const v = css.get(axis);
     const n = px(v);
     if (n !== undefined) return Math.max(0, n);
     if (v === "max-content" || v === "fit-content" || v === "min-content") return "hug";
     if (v === "100%") return "fill";
     if (v && v !== "auto") ctx.warn(`${axis} "${v}" is not supported; using hug`);
     const main = (ctx.mode === "row" && axis === "width") || (ctx.mode === "column" && axis === "height");
-    if (ctx.mode && main && /^1(\s+1\s+0(px|%)?)?$/.test(css.flex ?? "")) return "fill";
-    if (ctx.mode && !main && css["align-self"] === "stretch") return "fill";
+    if (ctx.mode && main && /^1(\s+1\s+0(px|%)?)?$/.test(css.get("flex") ?? "")) return "fill";
+    if (ctx.mode && !main && css.get("align-self") === "stretch") return "fill";
     if (v) return "hug";
     // Sem tamanho: em HTML de fora, um bloco numa coluna ocupa a largura toda.
     if (foreign && ctx.mode === "column" && axis === "width") return "fill";
@@ -170,64 +171,64 @@ function boxProps(node: NodeInput, css: Record<string, string>, ctx: Ctx, foreig
     node.width = size("width");
     node.height = size("height");
   }
-  const rot = /rotate\((-?[\d.]+)deg\)/.exec(css.transform ?? "");
+  const rot = /rotate\((-?[\d.]+)deg\)/.exec(css.get("transform") ?? "");
   if (rot && node.type !== "group") node.rotation = Number(rot[1]);
-  const op = css.opacity !== undefined ? Number(css.opacity) : 1;
+  const op = css.get("opacity") !== undefined ? Number(css.get("opacity")) : 1;
   if (Number.isFinite(op) && op !== 1) node.opacity = Math.min(1, Math.max(0, op));
-  if (css.display === "none") node.visible = false;
+  if (css.get("display") === "none") node.visible = false;
   if (node.type === "group") return;
-  const fill = color(css["background-color"] ?? css.background, ctx);
+  const fill = color(css.get("background-color") ?? css.get("background"), ctx);
   if (fill && (!foreign || (fill !== "transparent" && fill !== "none"))) node.fill = fill;
-  const border = /^(\d+(?:\.\d+)?)px\s+(?:solid|dashed|dotted|double)\s+(.+)$/.exec((css.border ?? "").trim());
+  const border = /^(\d+(?:\.\d+)?)px\s+(?:solid|dashed|dotted|double)\s+(.+)$/.exec((css.get("border") ?? "").trim());
   if (border) {
     const c = color(border[2], ctx);
     if (c) node.stroke = { color: c, width: Number(border[1]) };
   }
-  const radius = px(css["border-radius"]);
+  const radius = px(css.get("border-radius"));
   if (radius !== undefined && radius > 0 && node.type !== "ellipse") node.radius = radius;
-  const shadow = /^(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px(?:\s+(-?[\d.]+)px)?\s+(.+)$/.exec((css["box-shadow"] ?? "").trim());
+  const shadow = /^(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px(?:\s+(-?[\d.]+)px)?\s+(.+)$/.exec((css.get("box-shadow") ?? "").trim());
   if (shadow) {
     const c = color(shadow[5], ctx);
     if (c) node.shadow = { x: Number(shadow[1]), y: Number(shadow[2]), blur: Number(shadow[3]), spread: Number(shadow[4] ?? 0), color: c };
   }
 }
 
-function layoutOf(css: Record<string, string>, foreignFlow: boolean): Record<string, unknown> | undefined {
-  const flex = css.display === "flex" || css.display === "inline-flex";
+function layoutOf(css: ReadonlyMap<string, string>, foreignFlow: boolean): Record<string, unknown> | undefined {
+  const flex = css.get("display") === "flex" || css.get("display") === "inline-flex";
   if (!flex && !foreignFlow) return undefined;
-  const dir = css["flex-direction"];
+  const dir = css.get("flex-direction");
   const layout: Record<string, unknown> = { mode: flex ? (dir === "column" || dir === "column-reverse" ? "column" : "row") : "column" };
-  const gap = px(css.gap);
+  const gap = px(css.get("gap"));
   if (gap) layout.gap = gap;
-  const pad = pxList(css.padding);
+  const pad = pxList(css.get("padding"));
   if (pad) layout.padding = pad.length === 1 || pad.every((v) => v === pad[0]) ? pad[0] : pad;
   if (flex) {
-    layout.align = ALIGN[css["align-items"] ?? "normal"] ?? "stretch";
-    layout.justify = JUSTIFY[css["justify-content"] ?? "normal"] ?? "start";
-    if (css["flex-wrap"] === "wrap") layout.wrap = true;
+    layout.align = ALIGN[css.get("align-items") ?? "normal"] ?? "stretch";
+    layout.justify = JUSTIFY[css.get("justify-content") ?? "normal"] ?? "start";
+    if (css.get("flex-wrap") === "wrap") layout.wrap = true;
   } else layout.align = "stretch";
   return layout;
 }
 
-function pathNode(el: MarkupElement, css: Record<string, string>, ctx: Ctx): NodeInput | undefined {
+function pathNode(el: MarkupElement, css: ReadonlyMap<string, string>, ctx: Ctx): NodeInput | undefined {
   const p = findElement(el, "path");
-  if (!p?.attrs.d) return undefined;
-  const node: NodeInput = { type: "path", d: p.attrs.d };
+  if (!p?.attrs.get("d")) return undefined;
+  const node: NodeInput = { type: "path", d: p.attrs.get("d") };
   boxProps(node, css, ctx, false);
   delete node.fill;
   delete node.stroke;
   delete node.shadow;
-  const vb = (el.attrs.viewbox ?? "").trim().split(/[\s,]+/).map(Number);
+  const vb = (el.attrs.get("viewbox") ?? "").trim().split(/[\s,]+/).map(Number);
   if (vb.length === 4 && vb.every(Number.isFinite) && vb[2]! > 0 && vb[3]! > 0) node.viewBox = vb;
-  const fill = p.attrs.fill;
+  const fill = p.attrs.get("fill");
   if (fill && fill !== "none") node.fill = fill;
-  if (p.attrs["fill-rule"] === "evenodd") node.fillRule = "evenodd";
-  if (p.attrs.stroke && p.attrs.stroke !== "none") node.stroke = { color: p.attrs.stroke, width: Number(p.attrs["stroke-width"] ?? 1) };
-  const cap = p.attrs["stroke-linecap"];
+  if (p.attrs.get("fill-rule") === "evenodd") node.fillRule = "evenodd";
+  if (p.attrs.get("stroke") && p.attrs.get("stroke") !== "none") node.stroke = { color: p.attrs.get("stroke"), width: Number(p.attrs.get("stroke-width") ?? 1) };
+  const cap = p.attrs.get("stroke-linecap");
   if (cap && cap !== "round") node.strokeCap = cap;
-  const join = p.attrs["stroke-linejoin"];
+  const join = p.attrs.get("stroke-linejoin");
   if (join && join !== "round") node.strokeJoin = join;
-  const ds = /drop-shadow\((-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px\s+(.+)\)$/.exec((css.filter ?? "").trim());
+  const ds = /drop-shadow\((-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px\s+(.+)\)$/.exec((css.get("filter") ?? "").trim());
   if (ds) node.shadow = { x: Number(ds[1]), y: Number(ds[2]), blur: Number(ds[3]), spread: 0, color: ds[4] };
   return node;
 }
@@ -252,11 +253,11 @@ function convertChildren(el: MarkupElement, ctx: Ctx): NodeInput[] {
 
 function convertElement(el: MarkupElement, ctx: Ctx): NodeInput[] | undefined {
   if (SKIP.has(el.tag)) return undefined;
-  if (el.attrs.class) ctx.warn("CSS classes are not applied; only inline styles (style=\"\")");
-  const css = parseStyle(el.attrs.style);
-  const declared = el.attrs["data-paprika-type"];
+  if (el.attrs.get("class")) ctx.warn("CSS classes are not applied; only inline styles (style=\"\")");
+  const css = parseStyle(el.attrs.get("style"));
+  const declared = el.attrs.get("data-paprika-type");
   const ptype = declared && PAPRIKA_TYPES.has(declared) ? declared : undefined;
-  const name = (el.attrs["data-name"] ?? "").slice(0, 200);
+  const name = (el.attrs.get("data-name") ?? "").slice(0, 200);
   const named = (n: NodeInput) => {
     if (name) n.name = name;
     return n;
@@ -273,7 +274,7 @@ function convertElement(el: MarkupElement, ctx: Ctx): NodeInput[] | undefined {
     return r.nodes;
   }
   if (ptype === "image" || (!ptype && el.tag === "img")) {
-    const src = el.attrs.src ?? "";
+    const src = el.attrs.get("src") ?? "";
     if (!/^(https?:|data:image\/)/.test(src)) {
       ctx.warn(`<img> without an http(s) or data:image/ src skipped`);
       return undefined;
@@ -281,13 +282,13 @@ function convertElement(el: MarkupElement, ctx: Ctx): NodeInput[] | undefined {
     const n: NodeInput = { type: "image", src };
     boxProps(n, css, ctx, !ptype);
     if (!ptype) {
-      const w = px(el.attrs.width);
-      const h = px(el.attrs.height);
+      const w = px(el.attrs.get("width"));
+      const h = px(el.attrs.get("height"));
       if (w !== undefined && n.width === "hug") n.width = w;
       if (h !== undefined && n.height === "hug") n.height = h;
     }
-    if (el.attrs.alt) n.alt = el.attrs.alt;
-    const fit = css["object-fit"];
+    if (el.attrs.get("alt")) n.alt = el.attrs.get("alt");
+    const fit = css.get("object-fit");
     if (fit === "cover" || fit === "contain" || fit === "fill") n.fit = fit;
     return [named(n)];
   }
@@ -297,19 +298,19 @@ function convertElement(el: MarkupElement, ctx: Ctx): NodeInput[] | undefined {
     return [named(n)];
   }
   // Um contêiner flex dispõe cada filho como item, mesmo que só tenha texto.
-  const flex = css.display === "flex" || css.display === "inline-flex";
+  const flex = css.get("display") === "flex" || css.get("display") === "inline-flex";
   if (ptype === "text" || (!ptype && !flex && isTextual(el) && visibleText(el, !!text.pre))) {
     const pre = ptype === "text" || !!text.pre;
     const n: NodeInput = { type: "text", text: visibleText(el, pre) };
     boxProps(n, css, ctx, !ptype);
     applyText(n, text);
-    if (!ptype && (n.fill !== undefined || n.stroke !== undefined || css.padding)) {
+    if (!ptype && (n.fill !== undefined || n.stroke !== undefined || css.get("padding"))) {
       // Um botão ou etiqueta: o fundo vira um frame em volta do texto.
       const box: NodeInput = { type: "frame", children: [] };
       boxProps(box, css, ctx, true);
-      box.clip = css.overflow === "hidden";
+      box.clip = css.get("overflow") === "hidden";
       box.layout = { ...(layoutOf(css, false) ?? { mode: "row" }), align: "center", justify: text.textAlign === "center" ? "center" : "start" };
-      const pad = pxList(css.padding);
+      const pad = pxList(css.get("padding"));
       if (pad) (box.layout as Record<string, unknown>).padding = pad.every((v) => v === pad[0]) ? pad[0] : pad;
       n.width = "hug";
       n.height = "hug";
@@ -326,11 +327,11 @@ function convertElement(el: MarkupElement, ctx: Ctx): NodeInput[] | undefined {
   const isGroup = ptype === "group";
   const n: NodeInput = { type: isGroup ? "group" : "frame" };
   boxProps(n, css, ctx, !ptype);
-  if (!isGroup) n.clip = css.overflow === "hidden";
-  const hasBlocks = elements(el).some((c) => !SKIP.has(c.tag) && parseStyle(c.attrs.style).position !== "absolute");
+  if (!isGroup) n.clip = css.get("overflow") === "hidden";
+  const hasBlocks = elements(el).some((c) => !SKIP.has(c.tag) && parseStyle(c.attrs.get("style")).get("position") !== "absolute");
   const layout = isGroup ? undefined : layoutOf(css, !ptype && hasBlocks);
   if (layout) n.layout = layout;
-  const theme = el.attrs["data-paprika-mode"];
+  const theme = el.attrs.get("data-paprika-mode");
   if (!isGroup && theme && /^[A-Za-z0-9_-]{1,40}$/.test(theme)) n.mode = theme;
   const mode = (layout?.mode as Mode | undefined) ?? null;
   n.children = convertChildren(el, { mode, text, warn: ctx.warn });

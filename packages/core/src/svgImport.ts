@@ -293,8 +293,8 @@ function cleanColor(v: string, warn: (w: string) => void): string | null {
 }
 
 function paintOf(el: MarkupElement, parent: Paint, warn: (w: string) => void): Paint {
-  const css = parseStyle(el.attrs.style);
-  const get = (k: string) => css[k] ?? el.attrs[k];
+  const css = parseStyle(el.attrs.get("style"));
+  const get = (k: string) => css.get(k) ?? el.attrs.get(k);
   const p: Paint = { ...parent };
   const fill = get("fill");
   if (fill !== undefined && fill !== "inherit") p.fill = cleanColor(fill, warn);
@@ -316,34 +316,34 @@ function paintOf(el: MarkupElement, parent: Paint, warn: (w: string) => void): P
 }
 
 function hidden(el: MarkupElement): boolean {
-  const css = parseStyle(el.attrs.style);
-  return (css.display ?? el.attrs.display) === "none" || (css.visibility ?? el.attrs.visibility) === "hidden";
+  const css = parseStyle(el.attrs.get("style"));
+  return (css.get("display") ?? el.attrs.get("display")) === "none" || (css.get("visibility") ?? el.attrs.get("visibility")) === "hidden";
 }
 
 function opacityOf(el: MarkupElement): number {
-  const css = parseStyle(el.attrs.style);
-  return Math.min(1, Math.max(0, num(css.opacity ?? el.attrs.opacity, 1)));
+  const css = parseStyle(el.attrs.get("style"));
+  return Math.min(1, Math.max(0, num(css.get("opacity") ?? el.attrs.get("opacity"), 1)));
 }
 
 function nameOf(el: MarkupElement): string {
   const title = elements(el).find((c) => c.tag === "title");
-  const n = (title ? textContent(title) : (el.attrs.id ?? "")).trim();
+  const n = (title ? textContent(title) : (el.attrs.get("id") ?? "")).trim();
   return n.slice(0, 200);
 }
 
 function shapeSegments(el: MarkupElement): Segment[] {
-  const a = el.attrs;
+  const a = (k: string) => el.attrs.get(k);
   switch (el.tag) {
     case "path":
-      return parsePath(a.d ?? "");
+      return parsePath(a("d") ?? "");
     case "rect": {
-      const x = num(a.x);
-      const y = num(a.y);
-      const w = num(a.width);
-      const h = num(a.height);
+      const x = num(a("x"));
+      const y = num(a("y"));
+      const w = num(a("width"));
+      const h = num(a("height"));
       if (w <= 0 || h <= 0) return [];
-      let rx = a.rx !== undefined ? num(a.rx) : a.ry !== undefined ? num(a.ry) : 0;
-      let ry = a.ry !== undefined ? num(a.ry) : rx;
+      let rx = a("rx") !== undefined ? num(a("rx")) : a("ry") !== undefined ? num(a("ry")) : 0;
+      let ry = a("ry") !== undefined ? num(a("ry")) : rx;
       rx = Math.min(Math.max(0, rx), w / 2);
       ry = Math.min(Math.max(0, ry), h / 2);
       if (!rx || !ry)
@@ -370,21 +370,21 @@ function shapeSegments(el: MarkupElement): Segment[] {
     }
     case "circle":
     case "ellipse": {
-      const cx = num(a.cx);
-      const cy = num(a.cy);
-      const rx = el.tag === "circle" ? num(a.r) : num(a.rx);
-      const ry = el.tag === "circle" ? num(a.r) : num(a.ry);
+      const cx = num(a("cx"));
+      const cy = num(a("cy"));
+      const rx = el.tag === "circle" ? num(a("r")) : num(a("rx"));
+      const ry = el.tag === "circle" ? num(a("r")) : num(a("ry"));
       if (rx <= 0 || ry <= 0) return [];
       const arc = (to: Point): Segment => ({ cmd: "A", rx, ry, rotation: 0, largeArc: false, sweep: true, to });
       return [{ cmd: "M", to: { x: cx + rx, y: cy } }, arc({ x: cx - rx, y: cy }), arc({ x: cx + rx, y: cy }), { cmd: "Z" }];
     }
     case "line":
       return [
-        { cmd: "M", to: { x: num(a.x1), y: num(a.y1) } },
-        { cmd: "L", to: { x: num(a.x2), y: num(a.y2) } },
+        { cmd: "M", to: { x: num(a("x1")), y: num(a("y1")) } },
+        { cmd: "L", to: { x: num(a("x2")), y: num(a("y2")) } },
       ];
     default: {
-      const v = numbers(a.points ?? "");
+      const v = numbers(a("points") ?? "");
       const segs: Segment[] = [];
       for (let k = 0; k + 1 < v.length; k += 2) segs.push({ cmd: k ? "L" : "M", to: { x: v[k]!, y: v[k + 1]! } });
       if (el.tag === "polygon" && segs.length) segs.push({ cmd: "Z" });
@@ -406,18 +406,18 @@ function shapeNode(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string)
   if (name) common.name = name;
   if (opacity !== 1) common.opacity = round4(opacity);
   const axis = m[1] === 0 && m[2] === 0 && m[0] > 0 && m[3] > 0;
-  const a = el.attrs;
+  const a = (k: string) => el.attrs.get(k);
   // rect/ellipse sem rotação viram nós nativos (editáveis no inspector).
   if (axis && (el.tag === "rect" || el.tag === "circle" || el.tag === "ellipse")) {
-    const rx = el.tag === "circle" ? num(a.r) : num(a.rx);
-    const ry = el.tag === "circle" ? num(a.r) : a.ry !== undefined ? num(a.ry) : rx;
-    const uniformRadius = el.tag !== "rect" || ((a.rx === undefined || a.ry === undefined || rx === ry) && m[0] === m[3]);
+    const rx = el.tag === "circle" ? num(a("r")) : num(a("rx"));
+    const ry = el.tag === "circle" ? num(a("r")) : a("ry") !== undefined ? num(a("ry")) : rx;
+    const uniformRadius = el.tag !== "rect" || ((a("rx") === undefined || a("ry") === undefined || rx === ry) && m[0] === m[3]);
     if (uniformRadius) {
       const isRect = el.tag === "rect";
-      const x0 = isRect ? num(a.x) : num(a.cx) - rx;
-      const y0 = isRect ? num(a.y) : num(a.cy) - ry;
-      const w = isRect ? num(a.width) : 2 * rx;
-      const h = isRect ? num(a.height) : 2 * ry;
+      const x0 = isRect ? num(a("x")) : num(a("cx")) - rx;
+      const y0 = isRect ? num(a("y")) : num(a("cy")) - ry;
+      const w = isRect ? num(a("width")) : 2 * rx;
+      const h = isRect ? num(a("height")) : 2 * ry;
       if (w <= 0 || h <= 0) return undefined;
       const p = apply(m, { x: x0, y: y0 });
       const node: NodeInput = {
@@ -460,11 +460,13 @@ function shapeNode(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string)
 }
 
 function rootMatrix(svg: MarkupElement): Matrix {
-  const vb = numbers(svg.attrs.viewbox ?? "");
+  const vb = numbers(svg.attrs.get("viewbox") ?? "");
   if (vb.length !== 4 || vb[2]! <= 0 || vb[3]! <= 0) return IDENTITY;
   const [vx, vy, vw, vh] = vb as [number, number, number, number];
-  const w = svg.attrs.width && !svg.attrs.width.includes("%") ? num(svg.attrs.width, vw) : vw;
-  const h = svg.attrs.height && !svg.attrs.height.includes("%") ? num(svg.attrs.height, vh) : vh;
+  const sw = svg.attrs.get("width");
+  const sh = svg.attrs.get("height");
+  const w = sw && !sw.includes("%") ? num(sw, vw) : vw;
+  const h = sh && !sh.includes("%") ? num(sh, vh) : vh;
   const s = Math.min(w / vw, h / vh);
   return [s, 0, 0, s, (w - vw * s) / 2 - vx * s, (h - vh * s) / 2 - vy * s];
 }
@@ -477,11 +479,11 @@ function convert(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string) =
       continue;
     }
     if (hidden(c)) continue;
-    if (c.attrs["clip-path"] || c.attrs.mask) warn(`clip-path/mask on <${c.tag}> skipped`);
-    const cm = multiply(m, parseTransform(c.attrs.transform, warn));
+    if (c.attrs.get("clip-path") || c.attrs.get("mask")) warn(`clip-path/mask on <${c.tag}> skipped`);
+    const cm = multiply(m, parseTransform(c.attrs.get("transform"), warn));
     const cp = paintOf(c, paint, warn);
     if (CONTAINERS.has(c.tag)) {
-      const kids = convert(c, c.tag === "svg" ? multiply(cm, [1, 0, 0, 1, num(c.attrs.x), num(c.attrs.y)]) : cm, cp, warn);
+      const kids = convert(c, c.tag === "svg" ? multiply(cm, [1, 0, 0, 1, num(c.attrs.get("x")), num(c.attrs.get("y"))]) : cm, cp, warn);
       if (!kids.length) continue;
       const opacity = opacityOf(c);
       const name = nameOf(c);
@@ -528,7 +530,7 @@ export function importSVG(src: string | MarkupElement, opts: { x?: number; y?: n
   const root = typeof src === "string" ? parseMarkup(src) : src;
   const svg = root.tag === "svg" ? root : findElement(root, "svg");
   if (!svg) throw new Error("no <svg> element found");
-  const m = multiply(rootMatrix(svg), parseTransform(svg.attrs.transform, warn));
+  const m = multiply(rootMatrix(svg), parseTransform(svg.attrs.get("transform"), warn));
   const paint = paintOf(svg, INHERIT_DEFAULT, warn);
   let nodes = convert(svg, m, paint, warn);
   offset(nodes, opts.x ?? 0, opts.y ?? 0);

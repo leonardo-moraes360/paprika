@@ -7,7 +7,8 @@
 
 export interface MarkupElement {
   tag: string;
-  attrs: Record<string, string>;
+  /** Atributos em minúsculas; um Map, então nomes vindos da entrada nunca viram propriedades de objeto. */
+  attrs: Map<string, string>;
   children: MarkupNode[];
 }
 export type MarkupNode = MarkupElement | string;
@@ -49,16 +50,10 @@ function indexOfLower(src: string, needle: string, from: number): number {
 const isSpace = (c: string | undefined) => c === " " || c === "\n" || c === "\t" || c === "\r" || c === "\f";
 const isNameChar = (c: string | undefined) => !!c && /[A-Za-z0-9_:.-]/.test(c);
 
-/**
- * Mapa sem protótipo para nomes vindos da entrada: `__proto__`, `constructor` e afins viram chaves
- * comuns em vez de mexer no protótipo ou colidir com o que um objeto herda.
- */
-const dict = (): Record<string, string> => Object.create(null) as Record<string, string>;
-
 /** Lê a marcação e devolve um elemento raiz `#root` com o conteúdo. */
 export function parseMarkup(src: string): MarkupElement {
   if (src.length > MARKUP_LIMITS.chars) throw new Error(`markup too large (max. ${MARKUP_LIMITS.chars} characters)`);
-  const root: MarkupElement = { tag: "#root", attrs: dict(), children: [] };
+  const root: MarkupElement = { tag: "#root", attrs: new Map(), children: [] };
   const stack: MarkupElement[] = [root];
   let count = 0;
   let i = 0;
@@ -115,7 +110,7 @@ export function parseMarkup(src: string): MarkupElement {
       i++;
       continue;
     }
-    const el: MarkupElement = { tag: lower(src.slice(i + 1, j)), attrs: dict(), children: [] };
+    const el: MarkupElement = { tag: lower(src.slice(i + 1, j)), attrs: new Map(), children: [] };
     let selfClose = false;
     while (j < src.length) {
       while (isSpace(src[j])) j++;
@@ -153,7 +148,7 @@ export function parseMarkup(src: string): MarkupElement {
           j = e;
         }
       }
-      if (!Object.hasOwn(el.attrs, name)) el.attrs[name] = decodeEntities(value);
+      if (!el.attrs.has(name)) el.attrs.set(name, decodeEntities(value));
     }
     i = j;
     if (++count > MARKUP_LIMITS.elements) throw new Error(`markup with more than ${MARKUP_LIMITS.elements} elements`);
@@ -198,16 +193,16 @@ export function textContent(el: MarkupElement): string {
   return out;
 }
 
-/** `a: b; c: d` → `{ a: "b", c: "d" }` (nomes em minúsculas, valores sem espaços nas pontas). */
-export function parseStyle(s: string | undefined): Record<string, string> {
-  const out = dict();
+/** `a: b; c: d` → `Map { a → "b", c → "d" }` (nomes em minúsculas, valores sem espaços nas pontas; a última declaração vence). */
+export function parseStyle(s: string | undefined): Map<string, string> {
+  const out = new Map<string, string>();
   if (!s) return out;
   for (const part of s.split(";")) {
     const at = part.indexOf(":");
     if (at < 0) continue;
     const k = lower(part.slice(0, at).trim());
     const v = part.slice(at + 1).trim();
-    if (k && v) out[k] = v;
+    if (k && v) out.set(k, v);
   }
   return out;
 }
