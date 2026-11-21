@@ -624,6 +624,66 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
   );
 }
 
+/**
+ * Parses one token assignment as typed in the Inspector fields (Sonar S8786).
+ *
+ * The two patterns this replaces paired a greedy `[\w.-]+` with `\s*` runs and a trailing `(.+)`,
+ * so a long line that does not match made the engine retry every split of the same whitespace. Both
+ * parsers below walk the string once: every run is maximal and nothing is re-tried. Whitespace means
+ * spaces and tabs — the whole input comes from an `<input>`, which cannot contain a newline, while
+ * the old `\s` also accepted one.
+ *
+ * Accepted shapes, same as before: `name = value`, `name: value`, `$name=value`, and for the theme
+ * modes `dark: bg = #14161f`. A line whose value is only whitespace still matches, because the
+ * old `(.+)` matched one space there and the caller then stored `Number("")`; the returned value
+ * is trimmed, which is what the caller did anyway.
+ */
+function skipSpaces(text: string): string {
+  return text.replace(/^[ \t]+/, "");
+}
+
+function takeRun(text: string, run: RegExp): [string, string] {
+  const m = run.exec(text);
+  const taken = m ? m[0] : "";
+  return [taken, text.slice(taken.length)];
+}
+
+/** `name = value` → { name, value }, or null when the text is not one assignment. */
+export function parseTokenAssignment(text: string): { name: string; value: string } | null {
+  let rest = skipSpaces(text);
+  if (rest.startsWith("$")) rest = rest.slice(1);
+  const [name, afterName] = takeRun(rest, /^[\w.-]+/);
+  if (!name) return null;
+  rest = skipSpaces(afterName);
+  if (rest[0] !== "=" && rest[0] !== ":") return null;
+  const value = rest.slice(1);
+  return value ? { name, value: value.trim() } : null;
+}
+
+/** `mode: name = value` → { mode, name, value }, or null. */
+export function parseModeTokenAssignment(text: string): { mode: string; name: string; value: string } | null {
+  let rest = skipSpaces(text);
+  const [mode, afterMode] = takeRun(rest, /^[A-Za-z0-9_-]+/);
+  if (!mode || mode.length > 40) return null;
+  rest = skipSpaces(afterMode);
+  if (rest[0] !== ":") return null;
+  rest = skipSpaces(rest.slice(1));
+  if (rest.startsWith("$")) rest = rest.slice(1);
+  const [name, afterName] = takeRun(rest, /^[\w.-]+/);
+  if (!name) return null;
+  rest = skipSpaces(afterName);
+  if (rest[0] !== "=" && rest[0] !== ":") return null;
+  const value = rest.slice(1);
+  return value ? { mode, name, value: value.trim() } : null;
+}
+
+/** A token value is a number when it reads as one, and the text otherwise. `Number.isNaN`, not the
+ *  global `isNaN` (S7773): same result here because the argument is already a number. */
+export function tokenValue(raw: string): string | number {
+  const n = Number(raw);
+  return Number.isNaN(n) ? raw : n;
+}
+
 function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: Activity[]; onSelect(id: string): void }) {
   const [newToken, setNewToken] = useState("");
   const [newModeToken, setNewModeToken] = useState("");
@@ -639,17 +699,16 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
         {Object.entries(doc.tokens).map(([k, v]) => (
           <div className="token-row" key={k}>
             {typeof v === "string" && /^#|^rgb/.test(v) && <span className="swatch" style={{ background: v }} />}
-            <Field label={`$${k}`} value={v} onCommit={(nv) => apply([{ op: "set_tokens", tokens: { [k]: nv === "" ? null : isNaN(Number(nv)) ? nv : Number(nv) } }], "token")} />
+            <Field label={`$${k}`} value={v} onCommit={(nv) => apply([{ op: "set_tokens", tokens: { [k]: nv === "" ? null : tokenValue(nv) } }], "token")} />
           </div>
         ))}
         <form
           className="token-add"
           onSubmit={(e) => {
             e.preventDefault();
-            const m = /^\s*\$?([\w.-]+)\s*[=:]\s*(.+)$/.exec(newToken);
-            if (!m) return;
-            const val = m[2]!.trim();
-            apply([{ op: "set_tokens", tokens: { [m[1]!]: isNaN(Number(val)) ? val : Number(val) } }], "token");
+            const token = parseTokenAssignment(newToken);
+            if (!token) return;
+            apply([{ op: "set_tokens", tokens: { [token.name]: tokenValue(token.value.trim()) } }], "token");
             setNewToken("");
           }}
         >
@@ -665,7 +724,7 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
               <Field
                 label={`${mode} · $${k}`}
                 value={v}
-                onCommit={(nv) => apply([{ op: "set_tokens", mode, tokens: { [k]: nv === "" ? null : isNaN(Number(nv)) ? nv : Number(nv) } }], "token do modo")}
+                onCommit={(nv) => apply([{ op: "set_tokens", mode, tokens: { [k]: nv === "" ? null : tokenValue(nv) } }], "token do modo")}
               />
             </div>
           )),
@@ -674,10 +733,9 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
           className="token-add"
           onSubmit={(e) => {
             e.preventDefault();
-            const m = /^\s*([A-Za-z0-9_-]{1,40})\s*:\s*\$?([\w.-]+)\s*[=:]\s*(.+)$/.exec(newModeToken);
-            if (!m) return;
-            const val = m[3]!.trim();
-            apply([{ op: "set_tokens", mode: m[1]!, tokens: { [m[2]!]: isNaN(Number(val)) ? val : Number(val) } }], "token do modo");
+            const token = parseModeTokenAssignment(newModeToken);
+            if (!token) return;
+            apply([{ op: "set_tokens", mode: token.mode, tokens: { [token.name]: tokenValue(token.value.trim()) } }], "token do modo");
             setNewModeToken("");
           }}
         >

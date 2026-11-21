@@ -37,19 +37,32 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
       return n;
     });
 
+  // Selection from a click or from Enter/Space, same modifier behaviour in both.
+  const selectFrom = (e: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }, id: string) =>
+    onSelect(e.shiftKey || e.metaKey || e.ctrlKey ? (selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]) : [id]);
+
   const row = (id: string, depth: number): React.ReactNode => {
     const n = doc.nodes[id];
     if (!n || n.type === "page") return null;
     const kids = isContainer(n) ? n.children : [];
     const open = !collapsed.has(id);
     return (
-      <li key={id}>
+      <li key={id} role="none">
         <div
           className={`layer${selected.includes(id) ? " is-selected" : ""}${n.visible ? "" : " is-hidden"}`}
           style={{ paddingLeft: 8 + depth * 14 }}
-          onClick={(e) =>
-            onSelect(e.shiftKey || e.metaKey || e.ctrlKey ? (selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]) : [id])
-          }
+          // S6848: the row is a control, not a plain div. As a treeitem it is reachable by Tab,
+          // announces what is selected and expanded, and answers Enter/Space like a click does.
+          role="treeitem"
+          aria-selected={selected.includes(id)}
+          aria-expanded={kids.length > 0 ? open : undefined}
+          tabIndex={editing === id ? -1 : 0}
+          onClick={(e) => selectFrom(e, id)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            if (e.key === " ") e.preventDefault(); // Space would scroll the panel instead
+            selectFrom(e, id);
+          }}
           data-layer-id={id}
         >
           <button
@@ -97,7 +110,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
             {n.visible ? "◉" : "○"}
           </button>
         </div>
-        {kids.length > 0 && open && <ul>{kids.map((c) => row(c, depth + 1))}</ul>}
+        {kids.length > 0 && open && <ul role="group">{kids.map((c) => row(c, depth + 1))}</ul>}
       </li>
     );
   };
@@ -108,7 +121,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
       {roots.length === 0 ? (
         <p className="muted">Vazio. Desenhe um frame (F) ou peça a um agente via MCP.</p>
       ) : (
-        <ul className="layers">{roots.map((id) => row(id, 0))}</ul>
+        <ul className="layers" role="tree" aria-label="Camadas">{roots.map((id) => row(id, 0))}</ul>
       )}
     </div>
   );
