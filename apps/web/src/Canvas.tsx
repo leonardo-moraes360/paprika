@@ -13,6 +13,11 @@ import {
   parsePath,
   pathAttrs,
   pathBounds,
+  connectorAttrs,
+  routeConnectors,
+  shapeAttrs,
+  SHAPE_SVG_CSS,
+  SHAPE_TEXT_CSS,
   serializePath,
   translatePath,
   wasmPaintable,
@@ -27,6 +32,7 @@ import {
   toggleSmooth,
   type Anchor,
   type AnchorRef,
+  type ConnectorEnd,
   type PathNode,
   type Subpath,
   type Document,
@@ -38,7 +44,21 @@ import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState }
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { InlineName } from "./InlineName";
 
-export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen";
+export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "note" | "connector";
+
+/** Ferramentas que criam uma forma de diagrama (nó shape), com o tipo de contorno. */
+const SHAPE_TOOLS = { shape: "rect", diamond: "diamond", note: "note" } as const;
+type ShapeTool = keyof typeof SHAPE_TOOLS;
+const isShapeTool = (t: Tool): t is ShapeTool => t in SHAPE_TOOLS;
+
+/** Seta em construção: ponta inicial e cursor, em coordenadas do viewport. */
+interface LinkDraft {
+  from: ConnectorEnd;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
 
 /** Caminho em construção com a caneta, em coordenadas locais do frame pai. */
 interface PenDraft {
@@ -151,9 +171,11 @@ interface RenderProps {
   wasm: boolean;
   /** Path em edição ponto a ponto, com os subcaminhos a desenhar. */
   edit: { id: string; subs: Subpath[]; sel: AnchorRef | null } | null;
+  /** Forma com o texto em edição no próprio canvas. */
+  textEdit?: { id: string; onCommit(text: string): void; onDone(): void } | null;
 }
 
-function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit }: RenderProps) {
+function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEdit }: RenderProps) {
   const css = nodeStyle(doc, node) as CSSProperties;
   const wasmPaints = wasm && wasmPaintable(doc, node);
   if (wasmPaints) {
@@ -183,7 +205,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit }: Rend
         <div {...props}>
           {node.children.map((c) => {
             const child = doc.nodes[c];
-            return child ? <RenderNode key={c} doc={doc} node={child} preview={preview} touched={touched} pen={pen} zoom={zoom} wasm={wasm} edit={edit} /> : null;
+            return child ? <RenderNode key={c} doc={doc} node={child} preview={preview} touched={touched} pen={pen} zoom={zoom} wasm={wasm} edit={edit} textEdit={textEdit} /> : null;
           })}
           {pen && pen.parentId === node.id && <PenOverlay pen={pen} zoom={zoom} />}
         </div>
@@ -207,9 +229,84 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit }: Rend
         </svg>
       );
     }
+    case "shape": {
+      const a = shapeAttrs(doc, node);
+      const editing = textEdit?.id === node.id ? textEdit : null;
+      return (
+        <div {...props}>
+          <svg xmlns="http://www.w3.org/2000/svg" width={a.svg.width} height={a.svg.height} style={SHAPE_SVG_CSS as CSSProperties}>
+            <path d={a.path.d} fill={a.path.fill} stroke={a.path.stroke} strokeWidth={a.path.strokeWidth} strokeLinejoin="round" />
+            {a.fold && <path d={a.fold.d} fill={a.fold.fill} />}
+          </svg>
+          {editing ? (
+            <ShapeTextEditor text={node.text} onCommit={editing.onCommit} onDone={editing.onDone} />
+          ) : (
+            <div style={SHAPE_TEXT_CSS as CSSProperties}>{node.text}</div>
+          )}
+        </div>
+      );
+    }
+    case "connector": {
+      const a = connectorAttrs(doc, node);
+      // O <svg> não pega clique: só o traço (e uma faixa invisível mais larga em volta dele).
+      return (
+        <svg {...props} style={{ ...css, pointerEvents: "none" }} xmlns="http://www.w3.org/2000/svg" width={node.width} height={node.height}>
+          <path d={a.d} fill="none" stroke="transparent" strokeWidth={Math.max(12, a.strokeWidth + 8)} style={{ pointerEvents: "stroke" }} data-connector-hit="" />
+          <path
+            d={a.d}
+            fill="none"
+            stroke={a.stroke}
+            strokeWidth={a.strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={a.strokeDasharray}
+            style={{ pointerEvents: "visibleStroke" }}
+          />
+        </svg>
+      );
+    }
     default:
       return <div {...props} />;
   }
+}
+
+/** Texto de uma forma editado no lugar: Enter quebra linha, Esc ou Ctrl+Enter (ou sair do campo) confirma. */
+function ShapeTextEditor({ text, onCommit, onDone }: { text: string; onCommit(text: string): void; onDone(): void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const done = useRef(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+  }, []);
+  const finish = () => {
+    if (done.current) return;
+    done.current = true;
+    const value = ref.current?.value ?? text;
+    if (value !== text) onCommit(value);
+    onDone();
+  };
+  return (
+    <textarea
+      ref={ref}
+      className="shape-text-editor"
+      data-testid="shape-text-editor"
+      aria-label="Texto da forma"
+      defaultValue={text}
+      rows={Math.max(1, text.split("\n").length)}
+      onPointerDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onBlur={finish}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey))) {
+          e.preventDefault();
+          finish();
+        }
+      }}
+    />
+  );
 }
 
 export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, onError }: Props) {
@@ -220,6 +317,23 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const [preview, setPreview] = useState<Preview | null>(null);
   const wasmLayer = useWasmLayer({ mode: renderer, doc, view, viewportRef, worldRef, layoutKey: preview, pageId });
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [link, setLink] = useState<LinkDraft | null>(null);
+  /** Forma com o texto em edição (duplo clique, ou logo depois de criada). */
+  const [textEditId, setTextEditId] = useState<string | null>(null);
+  // Durante um arraste, os conectores seguem as posições provisórias das formas.
+  const shown = useMemo(() => {
+    if (!preview || !Object.values(doc.nodes).some((n) => n.type === "connector")) return doc;
+    const nodes = { ...doc.nodes };
+    for (const [id, pv] of Object.entries(preview)) if (nodes[id]) nodes[id] = { ...nodes[id], ...pv } as Node;
+    for (const n of Object.values(nodes)) if (n.type === "connector") nodes[n.id] = { ...n };
+    const next = { ...doc, nodes };
+    try {
+      routeConnectors(next);
+      return next;
+    } catch {
+      return doc;
+    }
+  }, [doc, preview]);
   const [marquee, setMarquee] = useState<Marquee | null>(null);
   /** Caixa que envolve a seleção, e a de cada nó quando há mais de um. */
   const [box, setBox] = useState<Rect | null>(null);
@@ -681,6 +795,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     }
     const target = (e.target as HTMLElement).closest<HTMLElement>("[data-paprika-id]");
 
+    if (tool === "connector") return startLink(e);
     if (tool !== "select") {
       const frameEl = (e.target as HTMLElement).closest<HTMLElement>('[data-paprika-type="frame"]');
       const parentId = frameEl?.dataset.paprikaId ?? pageId;
@@ -711,19 +826,24 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         let w = Math.round(Math.abs(d.x1 - d.x0));
         let h = Math.round(Math.abs(d.y1 - d.y0));
         const clicked = w < 4 && h < 4;
-        const kind = tool as Exclude<Tool, "select" | "pen">;
-        const defaults = { frame: [390, 844], rect: [120, 80], ellipse: [80, 80], text: [200, 32] } as const;
+        const kind = tool as Exclude<Tool, "select" | "pen" | "connector">;
+        const defaults = { frame: [390, 844], rect: [120, 80], ellipse: [80, 80], text: [200, 32], shape: [160, 80], diamond: [160, 100], note: [160, 160] } as const;
         if (clicked) [w, h] = defaults[kind];
-        const count = Object.values(doc.nodes).filter((n) => n.type === tool).length + 1;
-        const names = { frame: "Frame", rect: "Retângulo", ellipse: "Elipse", text: "Texto" } as const;
-        const node: Record<string, unknown> & { type: Tool } = { type: kind, name: `${names[kind]} ${count}`, x, y, width: w, height: h };
+        const names = { frame: "Frame", rect: "Retângulo", ellipse: "Elipse", text: "Texto", shape: "Caixa", diamond: "Decisão", note: "Nota" } as const;
+        const count = isShapeTool(kind)
+          ? Object.values(doc.nodes).filter((n) => n.type === "shape" && n.shape === SHAPE_TOOLS[kind]).length + 1
+          : Object.values(doc.nodes).filter((n) => n.type === tool).length + 1;
+        const node: Record<string, unknown> = { type: kind, name: `${names[kind]} ${count}`, x, y, width: w, height: h };
         if (tool === "frame") node.fill = "#ffffff";
         if (tool === "rect" || tool === "ellipse") node.fill = "#d9d4cf";
         if (tool === "text") Object.assign(node, { text: "Texto", height: "hug" });
+        // Formas de diagrama: o resto (preenchimento, borda, fonte) vem dos padrões de cada tipo.
+        if (isShapeTool(kind)) Object.assign(node, { type: "shape", shape: SHAPE_TOOLS[kind] });
         const id = newId();
         apply([{ op: "create", node: { ...node, id } as never, parentId: d.parentId }], `criar ${names[kind].toLowerCase()}`);
         onSelect([id]);
         onToolDone();
+        if (isShapeTool(kind)) setTextEditId(id);
       };
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", up);
@@ -740,7 +860,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     // Arrastar um nó já selecionado move a seleção inteira; senão, seleciona só ele.
     const group = selected.includes(id) ? selected : [id];
     if (!selected.includes(id)) onSelect([id]);
-    const movable = group.map((g) => doc.nodes[g]).filter((n): n is SceneNode => isScene(n) && !n.locked && isAbsolute(doc, n) && !copyOwner(doc, n));
+    const movable = group.map((g) => doc.nodes[g]).filter((n): n is SceneNode => isScene(n) && n.type !== "connector" && !n.locked && isAbsolute(doc, n) && !copyOwner(doc, n));
     if (!movable.length) return;
     const start = toWorld(e.clientX, e.clientY);
     let moved = false;
@@ -759,6 +879,50 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       window.removeEventListener("pointerup", up);
       setPreview(null);
       if (moved) apply(Object.entries(last).map(([nid, props]) => ({ op: "update", id: nid, props })), movable.length > 1 ? `mover ${movable.length} nós` : "mover");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  /** Nó sob o ponto em que uma seta pode se prender (não conectores, não páginas). */
+  const attachableAt = (clientX: number, clientY: number): string | null => {
+    for (const el of document.elementsFromPoint(clientX, clientY)) {
+      const host = el.closest<HTMLElement | SVGElement>("[data-paprika-id]");
+      if (!host || !viewportRef.current?.contains(host)) continue;
+      const n = doc.nodes[host.dataset.paprikaId!];
+      if (n && n.type !== "connector" && n.type !== "page") return n.id;
+    }
+    return null;
+  };
+
+  /** Ferramenta seta: arrastar de um nó (ou de um ponto livre) até outro; a seta fica presa às formas. */
+  const startLink = (e: RPointerEvent) => {
+    const vpr = viewportRef.current!.getBoundingClientRect();
+    const end = (cx: number, cy: number): ConnectorEnd => {
+      const id = attachableAt(cx, cy);
+      if (id) return { nodeId: id };
+      const p = toWorld(cx, cy);
+      return { x: Math.round(p.x), y: Math.round(p.y) };
+    };
+    const l: LinkDraft = { from: end(e.clientX, e.clientY), x0: e.clientX - vpr.left, y0: e.clientY - vpr.top, x1: e.clientX - vpr.left, y1: e.clientY - vpr.top };
+    setLink(l);
+    const move = (ev: PointerEvent) => {
+      l.x1 = ev.clientX - vpr.left;
+      l.y1 = ev.clientY - vpr.top;
+      setLink({ ...l });
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setLink(null);
+      if (Math.hypot(l.x1 - l.x0, l.y1 - l.y0) < 6) return; // clique sem arrastar: nada a ligar
+      const to = end(ev.clientX, ev.clientY);
+      if (to.nodeId && to.nodeId === l.from.nodeId) return;
+      const id = newId();
+      const count = Object.values(doc.nodes).filter((n) => n.type === "connector").length + 1;
+      apply([{ op: "create", node: { type: "connector", id, name: `Seta ${count}`, from: l.from, to, route: "elbow" }, parentId: pageId }], "criar seta");
+      onSelect([id]);
+      onToolDone();
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -809,11 +973,17 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const node = doc.nodes[target.dataset.paprikaId!];
     // Duplo clique num path já selecionado (ou fora de grupo) entra na edição ponto a ponto.
     if (node?.type === "path" && (selected.includes(node.id) || pickTarget(doc, node.id, selected) === node.id) && startPathEdit(node)) return;
+    // Duplo clique numa forma de diagrama edita o texto dela.
+    if (node?.type === "shape" && !node.locked && !copyOwner(doc, node) && (selected.includes(node.id) || pickTarget(doc, node.id, selected) === node.id)) {
+      onSelect([node.id]);
+      setTextEditId(node.id);
+      return;
+    }
     onSelect([target.dataset.paprikaId!]);
   };
 
   const single = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
-  const resizable = !!single && single.type !== "group" && single.type !== "page" && !isInstance(single) && !copyOwner(doc, single);
+  const resizable = !!single && single.type !== "group" && single.type !== "page" && single.type !== "connector" && !isInstance(single) && !copyOwner(doc, single);
   const onResizeDown = (e: RPointerEvent) => {
     e.stopPropagation();
     const node = single;
@@ -841,6 +1011,16 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     window.addEventListener("pointerup", up);
   };
 
+  const editedShape = textEditId ? doc.nodes[textEditId] : undefined;
+  const textEdit =
+    editedShape?.type === "shape"
+      ? {
+          id: editedShape.id,
+          onCommit: (text: string) => apply([{ op: "update", id: editedShape.id, props: { text } }], "editar texto"),
+          onDone: () => setTextEditId(null),
+        }
+      : null;
+
   const rootNodes = roots.map((id) => doc.nodes[id]).filter((n): n is Node => !!n);
   const marqueeRect = marquee && {
     left: Math.min(marquee.x0, marquee.x1),
@@ -867,7 +1047,18 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       {renderer === "wasm" && <canvas ref={wasmLayer.canvasRef} className="wasm-layer" data-testid="wasm-layer" data-backend={wasmLayer.status.backend} />}
       <div ref={worldRef} className="world" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
         {rootNodes.map((n) => (
-          <RenderNode key={n.id} doc={doc} node={n} preview={preview} touched={agentTouched} pen={pen} zoom={view.zoom} wasm={wasmLayer.active} edit={editView} />
+          <RenderNode
+            key={n.id}
+            doc={shown}
+            node={shown.nodes[n.id] ?? n}
+            preview={preview}
+            touched={agentTouched}
+            pen={pen}
+            zoom={view.zoom}
+            wasm={wasmLayer.active}
+            edit={editView}
+            textEdit={textEdit}
+          />
         ))}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
@@ -913,6 +1104,12 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         </div>
       )}
       {draftRect && <div className="draft" style={draftRect} />}
+      {link && (
+        <svg className="link-draft" data-testid="link-draft">
+          <line x1={link.x0} y1={link.y0} x2={link.x1} y2={link.y1} />
+          <circle cx={link.x1} cy={link.y1} r={4} />
+        </svg>
+      )}
       {marqueeRect && <div className="marquee" style={marqueeRect} data-testid="marquee" />}
       <div className="zoom-pill" onPointerDown={(e) => e.stopPropagation()}>
         <button onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom">−</button>

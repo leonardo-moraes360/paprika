@@ -447,10 +447,17 @@ export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
   const draft = structuredClone(doc);
   const inverse: Op[] = [];
   const created: string[] = [];
+  const deleted = new Set<string>();
   ops.forEach((raw, i) => {
     const parsed = Op.safeParse(raw);
     if (!parsed.success) throw new OpError(`invalid operation: ${formatZod(parsed.error)}`, i);
-    inverse.unshift(...applyOne(draft, parsed.data, i, created));
+    const op = parsed.data;
+    if (op.op === "delete") {
+      // Um conector que já saiu junto com a forma (ex.: delete_nodes com a forma e a seta) não é erro.
+      if (!draft.nodes[op.id] && doc.nodes[op.id]?.type === "connector" && !deleted.has(op.id)) return void deleted.add(op.id);
+      deleted.add(op.id);
+    }
+    inverse.unshift(...applyOne(draft, op, i, created));
   });
   if (ops.length) {
     const last = ops.length - 1;

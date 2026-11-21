@@ -140,6 +140,17 @@ Tarefa: `outputSchema` + `structuredContent` nas ferramentas que respondem JSON,
 | 50 | Mesmo nome de ator depois de reiniciar o servidor | No HTTP o nome fica num mapa em memória pelo `Mcp-Session-Id`; depois de reiniciar, o cliente continua com o id antigo e o ator volta ao User-Agent até um novo initialize | Responder 404 a ids de sessão desconhecidos, como a spec sugere, para o cliente reinicializar | P3 |
 | 51 | Um idioma só na lista de atividade | Os rótulos padrão das ferramentas agora são em inglês (`create 1 node(s)`), enquanto os rótulos e a interface do próprio canvas seguem em pt-BR | Traduzir a interface do canvas ou localizar as duas por configuração | P3 |
 
+## 2026-11-21: diagramas (formas, conectores, `draw_diagram`)
+
+Tarefa: nós `shape` e `connector`, ferramentas no canvas e `draw_diagram` para agentes, com paridade TS/Go. Notas de desenhar fluxogramas via MCP durante a construção.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 52 | Apagar uma forma e a seta dela numa chamada | `delete_nodes` com a forma primeiro e depois o conector falhava: o delete da forma já tinha levado o conector. Corrigido: um conector removido assim antes, na mesma transação, é ignorado (apagar duas vezes continua sendo erro) | — | — |
+| 53 | Saber os ids das setas que o `draw_diagram` criou | O padrão é `<from>-to-<to>` (com `-2`, `-3` nas repetições) e eles voltam em `edges`, na ordem da entrada | — | — |
+| 54 | Dizer o que uma seta significa ("sim", "não") | Conectores ainda não têm rótulo; o agente põe um texto pequeno ao lado da seta, que não a acompanha | Um `label` no conector, posicionado no meio da rota | P1 |
+| 55 | Mover uma forma de um diagrama sem cruzar outras | A rota em cotovelo ignora obstáculos, então uma forma movida pode fazer uma seta cruzar outra forma | Rota em cotovelo que desvia de obstáculos, ou um modo `relayout` no `draw_diagram` para ids existentes | P2 |
+
 ## O que funcionou bem
 
 - `create_nodes` aninhado montou uma proposta inteira (≈60 nós) numa chamada, de forma atômica.

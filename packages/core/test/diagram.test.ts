@@ -123,6 +123,12 @@ describe("connector", () => {
     expect(h.doc.rootIds).toEqual(["a", "b", "c"]);
   });
 
+  it("deleting a shape and its connector together is fine, deleting twice is not", () => {
+    expect(applyOps(two(), [{ op: "delete", id: "a" }, { op: "delete", id: "c" }]).doc.nodes).not.toHaveProperty("c");
+    expect(() => applyOps(two(), [{ op: "delete", id: "a" }, { op: "delete", id: "c" }, { op: "delete", id: "c" }])).toThrow('node "c" does not exist');
+    expect(() => applyOps(two(), [{ op: "delete", id: "c" }, { op: "delete", id: "c" }])).toThrow('node "c" does not exist');
+  });
+
   it("inside a component attaches to the copies of each instance", () => {
     const d = applyOps(createDocument(), [
       {

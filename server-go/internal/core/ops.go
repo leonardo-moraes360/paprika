@@ -790,12 +790,25 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 	draft := jsonv.Clone(doc).(*jsonv.Object)
 	var inverse []any
 	created := []string{}
+	deleted := map[string]bool{}
 	for i, raw := range ops {
 		parsed, err := z.Parse(OpSchema, raw)
 		if err != nil {
 			return nil, opErr(i, "invalid operation: %s", formatZod(err))
 		}
-		inv, err := applyOne(draft, parsed.(*jsonv.Object), i, &created)
+		op := parsed.(*jsonv.Object)
+		if op.Str("op") == "delete" {
+			id := op.Str("id")
+			// A connector that already went away with its shape (e.g. delete_nodes with the shape and the arrow) is not an error.
+			if GetNode(draft, id) == nil && !deleted[id] {
+				if orig := GetNode(doc, id); orig != nil && orig.Str("type") == "connector" {
+					deleted[id] = true
+					continue
+				}
+			}
+			deleted[id] = true
+		}
+		inv, err := applyOne(draft, op, i, &created)
 		if err != nil {
 			return nil, err
 		}

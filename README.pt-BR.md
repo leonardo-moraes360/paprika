@@ -71,6 +71,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `get_document_outline` | Árvore compacta + tokens + versão |
 | `get_nodes` / `find_nodes` | JSON completo de nós / busca por tipo, nome, texto |
 | `create_nodes` | Cria árvores aninhadas numa chamada |
+| `draw_diagram` | Desenha um diagrama (fluxograma, arquitetura, mapa mental) a partir de formas e ligações: distribui as formas em camadas (`direction`: para baixo ou para a direita, à direita do conteúdo existente) e liga com setas que seguem as formas |
 | `update_nodes` / `move_nodes` / `delete_nodes` | Edição em lote, atômica |
 | `group_nodes` / `ungroup_nodes` | Põe nós irmãos num `group` (o desenho não se move) / devolve ao pai |
 | `create_page` | Cria uma página; a primeira leva o canvas atual para "Página 1" |
@@ -96,6 +97,7 @@ Seleção: `Shift`+clique (no canvas ou nas camadas) adiciona ou tira um nó, ar
 
 Componentes: "Tornar componente" no inspector de um frame, depois "Nova instância". Clicar dentro de uma instância seleciona a instância; selecione uma cópia nas camadas (ou com duplo clique) para trocar texto, cores, opacidade ou visibilidade. Mudanças no componente chegam a todas as instâncias; "Desanexar" transforma a instância em nós comuns.
 Modos de tema: o painel do documento no inspector lista os tokens de cada modo e adiciona um com `dark: bg = #14161f`; "Modo de tema" num frame ou página aplica o modo a tudo que está dentro.
+Diagramas: `S` caixa, `D` losango (decisão), `N` nota adesiva, `A` seta. Um clique cria a forma no tamanho padrão (ou arraste para escolher o tamanho) e já abre o texto para editar; duplo clique numa forma edita o texto de novo (`Enter` quebra linha, `Esc`, `Ctrl+Enter` ou clicar fora confirmam). Com a seta, arraste de uma forma até outra: as duas pontas ficam presas e a seta acompanha as formas quando elas se movem (uma ponta solta no canvas vazio fica naquele ponto). Apagar uma forma apaga as setas dela; o inspector troca a seta entre cotovelo e reta, escolhe o lado de cada ponta, as pontas de seta e o tracejado.
 Edição de pontos: duplo clique num vetor edita os pontos. Arraste um ponto (as alças vão junto) ou uma alça (a oposta espelha; segure `Alt` para mover só ela). Duplo clique num ponto alterna entre canto e suave, duplo clique no contorno adiciona um ponto, `Delete` remove o ponto selecionado, `Esc` ou `Enter` terminam. Cada gesto é um passo de desfazer. Curvas quadráticas e arcos viram curvas cúbicas depois da edição.
 Colar e exportar: `Ctrl+V` com SVG ou HTML (por exemplo, copiado de uma página web) na área de transferência cria nós editáveis dentro do frame selecionado, ou na página, no centro da tela. O botão `⇩` da barra baixa a seleção (ou a página atual) como SVG.
 Páginas: o painel "Páginas" à esquerda troca de página, `+` cria uma (o primeiro `+` transforma o canvas atual na "Página 1"), duplo clique renomeia, `×` apaga (dá para desfazer).

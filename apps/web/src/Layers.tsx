@@ -1,8 +1,21 @@
 import { useState } from "react";
-import { isContainer, isInstance, pageRoots, type Document, type Op } from "@paprika/core";
+import { isContainer, isInstance, pageRoots, type ConnectorEnd, type Document, type Node, type Op } from "@paprika/core";
 import { InlineName } from "./InlineName";
 
-const ICON: Record<string, string> = { frame: "#", rect: "▭", ellipse: "◯", text: "T", image: "▣", path: "✒", group: "⧉", page: "▤" };
+const ICON: Record<string, string> = { frame: "#", rect: "▭", ellipse: "◯", text: "T", image: "▣", path: "✒", group: "⧉", page: "▤", shape: "▢", connector: "↗" };
+
+/** Camada sem nome: o texto (texto e forma), "A → B" (conector) ou o tipo. */
+function layerFallback(doc: Document, n: Node): string {
+  if (n.type === "text" || (n.type === "shape" && n.text)) return n.text.slice(0, 24);
+  if (n.type === "connector") {
+    const end = (e: ConnectorEnd) => {
+      const t = e.nodeId ? doc.nodes[e.nodeId] : undefined;
+      return t ? t.name || (t.type === "shape" || t.type === "text" ? t.text.slice(0, 12) : t.id) : "•";
+    };
+    return `${end(n.from)} → ${end(n.to)}`;
+  }
+  return n.type;
+}
 
 interface Props {
   doc: Document;
@@ -70,7 +83,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
                 setEditing(id);
               }}
             >
-              {n.name || (n.type === "text" ? n.text.slice(0, 24) : n.type)}
+              {n.name || layerFallback(doc, n)}
             </span>
           )}
           <button
