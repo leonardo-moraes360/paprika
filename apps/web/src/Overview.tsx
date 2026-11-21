@@ -270,9 +270,9 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                 }}
                 data-workspace-id={w.id}
               >
-                <span className="grid h-32 place-items-center overflow-hidden border-b border-line text-tile font-bold" style={tile(hue(w.id))} aria-hidden>
+                <span className="workspace-tile grid h-32 place-items-center overflow-hidden border-b border-line text-tile font-bold" style={tile(hue(w.id))} aria-hidden>
                   {w.cover ? (
-                    // "workspace-cover" is a hook for the E2E suite.
+                    // "workspace-tile" and "workspace-cover" are hooks for the E2E suite.
                     <img className="workspace-cover size-full object-cover object-top" src={w.cover} alt="" draggable={false} />
                   ) : (
                     (w.name.trim()[0] ?? "?").toUpperCase()

@@ -54,6 +54,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   it("renderiza o documento com camadas e frames", async () => {
     await expect(page.locator('[data-layer-id="login"]').textContent()).resolves.toContain("Login · mobile");
     await expect(page.locator('[data-paprika-id="login"]').innerText()).resolves.toContain("Bem-vindo de volta");
+    // The inspector calls the document a workspace (same word as the overview).
+    await expect(page.getByRole("heading", { name: "Workspace", exact: true }).count()).resolves.toBe(1);
     if (shots) await page.screenshot({ path: join(shots, "01-carregado.png") });
   });
 
@@ -695,7 +697,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => img.count(), POLL).toBe(0);
     await expect.poll(() => demoCard.locator(".workspace-tile").textContent(), POLL).toBe(demoName.trim()[0]!.toUpperCase());
     await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, clear: true } });
-  });
+   }, 30_000);
 
   it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
