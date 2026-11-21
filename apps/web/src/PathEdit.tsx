@@ -8,6 +8,8 @@ export interface PathEditState {
   draft: Subpath[] | null;
   /** Último gesto enviado ao servidor, mostrado até o documento novo chegar. */
   sent: Subpath[] | null;
+  /** `d` de cada gesto enviado e ainda não devolvido pelo servidor, em ordem. */
+  pending: string[];
 }
 
 /** Alvo de um clique no overlay, lido dos atributos data-path-*. */

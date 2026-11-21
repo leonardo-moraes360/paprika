@@ -518,9 +518,16 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const editView = pathEdit && editPath && shownSubs ? { id: pathEdit.id, subs: shownSubs, sel: pathEdit.sel } : null;
   const editSubsRef = useRef(shownSubs);
   editSubsRef.current = shownSubs;
+  // O servidor devolve cada gesto na ordem: o `d` do último enviado encerra a espera; um `d`
+  // intermediário mantém a prévia; qualquer outro (agente, undo) vale e descarta a prévia.
+  const editD = editPath?.d;
   useEffect(() => {
-    setPathEdit((cur) => (cur?.sent ? { ...cur, sent: null } : cur));
-  }, [editSubs]);
+    setPathEdit((cur) => {
+      if (!cur?.sent) return cur;
+      if (editD !== undefined && cur.pending.slice(0, -1).includes(editD)) return cur;
+      return { ...cur, sent: null, pending: [] };
+    });
+  }, [editD]);
 
   // Sai da edição quando o nó some (undo, agente), a seleção muda ou outra ferramenta entra.
   useEffect(() => {
@@ -539,7 +546,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         onSelect([]);
         return;
       }
-      setPathEdit((cur) => cur && { ...cur, sent: subs });
+      setPathEdit((cur) => cur && { ...cur, sent: subs, pending: [...cur.pending, props.d] });
       apply([{ op: "update", id: node.id, props: { ...props } }], label);
     },
     [apply, doc, onSelect],
@@ -552,7 +559,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     } catch {
       return false;
     }
-    setPathEdit({ id: node.id, sel: null, draft: null, sent: null });
+    setPathEdit({ id: node.id, sel: null, draft: null, sent: null, pending: [] });
     onSelect([node.id]);
     return true;
   };
