@@ -83,8 +83,9 @@ export function sourceValue(n: NodeT | undefined, key: string): unknown {
 export function setOverride(inst: FrameNode, srcId: string, key: string, v: unknown, src: NodeT | undefined) {
   // Nunca grava chaves que mexem no protótipo (o schema já as recusa; isto protege chamadas internas).
   if (srcId === "__proto__" || key === "__proto__") return;
-  const all: Record<string, Record<string, unknown>> = { ...(inst.overrides ?? {}) };
-  const ov: Record<string, unknown> = { ...(Object.hasOwn(all, srcId) ? all[srcId] : {}) };
+  // Prototype-less copies: a key can only ever become an own property of these maps.
+  const all: Record<string, Record<string, unknown>> = Object.assign(Object.create(null), inst.overrides);
+  const ov: Record<string, unknown> = Object.assign(Object.create(null), Object.hasOwn(all, srcId) ? all[srcId] : undefined);
   if (v === null || jsonEqual(v, sourceValue(src, key))) delete ov[key];
   else ov[key] = v;
   if (Object.keys(ov).length) all[srcId] = ov;
