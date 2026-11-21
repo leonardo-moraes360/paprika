@@ -48,6 +48,10 @@ jobs:
           persist-credentials: false
       - name: Fetch base commit
         run: git fetch --no-tags --depth=1 origin "$BASE_SHA"
+      # The selector below decides whether every other job runs, so it is tested here: a wrong plan
+      # is a silently untested PR. Tests only, nothing to install.
+      - name: Test the CI scripts
+        run: node --test .github/scripts/test/*.mjs
       - id: plan
         run: node .github/scripts/ci-plan.mjs "$BASE_SHA" HEAD
 
