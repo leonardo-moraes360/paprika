@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,6 +75,12 @@ CREATE TABLE IF NOT EXISTS history (
   at      INTEGER NOT NULL,           -- Unix ms
   PRIMARY KEY (doc_id, stack, seq)
 );
+CREATE TABLE IF NOT EXISTS covers (
+  doc_id     TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+  mime       TEXT NOT NULL,           -- image/png, image/jpeg, image/webp or image/gif
+  data       BLOB NOT NULL,
+  updated_at INTEGER NOT NULL         -- Unix ms (cache-busting key of the cover URL)
+);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '1');
 `
@@ -104,11 +112,13 @@ type DocInfo struct {
 	Nodes     int    `json:"nodes"`
 	Version   int64  `json:"version"`
 	UpdatedAt int64  `json:"updatedAt"`
+	CoverAt   int64  `json:"-"` // updated_at of its cover image, 0 = no cover
 }
 
 // ListDocuments lists the documents in a database (most recently updated first).
 func ListDocuments(db *sql.DB) ([]DocInfo, error) {
-	rows, err := db.Query(`SELECT d.id, d.name, d.version, d.updated_at, (SELECT COUNT(*) FROM nodes n WHERE n.doc_id = d.id)
+	rows, err := db.Query(`SELECT d.id, d.name, d.version, d.updated_at, (SELECT COUNT(*) FROM nodes n WHERE n.doc_id = d.id),
+		COALESCE((SELECT c.updated_at FROM covers c WHERE c.doc_id = d.id), 0)
 		FROM documents d ORDER BY d.updated_at DESC, d.id`)
 	if err != nil {
 		return nil, err
@@ -117,7 +127,7 @@ func ListDocuments(db *sql.DB) ([]DocInfo, error) {
 	var out []DocInfo
 	for rows.Next() {
 		var d DocInfo
-		if err := rows.Scan(&d.ID, &d.Name, &d.Version, &d.UpdatedAt, &d.Nodes); err != nil {
+		if err := rows.Scan(&d.ID, &d.Name, &d.Version, &d.UpdatedAt, &d.Nodes, &d.CoverAt); err != nil {
 			return nil, err
 		}
 		out = append(out, d)
@@ -685,6 +695,14 @@ type WorkspaceInfo struct {
 	Nodes     int    `json:"nodes"`
 	UpdatedAt int64  `json:"updatedAt"`
 	Active    bool   `json:"active"` // the document the canvas and the MCP tools read and write
+	Cover     any    `json:"cover"`  // URL of the cover image (with a cache-busting ?v=), or nil: the card shows the first letter
+}
+
+func coverURL(id string, at int64) any {
+	if at == 0 {
+		return nil
+	}
+	return fmt.Sprintf("/api/workspaces/%s/cover?v=%d", url.PathEscape(id), at)
 }
 
 // ErrNoWorkspace is returned by OpenWorkspace for an unknown id.
@@ -699,7 +717,7 @@ func (s *Store) ListWorkspaces() ([]WorkspaceInfo, error) {
 	active := s.DocID()
 	out := make([]WorkspaceInfo, len(docs))
 	for i, d := range docs {
-		out[i] = WorkspaceInfo{d.ID, d.Name, d.Nodes, d.UpdatedAt, d.ID == active}
+		out[i] = WorkspaceInfo{d.ID, d.Name, d.Nodes, d.UpdatedAt, d.ID == active, coverURL(d.ID, d.CoverAt)}
 	}
 	return out, nil
 }
@@ -752,5 +770,154 @@ func (s *Store) CreateWorkspace(name string) (WorkspaceInfo, error) {
 	if err := writeDocument(s.db, doc, nil, 0, now); err != nil {
 		return WorkspaceInfo{}, err
 	}
-	return WorkspaceInfo{doc.Str("id"), name, 0, now, false}, nil
+	return WorkspaceInfo{doc.Str("id"), name, 0, now, false, nil}, nil
+}
+
+// ErrLastWorkspace is returned by DeleteWorkspace when the id is the only document: the server
+// always has an active workspace.
+var ErrLastWorkspace = errors.New("cannot delete the only workspace")
+
+// RenameWorkspace changes a workspace's name (trimmed; blank is refused by the callers). The active
+// one is renamed with a rename_document op, so the canvas follows and Ctrl+Z undoes it; another one
+// is renamed with the same op applied to its stored document (no undo entry), with its version
+// bumped so a process that has it open reloads it.
+func (s *Store) RenameWorkspace(id, name, actor string) (WorkspaceInfo, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return WorkspaceInfo{}, errors.New("name must not be blank")
+	}
+	info, err := s.workspaceInfo(id)
+	if err != nil {
+		return info, err
+	}
+	if info.Name == name {
+		return info, nil
+	}
+	if info.Active {
+		if _, err := s.Apply([]any{jsonv.NewObject("op", "rename_document", "name", name)}, actor, "renomear workspace"); err != nil {
+			return WorkspaceInfo{}, err
+		}
+		return s.workspaceInfo(id)
+	}
+	// Same path as every other write (applyOps), outside the active history: no undo entry.
+	tx, err := s.db.Begin()
+	if err != nil {
+		return WorkspaceInfo{}, err
+	}
+	defer tx.Rollback()
+	doc, version, err := LoadDocument(tx, id)
+	if err != nil {
+		return WorkspaceInfo{}, ErrNoWorkspace
+	}
+	r, err := core.ApplyOps(doc, []any{jsonv.NewObject("op", "rename_document", "name", name)})
+	if err != nil {
+		return WorkspaceInfo{}, err
+	}
+	now := time.Now().UnixMilli()
+	if err := writeDocument(tx, r.Doc, doc, version+1, now); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	info.Name, info.UpdatedAt = name, now
+	return info, nil
+}
+
+// DeleteWorkspace removes a workspace with its nodes, tokens and history. Deleting the active one
+// first opens the most recently updated other workspace (ChangeEvent "open"), so the canvas and the
+// agents move there; the only workspace cannot be deleted (ErrLastWorkspace). Returns the id of
+// the workspace that is active afterwards.
+func (s *Store) DeleteWorkspace(id, actor string) (string, error) {
+	ws, err := s.ListWorkspaces()
+	if err != nil {
+		return "", err
+	}
+	var target *WorkspaceInfo
+	next := ""
+	for i := range ws {
+		if ws[i].ID == id {
+			target = &ws[i]
+		} else if next == "" {
+			next = ws[i].ID // list is most recently updated first
+		}
+	}
+	if target == nil {
+		return "", ErrNoWorkspace
+	}
+	if next == "" {
+		return "", ErrLastWorkspace
+	}
+	if target.Active {
+		if _, err := s.OpenWorkspace(next, actor); err != nil {
+			return "", err
+		}
+	}
+	// The cascade (foreign_keys=1) drops tokens, nodes and history with the document row.
+	if _, err := s.db.Exec(`DELETE FROM documents WHERE id = ?`, id); err != nil {
+		return "", err
+	}
+	return s.DocID(), nil
+}
+
+// MaxCoverBytes caps a workspace cover image (the card shows it at about 240×128).
+const MaxCoverBytes = 2 * 1024 * 1024
+
+// ErrBadCover is returned by SetCover for data that is not a PNG, JPEG, WebP or GIF, or is too big.
+var ErrBadCover = errors.New("cover must be a PNG, JPEG, WebP or GIF image of at most 2 MiB")
+
+// coverTypes are the image types a cover may have, detected from the bytes (never SVG: it would run
+// as a document on the server's origin).
+var coverTypes = map[string]bool{"image/png": true, "image/jpeg": true, "image/webp": true, "image/gif": true}
+
+// SetCover stores (replaces) a workspace's cover image; the type is detected from the bytes. It is
+// not part of the document: not in the undo history and not in exports.
+func (s *Store) SetCover(id string, data []byte) (WorkspaceInfo, error) {
+	mime := http.DetectContentType(data)
+	if len(data) == 0 || len(data) > MaxCoverBytes || !coverTypes[mime] {
+		return WorkspaceInfo{}, ErrBadCover
+	}
+	if _, err := s.workspaceInfo(id); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	now := time.Now().UnixMilli()
+	if _, err := s.db.Exec(`INSERT INTO covers(doc_id, mime, data, updated_at) VALUES (?, ?, ?, ?)
+		ON CONFLICT(doc_id) DO UPDATE SET mime = excluded.mime, data = excluded.data, updated_at = excluded.updated_at`, id, mime, data, now); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	return s.workspaceInfo(id)
+}
+
+// ClearCover removes a workspace's cover (the card goes back to the first letter of the name).
+func (s *Store) ClearCover(id string) (WorkspaceInfo, error) {
+	if _, err := s.workspaceInfo(id); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	if _, err := s.db.Exec(`DELETE FROM covers WHERE doc_id = ?`, id); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	return s.workspaceInfo(id)
+}
+
+// Cover returns a workspace's cover image and its type; ErrNoWorkspace when it has none.
+func (s *Store) Cover(id string) ([]byte, string, error) {
+	var data []byte
+	var mime string
+	err := s.db.QueryRow(`SELECT data, mime FROM covers WHERE doc_id = ?`, id).Scan(&data, &mime)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, "", ErrNoWorkspace
+	}
+	return data, mime, err
+}
+
+// WorkspaceDocument loads a stored workspace's document (the active one comes from memory).
+func (s *Store) WorkspaceDocument(id string) (*core.Document, error) {
+	if id == s.DocID() {
+		return s.Doc(), nil
+	}
+	if _, err := s.workspaceInfo(id); err != nil {
+		return nil, err
+	}
+	doc, _, err := LoadDocument(s.db, id)
+	return doc, err
 }

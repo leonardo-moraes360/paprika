@@ -696,9 +696,9 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
   const issues = lintDocument(doc).filter((i) => i.severity !== "info");
   return (
     <div className={ui.section}>
-      <h2 className={ui.h2}>Documento</h2>
+      <h2 className={ui.h2}>Workspace</h2>
       <div className={ui.grid}>
-        <Field label="Nome" value={doc.name} onCommit={(v) => v.trim() && apply([{ op: "rename_document", name: v.trim() }], "renomear documento")} />
+        <Field label="Nome" value={doc.name} onCommit={(v) => v.trim() && apply([{ op: "rename_document", name: v.trim() }], "renomear workspace")} />
       </div>
       <h3 className={ui.h3}>Tokens</h3>
       <div className={ui.grid}>

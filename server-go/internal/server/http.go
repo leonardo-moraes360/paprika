@@ -136,6 +136,9 @@ var apiOpsBody = z.Object(
 // POST /api/workspaces: name of the new workspace (blank: "Sem título").
 var workspaceBody = z.Object(z.Field{Name: "name", Schema: z.Optional(z.String().Max(120))})
 
+// PATCH /api/workspaces/{id}: new name (trimmed, not blank).
+var renameWorkspaceBody = z.Object(z.Field{Name: "name", Schema: z.String().Max(120)})
+
 // RunningServer is a started HTTP server.
 type RunningServer struct {
 	URL    string
@@ -323,6 +326,107 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(w, 201, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
 		default:
 			send(w, 405, errBody("método não permitido"), "")
+		}
+	})
+	mux.HandleFunc("/api/workspaces/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		switch r.Method {
+		case http.MethodPatch:
+			body, present, err := readBody(r)
+			if err != nil {
+				var he *httpError
+				if errors.As(err, &he) {
+					send(w, he.status, errBody(he.msg), "")
+					return
+				}
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			if !present {
+				body = jsonv.NewObject()
+			}
+			parsed, err := z.Parse(renameWorkspaceBody, body)
+			if err != nil {
+				send(w, 400, errBody(err.Error()), "")
+				return
+			}
+			name := strings.TrimSpace(parsed.(*jsonv.Object).Str("name"))
+			if name == "" {
+				send(w, 400, errBody("o nome não pode ficar vazio"), "")
+				return
+			}
+			info, err := store.RenameWorkspace(id, name, "user")
+			if errors.Is(err, ErrNoWorkspace) {
+				send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+				return
+			}
+			if err != nil {
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			send(w, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+		case http.MethodDelete:
+			active, err := store.DeleteWorkspace(id, "user")
+			switch {
+			case errors.Is(err, ErrNoWorkspace):
+				send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+			case errors.Is(err, ErrLastWorkspace):
+				send(w, 409, errBody("não é possível excluir o único workspace"), "")
+			case err != nil:
+				send(w, 500, errBody(err.Error()), "")
+			default:
+				send(w, 200, jsonv.NewObject("deleted", id, "active", active), "")
+			}
+		default:
+			send(w, 405, errBody("método não permitido"), "")
+		}
+	})
+	mux.HandleFunc("/api/workspaces/{id}/cover", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		var info WorkspaceInfo
+		var err error
+		switch r.Method {
+		case http.MethodGet:
+			data, mime, err := store.Cover(id)
+			if errors.Is(err, ErrNoWorkspace) {
+				send(w, 404, errBody(`workspace "`+id+`" não tem capa`), "")
+				return
+			}
+			if err != nil {
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			// The URL carries ?v=<updatedAt>, so a new cover is a new URL.
+			h := w.Header()
+			h.Set("content-type", mime)
+			h.Set("cache-control", "private, max-age=31536000, immutable")
+			h.Set("x-content-type-options", "nosniff")
+			h.Set("content-security-policy", "default-src 'none'")
+			w.WriteHeader(200)
+			w.Write(data)
+			return
+		case http.MethodPut:
+			data, rerr := io.ReadAll(io.LimitReader(r.Body, MaxCoverBytes+1))
+			if rerr != nil {
+				send(w, 400, errBody(rerr.Error()), "")
+				return
+			}
+			info, err = store.SetCover(id, data)
+		case http.MethodDelete:
+			info, err = store.ClearCover(id)
+		default:
+			send(w, 405, errBody("método não permitido"), "")
+			return
+		}
+		switch {
+		case errors.Is(err, ErrNoWorkspace):
+			send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+		case errors.Is(err, ErrBadCover):
+			send(w, 415, errBody("a capa precisa ser uma imagem PNG, JPEG, WebP ou GIF de até 2 MiB"), "")
+		case err != nil:
+			send(w, 500, errBody(err.Error()), "")
+		default:
+			send(w, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
 		}
 	})
 	mux.HandleFunc("/api/workspaces/{id}/open", func(w http.ResponseWriter, r *http.Request) {

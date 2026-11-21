@@ -107,7 +107,7 @@ export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId
           );
         })}
       </div>
-      <ul className="pointer-events-none absolute top-3 right-3 z-6 m-0 flex list-none flex-col items-end gap-1 p-0" aria-label="Agentes no documento" data-testid="agent-roster">
+      <ul className="pointer-events-none absolute top-3 right-3 z-6 m-0 flex list-none flex-col items-end gap-1 p-0" aria-label="Agentes no workspace" data-testid="agent-roster">
         {visible.map((a) => (
           <li
             key={a.agent}

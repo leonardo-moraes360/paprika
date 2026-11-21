@@ -50,6 +50,6 @@ Fluxo recomendado:
 Para trazer um ícone ou um trecho de página pronto, use import_svg ou import_html (viram nós editáveis); export_code com format "svg" devolve SVG vetorial.
 Toda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. Para várias chamadas virarem um passo só de undo (ex.: "desenhar a proposta 3"), passe o mesmo batch em cada uma; o batch fecha quando outra pessoa escreve ou desfaz no meio.
 Resultados: as ferramentas que devolvem JSON também devolvem structuredContent conforme o outputSchema; leia esse campo em vez de interpretar o texto.
-Workspaces: o servidor guarda vários documentos (list_workspaces); toda ferramenta trabalha no ativo, que é também o do canvas do humano. open_workspace troca o ativo para todos, então pergunte ao humano antes; create_workspace cria um vazio.
+Workspaces: o servidor guarda vários documentos (list_workspaces); toda ferramenta trabalha no ativo, que é também o do canvas do humano. open_workspace troca o ativo para todos, então pergunte ao humano antes; create_workspace cria um vazio, rename_workspace renomeia um, set_workspace_cover põe uma imagem (ou o screenshot de um frame) no card; delete_workspace não tem desfazer, então só chame depois que o humano confirmar.
 O humano vê suas edições ao vivo no canvas. Campos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.
 Erros e mensagens das ferramentas são em inglês.

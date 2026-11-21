@@ -161,7 +161,27 @@ Task: `shape` and `connector` nodes, canvas tools, and `draw_diagram` for agents
 | 57 | Say what an arrow means ("yes", "no") | Connectors have no label yet; agents put a small text node next to the arrow, which does not follow it | A `label` on connectors, placed at the middle of the route | P1 |
 | 58 | Move one shape of a drawn diagram without crossing others | Elbow routes ignore obstacles, so a moved shape can make an arrow cross another shape | Obstacle-aware elbow routing, or a `relayout` mode on `draw_diagram` for existing ids | P2 |
 
-## What worked well
+## 2026-11-21: rename and delete workspaces
+
+Task: rename and delete on the overview (double click on the name, delete with a confirmation) and as `rename_workspace` / `delete_workspace` on both servers.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 59 | Keep an agent from deleting work on its own | `delete_workspace` has `destructiveHint` and the guide asks for the human's confirmation, but nothing enforces it; the canvas asks, MCP does not | Two steps: the first call returns what would be lost and a token, the second call with the token deletes | P2 |
+| 60 | Undo a rename | Renaming the active workspace is a `rename_document` write (undoable); renaming another one changes it in place, with no undo | A per-server activity log for workspace operations, or a trash that keeps deleted workspaces for a while | P3 |
+| 61 | Tell the human why the canvas moved | Deleting the active workspace opens the most recently updated other one for everyone; the canvas follows, with no message | A short notice on the canvas ("workspace X deleted by agent:Y") | P3 |
+
+## 2026-11-21: workspace covers
+
+Task: a cover image on the overview cards (upload, drop, remove; no cover = first letter) and `set_workspace_cover` for agents.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 62 | Give a workspace a cover without leaving it | `set_workspace_cover` with `rootId` screenshots a frame of any workspace, active or not, so an agent can dress up the overview after drawing | — | — |
+| 63 | Keep the cover in sync with the design | The cover is a snapshot: later edits to the frame do not update it | An optional `live` cover that re-renders the chosen frame when the workspace changes (debounced) | P3 |
+| 64 | Take the cover along in an export | Covers live in SQLite next to the document, not in `.paprika.json`, so `paprika export` drops them | Export/import the cover as a data URL in an optional top-level field | P3 |
+
+
 
 - Nested `create_nodes` built a whole proposal (≈60 nodes) in one call, atomically.
 - `lint_design` contrast checks drove the token choices (`brand.dark` for white text on buttons).

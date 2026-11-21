@@ -37,7 +37,7 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
       </h2>
       <ul className="m-0 list-none p-0">
         {pages.length === 0 && (
-          <li className={cx(pageRow, pageActive)} title="Documento sem páginas: o primeiro + cria a página 1 com este conteúdo">
+          <li className={cx(pageRow, pageActive)} title="Workspace sem páginas: o primeiro + cria a página 1 com este conteúdo">
             Página 1
           </li>
         )}
