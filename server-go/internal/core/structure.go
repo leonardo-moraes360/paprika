@@ -43,7 +43,7 @@ func placeName(parentID any) string {
 // them is kept and the drawing does not move. id/name "" mean generated.
 func GroupOps(doc *Document, ids []string, id, name string) ([]any, string, error) {
 	if len(ids) == 0 {
-		return nil, "", errors.New("passe ao menos um id para agrupar")
+		return nil, "", errors.New("pass at least one id to group")
 	}
 	var unique []string
 	seen := map[string]bool{}
@@ -60,24 +60,24 @@ func GroupOps(doc *Document, ids []string, id, name string) ([]any, string, erro
 		}
 	}
 	if len(missing) > 0 {
-		return nil, "", fmt.Errorf("nós inexistentes: %s", strings.Join(missing, ", "))
+		return nil, "", fmt.Errorf("nodes do not exist: %s", strings.Join(missing, ", "))
 	}
 	for _, v := range unique {
 		if GetNode(doc, v).Str("type") == "page" {
-			return nil, "", fmt.Errorf(`"%s" é uma página; páginas não entram em grupos`, v)
+			return nil, "", fmt.Errorf(`"%s" is a page; pages cannot be grouped`, v)
 		}
 	}
 	first := GetNode(doc, unique[0])
 	parentID, _ := first.Get("parentId")
 	for _, v := range unique {
 		if p, _ := GetNode(doc, v).Get("parentId"); p != parentID {
-			return nil, "", fmt.Errorf(`só nós com o mesmo pai podem ser agrupados ("%s" está em %s, "%s" em %s)`, v, placeName(p), unique[0], placeName(parentID))
+			return nil, "", fmt.Errorf(`only nodes with the same parent can be grouped ("%s" is in %s, "%s" in %s)`, v, placeName(p), unique[0], placeName(parentID))
 		}
 	}
 	if pid, ok := parentID.(string); ok {
 		if p := GetNode(doc, pid); p != nil && p.Str("type") == "frame" {
 			if l := p.Obj("layout"); l != nil && l.Str("mode") != "none" {
-				return nil, "", fmt.Errorf(`"%s" tem layout %s: os filhos seguem o fluxo e não podem ser agrupados; mude o layout para none ou use um frame`, pid, l.Str("mode"))
+				return nil, "", fmt.Errorf(`"%s" has layout %s: its children follow the flow and cannot be grouped; set the layout to none or use a frame`, pid, l.Str("mode"))
 			}
 		}
 	}
@@ -108,7 +108,7 @@ func GroupOps(doc *Document, ids []string, id, name string) ([]any, string, erro
 // group's position, opacity and visibility applied. Returns the ops and the released ids.
 func UngroupOps(doc *Document, ids []string) ([]any, []string, error) {
 	if len(ids) == 0 {
-		return nil, nil, errors.New("passe ao menos um id de group")
+		return nil, nil, errors.New("pass at least one group id")
 	}
 	ops := []any{}
 	released := []string{}
@@ -120,10 +120,10 @@ func UngroupOps(doc *Document, ids []string) ([]any, []string, error) {
 		seen[id] = true
 		g := GetNode(doc, id)
 		if g == nil {
-			return nil, nil, fmt.Errorf(`nó "%s" não existe`, id)
+			return nil, nil, fmt.Errorf(`node "%s" does not exist`, id)
 		}
 		if t := g.Str("type"); t != "group" {
-			return nil, nil, fmt.Errorf(`nó "%s" é %s, não group`, id, t)
+			return nil, nil, fmt.Errorf(`node "%s" is %s, not a group`, id, t)
 		}
 		parentID, _ := g.Get("parentId")
 		index := indexOf(siblingsOf(doc, parentID), id)

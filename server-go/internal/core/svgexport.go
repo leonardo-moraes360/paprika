@@ -44,7 +44,7 @@ func svgPaint(doc *Document, n *Node, k string, warn func(string)) (string, bool
 	}
 	s := jsonv.Trim(jsString(ResolveValue(doc, v, ModeOf(doc, n))))
 	if gradientRe.MatchString(s) {
-		warn("gradientes e imagens de fundo não vão para o SVG; o preenchimento foi omitido")
+		warn("gradients and background images do not go into SVG; the fill was left out")
 		return "", false
 	}
 	return s, true
@@ -58,7 +58,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 	if rootID != "" {
 		node = GetNode(doc, rootID)
 		if node == nil {
-			return SVGResult{}, fmt.Errorf(`nó "%s" não existe`, rootID)
+			return SVGResult{}, fmt.Errorf(`node "%s" does not exist`, rootID)
 		}
 	}
 	var page, single *Node
@@ -102,7 +102,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		wf, wnum := w.(float64)
 		hf, hnum := h.(float64)
 		if inFlow || !wok || !hok || !wnum || !hnum {
-			return nil, fmt.Errorf(`"%s" depende de layout automático (row/column, hug ou fill); exporte pelo servidor (export_code com format "svg"), que mede o layout num navegador`, n.Str("id"))
+			return nil, fmt.Errorf(`"%s" depends on auto layout (row/column, hug or fill); export through the server (export_code with format "svg"), which measures the layout in a browser`, n.Str("id"))
 		}
 		if single != nil && root {
 			return &box{0, 0, wf, hf}, nil
@@ -186,7 +186,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		defs, shadowAttr := "", ""
 		if s := n.Obj("shadow"); s != nil && typ != "text" {
 			if s.Num("spread") != 0 {
-				warn("sombra com spread: o SVG usa só deslocamento, blur e cor")
+				warn("shadow with spread: SVG uses only offset, blur and color")
 			}
 			sc, _ := s.Get("color")
 			defs += fmt.Sprintf(`<filter id="shadow-%s" x="-50%%" y="-50%%" width="200%%" height="200%%"><feDropShadow dx="%s" dy="%s" stdDeviation="%s" flood-color="%s"/></filter>`,

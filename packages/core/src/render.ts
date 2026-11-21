@@ -22,7 +22,7 @@ export interface Bounds {
 /** Caixa aproximada de um nó raiz (números; "hug"/"fill" caem no mínimo de 1px). Página: a caixa do conteúdo. */
 export function rootBounds(doc: Document, id: string): Bounds {
   const n = doc.nodes[id];
-  if (!n) throw new Error(`nó "${id}" não existe`);
+  if (!n) throw new Error(`node "${id}" does not exist`);
   if (n.type === "page") return canvasBounds(doc, id);
   const w = typeof n.width === "number" ? n.width : 1;
   const h = typeof n.height === "number" ? n.height : 1;
@@ -110,7 +110,7 @@ export function renderHTML(doc: Document, opts: RenderOptions = {}): { html: str
   let body: string;
   let bounds: Bounds;
   const node = opts.rootId ? doc.nodes[opts.rootId] : undefined;
-  if (opts.rootId && !node) throw new Error(`nó "${opts.rootId}" não existe`);
+  if (opts.rootId && !node) throw new Error(`node "${opts.rootId}" does not exist`);
   const page = node ? (node.type === "page" ? node : undefined) : firstPage(doc);
   if (node && node.type !== "page") {
     bounds = rootBounds(doc, node.id);
@@ -188,8 +188,8 @@ function componentName(s: string): string {
  */
 export function exportReact(doc: Document, rootId: string, opts: { cssVariables?: boolean } = {}): string {
   const node = doc.nodes[rootId];
-  if (!node) throw new Error(`nó "${rootId}" não existe`);
-  if (node.type === "page") throw new Error(`"${rootId}" é uma página; exporte um frame dela (export_code com o id do frame)`);
+  if (!node) throw new Error(`node "${rootId}" does not exist`);
+  if (node.type === "page") throw new Error(`"${rootId}" is a page; export one of its frames (export_code with the frame id)`);
   const name = componentName(node.name || node.id);
   const vars = !!opts.cssVariables;
   const css = vars ? `export const tokensCss = ${JSON.stringify(tokenStylesheet(doc))};\n\n` : "";

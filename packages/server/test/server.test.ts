@@ -101,7 +101,7 @@ describe("MCP", () => {
     expect(store.doc.nodes.g).toMatchObject({ x: 10, y: 20, width: 80, height: 50, children: ["a", "b"] });
     const bad = await call(c, "group_nodes", { ids: ["g", "f"] });
     expect(bad.isError).toBe(true);
-    expect(textOf(bad)).toMatch(/mesmo pai/);
+    expect(textOf(bad)).toMatch(/same parent/);
 
     const u = JSON.parse(textOf(await call(c, "ungroup_nodes", { ids: ["g"] })));
     expect(u.released).toEqual(["a", "b"]);
@@ -113,13 +113,13 @@ describe("MCP", () => {
     const first = store.doc.rootIds[0]!;
     expect(store.doc.nodes[first]).toMatchObject({ type: "page", name: "Página 1", children: ["f"] });
     const loose = await call(c, "create_nodes", { nodes: [{ type: "rect" }] });
-    expect(textOf(loose)).toMatch(/tem páginas/);
+    expect(textOf(loose)).toMatch(/has pages/);
     await call(c, "create_nodes", { parentId: "p2", nodes: [{ type: "rect", id: "r", width: 10, height: 10, fill: "#000000" }] });
     expect(textOf(await call(c, "get_document_outline", { rootId: "p2" }))).toContain("rect#r 10×10");
     const shot = await call(c, "render_screenshot", { rootId: "p2" });
     expect(textOf(shot)).toContain("10×10px");
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 3 })));
-    expect(hist.map((h: { label: string }) => h.label)).toEqual(["desagrupar 1 grupo(s)", "criar página", "criar 1 nó(s)"]);
+    expect(hist.map((h: { label: string }) => h.label)).toEqual(["ungroup 1 group(s)", "create page", "create 1 node(s)"]);
   });
 
   it("componentes: criar, instanciar com escala e overrides, propagar, desanexar", async () => {
@@ -133,7 +133,7 @@ describe("MCP", () => {
       ],
     });
     const bad = await call(c, "create_instance", { componentId: "btn" });
-    expect(textOf(bad)).toMatch(/não é componente/);
+    expect(textOf(bad)).toMatch(/is not a component/);
     expect(JSON.parse(textOf(await call(c, "create_component", { id: "btn" })))).toMatchObject({ component: "btn" });
     const inst = JSON.parse(textOf(await call(c, "create_instance", { componentId: "btn", id: "i1", scale: 2, overrides: { lbl: { text: "Enviar" } } })));
     expect(inst).toMatchObject({ instance: "i1", copies: { lbl: copyId("i1", "lbl") }, created: ["i1"] });
@@ -142,21 +142,21 @@ describe("MCP", () => {
     await call(c, "update_nodes", { updates: [{ id: "btn", props: { fill: "#000000" } }] });
     expect(store.doc.nodes.i1).toMatchObject({ fill: "#000000" });
     const moved = await call(c, "move_nodes", { moves: [{ id: copyId("i1", "lbl"), parentId: null }] });
-    expect(textOf(moved)).toMatch(/cópia dentro da instância "i1"/);
+    expect(textOf(moved)).toMatch(/a copy inside the instance "i1"/);
     expect(textOf(await call(c, "get_document_outline", {}))).toContain("instanceOf=btn scale=2 overrides=1");
     const d = JSON.parse(textOf(await call(c, "detach_instance", { ids: ["i1"] })));
     expect(d.detached).toEqual(["i1"]);
     expect(store.doc.nodes.i1).not.toHaveProperty("instanceOf");
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
-    expect(hist.map((h: { label: string }) => h.label)).toEqual(["criar componente", "criar instância", "alterar 1 nó(s)", "desanexar 1 instância(s)"]);
+    expect(hist.map((h: { label: string }) => h.label)).toEqual(["create component", "create instance", "update 1 node(s)", "detach 1 instance(s)"]);
   });
 
   it("importar SVG/HTML como nós e exportar SVG medido no navegador", async () => {
     const c = await connect();
     const svg = JSON.parse(textOf(await call(c, "import_svg", { svg: '<svg viewBox="0 0 10 10" width="20" height="20"><path d="M0 0 L10 0 L5 8 Z" fill="#c43d27"/><text>x</text></svg>', x: 5, y: 5, name: "Seta" })));
-    expect(svg).toMatchObject({ created: [expect.any(String)], warnings: ["<text> não é importado"] });
+    expect(svg).toMatchObject({ created: [expect.any(String)], warnings: ["<text> is not imported"] });
     expect(store.doc.nodes[svg.created[0]]).toMatchObject({ type: "path", name: "Seta", x: 5, y: 5, d: "M0 0 L20 0 L10 16 Z", fill: "#c43d27" });
-    expect(textOf(await call(c, "import_svg", { svg: "<svg></svg>" }))).toBe("o SVG não tem formas para importar");
+    expect(textOf(await call(c, "import_svg", { svg: "<svg></svg>" }))).toBe("the SVG has no shapes to import");
     const html = JSON.parse(
       textOf(await call(c, "import_html", { html: '<div style="display:flex; gap:8px; padding:12px; background:#fff"><span>Olá</span><span>mundo</span></div>', x: 100, y: 0 })),
     );
@@ -169,7 +169,7 @@ describe("MCP", () => {
     expect(svgText).toContain('<tspan x="0" y="');
     expect(svgText).toContain(">mundo</tspan>");
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 2 })));
-    expect(hist.map((h: { label: string }) => h.label)).toEqual(["importar SVG", "importar HTML"]);
+    expect(hist.map((h: { label: string }) => h.label)).toEqual(["import SVG", "import HTML"]);
   });
 
   it("fluxo completo: tokens → criar → lint → corrigir → exportar → desfazer", async () => {
@@ -240,7 +240,7 @@ describe("MCP", () => {
 
     const bad = await call(c, "create_nodes", { nodes: [{ type: "path", d: "M0 0 C 10 10 20" }] });
     expect(bad.isError).toBe(true);
-    expect(textOf(bad)).toMatch(/d inválido: número esperado na posição \d+/);
+    expect(textOf(bad)).toMatch(/invalid d: number expected at position \d+/);
 
     const lint = textOf(await call(c, "lint_design", {}));
     expect(lint).not.toMatch(/invisible-path/);
@@ -251,12 +251,58 @@ describe("MCP", () => {
     expect(store.doc.nodes.wave).toBeUndefined();
   });
 
+  it("agent layer: structuredContent per outputSchema, undo batches, actor from clientInfo, English guide", async () => {
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await createMcpServer(store, { actor: "agent:fallback" }).connect(a);
+    const c = new Client({ name: "claude-code", version: "1" });
+    await c.connect(b);
+
+    const { tools } = await c.listTools();
+    const withOutput = tools.filter((t) => t.outputSchema).map((t) => t.name);
+    expect(withOutput).toEqual(expect.arrayContaining(["create_nodes", "get_nodes", "lint_design", "undo", "get_history", "import_svg", "path_info"]));
+    expect(withOutput).not.toContain("export_code");
+
+    const created = (await c.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "r1" }], batch: "proposal 3" } })) as ToolResult & { structuredContent?: unknown };
+    expect(created.structuredContent).toEqual({ created: ["r1"], version: 1 });
+    expect(JSON.parse(textOf(created))).toEqual(created.structuredContent);
+    await call(c, "set_tokens", { tokens: { brand: "#c43d27" }, batch: "proposal 3" });
+    await call(c, "update_nodes", { updates: [{ id: "r1", props: { fill: "$brand" } }], batch: "proposal 3" });
+    const nodes = (await c.callTool({ name: "get_nodes", arguments: { ids: ["r1"] } })) as ToolResult & { structuredContent?: { nodes: { fill: string }[] } };
+    expect(nodes.structuredContent?.nodes[0]?.fill).toBe("$brand");
+    expect(JSON.parse(textOf(nodes))).toEqual(nodes.structuredContent?.nodes); // text stays the plain array
+
+    const hist = (await c.callTool({ name: "get_history", arguments: {} })) as ToolResult & { structuredContent?: { entries: unknown[] } };
+    expect(hist.structuredContent?.entries).toEqual([{ actor: "agent:claude-code", label: "proposal 3", at: expect.any(Number), ops: 3 }]);
+
+    // A write from someone else closes the batch: the next call with the same name starts a new entry.
+    store.apply([{ op: "update", id: "r1", props: { x: 5 } }], "user", "move");
+    await call(c, "create_nodes", { nodes: [{ type: "rect", id: "r2" }], batch: "proposal 3" });
+    expect(store.recentHistory(10).map((h) => h.label)).toEqual(["proposal 3", "move", "create 1 node(s)"]);
+
+    const undo = (await c.callTool({ name: "undo", arguments: {} })) as ToolResult & { structuredContent?: unknown };
+    expect(undo.structuredContent).toMatchObject({ undone: true, canUndo: true });
+    await call(c, "undo");
+    await call(c, "undo"); // the whole batch at once
+    expect(store.doc.nodes.r1).toBeUndefined();
+    expect(store.doc.tokens).toEqual({});
+    await call(c, "redo");
+    expect(store.doc.nodes.r1).toMatchObject({ fill: "$brand" });
+
+    expect(textOf(await call(c, "get_design_guide"))).toMatch(/^# Paprika: guide for agents/);
+    expect(textOf(await call(c, "get_design_guide", { language: "pt-BR" }))).toMatch(/^# Paprika: guia para agentes/);
+    const bad = await call(c, "update_nodes", { updates: [{ id: "nope", props: {} }] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toBe('op[0]: node "nope" does not exist');
+    expect((bad as { structuredContent?: unknown }).structuredContent).toBeUndefined();
+    await c.close();
+  });
+
   it("erros voltam como isError com mensagem acionável e sem efeito colateral", async () => {
     const c = await connect();
     const before = store.version;
     const r = await call(c, "create_nodes", { nodes: [{ type: "text", txt: "oops" }] });
     expect(r.isError).toBe(true);
-    expect(textOf(r)).toMatch(/campos desconhecidos para text: txt/);
+    expect(textOf(r)).toMatch(/unknown fields for text: txt/);
     expect(store.version).toBe(before);
   });
 
@@ -294,7 +340,8 @@ describe("HTTP + WebSocket", () => {
     await client.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "fromAgent" }] } });
 
     await waitFor(() => messages.some((m) => m.type === "doc" && m.doc?.nodes.fromAgent));
-    expect(messages.at(-1)?.actor).toMatch(/^agent:/);
+    // Stateless HTTP: the name comes from initialize's clientInfo, remembered by Mcp-Session-Id.
+    expect(messages.at(-1)?.actor).toBe("agent:http-test");
 
     ws.send(JSON.stringify({ type: "ops", reqId: "1", ops: [{ op: "update", id: "fromAgent", props: { name: "Movido pelo humano" } }] }));
     await waitFor(() => messages.some((m) => m.type === "ack"));

@@ -65,16 +65,16 @@ describe("applyOps", () => {
   it("rejeita campos desconhecidos em vez de descartar em silêncio", () => {
     const { doc } = card();
     expect(() => applyOps(doc, [{ op: "update", id: "title", props: { colour: "#000" } }])).toThrow(
-      /campo desconhecido para text: colour/,
+      /unknown field for text: colour/,
     );
-    expect(() => applyOps(doc, [{ op: "create", node: { type: "rect", text: "x" } }])).toThrow(/campos desconhecidos/);
+    expect(() => applyOps(doc, [{ op: "create", node: { type: "rect", text: "x" } }])).toThrow(/unknown fields/);
   });
 
   it("rejeita mudanças de campos imutáveis e tipos inválidos", () => {
     const { doc } = card();
-    expect(() => applyOps(doc, [{ op: "update", id: "title", props: { type: "rect" } }])).toThrow(/não pode ser alterado/);
+    expect(() => applyOps(doc, [{ op: "update", id: "title", props: { type: "rect" } }])).toThrow(/cannot be changed/);
     expect(() => applyOps(doc, [{ op: "update", id: "title", props: { opacity: 2 } }])).toThrow(/opacity/);
-    expect(() => applyOps(doc, [{ op: "update", id: "title", props: { fill: "red;}" } }])).toThrow(/cor/);
+    expect(() => applyOps(doc, [{ op: "update", id: "title", props: { fill: "red;}" } }])).toThrow(/color/);
     expect(() =>
       applyOps(doc, [{ op: "update", id: "title", props: { fontFamily: "x;background:url(http://evil)" } }]),
     ).toThrow(/fontFamily/);
@@ -82,14 +82,14 @@ describe("applyOps", () => {
 
   it("só frames recebem filhos e move não cria ciclos", () => {
     const { doc } = card();
-    expect(() => applyOps(doc, [{ op: "create", node: { type: "rect" }, parentId: "bar" }])).toThrow(/só frame, group e page/);
+    expect(() => applyOps(doc, [{ op: "create", node: { type: "rect" }, parentId: "bar" }])).toThrow(/only frame, group and page/);
     const { doc: d2 } = applyOps(doc, [{ op: "create", node: { type: "frame", id: "inner" }, parentId: "card" }]);
-    expect(() => applyOps(d2, [{ op: "move", id: "card", parentId: "inner" }])).toThrow(/ciclo/);
+    expect(() => applyOps(d2, [{ op: "move", id: "card", parentId: "inner" }])).toThrow(/cycle/);
   });
 
   it("ids duplicados são rejeitados", () => {
     const { doc } = card();
-    expect(() => applyOps(doc, [{ op: "create", node: { type: "rect", id: "bar" } }])).toThrow(/já existe/);
+    expect(() => applyOps(doc, [{ op: "create", node: { type: "rect", id: "bar" } }])).toThrow(/already exists/);
   });
 
   it("null em update volta o campo ao padrão", () => {
@@ -125,6 +125,29 @@ describe("History (undo/redo)", () => {
       h.redo();
       expect(h.doc).toEqual(JSON.parse(snapshots[i]!));
     }
+  });
+
+  it("batch: consecutive writes of one actor become one entry; another write or an undo closes it", () => {
+    const { doc } = card();
+    const h = new History(doc);
+    const start = JSON.stringify(h.doc);
+    for (const b of ops.slice(0, 3)) h.apply(b, "agent:a", "step", "draw");
+    const merged = JSON.stringify(h.doc);
+    expect(h.entries()).toHaveLength(1);
+    expect(h.entries()[0]).toMatchObject({ actor: "agent:a", label: "draw", batch: "draw" });
+    expect(h.entries()[0]!.ops).toHaveLength(3);
+    h.apply(ops[3]!, "agent:b", "", "draw"); // other actor: new entry
+    h.apply(ops[4]!, "agent:a", "", "draw"); // a's batch was closed by b's write
+    expect(h.entries()).toHaveLength(3);
+    h.undo();
+    h.undo();
+    expect(h.doc).toEqual(JSON.parse(merged));
+    h.undo(); // the whole batch
+    expect(h.doc).toEqual(JSON.parse(start));
+    h.redo();
+    expect(h.doc).toEqual(JSON.parse(merged));
+    h.apply(ops[3]!, "agent:a", "", "draw"); // after a redo the batch stays closed
+    expect(h.entries()).toHaveLength(2);
   });
 
   it("nova edição limpa a pilha de refazer", () => {
@@ -227,9 +250,9 @@ describe("parseDocument", () => {
     const { doc } = card();
     const broken = structuredClone(doc);
     broken.rootIds.push("title");
-    expect(() => parseDocument(broken)).toThrow(/mais de uma vez|parentId/);
+    expect(() => parseDocument(broken)).toThrow(/more than once|parentId/);
     const orphan = structuredClone(doc);
     orphan.rootIds = [];
-    expect(() => parseDocument(orphan)).toThrow(/órfãos|parentId/);
+    expect(() => parseDocument(orphan)).toThrow(/orphan|parentId/);
   });
 });

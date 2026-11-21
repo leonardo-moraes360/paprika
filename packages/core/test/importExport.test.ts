@@ -53,8 +53,8 @@ describe("parseMarkup", () => {
   });
 
   it("recusa entradas grandes demais", () => {
-    expect(() => parseMarkup("<br>".repeat(5001))).toThrow(/5000 elementos/);
-    expect(() => parseMarkup("<g>".repeat(300))).toThrow(/200 níveis/);
+    expect(() => parseMarkup("<br>".repeat(5001))).toThrow(/5000 elements/);
+    expect(() => parseMarkup("<g>".repeat(300))).toThrow(/200 levels/);
   });
 });
 
@@ -79,12 +79,12 @@ describe("importSVG", () => {
     const r = importSVG(`<svg><style>.a{}</style><text>oi</text><rect width="4" height="4" fill="url(#g)"/></svg>`);
     expect(r.nodes).toHaveLength(1);
     expect(r.warnings).toEqual([
-      'CSS em <style> não é aplicado; use atributos ou style="" nos elementos',
-      "<text> não é importado",
-      "gradientes e padrões (url(#…)) não são importados; usando cinza",
+      'CSS in <style> is not applied; use attributes or style="" on the elements',
+      "<text> is not imported",
+      "gradients and patterns (url(#…)) are not imported; using gray",
     ]);
-    expect(() => importSVG("<div></div>")).toThrow(/nenhum elemento <svg>/);
-    expect(importSVG("<svg></svg>")).toEqual({ nodes: [], warnings: ["o SVG não tem formas para importar"] });
+    expect(() => importSVG("<div></div>")).toThrow(/no <svg> element/);
+    expect(importSVG("<svg></svg>")).toEqual({ nodes: [], warnings: ["the SVG has no shapes to import"] });
   });
 
   it("parseTransform e arcos", () => {
@@ -150,8 +150,8 @@ describe("importHTML", () => {
         ],
       },
     ]);
-    expect(importHTML("<p class='x'>a</p>").warnings).toEqual(['classes CSS não são aplicadas; só estilos inline (style="")']);
-    expect(importHTML("").warnings).toEqual(["o HTML não tem elementos para importar"]);
+    expect(importHTML("<p class='x'>a</p>").warnings).toEqual(['CSS classes are not applied; only inline styles (style="")']);
+    expect(importHTML("").warnings).toEqual(["the HTML has no elements to import"]);
   });
 });
 
@@ -170,7 +170,7 @@ describe("exportSVG", () => {
 
   it("layout automático exige medida do navegador", () => {
     const doc = example("demo.paprika.json");
-    expect(() => exportSVG(doc)).toThrow(/depende de layout automático/);
+    expect(() => exportSVG(doc)).toThrow(/depends on auto layout/);
     const boxes = Object.fromEntries(Object.keys(doc.nodes).map((id) => [id, [0, 0, 10, 10] as [number, number, number, number]]));
     expect(exportSVG(doc, { measure: { boxes } }).svg).toContain('data-name="Login · mobile"');
   });

@@ -17,12 +17,12 @@ Tarefa: um agente desenhou 5 ícones flat de páprica com complexidade crescente
 | 4 | 5 temas lado a lado | Tokens são globais; foi preciso prefixar à mão (`p1.brand` … `p5.brand`) e reescrever em cada nó | Feito (2026-11-21, ver #45): modos de tema (`set_tokens` com `mode`) e `mode` num frame ou página; coleções nomeadas continuam em aberto | — |
 | 5 | Conferir o resultado na máquina do usuário | `render_screenshot` falhou: o Playwright 1.63 exige o Chromium 1243 e só havia o 1228 | Detectar o browser ausente ao iniciar, devolver o comando exato de correção no erro e cair para renderização via aba do canvas aberta | P1 |
 | 6 | Pegar erro visual sem screenshot | `lint_design` passou com o cálice solto da vagem | Lint geométrico: filhos que não tocam nenhum irmão, quase-encostos (< 4px), formas totalmente encobertas | P2 |
-| 7 | Ler resultados estruturados | As ferramentas devolvem JSON como texto; o agente precisa parsear string | Declarar `outputSchema` e devolver `structuredContent` | P2 |
+| 7 | Ler resultados estruturados | As ferramentas devolvem JSON como texto; o agente precisa parsear string | Feito (2026-11-21, ver #48): `outputSchema` + `structuredContent` em toda ferramenta que responde JSON | — |
 | 8 | Wrappers de layout sem recorte | Todo frame wrapper precisou de `clip: false` e `fill: "transparent"` | Nó `group`, ou `clip: false` por padrão em frame com layout automático | P3 |
 | 9 | Lint menos ruidoso | 21 infos de `raw-color` para literais intencionais (alças brancas, texto preto em botões) | `lintIgnore: ["raw-color"]` por nó e parâmetro `minSeverity` | P3 |
-| 10 | Saber quem fez o quê | O nome do ator vem do User-Agent HTTP (`node`, `brand-agent`), não do cliente MCP | Usar `clientInfo.name` do MCP como ator | P3 |
-| 11 | Um desfazer para "desenhar proposta 3" | 7 entradas no histórico para uma execução do script (nome, tokens, 5 criações) | `begin_transaction`/`commit` ou um rótulo de grupo para mesclar entradas | P3 |
-| 12 | Idioma para agentes | Guia e erros em português; prompts em inglês misturam idiomas | Guia e erros em inglês, com pt-BR como opção | P2 |
+| 10 | Saber quem fez o quê | O nome do ator vem do User-Agent HTTP (`node`, `brand-agent`), não do cliente MCP | Feito (2026-11-21, ver #48): `agent:<clientInfo.name>`, também no HTTP | — |
+| 11 | Um desfazer para "desenhar proposta 3" | 7 entradas no histórico para uma execução do script (nome, tokens, 5 criações) | Feito (2026-11-21, ver #48): `batch` em toda ferramenta de escrita | — |
+| 12 | Idioma para agentes | Guia e erros em português; prompts em inglês misturam idiomas | Feito (2026-11-21, ver #48): guia, descrições e erros em inglês; `get_design_guide {language: "pt-BR"}` | — |
 | 13 | Vários quadros | Tudo divide um canvas só; as propostas foram empilhadas à mão com `y` fixo | Páginas e `layout` na raiz do canvas (empilhar frames de topo) | P3 |
 | 14 | Ver o agente desenhar depois que o servidor trocou de arquivo | A aba aberta reconectou no documento novo mas manteve zoom/pan antigos; os quadros novos podiam ficar fora da tela (corrigido: o canvas reenquadra quando o id do documento muda) | Feito nesta mudança | — |
 
@@ -128,6 +128,17 @@ Tarefa: `document.modes` e `mode` em frames e páginas no core (TS e Go), `set_t
 | 45 | Mostrar a mesma tela clara e escura | Antes o agente duplicava o frame e reescrevia todas as cores; agora grava os valores escuros uma vez (`set_tokens` com `mode`) e põe `mode` numa cópia | Uma ferramenta `duplicate_nodes` que aceite overrides (`mode`, aqui) deixaria o lado a lado em uma chamada | P2 |
 | 46 | Saber o valor que um nó recebe de fato | O `get_nodes` mostra `$fg`; o valor depende do `mode` mais próximo acima. O outline mostra `mode=` nos frames e os modos com os tokens | Uma opção `resolve` no `get_nodes` que acrescente a pintura resolvida de cada nó | P3 |
 | 47 | Usar um token que só um modo define | Ele resolve dentro desse modo e é erro `unknown-token` fora; no export com variáveis CSS vira `var(--x)` sem valor base | Manter o erro; o agente deve definir também um valor base | — |
+
+## 2026-11-21: camada de agentes (leva 1 do backlog, item 6)
+
+Tarefa: `outputSchema` + `structuredContent` nas ferramentas que respondem JSON, `batch` em toda ferramenta de escrita (um passo só de undo), o ator vindo do `clientInfo` (stdio e HTTP stateless), e guia, descrições das ferramentas, erros, avisos e mensagens do lint em inglês, com o guia em pt-BR sob pedido. Atende #7, #10, #11 e #12.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 48 | Ler resultados sem parsear texto | O `structuredContent` segue o `outputSchema` de cada ferramenta; `get_nodes` e `get_history` mantêm o array puro no texto e o embrulham (`{ nodes }`, `{ entries }`) no `structuredContent`, porque o MCP exige um objeto ali | Na próxima mudança incompatível, deixar o texto igual ao objeto | P3 |
+| 49 | Um passo de undo para um script longo | O `batch` junta escritas seguidas do mesmo agente; qualquer edição ou undo do humano no meio fecha o batch, e a chamada seguinte abre uma segunda entrada | Mostrar o batch aberto na lista de atividade do canvas, para o humano saber que uma edição vai dividi-lo | P3 |
+| 50 | Mesmo nome de ator depois de reiniciar o servidor | No HTTP o nome fica num mapa em memória pelo `Mcp-Session-Id`; depois de reiniciar, o cliente continua com o id antigo e o ator volta ao User-Agent até um novo initialize | Responder 404 a ids de sessão desconhecidos, como a spec sugere, para o cliente reinicializar | P3 |
+| 51 | Um idioma só na lista de atividade | Os rótulos padrão das ferramentas agora são em inglês (`create 1 node(s)`), enquanto os rótulos e a interface do próprio canvas seguem em pt-BR | Traduzir a interface do canvas ou localizar as duas por configuração | P3 |
 
 ## O que funcionou bem
 

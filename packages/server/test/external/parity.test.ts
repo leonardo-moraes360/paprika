@@ -71,8 +71,8 @@ describe(`paridade (${impl}): MCP`, () => {
     `);
     const outline = await call(c, "get_document_outline", {});
     expect(textOf(outline)).toMatchInlineSnapshot(`
-      "documento "doc" v3 · 6 nós
-      tokens: (nenhum)
+      "document "doc" v3 · 6 nodes
+      tokens: (none)
 
       frame#btn "Botão" 100×40 @10,10 fill=#3355ff row gap=4 component
         text#lbl 50×20 @0,0 "OK" 16/400 color=#ffffff
@@ -83,7 +83,7 @@ describe(`paridade (${impl}): MCP`, () => {
     `);
     const bad = await call(c, "update_nodes", { updates: [{ id: JSON.parse(textOf(inst)).copies.lbl, props: { x: 3 } }] });
     expect(bad.isError).toBe(true);
-    expect(textOf(bad)).toMatchInlineSnapshot(`"op[0]: "i1-0bzyiqi0vw20y4" é cópia dentro da instância "i1": só fill, color, text, src, alt, visible, opacity podem ser trocados (viram overrides); edite o componente ou desanexe (detach) (recebido x)"`);
+    expect(textOf(bad)).toMatchInlineSnapshot(`"op[0]: "i1-0bzyiqi0vw20y4" is a copy inside the instance "i1": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got x)"`);
     await call(c, "update_nodes", { updates: [{ id: "lbl", props: { fontSize: 20 } }, { id: "i1", props: { fill: "#000000" } }] });
     const nodes = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["i1", JSON.parse(textOf(inst)).copies.lbl] })));
     expect(nodes).toMatchInlineSnapshot(`
@@ -165,8 +165,8 @@ describe(`paridade (${impl}): MCP`, () => {
     `);
     await call(c, "undo");
     expect(textOf(await call(c, "get_document_outline", { rootId: "i1" }))).toMatchInlineSnapshot(`
-      "documento "doc" v6 · 6 nós
-      tokens: (nenhum)
+      "document "doc" v6 · 6 nodes
+      tokens: (none)
 
       frame#i1 "Botão" 150×60 @150,10 fill=#000000 row gap=6 instanceOf=btn scale=1.5 overrides=2
         text#i1-0bzyiqi0vw20y4 75×30 @0,0 from=lbl "Enviar" 30/400 color=#ffffff
@@ -241,10 +241,10 @@ describe(`paridade (${impl}): MCP`, () => {
         },
       ]
     `);
-    expect(textOf(await call(c, "group_nodes", { ids: ["g", "f"] }))).toMatch(/mesmo pai/);
+    expect(textOf(await call(c, "group_nodes", { ids: ["g", "f"] }))).toMatch(/same parent/);
     expect(JSON.parse(textOf(await call(c, "ungroup_nodes", { ids: ["g"] }))).released).toEqual(["a", "b"]);
     expect(JSON.parse(textOf(await call(c, "create_page", { id: "p2", name: "Variações" }))).page).toBe("p2");
-    expect(textOf(await call(c, "create_nodes", { nodes: [{ type: "rect" }] }))).toMatch(/tem páginas/);
+    expect(textOf(await call(c, "create_nodes", { nodes: [{ type: "rect" }] }))).toMatch(/has pages/);
     await call(c, "create_nodes", { parentId: "p2", nodes: [{ type: "rect", id: "r", width: 10, height: 10 }] });
     const outline = textOf(await call(c, "get_document_outline"));
     expect(outline.split("\n").slice(3).join("\n").replace(/page#\w+ "Página 1"/, "page#P1")).toMatchInlineSnapshot(`
@@ -256,7 +256,7 @@ describe(`paridade (${impl}): MCP`, () => {
         rect#r 10×10 @0,0"
     `);
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
-    expect(hist.map((h: { label: string }) => h.label)).toEqual(["agrupar 2 nó(s)", "desagrupar 1 grupo(s)", "criar página", "criar 1 nó(s)"]);
+    expect(hist.map((h: { label: string }) => h.label)).toEqual(["group 2 node(s)", "ungroup 1 group(s)", "create page", "create 1 node(s)"]);
   });
 
   it("fluxo completo: tokens → criar → lint → corrigir → exportar → desfazer", async () => {
@@ -295,7 +295,7 @@ describe(`paridade (${impl}): MCP`, () => {
     expect(sub.type === "text" && sub.color).toBe("$faint");
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 2 })));
     expect(hist).toHaveLength(2);
-    expect(hist[1]).toMatchObject({ label: "criar 1 nó(s)", ops: 1 });
+    expect(hist[1]).toMatchObject({ label: "create 1 node(s)", ops: 1 });
     expect(hist[1].actor).toMatch(/^agent:/);
   });
 
@@ -303,7 +303,7 @@ describe(`paridade (${impl}): MCP`, () => {
     const before = await srv.version();
     const r = await call(client, "create_nodes", { nodes: [{ type: "text", txt: "oops" }] });
     expect(r.isError).toBe(true);
-    expect(textOf(r)).toBe("op[0]: campos desconhecidos para text: txt");
+    expect(textOf(r)).toBe("op[0]: unknown fields for text: txt");
     expect(await srv.version()).toBe(before);
     const v = await call(client, "get_nodes", { ids: [] });
     expect(textOf(v)).toBe("MCP error -32602: Input validation error: Invalid arguments for tool get_nodes: Too small: expected array to have >=1 items at ids");
@@ -329,7 +329,7 @@ describe(`paridade (${impl}): MCP`, () => {
     expect(info.bounds.y).toBeGreaterThan(10);
     const bad = await call(c, "create_nodes", { nodes: [{ type: "path", d: "M0 0 C 10 10 20" }] });
     expect(bad.isError).toBe(true);
-    expect(textOf(bad)).toMatch(/d inválido: número esperado na posição \d+/);
+    expect(textOf(bad)).toMatch(/invalid d: number expected at position \d+/);
     expect(textOf(await call(c, "lint_design", {}))).not.toMatch(/invisible-path/);
     const tsx = textOf(await call(c, "export_code", { rootId: "wave", format: "react" }));
     expect(tsx).toContain('<path d="M0 40 C 30 -10 70 90 100 40" fill="none"');
@@ -360,11 +360,11 @@ describe(`paridade (${impl}): MCP`, () => {
     });
     const svgOut = JSON.parse(textOf(svg));
     expect(svgOut.created).toHaveLength(3);
-    expect(svgOut).toMatchObject({ version: 1, warnings: ['CSS em <style> não é aplicado; use atributos ou style="" nos elementos'] });
+    expect(svgOut).toMatchObject({ version: 1, warnings: ['CSS in <style> is not applied; use attributes or style="" on the elements'] });
     const anon = (t: string) => t.replace(/#[0-9a-z]{10}\b/g, "#…").replace(/data-paprika-id="[^"]+"/g, 'data-paprika-id="…"');
     expect(anon(textOf(await call(c, "get_document_outline", { rootId: svgOut.created[0] })))).toMatchInlineSnapshot(`
-      "documento "doc" v1 · 3 nós
-      tokens: (nenhum)
+      "document "doc" v1 · 3 nodes
+      tokens: (none)
 
       group#… "Ícone" 44×44 @12.0972,12.0972
         path#… 44×44 @0,0 fill=#c43d27 d="M13.56 0.12 L37.19 4.29 C41.54 5.06 44.45 9.2..."
@@ -379,8 +379,8 @@ describe(`paridade (${impl}): MCP`, () => {
     expect(textOf(html)).toMatch(/"created": \[/);
     const root = JSON.parse(textOf(html)).created[0];
     expect(anon(textOf(await call(c, "get_document_outline", { rootId: root })))).toMatchInlineSnapshot(`
-      "documento "doc" v2 · 6 nós
-      tokens: (nenhum)
+      "document "doc" v2 · 6 nodes
+      tokens: (none)
 
       frame#… 200×hug @0,100 fill=#fbf8f4 row gap=8
         frame#… 40×40 @0,0 fill=#c43d27
@@ -393,7 +393,7 @@ describe(`paridade (${impl}): MCP`, () => {
     expect(anon(icon.content[0]!.text!)).toMatchInlineSnapshot(`"<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><g data-paprika-id="…" data-name="Ícone" transform="translate(0 0)"><g data-paprika-id="…" transform="translate(0 0)"><svg width="44" height="44" overflow="visible"><path d="M13.56 0.12 L37.19 4.29 C41.54 5.06 44.45 9.21 43.68 13.56 L39.52 37.19 C38.75 41.54 34.6 44.45 30.25 43.68 L6.61 39.52 C2.26 38.75 -0.64 34.6 0.12 30.25 L4.29 6.61 C5.06 2.26 9.21 -0.64 13.56 0.12 Z" fill="#c43d27" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round"/></svg></g><g data-paprika-id="…" transform="translate(13.89 13.89)"><svg width="17" height="17" overflow="visible"><path d="M15.88 9.39 C15.11 13.74 10.96 16.65 6.61 15.88 C2.26 15.11 -0.64 10.96 0.12 6.61 C0.89 2.26 5.04 -0.64 9.39 0.12 C13.74 0.89 16.65 5.04 15.88 9.39 Z" fill="#fff" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round"/></svg></g></g></svg>"`);
     const bad = await call(c, "import_html", { html: "<!-- nada -->" });
     expect(bad.isError).toBe(true);
-    expect(textOf(bad)).toBe("o HTML não tem elementos para importar");
+    expect(textOf(bad)).toBe("the HTML has no elements to import");
   }, 30_000);
 
   it("modos de tema: set_tokens com mode, frame com mode, export com variáveis CSS", async () => {
@@ -402,7 +402,7 @@ describe(`paridade (${impl}): MCP`, () => {
     expect((await call(c, "set_tokens", { mode: "escuro", tokens: { tela: "#14161f", tinta: "#f2f2f2" }, label: "modo escuro" })).isError).toBeFalsy();
     const bad = await call(c, "set_tokens", { mode: "sem espaço", tokens: { tela: "#000" } });
     expect(bad.isError).toBe(true);
-    expect(textOf(bad)).toContain("nome de modo deve ser");
+    expect(textOf(bad)).toContain("mode name must be");
     const created = await call(c, "create_nodes", {
       nodes: [
         { type: "frame", id: "claro", name: "Claro", x: 600, y: 0, width: 120, height: 60, fill: "$tela", children: [{ type: "text", id: "claroT", text: "Aa", color: "$tinta", fontSize: "$corpo" }] },
@@ -411,7 +411,7 @@ describe(`paridade (${impl}): MCP`, () => {
     });
     expect(created.isError, textOf(created)).toBeFalsy();
     const outline = textOf(await call(c, "get_document_outline", { rootId: "escuro" }));
-    expect(outline).toContain("modos: escuro($tela=#14161f $tinta=#f2f2f2)");
+    expect(outline).toContain("modes: escuro($tela=#14161f $tinta=#f2f2f2)");
     expect(outline).toContain('frame#escuro "Escuro" 120×60 @760,0 fill=$tela mode=escuro');
     const html = textOf(await call(c, "export_code", { rootId: "escuroT", format: "html", cssVariables: true }));
     expect(html).toContain(':root{--tela:#ffffff;--tinta:#1e2336;--corpo:16px}[data-paprika-mode="escuro"]{--tela:#14161f;--tinta:#f2f2f2}');
@@ -422,6 +422,29 @@ describe(`paridade (${impl}): MCP`, () => {
     expect(react).toContain('background: "#14161f"');
     const lint = JSON.parse(textOf(await call(c, "lint_design", { rootId: "escuro" })));
     expect(lint.issues.filter((i: { rule: string }) => i.rule === "unknown-token")).toEqual([]);
+  });
+
+  it("agent layer: structuredContent, undo batch, actor from clientInfo over HTTP sessions, pt-BR guide", async () => {
+    const c = client;
+    const r = (await c.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "b1" }], batch: "draw 3" } })) as ToolResult & { structuredContent?: unknown };
+    expect(r.structuredContent).toEqual({ created: ["b1"], version: 1 });
+    await call(c, "set_tokens", { tokens: { ink: "#111111" }, batch: "draw 3" });
+    const g = (await c.callTool({ name: "group_nodes", arguments: { ids: ["b1"], id: "gb", batch: "draw 3" } })) as ToolResult & { structuredContent?: unknown };
+    expect(g.structuredContent).toEqual({ group: "gb", created: ["gb"], version: 3 });
+    const nodes = (await c.callTool({ name: "get_nodes", arguments: { ids: ["gb"] } })) as ToolResult & { structuredContent?: { nodes: unknown[] } };
+    expect(JSON.parse(textOf(nodes))).toEqual(nodes.structuredContent?.nodes);
+    const hist = (await c.callTool({ name: "get_history", arguments: {} })) as ToolResult & { structuredContent?: { entries: { actor: string; label: string; ops: number }[] } };
+    expect(hist.structuredContent?.entries.map(({ actor, label, ops }) => ({ actor, label, ops }))).toEqual([{ actor: "agent:parity", label: "draw 3", ops: 3 }]);
+    const lint = (await c.callTool({ name: "lint_design", arguments: {} })) as ToolResult & { structuredContent?: { ok: boolean } };
+    expect(lint.structuredContent).toEqual(JSON.parse(textOf(lint)));
+    const path = (await c.callTool({ name: "path_info", arguments: { d: "M0 0 C 0 10 10 10 10 0" } })) as ToolResult & { structuredContent?: unknown };
+    expect(path.structuredContent).toEqual(JSON.parse(textOf(path)));
+    const undo = (await c.callTool({ name: "undo", arguments: {} })) as ToolResult & { structuredContent?: unknown };
+    expect(undo.structuredContent).toEqual({ undone: true, version: 4, canUndo: false, canRedo: true });
+    expect(textOf(await call(c, "get_document_outline", {}))).toContain("tokens: (none)");
+    expect(textOf(await call(c, "get_design_guide", { language: "pt-BR" }))).toMatch(/^# Paprika: guia para agentes/);
+    const bad = await call(c, "delete_nodes", { ids: ["nope"] });
+    expect(textOf(bad)).toBe('op[0]: node "nope" does not exist');
   });
 
   it("MCP via stdio enxerga as mudanças do servidor HTTP", async () => {
@@ -459,7 +482,7 @@ describe(`paridade (${impl}): HTTP + WebSocket`, () => {
 
     ws.send(JSON.stringify({ type: "ops", reqId: "2", ops: [{ op: "delete", id: "nao-existe" }] }));
     await waitFor(() => messages.some((m) => m.type === "error"));
-    expect(messages.find((m) => m.type === "error")).toEqual({ type: "error", reqId: "2", message: 'op[0]: nó "nao-existe" não existe' });
+    expect(messages.find((m) => m.type === "error")).toEqual({ type: "error", reqId: "2", message: 'op[0]: node "nao-existe" does not exist' });
 
     ws.send(JSON.stringify({ type: "undo", reqId: "3" }));
     await waitFor(() => messages.some((m) => m.type === "ack" && m.reqId === "3"));
@@ -475,7 +498,7 @@ describe(`paridade (${impl}): HTTP + WebSocket`, () => {
     expect(await ok.json()).toMatchObject({ created: ["api1"] });
     const bad = await post({ ops: [{ op: "delete", id: "nope" }] });
     expect(bad.status).toBe(422);
-    expect(await bad.json()).toEqual({ error: 'op[0]: nó "nope" não existe' });
+    expect(await bad.json()).toEqual({ error: 'op[0]: node "nope" does not exist' });
     const invalid = await post({ ops: [] });
     expect(invalid.status).toBe(400);
     expect(JSON.parse((await invalid.json()).error)[0].message).toBe("Too small: expected array to have >=1 items");
