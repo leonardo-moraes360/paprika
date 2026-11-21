@@ -394,7 +394,8 @@ textarea {
 .viewport.tool-frame,
 .viewport.tool-rect,
 .viewport.tool-ellipse,
-.viewport.tool-text {
+.viewport.tool-text,
+.viewport.tool-pen {
   cursor: crosshair;
 }
 /* Pan: mão aberta com a tecla segurada, mão fechada arrastando. Vale sobre nós e ferramentas. */

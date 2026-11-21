@@ -6,3 +6,4 @@ export * from "./render.js";
 export * from "./lint.js";
 export * from "./query.js";
 export { newId } from "./id.js";
+export * from "./path.js";

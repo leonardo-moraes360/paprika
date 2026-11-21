@@ -4,6 +4,9 @@ import { z } from "zod";
 import {
   NodeInputSchema,
   NodeType,
+  parsePath,
+  pathBounds,
+  serializePath,
   Op,
   OpError,
   exportReact,
@@ -21,7 +24,7 @@ export const VERSION = "0.1.0";
 export const DESIGN_GUIDE = `# Paprika: guia para agentes
 
 Documento = mapa plano de nós + rootIds (telas/frames de topo, em coordenadas do canvas).
-Tipos: frame (contêiner, único com filhos), rect, ellipse, text, image.
+Tipos: frame (contêiner, único com filhos), rect, ellipse, text, image, path (vetor com curvas bezier).
 
 Campos comuns: name, x, y, width, height (número | "hug" | "fill"), rotation, opacity (0..1),
 visible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.
@@ -29,6 +32,12 @@ frame: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]),
   justify: start|center|end|between, wrap}. Com layout row/column, x/y dos filhos são ignorados.
 text: text, color, fontFamily, fontSize (n | "$token"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.
 image: src (https:// ou data:image/), fit (cover|contain|fill), alt.
+path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),
+  stroke {color,width} (traço), fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),
+  viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,
+  o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó
+  ganha a caixa do desenho. Curvas: "C c1x c1y c2x c2y x y" (cúbica), "Q cx cy x y" (quadrática), S/T espelham
+  o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.
 
 Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.
 "fill" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.
@@ -137,6 +146,44 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
       annotations: { readOnlyHint: true },
     },
     (q) => guard(() => text(queryNodes(store.doc, q).map((n) => outline(store.doc, { rootId: n.id, depth: 0 }).split("\n")[0]).join("\n") || "(nada encontrado)")),
+  );
+
+  server.registerTool(
+    "path_info",
+    {
+      title: "Geometria de um caminho",
+      description:
+        "Valida dados de caminho SVG (d) e devolve a caixa exata do desenho (inclui extremos das curvas bezier e arcos), o número de segmentos e o d normalizado em comandos absolutos. Passe `d` ou o `id` de um nó path.",
+      inputSchema: {
+        d: z.string().max(200_000).optional(),
+        id: z.string().optional(),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    ({ d, id }) =>
+      guard(() => {
+        let src = d;
+        let origin = { x: 0, y: 0 };
+        if (id) {
+          const n = store.doc.nodes[id];
+          if (!n) throw new Error(`nó "${id}" não existe`);
+          if (n.type !== "path") throw new Error(`nó "${id}" é ${n.type}, não path`);
+          src = n.d;
+          origin = { x: n.x, y: n.y };
+        }
+        if (!src) throw new Error("passe d ou id");
+        const segs = parsePath(src);
+        const b = pathBounds(segs);
+        const round = (v: number) => Math.round(v * 100) / 100;
+        return json({
+          segments: segs.length,
+          curves: segs.filter((s) => s.cmd === "C" || s.cmd === "Q" || s.cmd === "A").length,
+          closed: segs.some((s) => s.cmd === "Z"),
+          bounds: { x: round(b.x), y: round(b.y), width: round(b.width), height: round(b.height) },
+          ...(id ? { canvasBounds: { x: round(origin.x + b.x), y: round(origin.y + b.y), width: round(b.width), height: round(b.height) } } : {}),
+          normalized: serializePath(segs),
+        });
+      }),
   );
 
   server.registerTool(

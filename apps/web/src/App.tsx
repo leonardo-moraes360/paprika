@@ -11,6 +11,7 @@ const TOOLS: { tool: Tool; key: string; label: string; icon: string }[] = [
   { tool: "rect", key: "r", label: "Retângulo", icon: "▭" },
   { tool: "ellipse", key: "o", label: "Elipse", icon: "◯" },
   { tool: "text", key: "t", label: "Texto", icon: "T" },
+  { tool: "pen", key: "p", label: "Caneta (bezier)", icon: "✒" },
 ];
 
 /** Converte uma subárvore em NodeInput com ids novos (para duplicar). */

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Document, Op } from "@paprika/core";
 
-const ICON: Record<string, string> = { frame: "#", rect: "▭", ellipse: "◯", text: "T", image: "▣" };
+const ICON: Record<string, string> = { frame: "#", rect: "▭", ellipse: "◯", text: "T", image: "▣", path: "✒" };
 
 interface Props {
   doc: Document;

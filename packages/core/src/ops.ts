@@ -12,6 +12,7 @@ import {
   knownKeys,
 } from "./schema.js";
 import { newId } from "./id.js";
+import { parsePath, pathBounds } from "./path.js";
 
 /** Entrada de criação: um nó parcial, com filhos aninhados opcionais (só para frames). */
 export type NodeInput = { type: z.infer<typeof NodeType>; id?: string; children?: NodeInput[] } & Record<
@@ -156,7 +157,24 @@ function createNode(
   if (unknown.length) throw new OpError(`campos desconhecidos para ${input.type}: ${unknown.join(", ")}`, i);
   if ("parentId" in rest) throw new OpError(`use o parentId da operação, não do nó`, i);
   const list = container(doc, parentId, i);
-  const parsed = Node.safeParse({ ...rest, id, parentId, children: input.type === "frame" ? [] : undefined });
+  const props: Record<string, unknown> = { ...rest };
+  // Sem width/height, um path ganha a caixa do próprio desenho (ou do viewBox): o agente só escreve `d`.
+  if (input.type === "path" && typeof props.d === "string" && (props.width === undefined || props.height === undefined)) {
+    const vb = Array.isArray(props.viewBox) ? (props.viewBox as number[]) : null;
+    let w: number, h: number;
+    if (vb) [w, h] = [vb[2]!, vb[3]!];
+    else {
+      try {
+        const b = pathBounds(parsePath(props.d));
+        [w, h] = [b.x + b.width, b.y + b.height];
+      } catch {
+        [w, h] = [100, 100]; // o erro de `d` sai da validação abaixo, com a posição
+      }
+    }
+    props.width ??= Math.max(1, Math.ceil(w));
+    props.height ??= Math.max(1, Math.ceil(h));
+  }
+  const parsed = Node.safeParse({ ...props, id, parentId, children: input.type === "frame" ? [] : undefined });
   if (!parsed.success) throw new OpError(`nó inválido: ${formatZod(parsed.error)}`, i);
   doc.nodes[id] = parsed.data;
   insertAt(list, id, index);

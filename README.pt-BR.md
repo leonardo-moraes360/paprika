@@ -74,12 +74,13 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `set_tokens` | Design tokens (`$nome`) para cores e tamanhos |
 | `undo` / `redo` / `get_history` | Histórico compartilhado com o humano |
 | `lint_design` | Contraste WCAG AA, overflow, tokens inexistentes, texto pequeno, alt |
+| `path_info` | Valida dados de caminho SVG e devolve a caixa exata (com extremos de bezier e arcos) e o `d` normalizado |
 | `render_screenshot` | PNG de um nó ou do canvas |
 | `export_code` | HTML autocontido ou componente React (TSX) |
 
 ## Canvas
 
-Atalhos: `V` selecionar, `F` frame, `R` retângulo, `O` elipse, `T` texto, `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicar, `Delete`, setas (Shift = 10px), `Esc` sobe para o pai.
+Atalhos: `V` selecionar, `F` frame, `R` retângulo, `O` elipse, `T` texto, `P` caneta (clique = vértice reto, clicar e arrastar = alças bezier, clicar no primeiro vértice fecha, `Enter`/`Esc`/duplo clique terminam um traço aberto, `Backspace` remove o último vértice), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicar, `Delete`, setas (Shift = 10px), `Esc` sobe para o pai.
 Navegação: rolar = pan, `Ctrl`+rolar = zoom, segurar `Espaço` (ou `Enter`) e arrastar = pan (o cursor vira uma mão).
 Edições do agente piscam no canvas e aparecem em "Atividade".
 
@@ -100,7 +101,7 @@ Edições do agente piscam no canvas e aparecem em "Atividade".
 }
 ```
 
-Tipos: `frame` (único com filhos; layout livre, linha ou coluna), `rect`, `ellipse`, `text`, `image`.
+Tipos: `frame` (único com filhos; layout livre, linha ou coluna), `rect`, `ellipse`, `text`, `image`, `path` (forma vetorial com dados de caminho SVG: retas, curvas bezier cúbicas e quadráticas, arcos; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin` e `viewBox` opcional para escalar um grid de ícone).
 Tamanhos: número, `"hug"` (conteúdo) ou `"fill"` (ocupa o espaço do pai). Detalhes em [docs/pt-BR/arquitetura.md](docs/pt-BR/arquitetura.md).
 
 ## Estrutura

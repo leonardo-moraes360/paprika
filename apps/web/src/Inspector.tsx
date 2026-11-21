@@ -105,7 +105,7 @@ export function Inspector({ doc, node, apply, activity, onSelect }: Props) {
       <h3>Aparência</h3>
       <div className="grid">
         <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />
-        {node.type !== "ellipse" && <Field label="Raio" type="number" value={node.radius} onCommit={setNum("radius")} />}
+        {node.type !== "ellipse" && node.type !== "path" && <Field label="Raio" type="number" value={node.radius} onCommit={setNum("radius")} />}
         <ColorField
           doc={doc}
           label="Borda"
@@ -194,6 +194,40 @@ export function Inspector({ doc, node, apply, activity, onSelect }: Props) {
                 </label>
               </>
             )}
+          </div>
+        </>
+      )}
+
+      {node.type === "path" && (
+        <>
+          <h3>Vetor</h3>
+          <div className="grid">
+            <Field label="Caminho (d)" type="textarea" value={node.d} title="M L H V C S Q T A Z (SVG)" onCommit={(v) => v.trim() && set({ d: v.trim() }, "editar caminho")} />
+          </div>
+          <div className="grid grid-2">
+            <label className="field">
+              <span>Regra</span>
+              <select value={node.fillRule} onChange={(e) => set({ fillRule: e.target.value })}>
+                <option value="nonzero">nonzero</option>
+                <option value="evenodd">evenodd</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Ponta</span>
+              <select value={node.strokeCap} onChange={(e) => set({ strokeCap: e.target.value })}>
+                {["butt", "round", "square"].map((o) => (
+                  <option key={o}>{o}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Junção</span>
+              <select value={node.strokeJoin} onChange={(e) => set({ strokeJoin: e.target.value })}>
+                {["miter", "round", "bevel"].map((o) => (
+                  <option key={o}>{o}</option>
+                ))}
+              </select>
+            </label>
           </div>
         </>
       )}

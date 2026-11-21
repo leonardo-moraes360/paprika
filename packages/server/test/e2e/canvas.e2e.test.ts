@@ -155,6 +155,75 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     });
   }
 
+  it("caneta: clicar e arrastar cria bezier; clicar no 1º vértice fecha a forma onde foi desenhada", async () => {
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Caneta (bezier)" }).click();
+    const card = (await page.locator('[data-paprika-id="login"]').boundingBox())!;
+    const a = { x: card.x + 60, y: card.y + 120 };
+    const b = { x: card.x + 200, y: card.y + 120 };
+    const c = { x: card.x + 130, y: card.y + 220 };
+    await page.mouse.click(a.x, a.y);
+    await page.mouse.move(b.x, b.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x + 40, b.y + 40, { steps: 5 }); // puxa as alças
+    await page.mouse.up();
+    await page.mouse.click(c.x, c.y);
+    await expect.poll(() => page.locator('[data-testid="pen-overlay"]').count()).toBe(1);
+    if (shots) await page.screenshot({ path: join(shots, "05-caneta-desenhando.png") });
+    await page.mouse.click(a.x, a.y); // fecha
+
+    // "login" tem layout em coluna: o vetor vai para o canvas, para não ser empurrado pelo fluxo.
+    const findPath = () => Object.values(store.doc.nodes).find((n) => n.type === "path" && n.name === "Vetor 1");
+    await expect.poll(findPath).toBeTruthy();
+    const path = findPath()!;
+    if (path.type !== "path") throw new Error("esperava path");
+    expect(path.d).toMatch(/^M[\d.]+ [\d.]+ C/); // origem do nó = canto da caixa do desenho
+    expect(path.d).toContain(" C");
+    expect(path.d.endsWith("Z")).toBe(true);
+    expect(path.fill).toBeTruthy();
+    expect(path.parentId).toBeNull();
+    await expect.poll(() => page.locator(`svg[data-paprika-id="${path.id}"] path`).getAttribute("d")).toBe(path.d);
+    // A forma aparece onde os cliques foram feitos (a caixa cobre os 3 vértices).
+    const drawn = (await page.locator(`svg[data-paprika-id="${path.id}"]`).boundingBox())!;
+    expect(drawn.x).toBeLessThanOrEqual(a.x + 1);
+    expect(drawn.x + drawn.width).toBeGreaterThanOrEqual(b.x - 1);
+    expect(drawn.y + drawn.height).toBeGreaterThanOrEqual(c.y - 1);
+    expect(await page.locator('[data-testid="pen-overlay"]').count()).toBe(0);
+    expect(await page.getByRole("button", { name: "Selecionar" }).getAttribute("class")).toMatch(/is-active/);
+    if (shots) await page.screenshot({ path: join(shots, "06-caneta-forma.png") });
+  });
+
+  it("caneta: Enter termina um traço aberto (sem acionar o pan)", async () => {
+    await page.keyboard.press("Escape");
+    const count = () => Object.values(store.doc.nodes).filter((n) => n.type === "path").length;
+    const before = count();
+    await page.keyboard.press("p");
+    const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
+    await page.mouse.click(vp.x + 40, vp.y + vp.height - 200);
+    await page.mouse.click(vp.x + 140, vp.y + vp.height - 160);
+    await page.keyboard.press("Enter");
+    await expect.poll(count).toBe(before + 1);
+    const created = Object.values(store.doc.nodes).filter((n) => n.type === "path").at(-1)!;
+    expect(created.parentId).toBeNull();
+    if (created.type === "path") expect(created.d.endsWith("Z")).toBe(false);
+    expect(await page.locator('[data-testid="viewport"]').getAttribute("class")).not.toMatch(/is-pan/);
+  });
+
+  it("path criado pelo agente aparece no canvas como SVG", async () => {
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId: "login",
+        nodes: [{ type: "path", id: "agentWave", x: 40, y: 300, d: "M0 20 C 40 -20 80 60 120 20", stroke: { color: "#c43d27", width: 3 } }],
+      },
+    });
+    const el = page.locator('svg[data-paprika-id="agentWave"]');
+    await expect.poll(() => el.count()).toBe(1);
+    const box = (await el.boundingBox())!;
+    expect(Math.round(box.width)).toBeGreaterThan(100);
+    expect(await el.locator("path").getAttribute("stroke")).toBe("#c43d27");
+  });
+
   it("screenshot pelo MCP usa o mesmo motor do canvas", async () => {
     const r = (await agent.callTool({ name: "render_screenshot", arguments: { rootId: "login" } })) as {
       content: { type: string; data?: string }[];

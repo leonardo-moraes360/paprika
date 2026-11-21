@@ -1,4 +1,4 @@
-import type { Document, Layout, Node, Size } from "./schema.js";
+import type { Document, Layout, Node, PathNode, Size } from "./schema.js";
 
 export type CSS = Record<string, string | number>;
 
@@ -56,6 +56,16 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean } 
   if (node.rotation) css.transform = `rotate(${round(node.rotation)}deg)`;
   if (node.opacity !== 1) css.opacity = node.opacity;
   if (!node.visible) css.display = "none";
+  if (node.type === "path") {
+    // fill/stroke vão para o <path> (ver pathAttrs); a sombra segue a forma, não a caixa.
+    css.overflow = "visible";
+    css.display = node.visible ? "block" : "none";
+    if (node.shadow) {
+      const s = node.shadow;
+      css.filter = `drop-shadow(${px(s.x)} ${px(s.y)} ${px(s.blur)} ${resolveValue(doc, s.color)})`;
+    }
+    return css;
+  }
   if (node.fill) css.background = String(resolveValue(doc, node.fill));
   if (node.stroke) css.border = `${px(node.stroke.width)} solid ${resolveValue(doc, node.stroke.color)}`;
   if (node.type === "ellipse") css.borderRadius = "50%";
@@ -102,6 +112,30 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean } 
       break;
   }
   return css;
+}
+
+/** Atributos do <svg> e do <path> de um nó path. Fonte única para canvas, HTML/screenshot e React. */
+export function pathAttrs(doc: Document, node: PathNode): {
+  svg: { viewBox?: string; preserveAspectRatio?: string };
+  path: { d: string; fill: string; fillRule: string; stroke?: string; strokeWidth?: number; strokeLinecap: string; strokeLinejoin: string };
+} {
+  const svg: { viewBox?: string; preserveAspectRatio?: string } = {};
+  if (node.viewBox) {
+    svg.viewBox = node.viewBox.map(round).join(" ");
+    svg.preserveAspectRatio = "xMidYMid meet";
+  }
+  const path: ReturnType<typeof pathAttrs>["path"] = {
+    d: node.d,
+    fill: node.fill ? String(resolveValue(doc, node.fill)) : "none",
+    fillRule: node.fillRule,
+    strokeLinecap: node.strokeCap,
+    strokeLinejoin: node.strokeJoin,
+  };
+  if (node.stroke && node.stroke.width > 0) {
+    path.stroke = String(resolveValue(doc, node.stroke.color));
+    path.strokeWidth = node.stroke.width;
+  }
+  return { svg, path };
 }
 
 const UNITLESS = new Set(["opacity", "fontWeight", "lineHeight", "flexShrink", "zIndex"]);

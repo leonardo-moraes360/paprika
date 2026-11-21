@@ -59,6 +59,7 @@ describe("MCP", () => {
         "get_nodes",
         "lint_design",
         "move_nodes",
+        "path_info",
         "redo",
         "render_screenshot",
         "set_tokens",
@@ -114,6 +115,38 @@ describe("MCP", () => {
 
     const saved = JSON.parse(await readFile(store.file, "utf8"));
     expect(saved.nodes.login.name).toBe("Login");
+  });
+
+  it("path com bezier: cria só com d, valida, mede, renderiza e exporta", async () => {
+    const c = await connect();
+    const created = JSON.parse(
+      textOf(
+        await call(c, "create_nodes", {
+          nodes: [{ type: "path", id: "wave", d: "M0 40 C 30 -10 70 90 100 40", stroke: { color: "#c43d27", width: 4 } }],
+        }),
+      ),
+    );
+    expect(created.created).toEqual(["wave"]);
+    const node = store.doc.nodes.wave!;
+    expect(node.width).toBe(100);
+    // A curva passa de y=40: a caixa vem dos extremos da bezier, não dos pontos de controle (-10..90).
+    expect(node.height).toBe(55); // ceil(≈54,4); os controles iriam até 90
+
+    const info = JSON.parse(textOf(await call(c, "path_info", { id: "wave" })));
+    expect(info).toMatchObject({ segments: 2, curves: 1, closed: false });
+    expect(info.bounds.y).toBeGreaterThan(10);
+
+    const bad = await call(c, "create_nodes", { nodes: [{ type: "path", d: "M0 0 C 10 10 20" }] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toMatch(/d inválido: número esperado na posição \d+/);
+
+    const lint = textOf(await call(c, "lint_design", {}));
+    expect(lint).not.toMatch(/invisible-path/);
+    const tsx = textOf(await call(c, "export_code", { rootId: "wave", format: "react" }));
+    expect(tsx).toContain('<path d="M0 40 C 30 -10 70 90 100 40" fill="none"');
+    expect(tsx).toContain('strokeWidth={4}');
+    await call(c, "undo");
+    expect(store.doc.nodes.wave).toBeUndefined();
   });
 
   it("erros voltam como isError com mensagem acionável e sem efeito colateral", async () => {

@@ -1,5 +1,12 @@
 import type { Document, Node } from "./schema.js";
-import { cssToString, nodeStyle, type CSS } from "./style.js";
+import { cssToString, nodeStyle, pathAttrs, type CSS } from "./style.js";
+
+const kebab = (k: string) => k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+const svgAttrs = (o: Record<string, string | number | undefined>) =>
+  Object.entries(o)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => ` ${k === "viewBox" || k === "preserveAspectRatio" ? k : kebab(k)}="${escapeHtml(String(v))}"`)
+    .join("");
 
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -60,6 +67,10 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, offset?: { x: nu
       return `<div ${attrs}>${escapeHtml(node.text)}</div>`;
     case "image":
       return `<img ${attrs} src="${escapeHtml(node.src)}" alt="${escapeHtml(node.alt)}">`;
+    case "path": {
+      const a = pathAttrs(doc, node);
+      return `<svg ${attrs} xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)}><path${svgAttrs(a.path)}/></svg>`;
+    }
     default:
       return `<div ${attrs}></div>`;
   }
@@ -126,6 +137,15 @@ function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string): st
       return `${indent}<div${name} style=${style}>${jsxText(node.text)}</div>`;
     case "image":
       return `${indent}<img${name} style=${style} src=${JSON.stringify(node.src)} alt=${JSON.stringify(node.alt)} />`;
+    case "path": {
+      const a = pathAttrs(doc, node);
+      const jsx = (o: Record<string, string | number | undefined>) =>
+        Object.entries(o)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : JSON.stringify(v)}`)
+          .join("");
+      return `${indent}<svg${name} style=${style}${jsx(a.svg)}>\n${indent}  <path${jsx(a.path)} />\n${indent}</svg>`;
+    }
     default:
       return `${indent}<div${name} style=${style} />`;
   }

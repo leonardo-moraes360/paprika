@@ -17,6 +17,12 @@ export function describeNode(n: Node): string {
     const t = n.text.length > 60 ? n.text.slice(0, 57) + "..." : n.text;
     parts.push(JSON.stringify(t), `${n.fontSize}/${n.fontWeight}`, `color=${n.color}`);
   }
+  if (n.type === "path") {
+    const d = n.d.length > 48 ? n.d.slice(0, 45) + "..." : n.d;
+    parts.push(`d=${JSON.stringify(d)}`);
+    if (n.stroke) parts.push(`stroke=${n.stroke.color}/${n.stroke.width}`);
+    if (n.viewBox) parts.push(`viewBox=${n.viewBox.join(",")}`);
+  }
   if (n.type === "image") parts.push(`src=${n.src.startsWith("data:") ? "data:…" : n.src}`);
   if (!n.visible) parts.push("hidden");
   if (n.locked) parts.push("locked");

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pathError } from "./path.js";
 
 /** Formato do arquivo `.paprika.json`. Mudanças incompatíveis incrementam a versão. */
 export const FORMAT = "paprika/1" as const;
@@ -98,9 +99,33 @@ export const ImageNode = z.object({
   alt: z.string().max(1000).default(""),
 });
 
-export const Node = z.discriminatedUnion("type", [FrameNode, RectNode, EllipseNode, TextNode, ImageNode]);
+/**
+ * Forma vetorial livre: dados de caminho SVG (`d`) com retas, bezier cúbicas (C/S),
+ * quadráticas (Q/T) e arcos (A). Coordenadas em px relativas ao canto do nó, ou no espaço
+ * de `viewBox` quando ele existe (o desenho é escalado para caber em width × height).
+ */
+export const PathNode = z.object({
+  ...Base,
+  type: z.literal("path"),
+  d: z
+    .string()
+    .min(1)
+    .max(200_000)
+    .superRefine((v, ctx) => {
+      const err = pathError(v);
+      if (err) ctx.addIssue({ code: "custom", message: `d inválido: ${err}` });
+    }),
+  fillRule: z.enum(["nonzero", "evenodd"]).default("nonzero"),
+  strokeCap: z.enum(["butt", "round", "square"]).default("round"),
+  strokeJoin: z.enum(["miter", "round", "bevel"]).default("round"),
+  viewBox: z
+    .tuple([z.number(), z.number(), z.number().positive(), z.number().positive()])
+    .optional(),
+});
 
-export const NodeType = z.enum(["frame", "rect", "ellipse", "text", "image"]);
+export const Node = z.discriminatedUnion("type", [FrameNode, RectNode, EllipseNode, TextNode, ImageNode, PathNode]);
+
+export const NodeType = z.enum(["frame", "rect", "ellipse", "text", "image", "path"]);
 
 export const TokenValue = z.union([z.string().max(500), z.number()]);
 export const TokenName = z.string().regex(/^[\w.-]{1,100}$/, "nome de token deve ser [\\w.-]{1,100}");
@@ -123,6 +148,7 @@ export type RectNode = z.infer<typeof RectNode>;
 export type EllipseNode = z.infer<typeof EllipseNode>;
 export type TextNode = z.infer<typeof TextNode>;
 export type ImageNode = z.infer<typeof ImageNode>;
+export type PathNode = z.infer<typeof PathNode>;
 export type Node = z.infer<typeof Node>;
 export type NodeType = z.infer<typeof NodeType>;
 export type Document = z.infer<typeof Document>;
@@ -137,6 +163,7 @@ export const NODE_SCHEMAS = {
   ellipse: EllipseNode,
   text: TextNode,
   image: ImageNode,
+  path: PathNode,
 } as const;
 
 /** Campos aceitos por tipo de nó (para rejeitar chaves desconhecidas em vez de descartá-las em silêncio). */

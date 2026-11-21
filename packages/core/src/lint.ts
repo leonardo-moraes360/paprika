@@ -137,6 +137,14 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
         issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `cor literal "${node.color}"; prefira um token` });
     }
 
+    if (node.type === "path" && !node.fill && !(node.stroke && node.stroke.width > 0))
+      issues.push({
+        rule: "invisible-path",
+        severity: "warning",
+        nodeId: id,
+        message: "path sem fill nem stroke não aparece; defina fill ou stroke {color,width}",
+      });
+
     if (node.type === "image" && !node.alt.trim())
       issues.push({ rule: "missing-alt", severity: "warning", nodeId: id, message: "imagem sem texto alternativo (alt)" });
 

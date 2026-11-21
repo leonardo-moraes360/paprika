@@ -68,6 +68,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `get_design_guide` | Node model, accepted fields and recommended workflow |
 | `get_document_outline` | Compact tree + tokens + version |
 | `get_nodes` / `find_nodes` | Full node JSON / search by type, name, text |
+| `path_info` | Validates SVG path data and returns the exact bounds (bezier and arc extremes included) and the normalized `d` |
 | `create_nodes` | Creates nested trees in one call |
 | `update_nodes` / `move_nodes` / `delete_nodes` | Atomic batch edits |
 | `apply_ops` | Mixed transaction (create, update, delete, move, set_tokens, rename_document) |
@@ -81,7 +82,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 
 ## Canvas
 
-Shortcuts: `V` select, `F` frame, `R` rectangle, `O` ellipse, `T` text, `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicate, `Delete`, arrows (Shift = 10px), `Esc` selects the parent.
+Shortcuts: `V` select, `F` frame, `R` rectangle, `O` ellipse, `T` text, `P` pen (click = corner point, click and drag = bezier handles, click the first point to close, `Enter`/`Esc`/double-click to finish an open path, `Backspace` removes the last point), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicate, `Delete`, arrows (Shift = 10px), `Esc` selects the parent.
 Navigation: scroll = pan, `Ctrl`+scroll = zoom, hold `Space` (or `Enter`) and drag = pan (the cursor turns into a hand).
 Agent edits flash on the canvas and show up under "Atividade" (activity).
 
@@ -102,7 +103,7 @@ Agent edits flash on the canvas and show up under "Atividade" (activity).
 }
 ```
 
-Types: `frame` (the only one with children; free, row or column layout), `rect`, `ellipse`, `text`, `image`.
+Types: `frame` (the only one with children; free, row or column layout), `rect`, `ellipse`, `text`, `image`, `path` (vector shape from SVG path data: lines, cubic and quadratic bezier curves, arcs; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin`, optional `viewBox` to scale an icon grid).
 Sizes: a number, `"hug"` (fit content) or `"fill"` (take the parent's space). Details in [docs/architecture.md](docs/architecture.md).
 
 ## Layout
