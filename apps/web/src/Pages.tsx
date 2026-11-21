@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Plus, X } from "lucide-react";
 import { firstPage, newId, type Document, type Op } from "@paprika/core";
 import { InlineName } from "./InlineName";
 import { cx, ui } from "./ui";
@@ -32,7 +33,7 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
       <h2 className={ui.h2}>
         Páginas
         <button className={cx(ui.iconBtn, "float-right")} onClick={add} title="Nova página" aria-label="Nova página" data-testid="add-page">
-          +
+          <Plus size={14} />
         </button>
       </h2>
       <ul className="m-0 list-none p-0">
@@ -71,7 +72,7 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
                   if (p.id === pageId) onOpen(null);
                 }}
               >
-                ×
+                <X size={13} />
               </button>
             )}
           </li>

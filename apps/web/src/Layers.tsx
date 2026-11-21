@@ -1,9 +1,17 @@
 import { useState } from "react";
+import { ChevronDown, ChevronRight, Circle, Component, Diamond, Eye, EyeOff, File, Frame, Group, Image, MoveUpRight, PenTool, RectangleHorizontal, Square, Type, type LucideIcon } from "lucide-react";
 import { isContainer, isInstance, pageRoots, type ConnectorEnd, type Document, type Node, type Op } from "@paprika/core";
 import { InlineName } from "./InlineName";
 import { cx, ui } from "./ui";
 
-const ICON: Record<string, string> = { frame: "#", rect: "▭", ellipse: "◯", text: "T", image: "▣", path: "✒", group: "⧉", page: "▤", shape: "▢", connector: "↗" };
+const ICON: Record<string, LucideIcon> = { frame: Frame, rect: RectangleHorizontal, ellipse: Circle, text: Type, image: Image, path: PenTool, group: Group, page: File, shape: Square, connector: MoveUpRight };
+
+/** Lucide icon of a layer row: component, instance or the node type. */
+function layerIcon(n: Node): LucideIcon {
+  if (n.type === "frame" && n.component) return Component;
+  if (isInstance(n)) return Diamond;
+  return ICON[n.type] ?? Square;
+}
 
 /** Camada sem nome: o texto (texto e forma), "A → B" (conector) ou o tipo. */
 function layerFallback(doc: Document, n: Node): string {
@@ -19,7 +27,7 @@ function layerFallback(doc: Document, n: Node): string {
 }
 
 /** Expand/collapse and show/hide glyphs of a layer row. */
-const glyphBtn = "w-4 cursor-pointer border-0 bg-transparent p-0 text-muted";
+const glyphBtn = "inline-flex w-4 cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-muted";
 
 interface Props {
   doc: Document;
@@ -50,6 +58,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
     if (!n || n.type === "page") return null;
     const kids = isContainer(n) ? n.children : [];
     const open = !collapsed.has(id);
+    const TypeIcon = layerIcon(n);
     return (
       <li key={id} role="none">
         <div
@@ -82,9 +91,9 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
               toggle(id);
             }}
           >
-            {open ? "▾" : "▸"}
+            {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
-          <span className="w-4 text-center text-muted">{n.type === "frame" && n.component ? "◆" : isInstance(n) ? "◇" : ICON[n.type]}</span>
+          <TypeIcon className="w-4 shrink-0 text-muted" size={13} aria-hidden />
           {editing === id ? (
             <InlineName
               className={cx(ui.renameInput, "h-5 flex-1")}
@@ -115,7 +124,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
               apply([{ op: "update", id, props: { visible: !n.visible } }], n.visible ? "ocultar" : "mostrar");
             }}
           >
-            {n.visible ? "◉" : "○"}
+            {n.visible ? <Eye size={13} /> : <EyeOff size={13} />}
           </button>
         </div>
         {kids.length > 0 && open && <ul role="group">{kids.map((c) => row(c, depth + 1))}</ul>}
