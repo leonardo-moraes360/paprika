@@ -51,15 +51,28 @@ Prefere não usar Docker? Veja [como rodar sem Docker](docs/pt-BR/desenvolviment
 Cole este prompt no seu agente (funciona melhor num que consiga rodar comandos no terminal, como o Claude Code):
 
 ```text
-Por favor, configure o Paprika para mim, uma ferramenta de design local para agentes de IA (https://github.com/leonardo-moraes360/paprika).
+Por favor, configure o Paprika para mim, uma ferramenta de design local para
+agentes de IA (https://github.com/leonardo-moraes360/paprika).
 
-1. Confira se o Docker e o Docker Compose estão instalados e rodando. Se não estiverem, pare e me diga como instalar; não instale nada sem me perguntar antes.
-2. Clone o repositório numa pasta que eu escolher (me pergunte; o padrão é ~/paprika) e rode `docker compose up -d --build` dentro dela. O primeiro build pode levar alguns minutos.
-3. Espere até http://localhost:4777/api/workspaces responder e então me diga para abrir http://localhost:4777 no navegador.
-4. Adicione o Paprika a você mesmo como servidor MCP por HTTP em http://localhost:4777/mcp (no Claude Code: `claude mcp add --transport http paprika http://localhost:4777/mcp`). Se precisar reiniciar ou abrir uma sessão nova para ver as ferramentas, me avise.
-5. Quando as ferramentas aparecerem, chame `get_design_guide` com `language: "pt-BR"` e desenhe um pequeno frame de boas-vindas no canvas para eu ver funcionando.
+1. Confira se o Docker e o Docker Compose estão instalados e rodando. Se não
+   estiverem, pare e me diga como instalar; não instale nada sem me perguntar
+   antes.
+2. Clone o repositório numa pasta que eu escolher (me pergunte; o padrão é
+   ~/paprika) e rode `docker compose up -d --build` dentro dela. O primeiro
+   build pode levar alguns minutos.
+3. Espere até http://localhost:4777/api/workspaces responder e então me diga
+   para abrir http://localhost:4777 no navegador.
+4. Adicione o Paprika a você mesmo como servidor MCP por HTTP em
+   http://localhost:4777/mcp. No Claude Code:
+   claude mcp add --transport http paprika http://localhost:4777/mcp
+   Se precisar reiniciar ou abrir uma sessão nova para ver as ferramentas,
+   me avise.
+5. Quando as ferramentas aparecerem, chame `get_design_guide` com
+   `language: "pt-BR"` e desenhe um pequeno frame de boas-vindas no canvas
+   para eu ver funcionando.
 
-Se algo falhar, me mostre o erro e o que você sugere. Mantenha a porta 4777 no host: o servidor só aceita essa porta.
+Se algo falhar, me mostre o erro e o que você sugere. Mantenha a porta 4777 no
+host: o servidor só aceita essa porta.
 ```
 
 ## O que dá para fazer

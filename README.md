@@ -51,15 +51,26 @@ Prefer not to use Docker? See [running from source](docs/development.md#run-from
 Copy this prompt into your agent (it works best in one that can run terminal commands, such as Claude Code):
 
 ```text
-Please set up Paprika for me, a local design tool for AI agents (https://github.com/leonardo-moraes360/paprika).
+Please set up Paprika for me, a local design tool for AI agents
+(https://github.com/leonardo-moraes360/paprika).
 
-1. Check that Docker and Docker Compose are installed and running. If they aren't, stop and tell me how to install them; don't install anything without asking me first.
-2. Clone the repository into a folder of my choice (ask me; default to ~/paprika) and run `docker compose up -d --build` inside it. The first build can take a few minutes.
-3. Wait until http://localhost:4777/api/workspaces answers, then tell me to open http://localhost:4777 in my browser.
-4. Add Paprika to yourself as an MCP server over HTTP at http://localhost:4777/mcp (in Claude Code: `claude mcp add --transport http paprika http://localhost:4777/mcp`). If you need a restart or a new session to see the new tools, tell me.
-5. Once the tools show up, call `get_design_guide`, then draw a small welcome frame on the canvas so I can see it working.
+1. Check that Docker and Docker Compose are installed and running. If they
+   aren't, stop and tell me how to install them; don't install anything
+   without asking me first.
+2. Clone the repository into a folder of my choice (ask me; default to
+   ~/paprika) and run `docker compose up -d --build` inside it. The first
+   build can take a few minutes.
+3. Wait until http://localhost:4777/api/workspaces answers, then tell me to
+   open http://localhost:4777 in my browser.
+4. Add Paprika to yourself as an MCP server over HTTP at
+   http://localhost:4777/mcp. In Claude Code:
+   claude mcp add --transport http paprika http://localhost:4777/mcp
+   If you need a restart or a new session to see the new tools, tell me.
+5. Once the tools show up, call `get_design_guide`, then draw a small welcome
+   frame on the canvas so I can see it working.
 
-If something fails, show me the error and what you'd suggest. Keep host port 4777: the server only accepts that port.
+If something fails, show me the error and what you'd suggest. Keep host port
+4777: the server only accepts that port.
 ```
 
 ## What you can do
