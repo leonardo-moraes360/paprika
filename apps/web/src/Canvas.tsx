@@ -78,6 +78,28 @@ interface View {
 /** Posições/tamanhos provisórios durante um arraste (um ou vários nós). */
 type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number }>;
 
+/** How long a dropped preview waits for the server before giving way to what the server has. */
+const PENDING_MS = 3000;
+
+/** The document's current value of each prop the preview sets (`undefined` when the node is gone). */
+function snapshot(doc: Document, pv: Preview): Preview {
+  const out: Preview = {};
+  for (const [id, props] of Object.entries(pv)) {
+    const n = doc.nodes[id] as Record<string, unknown> | undefined;
+    const cur: Preview[string] = {};
+    for (const k of Object.keys(props) as (keyof Preview[string])[]) {
+      const v = n?.[k];
+      cur[k] = typeof v === "number" ? v : undefined;
+    }
+    out[id] = cur;
+  }
+  return out;
+}
+
+function samePreview(a: Preview, b: Preview): boolean {
+  return Object.entries(b).every(([id, props]) => Object.entries(props).every(([k, v]) => a[id]?.[k as keyof Preview[string]] === v));
+}
+
 /** Retângulo de seleção (marquee), em coordenadas do viewport. */
 interface Marquee {
   x0: number;
@@ -319,6 +341,45 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const [view, setView] = useState<View>({ x: 40, y: 40, zoom: 1 });
   const [renderer, setRenderer] = useState<RendererMode>(initialRendererMode);
   const [preview, setPreview] = useState<Preview | null>(null);
+  const previewRef = useRef<Preview | null>(null);
+  previewRef.current = preview;
+  /**
+   * After a drop the preview stays on screen until the server echoes the change (or gives up):
+   * clearing it right away showed the old position/size for a frame or two (the "flick").
+   */
+  const pending = useRef<{ base: Preview; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const docRef = useRef(doc);
+  docRef.current = doc;
+  /** A new drag takes over: its own preview starts from where the pending one left the nodes. */
+  const takeOverPreview = useCallback(() => {
+    if (pending.current) clearTimeout(pending.current.timer);
+    pending.current = null;
+  }, []);
+  const settle = useCallback(() => {
+    if (pending.current) clearTimeout(pending.current.timer);
+    pending.current = null;
+    setPreview(null);
+  }, []);
+  /** Ends a drag: keeps `last` on screen and sends the ops; the next document that touches those props clears it. */
+  const commitPreview = useCallback(
+    (last: Preview, ops: Op[], label: string) => {
+      if (pending.current) clearTimeout(pending.current.timer);
+      const base = snapshot(docRef.current, last);
+      if (samePreview(base, last)) {
+        pending.current = null;
+        setPreview(null);
+      } else {
+        pending.current = { base, timer: setTimeout(settle, PENDING_MS) };
+        setPreview(last);
+      }
+      apply(ops, label);
+    },
+    [apply, settle],
+  );
+  useEffect(() => {
+    if (pending.current && !samePreview(snapshot(doc, pending.current.base), pending.current.base)) settle();
+  }, [doc, settle]);
+  useEffect(() => () => clearTimeout(pending.current?.timer), []);
   const wasmLayer = useWasmLayer({ mode: renderer, doc, view, viewportRef, worldRef, layoutKey: preview, pageId });
   const [draft, setDraft] = useState<Draft | null>(null);
   const [link, setLink] = useState<LinkDraft | null>(null);
@@ -864,8 +925,14 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     // Arrastar um nó já selecionado move a seleção inteira; senão, seleciona só ele.
     const group = selected.includes(id) ? selected : [id];
     if (!selected.includes(id)) onSelect([id]);
-    const movable = group.map((g) => doc.nodes[g]).filter((n): n is SceneNode => isScene(n) && n.type !== "connector" && !n.locked && isAbsolute(doc, n) && !copyOwner(doc, n));
+    const shownAt = previewRef.current ?? {};
+    const movable = group
+      .map((g) => doc.nodes[g])
+      .filter((n): n is SceneNode => isScene(n) && n.type !== "connector" && !n.locked && isAbsolute(doc, n) && !copyOwner(doc, n))
+      // A node dropped a moment ago may still be waiting for the server: drag it from where it is shown.
+      .map((n) => ({ ...n, x: shownAt[n.id]?.x ?? n.x, y: shownAt[n.id]?.y ?? n.y }) as SceneNode);
     if (!movable.length) return;
+    takeOverPreview();
     const start = toWorld(e.clientX, e.clientY);
     let moved = false;
     let last: Preview = {};
@@ -881,8 +948,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      setPreview(null);
-      if (moved) apply(Object.entries(last).map(([nid, props]) => ({ op: "update", id: nid, props })), movable.length > 1 ? `mover ${movable.length} nós` : "mover");
+      if (!moved) return;
+      commitPreview(last, Object.entries(last).map(([nid, props]) => ({ op: "update", id: nid, props })), movable.length > 1 ? `mover ${movable.length} nós` : "mover");
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -995,6 +1062,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const id = node.id;
     const sx = e.clientX;
     const sy = e.clientY;
+    takeOverPreview();
     const w0 = box.width / view.zoom;
     const h0 = box.height / view.zoom;
     let last = { width: Math.round(w0), height: Math.round(h0) };
@@ -1008,8 +1076,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      setPreview(null);
-      apply([{ op: "update", id, props: last }], "redimensionar");
+      commitPreview({ [id]: last }, [{ op: "update", id, props: last }], "redimensionar");
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
