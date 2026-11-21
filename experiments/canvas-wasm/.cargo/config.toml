@@ -1,0 +1,4 @@
+# WASM SIMD (128-bit) is supported by every current browser; without it vello_cpu falls back
+# to scalar code (≈3-4× slower on the CPU path).
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "target-feature=+simd128"]
