@@ -12,7 +12,7 @@ Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/c
 
 | Job | O que verifica | Roda quando a PR mexe em |
 | --- | --- | --- |
-| **Plan** | Roda os testes dos scripts do CI ([[`.github/scripts/test/`](../../.github/scripts/test/)]), confere que toda action de terceiros está fixada por SHA de commit ([`check-actions-pinned.mjs`](../../.github/scripts/check-actions-pinned.mjs)), lista os arquivos alterados e decide quais jobs abaixo rodam ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)). | sempre |
+| **Plan** | Roda os testes dos scripts do CI ([[`.github/scripts/test/`](../../.github/scripts/test/)]), confere que toda action de terceiros está fixada por SHA de commit ([`check-actions-pinned.mjs`](../../.github/scripts/check-actions-pinned.mjs)), pontua os fixtures dos benchmarks ([`bench/tasks/`](../../bench/tasks/)), lista os arquivos alterados e decide quais jobs abaixo rodam ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)). | sempre |
 | **TS build + tscheck** | `pnpm build` (core, server, web e o renderizador WASM do canvas, de `crates/render`, com `PAPRIKA_REQUIRE_WASM=1`), `pnpm typecheck`, `pnpm go:build`. Publica `dist/`, `apps/web/src/wasm` e o binário Go como o artefato `build` para os jobs abaixo, então as suítes e2e também rodam os testes do renderizador WASM. | código TS, Go ou Rust |
 | **Unit** `<pkg>` (shard n/2) | Vitest de `@paprika/core` e `@paprika/server`, dividido em 2 shards. | `packages/core`, `packages/server` |
 | **e2e / parity vs ts / go server** | As suítes black-box (`test:e2e`, `test:parity`) contra o servidor TypeScript e contra o binário Go, 4 jobs em paralelo. | core, server, web, examples, `crates/render`, `server-go` |
@@ -61,6 +61,15 @@ node --test .github/scripts/test/*.mjs
 ```
 
 O glob, não o diretório: o `node --test` parou de aceitar um diretório como argumento no Node 24.
+
+### Mantendo os benchmarks honestos
+
+Um benchmark só vale o seu verificador, então o job Plan também pontua os fixtures de cada tarefa de
+[`bench/tasks/`](../../bench/tasks/): cada verificador precisa sair com 0 na solução de
+`bench/fixtures/<task>-reference/` e **não** pode sair com 0 no documento inicial de
+`bench/fixtures/<task>/`. Uma tarefa cujo fixture inicial já passa é uma tarefa que não pede nada, e
+isso reprova a PR. Nada é compilado e nenhum servidor sobe, então a checagem inteira leva menos de um
+segundo. As tarefas em si estão em [bench/README.md](../../bench/README.md).
 
 ## Paralelismo e sharding
 

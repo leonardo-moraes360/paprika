@@ -57,6 +57,28 @@ jobs:
       # what every later run executes.
       - name: Check pinned actions
         run: node .github/scripts/check-actions-pinned.mjs
+      # A benchmark task is only worth its checker: the checkers must keep passing on the reference
+      # solution and keep failing on the starting document. If the starting document ever passes,
+      # the task stopped asking for work and the score would start lying. Nothing here needs a
+      # server, a build or a node_modules; see bench/README.md.
+      - name: Check the benchmark tasks
+        run: |
+          for task_dir in bench/tasks/*/; do
+            task=$(basename "$task_dir")
+            [ -f "$task_dir/task.yaml" ] || continue
+            for fixture in "$task-reference" "$task"; do
+              [ -f "bench/fixtures/$fixture/document.paprika.json" ] || {
+                echo "bench/fixtures/$fixture/document.paprika.json is missing for task $task"
+                exit 1
+              }
+            done
+            node "bench/tasks/$task/check.mjs" "bench/fixtures/$task-reference/document.paprika.json" > /dev/null
+            if node "bench/tasks/$task/check.mjs" "bench/fixtures/$task/document.paprika.json" > /dev/null; then
+              echo "task $task: its starting fixture already passes the checker, so the task asks for nothing"
+              exit 1
+            fi
+            echo "$task: reference passes, starting document fails as it should"
+          done
       - id: plan
         run: node .github/scripts/ci-plan.mjs "$BASE_SHA" HEAD
 
