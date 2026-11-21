@@ -17,6 +17,7 @@ import {
   renderHTML,
   textContent,
   type Document,
+  type MarkupElement,
   type Op,
 } from "../src/index.js";
 
@@ -35,20 +36,19 @@ function roundtrip(doc: Document, rootId: string): Document {
 describe("parseMarkup", () => {
   it("lê tags, atributos, entidades e tolera HTML malformado", () => {
     const root = parseMarkup(`<!doctype html><DIV Class=a data-x='1 &amp; 2' hidden>Olá&nbsp;&#x1F600;&lt;<br><p>um<p>dois</div><script>if (a<b) {}</script><!-- fim -->`);
-    const div = root.children[0] as { tag: string; attrs: Record<string, string> };
+    const div = root.children[0] as MarkupElement;
     expect(div.tag).toBe("div");
-    expect(div.attrs).toEqual({ class: "a", "data-x": "1 & 2", hidden: "" });
+    expect(Object.fromEntries(div.attrs)).toEqual({ class: "a", "data-x": "1 & 2", hidden: "" });
     expect(textContent(root)).toBe("Olá\u00a0😀<\numdois");
     expect((root.children[1] as { children: string[] }).children).toEqual(["if (a<b) {}"]);
   });
 
   it("nomes vindos da entrada nunca tocam o protótipo", () => {
-    const el = parseMarkup(`<p __proto__="x" constructor="y" style="__proto__: red; toString: 1">`).children[0] as { attrs: Record<string, string> };
-    expect(Object.getPrototypeOf(el.attrs)).toBeNull();
-    expect(Object.entries(el.attrs)).toEqual([["__proto__", "x"], ["constructor", "y"], ["style", "__proto__: red; toString: 1"]]);
-    const css = parseStyle(el.attrs.style);
-    expect(Object.getPrototypeOf(css)).toBeNull();
-    expect(Object.keys(css)).toEqual(["__proto__", "tostring"]);
+    const el = parseMarkup(`<p __proto__="x" constructor="y" style="__proto__: red; toString: 1">`).children[0] as MarkupElement;
+    expect(el.attrs).toBeInstanceOf(Map);
+    expect([...el.attrs]).toEqual([["__proto__", "x"], ["constructor", "y"], ["style", "__proto__: red; toString: 1"]]);
+    const css = parseStyle(el.attrs.get("style"));
+    expect([...css.keys()]).toEqual(["__proto__", "tostring"]);
     expect(({} as Record<string, unknown>).x).toBeUndefined();
   });
 
