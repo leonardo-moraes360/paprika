@@ -648,6 +648,8 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
   });
 
   it("diagramas: caixa e losango com texto no lugar, seta que prende e segue a forma, apagar leva a seta e o agente desenha com draw_diagram", async () => {
+    // CI runners are slower than the 1 s default of expect.poll for a round trip through the server.
+    const POLL = { timeout: 10_000 };
     // Abre o canvas do workspace ativo (um teste anterior pode ter deixado a página na visão geral).
     await page.goto(`${url}/w/${(await doc()).id}`);
     await page.waitForSelector('[data-testid="viewport"]');
@@ -656,33 +658,33 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     const pagesBefore = await pages();
     await page.getByTestId("add-page").click();
     // Sem páginas ainda, o + cria a Página 1 (com o conteúdo) e a nova; a nova é a última e abre ativa.
-    await expect.poll(async () => (await pages()).length).toBe(pagesBefore.length ? pagesBefore.length + 1 : 2);
+    await expect.poll(async () => (await pages()).length, POLL).toBe(pagesBefore.length ? pagesBefore.length + 1 : 2);
     const pageId = (await doc()).rootIds.at(-1)!;
-    await expect.poll(() => page.locator(".page.is-active").getAttribute("data-page-id")).toBe(pageId);
+    await expect.poll(() => page.locator(".page.is-active").getAttribute("data-page-id"), POLL).toBe(pageId);
     const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
     const shapes = async () => Object.values((await doc()).nodes).filter((n) => n.type === "shape" && n.parentId === pageId);
 
     // Caixa: um clique cria no tamanho padrão e já abre o texto para editar.
     await page.keyboard.press("s");
     await page.mouse.click(vp.x + 200, vp.y + 200);
-    await expect.poll(async () => (await shapes()).length).toBe(1);
+    await expect.poll(async () => (await shapes()).length, POLL).toBe(1);
     await page.getByTestId("shape-text-editor").waitFor();
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("Início");
     await page.keyboard.press("Escape");
-    await expect.poll(async () => (await shapes())[0]).toMatchObject({ shape: "rect", text: "Início", width: 160, height: 80 });
+    await expect.poll(async () => (await shapes())[0], POLL).toMatchObject({ shape: "rect", text: "Início", width: 160, height: 80 });
     const first = (await shapes())[0]!.id;
 
     // Losango pelo botão da barra.
     await page.getByRole("button", { name: "Decisão (losango)" }).click();
     await page.mouse.click(vp.x + 520, vp.y + 200);
-    await expect.poll(async () => (await shapes()).length).toBe(2);
+    await expect.poll(async () => (await shapes()).length, POLL).toBe(2);
     await page.getByTestId("shape-text-editor").waitFor();
     await page.keyboard.type("Ok?");
     await page.getByTestId("shape-text-editor").blur();
-    await expect.poll(async () => (await shapes()).find((n) => n.id !== first)).toMatchObject({ shape: "diamond", text: "Ok?" });
+    await expect.poll(async () => (await shapes()).find((n) => n.id !== first), POLL).toMatchObject({ shape: "diamond", text: "Ok?" });
     const second = (await shapes()).find((n) => n.id !== first)!.id;
-    await expect.poll(() => page.locator(`[data-paprika-id="${second}"]`).innerText()).toBe("Ok?");
+    await expect.poll(() => page.locator(`[data-paprika-id="${second}"]`).innerText(), POLL).toBe("Ok?");
 
     // Seta: arrastar de uma forma até a outra; as duas pontas ficam presas.
     const box = async (id: string) => (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
@@ -692,10 +694,10 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
     await page.mouse.down();
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 });
-    await expect.poll(() => page.getByTestId("link-draft").count()).toBe(1);
+    await expect.poll(() => page.getByTestId("link-draft").count(), POLL).toBe(1);
     await page.mouse.up();
     const connector = async () => Object.values((await doc()).nodes).find((n) => n.type === "connector" && n.parentId === pageId);
-    await expect.poll(connector).toMatchObject({ from: { nodeId: first }, to: { nodeId: second }, route: "elbow" });
+    await expect.poll(connector, POLL).toMatchObject({ from: { nodeId: first }, to: { nodeId: second }, route: "elbow" });
     const arrow = (await connector())!;
     const d0 = (arrow as { d: string }).d;
 
@@ -703,9 +705,9 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     await page.mouse.move(b.x + b.width / 2, b.y + 10);
     await page.mouse.down();
     await page.mouse.move(b.x + b.width / 2, b.y + 160, { steps: 6 });
-    await expect.poll(() => page.locator(`[data-paprika-id="${arrow.id}"] path:not([data-connector-hit])`).getAttribute("d")).not.toBe(d0);
+    await expect.poll(() => page.locator(`[data-paprika-id="${arrow.id}"] path:not([data-connector-hit])`).getAttribute("d"), POLL).not.toBe(d0);
     await page.mouse.up();
-    await expect.poll(async () => ((await connector()) as { d: string } | undefined)?.d).not.toBe(d0);
+    await expect.poll(async () => ((await connector()) as { d: string } | undefined)?.d, POLL).not.toBe(d0);
     // Seta não redimensiona nem é arrastada: clicar seleciona sem alça.
     const hit = (await page.locator(`[data-paprika-id="${arrow.id}"] path[data-connector-hit]`).boundingBox())!;
     expect(hit.width).toBeGreaterThan(0);
@@ -718,14 +720,14 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("Começo");
     await page.keyboard.press("ControlOrMeta+Enter");
-    await expect.poll(async () => (await doc()).nodes[first]).toMatchObject({ text: "Começo" });
+    await expect.poll(async () => (await doc()).nodes[first], POLL).toMatchObject({ text: "Começo" });
 
     // Apagar a forma leva a seta junto; Ctrl+Z devolve as duas.
     await page.locator(`[data-paprika-id="${first}"]`).click();
     await page.keyboard.press("Delete");
-    await expect.poll(async () => (await doc()).nodes[arrow.id]).toBeUndefined();
+    await expect.poll(async () => (await doc()).nodes[arrow.id], POLL).toBeUndefined();
     await page.keyboard.press("ControlOrMeta+z");
-    await expect.poll(async () => (await doc()).nodes[arrow.id]?.type).toBe("connector");
+    await expect.poll(async () => (await doc()).nodes[arrow.id]?.type, POLL).toBe("connector");
 
     // O agente desenha um fluxograma ao lado, com layout automático.
     const res = await agent.callTool({
@@ -742,8 +744,8 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
       },
     });
     expect(res.isError).toBeFalsy();
-    await expect.poll(() => page.locator('[data-paprika-id="fx-ok-to-fx-ship"] path').count()).toBe(2);
+    await expect.poll(() => page.locator('[data-paprika-id="fx-ok-to-fx-ship"] path').count(), POLL).toBe(2);
     await page.getByRole("button", { name: "Enquadrar" }).click();
     if (shots) await page.screenshot({ path: join(shots, "17-diagrama-agente.png") });
-  });
+  }, 30_000);
 });
