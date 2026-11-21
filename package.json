@@ -26,8 +26,8 @@
     "check:go": "pnpm build && pnpm go:golden && git diff --exit-code -- server-go/internal/core/testdata server-go/contract && pnpm go:test && pnpm test:parity:go && pnpm test:e2e:go"
   },
   "devDependencies": {
-    "typescript": "~5.9.3",
-    "@types/node": "^22.10.0"
+    "typescript": "~7.0.2",
+    "@types/node": "^26.6.6"
   },
   "license": "MIT",
   "repository": {

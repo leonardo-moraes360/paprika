@@ -23,3 +23,7 @@
 - Before calling work done: `tb stack verify guard` (add `--ticket rd.md` for review/drift).
 - CI (pull requests only, see `docs/ci.md`): `node .github/scripts/ci-plan.mjs origin/main HEAD` shows which jobs your change triggers. Go lint: `cd server-go && golangci-lint run`.
 - E2E needs Playwright's Chromium; under `tb`, `PLAYWRIGHT_BROWSERS_PATH` and `PAPRIKA_CHROMIUM` are in `env.allow`.
+
+## Agent bus
+
+Agents running on the maintainer's machine coordinate through the local toolbelt bus (channel `paprika`): see `docs/agent-bus.md` for how to join, the lanes that keep bus agents off the files the backlog stack is changing, and the claim → worktree → `complete` protocol. Claim a thread before editing anything; never work in the maintainer's checkout.
