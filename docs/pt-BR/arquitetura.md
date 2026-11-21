@@ -57,3 +57,4 @@
 
 - [ADR 0001: Servidor em Go com SQLite](adr/0001-servidor-go-sqlite.md): aceito.
 - [ADR 0002: Renderizador do canvas em Rust/WASM (WebGPU com fallback para CPU)](adr/0002-renderizador-canvas-rust-wasm.md): aceito como renderizador híbrido opcional; o DOM continua padrão.
+- [ADR 0003: Tailwind CSS na interface do app do canvas](adr/0003-tailwind-css.md): aceito; Tailwind v4 sem Preflight, para o CSS do app nunca mudar como um documento é renderizado.

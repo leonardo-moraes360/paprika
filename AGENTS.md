@@ -4,7 +4,7 @@
 
 - `packages/core`: model (zod), `applyOps`, `History`, `nodeStyle`, render/export, lint, outline. No I/O.
 - `packages/server`: `DocumentStore`, MCP (`mcp.ts`), HTTP/WS (`http.ts`), screenshot (Playwright), CLI.
-- `apps/web`: React + Vite canvas; talks to the server only over WebSocket (`useDocument.ts`). `wasmLayer.ts` runs the optional WASM renderer.
+- `apps/web`: React + Vite canvas; talks to the server only over WebSocket (`useDocument.ts`). `wasmLayer.ts` runs the optional WASM renderer. Styling is Tailwind CSS v4 without Preflight ([ADR 0003](docs/adr/0003-tailwind-css.md)): theme tokens in `src/styles.css`, shared class lists in `src/ui.ts`; plain class names such as `is-active` or `layer-name` are E2E hooks, keep them.
 - `apps/site`: landing page (`design/landing.paprika.json`, drawn over MCP by `scripts/draw-landing.mjs`) and docs site; `scripts/build.mjs` renders both into `dist/` for GitHub Pages (`.github/workflows/pages.yml`). Not part of `pnpm build`.
 - `crates/render`: Rust renderer (vello on WebGPU, vello_cpu fallback) compiled to WASM by `crates/render/build.mjs` into `apps/web/src/wasm/` (gitignored). Input: `displayList` from `packages/core/src/displayList.ts`.
 

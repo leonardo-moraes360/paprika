@@ -50,7 +50,7 @@ export function PathEditOverlay({ subs, sel, scale }: { subs: Subpath[]; sel: An
   return (
     <g data-testid="path-edit">
       {d && <path d={d} fill="none" stroke="transparent" strokeWidth={10 / scale} data-path-outline="" style={{ pointerEvents: "stroke", cursor: "copy" }} />}
-      {d && <path d={d} fill="none" stroke="var(--select)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" style={{ pointerEvents: "none" }} />}
+      {d && <path d={d} fill="none" stroke="var(--color-select)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" style={{ pointerEvents: "none" }} />}
       {subs.map((s, si) =>
         s.anchors.map((a, k) => {
           const isSel = sel?.sub === si && sel.index === k;
@@ -61,8 +61,8 @@ export function PathEditOverlay({ subs, sel, scale }: { subs: Subpath[]; sel: An
                 if (!h) return null;
                 return (
                   <g key={side}>
-                    <line x1={a.x} y1={a.y} x2={h.x} y2={h.y} stroke="var(--select)" strokeWidth={1} vectorEffect="non-scaling-stroke" style={{ pointerEvents: "none" }} />
-                    <circle cx={h.x} cy={h.y} r={r * 0.8} fill="#fff" stroke="var(--select)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" data-path-handle={`${si}:${k}:${side}`} style={{ cursor: "move" }} />
+                    <line x1={a.x} y1={a.y} x2={h.x} y2={h.y} stroke="var(--color-select)" strokeWidth={1} vectorEffect="non-scaling-stroke" style={{ pointerEvents: "none" }} />
+                    <circle cx={h.x} cy={h.y} r={r * 0.8} fill="#fff" stroke="var(--color-select)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" data-path-handle={`${si}:${k}:${side}`} style={{ cursor: "move" }} />
                   </g>
                 );
               })}
@@ -71,8 +71,8 @@ export function PathEditOverlay({ subs, sel, scale }: { subs: Subpath[]; sel: An
                 y={a.y - r}
                 width={2 * r}
                 height={2 * r}
-                fill={isSel ? "var(--select)" : "#fff"}
-                stroke="var(--select)"
+                fill={isSel ? "var(--color-select)" : "#fff"}
+                stroke="var(--color-select)"
                 strokeWidth={1.5}
                 vectorEffect="non-scaling-stroke"
                 data-path-anchor={`${si}:${k}`}

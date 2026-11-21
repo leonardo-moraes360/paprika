@@ -1,7 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { Document } from "@paprika/core";
 import { AGENT_IDLE_MS, AGENT_TTL_MS, toolVerb, type AgentPresence } from "./agents";
-import "./AgentCursors.css";
+import { cx } from "./ui";
+
+/** Name tags use the system font, like a native cursor label. */
+const tagFont = "[font:600_11px/16px_system-ui,sans-serif]";
 
 interface View {
   x: number;
@@ -66,7 +69,7 @@ export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId
 
   return (
     <>
-      <div className="agent-layer" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${z})` }} aria-hidden>
+      <div className="pointer-events-none absolute top-0 left-0 z-5 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${z})` }} aria-hidden>
         {visible.map((a, i) => {
           const bs = boxes[a.agent] ?? [];
           if (!bs.length) return null;
@@ -81,28 +84,42 @@ export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId
           const tipY = bottom - Math.min(12 / z, (bottom - top) / 4) + (stack * 24) / z;
           const idle = now - a.at > AGENT_IDLE_MS;
           return (
-            <div key={a.agent} className={`agent${idle ? " is-idle" : ""}`} style={{ ["--agent" as string]: a.color }} data-agent={a.agent} data-testid="agent-cursor">
+            <div key={a.agent} className={cx("transition-opacity duration-600 ease-[ease]", idle && "opacity-45")} style={{ ["--agent" as string]: a.color }} data-agent={a.agent} data-testid="agent-cursor">
               {bs.map((b, i) => (
-                <div key={i} className="agent-box" style={{ left: b.x, top: b.y, width: b.w, height: b.h, borderWidth: 1.5 / z }} />
+                <div
+                  key={i}
+                  className="absolute box-border rounded-xs border-[1.5px] border-(--agent) transition-[left,top,width,height] duration-450 ease-glide motion-reduce:transition-none"
+                  style={{ left: b.x, top: b.y, width: b.w, height: b.h, borderWidth: 1.5 / z }} />
               ))}
-              <div className="agent-cursor" style={{ translate: `${tipX}px ${tipY}px`, scale: `${1 / z}` }}>
-                <svg width="18" height="20" viewBox="0 0 18 20" aria-hidden>
-                  <path d="M1.5 1.5 L1.5 16.5 L5.6 12.6 L8.4 18.6 L11.1 17.4 L8.4 11.5 L14.2 11.5 Z" />
+              {/* "agent-cursor" stays as a hook for the E2E suite. */}
+              <div
+                className="agent-cursor absolute top-0 left-0 flex origin-top-left items-start transition-[translate] duration-550 ease-glide motion-reduce:transition-none"
+                style={{ translate: `${tipX}px ${tipY}px`, scale: `${1 / z}` }}>
+                {/* The tip of the arrow is at (1.5, 1.5) of the icon. */}
+                <svg className="-mt-[1.5px] -ml-[1.5px] drop-shadow-cursor" width="18" height="20" viewBox="0 0 18 20" aria-hidden>
+                  <path className="fill-(--agent) stroke-white stroke-[1.2] [stroke-linejoin:round]" d="M1.5 1.5 L1.5 16.5 L5.6 12.6 L8.4 18.6 L11.1 17.4 L8.4 11.5 L14.2 11.5 Z" />
                 </svg>
-                <span className="agent-tag">
-                  {a.name} <em>{toolVerb(a.tool)}</em>
+                <span className={cx("mt-3.5 -ml-0.5 rounded-md bg-(--agent) px-1.75 py-0.5 whitespace-nowrap text-white shadow-tag", tagFont)}>
+                  {a.name} <em className={cx("font-normal not-italic opacity-85", !idle && "after:content-['…']")}>{toolVerb(a.tool)}</em>
                 </span>
               </div>
             </div>
           );
         })}
       </div>
-      <ul className="agent-roster" aria-label="Agentes no documento" data-testid="agent-roster">
+      <ul className="pointer-events-none absolute top-3 right-3 z-6 m-0 flex list-none flex-col items-end gap-1 p-0" aria-label="Agentes no documento" data-testid="agent-roster">
         {visible.map((a) => (
-          <li key={a.agent} className={now - a.at > AGENT_IDLE_MS ? "is-idle" : ""} style={{ ["--agent" as string]: a.color }} title={`${a.name}: ${toolVerb(a.tool)}`}>
-            <span className="agent-dot" />
+          <li
+            key={a.agent}
+            className={cx(
+              "flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--agent)_55%,transparent)] bg-panel py-0.75 pr-2.25 pl-1.75 text-fg transition-opacity duration-600 ease-[ease]",
+              tagFont,
+              now - a.at > AGENT_IDLE_MS && "opacity-55",
+            )}
+            style={{ ["--agent" as string]: a.color }} title={`${a.name}: ${toolVerb(a.tool)}`}>
+            <span className="size-2 rounded-full bg-(--agent)" />
             {a.name}
-            <em>{(boxes[a.agent]?.length ?? 0) || !a.nodes.length ? toolVerb(a.tool) : "em outra página"}</em>
+            <em className="font-normal not-italic text-muted">{(boxes[a.agent]?.length ?? 0) || !a.nodes.length ? toolVerb(a.tool) : "em outra página"}</em>
           </li>
         ))}
       </ul>
