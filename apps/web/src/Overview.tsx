@@ -352,7 +352,9 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
           ref={dialog}
           className="m-auto max-w-[420px] rounded-xl border border-line bg-panel px-5.5 py-5 text-fg backdrop:bg-night/70"
           aria-labelledby="delete-title"
-          onClose={() => setDeleting(null)}
+          // The close event is queued: when the dialog is reopened right after closing (Cancel, then Delete),
+          // the old event arrives while it is open again and must not empty it.
+          onClose={(e) => !e.currentTarget.open && setDeleting(null)}
         >
           {deleting && (
             <form method="dialog" onSubmit={(e) => e.preventDefault()}>

@@ -670,8 +670,10 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => page.locator(".workspace-card.is-active").count(), POLL).toBe(1);
 
     // One click opens a workspace that is not the active one; from the keyboard, Enter (or Space) opens it.
-    const { active: next, workspaces } = await api();
-    const otherId = workspaces.find((w) => w.id !== next)!.id;
+    const next = (await api()).active;
+    const made = await fetch(`${url}/api/workspaces`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Destino do clique" }) });
+    const otherId = ((await made.json()) as { workspace: { id: string } }).workspace.id;
+    await page.reload();
     await page.locator(`[data-workspace-id="${otherId}"]`).click();
     await expect.poll(() => new URL(page.url()).pathname, POLL).toBe(`/w/${otherId}`);
     await expect.poll(async () => (await api()).active, POLL).toBe(otherId);
@@ -680,6 +682,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.locator(`[data-workspace-id="${next}"]`).focus();
     await page.keyboard.press("Enter");
     await expect.poll(() => new URL(page.url()).pathname, POLL).toBe(`/w/${next}`);
+    await expect.poll(async () => (await api()).active, POLL).toBe(next);
+    await fetch(`${url}/api/workspaces/${otherId}`, { method: "DELETE" });
 
     // Back to the original state for later tests.
     await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
