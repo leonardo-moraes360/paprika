@@ -15,7 +15,14 @@
     "dev": "pnpm --filter @paprika/server dev",
     "start": "node packages/server/dist/cli.js serve",
     "test:e2e": "pnpm --filter @paprika/server test:e2e",
-    "check": "pnpm build && pnpm typecheck && pnpm test && pnpm test:e2e"
+    "check": "pnpm build && pnpm typecheck && pnpm test && pnpm test:e2e",
+    "go:build": "cd server-go && go build -buildvcs=false -o bin/paprika ./cmd/paprika",
+    "go:test": "cd server-go && go vet ./... && go test ./...",
+    "go:golden": "node server-go/scripts/gen-golden.mjs && node server-go/scripts/gen-contract.mjs",
+    "test:parity": "pnpm --filter @paprika/server test:parity",
+    "test:parity:go": "pnpm go:build && PAPRIKA_SERVER_BIN=$PWD/server-go/bin/paprika pnpm --filter @paprika/server test:parity",
+    "test:e2e:go": "pnpm go:build && PAPRIKA_SERVER_BIN=$PWD/server-go/bin/paprika pnpm --filter @paprika/server test:e2e",
+    "check:go": "pnpm build && pnpm go:golden && git diff --exit-code -- server-go/internal/core/testdata server-go/contract && pnpm go:test && pnpm test:parity:go && pnpm test:e2e:go"
   },
   "devDependencies": {
     "typescript": "~5.9.3",

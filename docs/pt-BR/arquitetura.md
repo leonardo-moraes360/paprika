@@ -31,6 +31,10 @@
 6. **MCP HTTP stateless.** Um `McpServer` por requisição: sem sessões para vazar; o estado vive no `DocumentStore`. As ferramentas de escrita só respondem depois do flush em disco.
 7. **Local primeiro.** Bind em loopback com validação de Host/Origin. Sem autenticação nem multiusuário nesta versão.
 
+## Servidor em Go
+
+`server-go/` implementa o mesmo servidor em Go, com SQLite como único armazenamento ([ADR 0001](adr/0001-servidor-go-sqlite.md)). As decisões 2, 3, 4, 6 e 7 valem lá também; a decisão 5 é trocada por "o SQLite é a fonte da verdade" (`.paprika.json` por `paprika import`/`export`). O core dele é um port de `@paprika/core` travado por fixtures geradas a partir do core TypeScript, que continua sendo a referência.
+
 ## Limitações conhecidas (v0.1)
 
 - Um processo por arquivo: dois processos escrevendo o mesmo arquivo seguem "último a gravar vence" (o watch recarrega, mas não faz merge). Para usar MCP e canvas juntos, prefira `paprika serve` + MCP HTTP.

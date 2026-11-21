@@ -10,10 +10,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --exclude 'test/e2e/**'",
+    "test": "vitest run --exclude 'test/e2e/**' --exclude 'test/external/**'",
     "dev": "tsx src/cli.ts serve --file ../../examples/demo.paprika.json",
     "test:e2e": "vitest run test/e2e",
-    "seed": "node scripts/seed-demo.mjs"
+    "seed": "node scripts/seed-demo.mjs",
+    "test:parity": "vitest run test/external"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.0",

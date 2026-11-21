@@ -110,7 +110,18 @@ Tamanhos: número, `"hug"` (conteúdo) ou `"fill"` (ocupa o espaço do pai). Det
 packages/core     modelo (zod), applyOps atômico, History, nodeStyle, render/export, lint, outline
 packages/server   DocumentStore (arquivo + watch), MCP (stdio e HTTP), WebSocket, screenshot, CLI
 apps/web          canvas React + Vite
+server-go/        o mesmo servidor em Go, com armazenamento em SQLite (ver abaixo)
 examples/         demo gerada por um agente via MCP (packages/server/scripts/seed-demo.mjs)
+```
+
+## Servidor em Go (SQLite)
+
+`server-go/` é uma implementação em Go do servidor com as mesmas ferramentas MCP, o mesmo protocolo WebSocket e a mesma API HTTP, que guarda documentos, tokens e o histórico de undo/redo em SQLite (arquivos `.paprika.json` entram e saem com `paprika import` / `paprika export`). Ele serve o mesmo canvas, e as mesmas suítes black-box e E2E rodam contra os dois servidores. Uso, estrutura do banco e checagens de paridade: [server-go/README.pt-BR.md](server-go/README.pt-BR.md); registro da decisão: [ADR 0001](docs/pt-BR/adr/0001-servidor-go-sqlite.md).
+
+```bash
+pnpm build && pnpm go:build
+server-go/bin/paprika import examples/demo.paprika.json --db design.db
+server-go/bin/paprika serve --db design.db
 ```
 
 ## Desenvolvimento
@@ -118,6 +129,7 @@ examples/         demo gerada por um agente via MCP (packages/server/scripts/see
 ```bash
 pnpm check        # build + typecheck + testes unitários/integração + E2E (Playwright)
 pnpm dev          # servidor com o demo; em outro terminal: pnpm --filter @paprika/web dev
+pnpm check:go     # servidor Go: fixtures em dia, go test, paridade e E2E contra o binário Go
 ```
 
 Este repositório usa o [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) como harness: invariantes em `.toolbelt/invariants.yaml` (`tb mem list`) e `tb verify run` / `tb stack verify guard` antes de concluir.

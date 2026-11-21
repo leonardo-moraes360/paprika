@@ -1,0 +1,1884 @@
+{
+  "serverInfo": {
+    "name": "paprika",
+    "version": "0.1.0"
+  },
+  "capabilities": {
+    "tools": {
+      "listChanged": true
+    }
+  },
+  "instructions": "# Paprika: guia para agentes\n\nDocumento = mapa plano de nós + rootIds (telas/frames de topo, em coordenadas do canvas).\nTipos: frame (contêiner, único com filhos), rect, ellipse, text, image, path (vetor com curvas bezier).\n\nCampos comuns: name, x, y, width, height (número | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}. Com layout row/column, x/y dos filhos são ignorados.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\nimage: src (https:// ou data:image/), fit (cover|contain|fill), alt.\npath: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),\n  stroke {color,width} (traço), fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,\n  o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó\n  ganha a caixa do desenho. Curvas: \"C c1x c1y c2x c2y x y\" (cúbica), \"Q cx cy x y\" (quadrática), S/T espelham\n  o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.\n\nCores: #hex, rgb(), rgba() ou \"$token\" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.\n\"fill\" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.\n\nFluxo recomendado:\n1. get_document_outline para se orientar (barato).\n2. set_tokens com a paleta e a escala tipográfica.\n3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.\n4. lint_design e corrija o que vier como error/warning.\n5. render_screenshot para conferir visualmente; export_code para levar ao código.\nToda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. O humano vê suas edições ao vivo no canvas.\nCampos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.",
+  "tools": [
+    {
+      "name": "get_design_guide",
+      "title": "Guia do formato",
+      "description": "Explica o modelo de nós, campos aceitos e o fluxo recomendado. Leia antes da primeira edição.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_document_outline",
+      "title": "Estrutura do documento",
+      "description": "Árvore compacta (uma linha por nó: tipo#id, nome, tamanho, posição, estilo-chave), tokens e versão. Barato em tokens.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rootId": {
+            "description": "Só a subárvore deste nó",
+            "type": "string"
+          },
+          "depth": {
+            "description": "Profundidade máxima (0 = só o nó)",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_nodes",
+      "title": "Ler nós",
+      "description": "Retorna o JSON completo dos nós pedidos (todos os campos, com defaults).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "find_nodes",
+      "title": "Buscar nós",
+      "description": "Busca por tipo, substring do nome ou do texto, opcionalmente dentro de uma subárvore.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "frame",
+              "rect",
+              "ellipse",
+              "text",
+              "image",
+              "path"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "within": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "path_info",
+      "title": "Geometria de um caminho",
+      "description": "Valida dados de caminho SVG (d) e devolve a caixa exata do desenho (inclui extremos das curvas bezier e arcos), o número de segmentos e o d normalizado em comandos absolutos. Passe `d` ou o `id` de um nó path.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "d": {
+            "type": "string",
+            "maxLength": 200000
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_nodes",
+      "title": "Criar nós",
+      "description": "Cria um ou mais nós (com children aninhados em frames) sob parentId (null/omitido = canvas). Atômico. Retorna os ids criados na ordem.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "index": {
+            "description": "Posição entre os irmãos; padrão: no fim",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "nodes": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/__schema0"
+            }
+          },
+          "label": {
+            "description": "Descrição curta para o histórico",
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "definitions": {
+          "__schema0": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "frame",
+                  "rect",
+                  "ellipse",
+                  "text",
+                  "image",
+                  "path"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/__schema0"
+                }
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": {}
+          }
+        }
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "update_nodes",
+      "title": "Alterar nós",
+      "description": "Altera campos de vários nós numa transação atômica. null remove o campo. Objetos (layout, stroke, shadow) são substituídos inteiros.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "updates": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "props": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "id",
+                "props"
+              ]
+            }
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "updates"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "delete_nodes",
+      "title": "Apagar nós",
+      "description": "Apaga nós e suas subárvores. Atômico e reversível com undo.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "destructiveHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "move_nodes",
+      "title": "Mover nós",
+      "description": "Muda o pai e/ou a ordem de nós (parentId null = canvas). Não altera x/y.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "moves": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "parentId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "parentId"
+              ]
+            }
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "moves"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "apply_ops",
+      "title": "Transação de operações",
+      "description": "Aplica uma lista mista de operações (create, update, delete, move, set_tokens, rename_document) numa única transação atômica.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ops": {
+            "minItems": 1,
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "create"
+                    },
+                    "node": {
+                      "$ref": "#/definitions/__schema0"
+                    },
+                    "parentId": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "node"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "update"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "props": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id",
+                    "props"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "delete"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "move"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "parentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id",
+                    "parentId"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "set_tokens"
+                    },
+                    "tokens": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "pattern": "^[\\w.-]{1,100}$"
+                      },
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "tokens"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "rename_document"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "name"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "restore"
+                    },
+                    "nodes": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                              },
+                              "name": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "parentId": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "x": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "y": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "width": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "height": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "rotation": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "opacity": {
+                                "default": 1,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "locked": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fill": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "stroke": {
+                                "type": "object",
+                                "properties": {
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "width": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1000
+                                  }
+                                },
+                                "required": [
+                                  "color",
+                                  "width"
+                                ]
+                              },
+                              "radius": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "shadow": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "blur": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "spread": {
+                                    "default": 0,
+                                    "type": "number"
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "blur",
+                                  "color"
+                                ]
+                              },
+                              "notes": {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              "type": {
+                                "type": "string",
+                                "const": "frame"
+                              },
+                              "children": {
+                                "default": [],
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "clip": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "layout": {
+                                "type": "object",
+                                "properties": {
+                                  "mode": {
+                                    "default": "none",
+                                    "type": "string",
+                                    "enum": [
+                                      "none",
+                                      "row",
+                                      "column"
+                                    ]
+                                  },
+                                  "gap": {
+                                    "default": 0,
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "padding": {
+                                    "default": 0,
+                                    "anyOf": [
+                                      {
+                                        "type": "number",
+                                        "minimum": 0
+                                      },
+                                      {
+                                        "type": "array",
+                                        "items": [
+                                          {
+                                            "type": "number",
+                                            "minimum": 0
+                                          },
+                                          {
+                                            "type": "number",
+                                            "minimum": 0
+                                          },
+                                          {
+                                            "type": "number",
+                                            "minimum": 0
+                                          },
+                                          {
+                                            "type": "number",
+                                            "minimum": 0
+                                          }
+                                        ],
+                                        "additionalItems": false,
+                                        "minItems": 4,
+                                        "maxItems": 4
+                                      }
+                                    ]
+                                  },
+                                  "align": {
+                                    "default": "start",
+                                    "type": "string",
+                                    "enum": [
+                                      "start",
+                                      "center",
+                                      "end",
+                                      "stretch"
+                                    ]
+                                  },
+                                  "justify": {
+                                    "default": "start",
+                                    "type": "string",
+                                    "enum": [
+                                      "start",
+                                      "center",
+                                      "end",
+                                      "between"
+                                    ]
+                                  },
+                                  "wrap": {
+                                    "default": false,
+                                    "type": "boolean"
+                                  }
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                              },
+                              "name": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "parentId": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "x": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "y": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "width": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "height": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "rotation": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "opacity": {
+                                "default": 1,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "locked": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fill": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "stroke": {
+                                "type": "object",
+                                "properties": {
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "width": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1000
+                                  }
+                                },
+                                "required": [
+                                  "color",
+                                  "width"
+                                ]
+                              },
+                              "radius": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "shadow": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "blur": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "spread": {
+                                    "default": 0,
+                                    "type": "number"
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "blur",
+                                  "color"
+                                ]
+                              },
+                              "notes": {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              "type": {
+                                "type": "string",
+                                "const": "rect"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                              },
+                              "name": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "parentId": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "x": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "y": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "width": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "height": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "rotation": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "opacity": {
+                                "default": 1,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "locked": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fill": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "stroke": {
+                                "type": "object",
+                                "properties": {
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "width": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1000
+                                  }
+                                },
+                                "required": [
+                                  "color",
+                                  "width"
+                                ]
+                              },
+                              "radius": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "shadow": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "blur": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "spread": {
+                                    "default": 0,
+                                    "type": "number"
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "blur",
+                                  "color"
+                                ]
+                              },
+                              "notes": {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              "type": {
+                                "type": "string",
+                                "const": "ellipse"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                              },
+                              "name": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "parentId": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "x": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "y": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "width": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "height": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "rotation": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "opacity": {
+                                "default": 1,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "locked": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fill": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "stroke": {
+                                "type": "object",
+                                "properties": {
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "width": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1000
+                                  }
+                                },
+                                "required": [
+                                  "color",
+                                  "width"
+                                ]
+                              },
+                              "radius": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "shadow": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "blur": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "spread": {
+                                    "default": 0,
+                                    "type": "number"
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "blur",
+                                  "color"
+                                ]
+                              },
+                              "notes": {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              "type": {
+                                "type": "string",
+                                "const": "text"
+                              },
+                              "text": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              "color": {
+                                "default": "#111111",
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "fontFamily": {
+                                "default": "Inter, system-ui, sans-serif",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "fontSize": {
+                                "default": 16,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 1,
+                                    "maximum": 1000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "pattern": "^\\$[\\w.-]+$"
+                                  }
+                                ]
+                              },
+                              "fontWeight": {
+                                "default": 400,
+                                "type": "integer",
+                                "minimum": 100,
+                                "maximum": 900
+                              },
+                              "lineHeight": {
+                                "default": 1.4,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 10
+                              },
+                              "letterSpacing": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "textAlign": {
+                                "default": "left",
+                                "type": "string",
+                                "enum": [
+                                  "left",
+                                  "center",
+                                  "right"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                              },
+                              "name": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "parentId": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "x": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "y": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "width": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "height": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "rotation": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "opacity": {
+                                "default": 1,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "locked": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fill": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "stroke": {
+                                "type": "object",
+                                "properties": {
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "width": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1000
+                                  }
+                                },
+                                "required": [
+                                  "color",
+                                  "width"
+                                ]
+                              },
+                              "radius": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "shadow": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "blur": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "spread": {
+                                    "default": 0,
+                                    "type": "number"
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "blur",
+                                  "color"
+                                ]
+                              },
+                              "notes": {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              "type": {
+                                "type": "string",
+                                "const": "image"
+                              },
+                              "src": {
+                                "type": "string",
+                                "maxLength": 5000000
+                              },
+                              "fit": {
+                                "default": "cover",
+                                "type": "string",
+                                "enum": [
+                                  "cover",
+                                  "contain",
+                                  "fill"
+                                ]
+                              },
+                              "alt": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 1000
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type",
+                              "src"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                              },
+                              "name": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "parentId": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "x": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "y": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "width": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "height": {
+                                "default": 100,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "hug",
+                                      "fill"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "rotation": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "opacity": {
+                                "default": 1,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "locked": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fill": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "stroke": {
+                                "type": "object",
+                                "properties": {
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "width": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1000
+                                  }
+                                },
+                                "required": [
+                                  "color",
+                                  "width"
+                                ]
+                              },
+                              "radius": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "shadow": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "blur": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "spread": {
+                                    "default": 0,
+                                    "type": "number"
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "blur",
+                                  "color"
+                                ]
+                              },
+                              "notes": {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              "type": {
+                                "type": "string",
+                                "const": "path"
+                              },
+                              "d": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200000
+                              },
+                              "fillRule": {
+                                "default": "nonzero",
+                                "type": "string",
+                                "enum": [
+                                  "nonzero",
+                                  "evenodd"
+                                ]
+                              },
+                              "strokeCap": {
+                                "default": "round",
+                                "type": "string",
+                                "enum": [
+                                  "butt",
+                                  "round",
+                                  "square"
+                                ]
+                              },
+                              "strokeJoin": {
+                                "default": "round",
+                                "type": "string",
+                                "enum": [
+                                  "miter",
+                                  "round",
+                                  "bevel"
+                                ]
+                              },
+                              "viewBox": {
+                                "type": "array",
+                                "items": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                  },
+                                  {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                  }
+                                ],
+                                "additionalItems": false,
+                                "minItems": 4,
+                                "maxItems": 4
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type",
+                              "d"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "rootId": {
+                      "type": "string"
+                    },
+                    "parentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "nodes",
+                    "rootId",
+                    "parentId",
+                    "index"
+                  ]
+                }
+              ]
+            }
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "ops"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "definitions": {
+          "__schema0": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "frame",
+                  "rect",
+                  "ellipse",
+                  "text",
+                  "image",
+                  "path"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/__schema0"
+                }
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": {}
+          }
+        }
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "set_tokens",
+      "title": "Definir tokens",
+      "description": "Cria/atualiza design tokens (cores, tamanhos). Use nos nós como \"$nome\". null remove.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "null"
+              ]
+            }
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "tokens"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "undo",
+      "title": "Desfazer",
+      "description": "Desfaz a última transação (de qualquer autor: agente ou humano).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "redo",
+      "title": "Refazer",
+      "description": "Refaz a última transação desfeita.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_history",
+      "title": "Histórico",
+      "description": "Últimas transações (autor, rótulo, horário). Mostra o que o humano mudou no canvas.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 20,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "lint_design",
+      "title": "Revisar design",
+      "description": "Checa contraste WCAG AA, tokens inexistentes, overflow, texto pequeno/vazio, imagens sem alt e cores fora dos tokens.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rootId": {
+            "type": "string"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "render_screenshot",
+      "title": "Screenshot",
+      "description": "PNG de um nó (ou do canvas inteiro), renderizado pelo mesmo motor do canvas e do export.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rootId": {
+            "type": "string"
+          },
+          "scale": {
+            "default": 1,
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 4
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "export_code",
+      "title": "Exportar código",
+      "description": "Exporta um nó como HTML autocontido ou componente React (TSX) com estilos inline.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rootId": {
+            "type": "string"
+          },
+          "format": {
+            "default": "react",
+            "type": "string",
+            "enum": [
+              "html",
+              "react"
+            ]
+          }
+        },
+        "required": [
+          "rootId"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    }
+  ]
+}

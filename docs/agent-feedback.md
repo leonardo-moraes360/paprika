@@ -37,6 +37,17 @@ Task: add bezier curves so agents and humans can draw organic shapes, then redra
 | 17 | Edit one control point | Changing a curve means rewriting the whole `d` string | `update_path_points` (move anchor/handle by index), and handle editing on the canvas | P3 |
 | 18 | Know the drawn size before placing a part | `path_info` with `canvasBounds` answered it in one call; it also caught a typo (`d inválido: número esperado na posição 12`) | Keep: return position-accurate parse errors for every string field | — |
 
+## 2026-11-21: Go server with SQLite (`server-go/`)
+
+Task: reimplement the server in Go with the same contract, storing data in SQLite.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 19 | Know what the server promises to agents | The tool list and instructions only existed as TypeScript code; a second implementation would drift | Done: `server-go/scripts/gen-contract.mjs` dumps `tools/list` and the instructions into `server-go/contract/mcp.json`, and the parity suite checks both servers return the same contract | — |
+| 20 | Undo after a restart | With the file server, the history lived in memory and was lost on restart | Done in the Go server: both stacks are committed to SQLite with each change | — |
+| 21 | Query the design without loading it all | Agents had to call `get_document`/`query_nodes` | The Go server's `nodes` table can be read with plain SQL (`type`, `name`, `parent_id`); an MCP `sql_query` tool (read-only) could expose it | P3 |
+| 22 | Same actor name everywhere | Still taken from the HTTP User-Agent (see #10); kept identical in Go for parity | Switch both servers to `clientInfo.name` together | P3 |
+
 ## What worked well
 
 - Nested `create_nodes` built a whole proposal (≈60 nodes) in one call, atomically.
