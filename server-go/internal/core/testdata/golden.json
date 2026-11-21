@@ -9678,7 +9678,7 @@
        }
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova ellipse para dentro de uma página (parentId = id da página)",
+     "error": "op[2]: o documento tem páginas, mas \"e1\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "3bbbb10c3fab4f944a5b4c8089b60d685c92c353808f416e059296d4ebeaf18f",
      "canUndo": false,
      "canRedo": false
@@ -9794,7 +9794,7 @@
        }
       }
      ],
-     "error": "op[2]: o documento tem páginas: crie ou mova path para dentro de uma página (parentId = id da página)",
+     "error": "op[2]: nó inválido: d: d inválido: número esperado na posição 8 (fim do texto)",
      "sha256": "159e6f9226d7ccb619f1cf6aa2c7a9d301bd854c65bb001a66341595fb601220",
      "canUndo": true,
      "canRedo": false
@@ -10001,7 +10001,7 @@
        }
       }
      ],
-     "error": "op[1]: o documento tem páginas: crie ou mova frame para dentro de uma página (parentId = id da página)",
+     "error": "op[1]: o documento tem páginas, mas \"n25_75\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "b05186972fc1d46c40d01ce64ed98d21f158c6a166a53296df09e52d3a9d4f3c",
      "canUndo": true,
      "canRedo": false
@@ -10544,7 +10544,7 @@
        "parentId": "g2"
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova group para dentro de uma página (parentId = id da página)",
+     "error": "op[1]: mover \"g2\" para dentro de si mesmo criaria um ciclo",
      "sha256": "3bbbb10c3fab4f944a5b4c8089b60d685c92c353808f416e059296d4ebeaf18f",
      "canUndo": false,
      "canRedo": false
@@ -10621,7 +10621,7 @@
        }
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova text para dentro de uma página (parentId = id da página)",
+     "error": "op[1]: o documento tem páginas, mas \"n27_25\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "86ccc8bc89ecdb944a7e099bd572a4788b34444061f703755135877b37bccd3d",
      "canUndo": true,
      "canRedo": false
@@ -10659,7 +10659,7 @@
        "id": "n27_19"
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova frame para dentro de uma página (parentId = id da página)",
+     "error": "op[2]: o documento tem páginas, mas \"n27_35\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "86ccc8bc89ecdb944a7e099bd572a4788b34444061f703755135877b37bccd3d",
      "canUndo": true,
      "canRedo": false
@@ -10881,7 +10881,7 @@
        }
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova group para dentro de uma página (parentId = id da página)",
+     "error": "op[2]: o documento tem páginas, mas \"n27_61\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "98a8968d8045ba5643d273d0765bf64ebe838ec9dc8b915ada5fd20f0408bee1",
      "canUndo": true,
      "canRedo": false
@@ -10953,7 +10953,7 @@
        "parentId": null
       }
      ],
-     "error": "op[1]: o documento tem páginas: crie ou mova text para dentro de uma página (parentId = id da página)",
+     "error": "op[1]: o documento tem páginas, mas \"n27_65\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "92dbb330f0d086cde55573fec94f22b746c7cc0cd90f4c3949365a796c012f4c",
      "canUndo": true,
      "canRedo": false
@@ -11525,7 +11525,7 @@
        "id": "pg1"
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova frame para dentro de uma página (parentId = id da página)",
+     "error": "op[2]: o documento tem páginas, mas \"n29_11\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "8065ffbbc7015da105237121ad095a5cf6040a91e03a5b4f5c733d8b1c57e3bf",
      "canUndo": true,
      "canRedo": false
@@ -11568,7 +11568,7 @@
        "id": "pg2"
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova rect para dentro de uma página (parentId = id da página)",
+     "error": "op[1]: o documento tem páginas, mas \"r2\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "8f9819d6837b5096b38b91886de4aa9169793b671444cb992ee63b2a5c4b2f23",
      "canUndo": true,
      "canRedo": false
@@ -11647,7 +11647,7 @@
        "index": 2
       }
      ],
-     "error": "op[1]: o documento tem páginas: crie ou mova path para dentro de uma página (parentId = id da página)",
+     "error": "op[2]: o documento tem páginas, mas \"n29_34\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "2e137346c6188348a6d673257fb9253f83fecd78e230caea163d00e7fa69327a",
      "canUndo": true,
      "canRedo": false
@@ -11820,7 +11820,7 @@
        "id": "f2"
       }
      ],
-     "error": "op[1]: o documento tem páginas: crie ou mova group para dentro de uma página (parentId = id da página)",
+     "error": "op[2]: o documento tem páginas, mas \"n29_77\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "459ed56afa52b384bdf87c33e8c22b81834ea3dcaa39516f5918fd98dfe5b11e",
      "canUndo": true,
      "canRedo": false
@@ -11848,7 +11848,7 @@
        }
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova rect para dentro de uma página (parentId = id da página)",
+     "error": "op[1]: o documento tem páginas, mas \"n29_48\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "2c683027ba5cf85c34e7b93dc2fd2d187e3f9387713b1c837f81ed3058cc1221",
      "canUndo": true,
      "canRedo": true
@@ -12937,7 +12937,7 @@
        "index": 1
       }
      ],
-     "error": "op[1]: o documento tem páginas: crie ou mova ellipse para dentro de uma página (parentId = id da página)",
+     "error": "op[1]: o documento tem páginas, mas \"e1\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "9b3e2e84713abbf41a81254537840982e1fd95f6e397cc25ee0877023692b28b",
      "canUndo": true,
      "canRedo": false
@@ -13065,7 +13065,7 @@
        "index": 1
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova frame para dentro de uma página (parentId = id da página)",
+     "error": "op[0]: o documento tem páginas, mas \"f2\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "83ce391d5a7594c5e9082df96e02ef56253a4313520585b1b3b7c4d3af616aa8",
      "canUndo": true,
      "canRedo": false
@@ -13113,7 +13113,7 @@
        }
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova group para dentro de uma página (parentId = id da página)",
+     "error": "op[1]: o documento tem páginas, mas \"n33_29\", \"n33_37\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "83ce391d5a7594c5e9082df96e02ef56253a4313520585b1b3b7c4d3af616aa8",
      "canUndo": true,
      "canRedo": false
@@ -13349,7 +13349,7 @@
        "parentId": null
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova text para dentro de uma página (parentId = id da página)",
+     "error": "op[0]: o documento tem páginas, mas \"n33_65\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "f3614f3236adb2e12e8af0e7edd5ecdcc3c3b08f9e620f674617e53e5ef1b632",
      "canUndo": true,
      "canRedo": false
@@ -13364,7 +13364,7 @@
        "index": 0
       }
      ],
-     "error": "op[0]: o documento tem páginas: crie ou mova text para dentro de uma página (parentId = id da página)",
+     "error": "op[0]: o documento tem páginas, mas \"t1\" ficou no nível do canvas; mova para uma página (parentId = id da página)",
      "sha256": "f3614f3236adb2e12e8af0e7edd5ecdcc3c3b08f9e620f674617e53e5ef1b632",
      "canUndo": true,
      "canRedo": false
@@ -14617,7 +14617,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: operação inválida: op: Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore'"
+   "error": "op[0]: operação inválida: op: Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page'"
   },
   {
    "doc": "empty",
@@ -15460,7 +15460,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: o documento tem páginas: crie ou mova rect para dentro de uma página (parentId = id da página)"
+   "error": "op[0]: o documento tem páginas, mas \"loose\" ficou no nível do canvas; mova para uma página (parentId = id da página)"
   },
   {
    "doc": "paged",
@@ -15472,7 +15472,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: o documento tem páginas: crie ou mova frame para dentro de uma página (parentId = id da página)"
+   "error": "op[0]: o documento tem páginas, mas \"board\" ficou no nível do canvas; mova para uma página (parentId = id da página)"
   },
   {
    "doc": "paged",
@@ -15605,6 +15605,143 @@
    ],
    "ok": false,
    "error": "op[0]: página só pode ficar no nível do canvas (parentId null)"
+  },
+  {
+   "doc": "free",
+   "ops": [
+    {
+     "op": "update",
+     "id": "r1",
+     "props": {
+      "x": 0
+     }
+    },
+    {
+     "op": "group",
+     "ids": [
+      "r1",
+      "t1"
+     ],
+     "id": "g",
+     "name": "G"
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"board\"\n  ],\n  \"nodes\": {\n    \"board\": {\n      \"id\": \"board\",\n      \"name\": \"Board\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 400,\n      \"height\": 300,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#fbf8f4\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"e1\",\n        \"g\",\n        \"p1\"\n      ],\n      \"clip\": true\n    },\n    \"r1\": {\n      \"id\": \"r1\",\n      \"name\": \"\",\n      \"parentId\": \"g\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 20,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"e1\": {\n      \"id\": \"e1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 100.5,\n      \"y\": 20.25,\n      \"width\": 30,\n      \"height\": 30,\n      \"rotation\": 30,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#1e2336\",\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"t1\": {\n      \"id\": \"t1\",\n      \"name\": \"\",\n      \"parentId\": \"g\",\n      \"x\": 10,\n      \"y\": 150,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Livre\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"p1\": {\n      \"id\": \"p1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 200,\n      \"y\": 100,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#c43d27\",\n        \"width\": 3\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 C 20 -30 60 30 80 0\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    },\n    \"g\": {\n      \"id\": \"g\",\n      \"name\": \"G\",\n      \"parentId\": \"board\",\n      \"type\": \"group\",\n      \"x\": 0,\n      \"y\": 50,\n      \"width\": 20,\n      \"height\": 150,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"children\": [\n        \"r1\",\n        \"t1\"\n      ]\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"update\",\"id\":\"r1\",\"props\":{\"x\":0,\"y\":50}},{\"op\":\"update\",\"id\":\"t1\",\"props\":{\"x\":10,\"y\":200}},{\"op\":\"update\",\"id\":\"g\",\"props\":{\"x\":0,\"y\":0}},{\"op\":\"move\",\"id\":\"t1\",\"parentId\":\"board\",\"index\":1},{\"op\":\"move\",\"id\":\"r1\",\"parentId\":\"board\",\"index\":0},{\"op\":\"delete\",\"id\":\"g\"},{\"op\":\"update\",\"id\":\"r1\",\"props\":{\"x\":40}}]",
+   "created": [
+    "g"
+   ]
+  },
+  {
+   "doc": "free",
+   "ops": [
+    {
+     "op": "group",
+     "ids": [
+      "r1",
+      "board"
+     ]
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: só nós com o mesmo pai podem ser agrupados (\"board\" está em canvas, \"r1\" em board)"
+  },
+  {
+   "doc": "free",
+   "ops": [
+    {
+     "op": "group",
+     "ids": []
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: operação inválida: ids: Too small: expected array to have >=1 items"
+  },
+  {
+   "doc": "grouped",
+   "ops": [
+    {
+     "op": "update",
+     "id": "g1",
+     "props": {
+      "x": 7,
+      "opacity": 0.5
+     }
+    },
+    {
+     "op": "ungroup",
+     "ids": [
+      "g1"
+     ]
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"board\"\n  ],\n  \"nodes\": {\n    \"board\": {\n      \"id\": \"board\",\n      \"name\": \"Board\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 400,\n      \"height\": 300,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#fbf8f4\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"r1\",\n        \"e1\",\n        \"t1\",\n        \"p1\"\n      ],\n      \"clip\": true\n    },\n    \"r1\": {\n      \"id\": \"r1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 7,\n      \"y\": 50,\n      \"width\": 20,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 0.5,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"e1\": {\n      \"id\": \"e1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 67.5,\n      \"y\": 20.25,\n      \"width\": 30,\n      \"height\": 30,\n      \"rotation\": 30,\n      \"opacity\": 0.5,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#1e2336\",\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"t1\": {\n      \"id\": \"t1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 10,\n      \"y\": 200,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Livre\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"p1\": {\n      \"id\": \"p1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 200,\n      \"y\": 100,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#c43d27\",\n        \"width\": 3\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 C 20 -30 60 30 80 0\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"restore\",\"nodes\":[{\"id\":\"g1\",\"name\":\"Par\",\"parentId\":\"board\",\"type\":\"group\",\"x\":7,\"y\":14.7596,\"width\":95.9904,\"height\":45.2404,\"opacity\":0.5,\"visible\":true,\"locked\":false,\"children\":[]}],\"rootId\":\"g1\",\"parentId\":\"board\",\"index\":2},{\"op\":\"update\",\"id\":\"e1\",\"props\":{\"x\":60.5,\"y\":5.4904,\"opacity\":1}},{\"op\":\"move\",\"id\":\"e1\",\"parentId\":\"g1\",\"index\":0},{\"op\":\"update\",\"id\":\"r1\",\"props\":{\"x\":0,\"y\":35.2404,\"opacity\":1}},{\"op\":\"move\",\"id\":\"r1\",\"parentId\":\"g1\",\"index\":0},{\"op\":\"update\",\"id\":\"g1\",\"props\":{\"x\":40,\"opacity\":1}}]",
+   "created": []
+  },
+  {
+   "doc": "grouped",
+   "ops": [
+    {
+     "op": "ungroup",
+     "ids": [
+      "r1"
+     ]
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: nó \"r1\" é rect, não group"
+  },
+  {
+   "doc": "free",
+   "ops": [
+    {
+     "op": "add_page",
+     "id": "p2",
+     "firstId": "p1",
+     "firstName": "Início",
+     "name": "Dois"
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: id \"p1\" já existe"
+  },
+  {
+   "doc": "paged",
+   "ops": [
+    {
+     "op": "add_page",
+     "id": "p3"
+    },
+    {
+     "op": "create",
+     "parentId": "p3",
+     "node": {
+      "type": "rect",
+      "id": "r3"
+     }
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"pg1\",\n    \"pg2\",\n    \"p3\"\n  ],\n  \"nodes\": {\n    \"board\": {\n      \"id\": \"board\",\n      \"name\": \"Board\",\n      \"parentId\": \"pg1\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 400,\n      \"height\": 300,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#fbf8f4\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"g1\",\n        \"t1\",\n        \"p1\"\n      ],\n      \"clip\": true\n    },\n    \"r1\": {\n      \"id\": \"r1\",\n      \"name\": \"\",\n      \"parentId\": \"g1\",\n      \"x\": 0,\n      \"y\": 35.2404,\n      \"width\": 20,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"e1\": {\n      \"id\": \"e1\",\n      \"name\": \"\",\n      \"parentId\": \"g1\",\n      \"x\": 60.5,\n      \"y\": 5.4904,\n      \"width\": 30,\n      \"height\": 30,\n      \"rotation\": 30,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#1e2336\",\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"t1\": {\n      \"id\": \"t1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 10,\n      \"y\": 200,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Livre\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"p1\": {\n      \"id\": \"p1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 200,\n      \"y\": 100,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#c43d27\",\n        \"width\": 3\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 C 20 -30 60 30 80 0\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    },\n    \"g1\": {\n      \"id\": \"g1\",\n      \"name\": \"Par\",\n      \"parentId\": \"board\",\n      \"type\": \"group\",\n      \"x\": 40,\n      \"y\": 14.7596,\n      \"width\": 95.9904,\n      \"height\": 45.2404,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"children\": [\n        \"r1\",\n        \"e1\"\n      ]\n    },\n    \"pg1\": {\n      \"id\": \"pg1\",\n      \"name\": \"Página 1\",\n      \"parentId\": null,\n      \"type\": \"page\",\n      \"children\": [\n        \"board\"\n      ]\n    },\n    \"pg2\": {\n      \"id\": \"pg2\",\n      \"name\": \"Rascunhos\",\n      \"parentId\": null,\n      \"type\": \"page\",\n      \"fill\": \"#101418\",\n      \"children\": [\n        \"f2\"\n      ]\n    },\n    \"f2\": {\n      \"id\": \"f2\",\n      \"name\": \"\",\n      \"parentId\": \"pg2\",\n      \"x\": 500,\n      \"y\": 600,\n      \"width\": 120,\n      \"height\": 80,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"g2\"\n      ],\n      \"clip\": true\n    },\n    \"g2\": {\n      \"id\": \"g2\",\n      \"name\": \"\",\n      \"parentId\": \"f2\",\n      \"type\": \"group\",\n      \"x\": 10,\n      \"y\": 10,\n      \"width\": 30,\n      \"height\": 20,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"children\": [\n        \"r2\"\n      ]\n    },\n    \"r2\": {\n      \"id\": \"r2\",\n      \"name\": \"\",\n      \"parentId\": \"g2\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 30,\n      \"height\": 20,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"p3\": {\n      \"id\": \"p3\",\n      \"name\": \"Página 3\",\n      \"parentId\": null,\n      \"type\": \"page\",\n      \"children\": [\n        \"r3\"\n      ]\n    },\n    \"r3\": {\n      \"id\": \"r3\",\n      \"name\": \"\",\n      \"parentId\": \"p3\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"delete\",\"id\":\"r3\"},{\"op\":\"delete\",\"id\":\"p3\"}]",
+   "created": [
+    "p3",
+    "r3"
+   ]
+  },
+  {
+   "doc": "paged",
+   "ops": [
+    {
+     "op": "add_page",
+     "id": "pg1"
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: id \"pg1\" já existe"
   }
  ],
  "zodResults": [
@@ -15612,7 +15749,7 @@
    "input": {
     "op": "x"
    },
-   "error": "[\n  {\n    \"code\": \"invalid_union\",\n    \"errors\": [],\n    \"note\": \"No matching discriminator\",\n    \"discriminator\": \"op\",\n    \"options\": [\n      \"create\",\n      \"update\",\n      \"delete\",\n      \"move\",\n      \"set_tokens\",\n      \"rename_document\",\n      \"restore\"\n    ],\n    \"path\": [\n      \"op\"\n    ],\n    \"message\": \"Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore'\"\n  }\n]"
+   "error": "[\n  {\n    \"code\": \"invalid_union\",\n    \"errors\": [],\n    \"note\": \"No matching discriminator\",\n    \"discriminator\": \"op\",\n    \"options\": [\n      \"create\",\n      \"update\",\n      \"delete\",\n      \"move\",\n      \"set_tokens\",\n      \"rename_document\",\n      \"restore\",\n      \"group\",\n      \"ungroup\",\n      \"add_page\"\n    ],\n    \"path\": [\n      \"op\"\n    ],\n    \"message\": \"Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page'\"\n  }\n]"
   },
   {
    "input": {
@@ -15674,6 +15811,26 @@
     "parentId": 3
    },
    "error": "[\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"parentId\"\n    ],\n    \"message\": \"Invalid input: expected string, received number\"\n  }\n]"
+  },
+  {
+   "input": {
+    "op": "group",
+    "ids": []
+   },
+   "error": "[\n  {\n    \"origin\": \"array\",\n    \"code\": \"too_small\",\n    \"minimum\": 1,\n    \"inclusive\": true,\n    \"path\": [\n      \"ids\"\n    ],\n    \"message\": \"Too small: expected array to have >=1 items\"\n  }\n]"
+  },
+  {
+   "input": {
+    "op": "ungroup"
+   },
+   "error": "[\n  {\n    \"expected\": \"array\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"ids\"\n    ],\n    \"message\": \"Invalid input: expected array, received undefined\"\n  }\n]"
+  },
+  {
+   "input": {
+    "op": "add_page",
+    "name": 3
+   },
+   "error": "[\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"name\"\n    ],\n    \"message\": \"Invalid input: expected string, received number\"\n  }\n]"
   }
  ],
  "history": [
@@ -18019,6 +18176,211 @@
      "board",
      "g1",
      "pg2"
+    ],
+    "textE": [
+     "t1"
+    ],
+    "within": [
+     "pg1",
+     "board",
+     "g1",
+     "r1",
+     "e1",
+     "t1",
+     "p1"
+    ]
+   }
+  },
+  {
+   "name": "op101",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"board\"\n  ],\n  \"nodes\": {\n    \"board\": {\n      \"id\": \"board\",\n      \"name\": \"Board\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 400,\n      \"height\": 300,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#fbf8f4\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"e1\",\n        \"g\",\n        \"p1\"\n      ],\n      \"clip\": true\n    },\n    \"r1\": {\n      \"id\": \"r1\",\n      \"name\": \"\",\n      \"parentId\": \"g\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 20,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"e1\": {\n      \"id\": \"e1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 100.5,\n      \"y\": 20.25,\n      \"width\": 30,\n      \"height\": 30,\n      \"rotation\": 30,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#1e2336\",\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"t1\": {\n      \"id\": \"t1\",\n      \"name\": \"\",\n      \"parentId\": \"g\",\n      \"x\": 10,\n      \"y\": 150,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Livre\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"p1\": {\n      \"id\": \"p1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 200,\n      \"y\": 100,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#c43d27\",\n        \"width\": 3\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 C 20 -30 60 30 80 0\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    },\n    \"g\": {\n      \"id\": \"g\",\n      \"name\": \"G\",\n      \"parentId\": \"board\",\n      \"type\": \"group\",\n      \"x\": 0,\n      \"y\": 50,\n      \"width\": 20,\n      \"height\": 150,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"children\": [\n        \"r1\",\n        \"t1\"\n      ]\n    }\n  }\n}",
+   "outline": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4\n  ellipse#e1 30×30 @100.5,20.25 fill=#1e2336\n  group#g \"G\" 20×150 @0,50\n    rect#r1 20×10 @0,0 fill=#c43d27\n    text#t1 hug×hug @10,150 \"Livre\" 16/400 color=#1e2336\n  path#p1 80×9 @200,100 d=\"M0 0 C 20 -30 60 30 80 0\" stroke=#c43d27/3",
+   "outlineDepth0": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4\n  … 3 filho(s)",
+   "outlineDepth1": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4\n  ellipse#e1 30×30 @100.5,20.25 fill=#1e2336\n  group#g \"G\" 20×150 @0,50\n    … 2 filho(s)\n  path#p1 80×9 @200,100 d=\"M0 0 C 20 -30 60 30 80 0\" stroke=#c43d27/3",
+   "lint": "[]",
+   "lintRoots": {
+    "board": "[]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:400px;height:300px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"board\" data-paprika-type=\"frame\" data-name=\"Board\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:400px;flex-shrink:0;height:300px;background:#fbf8f4;overflow:hidden\"><div data-paprika-id=\"e1\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:100.5px;top:20.25px;width:30px;flex-shrink:0;height:30px;transform:rotate(30deg);background:#1e2336;border-radius:50%\"></div><div data-paprika-id=\"g\" data-paprika-type=\"group\" data-name=\"G\" style=\"box-sizing:border-box;position:absolute;left:0px;top:50px;width:20px;flex-shrink:0;height:150px\"><div data-paprika-id=\"r1\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:20px;flex-shrink:0;height:10px;background:#c43d27\"></div><div data-paprika-id=\"t1\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:10px;top:150px;width:max-content;height:max-content;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Livre</div></div><svg data-paprika-id=\"p1\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:200px;top:100px;width:80px;flex-shrink:0;height:9px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke=\"#c43d27\" stroke-width=\"3\"/></svg></div></body></html>",
+   "htmlRoots": {
+    "board": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:400px;height:300px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"board\" data-paprika-type=\"frame\" data-name=\"Board\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:400px;flex-shrink:0;height:300px;background:#fbf8f4;overflow:hidden\"><div data-paprika-id=\"e1\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:100.5px;top:20.25px;width:30px;flex-shrink:0;height:30px;transform:rotate(30deg);background:#1e2336;border-radius:50%\"></div><div data-paprika-id=\"g\" data-paprika-type=\"group\" data-name=\"G\" style=\"box-sizing:border-box;position:absolute;left:0px;top:50px;width:20px;flex-shrink:0;height:150px\"><div data-paprika-id=\"r1\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:20px;flex-shrink:0;height:10px;background:#c43d27\"></div><div data-paprika-id=\"t1\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:10px;top:150px;width:max-content;height:max-content;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Livre</div></div><svg data-paprika-id=\"p1\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:200px;top:100px;width:80px;flex-shrink:0;height:9px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke=\"#c43d27\" stroke-width=\"3\"/></svg></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "board": "export function Board() {\n  return (\n    <div data-name=\"Board\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"400px\", flexShrink: 0, height: \"300px\", background: \"#fbf8f4\", overflow: \"hidden\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"100.5px\", top: \"20.25px\", width: \"30px\", flexShrink: 0, height: \"30px\", transform: \"rotate(30deg)\", background: \"#1e2336\", borderRadius: \"50%\" }} />\n      <div data-name=\"G\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"50px\", width: \"20px\", flexShrink: 0, height: \"150px\" }}>\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"20px\", flexShrink: 0, height: \"10px\", background: \"#c43d27\" }} />\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"10px\", top: \"150px\", width: \"max-content\", height: \"max-content\", color: \"#1e2336\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Livre</div>\n      </div>\n      <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"200px\", top: \"100px\", width: \"80px\", flexShrink: 0, height: \"9px\", overflow: \"visible\", display: \"block\" }}>\n        <path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" stroke=\"#c43d27\" strokeWidth={3} />\n      </svg>\n    </div>\n  );\n}\n",
+    "r1": "export function R1() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"20px\", flexShrink: 0, height: \"10px\", background: \"#c43d27\" }} />\n  );\n}\n",
+    "e1": "export function E1() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"30px\", flexShrink: 0, height: \"30px\", transform: \"rotate(30deg)\", background: \"#1e2336\", borderRadius: \"50%\" }} />\n  );\n}\n",
+    "t1": "export function T1() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#1e2336\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Livre</div>\n  );\n}\n",
+    "p1": "export function P1() {\n  return (\n    <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"80px\", flexShrink: 0, height: \"9px\", overflow: \"visible\", display: \"block\" }}>\n      <path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" stroke=\"#c43d27\" strokeWidth={3} />\n    </svg>\n  );\n}\n",
+    "g": "export function G() {\n  return (\n    <div data-name=\"G\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"20px\", flexShrink: 0, height: \"150px\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"20px\", flexShrink: 0, height: \"10px\", background: \"#c43d27\" }} />\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"10px\", top: \"150px\", width: \"max-content\", height: \"max-content\", color: \"#1e2336\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Livre</div>\n    </div>\n  );\n}\n"
+   },
+   "describe": {
+    "board": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4",
+    "r1": "rect#r1 20×10 @0,0 fill=#c43d27",
+    "e1": "ellipse#e1 30×30 @100.5,20.25 fill=#1e2336",
+    "t1": "text#t1 hug×hug @10,150 \"Livre\" 16/400 color=#1e2336",
+    "p1": "path#p1 80×9 @200,100 d=\"M0 0 C 20 -30 60 30 80 0\" stroke=#c43d27/3",
+    "g": "group#g \"G\" 20×150 @0,50"
+   },
+   "style": {
+    "board": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:400px;flex-shrink:0;height:300px;background:#fbf8f4;overflow:hidden",
+    "r1": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:20px;flex-shrink:0;height:10px;background:#c43d27",
+    "e1": "box-sizing:border-box;position:absolute;left:100.5px;top:20.25px;width:30px;flex-shrink:0;height:30px;transform:rotate(30deg);background:#1e2336;border-radius:50%",
+    "t1": "box-sizing:border-box;position:absolute;left:10px;top:150px;width:max-content;height:max-content;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0",
+    "p1": "box-sizing:border-box;position:absolute;left:200px;top:100px;width:80px;flex-shrink:0;height:9px;overflow:visible;display:block",
+    "g": "box-sizing:border-box;position:absolute;left:0px;top:50px;width:20px;flex-shrink:0;height:150px"
+   },
+   "find": {
+    "text": [
+     "t1"
+    ],
+    "nameA": [
+     "board"
+    ],
+    "textE": [
+     "t1"
+    ],
+    "within": [
+     "board",
+     "e1",
+     "g",
+     "r1",
+     "t1",
+     "p1"
+    ]
+   }
+  },
+  {
+   "name": "op104",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"board\"\n  ],\n  \"nodes\": {\n    \"board\": {\n      \"id\": \"board\",\n      \"name\": \"Board\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 400,\n      \"height\": 300,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#fbf8f4\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"r1\",\n        \"e1\",\n        \"t1\",\n        \"p1\"\n      ],\n      \"clip\": true\n    },\n    \"r1\": {\n      \"id\": \"r1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 7,\n      \"y\": 50,\n      \"width\": 20,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 0.5,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"e1\": {\n      \"id\": \"e1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 67.5,\n      \"y\": 20.25,\n      \"width\": 30,\n      \"height\": 30,\n      \"rotation\": 30,\n      \"opacity\": 0.5,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#1e2336\",\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"t1\": {\n      \"id\": \"t1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 10,\n      \"y\": 200,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Livre\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"p1\": {\n      \"id\": \"p1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 200,\n      \"y\": 100,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#c43d27\",\n        \"width\": 3\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 C 20 -30 60 30 80 0\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    }\n  }\n}",
+   "outline": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4\n  rect#r1 20×10 @7,50 fill=#c43d27\n  ellipse#e1 30×30 @67.5,20.25 fill=#1e2336\n  text#t1 hug×hug @10,200 \"Livre\" 16/400 color=#1e2336\n  path#p1 80×9 @200,100 d=\"M0 0 C 20 -30 60 30 80 0\" stroke=#c43d27/3",
+   "outlineDepth0": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4\n  … 4 filho(s)",
+   "outlineDepth1": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4\n  rect#r1 20×10 @7,50 fill=#c43d27\n  ellipse#e1 30×30 @67.5,20.25 fill=#1e2336\n  text#t1 hug×hug @10,200 \"Livre\" 16/400 color=#1e2336\n  path#p1 80×9 @200,100 d=\"M0 0 C 20 -30 60 30 80 0\" stroke=#c43d27/3",
+   "lint": "[]",
+   "lintRoots": {
+    "board": "[]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:400px;height:300px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"board\" data-paprika-type=\"frame\" data-name=\"Board\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:400px;flex-shrink:0;height:300px;background:#fbf8f4;overflow:hidden\"><div data-paprika-id=\"r1\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:7px;top:50px;width:20px;flex-shrink:0;height:10px;opacity:0.5;background:#c43d27\"></div><div data-paprika-id=\"e1\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:67.5px;top:20.25px;width:30px;flex-shrink:0;height:30px;transform:rotate(30deg);opacity:0.5;background:#1e2336;border-radius:50%\"></div><div data-paprika-id=\"t1\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:10px;top:200px;width:max-content;height:max-content;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Livre</div><svg data-paprika-id=\"p1\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:200px;top:100px;width:80px;flex-shrink:0;height:9px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke=\"#c43d27\" stroke-width=\"3\"/></svg></div></body></html>",
+   "htmlRoots": {
+    "board": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:400px;height:300px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"board\" data-paprika-type=\"frame\" data-name=\"Board\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:400px;flex-shrink:0;height:300px;background:#fbf8f4;overflow:hidden\"><div data-paprika-id=\"r1\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:7px;top:50px;width:20px;flex-shrink:0;height:10px;opacity:0.5;background:#c43d27\"></div><div data-paprika-id=\"e1\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:67.5px;top:20.25px;width:30px;flex-shrink:0;height:30px;transform:rotate(30deg);opacity:0.5;background:#1e2336;border-radius:50%\"></div><div data-paprika-id=\"t1\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:10px;top:200px;width:max-content;height:max-content;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Livre</div><svg data-paprika-id=\"p1\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:200px;top:100px;width:80px;flex-shrink:0;height:9px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke=\"#c43d27\" stroke-width=\"3\"/></svg></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "board": "export function Board() {\n  return (\n    <div data-name=\"Board\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"400px\", flexShrink: 0, height: \"300px\", background: \"#fbf8f4\", overflow: \"hidden\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"7px\", top: \"50px\", width: \"20px\", flexShrink: 0, height: \"10px\", opacity: 0.5, background: \"#c43d27\" }} />\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"67.5px\", top: \"20.25px\", width: \"30px\", flexShrink: 0, height: \"30px\", transform: \"rotate(30deg)\", opacity: 0.5, background: \"#1e2336\", borderRadius: \"50%\" }} />\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"10px\", top: \"200px\", width: \"max-content\", height: \"max-content\", color: \"#1e2336\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Livre</div>\n      <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"200px\", top: \"100px\", width: \"80px\", flexShrink: 0, height: \"9px\", overflow: \"visible\", display: \"block\" }}>\n        <path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" stroke=\"#c43d27\" strokeWidth={3} />\n      </svg>\n    </div>\n  );\n}\n",
+    "r1": "export function R1() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"20px\", flexShrink: 0, height: \"10px\", opacity: 0.5, background: \"#c43d27\" }} />\n  );\n}\n",
+    "e1": "export function E1() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"30px\", flexShrink: 0, height: \"30px\", transform: \"rotate(30deg)\", opacity: 0.5, background: \"#1e2336\", borderRadius: \"50%\" }} />\n  );\n}\n",
+    "t1": "export function T1() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#1e2336\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Livre</div>\n  );\n}\n",
+    "p1": "export function P1() {\n  return (\n    <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"80px\", flexShrink: 0, height: \"9px\", overflow: \"visible\", display: \"block\" }}>\n      <path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" stroke=\"#c43d27\" strokeWidth={3} />\n    </svg>\n  );\n}\n"
+   },
+   "describe": {
+    "board": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4",
+    "r1": "rect#r1 20×10 @7,50 fill=#c43d27",
+    "e1": "ellipse#e1 30×30 @67.5,20.25 fill=#1e2336",
+    "t1": "text#t1 hug×hug @10,200 \"Livre\" 16/400 color=#1e2336",
+    "p1": "path#p1 80×9 @200,100 d=\"M0 0 C 20 -30 60 30 80 0\" stroke=#c43d27/3"
+   },
+   "style": {
+    "board": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:400px;flex-shrink:0;height:300px;background:#fbf8f4;overflow:hidden",
+    "r1": "box-sizing:border-box;position:absolute;left:7px;top:50px;width:20px;flex-shrink:0;height:10px;opacity:0.5;background:#c43d27",
+    "e1": "box-sizing:border-box;position:absolute;left:67.5px;top:20.25px;width:30px;flex-shrink:0;height:30px;transform:rotate(30deg);opacity:0.5;background:#1e2336;border-radius:50%",
+    "t1": "box-sizing:border-box;position:absolute;left:10px;top:200px;width:max-content;height:max-content;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0",
+    "p1": "box-sizing:border-box;position:absolute;left:200px;top:100px;width:80px;flex-shrink:0;height:9px;overflow:visible;display:block"
+   },
+   "find": {
+    "text": [
+     "t1"
+    ],
+    "nameA": [
+     "board"
+    ],
+    "textE": [
+     "t1"
+    ],
+    "within": [
+     "board",
+     "r1",
+     "e1",
+     "t1",
+     "p1"
+    ]
+   }
+  },
+  {
+   "name": "op107",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"pg1\",\n    \"pg2\",\n    \"p3\"\n  ],\n  \"nodes\": {\n    \"board\": {\n      \"id\": \"board\",\n      \"name\": \"Board\",\n      \"parentId\": \"pg1\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 400,\n      \"height\": 300,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#fbf8f4\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"g1\",\n        \"t1\",\n        \"p1\"\n      ],\n      \"clip\": true\n    },\n    \"r1\": {\n      \"id\": \"r1\",\n      \"name\": \"\",\n      \"parentId\": \"g1\",\n      \"x\": 0,\n      \"y\": 35.2404,\n      \"width\": 20,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"e1\": {\n      \"id\": \"e1\",\n      \"name\": \"\",\n      \"parentId\": \"g1\",\n      \"x\": 60.5,\n      \"y\": 5.4904,\n      \"width\": 30,\n      \"height\": 30,\n      \"rotation\": 30,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#1e2336\",\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"t1\": {\n      \"id\": \"t1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 10,\n      \"y\": 200,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Livre\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"p1\": {\n      \"id\": \"p1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 200,\n      \"y\": 100,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#c43d27\",\n        \"width\": 3\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 C 20 -30 60 30 80 0\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    },\n    \"g1\": {\n      \"id\": \"g1\",\n      \"name\": \"Par\",\n      \"parentId\": \"board\",\n      \"type\": \"group\",\n      \"x\": 40,\n      \"y\": 14.7596,\n      \"width\": 95.9904,\n      \"height\": 45.2404,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"children\": [\n        \"r1\",\n        \"e1\"\n      ]\n    },\n    \"pg1\": {\n      \"id\": \"pg1\",\n      \"name\": \"Página 1\",\n      \"parentId\": null,\n      \"type\": \"page\",\n      \"children\": [\n        \"board\"\n      ]\n    },\n    \"pg2\": {\n      \"id\": \"pg2\",\n      \"name\": \"Rascunhos\",\n      \"parentId\": null,\n      \"type\": \"page\",\n      \"fill\": \"#101418\",\n      \"children\": [\n        \"f2\"\n      ]\n    },\n    \"f2\": {\n      \"id\": \"f2\",\n      \"name\": \"\",\n      \"parentId\": \"pg2\",\n      \"x\": 500,\n      \"y\": 600,\n      \"width\": 120,\n      \"height\": 80,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"g2\"\n      ],\n      \"clip\": true\n    },\n    \"g2\": {\n      \"id\": \"g2\",\n      \"name\": \"\",\n      \"parentId\": \"f2\",\n      \"type\": \"group\",\n      \"x\": 10,\n      \"y\": 10,\n      \"width\": 30,\n      \"height\": 20,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"children\": [\n        \"r2\"\n      ]\n    },\n    \"r2\": {\n      \"id\": \"r2\",\n      \"name\": \"\",\n      \"parentId\": \"g2\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 30,\n      \"height\": 20,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"p3\": {\n      \"id\": \"p3\",\n      \"name\": \"Página 3\",\n      \"parentId\": null,\n      \"type\": \"page\",\n      \"children\": [\n        \"r3\"\n      ]\n    },\n    \"r3\": {\n      \"id\": \"r3\",\n      \"name\": \"\",\n      \"parentId\": \"p3\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "outline": "page#pg1 \"Página 1\"\n  frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4\n    group#g1 \"Par\" 95.9904×45.2404 @40,14.7596\n      rect#r1 20×10 @0,35.2404 fill=#c43d27\n      ellipse#e1 30×30 @60.5,5.4904 fill=#1e2336\n    text#t1 hug×hug @10,200 \"Livre\" 16/400 color=#1e2336\n    path#p1 80×9 @200,100 d=\"M0 0 C 20 -30 60 30 80 0\" stroke=#c43d27/3\npage#pg2 \"Rascunhos\" fill=#101418\n  frame#f2 120×80 @500,600 fill=#ffffff\n    group#g2 30×20 @10,10\n      rect#r2 30×20 @0,0 fill=#c43d27\npage#p3 \"Página 3\"\n  rect#r3 100×100 @0,0",
+   "outlineDepth0": "page#pg1 \"Página 1\"\n  … 1 filho(s)\npage#pg2 \"Rascunhos\" fill=#101418\n  … 1 filho(s)\npage#p3 \"Página 3\"\n  … 1 filho(s)",
+   "outlineDepth1": "page#pg1 \"Página 1\"\n  frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4\n    … 3 filho(s)\npage#pg2 \"Rascunhos\" fill=#101418\n  frame#f2 120×80 @500,600 fill=#ffffff\n    … 1 filho(s)\npage#p3 \"Página 3\"\n  rect#r3 100×100 @0,0",
+   "lint": "[{\"rule\":\"unnamed-frame\",\"severity\":\"info\",\"nodeId\":\"f2\",\"message\":\"frame de nível superior sem nome\"}]",
+   "lintRoots": {
+    "pg1": "[]",
+    "pg2": "[{\"rule\":\"unnamed-frame\",\"severity\":\"info\",\"nodeId\":\"f2\",\"message\":\"frame de nível superior sem nome\"}]",
+    "p3": "[]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:400px;height:300px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"board\" data-paprika-type=\"frame\" data-name=\"Board\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:400px;flex-shrink:0;height:300px;background:#fbf8f4;overflow:hidden\"><div data-paprika-id=\"g1\" data-paprika-type=\"group\" data-name=\"Par\" style=\"box-sizing:border-box;position:absolute;left:40px;top:14.76px;width:95.99px;flex-shrink:0;height:45.24px\"><div data-paprika-id=\"r1\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:35.24px;width:20px;flex-shrink:0;height:10px;background:#c43d27\"></div><div data-paprika-id=\"e1\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:60.5px;top:5.49px;width:30px;flex-shrink:0;height:30px;transform:rotate(30deg);background:#1e2336;border-radius:50%\"></div></div><div data-paprika-id=\"t1\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:10px;top:200px;width:max-content;height:max-content;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Livre</div><svg data-paprika-id=\"p1\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:200px;top:100px;width:80px;flex-shrink:0;height:9px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke=\"#c43d27\" stroke-width=\"3\"/></svg></div></body></html>",
+   "htmlRoots": {
+    "pg1": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:400px;height:300px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"board\" data-paprika-type=\"frame\" data-name=\"Board\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:400px;flex-shrink:0;height:300px;background:#fbf8f4;overflow:hidden\"><div data-paprika-id=\"g1\" data-paprika-type=\"group\" data-name=\"Par\" style=\"box-sizing:border-box;position:absolute;left:40px;top:14.76px;width:95.99px;flex-shrink:0;height:45.24px\"><div data-paprika-id=\"r1\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:35.24px;width:20px;flex-shrink:0;height:10px;background:#c43d27\"></div><div data-paprika-id=\"e1\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:60.5px;top:5.49px;width:30px;flex-shrink:0;height:30px;transform:rotate(30deg);background:#1e2336;border-radius:50%\"></div></div><div data-paprika-id=\"t1\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:10px;top:200px;width:max-content;height:max-content;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Livre</div><svg data-paprika-id=\"p1\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:200px;top:100px;width:80px;flex-shrink:0;height:9px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke=\"#c43d27\" stroke-width=\"3\"/></svg></div></body></html>",
+    "pg2": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:120px;height:80px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden\"><div data-paprika-id=\"g2\" data-paprika-type=\"group\" style=\"box-sizing:border-box;position:absolute;left:10px;top:10px;width:30px;flex-shrink:0;height:20px\"><div data-paprika-id=\"r2\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:30px;flex-shrink:0;height:20px;background:#c43d27\"></div></div></div></body></html>",
+    "p3": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"r3\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px\"></div></body></html>"
+   },
+   "htmlPages": {
+    "pg1": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:400px;height:300px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"board\" data-paprika-type=\"frame\" data-name=\"Board\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:400px;flex-shrink:0;height:300px;background:#fbf8f4;overflow:hidden\"><div data-paprika-id=\"g1\" data-paprika-type=\"group\" data-name=\"Par\" style=\"box-sizing:border-box;position:absolute;left:40px;top:14.76px;width:95.99px;flex-shrink:0;height:45.24px\"><div data-paprika-id=\"r1\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:35.24px;width:20px;flex-shrink:0;height:10px;background:#c43d27\"></div><div data-paprika-id=\"e1\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:60.5px;top:5.49px;width:30px;flex-shrink:0;height:30px;transform:rotate(30deg);background:#1e2336;border-radius:50%\"></div></div><div data-paprika-id=\"t1\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:10px;top:200px;width:max-content;height:max-content;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Livre</div><svg data-paprika-id=\"p1\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:200px;top:100px;width:80px;flex-shrink:0;height:9px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke=\"#c43d27\" stroke-width=\"3\"/></svg></div></body></html>",
+    "pg2": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:120px;height:80px;background:#101418;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden\"><div data-paprika-id=\"g2\" data-paprika-type=\"group\" style=\"box-sizing:border-box;position:absolute;left:10px;top:10px;width:30px;flex-shrink:0;height:20px\"><div data-paprika-id=\"r2\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:30px;flex-shrink:0;height:20px;background:#c43d27\"></div></div></div></body></html>",
+    "p3": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"r3\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px\"></div></body></html>"
+   },
+   "react": {
+    "board": "export function Board() {\n  return (\n    <div data-name=\"Board\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"400px\", flexShrink: 0, height: \"300px\", background: \"#fbf8f4\", overflow: \"hidden\" }}>\n      <div data-name=\"Par\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"40px\", top: \"14.76px\", width: \"95.99px\", flexShrink: 0, height: \"45.24px\" }}>\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"35.24px\", width: \"20px\", flexShrink: 0, height: \"10px\", background: \"#c43d27\" }} />\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"60.5px\", top: \"5.49px\", width: \"30px\", flexShrink: 0, height: \"30px\", transform: \"rotate(30deg)\", background: \"#1e2336\", borderRadius: \"50%\" }} />\n      </div>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"10px\", top: \"200px\", width: \"max-content\", height: \"max-content\", color: \"#1e2336\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Livre</div>\n      <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"200px\", top: \"100px\", width: \"80px\", flexShrink: 0, height: \"9px\", overflow: \"visible\", display: \"block\" }}>\n        <path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" stroke=\"#c43d27\" strokeWidth={3} />\n      </svg>\n    </div>\n  );\n}\n",
+    "r1": "export function R1() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"20px\", flexShrink: 0, height: \"10px\", background: \"#c43d27\" }} />\n  );\n}\n",
+    "e1": "export function E1() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"30px\", flexShrink: 0, height: \"30px\", transform: \"rotate(30deg)\", background: \"#1e2336\", borderRadius: \"50%\" }} />\n  );\n}\n",
+    "t1": "export function T1() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#1e2336\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Livre</div>\n  );\n}\n",
+    "p1": "export function P1() {\n  return (\n    <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"80px\", flexShrink: 0, height: \"9px\", overflow: \"visible\", display: \"block\" }}>\n      <path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" stroke=\"#c43d27\" strokeWidth={3} />\n    </svg>\n  );\n}\n",
+    "g1": "export function Par() {\n  return (\n    <div data-name=\"Par\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"95.99px\", flexShrink: 0, height: \"45.24px\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"35.24px\", width: \"20px\", flexShrink: 0, height: \"10px\", background: \"#c43d27\" }} />\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"60.5px\", top: \"5.49px\", width: \"30px\", flexShrink: 0, height: \"30px\", transform: \"rotate(30deg)\", background: \"#1e2336\", borderRadius: \"50%\" }} />\n    </div>\n  );\n}\n",
+    "pg1": "ERROR: \"pg1\" é uma página; exporte um frame dela (export_code com o id do frame)",
+    "pg2": "ERROR: \"pg2\" é uma página; exporte um frame dela (export_code com o id do frame)",
+    "f2": "export function F2() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"120px\", flexShrink: 0, height: \"80px\", background: \"#ffffff\", overflow: \"hidden\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"10px\", top: \"10px\", width: \"30px\", flexShrink: 0, height: \"20px\" }}>\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"30px\", flexShrink: 0, height: \"20px\", background: \"#c43d27\" }} />\n      </div>\n    </div>\n  );\n}\n",
+    "g2": "export function G2() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"30px\", flexShrink: 0, height: \"20px\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"30px\", flexShrink: 0, height: \"20px\", background: \"#c43d27\" }} />\n    </div>\n  );\n}\n",
+    "r2": "export function R2() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"30px\", flexShrink: 0, height: \"20px\", background: \"#c43d27\" }} />\n  );\n}\n",
+    "p3": "ERROR: \"p3\" é uma página; exporte um frame dela (export_code com o id do frame)",
+    "r3": "export function R3() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\" }} />\n  );\n}\n"
+   },
+   "describe": {
+    "board": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4",
+    "r1": "rect#r1 20×10 @0,35.2404 fill=#c43d27",
+    "e1": "ellipse#e1 30×30 @60.5,5.4904 fill=#1e2336",
+    "t1": "text#t1 hug×hug @10,200 \"Livre\" 16/400 color=#1e2336",
+    "p1": "path#p1 80×9 @200,100 d=\"M0 0 C 20 -30 60 30 80 0\" stroke=#c43d27/3",
+    "g1": "group#g1 \"Par\" 95.9904×45.2404 @40,14.7596",
+    "pg1": "page#pg1 \"Página 1\"",
+    "pg2": "page#pg2 \"Rascunhos\" fill=#101418",
+    "f2": "frame#f2 120×80 @500,600 fill=#ffffff",
+    "g2": "group#g2 30×20 @10,10",
+    "r2": "rect#r2 30×20 @0,0 fill=#c43d27",
+    "p3": "page#p3 \"Página 3\"",
+    "r3": "rect#r3 100×100 @0,0"
+   },
+   "style": {
+    "board": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:400px;flex-shrink:0;height:300px;background:#fbf8f4;overflow:hidden",
+    "r1": "box-sizing:border-box;position:absolute;left:0px;top:35.24px;width:20px;flex-shrink:0;height:10px;background:#c43d27",
+    "e1": "box-sizing:border-box;position:absolute;left:60.5px;top:5.49px;width:30px;flex-shrink:0;height:30px;transform:rotate(30deg);background:#1e2336;border-radius:50%",
+    "t1": "box-sizing:border-box;position:absolute;left:10px;top:200px;width:max-content;height:max-content;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0",
+    "p1": "box-sizing:border-box;position:absolute;left:200px;top:100px;width:80px;flex-shrink:0;height:9px;overflow:visible;display:block",
+    "g1": "box-sizing:border-box;position:absolute;left:40px;top:14.76px;width:95.99px;flex-shrink:0;height:45.24px",
+    "pg1": "",
+    "pg2": "",
+    "f2": "box-sizing:border-box;position:absolute;left:500px;top:600px;width:120px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden",
+    "g2": "box-sizing:border-box;position:absolute;left:10px;top:10px;width:30px;flex-shrink:0;height:20px",
+    "r2": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:30px;flex-shrink:0;height:20px;background:#c43d27",
+    "p3": "",
+    "r3": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px"
+   },
+   "find": {
+    "text": [
+     "t1"
+    ],
+    "nameA": [
+     "board",
+     "g1",
+     "pg1"
     ],
     "textE": [
      "t1"

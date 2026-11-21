@@ -15,6 +15,9 @@ import {
 } from "./schema.js";
 import { newId } from "./id.js";
 import { parsePath, pathBounds } from "./path.js";
+import { addPageOps, groupOps, ungroupOps } from "./structure.js";
+import { round4 } from "./num.js";
+export { round4 } from "./num.js";
 
 /** Entrada de criação: um nó parcial, com filhos aninhados opcionais (só para frames). */
 export type NodeInput = { type: z.infer<typeof NodeType>; id?: string; children?: NodeInput[] } & Record<
@@ -63,6 +66,26 @@ export const SetTokensOp = z.object({
 
 export const RenameDocumentOp = z.object({ op: z.literal("rename_document"), name: z.string().min(1).max(200) });
 
+/** Agrupa nós irmãos num `group` novo (expandida em create + move no momento da aplicação). */
+export const GroupOp = z.object({
+  op: z.literal("group"),
+  ids: z.array(z.string()).min(1).max(500),
+  id: z.string().optional(),
+  name: z.string().max(200).optional(),
+});
+
+/** Desfaz groups (expandida em move + update + delete no momento da aplicação). */
+export const UngroupOp = z.object({ op: z.literal("ungroup"), ids: z.array(z.string()).min(1).max(500) });
+
+/** Cria uma página; a primeira leva o conteúdo atual para "Página 1" (`firstId`/`firstName`). */
+export const AddPageOp = z.object({
+  op: z.literal("add_page"),
+  id: z.string().optional(),
+  name: z.string().max(200).optional(),
+  firstId: z.string().optional(),
+  firstName: z.string().max(200).optional(),
+});
+
 /** Operação interna usada como inversa de `delete` (desfazer). */
 export const RestoreOp = z.object({
   op: z.literal("restore"),
@@ -80,6 +103,9 @@ export const Op = z.discriminatedUnion("op", [
   SetTokensOp,
   RenameDocumentOp,
   RestoreOp,
+  GroupOp,
+  UngroupOp,
+  AddPageOp,
 ]);
 
 export type Op = z.input<typeof Op>;
@@ -135,11 +161,12 @@ function subtree(doc: DocumentT, id: string): NodeT[] {
 
 const PAGE_AT_ROOT = "página só pode ficar no nível do canvas (parentId null)";
 
-/** Página só no topo; nada além de páginas pode ficar no topo de um documento com páginas (checado no fim). */
-function checkPlacement(doc: DocumentT, type: string, parentId: string | null, i: number) {
+/**
+ * Página só no topo. Que o topo de um documento com páginas só tenha páginas é checado no fim da
+ * transação (checkPages), porque no meio dela pode haver estados mistos (ex.: desfazer add_page).
+ */
+function checkPlacement(type: string, parentId: string | null, i: number) {
   if (type === "page" && parentId !== null) throw new OpError(PAGE_AT_ROOT, i);
-  if (type !== "page" && parentId === null && doc.nodes[doc.rootIds[0] ?? ""]?.type === "page")
-    throw new OpError(`o documento tem páginas: crie ou mova ${type} para dentro de uma página (parentId = id da página)`, i);
 }
 
 function isDescendant(doc: DocumentT, maybeChild: string, ancestor: string): boolean {
@@ -173,7 +200,7 @@ function createNode(
   if ("parentId" in rest) throw new OpError(`use o parentId da operação, não do nó`, i);
   if (input.type === "group" && ("width" in rest || "height" in rest)) throw new OpError(GROUP_SIZE, i);
   const list = container(doc, parentId, i);
-  checkPlacement(doc, input.type, parentId, i);
+  checkPlacement(input.type, parentId, i);
   const props: Record<string, unknown> = { ...rest };
   // Sem width/height, um path ganha a caixa do próprio desenho (ou do viewBox): o agente só escreve `d`.
   if (input.type === "path" && typeof props.d === "string" && (props.width === undefined || props.height === undefined)) {
@@ -241,7 +268,7 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       }
       const list = container(doc, op.parentId, i);
       const root = op.nodes.find((n) => n.id === op.rootId);
-      if (root) checkPlacement(doc, root.type, op.parentId, i);
+      if (root) checkPlacement(root.type, op.parentId, i);
       for (const n of op.nodes) doc.nodes[n.id] = structuredClone(n);
       insertAt(list, op.rootId, op.index);
       return [{ op: "delete", id: op.rootId }];
@@ -255,9 +282,8 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       const from = container(doc, node.parentId, i);
       const fromIndex = from.indexOf(op.id);
       const to = container(doc, op.parentId, i);
-      if (node.type === "page" && op.parentId !== null) throw new OpError(PAGE_AT_ROOT, i);
+      checkPlacement(node.type, op.parentId, i);
       from.splice(fromIndex, 1);
-      if (op.parentId === null && node.parentId !== null) checkPlacement(doc, node.type, null, i);
       insertAt(to, op.id, op.index);
       const oldParent = node.parentId;
       node.parentId = op.parentId;
@@ -276,6 +302,25 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       const prev = doc.name;
       doc.name = op.name;
       return [{ op: "rename_document", name: prev }];
+    }
+    case "group":
+    case "ungroup":
+    case "add_page": {
+      // Expandidas contra o documento *atual* (não o que o cliente via), dentro da mesma transação.
+      let plan: Op[];
+      try {
+        plan =
+          op.op === "group"
+            ? groupOps(doc, op.ids, { id: op.id, name: op.name }).ops
+            : op.op === "ungroup"
+              ? ungroupOps(doc, op.ids).ops
+              : addPageOps(doc, op).ops;
+      } catch (e) {
+        throw e instanceof OpError ? e : new OpError((e as Error).message, i);
+      }
+      const inverse: Op[] = [];
+      for (const sub of plan) inverse.unshift(...applyOne(doc, Op.parse(sub), i, created));
+      return inverse;
     }
   }
 }
@@ -339,10 +384,6 @@ function checkPages(doc: DocumentT, i: number) {
     );
 }
 
-/** Arredonda a 4 casas (e troca -0 por 0) para coordenadas calculadas: estável entre TS e Go. */
-export function round4(v: number): number {
-  return Math.round(v * 10_000) / 10_000 + 0;
-}
 
 const EPS = 1e-3;
 

@@ -1,4 +1,5 @@
-import { round4, type Op } from "./ops.js";
+import type { Op } from "./ops.js";
+import { round4 } from "./num.js";
 import { newId } from "./id.js";
 import { firstPage, isContainer, isScene, type Document } from "./schema.js";
 
@@ -91,7 +92,7 @@ export function addPageOps(
   let count = pages;
   if (!firstPage(doc) && doc.rootIds.length) {
     const firstId = opts.firstId ?? newId();
-    ops.push({ op: "create", parentId: null, index: 0, node: { type: "page", id: firstId, name: opts.firstName ?? "Página 1" } });
+    ops.push({ op: "create", parentId: null, index: 0, node: { type: "page", id: firstId, name: opts.firstName || "Página 1" } });
     for (const r of doc.rootIds) ops.push({ op: "move", id: r, parentId: firstId });
     count = 1;
   }

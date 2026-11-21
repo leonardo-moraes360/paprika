@@ -73,6 +73,23 @@ func init() {
 			z.Field{Name: "parentId", Schema: z.Nullable(z.String())},
 			z.Field{Name: "index", Schema: z.Int().Min(0)},
 		)),
+		z.Option("group", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("group")},
+			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+			z.Field{Name: "id", Schema: z.Optional(z.String())},
+			z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+		)),
+		z.Option("ungroup", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("ungroup")},
+			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+		)),
+		z.Option("add_page", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("add_page")},
+			z.Field{Name: "id", Schema: z.Optional(z.String())},
+			z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+			z.Field{Name: "firstId", Schema: z.Optional(z.String())},
+			z.Field{Name: "firstName", Schema: z.Optional(z.String().Max(200))},
+		)),
 	)
 }
 
@@ -181,15 +198,11 @@ const (
 	groupSize  = "width/height de um group seguem os filhos; mova ou redimensione os filhos"
 )
 
-// checkPlacement: pages only at the top; in a document with pages, only pages at the top
-// (the end of the transaction checks the rest, see checkPages).
-func checkPlacement(doc *Document, typ string, parentID any, i int) error {
-	_, inParent := parentID.(string)
-	if typ == "page" && inParent {
+// checkPlacement: pages only at the top. That a paged document only has pages at the top is
+// checked at the end of the transaction (checkPages): mid-transaction states may be mixed.
+func checkPlacement(typ string, parentID any, i int) error {
+	if _, inParent := parentID.(string); typ == "page" && inParent {
 		return opErr(i, pageAtRoot)
-	}
-	if typ != "page" && !inParent && FirstPage(doc) != nil {
-		return opErr(i, "o documento tem páginas: crie ou mova %s para dentro de uma página (parentId = id da página)", typ)
 	}
 	return nil
 }
@@ -292,7 +305,7 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 	if err != nil {
 		return err
 	}
-	if err := checkPlacement(doc, typ, parentID, i); err != nil {
+	if err := checkPlacement(typ, parentID, i); err != nil {
 		return err
 	}
 	props := rest.Spread()
@@ -453,7 +466,7 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		}
 		for _, n := range nodes {
 			if no := n.(*jsonv.Object); no.Str("id") == op.Str("rootId") {
-				if err := checkPlacement(doc, no.Str("type"), parentID, i); err != nil {
+				if err := checkPlacement(no.Str("type"), parentID, i); err != nil {
 					return nil, err
 				}
 				break
@@ -486,16 +499,10 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		if err != nil {
 			return nil, err
 		}
-		_, toParent := target.(string)
-		if node.Str("type") == "page" && toParent {
-			return nil, opErr(i, pageAtRoot)
+		if err := checkPlacement(node.Str("type"), target, i); err != nil {
+			return nil, err
 		}
 		from.removeAt(fromIndex)
-		if _, wasChild := oldParent.(string); !toParent && wasChild {
-			if err := checkPlacement(doc, node.Str("type"), nil, i); err != nil {
-				return nil, err
-			}
-		}
 		to.insertAt(id, optIndex(op))
 		node.Set("parentId", target)
 		return jsonv.NewObject("op", "move", "id", id, "parentId", oldParent, "index", float64(fromIndex)), nil
@@ -523,6 +530,35 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		prev := doc.Str("name")
 		doc.Set("name", op.Str("name"))
 		return jsonv.NewObject("op", "rename_document", "name", prev), nil
+
+	case "group", "ungroup", "add_page":
+		// Expanded against the *current* document, inside the same transaction.
+		var plan []any
+		var err error
+		switch op.Str("op") {
+		case "group":
+			plan, _, err = GroupOps(doc, op.Strings("ids"), op.Str("id"), op.Str("name"))
+		case "ungroup":
+			plan, _, err = UngroupOps(doc, op.Strings("ids"))
+		default:
+			plan, _ = AddPageOps(doc, op.Str("id"), op.Str("name"), op.Str("firstId"), op.Str("firstName"))
+		}
+		if err != nil {
+			return nil, opErr(i, "%s", err.Error())
+		}
+		var inverse []any
+		for _, sub := range plan {
+			parsed, perr := z.Parse(OpSchema, sub)
+			if perr != nil {
+				return nil, opErr(i, "operação inválida: %s", formatZod(perr))
+			}
+			inv, aerr := applyOne(doc, parsed.(*jsonv.Object), i, created)
+			if aerr != nil {
+				return nil, aerr
+			}
+			inverse = append(flatten(inv), inverse...)
+		}
+		return inverse, nil
 	}
 	return nil, opErr(i, "operação desconhecida")
 }
@@ -541,7 +577,7 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		inverse = append([]any{inv}, inverse...)
+		inverse = append(flatten(inv), inverse...)
 	}
 	if len(ops) > 0 {
 		if err := checkPages(draft, len(ops)-1); err != nil {
@@ -746,4 +782,12 @@ func fitGroup(doc *Document, g *Node, inverse []any) []any {
 	g.Set("width", w)
 	g.Set("height", h)
 	return inverse
+}
+
+// flatten turns applyOne's inverse (one op, or a list for composite ops) into a list.
+func flatten(inv any) []any {
+	if list, ok := inv.([]any); ok {
+		return list
+	}
+	return []any{inv}
 }

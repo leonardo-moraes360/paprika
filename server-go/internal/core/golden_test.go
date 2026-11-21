@@ -106,7 +106,7 @@ func TestGoldenStructure(t *testing.T) {
 		case "ungroup":
 			ops, released, err = UngroupOps(d, args.Strings("ids"))
 		default:
-			ops, id = AddPageOps(d, args.Str("id"), args.Str("name"), args.Str("firstId"))
+			ops, id = AddPageOps(d, args.Str("id"), args.Str("name"), args.Str("firstId"), "")
 		}
 		if !c.Bool("ok") {
 			if err == nil {

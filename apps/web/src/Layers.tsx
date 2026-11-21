@@ -1,16 +1,18 @@
 import { useState } from "react";
-import type { Document, Op } from "@paprika/core";
+import { isContainer, pageRoots, type Document, type Op } from "@paprika/core";
 
-const ICON: Record<string, string> = { frame: "#", rect: "▭", ellipse: "◯", text: "T", image: "▣", path: "✒" };
+const ICON: Record<string, string> = { frame: "#", rect: "▭", ellipse: "◯", text: "T", image: "▣", path: "✒", group: "⧉", page: "▤" };
 
 interface Props {
   doc: Document;
-  selected: string | null;
-  onSelect(id: string): void;
+  pageId: string | null;
+  selected: string[];
+  onSelect(ids: string[]): void;
   apply(ops: Op[], label?: string): void;
 }
 
-export function Layers({ doc, selected, onSelect, apply }: Props) {
+export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
+  const roots = pageRoots(doc, pageId);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
     setCollapsed((s) => {
@@ -22,15 +24,17 @@ export function Layers({ doc, selected, onSelect, apply }: Props) {
 
   const row = (id: string, depth: number): React.ReactNode => {
     const n = doc.nodes[id];
-    if (!n) return null;
-    const kids = n.type === "frame" ? n.children : [];
+    if (!n || n.type === "page") return null;
+    const kids = isContainer(n) ? n.children : [];
     const open = !collapsed.has(id);
     return (
       <li key={id}>
         <div
-          className={`layer${selected === id ? " is-selected" : ""}${n.visible ? "" : " is-hidden"}`}
+          className={`layer${selected.includes(id) ? " is-selected" : ""}${n.visible ? "" : " is-hidden"}`}
           style={{ paddingLeft: 8 + depth * 14 }}
-          onClick={() => onSelect(id)}
+          onClick={(e) =>
+            onSelect(e.shiftKey || e.metaKey || e.ctrlKey ? (selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]) : [id])
+          }
           data-layer-id={id}
         >
           <button
@@ -65,10 +69,10 @@ export function Layers({ doc, selected, onSelect, apply }: Props) {
   return (
     <div className="panel-section">
       <h2>Camadas</h2>
-      {doc.rootIds.length === 0 ? (
+      {roots.length === 0 ? (
         <p className="muted">Vazio. Desenhe um frame (F) ou peça a um agente via MCP.</p>
       ) : (
-        <ul className="layers">{doc.rootIds.map((id) => row(id, 0))}</ul>
+        <ul className="layers">{roots.map((id) => row(id, 0))}</ul>
       )}
     </div>
   );

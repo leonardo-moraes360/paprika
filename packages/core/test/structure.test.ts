@@ -189,3 +189,25 @@ describe("pages", () => {
     expect(displayList(doc, new Map([["r", { x: 500, y: 600, w: 10, h: 10 }]]), "p2").painted.has("r")).toBe(true);
   });
 });
+
+describe("composite ops inside applyOps", () => {
+  it("group/ungroup/add_page expand against the current document, in one undo step", () => {
+    const h = new History(scene());
+    // A move in the same transaction, before the group: the plan sees the moved node.
+    h.apply([
+      { op: "update", id: "a", props: { x: 0 } },
+      { op: "group", ids: ["a", "b"], id: "g", name: "Par" },
+    ]);
+    expect(group(h.doc)).toMatchObject({ x: 0, y: 20, width: 130, name: "Par" });
+    h.apply([{ op: "update", id: "g", props: { x: 10 } }, { op: "ungroup", ids: ["g"] }]);
+    expect(h.doc.nodes.a).toMatchObject({ x: 10, y: 50, parentId: "f" });
+    h.apply([{ op: "add_page", id: "p2", firstId: "p1", name: "Dois" }]);
+    expect(h.doc.rootIds).toEqual(["p1", "p2"]);
+    h.undo();
+    h.undo();
+    h.undo();
+    expect(h.doc).toEqual(scene());
+    expect(() => applyOps(scene(), [{ op: "group", ids: ["a", "f"] }])).toThrow(/^op\[0\]: só nós com o mesmo pai/);
+    expect(() => applyOps(scene(), [{ op: "ungroup", ids: [] }])).toThrow(/ids: Too small/);
+  });
+});

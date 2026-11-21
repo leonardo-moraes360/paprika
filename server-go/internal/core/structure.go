@@ -150,7 +150,7 @@ func UngroupOps(doc *Document, ids []string) ([]any, []string, error) {
 
 // AddPageOps creates a page. When the document has no pages yet but has content, that content
 // first goes into a first page ("Página 1"), since with pages the top level only takes pages.
-func AddPageOps(doc *Document, id, name, firstID string) ([]any, string) {
+func AddPageOps(doc *Document, id, name, firstID, firstName string) ([]any, string) {
 	ops := []any{}
 	count := 0
 	for _, r := range doc.Strings("rootIds") {
@@ -163,7 +163,10 @@ func AddPageOps(doc *Document, id, name, firstID string) ([]any, string) {
 		if firstID == "" {
 			firstID = NewID()
 		}
-		ops = append(ops, jsonv.NewObject("op", "create", "parentId", nil, "index", 0.0, "node", jsonv.NewObject("type", "page", "id", firstID, "name", "Página 1")))
+		if firstName == "" {
+			firstName = "Página 1"
+		}
+		ops = append(ops, jsonv.NewObject("op", "create", "parentId", nil, "index", 0.0, "node", jsonv.NewObject("type", "page", "id", firstID, "name", firstName)))
 		for _, r := range roots {
 			ops = append(ops, jsonv.NewObject("op", "move", "id", r, "parentId", firstID))
 		}

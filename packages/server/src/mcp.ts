@@ -4,8 +4,7 @@ import { z } from "zod";
 import {
   NodeInputSchema,
   NodeType,
-  addPageOps,
-  groupOps,
+  newId,
   ungroupOps,
   parsePath,
   pathBounds,
@@ -273,9 +272,9 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
     },
     ({ ids, name, id, label }) =>
       guard(async () => {
-        const plan = groupOps(store.doc, ids, { name, id });
-        const r = await write(plan.ops, label ?? `agrupar ${ids.length} nó(s)`);
-        return json({ group: plan.id, ...r });
+        const gid = id ?? newId();
+        const r = await write([{ op: "group", ids, id: gid, ...(name !== undefined ? { name } : {}) }], label ?? `agrupar ${ids.length} nó(s)`);
+        return json({ group: gid, ...r });
       }),
   );
 
@@ -288,9 +287,9 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
     },
     ({ ids, label }) =>
       guard(async () => {
-        const plan = ungroupOps(store.doc, ids);
-        const r = await write(plan.ops, label ?? `desagrupar ${ids.length} grupo(s)`);
-        return json({ released: plan.released, ...r });
+        const { released } = ungroupOps(store.doc, ids); // valida e diz quais filhos voltam
+        const r = await write([{ op: "ungroup", ids }], label ?? `desagrupar ${ids.length} grupo(s)`);
+        return json({ released, ...r });
       }),
   );
 
@@ -308,9 +307,9 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
     },
     ({ name, id, label }) =>
       guard(async () => {
-        const plan = addPageOps(store.doc, { name, id });
-        const r = await write(plan.ops, label ?? "criar página");
-        return json({ page: plan.id, ...r });
+        const pid = id ?? newId();
+        const r = await write([{ op: "add_page", id: pid, ...(name !== undefined ? { name } : {}) }], label ?? "criar página");
+        return json({ page: pid, ...r });
       }),
   );
 
@@ -319,7 +318,7 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
     {
       title: "Transação de operações",
       description:
-        "Aplica uma lista mista de operações (create, update, delete, move, set_tokens, rename_document) numa única transação atômica.",
+        "Aplica uma lista mista de operações (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page) numa única transação atômica.",
       inputSchema: { ops: z.array(Op).min(1).max(1000), label: z.string().max(200).optional() },
     },
     ({ ops, label }) => guard(async () => json(await write(ops as OpT[], label ?? `transação de ${ops.length} op(s)`))),

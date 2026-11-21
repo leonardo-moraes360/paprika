@@ -309,21 +309,26 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		label(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		ids := a.Strings("ids")
-		ops, id, err := core.GroupOps(store.Doc(), ids, a.Str("id"), a.Str("name"))
-		if err != nil {
-			return nil, err
+		id := a.Str("id")
+		if !a.Has("id") {
+			id = core.NewID()
 		}
-		return writeWith(ops, labelOr(a, "agrupar "+count(len(ids))+" nó(s)"), "group", id)
+		op := jsonv.NewObject("op", "group", "ids", a.Arr("ids"), "id", id)
+		if a.Has("name") {
+			op.Set("name", a.Str("name"))
+		}
+		return writeWith([]any{op}, labelOr(a, "agrupar "+count(len(ids))+" nó(s)"), "group", id)
 	})
 
 	add("ungroup_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)}, label()),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 			ids := a.Strings("ids")
-			ops, released, err := core.UngroupOps(store.Doc(), ids)
+			_, released, err := core.UngroupOps(store.Doc(), ids) // validates and tells which children come back
 			if err != nil {
 				return nil, err
 			}
-			return writeWith(ops, labelOr(a, "desagrupar "+count(len(ids))+" grupo(s)"), "released", jsonv.FromGo(released))
+			op := jsonv.NewObject("op", "ungroup", "ids", a.Arr("ids"))
+			return writeWith([]any{op}, labelOr(a, "desagrupar "+count(len(ids))+" grupo(s)"), "released", jsonv.FromGo(released))
 		})
 
 	add("create_page", z.Object(
@@ -331,8 +336,15 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		optStr("id"),
 		label(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		ops, id := core.AddPageOps(store.Doc(), a.Str("id"), a.Str("name"), "")
-		return writeWith(ops, labelOr(a, "criar página"), "page", id)
+		id := a.Str("id")
+		if !a.Has("id") {
+			id = core.NewID()
+		}
+		op := jsonv.NewObject("op", "add_page", "id", id)
+		if a.Has("name") {
+			op.Set("name", a.Str("name"))
+		}
+		return writeWith([]any{op}, labelOr(a, "criar página"), "page", id)
 	})
 
 	add("apply_ops", z.Object(z.Field{Name: "ops", Schema: z.Array(core.OpSchema).Min(1).Max(1000)}, label()),

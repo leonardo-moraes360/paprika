@@ -187,6 +187,15 @@ const opCases = [
   ["paged", [{ op: "update", id: "pg1", props: { name: "Home", fill: "#000", notes: "n" } }]],
   ["paged", [{ op: "update", id: "pg1", props: { x: 3 } }]],
   ["paged", [{ op: "restore", nodes: [{ type: "page", id: "pz", children: [] }], rootId: "pz", parentId: "board", index: 0 }]],
+  // composite ops, expanded inside the transaction
+  ["free", [{ op: "update", id: "r1", props: { x: 0 } }, { op: "group", ids: ["r1", "t1"], id: "g", name: "G" }]],
+  ["free", [{ op: "group", ids: ["r1", "board"] }]],
+  ["free", [{ op: "group", ids: [] }]],
+  ["grouped", [{ op: "update", id: "g1", props: { x: 7, opacity: 0.5 } }, { op: "ungroup", ids: ["g1"] }]],
+  ["grouped", [{ op: "ungroup", ids: ["r1"] }]],
+  ["free", [{ op: "add_page", id: "p2", firstId: "p1", firstName: "Início", name: "Dois" }]],
+  ["paged", [{ op: "add_page", id: "p3" }, { op: "create", parentId: "p3", node: { type: "rect", id: "r3" } }]],
+  ["paged", [{ op: "add_page", id: "pg1" }]],
 ];
 
 // ---- composite operations (groups, pages): the generated primitive ops ----
@@ -236,7 +245,8 @@ const opResults = opCases.map(([docName, ops]) => {
 // ---- Op schema errors (ZodError#message, used by the WebSocket and /api/ops) ----
 const zodCases = [{ op: "x" }, { op: "update", id: 1, props: {} }, 5, { op: "create", node: { type: "rect" }, index: -1 },
   { op: "set_tokens", tokens: { "a b": 1, ok: true } }, { op: "restore", nodes: [{ type: "zz" }], rootId: "a", parentId: null, index: 0 },
-  { op: "rename_document", name: "x".repeat(201) }, { op: "move", id: "a", parentId: 3 }];
+  { op: "rename_document", name: "x".repeat(201) }, { op: "move", id: "a", parentId: 3 }, { op: "group", ids: [] }, { op: "ungroup" },
+  { op: "add_page", name: 3 }];
 const zodResults = zodCases.map((input) => ({ input, error: Op.safeParse(input).error?.message ?? null }));
 
 // ---- history ----

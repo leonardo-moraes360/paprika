@@ -87,9 +87,11 @@ interface Options {
   worldRef: RefObject<HTMLDivElement | null>;
   /** Changes whenever the DOM layout may have moved (drag/resize preview). */
   layoutKey: unknown;
+  /** Page shown on the canvas (null: the document has no pages). */
+  pageId: string | null;
 }
 
-export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey }: Options) {
+export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey, pageId }: Options) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<WasmRenderer | null>(null);
   const viewRef = useRef(view);
@@ -178,10 +180,10 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
     const r = rendererRef.current;
     const world = worldRef.current;
     if (!ready || !r || !world) return;
-    const list = displayList(doc, measureBoxes(world));
+    const list = displayList(doc, measureBoxes(world), pageId ?? undefined);
     r.setScene(list.data, list.paths);
     draw();
-  }, [ready, doc, layoutKey, worldRef, draw]);
+  }, [ready, doc, layoutKey, worldRef, draw, pageId]);
 
   useEffect(() => {
     if (ready) draw();

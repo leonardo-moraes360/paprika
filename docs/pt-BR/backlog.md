@@ -23,8 +23,8 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | Frames com layout tipo flex (linha/coluna, gap, padding, align, wrap) | `frame.layout` | ✅ | — |
-| Páginas dentro de um arquivo | Um canvas por arquivo (fb#13) | ⬜ | P1 |
-| Agrupar / envolver a seleção num frame, desagrupar | Sem nó `group` (fb#8, fb#16) | ⬜ | P1 |
+| Páginas dentro de um arquivo | Nós `page`, lista de páginas no canvas, `create_page` (2026-11-21) | ✅ | — |
+| Agrupar / envolver a seleção num frame, desagrupar | Nó `group`, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21); ainda sem "envolver num frame" | 🟡 | P2 |
 | Filho absoluto dentro de frame com layout ("ignorar layout") | Filhos de linha/coluna sempre seguem o fluxo | ⬜ | P1 |
 | Raio por canto | `radius` único | 🟡 | P1 |
 | Ordem Z (avançar, recuar, frente, fundo) | `move_nodes` com `index`; sem atalhos no canvas | 🟡 | P1 |
@@ -39,8 +39,8 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
-| Seleção múltipla (shift-clique, laço), selecionar tudo, selecionar irmãos | Seleção única | ⬜ | P1 |
-| Descer/subir na hierarquia, seleção profunda, ciclar irmãos | `Esc` seleciona o pai | 🟡 | P2 |
+| Seleção múltipla (shift-clique, laço), selecionar tudo, selecionar irmãos | Shift/Ctrl-clique, laço, `Ctrl+A` seleciona os irmãos (2026-11-21) | ✅ | — |
+| Descer/subir na hierarquia, seleção profunda, ciclar irmãos | `Esc` seleciona o pai, duplo clique seleciona dentro do grupo; sem ciclar irmãos | 🟡 | P2 |
 | Árvore de camadas sob o cursor (menu de contexto) | — | ⬜ | P2 |
 | Hit test e alças que respeitam rotação | Pela caixa | ⬜ | P2 |
 | Passo de nudge configurável | Setas 1px, Shift 10px | 🟡 | P3 |
@@ -121,7 +121,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
-| Servidor MCP embutido (stdio + HTTP), leitura e escrita, CLI | `paprika serve`/`mcp`, 17 ferramentas | ✅ | — |
+| Servidor MCP embutido (stdio + HTTP), leitura e escrita, CLI | `paprika serve`/`mcp`, 20 ferramentas | ✅ | — |
 | Leituras econômicas em tokens | `get_document_outline` | ✅ | — |
 | Resultados estruturados (`outputSchema` + `structuredContent`) | JSON como texto (fb#7) | ⬜ | P1 |
 | Guia e erros em inglês (pt-BR opcional) | pt-BR (fb#12) | ⬜ | P1 |

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { lintDocument, resolveValue, type Document, type Node, type Op } from "@paprika/core";
+import { groupOps, lintDocument, newId, resolveValue, ungroupOps, type Document, type GroupNode, type Node, type Op, type PageNode } from "@paprika/core";
 import type { Activity } from "./useDocument";
 
 interface FieldProps {
@@ -72,13 +72,66 @@ const size = (v: string): number | string | undefined => (v === "hug" || v === "
 interface Props {
   doc: Document;
   node: Node | null;
+  selected: string[];
   apply(ops: Op[], label?: string): void;
   activity: Activity[];
   onSelect(id: string): void;
+  onSelectMany(ids: string[]): void;
+  onError(message: string): void;
 }
 
-export function Inspector({ doc, node, apply, activity, onSelect }: Props) {
+/** Agrupar/desagrupar com o mesmo plano do atalho e da ferramenta MCP; erros viram aviso. */
+function structureActions(doc: Document, ids: string[], props: Pick<Props, "apply" | "onSelectMany" | "onError">) {
+  const run = (f: () => void) => {
+    try {
+      f();
+    } catch (e) {
+      props.onError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const groups = ids.filter((id) => doc.nodes[id]?.type === "group");
+  return {
+    canUngroup: groups.length > 0,
+    group: () =>
+      run(() => {
+        groupOps(doc, ids); // valida antes de enviar
+        const id = newId();
+        props.apply([{ op: "group", ids, id }], "agrupar");
+        props.onSelectMany([id]);
+      }),
+    ungroup: () =>
+      run(() => {
+        const { released } = ungroupOps(doc, groups);
+        props.apply([{ op: "ungroup", ids: groups }], "desagrupar");
+        props.onSelectMany(released);
+      }),
+  };
+}
+
+export function Inspector(props: Props) {
+  const { doc, node, selected, apply, activity, onSelect } = props;
+  if (selected.length > 1) {
+    const a = structureActions(doc, selected, props);
+    return (
+      <div className="panel-section" data-testid="multi-selection">
+        <h2>{selected.length} nós selecionados</h2>
+        <div className="actions">
+          <button onClick={a.group} title="Agrupar (Ctrl+G)">
+            Agrupar
+          </button>
+          {a.canUngroup && (
+            <button onClick={a.ungroup} title="Desagrupar (Ctrl+Shift+G)">
+              Desagrupar
+            </button>
+          )}
+        </div>
+        <p className="muted">Arraste para mover todos; setas empurram; Delete apaga; Ctrl+D duplica.</p>
+      </div>
+    );
+  }
   if (!node) return <DocumentPanel doc={doc} apply={apply} activity={activity} onSelect={onSelect} />;
+  if (node.type === "page") return <PagePanel doc={doc} page={node} apply={apply} />;
+  if (node.type === "group") return <GroupPanel {...props} group={node} />;
   const set = (props: Record<string, unknown>, label = "editar propriedade") => apply([{ op: "update", id: node.id, props }], label);
   const setNum = (key: string) => (v: string) => {
     const n = num(v);
@@ -245,6 +298,59 @@ export function Inspector({ doc, node, apply, activity, onSelect }: Props) {
       <h3>Notas para agentes</h3>
       <div className="grid">
         <Field label="Notas" type="textarea" value={node.notes} placeholder="Intenção, restrições, conteúdo real…" onCommit={(v) => set({ notes: v || null })} />
+      </div>
+    </div>
+  );
+}
+
+function PagePanel({ doc, page, apply }: { doc: Document; page: PageNode; apply(ops: Op[], label?: string): void }) {
+  const set = (props: Record<string, unknown>, label = "editar página") => apply([{ op: "update", id: page.id, props }], label);
+  return (
+    <div className="panel-section" key={page.id}>
+      <h2>
+        page <code className="muted">#{page.id}</code>
+      </h2>
+      <div className="grid">
+        <Field label="Nome" value={page.name} onCommit={(v) => set({ name: v }, "renomear página")} />
+        <ColorField doc={doc} label="Fundo" value={page.fill} onCommit={(v) => set({ fill: v })} />
+        <Field label="Notas" type="textarea" value={page.notes} onCommit={(v) => set({ notes: v || null })} />
+      </div>
+    </div>
+  );
+}
+
+function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
+  const set = (p: Record<string, unknown>, label = "editar grupo") => props.apply([{ op: "update", id: group.id, props: p }], label);
+  const setNum = (key: string) => (v: string) => {
+    const n = num(v);
+    if (n !== undefined) set({ [key]: n });
+  };
+  const a = structureActions(props.doc, [group.id], props);
+  return (
+    <div className="panel-section" key={group.id}>
+      <h2>
+        group <code className="muted">#{group.id}</code>
+      </h2>
+      <div className="grid">
+        <Field label="Nome" value={group.name} onCommit={(v) => set({ name: v }, "renomear")} />
+      </div>
+      <h3>Posição</h3>
+      <div className="grid grid-2">
+        <Field label="X" type="number" value={group.x} onCommit={setNum("x")} />
+        <Field label="Y" type="number" value={group.y} onCommit={setNum("y")} />
+        <Field label="Opacidade" type="number" value={group.opacity} onCommit={setNum("opacity")} />
+      </div>
+      <p className="muted">
+        {group.width} × {group.height}: a caixa segue os {group.children.length} filho(s). Duplo clique no canvas seleciona um filho.
+      </p>
+      <div className="actions">
+        <button onClick={a.ungroup} title="Desagrupar (Ctrl+Shift+G)">
+          Desagrupar
+        </button>
+      </div>
+      <h3>Notas para agentes</h3>
+      <div className="grid">
+        <Field label="Notas" type="textarea" value={group.notes} onCommit={(v) => set({ notes: v || null })} />
       </div>
     </div>
   );

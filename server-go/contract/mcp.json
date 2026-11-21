@@ -444,7 +444,7 @@
     {
       "name": "apply_ops",
       "title": "Transação de operações",
-      "description": "Aplica uma lista mista de operações (create, update, delete, move, set_tokens, rename_document) numa única transação atômica.",
+      "description": "Aplica uma lista mista de operações (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page) numa única transação atômica.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1885,6 +1885,81 @@
                     "rootId",
                     "parentId",
                     "index"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "group"
+                    },
+                    "ids": {
+                      "minItems": 1,
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 200
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "ids"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "ungroup"
+                    },
+                    "ids": {
+                      "minItems": 1,
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "ids"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "add_page"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "firstId": {
+                      "type": "string"
+                    },
+                    "firstName": {
+                      "type": "string",
+                      "maxLength": 200
+                    }
+                  },
+                  "required": [
+                    "op"
                   ]
                 }
               ]
