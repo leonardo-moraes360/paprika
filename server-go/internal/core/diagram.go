@@ -22,7 +22,7 @@ type dbox struct{ x, y, w, h float64 }
 const NoteFoldFill = "rgba(0,0,0,0.12)"
 
 func dnum(v float64) string { return jsonv.FormatNumber(Round4(v)) }
-func dpt(p Pt) string      { return dnum(p.X) + " " + dnum(p.Y) }
+func dpt(p Pt) string       { return dnum(p.X) + " " + dnum(p.Y) }
 
 // ShapeDefaults are the fields a new shape gets when they are missing, by kind.
 func ShapeDefaults(kind string) *jsonv.Object {
