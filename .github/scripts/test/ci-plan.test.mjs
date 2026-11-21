@@ -315,6 +315,19 @@ describe("the CLI wrapper", () => {
     );
   });
 
+  it("reports a missing git instead of spawning one from PATH", () => {
+    // The script resolves `git` to an absolute path before calling it, so an empty PATH is a clear
+    // failure (exit 3) rather than an ENOENT stack from the spawn.
+    assert.throws(
+      () => run(["HEAD", "HEAD"], { PATH: "" }),
+      (err) => {
+        assert.equal(err.status, 3);
+        assert.match(err.stderr, /ci-plan: git not found on PATH/);
+        return true;
+      },
+    );
+  });
+
   it("writes the plan to stdout when GITHUB_OUTPUT is unset", () => {
     // HEAD..HEAD is an empty diff: what comes out is the "nothing selected" plan.
     assert.equal(run(["HEAD", "HEAD"], {}), planLines(plan([])));
