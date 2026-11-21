@@ -4,7 +4,36 @@ import { DocumentStore, createMcpServer } from "../dist/index.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { writeFile, rm } from "node:fs/promises";
-const file = process.argv[2];
+import { isAbsolute, relative, resolve, sep } from "node:path";
+
+// Sonar S8707: os dois caminhos vêm da linha de comando. São resolvidos contra o diretório atual e
+// qualquer resultado fora dele é recusado, para um argumento errado não apagar nem sobrescrever
+// arquivos alhures (ex.: `bezier-demo.mjs ../../.bashrc x.png`).
+function argPath(index, label) {
+  const raw = process.argv[index];
+  if (!raw) {
+    console.error(`faltou o argumento ${index}: node packages/server/scripts/bezier-demo.mjs <saida.paprika.json> <saida.png>`);
+    process.exit(2);
+  }
+  const abs = resolve(process.cwd(), raw);
+  const rel = relative(process.cwd(), abs);
+  if (!rel || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    console.error(`${label} precisa ficar dentro do diretório atual (${process.cwd()}): ${raw}`);
+    process.exit(2);
+  }
+  return abs;
+}
+
+// Sonar S5145: o texto que o MCP devolve é dado externo; um CR/LF nele imprimiria linhas de log
+// forjadas. Os caracteres de controle são escapados — texto comum sai exatamente como antes, e uma
+// resposta continua ocupando uma linha.
+function printable(text) {
+  return String(text).replace(/[\u0000-\u001f\u007f]/g, (c) =>
+    c === "\n" ? "\\n" : c === "\r" ? "\\r" : c === "\t" ? "\\t" : `\\u${c.charCodeAt(0).toString(16).padStart(2, "0")}`,
+  );
+}
+
+const file = argPath(2, "documento");
 await rm(file, { force: true });
 const store = await DocumentStore.open(file);
 const [a, b] = InMemoryTransport.createLinkedPair();
@@ -25,8 +54,8 @@ await call("create_nodes", { nodes: [{ type: "frame", id: "board", name: "Bezier
   { type: "path", name: "Onda", x: 40, y: 300, d: "M0 20 C 40 -10 80 50 120 20 S 200 -10 240 20 S 320 50 400 20", stroke: { color: "$spark", width: 3 }, strokeCap: "round" },
 ]}]});
 const lint = await call("lint_design", {});
-console.log(lint.content[0].text);
-console.log((await call("path_info", { id: Object.values(store.doc.nodes).find(n => n.name === "Vagem").id })).content[0].text);
+console.log(printable(lint.content[0].text));
+console.log(printable((await call("path_info", { id: Object.values(store.doc.nodes).find(n => n.name === "Vagem").id })).content[0].text));
 const shot = await call("render_screenshot", { rootId: "board" });
-await writeFile(process.argv[3], Buffer.from(shot.content.find(x => x.type === "image").data, "base64"));
+await writeFile(argPath(3, "png"), Buffer.from(shot.content.find(x => x.type === "image").data, "base64"));
 await store.flush(); await store.close(); process.exit(0);

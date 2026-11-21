@@ -3,6 +3,14 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { rmSync } from "node:fs";
 
+// Sonar S5145: o texto que o MCP devolve é dado externo; CR/LF nele forjaria linhas de log.
+// Escapar os caracteres de controle preserva o texto normal e mantém uma resposta por linha.
+function printable(text) {
+  return String(text).replace(/[\u0000-\u001f\u007f]/g, (c) =>
+    c === "\n" ? "\\n" : c === "\r" ? "\\r" : c === "\t" ? "\\t" : `\\u${c.charCodeAt(0).toString(16).padStart(2, "0")}`,
+  );
+}
+
 const file = new URL("../../../examples/demo.paprika.json", import.meta.url).pathname;
 rmSync(file, { force: true });
 const client = new Client({ name: "seed-demo", version: "0" });
@@ -66,6 +74,6 @@ await call("create_nodes", {
     ],
   }],
 });
-console.log(await call("lint_design", {}));
-console.log(await call("get_document_outline", { depth: 1 }));
+console.log(printable(await call("lint_design", {})));
+console.log(printable(await call("get_document_outline", { depth: 1 })));
 await client.close();
