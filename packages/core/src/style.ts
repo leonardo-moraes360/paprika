@@ -1,4 +1,5 @@
-import type { Document, Layout, Node, PathNode, Size } from "./schema.js";
+import type { ConnectorNode, Document, Layout, Node, PathNode, ShapeNode, Size } from "./schema.js";
+import { NOTE_FOLD_FILL, shapeOutline, shapePadding } from "./diagram.js";
 
 export type CSS = Record<string, string | number>;
 
@@ -106,7 +107,8 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
   const parentMode = parent?.type === "frame" && parent.layout && parent.layout.mode !== "none" ? parent.layout.mode : null;
   const css: CSS = { boxSizing: "border-box" };
 
-  if (parentMode && !opts.asRoot) {
+  // Conectores nunca entram no fluxo do auto layout: a geometria é calculada a partir das pontas.
+  if (parentMode && !opts.asRoot && node.type !== "connector") {
     css.position = "relative";
   } else {
     css.position = "absolute";
@@ -122,6 +124,13 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
     if (!node.visible) css.display = "none";
     return css;
   }
+  if (node.type === "connector") {
+    // O traço vai para o <path> (ver connectorAttrs); as pontas podem passar da caixa.
+    if (node.opacity !== 1) css.opacity = node.opacity;
+    css.overflow = "visible";
+    css.display = node.visible ? "block" : "none";
+    return css;
+  }
   if (node.rotation) css.transform = `rotate(${round(node.rotation)}deg)`;
   if (node.opacity !== 1) css.opacity = node.opacity;
   if (!node.visible) css.display = "none";
@@ -133,6 +142,19 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
       const s = node.shadow;
       css.filter = `drop-shadow(${px(s.x)} ${px(s.y)} ${px(s.blur)} ${paint(s.color)})`;
     }
+    return css;
+  }
+  if (node.type === "shape") {
+    // O contorno (fill/stroke) é um <svg> atrás do texto (ver shapeAttrs); aqui, caixa e texto.
+    css.display = node.visible ? "flex" : "none";
+    css.alignItems = node.shape === "note" ? "flex-start" : "center";
+    css.justifyContent = "center";
+    css.padding = shapePadding(node).map(px).join(" ");
+    if (node.shadow) {
+      const s = node.shadow;
+      css.filter = `drop-shadow(${px(s.x)} ${px(s.y)} ${px(s.blur)} ${paint(s.color)})`;
+    }
+    Object.assign(css, textCss(node, paint));
     return css;
   }
   if (node.fill) css.background = String(paint(node.fill));
@@ -160,16 +182,7 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
       break;
     }
     case "text": {
-      css.color = String(paint(node.color));
-      css.fontFamily = node.fontFamily;
-      const fs = paint(node.fontSize);
-      css.fontSize = typeof fs === "number" ? px(fs) : String(fs);
-      css.fontWeight = node.fontWeight;
-      css.lineHeight = node.lineHeight;
-      if (node.letterSpacing) css.letterSpacing = px(node.letterSpacing);
-      css.textAlign = node.textAlign;
-      css.whiteSpace = "pre-wrap";
-      css.overflowWrap = "anywhere";
+      Object.assign(css, textCss(node, paint));
       css.margin = 0;
       break;
     }
@@ -181,6 +194,77 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
       break;
   }
   return css;
+}
+
+/** Tipografia de texto e de forma (mesma ordem de propriedades nos dois). */
+function textCss(
+  node: Pick<ShapeNode, "color" | "fontFamily" | "fontSize" | "fontWeight" | "lineHeight" | "textAlign"> & { letterSpacing?: number },
+  paint: (v: string | number) => string | number,
+): CSS {
+  const css: CSS = {};
+  css.color = String(paint(node.color));
+  css.fontFamily = node.fontFamily;
+  const fs = paint(node.fontSize);
+  css.fontSize = typeof fs === "number" ? px(fs) : String(fs);
+  css.fontWeight = node.fontWeight;
+  css.lineHeight = node.lineHeight;
+  if (node.letterSpacing) css.letterSpacing = px(node.letterSpacing);
+  css.textAlign = node.textAlign;
+  css.whiteSpace = "pre-wrap";
+  css.overflowWrap = "anywhere";
+  return css;
+}
+
+/** Estilo do <svg> do contorno de uma forma (atrás do texto) e do bloco de texto. */
+export const SHAPE_SVG_CSS: CSS = { position: "absolute", left: 0, top: 0, overflow: "visible" };
+export const SHAPE_TEXT_CSS: CSS = { position: "relative", width: "100%" };
+
+/**
+ * Contorno de uma forma de diagrama: tamanho do <svg>, o <path> do contorno e, na nota adesiva, a
+ * dobra do canto. Fonte única para canvas, HTML/screenshot, React e SVG.
+ */
+export function shapeAttrs(doc: Document, node: ShapeNode, opts: { vars?: boolean } = {}): {
+  svg: { width: number; height: number };
+  path: { d: string; fill: string; stroke?: string; strokeWidth?: number; strokeLinejoin: string };
+  fold?: { d: string; fill: string };
+} {
+  const mode = modeOf(doc, node);
+  const o = shapeOutline(node);
+  const path: ReturnType<typeof shapeAttrs>["path"] = {
+    d: o.d,
+    fill: node.fill ? String(paintValue(doc, node.fill, mode, opts.vars)) : "none",
+    strokeLinejoin: "round",
+  };
+  if (node.stroke && node.stroke.width > 0) {
+    path.stroke = String(paintValue(doc, node.stroke.color, mode, opts.vars));
+    path.strokeWidth = node.stroke.width;
+  }
+  const out: ReturnType<typeof shapeAttrs> = { svg: { width: node.width, height: node.height }, path };
+  if (o.fold) out.fold = { d: o.fold, fill: NOTE_FOLD_FILL };
+  return out;
+}
+
+/** Atributos do <path> de um conector (linha e pontas, sem preenchimento). */
+export function connectorAttrs(doc: Document, node: ConnectorNode, opts: { vars?: boolean } = {}): {
+  d: string;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  strokeLinecap: string;
+  strokeLinejoin: string;
+  strokeDasharray?: string;
+} {
+  const sw = node.stroke.width;
+  const a: ReturnType<typeof connectorAttrs> = {
+    d: node.d,
+    fill: "none",
+    stroke: String(paintValue(doc, node.stroke.color, modeOf(doc, node), opts.vars)),
+    strokeWidth: sw,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+  };
+  if (node.dashed) a.strokeDasharray = `${round(sw * 3)} ${round(sw * 2.5)}`;
+  return a;
 }
 
 /** Atributos do <svg> e do <path> de um nó path. Fonte única para canvas, HTML/screenshot e React. */

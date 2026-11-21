@@ -100,7 +100,7 @@ func ContrastRatio(a, b RGBA) float64 {
 func EffectiveBackground(doc *Document, node *Node) (RGBA, bool) {
 	var layers []RGBA
 	var cur *Node
-	if node.Str("type") == "text" {
+	if t := node.Str("type"); t == "text" || t == "shape" {
 		cur = node
 	} else {
 		cur = parentOf(doc, node)
@@ -149,7 +149,7 @@ func tokenRefs(n *Node) []string {
 	if sh := n.Obj("shadow"); sh != nil {
 		check(sh.Str("color"))
 	}
-	if n.Str("type") == "text" {
+	if t := n.Str("type"); t == "text" || t == "shape" {
 		c, _ := n.Get("color")
 		check(c)
 		fs, _ := n.Get("fontSize")
@@ -229,8 +229,8 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 			}
 		}
 
-		if typ == "text" {
-			if jsonv.Trim(node.Str("text")) == "" {
+		if typ == "text" || typ == "shape" {
+			if typ == "text" && jsonv.Trim(node.Str("text")) == "" {
 				add("empty-text", "warning", id, "empty text")
 			}
 			fsv, _ := node.Get("fontSize")

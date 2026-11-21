@@ -1,4 +1,4 @@
-import { Node, isContainer, type Document, type FrameNode, type Node as NodeT } from "./schema.js";
+import { Node, isContainer, type ConnectorEnd, type Document, type FrameNode, type Node as NodeT } from "./schema.js";
 import { round4 } from "./num.js";
 
 /**
@@ -114,6 +114,17 @@ function scaleGeometry(n: Record<string, unknown>, s: number, withPosition: bool
     n.layout = { ...layout, gap: sc(layout.gap), padding: Array.isArray(layout.padding) ? layout.padding.map(sc) : sc(layout.padding) };
 }
 
+/** Ponta de um conector copiado: nó do componente vira a cópia; ponto solto escala com a instância. */
+function copyEnd(e: ConnectorEnd, instId: string, inComp: ReadonlySet<string>, s: number): ConnectorEnd {
+  const out = { ...e };
+  if (out.nodeId !== undefined && inComp.has(out.nodeId)) out.nodeId = copyId(instId, out.nodeId);
+  if (s !== 1) {
+    if (out.x !== undefined) out.x = round4(out.x * s);
+    if (out.y !== undefined) out.y = round4(out.y * s);
+  }
+  return out;
+}
+
 function descendants(doc: Document, id: string): string[] {
   const out: string[] = [];
   const walk = (nid: string) => {
@@ -182,6 +193,7 @@ function buildInstance(doc: Document, inst: FrameNode & { instanceOf: string }) 
   const parsedRoot = Node.safeParse(root);
   if (!parsedRoot.success) throw new InstanceError(`instance "${inst.id}": invalid override on the root: ${formatIssues(parsedRoot.error)}`);
 
+  const inComp = new Set(descendants(doc, comp.id));
   const want: NodeT[] = [];
   const copy = (srcId: string, parentId: string): string => {
     const srcNode = doc.nodes[srcId]!;
@@ -195,6 +207,8 @@ function buildInstance(doc: Document, inst: FrameNode & { instanceOf: string }) 
     n.sourceId = srcId;
     delete n.component;
     scaleGeometry(n, s, true);
+    // Um conector dentro do componente se prende às cópias da mesma instância.
+    if (n.type === "connector") for (const k of ["from", "to"] as const) n[k] = copyEnd(n[k] as ConnectorEnd, inst.id, inComp, s);
     for (const [k, v] of Object.entries(overrides[srcId] ?? {})) n[k] = v;
     const slot = want.length;
     want.push(undefined as unknown as NodeT);

@@ -43,8 +43,11 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
+    // `/` is the workspace overview: the demo is the only (active) workspace; opening it shows the canvas.
     await page.goto(url);
+    await page.locator(".workspace-card.is-active").click();
     await page.waitForSelector('[data-paprika-id="login"]');
+    expect(new URL(page.url()).pathname).toBe(`/w/${(await doc()).id}`);
     expect(errors).toEqual([]);
     agent = new Client({ name: "e2e-agent", version: "0" });
     await agent.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
@@ -90,6 +93,39 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     await expect(el.getAttribute("class")).resolves.toContain("agent-flash");
     await expect(page.locator(".agent-pill").textContent()).resolves.toContain("adicionar nota de rodapé");
     if (shots) await page.screenshot({ path: join(shots, "02-agente-editou.png") });
+  });
+
+  it("presença: cada agente tem cursor, seleção e cor próprios; o cursor desliza até os nós em que ele age", async () => {
+    // The previous test left the agent's cursor on the new footer, inside "plano".
+    const cursor = page.locator('[data-testid="agent-cursor"]');
+    await expect.poll(() => cursor.count()).toBe(1);
+    const plano = (await page.locator('[data-paprika-id="plano"]').boundingBox())!;
+    const inside = (b: { x: number; y: number }, r: { x: number; y: number; width: number; height: number }) =>
+      b.x >= r.x && b.x <= r.x + r.width && b.y >= r.y && b.y <= r.y + r.height;
+    const tip = async (i: number) => (await cursor.nth(i).locator(".agent-cursor svg").boundingBox())!;
+    expect(inside(await tip(0), plano)).toBe(true);
+
+    // A second session with the same client name is another agent: own name and color.
+    const other = new Client({ name: "e2e-agent", version: "0" });
+    await other.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
+    try {
+      await other.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
+      await expect.poll(() => cursor.count()).toBe(2);
+      const roster = page.getByTestId("agent-roster").locator("li");
+      await expect.poll(() => roster.allInnerTexts()).toEqual([expect.stringMatching(/^e2e-agent\s*criando/), expect.stringMatching(/^e2e-agent 2\s*lendo/)]);
+      const colors = await cursor.evaluateAll((els) => els.map((e) => getComputedStyle(e).getPropertyValue("--agent")));
+      expect(new Set(colors).size).toBe(2);
+      const login = (await page.locator('[data-paprika-id="login"]').boundingBox())!;
+      await expect.poll(async () => inside(await tip(1), login)).toBe(true);
+
+      // The first agent moves to "login" too: its cursor glides there (CSS transition).
+      await agent.callTool({ name: "update_nodes", arguments: { updates: [{ id: "login", props: { notes: "revisado" } }] } });
+      await expect.poll(async () => inside(await tip(0), login), { timeout: 3000 }).toBe(true);
+      await expect.poll(() => roster.first().innerText()).toContain("editando");
+      if (shots) await page.screenshot({ path: join(shots, "02b-agentes-presentes.png") });
+    } finally {
+      await other.close();
+    }
   });
 
   it("humano arrasta um frame e o agente lê a nova posição", async () => {
@@ -525,4 +561,191 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     await page.keyboard.press("Control+z");
     await expect.poll(() => name("login")).toBe("Login · mobile");
   });
+
+  it("overview: volta aos workspaces, cria um, abre no canvas e segue o agente quando ele troca", async () => {
+    const demo = (await doc()).id;
+    await page.getByRole("link", { name: "Paprika" }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+    const demoCard = page.locator(`[data-workspace-id="${demo}"]`);
+    await expect.poll(() => demoCard.textContent()).toMatch(/Demo.*nós.*ativo/);
+    if (shots) await page.screenshot({ path: join(shots, "20-overview.png") });
+
+    await page.getByRole("button", { name: "+ Novo workspace" }).click();
+    await page.getByLabel("Nome do workspace").fill("Rascunho do agente");
+    await page.getByRole("button", { name: "Criar" }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toMatch(/^\/w\//);
+    await expect.poll(async () => (await doc()).name).toBe("Rascunho do agente");
+    await expect.poll(() => page.locator(".doc-name").textContent()).toBe("Rascunho do agente");
+    const draft = (await doc()).id;
+    expect(new URL(page.url()).pathname).toBe(`/w/${draft}`);
+    expect(await page.locator("[data-layer-id]").count()).toBe(0);
+
+    // The agent draws in the open workspace, then switches back to the demo: the canvas follows.
+    await agent.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "frame", id: "rasc", name: "Rascunho", width: 200, height: 120, fill: "#ffffff" }] } });
+    await page.waitForSelector('[data-paprika-id="rasc"]');
+    await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
+    await page.waitForSelector('[data-paprika-id="login"]');
+    await expect.poll(() => new URL(page.url()).pathname).toBe(`/w/${demo}`);
+
+    // Following the agent replaced the URL, so Back goes to the overview; the draft is listed there.
+    await page.goBack();
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+    await expect.poll(() => page.locator(`[data-workspace-id="${draft}"]`).textContent()).toMatch(/Rascunho do agente1 nó/);
+    await page.locator(`[data-workspace-id="${draft}"]`).click();
+    await page.waitForSelector('[data-paprika-id="rasc"]');
+    await page.goto(`${url}/w/nao-existe`);
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+    await expect.poll(() => page.getByRole("alert").textContent()).toContain("nao-existe");
+    // Leave the demo active for any later test.
+    await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
+  });
+
+  it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {
+    const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    try {
+      await p.goto(`${url}/w/${(await doc()).id}`);
+      await p.waitForSelector('[data-paprika-id="login"]');
+      const width = (sel: string) => p.locator(sel).evaluate((el) => Math.round(el.getBoundingClientRect().width));
+      const left = p.getByRole("separator", { name: "Largura do painel de camadas" });
+      const right = p.getByRole("separator", { name: "Largura do painel de propriedades" });
+      expect(await width("aside.left")).toBe(240);
+      expect(await width("aside.right")).toBe(280);
+
+      const dragBy = async (handle: typeof left, dx: number) => {
+        const b = (await handle.boundingBox())!;
+        await p.mouse.move(b.x + b.width / 2, b.y + 200);
+        await p.mouse.down();
+        await p.mouse.move(b.x + b.width / 2 + dx / 2, b.y + 200);
+        await p.mouse.move(b.x + b.width / 2 + dx, b.y + 200);
+        await p.mouse.up();
+      };
+      await dragBy(left, 100);
+      expect(await width("aside.left")).toBe(340);
+      await dragBy(left, 1000); // trava no máximo
+      expect(await width("aside.left")).toBe(480);
+      await dragBy(left, -1000); // trava no mínimo
+      expect(await width("aside.left")).toBe(200);
+
+      await dragBy(right, -60); // à direita, arrastar para a esquerda alarga
+      expect(await width("aside.right")).toBe(340);
+      await right.focus();
+      await p.keyboard.press("End");
+      expect(await right.getAttribute("aria-valuenow")).toBe("480");
+      await p.keyboard.press("ArrowRight");
+      expect(await width("aside.right")).toBe(464);
+
+      await p.reload();
+      await p.waitForSelector('[data-paprika-id="login"]');
+      expect(await width("aside.left")).toBe(200);
+      expect(await width("aside.right")).toBe(464);
+
+      await left.dblclick(); // volta ao padrão
+      expect(await width("aside.left")).toBe(240);
+      expect(await p.evaluate(() => localStorage.getItem("paprika.panel.left"))).toBe("240");
+    } finally {
+      await p.close();
+    }
+  });
+
+  it("diagramas: caixa e losango com texto no lugar, seta que prende e segue a forma, apagar leva a seta e o agente desenha com draw_diagram", async () => {
+    // CI runners are slower than the 1 s default of expect.poll for a round trip through the server.
+    const POLL = { timeout: 10_000 };
+    // Abre o canvas do workspace ativo (um teste anterior pode ter deixado a página na visão geral).
+    await page.goto(`${url}/w/${(await doc()).id}`);
+    await page.waitForSelector('[data-testid="viewport"]');
+    // Página nova, vazia: espaço livre para desenhar.
+    const pages = async () => Object.values((await doc()).nodes).filter((n) => n.type === "page").map((n) => n.id);
+    const pagesBefore = await pages();
+    await page.getByTestId("add-page").click();
+    // Sem páginas ainda, o + cria a Página 1 (com o conteúdo) e a nova; a nova é a última e abre ativa.
+    await expect.poll(async () => (await pages()).length, POLL).toBe(pagesBefore.length ? pagesBefore.length + 1 : 2);
+    const pageId = (await doc()).rootIds.at(-1)!;
+    await expect.poll(() => page.locator(".page.is-active").getAttribute("data-page-id"), POLL).toBe(pageId);
+    const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
+    const shapes = async () => Object.values((await doc()).nodes).filter((n) => n.type === "shape" && n.parentId === pageId);
+
+    // Caixa: um clique cria no tamanho padrão e já abre o texto para editar.
+    await page.keyboard.press("s");
+    await page.mouse.click(vp.x + 200, vp.y + 200);
+    await expect.poll(async () => (await shapes()).length, POLL).toBe(1);
+    await page.getByTestId("shape-text-editor").waitFor();
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.type("Início");
+    await page.keyboard.press("Escape");
+    await expect.poll(async () => (await shapes())[0], POLL).toMatchObject({ shape: "rect", text: "Início", width: 160, height: 80 });
+    const first = (await shapes())[0]!.id;
+
+    // Losango pelo botão da barra.
+    await page.getByRole("button", { name: "Decisão (losango)" }).click();
+    await page.mouse.click(vp.x + 520, vp.y + 200);
+    await expect.poll(async () => (await shapes()).length, POLL).toBe(2);
+    await page.getByTestId("shape-text-editor").waitFor();
+    await page.keyboard.type("Ok?");
+    await page.getByTestId("shape-text-editor").blur();
+    await expect.poll(async () => (await shapes()).find((n) => n.id !== first), POLL).toMatchObject({ shape: "diamond", text: "Ok?" });
+    const second = (await shapes()).find((n) => n.id !== first)!.id;
+    await expect.poll(() => page.locator(`[data-paprika-id="${second}"]`).innerText(), POLL).toBe("Ok?");
+
+    // Seta: arrastar de uma forma até a outra; as duas pontas ficam presas.
+    const box = async (id: string) => (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
+    const a = await box(first);
+    const b = await box(second);
+    await page.keyboard.press("a");
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 });
+    await expect.poll(() => page.getByTestId("link-draft").count(), POLL).toBe(1);
+    await page.mouse.up();
+    const connector = async () => Object.values((await doc()).nodes).find((n) => n.type === "connector" && n.parentId === pageId);
+    await expect.poll(connector, POLL).toMatchObject({ from: { nodeId: first }, to: { nodeId: second }, route: "elbow" });
+    const arrow = (await connector())!;
+    const d0 = (arrow as { d: string }).d;
+
+    // Arrastar a forma: a seta acompanha ainda durante o arraste e depois no documento.
+    await page.mouse.move(b.x + b.width / 2, b.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2, b.y + 160, { steps: 6 });
+    await expect.poll(() => page.locator(`[data-paprika-id="${arrow.id}"] path:not([data-connector-hit])`).getAttribute("d"), POLL).not.toBe(d0);
+    await page.mouse.up();
+    await expect.poll(async () => ((await connector()) as { d: string } | undefined)?.d, POLL).not.toBe(d0);
+    // Seta não redimensiona nem é arrastada: clicar seleciona sem alça.
+    const hit = (await page.locator(`[data-paprika-id="${arrow.id}"] path[data-connector-hit]`).boundingBox())!;
+    expect(hit.width).toBeGreaterThan(0);
+    if (shots) await page.screenshot({ path: join(shots, "16-diagrama-desenhado.png") });
+
+    // Duplo clique na forma edita o texto.
+    const a2 = await box(first);
+    await page.mouse.dblclick(a2.x + a2.width / 2, a2.y + a2.height / 2);
+    await page.getByTestId("shape-text-editor").waitFor();
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.type("Começo");
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect.poll(async () => (await doc()).nodes[first], POLL).toMatchObject({ text: "Começo" });
+
+    // Apagar a forma leva a seta junto; Ctrl+Z devolve as duas.
+    await page.locator(`[data-paprika-id="${first}"]`).click();
+    await page.keyboard.press("Delete");
+    await expect.poll(async () => (await doc()).nodes[arrow.id], POLL).toBeUndefined();
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect.poll(async () => (await doc()).nodes[arrow.id]?.type, POLL).toBe("connector");
+
+    // O agente desenha um fluxograma ao lado, com layout automático.
+    const res = await agent.callTool({
+      name: "draw_diagram",
+      arguments: {
+        parentId: pageId,
+        nodes: [
+          { id: "fx-start", text: "Pedido", shape: "ellipse" },
+          { id: "fx-ok", text: "Pago?", shape: "diamond" },
+          { id: "fx-ship", text: "Enviar" },
+          { id: "fx-note", text: "Lembrar de avisar o cliente", shape: "note" },
+        ],
+        edges: [{ from: "fx-start", to: "fx-ok" }, { from: "fx-ok", to: "fx-ship" }, { from: "fx-ok", to: "fx-note", dashed: true }],
+      },
+    });
+    expect(res.isError).toBeFalsy();
+    await expect.poll(() => page.locator('[data-paprika-id="fx-ok-to-fx-ship"] path').count(), POLL).toBe(2);
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    if (shots) await page.screenshot({ path: join(shots, "17-diagrama-agente.png") });
+  }, 30_000);
 });

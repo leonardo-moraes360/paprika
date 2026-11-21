@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Document, Op } from "@paprika/core";
+import { applyPresence, type AgentPresence, type PresenceMsg } from "./agents";
+
+const OFFLINE = "sem conexão com o servidor";
 
 export interface Activity {
   id: number;
@@ -19,12 +22,15 @@ export interface DocState {
   activity: Activity[];
   /** Nós tocados pela última mudança vinda de um agente (para destacar no canvas). */
   agentTouched: Set<string>;
+  /** Agentes presentes (cursor e seleção próprios no canvas). */
+  agents: AgentPresence[];
 }
 
 type ServerMsg =
   | { type: "doc"; doc: Document; version: number; actor: string; label: string; kind: string; canUndo: boolean; canRedo: boolean }
   | { type: "ack"; reqId: string; version: number }
-  | { type: "error"; reqId?: string; message: string };
+  | { type: "error"; reqId?: string; message: string }
+  | PresenceMsg;
 
 function changedIds(prev: Document | null, next: Document): string[] {
   if (!prev) return [];
@@ -47,6 +53,7 @@ export function useDocument() {
     error: null,
     activity: [],
     agentTouched: new Set(),
+    agents: [],
   });
   const wsRef = useRef<WebSocket | null>(null);
   const seq = useRef(0);
@@ -59,7 +66,9 @@ export function useDocument() {
       const proto = location.protocol === "https:" ? "wss" : "ws";
       const ws = new WebSocket(`${proto}://${location.host}/ws`);
       wsRef.current = ws;
-      ws.onopen = () => setState((s) => ({ ...s, connected: true, error: null }));
+      // Reconnecting clears only the "offline" error: an error shown before the socket opened (e.g. a
+      // workspace URL that does not exist) must stay on screen.
+      ws.onopen = () => setState((s) => ({ ...s, connected: true, error: s.error === OFFLINE ? null : s.error }));
       ws.onclose = () => {
         setState((s) => ({ ...s, connected: false }));
         if (!closed) retry = setTimeout(connect, 1000);
@@ -68,6 +77,11 @@ export function useDocument() {
         const msg = JSON.parse(String(ev.data)) as ServerMsg;
         if (msg.type === "doc") {
           setState((s) => {
+            // Another workspace: nothing carries over (its nodes are not "changed", the feed starts over).
+            if (s.doc && s.doc.id !== msg.doc.id) {
+              clearTimeout(flash);
+              return { ...s, doc: msg.doc, version: msg.version, canUndo: msg.canUndo, canRedo: msg.canRedo, activity: [], agentTouched: new Set() };
+            }
             const changed = changedIds(s.doc, msg.doc);
             const fromAgent = msg.actor.startsWith("agent");
             const activity =
@@ -88,6 +102,8 @@ export function useDocument() {
               agentTouched: fromAgent ? new Set(changed) : s.agentTouched,
             };
           });
+        } else if (msg.type === "presence") {
+          setState((s) => ({ ...s, agents: applyPresence(s.agents, msg) }));
         } else if (msg.type === "error") {
           setState((s) => ({ ...s, error: msg.message }));
         }
@@ -105,7 +121,7 @@ export function useDocument() {
   const sendRaw = useCallback((payload: object) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setState((s) => ({ ...s, error: "sem conexão com o servidor" }));
+      setState((s) => ({ ...s, error: OFFLINE }));
       return;
     }
     ws.send(JSON.stringify({ ...payload, reqId: String(++seq.current) }));
@@ -120,3 +136,5 @@ export function useDocument() {
 
   return { ...state, apply, undo, redo, clearError, showError };
 }
+
+export type LiveDocument = ReturnType<typeof useDocument>;

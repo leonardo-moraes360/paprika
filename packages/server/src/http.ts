@@ -9,6 +9,7 @@ import { Op, renderHTML } from "@paprika/core";
 import { z } from "zod";
 import type { DocumentStore, ChangeEvent } from "./store.js";
 import { createMcpServer } from "./mcp.js";
+import type { Presence } from "./presence.js";
 import { screenshot, svgExport } from "./screenshot.js";
 
 export interface HttpOptions {
@@ -39,6 +40,9 @@ const ClientMessage = z.discriminatedUnion("type", [
   z.object({ type: z.literal("undo"), reqId: z.string().optional() }),
   z.object({ type: z.literal("redo"), reqId: z.string().optional() }),
 ]);
+
+/** POST /api/workspaces: name of the new workspace (blank: "Sem título"). */
+const WorkspaceBody = z.object({ name: z.string().max(120).optional() });
 
 function isLoopbackHost(host: string): boolean {
   return host === "127.0.0.1" || host === "localhost" || host === "::1";
@@ -132,6 +136,12 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
     for (const ws of sockets) if (ws.readyState === ws.OPEN) ws.send(msg);
   };
   store.on("change", broadcast);
+  const presenceMessage = (p: Presence) => JSON.stringify({ type: "presence", ...p });
+  const broadcastPresence = (p: Presence) => {
+    const msg = presenceMessage(p);
+    for (const ws of sockets) if (ws.readyState === ws.OPEN) ws.send(msg);
+  };
+  store.presence.on("presence", broadcastPresence);
 
   const clients = new ClientNames();
   const handleMcp = async (req: IncomingMessage, res: ServerResponse) => {
@@ -142,7 +152,8 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
     const sid = req.headers["mcp-session-id"];
     const clientName = initName ?? clients.get(typeof sid === "string" ? sid : undefined);
     if (initName) res.setHeader("Mcp-Session-Id", clients.remember(initName));
-    const mcp = createMcpServer(store, { actor: `agent:${String(req.headers["user-agent"] ?? "http").split("/")[0]}`, clientName });
+    const sessionId = initName ? undefined : typeof sid === "string" ? sid : undefined;
+    const mcp = createMcpServer(store, { actor: `agent:${String(req.headers["user-agent"] ?? "http").split("/")[0]}`, clientName, sessionId });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on("close", () => {
       void transport.close();
@@ -183,6 +194,23 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
           return send(res, 422, { error: (e as Error).message });
         }
       }
+      if (p === "/api/workspaces" && req.method === "GET") {
+        const workspaces = await store.listWorkspaces();
+        return send(res, 200, { active: store.doc.id, workspaces });
+      }
+      if (p === "/api/workspaces" && req.method === "POST") {
+        const body = WorkspaceBody.safeParse((await readBody(req)) ?? {});
+        if (!body.success) return send(res, 400, { error: body.error.message });
+        return send(res, 201, { workspace: await store.createWorkspace(body.data.name ?? "") });
+      }
+      const open = /^\/api\/workspaces\/([^/]+)\/open$/.exec(p);
+      if (open && req.method !== "POST") return send(res, 405, { error: "método não permitido" });
+      if (open) {
+        const id = decodeURIComponent(open[1]!);
+        const workspace = await store.openWorkspace(id, "user");
+        if (!workspace) return send(res, 404, { error: `workspace "${id}" não existe` });
+        return send(res, 200, { workspace, version: store.version });
+      }
       if (p === "/api/render" && req.method === "GET") {
         const rootId = url.searchParams.get("root") ?? undefined;
         return send(res, 200, renderHTML(store.doc, { rootId }).html, MIME[".html"]);
@@ -218,6 +246,7 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
       sockets.add(ws);
       ws.on("close", () => sockets.delete(ws));
       ws.send(JSON.stringify({ type: "doc", doc: store.doc, version: store.version, actor: "server", label: "", kind: "reload", canUndo: store.canUndo, canRedo: store.canRedo }));
+      for (const p of store.presence.recent()) ws.send(presenceMessage(p));
       ws.on("message", (raw) => {
         let reqId: string | undefined;
         try {
@@ -250,6 +279,7 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
     url: `http://${hostForUrl}:${port}`,
     close: async () => {
       store.off("change", broadcast);
+      store.presence.off("presence", broadcastPresence);
       for (const ws of sockets) ws.terminate();
       wss.close();
       await new Promise<void>((ok) => server.close(() => ok()));

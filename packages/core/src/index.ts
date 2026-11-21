@@ -15,3 +15,4 @@ export * from "./svgImport.js";
 export * from "./pathEdit.js";
 export * from "./htmlImport.js";
 export * from "./svgExport.js";
+export * from "./diagram.js";

@@ -127,7 +127,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Guide and errors in English (pt-BR optional) | Guide, tool descriptions, errors, warnings and lint in English; `get_design_guide {language: "pt-BR"}` (2026-11-21). The canvas UI is still pt-BR | ✅ | — |
 | Group several writes into one undo step | `batch` on every write tool (2026-11-21) | ✅ | — |
 | Actor name from MCP `clientInfo` | `agent:<clientInfo.name>` on stdio and HTTP (session id carries the name) (2026-11-21) | ✅ | — |
-| Agent presence on the canvas (cursor, what it is editing) | Flash + activity list | 🟡 | P2 |
+| Agent presence on the canvas (cursor, what it is editing) | Own cursor, outline, name and color per agent session, roster; implicit from every tool call (2026-11-21) | ✅ | — |
 | Comments for humans and agents (create, resolve, filter) | `notes` field only | 🟡 | P2 |
 | Manage files via MCP (list, create, open, rename, archive), several files at once | One file per process | ⬜ | P2 |
 | "Connect your agent" panel with ready configs per client | README snippets | 🟡 | P2 |
@@ -170,7 +170,7 @@ Decision pending: write our own effects (WebGL/WebGPU, ties into the WASM evalua
 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
-| Workspace with several files, folders, thumbnails | One file per `serve` | ⬜ | P2 |
+| Workspace with several files, folders, thumbnails | Overview of the workspaces at `/` (2026-11-21): list, create, open; one active workspace shared by canvas and agents (`list_workspaces`, `open_workspace`, `create_workspace`). No folders, thumbnails, rename or delete yet | 🟡 | P2 |
 | Tabs for open files | — | ⬜ | P3 |
 | Live data in designs (fetch from an API or sheet) | — | ⬜ | P3 |
 | Real-time multi-user editing (CRDT) | Single writer + watcher | ⬜ | P3 |
@@ -195,3 +195,18 @@ Open SonarCloud issues imported on 2026-11-21 (project `leonardo-moraes360_papri
 | S9379 `autoFocus` (1) | Reliability Medium | `apps/web/src/Pages.tsx:54` | Focus through a `ref` + `useEffect` when editing starts | ⬜ | P3 |
 | S3923 ternary with identical branches (1) | Reliability Medium | `apps/site/scripts/draw-landing.mjs:161` | Use `"link:./"` directly | ⬜ | P3 |
 | Input without label (2) | Reliability Medium | `experiments/canvas-wasm/bench/index.html:16, 17` | `<label for>` or `aria-label` | ⬜ | P3 |
+
+## O. Diagrams
+
+Simple diagrams (flowcharts, architecture sketches, mind maps) drawn by the human on the canvas or by an agent over MCP. Excalidraw and Whimsical are references for the kind of feature only; the look follows Paprika's own theme.
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Shapes with text inside (box, ellipse, diamond) and sticky notes | `shape` node, `S`/`D`/`N` tools, text edited in place (2026-11-21) | ✅ | — |
+| Arrows that stick to shapes and follow them, straight or elbow | `connector` node, `A` tool, geometry derived from the ends (2026-11-21) | ✅ | — |
+| Agent draws a whole diagram in one call, with automatic layout | `draw_diagram` (2026-11-21) | ✅ | — |
+| Labels on arrows | — | ⬜ | P1 |
+| Arrows that route around other shapes | Elbow routes ignore obstacles | ⬜ | P2 |
+| Curved arrows and more shapes (cylinder, parallelogram, cloud) | — | ⬜ | P2 |
+| Re-attach or detach an arrow end by dragging it on the canvas | Inspector only | ⬜ | P2 |
+| Hand-drawn style | — | ⬜ | P3 |

@@ -14,7 +14,7 @@ export function describeNode(n: Node): string {
     return parts.join(" ");
   }
   parts.push(sizeStr(n), `@${n.x},${n.y}`);
-  if (n.type !== "group" && n.fill) parts.push(`fill=${n.fill}`);
+  if (n.type !== "group" && n.type !== "connector" && n.fill) parts.push(`fill=${n.fill}`);
   if (n.type === "frame" && n.layout && n.layout.mode !== "none") {
     parts.push(`${n.layout.mode} gap=${n.layout.gap}`);
   }
@@ -35,6 +35,17 @@ export function describeNode(n: Node): string {
     parts.push(`d=${JSON.stringify(d)}`);
     if (n.stroke) parts.push(`stroke=${n.stroke.color}/${n.stroke.width}`);
     if (n.viewBox) parts.push(`viewBox=${n.viewBox.join(",")}`);
+  }
+  if (n.type === "shape") {
+    const t = n.text.length > 60 ? n.text.slice(0, 57) + "..." : n.text;
+    parts.push(n.shape, JSON.stringify(t));
+  }
+  if (n.type === "connector") {
+    const end = (e: typeof n.from) =>
+      e.nodeId !== undefined ? `${e.nodeId}${e.side && e.side !== "auto" ? `.${e.side}` : ""}` : `(${e.x ?? "?"},${e.y ?? "?"})`;
+    parts.push(`${end(n.from)}->${end(n.to)}`, n.route);
+    if (n.startArrow !== "none" || n.endArrow !== "arrow") parts.push(`arrows=${n.startArrow}/${n.endArrow}`);
+    if (n.dashed) parts.push("dashed");
   }
   if (n.type === "image") parts.push(`src=${n.src.startsWith("data:") ? "data:…" : n.src}`);
   if (!n.visible) parts.push("hidden");
@@ -84,7 +95,7 @@ export function queryNodes(doc: Document, q: NodeQuery): Node[] {
     if (!n) continue;
     if (q.type && n.type !== q.type) continue;
     if (name && !n.name.toLowerCase().includes(name)) continue;
-    if (text && !(n.type === "text" && n.text.toLowerCase().includes(text))) continue;
+    if (text && !((n.type === "text" || n.type === "shape") && n.text.toLowerCase().includes(text))) continue;
     out.push(n);
     if (q.limit && out.length >= q.limit) break;
   }

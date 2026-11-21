@@ -2,7 +2,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import {
+  ConnectorSide,
   NodeInputSchema,
+  Stroke,
+  diagramOps,
   copyId,
   importHTML,
   importSVG,
@@ -25,6 +28,7 @@ import {
   type Op as OpT,
 } from "@paprika/core";
 import type { DocumentStore } from "./store.js";
+import { presenceKey, presenceTargets } from "./presence.js";
 import { screenshot, svgExport } from "./screenshot.js";
 
 export const VERSION = "0.1.0";
@@ -33,7 +37,8 @@ export const DESIGN_GUIDE = `# Paprika: guide for agents
 
 Document = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).
 Types: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,
-text, image, path (vector with bezier curves). Only frame, group and page have children.
+text, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between
+nodes). Only frame, group and page have children.
 
 Common fields: name, x, y, width, height (number | "hug" | "fill"), rotation, opacity (0..1),
 visible, locked, fill (color), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.
@@ -58,6 +63,14 @@ path: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fil
   the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node
   gets the drawing's box. Curves: "C c1x c1y c2x c2y x y" (cubic), "Q cx cy x y" (quadratic), S/T mirror the
   previous control point (smooth curves). Use path_info to check bounds before positioning.
+shape: shape (rect|ellipse|diamond|note), text (centered; top-left on a note), color, fontFamily, fontSize, fontWeight,
+  lineHeight, textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the
+  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).
+connector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the
+  parent's coordinates), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed.
+  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its
+  connectors, and deleting a node deletes the connectors attached to it.
+Diagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.
 
 Colors: #hex, rgb(), rgba() or "$token" (see set_tokens). Prefer tokens for recurring colors and sizes.
 Theme modes: set_tokens with mode ("dark", "compact"…) writes only the tokens that change; "mode" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.
@@ -72,6 +85,7 @@ Recommended flow:
 To bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes); export_code with format "svg" returns vector SVG.
 Every write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. "draw proposal 3"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.
 Results: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.
+Workspaces: the server holds several documents (list_workspaces); every tool works on the active one, which is also the one on the human's canvas. open_workspace switches it for everyone, so ask the human first; create_workspace makes an empty one.
 The human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.
 This guide in Brazilian Portuguese: get_design_guide {language: "pt-BR"}.`;
 
@@ -80,7 +94,8 @@ export const DESIGN_GUIDE_PT_BR = `# Paprika: guia para agentes
 
 Documento = mapa plano de nós + rootIds (telas/frames de topo, em coordenadas do canvas).
 Tipos: frame (contêiner com estilo e layout), group (agrupa sem pintar), page (canvas separado), rect, ellipse,
-text, image, path (vetor com curvas bezier). Só frame, group e page têm filhos.
+text, image, path (vetor com curvas bezier), shape (forma de diagrama com texto dentro), connector (linha/seta entre
+nós). Só frame, group e page têm filhos.
 
 Campos comuns: name, x, y, width, height (número | "hug" | "fill"), rotation, opacity (0..1),
 visible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.
@@ -105,6 +120,14 @@ path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fil
   o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó
   ganha a caixa do desenho. Curvas: "C c1x c1y c2x c2y x y" (cúbica), "Q cx cy x y" (quadrática), S/T espelham
   o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.
+shape: shape (rect|ellipse|diamond|note), text (centralizado; numa nota, no topo à esquerda), color, fontFamily, fontSize,
+  fontWeight, lineHeight, textAlign. width/height são números (padrão 160×80; nota 160×160). fill/stroke/radius/shadow
+  pintam o contorno; campos omitidos na criação ganham o padrão do tipo (branco com borda escura; note = nota adesiva amarela).
+connector: from/to = {nodeId, side?: auto|top|right|bottom|left} (preso a um nó) ou {x, y} (ponto solto nas coordenadas
+  do pai), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed. x, y, width, height e
+  d são calculados a partir das pontas a cada escrita (só leitura): mover uma forma redesenha os conectores dela, e
+  apagar um nó apaga os conectores presos a ele.
+Diagramas: draw_diagram recebe nodes (formas) + edges (conectores) e posiciona sozinho as formas sem x/y.
 
 Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.
 Modos de tema: set_tokens com mode ("dark", "compact"…) grava só os tokens que mudam; "mode" num frame ou página aplica o modo ao subtree (dá para pôr a mesma tela clara e escura lado a lado). export_code com cssVariables: true sai com var(--token) e uma regra por modo.
@@ -119,6 +142,7 @@ Fluxo recomendado:
 Para trazer um ícone ou um trecho de página pronto, use import_svg ou import_html (viram nós editáveis); export_code com format "svg" devolve SVG vetorial.
 Toda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. Para várias chamadas virarem um passo só de undo (ex.: "desenhar a proposta 3"), passe o mesmo batch em cada uma; o batch fecha quando outra pessoa escreve ou desfaz no meio.
 Resultados: as ferramentas que devolvem JSON também devolvem structuredContent conforme o outputSchema; leia esse campo em vez de interpretar o texto.
+Workspaces: o servidor guarda vários documentos (list_workspaces); toda ferramenta trabalha no ativo, que é também o do canvas do humano. open_workspace troca o ativo para todos, então pergunte ao humano antes; create_workspace cria um vazio.
 O humano vê suas edições ao vivo no canvas. Campos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.
 Erros e mensagens das ferramentas são em inglês.`;
 
@@ -152,6 +176,13 @@ const batchField = z
 // Output schemas (structuredContent). Keep them in sync with the handlers' JSON.
 const Written = { created: z.array(z.string()), version: z.number().int() };
 const Bounds = z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() });
+const Workspace = z.object({
+  id: z.string(),
+  name: z.string(),
+  nodes: z.number().int(),
+  updatedAt: z.number().describe("Unix ms of the last write"),
+  active: z.boolean(),
+});
 const Step = { version: z.number().int(), canUndo: z.boolean(), canRedo: z.boolean() };
 
 /** Actor name from the MCP clientInfo: "agent:<name>", trimmed to something printable. */
@@ -165,6 +196,8 @@ export interface McpOptions {
   actor?: string;
   /** clientInfo.name known from an earlier initialize (stateless HTTP: looked up by session id). */
   clientName?: string;
+  /** Mcp-Session-Id of the HTTP request: tells apart two agents with the same name on the canvas. */
+  sessionId?: string;
 }
 
 /** Cria o servidor MCP do Paprika sobre um DocumentStore. Uma instância por conexão/sessão. */
@@ -172,6 +205,22 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
   const server = new McpServer({ name: "paprika", version: VERSION }, { instructions: DESIGN_GUIDE });
   // The client's own name (initialize clientInfo) wins over the transport's guess (User-Agent, "stdio").
   const actorOf = () => actorFromClient(server.server.getClientVersion()?.name ?? opts.clientName) ?? opts.actor ?? "agent";
+
+  // Every tool call reports the agent's presence (tool + nodes it acted on) for the canvas cursor.
+  const register = server.registerTool.bind(server) as (name: string, config: unknown, cb: (...a: unknown[]) => unknown) => unknown;
+  server.registerTool = ((name: string, config: unknown, cb: (...a: unknown[]) => unknown) =>
+    register(name, config, async (...a: unknown[]) => {
+      let result: CallToolResult | undefined;
+      try {
+        result = (await cb(...a)) as CallToolResult;
+        return result;
+      } finally {
+        const actor = actorOf();
+        // Tools without an inputSchema get only `extra`.
+        const args = a.length > 1 ? a[0] : undefined;
+        store.presence.report(presenceKey(opts.sessionId, actor), actor, name, presenceTargets(args, result?.structuredContent, store.doc));
+      }
+    })) as typeof server.registerTool;
 
   // Answers the agent only after the transaction is on disk.
   const write = async (ops: OpT[], label: string, batch?: string) => {
@@ -572,6 +621,50 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
   );
 
   server.registerTool(
+    "list_workspaces",
+    {
+      title: "List workspaces",
+      description:
+        "Workspaces this server can open (each one is a document), most recently updated first, and which one is active. Every other tool reads and writes the active workspace, the same one the human sees on the canvas.",
+      outputSchema: { active: z.string().describe("Id of the active workspace"), workspaces: z.array(Workspace) },
+      annotations: { readOnlyHint: true },
+    },
+    () =>
+      guard(async () => {
+        const workspaces = await store.listWorkspaces();
+        return json({ active: store.doc.id, workspaces });
+      }),
+  );
+
+  server.registerTool(
+    "open_workspace",
+    {
+      title: "Open workspace",
+      description:
+        "Makes another workspace the active one: every tool and the human's canvas switch to it, and undo history starts from that workspace. Tell the human before switching away from what they are looking at.",
+      inputSchema: { id: z.string().min(1).describe("Workspace id (from list_workspaces)") },
+      outputSchema: { workspace: Workspace, version: z.number().int() },
+    },
+    ({ id }) =>
+      guard(async () => {
+        const workspace = await store.openWorkspace(id, actorOf());
+        if (!workspace) throw new Error(`workspace "${id}" does not exist (see list_workspaces)`);
+        return json({ workspace, version: store.version });
+      }),
+  );
+
+  server.registerTool(
+    "create_workspace",
+    {
+      title: "Create workspace",
+      description: "Creates an empty workspace. It does not become active: call open_workspace to work in it.",
+      inputSchema: { name: z.string().max(120).describe("Workspace name, shown on the overview (blank: \"Sem título\")") },
+      outputSchema: { workspace: Workspace },
+    },
+    ({ name }) => guard(async () => json({ workspace: await store.createWorkspace(name) })),
+  );
+
+  server.registerTool(
     "lint_design",
     {
       title: "Review design",
@@ -655,6 +748,58 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
     const w = await write(r.nodes.map((node) => ({ op: "create", parentId: parentId ?? null, node }) as OpT), label, batch);
     return json({ ...w, warnings: r.warnings });
   };
+
+  server.registerTool(
+    "draw_diagram",
+    {
+      title: "Draw a diagram",
+      description:
+        "Draws a flowchart-style diagram in one atomic write: each node becomes a shape (rect, ellipse, diamond or note, with text inside) and each edge a connector that stays attached when shapes move. Nodes without x and y are laid out in layers following the edges (direction down or right), to the right of the parent's existing content. Edges default to elbow routing with an arrow at the end; they may also point at existing nodes by id.",
+      inputSchema: {
+        parentId: z.string().nullable().optional().describe("Frame, group or page for the diagram (default: the first page, or the canvas)"),
+        direction: z.enum(["down", "right"]).default("down").describe("Auto layout: layers top to bottom or left to right"),
+        gap: z.number().min(0).max(2000).default(64).describe("Space between shapes in the auto layout (px)"),
+        x: z.number().optional().describe("Left of the auto layout in the parent's coordinates (default: right of the existing content)"),
+        y: z.number().optional().describe("Top of the auto layout (default: top of the existing content)"),
+        nodes: z
+          .array(
+            z
+              .object({ id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}").describe("New shape id (edges refer to it)") })
+              .catchall(z.unknown())
+              .describe("Shape fields: text, shape (rect|ellipse|diamond|note), x, y, width, height, fill, stroke, color, fontSize…"),
+          )
+          .max(500)
+          .default([]),
+        edges: z
+          .array(
+            z.object({
+              from: z.string().describe("Id of a diagram node or of an existing node"),
+              to: z.string(),
+              id: z.string().optional().describe("Connector id (default: <from>-to-<to>)"),
+              fromSide: ConnectorSide.optional(),
+              toSide: ConnectorSide.optional(),
+              route: z.enum(["straight", "elbow"]).optional().describe("Default: elbow"),
+              startArrow: z.enum(["none", "arrow"]).optional(),
+              endArrow: z.enum(["none", "arrow"]).optional(),
+              dashed: z.boolean().optional(),
+              stroke: Stroke.optional(),
+              name: z.string().max(200).optional(),
+            }),
+          )
+          .max(1000)
+          .default([]),
+        label: z.string().max(200).optional(),
+        batch: batchField,
+      },
+      outputSchema: { nodes: z.array(z.string()), edges: z.array(z.string()), ...Written },
+    },
+    (args) =>
+      guard(async () => {
+        const plan = diagramOps(store.doc, args);
+        const w = await write(plan.ops as OpT[], args.label ?? `draw diagram (${plan.nodes.length} shapes, ${plan.edges.length} connectors)`, args.batch);
+        return json({ nodes: plan.nodes, edges: plan.edges, ...w });
+      }),
+  );
 
   server.registerTool(
     "import_svg",

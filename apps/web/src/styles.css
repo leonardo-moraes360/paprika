@@ -63,7 +63,7 @@ textarea {
 
 .app {
   display: grid;
-  grid-template-columns: 240px 1fr 280px;
+  grid-template-columns: var(--left-w, 240px) minmax(0, 1fr) var(--right-w, 280px);
   grid-template-rows: 44px 1fr;
   grid-template-areas: "top top top" "left center right";
   height: 100%;
@@ -172,6 +172,41 @@ textarea {
 .right {
   grid-area: right;
   border-left: 1px solid var(--line);
+}
+/* Alça de redimensionar: divide a célula do painel e fica sobre a borda dele. */
+.panel-resizer {
+  position: relative;
+  z-index: 5;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+.panel-resizer.left {
+  grid-area: left;
+  justify-self: end;
+  margin-right: -5px;
+}
+.panel-resizer.right {
+  grid-area: right;
+  justify-self: start;
+  margin-left: -5px;
+}
+.panel-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.12s;
+}
+.panel-resizer:hover::after,
+.panel-resizer:focus-visible::after {
+  background: var(--line);
+}
+.panel-resizer.is-active::after,
+.panel-resizer:focus-visible::after {
+  background: var(--accent);
 }
 .center {
   grid-area: center;
@@ -565,7 +600,8 @@ textarea {
     grid-template-rows: 44px 1fr 220px;
     grid-template-areas: "top" "center" "right";
   }
-  .left {
+  .left,
+  .panel-resizer {
     display: none;
   }
   .right {
@@ -683,4 +719,202 @@ button.link {
   cursor: pointer;
   font: inherit;
   text-decoration: underline;
+}
+/* Seta em construção (ferramenta seta), em coordenadas do viewport. */
+.link-draft {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.link-draft line {
+  stroke: var(--select);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+.link-draft circle {
+  fill: var(--select);
+}
+/* Texto de uma forma de diagrama editado no lugar: herda a tipografia da forma. */
+.shape-text-editor {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 1px dashed var(--select);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+
+/* Página inicial: lista de workspaces. */
+.overview {
+  height: 100%;
+  display: grid;
+  grid-template-rows: 44px 1fr;
+}
+.overview > .topbar {
+  grid-area: auto;
+}
+.overview-main {
+  min-height: 0;
+  overflow: auto;
+  padding: 32px 24px 48px;
+}
+.overview-main > * {
+  max-width: 1080px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.overview-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.overview-head h1 {
+  font-size: 22px;
+  font-weight: 650;
+  margin: 0 0 6px;
+}
+.overview-head p {
+  margin: 0;
+}
+.overview-new {
+  display: flex;
+  gap: 8px;
+}
+.overview-new input {
+  width: 240px;
+  max-width: 50vw;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.overview-new input:focus {
+  outline: 2px solid var(--select);
+  outline-offset: -1px;
+}
+.overview-main button:not(.workspace-card) {
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  cursor: pointer;
+}
+.overview-main button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.overview-main button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.overview-error {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: #ffb4a6;
+}
+.workspace-grid {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+.workspace-card {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    border-color 0.12s,
+    transform 0.12s;
+}
+.workspace-card:hover {
+  border-color: var(--muted);
+  transform: translateY(-1px);
+}
+.workspace-card:focus-visible {
+  outline: 2px solid var(--select);
+  outline-offset: 2px;
+}
+.workspace-card.is-active {
+  border-color: var(--accent);
+}
+.workspace-tile {
+  height: 128px;
+  display: grid;
+  place-items: center;
+  font-size: 44px;
+  font-weight: 700;
+  color: hsl(var(--tile-hue) 70% 78%);
+  background:
+    radial-gradient(circle at 30% 20%, hsl(var(--tile-hue) 60% 40% / 0.55), transparent 60%),
+    linear-gradient(160deg, var(--panel-2), var(--bg));
+  border-bottom: 1px solid var(--line);
+}
+.workspace-info {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px 14px;
+  min-width: 0;
+}
+.workspace-name {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.workspace-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.home-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 6px;
+}
+.home-link:hover strong {
+  color: #ffb4a6;
+}
+.home-link:focus-visible {
+  outline: 2px solid var(--select);
+  outline-offset: 2px;
+}
+.crumb-sep {
+  color: var(--line);
 }

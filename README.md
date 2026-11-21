@@ -2,6 +2,8 @@
 
 <p align="center"><img src="docs/brand/icon.svg" alt="Paprika icon" width="128"></p>
 
+<p align="center"><img src="docs/assets/paprika-window.png" alt="Paprika canvas open on the brand proposals: layers on the left, canvas in the middle, document tokens on the right" width="900"></p>
+
 # Paprika
 
 A **local** design tool for AI agents, with a **built-in MCP server**.
@@ -70,12 +72,14 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `get_nodes` / `find_nodes` | Full node JSON / search by type, name, text |
 | `path_info` | Validates SVG path data and returns the exact bounds (bezier and arc extremes included) and the normalized `d` |
 | `create_nodes` | Creates nested trees in one call |
+| `draw_diagram` | Draws a diagram (flowchart, architecture, mind map) from a list of shapes and edges: lays the shapes out in layers (`direction`: down or right, to the right of existing content) and connects them with arrows that follow the shapes |
 | `update_nodes` / `move_nodes` / `delete_nodes` | Atomic batch edits |
 | `group_nodes` / `ungroup_nodes` | Wraps sibling nodes in a `group` (the drawing stays put) / puts them back |
 | `create_page` | Adds a page; the first one moves the current canvas into "Página 1" |
 | `create_component` / `create_instance` / `detach_instance` | Marks a frame as a component / places a copy of it (with `scale` and `overrides`; returns the id of every copy) / turns an instance into plain nodes |
 | `apply_ops` | Mixed transaction (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
 | `set_tokens` | Design tokens (`$name`) for colors and sizes; with `mode`, the values of a theme mode (e.g. `dark`) that frames and pages pick with `mode` |
+| `list_workspaces` / `open_workspace` / `create_workspace` | Lists the workspaces (documents) of the server / makes one active for every tool and the human's canvas / creates an empty one |
 | `undo` / `redo` / `get_history` | History shared with the human; every write tool takes `batch`, so several calls with the same batch become one undo step |
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
 | `render_screenshot` | PNG of a node, a page or the whole canvas |
@@ -89,17 +93,21 @@ Agent layer:
 
 ## Canvas
 
+Workspaces: `http://127.0.0.1:4777` opens on the workspace overview; a card opens that workspace's canvas at `/w/<id>`, and the Paprika logo goes back. A workspace is one document: with the TypeScript server, every `*.paprika.json` in the folder of `--file`; with the Go server, every document in the database. The server has one active workspace, shared by the canvas and the MCP agents: opening a workspace (on the canvas or with `open_workspace`) switches it for everyone, and the canvas follows when an agent switches. HTTP: `GET /api/workspaces`, `POST /api/workspaces` (`{ "name" }`), `POST /api/workspaces/<id>/open`.
+
 Shortcuts: `V` select, `F` frame, `R` rectangle, `O` ellipse, `T` text, `P` pen (click = corner point, click and drag = bezier handles, click the first point to close, `Enter`/`Esc`/double-click to finish an open path, `Backspace` removes the last point), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicate, `Delete`, arrows (Shift = 10px), `Esc` selects the parent.
 Selection: `Shift`-click (canvas or layers) adds or removes a node, dragging on empty canvas draws a selection box, `Ctrl+A` selects the siblings (or the whole page), `Ctrl+G` groups the selection, `Ctrl+Shift+G` ungroups. A click inside a group selects the group; double-click selects the node under the cursor. Dragging, arrows, `Delete` and `Ctrl+D` act on the whole selection.
 
 Components: "Make component" in the inspector of a frame, then "New instance". A click inside an instance selects the instance; select a copy in the layers (or double-click it) to override its text, colors, opacity or visibility. Changes to the component reach every instance; "Detach" turns an instance into plain nodes.
 Theme modes: the inspector's document panel lists the tokens of each mode and adds one with `dark: bg = #14161f`; "Theme mode" on a frame or page applies a mode to everything inside it.
+Diagrams: `S` box, `D` diamond (decision), `N` sticky note, `A` arrow. A click creates a shape at its default size (or drag to size it) and starts editing its text; double-click a shape to edit the text again (`Enter` adds a line, `Esc`, `Ctrl+Enter` or clicking away confirms). With the arrow tool, drag from one shape to another: both ends stick to the shapes and the arrow follows them when they move (an end dropped on empty canvas stays at that point). Deleting a shape deletes its arrows; the inspector switches an arrow between elbow and straight, picks the side of each end, the arrowheads and dashes.
 Point editing: double-click a path to edit its points. Drag a point (its handles come along) or a handle (the opposite handle mirrors it; hold `Alt` to move it alone). Double-click a point to switch between corner and smooth, double-click the outline to add a point, `Delete` removes the selected point, `Esc` or `Enter` finish. Each gesture is one undo step. Quadratic curves and arcs become cubic curves once you edit them.
 Paste and export: `Ctrl+V` with SVG markup or HTML (e.g. copied from a web page) in the clipboard creates editable nodes inside the selected frame, or on the page at the center of the view. The `⇩` toolbar button downloads the selection (or the current page) as SVG.
 Pages: the "Páginas" panel on the left switches pages, `+` adds one (the first `+` turns the current canvas into "Página 1"), double-click renames, `×` deletes (undoable).
 Renaming: double-click a layer in the "Camadas" panel or a frame title on the canvas to rename it in place. `Enter` or clicking away confirms, `Esc` cancels; each rename is one undo step. Instance copies take their name from the component.
 Navigation: scroll = pan, `Ctrl`+scroll = zoom, hold `Space` (or `Enter`) and drag = pan (the cursor turns into a hand).
 Agent edits flash on the canvas and show up under "Atividade" (activity).
+Agent presence: every agent connected over MCP gets its own cursor, name and color on the canvas, like a multiplayer session. Each tool call (reads too) moves the cursor to the nodes it acted on, outlines them and labels what the agent is doing; the list at the top right shows who is in the document. Two sessions of the same client get distinct names ("claude-code", "claude-code 2"). Presence is not saved: an idle agent fades after 15 s and disappears after 2 minutes.
 
 ### Renderer: DOM or WASM
 

@@ -338,6 +338,29 @@ describe(`paridade (${impl}): MCP`, () => {
     expect((await srv.doc()).nodes.wave).toBeUndefined();
   });
 
+  it("diagramas: draw_diagram, setas que seguem a forma, export SVG medido e undo", async () => {
+    const c = client;
+    const r = (await c.callTool({
+      name: "draw_diagram",
+      arguments: {
+        nodes: [{ id: "start", text: "Start", shape: "ellipse" }, { id: "ok", text: "OK?", shape: "diamond" }, { id: "memo", text: "Note", shape: "note", x: 500, y: 0 }],
+        edges: [{ from: "start", to: "ok" }, { from: "memo", to: "ok", route: "straight", dashed: true, startArrow: "arrow" }],
+      },
+    })) as ToolResult & { structuredContent?: unknown };
+    expect(r.structuredContent).toEqual({ nodes: ["start", "ok", "memo"], edges: ["start-to-ok", "memo-to-ok"], created: ["start", "ok", "memo", "start-to-ok", "memo-to-ok"], version: 1 });
+    await call(c, "update_nodes", { updates: [{ id: "ok", props: { x: 200.5 } }] });
+    const doc = await srv.doc();
+    expect(doc.nodes["start-to-ok"]).toMatchObject({ x: 158, y: 38, d: "M2 2 L22.25 2 L22.25 146 L42.5 146 M30.5 152 L42.5 146 L30.5 140" });
+    expect(textOf(await call(c, "get_document_outline"))).toContain("connector#memo-to-ok");
+    const svg = textOf(await call(c, "export_code", { rootId: "memo", format: "svg" }));
+    expect(svg).toContain(">Note</tspan>");
+    const bad = await call(c, "draw_diagram", { nodes: [{ id: "x" }], edges: [{ from: "x", to: "nope" }] });
+    expect(textOf(bad)).toBe('edges[0]: "nope" is neither a diagram node nor an existing node');
+    await call(c, "undo");
+    await call(c, "undo");
+    expect(Object.keys((await srv.doc()).nodes)).toEqual([]);
+  });
+
   it("render_screenshot devolve PNG no tamanho pedido", async () => {
     await call(client, "create_nodes", { nodes: [{ type: "rect", id: "r", width: 50, height: 40, fill: "#ff278c" }] });
     const r = await call(client, "render_screenshot", { rootId: "r", scale: 2 });
@@ -490,6 +513,46 @@ describe(`paridade (${impl}): HTTP + WebSocket`, () => {
     ws.close();
   });
 
+  it("presença do agente: cada chamada MCP vira cursor no canvas, com replay para quem conecta depois", async () => {
+    type Msg = { type: string; agent?: string; actor?: string; tool?: string; nodes?: string[]; idle?: number };
+    const open = async () => {
+      const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
+      const msgs: Msg[] = [];
+      ws.on("message", (m) => msgs.push(JSON.parse(String(m))));
+      await new Promise((ok) => ws.once("open", ok));
+      return { ws, msgs, presences: () => msgs.filter((m) => m.type === "presence") };
+    };
+    const live = await open();
+    const other = new Client({ name: "parity", version: "0" });
+    await other.connect(new StreamableHTTPClientTransport(new URL(`${srv.url}/mcp`)));
+    try {
+      await call(client, "create_nodes", { nodes: [{ type: "rect", id: "p1" }, { type: "rect", id: "p2" }] });
+      await call(other, "get_nodes", { ids: ["p2", "zz"] });
+      await call(client, "update_nodes", { updates: [{ id: "p1", props: { name: "x" } }] });
+      await call(client, "undo");
+      await waitFor(() => live.presences().length === 4);
+      const [a, b, c, d] = live.presences();
+      expect(a).toEqual({ type: "presence", agent: expect.stringMatching(/^s:[0-9a-f]{12}$/), actor: "agent:parity", tool: "create_nodes", nodes: ["p1", "p2"], idle: 0 });
+      expect(b).toMatchObject({ actor: "agent:parity", tool: "get_nodes", nodes: ["p2"], idle: 0 });
+      expect(b!.agent).not.toBe(a!.agent);
+      expect(c).toMatchObject({ agent: a!.agent, tool: "update_nodes", nodes: ["p1"] });
+      expect(d).toMatchObject({ agent: a!.agent, tool: "undo", nodes: [] });
+
+      const late = await open();
+      await waitFor(() => late.msgs.length === 3);
+      expect(late.msgs.map((m) => [m.type, m.agent, m.tool])).toEqual([
+        ["doc", undefined, undefined],
+        ["presence", b!.agent, "get_nodes"],
+        ["presence", a!.agent, "undo"],
+      ]);
+      expect(late.msgs[1]!.idle).toBeGreaterThanOrEqual(0);
+      late.ws.close();
+    } finally {
+      await other.close();
+      live.ws.close();
+    }
+  });
+
   it("API HTTP: documento, ops, render e erros", async () => {
     const post = (body: unknown) =>
       fetch(`${srv.url}/api/ops`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -507,6 +570,57 @@ describe(`paridade (${impl}): HTTP + WebSocket`, () => {
     expect((await srv.doc()).nodes.api1).toBeDefined();
     const health = await (await fetch(`${srv.url}/api/health`)).json();
     expect(health.ok).toBe(true);
+  });
+
+  it("workspaces: criar e abrir por MCP e HTTP; canvas e ferramentas seguem o ativo", async () => {
+    const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
+    const messages: { type: string; kind?: string; doc?: { id: string; name: string } }[] = [];
+    ws.on("message", (m) => messages.push(JSON.parse(String(m))));
+    await new Promise((ok) => ws.once("open", ok));
+    const first = (await srv.doc()).id;
+    await client.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "r1" }] } });
+
+    type Info = { id: string; name: string; nodes: number; updatedAt: number; active: boolean };
+    const created = (await call(client, "create_workspace", { name: "  Landing  " })) as ToolResult & { structuredContent: { workspace: Info } };
+    const landing = created.structuredContent.workspace;
+    expect(Object.keys(landing)).toEqual(["id", "name", "nodes", "updatedAt", "active"]);
+    expect(landing).toMatchObject({ name: "Landing", nodes: 0, active: false });
+
+    const post = (path: string, body?: unknown) =>
+      fetch(`${srv.url}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const viaHttp = await post("/api/workspaces", { name: "Outro" });
+    expect(viaHttp.status).toBe(201);
+    const outro = ((await viaHttp.json()) as { workspace: Info }).workspace;
+    expect((await post("/api/workspaces", { name: 3 })).status).toBe(400);
+
+    const list = (await (await fetch(`${srv.url}/api/workspaces`)).json()) as { active: string; workspaces: Info[] };
+    expect(list.active).toBe(first);
+    expect(list.workspaces.map((w) => w.id).sort()).toEqual([first, landing.id, outro.id].sort());
+    expect(list.workspaces.find((w) => w.id === first)).toMatchObject({ active: true, nodes: 1 });
+    const mcpList = (await call(client, "list_workspaces")) as ToolResult & { structuredContent: { active: string; workspaces: Info[] } };
+    expect(mcpList.structuredContent.active).toBe(first);
+
+    const opened = await post(`/api/workspaces/${landing.id}/open`);
+    expect(opened.status).toBe(200);
+    expect(((await opened.json()) as { workspace: Info }).workspace).toMatchObject({ id: landing.id, active: true });
+    await waitFor(() => messages.some((m) => m.type === "doc" && m.kind === "open" && m.doc?.id === landing.id));
+    expect(textOf(await call(client, "get_document_outline"))).toMatch(/^document "Landing" v\d+ · 0 nodes/);
+    await client.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "r2" }] } });
+    expect(Object.keys((await srv.doc()).nodes)).toEqual(["r2"]);
+
+    const back = await call(client, "open_workspace", { id: first });
+    expect(back.isError, textOf(back)).toBeFalsy();
+    await waitFor(() => messages.some((m) => m.type === "doc" && m.kind === "open" && m.doc?.id === first));
+    expect(Object.keys((await srv.doc()).nodes)).toEqual(["r1"]);
+
+    const bad = await call(client, "open_workspace", { id: "nope" });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toBe('workspace "nope" does not exist (see list_workspaces)');
+    const missing = await post("/api/workspaces/nope/open");
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: 'workspace "nope" não existe' });
+    expect((await fetch(`${srv.url}/api/workspaces/${first}/open`)).status).toBe(405);
+    ws.close();
   });
 
   it("bloqueia Host/Origin externos (DNS rebinding / CSRF)", async () => {

@@ -71,23 +71,14 @@ Depois de um join pela CLI, um cliente MCP pode reaproveitar a sessão sem novo 
 
 ### Raias
 
-A primeira leva do backlog ([backlog.md](backlog.md)) é implementada por uma thread na nuvem em branches empilhadas, um PR por item. Os itens 1 a 5 já foram mergeados. Falta o item 6 (camada de agentes: `structuredContent`, mensagens para agentes em inglês, guia em inglês para agentes, transações agrupadas, autor a partir do `clientInfo`), então estes caminhos são da **raia A** até ele entrar:
+A primeira leva do backlog ([backlog.md](backlog.md)) foi toda mergeada, então nenhum caminho está reservado para uma thread na nuvem agora. A divisão passa a ser por tarefa:
 
-- `packages/server/src/mcp.ts`, `packages/server/src/http.ts`, `packages/server/src/store.ts`
-- `packages/core/src/**` (o item 6 também traduz as mensagens de erro, aviso e lint voltadas a agentes em todo o core)
-- `server-go/internal/**`, `server-go/contract/**`, `server-go/scripts/gen-golden.mjs`, `server-go/scripts/gen-contract.mjs`
-- `packages/server/test/**`, `packages/core/test/**`
-- `README.md`, `README.pt-BR.md`, `server-go/README*.md`, `docs/agent-feedback.md`, `docs/pt-BR/feedback-agentes.md`, `docs/backlog.md`, `docs/pt-BR/backlog.md` e qualquer guia novo para agentes em `docs/`
+- **Raia A** (threads do Claude na nuvem) são os caminhos que um pull request aberto da nuvem toca. Antes de atribuir, o supervisor confere os PRs abertos (`gh pr list`) e deixa esses arquivos fora das tarefas do barramento.
+- **Raia B** (agentes do barramento) pega qualquer tarefa cujo `paths` não se sobreponha à raia A nem a outro claim aberto, em qualquer lugar do repositório (`apps/**`, `packages/**`, `server-go/**`, `crates/**`, `bench/**`, `.github/**`, docs).
 
-O resto fica aberto à raia B, incluindo `apps/web/**` e `crates/render/**`, desde que o payload da tarefa nomeie os arquivos.
+Quando uma nova leva na nuvem começar, o mantenedor lista os caminhos dela aqui como raia A até ela entrar.
 
-A **raia B** (agentes do barramento) pega trabalho cujos arquivos não se sobrepõem à raia A, por exemplo:
-
-- itens do backlog (P2 em diante) cujos arquivos ficam fora da raia A;
-- `bench/**`, `.github/**`;
-- documentação fora dos arquivos listados acima.
-
-Um agente do barramento que precise mexer num caminho da raia A manda um `query` para `agent:leonardo` antes de editar; nunca edita por conta própria.
+Um agente do barramento que precise de um caminho fora do `paths` da tarefa manda um `query` para `agent:leonardo` antes de editar; nunca amplia a tarefa por conta própria.
 
 ### Protocolo de tarefas
 
