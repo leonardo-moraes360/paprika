@@ -75,6 +75,9 @@ describe("applyOps", () => {
     expect(() => applyOps(doc, [{ op: "update", id: "title", props: { type: "rect" } }])).toThrow(/não pode ser alterado/);
     expect(() => applyOps(doc, [{ op: "update", id: "title", props: { opacity: 2 } }])).toThrow(/opacity/);
     expect(() => applyOps(doc, [{ op: "update", id: "title", props: { fill: "red;}" } }])).toThrow(/cor/);
+    expect(() =>
+      applyOps(doc, [{ op: "update", id: "title", props: { fontFamily: "x;background:url(http://evil)" } }]),
+    ).toThrow(/fontFamily/);
   });
 
   it("só frames recebem filhos e move não cria ciclos", () => {

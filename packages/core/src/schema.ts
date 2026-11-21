@@ -75,7 +75,11 @@ export const TextNode = z.object({
   type: z.literal("text"),
   text: z.string().max(20_000).default(""),
   color: ColorValue.default("#111111"),
-  fontFamily: z.string().max(200).default("Inter, system-ui, sans-serif"),
+  fontFamily: z
+    .string()
+    .max(200)
+    .refine((v) => !/[;{}<>()]/.test(v), "fontFamily não pode conter ; { } < > ( )")
+    .default("Inter, system-ui, sans-serif"),
   fontSize: z.union([z.number().min(1).max(1000), z.string().regex(/^\$[\w.-]+$/)]).default(16),
   fontWeight: z.number().int().min(100).max(900).default(400),
   lineHeight: z.number().min(0).max(10).default(1.4),
