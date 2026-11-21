@@ -1,0 +1,8 @@
+# A tag is a moving reference: the runner resolves it to whatever the author pushes next.
+name: bad-tag
+on: [push]
+jobs:
+  bad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # v4

@@ -1,0 +1,8 @@
+# A SHA prefix is still resolvable, and a 10-character prefix is cheap to brute-force.
+name: bad-short-sha
+on: [push]
+jobs:
+  bad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@1111111111 # v5.0.0
