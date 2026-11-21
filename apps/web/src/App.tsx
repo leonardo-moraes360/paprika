@@ -354,6 +354,7 @@ function Editor({ live }: { live: LiveDocument }) {
           apply={live.apply}
           agentTouched={live.agentTouched}
           agents={live.agents}
+          onOpenPage={openPage}
           onError={live.showError}
         />
         {live.error && (

@@ -367,6 +367,21 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.locator(`[data-page-id="${p1}"]`).click();
     await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(1);
     await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(0);
+
+    // The agent's last nodes are on page 2: the roster names that page, and clicking it opens it.
+    // (The second agent from the presence test may still be listed, on page 1.)
+    const first = page.getByTestId("agent-roster").locator("li").first();
+    const where = first.getByTestId("agent-page");
+    await expect.poll(() => first.innerText()).toMatch(/^e2e-agent\s*em Página 2$/);
+    if (shots) await page.screenshot({ path: join(shots, "08b-agente-em-outra-pagina.png") });
+    await where.click();
+    await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(1);
+    await expect(page.locator(".page.is-active").textContent()).resolves.toContain("Página 2");
+    await expect.poll(() => where.count()).toBe(0);
+    await expect.poll(() => first.innerText()).toMatch(/^e2e-agent\s*criando$/);
+
+    await page.locator(`[data-page-id="${p1}"]`).click();
+    await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(1);
   });
   it("componentes: tornar componente, nova instância, mudança propaga, override na cópia, desanexar", async () => {
     await page.keyboard.press("Escape");

@@ -140,6 +140,8 @@ interface Props {
   agentTouched: Set<string>;
   /** Agentes presentes: cada um com cursor e seleção próprios. */
   agents?: AgentPresence[];
+  /** Abre outra página (ex.: a de um agente na lista de presença). */
+  onOpenPage?(id: string): void;
   onError?(message: string): void;
 }
 
@@ -343,7 +345,7 @@ function ShapeTextEditor({ text, onCommit, onDone }: { text: string; onCommit(te
   );
 }
 
-export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, agents = [], onError }: Props) {
+export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, agents = [], onOpenPage, onError }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 40, y: 40, zoom: 1 });
@@ -1148,7 +1150,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         ))}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
-      <AgentCursors doc={doc} agents={agents} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} />
+      <AgentCursors doc={doc} agents={agents} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} />
       {frameLabels.map((l) => (
         <div
           key={l.id}

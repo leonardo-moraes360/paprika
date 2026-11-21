@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { Document } from "@paprika/core";
-import { AGENT_IDLE_MS, AGENT_TTL_MS, toolVerb, type AgentPresence } from "./agents";
+import { AGENT_IDLE_MS, AGENT_TTL_MS, agentPage, toolVerb, type AgentPresence } from "./agents";
 import { cx } from "./ui";
 
 /** Name tags use the system font, like a native cursor label. */
@@ -23,6 +23,8 @@ interface Props {
   /** Muda quando o layout muda sem o documento mudar (arraste em andamento). */
   layoutKey?: unknown;
   pageId?: string | null;
+  /** Abre a página onde um agente está (clique no item da lista de presença). */
+  onOpenPage?(id: string): void;
 }
 
 /**
@@ -30,7 +32,7 @@ interface Props {
  * que o agente agiu por último, com o nome dele e o que está fazendo. Só desenha: nada aqui é
  * clicável (pointer-events: none) e nada vai para o documento.
  */
-export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId }: Props) {
+export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId, onOpenPage }: Props) {
   const viewRef = useRef(view);
   viewRef.current = view;
   const [boxes, setBoxes] = useState<Record<string, Box[]>>({});
@@ -66,6 +68,27 @@ export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId
   const z = view.zoom;
   const tipKey = (bs: Box[]) => (bs.length ? bs.map((b) => `${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.w)},${Math.round(b.h)}`).join(";") : "");
   const tips = visible.map((a) => tipKey(boxes[a.agent] ?? []));
+
+  // Fora da página aberta: o nome da página onde o agente está, clicável para ir até lá.
+  const where = (a: AgentPresence) => {
+    const label = "font-normal not-italic text-muted";
+    if ((boxes[a.agent]?.length ?? 0) || !a.nodes.length) return <em className={label}>{toolVerb(a.tool)}</em>;
+    const p = agentPage(doc, a.nodes);
+    if (!p || p.id === pageId) return <em className={label}>em outra página</em>;
+    const text = `em ${p.name || "outra página"}`;
+    return onOpenPage ? (
+      <button
+        type="button"
+        className={cx("pointer-events-auto m-0 cursor-pointer border-0 bg-transparent p-0 underline-offset-2 hover:text-fg hover:underline focus-visible:text-fg focus-visible:underline", label, tagFont)}
+        onClick={() => onOpenPage(p.id)}
+        title={p.name ? `Abrir a página ${p.name}` : "Abrir a página"}
+        data-testid="agent-page">
+        {text}
+      </button>
+    ) : (
+      <em className={label}>{text}</em>
+    );
+  };
 
   return (
     <>
@@ -119,7 +142,7 @@ export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId
             style={{ ["--agent" as string]: a.color }} title={`${a.name}: ${toolVerb(a.tool)}`}>
             <span className="size-2 rounded-full bg-(--agent)" />
             {a.name}
-            <em className="font-normal not-italic text-muted">{(boxes[a.agent]?.length ?? 0) || !a.nodes.length ? toolVerb(a.tool) : "em outra página"}</em>
+            {where(a)}
           </li>
         ))}
       </ul>
