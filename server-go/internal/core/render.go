@@ -118,6 +118,16 @@ func renderNode(doc *Document, node *Node, asRoot, vars bool, offset *Point) str
 	case "path":
 		svg, path := PathAttrsVars(doc, node, vars)
 		return "<svg " + attrs + ` xmlns="http://www.w3.org/2000/svg"` + svgAttrs(svg) + "><path" + svgAttrs(path) + "/></svg>"
+	case "connector":
+		return "<svg " + attrs + ` xmlns="http://www.w3.org/2000/svg"><path` + svgAttrs(ConnectorAttrs(doc, node, vars)) + "/></svg>"
+	case "shape":
+		svg, path, fold := ShapeAttrs(doc, node, vars)
+		f := ""
+		if fold != nil {
+			f = "<path" + svgAttrs(fold) + "/>"
+		}
+		return "<div " + attrs + `><svg xmlns="http://www.w3.org/2000/svg"` + svgAttrs(svg) + ` style="` + CSSToString(ShapeSVGCSS()) + `"><path` + svgAttrs(path) + "/>" + f +
+			`</svg><div style="` + CSSToString(ShapeTextCSS()) + `">` + EscapeHTML(node.Str("text")) + "</div></div>"
 	}
 	return "<div " + attrs + "></div>"
 }
@@ -260,6 +270,17 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool) s
 	case "path":
 		svg, path := PathAttrsVars(doc, node, vars)
 		return indent + "<svg" + name + " style=" + style + jsxAttrs(svg) + ">\n" + indent + "  <path" + jsxAttrs(path) + " />\n" + indent + "</svg>"
+	case "connector":
+		return indent + "<svg" + name + " style=" + style + ">\n" + indent + "  <path" + jsxAttrs(ConnectorAttrs(doc, node, vars)) + " />\n" + indent + "</svg>"
+	case "shape":
+		svg, path, fold := ShapeAttrs(doc, node, vars)
+		f := ""
+		if fold != nil {
+			f = "\n" + indent + "    <path" + jsxAttrs(fold) + " />"
+		}
+		return indent + "<div" + name + " style=" + style + ">\n" + indent + "  <svg" + jsxAttrs(svg) + " style=" + jsxStyle(ShapeSVGCSS()) + ">\n" +
+			indent + "    <path" + jsxAttrs(path) + " />" + f + "\n" + indent + "  </svg>\n" + indent + "  <div style=" + jsxStyle(ShapeTextCSS()) + ">" +
+			jsxText(node.Str("text")) + "</div>\n" + indent + "</div>"
 	}
 	return indent + "<div" + name + " style=" + style + " />"
 }

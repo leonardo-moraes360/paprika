@@ -99,8 +99,10 @@ type MCP struct {
 	// client: clientInfo.name from initialize on this connection (stdio), or remembered for the
 	// HTTP session id. It names the actor ("agent:<name>").
 	client string
-	tools  map[string]tool
-	shot   Screenshotter
+	// session: Mcp-Session-Id of the HTTP request; it tells apart agents with the same name (presence).
+	session string
+	tools   map[string]tool
+	shot    Screenshotter
 }
 
 // Screenshotter renders HTML in a browser: PNG screenshots and the measured SVG export.
@@ -135,6 +137,9 @@ func ActorFromClient(name string) string {
 
 // SetClient records the client's name (from an earlier initialize) for the actor.
 func (m *MCP) SetClient(name string) { m.client = name }
+
+// SetSession records the HTTP session id, so presence tells apart two agents with the same name.
+func (m *MCP) SetSession(id string) { m.session = id }
 
 func (m *MCP) actorName() string {
 	if a := ActorFromClient(m.client); a != "" {
@@ -551,6 +556,34 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return jsonShown(jsonv.NewObject("entries", entries), entries), nil
 		})
 
+	add("list_workspaces", nil, func(context.Context, *jsonv.Object) (ToolResult, error) {
+		ws, err := store.ListWorkspaces()
+		if err != nil {
+			return nil, err
+		}
+		return jsonResult(jsonv.NewObject("active", store.DocID(), "workspaces", jsonv.FromGo(ws))), nil
+	})
+	add("open_workspace", z.Object(z.Field{Name: "id", Schema: z.String().Min(1)}),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			id := a.Str("id")
+			info, err := store.OpenWorkspace(id, m.actorName())
+			if errors.Is(err, ErrNoWorkspace) {
+				return nil, fmt.Errorf(`workspace "%s" does not exist (see list_workspaces)`, id)
+			}
+			if err != nil {
+				return nil, err
+			}
+			return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info), "version", float64(store.Version()))), nil
+		})
+	add("create_workspace", z.Object(z.Field{Name: "name", Schema: z.String().Max(120)}),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			info, err := store.CreateWorkspace(a.Str("name"))
+			if err != nil {
+				return nil, err
+			}
+			return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info))), nil
+		})
+
 	add("lint_design", z.Object(optStr("rootId")), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		issues := core.LintDocument(store.Doc(), a.Str("rootId"))
 		counts := map[string]int{"error": 0, "warning": 0, "info": 0}
@@ -654,6 +687,38 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		}
 		return o
 	}
+	add("draw_diagram", z.Object(
+		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
+		z.Field{Name: "direction", Schema: z.Default(z.Enum("down", "right"), "down")},
+		z.Field{Name: "gap", Schema: z.Default(z.Number().Min(0).Max(2000), 64.0)},
+		z.Field{Name: "x", Schema: z.Optional(z.Number())},
+		z.Field{Name: "y", Schema: z.Optional(z.Number())},
+		z.Field{Name: "nodes", Schema: z.Default(z.Array(z.Object(
+			z.Field{Name: "id", Schema: z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id must be [A-Za-z0-9_-]{1,64}")},
+		).Catchall(z.Unknown())).Max(500), []any{})},
+		z.Field{Name: "edges", Schema: z.Default(z.Array(z.Object(
+			z.Field{Name: "from", Schema: z.String()},
+			z.Field{Name: "to", Schema: z.String()},
+			optStr("id"),
+			z.Field{Name: "fromSide", Schema: z.Optional(core.ConnectorSideSchema)},
+			z.Field{Name: "toSide", Schema: z.Optional(core.ConnectorSideSchema)},
+			z.Field{Name: "route", Schema: z.Optional(z.Enum("straight", "elbow"))},
+			z.Field{Name: "startArrow", Schema: z.Optional(z.Enum("none", "arrow"))},
+			z.Field{Name: "endArrow", Schema: z.Optional(z.Enum("none", "arrow"))},
+			z.Field{Name: "dashed", Schema: z.Optional(z.Bool())},
+			z.Field{Name: "stroke", Schema: z.Optional(core.StrokeSchema)},
+			z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+		)).Max(1000), []any{})},
+		label(), batch(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		plan, err := core.DiagramOps(store.Doc(), a)
+		if err != nil {
+			return nil, err
+		}
+		lbl := labelOr(a, "draw diagram ("+count(len(plan.Nodes))+" shapes, "+count(len(plan.Edges))+" connectors)")
+		return writeWith(a, plan.Ops, lbl, "nodes", jsonv.FromGo(plan.Nodes), "edges", jsonv.FromGo(plan.Edges))
+	})
+
 	add("import_svg", importFields(
 		z.Field{Name: "svg", Schema: z.String().Min(1).Max(2_000_000)},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
@@ -730,6 +795,13 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 		}()
 		return t.handler(ctx, args)
 	}()
+	// Every tool call that reached its handler reports the agent's presence (canvas cursor).
+	var structured *jsonv.Object
+	if err == nil && res != nil {
+		structured = res.Obj("structuredContent")
+	}
+	actor := m.actorName()
+	m.store.Presence.Report(PresenceKey(m.session, actor), actor, name, PresenceTargets(args, structured, m.store.Doc()))
 	if err != nil {
 		return errorResult(err.Error())
 	}

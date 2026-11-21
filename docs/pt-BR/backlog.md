@@ -127,7 +127,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Guia e erros em inglês (pt-BR opcional) | Guia, descrições das ferramentas, erros, avisos e lint em inglês; `get_design_guide {language: "pt-BR"}` (2026-11-21). A interface do canvas segue em pt-BR | ✅ | — |
 | Agrupar várias escritas num só passo de desfazer | `batch` em toda ferramenta de escrita (2026-11-21) | ✅ | — |
 | Nome do ator vindo do `clientInfo` do MCP | `agent:<clientInfo.name>` no stdio e no HTTP (o id de sessão guarda o nome) (2026-11-21) | ✅ | — |
-| Presença do agente no canvas (cursor, o que está editando) | Destaque + lista de atividade | 🟡 | P2 |
+| Presença do agente no canvas (cursor, o que está editando) | Cursor, contorno, nome e cor próprios por sessão de agente, lista de presentes; implícita em toda chamada de ferramenta (2026-11-21) | ✅ | — |
 | Comentários para humanos e agentes (criar, resolver, filtrar) | Só o campo `notes` | 🟡 | P2 |
 | Gerenciar arquivos pelo MCP (listar, criar, abrir, renomear, arquivar), vários ao mesmo tempo | Um arquivo por processo | ⬜ | P2 |
 | Painel "conectar seu agente" com configs prontas por cliente | Trechos no README | 🟡 | P2 |
@@ -170,7 +170,7 @@ Decisão pendente: escrever efeitos próprios (WebGL/WebGPU, ligado à avaliaç�
 
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
-| Workspace com vários arquivos, pastas, miniaturas | Um arquivo por `serve` | ⬜ | P2 |
+| Workspace com vários arquivos, pastas, miniaturas | Página de workspaces em `/` (2026-11-21): listar, criar, abrir; um workspace ativo compartilhado por canvas e agentes (`list_workspaces`, `open_workspace`, `create_workspace`). Ainda sem pastas, miniaturas, renomear ou apagar | 🟡 | P2 |
 | Abas para arquivos abertos | — | ⬜ | P3 |
 | Dados ao vivo no design (buscar de uma API ou planilha) | — | ⬜ | P3 |
 | Edição multiusuário em tempo real (CRDT) | Um escritor + watcher | ⬜ | P3 |
@@ -195,3 +195,18 @@ Issues abertas do SonarCloud importadas em 2026-11-21 (projeto `leonardo-moraes3
 | S9379 `autoFocus` (1) | Confiabilidade Medium | `apps/web/src/Pages.tsx:54` | Focar via `ref` + `useEffect` ao entrar em edição | ⬜ | P3 |
 | S3923 ternário com ramos iguais (1) | Confiabilidade Medium | `apps/site/scripts/draw-landing.mjs:161` | Usar `"link:./"` direto | ⬜ | P3 |
 | Input sem label (2) | Confiabilidade Medium | `experiments/canvas-wasm/bench/index.html:16, 17` | `<label for>` ou `aria-label` | ⬜ | P3 |
+
+## O. Diagramas
+
+Diagramas simples (fluxogramas, esboços de arquitetura, mapas mentais) desenhados pela pessoa no canvas ou por um agente via MCP. Excalidraw e Whimsical servem só de referência do tipo de recurso; a aparência segue o tema do próprio Paprika.
+
+| Recurso | Paprika hoje | Status | Pri. |
+|---|---|---|---|
+| Formas com texto dentro (caixa, elipse, losango) e notas adesivas | Nó `shape`, ferramentas `S`/`D`/`N`, texto editado no lugar (2026-11-21) | ✅ | — |
+| Setas que prendem nas formas e as acompanham, retas ou em cotovelo | Nó `connector`, ferramenta `A`, geometria derivada das pontas (2026-11-21) | ✅ | — |
+| Agente desenha um diagrama inteiro numa chamada, com layout automático | `draw_diagram` (2026-11-21) | ✅ | — |
+| Rótulos nas setas | — | ⬜ | P1 |
+| Setas que desviam de outras formas | A rota em cotovelo ignora obstáculos | ⬜ | P2 |
+| Setas curvas e mais formas (cilindro, paralelogramo, nuvem) | — | ⬜ | P2 |
+| Prender ou soltar a ponta de uma seta arrastando no canvas | Só pelo inspector | ⬜ | P2 |
+| Estilo desenhado à mão | — | ⬜ | P3 |

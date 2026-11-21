@@ -24,14 +24,14 @@ log() { echo "[session-start] $*" >&2; }
 
 # True when $1 is a tb binary built from exactly the pinned module version and hash.
 tb_pinned() {
-  [ -x "$1" ] || return 1
+  [[ -x "$1" ]] || return 1
   go version -m "$1" 2>/dev/null |
     awk -v m="$TB_MODULE" '$1 == "mod" && $2 == m { print $3, $4 }' |
     grep -qxF "$TB_VERSION $TB_SUM"
 }
 
 remote=false
-[ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && remote=true
+[[ "${CLAUDE_CODE_REMOTE:-}" == "true" ]] && remote=true
 
 if ! command -v go >/dev/null 2>&1; then
   log "go is not installed: cannot check or install tb $TB_VERSION."
@@ -40,10 +40,10 @@ if ! command -v go >/dev/null 2>&1; then
 fi
 
 gobin="$(go env GOBIN)"
-[ -n "$gobin" ] || gobin="$(go env GOPATH)/bin"
+[[ -n "$gobin" ]] || gobin="$(go env GOPATH)/bin"
 on_path="$(command -v tb 2>/dev/null || true)"
 
-if [ -n "$on_path" ] && tb_pinned "$on_path"; then
+if [[ -n "$on_path" ]] && tb_pinned "$on_path"; then
   tb_bin="$on_path"
 elif tb_pinned "$gobin/tb"; then
   tb_bin="$gobin/tb"
@@ -65,7 +65,7 @@ elif $remote; then
   fi
   tb_bin="$gobin/tb"
 else
-  if [ -n "$on_path" ]; then
+  if [[ -n "$on_path" ]]; then
     found="$(go version -m "$on_path" 2>/dev/null | awk '$1 == "mod" { print $3 }')"
     echo "tb on PATH ($on_path, module version ${found:-unknown}) is not the pinned $TB_VERSION."
   else
@@ -77,7 +77,7 @@ fi
 
 # Put the pinned tb first on PATH for the rest of the session.
 tb_dir="$(dirname "$tb_bin")"
-if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ "$(command -v tb 2>/dev/null || true)" != "$tb_bin" ]; then
+if [[ -n "${CLAUDE_ENV_FILE:-}" ]] && [[ "$(command -v tb 2>/dev/null || true)" != "$tb_bin" ]]; then
   echo "export PATH=\"$tb_dir:\$PATH\"" >>"$CLAUDE_ENV_FILE"
 fi
 
@@ -95,7 +95,7 @@ if $remote; then
 
   # The cloud image ships one Chromium under /opt/pw-browsers whose revision may not match the
   # lockfile's Playwright; the E2E suites and screenshots honour PAPRIKA_CHROMIUM.
-  if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -z "${PAPRIKA_CHROMIUM:-}" ] && [ -x /opt/pw-browsers/chromium ]; then
+  if [[ -n "${CLAUDE_ENV_FILE:-}" ]] && [[ -z "${PAPRIKA_CHROMIUM:-}" ]] && [[ -x /opt/pw-browsers/chromium ]]; then
     echo "export PAPRIKA_CHROMIUM=/opt/pw-browsers/chromium" >>"$CLAUDE_ENV_FILE"
   fi
 fi

@@ -1,5 +1,17 @@
 import { firstPage, pageRoots, type Document, type Node } from "./schema.js";
-import { cssToString, modeOf, nodeStyle, pathAttrs, resolveValue, tokenStylesheet, type CSS } from "./style.js";
+import {
+  SHAPE_SVG_CSS,
+  SHAPE_TEXT_CSS,
+  connectorAttrs,
+  cssToString,
+  modeOf,
+  nodeStyle,
+  pathAttrs,
+  resolveValue,
+  shapeAttrs,
+  tokenStylesheet,
+  type CSS,
+} from "./style.js";
 
 const kebab = (k: string) => k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
 export const svgAttrs = (o: Record<string, string | number | undefined>) =>
@@ -80,6 +92,13 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, o
       const a = pathAttrs(doc, node, { vars });
       return `<svg ${attrs} xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)}><path${svgAttrs(a.path)}/></svg>`;
     }
+    case "connector":
+      return `<svg ${attrs} xmlns="http://www.w3.org/2000/svg"><path${svgAttrs(connectorAttrs(doc, node, { vars }))}/></svg>`;
+    case "shape": {
+      const a = shapeAttrs(doc, node, { vars });
+      const fold = a.fold ? `<path${svgAttrs(a.fold)}/>` : "";
+      return `<div ${attrs}><svg xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)} style="${cssToString(SHAPE_SVG_CSS)}"><path${svgAttrs(a.path)}/>${fold}</svg><div style="${cssToString(SHAPE_TEXT_CSS)}">${escapeHtml(node.text)}</div></div>`;
+    }
     default:
       return `<div ${attrs}></div>`;
   }
@@ -133,6 +152,13 @@ function jsxStyle(css: CSS): string {
     .join(", ")} }}`;
 }
 
+function jsxAttrs(o: Record<string, string | number | undefined>): string {
+  return Object.entries(o)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : JSON.stringify(v)}`)
+    .join("");
+}
+
 function jsxText(s: string): string {
   return s.replace(/[{}<>]/g, (c) => `{${JSON.stringify(c)}}`).replace(/\n/g, "{'\\n'}");
 }
@@ -166,6 +192,13 @@ function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, var
           .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : JSON.stringify(v)}`)
           .join("");
       return `${indent}<svg${name} style=${style}${jsx(a.svg)}>\n${indent}  <path${jsx(a.path)} />\n${indent}</svg>`;
+    }
+    case "connector":
+      return `${indent}<svg${name} style=${style}>\n${indent}  <path${jsxAttrs(connectorAttrs(doc, node, { vars }))} />\n${indent}</svg>`;
+    case "shape": {
+      const a = shapeAttrs(doc, node, { vars });
+      const fold = a.fold ? `\n${indent}    <path${jsxAttrs(a.fold)} />` : "";
+      return `${indent}<div${name} style=${style}>\n${indent}  <svg${jsxAttrs(a.svg)} style=${jsxStyle(SHAPE_SVG_CSS)}>\n${indent}    <path${jsxAttrs(a.path)} />${fold}\n${indent}  </svg>\n${indent}  <div style=${jsxStyle(SHAPE_TEXT_CSS)}>${jsxText(node.text)}</div>\n${indent}</div>`;
     }
     default:
       return `${indent}<div${name} style=${style} />`;

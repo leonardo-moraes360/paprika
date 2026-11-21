@@ -76,6 +76,34 @@ func DescribeNode(n *Node) string {
 		color, _ := n.Get("color")
 		parts = append(parts, jsonv.Quote(truncate(n.Str("text"), 60, 57)), jsString(fs)+"/"+jsString(n.Num("fontWeight")), "color="+jsString(color))
 	}
+	if typ == "shape" {
+		parts = append(parts, n.Str("shape"), jsonv.Quote(truncate(n.Str("text"), 60, 57)))
+	}
+	if typ == "connector" {
+		end := func(e *jsonv.Object) string {
+			if id, ok := e.Get("nodeId"); ok {
+				out := jsString(id)
+				if side := e.Str("side"); side != "" && side != "auto" {
+					out += "." + side
+				}
+				return out
+			}
+			coord := func(k string) string {
+				if v, ok := e.Get(k); ok {
+					return jsString(v)
+				}
+				return "?"
+			}
+			return "(" + coord("x") + "," + coord("y") + ")"
+		}
+		parts = append(parts, end(n.Obj("from"))+"->"+end(n.Obj("to")), n.Str("route"))
+		if n.Str("startArrow") != "none" || n.Str("endArrow") != "arrow" {
+			parts = append(parts, "arrows="+n.Str("startArrow")+"/"+n.Str("endArrow"))
+		}
+		if n.Bool("dashed") {
+			parts = append(parts, "dashed")
+		}
+	}
 	if typ == "image" {
 		src := n.Str("src")
 		if strings.HasPrefix(src, "data:") {
@@ -163,7 +191,7 @@ func QueryNodes(doc *Document, q NodeQuery) []*Node {
 		if name != "" && !strings.Contains(strings.ToLower(n.Str("name")), name) {
 			continue
 		}
-		if text != "" && !(n.Str("type") == "text" && strings.Contains(strings.ToLower(n.Str("text")), text)) {
+		if text != "" && !((n.Str("type") == "text" || n.Str("type") == "shape") && strings.Contains(strings.ToLower(n.Str("text")), text)) {
 			continue
 		}
 		out = append(out, n)
