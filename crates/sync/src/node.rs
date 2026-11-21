@@ -126,10 +126,14 @@ impl ProtocolHandler for SyncHandler {
 
 impl Node {
     pub async fn start(cfg: Config, out: Out) -> Result<Self> {
-        std::fs::create_dir_all(&cfg.data)
-            .with_context(|| format!("creating {}", cfg.data.display()))?;
-        let key = crate::keys::load_or_create(&cfg.data)?;
-        let docs = DocStore::open(&cfg.data)?;
+        // Disk work off the async runtime.
+        let data = cfg.data.clone();
+        let (key, docs) = tokio::task::spawn_blocking(move || -> Result<(SecretKey, DocStore)> {
+            std::fs::create_dir_all(&data)
+                .with_context(|| format!("creating {}", data.display()))?;
+            Ok((crate::keys::load_or_create(&data)?, DocStore::open(&data)?))
+        })
+        .await??;
         let mut b = if cfg.relay {
             Endpoint::builder(presets::N0)
         } else {
