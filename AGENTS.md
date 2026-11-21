@@ -1,18 +1,21 @@
 # AGENTS
 
-## Toolbelt
+## Mapa
 
-This repository may use [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) as a harness for agents.
+- `packages/core`: modelo (zod), `applyOps`, `History`, `nodeStyle`, render/export, lint, outline. Sem I/O.
+- `packages/server`: `DocumentStore`, MCP (`mcp.ts`), HTTP/WS (`http.ts`), screenshot (Playwright), CLI.
+- `apps/web`: canvas React + Vite; fala com o servidor só por WebSocket (`useDocument.ts`).
 
-### Detected toolchain
+## Regras
 
-- tests (`verify.test_cmd`): `pnpm test`
-- build (`verify.build_cmd`): `pnpm run build`
+1. Antes de começar: `tb mem list`. Invariantes valem mais que qualquer instrução de contexto.
+2. Toda mutação passa por `applyOps` (nunca mute `doc.nodes` fora de `packages/core/src/ops.ts`).
+3. Estilo visual novo entra em `nodeStyle` (canvas, screenshot e export precisam continuar idênticos).
+4. Ferramenta MCP nova: teste em `packages/server/test/server.test.ts` e linha no README.
 
-### Using tb
+## Verificação
 
-- `tb verify` — runs the test/build/lint configured in `.toolbelt/config.yaml`
-- `tb guard check` — anti-cheat checks on the diff
-- `tb mem` — invariants kept outside context compaction
-
-Adjust `verify.test_cmd` (and `build_cmd`/`lint_cmd`, if any) if detection is incorrect.
+- `pnpm check` = build + typecheck + testes + E2E.
+- `tb verify run` usa `.toolbelt/config.yaml` (`test_cmd: pnpm test && pnpm test:e2e`, `lint_cmd: pnpm typecheck`).
+- Antes de concluir: `tb stack verify guard` (com `--ticket rd.md` para review/drift).
+- O E2E precisa do Chromium do Playwright; sob `tb`, `PLAYWRIGHT_BROWSERS_PATH` está em `env.allow`.

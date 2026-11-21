@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "paprika": { "type": "http", "url": "http://127.0.0.1:4777/mcp" },
+    "toolbelt": { "command": "tb", "args": ["mcp"], "env": { "TB_GRAPH": "on" } }
+  }
+}
