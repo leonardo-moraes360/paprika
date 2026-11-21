@@ -133,6 +133,9 @@ var apiOpsBody = z.Object(
 	z.Field{Name: "actor", Schema: z.Optional(z.String().Max(100))},
 )
 
+// POST /api/workspaces: name of the new workspace (blank: "Sem título").
+var workspaceBody = z.Object(z.Field{Name: "name", Schema: z.Optional(z.String().Max(120))})
+
 // RunningServer is a started HTTP server.
 type RunningServer struct {
 	URL    string
@@ -183,6 +186,18 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			select {
 			case ch <- msg:
 			default: // slow client: drop; it gets the full document on the next change
+			}
+		}
+		hub.mu.Unlock()
+	})
+
+	unsubscribePresence := store.Presence.OnPresence(func(p Presence) {
+		msg := p.Message()
+		hub.mu.Lock()
+		for _, ch := range hub.conns {
+			select {
+			case ch <- msg:
+			default: // slow client: drop; the next tool call moves the cursor again
 			}
 		}
 		hub.mu.Unlock()
@@ -271,6 +286,61 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		}
 		w.Header().Set("content-disposition", `attachment; filename="`+safeFileName(store.Doc().Str("name"))+`.paprika.json"`)
 		send(w, 200, jsonv.Stringify(store.Doc(), "  ")+"\n", "application/json")
+	})
+	mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			ws, err := store.ListWorkspaces()
+			if err != nil {
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			send(w, 200, jsonv.NewObject("active", store.DocID(), "workspaces", jsonv.FromGo(ws)), "")
+		case http.MethodPost:
+			body, present, err := readBody(r)
+			if err != nil {
+				var he *httpError
+				if errors.As(err, &he) {
+					send(w, he.status, errBody(he.msg), "")
+					return
+				}
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			if !present {
+				body = jsonv.NewObject()
+			}
+			parsed, err := z.Parse(workspaceBody, body)
+			if err != nil {
+				send(w, 400, errBody(err.Error()), "")
+				return
+			}
+			info, err := store.CreateWorkspace(parsed.(*jsonv.Object).Str("name"))
+			if err != nil {
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			send(w, 201, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+		default:
+			send(w, 405, errBody("método não permitido"), "")
+		}
+	})
+	mux.HandleFunc("/api/workspaces/{id}/open", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			send(w, 405, errBody("método não permitido"), "")
+			return
+		}
+		id := r.PathValue("id")
+		info, err := store.OpenWorkspace(id, "user")
+		if errors.Is(err, ErrNoWorkspace) {
+			send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+			return
+		}
+		if err != nil {
+			send(w, 500, errBody(err.Error()), "")
+			return
+		}
+		send(w, 200, jsonv.NewObject("workspace", jsonv.FromGo(info), "version", float64(store.Version())), "")
 	})
 	mux.HandleFunc("/api/render", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -361,6 +431,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		ln:     ln,
 		close: func() {
 			unsubscribe()
+			unsubscribePresence()
 			hub.mu.Lock()
 			for c := range hub.conns {
 				c.CloseNow()
@@ -424,6 +495,12 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 	defer cancel()
 	doc, version, cu, cr := store.Snapshot()
 	out <- docMessage(doc, version, "server", "", "reload", cu, cr)
+	for _, p := range store.Presence.Recent() {
+		select {
+		case out <- p.Message():
+		default:
+		}
+	}
 	hub.mu.Lock()
 	hub.conns[conn] = out
 	hub.mu.Unlock()
@@ -630,8 +707,11 @@ func serveMCPHTTP(w http.ResponseWriter, r *http.Request, m *MCP, clients *clien
 	}
 	if hasInitName {
 		w.Header().Set("Mcp-Session-Id", clients.remember(initName))
-	} else if name, ok := clients.get(r.Header.Get("Mcp-Session-Id")); ok {
-		m.SetClient(name)
+	} else {
+		m.SetSession(r.Header.Get("Mcp-Session-Id"))
+		if name, ok := clients.get(r.Header.Get("Mcp-Session-Id")); ok {
+			m.SetClient(name)
+		}
 	}
 	var responses []any
 	for _, msg := range batch {

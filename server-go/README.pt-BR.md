@@ -88,6 +88,7 @@ Depois de mudar `packages/core` ou as ferramentas MCP em TypeScript: `pnpm build
 
 - Armazenamento: SQLite (`--db`, `--doc`) em vez de `--file`; sem observação de arquivo.
 - `GET /api/health` devolve `file` (o caminho do banco), `storage: "sqlite"` e `docId`. Novo `GET /api/export`.
+- Os workspaces são os documentos do banco (o servidor TypeScript lista os `*.paprika.json` ao lado do `--file`); `open_workspace` carrega o histórico de undo gravado daquele documento em vez de começar vazio.
 - `GET /mcp` responde 405 (servidor sem estado, sem stream SSE avulso; os clientes MCP lidam com isso).
 - Um undo que falha mantém a entrada no histórico em vez de descartá-la.
 

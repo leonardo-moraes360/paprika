@@ -8,7 +8,7 @@
       "listChanged": true
     }
   },
-  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (color), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, mode (theme mode, see below). With row/column layout, children's x/y are ignored.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\nimage: src (https:// or data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). An instance is a frame with\n  instanceOf = the component id and an optional scale (create_instance): its children are generated copies, with\n  derived ids and sourceId = the id of the source node; changing the component changes every instance. On a copy,\n  update only changes fill, color, text, src, alt, visible and opacity (stored as an instance override; null goes back\n  to the component); on the root, fill becomes an override and width/height/layout/stroke/radius/shadow/clip come from\n  the component (use scale). Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use path_info to check bounds before positioning.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning.\n5. render_screenshot to check visually; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes); export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
+  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (color), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, mode (theme mode, see below). With row/column layout, children's x/y are ignored.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\nimage: src (https:// or data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). An instance is a frame with\n  instanceOf = the component id and an optional scale (create_instance): its children are generated copies, with\n  derived ids and sourceId = the id of the source node; changing the component changes every instance. On a copy,\n  update only changes fill, color, text, src, alt, visible and opacity (stored as an instance override; null goes back\n  to the component); on the root, fill becomes an override and width/height/layout/stroke/radius/shadow/clip come from\n  the component (use scale). Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use path_info to check bounds before positioning.\nshape: shape (rect|ellipse|diamond|note), text (centered; top-left on a note), color, fontFamily, fontSize, fontWeight,\n  lineHeight, textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed.\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning.\n5. render_screenshot to check visually; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes); export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces); every tool works on the active one, which is also the one on the human's canvas. open_workspace switches it for everyone, so ask the human first; create_workspace makes an empty one.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
   "tools": [
     {
       "name": "get_design_guide",
@@ -127,7 +127,9 @@
               "image",
               "path",
               "group",
-              "page"
+              "page",
+              "shape",
+              "connector"
             ]
           },
           "name": {
@@ -315,7 +317,9 @@
                   "image",
                   "path",
                   "group",
-                  "page"
+                  "page",
+                  "shape",
+                  "connector"
                 ]
               },
               "id": {
@@ -2465,6 +2469,376 @@
                               "id",
                               "type"
                             ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                              },
+                              "name": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "parentId": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "x": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "y": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "width": {
+                                "default": 160,
+                                "type": "number",
+                                "minimum": 1,
+                                "maximum": 100000
+                              },
+                              "height": {
+                                "default": 80,
+                                "type": "number",
+                                "minimum": 1,
+                                "maximum": 100000
+                              },
+                              "rotation": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "opacity": {
+                                "default": 1,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "locked": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fill": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "stroke": {
+                                "type": "object",
+                                "properties": {
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "width": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1000
+                                  }
+                                },
+                                "required": [
+                                  "color",
+                                  "width"
+                                ]
+                              },
+                              "radius": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "shadow": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  },
+                                  "blur": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "spread": {
+                                    "default": 0,
+                                    "type": "number"
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y",
+                                  "blur",
+                                  "color"
+                                ]
+                              },
+                              "notes": {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              "sourceId": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string",
+                                "const": "shape"
+                              },
+                              "shape": {
+                                "default": "rect",
+                                "type": "string",
+                                "enum": [
+                                  "rect",
+                                  "ellipse",
+                                  "diamond",
+                                  "note"
+                                ]
+                              },
+                              "text": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              "color": {
+                                "default": "#1e2336",
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "fontFamily": {
+                                "default": "Inter, system-ui, sans-serif",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "fontSize": {
+                                "default": 16,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 1,
+                                    "maximum": 1000
+                                  },
+                                  {
+                                    "type": "string",
+                                    "pattern": "^\\$[\\w.-]+$"
+                                  }
+                                ]
+                              },
+                              "fontWeight": {
+                                "default": 500,
+                                "type": "integer",
+                                "minimum": 100,
+                                "maximum": 900
+                              },
+                              "lineHeight": {
+                                "default": 1.3,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 10
+                              },
+                              "textAlign": {
+                                "default": "center",
+                                "type": "string",
+                                "enum": [
+                                  "left",
+                                  "center",
+                                  "right"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                              },
+                              "name": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "parentId": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "type": {
+                                "type": "string",
+                                "const": "connector"
+                              },
+                              "x": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "y": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "width": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "height": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "opacity": {
+                                "default": 1,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "locked": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "notes": {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              "sourceId": {
+                                "type": "string"
+                              },
+                              "from": {
+                                "type": "object",
+                                "properties": {
+                                  "nodeId": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                                  },
+                                  "side": {
+                                    "type": "string",
+                                    "enum": [
+                                      "auto",
+                                      "top",
+                                      "right",
+                                      "bottom",
+                                      "left"
+                                    ]
+                                  },
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  }
+                                }
+                              },
+                              "to": {
+                                "type": "object",
+                                "properties": {
+                                  "nodeId": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                                  },
+                                  "side": {
+                                    "type": "string",
+                                    "enum": [
+                                      "auto",
+                                      "top",
+                                      "right",
+                                      "bottom",
+                                      "left"
+                                    ]
+                                  },
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  }
+                                }
+                              },
+                              "route": {
+                                "default": "straight",
+                                "type": "string",
+                                "enum": [
+                                  "straight",
+                                  "elbow"
+                                ]
+                              },
+                              "startArrow": {
+                                "default": "none",
+                                "type": "string",
+                                "enum": [
+                                  "none",
+                                  "arrow"
+                                ]
+                              },
+                              "endArrow": {
+                                "default": "arrow",
+                                "type": "string",
+                                "enum": [
+                                  "none",
+                                  "arrow"
+                                ]
+                              },
+                              "stroke": {
+                                "default": {
+                                  "color": "#1e2336",
+                                  "width": 2
+                                },
+                                "type": "object",
+                                "properties": {
+                                  "color": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "width": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1000
+                                  }
+                                },
+                                "required": [
+                                  "color",
+                                  "width"
+                                ]
+                              },
+                              "dashed": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "d": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 10000
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type",
+                              "from",
+                              "to"
+                            ]
                           }
                         ]
                       }
@@ -2620,7 +2994,9 @@
                   "image",
                   "path",
                   "group",
-                  "page"
+                  "page",
+                  "shape",
+                  "connector"
                 ]
               },
               "id": {
@@ -2873,6 +3249,202 @@
       }
     },
     {
+      "name": "list_workspaces",
+      "title": "List workspaces",
+      "description": "Workspaces this server can open (each one is a document), most recently updated first, and which one is active. Every other tool reads and writes the active workspace, the same one the human sees on the canvas.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "string",
+            "description": "Id of the active workspace"
+          },
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "nodes": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "updatedAt": {
+                  "type": "number",
+                  "description": "Unix ms of the last write"
+                },
+                "active": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "nodes",
+                "updatedAt",
+                "active"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "active",
+          "workspaces"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "open_workspace",
+      "title": "Open workspace",
+      "description": "Makes another workspace the active one: every tool and the human's canvas switch to it, and undo history starts from that workspace. Tell the human before switching away from what they are looking at.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Workspace id (from list_workspaces)"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "workspace": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "nodes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updatedAt": {
+                "type": "number",
+                "description": "Unix ms of the last write"
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "nodes",
+              "updatedAt",
+              "active"
+            ],
+            "additionalProperties": false
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "workspace",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_workspace",
+      "title": "Create workspace",
+      "description": "Creates an empty workspace. It does not become active: call open_workspace to work in it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "Workspace name, shown on the overview (blank: \"Sem título\")"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "workspace": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "nodes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updatedAt": {
+                "type": "number",
+                "description": "Unix ms of the last write"
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "nodes",
+              "updatedAt",
+              "active"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "workspace"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
       "name": "lint_design",
       "title": "Review design",
       "description": "Checks WCAG AA contrast, missing tokens and theme modes, overflow, small or empty text, images without alt and colors outside the tokens.",
@@ -3045,6 +3617,210 @@
       },
       "annotations": {
         "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "draw_diagram",
+      "title": "Draw a diagram",
+      "description": "Draws a flowchart-style diagram in one atomic write: each node becomes a shape (rect, ellipse, diamond or note, with text inside) and each edge a connector that stays attached when shapes move. Nodes without x and y are laid out in layers following the edges (direction down or right), to the right of the parent's existing content. Edges default to elbow routing with an arrow at the end; they may also point at existing nodes by id.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "description": "Frame, group or page for the diagram (default: the first page, or the canvas)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "direction": {
+            "default": "down",
+            "description": "Auto layout: layers top to bottom or left to right",
+            "type": "string",
+            "enum": [
+              "down",
+              "right"
+            ]
+          },
+          "gap": {
+            "default": 64,
+            "description": "Space between shapes in the auto layout (px)",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "x": {
+            "description": "Left of the auto layout in the parent's coordinates (default: right of the existing content)",
+            "type": "number"
+          },
+          "y": {
+            "description": "Top of the auto layout (default: top of the existing content)",
+            "type": "number"
+          },
+          "nodes": {
+            "default": [],
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                  "description": "New shape id (edges refer to it)"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "additionalProperties": {},
+              "description": "Shape fields: text, shape (rect|ellipse|diamond|note), x, y, width, height, fill, stroke, color, fontSize…"
+            }
+          },
+          "edges": {
+            "default": [],
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "description": "Id of a diagram node or of an existing node"
+                },
+                "to": {
+                  "type": "string"
+                },
+                "id": {
+                  "description": "Connector id (default: <from>-to-<to>)",
+                  "type": "string"
+                },
+                "fromSide": {
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "top",
+                    "right",
+                    "bottom",
+                    "left"
+                  ]
+                },
+                "toSide": {
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "top",
+                    "right",
+                    "bottom",
+                    "left"
+                  ]
+                },
+                "route": {
+                  "description": "Default: elbow",
+                  "type": "string",
+                  "enum": [
+                    "straight",
+                    "elbow"
+                  ]
+                },
+                "startArrow": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "arrow"
+                  ]
+                },
+                "endArrow": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "arrow"
+                  ]
+                },
+                "dashed": {
+                  "type": "boolean"
+                },
+                "stroke": {
+                  "type": "object",
+                  "properties": {
+                    "color": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "width": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1000
+                    }
+                  },
+                  "required": [
+                    "color",
+                    "width"
+                  ]
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "from",
+                "to"
+              ]
+            }
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "nodes",
+          "edges",
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "execution": {
         "taskSupport": "forbidden"

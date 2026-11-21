@@ -117,6 +117,97 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 	}
 
 	var emit func(n *Node, parent box, root bool) (string, error)
+	// shapeSVG: outline (and fold), then the text in lines (measured, or split on \n).
+	shapeSVG := func(n *Node, w, h float64) string {
+		mode := ModeOf(doc, n)
+		id := EscapeHTML(n.Str("id"))
+		_, pathA, fold := ShapeAttrs(doc, n, false)
+		defs, shadowAttr := "", ""
+		if s := n.Obj("shadow"); s != nil {
+			if s.Num("spread") != 0 {
+				warn("shadow with spread: SVG uses only offset, blur and color")
+			}
+			sc, _ := s.Get("color")
+			defs += fmt.Sprintf(`<filter id="shadow-%s" x="-50%%" y="-50%%" width="200%%" height="200%%"><feDropShadow dx="%s" dy="%s" stdDeviation="%s" flood-color="%s"/></filter>`,
+				id, f(s.Num("x")), f(s.Num("y")), f(s.Num("blur")/2), EscapeHTML(jsString(ResolveValue(doc, sc, mode))))
+			shadowAttr = fmt.Sprintf(` filter="url(#shadow-%s)"`, id)
+		}
+		attrs := make([]Attr, len(pathA))
+		copy(attrs, pathA)
+		for i, a := range attrs {
+			if a.Key == "fill" && a.Value != "none" {
+				pfill := "none"
+				if pf, ok := svgPaint(doc, n, "fill", warn); ok {
+					pfill = pf
+				}
+				attrs[i] = Attr{"fill", pfill}
+			}
+		}
+		var body strings.Builder
+		body.WriteString("<g" + shadowAttr + "><path" + svgAttrs(attrs) + "/>")
+		if fold != nil {
+			body.WriteString("<path" + svgAttrs(fold) + "/>")
+		}
+		body.WriteString("</g>")
+		fsv, _ := n.Get("fontSize")
+		fs := ResolveValue(doc, fsv, mode)
+		size, isNum := fs.(float64)
+		if !isNum {
+			size = jsonv.ParseFloat(jsString(fs))
+			if math.IsNaN(size) || size == 0 {
+				size = 16
+			}
+		}
+		var tspans strings.Builder
+		anchor := ""
+		lines, hasLines := []MeasureLine(nil), false
+		if measure != nil && measure.Lines != nil {
+			lines, hasLines = measure.Lines[n.Str("id")]
+		}
+		if hasLines {
+			for _, l := range lines {
+				fmt.Fprintf(&tspans, `<tspan x="%s" y="%s">%s</tspan>`, f(l.X), f(l.Y), EscapeHTML(l.T))
+			}
+		} else if n.Str("text") != "" {
+			pv, ph := ShapePadding(n)
+			lh := n.Num("lineHeight") * size
+			split := strings.Split(n.Str("text"), "\n")
+			top := (h - float64(len(split))*lh) / 2
+			if n.Str("shape") == "note" {
+				top = pv
+			}
+			align := n.Str("textAlign")
+			ax := ph
+			if align == "center" {
+				ax = w / 2
+			} else if align == "right" {
+				ax = w - ph
+			}
+			if align != "left" {
+				a := "end"
+				if align == "center" {
+					a = "middle"
+				}
+				anchor = fmt.Sprintf(` text-anchor="%s"`, a)
+			}
+			for k, t := range split {
+				if t != "" {
+					fmt.Fprintf(&tspans, `<tspan x="%s" y="%s">%s</tspan>`, f(ax), f(top+float64(k)*lh+(lh-size)/2+size*0.8), EscapeHTML(t))
+				}
+			}
+		}
+		if tspans.Len() > 0 {
+			colorV, _ := n.Get("color")
+			fw, _ := n.Get("fontWeight")
+			fmt.Fprintf(&body, `<text xml:space="preserve" font-family="%s" font-size="%s" font-weight="%s" fill="%s"%s>%s</text>`,
+				EscapeHTML(n.Str("fontFamily")), f(size), jsString(fw), EscapeHTML(jsString(ResolveValue(doc, colorV, mode))), anchor, tspans.String())
+		}
+		if defs != "" {
+			return "<defs>" + defs + "</defs>" + body.String()
+		}
+		return body.String()
+	}
+
 	emit = func(n *Node, parent box, root bool) (string, error) {
 		typ := n.Str("type")
 		if typ == "page" {
@@ -144,7 +235,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		x, y, w, h := b[0], b[1], b[2], b[3]
 		tr := fmt.Sprintf("translate(%s %s)", f(x-parent[0]), f(y-parent[1]))
 		rotation := 0.0
-		if typ != "group" {
+		if typ != "group" && typ != "connector" {
 			rotation = n.Num("rotation")
 		}
 		if rotation != 0 && !math.IsNaN(rotation) {
@@ -181,6 +272,12 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 				return "", err
 			}
 			return open.String() + inner + "</g>", nil
+		}
+		if typ == "connector" {
+			return open.String() + "<path" + svgAttrs(ConnectorAttrs(doc, n, false)) + "/></g>", nil
+		}
+		if typ == "shape" {
+			return open.String() + shapeSVG(n, w, h) + "</g>", nil
 		}
 
 		defs, shadowAttr := "", ""

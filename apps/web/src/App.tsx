@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type Document, type NodeInput, type Op } from "@paprika/core";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
 import { Layers } from "./Layers";
 import { Pages } from "./Pages";
-import { useDocument } from "./useDocument";
+import { LEFT_PANEL, PanelResizer, RIGHT_PANEL, usePanelWidth } from "./PanelResizer";
+import { Overview } from "./Overview";
+import { navigate, parseRoute, useRoute, workspacePath } from "./route";
+import { useDocument, type LiveDocument } from "./useDocument";
 
 const TOOLS: { tool: Tool; key: string; label: string; icon: string }[] = [
   { tool: "select", key: "v", label: "Selecionar", icon: "↖" },
@@ -13,6 +16,10 @@ const TOOLS: { tool: Tool; key: string; label: string; icon: string }[] = [
   { tool: "ellipse", key: "o", label: "Elipse", icon: "◯" },
   { tool: "text", key: "t", label: "Texto", icon: "T" },
   { tool: "pen", key: "p", label: "Caneta (bezier)", icon: "✒" },
+  { tool: "shape", key: "s", label: "Caixa de diagrama", icon: "▢" },
+  { tool: "diamond", key: "d", label: "Decisão (losango)", icon: "◇" },
+  { tool: "note", key: "n", label: "Nota adesiva", icon: "🗒" },
+  { tool: "connector", key: "a", label: "Seta (prende nas formas)", icon: "↗" },
 ];
 
 /** Converte uma subárvore em NodeInput com ids novos (para duplicar). */
@@ -27,6 +34,8 @@ function toInput(doc: Document, id: string): NodeInput {
     delete input.width;
     delete input.height;
   }
+  // A geometria de um conector é derivada das pontas.
+  if (n.type === "connector") for (const k of ["x", "y", "width", "height", "d"]) delete (input as Record<string, unknown>)[k];
   return input;
 }
 
@@ -35,12 +44,76 @@ const siblingsOf = (doc: Document, parentId: string | null) => {
   return isContainer(p) ? p.children : doc.rootIds;
 };
 
+/**
+ * `/` lists the workspaces; `/w/<id>` opens one on the canvas. The server has one active
+ * workspace, shared with the MCP agents: opening a URL makes it active, and when someone else
+ * (an agent) switches, the canvas follows and the URL is updated.
+ */
 export function App() {
   const live = useDocument();
+  const route = useRoute();
+  const routeId = route.view === "canvas" ? route.id : null;
+  const activeId = live.doc?.id ?? null;
+  // The workspace this tab asked the server to open and is still waiting for.
+  const pending = useRef<string | null>(null);
+  const { showError } = live;
+
+  useEffect(() => {
+    if (!routeId) return;
+    pending.current = routeId;
+    void fetch(`/api/workspaces/${encodeURIComponent(routeId)}/open`, { method: "POST" })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
+      })
+      .catch((e: unknown) => {
+        // pending stays set: a doc that arrives meanwhile must not send the URL to the active workspace.
+        navigate("/", { replace: true });
+        showError(`Não foi possível abrir o workspace: ${e instanceof Error ? e.message : String(e)}`);
+      });
+  }, [routeId, showError]);
+
+  useEffect(() => {
+    // The URL is checked too: this effect can run after a navigation it has not rendered yet.
+    if (!routeId || !activeId || parseRoute(location.pathname).view !== "canvas") return;
+    if (activeId === routeId) pending.current = null;
+    else if (pending.current !== routeId) navigate(workspacePath(activeId), { replace: true });
+  }, [routeId, activeId]);
+
+  useEffect(() => {
+    if (!routeId) document.title = "Workspaces · Paprika";
+  }, [routeId]);
+
+  if (!routeId) {
+    return (
+      <>
+        <Overview connected={live.connected} activeId={activeId} version={live.version} onOpen={(id) => navigate(workspacePath(id))} />
+        {live.error && (
+          <div className="toast" role="alert" onClick={live.clearError}>
+            {live.error}
+          </div>
+        )}
+      </>
+    );
+  }
+  if (!live.doc || activeId !== routeId) {
+    return (
+      <div className="boot">
+        <img className="logo" src="/icon.svg" alt="" />
+        <p>{live.connected ? "Abrindo workspace…" : "Conectando ao servidor Paprika…"}</p>
+      </div>
+    );
+  }
+  // key: another workspace starts with a clean selection, page and tool.
+  return <Editor key={activeId} live={live} />;
+}
+
+function Editor({ live }: { live: LiveDocument }) {
   const { doc } = live;
   const [selected, setSelected] = useState<string[]>([]);
   const [tool, setTool] = useState<Tool>("select");
   const [pageChoice, setPageChoice] = useState<string | null>(null);
+  const [leftWidth, setLeftWidth] = usePanelWidth("paprika.panel.left", LEFT_PANEL);
+  const [rightWidth, setRightWidth] = usePanelWidth("paprika.panel.right", RIGHT_PANEL);
   // Página ativa: a escolhida, se ainda existe; senão a primeira (null num documento sem páginas).
   const pageId = doc ? (pageChoice && doc.nodes[pageChoice]?.type === "page" ? pageChoice : (firstPage(doc)?.id ?? null)) : null;
 
@@ -115,8 +188,14 @@ export function App() {
         // Do último para o primeiro, para os índices de inserção continuarem válidos.
         for (const node of [...nodes].reverse()) {
           const input = toInput(doc, node.id);
-          input.x = node.x + 20;
-          input.y = node.y + 20;
+          if (node.type === "connector") {
+            // Pontas livres andam 20; pontas presas continuam nas mesmas formas.
+            const shift = (end: ConnectorEnd): ConnectorEnd => (end.nodeId ? end : { ...end, x: (end.x ?? 0) + 20, y: (end.y ?? 0) + 20 });
+            Object.assign(input, { from: shift(node.from), to: shift(node.to) });
+          } else {
+            input.x = node.x + 20;
+            input.y = node.y + 20;
+          }
           ops.push({ op: "create", node: input, parentId: node.parentId, index: siblingsOf(doc, node.parentId).indexOf(node.id) + 1 });
           ids.unshift(input.id!);
         }
@@ -146,7 +225,7 @@ export function App() {
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
         const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key] ?? [0, 0];
-        const ops: Op[] = nodes.filter((n) => !n.locked).map((n) => ({ op: "update", id: n.id, props: { x: n.x + d[0]!, y: n.y + d[1]! } }));
+        const ops: Op[] = nodes.filter((n) => !n.locked && n.type !== "connector").map((n) => ({ op: "update", id: n.id, props: { x: n.x + d[0]!, y: n.y + d[1]! } }));
         if (ops.length) live.apply(ops, "mover");
         return;
       }
@@ -189,11 +268,24 @@ export function App() {
   const lastAgent = live.activity.find((a) => a.actor.startsWith("agent"));
 
   return (
-    <div className="app">
+    <div className="app" style={{ "--left-w": `${leftWidth}px`, "--right-w": `${rightWidth}px` } as CSSProperties}>
       <header className="topbar">
         <div className="brand">
-          <img className="logo" src="/icon.svg" alt="" />
-          <strong>Paprika</strong>
+          <a
+            className="home-link"
+            href="/"
+            title="Todos os workspaces"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/");
+            }}
+          >
+            <img className="logo" src="/icon.svg" alt="" />
+            <strong>Paprika</strong>
+          </a>
+          <span className="crumb-sep" aria-hidden>
+            /
+          </span>
           <span className="doc-name">{doc.name}</span>
         </div>
         <div className="status">
@@ -206,6 +298,7 @@ export function App() {
         <Pages doc={doc} pageId={pageId} onOpen={openPage} apply={live.apply} />
         <Layers doc={doc} pageId={pageId} selected={selected} onSelect={setSelected} apply={live.apply} />
       </aside>
+      <PanelResizer side="left" label="Largura do painel de camadas" width={leftWidth} limits={LEFT_PANEL} onChange={setLeftWidth} />
       <main className="center">
         <nav className="tools" aria-label="Ferramentas" onPointerDown={(e) => e.stopPropagation()}>
           {TOOLS.map((t) => (
@@ -241,6 +334,7 @@ export function App() {
           onToolDone={() => setTool("select")}
           apply={live.apply}
           agentTouched={live.agentTouched}
+          agents={live.agents}
           onError={live.showError}
         />
         {live.error && (
@@ -249,6 +343,7 @@ export function App() {
           </div>
         )}
       </main>
+      <PanelResizer side="right" label="Largura do painel de propriedades" width={rightWidth} limits={RIGHT_PANEL} onChange={setRightWidth} />
       <aside className="right">
         <Inspector
           doc={doc}

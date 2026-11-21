@@ -368,6 +368,8 @@ type Store struct {
 	errHandler  func(error)
 	stop        chan struct{}
 	stopOnce    sync.Once
+	// Presence holds the agents' cursors for the canvas. Ephemeral: never written to SQLite.
+	Presence *PresenceHub
 }
 
 // OpenOptions select the document of the database to serve.
@@ -384,7 +386,7 @@ func OpenStore(path string, opts OpenOptions) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Store{db: db, path: path, listeners: map[int]func(ChangeEvent){}, stop: make(chan struct{})}
+	s := &Store{db: db, path: path, listeners: map[int]func(ChangeEvent){}, stop: make(chan struct{}), Presence: NewPresenceHub(nil)}
 	id := opts.DocID
 	if id == "" {
 		docs, err := ListDocuments(db)
@@ -673,4 +675,82 @@ func (s *Store) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.db.Close()
+}
+
+// WorkspaceInfo describes a workspace: one document of the database. Same keys and order as the
+// TypeScript server, where the workspaces are the *.paprika.json files next to --file.
+type WorkspaceInfo struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Nodes     int    `json:"nodes"`
+	UpdatedAt int64  `json:"updatedAt"`
+	Active    bool   `json:"active"` // the document the canvas and the MCP tools read and write
+}
+
+// ErrNoWorkspace is returned by OpenWorkspace for an unknown id.
+var ErrNoWorkspace = errors.New("workspace not found")
+
+// ListWorkspaces lists the documents of the database, most recently updated first.
+func (s *Store) ListWorkspaces() ([]WorkspaceInfo, error) {
+	docs, err := ListDocuments(s.db)
+	if err != nil {
+		return nil, err
+	}
+	active := s.DocID()
+	out := make([]WorkspaceInfo, len(docs))
+	for i, d := range docs {
+		out[i] = WorkspaceInfo{d.ID, d.Name, d.Nodes, d.UpdatedAt, d.ID == active}
+	}
+	return out, nil
+}
+
+func (s *Store) workspaceInfo(id string) (WorkspaceInfo, error) {
+	ws, err := s.ListWorkspaces()
+	if err != nil {
+		return WorkspaceInfo{}, err
+	}
+	for _, w := range ws {
+		if w.ID == id {
+			return w, nil
+		}
+	}
+	return WorkspaceInfo{}, ErrNoWorkspace
+}
+
+// OpenWorkspace makes another document the active one: the canvas and the MCP tools switch to it
+// (ChangeEvent with Kind "open"), with that document's own stored undo history.
+func (s *Store) OpenWorkspace(id, actor string) (WorkspaceInfo, error) {
+	info, err := s.workspaceInfo(id)
+	if err != nil || info.Active {
+		return info, err
+	}
+	s.mu.Lock()
+	if err := s.load(id); err != nil {
+		s.mu.Unlock()
+		return WorkspaceInfo{}, err
+	}
+	ls := make([]func(ChangeEvent), 0, len(s.listeners))
+	for _, fn := range s.listeners {
+		ls = append(ls, fn)
+	}
+	doc := s.history.Doc()
+	ev := ChangeEvent{doc, s.version, actor, "abrir workspace: " + doc.Str("name"), "open"}
+	s.mu.Unlock()
+	emit(ls, ev)
+	info.Active = true
+	return info, nil
+}
+
+// CreateWorkspace stores a new empty document (it does not become active). Blank name: "Sem título".
+func (s *Store) CreateWorkspace(name string) (WorkspaceInfo, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "Sem título"
+	}
+	doc := core.CreateDocument(name, "")
+	now := time.Now().UnixMilli()
+	if err := writeDocument(s.db, doc, nil, 0, now); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	return WorkspaceInfo{doc.Str("id"), name, 0, now, false}, nil
 }
