@@ -1,0 +1,46 @@
+id: login-card
+name: Build a login card from tokens
+description: >-
+  The document starts empty but already carries its color tokens. The agent builds a usable login
+  card through Paprika's MCP tools, reusing those tokens instead of inventing colors.
+category: feature
+difficulty: medium
+timeout: 15m
+
+fixture: login-card
+
+prompt: |
+  Work in the current directory. The Paprika document is `document.paprika.json` and it starts with
+  no nodes but with the tokens `paper`, `ink`, `muted`, `brand` and `line` already defined.
+
+  Drive Paprika through its MCP server (stdio):
+
+    node "$PAPRIKA_BENCH/packages/server/dist/cli.js" mcp --file "$PWD/document.paprika.json" --no-ui
+
+  If `$PAPRIKA_BENCH/packages/server/dist` is missing, build it first with
+  `pnpm --filter @paprika/server build` inside `$PAPRIKA_BENCH`. Every tool call is saved to the
+  file, so the server can be closed when you are done; do not edit the JSON by hand.
+
+  Build one login card. The score is deterministic and checks exactly these rules:
+
+  1. the document has exactly one root node, a frame between 300 and 480 wide and at least 380 tall;
+  2. inside it there are at least 3 texts and at least 2 rects;
+  3. no text is smaller than 13px;
+  4. at least 4 distinct tokens are referenced with `$name` (fills, text colors or strokes), and
+     every reference points at a token that exists in the document;
+  5. one frame or rect is the button: radius at least 8, a fill, at least 80 wide and between 28 and
+     80 tall, and a text label that is either its child or placed on top of it;
+  6. the button label keeps WCAG AA contrast (4.5:1) against the button fill;
+  7. at least two rects are input fields: a stroke of width 1 or more and a height of at least 28;
+  8. every node is inside the card frame;
+  9. every text keeps WCAG AA contrast against the color it is drawn on: the fill of its nearest
+     painted ancestor, or of a painted shape that covers it (a label on a button is judged against
+     the button).
+
+verification:
+  command: node "${PAPRIKA_BENCH:?export PAPRIKA_BENCH=/path/to/paprika before running tb bench}/bench/tasks/login-card/check.mjs" document.paprika.json
+  timeout: 2m
+  expected_exit_code: 0
+
+expected_changes:
+  - document.paprika.json

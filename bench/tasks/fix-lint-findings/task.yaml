@@ -1,0 +1,47 @@
+id: fix-lint-findings
+name: Fix the findings in a shipped document
+description: >-
+  A small landing page already exists and fails Paprika's own lint: unreadable text, text that is
+  too small, an image without alt, a bar hanging out of the canvas, and colors hardcoded even though
+  the tokens exist. The agent repairs it without redesigning it.
+category: bugfix
+difficulty: medium
+timeout: 15m
+
+fixture: fix-lint-findings
+
+prompt: |
+  Work in the current directory. `document.paprika.json` is an existing design with problems in it.
+  Fix it; do not rebuild it.
+
+  Drive Paprika through its MCP server (stdio):
+
+    node "$PAPRIKA_BENCH/packages/server/dist/cli.js" mcp --file "$PWD/document.paprika.json" --no-ui
+
+  Build it with `pnpm --filter @paprika/server build` in `$PAPRIKA_BENCH` first if `dist/` is
+  missing. Start by calling `lint_design` and work through what it reports. Do not edit the JSON by
+  hand.
+
+  The score checks exactly these rules:
+
+  1. the nodes the document started with are still there with the same ids and types: `hero` and
+     `cta` (frames), `headline`, `sub`, `caption`, `cta-label` (text), `logo` (image), `accent`
+     (rect); the button label is a child of the button frame;
+  2. `hero` keeps its 800x400 size;
+  3. no text is smaller than 12px;
+  4. every text reaches WCAG AA contrast (4.5:1) against the color it is drawn on: the fill of its
+     nearest painted ancestor, or of a painted shape that covers it (a label on a button is judged
+     against the button);
+  5. every image has alt text of at least 3 characters;
+  6. no node sticks out of its parent (1px tolerance);
+  7. whenever a color equals the value of an existing token, it is written as that token
+     (`$paper`, `$ink`, `$muted`, `$brand` are already defined);
+  8. every token reference resolves to a real token.
+
+verification:
+  command: node "${PAPRIKA_BENCH:?export PAPRIKA_BENCH=/path/to/paprika before running tb bench}/bench/tasks/fix-lint-findings/check.mjs" document.paprika.json
+  timeout: 2m
+  expected_exit_code: 0
+
+expected_changes:
+  - document.paprika.json
