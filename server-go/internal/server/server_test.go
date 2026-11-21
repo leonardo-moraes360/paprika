@@ -1,0 +1,338 @@
+package server
+
+import (
+	"bytes"
+	"context"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/coder/websocket"
+	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
+	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
+)
+
+func obj(kv ...any) *jsonv.Object { return jsonv.NewObject(kv...) }
+
+func openTemp(t *testing.T) (*Store, string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "t.db")
+	s, err := OpenStore(path, OpenOptions{Poll: -1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.Close() })
+	return s, path
+}
+
+func createRect(t *testing.T, s *Store, id string) {
+	t.Helper()
+	if _, err := s.Apply([]any{obj("op", "create", "node", obj("type", "rect", "id", id))}, "test", "criar "+id); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStorePersistsDocumentAndHistory(t *testing.T) {
+	s, path := openTemp(t)
+	if name := s.Doc().Str("name"); name != "t" {
+		t.Fatalf("name = %q", name)
+	}
+	createRect(t, s, "a")
+	createRect(t, s, "b")
+	if _, err := s.Apply([]any{obj("op", "set_tokens", "tokens", obj("brand", "#c43d27", "size", 16.0))}, "test", "tokens"); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := s.Undo("test"); !ok || err != nil {
+		t.Fatalf("undo: %v %v", ok, err)
+	}
+	want := jsonv.Stringify(s.Doc(), "  ")
+	version := s.Version()
+	s.Close()
+
+	// Reopen: document, version and both undo/redo stacks survive the restart.
+	s2, err := OpenStore(path, OpenOptions{Poll: -1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s2.Close()
+	if got := jsonv.Stringify(s2.Doc(), "  "); got != want {
+		t.Fatalf("doc after reopen:\n%s\nwant\n%s", got, want)
+	}
+	if s2.Version() != version || !s2.CanUndo() || !s2.CanRedo() {
+		t.Fatalf("version/undo/redo lost: v%d undo=%v redo=%v", s2.Version(), s2.CanUndo(), s2.CanRedo())
+	}
+	if ok, _ := s2.Redo("test"); !ok || !core.Tokens(s2.Doc()).Has("brand") {
+		t.Fatal("redo after reopen failed")
+	}
+	if h := s2.RecentHistory(10); len(h) != 3 || h[0].Label != "criar a" {
+		t.Fatalf("history = %+v", h)
+	}
+	// Normalized tables are queryable with plain SQL.
+	var n int
+	if err := s2.DB().QueryRow(`SELECT COUNT(*) FROM nodes WHERE doc_id = ? AND type = 'rect'`, s2.DocID()).Scan(&n); err != nil || n != 2 {
+		t.Fatalf("nodes table: %d %v", n, err)
+	}
+	var tv string
+	if err := s2.DB().QueryRow(`SELECT value FROM tokens WHERE doc_id = ? AND name = 'size'`, s2.DocID()).Scan(&tv); err != nil || tv != "16" {
+		t.Fatalf("tokens table: %q %v", tv, err)
+	}
+}
+
+func TestStoreFailedTransactionChangesNothing(t *testing.T) {
+	s, _ := openTemp(t)
+	createRect(t, s, "a")
+	before, v := jsonv.Stringify(s.Doc(), ""), s.Version()
+	_, err := s.Apply([]any{obj("op", "update", "id", "a", "props", obj("x", 5.0)), obj("op", "delete", "id", "zz")}, "test", "")
+	if err == nil || err.Error() != `op[1]: nó "zz" não existe` {
+		t.Fatalf("err = %v", err)
+	}
+	if jsonv.Stringify(s.Doc(), "") != before || s.Version() != v {
+		t.Fatal("failed transaction changed the document")
+	}
+}
+
+func TestImportExportRoundTrip(t *testing.T) {
+	for _, f := range []string{"demo.paprika.json", "bezier.paprika.json"} {
+		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		db, err := OpenDB(filepath.Join(t.TempDir(), "x.db"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc, err := ImportDocument(db, raw, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ImportDocument(db, raw, false); err == nil || !strings.Contains(err.Error(), "já existe") {
+			t.Fatalf("second import without --replace: %v", err)
+		}
+		if _, err := ImportDocument(db, raw, true); err != nil {
+			t.Fatal(err)
+		}
+		out, err := ExportDocument(db, doc.Str("id"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out != string(raw) {
+			t.Errorf("%s: export differs from the imported file", f)
+		}
+		db.Close()
+	}
+}
+
+func TestImportRejectsInvalidDocument(t *testing.T) {
+	db, err := OpenDB(filepath.Join(t.TempDir(), "x.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	_, err = ImportDocument(db, []byte(`{"format":"paprika/1","id":"x","rootIds":["a"]}`), false)
+	if err == nil || err.Error() != `documento inconsistente: "a" referenciado mas ausente` {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestStoreReloadsCommitsFromAnotherProcess(t *testing.T) {
+	s, path := openTemp(t)
+	other, err := OpenStore(path, OpenOptions{Poll: -1, DocID: s.DocID()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer other.Close()
+	events := make(chan ChangeEvent, 4)
+	s.OnChange(func(e ChangeEvent) { events <- e })
+	createRect(t, other, "remote")
+	if changed, err := s.ReloadIfChanged(); !changed || err != nil {
+		t.Fatalf("reload: %v %v", changed, err)
+	}
+	if core.GetNode(s.Doc(), "remote") == nil || !s.CanUndo() {
+		t.Fatal("remote commit not visible")
+	}
+	if e := <-events; e.Kind != "reload" {
+		t.Fatalf("event kind %q", e.Kind)
+	}
+	if changed, _ := s.ReloadIfChanged(); changed {
+		t.Fatal("reload without new commits")
+	}
+}
+
+func TestToolsMatchContract(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	got := m.ToolNames()
+	var want []string
+	for _, tl := range mcpContract.Tools {
+		want = append(want, tl.(*jsonv.Object).Str("name"))
+	}
+	sort.Strings(got)
+	sort.Strings(want)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("tools\n got %v\nwant %v", got, want)
+	}
+}
+
+func callText(t *testing.T, m *MCP, name string, args *jsonv.Object) (string, bool) {
+	t.Helper()
+	r := m.CallTool(context.Background(), name, args, args != nil)
+	var b strings.Builder
+	for _, c := range r.Arr("content") {
+		b.WriteString(c.(*jsonv.Object).Str("text"))
+	}
+	return b.String(), r.Bool("isError")
+}
+
+func TestMCPToolsAndErrors(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	out, isErr := callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "text", "txt", "oops")}))
+	if !isErr || out != "op[0]: campos desconhecidos para text: txt" {
+		t.Fatalf("%v %q", isErr, out)
+	}
+	out, _ = callText(t, m, "create_nodes", obj("index", 0.0, "nodes", []any{obj("type", "rect", "id", "a"), obj("type", "rect", "id", "b")}))
+	if out != "{\n  \"created\": [\n    \"a\",\n    \"b\"\n  ],\n  \"version\": 1\n}" {
+		t.Fatalf("create: %q", out)
+	}
+	out, _ = callText(t, m, "find_nodes", obj("type", "rect"))
+	if out != "rect#a 100×100 @0,0\nrect#b 100×100 @0,0" {
+		t.Fatalf("find: %q", out)
+	}
+	out, isErr = callText(t, m, "get_document_outline", obj("depth", 51.0))
+	if !isErr || out != "MCP error -32602: Input validation error: Invalid arguments for tool get_document_outline: Too big: expected number to be <=50 at depth" {
+		t.Fatalf("depth: %q", out)
+	}
+	out, _ = callText(t, m, "undo", nil)
+	if !strings.Contains(out, `"undone": true`) {
+		t.Fatalf("undo: %q", out)
+	}
+	out, isErr = callText(t, m, "render_screenshot", obj())
+	if !isErr || !strings.Contains(out, "screenshot indisponível") {
+		t.Fatalf("screenshot without browser: %q", out)
+	}
+	out, isErr = callText(t, m, "path_info", obj())
+	if !isErr || out != "passe d ou id" {
+		t.Fatalf("path_info: %q", out)
+	}
+}
+
+func TestStdio(t *testing.T) {
+	s, _ := openTemp(t)
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"set_tokens","arguments":{"tokens":{"a":"#fff"}}}}
+{"jsonrpc":"2.0","id":3,"method":"resources/list"}
+`)
+	var out bytes.Buffer
+	if err := ServeStdio(context.Background(), NewMCP(s, "agent:stdio", nil), in, &out); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("lines: %q", lines)
+	}
+	if !strings.Contains(lines[0], `"protocolVersion":"2025-06-18"`) || !strings.Contains(lines[0], `"instructions":"# Paprika`) {
+		t.Fatalf("initialize: %s", lines[0])
+	}
+	if !strings.Contains(lines[2], `"code":-32601`) {
+		t.Fatalf("unknown method: %s", lines[2])
+	}
+	if h := s.RecentHistory(1); len(h) != 1 || h[0].Actor != "agent:stdio" {
+		t.Fatalf("actor: %+v", h)
+	}
+}
+
+func TestHTTPTransportRules(t *testing.T) {
+	s, _ := openTemp(t)
+	srv, err := StartHTTP(s, HTTPOptions{Host: "127.0.0.1", Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	do := func(method, path string, headers map[string]string, body string) (int, string) {
+		req, _ := http.NewRequest(method, srv.URL+path, strings.NewReader(body))
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+		if h, ok := headers["Host"]; ok {
+			req.Host = h
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		b, _ := io.ReadAll(res.Body)
+		return res.StatusCode, string(b)
+	}
+	both := map[string]string{"Accept": "application/json, text/event-stream", "Content-Type": "application/json"}
+	if code, _ := do("POST", "/mcp", map[string]string{"Content-Type": "application/json"}, `{}`); code != 406 {
+		t.Fatalf("missing Accept: %d", code)
+	}
+	if code, _ := do("POST", "/mcp", map[string]string{"Accept": both["Accept"], "Content-Type": "text/plain"}, `{}`); code != 415 {
+		t.Fatalf("wrong content type: %d", code)
+	}
+	if code, _ := do("GET", "/mcp", nil, ""); code != 405 {
+		t.Fatalf("GET /mcp: %d", code)
+	}
+	if code, _ := do("POST", "/mcp", both, `{"jsonrpc":"2.0","method":"notifications/initialized"}`); code != 202 {
+		t.Fatalf("notification: %d", code)
+	}
+	code, body := do("POST", "/mcp", both, `[{"jsonrpc":"2.0","id":1,"method":"ping"},{"jsonrpc":"2.0","id":2,"method":"tools/list"}]`)
+	if code != 200 || !strings.HasPrefix(body, `[{"result":{}`) {
+		t.Fatalf("batch: %d %s", code, body)
+	}
+	if code, _ := do("GET", "/api/health", map[string]string{"Host": "evil.example:1"}, ""); code != 403 {
+		t.Fatalf("evil host: %d", code)
+	}
+	if code, body := do("GET", "/", nil, ""); code != 200 || !strings.Contains(body, "Canvas não compilado") {
+		t.Fatalf("placeholder: %d", code)
+	}
+	code, body = do("GET", "/api/export", nil, "")
+	if code != 200 || !strings.HasPrefix(body, "{\n  \"format\": \"paprika/1\"") {
+		t.Fatalf("export: %d %s", code, body)
+	}
+}
+
+func TestWebSocketSync(t *testing.T) {
+	s, _ := openTemp(t)
+	srv, err := StartHTTP(s, HTTPOptions{Host: "127.0.0.1", Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c, _, err := websocket.Dial(ctx, strings.Replace(srv.URL, "http", "ws", 1)+"/ws", &websocket.DialOptions{HTTPHeader: http.Header{"Origin": {srv.URL}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.CloseNow()
+	read := func() *jsonv.Object {
+		_, data, err := c.Read(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, _ := jsonv.Parse(data)
+		return v.(*jsonv.Object)
+	}
+	if m := read(); m.Str("type") != "doc" || m.Str("kind") != "reload" {
+		t.Fatalf("first message: %s", jsonv.Stringify(m, ""))
+	}
+	c.Write(ctx, websocket.MessageText, []byte(`{"type":"ops","reqId":"r1","label":"mover","ops":[{"op":"create","node":{"type":"rect","id":"w"}}]}`))
+	if m := read(); m.Str("type") != "doc" || m.Str("actor") != "user" || m.Str("label") != "mover" {
+		t.Fatalf("broadcast: %s", jsonv.Stringify(m, ""))
+	}
+	if m := read(); m.Str("type") != "ack" || m.Str("reqId") != "r1" {
+		t.Fatalf("ack: %s", jsonv.Stringify(m, ""))
+	}
+	c.Write(ctx, websocket.MessageText, []byte(`{"type":"bogus"}`))
+	if m := read(); m.Str("type") != "error" || !strings.Contains(m.Str("message"), "Invalid discriminator value") || m.Has("reqId") {
+		t.Fatalf("error: %s", jsonv.Stringify(m, ""))
+	}
+}
