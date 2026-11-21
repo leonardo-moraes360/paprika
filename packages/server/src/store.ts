@@ -32,14 +32,22 @@ const WORKSPACE_FILE = /^[^.].*\.paprika\.json$/;
 
 /** File name for a new workspace: the name without accents, lowercase, words joined by "-". */
 export function workspaceSlug(name: string): string {
-  const slug = name
+  // Split into words instead of trimming "-" with a regex (linear on any input).
+  const words = name
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60)
-    .replace(/-+$/, "");
+    .split(/[^a-z0-9]/)
+    .filter(Boolean);
+  let slug = "";
+  for (const w of words) {
+    const next = slug ? `${slug}-${w}` : w;
+    if (next.length > 60) {
+      if (!slug) slug = w.slice(0, 60);
+      break;
+    }
+    slug = next;
+  }
   return slug || "workspace";
 }
 

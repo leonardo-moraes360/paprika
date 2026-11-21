@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import WebSocket from "ws";
-import { DocumentStore, closeBrowser, createMcpServer, startHttpServer, type RunningServer } from "../src/index.js";
+import { DocumentStore, closeBrowser, createMcpServer, startHttpServer, workspaceSlug, type RunningServer } from "../src/index.js";
 import { copyId } from "@paprika/core";
 
 type ToolResult = { isError?: boolean; content: { type: string; text?: string; data?: string; mimeType?: string }[] };
@@ -349,6 +349,15 @@ describe("MCP", () => {
     const bad = await call(c, "open_workspace", { id: "nope" });
     expect(bad.isError).toBe(true);
     expect(textOf(bad)).toBe('workspace "nope" does not exist (see list_workspaces)');
+  });
+
+  it("nome de arquivo do workspace: sem acento, minúsculo, palavras com hífen, até 60 caracteres", () => {
+    expect(workspaceSlug("  Marca · Ícones  ")).toBe("marca-icones");
+    expect(workspaceSlug("--a--b--")).toBe("a-b");
+    expect(workspaceSlug("!!!")).toBe("workspace");
+    expect(workspaceSlug("aaa ".repeat(30))).toHaveLength(59);
+    expect(workspaceSlug("x".repeat(80))).toHaveLength(60);
+    expect(workspaceSlug("-".repeat(100_000) + "a")).toBe("a");
   });
 
   it("render_screenshot devolve PNG", async () => {
