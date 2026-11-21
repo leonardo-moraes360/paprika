@@ -12,9 +12,9 @@ import (
 // Port of packages/core/src/htmlImport.ts: HTML with inline styles → nodes (the inverse of nodeStyle).
 
 type textStyle struct {
-	color, fontFamily, textAlign                       string
+	color, fontFamily, textAlign                    string
 	fontSize, fontWeight, lineHeight, letterSpacing *float64
-	pre                                                *bool
+	pre                                             *bool
 }
 
 type htmlCtx struct {
@@ -28,8 +28,8 @@ var (
 	htmlSkip     = map[string]bool{"head": true, "script": true, "style": true, "template": true, "noscript": true, "meta": true, "link": true, "title": true, "iframe": true, "object": true, "embed": true, "video": true, "audio": true, "canvas": true, "input": true, "select": true, "textarea": true}
 	htmlInline   = map[string]bool{"span": true, "b": true, "strong": true, "i": true, "em": true, "a": true, "u": true, "small": true, "code": true, "label": true, "br": true, "sup": true, "sub": true, "mark": true, "abbr": true, "s": true, "font": true}
 	headingSize  = map[string]float64{"h1": 32, "h2": 24, "h3": 18.72, "h4": 16, "h5": 13.28, "h6": 10.72}
-	htmlAlign     = map[string]string{"flex-start": "start", "start": "start", "center": "center", "flex-end": "end", "end": "end", "stretch": "stretch", "normal": "stretch"}
-	htmlJustify   = map[string]string{"flex-start": "start", "start": "start", "center": "center", "flex-end": "end", "end": "end", "space-between": "between", "normal": "start"}
+	htmlAlign    = map[string]string{"flex-start": "start", "start": "start", "center": "center", "flex-end": "end", "end": "end", "stretch": "stretch", "normal": "stretch"}
+	htmlJustify  = map[string]string{"flex-start": "start", "start": "start", "center": "center", "flex-end": "end", "end": "end", "space-between": "between", "normal": "start"}
 
 	pxRe        = regexp.MustCompile(`^(-?(?:\d+\.?\d*|\.\d+))(px)?$`)
 	wsRunRe     = regexp.MustCompile(`[` + jsWS + `]+`)
