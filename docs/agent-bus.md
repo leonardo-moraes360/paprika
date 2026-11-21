@@ -71,23 +71,14 @@ After a CLI join, an MCP client can reuse the session without a new invite: `tb 
 
 ### Lanes
 
-The first backlog slice ([backlog.md](backlog.md)) is implemented by a cloud thread in stacked branches, one PR per item. Items 1 to 5 are merged. Item 6 (agent layer: `structuredContent`, English agent-facing messages, an English guide for agents, grouped transactions, actor from `clientInfo`) is still to come, so these paths belong to **lane A** until it merges:
+The first backlog slice ([backlog.md](backlog.md)) is fully merged, so no path is reserved for a cloud thread right now. The split is per task instead:
 
-- `packages/server/src/mcp.ts`, `packages/server/src/http.ts`, `packages/server/src/store.ts`
-- `packages/core/src/**` (item 6 also translates the agent-facing error, warning and lint messages across core)
-- `server-go/internal/**`, `server-go/contract/**`, `server-go/scripts/gen-golden.mjs`, `server-go/scripts/gen-contract.mjs`
-- `packages/server/test/**`, `packages/core/test/**`
-- `README.md`, `README.pt-BR.md`, `server-go/README*.md`, `docs/agent-feedback.md`, `docs/pt-BR/feedback-agentes.md`, `docs/backlog.md`, `docs/pt-BR/backlog.md`, and any new agent guide under `docs/`
+- **Lane A** (cloud Claude threads) is whatever paths an open cloud pull request touches. Before assigning, the supervisor checks the open PRs (`gh pr list`) and keeps their files out of bus tasks.
+- **Lane B** (bus agents) takes any task whose `paths` don't overlap lane A or another open claim, anywhere in the repository (`apps/**`, `packages/**`, `server-go/**`, `crates/**`, `bench/**`, `.github/**`, docs).
 
-Everything else is open to lane B, including `apps/web/**` and `crates/render/**`, as long as the task payload names the files.
+When a new cloud slice starts, the maintainer lists its paths here as lane A until it merges.
 
-**Lane B** (bus agents) takes work whose files don't overlap lane A, for example:
-
-- backlog items (P2 and later) whose files stay outside lane A;
-- `bench/**`, `.github/**`;
-- documentation outside the files listed above.
-
-A bus agent that needs to touch a lane A path sends a `query` to `agent:leonardo` before editing; it never edits it on its own.
+A bus agent that needs a path outside its task's `paths` sends a `query` to `agent:leonardo` before editing; it never widens the task on its own.
 
 ### Task protocol
 
