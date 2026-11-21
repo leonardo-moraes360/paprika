@@ -59,7 +59,8 @@ Everything else on stdout is an event. The sidecar exits when its stdin closes.
 | `presence` | `data` | Sends a local agent's presence to every connected peer. |
 | `team.create` | `name` | Creates a team with this instance as founder. |
 | `invite.create` | `ttlSecs` | `{link, expiresAt}`: a single-use invite. |
-| `invite.revoke` | `link`? | Revokes one invite (or all). |
+| `invite.revoke` | | Revokes every active invite. |
+| `invite.inspect` | `link` | `{team, name, inviter, inviterFingerprint, fingerprint, expiresAt, expired}`: what a link says, before joining. |
 | `join` | `link` | Joins the team behind the invite; the shared workspaces then arrive as `remote` events. |
 | `share` | `doc`, `state`, `author` | Starts sharing a workspace: its current state becomes the first envelope. |
 | `local` | `doc`, `author`, `changes` | One committed local transaction as a change set (below). |
@@ -71,7 +72,8 @@ Everything else on stdout is an event. The sidecar exits when its stdin closes.
 | `peer` | `peer`, `state: connected\|disconnected` |
 | `presence` | `peer`, `name`, `data` |
 | `remote` | `doc`, `state` (materialized workspace, below), `authors` |
-| `rejected` | `peer`, `reason` (not a member, bad signature…) |
+| `rejected` | `peer`, `reason` (not a member, bad signature, invite used/expired/revoked…) |
+| `joined` | `peer`, `name`: someone joined with an invite from this instance |
 | `log` | `level`, `msg` |
 
 ### Change set (`local`)
@@ -157,6 +159,7 @@ When both sides dial at once, the connection dialed by the smaller endpoint id i
 | `POST /api/team` `{name}` | Create a team. |
 | `POST /api/team/invites` `{ttlSecs}` | Create an invite link. |
 | `DELETE /api/team/invites` | Revoke the active invites. |
+| `POST /api/team/invites/inspect` `{link}` | Preview a link (team, inviter, fingerprint, expiry). |
 | `POST /api/team/join` `{link}` | Join a team. |
 | `POST /api/team/share` `{doc}` | Share a workspace with the team. |
 

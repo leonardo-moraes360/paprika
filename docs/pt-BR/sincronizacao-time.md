@@ -59,7 +59,8 @@ O resto no stdout é evento. O sidecar termina quando o stdin fecha.
 | `presence` | `data` | Manda a presença de um agente local para todos os peers conectados. |
 | `team.create` | `name` | Cria um time com esta instância como fundadora. |
 | `invite.create` | `ttlSecs` | `{link, expiresAt}`: um convite de uso único. |
-| `invite.revoke` | `link`? | Revoga um convite (ou todos). |
+| `invite.revoke` | | Revoga todos os convites ativos. |
+| `invite.inspect` | `link` | `{team, name, inviter, inviterFingerprint, fingerprint, expiresAt, expired}`: o que um link diz, antes de entrar. |
 | `join` | `link` | Entra no time do convite; os workspaces compartilhados chegam depois como eventos `remote`. |
 | `share` | `doc`, `state`, `author` | Começa a compartilhar um workspace: o estado atual vira o primeiro envelope. |
 | `local` | `doc`, `author`, `changes` | Uma transação local gravada, como conjunto de mudanças (abaixo). |
@@ -71,7 +72,8 @@ O resto no stdout é evento. O sidecar termina quando o stdin fecha.
 | `peer` | `peer`, `state: connected\|disconnected` |
 | `presence` | `peer`, `name`, `data` |
 | `remote` | `doc`, `state` (workspace materializado, abaixo), `authors` |
-| `rejected` | `peer`, `reason` (fora do time, assinatura inválida…) |
+| `rejected` | `peer`, `reason` (fora do time, assinatura inválida, convite usado/vencido/revogado…) |
+| `joined` | `peer`, `name`: alguém entrou com um convite desta instância |
 | `log` | `level`, `msg` |
 
 ### Conjunto de mudanças (`local`)
@@ -159,6 +161,7 @@ Quando os dois lados discam ao mesmo tempo, fica a conexão discada pelo menor i
 | `POST /api/team` `{name}` | Cria um time. |
 | `POST /api/team/invites` `{ttlSecs}` | Cria um link de convite. |
 | `DELETE /api/team/invites` | Revoga os convites ativos. |
+| `POST /api/team/invites/inspect` `{link}` | Prévia de um link (time, quem convida, impressão digital, validade). |
 | `POST /api/team/join` `{link}` | Entra num time. |
 | `POST /api/team/share` `{doc}` | Compartilha um workspace com o time. |
 

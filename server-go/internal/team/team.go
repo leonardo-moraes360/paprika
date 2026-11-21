@@ -122,6 +122,8 @@ func (t *Service) onEvent(ev Event) {
 		t.log(fmt.Sprintf("sync: %v", ev["msg"]))
 	case "rejected":
 		t.log(fmt.Sprintf("sync: recusado %v (%v)", ev["peer"], ev["reason"]))
+	case "joined":
+		t.log(fmt.Sprintf("time: %v entrou com um convite", ev["name"]))
 	}
 }
 
@@ -269,5 +271,54 @@ func (t *Service) Routes(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("GET /api/team/addr", func(w http.ResponseWriter, r *http.Request) {
 		t.call(w, r, map[string]any{"t": "addr"})
+	})
+	// Creates a team with this instance as founder.
+	mux.HandleFunc("POST /api/team", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Name string `json:"name"`
+		}
+		if err := readJSON(r, &body); err != nil {
+			errJSON(w, 400, err)
+			return
+		}
+		t.call(w, r, map[string]any{"t": "team.create", "name": body.Name})
+	})
+	// A single-use invite link (also shown as a QR on the canvas).
+	mux.HandleFunc("POST /api/team/invites", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			TTLSecs int `json:"ttlSecs"`
+		}
+		if err := readJSON(r, &body); err != nil {
+			errJSON(w, 400, err)
+			return
+		}
+		if body.TTLSecs <= 0 {
+			body.TTLSecs = 3600
+		}
+		t.call(w, r, map[string]any{"t": "invite.create", "ttlSecs": body.TTLSecs})
+	})
+	mux.HandleFunc("DELETE /api/team/invites", func(w http.ResponseWriter, r *http.Request) {
+		t.call(w, r, map[string]any{"t": "invite.revoke"})
+	})
+	// What a link says before accepting it: team, inviter, fingerprint, expiry.
+	mux.HandleFunc("POST /api/team/invites/inspect", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Link string `json:"link"`
+		}
+		if err := readJSON(r, &body); err != nil {
+			errJSON(w, 400, err)
+			return
+		}
+		t.call(w, r, map[string]any{"t": "invite.inspect", "link": body.Link})
+	})
+	mux.HandleFunc("POST /api/team/join", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Link string `json:"link"`
+		}
+		if err := readJSON(r, &body); err != nil {
+			errJSON(w, 400, err)
+			return
+		}
+		t.call(w, r, map[string]any{"t": "join", "link": body.Link})
 	})
 }
