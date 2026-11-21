@@ -11,7 +11,8 @@
 // Only the I/O lives here: the git diff, the environment and the two GitHub files. The rules are
 // in ci-plan-lib.mjs, which the tests in .github/scripts/test/ describe.
 import { execFileSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { accessSync, appendFileSync, constants } from "node:fs";
+import { delimiter, isAbsolute, join, resolve } from "node:path";
 import { planFor, planLines, planSummary } from "./ci-plan-lib.mjs";
 
 const [base, head = "HEAD"] = process.argv.slice(2);
@@ -20,7 +21,33 @@ if (!base) {
   process.exit(2);
 }
 
-const files = execFileSync("git", ["diff", "--name-only", base, head], { encoding: "utf8" })
+// Sonar S4036: `execFileSync("git", …)` lets whatever comes first on PATH answer for `git`. Walk
+// PATH here and keep the first real executable, so the call below runs an absolute path. Same
+// output as before; a machine without git now fails with a message naming the PATH instead of an
+// ENOENT stack from the spawn.
+function resolveGit() {
+  const searched = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
+  for (const dir of searched) {
+    const candidate = join(isAbsolute(dir) ? dir : resolve(process.cwd(), dir), "git");
+    try {
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // not an executable in this entry: keep looking
+    }
+  }
+  throw new Error(`git not found on PATH (${searched.join(delimiter) || "empty PATH"})`);
+}
+
+let git;
+try {
+  git = resolveGit();
+} catch (error) {
+  console.error(`ci-plan: ${error.message}`);
+  process.exit(3);
+}
+
+const files = execFileSync(git, ["diff", "--name-only", base, head], { encoding: "utf8" })
   .split("\n")
   .filter(Boolean);
 
