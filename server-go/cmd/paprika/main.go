@@ -35,6 +35,7 @@ Uso:
 Opções:
       --db      Banco SQLite (criado se não existir). Padrão: ./paprika.db ou $PAPRIKA_DB
       --doc     Id do documento. Padrão: o atualizado mais recentemente (um vazio é criado se o banco estiver vazio)
+                Os documentos do banco são os workspaces da página inicial (/).
   -p, --port    Porta HTTP. Padrão: 4777 (0 = aleatória)
       --host    Interface de bind. Padrão: 127.0.0.1. Expor fora do loopback não tem autenticação.
       --web     Build do canvas (apps/web/dist). Padrão: $PAPRIKA_WEB_ROOT ou detectado

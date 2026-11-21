@@ -68,6 +68,11 @@ export function useDocument() {
         const msg = JSON.parse(String(ev.data)) as ServerMsg;
         if (msg.type === "doc") {
           setState((s) => {
+            // Another workspace: nothing carries over (its nodes are not "changed", the feed starts over).
+            if (s.doc && s.doc.id !== msg.doc.id) {
+              clearTimeout(flash);
+              return { ...s, doc: msg.doc, version: msg.version, canUndo: msg.canUndo, canRedo: msg.canRedo, activity: [], agentTouched: new Set() };
+            }
             const changed = changedIds(s.doc, msg.doc);
             const fromAgent = msg.actor.startsWith("agent");
             const activity =
@@ -120,3 +125,5 @@ export function useDocument() {
 
   return { ...state, apply, undo, redo, clearError, showError };
 }
+
+export type LiveDocument = ReturnType<typeof useDocument>;
