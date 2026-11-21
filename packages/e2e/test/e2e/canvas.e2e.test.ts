@@ -367,6 +367,35 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.locator(`[data-page-id="${p1}"]`).click();
     await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(1);
     await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(0);
+
+    // The agent's last nodes are on page 2: the roster names that page, and clicking the agent opens
+    // it with the agent's cursor (on "tela2") centered in the viewport.
+    // (The second agent from the presence test may still be listed, on page 1.)
+    const first = page.getByTestId("agent-roster").locator("li").first();
+    const where = first.getByTestId("agent-page");
+    await expect.poll(() => first.innerText()).toMatch(/^e2e-agent\s*em Página 2$/);
+    if (shots) await page.screenshot({ path: join(shots, "08b-agente-em-outra-pagina.png") });
+    await first.getByTestId("agent-focus").click();
+    await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(1);
+    await expect(page.locator(".page.is-active").textContent()).resolves.toContain("Página 2");
+    await expect.poll(() => where.count()).toBe(0);
+    await expect.poll(() => first.innerText()).toMatch(/^e2e-agent\s*criando$/);
+    const centerOff = async (id: string) => {
+      const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
+      const b = (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
+      return Math.max(Math.abs(b.x + b.width / 2 - (vp.x + vp.width / 2)), Math.abs(b.y + b.height / 2 - (vp.y + vp.height / 2)));
+    };
+    await expect.poll(() => centerOff("tela2")).toBeLessThan(2);
+    // Same page: pan away, then clicking the agent brings its cursor back to the center.
+    await page.mouse.move(vp.x + vp.width / 2, vp.y + vp.height / 2);
+    await page.mouse.wheel(400, 300);
+    await expect.poll(() => centerOff("tela2")).toBeGreaterThan(100);
+    await first.getByTestId("agent-focus").click();
+    await expect.poll(() => centerOff("tela2")).toBeLessThan(2);
+    if (shots) await page.screenshot({ path: join(shots, "08c-foco-no-agente.png") });
+
+    await page.locator(`[data-page-id="${p1}"]`).click();
+    await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(1);
   });
   it("componentes: tornar componente, nova instância, mudança propaga, override na cópia, desanexar", async () => {
     await page.keyboard.press("Escape");
