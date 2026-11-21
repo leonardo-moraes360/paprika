@@ -4,6 +4,8 @@
 
 O CI do Paprika roda **apenas em pull requests** (`opened`, `synchronize`, `reopened`, `ready_for_review`). Nada roda em push nem depois do merge: a execução da PR é o gate. Um novo push na mesma PR cancela a execução que ainda está em andamento.
 
+O único workflow que roda em push é o [`pages.yml`](../../.github/workflows/pages.yml): é um deploy, não uma verificação. Quando uma mudança no site ou nas docs chega na `main`, ele gera o `apps/site` e publica no GitHub Pages ([apps/site/README.pt-BR.md](../../apps/site/README.pt-BR.md)).
+
 Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), mais o [`.github/dependabot.yml`](../../.github/dependabot.yml).
 
 ## Jobs
@@ -24,6 +26,8 @@ Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/c
 | **CI OK** | Falha se algum job falhou ou foi cancelado. **É o único check a exigir** na proteção de branch: fica verde quando os jobs que rodaram passaram e os pulados foram pulados pelo plano. | sempre |
 
 Uma mudança em `.github/workflows/`, `.github/scripts/`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` ou `tsconfig.base.json` roda **tudo**. O label `ci:full` também (vale a partir do próximo push na PR). PRs só de documentação rodam apenas Plan e CI OK.
+
+Os jobs Go instalam o patch mais recente da minor em `GO_VERSION` (no topo do `ci.yml`), e não a linha `go` exata do `server-go/go.mod`: essa linha é o mínimo que os módulos exigem (por exemplo `go 1.26.0`), e a biblioteca padrão dessa versão reprovaria no govulncheck. Atualize `GO_VERSION` quando o `go.mod` passar para uma nova minor.
 
 ## Rodar só o que mudou
 
