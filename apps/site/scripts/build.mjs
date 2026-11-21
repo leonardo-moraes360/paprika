@@ -184,7 +184,6 @@ const slug = (s) =>
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
-    .replace(/<[^>]+>/g, "")
     .replace(/[^\w\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-");
@@ -227,7 +226,8 @@ function renderMarkdown(md, src, page) {
     renderer: {
       heading({ tokens, depth }) {
         const html = this.parser.parseInline(tokens);
-        let id = slug(html) || `section`;
+        // Slug from the plain text, so markup never reaches the id.
+        let id = slug(this.parser.parseInline(tokens, this.parser.textRenderer)) || `section`;
         const n = used.get(id) ?? 0;
         used.set(id, n + 1);
         if (n) id = `${id}-${n}`;
