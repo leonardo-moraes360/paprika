@@ -171,7 +171,17 @@ Tarefa: renomear e excluir na página de workspaces (clique duplo no nome, exclu
 | 60 | Desfazer um renomear | Renomear o workspace ativo é uma escrita `rename_document` (com desfazer); renomear outro muda no lugar, sem desfazer | Um registro de atividade por servidor para operações de workspace, ou uma lixeira que guarda os excluídos por um tempo | P3 |
 | 61 | Dizer ao humano por que o canvas mudou | Excluir o workspace ativo abre para todos o outro atualizado mais recentemente; o canvas acompanha, sem mensagem | Um aviso curto no canvas ("workspace X excluído por agent:Y") | P3 |
 
-## O que funcionou bem
+## 2026-11-21: capas de workspace
+
+Tarefa: imagem de capa nos cards da página inicial (enviar, soltar, remover; sem capa = primeira letra) e `set_workspace_cover` para agentes.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 62 | Dar uma capa a um workspace sem sair dele | `set_workspace_cover` com `rootId` tira o screenshot de um frame de qualquer workspace, ativo ou não, então o agente arruma a página inicial depois de desenhar | — | — |
+| 63 | Manter a capa em dia com o design | A capa é uma foto: edições depois no frame não a atualizam | Uma capa "viva" opcional que renderiza de novo o frame escolhido quando o workspace muda (com debounce) | P3 |
+| 64 | Levar a capa num export | As capas ficam no SQLite ao lado do documento, não no `.paprika.json`, então o `paprika export` as deixa de fora | Exportar/importar a capa como data URL num campo opcional de topo | P3 |
+
+
 
 - `create_nodes` aninhado montou uma proposta inteira (≈60 nós) numa chamada, de forma atômica.
 - O contraste do `lint_design` guiou a escolha de tokens (`brand.dark` para texto branco em botões).

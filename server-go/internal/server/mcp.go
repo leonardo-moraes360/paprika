@@ -612,6 +612,60 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return jsonResult(jsonv.NewObject("deleted", id, "active", active)), nil
 		})
 
+	add("set_workspace_cover", z.Object(
+		z.Field{Name: "id", Schema: z.String().Min(1)},
+		optStr("rootId"),
+		optStr("image"),
+		z.Field{Name: "clear", Schema: z.Optional(z.Bool())},
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
+		id := a.Str("id")
+		var info WorkspaceInfo
+		var err error
+		switch {
+		case a.Bool("clear"):
+			if a.Str("image") != "" || a.Str("rootId") != "" {
+				return nil, errors.New("pass only one of rootId, image or clear")
+			}
+			info, err = store.ClearCover(id)
+		case a.Str("image") != "":
+			if a.Str("rootId") != "" {
+				return nil, errors.New("pass only one of rootId, image or clear")
+			}
+			raw := a.Str("image")
+			if i := strings.Index(raw, ";base64,"); strings.HasPrefix(raw, "data:") && i > 0 {
+				raw = raw[i+len(";base64,"):]
+			}
+			data, derr := base64.StdEncoding.DecodeString(raw)
+			if derr != nil {
+				return nil, errors.New("image must be base64 (or a data: URL with ;base64,)")
+			}
+			info, err = store.SetCover(id, data)
+		default:
+			if m.shot == nil {
+				return nil, errors.New("screenshot unavailable on this server: pass image instead")
+			}
+			doc, derr := store.WorkspaceDocument(id)
+			if derr != nil {
+				err = derr
+				break
+			}
+			png, _, _, serr := m.shot.Screenshot(ctx, doc, a.Str("rootId"), 1)
+			if serr != nil {
+				return nil, serr
+			}
+			info, err = store.SetCover(id, png)
+		}
+		switch {
+		case errors.Is(err, ErrNoWorkspace):
+			return nil, fmt.Errorf(`workspace "%s" does not exist (see list_workspaces)`, id)
+		case errors.Is(err, ErrBadCover):
+			return nil, fmt.Errorf("%w (a screenshot that big: pass a smaller rootId)", err)
+		case err != nil:
+			return nil, err
+		}
+		return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info))), nil
+	})
+
 	add("lint_design", z.Object(optStr("rootId")), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		issues := core.LintDocument(store.Doc(), a.Str("rootId"))
 		counts := map[string]int{"error": 0, "warning": 0, "info": 0}

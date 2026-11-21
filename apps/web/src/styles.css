@@ -924,6 +924,15 @@ button.link {
 .workspace-grid > li {
   position: relative;
 }
+.workspace-tile {
+  overflow: hidden;
+}
+.workspace-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
 .workspace-card.is-selected {
   outline: 2px solid var(--select);
   outline-offset: 2px;

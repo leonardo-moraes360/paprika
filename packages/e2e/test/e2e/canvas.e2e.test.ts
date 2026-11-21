@@ -661,6 +661,42 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await doc()).name, POLL).toBe(demoName);
   });
 
+  it("overview: capa por arquivo (trocar e remover) e por screenshot do agente; sem capa fica a letra", async () => {
+    const POLL = { timeout: 10_000 };
+    const { id: demo, name: demoName } = await doc();
+    const list = async () => (await (await fetch(`${url}/api/workspaces`)).json()) as { workspaces: { id: string; name: string; cover: string | null }[] };
+    await page.goto(url);
+    const demoCard = page.locator(`[data-workspace-id="${demo}"]`);
+    await expect.poll(() => demoCard.locator(".workspace-tile").textContent(), POLL).toBe(demoName.trim()[0]!.toUpperCase());
+
+    // The human picks an image file for the card.
+    const png = Buffer.from(await (await fetch(`${url}/api/screenshot?root=login`)).arrayBuffer());
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: `Adicionar capa de ${demoName}` }).click();
+    await (await chooser).setFiles({ name: "capa.png", mimeType: "image/png", buffer: png });
+    const img = demoCard.locator("img.workspace-cover");
+    await expect.poll(() => img.getAttribute("src"), POLL).toMatch(/\/cover\?v=\d+$/);
+    await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0), POLL).toBe(true);
+
+    // An agent sets another workspace's cover from one of its frames (it does not need to be active).
+    const draft = (await list()).workspaces.find((w) => w.name === "Rascunho do agente");
+    expect(draft).toBeDefined();
+    const shot = await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, rootId: "rasc" } });
+    expect(shot.isError).toBeFalsy();
+    await page.reload();
+    await expect.poll(() => page.locator(`[data-workspace-id="${draft!.id}"] img.workspace-cover`).count(), POLL).toBe(1);
+    if (shots) {
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: join(shots, "24-overview-capas.png") });
+    }
+
+    // Removing the cover brings the letter back.
+    await page.getByRole("button", { name: `Remover capa de ${demoName}` }).click();
+    await expect.poll(() => img.count(), POLL).toBe(0);
+    await expect.poll(() => demoCard.locator(".workspace-tile").textContent(), POLL).toBe(demoName.trim()[0]!.toUpperCase());
+    await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, clear: true } });
+  });
+
   it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     try {

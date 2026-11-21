@@ -381,6 +381,54 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(w, 405, errBody("método não permitido"), "")
 		}
 	})
+	mux.HandleFunc("/api/workspaces/{id}/cover", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		var info WorkspaceInfo
+		var err error
+		switch r.Method {
+		case http.MethodGet:
+			data, mime, err := store.Cover(id)
+			if errors.Is(err, ErrNoWorkspace) {
+				send(w, 404, errBody(`workspace "`+id+`" não tem capa`), "")
+				return
+			}
+			if err != nil {
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			// The URL carries ?v=<updatedAt>, so a new cover is a new URL.
+			h := w.Header()
+			h.Set("content-type", mime)
+			h.Set("cache-control", "private, max-age=31536000, immutable")
+			h.Set("x-content-type-options", "nosniff")
+			h.Set("content-security-policy", "default-src 'none'")
+			w.WriteHeader(200)
+			w.Write(data)
+			return
+		case http.MethodPut:
+			data, rerr := io.ReadAll(io.LimitReader(r.Body, MaxCoverBytes+1))
+			if rerr != nil {
+				send(w, 400, errBody(rerr.Error()), "")
+				return
+			}
+			info, err = store.SetCover(id, data)
+		case http.MethodDelete:
+			info, err = store.ClearCover(id)
+		default:
+			send(w, 405, errBody("método não permitido"), "")
+			return
+		}
+		switch {
+		case errors.Is(err, ErrNoWorkspace):
+			send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+		case errors.Is(err, ErrBadCover):
+			send(w, 415, errBody("a capa precisa ser uma imagem PNG, JPEG, WebP ou GIF de até 2 MiB"), "")
+		case err != nil:
+			send(w, 500, errBody(err.Error()), "")
+		default:
+			send(w, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+		}
+	})
 	mux.HandleFunc("/api/workspaces/{id}/open", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			send(w, 405, errBody("método não permitido"), "")

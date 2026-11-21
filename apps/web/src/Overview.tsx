@@ -7,6 +7,27 @@ export interface Workspace {
   nodes: number;
   updatedAt: number;
   active: boolean;
+  /** URL of the cover image, or null: the card shows the first letter of the name. */
+  cover: string | null;
+}
+
+/** Same limit as the server; bigger images are scaled down in the browser first. */
+const MAX_COVER_BYTES = 2 * 1024 * 1024;
+const COVER_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
+/** The image as the server takes it: as is when small enough, else scaled to 960px wide as WebP. */
+async function coverBody(file: File): Promise<Blob> {
+  if (file.size <= MAX_COVER_BYTES && COVER_TYPES.includes(file.type)) return file;
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 960 / bitmap.width);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/webp", 0.85));
+  if (!blob) throw new Error("não foi possível converter a imagem");
+  return blob;
 }
 
 const rtf = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
@@ -49,6 +70,9 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Workspace | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const coverInput = useRef<HTMLInputElement>(null);
+  /** Workspace whose cover the file picker is choosing. */
+  const coverFor = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -104,6 +128,24 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
       setError(`Não foi possível renomear o workspace: ${err instanceof Error ? err.message : String(err)}`);
     }
     await load();
+  };
+
+  const setCover = async (id: string, file: File | null) => {
+    try {
+      const url = `/api/workspaces/${encodeURIComponent(id)}/cover`;
+      const res = file ? await fetch(url, { method: "PUT", body: await coverBody(file) }) : await fetch(url, { method: "DELETE" });
+      const body = (await res.json()) as { workspace?: Workspace; error?: string };
+      if (!res.ok || !body.workspace) throw new Error(body.error ?? res.statusText);
+      setError(null);
+    } catch (err) {
+      setError(`Não foi possível ${file ? "trocar" : "remover"} a capa: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    await load();
+  };
+
+  const pickCover = (id: string) => {
+    coverFor.current = id;
+    coverInput.current?.click();
   };
 
   const askDelete = (w: Workspace) => {
@@ -199,10 +241,17 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                 onClick={() => setSelected(w.id)}
                 onDoubleClick={() => renaming !== w.id && onOpen(w.id)}
                 onKeyDown={(e) => e.target === e.currentTarget && onCardKey(e, w)}
+                onDragOver={(e) => e.dataTransfer.types.includes("Files") && e.preventDefault()}
+                onDrop={(e) => {
+                  const file = e.dataTransfer.files[0];
+                  if (!file?.type.startsWith("image/")) return;
+                  e.preventDefault();
+                  void setCover(w.id, file);
+                }}
                 data-workspace-id={w.id}
               >
                 <span className="workspace-tile" style={{ "--tile-hue": hue(w.id) } as CSSProperties} aria-hidden>
-                  {(w.name.trim()[0] ?? "?").toUpperCase()}
+                  {w.cover ? <img className="workspace-cover" src={w.cover} alt="" draggable={false} /> : (w.name.trim()[0] ?? "?").toUpperCase()}
                 </span>
                 <span className="workspace-info">
                   {renaming === w.id ? (
@@ -245,6 +294,20 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                   <button
                     type="button"
                     className="icon-btn"
+                    aria-label={`${w.cover ? "Trocar" : "Adicionar"} capa de ${w.name}`}
+                    title={`${w.cover ? "Trocar" : "Adicionar"} capa (ou arraste uma imagem para o card)`}
+                    onClick={() => pickCover(w.id)}
+                  >
+                    🖼
+                  </button>
+                  {w.cover && (
+                    <button type="button" className="icon-btn" aria-label={`Remover capa de ${w.name}`} title="Remover capa" onClick={() => void setCover(w.id, null)}>
+                      ⊘
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="icon-btn"
                     aria-label={`Excluir ${w.name}`}
                     title={count > 1 ? "Excluir (Delete)" : "O único workspace não pode ser excluído"}
                     disabled={count <= 1}
@@ -257,6 +320,18 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
             </li>
           ))}
         </ul>
+        <input
+          ref={coverInput}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          hidden
+          aria-label="Imagem de capa"
+          onChange={(e) => {
+            const file = e.currentTarget.files?.[0];
+            e.currentTarget.value = "";
+            if (file && coverFor.current) void setCover(coverFor.current, file);
+          }}
+        />
         <dialog ref={dialog} className="workspace-dialog" aria-labelledby="delete-title" onClose={() => setDeleting(null)}>
           {deleting && (
             <form method="dialog" onSubmit={(e) => e.preventDefault()}>

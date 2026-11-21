@@ -42,7 +42,7 @@ describe("API: MCP", () => {
         "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_html", "import_svg",
         "lint_design", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
-        "rename_workspace", "render_screenshot", "set_tokens", "undo", "ungroup_nodes", "update_nodes",
+        "rename_workspace", "render_screenshot", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
       ].sort(),
     );
     for (const t of tools) expect(t.inputSchema.type).toBe("object");
@@ -593,7 +593,7 @@ describe("API: HTTP + WebSocket", () => {
     type Info = { id: string; name: string; nodes: number; updatedAt: number; active: boolean };
     const created = (await call(client, "create_workspace", { name: "  Landing  " })) as ToolResult & { structuredContent: { workspace: Info } };
     const landing = created.structuredContent.workspace;
-    expect(Object.keys(landing)).toEqual(["id", "name", "nodes", "updatedAt", "active"]);
+    expect(Object.keys(landing)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover"]);
     expect(landing).toMatchObject({ name: "Landing", nodes: 0, active: false });
 
     const post = (path: string, body?: unknown) =>
@@ -633,6 +633,54 @@ describe("API: HTTP + WebSocket", () => {
     ws.close();
   });
 
+  it("workspaces: capa por HTTP (PNG, JPEG, WebP, GIF; nunca SVG) e por MCP (imagem ou screenshot de um frame)", async () => {
+    type Info = { id: string; name: string; cover: string | null };
+    const list = async () => (await (await fetch(`${srv.url}/api/workspaces`)).json()) as { active: string; workspaces: Info[] };
+    const ws = ((await (await fetch(`${srv.url}/api/workspaces`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Com capa" }) })).json()) as { workspace: Info }).workspace;
+    expect(ws.cover).toBeNull();
+    const url = `${srv.url}/api/workspaces/${ws.id}/cover`;
+    expect((await fetch(url)).status).toBe(404);
+
+    // 1×1 PNG.
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+    const put = await fetch(url, { method: "PUT", body: png });
+    expect(put.status).toBe(200);
+    const withCover = ((await put.json()) as { workspace: Info }).workspace;
+    expect(withCover.cover).toMatch(new RegExp(`^/api/workspaces/${ws.id}/cover\\?v=\\d+$`));
+    expect((await list()).workspaces.find((w) => w.id === ws.id)?.cover).toBe(withCover.cover);
+    const got = await fetch(`${srv.url}${withCover.cover}`);
+    expect(got.status).toBe(200);
+    expect(got.headers.get("content-type")).toBe("image/png");
+    expect(got.headers.get("content-security-policy")).toBe("default-src 'none'");
+    expect(Buffer.from(await got.arrayBuffer()).equals(png)).toBe(true);
+
+    const svg = await fetch(url, { method: "PUT", body: '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>' });
+    expect(svg.status).toBe(415);
+    expect((await fetch(`${srv.url}/api/workspaces/nope/cover`, { method: "PUT", body: png })).status).toBe(404);
+    expect((await fetch(url, { method: "POST" })).status).toBe(405);
+
+    const cleared = await fetch(url, { method: "DELETE" });
+    expect(((await cleared.json()) as { workspace: Info }).workspace.cover).toBeNull();
+    expect((await fetch(url)).status).toBe(404);
+
+    // MCP: an image as a data: URL, then a screenshot of the active workspace's frame, then clear.
+    const viaImage = (await call(client, "set_workspace_cover", { id: ws.id, image: `data:image/png;base64,${png.toString("base64")}` })) as ToolResult & { structuredContent: { workspace: Info } };
+    expect(viaImage.isError, textOf(viaImage)).toBeFalsy();
+    expect(viaImage.structuredContent.workspace.cover).not.toBeNull();
+    const active = (await list()).active;
+    await client.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "frame", id: "capa", width: 240, height: 128, fill: "#e04a2b" }] } });
+    const shot = (await call(client, "set_workspace_cover", { id: active, rootId: "capa" })) as ToolResult & { structuredContent: { workspace: Info } };
+    expect(shot.isError, textOf(shot)).toBeFalsy();
+    const shotRes = await fetch(`${srv.url}${shot.structuredContent.workspace.cover}`);
+    expect(shotRes.headers.get("content-type")).toBe("image/png");
+    expect((await call(client, "set_workspace_cover", { id: ws.id, image: "não é base64" })).isError).toBe(true);
+    expect(textOf(await call(client, "set_workspace_cover", { id: ws.id, image: png.toString("base64"), clear: true }))).toBe("pass only one of rootId, image or clear");
+    const clear = (await call(client, "set_workspace_cover", { id: ws.id, clear: true })) as ToolResult & { structuredContent: { workspace: Info } };
+    expect(clear.structuredContent.workspace.cover).toBeNull();
+    expect(textOf(await call(client, "set_workspace_cover", { id: "nope", clear: true }))).toBe('workspace "nope" does not exist (see list_workspaces)');
+    await client.callTool({ name: "delete_nodes", arguments: { ids: ["capa"] } });
+  });
+
   it("workspaces: renomear e excluir por MCP e HTTP; excluir o ativo troca para o mais recente", async () => {
     type Info = { id: string; name: string; nodes: number; updatedAt: number; active: boolean };
     const req = (method: string, path: string, body?: unknown) =>
@@ -644,7 +692,7 @@ describe("API: HTTP + WebSocket", () => {
     const renamed = await req("PATCH", `/api/workspaces/${a.id}`, { name: "  A2  " });
     expect(renamed.status).toBe(200);
     const info = ((await renamed.json()) as { workspace: Info }).workspace;
-    expect(Object.keys(info)).toEqual(["id", "name", "nodes", "updatedAt", "active"]);
+    expect(Object.keys(info)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover"]);
     expect(info).toMatchObject({ id: a.id, name: "A2", active: false });
     expect((await list()).workspaces.find((w) => w.id === a.id)?.name).toBe("A2");
     expect((await req("PATCH", `/api/workspaces/${a.id}`, { name: "  " })).status).toBe(400);
