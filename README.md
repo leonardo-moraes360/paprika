@@ -142,6 +142,12 @@ This repository uses [toolbelt](https://github.com/leonardo-moraes360/toolbelt) 
 - There is no authentication: `--host 0.0.0.0` exposes the document to the network. Only use it on a trusted network.
 - `https://` images are fetched by Chromium when taking screenshots.
 
+To report a vulnerability, use GitHub's private vulnerability reporting; see [SECURITY.md](SECURITY.md). Please don't open a public issue.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## License
 
-MIT
+[MIT](LICENSE)
