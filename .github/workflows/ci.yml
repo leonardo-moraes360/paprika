@@ -52,6 +52,11 @@ jobs:
       # is a silently untested PR. Tests only, nothing to install.
       - name: Test the CI scripts
         run: node --test .github/scripts/test/*.mjs
+      # Every third-party action must be pinned to a full commit SHA with its version in a comment
+      # (docs/ci.md): a tag or branch is a moving reference, and a force-push on it silently changes
+      # what every later run executes.
+      - name: Check pinned actions
+        run: node .github/scripts/check-actions-pinned.mjs
       - id: plan
         run: node .github/scripts/ci-plan.mjs "$BASE_SHA" HEAD
 

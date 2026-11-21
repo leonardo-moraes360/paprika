@@ -12,7 +12,7 @@ Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workfl
 
 | Job | What it checks | Runs when the PR touches |
 | --- | --- | --- |
-| **Plan** | Runs the tests of the CI scripts ([`.github/scripts/test/`](../.github/scripts/test/)), lists the changed files and decides which jobs below run ([`ci-plan.mjs`](../.github/scripts/ci-plan.mjs)). | always |
+| **Plan** | Runs the tests of the CI scripts ([`.github/scripts/test/`](../.github/scripts/test/)), checks that every third-party action is pinned to a commit SHA ([`check-actions-pinned.mjs`](../.github/scripts/check-actions-pinned.mjs)), lists the changed files and decides which jobs below run ([`ci-plan.mjs`](../.github/scripts/ci-plan.mjs)). | always |
 | **TS build + tscheck** | `pnpm build` (core, server, web, and the WASM canvas renderer from `crates/render` with `PAPRIKA_REQUIRE_WASM=1`), `pnpm typecheck`, `pnpm go:build`. Uploads `dist/`, `apps/web/src/wasm` and the Go binary as the `build` artifact for the jobs below, so the e2e suites also run the WASM renderer tests. | TS, Go or Rust code |
 | **Unit** `<pkg>` (shard n/2) | Vitest for `@paprika/core` and `@paprika/server`, split in 2 shards. | `packages/core`, `packages/server` |
 | **e2e / parity vs ts / go server** | The black-box suites (`test:e2e`, `test:parity`) against the TypeScript server and against the Go binary, 4 jobs in parallel. | core, server, web, examples, `crates/render`, `server-go` |
@@ -84,7 +84,11 @@ To add shards, change `shard: [1, 2]` in the matrix and the `/2` (vitest) or the
 ## Security of the workflow
 
 - `permissions: contents: read` by default; only CodeQL gets `security-events: write`.
-- Every third-party action is pinned by commit SHA with the version in a comment; Dependabot updates both.
+- Every third-party action is pinned by commit SHA with the version in a comment; Dependabot updates both. The **Plan** job enforces it with [`check-actions-pinned.mjs`](../.github/scripts/check-actions-pinned.mjs), which prints one `file:line` per `uses:` that is a tag, a branch, a short SHA or a SHA without its version comment (local `./…` actions and `docker://…` images are fine). Run it locally:
+
+  ```bash
+  node .github/scripts/check-actions-pinned.mjs
+  ```
 - `actions/checkout` runs with `persist-credentials: false`.
 - `pull_request` (not `pull_request_target`): PRs from forks run without secrets and with a read-only token.
 
