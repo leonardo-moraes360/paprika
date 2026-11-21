@@ -81,6 +81,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `apply_ops` | Mixed transaction (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
 | `set_tokens` | Design tokens (`$name`) for colors and sizes; with `mode`, the values of a theme mode (e.g. `dark`) that frames and pages pick with `mode` |
 | `list_workspaces` / `open_workspace` / `create_workspace` | Lists the workspaces (documents) of the server / makes one active for every tool and the human's canvas / creates an empty one |
+| `rename_workspace` / `delete_workspace` | Renames a workspace (undoable when it is the active one) / deletes one for good (the active one hands over to the most recently updated other; the only one cannot be deleted) |
 | `undo` / `redo` / `get_history` | History shared with the human; every write tool takes `batch`, so several calls with the same batch become one undo step |
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
 | `render_screenshot` | PNG of a node, a page or the whole canvas |
@@ -94,7 +95,7 @@ Agent layer:
 
 ## Canvas
 
-Workspaces: `http://127.0.0.1:4777` opens on the workspace overview; a card opens that workspace's canvas at `/w/<id>`, and the Paprika logo goes back. A workspace is one document of the database. The server has one active workspace, shared by the canvas and the MCP agents: opening a workspace (on the canvas or with `open_workspace`) switches it for everyone, and the canvas follows when an agent switches. HTTP: `GET /api/workspaces`, `POST /api/workspaces` (`{ "name" }`), `POST /api/workspaces/<id>/open`.
+Workspaces: `http://127.0.0.1:4777` opens on the workspace overview: one click selects a card, a double click (or Enter) opens that workspace's canvas at `/w/<id>`, a double click on the name (or F2) renames it, and the trash button (or Delete) deletes it after a confirmation; the Paprika logo goes back. A workspace is one document of the database. The server has one active workspace, shared by the canvas and the MCP agents: opening a workspace (on the canvas or with `open_workspace`) switches it for everyone, and the canvas follows when an agent switches. HTTP: `GET /api/workspaces`, `POST /api/workspaces` (`{ "name" }`), `POST /api/workspaces/<id>/open`, `PATCH /api/workspaces/<id>` (`{ "name" }`), `DELETE /api/workspaces/<id>` (409 for the only workspace).
 
 Shortcuts: `V` select, `F` frame, `R` rectangle, `O` ellipse, `T` text, `P` pen (click = corner point, click and drag = bezier handles, click the first point to close, `Enter`/`Esc`/double-click to finish an open path, `Backspace` removes the last point), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicate, `Delete`, arrows (Shift = 10px), `Esc` selects the parent.
 Selection: `Shift`-click (canvas or layers) adds or removes a node, dragging on empty canvas draws a selection box, `Ctrl+A` selects the siblings (or the whole page), `Ctrl+G` groups the selection, `Ctrl+Shift+G` ungroups. A click inside a group selects the group; double-click selects the node under the cursor. Dragging, arrows, `Delete` and `Ctrl+D` act on the whole selection.

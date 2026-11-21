@@ -584,6 +584,34 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info))), nil
 		})
 
+	add("rename_workspace", z.Object(z.Field{Name: "id", Schema: z.String().Min(1)}, z.Field{Name: "name", Schema: z.String().Min(1).Max(120)}),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			id := a.Str("id")
+			info, err := store.RenameWorkspace(id, a.Str("name"), m.actorName())
+			if errors.Is(err, ErrNoWorkspace) {
+				return nil, fmt.Errorf(`workspace "%s" does not exist (see list_workspaces)`, id)
+			}
+			if err != nil {
+				return nil, err
+			}
+			return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info))), nil
+		})
+	add("delete_workspace", z.Object(z.Field{Name: "id", Schema: z.String().Min(1)}),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			id := a.Str("id")
+			active, err := store.DeleteWorkspace(id, m.actorName())
+			if errors.Is(err, ErrNoWorkspace) {
+				return nil, fmt.Errorf(`workspace "%s" does not exist (see list_workspaces)`, id)
+			}
+			if errors.Is(err, ErrLastWorkspace) {
+				return nil, fmt.Errorf(`workspace "%s" is the only one and cannot be deleted`, id)
+			}
+			if err != nil {
+				return nil, err
+			}
+			return jsonResult(jsonv.NewObject("deleted", id, "active", active)), nil
+		})
+
 	add("lint_design", z.Object(optStr("rootId")), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		issues := core.LintDocument(store.Doc(), a.Str("rootId"))
 		counts := map[string]int{"error": 0, "warning": 0, "info": 0}

@@ -161,6 +161,16 @@ Tarefa: nós `shape` e `connector`, ferramentas no canvas e `draw_diagram` para 
 | 57 | Dizer o que uma seta significa ("sim", "não") | Conectores ainda não têm rótulo; o agente põe um texto pequeno ao lado da seta, que não a acompanha | Um `label` no conector, posicionado no meio da rota | P1 |
 | 58 | Mover uma forma de um diagrama sem cruzar outras | A rota em cotovelo ignora obstáculos, então uma forma movida pode fazer uma seta cruzar outra forma | Rota em cotovelo que desvia de obstáculos, ou um modo `relayout` no `draw_diagram` para ids existentes | P2 |
 
+## 2026-11-21: renomear e excluir workspaces
+
+Tarefa: renomear e excluir na página de workspaces (clique duplo no nome, excluir com confirmação) e como `rename_workspace` / `delete_workspace` nos dois servidores.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 59 | Impedir que um agente apague trabalho sozinho | `delete_workspace` tem `destructiveHint` e o guia pede a confirmação do humano, mas nada obriga; o canvas pergunta, o MCP não | Dois passos: a primeira chamada devolve o que seria perdido e um token; a segunda, com o token, exclui | P2 |
+| 60 | Desfazer um renomear | Renomear o workspace ativo é uma escrita `rename_document` (com desfazer); renomear outro muda no lugar, sem desfazer | Um registro de atividade por servidor para operações de workspace, ou uma lixeira que guarda os excluídos por um tempo | P3 |
+| 61 | Dizer ao humano por que o canvas mudou | Excluir o workspace ativo abre para todos o outro atualizado mais recentemente; o canvas acompanha, sem mensagem | Um aviso curto no canvas ("workspace X excluído por agent:Y") | P3 |
+
 ## O que funcionou bem
 
 - `create_nodes` aninhado montou uma proposta inteira (≈60 nós) numa chamada, de forma atômica.

@@ -170,7 +170,7 @@ Decision pending: write our own effects (WebGL/WebGPU, ties into the WASM evalua
 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
-| Workspace with several files, folders, thumbnails | Overview of the workspaces at `/` (2026-11-21): list, create, open; one active workspace shared by canvas and agents (`list_workspaces`, `open_workspace`, `create_workspace`). No folders, thumbnails, rename or delete yet | 🟡 | P2 |
+| Workspace with several files, folders, thumbnails | Overview of the workspaces at `/` (2026-11-21): list, create, open, rename, delete; one active workspace shared by canvas and agents (`list_workspaces`, `open_workspace`, `create_workspace`, `rename_workspace`, `delete_workspace`). No folders or thumbnails yet | 🟡 | P2 |
 | Tabs for open files | — | ⬜ | P3 |
 | Live data in designs (fetch from an API or sheet) | — | ⬜ | P3 |
 | Real-time multi-user editing (CRDT) | Single writer + watcher | ⬜ | P3 |

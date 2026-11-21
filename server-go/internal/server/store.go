@@ -754,3 +754,90 @@ func (s *Store) CreateWorkspace(name string) (WorkspaceInfo, error) {
 	}
 	return WorkspaceInfo{doc.Str("id"), name, 0, now, false}, nil
 }
+
+// ErrLastWorkspace is returned by DeleteWorkspace when the id is the only document: the server
+// always has an active workspace.
+var ErrLastWorkspace = errors.New("cannot delete the only workspace")
+
+// RenameWorkspace changes a workspace's name (trimmed; blank is refused by the callers). The active
+// one is renamed with a rename_document op, so the canvas follows and Ctrl+Z undoes it; another one
+// is renamed with the same op applied to its stored document (no undo entry), with its version
+// bumped so a process that has it open reloads it.
+func (s *Store) RenameWorkspace(id, name, actor string) (WorkspaceInfo, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return WorkspaceInfo{}, errors.New("name must not be blank")
+	}
+	info, err := s.workspaceInfo(id)
+	if err != nil {
+		return info, err
+	}
+	if info.Name == name {
+		return info, nil
+	}
+	if info.Active {
+		if _, err := s.Apply([]any{jsonv.NewObject("op", "rename_document", "name", name)}, actor, "renomear workspace"); err != nil {
+			return WorkspaceInfo{}, err
+		}
+		return s.workspaceInfo(id)
+	}
+	// Same path as every other write (applyOps), outside the active history: no undo entry.
+	tx, err := s.db.Begin()
+	if err != nil {
+		return WorkspaceInfo{}, err
+	}
+	defer tx.Rollback()
+	doc, version, err := LoadDocument(tx, id)
+	if err != nil {
+		return WorkspaceInfo{}, ErrNoWorkspace
+	}
+	r, err := core.ApplyOps(doc, []any{jsonv.NewObject("op", "rename_document", "name", name)})
+	if err != nil {
+		return WorkspaceInfo{}, err
+	}
+	now := time.Now().UnixMilli()
+	if err := writeDocument(tx, r.Doc, doc, version+1, now); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	info.Name, info.UpdatedAt = name, now
+	return info, nil
+}
+
+// DeleteWorkspace removes a workspace with its nodes, tokens and history. Deleting the active one
+// first opens the most recently updated other workspace (ChangeEvent "open"), so the canvas and the
+// agents move there; the only workspace cannot be deleted (ErrLastWorkspace). Returns the id of
+// the workspace that is active afterwards.
+func (s *Store) DeleteWorkspace(id, actor string) (string, error) {
+	ws, err := s.ListWorkspaces()
+	if err != nil {
+		return "", err
+	}
+	var target *WorkspaceInfo
+	next := ""
+	for i := range ws {
+		if ws[i].ID == id {
+			target = &ws[i]
+		} else if next == "" {
+			next = ws[i].ID // list is most recently updated first
+		}
+	}
+	if target == nil {
+		return "", ErrNoWorkspace
+	}
+	if next == "" {
+		return "", ErrLastWorkspace
+	}
+	if target.Active {
+		if _, err := s.OpenWorkspace(next, actor); err != nil {
+			return "", err
+		}
+	}
+	// The cascade (foreign_keys=1) drops tokens, nodes and history with the document row.
+	if _, err := s.db.Exec(`DELETE FROM documents WHERE id = ?`, id); err != nil {
+		return "", err
+	}
+	return s.DocID(), nil
+}
