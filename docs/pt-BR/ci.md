@@ -10,7 +10,7 @@ Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/c
 
 | Job | O que verifica | Roda quando a PR mexe em |
 | --- | --- | --- |
-| **Plan** | Lista os arquivos alterados e decide quais jobs abaixo rodam ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)). | sempre |
+| **Plan** | Roda os testes dos scripts do CI ([[`.github/scripts/test/`](../../.github/scripts/test/)]), lista os arquivos alterados e decide quais jobs abaixo rodam ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)). | sempre |
 | **TS build + tscheck** | `pnpm build` (core, server, web e o renderizador WASM do canvas, de `crates/render`, com `PAPRIKA_REQUIRE_WASM=1`), `pnpm typecheck`, `pnpm go:build`. Publica `dist/`, `apps/web/src/wasm` e o binário Go como o artefato `build` para os jobs abaixo, então as suítes e2e também rodam os testes do renderizador WASM. | código TS, Go ou Rust |
 | **Unit** `<pkg>` (shard n/2) | Vitest de `@paprika/core` e `@paprika/server`, dividido em 2 shards. | `packages/core`, `packages/server` |
 | **e2e / parity vs ts / go server** | As suítes black-box (`test:e2e`, `test:parity`) contra o servidor TypeScript e contra o binário Go, 4 jobs em paralelo. | core, server, web, examples, `crates/render`, `server-go` |
@@ -40,6 +40,23 @@ node .github/scripts/ci-plan.mjs origin/main HEAD
 .github/scripts/go-affected.sh origin/main          # todos os pacotes Go afetados
 .github/scripts/go-affected.sh origin/main 1 2      # só o shard 1 de 2
 ```
+
+### Testar os seletores
+
+Essas regras são código, e uma regra errada significa uma PR que pula em silêncio um job que
+ninguém vigiou. A lógica de decisão fica em
+[`ci-plan-lib.mjs`](../../.github/scripts/ci-plan-lib.mjs) — função pura: entram os arquivos
+alterados e `CI_FULL`, saem as linhas `key=value` — e o
+[`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs) é só o CLI em volta dela (o `git diff`, o
+ambiente, o `GITHUB_OUTPUT` e o `GITHUB_STEP_SUMMARY`). Os testes em
+[`.github/scripts/test/`](../../.github/scripts/test/) descrevem as regras, e o job **Plan** os
+roda antes de planejar, sem instalar dependência nenhuma:
+
+```bash
+node --test .github/scripts/test/*.mjs
+```
+
+O glob, não o diretório: o `node --test` parou de aceitar um diretório como argumento no Node 24.
 
 ## Paralelismo e sharding
 

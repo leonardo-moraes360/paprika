@@ -10,7 +10,7 @@ Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workfl
 
 | Job | What it checks | Runs when the PR touches |
 | --- | --- | --- |
-| **Plan** | Lists the changed files and decides which jobs below run ([`ci-plan.mjs`](../.github/scripts/ci-plan.mjs)). | always |
+| **Plan** | Runs the tests of the CI scripts ([`.github/scripts/test/`](../.github/scripts/test/)), lists the changed files and decides which jobs below run ([`ci-plan.mjs`](../.github/scripts/ci-plan.mjs)). | always |
 | **TS build + tscheck** | `pnpm build` (core, server, web, and the WASM canvas renderer from `crates/render` with `PAPRIKA_REQUIRE_WASM=1`), `pnpm typecheck`, `pnpm go:build`. Uploads `dist/`, `apps/web/src/wasm` and the Go binary as the `build` artifact for the jobs below, so the e2e suites also run the WASM renderer tests. | TS, Go or Rust code |
 | **Unit** `<pkg>` (shard n/2) | Vitest for `@paprika/core` and `@paprika/server`, split in 2 shards. | `packages/core`, `packages/server` |
 | **e2e / parity vs ts / go server** | The black-box suites (`test:e2e`, `test:parity`) against the TypeScript server and against the Go binary, 4 jobs in parallel. | core, server, web, examples, `crates/render`, `server-go` |
@@ -40,6 +40,22 @@ node .github/scripts/ci-plan.mjs origin/main HEAD
 .github/scripts/go-affected.sh origin/main          # all affected Go packages
 .github/scripts/go-affected.sh origin/main 1 2      # only shard 1 of 2
 ```
+
+### Testing the selectors
+
+These rules are code, and a wrong rule means a PR that quietly skips a job nobody watched. The
+decision logic lives in [`ci-plan-lib.mjs`](../.github/scripts/ci-plan-lib.mjs) — a pure function:
+changed files plus `CI_FULL` in, the `key=value` outputs out — and
+[`ci-plan.mjs`](../.github/scripts/ci-plan.mjs) is only the CLI around it (the `git diff`, the
+environment, `GITHUB_OUTPUT` and `GITHUB_STEP_SUMMARY`). The tests in
+[`.github/scripts/test/`](../.github/scripts/test/) describe the rules, and the **Plan** job runs
+them before planning, with no dependencies to install:
+
+```bash
+node --test .github/scripts/test/*.mjs
+```
+
+The glob, not the directory: `node --test` stopped accepting a bare directory argument in Node 24.
 
 ## Parallelism and sharding
 
