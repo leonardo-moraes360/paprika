@@ -37,17 +37,71 @@ function apply(m: Matrix, p: Point): Point {
   return { x: m[0] * p.x + m[2] * p.y + m[4], y: m[1] * p.x + m[3] * p.y + m[5] };
 }
 
-const NUM = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/g;
+const NUM = /[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/g;
 const numbers = (s: string): number[] => (s.match(NUM) ?? []).map(Number);
+
+const isLetter = (c: string | undefined) => !!c && ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z"));
+
+/**
+ * As chamadas `nome(args)` de um `transform`, como `/([a-zA-Z]+)\s*\(([^)]*)\)/g` acharia, mas numa
+ * só passada (a regex volta a tentar a cada letra e fica quadrática em entradas montadas para isso).
+ */
+function transformCalls(s: string): [string, string][] {
+  const out: [string, string][] = [];
+  let i = 0;
+  while (i < s.length) {
+    if (!isLetter(s[i])) {
+      i++;
+      continue;
+    }
+    const start = i;
+    while (isLetter(s[i])) i++;
+    const name = s.slice(start, i);
+    while (i < s.length && /\s/.test(s[i]!)) i++;
+    if (s[i] !== "(") continue;
+    const close = s.indexOf(")", i + 1);
+    if (close < 0) break;
+    out.push([name, s.slice(i + 1, close)]);
+    i = close + 1;
+  }
+  return out;
+}
+
+/**
+ * Texto que começa como SVG (colado de um editor de código, de um arquivo aberto como texto…): `<svg` no
+ * começo, depois de um `<?xml …?>`, comentários e `<!doctype …>` opcionais. Uma passada só, sem
+ * regex com repetição aninhada (que fica lenta em textos colados montados para isso).
+ */
+export function isSVGText(s: string): boolean {
+  let i = 0;
+  const skipSpace = () => {
+    while (i < s.length && /\s/.test(s[i]!)) i++;
+  };
+  const startsWith = (prefix: string) => s.slice(i, i + prefix.length).toLowerCase() === prefix;
+  const skipPast = (end: string, from: number) => {
+    const at = s.indexOf(end, from);
+    if (at < 0) return false;
+    i = at + end.length;
+    skipSpace();
+    return true;
+  };
+  if (startsWith("<?xml") && !skipPast(">", i)) return false;
+  for (;;) {
+    if (startsWith("<!--")) {
+      if (!skipPast("-->", i + 4)) return false;
+    } else if (startsWith("<!doctype")) {
+      if (!skipPast(">", i)) return false;
+    } else break;
+  }
+  return startsWith("<svg") && /[\s>]/.test(s[i + 4] ?? "");
+}
 
 /** Lê o atributo `transform` (matrix, translate, scale, rotate, skewX, skewY). */
 export function parseTransform(s: string | undefined, warn: (w: string) => void): Matrix {
   let m = IDENTITY;
   if (!s) return m;
-  const re = /([a-zA-Z]+)\s*\(([^)]*)\)/g;
-  for (let hit = re.exec(s); hit; hit = re.exec(s)) {
-    const name = hit[1]!;
-    const v = numbers(hit[2]!);
+  for (const [name, args] of transformCalls(s)) {
+    const v = numbers(args);
     let t: Matrix | undefined;
     const rad = ((v[0] ?? 0) * Math.PI) / 180;
     switch (name) {

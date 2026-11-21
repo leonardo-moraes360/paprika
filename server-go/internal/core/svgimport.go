@@ -39,7 +39,7 @@ func applyM(m Matrix, p Point) Point {
 }
 
 var (
-	svgNumRe       = regexp.MustCompile(`[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?`)
+	svgNumRe       = regexp.MustCompile(`[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?`)
 	svgTransformRe = regexp.MustCompile(`([a-zA-Z]+)[` + jsWS + `]*\(([^)]*)\)`)
 	svgURLRe       = regexp.MustCompile(`(?i)url\(`)
 )

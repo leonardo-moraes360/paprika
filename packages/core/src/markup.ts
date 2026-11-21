@@ -49,10 +49,16 @@ function indexOfLower(src: string, needle: string, from: number): number {
 const isSpace = (c: string | undefined) => c === " " || c === "\n" || c === "\t" || c === "\r" || c === "\f";
 const isNameChar = (c: string | undefined) => !!c && /[A-Za-z0-9_:.-]/.test(c);
 
+/**
+ * Mapa sem protótipo para nomes vindos da entrada: `__proto__`, `constructor` e afins viram chaves
+ * comuns em vez de mexer no protótipo ou colidir com o que um objeto herda.
+ */
+const dict = (): Record<string, string> => Object.create(null) as Record<string, string>;
+
 /** Lê a marcação e devolve um elemento raiz `#root` com o conteúdo. */
 export function parseMarkup(src: string): MarkupElement {
   if (src.length > MARKUP_LIMITS.chars) throw new Error(`marcação grande demais (máx. ${MARKUP_LIMITS.chars} caracteres)`);
-  const root: MarkupElement = { tag: "#root", attrs: {}, children: [] };
+  const root: MarkupElement = { tag: "#root", attrs: dict(), children: [] };
   const stack: MarkupElement[] = [root];
   let count = 0;
   let i = 0;
@@ -109,7 +115,7 @@ export function parseMarkup(src: string): MarkupElement {
       i++;
       continue;
     }
-    const el: MarkupElement = { tag: lower(src.slice(i + 1, j)), attrs: {}, children: [] };
+    const el: MarkupElement = { tag: lower(src.slice(i + 1, j)), attrs: dict(), children: [] };
     let selfClose = false;
     while (j < src.length) {
       while (isSpace(src[j])) j++;
@@ -147,7 +153,7 @@ export function parseMarkup(src: string): MarkupElement {
           j = e;
         }
       }
-      if (!(name in el.attrs)) el.attrs[name] = decodeEntities(value);
+      if (!Object.hasOwn(el.attrs, name)) el.attrs[name] = decodeEntities(value);
     }
     i = j;
     if (++count > MARKUP_LIMITS.elements) throw new Error(`marcação com mais de ${MARKUP_LIMITS.elements} elementos`);
@@ -194,7 +200,7 @@ export function textContent(el: MarkupElement): string {
 
 /** `a: b; c: d` → `{ a: "b", c: "d" }` (nomes em minúsculas, valores sem espaços nas pontas). */
 export function parseStyle(s: string | undefined): Record<string, string> {
-  const out: Record<string, string> = {};
+  const out = dict();
   if (!s) return out;
   for (const part of s.split(";")) {
     const at = part.indexOf(":");

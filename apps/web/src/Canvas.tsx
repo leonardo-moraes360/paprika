@@ -16,6 +16,7 @@ import {
   serializePath,
   translatePath,
   wasmPaintable,
+  isSVGText,
   type Anchor,
   type Document,
   type Node,
@@ -76,9 +77,6 @@ interface Props {
   agentTouched: Set<string>;
   onError?(message: string): void;
 }
-
-/** SVG colado como texto (de um editor de código, de um arquivo aberto como texto…). */
-const SVG_TEXT = /^(?:<\?xml[^>]*>\s*)?(?:<!--[\s\S]*?-->\s*|<!doctype[^>]*>\s*)*<svg[\s>]/i;
 
 const isAbsolute = (doc: Document, n: Node) => {
   const p = n.parentId ? doc.nodes[n.parentId] : undefined;
@@ -328,7 +326,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       if (target?.closest("input, textarea, select, [contenteditable]")) return;
       const plain = e.clipboardData?.getData("text/plain").trim() ?? "";
       const html = e.clipboardData?.getData("text/html") ?? "";
-      const svg = SVG_TEXT.test(plain);
+      const svg = isSVGText(plain);
       if (!svg && !html.trim()) return;
       e.preventDefault();
       try {

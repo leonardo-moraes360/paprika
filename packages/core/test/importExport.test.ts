@@ -8,6 +8,8 @@ import {
   exportSVG,
   importHTML,
   importSVG,
+  isSVGText,
+  parseStyle,
   parseDocument,
   parseMarkup,
   parseTransform,
@@ -38,6 +40,16 @@ describe("parseMarkup", () => {
     expect(div.attrs).toEqual({ class: "a", "data-x": "1 & 2", hidden: "" });
     expect(textContent(root)).toBe("Olá\u00a0😀<\numdois");
     expect((root.children[1] as { children: string[] }).children).toEqual(["if (a<b) {}"]);
+  });
+
+  it("nomes vindos da entrada nunca tocam o protótipo", () => {
+    const el = parseMarkup(`<p __proto__="x" constructor="y" style="__proto__: red; toString: 1">`).children[0] as { attrs: Record<string, string> };
+    expect(Object.getPrototypeOf(el.attrs)).toBeNull();
+    expect(Object.entries(el.attrs)).toEqual([["__proto__", "x"], ["constructor", "y"], ["style", "__proto__: red; toString: 1"]]);
+    const css = parseStyle(el.attrs.style);
+    expect(Object.getPrototypeOf(css)).toBeNull();
+    expect(Object.keys(css)).toEqual(["__proto__", "tostring"]);
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
   });
 
   it("recusa entradas grandes demais", () => {
@@ -77,11 +89,31 @@ describe("importSVG", () => {
 
   it("parseTransform e arcos", () => {
     expect(parseTransform("translate(10 20) scale(2)", noWarn)).toEqual([2, 0, 0, 2, 10, 20]);
+    expect(parseTransform("x y translate (1e1,.5) scale(2", noWarn)).toEqual([1, 0, 0, 1, 10, 0.5]);
+    // Entradas montadas contra regex com retrocesso terminam em tempo linear.
+    const t0 = performance.now();
+    parseTransform("a".repeat(200_000) + " " + "a(".repeat(100_000), noWarn);
+    expect(parseTransform("1".repeat(100_000) + "x", noWarn)).toEqual([1, 0, 0, 1, 0, 0]);
+    expect(performance.now() - t0).toBeLessThan(1000);
     const quarter = arcToCubics({ x: 10, y: 0 }, { cmd: "A", rx: 10, ry: 10, rotation: 0, largeArc: false, sweep: true, to: { x: 0, y: 10 } });
     expect(quarter).toHaveLength(1);
     const b = pathBounds([{ cmd: "M", to: { x: 10, y: 0 } }, ...quarter]);
     expect(b.width).toBeCloseTo(10, 6);
     expect(b.height).toBeCloseTo(10, 6);
+  });
+});
+
+describe("isSVGText", () => {
+  it("reconhece SVG depois de prólogo, comentários e doctype", () => {
+    expect(isSVGText(`<?xml version="1.0"?>\n<!-- a --><!DOCTYPE svg>\n<SVG viewBox="0 0 1 1">`)).toBe(true);
+    expect(isSVGText("<svg>")).toBe(true);
+    expect(isSVGText(" <svg>")).toBe(false);
+    expect(isSVGText("<svgx>")).toBe(false);
+    expect(isSVGText("<!-- sem fim <svg>")).toBe(false);
+    expect(isSVGText("<div><svg>")).toBe(false);
+    const t0 = performance.now();
+    expect(isSVGText("<!---->".repeat(100_000) + "<!--")).toBe(false);
+    expect(performance.now() - t0).toBeLessThan(1000);
   });
 });
 
