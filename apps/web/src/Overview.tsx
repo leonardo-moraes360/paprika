@@ -1,17 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
+import { useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 import { ImageOff, ImagePlus, Pencil, Plus, Trash2 } from "lucide-react";
+import { errorText } from "./api";
 import { InlineName } from "./InlineName";
 import { bar, cx, ui } from "./ui";
-
-export interface Workspace {
-  id: string;
-  name: string;
-  nodes: number;
-  updatedAt: number;
-  active: boolean;
-  /** URL of the cover image, or null: the card shows the first letter of the name. */
-  cover: string | null;
-}
+import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type Workspace } from "./workspaces";
 
 /** Same limit as the server; bigger images are scaled down in the browser first. */
 const MAX_COVER_BYTES = 2 * 1024 * 1024;
@@ -74,11 +66,15 @@ interface Props {
 
 /** Home page: the workspaces of this server; opening one goes to its canvas. */
 export function Overview({ connected, activeId, version, onOpen }: Props) {
-  const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const list = useWorkspaces();
+  useWorkspacesFollow(activeId, version);
+  const mutations = useWorkspaceMutations();
+  const workspaces = list.data ?? null;
+  /** Error of the last mutation; a later success clears it. */
+  const [failure, setFailure] = useState<string | null>(null);
+  const error = failure ?? (list.error ? `Não foi possível listar os workspaces: ${errorText(list.error)}` : null);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
   /** One click selects a card; a double click opens it (on the name: renames). */
   const [selected, setSelected] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -88,74 +84,33 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   /** Workspace whose cover the file picker is choosing. */
   const coverFor = useRef<string | null>(null);
 
-  const load = useCallback(async () => {
+  /** Runs a mutation; its error goes to the banner with what was being done. */
+  const attempt = async <T,>(what: string, run: () => Promise<T>): Promise<T | undefined> => {
     try {
-      const res = await fetch("/api/workspaces");
-      const body = (await res.json()) as { workspaces?: Workspace[]; error?: string };
-      if (!res.ok || !body.workspaces) throw new Error(body.error ?? res.statusText);
-      setWorkspaces(body.workspaces);
-      setError(null);
-    } catch (e) {
-      setError(`Não foi possível listar os workspaces: ${e instanceof Error ? e.message : String(e)}`);
+      const out = await run();
+      setFailure(null);
+      return out;
+    } catch (err) {
+      setFailure(`Não foi possível ${what}: ${errorText(err)}`);
+      return undefined;
     }
-  }, []);
-
-  // Refresh when the active workspace changes or someone (an agent) writes to it.
-  useEffect(() => {
-    void load();
-  }, [load, activeId, version]);
+  };
 
   const create = async (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    try {
-      const res = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
-      });
-      const body = (await res.json()) as { workspace?: Workspace; error?: string };
-      if (!res.ok || !body.workspace) throw new Error(body.error ?? res.statusText);
-      setName("");
-      setCreating(false);
-      onOpen(body.workspace.id);
-    } catch (err) {
-      setError(`Não foi possível criar o workspace: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setBusy(false);
-    }
+    const w = await attempt("criar o workspace", () => mutations.create.mutateAsync(name.trim()));
+    if (!w) return;
+    setName("");
+    setCreating(false);
+    onOpen(w.id);
   };
 
   const count = workspaces?.length ?? 0;
 
-  const rename = async (w: Workspace, next: string) => {
-    try {
-      const res = await fetch(`/api/workspaces/${encodeURIComponent(w.id)}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: next }),
-      });
-      const body = (await res.json()) as { workspace?: Workspace; error?: string };
-      if (!res.ok || !body.workspace) throw new Error(body.error ?? res.statusText);
-      setError(null);
-    } catch (err) {
-      setError(`Não foi possível renomear o workspace: ${err instanceof Error ? err.message : String(err)}`);
-    }
-    await load();
-  };
+  const rename = (w: Workspace, next: string) => attempt("renomear o workspace", () => mutations.rename.mutateAsync({ id: w.id, name: next }));
 
-  const setCover = async (id: string, file: File | null) => {
-    try {
-      const url = `/api/workspaces/${encodeURIComponent(id)}/cover`;
-      const res = file ? await fetch(url, { method: "PUT", body: await coverBody(file) }) : await fetch(url, { method: "DELETE" });
-      const body = (await res.json()) as { workspace?: Workspace; error?: string };
-      if (!res.ok || !body.workspace) throw new Error(body.error ?? res.statusText);
-      setError(null);
-    } catch (err) {
-      setError(`Não foi possível ${file ? "trocar" : "remover"} a capa: ${err instanceof Error ? err.message : String(err)}`);
-    }
-    await load();
-  };
+  const setCover = (id: string, file: File | null) =>
+    attempt(`${file ? "trocar" : "remover"} a capa`, async () => mutations.cover.mutateAsync({ id, body: file ? await coverBody(file) : null }));
 
   const pickCover = (id: string) => {
     coverFor.current = id;
@@ -171,16 +126,8 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
     const w = deleting;
     dialog.current?.close();
     if (!w) return;
-    try {
-      const res = await fetch(`/api/workspaces/${encodeURIComponent(w.id)}`, { method: "DELETE" });
-      const body = (await res.json()) as { deleted?: string; error?: string };
-      if (!res.ok || !body.deleted) throw new Error(body.error ?? res.statusText);
-      setError(null);
-      if (selected === w.id) setSelected(null);
-    } catch (err) {
-      setError(`Não foi possível excluir o workspace: ${err instanceof Error ? err.message : String(err)}`);
-    }
-    await load();
+    const deleted = await attempt("excluir o workspace", () => mutations.remove.mutateAsync(w.id));
+    if (deleted && selected === w.id) setSelected(null);
   };
 
   const onCardKey = (e: KeyboardEvent, w: Workspace) => {
@@ -226,7 +173,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => e.key === "Escape" && setCreating(false)}
               />
-              <button type="submit" className={button(true)} disabled={busy}>
+              <button type="submit" className={button(true)} disabled={mutations.create.isPending}>
                 Criar
               </button>
               <button type="button" className={button(false)} onClick={() => setCreating(false)}>
