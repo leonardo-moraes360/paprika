@@ -58,12 +58,15 @@ which is what lands in the `tb bench` report.
 The fixture is a normal Paprika file, so the agent works on it with the documented tools:
 
 ```bash
-node "$PAPRIKA_BENCH/packages/server/dist/cli.js" mcp --file "$PWD/document.paprika.json" --no-ui   # MCP over stdio
-node "$PAPRIKA_BENCH/packages/server/dist/cli.js" serve --file "$PWD/document.paprika.json"          # canvas + MCP/HTTP
+P="$PAPRIKA_BENCH/server-go/bin/paprika"
+"$P" import "$PWD/document.paprika.json" --db "$PWD/paprika.db" --replace   # load the fixture
+"$P" mcp --db "$PWD/paprika.db" --no-ui                                     # MCP over stdio
+"$P" serve --db "$PWD/paprika.db"                                           # or canvas + MCP/HTTP
+"$P" export --db "$PWD/paprika.db" -o "$PWD/document.paprika.json"          # write back what is scored
 ```
 
-`pnpm --filter @paprika/server build` creates `dist/`. The server writes the file after every
-mutation, so the checker can read it as soon as the agent stops. The prompts in `task.yaml` state the
+`pnpm go:build` creates the binary. The server stores every mutation in SQLite; the final `export`
+writes the document the checker reads. The prompts in `task.yaml` state the
 scored rules verbatim, which is what makes a failure explainable: the checker's `FAIL` line names the
 node and the value.
 
@@ -76,7 +79,7 @@ node and the value.
   ever disagree, `lint_design` is the authority on the live document and the checker is the authority
   on the score.
 - The cross-check that keeps a checker honest: every fixture loads through the server's own
-  `DocumentStore` (the same path `paprika serve`/`paprika mcp` use), the three starting fixtures
+  validation (`paprika import`, the same path `paprika serve`/`paprika mcp` use), the three starting fixtures
   produce 8 findings between them under `lint_design` (contrast, small text, missing alt, overflow,
   raw colors), and all three `-reference` fixtures produce **zero** findings and pass their checker.
 - The pricing task scores the **layout configuration** (`mode`, `gap`, `padding`, equal column

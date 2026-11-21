@@ -15,11 +15,15 @@ prompt: |
 
   Drive Paprika through its MCP server (stdio):
 
-    node "$PAPRIKA_BENCH/packages/server/dist/cli.js" mcp --file "$PWD/document.paprika.json" --no-ui
+    P="$PAPRIKA_BENCH/server-go/bin/paprika"
+    "$P" import "$PWD/document.paprika.json" --db "$PWD/paprika.db" --replace
+    "$P" mcp --db "$PWD/paprika.db" --no-ui
 
-  If `$PAPRIKA_BENCH/packages/server/dist` is missing, build it first with
-  `pnpm --filter @paprika/server build` inside `$PAPRIKA_BENCH`. Every tool call is saved to the
-  file, so the server can be closed when you are done; do not edit the JSON by hand.
+  If `$PAPRIKA_BENCH/server-go/bin/paprika` is missing, build it first with `pnpm go:build` inside
+  `$PAPRIKA_BENCH`. Every tool call is saved to the database; do not edit
+  the JSON by hand.
+  When you are done, close the server and write the result back to the file the score reads:
+  `"$P" export --db "$PWD/paprika.db" -o "$PWD/document.paprika.json"`.
 
   Build one login card. The score is deterministic and checks exactly these rules:
 

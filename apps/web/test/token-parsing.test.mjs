@@ -1,7 +1,7 @@
 // Tests for the token parsers in apps/web/src/Inspector.tsx (Sonar S8786, S7773).
 //
 // apps/web has no runner of its own — `pnpm test` there prints that the web app is covered by the
-// Playwright suites in packages/server/test/e2e. These tests do not need a browser: they load the
+// Playwright suites in packages/e2e/test/e2e. These tests do not need a browser: they load the
 // real .tsx through the app's own bundler (vite is already a devDependency of @paprika/web) and call
 // the exported helpers, so there is no copy of the logic to drift.
 //

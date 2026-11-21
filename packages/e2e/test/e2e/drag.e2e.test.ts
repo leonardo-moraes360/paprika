@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
-import { impl, repoRoot, startServer, type ExternalServer } from "../external/harness.js";
+import { repoRoot, startServer, type ExternalServer } from "../harness.js";
 
 const webRoot = join(repoRoot, "apps/web/dist");
 const wasmBuilt = existsSync(join(repoRoot, "apps/web/src/wasm/paprika_render.js"));
@@ -16,7 +16,7 @@ type Trail = { __trail: string[] };
  * server echoes the change. The server's messages are held back so that the window between the
  * drop and the echo is long enough to observe (on localhost it is one or two frames).
  */
-describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): arraste sem piscar`, () => {
+describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
   let server: ExternalServer;
   let browser: Browser;
   let page: Page;

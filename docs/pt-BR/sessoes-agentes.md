@@ -29,4 +29,4 @@ A primeira execução num container novo leva cerca de 30 s (o Go baixa a toolch
 
 ## Quando o `tb` ainda assim não estiver disponível
 
-Se o hook falhar (por exemplo, a política de rede bloquear `proxy.golang.org` ou `sum.golang.org`), não pule o gate em silêncio: rode as mesmas verificações à mão (`pnpm check`, `pnpm check:go`, invariantes de `.toolbelt/invariants.yaml`) e escreva no pull request que o `tb stack verify guard` não rodou e por quê.
+Se o hook falhar (por exemplo, a política de rede bloquear `proxy.golang.org` ou `sum.golang.org`), não pule o gate em silêncio: rode as mesmas verificações à mão (`pnpm check`, invariantes de `.toolbelt/invariants.yaml`) e escreva no pull request que o `tb stack verify guard` não rodou e por quê.

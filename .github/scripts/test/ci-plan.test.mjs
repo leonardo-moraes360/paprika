@@ -36,7 +36,7 @@ const NOTHING = {
 
 const plan = (files) => planFor(files);
 
-/** Every optional job on, with both unit packages in "all" mode and the four suites. */
+/** Every optional job on, with the core unit tests in "all" mode and both suites. */
 function assertEverythingOn(p, why) {
   assert.equal(p.full, true, `${why}: full`);
   for (const key of ["build", "ts", "unit", "suites", "golden", "go", "rust", "codeql"]) {
@@ -44,20 +44,12 @@ function assertEverythingOn(p, why) {
   }
   assert.deepEqual(
     JSON.parse(p.unit_matrix),
-    [
-      { pkg: "@paprika/core", mode: "all" },
-      { pkg: "@paprika/server", mode: "all" },
-    ],
+    [{ pkg: "@paprika/core", mode: "all" }],
     `${why}: unit_matrix`,
   );
   assert.deepEqual(
     JSON.parse(p.suites_matrix),
-    [
-      { suite: "e2e", impl: "ts" },
-      { suite: "e2e", impl: "go" },
-      { suite: "parity", impl: "ts" },
-      { suite: "parity", impl: "go" },
-    ],
+    [{ suite: "e2e" }, { suite: "api" }],
     `${why}: suites_matrix`,
   );
   assert.deepEqual(JSON.parse(p.codeql_matrix), ["actions", "javascript-typescript", "go", "rust"], `${why}: codeql_matrix`);
@@ -124,54 +116,49 @@ describe("docs-only changes run only Plan and CI OK", () => {
 });
 
 describe("each area selects its jobs", () => {
-  it("packages/core runs both unit packages and every suite", () => {
+  it("packages/core runs its unit tests and both suites", () => {
     const p = plan(["packages/core/src/ops.ts", "packages/core/src/schema.ts"]);
     assert.equal(p.full, false);
     assert.equal(p.ts, true);
     assert.equal(p.build, true);
     assert.equal(p.golden, true, "the Go fixtures come from the TS core");
-    // server depends on core, so it cannot use `vitest --changed`.
-    assert.deepEqual(JSON.parse(p.unit_matrix), [
-      { pkg: "@paprika/core", mode: "changed" },
-      { pkg: "@paprika/server", mode: "all" },
-    ]);
+    assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/core", mode: "changed" }]);
     assert.equal(p.suites, true);
-    assert.equal(JSON.parse(p.suites_matrix).length, 4);
+    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }, { suite: "api" }]);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
     assert.equal(p.go, false);
     assert.equal(p.rust, false);
   });
 
-  it("packages/server alone runs only its own unit job, in changed mode", () => {
-    const p = plan(["packages/server/src/mcp.ts"]);
-    assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/server", mode: "changed" }]);
-    assert.equal(p.unit, true);
+  it("packages/e2e runs both suites but no unit test and no fixture check", () => {
+    const p = plan(["packages/e2e/test/api.test.ts"]);
+    assert.equal(p.unit, false);
     assert.equal(p.ts, true);
-    assert.equal(p.golden, true);
-    assert.equal(JSON.parse(p.suites_matrix).length, 4);
+    assert.equal(p.build, true);
+    assert.equal(p.golden, false);
+    assert.equal(p.go, false);
+    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }, { suite: "api" }]);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
   });
 
-  it("apps/web runs the e2e suites but no unit test and no parity", () => {
+  it("the removed TypeScript server path is no longer an area", () => {
+    assert.deepEqual(plan(["packages/server/src/mcp.ts"]), NOTHING);
+  });
+
+  it("apps/web runs the e2e suite but no unit test and no API suite", () => {
     const p = plan(["apps/web/src/Canvas.tsx"]);
     assert.equal(p.unit, false);
     assert.equal(p.unit_matrix, "[]");
-    assert.deepEqual(JSON.parse(p.suites_matrix), [
-      { suite: "e2e", impl: "ts" },
-      { suite: "e2e", impl: "go" },
-    ]);
+    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }]);
     assert.equal(p.golden, false);
     assert.equal(p.ts, true);
     assert.equal(p.build, true);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
   });
 
-  it("examples run the e2e suites only", () => {
+  it("examples run the e2e suite only", () => {
     const p = plan(["examples/demo.paprika.json"]);
-    assert.deepEqual(JSON.parse(p.suites_matrix), [
-      { suite: "e2e", impl: "ts" },
-      { suite: "e2e", impl: "go" },
-    ]);
+    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }]);
     assert.equal(p.unit, false);
     assert.equal(p.golden, false);
   });
@@ -180,10 +167,7 @@ describe("each area selects its jobs", () => {
     const p = plan(["crates/render/src/lib.rs"]);
     assert.equal(p.rust, true);
     assert.equal(p.ts, true, "the web build embeds the renderer");
-    assert.deepEqual(JSON.parse(p.suites_matrix), [
-      { suite: "e2e", impl: "ts" },
-      { suite: "e2e", impl: "go" },
-    ]);
+    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }]);
     assert.equal(p.unit, false);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript", "rust"]);
   });
@@ -194,10 +178,7 @@ describe("each area selects its jobs", () => {
     assert.equal(p.ts, false);
     assert.equal(p.unit, false);
     assert.equal(p.golden, true);
-    assert.deepEqual(JSON.parse(p.suites_matrix), [
-      { suite: "e2e", impl: "go" },
-      { suite: "parity", impl: "go" },
-    ]);
+    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }, { suite: "api" }]);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["go"]);
   });
 
@@ -234,11 +215,8 @@ describe("a mixed change unions every touched area", () => {
   it("core + server-go + docs keeps the full flags of both areas", () => {
     const p = plan(["packages/core/src/style.ts", "docs/adr/0002.md", "server-go/internal/server/routes.go"]);
     assert.equal(p.full, false);
-    assert.deepEqual(JSON.parse(p.unit_matrix), [
-      { pkg: "@paprika/core", mode: "changed" },
-      { pkg: "@paprika/server", mode: "all" },
-    ]);
-    assert.equal(JSON.parse(p.suites_matrix).length, 4);
+    assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/core", mode: "changed" }]);
+    assert.equal(JSON.parse(p.suites_matrix).length, 2);
     assert.equal(p.golden, true);
     assert.equal(p.go, true);
     assert.equal(p.rust, false);
@@ -251,7 +229,7 @@ describe("a mixed change unions every touched area", () => {
     assert.equal(p.ts, true);
     assert.equal(p.go, true);
     assert.equal(p.unit, false);
-    assert.equal(JSON.parse(p.suites_matrix).length, 3);
+    assert.equal(JSON.parse(p.suites_matrix).length, 2);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript", "go"]);
   });
 

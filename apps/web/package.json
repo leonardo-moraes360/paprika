@@ -7,7 +7,7 @@
     "build": "node ../../crates/render/build.mjs && vite build",
     "build:wasm": "node ../../crates/render/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo 'web: coberto pelo E2E em packages/server/test/e2e' && exit 0",
+    "test": "echo 'web: coberto pelo E2E em packages/e2e/test/e2e' && exit 0",
     "dev": "vite"
   },
   "dependencies": { "@paprika/core": "workspace:*", "react": "^19.2.0", "react-dom": "^19.2.0" },

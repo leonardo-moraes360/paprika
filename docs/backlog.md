@@ -183,7 +183,7 @@ Open SonarCloud issues imported on 2026-11-21 (project `leonardo-moraes360_papri
 
 | Rule | Impact | Where | Fix | Status | Pri. |
 |---|---|---|---|---|---|
-| S8707 path traversal from CLI args (3) | Security High | `bench/tasks/lib.mjs:17`; `packages/server/scripts/bezier-demo.mjs:8, 31` | Resolve the path and require it to stay under `process.cwd()` before reading, `rm` or writing | ⬜ | P1 |
+| S8707 path traversal from CLI args (3) | Security High | `bench/tasks/lib.mjs:17` (`packages/server/scripts/bezier-demo.mjs:8, 31` went away with the TypeScript server) | Resolve the path and require it to stay under `process.cwd()` before reading, `rm` or writing | ⬜ | P1 |
 | S6506 HTTPS not enforced on redirects (2) | Security Medium | `.github/workflows/ci.yml:377`; `.github/actions/setup-rust-wasm/action.yml:23` | `curl --proto '=https' --proto-redir '=https'` (the sha256 check stays) | ⬜ | P1 |
 | S2077 dynamically formatted SQL (1) | Security Medium | `server-go/internal/server/store.go:332` | Table names come from a fixed list (likely false positive); write the three `DELETE`s as literals | ⬜ | P2 |
 | S7688 `[` instead of `[[` (10) | Reliability High | `.claude/hooks/session-start.sh:27, 34, 43, 46, 68, 80 (×2), 98 (×3)` | Use `[[ … ]]` (the script is bash) | ⬜ | P1 |

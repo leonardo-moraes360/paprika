@@ -1,20 +1,20 @@
-// Gera examples/demo.paprika.json dirigindo o Paprika como um agente faria: via MCP stdio.
+// Gera examples/demo.paprika.json dirigindo o Paprika como um agente faria: via MCP stdio do
+// servidor Go (`pnpm go:build` antes), num banco SQLite temporário exportado no fim.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-// Sonar S5145: o texto que o MCP devolve é dado externo; CR/LF nele forjaria linhas de log.
-// Escapar os caracteres de controle preserva o texto normal e mantém uma resposta por linha.
-function printable(text) {
-  return String(text).replace(/[\u0000-\u001f\u007f]/g, (c) =>
-    c === "\n" ? "\\n" : c === "\r" ? "\\r" : c === "\t" ? "\\t" : `\\u${c.charCodeAt(0).toString(16).padStart(2, "0")}`,
-  );
-}
-
-const file = new URL("../../../examples/demo.paprika.json", import.meta.url).pathname;
-rmSync(file, { force: true });
+const root = fileURLToPath(new URL("../../../", import.meta.url));
+const bin = process.env.PAPRIKA_SERVER_BIN || join(root, "server-go/bin/paprika");
+const file = join(root, "examples/demo.paprika.json");
+const dir = mkdtempSync(join(tmpdir(), "paprika-seed-"));
+const db = join(dir, "seed.db");
 const client = new Client({ name: "seed-demo", version: "0" });
-await client.connect(new StdioClientTransport({ command: "node", args: [new URL("../dist/cli.js", import.meta.url).pathname, "mcp", "--file", file, "--no-ui"] }));
+await client.connect(new StdioClientTransport({ command: bin, args: ["mcp", "--db", db, "--no-ui"] }));
 const call = async (name, args) => {
   const r = await client.callTool({ name, arguments: args });
   if (r.isError) throw new Error(`${name}: ${r.content[0].text}`);
@@ -74,6 +74,10 @@ await call("create_nodes", {
     ],
   }],
 });
-console.log(printable(await call("lint_design", {})));
-console.log(printable(await call("get_document_outline", { depth: 1 })));
+// Only numbers reach the log: the tool output comes from another process (Sonar S5145).
+const lint = await client.callTool({ name: "lint_design", arguments: {} });
+const findings = Number(lint.structuredContent?.findings?.length ?? 0);
 await client.close();
+execFileSync(bin, ["export", "--db", db, "-o", file], { stdio: "inherit" });
+console.log(`seed-demo: ${findings} lint finding(s); wrote examples/demo.paprika.json`);
+rmSync(dir, { recursive: true, force: true });
