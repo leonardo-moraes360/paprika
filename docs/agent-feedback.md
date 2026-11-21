@@ -96,9 +96,9 @@ Task: components (`component: true`) and instances (`instanceOf`, `scale`, `over
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 32 | Override a copy without knowing its generated id | Copy ids are derived (instance + source id), so an agent can't guess them | Done: `create_instance` returns `copies` (source id → copy id), and `overrides` can be written on the instance by source id | — |
-| 33 | Scale an icon set | The same icon at 4 sizes is now 1 component + 4 instances with `scale`; a token `fontSize` is not scaled | Typed tokens (backlog E) would let `scale` multiply size tokens too | P3 |
-| 34 | Put a button instance inside a card component | Instances inside components are rejected for now, so nested design systems need detach or flat components | Nested instances, with overrides addressed by path (`instance/copy`) | P2 |
+| 37 | Override a copy without knowing its generated id | Copy ids are derived (instance + source id), so an agent can't guess them | Done: `create_instance` returns `copies` (source id → copy id), and `overrides` can be written on the instance by source id | — |
+| 38 | Scale an icon set | The same icon at 4 sizes is now 1 component + 4 instances with `scale`; a token `fontSize` is not scaled | Typed tokens (backlog E) would let `scale` multiply size tokens too | P3 |
+| 39 | Put a button instance inside a card component | Instances inside components are rejected for now, so nested design systems need detach or flat components | Nested instances, with overrides addressed by path (`instance/copy`) | P2 |
 
 ## What worked well
 

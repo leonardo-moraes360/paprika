@@ -96,9 +96,9 @@ Tarefa: componentes (`component: true`) e instâncias (`instanceOf`, `scale`, `o
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 32 | Trocar algo numa cópia sem saber o id gerado | Os ids das cópias são derivados (instância + id de origem), então o agente não os adivinha | Feito: `create_instance` devolve `copies` (id de origem → id da cópia), e `overrides` pode ser escrito na instância pelo id de origem | — |
-| 33 | Escalar um conjunto de ícones | O mesmo ícone em 4 tamanhos agora é 1 componente + 4 instâncias com `scale`; um `fontSize` que é token não escala | Tokens tipados (backlog E) deixariam `scale` multiplicar tokens de tamanho também | P3 |
-| 34 | Pôr uma instância de botão dentro de um componente de card | Instâncias dentro de componentes ainda são recusadas, então design systems aninhados pedem detach ou componentes planos | Instâncias aninhadas, com overrides endereçados por caminho (`instância/cópia`) | P2 |
+| 37 | Trocar algo numa cópia sem saber o id gerado | Os ids das cópias são derivados (instância + id de origem), então o agente não os adivinha | Feito: `create_instance` devolve `copies` (id de origem → id da cópia), e `overrides` pode ser escrito na instância pelo id de origem | — |
+| 38 | Escalar um conjunto de ícones | O mesmo ícone em 4 tamanhos agora é 1 componente + 4 instâncias com `scale`; um `fontSize` que é token não escala | Tokens tipados (backlog E) deixariam `scale` multiplicar tokens de tamanho também | P3 |
+| 39 | Pôr uma instância de botão dentro de um componente de card | Instâncias dentro de componentes ainda são recusadas, então design systems aninhados pedem detach ou componentes planos | Instâncias aninhadas, com overrides endereçados por caminho (`instância/cópia`) | P2 |
 
 ## O que funcionou bem
 
