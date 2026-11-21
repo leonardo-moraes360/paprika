@@ -58,7 +58,7 @@ RUN pnpm --filter @paprika/core build \
  && test -n "$(find apps/web/dist -name '*.wasm' -print -quit)"
 
 # ------------------------------------------------------------------ server (server-go)
-FROM golang:1.26-trixie AS server
+FROM golang:1.27-trixie AS server
 WORKDIR /src/server-go
 COPY server-go/go.mod server-go/go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
