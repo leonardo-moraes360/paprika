@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
+import { Maximize, Minus, Plus } from "lucide-react";
 import {
   copyOwner,
   importHTML,
@@ -50,7 +51,7 @@ import type { AgentPresence } from "./agents";
 /** Drawing tools show a crosshair over the canvas. */
 const CROSSHAIR = new Set<string>(["frame", "rect", "ellipse", "text", "pen"]);
 
-const zoomButton = "h-6 w-6.5 cursor-pointer rounded-md border-0 bg-transparent hover:bg-panel-2";
+const zoomButton = "inline-flex h-6 w-6.5 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent hover:bg-panel-2";
 
 export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "note" | "connector";
 
@@ -1199,11 +1200,15 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       )}
       {marqueeRect && <div className="pointer-events-none absolute border border-select bg-select/8" style={marqueeRect} data-testid="marquee" />}
       <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-line bg-panel p-0.5" onPointerDown={(e) => e.stopPropagation()}>
-        <button className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom">−</button>
+        <button className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom" title="Diminuir zoom">
+          <Minus size={14} />
+        </button>
         <span className="min-w-11 text-center text-muted">{Math.round(view.zoom * 100)}%</span>
-        <button className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom">+</button>
+        <button className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom" title="Aumentar zoom">
+          <Plus size={14} />
+        </button>
         <button className={zoomButton} onClick={fit} aria-label="Enquadrar" title="Enquadrar (Shift+1)">
-          ⤢
+          <Maximize size={14} />
         </button>
         <button
           className={cx(

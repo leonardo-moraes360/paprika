@@ -41,6 +41,17 @@ Screenshots and SVG export over MCP need a Chromium. The server finds Playwright
 pnpm --filter @paprika/e2e exec playwright install chromium
 ```
 
+### With Docker
+
+One image with the server, the canvas and the WASM renderer; the SQLite database lives in a volume:
+
+```bash
+docker compose up -d --build                 # or: docker build -t paprika . && docker run -d -p 127.0.0.1:4777:4777 -v paprika-data:/data paprika
+# canvas: http://localhost:4777   ·   MCP: http://localhost:4777/mcp
+```
+
+Keep the host port at 4777 (the server checks `Host`). Import/export, stdio, the `slim` target and how the image is built: [docs/docker.md](docs/docker.md).
+
 ## Connecting an agent
 
 **HTTP (recommended, with the canvas open):** run `paprika serve` and point the agent at `http://127.0.0.1:4777/mcp`.
@@ -176,6 +187,7 @@ This repository uses [toolbelt](https://github.com/leonardo-moraes360/toolbelt) 
 
 - Binds to `127.0.0.1` by default; Host and Origin are validated (blocks DNS rebinding and CSRF from pages open in the browser).
 - There is no authentication: `--host 0.0.0.0` exposes the document to the network. Only use it on a trusted network.
+- The Docker image binds `0.0.0.0` inside the container; publish it on the host's loopback (`-p 127.0.0.1:4777:4777`, as `compose.yaml` does) ([docs/docker.md](docs/docker.md)).
 - `https://` images are fetched by Chromium when taking screenshots.
 
 To report a vulnerability, use GitHub's private vulnerability reporting; see [SECURITY.md](SECURITY.md). Please don't open a public issue.
