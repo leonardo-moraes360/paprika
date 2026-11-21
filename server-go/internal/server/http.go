@@ -303,6 +303,28 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		}
 		send(w, 200, png, "image/png")
 	})
+	mux.HandleFunc("/api/svg", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			send(w, 405, errBody("método não permitido"), "")
+			return
+		}
+		if opts.Shot == nil {
+			send(w, 500, errBody("export SVG indisponível neste servidor"), "")
+			return
+		}
+		// JSON (not image/svg+xml) so the SVG is never rendered on the server's origin.
+		res, err := opts.Shot.ExportSVG(r.Context(), store.Doc(), r.URL.Query().Get("root"))
+		if err != nil {
+			logf("erro HTTP: " + err.Error())
+			send(w, 500, errBody(err.Error()), "")
+			return
+		}
+		ws := make([]any, len(res.Warnings))
+		for i, x := range res.Warnings {
+			ws[i] = x
+		}
+		send(w, 200, jsonv.NewObject("svg", res.SVG, "width", res.Width, "height", res.Height, "warnings", ws), "")
+	})
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		// Host/Origin were validated above; the library's own origin check is redundant.
 		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})

@@ -17,6 +17,7 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
+	"github.com/leonardo-moraes360/paprika/server-go/contract"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
 )
 
@@ -165,6 +166,57 @@ func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID stri
 		return nil, 0, 0, fmt.Errorf("screenshot falhou: %w", err)
 	}
 	return png, int(math.Round(width * scale)), int(math.Round(height * scale)), nil
+}
+
+// ExportSVG renders the export HTML, measures boxes and text lines (contract.Measure, the same
+// script as the TypeScript server) and builds the SVG in core.
+func (c *Chrome) ExportSVG(ctx context.Context, doc *core.Document, rootID string) (core.SVGResult, error) {
+	bg := ""
+	if rootID != "" {
+		if n := core.GetNode(doc, rootID); n == nil || n.Str("type") != "page" {
+			bg = "transparent"
+		}
+	}
+	html, bounds, err := core.RenderHTML(doc, core.RenderOptions{RootID: rootID, Background: bg})
+	if err != nil {
+		return core.SVGResult{}, err
+	}
+	width := math.Max(1, math.Ceil(bounds.Width))
+	height := math.Max(1, math.Ceil(bounds.Height))
+	browser, err := c.ensure()
+	if err != nil {
+		return core.SVGResult{}, err
+	}
+	tab, cancel := chromedp.NewContext(browser)
+	defer cancel()
+	tab, cancelTimeout := context.WithTimeout(tab, 15*time.Second)
+	defer cancelTimeout()
+	go func() {
+		select {
+		case <-ctx.Done():
+			cancelTimeout()
+		case <-tab.Done():
+		}
+	}()
+	var m core.Measure
+	err = chromedp.Run(tab,
+		emulation.SetDeviceMetricsOverride(int64(width), int64(height), 1, false),
+		chromedp.Navigate("about:blank"),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			tree, err := page.GetFrameTree().Do(ctx)
+			if err != nil {
+				return err
+			}
+			return page.SetDocumentContent(tree.Frame.ID, html).Do(ctx)
+		}),
+		chromedp.Evaluate(`Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => document.fonts ? document.fonts.ready.then(() => 1) : 1)`, nil,
+			func(p *runtime.EvaluateParams) *runtime.EvaluateParams { return p.WithAwaitPromise(true) }),
+		chromedp.Evaluate(contract.Measure, &m),
+	)
+	if err != nil {
+		return core.SVGResult{}, fmt.Errorf("export SVG falhou: %w", err)
+	}
+	return core.ExportSVG(doc, rootID, &m)
 }
 
 // Close stops the browser.

@@ -1,8 +1,9 @@
-import { renderHTML, type Document } from "@paprika/core";
+import { MEASURE_SCRIPT, exportSVG, renderHTML, type Document, type Measure } from "@paprika/core";
 
 type Browser = { newPage(opts: object): Promise<Page>; close(): Promise<void> };
 type Page = {
   setContent(html: string, opts: object): Promise<void>;
+  evaluate(script: string): Promise<unknown>;
   screenshot(opts: object): Promise<Buffer>;
   close(): Promise<void>;
 };
@@ -52,6 +53,24 @@ export async function screenshot(doc: Document, opts: { rootId?: string; scale?:
     await page.setContent(html, { waitUntil: "load", timeout: 15_000 });
     const png = await page.screenshot({ type: "png", omitBackground: !!opts.rootId, timeout: 15_000 });
     return { png, width: Math.round(width * scale), height: Math.round(height * scale) };
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Exporta SVG com o layout resolvido pelo navegador: renderiza o mesmo HTML do export, mede
+ * caixas e linhas de texto com MEASURE_SCRIPT e monta o SVG no core.
+ */
+export async function svgExport(doc: Document, rootId?: string): Promise<{ svg: string; width: number; height: number; warnings: string[] }> {
+  const node = rootId && doc.nodes[rootId]?.type !== "page";
+  const { html, bounds } = renderHTML(doc, { rootId, background: node ? "transparent" : undefined });
+  const browser = await getBrowser();
+  const page = await browser.newPage({ viewport: { width: Math.max(1, Math.ceil(bounds.width)), height: Math.max(1, Math.ceil(bounds.height)) } });
+  try {
+    await page.setContent(html, { waitUntil: "load", timeout: 15_000 });
+    const measure = (await page.evaluate(MEASURE_SCRIPT)) as Measure;
+    return exportSVG(doc, { rootId, measure });
   } finally {
     await page.close();
   }

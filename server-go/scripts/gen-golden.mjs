@@ -13,7 +13,7 @@ const core = await import(join(root, "packages/core/dist/index.js"));
 const {
   applyOps, createDocument, parseDocument, copyId, History, outline, describeNode, lintDocument, renderHTML,
   exportReact, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
-  parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps,
+  parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, importSVG, importHTML, exportSVG,
 } = core;
 
 const json = (v) => JSON.stringify(v, null, 2);
@@ -453,7 +453,60 @@ for (let run = 0; run < 45; run++) {
   randomRuns.push({ base: runBase(run), steps });
 }
 
-const out = { randomRuns, structure, opResults, zodResults, history, views, paths, colors, contrast, badDocs, created: createDocument("Sem título", "abc") };
+// ---- import SVG/HTML and export SVG ----
+const svgCases = [
+  ['<svg viewBox="0 0 24 24" width="48" height="48"><path d="M2 2 L22 2 L12 20 Z" fill="#c43d27"/></svg>', {}],
+  ['<svg xmlns="http://www.w3.org/2000/svg"><title>Ícone</title><rect x="1" y="2" width="30" height="20" rx="4" fill="#ff0000" stroke="#000" stroke-width="2"/><circle cx="10" cy="10" r="5" fill-opacity="0.5" fill="#00ff00"/></svg>', { x: 100, y: 50 }],
+  ['<svg><g transform="rotate(30 10 10)" fill="blue"><rect width="20" height="10"/><ellipse cx="5" cy="5" rx="4" ry="2"/></g></svg>', {}],
+  ['<svg><g id="grupo" opacity="0.5" transform="translate(5,5) scale(2)"><line x1="0" y1="0" x2="10" y2="10" stroke="red" stroke-linecap="round"/><polyline points="0,0 5,5 10,0" fill="none" stroke="#333" stroke-linejoin="bevel"/></g><polygon points="0 0 10 0 5 8" fill-rule="evenodd"/></svg>', { name: "Meu SVG" }],
+  ['<svg><path d="M0 0 A10 10 0 0 1 20 0 A5 8 30 1 0 30 10 Z" transform="skewX(10) matrix(1 0 0 1 3 4)" stroke="currentColor"/></svg>', {}],
+  ['<svg><defs><linearGradient id="g"/></defs><style>.a{fill:red}</style><rect width="10" height="10" fill="url(#g)" style="stroke: #123; stroke-width: 3"/><text>oi</text><image href="x.png"/><rect width="5" height="5" display="none"/><path d="M0 0 L" /><path d="M0 0 L5 5" clip-path="url(#c)" transform="bogus(1)"/></svg>', {}],
+  ['<svg viewBox="10 10 100 50" width="200" height="200"><svg x="5" y="5"><rect x="10" y="10" width="20" height="20" rx="3" ry="6"/></svg><rect x="20" y="20" width="10" height="10" transform="scale(2 1)" rx="2"/></svg>', {}],
+  ['<div>sem svg</div>', {}],
+  ['<svg><g><g></g></g></svg>', {}],
+  ['<svg opacity="0.4"><rect width="1" height="1" fill="rgba(1,2,3,0.5)" fill-opacity=".5" stroke="#abc" stroke-opacity="0.2"/></svg>', {}],
+  ['<SVG><RECT WIDTH="4" HEIGHT="4" FILL="#fff"/><!-- c --><![CDATA[x]]><?pi?></SVG>', {}],
+];
+const htmlCases = [
+  '<div style="display: flex; flex-direction: column; gap: 8px; padding: 16px 24px; background: #fff; border-radius: 8px; width: 320px"><h1>Título</h1><p style="color: #555; font-size: 14px; line-height: 20px">Um parágrafo <b>com negrito</b><br>e quebra.</p><button style="background: #c43d27; color: white; padding: 8px 16px; border-radius: 6px; text-align: center">Entrar</button><img src="https://x.test/a.png" width="40" height="30" alt="a"></div>',
+  '<body><section class="x" style="position: absolute; left: 10px; top: 20px; width: 100px; height: 50px; opacity: 0.5; box-shadow: 0px 2px 4px 1px rgba(0,0,0,.2); border: 1px solid #ddd; transform: rotate(15deg)"><span style="font-weight: 600; letter-spacing: 1px; white-space: pre">  pre  texto </span></section><svg viewBox="0 0 10 10" width="20" height="20"><circle cx="5" cy="5" r="5"/></svg><script>x()</script></body>',
+  '<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap"><div style="flex: 1; height: 100%">a</div><div style="width: 50%; align-self: stretch">b</div><div style="width: max-content; font-size: 2em">c</div><img src="javascript:alert(1)"></div>',
+  '<div style="display:flex; gap:8px"><span>Olá</span><span>mundo</span></div>',
+  'texto solto',
+  '',
+];
+for (const [name, doc] of Object.entries(docs)) {
+  htmlCases.push(renderHTML(doc).html);
+  for (const id of doc.rootIds) htmlCases.push(renderHTML(doc, { rootId: id }).html);
+  void name;
+}
+const imports = {
+  svg: svgCases.map(([src, opts]) => ({ src, opts, result: err(() => JSON.stringify(importSVG(src, opts))) })),
+  html: htmlCases.map((src) => ({ src, result: err(() => JSON.stringify(importHTML(src, { x: src.length % 3, y: 0 }))) })),
+};
+const fakeMeasure = (doc) => {
+  const boxes = {};
+  const lines = {};
+  Object.keys(doc.nodes).forEach((id, i) => {
+    if (i % 7 === 6) return; // some nodes stay unmeasured (hidden)
+    boxes[id] = [i * 10.123, i * 5.5, 50 + i, 20 + i / 3];
+    const n = doc.nodes[id];
+    if (n.type === "text" && i % 2) lines[id] = [{ t: n.text.slice(0, 5), x: 1.5, y: 12.25 }, { t: "<&>", x: 0, y: 30 }];
+  });
+  return { boxes, lines };
+};
+const svgExports = Object.entries(docs).map(([name, doc]) => {
+  const targets = [undefined, ...Object.keys(doc.nodes)];
+  const measure = fakeMeasure(doc);
+  return {
+    name,
+    plain: Object.fromEntries(targets.map((id) => [id ?? "", err(() => JSON.stringify(exportSVG(doc, { rootId: id })))])),
+    measured: Object.fromEntries(targets.map((id) => [id ?? "", err(() => JSON.stringify(exportSVG(doc, { rootId: id, measure })))])),
+    measure: JSON.stringify(measure),
+  };
+});
+
+const out = { randomRuns, structure, opResults, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, created: createDocument("Sem título", "abc") };
 const dest = join(here, "../internal/core/testdata/golden.json");
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");

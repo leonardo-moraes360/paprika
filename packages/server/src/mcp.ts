@@ -4,6 +4,9 @@ import { z } from "zod";
 import {
   NodeInputSchema,
   copyId,
+  importHTML,
+  importSVG,
+  type ImportResult,
   isContainer,
   type NodeInput,
   NodeType,
@@ -22,7 +25,7 @@ import {
   type Op as OpT,
 } from "@paprika/core";
 import type { DocumentStore } from "./store.js";
-import { screenshot } from "./screenshot.js";
+import { screenshot, svgExport } from "./screenshot.js";
 
 export const VERSION = "0.1.0";
 
@@ -65,6 +68,7 @@ Fluxo recomendado:
 3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.
 4. lint_design e corrija o que vier como error/warning.
 5. render_screenshot para conferir visualmente; export_code para levar ao código.
+Para trazer um ícone ou um trecho de página pronto, use import_svg ou import_html (viram nós editáveis); export_code com format "svg" devolve SVG vetorial.
 Toda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. O humano vê suas edições ao vivo no canvas.
 Campos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.`;
 
@@ -482,12 +486,55 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
     "export_code",
     {
       title: "Exportar código",
-      description: "Exporta um nó como HTML autocontido ou componente React (TSX) com estilos inline.",
-      inputSchema: { rootId: z.string(), format: z.enum(["html", "react"]).default("react") },
+      description:
+        "Exporta um nó como HTML autocontido, componente React (TSX) com estilos inline ou SVG vetorial (svg: o layout é medido num Chromium headless, como no render_screenshot; rootId de página exporta a página).",
+      inputSchema: { rootId: z.string(), format: z.enum(["html", "react", "svg"]).default("react") },
       annotations: { readOnlyHint: true },
     },
     ({ rootId, format }) =>
-      guard(() => text(format === "html" ? renderHTML(store.doc, { rootId }).html : exportReact(store.doc, rootId))),
+      guard(async () => {
+        if (format === "html") return text(renderHTML(store.doc, { rootId }).html);
+        if (format === "react") return text(exportReact(store.doc, rootId));
+        const r = await svgExport(store.doc, rootId);
+        const out: CallToolResult = { content: [{ type: "text", text: r.svg }] };
+        if (r.warnings.length) out.content.push({ type: "text", text: `avisos: ${r.warnings.join("; ")}` });
+        return out;
+      }),
+  );
+
+  const importInput = {
+    parentId: z.string().nullable().optional().describe("Pai dos nós (padrão: topo; num documento com páginas, passe o id da página)"),
+    x: z.number().optional(),
+    y: z.number().optional(),
+    label: z.string().max(200).optional(),
+  };
+  const importWrite = async (r: ImportResult, parentId: string | null | undefined, label: string) => {
+    if (!r.nodes.length) throw new Error(r.warnings.join("; ") || "nada para importar");
+    const w = await write(r.nodes.map((node) => ({ op: "create", parentId: parentId ?? null, node }) as OpT), label);
+    return json({ ...w, warnings: r.warnings });
+  };
+
+  server.registerTool(
+    "import_svg",
+    {
+      title: "Importar SVG",
+      description:
+        "Converte SVG em nós editáveis: path/rect/circle/ellipse/line/polyline/polygon viram path (ou rect/ellipse sem rotação), <g> vira group; transforms e pintura herdada são aplicados. Texto, imagens, gradientes e CSS em <style> são ignorados e listados em warnings. x/y deslocam a origem do SVG.",
+      inputSchema: { svg: z.string().min(1).max(2_000_000), name: z.string().max(200).optional(), ...importInput },
+    },
+    ({ svg, name, parentId, x, y, label }) =>
+      guard(async () => importWrite(importSVG(svg, { x, y, name }), parentId, label ?? "importar SVG")),
+  );
+
+  server.registerTool(
+    "import_html",
+    {
+      title: "Importar HTML",
+      description:
+        "Converte HTML com estilos inline em nós (o inverso do export: o HTML do próprio Paprika volta igual). De outras fontes: display:flex vira layout row/column, blocos viram column, texto vira text, <img> vira image, <svg> passa pelo import_svg. Classes e <style> não são aplicados (warnings).",
+      inputSchema: { html: z.string().min(1).max(2_000_000), ...importInput },
+    },
+    ({ html, parentId, x, y, label }) => guard(async () => importWrite(importHTML(html, { x, y }), parentId, label ?? "importar HTML")),
   );
 
   return server;

@@ -92,7 +92,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Nó vetorial a partir de dados de caminho SVG (retas, bezier, arcos) | Nó `path`, `path_info` | ✅ | — |
 | Caneta para criar paths | `P`, alças bezier, fecha no primeiro vértice | ✅ | — |
 | Editar pontos e alças de um path existente | Editar `d` no inspector (fb#17) | 🟡 | P1 |
-| Importar/colar SVG como camadas `path` editáveis | — | ⬜ | P1 |
+| Importar/colar SVG como camadas `path` editáveis | `import_svg`, `Ctrl+V` no canvas (2026-11-21): paths, formas (rect/ellipse alinhados aos eixos ficam nativos), grupos, transforms, pintura herdada; sem texto, imagens, gradientes ou CSS de `<style>` | ✅ | — |
 | Operações booleanas (união, subtração, interseção, exclusão) | — (fb#1) | ⬜ | P2 |
 | Converter rect/ellipse em path | — | ⬜ | P2 |
 | Snapping e guias para pontos, snapping a meio pixel | — | ⬜ | P3 |
@@ -102,8 +102,8 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
-| Colar HTML com estilos inline como nós (inverso do `nodeStyle`) | — | ⬜ | P1 |
-| Colar SVG | — (ver F) | ⬜ | P1 |
+| Colar HTML com estilos inline como nós (inverso do `nodeStyle`) | `import_html`, `Ctrl+V` (2026-11-21): o HTML do próprio Paprika volta igual; outro HTML é aproximado (flex → row/column, blocos → column); classes e folhas de estilo não são aplicadas | ✅ | — |
+| Colar SVG | `Ctrl+V` com marcação SVG (ver F) | ✅ | — |
 | Colar ou soltar imagens (guardadas como data URI ou asset local) | Nó `image` só pelo MCP | 🟡 | P2 |
 | Capturar um elemento de qualquer página web como nós (extensão de navegador) | — | ⬜ | P3 |
 | Importar da área de transferência de outras ferramentas de design | — | ⬜ | Fora |
@@ -140,7 +140,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | HTML autocontido, React (estilos inline), PNG | `export_code`, `render_screenshot` | ✅ | — |
-| Export SVG (frame ou seleção) | — | ⬜ | P1 |
+| Export SVG (frame ou seleção) | `export_code` formato `svg`, `⇩` na barra, `GET /api/svg` (2026-11-21): layout e linhas de texto medidos num Chromium headless; gradientes e imagens de fundo ficam de fora | ✅ | — |
 | Export com classes Tailwind | — | ⬜ | P2 |
 | WebP/AVIF, PDF (frames individuais ou combinados) | — | ⬜ | P2 |
 | React + CSS module / variáveis CSS | — (ver E) | ⬜ | P2 |

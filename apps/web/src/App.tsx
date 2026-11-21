@@ -166,6 +166,25 @@ export function App() {
     );
   }
 
+  // O servidor mede o layout num navegador e devolve o SVG em JSON; o download é feito aqui.
+  const exportSvg = async () => {
+    const root = selected.length === 1 ? selected[0]! : (pageId ?? "");
+    try {
+      const res = await fetch(`/api/svg${root ? `?root=${encodeURIComponent(root)}` : ""}`);
+      const body = (await res.json()) as { svg?: string; warnings?: string[]; error?: string };
+      if (!res.ok || !body.svg) throw new Error(body.error ?? res.statusText);
+      const url = URL.createObjectURL(new Blob([body.svg], { type: "image/svg+xml" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(doc.nodes[root]?.name || doc.name || "paprika").replace(/[\\/:*?"<>|]+/g, "-")}.svg`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (body.warnings?.length) live.showError(`SVG exportado com avisos: ${body.warnings.join("; ")}`);
+    } catch (err) {
+      live.showError(`Falha ao exportar SVG: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
   const node = selected.length === 1 ? (doc.nodes[selected[0]!] ?? null) : null;
   const lastAgent = live.activity.find((a) => a.actor.startsWith("agent"));
 
@@ -208,6 +227,10 @@ export function App() {
           <button onClick={live.redo} disabled={!live.canRedo} title="Refazer (Ctrl+Shift+Z)" aria-label="Refazer">
             ↷
           </button>
+          <span className="sep" />
+          <button onClick={exportSvg} title="Exportar SVG (seleção, ou a página)" aria-label="Exportar SVG">
+            ⇩
+          </button>
         </nav>
         <Canvas
           doc={doc}
@@ -218,6 +241,7 @@ export function App() {
           onToolDone={() => setTool("select")}
           apply={live.apply}
           agentTouched={live.agentTouched}
+          onError={live.showError}
         />
         {live.error && (
           <div className="toast" role="alert" onClick={live.clearError}>

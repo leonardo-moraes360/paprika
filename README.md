@@ -79,7 +79,8 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `undo` / `redo` / `get_history` | History shared with the human |
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
 | `render_screenshot` | PNG of a node, a page or the whole canvas |
-| `export_code` | Standalone HTML or a React (TSX) component |
+| `import_svg` / `import_html` | Turns pasted SVG (paths, shapes, groups, transforms) or HTML with inline styles into editable nodes; what can't be imported comes back in `warnings` |
+| `export_code` | Standalone HTML, a React (TSX) component or vector SVG (layout measured in headless Chromium) |
 
 > The agent-facing guide and error messages are currently in Brazilian Portuguese.
 
@@ -89,6 +90,7 @@ Shortcuts: `V` select, `F` frame, `R` rectangle, `O` ellipse, `T` text, `P` pen 
 Selection: `Shift`-click (canvas or layers) adds or removes a node, dragging on empty canvas draws a selection box, `Ctrl+A` selects the siblings (or the whole page), `Ctrl+G` groups the selection, `Ctrl+Shift+G` ungroups. A click inside a group selects the group; double-click selects the node under the cursor. Dragging, arrows, `Delete` and `Ctrl+D` act on the whole selection.
 
 Components: "Make component" in the inspector of a frame, then "New instance". A click inside an instance selects the instance; select a copy in the layers (or double-click it) to override its text, colors, opacity or visibility. Changes to the component reach every instance; "Detach" turns an instance into plain nodes.
+Paste and export: `Ctrl+V` with SVG markup or HTML (e.g. copied from a web page) in the clipboard creates editable nodes inside the selected frame, or on the page at the center of the view. The `⇩` toolbar button downloads the selection (or the current page) as SVG.
 Pages: the "Páginas" panel on the left switches pages, `+` adds one (the first `+` turns the current canvas into "Página 1"), double-click renames, `×` deletes (undoable).
 Navigation: scroll = pan, `Ctrl`+scroll = zoom, hold `Space` (or `Enter`) and drag = pan (the cursor turns into a hand).
 Agent edits flash on the canvas and show up under "Atividade" (activity).
