@@ -394,6 +394,15 @@ textarea {
 .viewport.tool-text {
   cursor: crosshair;
 }
+/* Pan: mão aberta com a tecla segurada, mão fechada arrastando. Vale sobre nós e ferramentas. */
+.viewport.is-pan-ready,
+.viewport.is-pan-ready * {
+  cursor: grab !important;
+}
+.viewport.is-panning,
+.viewport.is-panning * {
+  cursor: grabbing !important;
+}
 .world {
   position: absolute;
   left: 0;

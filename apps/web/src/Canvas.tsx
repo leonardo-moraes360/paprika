@@ -123,18 +123,34 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
     );
   }, [doc, selected, view, preview]);
 
+  // Segurar Espaço (ou Enter) arma o pan: cursor vira mão aberta; arrastando, mão fechada.
+  const [pan, setPan] = useState<"off" | "ready" | "panning">("off");
+  const panRef = useRef(pan);
+  panRef.current = pan;
   useEffect(() => {
+    const isPanKey = (e: KeyboardEvent) => e.code === "Space" || e.key === "Enter";
+    const typing = (t: EventTarget | null) =>
+      t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || (t instanceof HTMLElement && t.isContentEditable);
     const down = (e: KeyboardEvent) => {
-      if (e.code === "Space" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) spaceDown.current = true;
+      if (!isPanKey(e) || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+      e.preventDefault(); // evita rolar a página ou "clicar" o botão focado
+      spaceDown.current = true;
+      if (panRef.current === "off") setPan("ready");
+    };
+    const release = () => {
+      spaceDown.current = false;
+      if (panRef.current === "ready") setPan("off");
     };
     const up = (e: KeyboardEvent) => {
-      if (e.code === "Space") spaceDown.current = false;
+      if (isPanKey(e)) release();
     };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
+    window.addEventListener("blur", release);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", release);
     };
   }, []);
 
@@ -170,10 +186,12 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
     const sx = e.clientX;
     const sy = e.clientY;
     const start = view;
+    setPan("panning");
     const move = (ev: PointerEvent) => setView({ ...start, x: start.x + ev.clientX - sx, y: start.y + ev.clientY - sy });
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      setPan(spaceDown.current ? "ready" : "off");
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -297,7 +315,7 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
   return (
     <div
       ref={viewportRef}
-      className={`viewport tool-${tool}`}
+      className={`viewport tool-${tool}${pan === "ready" ? " is-pan-ready" : pan === "panning" ? " is-panning" : ""}`}
       onPointerDown={onPointerDown}
       data-testid="viewport"
     >

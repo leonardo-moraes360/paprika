@@ -113,6 +113,38 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     if (shots) await page.screenshot({ path: join(shots, "03-retangulo-desenhado.png") });
   });
 
+  for (const key of ["Space", "Enter"]) {
+    it(`segurar ${key} sobre o board vira mão aberta; arrastando, mão fechada que move o board`, async () => {
+      await page.keyboard.press("Escape");
+      const vp = page.locator('[data-testid="viewport"]');
+      const world = page.locator(".world");
+      const box = (await vp.boundingBox())!;
+      const cursorAt = (x: number, y: number) =>
+        page.evaluate(([x, y]) => getComputedStyle(document.elementFromPoint(x!, y!)!).cursor, [x, y]);
+      // Sobre um nó do design (não só o fundo), para provar que vale no board inteiro.
+      const card = (await page.locator('[data-paprika-id="login"]').boundingBox())!;
+      const px = card.x + 40;
+      const py = card.y + 40;
+      await page.mouse.move(px, py);
+      await expect.poll(() => cursorAt(px, py)).not.toBe("grab");
+      const before = await world.getAttribute("style");
+
+      await page.keyboard.down(key);
+      await expect.poll(() => cursorAt(px, py)).toBe("grab");
+      await page.mouse.down();
+      await page.mouse.move(px + 80, py + 50, { steps: 6 });
+      await expect.poll(() => cursorAt(px + 80, py + 50)).toBe("grabbing");
+      await page.mouse.up();
+      await expect.poll(() => cursorAt(px + 80, py + 50)).toBe("grab");
+      await page.keyboard.up(key);
+      await expect.poll(() => cursorAt(px + 80, py + 50)).not.toMatch(/grab/);
+
+      expect(await world.getAttribute("style")).not.toBe(before);
+      expect(box.width).toBeGreaterThan(0);
+      if (shots && key === "Space") await page.screenshot({ path: join(shots, "04-pan.png") });
+    });
+  }
+
   it("screenshot pelo MCP usa o mesmo motor do canvas", async () => {
     const r = (await agent.callTool({ name: "render_screenshot", arguments: { rootId: "login" } })) as {
       content: { type: string; data?: string }[];
