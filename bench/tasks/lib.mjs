@@ -9,12 +9,36 @@
 // locally so the score does not depend on a running Paprika or on the build of @paprika/core.
 
 import { readFileSync } from "node:fs";
+import { isAbsolute, relative, resolve as pathResolve, sep } from "node:path";
 
-/** @param {string} file @returns {any} the parsed document, exiting 2 when it cannot be read. */
+/**
+ * Resolve a document path given on the command line (Sonar S8707).
+ *
+ * A checker is pointed at a file by whoever runs it, so the argument is untrusted input: it has to
+ * stay inside the current directory. Absolute paths outside it and `../` escapes are refused instead
+ * of read, so a typo cannot pull an unrelated file into the score.
+ *
+ * @param {string} path
+ * @returns {string|null} the absolute path, or null when it leaves the current directory.
+ */
+export function insideCwd(path) {
+  const here = process.cwd();
+  const abs = pathResolve(here, path);
+  const rel = relative(here, abs);
+  if (rel === "" || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return null;
+  return abs;
+}
+
+/** @param {string} file @returns {any} the parsed document, or null with the reason in `report`. */
 export function loadDocument(file, report) {
+  const safe = insideCwd(file);
+  if (safe === null) {
+    report.fail(`${file}: the document must be inside the current directory (${process.cwd()})`);
+    return null;
+  }
   let text;
   try {
-    text = readFileSync(file, "utf8");
+    text = readFileSync(safe, "utf8");
   } catch (error) {
     report.fail(`cannot read ${file}: ${error.message}`);
     return null;
@@ -123,7 +147,7 @@ export function parseColor(value) {
   if (hex) {
     const body = hex[1];
     const parts = body.length === 3 ? [...body].map((c) => c + c) : body.match(/.{2}/g);
-    return { r: parseInt(parts[0], 16), g: parseInt(parts[1], 16), b: parseInt(parts[2], 16), a: parts[3] ? parseInt(parts[3], 16) / 255 : 1 };
+    return { r: Number.parseInt(parts[0], 16), g: Number.parseInt(parts[1], 16), b: Number.parseInt(parts[2], 16), a: parts[3] ? Number.parseInt(parts[3], 16) / 255 : 1 };
   }
   const rgb = /^rgba?\(([^)]*)\)$/.exec(text);
   if (rgb) {

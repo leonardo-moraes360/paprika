@@ -754,6 +754,7 @@ button.link {
   resize: none;
   overflow: hidden;
   field-sizing: content;
+}
 
 /* Página inicial: lista de workspaces. */
 .overview {
