@@ -103,9 +103,12 @@ func (c *Chrome) ensure() (context.Context, error) {
 
 // Screenshot renders a node (or the whole canvas) to PNG. The scale is reduced so no side exceeds 4096px.
 func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID string, scale float64) ([]byte, int, int, error) {
-	bg := "#ffffff"
+	// A node comes out transparent; a page (or the canvas) uses its own background, or white.
+	bg := ""
 	if rootID != "" {
-		bg = "transparent"
+		if n := core.GetNode(doc, rootID); n == nil || n.Str("type") != "page" {
+			bg = "transparent"
+		}
 	}
 	html, bounds, err := core.RenderHTML(doc, core.RenderOptions{RootID: rootID, Background: bg})
 	if err != nil {
@@ -132,17 +135,17 @@ func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID stri
 		case <-tab.Done():
 		}
 	}()
+	var png []byte
 	err = chromedp.Do(tab,
 		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
-			_, err := cdp.Call(ctx, t, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{
-				Width: int64(width), Height: int64(height), DeviceScaleFactor: scale,
-			})
-			if err != nil || rootID == "" {
-				return err
+			_, err := cdp.Call(ctx, t, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{Width: int64(width), Height: int64(height), DeviceScaleFactor: scale})
+			return err
+		}),
+		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
+			if rootID == "" {
+				return nil
 			}
-			_, err = cdp.Call(ctx, t, emulation.SetDefaultBackgroundColorOverride, emulation.SetDefaultBackgroundColorOverrideParams{
-				Color: &cdp.RGBA{R: 0, G: 0, B: 0, A: 0},
-			})
+			_, err := cdp.Call(ctx, t, emulation.SetDefaultBackgroundColorOverride, emulation.SetDefaultBackgroundColorOverrideParams{Color: &cdp.RGBA{R: 0, G: 0, B: 0, A: 0}})
 			return err
 		}),
 		chromedp.Navigate("about:blank"),
@@ -155,17 +158,14 @@ func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID stri
 			return err
 		}),
 		// Same as Playwright's waitUntil "load": images (http(s) and data:) finish loading.
-		chromedp.Evaluate[chromedp.Void](`Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => document.fonts ? document.fonts.ready.then(() => 1) : 1)`,
-			chromedp.EvalAwaitPromise),
+		chromedp.Evaluate[chromedp.Void](`Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => document.fonts ? document.fonts.ready.then(() => 1) : 1)`, chromedp.EvalAwaitPromise),
+		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
+			fromSurface := true
+			r, err := cdp.Call(ctx, t, page.CaptureScreenshot, page.CaptureScreenshotParams{Format: page.CaptureScreenshotFormatPng, FromSurface: &fromSurface})
+			png = r.Data
+			return err
+		}),
 	)
-	var png []byte
-	if err == nil {
-		var shot page.CaptureScreenshotResult
-		shot, err = chromedp.Run(tab, func(ctx context.Context, t *chromedp.Target) (page.CaptureScreenshotResult, error) {
-			return cdp.Call(ctx, t, page.CaptureScreenshot, page.CaptureScreenshotParams{Format: page.CaptureScreenshotFormatPng, FromSurface: new(true)})
-		})
-		png = shot.Data
-	}
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("screenshot falhou: %w", err)
 	}

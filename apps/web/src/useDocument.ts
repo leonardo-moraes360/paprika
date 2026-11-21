@@ -115,6 +115,8 @@ export function useDocument() {
   const undo = useCallback(() => sendRaw({ type: "undo" }), [sendRaw]);
   const redo = useCallback(() => sendRaw({ type: "redo" }), [sendRaw]);
   const clearError = useCallback(() => setState((s) => ({ ...s, error: null })), []);
+  /** Mostra um erro local (ex.: agrupar algo que não pode), no mesmo aviso dos erros do servidor. */
+  const showError = useCallback((message: string) => setState((s) => ({ ...s, error: message })), []);
 
-  return { ...state, apply, undo, redo, clearError };
+  return { ...state, apply, undo, redo, clearError, showError };
 }

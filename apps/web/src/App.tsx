@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { newId, type Document, type NodeInput, type Op } from "@paprika/core";
+import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
 import { Layers } from "./Layers";
+import { Pages } from "./Pages";
 import { useDocument } from "./useDocument";
 
 const TOOLS: { tool: Tool; key: string; label: string; icon: string }[] = [
@@ -19,23 +20,42 @@ function toInput(doc: Document, id: string): NodeInput {
   const n = doc.nodes[id]!;
   const { id: _id, parentId: _p, ...rest } = n as Record<string, unknown> & { id: string; parentId: string | null };
   const input: NodeInput = { ...(rest as Omit<NodeInput, "id">), type: n.type, id: newId() };
-  if (n.type === "frame") input.children = n.children.map((c) => toInput(doc, c));
+  if (isContainer(n)) input.children = n.children.map((c) => toInput(doc, c));
   else delete input.children;
+  // A caixa de um grupo segue os filhos: não vai na criação.
+  if (n.type === "group") {
+    delete input.width;
+    delete input.height;
+  }
   return input;
 }
+
+const siblingsOf = (doc: Document, parentId: string | null) => {
+  const p = parentId ? doc.nodes[parentId] : undefined;
+  return isContainer(p) ? p.children : doc.rootIds;
+};
 
 export function App() {
   const live = useDocument();
   const { doc } = live;
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
   const [tool, setTool] = useState<Tool>("select");
+  const [pageChoice, setPageChoice] = useState<string | null>(null);
+  // Página ativa: a escolhida, se ainda existe; senão a primeira (null num documento sem páginas).
+  const pageId = doc ? (pageChoice && doc.nodes[pageChoice]?.type === "page" ? pageChoice : (firstPage(doc)?.id ?? null)) : null;
 
-  // Limpa a seleção só quando o nó deixou de existir (não quando ainda está a caminho do servidor).
+  // Tira da seleção só os nós que deixaram de existir (não os que ainda estão a caminho do servidor).
   const prevDoc = useRef(doc);
   useEffect(() => {
-    if (selected && doc && prevDoc.current?.nodes[selected] && !doc.nodes[selected]) setSelected(null);
+    const gone = selected.filter((id) => doc && prevDoc.current?.nodes[id] && !doc.nodes[id]);
+    if (gone.length) setSelected(selected.filter((id) => !gone.includes(id)));
     prevDoc.current = doc;
   }, [doc, selected]);
+
+  const openPage = (id: string | null) => {
+    setPageChoice(id);
+    setSelected([]);
+  };
 
   useEffect(() => {
     if (doc) document.title = `${doc.name} · Paprika`;
@@ -58,34 +78,76 @@ export function App() {
         return;
       }
       if (!doc) return;
-      const node = selected ? doc.nodes[selected] : undefined;
-      if (mod && e.key.toLowerCase() === "d" && node) {
+      const nodes = selected.map((id) => doc.nodes[id]).filter(isScene);
+      const key = e.key.toLowerCase();
+      if (mod && key === "a") {
         e.preventDefault();
-        const input = toInput(doc, node.id);
-        input.x = node.x + 20;
-        input.y = node.y + 20;
-        const siblings = node.parentId ? (doc.nodes[node.parentId] as { children: string[] }).children : doc.rootIds;
-        live.apply([{ op: "create", node: input, parentId: node.parentId, index: siblings.indexOf(node.id) + 1 }], "duplicar");
-        setSelected(input.id!);
+        // Todos os irmãos da seleção atual, ou os nós de topo da página.
+        const parent = nodes[0]?.parentId ?? pageId;
+        setSelected([...siblingsOf(doc, parent)]);
         return;
       }
-      if ((e.key === "Delete" || e.key === "Backspace") && node) {
+      if (mod && key === "g" && nodes.length) {
         e.preventDefault();
-        live.apply([{ op: "delete", id: node.id }], "apagar");
-        setSelected(null);
+        try {
+          if (e.shiftKey) {
+            const groups = nodes.filter((n) => n.type === "group").map((n) => n.id);
+            if (!groups.length) return;
+            const { released } = ungroupOps(doc, groups); // valida antes de enviar
+            live.apply([{ op: "ungroup", ids: groups }], "desagrupar");
+            setSelected(released);
+          } else {
+            const ids = nodes.map((n) => n.id);
+            groupOps(doc, ids); // valida antes de enviar; o servidor expande contra o documento atual
+            const id = newId();
+            live.apply([{ op: "group", ids, id }], "agrupar");
+            setSelected([id]);
+          }
+        } catch (err) {
+          live.showError(err instanceof Error ? err.message : String(err));
+        }
+        return;
+      }
+      if (mod && key === "d" && nodes.length) {
+        e.preventDefault();
+        const ops: Op[] = [];
+        const ids: string[] = [];
+        // Do último para o primeiro, para os índices de inserção continuarem válidos.
+        for (const node of [...nodes].reverse()) {
+          const input = toInput(doc, node.id);
+          input.x = node.x + 20;
+          input.y = node.y + 20;
+          ops.push({ op: "create", node: input, parentId: node.parentId, index: siblingsOf(doc, node.parentId).indexOf(node.id) + 1 });
+          ids.unshift(input.id!);
+        }
+        live.apply(ops, "duplicar");
+        setSelected(ids);
+        return;
+      }
+      if ((e.key === "Delete" || e.key === "Backspace") && nodes.length) {
+        e.preventDefault();
+        // Um nó cujo ancestral também será apagado já sai junto com ele.
+        const set = new Set(nodes.map((n) => n.id));
+        const under = (id: string) => {
+          for (let p = doc.nodes[id]?.parentId; p; p = doc.nodes[p]?.parentId ?? null) if (set.has(p)) return true;
+          return false;
+        };
+        live.apply(nodes.filter((n) => !under(n.id)).map((n) => ({ op: "delete", id: n.id })), "apagar");
+        setSelected([]);
         return;
       }
       if (e.key === "Escape") {
         setTool("select");
-        setSelected(node?.parentId ?? null);
+        const parent = nodes[0]?.parentId;
+        setSelected(parent && doc.nodes[parent]?.type !== "page" ? [parent] : []);
         return;
       }
-      if (node && e.key.startsWith("Arrow")) {
+      if (nodes.length && e.key.startsWith("Arrow")) {
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
         const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key] ?? [0, 0];
-        const op: Op = { op: "update", id: node.id, props: { x: node.x + d[0]!, y: node.y + d[1]! } };
-        live.apply([op], "mover");
+        const ops: Op[] = nodes.filter((n) => !n.locked).map((n) => ({ op: "update", id: n.id, props: { x: n.x + d[0]!, y: n.y + d[1]! } }));
+        if (ops.length) live.apply(ops, "mover");
         return;
       }
       const t2 = TOOLS.find((x) => x.key === e.key.toLowerCase());
@@ -93,7 +155,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [doc, selected, live.apply, live.undo, live.redo]);
+  }, [doc, selected, pageId, live.apply, live.undo, live.redo, live.showError]);
 
   if (!doc) {
     return (
@@ -104,7 +166,7 @@ export function App() {
     );
   }
 
-  const node = selected ? (doc.nodes[selected] ?? null) : null;
+  const node = selected.length === 1 ? (doc.nodes[selected[0]!] ?? null) : null;
   const lastAgent = live.activity.find((a) => a.actor.startsWith("agent"));
 
   return (
@@ -122,7 +184,8 @@ export function App() {
         </div>
       </header>
       <aside className="left">
-        <Layers doc={doc} selected={selected} onSelect={setSelected} apply={live.apply} />
+        <Pages doc={doc} pageId={pageId} onOpen={openPage} apply={live.apply} />
+        <Layers doc={doc} pageId={pageId} selected={selected} onSelect={setSelected} apply={live.apply} />
       </aside>
       <main className="center">
         <nav className="tools" aria-label="Ferramentas" onPointerDown={(e) => e.stopPropagation()}>
@@ -150,6 +213,7 @@ export function App() {
           doc={doc}
           selected={selected}
           onSelect={setSelected}
+          pageId={pageId}
           tool={tool}
           onToolDone={() => setTool("select")}
           apply={live.apply}
@@ -162,7 +226,22 @@ export function App() {
         )}
       </main>
       <aside className="right">
-        <Inspector doc={doc} node={node} apply={live.apply} activity={live.activity} onSelect={setSelected} />
+        <Inspector
+          doc={doc}
+          node={node}
+          selected={selected}
+          apply={live.apply}
+          activity={live.activity}
+          onSelect={(id) => {
+            // Um nó de outra página (ex.: um item da revisão) abre a página dele.
+            let top = doc.nodes[id];
+            while (top?.parentId) top = doc.nodes[top.parentId];
+            if (top?.type === "page" && top.id !== pageId) setPageChoice(top.id);
+            setSelected([id]);
+          }}
+          onSelectMany={setSelected}
+          onError={live.showError}
+        />
       </aside>
     </div>
   );

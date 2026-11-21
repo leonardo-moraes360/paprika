@@ -23,8 +23,8 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
 | Frames with flex-like layout (row/column, gap, padding, align, wrap) | `frame.layout` | ✅ | — |
-| Pages inside a file | One canvas per file (fb#13) | ⬜ | P1 |
-| Group / wrap selection in a frame, unwrap | No `group` node (fb#8, fb#16) | ⬜ | P1 |
+| Pages inside a file | `page` nodes, page list in the canvas, `create_page` (2026-11-21) | ✅ | — |
+| Group / wrap selection in a frame, unwrap | `group` node, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21); no "wrap in frame" yet | 🟡 | P2 |
 | Absolute child inside an auto-layout frame ("ignore layout") | Children of row/column always flow | ⬜ | P1 |
 | Corner radius per corner | Single `radius` | 🟡 | P1 |
 | Z-order (forward, backward, front, back) | `move_nodes` with `index`; no canvas shortcuts | 🟡 | P1 |
@@ -39,8 +39,8 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
-| Multi-select (shift-click, marquee), select all, select siblings | Single selection | ⬜ | P1 |
-| Move down/up the hierarchy, deep select, cycle siblings | `Esc` selects the parent | 🟡 | P2 |
+| Multi-select (shift-click, marquee), select all, select siblings | Shift/Ctrl-click, marquee, `Ctrl+A` selects siblings (2026-11-21) | ✅ | — |
+| Move down/up the hierarchy, deep select, cycle siblings | `Esc` selects the parent, double-click selects inside a group; no sibling cycling | 🟡 | P2 |
 | Layer tree under the cursor (context menu) | — | ⬜ | P2 |
 | Rotation-aware hit testing and handles | Box-based | ⬜ | P2 |
 | Configurable nudge step | Arrows 1px, Shift 10px | 🟡 | P3 |
@@ -121,7 +121,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
-| Embedded MCP server (stdio + HTTP), read and write, CLI | `paprika serve`/`mcp`, 17 tools | ✅ | — |
+| Embedded MCP server (stdio + HTTP), read and write, CLI | `paprika serve`/`mcp`, 20 tools | ✅ | — |
 | Token-efficient reads | `get_document_outline` | ✅ | — |
 | Structured results (`outputSchema` + `structuredContent`) | JSON as text (fb#7) | ⬜ | P1 |
 | Guide and errors in English (pt-BR optional) | pt-BR (fb#12) | ⬜ | P1 |

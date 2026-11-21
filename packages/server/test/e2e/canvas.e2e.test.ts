@@ -247,4 +247,99 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     expect(png.readUInt32BE(16)).toBe(390);
     expect(png.readUInt32BE(20)).toBe(760);
   });
+
+  it("seleção múltipla: shift-clique e marquee; Ctrl+G agrupa, clique pega o grupo, duplo clique entra, Ctrl+Shift+G desfaz", async () => {
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Selecionar" }).click();
+    await page.locator('[data-layer-id="login"]').click();
+    await page.locator('[data-layer-id="plano"]').click({ modifiers: ["Shift"] });
+    await expect.poll(() => page.getByTestId("selection").getAttribute("data-count")).toBe("2");
+    await expect(page.getByTestId("multi-selection").textContent()).resolves.toContain("2 nós selecionados");
+
+    // Marquee no vazio, cobrindo os dois cards.
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    await expect.poll(() => page.getByTestId("selection").count()).toBe(0);
+    const a = (await page.locator('[data-paprika-id="login"]').boundingBox())!;
+    const b = (await page.locator('[data-paprika-id="plano"]').boundingBox())!;
+    const vp0 = (await page.locator('[data-testid="viewport"]').boundingBox())!;
+    await page.mouse.move(vp0.x + 5, vp0.y + 5);
+    await page.mouse.down();
+    await page.mouse.move(Math.max(a.x, b.x) + 30, Math.max(a.y, b.y) + 30, { steps: 6 });
+    await expect.poll(() => page.getByTestId("marquee").count()).toBe(1);
+    await page.mouse.up();
+    const picked = () => page.locator(".layer.is-selected").evaluateAll((els) => els.map((e) => e.getAttribute("data-layer-id")));
+    await expect.poll(picked).toEqual(expect.arrayContaining(["login", "plano"]));
+
+    await page.keyboard.press("Control+g");
+    const groupId = async () => Object.values((await doc()).nodes).find((n) => n.type === "group")?.id;
+    await expect.poll(groupId).toBeTruthy();
+    const g = (await groupId())!;
+    const d = await doc();
+    expect(d.nodes.login?.parentId).toBe(g);
+    expect(d.nodes.plano?.parentId).toBe(g);
+    await expect(page.locator('[data-layer-id="' + g + '"]').textContent()).resolves.toContain("Grupo 1");
+    if (shots) await page.screenshot({ path: join(shots, "07-grupo.png") });
+
+    // Um clique num filho seleciona o grupo; o duplo clique entra no nó exato.
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    const card = (await page.locator('[data-paprika-id="plano"]').boundingBox())!;
+    await page.mouse.click(card.x + 6, card.y + 6);
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(g);
+    await page.mouse.dblclick(card.x + 6, card.y + 6);
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe("plano");
+
+    // Arrastar o grupo move os dois cards juntos (uma entrada de histórico).
+    await page.locator('[data-layer-id="' + g + '"]').click();
+    const before = await doc();
+    const gx = (before.nodes[g] as { x: number }).x;
+    await page.mouse.move(card.x + 6, card.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(card.x + 56, card.y + 6, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(async () => ((await doc()).nodes[g] as { x: number }).x).toBeGreaterThan(gx + 20);
+
+    await page.keyboard.press("Control+Shift+g");
+    await expect.poll(async () => (await doc()).nodes[g]).toBeUndefined();
+    const after = await doc();
+    expect(after.nodes.plano?.parentId).toBeNull();
+    // Volta ao canvas na mesma posição em que o grupo a deixou: a antiga (relativa) + a nova origem.
+    expect((after.nodes.plano as { x: number }).x).toBeGreaterThan((before.nodes.plano as { x: number }).x + gx + 20);
+  });
+
+  it("páginas: o + leva o conteúdo para a Página 1, cria a 2 e o agente desenha nela", async () => {
+    await page.keyboard.press("Escape");
+    await page.getByTestId("add-page").click();
+    await expect.poll(async () => (await doc()).rootIds.length).toBe(2);
+    const d = await doc();
+    const [p1, p2] = d.rootIds as [string, string];
+    expect(d.nodes[p1]).toMatchObject({ type: "page", name: "Página 1" });
+    expect(d.nodes.login?.parentId).toBe(p1);
+    // A página nova abre vazia.
+    await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(0);
+    await expect(page.locator(".page.is-active").textContent()).resolves.toContain("Página 2");
+
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: { parentId: p2, nodes: [{ type: "frame", id: "tela2", name: "Tela 2", width: 320, height: 200, fill: "#ffffff" }] },
+    });
+    await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(1);
+    // Desenhar no canvas da página 2 cria o nó dentro dela.
+    await page.getByRole("button", { name: "Retângulo" }).click();
+    const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
+    await page.mouse.move(vp.x + 30, vp.y + vp.height - 120);
+    await page.mouse.down();
+    await page.mouse.move(vp.x + 90, vp.y + vp.height - 70, { steps: 4 });
+    await page.mouse.up();
+    // O retângulo cai na página 2 (direto nela ou dentro da Tela 2, conforme o ponto).
+    const inPage2 = async () => {
+      const now = await doc();
+      return Object.values(now.nodes).filter((n) => n.type === "rect" && (n.parentId === p2 || n.parentId === "tela2")).length;
+    };
+    await expect.poll(inPage2).toBe(1);
+    if (shots) await page.screenshot({ path: join(shots, "08-pagina-2.png") });
+
+    await page.locator(`[data-page-id="${p1}"]`).click();
+    await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(1);
+    await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(0);
+  });
 });

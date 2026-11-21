@@ -13,7 +13,7 @@ const core = await import(join(root, "packages/core/dist/index.js"));
 const {
   applyOps, createDocument, parseDocument, History, outline, describeNode, lintDocument, renderHTML,
   exportReact, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
-  parseColor, contrastRatio, Op, Document,
+  parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps,
 } = core;
 
 const json = (v) => JSON.stringify(v, null, 2);
@@ -42,9 +42,41 @@ const card = () =>
     },
   ]).doc;
 
+const free = () =>
+  applyOps(base(), [
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "board", name: "Board", width: 400, height: 300, fill: "#fbf8f4",
+        children: [
+          { type: "rect", id: "r1", x: 40, y: 50, width: 20, height: 10, fill: "#c43d27" },
+          { type: "ellipse", id: "e1", x: 100.5, y: 20.25, width: 30, height: 30, fill: "#1e2336", rotation: 30 },
+          { type: "text", id: "t1", x: 10, y: 200, width: "hug", height: "hug", text: "Livre", color: "#1e2336" },
+          { type: "path", id: "p1", x: 200, y: 100, d: "M0 0 C 20 -30 60 30 80 0", stroke: { color: "#c43d27", width: 3 } },
+        ],
+      },
+    },
+  ]).doc;
+const grouped = () => {
+  const d = free();
+  return applyOps(d, groupOps(d, ["e1", "r1"], { id: "g1", name: "Par" }).ops).doc;
+};
+const paged = () => {
+  const d = grouped();
+  const d2 = applyOps(d, addPageOps(d, { id: "pg2", name: "Rascunhos", firstId: "pg1" }).ops).doc;
+  return applyOps(d2, [
+    { op: "update", id: "pg2", props: { fill: "#101418" } },
+    { op: "create", parentId: "pg2", node: { type: "frame", id: "f2", x: 500, y: 600, width: 120, height: 80, fill: "#ffffff",
+      children: [{ type: "group", id: "g2", children: [{ type: "rect", id: "r2", x: 10, y: 10, width: 30, height: 20, fill: "#c43d27" }] }] } },
+  ]).doc;
+};
+
 const docs = {
   empty: base(),
   card: card(),
+  free: free(),
+  grouped: grouped(),
+  paged: paged(),
   demo: parseDocument(JSON.parse(readFileSync(join(root, "examples/demo.paprika.json"), "utf8"))),
   bezier: parseDocument(JSON.parse(readFileSync(join(root, "examples/bezier.paprika.json"), "utf8"))),
 };
@@ -124,7 +156,84 @@ const opCases = [
   ["card", [{ op: "set_tokens", tokens: { "10": "#000", b: 2, "2": "x", a: "#fff" } }]],
   ["card", [{ op: "restore", nodes: [{ type: "zz" }], rootId: "a", parentId: null, index: 0 }]],
   ["demo", [{ op: "update", id: "login", props: { x: 10, rotation: 12.345, opacity: 0.5, shadow: { x: 0, y: 4, blur: 12, color: "#0003" } } }]],
+  // groups
+  ["free", [{ op: "create", parentId: "board", node: { type: "group", id: "g", children: [{ type: "rect", id: "a", x: 33.3, y: 7.7, width: 10, height: 10, rotation: 45 }] } }]],
+  ["free", [{ op: "create", node: { type: "group", id: "g", width: 5 } }]],
+  ["free", [{ op: "create", node: { type: "group", id: "g", fill: "#000" } }]],
+  ["free", [{ op: "create", node: { type: "group", id: "g", rotation: 5 } }]],
+  ["free", [{ op: "create", parentId: "board", node: { type: "group", id: "g" } }]],
+  ["free", [{ op: "create", parentId: "board", node: { type: "group", id: "g" } }, { op: "move", id: "t1", parentId: "g" }, { op: "move", id: "p1", parentId: "g" }]],
+  ["grouped", [{ op: "update", id: "r1", props: { x: -10.5, y: -3 } }]],
+  ["grouped", [{ op: "update", id: "g1", props: { x: 0, y: 0, opacity: 0.4, visible: false, name: "Movido" } }]],
+  ["grouped", [{ op: "update", id: "g1", props: { width: 10 } }]],
+  ["grouped", [{ op: "delete", id: "r1" }]],
+  ["grouped", [{ op: "delete", id: "r1" }, { op: "delete", id: "e1" }]],
+  ["grouped", [{ op: "move", id: "t1", parentId: "g1", index: 0 }]],
+  ["grouped", [{ op: "move", id: "g1", parentId: null }]],
+  ["grouped", [{ op: "create", parentId: "g1", node: { type: "frame", id: "inner", x: -20, y: 90, width: "hug", height: 10, children: [{ type: "rect", id: "x1" }] } }]],
+  ["grouped", [{ op: "create", parentId: "g1", node: { type: "group", id: "g9", children: [{ type: "ellipse", id: "x2", x: 300, y: 300, width: 5, height: 5 }] } }]],
+  // pages
+  ["free", [{ op: "create", node: { type: "page", id: "pg" } }]],
+  ["free", [{ op: "create", index: 0, node: { type: "page", id: "pg", name: "P", fill: "$paper" } }, { op: "move", id: "board", parentId: "pg" }]],
+  ["free", [{ op: "create", parentId: "board", node: { type: "page", id: "pg" } }]],
+  ["free", [{ op: "create", node: { type: "page", id: "pg", x: 1 } }]],
+  ["paged", [{ op: "create", node: { type: "rect", id: "loose" } }]],
+  ["paged", [{ op: "move", id: "board", parentId: null }]],
+  ["paged", [{ op: "move", id: "pg2", parentId: "pg1" }]],
+  ["paged", [{ op: "move", id: "pg2", parentId: null, index: 0 }]],
+  ["paged", [{ op: "move", id: "board", parentId: "pg2" }]],
+  ["paged", [{ op: "delete", id: "pg1" }]],
+  ["paged", [{ op: "delete", id: "pg1" }, { op: "delete", id: "pg2" }, { op: "create", node: { type: "rect", id: "back" } }]],
+  ["paged", [{ op: "update", id: "pg1", props: { name: "Home", fill: "#000", notes: "n" } }]],
+  ["paged", [{ op: "update", id: "pg1", props: { x: 3 } }]],
+  ["paged", [{ op: "restore", nodes: [{ type: "page", id: "pz", children: [] }], rootId: "pz", parentId: "board", index: 0 }]],
+  // composite ops, expanded inside the transaction
+  ["free", [{ op: "update", id: "r1", props: { x: 0 } }, { op: "group", ids: ["r1", "t1"], id: "g", name: "G" }]],
+  ["free", [{ op: "group", ids: ["r1", "board"] }]],
+  ["free", [{ op: "group", ids: [] }]],
+  ["grouped", [{ op: "update", id: "g1", props: { x: 7, opacity: 0.5 } }, { op: "ungroup", ids: ["g1"] }]],
+  ["grouped", [{ op: "ungroup", ids: ["r1"] }]],
+  ["free", [{ op: "add_page", id: "p2", firstId: "p1", firstName: "Início", name: "Dois" }]],
+  ["paged", [{ op: "add_page", id: "p3" }, { op: "create", parentId: "p3", node: { type: "rect", id: "r3" } }]],
+  ["paged", [{ op: "add_page", id: "pg1" }]],
 ];
+
+// ---- composite operations (groups, pages): the generated primitive ops ----
+const structureCases = [
+  ["free", "group", { ids: ["e1", "r1"], id: "g", name: "Par" }],
+  ["free", "group", { ids: ["t1"], id: "g" }],
+  ["free", "group", { ids: [] }],
+  ["free", "group", { ids: ["zz", "r1", "yy"] }],
+  ["free", "group", { ids: ["board", "r1"] }],
+  ["card", "group", { ids: ["title"] }],
+  ["paged", "group", { ids: ["pg1"] }],
+  ["grouped", "ungroup", { ids: ["g1"] }],
+  ["paged", "ungroup", { ids: ["g2", "g1", "g2"] }],
+  ["grouped", "ungroup", { ids: ["r1"] }],
+  ["grouped", "ungroup", { ids: ["nope"] }],
+  ["grouped", "ungroup", { ids: [] }],
+  ["free", "page", { id: "pn", name: "Nova", firstId: "pf" }],
+  ["empty", "page", { id: "pn" }],
+  ["paged", "page", { id: "pn" }],
+];
+const structure = structureCases.map(([docName, kind, args]) => {
+  const d = docs[docName];
+  const r = err(() => {
+    if (kind === "group") {
+      const p = groupOps(d, args.ids, { id: args.id, name: args.name });
+      return { ops: p.ops, id: p.id };
+    }
+    if (kind === "ungroup") return ungroupOps(d, args.ids);
+    const p = addPageOps(d, { id: args.id, name: args.name, firstId: args.firstId });
+    return { ops: p.ops, id: p.id };
+  });
+  if (!r.ok) return { doc: docName, kind, args, ok: false, error: r.error };
+  const applied = err(() => applyOps(d, r.value.ops));
+  return {
+    doc: docName, kind, args, ok: true, ops: JSON.stringify(r.value.ops), id: r.value.id, released: r.value.released,
+    result: applied.ok ? json(applied.value.doc) : undefined, applyError: applied.ok ? undefined : applied.error,
+  };
+});
 
 const opResults = opCases.map(([docName, ops]) => {
   const r = err(() => applyOps(docs[docName], ops));
@@ -136,7 +245,8 @@ const opResults = opCases.map(([docName, ops]) => {
 // ---- Op schema errors (ZodError#message, used by the WebSocket and /api/ops) ----
 const zodCases = [{ op: "x" }, { op: "update", id: 1, props: {} }, 5, { op: "create", node: { type: "rect" }, index: -1 },
   { op: "set_tokens", tokens: { "a b": 1, ok: true } }, { op: "restore", nodes: [{ type: "zz" }], rootId: "a", parentId: null, index: 0 },
-  { op: "rename_document", name: "x".repeat(201) }, { op: "move", id: "a", parentId: 3 }];
+  { op: "rename_document", name: "x".repeat(201) }, { op: "move", id: "a", parentId: 3 }, { op: "group", ids: [] }, { op: "ungroup" },
+  { op: "add_page", name: 3 }];
 const zodResults = zodCases.map((input) => ({ input, error: Op.safeParse(input).error?.message ?? null }));
 
 // ---- history ----
@@ -178,7 +288,11 @@ const views = Object.entries(viewDocs).map(([name, doc]) => {
     lintRoots: Object.fromEntries(doc.rootIds.map((id) => [id, JSON.stringify(lintDocument(doc, { rootId: id }))])),
     html: renderHTML(doc).html,
     htmlRoots: Object.fromEntries(doc.rootIds.map((id) => [id, renderHTML(doc, { rootId: id, background: "transparent" }).html])),
-    react: Object.fromEntries(ids.map((id) => [id, exportReact(doc, id)])),
+    htmlPages: Object.fromEntries(doc.rootIds.filter((id) => doc.nodes[id].type === "page").map((id) => [id, renderHTML(doc, { rootId: id }).html])),
+    react: Object.fromEntries(ids.map((id) => {
+      const r = err(() => exportReact(doc, id));
+      return [id, r.ok ? r.value : `ERROR: ${r.error}`];
+    })),
     describe: Object.fromEntries(ids.map((id) => [id, describeNode(doc.nodes[id])])),
     style: Object.fromEntries(ids.map((id) => [id, cssToString(nodeStyle(doc, doc.nodes[id]))])),
     find: {
@@ -230,15 +344,18 @@ function rng(seed) {
   return () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
 }
 const randomRuns = [];
-for (let run = 0; run < 25; run++) {
+// Runs 25+ start from documents with groups and pages and also create groups and pages.
+const runBase = (run) => (run < 25 ? (run % 2 ? "demo" : "bezier") : run % 2 ? "paged" : "grouped");
+for (let run = 0; run < 35; run++) {
   const rand = rng(run + 1);
   const pick = (arr) => arr[Math.floor(rand() * arr.length)];
-  const h = new History(run % 2 ? docs.demo : docs.bezier);
+  const h = new History(docs[runBase(run)]);
+  const extra = run >= 25;
   const steps = [];
   let n = 0;
   for (let k = 0; k < 20; k++) {
     const ids = Object.keys(h.doc.nodes);
-    const frames = ids.filter((id) => h.doc.nodes[id].type === "frame");
+    const frames = ids.filter((id) => (extra ? ["frame", "group", "page"] : ["frame"]).includes(h.doc.nodes[id].type));
     const r = rand();
     let step;
     if (r < 0.12) step = { kind: "undo" };
@@ -253,8 +370,11 @@ for (let run = 0; run < 25; run++) {
           node: pick([{ type: "rect", id: `n${run}_${n++}`, width: Math.round(rand() * 200), fill: pick(["#ff0000", "$brand", "$paper", "rgba(0,0,0,0.5)"]) },
             { type: "text", id: `n${run}_${n++}`, text: pick(["Olá", "", "Texto longo ".repeat(8)]), fontSize: pick([10, 16, 24, "$text.md"]), color: pick(["$ink", "#777", "#fff"]) },
             { type: "path", id: `n${run}_${n++}`, d: pick(["M0 0 L10 10", "M0 0 C 0 -40 100 -40 100 0", "M0 0 Q 50 100 100 0 Z", "M0 0 C 1"]) },
-            { type: "frame", id: `n${run}_${n++}`, layout: { mode: pick(["row", "column", "none"]), gap: 4 }, children: [{ type: "ellipse", id: `n${run}_${n++}` }] }]) });
-        else if (t < 0.5) ops.push({ op: "update", id, props: pick([{ x: Math.round(rand() * 500) - 50 }, { name: "Renomeado" }, { fill: null }, { opacity: rand() }, { width: "fill" }, { visible: false }, { bogus: 1 }]) });
+            { type: "frame", id: `n${run}_${n++}`, layout: { mode: pick(["row", "column", "none"]), gap: 4 }, children: [{ type: "ellipse", id: `n${run}_${n++}` }] },
+            ...(extra ? [{ type: "group", id: `n${run}_${n++}`, children: [{ type: "rect", id: `n${run}_${n++}`, x: -7.5, y: 12, width: 9, height: 4, rotation: 15 }] },
+              { type: "page", id: `n${run}_${n++}`, name: "Pg" }] : [])]) });
+        else if (t < 0.5) ops.push({ op: "update", id, props: pick([{ x: Math.round(rand() * 500) - 50 }, { name: "Renomeado" }, { fill: null }, { opacity: rand() }, { width: "fill" }, { visible: false }, { bogus: 1 },
+          ...(extra ? [{ y: -Math.round(rand() * 80) }, { rotation: Math.round(rand() * 90) }] : [])]) });
         else if (t < 0.65) ops.push({ op: "delete", id: pick(ids) });
         else if (t < 0.85) ops.push({ op: "move", id, parentId: rand() < 0.3 ? null : pick(frames) ?? null, ...(rand() < 0.5 ? { index: Math.floor(rand() * 3) } : {}) });
         else ops.push({ op: "set_tokens", tokens: { [pick(["brand", "ink", "novo", "10"])]: pick(["#123456", 12, null]) } });
@@ -264,10 +384,10 @@ for (let run = 0; run < 25; run++) {
     const res = err(() => (step.kind === "undo" ? h.undo() : step.kind === "redo" ? h.redo() : h.apply(step.ops, "fuzz", "")));
     steps.push({ ...step, error: res.ok ? undefined : res.error, sha256: sha(json(h.doc)), canUndo: h.canUndo, canRedo: h.canRedo });
   }
-  randomRuns.push({ base: run % 2 ? "demo" : "bezier", steps });
+  randomRuns.push({ base: runBase(run), steps });
 }
 
-const out = { randomRuns, opResults, zodResults, history, views, paths, colors, contrast, badDocs, created: createDocument("Sem título", "abc") };
+const out = { randomRuns, structure, opResults, zodResults, history, views, paths, colors, contrast, badDocs, created: createDocument("Sem título", "abc") };
 const dest = join(here, "../internal/core/testdata/golden.json");
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");

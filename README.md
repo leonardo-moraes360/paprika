@@ -71,11 +71,13 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `path_info` | Validates SVG path data and returns the exact bounds (bezier and arc extremes included) and the normalized `d` |
 | `create_nodes` | Creates nested trees in one call |
 | `update_nodes` / `move_nodes` / `delete_nodes` | Atomic batch edits |
-| `apply_ops` | Mixed transaction (create, update, delete, move, set_tokens, rename_document) |
+| `group_nodes` / `ungroup_nodes` | Wraps sibling nodes in a `group` (the drawing stays put) / puts them back |
+| `create_page` | Adds a page; the first one moves the current canvas into "Página 1" |
+| `apply_ops` | Mixed transaction (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page) |
 | `set_tokens` | Design tokens (`$name`) for colors and sizes |
 | `undo` / `redo` / `get_history` | History shared with the human |
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
-| `render_screenshot` | PNG of a node or of the whole canvas |
+| `render_screenshot` | PNG of a node, a page or the whole canvas |
 | `export_code` | Standalone HTML or a React (TSX) component |
 
 > The agent-facing guide and error messages are currently in Brazilian Portuguese.
@@ -83,6 +85,8 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 ## Canvas
 
 Shortcuts: `V` select, `F` frame, `R` rectangle, `O` ellipse, `T` text, `P` pen (click = corner point, click and drag = bezier handles, click the first point to close, `Enter`/`Esc`/double-click to finish an open path, `Backspace` removes the last point), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicate, `Delete`, arrows (Shift = 10px), `Esc` selects the parent.
+Selection: `Shift`-click (canvas or layers) adds or removes a node, dragging on empty canvas draws a selection box, `Ctrl+A` selects the siblings (or the whole page), `Ctrl+G` groups the selection, `Ctrl+Shift+G` ungroups. A click inside a group selects the group; double-click selects the node under the cursor. Dragging, arrows, `Delete` and `Ctrl+D` act on the whole selection.
+Pages: the "Páginas" panel on the left switches pages, `+` adds one (the first `+` turns the current canvas into "Página 1"), double-click renames, `×` deletes (undoable).
 Navigation: scroll = pan, `Ctrl`+scroll = zoom, hold `Space` (or `Enter`) and drag = pan (the cursor turns into a hand).
 Agent edits flash on the canvas and show up under "Atividade" (activity).
 
@@ -114,7 +118,7 @@ The WASM renderer is built by `pnpm build` when Rust is installed (`rustup targe
 }
 ```
 
-Types: `frame` (the only one with children; free, row or column layout), `rect`, `ellipse`, `text`, `image`, `path` (vector shape from SVG path data: lines, cubic and quadratic bezier curves, arcs; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin`, optional `viewBox` to scale an icon grid).
+Types: `frame` (container with paint and free, row or column layout), `group` (wraps nodes without painting; its box follows the children), `page` (a separate canvas in the file; once a document has pages, every top-level node is a page and the frames live inside them), `rect`, `ellipse`, `text`, `image`, `path` (vector shape from SVG path data: lines, cubic and quadratic bezier curves, arcs; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin`, optional `viewBox` to scale an icon grid).
 Sizes: a number, `"hug"` (fit content) or `"fill"` (take the parent's space). Details in [docs/architecture.md](docs/architecture.md). Planned work lives in [docs/backlog.md](docs/backlog.md).
 
 ## Layout

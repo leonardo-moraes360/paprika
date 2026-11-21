@@ -4,6 +4,7 @@
 package core
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -85,7 +86,73 @@ func nodeSchema(typ string, extra ...z.Field) *z.ObjectSchema {
 }
 
 // NodeTypes in schema order.
-var NodeTypes = []string{"frame", "rect", "ellipse", "text", "image", "path"}
+var NodeTypes = []string{"frame", "rect", "ellipse", "text", "image", "path", "group", "page"}
+
+// baseField returns one of the base fields by name.
+func baseField(name string) z.Field {
+	for _, f := range baseFields() {
+		if f.Name == name {
+			return f
+		}
+	}
+	panic("unknown base field " + name)
+}
+
+// groupSchema: a container that paints nothing; its box follows the children (see fitGroups).
+func groupSchema() *z.ObjectSchema {
+	return z.Object(
+		baseField("id"), baseField("name"), baseField("parentId"),
+		z.Field{Name: "type", Schema: z.Literal("group")},
+		baseField("x"), baseField("y"),
+		z.Field{Name: "width", Schema: z.Default(z.Number().Min(0), 0.0)},
+		z.Field{Name: "height", Schema: z.Default(z.Number().Min(0), 0.0)},
+		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"),
+		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
+	)
+}
+
+// pageSchema: a separate canvas in the file, top level only, without geometry.
+func pageSchema() *z.ObjectSchema {
+	return z.Object(
+		baseField("id"), baseField("name"), baseField("parentId"),
+		z.Field{Name: "type", Schema: z.Literal("page")},
+		z.Field{Name: "fill", Schema: z.Optional(colorValue())},
+		baseField("notes"),
+		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
+	)
+}
+
+// IsContainer reports whether a node type takes children.
+func IsContainer(typ string) bool { return typ == "frame" || typ == "group" || typ == "page" }
+
+// FirstPage returns the first top-level node when it is a page (the document has pages), or nil.
+func FirstPage(doc *Document) *Node {
+	roots := doc.Strings("rootIds")
+	if len(roots) == 0 {
+		return nil
+	}
+	if n := GetNode(doc, roots[0]); n != nil && n.Str("type") == "page" {
+		return n
+	}
+	return nil
+}
+
+// PageRoots lists the top-level nodes of a page ("" = the first page, or the document without pages).
+func PageRoots(doc *Document, pageID string) ([]string, error) {
+	var page *Node
+	if pageID != "" {
+		page = GetNode(doc, pageID)
+		if page == nil || page.Str("type") != "page" {
+			return nil, fmt.Errorf(`página "%s" não existe`, pageID)
+		}
+	} else {
+		page = FirstPage(doc)
+	}
+	if page != nil {
+		return page.Strings("children"), nil
+	}
+	return doc.Strings("rootIds"), nil
+}
 
 // NodeSchemas by type.
 var NodeSchemas = map[string]*z.ObjectSchema{
@@ -136,6 +203,8 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "strokeJoin", Schema: z.Default(z.Enum("miter", "round", "bevel"), "round")},
 		z.Field{Name: "viewBox", Schema: z.Optional(z.Tuple(z.Number(), z.Number(), z.Number().Positive(), z.Number().Positive()))},
 	),
+	"group": groupSchema(),
+	"page":  pageSchema(),
 }
 
 // NodeSchema is the discriminated union of all node types.

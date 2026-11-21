@@ -221,6 +221,40 @@ func TestMCPToolsAndErrors(t *testing.T) {
 	}
 }
 
+func TestMCPGroupsAndPages(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "frame", "id", "f", "width", 300.0, "height", 200.0, "children", []any{
+		obj("type", "rect", "id", "a", "x", 10.0, "y", 20.0, "width", 30.0, "height", 30.0),
+		obj("type", "rect", "id", "b", "x", 60.0, "y", 40.0, "width", 30.0, "height", 30.0),
+	})}))
+	out, isErr := callText(t, m, "group_nodes", obj("ids", []any{"a", "b"}, "id", "g", "name", "Par"))
+	if isErr || out != "{\n  \"group\": \"g\",\n  \"created\": [\n    \"g\"\n  ],\n  \"version\": 2\n}" {
+		t.Fatalf("group: %q", out)
+	}
+	if g := core.GetNode(s.Doc(), "g"); g.Num("x") != 10 || g.Num("width") != 80 || g.Num("height") != 50 {
+		t.Fatalf("group box: %s", jsonv.Stringify(g, ""))
+	}
+	if out, isErr = callText(t, m, "group_nodes", obj("ids", []any{"g", "f"})); !isErr || !strings.Contains(out, "mesmo pai") {
+		t.Fatalf("group error: %q", out)
+	}
+	out, _ = callText(t, m, "ungroup_nodes", obj("ids", []any{"g"}))
+	if !strings.Contains(out, "\"released\": [\n    \"a\",\n    \"b\"\n  ]") {
+		t.Fatalf("ungroup: %q", out)
+	}
+	out, _ = callText(t, m, "create_page", obj("id", "p2", "name", "Variações"))
+	if !strings.HasPrefix(out, "{\n  \"page\": \"p2\",") {
+		t.Fatalf("page: %q", out)
+	}
+	roots := s.Doc().Strings("rootIds")
+	if len(roots) != 2 || core.GetNode(s.Doc(), roots[0]).Str("name") != "Página 1" {
+		t.Fatalf("pages: %v", roots)
+	}
+	if out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect")})); !isErr || !strings.Contains(out, "tem páginas") {
+		t.Fatalf("loose: %q", out)
+	}
+}
+
 func TestStdio(t *testing.T) {
 	s, _ := openTemp(t)
 	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}

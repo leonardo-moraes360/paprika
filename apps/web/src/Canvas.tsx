@@ -2,7 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import {
   anchorsToPath,
   canvasBounds,
+  isScene,
   newId,
+  pageRoots,
   nodeStyle,
   parsePath,
   pathAttrs,
@@ -14,6 +16,7 @@ import {
   type Document,
   type Node,
   type Op,
+  type SceneNode,
 } from "@paprika/core";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 
@@ -32,13 +35,19 @@ interface View {
   zoom: number;
 }
 
-interface Preview {
-  id: string;
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
+/** Posições/tamanhos provisórios durante um arraste (um ou vários nós). */
+type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number }>;
+
+/** Retângulo de seleção (marquee), em coordenadas do viewport. */
+interface Marquee {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  additive: boolean;
 }
+
+type Rect = { left: number; top: number; width: number; height: number };
 
 interface Draft {
   parentId: string | null;
@@ -53,8 +62,10 @@ interface Draft {
 
 interface Props {
   doc: Document;
-  selected: string | null;
-  onSelect(id: string | null): void;
+  selected: string[];
+  onSelect(ids: string[]): void;
+  /** Página mostrada no canvas (null: documento sem páginas). */
+  pageId: string | null;
   tool: Tool;
   onToolDone(): void;
   apply(ops: Op[], label?: string): void;
@@ -63,8 +74,28 @@ interface Props {
 
 const isAbsolute = (doc: Document, n: Node) => {
   const p = n.parentId ? doc.nodes[n.parentId] : undefined;
-  return !p || p.type !== "frame" || !p.layout || p.layout.mode === "none";
+  return n.type !== "page" && (!p || p.type !== "frame" || !p.layout || p.layout.mode === "none");
 };
+
+/**
+ * Clicar dentro de um grupo seleciona o grupo mais externo (ou mantém o grupo já selecionado, para
+ * poder arrastá-lo). Quando a seleção já está dentro do grupo (um filho selecionado), o clique vai
+ * para o próximo nível. O duplo clique entra direto no nó sob o cursor.
+ */
+export function pickTarget(doc: Document, id: string, selected: readonly string[]): string {
+  const groups: string[] = []; // do mais interno ao mais externo
+  for (let p = doc.nodes[id]?.parentId; p; p = doc.nodes[p]?.parentId ?? null) if (doc.nodes[p]?.type === "group") groups.push(p);
+  const within = (g: string) =>
+    selected.some((s) => {
+      for (let cur = doc.nodes[s]?.parentId ?? null; cur; cur = doc.nodes[cur]?.parentId ?? null) if (cur === g) return true;
+      return false;
+    });
+  for (let k = groups.length - 1; k >= 0; k--) {
+    const g = groups[k]!;
+    if (selected.includes(g) || !within(g)) return g;
+  }
+  return id;
+}
 
 /** Prévia da caneta: o caminho até aqui, a reta até o cursor, âncoras e alças. Desenhada no espaço do pai. */
 function PenOverlay({ pen, zoom }: { pen: PenDraft; zoom: number }) {
@@ -111,11 +142,12 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm }: RenderProp
     delete css.boxShadow;
     delete css.filter;
   }
-  if (preview && preview.id === node.id) {
-    if (preview.x !== undefined) css.left = preview.x;
-    if (preview.y !== undefined) css.top = preview.y;
-    if (preview.width !== undefined) css.width = preview.width;
-    if (preview.height !== undefined) css.height = preview.height;
+  const pv = preview?.[node.id];
+  if (pv) {
+    if (pv.x !== undefined) css.left = pv.x;
+    if (pv.y !== undefined) css.top = pv.y;
+    if (pv.width !== undefined) css.width = pv.width;
+    if (pv.height !== undefined) css.height = pv.height;
   }
   const props = {
     "data-paprika-id": node.id,
@@ -125,6 +157,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm }: RenderProp
   };
   switch (node.type) {
     case "frame":
+    case "group":
       return (
         <div {...props}>
           {node.children.map((c) => {
@@ -152,15 +185,19 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm }: RenderProp
   }
 }
 
-export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agentTouched }: Props) {
+export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 40, y: 40, zoom: 1 });
   const [renderer, setRenderer] = useState<RendererMode>(initialRendererMode);
   const [preview, setPreview] = useState<Preview | null>(null);
-  const wasmLayer = useWasmLayer({ mode: renderer, doc, view, viewportRef, worldRef, layoutKey: preview });
+  const wasmLayer = useWasmLayer({ mode: renderer, doc, view, viewportRef, worldRef, layoutKey: preview, pageId });
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const [marquee, setMarquee] = useState<Marquee | null>(null);
+  /** Caixa que envolve a seleção, e a de cada nó quando há mais de um. */
+  const [box, setBox] = useState<Rect | null>(null);
+  const [boxes, setBoxes] = useState<(Rect & { id: string })[]>([]);
+  const roots = pageRoots(doc, pageId);
   const [frameLabels, setFrameLabels] = useState<{ id: string; name: string; left: number; top: number }[]>([]);
   const fitted = useRef(false);
   const spaceDown = useRef(false);
@@ -168,33 +205,43 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
   const fit = useCallback(() => {
     if (!viewportRef.current) return;
     const vp = viewportRef.current.getBoundingClientRect();
-    const b = canvasBounds(doc);
+    const b = canvasBounds(doc, pageId ?? undefined);
     const zoom = Math.min(1, (vp.width - 120) / Math.max(b.width, 1), (vp.height - 120) / Math.max(b.height, 1));
     const z = Math.max(0.1, zoom);
     setView({ zoom: z, x: (vp.width - b.width * z) / 2 - b.x * z, y: (vp.height - b.height * z) / 2 - b.y * z });
-  }, [doc]);
+  }, [doc, pageId]);
 
-  // Enquadra o conteúdo na primeira carga e sempre que o servidor passa a servir outro documento.
+  // Enquadra o conteúdo na primeira carga, quando o servidor passa a servir outro documento e ao trocar de página.
   const fittedDocId = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (fitted.current && fittedDocId.current === doc.id) return;
+    const key = `${doc.id}/${pageId ?? ""}`;
+    if (fitted.current && fittedDocId.current === key) return;
     fitted.current = true;
-    fittedDocId.current = doc.id;
+    fittedDocId.current = key;
     fit();
-  }, [fit, doc.id]);
+  }, [fit, doc.id, pageId]);
 
   // Caixa de seleção e rótulos dos frames: medidos do DOM real, então seguem layout flex e hug.
   useLayoutEffect(() => {
     const vp = viewportRef.current;
     if (!vp) return;
     const vpr = vp.getBoundingClientRect();
-    const el = selected ? vp.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(selected)}"]`) : null;
-    if (el) {
+    const rects = selected.flatMap((id) => {
+      const el = vp.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(id)}"]`);
+      if (!el) return [];
       const r = el.getBoundingClientRect();
-      setBox({ left: r.left - vpr.left, top: r.top - vpr.top, width: r.width, height: r.height });
+      return [{ id, left: r.left - vpr.left, top: r.top - vpr.top, width: r.width, height: r.height }];
+    });
+    if (rects.length) {
+      const left = Math.min(...rects.map((r) => r.left));
+      const top = Math.min(...rects.map((r) => r.top));
+      const right = Math.max(...rects.map((r) => r.left + r.width));
+      const bottom = Math.max(...rects.map((r) => r.top + r.height));
+      setBox({ left, top, width: right - left, height: bottom - top });
     } else setBox(null);
+    setBoxes(rects.length > 1 ? rects : []);
     setFrameLabels(
-      doc.rootIds.flatMap((id) => {
+      roots.flatMap((id) => {
         const n = doc.nodes[id];
         const e = vp.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(id)}"]`);
         if (!n || n.type !== "frame" || !e) return [];
@@ -202,7 +249,7 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
         return [{ id, name: n.name || id, left: r.left - vpr.left, top: r.top - vpr.top }];
       }),
     );
-  }, [doc, selected, view, preview]);
+  }, [doc, selected, view, preview, roots]);
 
   // Caneta (P): clique cria um vértice reto; clicar e arrastar puxa alças bezier simétricas.
   // Clicar no primeiro vértice fecha a forma; Enter, Esc ou duplo clique terminam aberta; Backspace desfaz o último vértice.
@@ -256,7 +303,7 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
       if (closed) node.fill = "#d9d4cf";
       parsePath(d); // falha aqui antes de mandar algo inválido ao servidor
       apply([{ op: "create", node: node as never, parentId: p.parentId }], "desenhar vetor");
-      onSelect(id);
+      onSelect([id]);
       onToolDone();
     },
     [apply, doc, onSelect, onToolDone],
@@ -295,8 +342,8 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
         if (f?.type === "frame" && (!f.layout || f.layout.mode === "none")) break;
         frameEl = frameEl.parentElement?.closest<HTMLElement>('[data-paprika-type="frame"]') ?? null;
       }
-      draft = { parentId: frameEl?.dataset.paprikaId ?? null, anchors: [], cursor: null };
-      onSelect(null);
+      draft = { parentId: frameEl?.dataset.paprikaId ?? pageId, anchors: [], cursor: null };
+      onSelect([]);
     }
     const parentId = draft.parentId;
     const p0 = localFor(parentId, e.clientX, e.clientY);
@@ -424,7 +471,7 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
 
     if (tool !== "select") {
       const frameEl = (e.target as HTMLElement).closest<HTMLElement>('[data-paprika-type="frame"]');
-      const parentId = frameEl?.dataset.paprikaId ?? null;
+      const parentId = frameEl?.dataset.paprikaId ?? pageId;
       const vpr = viewportRef.current!.getBoundingClientRect();
       let originLeft = vpr.left + view.x;
       let originTop = vpr.top + view.y;
@@ -463,7 +510,7 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
         if (tool === "text") Object.assign(node, { text: "Texto", height: "hug" });
         const id = newId();
         apply([{ op: "create", node: { ...node, id } as never, parentId: d.parentId }], `criar ${names[kind].toLowerCase()}`);
-        onSelect(id);
+        onSelect([id]);
         onToolDone();
       };
       window.addEventListener("pointermove", move);
@@ -471,38 +518,90 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
       return;
     }
 
-    if (!target) return onSelect(null);
-    const id = target.dataset.paprikaId!;
-    onSelect(id);
-    const node = doc.nodes[id];
-    if (!node || node.locked || !isAbsolute(doc, node)) return;
+    const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+    if (!target) return startMarquee(e, additive);
+    const id = pickTarget(doc, target.dataset.paprikaId!, selected);
+    if (additive) {
+      onSelect(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]);
+      return;
+    }
+    // Arrastar um nó já selecionado move a seleção inteira; senão, seleciona só ele.
+    const group = selected.includes(id) ? selected : [id];
+    if (!selected.includes(id)) onSelect([id]);
+    const movable = group.map((g) => doc.nodes[g]).filter((n): n is SceneNode => isScene(n) && !n.locked && isAbsolute(doc, n));
+    if (!movable.length) return;
     const start = toWorld(e.clientX, e.clientY);
     let moved = false;
-    let last = { x: node.x, y: node.y };
+    let last: Preview = {};
     const move = (ev: PointerEvent) => {
       const p = toWorld(ev.clientX, ev.clientY);
       const dx = p.x - start.x;
       const dy = p.y - start.y;
       if (!moved && Math.hypot(dx, dy) * view.zoom < 3) return;
       moved = true;
-      last = { x: Math.round(node.x + dx), y: Math.round(node.y + dy) };
-      setPreview({ id, ...last });
+      last = Object.fromEntries(movable.map((n) => [n.id, { x: Math.round(n.x + dx), y: Math.round(n.y + dy) }]));
+      setPreview(last);
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       setPreview(null);
-      if (moved) apply([{ op: "update", id, props: last }], "mover");
+      if (moved) apply(Object.entries(last).map(([nid, props]) => ({ op: "update", id: nid, props })), movable.length > 1 ? `mover ${movable.length} nós` : "mover");
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   };
 
+  /** Marquee: arrastar no vazio seleciona os nós de topo da página que o retângulo toca. */
+  const startMarquee = (e: RPointerEvent, additive: boolean) => {
+    const vpr = viewportRef.current!.getBoundingClientRect();
+    const m: Marquee = { x0: e.clientX - vpr.left, y0: e.clientY - vpr.top, x1: e.clientX - vpr.left, y1: e.clientY - vpr.top, additive };
+    const base = additive ? selected : [];
+    let dragged = false;
+    const hits = () => {
+      const [l, r] = [Math.min(m.x0, m.x1), Math.max(m.x0, m.x1)];
+      const [t, b] = [Math.min(m.y0, m.y1), Math.max(m.y0, m.y1)];
+      return roots.filter((id) => {
+        const el = viewportRef.current!.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(id)}"]`);
+        if (!el) return false;
+        const rr = el.getBoundingClientRect();
+        const x = rr.left - vpr.left;
+        const y = rr.top - vpr.top;
+        return x < r && x + rr.width > l && y < b && y + rr.height > t;
+      });
+    };
+    const move = (ev: PointerEvent) => {
+      m.x1 = ev.clientX - vpr.left;
+      m.y1 = ev.clientY - vpr.top;
+      if (!dragged && Math.hypot(m.x1 - m.x0, m.y1 - m.y0) < 3) return;
+      dragged = true;
+      setMarquee({ ...m });
+      onSelect([...new Set([...base, ...hits()])]);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setMarquee(null);
+      if (!dragged && !additive) onSelect([]);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  /** Duplo clique (fora da caneta) entra no grupo: seleciona o nó exato sob o cursor. */
+  const onDeepSelect = (e: RPointerEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+    if (tool !== "select") return;
+    const target = (e.target as HTMLElement).closest<HTMLElement>("[data-paprika-id]");
+    if (target) onSelect([target.dataset.paprikaId!]);
+  };
+
+  const single = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
+  const resizable = !!single && single.type !== "group" && single.type !== "page";
   const onResizeDown = (e: RPointerEvent) => {
     e.stopPropagation();
-    if (!selected || !box) return;
-    const node = doc.nodes[selected];
-    if (!node || node.locked) return;
+    const node = single;
+    if (!node || !box || !resizable || node.type === "page" || node.locked) return;
+    const id = node.id;
     const sx = e.clientX;
     const sy = e.clientY;
     const w0 = box.width / view.zoom;
@@ -513,19 +612,25 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
         width: Math.max(1, Math.round(w0 + (ev.clientX - sx) / view.zoom)),
         height: Math.max(1, Math.round(h0 + (ev.clientY - sy) / view.zoom)),
       };
-      setPreview({ id: selected, ...last });
+      setPreview({ [id]: last });
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       setPreview(null);
-      apply([{ op: "update", id: selected, props: last }], "redimensionar");
+      apply([{ op: "update", id, props: last }], "redimensionar");
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   };
 
-  const roots = doc.rootIds.map((id) => doc.nodes[id]).filter((n): n is Node => !!n);
+  const rootNodes = roots.map((id) => doc.nodes[id]).filter((n): n is Node => !!n);
+  const marqueeRect = marquee && {
+    left: Math.min(marquee.x0, marquee.x1),
+    top: Math.min(marquee.y0, marquee.y1),
+    width: Math.abs(marquee.x1 - marquee.x0),
+    height: Math.abs(marquee.y1 - marquee.y0),
+  };
   const draftRect = draft && {
     left: draft.originLeft + Math.min(draft.x0, draft.x1) * view.zoom,
     top: draft.originTop + Math.min(draft.y0, draft.y1) * view.zoom,
@@ -539,12 +644,12 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
       className={`viewport tool-${tool}${pan === "ready" ? " is-pan-ready" : pan === "panning" ? " is-panning" : ""}`}
       onPointerDown={onPointerDown}
       onPointerMove={pen ? onPenHover : undefined}
-      onDoubleClick={pen ? onPenDouble : undefined}
+      onDoubleClick={pen ? onPenDouble : onDeepSelect}
       data-testid="viewport"
     >
       {renderer === "wasm" && <canvas ref={wasmLayer.canvasRef} className="wasm-layer" data-testid="wasm-layer" data-backend={wasmLayer.status.backend} />}
       <div ref={worldRef} className="world" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
-        {roots.map((n) => (
+        {rootNodes.map((n) => (
           <RenderNode key={n.id} doc={doc} node={n} preview={preview} touched={agentTouched} pen={pen} zoom={view.zoom} wasm={wasmLayer.active} />
         ))}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
@@ -552,25 +657,30 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
       {frameLabels.map((l) => (
         <div
           key={l.id}
-          className={`frame-label${l.id === selected ? " is-selected" : ""}`}
+          className={`frame-label${selected.includes(l.id) ? " is-selected" : ""}`}
           style={{ left: l.left, top: l.top - 20 }}
           onPointerDown={(e) => {
             e.stopPropagation();
-            onSelect(l.id);
+            const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+            onSelect(additive ? (selected.includes(l.id) ? selected.filter((s) => s !== l.id) : [...selected, l.id]) : [l.id]);
           }}
         >
           {l.name}
         </div>
       ))}
+      {boxes.map((b) => (
+        <div key={b.id} className="selection-item" style={{ left: b.left, top: b.top, width: b.width, height: b.height }} />
+      ))}
       {box && (
-        <div className="selection" style={box} data-testid="selection">
-          <div className="handle" onPointerDown={onResizeDown} title="Redimensionar" />
+        <div className={`selection${selected.length > 1 ? " is-multi" : ""}`} style={box} data-testid="selection" data-count={selected.length}>
+          {resizable && <div className="handle" onPointerDown={onResizeDown} title="Redimensionar" />}
           <div className="dims">
             {Math.round(box.width / view.zoom)} × {Math.round(box.height / view.zoom)}
           </div>
         </div>
       )}
       {draftRect && <div className="draft" style={draftRect} />}
+      {marqueeRect && <div className="marquee" style={marqueeRect} data-testid="marquee" />}
       <div className="zoom-pill" onPointerDown={(e) => e.stopPropagation()}>
         <button onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom">−</button>
         <span>{Math.round(view.zoom * 100)}%</span>

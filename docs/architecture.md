@@ -23,7 +23,8 @@
 
 ## Decisions
 
-1. **Flat node map + `children` on frames.** O(1) access by id for the agent, an explicit tree for rendering. `parseDocument` checks integrity (no orphans, no duplicates, consistent `parentId`).
+1. **Flat node map + `children` on containers (`frame`, `group`, `page`).** O(1) access by id for the agent, an explicit tree for rendering. `parseDocument` checks integrity (no orphans, no duplicates, consistent `parentId`, pages only at the top and, once there is a page, only pages at the top).
+8. **Composite operations expand inside the transaction.** `group`, `ungroup` and `add_page` are operations too, but `applyOps` turns them into create/move/update/delete against the document *as it is at that moment* (`packages/core/src/structure.ts`), so a canvas or an agent working from a slightly old copy still gets a correct result and one undo step. A group's box is derived: at the end of every transaction `fitGroups` fits each group to its children (deepest first) and shifts them so nothing moves on screen; the inverse only stores positions, and `width`/`height` of a group are rejected as input.
 2. **One write path: `applyOps`.** The canvas, MCP and `POST /api/ops` produce the same operations. A transaction runs on a clone and only replaces the document if every operation succeeds. Each transaction yields its inverse operations, which feed the shared undo/redo.
 3. **Reject unknown fields.** Zod would drop them silently (`colour` instead of `color`); for agents, an explicit error is cheaper than a wrong design.
 4. **One style engine.** `nodeStyle` produces the CSS used by the canvas, the screenshot HTML and the React export. What the agent checks in the PNG is what the human sees. For `path` nodes, `pathAttrs` plays the same role for the `<svg>`/`<path>` attributes, and `packages/core/src/path.ts` (parser, normalization, exact bezier/arc bounds) runs the same way on the server, in the canvas and in tests; invalid `d` is rejected with the character position.
@@ -38,7 +39,8 @@
 ## Known limitations (v0.1)
 
 - One process per file: two processes writing the same file are last-writer-wins (the watcher reloads but does not merge). To use MCP and the canvas together, prefer `paprika serve` + MCP over HTTP.
-- No components/instances, boolean operations on paths, point-by-point path editing on the canvas (the pen creates new paths; existing ones are edited through `d`), structured gradients, multiple pages, rotation-aware hit testing or multi-select.
+- No components/instances, boolean operations on paths, point-by-point path editing on the canvas (the pen creates new paths; existing ones are edited through `d`), structured gradients or rotation-aware hit testing.
+- Groups have no rotation of their own (rotate the children), and children sized `hug`/`fill` count as a point when the group box is fitted. Nodes inside a row/column frame can't be grouped (their position comes from the flow).
 - The contrast lint ignores gradients and background images.
 - Dragging on the canvas only moves nodes whose parent has no auto layout (in row/column, order comes from the layout).
 - The agent-facing guide and error messages are in Brazilian Portuguese.

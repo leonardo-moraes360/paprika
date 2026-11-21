@@ -36,6 +36,9 @@ func RootBounds(doc *Document, id string) (Bounds, error) {
 	if n == nil {
 		return Bounds{}, fmt.Errorf(`nó "%s" não existe`, id)
 	}
+	if n.Str("type") == "page" {
+		return CanvasBounds(doc, id), nil
+	}
 	w, h := 1.0, 1.0
 	if v, ok := n.Get("width"); ok {
 		if f, isNum := v.(float64); isNum {
@@ -50,9 +53,9 @@ func RootBounds(doc *Document, id string) (Bounds, error) {
 	return Bounds{n.Num("x"), n.Num("y"), math.Max(1, w), math.Max(1, h)}, nil
 }
 
-// CanvasBounds contains every top-level node.
-func CanvasBounds(doc *Document) Bounds {
-	roots := doc.Strings("rootIds")
+// CanvasBounds contains every top-level node of a page ("" = the first page, or the document without pages).
+func CanvasBounds(doc *Document, pageID string) Bounds {
+	roots, _ := PageRoots(doc, pageID)
 	if len(roots) == 0 {
 		return Bounds{0, 0, 800, 600}
 	}
@@ -83,7 +86,7 @@ func childNodes(doc *Document, n *Node) []*Node {
 
 func renderNode(doc *Document, node *Node, asRoot bool, offset *Point) string {
 	css := NodeStyle(doc, node, asRoot)
-	if offset != nil && !asRoot {
+	if offset != nil && !asRoot && node.Str("type") != "page" {
 		css.Set("left", jsonv.FormatNumber(node.Num("x")-offset.X)+"px")
 		css.Set("top", jsonv.FormatNumber(node.Num("y")-offset.Y)+"px")
 	}
@@ -94,7 +97,7 @@ func renderNode(doc *Document, node *Node, asRoot bool, offset *Point) string {
 	typ := node.Str("type")
 	attrs := fmt.Sprintf(`data-paprika-id="%s" data-paprika-type="%s"%s style="%s"`, EscapeHTML(node.Str("id")), typ, name, EscapeHTML(CSSToString(css)))
 	switch typ {
-	case "frame":
+	case "frame", "group", "page":
 		var kids strings.Builder
 		for _, c := range childNodes(doc, node) {
 			kids.WriteString(renderNode(doc, c, false, nil))
@@ -121,17 +124,30 @@ type RenderOptions struct {
 func RenderHTML(doc *Document, opts RenderOptions) (string, Bounds, error) {
 	var body string
 	var bounds Bounds
+	var node, page *Node
 	if opts.RootID != "" {
-		node := GetNode(doc, opts.RootID)
+		node = GetNode(doc, opts.RootID)
 		if node == nil {
 			return "", Bounds{}, fmt.Errorf(`nó "%s" não existe`, opts.RootID)
 		}
+		if node.Str("type") == "page" {
+			page = node
+		}
+	} else {
+		page = FirstPage(doc)
+	}
+	if node != nil && page == nil {
 		bounds, _ = RootBounds(doc, opts.RootID)
 		body = renderNode(doc, node, true, nil)
 	} else {
-		bounds = CanvasBounds(doc)
+		pageID := ""
+		if page != nil {
+			pageID = page.Str("id")
+		}
+		bounds = CanvasBounds(doc, pageID)
+		roots, _ := PageRoots(doc, pageID)
 		var b strings.Builder
-		for _, id := range doc.Strings("rootIds") {
+		for _, id := range roots {
 			if n := GetNode(doc, id); n != nil {
 				b.WriteString(renderNode(doc, n, false, &Point{bounds.X, bounds.Y}))
 			}
@@ -141,6 +157,11 @@ func RenderHTML(doc *Document, opts RenderOptions) (string, Bounds, error) {
 	bg := opts.Background
 	if bg == "" {
 		bg = "#ffffff"
+		if page != nil {
+			if f, ok := page.Get("fill"); ok && f != "" {
+				bg = jsString(ResolveValue(doc, f))
+			}
+		}
 	}
 	html := "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>" + EscapeHTML(doc.Str("name")) + "</title>\n" +
 		"<style>html,body{margin:0;padding:0}body{position:relative;width:" + jsonv.FormatNumber(bounds.Width) + "px;height:" + jsonv.FormatNumber(bounds.Height) +
@@ -188,7 +209,7 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string) string {
 		name = " data-name=" + jsonv.Quote(n)
 	}
 	switch node.Str("type") {
-	case "frame":
+	case "frame", "group", "page":
 		kids := []string{}
 		for _, c := range childNodes(doc, node) {
 			kids = append(kids, jsxNode(doc, c, false, indent+"  "))
@@ -259,6 +280,9 @@ func ExportReact(doc *Document, rootID string) (string, error) {
 	node := GetNode(doc, rootID)
 	if node == nil {
 		return "", fmt.Errorf(`nó "%s" não existe`, rootID)
+	}
+	if node.Str("type") == "page" {
+		return "", fmt.Errorf(`"%s" é uma página; exporte um frame dela (export_code com o id do frame)`, rootID)
 	}
 	n := node.Str("name")
 	if n == "" {

@@ -1,4 +1,4 @@
-import type { Document, Node } from "./schema.js";
+import { isContainer, type Document, type Node } from "./schema.js";
 import { resolveValue } from "./style.js";
 
 export interface RGBA {
@@ -58,7 +58,7 @@ export function effectiveBackground(doc: Document, node: Node): RGBA | undefined
   const layers: RGBA[] = [];
   let cur: Node | undefined = node.type === "text" ? node : node.parentId ? doc.nodes[node.parentId] : undefined;
   while (cur) {
-    if (cur.fill) {
+    if (cur.type !== "group" && cur.fill) {
       const c = parseColor(String(resolveValue(doc, cur.fill)));
       if (!c) return undefined;
       layers.push(c);
@@ -85,7 +85,9 @@ function tokenRefs(node: Node): string[] {
   const check = (v: unknown) => {
     if (typeof v === "string" && v.startsWith("$")) refs.push(v.slice(1));
   };
+  if (node.type === "group") return refs;
   check(node.fill);
+  if (node.type === "page") return refs;
   check(node.stroke?.color);
   check(node.shadow?.color);
   if (node.type === "text") {
@@ -148,8 +150,12 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
     if (node.type === "image" && !node.alt.trim())
       issues.push({ rule: "missing-alt", severity: "warning", nodeId: id, message: "imagem sem texto alternativo (alt)" });
 
-    if (hasColorTokens && node.fill && !node.fill.startsWith("$") && node.fill !== "transparent")
+    if (node.type !== "group" && hasColorTokens && node.fill && !node.fill.startsWith("$") && node.fill !== "transparent")
       issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `fill literal "${node.fill}"; prefira um token` });
+
+    if (node.type === "page") continue;
+    if (node.type === "group" && node.children.length === 0)
+      issues.push({ rule: "empty-group", severity: "info", nodeId: id, message: "group vazio; apague ou mova nós para dentro" });
 
     const parent = node.parentId ? doc.nodes[node.parentId] : undefined;
     const absolute = parent?.type === "frame" && (!parent.layout || parent.layout.mode === "none");
@@ -174,7 +180,7 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
         });
     }
 
-    if (node.type === "frame" && !node.name && !node.parentId)
+    if (node.type === "frame" && !node.name && (!parent || parent.type === "page"))
       issues.push({ rule: "unnamed-frame", severity: "info", nodeId: id, message: "frame de nível superior sem nome" });
   }
   return issues;
@@ -186,7 +192,7 @@ function collect(doc: Document, rootId: string): string[] {
     const n = doc.nodes[id];
     if (!n) return;
     out.push(id);
-    if (n.type === "frame") n.children.forEach(walk);
+    if (isContainer(n)) n.children.forEach(walk);
   };
   walk(rootId);
   return out;

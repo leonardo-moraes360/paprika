@@ -280,6 +280,13 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 			}
 		}
 
+		if typ == "page" {
+			continue
+		}
+		if typ == "group" && len(node.Arr("children")) == 0 {
+			add("empty-group", "info", id, "group vazio; apague ou mova nós para dentro")
+		}
+
 		parent := parentOf(doc, node)
 		absolute := parent != nil && parent.Str("type") == "frame" && (parent.Obj("layout") == nil || parent.Obj("layout").Str("mode") == "none")
 		if absolute && node.Bool("visible") {
@@ -303,10 +310,8 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 			}
 		}
 
-		if typ == "frame" && node.Str("name") == "" && parentOf(doc, node) == nil {
-			if pid, _ := ParentID(node); pid == "" {
-				add("unnamed-frame", "info", id, "frame de nível superior sem nome")
-			}
+		if typ == "frame" && node.Str("name") == "" && (parent == nil || parent.Str("type") == "page") {
+			add("unnamed-frame", "info", id, "frame de nível superior sem nome")
 		}
 	}
 	return issues
