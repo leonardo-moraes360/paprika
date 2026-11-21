@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
 import {
   copyOwner,
   importHTML,
@@ -17,12 +17,24 @@ import {
   translatePath,
   wasmPaintable,
   isSVGText,
+  insertAnchor,
+  moveAnchor,
+  moveHandle,
+  nearestOnPath,
+  pathEditProps,
+  pathToSubpaths,
+  removeAnchor,
+  toggleSmooth,
   type Anchor,
+  type AnchorRef,
+  type PathNode,
+  type Subpath,
   type Document,
   type Node,
   type Op,
   type SceneNode,
 } from "@paprika/core";
+import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 
 export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen";
@@ -136,9 +148,11 @@ interface RenderProps {
   zoom: number;
   /** The WASM layer is drawing shapes: keep their boxes (layout, hit testing) but not their paint. */
   wasm: boolean;
+  /** Path em edição ponto a ponto, com os subcaminhos a desenhar. */
+  edit: { id: string; subs: Subpath[]; sel: AnchorRef | null } | null;
 }
 
-function RenderNode({ doc, node, preview, touched, pen, zoom, wasm }: RenderProps) {
+function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit }: RenderProps) {
   const css = nodeStyle(doc, node) as CSSProperties;
   const wasmPaints = wasm && wasmPaintable(doc, node);
   if (wasmPaints) {
@@ -168,7 +182,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm }: RenderProp
         <div {...props}>
           {node.children.map((c) => {
             const child = doc.nodes[c];
-            return child ? <RenderNode key={c} doc={doc} node={child} preview={preview} touched={touched} pen={pen} zoom={zoom} wasm={wasm} /> : null;
+            return child ? <RenderNode key={c} doc={doc} node={child} preview={preview} touched={touched} pen={pen} zoom={zoom} wasm={wasm} edit={edit} /> : null;
           })}
           {pen && pen.parentId === node.id && <PenOverlay pen={pen} zoom={zoom} />}
         </div>
@@ -178,11 +192,17 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm }: RenderProp
     case "image":
       return <img {...props} src={node.src} alt={node.alt} draggable={false} />;
     case "path": {
-      if (wasmPaints) return <div {...props} />;
+      const editing = edit?.id === node.id ? edit : null;
+      if (wasmPaints && !editing) return <div {...props} />;
       const a = pathAttrs(doc, node);
+      // Em edição, as alças podem sair da caixa do nó.
+      if (editing) props.style = { ...css, overflow: "visible" };
       return (
         <svg {...props} {...a.svg}>
-          <path {...a.path} fillRule={a.path.fillRule as "nonzero" | "evenodd"} strokeLinecap={a.path.strokeLinecap as "round"} strokeLinejoin={a.path.strokeLinejoin as "round"} />
+          {!wasmPaints && (
+            <path {...a.path} fillRule={a.path.fillRule as "nonzero" | "evenodd"} strokeLinecap={a.path.strokeLinecap as "round"} strokeLinejoin={a.path.strokeLinejoin as "round"} />
+          )}
+          {editing && <PathEditOverlay subs={editing.subs} sel={editing.sel} scale={pathScale(node, zoom)} />}
         </svg>
       );
     }
@@ -476,6 +496,146 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     return () => vp.removeEventListener("wheel", onWheel);
   }, []);
 
+  // Edição ponto a ponto (duplo clique num path): arrastar âncoras e alças, duplo clique numa
+  // âncora alterna canto/suave, duplo clique no contorno insere um ponto, Delete remove o
+  // selecionado, Esc ou Enter saem. Cada gesto é uma entrada no histórico.
+  const [pathEdit, setPathEdit] = useState<PathEditState | null>(null);
+  const pathEditRef = useRef(pathEdit);
+  pathEditRef.current = pathEdit;
+  const editNode = pathEdit ? doc.nodes[pathEdit.id] : undefined;
+  const editPath = editNode?.type === "path" ? editNode : undefined;
+  const editSubs = useMemo(() => {
+    if (!editPath) return null;
+    try {
+      return pathToSubpaths(parsePath(editPath.d));
+    } catch {
+      return null;
+    }
+  }, [editPath]);
+  // O que está na tela: o arraste em curso, senão o último gesto enviado (até o servidor devolver o
+  // documento novo), senão o `d` do nó. Gestos rápidos em sequência partem sempre desse estado.
+  const shownSubs = pathEdit && editSubs ? (pathEdit.draft ?? pathEdit.sent ?? editSubs) : null;
+  const editView = pathEdit && editPath && shownSubs ? { id: pathEdit.id, subs: shownSubs, sel: pathEdit.sel } : null;
+  const editSubsRef = useRef(shownSubs);
+  editSubsRef.current = shownSubs;
+  useEffect(() => {
+    setPathEdit((cur) => (cur?.sent ? { ...cur, sent: null } : cur));
+  }, [editSubs]);
+
+  // Sai da edição quando o nó some (undo, agente), a seleção muda ou outra ferramenta entra.
+  useEffect(() => {
+    if (!pathEdit) return;
+    if (!editPath || !editSubs || tool !== "select" || selected.length !== 1 || selected[0] !== pathEdit.id) setPathEdit(null);
+  }, [pathEdit, editPath, editSubs, tool, selected]);
+
+  const commitPath = useCallback(
+    (subs: Subpath[], label: string) => {
+      const node = pathEditRef.current && doc.nodes[pathEditRef.current.id];
+      if (!node || node.type !== "path") return;
+      const props = pathEditProps(node, subs, isAbsolute(doc, node));
+      if (!props) {
+        setPathEdit(null);
+        apply([{ op: "delete", id: node.id }], "apagar vetor");
+        onSelect([]);
+        return;
+      }
+      setPathEdit((cur) => cur && { ...cur, sent: subs });
+      apply([{ op: "update", id: node.id, props: { ...props } }], label);
+    },
+    [apply, doc, onSelect],
+  );
+
+  const startPathEdit = (node: PathNode) => {
+    if (node.locked || copyOwner(doc, node)) return false;
+    try {
+      parsePath(node.d);
+    } catch {
+      return false;
+    }
+    setPathEdit({ id: node.id, sel: null, draft: null, sent: null });
+    onSelect([node.id]);
+    return true;
+  };
+
+  useEffect(() => {
+    if (!pathEdit) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target;
+      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || (t instanceof HTMLElement && t.isContentEditable)) return;
+      const st = pathEditRef.current;
+      const subs = editSubsRef.current;
+      if (!st || !subs) return;
+      if (e.key === "Escape" || e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        setPathEdit(null);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && st.sel) {
+        e.preventDefault();
+        e.stopPropagation();
+        setPathEdit((cur) => cur && { ...cur, sel: null });
+        commitPath(removeAnchor(subs, st.sel), "remover ponto");
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [pathEdit, commitPath]);
+
+  /** Arraste de âncora ou alça. Alt solta a alça oposta (canto); sem Alt ela espelha (suave). */
+  const startPathDrag = (e: RPointerEvent, hit: Extract<ReturnType<typeof pathHit>, { ref: AnchorRef }>) => {
+    const st = pathEditRef.current;
+    const subs0 = editSubsRef.current;
+    const svg = st && viewportRef.current?.querySelector<SVGSVGElement>(`svg[data-paprika-id="${CSS.escape(st.id)}"]`);
+    if (!st || !subs0 || !svg) return;
+    e.stopPropagation();
+    const sel = hit.ref;
+    setPathEdit({ ...st, sel });
+    const sx = e.clientX;
+    const sy = e.clientY;
+    const p0 = clientToPath(svg, sx, sy);
+    const a0 = subs0[sel.sub]?.anchors[sel.index];
+    if (!a0) return;
+    const origin = hit.kind === "anchor" ? { x: a0.x, y: a0.y } : a0[hit.side]!;
+    let moved = false;
+    let last: Subpath[] = subs0;
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return;
+      moved = true;
+      const p = clientToPath(svg, ev.clientX, ev.clientY);
+      const to = { x: origin.x + p.x - p0.x, y: origin.y + p.y - p0.y };
+      last = hit.kind === "anchor" ? moveAnchor(subs0, sel, to) : moveHandle(subs0, sel, hit.side, to, !ev.altKey);
+      setPathEdit((cur) => cur && { ...cur, draft: last });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setPathEdit((cur) => cur && { ...cur, draft: null });
+      if (moved) commitPath(last, hit.kind === "anchor" ? "mover ponto" : "mover alça");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  /** Duplo clique durante a edição: âncora alterna canto/suave; contorno insere um ponto. */
+  const onPathDouble = (e: React.MouseEvent) => {
+    const st = pathEditRef.current;
+    const subs = editSubsRef.current;
+    const hit = pathHit(e.target);
+    const svg = st && viewportRef.current?.querySelector<SVGSVGElement>(`svg[data-paprika-id="${CSS.escape(st.id)}"]`);
+    if (!st || !subs || !hit || !svg) return false;
+    if (hit.kind === "anchor") {
+      commitPath(toggleSmooth(subs, hit.ref), "alternar canto/suave");
+      setPathEdit((cur) => cur && { ...cur, sel: hit.ref });
+    } else if (hit.kind === "outline") {
+      const near = nearestOnPath(subs, clientToPath(svg, e.clientX, e.clientY));
+      if (near) {
+        const r = insertAnchor(subs, near.ref, near.t);
+        commitPath(r.subs, "inserir ponto");
+        setPathEdit((cur) => cur && { ...cur, sel: r.ref });
+      }
+    }
+    return true;
+  };
+
   const toWorld = useCallback(
     (clientX: number, clientY: number) => {
       const r = viewportRef.current!.getBoundingClientRect();
@@ -503,6 +663,13 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     if (e.button === 1 || spaceDown.current) return startPan(e);
     if (e.button !== 0) return;
     if (tool === "pen") return onPenDown(e);
+    if (pathEditRef.current) {
+      const hit = pathHit(e.target);
+      if (hit && hit.kind !== "outline") return startPathDrag(e, hit);
+      // Clique no próprio vetor mantém a edição (o duplo clique no contorno insere ponto).
+      if (hit || (e.target as Element).closest(`[data-paprika-id="${CSS.escape(pathEditRef.current.id)}"]`)) return;
+      setPathEdit(null);
+    }
     const target = (e.target as HTMLElement).closest<HTMLElement>("[data-paprika-id]");
 
     if (tool !== "select") {
@@ -625,10 +792,15 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   };
 
   /** Duplo clique (fora da caneta) entra no grupo: seleciona o nó exato sob o cursor. */
-  const onDeepSelect = (e: RPointerEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+  const onDeepSelect = (e: React.MouseEvent<HTMLDivElement>) => {
     if (tool !== "select") return;
-    const target = (e.target as HTMLElement).closest<HTMLElement>("[data-paprika-id]");
-    if (target) onSelect([target.dataset.paprikaId!]);
+    if (pathEditRef.current && onPathDouble(e)) return;
+    const target = (e.target as Element).closest<HTMLElement | SVGElement>("[data-paprika-id]");
+    if (!target) return;
+    const node = doc.nodes[target.dataset.paprikaId!];
+    // Duplo clique num path já selecionado (ou fora de grupo) entra na edição ponto a ponto.
+    if (node?.type === "path" && (selected.includes(node.id) || pickTarget(doc, node.id, selected) === node.id) && startPathEdit(node)) return;
+    onSelect([target.dataset.paprikaId!]);
   };
 
   const single = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
@@ -686,7 +858,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       {renderer === "wasm" && <canvas ref={wasmLayer.canvasRef} className="wasm-layer" data-testid="wasm-layer" data-backend={wasmLayer.status.backend} />}
       <div ref={worldRef} className="world" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
         {rootNodes.map((n) => (
-          <RenderNode key={n.id} doc={doc} node={n} preview={preview} touched={agentTouched} pen={pen} zoom={view.zoom} wasm={wasmLayer.active} />
+          <RenderNode key={n.id} doc={doc} node={n} preview={preview} touched={agentTouched} pen={pen} zoom={view.zoom} wasm={wasmLayer.active} edit={editView} />
         ))}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
@@ -709,7 +881,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       ))}
       {box && (
         <div className={`selection${selected.length > 1 ? " is-multi" : ""}`} style={box} data-testid="selection" data-count={selected.length}>
-          {resizable && <div className="handle" onPointerDown={onResizeDown} title="Redimensionar" />}
+          {resizable && !editView && <div className="handle" onPointerDown={onResizeDown} title="Redimensionar" />}
           <div className="dims">
             {Math.round(box.width / view.zoom)} × {Math.round(box.height / view.zoom)}
           </div>

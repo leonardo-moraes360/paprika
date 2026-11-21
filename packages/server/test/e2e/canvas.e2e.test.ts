@@ -407,4 +407,56 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" width="40" height="40"/);
     expect(svg).toContain('d="M0 0 L40 20 L0 40 Z"');
   }, 30_000);
+  it("edição ponto a ponto: duplo clique entra, arrasta âncora, insere, remove, alterna suave, Esc sai", async () => {
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Selecionar" }).click();
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: { parentId: "login", nodes: [{ type: "path", id: "pontos", x: 40, y: 420, d: "M0 0 L60 0 L60 60", stroke: { color: "#1e2336", width: 2 } }] },
+    });
+    const svg = page.locator('svg[data-paprika-id="pontos"]');
+    await expect.poll(() => svg.count()).toBe(1);
+    const pathD = async () => ((await doc()).nodes.pontos as { d: string } | undefined)?.d;
+    const center = async (sel: string) => {
+      const b = (await page.locator(sel).boundingBox())!;
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    };
+    await page.locator('[data-layer-id="pontos"]').click();
+    const box = (await svg.boundingBox())!;
+    await page.mouse.dblclick(box.x + box.width * 0.75, box.y + box.height * 0.25);
+    await expect.poll(() => page.getByTestId("path-edit").count()).toBe(1);
+    await expect(page.locator("[data-path-anchor]").count()).resolves.toBe(3);
+
+    // Arrastar a âncora do canto para a direita alarga o vetor; a caixa acompanha.
+    const a1 = await center('[data-path-anchor="0:1"]');
+    await page.mouse.move(a1.x, a1.y);
+    await page.mouse.down();
+    await page.mouse.move(a1.x + 30, a1.y, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(pathD).not.toBe("M0 0 L60 0 L60 60");
+    const moved = (await doc()).nodes.pontos as { d: string; width: number };
+    expect(moved.d).toMatch(/^M0 0 L\d+(\.\d+)? 0 L60 60$/);
+    expect(moved.width).toBeGreaterThan(60);
+
+    // Duplo clique no contorno insere um ponto; Delete remove o selecionado.
+    const a0 = await center('[data-path-anchor="0:0"]');
+    const b1 = await center('[data-path-anchor="0:1"]');
+    await page.mouse.dblclick((a0.x + b1.x) / 2, (a0.y + b1.y) / 2);
+    await expect.poll(async () => (await pathD())?.split("L").length).toBe(4);
+    await expect(page.locator("[data-path-anchor][data-selected]").getAttribute("data-path-anchor")).resolves.toBe("0:1");
+    await page.keyboard.press("Delete");
+    await expect.poll(async () => (await pathD())?.split("L").length).toBe(3);
+    await expect.poll(async () => !!(await doc()).nodes.pontos).toBe(true);
+
+    // Duplo clique numa âncora vira ponto suave (cúbicas).
+    await page.mouse.dblclick(...Object.values(await center('[data-path-anchor="0:1"]')) as [number, number]);
+    await expect.poll(pathD).toContain("C");
+    if (shots) await page.screenshot({ path: join(shots, "10-pontos-do-vetor.png") });
+
+    await page.keyboard.press("Escape");
+    await expect.poll(() => page.getByTestId("path-edit").count()).toBe(0);
+    await expect(page.getByTestId("selection").count()).resolves.toBe(1);
+    const hist = (await agent.callTool({ name: "get_history", arguments: {} })) as { content: { text: string }[] };
+    expect(JSON.parse(hist.content[0]!.text).slice(-4).map((h: { label: string }) => h.label)).toEqual(["mover ponto", "inserir ponto", "remover ponto", "alternar canto/suave"]);
+  }, 30_000);
 });
