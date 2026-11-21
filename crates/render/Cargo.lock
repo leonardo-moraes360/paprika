@@ -433,6 +433,7 @@ version = "0.0.1"
 dependencies = [
  "js-sys",
  "vello",
+ "vello_common",
  "vello_cpu",
  "wasm-bindgen",
  "wasm-bindgen-futures",

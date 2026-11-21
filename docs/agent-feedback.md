@@ -59,6 +59,15 @@ Task: prototype the canvas in Rust/WASM (vello on WebGPU, vello_cpu fallback) an
 | 25 | Pick the fast path automatically | Headless Chromium offers a *software* WebGPU adapter (SwiftShader) that is 45–220× slower than vello_cpu; a naive "WebGPU if available" picks it | Treat `DeviceType::Cpu` adapters as no GPU (done in the prototype) | — |
 | 26 | One geometry source for agents and renderers | The prototype re-derives boxes (and measures a hidden DOM for auto layout) because core exposes no resolved geometry | A core `layout(doc)` returning absolute boxes would serve the renderer, `get_bounds` (#2) and geometry lint (#6) | P2 |
 
+## 2026-11-21: WASM canvas integration (`crates/render`, ADR 0002)
+
+Task: wire the Rust/WASM renderer into the canvas as an opt-in hybrid (WASM draws shapes, DOM keeps text and hit testing). No MCP calls.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 27 | Check the WASM canvas the way an agent checks the DOM | `render_screenshot` renders the HTML export, so it never shows what the WASM layer draws; only a browser screenshot of the live canvas does | Keep screenshots on HTML (deterministic), and rely on the E2E parity test; if agents need it, a `renderer: "wasm"` option on `render_screenshot` that loads the canvas page | P3 |
+| 28 | Know which renderer a human is looking at | The choice lives in the browser (localStorage), so an agent cannot tell whether the human sees DOM or WASM output | Report the active renderer and backend over the WebSocket hello, and expose it in `get_document_outline` metadata | P3 |
+
 ## What worked well
 
 - Nested `create_nodes` built a whole proposal (≈60 nodes) in one call, atomically.

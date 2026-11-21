@@ -2,9 +2,9 @@
 
 # ADR 0002: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)
 
-- **Status:** Proposed. Feasibility proven by a prototype; **not adopted**, `main` keeps the DOM canvas.
+- **Status:** Accepted as an **opt-in hybrid renderer** (update below). The DOM stays the default.
 - **Date:** 2026-11-21
-- **Prototype:** [`experiments/canvas-wasm/`](../../experiments/canvas-wasm/README.md)
+- **Code:** [`crates/render`](../../crates/render), [`packages/core/src/displayList.ts`](../../packages/core/src/displayList.ts), [`apps/web/src/wasmLayer.ts`](../../apps/web/src/wasmLayer.ts). Benchmark harness: [`experiments/canvas-wasm/`](../../experiments/canvas-wasm/README.md)
 
 ## Context
 
@@ -137,3 +137,29 @@ Reading the numbers:
   (`experiments/canvas-wasm/build.sh`).
 - The display-list format, the software-adapter rule and the readback check can be reused if the
   hybrid design is adopted.
+
+## Update 2026-11-21: integrated as an opt-in hybrid
+
+The project owner asked to integrate the renderer after reading the evaluation above, so the
+"Revisit" step (4) was taken without the real-GPU measurement. What shipped is the hybrid design
+from step 4, behind a switch, with the DOM still the default:
+
+- `crates/render` (moved from `experiments/`) is built by `pnpm build` into `apps/web/src/wasm/`.
+  Without a Rust toolchain the build warns and skips it; the canvas then offers only the DOM.
+- `@paprika/core` builds the display list (`displayList`, `wasmPaintable`) from the same node
+  fields `nodeStyle` reads. The browser still lays out the DOM; the canvas measures the boxes
+  (`offsetLeft`/`offsetTop`, before rotation) after each render and uploads the list.
+- In WASM mode the DOM keeps every element (layout, text, images, hit testing, selection) but
+  makes the drawn nodes' fill, border color and shadow transparent; borders keep their width so
+  auto layout does not move. Paths become empty boxes.
+- The renderer now also draws box shadows (blurred rounded rectangles) and stroke alpha, and the
+  CPU path can draw on a transparent canvas (the dotted canvas background shows through).
+- Nodes it cannot draw exactly (non-solid colors, a shadow on a path) stay painted by the DOM.
+- `render_screenshot` and the exports stay HTML/CSS, so the agent-facing output is unchanged.
+- Parity is tested: `packages/server/test/e2e/wasm.e2e.test.ts` renders the bezier example in both
+  modes and requires fewer than 0.5% differing pixels, checks that an MCP edit reaches the WASM
+  pixels, that `.wasm` is served as `application/wasm` (TypeScript and Go servers), and that the
+  switch persists.
+
+Known differences: text and images are always above WASM-drawn shapes; nested opacity is
+multiplied per node instead of composited per group. Still open: measuring on a hardware GPU.

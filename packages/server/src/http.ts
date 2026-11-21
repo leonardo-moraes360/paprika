@@ -27,6 +27,7 @@ const MIME: Record<string, string> = {
   ".ico": "image/x-icon",
   ".json": "application/json",
   ".woff2": "font/woff2",
+  ".wasm": "application/wasm",
 };
 
 const MAX_BODY = 8 * 1024 * 1024;

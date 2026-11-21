@@ -36,8 +36,8 @@ impl CpuRenderer {
         self.pixmap = Pixmap::new(width, height);
     }
 
-    /// Renders and returns premultiplied RGBA8. The background is opaque, so for every
-    /// pixel premultiplied == straight alpha and the buffer can go to `putImageData` as is.
+    /// Renders and returns straight-alpha RGBA8, ready for `putImageData`. A background with
+    /// alpha 0 leaves the canvas transparent (the page shows through).
     pub fn render(
         &mut self,
         scene: &Scene,
@@ -47,9 +47,11 @@ impl CpuRenderer {
         let (w, h) = (self.ctx.width(), self.ctx.height());
         self.ctx.reset();
         self.ctx.reset_transform();
-        self.ctx.set_paint(AlphaColor::<Srgb>::new(background));
-        self.ctx
-            .fill_rect(&vello_cpu::kurbo::Rect::new(0.0, 0.0, w as f64, h as f64));
+        if background[3] > 0.0 {
+            self.ctx.set_paint(AlphaColor::<Srgb>::new(background));
+            self.ctx
+                .fill_rect(&vello_cpu::kurbo::Rect::new(0.0, 0.0, w as f64, h as f64));
+        }
         for it in &scene.items {
             let t = affine(view * it.transform());
             self.ctx.set_transform(t);
@@ -97,10 +99,21 @@ impl CpuRenderer {
         }
         self.ctx.flush();
         self.ctx.render(&mut self.pixmap, &mut self.resources);
+        // The pixmap is premultiplied; `putImageData` wants straight alpha. Opaque
+        // backgrounds make both identical, so only convert when the canvas is transparent.
+        if background[3] < 1.0 {
+            vello_common::pixmap::unpremultiply_rgba8(self.pixmap.data_as_u8_slice_mut());
+        }
         self.pixmap.data_as_u8_slice()
     }
 
     fn paint(&mut self, it: &Item) {
+        if let Some((r, radius, std_dev, c)) = it.shadow_geometry() {
+            self.ctx.set_paint(AlphaColor::<Srgb>::new(c));
+            let r = vello_cpu::kurbo::Rect::new(r.x0, r.y0, r.x1, r.y1);
+            self.ctx
+                .fill_blurred_rounded_rect(&r, radius as f32, std_dev as f32);
+        }
         if it.fill[3] > 0.0 {
             self.ctx.set_paint(AlphaColor::<Srgb>::new(it.fill));
             self.ctx.fill_path(&path(&it.path()));
@@ -119,9 +132,11 @@ mod tests {
     use crate::scene::{STRIDE, Scene};
 
     fn item(kind: f32, x: f32, y: f32, w: f32, h: f32, fill: [f32; 4]) -> [f32; STRIDE] {
-        [
-            kind, x, y, w, h, 0.0, 0.0, 1.0, fill[0], fill[1], fill[2], fill[3], 0.0, 0.0, 0.0, 0.0,
-        ]
+        let mut it = [0.0; STRIDE];
+        it[..12].copy_from_slice(&[
+            kind, x, y, w, h, 0.0, 0.0, 1.0, fill[0], fill[1], fill[2], fill[3],
+        ]);
+        it
     }
 
     fn px(buf: &[u8], w: usize, x: usize, y: usize) -> [u8; 4] {
@@ -185,6 +200,34 @@ mod tests {
             px(&buf, 40, 5, 10),
             [255, 255, 255, 255],
             "letterboxed by meet"
+        );
+    }
+
+    #[test]
+    fn shadow_and_translucent_stroke() {
+        let mut d = item(0.0, 4.0, 4.0, 10.0, 10.0, [1.0, 1.0, 1.0, 1.0]);
+        d[12] = 2.0; // stroke width
+        d[13..17].copy_from_slice(&[0.0, 0.0, 0.0, 0.5]); // 50% black border
+        d[17..21].copy_from_slice(&[12.0, 0.0, 0.0, 0.0]); // shadow 12px to the right, no blur
+        d[21..25].copy_from_slice(&[0.0, 0.0, 1.0, 1.0]); // blue shadow
+        let mut r = CpuRenderer::new(32, 20);
+        let buf = r
+            .render(
+                &Scene::parse(&d, ""),
+                vello::kurbo::Affine::IDENTITY,
+                [1.0; 4],
+            )
+            .to_vec();
+        assert_eq!(px(&buf, 32, 9, 9), [255, 255, 255, 255], "white fill");
+        let border = px(&buf, 32, 4, 9);
+        assert!(
+            (120..=135).contains(&border[0]),
+            "half-transparent border: {border:?}"
+        );
+        assert_eq!(
+            px(&buf, 32, 21, 9),
+            [0, 0, 255, 255],
+            "shadow beside the box"
         );
     }
 

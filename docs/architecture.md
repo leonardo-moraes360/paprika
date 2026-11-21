@@ -46,4 +46,4 @@
 ## Decision records
 
 - [ADR 0001: Go server with SQLite](adr/0001-go-server-sqlite.md): accepted.
-- [ADR 0002: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)](adr/0002-canvas-renderer-rust-wasm.md): proposed, not adopted; the DOM canvas stays.
+- [ADR 0002: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)](adr/0002-canvas-renderer-rust-wasm.md): accepted as an opt-in hybrid renderer; the DOM stays the default.

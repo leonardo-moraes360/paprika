@@ -7,3 +7,4 @@ export * from "./lint.js";
 export * from "./query.js";
 export { newId } from "./id.js";
 export * from "./path.js";
+export * from "./displayList.js";

@@ -67,7 +67,7 @@ verify:
 review:
     require_approved_sha: false
 env:
-    allow: [PLAYWRIGHT_BROWSERS_PATH, PAPRIKA_CHROMIUM]
+    allow: [PLAYWRIGHT_BROWSERS_PATH, PAPRIKA_CHROMIUM, CARGO_HOME, RUSTUP_HOME, PAPRIKA_REQUIRE_WASM]
     pass: []
 router:
     max_workers: 3

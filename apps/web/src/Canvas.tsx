@@ -9,11 +9,13 @@ import {
   pathBounds,
   serializePath,
   translatePath,
+  wasmPaintable,
   type Anchor,
   type Document,
   type Node,
   type Op,
 } from "@paprika/core";
+import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 
 export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen";
 
@@ -88,8 +90,27 @@ function PenOverlay({ pen, zoom }: { pen: PenDraft; zoom: number }) {
   );
 }
 
-function RenderNode({ doc, node, preview, touched, pen, zoom }: { doc: Document; node: Node; preview: Preview | null; touched: Set<string>; pen: PenDraft | null; zoom: number }) {
+interface RenderProps {
+  doc: Document;
+  node: Node;
+  preview: Preview | null;
+  touched: Set<string>;
+  pen: PenDraft | null;
+  zoom: number;
+  /** The WASM layer is drawing shapes: keep their boxes (layout, hit testing) but not their paint. */
+  wasm: boolean;
+}
+
+function RenderNode({ doc, node, preview, touched, pen, zoom, wasm }: RenderProps) {
   const css = nodeStyle(doc, node) as CSSProperties;
+  const wasmPaints = wasm && wasmPaintable(doc, node);
+  if (wasmPaints) {
+    // Same box (border width stays, so auto layout does not move), no visible paint.
+    if (css.background) css.background = "transparent";
+    if (css.border) css.borderColor = "transparent";
+    delete css.boxShadow;
+    delete css.filter;
+  }
   if (preview && preview.id === node.id) {
     if (preview.x !== undefined) css.left = preview.x;
     if (preview.y !== undefined) css.top = preview.y;
@@ -108,7 +129,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom }: { doc: Document;
         <div {...props}>
           {node.children.map((c) => {
             const child = doc.nodes[c];
-            return child ? <RenderNode key={c} doc={doc} node={child} preview={preview} touched={touched} pen={pen} zoom={zoom} /> : null;
+            return child ? <RenderNode key={c} doc={doc} node={child} preview={preview} touched={touched} pen={pen} zoom={zoom} wasm={wasm} /> : null;
           })}
           {pen && pen.parentId === node.id && <PenOverlay pen={pen} zoom={zoom} />}
         </div>
@@ -118,6 +139,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom }: { doc: Document;
     case "image":
       return <img {...props} src={node.src} alt={node.alt} draggable={false} />;
     case "path": {
+      if (wasmPaints) return <div {...props} />;
       const a = pathAttrs(doc, node);
       return (
         <svg {...props} {...a.svg}>
@@ -132,8 +154,11 @@ function RenderNode({ doc, node, preview, touched, pen, zoom }: { doc: Document;
 
 export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agentTouched }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
+  const worldRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 40, y: 40, zoom: 1 });
+  const [renderer, setRenderer] = useState<RendererMode>(initialRendererMode);
   const [preview, setPreview] = useState<Preview | null>(null);
+  const wasmLayer = useWasmLayer({ mode: renderer, doc, view, viewportRef, worldRef, layoutKey: preview });
   const [draft, setDraft] = useState<Draft | null>(null);
   const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const [frameLabels, setFrameLabels] = useState<{ id: string; name: string; left: number; top: number }[]>([]);
@@ -517,9 +542,10 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
       onDoubleClick={pen ? onPenDouble : undefined}
       data-testid="viewport"
     >
-      <div className="world" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
+      {renderer === "wasm" && <canvas ref={wasmLayer.canvasRef} className="wasm-layer" data-testid="wasm-layer" data-backend={wasmLayer.status.backend} />}
+      <div ref={worldRef} className="world" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
         {roots.map((n) => (
-          <RenderNode key={n.id} doc={doc} node={n} preview={preview} touched={agentTouched} pen={pen} zoom={view.zoom} />
+          <RenderNode key={n.id} doc={doc} node={n} preview={preview} touched={agentTouched} pen={pen} zoom={view.zoom} wasm={wasmLayer.active} />
         ))}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
@@ -551,6 +577,27 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
         <button onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom">+</button>
         <button onClick={fit} aria-label="Enquadrar" title="Enquadrar (Shift+1)">
           ⤢
+        </button>
+        <button
+          className={`renderer-toggle${renderer === "wasm" ? " is-on" : ""}`}
+          data-testid="renderer-toggle"
+          data-backend={renderer === "wasm" ? wasmLayer.status.backend : "dom"}
+          disabled={!wasmAvailable && renderer === "dom"}
+          aria-pressed={renderer === "wasm"}
+          title={
+            renderer === "wasm"
+              ? `Renderizador WASM (${wasmLayer.status.backend})${wasmLayer.status.detail ? `: ${wasmLayer.status.detail}` : ""}. Clique para voltar ao DOM.`
+              : wasmAvailable
+                ? "Renderizador DOM. Clique para desenhar formas com WASM (WebGPU, ou CPU sem GPU)."
+                : "Renderizador WASM não compilado (pnpm build com Rust instalado)."
+          }
+          onClick={() => {
+            const next = renderer === "wasm" ? "dom" : "wasm";
+            saveRendererMode(next);
+            setRenderer(next);
+          }}
+        >
+          {renderer === "dom" ? "DOM" : wasmLayer.status.backend === "webgpu" ? "GPU" : wasmLayer.status.backend === "cpu" ? "CPU" : "WASM"}
         </button>
       </div>
     </div>

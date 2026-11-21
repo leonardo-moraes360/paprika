@@ -11,3 +11,5 @@ server-go/bin/
 *.db
 *.db-wal
 *.db-shm
+apps/web/src/wasm/
+crates/*/target/
