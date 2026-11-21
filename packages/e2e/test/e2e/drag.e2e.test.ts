@@ -112,7 +112,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
   it("soltar um redimensionamento não volta ao tamanho antigo antes do eco do servidor", async () => {
     const b = await shown();
     await page.mouse.click(b.x + 6, b.y + 6);
-    const handle = (await page.locator(".selection .handle").boundingBox())!;
+    const handle = (await page.getByTestId("selection").getByTitle("Redimensionar").boundingBox())!;
     await dropWithoutFlash({ from: { x: handle.x + handle.width / 2, y: handle.y + handle.height / 2 }, by: { x: 46, y: 26 } }, "width");
   });
 
