@@ -422,7 +422,7 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 	args := jsonv.NewObject()
 	if t.schema != nil {
 		if !present || rawArgs == nil {
-			rawArgs, present = jsonv.NewObject(), true
+			rawArgs = jsonv.NewObject()
 		}
 		parsed, err := z.Parse(t.schema, rawArgs)
 		if err != nil {
@@ -496,10 +496,4 @@ func rpcResult(id any, result any) *jsonv.Object {
 
 func rpcError(id any, code int, msg string) *jsonv.Object {
 	return jsonv.NewObject("jsonrpc", "2.0", "id", id, "error", jsonv.NewObject("code", float64(code), "message", msg))
-}
-
-// isRequest reports whether a parsed JSON-RPC message expects a response.
-func isRequest(msg any) bool {
-	o, ok := msg.(*jsonv.Object)
-	return ok && o.Has("method") && o.Has("id")
 }

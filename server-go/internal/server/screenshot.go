@@ -86,10 +86,11 @@ func (c *Chrome) ensure() (context.Context, error) {
 		chromedp.Flag("headless", true),
 		chromedp.Flag("hide-scrollbars", true),
 		chromedp.Flag("font-render-hinting", "none"),
+		// Same as Playwright's default (chromiumSandbox: false), which the TypeScript server uses:
+		// it only renders Paprika's own HTML, and the sandbox cannot start where unprivileged user
+		// namespaces are blocked (e.g. Ubuntu 24.04+ with AppArmor, as on GitHub runners).
+		chromedp.NoSandbox,
 	)
-	if os.Geteuid() == 0 {
-		opts = append(opts, chromedp.NoSandbox)
-	}
 	alloc, allocStop := chromedp.NewExecAllocator(context.Background(), opts...)
 	browser, stop := chromedp.NewContext(alloc)
 	if err := chromedp.Run(browser); err != nil {

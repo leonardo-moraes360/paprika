@@ -6,7 +6,7 @@ A Go implementation of the Paprika server with the same contract as the TypeScri
 
 ## Build and run
 
-Requirements: Go 1.25+ (the `go` command downloads the toolchain if needed). Chromium is only needed for screenshots.
+Requirements: Go 1.26+ (the `go` command downloads the toolchain if needed). Chromium is only needed for screenshots.
 
 ```bash
 pnpm install && pnpm build            # builds the canvas (apps/web/dist) that the Go server serves

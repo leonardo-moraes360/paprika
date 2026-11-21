@@ -6,7 +6,7 @@ Uma implementação em Go do servidor do Paprika com o mesmo contrato do servido
 
 ## Compilar e rodar
 
-Requisitos: Go 1.25+ (o comando `go` baixa o toolchain se precisar). O Chromium só é necessário para screenshots.
+Requisitos: Go 1.26+ (o comando `go` baixa o toolchain se precisar). O Chromium só é necessário para screenshots.
 
 ```bash
 pnpm install && pnpm build            # compila o canvas (apps/web/dist) que o servidor Go serve

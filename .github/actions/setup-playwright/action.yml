@@ -1,0 +1,23 @@
+name: Setup Playwright Chromium
+description: Restores (or downloads) the Chromium build of the workspace's Playwright version and installs its system libraries. Run after setup-node-pnpm.
+runs:
+  using: composite
+  steps:
+    - name: Playwright version
+      id: pw
+      shell: bash
+      run: echo "version=$(pnpm --filter @paprika/server exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+    - name: Cache Playwright browsers
+      id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+    - name: Install Chromium (cache miss)
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: pnpm --filter @paprika/server exec playwright install --with-deps chromium
+    - name: Install Chromium system deps (cache hit)
+      if: steps.cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: pnpm --filter @paprika/server exec playwright install-deps chromium
