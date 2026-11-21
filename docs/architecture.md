@@ -38,3 +38,7 @@
 - The contrast lint ignores gradients and background images.
 - Dragging on the canvas only moves nodes whose parent has no auto layout (in row/column, order comes from the layout).
 - The agent-facing guide and error messages are in Brazilian Portuguese.
+
+## Decision records
+
+- [ADR 0001: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)](adr/0001-canvas-renderer-rust-wasm.md): proposed, not adopted; the DOM canvas stays.

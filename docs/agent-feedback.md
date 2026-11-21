@@ -37,6 +37,17 @@ Task: add bezier curves so agents and humans can draw organic shapes, then redra
 | 17 | Edit one control point | Changing a curve means rewriting the whole `d` string | `update_path_points` (move anchor/handle by index), and handle editing on the canvas | P3 |
 | 18 | Know the drawn size before placing a part | `path_info` with `canvasBounds` answered it in one call; it also caught a typo (`d inválido: número esperado na posição 12`) | Keep: return position-accurate parse errors for every string field | — |
 
+## 2026-11-21: canvas renderer in Rust/WASM (ADR 0001)
+
+Task: prototype the canvas in Rust/WASM (vello on WebGPU, vello_cpu fallback) and benchmark it against the DOM canvas ([ADR 0001](adr/0001-canvas-renderer-rust-wasm.md)). No MCP calls; the friction is about what agents rely on.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 19 | Load an example document outside the server | `examples/bezier.paprika.json` omits defaults (`visible`, `opacity`…); a renderer that read it without `parseDocument` drew nothing in every mode, and only a screenshot showed it | Write examples normalized, or say in AGENTS.md that every reader must go through `parseDocument` | P3 |
+| 20 | Check a GPU-rendered canvas from an agent's headless browser | Headless Chromium without a GPU loses the WebGPU device when a canvas is presented (plain JS too), so pixels come back empty | If the canvas ever moves to WebGPU, keep `render_screenshot` on the HTML path, or render offscreen and read pixels back (as `gpu-readback-check.cjs` does) | P2 |
+| 21 | Pick the fast path automatically | Headless Chromium offers a *software* WebGPU adapter (SwiftShader) that is 45–220× slower than vello_cpu; a naive "WebGPU if available" picks it | Treat `DeviceType::Cpu` adapters as no GPU (done in the prototype) | — |
+| 22 | One geometry source for agents and renderers | The prototype re-derives boxes (and measures a hidden DOM for auto layout) because core exposes no resolved geometry | A core `layout(doc)` returning absolute boxes would serve the renderer, `get_bounds` (#2) and geometry lint (#6) | P2 |
+
 ## What worked well
 
 - Nested `create_nodes` built a whole proposal (≈60 nodes) in one call, atomically.

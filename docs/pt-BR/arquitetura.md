@@ -37,3 +37,7 @@
 - Sem componentes/instâncias, operações booleanas entre paths, edição ponto a ponto de paths no canvas (a caneta cria paths novos; os existentes se editam pelo `d`), gradientes estruturados, múltiplas páginas, rotação no hit-test do canvas ou seleção múltipla.
 - O lint de contraste ignora gradientes e imagens de fundo.
 - Arrastar no canvas só move nós em pais sem layout automático (em row/column a ordem vem do layout).
+
+## Registros de decisão
+
+- [ADR 0001: Renderizador do canvas em Rust/WASM (WebGPU com fallback para CPU)](adr/0001-renderizador-canvas-rust-wasm.md): proposto, não adotado; o canvas DOM continua.

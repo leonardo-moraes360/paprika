@@ -37,6 +37,17 @@ Tarefa: adicionar curvas bezier para agentes e humanos desenharem formas orgâni
 | 17 | Editar um ponto de controle | Mudar uma curva exige reescrever a string `d` inteira | `update_path_points` (mover âncora/alça por índice) e edição de alças no canvas | P3 |
 | 18 | Saber o tamanho desenhado antes de posicionar uma parte | `path_info` com `canvasBounds` respondeu numa chamada só; também pegou um erro de digitação (`d inválido: número esperado na posição 12`) | Manter: erros de parse com posição em todo campo string | — |
 
+## 2026-11-21: renderizador do canvas em Rust/WASM (ADR 0001)
+
+Tarefa: prototipar o canvas em Rust/WASM (vello no WebGPU, fallback vello_cpu) e comparar com o canvas DOM ([ADR 0001](adr/0001-renderizador-canvas-rust-wasm.md)). Sem chamadas MCP; o atrito é sobre aquilo de que os agentes dependem.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 19 | Carregar um documento de exemplo fora do servidor | `examples/bezier.paprika.json` omite defaults (`visible`, `opacity`…); um renderizador que o leu sem `parseDocument` não desenhou nada em nenhum modo, e só o screenshot mostrou | Gravar os exemplos normalizados, ou dizer no AGENTS.md que todo leitor passa por `parseDocument` | P3 |
+| 20 | Conferir um canvas desenhado na GPU pelo navegador headless do agente | O Chromium headless sem GPU perde o device WebGPU ao apresentar um canvas (em JS puro também), então os pixels voltam vazios | Se o canvas for para WebGPU, manter o `render_screenshot` no caminho HTML, ou renderizar offscreen e ler os pixels (como faz `gpu-readback-check.cjs`) | P2 |
+| 21 | Escolher o caminho rápido sozinho | O Chromium headless oferece um adapter WebGPU *por software* (SwiftShader), de 45 a 220× mais lento que o vello_cpu; um "WebGPU se existir" ingênuo escolhe ele | Tratar adapters `DeviceType::Cpu` como sem GPU (feito no protótipo) | — |
+| 22 | Uma fonte de geometria para agentes e renderizadores | O protótipo recalcula as caixas (e mede um DOM oculto para auto layout) porque o core não expõe geometria resolvida | Um `layout(doc)` no core devolvendo caixas absolutas serviria ao renderizador, ao `get_bounds` (#2) e ao lint de geometria (#6) | P2 |
+
 ## O que funcionou bem
 
 - `create_nodes` aninhado montou uma proposta inteira (≈60 nós) numa chamada, de forma atômica.
