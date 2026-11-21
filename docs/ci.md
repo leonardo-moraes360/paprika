@@ -4,6 +4,8 @@
 
 Paprika's CI runs **only on pull requests** (`opened`, `synchronize`, `reopened`, `ready_for_review`). Nothing runs on push or after a merge: the PR run is the gate. A new push to the same PR cancels the run still in progress.
 
+The one workflow that runs on push is [`pages.yml`](../.github/workflows/pages.yml): it is a deployment, not a check. When a change to the site or the docs reaches `main`, it builds `apps/site` and publishes it to GitHub Pages ([apps/site/README.md](../apps/site/README.md)).
+
 Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), plus [`.github/dependabot.yml`](../.github/dependabot.yml).
 
 ## Jobs
