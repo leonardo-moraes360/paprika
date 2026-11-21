@@ -3,6 +3,13 @@ import type { Document } from "@paprika/core";
 import { AGENT_IDLE_MS, AGENT_TTL_MS, agentPage, toolVerb, type AgentPresence } from "./agents";
 import { cx } from "./ui";
 
+/** Caixa que envolve todas as caixas. */
+const union = (bs: Box[]): Box => {
+  const x = Math.min(...bs.map((b) => b.x));
+  const y = Math.min(...bs.map((b) => b.y));
+  return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
+};
+
 /** Name tags use the system font, like a native cursor label. */
 const tagFont = "[font:600_11px/16px_system-ui,sans-serif]";
 
@@ -13,7 +20,7 @@ interface View {
 }
 
 /** Caixa em coordenadas do canvas (mundo), medida do DOM real (segue layout flex e hug). */
-type Box = { x: number; y: number; w: number; h: number };
+export type Box = { x: number; y: number; w: number; h: number };
 
 interface Props {
   doc: Document;
@@ -25,6 +32,8 @@ interface Props {
   pageId?: string | null;
   /** Abre a página onde um agente está (clique no item da lista de presença). */
   onOpenPage?(id: string): void;
+  /** Leva a câmera até uma caixa em coordenadas do canvas (clique no item da lista de presença). */
+  onFocus?(box: Box): void;
 }
 
 /**
@@ -32,7 +41,7 @@ interface Props {
  * que o agente agiu por último, com o nome dele e o que está fazendo. Só desenha: nada aqui é
  * clicável (pointer-events: none) e nada vai para o documento.
  */
-export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId, onOpenPage }: Props) {
+export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId, onOpenPage, onFocus }: Props) {
   const viewRef = useRef(view);
   viewRef.current = view;
   const [boxes, setBoxes] = useState<Record<string, Box[]>>({});
@@ -63,31 +72,39 @@ export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId
     setBoxes(next);
   }, [doc, agents, viewportRef, layoutKey, pageId]);
 
+  // Clique num agente de outra página: abre a página e enquadra quando as caixas dele forem medidas lá.
+  const pending = useRef<string | null>(null);
+  useEffect(() => {
+    const bs = pending.current ? boxes[pending.current] : undefined;
+    if (!bs?.length) return;
+    pending.current = null;
+    onFocus?.(union(bs));
+  }, [boxes, onFocus]);
+
   const visible = agents.filter((a) => now - a.at < AGENT_TTL_MS);
   if (!visible.length) return null;
   const z = view.zoom;
   const tipKey = (bs: Box[]) => (bs.length ? bs.map((b) => `${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.w)},${Math.round(b.h)}`).join(";") : "");
   const tips = visible.map((a) => tipKey(boxes[a.agent] ?? []));
 
-  // Fora da página aberta: o nome da página onde o agente está, clicável para ir até lá.
+  // Fora da página aberta: o nome da página onde o agente está.
+  const label = "font-normal not-italic text-muted";
   const where = (a: AgentPresence) => {
-    const label = "font-normal not-italic text-muted";
     if ((boxes[a.agent]?.length ?? 0) || !a.nodes.length) return <em className={label}>{toolVerb(a.tool)}</em>;
     const p = agentPage(doc, a.nodes);
     if (!p || p.id === pageId) return <em className={label}>em outra página</em>;
-    const text = `em ${p.name || "outra página"}`;
-    return onOpenPage ? (
-      <button
-        type="button"
-        className={cx("pointer-events-auto m-0 cursor-pointer border-0 bg-transparent p-0 underline-offset-2 hover:text-fg hover:underline focus-visible:text-fg focus-visible:underline", label, tagFont)}
-        onClick={() => onOpenPage(p.id)}
-        title={p.name ? `Abrir a página ${p.name}` : "Abrir a página"}
-        data-testid="agent-page">
-        {text}
-      </button>
-    ) : (
-      <em className={label}>{text}</em>
-    );
+    return <em className={label} data-testid="agent-page">em {p.name || "outra página"}</em>;
+  };
+  /** Clique no item: centraliza o cursor do agente (abrindo a página dele antes, se preciso). */
+  const target = (a: AgentPresence): (() => void) | undefined => {
+    const bs = boxes[a.agent] ?? [];
+    if (bs.length) return onFocus && (() => onFocus(union(bs)));
+    const p = agentPage(doc, a.nodes);
+    if (!p || p.id === pageId || !onOpenPage) return undefined;
+    return () => {
+      pending.current = a.agent;
+      onOpenPage(p.id);
+    };
   };
 
   return (
@@ -131,20 +148,31 @@ export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId
         })}
       </div>
       <ul className="pointer-events-none absolute top-3 right-3 z-6 m-0 flex list-none flex-col items-end gap-1 p-0" aria-label="Agentes no workspace" data-testid="agent-roster">
-        {visible.map((a) => (
-          <li
-            key={a.agent}
-            className={cx(
-              "flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--agent)_55%,transparent)] bg-panel py-0.75 pr-2.25 pl-1.75 text-fg transition-opacity duration-600 ease-[ease]",
-              tagFont,
-              now - a.at > AGENT_IDLE_MS && "opacity-55",
-            )}
-            style={{ ["--agent" as string]: a.color }} title={`${a.name}: ${toolVerb(a.tool)}`}>
-            <span className="size-2 rounded-full bg-(--agent)" />
-            {a.name}
-            {where(a)}
-          </li>
-        ))}
+        {visible.map((a) => {
+          const go = target(a);
+          const p = !boxes[a.agent]?.length && agentPage(doc, a.nodes);
+          return (
+            <li key={a.agent} className="flex">
+              <button
+                type="button"
+                className={cx(
+                  "m-0 flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--agent)_55%,transparent)] bg-panel py-0.75 pr-2.25 pl-1.75 text-fg transition-opacity duration-600 ease-[ease]",
+                  "enabled:pointer-events-auto enabled:cursor-pointer enabled:hover:border-(--agent) focus-visible:outline-2 focus-visible:outline-(--agent)",
+                  tagFont,
+                  now - a.at > AGENT_IDLE_MS && "opacity-55",
+                )}
+                style={{ ["--agent" as string]: a.color }}
+                disabled={!go}
+                onClick={go}
+                title={go ? (p ? `Ir até ${a.name} na página ${p.name || "dele"}` : `Ir até o cursor de ${a.name}`) : `${a.name}: ${toolVerb(a.tool)}`}
+                data-testid="agent-focus">
+                <span className="size-2 rounded-full bg-(--agent)" />
+                {a.name}
+                {where(a)}
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </>
   );
