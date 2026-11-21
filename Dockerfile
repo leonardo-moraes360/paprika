@@ -39,7 +39,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
       target/wasm32-unknown-unknown/release/paprika_render.wasm
 
 # ------------------------------------------------------------------ canvas (apps/web + packages/core)
-FROM node:22-bookworm-slim AS web
+FROM node:26-bookworm-slim AS web
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=1
 RUN corepack enable
 WORKDIR /src
