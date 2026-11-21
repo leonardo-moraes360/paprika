@@ -1,5 +1,7 @@
 🇺🇸 English | [🇧🇷 Português](README.pt-BR.md)
 
+<p align="center"><img src="docs/brand/icon.svg" alt="Paprika icon" width="128"></p>
+
 # Paprika
 
 A **local** design tool for AI agents, with a **built-in MCP server**.

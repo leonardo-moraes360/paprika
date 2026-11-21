@@ -1,5 +1,7 @@
 [🇺🇸 English](README.md) | 🇧🇷 Português
 
+<p align="center"><img src="docs/brand/icon.svg" alt="Ícone do Paprika" width="128"></p>
+
 # Paprika
 
 Ferramenta de design **local** para agentes de IA, com **servidor MCP embutido**.

@@ -97,7 +97,7 @@ export function App() {
   if (!doc) {
     return (
       <div className="boot">
-        <div className="logo" />
+        <img className="logo" src="/icon.svg" alt="" />
         <p>{live.connected ? "Carregando documento…" : "Conectando ao servidor Paprika…"}</p>
       </div>
     );
@@ -110,7 +110,7 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="logo" aria-hidden />
+          <img className="logo" src="/icon.svg" alt="" />
           <strong>Paprika</strong>
           <span className="doc-name">{doc.name}</span>
         </div>

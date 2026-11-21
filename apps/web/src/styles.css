@@ -1,15 +1,16 @@
 :root {
-  --bg: #17151a;
-  --panel: #1f1c22;
-  --panel-2: #27232b;
-  --line: #34303a;
-  --text: #ece8ef;
-  --muted: #9a93a3;
-  --accent: #e8553d;
-  --accent-soft: rgba(232, 85, 61, 0.16);
-  --leaf: #4fa35c;
-  --canvas: #e9e6e2;
-  --select: #3d8bff;
+  /* Tema "Estúdio noturno" (proposta 5 de marca, docs/brand). */
+  --bg: #141827;
+  --panel: #1e2336;
+  --panel-2: #272d45;
+  --line: #2c3350;
+  --text: #eef0f7;
+  --muted: #a6acc4;
+  --accent: #e04a2b;
+  --accent-soft: rgba(224, 74, 43, 0.18);
+  --leaf: #4f9a5a;
+  --canvas: #e7e9f0;
+  --select: #4cc7d8;
   font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 13px;
   color: var(--text);
@@ -41,23 +42,14 @@ textarea {
 }
 
 .logo {
-  width: 18px;
-  height: 18px;
-  border-radius: 50% 50% 46% 46%;
-  background: radial-gradient(circle at 35% 35%, #ff8a6b, var(--accent) 60%, #b8362a);
-  position: relative;
+  width: 22px;
+  height: 22px;
   display: inline-block;
+  flex: none;
 }
-.logo::after {
-  content: "";
-  position: absolute;
-  top: -5px;
-  left: 8px;
-  width: 4px;
-  height: 7px;
-  border-radius: 2px;
-  background: var(--leaf);
-  transform: rotate(20deg);
+.boot .logo {
+  width: 56px;
+  height: 56px;
 }
 
 .boot {
@@ -468,7 +460,8 @@ textarea {
   top: calc(100% + 6px);
   transform: translateX(-50%);
   background: var(--select);
-  color: #fff;
+  color: #0d1220;
+  font-weight: 600;
   font-size: 10px;
   padding: 1px 5px;
   border-radius: 3px;
@@ -477,7 +470,7 @@ textarea {
 .draft {
   position: absolute;
   border: 1px dashed var(--select);
-  background: rgba(61, 139, 255, 0.08);
+  background: rgba(76, 199, 216, 0.1);
   pointer-events: none;
 }
 .zoom-pill {
