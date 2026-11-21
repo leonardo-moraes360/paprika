@@ -1,0 +1,14 @@
+# Everything here is acceptable: a full SHA plus the version it is, a local action, a container.
+name: good
+on: [push]
+jobs:
+  ok:
+    runs-on: ubuntu-latest
+    steps:
+      # a comment line mentioning uses: actions/checkout@v4 must not be read as a step
+      - uses: actions/checkout@1111111111111111111111111111111111111111 # v5.0.0
+      - uses: actions/setup-node@2222222222222222222222222222222222222222 # v4.4.0
+      - uses: some-owner/some-tool@3333333333333333333333333333333333333333 # stable
+      - uses: ./.github/actions/setup-node-pnpm
+      - uses: "actions/checkout@4444444444444444444444444444444444444444" # v5.0.0
+      - uses: docker://ghcr.io/org/image:1.2.3

@@ -1,0 +1,8 @@
+# Pinned, but unreadable: nothing says which version the commit corresponds to.
+name: bad-no-comment
+on: [push]
+jobs:
+  bad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@5555555555555555555555555555555555555555

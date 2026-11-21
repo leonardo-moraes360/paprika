@@ -1,0 +1,8 @@
+# Reached only if the scan walks into subdirectories, as .github/actions does.
+name: bad-deep
+on: [push]
+jobs:
+  bad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: another-owner/other-action@666666 # v1.0.0
