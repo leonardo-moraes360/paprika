@@ -23,7 +23,7 @@
     "zod": "^4.1.0"
   },
   "optionalDependencies": {
-    "playwright": "1.63.0"
+    "playwright": "1.65.1"
   },
   "devDependencies": {
     "@types/ws": "^8.5.0",
