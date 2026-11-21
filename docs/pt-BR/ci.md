@@ -27,6 +27,8 @@ Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/c
 
 Uma mudança em `.github/workflows/`, `.github/scripts/`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` ou `tsconfig.base.json` roda **tudo**. O label `ci:full` também (vale a partir do próximo push na PR). PRs só de documentação rodam apenas Plan e CI OK.
 
+Os jobs Go instalam o patch mais recente da minor em `GO_VERSION` (no topo do `ci.yml`), e não a linha `go` exata do `server-go/go.mod`: essa linha é o mínimo que os módulos exigem (por exemplo `go 1.26.0`), e a biblioteca padrão dessa versão reprovaria no govulncheck. Atualize `GO_VERSION` quando o `go.mod` passar para uma nova minor.
+
 ## Rodar só o que mudou
 
 A seleção acontece em três níveis:

@@ -27,6 +27,8 @@ Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workfl
 
 A change to `.github/workflows/`, `.github/scripts/`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` or `tsconfig.base.json` runs **everything**. So does the `ci:full` label (applied on the next push to the PR). Docs-only PRs run only Plan and CI OK.
 
+Go jobs install the latest patch of the minor in `GO_VERSION` (top of `ci.yml`), not the exact `go` line of `server-go/go.mod`: that line is the minimum the modules need (for example `go 1.26.0`), and its standard library would fail govulncheck. Bump `GO_VERSION` when `go.mod` moves to a new minor.
+
 ## Running only what changed
 
 Selection works at three levels:
