@@ -1,0 +1,57 @@
+# Dependabot version updates. Security updates are enabled separately in the repository settings
+# (Settings > Code security > Dependabot security updates) and ignore the schedule below.
+version: 2
+
+updates:
+  # pnpm workspace (root + packages/* + apps/*): Dependabot reads pnpm-lock.yaml.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: gomod
+    directory: /server-go
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      go-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: cargo
+    directory: /experiments/canvas-wasm
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Pinned with `=`: it must match wasm-bindgen-cli in build.sh, so bump both by hand.
+      - dependency-name: wasm-bindgen
+
+  # Actions are pinned by commit SHA in the workflows; Dependabot keeps the SHA and the version
+  # comment up to date.
+  - package-ecosystem: github-actions
+    directories: ["/", "/.github/actions/*"]
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions:
+        patterns: ["*"]

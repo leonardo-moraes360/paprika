@@ -134,6 +134,8 @@ pnpm dev          # server with the demo; in another terminal: pnpm --filter @pa
 pnpm check:go     # Go server: fixtures up to date, go test, parity and E2E against the Go binary
 ```
 
+CI runs on pull requests only and picks the jobs from the files the PR changes: see [docs/ci.md](docs/ci.md).
+
 This repository uses [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) as its agent harness: invariants live in `.toolbelt/invariants.yaml` (`tb mem list`), and `tb verify run` / `tb stack verify guard` run before work is called done.
 
 ## Security
