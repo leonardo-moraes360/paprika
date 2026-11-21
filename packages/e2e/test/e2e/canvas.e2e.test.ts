@@ -699,6 +699,32 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, clear: true } });
    }, 30_000);
 
+  it("overview: uma rajada de escritas do agente não vira um GET da lista por versão, e o último valor aparece", async () => {
+    const POLL = { timeout: 10_000 };
+    const { id: demo } = await doc();
+    const nodesOf = async () =>
+      ((await (await fetch(`${url}/api/workspaces`)).json()) as { workspaces: { id: string; nodes: number }[] }).workspaces.find((w) => w.id === demo)!.nodes;
+    await page.goto(url);
+    const card = page.locator(`[data-workspace-id="${demo}"]`);
+    await expect.poll(() => card.textContent(), POLL).toContain("ativo");
+    let gets = 0;
+    const onRequest = (r: { method(): string; url(): string }) => {
+      if (r.method() === "GET" && new URL(r.url()).pathname === "/api/workspaces") gets++;
+    };
+    page.on("request", onRequest);
+    const ids = Array.from({ length: 20 }, (_, i) => `rajada${i}`);
+    try {
+      for (const id of ids) await agent.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id, x: 0, y: 0, width: 8, height: 8 }] } });
+      const total = await nodesOf();
+      await expect.poll(() => card.textContent(), POLL).toContain(`${total} nós`);
+    } finally {
+      page.off("request", onRequest);
+      await agent.callTool({ name: "delete_nodes", arguments: { ids } });
+    }
+    // One write per version used to refetch once per version (20 here); the follow is throttled.
+    expect(gets).toBeLessThan(ids.length / 2);
+  });
+
   it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     try {
