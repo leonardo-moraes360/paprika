@@ -1,0 +1,14 @@
+{
+  "format": "paprika/1",
+  "id": "bench-login-card",
+  "name": "Bench: login card",
+  "tokens": {
+    "paper": "#ffffff",
+    "ink": "#101828",
+    "muted": "#475467",
+    "brand": "#1d4ed8",
+    "line": "#d0d5dd"
+  },
+  "rootIds": [],
+  "nodes": {}
+}

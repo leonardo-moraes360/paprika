@@ -51,4 +51,6 @@ else
   fi
 fi
 
-printf '%s\n' $selected | grep -v '^$' | sort -u | awk -v s="$shard" -v t="$total" '(NR - 1) % t == s - 1'
+# An empty selection is a normal answer (a change under server-go/ that touches no Go package), so
+# the `grep -v` that drops the blank line must not decide the exit status of the pipeline.
+printf '%s\n' $selected | { grep -v '^$' || true; } | sort -u | awk -v s="$shard" -v t="$total" '(NR - 1) % t == s - 1'

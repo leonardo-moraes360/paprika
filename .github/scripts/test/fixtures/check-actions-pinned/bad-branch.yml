@@ -1,0 +1,8 @@
+# A branch moves even more often than a tag.
+name: bad-branch
+on: [push]
+jobs:
+  bad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
