@@ -43,9 +43,9 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    // `/` is the workspace overview: the demo is the only (active) workspace; opening it shows the canvas.
+    // `/` is the workspace overview: the demo is the only (active) workspace; a double click opens its canvas.
     await page.goto(url);
-    await page.locator(".workspace-card.is-active").click();
+    await page.locator(".workspace-card.is-active").dblclick();
     await page.waitForSelector('[data-paprika-id="login"]');
     expect(new URL(page.url()).pathname).toBe(`/w/${(await doc()).id}`);
     expect(errors).toEqual([]);
@@ -591,13 +591,86 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     await page.goBack();
     await expect.poll(() => new URL(page.url()).pathname).toBe("/");
     await expect.poll(() => page.locator(`[data-workspace-id="${draft}"]`).textContent()).toMatch(/Rascunho do agente1 nó/);
-    await page.locator(`[data-workspace-id="${draft}"]`).click();
+    await page.locator(`[data-workspace-id="${draft}"]`).dblclick();
     await page.waitForSelector('[data-paprika-id="rasc"]');
     await page.goto(`${url}/w/nao-existe`);
     await expect.poll(() => new URL(page.url()).pathname).toBe("/");
     await expect.poll(() => page.getByRole("alert").textContent()).toContain("nao-existe");
     // Leave the demo active for any later test.
     await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
+  });
+
+  it("overview: um clique seleciona, clique duplo no nome renomeia (Enter/Esc) e excluir pede confirmação", async () => {
+    const POLL = { timeout: 10_000 };
+    const { id: demo, name: demoName } = await doc();
+    const api = async () => (await (await fetch(`${url}/api/workspaces`)).json()) as { active: string; workspaces: { id: string; name: string }[] };
+    const created = await fetch(`${url}/api/workspaces`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Para apagar" }) });
+    const extra = ((await created.json()) as { workspace: { id: string } }).workspace.id;
+    await page.goto(url);
+    const card = page.locator(`[data-workspace-id="${extra}"]`);
+    await expect.poll(() => card.textContent(), POLL).toContain("Para apagar");
+
+    // One click selects and stays on the overview.
+    await card.click();
+    await expect.poll(() => card.getAttribute("aria-pressed")).toBe("true");
+    expect(new URL(page.url()).pathname).toBe("/");
+    if (shots) {
+      await page.waitForTimeout(200); // the card's actions fade in
+      await page.screenshot({ path: join(shots, "21-overview-selecionado.png") });
+    }
+
+    // Double click on the name renames: Esc cancels, Enter commits.
+    await card.locator(".workspace-name").dblclick();
+    const field = page.getByLabel("Novo nome do workspace");
+    await field.fill("Não vale");
+    await field.press("Escape");
+    await expect.poll(() => card.locator(".workspace-name").textContent()).toBe("Para apagar");
+    expect(new URL(page.url()).pathname).toBe("/");
+    await card.locator(".workspace-name").dblclick();
+    await field.fill("Renomeado");
+    if (shots) await page.screenshot({ path: join(shots, "22-overview-renomear.png") });
+    await field.press("Enter");
+    await expect.poll(() => card.locator(".workspace-name").textContent(), POLL).toBe("Renomeado");
+    expect((await api()).workspaces.find((w) => w.id === extra)?.name).toBe("Renomeado");
+
+    // Renaming the active workspace is a document write: the agents see the new name.
+    await page.getByRole("button", { name: `Renomear ${demoName}` }).click();
+    await field.fill("Demo (renomeado)");
+    await field.press("Enter");
+    await expect.poll(async () => (await doc()).name, POLL).toBe("Demo (renomeado)");
+
+    // Delete asks first: Cancel keeps it, Excluir removes it.
+    await page.getByRole("button", { name: "Excluir Renomeado" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect.poll(() => dialog.textContent()).toContain("Excluir “Renomeado”?");
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    await expect.poll(() => dialog.isVisible()).toBe(false);
+    expect((await api()).workspaces.some((w) => w.id === extra)).toBe(true);
+    await card.click();
+    await page.keyboard.press("Delete");
+    await expect.poll(() => dialog.isVisible()).toBe(true);
+    await dialog.getByRole("button", { name: "Excluir" }).click();
+    await expect.poll(() => card.count(), POLL).toBe(0);
+    expect((await api()).workspaces.some((w) => w.id === extra)).toBe(false);
+
+    // Deleting the active workspace moves the canvas and the agents to the most recent other one.
+    const tmp = ((await agent.callTool({ name: "create_workspace", arguments: { name: "Ativo temporário" } })) as { structuredContent: { workspace: { id: string } } })
+      .structuredContent.workspace.id;
+    await agent.callTool({ name: "open_workspace", arguments: { id: tmp } });
+    const tmpCard = page.locator(`[data-workspace-id="${tmp}"]`);
+    await expect.poll(() => tmpCard.textContent(), POLL).toContain("ativo");
+    await page.getByRole("button", { name: "Excluir Ativo temporário" }).click();
+    await expect.poll(() => dialog.textContent()).toContain("o canvas e os agentes MCP passam para");
+    if (shots) await page.screenshot({ path: join(shots, "23-overview-excluir-ativo.png") });
+    await dialog.getByRole("button", { name: "Excluir" }).click();
+    await expect.poll(() => tmpCard.count(), POLL).toBe(0);
+    await expect.poll(async () => (await api()).active, POLL).not.toBe(tmp);
+    await expect.poll(() => page.locator(".workspace-card.is-active").count(), POLL).toBe(1);
+
+    // Back to the original state for later tests.
+    await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
+    await agent.callTool({ name: "rename_workspace", arguments: { id: demo, name: demoName } });
+    await expect.poll(async () => (await doc()).name, POLL).toBe(demoName);
   });
 
   it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {

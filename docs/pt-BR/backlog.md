@@ -170,7 +170,7 @@ Decisão pendente: escrever efeitos próprios (WebGL/WebGPU, ligado à avaliaç�
 
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
-| Workspace com vários arquivos, pastas, miniaturas | Página de workspaces em `/` (2026-11-21): listar, criar, abrir; um workspace ativo compartilhado por canvas e agentes (`list_workspaces`, `open_workspace`, `create_workspace`). Ainda sem pastas, miniaturas, renomear ou apagar | 🟡 | P2 |
+| Workspace com vários arquivos, pastas, miniaturas | Página de workspaces em `/` (2026-11-21): listar, criar, abrir, renomear, excluir; um workspace ativo compartilhado por canvas e agentes (`list_workspaces`, `open_workspace`, `create_workspace`, `rename_workspace`, `delete_workspace`). Ainda sem pastas ou miniaturas | 🟡 | P2 |
 | Abas para arquivos abertos | — | ⬜ | P3 |
 | Dados ao vivo no design (buscar de uma API ou planilha) | — | ⬜ | P3 |
 | Edição multiusuário em tempo real (CRDT) | Um escritor + watcher | ⬜ | P3 |

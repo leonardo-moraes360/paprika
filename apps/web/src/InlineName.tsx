@@ -4,6 +4,8 @@ interface Props {
   value: string;
   label: string;
   className?: string;
+  /** Default 200 (node and page names). */
+  maxLength?: number;
   /** Recebe o nome já aparado e diferente do atual; um nome vazio não é enviado. */
   onCommit(name: string): void;
   onDone(): void;
@@ -13,7 +15,7 @@ interface Props {
  * Campo de renomear no lugar: Enter ou sair do campo confirma, Esc cancela.
  * O Esc marca o cancelamento antes de desmontar, para o blur que vem depois não confirmar.
  */
-export function InlineName({ value, label, className, onCommit, onDone }: Props) {
+export function InlineName({ value, label, className, maxLength = 200, onCommit, onDone }: Props) {
   const settled = useRef(false);
   const field = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -35,7 +37,7 @@ export function InlineName({ value, label, className, onCommit, onDone }: Props)
       className={className}
       aria-label={label}
       defaultValue={value}
-      maxLength={200}
+      maxLength={maxLength}
       onFocus={(e) => e.currentTarget.select()}
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}

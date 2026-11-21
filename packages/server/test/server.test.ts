@@ -56,6 +56,7 @@ describe("MCP", () => {
         "create_page",
         "create_workspace",
         "delete_nodes",
+        "delete_workspace",
         "detach_instance",
         "draw_diagram",
         "export_code",
@@ -73,6 +74,7 @@ describe("MCP", () => {
         "open_workspace",
         "path_info",
         "redo",
+        "rename_workspace",
         "render_screenshot",
         "set_tokens",
         "undo",
@@ -385,6 +387,38 @@ describe("MCP", () => {
     const bad = await call(c, "open_workspace", { id: "nope" });
     expect(bad.isError).toBe(true);
     expect(textOf(bad)).toBe('workspace "nope" does not exist (see list_workspaces)');
+  });
+
+  it("workspaces: renomear (o ativo com desfazer) e excluir (o ativo passa para o mais recente; o único fica)", async () => {
+    const c = await connect();
+    const first = store.doc.id;
+    const only = await call(c, "delete_workspace", { id: first });
+    expect(only.isError).toBe(true);
+    expect(textOf(only)).toBe(`workspace "${first}" is the only one and cannot be deleted`);
+
+    const other = (await call(c, "create_workspace", { name: "Outro" })) as ToolResult & { structuredContent: { workspace: { id: string } } };
+    const otherId = other.structuredContent.workspace.id;
+    const renamed = (await call(c, "rename_workspace", { id: otherId, name: "  Marca  " })) as ToolResult & { structuredContent: { workspace: { name: string; active: boolean } } };
+    expect(renamed.structuredContent.workspace).toMatchObject({ name: "Marca", active: false });
+    expect(JSON.parse(await readFile(join(dir, "outro.paprika.json"), "utf8")).name).toBe("Marca");
+
+    const before = store.doc.name;
+    await call(c, "rename_workspace", { id: first, name: "Ativo" });
+    expect(store.doc.name).toBe("Ativo");
+    expect(store.canUndo).toBe(true);
+    await call(c, "undo");
+    expect(store.doc.name).toBe(before);
+    expect((await call(c, "rename_workspace", { id: first, name: "   " })).isError).toBe(true);
+    expect(textOf(await call(c, "rename_workspace", { id: "nope", name: "x" }))).toBe('workspace "nope" does not exist (see list_workspaces)');
+
+    const events: string[] = [];
+    store.on("change", (e) => events.push(e.kind));
+    const del = (await call(c, "delete_workspace", { id: first })) as ToolResult & { structuredContent: { deleted: string; active: string } };
+    expect(del.structuredContent).toEqual({ deleted: first, active: otherId });
+    expect(store.doc.id).toBe(otherId);
+    expect(events).toEqual(["open"]);
+    await expect(readFile(join(dir, "t.paprika.json"), "utf8")).rejects.toThrow(/ENOENT/);
+    expect(textOf(await call(c, "delete_workspace", { id: "nope" }))).toBe('workspace "nope" does not exist (see list_workspaces)');
   });
 
   it("nome de arquivo do workspace: sem acento, minúsculo, palavras com hífen, até 60 caracteres", () => {

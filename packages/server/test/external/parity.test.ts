@@ -623,6 +623,59 @@ describe(`paridade (${impl}): HTTP + WebSocket`, () => {
     ws.close();
   });
 
+  it("workspaces: renomear e excluir por MCP e HTTP; excluir o ativo troca para o mais recente", async () => {
+    type Info = { id: string; name: string; nodes: number; updatedAt: number; active: boolean };
+    const req = (method: string, path: string, body?: unknown) =>
+      fetch(`${srv.url}${path}`, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const list = async () => (await (await fetch(`${srv.url}/api/workspaces`)).json()) as { active: string; workspaces: Info[] };
+    const start = (await list()).active;
+    const a = ((await (await req("POST", "/api/workspaces", { name: "A" })).json()) as { workspace: Info }).workspace;
+
+    const renamed = await req("PATCH", `/api/workspaces/${a.id}`, { name: "  A2  " });
+    expect(renamed.status).toBe(200);
+    const info = ((await renamed.json()) as { workspace: Info }).workspace;
+    expect(Object.keys(info)).toEqual(["id", "name", "nodes", "updatedAt", "active"]);
+    expect(info).toMatchObject({ id: a.id, name: "A2", active: false });
+    expect((await list()).workspaces.find((w) => w.id === a.id)?.name).toBe("A2");
+    expect((await req("PATCH", `/api/workspaces/${a.id}`, { name: "  " })).status).toBe(400);
+    expect((await req("PATCH", `/api/workspaces/${a.id}`, { name: 3 })).status).toBe(400);
+    const missing = await req("PATCH", "/api/workspaces/nope", { name: "x" });
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: 'workspace "nope" não existe' });
+    expect((await req("GET", `/api/workspaces/${a.id}`)).status).toBe(405);
+
+    const mcp = (await call(client, "rename_workspace", { id: a.id, name: "A3" })) as ToolResult & { structuredContent: { workspace: Info } };
+    expect(mcp.isError, textOf(mcp)).toBeFalsy();
+    expect(mcp.structuredContent.workspace).toMatchObject({ id: a.id, name: "A3" });
+    expect(textOf(await call(client, "rename_workspace", { id: "nope", name: "x" }))).toBe('workspace "nope" does not exist (see list_workspaces)');
+
+    // Renaming the active workspace is an undoable document write.
+    const activeName = (await srv.doc()).name;
+    await call(client, "rename_workspace", { id: start, name: "Ativo" });
+    expect((await srv.doc()).name).toBe("Ativo");
+    await call(client, "undo");
+    expect((await srv.doc()).name).toBe(activeName);
+
+    // Delete the active one: the server opens the most recently updated other workspace.
+    await call(client, "open_workspace", { id: a.id });
+    const del = await req("DELETE", `/api/workspaces/${a.id}`);
+    expect(del.status).toBe(200);
+    const after = (await del.json()) as { deleted: string; active: string };
+    expect(after.deleted).toBe(a.id);
+    expect(after.active).not.toBe(a.id);
+    expect((await list()).active).toBe(after.active);
+    expect((await srv.doc()).id).toBe(after.active);
+    expect((await list()).workspaces.some((w) => w.id === a.id)).toBe(false);
+    expect((await req("DELETE", `/api/workspaces/${a.id}`)).status).toBe(404);
+
+    const b = ((await (await req("POST", "/api/workspaces", { name: "B" })).json()) as { workspace: Info }).workspace;
+    const mcpDel = (await call(client, "delete_workspace", { id: b.id })) as ToolResult & { structuredContent: { deleted: string; active: string } };
+    expect(mcpDel.isError, textOf(mcpDel)).toBeFalsy();
+    expect(mcpDel.structuredContent).toEqual({ deleted: b.id, active: after.active });
+    expect(textOf(await call(client, "delete_workspace", { id: "nope" }))).toBe('workspace "nope" does not exist (see list_workspaces)');
+    await call(client, "open_workspace", { id: start });
+  });
+
   it("bloqueia Host/Origin externos (DNS rebinding / CSRF)", async () => {
     const port = Number(new URL(srv.url).port);
     expect(await status(port, { host: `evil.example:${port}` })).toBe(403);

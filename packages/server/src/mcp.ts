@@ -27,7 +27,7 @@ import {
   renderHTML,
   type Op as OpT,
 } from "@paprika/core";
-import type { DocumentStore } from "./store.js";
+import { LastWorkspaceError, type DocumentStore } from "./store.js";
 import { presenceKey, presenceTargets } from "./presence.js";
 import { screenshot, svgExport } from "./screenshot.js";
 
@@ -85,7 +85,7 @@ Recommended flow:
 To bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes); export_code with format "svg" returns vector SVG.
 Every write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. "draw proposal 3"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.
 Results: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.
-Workspaces: the server holds several documents (list_workspaces); every tool works on the active one, which is also the one on the human's canvas. open_workspace switches it for everyone, so ask the human first; create_workspace makes an empty one.
+Workspaces: the server holds several documents (list_workspaces); every tool works on the active one, which is also the one on the human's canvas. open_workspace switches it for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one; delete_workspace cannot be undone, so only call it after the human confirms.
 The human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.
 This guide in Brazilian Portuguese: get_design_guide {language: "pt-BR"}.`;
 
@@ -142,7 +142,7 @@ Fluxo recomendado:
 Para trazer um ícone ou um trecho de página pronto, use import_svg ou import_html (viram nós editáveis); export_code com format "svg" devolve SVG vetorial.
 Toda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. Para várias chamadas virarem um passo só de undo (ex.: "desenhar a proposta 3"), passe o mesmo batch em cada uma; o batch fecha quando outra pessoa escreve ou desfaz no meio.
 Resultados: as ferramentas que devolvem JSON também devolvem structuredContent conforme o outputSchema; leia esse campo em vez de interpretar o texto.
-Workspaces: o servidor guarda vários documentos (list_workspaces); toda ferramenta trabalha no ativo, que é também o do canvas do humano. open_workspace troca o ativo para todos, então pergunte ao humano antes; create_workspace cria um vazio.
+Workspaces: o servidor guarda vários documentos (list_workspaces); toda ferramenta trabalha no ativo, que é também o do canvas do humano. open_workspace troca o ativo para todos, então pergunte ao humano antes; create_workspace cria um vazio, rename_workspace renomeia um; delete_workspace não tem desfazer, então só chame depois que o humano confirmar.
 O humano vê suas edições ao vivo no canvas. Campos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.
 Erros e mensagens das ferramentas são em inglês.`;
 
@@ -662,6 +662,50 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
       outputSchema: { workspace: Workspace },
     },
     ({ name }) => guard(async () => json({ workspace: await store.createWorkspace(name) })),
+  );
+
+  server.registerTool(
+    "rename_workspace",
+    {
+      title: "Rename workspace",
+      description:
+        "Renames a workspace (the name shown on the overview). Renaming the active one is an undoable write (rename_document); any other is renamed in place.",
+      inputSchema: {
+        id: z.string().min(1).describe("Workspace id (from list_workspaces)"),
+        name: z.string().min(1).max(120).describe("New name (trimmed, must not be blank)"),
+      },
+      outputSchema: { workspace: Workspace },
+    },
+    ({ id, name }) =>
+      guard(async () => {
+        const workspace = await store.renameWorkspace(id, name, actorOf());
+        if (!workspace) throw new Error(`workspace "${id}" does not exist (see list_workspaces)`);
+        return json({ workspace });
+      }),
+  );
+
+  server.registerTool(
+    "delete_workspace",
+    {
+      title: "Delete workspace",
+      description:
+        "Deletes a workspace for good (it cannot be undone). Deleting the active one first opens the most recently updated other workspace for everyone; the only workspace cannot be deleted. Ask the human for explicit confirmation first.",
+      inputSchema: { id: z.string().min(1).describe("Workspace id (from list_workspaces)") },
+      outputSchema: { deleted: z.string().describe("Id of the deleted workspace"), active: z.string().describe("Id of the active workspace afterwards") },
+      annotations: { destructiveHint: true },
+    },
+    ({ id }) =>
+      guard(async () => {
+        let active: string | undefined;
+        try {
+          active = await store.deleteWorkspace(id, actorOf());
+        } catch (e) {
+          if (e instanceof LastWorkspaceError) throw new Error(`workspace "${id}" is the only one and cannot be deleted`);
+          throw e;
+        }
+        if (active === undefined) throw new Error(`workspace "${id}" does not exist (see list_workspaces)`);
+        return json({ deleted: id, active });
+      }),
   );
 
   server.registerTool(

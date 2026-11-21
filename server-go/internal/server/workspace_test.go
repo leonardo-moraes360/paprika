@@ -65,3 +65,56 @@ func TestWorkspacesListOpenCreate(t *testing.T) {
 		t.Fatalf("unknown id: %v", err)
 	}
 }
+
+func TestWorkspacesRenameDelete(t *testing.T) {
+	s, _ := openTemp(t)
+	first := s.DocID()
+	if _, err := s.DeleteWorkspace(first, "user"); !errors.Is(err, ErrLastWorkspace) {
+		t.Fatalf("delete only workspace: %v", err)
+	}
+	other, err := s.CreateWorkspace("Outro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.RenameWorkspace(other.ID, "  Marca  ", "user")
+	if err != nil || got.Name != "Marca" || got.Active {
+		t.Fatalf("rename other = %+v, %v", got, err)
+	}
+	if doc, _, err := LoadDocument(s.DB(), other.ID); err != nil || doc.Str("name") != "Marca" {
+		t.Fatalf("stored name: %v", err)
+	}
+	if _, err := s.RenameWorkspace(other.ID, " ", "user"); err == nil {
+		t.Fatal("blank name must fail")
+	}
+	if _, err := s.RenameWorkspace("nope", "x", "user"); !errors.Is(err, ErrNoWorkspace) {
+		t.Fatalf("rename unknown: %v", err)
+	}
+
+	before := s.Doc().Str("name")
+	if _, err := s.RenameWorkspace(first, "Ativo", "user"); err != nil || s.Doc().Str("name") != "Ativo" || !s.CanUndo() {
+		t.Fatalf("rename active: %v (%q)", err, s.Doc().Str("name"))
+	}
+	if ok, _ := s.Undo("user"); !ok || s.Doc().Str("name") != before {
+		t.Fatalf("undo rename: %q", s.Doc().Str("name"))
+	}
+
+	createRect(t, s, "a")
+	var events []ChangeEvent
+	s.OnChange(func(e ChangeEvent) { events = append(events, e) })
+	active, err := s.DeleteWorkspace(first, "user")
+	if err != nil || active != other.ID || s.DocID() != other.ID {
+		t.Fatalf("delete active = %q, %v (active %s)", active, err, s.DocID())
+	}
+	if len(events) != 1 || events[0].Kind != "open" {
+		t.Fatalf("events = %+v", events)
+	}
+	var n int
+	for _, table := range []string{"documents", "nodes", "history"} {
+		if err := s.DB().QueryRow(`SELECT COUNT(*) FROM `+table+` WHERE `+map[bool]string{true: "id", false: "doc_id"}[table == "documents"]+` = ?`, first).Scan(&n); err != nil || n != 0 {
+			t.Fatalf("%s rows left for deleted doc: %d, %v", table, n, err)
+		}
+	}
+	if _, err := s.DeleteWorkspace(first, "user"); !errors.Is(err, ErrNoWorkspace) {
+		t.Fatalf("delete twice: %v", err)
+	}
+}

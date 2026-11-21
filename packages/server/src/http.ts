@@ -7,7 +7,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { Op, renderHTML } from "@paprika/core";
 import { z } from "zod";
-import type { DocumentStore, ChangeEvent } from "./store.js";
+import { LastWorkspaceError, type DocumentStore, type ChangeEvent } from "./store.js";
 import { createMcpServer } from "./mcp.js";
 import type { Presence } from "./presence.js";
 import { screenshot, svgExport } from "./screenshot.js";
@@ -43,6 +43,8 @@ const ClientMessage = z.discriminatedUnion("type", [
 
 /** POST /api/workspaces: name of the new workspace (blank: "Sem título"). */
 const WorkspaceBody = z.object({ name: z.string().max(120).optional() });
+/** PATCH /api/workspaces/{id}: new name (trimmed, not blank). */
+const RenameWorkspaceBody = z.object({ name: z.string().max(120) });
 
 function isLoopbackHost(host: string): boolean {
   return host === "127.0.0.1" || host === "localhost" || host === "::1";
@@ -202,6 +204,27 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
         const body = WorkspaceBody.safeParse((await readBody(req)) ?? {});
         if (!body.success) return send(res, 400, { error: body.error.message });
         return send(res, 201, { workspace: await store.createWorkspace(body.data.name ?? "") });
+      }
+      const one = /^\/api\/workspaces\/([^/]+)$/.exec(p);
+      if (one && req.method !== "PATCH" && req.method !== "DELETE") return send(res, 405, { error: "método não permitido" });
+      if (one) {
+        const id = decodeURIComponent(one[1]!);
+        if (req.method === "PATCH") {
+          const body = RenameWorkspaceBody.safeParse((await readBody(req)) ?? {});
+          if (!body.success) return send(res, 400, { error: body.error.message });
+          if (!body.data.name.trim()) return send(res, 400, { error: "o nome não pode ficar vazio" });
+          const workspace = await store.renameWorkspace(id, body.data.name, "user");
+          if (!workspace) return send(res, 404, { error: `workspace "${id}" não existe` });
+          return send(res, 200, { workspace });
+        }
+        try {
+          const active = await store.deleteWorkspace(id, "user");
+          if (active === undefined) return send(res, 404, { error: `workspace "${id}" não existe` });
+          return send(res, 200, { deleted: id, active });
+        } catch (e) {
+          if (e instanceof LastWorkspaceError) return send(res, 409, { error: "não é possível excluir o único workspace" });
+          throw e;
+        }
       }
       const open = /^\/api\/workspaces\/([^/]+)\/open$/.exec(p);
       if (open && req.method !== "POST") return send(res, 405, { error: "método não permitido" });

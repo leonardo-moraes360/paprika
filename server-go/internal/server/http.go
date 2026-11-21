@@ -136,6 +136,9 @@ var apiOpsBody = z.Object(
 // POST /api/workspaces: name of the new workspace (blank: "Sem título").
 var workspaceBody = z.Object(z.Field{Name: "name", Schema: z.Optional(z.String().Max(120))})
 
+// PATCH /api/workspaces/{id}: new name (trimmed, not blank).
+var renameWorkspaceBody = z.Object(z.Field{Name: "name", Schema: z.String().Max(120)})
+
 // RunningServer is a started HTTP server.
 type RunningServer struct {
 	URL    string
@@ -321,6 +324,59 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 				return
 			}
 			send(w, 201, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+		default:
+			send(w, 405, errBody("método não permitido"), "")
+		}
+	})
+	mux.HandleFunc("/api/workspaces/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		switch r.Method {
+		case http.MethodPatch:
+			body, present, err := readBody(r)
+			if err != nil {
+				var he *httpError
+				if errors.As(err, &he) {
+					send(w, he.status, errBody(he.msg), "")
+					return
+				}
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			if !present {
+				body = jsonv.NewObject()
+			}
+			parsed, err := z.Parse(renameWorkspaceBody, body)
+			if err != nil {
+				send(w, 400, errBody(err.Error()), "")
+				return
+			}
+			name := strings.TrimSpace(parsed.(*jsonv.Object).Str("name"))
+			if name == "" {
+				send(w, 400, errBody("o nome não pode ficar vazio"), "")
+				return
+			}
+			info, err := store.RenameWorkspace(id, name, "user")
+			if errors.Is(err, ErrNoWorkspace) {
+				send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+				return
+			}
+			if err != nil {
+				send(w, 500, errBody(err.Error()), "")
+				return
+			}
+			send(w, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+		case http.MethodDelete:
+			active, err := store.DeleteWorkspace(id, "user")
+			switch {
+			case errors.Is(err, ErrNoWorkspace):
+				send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+			case errors.Is(err, ErrLastWorkspace):
+				send(w, 409, errBody("não é possível excluir o único workspace"), "")
+			case err != nil:
+				send(w, 500, errBody(err.Error()), "")
+			default:
+				send(w, 200, jsonv.NewObject("deleted", id, "active", active), "")
+			}
 		default:
 			send(w, 405, errBody("método não permitido"), "")
 		}

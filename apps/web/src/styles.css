@@ -919,3 +919,78 @@ button.link {
 .crumb-sep {
   color: var(--line);
 }
+
+/* Renomear e excluir workspaces. */
+.workspace-grid > li {
+  position: relative;
+}
+.workspace-card.is-selected {
+  outline: 2px solid var(--select);
+  outline-offset: 2px;
+}
+.workspace-rename {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 2px 6px;
+  margin: -3px -7px;
+  border: 1px solid var(--select);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+}
+.workspace-actions {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.workspace-grid > li:hover .workspace-actions,
+.workspace-grid > li:focus-within .workspace-actions,
+.workspace-card.is-selected + .workspace-actions {
+  opacity: 1;
+}
+.overview-main .workspace-actions button {
+  padding: 4px 6px;
+  font-size: 15px;
+  border: 0;
+  background: none;
+}
+.overview-main .workspace-actions button:hover:not(:disabled) {
+  background: var(--panel-2);
+}
+.workspace-dialog {
+  margin: auto;
+  max-width: 420px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+}
+.workspace-dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+.workspace-dialog h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.workspace-dialog p {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+.workspace-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.overview-main .workspace-dialog button.danger {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}

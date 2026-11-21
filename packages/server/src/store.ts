@@ -1,9 +1,9 @@
 import { EventEmitter } from "node:events";
 import { createHash } from "node:crypto";
 import { existsSync, watch, type FSWatcher, type Stats } from "node:fs";
-import { mkdir, open, readFile, readdir, rename, writeFile, type FileHandle } from "node:fs/promises";
+import { mkdir, open, readFile, readdir, rename, unlink, writeFile, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { History, createDocument, parseDocument, type ApplyResult, type Document, type Op } from "@paprika/core";
+import { History, applyOps, createDocument, parseDocument, type ApplyResult, type Document, type Op } from "@paprika/core";
 import { PresenceHub } from "./presence.js";
 
 export interface ChangeEvent {
@@ -27,6 +27,14 @@ export interface WorkspaceInfo {
   updatedAt: number;
   /** The active workspace: the one the canvas and the MCP tools read and write. */
   active: boolean;
+}
+
+/** deleteWorkspace on the only workspace: the server always has an active one. */
+export class LastWorkspaceError extends Error {
+  constructor(id: string) {
+    super(`workspace "${id}" is the only one and cannot be deleted`);
+    this.name = "LastWorkspaceError";
+  }
 }
 
 const WORKSPACE_FILE = /^[^.].*\.paprika\.json$/;
@@ -229,6 +237,49 @@ export class DocumentStore extends EventEmitter<{ change: [ChangeEvent]; error: 
         await fh.close();
       }
     }
+  }
+
+  /**
+   * Renames a workspace (trimmed; blank throws). The active one is renamed with a `rename_document`
+   * op, so the canvas follows and Ctrl+Z undoes it; another one gets the same op applied to its
+   * file (no undo entry).
+   * Returns undefined if the id is unknown.
+   */
+  async renameWorkspace(id: string, name: string, actor: string): Promise<WorkspaceInfo | undefined> {
+    const clean = name.trim();
+    if (!clean) throw new Error("name must not be blank");
+    const found = (await this.scanWorkspaces()).find((w) => w.info.id === id);
+    if (!found) return undefined;
+    if (found.info.name === clean) return found.info;
+    if (found.info.active) {
+      this.apply([{ op: "rename_document", name: clean }], actor, "renomear workspace");
+      await this.flush();
+      return (await this.scanWorkspaces()).find((w) => w.info.id === id)?.info;
+    }
+    // Same path as every other write (applyOps), outside the active history: no undo entry.
+    const { doc } = applyOps(parseDocument(JSON.parse(await readFile(found.file, "utf8"))), [{ op: "rename_document", name: clean }]);
+    const tmp = join(dirname(found.file), `.${basename(found.file)}.${process.pid}.tmp`);
+    await writeFile(tmp, JSON.stringify(doc, null, 2) + "\n", "utf8");
+    await rename(tmp, found.file);
+    return (await this.scanWorkspaces()).find((w) => w.info.id === id)?.info;
+  }
+
+  /**
+   * Deletes a workspace's file. Deleting the active one first opens the most recently updated
+   * other workspace (event `change` with kind `open`), so the canvas and the agents move there;
+   * the only workspace throws LastWorkspaceError. Returns the id that is active afterwards, or
+   * undefined if the id is unknown.
+   */
+  async deleteWorkspace(id: string, actor: string): Promise<string | undefined> {
+    const all = await this.scanWorkspaces();
+    const found = all.find((w) => w.info.id === id);
+    if (!found) return undefined;
+    const next = all.find((w) => w.info.id !== id); // most recently updated first
+    if (!next) throw new LastWorkspaceError(id);
+    if (found.info.active) await this.openWorkspace(next.info.id, actor);
+    await this.writeChain;
+    await unlink(found.file);
+    return this.doc.id;
   }
 
   /** Escrita atômica (tmp + rename), serializada para nunca intercalar duas gravações. */
