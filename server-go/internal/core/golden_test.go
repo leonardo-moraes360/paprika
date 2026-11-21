@@ -54,7 +54,7 @@ func baseDocs(t *testing.T, g *jsonv.Object) map[string]*Document {
 	for _, v := range g.Arr("views") {
 		o := v.(*jsonv.Object)
 		switch name := o.Str("name"); name {
-		case "empty", "card", "demo", "bezier", "free", "grouped", "paged", "comp", "themed":
+		case "empty", "card", "demo", "bezier", "free", "grouped", "paged", "comp", "themed", "diagram":
 			docs[name] = mustDoc(t, o.Str("doc"))
 		}
 	}
@@ -478,5 +478,54 @@ func TestGoldenSVGExport(t *testing.T) {
 				eq(t, fmt.Sprintf("svg %s %s %q", c.Str("name"), mode, id), got, wantResult(cases.Obj(id)))
 			}
 		}
+	}
+}
+
+func TestGoldenDiagrams(t *testing.T) {
+	g := loadGolden(t)
+	docs := baseDocs(t, g)
+	for i, v := range g.Arr("diagrams") {
+		c := v.(*jsonv.Object)
+		d := docs[c.Str("doc")]
+		where := fmt.Sprintf("diagram %d %s", i, jsonv.Stringify(c.Obj("input"), ""))
+		plan, err := DiagramOps(d, c.Obj("input"))
+		if !c.Bool("ok") {
+			if err == nil {
+				t.Errorf("%s: expected error %q", where, c.Str("error"))
+				continue
+			}
+			eq(t, where+" error", err.Error(), c.Str("error"))
+			continue
+		}
+		if err != nil {
+			t.Errorf("%s: unexpected error %v", where, err)
+			continue
+		}
+		eq(t, where+" plan", jsonv.Stringify(plan.JSON(), ""), c.Str("plan"))
+		r, aerr := ApplyOps(d, plan.Ops)
+		if c.Has("applyError") {
+			if aerr == nil {
+				t.Errorf("%s: expected apply error %q", where, c.Str("applyError"))
+			} else {
+				eq(t, where+" apply error", aerr.Error(), c.Str("applyError"))
+			}
+			continue
+		}
+		if aerr != nil {
+			t.Errorf("%s: apply error %v", where, aerr)
+			continue
+		}
+		eq(t, where+" result", jsonv.Stringify(r.Doc, "  "), c.Str("result"))
+	}
+}
+
+func TestGoldenShapeOutlines(t *testing.T) {
+	g := loadGolden(t)
+	for i, v := range g.Arr("outlines") {
+		c := v.(*jsonv.Object)
+		d, fold := ShapeOutline(c.Obj("n"))
+		out := c.Obj("out")
+		eq(t, fmt.Sprintf("outline %d d", i), d, out.Str("d"))
+		eq(t, fmt.Sprintf("outline %d fold", i), fold, out.Str("fold"))
 	}
 }

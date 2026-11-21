@@ -8,6 +8,8 @@ import {
   modeOf,
   resolveValue,
   ungroupOps,
+  type ConnectorEnd,
+  type ConnectorNode,
   type Document,
   type FrameNode,
   type GroupNode,
@@ -169,6 +171,7 @@ export function Inspector(props: Props) {
   const owner = copyOwner(doc, node);
   if (owner) return <CopyPanel {...props} node={node as SceneNode} instance={owner} />;
   if (node.type === "group") return <GroupPanel {...props} group={node} />;
+  if (node.type === "connector") return <ConnectorPanel {...props} connector={node} />;
   if (isInstance(node)) return <InstancePanel {...props} instance={node} />;
   const set = (props: Record<string, unknown>, label = "editar propriedade") => apply([{ op: "update", id: node.id, props }], label);
   const themeMode = modeOf(doc, node);
@@ -230,6 +233,37 @@ export function Inspector(props: Props) {
           </div>
           <div className="grid">
             <Field label="Fonte" value={node.fontFamily} onCommit={(v) => set({ fontFamily: v })} />
+          </div>
+        </>
+      )}
+
+      {node.type === "shape" && (
+        <>
+          <h3>Forma</h3>
+          <div className="grid">
+            <label className="field">
+              <span>Tipo</span>
+              <select value={node.shape} onChange={(e) => set({ shape: e.target.value }, "trocar forma")} data-testid="shape-kind">
+                <option value="rect">caixa</option>
+                <option value="ellipse">oval</option>
+                <option value="diamond">losango (decisão)</option>
+                <option value="note">nota adesiva</option>
+              </select>
+            </label>
+            <Field label="Texto" type="textarea" value={node.text} title="Duplo clique na forma edita o texto no canvas" onCommit={(v) => set({ text: v }, "editar texto")} />
+            <ColorField doc={doc} mode={themeMode} label="Cor do texto" value={node.color} onCommit={(v) => v && set({ color: v })} />
+          </div>
+          <div className="grid grid-2">
+            <Field label="Tamanho" value={node.fontSize} onCommit={(v) => set({ fontSize: v.startsWith("$") ? v : num(v) })} />
+            <Field label="Peso" type="number" value={node.fontWeight} onCommit={setNum("fontWeight")} />
+            <label className="field">
+              <span>Alinhamento</span>
+              <select value={node.textAlign} onChange={(e) => set({ textAlign: e.target.value })}>
+                <option value="left">esquerda</option>
+                <option value="center">centro</option>
+                <option value="right">direita</option>
+              </select>
+            </label>
           </div>
         </>
       )}
@@ -413,6 +447,90 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
   );
 }
 
+/** Conector: pontas, rota, setas e traço. A geometria é calculada pelo servidor a partir das pontas. */
+function ConnectorPanel({ connector: node, ...props }: Props & { connector: ConnectorNode }) {
+  const { doc, apply, onSelect } = props;
+  const set = (p: Record<string, unknown>, label = "editar conector") => apply([{ op: "update", id: node.id, props: p }], label);
+  const end = (key: "from" | "to", e: ConnectorEnd) => {
+    const label = key === "from" ? "Início" : "Fim";
+    if (e.nodeId === undefined)
+      return (
+        <p className="muted" key={key}>
+          {label}: ponto solto ({e.x}, {e.y})
+        </p>
+      );
+    return (
+      <div className="grid grid-2" key={key}>
+        <p className="muted">
+          {label}: <button className="link" onClick={() => onSelect(e.nodeId!)}>{doc.nodes[e.nodeId]?.name || `#${e.nodeId}`}</button>
+        </p>
+        <label className="field">
+          <span>Lado</span>
+          <select value={e.side ?? "auto"} onChange={(ev) => set({ [key]: { nodeId: e.nodeId, side: ev.target.value } })} data-testid={`connector-${key}-side`}>
+            {["auto", "top", "right", "bottom", "left"].map((o) => (
+              <option key={o} value={o}>
+                {{ auto: "automático", top: "cima", right: "direita", bottom: "baixo", left: "esquerda" }[o]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    );
+  };
+  return (
+    <div className="panel-section" key={node.id} data-testid="connector-panel">
+      <h2>
+        connector <code className="muted">#{node.id}</code>
+      </h2>
+      <div className="grid">
+        <Field label="Nome" value={node.name} onCommit={(v) => set({ name: v }, "renomear")} />
+      </div>
+      <h3>Pontas</h3>
+      {end("from", node.from)}
+      {end("to", node.to)}
+      <h3>Traço</h3>
+      <div className="grid grid-2">
+        <label className="field">
+          <span>Rota</span>
+          <select value={node.route} onChange={(e) => set({ route: e.target.value })} data-testid="connector-route">
+            <option value="straight">reta</option>
+            <option value="elbow">cotovelo</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Tracejado</span>
+          <select value={String(node.dashed)} onChange={(e) => set({ dashed: e.target.value === "true" })}>
+            <option value="false">não</option>
+            <option value="true">sim</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Seta no início</span>
+          <select value={node.startArrow} onChange={(e) => set({ startArrow: e.target.value })}>
+            <option value="none">nenhuma</option>
+            <option value="arrow">seta</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Seta no fim</span>
+          <select value={node.endArrow} onChange={(e) => set({ endArrow: e.target.value })}>
+            <option value="none">nenhuma</option>
+            <option value="arrow">seta</option>
+          </select>
+        </label>
+        <ColorField doc={doc} mode={modeOf(doc, node)} label="Cor" value={node.stroke.color} onCommit={(v) => v && set({ stroke: { ...node.stroke, color: v } })} />
+        <Field label="Espessura" type="number" value={node.stroke.width} onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke, width: num(v) } })} />
+        <Field label="Opacidade" type="number" value={node.opacity} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
+      </div>
+      <p className="muted">A linha segue as formas: mova as formas ou troque os lados para redesenhar.</p>
+      <h3>Notas para agentes</h3>
+      <div className="grid">
+        <Field label="Notas" type="textarea" value={node.notes} onCommit={(v) => set({ notes: v || null })} />
+      </div>
+    </div>
+  );
+}
+
 /** Cópia dentro de uma instância: só os campos de aparência viram override. */
 function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; instance: FrameNode }) {
   const { doc, apply, onSelect } = props;
@@ -431,7 +549,7 @@ function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; inst
       <div className="grid">
         {node.type === "text" && <Field label="Conteúdo" type="textarea" value={node.text} onCommit={(v) => set({ text: v })} />}
         {node.type === "text" && <ColorField doc={doc} label="Cor" value={node.color} onCommit={(v) => set({ color: v })} />}
-        {node.type !== "group" && <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />}
+        {node.type !== "group" && node.type !== "connector" && <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />}
         {node.type === "image" && <Field label="URL" value={node.src.startsWith("data:") ? "(data URI)" : node.src} onCommit={(v) => set({ src: v })} />}
         <Field label="Opacidade" type="number" value={node.opacity} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
         <label className="field">

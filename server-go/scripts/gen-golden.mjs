@@ -14,6 +14,7 @@ const {
   applyOps, createDocument, parseDocument, copyId, History, outline, describeNode, lintDocument, renderHTML,
   exportReact, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
   parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, importSVG, importHTML, exportSVG,
+  diagramOps, shapeOutline,
 } = core;
 
 const json = (v) => JSON.stringify(v, null, 2);
@@ -112,6 +113,42 @@ const comp = () => {
   return applyOps(d, [{ op: "update", id: copyId("i2", "lbl"), props: { text: "Cancelar", color: "#c43d27" } }, { op: "update", id: "i2", props: { fill: "#ffffff" } }]).doc;
 };
 
+// Diagrams: shapes of every kind, connectors (straight, elbow, sides, free ends, arrows, dashed),
+// one inside a frame, one inside a group, and a component with a connector and a scaled instance.
+const diagram = () => {
+  const d0 = applyOps(base(), [{ op: "set_tokens", tokens: { ink: "#1e2336", note: "#ffe8a3" } }]).doc;
+  const plan = diagramOps(d0, {
+    nodes: [
+      { id: "start", text: "Início", shape: "ellipse" },
+      { id: "ask", text: "Tudo certo?\nRevisar", shape: "diamond", fill: "$note", color: "$ink" },
+      { id: "yes", text: "Publicar" },
+      { id: "no", text: "Corrigir", radius: 0, stroke: { color: "$ink", width: 3 } },
+      { id: "memo", text: "Lembrar <de> revisar", shape: "note", x: 600, y: -20.5, rotation: 5, fontSize: 14 },
+    ],
+    edges: [
+      { from: "start", to: "ask" }, { from: "ask", to: "yes", toSide: "left" }, { from: "ask", to: "no", dashed: true },
+      { from: "no", to: "ask", route: "straight", startArrow: "arrow" }, { from: "memo", to: "no", route: "straight", endArrow: "none", stroke: { color: "$ink", width: 1 } },
+    ],
+  });
+  const d1 = applyOps(d0, plan.ops).doc;
+  return applyOps(d1, [
+    { op: "create", node: { type: "frame", id: "box", x: 900, y: 0, width: 300, height: 200, fill: "#fbf8f4", children: [
+      { type: "shape", id: "in1", x: 20, y: 20, width: 80, height: 40, text: "A" },
+      { type: "group", id: "gq", children: [{ type: "shape", id: "in2", x: 180, y: 120, width: 80, height: 50, shape: "ellipse", opacity: 0.5 }] },
+      { type: "connector", id: "k1", from: { nodeId: "in1", side: "right" }, to: { nodeId: "in2", side: "top" }, route: "elbow" },
+      { type: "connector", id: "k2", from: { x: 10.5, y: 190 }, to: { nodeId: "in1" }, visible: false },
+    ] } },
+    { op: "create", parentId: "gq", node: { type: "connector", id: "k3", from: { nodeId: "in2" }, to: { nodeId: "start" } } },
+    { op: "create", node: { type: "frame", id: "flow", component: true, x: 0, y: 500, width: 300, height: 80, children: [
+      { type: "shape", id: "c1", x: 0, y: 10, width: 80, height: 50, text: "x" },
+      { type: "shape", id: "c2", x: 200, y: 10, width: 80, height: 50, shape: "diamond" },
+      { type: "connector", id: "ck", from: { nodeId: "c1" }, to: { nodeId: "c2" }, route: "elbow" },
+      { type: "connector", id: "cf", from: { x: 0, y: 0 }, to: { nodeId: "c2", side: "bottom" } },
+    ] } },
+    { op: "create", node: { type: "frame", id: "flowi", instanceOf: "flow", x: 400, y: 500, scale: 1.5 } },
+  ]).doc;
+};
+
 const docs = {
   empty: base(),
   comp: comp(),
@@ -122,6 +159,7 @@ const docs = {
   themed: parseDocument(themed()),
   demo: parseDocument(JSON.parse(readFileSync(join(root, "examples/demo.paprika.json"), "utf8"))),
   bezier: parseDocument(JSON.parse(readFileSync(join(root, "examples/bezier.paprika.json"), "utf8"))),
+  diagram: diagram(),
 };
 
 // ---- operation cases: [baseDoc, ops] ----
@@ -293,6 +331,36 @@ const opCases = [
   ["comp", [{ op: "detach", ids: ["btn"] }]],
   ["comp", [{ op: "detach", ids: ["zz"] }]],
   ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { text: "Novo" } }, { op: "detach", ids: ["i1"] }, { op: "update", id: copyId("i1", "lbl"), props: { x: 1 } }]],
+  // diagrams
+  ["empty", [{ op: "create", node: { type: "shape", id: "s" } }, { op: "create", node: { type: "shape", id: "n", shape: "note", stroke: { color: "#000", width: 1 } } }]],
+  ["empty", [{ op: "create", node: { type: "shape", id: "s", width: "hug" } }]],
+  ["empty", [{ op: "create", node: { type: "shape", id: "s", shape: "star" } }]],
+  ["empty", [{ op: "create", node: { type: "shape", id: "s", shape: 3, text: 4 } }]],
+  ["empty", [{ op: "create", node: { type: "connector", id: "c" } }]],
+  ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 1 }, to: { x: 1, y: 2 } } }]],
+  ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 1, y: 2, bogus: 1 }, to: { x: 1, y: 2 } } }]],
+  ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { nodeId: "a b" }, to: { x: 1, y: 2 } } }]],
+  ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, route: "curve" } }]],
+  ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, x: 3 } }]],
+  ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 0, y: 0 }, to: { x: 30, y: 40 }, route: "elbow", startArrow: "arrow", stroke: { color: "#c43d27", width: 0.5 } } }]],
+  ["diagram", [{ op: "update", id: "no", props: { x: 333.3, y: 420.7 } }]],
+  ["diagram", [{ op: "update", id: "ask", props: { shape: "rect", width: 40 } }, { op: "update", id: "yes", props: { shape: "ellipse" } }]],
+  ["diagram", [{ op: "update", id: "ask-to-yes", props: { x: 1 } }]],
+  ["diagram", [{ op: "update", id: "ask-to-yes", props: { route: "straight", from: { nodeId: "ask", side: "right" }, endArrow: "none" } }]],
+  ["diagram", [{ op: "update", id: "ask-to-yes", props: { to: { nodeId: "ask-to-no" } } }]],
+  ["diagram", [{ op: "update", id: "ask-to-yes", props: { to: { nodeId: "zz" } } }]],
+  ["diagram", [{ op: "update", id: "ask-to-yes", props: { to: { nodeId: "ask-to-yes" } } }]],
+  ["diagram", [{ op: "delete", id: "ask" }]],
+  ["diagram", [{ op: "delete", id: "box" }]],
+  ["diagram", [{ op: "delete", id: "c1" }]],
+  ["diagram", [{ op: "delete", id: "ask" }, { op: "delete", id: "ask-to-yes" }]],
+  ["diagram", [{ op: "delete", id: "ask" }, { op: "delete", id: "ask-to-yes" }, { op: "delete", id: "ask-to-yes" }]],
+  ["diagram", [{ op: "delete", id: "ask-to-yes" }, { op: "delete", id: "ask-to-yes" }]],
+  ["diagram", [{ op: "update", id: "c2", props: { x: 100, y: 40 } }]],
+  ["diagram", [{ op: "move", id: "in2", parentId: null }, { op: "update", id: "box", props: { x: 50 } }]],
+  ["diagram", [{ op: "ungroup", ids: ["gq"] }]],
+  ["diagram", [{ op: "detach", ids: ["flowi"] }, { op: "update", id: "flow", props: { x: -100 } }]],
+  ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { visible: false } }]],
 ];
 
 // ---- composite operations (groups, pages): the generated primitive ops ----
@@ -344,6 +412,36 @@ const zodCases = [{ op: "x" }, { op: "update", id: 1, props: {} }, 5, { op: "cre
   { op: "set_tokens", tokens: { "a b": 1, ok: true } }, { op: "restore", nodes: [{ type: "zz" }], rootId: "a", parentId: null, index: 0 },
   { op: "rename_document", name: "x".repeat(201) }, { op: "move", id: "a", parentId: 3 }, { op: "group", ids: [] }, { op: "ungroup" },
   { op: "add_page", name: 3 }];
+// ---- draw_diagram plans ----
+const diagramCases = [
+  ["empty", { nodes: [{ id: "a", text: "A" }, { id: "b", shape: "note" }, { id: "c", shape: "diamond", width: 100, height: 100 }], edges: [{ from: "a", to: "b" }, { from: "a", to: "c" }, { from: "a", to: "c" }, { from: "c", to: "a", id: "back" }] }],
+  ["empty", { direction: "right", gap: 30, x: 10, y: 20, nodes: [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d", x: 5, y: 6 }], edges: [{ from: "a", to: "b" }, { from: "b", to: "c" }, { from: "c", to: "a" }, { from: "a", to: "a" }] }],
+  ["free", { nodes: [{ id: "a", text: "x" }], edges: [{ from: "a", to: "r1", fromSide: "left", toSide: "bottom", route: "straight", dashed: true }] }],
+  ["free", { parentId: "board", nodes: [{ id: "a" }] }],
+  ["paged", { nodes: [{ id: "a" }, { id: "b" }], edges: [{ from: "a", to: "b", id: "ab" }, { from: "a", to: "b", id: "ab" }] }],
+  ["diagram", { nodes: [{ id: "x" }], edges: [{ from: "x", to: "start" }, { from: "x", to: "start" }] }],
+  ["empty", { nodes: [] }],
+  ["free", { nodes: [{ id: "r1" }] }],
+  ["empty", { nodes: [{ id: "a" }, { id: "a" }] }],
+  ["empty", { nodes: [{ id: "a" }], edges: [{ from: "a", to: "zz" }] }],
+  ["free", { parentId: "r1", nodes: [{ id: "a" }] }],
+  ["free", { parentId: "nope", nodes: [{ id: "a" }] }],
+  ["empty", { nodes: [{ id: "" }] }],
+];
+const diagrams = diagramCases.map(([docName, input]) => {
+  const r = err(() => diagramOps(docs[docName], input));
+  if (!r.ok) return { doc: docName, input, ok: false, error: r.error };
+  const applied = err(() => applyOps(docs[docName], r.value.ops));
+  return { doc: docName, input, ok: true, plan: JSON.stringify(r.value), result: applied.ok ? json(applied.value.doc) : undefined, applyError: applied.ok ? undefined : applied.error };
+});
+const outlines = [
+  ...["rect", "ellipse", "diamond", "note"].flatMap((shape) => [
+    { shape, width: 160, height: 80, radius: 8, stroke: { color: "#000", width: 2 } },
+    { shape, width: 30.5, height: 10, radius: 40 },
+    { shape, width: 1, height: 1, radius: 0, stroke: { color: "#000", width: 5 } },
+  ]),
+].map((n) => ({ n, out: shapeOutline(n) }));
+
 const zodResults = zodCases.map((input) => ({ input, error: Op.safeParse(input).error?.message ?? null }));
 
 // ---- history ----
@@ -448,8 +546,8 @@ function rng(seed) {
 }
 const randomRuns = [];
 // Runs 25+ start from documents with groups and pages and also create groups and pages.
-const runBase = (run) => (run < 25 ? (run % 2 ? "demo" : "bezier") : run >= 35 ? "comp" : run % 2 ? "paged" : "grouped");
-for (let run = 0; run < 45; run++) {
+const runBase = (run) => (run < 25 ? (run % 2 ? "demo" : "bezier") : run >= 45 ? "diagram" : run >= 35 ? "comp" : run % 2 ? "paged" : "grouped");
+for (let run = 0; run < 52; run++) {
   const rand = rng(run + 1);
   const pick = (arr) => arr[Math.floor(rand() * arr.length)];
   const h = new History(docs[runBase(run)]);
@@ -475,7 +573,9 @@ for (let run = 0; run < 45; run++) {
             { type: "path", id: `n${run}_${n++}`, d: pick(["M0 0 L10 10", "M0 0 C 0 -40 100 -40 100 0", "M0 0 Q 50 100 100 0 Z", "M0 0 C 1"]) },
             { type: "frame", id: `n${run}_${n++}`, layout: { mode: pick(["row", "column", "none"]), gap: 4 }, children: [{ type: "ellipse", id: `n${run}_${n++}` }] },
             ...(extra ? [{ type: "group", id: `n${run}_${n++}`, children: [{ type: "rect", id: `n${run}_${n++}`, x: -7.5, y: 12, width: 9, height: 4, rotation: 15 }] },
-              { type: "page", id: `n${run}_${n++}`, name: "Pg" }] : [])]) });
+              { type: "page", id: `n${run}_${n++}`, name: "Pg" }] : []),
+            ...(run >= 45 ? [{ type: "shape", id: `n${run}_${n++}`, shape: pick(["rect", "ellipse", "diamond", "note"]), text: pick(["", "Oi", "Dois\nlinhas"]), x: Math.round(rand() * 400), y: Math.round(rand() * 300) },
+              { type: "connector", id: `n${run}_${n++}`, from: { nodeId: pick(ids) }, to: pick([{ nodeId: pick(ids), side: pick(["auto", "top", "left"]) }, { x: 10, y: -20 }]), route: pick(["straight", "elbow"]) }] : [])]) });
         else if (t < 0.5) ops.push({ op: "update", id, props: pick([{ x: Math.round(rand() * 500) - 50 }, { name: "Renomeado" }, { fill: null }, { opacity: rand() }, { width: "fill" }, { visible: false }, { bogus: 1 },
           ...(extra ? [{ y: -Math.round(rand() * 80) }, { rotation: Math.round(rand() * 90) }] : []),
           ...(run >= 35 ? [{ scale: pick([0.5, 2, 1.25]) }, { text: "Trocado" }, { color: "#00ff00" }, { component: true }, { instanceOf: pick(["btn", "badge"]) }] : [])]) });
@@ -531,7 +631,7 @@ const fakeMeasure = (doc) => {
     if (i % 7 === 6) return; // some nodes stay unmeasured (hidden)
     boxes[id] = [i * 10.123, i * 5.5, 50 + i, 20 + i / 3];
     const n = doc.nodes[id];
-    if (n.type === "text" && i % 2) lines[id] = [{ t: n.text.slice(0, 5), x: 1.5, y: 12.25 }, { t: "<&>", x: 0, y: 30 }];
+    if ((n.type === "text" || n.type === "shape") && i % 2) lines[id] = [{ t: n.text.slice(0, 5), x: 1.5, y: 12.25 }, { t: "<&>", x: 0, y: 30 }];
   });
   return { boxes, lines };
 };
@@ -546,7 +646,7 @@ const svgExports = Object.entries(docs).map(([name, doc]) => {
   };
 });
 
-const out = { randomRuns, structure, opResults, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, created: createDocument("Sem título", "abc") };
+const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, created: createDocument("Sem título", "abc") };
 const dest = join(here, "../internal/core/testdata/golden.json");
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");

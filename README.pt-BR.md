@@ -2,6 +2,8 @@
 
 <p align="center"><img src="docs/brand/icon.svg" alt="Ícone do Paprika" width="128"></p>
 
+<p align="center"><img src="docs/assets/paprika-window.png" alt="Canvas do Paprika aberto nas propostas de marca: camadas à esquerda, canvas ao centro, tokens do documento à direita" width="900"></p>
+
 # Paprika
 
 Ferramenta de design **local** para agentes de IA, com **servidor MCP embutido**.
@@ -69,12 +71,14 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `get_document_outline` | Árvore compacta + tokens + versão |
 | `get_nodes` / `find_nodes` | JSON completo de nós / busca por tipo, nome, texto |
 | `create_nodes` | Cria árvores aninhadas numa chamada |
+| `draw_diagram` | Desenha um diagrama (fluxograma, arquitetura, mapa mental) a partir de formas e ligações: distribui as formas em camadas (`direction`: para baixo ou para a direita, à direita do conteúdo existente) e liga com setas que seguem as formas |
 | `update_nodes` / `move_nodes` / `delete_nodes` | Edição em lote, atômica |
 | `group_nodes` / `ungroup_nodes` | Põe nós irmãos num `group` (o desenho não se move) / devolve ao pai |
 | `create_page` | Cria uma página; a primeira leva o canvas atual para "Página 1" |
 | `create_component` / `create_instance` / `detach_instance` | Marca um frame como componente / põe uma cópia dele (com `scale` e `overrides`; retorna o id de cada cópia) / transforma uma instância em nós comuns |
 | `apply_ops` | Transação mista (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
 | `set_tokens` | Design tokens (`$nome`) para cores e tamanhos; com `mode`, os valores de um modo de tema (ex.: `dark`) que frames e páginas escolhem com `mode` |
+| `list_workspaces` / `open_workspace` / `create_workspace` | Lista os workspaces (documentos) do servidor / torna um deles o ativo para todas as ferramentas e para o canvas do humano / cria um vazio |
 | `undo` / `redo` / `get_history` | Histórico compartilhado com o humano; toda ferramenta de escrita aceita `batch`, e várias chamadas com o mesmo batch viram um passo só de undo |
 | `lint_design` | Contraste WCAG AA, overflow, tokens inexistentes, texto pequeno, alt |
 | `path_info` | Valida dados de caminho SVG e devolve a caixa exata (com extremos de bezier e arcos) e o `d` normalizado |
@@ -89,17 +93,21 @@ Camada de agentes:
 
 ## Canvas
 
+Workspaces: `http://127.0.0.1:4777` abre na página de workspaces; um card abre o canvas daquele workspace em `/w/<id>`, e o logo do Paprika volta. Um workspace é um documento: no servidor TypeScript, cada `*.paprika.json` da pasta do `--file`; no servidor Go, cada documento do banco. O servidor tem um workspace ativo, compartilhado pelo canvas e pelos agentes MCP: abrir um workspace (no canvas ou com `open_workspace`) troca o ativo para todos, e o canvas acompanha quando um agente troca. HTTP: `GET /api/workspaces`, `POST /api/workspaces` (`{ "name" }`), `POST /api/workspaces/<id>/open`.
+
 Atalhos: `V` selecionar, `F` frame, `R` retângulo, `O` elipse, `T` texto, `P` caneta (clique = vértice reto, clicar e arrastar = alças bezier, clicar no primeiro vértice fecha, `Enter`/`Esc`/duplo clique terminam um traço aberto, `Backspace` remove o último vértice), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicar, `Delete`, setas (Shift = 10px), `Esc` sobe para o pai.
 Seleção: `Shift`+clique (no canvas ou nas camadas) adiciona ou tira um nó, arrastar no vazio desenha a caixa de seleção, `Ctrl+A` seleciona os irmãos (ou a página inteira), `Ctrl+G` agrupa, `Ctrl+Shift+G` desagrupa. Clicar dentro de um grupo seleciona o grupo; duplo clique seleciona o nó sob o cursor. Arrastar, setas, `Delete` e `Ctrl+D` valem para a seleção inteira.
 
 Componentes: "Tornar componente" no inspector de um frame, depois "Nova instância". Clicar dentro de uma instância seleciona a instância; selecione uma cópia nas camadas (ou com duplo clique) para trocar texto, cores, opacidade ou visibilidade. Mudanças no componente chegam a todas as instâncias; "Desanexar" transforma a instância em nós comuns.
 Modos de tema: o painel do documento no inspector lista os tokens de cada modo e adiciona um com `dark: bg = #14161f`; "Modo de tema" num frame ou página aplica o modo a tudo que está dentro.
+Diagramas: `S` caixa, `D` losango (decisão), `N` nota adesiva, `A` seta. Um clique cria a forma no tamanho padrão (ou arraste para escolher o tamanho) e já abre o texto para editar; duplo clique numa forma edita o texto de novo (`Enter` quebra linha, `Esc`, `Ctrl+Enter` ou clicar fora confirmam). Com a seta, arraste de uma forma até outra: as duas pontas ficam presas e a seta acompanha as formas quando elas se movem (uma ponta solta no canvas vazio fica naquele ponto). Apagar uma forma apaga as setas dela; o inspector troca a seta entre cotovelo e reta, escolhe o lado de cada ponta, as pontas de seta e o tracejado.
 Edição de pontos: duplo clique num vetor edita os pontos. Arraste um ponto (as alças vão junto) ou uma alça (a oposta espelha; segure `Alt` para mover só ela). Duplo clique num ponto alterna entre canto e suave, duplo clique no contorno adiciona um ponto, `Delete` remove o ponto selecionado, `Esc` ou `Enter` terminam. Cada gesto é um passo de desfazer. Curvas quadráticas e arcos viram curvas cúbicas depois da edição.
 Colar e exportar: `Ctrl+V` com SVG ou HTML (por exemplo, copiado de uma página web) na área de transferência cria nós editáveis dentro do frame selecionado, ou na página, no centro da tela. O botão `⇩` da barra baixa a seleção (ou a página atual) como SVG.
 Páginas: o painel "Páginas" à esquerda troca de página, `+` cria uma (o primeiro `+` transforma o canvas atual na "Página 1"), duplo clique renomeia, `×` apaga (dá para desfazer).
 Renomear: duplo clique numa camada do painel "Camadas" ou no título de um frame no canvas renomeia no lugar. `Enter` ou clicar fora confirma, `Esc` cancela; cada renomeação é um passo de desfazer. Cópias de instância herdam o nome do componente.
 Navegação: rolar = pan, `Ctrl`+rolar = zoom, segurar `Espaço` (ou `Enter`) e arrastar = pan (o cursor vira uma mão).
 Edições do agente piscam no canvas e aparecem em "Atividade".
+Presença dos agentes: cada agente conectado pelo MCP ganha cursor, nome e cor próprios no canvas, como num multiplayer. Cada chamada de ferramenta (inclusive leituras) leva o cursor até os nós em que ele agiu, contorna esses nós e mostra o que o agente está fazendo; a lista no canto superior direito mostra quem está no documento. Duas sessões do mesmo cliente ganham nomes distintos ("claude-code", "claude-code 2"). A presença não é salva: um agente ocioso esmaece após 15 s e some após 2 minutos.
 
 ### Renderizador: DOM ou WASM
 

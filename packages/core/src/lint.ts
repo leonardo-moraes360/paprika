@@ -56,9 +56,9 @@ export function contrastRatio(a: RGBA, b: RGBA): number {
 /** Cor de fundo efetiva atrás de um nó: compõe os fills dos ancestrais sobre branco. */
 export function effectiveBackground(doc: Document, node: Node): RGBA | undefined {
   const layers: RGBA[] = [];
-  let cur: Node | undefined = node.type === "text" ? node : node.parentId ? doc.nodes[node.parentId] : undefined;
+  let cur: Node | undefined = node.type === "text" || node.type === "shape" ? node : node.parentId ? doc.nodes[node.parentId] : undefined;
   while (cur) {
-    if (cur.type !== "group" && cur.fill) {
+    if (cur.type !== "group" && cur.type !== "connector" && cur.fill) {
       const c = parseColor(String(resolveValue(doc, cur.fill, modeOf(doc, cur))));
       if (!c) return undefined;
       layers.push(c);
@@ -86,11 +86,15 @@ function tokenRefs(node: Node): string[] {
     if (typeof v === "string" && v.startsWith("$")) refs.push(v.slice(1));
   };
   if (node.type === "group") return refs;
+  if (node.type === "connector") {
+    check(node.stroke.color);
+    return refs;
+  }
   check(node.fill);
   if (node.type === "page") return refs;
   check(node.stroke?.color);
   check(node.shadow?.color);
-  if (node.type === "text") {
+  if (node.type === "text" || node.type === "shape") {
     check(node.color);
     check(node.fontSize);
   }
@@ -117,8 +121,8 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
         issues.push({ rule: "unknown-token", severity: "error", nodeId: id, message: `token "$${ref}" does not exist` });
     }
 
-    if (node.type === "text") {
-      if (!node.text.trim())
+    if (node.type === "text" || node.type === "shape") {
+      if (node.type === "text" && !node.text.trim())
         issues.push({ rule: "empty-text", severity: "warning", nodeId: id, message: "empty text" });
       const fs = resolveValue(doc, node.fontSize, modeOf(doc, node));
       const size = typeof fs === "number" ? fs : parseFloat(String(fs));
@@ -153,7 +157,7 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
     if (node.type === "image" && !node.alt.trim())
       issues.push({ rule: "missing-alt", severity: "warning", nodeId: id, message: "image without alternative text (alt)" });
 
-    if (node.type !== "group" && hasColorTokens && node.fill && !node.fill.startsWith("$") && node.fill !== "transparent")
+    if (node.type !== "group" && node.type !== "connector" && hasColorTokens && node.fill && !node.fill.startsWith("$") && node.fill !== "transparent")
       issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `literal fill "${node.fill}"; prefer a token` });
 
     if (node.type === "page") continue;

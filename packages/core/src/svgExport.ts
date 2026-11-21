@@ -1,6 +1,7 @@
 import { firstPage, pageRoots, isContainer, type Document, type Node } from "./schema.js";
 import { canvasBounds, escapeHtml, svgAttrs } from "./render.js";
-import { modeOf, pathAttrs, resolveValue } from "./style.js";
+import { connectorAttrs, modeOf, pathAttrs, resolveValue, shapeAttrs } from "./style.js";
+import { shapePadding } from "./diagram.js";
 
 /**
  * Exporta um nó, uma página ou o canvas como SVG vetorial. O layout automático (row/column, hug,
@@ -29,14 +30,16 @@ export const MEASURE_SCRIPT = `(() => {
     const id = el.getAttribute("data-paprika-id");
     const b = el.getBoundingClientRect();
     boxes[id] = [r2(b.left + scrollX), r2(b.top + scrollY), r2(b.width), r2(b.height)];
-    if (el.getAttribute("data-paprika-type") !== "text") continue;
-    const node = el.firstChild;
+    const type = el.getAttribute("data-paprika-type");
+    const host = type === "text" ? el : type === "shape" ? el.lastElementChild : null;
+    if (!host) continue;
+    const node = host.firstChild;
     if (!node || node.nodeType !== 3 || node.data.length > 5000) continue;
     const probe = document.createElement("span");
     probe.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline";
-    el.insertBefore(probe, node);
+    host.insertBefore(probe, node);
     const base = probe.getBoundingClientRect().bottom;
-    el.removeChild(probe);
+    host.removeChild(probe);
     const range = document.createRange();
     const out = [];
     let cur = null;
@@ -108,6 +111,45 @@ export function exportSVG(
     return [x, y, n.width, n.height];
   };
 
+  /** Forma de diagrama: contorno (e dobra), depois o texto em linhas (medidas ou quebradas em \n). */
+  const shapeSVG = (n: Extract<Node, { type: "shape" }>, w: number, h: number): string => {
+    const mode = modeOf(doc, n);
+    const id = escapeHtml(n.id);
+    const a = shapeAttrs(doc, n);
+    let defs = "";
+    let shadowAttr = "";
+    if (n.shadow) {
+      const s = n.shadow;
+      if (s.spread) warn("shadow with spread: SVG uses only offset, blur and color");
+      defs += `<filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${f(s.x)}" dy="${f(s.y)}" stdDeviation="${f(s.blur / 2)}" flood-color="${escapeHtml(String(resolveValue(doc, s.color, mode)))}"/></filter>`;
+      shadowAttr = ` filter="url(#shadow-${id})"`;
+    }
+    const fill = a.path.fill === "none" ? "none" : (paint(doc, n.fill, mode, warn) ?? "none");
+    let body = `<g${shadowAttr}><path${svgAttrs({ ...a.path, fill })}/>`;
+    if (a.fold) body += `<path${svgAttrs(a.fold)}/>`;
+    body += "</g>";
+    const fs = resolveValue(doc, n.fontSize, mode);
+    const size = typeof fs === "number" ? fs : parseFloat(String(fs)) || 16;
+    const measured = opts.measure?.lines?.[n.id];
+    let tspans = "";
+    let anchor = "";
+    if (measured) tspans = measured.map((l) => `<tspan x="${f(l.x)}" y="${f(l.y)}">${escapeHtml(l.t)}</tspan>`).join("");
+    else if (n.text) {
+      const [pv, ph] = shapePadding(n);
+      const lh = n.lineHeight * size;
+      const lines = n.text.split("\n");
+      const top = n.shape === "note" ? pv : (h - lines.length * lh) / 2;
+      const ax = n.textAlign === "center" ? w / 2 : n.textAlign === "right" ? w - ph : ph;
+      if (n.textAlign !== "left") anchor = ` text-anchor="${n.textAlign === "center" ? "middle" : "end"}"`;
+      tspans = lines.map((t, k) => (t ? `<tspan x="${f(ax)}" y="${f(top + k * lh + (lh - size) / 2 + size * 0.8)}">${escapeHtml(t)}</tspan>` : "")).join("");
+    }
+    if (tspans) {
+      const color = escapeHtml(String(resolveValue(doc, n.color, mode)));
+      body += `<text xml:space="preserve" font-family="${escapeHtml(n.fontFamily)}" font-size="${f(size)}" font-weight="${n.fontWeight}" fill="${color}"${anchor}>${tspans}</text>`;
+    }
+    return `${defs ? `<defs>${defs}</defs>` : ""}${body}`;
+  };
+
   const emit = (n: Node, parent: Box, root: boolean): string => {
     if (n.type === "page") return "";
     const pn = n.parentId ? doc.nodes[n.parentId] : undefined;
@@ -117,7 +159,7 @@ export function exportSVG(
     boxes.set(n.id, b);
     const [x, y, w, h] = b;
     let tr = `translate(${f(x - parent[0])} ${f(y - parent[1])})`;
-    const rotation = n.type === "group" ? 0 : n.rotation;
+    const rotation = n.type === "group" || n.type === "connector" ? 0 : n.rotation;
     if (rotation) tr += ` rotate(${f(rotation)} ${f(w / 2)} ${f(h / 2)})`;
     const id = escapeHtml(n.id);
     let open = `<g data-paprika-id="${id}"${n.name ? ` data-name="${escapeHtml(n.name)}"` : ""} transform="${tr}"`;
@@ -125,6 +167,11 @@ export function exportSVG(
     open += ">";
     const kids = () => (isContainer(n) ? n.children.map((c) => doc.nodes[c]).filter((c): c is Node => !!c).map((c) => emit(c, b, false)).join("") : "");
     if (n.type === "group") return `${open}${kids()}</g>`;
+    if (n.type === "connector") {
+      const a = connectorAttrs(doc, n);
+      return `${open}<path${svgAttrs(a)}/></g>`;
+    }
+    if (n.type === "shape") return `${open}${shapeSVG(n, w, h)}</g>`;
 
     const mode = modeOf(doc, n);
     let defs = "";

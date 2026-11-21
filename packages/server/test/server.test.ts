@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import WebSocket from "ws";
-import { DocumentStore, closeBrowser, createMcpServer, startHttpServer, type RunningServer } from "../src/index.js";
+import { DocumentStore, PresenceHub, closeBrowser, createMcpServer, presenceTargets, startHttpServer, workspaceSlug, type RunningServer } from "../src/index.js";
 import { copyId } from "@paprika/core";
 
 type ToolResult = { isError?: boolean; content: { type: string; text?: string; data?: string; mimeType?: string }[] };
@@ -54,8 +54,10 @@ describe("MCP", () => {
         "create_instance",
         "create_nodes",
         "create_page",
+        "create_workspace",
         "delete_nodes",
         "detach_instance",
+        "draw_diagram",
         "export_code",
         "find_nodes",
         "get_design_guide",
@@ -66,7 +68,9 @@ describe("MCP", () => {
         "import_html",
         "import_svg",
         "lint_design",
+        "list_workspaces",
         "move_nodes",
+        "open_workspace",
         "path_info",
         "redo",
         "render_screenshot",
@@ -219,6 +223,41 @@ describe("MCP", () => {
     expect(saved.nodes.login.name).toBe("Login");
   });
 
+  it("diagramas: draw_diagram posiciona formas, liga setas que seguem a forma e desfaz numa só entrada", async () => {
+    const c = await connect();
+    const r = (await c.callTool({
+      name: "draw_diagram",
+      arguments: {
+        nodes: [{ id: "start", text: "Start", shape: "ellipse" }, { id: "ok", text: "OK?", shape: "diamond" }, { id: "memo", text: "Note", shape: "note", x: 500, y: 0 }],
+        edges: [{ from: "start", to: "ok" }, { from: "memo", to: "ok", route: "straight", dashed: true }],
+      },
+    })) as ToolResult & { structuredContent?: { nodes: string[]; edges: string[]; created: string[] } };
+    expect(r.isError).toBeFalsy();
+    expect(r.structuredContent).toMatchObject({ nodes: ["start", "ok", "memo"], edges: ["start-to-ok", "memo-to-ok"] });
+    const doc = store.doc;
+    expect(doc.nodes.ok).toMatchObject({ type: "shape", x: 0, y: 144 });
+    const before = (doc.nodes["start-to-ok"] as { d: string }).d;
+    await call(c, "update_nodes", { updates: [{ id: "ok", props: { x: 200 } }] });
+    expect((store.doc.nodes["start-to-ok"] as { d: string }).d).not.toBe(before);
+
+    const outline = textOf(await call(c, "get_document_outline"));
+    expect(outline).toContain("connector#start-to-ok");
+    expect(outline).toContain("start->ok elbow");
+    expect(textOf(await call(c, "find_nodes", { text: "ok?" }))).toContain("shape#ok");
+    const html = textOf(await call(c, "export_code", { rootId: "ok", format: "html" }));
+    expect(html).toContain('data-paprika-type="shape"');
+
+    const bad = await call(c, "draw_diagram", { nodes: [{ id: "x" }], edges: [{ from: "x", to: "nope" }] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toBe('edges[0]: "nope" is neither a diagram node nor an existing node');
+    const derived = await call(c, "update_nodes", { updates: [{ id: "start-to-ok", props: { x: 1 } }] });
+    expect(textOf(derived)).toMatch(/follow its ends/);
+
+    await call(c, "undo");
+    await call(c, "undo");
+    expect(Object.keys(store.doc.nodes)).toEqual([]);
+  });
+
   it("path com bezier: cria só com d, valida, mede, renderiza e exporta", async () => {
     const c = await connect();
     const created = JSON.parse(
@@ -306,6 +345,57 @@ describe("MCP", () => {
     expect(store.version).toBe(before);
   });
 
+  it("workspaces: listar, criar, abrir; as ferramentas seguem o ativo e cada um grava no seu arquivo", async () => {
+    const c = await connect();
+    await call(c, "create_nodes", { nodes: [{ type: "rect", id: "r1" }] });
+    await store.flush();
+    // Not workspaces: a JSON that is not a Paprika document, a hidden temp file, a copy with the same id.
+    await writeFile(join(dir, "lixo.paprika.json"), "{}");
+    await writeFile(join(dir, ".t.paprika.json.1.tmp"), "{}");
+    await writeFile(join(dir, "copia.paprika.json"), await readFile(store.file, "utf8"));
+
+    const created = await call(c, "create_workspace", { name: "  Landing Page  " });
+    const ws = (created as { structuredContent: { workspace: { id: string; name: string; active: boolean } } }).structuredContent.workspace;
+    expect(ws).toMatchObject({ name: "Landing Page", nodes: 0, active: false });
+    expect(JSON.parse(await readFile(join(dir, "landing-page.paprika.json"), "utf8")).id).toBe(ws.id);
+    await call(c, "create_workspace", { name: "Landing page" });
+    expect(JSON.parse(await readFile(join(dir, "landing-page-2.paprika.json"), "utf8")).name).toBe("Landing page");
+
+    const list = (await call(c, "list_workspaces")) as ToolResult & { structuredContent: { active: string; workspaces: { id: string; active: boolean; nodes: number }[] } };
+    expect(list.structuredContent.active).toBe(store.doc.id);
+    expect(list.structuredContent.workspaces).toHaveLength(3);
+    expect(list.structuredContent.workspaces.filter((w) => w.active)).toEqual([expect.objectContaining({ id: store.doc.id, nodes: 1 })]);
+
+    const first = store.doc.id;
+    const events: string[] = [];
+    store.on("change", (e) => events.push(e.kind));
+    const opened = await call(c, "open_workspace", { id: ws.id });
+    expect(opened.isError, textOf(opened)).toBeFalsy();
+    expect(store.doc.id).toBe(ws.id);
+    expect(store.file).toBe(join(dir, "landing-page.paprika.json"));
+    expect(store.canUndo).toBe(false);
+    expect(events).toEqual(["open"]);
+    expect(textOf(await call(c, "get_document_outline"))).toMatch(/^document "Landing Page"/);
+    await call(c, "create_nodes", { nodes: [{ type: "rect", id: "r2" }] });
+    expect(Object.keys(JSON.parse(await readFile(join(dir, "landing-page.paprika.json"), "utf8")).nodes)).toEqual(["r2"]);
+    expect(Object.keys(JSON.parse(await readFile(join(dir, "t.paprika.json"), "utf8")).nodes)).toEqual(["r1"]);
+
+    await call(c, "open_workspace", { id: first });
+    expect(store.doc.nodes.r1).toBeDefined();
+    const bad = await call(c, "open_workspace", { id: "nope" });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toBe('workspace "nope" does not exist (see list_workspaces)');
+  });
+
+  it("nome de arquivo do workspace: sem acento, minúsculo, palavras com hífen, até 60 caracteres", () => {
+    expect(workspaceSlug("  Marca · Ícones  ")).toBe("marca-icones");
+    expect(workspaceSlug("--a--b--")).toBe("a-b");
+    expect(workspaceSlug("!!!")).toBe("workspace");
+    expect(workspaceSlug("aaa ".repeat(30))).toHaveLength(59);
+    expect(workspaceSlug("x".repeat(80))).toHaveLength(60);
+    expect(workspaceSlug("-".repeat(100_000) + "a")).toBe("a");
+  });
+
   it("render_screenshot devolve PNG", async () => {
     const c = await connect();
     await call(c, "create_nodes", { nodes: [{ type: "rect", id: "r", width: 50, height: 40, fill: "#ff278c" }] });
@@ -355,11 +445,108 @@ describe("HTTP + WebSocket", () => {
     ws.close();
   });
 
+  it("presença do agente: cada chamada MCP vira cursor no canvas, com replay para quem conecta depois", async () => {
+    const ws = new WebSocket(`${http.url.replace("http", "ws")}/ws`, { headers: { origin: http.url } });
+    type Msg = { type: string; agent?: string; actor?: string; tool?: string; nodes?: string[]; idle?: number };
+    const messages: Msg[] = [];
+    ws.on("message", (m) => messages.push(JSON.parse(String(m))));
+    await new Promise((ok) => ws.once("open", ok));
+    const presences = () => messages.filter((m) => m.type === "presence");
+
+    const a = new Client({ name: "agent-a", version: "0" });
+    await a.connect(new StreamableHTTPClientTransport(new URL(`${http.url}/mcp`)));
+    const b = new Client({ name: "agent-a", version: "0" });
+    await b.connect(new StreamableHTTPClientTransport(new URL(`${http.url}/mcp`)));
+
+    await a.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "p1" }, { type: "rect", id: "p2" }] } });
+    await waitFor(() => presences().length === 1);
+    const first = presences()[0]!;
+    expect(first).toEqual({ type: "presence", agent: expect.stringMatching(/^s:[0-9a-f]{12}$/), actor: "agent:agent-a", tool: "create_nodes", nodes: ["p1", "p2"], idle: 0 });
+
+    // Reads move the cursor too; unknown ids are dropped; a second session with the same name is another agent.
+    await b.callTool({ name: "get_nodes", arguments: { ids: ["p2"] } });
+    await a.callTool({ name: "update_nodes", arguments: { updates: [{ id: "p1", props: { name: "x" } }] } });
+    await a.callTool({ name: "get_document_outline", arguments: {} });
+    await waitFor(() => presences().length === 4);
+    const [, second, third, fourth] = presences();
+    expect(second).toMatchObject({ actor: "agent:agent-a", tool: "get_nodes", nodes: ["p2"] });
+    expect(second!.agent).not.toBe(first.agent);
+    expect(third).toMatchObject({ agent: first.agent, tool: "update_nodes", nodes: ["p1"] });
+    expect(fourth).toMatchObject({ agent: first.agent, tool: "get_document_outline", nodes: [] });
+
+    // A canvas that connects later gets the last presence of each agent right after the document.
+    const late = new WebSocket(`${http.url.replace("http", "ws")}/ws`, { headers: { origin: http.url } });
+    const lateMsgs: Msg[] = [];
+    late.on("message", (m) => lateMsgs.push(JSON.parse(String(m))));
+    await waitFor(() => lateMsgs.length === 3);
+    expect(lateMsgs.map((m) => m.type)).toEqual(["doc", "presence", "presence"]);
+    expect(lateMsgs.slice(1).map((m) => [m.agent, m.tool])).toEqual([
+      [second!.agent, "get_nodes"],
+      [first.agent, "get_document_outline"],
+    ]);
+    expect(lateMsgs[1]!.idle).toBeGreaterThanOrEqual(0);
+
+    await a.close();
+    await b.close();
+    late.close();
+    ws.close();
+  });
+
+  it("presenceTargets: criados primeiro, senão os ids dos argumentos, só os que existem", () => {
+    const doc = { nodes: { a: {}, b: {}, c: {} } } as never;
+    expect(presenceTargets({ ids: ["a"] }, { created: ["c", "zz"] }, doc)).toEqual(["c"]);
+    expect(presenceTargets({ ids: ["a", "zz", "a"], rootId: "b" }, { created: [] }, doc)).toEqual(["a", "b"]);
+    expect(presenceTargets({ moves: [{ id: "b", parentId: "c" }], ops: [{ op: "ungroup", ids: ["a"] }] }, undefined, doc)).toEqual(["b", "c", "a"]);
+    expect(presenceTargets(undefined, undefined, doc)).toEqual([]);
+  });
+
+  it("PresenceHub: replay só até o TTL e no máximo 64 agentes", () => {
+    let now = 1000;
+    const hub = new PresenceHub(() => now);
+    for (let i = 0; i < 70; i++) hub.report(`k${i}`, "agent:x", "get_nodes", []);
+    expect(hub.recent()).toHaveLength(64);
+    expect(hub.recent()[0]!.agent).toBe("k6");
+    now += 120_000;
+    expect(hub.recent()).toEqual([]);
+  });
+
   it("bloqueia Host/Origin externos (DNS rebinding / CSRF)", async () => {
     const port = Number(new URL(http.url).port);
     expect(await status(port, { host: `evil.example:${port}` })).toBe(403);
     expect(await status(port, { host: `127.0.0.1:${port}`, origin: "https://evil.example" })).toBe(403);
     expect(await status(port, { host: `127.0.0.1:${port}` })).toBe(200);
+  });
+
+  it("API de workspaces: listar, criar, abrir; o canvas recebe a troca pelo WS", async () => {
+    const ws = new WebSocket(`${http.url.replace("http", "ws")}/ws`, { headers: { origin: http.url } });
+    const messages: { type: string; kind?: string; doc?: { id: string } }[] = [];
+    ws.on("message", (m) => messages.push(JSON.parse(String(m))));
+    await new Promise((ok) => ws.once("open", ok));
+
+    const post = (path: string, body?: unknown) =>
+      fetch(`${http.url}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const created = await post("/api/workspaces", { name: "Novo" });
+    expect(created.status).toBe(201);
+    const { workspace } = (await created.json()) as { workspace: { id: string; name: string } };
+    expect(workspace.name).toBe("Novo");
+    expect(((await (await post("/api/workspaces")).json()) as { workspace: { name: string } }).workspace.name).toBe("Sem título");
+    expect((await post("/api/workspaces", { name: 3 })).status).toBe(400);
+
+    const list = (await (await fetch(`${http.url}/api/workspaces`)).json()) as { active: string; workspaces: { id: string }[] };
+    expect(list.active).toBe(store.doc.id);
+    expect(list.workspaces.map((w) => w.id)).toContain(workspace.id);
+
+    const opened = await post(`/api/workspaces/${encodeURIComponent(workspace.id)}/open`);
+    expect(opened.status).toBe(200);
+    expect(((await opened.json()) as { workspace: { active: boolean } }).workspace.active).toBe(true);
+    await waitFor(() => messages.some((m) => m.type === "doc" && m.kind === "open" && m.doc?.id === workspace.id));
+    expect(store.doc.id).toBe(workspace.id);
+
+    const missing = await post("/api/workspaces/nope/open");
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: 'workspace "nope" não existe' });
+    expect((await fetch(`${http.url}/api/workspaces/${workspace.id}/open`)).status).toBe(405);
+    ws.close();
   });
 
   it("recarrega quando o arquivo é alterado externamente", async () => {

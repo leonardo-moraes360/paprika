@@ -19,6 +19,7 @@ Uso:
 
 Opções:
   -f, --file    Arquivo do documento (criado se não existir). Padrão: ./design.paprika.json
+                Os outros *.paprika.json da mesma pasta são os workspaces da página inicial.
   -p, --port    Porta HTTP. Padrão: 4777 (0 = aleatória)
       --host    Interface de bind. Padrão: 127.0.0.1. Expor fora do loopback não tem autenticação.
       --no-ui   (mcp) não sobe o canvas HTTP
