@@ -71,15 +71,15 @@ After a CLI join, an MCP client can reuse the session without a new invite: `tb 
 
 ### Lanes
 
-The first backlog slice ([backlog.md](backlog.md)) is implemented by a cloud thread in stacked branches, one PR per item. Items 1 to 5 are merged. Item 6 (agent layer: `structuredContent`, an English guide for agents, grouped transactions, actor from `clientInfo`) is still to come, so these paths belong to **lane A** until it merges:
+The first backlog slice ([backlog.md](backlog.md)) is implemented by a cloud thread in stacked branches, one PR per item. Items 1 to 5 are merged. Item 6 (agent layer: `structuredContent`, English agent-facing messages, an English guide for agents, grouped transactions, actor from `clientInfo`) is still to come, so these paths belong to **lane A** until it merges:
 
 - `packages/server/src/mcp.ts`, `packages/server/src/http.ts`, `packages/server/src/store.ts`
-- `packages/core/src/ops.ts`, `packages/core/src/history.ts`, `packages/core/src/schema.ts`
-- `server-go/internal/**`, `server-go/contract/**`, `server-go/scripts/gen-golden.mjs`
+- `packages/core/src/**` (item 6 also translates the agent-facing error, warning and lint messages across core)
+- `server-go/internal/**`, `server-go/contract/**`, `server-go/scripts/gen-golden.mjs`, `server-go/scripts/gen-contract.mjs`
 - `packages/server/test/**`, `packages/core/test/**`
 - `README.md`, `README.pt-BR.md`, `server-go/README*.md`, `docs/agent-feedback.md`, `docs/pt-BR/feedback-agentes.md`, `docs/backlog.md`, `docs/pt-BR/backlog.md`, and any new agent guide under `docs/`
 
-Everything else is open to lane B, including `apps/web/**`, `crates/render/**` and the rest of `packages/core/src/**`, as long as the task payload names the files.
+Everything else is open to lane B, including `apps/web/**` and `crates/render/**`, as long as the task payload names the files.
 
 **Lane B** (bus agents) takes work whose files don't overlap lane A, for example:
 
