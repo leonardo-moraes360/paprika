@@ -169,6 +169,10 @@ examples/         demo gerada por um agente via MCP (packages/e2e/scripts/seed-d
 
 O servidor fica em `server-go/` e guarda documentos, tokens e o histórico de undo/redo em SQLite; arquivos `.paprika.json` entram e saem com `paprika import` / `paprika export` (para versionar um design, por exemplo). Comandos, estrutura do banco e testes: [server-go/README.pt-BR.md](server-go/README.pt-BR.md); registro da decisão: [ADR 0001](docs/pt-BR/adr/0001-servidor-go-sqlite.md).
 
+## Sincronização de time (peer to peer)
+
+`paprika serve --team` deixa um time pequeno trabalhar nos mesmos workspaces sem servidor central: cada pessoa roda o próprio Paprika e os próprios agentes, as instâncias se conectam pelo [Iroh](https://www.iroh.computer/) (QUIC, hole punching, relay como fallback) e convergem por um CRDT [Loro](https://loro.dev). A aba **Time** do canvas cria um time, convida por link ou QR (uso único, expira), mostra as pessoas, os agentes de cada uma e como cada uma é alcançada, e compartilha o workspace aberto. Cada mudança é assinada pelo autor (pessoa ou agente) e só as chaves do time são aceitas. Precisa do sidecar `paprika-sync` (`crates/sync`, incluído na imagem Docker). Protocolo: [docs/pt-BR/sincronizacao-time.md](docs/pt-BR/sincronizacao-time.md); decisão: [ADR 0004](docs/pt-BR/adr/0004-sincronizacao-p2p-de-time.md).
+
 ## Desenvolvimento
 
 ```bash

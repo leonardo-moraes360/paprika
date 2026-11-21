@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Document, Op } from "@paprika/core";
 import { applyPresence, type AgentPresence, type PresenceMsg } from "./agents";
+import type { TeamStatus } from "./Team";
 
 const OFFLINE = "sem conexão com o servidor";
 
@@ -24,12 +25,15 @@ export interface DocState {
   agentTouched: Set<string>;
   /** Agentes presentes (cursor e seleção próprios no canvas). */
   agents: AgentPresence[];
+  /** Sincronização de time (ADR 0004): undefined = servidor sem --team; null = ainda sem status. */
+  team: TeamStatus | null | undefined;
 }
 
 type ServerMsg =
   | { type: "doc"; doc: Document; version: number; actor: string; label: string; kind: string; canUndo: boolean; canRedo: boolean }
   | { type: "ack"; reqId: string; version: number }
   | { type: "error"; reqId?: string; message: string }
+  | { type: "team"; status: TeamStatus }
   | PresenceMsg;
 
 function changedIds(prev: Document | null, next: Document): string[] {
@@ -54,6 +58,7 @@ export function useDocument() {
     activity: [],
     agentTouched: new Set(),
     agents: [],
+    team: undefined,
   });
   const wsRef = useRef<WebSocket | null>(null);
   const seq = useRef(0);
@@ -102,6 +107,8 @@ export function useDocument() {
               agentTouched: fromAgent ? new Set(changed) : s.agentTouched,
             };
           });
+        } else if (msg.type === "team") {
+          setState((s) => ({ ...s, team: msg.status }));
         } else if (msg.type === "presence") {
           setState((s) => ({ ...s, agents: applyPresence(s.agents, msg) }));
         } else if (msg.type === "error") {
@@ -110,6 +117,11 @@ export function useDocument() {
       };
     };
     connect();
+    // Team mode is on when the server answers /api/team with JSON (without --team the SPA fallback answers HTML).
+    fetch("/api/team")
+      .then(async (r) => (r.ok && (r.headers.get("content-type") ?? "").includes("json") ? ((await r.json()) as TeamStatus) : undefined))
+      .then((team) => team && setState((s) => ({ ...s, team: s.team ?? team })))
+      .catch(() => {});
     return () => {
       closed = true;
       clearTimeout(retry);

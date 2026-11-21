@@ -169,6 +169,16 @@ O `/ws` manda `{type: "team", status}` sempre que o status muda. Agentes remotos
 `{type: "presence"}` comuns cujo `agent` começa com `peer:` e cujo `actor` termina com ` @ <pessoa>`, então o
 canvas desenha os cursores deles como os locais.
 
+## No canvas
+
+Com `--team`, a barra superior mostra um chip com o pior estado entre os peers (só neste dispositivo, conectando, N online · sincronizado, via relay, offline, chave rejeitada) e o painel direito ganha a aba **Time** ao lado do Inspector (`apps/web/src/Team.tsx`):
+
+- sem time: criar um, ou entrar com um link;
+- com time: estado da conexão e do sync, um botão para compartilhar o workspace aberto, as pessoas com o caminho de cada uma (direto com RTT, relay, offline) e, sob cada pessoa, os agentes que rodam na instância dela (agentes remotos também ganham cursor no canvas, como `nome @ pessoa`);
+- **Convidar**: link e QR, validade (15 min, 1 h, 24 h, 7 dias), contagem regressiva, a impressão digital do time para ler em voz alta, revogar;
+- **Entrar**: colar um link, prévia (time, impressão digital, sua chave) antes de entrar, erros claros para link vencido ou usado;
+- **Chaves do time**: chaves dos membros, quem adicionou cada uma, os agentes de cada um, operações rejeitadas.
+
 ## Limites (v1)
 
 - Um time por instância. Sair, remover membro e trocar chaves não estão implementados.

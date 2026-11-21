@@ -167,6 +167,16 @@ When both sides dial at once, the connection dialed by the smaller endpoint id i
 `{type: "presence"}` messages whose `agent` starts with `peer:` and whose `actor` ends with ` @ <person>`, so
 the canvas draws their cursors like local ones.
 
+## On the canvas
+
+With `--team`, the top bar shows one chip with the worst state across peers (only this device, connecting, N online · synced, via relay, offline, key rejected) and the right panel gets a **Time** tab next to the Inspector (`apps/web/src/Team.tsx`):
+
+- no team yet: create one, or join with a link;
+- a team: connection and sync state, a button to share the open workspace, people with their path (direct with RTT, relay, offline) and, under each person, the agents running on their instance (remote agents also get their cursor on the canvas, as `name @ person`);
+- **Convidar**: a link and its QR, expiry (15 min, 1 h, 24 h, 7 days), countdown, the team fingerprint to read aloud, revoke;
+- **Entrar**: paste a link, preview (team, fingerprint, your key) before joining, clear errors for expired or used links;
+- **Chaves do time**: members' keys, who added them, the agents each one runs, rejected operations.
+
 ## Limits (v1)
 
 - One team per instance. Leaving, removing a member and rotating keys are not implemented.
