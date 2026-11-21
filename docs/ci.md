@@ -12,7 +12,7 @@ Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workfl
 
 | Job | What it checks | Runs when the PR touches |
 | --- | --- | --- |
-| **Plan** | Runs the tests of the CI scripts ([`.github/scripts/test/`](../.github/scripts/test/)), lists the changed files and decides which jobs below run ([`ci-plan.mjs`](../.github/scripts/ci-plan.mjs)). | always |
+| **Plan** | Runs the tests of the CI scripts ([`.github/scripts/test/`](../.github/scripts/test/)), checks that every third-party action is pinned to a commit SHA ([`check-actions-pinned.mjs`](../.github/scripts/check-actions-pinned.mjs)), scores the benchmark fixtures ([`bench/tasks/`](../bench/tasks/)), lists the changed files and decides which jobs below run ([`ci-plan.mjs`](../.github/scripts/ci-plan.mjs)). | always |
 | **TS build + tscheck** | `pnpm build` (core, server, web, and the WASM canvas renderer from `crates/render` with `PAPRIKA_REQUIRE_WASM=1`), `pnpm typecheck`, `pnpm go:build`. Uploads `dist/`, `apps/web/src/wasm` and the Go binary as the `build` artifact for the jobs below, so the e2e suites also run the WASM renderer tests. | TS, Go or Rust code |
 | **Unit** `<pkg>` (shard n/2) | Vitest for `@paprika/core` and `@paprika/server`, split in 2 shards. | `packages/core`, `packages/server` |
 | **e2e / parity vs ts / go server** | The black-box suites (`test:e2e`, `test:parity`) against the TypeScript server and against the Go binary, 4 jobs in parallel. | core, server, web, examples, `crates/render`, `server-go` |
@@ -61,6 +61,15 @@ node --test .github/scripts/test/*.mjs
 
 The glob, not the directory: `node --test` stopped accepting a bare directory argument in Node 24.
 
+### Keeping the benchmarks honest
+
+A benchmark is only worth its checker, so the Plan job also scores the fixtures of every task in
+[`bench/tasks/`](../bench/tasks/): each checker must exit 0 on its `bench/fixtures/<task>-reference/`
+solution and must **not** exit 0 on the starting `bench/fixtures/<task>/` document. A task whose
+starting fixture already passes is a task that asks for nothing, and that fails the PR. Nothing is
+built and no server is started, so the whole check costs under a second. See
+[bench/README.md](../bench/README.md) for the tasks themselves.
+
 ## Parallelism and sharding
 
 - Jobs without dependencies between them run at the same time: after Plan, the TS build, Go lint, govulncheck, Go tests, Rust and CodeQL start together; unit tests, the black-box suites and the fixture check start once the build artifact exists.
@@ -84,7 +93,11 @@ To add shards, change `shard: [1, 2]` in the matrix and the `/2` (vitest) or the
 ## Security of the workflow
 
 - `permissions: contents: read` by default; only CodeQL gets `security-events: write`.
-- Every third-party action is pinned by commit SHA with the version in a comment; Dependabot updates both.
+- Every third-party action is pinned by commit SHA with the version in a comment; Dependabot updates both. The **Plan** job enforces it with [`check-actions-pinned.mjs`](../.github/scripts/check-actions-pinned.mjs), which prints one `file:line` per `uses:` that is a tag, a branch, a short SHA or a SHA without its version comment (local `./…` actions and `docker://…` images are fine). Run it locally:
+
+  ```bash
+  node .github/scripts/check-actions-pinned.mjs
+  ```
 - `actions/checkout` runs with `persist-credentials: false`.
 - `pull_request` (not `pull_request_target`): PRs from forks run without secrets and with a read-only token.
 
