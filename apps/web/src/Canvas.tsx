@@ -95,12 +95,14 @@ export function Canvas({ doc, selected, onSelect, tool, onToolDone, apply, agent
     setView({ zoom: z, x: (vp.width - b.width * z) / 2 - b.x * z, y: (vp.height - b.height * z) / 2 - b.y * z });
   }, [doc]);
 
-  // Enquadra o conteúdo na primeira carga.
+  // Enquadra o conteúdo na primeira carga e sempre que o servidor passa a servir outro documento.
+  const fittedDocId = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (fitted.current) return;
+    if (fitted.current && fittedDocId.current === doc.id) return;
     fitted.current = true;
+    fittedDocId.current = doc.id;
     fit();
-  }, [fit]);
+  }, [fit, doc.id]);
 
   // Caixa de seleção e rótulos dos frames: medidos do DOM real, então seguem layout flex e hug.
   useLayoutEffect(() => {

@@ -24,6 +24,7 @@ Task: an agent drew 5 flat paprika icons with increasing complexity (3 → ~20 s
 | 11 | One undo step for "draw proposal 3" | 7 history entries for one script run (rename, tokens, 5 creates) | `begin_transaction`/`commit` or a `group` label to merge entries | P3 |
 | 12 | Agent-facing language | Guide and errors are in Brazilian Portuguese; English prompts mix languages | Ship the guide and errors in English, keep pt-BR as an option | P2 |
 | 13 | Several boards | Everything shares one canvas; proposals had to be stacked by hand with fixed `y` offsets | Pages, plus `layout` on the canvas root (auto-stack top-level frames) | P3 |
+| 14 | Watch the agent draw after the server switched files | The open canvas tab reconnected to the new document but kept the old zoom/pan, so the new boards could be off-screen (fixed: the canvas now refits when the document id changes) | Done in this change | — |
 
 ## What worked well
 
