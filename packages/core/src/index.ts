@@ -12,5 +12,6 @@ export * from "./structure.js";
 export * from "./component.js";
 export * from "./markup.js";
 export * from "./svgImport.js";
+export * from "./pathEdit.js";
 export * from "./htmlImport.js";
 export * from "./svgExport.js";
