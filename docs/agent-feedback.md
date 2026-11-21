@@ -171,7 +171,17 @@ Task: rename and delete on the overview (double click on the name, delete with a
 | 60 | Undo a rename | Renaming the active workspace is a `rename_document` write (undoable); renaming another one changes it in place, with no undo | A per-server activity log for workspace operations, or a trash that keeps deleted workspaces for a while | P3 |
 | 61 | Tell the human why the canvas moved | Deleting the active workspace opens the most recently updated other one for everyone; the canvas follows, with no message | A short notice on the canvas ("workspace X deleted by agent:Y") | P3 |
 
-## What worked well
+## 2026-11-21: workspace covers
+
+Task: a cover image on the overview cards (upload, drop, remove; no cover = first letter) and `set_workspace_cover` for agents.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 62 | Give a workspace a cover without leaving it | `set_workspace_cover` with `rootId` screenshots a frame of any workspace, active or not, so an agent can dress up the overview after drawing | — | — |
+| 63 | Keep the cover in sync with the design | The cover is a snapshot: later edits to the frame do not update it | An optional `live` cover that re-renders the chosen frame when the workspace changes (debounced) | P3 |
+| 64 | Take the cover along in an export | Covers live in SQLite next to the document, not in `.paprika.json`, so `paprika export` drops them | Export/import the cover as a data URL in an optional top-level field | P3 |
+
+
 
 - Nested `create_nodes` built a whole proposal (≈60 nodes) in one call, atomically.
 - `lint_design` contrast checks drove the token choices (`brand.dark` for white text on buttons).

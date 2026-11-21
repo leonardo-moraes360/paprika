@@ -118,3 +118,47 @@ func TestWorkspacesRenameDelete(t *testing.T) {
 		t.Fatalf("delete twice: %v", err)
 	}
 }
+
+func TestWorkspaceCover(t *testing.T) {
+	s, _ := openTemp(t)
+	id := s.DocID()
+	png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89")
+	if ws, _ := s.ListWorkspaces(); ws[0].Cover != nil {
+		t.Fatalf("new workspace has a cover: %v", ws[0].Cover)
+	}
+	if _, err := s.SetCover(id, []byte("<svg xmlns='http://www.w3.org/2000/svg'/>")); !errors.Is(err, ErrBadCover) {
+		t.Fatalf("svg cover: %v", err)
+	}
+	if _, err := s.SetCover(id, make([]byte, MaxCoverBytes+1)); !errors.Is(err, ErrBadCover) {
+		t.Fatalf("big cover: %v", err)
+	}
+	if _, err := s.SetCover("nope", png); !errors.Is(err, ErrNoWorkspace) {
+		t.Fatalf("unknown id: %v", err)
+	}
+	info, err := s.SetCover(id, png)
+	if err != nil || info.Cover == nil {
+		t.Fatalf("set cover = %+v, %v", info, err)
+	}
+	data, mime, err := s.Cover(id)
+	if err != nil || mime != "image/png" || string(data) != string(png) {
+		t.Fatalf("cover = %q %v", mime, err)
+	}
+	if info, err = s.ClearCover(id); err != nil || info.Cover != nil {
+		t.Fatalf("clear = %+v, %v", info, err)
+	}
+	if _, _, err := s.Cover(id); !errors.Is(err, ErrNoWorkspace) {
+		t.Fatalf("cover after clear: %v", err)
+	}
+	// Deleting the workspace drops its cover (cascade).
+	other, _ := s.CreateWorkspace("Outro")
+	if _, err := s.SetCover(other.ID, png); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DeleteWorkspace(other.ID, "user"); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := s.DB().QueryRow(`SELECT COUNT(*) FROM covers`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("covers left: %d, %v", n, err)
+	}
+}
