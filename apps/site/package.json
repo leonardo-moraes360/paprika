@@ -1,0 +1,17 @@
+{
+  "name": "@paprika/site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Landing page and docs published to GitHub Pages (paprika.js.org).",
+  "scripts": {
+    "site:build": "node scripts/build.mjs",
+    "site:draw": "node scripts/draw-landing.mjs"
+  },
+  "dependencies": {
+    "@paprika/core": "workspace:*"
+  },
+  "devDependencies": {
+    "marked": "^18.2.1"
+  }
+}

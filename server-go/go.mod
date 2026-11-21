@@ -1,6 +1,6 @@
 module github.com/leonardo-moraes360/paprika/server-go
 
-go 1.26.11
+go 1.26.0
 
 require (
 	github.com/chromedp/cdproto v0.160.5
