@@ -31,9 +31,9 @@ export function resolveValue<T extends string | number | undefined>(doc: Documen
   return cur as T | string | number;
 }
 
-/** Nome da variável CSS de um token (`brand.dark` → `--brand\.dark`). */
+/** Nome da variável CSS de um token (`brand.dark` → `--brand\.dark`; `\` e `.` são escapados). */
 export function cssVarName(token: string): string {
-  return `--${token.replace(/\./g, "\\.")}`;
+  return `--${token.replace(/[\\.]/g, "\\$&")}`;
 }
 
 const isKnownToken = (doc: Document, name: string) =>

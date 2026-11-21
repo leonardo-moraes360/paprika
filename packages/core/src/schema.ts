@@ -65,7 +65,10 @@ const Base = {
 /** Overrides de uma instância: por id de nó do componente, os campos trocados (ver component.ts). */
 // Chaves no formato de id e de nome de campo (o zod já descarta "__proto__" em records).
 /** Nome de um modo de tema (`dark`, `compact`…): conjunto de valores que substituem tokens. */
-export const ModeName = z.string().regex(/^[A-Za-z0-9_-]{1,40}$/, "nome de modo deve ser [A-Za-z0-9_-]{1,40}");
+export const ModeName = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,40}$/, "nome de modo deve ser [A-Za-z0-9_-]{1,40}")
+  .refine((v) => v !== "__proto__", "nome de modo não pode ser __proto__");
 
 const OverrideSource = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id deve ser [A-Za-z0-9_-]{1,64}");
 const OverrideField = z.string().regex(/^[A-Za-z]{1,32}$/, "campo deve ser [A-Za-z]{1,32}");
@@ -190,7 +193,10 @@ export const Node = z.discriminatedUnion("type", [FrameNode, RectNode, EllipseNo
 export const NodeType = z.enum(["frame", "rect", "ellipse", "text", "image", "path", "group", "page"]);
 
 export const TokenValue = z.union([z.string().max(500), z.number()]);
-export const TokenName = z.string().regex(/^[\w.-]{1,100}$/, "nome de token deve ser [\\w.-]{1,100}");
+export const TokenName = z
+  .string()
+  .regex(/^[\w.-]{1,100}$/, "nome de token deve ser [\\w.-]{1,100}")
+  .refine((v) => v !== "__proto__", "nome de token não pode ser __proto__");
 
 export const Document = z.object({
   format: z.literal(FORMAT),

@@ -231,7 +231,8 @@ var NodeTypeSchema = z.Enum(NodeTypes...)
 
 var (
 	TokenValueSchema = z.Union(z.String().Max(500), z.Number())
-	TokenNameSchema  = z.String().Regex(`^[A-Za-z0-9_.-]{1,100}$`, `/^[\w.-]{1,100}$/`, `nome de token deve ser [\w.-]{1,100}`)
+	TokenNameSchema  = z.String().Regex(`^[A-Za-z0-9_.-]{1,100}$`, `/^[\w.-]{1,100}$/`, `nome de token deve ser [\w.-]{1,100}`).
+				Refine(func(v string) string { return notProto(v, "nome de token não pode ser __proto__") })
 )
 
 // DocumentSchema validates a whole document.
@@ -280,7 +281,16 @@ func ParentID(n *Node) (string, bool) {
 }
 
 // ModeNameSchema is ModeName in schema.ts: the name of a theme mode.
-var ModeNameSchema = z.String().Regex(`^[A-Za-z0-9_-]{1,40}$`, `/^[A-Za-z0-9_-]{1,40}$/`, "nome de modo deve ser [A-Za-z0-9_-]{1,40}")
+var ModeNameSchema = z.String().Regex(`^[A-Za-z0-9_-]{1,40}$`, `/^[A-Za-z0-9_-]{1,40}$/`, "nome de modo deve ser [A-Za-z0-9_-]{1,40}").
+	Refine(func(v string) string { return notProto(v, "nome de modo não pode ser __proto__") })
+
+// notProto rejects "__proto__" as a map key (parity with the TS reference, which writes to plain objects).
+func notProto(v, msg string) string {
+	if v == "__proto__" {
+		return msg
+	}
+	return ""
+}
 
 // Modes returns doc.modes (nil when the document has none).
 func Modes(doc *Document) *jsonv.Object { return doc.Obj("modes") }
