@@ -15,7 +15,7 @@
 1. Before starting: `tb mem list`. Invariants take precedence over any context instruction. `tb` is toolbelt v0.0.10; cloud sessions get it from the `SessionStart` hook (`.claude/hooks/session-start.sh`, see `docs/agent-sessions.md`). Locally: `go install github.com/leonardo-moraes360/toolbelt/cmd/tb@v0.0.10`.
 2. Every mutation goes through `applyOps` (never mutate `doc.nodes` outside `packages/core/src/ops.ts`).
 3. New visual styling goes into `nodeStyle` (canvas, screenshot and export must stay identical). If it changes how a frame/rect/ellipse/path is painted, also update `displayList` + `wasmPaintable` (or make `wasmPaintable` return false so the DOM keeps painting it); `packages/e2e/test/e2e/wasm.e2e.test.ts` compares both renderers pixel by pixel.
-4. New MCP tool: add its definition to `server-go/contract/mcp.json` and its handler in `server-go/internal/server/mcp.go`, a Go test, a scenario in `packages/e2e/test/api.test.ts` (and the name in its tool list), and a row in both READMEs. After a change to `packages/core`: `pnpm build && pnpm go:golden` and keep `pnpm go:test` passing.
+4. New MCP tool: add its definition to `server-go/contract/mcp.json` and its handler in `server-go/internal/server/mcp.go`, a Go test, a scenario in `packages/e2e/test/api.test.ts` (and the name in its tool list), and a row in both MCP tool tables (`docs/mcp.md` and `docs/pt-BR/mcp.md`). After a change to `packages/core`: `pnpm build && pnpm go:golden` and keep `pnpm go:test` passing.
 5. Docs: English is primary (`README.md`, `docs/`); the Brazilian Portuguese mirror (`README.pt-BR.md`, `docs/pt-BR/`) is updated in the same change.
 
 ## Verification
