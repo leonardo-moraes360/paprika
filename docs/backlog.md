@@ -176,3 +176,22 @@ Decision pending: write our own effects (WebGL/WebGPU, ties into the WASM evalua
 | Real-time multi-user editing (CRDT) | Single writer + watcher | ⬜ | P3 |
 | Script / plugin pane | — | ⬜ | P3 |
 | Sharing settings, SSO, organizations, hosted CDN assets, plans and quotas | — | — | Out |
+
+## N. Code health (SonarCloud)
+
+Open SonarCloud issues imported on 2026-11-21 (project `leonardo-moraes360_paprika`; filter: Security + Reliability, impact Blocker/High/Medium, status Open/Confirmed; code at `main` 21841f7). 40 issues, none Blocker. Fix in code; don't change issue status in SonarCloud by hand.
+
+| Rule | Impact | Where | Fix | Status | Pri. |
+|---|---|---|---|---|---|
+| S8707 path traversal from CLI args (3) | Security High | `bench/tasks/lib.mjs:17`; `packages/server/scripts/bezier-demo.mjs:8, 31` | Resolve the path and require it to stay under `process.cwd()` before reading, `rm` or writing | ⬜ | P1 |
+| S6506 HTTPS not enforced on redirects (2) | Security Medium | `.github/workflows/ci.yml:377`; `.github/actions/setup-rust-wasm/action.yml:23` | `curl --proto '=https' --proto-redir '=https'` (the sha256 check stays) | ⬜ | P1 |
+| S2077 dynamically formatted SQL (1) | Security Medium | `server-go/internal/server/store.go:332` | Table names come from a fixed list (likely false positive); write the three `DELETE`s as literals | ⬜ | P2 |
+| S7688 `[` instead of `[[` (10) | Reliability High | `.claude/hooks/session-start.sh:27, 34, 43, 46, 68, 80 (×2), 98 (×3)` | Use `[[ … ]]` (the script is bash) | ⬜ | P1 |
+| S2871 `sort()` without a compare function (1) | Reliability High | `.github/scripts/check-actions-pinned.mjs:105` | Explicit code-point comparator, so the order stays the same | ⬜ | P1 |
+| S8786 regex with super-linear backtracking (3) | Reliability Medium | `apps/site/scripts/build.mjs:287`; `apps/web/src/Inspector.tsx:380`; `.github/scripts/check-actions-pinned.mjs:27` | Remove ambiguous adjacent quantifiers (e.g. `/^# +(\S.*)$/m`) and cover with a test | ⬜ | P2 |
+| S7773 global `parseInt`/`parseFloat`/`isNaN` (10) | Reliability Medium | `bench/tasks/lib.mjs:126 (×4)`; `packages/core/src/lint.ts:26, 31 (×2), 121`; `apps/web/src/Inspector.tsx:373, 383` | `Number.parseInt` / `Number.parseFloat` / `Number.isNaN` | ⬜ | P2 |
+| S9383 floating promises (5) | Reliability Medium | `experiments/canvas-wasm/bench/webgpu-canvas-probe.cjs:4, 11`; `main.ts:177`; `run.cjs:12`; `gpu-readback-check.cjs:7` | `.catch()` that logs and exits 1 (or exclude `experiments/` from analysis) | ⬜ | P3 |
+| S6848 non-native interactive element (1) | Reliability Medium | `apps/web/src/Layers.tsx:32` | `role`, `tabIndex={0}` and Enter/Space in `onKeyDown`, or a `<button>` | ⬜ | P2 |
+| S9379 `autoFocus` (1) | Reliability Medium | `apps/web/src/Pages.tsx:54` | Focus through a `ref` + `useEffect` when editing starts | ⬜ | P3 |
+| S3923 ternary with identical branches (1) | Reliability Medium | `apps/site/scripts/draw-landing.mjs:161` | Use `"link:./"` directly | ⬜ | P3 |
+| Input without label (2) | Reliability Medium | `experiments/canvas-wasm/bench/index.html:16, 17` | `<label for>` or `aria-label` | ⬜ | P3 |
