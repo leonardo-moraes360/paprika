@@ -1,25 +1,27 @@
+🇺🇸 English | [🇧🇷 Português](README.pt-BR.md)
+
 # Paprika
 
-Ferramenta de design **local** para agentes de IA, com **servidor MCP embutido**.
-Você e o agente editam o mesmo documento ao mesmo tempo: o agente via MCP, você no canvas do navegador.
-Toda edição dos dois passa pelo mesmo caminho (operações atômicas validadas), entra no mesmo histórico de desfazer e é salva em um arquivo `.paprika.json` versionável no git.
+A **local** design tool for AI agents, with a **built-in MCP server**.
+You and your agent edit the same document at the same time: the agent through MCP, you on a canvas in the browser.
+Every edit from either side goes through the same path (validated, atomic operations), lands in the same undo history and is saved to a `.paprika.json` file you can version with git.
 
-> Projeto original. O Paper (paper.design) foi apenas referência de conceito ("canvas em HTML/CSS conectado a agentes"); nenhum código, asset ou comportamento foi copiado ou obtido por engenharia reversa.
+> Original project. Paper (paper.design) was only a conceptual reference ("an HTML/CSS canvas connected to agents"); no code, assets or behavior were copied or reverse-engineered.
 
-## Por que
+## Why
 
-| Problema com agentes em ferramentas de design | Como o Paprika resolve |
+| Problem with agents in design tools | How Paprika handles it |
 |---|---|
-| Agente gasta tokens lendo árvores enormes | `get_document_outline`: uma linha por nó, com profundidade configurável |
-| Edição parcial deixa o arquivo quebrado | Toda escrita é uma transação: tudo ou nada |
-| Campos com typo somem em silêncio | Campos desconhecidos são rejeitados com mensagem acionável |
-| Agente não sabe se ficou bom | `lint_design` (contraste WCAG, overflow, tokens) + `render_screenshot` |
-| O que o agente vê ≠ o que o humano vê ≠ o código | Um único motor de estilo (`nodeStyle`) para canvas, screenshot e export |
-| Limite de chamadas / SaaS | 100% local, sem conta, sem limite |
+| Agents burn tokens reading huge trees | `get_document_outline`: one line per node, with configurable depth |
+| A partial edit leaves the file broken | Every write is a transaction: all or nothing |
+| Misspelled fields silently disappear | Unknown fields are rejected with an actionable error |
+| The agent can't tell whether it looks right | `lint_design` (WCAG contrast, overflow, tokens) + `render_screenshot` |
+| What the agent sees ≠ what the human sees ≠ the code | A single style engine (`nodeStyle`) for canvas, screenshot and export |
+| Call limits / SaaS lock-in | 100% local, no account, no limits |
 
-## Início rápido
+## Quick start
 
-Requisitos: Node 22+ e pnpm 10+.
+Requirements: Node 22+ and pnpm 10+.
 
 ```bash
 pnpm install
@@ -28,15 +30,15 @@ node packages/server/dist/cli.js serve --file examples/demo.paprika.json
 # canvas: http://127.0.0.1:4777   ·   MCP: http://127.0.0.1:4777/mcp
 ```
 
-Screenshot pelo MCP usa Playwright (dependência opcional). Se o Chromium não estiver instalado:
+Screenshots over MCP use Playwright (optional dependency). If Chromium isn't installed:
 
 ```bash
 pnpm --filter @paprika/server exec playwright install chromium
 ```
 
-## Conectar um agente
+## Connecting an agent
 
-**HTTP (recomendado, com o canvas aberto):** rode `paprika serve` e aponte o agente para `http://127.0.0.1:4777/mcp`.
+**HTTP (recommended, with the canvas open):** run `paprika serve` and point the agent at `http://127.0.0.1:4777/mcp`.
 
 Claude Code:
 
@@ -44,42 +46,44 @@ Claude Code:
 claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 ```
 
-**stdio** (agentes que só falam stdio). O processo também sobe o canvas na porta 4777, se estiver livre:
+**stdio** (for agents that only speak stdio). The process also serves the canvas on port 4777 if it's free:
 
 ```json
 {
   "mcpServers": {
     "paprika": {
       "command": "node",
-      "args": ["<CAMINHO>/paprika/packages/server/dist/cli.js", "mcp", "--file", "<CAMINHO>/design.paprika.json"]
+      "args": ["<PATH>/paprika/packages/server/dist/cli.js", "mcp", "--file", "<PATH>/design.paprika.json"]
     }
   }
 }
 ```
 
-## Ferramentas MCP
+## MCP tools
 
-| Ferramenta | O que faz |
+| Tool | What it does |
 |---|---|
-| `get_design_guide` | Modelo de nós, campos e fluxo recomendado |
-| `get_document_outline` | Árvore compacta + tokens + versão |
-| `get_nodes` / `find_nodes` | JSON completo de nós / busca por tipo, nome, texto |
-| `create_nodes` | Cria árvores aninhadas numa chamada |
-| `update_nodes` / `move_nodes` / `delete_nodes` | Edição em lote, atômica |
-| `apply_ops` | Transação mista (create, update, delete, move, set_tokens, rename_document) |
-| `set_tokens` | Design tokens (`$nome`) para cores e tamanhos |
-| `undo` / `redo` / `get_history` | Histórico compartilhado com o humano |
-| `lint_design` | Contraste WCAG AA, overflow, tokens inexistentes, texto pequeno, alt |
-| `render_screenshot` | PNG de um nó ou do canvas |
-| `export_code` | HTML autocontido ou componente React (TSX) |
+| `get_design_guide` | Node model, accepted fields and recommended workflow |
+| `get_document_outline` | Compact tree + tokens + version |
+| `get_nodes` / `find_nodes` | Full node JSON / search by type, name, text |
+| `create_nodes` | Creates nested trees in one call |
+| `update_nodes` / `move_nodes` / `delete_nodes` | Atomic batch edits |
+| `apply_ops` | Mixed transaction (create, update, delete, move, set_tokens, rename_document) |
+| `set_tokens` | Design tokens (`$name`) for colors and sizes |
+| `undo` / `redo` / `get_history` | History shared with the human |
+| `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
+| `render_screenshot` | PNG of a node or of the whole canvas |
+| `export_code` | Standalone HTML or a React (TSX) component |
+
+> The agent-facing guide and error messages are currently in Brazilian Portuguese.
 
 ## Canvas
 
-Atalhos: `V` selecionar, `F` frame, `R` retângulo, `O` elipse, `T` texto, `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicar, `Delete`, setas (Shift = 10px), `Esc` sobe para o pai.
-Navegação: rolar = pan, `Ctrl`+rolar = zoom, `Espaço`+arrastar = pan.
-Edições do agente piscam no canvas e aparecem em "Atividade".
+Shortcuts: `V` select, `F` frame, `R` rectangle, `O` ellipse, `T` text, `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicate, `Delete`, arrows (Shift = 10px), `Esc` selects the parent.
+Navigation: scroll = pan, `Ctrl`+scroll = zoom, hold `Space` (or `Enter`) and drag = pan (the cursor turns into a hand).
+Agent edits flash on the canvas and show up under "Atividade" (activity).
 
-## Formato do documento
+## Document format
 
 ```jsonc
 {
@@ -90,39 +94,39 @@ Edições do agente piscam no canvas e aparecem em "Atividade".
   "nodes": {
     "login": { "type": "frame", "id": "login", "parentId": null, "width": 390, "height": 760,
                "layout": { "mode": "column", "gap": 20, "padding": 24 }, "children": ["t1"] },
-    "t1": { "type": "text", "id": "t1", "parentId": "login", "text": "Olá", "color": "$brand",
+    "t1": { "type": "text", "id": "t1", "parentId": "login", "text": "Hello", "color": "$brand",
             "width": "fill", "height": "hug" }
   }
 }
 ```
 
-Tipos: `frame` (único com filhos; layout livre, linha ou coluna), `rect`, `ellipse`, `text`, `image`.
-Tamanhos: número, `"hug"` (conteúdo) ou `"fill"` (ocupa o espaço do pai). Detalhes em [docs/arquitetura.md](docs/arquitetura.md).
+Types: `frame` (the only one with children; free, row or column layout), `rect`, `ellipse`, `text`, `image`.
+Sizes: a number, `"hug"` (fit content) or `"fill"` (take the parent's space). Details in [docs/architecture.md](docs/architecture.md).
 
-## Estrutura
+## Layout
 
 ```
-packages/core     modelo (zod), applyOps atômico, History, nodeStyle, render/export, lint, outline
-packages/server   DocumentStore (arquivo + watch), MCP (stdio e HTTP), WebSocket, screenshot, CLI
-apps/web          canvas React + Vite
-examples/         demo gerada por um agente via MCP (packages/server/scripts/seed-demo.mjs)
+packages/core     model (zod), atomic applyOps, History, nodeStyle, render/export, lint, outline
+packages/server   DocumentStore (file + watch), MCP (stdio and HTTP), WebSocket, screenshot, CLI
+apps/web          React + Vite canvas
+examples/         demo generated by an agent over MCP (packages/server/scripts/seed-demo.mjs)
 ```
 
-## Desenvolvimento
+## Development
 
 ```bash
-pnpm check        # build + typecheck + testes unitários/integração + E2E (Playwright)
-pnpm dev          # servidor com o demo; em outro terminal: pnpm --filter @paprika/web dev
+pnpm check        # build + typecheck + unit/integration tests + E2E (Playwright)
+pnpm dev          # server with the demo; in another terminal: pnpm --filter @paprika/web dev
 ```
 
-Este repositório usa o [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) como harness: invariantes em `.toolbelt/invariants.yaml` (`tb mem list`) e `tb verify run` / `tb stack verify guard` antes de concluir.
+This repository uses [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) as its agent harness: invariants live in `.toolbelt/invariants.yaml` (`tb mem list`), and `tb verify run` / `tb stack verify guard` run before work is called done.
 
-## Segurança
+## Security
 
-- Bind em `127.0.0.1` por padrão; Host e Origin são validados (bloqueia DNS rebinding e CSRF de páginas abertas no navegador).
-- Não há autenticação: `--host 0.0.0.0` expõe o documento para a rede. Use só em rede confiável.
-- Imagens `https://` são carregadas pelo Chromium no screenshot.
+- Binds to `127.0.0.1` by default; Host and Origin are validated (blocks DNS rebinding and CSRF from pages open in the browser).
+- There is no authentication: `--host 0.0.0.0` exposes the document to the network. Only use it on a trusted network.
+- `https://` images are fetched by Chromium when taking screenshots.
 
-## Licença
+## License
 
 MIT
