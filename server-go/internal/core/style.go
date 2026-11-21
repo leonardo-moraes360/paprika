@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -13,21 +14,118 @@ import (
 // CSS is an ordered camelCase style object (values are string or float64).
 type CSS = jsonv.Object
 
-// ResolveValue resolves `$token` against doc.tokens (tokens may chain, up to 8 levels).
-func ResolveValue(doc *Document, v any) any {
+// ModeOf is the theme mode in effect for a node: its own or the nearest frame/page ancestor's.
+func ModeOf(doc *Document, node *Node) string {
+	for n, depth := node, 0; n != nil && depth < 1000; n, depth = parentOf(doc, n), depth+1 {
+		if t := n.Str("type"); (t == "frame" || t == "page") && n.Str("mode") != "" {
+			return n.Str("mode")
+		}
+	}
+	return ""
+}
+
+// TokenValue is a token's value in the mode (when the mode defines it) or its base value.
+func TokenValue(doc *Document, name, mode string) (any, bool) {
+	if mode != "" {
+		if modes := Modes(doc); modes != nil {
+			if m := modes.Obj(mode); m != nil {
+				if v, ok := m.Get(name); ok {
+					return v, true
+				}
+			}
+		}
+	}
+	return Tokens(doc).Get(name)
+}
+
+// ResolveValue resolves `$token` against doc.tokens, or doc.modes[mode] first when a mode is
+// given (tokens may chain, up to 8 levels).
+func ResolveValue(doc *Document, v any, mode string) any {
 	cur := v
 	for depth := 0; depth < 8; depth++ {
 		s, ok := cur.(string)
 		if !ok || !strings.HasPrefix(s, "$") {
 			break
 		}
-		next, has := Tokens(doc).Get(s[1:])
+		next, has := TokenValue(doc, s[1:], mode)
 		if !has {
 			return cur
 		}
 		cur = next
 	}
 	return cur
+}
+
+// CSSVarName is the CSS custom property of a token (`brand.dark` → `--brand\.dark`).
+func CSSVarName(token string) string {
+	return "--" + strings.NewReplacer(`\`, `\\`, ".", `\.`).Replace(token)
+}
+
+func isKnownToken(doc *Document, name string) bool {
+	if Tokens(doc).Has(name) {
+		return true
+	}
+	if modes := Modes(doc); modes != nil {
+		for _, k := range modes.Keys() {
+			if modes.Obj(k).Has(name) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// paintValue resolves a paint value in the node's mode, or gives `var(--token)` when vars.
+func paintValue(doc *Document, v any, mode string, vars bool) any {
+	if s, ok := v.(string); vars && ok && strings.HasPrefix(s, "$") && isKnownToken(doc, s[1:]) {
+		return "var(" + CSSVarName(s[1:]) + ")"
+	}
+	return ResolveValue(doc, v, mode)
+}
+
+// cssVarValue escapes what would end the value or the rule (`;`, `{`, `}`, `<`…).
+func cssVarValue(v string) string {
+	var b strings.Builder
+	for _, c := range v {
+		switch c {
+		case '<', '>', '{', '}', ';', '\\':
+			fmt.Fprintf(&b, "\\%x ", c)
+		default:
+			b.WriteRune(c)
+		}
+	}
+	return b.String()
+}
+
+func tokenDecls(doc *Document, tokens *jsonv.Object) string {
+	parts := make([]string, 0, tokens.Len())
+	for _, k := range tokens.Keys() {
+		v, _ := tokens.Get(k)
+		var value string
+		switch t := v.(type) {
+		case float64:
+			value = px(t)
+		case string:
+			if strings.HasPrefix(t, "$") && isKnownToken(doc, t[1:]) {
+				value = "var(" + CSSVarName(t[1:]) + ")"
+			} else {
+				value = cssVarValue(t)
+			}
+		}
+		parts = append(parts, CSSVarName(k)+":"+value)
+	}
+	return strings.Join(parts, ";")
+}
+
+// TokenStylesheet is the tokens as CSS variables: base values on :root and one rule per mode.
+func TokenStylesheet(doc *Document) string {
+	out := ":root{" + tokenDecls(doc, Tokens(doc)) + "}"
+	if modes := Modes(doc); modes != nil {
+		for _, k := range modes.Keys() {
+			out += `[data-paprika-mode="` + k + `"]{` + tokenDecls(doc, modes.Obj(k)) + "}"
+		}
+	}
+	return out
 }
 
 // jsString is String(v) for JSON scalars.
@@ -107,9 +205,16 @@ func parentOf(doc *Document, n *Node) *Node {
 
 // NodeStyle is the CSS of a node.
 func NodeStyle(doc *Document, node *Node, asRoot bool) *CSS {
+	return NodeStyleVars(doc, node, asRoot, false)
+}
+
+// NodeStyleVars is NodeStyle with tokens as CSS variables when vars.
+func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	if node.Str("type") == "page" {
 		return jsonv.NewObject() // pages are not drawn: their children use canvas coordinates
 	}
+	themeMode := ModeOf(doc, node)
+	paint := func(v any) any { return paintValue(doc, v, themeMode, vars) }
 	parent := parentOf(doc, node)
 	parentMode := ""
 	if parent != nil && parent.Str("type") == "frame" {
@@ -167,15 +272,15 @@ func NodeStyle(doc *Document, node *Node, asRoot bool) *CSS {
 			css.Set("display", "none")
 		}
 		if s := node.Obj("shadow"); s != nil {
-			css.Set("filter", "drop-shadow("+px(s.Num("x"))+" "+px(s.Num("y"))+" "+px(s.Num("blur"))+" "+jsString(ResolveValue(doc, s.Str("color")))+")")
+			css.Set("filter", "drop-shadow("+px(s.Num("x"))+" "+px(s.Num("y"))+" "+px(s.Num("blur"))+" "+jsString(paint(s.Str("color")))+")")
 		}
 		return css
 	}
 	if fill, ok := node.Get("fill"); ok {
-		css.Set("background", jsString(ResolveValue(doc, fill)))
+		css.Set("background", jsString(paint(fill)))
 	}
 	if st := node.Obj("stroke"); st != nil {
-		css.Set("border", px(st.Num("width"))+" solid "+jsString(ResolveValue(doc, st.Str("color"))))
+		css.Set("border", px(st.Num("width"))+" solid "+jsString(paint(st.Str("color"))))
 	}
 	if typ == "ellipse" {
 		css.Set("borderRadius", "50%")
@@ -183,7 +288,7 @@ func NodeStyle(doc *Document, node *Node, asRoot bool) *CSS {
 		css.Set("borderRadius", px(r))
 	}
 	if s := node.Obj("shadow"); s != nil {
-		css.Set("boxShadow", px(s.Num("x"))+" "+px(s.Num("y"))+" "+px(s.Num("blur"))+" "+px(s.Num("spread"))+" "+jsString(ResolveValue(doc, s.Str("color"))))
+		css.Set("boxShadow", px(s.Num("x"))+" "+px(s.Num("y"))+" "+px(s.Num("blur"))+" "+px(s.Num("spread"))+" "+jsString(paint(s.Str("color"))))
 	}
 
 	switch typ {
@@ -209,10 +314,10 @@ func NodeStyle(doc *Document, node *Node, asRoot bool) *CSS {
 		}
 	case "text":
 		color, _ := node.Get("color")
-		css.Set("color", jsString(ResolveValue(doc, color)))
+		css.Set("color", jsString(paint(color)))
 		css.Set("fontFamily", node.Str("fontFamily"))
 		fsv, _ := node.Get("fontSize")
-		fs := ResolveValue(doc, fsv)
+		fs := paint(fsv)
 		if n, ok := fs.(float64); ok {
 			css.Set("fontSize", px(n))
 		} else {
@@ -245,7 +350,11 @@ type Attr struct {
 }
 
 // PathAttrs returns the attributes of the <svg> and <path> of a path node.
-func PathAttrs(doc *Document, node *Node) (svg, path []Attr) {
+func PathAttrs(doc *Document, node *Node) (svg, path []Attr) { return PathAttrsVars(doc, node, false) }
+
+// PathAttrsVars is PathAttrs with tokens as CSS variables when vars.
+func PathAttrsVars(doc *Document, node *Node, vars bool) (svg, path []Attr) {
+	themeMode := ModeOf(doc, node)
 	if vb := node.Arr("viewBox"); node.Has("viewBox") {
 		parts := make([]string, len(vb))
 		for i, v := range vb {
@@ -255,7 +364,7 @@ func PathAttrs(doc *Document, node *Node) (svg, path []Attr) {
 	}
 	fill := "none"
 	if f, ok := node.Get("fill"); ok {
-		fill = jsString(ResolveValue(doc, f))
+		fill = jsString(paintValue(doc, f, themeMode, vars))
 	}
 	path = []Attr{
 		{"d", node.Str("d")},
@@ -265,7 +374,7 @@ func PathAttrs(doc *Document, node *Node) (svg, path []Attr) {
 		{"strokeLinejoin", node.Str("strokeJoin")},
 	}
 	if st := node.Obj("stroke"); st != nil && st.Num("width") > 0 {
-		path = append(path, Attr{"stroke", jsString(ResolveValue(doc, st.Str("color")))}, Attr{"strokeWidth", st.Num("width")})
+		path = append(path, Attr{"stroke", jsString(paintValue(doc, st.Str("color"), themeMode, vars))}, Attr{"strokeWidth", st.Num("width")})
 	}
 	return svg, path
 }

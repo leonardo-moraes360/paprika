@@ -1,5 +1,5 @@
 import { isContainer, type Document, type Node } from "./schema.js";
-import { resolveValue } from "./style.js";
+import { modeOf, resolveValue, tokenValue } from "./style.js";
 
 export interface RGBA {
   r: number;
@@ -59,7 +59,7 @@ export function effectiveBackground(doc: Document, node: Node): RGBA | undefined
   let cur: Node | undefined = node.type === "text" ? node : node.parentId ? doc.nodes[node.parentId] : undefined;
   while (cur) {
     if (cur.type !== "group" && cur.fill) {
-      const c = parseColor(String(resolveValue(doc, cur.fill)));
+      const c = parseColor(String(resolveValue(doc, cur.fill, modeOf(doc, cur))));
       if (!c) return undefined;
       layers.push(c);
       if (c.a >= 1) break;
@@ -109,19 +109,22 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
   for (const id of ids) {
     const node = doc.nodes[id];
     if (!node) continue;
+    const mode = modeOf(doc, node);
+    if ((node.type === "frame" || node.type === "page") && node.mode && !(doc.modes && Object.hasOwn(doc.modes, node.mode)))
+      issues.push({ rule: "unknown-mode", severity: "warning", nodeId: id, message: `mode "${node.mode}" has no tokens (set_tokens with mode); the base tokens apply` });
     for (const ref of tokenRefs(node)) {
-      if (doc.tokens[ref] === undefined)
-        issues.push({ rule: "unknown-token", severity: "error", nodeId: id, message: `token "$${ref}" não existe` });
+      if (tokenValue(doc, ref, mode) === undefined)
+        issues.push({ rule: "unknown-token", severity: "error", nodeId: id, message: `token "$${ref}" does not exist` });
     }
 
     if (node.type === "text") {
       if (!node.text.trim())
-        issues.push({ rule: "empty-text", severity: "warning", nodeId: id, message: "texto vazio" });
-      const fs = resolveValue(doc, node.fontSize);
+        issues.push({ rule: "empty-text", severity: "warning", nodeId: id, message: "empty text" });
+      const fs = resolveValue(doc, node.fontSize, modeOf(doc, node));
       const size = typeof fs === "number" ? fs : parseFloat(String(fs));
       if (size < 12)
-        issues.push({ rule: "small-text", severity: "warning", nodeId: id, message: `fonte de ${size}px (< 12px)` });
-      const fg = parseColor(String(resolveValue(doc, node.color)));
+        issues.push({ rule: "small-text", severity: "warning", nodeId: id, message: `font size ${size}px (< 12px)` });
+      const fg = parseColor(String(resolveValue(doc, node.color, modeOf(doc, node))));
       const bg = effectiveBackground(doc, node);
       if (fg && bg) {
         const ratio = contrastRatio(blend(fg, bg), bg);
@@ -132,11 +135,11 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
             rule: "contrast",
             severity: "error",
             nodeId: id,
-            message: `contraste ${ratio.toFixed(2)}:1 abaixo de ${min}:1 (WCAG AA${large ? ", texto grande" : ""})`,
+            message: `contrast ${ratio.toFixed(2)}:1 below ${min}:1 (WCAG AA${large ? ", large text" : ""})`,
           });
       }
       if (hasColorTokens && !node.color.startsWith("$"))
-        issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `cor literal "${node.color}"; prefira um token` });
+        issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `literal color "${node.color}"; prefer a token` });
     }
 
     if (node.type === "path" && !node.fill && !(node.stroke && node.stroke.width > 0))
@@ -144,18 +147,18 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
         rule: "invisible-path",
         severity: "warning",
         nodeId: id,
-        message: "path sem fill nem stroke não aparece; defina fill ou stroke {color,width}",
+        message: "a path without fill or stroke is invisible; set fill or stroke {color,width}",
       });
 
     if (node.type === "image" && !node.alt.trim())
-      issues.push({ rule: "missing-alt", severity: "warning", nodeId: id, message: "imagem sem texto alternativo (alt)" });
+      issues.push({ rule: "missing-alt", severity: "warning", nodeId: id, message: "image without alternative text (alt)" });
 
     if (node.type !== "group" && hasColorTokens && node.fill && !node.fill.startsWith("$") && node.fill !== "transparent")
-      issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `fill literal "${node.fill}"; prefira um token` });
+      issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `literal fill "${node.fill}"; prefer a token` });
 
     if (node.type === "page") continue;
     if (node.type === "group" && node.children.length === 0)
-      issues.push({ rule: "empty-group", severity: "info", nodeId: id, message: "group vazio; apague ou mova nós para dentro" });
+      issues.push({ rule: "empty-group", severity: "info", nodeId: id, message: "empty group; delete it or move nodes into it" });
 
     const parent = node.parentId ? doc.nodes[node.parentId] : undefined;
     const absolute = parent?.type === "frame" && (!parent.layout || parent.layout.mode === "none");
@@ -174,14 +177,14 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
           rule: "overflow",
           severity: "warning",
           nodeId: id,
-          message: `sai dos limites de "${parent.name || parent.id}" (${parent.width}×${parent.height})${
-            parent.type === "frame" && parent.clip ? " e será cortado" : ""
+          message: `goes outside "${parent.name || parent.id}" (${parent.width}×${parent.height})${
+            parent.type === "frame" && parent.clip ? " and will be clipped" : ""
           }`,
         });
     }
 
     if (node.type === "frame" && !node.name && (!parent || parent.type === "page"))
-      issues.push({ rule: "unnamed-frame", severity: "info", nodeId: id, message: "frame de nível superior sem nome" });
+      issues.push({ rule: "unnamed-frame", severity: "info", nodeId: id, message: "top-level frame without a name" });
   }
   return issues;
 }

@@ -1,5 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { groupOps, lintDocument, newId, resolveValue, ungroupOps, type Document, type GroupNode, type Node, type Op, type PageNode } from "@paprika/core";
+import {
+  copyOwner,
+  groupOps,
+  isInstance,
+  lintDocument,
+  newId,
+  modeOf,
+  resolveValue,
+  ungroupOps,
+  type Document,
+  type FrameNode,
+  type GroupNode,
+  type Node,
+  type Op,
+  type PageNode,
+  type SceneNode,
+} from "@paprika/core";
 import type { Activity } from "./useDocument";
 
 interface FieldProps {
@@ -52,8 +68,27 @@ function Field({ label, value, onCommit, type = "text", placeholder, title }: Fi
   );
 }
 
-function ColorField({ doc, label, value, onCommit }: { doc: Document; label: string; value: string | undefined; onCommit(v: string | null): void }) {
-  const resolved = value ? String(resolveValue(doc, value)) : "";
+/** Modo de tema de um frame ou página: herdado (vazio) ou um dos modos do documento. */
+function ModeField({ doc, value, inherited, onCommit }: { doc: Document; value: string | undefined; inherited?: string; onCommit(v: string | null): void }) {
+  const modes = Object.keys(doc.modes ?? {});
+  if (value && !modes.includes(value)) modes.push(value);
+  return (
+    <label className="field">
+      <span>Modo de tema</span>
+      <select aria-label="Modo de tema" value={value ?? ""} onChange={(e) => onCommit(e.target.value || null)}>
+        <option value="">{inherited ? `herdado (${inherited})` : "base"}</option>
+        {modes.map((m) => (
+          <option key={m} value={m}>
+            {m}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ColorField({ doc, label, value, mode, onCommit }: { doc: Document; label: string; value: string | undefined; mode?: string; onCommit(v: string | null): void }) {
+  const resolved = value ? String(resolveValue(doc, value, mode)) : "";
   const hex = /^#[0-9a-f]{6}$/i.test(resolved) ? resolved : "#000000";
   return (
     <div className="color-field">
@@ -131,8 +166,12 @@ export function Inspector(props: Props) {
   }
   if (!node) return <DocumentPanel doc={doc} apply={apply} activity={activity} onSelect={onSelect} />;
   if (node.type === "page") return <PagePanel doc={doc} page={node} apply={apply} />;
+  const owner = copyOwner(doc, node);
+  if (owner) return <CopyPanel {...props} node={node as SceneNode} instance={owner} />;
   if (node.type === "group") return <GroupPanel {...props} group={node} />;
+  if (isInstance(node)) return <InstancePanel {...props} instance={node} />;
   const set = (props: Record<string, unknown>, label = "editar propriedade") => apply([{ op: "update", id: node.id, props }], label);
+  const themeMode = modeOf(doc, node);
   const setNum = (key: string) => (v: string) => {
     const n = num(v);
     if (n !== undefined) set({ [key]: n });
@@ -157,10 +196,11 @@ export function Inspector(props: Props) {
       </div>
       <h3>Aparência</h3>
       <div className="grid">
-        <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />
+        <ColorField doc={doc} mode={themeMode} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />
         {node.type !== "ellipse" && node.type !== "path" && <Field label="Raio" type="number" value={node.radius} onCommit={setNum("radius")} />}
         <ColorField
           doc={doc}
+          mode={themeMode}
           label="Borda"
           value={node.stroke?.color}
           onCommit={(v) => set({ stroke: v ? { color: v, width: node.stroke?.width ?? 1 } : null })}
@@ -173,7 +213,7 @@ export function Inspector(props: Props) {
           <h3>Texto</h3>
           <div className="grid">
             <Field label="Conteúdo" type="textarea" value={node.text} onCommit={(v) => set({ text: v }, "editar texto")} />
-            <ColorField doc={doc} label="Cor" value={node.color} onCommit={(v) => v && set({ color: v })} />
+            <ColorField doc={doc} mode={themeMode} label="Cor" value={node.color} onCommit={(v) => v && set({ color: v })} />
           </div>
           <div className="grid grid-2">
             <Field label="Tamanho" value={node.fontSize} onCommit={(v) => set({ fontSize: v.startsWith("$") ? v : num(v) })} />
@@ -196,6 +236,30 @@ export function Inspector(props: Props) {
 
       {node.type === "frame" && (
         <>
+          <h3>Componente</h3>
+          <div className="actions" data-testid="component-actions">
+            {node.component ? (
+              <>
+                <button
+                  onClick={() => {
+                    const id = newId();
+                    const w = typeof node.width === "number" ? node.width : 0;
+                    apply([{ op: "create", parentId: node.parentId, node: { type: "frame", id, name: node.name, instanceOf: node.id, x: node.x + w + 40, y: node.y } }], "criar instância");
+                    props.onSelectMany([id]);
+                  }}
+                >
+                  Nova instância
+                </button>
+                <button onClick={() => set({ component: null }, "deixar de ser componente")}>Deixar de ser componente</button>
+              </>
+            ) : (
+              <button onClick={() => set({ component: true }, "criar componente")}>Tornar componente</button>
+            )}
+          </div>
+          <h3>Tema</h3>
+          <div className="grid">
+            <ModeField doc={doc} value={node.mode} inherited={modeOf(doc, node.parentId ? doc.nodes[node.parentId] : undefined)} onCommit={(v) => set({ mode: v }, "modo de tema")} />
+          </div>
           <h3>Layout</h3>
           <div className="grid grid-2">
             <label className="field">
@@ -255,7 +319,7 @@ export function Inspector(props: Props) {
         <>
           <h3>Vetor</h3>
           <div className="grid">
-            <Field label="Caminho (d)" type="textarea" value={node.d} title="M L H V C S Q T A Z (SVG)" onCommit={(v) => v.trim() && set({ d: v.trim() }, "editar caminho")} />
+            <Field label="Caminho (d)" type="textarea" value={node.d} title="M L H V C S Q T A Z (SVG). Duplo clique no vetor edita os pontos no canvas." onCommit={(v) => v.trim() && set({ d: v.trim() }, "editar caminho")} />
           </div>
           <div className="grid grid-2">
             <label className="field">
@@ -303,6 +367,91 @@ export function Inspector(props: Props) {
   );
 }
 
+/** Instância: posição e escala são dela; o resto vem do componente (fill aceita override). */
+function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNode & { instanceOf: string } }) {
+  const { doc, apply, onSelect, onError } = props;
+  const comp = doc.nodes[node.instanceOf];
+  const set = (p: Record<string, unknown>, label = "editar instância") => apply([{ op: "update", id: node.id, props: p }], label);
+  const setNum = (key: string) => (v: string) => {
+    const n = num(v);
+    if (n !== undefined) set({ [key]: n });
+  };
+  const overrides = Object.keys(node.overrides ?? {}).length;
+  return (
+    <div className="panel-section" key={node.id} data-testid="instance-panel">
+      <h2>
+        instância <code className="muted">#{node.id}</code>
+      </h2>
+      <p className="muted">
+        de <button className="link" onClick={() => onSelect(node.instanceOf)}>{comp?.name || node.instanceOf}</button>
+        {overrides > 0 && ` · ${overrides} override(s)`}
+      </p>
+      <div className="grid">
+        <Field label="Nome" value={node.name} onCommit={(v) => set({ name: v }, "renomear")} />
+      </div>
+      <div className="grid grid-2">
+        <Field label="X" type="number" value={node.x} onCommit={setNum("x")} />
+        <Field label="Y" type="number" value={node.y} onCommit={setNum("y")} />
+        <Field label="Escala" type="number" value={node.scale ?? 1} title="0.01 a 100" onCommit={setNum("scale")} />
+        <Field label="Rotação" type="number" value={node.rotation} onCommit={setNum("rotation")} />
+        <Field label="Opacidade" type="number" value={node.opacity} onCommit={setNum("opacity")} />
+        <Field label="Tamanho" value={`${node.width}×${node.height}`} onCommit={() => onError("o tamanho vem do componente; mude a escala")} />
+      </div>
+      <div className="grid">
+        <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v }, "override")} />
+      </div>
+      <div className="actions">
+        <button onClick={() => onSelect(node.instanceOf)}>Ir para o componente</button>
+        {overrides > 0 && <button onClick={() => set({ overrides: null }, "limpar overrides")}>Limpar overrides</button>}
+        <button onClick={() => apply([{ op: "detach", ids: [node.id] }], "desanexar instância")}>Desanexar</button>
+      </div>
+      <h3>Notas para agentes</h3>
+      <div className="grid">
+        <Field label="Notas" type="textarea" value={node.notes} onCommit={(v) => set({ notes: v || null })} />
+      </div>
+    </div>
+  );
+}
+
+/** Cópia dentro de uma instância: só os campos de aparência viram override. */
+function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; instance: FrameNode }) {
+  const { doc, apply, onSelect } = props;
+  const set = (p: Record<string, unknown>) => apply([{ op: "update", id: node.id, props: p }], "override");
+  const src = node.sourceId!;
+  const ov = instance.overrides?.[src] ?? {};
+  return (
+    <div className="panel-section" key={node.id} data-testid="copy-panel">
+      <h2>
+        {node.type} <code className="muted">#{node.id}</code>
+      </h2>
+      <p className="muted">
+        cópia de <button className="link" onClick={() => onSelect(src)}>#{src}</button> na instância{" "}
+        <button className="link" onClick={() => onSelect(instance.id)}>{instance.name || instance.id}</button>
+      </p>
+      <div className="grid">
+        {node.type === "text" && <Field label="Conteúdo" type="textarea" value={node.text} onCommit={(v) => set({ text: v })} />}
+        {node.type === "text" && <ColorField doc={doc} label="Cor" value={node.color} onCommit={(v) => set({ color: v })} />}
+        {node.type !== "group" && <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />}
+        {node.type === "image" && <Field label="URL" value={node.src.startsWith("data:") ? "(data URI)" : node.src} onCommit={(v) => set({ src: v })} />}
+        <Field label="Opacidade" type="number" value={node.opacity} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
+        <label className="field">
+          <span>Visível</span>
+          <select value={String(node.visible)} onChange={(e) => set({ visible: e.target.value === "true" })}>
+            <option value="true">sim</option>
+            <option value="false">não</option>
+          </select>
+        </label>
+      </div>
+      {Object.keys(ov).length > 0 && (
+        <div className="actions">
+          <button onClick={() => set(Object.fromEntries(Object.keys(ov).map((k) => [k, null])))}>Restaurar do componente</button>
+        </div>
+      )}
+      <p className="muted">Posição, tamanho e estrutura vêm do componente.</p>
+    </div>
+  );
+}
+
 function PagePanel({ doc, page, apply }: { doc: Document; page: PageNode; apply(ops: Op[], label?: string): void }) {
   const set = (props: Record<string, unknown>, label = "editar página") => apply([{ op: "update", id: page.id, props }], label);
   return (
@@ -312,7 +461,8 @@ function PagePanel({ doc, page, apply }: { doc: Document; page: PageNode; apply(
       </h2>
       <div className="grid">
         <Field label="Nome" value={page.name} onCommit={(v) => set({ name: v }, "renomear página")} />
-        <ColorField doc={doc} label="Fundo" value={page.fill} onCommit={(v) => set({ fill: v })} />
+        <ColorField doc={doc} mode={page.mode} label="Fundo" value={page.fill} onCommit={(v) => set({ fill: v })} />
+        <ModeField doc={doc} value={page.mode} onCommit={(v) => set({ mode: v }, "modo de tema")} />
         <Field label="Notas" type="textarea" value={page.notes} onCommit={(v) => set({ notes: v || null })} />
       </div>
     </div>
@@ -358,6 +508,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
 
 function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: Activity[]; onSelect(id: string): void }) {
   const [newToken, setNewToken] = useState("");
+  const [newModeToken, setNewModeToken] = useState("");
   const issues = lintDocument(doc).filter((i) => i.severity !== "info");
   return (
     <div className="panel-section">
@@ -385,6 +536,34 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
           }}
         >
           <input aria-label="Novo token" placeholder="nome = #e8553d" value={newToken} onChange={(e) => setNewToken(e.target.value)} />
+        </form>
+      </div>
+      <h3>Modos de tema</h3>
+      <div className="grid" data-testid="theme-modes">
+        {Object.entries(doc.modes ?? {}).map(([mode, tokens]) =>
+          Object.entries(tokens).map(([k, v]) => (
+            <div className="token-row" key={`${mode}/${k}`}>
+              {typeof v === "string" && /^#|^rgb/.test(v) && <span className="swatch" style={{ background: v }} />}
+              <Field
+                label={`${mode} · $${k}`}
+                value={v}
+                onCommit={(nv) => apply([{ op: "set_tokens", mode, tokens: { [k]: nv === "" ? null : isNaN(Number(nv)) ? nv : Number(nv) } }], "token do modo")}
+              />
+            </div>
+          )),
+        )}
+        <form
+          className="token-add"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const m = /^\s*([A-Za-z0-9_-]{1,40})\s*:\s*\$?([\w.-]+)\s*[=:]\s*(.+)$/.exec(newModeToken);
+            if (!m) return;
+            const val = m[3]!.trim();
+            apply([{ op: "set_tokens", mode: m[1]!, tokens: { [m[2]!]: isNaN(Number(val)) ? val : Number(val) } }], "token do modo");
+            setNewModeToken("");
+          }}
+        >
+          <input aria-label="Novo token de modo" placeholder="dark: bg = #14161f" value={newModeToken} onChange={(e) => setNewModeToken(e.target.value)} />
         </form>
       </div>
       <h3>Revisão {issues.length > 0 && <span className="badge">{issues.length}</span>}</h3>

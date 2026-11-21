@@ -12,7 +12,7 @@ export const ColorValue = z
   .string()
   .min(1)
   .max(200)
-  .refine((v) => !/[;{}<>]/.test(v), "cor não pode conter ; { } < >");
+  .refine((v) => !/[;{}<>]/.test(v), "a color cannot contain ; { } < >");
 
 export const Size = z.union([z.number().min(0).max(100_000), z.enum(["hug", "fill"])]);
 
@@ -41,7 +41,7 @@ export const Layout = z.object({
 });
 
 const Base = {
-  id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id deve ser [A-Za-z0-9_-]{1,64}"),
+  id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}"),
   name: z.string().max(200).default(""),
   parentId: z.string().nullable().default(null),
   x: z.number().default(0),
@@ -58,7 +58,21 @@ const Base = {
   shadow: Shadow.optional(),
   /** Notas livres para humanos e agentes (intenção, restrições, links). */
   notes: z.string().max(4000).optional(),
+  /** Só em cópias dentro de uma instância: id do nó do componente de onde a cópia vem (gerado). */
+  sourceId: z.string().optional(),
 };
+
+/** Overrides de uma instância: por id de nó do componente, os campos trocados (ver component.ts). */
+// Chaves no formato de id e de nome de campo (o zod já descarta "__proto__" em records).
+/** Nome de um modo de tema (`dark`, `compact`…): conjunto de valores que substituem tokens. */
+export const ModeName = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,40}$/, "mode name must be [A-Za-z0-9_-]{1,40}")
+  .refine((v) => v !== "__proto__", "mode name cannot be __proto__");
+
+const OverrideSource = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}");
+const OverrideField = z.string().regex(/^[A-Za-z]{1,32}$/, "field must be [A-Za-z]{1,32}");
+export const Overrides = z.record(OverrideSource, z.record(OverrideField, z.unknown()));
 
 export const FrameNode = z.object({
   ...Base,
@@ -66,6 +80,17 @@ export const FrameNode = z.object({
   children: z.array(z.string()).default([]),
   clip: z.boolean().default(true),
   layout: Layout.optional(),
+  /** Este frame é um componente: as instâncias copiam o desenho dele. */
+  component: z.boolean().optional(),
+  /**
+   * Este frame é uma instância do componente `instanceOf`: os filhos são cópias geradas ao fim de
+   * cada transação (escaladas por `scale`), e só `overrides` muda o que vem do componente.
+   */
+  instanceOf: z.string().optional(),
+  scale: z.number().min(0.01).max(100).optional(),
+  overrides: Overrides.optional(),
+  /** Modo de tema deste frame e dos descendentes (tokens de `document.modes[mode]`). */
+  mode: ModeName.optional(),
 });
 
 export const RectNode = z.object({ ...Base, type: z.literal("rect") });
@@ -79,7 +104,7 @@ export const TextNode = z.object({
   fontFamily: z
     .string()
     .max(200)
-    .refine((v) => !/[;{}<>()]/.test(v), "fontFamily não pode conter ; { } < > ( )")
+    .refine((v) => !/[;{}<>()]/.test(v), "fontFamily cannot contain ; { } < > ( )")
     .default("Inter, system-ui, sans-serif"),
   fontSize: z.union([z.number().min(1).max(1000), z.string().regex(/^\$[\w.-]+$/)]).default(16),
   fontWeight: z.number().int().min(100).max(900).default(400),
@@ -94,7 +119,7 @@ export const ImageNode = z.object({
   src: z
     .string()
     .max(5_000_000)
-    .refine((v) => /^(https?:|data:image\/)/.test(v), "src deve ser http(s) ou data:image/"),
+    .refine((v) => /^(https?:|data:image\/)/.test(v), "src must be http(s) or data:image/"),
   fit: z.enum(["cover", "contain", "fill"]).default("cover"),
   alt: z.string().max(1000).default(""),
 });
@@ -113,7 +138,7 @@ export const PathNode = z.object({
     .max(200_000)
     .superRefine((v, ctx) => {
       const err = pathError(v);
-      if (err) ctx.addIssue({ code: "custom", message: `d inválido: ${err}` });
+      if (err) ctx.addIssue({ code: "custom", message: `invalid d: ${err}` });
     }),
   fillRule: z.enum(["nonzero", "evenodd"]).default("nonzero"),
   strokeCap: z.enum(["butt", "round", "square"]).default("round"),
@@ -142,6 +167,7 @@ export const GroupNode = z.object({
   visible: Base.visible,
   locked: Base.locked,
   notes: Base.notes,
+  sourceId: Base.sourceId,
   children: z.array(z.string()).default([]),
 });
 
@@ -156,6 +182,8 @@ export const PageNode = z.object({
   parentId: Base.parentId,
   type: z.literal("page"),
   fill: ColorValue.optional(),
+  /** Modo de tema da página inteira. */
+  mode: ModeName.optional(),
   notes: Base.notes,
   children: z.array(z.string()).default([]),
 });
@@ -165,13 +193,18 @@ export const Node = z.discriminatedUnion("type", [FrameNode, RectNode, EllipseNo
 export const NodeType = z.enum(["frame", "rect", "ellipse", "text", "image", "path", "group", "page"]);
 
 export const TokenValue = z.union([z.string().max(500), z.number()]);
-export const TokenName = z.string().regex(/^[\w.-]{1,100}$/, "nome de token deve ser [\\w.-]{1,100}");
+export const TokenName = z
+  .string()
+  .regex(/^[\w.-]{1,100}$/, "token name must be [\\w.-]{1,100}")
+  .refine((v) => v !== "__proto__", "token name cannot be __proto__");
 
 export const Document = z.object({
   format: z.literal(FORMAT),
   id: z.string(),
   name: z.string().default("Sem título"),
   tokens: z.record(TokenName, TokenValue).default({}),
+  /** Modos de tema: por modo, os tokens que mudam (os demais vêm de `tokens`). */
+  modes: z.record(ModeName, z.record(TokenName, TokenValue)).optional(),
   /** Ids dos nós de nível superior (normalmente frames/telas), na ordem do canvas. */
   rootIds: z.array(z.string()).default([]),
   nodes: z.record(z.string(), Node).default({}),
@@ -228,7 +261,7 @@ export function firstPage(doc: Document): PageNode | undefined {
 /** Nós de topo de uma página (ou do documento sem páginas): o que o canvas mostra. */
 export function pageRoots(doc: Document, pageId?: string | null): string[] {
   const page = pageId ? doc.nodes[pageId] : firstPage(doc);
-  if (pageId && page?.type !== "page") throw new Error(`página "${pageId}" não existe`);
+  if (pageId && page?.type !== "page") throw new Error(`page "${pageId}" does not exist`);
   return page?.type === "page" ? page.children : doc.rootIds;
 }
 

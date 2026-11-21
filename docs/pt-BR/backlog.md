@@ -46,7 +46,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Passo de nudge configurável | Setas 1px, Shift 10px | 🟡 | P3 |
 | Conta-gotas (amostrar cor do canvas) | — | ⬜ | P2 |
 | Duplicar arrastando com modificador | `Ctrl+D` duplica | 🟡 | P3 |
-| Esconder a UI (modo foco), atalho de renomear, recolher a árvore | — | ⬜ | P3 |
+| Esconder a UI (modo foco), atalho de renomear, recolher a árvore | Duplo clique numa camada ou no título de um frame no canvas renomeia no lugar (`Enter` confirma, `Esc` cancela, dá para desfazer) (2026-11-21); a árvore de camadas recolhe; sem modo foco | 🟡 | P3 |
 
 ## C. Estilo
 
@@ -76,9 +76,9 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | Tokens globais (`$nome`) para cores e tamanhos, definidos por agentes | `set_tokens` | ✅ | — |
-| Modos de tema (claro/escuro/compacto) e coleções de tokens | Namespace global, prefixado à mão (fb#4) | ⬜ | P1 |
-| Override de tokens por frame | — (fb#4) | ⬜ | P1 |
-| Tokens exportados como variáveis CSS no export HTML/React | Valores entram inline | ⬜ | P1 |
+| Modos de tema (claro/escuro/compacto) e coleções de tokens | `document.modes` + `set_tokens` com `mode`, inspector (2026-11-21); ainda sem coleções nomeadas | 🟡 | P2 |
+| Override de tokens por frame | `mode` num frame ou página aplica um modo ao subtree (2026-11-21) | ✅ | — |
+| Tokens exportados como variáveis CSS no export HTML/React | `export_code` com `cssVariables` (2026-11-21): `:root` mais regras `[data-paprika-mode]`; o React exporta `tokensCss` | ✅ | — |
 | Tokens tipados (cor, raio, espaçamento, fonte…) com validação | String/número sem tipo | 🟡 | P2 |
 | Desvincular um token de um nó | Edição manual | 🟡 | P2 |
 | Gerar tokens a partir de uma codebase via MCP | — | ⬜ | P2 |
@@ -91,8 +91,8 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 |---|---|---|---|
 | Nó vetorial a partir de dados de caminho SVG (retas, bezier, arcos) | Nó `path`, `path_info` | ✅ | — |
 | Caneta para criar paths | `P`, alças bezier, fecha no primeiro vértice | ✅ | — |
-| Editar pontos e alças de um path existente | Editar `d` no inspector (fb#17) | 🟡 | P1 |
-| Importar/colar SVG como camadas `path` editáveis | — | ⬜ | P1 |
+| Editar pontos e alças de um path existente | Duplo clique no vetor: arrastar pontos e alças, adicionar, remover, canto/suave (2026-11-21); `d` no inspector | ✅ | — |
+| Importar/colar SVG como camadas `path` editáveis | `import_svg`, `Ctrl+V` no canvas (2026-11-21): paths, formas (rect/ellipse alinhados aos eixos ficam nativos), grupos, transforms, pintura herdada; sem texto, imagens, gradientes ou CSS de `<style>` | ✅ | — |
 | Operações booleanas (união, subtração, interseção, exclusão) | — (fb#1) | ⬜ | P2 |
 | Converter rect/ellipse em path | — | ⬜ | P2 |
 | Snapping e guias para pontos, snapping a meio pixel | — | ⬜ | P3 |
@@ -102,8 +102,8 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
-| Colar HTML com estilos inline como nós (inverso do `nodeStyle`) | — | ⬜ | P1 |
-| Colar SVG | — (ver F) | ⬜ | P1 |
+| Colar HTML com estilos inline como nós (inverso do `nodeStyle`) | `import_html`, `Ctrl+V` (2026-11-21): o HTML do próprio Paprika volta igual; outro HTML é aproximado (flex → row/column, blocos → column); classes e folhas de estilo não são aplicadas | ✅ | — |
+| Colar SVG | `Ctrl+V` com marcação SVG (ver F) | ✅ | — |
 | Colar ou soltar imagens (guardadas como data URI ou asset local) | Nó `image` só pelo MCP | 🟡 | P2 |
 | Capturar um elemento de qualquer página web como nós (extensão de navegador) | — | ⬜ | P3 |
 | Importar da área de transferência de outras ferramentas de design | — | ⬜ | Fora |
@@ -112,7 +112,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
-| Componentes e instâncias com overrides e `scale` | — (fb#3) | ⬜ | P1 |
+| Componentes e instâncias com overrides e `scale` | `component`/`instanceOf`/`scale`/`overrides` em frames, `create_component`, `create_instance`, `detach_instance` (2026-11-21); ainda sem instâncias aninhadas | ✅ | — |
 | Props e slots de componentes | — | ⬜ | P2 |
 | Componentes de código (renderizar componentes reais do repositório do usuário) | — | ⬜ | P3 |
 | Pacotes de ícones / kits de UI iniciais | — | ⬜ | P3 |
@@ -121,12 +121,12 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
-| Servidor MCP embutido (stdio + HTTP), leitura e escrita, CLI | `paprika serve`/`mcp`, 20 ferramentas | ✅ | — |
+| Servidor MCP embutido (stdio + HTTP), leitura e escrita, CLI | `paprika serve`/`mcp`, 23 ferramentas | ✅ | — |
 | Leituras econômicas em tokens | `get_document_outline` | ✅ | — |
-| Resultados estruturados (`outputSchema` + `structuredContent`) | JSON como texto (fb#7) | ⬜ | P1 |
-| Guia e erros em inglês (pt-BR opcional) | pt-BR (fb#12) | ⬜ | P1 |
-| Agrupar várias escritas num só passo de desfazer | Uma entrada por chamada (fb#11) | ⬜ | P1 |
-| Nome do ator vindo do `clientInfo` do MCP | Vem do User-Agent (fb#10) | 🟡 | P1 |
+| Resultados estruturados (`outputSchema` + `structuredContent`) | Toda ferramenta que responde JSON declara `outputSchema` e devolve `structuredContent` (2026-11-21) | ✅ | — |
+| Guia e erros em inglês (pt-BR opcional) | Guia, descrições das ferramentas, erros, avisos e lint em inglês; `get_design_guide {language: "pt-BR"}` (2026-11-21). A interface do canvas segue em pt-BR | ✅ | — |
+| Agrupar várias escritas num só passo de desfazer | `batch` em toda ferramenta de escrita (2026-11-21) | ✅ | — |
+| Nome do ator vindo do `clientInfo` do MCP | `agent:<clientInfo.name>` no stdio e no HTTP (o id de sessão guarda o nome) (2026-11-21) | ✅ | — |
 | Presença do agente no canvas (cursor, o que está editando) | Destaque + lista de atividade | 🟡 | P2 |
 | Comentários para humanos e agentes (criar, resolver, filtrar) | Só o campo `notes` | 🟡 | P2 |
 | Gerenciar arquivos pelo MCP (listar, criar, abrir, renomear, arquivar), vários ao mesmo tempo | Um arquivo por processo | ⬜ | P2 |
@@ -140,7 +140,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | HTML autocontido, React (estilos inline), PNG | `export_code`, `render_screenshot` | ✅ | — |
-| Export SVG (frame ou seleção) | — | ⬜ | P1 |
+| Export SVG (frame ou seleção) | `export_code` formato `svg`, `⇩` na barra, `GET /api/svg` (2026-11-21): layout e linhas de texto medidos num Chromium headless; gradientes e imagens de fundo ficam de fora | ✅ | — |
 | Export com classes Tailwind | — | ⬜ | P2 |
 | WebP/AVIF, PDF (frames individuais ou combinados) | — | ⬜ | P2 |
 | React + CSS module / variáveis CSS | — (ver E) | ⬜ | P2 |

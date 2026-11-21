@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -206,13 +207,14 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		mux.ServeHTTP(w, r)
 	})
 
+	clients := newClientNames(1024)
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
 		ua := r.Header.Get("User-Agent")
 		if ua == "" {
 			ua = "http"
 		}
 		actor := "agent:" + strings.SplitN(ua, "/", 2)[0]
-		serveMCPHTTP(w, r, NewMCP(store, actor, opts.Shot))
+		serveMCPHTTP(w, r, NewMCP(store, actor, opts.Shot), clients)
 	})
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		send(w, 200, jsonv.NewObject("ok", true, "version", float64(store.Version()), "file", store.Path(), "storage", "sqlite", "docId", store.DocID()), "")
@@ -302,6 +304,28 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			return
 		}
 		send(w, 200, png, "image/png")
+	})
+	mux.HandleFunc("/api/svg", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			send(w, 405, errBody("método não permitido"), "")
+			return
+		}
+		if opts.Shot == nil {
+			send(w, 500, errBody("export SVG indisponível neste servidor"), "")
+			return
+		}
+		// JSON (not image/svg+xml) so the SVG is never rendered on the server's origin.
+		res, err := opts.Shot.ExportSVG(r.Context(), store.Doc(), r.URL.Query().Get("root"))
+		if err != nil {
+			logf("erro HTTP: " + err.Error())
+			send(w, 500, errBody(err.Error()), "")
+			return
+		}
+		ws := make([]any, len(res.Warnings))
+		for i, x := range res.Warnings {
+			ws[i] = x
+		}
+		send(w, 200, jsonv.NewObject("svg", res.SVG, "width", res.Width, "height", res.Height, "warnings", ws), "")
 	})
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		// Host/Origin were validated above; the library's own origin check is redundant.
@@ -493,7 +517,50 @@ func jsonRPCHTTPError(w http.ResponseWriter, status, code int, msg string, extra
 	io.WriteString(w, jsonv.Stringify(jsonv.NewObject("jsonrpc", "2.0", "error", jsonv.NewObject("code", float64(code), "message", msg), "id", nil), ""))
 }
 
-func serveMCPHTTP(w http.ResponseWriter, r *http.Request, m *MCP) {
+// clientNames remembers the clientInfo name of each HTTP session id. The MCP endpoint is
+// stateless, so a tools/call carries no clientInfo: initialize hands out an Mcp-Session-Id and
+// later calls are recorded under that client's name (bounded, oldest out; same as the TS server).
+type clientNames struct {
+	mu    sync.Mutex
+	max   int
+	names map[string]string
+	order []string
+}
+
+func newClientNames(max int) *clientNames { return &clientNames{max: max, names: map[string]string{}} }
+
+func (c *clientNames) remember(name string) string {
+	id := newSessionID()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.names[id] = name
+	c.order = append(c.order, id)
+	if len(c.order) > c.max {
+		delete(c.names, c.order[0])
+		c.order = c.order[1:]
+	}
+	return id
+}
+
+func (c *clientNames) get(id string) (string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n, ok := c.names[id]
+	return n, ok
+}
+
+// newSessionID returns a random UUID v4 (like crypto.randomUUID in the TS server).
+func newSessionID() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(err)
+	}
+	b[6] = b[6]&0x0f | 0x40
+	b[8] = b[8]&0x3f | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func serveMCPHTTP(w http.ResponseWriter, r *http.Request, m *MCP, clients *clientNames) {
 	switch r.Method {
 	case http.MethodPost:
 	case http.MethodGet, http.MethodDelete:
@@ -551,6 +618,20 @@ func serveMCPHTTP(w http.ResponseWriter, r *http.Request, m *MCP) {
 			jsonRPCHTTPError(w, 400, -32000, fmt.Sprintf("Bad Request: Unsupported protocol version: %s (supported versions: %s)", v, strings.Join(supportedProtocolVersions, ", ")), nil)
 			return
 		}
+	}
+	initName, hasInitName := "", false
+	for _, msg := range batch {
+		if o := msg.(*jsonv.Object); o.Str("method") == "initialize" {
+			if v, ok := o.Obj("params").Obj("clientInfo").Get("name"); ok {
+				initName, hasInitName = v.(string)
+			}
+			break
+		}
+	}
+	if hasInitName {
+		w.Header().Set("Mcp-Session-Id", clients.remember(initName))
+	} else if name, ok := clients.get(r.Header.Get("Mcp-Session-Id")); ok {
+		m.SetClient(name)
 	}
 	var responses []any
 	for _, msg := range batch {

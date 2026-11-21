@@ -2,7 +2,7 @@
 
 # Paprika server in Go
 
-A Go implementation of the Paprika server with the same contract as the TypeScript one (`packages/server`): the same 20 MCP tools (stdio and Streamable HTTP at `/mcp`), the same operations and shared undo/redo, the same WebSocket protocol for the canvas (`/ws`), the same HTTP API and the same lint, export and screenshot. Data lives in **SQLite**; `.paprika.json` files go in and out with `import` and `export`. Why and how: [ADR 0001](../docs/adr/0001-go-server-sqlite.md).
+A Go implementation of the Paprika server with the same contract as the TypeScript one (`packages/server`): the same 25 MCP tools (stdio and Streamable HTTP at `/mcp`), the same operations and shared undo/redo, the same WebSocket protocol for the canvas (`/ws`), the same HTTP API and the same lint, export and screenshot. Data lives in **SQLite**; `.paprika.json` files go in and out with `import` and `export`. Why and how: [ADR 0001](../docs/adr/0001-go-server-sqlite.md).
 
 ## Build and run
 
@@ -70,7 +70,7 @@ scripts/           fixture and contract generators (run with Node against the Ty
 
 The TypeScript core is the reference. Three layers check that the Go server behaves the same:
 
-1. **Golden fixtures** (`internal/core/testdata/golden.json`, from `scripts/gen-golden.mjs`): operation results and errors, zod error JSON, history, outline, lint, HTML, React, CSS of every node of 23 documents, path parsing/bounds, colors and 500 seeded random steps. `go test` compares byte for byte.
+1. **Golden fixtures** (`internal/core/testdata/golden.json`, from `scripts/gen-golden.mjs`): operation results and errors, zod error JSON, history, outline, lint, HTML, React, CSS of every node of 23 documents, path parsing/bounds, colors, SVG/HTML import, SVG export (with and without a synthetic browser measure) and 500 seeded random steps. `go test` compares byte for byte.
 2. **Black-box suite** (`packages/server/test/external/parity.test.ts`): MCP over HTTP and stdio, WebSocket, HTTP API and Host/Origin checks, run against a server process.
 3. **Canvas E2E** (`packages/server/test/e2e`): the same Playwright suite, with the Go binary behind the canvas.
 

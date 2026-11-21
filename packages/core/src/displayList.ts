@@ -1,6 +1,6 @@
 import { parseColor } from "./lint.js";
 import { pageRoots, type Document, type Node, type SceneNode } from "./schema.js";
-import { resolveValue } from "./style.js";
+import { modeOf, resolveValue } from "./style.js";
 
 /**
  * Display list for the WASM canvas renderer (`crates/render`, ADR 0002).
@@ -41,9 +41,9 @@ export interface DisplayList {
 type RGBA4 = [number, number, number, number];
 
 /** A CSS color (or `$token`) as straight RGBA 0..1; `null` when it is not a solid color. */
-export function solidColor(doc: Document, value: string | undefined): RGBA4 | null {
+export function solidColor(doc: Document, value: string | undefined, mode?: string): RGBA4 | null {
   if (value === undefined) return [0, 0, 0, 0];
-  const css = String(resolveValue(doc, value)).trim().toLowerCase();
+  const css = String(resolveValue(doc, value, mode)).trim().toLowerCase();
   if (css === "transparent" || css === "none") return [0, 0, 0, 0];
   const c = parseColor(css);
   return c ? [c.r / 255, c.g / 255, c.b / 255, c.a] : null;
@@ -56,9 +56,9 @@ const isShape = (n: Node): n is Shape => SHAPES.has(n.type);
 /** True when the WASM layer can draw this node's own paint exactly as `nodeStyle` would. */
 export function wasmPaintable(doc: Document, n: Node): boolean {
   if (!isShape(n)) return false;
-  if (!solidColor(doc, n.fill)) return false;
-  if (n.stroke && !solidColor(doc, n.stroke.color)) return false;
-  if (n.shadow && (n.type === "path" || !solidColor(doc, n.shadow.color))) return false;
+  if (!solidColor(doc, n.fill, modeOf(doc, n))) return false;
+  if (n.stroke && !solidColor(doc, n.stroke.color, modeOf(doc, n))) return false;
+  if (n.shadow && (n.type === "path" || !solidColor(doc, n.shadow.color, modeOf(doc, n)))) return false;
   return true;
 }
 
@@ -73,9 +73,9 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, page
   const domPainted = new Set<string>();
 
   const emit = (kind: number, n: Shape, b: Box, opacity: number, paint: boolean) => {
-    const f = (paint && solidColor(doc, n.fill)) || [0, 0, 0, 0];
-    const s = paint && n.stroke && n.stroke.width > 0 ? solidColor(doc, n.stroke.color) : null;
-    const sh = paint && n.shadow ? solidColor(doc, n.shadow.color) : null;
+    const f = (paint && solidColor(doc, n.fill, modeOf(doc, n))) || [0, 0, 0, 0];
+    const s = paint && n.stroke && n.stroke.width > 0 ? solidColor(doc, n.stroke.color, modeOf(doc, n)) : null;
+    const sh = paint && n.shadow ? solidColor(doc, n.shadow.color, modeOf(doc, n)) : null;
     out.push(
       kind,
       b.x,

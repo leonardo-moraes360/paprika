@@ -8,15 +8,25 @@
       "listChanged": true
     }
   },
-  "instructions": "# Paprika: guia para agentes\n\nDocumento = mapa plano de nós + rootIds (telas/frames de topo, em coordenadas do canvas).\nTipos: frame (contêiner com estilo e layout), group (agrupa sem pintar), page (canvas separado), rect, ellipse,\ntext, image, path (vetor com curvas bezier). Só frame, group e page têm filhos.\n\nCampos comuns: name, x, y, width, height (número | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}. Com layout row/column, x/y dos filhos são ignorados.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\nimage: src (https:// ou data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir\n  dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.\npage: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, todo nó de topo é página e os\n  frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o\n  conteúdo atual para \"Página 1\". Telas de outra página: get_document_outline {rootId: id da página}.\npath: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),\n  stroke {color,width} (traço), fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,\n  o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó\n  ganha a caixa do desenho. Curvas: \"C c1x c1y c2x c2y x y\" (cúbica), \"Q cx cy x y\" (quadrática), S/T espelham\n  o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.\n\nCores: #hex, rgb(), rgba() ou \"$token\" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.\n\"fill\" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.\n\nFluxo recomendado:\n1. get_document_outline para se orientar (barato).\n2. set_tokens com a paleta e a escala tipográfica.\n3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.\n4. lint_design e corrija o que vier como error/warning.\n5. render_screenshot para conferir visualmente; export_code para levar ao código.\nToda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. O humano vê suas edições ao vivo no canvas.\nCampos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.",
+  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (color), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, mode (theme mode, see below). With row/column layout, children's x/y are ignored.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\nimage: src (https:// or data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). An instance is a frame with\n  instanceOf = the component id and an optional scale (create_instance): its children are generated copies, with\n  derived ids and sourceId = the id of the source node; changing the component changes every instance. On a copy,\n  update only changes fill, color, text, src, alt, visible and opacity (stored as an instance override; null goes back\n  to the component); on the root, fill becomes an override and width/height/layout/stroke/radius/shadow/clip come from\n  the component (use scale). Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use path_info to check bounds before positioning.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning.\n5. render_screenshot to check visually; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes); export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
   "tools": [
     {
       "name": "get_design_guide",
-      "title": "Guia do formato",
-      "description": "Explica o modelo de nós, campos aceitos e o fluxo recomendado. Leia antes da primeira edição.",
+      "title": "Format guide",
+      "description": "Explains the node model, the accepted fields and the recommended flow. Read it before the first edit. language: \"pt-BR\" returns the Brazilian Portuguese version.",
       "inputSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "language": {
+            "default": "en",
+            "type": "string",
+            "enum": [
+              "en",
+              "pt-BR"
+            ]
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
       },
       "annotations": {
         "readOnlyHint": true
@@ -27,17 +37,17 @@
     },
     {
       "name": "get_document_outline",
-      "title": "Estrutura do documento",
-      "description": "Árvore compacta (uma linha por nó: tipo#id, nome, tamanho, posição, estilo-chave), tokens e versão. Barato em tokens.",
+      "title": "Document outline",
+      "description": "Compact tree (one line per node: type#id, name, size, position, key style), tokens, theme modes and version. Cheap in tokens.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "rootId": {
-            "description": "Só a subárvore deste nó",
+            "description": "Only this node's subtree",
             "type": "string"
           },
           "depth": {
-            "description": "Profundidade máxima (0 = só o nó)",
+            "description": "Maximum depth (0 = just the node)",
             "type": "integer",
             "minimum": 0,
             "maximum": 50
@@ -54,8 +64,8 @@
     },
     {
       "name": "get_nodes",
-      "title": "Ler nós",
-      "description": "Retorna o JSON completo dos nós pedidos (todos os campos, com defaults).",
+      "title": "Read nodes",
+      "description": "Full JSON of the requested nodes (every field, with defaults). The text result is the array; structuredContent is { nodes }.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -73,6 +83,26 @@
         ],
         "$schema": "http://json-schema.org/draft-07/schema#"
       },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
       "annotations": {
         "readOnlyHint": true
       },
@@ -82,8 +112,8 @@
     },
     {
       "name": "find_nodes",
-      "title": "Buscar nós",
-      "description": "Busca por tipo, substring do nome ou do texto, opcionalmente dentro de uma subárvore.",
+      "title": "Find nodes",
+      "description": "Search by type, or by a substring of the name or the text, optionally inside a subtree.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -127,8 +157,8 @@
     },
     {
       "name": "path_info",
-      "title": "Geometria de um caminho",
-      "description": "Valida dados de caminho SVG (d) e devolve a caixa exata do desenho (inclui extremos das curvas bezier e arcos), o número de segmentos e o d normalizado em comandos absolutos. Passe `d` ou o `id` de um nó path.",
+      "title": "Path geometry",
+      "description": "Validates SVG path data (d) and returns the exact box of the drawing (including the extremes of bezier curves and arcs), the number of segments and d normalized to absolute commands. Pass `d` or the `id` of a path node.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -142,6 +172,85 @@
         },
         "$schema": "http://json-schema.org/draft-07/schema#"
       },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "segments": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "curves": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "closed": {
+            "type": "boolean"
+          },
+          "bounds": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ],
+            "additionalProperties": false
+          },
+          "canvasBounds": {
+            "description": "With id: the box in canvas coordinates",
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ],
+            "additionalProperties": false
+          },
+          "normalized": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "segments",
+          "curves",
+          "closed",
+          "bounds",
+          "normalized"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
       "annotations": {
         "readOnlyHint": true
       },
@@ -151,8 +260,8 @@
     },
     {
       "name": "create_nodes",
-      "title": "Criar nós",
-      "description": "Cria um ou mais nós (com children aninhados em frames) sob parentId (null/omitido = canvas). Atômico. Retorna os ids criados na ordem.",
+      "title": "Create nodes",
+      "description": "Creates one or more nodes (with nested children in frames) under parentId (null/omitted = canvas). Atomic. Returns the created ids in order.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -163,7 +272,7 @@
             ]
           },
           "index": {
-            "description": "Posição entre os irmãos; padrão: no fim",
+            "description": "Position among the siblings; default: at the end",
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
@@ -177,8 +286,14 @@
             }
           },
           "label": {
-            "description": "Descrição curta para o histórico",
+            "description": "Short description for the history",
             "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
             "maxLength": 200
           }
         },
@@ -220,14 +335,36 @@
           }
         }
       },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
       "execution": {
         "taskSupport": "forbidden"
       }
     },
     {
       "name": "update_nodes",
-      "title": "Alterar nós",
-      "description": "Altera campos de vários nós numa transação atômica. null remove o campo. Objetos (layout, stroke, shadow) são substituídos inteiros.",
+      "title": "Update nodes",
+      "description": "Changes fields of several nodes in one atomic transaction. null removes a field. Objects (layout, stroke, shadow) are replaced whole.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -258,6 +395,12 @@
           "label": {
             "type": "string",
             "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
           }
         },
         "required": [
@@ -265,14 +408,36 @@
         ],
         "$schema": "http://json-schema.org/draft-07/schema#"
       },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
       "execution": {
         "taskSupport": "forbidden"
       }
     },
     {
       "name": "delete_nodes",
-      "title": "Apagar nós",
-      "description": "Apaga nós e suas subárvores. Atômico e reversível com undo.",
+      "title": "Delete nodes",
+      "description": "Deletes nodes and their subtrees. Atomic, and undo brings them back.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -287,12 +452,40 @@
           "label": {
             "type": "string",
             "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
           }
         },
         "required": [
           "ids"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "annotations": {
         "destructiveHint": true
@@ -303,8 +496,8 @@
     },
     {
       "name": "move_nodes",
-      "title": "Mover nós",
-      "description": "Muda o pai e/ou a ordem de nós (parentId null = canvas). Não altera x/y.",
+      "title": "Move nodes",
+      "description": "Changes the parent and/or the order of nodes (parentId null = canvas). Does not change x/y.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -338,6 +531,12 @@
           "label": {
             "type": "string",
             "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
           }
         },
         "required": [
@@ -345,14 +544,36 @@
         ],
         "$schema": "http://json-schema.org/draft-07/schema#"
       },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
       "execution": {
         "taskSupport": "forbidden"
       }
     },
     {
       "name": "group_nodes",
-      "title": "Agrupar nós",
-      "description": "Põe nós irmãos (mesmo pai, sem layout row/column) num group novo, no lugar do mais alto deles. O desenho não se move: a caixa do grupo segue os filhos. Retorna o id do grupo.",
+      "title": "Group nodes",
+      "description": "Puts sibling nodes (same parent, no row/column layout) in a new group, in the place of the topmost one. The drawing does not move: the group's box follows its children. Returns the group id.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -369,11 +590,17 @@
             "maxLength": 200
           },
           "id": {
-            "description": "Id do grupo (padrão: gerado)",
+            "description": "Group id (default: generated)",
             "type": "string"
           },
           "label": {
             "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
             "maxLength": 200
           }
         },
@@ -381,6 +608,32 @@
           "ids"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "group": {
+            "type": "string"
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "group",
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "execution": {
         "taskSupport": "forbidden"
@@ -388,8 +641,8 @@
     },
     {
       "name": "ungroup_nodes",
-      "title": "Desagrupar",
-      "description": "Desfaz groups: os filhos voltam ao pai do grupo, no lugar dele, com a mesma posição, opacidade e visibilidade.",
+      "title": "Ungroup",
+      "description": "Removes groups: their children go back to the group's parent, in its place, keeping position, opacity and visibility.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -404,6 +657,12 @@
           "label": {
             "type": "string",
             "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
           }
         },
         "required": [
@@ -411,14 +670,43 @@
         ],
         "$schema": "http://json-schema.org/draft-07/schema#"
       },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "released": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "released",
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
       "execution": {
         "taskSupport": "forbidden"
       }
     },
     {
       "name": "create_page",
-      "title": "Criar página",
-      "description": "Cria uma página (canvas separado no mesmo arquivo). Na primeira vez, o conteúdo atual vai antes para uma página \"Página 1\". Crie telas nela com create_nodes {parentId: id da página}.",
+      "title": "Create page",
+      "description": "Creates a page (a separate canvas in the same file). The first time, the current content first moves to a page named \"Página 1\". Create screens on it with create_nodes {parentId: page id}.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -427,15 +715,273 @@
             "maxLength": 200
           },
           "id": {
-            "description": "Id da página (padrão: gerado)",
+            "description": "Page id (default: generated)",
             "type": "string"
           },
           "label": {
             "type": "string",
             "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
           }
         },
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "string"
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "page",
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_component",
+      "title": "Create component",
+      "description": "Marks a frame as a component (component: true). Then create_instance makes copies of it that follow the changes to the component.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "component": {
+            "type": "string"
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "component",
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_instance",
+      "title": "Create instance",
+      "description": "Creates an instance of a component (a frame with instanceOf). By default it goes in the component's parent, 40px to its right. Returns the instance id and, in copies, the id of the copy of each component node (for overrides with update_nodes).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": "string"
+          },
+          "parentId": {
+            "description": "Parent of the instance (default: the component's parent)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "scale": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 100
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "overrides": {
+            "description": "{ idOfTheComponentNode: { text: ..., fill: ... } }",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "id": {
+            "description": "Instance id (default: generated)",
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "componentId"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "instance": {
+            "type": "string"
+          },
+          "copies": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "instance",
+          "copies",
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "detach_instance",
+      "title": "Detach instance",
+      "description": "Turns instances into plain frames: the copies become normal nodes (same ids) and stop following the component.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "detached": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "detached",
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "execution": {
         "taskSupport": "forbidden"
@@ -443,8 +989,8 @@
     },
     {
       "name": "apply_ops",
-      "title": "Transação de operações",
-      "description": "Aplica uma lista mista de operações (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page) numa única transação atômica.",
+      "title": "Operation transaction",
+      "description": "Applies a mixed list of operations (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) in one atomic transaction.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -581,6 +1127,10 @@
                           }
                         ]
                       }
+                    },
+                    "mode": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{1,40}$"
                     }
                   },
                   "required": [
@@ -759,6 +1309,9 @@
                                 "type": "string",
                                 "maxLength": 4000
                               },
+                              "sourceId": {
+                                "type": "string"
+                              },
                               "type": {
                                 "type": "string",
                                 "const": "frame"
@@ -849,6 +1402,36 @@
                                     "type": "boolean"
                                   }
                                 }
+                              },
+                              "component": {
+                                "type": "boolean"
+                              },
+                              "instanceOf": {
+                                "type": "string"
+                              },
+                              "scale": {
+                                "type": "number",
+                                "minimum": 0.01,
+                                "maximum": 100
+                              },
+                              "overrides": {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                                },
+                                "additionalProperties": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z]{1,32}$"
+                                  },
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "mode": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,40}$"
                               }
                             },
                             "required": [
@@ -997,6 +1580,9 @@
                               "notes": {
                                 "type": "string",
                                 "maxLength": 4000
+                              },
+                              "sourceId": {
+                                "type": "string"
                               },
                               "type": {
                                 "type": "string",
@@ -1150,6 +1736,9 @@
                                 "type": "string",
                                 "maxLength": 4000
                               },
+                              "sourceId": {
+                                "type": "string"
+                              },
                               "type": {
                                 "type": "string",
                                 "const": "ellipse"
@@ -1301,6 +1890,9 @@
                               "notes": {
                                 "type": "string",
                                 "maxLength": 4000
+                              },
+                              "sourceId": {
+                                "type": "string"
                               },
                               "type": {
                                 "type": "string",
@@ -1509,6 +2101,9 @@
                                 "type": "string",
                                 "maxLength": 4000
                               },
+                              "sourceId": {
+                                "type": "string"
+                              },
                               "type": {
                                 "type": "string",
                                 "const": "image"
@@ -1680,6 +2275,9 @@
                                 "type": "string",
                                 "maxLength": 4000
                               },
+                              "sourceId": {
+                                "type": "string"
+                              },
                               "type": {
                                 "type": "string",
                                 "const": "path"
@@ -1803,6 +2401,9 @@
                                 "type": "string",
                                 "maxLength": 4000
                               },
+                              "sourceId": {
+                                "type": "string"
+                              },
                               "children": {
                                 "default": [],
                                 "type": "array",
@@ -1843,6 +2444,10 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 200
+                              },
+                              "mode": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,40}$"
                               },
                               "notes": {
                                 "type": "string",
@@ -1961,12 +2566,39 @@
                   "required": [
                     "op"
                   ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "detach"
+                    },
+                    "ids": {
+                      "minItems": 1,
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "ids"
+                  ]
                 }
               ]
             }
           },
           "label": {
             "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
             "maxLength": 200
           }
         },
@@ -2008,14 +2640,36 @@
           }
         }
       },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
       "execution": {
         "taskSupport": "forbidden"
       }
     },
     {
       "name": "set_tokens",
-      "title": "Definir tokens",
-      "description": "Cria/atualiza design tokens (cores, tamanhos). Use nos nós como \"$nome\". null remove.",
+      "title": "Set tokens",
+      "description": "Creates or updates design tokens (colors, sizes). Use them in nodes as \"$name\". null removes one. With `mode`, writes the values of that theme mode (e.g. \"dark\"), which apply in frames/pages with the same `mode` and their descendants; tokens the mode does not define use the base value.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2032,8 +2686,18 @@
               ]
             }
           },
+          "mode": {
+            "description": "Theme mode ([A-Za-z0-9_-]{1,40}); without it, the base tokens",
+            "type": "string"
+          },
           "label": {
             "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
             "maxLength": 200
           }
         },
@@ -2042,17 +2706,66 @@
         ],
         "$schema": "http://json-schema.org/draft-07/schema#"
       },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
       "execution": {
         "taskSupport": "forbidden"
       }
     },
     {
       "name": "undo",
-      "title": "Desfazer",
-      "description": "Desfaz a última transação (de qualquer autor: agente ou humano).",
+      "title": "Undo",
+      "description": "Undoes the last transaction (from any author: agent or human). A batch is undone whole.",
       "inputSchema": {
         "type": "object",
         "properties": {}
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "undone": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "canUndo": {
+            "type": "boolean"
+          },
+          "canRedo": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "undone",
+          "version",
+          "canUndo",
+          "canRedo"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "execution": {
         "taskSupport": "forbidden"
@@ -2060,11 +2773,38 @@
     },
     {
       "name": "redo",
-      "title": "Refazer",
-      "description": "Refaz a última transação desfeita.",
+      "title": "Redo",
+      "description": "Redoes the last undone transaction.",
       "inputSchema": {
         "type": "object",
         "properties": {}
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "redone": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "canUndo": {
+            "type": "boolean"
+          },
+          "canRedo": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "redone",
+          "version",
+          "canUndo",
+          "canRedo"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "execution": {
         "taskSupport": "forbidden"
@@ -2072,8 +2812,8 @@
     },
     {
       "name": "get_history",
-      "title": "Histórico",
-      "description": "Últimas transações (autor, rótulo, horário). Mostra o que o humano mudou no canvas.",
+      "title": "History",
+      "description": "Latest transactions (author, label, time, number of ops). Shows what the human changed on the canvas. The text result is the array; structuredContent is { entries }.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2086,6 +2826,45 @@
         },
         "$schema": "http://json-schema.org/draft-07/schema#"
       },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "actor": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number"
+                },
+                "ops": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "actor",
+                "label",
+                "at",
+                "ops"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
       "annotations": {
         "readOnlyHint": true
       },
@@ -2095,8 +2874,8 @@
     },
     {
       "name": "lint_design",
-      "title": "Revisar design",
-      "description": "Checa contraste WCAG AA, tokens inexistentes, overflow, texto pequeno/vazio, imagens sem alt e cores fora dos tokens.",
+      "title": "Review design",
+      "description": "Checks WCAG AA contrast, missing tokens and theme modes, overflow, small or empty text, images without alt and colors outside the tokens.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2105,6 +2884,80 @@
           }
         },
         "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "No errors (warnings and info allowed)"
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "warning": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "info": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "error",
+              "warning",
+              "info"
+            ],
+            "additionalProperties": false
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rule": {
+                  "type": "string"
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "error",
+                    "warning",
+                    "info"
+                  ]
+                },
+                "nodeId": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rule",
+                "severity",
+                "nodeId",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "counts",
+          "issues"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "annotations": {
         "readOnlyHint": true
@@ -2116,7 +2969,7 @@
     {
       "name": "render_screenshot",
       "title": "Screenshot",
-      "description": "PNG de um nó (uma página: o canvas dela; sem rootId: o canvas, ou a primeira página), renderizado pelo mesmo motor do canvas e do export.",
+      "description": "PNG of a node (a page: its canvas; without rootId: the canvas, or the first page), rendered by the same engine as the canvas and the export.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2132,6 +2985,27 @@
         },
         "$schema": "http://json-schema.org/draft-07/schema#"
       },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "width": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "width",
+          "height"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
       "annotations": {
         "readOnlyHint": true
       },
@@ -2141,8 +3015,8 @@
     },
     {
       "name": "export_code",
-      "title": "Exportar código",
-      "description": "Exporta um nó como HTML autocontido ou componente React (TSX) com estilos inline.",
+      "title": "Export code",
+      "description": "Exports a node as standalone HTML, a React (TSX) component with inline styles, or vector SVG (svg: the layout is measured in headless Chromium, like render_screenshot; a page rootId exports the page).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2154,8 +3028,14 @@
             "type": "string",
             "enum": [
               "html",
-              "react"
+              "react",
+              "svg"
             ]
+          },
+          "cssVariables": {
+            "default": false,
+            "description": "html/react: tokens as var(--name), with one stylesheet rule per theme mode (react exports tokensCss)",
+            "type": "boolean"
           }
         },
         "required": [
@@ -2165,6 +3045,158 @@
       },
       "annotations": {
         "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "import_svg",
+      "title": "Import SVG",
+      "description": "Turns SVG into editable nodes: path/rect/circle/ellipse/line/polyline/polygon become path (or rect/ellipse without rotation), <g> becomes group; transforms and inherited paint are applied. Text, images, gradients and CSS in <style> are skipped and listed in warnings. x/y offset the SVG's origin.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "svg": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000000
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "parentId": {
+            "description": "Parent of the nodes (default: top level; in a document with pages, pass the page id)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "svg"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "created",
+          "version",
+          "warnings"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "import_html",
+      "title": "Import HTML",
+      "description": "Turns HTML with inline styles into nodes (the inverse of the export: Paprika's own HTML comes back the same). From other sources: display:flex becomes row/column layout, blocks become column, text becomes text, <img> becomes image, <svg> goes through import_svg. Classes and <style> are not applied (warnings).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "html": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000000
+          },
+          "parentId": {
+            "description": "Parent of the nodes (default: top level; in a document with pages, pass the page id)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "html"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "created",
+          "version",
+          "warnings"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "execution": {
         "taskSupport": "forbidden"

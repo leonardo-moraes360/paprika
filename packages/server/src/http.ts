@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
@@ -8,7 +9,7 @@ import { Op, renderHTML } from "@paprika/core";
 import { z } from "zod";
 import type { DocumentStore, ChangeEvent } from "./store.js";
 import { createMcpServer } from "./mcp.js";
-import { screenshot } from "./screenshot.js";
+import { screenshot, svgExport } from "./screenshot.js";
 
 export interface HttpOptions {
   host: string;
@@ -63,6 +64,36 @@ export function allowedRequest(req: IncomingMessage, bindHost: string, port: num
   return true;
 }
 
+/** clientInfo.name of an initialize message (or of the first one in a batch). */
+export function initializeClientName(body: unknown): string | undefined {
+  for (const m of Array.isArray(body) ? body : [body]) {
+    if (m && typeof m === "object" && (m as { method?: unknown }).method === "initialize") {
+      const name = (m as { params?: { clientInfo?: { name?: unknown } } }).params?.clientInfo?.name;
+      return typeof name === "string" ? name : undefined;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The MCP endpoint is stateless, so a tools/call carries no clientInfo. On initialize the server
+ * hands out an Mcp-Session-Id and remembers the client's name for it (bounded, oldest out), so
+ * later calls are recorded under that name instead of the User-Agent.
+ */
+export class ClientNames {
+  private readonly names = new Map<string, string>();
+  constructor(private readonly max = 1024) {}
+  remember(name: string): string {
+    const id = randomUUID();
+    this.names.set(id, name);
+    if (this.names.size > this.max) this.names.delete(this.names.keys().next().value as string);
+    return id;
+  }
+  get(id: string | undefined): string | undefined {
+    return id === undefined ? undefined : this.names.get(id);
+  }
+}
+
 async function readBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -102,10 +133,16 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
   };
   store.on("change", broadcast);
 
+  const clients = new ClientNames();
   const handleMcp = async (req: IncomingMessage, res: ServerResponse) => {
-    // Modo stateless: um servidor MCP + transporte por requisição (sem sessão a vazar).
+    // Stateless: one MCP server + transport per request (no session state to leak). The session id
+    // only names the client (see ClientNames).
     const body = req.method === "POST" ? await readBody(req) : undefined;
-    const mcp = createMcpServer(store, { actor: `agent:${String(req.headers["user-agent"] ?? "http").split("/")[0]}` });
+    const initName = initializeClientName(body);
+    const sid = req.headers["mcp-session-id"];
+    const clientName = initName ?? clients.get(typeof sid === "string" ? sid : undefined);
+    if (initName) res.setHeader("Mcp-Session-Id", clients.remember(initName));
+    const mcp = createMcpServer(store, { actor: `agent:${String(req.headers["user-agent"] ?? "http").split("/")[0]}`, clientName });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on("close", () => {
       void transport.close();
@@ -154,6 +191,11 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
         const rootId = url.searchParams.get("root") ?? undefined;
         const shot = await screenshot(store.doc, { rootId, scale: Number(url.searchParams.get("scale") ?? 1) || 1 });
         return send(res, 200, shot.png, "image/png");
+      }
+      if (p === "/api/svg" && req.method === "GET") {
+        // JSON (não image/svg+xml) para o SVG nunca ser renderizado na origem do servidor.
+        const rootId = url.searchParams.get("root") || undefined;
+        return send(res, 200, await svgExport(store.doc, rootId));
       }
       if (req.method === "GET") return serveStatic(p, res);
       send(res, 405, { error: "método não permitido" });

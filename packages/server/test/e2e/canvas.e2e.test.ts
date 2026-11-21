@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { copyFile, mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { Document } from "@paprika/core";
+import { copyId, type Document } from "@paprika/core";
 import { DocumentStore, closeBrowser, startHttpServer, type RunningServer } from "../../src/index.js";
 import { goBin, impl, startServer, type ExternalServer } from "../external/harness.js";
 
@@ -341,5 +341,188 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     await page.locator(`[data-page-id="${p1}"]`).click();
     await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(1);
     await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(0);
+  });
+  it("componentes: tornar componente, nova instância, mudança propaga, override na cópia, desanexar", async () => {
+    await page.keyboard.press("Escape");
+    await page.locator('[data-layer-id="plano"]').click();
+    await page.getByRole("button", { name: "Tornar componente" }).click();
+    await expect.poll(async () => ((await doc()).nodes.plano as { component?: boolean }).component).toBe(true);
+    await page.getByRole("button", { name: "Nova instância" }).click();
+    const instId = async () => Object.values((await doc()).nodes).find((n) => (n as { instanceOf?: string }).instanceOf === "plano")?.id;
+    await expect.poll(instId).toBeTruthy();
+    const inst = (await instId())!;
+    const pro = copyId(inst, "74oxmaizym");
+    await expect.poll(() => page.locator(`[data-paprika-id="${pro}"]`).textContent()).toBe("Pro");
+    await expect(page.getByTestId("instance-panel").textContent()).resolves.toContain("de ");
+
+    // O agente muda o componente; a cópia no canvas acompanha.
+    await agent.callTool({ name: "update_nodes", arguments: { updates: [{ id: "74oxmaizym", props: { text: "Plus" } }] } });
+    await expect.poll(() => page.locator(`[data-paprika-id="${pro}"]`).textContent()).toBe("Plus");
+
+    // Editar a cópia grava um override só nesta instância.
+    await page.locator(`[data-layer-id="${pro}"]`).click();
+    await expect(page.getByTestId("copy-panel").textContent()).resolves.toContain("cópia de");
+    await page.getByLabel("Conteúdo").fill("Equipe");
+    await page.getByLabel("Conteúdo").blur();
+    await expect.poll(async () => ((await doc()).nodes[inst] as { overrides?: unknown }).overrides).toEqual({ "74oxmaizym": { text: "Equipe" } });
+    await expect.poll(() => page.locator(`[data-paprika-id="${pro}"]`).textContent()).toBe("Equipe");
+    await expect.poll(() => page.locator('[data-paprika-id="74oxmaizym"]').textContent()).toBe("Plus");
+    if (shots) await page.screenshot({ path: join(shots, "09-instancia.png") });
+
+    await page.locator(`[data-layer-id="${inst}"]`).click();
+    await page.getByRole("button", { name: "Desanexar" }).click();
+    await expect.poll(async () => ((await doc()).nodes[inst] as { instanceOf?: string }).instanceOf).toBeUndefined();
+    expect(((await doc()).nodes[pro] as { text: string; sourceId?: string })).toMatchObject({ text: "Equipe" });
+  });
+  it("colar SVG e HTML vira nós; o botão exporta SVG medido no navegador", async () => {
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Selecionar" }).click();
+    const paste = (type: string, data: string) =>
+      page.evaluate(
+        ([t, d]) => {
+          const dt = new DataTransfer();
+          dt.setData(t!, d!);
+          window.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+        },
+        [type, data],
+      );
+    const before = Object.keys((await doc()).nodes).length;
+    await paste("text/plain", '<svg viewBox="0 0 10 10" width="40" height="40"><title>Seta</title><path d="M0 0 L10 5 L0 10 Z" fill="#c43d27"/></svg>');
+    const byName = async (name: string) => Object.values((await doc()).nodes).find((n) => n.name === name);
+    await expect.poll(async () => (await byName("Seta"))?.type).toBe("path");
+    const seta = (await byName("Seta"))!;
+    await expect.poll(() => page.locator(`[data-paprika-id="${seta.id}"]`).count()).toBe(1);
+    await expect.poll(() => page.getByTestId("selection").count()).toBe(1);
+
+    await paste("text/html", '<meta charset="utf-8"><div style="display:flex; gap:8px; padding:8px; background:#fff"><span>Colado</span><span>do navegador</span></div>');
+    await expect.poll(async () => Object.keys((await doc()).nodes).length).toBe(before + 4);
+    const colado = Object.values((await doc()).nodes).find((n) => n.type === "text" && n.text === "Colado")!;
+    await expect.poll(() => page.locator(`[data-paprika-id="${colado.id}"]`).textContent()).toBe("Colado");
+
+    await page.locator(`[data-layer-id="${seta.id}"]`).click();
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Exportar SVG" }).click()]);
+    expect(download.suggestedFilename()).toBe("Seta.svg");
+    const file = await download.path();
+    const svg = await readFile(file!, "utf8");
+    expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" width="40" height="40"/);
+    expect(svg).toContain('d="M0 0 L40 20 L0 40 Z"');
+  }, 30_000);
+  it("edição ponto a ponto: duplo clique entra, arrasta âncora, insere, remove, alterna suave, Esc sai", async () => {
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Selecionar" }).click();
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: { parentId: "login", nodes: [{ type: "path", id: "pontos", x: 40, y: 420, d: "M0 0 L60 0 L60 60", stroke: { color: "#1e2336", width: 2 } }] },
+    });
+    const svg = page.locator('svg[data-paprika-id="pontos"]');
+    await expect.poll(() => svg.count()).toBe(1);
+    const pathD = async () => ((await doc()).nodes.pontos as { d: string } | undefined)?.d;
+    const center = async (sel: string) => {
+      const b = (await page.locator(sel).boundingBox())!;
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    };
+    await page.locator('[data-layer-id="pontos"]').click();
+    const box = (await svg.boundingBox())!;
+    await page.mouse.dblclick(box.x + box.width * 0.75, box.y + box.height * 0.25);
+    await expect.poll(() => page.getByTestId("path-edit").count()).toBe(1);
+    await expect(page.locator("[data-path-anchor]").count()).resolves.toBe(3);
+
+    // Arrastar a âncora do canto para a direita alarga o vetor; a caixa acompanha.
+    const a1 = await center('[data-path-anchor="0:1"]');
+    await page.mouse.move(a1.x, a1.y);
+    await page.mouse.down();
+    await page.mouse.move(a1.x + 30, a1.y, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(pathD).not.toBe("M0 0 L60 0 L60 60");
+    const moved = (await doc()).nodes.pontos as { d: string; width: number };
+    expect(moved.d).toMatch(/^M0 0 L\d+(\.\d+)? 0 L60 60$/);
+    expect(moved.width).toBeGreaterThan(60);
+
+    // Duplo clique no contorno insere um ponto; Delete remove o selecionado.
+    const a0 = await center('[data-path-anchor="0:0"]');
+    const b1 = await center('[data-path-anchor="0:1"]');
+    await page.mouse.dblclick((a0.x + b1.x) / 2, (a0.y + b1.y) / 2);
+    await expect.poll(async () => (await pathD())?.split("L").length).toBe(4);
+    await expect(page.locator("[data-path-anchor][data-selected]").getAttribute("data-path-anchor")).resolves.toBe("0:1");
+    await page.keyboard.press("Delete");
+    await expect.poll(async () => (await pathD())?.split("L").length).toBe(3);
+    await expect.poll(async () => !!(await doc()).nodes.pontos).toBe(true);
+
+    // Duplo clique numa âncora vira ponto suave (cúbicas).
+    await page.mouse.dblclick(...Object.values(await center('[data-path-anchor="0:1"]')) as [number, number]);
+    await expect.poll(pathD).toContain("C");
+    if (shots) await page.screenshot({ path: join(shots, "10-pontos-do-vetor.png") });
+
+    await page.keyboard.press("Escape");
+    await expect.poll(() => page.getByTestId("path-edit").count()).toBe(0);
+    await expect(page.getByTestId("selection").count()).resolves.toBe(1);
+    const hist = (await agent.callTool({ name: "get_history", arguments: {} })) as { content: { text: string }[] };
+    expect(JSON.parse(hist.content[0]!.text).slice(-4).map((h: { label: string }) => h.label)).toEqual(["mover ponto", "inserir ponto", "remover ponto", "alternar canto/suave"]);
+  }, 30_000);
+  it("modos de tema: o agente define o modo escuro, o canvas pinta cada frame no seu modo e o inspector troca", async () => {
+    await page.keyboard.press("Escape");
+    await agent.callTool({ name: "set_tokens", arguments: { tokens: { tela: "#fafafa", tinta: "#1e2336" } } });
+    await agent.callTool({ name: "set_tokens", arguments: { mode: "escuro", tokens: { tela: "#14161f", tinta: "#f2f2f2" } } });
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId: (await doc()).nodes.login!.parentId,
+        nodes: [0, 1].map((i) => ({
+          type: "frame", id: `tema${i}`, name: `Tema ${i}`, x: 2000 + i * 200, y: 0, width: 160, height: 80, fill: "$tela", ...(i ? { mode: "escuro" } : {}),
+          children: [{ type: "text", id: `tema${i}t`, text: "Aa", color: "$tinta", x: 8, y: 8 }],
+        })),
+      },
+    });
+    const bg = (id: string) => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).backgroundColor);
+    const fg = (id: string) => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).color);
+    await expect.poll(() => bg("tema0")).toBe("rgb(250, 250, 250)");
+    await expect.poll(() => bg("tema1")).toBe("rgb(20, 22, 31)");
+    await expect.poll(() => fg("tema1t")).toBe("rgb(242, 242, 242)");
+
+    await page.locator('[data-layer-id="tema0"]').click();
+    await page.getByLabel("Modo de tema").selectOption("escuro");
+    await expect.poll(() => bg("tema0")).toBe("rgb(20, 22, 31)");
+    await expect.poll(async () => ((await doc()).nodes.tema0 as { mode?: string }).mode).toBe("escuro");
+
+    const r = (await agent.callTool({ name: "export_code", arguments: { rootId: "tema1", format: "html", cssVariables: true } })) as { content: { text: string }[] };
+    expect(r.content[0]!.text).toContain('[data-paprika-mode="escuro"]{--tela:#14161f;--tinta:#f2f2f2}');
+    expect(r.content[0]!.text).toContain("background:var(--tela)");
+    const outline = (await agent.callTool({ name: "get_document_outline", arguments: { depth: 0 } })) as { content: { text: string }[] };
+    expect(outline.content[0]!.text).toContain("modes: escuro($tela=#14161f $tinta=#f2f2f2)");
+  });
+
+  it("renomear no lugar: duplo clique na camada ou no título do frame, Enter confirma, Esc cancela, Ctrl+Z desfaz", async () => {
+    await page.keyboard.press("Escape");
+    const name = async (id: string) => (await doc()).nodes[id]?.name;
+    const layerName = page.locator('[data-layer-id="tema0t"] .layer-name');
+    await layerName.dblclick();
+    const layerInput = page.getByLabel("Nome da camada");
+    await layerInput.fill("Amostra clara");
+    await layerInput.press("Enter");
+    await expect.poll(() => name("tema0t")).toBe("Amostra clara");
+    await expect.poll(() => layerInput.count()).toBe(0);
+    const hist = (await agent.callTool({ name: "get_history", arguments: {} })) as { content: { text: string }[] };
+    expect(JSON.parse(hist.content[0]!.text).at(-1)).toMatchObject({ actor: "user", label: "renomear camada" });
+
+    // Esc cancela sem gravar (nem pelo blur que segue a desmontagem do campo).
+    await page.locator('[data-layer-id="tema0t"] .layer-name').dblclick();
+    await page.getByLabel("Nome da camada").fill("Descartado");
+    await page.getByLabel("Nome da camada").press("Escape");
+    await expect.poll(() => page.getByLabel("Nome da camada").count()).toBe(0);
+    expect(await name("tema0t")).toBe("Amostra clara");
+
+    const label = page.locator('[data-frame-label="login"]');
+    await label.dblclick();
+    const frameInput = page.getByLabel("Nome do frame");
+    expect(await frameInput.inputValue()).toBe("Login · mobile");
+    await frameInput.fill("Login revisado");
+    await frameInput.press("Enter");
+    await expect.poll(() => name("login")).toBe("Login revisado");
+    await expect.poll(() => label.textContent()).toBe("Login revisado");
+    await expect.poll(() => page.locator('[data-layer-id="login"] .layer-name').textContent()).toBe("Login revisado");
+
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("Control+z");
+    await expect.poll(() => name("login")).toBe("Login · mobile");
   });
 });
