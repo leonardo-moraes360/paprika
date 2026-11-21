@@ -20,6 +20,7 @@ Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/c
 | **Go test** (shard n/2) | `go test -shuffle=on` nos pacotes afetados, dividido em 2 shards. | `server-go` |
 | **Rust lint / test** | `cargo fmt --check`, clippy (nativo e `wasm32-unknown-unknown`, `-D warnings`), `cargo test`. | `experiments/canvas-wasm` (src, arquivos Cargo, build.sh) |
 | **CodeQL** `<linguagem>` | Consultas `security-and-quality` para `actions`, `javascript-typescript`, `go`, `rust`; os resultados vão para o code scanning da PR. | arquivos da linguagem |
+| **Secret leak scan** | [gitleaks](https://github.com/gitleaks/gitleaks) em todo o histórico do git (release com checksum fixado, achados mascarados no log, relatório SARIF como artefato em caso de falha). | sempre |
 | **CI OK** | Falha se algum job falhou ou foi cancelado. **É o único check a exigir** na proteção de branch: fica verde quando os jobs que rodaram passaram e os pulados foram pulados pelo plano. | sempre |
 
 Uma mudança em `.github/workflows/`, `.github/scripts/`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` ou `tsconfig.base.json` roda **tudo**. O label `ci:full` também (vale a partir do próximo push na PR). PRs só de documentação rodam apenas Plan e CI OK.
@@ -66,6 +67,18 @@ Para aumentar os shards, troque `shard: [1, 2]` na matrix e o `/2` (vitest) ou o
 - Toda action de terceiros fica fixada por SHA de commit com a versão em comentário; o Dependabot atualiza os dois.
 - `actions/checkout` roda com `persist-credentials: false`.
 - `pull_request` (e não `pull_request_target`): PRs de forks rodam sem secrets e com token somente leitura.
+
+## Secrets
+
+O job **Secret leak scan** falha a PR quando o gitleaks encontra uma credencial em qualquer commit alcançável por ela, inclusive uma que um commit posterior removeu: remover não basta, o secret precisa ser **revogado/rotacionado** e, se for o caso, o histórico reescrito.
+
+Para um falso positivo, adicione `gitleaks:allow` num comentário nessa linha, ou o fingerprint do achado (impresso no log do job) num arquivo `.gitleaksignore` na raiz do repositório. Para rodar a mesma checagem localmente:
+
+```bash
+gitleaks git --redact -v .
+```
+
+O **secret scanning** e o **push protection** do próprio GitHub (gratuitos em repositórios públicos) complementam o job, bloqueando um push com token de provedor conhecido antes de chegar à PR: **Settings → Code security → Secret Protection**.
 
 ## Dependabot
 

@@ -331,13 +331,47 @@ jobs:
         with:
           category: /language:${{ matrix.language }}
 
+  # ---------------------------------------------------------------- Secrets
+
+  secrets:
+    name: Secret leak scan (gitleaks)
+    # Every PR, whatever it touches: a key can land in any file. Scans the whole history
+    # (about 1 s today), so a secret added and removed in later commits is still caught.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install gitleaks (checksum-pinned release)
+        run: |
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tgz" "$url"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/gitleaks.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
+      - name: gitleaks git (full history)
+        run: |
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --verbose \
+            --report-format sarif --report-path "$RUNNER_TEMP/gitleaks.sarif" .
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gitleaks-report
+          retention-days: 7
+          path: ${{ runner.temp }}/gitleaks.sarif
+
   # ---------------------------------------------------------------- Gate
 
   ci-ok:
     name: CI OK
     # The one check to require in branch protection: green when every job that ran passed and
     # the skipped ones were skipped on purpose by the plan.
-    needs: [plan, build, unit, suites, golden, go-lint, govulncheck, go-test, rust, codeql]
+    needs: [plan, build, unit, suites, golden, go-lint, govulncheck, go-test, rust, codeql, secrets]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2

@@ -20,6 +20,7 @@ Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workfl
 | **Go test** (shard n/2) | `go test -shuffle=on` on the affected packages, split in 2 shards. | `server-go` |
 | **Rust lint / test** | `cargo fmt --check`, clippy (native and `wasm32-unknown-unknown`, `-D warnings`), `cargo test`. | `experiments/canvas-wasm` (src, Cargo files, build.sh) |
 | **CodeQL** `<language>` | `security-and-quality` queries for `actions`, `javascript-typescript`, `go`, `rust`; results go to the PR's code scanning. | the language's files |
+| **Secret leak scan** | [gitleaks](https://github.com/gitleaks/gitleaks) over the whole git history (checksum-pinned release, findings redacted in the log, SARIF report as an artifact on failure). | always |
 | **CI OK** | Fails if any job failed or was cancelled. **This is the one check to require** in branch protection: it is green when the jobs that ran passed and the ones skipped were skipped by the plan. | always |
 
 A change to `.github/workflows/`, `.github/scripts/`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` or `tsconfig.base.json` runs **everything**. So does the `ci:full` label (applied on the next push to the PR). Docs-only PRs run only Plan and CI OK.
@@ -66,6 +67,18 @@ To add shards, change `shard: [1, 2]` in the matrix and the `/2` (vitest) or the
 - Every third-party action is pinned by commit SHA with the version in a comment; Dependabot updates both.
 - `actions/checkout` runs with `persist-credentials: false`.
 - `pull_request` (not `pull_request_target`): PRs from forks run without secrets and with a read-only token.
+
+## Secrets
+
+The **Secret leak scan** job fails the PR when gitleaks finds a credential in any commit reachable from it, including one that a later commit removed: removing it is not enough, the secret must be **revoked/rotated**, and then the history rewritten if needed.
+
+For a false positive, add `gitleaks:allow` in a comment on that line, or add the finding's fingerprint (printed in the job log) to a `.gitleaksignore` file at the repository root. Run the same check locally:
+
+```bash
+gitleaks git --redact -v .
+```
+
+GitHub's own **secret scanning** and **push protection** (free on public repositories) complement it by blocking a push that contains a known provider's token before it reaches a PR: **Settings → Code security → Secret Protection**.
 
 ## Dependabot
 
