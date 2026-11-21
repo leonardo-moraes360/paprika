@@ -39,7 +39,9 @@ export async function screenshot(doc: Document, opts: { rootId?: string; scale?:
   width: number;
   height: number;
 }> {
-  const { html, bounds } = renderHTML(doc, { rootId: opts.rootId, background: opts.rootId ? "transparent" : "#ffffff" });
+  // Um nó sai com fundo transparente; uma página (ou o canvas) usa o fundo dela, ou branco.
+  const node = opts.rootId && doc.nodes[opts.rootId]?.type !== "page";
+  const { html, bounds } = renderHTML(doc, { rootId: opts.rootId, background: node ? "transparent" : undefined });
   const width = Math.ceil(bounds.width);
   const height = Math.ceil(bounds.height);
   const requested = opts.scale ?? 1;

@@ -123,9 +123,46 @@ export const PathNode = z.object({
     .optional(),
 });
 
-export const Node = z.discriminatedUnion("type", [FrameNode, RectNode, EllipseNode, TextNode, ImageNode, PathNode]);
+/**
+ * Agrupa nós sem pintar nada: não tem fill/stroke/clip/layout. A caixa (x, y, width, height)
+ * é calculada a partir dos filhos ao fim de cada transação (ver `fitGroups` em ops.ts), e as
+ * coordenadas dos filhos são relativas ao canto do grupo, como num frame. Sem rotação própria:
+ * gire os filhos.
+ */
+export const GroupNode = z.object({
+  id: Base.id,
+  name: Base.name,
+  parentId: Base.parentId,
+  type: z.literal("group"),
+  x: Base.x,
+  y: Base.y,
+  width: z.number().min(0).default(0),
+  height: z.number().min(0).default(0),
+  opacity: Base.opacity,
+  visible: Base.visible,
+  locked: Base.locked,
+  notes: Base.notes,
+  children: z.array(z.string()).default([]),
+});
 
-export const NodeType = z.enum(["frame", "rect", "ellipse", "text", "image", "path"]);
+/**
+ * Página: um canvas separado dentro do arquivo. Só existe no nível superior (parentId null) e
+ * não tem geometria; os filhos usam coordenadas do canvas. Quando o documento tem páginas,
+ * todo nó de nível superior precisa ser uma página. `fill` é a cor de fundo do canvas da página.
+ */
+export const PageNode = z.object({
+  id: Base.id,
+  name: Base.name,
+  parentId: Base.parentId,
+  type: z.literal("page"),
+  fill: ColorValue.optional(),
+  notes: Base.notes,
+  children: z.array(z.string()).default([]),
+});
+
+export const Node = z.discriminatedUnion("type", [FrameNode, RectNode, EllipseNode, TextNode, ImageNode, PathNode, GroupNode, PageNode]);
+
+export const NodeType = z.enum(["frame", "rect", "ellipse", "text", "image", "path", "group", "page"]);
 
 export const TokenValue = z.union([z.string().max(500), z.number()]);
 export const TokenName = z.string().regex(/^[\w.-]{1,100}$/, "nome de token deve ser [\\w.-]{1,100}");
@@ -149,6 +186,12 @@ export type EllipseNode = z.infer<typeof EllipseNode>;
 export type TextNode = z.infer<typeof TextNode>;
 export type ImageNode = z.infer<typeof ImageNode>;
 export type PathNode = z.infer<typeof PathNode>;
+export type GroupNode = z.infer<typeof GroupNode>;
+export type PageNode = z.infer<typeof PageNode>;
+/** Nós que aceitam filhos. */
+export type ContainerNode = FrameNode | GroupNode | PageNode;
+/** Nós desenhados no canvas (tudo menos páginas). */
+export type SceneNode = Exclude<Node, PageNode>;
 export type Node = z.infer<typeof Node>;
 export type NodeType = z.infer<typeof NodeType>;
 export type Document = z.infer<typeof Document>;
@@ -164,7 +207,30 @@ export const NODE_SCHEMAS = {
   text: TextNode,
   image: ImageNode,
   path: PathNode,
+  group: GroupNode,
+  page: PageNode,
 } as const;
+
+export function isContainer(n: Node | undefined): n is ContainerNode {
+  return n?.type === "frame" || n?.type === "group" || n?.type === "page";
+}
+
+export function isScene(n: Node | undefined): n is SceneNode {
+  return !!n && n.type !== "page";
+}
+
+/** Primeira página do documento (o documento tem páginas quando o primeiro nó de topo é uma). */
+export function firstPage(doc: Document): PageNode | undefined {
+  const n = doc.nodes[doc.rootIds[0] ?? ""];
+  return n?.type === "page" ? n : undefined;
+}
+
+/** Nós de topo de uma página (ou do documento sem páginas): o que o canvas mostra. */
+export function pageRoots(doc: Document, pageId?: string | null): string[] {
+  const page = pageId ? doc.nodes[pageId] : firstPage(doc);
+  if (pageId && page?.type !== "page") throw new Error(`página "${pageId}" não existe`);
+  return page?.type === "page" ? page.children : doc.rootIds;
+}
 
 /** Campos aceitos por tipo de nó (para rejeitar chaves desconhecidas em vez de descartá-las em silêncio). */
 export function knownKeys(type: NodeType): Set<string> {

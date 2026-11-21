@@ -151,8 +151,8 @@ func container(doc *Document, parentID any, i int) (listRef, error) {
 	if parent == nil {
 		return listRef{}, opErr(i, `pai "%s" não existe`, pid)
 	}
-	if t := parent.Str("type"); t != "frame" {
-		return listRef{}, opErr(i, `pai "%s" é %s; só frames têm filhos`, pid, t)
+	if t := parent.Str("type"); !IsContainer(t) {
+		return listRef{}, opErr(i, `pai "%s" é %s; só frame, group e page têm filhos`, pid, t)
 	}
 	return listRef{parent, "children"}, nil
 }
@@ -166,7 +166,7 @@ func subtree(doc *Document, id string) []*Node {
 			return
 		}
 		out = append(out, n)
-		if n.Str("type") == "frame" {
+		if IsContainer(n.Str("type")) {
 			for _, c := range n.Strings("children") {
 				walk(c)
 			}
@@ -174,6 +174,24 @@ func subtree(doc *Document, id string) []*Node {
 	}
 	walk(id)
 	return out
+}
+
+const (
+	pageAtRoot = "página só pode ficar no nível do canvas (parentId null)"
+	groupSize  = "width/height de um group seguem os filhos; mova ou redimensione os filhos"
+)
+
+// checkPlacement: pages only at the top; in a document with pages, only pages at the top
+// (the end of the transaction checks the rest, see checkPages).
+func checkPlacement(doc *Document, typ string, parentID any, i int) error {
+	_, inParent := parentID.(string)
+	if typ == "page" && inParent {
+		return opErr(i, pageAtRoot)
+	}
+	if typ != "page" && !inParent && FirstPage(doc) != nil {
+		return opErr(i, "o documento tem páginas: crie ou mova %s para dentro de uma página (parentId = id da página)", typ)
+	}
+	return nil
 }
 
 func isDescendant(doc *Document, maybeChild, ancestor string) bool {
@@ -251,8 +269,8 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 	if GetNode(doc, idStr) != nil {
 		return opErr(i, `id "%s" já existe`, idStr)
 	}
-	if hasChildren && typ != "frame" {
-		return opErr(i, "só frames aceitam children (recebido %s)", typ)
+	if hasChildren && !IsContainer(typ) {
+		return opErr(i, "só frame, group e page aceitam children (recebido %s)", typ)
 	}
 	allowed := KnownKeys(typ)
 	var unknown []string
@@ -267,8 +285,14 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 	if rest.Has("parentId") {
 		return opErr(i, "use o parentId da operação, não do nó")
 	}
+	if typ == "group" && (rest.Has("width") || rest.Has("height")) {
+		return opErr(i, groupSize)
+	}
 	list, err := container(doc, parentID, i)
 	if err != nil {
+		return err
+	}
+	if err := checkPlacement(doc, typ, parentID, i); err != nil {
 		return err
 	}
 	props := rest.Spread()
@@ -297,7 +321,7 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 	}
 	props.Set("id", idStr)
 	props.Set("parentId", parentID)
-	if typ == "frame" {
+	if IsContainer(typ) {
 		props.Set("children", []any{})
 	} else {
 		props.Delete("children")
@@ -372,6 +396,9 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			if !allowed[k] {
 				return nil, opErr(i, "campo desconhecido para %s: %s", node.Str("type"), k)
 			}
+			if node.Str("type") == "group" && (k == "width" || k == "height") {
+				return nil, opErr(i, groupSize)
+			}
 			if old, has := node.Get(k); has {
 				prev.Set(k, jsonv.Clone(old))
 			} else {
@@ -425,6 +452,14 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			return nil, err
 		}
 		for _, n := range nodes {
+			if no := n.(*jsonv.Object); no.Str("id") == op.Str("rootId") {
+				if err := checkPlacement(doc, no.Str("type"), parentID, i); err != nil {
+					return nil, err
+				}
+				break
+			}
+		}
+		for _, n := range nodes {
 			no := n.(*jsonv.Object)
 			Nodes(doc).Set(no.Str("id"), jsonv.Clone(no))
 		}
@@ -451,7 +486,16 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		if err != nil {
 			return nil, err
 		}
+		_, toParent := target.(string)
+		if node.Str("type") == "page" && toParent {
+			return nil, opErr(i, pageAtRoot)
+		}
 		from.removeAt(fromIndex)
+		if _, wasChild := oldParent.(string); !toParent && wasChild {
+			if err := checkPlacement(doc, node.Str("type"), nil, i); err != nil {
+				return nil, err
+			}
+		}
 		to.insertAt(id, optIndex(op))
 		node.Set("parentId", target)
 		return jsonv.NewObject("op", "move", "id", id, "parentId", oldParent, "index", float64(fromIndex)), nil
@@ -499,6 +543,12 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 		}
 		inverse = append([]any{inv}, inverse...)
 	}
+	if len(ops) > 0 {
+		if err := checkPages(draft, len(ops)-1); err != nil {
+			return nil, err
+		}
+		inverse = append(fitGroups(draft), inverse...)
+	}
 	if inverse == nil {
 		inverse = []any{}
 	}
@@ -538,8 +588,11 @@ func ParseDocument(input any) (*Document, error) {
 			if p, _ := n.Get("parentId"); p != parentID {
 				return fmt.Errorf(`documento inconsistente: parentId de "%s" diverge`, id)
 			}
+			if n.Str("type") == "page" && parentID != nil {
+				return fmt.Errorf(`documento inconsistente: página "%s" fora do nível superior`, id)
+			}
 			seen[id] = true
-			if n.Str("type") == "frame" {
+			if IsContainer(n.Str("type")) {
 				if err := check(n.Strings("children"), id); err != nil {
 					return err
 				}
@@ -549,6 +602,17 @@ func ParseDocument(input any) (*Document, error) {
 	}
 	if err := check(doc.Strings("rootIds"), nil); err != nil {
 		return nil, err
+	}
+	pages, loose := 0, 0
+	for _, id := range doc.Strings("rootIds") {
+		if GetNode(doc, id).Str("type") == "page" {
+			pages++
+		} else {
+			loose++
+		}
+	}
+	if pages > 0 && loose > 0 {
+		return nil, errors.New("documento inconsistente: com páginas, todo nó de nível superior precisa ser página")
 	}
 	var orphans []string
 	for _, id := range Nodes(doc).Keys() {
@@ -560,4 +624,126 @@ func ParseDocument(input any) (*Document, error) {
 		return nil, fmt.Errorf("documento inconsistente: nós órfãos %s", strings.Join(orphans, ", "))
 	}
 	return doc, nil
+}
+
+// checkPages: in a document with pages, the top level holds only pages.
+func checkPages(doc *Document, i int) error {
+	var loose []string
+	hasPage := false
+	for _, id := range doc.Strings("rootIds") {
+		if n := GetNode(doc, id); n != nil && n.Str("type") == "page" {
+			hasPage = true
+		} else {
+			loose = append(loose, `"`+id+`"`)
+		}
+	}
+	if !hasPage || len(loose) == 0 {
+		return nil
+	}
+	return opErr(i, "o documento tem páginas, mas %s ficou no nível do canvas; mova para uma página (parentId = id da página)", strings.Join(loose, ", "))
+}
+
+// Round4 rounds computed coordinates to 4 decimals (and -0 to 0), stable across TS and Go.
+func Round4(v float64) float64 { return jsonv.Round(v*10_000)/10_000 + 0 }
+
+const fitEps = 1e-3
+
+// Box is an axis-aligned box in the parent's coordinates.
+type Box struct{ MinX, MinY, MaxX, MaxY float64 }
+
+func numOr0(n *Node, key string) float64 {
+	if v, ok := n.Get(key); ok {
+		if f, isNum := v.(float64); isNum {
+			return f
+		}
+	}
+	return 0
+}
+
+// LocalBox is a node's box in its parent (its own rotation around the center included).
+func LocalBox(n *Node) Box {
+	if n.Str("type") == "page" {
+		return Box{}
+	}
+	x, y := n.Num("x"), n.Num("y")
+	w, h := numOr0(n, "width"), numOr0(n, "height")
+	rotation := 0.0
+	if n.Str("type") != "group" {
+		rotation = n.Num("rotation")
+	}
+	if rotation == 0 {
+		return Box{x, y, x + w, y + h}
+	}
+	rad := rotation * math.Pi / 180
+	cos := math.Abs(math.Cos(rad))
+	sin := math.Abs(math.Sin(rad))
+	hw := (w*cos + h*sin) / 2
+	hh := (w*sin + h*cos) / 2
+	cx := x + w/2
+	cy := y + h/2
+	return Box{cx - hw, cy - hh, cx + hw, cy + hh}
+}
+
+// fitGroups fits every group's box to its children (deepest first), keeping the drawing still.
+func fitGroups(doc *Document) []any {
+	var inverse []any
+	var visit func(id string)
+	visit = func(id string) {
+		n := GetNode(doc, id)
+		if n == nil || !IsContainer(n.Str("type")) {
+			return
+		}
+		for _, c := range n.Strings("children") {
+			visit(c)
+		}
+		if n.Str("type") == "group" {
+			inverse = fitGroup(doc, n, inverse)
+		}
+	}
+	for _, id := range doc.Strings("rootIds") {
+		visit(id)
+	}
+	return inverse
+}
+
+func fitGroup(doc *Document, g *Node, inverse []any) []any {
+	var kids []*Node
+	for _, c := range g.Strings("children") {
+		if k := GetNode(doc, c); k != nil && k.Str("type") != "page" {
+			kids = append(kids, k)
+		}
+	}
+	if len(kids) == 0 {
+		return inverse
+	}
+	minX, minY := math.Inf(1), math.Inf(1)
+	maxX, maxY := math.Inf(-1), math.Inf(-1)
+	for _, k := range kids {
+		b := LocalBox(k)
+		minX = math.Min(minX, b.MinX)
+		minY = math.Min(minY, b.MinY)
+		maxX = math.Max(maxX, b.MaxX)
+		maxY = math.Max(maxY, b.MaxY)
+	}
+	minX = Round4(minX)
+	minY = Round4(minY)
+	w := Round4(maxX - minX)
+	h := Round4(maxY - minY)
+	shift := math.Abs(minX) >= fitEps || math.Abs(minY) >= fitEps
+	if !shift && math.Abs(w-g.Num("width")) < fitEps && math.Abs(h-g.Num("height")) < fitEps {
+		return inverse
+	}
+	if shift {
+		for _, k := range kids {
+			inverse = append(inverse, jsonv.NewObject("op", "update", "id", k.Str("id"), "props", jsonv.NewObject("x", k.Num("x"), "y", k.Num("y"))))
+			k.Set("x", Round4(k.Num("x")-minX))
+			k.Set("y", Round4(k.Num("y")-minY))
+		}
+		inverse = append(inverse, jsonv.NewObject("op", "update", "id", g.Str("id"), "props", jsonv.NewObject("x", g.Num("x"), "y", g.Num("y"))))
+		g.Set("x", Round4(g.Num("x")+minX))
+		g.Set("y", Round4(g.Num("y")+minY))
+	}
+	g.Set("width", w)
+	g.Set("height", h)
+	return inverse
 }

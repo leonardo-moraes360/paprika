@@ -40,6 +40,91 @@ describe(`paridade (${impl}): MCP`, () => {
     expect(client.getInstructions()).toBe(contract.instructions);
   });
 
+  it("grupos e páginas", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "frame", id: "f", name: "Tela", width: 300, height: 200,
+          children: [
+            { type: "rect", id: "a", x: 10, y: 20, width: 30, height: 30, rotation: 30 },
+            { type: "rect", id: "b", x: 60, y: 40, width: 30, height: 30 },
+          ],
+        },
+      ],
+    });
+    const g = await call(c, "group_nodes", { ids: ["b", "a"], id: "g", name: "Par" });
+    expect(textOf(g)).toBe('{\n  "group": "g",\n  "created": [\n    "g"\n  ],\n  "version": 2\n}');
+    const nodes = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["g", "a", "b"] })));
+    expect(nodes).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            "a",
+            "b",
+          ],
+          "height": 55.4904,
+          "id": "g",
+          "locked": false,
+          "name": "Par",
+          "opacity": 1,
+          "parentId": "f",
+          "type": "group",
+          "visible": true,
+          "width": 85.4904,
+          "x": 4.5096,
+          "y": 14.5096,
+        },
+        {
+          "height": 30,
+          "id": "a",
+          "locked": false,
+          "name": "",
+          "opacity": 1,
+          "parentId": "g",
+          "radius": 0,
+          "rotation": 30,
+          "type": "rect",
+          "visible": true,
+          "width": 30,
+          "x": 5.4904,
+          "y": 5.4904,
+        },
+        {
+          "height": 30,
+          "id": "b",
+          "locked": false,
+          "name": "",
+          "opacity": 1,
+          "parentId": "g",
+          "radius": 0,
+          "rotation": 0,
+          "type": "rect",
+          "visible": true,
+          "width": 30,
+          "x": 55.4904,
+          "y": 25.4904,
+        },
+      ]
+    `);
+    expect(textOf(await call(c, "group_nodes", { ids: ["g", "f"] }))).toMatch(/mesmo pai/);
+    expect(JSON.parse(textOf(await call(c, "ungroup_nodes", { ids: ["g"] }))).released).toEqual(["a", "b"]);
+    expect(JSON.parse(textOf(await call(c, "create_page", { id: "p2", name: "Variações" }))).page).toBe("p2");
+    expect(textOf(await call(c, "create_nodes", { nodes: [{ type: "rect" }] }))).toMatch(/tem páginas/);
+    await call(c, "create_nodes", { parentId: "p2", nodes: [{ type: "rect", id: "r", width: 10, height: 10 }] });
+    const outline = textOf(await call(c, "get_document_outline"));
+    expect(outline.split("\n").slice(3).join("\n").replace(/page#\w+ "Página 1"/, "page#P1")).toMatchInlineSnapshot(`
+      "page#P1
+        frame#f "Tela" 300×200 @0,0
+          rect#a 30×30 @10,20
+          rect#b 30×30 @60,40
+      page#p2 "Variações"
+        rect#r 10×10 @0,0"
+    `);
+    const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
+    expect(hist.map((h: { label: string }) => h.label)).toEqual(["agrupar 2 nó(s)", "desagrupar 1 grupo(s)", "criar página", "criar 1 nó(s)"]);
+  });
+
   it("fluxo completo: tokens → criar → lint → corrigir → exportar → desfazer", async () => {
     const c = client;
     await call(c, "set_tokens", { tokens: { bg: "#ffffff", ink: "#111111", faint: "#dddddd" } });

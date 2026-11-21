@@ -104,9 +104,12 @@ func (c *Chrome) ensure() (context.Context, error) {
 
 // Screenshot renders a node (or the whole canvas) to PNG. The scale is reduced so no side exceeds 4096px.
 func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID string, scale float64) ([]byte, int, int, error) {
-	bg := "#ffffff"
+	// A node comes out transparent; a page (or the canvas) uses its own background, or white.
+	bg := ""
 	if rootID != "" {
-		bg = "transparent"
+		if n := core.GetNode(doc, rootID); n == nil || n.Str("type") != "page" {
+			bg = "transparent"
+		}
 	}
 	html, bounds, err := core.RenderHTML(doc, core.RenderOptions{RootID: rootID, Background: bg})
 	if err != nil {

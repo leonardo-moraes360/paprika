@@ -8,7 +8,7 @@
       "listChanged": true
     }
   },
-  "instructions": "# Paprika: guia para agentes\n\nDocumento = mapa plano de nós + rootIds (telas/frames de topo, em coordenadas do canvas).\nTipos: frame (contêiner, único com filhos), rect, ellipse, text, image, path (vetor com curvas bezier).\n\nCampos comuns: name, x, y, width, height (número | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}. Com layout row/column, x/y dos filhos são ignorados.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\nimage: src (https:// ou data:image/), fit (cover|contain|fill), alt.\npath: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),\n  stroke {color,width} (traço), fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,\n  o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó\n  ganha a caixa do desenho. Curvas: \"C c1x c1y c2x c2y x y\" (cúbica), \"Q cx cy x y\" (quadrática), S/T espelham\n  o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.\n\nCores: #hex, rgb(), rgba() ou \"$token\" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.\n\"fill\" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.\n\nFluxo recomendado:\n1. get_document_outline para se orientar (barato).\n2. set_tokens com a paleta e a escala tipográfica.\n3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.\n4. lint_design e corrija o que vier como error/warning.\n5. render_screenshot para conferir visualmente; export_code para levar ao código.\nToda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. O humano vê suas edições ao vivo no canvas.\nCampos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.",
+  "instructions": "# Paprika: guia para agentes\n\nDocumento = mapa plano de nós + rootIds (telas/frames de topo, em coordenadas do canvas).\nTipos: frame (contêiner com estilo e layout), group (agrupa sem pintar), page (canvas separado), rect, ellipse,\ntext, image, path (vetor com curvas bezier). Só frame, group e page têm filhos.\n\nCampos comuns: name, x, y, width, height (número | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}. Com layout row/column, x/y dos filhos são ignorados.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\nimage: src (https:// ou data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir\n  dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.\npage: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, todo nó de topo é página e os\n  frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o\n  conteúdo atual para \"Página 1\". Telas de outra página: get_document_outline {rootId: id da página}.\npath: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),\n  stroke {color,width} (traço), fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,\n  o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó\n  ganha a caixa do desenho. Curvas: \"C c1x c1y c2x c2y x y\" (cúbica), \"Q cx cy x y\" (quadrática), S/T espelham\n  o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.\n\nCores: #hex, rgb(), rgba() ou \"$token\" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.\n\"fill\" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.\n\nFluxo recomendado:\n1. get_document_outline para se orientar (barato).\n2. set_tokens com a paleta e a escala tipográfica.\n3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.\n4. lint_design e corrija o que vier como error/warning.\n5. render_screenshot para conferir visualmente; export_code para levar ao código.\nToda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. O humano vê suas edições ao vivo no canvas.\nCampos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.",
   "tools": [
     {
       "name": "get_design_guide",
@@ -95,7 +95,9 @@
               "ellipse",
               "text",
               "image",
-              "path"
+              "path",
+              "group",
+              "page"
             ]
           },
           "name": {
@@ -196,7 +198,9 @@
                   "ellipse",
                   "text",
                   "image",
-                  "path"
+                  "path",
+                  "group",
+                  "page"
                 ]
               },
               "id": {
@@ -339,6 +343,98 @@
         "required": [
           "moves"
         ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "group_nodes",
+      "title": "Agrupar nós",
+      "description": "Põe nós irmãos (mesmo pai, sem layout row/column) num group novo, no lugar do mais alto deles. O desenho não se move: a caixa do grupo segue os filhos. Retorna o id do grupo.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "id": {
+            "description": "Id do grupo (padrão: gerado)",
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "ungroup_nodes",
+      "title": "Desagrupar",
+      "description": "Desfaz groups: os filhos voltam ao pai do grupo, no lugar dele, com a mesma posição, opacidade e visibilidade.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_page",
+      "title": "Criar página",
+      "description": "Cria uma página (canvas separado no mesmo arquivo). Na primeira vez, o conteúdo atual vai antes para uma página \"Página 1\". Crie telas nela com create_nodes {parentId: id da página}.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "id": {
+            "description": "Id da página (padrão: gerado)",
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
         "$schema": "http://json-schema.org/draft-07/schema#"
       },
       "execution": {
@@ -1647,6 +1743,123 @@
                               "type",
                               "d"
                             ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                              },
+                              "name": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "parentId": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "type": {
+                                "type": "string",
+                                "const": "group"
+                              },
+                              "x": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "y": {
+                                "default": 0,
+                                "type": "number"
+                              },
+                              "width": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "height": {
+                                "default": 0,
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "opacity": {
+                                "default": 1,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "locked": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "notes": {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              "children": {
+                                "default": [],
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                              },
+                              "name": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "parentId": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "type": {
+                                "type": "string",
+                                "const": "page"
+                              },
+                              "fill": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "notes": {
+                                "type": "string",
+                                "maxLength": 4000
+                              },
+                              "children": {
+                                "default": [],
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type"
+                            ]
                           }
                         ]
                       }
@@ -1698,7 +1911,9 @@
                   "ellipse",
                   "text",
                   "image",
-                  "path"
+                  "path",
+                  "group",
+                  "page"
                 ]
               },
               "id": {
@@ -1826,7 +2041,7 @@
     {
       "name": "render_screenshot",
       "title": "Screenshot",
-      "description": "PNG de um nó (ou do canvas inteiro), renderizado pelo mesmo motor do canvas e do export.",
+      "description": "PNG de um nó (uma página: o canvas dela; sem rootId: o canvas, ou a primeira página), renderizado pelo mesmo motor do canvas e do export.",
       "inputSchema": {
         "type": "object",
         "properties": {

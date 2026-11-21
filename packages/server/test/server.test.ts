@@ -50,6 +50,7 @@ describe("MCP", () => {
       [
         "apply_ops",
         "create_nodes",
+        "create_page",
         "delete_nodes",
         "export_code",
         "find_nodes",
@@ -57,6 +58,7 @@ describe("MCP", () => {
         "get_document_outline",
         "get_history",
         "get_nodes",
+        "group_nodes",
         "lint_design",
         "move_nodes",
         "path_info",
@@ -64,10 +66,54 @@ describe("MCP", () => {
         "render_screenshot",
         "set_tokens",
         "undo",
+        "ungroup_nodes",
         "update_nodes",
       ].sort(),
     );
     for (const t of tools) expect(t.inputSchema.type).toBe("object");
+  });
+
+  it("grupos e páginas: agrupar, desagrupar, criar página, uma entrada de histórico por chamada", async () => {
+    const c = await connect();
+    await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "frame",
+          id: "f",
+          name: "Tela",
+          width: 300,
+          height: 200,
+          children: [
+            { type: "rect", id: "a", x: 10, y: 20, width: 30, height: 30 },
+            { type: "rect", id: "b", x: 60, y: 40, width: 30, height: 30 },
+          ],
+        },
+      ],
+    });
+    const g = JSON.parse(textOf(await call(c, "group_nodes", { ids: ["a", "b"], id: "g", name: "Par" })));
+    expect(g).toMatchObject({ group: "g", created: ["g"] });
+    expect(store.doc.nodes.g).toMatchObject({ x: 10, y: 20, width: 80, height: 50, children: ["a", "b"] });
+    const bad = await call(c, "group_nodes", { ids: ["g", "f"] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toMatch(/mesmo pai/);
+
+    const u = JSON.parse(textOf(await call(c, "ungroup_nodes", { ids: ["g"] })));
+    expect(u.released).toEqual(["a", "b"]);
+    expect(store.doc.nodes.a).toMatchObject({ x: 10, y: 20, parentId: "f" });
+
+    const p = JSON.parse(textOf(await call(c, "create_page", { id: "p2", name: "Variações" })));
+    expect(p.page).toBe("p2");
+    expect(store.doc.rootIds).toHaveLength(2);
+    const first = store.doc.rootIds[0]!;
+    expect(store.doc.nodes[first]).toMatchObject({ type: "page", name: "Página 1", children: ["f"] });
+    const loose = await call(c, "create_nodes", { nodes: [{ type: "rect" }] });
+    expect(textOf(loose)).toMatch(/tem páginas/);
+    await call(c, "create_nodes", { parentId: "p2", nodes: [{ type: "rect", id: "r", width: 10, height: 10, fill: "#000000" }] });
+    expect(textOf(await call(c, "get_document_outline", { rootId: "p2" }))).toContain("rect#r 10×10");
+    const shot = await call(c, "render_screenshot", { rootId: "p2" });
+    expect(textOf(shot)).toContain("10×10px");
+    const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 3 })));
+    expect(hist.map((h: { label: string }) => h.label)).toEqual(["desagrupar 1 grupo(s)", "criar página", "criar 1 nó(s)"]);
   });
 
   it("fluxo completo: tokens → criar → lint → corrigir → exportar → desfazer", async () => {

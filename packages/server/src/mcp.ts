@@ -4,6 +4,9 @@ import { z } from "zod";
 import {
   NodeInputSchema,
   NodeType,
+  addPageOps,
+  groupOps,
+  ungroupOps,
   parsePath,
   pathBounds,
   serializePath,
@@ -24,7 +27,8 @@ export const VERSION = "0.1.0";
 export const DESIGN_GUIDE = `# Paprika: guia para agentes
 
 Documento = mapa plano de nós + rootIds (telas/frames de topo, em coordenadas do canvas).
-Tipos: frame (contêiner, único com filhos), rect, ellipse, text, image, path (vetor com curvas bezier).
+Tipos: frame (contêiner com estilo e layout), group (agrupa sem pintar), page (canvas separado), rect, ellipse,
+text, image, path (vetor com curvas bezier). Só frame, group e page têm filhos.
 
 Campos comuns: name, x, y, width, height (número | "hug" | "fill"), rotation, opacity (0..1),
 visible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.
@@ -32,6 +36,11 @@ frame: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]),
   justify: start|center|end|between, wrap}. Com layout row/column, x/y dos filhos são ignorados.
 text: text, color, fontFamily, fontSize (n | "$token"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.
 image: src (https:// ou data:image/), fit (cover|contain|fill), alt.
+group: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir
+  dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.
+page: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, todo nó de topo é página e os
+  frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o
+  conteúdo atual para "Página 1". Telas de outra página: get_document_outline {rootId: id da página}.
 path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),
   stroke {color,width} (traço), fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),
   viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,
@@ -250,6 +259,62 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
   );
 
   server.registerTool(
+    "group_nodes",
+    {
+      title: "Agrupar nós",
+      description:
+        "Põe nós irmãos (mesmo pai, sem layout row/column) num group novo, no lugar do mais alto deles. O desenho não se move: a caixa do grupo segue os filhos. Retorna o id do grupo.",
+      inputSchema: {
+        ids: z.array(z.string()).min(1).max(500),
+        name: z.string().max(200).optional(),
+        id: z.string().optional().describe("Id do grupo (padrão: gerado)"),
+        label: z.string().max(200).optional(),
+      },
+    },
+    ({ ids, name, id, label }) =>
+      guard(async () => {
+        const plan = groupOps(store.doc, ids, { name, id });
+        const r = await write(plan.ops, label ?? `agrupar ${ids.length} nó(s)`);
+        return json({ group: plan.id, ...r });
+      }),
+  );
+
+  server.registerTool(
+    "ungroup_nodes",
+    {
+      title: "Desagrupar",
+      description: "Desfaz groups: os filhos voltam ao pai do grupo, no lugar dele, com a mesma posição, opacidade e visibilidade.",
+      inputSchema: { ids: z.array(z.string()).min(1).max(500), label: z.string().max(200).optional() },
+    },
+    ({ ids, label }) =>
+      guard(async () => {
+        const plan = ungroupOps(store.doc, ids);
+        const r = await write(plan.ops, label ?? `desagrupar ${ids.length} grupo(s)`);
+        return json({ released: plan.released, ...r });
+      }),
+  );
+
+  server.registerTool(
+    "create_page",
+    {
+      title: "Criar página",
+      description:
+        "Cria uma página (canvas separado no mesmo arquivo). Na primeira vez, o conteúdo atual vai antes para uma página \"Página 1\". Crie telas nela com create_nodes {parentId: id da página}.",
+      inputSchema: {
+        name: z.string().max(200).optional(),
+        id: z.string().optional().describe("Id da página (padrão: gerado)"),
+        label: z.string().max(200).optional(),
+      },
+    },
+    ({ name, id, label }) =>
+      guard(async () => {
+        const plan = addPageOps(store.doc, { name, id });
+        const r = await write(plan.ops, label ?? "criar página");
+        return json({ page: plan.id, ...r });
+      }),
+  );
+
+  server.registerTool(
     "apply_ops",
     {
       title: "Transação de operações",
@@ -314,7 +379,7 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
     "render_screenshot",
     {
       title: "Screenshot",
-      description: "PNG de um nó (ou do canvas inteiro), renderizado pelo mesmo motor do canvas e do export.",
+      description: "PNG de um nó (uma página: o canvas dela; sem rootId: o canvas, ou a primeira página), renderizado pelo mesmo motor do canvas e do export.",
       inputSchema: { rootId: z.string().optional(), scale: z.number().min(0.1).max(4).default(1) },
       annotations: { readOnlyHint: true },
     },

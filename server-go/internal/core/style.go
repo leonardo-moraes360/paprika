@@ -107,6 +107,9 @@ func parentOf(doc *Document, n *Node) *Node {
 
 // NodeStyle is the CSS of a node.
 func NodeStyle(doc *Document, node *Node, asRoot bool) *CSS {
+	if node.Str("type") == "page" {
+		return jsonv.NewObject() // pages are not drawn: their children use canvas coordinates
+	}
 	parent := parentOf(doc, node)
 	parentMode := ""
 	if parent != nil && parent.Str("type") == "frame" {
@@ -135,6 +138,16 @@ func NodeStyle(doc *Document, node *Node, asRoot bool) *CSS {
 	sizeProps(css, "width", w, mode)
 	sizeProps(css, "height", h, mode)
 
+	if node.Str("type") == "group" {
+		// A group only groups: no paint, no clipping.
+		if o := node.Num("opacity"); o != 1 {
+			css.Set("opacity", o)
+		}
+		if !node.Bool("visible") {
+			css.Set("display", "none")
+		}
+		return css
+	}
 	if r := node.Num("rotation"); r != 0 {
 		css.Set("transform", "rotate("+jsonv.FormatNumber(round2(r))+"deg)")
 	}

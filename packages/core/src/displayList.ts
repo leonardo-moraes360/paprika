@@ -1,5 +1,5 @@
 import { parseColor } from "./lint.js";
-import type { Document, Node } from "./schema.js";
+import { pageRoots, type Document, type Node, type SceneNode } from "./schema.js";
 import { resolveValue } from "./style.js";
 
 /**
@@ -49,24 +49,30 @@ export function solidColor(doc: Document, value: string | undefined): RGBA4 | nu
   return c ? [c.r / 255, c.g / 255, c.b / 255, c.a] : null;
 }
 
+type Shape = Exclude<SceneNode, { type: "group" | "text" | "image" }>;
 const SHAPES = new Set<Node["type"]>(["frame", "rect", "ellipse", "path"]);
+const isShape = (n: Node): n is Shape => SHAPES.has(n.type);
 
 /** True when the WASM layer can draw this node's own paint exactly as `nodeStyle` would. */
 export function wasmPaintable(doc: Document, n: Node): boolean {
-  if (!SHAPES.has(n.type)) return false;
+  if (!isShape(n)) return false;
   if (!solidColor(doc, n.fill)) return false;
   if (n.stroke && !solidColor(doc, n.stroke.color)) return false;
   if (n.shadow && (n.type === "path" || !solidColor(doc, n.shadow.color))) return false;
   return true;
 }
 
-export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>): DisplayList {
+/**
+ * `pageId` picks the page the canvas shows (default: the first page, or the whole document when
+ * it has no pages). Groups paint nothing: their children are drawn with the group's opacity.
+ */
+export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, pageId?: string): DisplayList {
   const out: number[] = [];
   const paths: string[] = [];
   const painted = new Set<string>();
   const domPainted = new Set<string>();
 
-  const emit = (kind: number, n: Node, b: Box, opacity: number, paint: boolean) => {
+  const emit = (kind: number, n: Shape, b: Box, opacity: number, paint: boolean) => {
     const f = (paint && solidColor(doc, n.fill)) || [0, 0, 0, 0];
     const s = paint && n.stroke && n.stroke.width > 0 ? solidColor(doc, n.stroke.color) : null;
     const sh = paint && n.shadow ? solidColor(doc, n.shadow.color) : null;
@@ -94,10 +100,14 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>): Dis
     const n = doc.nodes[id];
     const b = boxes.get(id);
     // No box means the DOM did not lay it out (hidden, or not rendered): skip the subtree.
-    if (!n || !b || !n.visible) return;
+    if (!n || n.type === "page" || !b || !n.visible) return;
     const o = parentOpacity * n.opacity;
+    if (n.type === "group") {
+      for (const c of n.children) walk(c, o);
+      return;
+    }
     const paint = wasmPaintable(doc, n);
-    if (SHAPES.has(n.type)) (paint ? painted : domPainted).add(id);
+    if (isShape(n)) (paint ? painted : domPainted).add(id);
     switch (n.type) {
       case "frame":
         if (n.clip) emit(KIND.pushClip, n, b, o, paint);
@@ -123,6 +133,6 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>): Dis
         break; // text and images stay in the DOM layer
     }
   };
-  for (const id of doc.rootIds) walk(id, 1);
+  for (const id of pageRoots(doc, pageId)) walk(id, 1);
   return { data: new Float32Array(out), paths: paths.join("\n"), count: out.length / DISPLAY_STRIDE, painted, domPainted };
 }

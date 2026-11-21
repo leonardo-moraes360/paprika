@@ -33,6 +33,12 @@ func DescribeNode(n *Node) string {
 	if name := n.Str("name"); name != "" {
 		parts = append(parts, jsonv.Quote(name))
 	}
+	if typ == "page" {
+		if fill, ok := n.Get("fill"); ok {
+			parts = append(parts, "fill="+jsString(fill))
+		}
+		return strings.Join(parts, " ")
+	}
 	w, _ := n.Get("width")
 	h, _ := n.Get("height")
 	parts = append(parts, jsString(w)+"×"+jsString(h), "@"+jsString(n.Num("x"))+","+jsString(n.Num("y")))
@@ -84,7 +90,7 @@ func Outline(doc *Document, rootID string, depth int) string {
 			return
 		}
 		lines = append(lines, strings.Repeat("  ", d)+DescribeNode(n))
-		if n.Str("type") == "frame" {
+		if IsContainer(n.Str("type")) {
 			children := n.Strings("children")
 			if depth >= 0 && d+1 > depth {
 				if len(children) > 0 {
@@ -157,7 +163,7 @@ func SubtreeIDs(doc *Document, rootID string) []string {
 			return
 		}
 		out = append(out, id)
-		if n.Str("type") == "frame" {
+		if IsContainer(n.Str("type")) {
 			for _, c := range n.Strings("children") {
 				walk(c)
 			}

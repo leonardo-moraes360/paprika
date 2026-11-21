@@ -52,7 +52,7 @@ func baseDocs(t *testing.T, g *jsonv.Object) map[string]*Document {
 	for _, v := range g.Arr("views") {
 		o := v.(*jsonv.Object)
 		switch name := o.Str("name"); name {
-		case "empty", "card", "demo", "bezier":
+		case "empty", "card", "demo", "bezier", "free", "grouped", "paged":
 			docs[name] = mustDoc(t, o.Str("doc"))
 		}
 	}
@@ -85,6 +85,62 @@ func TestGoldenOps(t *testing.T) {
 		eq(t, "case doc "+label, jsonv.Stringify(r.Doc, "  "), c.Str("result"))
 		eq(t, "case inverse "+label, jsonv.Stringify(r.Inverse, ""), c.Str("inverse"))
 		eq(t, "case created "+label, strings.Join(r.Created, ","), strings.Join(c.Strings("created"), ","))
+	}
+}
+
+func TestGoldenStructure(t *testing.T) {
+	g := loadGolden(t)
+	docs := baseDocs(t, g)
+	for i, v := range g.Arr("structure") {
+		c := v.(*jsonv.Object)
+		d := docs[c.Str("doc")]
+		args := c.Obj("args")
+		where := "structure " + jsonv.FormatNumber(float64(i)) + " " + c.Str("kind") + " " + jsonv.Stringify(args, "")
+		var ops []any
+		var id string
+		var released []string
+		var err error
+		switch c.Str("kind") {
+		case "group":
+			ops, id, err = GroupOps(d, args.Strings("ids"), args.Str("id"), args.Str("name"))
+		case "ungroup":
+			ops, released, err = UngroupOps(d, args.Strings("ids"))
+		default:
+			ops, id = AddPageOps(d, args.Str("id"), args.Str("name"), args.Str("firstId"))
+		}
+		if !c.Bool("ok") {
+			if err == nil {
+				t.Errorf("%s: expected error %q", where, c.Str("error"))
+				continue
+			}
+			eq(t, where+" error", err.Error(), c.Str("error"))
+			continue
+		}
+		if err != nil {
+			t.Errorf("%s: unexpected error %v", where, err)
+			continue
+		}
+		eq(t, where+" ops", jsonv.Stringify(jsonv.FromGo(ops), ""), c.Str("ops"))
+		if c.Has("id") {
+			eq(t, where+" id", id, c.Str("id"))
+		}
+		if c.Has("released") {
+			eq(t, where+" released", strings.Join(released, ","), strings.Join(c.Strings("released"), ","))
+		}
+		r, aerr := ApplyOps(d, ops)
+		if c.Has("applyError") {
+			if aerr == nil {
+				t.Errorf("%s: expected apply error %q", where, c.Str("applyError"))
+			} else {
+				eq(t, where+" apply error", aerr.Error(), c.Str("applyError"))
+			}
+			continue
+		}
+		if aerr != nil {
+			t.Errorf("%s: apply error %v", where, aerr)
+			continue
+		}
+		eq(t, where+" result", jsonv.Stringify(r.Doc, "  "), c.Str("result"))
 	}
 }
 
@@ -156,8 +212,18 @@ func TestGoldenViews(t *testing.T) {
 			}
 			eq(t, name+" html "+id, h, c.Obj("htmlRoots").Str(id))
 		}
+		for _, id := range c.Obj("htmlPages").Keys() {
+			h, _, err := RenderHTML(doc, RenderOptions{RootID: id})
+			if err != nil {
+				t.Fatal(err)
+			}
+			eq(t, name+" html page "+id, h, c.Obj("htmlPages").Str(id))
+		}
 		for _, id := range Nodes(doc).Keys() {
-			r, _ := ExportReact(doc, id)
+			r, err := ExportReact(doc, id)
+			if err != nil {
+				r = "ERROR: " + err.Error()
+			}
 			eq(t, name+" react "+id, r, c.Obj("react").Str(id))
 			eq(t, name+" describe "+id, DescribeNode(GetNode(doc, id)), c.Obj("describe").Str(id))
 			eq(t, name+" style "+id, CSSToString(NodeStyle(doc, GetNode(doc, id), false)), c.Obj("style").Str(id))

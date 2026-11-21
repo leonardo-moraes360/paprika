@@ -102,13 +102,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add := func(name string, schema *z.ObjectSchema, h func(ctx context.Context, args *jsonv.Object) (ToolResult, error)) {
 		m.tools[name] = tool{name, schema, h}
 	}
-	write := func(ops []any, lbl string) (ToolResult, error) {
+	// writeWith answers extra fields first, then created and version (same key order as the TS server).
+	writeWith := func(ops []any, lbl string, extra ...any) (ToolResult, error) {
 		r, err := store.Apply(ops, actor, lbl)
 		if err != nil {
 			return nil, err
 		}
-		return jsonResult(jsonv.NewObject("created", jsonv.FromGo(r.Created), "version", float64(store.Version()))), nil
+		out := jsonv.NewObject(extra...)
+		out.Set("created", jsonv.FromGo(r.Created))
+		out.Set("version", float64(store.Version()))
+		return jsonResult(out), nil
 	}
+	write := func(ops []any, lbl string) (ToolResult, error) { return writeWith(ops, lbl) }
 	labelOr := func(args *jsonv.Object, def string) string {
 		if args.Has("label") {
 			return args.Str("label")
@@ -295,6 +300,39 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			ops[i] = op
 		}
 		return write(ops, labelOr(a, "mover "+count(len(moves))+" nó(s)"))
+	})
+
+	add("group_nodes", z.Object(
+		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+		optStr("id"),
+		label(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		ids := a.Strings("ids")
+		ops, id, err := core.GroupOps(store.Doc(), ids, a.Str("id"), a.Str("name"))
+		if err != nil {
+			return nil, err
+		}
+		return writeWith(ops, labelOr(a, "agrupar "+count(len(ids))+" nó(s)"), "group", id)
+	})
+
+	add("ungroup_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)}, label()),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			ids := a.Strings("ids")
+			ops, released, err := core.UngroupOps(store.Doc(), ids)
+			if err != nil {
+				return nil, err
+			}
+			return writeWith(ops, labelOr(a, "desagrupar "+count(len(ids))+" grupo(s)"), "released", jsonv.FromGo(released))
+		})
+
+	add("create_page", z.Object(
+		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+		optStr("id"),
+		label(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		ops, id := core.AddPageOps(store.Doc(), a.Str("id"), a.Str("name"), "")
+		return writeWith(ops, labelOr(a, "criar página"), "page", id)
 	})
 
 	add("apply_ops", z.Object(z.Field{Name: "ops", Schema: z.Array(core.OpSchema).Min(1).Max(1000)}, label()),

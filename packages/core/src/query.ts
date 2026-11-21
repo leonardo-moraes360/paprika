@@ -1,6 +1,6 @@
-import type { Document, Node, NodeType } from "./schema.js";
+import { isContainer, type Document, type Node, type NodeType, type SceneNode } from "./schema.js";
 
-function sizeStr(n: Node): string {
+function sizeStr(n: SceneNode): string {
   return `${n.width}×${n.height}`;
 }
 
@@ -8,8 +8,12 @@ function sizeStr(n: Node): string {
 export function describeNode(n: Node): string {
   const parts = [`${n.type}#${n.id}`];
   if (n.name) parts.push(JSON.stringify(n.name));
+  if (n.type === "page") {
+    if (n.fill) parts.push(`fill=${n.fill}`);
+    return parts.join(" ");
+  }
   parts.push(sizeStr(n), `@${n.x},${n.y}`);
-  if (n.fill) parts.push(`fill=${n.fill}`);
+  if (n.type !== "group" && n.fill) parts.push(`fill=${n.fill}`);
   if (n.type === "frame" && n.layout && n.layout.mode !== "none") {
     parts.push(`${n.layout.mode} gap=${n.layout.gap}`);
   }
@@ -37,7 +41,7 @@ export function outline(doc: Document, opts: { rootId?: string; depth?: number }
     const n = doc.nodes[id];
     if (!n) return;
     lines.push(`${"  ".repeat(depth)}${describeNode(n)}`);
-    if (n.type === "frame") {
+    if (isContainer(n)) {
       if (depth + 1 > maxDepth) {
         if (n.children.length) lines.push(`${"  ".repeat(depth + 1)}… ${n.children.length} filho(s)`);
         return;
@@ -84,7 +88,7 @@ export function subtreeIds(doc: Document, rootId: string): string[] {
     const n = doc.nodes[id];
     if (!n) return;
     out.push(id);
-    if (n.type === "frame") n.children.forEach(walk);
+    if (isContainer(n)) n.children.forEach(walk);
   };
   walk(rootId);
   return out;

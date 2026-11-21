@@ -82,7 +82,7 @@ describe("applyOps", () => {
 
   it("só frames recebem filhos e move não cria ciclos", () => {
     const { doc } = card();
-    expect(() => applyOps(doc, [{ op: "create", node: { type: "rect" }, parentId: "bar" }])).toThrow(/só frames/);
+    expect(() => applyOps(doc, [{ op: "create", node: { type: "rect" }, parentId: "bar" }])).toThrow(/só frame, group e page/);
     const { doc: d2 } = applyOps(doc, [{ op: "create", node: { type: "frame", id: "inner" }, parentId: "card" }]);
     expect(() => applyOps(d2, [{ op: "move", id: "card", parentId: "inner" }])).toThrow(/ciclo/);
   });

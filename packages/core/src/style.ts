@@ -39,6 +39,7 @@ const ALIGN = { start: "flex-start", center: "center", end: "flex-end", stretch:
  * o export HTML e o screenshot usam esta função, então o que o agente vê é o que o humano vê.
  */
 export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean } = {}): CSS {
+  if (node.type === "page") return {}; // páginas não são desenhadas: os filhos usam coordenadas do canvas
   const parent = node.parentId ? doc.nodes[node.parentId] : undefined;
   const parentMode = parent?.type === "frame" && parent.layout && parent.layout.mode !== "none" ? parent.layout.mode : null;
   const css: CSS = { boxSizing: "border-box" };
@@ -53,6 +54,12 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean } 
   Object.assign(css, sizeProps("width", node.width, opts.asRoot ? null : parentMode));
   Object.assign(css, sizeProps("height", node.height, opts.asRoot ? null : parentMode));
 
+  if (node.type === "group") {
+    // Só agrupa: sem pintura nem recorte (os filhos podem sair da caixa).
+    if (node.opacity !== 1) css.opacity = node.opacity;
+    if (!node.visible) css.display = "none";
+    return css;
+  }
   if (node.rotation) css.transform = `rotate(${round(node.rotation)}deg)`;
   if (node.opacity !== 1) css.opacity = node.opacity;
   if (!node.visible) css.display = "none";
