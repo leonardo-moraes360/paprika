@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Bot, Circle, Diamond, Download, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Redo2, Square, StickyNote, Type, Undo2, type LucideIcon } from "lucide-react";
 import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
@@ -16,21 +17,24 @@ const toast = "absolute bottom-4 left-1/2 max-w-[70%] -translate-x-1/2 cursor-po
 const toolSep = "mx-1.5 h-5 w-px bg-line";
 const toolButton = (active: boolean) =>
   cx(
-    "h-[30px] w-8 cursor-pointer rounded-md border-0 text-lg enabled:hover:bg-panel-2 disabled:cursor-default disabled:opacity-35",
+    "inline-flex h-[30px] w-8 cursor-pointer items-center justify-center rounded-md border-0 enabled:hover:bg-panel-2 disabled:cursor-default disabled:opacity-35",
     active ? "is-active bg-accent text-white" : "bg-transparent",
   );
 
-const TOOLS: { tool: Tool; key: string; label: string; icon: string }[] = [
-  { tool: "select", key: "v", label: "Selecionar", icon: "↖" },
-  { tool: "frame", key: "f", label: "Frame", icon: "#" },
-  { tool: "rect", key: "r", label: "Retângulo", icon: "▭" },
-  { tool: "ellipse", key: "o", label: "Elipse", icon: "◯" },
-  { tool: "text", key: "t", label: "Texto", icon: "T" },
-  { tool: "pen", key: "p", label: "Caneta (bezier)", icon: "✒" },
-  { tool: "shape", key: "s", label: "Caixa de diagrama", icon: "▢" },
-  { tool: "diamond", key: "d", label: "Decisão (losango)", icon: "◇" },
-  { tool: "note", key: "n", label: "Nota adesiva", icon: "🗒" },
-  { tool: "connector", key: "a", label: "Seta (prende nas formas)", icon: "↗" },
+/** Lucide icon size in the floating toolbar, in px. */
+const TOOL_ICON = 18;
+
+const TOOLS: { tool: Tool; key: string; label: string; icon: LucideIcon }[] = [
+  { tool: "select", key: "v", label: "Selecionar", icon: MousePointer2 },
+  { tool: "frame", key: "f", label: "Frame", icon: Frame },
+  { tool: "rect", key: "r", label: "Retângulo", icon: RectangleHorizontal },
+  { tool: "ellipse", key: "o", label: "Elipse", icon: Circle },
+  { tool: "text", key: "t", label: "Texto", icon: Type },
+  { tool: "pen", key: "p", label: "Caneta (bezier)", icon: PenTool },
+  { tool: "shape", key: "s", label: "Caixa de diagrama", icon: Square },
+  { tool: "diamond", key: "d", label: "Decisão (losango)", icon: Diamond },
+  { tool: "note", key: "n", label: "Nota adesiva", icon: StickyNote },
+  { tool: "connector", key: "a", label: "Seta (prende nas formas)", icon: MoveUpRight },
 ];
 
 /** Converte uma subárvore em NodeInput com ids novos (para duplicar). */
@@ -306,7 +310,10 @@ function Editor({ live }: { live: LiveDocument }) {
         </div>
         <div className={bar.status}>
           {lastAgent && Date.now() - lastAgent.at < 8000 && (
-            <span className="agent-pill max-w-[280px] truncate rounded-full bg-accent-soft px-2 py-0.75 text-accent-ink">🤖 {lastAgent.label}</span>
+            <span className="agent-pill inline-flex max-w-[280px] items-center gap-1 rounded-full bg-accent-soft px-2 py-0.75 text-accent-ink">
+              <Bot className="shrink-0" size={14} aria-hidden />
+              <span className="truncate">{lastAgent.label}</span>
+            </span>
           )}
           <span className={bar.dot(live.connected)} />
           <span className={bar.statusText}>{live.connected ? `v${live.version} · MCP em /mcp` : "desconectado"}</span>
@@ -329,19 +336,19 @@ function Editor({ live }: { live: LiveDocument }) {
               aria-pressed={tool === t.tool}
               aria-label={t.label}
             >
-              {t.icon}
+              <t.icon size={TOOL_ICON} strokeWidth={1.75} />
             </button>
           ))}
           <span className={toolSep} />
           <button className={toolButton(false)} onClick={live.undo} disabled={!live.canUndo} title="Desfazer (Ctrl+Z)" aria-label="Desfazer">
-            ↶
+            <Undo2 size={TOOL_ICON} strokeWidth={1.75} />
           </button>
           <button className={toolButton(false)} onClick={live.redo} disabled={!live.canRedo} title="Refazer (Ctrl+Shift+Z)" aria-label="Refazer">
-            ↷
+            <Redo2 size={TOOL_ICON} strokeWidth={1.75} />
           </button>
           <span className={toolSep} />
           <button className={toolButton(false)} onClick={exportSvg} title="Exportar SVG (seleção, ou a página)" aria-label="Exportar SVG">
-            ⇩
+            <Download size={TOOL_ICON} strokeWidth={1.75} />
           </button>
         </nav>
         <Canvas

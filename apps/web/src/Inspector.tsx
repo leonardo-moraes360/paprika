@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Bot } from "lucide-react";
 import {
   copyOwner,
   groupOps,
@@ -763,7 +764,18 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
         {activity.length === 0 && <li className="flex gap-2 text-muted">Nenhuma edição ainda.</li>}
         {activity.slice(0, 15).map((a) => (
           <li key={a.id} className={cx("flex gap-2", a.actor.startsWith("agent") ? "text-accent-ink" : "text-muted")}>
-            <span className="font-semibold whitespace-nowrap">{a.actor.startsWith("agent") ? "🤖 " + a.actor.slice(6) : a.actor === "user" ? "você" : a.actor}</span>
+            <span className="inline-flex items-start gap-1 font-semibold whitespace-nowrap">
+              {a.actor.startsWith("agent") ? (
+                <>
+                  <Bot className="mt-px shrink-0" size={14} aria-hidden />
+                  {a.actor.slice(6)}
+                </>
+              ) : a.actor === "user" ? (
+                "você"
+              ) : (
+                a.actor
+              )}
+            </span>
             <span>{a.label || "edição"}</span>
           </li>
         ))}

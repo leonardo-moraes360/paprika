@@ -32,6 +32,7 @@ const NOTHING = {
   rust: false,
   codeql: false,
   codeql_matrix: "[]",
+  docker: false,
 };
 
 const plan = (files) => planFor(files);
@@ -39,7 +40,7 @@ const plan = (files) => planFor(files);
 /** Every optional job on, with the core unit tests in "all" mode and both suites. */
 function assertEverythingOn(p, why) {
   assert.equal(p.full, true, `${why}: full`);
-  for (const key of ["build", "ts", "unit", "suites", "golden", "go", "rust", "codeql"]) {
+  for (const key of ["build", "ts", "unit", "suites", "golden", "go", "rust", "codeql", "docker"]) {
     assert.equal(p[key], true, `${why}: ${key}`);
   }
   assert.deepEqual(
@@ -206,6 +207,24 @@ describe("each area selects its jobs", () => {
     assert.equal(p.ts, false);
   });
 
+  it("the Docker recipe builds the image and runs nothing else", () => {
+    for (const file of ["Dockerfile", ".dockerignore", "compose.yaml"]) {
+      assert.deepEqual(plan([file]), { ...NOTHING, docker: true }, file);
+    }
+  });
+
+  it("everything the image packages also builds the image", () => {
+    for (const file of ["packages/core/src/ops.ts", "apps/web/src/Canvas.tsx", "crates/render/src/lib.rs", "server-go/internal/core/ops.go"]) {
+      assert.equal(plan([file]).docker, true, file);
+    }
+  });
+
+  it("what the image does not package skips the image", () => {
+    for (const file of ["packages/e2e/test/api.test.ts", "examples/demo.paprika.json", "docs/docker.md", "apps/site/scripts/build.mjs", "server-go.md", "nested/Dockerfile"]) {
+      assert.equal(plan([file]).docker, false, file);
+    }
+  });
+
   it("a path no area owns runs nothing", () => {
     assert.deepEqual(plan(["notes/todo.md", "design/marca.paprika.json", "tools/scratch.sh"]), NOTHING);
   });
@@ -258,7 +277,7 @@ describe("the published interface", () => {
     const lines = planLines(plan(["docs/ci.md"]));
     assert.equal(
       lines,
-      "full=false\nbuild=false\nts=false\nunit=false\nunit_matrix=[]\nsuites=false\nsuites_matrix=[]\ngolden=false\ngo=false\nrust=false\ncodeql=false\ncodeql_matrix=[]\n",
+      "full=false\nbuild=false\nts=false\nunit=false\nunit_matrix=[]\nsuites=false\nsuites_matrix=[]\ngolden=false\ngo=false\nrust=false\ncodeql=false\ncodeql_matrix=[]\ndocker=false\n",
     );
   });
 

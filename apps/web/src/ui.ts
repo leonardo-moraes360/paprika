@@ -29,8 +29,8 @@ export const ui = {
     "mx-0 my-2 flex gap-1.5 [&_button]:cursor-pointer [&_button]:rounded-sm [&_button]:border [&_button]:border-line [&_button]:bg-panel-2 [&_button]:px-2.5 [&_button]:py-1 [&_button]:text-fg [&_button:hover]:border-select",
   /** Button that reads as a link. */
   link: "cursor-pointer border-0 bg-transparent p-0 text-select underline",
-  /** Small glyph button (+, ×). */
-  iconBtn: "cursor-pointer rounded-[3px] border-0 bg-transparent px-1 py-0 text-md leading-none text-muted hover:bg-panel-2 hover:text-fg",
+  /** Small icon button (Lucide icons: plus, x…). */
+  iconBtn: "inline-flex cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent px-1 py-0.5 text-md leading-none text-muted hover:bg-panel-2 hover:text-fg",
   /** Inline rename field (layers, pages, frame labels). */
   renameInput: "min-w-0 rounded-[3px] border border-select bg-panel px-1 py-0 text-fg outline-none",
 };
