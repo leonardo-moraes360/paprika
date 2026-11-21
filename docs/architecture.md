@@ -59,3 +59,4 @@
 - [ADR 0001: Go server with SQLite](adr/0001-go-server-sqlite.md): accepted.
 - [ADR 0002: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)](adr/0002-canvas-renderer-rust-wasm.md): accepted as an opt-in hybrid renderer; the DOM stays the default.
 - [ADR 0003: Tailwind CSS for the canvas app UI](adr/0003-tailwind-css.md): accepted; Tailwind v4 without Preflight, so the app CSS never changes how a document renders.
+- [ADR 0004: Peer-to-peer team sync (Iroh, Loro, Rust sidecar)](adr/0004-p2p-team-sync.md): accepted; protocol in [team-sync.md](team-sync.md).

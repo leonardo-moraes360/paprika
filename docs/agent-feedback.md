@@ -181,7 +181,24 @@ Task: a cover image on the overview cards (upload, drop, remove; no cover = firs
 | 63 | Keep the cover in sync with the design | The cover is a snapshot: later edits to the frame do not update it | An optional `live` cover that re-renders the chosen frame when the workspace changes (debounced) | P3 |
 | 64 | Take the cover along in an export | Covers live in SQLite next to the document, not in `.paprika.json`, so `paprika export` drops them | Export/import the cover as a data URL in an optional top-level field | P3 |
 
+## 2026-11-21: P2P team screens (Iroh + CRDT)
 
+Task: draw the team screens (team panel with people, remote agents and connection state; invite with link and QR; join with progress and an expired-invite error; team keys; the top-bar sync states) on a new page "Time P2P" of the "Paprika" workspace, from a script over MCP HTTP (about 900 nodes in 9 `create_nodes` calls).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 65 | Text that fits its content inside auto layout | A `text` created without `width`/`height` is 100×100, so every label in a row/column took a 100 px square and the first draft was unusable; the nodes drawn by hand in the same workspace are all `hug`×`hug`. Cost a full delete and redraw | Default a new `text` to `width: "hug", height: "hug"` (and `height: "hug"` when only `width` is given) | P0 |
+| 66 | Use the id `create_page` returned | `create_page` answers `{page, created}` while `create_nodes` answers `{created}`; the script read `created[0]` the wrong way and passed the whole object as `parentId` | One result shape for every create tool: `{created: [...]}` first, `page` as an extra | P2 |
+| 67 | Know what `delete_nodes` removed | It answers `{"created": []}` | `{deleted: [ids, including subtrees and attached connectors]}` | P2 |
+| 68 | A frame without layout that hugs its text | A `frame` with `height: "hug"` and no `layout` (mode none) collapses to 0, so the text inside it vanishes; table cells were empty with no warning | Make `hug` on a layout-less frame fit its children's boxes, or have `lint_design` flag "hug on a frame without layout" | P1 |
+| 69 | See the problems that matter in `lint_design` | 140 issues on the page, mostly one warning per 11 px label, with the few real overflows mixed in | Group by rule with counts and up to N node ids per rule; an option to raise `small-text`'s threshold or drop a rule | P2 |
+| 70 | Catch a row wider than its frame before the screenshot | Three 400 px cards plus gaps overflowed a 1320 px board; only the screenshot showed it | `lint_design` overflow for row/column children whose sum exceeds the frame (it exists for text, not for layouts) | P2 |
+
+Simpler for the next agent:
+
+1. Text defaults to `hug`×`hug` (#65): the single change that would have saved a redraw.
+2. One result shape for create/delete tools (#66, #67).
+3. Lint that groups and points at layout overflow (#68–#70).
 
 - Nested `create_nodes` built a whole proposal (≈60 nodes) in one call, atomically.
 - `lint_design` contrast checks drove the token choices (`brand.dark` for white text on buttons).
