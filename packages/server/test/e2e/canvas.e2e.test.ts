@@ -52,6 +52,16 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     if (shots) await page.screenshot({ path: join(shots, "01-carregado.png") });
   });
 
+  it("toolbar flutua centralizada no topo do canvas", async () => {
+    const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
+    const bar = (await page.getByRole("navigation", { name: "Ferramentas" }).boundingBox())!;
+    expect(bar.y).toBeGreaterThan(vp.y);
+    expect(bar.y + bar.height).toBeLessThan(vp.y + 80);
+    expect(Math.abs(bar.x + bar.width / 2 - (vp.x + vp.width / 2))).toBeLessThan(2);
+    await page.getByRole("button", { name: "Selecionar" }).click();
+    await expect.poll(() => page.getByTestId("selection").count()).toBe(0);
+  });
+
   it("edição do agente via MCP aparece ao vivo e é destacada", async () => {
     await agent.callTool({
       name: "create_nodes",

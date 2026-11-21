@@ -114,7 +114,17 @@ export function App() {
           <strong>Paprika</strong>
           <span className="doc-name">{doc.name}</span>
         </div>
-        <nav className="tools" aria-label="Ferramentas">
+        <div className="status">
+          {lastAgent && Date.now() - lastAgent.at < 8000 && <span className="agent-pill">🤖 {lastAgent.label}</span>}
+          <span className={`dot ${live.connected ? "on" : "off"}`} />
+          <span className="muted">{live.connected ? `v${live.version} · MCP em /mcp` : "desconectado"}</span>
+        </div>
+      </header>
+      <aside className="left">
+        <Layers doc={doc} selected={selected} onSelect={setSelected} apply={live.apply} />
+      </aside>
+      <main className="center">
+        <nav className="tools" aria-label="Ferramentas" onPointerDown={(e) => e.stopPropagation()}>
           {TOOLS.map((t) => (
             <button
               key={t.tool}
@@ -135,16 +145,6 @@ export function App() {
             ↷
           </button>
         </nav>
-        <div className="status">
-          {lastAgent && Date.now() - lastAgent.at < 8000 && <span className="agent-pill">🤖 {lastAgent.label}</span>}
-          <span className={`dot ${live.connected ? "on" : "off"}`} />
-          <span className="muted">{live.connected ? `v${live.version} · MCP em /mcp` : "desconectado"}</span>
-        </div>
-      </header>
-      <aside className="left">
-        <Layers doc={doc} selected={selected} onSelect={setSelected} apply={live.apply} />
-      </aside>
-      <main className="center">
         <Canvas
           doc={doc}
           selected={selected}
