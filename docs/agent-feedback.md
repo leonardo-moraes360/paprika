@@ -68,9 +68,22 @@ Task: wire the Rust/WASM renderer into the canvas as an opt-in hybrid (WASM draw
 | 27 | Check the WASM canvas the way an agent checks the DOM | `render_screenshot` renders the HTML export, so it never shows what the WASM layer draws; only a browser screenshot of the live canvas does | Keep screenshots on HTML (deterministic), and rely on the E2E parity test; if agents need it, a `renderer: "wasm"` option on `render_screenshot` that loads the canvas page | P3 |
 | 28 | Know which renderer a human is looking at | The choice lives in the browser (localStorage), so an agent cannot tell whether the human sees DOM or WASM output | Report the active renderer and backend over the WebSocket hello, and expose it in `get_document_outline` metadata | P3 |
 
+## 2026-11-21: landing page drawn in Paprika (`apps/site`)
+
+Task: design the project's landing page in Paprika over MCP (desktop and mobile, English and Portuguese, ≈300 nodes) and publish it as a web page built from the document.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 29 | Check a page whose height follows its content | `render_screenshot` of a root frame with `height: "hug"` returned a 1280×1 px image (`rootBounds` turns `hug` into 1 px), so the agent had to check the page in its own browser | Measure `hug`/`fill` roots in the browser before the screenshot, or return the measured size from `get_bounds` (#2) | P1 |
+| 30 | Buttons and nav items that link somewhere | Nodes have no link field; the site build reads a naming convention (`name: "link:<href>"`) and turns those nodes into `<a>` | An `href` field on frames and text, exported as `<a>` by `export_code` and kept by the canvas | P2 |
+| 31 | One page for every screen width | Root frames have a fixed width and `export_code` sets the body to that size, so the page was drawn twice (1280 and 390) and the build stretches roots to the viewport | Breakpoint variants of a frame, or `minWidth`/`maxWidth`, and a page export with responsive roots | P2 |
+| 32 | Reuse the same image | The icon's data URI is repeated in 8 image nodes (≈200 KB document) | Document-level assets (`$asset` references) or image tokens | P3 |
+| 33 | Mark an image as decorative | `lint_design` warns `missing-alt` on `alt: ""`, which is correct HTML for a decorative image | A `decorative: true` flag (or treat an explicit empty `alt` as decorative) | P3 |
+
 ## What worked well
 
 - Nested `create_nodes` built a whole proposal (≈60 nodes) in one call, atomically.
 - `lint_design` contrast checks drove the token choices (`brand.dark` for white text on buttons).
 - `get_document_outline` with `depth: 0` was enough to confirm the result cheaply.
+- `lint_design` caught every literal color in the landing page (`raw-color`), which led to an `on.brand` token.
 - One style engine: the screenshots the agent checked come from the same `nodeStyle` the canvas uses.

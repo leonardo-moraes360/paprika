@@ -121,6 +121,7 @@ Tamanhos: número, `"hug"` (conteúdo) ou `"fill"` (ocupa o espaço do pai). Det
 packages/core     modelo (zod), applyOps atômico, History, nodeStyle, render/export, lint, outline
 packages/server   DocumentStore (arquivo + watch), MCP (stdio e HTTP), WebSocket, screenshot, CLI
 apps/web          canvas React + Vite
+apps/site         landing page (desenhada no Paprika) + site de docs, publicados em paprika.js.org
 server-go/        o mesmo servidor em Go, com armazenamento em SQLite (ver abaixo)
 examples/         demo gerada por um agente via MCP (packages/server/scripts/seed-demo.mjs)
 ```
