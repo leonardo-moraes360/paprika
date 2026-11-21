@@ -146,6 +146,10 @@ for (const l of landing) {
 const DOCS = {
   en: [
     ["README.md", "docs/index.html", "Overview"],
+    ["docs/canvas.md", "docs/canvas.html", "Using the canvas"],
+    ["docs/mcp.md", "docs/mcp.html", "Agents and MCP"],
+    ["docs/docker.md", "docs/docker.html", "Docker"],
+    ["docs/development.md", "docs/development.html", "Development"],
     ["docs/architecture.md", "docs/architecture.html", "Architecture"],
     ["server-go/README.md", "docs/go-server.html", "Go server (SQLite)"],
     ["docs/ci.md", "docs/ci.html", "CI"],
@@ -159,6 +163,10 @@ const DOCS = {
   ],
   "pt-BR": [
     ["README.pt-BR.md", "docs/pt-BR/index.html", "Visão geral"],
+    ["docs/pt-BR/canvas.md", "docs/pt-BR/canvas.html", "Usando o canvas"],
+    ["docs/pt-BR/mcp.md", "docs/pt-BR/mcp.html", "Agentes e MCP"],
+    ["docs/pt-BR/docker.md", "docs/pt-BR/docker.html", "Docker"],
+    ["docs/pt-BR/desenvolvimento.md", "docs/pt-BR/desenvolvimento.html", "Desenvolvimento"],
     ["docs/pt-BR/arquitetura.md", "docs/pt-BR/arquitetura.html", "Arquitetura"],
     ["server-go/README.pt-BR.md", "docs/pt-BR/servidor-go.html", "Servidor Go (SQLite)"],
     ["docs/pt-BR/ci.md", "docs/pt-BR/ci.html", "CI"],
