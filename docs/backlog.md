@@ -92,7 +92,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Vector node from SVG path data (lines, bezier, arcs) | `path` node, `path_info` | ✅ | — |
 | Pen tool to create paths | `P`, bezier handles, close on first point | ✅ | — |
 | Edit points and handles of an existing path | Edit `d` in the inspector (fb#17) | 🟡 | P1 |
-| Import/paste SVG as editable `path` layers | — | ⬜ | P1 |
+| Import/paste SVG as editable `path` layers | `import_svg`, `Ctrl+V` in the canvas (2026-11-21): paths, shapes (axis-aligned rect/ellipse stay native), groups, transforms, inherited paint; no text, images, gradients or `<style>` CSS | ✅ | — |
 | Boolean operations (union, subtract, intersect, exclude) | — (fb#1) | ⬜ | P2 |
 | Convert rect/ellipse to path | — | ⬜ | P2 |
 | Snapping and guides for points, half-pixel snapping | — | ⬜ | P3 |
@@ -102,8 +102,8 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
-| Paste HTML with inline styles as nodes (inverse of `nodeStyle`) | — | ⬜ | P1 |
-| Paste SVG | — (see F) | ⬜ | P1 |
+| Paste HTML with inline styles as nodes (inverse of `nodeStyle`) | `import_html`, `Ctrl+V` (2026-11-21): Paprika's own HTML comes back the same; other HTML is approximated (flex → row/column, blocks → column); classes and stylesheets are not applied | ✅ | — |
+| Paste SVG | `Ctrl+V` with SVG markup (see F) | ✅ | — |
 | Paste or drop images (stored as data URI or local asset) | `image` node via MCP only | 🟡 | P2 |
 | Capture an element from any web page into nodes (browser extension) | — | ⬜ | P3 |
 | Import from other design tools' clipboards | — | ⬜ | Out |
@@ -140,7 +140,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
 | Standalone HTML, React (inline styles), PNG | `export_code`, `render_screenshot` | ✅ | — |
-| SVG export (frame or selection) | — | ⬜ | P1 |
+| SVG export (frame or selection) | `export_code` format `svg`, `⇩` in the toolbar, `GET /api/svg` (2026-11-21): layout and text lines measured in headless Chromium; gradients and background images are left out | ✅ | — |
 | Tailwind classes export | — | ⬜ | P2 |
 | WebP/AVIF, PDF (single or combined frames) | — | ⬜ | P2 |
 | React + CSS module / CSS variables | — (see E) | ⬜ | P2 |

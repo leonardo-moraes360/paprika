@@ -351,6 +351,51 @@ describe(`paridade (${impl}): MCP`, () => {
     expect(textOf(r)).toContain("100×80px");
   }, 30_000);
 
+  it("importar SVG/HTML e exportar SVG", async () => {
+    const c = client;
+    const svg = await call(c, "import_svg", {
+      svg: '<svg viewBox="0 0 24 24" width="48" height="48"><title>Ícone</title><g fill="#c43d27" transform="rotate(10 12 12)"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="12" cy="12" r="4" fill="#fff"/></g><style>a{}</style></svg>',
+      x: 10,
+      y: 10,
+    });
+    const svgOut = JSON.parse(textOf(svg));
+    expect(svgOut.created).toHaveLength(3);
+    expect(svgOut).toMatchObject({ version: 1, warnings: ['CSS em <style> não é aplicado; use atributos ou style="" nos elementos'] });
+    const anon = (t: string) => t.replace(/#[0-9a-z]{10}\b/g, "#…").replace(/data-paprika-id="[^"]+"/g, 'data-paprika-id="…"');
+    expect(anon(textOf(await call(c, "get_document_outline", { rootId: svgOut.created[0] })))).toMatchInlineSnapshot(`
+      "documento "doc" v1 · 3 nós
+      tokens: (nenhum)
+
+      group#… "Ícone" 44×44 @12.0972,12.0972
+        path#… 44×44 @0,0 fill=#c43d27 d="M13.56 0.12 L37.19 4.29 C41.54 5.06 44.45 9.2..."
+        path#… 17×17 @13.9015,13.9015 fill=#fff d="M15.88 9.39 C15.11 13.74 10.96 16.65 6.61 15....""
+    `);
+    const html = await call(c, "import_html", {
+      html: '<div style="display:flex; gap:8px; padding:12px; background:#fbf8f4; width:200px"><div style="width:40px; height:40px; background:#c43d27; border-radius:8px"></div><div style="flex:1; height:40px; border:2px solid #1d1a1f"></div></div>',
+      x: 0,
+      y: 100,
+      label: "colar HTML",
+    });
+    expect(textOf(html)).toMatch(/"created": \[/);
+    const root = JSON.parse(textOf(html)).created[0];
+    expect(anon(textOf(await call(c, "get_document_outline", { rootId: root })))).toMatchInlineSnapshot(`
+      "documento "doc" v2 · 6 nós
+      tokens: (nenhum)
+
+      frame#… 200×hug @0,100 fill=#fbf8f4 row gap=8
+        frame#… 40×40 @0,0 fill=#c43d27
+        frame#… fill×40 @0,0"
+    `);
+    const out = await call(c, "export_code", { rootId: root, format: "svg" });
+    expect(out.isError, textOf(out)).toBeFalsy();
+    expect(anon(out.content[0]!.text!)).toMatchInlineSnapshot(`"<svg xmlns="http://www.w3.org/2000/svg" width="200" height="64" viewBox="0 0 200 64"><g data-paprika-id="…" transform="translate(0 0)"><rect x="0" y="0" width="200" height="64" fill="#fbf8f4"/><g data-paprika-id="…" transform="translate(12 12)"><rect x="0" y="0" width="40" height="40" rx="8" fill="#c43d27"/></g><g data-paprika-id="…" transform="translate(60 12)"><rect x="1" y="1" width="126" height="38" fill="none" stroke="#1d1a1f" stroke-width="2"/></g></g></svg>"`);
+    const icon = await call(c, "export_code", { rootId: svgOut.created[0], format: "svg" });
+    expect(anon(icon.content[0]!.text!)).toMatchInlineSnapshot(`"<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><g data-paprika-id="…" data-name="Ícone" transform="translate(0 0)"><g data-paprika-id="…" transform="translate(0 0)"><svg width="44" height="44" overflow="visible"><path d="M13.56 0.12 L37.19 4.29 C41.54 5.06 44.45 9.21 43.68 13.56 L39.52 37.19 C38.75 41.54 34.6 44.45 30.25 43.68 L6.61 39.52 C2.26 38.75 -0.64 34.6 0.12 30.25 L4.29 6.61 C5.06 2.26 9.21 -0.64 13.56 0.12 Z" fill="#c43d27" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round"/></svg></g><g data-paprika-id="…" transform="translate(13.89 13.89)"><svg width="17" height="17" overflow="visible"><path d="M15.88 9.39 C15.11 13.74 10.96 16.65 6.61 15.88 C2.26 15.11 -0.64 10.96 0.12 6.61 C0.89 2.26 5.04 -0.64 9.39 0.12 C13.74 0.89 16.65 5.04 15.88 9.39 Z" fill="#fff" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round"/></svg></g></g></svg>"`);
+    const bad = await call(c, "import_html", { html: "<!-- nada -->" });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toBe("o HTML não tem elementos para importar");
+  }, 30_000);
+
   it("MCP via stdio enxerga as mudanças do servidor HTTP", async () => {
     await call(client, "create_nodes", { nodes: [{ type: "rect", id: "viaHttp", name: "do HTTP" }] });
     const stdio = new Client({ name: "parity-stdio", version: "0" });

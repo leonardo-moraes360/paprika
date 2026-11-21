@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
 import {
   copyOwner,
+  importHTML,
+  importSVG,
   isInstance,
   anchorsToPath,
   canvasBounds,
@@ -14,6 +16,7 @@ import {
   serializePath,
   translatePath,
   wasmPaintable,
+  isSVGText,
   type Anchor,
   type Document,
   type Node,
@@ -72,6 +75,7 @@ interface Props {
   onToolDone(): void;
   apply(ops: Op[], label?: string): void;
   agentTouched: Set<string>;
+  onError?(message: string): void;
 }
 
 const isAbsolute = (doc: Document, n: Node) => {
@@ -187,7 +191,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm }: RenderProp
   }
 }
 
-export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched }: Props) {
+export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, onError }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 40, y: 40, zoom: 1 });
@@ -314,6 +318,36 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   useEffect(() => {
     if (tool !== "pen") setPen(null);
   }, [tool]);
+
+  // Colar SVG ou HTML vira nós editáveis: dentro do frame selecionado ou na página, no centro da tela.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest("input, textarea, select, [contenteditable]")) return;
+      const plain = e.clipboardData?.getData("text/plain").trim() ?? "";
+      const html = e.clipboardData?.getData("text/html") ?? "";
+      const svg = isSVGText(plain);
+      if (!svg && !html.trim()) return;
+      e.preventDefault();
+      try {
+        const sel = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
+        const into = sel?.type === "frame" && !isInstance(sel) && !copyOwner(doc, sel) ? sel.id : null;
+        const vpr = viewportRef.current!.getBoundingClientRect();
+        const c = localFor(into, vpr.left + vpr.width / 2, vpr.top + vpr.height / 2);
+        const at = { x: Math.round(c.x), y: Math.round(c.y) };
+        const r = svg ? importSVG(plain, at) : importHTML(html, at);
+        if (!r.nodes.length) throw new Error(r.warnings.join("; ") || "nada para colar");
+        const ids = r.nodes.map((n) => (n.id = newId()));
+        apply(r.nodes.map((node) => ({ op: "create", parentId: into ?? pageId, node })), svg ? "colar SVG" : "colar HTML");
+        onSelect(ids);
+        if (r.warnings.length) onError?.(`Colado com avisos: ${r.warnings.join("; ")}`);
+      } catch (err) {
+        onError?.(`Não deu para colar: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [apply, doc, localFor, onError, onSelect, pageId, selected]);
 
   // Teclas da caneta têm prioridade (captura) sobre atalhos globais e o pan com Enter.
   useEffect(() => {

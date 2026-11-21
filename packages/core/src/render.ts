@@ -2,7 +2,7 @@ import { firstPage, pageRoots, type Document, type Node } from "./schema.js";
 import { cssToString, nodeStyle, pathAttrs, resolveValue, type CSS } from "./style.js";
 
 const kebab = (k: string) => k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
-const svgAttrs = (o: Record<string, string | number | undefined>) =>
+export const svgAttrs = (o: Record<string, string | number | undefined>) =>
   Object.entries(o)
     .filter(([, v]) => v !== undefined)
     .map(([k, v]) => ` ${k === "viewBox" || k === "preserveAspectRatio" ? k : kebab(k)}="${escapeHtml(String(v))}"`)

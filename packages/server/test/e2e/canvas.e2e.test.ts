@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { copyFile, mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -374,4 +374,37 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     await expect.poll(async () => ((await doc()).nodes[inst] as { instanceOf?: string }).instanceOf).toBeUndefined();
     expect(((await doc()).nodes[pro] as { text: string; sourceId?: string })).toMatchObject({ text: "Equipe" });
   });
+  it("colar SVG e HTML vira nós; o botão exporta SVG medido no navegador", async () => {
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Selecionar" }).click();
+    const paste = (type: string, data: string) =>
+      page.evaluate(
+        ([t, d]) => {
+          const dt = new DataTransfer();
+          dt.setData(t!, d!);
+          window.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+        },
+        [type, data],
+      );
+    const before = Object.keys((await doc()).nodes).length;
+    await paste("text/plain", '<svg viewBox="0 0 10 10" width="40" height="40"><title>Seta</title><path d="M0 0 L10 5 L0 10 Z" fill="#c43d27"/></svg>');
+    const byName = async (name: string) => Object.values((await doc()).nodes).find((n) => n.name === name);
+    await expect.poll(async () => (await byName("Seta"))?.type).toBe("path");
+    const seta = (await byName("Seta"))!;
+    await expect.poll(() => page.locator(`[data-paprika-id="${seta.id}"]`).count()).toBe(1);
+    await expect.poll(() => page.getByTestId("selection").count()).toBe(1);
+
+    await paste("text/html", '<meta charset="utf-8"><div style="display:flex; gap:8px; padding:8px; background:#fff"><span>Colado</span><span>do navegador</span></div>');
+    await expect.poll(async () => Object.keys((await doc()).nodes).length).toBe(before + 4);
+    const colado = Object.values((await doc()).nodes).find((n) => n.type === "text" && n.text === "Colado")!;
+    await expect.poll(() => page.locator(`[data-paprika-id="${colado.id}"]`).textContent()).toBe("Colado");
+
+    await page.locator(`[data-layer-id="${seta.id}"]`).click();
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Exportar SVG" }).click()]);
+    expect(download.suggestedFilename()).toBe("Seta.svg");
+    const file = await download.path();
+    const svg = await readFile(file!, "utf8");
+    expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" width="40" height="40"/);
+    expect(svg).toContain('d="M0 0 L40 20 L0 40 Z"');
+  }, 30_000);
 });

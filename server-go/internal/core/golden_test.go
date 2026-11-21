@@ -3,6 +3,8 @@ package core
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -360,6 +362,105 @@ func TestGoldenRandomRuns(t *testing.T) {
 			eq(t, where+" doc sha256", hex.EncodeToString(sum[:]), s.Str("sha256"))
 			if h.CanUndo() != s.Bool("canUndo") || h.CanRedo() != s.Bool("canRedo") {
 				t.Fatalf("%s: canUndo/canRedo differ", where)
+			}
+		}
+	}
+}
+
+func importJSON(r ImportResult) string {
+	ws := make([]any, len(r.Warnings))
+	for i, w := range r.Warnings {
+		ws[i] = w
+	}
+	nodes := nodesAny(r.Nodes)
+	if nodes == nil {
+		nodes = []any{}
+	}
+	return jsonv.Stringify(jsonv.NewObject("nodes", nodes, "warnings", ws), "")
+}
+
+func resultString(ok bool, value, errMsg string) string {
+	if ok {
+		return "ok " + value
+	}
+	return "error " + errMsg
+}
+
+func wantResult(c *jsonv.Object) string {
+	r := c
+	if r.Bool("ok") {
+		return resultString(true, r.Str("value"), "")
+	}
+	return resultString(false, "", r.Str("error"))
+}
+
+func TestGoldenImports(t *testing.T) {
+	g := loadGolden(t)
+	im := g.Obj("imports")
+	for i, v := range im.Arr("svg") {
+		c := v.(*jsonv.Object)
+		o := c.Obj("opts")
+		opts := ImportOptions{X: o.Num("x"), Y: o.Num("y")}
+		if o.Has("name") {
+			n := o.Str("name")
+			opts.Name = &n
+		}
+		r, err := ImportSVG(c.Str("src"), opts)
+		got := ""
+		if err != nil {
+			got = resultString(false, "", err.Error())
+		} else {
+			got = resultString(true, importJSON(r), "")
+		}
+		eq(t, fmt.Sprintf("svg %d %s", i, c.Str("src")), got, wantResult(c.Obj("result")))
+	}
+	for i, v := range im.Arr("html") {
+		c := v.(*jsonv.Object)
+		src := c.Str("src")
+		r, err := ImportHTML(src, ImportOptions{X: float64(jsonv.Len16(src) % 3)})
+		got := ""
+		if err != nil {
+			got = resultString(false, "", err.Error())
+		} else {
+			got = resultString(true, importJSON(r), "")
+		}
+		eq(t, fmt.Sprintf("html %d %.80s", i, src), got, wantResult(c.Obj("result")))
+	}
+}
+
+func svgJSON(r SVGResult) string {
+	ws := make([]any, len(r.Warnings))
+	for i, w := range r.Warnings {
+		ws[i] = w
+	}
+	return jsonv.Stringify(jsonv.NewObject("svg", r.SVG, "width", r.Width, "height", r.Height, "warnings", ws), "")
+}
+
+func TestGoldenSVGExport(t *testing.T) {
+	g := loadGolden(t)
+	docs := baseDocs(t, g)
+	for _, v := range g.Arr("svgExports") {
+		c := v.(*jsonv.Object)
+		doc := docs[c.Str("name")]
+		var m Measure
+		if err := json.Unmarshal([]byte(c.Str("measure")), &m); err != nil {
+			t.Fatal(err)
+		}
+		for _, mode := range []string{"plain", "measured"} {
+			cases := c.Obj(mode)
+			for _, id := range cases.Keys() {
+				var mp *Measure
+				if mode == "measured" {
+					mp = &m
+				}
+				r, err := ExportSVG(doc, id, mp)
+				got := ""
+				if err != nil {
+					got = resultString(false, "", err.Error())
+				} else {
+					got = resultString(true, svgJSON(r), "")
+				}
+				eq(t, fmt.Sprintf("svg %s %s %q", c.Str("name"), mode, id), got, wantResult(cases.Obj(id)))
 			}
 		}
 	}

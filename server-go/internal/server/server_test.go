@@ -396,3 +396,29 @@ func TestWebSocketSync(t *testing.T) {
 		t.Fatalf("error: %s", jsonv.Stringify(m, ""))
 	}
 }
+
+func TestMCPImportExportSVG(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	out, isErr := callText(t, m, "import_svg", obj("svg", `<svg viewBox="0 0 10 10" width="20" height="20"><path d="M0 0 L10 0 L5 8 Z" fill="#c43d27"/><text>x</text></svg>`, "x", 5.0, "y", 5.0, "name", "Seta"))
+	if isErr || !strings.Contains(out, `"warnings": [`+"\n"+`    "<text> não é importado"`) {
+		t.Fatalf("import_svg: %q", out)
+	}
+	var created string
+	for _, id := range core.Nodes(s.Doc()).Keys() {
+		created = id
+	}
+	n := core.GetNode(s.Doc(), created)
+	if n.Str("d") != "M0 0 L20 0 L10 16 Z" || n.Str("name") != "Seta" || n.Num("x") != 5 {
+		t.Fatalf("imported path: %s", jsonv.Stringify(n, ""))
+	}
+	if out, isErr := callText(t, m, "import_svg", obj("svg", "<svg></svg>")); !isErr || out != "o SVG não tem formas para importar" {
+		t.Fatalf("empty svg: %q", out)
+	}
+	if out, isErr := callText(t, m, "import_html", obj("html", `<div style="display:flex; gap:8px"><span>Olá</span></div>`, "label", "colar")); isErr || !strings.Contains(out, `"created"`) {
+		t.Fatalf("import_html: %q", out)
+	}
+	if out, isErr := callText(t, m, "export_code", obj("rootId", created, "format", "svg")); !isErr || out != "export SVG indisponível neste servidor" {
+		t.Fatalf("export svg without browser: %q", out)
+	}
+}

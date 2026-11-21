@@ -8,7 +8,7 @@
       "listChanged": true
     }
   },
-  "instructions": "# Paprika: guia para agentes\n\nDocumento = mapa plano de nós + rootIds (telas/frames de topo, em coordenadas do canvas).\nTipos: frame (contêiner com estilo e layout), group (agrupa sem pintar), page (canvas separado), rect, ellipse,\ntext, image, path (vetor com curvas bezier). Só frame, group e page têm filhos.\n\nCampos comuns: name, x, y, width, height (número | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}. Com layout row/column, x/y dos filhos são ignorados.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\nimage: src (https:// ou data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir\n  dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.\npage: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, todo nó de topo é página e os\n  frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o\n  conteúdo atual para \"Página 1\". Telas de outra página: get_document_outline {rootId: id da página}.\nComponentes: um frame com component: true é um componente (create_component). Uma instância é um frame com\n  instanceOf = id do componente e scale opcional (create_instance): os filhos são cópias geradas, com ids\n  derivados e sourceId = id do nó de origem; mudar o componente muda todas as instâncias. Numa cópia, update só\n  troca fill, color, text, src, alt, visible e opacity (vira override da instância; null volta ao componente);\n  na raiz, fill vira override e width/height/layout/stroke/radius/shadow/clip vêm do componente (use scale).\n  Cópias não podem ser movidas, apagadas nem receber filhos: edite o componente ou detach_instance.\npath: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),\n  stroke {color,width} (traço), fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,\n  o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó\n  ganha a caixa do desenho. Curvas: \"C c1x c1y c2x c2y x y\" (cúbica), \"Q cx cy x y\" (quadrática), S/T espelham\n  o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.\n\nCores: #hex, rgb(), rgba() ou \"$token\" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.\n\"fill\" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.\n\nFluxo recomendado:\n1. get_document_outline para se orientar (barato).\n2. set_tokens com a paleta e a escala tipográfica.\n3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.\n4. lint_design e corrija o que vier como error/warning.\n5. render_screenshot para conferir visualmente; export_code para levar ao código.\nToda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. O humano vê suas edições ao vivo no canvas.\nCampos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.",
+  "instructions": "# Paprika: guia para agentes\n\nDocumento = mapa plano de nós + rootIds (telas/frames de topo, em coordenadas do canvas).\nTipos: frame (contêiner com estilo e layout), group (agrupa sem pintar), page (canvas separado), rect, ellipse,\ntext, image, path (vetor com curvas bezier). Só frame, group e page têm filhos.\n\nCampos comuns: name, x, y, width, height (número | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}. Com layout row/column, x/y dos filhos são ignorados.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\nimage: src (https:// ou data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir\n  dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.\npage: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, todo nó de topo é página e os\n  frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o\n  conteúdo atual para \"Página 1\". Telas de outra página: get_document_outline {rootId: id da página}.\nComponentes: um frame com component: true é um componente (create_component). Uma instância é um frame com\n  instanceOf = id do componente e scale opcional (create_instance): os filhos são cópias geradas, com ids\n  derivados e sourceId = id do nó de origem; mudar o componente muda todas as instâncias. Numa cópia, update só\n  troca fill, color, text, src, alt, visible e opacity (vira override da instância; null volta ao componente);\n  na raiz, fill vira override e width/height/layout/stroke/radius/shadow/clip vêm do componente (use scale).\n  Cópias não podem ser movidas, apagadas nem receber filhos: edite o componente ou detach_instance.\npath: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),\n  stroke {color,width} (traço), fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,\n  o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó\n  ganha a caixa do desenho. Curvas: \"C c1x c1y c2x c2y x y\" (cúbica), \"Q cx cy x y\" (quadrática), S/T espelham\n  o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.\n\nCores: #hex, rgb(), rgba() ou \"$token\" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.\n\"fill\" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.\n\nFluxo recomendado:\n1. get_document_outline para se orientar (barato).\n2. set_tokens com a paleta e a escala tipográfica.\n3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.\n4. lint_design e corrija o que vier como error/warning.\n5. render_screenshot para conferir visualmente; export_code para levar ao código.\nPara trazer um ícone ou um trecho de página pronto, use import_svg ou import_html (viram nós editáveis); export_code com format \"svg\" devolve SVG vetorial.\nToda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. O humano vê suas edições ao vivo no canvas.\nCampos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.",
   "tools": [
     {
       "name": "get_design_guide",
@@ -2327,7 +2327,7 @@
     {
       "name": "export_code",
       "title": "Exportar código",
-      "description": "Exporta um nó como HTML autocontido ou componente React (TSX) com estilos inline.",
+      "description": "Exporta um nó como HTML autocontido, componente React (TSX) com estilos inline ou SVG vetorial (svg: o layout é medido num Chromium headless, como no render_screenshot; rootId de página exporta a página).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2339,7 +2339,8 @@
             "type": "string",
             "enum": [
               "html",
-              "react"
+              "react",
+              "svg"
             ]
           }
         },
@@ -2350,6 +2351,88 @@
       },
       "annotations": {
         "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "import_svg",
+      "title": "Importar SVG",
+      "description": "Converte SVG em nós editáveis: path/rect/circle/ellipse/line/polyline/polygon viram path (ou rect/ellipse sem rotação), <g> vira group; transforms e pintura herdada são aplicados. Texto, imagens, gradientes e CSS em <style> são ignorados e listados em warnings. x/y deslocam a origem do SVG.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "svg": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000000
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "parentId": {
+            "description": "Pai dos nós (padrão: topo; num documento com páginas, passe o id da página)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "svg"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "import_html",
+      "title": "Importar HTML",
+      "description": "Converte HTML com estilos inline em nós (o inverso do export: o HTML do próprio Paprika volta igual). De outras fontes: display:flex vira layout row/column, blocos viram column, texto vira text, <img> vira image, <svg> passa pelo import_svg. Classes e <style> não são aplicados (warnings).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "html": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000000
+          },
+          "parentId": {
+            "description": "Pai dos nós (padrão: topo; num documento com páginas, passe o id da página)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "html"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
       },
       "execution": {
         "taskSupport": "forbidden"

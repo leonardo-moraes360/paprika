@@ -8,7 +8,7 @@ import { Op, renderHTML } from "@paprika/core";
 import { z } from "zod";
 import type { DocumentStore, ChangeEvent } from "./store.js";
 import { createMcpServer } from "./mcp.js";
-import { screenshot } from "./screenshot.js";
+import { screenshot, svgExport } from "./screenshot.js";
 
 export interface HttpOptions {
   host: string;
@@ -154,6 +154,11 @@ export async function startHttpServer(store: DocumentStore, opts: HttpOptions): 
         const rootId = url.searchParams.get("root") ?? undefined;
         const shot = await screenshot(store.doc, { rootId, scale: Number(url.searchParams.get("scale") ?? 1) || 1 });
         return send(res, 200, shot.png, "image/png");
+      }
+      if (p === "/api/svg" && req.method === "GET") {
+        // JSON (não image/svg+xml) para o SVG nunca ser renderizado na origem do servidor.
+        const rootId = url.searchParams.get("root") || undefined;
+        return send(res, 200, await svgExport(store.doc, rootId));
       }
       if (req.method === "GET") return serveStatic(p, res);
       send(res, 405, { error: "método não permitido" });

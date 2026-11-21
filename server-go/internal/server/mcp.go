@@ -84,9 +84,10 @@ type MCP struct {
 	shot  Screenshotter
 }
 
-// Screenshotter renders HTML to PNG.
+// Screenshotter renders HTML in a browser: PNG screenshots and the measured SVG export.
 type Screenshotter interface {
 	Screenshot(ctx context.Context, doc *core.Document, rootID string, scale float64) (png []byte, width, height int, err error)
+	ExportSVG(ctx context.Context, doc *core.Document, rootID string) (core.SVGResult, error)
 }
 
 func optStr(name string) z.Field { return z.Field{Name: name, Schema: z.Optional(z.String())} }
@@ -503,21 +504,94 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 
 	add("export_code", z.Object(
 		z.Field{Name: "rootId", Schema: z.String()},
-		z.Field{Name: "format", Schema: z.Default(z.Enum("html", "react"), "react")},
-	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		z.Field{Name: "format", Schema: z.Default(z.Enum("html", "react", "svg"), "react")},
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		d := store.Doc()
-		if a.Str("format") == "html" {
+		switch a.Str("format") {
+		case "html":
 			html, _, err := core.RenderHTML(d, core.RenderOptions{RootID: a.Str("rootId")})
 			if err != nil {
 				return nil, err
 			}
 			return textResult(html), nil
+		case "react":
+			code, err := core.ExportReact(d, a.Str("rootId"))
+			if err != nil {
+				return nil, err
+			}
+			return textResult(code), nil
 		}
-		code, err := core.ExportReact(d, a.Str("rootId"))
+		if m.shot == nil {
+			return nil, errors.New("export SVG indisponível neste servidor")
+		}
+		r, err := m.shot.ExportSVG(ctx, d, a.Str("rootId"))
 		if err != nil {
 			return nil, err
 		}
-		return textResult(code), nil
+		content := []any{jsonv.NewObject("type", "text", "text", r.SVG)}
+		if len(r.Warnings) > 0 {
+			content = append(content, jsonv.NewObject("type", "text", "text", "avisos: "+strings.Join(r.Warnings, "; ")))
+		}
+		return jsonv.NewObject("content", content), nil
+	})
+
+	importFields := func(first ...z.Field) *z.ObjectSchema {
+		return z.Object(append(first,
+			z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
+			z.Field{Name: "x", Schema: z.Optional(z.Number())},
+			z.Field{Name: "y", Schema: z.Optional(z.Number())},
+			label(),
+		)...)
+	}
+	importWrite := func(r core.ImportResult, a *jsonv.Object, def string) (ToolResult, error) {
+		if len(r.Nodes) == 0 {
+			msg := strings.Join(r.Warnings, "; ")
+			if msg == "" {
+				msg = "nada para importar"
+			}
+			return nil, errors.New(msg)
+		}
+		parent, _ := a.Get("parentId")
+		ops := make([]any, len(r.Nodes))
+		for i, n := range r.Nodes {
+			ops[i] = jsonv.NewObject("op", "create", "parentId", parent, "node", n)
+		}
+		res, err := store.Apply(ops, actor, labelOr(a, def))
+		if err != nil {
+			return nil, err
+		}
+		ws := make([]any, len(r.Warnings))
+		for i, w := range r.Warnings {
+			ws[i] = w
+		}
+		return jsonResult(jsonv.NewObject("created", jsonv.FromGo(res.Created), "version", float64(store.Version()), "warnings", ws)), nil
+	}
+	importOpts := func(a *jsonv.Object) core.ImportOptions {
+		o := core.ImportOptions{X: a.Num("x"), Y: a.Num("y")}
+		if a.Has("name") {
+			n := a.Str("name")
+			o.Name = &n
+		}
+		return o
+	}
+	add("import_svg", importFields(
+		z.Field{Name: "svg", Schema: z.String().Min(1).Max(2_000_000)},
+		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		r, err := core.ImportSVG(a.Str("svg"), importOpts(a))
+		if err != nil {
+			return nil, err
+		}
+		return importWrite(r, a, "importar SVG")
+	})
+	add("import_html", importFields(
+		z.Field{Name: "html", Schema: z.String().Min(1).Max(2_000_000)},
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		r, err := core.ImportHTML(a.Str("html"), importOpts(a))
+		if err != nil {
+			return nil, err
+		}
+		return importWrite(r, a, "importar HTML")
 	})
 	return m
 }

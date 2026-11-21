@@ -63,6 +63,8 @@ describe("MCP", () => {
         "get_history",
         "get_nodes",
         "group_nodes",
+        "import_html",
+        "import_svg",
         "lint_design",
         "move_nodes",
         "path_info",
@@ -147,6 +149,27 @@ describe("MCP", () => {
     expect(store.doc.nodes.i1).not.toHaveProperty("instanceOf");
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
     expect(hist.map((h: { label: string }) => h.label)).toEqual(["criar componente", "criar instância", "alterar 1 nó(s)", "desanexar 1 instância(s)"]);
+  });
+
+  it("importar SVG/HTML como nós e exportar SVG medido no navegador", async () => {
+    const c = await connect();
+    const svg = JSON.parse(textOf(await call(c, "import_svg", { svg: '<svg viewBox="0 0 10 10" width="20" height="20"><path d="M0 0 L10 0 L5 8 Z" fill="#c43d27"/><text>x</text></svg>', x: 5, y: 5, name: "Seta" })));
+    expect(svg).toMatchObject({ created: [expect.any(String)], warnings: ["<text> não é importado"] });
+    expect(store.doc.nodes[svg.created[0]]).toMatchObject({ type: "path", name: "Seta", x: 5, y: 5, d: "M0 0 L20 0 L10 16 Z", fill: "#c43d27" });
+    expect(textOf(await call(c, "import_svg", { svg: "<svg></svg>" }))).toBe("o SVG não tem formas para importar");
+    const html = JSON.parse(
+      textOf(await call(c, "import_html", { html: '<div style="display:flex; gap:8px; padding:12px; background:#fff"><span>Olá</span><span>mundo</span></div>', x: 100, y: 0 })),
+    );
+    const f = store.doc.nodes[html.created[0]]!;
+    expect(f).toMatchObject({ type: "frame", x: 100, layout: { mode: "row", gap: 8, padding: 12 } });
+    const out = await call(c, "export_code", { rootId: f.id, format: "svg" });
+    expect(out.isError).toBeFalsy();
+    const svgText = out.content[0]!.text!;
+    expect(svgText).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" width="[\d.]+" height="[\d.]+"/);
+    expect(svgText).toContain('<tspan x="0" y="');
+    expect(svgText).toContain(">mundo</tspan>");
+    const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 2 })));
+    expect(hist.map((h: { label: string }) => h.label)).toEqual(["importar SVG", "importar HTML"]);
   });
 
   it("fluxo completo: tokens → criar → lint → corrigir → exportar → desfazer", async () => {
