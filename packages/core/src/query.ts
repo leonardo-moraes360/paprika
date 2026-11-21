@@ -10,6 +10,7 @@ export function describeNode(n: Node): string {
   if (n.name) parts.push(JSON.stringify(n.name));
   if (n.type === "page") {
     if (n.fill) parts.push(`fill=${n.fill}`);
+    if (n.mode) parts.push(`mode=${n.mode}`);
     return parts.join(" ");
   }
   parts.push(sizeStr(n), `@${n.x},${n.y}`);
@@ -17,6 +18,7 @@ export function describeNode(n: Node): string {
   if (n.type === "frame" && n.layout && n.layout.mode !== "none") {
     parts.push(`${n.layout.mode} gap=${n.layout.gap}`);
   }
+  if (n.type === "frame" && n.mode) parts.push(`mode=${n.mode}`);
   if (n.type === "frame" && n.component) parts.push("component");
   if (n.type === "frame" && n.instanceOf !== undefined) {
     parts.push(`instanceOf=${n.instanceOf}`);

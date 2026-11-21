@@ -76,9 +76,9 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | Tokens globais (`$nome`) para cores e tamanhos, definidos por agentes | `set_tokens` | ✅ | — |
-| Modos de tema (claro/escuro/compacto) e coleções de tokens | Namespace global, prefixado à mão (fb#4) | ⬜ | P1 |
-| Override de tokens por frame | — (fb#4) | ⬜ | P1 |
-| Tokens exportados como variáveis CSS no export HTML/React | Valores entram inline | ⬜ | P1 |
+| Modos de tema (claro/escuro/compacto) e coleções de tokens | `document.modes` + `set_tokens` com `mode`, inspector (2026-11-21); ainda sem coleções nomeadas | 🟡 | P2 |
+| Override de tokens por frame | `mode` num frame ou página aplica um modo ao subtree (2026-11-21) | ✅ | — |
+| Tokens exportados como variáveis CSS no export HTML/React | `export_code` com `cssVariables` (2026-11-21): `:root` mais regras `[data-paprika-mode]`; o React exporta `tokensCss` | ✅ | — |
 | Tokens tipados (cor, raio, espaçamento, fonte…) com validação | String/número sem tipo | 🟡 | P2 |
 | Desvincular um token de um nó | Edição manual | 🟡 | P2 |
 | Gerar tokens a partir de uma codebase via MCP | — | ⬜ | P2 |

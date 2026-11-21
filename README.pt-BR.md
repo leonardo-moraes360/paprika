@@ -74,13 +74,13 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `create_page` | Cria uma página; a primeira leva o canvas atual para "Página 1" |
 | `create_component` / `create_instance` / `detach_instance` | Marca um frame como componente / põe uma cópia dele (com `scale` e `overrides`; retorna o id de cada cópia) / transforma uma instância em nós comuns |
 | `apply_ops` | Transação mista (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
-| `set_tokens` | Design tokens (`$nome`) para cores e tamanhos |
+| `set_tokens` | Design tokens (`$nome`) para cores e tamanhos; com `mode`, os valores de um modo de tema (ex.: `dark`) que frames e páginas escolhem com `mode` |
 | `undo` / `redo` / `get_history` | Histórico compartilhado com o humano |
 | `lint_design` | Contraste WCAG AA, overflow, tokens inexistentes, texto pequeno, alt |
 | `path_info` | Valida dados de caminho SVG e devolve a caixa exata (com extremos de bezier e arcos) e o `d` normalizado |
 | `render_screenshot` | PNG de um nó, de uma página ou do canvas |
 | `import_svg` / `import_html` | Transforma SVG colado (paths, formas, grupos, transforms) ou HTML com estilos inline em nós editáveis; o que não dá para importar volta em `warnings` |
-| `export_code` | HTML autocontido, componente React (TSX) ou SVG vetorial (layout medido num Chromium headless) |
+| `export_code` | HTML autocontido, componente React (TSX) ou SVG vetorial (layout medido num Chromium headless); `cssVariables: true` escreve os tokens como `var(--nome)`, com uma regra por modo de tema |
 
 ## Canvas
 
@@ -88,6 +88,7 @@ Atalhos: `V` selecionar, `F` frame, `R` retângulo, `O` elipse, `T` texto, `P` c
 Seleção: `Shift`+clique (no canvas ou nas camadas) adiciona ou tira um nó, arrastar no vazio desenha a caixa de seleção, `Ctrl+A` seleciona os irmãos (ou a página inteira), `Ctrl+G` agrupa, `Ctrl+Shift+G` desagrupa. Clicar dentro de um grupo seleciona o grupo; duplo clique seleciona o nó sob o cursor. Arrastar, setas, `Delete` e `Ctrl+D` valem para a seleção inteira.
 
 Componentes: "Tornar componente" no inspector de um frame, depois "Nova instância". Clicar dentro de uma instância seleciona a instância; selecione uma cópia nas camadas (ou com duplo clique) para trocar texto, cores, opacidade ou visibilidade. Mudanças no componente chegam a todas as instâncias; "Desanexar" transforma a instância em nós comuns.
+Modos de tema: o painel do documento no inspector lista os tokens de cada modo e adiciona um com `dark: bg = #14161f`; "Modo de tema" num frame ou página aplica o modo a tudo que está dentro.
 Edição de pontos: duplo clique num vetor edita os pontos. Arraste um ponto (as alças vão junto) ou uma alça (a oposta espelha; segure `Alt` para mover só ela). Duplo clique num ponto alterna entre canto e suave, duplo clique no contorno adiciona um ponto, `Delete` remove o ponto selecionado, `Esc` ou `Enter` terminam. Cada gesto é um passo de desfazer. Curvas quadráticas e arcos viram curvas cúbicas depois da edição.
 Colar e exportar: `Ctrl+V` com SVG ou HTML (por exemplo, copiado de uma página web) na área de transferência cria nós editáveis dentro do frame selecionado, ou na página, no centro da tela. O botão `⇩` da barra baixa a seleção (ou a página atual) como SVG.
 Páginas: o painel "Páginas" à esquerda troca de página, `+` cria uma (o primeiro `+` transforma o canvas atual na "Página 1"), duplo clique renomeia, `×` apaga (dá para desfazer).

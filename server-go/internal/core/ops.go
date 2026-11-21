@@ -61,6 +61,7 @@ func init() {
 		z.Option("set_tokens", z.Object(
 			z.Field{Name: "op", Schema: z.Literal("set_tokens")},
 			z.Field{Name: "tokens", Schema: z.Record(TokenNameSchema, z.Nullable(TokenValueSchema))},
+			z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
 		)),
 		z.Option("rename_document", z.Object(
 			z.Field{Name: "op", Schema: z.Literal("rename_document")},
@@ -646,6 +647,19 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 	case "set_tokens":
 		prev := jsonv.NewObject()
 		tokens := Tokens(doc)
+		mode := op.Str("mode")
+		if mode != "" {
+			modes := Modes(doc)
+			if modes == nil {
+				modes = jsonv.NewObject()
+				doc.Set("modes", modes)
+			}
+			tokens = modes.Obj(mode)
+			if tokens == nil {
+				tokens = jsonv.NewObject()
+				modes.Set(mode, tokens)
+			}
+		}
 		in := op.Obj("tokens")
 		for _, k := range in.Keys() {
 			v, _ := in.Get(k)
@@ -659,6 +673,16 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			} else {
 				tokens.Set(k, v)
 			}
+		}
+		if mode != "" {
+			modes := Modes(doc)
+			if tokens.Len() == 0 {
+				modes.Delete(mode)
+			}
+			if modes.Len() == 0 {
+				doc.Delete("modes")
+			}
+			return jsonv.NewObject("op", "set_tokens", "tokens", prev, "mode", mode), nil
 		}
 		return jsonv.NewObject("op", "set_tokens", "tokens", prev), nil
 

@@ -147,8 +147,21 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if tokens == "" {
 			tokens = "(nenhum)"
 		}
-		return textResult(fmt.Sprintf("documento \"%s\" v%d · %s nós\ntokens: %s\n\n%s", d.Str("name"), version,
-			count(core.Nodes(d).Len()), tokens, core.Outline(d, rootID, depth))), nil
+		modes := ""
+		if ms := core.Modes(d); ms != nil && ms.Len() > 0 {
+			var parts []string
+			for _, m := range ms.Keys() {
+				var kv []string
+				for _, k := range ms.Obj(m).Keys() {
+					v, _ := ms.Obj(m).Get(k)
+					kv = append(kv, "$"+k+"="+jsString(v))
+				}
+				parts = append(parts, m+"("+strings.Join(kv, " ")+")")
+			}
+			modes = "modos: " + strings.Join(parts, " ") + "\n"
+		}
+		return textResult(fmt.Sprintf("documento \"%s\" v%d · %s nós\ntokens: %s\n%s\n%s", d.Str("name"), version,
+			count(core.Nodes(d).Len()), tokens, modes, core.Outline(d, rootID, depth))), nil
 	})
 
 	add("get_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(200)}),
@@ -442,10 +455,15 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 
 	add("set_tokens", z.Object(
 		z.Field{Name: "tokens", Schema: z.Record(z.String(), z.Union(z.String(), z.Number(), z.Null()))},
+		optStr("mode"),
 		label(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		tokens, _ := a.Get("tokens")
-		return write([]any{jsonv.NewObject("op", "set_tokens", "tokens", tokens)}, labelOr(a, "tokens"))
+		op := jsonv.NewObject("op", "set_tokens", "tokens", tokens)
+		if m := a.Str("mode"); m != "" {
+			op.Set("mode", m)
+		}
+		return write([]any{op}, labelOr(a, "tokens"))
 	})
 
 	stepResult := func(key string, ok bool) ToolResult {
@@ -505,17 +523,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("export_code", z.Object(
 		z.Field{Name: "rootId", Schema: z.String()},
 		z.Field{Name: "format", Schema: z.Default(z.Enum("html", "react", "svg"), "react")},
+		z.Field{Name: "cssVariables", Schema: z.Default(z.Bool(), false)},
 	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		d := store.Doc()
 		switch a.Str("format") {
 		case "html":
-			html, _, err := core.RenderHTML(d, core.RenderOptions{RootID: a.Str("rootId")})
+			html, _, err := core.RenderHTML(d, core.RenderOptions{RootID: a.Str("rootId"), CSSVariables: a.Bool("cssVariables")})
 			if err != nil {
 				return nil, err
 			}
 			return textResult(html), nil
 		case "react":
-			code, err := core.ExportReact(d, a.Str("rootId"))
+			code, err := core.ExportReact(d, a.Str("rootId"), a.Bool("cssVariables"))
 			if err != nil {
 				return nil, err
 			}

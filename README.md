@@ -75,12 +75,12 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `create_page` | Adds a page; the first one moves the current canvas into "Página 1" |
 | `create_component` / `create_instance` / `detach_instance` | Marks a frame as a component / places a copy of it (with `scale` and `overrides`; returns the id of every copy) / turns an instance into plain nodes |
 | `apply_ops` | Mixed transaction (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
-| `set_tokens` | Design tokens (`$name`) for colors and sizes |
+| `set_tokens` | Design tokens (`$name`) for colors and sizes; with `mode`, the values of a theme mode (e.g. `dark`) that frames and pages pick with `mode` |
 | `undo` / `redo` / `get_history` | History shared with the human |
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
 | `render_screenshot` | PNG of a node, a page or the whole canvas |
 | `import_svg` / `import_html` | Turns pasted SVG (paths, shapes, groups, transforms) or HTML with inline styles into editable nodes; what can't be imported comes back in `warnings` |
-| `export_code` | Standalone HTML, a React (TSX) component or vector SVG (layout measured in headless Chromium) |
+| `export_code` | Standalone HTML, a React (TSX) component or vector SVG (layout measured in headless Chromium); `cssVariables: true` writes tokens as `var(--name)` with one rule per theme mode |
 
 > The agent-facing guide and error messages are currently in Brazilian Portuguese.
 
@@ -90,6 +90,7 @@ Shortcuts: `V` select, `F` frame, `R` rectangle, `O` ellipse, `T` text, `P` pen 
 Selection: `Shift`-click (canvas or layers) adds or removes a node, dragging on empty canvas draws a selection box, `Ctrl+A` selects the siblings (or the whole page), `Ctrl+G` groups the selection, `Ctrl+Shift+G` ungroups. A click inside a group selects the group; double-click selects the node under the cursor. Dragging, arrows, `Delete` and `Ctrl+D` act on the whole selection.
 
 Components: "Make component" in the inspector of a frame, then "New instance". A click inside an instance selects the instance; select a copy in the layers (or double-click it) to override its text, colors, opacity or visibility. Changes to the component reach every instance; "Detach" turns an instance into plain nodes.
+Theme modes: the inspector's document panel lists the tokens of each mode and adds one with `dark: bg = #14161f`; "Theme mode" on a frame or page applies a mode to everything inside it.
 Point editing: double-click a path to edit its points. Drag a point (its handles come along) or a handle (the opposite handle mirrors it; hold `Alt` to move it alone). Double-click a point to switch between corner and smooth, double-click the outline to add a point, `Delete` removes the selected point, `Esc` or `Enter` finish. Each gesture is one undo step. Quadratic curves and arcs become cubic curves once you edit them.
 Paste and export: `Ctrl+V` with SVG markup or HTML (e.g. copied from a web page) in the clipboard creates editable nodes inside the selected frame, or on the page at the center of the view. The `⇩` toolbar button downloads the selection (or the current page) as SVG.
 Pages: the "Páginas" panel on the left switches pages, `+` adds one (the first `+` turns the current canvas into "Página 1"), double-click renames, `×` deletes (undoable).

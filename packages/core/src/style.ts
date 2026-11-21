@@ -2,15 +2,75 @@ import type { Document, Layout, Node, PathNode, Size } from "./schema.js";
 
 export type CSS = Record<string, string | number>;
 
-/** Resolve `$token` contra `doc.tokens`. Tokens podem referenciar outros tokens (até 8 níveis). */
-export function resolveValue<T extends string | number | undefined>(doc: Document, v: T): T | string | number {
+/** Modo de tema em vigor num nó: o dele ou o do frame/página ancestral mais próximo com `mode`. */
+export function modeOf(doc: Document, node: Node | undefined): string | undefined {
+  for (let n = node, depth = 0; n && depth < 1000; n = n.parentId ? doc.nodes[n.parentId] : undefined, depth++) {
+    if ((n.type === "frame" || n.type === "page") && n.mode) return n.mode;
+  }
+  return undefined;
+}
+
+/** Valor de um token no modo (se o modo o define) ou o valor base. */
+export function tokenValue(doc: Document, name: string, mode?: string): string | number | undefined {
+  const m = mode && doc.modes && Object.hasOwn(doc.modes, mode) ? doc.modes[mode]! : undefined;
+  if (m && Object.hasOwn(m, name)) return m[name];
+  return Object.hasOwn(doc.tokens, name) ? doc.tokens[name] : undefined;
+}
+
+/**
+ * Resolve `$token` contra `doc.tokens`, ou contra `doc.modes[mode]` primeiro quando há modo.
+ * Tokens podem referenciar outros tokens (até 8 níveis).
+ */
+export function resolveValue<T extends string | number | undefined>(doc: Document, v: T, mode?: string): T | string | number {
   let cur: string | number | undefined = v;
   for (let depth = 0; depth < 8 && typeof cur === "string" && cur.startsWith("$"); depth++) {
-    const next: string | number | undefined = doc.tokens[cur.slice(1)];
+    const next = tokenValue(doc, cur.slice(1), mode);
     if (next === undefined) return cur;
     cur = next;
   }
   return cur as T | string | number;
+}
+
+/** Nome da variável CSS de um token (`brand.dark` → `--brand\.dark`). */
+export function cssVarName(token: string): string {
+  return `--${token.replace(/\./g, "\\.")}`;
+}
+
+const isKnownToken = (doc: Document, name: string) =>
+  Object.hasOwn(doc.tokens, name) || Object.values(doc.modes ?? {}).some((m) => Object.hasOwn(m, name));
+
+/**
+ * Valor de pintura de um nó: resolvido no modo do nó, ou `var(--token)` quando `vars` (export com
+ * variáveis CSS; a folha de estilos de `tokenStylesheet` define os valores por modo).
+ */
+function paintValue(doc: Document, v: string | number, mode: string | undefined, vars: boolean | undefined): string | number {
+  if (vars && typeof v === "string" && v.startsWith("$") && isKnownToken(doc, v.slice(1))) return `var(${cssVarName(v.slice(1))})`;
+  return resolveValue(doc, v, mode);
+}
+
+/** Escapa o que fecharia o valor ou a regra (`;`, `{`, `}`, `<`…) num valor de variável CSS. */
+function cssValue(v: string): string {
+  return v.replace(/[<>{};\\]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `);
+}
+
+function tokenDecls(doc: Document, tokens: Record<string, string | number>): string {
+  return Object.entries(tokens)
+    .map(([k, v]) => {
+      const value =
+        typeof v === "number" ? `${round(v)}px` : v.startsWith("$") && isKnownToken(doc, v.slice(1)) ? `var(${cssVarName(v.slice(1))})` : cssValue(v);
+      return `${cssVarName(k)}:${value}`;
+    })
+    .join(";");
+}
+
+/**
+ * Folha de estilos dos tokens como variáveis CSS: `:root` com os valores base e uma regra por
+ * modo (`[data-paprika-mode="dark"]`). Números viram px (tokens numéricos são tamanhos de fonte).
+ */
+export function tokenStylesheet(doc: Document): string {
+  let out = `:root{${tokenDecls(doc, doc.tokens)}}`;
+  for (const [mode, tokens] of Object.entries(doc.modes ?? {})) out += `[data-paprika-mode="${mode}"]{${tokenDecls(doc, tokens)}}`;
+  return out;
 }
 
 const px = (n: number) => `${round(n)}px`;
@@ -38,8 +98,10 @@ const ALIGN = { start: "flex-start", center: "center", end: "flex-end", stretch:
  * Estilo CSS (camelCase) de um nó. É a única fonte de verdade de renderização: o canvas React,
  * o export HTML e o screenshot usam esta função, então o que o agente vê é o que o humano vê.
  */
-export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean } = {}): CSS {
+export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; vars?: boolean } = {}): CSS {
   if (node.type === "page") return {}; // páginas não são desenhadas: os filhos usam coordenadas do canvas
+  const mode = modeOf(doc, node);
+  const paint = (v: string | number) => paintValue(doc, v, mode, opts.vars);
   const parent = node.parentId ? doc.nodes[node.parentId] : undefined;
   const parentMode = parent?.type === "frame" && parent.layout && parent.layout.mode !== "none" ? parent.layout.mode : null;
   const css: CSS = { boxSizing: "border-box" };
@@ -69,17 +131,17 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean } 
     css.display = node.visible ? "block" : "none";
     if (node.shadow) {
       const s = node.shadow;
-      css.filter = `drop-shadow(${px(s.x)} ${px(s.y)} ${px(s.blur)} ${resolveValue(doc, s.color)})`;
+      css.filter = `drop-shadow(${px(s.x)} ${px(s.y)} ${px(s.blur)} ${paint(s.color)})`;
     }
     return css;
   }
-  if (node.fill) css.background = String(resolveValue(doc, node.fill));
-  if (node.stroke) css.border = `${px(node.stroke.width)} solid ${resolveValue(doc, node.stroke.color)}`;
+  if (node.fill) css.background = String(paint(node.fill));
+  if (node.stroke) css.border = `${px(node.stroke.width)} solid ${paint(node.stroke.color)}`;
   if (node.type === "ellipse") css.borderRadius = "50%";
   else if (node.radius) css.borderRadius = px(node.radius);
   if (node.shadow) {
     const s = node.shadow;
-    css.boxShadow = `${px(s.x)} ${px(s.y)} ${px(s.blur)} ${px(s.spread)} ${resolveValue(doc, s.color)}`;
+    css.boxShadow = `${px(s.x)} ${px(s.y)} ${px(s.blur)} ${px(s.spread)} ${paint(s.color)}`;
   }
 
   switch (node.type) {
@@ -98,9 +160,9 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean } 
       break;
     }
     case "text": {
-      css.color = String(resolveValue(doc, node.color));
+      css.color = String(paint(node.color));
       css.fontFamily = node.fontFamily;
-      const fs = resolveValue(doc, node.fontSize);
+      const fs = paint(node.fontSize);
       css.fontSize = typeof fs === "number" ? px(fs) : String(fs);
       css.fontWeight = node.fontWeight;
       css.lineHeight = node.lineHeight;
@@ -122,10 +184,11 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean } 
 }
 
 /** Atributos do <svg> e do <path> de um nó path. Fonte única para canvas, HTML/screenshot e React. */
-export function pathAttrs(doc: Document, node: PathNode): {
+export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean } = {}): {
   svg: { viewBox?: string; preserveAspectRatio?: string };
   path: { d: string; fill: string; fillRule: string; stroke?: string; strokeWidth?: number; strokeLinecap: string; strokeLinejoin: string };
 } {
+  const mode = modeOf(doc, node);
   const svg: { viewBox?: string; preserveAspectRatio?: string } = {};
   if (node.viewBox) {
     svg.viewBox = node.viewBox.map(round).join(" ");
@@ -133,13 +196,13 @@ export function pathAttrs(doc: Document, node: PathNode): {
   }
   const path: ReturnType<typeof pathAttrs>["path"] = {
     d: node.d,
-    fill: node.fill ? String(resolveValue(doc, node.fill)) : "none",
+    fill: node.fill ? String(paintValue(doc, node.fill, mode, opts.vars)) : "none",
     fillRule: node.fillRule,
     strokeLinecap: node.strokeCap,
     strokeLinejoin: node.strokeJoin,
   };
   if (node.stroke && node.stroke.width > 0) {
-    path.stroke = String(resolveValue(doc, node.stroke.color));
+    path.stroke = String(paintValue(doc, node.stroke.color, mode, opts.vars));
     path.strokeWidth = node.stroke.width;
   }
   return { svg, path };

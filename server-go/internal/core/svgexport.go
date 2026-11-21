@@ -42,7 +42,7 @@ func svgPaint(doc *Document, n *Node, k string, warn func(string)) (string, bool
 	if !ok {
 		return "", false
 	}
-	s := jsonv.Trim(jsString(ResolveValue(doc, v)))
+	s := jsonv.Trim(jsString(ResolveValue(doc, v, ModeOf(doc, n))))
 	if gradientRe.MatchString(s) {
 		warn("gradientes e imagens de fundo não vão para o SVG; o preenchimento foi omitido")
 		return "", false
@@ -190,7 +190,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 			}
 			sc, _ := s.Get("color")
 			defs += fmt.Sprintf(`<filter id="shadow-%s" x="-50%%" y="-50%%" width="200%%" height="200%%"><feDropShadow dx="%s" dy="%s" stdDeviation="%s" flood-color="%s"/></filter>`,
-				id, f(s.Num("x")), f(s.Num("y")), f(s.Num("blur")/2), EscapeHTML(jsString(ResolveValue(doc, sc))))
+				id, f(s.Num("x")), f(s.Num("y")), f(s.Num("blur")/2), EscapeHTML(jsString(ResolveValue(doc, sc, ModeOf(doc, n)))))
 			shadowAttr = fmt.Sprintf(` filter="url(#shadow-%s)"`, id)
 		}
 		fill, hasFill := "", false
@@ -205,7 +205,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		strokeAttr := ""
 		if sw != 0 {
 			sc, _ := st.Get("color")
-			strokeAttr = fmt.Sprintf(` stroke="%s" stroke-width="%s"`, EscapeHTML(jsString(ResolveValue(doc, sc))), f(sw))
+			strokeAttr = fmt.Sprintf(` stroke="%s" stroke-width="%s"`, EscapeHTML(jsString(ResolveValue(doc, sc, ModeOf(doc, n)))), f(sw))
 		}
 		fillVal := "none"
 		if hasFill {
@@ -251,7 +251,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		}
 		if typ == "text" {
 			fsv, _ := n.Get("fontSize")
-			fs := ResolveValue(doc, fsv)
+			fs := ResolveValue(doc, fsv, ModeOf(doc, n))
 			size, isNum := fs.(float64)
 			if !isNum {
 				size = jsonv.ParseFloat(jsString(fs))
@@ -260,7 +260,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 				}
 			}
 			colorV, _ := n.Get("color")
-			color := EscapeHTML(jsString(ResolveValue(doc, colorV)))
+			color := EscapeHTML(jsString(ResolveValue(doc, colorV, ModeOf(doc, n))))
 			var tspans strings.Builder
 			anchor := ""
 			lines, hasLines := []MeasureLine(nil), false
@@ -360,7 +360,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		fill := "#ffffff"
 		if page != nil {
 			if v, ok := page.Get("fill"); ok && v != "" && v != nil {
-				fill = jsString(ResolveValue(doc, v))
+				fill = jsString(ResolveValue(doc, v, page.Str("mode")))
 			}
 		}
 		bg = fmt.Sprintf(`<rect width="%s" height="%s" fill="%s"/>`, f(width), f(height), EscapeHTML(fill))

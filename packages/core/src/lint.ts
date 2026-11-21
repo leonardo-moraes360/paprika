@@ -1,5 +1,5 @@
 import { isContainer, type Document, type Node } from "./schema.js";
-import { resolveValue } from "./style.js";
+import { modeOf, resolveValue, tokenValue } from "./style.js";
 
 export interface RGBA {
   r: number;
@@ -59,7 +59,7 @@ export function effectiveBackground(doc: Document, node: Node): RGBA | undefined
   let cur: Node | undefined = node.type === "text" ? node : node.parentId ? doc.nodes[node.parentId] : undefined;
   while (cur) {
     if (cur.type !== "group" && cur.fill) {
-      const c = parseColor(String(resolveValue(doc, cur.fill)));
+      const c = parseColor(String(resolveValue(doc, cur.fill, modeOf(doc, cur))));
       if (!c) return undefined;
       layers.push(c);
       if (c.a >= 1) break;
@@ -109,19 +109,22 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
   for (const id of ids) {
     const node = doc.nodes[id];
     if (!node) continue;
+    const mode = modeOf(doc, node);
+    if ((node.type === "frame" || node.type === "page") && node.mode && !(doc.modes && Object.hasOwn(doc.modes, node.mode)))
+      issues.push({ rule: "unknown-mode", severity: "warning", nodeId: id, message: `modo "${node.mode}" não tem tokens (set_tokens com mode); valem os tokens base` });
     for (const ref of tokenRefs(node)) {
-      if (doc.tokens[ref] === undefined)
+      if (tokenValue(doc, ref, mode) === undefined)
         issues.push({ rule: "unknown-token", severity: "error", nodeId: id, message: `token "$${ref}" não existe` });
     }
 
     if (node.type === "text") {
       if (!node.text.trim())
         issues.push({ rule: "empty-text", severity: "warning", nodeId: id, message: "texto vazio" });
-      const fs = resolveValue(doc, node.fontSize);
+      const fs = resolveValue(doc, node.fontSize, modeOf(doc, node));
       const size = typeof fs === "number" ? fs : parseFloat(String(fs));
       if (size < 12)
         issues.push({ rule: "small-text", severity: "warning", nodeId: id, message: `fonte de ${size}px (< 12px)` });
-      const fg = parseColor(String(resolveValue(doc, node.color)));
+      const fg = parseColor(String(resolveValue(doc, node.color, modeOf(doc, node))));
       const bg = effectiveBackground(doc, node);
       if (fg && bg) {
         const ratio = contrastRatio(blend(fg, bg), bg);

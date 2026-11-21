@@ -76,9 +76,9 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
 | Global tokens (`$name`) for colors and sizes, set by agents | `set_tokens` | ✅ | — |
-| Theme modes (light/dark/compact) and token collections | Global namespace, prefixed by hand (fb#4) | ⬜ | P1 |
-| Frame-scoped token overrides | — (fb#4) | ⬜ | P1 |
-| Tokens exported as CSS variables in HTML/React export | Values are inlined | ⬜ | P1 |
+| Theme modes (light/dark/compact) and token collections | `document.modes` + `set_tokens` with `mode`, inspector (2026-11-21); no named collections yet | 🟡 | P2 |
+| Frame-scoped token overrides | `mode` on a frame or page applies a mode to its subtree (2026-11-21) | ✅ | — |
+| Tokens exported as CSS variables in HTML/React export | `export_code` `cssVariables` (2026-11-21): `:root` plus `[data-paprika-mode]` rules; React exports `tokensCss` | ✅ | — |
 | Typed tokens (color, radius, spacing, font…) with validation | Untyped string/number | 🟡 | P2 |
 | Detach a token from a node | Manual edit | 🟡 | P2 |
 | Generate tokens from an existing codebase via MCP | — | ⬜ | P2 |

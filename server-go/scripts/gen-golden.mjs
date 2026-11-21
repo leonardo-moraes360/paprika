@@ -42,6 +42,29 @@ const card = () =>
     },
   ]).doc;
 
+// Theme modes: base tokens, a "dark" mode, the same card light and dark side by side, a chained
+// token, a token defined only in a mode, a numeric (font size) token and a mode without tokens.
+const themed = () =>
+  applyOps(base(), [
+    { op: "set_tokens", tokens: { bg: "#ffffff", fg: "#1e2336", "brand.main": "#c43d27", accent: "$brand.main", size: 16, "10": "#000" } },
+    { op: "set_tokens", mode: "dark", tokens: { bg: "#14161f", fg: "#f2f2f2", only: "rgba(0,0,0,.5)", size: 18 } },
+    { op: "set_tokens", mode: "odd", tokens: { fg: "a;b}<\\/style>" } },
+    ...["light", "dark"].map((m, i) => ({
+      op: "create",
+      node: {
+        type: "frame", id: `t-${m}`, name: `Tema ${m}`, x: i * 340, width: 320, height: 160, fill: "$bg", ...(m === "dark" ? { mode: "dark" } : {}),
+        layout: { mode: "column", gap: 8, padding: 16 },
+        stroke: { color: "$accent", width: 1 }, shadow: { x: 0, y: 2, blur: 4, spread: 0, color: "$only" },
+        children: [
+          { type: "text", id: `t-${m}-title`, text: "Olá", color: "$fg", fontSize: "$size", width: "fill", height: "hug" },
+          { type: "path", id: `t-${m}-icon`, d: "M0 0 L10 10", width: 10, height: 10, fill: "$accent", stroke: { color: "$fg", width: 1 } },
+          { type: "frame", id: `t-${m}-inner`, mode: "odd", width: 40, height: 20, fill: "$fg" },
+        ],
+      },
+    })),
+    { op: "create", node: { type: "frame", id: "t-ghost", mode: "ghost", x: 700, width: 20, height: 20, fill: "$bg" } },
+  ]).doc;
+
 const free = () =>
   applyOps(base(), [
     {
@@ -96,6 +119,7 @@ const docs = {
   free: free(),
   grouped: grouped(),
   paged: paged(),
+  themed: parseDocument(themed()),
   demo: parseDocument(JSON.parse(readFileSync(join(root, "examples/demo.paprika.json"), "utf8"))),
   bezier: parseDocument(JSON.parse(readFileSync(join(root, "examples/bezier.paprika.json"), "utf8"))),
 };
@@ -103,6 +127,11 @@ const docs = {
 // ---- operation cases: [baseDoc, ops] ----
 const R = (extra) => ({ op: "create", node: { type: "rect", id: "r", ...extra } });
 const opCases = [
+  ["themed", [{ op: "set_tokens", mode: "dark", tokens: { bg: null, fg: null, only: null, size: null } }]],
+  ["themed", [{ op: "set_tokens", mode: "new", tokens: { fg: "#123", gone: null } }]],
+  ["themed", [{ op: "set_tokens", mode: "bad mode", tokens: { fg: "#123" } }]],
+  ["themed", [{ op: "update", id: "t-light", props: { mode: "dark" } }, { op: "update", id: "t-dark", props: { mode: "x y" } }]],
+  ["themed", [{ op: "set_tokens", mode: "odd", tokens: { fg: null } }, { op: "set_tokens", mode: "dark", tokens: { bg: null, fg: null, only: null, size: null } }]],
   ["comp", [{ op: "create", node: { type: "frame", id: "px", instanceOf: "btn", overrides: JSON.parse('{"__proto__":{"text":"x"},"ok":{"fill":"#fff","bad-key":1,"__proto__":2}}') } }]],
   ["comp", [{ op: "update", id: "i1", props: { overrides: { "a b": {}, lbl: { text: "ok" } } } }]],
   ["comp", [{ op: "create", node: { type: "frame", id: "py", instanceOf: "btn", overrides: JSON.parse('{"__proto__":{"text":"x"},"lbl":{"text":"ok","__proto__":2}}') } }]],
@@ -358,6 +387,12 @@ const views = Object.entries(viewDocs).map(([name, doc]) => {
     htmlPages: Object.fromEntries(doc.rootIds.filter((id) => doc.nodes[id].type === "page").map((id) => [id, renderHTML(doc, { rootId: id }).html])),
     react: Object.fromEntries(ids.map((id) => {
       const r = err(() => exportReact(doc, id));
+      return [id, r.ok ? r.value : `ERROR: ${r.error}`];
+    })),
+    htmlVars: renderHTML(doc, { cssVariables: true }).html,
+    htmlVarsRoots: Object.fromEntries(ids.map((id) => [id, renderHTML(doc, { rootId: id, cssVariables: true }).html])),
+    reactVars: Object.fromEntries(ids.map((id) => {
+      const r = err(() => exportReact(doc, id, { cssVariables: true }));
       return [id, r.ok ? r.value : `ERROR: ${r.error}`];
     })),
     describe: Object.fromEntries(ids.map((id) => [id, describeNode(doc.nodes[id])])),

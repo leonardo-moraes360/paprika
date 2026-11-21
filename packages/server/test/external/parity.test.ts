@@ -396,6 +396,34 @@ describe(`paridade (${impl}): MCP`, () => {
     expect(textOf(bad)).toBe("o HTML não tem elementos para importar");
   }, 30_000);
 
+  it("modos de tema: set_tokens com mode, frame com mode, export com variáveis CSS", async () => {
+    const c = client;
+    expect((await call(c, "set_tokens", { tokens: { tela: "#ffffff", tinta: "#1e2336", corpo: 16 } })).isError).toBeFalsy();
+    expect((await call(c, "set_tokens", { mode: "escuro", tokens: { tela: "#14161f", tinta: "#f2f2f2" }, label: "modo escuro" })).isError).toBeFalsy();
+    const bad = await call(c, "set_tokens", { mode: "sem espaço", tokens: { tela: "#000" } });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toContain("nome de modo deve ser");
+    const created = await call(c, "create_nodes", {
+      nodes: [
+        { type: "frame", id: "claro", name: "Claro", x: 600, y: 0, width: 120, height: 60, fill: "$tela", children: [{ type: "text", id: "claroT", text: "Aa", color: "$tinta", fontSize: "$corpo" }] },
+        { type: "frame", id: "escuro", name: "Escuro", mode: "escuro", x: 760, y: 0, width: 120, height: 60, fill: "$tela", children: [{ type: "text", id: "escuroT", text: "Aa", color: "$tinta", fontSize: "$corpo" }] },
+      ],
+    });
+    expect(created.isError, textOf(created)).toBeFalsy();
+    const outline = textOf(await call(c, "get_document_outline", { rootId: "escuro" }));
+    expect(outline).toContain("modos: escuro($tela=#14161f $tinta=#f2f2f2)");
+    expect(outline).toContain('frame#escuro "Escuro" 120×60 @760,0 fill=$tela mode=escuro');
+    const html = textOf(await call(c, "export_code", { rootId: "escuroT", format: "html", cssVariables: true }));
+    expect(html).toContain(':root{--tela:#ffffff;--tinta:#1e2336;--corpo:16px}[data-paprika-mode="escuro"]{--tela:#14161f;--tinta:#f2f2f2}');
+    expect(html).toContain('<body data-paprika-mode="escuro">');
+    expect(html).toContain("color:var(--tinta)");
+    const react = textOf(await call(c, "export_code", { rootId: "escuro", format: "react" }));
+    expect(react).toContain('<div data-name="Escuro" data-paprika-mode="escuro" style={{');
+    expect(react).toContain('background: "#14161f"');
+    const lint = JSON.parse(textOf(await call(c, "lint_design", { rootId: "escuro" })));
+    expect(lint.issues.filter((i: { rule: string }) => i.rule === "unknown-token")).toEqual([]);
+  });
+
   it("MCP via stdio enxerga as mudanças do servidor HTTP", async () => {
     await call(client, "create_nodes", { nodes: [{ type: "rect", id: "viaHttp", name: "do HTTP" }] });
     const stdio = new Client({ name: "parity-stdio", version: "0" });
