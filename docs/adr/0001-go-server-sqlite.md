@@ -2,7 +2,7 @@
 
 # ADR 0001: Go server with SQLite storage
 
-- Status: accepted (2026-11-21)
+- Status: accepted (2026-11-21); amended 2026-11-21 (see [Follow-up](#follow-up-typescript-server-removed))
 - Scope: `server-go/` (new). The TypeScript server (`packages/server`) and core (`packages/core`) stay as they are.
 
 ## Context
@@ -33,3 +33,10 @@ The owner asked for the Paprika server to be reimplemented in Go, keeping the sa
 - **SQLite as the source with the JSON mirrored on every change** (recommended at first): keeps the git workflow automatic, but two sources of truth would need conflict handling. Not chosen by the owner.
 - **JSON as the source, SQLite only for history**: smallest change, but does not answer "store the data in a database".
 - **Running the TypeScript core inside Go (goja/V8)** to avoid a port: no duplicated logic, but heavy, slower and hard to debug; the golden fixtures give the same guarantee.
+
+## Follow-up: TypeScript server removed
+
+- Date: 2026-11-21. Decided by the owner: keep only the Go server.
+- `packages/server` was deleted. The black-box suites moved to `packages/e2e` and run only against the Go binary (`test:api`, the former parity suite, and `test:e2e`); CI runs them once instead of once per server.
+- Decision 8 changes: there is no TypeScript server to dump the contract from, so `server-go/contract/mcp.json` and `guide.pt-BR.md` are now the contract itself, edited by hand and checked by `packages/e2e/test/api.test.ts`. `scripts/gen-contract.mjs` became `scripts/gen-measure.mjs`, which only copies the measure script from `@paprika/core`.
+- Decision 7 stays: `packages/core` is still the reference (the canvas runs it) and the golden fixtures still lock the Go port to it.

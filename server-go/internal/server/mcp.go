@@ -117,7 +117,7 @@ func label() z.Field { return z.Field{Name: "label", Schema: z.Optional(z.String
 
 func batch() z.Field { return z.Field{Name: "batch", Schema: z.Optional(z.String().Min(1).Max(200))} }
 
-// ActorFromClient turns a clientInfo name into "agent:<name>" (same filter as the TS server); "" if nothing is left.
+// ActorFromClient turns a clientInfo name into "agent:<name>" (same filter as the former TS server); "" if nothing is left.
 func ActorFromClient(name string) string {
 	var b strings.Builder
 	for _, r := range name {
@@ -157,7 +157,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add := func(name string, schema *z.ObjectSchema, h func(ctx context.Context, args *jsonv.Object) (ToolResult, error)) {
 		m.tools[name] = tool{name, schema, h}
 	}
-	// writeWith answers extra fields first, then created and version (same key order as the TS server).
+	// writeWith answers extra fields first, then created and version (same key order as the former TS server).
 	// The last two extra values may be "batch", name (taken from the args by the callers).
 	writeBatch := func(ops []any, lbl, bt string, extra ...any) (ToolResult, error) {
 		r, err := store.ApplyBatch(ops, m.actorName(), lbl, bt)

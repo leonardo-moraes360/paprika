@@ -156,7 +156,7 @@ from step 4, behind a switch, with the DOM still the default:
   CPU path can draw on a transparent canvas (the dotted canvas background shows through).
 - Nodes it cannot draw exactly (non-solid colors, a shadow on a path) stay painted by the DOM.
 - `render_screenshot` and the exports stay HTML/CSS, so the agent-facing output is unchanged.
-- Parity is tested: `packages/server/test/e2e/wasm.e2e.test.ts` renders the bezier example in both
+- Parity is tested: `packages/e2e/test/e2e/wasm.e2e.test.ts` renders the bezier example in both
   modes and requires fewer than 0.5% differing pixels, checks that an MCP edit reaches the WASM
   pixels, that `.wasm` is served as `application/wasm` (TypeScript and Go servers), and that the
   switch persists.

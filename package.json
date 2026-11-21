@@ -9,21 +9,18 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm -r --workspace-concurrency=1 run build",
+    "build": "pnpm -r --workspace-concurrency=1 run build && pnpm go:build",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
-    "dev": "pnpm --filter @paprika/server dev",
-    "start": "node packages/server/dist/cli.js serve",
-    "test:e2e": "pnpm --filter @paprika/server test:e2e",
+    "dev": "pnpm go:build && server-go/bin/paprika import examples/demo.paprika.json --db dev.db --replace && server-go/bin/paprika serve --db dev.db",
+    "start": "server-go/bin/paprika serve",
     "test:render": "cd crates/render && cargo test && cargo clippy --all-targets -- -D warnings && cargo fmt --check",
-    "check": "pnpm build && pnpm typecheck && pnpm test && pnpm test:e2e",
     "go:build": "cd server-go && go build -buildvcs=false -o bin/paprika ./cmd/paprika",
     "go:test": "cd server-go && go vet ./... && go test ./...",
-    "go:golden": "node server-go/scripts/gen-golden.mjs && node server-go/scripts/gen-contract.mjs",
-    "test:parity": "pnpm --filter @paprika/server test:parity",
-    "test:parity:go": "pnpm go:build && PAPRIKA_SERVER_BIN=$PWD/server-go/bin/paprika pnpm --filter @paprika/server test:parity",
-    "test:e2e:go": "pnpm go:build && PAPRIKA_SERVER_BIN=$PWD/server-go/bin/paprika pnpm --filter @paprika/server test:e2e",
-    "check:go": "pnpm build && pnpm go:golden && git diff --exit-code -- server-go/internal/core/testdata server-go/contract && pnpm go:test && pnpm test:parity:go && pnpm test:e2e:go"
+    "go:golden": "node server-go/scripts/gen-golden.mjs && node server-go/scripts/gen-measure.mjs",
+    "test:api": "pnpm go:build && pnpm --filter @paprika/e2e test:api",
+    "test:e2e": "pnpm go:build && pnpm --filter @paprika/e2e test:e2e",
+    "check": "pnpm build && pnpm typecheck && pnpm go:golden && git diff --exit-code -- server-go/internal/core/testdata server-go/contract && pnpm test && pnpm go:test && pnpm test:api && pnpm test:e2e"
   },
   "devDependencies": {
     "typescript": "~7.0.2",

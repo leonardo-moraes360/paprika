@@ -13,10 +13,10 @@ Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workfl
 | Job | What it checks | Runs when the PR touches |
 | --- | --- | --- |
 | **Plan** | Runs the tests of the CI scripts ([`.github/scripts/test/`](../.github/scripts/test/)), checks that every third-party action is pinned to a commit SHA ([`check-actions-pinned.mjs`](../.github/scripts/check-actions-pinned.mjs)), scores the benchmark fixtures ([`bench/tasks/`](../bench/tasks/)), lists the changed files and decides which jobs below run ([`ci-plan.mjs`](../.github/scripts/ci-plan.mjs)). | always |
-| **TS build + tscheck** | `pnpm build` (core, server, web, and the WASM canvas renderer from `crates/render` with `PAPRIKA_REQUIRE_WASM=1`), `pnpm typecheck`, `pnpm go:build`. Uploads `dist/`, `apps/web/src/wasm` and the Go binary as the `build` artifact for the jobs below, so the e2e suites also run the WASM renderer tests. | TS, Go or Rust code |
-| **Unit** `<pkg>` (shard n/2) | Vitest for `@paprika/core` and `@paprika/server`, split in 2 shards. | `packages/core`, `packages/server` |
-| **e2e / parity vs ts / go server** | The black-box suites (`test:e2e`, `test:parity`) against the TypeScript server and against the Go binary, 4 jobs in parallel. | core, server, web, examples, `crates/render`, `server-go` |
-| **Go fixtures up to date** | `pnpm go:golden` then `git diff --exit-code` on `server-go/internal/core/testdata` and `server-go/contract`. | core, server, `server-go` |
+| **TS build + tscheck** | `pnpm build` (core, web, the WASM canvas renderer from `crates/render` with `PAPRIKA_REQUIRE_WASM=1`, and the Go server binary), `pnpm typecheck` (including the `packages/e2e` suites). Uploads `dist/`, `apps/web/src/wasm` and the Go binary as the `build` artifact for the jobs below, so the e2e suite also runs the WASM renderer tests. | TS, Go or Rust code |
+| **Unit** `<pkg>` (shard n/2) | Vitest for `@paprika/core`, split in 2 shards. | `packages/core` |
+| **e2e / api vs Go server** | The black-box suites of `packages/e2e` against the Go binary: `test:e2e` (canvas in Playwright) and `test:api` (MCP over HTTP and stdio, HTTP API, WebSocket), 2 jobs in parallel. | e2e: core, `packages/e2e`, web, examples, `crates/render`, `server-go`; api: core, `packages/e2e`, `server-go` |
+| **Go fixtures up to date** | `pnpm go:golden` then `git diff --exit-code` on `server-go/internal/core/testdata` and `server-go/contract` (the measure script). | core, `server-go` |
 | **golangci-lint** | golangci-lint v2 ([`server-go/.golangci.yml`](../server-go/.golangci.yml)) and `go vet`. | `server-go` |
 | **govulncheck** | Known vulnerabilities reachable from the Go code. | `server-go` |
 | **Go test** (shard n/2) | `go test -shuffle=on` on the affected packages, split in 2 shards. | `server-go` |
@@ -34,7 +34,7 @@ Go jobs install the latest patch of the minor in `GO_VERSION` (top of `ci.yml`),
 Selection works at three levels:
 
 1. **Per area** ([`ci-plan.mjs`](../.github/scripts/ci-plan.mjs)): a job is skipped when its area did not change (table above).
-2. **Per TS test file**: when only one package changed, its unit job runs `vitest --changed <base-sha>`, which runs just the test files whose import graph reaches a changed file. When a package's *dependency* changed (core → server), the dependent runs all of its tests, because vitest cannot follow a change through the dependency's built `dist/`.
+2. **Per TS test file**: when only one package changed, its unit job runs `vitest --changed <base-sha>`, which runs just the test files whose import graph reaches a changed file. When a package's *dependency* changed, the dependent runs all of its tests, because vitest cannot follow a change through the dependency's built `dist/` (today only `@paprika/core` has unit tests).
 3. **Per Go package** ([`go-affected.sh`](../.github/scripts/go-affected.sh)): the packages whose files changed (a `testdata/` file belongs to its package) plus every package that imports them, tests included. A change to `go.mod`/`go.sum` selects all packages.
 
 See what CI would run for your branch:
@@ -74,7 +74,7 @@ built and no server is started, so the whole check costs under a second. See
 
 - Jobs without dependencies between them run at the same time: after Plan, the TS build, Go lint, govulncheck, Go tests, Rust and CodeQL start together; unit tests, the black-box suites and the fixture check start once the build artifact exists.
 - Vitest uses `--shard=n/2` per package; Go splits the sorted package list round-robin across 2 shards.
-- The e2e and parity suites run as 4 separate jobs (suite × server implementation).
+- The e2e and api suites run as 2 separate jobs, both against the Go binary.
 - Rust runs lint and test as 2 parallel jobs.
 
 To add shards, change `shard: [1, 2]` in the matrix and the `/2` (vitest) or the `2` passed to `go-affected.sh` in the same job.
@@ -87,7 +87,7 @@ To add shards, change `shard: [1, 2]` in the matrix and the `/2` (vitest) or the
 | Go modules + build/test cache | `actions/setup-go` | `server-go/go.sum` |
 | golangci-lint | `golangci-lint-action` | its own key |
 | Rust `target/` and registry | `Swatinem/rust-cache`, one per task, plus one for the release WASM build (composite action [`setup-rust-wasm`](../.github/actions/setup-rust-wasm/action.yml), which also installs the checksum-pinned `wasm-bindgen` CLI) | `Cargo.lock` + toolchain |
-| Playwright Chromium (server unit tests, e2e) | `actions/cache` on `~/.cache/ms-playwright` (composite action [`setup-playwright`](../.github/actions/setup-playwright/action.yml)) | Playwright version |
+| Playwright Chromium (e2e and api suites) | `actions/cache` on `~/.cache/ms-playwright` (composite action [`setup-playwright`](../.github/actions/setup-playwright/action.yml)) | Playwright version |
 | Build output | `build` artifact (`dist/` + Go binary), built once and reused by 7+ jobs | per run |
 
 ## Security of the workflow

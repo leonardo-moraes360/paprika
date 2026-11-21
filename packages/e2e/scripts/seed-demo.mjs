@@ -1,12 +1,20 @@
-// Gera examples/demo.paprika.json dirigindo o Paprika como um agente faria: via MCP stdio.
+// Gera examples/demo.paprika.json dirigindo o Paprika como um agente faria: via MCP stdio do
+// servidor Go (`pnpm go:build` antes), num banco SQLite temporário exportado no fim.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const file = new URL("../../../examples/demo.paprika.json", import.meta.url).pathname;
-rmSync(file, { force: true });
+const root = fileURLToPath(new URL("../../../", import.meta.url));
+const bin = process.env.PAPRIKA_SERVER_BIN || join(root, "server-go/bin/paprika");
+const file = join(root, "examples/demo.paprika.json");
+const dir = mkdtempSync(join(tmpdir(), "paprika-seed-"));
+const db = join(dir, "seed.db");
 const client = new Client({ name: "seed-demo", version: "0" });
-await client.connect(new StdioClientTransport({ command: "node", args: [new URL("../dist/cli.js", import.meta.url).pathname, "mcp", "--file", file, "--no-ui"] }));
+await client.connect(new StdioClientTransport({ command: bin, args: ["mcp", "--db", db, "--no-ui"] }));
 const call = async (name, args) => {
   const r = await client.callTool({ name, arguments: args });
   if (r.isError) throw new Error(`${name}: ${r.content[0].text}`);
@@ -69,3 +77,5 @@ await call("create_nodes", {
 console.log(await call("lint_design", {}));
 console.log(await call("get_document_outline", { depth: 1 }));
 await client.close();
+execFileSync(bin, ["export", "--db", db, "-o", file], { stdio: "inherit" });
+rmSync(dir, { recursive: true, force: true });
