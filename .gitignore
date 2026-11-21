@@ -7,3 +7,7 @@ coverage/
 rd.md
 *.paprika.json.bak
 test-results/
+server-go/bin/
+*.db
+*.db-wal
+*.db-shm

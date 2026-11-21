@@ -2,7 +2,7 @@
 
 # canvas-wasm (experiment)
 
-Prototype for [ADR 0001](../../docs/adr/0001-canvas-renderer-rust-wasm.md): the Paprika canvas drawn by
+Prototype for [ADR 0002](../../docs/adr/0002-canvas-renderer-rust-wasm.md): the Paprika canvas drawn by
 Rust/WASM, with **vello on WebGPU** and a **vello_cpu** fallback. Not wired into the app; outside the
 pnpm workspace and `pnpm check`.
 

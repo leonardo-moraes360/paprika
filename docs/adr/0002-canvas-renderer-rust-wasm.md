@@ -1,6 +1,6 @@
-🇺🇸 English | [🇧🇷 Português](../pt-BR/adr/0001-renderizador-canvas-rust-wasm.md)
+🇺🇸 English | [🇧🇷 Português](../pt-BR/adr/0002-renderizador-canvas-rust-wasm.md)
 
-# ADR 0001: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)
+# ADR 0002: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)
 
 - **Status:** Proposed. Feasibility proven by a prototype; **not adopted**, `main` keeps the DOM canvas.
 - **Date:** 2026-11-21

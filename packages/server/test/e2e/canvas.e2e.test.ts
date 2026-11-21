@@ -6,16 +6,23 @@ import { join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { Document } from "@paprika/core";
 import { DocumentStore, closeBrowser, startHttpServer, type RunningServer } from "../../src/index.js";
+import { goBin, impl, startServer, type ExternalServer } from "../external/harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
 const shots = process.env.PAPRIKA_E2E_SHOTS;
 
-describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
+// PAPRIKA_SERVER_BIN=<binário Go> roda o mesmo E2E contra o servidor Go (processo externo).
+describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, () => {
   let dir: string;
-  let store: DocumentStore;
-  let http: RunningServer;
+  let store: DocumentStore | undefined;
+  let http: RunningServer | undefined;
+  let external: ExternalServer | undefined;
+  let url: string;
+  /** Documento atual: em processo (TS) ou via GET /api/document (servidor externo). */
+  const doc = async (): Promise<Document> => (external ? external.doc() : store!.doc);
   let browser: Browser;
   let page: Page;
   let agent: Client;
@@ -24,17 +31,23 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     dir = await mkdtemp(join(tmpdir(), "paprika-e2e-"));
     const file = join(dir, "demo.paprika.json");
     await copyFile(join(root, "examples/demo.paprika.json"), file);
-    store = await DocumentStore.open(file);
-    http = await startHttpServer(store, { host: "127.0.0.1", port: 0, webRoot });
+    if (goBin) {
+      external = await startServer({ seed: file, webRoot });
+      url = external.url;
+    } else {
+      store = await DocumentStore.open(file);
+      http = await startHttpServer(store, { host: "127.0.0.1", port: 0, webRoot });
+      url = http.url;
+    }
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(http.url);
+    await page.goto(url);
     await page.waitForSelector('[data-paprika-id="login"]');
     expect(errors).toEqual([]);
     agent = new Client({ name: "e2e-agent", version: "0" });
-    await agent.connect(new StreamableHTTPClientTransport(new URL(`${http.url}/mcp`)));
+    await agent.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
   }, 60_000);
 
   afterAll(async () => {
@@ -43,6 +56,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await http?.close();
     await closeBrowser();
     await store?.close();
+    await external?.stop();
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -86,7 +100,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.mouse.down();
     await page.mouse.move(box.x + 60, box.y + 46, { steps: 8 });
     await page.mouse.up();
-    await expect.poll(() => store.doc.nodes.plano?.x).not.toBe(460);
+    await expect.poll(async () => (await doc()).nodes.plano?.x).not.toBe(460);
     const r = (await agent.callTool({ name: "get_nodes", arguments: { ids: ["plano"] } })) as { content: { text: string }[] };
     const plano = JSON.parse(r.content[0]!.text)[0];
     expect(plano.x).toBeGreaterThan(460);
@@ -100,15 +114,15 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const nameInput = page.getByLabel("Nome", { exact: true });
     await nameInput.fill("Card · plano Pro (revisado)");
     await nameInput.press("Enter");
-    await expect.poll(() => store.doc.nodes.plano?.name).toBe("Card · plano Pro (revisado)");
+    await expect.poll(async () => (await doc()).nodes.plano?.name).toBe("Card · plano Pro (revisado)");
     await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
     await page.keyboard.press("Control+z");
-    await expect.poll(() => store.doc.nodes.plano?.name).toBe("Card · plano Pro");
+    await expect.poll(async () => (await doc()).nodes.plano?.name).toBe("Card · plano Pro");
   });
 
   it("ferramenta de retângulo desenha dentro do frame sob o cursor", async () => {
     await page.keyboard.press("Escape");
-    const before = Object.keys(store.doc.nodes).length;
+    const before = Object.keys((await doc()).nodes).length;
     await page.getByRole("button", { name: "Retângulo" }).click();
     const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
     // Área vazia do canvas: canto inferior esquerdo do viewport.
@@ -116,8 +130,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.mouse.down();
     await page.mouse.move(vp.x + 130, vp.y + vp.height - 60, { steps: 5 });
     await page.mouse.up();
-    await expect.poll(() => Object.keys(store.doc.nodes).length).toBe(before + 1);
-    const rect = Object.values(store.doc.nodes).find((n) => n.type === "rect" && n.parentId === null);
+    await expect.poll(async () => Object.keys((await doc()).nodes).length).toBe(before + 1);
+    const rect = Object.values((await doc()).nodes).find((n) => n.type === "rect" && n.parentId === null);
     expect(rect).toBeDefined();
     await expect.poll(() => page.getByTestId("selection").count()).toBe(1);
     if (shots) await page.screenshot({ path: join(shots, "03-retangulo-desenhado.png") });
@@ -173,9 +187,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.mouse.click(a.x, a.y); // fecha
 
     // "login" tem layout em coluna: o vetor vai para o canvas, para não ser empurrado pelo fluxo.
-    const findPath = () => Object.values(store.doc.nodes).find((n) => n.type === "path" && n.name === "Vetor 1");
+    const findPath = async () => Object.values((await doc()).nodes).find((n) => n.type === "path" && n.name === "Vetor 1");
     await expect.poll(findPath).toBeTruthy();
-    const path = findPath()!;
+    const path = (await findPath())!;
     if (path.type !== "path") throw new Error("esperava path");
     expect(path.d).toMatch(/^M[\d.]+ [\d.]+ C/); // origem do nó = canto da caixa do desenho
     expect(path.d).toContain(" C");
@@ -195,15 +209,15 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
   it("caneta: Enter termina um traço aberto (sem acionar o pan)", async () => {
     await page.keyboard.press("Escape");
-    const count = () => Object.values(store.doc.nodes).filter((n) => n.type === "path").length;
-    const before = count();
+    const count = async () => Object.values((await doc()).nodes).filter((n) => n.type === "path").length;
+    const before = await count();
     await page.keyboard.press("p");
     const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
     await page.mouse.click(vp.x + 40, vp.y + vp.height - 200);
     await page.mouse.click(vp.x + 140, vp.y + vp.height - 160);
     await page.keyboard.press("Enter");
     await expect.poll(count).toBe(before + 1);
-    const created = Object.values(store.doc.nodes).filter((n) => n.type === "path").at(-1)!;
+    const created = Object.values((await doc()).nodes).filter((n) => n.type === "path").at(-1)!;
     expect(created.parentId).toBeNull();
     if (created.type === "path") expect(created.d.endsWith("Z")).toBe(false);
     expect(await page.locator('[data-testid="viewport"]').getAttribute("class")).not.toMatch(/is-pan/);

@@ -31,6 +31,10 @@
 6. **Stateless MCP over HTTP.** One `McpServer` per request: no sessions to leak; state lives in the `DocumentStore`. Write tools only reply after the change is flushed to disk.
 7. **Local first.** Loopback bind with Host/Origin validation. No authentication or multi-user support in this version.
 
+## Go server
+
+`server-go/` implements the same server in Go with SQLite as its only storage ([ADR 0001](adr/0001-go-server-sqlite.md)). Decisions 2, 3, 4, 6 and 7 hold there too; decision 5 is replaced by "SQLite is the source of truth" (`.paprika.json` through `paprika import`/`export`). Its core is a port of `@paprika/core` locked by fixtures generated from the TypeScript core, which stays the reference.
+
 ## Known limitations (v0.1)
 
 - One process per file: two processes writing the same file are last-writer-wins (the watcher reloads but does not merge). To use MCP and the canvas together, prefer `paprika serve` + MCP over HTTP.
@@ -41,4 +45,5 @@
 
 ## Decision records
 
-- [ADR 0001: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)](adr/0001-canvas-renderer-rust-wasm.md): proposed, not adopted; the DOM canvas stays.
+- [ADR 0001: Go server with SQLite](adr/0001-go-server-sqlite.md): accepted.
+- [ADR 0002: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)](adr/0002-canvas-renderer-rust-wasm.md): proposed, not adopted; the DOM canvas stays.
