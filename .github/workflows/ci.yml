@@ -208,7 +208,9 @@ jobs:
           cache-dependency-path: server-go/go.sum
       - name: govulncheck
         working-directory: server-go
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
+        # v1.7.0 is the last govulncheck that builds on Go 1.25 (v1.8+ needs 1.26). Bump it with
+        # the `go` line of server-go/go.mod.
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
   go-test:
     name: Go test (shard ${{ matrix.shard }}/2)
