@@ -200,16 +200,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # govulncheck v1.8+ needs Go 1.26 to build and v1.7 crashes on this module, so the tool is
-      # built with Go stable, then run with the go.mod Go version: govulncheck takes the
-      # standard-library version from the `go` on PATH. (golang/govulncheck-action runs both
-      # with Go stable, which checks the wrong standard library and fails to load the module.)
-      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
-        with:
-          go-version: stable
-          cache: false
-      - name: Build govulncheck
-        run: GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/vuln/cmd/govulncheck@v1.10.0
+      # Not golang/govulncheck-action: it runs with Go "stable" instead of the go.mod version, and
+      # govulncheck takes the standard-library version from the `go` on PATH.
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: server-go/go.mod
@@ -218,7 +210,7 @@ jobs:
         working-directory: server-go
         run: |
           go version
-          "$RUNNER_TEMP/bin/govulncheck" ./...
+          go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
 
   go-test:
     name: Go test (shard ${{ matrix.shard }}/2)
