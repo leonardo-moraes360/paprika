@@ -9,3 +9,4 @@ export { newId } from "./id.js";
 export * from "./path.js";
 export * from "./displayList.js";
 export * from "./structure.js";
+export * from "./component.js";

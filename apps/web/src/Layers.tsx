@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { isContainer, pageRoots, type Document, type Op } from "@paprika/core";
+import { isContainer, isInstance, pageRoots, type Document, type Op } from "@paprika/core";
 
 const ICON: Record<string, string> = { frame: "#", rect: "▭", ellipse: "◯", text: "T", image: "▣", path: "✒", group: "⧉", page: "▤" };
 
@@ -48,7 +48,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
           >
             {open ? "▾" : "▸"}
           </button>
-          <span className="layer-icon">{ICON[n.type]}</span>
+          <span className="layer-icon">{n.type === "frame" && n.component ? "◆" : isInstance(n) ? "◇" : ICON[n.type]}</span>
           <span className="layer-name">{n.name || (n.type === "text" ? n.text.slice(0, 24) : n.type)}</span>
           <button
             className="eye"

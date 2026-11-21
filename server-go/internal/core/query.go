@@ -49,6 +49,21 @@ func DescribeNode(n *Node) string {
 		if l := n.Obj("layout"); l != nil && l.Str("mode") != "none" {
 			parts = append(parts, l.Str("mode")+" gap="+jsString(l.Num("gap")))
 		}
+		if n.Bool("component") {
+			parts = append(parts, "component")
+		}
+		if IsInstance(n) {
+			parts = append(parts, "instanceOf="+n.Str("instanceOf"))
+			if sc, ok := n.Get("scale"); ok && sc != 1.0 {
+				parts = append(parts, "scale="+jsString(sc))
+			}
+			if ov := n.Obj("overrides"); ov != nil {
+				parts = append(parts, "overrides="+jsString(float64(ov.Len())))
+			}
+		}
+	}
+	if src, ok := n.Get("sourceId"); ok {
+		parts = append(parts, "from="+jsString(src))
 	}
 	if typ == "text" {
 		fs, _ := n.Get("fontSize")

@@ -17,6 +17,13 @@ export function describeNode(n: Node): string {
   if (n.type === "frame" && n.layout && n.layout.mode !== "none") {
     parts.push(`${n.layout.mode} gap=${n.layout.gap}`);
   }
+  if (n.type === "frame" && n.component) parts.push("component");
+  if (n.type === "frame" && n.instanceOf !== undefined) {
+    parts.push(`instanceOf=${n.instanceOf}`);
+    if (n.scale !== undefined && n.scale !== 1) parts.push(`scale=${n.scale}`);
+    if (n.overrides) parts.push(`overrides=${Object.keys(n.overrides).length}`);
+  }
+  if (n.sourceId !== undefined) parts.push(`from=${n.sourceId}`);
   if (n.type === "text") {
     const t = n.text.length > 60 ? n.text.slice(0, 57) + "..." : n.text;
     parts.push(JSON.stringify(t), `${n.fontSize}/${n.fontWeight}`, `color=${n.color}`);

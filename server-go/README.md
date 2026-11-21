@@ -2,7 +2,7 @@
 
 # Paprika server in Go
 
-A Go implementation of the Paprika server with the same contract as the TypeScript one (`packages/server`): the same 20 MCP tools (stdio and Streamable HTTP at `/mcp`), the same operations and shared undo/redo, the same WebSocket protocol for the canvas (`/ws`), the same HTTP API and the same lint, export and screenshot. Data lives in **SQLite**; `.paprika.json` files go in and out with `import` and `export`. Why and how: [ADR 0001](../docs/adr/0001-go-server-sqlite.md).
+A Go implementation of the Paprika server with the same contract as the TypeScript one (`packages/server`): the same 23 MCP tools (stdio and Streamable HTTP at `/mcp`), the same operations and shared undo/redo, the same WebSocket protocol for the canvas (`/ws`), the same HTTP API and the same lint, export and screenshot. Data lives in **SQLite**; `.paprika.json` files go in and out with `import` and `export`. Why and how: [ADR 0001](../docs/adr/0001-go-server-sqlite.md).
 
 ## Build and run
 

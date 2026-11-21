@@ -11,7 +11,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
 const core = await import(join(root, "packages/core/dist/index.js"));
 const {
-  applyOps, createDocument, parseDocument, History, outline, describeNode, lintDocument, renderHTML,
+  applyOps, createDocument, parseDocument, copyId, History, outline, describeNode, lintDocument, renderHTML,
   exportReact, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
   parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps,
 } = core;
@@ -71,8 +71,27 @@ const paged = () => {
   ]).doc;
 };
 
+const comp = () => {
+  const d = applyOps(free(), [
+    { op: "update", id: "board", props: { width: 1200 } },
+    { op: "create", parentId: "board", node: { type: "frame", id: "btn", name: "Botão", component: true, x: 20, y: 240, width: 120, height: 40, radius: 8, fill: "$brand",
+      stroke: { color: "#1e2336", width: 1.5 }, shadow: { x: 0, y: 2, blur: 4, color: "#0003" }, layout: { mode: "row", gap: 4, padding: [8, 12, 8, 12], align: "center" },
+      children: [
+        { type: "text", id: "lbl", text: "Enviar", color: "#ffffff", fontSize: 14, letterSpacing: 0.5, width: "hug", height: "hug" },
+        { type: "path", id: "ico", d: "M0 0 L8 8 M8 0 L0 8", width: 8, height: 8, stroke: { color: "#ffffff", width: 1 } },
+      ] } },
+    { op: "create", parentId: "board", node: { type: "frame", id: "badge", component: true, x: 600, y: 20, width: 60, height: 60, fill: "#ffffff",
+      children: [{ type: "group", id: "bg", children: [{ type: "ellipse", id: "dot", x: 5, y: 5, width: 20, height: 20, fill: "#c43d27" }, { type: "rect", id: "bar", x: 30, y: 12, width: 20, height: 6, rotation: 30 }] }] } },
+    { op: "create", parentId: "board", node: { type: "frame", id: "i1", name: "Enviar", instanceOf: "btn", x: 200, y: 240 } },
+    { op: "create", parentId: "board", node: { type: "frame", id: "i2", instanceOf: "btn", x: 400, y: 240, scale: 1.5, rotation: 10 } },
+    { op: "create", parentId: "board", node: { type: "frame", id: "i3", instanceOf: "badge", x: 700, y: 20, scale: 0.75 } },
+  ]).doc;
+  return applyOps(d, [{ op: "update", id: copyId("i2", "lbl"), props: { text: "Cancelar", color: "#c43d27" } }, { op: "update", id: "i2", props: { fill: "#ffffff" } }]).doc;
+};
+
 const docs = {
   empty: base(),
+  comp: comp(),
   card: card(),
   free: free(),
   grouped: grouped(),
@@ -84,6 +103,10 @@ const docs = {
 // ---- operation cases: [baseDoc, ops] ----
 const R = (extra) => ({ op: "create", node: { type: "rect", id: "r", ...extra } });
 const opCases = [
+  ["comp", [{ op: "create", node: { type: "frame", id: "px", instanceOf: "btn", overrides: JSON.parse('{"__proto__":{"text":"x"},"ok":{"fill":"#fff","bad-key":1,"__proto__":2}}') } }]],
+  ["comp", [{ op: "update", id: "i1", props: { overrides: { "a b": {}, lbl: { text: "ok" } } } }]],
+  ["comp", [{ op: "create", node: { type: "frame", id: "py", instanceOf: "btn", overrides: JSON.parse('{"__proto__":{"text":"x"},"lbl":{"text":"ok","__proto__":2}}') } }]],
+  ["card", [{ op: "set_tokens", tokens: JSON.parse('{"__proto__":"#fff","ok":1}') }]],
   ["empty", [R({})]],
   ["empty", [R({ width: "big" })]],
   ["empty", [R({ width: -1 })]],
@@ -196,6 +219,50 @@ const opCases = [
   ["free", [{ op: "add_page", id: "p2", firstId: "p1", firstName: "Início", name: "Dois" }]],
   ["paged", [{ op: "add_page", id: "p3" }, { op: "create", parentId: "p3", node: { type: "rect", id: "r3" } }]],
   ["paged", [{ op: "add_page", id: "pg1" }]],
+  // components and instances
+  ["comp", [{ op: "update", id: "lbl", props: { text: "Salvar", fontSize: 16 } }]],
+  ["comp", [{ op: "update", id: "btn", props: { fill: "#000000", radius: 2, layout: { mode: "column", gap: 2 } } }]],
+  ["comp", [{ op: "update", id: "i1", props: { scale: 2.5, x: 3 } }]],
+  ["comp", [{ op: "update", id: "i1", props: { scale: 0.001 } }]],
+  ["comp", [{ op: "update", id: "i1", props: { instanceOf: "badge" } }]],
+  ["comp", [{ op: "update", id: "i1", props: { instanceOf: "board" } }]],
+  ["comp", [{ op: "update", id: "i1", props: { instanceOf: "nada" } }]],
+  ["comp", [{ op: "update", id: "i1", props: { width: 5, radius: 1 } }]],
+  ["comp", [{ op: "update", id: "i1", props: { fill: "#00ff00", name: "Verde" } }]],
+  ["comp", [{ op: "update", id: "i2", props: { fill: null } }]],
+  ["comp", [{ op: "update", id: "i2", props: { fill: "#zzz;" } }]],
+  ["comp", [{ op: "update", id: "i1", props: { component: true } }]],
+  ["comp", [{ op: "update", id: "i1", props: { overrides: { lbl: { text: "Direto" }, nada: { text: "x" } } } }]],
+  ["comp", [{ op: "update", id: "i1", props: { overrides: { lbl: { x: 4 } } } }]],
+  ["comp", [{ op: "update", id: "i1", props: { overrides: { lbl: { opacity: 9 } } } }]],
+  ["comp", [{ op: "update", id: "i1", props: { overrides: { btn: { fill: "#123456" } } } }]],
+  ["comp", [{ op: "update", id: "i1", props: { overrides: { btn: { radius: 3 } } } }]],
+  ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { text: "Ok", visible: false } }]],
+  ["comp", [{ op: "update", id: copyId("i2", "lbl"), props: { text: null, color: "#ffffff" } }]],
+  ["comp", [{ op: "update", id: copyId("i2", "lbl"), props: { color: 5 } }]],
+  ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { x: 3, fontSize: 2 } }]],
+  ["comp", [{ op: "update", id: copyId("i1", "ico"), props: { text: "x" } }]],
+  ["comp", [{ op: "update", id: copyId("i1", "ico"), props: { sourceId: "x" } }]],
+  ["comp", [{ op: "delete", id: copyId("i1", "lbl") }]],
+  ["comp", [{ op: "move", id: copyId("i1", "lbl"), parentId: "board" }]],
+  ["comp", [{ op: "move", id: "r1", parentId: "i1" }]],
+  ["comp", [{ op: "move", id: "r1", parentId: copyId("i3", "bg") }]],
+  ["comp", [{ op: "create", parentId: "i1", node: { type: "rect", id: "x" } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "i4", instanceOf: "btn", children: [{ type: "rect", id: "x" }] } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "rect", id: "x", sourceId: "lbl" } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "a_really_long_instance_identifier_0123456789_abcdef", instanceOf: "badge", scale: 2 } }]],
+  ["comp", [{ op: "create", parentId: "btn", node: { type: "frame", id: "i5", instanceOf: "badge" } }]],
+  ["comp", [{ op: "delete", id: "btn" }]],
+  ["comp", [{ op: "delete", id: "i1" }, { op: "delete", id: "i2" }, { op: "delete", id: "btn" }]],
+  ["comp", [{ op: "update", id: "badge", props: { component: null } }]],
+  ["comp", [{ op: "update", id: "dot", props: { x: -10, fill: "#00aa00" } }]],
+  ["comp", [{ op: "delete", id: "bar" }, { op: "create", parentId: "badge", node: { type: "image", id: "img", src: "https://x.test/a.png", width: 10, height: 10 } }]],
+  ["comp", [{ op: "group", ids: ["i1", "i2"], id: "gg" }, { op: "update", id: "i2", props: { scale: 3 } }]],
+  ["comp", [{ op: "detach", ids: ["i2"] }]],
+  ["comp", [{ op: "update", id: "lbl", props: { text: "Antes" } }, { op: "detach", ids: ["i1", "i1"] }, { op: "update", id: "lbl", props: { text: "Depois" } }]],
+  ["comp", [{ op: "detach", ids: ["btn"] }]],
+  ["comp", [{ op: "detach", ids: ["zz"] }]],
+  ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { text: "Novo" } }, { op: "detach", ids: ["i1"] }, { op: "update", id: copyId("i1", "lbl"), props: { x: 1 } }]],
 ];
 
 // ---- composite operations (groups, pages): the generated primitive ops ----
@@ -345,8 +412,8 @@ function rng(seed) {
 }
 const randomRuns = [];
 // Runs 25+ start from documents with groups and pages and also create groups and pages.
-const runBase = (run) => (run < 25 ? (run % 2 ? "demo" : "bezier") : run % 2 ? "paged" : "grouped");
-for (let run = 0; run < 35; run++) {
+const runBase = (run) => (run < 25 ? (run % 2 ? "demo" : "bezier") : run >= 35 ? "comp" : run % 2 ? "paged" : "grouped");
+for (let run = 0; run < 45; run++) {
   const rand = rng(run + 1);
   const pick = (arr) => arr[Math.floor(rand() * arr.length)];
   const h = new History(docs[runBase(run)]);
@@ -374,7 +441,10 @@ for (let run = 0; run < 35; run++) {
             ...(extra ? [{ type: "group", id: `n${run}_${n++}`, children: [{ type: "rect", id: `n${run}_${n++}`, x: -7.5, y: 12, width: 9, height: 4, rotation: 15 }] },
               { type: "page", id: `n${run}_${n++}`, name: "Pg" }] : [])]) });
         else if (t < 0.5) ops.push({ op: "update", id, props: pick([{ x: Math.round(rand() * 500) - 50 }, { name: "Renomeado" }, { fill: null }, { opacity: rand() }, { width: "fill" }, { visible: false }, { bogus: 1 },
-          ...(extra ? [{ y: -Math.round(rand() * 80) }, { rotation: Math.round(rand() * 90) }] : [])]) });
+          ...(extra ? [{ y: -Math.round(rand() * 80) }, { rotation: Math.round(rand() * 90) }] : []),
+          ...(run >= 35 ? [{ scale: pick([0.5, 2, 1.25]) }, { text: "Trocado" }, { color: "#00ff00" }, { component: true }, { instanceOf: pick(["btn", "badge"]) }] : [])]) });
+        else if (run >= 35 && t < 0.55) ops.push(pick([{ op: "detach", ids: [pick(["i1", "i2", "i3", id])] },
+          { op: "create", parentId: pick(frames) ?? null, node: { type: "frame", id: `n${run}_${n++}`, instanceOf: pick(["btn", "badge"]), scale: pick([1, 2]) } }]));
         else if (t < 0.65) ops.push({ op: "delete", id: pick(ids) });
         else if (t < 0.85) ops.push({ op: "move", id, parentId: rand() < 0.3 ? null : pick(frames) ?? null, ...(rand() < 0.5 ? { index: Math.floor(rand() * 3) } : {}) });
         else ops.push({ op: "set_tokens", tokens: { [pick(["brand", "ink", "novo", "10"])]: pick(["#123456", 12, null]) } });

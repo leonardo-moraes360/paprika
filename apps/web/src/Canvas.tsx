@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
 import {
+  copyOwner,
+  isInstance,
   anchorsToPath,
   canvasBounds,
   isScene,
@@ -84,7 +86,7 @@ const isAbsolute = (doc: Document, n: Node) => {
  */
 export function pickTarget(doc: Document, id: string, selected: readonly string[]): string {
   const groups: string[] = []; // do mais interno ao mais externo
-  for (let p = doc.nodes[id]?.parentId; p; p = doc.nodes[p]?.parentId ?? null) if (doc.nodes[p]?.type === "group") groups.push(p);
+  for (let p = doc.nodes[id]?.parentId; p; p = doc.nodes[p]?.parentId ?? null) if (doc.nodes[p]?.type === "group" || isInstance(doc.nodes[p])) groups.push(p);
   const within = (g: string) =>
     selected.some((s) => {
       for (let cur = doc.nodes[s]?.parentId ?? null; cur; cur = doc.nodes[cur]?.parentId ?? null) if (cur === g) return true;
@@ -528,7 +530,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     // Arrastar um nó já selecionado move a seleção inteira; senão, seleciona só ele.
     const group = selected.includes(id) ? selected : [id];
     if (!selected.includes(id)) onSelect([id]);
-    const movable = group.map((g) => doc.nodes[g]).filter((n): n is SceneNode => isScene(n) && !n.locked && isAbsolute(doc, n));
+    const movable = group.map((g) => doc.nodes[g]).filter((n): n is SceneNode => isScene(n) && !n.locked && isAbsolute(doc, n) && !copyOwner(doc, n));
     if (!movable.length) return;
     const start = toWorld(e.clientX, e.clientY);
     let moved = false;
@@ -596,7 +598,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   };
 
   const single = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
-  const resizable = !!single && single.type !== "group" && single.type !== "page";
+  const resizable = !!single && single.type !== "group" && single.type !== "page" && !isInstance(single) && !copyOwner(doc, single);
   const onResizeDown = (e: RPointerEvent) => {
     e.stopPropagation();
     const node = single;

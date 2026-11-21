@@ -255,6 +255,32 @@ func TestMCPGroupsAndPages(t *testing.T) {
 	}
 }
 
+func TestMCPComponents(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "frame", "id", "btn", "x", 10.0, "y", 10.0, "width", 100.0, "height", 40.0, "children", []any{
+		obj("type", "text", "id", "lbl", "text", "OK", "width", 50.0, "height", 20.0),
+	})}))
+	if out, isErr := callText(t, m, "create_instance", obj("componentId", "btn")); !isErr || !strings.Contains(out, "não é componente") {
+		t.Fatalf("instance of non-component: %q", out)
+	}
+	callText(t, m, "create_component", obj("id", "btn"))
+	out, isErr := callText(t, m, "create_instance", obj("componentId", "btn", "id", "i1", "scale", 2.0, "overrides", obj("lbl", obj("text", "Enviar"))))
+	if isErr || !strings.Contains(out, `"lbl": "`+core.CopyID("i1", "lbl")+`"`) {
+		t.Fatalf("instance: %q", out)
+	}
+	i1 := core.GetNode(s.Doc(), "i1")
+	if i1.Num("x") != 150 || i1.Num("width") != 200 {
+		t.Fatalf("instance box: %s", jsonv.Stringify(i1, ""))
+	}
+	if c := core.GetNode(s.Doc(), core.CopyID("i1", "lbl")); c.Str("text") != "Enviar" || c.Num("fontSize") != 32 {
+		t.Fatalf("copy: %s", jsonv.Stringify(c, ""))
+	}
+	if out, isErr = callText(t, m, "detach_instance", obj("ids", []any{"i1"})); isErr || core.GetNode(s.Doc(), "i1").Has("instanceOf") {
+		t.Fatalf("detach: %q", out)
+	}
+}
+
 func TestStdio(t *testing.T) {
 	s, _ := openTemp(t)
 	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}

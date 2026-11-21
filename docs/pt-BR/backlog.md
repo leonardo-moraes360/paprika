@@ -112,7 +112,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
-| Componentes e instâncias com overrides e `scale` | — (fb#3) | ⬜ | P1 |
+| Componentes e instâncias com overrides e `scale` | `component`/`instanceOf`/`scale`/`overrides` em frames, `create_component`, `create_instance`, `detach_instance` (2026-11-21); ainda sem instâncias aninhadas | ✅ | — |
 | Props e slots de componentes | — | ⬜ | P2 |
 | Componentes de código (renderizar componentes reais do repositório do usuário) | — | ⬜ | P3 |
 | Pacotes de ícones / kits de UI iniciais | — | ⬜ | P3 |
@@ -121,7 +121,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
-| Servidor MCP embutido (stdio + HTTP), leitura e escrita, CLI | `paprika serve`/`mcp`, 20 ferramentas | ✅ | — |
+| Servidor MCP embutido (stdio + HTTP), leitura e escrita, CLI | `paprika serve`/`mcp`, 23 ferramentas | ✅ | — |
 | Leituras econômicas em tokens | `get_document_outline` | ✅ | — |
 | Resultados estruturados (`outputSchema` + `structuredContent`) | JSON como texto (fb#7) | ⬜ | P1 |
 | Guia e erros em inglês (pt-BR opcional) | pt-BR (fb#12) | ⬜ | P1 |

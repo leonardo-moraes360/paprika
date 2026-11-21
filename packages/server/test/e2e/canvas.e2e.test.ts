@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { Document } from "@paprika/core";
+import { copyId, type Document } from "@paprika/core";
 import { DocumentStore, closeBrowser, startHttpServer, type RunningServer } from "../../src/index.js";
 import { goBin, impl, startServer, type ExternalServer } from "../external/harness.js";
 
@@ -341,5 +341,37 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     await page.locator(`[data-page-id="${p1}"]`).click();
     await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(1);
     await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(0);
+  });
+  it("componentes: tornar componente, nova instância, mudança propaga, override na cópia, desanexar", async () => {
+    await page.keyboard.press("Escape");
+    await page.locator('[data-layer-id="plano"]').click();
+    await page.getByRole("button", { name: "Tornar componente" }).click();
+    await expect.poll(async () => ((await doc()).nodes.plano as { component?: boolean }).component).toBe(true);
+    await page.getByRole("button", { name: "Nova instância" }).click();
+    const instId = async () => Object.values((await doc()).nodes).find((n) => (n as { instanceOf?: string }).instanceOf === "plano")?.id;
+    await expect.poll(instId).toBeTruthy();
+    const inst = (await instId())!;
+    const pro = copyId(inst, "74oxmaizym");
+    await expect.poll(() => page.locator(`[data-paprika-id="${pro}"]`).textContent()).toBe("Pro");
+    await expect(page.getByTestId("instance-panel").textContent()).resolves.toContain("de ");
+
+    // O agente muda o componente; a cópia no canvas acompanha.
+    await agent.callTool({ name: "update_nodes", arguments: { updates: [{ id: "74oxmaizym", props: { text: "Plus" } }] } });
+    await expect.poll(() => page.locator(`[data-paprika-id="${pro}"]`).textContent()).toBe("Plus");
+
+    // Editar a cópia grava um override só nesta instância.
+    await page.locator(`[data-layer-id="${pro}"]`).click();
+    await expect(page.getByTestId("copy-panel").textContent()).resolves.toContain("cópia de");
+    await page.getByLabel("Conteúdo").fill("Equipe");
+    await page.getByLabel("Conteúdo").blur();
+    await expect.poll(async () => ((await doc()).nodes[inst] as { overrides?: unknown }).overrides).toEqual({ "74oxmaizym": { text: "Equipe" } });
+    await expect.poll(() => page.locator(`[data-paprika-id="${pro}"]`).textContent()).toBe("Equipe");
+    await expect.poll(() => page.locator('[data-paprika-id="74oxmaizym"]').textContent()).toBe("Plus");
+    if (shots) await page.screenshot({ path: join(shots, "09-instancia.png") });
+
+    await page.locator(`[data-layer-id="${inst}"]`).click();
+    await page.getByRole("button", { name: "Desanexar" }).click();
+    await expect.poll(async () => ((await doc()).nodes[inst] as { instanceOf?: string }).instanceOf).toBeUndefined();
+    expect(((await doc()).nodes[pro] as { text: string; sourceId?: string })).toMatchObject({ text: "Equipe" });
   });
 });

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   Document,
   IMMUTABLE_KEYS,
+  type FrameNode,
   Node,
   NodeType,
   TokenName,
@@ -17,6 +18,18 @@ import { newId } from "./id.js";
 import { parsePath, pathBounds } from "./path.js";
 import { addPageOps, groupOps, ungroupOps } from "./structure.js";
 import { round4 } from "./num.js";
+import {
+  COPY_OVERRIDES,
+  InstanceError,
+  copyOwner,
+  detachOps,
+  instanceOwner,
+  isCopyOverride,
+  isInstance,
+  isRootDerived,
+  setOverride,
+  syncInstances,
+} from "./component.js";
 export { round4 } from "./num.js";
 
 /** Entrada de criação: um nó parcial, com filhos aninhados opcionais (só para frames). */
@@ -86,6 +99,9 @@ export const AddPageOp = z.object({
   firstName: z.string().max(200).optional(),
 });
 
+/** Desanexa instâncias: viram frames comuns com cópias normais (expandida em updates). */
+export const DetachOp = z.object({ op: z.literal("detach"), ids: z.array(z.string()).min(1).max(500) });
+
 /** Operação interna usada como inversa de `delete` (desfazer). */
 export const RestoreOp = z.object({
   op: z.literal("restore"),
@@ -106,6 +122,7 @@ export const Op = z.discriminatedUnion("op", [
   GroupOp,
   UngroupOp,
   AddPageOp,
+  DetachOp,
 ]);
 
 export type Op = z.input<typeof Op>;
@@ -178,6 +195,53 @@ function isDescendant(doc: DocumentT, maybeChild: string, ancestor: string): boo
   return false;
 }
 
+const SOURCE_ID = "sourceId é gerado pelas instâncias; não pode ser escrito";
+const inInstance = (inst: string) =>
+  `"${inst}" é uma instância: o conteúdo vem do componente; edite o componente, use overrides ou desanexe (detach)`;
+const copyRule = (id: string, inst: string) =>
+  `"${id}" é cópia dentro da instância "${inst}": só ${COPY_OVERRIDES.join(", ")} podem ser trocados (viram overrides); edite o componente ou desanexe (detach)`;
+
+function updatePlain(doc: DocumentT, node: NodeT, props: Record<string, unknown>, i: number): Op {
+  const allowed = knownKeys(node.type);
+  const next: Record<string, unknown> = { ...node };
+  const prev: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(props)) {
+    if (IMMUTABLE_KEYS.has(k)) throw new OpError(`campo "${k}" não pode ser alterado por update (use move/create)`, i);
+    if (!allowed.has(k)) throw new OpError(`campo desconhecido para ${node.type}: ${k}`, i);
+    if (node.type === "group" && (k === "width" || k === "height")) throw new OpError(GROUP_SIZE, i);
+    prev[k] = k in node ? (node as Record<string, unknown>)[k] : null;
+    if (v === null) delete next[k];
+    else next[k] = v;
+  }
+  const parsed = Node.safeParse(next);
+  if (!parsed.success) throw new OpError(`update inválido em "${node.id}": ${formatZod(parsed.error)}`, i);
+  doc.nodes[node.id] = parsed.data;
+  return { op: "update", id: node.id, props: prev };
+}
+
+/** `update` numa cópia (ou no fill da raiz de uma instância): grava em `overrides` da instância. */
+function updateOverride(doc: DocumentT, inst: FrameNode, node: NodeT, srcId: string, props: Record<string, unknown>, i: number): Op {
+  const src = doc.nodes[srcId];
+  const prev: Record<string, unknown> = {};
+  const allowed = knownKeys(node.type);
+  const unknown = Object.keys(props).filter((k) => !allowed.has(k));
+  if (unknown.length) throw new OpError(`campo desconhecido para ${node.type}: ${unknown.join(", ")}`, i);
+  for (const [k, v] of Object.entries(props)) setOverride(inst, srcId, k, v, src);
+  const next: Record<string, unknown> = { ...doc.nodes[node.id] };
+  for (const [k, v] of Object.entries(props)) {
+    prev[k] = k in node ? (node as Record<string, unknown>)[k] : null;
+    if (v === null) {
+      const sv = src ? (src as Record<string, unknown>)[k] : undefined;
+      if (sv === undefined) delete next[k];
+      else next[k] = sv;
+    } else next[k] = v;
+  }
+  const parsed = Node.safeParse(next);
+  if (!parsed.success) throw new OpError(`update inválido em "${node.id}": ${formatZod(parsed.error)}`, i);
+  doc.nodes[node.id] = parsed.data;
+  return { op: "update", id: node.id, props: prev };
+}
+
 const CONTAINER_TYPES = new Set(["frame", "group", "page"]);
 const GROUP_SIZE = "width/height de um group seguem os filhos; mova ou redimensione os filhos";
 
@@ -199,6 +263,11 @@ function createNode(
   if (unknown.length) throw new OpError(`campos desconhecidos para ${input.type}: ${unknown.join(", ")}`, i);
   if ("parentId" in rest) throw new OpError(`use o parentId da operação, não do nó`, i);
   if (input.type === "group" && ("width" in rest || "height" in rest)) throw new OpError(GROUP_SIZE, i);
+  if ("sourceId" in rest) throw new OpError(SOURCE_ID, i);
+  const owner = instanceOwner(doc, parentId);
+  if (owner) throw new OpError(inInstance(owner.id), i);
+  if (typeof rest.instanceOf === "string" && children?.length)
+    throw new OpError(`os filhos de uma instância vêm do componente; crie a instância sem children`, i);
   const list = container(doc, parentId, i);
   checkPlacement(input.type, parentId, i);
   const props: Record<string, unknown> = { ...rest };
@@ -236,25 +305,32 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
     case "update": {
       const node = doc.nodes[op.id];
       if (!node) throw new OpError(`nó "${op.id}" não existe`, i);
-      const allowed = knownKeys(node.type);
-      const next: Record<string, unknown> = { ...node };
-      const prev: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(op.props)) {
-        if (IMMUTABLE_KEYS.has(k)) throw new OpError(`campo "${k}" não pode ser alterado por update (use move/create)`, i);
-        if (!allowed.has(k)) throw new OpError(`campo desconhecido para ${node.type}: ${k}`, i);
-        if (node.type === "group" && (k === "width" || k === "height")) throw new OpError(GROUP_SIZE, i);
-        prev[k] = k in node ? (node as Record<string, unknown>)[k] : null;
-        if (v === null) delete next[k];
-        else next[k] = v;
+      const owner = copyOwner(doc, node);
+      if (owner) {
+        const bad = Object.keys(op.props).filter((k) => !isCopyOverride(k));
+        if (bad.length) throw new OpError(`${copyRule(op.id, owner.id)} (recebido ${bad.join(", ")})`, i);
+        return [updateOverride(doc, owner, node, (node as { sourceId: string }).sourceId, op.props, i)];
       }
-      const parsed = Node.safeParse(next);
-      if (!parsed.success) throw new OpError(`update inválido em "${op.id}": ${formatZod(parsed.error)}`, i);
-      doc.nodes[op.id] = parsed.data;
-      return [{ op: "update", id: op.id, props: prev }];
+      if ("sourceId" in op.props && instanceOwner(doc, node.parentId)) throw new OpError(SOURCE_ID, i);
+      if (!isInstance(node)) return [updatePlain(doc, node, op.props, i)];
+      const derived = Object.keys(op.props).filter((k) => isRootDerived(k) && k !== "fill");
+      if (derived.length)
+        throw new OpError(`${derived.join(", ")} de "${op.id}" vêm do componente "${node.instanceOf}"; edite o componente, mude scale ou desanexe (detach)`, i);
+      // O fill da raiz vira override, aplicado depois do resto (que pode trocar o componente).
+      const { fill, ...rest } = op.props;
+      const inverse: Op[] = [];
+      if (Object.keys(rest).length) inverse.push(updatePlain(doc, node, rest, i));
+      if ("fill" in op.props) {
+        const cur = doc.nodes[op.id]!;
+        inverse.unshift(isInstance(cur) ? updateOverride(doc, cur, cur, cur.instanceOf, { fill }, i) : updatePlain(doc, cur, { fill }, i));
+      }
+      return inverse;
     }
     case "delete": {
       const node = doc.nodes[op.id];
       if (!node) throw new OpError(`nó "${op.id}" não existe`, i);
+      const owner = copyOwner(doc, node);
+      if (owner) throw new OpError(`${copyRule(op.id, owner.id)}; para esconder, use visible: false`, i);
       const nodes = subtree(doc, op.id);
       const list = container(doc, node.parentId, i);
       const index = list.indexOf(op.id);
@@ -279,6 +355,10 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       if (op.parentId === op.id || (op.parentId && isDescendant(doc, op.parentId, op.id))) {
         throw new OpError(`mover "${op.id}" para dentro de si mesmo criaria um ciclo`, i);
       }
+      const owner = copyOwner(doc, node);
+      if (owner) throw new OpError(copyRule(op.id, owner.id), i);
+      const target = instanceOwner(doc, op.parentId);
+      if (target) throw new OpError(inInstance(target.id), i);
       const from = container(doc, node.parentId, i);
       const fromIndex = from.indexOf(op.id);
       const to = container(doc, op.parentId, i);
@@ -305,7 +385,8 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
     }
     case "group":
     case "ungroup":
-    case "add_page": {
+    case "add_page":
+    case "detach": {
       // Expandidas contra o documento *atual* (não o que o cliente via), dentro da mesma transação.
       let plan: Op[];
       try {
@@ -314,7 +395,9 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
             ? groupOps(doc, op.ids, { id: op.id, name: op.name }).ops
             : op.op === "ungroup"
               ? ungroupOps(doc, op.ids).ops
-              : addPageOps(doc, op).ops;
+              : op.op === "detach"
+                ? (syncInstances(doc), detachOps(doc, op.ids))
+                : addPageOps(doc, op).ops;
       } catch (e) {
         throw e instanceof OpError ? e : new OpError((e as Error).message, i);
       }
@@ -339,7 +422,16 @@ export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
     inverse.unshift(...applyOne(draft, parsed.data, i, created));
   });
   if (ops.length) {
-    checkPages(draft, ops.length - 1);
+    const last = ops.length - 1;
+    checkPages(draft, last);
+    inverse.unshift(...fitGroups(draft));
+    try {
+      syncInstances(draft);
+    } catch (e) {
+      if (e instanceof InstanceError) throw new OpError(e.message, last);
+      throw e;
+    }
+    // Um group que contém instâncias só sabe o tamanho delas depois da sincronização.
     inverse.unshift(...fitGroups(draft));
   }
   return { doc: draft, inverse, created };
@@ -415,7 +507,7 @@ function fitGroups(doc: DocumentT): Op[] {
     const n = doc.nodes[id];
     if (!isContainer(n)) return;
     n.children.forEach(visit);
-    if (n.type === "group") fitGroup(doc, n, inverse);
+    if (n.type === "group" && n.sourceId === undefined) fitGroup(doc, n, inverse);
   };
   doc.rootIds.forEach(visit);
   return inverse;
