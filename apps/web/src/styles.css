@@ -63,7 +63,7 @@ textarea {
 
 .app {
   display: grid;
-  grid-template-columns: 240px 1fr 280px;
+  grid-template-columns: var(--left-w, 240px) minmax(0, 1fr) var(--right-w, 280px);
   grid-template-rows: 44px 1fr;
   grid-template-areas: "top top top" "left center right";
   height: 100%;
@@ -172,6 +172,41 @@ textarea {
 .right {
   grid-area: right;
   border-left: 1px solid var(--line);
+}
+/* Alça de redimensionar: divide a célula do painel e fica sobre a borda dele. */
+.panel-resizer {
+  position: relative;
+  z-index: 5;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+.panel-resizer.left {
+  grid-area: left;
+  justify-self: end;
+  margin-right: -5px;
+}
+.panel-resizer.right {
+  grid-area: right;
+  justify-self: start;
+  margin-left: -5px;
+}
+.panel-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.12s;
+}
+.panel-resizer:hover::after,
+.panel-resizer:focus-visible::after {
+  background: var(--line);
+}
+.panel-resizer.is-active::after,
+.panel-resizer:focus-visible::after {
+  background: var(--accent);
 }
 .center {
   grid-area: center;
@@ -565,7 +600,8 @@ textarea {
     grid-template-rows: 44px 1fr 220px;
     grid-template-areas: "top" "center" "right";
   }
-  .left {
+  .left,
+  .panel-resizer {
     display: none;
   }
   .right {
