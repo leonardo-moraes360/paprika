@@ -84,7 +84,7 @@ export function setOverride(inst: FrameNode, srcId: string, key: string, v: unkn
   // Nunca grava chaves que mexem no protótipo (o schema já as recusa; isto protege chamadas internas).
   if (srcId === "__proto__" || key === "__proto__") return;
   const all: Record<string, Record<string, unknown>> = { ...(inst.overrides ?? {}) };
-  const ov: Record<string, unknown> = { ...(all[srcId] ?? {}) };
+  const ov: Record<string, unknown> = { ...(Object.hasOwn(all, srcId) ? all[srcId] : {}) };
   if (v === null || jsonEqual(v, sourceValue(src, key))) delete ov[key];
   else ov[key] = v;
   if (Object.keys(ov).length) all[srcId] = ov;
