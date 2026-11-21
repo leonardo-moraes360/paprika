@@ -136,9 +136,8 @@ jobs:
       - name: Make the Go binary executable
         if: matrix.impl == 'go'
         run: chmod +x server-go/bin/paprika
-      # The e2e suite drives a browser; parity only talks HTTP/MCP.
+      # Both suites call render_screenshot, which launches Chromium (e2e also drives the canvas).
       - uses: ./.github/actions/setup-playwright
-        if: matrix.suite == 'e2e'
       - name: Run ${{ matrix.suite }} against the ${{ matrix.impl }} server
         env:
           SUITE: ${{ matrix.suite }}
