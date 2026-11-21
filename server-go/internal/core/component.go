@@ -194,6 +194,26 @@ func scaleGeometry(n *jsonv.Object, s float64, withPosition bool) {
 	}
 }
 
+// copyEnd: a component node becomes its copy; a free point scales with the instance.
+func copyEnd(e *jsonv.Object, instID string, inComp map[string]bool, s float64) *jsonv.Object {
+	out := e.Spread()
+	if v, ok := out.Get("nodeId"); ok {
+		if id, isStr := v.(string); isStr && inComp[id] {
+			out.Set("nodeId", CopyID(instID, id))
+		}
+	}
+	if s != 1 {
+		for _, k := range []string{"x", "y"} {
+			if v, ok := out.Get(k); ok {
+				if f, isNum := v.(float64); isNum {
+					out.Set(k, Round4(f*s))
+				}
+			}
+		}
+	}
+	return out
+}
+
 func descendants(doc *Document, id string) []string {
 	var out []string
 	var walk func(nid string)
@@ -303,6 +323,10 @@ func buildInstance(doc *Document, inst *Node) error {
 		return instErr(`instance "%s": invalid override on the root: %s`, instID, formatZod(err))
 	}
 
+	inComp := map[string]bool{}
+	for _, d := range descendants(doc, comp.Str("id")) {
+		inComp[d] = true
+	}
 	var want []*jsonv.Object
 	var copyFn func(srcID, parentID string) (string, error)
 	copyFn = func(srcID, parentID string) (string, error) {
@@ -320,6 +344,14 @@ func buildInstance(doc *Document, inst *Node) error {
 		n.Set("sourceId", srcID)
 		n.Delete("component")
 		scaleGeometry(n, s, true)
+		// A connector inside the component attaches to the copies of the same instance.
+		if n.Str("type") == "connector" {
+			for _, k := range []string{"from", "to"} {
+				if e := n.Obj(k); e != nil {
+					n.Set(k, copyEnd(e, instID, inComp, s))
+				}
+			}
+		}
 		if ov := overrides.Obj(srcID); ov != nil {
 			for _, k := range ov.Keys() {
 				v, _ := ov.Get(k)

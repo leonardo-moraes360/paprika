@@ -96,16 +96,18 @@ export const FrameNode = z.object({
 export const RectNode = z.object({ ...Base, type: z.literal("rect") });
 export const EllipseNode = z.object({ ...Base, type: z.literal("ellipse") });
 
+const TextFontFamily = z
+  .string()
+  .max(200)
+  .refine((v) => !/[;{}<>()]/.test(v), "fontFamily cannot contain ; { } < > ( )")
+  .default("Inter, system-ui, sans-serif");
+
 export const TextNode = z.object({
   ...Base,
   type: z.literal("text"),
   text: z.string().max(20_000).default(""),
   color: ColorValue.default("#111111"),
-  fontFamily: z
-    .string()
-    .max(200)
-    .refine((v) => !/[;{}<>()]/.test(v), "fontFamily cannot contain ; { } < > ( )")
-    .default("Inter, system-ui, sans-serif"),
+  fontFamily: TextFontFamily,
   fontSize: z.union([z.number().min(1).max(1000), z.string().regex(/^\$[\w.-]+$/)]).default(16),
   fontWeight: z.number().int().min(100).max(900).default(400),
   lineHeight: z.number().min(0).max(10).default(1.4),
@@ -148,6 +150,72 @@ export const PathNode = z.object({
     .optional(),
 });
 
+/** Formas de diagrama: o contorno desenhado por `shape`. `note` é a nota adesiva (canto dobrado). */
+export const ShapeKind = z.enum(["rect", "ellipse", "diamond", "note"]);
+
+/**
+ * Forma de diagrama com texto dentro (centralizado; numa nota, no topo). O contorno segue `shape`;
+ * `fill`, `stroke`, `radius` (só rect/note) e `shadow` pintam o contorno, não a caixa. Ao criar, sem
+ * `fill`/`stroke` a forma ganha as cores padrão do tipo. Conectores (`connector`) se prendem nela.
+ */
+export const ShapeNode = z.object({
+  ...Base,
+  type: z.literal("shape"),
+  width: z.number().min(1).max(100_000).default(160),
+  height: z.number().min(1).max(100_000).default(80),
+  shape: ShapeKind.default("rect"),
+  text: z.string().max(20_000).default(""),
+  color: ColorValue.default("#1e2336"),
+  fontFamily: TextFontFamily,
+  fontSize: z.union([z.number().min(1).max(1000), z.string().regex(/^\$[\w.-]+$/)]).default(16),
+  fontWeight: z.number().int().min(100).max(900).default(500),
+  lineHeight: z.number().min(0).max(10).default(1.3),
+  textAlign: z.enum(["left", "center", "right"]).default("center"),
+});
+
+/** Lado de uma forma onde a ponta do conector encosta; `auto` escolhe pelo caminho mais curto. */
+export const ConnectorSide = z.enum(["auto", "top", "right", "bottom", "left"]);
+
+/**
+ * Ponta de um conector: presa a um nó (`nodeId`, opcionalmente num lado) ou solta num ponto
+ * (`x`, `y` no espaço do pai do conector).
+ */
+export const ConnectorEnd = z.object({
+  nodeId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "nodeId must be [A-Za-z0-9_-]{1,64}").optional(),
+  side: ConnectorSide.optional(),
+  x: z.number().optional(),
+  y: z.number().optional(),
+});
+
+/**
+ * Seta/linha entre dois nós. `x`, `y`, `width`, `height` e `d` são derivados de `from`/`to` ao fim
+ * de cada transação (ver diagram.ts): mover uma forma redesenha os conectores presos a ela.
+ */
+export const ConnectorNode = z.object({
+  id: Base.id,
+  name: Base.name,
+  parentId: Base.parentId,
+  type: z.literal("connector"),
+  x: Base.x,
+  y: Base.y,
+  width: z.number().min(0).default(0),
+  height: z.number().min(0).default(0),
+  opacity: Base.opacity,
+  visible: Base.visible,
+  locked: Base.locked,
+  notes: Base.notes,
+  sourceId: Base.sourceId,
+  from: ConnectorEnd,
+  to: ConnectorEnd,
+  route: z.enum(["straight", "elbow"]).default("straight"),
+  startArrow: z.enum(["none", "arrow"]).default("none"),
+  endArrow: z.enum(["none", "arrow"]).default("arrow"),
+  stroke: Stroke.default({ color: "#1e2336", width: 2 }),
+  dashed: z.boolean().default(false),
+  /** Gerado: o traçado (linha + pontas) em coordenadas locais. */
+  d: z.string().max(10_000).default(""),
+});
+
 /**
  * Agrupa nós sem pintar nada: não tem fill/stroke/clip/layout. A caixa (x, y, width, height)
  * é calculada a partir dos filhos ao fim de cada transação (ver `fitGroups` em ops.ts), e as
@@ -188,9 +256,9 @@ export const PageNode = z.object({
   children: z.array(z.string()).default([]),
 });
 
-export const Node = z.discriminatedUnion("type", [FrameNode, RectNode, EllipseNode, TextNode, ImageNode, PathNode, GroupNode, PageNode]);
+export const Node = z.discriminatedUnion("type", [FrameNode, RectNode, EllipseNode, TextNode, ImageNode, PathNode, GroupNode, PageNode, ShapeNode, ConnectorNode]);
 
-export const NodeType = z.enum(["frame", "rect", "ellipse", "text", "image", "path", "group", "page"]);
+export const NodeType = z.enum(["frame", "rect", "ellipse", "text", "image", "path", "group", "page", "shape", "connector"]);
 
 export const TokenValue = z.union([z.string().max(500), z.number()]);
 export const TokenName = z
@@ -221,6 +289,10 @@ export type ImageNode = z.infer<typeof ImageNode>;
 export type PathNode = z.infer<typeof PathNode>;
 export type GroupNode = z.infer<typeof GroupNode>;
 export type PageNode = z.infer<typeof PageNode>;
+export type ShapeNode = z.infer<typeof ShapeNode>;
+export type ConnectorNode = z.infer<typeof ConnectorNode>;
+export type ConnectorEnd = z.infer<typeof ConnectorEnd>;
+export type ShapeKind = z.infer<typeof ShapeKind>;
 /** Nós que aceitam filhos. */
 export type ContainerNode = FrameNode | GroupNode | PageNode;
 /** Nós desenhados no canvas (tudo menos páginas). */
@@ -242,6 +314,8 @@ export const NODE_SCHEMAS = {
   path: PathNode,
   group: GroupNode,
   page: PageNode,
+  shape: ShapeNode,
+  connector: ConnectorNode,
 } as const;
 
 export function isContainer(n: Node | undefined): n is ContainerNode {

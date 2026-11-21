@@ -56,6 +56,7 @@ describe("MCP", () => {
         "create_page",
         "delete_nodes",
         "detach_instance",
+        "draw_diagram",
         "export_code",
         "find_nodes",
         "get_design_guide",
@@ -217,6 +218,41 @@ describe("MCP", () => {
 
     const saved = JSON.parse(await readFile(store.file, "utf8"));
     expect(saved.nodes.login.name).toBe("Login");
+  });
+
+  it("diagramas: draw_diagram posiciona formas, liga setas que seguem a forma e desfaz numa só entrada", async () => {
+    const c = await connect();
+    const r = (await c.callTool({
+      name: "draw_diagram",
+      arguments: {
+        nodes: [{ id: "start", text: "Start", shape: "ellipse" }, { id: "ok", text: "OK?", shape: "diamond" }, { id: "memo", text: "Note", shape: "note", x: 500, y: 0 }],
+        edges: [{ from: "start", to: "ok" }, { from: "memo", to: "ok", route: "straight", dashed: true }],
+      },
+    })) as ToolResult & { structuredContent?: { nodes: string[]; edges: string[]; created: string[] } };
+    expect(r.isError).toBeFalsy();
+    expect(r.structuredContent).toMatchObject({ nodes: ["start", "ok", "memo"], edges: ["start-to-ok", "memo-to-ok"] });
+    const doc = store.doc;
+    expect(doc.nodes.ok).toMatchObject({ type: "shape", x: 0, y: 144 });
+    const before = (doc.nodes["start-to-ok"] as { d: string }).d;
+    await call(c, "update_nodes", { updates: [{ id: "ok", props: { x: 200 } }] });
+    expect((store.doc.nodes["start-to-ok"] as { d: string }).d).not.toBe(before);
+
+    const outline = textOf(await call(c, "get_document_outline"));
+    expect(outline).toContain("connector#start-to-ok");
+    expect(outline).toContain("start->ok elbow");
+    expect(textOf(await call(c, "find_nodes", { text: "ok?" }))).toContain("shape#ok");
+    const html = textOf(await call(c, "export_code", { rootId: "ok", format: "html" }));
+    expect(html).toContain('data-paprika-type="shape"');
+
+    const bad = await call(c, "draw_diagram", { nodes: [{ id: "x" }], edges: [{ from: "x", to: "nope" }] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toBe('edges[0]: "nope" is neither a diagram node nor an existing node');
+    const derived = await call(c, "update_nodes", { updates: [{ id: "start-to-ok", props: { x: 1 } }] });
+    expect(textOf(derived)).toMatch(/follow its ends/);
+
+    await call(c, "undo");
+    await call(c, "undo");
+    expect(Object.keys(store.doc.nodes)).toEqual([]);
   });
 
   it("path com bezier: cria só com d, valida, mede, renderiza e exporta", async () => {

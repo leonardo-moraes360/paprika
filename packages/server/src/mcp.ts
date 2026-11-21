@@ -2,7 +2,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import {
+  ConnectorSide,
   NodeInputSchema,
+  Stroke,
+  diagramOps,
   copyId,
   importHTML,
   importSVG,
@@ -33,7 +36,8 @@ export const DESIGN_GUIDE = `# Paprika: guide for agents
 
 Document = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).
 Types: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,
-text, image, path (vector with bezier curves). Only frame, group and page have children.
+text, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between
+nodes). Only frame, group and page have children.
 
 Common fields: name, x, y, width, height (number | "hug" | "fill"), rotation, opacity (0..1),
 visible, locked, fill (color), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.
@@ -58,6 +62,14 @@ path: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fil
   the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node
   gets the drawing's box. Curves: "C c1x c1y c2x c2y x y" (cubic), "Q cx cy x y" (quadratic), S/T mirror the
   previous control point (smooth curves). Use path_info to check bounds before positioning.
+shape: shape (rect|ellipse|diamond|note), text (centered; top-left on a note), color, fontFamily, fontSize, fontWeight,
+  lineHeight, textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the
+  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).
+connector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the
+  parent's coordinates), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed.
+  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its
+  connectors, and deleting a node deletes the connectors attached to it.
+Diagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.
 
 Colors: #hex, rgb(), rgba() or "$token" (see set_tokens). Prefer tokens for recurring colors and sizes.
 Theme modes: set_tokens with mode ("dark", "compact"…) writes only the tokens that change; "mode" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.
@@ -80,7 +92,8 @@ export const DESIGN_GUIDE_PT_BR = `# Paprika: guia para agentes
 
 Documento = mapa plano de nós + rootIds (telas/frames de topo, em coordenadas do canvas).
 Tipos: frame (contêiner com estilo e layout), group (agrupa sem pintar), page (canvas separado), rect, ellipse,
-text, image, path (vetor com curvas bezier). Só frame, group e page têm filhos.
+text, image, path (vetor com curvas bezier), shape (forma de diagrama com texto dentro), connector (linha/seta entre
+nós). Só frame, group e page têm filhos.
 
 Campos comuns: name, x, y, width, height (número | "hug" | "fill"), rotation, opacity (0..1),
 visible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.
@@ -105,6 +118,14 @@ path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fil
   o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó
   ganha a caixa do desenho. Curvas: "C c1x c1y c2x c2y x y" (cúbica), "Q cx cy x y" (quadrática), S/T espelham
   o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.
+shape: shape (rect|ellipse|diamond|note), text (centralizado; numa nota, no topo à esquerda), color, fontFamily, fontSize,
+  fontWeight, lineHeight, textAlign. width/height são números (padrão 160×80; nota 160×160). fill/stroke/radius/shadow
+  pintam o contorno; campos omitidos na criação ganham o padrão do tipo (branco com borda escura; note = nota adesiva amarela).
+connector: from/to = {nodeId, side?: auto|top|right|bottom|left} (preso a um nó) ou {x, y} (ponto solto nas coordenadas
+  do pai), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed. x, y, width, height e
+  d são calculados a partir das pontas a cada escrita (só leitura): mover uma forma redesenha os conectores dela, e
+  apagar um nó apaga os conectores presos a ele.
+Diagramas: draw_diagram recebe nodes (formas) + edges (conectores) e posiciona sozinho as formas sem x/y.
 
 Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.
 Modos de tema: set_tokens com mode ("dark", "compact"…) grava só os tokens que mudam; "mode" num frame ou página aplica o modo ao subtree (dá para pôr a mesma tela clara e escura lado a lado). export_code com cssVariables: true sai com var(--token) e uma regra por modo.
@@ -655,6 +676,58 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
     const w = await write(r.nodes.map((node) => ({ op: "create", parentId: parentId ?? null, node }) as OpT), label, batch);
     return json({ ...w, warnings: r.warnings });
   };
+
+  server.registerTool(
+    "draw_diagram",
+    {
+      title: "Draw a diagram",
+      description:
+        "Draws a flowchart-style diagram in one atomic write: each node becomes a shape (rect, ellipse, diamond or note, with text inside) and each edge a connector that stays attached when shapes move. Nodes without x and y are laid out in layers following the edges (direction down or right), to the right of the parent's existing content. Edges default to elbow routing with an arrow at the end; they may also point at existing nodes by id.",
+      inputSchema: {
+        parentId: z.string().nullable().optional().describe("Frame, group or page for the diagram (default: the first page, or the canvas)"),
+        direction: z.enum(["down", "right"]).default("down").describe("Auto layout: layers top to bottom or left to right"),
+        gap: z.number().min(0).max(2000).default(64).describe("Space between shapes in the auto layout (px)"),
+        x: z.number().optional().describe("Left of the auto layout in the parent's coordinates (default: right of the existing content)"),
+        y: z.number().optional().describe("Top of the auto layout (default: top of the existing content)"),
+        nodes: z
+          .array(
+            z
+              .object({ id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}").describe("New shape id (edges refer to it)") })
+              .catchall(z.unknown())
+              .describe("Shape fields: text, shape (rect|ellipse|diamond|note), x, y, width, height, fill, stroke, color, fontSize…"),
+          )
+          .max(500)
+          .default([]),
+        edges: z
+          .array(
+            z.object({
+              from: z.string().describe("Id of a diagram node or of an existing node"),
+              to: z.string(),
+              id: z.string().optional().describe("Connector id (default: <from>-to-<to>)"),
+              fromSide: ConnectorSide.optional(),
+              toSide: ConnectorSide.optional(),
+              route: z.enum(["straight", "elbow"]).optional().describe("Default: elbow"),
+              startArrow: z.enum(["none", "arrow"]).optional(),
+              endArrow: z.enum(["none", "arrow"]).optional(),
+              dashed: z.boolean().optional(),
+              stroke: Stroke.optional(),
+              name: z.string().max(200).optional(),
+            }),
+          )
+          .max(1000)
+          .default([]),
+        label: z.string().max(200).optional(),
+        batch: batchField,
+      },
+      outputSchema: { nodes: z.array(z.string()), edges: z.array(z.string()), ...Written },
+    },
+    (args) =>
+      guard(async () => {
+        const plan = diagramOps(store.doc, args);
+        const w = await write(plan.ops as OpT[], args.label ?? `draw diagram (${plan.nodes.length} shapes, ${plan.edges.length} connectors)`, args.batch);
+        return json({ nodes: plan.nodes, edges: plan.edges, ...w });
+      }),
+  );
 
   server.registerTool(
     "import_svg",

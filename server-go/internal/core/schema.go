@@ -87,7 +87,7 @@ func nodeSchema(typ string, extra ...z.Field) *z.ObjectSchema {
 }
 
 // NodeTypes in schema order.
-var NodeTypes = []string{"frame", "rect", "ellipse", "text", "image", "path", "group", "page"}
+var NodeTypes = []string{"frame", "rect", "ellipse", "text", "image", "path", "group", "page", "shape", "connector"}
 
 // baseField returns one of the base fields by name.
 func baseField(name string) z.Field {
@@ -123,6 +123,85 @@ func pageSchema() *z.ObjectSchema {
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
 	)
 }
+
+func fontFamilySchema() z.Schema {
+	return z.Default(z.String().Max(200).Refine(func(v string) string {
+		if reFontForbidden.MatchString(v) {
+			return "fontFamily cannot contain ; { } < > ( )"
+		}
+		return ""
+	}), "Inter, system-ui, sans-serif")
+}
+
+func fontSizeSchema() z.Schema {
+	return z.Default(z.Union(
+		z.Number().Min(1).Max(1000),
+		z.String().Regex(`^\$[A-Za-z0-9_.-]+$`, `/^\$[\w.-]+$/`, ""),
+	), 16.0)
+}
+
+// ShapeKinds: the outlines a diagram shape can take.
+var ShapeKinds = []string{"rect", "ellipse", "diamond", "note"}
+
+// shapeSchema: a diagram shape with text inside (see diagram.go).
+func shapeSchema() *z.ObjectSchema {
+	fields := baseFields()
+	for k, f := range fields {
+		switch f.Name {
+		case "width":
+			fields[k].Schema = z.Default(z.Number().Min(1).Max(100_000), 160.0)
+		case "height":
+			fields[k].Schema = z.Default(z.Number().Min(1).Max(100_000), 80.0)
+		}
+	}
+	fields = append(fields,
+		z.Field{Name: "type", Schema: z.Literal("shape")},
+		z.Field{Name: "shape", Schema: z.Default(z.Enum(ShapeKinds...), "rect")},
+		z.Field{Name: "text", Schema: z.Default(z.String().Max(20_000), "")},
+		z.Field{Name: "color", Schema: z.Default(colorValue(), "#1e2336")},
+		z.Field{Name: "fontFamily", Schema: fontFamilySchema()},
+		z.Field{Name: "fontSize", Schema: fontSizeSchema()},
+		z.Field{Name: "fontWeight", Schema: z.Default(z.Int().Min(100).Max(900), 500.0)},
+		z.Field{Name: "lineHeight", Schema: z.Default(z.Number().Min(0).Max(10), 1.3)},
+		z.Field{Name: "textAlign", Schema: z.Default(z.Enum("left", "center", "right"), "center")},
+	)
+	return z.Object(fields...)
+}
+
+func connectorEndSchema() z.Schema {
+	return z.Object(
+		z.Field{Name: "nodeId", Schema: z.Optional(z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "nodeId must be [A-Za-z0-9_-]{1,64}"))},
+		z.Field{Name: "side", Schema: z.Optional(z.Enum("auto", "top", "right", "bottom", "left"))},
+		z.Field{Name: "x", Schema: z.Optional(z.Number())},
+		z.Field{Name: "y", Schema: z.Optional(z.Number())},
+	)
+}
+
+// connectorSchema: a line/arrow between two nodes; x, y, width, height and d are derived (see diagram.go).
+func connectorSchema() *z.ObjectSchema {
+	return z.Object(
+		baseField("id"), baseField("name"), baseField("parentId"),
+		z.Field{Name: "type", Schema: z.Literal("connector")},
+		baseField("x"), baseField("y"),
+		z.Field{Name: "width", Schema: z.Default(z.Number().Min(0), 0.0)},
+		z.Field{Name: "height", Schema: z.Default(z.Number().Min(0), 0.0)},
+		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"),
+		z.Field{Name: "from", Schema: connectorEndSchema()},
+		z.Field{Name: "to", Schema: connectorEndSchema()},
+		z.Field{Name: "route", Schema: z.Default(z.Enum("straight", "elbow"), "straight")},
+		z.Field{Name: "startArrow", Schema: z.Default(z.Enum("none", "arrow"), "none")},
+		z.Field{Name: "endArrow", Schema: z.Default(z.Enum("none", "arrow"), "arrow")},
+		z.Field{Name: "stroke", Schema: z.Default(strokeSchema, jsonv.NewObject("color", "#1e2336", "width", 2.0))},
+		z.Field{Name: "dashed", Schema: z.Default(z.Bool(), false)},
+		z.Field{Name: "d", Schema: z.Default(z.String().Max(10_000), "")},
+	)
+}
+
+// StrokeSchema is Stroke in schema.ts ({color, width}).
+var StrokeSchema = strokeSchema
+
+// ConnectorSideSchema is ConnectorSide in schema.ts.
+var ConnectorSideSchema = z.Enum("auto", "top", "right", "bottom", "left")
 
 // IsContainer reports whether a node type takes children.
 func IsContainer(typ string) bool { return typ == "frame" || typ == "group" || typ == "page" }
@@ -210,8 +289,10 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "strokeJoin", Schema: z.Default(z.Enum("miter", "round", "bevel"), "round")},
 		z.Field{Name: "viewBox", Schema: z.Optional(z.Tuple(z.Number(), z.Number(), z.Number().Positive(), z.Number().Positive()))},
 	),
-	"group": groupSchema(),
-	"page":  pageSchema(),
+	"group":     groupSchema(),
+	"page":      pageSchema(),
+	"shape":     shapeSchema(),
+	"connector": connectorSchema(),
 }
 
 // NodeSchema is the discriminated union of all node types.

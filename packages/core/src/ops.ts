@@ -19,6 +19,7 @@ import { newId } from "./id.js";
 import { parsePath, pathBounds } from "./path.js";
 import { addPageOps, groupOps, ungroupOps } from "./structure.js";
 import { round4 } from "./num.js";
+import { ConnectorError, connectorsAttachedTo, routeConnectors, shapeDefaults } from "./diagram.js";
 import {
   COPY_OVERRIDES,
   InstanceError,
@@ -212,6 +213,7 @@ function updatePlain(doc: DocumentT, node: NodeT, props: Record<string, unknown>
     if (IMMUTABLE_KEYS.has(k)) throw new OpError(`field "${k}" cannot be changed by update (use move/create)`, i);
     if (!allowed.has(k)) throw new OpError(`unknown field for ${node.type}: ${k}`, i);
     if (node.type === "group" && (k === "width" || k === "height")) throw new OpError(GROUP_SIZE, i);
+    if (node.type === "connector" && CONNECTOR_DERIVED.has(k)) throw new OpError(CONNECTOR_GEOMETRY, i);
     prev[k] = k in node ? (node as Record<string, unknown>)[k] : null;
     if (v === null) delete next[k];
     else next[k] = v;
@@ -247,6 +249,8 @@ function updateOverride(doc: DocumentT, inst: FrameNode, node: NodeT, srcId: str
 
 const CONTAINER_TYPES = new Set(["frame", "group", "page"]);
 const GROUP_SIZE = "a group's width/height follow its children; move or resize the children";
+const CONNECTOR_DERIVED = new Set(["x", "y", "width", "height", "d"]);
+const CONNECTOR_GEOMETRY = "a connector's x, y, width, height and d follow its ends; change from/to (nodeId, side, or x/y of a free end)";
 
 function createNode(
   doc: DocumentT,
@@ -266,6 +270,7 @@ function createNode(
   if (unknown.length) throw new OpError(`unknown fields for ${input.type}: ${unknown.join(", ")}`, i);
   if ("parentId" in rest) throw new OpError(`use the operation's parentId, not the node's`, i);
   if (input.type === "group" && ("width" in rest || "height" in rest)) throw new OpError(GROUP_SIZE, i);
+  if (input.type === "connector" && Object.keys(rest).some((k) => CONNECTOR_DERIVED.has(k))) throw new OpError(CONNECTOR_GEOMETRY, i);
   if ("sourceId" in rest) throw new OpError(SOURCE_ID, i);
   const owner = instanceOwner(doc, parentId);
   if (owner) throw new OpError(inInstance(owner.id), i);
@@ -289,6 +294,13 @@ function createNode(
     }
     props.width ??= Math.max(1, Math.ceil(w));
     props.height ??= Math.max(1, Math.ceil(h));
+  }
+  // Campos ausentes de uma forma nova ganham o padrão do tipo (a nota adesiva: amarela, sem borda, com sombra).
+  if (input.type === "shape") {
+    const kind = typeof props.shape === "string" ? props.shape : "rect";
+    if (kind === "rect" || kind === "ellipse" || kind === "diamond" || kind === "note") {
+      for (const [k, v] of Object.entries(shapeDefaults(kind))) if (props[k] === undefined) props[k] = v;
+    }
   }
   const parsed = Node.safeParse({ ...props, id, parentId, children: CONTAINER_TYPES.has(input.type) ? [] : undefined });
   if (!parsed.success) throw new OpError(`invalid node: ${formatZod(parsed.error)}`, i);
@@ -334,6 +346,13 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       if (!node) throw new OpError(`node "${op.id}" does not exist`, i);
       const owner = copyOwner(doc, node);
       if (owner) throw new OpError(`${copyRule(op.id, owner.id)}; to hide it, use visible: false`, i);
+      // Conectores presos ao que sai vão junto (as cópias em instâncias somem na sincronização).
+      const attached = connectorsAttachedTo(doc, new Set(subtree(doc, op.id).map((n) => n.id))).filter((id) => !copyOwner(doc, doc.nodes[id]!));
+      if (attached.length) {
+        const inverse: Op[] = [];
+        for (const id of attached) inverse.unshift(...applyOne(doc, { op: "delete", id }, i, created));
+        return [...applyOne(doc, op, i, created), ...inverse];
+      }
       const nodes = subtree(doc, op.id);
       const list = container(doc, node.parentId, i);
       const index = list.indexOf(op.id);
@@ -445,6 +464,13 @@ export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
     }
     // Um group que contém instâncias só sabe o tamanho delas depois da sincronização.
     inverse.unshift(...fitGroups(draft));
+    // Conectores seguem as pontas: geometria derivada, sem inversa (o desfazer recalcula).
+    try {
+      routeConnectors(draft);
+    } catch (e) {
+      if (e instanceof ConnectorError) throw new OpError(e.message, last);
+      throw e;
+    }
   }
   return { doc: draft, inverse, created };
 }
@@ -496,7 +522,7 @@ export function localBox(n: NodeT): { minX: number; minY: number; maxX: number; 
   if (!isScene(n)) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
   const w = typeof n.width === "number" ? n.width : 0;
   const h = typeof n.height === "number" ? n.height : 0;
-  const rotation = n.type === "group" ? 0 : n.rotation;
+  const rotation = n.type === "group" || n.type === "connector" ? 0 : n.rotation;
   if (!rotation) return { minX: n.x, minY: n.y, maxX: n.x + w, maxY: n.y + h };
   const rad = (rotation * Math.PI) / 180;
   const cos = Math.abs(Math.cos(rad));
@@ -526,7 +552,8 @@ function fitGroups(doc: DocumentT): Op[] {
 }
 
 function fitGroup(doc: DocumentT, g: GroupNode, inverse: Op[]) {
-  const kids = g.children.map((c) => doc.nodes[c]).filter(isScene);
+  // Conectores não contam: a caixa deles é derivada das pontas (e recalculada depois).
+  const kids = g.children.map((c) => doc.nodes[c]).filter(isScene).filter((k) => k.type !== "connector");
   if (!kids.length) return;
   let minX = Infinity,
     minY = Infinity,
