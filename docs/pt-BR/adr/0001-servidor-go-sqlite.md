@@ -2,7 +2,7 @@
 
 # ADR 0001: servidor em Go com armazenamento em SQLite
 
-- Status: aceita (2026-11-21)
+- Status: aceita (2026-11-21); emendada em 2026-11-21 (veja [Desdobramento](#desdobramento-servidor-typescript-removido))
 - Escopo: `server-go/` (novo). O servidor TypeScript (`packages/server`) e o core (`packages/core`) continuam como estão.
 
 ## Contexto
@@ -33,3 +33,10 @@ O dono do projeto pediu para reimplementar o servidor do Paprika em Go, mantendo
 - **SQLite como fonte com o JSON espelhado a cada mudança** (recomendada no início): mantém o fluxo com git automático, mas duas fontes de verdade exigiriam tratar conflitos. Não foi a escolha do dono.
 - **JSON como fonte e SQLite só para o histórico**: a menor mudança, mas não atende a "guardar os dados num banco".
 - **Rodar o core TypeScript dentro do Go (goja/V8)** para evitar o port: sem lógica duplicada, mas pesado, mais lento e difícil de depurar; as fixtures golden dão a mesma garantia.
+
+## Desdobramento: servidor TypeScript removido
+
+- Data: 2026-11-21. Decisão do dono: manter só o servidor Go.
+- O `packages/server` foi apagado. As suítes black-box foram para `packages/e2e` e rodam só contra o binário Go (`test:api`, a antiga suíte de paridade, e `test:e2e`); a CI roda cada uma uma vez em vez de uma vez por servidor.
+- A decisão 8 muda: não há mais servidor TypeScript de onde extrair o contrato, então `server-go/contract/mcp.json` e `guide.pt-BR.md` passam a ser o próprio contrato, editados à mão e conferidos por `packages/e2e/test/api.test.ts`. O `scripts/gen-contract.mjs` virou `scripts/gen-measure.mjs`, que só copia o script de medida do `@paprika/core`.
+- A decisão 7 continua: o `packages/core` segue como referência (o canvas roda ele) e as fixtures golden continuam travando o port Go nele.

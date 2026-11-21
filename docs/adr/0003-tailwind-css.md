@@ -47,7 +47,7 @@ defaults (architecture decision 4). The app's CSS must not leak into the nodes u
 multi-selection, layer hover, panel resizer hover and drag, active tool, agent drawing a diagram with cursor
 and roster, review issues, inline rename, shape text editing, pages, new-workspace form, mobile canvas, the
 bezier example) were taken before and after the change against the Go server: all 18 are pixel-identical. The
-canvas E2E suite passes against both servers.
+canvas E2E suite (`packages/e2e`) passes against the Go server.
 
 ## Consequences
 

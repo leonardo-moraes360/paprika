@@ -47,7 +47,7 @@ navegador (decisão 4 da arquitetura). O CSS do app não pode vazar para os nós
 seleção múltipla, hover na camada, hover e arraste do redimensionador, ferramenta ativa, agente desenhando um
 diagrama com cursor e lista de agentes, problemas da revisão, renomear no lugar, edição de texto de forma,
 páginas, formulário de novo workspace, canvas no celular, o exemplo bezier) foram tirados antes e depois da
-mudança contra o servidor Go: os 18 são idênticos pixel a pixel. A suíte E2E do canvas passa nos dois servidores.
+mudança contra o servidor Go: os 18 são idênticos pixel a pixel. A suíte E2E do canvas (`packages/e2e`) passa contra o servidor Go.
 
 ## Consequências
 

@@ -16,11 +16,15 @@ prompt: |
 
   Drive Paprika through its MCP server (stdio):
 
-    node "$PAPRIKA_BENCH/packages/server/dist/cli.js" mcp --file "$PWD/document.paprika.json" --no-ui
+    P="$PAPRIKA_BENCH/server-go/bin/paprika"
+    "$P" import "$PWD/document.paprika.json" --db "$PWD/paprika.db" --replace
+    "$P" mcp --db "$PWD/paprika.db" --no-ui
 
-  Build it with `pnpm --filter @paprika/server build` in `$PAPRIKA_BENCH` first if `dist/` is
-  missing. Start by calling `lint_design` and work through what it reports. Do not edit the JSON by
-  hand.
+  If `$PAPRIKA_BENCH/server-go/bin/paprika` is missing, build it first with `pnpm go:build` inside
+  `$PAPRIKA_BENCH`. Start by calling `lint_design` and work through what it reports. Do
+  not edit the JSON by hand.
+  When you are done, close the server and write the result back to the file the score reads:
+  `"$P" export --db "$PWD/paprika.db" -o "$PWD/document.paprika.json"`.
 
   The score checks exactly these rules:
 

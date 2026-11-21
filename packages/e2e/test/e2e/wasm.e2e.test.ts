@@ -6,8 +6,7 @@ import { join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { DocumentStore, closeBrowser, startHttpServer, type RunningServer } from "../../src/index.js";
-import { goBin, impl, startServer, type ExternalServer } from "../external/harness.js";
+import { startServer, type ExternalServer } from "../harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
@@ -41,10 +40,8 @@ async function diffRatio(page: Page, a: Buffer, b: Buffer, tol = 40): Promise<nu
   );
 }
 
-describe.skipIf(!wasmBuilt)(`E2E (${impl}): canvas com renderizador WASM`, () => {
+describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   let dir: string;
-  let store: DocumentStore | undefined;
-  let http: RunningServer | undefined;
   let external: ExternalServer | undefined;
   let url: string;
   let browser: Browser;
@@ -71,14 +68,8 @@ describe.skipIf(!wasmBuilt)(`E2E (${impl}): canvas com renderizador WASM`, () =>
     dir = await mkdtemp(join(tmpdir(), "paprika-wasm-e2e-"));
     const file = join(dir, "bezier.paprika.json");
     await copyFile(join(root, "examples/bezier.paprika.json"), file);
-    if (goBin) {
-      external = await startServer({ seed: file, webRoot });
-      url = external.url;
-    } else {
-      store = await DocumentStore.open(file);
-      http = await startHttpServer(store, { host: "127.0.0.1", port: 0, webRoot });
-      url = http.url;
-    }
+    external = await startServer({ seed: file, webRoot });
+    url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     page.on("pageerror", (e) => errors.push(e.message));
@@ -89,9 +80,6 @@ describe.skipIf(!wasmBuilt)(`E2E (${impl}): canvas com renderizador WASM`, () =>
   afterAll(async () => {
     await agent?.close();
     await browser?.close();
-    await http?.close();
-    await closeBrowser();
-    await store?.close();
     await external?.stop();
     await rm(dir, { recursive: true, force: true });
   });

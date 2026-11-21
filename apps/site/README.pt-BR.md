@@ -19,10 +19,13 @@ A página é desenhada no próprio Paprika: quatro frames raiz (desktop e mobile
 Para mudar a página, edite no canvas ou rode de novo o script de desenho e depois gere o site:
 
 ```bash
-pnpm --filter @paprika/core --filter @paprika/server build
-node packages/server/dist/cli.js serve --file apps/site/design/landing.paprika.json --port 4790
+pnpm --filter @paprika/core build && pnpm go:build
+server-go/bin/paprika import apps/site/design/landing.paprika.json --db /tmp/landing.db --replace
+server-go/bin/paprika serve --db /tmp/landing.db --port 4790
 # em outro terminal
 PAPRIKA_MCP=http://127.0.0.1:4790/mcp pnpm --filter @paprika/site site:draw
+# no fim, de volta ao arquivo versionado
+server-go/bin/paprika export --db /tmp/landing.db -o apps/site/design/landing.paprika.json
 pnpm --filter @paprika/site site:build   # gera apps/site/dist
 ```
 
