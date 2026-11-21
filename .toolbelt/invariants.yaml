@@ -40,3 +40,9 @@ invariants:
       rule: Unknown node fields are rejected with an actionable error, never silently dropped
       added_at: 2026-11-21T12:56:03.846827282Z
       immutable: false
+    - id: inv-1795271716809371457
+      category: mandate
+      rule: 'server-go/internal/core is a port of @paprika/core: after any change to packages/core or the MCP tools, run pnpm build && pnpm go:golden and keep pnpm go:test passing; the TypeScript core stays the reference'
+      ref: docs/adr/0001-go-server-sqlite.md
+      added_at: 2026-11-21T14:35:16.809373794Z
+      immutable: false
