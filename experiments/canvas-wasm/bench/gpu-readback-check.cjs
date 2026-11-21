@@ -33,4 +33,7 @@ const pkg = "/@fs" + path.resolve(__dirname, "../../../apps/web/src/wasm/paprika
   console.log(JSON.stringify(r));
   if (bad.length) { console.error("FAIL", bad.map(([k, v]) => `${k}: got ${r[k]} want ${v}`).join("; ")); process.exit(1); }
   console.log("PASS: vello WebGPU output matches expected pixels");
-})();
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

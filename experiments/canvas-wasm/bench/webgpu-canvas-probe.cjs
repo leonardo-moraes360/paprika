@@ -8,7 +8,7 @@ const { chromium } = require("playwright");
   await p.goto("http://localhost:5199/");
   const r = await p.evaluate(async () => {
     const a = await navigator.gpu.requestAdapter(); const d = await a.requestDevice();
-    let lost = "alive"; d.lost.then((i) => (lost = i.reason + ": " + i.message));
+    let lost = "alive"; d.lost.then((i) => (lost = i.reason + ": " + i.message)).catch((e) => (lost = "lost: " + e));
     const c = document.createElement("canvas"); c.width = 64; c.height = 64; document.body.append(c);
     const ctx = c.getContext("webgpu");
     ctx.configure({ device: d, format: "rgba8unorm", alphaMode: "opaque" });
@@ -21,4 +21,7 @@ const { chromium } = require("playwright");
   });
   console.log(opts.channel ?? "headless-shell", "=>", r);
   await b.close(); }
-})();
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
