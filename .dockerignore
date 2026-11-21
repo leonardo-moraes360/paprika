@@ -8,6 +8,7 @@
 !packages/core/
 !apps/web/
 !crates/render/
+!crates/sync/
 !server-go/
 
 # Build outputs and local state that may exist inside the allowed folders.
@@ -16,6 +17,8 @@
 **/*.tsbuildinfo
 apps/web/src/wasm/
 crates/render/target/
+crates/sync/target/
+crates/sync/tests/
 server-go/bin/
 **/*.db
 **/*.db-wal

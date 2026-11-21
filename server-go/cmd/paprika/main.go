@@ -16,13 +16,15 @@ import (
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/server"
+	"github.com/leonardo-moraes360/paprika/server-go/internal/team"
 )
 
 const help = `paprika %s (Go): ferramenta de design local para agentes de IA, com MCP embutido e dados em SQLite.
 
 Uso:
-  paprika serve  [--db paprika.db] [--doc ID] [--port 4777] [--host 127.0.0.1] [--web DIR]
+  paprika serve  [--db paprika.db] [--doc ID] [--port 4777] [--host 127.0.0.1] [--web DIR] [--team]
       Canvas em http://host:port, MCP Streamable HTTP em /mcp, sync ao vivo em /ws.
+      Com --team, sobe o sidecar paprika-sync e sincroniza com o time P2P (docs/team-sync.md).
   paprika mcp    [--db paprika.db] [--doc ID] [--port 4777] [--no-ui]
       MCP via stdio (para agentes que só falam stdio). Sobe o canvas na porta, se livre.
   paprika import ARQUIVO.paprika.json [--db paprika.db] [--replace]
@@ -40,6 +42,11 @@ Opções:
       --host    Interface de bind. Padrão: 127.0.0.1. Expor fora do loopback não tem autenticação.
       --web     Build do canvas (apps/web/dist). Padrão: $PAPRIKA_WEB_ROOT ou detectado
       --no-ui   (mcp) não sobe o canvas HTTP
+      --team    (serve) entra no modo time: Iroh + CRDT via sidecar paprika-sync ($PAPRIKA_SYNC ou ao lado do binário)
+      --team-dir   Pasta da chave, do arquivo de time e do log de operações. Padrão: <db>.team/
+      --team-name  Seu nome para o time. Padrão: $USER
+      --team-no-relay  Sem relays públicos nem busca de endereço (só rede local; testes)
+      --team-bind  Endereço UDP do endpoint Iroh (ex.: 127.0.0.1:0)
   -h, --help
   -v, --version
 `
@@ -106,6 +113,11 @@ func run(args []string) error {
 	host := fs.String("host", "127.0.0.1", "")
 	web := fs.String("web", "", "")
 	noUI := fs.Bool("no-ui", false, "")
+	teamOn := fs.Bool("team", false, "")
+	teamDir := fs.String("team-dir", "", "")
+	teamName := fs.String("team-name", os.Getenv("USER"), "")
+	teamNoRelay := fs.Bool("team-no-relay", false, "")
+	teamBind := fs.String("team-bind", "", "")
 	replace := fs.Bool("replace", false, "")
 	out := fs.String("o", "", "")
 	fs.StringVar(out, "out", "", "")
@@ -203,10 +215,26 @@ func run(args []string) error {
 	logf(fmt.Sprintf("banco: %s · documento %q (%s)", dbPath, store.Doc().Str("name"), store.DocID()))
 	shot := &server.Chrome{}
 
+	var teamSvc *team.Service
+	var teamRoutes server.TeamRoutes // stays a nil interface when the team is off
+	if *teamOn && cmd == "serve" {
+		dir := *teamDir
+		if dir == "" {
+			dir = strings.TrimSuffix(dbPath, filepath.Ext(dbPath)) + ".team"
+		}
+		teamSvc, err = team.New(context.Background(), store, team.Options{DataDir: dir, Name: *teamName, NoRelay: *teamNoRelay, Bind: *teamBind, Stderr: os.Stderr}, logf)
+		if err != nil {
+			store.Close()
+			return fmt.Errorf("time: %w", err)
+		}
+		teamRoutes = teamSvc
+		logf(fmt.Sprintf("time: chave %s · dados em %s", teamSvc.Sidecar().ID, dir))
+	}
+
 	var http *server.RunningServer
 	startUI := func() error {
 		var err error
-		http, err = server.StartHTTP(store, server.HTTPOptions{Host: *host, Port: *port, WebRoot: webRoot(*web), Log: logf, Shot: shot})
+		http, err = server.StartHTTP(store, server.HTTPOptions{Host: *host, Port: *port, WebRoot: webRoot(*web), Log: logf, Shot: shot, Team: teamRoutes})
 		if err != nil {
 			return err
 		}
@@ -216,6 +244,9 @@ func run(args []string) error {
 	shutdown := func() {
 		if http != nil {
 			http.Close()
+		}
+		if teamSvc != nil {
+			teamSvc.Close()
 		}
 		shot.Close()
 		store.Close()
