@@ -107,7 +107,7 @@ func indexFrom(s, sub string, from int) int {
 // ParseMarkup reads markup into a "#root" element.
 func ParseMarkup(src string) (*MarkupElement, error) {
 	if jsonv.Len16(src) > markupMaxChars {
-		return nil, fmt.Errorf("marcação grande demais (máx. %d caracteres)", markupMaxChars)
+		return nil, fmt.Errorf("markup too large (max. %d characters)", markupMaxChars)
 	}
 	root := &MarkupElement{Tag: "#root", Attrs: map[string]string{}}
 	stack := []*MarkupElement{root}
@@ -259,7 +259,7 @@ func ParseMarkup(src string) (*MarkupElement, error) {
 		i = j
 		count++
 		if count > markupMaxElements {
-			return nil, fmt.Errorf("marcação com mais de %d elementos", markupMaxElements)
+			return nil, fmt.Errorf("markup with more than %d elements", markupMaxElements)
 		}
 		t := top()
 		t.Children = append(t.Children, el)
@@ -283,7 +283,7 @@ func ParseMarkup(src string) (*MarkupElement, error) {
 			continue
 		}
 		if len(stack) > markupMaxDepth {
-			return nil, fmt.Errorf("marcação com mais de %d níveis", markupMaxDepth)
+			return nil, fmt.Errorf("markup with more than %d levels", markupMaxDepth)
 		}
 		stack = append(stack, el)
 	}

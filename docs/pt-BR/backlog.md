@@ -123,10 +123,10 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 |---|---|---|---|
 | Servidor MCP embutido (stdio + HTTP), leitura e escrita, CLI | `paprika serve`/`mcp`, 23 ferramentas | ✅ | — |
 | Leituras econômicas em tokens | `get_document_outline` | ✅ | — |
-| Resultados estruturados (`outputSchema` + `structuredContent`) | JSON como texto (fb#7) | ⬜ | P1 |
-| Guia e erros em inglês (pt-BR opcional) | pt-BR (fb#12) | ⬜ | P1 |
-| Agrupar várias escritas num só passo de desfazer | Uma entrada por chamada (fb#11) | ⬜ | P1 |
-| Nome do ator vindo do `clientInfo` do MCP | Vem do User-Agent (fb#10) | 🟡 | P1 |
+| Resultados estruturados (`outputSchema` + `structuredContent`) | Toda ferramenta que responde JSON declara `outputSchema` e devolve `structuredContent` (2026-11-21) | ✅ | — |
+| Guia e erros em inglês (pt-BR opcional) | Guia, descrições das ferramentas, erros, avisos e lint em inglês; `get_design_guide {language: "pt-BR"}` (2026-11-21). A interface do canvas segue em pt-BR | ✅ | — |
+| Agrupar várias escritas num só passo de desfazer | `batch` em toda ferramenta de escrita (2026-11-21) | ✅ | — |
+| Nome do ator vindo do `clientInfo` do MCP | `agent:<clientInfo.name>` no stdio e no HTTP (o id de sessão guarda o nome) (2026-11-21) | ✅ | — |
 | Presença do agente no canvas (cursor, o que está editando) | Destaque + lista de atividade | 🟡 | P2 |
 | Comentários para humanos e agentes (criar, resolver, filtrar) | Só o campo `notes` | 🟡 | P2 |
 | Gerenciar arquivos pelo MCP (listar, criar, abrir, renomear, arquivar), vários ao mesmo tempo | Um arquivo por processo | ⬜ | P2 |

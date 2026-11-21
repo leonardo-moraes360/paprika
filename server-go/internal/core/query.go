@@ -132,7 +132,7 @@ func Outline(doc *Document, rootID string, depth int) string {
 		walk(r, 0)
 	}
 	if len(lines) == 0 {
-		return "(documento vazio)"
+		return "(empty document)"
 	}
 	return strings.Join(lines, "\n")
 }

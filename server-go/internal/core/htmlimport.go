@@ -117,7 +117,7 @@ func htmlColor(v string, ctx *htmlCtx) string {
 	}
 	s := jsonv.Trim(v)
 	if svgURLRe.MatchString(s) {
-		ctx.warn("imagens de fundo (url()) não são importadas")
+		ctx.warn("background images (url()) are not imported")
 		return ""
 	}
 	if strings.ContainsAny(s, ";{}<>") || jsonv.Len16(s) > 200 {
@@ -187,7 +187,7 @@ func textStyleOf(css map[string]string, tag string, parent textStyle, ctx *htmlC
 	if fs := cssPx(css, "font-size"); fs != nil && *fs >= 1 {
 		t.fontSize = fptr(math.Min(1000, *fs))
 	} else if css["font-size"] != "" {
-		ctx.warn(fmt.Sprintf("font-size \"%s\" não é px; ignorado", css["font-size"]))
+		ctx.warn(fmt.Sprintf("font-size \"%s\" is not px; skipped", css["font-size"]))
 	} else if isHeading {
 		t.fontSize = fptr(h)
 	}
@@ -292,7 +292,7 @@ func boxProps(node *jsonv.Object, css map[string]string, ctx *htmlCtx, foreign b
 			return "fill"
 		}
 		if v != "" && v != "auto" {
-			ctx.warn(fmt.Sprintf("%s \"%s\" não é suportado; usando hug", axis, v))
+			ctx.warn(fmt.Sprintf("%s \"%s\" is not supported; using hug", axis, v))
 		}
 		main := (ctx.mode == "row" && axis == "width") || (ctx.mode == "column" && axis == "height")
 		if ctx.mode != "" && main && flexFillRe.MatchString(css["flex"]) {
@@ -492,7 +492,7 @@ func convertElement(e *MarkupElement, ctx *htmlCtx) []*jsonv.Object {
 		return nil
 	}
 	if e.Attrs["class"] != "" {
-		ctx.warn("classes CSS não são aplicadas; só estilos inline (style=\"\")")
+		ctx.warn("CSS classes are not applied; only inline styles (style=\"\")")
 	}
 	css := ParseStyle(e.Attrs["style"])
 	ptype := ""
@@ -524,7 +524,7 @@ func convertElement(e *MarkupElement, ctx *htmlCtx) []*jsonv.Object {
 	if ptype == "image" || (ptype == "" && e.Tag == "img") {
 		src := e.Attrs["src"]
 		if !imgSrcRe.MatchString(src) {
-			ctx.warn("<img> sem src http(s) ou data:image/ ignorado")
+			ctx.warn("<img> without an http(s) or data:image/ src skipped")
 			return nil
 		}
 		n := jsonv.NewObject("type", "image", "src", src)
@@ -654,7 +654,7 @@ func ImportHTML(src string, opts ImportOptions) (ImportResult, error) {
 		}
 	}
 	if len(nodes) == 0 {
-		*warnings = append(*warnings, "o HTML não tem elementos para importar")
+		*warnings = append(*warnings, "the HTML has no elements to import")
 	}
 	return ImportResult{Nodes: nodes, Warnings: *warnings}, nil
 }

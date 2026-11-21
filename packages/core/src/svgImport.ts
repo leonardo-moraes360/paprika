@@ -129,7 +129,7 @@ export function parseTransform(s: string | undefined, warn: (w: string) => void)
         break;
     }
     if (t) m = multiply(m, t);
-    else warn(`transform "${name}" inválido ignorado`);
+    else warn(`transform "${name}" is invalid; skipped`);
   }
   return m;
 }
@@ -271,7 +271,7 @@ function withAlpha(color: string, alpha: number, warn: (w: string) => void): str
   if (alpha >= 1) return color;
   const c = parseColor(color);
   if (!c) {
-    warn(`opacidade de "${color}" ignorada (cor não reconhecida)`);
+    warn(`opacity of "${color}" skipped (unrecognized color)`);
     return color;
   }
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${round4(c.a * alpha)})`;
@@ -282,11 +282,11 @@ function cleanColor(v: string, warn: (w: string) => void): string | null {
   if (s === "none" || s === "transparent") return null;
   if (s === "currentColor" || s === "currentcolor") return "#000000";
   if (/url\(/i.test(s)) {
-    warn("gradientes e padrões (url(#…)) não são importados; usando cinza");
+    warn("gradients and patterns (url(#…)) are not imported; using gray");
     return "#808080";
   }
   if (/[;{}<>]/.test(s) || s.length > 200) {
-    warn(`cor inválida "${s.slice(0, 40)}" ignorada`);
+    warn(`invalid color "${s.slice(0, 40)}" skipped`);
     return "#000000";
   }
   return s;
@@ -439,7 +439,7 @@ function shapeNode(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string)
   try {
     segs = shapeSegments(el);
   } catch (e) {
-    warn(`<${el.tag}> com geometria inválida ignorado: ${(e as Error).message}`);
+    warn(`<${el.tag}> with invalid geometry skipped: ${(e as Error).message}`);
     return undefined;
   }
   if (segs.length < 2) return undefined;
@@ -473,11 +473,11 @@ function convert(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string) =
   const out: NodeInput[] = [];
   for (const c of elements(el)) {
     if (SKIP.has(c.tag)) {
-      if (c.tag === "style") warn("CSS em <style> não é aplicado; use atributos ou style=\"\" nos elementos");
+      if (c.tag === "style") warn("CSS in <style> is not applied; use attributes or style=\"\" on the elements");
       continue;
     }
     if (hidden(c)) continue;
-    if (c.attrs["clip-path"] || c.attrs.mask) warn(`clip-path/mask em <${c.tag}> ignorado`);
+    if (c.attrs["clip-path"] || c.attrs.mask) warn(`clip-path/mask on <${c.tag}> skipped`);
     const cm = multiply(m, parseTransform(c.attrs.transform, warn));
     const cp = paintOf(c, paint, warn);
     if (CONTAINERS.has(c.tag)) {
@@ -500,7 +500,7 @@ function convert(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string) =
       if (n) out.push(n);
       continue;
     }
-    warn(`<${c.tag}> não é importado`);
+    warn(`<${c.tag}> is not imported`);
   }
   return out;
 }
@@ -527,12 +527,12 @@ export function importSVG(src: string | MarkupElement, opts: { x?: number; y?: n
   };
   const root = typeof src === "string" ? parseMarkup(src) : src;
   const svg = root.tag === "svg" ? root : findElement(root, "svg");
-  if (!svg) throw new Error("nenhum elemento <svg> encontrado");
+  if (!svg) throw new Error("no <svg> element found");
   const m = multiply(rootMatrix(svg), parseTransform(svg.attrs.transform, warn));
   const paint = paintOf(svg, INHERIT_DEFAULT, warn);
   let nodes = convert(svg, m, paint, warn);
   offset(nodes, opts.x ?? 0, opts.y ?? 0);
-  if (!nodes.length) return { nodes: [], warnings: warnings.length ? warnings : ["o SVG não tem formas para importar"] };
+  if (!nodes.length) return { nodes: [], warnings: warnings.length ? warnings : ["the SVG has no shapes to import"] };
   const name = (opts.name ?? nameOf(svg)) || "SVG";
   const opacity = opacityOf(svg);
   if (nodes.length > 1 || opacity !== 1) {

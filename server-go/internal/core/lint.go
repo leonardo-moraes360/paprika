@@ -221,17 +221,17 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 		typ := node.Str("type")
 		themeMode := ModeOf(doc, node)
 		if m := node.Str("mode"); (typ == "frame" || typ == "page") && m != "" && (Modes(doc) == nil || !Modes(doc).Has(m)) {
-			add("unknown-mode", "warning", id, `modo "`+m+`" não tem tokens (set_tokens com mode); valem os tokens base`)
+			add("unknown-mode", "warning", id, `mode "`+m+`" has no tokens (set_tokens with mode); the base tokens apply`)
 		}
 		for _, ref := range tokenRefs(node) {
 			if _, ok := TokenValue(doc, ref, themeMode); !ok {
-				add("unknown-token", "error", id, `token "$`+ref+`" não existe`)
+				add("unknown-token", "error", id, `token "$`+ref+`" does not exist`)
 			}
 		}
 
 		if typ == "text" {
 			if jsonv.Trim(node.Str("text")) == "" {
-				add("empty-text", "warning", id, "texto vazio")
+				add("empty-text", "warning", id, "empty text")
 			}
 			fsv, _ := node.Get("fontSize")
 			fs := ResolveValue(doc, fsv, themeMode)
@@ -240,7 +240,7 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 				size = jsonv.ParseFloat(jsString(fs))
 			}
 			if size < 12 {
-				add("small-text", "warning", id, "fonte de "+jsString(size)+"px (< 12px)")
+				add("small-text", "warning", id, "font size "+jsString(size)+"px (< 12px)")
 			}
 			colorV, _ := node.Get("color")
 			fg, fgOK := ParseColor(jsString(ResolveValue(doc, colorV, themeMode)))
@@ -255,13 +255,13 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 				if ratio < min {
 					extra := ""
 					if large {
-						extra = ", texto grande"
+						extra = ", large text"
 					}
-					add("contrast", "error", id, "contraste "+toFixed(ratio, 2)+":1 abaixo de "+jsString(min)+":1 (WCAG AA"+extra+")")
+					add("contrast", "error", id, "contrast "+toFixed(ratio, 2)+":1 below "+jsString(min)+":1 (WCAG AA"+extra+")")
 				}
 			}
 			if hasColorTokens && !strings.HasPrefix(node.Str("color"), "$") {
-				add("raw-color", "info", id, `cor literal "`+node.Str("color")+`"; prefira um token`)
+				add("raw-color", "info", id, `literal color "`+node.Str("color")+`"; prefer a token`)
 			}
 		}
 
@@ -269,18 +269,18 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 			_, hasFill := node.Get("fill")
 			st := node.Obj("stroke")
 			if !hasFill && !(st != nil && st.Num("width") > 0) {
-				add("invisible-path", "warning", id, "path sem fill nem stroke não aparece; defina fill ou stroke {color,width}")
+				add("invisible-path", "warning", id, "a path without fill or stroke is invisible; set fill or stroke {color,width}")
 			}
 		}
 
 		if typ == "image" && jsonv.Trim(node.Str("alt")) == "" {
-			add("missing-alt", "warning", id, "imagem sem texto alternativo (alt)")
+			add("missing-alt", "warning", id, "image without alternative text (alt)")
 		}
 
 		if fill, ok := node.Get("fill"); ok && hasColorTokens {
 			fs := fill.(string)
 			if !strings.HasPrefix(fs, "$") && fs != "transparent" {
-				add("raw-color", "info", id, `fill literal "`+fs+`"; prefira um token`)
+				add("raw-color", "info", id, `literal fill "`+fs+`"; prefer a token`)
 			}
 		}
 
@@ -288,7 +288,7 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 			continue
 		}
 		if typ == "group" && len(node.Arr("children")) == 0 {
-			add("empty-group", "info", id, "group vazio; apague ou mova nós para dentro")
+			add("empty-group", "info", id, "empty group; delete it or move nodes into it")
 		}
 
 		parent := parentOf(doc, node)
@@ -307,15 +307,15 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 					}
 					cut := ""
 					if parent.Bool("clip") {
-						cut = " e será cortado"
+						cut = " and will be clipped"
 					}
-					add("overflow", "warning", id, `sai dos limites de "`+label+`" (`+jsString(pw)+"×"+jsString(ph)+")"+cut)
+					add("overflow", "warning", id, `goes outside "`+label+`" (`+jsString(pw)+"×"+jsString(ph)+")"+cut)
 				}
 			}
 		}
 
 		if typ == "frame" && node.Str("name") == "" && (parent == nil || parent.Str("type") == "page") {
-			add("unnamed-frame", "info", id, "frame de nível superior sem nome")
+			add("unnamed-frame", "info", id, "top-level frame without a name")
 		}
 	}
 	return issues

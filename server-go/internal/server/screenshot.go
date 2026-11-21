@@ -79,7 +79,7 @@ func (c *Chrome) ensure() (context.Context, error) {
 	}
 	path := FindChromium()
 	if path == "" {
-		return nil, errors.New("screenshot indisponível: Chromium não encontrado. Instale com 'npx playwright install chromium' ou defina PAPRIKA_CHROMIUM")
+		return nil, errors.New("screenshot unavailable: Chromium not found. Install it with 'npx playwright install chromium' or set PAPRIKA_CHROMIUM")
 	}
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.ExecPath(path),
@@ -96,7 +96,7 @@ func (c *Chrome) ensure() (context.Context, error) {
 	if err := chromedp.Do(browser); err != nil {
 		stop()
 		allocStop()
-		return nil, fmt.Errorf("screenshot indisponível: falha ao iniciar %s: %w", path, err)
+		return nil, fmt.Errorf("screenshot unavailable: failed to start %s: %w", path, err)
 	}
 	c.allocStop, c.browser, c.stop = allocStop, browser, stop
 	return browser, nil

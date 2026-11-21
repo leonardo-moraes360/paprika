@@ -24,7 +24,7 @@ var (
 func colorValue() *z.StringSchema {
 	return z.String().Min(1).Max(200).Refine(func(v string) string {
 		if reColorForbidden.MatchString(v) {
-			return "cor não pode conter ; { } < >"
+			return "a color cannot contain ; { } < >"
 		}
 		return ""
 	})
@@ -61,7 +61,7 @@ var (
 
 func baseFields() []z.Field {
 	return []z.Field{
-		{Name: "id", Schema: z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id deve ser [A-Za-z0-9_-]{1,64}")},
+		{Name: "id", Schema: z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id must be [A-Za-z0-9_-]{1,64}")},
 		{Name: "name", Schema: z.Default(z.String().Max(200), "")},
 		{Name: "parentId", Schema: z.Default(z.Nullable(z.String()), nil)},
 		{Name: "x", Schema: z.Default(z.Number(), 0.0)},
@@ -145,7 +145,7 @@ func PageRoots(doc *Document, pageID string) ([]string, error) {
 	if pageID != "" {
 		page = GetNode(doc, pageID)
 		if page == nil || page.Str("type") != "page" {
-			return nil, fmt.Errorf(`página "%s" não existe`, pageID)
+			return nil, fmt.Errorf(`page "%s" does not exist`, pageID)
 		}
 	} else {
 		page = FirstPage(doc)
@@ -175,7 +175,7 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "color", Schema: z.Default(colorValue(), "#111111")},
 		z.Field{Name: "fontFamily", Schema: z.Default(z.String().Max(200).Refine(func(v string) string {
 			if reFontForbidden.MatchString(v) {
-				return "fontFamily não pode conter ; { } < > ( )"
+				return "fontFamily cannot contain ; { } < > ( )"
 			}
 			return ""
 		}), "Inter, system-ui, sans-serif")},
@@ -191,7 +191,7 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 	"image": nodeSchema("image",
 		z.Field{Name: "src", Schema: z.String().Max(5_000_000).Refine(func(v string) string {
 			if !reImageSrc.MatchString(v) {
-				return "src deve ser http(s) ou data:image/"
+				return "src must be http(s) or data:image/"
 			}
 			return ""
 		})},
@@ -201,7 +201,7 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 	"path": nodeSchema("path",
 		z.Field{Name: "d", Schema: z.String().Min(1).Max(200_000).Refine(func(v string) string {
 			if msg := PathErrorMessage(v); msg != "" {
-				return "d inválido: " + msg
+				return "invalid d: " + msg
 			}
 			return ""
 		})},
@@ -231,8 +231,8 @@ var NodeTypeSchema = z.Enum(NodeTypes...)
 
 var (
 	TokenValueSchema = z.Union(z.String().Max(500), z.Number())
-	TokenNameSchema  = z.String().Regex(`^[A-Za-z0-9_.-]{1,100}$`, `/^[\w.-]{1,100}$/`, `nome de token deve ser [\w.-]{1,100}`).
-				Refine(func(v string) string { return notProto(v, "nome de token não pode ser __proto__") })
+	TokenNameSchema  = z.String().Regex(`^[A-Za-z0-9_.-]{1,100}$`, `/^[\w.-]{1,100}$/`, `token name must be [\w.-]{1,100}`).
+				Refine(func(v string) string { return notProto(v, "token name cannot be __proto__") })
 )
 
 // DocumentSchema validates a whole document.
@@ -281,8 +281,8 @@ func ParentID(n *Node) (string, bool) {
 }
 
 // ModeNameSchema is ModeName in schema.ts: the name of a theme mode.
-var ModeNameSchema = z.String().Regex(`^[A-Za-z0-9_-]{1,40}$`, `/^[A-Za-z0-9_-]{1,40}$/`, "nome de modo deve ser [A-Za-z0-9_-]{1,40}").
-	Refine(func(v string) string { return notProto(v, "nome de modo não pode ser __proto__") })
+var ModeNameSchema = z.String().Regex(`^[A-Za-z0-9_-]{1,40}$`, `/^[A-Za-z0-9_-]{1,40}$/`, "mode name must be [A-Za-z0-9_-]{1,40}").
+	Refine(func(v string) string { return notProto(v, "mode name cannot be __proto__") })
 
 // notProto rejects "__proto__" as a map key (parity with the TS reference, which writes to plain objects).
 func notProto(v, msg string) string {
@@ -297,7 +297,7 @@ func Modes(doc *Document) *jsonv.Object { return doc.Obj("modes") }
 
 // overridesSchema is Overrides in schema.ts: keys shaped like node ids and field names.
 func overridesSchema() z.Schema {
-	source := z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id deve ser [A-Za-z0-9_-]{1,64}")
-	field := z.String().Regex(`^[A-Za-z]{1,32}$`, `/^[A-Za-z]{1,32}$/`, "campo deve ser [A-Za-z]{1,32}")
+	source := z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id must be [A-Za-z0-9_-]{1,64}")
+	field := z.String().Regex(`^[A-Za-z]{1,32}$`, `/^[A-Za-z]{1,32}$/`, "field must be [A-Za-z]{1,32}")
 	return z.Record(source, z.Record(field, z.Unknown()))
 }

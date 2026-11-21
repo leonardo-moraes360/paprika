@@ -59,7 +59,7 @@ func Format(e *Error) string {
 	for i, is := range e.Issues {
 		p := DotPath(is.Path, ".")
 		if p == "" {
-			p = "(raiz)"
+			p = "(root)"
 		}
 		parts[i] = p + ": " + is.Message
 	}

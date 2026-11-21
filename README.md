@@ -65,7 +65,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 
 | Tool | What it does |
 |---|---|
-| `get_design_guide` | Node model, accepted fields and recommended workflow |
+| `get_design_guide` | Node model, accepted fields and recommended workflow; `language: "pt-BR"` for the Brazilian Portuguese version |
 | `get_document_outline` | Compact tree + tokens + version |
 | `get_nodes` / `find_nodes` | Full node JSON / search by type, name, text |
 | `path_info` | Validates SVG path data and returns the exact bounds (bezier and arc extremes included) and the normalized `d` |
@@ -76,13 +76,16 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `create_component` / `create_instance` / `detach_instance` | Marks a frame as a component / places a copy of it (with `scale` and `overrides`; returns the id of every copy) / turns an instance into plain nodes |
 | `apply_ops` | Mixed transaction (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
 | `set_tokens` | Design tokens (`$name`) for colors and sizes; with `mode`, the values of a theme mode (e.g. `dark`) that frames and pages pick with `mode` |
-| `undo` / `redo` / `get_history` | History shared with the human |
+| `undo` / `redo` / `get_history` | History shared with the human; every write tool takes `batch`, so several calls with the same batch become one undo step |
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
 | `render_screenshot` | PNG of a node, a page or the whole canvas |
 | `import_svg` / `import_html` | Turns pasted SVG (paths, shapes, groups, transforms) or HTML with inline styles into editable nodes; what can't be imported comes back in `warnings` |
 | `export_code` | Standalone HTML, a React (TSX) component or vector SVG (layout measured in headless Chromium); `cssVariables: true` writes tokens as `var(--name)` with one rule per theme mode |
 
-> The agent-facing guide and error messages are currently in Brazilian Portuguese.
+Agent layer:
+- The guide, tool descriptions, errors, warnings and lint messages are in English (the guide also in pt-BR, see above).
+- Tools that answer JSON declare an `outputSchema` and return `structuredContent`; the text block keeps the same JSON (for `get_nodes` and `get_history`, the plain array).
+- The history names the agent after its MCP `clientInfo.name` (`agent:claude-code`). Over HTTP the server is stateless, so `initialize` hands out an `Mcp-Session-Id` that only carries that name; without it, the User-Agent is used as before.
 
 ## Canvas
 

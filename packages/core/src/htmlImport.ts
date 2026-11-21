@@ -62,7 +62,7 @@ function color(v: string | undefined, ctx: Ctx): string | undefined {
   if (!v) return undefined;
   const s = v.trim();
   if (/url\(/i.test(s)) {
-    ctx.warn("imagens de fundo (url()) não são importadas");
+    ctx.warn("background images (url()) are not imported");
     return undefined;
   }
   if (/[;{}<>]/.test(s) || s.length > 200) return undefined;
@@ -106,7 +106,7 @@ function textStyleOf(css: Record<string, string>, tag: string, parent: TextStyle
   }
   const fs = px(css["font-size"]);
   if (fs !== undefined && fs >= 1) t.fontSize = Math.min(1000, fs);
-  else if (css["font-size"]) ctx.warn(`font-size "${css["font-size"]}" não é px; ignorado`);
+  else if (css["font-size"]) ctx.warn(`font-size "${css["font-size"]}" is not px; skipped`);
   else if (HEADING[tag]) t.fontSize = HEADING[tag];
   const fw = css["font-weight"];
   if (fw) {
@@ -157,7 +157,7 @@ function boxProps(node: NodeInput, css: Record<string, string>, ctx: Ctx, foreig
     if (n !== undefined) return Math.max(0, n);
     if (v === "max-content" || v === "fit-content" || v === "min-content") return "hug";
     if (v === "100%") return "fill";
-    if (v && v !== "auto") ctx.warn(`${axis} "${v}" não é suportado; usando hug`);
+    if (v && v !== "auto") ctx.warn(`${axis} "${v}" is not supported; using hug`);
     const main = (ctx.mode === "row" && axis === "width") || (ctx.mode === "column" && axis === "height");
     if (ctx.mode && main && /^1(\s+1\s+0(px|%)?)?$/.test(css.flex ?? "")) return "fill";
     if (ctx.mode && !main && css["align-self"] === "stretch") return "fill";
@@ -252,7 +252,7 @@ function convertChildren(el: MarkupElement, ctx: Ctx): NodeInput[] {
 
 function convertElement(el: MarkupElement, ctx: Ctx): NodeInput[] | undefined {
   if (SKIP.has(el.tag)) return undefined;
-  if (el.attrs.class) ctx.warn("classes CSS não são aplicadas; só estilos inline (style=\"\")");
+  if (el.attrs.class) ctx.warn("CSS classes are not applied; only inline styles (style=\"\")");
   const css = parseStyle(el.attrs.style);
   const declared = el.attrs["data-paprika-type"];
   const ptype = declared && PAPRIKA_TYPES.has(declared) ? declared : undefined;
@@ -275,7 +275,7 @@ function convertElement(el: MarkupElement, ctx: Ctx): NodeInput[] | undefined {
   if (ptype === "image" || (!ptype && el.tag === "img")) {
     const src = el.attrs.src ?? "";
     if (!/^(https?:|data:image\/)/.test(src)) {
-      ctx.warn(`<img> sem src http(s) ou data:image/ ignorado`);
+      ctx.warn(`<img> without an http(s) or data:image/ src skipped`);
       return undefined;
     }
     const n: NodeInput = { type: "image", src };
@@ -351,6 +351,6 @@ export function importHTML(src: string, opts: { x?: number; y?: number } = {}): 
     if (opts.x) n.x = round4(((n.x as number | undefined) ?? 0) + opts.x);
     if (opts.y) n.y = round4(((n.y as number | undefined) ?? 0) + opts.y);
   }
-  if (!nodes.length) warnings.push("o HTML não tem elementos para importar");
+  if (!nodes.length) warnings.push("the HTML has no elements to import");
   return { nodes, warnings };
 }

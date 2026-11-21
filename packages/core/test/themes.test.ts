@@ -35,7 +35,7 @@ describe("modos de tema", () => {
     h.undo();
     expect(h.doc.modes).toEqual({ dark: { bg: "#000", fg: "#eee", size: 18 } });
     const ops: Op[] = [{ op: "set_tokens", mode: "bad mode", tokens: { a: 1 } }];
-    expect(() => applyOps(h.doc, ops)).toThrow(/nome de modo/);
+    expect(() => applyOps(h.doc, ops)).toThrow(/mode name/);
   });
 
   it("export com variáveis CSS: var(--token), uma regra por modo e data-paprika-mode", () => {

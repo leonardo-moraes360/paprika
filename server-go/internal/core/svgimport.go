@@ -93,7 +93,7 @@ func ParseTransform(s string, warn func(string)) Matrix {
 		if t != nil {
 			m = Multiply(m, *t)
 		} else {
-			warn(fmt.Sprintf("transform \"%s\" inválido ignorado", name))
+			warn(fmt.Sprintf("transform \"%s\" is invalid; skipped", name))
 		}
 	}
 	return m
@@ -266,7 +266,7 @@ func withAlpha(color string, alpha float64, warn func(string)) string {
 	}
 	c, ok := ParseColor(color)
 	if !ok {
-		warn(fmt.Sprintf("opacidade de \"%s\" ignorada (cor não reconhecida)", color))
+		warn(fmt.Sprintf("opacity of \"%s\" skipped (unrecognized color)", color))
 		return color
 	}
 	f := jsonv.FormatNumber
@@ -282,11 +282,11 @@ func cleanColor(v string, warn func(string)) *string {
 		return strp("#000000")
 	}
 	if svgURLRe.MatchString(s) {
-		warn("gradientes e padrões (url(#…)) não são importados; usando cinza")
+		warn("gradients and patterns (url(#…)) are not imported; using gray")
 		return strp("#808080")
 	}
 	if strings.ContainsAny(s, ";{}<>") || jsonv.Len16(s) > 200 {
-		warn(fmt.Sprintf("cor inválida \"%s\" ignorada", jsonv.Slice16(s, 40)))
+		warn(fmt.Sprintf("invalid color \"%s\" skipped", jsonv.Slice16(s, 40)))
 		return strp("#000000")
 	}
 	return &s
@@ -514,7 +514,7 @@ func shapeNode(e *MarkupElement, m Matrix, p paint, warn func(string)) *jsonv.Ob
 	}
 	segs, err := shapeSegments(e)
 	if err != nil {
-		warn(fmt.Sprintf("<%s> com geometria inválida ignorado: %s", e.Tag, err.Error()))
+		warn(fmt.Sprintf("<%s> with invalid geometry skipped: %s", e.Tag, err.Error()))
 		return nil
 	}
 	if len(segs) < 2 {
@@ -569,7 +569,7 @@ func convertSVG(e *MarkupElement, m Matrix, p paint, warn func(string)) []*jsonv
 	for _, c := range e.Elements() {
 		if svgSkip[c.Tag] {
 			if c.Tag == "style" {
-				warn("CSS em <style> não é aplicado; use atributos ou style=\"\" nos elementos")
+				warn("CSS in <style> is not applied; use attributes or style=\"\" on the elements")
 			}
 			continue
 		}
@@ -577,7 +577,7 @@ func convertSVG(e *MarkupElement, m Matrix, p paint, warn func(string)) []*jsonv
 			continue
 		}
 		if c.Attrs["clip-path"] != "" || c.Attrs["mask"] != "" {
-			warn(fmt.Sprintf("clip-path/mask em <%s> ignorado", c.Tag))
+			warn(fmt.Sprintf("clip-path/mask on <%s> skipped", c.Tag))
 		}
 		cm := Multiply(m, ParseTransform(c.Attrs["transform"], warn))
 		cp := paintOf(c, p, warn)
@@ -612,7 +612,7 @@ func convertSVG(e *MarkupElement, m Matrix, p paint, warn func(string)) []*jsonv
 			}
 			continue
 		}
-		warn(fmt.Sprintf("<%s> não é importado", c.Tag))
+		warn(fmt.Sprintf("<%s> is not imported", c.Tag))
 	}
 	return out
 }
@@ -675,7 +675,7 @@ func ImportSVG(src any, opts ImportOptions) (ImportResult, error) {
 		svg = FindElement(root, "svg")
 	}
 	if svg == nil {
-		return ImportResult{}, fmt.Errorf("nenhum elemento <svg> encontrado")
+		return ImportResult{}, fmt.Errorf("no <svg> element found")
 	}
 	m := Multiply(rootMatrix(svg), ParseTransform(svg.Attrs["transform"], warn))
 	p := paintOf(svg, inheritDefault, warn)
@@ -683,7 +683,7 @@ func ImportSVG(src any, opts ImportOptions) (ImportResult, error) {
 	offsetNodes(nodesAny(nodes), opts.X, opts.Y)
 	if len(nodes) == 0 {
 		if len(*warnings) == 0 {
-			return ImportResult{Nodes: nil, Warnings: []string{"o SVG não tem formas para importar"}}, nil
+			return ImportResult{Nodes: nil, Warnings: []string{"the SVG has no shapes to import"}}, nil
 		}
 		return ImportResult{Nodes: nil, Warnings: *warnings}, nil
 	}

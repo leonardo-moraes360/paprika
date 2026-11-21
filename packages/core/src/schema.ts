@@ -12,7 +12,7 @@ export const ColorValue = z
   .string()
   .min(1)
   .max(200)
-  .refine((v) => !/[;{}<>]/.test(v), "cor não pode conter ; { } < >");
+  .refine((v) => !/[;{}<>]/.test(v), "a color cannot contain ; { } < >");
 
 export const Size = z.union([z.number().min(0).max(100_000), z.enum(["hug", "fill"])]);
 
@@ -41,7 +41,7 @@ export const Layout = z.object({
 });
 
 const Base = {
-  id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id deve ser [A-Za-z0-9_-]{1,64}"),
+  id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}"),
   name: z.string().max(200).default(""),
   parentId: z.string().nullable().default(null),
   x: z.number().default(0),
@@ -67,11 +67,11 @@ const Base = {
 /** Nome de um modo de tema (`dark`, `compact`…): conjunto de valores que substituem tokens. */
 export const ModeName = z
   .string()
-  .regex(/^[A-Za-z0-9_-]{1,40}$/, "nome de modo deve ser [A-Za-z0-9_-]{1,40}")
-  .refine((v) => v !== "__proto__", "nome de modo não pode ser __proto__");
+  .regex(/^[A-Za-z0-9_-]{1,40}$/, "mode name must be [A-Za-z0-9_-]{1,40}")
+  .refine((v) => v !== "__proto__", "mode name cannot be __proto__");
 
-const OverrideSource = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id deve ser [A-Za-z0-9_-]{1,64}");
-const OverrideField = z.string().regex(/^[A-Za-z]{1,32}$/, "campo deve ser [A-Za-z]{1,32}");
+const OverrideSource = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}");
+const OverrideField = z.string().regex(/^[A-Za-z]{1,32}$/, "field must be [A-Za-z]{1,32}");
 export const Overrides = z.record(OverrideSource, z.record(OverrideField, z.unknown()));
 
 export const FrameNode = z.object({
@@ -104,7 +104,7 @@ export const TextNode = z.object({
   fontFamily: z
     .string()
     .max(200)
-    .refine((v) => !/[;{}<>()]/.test(v), "fontFamily não pode conter ; { } < > ( )")
+    .refine((v) => !/[;{}<>()]/.test(v), "fontFamily cannot contain ; { } < > ( )")
     .default("Inter, system-ui, sans-serif"),
   fontSize: z.union([z.number().min(1).max(1000), z.string().regex(/^\$[\w.-]+$/)]).default(16),
   fontWeight: z.number().int().min(100).max(900).default(400),
@@ -119,7 +119,7 @@ export const ImageNode = z.object({
   src: z
     .string()
     .max(5_000_000)
-    .refine((v) => /^(https?:|data:image\/)/.test(v), "src deve ser http(s) ou data:image/"),
+    .refine((v) => /^(https?:|data:image\/)/.test(v), "src must be http(s) or data:image/"),
   fit: z.enum(["cover", "contain", "fill"]).default("cover"),
   alt: z.string().max(1000).default(""),
 });
@@ -138,7 +138,7 @@ export const PathNode = z.object({
     .max(200_000)
     .superRefine((v, ctx) => {
       const err = pathError(v);
-      if (err) ctx.addIssue({ code: "custom", message: `d inválido: ${err}` });
+      if (err) ctx.addIssue({ code: "custom", message: `invalid d: ${err}` });
     }),
   fillRule: z.enum(["nonzero", "evenodd"]).default("nonzero"),
   strokeCap: z.enum(["butt", "round", "square"]).default("round"),
@@ -195,8 +195,8 @@ export const NodeType = z.enum(["frame", "rect", "ellipse", "text", "image", "pa
 export const TokenValue = z.union([z.string().max(500), z.number()]);
 export const TokenName = z
   .string()
-  .regex(/^[\w.-]{1,100}$/, "nome de token deve ser [\\w.-]{1,100}")
-  .refine((v) => v !== "__proto__", "nome de token não pode ser __proto__");
+  .regex(/^[\w.-]{1,100}$/, "token name must be [\\w.-]{1,100}")
+  .refine((v) => v !== "__proto__", "token name cannot be __proto__");
 
 export const Document = z.object({
   format: z.literal(FORMAT),
@@ -261,7 +261,7 @@ export function firstPage(doc: Document): PageNode | undefined {
 /** Nós de topo de uma página (ou do documento sem páginas): o que o canvas mostra. */
 export function pageRoots(doc: Document, pageId?: string | null): string[] {
   const page = pageId ? doc.nodes[pageId] : firstPage(doc);
-  if (pageId && page?.type !== "page") throw new Error(`página "${pageId}" não existe`);
+  if (pageId && page?.type !== "page") throw new Error(`page "${pageId}" does not exist`);
   return page?.type === "page" ? page.children : doc.rootIds;
 }
 

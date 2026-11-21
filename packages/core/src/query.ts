@@ -60,7 +60,7 @@ export function outline(doc: Document, opts: { rootId?: string; depth?: number }
   };
   const roots = opts.rootId ? [opts.rootId] : doc.rootIds;
   roots.forEach((r) => walk(r, 0));
-  return lines.join("\n") || "(documento vazio)";
+  return lines.join("\n") || "(empty document)";
 }
 
 export interface NodeQuery {

@@ -71,7 +71,7 @@ function paint(doc: Document, v: string | undefined, mode: string | undefined, w
   if (v === undefined) return undefined;
   const s = String(resolveValue(doc, v, mode)).trim();
   if (/gradient\(/i.test(s) || /url\(/i.test(s)) {
-    warn("gradientes e imagens de fundo não vão para o SVG; o preenchimento foi omitido");
+    warn("gradients and background images do not go into SVG; the fill was left out");
     return undefined;
   }
   return s;
@@ -86,7 +86,7 @@ export function exportSVG(
     if (!warnings.includes(w)) warnings.push(w);
   };
   const node = opts.rootId ? doc.nodes[opts.rootId] : undefined;
-  if (opts.rootId && !node) throw new Error(`nó "${opts.rootId}" não existe`);
+  if (opts.rootId && !node) throw new Error(`node "${opts.rootId}" does not exist`);
   const page = node ? (node.type === "page" ? node : undefined) : firstPage(doc);
   const single = node && node.type !== "page" ? node : undefined;
   const roots = single ? [single.id] : pageRoots(doc, page?.id);
@@ -101,7 +101,7 @@ export function exportSVG(
     if (opts.measure) return undefined; // medido e sem caixa: escondido
     if (n.type === "page") return undefined;
     if (inFlow || typeof n.width !== "number" || typeof n.height !== "number")
-      throw new Error(`"${n.id}" depende de layout automático (row/column, hug ou fill); exporte pelo servidor (export_code com format "svg"), que mede o layout num navegador`);
+      throw new Error(`"${n.id}" depends on auto layout (row/column, hug or fill); export through the server (export_code with format "svg"), which measures the layout in a browser`);
     if (single && root) return [0, 0, n.width, n.height];
     const x = root && cb ? n.x - cb.x : parent[0] + n.x;
     const y = root && cb ? n.y - cb.y : parent[1] + n.y;
@@ -131,7 +131,7 @@ export function exportSVG(
     let shadowAttr = "";
     if (n.shadow && n.type !== "text") {
       const s = n.shadow;
-      if (s.spread) warn("sombra com spread: o SVG usa só deslocamento, blur e cor");
+      if (s.spread) warn("shadow with spread: SVG uses only offset, blur and color");
       defs += `<filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${f(s.x)}" dy="${f(s.y)}" stdDeviation="${f(s.blur / 2)}" flood-color="${escapeHtml(String(resolveValue(doc, s.color, mode)))}"/></filter>`;
       shadowAttr = ` filter="url(#shadow-${id})"`;
     }

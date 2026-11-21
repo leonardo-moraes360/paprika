@@ -95,16 +95,16 @@ describe("groups", () => {
 
   it("rejects invalid groupings with actionable errors", () => {
     const doc = scene();
-    expect(() => groupOps(doc, [])).toThrow(/ao menos um/);
-    expect(() => groupOps(doc, ["a", "f"])).toThrow(/mesmo pai/);
-    expect(() => groupOps(doc, ["zz"])).toThrow(/inexistentes: zz/);
+    expect(() => groupOps(doc, [])).toThrow(/at least one/);
+    expect(() => groupOps(doc, ["a", "f"])).toThrow(/same parent/);
+    expect(() => groupOps(doc, ["zz"])).toThrow(/do not exist: zz/);
     const flow = applyOps(doc, [{ op: "update", id: "f", props: { layout: { mode: "row" } } }]).doc;
     expect(() => groupOps(flow, ["a"])).toThrow(/layout row/);
-    expect(() => applyOps(doc, [{ op: "create", node: { type: "group", id: "g", width: 10 } }])).toThrow(/seguem os filhos/);
+    expect(() => applyOps(doc, [{ op: "create", node: { type: "group", id: "g", width: 10 } }])).toThrow(/follow its children/);
     const g = applyOps(doc, groupOps(doc, ["a"], { id: "g" }).ops).doc;
-    expect(() => applyOps(g, [{ op: "update", id: "g", props: { height: 3 } }])).toThrow(/seguem os filhos/);
-    expect(() => applyOps(g, [{ op: "update", id: "g", props: { fill: "#000" } }])).toThrow(/campo desconhecido para group: fill/);
-    expect(() => ungroupOps(g, ["a"])).toThrow(/não group/);
+    expect(() => applyOps(g, [{ op: "update", id: "g", props: { height: 3 } }])).toThrow(/follow its children/);
+    expect(() => applyOps(g, [{ op: "update", id: "g", props: { fill: "#000" } }])).toThrow(/unknown field for group: fill/);
+    expect(() => ungroupOps(g, ["a"])).toThrow(/not a group/);
   });
 
   it("nested groups fit from the inside out; empty groups are linted", () => {
@@ -155,15 +155,15 @@ describe("pages", () => {
 
   it("enforces where pages and loose nodes can live", () => {
     const paged = applyOps(scene(), addPageOps(scene(), { id: "p2", firstId: "p1" }).ops).doc;
-    expect(() => applyOps(paged, [{ op: "create", node: { type: "rect", id: "r" } }])).toThrow(/tem páginas/);
-    expect(() => applyOps(paged, [{ op: "move", id: "f", parentId: null }])).toThrow(/tem páginas/);
-    expect(() => applyOps(paged, [{ op: "create", parentId: "f", node: { type: "page", id: "px" } }])).toThrow(/nível do canvas/);
-    expect(() => applyOps(paged, [{ op: "move", id: "p2", parentId: "p1" }])).toThrow(/nível do canvas/);
-    expect(() => applyOps(paged, [{ op: "create", node: { type: "page", id: "px", x: 1 } }])).toThrow(/desconhecidos para page: x/);
+    expect(() => applyOps(paged, [{ op: "create", node: { type: "rect", id: "r" } }])).toThrow(/has pages/);
+    expect(() => applyOps(paged, [{ op: "move", id: "f", parentId: null }])).toThrow(/has pages/);
+    expect(() => applyOps(paged, [{ op: "create", parentId: "f", node: { type: "page", id: "px" } }])).toThrow(/canvas level/);
+    expect(() => applyOps(paged, [{ op: "move", id: "p2", parentId: "p1" }])).toThrow(/canvas level/);
+    expect(() => applyOps(paged, [{ op: "create", node: { type: "page", id: "px", x: 1 } }])).toThrow(/unknown fields for page: x/);
     // Mixed top level created in one transaction is caught at the end.
-    expect(() => applyOps(scene(), [{ op: "create", node: { type: "page", id: "px" } }])).toThrow(/"f" ficou no nível do canvas/);
+    expect(() => applyOps(scene(), [{ op: "create", node: { type: "page", id: "px" } }])).toThrow(/"f" is at the canvas level/);
     expect(() => parseDocument({ ...paged, rootIds: ["p1", "p2", "f"], nodes: { ...paged.nodes, f: { ...paged.nodes.f, parentId: null }, p1: { ...paged.nodes.p1, children: [] } } })).toThrow(
-      /todo nó de nível superior precisa ser página/,
+      /every top-level node must be a page/,
     );
     // Creating on a page works and the page is a valid parent.
     const ok = applyOps(paged, [{ op: "create", parentId: "p2", node: { type: "rect", id: "r", x: 500, y: 600, width: 10, height: 10 } }]).doc;
@@ -185,7 +185,7 @@ describe("pages", () => {
     const first = renderHTML(doc);
     expect(first.html).toContain('data-paprika-id="f"');
     expect(first.html).not.toContain('data-paprika-id="r"');
-    expect(() => exportReact(doc, "p2")).toThrow(/é uma página/);
+    expect(() => exportReact(doc, "p2")).toThrow(/is a page/);
     expect(displayList(doc, new Map([["r", { x: 500, y: 600, w: 10, h: 10 }]]), "p2").painted.has("r")).toBe(true);
   });
 });
@@ -207,7 +207,7 @@ describe("composite ops inside applyOps", () => {
     h.undo();
     h.undo();
     expect(h.doc).toEqual(scene());
-    expect(() => applyOps(scene(), [{ op: "group", ids: ["a", "f"] }])).toThrow(/^op\[0\]: só nós com o mesmo pai/);
+    expect(() => applyOps(scene(), [{ op: "group", ids: ["a", "f"] }])).toThrow(/^op\[0\]: only nodes with the same parent/);
     expect(() => applyOps(scene(), [{ op: "ungroup", ids: [] }])).toThrow(/ids: Too small/);
   });
 });

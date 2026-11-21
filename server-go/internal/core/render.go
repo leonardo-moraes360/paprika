@@ -34,7 +34,7 @@ func svgAttrs(attrs []Attr) string {
 func RootBounds(doc *Document, id string) (Bounds, error) {
 	n := GetNode(doc, id)
 	if n == nil {
-		return Bounds{}, fmt.Errorf(`nó "%s" não existe`, id)
+		return Bounds{}, fmt.Errorf(`node "%s" does not exist`, id)
 	}
 	if n.Str("type") == "page" {
 		return CanvasBounds(doc, id), nil
@@ -138,7 +138,7 @@ func RenderHTML(doc *Document, opts RenderOptions) (string, Bounds, error) {
 	if opts.RootID != "" {
 		node = GetNode(doc, opts.RootID)
 		if node == nil {
-			return "", Bounds{}, fmt.Errorf(`nó "%s" não existe`, opts.RootID)
+			return "", Bounds{}, fmt.Errorf(`node "%s" does not exist`, opts.RootID)
 		}
 		if node.Str("type") == "page" {
 			page = node
@@ -314,10 +314,10 @@ func componentName(s string) string {
 func ExportReact(doc *Document, rootID string, cssVariables bool) (string, error) {
 	node := GetNode(doc, rootID)
 	if node == nil {
-		return "", fmt.Errorf(`nó "%s" não existe`, rootID)
+		return "", fmt.Errorf(`node "%s" does not exist`, rootID)
 	}
 	if node.Str("type") == "page" {
-		return "", fmt.Errorf(`"%s" é uma página; exporte um frame dela (export_code com o id do frame)`, rootID)
+		return "", fmt.Errorf(`"%s" is a page; export one of its frames (export_code with the frame id)`, rootID)
 	}
 	n := node.Str("name")
 	if n == "" {

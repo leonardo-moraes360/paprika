@@ -94,27 +94,27 @@ describe("componentes e instâncias", () => {
     expect(doc.nodes.i1).toMatchObject({ fill: "#00aa00", x: 10, overrides: { btn: { fill: "#00aa00" } } });
     const after = applyOps(doc, [{ op: "update", id: "btn", props: { fill: "#111111" } }]).doc;
     expect(after.nodes.i1).toMatchObject({ fill: "#00aa00" });
-    expect(() => applyOps(base(), [{ op: "update", id: "i1", props: { width: 10 } }])).toThrow(/vêm do componente "btn"/);
+    expect(() => applyOps(base(), [{ op: "update", id: "i1", props: { width: 10 } }])).toThrow(/come from the component "btn"/);
   });
 
   it("regras: cópias não se movem, não se apagam, não recebem filhos", () => {
     const doc = base();
     const l = copyId("i1", "lbl");
-    expect(() => applyOps(doc, [{ op: "update", id: l, props: { x: 5 } }])).toThrow(/só fill, color, text/);
+    expect(() => applyOps(doc, [{ op: "update", id: l, props: { x: 5 } }])).toThrow(/only fill, color, text/);
     expect(() => applyOps(doc, [{ op: "delete", id: l }])).toThrow(/visible: false/);
-    expect(() => applyOps(doc, [{ op: "move", id: l, parentId: null }])).toThrow(/cópia dentro da instância/);
-    expect(() => applyOps(doc, [{ op: "create", parentId: "i1", node: { type: "rect" } }])).toThrow(/é uma instância/);
-    expect(() => applyOps(doc, [{ op: "move", id: "btn", parentId: "i1" }])).toThrow(/é uma instância/);
-    expect(() => applyOps(doc, [{ op: "update", id: l, props: { fontSize: 3 } }])).toThrow(/recebido fontSize/);
-    expect(() => applyOps(doc, [{ op: "create", node: { type: "rect", sourceId: "x" } }])).toThrow(/sourceId é gerado/);
+    expect(() => applyOps(doc, [{ op: "move", id: l, parentId: null }])).toThrow(/a copy inside the instance/);
+    expect(() => applyOps(doc, [{ op: "create", parentId: "i1", node: { type: "rect" } }])).toThrow(/is an instance/);
+    expect(() => applyOps(doc, [{ op: "move", id: "btn", parentId: "i1" }])).toThrow(/is an instance/);
+    expect(() => applyOps(doc, [{ op: "update", id: l, props: { fontSize: 3 } }])).toThrow(/got fontSize/);
+    expect(() => applyOps(doc, [{ op: "create", node: { type: "rect", sourceId: "x" } }])).toThrow(/sourceId is generated/);
   });
 
   it("regras de fim de transação: componente precisa existir e não conter instâncias", () => {
     const doc = base();
-    expect(() => applyOps(doc, [{ op: "delete", id: "btn" }])).toThrow(/componente "btn" não existe/);
-    expect(() => applyOps(doc, [{ op: "update", id: "btn", props: { component: null } }])).toThrow(/não é componente/);
-    expect(() => applyOps(doc, [{ op: "move", id: "i1", parentId: "btn" }])).toThrow(/instâncias dentro de componentes/);
-    expect(() => applyOps(doc, [{ op: "update", id: "i1", props: { component: true } }])).toThrow(/não pode ser componente/);
+    expect(() => applyOps(doc, [{ op: "delete", id: "btn" }])).toThrow(/component "btn" does not exist/);
+    expect(() => applyOps(doc, [{ op: "update", id: "btn", props: { component: null } }])).toThrow(/is not a component/);
+    expect(() => applyOps(doc, [{ op: "move", id: "i1", parentId: "btn" }])).toThrow(/instances inside components/);
+    expect(() => applyOps(doc, [{ op: "update", id: "i1", props: { component: true } }])).toThrow(/cannot be a component/);
     // apagar componente e instâncias juntos funciona
     expect(() => applyOps(doc, [{ op: "delete", id: "i1" }, { op: "delete", id: "btn" }])).not.toThrow();
   });

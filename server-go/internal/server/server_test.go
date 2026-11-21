@@ -88,7 +88,7 @@ func TestStoreFailedTransactionChangesNothing(t *testing.T) {
 	createRect(t, s, "a")
 	before, v := jsonv.Stringify(s.Doc(), ""), s.Version()
 	_, err := s.Apply([]any{obj("op", "update", "id", "a", "props", obj("x", 5.0)), obj("op", "delete", "id", "zz")}, "test", "")
-	if err == nil || err.Error() != `op[1]: nó "zz" não existe` {
+	if err == nil || err.Error() != `op[1]: node "zz" does not exist` {
 		t.Fatalf("err = %v", err)
 	}
 	if jsonv.Stringify(s.Doc(), "") != before || s.Version() != v {
@@ -134,7 +134,7 @@ func TestImportRejectsInvalidDocument(t *testing.T) {
 	}
 	defer db.Close()
 	_, err = ImportDocument(db, []byte(`{"format":"paprika/1","id":"x","rootIds":["a"]}`), false)
-	if err == nil || err.Error() != `documento inconsistente: "a" referenciado mas ausente` {
+	if err == nil || err.Error() != `inconsistent document: "a" is referenced but missing` {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -192,7 +192,7 @@ func TestMCPToolsAndErrors(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)
 	out, isErr := callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "text", "txt", "oops")}))
-	if !isErr || out != "op[0]: campos desconhecidos para text: txt" {
+	if !isErr || out != "op[0]: unknown fields for text: txt" {
 		t.Fatalf("%v %q", isErr, out)
 	}
 	out, _ = callText(t, m, "create_nodes", obj("index", 0.0, "nodes", []any{obj("type", "rect", "id", "a"), obj("type", "rect", "id", "b")}))
@@ -212,11 +212,11 @@ func TestMCPToolsAndErrors(t *testing.T) {
 		t.Fatalf("undo: %q", out)
 	}
 	out, isErr = callText(t, m, "render_screenshot", obj())
-	if !isErr || !strings.Contains(out, "screenshot indisponível") {
+	if !isErr || !strings.Contains(out, "screenshot unavailable") {
 		t.Fatalf("screenshot without browser: %q", out)
 	}
 	out, isErr = callText(t, m, "path_info", obj())
-	if !isErr || out != "passe d ou id" {
+	if !isErr || out != "pass d or id" {
 		t.Fatalf("path_info: %q", out)
 	}
 }
@@ -235,7 +235,7 @@ func TestMCPGroupsAndPages(t *testing.T) {
 	if g := core.GetNode(s.Doc(), "g"); g.Num("x") != 10 || g.Num("width") != 80 || g.Num("height") != 50 {
 		t.Fatalf("group box: %s", jsonv.Stringify(g, ""))
 	}
-	if out, isErr = callText(t, m, "group_nodes", obj("ids", []any{"g", "f"})); !isErr || !strings.Contains(out, "mesmo pai") {
+	if out, isErr = callText(t, m, "group_nodes", obj("ids", []any{"g", "f"})); !isErr || !strings.Contains(out, "same parent") {
 		t.Fatalf("group error: %q", out)
 	}
 	out, _ = callText(t, m, "ungroup_nodes", obj("ids", []any{"g"}))
@@ -250,7 +250,7 @@ func TestMCPGroupsAndPages(t *testing.T) {
 	if len(roots) != 2 || core.GetNode(s.Doc(), roots[0]).Str("name") != "Página 1" {
 		t.Fatalf("pages: %v", roots)
 	}
-	if out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect")})); !isErr || !strings.Contains(out, "tem páginas") {
+	if out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect")})); !isErr || !strings.Contains(out, "has pages") {
 		t.Fatalf("loose: %q", out)
 	}
 }
@@ -261,7 +261,7 @@ func TestMCPComponents(t *testing.T) {
 	callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "frame", "id", "btn", "x", 10.0, "y", 10.0, "width", 100.0, "height", 40.0, "children", []any{
 		obj("type", "text", "id", "lbl", "text", "OK", "width", 50.0, "height", 20.0),
 	})}))
-	if out, isErr := callText(t, m, "create_instance", obj("componentId", "btn")); !isErr || !strings.Contains(out, "não é componente") {
+	if out, isErr := callText(t, m, "create_instance", obj("componentId", "btn")); !isErr || !strings.Contains(out, "is not a component") {
 		t.Fatalf("instance of non-component: %q", out)
 	}
 	callText(t, m, "create_component", obj("id", "btn"))
@@ -302,7 +302,7 @@ func TestStdio(t *testing.T) {
 	if !strings.Contains(lines[2], `"code":-32601`) {
 		t.Fatalf("unknown method: %s", lines[2])
 	}
-	if h := s.RecentHistory(1); len(h) != 1 || h[0].Actor != "agent:stdio" {
+	if h := s.RecentHistory(1); len(h) != 1 || h[0].Actor != "agent:t" {
 		t.Fatalf("actor: %+v", h)
 	}
 }
@@ -401,7 +401,7 @@ func TestMCPImportExportSVG(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)
 	out, isErr := callText(t, m, "import_svg", obj("svg", `<svg viewBox="0 0 10 10" width="20" height="20"><path d="M0 0 L10 0 L5 8 Z" fill="#c43d27"/><text>x</text></svg>`, "x", 5.0, "y", 5.0, "name", "Seta"))
-	if isErr || !strings.Contains(out, `"warnings": [`+"\n"+`    "<text> não é importado"`) {
+	if isErr || !strings.Contains(out, `"warnings": [`+"\n"+`    "<text> is not imported"`) {
 		t.Fatalf("import_svg: %q", out)
 	}
 	var created string
@@ -412,13 +412,13 @@ func TestMCPImportExportSVG(t *testing.T) {
 	if n.Str("d") != "M0 0 L20 0 L10 16 Z" || n.Str("name") != "Seta" || n.Num("x") != 5 {
 		t.Fatalf("imported path: %s", jsonv.Stringify(n, ""))
 	}
-	if out, isErr := callText(t, m, "import_svg", obj("svg", "<svg></svg>")); !isErr || out != "o SVG não tem formas para importar" {
+	if out, isErr := callText(t, m, "import_svg", obj("svg", "<svg></svg>")); !isErr || out != "the SVG has no shapes to import" {
 		t.Fatalf("empty svg: %q", out)
 	}
 	if out, isErr := callText(t, m, "import_html", obj("html", `<div style="display:flex; gap:8px"><span>Olá</span></div>`, "label", "colar")); isErr || !strings.Contains(out, `"created"`) {
 		t.Fatalf("import_html: %q", out)
 	}
-	if out, isErr := callText(t, m, "export_code", obj("rootId", created, "format", "svg")); !isErr || out != "export SVG indisponível neste servidor" {
+	if out, isErr := callText(t, m, "export_code", obj("rootId", created, "format", "svg")); !isErr || out != "SVG export unavailable on this server" {
 		t.Fatalf("export svg without browser: %q", out)
 	}
 }

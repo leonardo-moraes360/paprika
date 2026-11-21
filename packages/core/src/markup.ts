@@ -57,7 +57,7 @@ const dict = (): Record<string, string> => Object.create(null) as Record<string,
 
 /** Lê a marcação e devolve um elemento raiz `#root` com o conteúdo. */
 export function parseMarkup(src: string): MarkupElement {
-  if (src.length > MARKUP_LIMITS.chars) throw new Error(`marcação grande demais (máx. ${MARKUP_LIMITS.chars} caracteres)`);
+  if (src.length > MARKUP_LIMITS.chars) throw new Error(`markup too large (max. ${MARKUP_LIMITS.chars} characters)`);
   const root: MarkupElement = { tag: "#root", attrs: dict(), children: [] };
   const stack: MarkupElement[] = [root];
   let count = 0;
@@ -156,7 +156,7 @@ export function parseMarkup(src: string): MarkupElement {
       if (!Object.hasOwn(el.attrs, name)) el.attrs[name] = decodeEntities(value);
     }
     i = j;
-    if (++count > MARKUP_LIMITS.elements) throw new Error(`marcação com mais de ${MARKUP_LIMITS.elements} elementos`);
+    if (++count > MARKUP_LIMITS.elements) throw new Error(`markup with more than ${MARKUP_LIMITS.elements} elements`);
     top().children.push(el);
     if (RAW.has(el.tag)) {
       const close = indexOfLower(src, `</${el.tag}`, i);
@@ -166,7 +166,7 @@ export function parseMarkup(src: string): MarkupElement {
       continue;
     }
     if (selfClose || VOID.has(el.tag)) continue;
-    if (stack.length > MARKUP_LIMITS.depth) throw new Error(`marcação com mais de ${MARKUP_LIMITS.depth} níveis`);
+    if (stack.length > MARKUP_LIMITS.depth) throw new Error(`markup with more than ${MARKUP_LIMITS.depth} levels`);
     stack.push(el);
   }
   return root;

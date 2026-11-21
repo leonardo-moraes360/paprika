@@ -488,6 +488,6 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     expect(r.content[0]!.text).toContain('[data-paprika-mode="escuro"]{--tela:#14161f;--tinta:#f2f2f2}');
     expect(r.content[0]!.text).toContain("background:var(--tela)");
     const outline = (await agent.callTool({ name: "get_document_outline", arguments: { depth: 0 } })) as { content: { text: string }[] };
-    expect(outline.content[0]!.text).toContain("modos: escuro($tela=#14161f $tinta=#f2f2f2)");
+    expect(outline.content[0]!.text).toContain("modes: escuro($tela=#14161f $tinta=#f2f2f2)");
   });
 });

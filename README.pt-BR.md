@@ -65,7 +65,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 
 | Ferramenta | O que faz |
 |---|---|
-| `get_design_guide` | Modelo de nós, campos e fluxo recomendado |
+| `get_design_guide` | Modelo de nós, campos e fluxo recomendado; em inglês, ou em português com `language: "pt-BR"` |
 | `get_document_outline` | Árvore compacta + tokens + versão |
 | `get_nodes` / `find_nodes` | JSON completo de nós / busca por tipo, nome, texto |
 | `create_nodes` | Cria árvores aninhadas numa chamada |
@@ -75,12 +75,17 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `create_component` / `create_instance` / `detach_instance` | Marca um frame como componente / põe uma cópia dele (com `scale` e `overrides`; retorna o id de cada cópia) / transforma uma instância em nós comuns |
 | `apply_ops` | Transação mista (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
 | `set_tokens` | Design tokens (`$nome`) para cores e tamanhos; com `mode`, os valores de um modo de tema (ex.: `dark`) que frames e páginas escolhem com `mode` |
-| `undo` / `redo` / `get_history` | Histórico compartilhado com o humano |
+| `undo` / `redo` / `get_history` | Histórico compartilhado com o humano; toda ferramenta de escrita aceita `batch`, e várias chamadas com o mesmo batch viram um passo só de undo |
 | `lint_design` | Contraste WCAG AA, overflow, tokens inexistentes, texto pequeno, alt |
 | `path_info` | Valida dados de caminho SVG e devolve a caixa exata (com extremos de bezier e arcos) e o `d` normalizado |
 | `render_screenshot` | PNG de um nó, de uma página ou do canvas |
 | `import_svg` / `import_html` | Transforma SVG colado (paths, formas, grupos, transforms) ou HTML com estilos inline em nós editáveis; o que não dá para importar volta em `warnings` |
 | `export_code` | HTML autocontido, componente React (TSX) ou SVG vetorial (layout medido num Chromium headless); `cssVariables: true` escreve os tokens como `var(--nome)`, com uma regra por modo de tema |
+
+Camada de agentes:
+- O guia, as descrições das ferramentas, os erros, os avisos e as mensagens do lint são em inglês (o guia também em português, ver acima).
+- As ferramentas que respondem JSON declaram `outputSchema` e devolvem `structuredContent`; o bloco de texto continua com o mesmo JSON (no `get_nodes` e no `get_history`, o array puro).
+- O histórico identifica o agente pelo `clientInfo.name` do MCP (`agent:claude-code`). No HTTP o servidor é stateless, então o `initialize` devolve um `Mcp-Session-Id` que só guarda esse nome; sem ele, vale o User-Agent, como antes.
 
 ## Canvas
 

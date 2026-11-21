@@ -104,11 +104,11 @@ func ParsePath(src string) ([]Segment, error) {
 		skip()
 		n := matchNumber(d, i)
 		if n == 0 {
-			found := " (fim do texto)"
+			found := " (end of text)"
 			if i < len(d) {
-				found = fmt.Sprintf(` (encontrado "%s")`, charAt(d, i))
+				found = fmt.Sprintf(` (found "%s")`, charAt(d, i))
 			}
-			return 0, &PathError{fmt.Sprintf("número esperado na posição %d%s", i, found), i}
+			return 0, &PathError{fmt.Sprintf("number expected at position %d%s", i, found), i}
 		}
 		text := strings.TrimSuffix(string(utf16.Decode(d[i:i+n])), ".")
 		i += n
@@ -117,14 +117,14 @@ func ParsePath(src string) ([]Segment, error) {
 			v = math.Inf(1)
 		}
 		if math.IsInf(v, 0) || math.IsNaN(v) || math.Abs(v) > 1e7 {
-			return 0, &PathError{fmt.Sprintf("número fora do intervalo na posição %d", i), i}
+			return 0, &PathError{fmt.Sprintf("number out of range at position %d", i), i}
 		}
 		return v, nil
 	}
 	flag := func() (bool, error) {
 		skip()
 		if i >= len(d) || (d[i] != '0' && d[i] != '1') {
-			return false, &PathError{fmt.Sprintf("flag de arco (0 ou 1) esperada na posição %d", i), i}
+			return false, &PathError{fmt.Sprintf("arc flag (0 or 1) expected at position %d", i), i}
 		}
 		c := d[i]
 		i++
@@ -137,7 +137,7 @@ func ParsePath(src string) ([]Segment, error) {
 
 	skip()
 	if i < len(d) && d[i] != 'M' && d[i] != 'm' {
-		return nil, &PathError{fmt.Sprintf("o caminho deve começar com M (posição %d)", i), i}
+		return nil, &PathError{fmt.Sprintf("the path must start with M (position %d)", i), i}
 	}
 	for {
 		skip()
@@ -147,14 +147,14 @@ func ParsePath(src string) ([]Segment, error) {
 		c := d[i]
 		if isLetter(c) {
 			if _, ok := arity[upper(c)]; !ok {
-				return nil, &PathError{fmt.Sprintf(`comando desconhecido "%s" na posição %d`, charAt(d, i), i), i}
+				return nil, &PathError{fmt.Sprintf(`unknown command "%s" at position %d`, charAt(d, i), i), i}
 			}
 			cmd = c
 			i++
 		} else if cmd == 0 {
-			return nil, &PathError{fmt.Sprintf("comando esperado na posição %d", i), i}
+			return nil, &PathError{fmt.Sprintf("command expected at position %d", i), i}
 		} else if cmd == 'Z' || cmd == 'z' {
-			return nil, &PathError{fmt.Sprintf("números após Z na posição %d", i), i}
+			return nil, &PathError{fmt.Sprintf("numbers after Z at position %d", i), i}
 		}
 		abs := cmd >= 'A' && cmd <= 'Z'
 		up := upper(cmd)
@@ -292,11 +292,11 @@ func ParsePath(src string) ([]Segment, error) {
 		}
 		segs = append(segs, seg)
 		if len(segs) > MaxSegments {
-			return nil, &PathError{fmt.Sprintf("caminho com mais de %d segmentos", MaxSegments), i}
+			return nil, &PathError{fmt.Sprintf("path with more than %d segments", MaxSegments), i}
 		}
 	}
 	if len(segs) == 0 {
-		return nil, &PathError{"caminho vazio", 0}
+		return nil, &PathError{"empty path", 0}
 	}
 	return segs, nil
 }
