@@ -106,9 +106,9 @@ Tarefa: `importSVG`, `importHTML` e `exportSVG` no core (TS e Go), as ferramenta
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 35 | Trazer um ícone de um conjunto SVG | Antes o agente traduzia cada `<rect>`/`<circle>`/arco à mão para `d`; agora o `import_svg` faz isso numa chamada e diz o que ficou de fora em `warnings` | Suportar sprites `<use>`/`<symbol>` e `<text>` (como nós `text`), comuns em ícones e logos | P2 |
-| 36 | Exportar SVG de um nó com layout automático sem navegador | O core não posiciona sozinho filhos `hug`/`fill`/row/column, então o `exportSVG` sem medida falha com uma mensagem que aponta o `export_code` | Um `layout(doc)` no core (#26) deixaria o core exportar tudo e daria as caixas aos agentes | P2 |
-| 37 | Reaproveitar um componente de uma página web | O `import_html` só lê `style=""` inline; o HTML copiado da maioria dos sites depende de classes, então o resultado sai simples | Uma opção que renderiza o HTML no Chromium do servidor e importa os estilos computados | P2 |
+| 40 | Trazer um ícone de um conjunto SVG | Antes o agente traduzia cada `<rect>`/`<circle>`/arco à mão para `d`; agora o `import_svg` faz isso numa chamada e diz o que ficou de fora em `warnings` | Suportar sprites `<use>`/`<symbol>` e `<text>` (como nós `text`), comuns em ícones e logos | P2 |
+| 41 | Exportar SVG de um nó com layout automático sem navegador | O core não posiciona sozinho filhos `hug`/`fill`/row/column, então o `exportSVG` sem medida falha com uma mensagem que aponta o `export_code` | Um `layout(doc)` no core (#26) deixaria o core exportar tudo e daria as caixas aos agentes | P2 |
+| 42 | Reaproveitar um componente de uma página web | O `import_html` só lê `style=""` inline; o HTML copiado da maioria dos sites depende de classes, então o resultado sai simples | Uma opção que renderiza o HTML no Chromium do servidor e importa os estilos computados | P2 |
 
 ## O que funcionou bem
 
