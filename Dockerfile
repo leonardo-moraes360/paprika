@@ -85,7 +85,7 @@ CMD ["serve", "--host", "0.0.0.0", "--port", "4777"]
 # ------------------------------------------------------------------ Chromium for render_screenshot
 # Chrome for Testing's headless shell, the same build Playwright 1.65.1 (packages/e2e) runs the
 # screenshot tests with. Bump CHROME_VERSION and its checksum together with Playwright.
-FROM ubuntu:24.04 AS chrome
+FROM ubuntu:26.04 AS chrome
 ARG CHROME_VERSION=159.0.8154.6
 ADD --checksum=sha256:77a6442fd3c8acd3bef9e1067fc26f5ef464277d22f0e8cb58dc3e4077a3e458 \
     https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chrome-headless-shell-linux64.zip \
@@ -96,7 +96,7 @@ RUN apt-get update \
  && mv /opt/chrome-headless-shell-linux64 /opt/chrome
 
 # ------------------------------------------------------------------ runtime (default): with Chromium
-FROM ubuntu:24.04 AS runtime
+FROM ubuntu:26.04 AS runtime
 # The headless shell's shared libraries (Playwright's list for Ubuntu 24.04), fonts-inter (the
 # canvas's and the screenshot's font; Liberation and Noto Color Emoji as fallbacks) and tini, which reaps
 # Chromium's child processes since paprika would otherwise be PID 1.
