@@ -142,6 +142,12 @@ Este repositório usa o [toolbelt](https://github.com/leonardo-moraes360/toolbel
 - Não há autenticação: `--host 0.0.0.0` expõe o documento para a rede. Use só em rede confiável.
 - Imagens `https://` são carregadas pelo Chromium no screenshot.
 
+Para reportar uma vulnerabilidade, use o reporte privado de vulnerabilidades do GitHub; veja o [SECURITY.pt-BR.md](SECURITY.pt-BR.md). Não abra issue pública.
+
+## Como contribuir
+
+Veja o [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md). Toda participação segue o [Código de Conduta](CODE_OF_CONDUCT.pt-BR.md).
+
 ## Licença
 
-MIT
+[MIT](LICENSE)
