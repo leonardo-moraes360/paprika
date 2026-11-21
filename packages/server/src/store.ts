@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { createHash } from "node:crypto";
-import { existsSync, watch, type FSWatcher } from "node:fs";
-import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
+import { existsSync, watch, type FSWatcher, type Stats } from "node:fs";
+import { mkdir, open, readFile, readdir, rename, writeFile, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { History, createDocument, parseDocument, type ApplyResult, type Document, type Op } from "@paprika/core";
 
@@ -151,8 +151,17 @@ export class DocumentStore extends EventEmitter<{ change: [ChangeEvent]; error: 
     for (const name of [active, ...names]) {
       const file = join(dir, name);
       try {
-        const st = await stat(file);
-        const doc = name === active ? this.doc : parseDocument(JSON.parse(await readFile(file, "utf8")));
+        // One handle for the date and the content, so both describe the same file.
+        const fh = await open(file, "r");
+        let st: Stats;
+        let raw: string | undefined;
+        try {
+          st = await fh.stat();
+          if (name !== active) raw = await fh.readFile("utf8");
+        } finally {
+          await fh.close();
+        }
+        const doc = raw === undefined ? this.doc : parseDocument(JSON.parse(raw));
         if (seen.has(doc.id)) continue;
         seen.add(doc.id);
         out.push({
@@ -190,13 +199,25 @@ export class DocumentStore extends EventEmitter<{ change: [ChangeEvent]; error: 
     const doc = createDocument(name.trim() || "Sem título");
     const dir = dirname(this.file);
     const slug = workspaceSlug(doc.name);
-    let file = join(dir, `${slug}.paprika.json`);
-    for (let i = 2; existsSync(file); i++) file = join(dir, `${slug}-${i}.paprika.json`);
-    const tmp = join(dir, `.${basename(file)}.${process.pid}.tmp`);
-    await writeFile(tmp, JSON.stringify(doc, null, 2) + "\n", "utf8");
-    await rename(tmp, file);
-    const st = await stat(file);
-    return { id: doc.id, name: doc.name, nodes: 0, updatedAt: Math.round(st.mtimeMs), active: false };
+    // Exclusive create ("wx"): taking the next free name and creating it is one step, so two
+    // creations with the same name never overwrite each other.
+    for (let i = 1; ; i++) {
+      const file = join(dir, i === 1 ? `${slug}.paprika.json` : `${slug}-${i}.paprika.json`);
+      let fh: FileHandle;
+      try {
+        fh = await open(file, "wx");
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === "EEXIST") continue;
+        throw e;
+      }
+      try {
+        await fh.writeFile(JSON.stringify(doc, null, 2) + "\n", "utf8");
+        const st = await fh.stat();
+        return { id: doc.id, name: doc.name, nodes: 0, updatedAt: Math.round(st.mtimeMs), active: false };
+      } finally {
+        await fh.close();
+      }
+    }
   }
 
   /** Escrita atômica (tmp + rename), serializada para nunca intercalar duas gravações. */
