@@ -74,8 +74,10 @@ await call("create_nodes", {
     ],
   }],
 });
-console.log(await call("lint_design", {}));
-console.log(await call("get_document_outline", { depth: 1 }));
+// Only numbers reach the log: the tool output comes from another process (Sonar S5145).
+const lint = await client.callTool({ name: "lint_design", arguments: {} });
+const findings = Number(lint.structuredContent?.findings?.length ?? 0);
 await client.close();
 execFileSync(bin, ["export", "--db", db, "-o", file], { stdio: "inherit" });
+console.log(`seed-demo: ${findings} lint finding(s); wrote examples/demo.paprika.json`);
 rmSync(dir, { recursive: true, force: true });
