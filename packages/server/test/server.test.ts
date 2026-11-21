@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import WebSocket from "ws";
-import { DocumentStore, closeBrowser, createMcpServer, startHttpServer, workspaceSlug, type RunningServer } from "../src/index.js";
+import { DocumentStore, PresenceHub, closeBrowser, createMcpServer, presenceTargets, startHttpServer, workspaceSlug, type RunningServer } from "../src/index.js";
 import { copyId } from "@paprika/core";
 
 type ToolResult = { isError?: boolean; content: { type: string; text?: string; data?: string; mimeType?: string }[] };
@@ -407,6 +407,71 @@ describe("HTTP + WebSocket", () => {
 
     await client.close();
     ws.close();
+  });
+
+  it("presença do agente: cada chamada MCP vira cursor no canvas, com replay para quem conecta depois", async () => {
+    const ws = new WebSocket(`${http.url.replace("http", "ws")}/ws`, { headers: { origin: http.url } });
+    type Msg = { type: string; agent?: string; actor?: string; tool?: string; nodes?: string[]; idle?: number };
+    const messages: Msg[] = [];
+    ws.on("message", (m) => messages.push(JSON.parse(String(m))));
+    await new Promise((ok) => ws.once("open", ok));
+    const presences = () => messages.filter((m) => m.type === "presence");
+
+    const a = new Client({ name: "agent-a", version: "0" });
+    await a.connect(new StreamableHTTPClientTransport(new URL(`${http.url}/mcp`)));
+    const b = new Client({ name: "agent-a", version: "0" });
+    await b.connect(new StreamableHTTPClientTransport(new URL(`${http.url}/mcp`)));
+
+    await a.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "p1" }, { type: "rect", id: "p2" }] } });
+    await waitFor(() => presences().length === 1);
+    const first = presences()[0]!;
+    expect(first).toEqual({ type: "presence", agent: expect.stringMatching(/^s:[0-9a-f]{12}$/), actor: "agent:agent-a", tool: "create_nodes", nodes: ["p1", "p2"], idle: 0 });
+
+    // Reads move the cursor too; unknown ids are dropped; a second session with the same name is another agent.
+    await b.callTool({ name: "get_nodes", arguments: { ids: ["p2"] } });
+    await a.callTool({ name: "update_nodes", arguments: { updates: [{ id: "p1", props: { name: "x" } }] } });
+    await a.callTool({ name: "get_document_outline", arguments: {} });
+    await waitFor(() => presences().length === 4);
+    const [, second, third, fourth] = presences();
+    expect(second).toMatchObject({ actor: "agent:agent-a", tool: "get_nodes", nodes: ["p2"] });
+    expect(second!.agent).not.toBe(first.agent);
+    expect(third).toMatchObject({ agent: first.agent, tool: "update_nodes", nodes: ["p1"] });
+    expect(fourth).toMatchObject({ agent: first.agent, tool: "get_document_outline", nodes: [] });
+
+    // A canvas that connects later gets the last presence of each agent right after the document.
+    const late = new WebSocket(`${http.url.replace("http", "ws")}/ws`, { headers: { origin: http.url } });
+    const lateMsgs: Msg[] = [];
+    late.on("message", (m) => lateMsgs.push(JSON.parse(String(m))));
+    await waitFor(() => lateMsgs.length === 3);
+    expect(lateMsgs.map((m) => m.type)).toEqual(["doc", "presence", "presence"]);
+    expect(lateMsgs.slice(1).map((m) => [m.agent, m.tool])).toEqual([
+      [second!.agent, "get_nodes"],
+      [first.agent, "get_document_outline"],
+    ]);
+    expect(lateMsgs[1]!.idle).toBeGreaterThanOrEqual(0);
+
+    await a.close();
+    await b.close();
+    late.close();
+    ws.close();
+  });
+
+  it("presenceTargets: criados primeiro, senão os ids dos argumentos, só os que existem", () => {
+    const doc = { nodes: { a: {}, b: {}, c: {} } } as never;
+    expect(presenceTargets({ ids: ["a"] }, { created: ["c", "zz"] }, doc)).toEqual(["c"]);
+    expect(presenceTargets({ ids: ["a", "zz", "a"], rootId: "b" }, { created: [] }, doc)).toEqual(["a", "b"]);
+    expect(presenceTargets({ moves: [{ id: "b", parentId: "c" }], ops: [{ op: "ungroup", ids: ["a"] }] }, undefined, doc)).toEqual(["b", "c", "a"]);
+    expect(presenceTargets(undefined, undefined, doc)).toEqual([]);
+  });
+
+  it("PresenceHub: replay só até o TTL e no máximo 64 agentes", () => {
+    let now = 1000;
+    const hub = new PresenceHub(() => now);
+    for (let i = 0; i < 70; i++) hub.report(`k${i}`, "agent:x", "get_nodes", []);
+    expect(hub.recent()).toHaveLength(64);
+    expect(hub.recent()[0]!.agent).toBe("k6");
+    now += 120_000;
+    expect(hub.recent()).toEqual([]);
   });
 
   it("bloqueia Host/Origin externos (DNS rebinding / CSRF)", async () => {

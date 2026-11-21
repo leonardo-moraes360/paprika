@@ -191,6 +191,18 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		hub.mu.Unlock()
 	})
 
+	unsubscribePresence := store.Presence.OnPresence(func(p Presence) {
+		msg := p.Message()
+		hub.mu.Lock()
+		for _, ch := range hub.conns {
+			select {
+			case ch <- msg:
+			default: // slow client: drop; the next tool call moves the cursor again
+			}
+		}
+		hub.mu.Unlock()
+	})
+
 	mux := http.NewServeMux()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -419,6 +431,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		ln:     ln,
 		close: func() {
 			unsubscribe()
+			unsubscribePresence()
 			hub.mu.Lock()
 			for c := range hub.conns {
 				c.CloseNow()
@@ -482,6 +495,12 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 	defer cancel()
 	doc, version, cu, cr := store.Snapshot()
 	out <- docMessage(doc, version, "server", "", "reload", cu, cr)
+	for _, p := range store.Presence.Recent() {
+		select {
+		case out <- p.Message():
+		default:
+		}
+	}
 	hub.mu.Lock()
 	hub.conns[conn] = out
 	hub.mu.Unlock()
@@ -688,8 +707,11 @@ func serveMCPHTTP(w http.ResponseWriter, r *http.Request, m *MCP, clients *clien
 	}
 	if hasInitName {
 		w.Header().Set("Mcp-Session-Id", clients.remember(initName))
-	} else if name, ok := clients.get(r.Header.Get("Mcp-Session-Id")); ok {
-		m.SetClient(name)
+	} else {
+		m.SetSession(r.Header.Get("Mcp-Session-Id"))
+		if name, ok := clients.get(r.Header.Get("Mcp-Session-Id")); ok {
+			m.SetClient(name)
+		}
 	}
 	var responses []any
 	for _, msg := range batch {

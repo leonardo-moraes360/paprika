@@ -368,6 +368,8 @@ type Store struct {
 	errHandler  func(error)
 	stop        chan struct{}
 	stopOnce    sync.Once
+	// Presence holds the agents' cursors for the canvas. Ephemeral: never written to SQLite.
+	Presence *PresenceHub
 }
 
 // OpenOptions select the document of the database to serve.
@@ -384,7 +386,7 @@ func OpenStore(path string, opts OpenOptions) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Store{db: db, path: path, listeners: map[int]func(ChangeEvent){}, stop: make(chan struct{})}
+	s := &Store{db: db, path: path, listeners: map[int]func(ChangeEvent){}, stop: make(chan struct{}), Presence: NewPresenceHub(nil)}
 	id := opts.DocID
 	if id == "" {
 		docs, err := ListDocuments(db)
