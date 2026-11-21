@@ -4,12 +4,15 @@ import { DocumentStore, createMcpServer } from "../dist/index.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { writeFile, rm } from "node:fs/promises";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { join, sep } from "node:path";
 
-// Sonar S8707: os dois caminhos vêm da linha de comando. São resolvidos contra o diretório atual e
-// qualquer resultado fora dele é recusado, para um argumento errado não apagar nem sobrescrever
-// arquivos alhures (ex.: `bezier-demo.mjs ../../.bashrc x.png`).
+// Sonar S8707: os dois caminhos vêm da linha de comando, então são tratados como dado externo.
+// Primeiro uma lista de permitidos (segmentos simples — sem `..`, sem caminho absoluto, sem `~`, sem
+// coringa), depois o caminho é construído com join a partir do diretório atual, e por fim a checagem
+// de contenção acontece no ponto de uso, na frente de `rm` e de `writeFile`. Assim um argumento
+// errado não apaga nem sobrescreve arquivos alhures (`bezier-demo.mjs ../../.bashrc x.png`).
 const SAFE_ARG_PATH = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+const here = process.cwd();
 
 function argPath(index, label) {
   const raw = process.argv[index];
@@ -23,10 +26,13 @@ function argPath(index, label) {
     console.error(`${label} precisa ser um caminho relativo simples dentro do diretório atual: ${raw}`);
     process.exit(2);
   }
-  const abs = resolve(process.cwd(), raw);
-  const rel = relative(process.cwd(), abs);
-  if (!rel || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
-    console.error(`${label} precisa ficar dentro do diretório atual (${process.cwd()}): ${raw}`);
+  return join(here, raw);
+}
+
+/** Última rede: o valor que vai para o disco precisa estar sob o diretório atual. */
+function insideHere(abs, label) {
+  if (!abs.startsWith(here + sep)) {
+    console.error(`${label} precisa ficar dentro do diretório atual (${here}): ${abs}`);
     process.exit(2);
   }
   return abs;
@@ -41,7 +47,8 @@ function printable(text) {
   );
 }
 
-const file = argPath(2, "documento");
+const file = insideHere(argPath(2, "documento"), "documento");
+const png = insideHere(argPath(3, "png"), "png");
 await rm(file, { force: true });
 const store = await DocumentStore.open(file);
 const [a, b] = InMemoryTransport.createLinkedPair();
@@ -65,5 +72,5 @@ const lint = await call("lint_design", {});
 console.log(printable(lint.content[0].text));
 console.log(printable((await call("path_info", { id: Object.values(store.doc.nodes).find(n => n.name === "Vagem").id })).content[0].text));
 const shot = await call("render_screenshot", { rootId: "board" });
-await writeFile(argPath(3, "png"), Buffer.from(shot.content.find(x => x.type === "image").data, "base64"));
+await writeFile(png, Buffer.from(shot.content.find(x => x.type === "image").data, "base64"));
 await store.flush(); await store.close(); process.exit(0);
