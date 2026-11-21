@@ -60,6 +60,7 @@ path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fil
   o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.
 
 Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.
+Modos de tema: set_tokens com mode ("dark", "compact"…) grava só os tokens que mudam; "mode" num frame ou página aplica o modo ao subtree (dá para pôr a mesma tela clara e escura lado a lado). export_code com cssVariables: true sai com var(--token) e uma regra por modo.
 "fill" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.
 
 Fluxo recomendado:
@@ -129,9 +130,12 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
         const tokens = Object.entries(d.tokens)
           .map(([k, v]) => `$${k}=${v}`)
           .join(" ");
+        const modes = Object.entries(d.modes ?? {})
+          .map(([m, t]) => `${m}(${Object.entries(t).map(([k, v]) => `$${k}=${v}`).join(" ")})`)
+          .join(" ");
         return text(
           `documento "${d.name}" v${store.version} · ${Object.keys(d.nodes).length} nós\n` +
-            `tokens: ${tokens || "(nenhum)"}\n\n${outline(d, { rootId, depth })}`,
+            `tokens: ${tokens || "(nenhum)"}\n${modes ? `modos: ${modes}\n` : ""}\n${outline(d, { rootId, depth })}`,
         );
       }),
   );
@@ -416,10 +420,16 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
     "set_tokens",
     {
       title: "Definir tokens",
-      description: 'Cria/atualiza design tokens (cores, tamanhos). Use nos nós como "$nome". null remove.',
-      inputSchema: { tokens: z.record(z.string(), z.union([z.string(), z.number(), z.null()])), label: z.string().max(200).optional() },
+      description:
+        'Cria/atualiza design tokens (cores, tamanhos). Use nos nós como "$nome". null remove. Com `mode`, grava os valores daquele modo de tema (ex.: "dark"), que valem nos frames/páginas com `mode` igual e nos descendentes; tokens que o modo não define usam o valor base.',
+      inputSchema: {
+        tokens: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
+        mode: z.string().optional().describe("Modo de tema ([A-Za-z0-9_-]{1,40}); sem ele, os tokens base"),
+        label: z.string().max(200).optional(),
+      },
     },
-    ({ tokens, label }) => guard(async () => json(await write([{ op: "set_tokens", tokens }], label ?? "tokens"))),
+    ({ tokens, mode, label }) =>
+      guard(async () => json(await write([mode ? { op: "set_tokens", tokens, mode } : { op: "set_tokens", tokens }], label ?? "tokens"))),
   );
 
   server.registerTool(
@@ -488,13 +498,20 @@ export function createMcpServer(store: DocumentStore, opts: McpOptions = {}): Mc
       title: "Exportar código",
       description:
         "Exporta um nó como HTML autocontido, componente React (TSX) com estilos inline ou SVG vetorial (svg: o layout é medido num Chromium headless, como no render_screenshot; rootId de página exporta a página).",
-      inputSchema: { rootId: z.string(), format: z.enum(["html", "react", "svg"]).default("react") },
+      inputSchema: {
+        rootId: z.string(),
+        format: z.enum(["html", "react", "svg"]).default("react"),
+        cssVariables: z
+          .boolean()
+          .default(false)
+          .describe("html/react: tokens como var(--nome), com uma folha de estilos por modo de tema (react exporta tokensCss)"),
+      },
       annotations: { readOnlyHint: true },
     },
-    ({ rootId, format }) =>
+    ({ rootId, format, cssVariables }) =>
       guard(async () => {
-        if (format === "html") return text(renderHTML(store.doc, { rootId }).html);
-        if (format === "react") return text(exportReact(store.doc, rootId));
+        if (format === "html") return text(renderHTML(store.doc, { rootId, cssVariables }).html);
+        if (format === "react") return text(exportReact(store.doc, rootId, { cssVariables }));
         const r = await svgExport(store.doc, rootId);
         const out: CallToolResult = { content: [{ type: "text", text: r.svg }] };
         if (r.warnings.length) out.content.push({ type: "text", text: `avisos: ${r.warnings.join("; ")}` });

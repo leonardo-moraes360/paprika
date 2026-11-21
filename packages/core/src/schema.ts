@@ -64,6 +64,9 @@ const Base = {
 
 /** Overrides de uma instância: por id de nó do componente, os campos trocados (ver component.ts). */
 // Chaves no formato de id e de nome de campo (o zod já descarta "__proto__" em records).
+/** Nome de um modo de tema (`dark`, `compact`…): conjunto de valores que substituem tokens. */
+export const ModeName = z.string().regex(/^[A-Za-z0-9_-]{1,40}$/, "nome de modo deve ser [A-Za-z0-9_-]{1,40}");
+
 const OverrideSource = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id deve ser [A-Za-z0-9_-]{1,64}");
 const OverrideField = z.string().regex(/^[A-Za-z]{1,32}$/, "campo deve ser [A-Za-z]{1,32}");
 export const Overrides = z.record(OverrideSource, z.record(OverrideField, z.unknown()));
@@ -83,6 +86,8 @@ export const FrameNode = z.object({
   instanceOf: z.string().optional(),
   scale: z.number().min(0.01).max(100).optional(),
   overrides: Overrides.optional(),
+  /** Modo de tema deste frame e dos descendentes (tokens de `document.modes[mode]`). */
+  mode: ModeName.optional(),
 });
 
 export const RectNode = z.object({ ...Base, type: z.literal("rect") });
@@ -174,6 +179,8 @@ export const PageNode = z.object({
   parentId: Base.parentId,
   type: z.literal("page"),
   fill: ColorValue.optional(),
+  /** Modo de tema da página inteira. */
+  mode: ModeName.optional(),
   notes: Base.notes,
   children: z.array(z.string()).default([]),
 });
@@ -190,6 +197,8 @@ export const Document = z.object({
   id: z.string(),
   name: z.string().default("Sem título"),
   tokens: z.record(TokenName, TokenValue).default({}),
+  /** Modos de tema: por modo, os tokens que mudam (os demais vêm de `tokens`). */
+  modes: z.record(ModeName, z.record(TokenName, TokenValue)).optional(),
   /** Ids dos nós de nível superior (normalmente frames/telas), na ordem do canvas. */
   rootIds: z.array(z.string()).default([]),
   nodes: z.record(z.string(), Node).default({}),

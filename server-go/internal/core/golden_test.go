@@ -54,7 +54,7 @@ func baseDocs(t *testing.T, g *jsonv.Object) map[string]*Document {
 	for _, v := range g.Arr("views") {
 		o := v.(*jsonv.Object)
 		switch name := o.Str("name"); name {
-		case "empty", "card", "demo", "bezier", "free", "grouped", "paged", "comp":
+		case "empty", "card", "demo", "bezier", "free", "grouped", "paged", "comp", "themed":
 			docs[name] = mustDoc(t, o.Str("doc"))
 		}
 	}
@@ -221,8 +221,23 @@ func TestGoldenViews(t *testing.T) {
 			}
 			eq(t, name+" html page "+id, h, c.Obj("htmlPages").Str(id))
 		}
+		hv, _, err := RenderHTML(doc, RenderOptions{CSSVariables: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		eq(t, name+" html vars", hv, c.Str("htmlVars"))
 		for _, id := range Nodes(doc).Keys() {
-			r, err := ExportReact(doc, id)
+			h, _, err := RenderHTML(doc, RenderOptions{RootID: id, CSSVariables: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			eq(t, name+" html vars "+id, h, c.Obj("htmlVarsRoots").Str(id))
+			rv, err := ExportReact(doc, id, true)
+			if err != nil {
+				rv = "ERROR: " + err.Error()
+			}
+			eq(t, name+" react vars "+id, rv, c.Obj("reactVars").Str(id))
+			r, err := ExportReact(doc, id, false)
 			if err != nil {
 				r = "ERROR: " + err.Error()
 			}

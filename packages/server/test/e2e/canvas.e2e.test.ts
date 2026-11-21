@@ -459,4 +459,35 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     const hist = (await agent.callTool({ name: "get_history", arguments: {} })) as { content: { text: string }[] };
     expect(JSON.parse(hist.content[0]!.text).slice(-4).map((h: { label: string }) => h.label)).toEqual(["mover ponto", "inserir ponto", "remover ponto", "alternar canto/suave"]);
   }, 30_000);
+  it("modos de tema: o agente define o modo escuro, o canvas pinta cada frame no seu modo e o inspector troca", async () => {
+    await page.keyboard.press("Escape");
+    await agent.callTool({ name: "set_tokens", arguments: { tokens: { tela: "#fafafa", tinta: "#1e2336" } } });
+    await agent.callTool({ name: "set_tokens", arguments: { mode: "escuro", tokens: { tela: "#14161f", tinta: "#f2f2f2" } } });
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId: (await doc()).nodes.login!.parentId,
+        nodes: [0, 1].map((i) => ({
+          type: "frame", id: `tema${i}`, name: `Tema ${i}`, x: 2000 + i * 200, y: 0, width: 160, height: 80, fill: "$tela", ...(i ? { mode: "escuro" } : {}),
+          children: [{ type: "text", id: `tema${i}t`, text: "Aa", color: "$tinta", x: 8, y: 8 }],
+        })),
+      },
+    });
+    const bg = (id: string) => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).backgroundColor);
+    const fg = (id: string) => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).color);
+    await expect.poll(() => bg("tema0")).toBe("rgb(250, 250, 250)");
+    await expect.poll(() => bg("tema1")).toBe("rgb(20, 22, 31)");
+    await expect.poll(() => fg("tema1t")).toBe("rgb(242, 242, 242)");
+
+    await page.locator('[data-layer-id="tema0"]').click();
+    await page.getByLabel("Modo de tema").selectOption("escuro");
+    await expect.poll(() => bg("tema0")).toBe("rgb(20, 22, 31)");
+    await expect.poll(async () => ((await doc()).nodes.tema0 as { mode?: string }).mode).toBe("escuro");
+
+    const r = (await agent.callTool({ name: "export_code", arguments: { rootId: "tema1", format: "html", cssVariables: true } })) as { content: { text: string }[] };
+    expect(r.content[0]!.text).toContain('[data-paprika-mode="escuro"]{--tela:#14161f;--tinta:#f2f2f2}');
+    expect(r.content[0]!.text).toContain("background:var(--tela)");
+    const outline = (await agent.callTool({ name: "get_document_outline", arguments: { depth: 0 } })) as { content: { text: string }[] };
+    expect(outline.content[0]!.text).toContain("modos: escuro($tela=#14161f $tinta=#f2f2f2)");
+  });
 });

@@ -1,6 +1,6 @@
 import { firstPage, pageRoots, isContainer, type Document, type Node } from "./schema.js";
 import { canvasBounds, escapeHtml, svgAttrs } from "./render.js";
-import { pathAttrs, resolveValue } from "./style.js";
+import { modeOf, pathAttrs, resolveValue } from "./style.js";
 
 /**
  * Exporta um nó, uma página ou o canvas como SVG vetorial. O layout automático (row/column, hug,
@@ -67,9 +67,9 @@ const f = (n: number) => {
 
 type Box = [number, number, number, number];
 
-function paint(doc: Document, v: string | undefined, warn: (w: string) => void): string | undefined {
+function paint(doc: Document, v: string | undefined, mode: string | undefined, warn: (w: string) => void): string | undefined {
   if (v === undefined) return undefined;
-  const s = String(resolveValue(doc, v)).trim();
+  const s = String(resolveValue(doc, v, mode)).trim();
   if (/gradient\(/i.test(s) || /url\(/i.test(s)) {
     warn("gradientes e imagens de fundo não vão para o SVG; o preenchimento foi omitido");
     return undefined;
@@ -126,17 +126,18 @@ export function exportSVG(
     const kids = () => (isContainer(n) ? n.children.map((c) => doc.nodes[c]).filter((c): c is Node => !!c).map((c) => emit(c, b, false)).join("") : "");
     if (n.type === "group") return `${open}${kids()}</g>`;
 
+    const mode = modeOf(doc, n);
     let defs = "";
     let shadowAttr = "";
     if (n.shadow && n.type !== "text") {
       const s = n.shadow;
       if (s.spread) warn("sombra com spread: o SVG usa só deslocamento, blur e cor");
-      defs += `<filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${f(s.x)}" dy="${f(s.y)}" stdDeviation="${f(s.blur / 2)}" flood-color="${escapeHtml(String(resolveValue(doc, s.color)))}"/></filter>`;
+      defs += `<filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${f(s.x)}" dy="${f(s.y)}" stdDeviation="${f(s.blur / 2)}" flood-color="${escapeHtml(String(resolveValue(doc, s.color, mode)))}"/></filter>`;
       shadowAttr = ` filter="url(#shadow-${id})"`;
     }
-    const fill = n.type === "path" ? undefined : paint(doc, n.fill, warn);
+    const fill = n.type === "path" ? undefined : paint(doc, n.fill, mode, warn);
     const sw = n.type !== "path" && n.stroke && n.stroke.width > 0 ? n.stroke.width : 0;
-    const strokeAttr = sw ? ` stroke="${escapeHtml(String(resolveValue(doc, n.stroke!.color)))}" stroke-width="${f(sw)}"` : "";
+    const strokeAttr = sw ? ` stroke="${escapeHtml(String(resolveValue(doc, n.stroke!.color, mode)))}" stroke-width="${f(sw)}"` : "";
     const fillAttr = ` fill="${escapeHtml(fill ?? "none")}"`;
     // A borda do CSS fica por dentro da caixa; o traço do SVG é centrado: recua meia espessura.
     const inset = `x="${f(sw / 2)}" y="${f(sw / 2)}" width="${f(Math.max(0, w - sw))}" height="${f(Math.max(0, h - sw))}"`;
@@ -159,15 +160,15 @@ export function exportSVG(
         break;
       case "path": {
         const a = pathAttrs(doc, n);
-        const pfill = a.path.fill === "none" ? "none" : paint(doc, n.fill, warn) ?? "none";
+        const pfill = a.path.fill === "none" ? "none" : paint(doc, n.fill, mode, warn) ?? "none";
         body += `<svg width="${f(w)}" height="${f(h)}"${svgAttrs(a.svg)} overflow="visible"><path${svgAttrs({ ...a.path, fill: pfill })}${shadowAttr}/></svg>`;
         break;
       }
     }
     if (n.type === "text") {
-      const fs = resolveValue(doc, n.fontSize);
+      const fs = resolveValue(doc, n.fontSize, mode);
       const size = typeof fs === "number" ? fs : parseFloat(String(fs)) || 16;
-      const color = escapeHtml(String(resolveValue(doc, n.color)));
+      const color = escapeHtml(String(resolveValue(doc, n.color, mode)));
       const measuredLines = opts.measure?.lines?.[n.id];
       let tspans = "";
       let anchor = "";
@@ -217,7 +218,7 @@ export function exportSVG(
     width = cb!.width;
     height = cb!.height;
   }
-  const bg = single ? "" : `<rect width="${f(width)}" height="${f(height)}" fill="${escapeHtml(page?.fill ? String(resolveValue(doc, page.fill)) : "#ffffff")}"/>`;
+  const bg = single ? "" : `<rect width="${f(width)}" height="${f(height)}" fill="${escapeHtml(page?.fill ? String(resolveValue(doc, page.fill, page.mode)) : "#ffffff")}"/>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${f(width)}" height="${f(height)}" viewBox="0 0 ${f(width)} ${f(height)}">${bg}${content}</svg>`;
   return { svg, width, height, warnings };
 }

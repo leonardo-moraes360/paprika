@@ -5,6 +5,7 @@ import {
   isInstance,
   lintDocument,
   newId,
+  modeOf,
   resolveValue,
   ungroupOps,
   type Document,
@@ -67,8 +68,27 @@ function Field({ label, value, onCommit, type = "text", placeholder, title }: Fi
   );
 }
 
-function ColorField({ doc, label, value, onCommit }: { doc: Document; label: string; value: string | undefined; onCommit(v: string | null): void }) {
-  const resolved = value ? String(resolveValue(doc, value)) : "";
+/** Modo de tema de um frame ou página: herdado (vazio) ou um dos modos do documento. */
+function ModeField({ doc, value, inherited, onCommit }: { doc: Document; value: string | undefined; inherited?: string; onCommit(v: string | null): void }) {
+  const modes = Object.keys(doc.modes ?? {});
+  if (value && !modes.includes(value)) modes.push(value);
+  return (
+    <label className="field">
+      <span>Modo de tema</span>
+      <select aria-label="Modo de tema" value={value ?? ""} onChange={(e) => onCommit(e.target.value || null)}>
+        <option value="">{inherited ? `herdado (${inherited})` : "base"}</option>
+        {modes.map((m) => (
+          <option key={m} value={m}>
+            {m}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ColorField({ doc, label, value, mode, onCommit }: { doc: Document; label: string; value: string | undefined; mode?: string; onCommit(v: string | null): void }) {
+  const resolved = value ? String(resolveValue(doc, value, mode)) : "";
   const hex = /^#[0-9a-f]{6}$/i.test(resolved) ? resolved : "#000000";
   return (
     <div className="color-field">
@@ -151,6 +171,7 @@ export function Inspector(props: Props) {
   if (node.type === "group") return <GroupPanel {...props} group={node} />;
   if (isInstance(node)) return <InstancePanel {...props} instance={node} />;
   const set = (props: Record<string, unknown>, label = "editar propriedade") => apply([{ op: "update", id: node.id, props }], label);
+  const themeMode = modeOf(doc, node);
   const setNum = (key: string) => (v: string) => {
     const n = num(v);
     if (n !== undefined) set({ [key]: n });
@@ -175,10 +196,11 @@ export function Inspector(props: Props) {
       </div>
       <h3>Aparência</h3>
       <div className="grid">
-        <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />
+        <ColorField doc={doc} mode={themeMode} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />
         {node.type !== "ellipse" && node.type !== "path" && <Field label="Raio" type="number" value={node.radius} onCommit={setNum("radius")} />}
         <ColorField
           doc={doc}
+          mode={themeMode}
           label="Borda"
           value={node.stroke?.color}
           onCommit={(v) => set({ stroke: v ? { color: v, width: node.stroke?.width ?? 1 } : null })}
@@ -191,7 +213,7 @@ export function Inspector(props: Props) {
           <h3>Texto</h3>
           <div className="grid">
             <Field label="Conteúdo" type="textarea" value={node.text} onCommit={(v) => set({ text: v }, "editar texto")} />
-            <ColorField doc={doc} label="Cor" value={node.color} onCommit={(v) => v && set({ color: v })} />
+            <ColorField doc={doc} mode={themeMode} label="Cor" value={node.color} onCommit={(v) => v && set({ color: v })} />
           </div>
           <div className="grid grid-2">
             <Field label="Tamanho" value={node.fontSize} onCommit={(v) => set({ fontSize: v.startsWith("$") ? v : num(v) })} />
@@ -233,6 +255,10 @@ export function Inspector(props: Props) {
             ) : (
               <button onClick={() => set({ component: true }, "criar componente")}>Tornar componente</button>
             )}
+          </div>
+          <h3>Tema</h3>
+          <div className="grid">
+            <ModeField doc={doc} value={node.mode} inherited={modeOf(doc, node.parentId ? doc.nodes[node.parentId] : undefined)} onCommit={(v) => set({ mode: v }, "modo de tema")} />
           </div>
           <h3>Layout</h3>
           <div className="grid grid-2">
@@ -435,7 +461,8 @@ function PagePanel({ doc, page, apply }: { doc: Document; page: PageNode; apply(
       </h2>
       <div className="grid">
         <Field label="Nome" value={page.name} onCommit={(v) => set({ name: v }, "renomear página")} />
-        <ColorField doc={doc} label="Fundo" value={page.fill} onCommit={(v) => set({ fill: v })} />
+        <ColorField doc={doc} mode={page.mode} label="Fundo" value={page.fill} onCommit={(v) => set({ fill: v })} />
+        <ModeField doc={doc} value={page.mode} onCommit={(v) => set({ mode: v }, "modo de tema")} />
         <Field label="Notas" type="textarea" value={page.notes} onCommit={(v) => set({ notes: v || null })} />
       </div>
     </div>
@@ -481,6 +508,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
 
 function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: Activity[]; onSelect(id: string): void }) {
   const [newToken, setNewToken] = useState("");
+  const [newModeToken, setNewModeToken] = useState("");
   const issues = lintDocument(doc).filter((i) => i.severity !== "info");
   return (
     <div className="panel-section">
@@ -508,6 +536,34 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
           }}
         >
           <input aria-label="Novo token" placeholder="nome = #e8553d" value={newToken} onChange={(e) => setNewToken(e.target.value)} />
+        </form>
+      </div>
+      <h3>Modos de tema</h3>
+      <div className="grid" data-testid="theme-modes">
+        {Object.entries(doc.modes ?? {}).map(([mode, tokens]) =>
+          Object.entries(tokens).map(([k, v]) => (
+            <div className="token-row" key={`${mode}/${k}`}>
+              {typeof v === "string" && /^#|^rgb/.test(v) && <span className="swatch" style={{ background: v }} />}
+              <Field
+                label={`${mode} · $${k}`}
+                value={v}
+                onCommit={(nv) => apply([{ op: "set_tokens", mode, tokens: { [k]: nv === "" ? null : isNaN(Number(nv)) ? nv : Number(nv) } }], "token do modo")}
+              />
+            </div>
+          )),
+        )}
+        <form
+          className="token-add"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const m = /^\s*([A-Za-z0-9_-]{1,40})\s*:\s*\$?([\w.-]+)\s*[=:]\s*(.+)$/.exec(newModeToken);
+            if (!m) return;
+            const val = m[3]!.trim();
+            apply([{ op: "set_tokens", mode: m[1]!, tokens: { [m[2]!]: isNaN(Number(val)) ? val : Number(val) } }], "token do modo");
+            setNewModeToken("");
+          }}
+        >
+          <input aria-label="Novo token de modo" placeholder="dark: bg = #14161f" value={newModeToken} onChange={(e) => setNewModeToken(e.target.value)} />
         </form>
       </div>
       <h3>Revisão {issues.length > 0 && <span className="badge">{issues.length}</span>}</h3>

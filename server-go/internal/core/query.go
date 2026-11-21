@@ -37,6 +37,9 @@ func DescribeNode(n *Node) string {
 		if fill, ok := n.Get("fill"); ok {
 			parts = append(parts, "fill="+jsString(fill))
 		}
+		if m := n.Str("mode"); m != "" {
+			parts = append(parts, "mode="+m)
+		}
 		return strings.Join(parts, " ")
 	}
 	w, _ := n.Get("width")
@@ -48,6 +51,9 @@ func DescribeNode(n *Node) string {
 	if typ == "frame" {
 		if l := n.Obj("layout"); l != nil && l.Str("mode") != "none" {
 			parts = append(parts, l.Str("mode")+" gap="+jsString(l.Num("gap")))
+		}
+		if m := n.Str("mode"); m != "" {
+			parts = append(parts, "mode="+m)
 		}
 		if n.Bool("component") {
 			parts = append(parts, "component")

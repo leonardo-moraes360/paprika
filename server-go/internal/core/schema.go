@@ -118,6 +118,7 @@ func pageSchema() *z.ObjectSchema {
 		baseField("id"), baseField("name"), baseField("parentId"),
 		z.Field{Name: "type", Schema: z.Literal("page")},
 		z.Field{Name: "fill", Schema: z.Optional(colorValue())},
+		z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
 		baseField("notes"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
 	)
@@ -165,6 +166,7 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "instanceOf", Schema: z.Optional(z.String())},
 		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.01).Max(100))},
 		z.Field{Name: "overrides", Schema: z.Optional(overridesSchema())},
+		z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
 	),
 	"rect":    nodeSchema("rect"),
 	"ellipse": nodeSchema("ellipse"),
@@ -238,6 +240,7 @@ var DocumentSchema = z.Object(
 	z.Field{Name: "id", Schema: z.String()},
 	z.Field{Name: "name", Schema: z.Default(z.String(), "Sem título")},
 	z.Field{Name: "tokens", Schema: z.Default(z.Record(TokenNameSchema, TokenValueSchema), jsonv.NewObject())},
+	z.Field{Name: "modes", Schema: z.Optional(z.Record(ModeNameSchema, z.Record(TokenNameSchema, TokenValueSchema)))},
 	z.Field{Name: "rootIds", Schema: z.Default(z.Array(z.String()), []any{})},
 	z.Field{Name: "nodes", Schema: z.Default(z.Record(z.String(), NodeSchema), jsonv.NewObject())},
 )
@@ -275,6 +278,12 @@ func ParentID(n *Node) (string, bool) {
 	s, ok := v.(string)
 	return s, ok
 }
+
+// ModeNameSchema is ModeName in schema.ts: the name of a theme mode.
+var ModeNameSchema = z.String().Regex(`^[A-Za-z0-9_-]{1,40}$`, `/^[A-Za-z0-9_-]{1,40}$/`, "nome de modo deve ser [A-Za-z0-9_-]{1,40}")
+
+// Modes returns doc.modes (nil when the document has none).
+func Modes(doc *Document) *jsonv.Object { return doc.Obj("modes") }
 
 // overridesSchema is Overrides in schema.ts: keys shaped like node ids and field names.
 func overridesSchema() z.Schema {

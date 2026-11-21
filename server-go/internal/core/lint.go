@@ -107,7 +107,7 @@ func EffectiveBackground(doc *Document, node *Node) (RGBA, bool) {
 	}
 	for cur != nil {
 		if fill, ok := cur.Get("fill"); ok {
-			c, ok := ParseColor(jsString(ResolveValue(doc, fill)))
+			c, ok := ParseColor(jsString(ResolveValue(doc, fill, ModeOf(doc, cur))))
 			if !ok {
 				return RGBA{}, false
 			}
@@ -219,8 +219,12 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 			continue
 		}
 		typ := node.Str("type")
+		themeMode := ModeOf(doc, node)
+		if m := node.Str("mode"); (typ == "frame" || typ == "page") && m != "" && (Modes(doc) == nil || !Modes(doc).Has(m)) {
+			add("unknown-mode", "warning", id, `modo "`+m+`" não tem tokens (set_tokens com mode); valem os tokens base`)
+		}
 		for _, ref := range tokenRefs(node) {
-			if !tokens.Has(ref) {
+			if _, ok := TokenValue(doc, ref, themeMode); !ok {
 				add("unknown-token", "error", id, `token "$`+ref+`" não existe`)
 			}
 		}
@@ -230,7 +234,7 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 				add("empty-text", "warning", id, "texto vazio")
 			}
 			fsv, _ := node.Get("fontSize")
-			fs := ResolveValue(doc, fsv)
+			fs := ResolveValue(doc, fsv, themeMode)
 			size, isNum := fs.(float64)
 			if !isNum {
 				size = jsonv.ParseFloat(jsString(fs))
@@ -239,7 +243,7 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 				add("small-text", "warning", id, "fonte de "+jsString(size)+"px (< 12px)")
 			}
 			colorV, _ := node.Get("color")
-			fg, fgOK := ParseColor(jsString(ResolveValue(doc, colorV)))
+			fg, fgOK := ParseColor(jsString(ResolveValue(doc, colorV, themeMode)))
 			bg, bgOK := EffectiveBackground(doc, node)
 			if fgOK && bgOK {
 				ratio := ContrastRatio(blend(fg, bg), bg)

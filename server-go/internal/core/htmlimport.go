@@ -614,6 +614,9 @@ func convertElement(e *MarkupElement, ctx *htmlCtx) []*jsonv.Object {
 		n.Set("layout", layout)
 		mode = layout.Str("mode")
 	}
+	if theme, ok := e.Attr("data-paprika-mode"); ok && !isGroup && themeModeRe.MatchString(theme) {
+		n.Set("mode", theme)
+	}
 	kids := convertChildren(e, &htmlCtx{mode: mode, text: text, warn: ctx.warn})
 	n.Set("children", nodesAny(kids))
 	if isGroup && len(kids) == 0 {
@@ -621,6 +624,8 @@ func convertElement(e *MarkupElement, ctx *htmlCtx) []*jsonv.Object {
 	}
 	return named(n)
 }
+
+var themeModeRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,40}$`)
 
 func isHug(n *jsonv.Object, k string) bool {
 	v, _ := n.Get(k)

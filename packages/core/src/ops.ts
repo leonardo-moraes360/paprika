@@ -5,6 +5,7 @@ import {
   type FrameNode,
   Node,
   NodeType,
+  ModeName,
   TokenName,
   TokenValue,
   type Document as DocumentT,
@@ -75,6 +76,8 @@ export const SetTokensOp = z.object({
   op: z.literal("set_tokens"),
   /** `null` remove o token. */
   tokens: z.record(TokenName, TokenValue.nullable()),
+  /** Grava os valores do modo de tema `mode` em vez dos tokens base; um modo sem tokens some. */
+  mode: ModeName.optional(),
 });
 
 export const RenameDocumentOp = z.object({ op: z.literal("rename_document"), name: z.string().min(1).max(200) });
@@ -371,12 +374,17 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
     }
     case "set_tokens": {
       const prev: Record<string, string | number | null> = {};
+      const target = op.mode ? ((doc.modes ??= {})[op.mode] ??= {}) : doc.tokens;
       for (const [k, v] of Object.entries(op.tokens)) {
-        prev[k] = doc.tokens[k] ?? null;
-        if (v === null) delete doc.tokens[k];
-        else doc.tokens[k] = v;
+        prev[k] = target[k] ?? null;
+        if (v === null) delete target[k];
+        else target[k] = v;
       }
-      return [{ op: "set_tokens", tokens: prev }];
+      if (op.mode && doc.modes) {
+        if (Object.keys(target).length === 0) delete doc.modes[op.mode];
+        if (Object.keys(doc.modes).length === 0) delete doc.modes;
+      }
+      return [op.mode ? { op: "set_tokens", tokens: prev, mode: op.mode } : { op: "set_tokens", tokens: prev }];
     }
     case "rename_document": {
       const prev = doc.name;

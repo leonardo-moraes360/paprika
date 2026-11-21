@@ -330,6 +330,8 @@ function convertElement(el: MarkupElement, ctx: Ctx): NodeInput[] | undefined {
   const hasBlocks = elements(el).some((c) => !SKIP.has(c.tag) && parseStyle(c.attrs.style).position !== "absolute");
   const layout = isGroup ? undefined : layoutOf(css, !ptype && hasBlocks);
   if (layout) n.layout = layout;
+  const theme = el.attrs["data-paprika-mode"];
+  if (!isGroup && theme && /^[A-Za-z0-9_-]{1,40}$/.test(theme)) n.mode = theme;
   const mode = (layout?.mode as Mode | undefined) ?? null;
   n.children = convertChildren(el, { mode, text, warn: ctx.warn });
   if (isGroup && !n.children.length) return undefined;
