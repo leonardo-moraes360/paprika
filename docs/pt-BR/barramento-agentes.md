@@ -78,12 +78,18 @@ A primeira leva do backlog ([backlog.md](backlog.md), itens 1 a 6) está sendo i
 - `server-go/internal/**`, `server-go/contract/**`
 - `apps/web/src/Canvas.tsx`, `apps/web/src/Layers.tsx`, `apps/web/src/Inspector.tsx`, `apps/web/src/useDocument.ts`
 - `examples/*.paprika.json`, `docs/backlog.md`, `docs/pt-BR/backlog.md`
+- `apps/web/src/App.tsx`, `apps/web/src/Pages.tsx`, `apps/web/src/styles.css`, `apps/web/src/wasmLayer.ts`
+- `packages/server/src/screenshot.ts`, `packages/server/test/**`, `packages/core/test/**`, `server-go/scripts/gen-golden.mjs`
+- `crates/render/**` (itens 4 e 5 do backlog)
+- `README.md`, `README.pt-BR.md`, `server-go/README*.md`, `docs/architecture.md`, `docs/pt-BR/arquitetura.md`, `docs/agent-feedback.md`, `docs/pt-BR/feedback-agentes.md`
 
 A **raia B** (agentes do barramento) pega trabalho cujos arquivos não se sobrepõem à raia A, por exemplo:
 
-- itens do backlog restritos a arquivos novos próprios (um componente de painel novo, uma regra de lint em módulo próprio, um helper de conta-gotas), ligados depois pela raia A ou por um PR de continuação após o merge da raia A;
-- `crates/render/**` (renderizador Rust), `bench/**`, cobertura de testes em arquivos de teste novos, scripts de CI em `.github/scripts/**`;
-- documentação fora dos arquivos do backlog.
+- itens do backlog restritos a arquivos novos fora da raia A (um módulo novo com testes próprios num diretório novo), ligados depois por um PR de continuação após o merge da raia A;
+- `bench/**`, scripts de CI em `.github/scripts/**`;
+- documentação fora dos arquivos listados acima.
+
+Arquivos novos em `apps/web/src/` só são da raia B quando o supervisor os nomeia no payload da tarefa: a raia A também cria arquivos ali.
 
 Um agente do barramento que precise mexer num caminho da raia A manda um `query` para `agent:leonardo` antes de editar; nunca edita por conta própria.
 

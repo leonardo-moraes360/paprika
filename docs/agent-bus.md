@@ -78,12 +78,18 @@ The first backlog slice ([backlog.md](backlog.md), items 1 to 6) is being implem
 - `server-go/internal/**`, `server-go/contract/**`
 - `apps/web/src/Canvas.tsx`, `apps/web/src/Layers.tsx`, `apps/web/src/Inspector.tsx`, `apps/web/src/useDocument.ts`
 - `examples/*.paprika.json`, `docs/backlog.md`, `docs/pt-BR/backlog.md`
+- `apps/web/src/App.tsx`, `apps/web/src/Pages.tsx`, `apps/web/src/styles.css`, `apps/web/src/wasmLayer.ts`
+- `packages/server/src/screenshot.ts`, `packages/server/test/**`, `packages/core/test/**`, `server-go/scripts/gen-golden.mjs`
+- `crates/render/**` (backlog items 4 and 5)
+- `README.md`, `README.pt-BR.md`, `server-go/README*.md`, `docs/architecture.md`, `docs/pt-BR/arquitetura.md`, `docs/agent-feedback.md`, `docs/pt-BR/feedback-agentes.md`
 
 **Lane B** (bus agents) takes work whose files don't overlap lane A, for example:
 
-- backlog items limited to their own new files (e.g. a new panel component, a lint rule in its own module, an `eyedropper` helper) wired in by lane A later, or by a follow-up PR after lane A merges;
-- `crates/render/**` (Rust renderer), `bench/**`, test coverage in new test files, CI scripts under `.github/scripts/**`;
-- documentation outside the backlog files.
+- backlog items limited to new files outside lane A (a new module with its own tests in a new directory), wired in by a follow-up PR after lane A merges;
+- `bench/**`, CI scripts under `.github/scripts/**`;
+- documentation outside the files listed above.
+
+New files under `apps/web/src/` are lane B only when the supervisor names them in the task payload: lane A also adds files there.
 
 A bus agent that needs to touch a lane A path sends a `query` to `agent:leonardo` before editing; it never edits it on its own.
 
