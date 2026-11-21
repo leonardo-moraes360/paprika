@@ -128,7 +128,11 @@ describe.skipIf(!wasmBuilt)(`E2E (${impl}): canvas com renderizador WASM`, () =>
     await open("wasm");
     const before = await shot();
     await agent.callTool({ name: "update_nodes", arguments: { updates: [{ id: "board", props: { fill: "#2a9d8f" } }] } });
-    await expect.poll(() => page.locator('[data-paprika-id="board"]').getAttribute("style")).toContain("transparent");
+    // The DOM layer stays transparent in WASM mode. Read the computed color: the serialized `style`
+    // differs between Chromium versions (`background: transparent` became `background: none`).
+    await expect
+      .poll(() => page.locator('[data-paprika-id="board"]').evaluate((el) => getComputedStyle(el).backgroundColor))
+      .toBe("rgba(0, 0, 0, 0)");
     await page.waitForTimeout(300);
     const box = (await page.locator('[data-paprika-id="board"]').boundingBox())!;
     const vp = (await page.getByTestId("viewport").boundingBox())!;
