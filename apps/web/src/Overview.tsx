@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 import { InlineName } from "./InlineName";
+import { bar, cx, ui } from "./ui";
 
 export interface Workspace {
   id: string;
@@ -49,6 +50,18 @@ function hue(id: string): number {
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return [12, 24, 188, 200, 130, 340][h % 6]!;
 }
+
+/** The tile's letter and glow follow the workspace hue. */
+const tile = (h: number): CSSProperties => ({
+  color: `hsl(${h} 70% 78%)`,
+  background: `radial-gradient(circle at 30% 20%, hsl(${h} 60% 40% / 0.55), transparent 60%), linear-gradient(160deg, var(--color-panel-2), var(--color-night))`,
+});
+
+const button = (primary: boolean) =>
+  cx(
+    "cursor-pointer rounded-lg border px-3.5 py-1.75 disabled:cursor-default disabled:opacity-60",
+    primary ? "border-accent bg-accent font-semibold text-white" : "border-line bg-panel",
+  );
 
 interface Props {
   connected: boolean;
@@ -180,29 +193,30 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   /** Where the canvas and the agents go when the active workspace is deleted (the list is most recent first). */
   const successor = deleting?.active ? workspaces?.find((w) => w.id !== deleting.id) : undefined;
   return (
-    <div className="overview">
-      <header className="topbar">
-        <div className="brand">
-          <img className="logo" src="/icon.svg" alt="" />
+    <div className="grid h-full grid-rows-[44px_1fr]">
+      <header className={bar.topbar}>
+        <div className={bar.brand}>
+          <img className={bar.logo} src="/icon.svg" alt="" />
           <strong>Paprika</strong>
         </div>
-        <div className="status">
-          <span className={`dot ${connected ? "on" : "off"}`} />
-          <span className="muted">{connected ? "MCP em /mcp" : "desconectado"}</span>
+        <div className={bar.status}>
+          <span className={bar.dot(connected)} />
+          <span className={bar.statusText}>{connected ? "MCP em /mcp" : "desconectado"}</span>
         </div>
       </header>
-      <main className="overview-main">
-        <div className="overview-head">
+      <main className="min-h-0 overflow-auto px-6 pt-8 pb-12 *:mx-auto *:max-w-[1080px]">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1>Workspaces</h1>
-            <p className="muted">
+            <h1 className="mx-0 mt-0 mb-1.5 text-xl font-[650]">Workspaces</h1>
+            <p className="m-0 text-muted">
               {workspaces ? `${count} ${count === 1 ? "workspace" : "workspaces"} neste servidor.` : "Carregando…"} O ativo é o que os agentes
               enxergam pelo MCP. Clique duplo abre; clique duplo no nome renomeia.
             </p>
           </div>
           {creating ? (
-            <form className="overview-new" onSubmit={create}>
+            <form className="flex gap-2" onSubmit={create}>
               <input
+                className="w-60 max-w-[50vw] rounded-lg border border-line bg-panel-2 px-2.5 py-1.75 focus:outline-2 focus:-outline-offset-1 focus:outline-select"
                 autoFocus
                 aria-label="Nome do workspace"
                 placeholder="Nome do workspace"
@@ -211,33 +225,39 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => e.key === "Escape" && setCreating(false)}
               />
-              <button type="submit" className="primary" disabled={busy}>
+              <button type="submit" className={button(true)} disabled={busy}>
                 Criar
               </button>
-              <button type="button" onClick={() => setCreating(false)}>
+              <button type="button" className={button(false)} onClick={() => setCreating(false)}>
                 Cancelar
               </button>
             </form>
           ) : (
-            <button className="primary" onClick={() => setCreating(true)}>
+            <button className={button(true)} onClick={() => setCreating(true)}>
               + Novo workspace
             </button>
           )}
         </div>
         {error && (
-          <div className="overview-error" role="alert">
+          <div className="mb-4 rounded-lg bg-accent-soft px-3 py-2.5 text-accent-ink" role="alert">
             {error}
           </div>
         )}
-        <ul className="workspace-grid" aria-label="Workspaces">
+        <ul className="grid list-none grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 p-0" aria-label="Workspaces">
           {workspaces?.map((w) => (
-            <li key={w.id}>
+            <li key={w.id} className="group relative">
               <div
                 role="button"
                 tabIndex={0}
                 aria-pressed={selected === w.id}
                 aria-label={`Workspace ${w.name}`}
-                className={`workspace-card${w.active ? " is-active" : ""}${selected === w.id ? " is-selected" : ""}`}
+                className={cx(
+                  // "workspace-card", "is-active" and "is-selected" stay as hooks for the E2E suite.
+                  "workspace-card peer relative flex w-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-panel p-0 text-left",
+                  "transition-[border-color,translate] duration-120 hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
+                  w.active ? "is-active border-accent" : "border-line hover:border-muted",
+                  selected === w.id && "is-selected outline-2 outline-offset-2 outline-select",
+                )}
                 onClick={() => setSelected(w.id)}
                 onDoubleClick={() => renaming !== w.id && onOpen(w.id)}
                 onKeyDown={(e) => e.target === e.currentTarget && onCardKey(e, w)}
@@ -250,13 +270,18 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                 }}
                 data-workspace-id={w.id}
               >
-                <span className="workspace-tile" style={{ "--tile-hue": hue(w.id) } as CSSProperties} aria-hidden>
-                  {w.cover ? <img className="workspace-cover" src={w.cover} alt="" draggable={false} /> : (w.name.trim()[0] ?? "?").toUpperCase()}
+                <span className="grid h-32 place-items-center overflow-hidden border-b border-line text-tile font-bold" style={tile(hue(w.id))} aria-hidden>
+                  {w.cover ? (
+                    // "workspace-cover" is a hook for the E2E suite.
+                    <img className="workspace-cover size-full object-cover object-top" src={w.cover} alt="" draggable={false} />
+                  ) : (
+                    (w.name.trim()[0] ?? "?").toUpperCase()
+                  )}
                 </span>
-                <span className="workspace-info">
+                <span className="grid min-w-0 gap-1 px-3.5 pt-3 pb-3.5">
                   {renaming === w.id ? (
                     <InlineName
-                      className="workspace-rename"
+                      className={cx(ui.renameInput, "-mx-1.75 -my-0.75 px-1.5 py-0.5 text-md font-semibold")}
                       label="Novo nome do workspace"
                       value={w.name}
                       maxLength={120}
@@ -265,7 +290,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                     />
                   ) : (
                     <span
-                      className="workspace-name"
+                      className="workspace-name truncate text-md font-semibold"
                       title="Clique duplo para renomear"
                       onDoubleClick={(e) => {
                         e.stopPropagation();
@@ -276,24 +301,24 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                       {w.name}
                     </span>
                   )}
-                  <span className="muted">
+                  <span className="text-muted">
                     {w.nodes} {w.nodes === 1 ? "nó" : "nós"} · {relativeTime(w.updatedAt)}
                   </span>
                 </span>
                 {w.active && (
-                  <span className="workspace-badge" title="Aberto no servidor: os agentes MCP leem e escrevem neste">
+                  <span className="absolute top-2.5 right-2.5 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-white" title="Aberto no servidor: os agentes MCP leem e escrevem neste">
                     ativo
                   </span>
                 )}
               </div>
               {renaming !== w.id && (
-                <span className="workspace-actions">
-                  <button type="button" className="icon-btn" aria-label={`Renomear ${w.name}`} title="Renomear (F2)" onClick={() => setRenaming(w.id)}>
+                <span className="absolute right-2.5 bottom-3 flex gap-0.5 opacity-0 transition-opacity duration-120 group-hover:opacity-100 group-focus-within:opacity-100 peer-aria-pressed:opacity-100">
+                  <button type="button" className={cx(ui.iconBtn, "px-1.5 py-1 text-lg")} aria-label={`Renomear ${w.name}`} title="Renomear (F2)" onClick={() => setRenaming(w.id)}>
                     ✎
                   </button>
                   <button
                     type="button"
-                    className="icon-btn"
+                    className={cx(ui.iconBtn, "px-1.5 py-1 text-lg")}
                     aria-label={`${w.cover ? "Trocar" : "Adicionar"} capa de ${w.name}`}
                     title={`${w.cover ? "Trocar" : "Adicionar"} capa (ou arraste uma imagem para o card)`}
                     onClick={() => pickCover(w.id)}
@@ -301,13 +326,13 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                     🖼
                   </button>
                   {w.cover && (
-                    <button type="button" className="icon-btn" aria-label={`Remover capa de ${w.name}`} title="Remover capa" onClick={() => void setCover(w.id, null)}>
+                    <button type="button" className={cx(ui.iconBtn, "px-1.5 py-1 text-lg")} aria-label={`Remover capa de ${w.name}`} title="Remover capa" onClick={() => void setCover(w.id, null)}>
                       ⊘
                     </button>
                   )}
                   <button
                     type="button"
-                    className="icon-btn"
+                    className={cx(ui.iconBtn, "px-1.5 py-1 text-lg disabled:cursor-default disabled:opacity-60")}
                     aria-label={`Excluir ${w.name}`}
                     title={count > 1 ? "Excluir (Delete)" : "O único workspace não pode ser excluído"}
                     disabled={count <= 1}
@@ -332,23 +357,28 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
             if (file && coverFor.current) void setCover(coverFor.current, file);
           }}
         />
-        <dialog ref={dialog} className="workspace-dialog" aria-labelledby="delete-title" onClose={() => setDeleting(null)}>
+        <dialog
+          ref={dialog}
+          className="m-auto max-w-[420px] rounded-xl border border-line bg-panel px-5.5 py-5 text-fg backdrop:bg-night/70"
+          aria-labelledby="delete-title"
+          onClose={() => setDeleting(null)}
+        >
           {deleting && (
             <form method="dialog" onSubmit={(e) => e.preventDefault()}>
-              <h2 id="delete-title">Excluir “{deleting.name}”?</h2>
-              <p>
+              <h2 id="delete-title" className="mx-0 mt-0 mb-2 text-lg">
+                Excluir “{deleting.name}”?
+              </h2>
+              <p className="mx-0 mt-0 mb-2.5 text-muted">
                 {deleting.nodes} {deleting.nodes === 1 ? "nó" : "nós"} e o histórico de desfazer serão apagados. Essa ação não pode ser desfeita.
               </p>
               {deleting.active && successor && (
-                <p>
-                  Este é o workspace ativo: o canvas e os agentes MCP passam para “{successor.name}”.
-                </p>
+                <p className="mx-0 mt-0 mb-2.5 text-muted">Este é o workspace ativo: o canvas e os agentes MCP passam para “{successor.name}”.</p>
               )}
-              <div className="workspace-dialog-actions">
-                <button type="button" onClick={() => dialog.current?.close()}>
+              <div className="mt-4 flex justify-end gap-2">
+                <button type="button" className={button(false)} onClick={() => dialog.current?.close()}>
                   Cancelar
                 </button>
-                <button type="button" className="danger" onClick={() => void confirmDelete()}>
+                <button type="button" className={button(true)} onClick={() => void confirmDelete()}>
                   Excluir
                 </button>
               </div>

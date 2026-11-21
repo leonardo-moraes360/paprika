@@ -8,6 +8,17 @@ import { LEFT_PANEL, PanelResizer, RIGHT_PANEL, usePanelWidth } from "./PanelRes
 import { Overview } from "./Overview";
 import { navigate, parseRoute, useRoute, workspacePath } from "./route";
 import { useDocument, type LiveDocument } from "./useDocument";
+import { bar, cx } from "./ui";
+
+// Plain class names next to utilities ("left", "right", "doc-name", "is-active") are hooks for the E2E suite.
+const boot = "grid h-full place-content-center justify-items-center gap-3 text-muted";
+const toast = "absolute bottom-4 left-1/2 max-w-[70%] -translate-x-1/2 cursor-pointer rounded-lg border border-accent bg-toast px-3 py-2 text-accent-pale";
+const toolSep = "mx-1.5 h-5 w-px bg-line";
+const toolButton = (active: boolean) =>
+  cx(
+    "h-[30px] w-8 cursor-pointer rounded-md border-0 text-lg enabled:hover:bg-panel-2 disabled:cursor-default disabled:opacity-35",
+    active ? "is-active bg-accent text-white" : "bg-transparent",
+  );
 
 const TOOLS: { tool: Tool; key: string; label: string; icon: string }[] = [
   { tool: "select", key: "v", label: "Selecionar", icon: "↖" },
@@ -88,7 +99,7 @@ export function App() {
       <>
         <Overview connected={live.connected} activeId={activeId} version={live.version} onOpen={(id) => navigate(workspacePath(id))} />
         {live.error && (
-          <div className="toast" role="alert" onClick={live.clearError}>
+          <div className={toast} role="alert" onClick={live.clearError}>
             {live.error}
           </div>
         )}
@@ -97,8 +108,8 @@ export function App() {
   }
   if (!live.doc || activeId !== routeId) {
     return (
-      <div className="boot">
-        <img className="logo" src="/icon.svg" alt="" />
+      <div className={boot}>
+        <img className="inline-block size-14 flex-none" src="/icon.svg" alt="" />
         <p>{live.connected ? "Abrindo workspace…" : "Conectando ao servidor Paprika…"}</p>
       </div>
     );
@@ -238,8 +249,8 @@ function Editor({ live }: { live: LiveDocument }) {
 
   if (!doc) {
     return (
-      <div className="boot">
-        <img className="logo" src="/icon.svg" alt="" />
+      <div className={boot}>
+        <img className="inline-block size-14 flex-none" src="/icon.svg" alt="" />
         <p>{live.connected ? "Carregando documento…" : "Conectando ao servidor Paprika…"}</p>
       </div>
     );
@@ -268,11 +279,16 @@ function Editor({ live }: { live: LiveDocument }) {
   const lastAgent = live.activity.find((a) => a.actor.startsWith("agent"));
 
   return (
-    <div className="app" style={{ "--left-w": `${leftWidth}px`, "--right-w": `${rightWidth}px` } as CSSProperties}>
-      <header className="topbar">
-        <div className="brand">
+    <div
+      className={cx(
+        "grid h-full grid-cols-[var(--left-w,240px)_minmax(0,1fr)_var(--right-w,280px)] grid-rows-[44px_1fr] [grid-template-areas:'top_top_top'_'left_center_right']",
+        "max-wide:grid-cols-1 max-wide:grid-rows-[44px_1fr_220px] max-wide:[grid-template-areas:'top'_'center'_'right']",
+      )}
+      style={{ "--left-w": `${leftWidth}px`, "--right-w": `${rightWidth}px` } as CSSProperties}>
+      <header className={cx(bar.topbar, "[grid-area:top]")}>
+        <div className={bar.brand}>
           <a
-            className="home-link"
+            className="group/home flex items-center gap-2 rounded-md text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select"
             href="/"
             title="Todos os workspaces"
             onClick={(e) => {
@@ -280,31 +296,34 @@ function Editor({ live }: { live: LiveDocument }) {
               navigate("/");
             }}
           >
-            <img className="logo" src="/icon.svg" alt="" />
-            <strong>Paprika</strong>
+            <img className={bar.logo} src="/icon.svg" alt="" />
+            <strong className="group-hover/home:text-accent-ink">Paprika</strong>
           </a>
-          <span className="crumb-sep" aria-hidden>
+          <span className="text-line" aria-hidden>
             /
           </span>
-          <span className="doc-name">{doc.name}</span>
+          <span className="doc-name truncate text-muted max-wide:hidden">{doc.name}</span>
         </div>
-        <div className="status">
-          {lastAgent && Date.now() - lastAgent.at < 8000 && <span className="agent-pill">🤖 {lastAgent.label}</span>}
-          <span className={`dot ${live.connected ? "on" : "off"}`} />
-          <span className="muted">{live.connected ? `v${live.version} · MCP em /mcp` : "desconectado"}</span>
+        <div className={bar.status}>
+          {lastAgent && Date.now() - lastAgent.at < 8000 && (
+            <span className="agent-pill max-w-[280px] truncate rounded-full bg-accent-soft px-2 py-0.75 text-accent-ink">🤖 {lastAgent.label}</span>
+          )}
+          <span className={bar.dot(live.connected)} />
+          <span className={bar.statusText}>{live.connected ? `v${live.version} · MCP em /mcp` : "desconectado"}</span>
         </div>
       </header>
-      <aside className="left">
+      <aside className="left overflow-auto border-r border-line bg-panel [grid-area:left] max-wide:hidden">
         <Pages doc={doc} pageId={pageId} onOpen={openPage} apply={live.apply} />
         <Layers doc={doc} pageId={pageId} selected={selected} onSelect={setSelected} apply={live.apply} />
       </aside>
       <PanelResizer side="left" label="Largura do painel de camadas" width={leftWidth} limits={LEFT_PANEL} onChange={setLeftWidth} />
-      <main className="center">
-        <nav className="tools" aria-label="Ferramentas" onPointerDown={(e) => e.stopPropagation()}>
+      <main className="relative overflow-hidden [grid-area:center]">
+        {/* Floating toolbar, centered at the top of the canvas. */}
+        <nav className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-line bg-panel p-1 shadow-float" aria-label="Ferramentas" onPointerDown={(e) => e.stopPropagation()}>
           {TOOLS.map((t) => (
             <button
               key={t.tool}
-              className={tool === t.tool ? "is-active" : ""}
+              className={toolButton(tool === t.tool)}
               onClick={() => setTool(t.tool)}
               title={`${t.label} (${t.key.toUpperCase()})`}
               aria-pressed={tool === t.tool}
@@ -313,15 +332,15 @@ function Editor({ live }: { live: LiveDocument }) {
               {t.icon}
             </button>
           ))}
-          <span className="sep" />
-          <button onClick={live.undo} disabled={!live.canUndo} title="Desfazer (Ctrl+Z)" aria-label="Desfazer">
+          <span className={toolSep} />
+          <button className={toolButton(false)} onClick={live.undo} disabled={!live.canUndo} title="Desfazer (Ctrl+Z)" aria-label="Desfazer">
             ↶
           </button>
-          <button onClick={live.redo} disabled={!live.canRedo} title="Refazer (Ctrl+Shift+Z)" aria-label="Refazer">
+          <button className={toolButton(false)} onClick={live.redo} disabled={!live.canRedo} title="Refazer (Ctrl+Shift+Z)" aria-label="Refazer">
             ↷
           </button>
-          <span className="sep" />
-          <button onClick={exportSvg} title="Exportar SVG (seleção, ou a página)" aria-label="Exportar SVG">
+          <span className={toolSep} />
+          <button className={toolButton(false)} onClick={exportSvg} title="Exportar SVG (seleção, ou a página)" aria-label="Exportar SVG">
             ⇩
           </button>
         </nav>
@@ -338,13 +357,13 @@ function Editor({ live }: { live: LiveDocument }) {
           onError={live.showError}
         />
         {live.error && (
-          <div className="toast" role="alert" onClick={live.clearError}>
+          <div className={toast} role="alert" onClick={live.clearError}>
             {live.error}
           </div>
         )}
       </main>
       <PanelResizer side="right" label="Largura do painel de propriedades" width={rightWidth} limits={RIGHT_PANEL} onChange={setRightWidth} />
-      <aside className="right">
+      <aside className="right overflow-auto border-l border-line bg-panel [grid-area:right] max-wide:border-t max-wide:border-l-0">
         <Inspector
           doc={doc}
           node={node}
