@@ -490,4 +490,39 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     const outline = (await agent.callTool({ name: "get_document_outline", arguments: { depth: 0 } })) as { content: { text: string }[] };
     expect(outline.content[0]!.text).toContain("modes: escuro($tela=#14161f $tinta=#f2f2f2)");
   });
+
+  it("renomear no lugar: duplo clique na camada ou no título do frame, Enter confirma, Esc cancela, Ctrl+Z desfaz", async () => {
+    await page.keyboard.press("Escape");
+    const name = async (id: string) => (await doc()).nodes[id]?.name;
+    const layerName = page.locator('[data-layer-id="tema0t"] .layer-name');
+    await layerName.dblclick();
+    const layerInput = page.getByLabel("Nome da camada");
+    await layerInput.fill("Amostra clara");
+    await layerInput.press("Enter");
+    await expect.poll(() => name("tema0t")).toBe("Amostra clara");
+    await expect.poll(() => layerInput.count()).toBe(0);
+    const hist = (await agent.callTool({ name: "get_history", arguments: {} })) as { content: { text: string }[] };
+    expect(JSON.parse(hist.content[0]!.text).at(-1)).toMatchObject({ actor: "user", label: "renomear camada" });
+
+    // Esc cancela sem gravar (nem pelo blur que segue a desmontagem do campo).
+    await page.locator('[data-layer-id="tema0t"] .layer-name').dblclick();
+    await page.getByLabel("Nome da camada").fill("Descartado");
+    await page.getByLabel("Nome da camada").press("Escape");
+    await expect.poll(() => page.getByLabel("Nome da camada").count()).toBe(0);
+    expect(await name("tema0t")).toBe("Amostra clara");
+
+    const label = page.locator('[data-frame-label="login"]');
+    await label.dblclick();
+    const frameInput = page.getByLabel("Nome do frame");
+    expect(await frameInput.inputValue()).toBe("Login · mobile");
+    await frameInput.fill("Login revisado");
+    await frameInput.press("Enter");
+    await expect.poll(() => name("login")).toBe("Login revisado");
+    await expect.poll(() => label.textContent()).toBe("Login revisado");
+    await expect.poll(() => page.locator('[data-layer-id="login"] .layer-name').textContent()).toBe("Login revisado");
+
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("Control+z");
+    await expect.poll(() => name("login")).toBe("Login · mobile");
+  });
 });

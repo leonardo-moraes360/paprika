@@ -46,7 +46,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Configurable nudge step | Arrows 1px, Shift 10px | 🟡 | P3 |
 | Eyedropper (sample a color from the canvas) | — | ⬜ | P2 |
 | Duplicate by modifier-drag | `Ctrl+D` duplicate | 🟡 | P3 |
-| Hide UI (focus mode), rename shortcut, collapse layer tree | — | ⬜ | P3 |
+| Hide UI (focus mode), rename shortcut, collapse layer tree | Double-click a layer or a frame title on the canvas to rename it in place (`Enter` confirms, `Esc` cancels, undoable) (2026-11-21); layer tree collapses; no focus mode | 🟡 | P3 |
 
 ## C. Styling
 

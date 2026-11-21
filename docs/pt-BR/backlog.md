@@ -46,7 +46,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Passo de nudge configurável | Setas 1px, Shift 10px | 🟡 | P3 |
 | Conta-gotas (amostrar cor do canvas) | — | ⬜ | P2 |
 | Duplicar arrastando com modificador | `Ctrl+D` duplica | 🟡 | P3 |
-| Esconder a UI (modo foco), atalho de renomear, recolher a árvore | — | ⬜ | P3 |
+| Esconder a UI (modo foco), atalho de renomear, recolher a árvore | Duplo clique numa camada ou no título de um frame no canvas renomeia no lugar (`Enter` confirma, `Esc` cancela, dá para desfazer) (2026-11-21); a árvore de camadas recolhe; sem modo foco | 🟡 | P3 |
 
 ## C. Estilo
 
