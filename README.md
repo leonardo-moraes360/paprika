@@ -149,7 +149,7 @@ pnpm test:render  # Rust renderer (crates/render): native tests with vello_cpu
 
 CI runs on pull requests only and picks the jobs from the files the PR changes: see [docs/ci.md](docs/ci.md).
 
-This repository uses [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) as its agent harness: invariants live in `.toolbelt/invariants.yaml` (`tb mem list`), and `tb verify run` / `tb stack verify guard` run before work is called done.
+This repository uses [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) as its agent harness: invariants live in `.toolbelt/invariants.yaml` (`tb mem list`), and `tb verify run` / `tb stack verify guard` run before work is called done. Claude Code cloud sessions install the pinned `tb` on start ([docs/agent-sessions.md](docs/agent-sessions.md)).
 
 ## Security
 
