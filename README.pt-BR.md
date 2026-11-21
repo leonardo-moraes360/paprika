@@ -25,19 +25,20 @@ Toda edição dos dois passa pelo mesmo caminho (operações atômicas validadas
 
 ## Início rápido
 
-Requisitos: Node 22+ e pnpm 10+.
+Requisitos: Node 22+, pnpm 10+ e Go 1.26+.
 
 ```bash
 pnpm install
-pnpm build
-node packages/server/dist/cli.js serve --file examples/demo.paprika.json
+pnpm build                                   # canvas + binário do servidor (server-go/bin/paprika)
+server-go/bin/paprika import examples/demo.paprika.json --db design.db
+server-go/bin/paprika serve --db design.db
 # canvas: http://127.0.0.1:4777   ·   MCP: http://127.0.0.1:4777/mcp
 ```
 
-Screenshot pelo MCP usa Playwright (dependência opcional). Se o Chromium não estiver instalado:
+Screenshot e export SVG pelo MCP precisam de um Chromium. O servidor encontra sozinho os navegadores do Playwright; se não houver nenhum, instale um (ou aponte `PAPRIKA_CHROMIUM` para qualquer Chrome):
 
 ```bash
-pnpm --filter @paprika/server exec playwright install chromium
+pnpm --filter @paprika/e2e exec playwright install chromium
 ```
 
 ## Conectar um agente
@@ -56,8 +57,8 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 {
   "mcpServers": {
     "paprika": {
-      "command": "node",
-      "args": ["<CAMINHO>/paprika/packages/server/dist/cli.js", "mcp", "--file", "<CAMINHO>/design.paprika.json"]
+      "command": "<CAMINHO>/paprika/server-go/bin/paprika",
+      "args": ["mcp", "--db", "<CAMINHO>/design.db"]
     }
   }
 }
@@ -94,7 +95,7 @@ Camada de agentes:
 
 ## Canvas
 
-Workspaces: `http://127.0.0.1:4777` abre na página de workspaces: um clique seleciona um card, um clique duplo (ou Enter) abre o canvas daquele workspace em `/w/<id>`, um clique duplo no nome (ou F2) renomeia, e a lixeira (ou Delete) exclui depois de uma confirmação; o logo do Paprika volta. Um workspace é um documento: no servidor TypeScript, cada `*.paprika.json` da pasta do `--file`; no servidor Go, cada documento do banco. O servidor tem um workspace ativo, compartilhado pelo canvas e pelos agentes MCP: abrir um workspace (no canvas ou com `open_workspace`) troca o ativo para todos, e o canvas acompanha quando um agente troca. HTTP: `GET /api/workspaces`, `POST /api/workspaces` (`{ "name" }`), `POST /api/workspaces/<id>/open`, `PATCH /api/workspaces/<id>` (`{ "name" }`), `DELETE /api/workspaces/<id>` (409 para o único workspace).
+Workspaces: `http://127.0.0.1:4777` abre na página de workspaces: um clique seleciona um card, um clique duplo (ou Enter) abre o canvas daquele workspace em `/w/<id>`, um clique duplo no nome (ou F2) renomeia, e a lixeira (ou Delete) exclui depois de uma confirmação; o logo do Paprika volta. Um workspace é um documento do banco. O servidor tem um workspace ativo, compartilhado pelo canvas e pelos agentes MCP: abrir um workspace (no canvas ou com `open_workspace`) troca o ativo para todos, e o canvas acompanha quando um agente troca. HTTP: `GET /api/workspaces`, `POST /api/workspaces` (`{ "name" }`), `POST /api/workspaces/<id>/open`, `PATCH /api/workspaces/<id>` (`{ "name" }`), `DELETE /api/workspaces/<id>` (409 para o único workspace).
 
 Atalhos: `V` selecionar, `F` frame, `R` retângulo, `O` elipse, `T` texto, `P` caneta (clique = vértice reto, clicar e arrastar = alças bezier, clicar no primeiro vértice fecha, `Enter`/`Esc`/duplo clique terminam um traço aberto, `Backspace` remove o último vértice), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicar, `Delete`, setas (Shift = 10px), `Esc` sobe para o pai.
 Seleção: `Shift`+clique (no canvas ou nas camadas) adiciona ou tira um nó, arrastar no vazio desenha a caixa de seleção, `Ctrl+A` seleciona os irmãos (ou a página inteira), `Ctrl+G` agrupa, `Ctrl+Shift+G` desagrupa. Clicar dentro de um grupo seleciona o grupo; duplo clique seleciona o nó sob o cursor. Arrastar, setas, `Delete` e `Ctrl+D` valem para a seleção inteira.
@@ -145,29 +146,24 @@ Tamanhos: número, `"hug"` (conteúdo) ou `"fill"` (ocupa o espaço do pai). Det
 
 ```
 packages/core     modelo (zod), applyOps atômico, History, nodeStyle, render/export, lint, outline
-packages/server   DocumentStore (arquivo + watch), MCP (stdio e HTTP), WebSocket, screenshot, CLI
+server-go/        o servidor (Go + SQLite): MCP (stdio e HTTP), WebSocket, API HTTP, screenshot, CLI
+packages/e2e      suítes black-box contra o binário do servidor: API MCP/HTTP/WS e E2E do canvas (Playwright)
 apps/web          canvas React + Vite
 apps/site         landing page (desenhada no Paprika) + site de docs, publicados em paprika.js.org
-server-go/        o mesmo servidor em Go, com armazenamento em SQLite (ver abaixo)
-examples/         demo gerada por um agente via MCP (packages/server/scripts/seed-demo.mjs)
+examples/         demo gerada por um agente via MCP (packages/e2e/scripts/seed-demo.mjs)
 ```
 
-## Servidor em Go (SQLite)
+## Servidor (Go + SQLite)
 
-`server-go/` é uma implementação em Go do servidor com as mesmas ferramentas MCP, o mesmo protocolo WebSocket e a mesma API HTTP, que guarda documentos, tokens e o histórico de undo/redo em SQLite (arquivos `.paprika.json` entram e saem com `paprika import` / `paprika export`). Ele serve o mesmo canvas, e as mesmas suítes black-box e E2E rodam contra os dois servidores. Uso, estrutura do banco e checagens de paridade: [server-go/README.pt-BR.md](server-go/README.pt-BR.md); registro da decisão: [ADR 0001](docs/pt-BR/adr/0001-servidor-go-sqlite.md).
-
-```bash
-pnpm build && pnpm go:build
-server-go/bin/paprika import examples/demo.paprika.json --db design.db
-server-go/bin/paprika serve --db design.db
-```
+O servidor fica em `server-go/` e guarda documentos, tokens e o histórico de undo/redo em SQLite; arquivos `.paprika.json` entram e saem com `paprika import` / `paprika export` (para versionar um design, por exemplo). Comandos, estrutura do banco e testes: [server-go/README.pt-BR.md](server-go/README.pt-BR.md); registro da decisão: [ADR 0001](docs/pt-BR/adr/0001-servidor-go-sqlite.md).
 
 ## Desenvolvimento
 
 ```bash
-pnpm check        # build + typecheck + testes unitários/integração + E2E (Playwright)
-pnpm dev          # servidor com o demo; em outro terminal: pnpm --filter @paprika/web dev
-pnpm check:go     # servidor Go: fixtures em dia, go test, paridade e E2E contra o binário Go
+pnpm check        # build + typecheck + fixtures em dia + testes unitários e Go + suítes da API e E2E
+pnpm dev          # servidor com o demo (dev.db, recriado ao iniciar); em outro terminal: pnpm --filter @paprika/web dev
+pnpm test:api     # suíte black-box MCP/HTTP/WS contra server-go/bin/paprika
+pnpm test:e2e     # E2E do canvas (Playwright) contra server-go/bin/paprika
 pnpm test:render  # renderizador Rust (crates/render): testes nativos com vello_cpu
 ```
 

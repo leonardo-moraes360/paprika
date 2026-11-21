@@ -29,4 +29,4 @@ The first run in a new container takes about 30 s (Go downloads the toolchain th
 
 ## When `tb` still isn't available
 
-If the hook fails (for example, the network policy blocks `proxy.golang.org` or `sum.golang.org`), do not skip the gate silently: run the same checks by hand (`pnpm check`, `pnpm check:go`, invariants from `.toolbelt/invariants.yaml`) and write in the pull request that `tb stack verify guard` did not run and why.
+If the hook fails (for example, the network policy blocks `proxy.golang.org` or `sum.golang.org`), do not skip the gate silently: run the same checks by hand (`pnpm check`, invariants from `.toolbelt/invariants.yaml`) and write in the pull request that `tb stack verify guard` did not run and why.

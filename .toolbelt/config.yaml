@@ -60,9 +60,9 @@ bench:
     repetitions: 5
     timeout: 10m
 verify:
-    test_cmd: pnpm test && pnpm test:e2e && pnpm go:test && pnpm test:parity:go && pnpm test:e2e:go
+    test_cmd: pnpm test && pnpm go:test && pnpm test:api && pnpm test:e2e
     hidden_test_cmd: ""
-    build_cmd: pnpm run build && pnpm go:build
+    build_cmd: pnpm run build
     lint_cmd: pnpm typecheck && cd server-go && go vet ./...
 review:
     require_approved_sha: false

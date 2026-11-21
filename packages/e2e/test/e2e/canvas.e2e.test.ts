@@ -6,23 +6,20 @@ import { join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { copyId, type Document } from "@paprika/core";
-import { DocumentStore, closeBrowser, startHttpServer, type RunningServer } from "../../src/index.js";
-import { goBin, impl, startServer, type ExternalServer } from "../external/harness.js";
+import { copyId, type Document, type FrameNode } from "@paprika/core";
+import { startServer, type ExternalServer } from "../harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
 const shots = process.env.PAPRIKA_E2E_SHOTS;
 
-// PAPRIKA_SERVER_BIN=<binário Go> roda o mesmo E2E contra o servidor Go (processo externo).
-describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, () => {
+// Roda contra o servidor Go como processo externo (server-go/bin/paprika ou PAPRIKA_SERVER_BIN).
+describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   let dir: string;
-  let store: DocumentStore | undefined;
-  let http: RunningServer | undefined;
   let external: ExternalServer | undefined;
   let url: string;
-  /** Documento atual: em processo (TS) ou via GET /api/document (servidor externo). */
-  const doc = async (): Promise<Document> => (external ? external.doc() : store!.doc);
+  /** Documento atual, via GET /api/document. */
+  const doc = async (): Promise<Document> => external!.doc();
   let browser: Browser;
   let page: Page;
   let agent: Client;
@@ -31,14 +28,8 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     dir = await mkdtemp(join(tmpdir(), "paprika-e2e-"));
     const file = join(dir, "demo.paprika.json");
     await copyFile(join(root, "examples/demo.paprika.json"), file);
-    if (goBin) {
-      external = await startServer({ seed: file, webRoot });
-      url = external.url;
-    } else {
-      store = await DocumentStore.open(file);
-      http = await startHttpServer(store, { host: "127.0.0.1", port: 0, webRoot });
-      url = http.url;
-    }
+    external = await startServer({ seed: file, webRoot });
+    url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const errors: string[] = [];
@@ -56,9 +47,6 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
   afterAll(async () => {
     await agent?.close();
     await browser?.close();
-    await http?.close();
-    await closeBrowser();
-    await store?.close();
     await external?.stop();
     await rm(dir, { recursive: true, force: true });
   });
@@ -136,7 +124,7 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     await page.mouse.down();
     await page.mouse.move(box.x + 60, box.y + 46, { steps: 8 });
     await page.mouse.up();
-    await expect.poll(async () => (await doc()).nodes.plano?.x).not.toBe(460);
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.x).not.toBe(460);
     const r = (await agent.callTool({ name: "get_nodes", arguments: { ids: ["plano"] } })) as { content: { text: string }[] };
     const plano = JSON.parse(r.content[0]!.text)[0];
     expect(plano.x).toBeGreaterThan(460);
@@ -654,7 +642,7 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     expect((await api()).workspaces.some((w) => w.id === extra)).toBe(false);
 
     // Deleting the active workspace moves the canvas and the agents to the most recent other one.
-    const tmp = ((await agent.callTool({ name: "create_workspace", arguments: { name: "Ativo temporário" } })) as { structuredContent: { workspace: { id: string } } })
+    const tmp = ((await agent.callTool({ name: "create_workspace", arguments: { name: "Ativo temporário" } })) as unknown as { structuredContent: { workspace: { id: string } } })
       .structuredContent.workspace.id;
     await agent.callTool({ name: "open_workspace", arguments: { id: tmp } });
     const tmpCard = page.locator(`[data-workspace-id="${tmp}"]`);

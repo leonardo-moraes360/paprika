@@ -103,14 +103,13 @@ jobs:
       # The web build includes the WASM canvas renderer; without Rust it would be skipped quietly
       # and the WASM e2e tests with it.
       - uses: ./.github/actions/setup-rust-wasm
-      - name: Build (core, server, web, WASM renderer)
+      # `pnpm build` also builds the Go server binary (pnpm go:build).
+      - name: Build (core, web, WASM renderer, Go server)
         env:
           PAPRIKA_REQUIRE_WASM: "1"
         run: pnpm build
       - name: tscheck
         run: pnpm typecheck
-      - name: Build Go server binary
-        run: pnpm go:build
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build
@@ -118,7 +117,6 @@ jobs:
           if-no-files-found: error
           path: |
             packages/core/dist
-            packages/server/dist
             apps/web/dist
             apps/web/src/wasm
             server-go/bin/paprika
@@ -146,9 +144,6 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: build
-      # @paprika/server's tests cover render_screenshot, which launches Chromium.
-      - uses: ./.github/actions/setup-playwright
-        if: matrix.target.pkg == '@paprika/server'
       - name: Fetch base commit (for vitest --changed)
         if: matrix.target.mode == 'changed'
         run: git fetch --no-tags --depth=1 origin "$BASE_SHA"
@@ -163,7 +158,7 @@ jobs:
           pnpm --filter "$PKG" run test "${args[@]}"
 
   suites:
-    name: ${{ matrix.suite }} vs ${{ matrix.impl }} server
+    name: ${{ matrix.suite }} vs Go server
     needs: [plan, build]
     if: needs.plan.outputs.suites == 'true'
     runs-on: ubuntu-latest
@@ -181,17 +176,14 @@ jobs:
         with:
           name: build
       - name: Make the Go binary executable
-        if: matrix.impl == 'go'
         run: chmod +x server-go/bin/paprika
       # Both suites call render_screenshot, which launches Chromium (e2e also drives the canvas).
       - uses: ./.github/actions/setup-playwright
-      - name: Run ${{ matrix.suite }} against the ${{ matrix.impl }} server
+      - name: Run ${{ matrix.suite }} against the Go server
         env:
           SUITE: ${{ matrix.suite }}
-          IMPL: ${{ matrix.impl }}
-        run: |
-          [[ "$IMPL" == "go" ]] && export PAPRIKA_SERVER_BIN="$PWD/server-go/bin/paprika"
-          pnpm --filter @paprika/server run "test:$SUITE"
+          PAPRIKA_SERVER_BIN: ${{ github.workspace }}/server-go/bin/paprika
+        run: pnpm --filter @paprika/e2e run "test:$SUITE"
 
   golden:
     name: Go fixtures up to date
@@ -207,7 +199,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: build
-      - name: Regenerate fixtures from the TS core and MCP tools
+      - name: Regenerate fixtures from the TS core
         run: pnpm go:golden
       - name: Fail if they changed (run `pnpm go:golden` and commit)
         run: git diff --exit-code -- server-go/internal/core/testdata server-go/contract

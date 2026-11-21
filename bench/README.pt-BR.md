@@ -59,12 +59,15 @@ que entra no relatório do `tb bench`.
 O fixture é um arquivo normal do Paprika, então o agente trabalha nele com as ferramentas documentadas:
 
 ```bash
-node "$PAPRIKA_BENCH/packages/server/dist/cli.js" mcp --file "$PWD/document.paprika.json" --no-ui   # MCP em stdio
-node "$PAPRIKA_BENCH/packages/server/dist/cli.js" serve --file "$PWD/document.paprika.json"          # canvas + MCP/HTTP
+P="$PAPRIKA_BENCH/server-go/bin/paprika"
+"$P" import "$PWD/document.paprika.json" --db "$PWD/paprika.db" --replace   # carrega o fixture
+"$P" mcp --db "$PWD/paprika.db" --no-ui                                     # MCP em stdio
+"$P" serve --db "$PWD/paprika.db"                                           # ou canvas + MCP/HTTP
+"$P" export --db "$PWD/paprika.db" -o "$PWD/document.paprika.json"          # grava de volta o que é pontuado
 ```
 
-`pnpm --filter @paprika/server build` cria o `dist/`. O servidor grava o arquivo depois de cada
-mutação, então o verificador consegue ler assim que o agente parar. Os prompts no `task.yaml`
+`pnpm go:build` cria o binário. O servidor grava cada mutação no SQLite; o `export` final escreve o
+documento que o verificador lê. Os prompts no `task.yaml`
 listam as regras pontuadas exatamente como são, e é isso que torna uma falha explicável: a linha
 `FAIL` do verificador diz o nó e o valor.
 
@@ -76,8 +79,8 @@ listam as regras pontuadas exatamente como são, e é isso que torna uma falha e
   pai, alt em imagem, cor fixa que duplica um token), reimplementadas de propósito. Se os dois
   discordarem, o `lint_design` é a autoridade sobre o documento vivo e o verificador é a autoridade
   sobre o score.
-- O contraste que mantém o verificador honesto: todo fixture carrega pelo `DocumentStore` do
-  servidor (o mesmo caminho do `paprika serve`/`paprika mcp`), os três fixtures iniciais somam 8
+- O contraste que mantém o verificador honesto: todo fixture carrega pela validação do
+  servidor (`paprika import`, o mesmo caminho do `paprika serve`/`paprika mcp`), os três fixtures iniciais somam 8
   achados no `lint_design` (contraste, fonte pequena, falta de alt, estouro, cor literal) e os três
   `-reference` dão **zero** achados e passam no verificador.
 - A tarefa de preços pontua a **configuração de layout** (`mode`, `gap`, `padding`, colunas da mesma

@@ -86,7 +86,7 @@ func (c *Chrome) ensure() (context.Context, error) {
 		chromedp.Flag("headless", true),
 		chromedp.Flag("hide-scrollbars", true),
 		chromedp.Flag("font-render-hinting", "none"),
-		// Same as Playwright's default (chromiumSandbox: false), which the TypeScript server uses:
+		// Same as Playwright's default (chromiumSandbox: false), which the former TypeScript server used:
 		// it only renders Paprika's own HTML, and the sandbox cannot start where unprivileged user
 		// namespaces are blocked (e.g. Ubuntu 24.04+ with AppArmor, as on GitHub runners).
 		chromedp.NoSandbox,
@@ -153,7 +153,7 @@ func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID stri
 }
 
 // ExportSVG renders the export HTML, measures boxes and text lines (contract.Measure, the same
-// script as the TypeScript server) and builds the SVG in core.
+// script as @paprika/core) and builds the SVG in core.
 func (c *Chrome) ExportSVG(ctx context.Context, doc *core.Document, rootID string) (core.SVGResult, error) {
 	bg := ""
 	if rootID != "" {

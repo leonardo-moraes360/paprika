@@ -156,7 +156,7 @@ com o DOM ainda como padrão:
   stroke, e o caminho de CPU desenha num canvas transparente (o fundo pontilhado aparece).
 - Nós que ele não desenha com exatidão (cores não sólidas, sombra em path) continuam pintados pelo DOM.
 - `render_screenshot` e os exports continuam em HTML/CSS, então a saída para agentes não muda.
-- A paridade é testada: `packages/server/test/e2e/wasm.e2e.test.ts` renderiza o exemplo bezier nos
+- A paridade é testada: `packages/e2e/test/e2e/wasm.e2e.test.ts` renderiza o exemplo bezier nos
   dois modos e exige menos de 0,5% de pixels diferentes, confere que uma edição via MCP chega aos
   pixels do WASM, que o `.wasm` sai como `application/wasm` (servidores TypeScript e Go) e que a
   chave fica salva.

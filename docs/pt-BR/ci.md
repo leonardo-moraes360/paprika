@@ -13,10 +13,10 @@ Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/c
 | Job | O que verifica | Roda quando a PR mexe em |
 | --- | --- | --- |
 | **Plan** | Roda os testes dos scripts do CI ([[`.github/scripts/test/`](../../.github/scripts/test/)]), confere que toda action de terceiros está fixada por SHA de commit ([`check-actions-pinned.mjs`](../../.github/scripts/check-actions-pinned.mjs)), pontua os fixtures dos benchmarks ([`bench/tasks/`](../../bench/tasks/)), lista os arquivos alterados e decide quais jobs abaixo rodam ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)). | sempre |
-| **TS build + tscheck** | `pnpm build` (core, server, web e o renderizador WASM do canvas, de `crates/render`, com `PAPRIKA_REQUIRE_WASM=1`), `pnpm typecheck`, `pnpm go:build`. Publica `dist/`, `apps/web/src/wasm` e o binário Go como o artefato `build` para os jobs abaixo, então as suítes e2e também rodam os testes do renderizador WASM. | código TS, Go ou Rust |
-| **Unit** `<pkg>` (shard n/2) | Vitest de `@paprika/core` e `@paprika/server`, dividido em 2 shards. | `packages/core`, `packages/server` |
-| **e2e / parity vs ts / go server** | As suítes black-box (`test:e2e`, `test:parity`) contra o servidor TypeScript e contra o binário Go, 4 jobs em paralelo. | core, server, web, examples, `crates/render`, `server-go` |
-| **Go fixtures up to date** | `pnpm go:golden` e depois `git diff --exit-code` em `server-go/internal/core/testdata` e `server-go/contract`. | core, server, `server-go` |
+| **TS build + tscheck** | `pnpm build` (core, web, o renderizador WASM do canvas, de `crates/render`, com `PAPRIKA_REQUIRE_WASM=1`, e o binário do servidor Go), `pnpm typecheck` (incluindo as suítes de `packages/e2e`). Publica `dist/`, `apps/web/src/wasm` e o binário Go como o artefato `build` para os jobs abaixo, então a suíte e2e também roda os testes do renderizador WASM. | código TS, Go ou Rust |
+| **Unit** `<pkg>` (shard n/2) | Vitest de `@paprika/core`, dividido em 2 shards. | `packages/core` |
+| **e2e / api vs Go server** | As suítes black-box de `packages/e2e` contra o binário Go: `test:e2e` (canvas no Playwright) e `test:api` (MCP via HTTP e stdio, API HTTP, WebSocket), 2 jobs em paralelo. | e2e: core, `packages/e2e`, web, examples, `crates/render`, `server-go`; api: core, `packages/e2e`, `server-go` |
+| **Go fixtures up to date** | `pnpm go:golden` e depois `git diff --exit-code` em `server-go/internal/core/testdata` e `server-go/contract` (o script de medida). | core, `server-go` |
 | **golangci-lint** | golangci-lint v2 ([`server-go/.golangci.yml`](../../server-go/.golangci.yml)) e `go vet`. | `server-go` |
 | **govulncheck** | Vulnerabilidades conhecidas alcançáveis pelo código Go. | `server-go` |
 | **Go test** (shard n/2) | `go test -shuffle=on` nos pacotes afetados, dividido em 2 shards. | `server-go` |
@@ -34,7 +34,7 @@ Os jobs Go instalam o patch mais recente da minor em `GO_VERSION` (no topo do `c
 A seleção acontece em três níveis:
 
 1. **Por área** ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)): um job é pulado quando a área dele não mudou (tabela acima).
-2. **Por arquivo de teste TS**: quando só um pacote mudou, o job de unit dele roda `vitest --changed <base-sha>`, que executa só os arquivos de teste cujo grafo de imports alcança um arquivo alterado. Quando uma *dependência* do pacote mudou (core → server), o dependente roda todos os testes, porque o vitest não enxerga a mudança através do `dist/` compilado da dependência.
+2. **Por arquivo de teste TS**: quando só um pacote mudou, o job de unit dele roda `vitest --changed <base-sha>`, que executa só os arquivos de teste cujo grafo de imports alcança um arquivo alterado. Quando uma *dependência* do pacote mudou, o dependente roda todos os testes, porque o vitest não enxerga a mudança através do `dist/` compilado da dependência (hoje só o `@paprika/core` tem testes unitários).
 3. **Por pacote Go** ([`go-affected.sh`](../../.github/scripts/go-affected.sh)): os pacotes cujos arquivos mudaram (um arquivo em `testdata/` pertence ao seu pacote) mais todos os pacotes que os importam, incluindo testes. Mudança em `go.mod`/`go.sum` seleciona todos.
 
 Veja o que o CI rodaria para a sua branch:
@@ -75,7 +75,7 @@ segundo. As tarefas em si estão em [bench/README.md](../../bench/README.md).
 
 - Jobs sem dependência entre si rodam ao mesmo tempo: depois do Plan, o build TS, o lint Go, o govulncheck, os testes Go, o Rust e o CodeQL começam juntos; unit, suítes black-box e a verificação de fixtures começam quando o artefato do build existe.
 - O vitest usa `--shard=n/2` por pacote; o Go divide a lista ordenada de pacotes em round-robin entre 2 shards.
-- As suítes e2e e parity rodam como 4 jobs separados (suíte × implementação do servidor).
+- As suítes e2e e api rodam como 2 jobs separados, ambas contra o binário Go.
 - O Rust roda lint e test como 2 jobs paralelos.
 
 Para aumentar os shards, troque `shard: [1, 2]` na matrix e o `/2` (vitest) ou o `2` passado ao `go-affected.sh` no mesmo job.
@@ -88,7 +88,7 @@ Para aumentar os shards, troque `shard: [1, 2]` na matrix e o `/2` (vitest) ou o
 | Módulos Go + cache de build/teste | `actions/setup-go` | `server-go/go.sum` |
 | golangci-lint | `golangci-lint-action` | chave própria |
 | `target/` e registry do Rust | `Swatinem/rust-cache`, um por tarefa, mais um para o build WASM de release (action composta [`setup-rust-wasm`](../../.github/actions/setup-rust-wasm/action.yml), que também instala o CLI `wasm-bindgen` fixado por checksum) | `Cargo.lock` + toolchain |
-| Chromium do Playwright (unit do server, e2e) | `actions/cache` em `~/.cache/ms-playwright` (action composta [`setup-playwright`](../../.github/actions/setup-playwright/action.yml)) | versão do Playwright |
+| Chromium do Playwright (suítes e2e e api) | `actions/cache` em `~/.cache/ms-playwright` (action composta [`setup-playwright`](../../.github/actions/setup-playwright/action.yml)) | versão do Playwright |
 | Saída do build | artefato `build` (`dist/` + binário Go), gerado uma vez e reutilizado por 7+ jobs | por execução |
 
 ## Segurança do workflow

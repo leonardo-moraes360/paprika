@@ -652,7 +652,7 @@ func jsonRPCHTTPError(w http.ResponseWriter, status, code int, msg string, extra
 
 // clientNames remembers the clientInfo name of each HTTP session id. The MCP endpoint is
 // stateless, so a tools/call carries no clientInfo: initialize hands out an Mcp-Session-Id and
-// later calls are recorded under that client's name (bounded, oldest out; same as the TS server).
+// later calls are recorded under that client's name (bounded, oldest out; same as the former TS server).
 type clientNames struct {
 	mu    sync.Mutex
 	max   int
@@ -682,7 +682,7 @@ func (c *clientNames) get(id string) (string, bool) {
 	return n, ok
 }
 
-// newSessionID returns a random UUID v4 (like crypto.randomUUID in the TS server).
+// newSessionID returns a random UUID v4 (like crypto.randomUUID in the former TS server).
 func newSessionID() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
