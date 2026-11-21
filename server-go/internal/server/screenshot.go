@@ -15,7 +15,6 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
-	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
 )
@@ -93,7 +92,7 @@ func (c *Chrome) ensure() (context.Context, error) {
 	)
 	alloc, allocStop := chromedp.NewExecAllocator(context.Background(), opts...)
 	browser, stop := chromedp.NewContext(alloc)
-	if err := chromedp.Run(browser); err != nil {
+	if err := chromedp.Do(browser); err != nil {
 		stop()
 		allocStop()
 		return nil, fmt.Errorf("screenshot indisponível: falha ao iniciar %s: %w", path, err)
@@ -137,27 +136,33 @@ func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID stri
 		}
 	}()
 	var png []byte
-	err = chromedp.Run(tab,
-		emulation.SetDeviceMetricsOverride(int64(width), int64(height), scale, false),
-		chromedp.ActionFunc(func(ctx context.Context) error {
+	err = chromedp.Do(tab,
+		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
+			_, err := cdp.Call(ctx, t, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{Width: int64(width), Height: int64(height), DeviceScaleFactor: scale})
+			return err
+		}),
+		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
 			if rootID == "" {
 				return nil
 			}
-			return emulation.SetDefaultBackgroundColorOverride().WithColor(&cdp.RGBA{R: 0, G: 0, B: 0, A: 0}).Do(ctx)
+			_, err := cdp.Call(ctx, t, emulation.SetDefaultBackgroundColorOverride, emulation.SetDefaultBackgroundColorOverrideParams{Color: &cdp.RGBA{R: 0, G: 0, B: 0, A: 0}})
+			return err
 		}),
 		chromedp.Navigate("about:blank"),
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			tree, err := page.GetFrameTree().Do(ctx)
+		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
+			tree, err := cdp.Call(ctx, t, page.GetFrameTree, cdp.Empty{})
 			if err != nil {
 				return err
 			}
-			return page.SetDocumentContent(tree.Frame.ID, html).Do(ctx)
+			_, err = cdp.Call(ctx, t, page.SetDocumentContent, page.SetDocumentContentParams{FrameID: tree.FrameTree.Frame.ID, HTML: html})
+			return err
 		}),
 		// Same as Playwright's waitUntil "load": images (http(s) and data:) finish loading.
-		chromedp.Evaluate(`Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => document.fonts ? document.fonts.ready.then(() => 1) : 1)`, nil,
-			func(p *runtime.EvaluateParams) *runtime.EvaluateParams { return p.WithAwaitPromise(true) }),
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			png, err = page.CaptureScreenshot().WithFormat(page.CaptureScreenshotFormatPng).WithFromSurface(true).Do(ctx)
+		chromedp.Evaluate[chromedp.Void](`Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => document.fonts ? document.fonts.ready.then(() => 1) : 1)`, chromedp.EvalAwaitPromise),
+		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
+			fromSurface := true
+			r, err := cdp.Call(ctx, t, page.CaptureScreenshot, page.CaptureScreenshotParams{Format: page.CaptureScreenshotFormatPng, FromSurface: &fromSurface})
+			png = r.Data
 			return err
 		}),
 	)
