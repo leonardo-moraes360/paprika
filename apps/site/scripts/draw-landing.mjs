@@ -158,7 +158,7 @@ function page(c, mobile) {
     "Navegação",
     [
       row(
-        `link:${mobile ? "./" : "./"}`,
+        "link:./",
         [
           { type: "image", name: "Ícone", src: ICON, alt: "Paprika", width: 36, height: 36, radius: 9 },
           T("Paprika", mobile ? 19 : 21, { width: "hug", fontWeight: 700, lineHeight: 1.2 }),

@@ -174,7 +174,13 @@ async function editScenario(s: Surface, start: Document, frames: number, mode: M
   for (let i = 0; i < frames; i++) {
     const fill = i % 2 ? "#e4572e" : "#29335c";
     const t0 = performance.now();
-    if (mode === "dom") { el()!.style.background = fill; s.draw(v.x, v.y, v.zoom); }
+    if (mode === "dom") {
+      el()!.style.background = fill;
+      // `draw` is synchronous for the canvas2d/DOM paths and async for the others, so the
+      // rejection handler goes through Promise.resolve. Not awaiting it is deliberate: awaiting
+      // the draw would move the cost into the number this loop measures.
+      void Promise.resolve(s.draw(v.x, v.y, v.zoom)).catch((e: unknown) => console.error("[bench] draw:", e));
+    }
     // Immutable update of a local copy, like the client receiving a new document over WS.
     // (applyOps runs on the server; its structuredClone would dominate the timing here.)
     else { doc = { ...doc, nodes: { ...doc.nodes, [target.id]: { ...target, fill } as Node } }; s.setDoc(doc); await s.draw(v.x, v.y, v.zoom); }
