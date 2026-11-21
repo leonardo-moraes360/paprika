@@ -211,11 +211,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
+      # Not golang/govulncheck-action: it installs Go "stable" by default instead of the go.mod
+      # version, and the Go version decides which standard-library vulnerabilities apply.
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          work-dir: server-go
           go-version-file: server-go/go.mod
           cache-dependency-path: server-go/go.sum
+      - name: govulncheck
+        working-directory: server-go
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
 
   go-test:
     name: Go test (shard ${{ matrix.shard }}/2)

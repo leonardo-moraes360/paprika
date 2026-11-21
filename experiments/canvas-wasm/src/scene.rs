@@ -98,7 +98,9 @@ impl Item {
 }
 
 pub fn parse(data: &[f32]) -> Vec<Item> {
-    data.chunks_exact(STRIDE)
+    data.as_chunks::<STRIDE>()
+        .0
+        .iter()
         .map(|c| Item {
             kind: match c[0] as u32 {
                 1 => Kind::Ellipse,
