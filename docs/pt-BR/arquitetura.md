@@ -45,4 +45,4 @@
 ## Registros de decisão
 
 - [ADR 0001: Servidor em Go com SQLite](adr/0001-servidor-go-sqlite.md): aceito.
-- [ADR 0002: Renderizador do canvas em Rust/WASM (WebGPU com fallback para CPU)](adr/0002-renderizador-canvas-rust-wasm.md): proposto, não adotado; o canvas DOM continua.
+- [ADR 0002: Renderizador do canvas em Rust/WASM (WebGPU com fallback para CPU)](adr/0002-renderizador-canvas-rust-wasm.md): aceito como renderizador híbrido opcional; o DOM continua padrão.

@@ -3,11 +3,12 @@
 use vello::kurbo::{Affine, BezPath, Ellipse, Rect, RoundedRect, Shape};
 
 /// Floats per display-list entry. Layout (all `f32`):
-/// `[kind, x, y, w, h, radius, rotation_deg, opacity, fill_rgba(4), stroke_width, stroke_rgba(3 + a)]`
+/// `[kind, x, y, w, h, radius, rotation_deg, opacity, fill_rgba(4), stroke_width, stroke_rgba(4),
+///   shadow_dx, shadow_dy, shadow_blur, shadow_spread, shadow_rgba(4)]`
 /// `kind`: 0 = rect, 1 = ellipse, 2 = push clip (frame with `clip: true`), 3 = pop clip,
 /// 4 = vector path (`radius` holds the index into the path table, see [`parse_paths`]).
 /// Colors are straight (non-premultiplied) RGBA in 0..=1; alpha 0 means "no paint".
-pub const STRIDE: usize = 16;
+pub const STRIDE: usize = 25;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Kind {
@@ -49,9 +50,46 @@ pub struct Item {
     pub fill: [f32; 4],
     pub stroke_width: f64,
     pub stroke: [f32; 4],
+    pub shadow: Option<Shadow>,
+}
+
+/// CSS `box-shadow` (outer), drawn as a blurred rounded rectangle under the box.
+#[derive(Clone, Copy, Debug)]
+pub struct Shadow {
+    pub dx: f64,
+    pub dy: f64,
+    pub blur: f64,
+    pub spread: f64,
+    pub color: [f32; 4],
 }
 
 impl Item {
+    /// Blurred rect geometry of the shadow in local coordinates: `(rect, corner radius, std_dev)`.
+    /// CSS blur radius ≈ 2 standard deviations.
+    pub fn shadow_geometry(&self) -> Option<(Rect, f64, f64, [f32; 4])> {
+        let s = self.shadow?;
+        if s.color[3] <= 0.0 || matches!(self.kind, Kind::Path | Kind::PopClip) {
+            return None;
+        }
+        let r = Rect::new(
+            s.dx - s.spread,
+            s.dy - s.spread,
+            s.dx + self.w + s.spread,
+            s.dy + self.h + s.spread,
+        );
+        let base = if self.kind == Kind::Ellipse {
+            self.w.min(self.h) / 2.0
+        } else {
+            self.radius
+        };
+        Some((
+            r,
+            (base + s.spread).max(0.0),
+            (s.blur / 2.0).max(0.01),
+            s.color,
+        ))
+    }
+
     /// Box shape in local coordinates; [`Item::transform`] places it in document space.
     pub fn path(&self) -> BezPath {
         let r = Rect::new(0.0, 0.0, self.w, self.h);
@@ -119,7 +157,14 @@ pub fn parse(data: &[f32]) -> Vec<Item> {
             opacity: c[7],
             fill: [c[8], c[9], c[10], c[11] * c[7]],
             stroke_width: c[12] as f64,
-            stroke: [c[13], c[14], c[15], if c[12] > 0.0 { c[7] } else { 0.0 }],
+            stroke: [c[13], c[14], c[15], c[16] * c[7]],
+            shadow: (c[24] > 0.0).then(|| Shadow {
+                dx: c[17] as f64,
+                dy: c[18] as f64,
+                blur: c[19] as f64,
+                spread: c[20] as f64,
+                color: [c[21], c[22], c[23], c[24] * c[7]],
+            }),
         })
         .collect()
 }
@@ -229,6 +274,9 @@ fn paint_gpu(
     color: fn([f32; 4]) -> vello::peniko::Color,
 ) {
     use vello::{kurbo::Stroke, peniko::Fill};
+    if let Some((r, radius, std_dev, c)) = it.shadow_geometry() {
+        scene.draw_blurred_rounded_rect(t, r, color(c), radius, std_dev);
+    }
     if it.fill[3] > 0.0 {
         scene.fill(Fill::NonZero, t, color(it.fill), None, &it.path());
     }

@@ -36,10 +36,11 @@ const area = (re) => full || touched(re);
 
 const core = area(/^packages\/core\//);
 const server = area(/^packages\/server\//);
-const web = area(/^apps\/web\//);
+// crates/render is built into apps/web (the canvas's WASM mode), so it also counts as web.
+const rust = area(/^crates\/render\//);
+const web = area(/^apps\/web\//) || rust;
 const examples = area(/^examples\//);
 const go = area(/^server-go\//);
-const rust = area(/^experiments\/canvas-wasm\/(src\/|Cargo\.(toml|lock)$|build\.sh$)/);
 const benchTs = area(/^experiments\/canvas-wasm\/bench\//);
 const actions = area(/^\.github\//);
 

@@ -3,7 +3,7 @@
 // Usage: node gpu-readback-check.cjs   (with the bench Vite server on :5199)
 const { chromium } = require("playwright");
 const path = require("node:path");
-const pkg = "/@fs" + path.resolve(__dirname, "../pkg/paprika_render.js");
+const pkg = "/@fs" + path.resolve(__dirname, "../../../apps/web/src/wasm/paprika_render.js");
 (async () => {
   const b = await chromium.launch({ args: ["--enable-unsafe-webgpu"] });
   const p = await b.newPage();
@@ -15,7 +15,7 @@ const pkg = "/@fs" + path.resolve(__dirname, "../pkg/paprika_render.js");
     const c = document.createElement("canvas"); c.width = 64; c.height = 64; document.body.append(c);
     const r = await mod.createRenderer(c, "gpu");
     // red 24x24 rect at (8,8), blue 20x20 ellipse at (40,0), then a viewBox path (evenodd hole).
-    const S = 16, rows = [
+    const S = 25, rows = [
       [0, 8, 8, 24, 24, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0],
       [1, 40, 0, 20, 20, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0],
       [4, 0, 40, 40, 20, 0, 0, 1, 0, 0.5, 0, 1, 0, 0, 0, 0],

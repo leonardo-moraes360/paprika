@@ -63,7 +63,12 @@ jobs:
         with:
           go-version-file: server-go/go.mod
           cache-dependency-path: server-go/go.sum
-      - name: Build (core, server, web)
+      # The web build includes the WASM canvas renderer; without Rust it would be skipped quietly
+      # and the WASM e2e tests with it.
+      - uses: ./.github/actions/setup-rust-wasm
+      - name: Build (core, server, web, WASM renderer)
+        env:
+          PAPRIKA_REQUIRE_WASM: "1"
         run: pnpm build
       - name: tscheck
         run: pnpm typecheck
@@ -78,6 +83,7 @@ jobs:
             packages/core/dist
             packages/server/dist
             apps/web/dist
+            apps/web/src/wasm
             server-go/bin/paprika
 
   unit:
@@ -261,7 +267,7 @@ jobs:
         task: [lint, test]
     defaults:
       run:
-        working-directory: experiments/canvas-wasm
+        working-directory: crates/render
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -273,7 +279,7 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          workspaces: experiments/canvas-wasm
+          workspaces: crates/render
           key: ${{ matrix.task }}
       - name: cargo fmt --check
         if: matrix.task == 'lint'

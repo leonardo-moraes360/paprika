@@ -86,6 +86,17 @@ Shortcuts: `V` select, `F` frame, `R` rectangle, `O` ellipse, `T` text, `P` pen 
 Navigation: scroll = pan, `Ctrl`+scroll = zoom, hold `Space` (or `Enter`) and drag = pan (the cursor turns into a hand).
 Agent edits flash on the canvas and show up under "Atividade" (activity).
 
+### Renderer: DOM or WASM
+
+The button at the right of the zoom pill switches how shapes are drawn ([ADR 0002](docs/adr/0002-canvas-renderer-rust-wasm.md)):
+
+- **DOM** (default): every node is an HTML element styled by `nodeStyle`, the same engine as the screenshot and the export.
+- **WASM**: frames, rectangles, ellipses and paths are drawn by `crates/render` (Rust, [vello](https://github.com/linebender/vello)) on a `<canvas>` under the DOM. It uses **WebGPU** when the browser has a hardware adapter (the button reads `GPU`) and falls back to **vello_cpu** otherwise (`CPU`), including when only a software WebGPU adapter exists. Text, images, selection and hit testing stay in the DOM.
+
+The choice is saved in the browser; `?renderer=wasm` or `?renderer=dom` in the URL overrides it. Nodes the WASM layer cannot draw exactly (gradients and other non-solid colors, a shadow on a path) keep their DOM paint. Known difference: text and images always sit above WASM-drawn shapes, even when a shape comes later in the layer order. Screenshots and exports are unchanged (HTML).
+
+The WASM renderer is built by `pnpm build` when Rust is installed (`rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version 0.2.130`); without it the build prints a warning and the button stays disabled. `PAPRIKA_REQUIRE_WASM=1` turns that warning into an error.
+
 ## Document format
 
 ```jsonc
@@ -132,6 +143,7 @@ server-go/bin/paprika serve --db design.db
 pnpm check        # build + typecheck + unit/integration tests + E2E (Playwright)
 pnpm dev          # server with the demo; in another terminal: pnpm --filter @paprika/web dev
 pnpm check:go     # Go server: fixtures up to date, go test, parity and E2E against the Go binary
+pnpm test:render  # Rust renderer (crates/render): native tests with vello_cpu
 ```
 
 CI runs on pull requests only and picks the jobs from the files the PR changes: see [docs/ci.md](docs/ci.md).

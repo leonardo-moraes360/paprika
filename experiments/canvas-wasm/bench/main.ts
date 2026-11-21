@@ -1,5 +1,5 @@
 import { canvasBounds, nodeStyle, parseDocument, pathAttrs, type Document, type Node } from "@paprika/core";
-import init, { createRenderer, type Renderer } from "../pkg/paprika_render.js";
+import init, { createRenderer, type Renderer } from "../../../apps/web/src/wasm/paprika_render.js";
 import { flatten, layoutBoxes, STRIDE, type Box } from "./displayList.js";
 import { syntheticDoc } from "./synthetic.js";
 import demo from "../../../examples/demo.paprika.json";
@@ -86,14 +86,14 @@ function canvas2dSurface(): Surface {
           const [vx, vy, vw, vh] = pd.vb as [number, number, number, number];
           if (vw > 0 && vh > 0) { const sc = Math.min(w / vw, h / vh); ctx.translate((w - vw * sc) / 2 - vx * sc, (h - vh * sc) / 2 - vy * sc); ctx.scale(sc, sc); }
           if (data[i + 11]! > 0) { ctx.fillStyle = rgba(data[i + 8]!, data[i + 9]!, data[i + 10]!, data[i + 11]!); ctx.fill(pd.p, pd.evenodd ? "evenodd" : "nonzero"); }
-          if (data[i + 12]! > 0) { ctx.lineWidth = data[i + 12]!; ctx.lineCap = pd.cap; ctx.lineJoin = pd.join; ctx.strokeStyle = rgba(data[i + 13]!, data[i + 14]!, data[i + 15]!, op); ctx.stroke(pd.p); }
+          if (data[i + 12]! > 0) { ctx.lineWidth = data[i + 12]!; ctx.lineCap = pd.cap; ctx.lineJoin = pd.join; ctx.strokeStyle = rgba(data[i + 13]!, data[i + 14]!, data[i + 15]!, data[i + 16]! * op); ctx.stroke(pd.p); }
           continue;
         }
         const p = new Path2D();
         if (k === 1) p.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); else p.roundRect(0, 0, w, h, Math.min(rad, w / 2, h / 2));
         if (data[i + 11]! > 0) { ctx.fillStyle = rgba(data[i + 8]!, data[i + 9]!, data[i + 10]!, data[i + 11]! * op); ctx.fill(p); }
         const sw = data[i + 12]!;
-        if (sw > 0) { ctx.lineWidth = sw; ctx.strokeStyle = rgba(data[i + 13]!, data[i + 14]!, data[i + 15]!, op); ctx.stroke(p); }
+        if (sw > 0) { ctx.lineWidth = sw; ctx.strokeStyle = rgba(data[i + 13]!, data[i + 14]!, data[i + 15]!, data[i + 16]! * op); ctx.stroke(p); }
         if (k === 2) { ctx.save(); ctx.clip(p); }
       }
     },
@@ -166,7 +166,8 @@ async function zoomScenario(s: Surface, doc: Document, frames: number) {
 async function editScenario(s: Surface, start: Document, frames: number, mode: Mode) {
   let doc = start;
   const v = fitView(doc);
-  const target = Object.values(doc.nodes).find((n) => n.type === "rect" || n.type === "ellipse")!;
+  const target = Object.values(doc.nodes).find((n) => n.type === "rect" || n.type === "ellipse");
+  if (!target) return null; // e.g. the bezier example: paths only
   const el = () => stage.querySelector<HTMLElement>(`[data-paprika-id="${target.id}"]`);
   // Non-path target so the DOM update is a plain `background` change.
   const work: number[] = [];

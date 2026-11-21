@@ -2,9 +2,9 @@
 
 # ADR 0002: Renderizador do canvas em Rust/WASM (WebGPU com fallback para CPU)
 
-- **Status:** Proposto. Viabilidade comprovada por protótipo; **não adotado**, a `main` mantém o canvas DOM.
+- **Status:** Aceito como **renderizador híbrido opcional** (atualização abaixo). O DOM continua sendo o padrão.
 - **Data:** 2026-11-21
-- **Protótipo:** [`experiments/canvas-wasm/`](../../../experiments/canvas-wasm/README.pt-BR.md)
+- **Código:** [`crates/render`](../../../crates/render), [`packages/core/src/displayList.ts`](../../../packages/core/src/displayList.ts), [`apps/web/src/wasmLayer.ts`](../../../apps/web/src/wasmLayer.ts). Harness de benchmark: [`experiments/canvas-wasm/`](../../../experiments/canvas-wasm/README.pt-BR.md)
 
 ## Contexto
 
@@ -137,3 +137,29 @@ Como ler os números:
   (`experiments/canvas-wasm/build.sh`).
 - O formato da display list, a regra do adapter por software e a verificação por readback podem ser
   reaproveitados se o desenho híbrido for adotado.
+
+## Atualização 2026-11-21: integrado como híbrido opcional
+
+O dono do projeto pediu a integração depois de ler a avaliação acima, então o passo "Reavaliar" (4)
+foi dado sem a medição em GPU real. O que entrou é o desenho híbrido do passo 4, atrás de uma chave,
+com o DOM ainda como padrão:
+
+- `crates/render` (saiu de `experiments/`) é compilado pelo `pnpm build` em `apps/web/src/wasm/`.
+  Sem toolchain Rust o build avisa e pula; o canvas então oferece só o DOM.
+- O `@paprika/core` monta a display list (`displayList`, `wasmPaintable`) a partir dos mesmos campos
+  que o `nodeStyle` lê. O navegador continua fazendo o layout do DOM; o canvas mede as caixas
+  (`offsetLeft`/`offsetTop`, antes da rotação) depois de cada render e envia a lista.
+- No modo WASM o DOM mantém todos os elementos (layout, texto, imagens, hit testing, seleção), mas
+  deixa transparentes o fill, a cor da borda e a sombra dos nós desenhados; a borda mantém a largura
+  para o auto layout não mexer. Paths viram caixas vazias.
+- O renderizador agora também desenha sombras de caixa (retângulos arredondados com blur) e alfa do
+  stroke, e o caminho de CPU desenha num canvas transparente (o fundo pontilhado aparece).
+- Nós que ele não desenha com exatidão (cores não sólidas, sombra em path) continuam pintados pelo DOM.
+- `render_screenshot` e os exports continuam em HTML/CSS, então a saída para agentes não muda.
+- A paridade é testada: `packages/server/test/e2e/wasm.e2e.test.ts` renderiza o exemplo bezier nos
+  dois modos e exige menos de 0,5% de pixels diferentes, confere que uma edição via MCP chega aos
+  pixels do WASM, que o `.wasm` sai como `application/wasm` (servidores TypeScript e Go) e que a
+  chave fica salva.
+
+Diferenças conhecidas: texto e imagens ficam sempre acima das formas desenhadas pelo WASM; opacidade
+aninhada é multiplicada por nó em vez de composta por grupo. Ainda em aberto: medir numa GPU de hardware.

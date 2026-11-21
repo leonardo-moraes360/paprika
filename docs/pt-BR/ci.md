@@ -11,14 +11,14 @@ Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/c
 | Job | O que verifica | Roda quando a PR mexe em |
 | --- | --- | --- |
 | **Plan** | Lista os arquivos alterados e decide quais jobs abaixo rodam ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)). | sempre |
-| **TS build + tscheck** | `pnpm build` (core, server, web), `pnpm typecheck`, `pnpm go:build`. Publica `dist/` e o binário Go como o artefato `build` para os jobs abaixo. | código TS ou Go |
+| **TS build + tscheck** | `pnpm build` (core, server, web e o renderizador WASM do canvas, de `crates/render`, com `PAPRIKA_REQUIRE_WASM=1`), `pnpm typecheck`, `pnpm go:build`. Publica `dist/`, `apps/web/src/wasm` e o binário Go como o artefato `build` para os jobs abaixo, então as suítes e2e também rodam os testes do renderizador WASM. | código TS, Go ou Rust |
 | **Unit** `<pkg>` (shard n/2) | Vitest de `@paprika/core` e `@paprika/server`, dividido em 2 shards. | `packages/core`, `packages/server` |
-| **e2e / parity vs ts / go server** | As suítes black-box (`test:e2e`, `test:parity`) contra o servidor TypeScript e contra o binário Go, 4 jobs em paralelo. | core, server, web, examples, `server-go` |
+| **e2e / parity vs ts / go server** | As suítes black-box (`test:e2e`, `test:parity`) contra o servidor TypeScript e contra o binário Go, 4 jobs em paralelo. | core, server, web, examples, `crates/render`, `server-go` |
 | **Go fixtures up to date** | `pnpm go:golden` e depois `git diff --exit-code` em `server-go/internal/core/testdata` e `server-go/contract`. | core, server, `server-go` |
 | **golangci-lint** | golangci-lint v2 ([`server-go/.golangci.yml`](../../server-go/.golangci.yml)) e `go vet`. | `server-go` |
 | **govulncheck** | Vulnerabilidades conhecidas alcançáveis pelo código Go. | `server-go` |
 | **Go test** (shard n/2) | `go test -shuffle=on` nos pacotes afetados, dividido em 2 shards. | `server-go` |
-| **Rust lint / test** | `cargo fmt --check`, clippy (nativo e `wasm32-unknown-unknown`, `-D warnings`), `cargo test`. | `experiments/canvas-wasm` (src, arquivos Cargo, build.sh) |
+| **Rust lint / test** | `cargo fmt --check`, clippy (nativo e `wasm32-unknown-unknown`, `-D warnings`), `cargo test`. | `crates/render` |
 | **CodeQL** `<linguagem>` | Consultas `security-and-quality` para `actions`, `javascript-typescript`, `go`, `rust`; os resultados vão para o code scanning da PR. | arquivos da linguagem |
 | **Secret leak scan** | [gitleaks](https://github.com/gitleaks/gitleaks) em todo o histórico do git (release com checksum fixado, achados mascarados no log, relatório SARIF como artefato em caso de falha). | sempre |
 | **CI OK** | Falha se algum job falhou ou foi cancelado. **É o único check a exigir** na proteção de branch: fica verde quando os jobs que rodaram passaram e os pulados foram pulados pelo plano. | sempre |
@@ -57,7 +57,7 @@ Para aumentar os shards, troque `shard: [1, 2]` na matrix e o `/2` (vitest) ou o
 | Store do pnpm | `actions/setup-node` com `cache: pnpm` (action composta [`setup-node-pnpm`](../../.github/actions/setup-node-pnpm/action.yml)) | `pnpm-lock.yaml` |
 | Módulos Go + cache de build/teste | `actions/setup-go` | `server-go/go.sum` |
 | golangci-lint | `golangci-lint-action` | chave própria |
-| `target/` e registry do Rust | `Swatinem/rust-cache`, um por tarefa | `Cargo.lock` + toolchain |
+| `target/` e registry do Rust | `Swatinem/rust-cache`, um por tarefa, mais um para o build WASM de release (action composta [`setup-rust-wasm`](../../.github/actions/setup-rust-wasm/action.yml), que também instala o CLI `wasm-bindgen` fixado por checksum) | `Cargo.lock` + toolchain |
 | Chromium do Playwright (unit do server, e2e) | `actions/cache` em `~/.cache/ms-playwright` (action composta [`setup-playwright`](../../.github/actions/setup-playwright/action.yml)) | versão do Playwright |
 | Saída do build | artefato `build` (`dist/` + binário Go), gerado uma vez e reutilizado por 7+ jobs | por execução |
 
@@ -82,7 +82,7 @@ O **secret scanning** e o **push protection** do próprio GitHub (gratuitos em r
 
 ## Dependabot
 
-Atualizações de versão semanais (segunda-feira) para npm (workspace pnpm), módulos Go (`server-go`), Cargo (`experiments/canvas-wasm`) e GitHub Actions, com bumps minor e patch agrupados por ecossistema. `wasm-bindgen` fica de fora porque está fixado com `=` para casar com o `wasm-bindgen-cli` do `build.sh`. As PRs do Dependabot passam pelo mesmo CI.
+Atualizações de versão semanais (segunda-feira) para npm (workspace pnpm), módulos Go (`server-go`), Cargo (`crates/render`) e GitHub Actions, com bumps minor e patch agrupados por ecossistema. `wasm-bindgen` fica de fora porque está fixado com `=` para casar com o `wasm-bindgen-cli` do `crates/render/build.mjs` e do `setup-rust-wasm`. As PRs do Dependabot passam pelo mesmo CI.
 
 Atualizações de segurança (PRs para dependências vulneráveis fora do calendário) são uma configuração do repositório: **Settings → Code security → Dependabot security updates**.
 

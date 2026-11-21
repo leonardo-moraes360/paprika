@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "node ../../crates/render/build.mjs && vite build",
+    "build:wasm": "node ../../crates/render/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "echo 'web: coberto pelo E2E em packages/server/test/e2e' && exit 0",
     "dev": "vite"

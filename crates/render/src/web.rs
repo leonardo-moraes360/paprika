@@ -7,6 +7,7 @@ use vello::{
 use wasm_bindgen::{Clamped, JsCast, prelude::*};
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
 
+/// Default clear color (the bench's light gray). The app sets a transparent one.
 const BACKGROUND: [f32; 4] = [0.93, 0.93, 0.94, 1.0];
 
 struct Gpu {
@@ -41,6 +42,7 @@ pub struct Renderer {
     height: u32,
     /// Why the GPU path was not used (empty when it was).
     fallback_reason: String,
+    background: [f32; 4],
 }
 
 fn err(e: impl std::fmt::Display) -> JsValue {
@@ -155,7 +157,15 @@ async fn init_gpu(canvas: &HtmlCanvasElement, allow_software: bool) -> Result<Gp
         height: h,
         present_mode: wgpu::PresentMode::Fifo,
         desired_maximum_frame_latency: 2,
-        alpha_mode: wgpu::CompositeAlphaMode::Auto,
+        // vello writes premultiplied color; a transparent background must composite as such.
+        alpha_mode: if caps
+            .alpha_modes
+            .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
+        {
+            wgpu::CompositeAlphaMode::PreMultiplied
+        } else {
+            wgpu::CompositeAlphaMode::Auto
+        },
         view_formats: vec![],
         color_space: wgpu::SurfaceColorSpace::Auto,
     };
@@ -213,6 +223,7 @@ pub async fn create_renderer(canvas: HtmlCanvasElement, mode: String) -> Result<
         width,
         height,
         fallback_reason,
+        background: BACKGROUND,
     })
 }
 
@@ -238,6 +249,12 @@ impl Renderer {
     #[wasm_bindgen(getter, js_name = fallbackReason)]
     pub fn fallback_reason(&self) -> String {
         self.fallback_reason.clone()
+    }
+
+    /// Clear color in straight RGBA 0..1; alpha 0 keeps the canvas transparent.
+    #[wasm_bindgen(js_name = setBackground)]
+    pub fn set_background(&mut self, r: f32, g: f32, b: f32, a: f32) {
+        self.background = [r, g, b, a];
     }
 
     /// Replaces the display list (see `scene::STRIDE` for the layout) and its path table
@@ -281,7 +298,7 @@ impl Renderer {
                 g.scene.reset();
                 scene::encode_gpu(&mut g.scene, &self.scene, view);
                 let params = RenderParams {
-                    base_color: Color::new(BACKGROUND),
+                    base_color: Color::new(self.background),
                     width: w,
                     height: h,
                     antialiasing_method: AaConfig::Area,
@@ -311,7 +328,7 @@ impl Renderer {
                 g.queue.present(frame);
             }
             Backend::Cpu(c) => {
-                let buf = c.renderer.render(&self.scene, view, BACKGROUND);
+                let buf = c.renderer.render(&self.scene, view, self.background);
                 let img = ImageData::new_with_u8_clamped_array_and_sh(Clamped(buf), w, h)?;
                 c.ctx.put_image_data(&img, 0.0, 0.0)?;
             }

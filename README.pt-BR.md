@@ -84,6 +84,17 @@ Atalhos: `V` selecionar, `F` frame, `R` retângulo, `O` elipse, `T` texto, `P` c
 Navegação: rolar = pan, `Ctrl`+rolar = zoom, segurar `Espaço` (ou `Enter`) e arrastar = pan (o cursor vira uma mão).
 Edições do agente piscam no canvas e aparecem em "Atividade".
 
+### Renderizador: DOM ou WASM
+
+O botão à direita do controle de zoom troca como as formas são desenhadas ([ADR 0002](docs/pt-BR/adr/0002-renderizador-canvas-rust-wasm.md)):
+
+- **DOM** (padrão): cada nó é um elemento HTML estilizado pelo `nodeStyle`, o mesmo motor do screenshot e do export.
+- **WASM**: frames, retângulos, elipses e paths são desenhados pelo `crates/render` (Rust, [vello](https://github.com/linebender/vello)) num `<canvas>` abaixo do DOM. Usa **WebGPU** quando o navegador tem um adapter de hardware (o botão mostra `GPU`) e cai para o **vello_cpu** nos outros casos (`CPU`), inclusive quando só existe um adapter WebGPU por software. Texto, imagens, seleção e hit testing continuam no DOM.
+
+A escolha fica salva no navegador; `?renderer=wasm` ou `?renderer=dom` na URL têm prioridade. Nós que a camada WASM não consegue desenhar com exatidão (gradientes e outras cores não sólidas, sombra em path) continuam pintados pelo DOM. Diferença conhecida: texto e imagens ficam sempre acima das formas desenhadas pelo WASM, mesmo quando a forma vem depois na ordem das camadas. Screenshots e exports não mudam (HTML).
+
+O renderizador WASM é compilado pelo `pnpm build` quando o Rust está instalado (`rustup target add wasm32-unknown-unknown` e `cargo install wasm-bindgen-cli --version 0.2.130`); sem ele o build mostra um aviso e o botão fica desabilitado. `PAPRIKA_REQUIRE_WASM=1` transforma o aviso em erro.
+
 ## Formato do documento
 
 ```jsonc
@@ -130,6 +141,7 @@ server-go/bin/paprika serve --db design.db
 pnpm check        # build + typecheck + testes unitários/integração + E2E (Playwright)
 pnpm dev          # servidor com o demo; em outro terminal: pnpm --filter @paprika/web dev
 pnpm check:go     # servidor Go: fixtures em dia, go test, paridade e E2E contra o binário Go
+pnpm test:render  # renderizador Rust (crates/render): testes nativos com vello_cpu
 ```
 
 O CI roda só em pull requests e escolhe os jobs pelos arquivos que a PR altera: veja [docs/pt-BR/ci.md](docs/pt-BR/ci.md).
