@@ -984,12 +984,14 @@
                               "overrides": {
                                 "type": "object",
                                 "propertyNames": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9_-]{1,64}$"
                                 },
                                 "additionalProperties": {
                                   "type": "object",
                                   "propertyNames": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z]{1,32}$"
                                   },
                                   "additionalProperties": {}
                                 }
