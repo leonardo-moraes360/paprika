@@ -1,5 +1,6 @@
 import { defineConfig, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 const target = process.env.PAPRIKA_URL ?? "http://127.0.0.1:4777";
 
@@ -10,7 +11,7 @@ const sameOrigin: ProxyOptions["configure"] = (proxy) => {
 };
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     proxy: {
       "/api": { target, changeOrigin: true, configure: sameOrigin },

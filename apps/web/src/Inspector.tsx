@@ -19,6 +19,12 @@ import {
   type SceneNode,
 } from "@paprika/core";
 import type { Activity } from "./useDocument";
+import { cx, ui } from "./ui";
+
+const list = "m-0 grid list-none gap-1 p-0";
+const tokenAdd = "h-7 w-full rounded-md border border-dashed border-line bg-transparent px-2";
+/** Left border of a review issue. */
+const SEVERITY: Record<string, string> = { error: "border-l-accent", warning: "border-l-warn" };
 
 interface FieldProps {
   label: string;
@@ -63,7 +69,7 @@ function Field({ label, value, onCommit, type = "text", placeholder, title }: Fi
     },
   };
   return (
-    <label className={`field${type === "textarea" ? " field-wide" : ""}`}>
+    <label className={ui.field(type === "textarea")}>
       <span>{label}</span>
       {type === "textarea" ? <textarea rows={3} {...common} /> : <input inputMode={type === "number" ? "decimal" : undefined} {...common} />}
     </label>
@@ -75,7 +81,7 @@ function ModeField({ doc, value, inherited, onCommit }: { doc: Document; value: 
   const modes = Object.keys(doc.modes ?? {});
   if (value && !modes.includes(value)) modes.push(value);
   return (
-    <label className="field">
+    <label className={ui.field()}>
       <span>Modo de tema</span>
       <select aria-label="Modo de tema" value={value ?? ""} onChange={(e) => onCommit(e.target.value || null)}>
         <option value="">{inherited ? `herdado (${inherited})` : "base"}</option>
@@ -93,8 +99,8 @@ function ColorField({ doc, label, value, mode, onCommit }: { doc: Document; labe
   const resolved = value ? String(resolveValue(doc, value, mode)) : "";
   const hex = /^#[0-9a-f]{6}$/i.test(resolved) ? resolved : "#000000";
   return (
-    <div className="color-field">
-      <input type="color" aria-label={`${label} (seletor)`} value={hex} onChange={(e) => onCommit(e.target.value)} />
+    <div className="grid grid-cols-[28px_1fr] items-center gap-1.5">
+      <input className="size-7 rounded-md border border-line bg-transparent p-0" type="color" aria-label={`${label} (seletor)`} value={hex} onChange={(e) => onCommit(e.target.value)} />
       <Field label={label} value={value} placeholder="nenhuma" title="#hex, rgba() ou $token" onCommit={(v) => onCommit(v.trim() || null)} />
     </div>
   );
@@ -150,9 +156,9 @@ export function Inspector(props: Props) {
   if (selected.length > 1) {
     const a = structureActions(doc, selected, props);
     return (
-      <div className="panel-section" data-testid="multi-selection">
-        <h2>{selected.length} nós selecionados</h2>
-        <div className="actions">
+      <div className={ui.section} data-testid="multi-selection">
+        <h2 className={ui.h2}>{selected.length} nós selecionados</h2>
+        <div className={ui.actions}>
           <button onClick={a.group} title="Agrupar (Ctrl+G)">
             Agrupar
           </button>
@@ -162,7 +168,7 @@ export function Inspector(props: Props) {
             </button>
           )}
         </div>
-        <p className="muted">Arraste para mover todos; setas empurram; Delete apaga; Ctrl+D duplica.</p>
+        <p className={ui.muted}>Arraste para mover todos; setas empurram; Delete apaga; Ctrl+D duplica.</p>
       </div>
     );
   }
@@ -181,15 +187,15 @@ export function Inspector(props: Props) {
   };
 
   return (
-    <div className="panel-section" key={node.id}>
-      <h2>
-        {node.type} <code className="muted">#{node.id}</code>
+    <div className={ui.section} key={node.id}>
+      <h2 className={ui.h2}>
+        {node.type} <code className={ui.muted}>#{node.id}</code>
       </h2>
-      <div className="grid">
+      <div className={ui.grid}>
         <Field label="Nome" value={node.name} onCommit={(v) => set({ name: v }, "renomear")} />
       </div>
-      <h3>Posição e tamanho</h3>
-      <div className="grid grid-2">
+      <h3 className={ui.h3}>Posição e tamanho</h3>
+      <div className={ui.grid2}>
         <Field label="X" type="number" value={node.x} onCommit={setNum("x")} />
         <Field label="Y" type="number" value={node.y} onCommit={setNum("y")} />
         <Field label="L" type="number" value={node.width} title="número, hug ou fill" onCommit={(v) => size(v) !== undefined && set({ width: size(v) })} />
@@ -197,8 +203,8 @@ export function Inspector(props: Props) {
         <Field label="Rotação" type="number" value={node.rotation} onCommit={setNum("rotation")} />
         <Field label="Opacidade" type="number" value={node.opacity} onCommit={setNum("opacity")} />
       </div>
-      <h3>Aparência</h3>
-      <div className="grid">
+      <h3 className={ui.h3}>Aparência</h3>
+      <div className={ui.grid}>
         <ColorField doc={doc} mode={themeMode} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />
         {node.type !== "ellipse" && node.type !== "path" && <Field label="Raio" type="number" value={node.radius} onCommit={setNum("radius")} />}
         <ColorField
@@ -213,16 +219,16 @@ export function Inspector(props: Props) {
 
       {node.type === "text" && (
         <>
-          <h3>Texto</h3>
-          <div className="grid">
+          <h3 className={ui.h3}>Texto</h3>
+          <div className={ui.grid}>
             <Field label="Conteúdo" type="textarea" value={node.text} onCommit={(v) => set({ text: v }, "editar texto")} />
             <ColorField doc={doc} mode={themeMode} label="Cor" value={node.color} onCommit={(v) => v && set({ color: v })} />
           </div>
-          <div className="grid grid-2">
+          <div className={ui.grid2}>
             <Field label="Tamanho" value={node.fontSize} onCommit={(v) => set({ fontSize: v.startsWith("$") ? v : num(v) })} />
             <Field label="Peso" type="number" value={node.fontWeight} onCommit={setNum("fontWeight")} />
             <Field label="Altura linha" type="number" value={node.lineHeight} onCommit={setNum("lineHeight")} />
-            <label className="field">
+            <label className={ui.field()}>
               <span>Alinhamento</span>
               <select value={node.textAlign} onChange={(e) => set({ textAlign: e.target.value })}>
                 <option value="left">esquerda</option>
@@ -231,7 +237,7 @@ export function Inspector(props: Props) {
               </select>
             </label>
           </div>
-          <div className="grid">
+          <div className={ui.grid}>
             <Field label="Fonte" value={node.fontFamily} onCommit={(v) => set({ fontFamily: v })} />
           </div>
         </>
@@ -239,9 +245,9 @@ export function Inspector(props: Props) {
 
       {node.type === "shape" && (
         <>
-          <h3>Forma</h3>
-          <div className="grid">
-            <label className="field">
+          <h3 className={ui.h3}>Forma</h3>
+          <div className={ui.grid}>
+            <label className={ui.field()}>
               <span>Tipo</span>
               <select value={node.shape} onChange={(e) => set({ shape: e.target.value }, "trocar forma")} data-testid="shape-kind">
                 <option value="rect">caixa</option>
@@ -253,10 +259,10 @@ export function Inspector(props: Props) {
             <Field label="Texto" type="textarea" value={node.text} title="Duplo clique na forma edita o texto no canvas" onCommit={(v) => set({ text: v }, "editar texto")} />
             <ColorField doc={doc} mode={themeMode} label="Cor do texto" value={node.color} onCommit={(v) => v && set({ color: v })} />
           </div>
-          <div className="grid grid-2">
+          <div className={ui.grid2}>
             <Field label="Tamanho" value={node.fontSize} onCommit={(v) => set({ fontSize: v.startsWith("$") ? v : num(v) })} />
             <Field label="Peso" type="number" value={node.fontWeight} onCommit={setNum("fontWeight")} />
-            <label className="field">
+            <label className={ui.field()}>
               <span>Alinhamento</span>
               <select value={node.textAlign} onChange={(e) => set({ textAlign: e.target.value })}>
                 <option value="left">esquerda</option>
@@ -270,8 +276,8 @@ export function Inspector(props: Props) {
 
       {node.type === "frame" && (
         <>
-          <h3>Componente</h3>
-          <div className="actions" data-testid="component-actions">
+          <h3 className={ui.h3}>Componente</h3>
+          <div className={ui.actions} data-testid="component-actions">
             {node.component ? (
               <>
                 <button
@@ -290,13 +296,13 @@ export function Inspector(props: Props) {
               <button onClick={() => set({ component: true }, "criar componente")}>Tornar componente</button>
             )}
           </div>
-          <h3>Tema</h3>
-          <div className="grid">
+          <h3 className={ui.h3}>Tema</h3>
+          <div className={ui.grid}>
             <ModeField doc={doc} value={node.mode} inherited={modeOf(doc, node.parentId ? doc.nodes[node.parentId] : undefined)} onCommit={(v) => set({ mode: v }, "modo de tema")} />
           </div>
-          <h3>Layout</h3>
-          <div className="grid grid-2">
-            <label className="field">
+          <h3 className={ui.h3}>Layout</h3>
+          <div className={ui.grid2}>
+            <label className={ui.field()}>
               <span>Modo</span>
               <select
                 value={node.layout?.mode ?? "none"}
@@ -307,7 +313,7 @@ export function Inspector(props: Props) {
                 <option value="column">coluna</option>
               </select>
             </label>
-            <label className="field">
+            <label className={ui.field()}>
               <span>Recortar</span>
               <select value={String(node.clip)} onChange={(e) => set({ clip: e.target.value === "true" })}>
                 <option value="true">sim</option>
@@ -327,7 +333,7 @@ export function Inspector(props: Props) {
                     set({ layout: { ...node.layout, padding } });
                   }}
                 />
-                <label className="field">
+                <label className={ui.field()}>
                   <span>Alinhar</span>
                   <select value={node.layout.align} onChange={(e) => set({ layout: { ...node.layout, align: e.target.value } })}>
                     {["start", "center", "end", "stretch"].map((o) => (
@@ -335,7 +341,7 @@ export function Inspector(props: Props) {
                     ))}
                   </select>
                 </label>
-                <label className="field">
+                <label className={ui.field()}>
                   <span>Distribuir</span>
                   <select value={node.layout.justify} onChange={(e) => set({ layout: { ...node.layout, justify: e.target.value } })}>
                     {["start", "center", "end", "between"].map((o) => (
@@ -351,19 +357,19 @@ export function Inspector(props: Props) {
 
       {node.type === "path" && (
         <>
-          <h3>Vetor</h3>
-          <div className="grid">
+          <h3 className={ui.h3}>Vetor</h3>
+          <div className={ui.grid}>
             <Field label="Caminho (d)" type="textarea" value={node.d} title="M L H V C S Q T A Z (SVG). Duplo clique no vetor edita os pontos no canvas." onCommit={(v) => v.trim() && set({ d: v.trim() }, "editar caminho")} />
           </div>
-          <div className="grid grid-2">
-            <label className="field">
+          <div className={ui.grid2}>
+            <label className={ui.field()}>
               <span>Regra</span>
               <select value={node.fillRule} onChange={(e) => set({ fillRule: e.target.value })}>
                 <option value="nonzero">nonzero</option>
                 <option value="evenodd">evenodd</option>
               </select>
             </label>
-            <label className="field">
+            <label className={ui.field()}>
               <span>Ponta</span>
               <select value={node.strokeCap} onChange={(e) => set({ strokeCap: e.target.value })}>
                 {["butt", "round", "square"].map((o) => (
@@ -371,7 +377,7 @@ export function Inspector(props: Props) {
                 ))}
               </select>
             </label>
-            <label className="field">
+            <label className={ui.field()}>
               <span>Junção</span>
               <select value={node.strokeJoin} onChange={(e) => set({ strokeJoin: e.target.value })}>
                 {["miter", "round", "bevel"].map((o) => (
@@ -385,16 +391,16 @@ export function Inspector(props: Props) {
 
       {node.type === "image" && (
         <>
-          <h3>Imagem</h3>
-          <div className="grid">
+          <h3 className={ui.h3}>Imagem</h3>
+          <div className={ui.grid}>
             <Field label="URL" value={node.src.startsWith("data:") ? "(data URI)" : node.src} onCommit={(v) => set({ src: v })} />
             <Field label="Alt" value={node.alt} onCommit={(v) => set({ alt: v })} />
           </div>
         </>
       )}
 
-      <h3>Notas para agentes</h3>
-      <div className="grid">
+      <h3 className={ui.h3}>Notas para agentes</h3>
+      <div className={ui.grid}>
         <Field label="Notas" type="textarea" value={node.notes} placeholder="Intenção, restrições, conteúdo real…" onCommit={(v) => set({ notes: v || null })} />
       </div>
     </div>
@@ -412,18 +418,18 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
   };
   const overrides = Object.keys(node.overrides ?? {}).length;
   return (
-    <div className="panel-section" key={node.id} data-testid="instance-panel">
-      <h2>
-        instância <code className="muted">#{node.id}</code>
+    <div className={ui.section} key={node.id} data-testid="instance-panel">
+      <h2 className={ui.h2}>
+        instância <code className={ui.muted}>#{node.id}</code>
       </h2>
-      <p className="muted">
-        de <button className="link" onClick={() => onSelect(node.instanceOf)}>{comp?.name || node.instanceOf}</button>
+      <p className={ui.muted}>
+        de <button className={ui.link} onClick={() => onSelect(node.instanceOf)}>{comp?.name || node.instanceOf}</button>
         {overrides > 0 && ` · ${overrides} override(s)`}
       </p>
-      <div className="grid">
+      <div className={ui.grid}>
         <Field label="Nome" value={node.name} onCommit={(v) => set({ name: v }, "renomear")} />
       </div>
-      <div className="grid grid-2">
+      <div className={ui.grid2}>
         <Field label="X" type="number" value={node.x} onCommit={setNum("x")} />
         <Field label="Y" type="number" value={node.y} onCommit={setNum("y")} />
         <Field label="Escala" type="number" value={node.scale ?? 1} title="0.01 a 100" onCommit={setNum("scale")} />
@@ -431,16 +437,16 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
         <Field label="Opacidade" type="number" value={node.opacity} onCommit={setNum("opacity")} />
         <Field label="Tamanho" value={`${node.width}×${node.height}`} onCommit={() => onError("o tamanho vem do componente; mude a escala")} />
       </div>
-      <div className="grid">
+      <div className={ui.grid}>
         <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v }, "override")} />
       </div>
-      <div className="actions">
+      <div className={ui.actions}>
         <button onClick={() => onSelect(node.instanceOf)}>Ir para o componente</button>
         {overrides > 0 && <button onClick={() => set({ overrides: null }, "limpar overrides")}>Limpar overrides</button>}
         <button onClick={() => apply([{ op: "detach", ids: [node.id] }], "desanexar instância")}>Desanexar</button>
       </div>
-      <h3>Notas para agentes</h3>
-      <div className="grid">
+      <h3 className={ui.h3}>Notas para agentes</h3>
+      <div className={ui.grid}>
         <Field label="Notas" type="textarea" value={node.notes} onCommit={(v) => set({ notes: v || null })} />
       </div>
     </div>
@@ -455,16 +461,16 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
     const label = key === "from" ? "Início" : "Fim";
     if (e.nodeId === undefined)
       return (
-        <p className="muted" key={key}>
+        <p className={ui.muted} key={key}>
           {label}: ponto solto ({e.x}, {e.y})
         </p>
       );
     return (
-      <div className="grid grid-2" key={key}>
-        <p className="muted">
-          {label}: <button className="link" onClick={() => onSelect(e.nodeId!)}>{doc.nodes[e.nodeId]?.name || `#${e.nodeId}`}</button>
+      <div className={ui.grid2} key={key}>
+        <p className={ui.muted}>
+          {label}: <button className={ui.link} onClick={() => onSelect(e.nodeId!)}>{doc.nodes[e.nodeId]?.name || `#${e.nodeId}`}</button>
         </p>
-        <label className="field">
+        <label className={ui.field()}>
           <span>Lado</span>
           <select value={e.side ?? "auto"} onChange={(ev) => set({ [key]: { nodeId: e.nodeId, side: ev.target.value } })} data-testid={`connector-${key}-side`}>
             {["auto", "top", "right", "bottom", "left"].map((o) => (
@@ -478,40 +484,40 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
     );
   };
   return (
-    <div className="panel-section" key={node.id} data-testid="connector-panel">
-      <h2>
-        connector <code className="muted">#{node.id}</code>
+    <div className={ui.section} key={node.id} data-testid="connector-panel">
+      <h2 className={ui.h2}>
+        connector <code className={ui.muted}>#{node.id}</code>
       </h2>
-      <div className="grid">
+      <div className={ui.grid}>
         <Field label="Nome" value={node.name} onCommit={(v) => set({ name: v }, "renomear")} />
       </div>
-      <h3>Pontas</h3>
+      <h3 className={ui.h3}>Pontas</h3>
       {end("from", node.from)}
       {end("to", node.to)}
-      <h3>Traço</h3>
-      <div className="grid grid-2">
-        <label className="field">
+      <h3 className={ui.h3}>Traço</h3>
+      <div className={ui.grid2}>
+        <label className={ui.field()}>
           <span>Rota</span>
           <select value={node.route} onChange={(e) => set({ route: e.target.value })} data-testid="connector-route">
             <option value="straight">reta</option>
             <option value="elbow">cotovelo</option>
           </select>
         </label>
-        <label className="field">
+        <label className={ui.field()}>
           <span>Tracejado</span>
           <select value={String(node.dashed)} onChange={(e) => set({ dashed: e.target.value === "true" })}>
             <option value="false">não</option>
             <option value="true">sim</option>
           </select>
         </label>
-        <label className="field">
+        <label className={ui.field()}>
           <span>Seta no início</span>
           <select value={node.startArrow} onChange={(e) => set({ startArrow: e.target.value })}>
             <option value="none">nenhuma</option>
             <option value="arrow">seta</option>
           </select>
         </label>
-        <label className="field">
+        <label className={ui.field()}>
           <span>Seta no fim</span>
           <select value={node.endArrow} onChange={(e) => set({ endArrow: e.target.value })}>
             <option value="none">nenhuma</option>
@@ -522,9 +528,9 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
         <Field label="Espessura" type="number" value={node.stroke.width} onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke, width: num(v) } })} />
         <Field label="Opacidade" type="number" value={node.opacity} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
       </div>
-      <p className="muted">A linha segue as formas: mova as formas ou troque os lados para redesenhar.</p>
-      <h3>Notas para agentes</h3>
-      <div className="grid">
+      <p className={ui.muted}>A linha segue as formas: mova as formas ou troque os lados para redesenhar.</p>
+      <h3 className={ui.h3}>Notas para agentes</h3>
+      <div className={ui.grid}>
         <Field label="Notas" type="textarea" value={node.notes} onCommit={(v) => set({ notes: v || null })} />
       </div>
     </div>
@@ -538,21 +544,21 @@ function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; inst
   const src = node.sourceId!;
   const ov = instance.overrides?.[src] ?? {};
   return (
-    <div className="panel-section" key={node.id} data-testid="copy-panel">
-      <h2>
-        {node.type} <code className="muted">#{node.id}</code>
+    <div className={ui.section} key={node.id} data-testid="copy-panel">
+      <h2 className={ui.h2}>
+        {node.type} <code className={ui.muted}>#{node.id}</code>
       </h2>
-      <p className="muted">
-        cópia de <button className="link" onClick={() => onSelect(src)}>#{src}</button> na instância{" "}
-        <button className="link" onClick={() => onSelect(instance.id)}>{instance.name || instance.id}</button>
+      <p className={ui.muted}>
+        cópia de <button className={ui.link} onClick={() => onSelect(src)}>#{src}</button> na instância{" "}
+        <button className={ui.link} onClick={() => onSelect(instance.id)}>{instance.name || instance.id}</button>
       </p>
-      <div className="grid">
+      <div className={ui.grid}>
         {node.type === "text" && <Field label="Conteúdo" type="textarea" value={node.text} onCommit={(v) => set({ text: v })} />}
         {node.type === "text" && <ColorField doc={doc} label="Cor" value={node.color} onCommit={(v) => set({ color: v })} />}
         {node.type !== "group" && node.type !== "connector" && <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />}
         {node.type === "image" && <Field label="URL" value={node.src.startsWith("data:") ? "(data URI)" : node.src} onCommit={(v) => set({ src: v })} />}
         <Field label="Opacidade" type="number" value={node.opacity} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
-        <label className="field">
+        <label className={ui.field()}>
           <span>Visível</span>
           <select value={String(node.visible)} onChange={(e) => set({ visible: e.target.value === "true" })}>
             <option value="true">sim</option>
@@ -561,11 +567,11 @@ function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; inst
         </label>
       </div>
       {Object.keys(ov).length > 0 && (
-        <div className="actions">
+        <div className={ui.actions}>
           <button onClick={() => set(Object.fromEntries(Object.keys(ov).map((k) => [k, null])))}>Restaurar do componente</button>
         </div>
       )}
-      <p className="muted">Posição, tamanho e estrutura vêm do componente.</p>
+      <p className={ui.muted}>Posição, tamanho e estrutura vêm do componente.</p>
     </div>
   );
 }
@@ -573,11 +579,11 @@ function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; inst
 function PagePanel({ doc, page, apply }: { doc: Document; page: PageNode; apply(ops: Op[], label?: string): void }) {
   const set = (props: Record<string, unknown>, label = "editar página") => apply([{ op: "update", id: page.id, props }], label);
   return (
-    <div className="panel-section" key={page.id}>
-      <h2>
-        page <code className="muted">#{page.id}</code>
+    <div className={ui.section} key={page.id}>
+      <h2 className={ui.h2}>
+        page <code className={ui.muted}>#{page.id}</code>
       </h2>
-      <div className="grid">
+      <div className={ui.grid}>
         <Field label="Nome" value={page.name} onCommit={(v) => set({ name: v }, "renomear página")} />
         <ColorField doc={doc} mode={page.mode} label="Fundo" value={page.fill} onCommit={(v) => set({ fill: v })} />
         <ModeField doc={doc} value={page.mode} onCommit={(v) => set({ mode: v }, "modo de tema")} />
@@ -595,29 +601,29 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
   };
   const a = structureActions(props.doc, [group.id], props);
   return (
-    <div className="panel-section" key={group.id}>
-      <h2>
-        group <code className="muted">#{group.id}</code>
+    <div className={ui.section} key={group.id}>
+      <h2 className={ui.h2}>
+        group <code className={ui.muted}>#{group.id}</code>
       </h2>
-      <div className="grid">
+      <div className={ui.grid}>
         <Field label="Nome" value={group.name} onCommit={(v) => set({ name: v }, "renomear")} />
       </div>
-      <h3>Posição</h3>
-      <div className="grid grid-2">
+      <h3 className={ui.h3}>Posição</h3>
+      <div className={ui.grid2}>
         <Field label="X" type="number" value={group.x} onCommit={setNum("x")} />
         <Field label="Y" type="number" value={group.y} onCommit={setNum("y")} />
         <Field label="Opacidade" type="number" value={group.opacity} onCommit={setNum("opacity")} />
       </div>
-      <p className="muted">
+      <p className={ui.muted}>
         {group.width} × {group.height}: a caixa segue os {group.children.length} filho(s). Duplo clique no canvas seleciona um filho.
       </p>
-      <div className="actions">
+      <div className={ui.actions}>
         <button onClick={a.ungroup} title="Desagrupar (Ctrl+Shift+G)">
           Desagrupar
         </button>
       </div>
-      <h3>Notas para agentes</h3>
-      <div className="grid">
+      <h3 className={ui.h3}>Notas para agentes</h3>
+      <div className={ui.grid}>
         <Field label="Notas" type="textarea" value={group.notes} onCommit={(v) => set({ notes: v || null })} />
       </div>
     </div>
@@ -689,21 +695,20 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
   const [newModeToken, setNewModeToken] = useState("");
   const issues = lintDocument(doc).filter((i) => i.severity !== "info");
   return (
-    <div className="panel-section">
-      <h2>Documento</h2>
-      <div className="grid">
+    <div className={ui.section}>
+      <h2 className={ui.h2}>Documento</h2>
+      <div className={ui.grid}>
         <Field label="Nome" value={doc.name} onCommit={(v) => v.trim() && apply([{ op: "rename_document", name: v.trim() }], "renomear documento")} />
       </div>
-      <h3>Tokens</h3>
-      <div className="grid">
+      <h3 className={ui.h3}>Tokens</h3>
+      <div className={ui.grid}>
         {Object.entries(doc.tokens).map(([k, v]) => (
-          <div className="token-row" key={k}>
-            {typeof v === "string" && /^#|^rgb/.test(v) && <span className="swatch" style={{ background: v }} />}
+          <div className="flex items-center gap-1.5 [&>label]:flex-1" key={k}>
+            {typeof v === "string" && /^#|^rgb/.test(v) && <span className="size-4 flex-none rounded-sm border border-line" style={{ background: v }} />}
             <Field label={`$${k}`} value={v} onCommit={(nv) => apply([{ op: "set_tokens", tokens: { [k]: nv === "" ? null : tokenValue(nv) } }], "token")} />
           </div>
         ))}
         <form
-          className="token-add"
           onSubmit={(e) => {
             e.preventDefault();
             const token = parseTokenAssignment(newToken);
@@ -712,15 +717,15 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
             setNewToken("");
           }}
         >
-          <input aria-label="Novo token" placeholder="nome = #e8553d" value={newToken} onChange={(e) => setNewToken(e.target.value)} />
+          <input className={tokenAdd} aria-label="Novo token" placeholder="nome = #e8553d" value={newToken} onChange={(e) => setNewToken(e.target.value)} />
         </form>
       </div>
-      <h3>Modos de tema</h3>
-      <div className="grid" data-testid="theme-modes">
+      <h3 className={ui.h3}>Modos de tema</h3>
+      <div className={ui.grid} data-testid="theme-modes">
         {Object.entries(doc.modes ?? {}).map(([mode, tokens]) =>
           Object.entries(tokens).map(([k, v]) => (
-            <div className="token-row" key={`${mode}/${k}`}>
-              {typeof v === "string" && /^#|^rgb/.test(v) && <span className="swatch" style={{ background: v }} />}
+            <div className="flex items-center gap-1.5 [&>label]:flex-1" key={`${mode}/${k}`}>
+              {typeof v === "string" && /^#|^rgb/.test(v) && <span className="size-4 flex-none rounded-sm border border-line" style={{ background: v }} />}
               <Field
                 label={`${mode} · $${k}`}
                 value={v}
@@ -730,7 +735,6 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
           )),
         )}
         <form
-          className="token-add"
           onSubmit={(e) => {
             e.preventDefault();
             const token = parseModeTokenAssignment(newModeToken);
@@ -739,27 +743,27 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
             setNewModeToken("");
           }}
         >
-          <input aria-label="Novo token de modo" placeholder="dark: bg = #14161f" value={newModeToken} onChange={(e) => setNewModeToken(e.target.value)} />
+          <input className={tokenAdd} aria-label="Novo token de modo" placeholder="dark: bg = #14161f" value={newModeToken} onChange={(e) => setNewModeToken(e.target.value)} />
         </form>
       </div>
-      <h3>Revisão {issues.length > 0 && <span className="badge">{issues.length}</span>}</h3>
+      <h3 className={ui.h3}>Revisão {issues.length > 0 && <span className="rounded-full bg-accent px-1.5 py-0 text-2xs text-white">{issues.length}</span>}</h3>
       {issues.length === 0 ? (
-        <p className="muted">Sem problemas de contraste, overflow ou tokens.</p>
+        <p className={ui.muted}>Sem problemas de contraste, overflow ou tokens.</p>
       ) : (
-        <ul className="issues">
+        <ul className={list}>
           {issues.slice(0, 30).map((i, k) => (
-            <li key={k} className={`sev-${i.severity}`} onClick={() => onSelect(i.nodeId)}>
+            <li key={k} className={cx("cursor-pointer rounded-md border-l-3 bg-panel-2 px-2 py-1.5", SEVERITY[i.severity] ?? "border-l-muted")} onClick={() => onSelect(i.nodeId)}>
               <strong>{i.rule}</strong> {i.message}
             </li>
           ))}
         </ul>
       )}
-      <h3>Atividade</h3>
-      <ul className="activity">
-        {activity.length === 0 && <li className="muted">Nenhuma edição ainda.</li>}
+      <h3 className={ui.h3}>Atividade</h3>
+      <ul className={list}>
+        {activity.length === 0 && <li className="flex gap-2 text-muted">Nenhuma edição ainda.</li>}
         {activity.slice(0, 15).map((a) => (
-          <li key={a.id} className={a.actor.startsWith("agent") ? "is-agent" : ""}>
-            <span className="who">{a.actor.startsWith("agent") ? "🤖 " + a.actor.slice(6) : a.actor === "user" ? "você" : a.actor}</span>
+          <li key={a.id} className={cx("flex gap-2", a.actor.startsWith("agent") ? "text-accent-ink" : "text-muted")}>
+            <span className="font-semibold whitespace-nowrap">{a.actor.startsWith("agent") ? "🤖 " + a.actor.slice(6) : a.actor === "user" ? "você" : a.actor}</span>
             <span>{a.label || "edição"}</span>
           </li>
         ))}

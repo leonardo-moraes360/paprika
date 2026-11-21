@@ -44,7 +44,13 @@ import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState }
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { InlineName } from "./InlineName";
 import { AgentCursors } from "./AgentCursors";
+import { cx, ui } from "./ui";
 import type { AgentPresence } from "./agents";
+
+/** Drawing tools show a crosshair over the canvas. */
+const CROSSHAIR = new Set<string>(["frame", "rect", "ellipse", "text", "pen"]);
+
+const zoomButton = "h-6 w-6.5 cursor-pointer rounded-md border-0 bg-transparent hover:bg-panel-2";
 
 export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "note" | "connector";
 
@@ -147,17 +153,17 @@ function PenOverlay({ pen, zoom }: { pen: PenDraft; zoom: number }) {
   const r = 4 / zoom;
   return (
     <svg className="pen-overlay" data-testid="pen-overlay" style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1, overflow: "visible", pointerEvents: "none" }}>
-      {segs.length > 0 && <path d={serializePath(segs)} fill="none" stroke="var(--select)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
+      {segs.length > 0 && <path d={serializePath(segs)} fill="none" stroke="var(--color-select)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
       {last && pen.cursor && (
-        <line x1={last.x} y1={last.y} x2={pen.cursor.x} y2={pen.cursor.y} stroke="var(--select)" strokeWidth={1} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
+        <line x1={last.x} y1={last.y} x2={pen.cursor.x} y2={pen.cursor.y} stroke="var(--color-select)" strokeWidth={1} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
       )}
       {pen.anchors.map((a, k) => (
         <g key={k}>
-          {a.in && <line x1={a.in.x} y1={a.in.y} x2={a.x} y2={a.y} stroke="var(--select)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
-          {a.out && <line x1={a.x} y1={a.y} x2={a.out.x} y2={a.out.y} stroke="var(--select)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
-          {a.in && <circle cx={a.in.x} cy={a.in.y} r={r * 0.75} fill="var(--select)" />}
-          {a.out && <circle cx={a.out.x} cy={a.out.y} r={r * 0.75} fill="var(--select)" />}
-          <rect x={a.x - r} y={a.y - r} width={2 * r} height={2 * r} fill="#fff" stroke="var(--select)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+          {a.in && <line x1={a.in.x} y1={a.in.y} x2={a.x} y2={a.y} stroke="var(--color-select)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
+          {a.out && <line x1={a.x} y1={a.y} x2={a.out.x} y2={a.out.y} stroke="var(--color-select)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
+          {a.in && <circle cx={a.in.x} cy={a.in.y} r={r * 0.75} fill="var(--color-select)" />}
+          {a.out && <circle cx={a.out.x} cy={a.out.y} r={r * 0.75} fill="var(--color-select)" />}
+          <rect x={a.x - r} y={a.y - r} width={2 * r} height={2 * r} fill="#fff" stroke="var(--color-select)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
         </g>
       ))}
     </svg>
@@ -199,7 +205,8 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
   const props = {
     "data-paprika-id": node.id,
     "data-paprika-type": node.type,
-    className: touched.has(node.id) ? "agent-flash" : undefined,
+    // "agent-flash" stays as a hook for the E2E suite.
+    className: touched.has(node.id) ? "agent-flash outline-2! outline-solid! outline-accent! outline-offset-1 animate-flash" : undefined,
     style: css,
   };
   switch (node.type) {
@@ -294,7 +301,8 @@ function ShapeTextEditor({ text, onCommit, onDone }: { text: string; onCommit(te
   return (
     <textarea
       ref={ref}
-      className="shape-text-editor"
+      // Edited in place: inherits the shape's typography.
+      className="relative m-0 field-sizing-content w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-inherit outline-1 outline-select outline-dashed [font:inherit] [letter-spacing:inherit] [line-height:inherit] [text-align:inherit]"
       data-testid="shape-text-editor"
       aria-label="Texto da forma"
       defaultValue={text}
@@ -1042,14 +1050,21 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   return (
     <div
       ref={viewportRef}
-      className={`viewport tool-${tool}${pan === "ready" ? " is-pan-ready" : pan === "panning" ? " is-panning" : ""}`}
+      className={cx(
+        // "viewport" and "is-pan-*" stay as hooks for the E2E suite.
+        "viewport absolute inset-0 touch-none overflow-hidden bg-canvas bg-[radial-gradient(rgba(0,0,0,0.09)_1px,transparent_1px)] bg-size-[20px_20px] scheme-light",
+        CROSSHAIR.has(tool) && "cursor-crosshair",
+        // Pan: open hand while the key is held, closed hand while dragging; wins over nodes and tools.
+        pan === "ready" && "is-pan-ready cursor-grab! **:cursor-grab!",
+        pan === "panning" && "is-panning cursor-grabbing! **:cursor-grabbing!",
+      )}
       onPointerDown={onPointerDown}
       onPointerMove={pen ? onPenHover : undefined}
       onDoubleClick={pen ? onPenDouble : onDeepSelect}
       data-testid="viewport"
     >
-      {renderer === "wasm" && <canvas ref={wasmLayer.canvasRef} className="wasm-layer" data-testid="wasm-layer" data-backend={wasmLayer.status.backend} />}
-      <div ref={worldRef} className="world" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
+      {renderer === "wasm" && <canvas ref={wasmLayer.canvasRef} className="pointer-events-none absolute inset-0 size-full" data-testid="wasm-layer" data-backend={wasmLayer.status.backend} />}
+      <div ref={worldRef} className="world absolute top-0 left-0 origin-top-left [&_[data-paprika-id]]:select-none" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
         {rootNodes.map((n) => (
           <RenderNode
             key={n.id}
@@ -1070,7 +1085,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       {frameLabels.map((l) => (
         <div
           key={l.id}
-          className={`frame-label${selected.includes(l.id) ? " is-selected" : ""}`}
+          className={cx("absolute cursor-default text-xs whitespace-nowrap", selected.includes(l.id) ? "text-select" : "text-label")}
           style={{ left: l.left, top: l.top - 20 }}
           data-frame-label={l.id}
           title="Duplo clique para renomear"
@@ -1086,7 +1101,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         >
           {renaming === l.id ? (
             <InlineName
-              className="frame-label-input"
+              className={cx(ui.renameInput, "pointer-events-auto h-[18px] w-[180px]")}
               label="Nome do frame"
               value={doc.nodes[l.id]?.name ?? ""}
               onCommit={(name) => apply([{ op: "update", id: l.id, props: { name } }], "renomear frame")}
@@ -1098,33 +1113,36 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         </div>
       ))}
       {boxes.map((b) => (
-        <div key={b.id} className="selection-item" style={{ left: b.left, top: b.top, width: b.width, height: b.height }} />
+        <div key={b.id} className="pointer-events-none absolute border border-select opacity-70" style={{ left: b.left, top: b.top, width: b.width, height: b.height }} />
       ))}
       {box && (
-        <div className={`selection${selected.length > 1 ? " is-multi" : ""}`} style={box} data-testid="selection" data-count={selected.length}>
-          {resizable && !editView && <div className="handle" onPointerDown={onResizeDown} title="Redimensionar" />}
-          <div className="dims">
+        <div className={cx("pointer-events-none absolute border-[1.5px] border-select", selected.length > 1 && "border-dashed")} style={box} data-testid="selection" data-count={selected.length}>
+          {resizable && !editView && <div className="pointer-events-auto absolute -right-1.25 -bottom-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" onPointerDown={onResizeDown} title="Redimensionar" />}
+          <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink">
             {Math.round(box.width / view.zoom)} × {Math.round(box.height / view.zoom)}
           </div>
         </div>
       )}
-      {draftRect && <div className="draft" style={draftRect} />}
+      {draftRect && <div className="pointer-events-none absolute border border-dashed border-select bg-select/10" style={draftRect} />}
       {link && (
-        <svg className="link-draft" data-testid="link-draft">
-          <line x1={link.x0} y1={link.y0} x2={link.x1} y2={link.y1} />
-          <circle cx={link.x1} cy={link.y1} r={4} />
+        <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" data-testid="link-draft">
+          <line className="stroke-select stroke-2 [stroke-dasharray:5_4]" x1={link.x0} y1={link.y0} x2={link.x1} y2={link.y1} />
+          <circle className="fill-select" cx={link.x1} cy={link.y1} r={4} />
         </svg>
       )}
-      {marqueeRect && <div className="marquee" style={marqueeRect} data-testid="marquee" />}
-      <div className="zoom-pill" onPointerDown={(e) => e.stopPropagation()}>
-        <button onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom">−</button>
-        <span>{Math.round(view.zoom * 100)}%</span>
-        <button onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom">+</button>
-        <button onClick={fit} aria-label="Enquadrar" title="Enquadrar (Shift+1)">
+      {marqueeRect && <div className="pointer-events-none absolute border border-select bg-select/8" style={marqueeRect} data-testid="marquee" />}
+      <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-line bg-panel p-0.5" onPointerDown={(e) => e.stopPropagation()}>
+        <button className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom">−</button>
+        <span className="min-w-11 text-center text-muted">{Math.round(view.zoom * 100)}%</span>
+        <button className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom">+</button>
+        <button className={zoomButton} onClick={fit} aria-label="Enquadrar" title="Enquadrar (Shift+1)">
           ⤢
         </button>
         <button
-          className={`renderer-toggle${renderer === "wasm" ? " is-on" : ""}`}
+          className={cx(
+            "h-6 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-xs font-semibold tracking-[0.02em] hover:bg-panel-2 disabled:cursor-not-allowed disabled:opacity-40",
+            renderer === "wasm" ? "text-accent" : "text-muted",
+          )}
           data-testid="renderer-toggle"
           data-backend={renderer === "wasm" ? wasmLayer.status.backend : "dom"}
           disabled={!wasmAvailable && renderer === "dom"}
