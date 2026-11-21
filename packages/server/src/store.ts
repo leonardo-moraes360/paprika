@@ -4,6 +4,7 @@ import { existsSync, watch, type FSWatcher } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { History, createDocument, parseDocument, type ApplyResult, type Document, type Op } from "@paprika/core";
+import { PresenceHub } from "./presence.js";
 
 export interface ChangeEvent {
   doc: Document;
@@ -25,6 +26,8 @@ export class DocumentStore extends EventEmitter<{ change: [ChangeEvent]; error: 
   private lastWrittenHash = "";
   private writeChain: Promise<void> = Promise.resolve();
   private watcher?: FSWatcher;
+  /** Agent presence (cursor and selection on the canvas). Ephemeral: never persisted. */
+  readonly presence = new PresenceHub();
 
   private constructor(readonly file: string) {
     super();

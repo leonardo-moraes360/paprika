@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Document, Op } from "@paprika/core";
+import { applyPresence, type AgentPresence, type PresenceMsg } from "./agents";
 
 export interface Activity {
   id: number;
@@ -19,12 +20,15 @@ export interface DocState {
   activity: Activity[];
   /** Nós tocados pela última mudança vinda de um agente (para destacar no canvas). */
   agentTouched: Set<string>;
+  /** Agentes presentes (cursor e seleção próprios no canvas). */
+  agents: AgentPresence[];
 }
 
 type ServerMsg =
   | { type: "doc"; doc: Document; version: number; actor: string; label: string; kind: string; canUndo: boolean; canRedo: boolean }
   | { type: "ack"; reqId: string; version: number }
-  | { type: "error"; reqId?: string; message: string };
+  | { type: "error"; reqId?: string; message: string }
+  | PresenceMsg;
 
 function changedIds(prev: Document | null, next: Document): string[] {
   if (!prev) return [];
@@ -47,6 +51,7 @@ export function useDocument() {
     error: null,
     activity: [],
     agentTouched: new Set(),
+    agents: [],
   });
   const wsRef = useRef<WebSocket | null>(null);
   const seq = useRef(0);
@@ -88,6 +93,8 @@ export function useDocument() {
               agentTouched: fromAgent ? new Set(changed) : s.agentTouched,
             };
           });
+        } else if (msg.type === "presence") {
+          setState((s) => ({ ...s, agents: applyPresence(s.agents, msg) }));
         } else if (msg.type === "error") {
           setState((s) => ({ ...s, error: msg.message }));
         }

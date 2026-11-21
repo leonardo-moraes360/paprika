@@ -92,6 +92,39 @@ describe.skipIf(!existsSync(webRoot))(`E2E (${impl}): canvas + agente via MCP`, 
     if (shots) await page.screenshot({ path: join(shots, "02-agente-editou.png") });
   });
 
+  it("presença: cada agente tem cursor, seleção e cor próprios; o cursor desliza até os nós em que ele age", async () => {
+    // The previous test left the agent's cursor on the new footer, inside "plano".
+    const cursor = page.locator('[data-testid="agent-cursor"]');
+    await expect.poll(() => cursor.count()).toBe(1);
+    const plano = (await page.locator('[data-paprika-id="plano"]').boundingBox())!;
+    const inside = (b: { x: number; y: number }, r: { x: number; y: number; width: number; height: number }) =>
+      b.x >= r.x && b.x <= r.x + r.width && b.y >= r.y && b.y <= r.y + r.height;
+    const tip = async (i: number) => (await cursor.nth(i).locator(".agent-cursor svg").boundingBox())!;
+    expect(inside(await tip(0), plano)).toBe(true);
+
+    // A second session with the same client name is another agent: own name and color.
+    const other = new Client({ name: "e2e-agent", version: "0" });
+    await other.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
+    try {
+      await other.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
+      await expect.poll(() => cursor.count()).toBe(2);
+      const roster = page.getByTestId("agent-roster").locator("li");
+      await expect.poll(() => roster.allInnerTexts()).toEqual([expect.stringMatching(/^e2e-agent\s*criando/), expect.stringMatching(/^e2e-agent 2\s*lendo/)]);
+      const colors = await cursor.evaluateAll((els) => els.map((e) => getComputedStyle(e).getPropertyValue("--agent")));
+      expect(new Set(colors).size).toBe(2);
+      const login = (await page.locator('[data-paprika-id="login"]').boundingBox())!;
+      await expect.poll(async () => inside(await tip(1), login)).toBe(true);
+
+      // The first agent moves to "login" too: its cursor glides there (CSS transition).
+      await agent.callTool({ name: "update_nodes", arguments: { updates: [{ id: "login", props: { notes: "revisado" } }] } });
+      await expect.poll(async () => inside(await tip(0), login), { timeout: 3000 }).toBe(true);
+      await expect.poll(() => roster.first().innerText()).toContain("editando");
+      if (shots) await page.screenshot({ path: join(shots, "02b-agentes-presentes.png") });
+    } finally {
+      await other.close();
+    }
+  });
+
   it("humano arrasta um frame e o agente lê a nova posição", async () => {
     const frame = page.locator('[data-paprika-id="plano"]');
     const box = (await frame.boundingBox())!;

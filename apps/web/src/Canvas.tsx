@@ -37,6 +37,8 @@ import {
 import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { InlineName } from "./InlineName";
+import { AgentCursors } from "./AgentCursors";
+import type { AgentPresence } from "./agents";
 
 export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen";
 
@@ -88,6 +90,8 @@ interface Props {
   onToolDone(): void;
   apply(ops: Op[], label?: string): void;
   agentTouched: Set<string>;
+  /** Agentes presentes: cada um com cursor e seleção próprios. */
+  agents?: AgentPresence[];
   onError?(message: string): void;
 }
 
@@ -212,7 +216,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit }: Rend
   }
 }
 
-export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, onError }: Props) {
+export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, agents = [], onError }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 40, y: 40, zoom: 1 });
@@ -871,6 +875,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         ))}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
+      <AgentCursors doc={doc} agents={agents} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} />
       {frameLabels.map((l) => (
         <div
           key={l.id}
