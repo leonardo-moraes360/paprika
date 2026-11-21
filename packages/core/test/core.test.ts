@@ -127,6 +127,17 @@ describe("History (undo/redo)", () => {
     }
   });
 
+  it("tokens named like Object.prototype members undo to absent, not to the inherited value", () => {
+    const { doc } = card();
+    const h = new History(doc);
+    h.apply([{ op: "set_tokens", tokens: { constructor: "#111111", toString: 4 } }]);
+    expect(h.doc.tokens).toMatchObject({ constructor: "#111111", toString: 4 });
+    h.undo();
+    expect(Object.hasOwn(h.doc.tokens, "constructor")).toBe(false);
+    expect(Object.hasOwn(h.doc.tokens, "toString")).toBe(false);
+    expect(h.doc).toEqual(doc);
+  });
+
   it("batch: consecutive writes of one actor become one entry; another write or an undo closes it", () => {
     const { doc } = card();
     const h = new History(doc);

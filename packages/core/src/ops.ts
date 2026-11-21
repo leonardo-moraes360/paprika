@@ -373,11 +373,14 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       return [{ op: "move", id: op.id, parentId: oldParent, index: fromIndex }];
     }
     case "set_tokens": {
+      // TokenName and ModeName already reject "__proto__"; these checks keep internal callers from
+      // ever writing a prototype key into the plain objects of the document.
+      if (op.mode === "__proto__") throw new Error("mode name cannot be __proto__");
       const prev: Record<string, string | number | null> = {};
       const target = op.mode ? ((doc.modes ??= {})[op.mode] ??= {}) : doc.tokens;
       for (const [k, v] of Object.entries(op.tokens)) {
-        if (k === "__proto__") continue; // rejected by TokenName; never written to a plain object
-        prev[k] = target[k] ?? null;
+        if (k === "__proto__") continue;
+        prev[k] = Object.hasOwn(target, k) ? (target[k] ?? null) : null;
         if (v === null) delete target[k];
         else target[k] = v;
       }

@@ -127,15 +127,18 @@ const clone = (subs: Subpath[]): Subpath[] =>
     anchors: s.anchors.map((a) => ({ ...a, ...(a.in && { in: { ...a.in } }), ...(a.out && { out: { ...a.out } }) })),
   }));
 
-/** The subpath of `ref`, only for integer positions (a caller's "__proto__" never reaches an object). */
+/**
+ * The subpath of `ref`, only for non-negative integer positions. Reads go through `Array.at`, never
+ * `obj[key]`, so a caller's "__proto__" (or any non-index key) cannot reach Object.prototype.
+ */
 function subOf(subs: Subpath[], ref: AnchorRef): Subpath | undefined {
-  return Number.isInteger(ref.sub) && Number.isInteger(ref.index) && ref.sub >= 0 && ref.index >= 0 ? subs[ref.sub] : undefined;
+  return Number.isInteger(ref.sub) && Number.isInteger(ref.index) && ref.sub >= 0 && ref.index >= 0 ? subs.at(ref.sub) : undefined;
 }
 
 /** Move uma âncora e as alças dela juntas. */
 export function moveAnchor(subs: Subpath[], ref: AnchorRef, to: Point): Subpath[] {
   const out = clone(subs);
-  const a = subOf(out, ref)?.anchors[ref.index];
+  const a = subOf(out, ref)?.anchors.at(ref.index);
   if (!a) return out;
   const dx = to.x - a.x;
   const dy = to.y - a.y;
@@ -152,17 +155,23 @@ export function moveAnchor(subs: Subpath[], ref: AnchorRef, to: Point): Subpath[
  */
 export function moveHandle(subs: Subpath[], ref: AnchorRef, side: "in" | "out", to: Point, mirror = false): Subpath[] {
   const out = clone(subs);
-  const a = subOf(out, ref)?.anchors[ref.index];
+  const a = subOf(out, ref)?.anchors.at(ref.index);
   if (!a || (side !== "in" && side !== "out")) return out;
-  a[side] = { x: to.x, y: to.y };
-  const other = side === "in" ? "out" : "in";
-  const o = a[other];
+  // Named fields, not a[side]: no key computed from the caller is ever written.
+  const moved = { x: to.x, y: to.y };
+  if (side === "in") a.in = moved;
+  else a.out = moved;
+  const o = side === "in" ? a.out : a.in;
   if (mirror && o) {
     const len = Math.hypot(o.x - a.x, o.y - a.y);
     const dx = a.x - to.x;
     const dy = a.y - to.y;
     const d = Math.hypot(dx, dy);
-    if (d > 1e-9) a[other] = { x: a.x + (dx / d) * len, y: a.y + (dy / d) * len };
+    if (d > 1e-9) {
+      const mirrored = { x: a.x + (dx / d) * len, y: a.y + (dy / d) * len };
+      if (side === "in") a.out = mirrored;
+      else a.in = mirrored;
+    }
   }
   return out;
 }
@@ -171,7 +180,7 @@ export function moveHandle(subs: Subpath[], ref: AnchorRef, side: "in" | "out", 
 export function removeAnchor(subs: Subpath[], ref: AnchorRef): Subpath[] {
   const out = clone(subs);
   const s = subOf(out, ref);
-  if (!s || !s.anchors[ref.index]) return out;
+  if (!s?.anchors.at(ref.index)) return out;
   s.anchors.splice(ref.index, 1);
   if (s.anchors.length < 2) s.closed = false;
   return out.filter((x) => x.anchors.length > 0);
@@ -184,7 +193,7 @@ export function removeAnchor(subs: Subpath[], ref: AnchorRef): Subpath[] {
 export function toggleSmooth(subs: Subpath[], ref: AnchorRef): Subpath[] {
   const out = clone(subs);
   const s = subOf(out, ref);
-  const a = s?.anchors[ref.index];
+  const a = s?.anchors.at(ref.index);
   if (!s || !a) return out;
   if (a.in || a.out) {
     delete a.in;
@@ -269,9 +278,8 @@ export function insertAnchor(subs: Subpath[], ref: AnchorRef, t: number): { subs
   const s = subOf(out, ref);
   const seg = s && segmentPoints(s, ref.index);
   if (!s || !seg) return { subs: out, ref };
-  const a = s.anchors[ref.index]!;
-  const bi = (ref.index + 1) % s.anchors.length;
-  const b = s.anchors[bi]!;
+  const a = s.anchors.at(ref.index)!;
+  const b = s.anchors.at((ref.index + 1) % s.anchors.length)!;
   const [p0, p1, p2, p3] = seg;
   const at = bezier(seg, t);
   const fresh: Anchor = { x: at.x, y: at.y };
