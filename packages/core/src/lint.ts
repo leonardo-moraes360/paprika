@@ -140,7 +140,7 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
     if (node.type === "image" && !node.alt.trim())
       issues.push({ rule: "missing-alt", severity: "warning", nodeId: id, message: "imagem sem texto alternativo (alt)" });
 
-    if (hasColorTokens && node.fill && !node.fill.startsWith("$"))
+    if (hasColorTokens && node.fill && !node.fill.startsWith("$") && node.fill !== "transparent")
       issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `fill literal "${node.fill}"; prefira um token` });
 
     const parent = node.parentId ? doc.nodes[node.parentId] : undefined;

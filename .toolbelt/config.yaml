@@ -60,9 +60,10 @@ bench:
     repetitions: 5
     timeout: 10m
 verify:
-    test_cmd: pnpm test
+    test_cmd: pnpm test && pnpm test:e2e
     hidden_test_cmd: ""
     build_cmd: pnpm run build
+    lint_cmd: pnpm typecheck
 review:
     require_approved_sha: false
 env:
