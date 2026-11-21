@@ -88,6 +88,7 @@ After changing `packages/core` or the MCP tools in TypeScript: `pnpm build && pn
 
 - Storage: SQLite (`--db`, `--doc`) instead of `--file`; no file watching.
 - `GET /api/health` returns `file` (the database path), `storage: "sqlite"` and `docId`. New `GET /api/export`.
+- Workspaces are the documents of the database (the TypeScript server lists the `*.paprika.json` files next to `--file`); `open_workspace` loads that document's stored undo history instead of starting empty.
 - `GET /mcp` answers 405 (stateless server without a standalone SSE stream; MCP clients handle it).
 - A failing undo keeps its entry in the history instead of dropping it.
 

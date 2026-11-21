@@ -509,6 +509,57 @@ describe(`paridade (${impl}): HTTP + WebSocket`, () => {
     expect(health.ok).toBe(true);
   });
 
+  it("workspaces: criar e abrir por MCP e HTTP; canvas e ferramentas seguem o ativo", async () => {
+    const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
+    const messages: { type: string; kind?: string; doc?: { id: string; name: string } }[] = [];
+    ws.on("message", (m) => messages.push(JSON.parse(String(m))));
+    await new Promise((ok) => ws.once("open", ok));
+    const first = (await srv.doc()).id;
+    await client.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "r1" }] } });
+
+    type Info = { id: string; name: string; nodes: number; updatedAt: number; active: boolean };
+    const created = (await call(client, "create_workspace", { name: "  Landing  " })) as ToolResult & { structuredContent: { workspace: Info } };
+    const landing = created.structuredContent.workspace;
+    expect(Object.keys(landing)).toEqual(["id", "name", "nodes", "updatedAt", "active"]);
+    expect(landing).toMatchObject({ name: "Landing", nodes: 0, active: false });
+
+    const post = (path: string, body?: unknown) =>
+      fetch(`${srv.url}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const viaHttp = await post("/api/workspaces", { name: "Outro" });
+    expect(viaHttp.status).toBe(201);
+    const outro = ((await viaHttp.json()) as { workspace: Info }).workspace;
+    expect((await post("/api/workspaces", { name: 3 })).status).toBe(400);
+
+    const list = (await (await fetch(`${srv.url}/api/workspaces`)).json()) as { active: string; workspaces: Info[] };
+    expect(list.active).toBe(first);
+    expect(list.workspaces.map((w) => w.id).sort()).toEqual([first, landing.id, outro.id].sort());
+    expect(list.workspaces.find((w) => w.id === first)).toMatchObject({ active: true, nodes: 1 });
+    const mcpList = (await call(client, "list_workspaces")) as ToolResult & { structuredContent: { active: string; workspaces: Info[] } };
+    expect(mcpList.structuredContent.active).toBe(first);
+
+    const opened = await post(`/api/workspaces/${landing.id}/open`);
+    expect(opened.status).toBe(200);
+    expect(((await opened.json()) as { workspace: Info }).workspace).toMatchObject({ id: landing.id, active: true });
+    await waitFor(() => messages.some((m) => m.type === "doc" && m.kind === "open" && m.doc?.id === landing.id));
+    expect(textOf(await call(client, "get_document_outline"))).toMatch(/^document "Landing" v\d+ · 0 nodes/);
+    await client.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "r2" }] } });
+    expect(Object.keys((await srv.doc()).nodes)).toEqual(["r2"]);
+
+    const back = await call(client, "open_workspace", { id: first });
+    expect(back.isError, textOf(back)).toBeFalsy();
+    await waitFor(() => messages.some((m) => m.type === "doc" && m.kind === "open" && m.doc?.id === first));
+    expect(Object.keys((await srv.doc()).nodes)).toEqual(["r1"]);
+
+    const bad = await call(client, "open_workspace", { id: "nope" });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toBe('workspace "nope" does not exist (see list_workspaces)');
+    const missing = await post("/api/workspaces/nope/open");
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: 'workspace "nope" não existe' });
+    expect((await fetch(`${srv.url}/api/workspaces/${first}/open`)).status).toBe(405);
+    ws.close();
+  });
+
   it("bloqueia Host/Origin externos (DNS rebinding / CSRF)", async () => {
     const port = Number(new URL(srv.url).port);
     expect(await status(port, { host: `evil.example:${port}` })).toBe(403);

@@ -4,7 +4,9 @@ import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
 import { Layers } from "./Layers";
 import { Pages } from "./Pages";
-import { useDocument } from "./useDocument";
+import { Overview } from "./Overview";
+import { navigate, parseRoute, useRoute, workspacePath } from "./route";
+import { useDocument, type LiveDocument } from "./useDocument";
 
 const TOOLS: { tool: Tool; key: string; label: string; icon: string }[] = [
   { tool: "select", key: "v", label: "Selecionar", icon: "↖" },
@@ -35,8 +37,70 @@ const siblingsOf = (doc: Document, parentId: string | null) => {
   return isContainer(p) ? p.children : doc.rootIds;
 };
 
+/**
+ * `/` lists the workspaces; `/w/<id>` opens one on the canvas. The server has one active
+ * workspace, shared with the MCP agents: opening a URL makes it active, and when someone else
+ * (an agent) switches, the canvas follows and the URL is updated.
+ */
 export function App() {
   const live = useDocument();
+  const route = useRoute();
+  const routeId = route.view === "canvas" ? route.id : null;
+  const activeId = live.doc?.id ?? null;
+  // The workspace this tab asked the server to open and is still waiting for.
+  const pending = useRef<string | null>(null);
+  const { showError } = live;
+
+  useEffect(() => {
+    if (!routeId) return;
+    pending.current = routeId;
+    void fetch(`/api/workspaces/${encodeURIComponent(routeId)}/open`, { method: "POST" })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
+      })
+      .catch((e: unknown) => {
+        // pending stays set: a doc that arrives meanwhile must not send the URL to the active workspace.
+        navigate("/", { replace: true });
+        showError(`Não foi possível abrir o workspace: ${e instanceof Error ? e.message : String(e)}`);
+      });
+  }, [routeId, showError]);
+
+  useEffect(() => {
+    // The URL is checked too: this effect can run after a navigation it has not rendered yet.
+    if (!routeId || !activeId || parseRoute(location.pathname).view !== "canvas") return;
+    if (activeId === routeId) pending.current = null;
+    else if (pending.current !== routeId) navigate(workspacePath(activeId), { replace: true });
+  }, [routeId, activeId]);
+
+  useEffect(() => {
+    if (!routeId) document.title = "Workspaces · Paprika";
+  }, [routeId]);
+
+  if (!routeId) {
+    return (
+      <>
+        <Overview connected={live.connected} activeId={activeId} version={live.version} onOpen={(id) => navigate(workspacePath(id))} />
+        {live.error && (
+          <div className="toast" role="alert" onClick={live.clearError}>
+            {live.error}
+          </div>
+        )}
+      </>
+    );
+  }
+  if (!live.doc || activeId !== routeId) {
+    return (
+      <div className="boot">
+        <img className="logo" src="/icon.svg" alt="" />
+        <p>{live.connected ? "Abrindo workspace…" : "Conectando ao servidor Paprika…"}</p>
+      </div>
+    );
+  }
+  // key: another workspace starts with a clean selection, page and tool.
+  return <Editor key={activeId} live={live} />;
+}
+
+function Editor({ live }: { live: LiveDocument }) {
   const { doc } = live;
   const [selected, setSelected] = useState<string[]>([]);
   const [tool, setTool] = useState<Tool>("select");
@@ -192,8 +256,21 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <img className="logo" src="/icon.svg" alt="" />
-          <strong>Paprika</strong>
+          <a
+            className="home-link"
+            href="/"
+            title="Todos os workspaces"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/");
+            }}
+          >
+            <img className="logo" src="/icon.svg" alt="" />
+            <strong>Paprika</strong>
+          </a>
+          <span className="crumb-sep" aria-hidden>
+            /
+          </span>
           <span className="doc-name">{doc.name}</span>
         </div>
         <div className="status">
