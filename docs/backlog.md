@@ -91,7 +91,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 |---|---|---|---|
 | Vector node from SVG path data (lines, bezier, arcs) | `path` node, `path_info` | ✅ | — |
 | Pen tool to create paths | `P`, bezier handles, close on first point | ✅ | — |
-| Edit points and handles of an existing path | Edit `d` in the inspector (fb#17) | 🟡 | P1 |
+| Edit points and handles of an existing path | Double-click a path: drag points and handles, add, remove, corner/smooth (2026-11-21); `d` in the inspector | ✅ | — |
 | Import/paste SVG as editable `path` layers | `import_svg`, `Ctrl+V` in the canvas (2026-11-21): paths, shapes (axis-aligned rect/ellipse stay native), groups, transforms, inherited paint; no text, images, gradients or `<style>` CSS | ✅ | — |
 | Boolean operations (union, subtract, intersect, exclude) | — (fb#1) | ⬜ | P2 |
 | Convert rect/ellipse to path | — | ⬜ | P2 |

@@ -293,7 +293,7 @@ export function Inspector(props: Props) {
         <>
           <h3>Vetor</h3>
           <div className="grid">
-            <Field label="Caminho (d)" type="textarea" value={node.d} title="M L H V C S Q T A Z (SVG)" onCommit={(v) => v.trim() && set({ d: v.trim() }, "editar caminho")} />
+            <Field label="Caminho (d)" type="textarea" value={node.d} title="M L H V C S Q T A Z (SVG). Duplo clique no vetor edita os pontos no canvas." onCommit={(v) => v.trim() && set({ d: v.trim() }, "editar caminho")} />
           </div>
           <div className="grid grid-2">
             <label className="field">

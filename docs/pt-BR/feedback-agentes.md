@@ -34,7 +34,7 @@ Tarefa: adicionar curvas bezier para agentes e humanos desenharem formas orgâni
 |---|-----------|-----------------|----------|------|
 | 15 | Caixa do nó igual ao desenho | Sem `width`/`height`, a caixa vai da origem do nó até a borda da curva; um `d` que começa em (40,30) deixa espaço vazio no canto e o lint de overflow mede essa caixa | `normalize: true` no create (leva o desenho para 0,0 e ajusta `x`/`y`), ou informar a folga no `path_info` | P2 |
 | 16 | Camadas de vários paths como uma forma (corpo, sombra, brilho, cálice) | Cada parte repete o mesmo `x`/`y`; mover a pimenta é mover 5 nós | Nó `group` (ver #8) ou lista `paths: []` num nó só | P2 |
-| 17 | Editar um ponto de controle | Mudar uma curva exige reescrever a string `d` inteira | `update_path_points` (mover âncora/alça por índice) e edição de alças no canvas | P3 |
+| 17 | Editar um ponto de controle | Mudar uma curva exige reescrever a string `d` inteira | Parte do canvas feita (2026-11-21, ver #43); `update_path_points` (mover âncora/alça por índice) para agentes continua em aberto | P3 |
 | 18 | Saber o tamanho desenhado antes de posicionar uma parte | `path_info` com `canvasBounds` respondeu numa chamada só; também pegou um erro de digitação (`d inválido: número esperado na posição 12`) | Manter: erros de parse com posição em todo campo string | — |
 
 ## 2026-11-21: servidor em Go com SQLite (`server-go/`)
@@ -109,6 +109,15 @@ Tarefa: `importSVG`, `importHTML` e `exportSVG` no core (TS e Go), as ferramenta
 | 40 | Trazer um ícone de um conjunto SVG | Antes o agente traduzia cada `<rect>`/`<circle>`/arco à mão para `d`; agora o `import_svg` faz isso numa chamada e diz o que ficou de fora em `warnings` | Suportar sprites `<use>`/`<symbol>` e `<text>` (como nós `text`), comuns em ícones e logos | P2 |
 | 41 | Exportar SVG de um nó com layout automático sem navegador | O core não posiciona sozinho filhos `hug`/`fill`/row/column, então o `exportSVG` sem medida falha com uma mensagem que aponta o `export_code` | Um `layout(doc)` no core (#26) deixaria o core exportar tudo e daria as caixas aos agentes | P2 |
 | 42 | Reaproveitar um componente de uma página web | O `import_html` só lê `style=""` inline; o HTML copiado da maioria dos sites depende de classes, então o resultado sai simples | Uma opção que renderiza o HTML no Chromium do servidor e importa os estilos computados | P2 |
+
+## 2026-11-21: edição de path ponto a ponto (leva 1 do backlog, item 4)
+
+Tarefa: funções no core que transformam `d` em âncoras com alças e de volta (`pathToSubpaths`, `moveAnchor`, `moveHandle`, `insertAnchor`, `removeAnchor`, `toggleSmooth`, `pathEditProps`) e um modo de edição de pontos no canvas.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 43 | Ajustar um ponto de um vetor que o agente desenhou | O humano agora arrasta no canvas; o agente ainda reescreve `d`, e depois de uma edição humana o `d` que ele lê vem com outros números (quadráticas e arcos viram cúbicas, a caixa é renormalizada) | Uma ferramenta MCP sobre as mesmas funções (`edit_path` com índice da âncora e posição nova), e as âncoras no `path_info`, para agente e humano endereçarem pontos do mesmo jeito | P2 |
+| 44 | Editar um vetor dentro de um frame com layout automático | A posição do nó vem do layout, então quando a edição move o canto superior esquerdo do desenho a caixa cresce no lugar e a forma se desloca nessa medida | Manter, ou adotar filhos que "ignoram o layout" (backlog A) e posicionar vetores editados em absoluto | P3 |
 
 ## O que funcionou bem
 

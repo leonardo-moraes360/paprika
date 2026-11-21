@@ -91,7 +91,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 |---|---|---|---|
 | Nó vetorial a partir de dados de caminho SVG (retas, bezier, arcos) | Nó `path`, `path_info` | ✅ | — |
 | Caneta para criar paths | `P`, alças bezier, fecha no primeiro vértice | ✅ | — |
-| Editar pontos e alças de um path existente | Editar `d` no inspector (fb#17) | 🟡 | P1 |
+| Editar pontos e alças de um path existente | Duplo clique no vetor: arrastar pontos e alças, adicionar, remover, canto/suave (2026-11-21); `d` no inspector | ✅ | — |
 | Importar/colar SVG como camadas `path` editáveis | `import_svg`, `Ctrl+V` no canvas (2026-11-21): paths, formas (rect/ellipse alinhados aos eixos ficam nativos), grupos, transforms, pintura herdada; sem texto, imagens, gradientes ou CSS de `<style>` | ✅ | — |
 | Operações booleanas (união, subtração, interseção, exclusão) | — (fb#1) | ⬜ | P2 |
 | Converter rect/ellipse em path | — | ⬜ | P2 |
