@@ -284,7 +284,7 @@ for (const [lang, entries] of Object.entries(DOCS)) {
       // The language switch lives in the header.
       .replace(/^.*(?:English|Português)\s*\|.*\n+/m, "");
     const body = renderMarkdown(md, src, page);
-    const h1 = /^#\s+(.+)$/m.exec(md)?.[1] ?? title;
+    const h1 = /^#[ \t]*([^\n]+?)[ \t]*$/m.exec(md)?.[1] ?? title;
     const counterpart = otherEntries[i][1];
     const sidebar = entries
       .map(([, p, t]) => `<li><a href="${rel(page, pretty(p) || "./")}"${p === page ? ' aria-current="page"' : ""}>${escapeHtml(t)}</a></li>`)
