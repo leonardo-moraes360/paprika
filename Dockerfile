@@ -80,10 +80,11 @@ WORKDIR /src/server-go
 COPY server-go/go.mod server-go/go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY server-go/ ./
-# modernc.org/sqlite is pure Go, so the binary is static and runs on distroless too.
+# modernc.org/sqlite is pure Go; nodynamic keeps gen2brain webp/avif on WASM so purego
+# does not pull libc (distroless/static has no dynamic linker).
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-s -w" -o /out/paprika ./cmd/paprika \
+    CGO_ENABLED=0 go build -tags nodynamic -trimpath -buildvcs=false -ldflags="-s -w" -o /out/paprika ./cmd/paprika \
  && mkdir -p /out/data
 
 # ------------------------------------------------------------------ slim: no Chromium

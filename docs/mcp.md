@@ -52,7 +52,8 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `set_workspace_cover` | Puts an image on a workspace's overview card: a screenshot of one of its frames (`rootId`), an image (`image`, base64 or data URL) or none (`clear`, back to the first letter) |
 | `undo` / `redo` / `get_history` | History shared with the human; every write tool takes `batch`, so several calls with the same batch become one undo step |
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
-| `render_screenshot` | PNG of a node, a page or the whole canvas |
+| `render_screenshot` | PNG of a node, a page or the whole canvas (headless Chromium) |
+| `export_image` | PNG, JPEG, WebP, AVIF or vector PDF of a node/page/canvas **without Chromium**: rasterizes core `ExportSVG` (layout geometry) in pure Go; PDF draws the same path as vectors |
 | `import_svg` / `import_html` | Turns pasted SVG (paths, shapes, groups, transforms) or HTML with inline styles into editable nodes; what can't be imported comes back in `warnings` |
 | `import_image` | Places a raster image (PNG, JPEG, WebP, AVIF or GIF) as an `image` node sized from the file. `src` is a data URL or a local path under `PAPRIKA_IMPORT_DIRS` (default: the server's working directory). Files over 3500000 bytes are refused. Original bytes are kept, so animated GIF/WebP/AVIF stay animated on the canvas and in HTML exports (`render_screenshot` captures one frame) |
 | `resize_image` | Resamples an `image` node (or creates one from `src`) to `qhd` 960×540, `hd` 1280×720, `2k` 2560×1440, `4k` 3840×2160, or `{width,height}`. Pure Go (`golang.org/x/image` CatmullRom); no Chromium. `fit`: `contain` (default), `cover`, `fill`. Animated GIF → first frame; animated WebP and AVIF refused. Same format when encodable in pure Go (PNG/JPEG/GIF), else PNG |
