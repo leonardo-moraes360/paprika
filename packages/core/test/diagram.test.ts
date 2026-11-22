@@ -50,6 +50,15 @@ describe("shape", () => {
     expect(note.fold).toBe("M76 0 L76 24 L100 24 Z");
   });
 
+  it("outlines honor stroke position center and outside", () => {
+    expect(shapeOutline({ shape: "diamond", width: 100, height: 60, radius: 0, stroke: { color: "#000", width: 2, position: "center" } }).d).toBe(
+      "M50 0 L100 30 L50 60 L0 30 Z",
+    );
+    expect(shapeOutline({ shape: "diamond", width: 100, height: 60, radius: 0, stroke: { color: "#000", width: 2, position: "outside" } }).d).toBe(
+      "M50 -1 L101 30 L50 61 L-1 30 Z",
+    );
+  });
+
   it("clips connectors to a triangle outline like a diamond", () => {
     const d = applyOps(createDocument("T", "d"), [
       { op: "create", node: { type: "shape", id: "t", x: 0, y: 0, width: 160, height: 80, shape: "triangle", text: "A" } },

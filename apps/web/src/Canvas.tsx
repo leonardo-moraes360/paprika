@@ -466,7 +466,14 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
       return (
         <div {...props}>
           <svg xmlns="http://www.w3.org/2000/svg" width={a.svg.width} height={a.svg.height} style={SHAPE_SVG_CSS as CSSProperties}>
-            <path d={a.path.d} fill={a.path.fill} stroke={a.path.stroke} strokeWidth={a.path.strokeWidth} strokeLinejoin="round" />
+            <path
+              d={a.path.d}
+              fill={a.path.fill}
+              stroke={a.path.stroke}
+              strokeWidth={a.path.strokeWidth}
+              strokeLinejoin="round"
+              strokeDasharray={a.path.strokeDasharray}
+            />
             {a.fold && <path d={a.fold.d} fill={a.fold.fill} />}
           </svg>
           {editing ? (

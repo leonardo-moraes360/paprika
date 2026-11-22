@@ -452,6 +452,34 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(await el.locator("path").getAttribute("stroke")).toBe("#c43d27");
   });
 
+  it("stroke style e position: tracejado dentro e sólido fora no canvas", async () => {
+    await agent.callTool({
+      name: "update_nodes",
+      arguments: {
+        updates: [
+          { id: "login", props: { stroke: { color: "#1e2336", width: 2, style: "dashed", position: "inside" } } },
+          { id: "plano", props: { stroke: { color: "#c43d27", width: 4, style: "solid", position: "outside" } } },
+        ],
+      },
+    });
+    await expect.poll(async () => (await doc()).nodes.login).toMatchObject({
+      stroke: { style: "dashed", position: "inside", width: 2 },
+    });
+    await expect.poll(async () => (await doc()).nodes.plano).toMatchObject({
+      stroke: { style: "solid", position: "outside", width: 4 },
+    });
+    const login = page.locator('[data-paprika-id="login"]');
+    const plano = page.locator('[data-paprika-id="plano"]');
+    await expect.poll(() => login.evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe("dashed");
+    await expect.poll(() => plano.evaluate((el) => [getComputedStyle(el).outlineStyle, getComputedStyle(el).outlineOffset])).toEqual(["solid", "0px"]);
+    await page.locator('[data-layer-id="login"]').click();
+    await expect.poll(() => page.getByTestId("selection").getAttribute("data-count")).toBe("1");
+    const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
+    if ((await appearance.getAttribute("data-state")) !== "open") await appearance.click();
+    await expect.poll(() => page.getByTestId("stroke-style").count()).toBe(1);
+    await expect.poll(() => page.getByTestId("stroke-position").count()).toBe(1);
+  });
+
   it("screenshot pelo MCP usa o mesmo motor do canvas", async () => {
     const r = (await agent.callTool({ name: "render_screenshot", arguments: { rootId: "login" } })) as {
       content: { type: string; data?: string }[];
@@ -1170,7 +1198,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const box = async (id: string) => (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
     const a = await box(first);
     const b = await box(second);
-    await page.keyboard.press("a");
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Seta (prende nas formas)" }).click();
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
     await page.mouse.down();
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 });
