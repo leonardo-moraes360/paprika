@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "re
 import type { Document } from "@paprika/core";
 import { useLive } from "./useDocument";
 import { AGENT_IDLE_MS, AGENT_TTL_MS, agentInk, agentPage, toolVerb, type AgentPresence } from "./agents";
+import { Hint } from "./components/ui/tooltip";
 import { cx } from "./ui";
 
 /** Caixa que envolve todas as caixas. */
@@ -155,25 +156,39 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
           const p = !boxes[a.agent]?.length && agentPage(doc, a.nodes);
           return (
             <li key={a.agent} className="flex">
-              <button
-                type="button"
-                className={cx(
-                  // Superfície e texto pelos aliases semânticos (ADR 0005): iguais aos tokens da marca no
-                  // tema noturno de hoje, e prontos para o escopo claro. A cor do agente continua própria.
-                  "m-0 flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--agent)_55%,transparent)] bg-ui-card py-0.75 pr-2.25 pl-1.75 text-ui-foreground transition-opacity duration-600 ease-[ease]",
-                  "enabled:pointer-events-auto enabled:cursor-pointer enabled:hover:border-(--agent) focus-visible:outline-2 focus-visible:outline-(--agent)",
-                  tagFont,
-                  now - a.at > AGENT_IDLE_MS && "opacity-55",
-                )}
-                style={{ ["--agent" as string]: a.color }}
-                disabled={!go}
-                onClick={go}
-                title={go ? (p ? `Ir até ${a.name} na página ${p.name || "dele"}` : `Ir até o cursor de ${a.name}`) : `${a.name}: ${toolVerb(a.tool)}`}
-                data-testid="agent-focus">
-                <span className="size-2 rounded-full bg-(--agent)" />
-                {a.name}
-                {where(a)}
-              </button>
+              {(() => {
+                const tip = go
+                  ? p
+                    ? `Ir até ${a.name} na página ${p.name || "dele"}`
+                    : `Ir até o cursor de ${a.name}`
+                  : `${a.name}: ${toolVerb(a.tool)}`;
+                const btn = (
+                  <button
+                    type="button"
+                    className={cx(
+                      // Superfície e texto pelos aliases semânticos (ADR 0005): iguais aos tokens da marca no
+                      // tema noturno de hoje, e prontos para o escopo claro. A cor do agente continua própria.
+                      "m-0 flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--agent)_55%,transparent)] bg-ui-card py-0.75 pr-2.25 pl-1.75 text-ui-foreground transition-opacity duration-600 ease-[ease]",
+                      "enabled:pointer-events-auto enabled:cursor-pointer enabled:hover:border-(--agent) focus-visible:outline-2 focus-visible:outline-(--agent)",
+                      tagFont,
+                      now - a.at > AGENT_IDLE_MS && "opacity-55",
+                    )}
+                    style={{ ["--agent" as string]: a.color }}
+                    disabled={!go}
+                    onClick={go}
+                    data-testid="agent-focus"
+                  >
+                    <span className="size-2 rounded-full bg-(--agent)" />
+                    {a.name}
+                    {where(a)}
+                  </button>
+                );
+                return (
+                  <Hint label={tip}>
+                    {go ? btn : <span className="inline-flex" tabIndex={0}>{btn}</span>}
+                  </Hint>
+                );
+              })()}
             </li>
           );
         })}
