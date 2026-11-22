@@ -212,7 +212,20 @@ Tarefa: desenhar pelo MCP HTTP, numa sessão na nuvem, um quadro antes/depois da
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 71 | Screenshot de um quadro que abraça o conteúdo | `render_screenshot` de um `frame` raiz com `width`/`height: "hug"` devolveu um PNG de 2×2, sem erro nem aviso; o canvas mostrava o quadro inteiro (ele mede no navegador), o screenshot usa o tamanho gravado. O contorno foi medir o quadro no canvas e fixar largura e altura | Medir raízes `hug` no Chromium headless antes do screenshot (o export SVG já mede), ou responder com um erro dizendo que a raiz não tem tamanho | P1 |
+| 71 | Screenshot de um quadro que abraça o conteúdo | `render_screenshot` de um `frame` raiz com `width`/`height: "hug"` devolveu um PNG de 2×2, sem erro nem aviso; o canvas mostrava o quadro inteiro (ele mede no navegador), o screenshot usa o tamanho gravado. O contorno foi medir o quadro no canvas e fixar largura e altura | Feito (2026-11-22): raízes `hug`/`fill` são medidas no Chromium headless antes do screenshot (mesma mudança do #29) | — |
 | 72 | Desenhar no Paprika do próprio usuário a partir da nuvem | A regra design-first aponta para `127.0.0.1:4777` na máquina do usuário; a sessão na nuvem não alcança esse endereço, então o quadro ficou num servidor descartável no container e só o PNG chega ao usuário | `paprika export --root <id>` de um frame só mais uma tool `import_nodes`, ou deixar o sync do time levar um workspace compartilhado de "propostas" | P2 |
 
 - Um `create_nodes` aninhado montou o quadro inteiro (≈100 nós) numa chamada; com `width`/`height: "hug"` em todo texto, o problema do texto 100×100 não apareceu desta vez (o #65 continua valendo para o padrão).
+
+## 2026-11-22: segunda leva do backlog (rótulos nas setas, remover membro e trocar chave)
+
+Tarefa: desenhar via MCP as telas de rótulo nas setas e do time antes de implementar (design-first), primeiro num servidor no container da nuvem, depois no Paprika do próprio usuário.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 73 | Pôr um rótulo no meio de uma seta (antes de existir `label`) | Precisei ler o `d` derivado do connector, achar o meio do primeiro subcaminho à mão e pôr um `text` ali; ele fica para trás quando a seta se move | Feito (2026-11-22): `label` no `connector` e nas arestas do `draw_diagram`, desenhado no meio com halo | — |
+| 74 | Distinguir o rótulo de histórico do diagrama do rótulo de uma aresta | `draw_diagram` já aceita um `label` no topo (a entrada do histórico); agora as arestas também aceitam `label`, então a mesma palavra quer dizer duas coisas na mesma chamada | Renomear o do topo para `historyLabel` numa próxima versão do contrato (mantendo `label` como alias), ou dizer isso nas duas descrições | P3 |
+| 75 | Copiar um quadro para o Paprika do próprio usuário | Igual ao #72: a sessão na nuvem desenhou no próprio servidor; para levar ao Paprika do usuário, exportou o workspace, converteu em `create_nodes` aninhado (tirando `x/y/width/height/d` derivados dos connectors, que o `create_nodes` recusa) e rodou esse script na máquina do usuário via Remote Control. `create_workspace` + `open_workspace` também trocaram o workspace ativo do servidor do usuário, e devolver o anterior pelo id errou uma vez (o ativo mudou no meio) | Uma ferramenta MCP `import_document` (entra um `.paprika.json`, sai um workspace novo, sem trocar o ativo), e o `create_nodes` ignorar os campos derivados do connector em vez de recusar | P1 |
+
+- #69 e #70 voltaram no painel do time: o `lint_design` acusou os rótulos de 11 px do próprio app (22 avisos) e não pegou um botão "Remover" que estourava a linha.
+- O #71 foi resolvido pela mesma mudança do #29 (raízes `hug` são medidas no navegador antes do screenshot).

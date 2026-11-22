@@ -212,7 +212,20 @@ Task: draw a before/after board of the contrast fixes (white text on the accent,
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 71 | A screenshot of a board that hugs its content | `render_screenshot` of a root `frame` with `width`/`height: "hug"` returned a 2×2 PNG, with no error or warning; the canvas showed the board at full size (it measures in the browser), the screenshot uses the stored size. The workaround was to measure the board in the canvas and set a fixed width and height | Measure `hug` roots in headless Chromium before the screenshot (the SVG export already measures), or answer with an error that says the root has no size | P1 |
+| 71 | A screenshot of a board that hugs its content | `render_screenshot` of a root `frame` with `width`/`height: "hug"` returned a 2×2 PNG, with no error or warning; the canvas showed the board at full size (it measures in the browser), the screenshot uses the stored size. The workaround was to measure the board in the canvas and set a fixed width and height | Done (2026-11-22): `hug`/`fill` roots are measured in headless Chromium before the screenshot (same change as #29) | — |
 | 72 | Draw in the user's own Paprika from a cloud session | The design-first rule points at `127.0.0.1:4777` on the user's machine; a cloud session cannot reach it, so the board lives in a throwaway server in the container and only its PNG reaches the user | `paprika export --root <id>` of a single frame plus an `import_nodes` tool, or let the team sync carry a shared "proposals" workspace | P2 |
 
 - Nested `create_nodes` built the whole board (≈100 nodes) in one call; with `width`/`height: "hug"` on every text there was no 100×100 text problem this time (#65 still holds for the default).
+
+## 2026-11-22: second backlog batch (arrow labels, team removal and key rotation)
+
+Task: draw the arrow-label and team screens over MCP before building them (design-first), first in a server in the cloud container, then in the user's own Paprika.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 73 | Put a label in the middle of an arrow (before `label` existed) | Had to read the connector's derived `d`, find the middle of the first subpath by hand and place a `text` there; it drifts when the arrow moves | Done (2026-11-22): `label` on `connector` and on `draw_diagram` edges, drawn at the middle with a halo | — |
+| 74 | Tell a diagram's history label from an edge label | `draw_diagram` already takes a top-level `label` (the history entry); edges now take `label` too, so the same word means two things in one call | Rename the top-level one to `historyLabel` in a future contract version (keep `label` as an alias), or say it in both descriptions | P3 |
+| 75 | Copy a board into the user's own Paprika | Same as #72: the cloud session drew in its own server; to put it in the user's Paprika it exported the workspace, turned it into nested `create_nodes` (dropping the derived `x/y/width/height/d` of connectors, which `create_nodes` refuses) and ran that script on the user's machine through Remote Control. `create_workspace` + `open_workspace` also switched the active workspace of the user's server, and putting the previous one back by id missed once (the active one changed under it) | An `import_document` MCP tool (a `.paprika.json` in, a new workspace out, without switching the active one), and `create_nodes` ignoring derived connector fields instead of refusing them | P1 |
+
+- #69 and #70 came back on the team panel: `lint_design` flagged the app's own 11 px labels (22 warnings) and missed a "Remover" button that overflowed its row.
+- #71 is fixed by the same change as #29 (hug roots are measured in the browser before the screenshot).
