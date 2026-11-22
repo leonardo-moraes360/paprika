@@ -29,7 +29,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Group / wrap selection in a frame, unwrap | `group` node, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21); no "wrap in frame" yet | 🟡 | P2 |
 | Absolute child inside an auto-layout frame ("ignore layout") | Children of row/column always flow | ⬜ | P1 |
 | Corner radius per corner | Single `radius` | 🟡 | P1 |
-| Z-order (forward, backward, front, back) | `update_nodes`/`move_nodes` take `index`: a number from 0, or `front`/`back`/`forward`/`backward`, one undo step (2026-11-22); no canvas shortcuts yet: Page Up / Page Down and a menu were requested on 2026-11-22, batch 3: PAP-B-021. | 🟡 | P1 |
+| Z-order (forward, backward, front, back) | `update_nodes`/`move_nodes` take `index`: a number from 0, or `front`/`back`/`forward`/`backward`, one undo step (2026-11-22). Canvas: `Page Up`/`Page Down` step, `Ctrl+Page Up`/`Ctrl+Page Down` front/back; inspector **Ordem** section (2026-11-22, PAP-B-021). | ✅ | — |
 | Hide, lock, unlock all | `visible`, `locked`; no "unlock all" | 🟡 | P2 |
 | Align and distribute selection | — | ⬜ | P2 |
 | Constraints (behavior when the parent resizes) | — | ⬜ | P2 |
