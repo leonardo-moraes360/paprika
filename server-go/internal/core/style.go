@@ -778,8 +778,6 @@ func lengthProblem(doc *Document, id, field string, value any, min, max *float64
 	return ""
 }
 
-func fptr(v float64) *float64 { return &v }
-
 func LengthTokenError(doc *Document) string {
 	seen := map[string]bool{}
 	var walk func(id string) string
@@ -809,15 +807,15 @@ func LengthTokenError(doc *Document) string {
 		if typ == "connector" {
 			if st := n.Obj("stroke"); st != nil {
 				w, _ := st.Get("width")
-				msg = check("stroke.width", w, fptr(0), fptr(1000))
+				msg = check("stroke.width", w, new(float64(0)), new(float64(1000)))
 			}
 		} else {
 			if v, ok := n.Get("radius"); ok {
-				msg = check("radius", v, fptr(0), nil)
+				msg = check("radius", v, new(float64(0)), nil)
 			}
 			if st := n.Obj("stroke"); st != nil && msg == "" {
 				w, _ := st.Get("width")
-				msg = check("stroke.width", w, fptr(0), fptr(1000))
+				msg = check("stroke.width", w, new(float64(0)), new(float64(1000)))
 			}
 			if sh := n.Obj("shadow"); sh != nil && msg == "" {
 				x, _ := sh.Get("x")
@@ -829,7 +827,7 @@ func LengthTokenError(doc *Document) string {
 					msg = check("shadow.y", y, nil, nil)
 				}
 				if msg == "" {
-					msg = check("shadow.blur", b, fptr(0), nil)
+					msg = check("shadow.blur", b, new(float64(0)), nil)
 				}
 				if msg == "" {
 					msg = check("shadow.spread", sp, nil, nil)
@@ -838,27 +836,27 @@ func LengthTokenError(doc *Document) string {
 			if typ == "frame" && msg == "" {
 				if l := n.Obj("layout"); l != nil {
 					g, _ := l.Get("gap")
-					msg = check("layout.gap", g, fptr(0), nil)
+					msg = check("layout.gap", g, new(float64(0)), nil)
 					if msg == "" {
 						p, _ := l.Get("padding")
 						if arr, ok := p.([]any); ok {
 							for i, v := range arr {
-								if msg = check(fmt.Sprintf("layout.padding.%d", i), v, fptr(0), nil); msg != "" {
+								if msg = check(fmt.Sprintf("layout.padding.%d", i), v, new(float64(0)), nil); msg != "" {
 									break
 								}
 							}
 						} else {
-							msg = check("layout.padding", p, fptr(0), nil)
+							msg = check("layout.padding", p, new(float64(0)), nil)
 						}
 					}
 				}
 			}
 			if (typ == "text" || typ == "shape") && msg == "" {
 				fs, _ := n.Get("fontSize")
-				msg = check("fontSize", fs, fptr(1), fptr(1000))
+				msg = check("fontSize", fs, new(float64(1)), new(float64(1000)))
 				if msg == "" {
 					lh, _ := n.Get("lineHeight")
-					msg = check("lineHeight", lh, fptr(0), fptr(10))
+					msg = check("lineHeight", lh, new(float64(0)), new(float64(10)))
 				}
 			}
 			if typ == "text" && msg == "" {

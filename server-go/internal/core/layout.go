@@ -113,13 +113,6 @@ func gapOf(doc *Document, n *Node) float64 {
 	return 0
 }
 
-func toF(v any) float64 {
-	if f, ok := v.(float64); ok {
-		return f
-	}
-	return 0
-}
-
 func sizeNum(n *Node, key string) (float64, bool) {
 	v, ok := n.Get(key)
 	if !ok {
