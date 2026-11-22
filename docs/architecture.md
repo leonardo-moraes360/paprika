@@ -47,7 +47,7 @@
 ## Known limitations (v0.1)
 
 - Two processes on the same database (`serve` + `mcp`) see each other's commits within ~300 ms, but each keeps its own active workspace. To use MCP and the canvas together, prefer `paprika serve` + MCP over HTTP.
-- No boolean operations on paths, point-by-point path editing on the canvas (the pen creates new paths; existing ones are edited through `d`), structured gradients or rotation-aware hit testing.
+- Boolean path ops (`combine_paths`: union/subtract/intersect/exclude) exist in the core and MCP; there is no canvas menu yet. Point-by-point path editing on the canvas is still missing (the pen creates new paths; existing ones are edited through `d`), as are structured gradients and rotation-aware hit testing.
 - Groups have no rotation of their own (rotate the children), and children sized `hug`/`fill` count as a point when the group box is fitted. Nodes inside a row/column frame can't be grouped (their position comes from the flow).
 - Instances can't be nested inside components yet, and only appearance fields can be overridden (no component props or slots). `scale` doesn't scale a `fontSize` that is a token.
 - The contrast lint ignores gradients and background images.

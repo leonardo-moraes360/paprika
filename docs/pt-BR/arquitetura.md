@@ -47,7 +47,7 @@ O `server-go/` é o único servidor; o servidor TypeScript do qual ele foi porta
 ## Limitações conhecidas (v0.1)
 
 - Dois processos no mesmo banco (`serve` + `mcp`) enxergam as gravações um do outro em ~300 ms, mas cada um mantém o seu workspace ativo. Para usar MCP e canvas juntos, prefira `paprika serve` + MCP HTTP.
-- Sem operações booleanas entre paths, edição ponto a ponto de paths no canvas (a caneta cria paths novos; os existentes se editam pelo `d`), gradientes estruturados ou rotação no hit-test do canvas.
+- Operações booleanas de path (`combine_paths`: união/subtração/interseção/exclusão) existem no core e no MCP; ainda não há menu no canvas. Continua faltando edição ponto a ponto de paths no canvas (a caneta cria paths novos; os existentes se editam pelo `d`), gradientes estruturados e rotação no hit-test do canvas.
 - Grupos não têm rotação própria (gire os filhos), e filhos com tamanho `hug`/`fill` contam como um ponto no ajuste da caixa. Nós dentro de um frame row/column não podem ser agrupados (a posição vem do fluxo).
 - Ainda não dá para pôr instâncias dentro de componentes, e só campos de aparência aceitam override (sem props nem slots de componente). `scale` não escala um `fontSize` que é token.
 - O lint de contraste ignora gradientes e imagens de fundo.
