@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use paprika_sync::node::{Config, Node};
-use serde_json::Value;
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
 pub async fn start(dir: &std::path::Path, name: &str) -> (Node, mpsc::UnboundedReceiver<Value>) {
@@ -41,4 +41,13 @@ pub async fn wait_for(
     })
     .await
     .expect("timed out waiting for event")
+}
+
+pub async fn connect_peers(a: &Node, b: &Node) {
+    b.command(&json!({"t": "peer.add", "addr": a.addr()}))
+        .await
+        .unwrap();
+    a.command(&json!({"t": "peer.add", "addr": b.addr()}))
+        .await
+        .unwrap();
 }

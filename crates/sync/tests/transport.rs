@@ -4,13 +4,9 @@ mod common;
 
 use std::time::Duration;
 
-use common::{start, start_with, wait_for};
+use common::{connect_peers, start, start_with, wait_for};
 use paprika_sync::proto::{APP_VERSION, FORMAT_VERSION};
 use serde_json::json;
-
-async fn connect_peers(a: &Node, b: &Node) {
-    connect_peers(&a, &b).await;
-}
 
 #[tokio::test]
 async fn two_peers_connect_and_share_presence() {

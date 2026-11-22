@@ -4,7 +4,7 @@ mod common;
 
 use std::time::Duration;
 
-use common::{start, start_with, wait_for};
+use common::{start, wait_for};
 use paprika_sync::node::Node;
 use serde_json::{Value, json};
 

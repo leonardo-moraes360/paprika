@@ -6,6 +6,12 @@ import (
 	"testing"
 )
 
+func peerAddBoth(t *testing.T, a, b *instance) {
+	t.Helper()
+	call(t, b, map[string]any{"t": "peer.add", "addr": a.team.Sidecar().Addr})
+	call(t, a, map[string]any{"t": "peer.add", "addr": b.team.Sidecar().Addr})
+}
+
 func peerState(t *testing.T, i *instance) (state, name string) {
 	var st struct {
 		Peers []struct{ State, Name string } `json:"peers"`
@@ -42,8 +48,7 @@ func assertPeerPresence(t *testing.T, from, to *instance, actor, tool string) {
 
 func TestTwoInstancesConnectAndSharePresence(t *testing.T) {
 	a, b := newInstance(t, "ana"), newInstance(t, "bruno")
-	call(t, b, map[string]any{"t": "peer.add", "addr": a.team.Sidecar().Addr})
-	call(t, a, map[string]any{"t": "peer.add", "addr": b.team.Sidecar().Addr})
+	peerAddBoth(t, a, b)
 	eventually(t, "direct connection", func() bool {
 		s, n := peerState(t, a)
 		return s == "direct" && n == "bruno"
@@ -69,8 +74,7 @@ func TestTwoInstancesConnectAndSharePresence(t *testing.T) {
 func TestIncompatibleFormatRefusedOnBothSides(t *testing.T) {
 	a := newInstanceVersions(t, "ana", "0.0.1", "paprika/1")
 	b := newInstanceVersions(t, "bruno", "0.0.1", "paprika/0")
-	call(t, b, map[string]any{"t": "peer.add", "addr": a.team.Sidecar().Addr})
-	call(t, a, map[string]any{"t": "peer.add", "addr": b.team.Sidecar().Addr})
+	peerAddBoth(t, a, b)
 	eventually(t, "A refuses incompatible format", func() bool {
 		return a.logs.has("incompatible document format")
 	})
@@ -87,8 +91,7 @@ func TestIncompatibleFormatRefusedOnBothSides(t *testing.T) {
 func TestDifferentAppVersionSyncsWithWarning(t *testing.T) {
 	a := newInstanceVersions(t, "ana", "0.0.1", "paprika/1")
 	b := newInstanceVersions(t, "bruno", "9.9.9", "paprika/1")
-	call(t, b, map[string]any{"t": "peer.add", "addr": a.team.Sidecar().Addr})
-	call(t, a, map[string]any{"t": "peer.add", "addr": b.team.Sidecar().Addr})
+	peerAddBoth(t, a, b)
 	eventually(t, "direct connection despite different app", func() bool {
 		s, _ := peerState(t, a)
 		return s == "direct"
