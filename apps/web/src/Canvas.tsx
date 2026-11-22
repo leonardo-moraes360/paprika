@@ -47,15 +47,18 @@ import {
 } from "@paprika/core";
 import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
+import { Button } from "./components/ui/button";
 import { InlineName } from "./InlineName";
 import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
 import { AgentCursors, type Box } from "./AgentCursors";
+import { cn } from "./lib/cn";
 import { cx, ui } from "./ui";
 
 /** Drawing tools show a crosshair over the canvas. */
 const CROSSHAIR = new Set<string>(["frame", "rect", "ellipse", "text", "pen"]);
 
-const zoomButton = "inline-flex h-6 w-6.5 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent hover:bg-panel-2";
+const zoomButton =
+  "inline-flex h-6 w-6.5 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-ui-foreground hover:bg-ui-secondary disabled:cursor-default disabled:opacity-40 [&_svg]:size-3.5";
 
 export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "note" | "connector";
 
@@ -1237,6 +1240,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
 
   const single = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
   const resizable = !!single && single.type !== "group" && single.type !== "page" && single.type !== "connector" && !isInstance(single) && !copyOwner(doc, single);
+  const [resizeLock, setResizeLock] = useState<"ratio" | "square" | null>(null);
   const onResizeDown = (corner: "nw" | "ne" | "sw" | "se") => (e: RPointerEvent) => {
     e.stopPropagation();
     const node = single;
@@ -1250,15 +1254,18 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const y0 = shownAt?.y ?? node.y;
     const w0 = shownAt?.width ?? (typeof node.width === "number" ? node.width : box.width / view.zoom);
     const h0 = shownAt?.height ?? (typeof node.height === "number" ? node.height : box.height / view.zoom);
+    const ratio0 = w0 / Math.max(h0, 1e-6);
     const absolute = isAbsolute(doc, node);
     let last: { x?: number; y?: number; width: number; height: number } = {
       width: Math.round(w0),
       height: Math.round(h0),
       ...(absolute ? { x: Math.round(x0), y: Math.round(y0) } : {}),
     };
-    const move = (ev: PointerEvent) => {
-      const dx = (ev.clientX - sx) / view.zoom;
-      const dy = (ev.clientY - sy) / view.zoom;
+    const held = { shift: e.shiftKey, alt: e.altKey };
+    let lastClient = { x: e.clientX, y: e.clientY };
+    const applyAt = (clientX: number, clientY: number) => {
+      const dx = (clientX - sx) / view.zoom;
+      const dy = (clientY - sy) / view.zoom;
       let left = x0;
       let top = y0;
       let right = x0 + w0;
@@ -1275,6 +1282,27 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         if (corner === "nw" || corner === "ne") top = bottom - 1;
         else bottom = top + 1;
       }
+      const lock: "ratio" | "square" | null = held.shift ? (held.alt ? "square" : "ratio") : null;
+      setResizeLock(lock);
+      if (lock) {
+        let width = right - left;
+        let height = bottom - top;
+        const dw = Math.abs(width - w0);
+        const dh = Math.abs(height - h0);
+        if (lock === "square") {
+          const side = Math.max(1, dw >= dh ? width : height);
+          width = side;
+          height = side;
+        } else if (dw >= dh) {
+          height = Math.max(1, width / ratio0);
+        } else {
+          width = Math.max(1, height * ratio0);
+        }
+        if (corner === "nw" || corner === "sw") left = right - width;
+        else right = left + width;
+        if (corner === "nw" || corner === "ne") top = bottom - height;
+        else bottom = top + height;
+      }
       last = {
         width: Math.round(right - left),
         height: Math.round(bottom - top),
@@ -1282,13 +1310,29 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       };
       setPreview({ [id]: last });
     };
+    const move = (ev: PointerEvent) => {
+      if (ev.shiftKey) held.shift = true;
+      if (ev.altKey) held.alt = true;
+      lastClient = { x: ev.clientX, y: ev.clientY };
+      applyAt(ev.clientX, ev.clientY);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      held.shift = ev.shiftKey || ev.getModifierState("Shift");
+      held.alt = ev.altKey || ev.getModifierState("Alt");
+      applyAt(lastClient.x, lastClient.y);
+    };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      setResizeLock(null);
       commitPreview({ [id]: last }, [{ op: "update", id, props: last }], "redimensionar");
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
   };
 
   const editedShape = textEditId ? doc.nodes[textEditId] : undefined;
@@ -1402,6 +1446,15 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink">
             {Math.round(box.width / view.zoom)} × {Math.round(box.height / view.zoom)}
           </div>
+          {resizeLock && (
+            <div
+              className="absolute top-[calc(100%+28px)] left-1/2 -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink"
+              data-testid="resize-lock-hint"
+              data-lock={resizeLock}
+            >
+              {resizeLock === "square" ? "1:1 · Shift+Alt" : "Proporção · Shift"}
+            </div>
+          )}
         </div>
       )}
       {draft && isDraftTool(tool) && (
@@ -1419,21 +1472,22 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         </svg>
       )}
       {marqueeRect && <div className="pointer-events-none absolute border border-select bg-select/8" style={marqueeRect} data-testid="marquee" />}
-      <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-line bg-panel p-0.5" onPointerDown={(e) => e.stopPropagation()}>
-        <button className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom" title="Diminuir zoom">
-          <Minus size={14} />
-        </button>
-        <span className="min-w-11 text-center text-muted">{Math.round(view.zoom * 100)}%</span>
-        <button className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom" title="Aumentar zoom">
-          <Plus size={14} />
-        </button>
-        <button className={zoomButton} onClick={fit} aria-label="Enquadrar" title="Enquadrar (Shift+1)">
-          <Maximize size={14} />
-        </button>
-        <button
-          className={cx(
-            "h-6 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-xs font-semibold tracking-[0.02em] hover:bg-panel-2 disabled:cursor-not-allowed disabled:opacity-40",
-            renderer === "wasm" ? "text-accent" : "text-muted",
+      <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-ui-border bg-ui-card p-0.5" onPointerDown={(e) => e.stopPropagation()}>
+        <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom" title="Diminuir zoom">
+          <Minus size={14} aria-hidden />
+        </Button>
+        <span className="min-w-11 text-center text-ui-muted-foreground">{Math.round(view.zoom * 100)}%</span>
+        <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom" title="Aumentar zoom">
+          <Plus size={14} aria-hidden />
+        </Button>
+        <Button variant="ghost" className={zoomButton} onClick={fit} aria-label="Enquadrar" title="Enquadrar (Shift+1)">
+          <Maximize size={14} aria-hidden />
+        </Button>
+        <Button
+          variant="ghost"
+          className={cn(
+            "h-6 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-xs font-semibold tracking-[0.02em] hover:bg-ui-secondary disabled:cursor-not-allowed disabled:opacity-40",
+            renderer === "wasm" ? "text-accent" : "text-ui-muted-foreground",
           )}
           data-testid="renderer-toggle"
           data-backend={renderer === "wasm" ? wasmLayer.status.backend : "dom"}
@@ -1453,7 +1507,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           }}
         >
           {renderer === "dom" ? "DOM" : wasmLayer.status.backend === "webgpu" ? "GPU" : wasmLayer.status.backend === "cpu" ? "CPU" : "WASM"}
-        </button>
+        </Button>
       </div>
     </div>
   );

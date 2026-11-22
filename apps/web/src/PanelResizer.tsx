@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { flushSync } from "react-dom";
 import { PanelLeftOpen, PanelRightOpen } from "lucide-react";
-import { cx } from "./ui";
+import { Button } from "./components/ui/button";
+import { cn } from "./lib/cn";
 
-/** Limites de um painel lateral redimensionável (px). */
 export interface PanelLimits {
   min: number;
   max: number;
@@ -24,7 +24,7 @@ function readWidth(key: string, limits: PanelLimits): number {
     const n = raw === null ? NaN : Number(raw);
     return Number.isFinite(n) ? clamp(n, limits) : limits.initial;
   } catch {
-    return limits.initial; // storage bloqueado (janela privada, sandbox)
+    return limits.initial;
   }
 }
 
@@ -60,7 +60,6 @@ export interface Panel {
   setCollapsed: (collapsed: boolean) => void;
 }
 
-/** Largura persistida em localStorage, sempre dentro de [min, max], e se o painel está recolhido. */
 export function usePanel(key: string, limits: PanelLimits): Panel {
   const [width, setWidthState] = useState(() => readWidth(key, limits));
   const [collapsed, setCollapsedState] = useState(() => readCollapsed(`${key}.collapsed`));
@@ -82,13 +81,14 @@ export function usePanel(key: string, limits: PanelLimits): Panel {
   return { width, collapsed, setWidth, setCollapsed };
 }
 
-/** Botão flutuante no canto do canvas que devolve um painel recolhido. */
 export function PanelToggle({ side, label, panel }: { side: "left" | "right"; label: string; panel: Panel }) {
   const Icon = side === "left" ? PanelLeftOpen : PanelRightOpen;
   return (
-    <button
-      className={cx(
-        "absolute top-3 z-10 inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-line bg-panel p-0 text-fg shadow-float hover:bg-panel-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select max-wide:hidden",
+    <Button
+      variant="secondary"
+      size="icon"
+      className={cn(
+        "absolute top-3 z-10 size-8 rounded-lg border border-ui-border bg-ui-card text-ui-card-foreground shadow-float hover:bg-ui-secondary-hover max-wide:hidden",
         side === "left" ? "left-3" : "right-3",
       )}
       data-panel-toggle={side}
@@ -98,16 +98,10 @@ export function PanelToggle({ side, label, panel }: { side: "left" | "right"; la
       onClick={() => panel.setCollapsed(false)}
     >
       <Icon size={16} strokeWidth={1.75} aria-hidden />
-    </button>
+    </Button>
   );
 }
 
-/**
- * Alça de arraste na borda interna de um painel lateral. `side` diz de que lado o painel está:
- * na esquerda, arrastar para a direita alarga; na direita, arrastar para a esquerda alarga.
- * Teclado: ←/→ (Shift = passo maior), Home/End = mínimo/máximo; duplo clique volta ao padrão.
- * Arrastar (ou encolher pelo teclado) além do mínimo recolhe o painel; o botão flutuante o devolve com a última largura.
- */
 export function PanelResizer({
   side,
   label,
@@ -135,7 +129,7 @@ export function PanelResizer({
     const d = drag.current;
     if (!d) return;
     d.last = d.w + (e.clientX - d.x) * dir;
-    onChange(d.last, false); // grava só ao soltar, não a cada movimento
+    onChange(d.last, false);
   };
   const end = () => {
     const d = drag.current;
@@ -172,12 +166,11 @@ export function PanelResizer({
 
   return (
     <div
-      className={cx(
-        // The handle splits the panel's grid cell and sits over its border; the bar is the ::after.
-        "relative z-5 w-[9px] cursor-col-resize touch-none overflow-auto bg-panel outline-none max-wide:hidden",
+      className={cn(
+        "relative z-5 w-[9px] cursor-col-resize touch-none overflow-auto bg-ui-card outline-none max-wide:hidden",
         "after:absolute after:inset-y-0 after:inset-x-0.75 after:rounded-xs after:transition-[background] after:duration-120",
-        side === "left" ? "-mr-1.25 justify-self-end border-r border-line [grid-area:left]" : "-ml-1.25 justify-self-start border-l border-line [grid-area:right]",
-        active ? "after:bg-accent" : "hover:after:bg-line focus-visible:after:bg-accent",
+        side === "left" ? "-mr-1.25 justify-self-end border-r border-ui-border [grid-area:left]" : "-ml-1.25 justify-self-start border-l border-ui-border [grid-area:right]",
+        active ? "after:bg-accent" : "hover:after:bg-ui-border focus-visible:after:bg-accent",
       )}
       role="separator"
       aria-orientation="vertical"

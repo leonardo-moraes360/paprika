@@ -40,7 +40,7 @@ describe("API: MCP", () => {
     expect(tools).toEqual(contract.tools);
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
-        "apply_ops", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
+        "apply_ops", "combine_paths", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "get_bounds",
@@ -257,6 +257,17 @@ describe("API: MCP", () => {
     `);
     expect(textOf(await call(c, "group_nodes", { ids: ["g", "f"] }))).toMatch(/same parent/);
     expect(JSON.parse(textOf(await call(c, "ungroup_nodes", { ids: ["g"] }))).released).toEqual(["a", "b"]);
+    await call(c, "create_nodes", {
+      parentId: "f",
+      nodes: [
+        { type: "rect", id: "c1", x: 120, y: 20, width: 60, height: 60, fill: "#c43d27" },
+        { type: "rect", id: "c2", x: 150, y: 50, width: 60, height: 60, fill: "#1e2336" },
+      ],
+    });
+    const combined = JSON.parse(textOf(await call(c, "combine_paths", { ids: ["c1", "c2"], operation: "union", id: "cu" })));
+    expect(combined.path).toBe("cu");
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["cu"] })))[0]).toMatchObject({ type: "path", fill: "#c43d27", id: "cu" });
+    expect(textOf(await call(c, "get_nodes", { ids: ["c1"] }))).toMatch(/do not exist/);
     expect(JSON.parse(textOf(await call(c, "create_page", { id: "p2", name: "Variações" }))).page).toBe("p2");
     expect(textOf(await call(c, "create_nodes", { nodes: [{ type: "rect" }] }))).toMatch(/has pages/);
     await call(c, "create_nodes", { parentId: "p2", nodes: [{ type: "rect", id: "r", width: 10, height: 10 }] });
@@ -266,11 +277,12 @@ describe("API: MCP", () => {
         frame#f "Tela" 300×200 @0,0
           rect#a 30×30 @10,20
           rect#b 30×30 @60,40
+          path#cu 90×90 @120,20 fill=#c43d27 d="M0 0 L60 0 L60 30 L90 30 L90 90 L30 90 L30 60..."
       page#p2 "Variações"
         rect#r 10×10 @0,0"
     `);
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
-    expect(hist.map((h: { label: string }) => h.label)).toEqual(["group 2 node(s)", "ungroup 1 group(s)", "create page", "create 1 node(s)"]);
+    expect(hist.map((h: { label: string }) => h.label)).toEqual(["create 2 node(s)", "combine 2 path(s)", "create page", "create 1 node(s)"]);
   });
 
   it("fluxo completo: tokens → criar → lint → corrigir → exportar → desfazer", async () => {

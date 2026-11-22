@@ -95,6 +95,13 @@ func init() {
 			z.Field{Name: "op", Schema: z.Literal("detach")},
 			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
 		)),
+		z.Option("combine_paths", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("combine_paths")},
+			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(2).Max(500)},
+			z.Field{Name: "operation", Schema: z.Enum("union", "subtract", "intersect", "exclude")},
+			z.Field{Name: "id", Schema: z.Optional(z.String())},
+			z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+		)),
 	)
 }
 
@@ -889,7 +896,7 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		doc.Set("name", op.Str("name"))
 		return jsonv.NewObject("op", "rename_document", "name", prev), nil
 
-	case "group", "ungroup", "add_page", "detach":
+	case "group", "ungroup", "add_page", "detach", "combine_paths":
 		// Expanded against the *current* document, inside the same transaction.
 		var plan []any
 		var err error
@@ -902,6 +909,8 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			if err = SyncInstances(doc); err == nil {
 				plan, err = DetachOps(doc, op.Strings("ids"))
 			}
+		case "combine_paths":
+			plan, _, err = CombinePathsOps(doc, op.Strings("ids"), BooleanOperation(op.Str("operation")), op.Str("id"), op.Str("name"))
 		default:
 			plan, _ = AddPageOps(doc, op.Str("id"), op.Str("name"), op.Str("firstId"), op.Str("firstName"))
 		}
