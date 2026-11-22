@@ -68,38 +68,6 @@ pub fn app_version_warn(
     ))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn matching_versions_ok() {
-        assert!(check_versions("0.0.1", "paprika/1", "ana", "abcd", "0.0.1", "paprika/1").is_ok());
-        assert!(app_version_warn("0.0.1", "ana", "abcd", "0.0.1", "paprika/1").is_none());
-    }
-
-    #[test]
-    fn different_app_warns() {
-        assert!(check_versions("0.0.1", "paprika/1", "ana", "abcd", "0.0.2", "paprika/1").is_ok());
-        let w = app_version_warn("0.0.1", "ana", "abcd", "0.0.2", "paprika/1").unwrap();
-        assert!(w.contains("0.0.2"));
-        assert!(w.contains("Sync continues"));
-    }
-
-    #[test]
-    fn different_format_refuses() {
-        let e =
-            check_versions("0.0.1", "paprika/1", "ana", "abcd", "0.0.1", "paprika/2").unwrap_err();
-        assert!(e.contains("incompatible document format"));
-        assert!(e.contains("paprika/2"));
-    }
-
-    #[test]
-    fn missing_format_refuses() {
-        let e = check_versions("0.0.1", "paprika/1", "", "abcd", "", "").unwrap_err();
-        assert!(e.contains("did not advertise"));
-    }
-}
 
 pub async fn write_frame<T: Serialize>(send: &mut SendStream, msg: &T) -> Result<()> {
     let body = serde_json::to_vec(msg)?;
@@ -131,4 +99,37 @@ pub async fn read_frame<T: DeserializeOwned>(recv: &mut RecvStream) -> Result<Op
     let mut body = vec![0u8; n];
     recv.read_exact(&mut body).await?;
     Ok(Some(serde_json::from_slice(&body)?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn matching_versions_ok() {
+        assert!(check_versions("0.0.1", "paprika/1", "ana", "abcd", "0.0.1", "paprika/1").is_ok());
+        assert!(app_version_warn("0.0.1", "ana", "abcd", "0.0.1", "paprika/1").is_none());
+    }
+
+    #[test]
+    fn different_app_warns() {
+        assert!(check_versions("0.0.1", "paprika/1", "ana", "abcd", "0.0.2", "paprika/1").is_ok());
+        let w = app_version_warn("0.0.1", "ana", "abcd", "0.0.2", "paprika/1").unwrap();
+        assert!(w.contains("0.0.2"));
+        assert!(w.contains("Sync continues"));
+    }
+
+    #[test]
+    fn different_format_refuses() {
+        let e =
+            check_versions("0.0.1", "paprika/1", "ana", "abcd", "0.0.1", "paprika/2").unwrap_err();
+        assert!(e.contains("incompatible document format"));
+        assert!(e.contains("paprika/2"));
+    }
+
+    #[test]
+    fn missing_format_refuses() {
+        let e = check_versions("0.0.1", "paprika/1", "", "abcd", "", "").unwrap_err();
+        assert!(e.contains("did not advertise"));
+    }
 }
