@@ -93,7 +93,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Pen tool to create paths | `P`, bezier handles, close on first point | ✅ | — |
 | Edit points and handles of an existing path | Double-click a path: drag points and handles, add, remove, corner/smooth (2026-11-21); `d` in the inspector | ✅ | — |
 | Import/paste SVG as editable `path` layers | `import_svg`, `Ctrl+V` in the canvas (2026-11-21): paths, shapes (axis-aligned rect/ellipse stay native), groups, transforms, inherited paint; no text, images, gradients or `<style>` CSS | ✅ | — |
-| Boolean operations (union, subtract, intersect, exclude) | — (fb#1) | ⬜ | P2 |
+| Boolean operations (union, subtract, intersect, exclude) | — (fb#1, fb#76; see Q) | ⬜ | P1 |
 | Convert rect/ellipse to path | — | ⬜ | P2 |
 | Snapping and guides for points, half-pixel snapping | — | ⬜ | P3 |
 | Mirror, repeat, shape builder, vector networks | — | ⬜ | P3 |
@@ -254,3 +254,29 @@ Added by the maintainer on 2026-11-22, to plan later (not started). The constrai
 | Bug: numeric fields accept non-numeric text | Screenshot from the maintainer: "Opacidade" shows `1aaaaa`. Cause: `Field` with `type="number"` renders a text `<input>` with only `inputMode="decimal"` (`apps/web/src/Inspector.tsx`), and `setNum` silently drops a value that does not parse. Numeric fields should refuse non-numeric input (and say why when a pasted value is rejected) | ⬜ | TBD |
 | System fonts on any element with text | A font picker that lists the fonts installed on the machine (e.g. Local Font Access API, with a fallback list) for `text`, `shape` and every node that has `fontFamily`. Today `fontFamily` is a free text field. Relates to D "Font tokens" | ⬜ | TBD |
 | Import and export fonts in several formats | E.g. TTF, OTF, WOFF, WOFF2: fonts embedded in the workspace (as assets) and carried in exports (`@font-face` in HTML/CSS, embedded in SVG/PDF). Also over MCP. Respect each font's license when embedding. Relates to J and the export rows above | ⬜ | TBD |
+
+## Q. From the agent feedback log (2026-11-22)
+
+Every item still open in the [agent feedback log](agent-feedback.md) (fb#1 to fb#79), grouped into implementation work. Each row names the feedback it closes; when a row ships, mark those `fb#` items "Done" in the log. Priorities come from the log, raised where several agents hit the same wall.
+
+| Work item | What to build | Feedback | Status | Pri. |
+|---|---|---|---|---|
+| Move a board between Paprika servers | `import_document` (a `.paprika.json` in, a new workspace out, without switching the active one); `paprika export --root <id>` for one frame; `create_nodes` ignores derived connector fields instead of refusing them | fb#72, fb#75 | ⬜ | P1 |
+| Core geometry: absolute boxes for agents | A core `layout(doc)` returning absolute boxes (Go port held by fixtures), a `get_bounds` tool with rotated corners, an `origin` field, and `normalize` on path create (or the offset in `path_info`); the core export uses the same boxes, so SVG of auto-layout nodes needs no browser | fb#2, fb#15, fb#26, fb#41 | ⬜ | P1 |
+| Boolean operations and cut-outs | `union`/`subtract`/`intersect`/`exclude` producing a new `path` (MCP op + canvas command), or a `mask` on `group`; same item as F "Boolean operations" | fb#1, fb#76 | ⬜ | P1 |
+| Trace a reference image | Place an image (local file or data URL) as a locked, semi-transparent reference under a frame; `render_screenshot` with a `compare` image side by side | fb#78 | ⬜ | P2 |
+| Lint that points at what matters | Group `lint_design` results by rule (counts + first N ids), `minSeverity`, per-node `lintIgnore`; new rules: row/column children wider than the frame, geometry (siblings that don't touch, gaps under 4 px, fully hidden shapes) | fb#6, fb#9, fb#69, fb#70 | 🟡 | P2 |
+| Agents edit path points | `edit_path` (anchor index + new position, handles) over the canvas helpers, and anchors listed in `path_info` | fb#17, fb#43 | 🟡 | P2 |
+| Duplicate with changes | `duplicate_nodes` with `scale` and overrides (for example `mode: "dark"` for a light/dark pair) | fb#3, fb#45 | ⬜ | P2 |
+| Work on another workspace without moving the human | Optional `workspace` on the read tools (outline, nodes, screenshot); the active workspace id in the outline's first line and in write results; one `History` per workspace for the life of the process | fb#52, fb#53, fb#54 | ⬜ | P2 |
+| Z-order without an extra call | `index` or `"front"`/`"back"` in `update_nodes` props; pairs with P "Layer order" (canvas shortcuts) | fb#77 | ⬜ | P2 |
+| Screenshots agents can rely on | Detect a missing browser at startup and return the fix command; optional `path` or a download URL on `render_screenshot`; report the active renderer in the WebSocket hello and the outline (the screenshot stays on the HTML path) | fb#5, fb#24, fb#27, fb#28, fb#79 | 🟡 | P2 |
+| Safer deletes | Two-step `delete_workspace` (first call returns what would be lost and a token); a trash or activity log for workspace operations; a canvas notice when an agent deletes or switches the workspace | fb#59, fb#60, fb#61 | ⬜ | P2 |
+| Nested components | Instances inside components, overrides addressed by path (`instance/copy`) | fb#39 | ⬜ | P2 |
+| Import fidelity | `import_svg`: `<use>`/`<symbol>` sprites and `<text>` as `text` nodes; `import_html`: an option that renders in the server's Chromium and imports computed styles | fb#40, fb#42 | ⬜ | P2 |
+| Web semantics in the document | `href` on frames and text (exported as `<a>`), responsive roots (`minWidth`/`maxWidth` or breakpoint variants), `decorative` images, document-level image assets | fb#30, fb#31, fb#32, fb#33 | ⬜ | P2 |
+| Diagram routing around shapes | Obstacle-aware elbow routes, or `relayout` on `draw_diagram` for existing ids | fb#58 | ⬜ | P2 |
+| Contract cleanups for the next breaking version | Text and `structuredContent` as the same object; `historyLabel` with `label` as an alias; unknown session ids answer 404 so clients re-initialize; one actor name in both transports | fb#22, fb#48, fb#50, fb#74 | 🟡 | P3 |
+| Small conveniences | `pageId` default on `create_nodes` (the page the human sees); typed size tokens scaled by `scale`; `resolve` on `get_nodes`; read-only `sql_query`; open batch shown in the activity list; one UI language (or a setting); live cover and cover in export; normalized examples; edited paths as "ignore layout" children (A) | fb#21, fb#23, fb#36, fb#38, fb#44, fb#46, fb#49, fb#51, fb#63, fb#64 | ⬜ | P3 |
+
+Already covered by shipped work, to mark "Done" in the log: fb#8 and fb#16 (`group` node), fb#13 (pages; auto-stacking top-level frames is still open, see A).

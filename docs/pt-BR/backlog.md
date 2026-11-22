@@ -93,7 +93,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Caneta para criar paths | `P`, alças bezier, fecha no primeiro vértice | ✅ | — |
 | Editar pontos e alças de um path existente | Duplo clique no vetor: arrastar pontos e alças, adicionar, remover, canto/suave (2026-11-21); `d` no inspector | ✅ | — |
 | Importar/colar SVG como camadas `path` editáveis | `import_svg`, `Ctrl+V` no canvas (2026-11-21): paths, formas (rect/ellipse alinhados aos eixos ficam nativos), grupos, transforms, pintura herdada; sem texto, imagens, gradientes ou CSS de `<style>` | ✅ | — |
-| Operações booleanas (união, subtração, interseção, exclusão) | — (fb#1) | ⬜ | P2 |
+| Operações booleanas (união, subtração, interseção, exclusão) | — (fb#1, fb#76; ver Q) | ⬜ | P1 |
 | Converter rect/ellipse em path | — | ⬜ | P2 |
 | Snapping e guias para pontos, snapping a meio pixel | — | ⬜ | P3 |
 | Espelhar, repetir, shape builder, vector networks | — | ⬜ | P3 |
@@ -291,3 +291,29 @@ Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados)
 - Permitir importar ou exporta fontes em múltiplos formatos.
 
 </details>
+
+## Q. Do log de feedback dos agentes (2026-11-22)
+
+Todo item ainda aberto no [log de feedback dos agentes](feedback-agentes.md) (fb#1 a fb#79), agrupado em trabalho de implementação. Cada linha diz qual feedback fecha; quando a linha for entregue, marque esses itens `fb#` como "Feito" no log. As prioridades vêm do log, elevadas onde vários agentes bateram no mesmo muro.
+
+| Item de trabalho | O que construir | Feedback | Status | Pri. |
+|---|---|---|---|---|
+| Levar um quadro de um servidor Paprika para outro | `import_document` (entra um `.paprika.json`, sai um workspace novo, sem trocar o ativo); `paprika export --root <id>` de um frame; `create_nodes` ignora os campos derivados do connector em vez de recusar | fb#72, fb#75 | ⬜ | P1 |
+| Geometria no core: caixas absolutas para agentes | Um `layout(doc)` no core que devolve caixas absolutas (port em Go preso às fixtures), uma ferramenta `get_bounds` com os cantos rotacionados, um campo `origin` e `normalize` ao criar path (ou o deslocamento no `path_info`); o export do core usa as mesmas caixas, então o SVG de nós com auto layout dispensa navegador | fb#2, fb#15, fb#26, fb#41 | ⬜ | P1 |
+| Operações booleanas e recortes | `union`/`subtract`/`intersect`/`exclude` gerando um novo `path` (op no MCP + comando no canvas), ou `mask` em `group`; mesmo item de F "Operações booleanas" | fb#1, fb#76 | ⬜ | P1 |
+| Decalcar uma imagem de referência | Colocar uma imagem (arquivo local ou data URL) como referência travada e semitransparente sob um frame; `render_screenshot` com uma imagem `compare` lado a lado | fb#78 | ⬜ | P2 |
+| Lint que aponta o que importa | Agrupar o resultado do `lint_design` por regra (contagem + primeiros N ids), `minSeverity`, `lintIgnore` por nó; regras novas: filhos de row/column mais largos que o frame, geometria (irmãos que não se tocam, vãos abaixo de 4 px, formas totalmente escondidas) | fb#6, fb#9, fb#69, fb#70 | 🟡 | P2 |
+| Agentes editam pontos de path | `edit_path` (índice da âncora + nova posição, alças) sobre os helpers do canvas, e âncoras listadas no `path_info` | fb#17, fb#43 | 🟡 | P2 |
+| Duplicar com alterações | `duplicate_nodes` com `scale` e overrides (por exemplo `mode: "dark"` para um par claro/escuro) | fb#3, fb#45 | ⬜ | P2 |
+| Trabalhar em outro workspace sem mover o humano | `workspace` opcional nas ferramentas de leitura (outline, nodes, screenshot); o id do workspace ativo na primeira linha do outline e nos resultados de escrita; um `History` por workspace durante a vida do processo | fb#52, fb#53, fb#54 | ⬜ | P2 |
+| Ordem de camadas sem chamada extra | `index` ou `"front"`/`"back"` nas props do `update_nodes`; casa com P "Ordem das camadas" (atalhos no canvas) | fb#77 | ⬜ | P2 |
+| Screenshots confiáveis para agentes | Detectar navegador ausente na inicialização e devolver o comando de correção; `path` opcional ou URL de download no `render_screenshot`; informar o renderizador ativo no hello do WebSocket e no outline (o screenshot continua no caminho HTML) | fb#5, fb#24, fb#27, fb#28, fb#79 | 🟡 | P2 |
+| Exclusões mais seguras | `delete_workspace` em dois passos (a primeira chamada devolve o que seria perdido e um token); lixeira ou log de atividade para operações de workspace; aviso no canvas quando um agente apaga ou troca o workspace | fb#59, fb#60, fb#61 | ⬜ | P2 |
+| Componentes aninhados | Instâncias dentro de componentes, overrides endereçados por caminho (`instancia/copia`) | fb#39 | ⬜ | P2 |
+| Fidelidade de importação | `import_svg`: sprites `<use>`/`<symbol>` e `<text>` como nós `text`; `import_html`: opção que renderiza no Chromium do servidor e importa os estilos computados | fb#40, fb#42 | ⬜ | P2 |
+| Semântica web no documento | `href` em frames e textos (exportado como `<a>`), raízes responsivas (`minWidth`/`maxWidth` ou variantes por breakpoint), imagens `decorative`, assets de imagem no nível do documento | fb#30, fb#31, fb#32, fb#33 | ⬜ | P2 |
+| Roteamento de diagramas contornando formas | Rotas em cotovelo que evitam obstáculos, ou `relayout` no `draw_diagram` para ids existentes | fb#58 | ⬜ | P2 |
+| Limpezas de contrato para a próxima versão incompatível | Texto e `structuredContent` como o mesmo objeto; `historyLabel` com `label` como alias; ids de sessão desconhecidos respondem 404 para o cliente reinicializar; um só nome de ator nos dois transportes | fb#22, fb#48, fb#50, fb#74 | 🟡 | P3 |
+| Pequenas conveniências | `pageId` padrão no `create_nodes` (a página que o humano vê); tokens de tamanho tipados multiplicados por `scale`; `resolve` no `get_nodes`; `sql_query` somente leitura; batch aberto visível na lista de atividade; uma só língua na UI (ou configuração); capa ao vivo e capa no export; exemplos normalizados; paths editados como filhos "ignorar layout" (A) | fb#21, fb#23, fb#36, fb#38, fb#44, fb#46, fb#49, fb#51, fb#63, fb#64 | ⬜ | P3 |
+
+Já cobertos por trabalho entregue, para marcar "Feito" no log: fb#8 e fb#16 (nó `group`), fb#13 (páginas; empilhar frames de topo automaticamente continua aberto, ver A).
