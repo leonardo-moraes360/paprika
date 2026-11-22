@@ -432,7 +432,12 @@ func roundedElbowPath(pts []Pt, radius float64) (dParts []string, samples []Pt) 
 	return dParts, samples
 }
 
-func finishConnector(c *Node, origin Pt, bounds []Pt, body string, heads [][3]Pt, sw float64) {
+type connectorFrame struct {
+	ox, oy, width, height float64
+	local                 func(Pt) Pt
+}
+
+func newConnectorFrame(bounds []Pt, sw float64) connectorFrame {
 	minX, minY := math.Inf(1), math.Inf(1)
 	maxX, maxY := math.Inf(-1), math.Inf(-1)
 	for _, p := range bounds {
@@ -444,16 +449,25 @@ func finishConnector(c *Node, origin Pt, bounds []Pt, body string, heads [][3]Pt
 	pad := math.Max(1, sw)
 	ox := Round4(minX - pad)
 	oy := Round4(minY - pad)
-	local := func(p Pt) Pt { return Pt{p.X - ox, p.Y - oy} }
+	return connectorFrame{
+		ox:     ox,
+		oy:     oy,
+		width:  Round4(maxX - minX + 2*pad),
+		height: Round4(maxY - minY + 2*pad),
+		local:  func(p Pt) Pt { return Pt{p.X - ox, p.Y - oy} },
+	}
+}
+
+func finishConnector(c *Node, origin Pt, frame connectorFrame, body string, heads [][3]Pt) {
 	var d strings.Builder
 	d.WriteString(body)
 	for _, h := range heads {
-		d.WriteString(" M" + dpt(local(h[0])) + " L" + dpt(local(h[1])) + " L" + dpt(local(h[2])))
+		d.WriteString(" M" + dpt(frame.local(h[0])) + " L" + dpt(frame.local(h[1])) + " L" + dpt(frame.local(h[2])))
 	}
-	c.Set("x", Round4(ox-origin.X))
-	c.Set("y", Round4(oy-origin.Y))
-	c.Set("width", Round4(maxX-minX+2*pad))
-	c.Set("height", Round4(maxY-minY+2*pad))
+	c.Set("x", Round4(frame.ox-origin.X))
+	c.Set("y", Round4(frame.oy-origin.Y))
+	c.Set("width", frame.width)
+	c.Set("height", frame.height)
 	c.Set("d", d.String())
 }
 
@@ -496,20 +510,9 @@ func RouteConnector(doc *Document, c *Node) error {
 		for _, h := range heads {
 			bounds = append(bounds, h[:]...)
 		}
-		minX, minY := math.Inf(1), math.Inf(1)
-		maxX, maxY := math.Inf(-1), math.Inf(-1)
-		for _, p := range bounds {
-			minX = math.Min(minX, p.X)
-			minY = math.Min(minY, p.Y)
-			maxX = math.Max(maxX, p.X)
-			maxY = math.Max(maxY, p.Y)
-		}
-		pad := math.Max(1, sw)
-		ox := Round4(minX - pad)
-		oy := Round4(minY - pad)
-		local := func(p Pt) Pt { return Pt{p.X - ox, p.Y - oy} }
-		body := "M" + dpt(local(start)) + " C" + dpt(local(c1)) + " " + dpt(local(c2)) + " " + dpt(local(end))
-		finishConnector(c, origin, bounds, body, heads, sw)
+		frame := newConnectorFrame(bounds, sw)
+		body := "M" + dpt(frame.local(start)) + " C" + dpt(frame.local(c1)) + " " + dpt(frame.local(c2)) + " " + dpt(frame.local(end))
+		finishConnector(c, origin, frame, body, heads)
 		return nil
 	}
 
@@ -538,24 +541,13 @@ func RouteConnector(doc *Document, c *Node) error {
 		for _, h := range heads {
 			bounds = append(bounds, h[:]...)
 		}
-		minX, minY := math.Inf(1), math.Inf(1)
-		maxX, maxY := math.Inf(-1), math.Inf(-1)
-		for _, p := range bounds {
-			minX = math.Min(minX, p.X)
-			minY = math.Min(minY, p.Y)
-			maxX = math.Max(maxX, p.X)
-			maxY = math.Max(maxY, p.Y)
-		}
-		pad := math.Max(1, sw)
-		ox := Round4(minX - pad)
-		oy := Round4(minY - pad)
-		local := func(p Pt) Pt { return Pt{p.X - ox, p.Y - oy} }
+		frame := newConnectorFrame(bounds, sw)
 		localLine := make([]Pt, len(line))
 		for i, p := range line {
-			localLine[i] = local(p)
+			localLine[i] = frame.local(p)
 		}
 		parts, _ := roundedElbowPath(localLine, radius)
-		finishConnector(c, origin, bounds, strings.Join(parts, " "), heads, sw)
+		finishConnector(c, origin, frame, strings.Join(parts, " "), heads)
 		return nil
 	}
 
@@ -563,27 +555,16 @@ func RouteConnector(doc *Document, c *Node) error {
 	for _, h := range heads {
 		all = append(all, h[:]...)
 	}
-	minX, minY := math.Inf(1), math.Inf(1)
-	maxX, maxY := math.Inf(-1), math.Inf(-1)
-	for _, p := range all {
-		minX = math.Min(minX, p.X)
-		minY = math.Min(minY, p.Y)
-		maxX = math.Max(maxX, p.X)
-		maxY = math.Max(maxY, p.Y)
-	}
-	pad := math.Max(1, sw)
-	ox := Round4(minX - pad)
-	oy := Round4(minY - pad)
-	local := func(p Pt) Pt { return Pt{p.X - ox, p.Y - oy} }
+	frame := newConnectorFrame(all, sw)
 	parts := make([]string, len(line))
 	for k, p := range line {
 		cmd := "L"
 		if k == 0 {
 			cmd = "M"
 		}
-		parts[k] = cmd + dpt(local(p))
+		parts[k] = cmd + dpt(frame.local(p))
 	}
-	finishConnector(c, origin, all, strings.Join(parts, " "), heads, sw)
+	finishConnector(c, origin, frame, strings.Join(parts, " "), heads)
 	return nil
 }
 

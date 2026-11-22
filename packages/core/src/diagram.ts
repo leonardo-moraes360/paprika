@@ -311,6 +311,51 @@ function quadraticToCubic(start: Pt, handle: Pt, end: Pt): { c1: Pt; c2: Pt } {
   };
 }
 
+function connectorFrame(bounds: Pt[], sw: number): {
+  ox: number;
+  oy: number;
+  width: number;
+  height: number;
+  local: (p: Pt) => Pt;
+} {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (const p of bounds) {
+    minX = Math.min(minX, p.x);
+    minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x);
+    maxY = Math.max(maxY, p.y);
+  }
+  const pad = Math.max(1, sw);
+  const ox = round4(minX - pad);
+  const oy = round4(minY - pad);
+  return {
+    ox,
+    oy,
+    width: round4(maxX - minX + 2 * pad),
+    height: round4(maxY - minY + 2 * pad),
+    local: (p: Pt): Pt => ({ x: p.x - ox, y: p.y - oy }),
+  };
+}
+
+function applyConnectorPath(
+  c: ConnectorNode,
+  origin: Pt,
+  frame: ReturnType<typeof connectorFrame>,
+  dBody: string,
+  heads: [Pt, Pt, Pt][],
+): void {
+  let d = dBody;
+  for (const [w1, tip, w2] of heads) d += ` M${pt(frame.local(w1))} L${pt(frame.local(tip))} L${pt(frame.local(w2))}`;
+  c.x = round4(frame.ox - origin.x);
+  c.y = round4(frame.oy - origin.y);
+  c.width = frame.width;
+  c.height = frame.height;
+  c.d = d;
+}
+
 /** Cotovelo com cantos em arco SVG; `samples` cobre a caixa (inclui aproximações dos arcos). */
 function roundedElbowPath(pts: Pt[], radius: number): { dParts: string[]; samples: Pt[] } {
   if (pts.length < 2) return { dParts: [], samples: [] };
@@ -408,28 +453,9 @@ export function routeConnector(doc: Document, c: ConnectorNode): void {
       if (h) heads.push(h);
     }
     bounds = [start!, c1, c2, end!, handle, ...heads.flat()];
-    const pad = Math.max(1, sw);
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const p of bounds) {
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x);
-      maxY = Math.max(maxY, p.y);
-    }
-    const ox = round4(minX - pad);
-    const oy = round4(minY - pad);
-    const local = (p: Pt): Pt => ({ x: p.x - ox, y: p.y - oy });
-    dBody = `M${pt(local(start!))} C${pt(local(c1))} ${pt(local(c2))} ${pt(local(end!))}`;
-    let d = dBody;
-    for (const [w1, tip, w2] of heads) d += ` M${pt(local(w1))} L${pt(local(tip))} L${pt(local(w2))}`;
-    c.x = round4(ox - origin.x);
-    c.y = round4(oy - origin.y);
-    c.width = round4(maxX - minX + 2 * pad);
-    c.height = round4(maxY - minY + 2 * pad);
-    c.d = d;
+    const frame = connectorFrame(bounds, sw);
+    dBody = `M${pt(frame.local(start!))} C${pt(frame.local(c1))} ${pt(frame.local(c2))} ${pt(frame.local(end!))}`;
+    applyConnectorPath(c, origin, frame, dBody, heads);
     return;
   }
 
@@ -444,59 +470,18 @@ export function routeConnector(doc: Document, c: ConnectorNode): void {
   }
 
   if (c.route === "rounded") {
-    const { dParts, samples } = roundedElbowPath(line, c.radius);
+    const { samples } = roundedElbowPath(line, c.radius);
     bounds = [...samples, ...heads.flat()];
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const p of bounds) {
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x);
-      maxY = Math.max(maxY, p.y);
-    }
-    const pad = Math.max(1, sw);
-    const ox = round4(minX - pad);
-    const oy = round4(minY - pad);
-    const local = (p: Pt): Pt => ({ x: p.x - ox, y: p.y - oy });
-    // Reconstrói o path em coords locais a partir dos pontos de canvas.
-    const localLine = line.map(local);
-    const localRounded = roundedElbowPath(localLine, c.radius);
-    dBody = localRounded.dParts.join(" ");
-    let d = dBody;
-    for (const [w1, tip, w2] of heads) d += ` M${pt(local(w1))} L${pt(local(tip))} L${pt(local(w2))}`;
-    c.x = round4(ox - origin.x);
-    c.y = round4(oy - origin.y);
-    c.width = round4(maxX - minX + 2 * pad);
-    c.height = round4(maxY - minY + 2 * pad);
-    c.d = d;
+    const frame = connectorFrame(bounds, sw);
+    dBody = roundedElbowPath(line.map(frame.local), c.radius).dParts.join(" ");
+    applyConnectorPath(c, origin, frame, dBody, heads);
     return;
   }
 
   bounds = [...line, ...heads.flat()];
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity;
-  for (const p of bounds) {
-    minX = Math.min(minX, p.x);
-    minY = Math.min(minY, p.y);
-    maxX = Math.max(maxX, p.x);
-    maxY = Math.max(maxY, p.y);
-  }
-  // Margem de uma espessura: o traço e as pontas não encostam na borda da caixa.
-  const pad = Math.max(1, sw);
-  const ox = round4(minX - pad);
-  const oy = round4(minY - pad);
-  const local = (p: Pt): Pt => ({ x: p.x - ox, y: p.y - oy });
-  let d = line.map((p, k) => `${k ? "L" : "M"}${pt(local(p))}`).join(" ");
-  for (const [w1, tip, w2] of heads) d += ` M${pt(local(w1))} L${pt(local(tip))} L${pt(local(w2))}`;
-  c.x = round4(ox - origin.x);
-  c.y = round4(oy - origin.y);
-  c.width = round4(maxX - minX + 2 * pad);
-  c.height = round4(maxY - minY + 2 * pad);
-  c.d = d;
+  const frame = connectorFrame(bounds, sw);
+  dBody = line.map((p, k) => `${k ? "L" : "M"}${pt(frame.local(p))}`).join(" ");
+  applyConnectorPath(c, origin, frame, dBody, heads);
 }
 
 /** Recalcula todos os conectores do documento. Muta `doc`; lança ConnectorError numa ponta inválida. */
