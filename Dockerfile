@@ -47,7 +47,8 @@ RUN apt-get update \
  && rustup target add x86_64-unknown-linux-musl
 WORKDIR /src/crates/sync
 COPY crates/sync/ ./
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
+# Own registry cache: the wasm stage builds at the same time and would race on unpacking crates.
+RUN --mount=type=cache,id=cargo-registry-sync,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/crates/sync/target \
     cargo build --locked --release --target x86_64-unknown-linux-musl \
  && install -D target/x86_64-unknown-linux-musl/release/paprika-sync /out/paprika-sync
