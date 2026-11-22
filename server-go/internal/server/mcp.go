@@ -816,7 +816,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if err != nil {
 				return nil, err
 			}
-			return textResult("<!-- "+sv.FileName+" -->\n"+sv.Source), nil
+			return textResult("<!-- " + sv.FileName + " -->\n" + sv.Source), nil
 		}
 		if m.shot == nil {
 			return nil, errors.New("SVG export unavailable on this server")

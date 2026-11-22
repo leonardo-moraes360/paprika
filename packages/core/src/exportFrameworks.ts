@@ -123,13 +123,44 @@ export function angularPreviewHTML(doc: Document, rootId: string, opts: { cssVar
   return previewPage(doc, p, ang.template.trim(), ang.styles);
 }
 
+function unwrapSvelteGlobal(css: string): string {
+  const marker = ":global(";
+  let out = "";
+  let i = 0;
+  while (i < css.length) {
+    const at = css.indexOf(marker, i);
+    if (at < 0) {
+      out += css.slice(i);
+      break;
+    }
+    out += css.slice(i, at);
+    const inner = at + marker.length;
+    const end = css.indexOf(")", inner);
+    if (end < 0) {
+      out += css.slice(at);
+      break;
+    }
+    out += css.slice(inner, end);
+    i = end + 1;
+  }
+  return out;
+}
+
+function stripSvelteStyle(source: string): { body: string; style: string } {
+  const open = source.lastIndexOf("<style>");
+  const close = source.lastIndexOf("</style>");
+  if (open < 0 || close < open) return { body: source.trim(), style: "" };
+  let style = source.slice(open + "<style>".length, close);
+  if (style.startsWith("\n")) style = style.slice(1);
+  if (style.endsWith("\n")) style = style.slice(0, -1);
+  let body = source.slice(0, open);
+  while (body.endsWith("\n")) body = body.slice(0, -1);
+  return { body: body.trim(), style: unwrapSvelteGlobal(style) };
+}
+
 export function sveltePreviewHTML(doc: Document, rootId: string, opts: { cssVariables?: boolean } = {}): { html: string; bounds: Bounds } {
   const sv = exportSvelte(doc, rootId, opts);
   const p = exportParts(doc, { rootId, cssVariables: !!opts.cssVariables }, () => "");
-  const style = (sv.source.match(/<style>\n?([\s\S]*?)\n?<\/style>/)?.[1] ?? "").replace(
-    /:global\((:root|\[data-paprika-mode="[^"]*"\])\)/g,
-    "$1",
-  );
-  const body = sv.source.replace(/\n*<style>[\s\S]*<\/style>\n*$/, "").trim();
+  const { body, style } = stripSvelteStyle(sv.source);
   return previewPage(doc, p, body, style);
 }
