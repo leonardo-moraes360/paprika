@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { firstPage, newId, type Document, type Op } from "@paprika/core";
 import { Button } from "./components/ui/button";
+import { Hint } from "./components/ui/tooltip";
 import { InlineName } from "./InlineName";
 import { cn } from "./lib/cn";
 
@@ -40,25 +41,22 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
     <div className="flex flex-col gap-1 border-b border-ui-border p-2">
       <h2 className="mx-0 mt-0 mb-1 text-xs font-bold uppercase tracking-[0.06em] text-ui-muted-foreground">
         Páginas
-        <Button
-          variant="ghost"
-          size="icon"
-          className="float-right size-5 text-ui-muted-foreground hover:bg-ui-secondary hover:text-ui-foreground"
-          onClick={add}
-          title="Nova página"
-          aria-label="Nova página"
-          data-testid="add-page"
-        >
-          <Plus size={14} aria-hidden />
-        </Button>
+        <Hint label="Nova página">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="float-right size-5 text-ui-muted-foreground hover:bg-ui-secondary hover:text-ui-foreground"
+            onClick={add}
+            aria-label="Nova página"
+            data-testid="add-page"
+          >
+            <Plus size={14} aria-hidden />
+          </Button>
+        </Hint>
       </h2>
       <ul className="m-0 list-none p-0" aria-label="Páginas">
         {pages.length === 0 && (
-          <li
-            className={cn(pageRow, pageActive)}
-            title="Workspace sem páginas: o primeiro + cria a página 1 com este conteúdo"
-            onDoubleClick={() => setEditing(placeholder)}
-          >
+          <li className={cn(pageRow, pageActive)} onDoubleClick={() => setEditing(placeholder)}>
             {editing === placeholder ? (
               <InlineName
                 className="min-w-0 flex-1 px-1 py-px"
@@ -68,18 +66,19 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
                 onDone={() => setEditing(null)}
               />
             ) : (
-              <button
-                type="button"
-                className="min-w-0 flex-1 cursor-default truncate border-0 bg-transparent p-0 text-left"
-                title="Duplo clique ou F2 para renomear"
-                onKeyDown={(e) => {
-                  if (e.key !== "F2") return;
-                  e.preventDefault();
-                  setEditing(placeholder);
-                }}
-              >
-                Página 1
-              </button>
+              <Hint label="Workspace sem páginas: o primeiro + cria a página 1. Duplo clique ou F2 para renomear.">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 cursor-default truncate border-0 bg-transparent p-0 text-left"
+                  onKeyDown={(e) => {
+                    if (e.key !== "F2") return;
+                    e.preventDefault();
+                    setEditing(placeholder);
+                  }}
+                >
+                  Página 1
+                </button>
+              </Hint>
             )}
           </li>
         )}
@@ -100,35 +99,37 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
                 onDone={() => setEditing(null)}
               />
             ) : (
-              <button
-                type="button"
-                className="min-w-0 flex-1 cursor-default truncate border-0 bg-transparent p-0 text-left"
-                aria-current={p.id === pageId ? "page" : undefined}
-                title="Duplo clique ou F2 para renomear"
-                onKeyDown={(e) => {
-                  if (e.key !== "F2") return;
-                  e.preventDefault();
-                  setEditing(p.id);
-                }}
-              >
-                {p.name || p.id}
-              </button>
+              <Hint label="Duplo clique ou F2 para renomear">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 cursor-default truncate border-0 bg-transparent p-0 text-left"
+                  aria-current={p.id === pageId ? "page" : undefined}
+                  onKeyDown={(e) => {
+                    if (e.key !== "F2") return;
+                    e.preventDefault();
+                    setEditing(p.id);
+                  }}
+                >
+                  {p.name || p.id}
+                </button>
+              </Hint>
             )}
             {pages.length > 1 && editing !== p.id && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-5 opacity-0 text-ui-muted-foreground group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-ui-secondary hover:text-ui-foreground"
-                aria-label={`Apagar página ${p.name || p.id}`}
-                title="Apagar página (desfazer com Ctrl+Z)"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  apply([{ op: "delete", id: p.id }], "apagar página");
-                  if (p.id === pageId) onOpen(null);
-                }}
-              >
-                <X size={13} aria-hidden />
-              </Button>
+              <Hint label="Apagar página (desfazer com Ctrl+Z)">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-5 opacity-0 text-ui-muted-foreground group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-ui-secondary hover:text-ui-foreground"
+                  aria-label={`Apagar página ${p.name || p.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    apply([{ op: "delete", id: p.id }], "apagar página");
+                    if (p.id === pageId) onOpen(null);
+                  }}
+                >
+                  <X size={13} aria-hidden />
+                </Button>
+              </Hint>
             )}
           </li>
         ))}
