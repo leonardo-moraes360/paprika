@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Bot } from "lucide-react";
 import {
   copyOwner,
   groupOps,
@@ -19,6 +18,7 @@ import {
   type SceneNode,
 } from "@paprika/core";
 import type { Activity as ActivityEntry } from "./useDocument";
+import { Activity } from "./Activity";
 import { ColorField, Field, ModeField, SelectField, num, size } from "./inspector/fields";
 import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
@@ -262,6 +262,7 @@ export function Inspector(props: Props) {
                 { value: "rect", label: "caixa" },
                 { value: "ellipse", label: "oval" },
                 { value: "diamond", label: "losango (decisão)" },
+                { value: "triangle", label: "triângulo" },
                 { value: "note", label: "nota adesiva" },
               ]}
             />
@@ -724,26 +725,7 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
         )}
       </InspectorSection>
       <InspectorSection id="activity" title="Atividade">
-        <ul className={list}>
-          {activity.length === 0 && <li className="flex gap-2 text-ui-muted-foreground">Nenhuma edição ainda.</li>}
-          {activity.slice(0, 15).map((a) => (
-            <li key={a.id} className={cn("flex gap-2", a.actor.startsWith("agent") ? "text-accent-ink" : "text-ui-muted-foreground")}>
-              <span className="inline-flex items-start gap-1 font-semibold whitespace-nowrap">
-                {a.actor.startsWith("agent") ? (
-                  <>
-                    <Bot className="mt-px shrink-0" size={14} aria-hidden />
-                    {a.actor.slice(6)}
-                  </>
-                ) : a.actor === "user" ? (
-                  "você"
-                ) : (
-                  a.actor
-                )}
-              </span>
-              <span>{a.label || "edição"}</span>
-            </li>
-          ))}
-        </ul>
+        <Activity activity={activity} />
       </InspectorSection>
     </div>
   );

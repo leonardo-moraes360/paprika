@@ -1160,16 +1160,19 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const third = (await shapes()).find((n) => n.id !== first && n.id !== second)!.id;
     await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle", text: "Go", width: 160, height: 140 });
     await page.locator(`[data-paprika-id="${third}"]`).click();
-    await page.getByTestId("shape-kind").selectOption("diamond");
+    await page.getByTestId("shape-kind").click();
+    await page.getByRole("option", { name: "losango (decisão)" }).click();
     await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "diamond" });
-    await page.getByTestId("shape-kind").selectOption("triangle");
+    await page.getByTestId("shape-kind").click();
+    await page.getByRole("option", { name: "triângulo" }).click();
     await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle" });
 
     // Seta: arrastar de uma forma até a outra; as duas pontas ficam presas.
     const box = async (id: string) => (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
     const a = await box(first);
     const b = await box(second);
-    await page.keyboard.press("a");
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Seta (prende nas formas)" }).click();
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
     await page.mouse.down();
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 });
