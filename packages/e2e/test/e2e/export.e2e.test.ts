@@ -3,7 +3,20 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { compile } from "tailwindcss";
-import { applyOps, createDocument, parseDocument, renderHTML, renderTailwindHTML, TAILWIND_CDN, type Document, type Op } from "@paprika/core";
+import {
+  angularPreviewHTML,
+  applyOps,
+  createDocument,
+  pageRoots,
+  parseDocument,
+  renderFrameworkHTML,
+  renderHTML,
+  renderTailwindHTML,
+  sveltePreviewHTML,
+  TAILWIND_CDN,
+  type Document,
+  type Op,
+} from "@paprika/core";
 
 const root = resolve(import.meta.dirname, "../../../..");
 const tailwindDir = resolve(import.meta.dirname, "../../node_modules/tailwindcss");
@@ -110,6 +123,24 @@ describe("E2E: export tailwind vs html", () => {
         const b = await shoot(html, tailwind.bounds);
         expect(await diffRatio(page, a, b)).toBeLessThan(0.01);
       }, 30_000);
+
+      it(`${name}${vars ? " (cssVariables)" : ""}: Angular/Svelte static markup matches the HTML page within 1%`, async () => {
+        const doc = make();
+        const reference = renderHTML(doc, { cssVariables: vars });
+        const framework = renderFrameworkHTML(doc, { cssVariables: vars });
+        const a = await shoot(reference.html, reference.bounds);
+        const b = await shoot(framework.html, framework.bounds);
+        expect(await diffRatio(page, a, b)).toBeLessThan(0.01);
+        for (const rootId of pageRoots(doc)) {
+          const node = doc.nodes[rootId];
+          if (!node || node.type === "page") continue;
+          const htmlRoot = renderHTML(doc, { rootId, cssVariables: vars });
+          const shot = await shoot(htmlRoot.html, htmlRoot.bounds);
+          for (const preview of [angularPreviewHTML(doc, rootId, { cssVariables: vars }), sveltePreviewHTML(doc, rootId, { cssVariables: vars })]) {
+            expect(await diffRatio(page, shot, await shoot(preview.html, preview.bounds))).toBeLessThan(0.01);
+          }
+        }
+      }, 60_000);
     }
   }
 });
