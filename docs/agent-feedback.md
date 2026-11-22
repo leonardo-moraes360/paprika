@@ -408,3 +408,15 @@ Task: redesign the scene inspector into collapsible sections before implementing
 |---|--------|---------------|----------|------|
 | 106 | Inspector height that proves the compact layout | `aside.right.scrollHeight` stayed 856 px before and after because the grid area forces a tall scroll container; `#right-tabpanel` height dropped 759 → 303 px (~60%) for the demo text node at 1440×900 (`packages/e2e/b022-measure.mjs`) | Use `panel` / `panelScroll` in the measure script (and in acceptance notes), not only `aside.scrollHeight` | P3 |
 | 107 | Boards on the shared MCP server | `:4777` answered slowly during the ticket, so only the existing design frames plus runtime screenshots were committed; no new fixed-height frames were drawn over MCP in this pass | Same as #97: a boards document in git that agents can `load` without depending on whichever volume is mounted on the maintainer's port | P2 |
+
+## 2026-11-22: better activity history (PAP-B-025, design first)
+
+Task: draw the activity feed (actor color+name, action, relative time, batch grouping, undo/redo marker) light and dark before extracting `Activity.tsx` from the Inspector. Four root frames on `Interfaces` (`PAP-B-025 feed|undo` × light/dark), fixed height 320; PNGs under `docs/assets/boards/PAP-B-025/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 108 | Agent name color that passes contrast on the panel | Putting the agent blue (`#3b82f6`) on both the dot and the name failed WCAG AA on `$pg.panel2` (3.69:1); the sheet kept the color on the dot only and used `$pg.fg` for the name | Document that presence colors are for fills/dots, not for body text on panel surfaces, or ship text-safe variants next to `AGENT_COLORS` | P3 |
+| 109 | `$pg.select` as marker label ink in light mode | The "agora" marker label at `$pg.select` on the light panel was 3.91:1; switching the label to `$pg.fg` and leaving the line in select fixed lint without inventing a new token | A `select-ink` (or darker light-mode `$pg.select`) for text on light surfaces | P3 |
+
+- `layout.padding: [6, 8]` (two values) is rejected; four values or a single number work. Same class of friction as other tickets.
+- Undo/redo position is derived client-side from leading `desfazer:` / `refazer:` labels in the existing WS activity feed — no server change.

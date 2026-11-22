@@ -409,3 +409,15 @@ Tarefa: redesenhar o inspector de cena em seções recolhíveis antes de impleme
 |---|-------------|-----------------|----------|------|
 | 106 | Altura do inspector que prova o layout compacto | O `aside.right.scrollHeight` ficou em 856 px antes e depois porque a área do grid força um container alto; a altura de `#right-tabpanel` caiu de 759 para 303 px (~60%) com o nó de texto do demo em 1440×900 (`packages/e2e/b022-measure.mjs`) | Usar `panel` / `panelScroll` no script de medição (e nas notas de aceite), não só `aside.scrollHeight` | P3 |
 | 107 | Boards no servidor MCP compartilhado | O `:4777` respondeu devagar durante o ticket, então só os frames de design existentes mais screenshots da runtime foram commitados; nenhum frame novo de altura fixa foi desenhado no MCP nesta passagem | Igual ao #97: um documento de boards no git que os agentes possam `load` sem depender do volume montado na porta do mantenedor | P2 |
+
+## 2026-11-22: histórico de atividade (PAP-B-025, design first)
+
+Tarefa: desenhar o feed de atividade (ator cor+nome, ação, tempo relativo, agrupamento de lote, marcador de desfazer/refazer) em claro e escuro antes de extrair `Activity.tsx` do Inspector. Quatro frames raiz em `Interfaces` (`PAP-B-025 feed|undo` × light/dark), altura fixa 320; PNGs em `docs/assets/boards/PAP-B-025/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 108 | Cor do nome do agente que passe contraste no painel | Usar o azul do agente (`#3b82f6`) no ponto e no nome falhou WCAG AA em `$pg.panel2` (3.69:1); a folha manteve a cor só no ponto e `$pg.fg` no nome | Documentar que as cores de presença são para preenchimento/pontos, não para texto no painel, ou oferecer variantes seguras ao lado de `AGENT_COLORS` | P3 |
+| 109 | `$pg.select` como tinta do marcador no modo claro | O rótulo "agora" em `$pg.select` no painel claro ficou em 3.91:1; trocar o rótulo para `$pg.fg` e deixar a linha em select corrigiu o lint sem token novo | Um `select-ink` (ou `$pg.select` mais escuro no modo claro) para texto em superfícies claras | P3 |
+
+- `layout.padding: [6, 8]` (dois valores) é rejeitado; quatro valores ou um número só funcionam.
+- A posição de desfazer/refazer vem no cliente dos rótulos iniciais `desfazer:` / `refazer:` no feed WS existente — sem mudança no servidor.

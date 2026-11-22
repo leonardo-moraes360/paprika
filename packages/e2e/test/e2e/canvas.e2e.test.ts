@@ -85,6 +85,38 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     if (shots) await page.screenshot({ path: join(shots, "02-agente-editou.png") });
   });
 
+  it("atividade: escrita MCP mostra o nome do agente e undo move o marcador", async () => {
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    const section = page.getByTestId("inspector-section-activity");
+    const trigger = section.getByRole("button", { name: "Atividade" });
+    if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        nodes: [{ type: "rect", id: "act025", x: 20, y: 20, width: 12, height: 12, fill: "#3b82f6" }],
+        label: "retângulo atividade",
+      },
+    });
+    const list = page.getByTestId("activity-list");
+    const row = list.getByTestId("activity-row").filter({ hasText: "e2e-agent" }).first();
+    await expect.poll(() => row.innerText()).toMatch(/retângulo atividade/);
+    const marker = list.getByTestId("activity-marker");
+    const indexOf = (el: Element) => [...el.parentElement!.children].indexOf(el);
+    const before = await marker.evaluate(indexOf);
+    expect(before).toBe(0);
+    await page.getByRole("button", { name: "Desfazer" }).click();
+    await expect.poll(() => marker.evaluate(indexOf)).toBeGreaterThan(before);
+    await expect.poll(() => list.getByTestId("activity-row").first().innerText()).toMatch(/desfazer:/);
+    // Leave the agent creating inside "plano" so the next presence test still sees "criando".
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId: "plano",
+        nodes: [{ type: "rect", id: "act025-keep", x: 0, y: 0, width: 4, height: 4 }],
+      },
+    });
+  });
+
   it("presença: cada agente tem cursor, seleção e cor próprios; o cursor desliza até os nós em que ele age", async () => {
     // The previous test left the agent's cursor on the new footer, inside "plano".
     const cursor = page.locator('[data-testid="agent-cursor"]');
