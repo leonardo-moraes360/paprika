@@ -32,7 +32,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | Ferramenta | O que faz |
 |---|---|
 | `get_design_guide` | Modelo de nós, campos e fluxo recomendado; em inglês, ou em português com `language: "pt-BR"` |
-| `get_document_outline` | Árvore compacta + tokens + versão |
+| `get_document_outline` | Árvore compacta + tokens + versão. A primeira linha é `workspace <id> "<nome>"` mais a versão e a contagem de nós |
 | `get_nodes` / `find_nodes` | JSON completo de nós / busca por tipo, nome, texto |
 | `create_nodes` | Cria árvores aninhadas numa chamada; num conector `x`/`y`/`width`/`height`/`d` seguem `from`/`to`, então um nó copiado que os traz recebe um aviso, não uma recusa; num path, `normalize: true` leva o desenho para (0,0) e desloca `x`/`y` |
 | `draw_diagram` | Desenha um diagrama (fluxograma, arquitetura, mapa mental) a partir de formas e ligações: distribui as formas em camadas (`direction`: para baixo ou para a direita, à direita do conteúdo existente) e liga com setas que seguem as formas; uma ligação pode ter `label` |
@@ -48,7 +48,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `rename_workspace` / `delete_workspace` | Renomeia um workspace (com desfazer quando é o ativo) / exclui um de vez, em duas chamadas: sem `confirmToken` nada é apagado e o resultado é um resumo do que se perde (contagens, última edição, capa, qual workspace assume) mais um token de uns dois minutos que pertence àquele workspace; a segunda chamada, com o token, apaga (o ativo passa para o outro atualizado mais recentemente; o único não pode ser excluído) |
 | `list_workspace_ops` | O log de operações de workspace — criar, renomear, abrir e excluir, cada um com quem agiu (`user` ou o nome do agente), quando e em qual workspace; a entrada do apagamento guarda o resumo, e as entradas sobrevivem ao workspace que nomeiam |
 | `set_workspace_cover` | Põe uma imagem no card do workspace na página inicial: o screenshot de um frame dele (`rootId`), uma imagem (`image`, base64 ou data URL) ou nenhuma (`clear`, volta a primeira letra) |
-| `undo` / `redo` / `get_history` | Histórico compartilhado com o humano; toda ferramenta de escrita aceita `batch`, e várias chamadas com o mesmo batch viram um passo só de undo |
+| `undo` / `redo` / `get_history` | Histórico de um workspace, compartilhado com o humano quando esse workspace é o ativo. `workspaceId` opcional desfaz, refaz ou lê só esse workspace, sem trocar o canvas. Toda ferramenta de escrita aceita `batch`, e várias chamadas com o mesmo batch viram um passo só de undo |
 | `lint_design` | Contraste WCAG AA, overflow, tokens inexistentes, texto pequeno, alt |
 | `path_info` | Valida dados de caminho SVG e devolve a caixa exata (com extremos de bezier e arcos), a `origin` do desenho (deslocamento desde a origem do nó) e o `d` normalizado; com `id` também devolve a caixa no canvas, a origem da transformação e os cantos rotacionados |
 | `get_bounds` | Caixas absolutas depois do auto layout (row/column, hug/fill): `x`/`y`/`width`/`height`, `origin` da transformação (centro da caixa) e os quatro cantos após a rotação; `ids` / `rootId` opcionais |
@@ -61,6 +61,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 Camada de agentes:
 - O guia, as descrições das ferramentas, os erros, os avisos e as mensagens do lint são em inglês (o guia também em português, ver acima).
 - As ferramentas que respondem JSON declaram `outputSchema` e devolvem `structuredContent`; o bloco de texto continua com o mesmo JSON (no `get_nodes` e no `get_history`, o array puro).
+- As ferramentas de documento aceitam `workspaceId` opcional (outline, nós, bounds, criar/atualizar/apagar/mover/agrupar, tokens, lint, screenshot, export, importações, undo/redo e as outras escritas de documento). Sem ele, vale o workspace ativo, que é o canvas do humano. Com ele, a ferramenta lê ou escreve esse workspace sem `open_workspace` e sem mover o canvas. A primeira linha do outline e todo resultado de escrita trazem `workspaceId` e `workspaceName`. Cada workspace guarda o próprio histórico enquanto o processo estiver no ar. Um id desconhecido é um erro que lista os workspaces.
 - O histórico identifica o agente pelo `clientInfo.name` do MCP (`agent:claude-code`). No HTTP o servidor é stateless, então o `initialize` devolve um `Mcp-Session-Id` que só guarda esse nome; sem ele, vale o User-Agent, como antes.
 
 ## Formato do documento

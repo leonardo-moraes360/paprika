@@ -32,7 +32,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | Tool | What it does |
 |---|---|
 | `get_design_guide` | Node model, accepted fields and recommended workflow; `language: "pt-BR"` for the Brazilian Portuguese version |
-| `get_document_outline` | Compact tree + tokens + version |
+| `get_document_outline` | Compact tree + tokens + version. The first line is `workspace <id> "<name>"` plus version and node count |
 | `get_nodes` / `find_nodes` | Full node JSON / search by type, name, text |
 | `path_info` | Validates SVG path data and returns the exact bounds (bezier and arc extremes included), the drawing `origin` (offset from the node origin), and the normalized `d`; with `id` also returns canvas bounds, transform origin and rotated corners |
 | `get_bounds` | Absolute boxes after auto-layout (row/column, hug/fill): `x`/`y`/`width`/`height`, transform `origin` (box centre) and the four corners after rotation; optional `ids` / `rootId` |
@@ -50,7 +50,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `rename_workspace` / `delete_workspace` | Renames a workspace (undoable when it is the active one) / deletes one for good, in two calls: without `confirmToken` nothing is deleted and the result is a summary of what would be lost (counts, last edit, cover, which workspace takes over) plus a token that lasts about two minutes and belongs to that workspace; the second call with the token deletes (the active one hands over to the most recently updated other; the only one cannot be deleted) |
 | `list_workspace_ops` | The workspace operations log — create, rename, open and delete, each with who acted (`user` or the agent's name), when and which workspace; a delete entry keeps the summary, and entries outlive the workspace they name |
 | `set_workspace_cover` | Puts an image on a workspace's overview card: a screenshot of one of its frames (`rootId`), an image (`image`, base64 or data URL) or none (`clear`, back to the first letter) |
-| `undo` / `redo` / `get_history` | History shared with the human; every write tool takes `batch`, so several calls with the same batch become one undo step |
+| `undo` / `redo` / `get_history` | History of one workspace, shared with the human when that workspace is the active one. Optional `workspaceId` undoes, redoes or reads that workspace only, without switching the canvas. Every write tool takes `batch`, so several calls with the same batch become one undo step |
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
 | `render_screenshot` | PNG of a node, a page or the whole canvas |
 | `import_svg` / `import_html` | Turns pasted SVG (paths, shapes, groups, transforms) or HTML with inline styles into editable nodes; what can't be imported comes back in `warnings` |
@@ -61,6 +61,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 Agent layer:
 - The guide, tool descriptions, errors, warnings and lint messages are in English (the guide also in pt-BR, see above).
 - Tools that answer JSON declare an `outputSchema` and return `structuredContent`; the text block keeps the same JSON (for `get_nodes` and `get_history`, the plain array).
+- Document tools take an optional `workspaceId` (outline, nodes, bounds, create/update/delete/move/group, tokens, lint, screenshot, export, imports, undo/redo and the other document writes). Omit it to use the active workspace, which is the human's canvas. Passing it reads or writes that workspace without `open_workspace` and without moving the canvas. The outline's first line and every write result include `workspaceId` and `workspaceName`. Each workspace keeps its own history for the life of the process. An unknown id is an error that lists the workspaces.
 - The history names the agent after its MCP `clientInfo.name` (`agent:claude-code`). Over HTTP the server is stateless, so `initialize` hands out an `Mcp-Session-Id` that only carries that name; without it, the User-Agent is used as before.
 
 ## Document format

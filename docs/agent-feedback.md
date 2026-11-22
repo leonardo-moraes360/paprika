@@ -146,9 +146,9 @@ Task: an overview of the workspaces as the home page, with `list_workspaces`, `o
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 52 | Work in a second workspace without moving the human | The active workspace is shared on purpose, so `open_workspace` also switches the human's canvas; the guide asks the agent to check with the human first | An optional `workspace` argument on the read tools (outline, nodes, screenshot), so an agent can look at another workspace without switching | P2 |
-| 53 | Know that someone else switched the workspace | A later call just sees another document; nothing in the result says the active workspace changed since the agent's last call | Add the active workspace id to `get_document_outline`'s first line and to write results | P2 |
-| 54 | Undo after a switch (TypeScript server) | History is in memory, so a workspace opened again starts with an empty undo stack; the Go server restores it from SQLite | Keep one `History` per workspace for the life of the process | P3 |
+| 52 | Work in a second workspace without moving the human | The active workspace is shared on purpose, so `open_workspace` also switches the human's canvas; the guide asks the agent to check with the human first | Done (2026-11-22, PAP-B-063): optional `workspaceId` on document tools, read and write, without switching the canvas | — |
+| 53 | Know that someone else switched the workspace | A later call just sees another document; nothing in the result says the active workspace changed since the agent's last call | Done (2026-11-22, PAP-B-063): the outline's first line and every write result carry the workspace id and name | — |
+| 54 | Undo after a switch (TypeScript server) | History is in memory, so a workspace opened again starts with an empty undo stack; the Go server restores it from SQLite | Done (2026-11-22, PAP-B-063): one history per workspace for the life of the process, including undo of a workspace that is not the active one | — |
 
 ## 2026-11-21: diagrams (shapes, connectors, `draw_diagram`)
 
@@ -305,7 +305,7 @@ Task: draw the danger button (states, light and dark) and the confirmation dialo
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 92 | Drawing in a workspace that is not the active one | The ticket says to draw in `Paprika` without calling `open_workspace`, but every tool works on the active workspace, so the only options were to ask the human to switch or to run a second server | An optional `workspaceId` on the document tools (read and write), so an agent can draw in a named workspace without moving the human's canvas | P2 |
+| 92 | Drawing in a workspace that is not the active one | The ticket says to draw in `Paprika` without calling `open_workspace`, but every tool works on the active workspace, so the only options were to ask the human to switch or to run a second server | Done (2026-11-22, PAP-B-063): optional `workspaceId` on the document tools (read and write), so an agent can draw in a named workspace without moving the human's canvas | — |
 | 93 | A `fontFamily` that the renderer does not have | `fontFamily: "Inter"` rendered in a serif in `render_screenshot` (the app falls back to the system sans in its CSS stack), so the first sheet did not look like the app until the family became `sans-serif` | Fall back to the generic sans-serif when the family is missing, or accept a stack (`"Inter, sans-serif"`) in `fontFamily` | P3 |
 | 94 | A `mode: "dark"` frame on a document whose base tokens are the dark ones | `lint_design` answered `unknown-mode` for `dark` until the same tokens were also written with `set_tokens {mode: "dark"}`, which is a duplicate of the base values | Treat a mode with no tokens as the base without a warning when the document defines only one other mode, or let `set_tokens` alias a mode to the base | P3 |
 
@@ -499,7 +499,7 @@ Task: draw the inspector **Ordem** section and the Z-order shortcut map (light a
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | Draw on `Paprika - UI` without `open_workspace` | The workspace was already active (`list_workspaces`), so the sheet landed without switching; if another ticket had left a different active doc, the only options would still be asking the human or a second server (same as #92) | Optional `workspaceId` on document tools | P2 |
+| 110 | Draw on `Paprika - UI` without `open_workspace` | The workspace was already active (`list_workspaces`), so the sheet landed without switching; if another ticket had left a different active doc, the only options would still be asking the human or a second server (same as #92) | Done (2026-11-22, PAP-B-063): optional `workspaceId` on document tools | — |
 - `lint_design` on the four frames: 0 errors; `small-text` warnings are the 11 px section/chip labels matching the app.
 - Shortcut map chosen and documented in `docs/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.
 
@@ -510,7 +510,7 @@ Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill a
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 113 | `render_screenshot` param name | Passing `id` silently screenshots the whole canvas (identical PNGs for every frame); the contract expects `rootId` | Reject unknown `id` or alias `id` → `rootId` in the tool schema / handler | P2 |
-| 114 | Quiet local server for parallel boards | Shared `:4777` had other agents' sheets and returned confusing stacked frames at `(0,0)`; a throwaway `paprika serve --port 4799` was the reliable path (same class as #92) | Optional `workspaceId` on document tools so tickets do not fight for the active doc | P2 |
+| 114 | Quiet local server for parallel boards | Shared `:4777` had other agents' sheets and returned confusing stacked frames at `(0,0)`; a throwaway `paprika serve --port 4799` was the reliable path (same class as #92) | Done (2026-11-22, PAP-B-063): optional `workspaceId` on document tools so tickets do not fight for the active doc | — |
 
 - `lint_design` small-text warnings for 12 px labels match the inspector density; no new contrast errors on the six roots.
 - Step sizes chosen to match the ticket: opacity `0.05`, weight `100`, else `1`, Shift×10; validation/clamp reused from PAP-B-027.

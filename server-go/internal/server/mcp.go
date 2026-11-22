@@ -112,6 +112,10 @@ type Screenshotter interface {
 
 func optStr(name string) z.Field { return z.Field{Name: name, Schema: z.Optional(z.String())} }
 
+func workspaceID() z.Field {
+	return z.Field{Name: "workspaceId", Schema: z.Optional(z.String().Min(1))}
+}
+
 func label() z.Field { return z.Field{Name: "label", Schema: z.Optional(z.String().Max(200))} }
 
 func batch() z.Field { return z.Field{Name: "batch", Schema: z.Optional(z.String().Min(1).Max(200))} }
@@ -156,21 +160,43 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add := func(name string, schema *z.ObjectSchema, h func(ctx context.Context, args *jsonv.Object) (ToolResult, error)) {
 		m.tools[name] = tool{name, schema, h}
 	}
-	// writeWith answers extra fields first, then created and version (same key order as the former TS server).
-	// The last two extra values may be "batch", name (taken from the args by the callers).
-	writeBatch := func(ops []any, lbl, bt string, extra ...any) (ToolResult, error) {
-		r, err := store.ApplyBatch(ops, m.actorName(), lbl, bt)
+	wsErr := func(id string, err error) error {
+		if errors.Is(err, ErrNoWorkspace) {
+			return store.WorkspaceChoiceError(id)
+		}
+		return err
+	}
+	docOf := func(a *jsonv.Object) (*core.Document, error) {
+		head, err := store.ReadWorkspace(a.Str("workspaceId"))
 		if err != nil {
-			return nil, err
+			return nil, wsErr(a.Str("workspaceId"), err)
+		}
+		return head.Doc, nil
+	}
+	stamp := func(out *jsonv.Object, head WorkspaceHead) {
+		out.Set("workspaceId", head.ID)
+		out.Set("workspaceName", head.Name)
+	}
+	applyHere := func(a *jsonv.Object, ops []any, lbl string) (*core.ApplyResult, WorkspaceHead, error) {
+		r, head, err := store.ApplyIn(a.Str("workspaceId"), ops, m.actorName(), lbl, a.Str("batch"))
+		if err != nil {
+			return nil, WorkspaceHead{}, wsErr(a.Str("workspaceId"), err)
+		}
+		return r, head, nil
+	}
+	writeBatch := func(a *jsonv.Object, ops []any, lbl, bt string, extra ...any) (ToolResult, error) {
+		r, head, err := store.ApplyIn(a.Str("workspaceId"), ops, m.actorName(), lbl, bt)
+		if err != nil {
+			return nil, wsErr(a.Str("workspaceId"), err)
 		}
 		out := jsonv.NewObject(extra...)
 		out.Set("created", jsonv.FromGo(r.Created))
-		out.Set("version", float64(store.Version()))
+		out.Set("version", float64(head.Version))
+		stamp(out, head)
 		return jsonResult(out), nil
 	}
-	// argsBatch: the batch argument of the call being served (set by CallTool before the handler).
 	writeWith := func(a *jsonv.Object, ops []any, lbl string, extra ...any) (ToolResult, error) {
-		return writeBatch(ops, lbl, a.Str("batch"), extra...)
+		return writeBatch(a, ops, lbl, a.Str("batch"), extra...)
 	}
 	write := func(a *jsonv.Object, ops []any, lbl string) (ToolResult, error) { return writeWith(a, ops, lbl) }
 	labelOr := func(args *jsonv.Object, def string) string {
@@ -192,8 +218,13 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("get_document_outline", z.Object(
 		optStr("rootId"),
 		z.Field{Name: "depth", Schema: z.Optional(z.Int().Min(0).Max(50))},
+		workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		d, version, _, _ := store.Snapshot()
+		head, err := store.ReadWorkspace(a.Str("workspaceId"))
+		if err != nil {
+			return nil, wsErr(a.Str("workspaceId"), err)
+		}
+		d, version := head.Doc, head.Version
 		rootID := a.Str("rootId")
 		if rootID != "" && core.GetNode(d, rootID) == nil {
 			return nil, fmt.Errorf(`node "%s" does not exist`, rootID)
@@ -224,13 +255,16 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			}
 			modes = "modes: " + strings.Join(parts, " ") + "\n"
 		}
-		return textResult(fmt.Sprintf("document \"%s\" v%d · %s nodes\ntokens: %s\n%s\n%s", d.Str("name"), version,
+		return textResult(fmt.Sprintf("workspace %s \"%s\" v%d · %s nodes\ntokens: %s\n%s\n%s", head.ID, d.Str("name"), version,
 			count(core.Nodes(d).Len()), tokens, modes, core.Outline(d, rootID, depth))), nil
 	})
 
-	add("get_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(200)}),
+	add("get_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(200)}, workspaceID()),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-			d := store.Doc()
+			d, err := docOf(a)
+			if err != nil {
+				return nil, err
+			}
 			ids := a.Strings("ids")
 			var missing []string
 			out := make([]any, 0, len(ids))
@@ -251,8 +285,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "type", Schema: z.Optional(core.NodeTypeSchema)},
 		optStr("name"), optStr("text"), optStr("within"),
 		z.Field{Name: "limit", Schema: z.Default(z.Int().Min(1).Max(500), 50.0)},
+		workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		d := store.Doc()
+		d, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
 		found := core.QueryNodes(d, core.NodeQuery{Type: a.Str("type"), Name: a.Str("name"), Text: a.Str("text"), Within: a.Str("within"), Limit: int(a.Num("limit"))})
 		lines := make([]string, len(found))
 		for i, n := range found {
@@ -267,8 +305,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("get_bounds", z.Object(
 		z.Field{Name: "ids", Schema: z.Optional(z.Array(z.String()).Min(1).Max(500))},
 		optStr("rootId"),
+		workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		d := store.Doc()
+		d, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
 		opts := core.LayoutOptions{RootID: a.Str("rootId")}
 		if a.Has("ids") {
 			opts.IDs = a.Strings("ids")
@@ -302,13 +344,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("path_info", z.Object(
 		z.Field{Name: "d", Schema: z.Optional(z.String().Max(200_000))},
 		optStr("id"),
+		workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		src := a.Str("d")
 		ox, oy := 0.0, 0.0
 		id := a.Str("id")
 		var nodeW, nodeH, nodeRot float64
+		var doc *core.Document
 		if id != "" {
-			n := core.GetNode(store.Doc(), id)
+			var err error
+			doc, err = docOf(a)
+			if err != nil {
+				return nil, err
+			}
+			n := core.GetNode(doc, id)
 			if n == nil {
 				return nil, fmt.Errorf(`node "%s" does not exist`, id)
 			}
@@ -346,7 +395,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		)
 		if id != "" {
 			out.Set("canvasBounds", jsonv.NewObject("x", r(ox+b.X), "y", r(oy+b.Y), "width", r(b.Width), "height", r(b.Height)))
-			boxes, _ := core.Layout(store.Doc(), core.LayoutOptions{IDs: []string{id}})
+			boxes, _ := core.Layout(doc, core.LayoutOptions{IDs: []string{id}})
 			if lb, ok := boxes[id]; ok {
 				out.Set("transformOrigin", jsonv.NewObject("x", r(lb.Origin.X), "y", r(lb.Origin.Y)))
 				out.Set("corners", core.LayoutBoxJSON(lb).Arr("corners"))
@@ -364,7 +413,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
 		z.Field{Name: "index", Schema: z.Optional(z.Int().Min(0))},
 		z.Field{Name: "nodes", Schema: z.Array(core.NodeInputSchema).Min(1).Max(500)},
-		label(), batch(),
+		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		nodes := a.Arr("nodes")
 		warnings := stripConnectorDerived(nodes)
@@ -393,7 +442,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			z.Field{Name: "id", Schema: z.String()},
 			z.Field{Name: "props", Schema: z.Record(z.String(), z.Unknown())},
 		)).Min(1).Max(500)},
-		label(), batch(),
+		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		ups := a.Arr("updates")
 		ops := make([]any, len(ups))
@@ -405,14 +454,14 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return write(a, ops, labelOr(a, "update "+count(len(ups))+" node(s)"))
 	})
 
-	add("delete_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)}, label(), batch()),
+	add("delete_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)}, label(), batch(), workspaceID()),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 			ids := a.Strings("ids")
 			ops := make([]any, len(ids))
 			for i, id := range ids {
 				ops[i] = jsonv.NewObject("op", "delete", "id", id)
 			}
-			r, err := store.ApplyBatch(ops, m.actorName(), labelOr(a, "delete "+count(len(ids))+" node(s)"), a.Str("batch"))
+			r, head, err := applyHere(a, ops, labelOr(a, "delete "+count(len(ids))+" node(s)"))
 			if err != nil {
 				return nil, err
 			}
@@ -420,7 +469,9 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if deleted == nil {
 				deleted = []string{}
 			}
-			return jsonResult(jsonv.NewObject("deleted", jsonv.FromGo(deleted), "version", float64(store.Version()))), nil
+			out := jsonv.NewObject("deleted", jsonv.FromGo(deleted), "version", float64(head.Version))
+			stamp(out, head)
+			return jsonResult(out), nil
 		})
 
 	add("move_nodes", z.Object(
@@ -429,7 +480,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			z.Field{Name: "parentId", Schema: z.Nullable(z.String())},
 			z.Field{Name: "index", Schema: z.Optional(z.Union(z.Int().Min(0), z.Enum("front", "back", "forward", "backward")))},
 		)).Min(1)},
-		label(), batch(),
+		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		moves := a.Arr("moves")
 		ops := make([]any, len(moves))
@@ -449,7 +500,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
-		label(), batch(),
+		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		ids := a.Strings("ids")
 		id := a.Str("id")
@@ -463,10 +514,14 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return writeWith(a, []any{op}, labelOr(a, "group "+count(len(ids))+" node(s)"), "group", id)
 	})
 
-	add("ungroup_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)}, label(), batch()),
+	add("ungroup_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)}, label(), batch(), workspaceID()),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 			ids := a.Strings("ids")
-			_, released, err := core.UngroupOps(store.Doc(), ids) // validates and tells which children come back
+			d, err := docOf(a)
+			if err != nil {
+				return nil, err
+			}
+			_, released, err := core.UngroupOps(d, ids)
 			if err != nil {
 				return nil, err
 			}
@@ -479,7 +534,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "operation", Schema: z.Enum("union", "subtract", "intersect", "exclude")},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
-		label(), batch(),
+		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		ids := a.Strings("ids")
 		id := a.Str("id")
@@ -496,7 +551,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("create_page", z.Object(
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
-		label(), batch(),
+		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		id := a.Str("id")
 		if !a.Has("id") {
@@ -510,7 +565,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return writeWith(a, []any{op}, labelOr(a, "create page"), "page", id)
 	})
 
-	add("create_component", z.Object(z.Field{Name: "id", Schema: z.String()}, label(), batch()),
+	add("create_component", z.Object(z.Field{Name: "id", Schema: z.String()}, label(), batch(), workspaceID()),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 			id := a.Str("id")
 			op := jsonv.NewObject("op", "update", "id", id, "props", jsonv.NewObject("component", true))
@@ -526,10 +581,14 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		z.Field{Name: "overrides", Schema: z.Optional(z.Record(z.String(), z.Record(z.String(), z.Unknown())))},
 		optStr("id"),
-		label(), batch(),
+		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		compID := a.Str("componentId")
-		comp := core.GetNode(store.Doc(), compID)
+		d, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		comp := core.GetNode(d, compID)
 		iid := a.Str("id")
 		if !a.Has("id") {
 			iid = core.NewID()
@@ -576,7 +635,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		copies := jsonv.NewObject()
 		var walk func(nid string)
 		walk = func(nid string) {
-			n := core.GetNode(store.Doc(), nid)
+			n := core.GetNode(d, nid)
 			if n == nil || !core.IsContainer(n.Str("type")) {
 				return
 			}
@@ -589,14 +648,14 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return writeWith(a, []any{op}, labelOr(a, "create instance"), "instance", iid, "copies", copies)
 	})
 
-	add("detach_instance", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)}, label(), batch()),
+	add("detach_instance", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)}, label(), batch(), workspaceID()),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 			ids := a.Strings("ids")
 			op := jsonv.NewObject("op", "detach", "ids", a.Arr("ids"))
 			return writeWith(a, []any{op}, labelOr(a, "detach "+count(len(ids))+" instance(s)"), "detached", a.Arr("ids"))
 		})
 
-	add("apply_ops", z.Object(z.Field{Name: "ops", Schema: z.Array(core.OpSchema).Min(1).Max(1000)}, label(), batch()),
+	add("apply_ops", z.Object(z.Field{Name: "ops", Schema: z.Array(core.OpSchema).Min(1).Max(1000)}, label(), batch(), workspaceID()),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 			ops := a.Arr("ops")
 			return write(a, ops, labelOr(a, "transaction of "+count(len(ops))+" op(s)"))
@@ -605,7 +664,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("set_tokens", z.Object(
 		z.Field{Name: "tokens", Schema: z.Record(z.String(), z.Union(z.String(), z.Number(), z.Null()))},
 		optStr("mode"),
-		label(), batch(),
+		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		tokens, _ := a.Get("tokens")
 		op := jsonv.NewObject("op", "set_tokens", "tokens", tokens)
@@ -615,30 +674,37 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return write(a, []any{op}, labelOr(a, "tokens"))
 	})
 
-	stepResult := func(key string, ok bool) ToolResult {
-		_, version, cu, cr := store.Snapshot()
-		return jsonResult(jsonv.NewObject(key, ok, "version", float64(version), "canUndo", cu, "canRedo", cr))
+	stepResult := func(key string, ok bool, head WorkspaceHead) ToolResult {
+		out := jsonv.NewObject(key, ok, "version", float64(head.Version), "canUndo", head.CanUndo, "canRedo", head.CanRedo)
+		stamp(out, head)
+		return jsonResult(out)
 	}
-	add("undo", nil, func(context.Context, *jsonv.Object) (ToolResult, error) {
-		ok, err := store.Undo(m.actorName())
+	add("undo", z.Object(workspaceID()), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		ok, head, err := store.StepIn(a.Str("workspaceId"), m.actorName(), false)
 		if err != nil {
-			return nil, err
+			return nil, wsErr(a.Str("workspaceId"), err)
 		}
-		return stepResult("undone", ok), nil
+		return stepResult("undone", ok, head), nil
 	})
-	add("redo", nil, func(context.Context, *jsonv.Object) (ToolResult, error) {
-		ok, err := store.Redo(m.actorName())
+	add("redo", z.Object(workspaceID()), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		ok, head, err := store.StepIn(a.Str("workspaceId"), m.actorName(), true)
 		if err != nil {
-			return nil, err
+			return nil, wsErr(a.Str("workspaceId"), err)
 		}
-		return stepResult("redone", ok), nil
+		return stepResult("redone", ok, head), nil
 	})
 
-	add("get_history", z.Object(z.Field{Name: "limit", Schema: z.Default(z.Int().Min(1).Max(200), 20.0)}),
-		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-			entries := jsonv.FromGo(store.RecentHistory(int(a.Num("limit"))))
-			return jsonShown(jsonv.NewObject("entries", entries), entries), nil
-		})
+	add("get_history", z.Object(
+		z.Field{Name: "limit", Schema: z.Default(z.Int().Min(1).Max(200), 20.0)},
+		workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		entries, err := store.RecentHistoryIn(a.Str("workspaceId"), int(a.Num("limit")))
+		if err != nil {
+			return nil, wsErr(a.Str("workspaceId"), err)
+		}
+		shown := jsonv.FromGo(entries)
+		return jsonShown(jsonv.NewObject("entries", shown), shown), nil
+	})
 
 	add("list_workspaces", nil, func(context.Context, *jsonv.Object) (ToolResult, error) {
 		ws, err := store.ListWorkspaces()
@@ -797,8 +863,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info))), nil
 	})
 
-	add("lint_design", z.Object(optStr("rootId")), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		issues := core.LintDocument(store.Doc(), a.Str("rootId"))
+	add("lint_design", z.Object(optStr("rootId"), workspaceID()), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		d, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		issues := core.LintDocument(d, a.Str("rootId"))
 		counts := map[string]int{"error": 0, "warning": 0, "info": 0}
 		for _, i := range issues {
 			counts[i.Severity]++
@@ -813,11 +883,16 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("render_screenshot", z.Object(
 		optStr("rootId"),
 		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
+		workspaceID(),
 	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		if m.shot == nil {
 			return nil, errors.New("screenshot unavailable on this server")
 		}
-		png, w, h, err := m.shot.Screenshot(ctx, store.Doc(), a.Str("rootId"), a.Num("scale"))
+		d, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		png, w, h, err := m.shot.Screenshot(ctx, d, a.Str("rootId"), a.Num("scale"))
 		if err != nil {
 			return nil, err
 		}
@@ -831,8 +906,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "rootId", Schema: z.String()},
 		z.Field{Name: "format", Schema: z.Default(z.Enum("html", "react", "svg", "tailwind", "tailwind-html", "css-modules", "angular", "svelte"), "react")},
 		z.Field{Name: "cssVariables", Schema: z.Default(z.Bool(), false)},
+		workspaceID(),
 	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
-		d := store.Doc()
+		d, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
 		switch a.Str("format") {
 		case "html":
 			html, _, err := core.RenderHTML(d, core.RenderOptions{RootID: a.Str("rootId"), CSSVariables: a.Bool("cssVariables")})
@@ -900,7 +979,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
 			z.Field{Name: "x", Schema: z.Optional(z.Number())},
 			z.Field{Name: "y", Schema: z.Optional(z.Number())},
-			label(), batch(),
+			label(), batch(), workspaceID(),
 		)...)
 	}
 	importWrite := func(r core.ImportResult, a *jsonv.Object, def string) (ToolResult, error) {
@@ -916,7 +995,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		for i, n := range r.Nodes {
 			ops[i] = jsonv.NewObject("op", "create", "parentId", parent, "node", n)
 		}
-		res, err := store.ApplyBatch(ops, m.actorName(), labelOr(a, def), a.Str("batch"))
+		res, head, err := applyHere(a, ops, labelOr(a, def))
 		if err != nil {
 			return nil, err
 		}
@@ -924,7 +1003,9 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		for i, w := range r.Warnings {
 			ws[i] = w
 		}
-		return jsonResult(jsonv.NewObject("created", jsonv.FromGo(res.Created), "version", float64(store.Version()), "warnings", ws)), nil
+		out := jsonv.NewObject("created", jsonv.FromGo(res.Created), "version", float64(head.Version), "warnings", ws)
+		stamp(out, head)
+		return jsonResult(out), nil
 	}
 	importOpts := func(a *jsonv.Object) core.ImportOptions {
 		o := core.ImportOptions{X: a.Num("x"), Y: a.Num("y")}
@@ -957,9 +1038,13 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 			z.Field{Name: "label", Schema: z.Optional(z.String().Max(200))},
 		)).Max(1000), []any{})},
-		label(), batch(),
+		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		plan, err := core.DiagramOps(store.Doc(), a)
+		d, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		plan, err := core.DiagramOps(d, a)
 		if err != nil {
 			return nil, err
 		}
@@ -1005,7 +1090,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			node.Set("fit", a.Str("fit"))
 		}
 		parent, _ := a.Get("parentId")
-		res, err := store.ApplyBatch([]any{jsonv.NewObject("op", "create", "parentId", parent, "node", node)}, m.actorName(), labelOr(a, "import image"), a.Str("batch"))
+		res, head, err := applyHere(a, []any{jsonv.NewObject("op", "create", "parentId", parent, "node", node)}, labelOr(a, "import image"))
 		if err != nil {
 			return nil, err
 		}
@@ -1013,11 +1098,13 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if img.animated {
 			warnings = append(warnings, "animated "+strings.ToUpper(img.format())+": kept animated (the original bytes are embedded unchanged); render_screenshot shows a single frame")
 		}
-		return jsonResult(jsonv.NewObject(
-			"created", jsonv.FromGo(res.Created), "version", float64(store.Version()),
+		out := jsonv.NewObject(
+			"created", jsonv.FromGo(res.Created), "version", float64(head.Version),
 			"width", w, "height", h, "naturalWidth", float64(img.width), "naturalHeight", float64(img.height), "format", img.format(), "animated", img.animated,
 			"warnings", warnings,
-		)), nil
+		)
+		stamp(out, head)
+		return jsonResult(out), nil
 	})
 
 	add("resize_image", z.Object(
@@ -1034,7 +1121,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
 		z.Field{Name: "x", Schema: z.Optional(z.Number())},
 		z.Field{Name: "y", Schema: z.Optional(z.Number())},
-		label(), batch(),
+		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		if !a.Has("nodeId") && !a.Has("src") {
 			return nil, errors.New("resize_image requires nodeId or src")
@@ -1053,7 +1140,11 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		var nodeID string
 		if a.Has("nodeId") {
 			nodeID = a.Str("nodeId")
-			n := core.GetNode(store.Doc(), nodeID)
+			d, derr := docOf(a)
+			if derr != nil {
+				return nil, derr
+			}
+			n := core.GetNode(d, nodeID)
 			if n == nil {
 				return nil, fmt.Errorf("node %q not found", nodeID)
 			}
@@ -1082,16 +1173,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		srcURL := out.dataURL()
 		if nodeID != "" {
 			props := jsonv.NewObject("src", srcURL, "width", float64(out.width), "height", float64(out.height))
-			res, err := store.ApplyBatch([]any{jsonv.NewObject("op", "update", "id", nodeID, "props", props)}, m.actorName(), labelOr(a, "resize image"), a.Str("batch"))
+			res, head, err := applyHere(a, []any{jsonv.NewObject("op", "update", "id", nodeID, "props", props)}, labelOr(a, "resize image"))
 			if err != nil {
 				return nil, err
 			}
-			return jsonResult(jsonv.NewObject(
-				"id", nodeID, "created", jsonv.FromGo(res.Created), "version", float64(store.Version()),
+			body := jsonv.NewObject(
+				"id", nodeID, "created", jsonv.FromGo(res.Created), "version", float64(head.Version),
 				"width", float64(out.width), "height", float64(out.height),
 				"targetWidth", float64(tw), "targetHeight", float64(th),
 				"format", out.format, "sourceFormat", out.srcFmt, "fit", fit, "warnings", warnings,
-			)), nil
+			)
+			stamp(body, head)
+			return jsonResult(body), nil
 		}
 		name := base
 		if name == "" {
@@ -1099,16 +1192,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		}
 		node := jsonv.NewObject("type", "image", "name", name, "src", srcURL, "x", a.Num("x"), "y", a.Num("y"), "width", float64(out.width), "height", float64(out.height), "fit", fit)
 		parent, _ := a.Get("parentId")
-		res, err := store.ApplyBatch([]any{jsonv.NewObject("op", "create", "parentId", parent, "node", node)}, m.actorName(), labelOr(a, "resize image"), a.Str("batch"))
+		res, head, err := applyHere(a, []any{jsonv.NewObject("op", "create", "parentId", parent, "node", node)}, labelOr(a, "resize image"))
 		if err != nil {
 			return nil, err
 		}
-		return jsonResult(jsonv.NewObject(
-			"created", jsonv.FromGo(res.Created), "version", float64(store.Version()),
+		body := jsonv.NewObject(
+			"created", jsonv.FromGo(res.Created), "version", float64(head.Version),
 			"width", float64(out.width), "height", float64(out.height),
 			"targetWidth", float64(tw), "targetHeight", float64(th),
 			"format", out.format, "sourceFormat", out.srcFmt, "fit", fit, "warnings", warnings,
-		)), nil
+		)
+		stamp(body, head)
+		return jsonResult(body), nil
 	})
 
 	add("duplicate_nodes", z.Object(
@@ -1117,9 +1212,13 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
 		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.01).Max(100))},
 		z.Field{Name: "props", Schema: z.Optional(z.Record(z.String(), z.Unknown()))},
-		label(), batch(),
+		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		plan, err := core.DuplicateOps(store.Doc(), a.Strings("ids"), a)
+		d, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		plan, err := core.DuplicateOps(d, a.Strings("ids"), a)
 		if err != nil {
 			return nil, err
 		}

@@ -146,9 +146,9 @@ Tarefa: uma página com os workspaces como tela inicial, com `list_workspaces`, 
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
-| 52 | Trabalhar num segundo workspace sem mexer no humano | O workspace ativo é compartilhado de propósito, então `open_workspace` também troca o canvas do humano; o guia pede ao agente que pergunte antes | Um argumento opcional `workspace` nas ferramentas de leitura (outline, nodes, screenshot), para o agente olhar outro workspace sem trocar | P2 |
-| 53 | Saber que outra pessoa trocou o workspace | A chamada seguinte só vê outro documento; nada no resultado diz que o ativo mudou desde a última chamada do agente | Pôr o id do workspace ativo na primeira linha do `get_document_outline` e nos resultados de escrita | P2 |
-| 54 | Desfazer depois de uma troca (servidor TypeScript) | O histórico fica em memória, então um workspace reaberto começa com a pilha de undo vazia; o servidor Go restaura do SQLite | Manter um `History` por workspace durante a vida do processo | P3 |
+| 52 | Trabalhar num segundo workspace sem mexer no humano | O workspace ativo é compartilhado de propósito, então `open_workspace` também troca o canvas do humano; o guia pede ao agente que pergunte antes | Feito (2026-11-22, PAP-B-063): `workspaceId` opcional nas ferramentas de documento, leitura e escrita, sem trocar o canvas | — |
+| 53 | Saber que outra pessoa trocou o workspace | A chamada seguinte só vê outro documento; nada no resultado diz que o ativo mudou desde a última chamada do agente | Feito (2026-11-22, PAP-B-063): a primeira linha do outline e todo resultado de escrita trazem o id e o nome do workspace | — |
+| 54 | Desfazer depois de uma troca (servidor TypeScript) | O histórico fica em memória, então um workspace reaberto começa com a pilha de undo vazia; o servidor Go restaura do SQLite | Feito (2026-11-22, PAP-B-063): um histórico por workspace enquanto o processo estiver no ar, inclusive o undo de um workspace que não é o ativo | — |
 
 ## 2026-11-21: diagramas (formas, conectores, `draw_diagram`)
 
@@ -306,7 +306,7 @@ Tarefa: desenhar o botão de perigo (estados, claro e escuro) e os diálogos de 
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
-| 92 | Desenhar num workspace que não é o ativo | O ticket manda desenhar no `Paprika` sem chamar `open_workspace`, mas toda ferramenta age no workspace ativo; sobrou pedir ao humano para trocar ou subir um segundo servidor | Um `workspaceId` opcional nas ferramentas de documento (leitura e escrita), para o agente desenhar num workspace nomeado sem mexer no canvas do humano | P2 |
+| 92 | Desenhar num workspace que não é o ativo | O ticket manda desenhar no `Paprika` sem chamar `open_workspace`, mas toda ferramenta age no workspace ativo; sobrou pedir ao humano para trocar ou subir um segundo servidor | Feito (2026-11-22, PAP-B-063): `workspaceId` opcional nas ferramentas de documento (leitura e escrita), para o agente desenhar num workspace nomeado sem mexer no canvas do humano | — |
 | 93 | Um `fontFamily` que o renderizador não tem | `fontFamily: "Inter"` saiu em serifa no `render_screenshot` (o app cai na sans do sistema na pilha do CSS), então a primeira folha não parecia o app até a família virar `sans-serif` | Cair na sans-serif genérica quando a família não existe, ou aceitar uma pilha (`"Inter, sans-serif"`) em `fontFamily` | P3 |
 | 94 | Um frame `mode: "dark"` num documento cujos tokens base já são os escuros | O `lint_design` respondeu `unknown-mode` para `dark` até os mesmos tokens serem gravados também com `set_tokens {mode: "dark"}`, duplicando os valores da base | Tratar um modo sem tokens como a base, sem aviso, quando o documento só define um outro modo, ou deixar o `set_tokens` apelidar um modo para a base | P3 |
 
@@ -502,7 +502,7 @@ Tarefa: desenhar a seção **Ordem** do inspector e o mapa de atalhos de ordem Z
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|----------------|----------|------|
-| 110 | Desenhar em `Paprika - UI` sem `open_workspace` | O workspace já estava ativo (`list_workspaces`), então a prancha entrou sem trocar; se outro ticket tivesse deixado outro doc ativo, as opções ainda seriam pedir ao humano ou um segundo servidor (igual ao #92) | `workspaceId` opcional nas ferramentas de documento | P2 |
+| 110 | Desenhar em `Paprika - UI` sem `open_workspace` | O workspace já estava ativo (`list_workspaces`), então a prancha entrou sem trocar; se outro ticket tivesse deixado outro doc ativo, as opções ainda seriam pedir ao humano ou um segundo servidor (igual ao #92) | Feito (2026-11-22, PAP-B-063): `workspaceId` opcional nas ferramentas de documento | — |
 - `lint_design` nos quatro frames: 0 erros; avisos `small-text` são os rótulos de 11 px da seção/chip, iguais ao app.
 - Mapa de atalhos escolhido e documentado em `docs/pt-BR/canvas.md`: `Page Up`/`Page Down` = avançar/recuar, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd no macOS) = frente/fundo.
 
@@ -513,7 +513,7 @@ Tarefa: desenhar campos numéricos puros com `±` (opacidade / peso / espessura)
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|----------------|----------|------|
 | 113 | Nome do parâmetro em `render_screenshot` | Passar `id` captura o canvas inteiro em silêncio (PNGs idênticos para cada frame); o contrato espera `rootId` | Recusar `id` desconhecido ou alias `id` → `rootId` no schema / handler | P2 |
-| 114 | Servidor local quieto para boards em paralelo | A `:4777` compartilhada tinha folhas de outros agentes e frames empilhados em `(0,0)`; um `paprika serve --port 4799` descartável foi o caminho confiável (mesma classe do #92) | `workspaceId` opcional nas ferramentas de documento para os tickets não brigarem pelo doc ativo | P2 |
+| 114 | Servidor local quieto para boards em paralelo | A `:4777` compartilhada tinha folhas de outros agentes e frames empilhados em `(0,0)`; um `paprika serve --port 4799` descartável foi o caminho confiável (mesma classe do #92) | Feito (2026-11-22, PAP-B-063): `workspaceId` opcional nas ferramentas de documento para os tickets não brigarem pelo doc ativo | — |
 
 - Avisos `small-text` do `lint_design` nos rótulos de 12 px batem com a densidade do inspector; nenhum erro novo de contraste nas seis raízes.
 - Passos escolhidos conforme o ticket: opacidade `0.05`, peso `100`, senão `1`, Shift×10; validação/clamp reutilizados do PAP-B-027.
