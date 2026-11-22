@@ -26,6 +26,20 @@ func teamStatus(t *testing.T, i *instance) map[string]any {
 	return st
 }
 
+func assertPeerPresence(t *testing.T, from, to *instance, actor, tool string) {
+	t.Helper()
+	from.store.Presence.Report("s:abc", "agent:claude-code", tool, nil)
+	want := actor
+	eventually(t, "remote presence", func() bool {
+		for _, p := range to.store.Presence.Recent() {
+			if strings.HasPrefix(p.Agent, "peer:") && p.Actor == want && (tool == "" || p.Tool == tool) {
+				return true
+			}
+		}
+		return false
+	})
+}
+
 func TestTwoInstancesConnectAndSharePresence(t *testing.T) {
 	a, b := newInstance(t, "ana"), newInstance(t, "bruno")
 	call(t, b, map[string]any{"t": "peer.add", "addr": a.team.Sidecar().Addr})
@@ -44,16 +58,7 @@ func TestTwoInstancesConnectAndSharePresence(t *testing.T) {
 		t.Fatalf("peer versions missing in status: %+v", peer0)
 	}
 
-	a.store.Presence.Report("s:abc", "agent:claude-code", "update_nodes", nil)
-	eventually(t, "remote presence", func() bool {
-		for _, p := range b.store.Presence.Recent() {
-			if strings.HasPrefix(p.Agent, "peer:") && p.Actor == "agent:claude-code @ ana" && p.Tool == "update_nodes" {
-				return true
-			}
-		}
-		return false
-	})
-	// Presence that came from a peer is not echoed back.
+	assertPeerPresence(t, a, b, "agent:claude-code @ ana", "update_nodes")
 	for _, p := range a.store.Presence.Recent() {
 		if strings.HasPrefix(p.Agent, "peer:") {
 			t.Fatalf("presence echoed back to its origin: %+v", p)
@@ -100,13 +105,5 @@ func TestDifferentAppVersionSyncsWithWarning(t *testing.T) {
 	if peer0["app"] != "9.9.9" || peer0["format"] != "paprika/1" {
 		t.Fatalf("peer versions in status: %+v", peer0)
 	}
-	a.store.Presence.Report("s:abc", "agent:claude-code", "update_nodes", nil)
-	eventually(t, "presence still syncs", func() bool {
-		for _, p := range b.store.Presence.Recent() {
-			if strings.HasPrefix(p.Agent, "peer:") && p.Actor == "agent:claude-code @ ana" {
-				return true
-			}
-		}
-		return false
-	})
+	assertPeerPresence(t, a, b, "agent:claude-code @ ana", "")
 }

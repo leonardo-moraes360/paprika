@@ -208,28 +208,9 @@ impl ProtocolHandler for JoinHandler {
                 format,
             })) => {
                 let remote = conn.remote_id();
-                let short = remote.fmt_short().to_string();
-                if let Err(reason) = proto::check_versions(
-                    &node.0.cfg.app,
-                    &node.0.cfg.format,
-                    &name,
-                    &short,
-                    &app,
-                    &format,
-                ) {
-                    node.push_rejected(&remote, &reason);
-                    node.event(json!({"t": "rejected", "peer": remote.to_string(), "reason": reason.clone()}));
+                if let Err(reason) = node.gate_versions(&remote, &name, &app, &format) {
                     JoinMsg::Error { reason }
                 } else {
-                    if let Some(w) = proto::app_version_warn(
-                        &node.0.cfg.app,
-                        &name,
-                        &short,
-                        &app,
-                        &node.0.cfg.format,
-                    ) {
-                        node.event(json!({"t": "log", "level": "warn", "msg": w}));
-                    }
                     match node.redeem(remote, &team, &secret, &name) {
                         Ok(msg) => msg,
                         Err(e) => {
@@ -549,6 +530,35 @@ impl Node {
         }
     }
 
+    /// Format mismatch → `Err` (rejected event). App mismatch → warn event, still `Ok`.
+    fn gate_versions(
+        &self,
+        peer: &EndpointId,
+        peer_name: &str,
+        peer_app: &str,
+        peer_format: &str,
+    ) -> Result<(), String> {
+        let short = peer.fmt_short().to_string();
+        if let Err(reason) = proto::check_versions(
+            &self.0.cfg.app,
+            &self.0.cfg.format,
+            peer_name,
+            &short,
+            peer_app,
+            peer_format,
+        ) {
+            self.push_rejected(peer, &reason);
+            self.event(json!({"t": "rejected", "peer": peer.to_string(), "reason": reason.clone()}));
+            return Err(reason);
+        }
+        if let Some(w) =
+            proto::app_version_warn(&self.0.cfg.app, peer_name, &short, peer_app, &self.0.cfg.format)
+        {
+            self.event(json!({"t": "log", "level": "warn", "msg": w}));
+        }
+        Ok(())
+    }
+
     /// Merges a team file from a peer of the same team; saves and spreads it when it grew.
     fn merge_team(&self, from: Option<EndpointId>, other: TeamFile) {
         let me = self.id();
@@ -667,23 +677,8 @@ impl Node {
                 format,
             }) => {
                 let inviter = l.addr.id;
-                let short = inviter.fmt_short().to_string();
-                if let Err(reason) = proto::check_versions(
-                    &self.0.cfg.app,
-                    &self.0.cfg.format,
-                    "",
-                    &short,
-                    &app,
-                    &format,
-                ) {
-                    self.push_rejected(&inviter, &reason);
-                    self.event(json!({"t": "rejected", "peer": inviter.to_string(), "reason": reason.clone()}));
+                if let Err(reason) = self.gate_versions(&inviter, "", &app, &format) {
                     bail!("{reason}");
-                }
-                if let Some(w) =
-                    proto::app_version_warn(&self.0.cfg.app, "", &short, &app, &self.0.cfg.format)
-                {
-                    self.event(json!({"t": "log", "level": "warn", "msg": w}));
                 }
                 (team, peers)
             }
@@ -739,35 +734,14 @@ impl Node {
                 app,
                 format,
             } => {
-                let short = from.fmt_short().to_string();
-                if let Err(reason) = proto::check_versions(
-                    &self.0.cfg.app,
-                    &self.0.cfg.format,
-                    &name,
-                    &short,
-                    &app,
-                    &format,
-                ) {
+                if let Err(_reason) = self.gate_versions(&from, &name, &app, &format) {
                     {
                         let st = self.0.state.lock().unwrap();
                         if let Some(p) = st.peers.get(&from) {
                             p.conn.close(3u32.into(), b"incompatible format");
                         }
                     }
-                    self.push_rejected(&from, &reason);
-                    self.event(
-                        json!({"t": "rejected", "peer": from.to_string(), "reason": reason}),
-                    );
                     return Ok(false);
-                }
-                if let Some(w) = proto::app_version_warn(
-                    &self.0.cfg.app,
-                    &name,
-                    &short,
-                    &app,
-                    &self.0.cfg.format,
-                ) {
-                    self.event(json!({"t": "log", "level": "warn", "msg": w}));
                 }
                 if let Some(team) = team {
                     self.merge_team(Some(from), team);

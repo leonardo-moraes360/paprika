@@ -1,34 +1,11 @@
 //! Workspaces converge between sidecars on loopback, and envelopes keep their author's signature
 //! when a third peer relays them.
 
-use std::time::Duration;
+mod common;
 
-use paprika_sync::node::{Config, Node};
+use common::{start, wait_for};
+use paprika_sync::node::Node;
 use serde_json::{Value, json};
-use tokio::sync::mpsc;
-
-async fn start(dir: &std::path::Path, name: &str) -> (Node, mpsc::UnboundedReceiver<Value>) {
-    let (tx, rx) = mpsc::unbounded_channel();
-    (
-        Node::start(Config::test(dir.to_path_buf(), name), tx)
-            .await
-            .unwrap(),
-        rx,
-    )
-}
-
-async fn wait_for(rx: &mut mpsc::UnboundedReceiver<Value>, pred: impl Fn(&Value) -> bool) -> Value {
-    tokio::time::timeout(Duration::from_secs(20), async {
-        loop {
-            let v = rx.recv().await.expect("events closed");
-            if pred(&v) {
-                return v;
-            }
-        }
-    })
-    .await
-    .expect("timed out waiting for event")
-}
 
 async fn link(a: &Node, b: &Node) {
     a.command(&json!({"t": "peer.add", "addr": b.addr()}))

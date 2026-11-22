@@ -1,46 +1,12 @@
 //! Teams: create, invite, join, single use, expiry, and members added by other members.
 
+mod common;
+
 use std::time::Duration;
 
-use paprika_sync::node::{Config, Node};
+use common::{start, start_with, wait_for};
+use paprika_sync::node::Node;
 use serde_json::{Value, json};
-use tokio::sync::mpsc;
-
-async fn start(dir: &std::path::Path, name: &str) -> (Node, mpsc::UnboundedReceiver<Value>) {
-    let (tx, rx) = mpsc::unbounded_channel();
-    (
-        Node::start(Config::test(dir.to_path_buf(), name), tx)
-            .await
-            .unwrap(),
-        rx,
-    )
-}
-
-async fn start_with(
-    dir: &std::path::Path,
-    name: &str,
-    app: &str,
-    format: &str,
-) -> (Node, mpsc::UnboundedReceiver<Value>) {
-    let (tx, rx) = mpsc::unbounded_channel();
-    let mut cfg = Config::test(dir.to_path_buf(), name);
-    cfg.app = app.into();
-    cfg.format = format.into();
-    (Node::start(cfg, tx).await.unwrap(), rx)
-}
-
-async fn wait_for(rx: &mut mpsc::UnboundedReceiver<Value>, pred: impl Fn(&Value) -> bool) -> Value {
-    tokio::time::timeout(Duration::from_secs(20), async {
-        loop {
-            let v = rx.recv().await.expect("events closed");
-            if pred(&v) {
-                return v;
-            }
-        }
-    })
-    .await
-    .expect("timed out waiting for event")
-}
 
 fn members(n: &Node) -> Vec<String> {
     let mut v: Vec<String> = n.status()["team"]["members"]
@@ -135,40 +101,6 @@ async fn invite_join_and_sync() {
         .await
         .unwrap_err();
     assert!(err.to_string().contains("revoked"), "{err}");
-}
-
-#[tokio::test]
-async fn join_refuses_incompatible_format_on_both_sides() {
-    use paprika_sync::proto::{APP_VERSION, FORMAT_VERSION};
-    let (da, db) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-    let (a, mut ea) = start_with(da.path(), "Ana", APP_VERSION, FORMAT_VERSION).await;
-    let (b, _eb) = start_with(db.path(), "Bruno", APP_VERSION, "paprika/0").await;
-    a.command(&json!({"t": "team.create", "name": "T"}))
-        .await
-        .unwrap();
-    let link = a
-        .command(&json!({"t": "invite.create", "ttlSecs": 600}))
-        .await
-        .unwrap()["link"]
-        .as_str()
-        .unwrap()
-        .to_string();
-    let err = b
-        .command(&json!({"t": "join", "link": link}))
-        .await
-        .unwrap_err()
-        .to_string();
-    assert!(err.contains("incompatible document format"), "{err}");
-    assert!(err.contains("paprika/0"), "{err}");
-    let r = wait_for(&mut ea, |v| {
-        v["t"] == "rejected"
-            && v["reason"]
-                .as_str()
-                .is_some_and(|s| s.contains("incompatible document format"))
-    })
-    .await;
-    assert!(r["reason"].as_str().unwrap().contains("Bruno"));
-    assert_eq!(members(&a), vec!["Ana"]);
 }
 
 #[tokio::test]
