@@ -279,8 +279,49 @@ func TestGoldenViews(t *testing.T) {
 				r = "ERROR: " + err.Error()
 			}
 			eq(t, name+" react "+id, r, c.Obj("react").Str(id))
+			tw, err := ExportTailwind(doc, id, false)
+			if err != nil {
+				tw = "ERROR: " + err.Error()
+			}
+			eq(t, name+" tailwind "+id, tw, c.Obj("tailwind").Str(id))
 			eq(t, name+" describe "+id, DescribeNode(GetNode(doc, id)), c.Obj("describe").Str(id))
 			eq(t, name+" style "+id, CSSToString(NodeStyle(doc, GetNode(doc, id), false)), c.Obj("style").Str(id))
+		}
+		twh, _, err := RenderTailwindHTML(doc, RenderOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		eq(t, name+" tailwind html", twh, c.Str("tailwindHtml"))
+		twhv, _, err := RenderTailwindHTML(doc, RenderOptions{CSSVariables: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		eq(t, name+" tailwind html vars", twhv, c.Str("tailwindHtmlVars"))
+		for _, id := range doc.Strings("rootIds") {
+			h, _, err := RenderTailwindHTML(doc, RenderOptions{RootID: id, CSSVariables: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			eq(t, name+" tailwind html root "+id, h, c.Obj("tailwindHtmlRoots").Str(id))
+			tv, err := ExportTailwind(doc, id, true)
+			if err != nil {
+				tv = "ERROR: " + err.Error()
+			}
+			eq(t, name+" tailwind vars "+id, tv, c.Obj("tailwindVars").Str(id))
+			for _, vars := range []bool{false, true} {
+				key := "cssModules"
+				if vars {
+					key = "cssModulesVars"
+				}
+				m, err := ExportCSSModules(doc, id, vars)
+				got := "ERROR: "
+				if err != nil {
+					got += err.Error()
+				} else {
+					got = jsonv.Stringify(jsonv.NewObject("component", m.Component, "css", m.CSS, "fileName", m.FileName), "")
+				}
+				eq(t, name+" "+key+" "+id, got, c.Obj(key).Str(id))
+			}
 		}
 		ids := func(ns []*Node) string {
 			s := make([]string, len(ns))
@@ -298,6 +339,20 @@ func TestGoldenViews(t *testing.T) {
 		eq(t, name+" find nameA", ids(QueryNodes(doc, NodeQuery{Name: "A", Limit: 3})), strings.Join(f.Strings("nameA"), ","))
 		eq(t, name+" find textE", ids(QueryNodes(doc, NodeQuery{Text: "E"})), strings.Join(f.Strings("textE"), ","))
 		eq(t, name+" find within", within, strings.Join(f.Strings("within"), ","))
+	}
+}
+
+func TestGoldenTailwindMap(t *testing.T) {
+	g := loadGolden(t)
+	for _, v := range g.Arr("tailwindMapCases") {
+		c := v.(*jsonv.Object)
+		value, _ := c.Get("value")
+		got := "null"
+		if classes, ok := tailwindClassesFor(c.Str("key"), value); ok {
+			got = jsonv.Stringify(jsonv.FromGo(classes), "")
+		}
+		want, _ := c.Get("classes")
+		eq(t, "tailwind map "+c.Str("key")+" "+jsString(value), got, jsonv.Stringify(want, ""))
 	}
 }
 

@@ -65,7 +65,13 @@ function modeAttr(node: Node): string {
   return (node.type === "frame" || node.type === "page") && node.mode ? ` data-paprika-mode="${escapeHtml(node.mode)}"` : "";
 }
 
-function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, offset?: { x: number; y: number }): string {
+export type StyleEmitter = (css: CSS, owner: Node | string) => string;
+
+export const htmlStyleAttr: StyleEmitter = (css) => ` style="${escapeHtml(cssToString(css))}"`;
+
+export const jsxStyleAttr: StyleEmitter = (css) => ` style=${jsxStyle(css)}`;
+
+function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, emit: StyleEmitter, offset?: { x: number; y: number }): string {
   const css: CSS = nodeStyle(doc, node, { asRoot, vars });
   if (offset && !asRoot && node.type !== "page") {
     css.left = `${node.x - offset.x}px`;
@@ -73,7 +79,7 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, o
   }
   const attrs = `data-paprika-id="${escapeHtml(node.id)}" data-paprika-type="${node.type}"${
     node.name ? ` data-name="${escapeHtml(node.name)}"` : ""
-  }${modeAttr(node)} style="${escapeHtml(cssToString(css))}"`;
+  }${modeAttr(node)}${emit(css, node)}`;
   switch (node.type) {
     case "frame":
     case "group":
@@ -81,7 +87,7 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, o
       const kids = node.children
         .map((c) => doc.nodes[c])
         .filter((c): c is Node => !!c)
-        .map((c) => renderNode(doc, c, false, vars))
+        .map((c) => renderNode(doc, c, false, vars, emit))
         .join("");
       return `<div ${attrs}>${kids}</div>`;
     }
@@ -101,7 +107,7 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, o
     case "shape": {
       const a = shapeAttrs(doc, node, { vars });
       const fold = a.fold ? `<path${svgAttrs(a.fold)}/>` : "";
-      return `<div ${attrs}><svg xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)} style="${cssToString(SHAPE_SVG_CSS)}"><path${svgAttrs(a.path)}/>${fold}</svg><div style="${cssToString(SHAPE_TEXT_CSS)}">${escapeHtml(node.text)}</div></div>`;
+      return `<div ${attrs}><svg xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)}${emit(SHAPE_SVG_CSS, "shapeSvg")}><path${svgAttrs(a.path)}/>${fold}</svg><div${emit(SHAPE_TEXT_CSS, "shapeText")}>${escapeHtml(node.text)}</div></div>`;
     }
     default:
       return `<div ${attrs}></div>`;
@@ -117,18 +123,25 @@ export interface RenderOptions {
   cssVariables?: boolean;
 }
 
-function renderCanvas(doc: Document, pageId: string | undefined, vars: boolean): { body: string; bounds: Bounds } {
+function renderCanvas(doc: Document, pageId: string | undefined, vars: boolean, emit: StyleEmitter): { body: string; bounds: Bounds } {
   const bounds = canvasBounds(doc, pageId);
   const body = pageRoots(doc, pageId)
     .map((id) => doc.nodes[id])
     .filter((n): n is Node => !!n)
-    .map((n) => renderNode(doc, n, false, vars, { x: bounds.x, y: bounds.y }))
+    .map((n) => renderNode(doc, n, false, vars, emit, { x: bounds.x, y: bounds.y }))
     .join("");
   return { body, bounds };
 }
 
-/** Gera um documento HTML autocontido. Usado pelo export de código e pelo screenshot. */
-export function renderHTML(doc: Document, opts: RenderOptions = {}): { html: string; bounds: Bounds } {
+export interface ExportParts {
+  body: string;
+  bounds: Bounds;
+  background: string;
+  bodyMode: string;
+  vars: boolean;
+}
+
+export function exportParts(doc: Document, opts: RenderOptions, emit: StyleEmitter): ExportParts {
   const vars = !!opts.cssVariables;
   let body: string;
   let bounds: Bounds;
@@ -137,17 +150,23 @@ export function renderHTML(doc: Document, opts: RenderOptions = {}): { html: str
   const page = node ? (node.type === "page" ? node : undefined) : firstPage(doc);
   if (node && node.type !== "page") {
     bounds = rootBounds(doc, node.id);
-    body = renderNode(doc, node, true, vars);
-  } else ({ body, bounds } = renderCanvas(doc, page?.id, vars));
+    body = renderNode(doc, node, true, vars, emit);
+  } else ({ body, bounds } = renderCanvas(doc, page?.id, vars, emit));
   const background = opts.background ?? (page?.fill ? String(resolveValue(doc, page.fill, page.mode)) : "#ffffff");
   // Um nó solto herda o modo dos ancestrais: no export ele vai no <body>, que é o novo topo.
   const inherited = node && node.type !== "page" && !modeAttr(node) ? modeOf(doc, node) : page?.mode;
   const bodyMode = vars && inherited ? ` data-paprika-mode="${escapeHtml(inherited)}"` : "";
+  return { body, bounds, background, bodyMode, vars };
+}
+
+/** Gera um documento HTML autocontido. Usado pelo export de código e pelo screenshot. */
+export function renderHTML(doc: Document, opts: RenderOptions = {}): { html: string; bounds: Bounds } {
+  const p = exportParts(doc, opts, htmlStyleAttr);
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(doc.name)}</title>
-<style>html,body{margin:0;padding:0}body{position:relative;width:${bounds.width}px;height:${bounds.height}px;background:${escapeHtml(background)};font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}${vars ? tokenStylesheet(doc) : ""}</style>
-</head><body${bodyMode}>${body}</body></html>`;
-  return { html, bounds };
+<style>html,body{margin:0;padding:0}body{position:relative;width:${p.bounds.width}px;height:${p.bounds.height}px;background:${escapeHtml(p.background)};font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}${p.vars ? tokenStylesheet(doc) : ""}</style>
+</head><body${p.bodyMode}>${p.body}</body></html>`;
+  return { html, bounds: p.bounds };
 }
 
 function jsxStyle(css: CSS): string {
@@ -156,19 +175,19 @@ function jsxStyle(css: CSS): string {
     .join(", ")} }}`;
 }
 
-function jsxAttrs(o: Record<string, string | number | undefined>): string {
+export function jsxAttrs(o: Record<string, string | number | undefined>): string {
   return Object.entries(o)
     .filter(([, v]) => v !== undefined)
     .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : JSON.stringify(v)}`)
     .join("");
 }
 
-function jsxText(s: string): string {
+export function jsxText(s: string): string {
   return s.replace(/[{}<>]/g, (c) => `{${JSON.stringify(c)}}`).replace(/\n/g, "{'\\n'}");
 }
 
-function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, vars: boolean): string {
-  const style = jsxStyle(nodeStyle(doc, node, { asRoot, vars }));
+export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, vars: boolean, emit: StyleEmitter): string {
+  const style = emit(nodeStyle(doc, node, { asRoot, vars }), node);
   const mode = (node.type === "frame" || node.type === "page") && node.mode ? node.mode : asRoot && vars ? modeOf(doc, node) : undefined;
   const name = `${node.name ? ` data-name=${JSON.stringify(node.name)}` : ""}${mode ? ` data-paprika-mode=${JSON.stringify(mode)}` : ""}`;
   switch (node.type) {
@@ -178,16 +197,16 @@ function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, var
       const kids = node.children
         .map((c) => doc.nodes[c])
         .filter((c): c is Node => !!c)
-        .map((c) => jsxNode(doc, c, false, indent + "  ", vars))
+        .map((c) => jsxNode(doc, c, false, indent + "  ", vars, emit))
         .join("\n");
       return kids
-        ? `${indent}<div${name} style=${style}>\n${kids}\n${indent}</div>`
-        : `${indent}<div${name} style=${style} />`;
+        ? `${indent}<div${name}${style}>\n${kids}\n${indent}</div>`
+        : `${indent}<div${name}${style} />`;
     }
     case "text":
-      return `${indent}<div${name} style=${style}>${jsxText(node.text)}</div>`;
+      return `${indent}<div${name}${style}>${jsxText(node.text)}</div>`;
     case "image":
-      return `${indent}<img${name} style=${style} src=${JSON.stringify(node.src)} alt=${JSON.stringify(node.alt)} />`;
+      return `${indent}<img${name}${style} src=${JSON.stringify(node.src)} alt=${JSON.stringify(node.alt)} />`;
     case "path": {
       const a = pathAttrs(doc, node, { vars });
       const jsx = (o: Record<string, string | number | undefined>) =>
@@ -195,29 +214,33 @@ function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, var
           .filter(([, v]) => v !== undefined)
           .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : JSON.stringify(v)}`)
           .join("");
-      return `${indent}<svg${name} style=${style}${jsx(a.svg)}>\n${indent}  <path${jsx(a.path)} />\n${indent}</svg>`;
+      return `${indent}<svg${name}${style}${jsx(a.svg)}>\n${indent}  <path${jsx(a.path)} />\n${indent}</svg>`;
     }
     case "connector": {
       const label = connectorLabelAttrs(doc, node, { vars });
       const text = label ? `\n${indent}  <text${jsxAttrs(label)}>{${JSON.stringify(node.label)}}</text>` : "";
-      return `${indent}<svg${name} style=${style}>\n${indent}  <path${jsxAttrs(connectorAttrs(doc, node, { vars }))} />${text}\n${indent}</svg>`;
+      return `${indent}<svg${name}${style}>\n${indent}  <path${jsxAttrs(connectorAttrs(doc, node, { vars }))} />${text}\n${indent}</svg>`;
     }
     case "shape": {
       const a = shapeAttrs(doc, node, { vars });
       const fold = a.fold ? `\n${indent}    <path${jsxAttrs(a.fold)} />` : "";
-      return `${indent}<div${name} style=${style}>\n${indent}  <svg${jsxAttrs(a.svg)} style=${jsxStyle(SHAPE_SVG_CSS)}>\n${indent}    <path${jsxAttrs(a.path)} />${fold}\n${indent}  </svg>\n${indent}  <div style=${jsxStyle(SHAPE_TEXT_CSS)}>${jsxText(node.text)}</div>\n${indent}</div>`;
+      return `${indent}<div${name}${style}>\n${indent}  <svg${jsxAttrs(a.svg)}${emit(SHAPE_SVG_CSS, "shapeSvg")}>\n${indent}    <path${jsxAttrs(a.path)} />${fold}\n${indent}  </svg>\n${indent}  <div${emit(SHAPE_TEXT_CSS, "shapeText")}>${jsxText(node.text)}</div>\n${indent}</div>`;
     }
     default:
-      return `${indent}<div${name} style=${style} />`;
+      return `${indent}<div${name}${style} />`;
   }
 }
 
-function componentName(s: string): string {
-  const base = s
+export function pascalName(s: string): string {
+  return s
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^A-Za-z0-9]+(.)?/g, (_, c: string | undefined) => (c ? c.toUpperCase() : ""))
     .replace(/^[^A-Za-z]+/, "");
+}
+
+export function componentName(s: string): string {
+  const base = pascalName(s);
   return base ? base[0]!.toUpperCase() + base.slice(1) : "Design";
 }
 
@@ -233,5 +256,5 @@ export function exportReact(doc: Document, rootId: string, opts: { cssVariables?
   const name = componentName(node.name || node.id);
   const vars = !!opts.cssVariables;
   const css = vars ? `export const tokensCss = ${JSON.stringify(tokenStylesheet(doc))};\n\n` : "";
-  return `${css}export function ${name}() {\n  return (\n${jsxNode(doc, node, true, "    ", vars)}\n  );\n}\n`;
+  return `${css}export function ${name}() {\n  return (\n${jsxNode(doc, node, true, "    ", vars, jsxStyleAttr)}\n  );\n}\n`;
 }
