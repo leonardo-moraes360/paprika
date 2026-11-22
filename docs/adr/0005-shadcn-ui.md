@@ -85,10 +85,12 @@ quoted from arithmetic.
 
 Two rules decide what receives the treatment:
 
-1. **Danger marks what Ctrl+Z cannot bring back.** Deleting a workspace, removing a member from a team and
-   rotating this instance's key are irreversible: they carry the danger language on the trigger and on the
-   confirm button. Deleting a node, a page or a selection is undoable and stays neutral — painting every
-   delete red would make red mean nothing.
+1. **Danger marks what Ctrl+Z cannot bring back.** Deleting a workspace and removing a member from a team
+   carry the danger language on the trigger and on the confirm button. Deleting a node, a page or a selection
+   is undoable and stays neutral — painting every delete red would make red mean nothing. Rotating the
+   instance key and revoking invite links are irreversible too, but stay as they were: PAP-B-026 scoped
+   `Team.tsx` to the remove-member button, and a rule applied halfway is still a rule an agent will read
+   wrong, so they are listed here rather than half-implemented.
 2. **An irreversible action gets a confirmation with the verb in it.** `ConfirmDialog`
    (`apps/web/src/ConfirmDialog.tsx`) composes the AlertDialog primitive: title with the verb,
    what is lost in the description, `Cancelar` first, the destructive action last, and errors rendered

@@ -84,10 +84,12 @@ no hover no escuro; **5,00:1** e **4,75:1** no claro. Os quatro números são as
 
 Duas regras decidem o que recebe o tratamento:
 
-1. **Perigo marca o que o Ctrl+Z não traz de volta.** Excluir um workspace, remover uma pessoa do time e
-   trocar a chave desta instância são irreversíveis: carregam a linguagem de perigo no gatilho e no botão de
-   confirmar. Apagar um nó, uma página ou uma seleção é desfazível e fica neutro — pintar todo apagamento de
-   vermelho faria o vermelho não significar nada.
+1. **Perigo marca o que o Ctrl+Z não traz de volta.** Excluir um workspace e remover uma pessoa do time
+   carregam a linguagem de perigo no gatilho e no botão de confirmar. Apagar um nó, uma página ou uma seleção
+   é desfazível e fica neutro — pintar todo apagamento de vermelho faria o vermelho não significar nada.
+   Trocar a chave desta instância e revogar links de convite também são irreversíveis, mas ficaram como
+   estavam: o PAP-B-026 limitou `Team.tsx` ao botão de remover, e uma regra aplicada pela metade é uma regra
+   que o próximo agente lê errado — então estão aqui listadas, não meia-implementadas.
 2. **Ação irreversível tem confirmação com o verbo.** O `ConfirmDialog`
    (`apps/web/src/ConfirmDialog.tsx`) compõe o primitivo AlertDialog: título com o verbo, o
    que se perde na descrição, `Cancelar` primeiro, a ação destrutiva por último, e o erro dentro do diálogo,
