@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Copy, KeyRound, Link2, Share2, UserPlus, Users, X } from "lucide-react";
 import { encode } from "uqr";
 import type { AgentPresence } from "./agents";
@@ -117,24 +117,60 @@ export function Qr({ text, size = 168 }: { text: string; size?: number }) {
   );
 }
 
+/** Tabbable elements inside a dialog, in order (for the focus trap). */
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 function Modal({ title, onClose, children, width = 560 }: { title: string; onClose(): void; children: React.ReactNode; width?: number }) {
+  const box = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     // Capture: the canvas shortcuts listen on window too and must not see Escape while a dialog is open.
     addEventListener("keydown", onKey, true);
     return () => removeEventListener("keydown", onKey, true);
   }, [onClose]);
+  useEffect(() => {
+    // Focus moves into the dialog (unless a field already took it, e.g. autoFocus) and goes back
+    // to whatever opened it when the dialog closes (WCAG 2.4.3).
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!box.current?.contains(document.activeElement)) box.current?.focus();
+    return () => {
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
+  // Tab and Shift+Tab stay inside the dialog while it is open.
+  const trap = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab" || !box.current) return;
+    const items = [...box.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null);
+    if (!items.length) return;
+    const first = items[0]!;
+    const last = items[items.length - 1]!;
+    const at = document.activeElement;
+    if (e.shiftKey && (at === first || at === box.current)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && at === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
   return (
     <div className="team-modal fixed inset-0 z-50 flex items-center justify-center bg-night/70" onPointerDown={onClose}>
       <div
+        ref={box}
         role="dialog"
-        aria-label={title}
-        className="grid max-h-[90vh] max-w-[calc(100vw-32px)] gap-4 overflow-auto rounded-xl border border-line bg-panel p-6 shadow-float"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="grid max-h-[90vh] max-w-[calc(100vw-32px)] gap-4 overflow-auto rounded-xl border border-line bg-panel p-6 shadow-float outline-none"
         style={{ width }}
         onPointerDown={(e) => e.stopPropagation()}
+        onKeyDown={trap}
       >
         <div className="flex items-start justify-between gap-4">
-          <h2 className="m-0 text-lg font-bold">{title}</h2>
+          <h2 id={titleId} className="m-0 text-lg font-bold">
+            {title}
+          </h2>
           <button className={ui.iconBtn} onClick={onClose} aria-label="Fechar">
             <X size={16} />
           </button>

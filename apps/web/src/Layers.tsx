@@ -75,7 +75,16 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
           aria-expanded={kids.length > 0 ? open : undefined}
           tabIndex={editing === id ? -1 : 0}
           onClick={(e) => selectFrom(e, id)}
+          // The name alone: without it the row would read as "Recolher Card Ocultar" (the buttons' labels).
+          aria-labelledby={editing === id ? undefined : `layer-name-${id}`}
           onKeyDown={(e) => {
+            if (e.target !== e.currentTarget) return; // keys on the row's own buttons
+            // F2 renames from the keyboard, like the double click and the workspace cards.
+            if (e.key === "F2" && n.sourceId === undefined) {
+              e.preventDefault();
+              setEditing(id);
+              return;
+            }
             if (e.key !== "Enter" && e.key !== " ") return;
             if (e.key === " ") e.preventDefault(); // Space would scroll the panel instead
             selectFrom(e, id);
@@ -84,7 +93,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
         >
           <button
             className={glyphBtn}
-            aria-label={open ? "Recolher" : "Expandir"}
+            aria-label={`${open ? "Recolher" : "Expandir"} ${n.name || layerFallback(doc, n)}`}
             style={{ visibility: kids.length ? "visible" : "hidden" }}
             onClick={(e) => {
               e.stopPropagation();
@@ -104,9 +113,10 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
             />
           ) : (
             <span
+              id={`layer-name-${id}`}
               className={cx("layer-name flex-1 truncate", !n.visible && "opacity-45")}
               // Cópias de instância não aceitam nome próprio: o nome vem do componente.
-              title={n.sourceId === undefined ? "Duplo clique para renomear" : undefined}
+              title={n.sourceId === undefined ? "Duplo clique ou F2 para renomear" : undefined}
               onDoubleClick={(e) => {
                 if (n.sourceId !== undefined) return;
                 e.stopPropagation();
@@ -117,8 +127,8 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
             </span>
           )}
           <button
-            className={cx(glyphBtn, n.visible ? "opacity-0 group-hover:opacity-100" : "opacity-100")}
-            aria-label={n.visible ? "Ocultar" : "Mostrar"}
+            className={cx(glyphBtn, n.visible ? "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100" : "opacity-100")}
+            aria-label={`${n.visible ? "Ocultar" : "Mostrar"} ${n.name || layerFallback(doc, n)}`}
             onClick={(e) => {
               e.stopPropagation();
               apply([{ op: "update", id, props: { visible: !n.visible } }], n.visible ? "ocultar" : "mostrar");

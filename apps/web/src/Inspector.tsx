@@ -753,8 +753,11 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
       ) : (
         <ul className={list}>
           {issues.slice(0, 30).map((i, k) => (
-            <li key={k} className={cx("cursor-pointer rounded-md border-l-3 bg-panel-2 px-2 py-1.5", SEVERITY[i.severity] ?? "border-l-muted")} onClick={() => onSelect(i.nodeId)}>
-              <strong>{i.rule}</strong> {i.message}
+            <li key={k} className={cx("rounded-md border-l-3 bg-panel-2", SEVERITY[i.severity] ?? "border-l-muted")}>
+              {/* A button, so the keyboard can also jump to the node of an issue. */}
+              <button type="button" className="w-full cursor-pointer border-0 bg-transparent px-2 py-1.5 text-left" onClick={() => onSelect(i.nodeId)}>
+                <strong>{i.rule}</strong> {i.message}
+              </button>
             </li>
           ))}
         </ul>

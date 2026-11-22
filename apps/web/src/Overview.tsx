@@ -1,6 +1,7 @@
 import { useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 import { ImageOff, ImagePlus, Pencil, Plus, Trash2 } from "lucide-react";
 import { errorText } from "./api";
+import { ConnectionStatus } from "./ConnectionStatus";
 import { InlineName } from "./InlineName";
 import { bar, cx, ui } from "./ui";
 import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type Workspace } from "./workspaces";
@@ -146,8 +147,9 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
           <strong>Paprika</strong>
         </div>
         <div className={bar.status}>
-          <span className={bar.dot(connected)} />
+          <span className={bar.dot(connected)} aria-hidden />
           <span className={bar.statusText}>{connected ? "MCP em /mcp" : "desconectado"}</span>
+          <ConnectionStatus connected={connected} />
         </div>
       </header>
       <main className="min-h-0 overflow-auto px-6 pt-8 pb-12 *:mx-auto *:max-w-[1080px]">
