@@ -88,7 +88,7 @@ func TestWorkspaceSyncsBetweenTwoInstances(t *testing.T) {
 
 func TestSharedWorkspaceIsCreatedOnThePeer(t *testing.T) {
 	a, b := linked(t)
-	info, err := a.store.CreateWorkspace("Landing")
+	info, err := a.store.CreateWorkspace("Landing", "user")
 	if err != nil {
 		t.Fatal(err)
 	}
