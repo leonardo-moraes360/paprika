@@ -217,6 +217,7 @@ export function Inspector(props: Props) {
                 { value: "rect", label: "caixa" },
                 { value: "ellipse", label: "oval" },
                 { value: "diamond", label: "losango (decisão)" },
+                { value: "triangle", label: "triângulo" },
                 { value: "note", label: "nota adesiva" },
               ]}
             />
