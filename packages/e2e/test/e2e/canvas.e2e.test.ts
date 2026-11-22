@@ -367,6 +367,35 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.locator(`[data-page-id="${p1}"]`).click();
     await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(1);
     await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(0);
+
+    // The agent's last nodes are on page 2: the roster names that page, and clicking the agent opens
+    // it with the agent's cursor (on "tela2") centered in the viewport.
+    // (The second agent from the presence test may still be listed, on page 1.)
+    const first = page.getByTestId("agent-roster").locator("li").first();
+    const where = first.getByTestId("agent-page");
+    await expect.poll(() => first.innerText()).toMatch(/^e2e-agent\s*em Página 2$/);
+    if (shots) await page.screenshot({ path: join(shots, "08b-agente-em-outra-pagina.png") });
+    await first.getByTestId("agent-focus").click();
+    await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(1);
+    await expect(page.locator(".page.is-active").textContent()).resolves.toContain("Página 2");
+    await expect.poll(() => where.count()).toBe(0);
+    await expect.poll(() => first.innerText()).toMatch(/^e2e-agent\s*criando$/);
+    const centerOff = async (id: string) => {
+      const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
+      const b = (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
+      return Math.max(Math.abs(b.x + b.width / 2 - (vp.x + vp.width / 2)), Math.abs(b.y + b.height / 2 - (vp.y + vp.height / 2)));
+    };
+    await expect.poll(() => centerOff("tela2")).toBeLessThan(2);
+    // Same page: pan away, then clicking the agent brings its cursor back to the center.
+    await page.mouse.move(vp.x + vp.width / 2, vp.y + vp.height / 2);
+    await page.mouse.wheel(400, 300);
+    await expect.poll(() => centerOff("tela2")).toBeGreaterThan(100);
+    await first.getByTestId("agent-focus").click();
+    await expect.poll(() => centerOff("tela2")).toBeLessThan(2);
+    if (shots) await page.screenshot({ path: join(shots, "08c-foco-no-agente.png") });
+
+    await page.locator(`[data-page-id="${p1}"]`).click();
+    await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(1);
   });
   it("componentes: tornar componente, nova instância, mudança propaga, override na cópia, desanexar", async () => {
     await page.keyboard.press("Escape");
@@ -698,6 +727,32 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => demoCard.locator(".workspace-tile").textContent(), POLL).toBe(demoName.trim()[0]!.toUpperCase());
     await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, clear: true } });
    }, 30_000);
+
+  it("overview: uma rajada de escritas do agente não vira um GET da lista por versão, e o último valor aparece", async () => {
+    const POLL = { timeout: 10_000 };
+    const { id: demo } = await doc();
+    const nodesOf = async () =>
+      ((await (await fetch(`${url}/api/workspaces`)).json()) as { workspaces: { id: string; nodes: number }[] }).workspaces.find((w) => w.id === demo)!.nodes;
+    await page.goto(url);
+    const card = page.locator(`[data-workspace-id="${demo}"]`);
+    await expect.poll(() => card.textContent(), POLL).toContain("ativo");
+    let gets = 0;
+    const onRequest = (r: { method(): string; url(): string }) => {
+      if (r.method() === "GET" && new URL(r.url()).pathname === "/api/workspaces") gets++;
+    };
+    page.on("request", onRequest);
+    const ids = Array.from({ length: 20 }, (_, i) => `rajada${i}`);
+    try {
+      for (const id of ids) await agent.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id, x: 0, y: 0, width: 8, height: 8 }] } });
+      const total = await nodesOf();
+      await expect.poll(() => card.textContent(), POLL).toContain(`${total} nós`);
+    } finally {
+      page.off("request", onRequest);
+      await agent.callTool({ name: "delete_nodes", arguments: { ids } });
+    }
+    // One write per version used to refetch once per version (20 here); the follow is throttled.
+    expect(gets).toBeLessThan(ids.length / 2);
+  });
 
   it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
