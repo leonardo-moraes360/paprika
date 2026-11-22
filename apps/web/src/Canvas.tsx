@@ -49,6 +49,7 @@ import {
 import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { Button } from "./components/ui/button";
+import { Hint } from "./components/ui/tooltip";
 import { InlineName } from "./InlineName";
 import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
 import { AgentCursors, type Box } from "./AgentCursors";
@@ -1732,34 +1733,34 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       </div>
       <AgentCursors doc={doc} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} onFocus={focusBox} />
       {frameLabels.map((l) => (
-        <div
-          key={l.id}
-          className={cx("absolute cursor-default text-xs whitespace-nowrap", selected.includes(l.id) ? "text-select" : "text-label")}
-          style={{ left: l.left, top: l.top - 20 }}
-          data-frame-label={l.id}
-          title="Duplo clique para renomear"
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            const additive = e.shiftKey || e.metaKey || e.ctrlKey;
-            onSelect(additive ? (selected.includes(l.id) ? selected.filter((s) => s !== l.id) : [...selected, l.id]) : [l.id]);
-          }}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            setRenaming(l.id);
-          }}
-        >
-          {renaming === l.id ? (
-            <InlineName
-              className={cx(ui.renameInput, "pointer-events-auto h-[18px] w-[180px]")}
-              label="Nome do frame"
-              value={doc.nodes[l.id]?.name ?? ""}
-              onCommit={(name) => apply([{ op: "update", id: l.id, props: { name } }], "renomear frame")}
-              onDone={() => setRenaming(null)}
-            />
-          ) : (
-            l.name
-          )}
-        </div>
+        <Hint key={l.id} label={renaming === l.id ? undefined : "Duplo clique para renomear"}>
+          <div
+            className={cx("absolute cursor-default text-xs whitespace-nowrap", selected.includes(l.id) ? "text-select" : "text-label")}
+            style={{ left: l.left, top: l.top - 20 }}
+            data-frame-label={l.id}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+              onSelect(additive ? (selected.includes(l.id) ? selected.filter((s) => s !== l.id) : [...selected, l.id]) : [l.id]);
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              setRenaming(l.id);
+            }}
+          >
+            {renaming === l.id ? (
+              <InlineName
+                className={cx(ui.renameInput, "pointer-events-auto h-[18px] w-[180px]")}
+                label="Nome do frame"
+                value={doc.nodes[l.id]?.name ?? ""}
+                onCommit={(name) => apply([{ op: "update", id: l.id, props: { name } }], "renomear frame")}
+                onDone={() => setRenaming(null)}
+              />
+            ) : (
+              l.name
+            )}
+          </div>
+        </Hint>
       ))}
       {boxes.map((b) => (
         <div key={b.id} className="pointer-events-none absolute border border-select opacity-70" style={{ left: b.left, top: b.top, width: b.width, height: b.height }} />
@@ -1768,10 +1769,18 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         <div className={cx("pointer-events-none absolute border-[1.5px] border-select", selected.length > 1 && "border-dashed")} style={box} data-testid="selection" data-count={selected.length}>
           {resizable && !editView && (
             <>
-              <div className="pointer-events-auto absolute -top-1.25 -left-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" data-resize="nw" onPointerDown={onResizeDown("nw")} title="Redimensionar canto superior esquerdo" />
-              <div className="pointer-events-auto absolute -top-1.25 -right-1.25 size-[9px] cursor-nesw-resize border-[1.5px] border-select bg-white" data-resize="ne" onPointerDown={onResizeDown("ne")} title="Redimensionar canto superior direito" />
-              <div className="pointer-events-auto absolute -bottom-1.25 -left-1.25 size-[9px] cursor-nesw-resize border-[1.5px] border-select bg-white" data-resize="sw" onPointerDown={onResizeDown("sw")} title="Redimensionar canto inferior esquerdo" />
-              <div className="pointer-events-auto absolute -right-1.25 -bottom-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" data-resize="se" onPointerDown={onResizeDown("se")} title="Redimensionar canto inferior direito" />
+              <Hint label="Redimensionar canto superior esquerdo">
+                <div className="pointer-events-auto absolute -top-1.25 -left-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" data-resize="nw" onPointerDown={onResizeDown("nw")} />
+              </Hint>
+              <Hint label="Redimensionar canto superior direito">
+                <div className="pointer-events-auto absolute -top-1.25 -right-1.25 size-[9px] cursor-nesw-resize border-[1.5px] border-select bg-white" data-resize="ne" onPointerDown={onResizeDown("ne")} />
+              </Hint>
+              <Hint label="Redimensionar canto inferior esquerdo">
+                <div className="pointer-events-auto absolute -bottom-1.25 -left-1.25 size-[9px] cursor-nesw-resize border-[1.5px] border-select bg-white" data-resize="sw" onPointerDown={onResizeDown("sw")} />
+              </Hint>
+              <Hint label="Redimensionar canto inferior direito">
+                <div className="pointer-events-auto absolute -right-1.25 -bottom-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" data-resize="se" onPointerDown={onResizeDown("se")} />
+              </Hint>
             </>
           )}
           <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink">
@@ -1810,41 +1819,50 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         <div className="pointer-events-none absolute rounded-sm bg-select" style={dropUi.marker} data-testid="drop-marker" />
       )}
       <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-ui-border bg-ui-card p-0.5" onPointerDown={(e) => e.stopPropagation()}>
-        <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom" title="Diminuir zoom">
-          <Minus size={14} aria-hidden />
-        </Button>
+        <Hint label="Diminuir zoom">
+          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom">
+            <Minus size={14} aria-hidden />
+          </Button>
+        </Hint>
         <span className="min-w-11 text-center text-ui-muted-foreground">{Math.round(view.zoom * 100)}%</span>
-        <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom" title="Aumentar zoom">
-          <Plus size={14} aria-hidden />
-        </Button>
-        <Button variant="ghost" className={zoomButton} onClick={fit} aria-label="Enquadrar" title="Enquadrar (Shift+1)">
-          <Maximize size={14} aria-hidden />
-        </Button>
-        <Button
-          variant="ghost"
-          className={cn(
-            "h-6 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-xs font-semibold tracking-[0.02em] hover:bg-ui-secondary disabled:cursor-not-allowed disabled:opacity-40",
-            renderer === "wasm" ? "text-accent" : "text-ui-muted-foreground",
-          )}
-          data-testid="renderer-toggle"
-          data-backend={renderer === "wasm" ? wasmLayer.status.backend : "dom"}
-          disabled={!wasmAvailable && renderer === "dom"}
-          aria-pressed={renderer === "wasm"}
-          title={
+        <Hint label="Aumentar zoom">
+          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom">
+            <Plus size={14} aria-hidden />
+          </Button>
+        </Hint>
+        <Hint label="Enquadrar (Shift+1)">
+          <Button variant="ghost" className={zoomButton} onClick={fit} aria-label="Enquadrar">
+            <Maximize size={14} aria-hidden />
+          </Button>
+        </Hint>
+        <Hint
+          label={
             renderer === "wasm"
               ? `Renderizador WASM (${wasmLayer.status.backend})${wasmLayer.status.detail ? `: ${wasmLayer.status.detail}` : ""}. Clique para voltar ao DOM.`
               : wasmAvailable
                 ? "Renderizador DOM. Clique para desenhar formas com WASM (WebGPU, ou CPU sem GPU)."
                 : "Renderizador WASM não compilado (pnpm build com Rust instalado)."
           }
-          onClick={() => {
-            const next = renderer === "wasm" ? "dom" : "wasm";
-            saveRendererMode(next);
-            setRenderer(next);
-          }}
         >
-          {renderer === "dom" ? "DOM" : wasmLayer.status.backend === "webgpu" ? "GPU" : wasmLayer.status.backend === "cpu" ? "CPU" : "WASM"}
-        </Button>
+          <Button
+            variant="ghost"
+            className={cn(
+              "h-6 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-xs font-semibold tracking-[0.02em] hover:bg-ui-secondary disabled:cursor-not-allowed disabled:opacity-40",
+              renderer === "wasm" ? "text-accent" : "text-ui-muted-foreground",
+            )}
+            data-testid="renderer-toggle"
+            data-backend={renderer === "wasm" ? wasmLayer.status.backend : "dom"}
+            disabled={!wasmAvailable && renderer === "dom"}
+            aria-pressed={renderer === "wasm"}
+            onClick={() => {
+              const next = renderer === "wasm" ? "dom" : "wasm";
+              saveRendererMode(next);
+              setRenderer(next);
+            }}
+          >
+            {renderer === "dom" ? "DOM" : wasmLayer.status.backend === "webgpu" ? "GPU" : wasmLayer.status.backend === "cpu" ? "CPU" : "WASM"}
+          </Button>
+        </Hint>
       </div>
     </div>
   );

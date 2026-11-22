@@ -7,6 +7,7 @@ import { InlineName } from "./InlineName";
 import { Button } from "./components/ui/button";
 import { Card, CardContent } from "./components/ui/card";
 import { Input } from "./components/ui/input";
+import { Hint } from "./components/ui/tooltip";
 import { cn } from "./lib/cn";
 import { bar, cx, ui } from "./ui";
 import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type Workspace } from "./workspaces";
@@ -247,42 +248,64 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                   </span>
                 </CardContent>
                 {w.active && (
-                  <span className="absolute top-2.5 right-2.5 rounded-full bg-ui-primary px-2 py-0.5 text-xs font-semibold text-ui-primary-foreground" title="Aberto no servidor: os agentes MCP leem e escrevem neste">
-                    ativo
-                  </span>
+                  <Hint label="Aberto no servidor: os agentes MCP leem e escrevem neste">
+                    <span className="absolute top-2.5 right-2.5 rounded-full bg-ui-primary px-2 py-0.5 text-xs font-semibold text-ui-primary-foreground" tabIndex={0}>
+                      ativo
+                    </span>
+                  </Hint>
                 )}
               </Card>
               {renaming !== w.id && (
                 <span className="absolute right-2.5 bottom-3 flex gap-0.5 rounded-md bg-ui-card opacity-0 transition-opacity duration-120 group-hover:opacity-100 group-focus-within:opacity-100">
-                  <Button type="button" variant="ghost" className={iconAction} aria-label={`Renomear ${w.name}`} title="Renomear (F2)" onClick={() => setRenaming(w.id)}>
-                    <Pencil size={16} />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className={iconAction}
-                    aria-label={`${w.cover ? "Trocar" : "Adicionar"} capa de ${w.name}`}
-                    title={`${w.cover ? "Trocar" : "Adicionar"} capa (ou arraste uma imagem para o card)`}
-                    onClick={() => pickCover(w.id)}
-                  >
-                    <ImagePlus size={16} />
-                  </Button>
-                  {w.cover && (
-                    <Button type="button" variant="ghost" className={iconAction} aria-label={`Remover capa de ${w.name}`} title="Remover capa" onClick={() => void setCover(w.id, null)}>
-                      <ImageOff size={16} />
+                  <Hint label="Renomear (F2)">
+                    <Button type="button" variant="ghost" className={iconAction} aria-label={`Renomear ${w.name}`} onClick={() => setRenaming(w.id)}>
+                      <Pencil size={16} />
                     </Button>
+                  </Hint>
+                  <Hint label={`${w.cover ? "Trocar" : "Adicionar"} capa (ou arraste uma imagem para o card)`}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className={iconAction}
+                      aria-label={`${w.cover ? "Trocar" : "Adicionar"} capa de ${w.name}`}
+                      onClick={() => pickCover(w.id)}
+                    >
+                      <ImagePlus size={16} />
+                    </Button>
+                  </Hint>
+                  {w.cover && (
+                    <Hint label="Remover capa">
+                      <Button type="button" variant="ghost" className={iconAction} aria-label={`Remover capa de ${w.name}`} onClick={() => void setCover(w.id, null)}>
+                        <ImageOff size={16} />
+                      </Button>
+                    </Hint>
                   )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className={cn(iconAction, "text-ui-destructive-text hover:text-ui-destructive-text")}
-                    aria-label={`Excluir ${w.name}`}
-                    title={count > 1 ? "Excluir (Delete)" : "O único workspace não pode ser excluído"}
-                    disabled={count <= 1}
-                    onClick={() => askDelete(w)}
-                  >
-                    <Trash2 size={16} />
-                  </Button>
+                  <Hint label={count > 1 ? "Excluir (Delete)" : "O único workspace não pode ser excluído"}>
+                    {count <= 1 ? (
+                      <span className="inline-flex" tabIndex={0}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className={cn(iconAction, "text-ui-destructive-text hover:text-ui-destructive-text")}
+                          aria-label={`Excluir ${w.name}`}
+                          disabled
+                          onClick={() => askDelete(w)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </span>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className={cn(iconAction, "text-ui-destructive-text hover:text-ui-destructive-text")}
+                        aria-label={`Excluir ${w.name}`}
+                        onClick={() => askDelete(w)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    )}
+                  </Hint>
                 </span>
               )}
             </li>
