@@ -922,11 +922,19 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
           { id: "fx-ship", text: "Enviar" },
           { id: "fx-note", text: "Lembrar de avisar o cliente", shape: "note" },
         ],
-        edges: [{ from: "fx-start", to: "fx-ok" }, { from: "fx-ok", to: "fx-ship" }, { from: "fx-ok", to: "fx-note", dashed: true }],
+        edges: [{ from: "fx-start", to: "fx-ok" }, { from: "fx-ok", to: "fx-ship", label: "sim" }, { from: "fx-ok", to: "fx-note", dashed: true, label: "não" }],
       },
     });
     expect(res.isError).toBeFalsy();
     await expect.poll(() => page.locator('[data-paprika-id="fx-ok-to-fx-ship"] path').count(), POLL).toBe(2);
+    await expect.poll(() => page.locator('[data-paprika-id="fx-ok-to-fx-ship"] [data-connector-label]').textContent(), POLL).toBe("sim");
+    // The inspector edits the label: select the arrow in the layers and type a new one.
+    await page.locator('[data-layer-id="fx-ok-to-fx-note"] .layer-name').first().click();
+    const labelField = page.getByTestId("connector-panel").getByLabel("Rótulo");
+    await labelField.fill("talvez");
+    await labelField.press("Enter");
+    await expect.poll(async () => ((await doc()).nodes["fx-ok-to-fx-note"] as { label?: string }).label, POLL).toBe("talvez");
+    await expect.poll(() => page.locator('[data-paprika-id="fx-ok-to-fx-note"] [data-connector-label]').textContent(), POLL).toBe("talvez");
     await page.getByRole("button", { name: "Enquadrar" }).click();
     if (shots) await page.screenshot({ path: join(shots, "17-diagrama-agente.png") });
   }, 30_000);

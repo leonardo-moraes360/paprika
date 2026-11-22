@@ -3,6 +3,7 @@ import {
   SHAPE_SVG_CSS,
   SHAPE_TEXT_CSS,
   connectorAttrs,
+  connectorLabelAttrs,
   cssToString,
   modeOf,
   nodeStyle,
@@ -92,8 +93,11 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, o
       const a = pathAttrs(doc, node, { vars });
       return `<svg ${attrs} xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)}><path${svgAttrs(a.path)}/></svg>`;
     }
-    case "connector":
-      return `<svg ${attrs} xmlns="http://www.w3.org/2000/svg"><path${svgAttrs(connectorAttrs(doc, node, { vars }))}/></svg>`;
+    case "connector": {
+      const label = connectorLabelAttrs(doc, node, { vars });
+      const text = label ? `<text${svgAttrs(label)}>${escapeHtml(node.label!)}</text>` : "";
+      return `<svg ${attrs} xmlns="http://www.w3.org/2000/svg"><path${svgAttrs(connectorAttrs(doc, node, { vars }))}/>${text}</svg>`;
+    }
     case "shape": {
       const a = shapeAttrs(doc, node, { vars });
       const fold = a.fold ? `<path${svgAttrs(a.fold)}/>` : "";
@@ -193,8 +197,11 @@ function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, var
           .join("");
       return `${indent}<svg${name} style=${style}${jsx(a.svg)}>\n${indent}  <path${jsx(a.path)} />\n${indent}</svg>`;
     }
-    case "connector":
-      return `${indent}<svg${name} style=${style}>\n${indent}  <path${jsxAttrs(connectorAttrs(doc, node, { vars }))} />\n${indent}</svg>`;
+    case "connector": {
+      const label = connectorLabelAttrs(doc, node, { vars });
+      const text = label ? `\n${indent}  <text${jsxAttrs(label)}>{${JSON.stringify(node.label)}}</text>` : "";
+      return `${indent}<svg${name} style=${style}>\n${indent}  <path${jsxAttrs(connectorAttrs(doc, node, { vars }))} />${text}\n${indent}</svg>`;
+    }
     case "shape": {
       const a = shapeAttrs(doc, node, { vars });
       const fold = a.fold ? `\n${indent}    <path${jsxAttrs(a.fold)} />` : "";

@@ -454,7 +454,7 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
   );
 }
 
-/** Conector: pontas, rota, setas e traço. A geometria é calculada pelo servidor a partir das pontas. */
+/** Conector: rótulo, pontas, rota, setas e traço. A geometria é calculada pelo servidor a partir das pontas. */
 function ConnectorPanel({ connector: node, ...props }: Props & { connector: ConnectorNode }) {
   const { doc, apply, onSelect } = props;
   const set = (p: Record<string, unknown>, label = "editar conector") => apply([{ op: "update", id: node.id, props: p }], label);
@@ -491,6 +491,8 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
       </h2>
       <div className={ui.grid}>
         <Field label="Nome" value={node.name} onCommit={(v) => set({ name: v }, "renomear")} />
+        <Field label="Rótulo" value={node.label ?? ""} placeholder="sim, não…" onCommit={(v) => set({ label: v.trim() ? v.trim() : null }, "editar rótulo")} />
+        <p className={ui.muted}>Aparece no meio da seta. Vazio = sem rótulo.</p>
       </div>
       <h3 className={ui.h3}>Pontas</h3>
       {end("from", node.from)}

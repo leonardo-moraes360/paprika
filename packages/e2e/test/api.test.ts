@@ -362,10 +362,17 @@ describe("API: MCP", () => {
     const doc = await srv.doc();
     expect(doc.nodes["start-to-ok"]).toMatchObject({ x: 158, y: 38, d: "M2 2 L22.25 2 L22.25 146 L42.5 146 M30.5 152 L42.5 146 L30.5 140" });
     expect(textOf(await call(c, "get_document_outline"))).toContain("connector#memo-to-ok");
+    // Labels (fb#57): on draw_diagram edges and on any connector, drawn halfway along the route.
+    await call(c, "update_nodes", { updates: [{ id: "start-to-ok", props: { label: "sim" } }] });
+    expect(textOf(await call(c, "get_document_outline"))).toContain('label="sim"');
+    const html = textOf(await call(c, "export_code", { rootId: "start-to-ok", format: "html" }));
+    expect(html).toContain('paint-order="stroke"');
+    expect(html).toMatch(/<text x="22.25" y="74"[^>]*>sim<\/text>/);
     const svg = textOf(await call(c, "export_code", { rootId: "memo", format: "svg" }));
     expect(svg).toContain(">Note</tspan>");
     const bad = await call(c, "draw_diagram", { nodes: [{ id: "x" }], edges: [{ from: "x", to: "nope" }] });
     expect(textOf(bad)).toBe('edges[0]: "nope" is neither a diagram node nor an existing node');
+    await call(c, "undo");
     await call(c, "undo");
     await call(c, "undo");
     expect(Object.keys((await srv.doc()).nodes)).toEqual([]);

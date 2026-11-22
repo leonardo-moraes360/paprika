@@ -35,7 +35,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `get_document_outline` | Árvore compacta + tokens + versão |
 | `get_nodes` / `find_nodes` | JSON completo de nós / busca por tipo, nome, texto |
 | `create_nodes` | Cria árvores aninhadas numa chamada |
-| `draw_diagram` | Desenha um diagrama (fluxograma, arquitetura, mapa mental) a partir de formas e ligações: distribui as formas em camadas (`direction`: para baixo ou para a direita, à direita do conteúdo existente) e liga com setas que seguem as formas |
+| `draw_diagram` | Desenha um diagrama (fluxograma, arquitetura, mapa mental) a partir de formas e ligações: distribui as formas em camadas (`direction`: para baixo ou para a direita, à direita do conteúdo existente) e liga com setas que seguem as formas; uma ligação pode ter `label` |
 | `update_nodes` / `move_nodes` / `delete_nodes` | Edição em lote, atômica |
 | `group_nodes` / `ungroup_nodes` | Põe nós irmãos num `group` (o desenho não se move) / devolve ao pai |
 | `create_page` | Cria uma página; a primeira leva o canvas atual para "Página 1" |

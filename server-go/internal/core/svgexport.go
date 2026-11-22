@@ -274,7 +274,11 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 			return open.String() + inner + "</g>", nil
 		}
 		if typ == "connector" {
-			return open.String() + "<path" + svgAttrs(ConnectorAttrs(doc, n, false)) + "/></g>", nil
+			text := ""
+			if label := ConnectorLabelAttrs(doc, n, false); label != nil {
+				text = "<text" + svgAttrs(label) + ">" + EscapeHTML(n.Str("label")) + "</text>"
+			}
+			return open.String() + "<path" + svgAttrs(ConnectorAttrs(doc, n, false)) + "/>" + text + "</g>", nil
 		}
 		if typ == "shape" {
 			return open.String() + shapeSVG(n, w, h) + "</g>", nil
