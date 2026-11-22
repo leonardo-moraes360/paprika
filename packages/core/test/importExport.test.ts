@@ -5,8 +5,11 @@ import {
   applyOps,
   arcToCubics,
   createDocument,
+  angularPreviewHTML,
+  exportAngular,
   exportCssModules,
   exportSVG,
+  exportSvelte,
   exportTailwind,
   importHTML,
   importSVG,
@@ -17,8 +20,10 @@ import {
   parseTransform,
   pathBounds,
   nodeStyle,
+  renderFrameworkHTML,
   renderHTML,
   renderTailwindHTML,
+  sveltePreviewHTML,
   tailwindClasses,
   tailwindClassesFor,
   textContent,
@@ -301,5 +306,55 @@ describe("export css-modules", () => {
   it("recusa páginas", () => {
     const doc = applyOps(createDocument("P", "p"), [{ op: "create", node: { type: "page", id: "pg", name: "P" } }]).doc;
     expect(() => exportCssModules(doc, "pg")).toThrow(/is a page/);
+  });
+});
+
+describe("export angular e svelte", () => {
+  it("angular: standalone .ts + template HTML + styles com classes do nodeStyle", () => {
+    const out = exportAngular(cardDoc(), "card");
+    expect(out.fileBase).toBe("CardGrande");
+    expect(out.selector).toBe("app-card-grande");
+    expect(out.typescript).toContain('selector: "app-card-grande"');
+    expect(out.typescript).toContain("standalone: true");
+    expect(out.typescript).toContain('templateUrl: "./CardGrande.component.html"');
+    expect(out.typescript).toContain("export class CardGrande {}");
+    expect(out.template).toContain('data-paprika-id="card"');
+    expect(out.template).toContain('class="cardGrande"');
+    expect(out.template).not.toContain(" style=");
+    expect(out.styles).toContain(".cardGrande{box-sizing:border-box;");
+    expect(out.styles.match(/^\.shapeSvg\{/gm)).toHaveLength(1);
+  });
+
+  it("svelte: um .svelte com markup e <style>", () => {
+    const out = exportSvelte(cardDoc(), "card");
+    expect(out.fileName).toBe("CardGrande.svelte");
+    expect(out.source).toContain('data-paprika-id="card"');
+    expect(out.source).toContain('class="cardGrande"');
+    expect(out.source).toContain("<style>");
+    expect(out.source).toContain(".cardGrande{box-sizing:border-box;");
+    expect(out.source).not.toContain(" style=");
+  });
+
+  it("cssVariables: tokens no CSS; svelte envolve :root em :global", () => {
+    const ang = exportAngular(cardDoc(), "card", { cssVariables: true });
+    expect(ang.styles.startsWith(":root{")).toBe(true);
+    expect(ang.styles).toContain("background:var(--bg)");
+    const sv = exportSvelte(cardDoc(), "card", { cssVariables: true });
+    expect(sv.source).toContain(":global(:root){");
+    expect(sv.source).toContain("background:var(--bg)");
+  });
+
+  it("preview estático monta a mesma árvore class+stylesheet do framework HTML", () => {
+    const doc = cardDoc();
+    const fw = renderFrameworkHTML(doc, { rootId: "card" });
+    expect(angularPreviewHTML(doc, "card").html).toBe(fw.html);
+    expect(sveltePreviewHTML(doc, "card").html).toBe(fw.html);
+    expect(fw.html).not.toMatch(/ style="/);
+  });
+
+  it("recusa páginas e nós inexistentes", () => {
+    const doc = applyOps(createDocument("P", "p"), [{ op: "create", node: { type: "page", id: "pg", name: "P" } }]).doc;
+    expect(() => exportAngular(doc, "pg")).toThrow(/is a page/);
+    expect(() => exportSvelte(doc, "nope")).toThrow(/does not exist/);
   });
 });

@@ -810,7 +810,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 
 	add("export_code", z.Object(
 		z.Field{Name: "rootId", Schema: z.String()},
-		z.Field{Name: "format", Schema: z.Default(z.Enum("html", "react", "svg", "tailwind", "tailwind-html", "css-modules"), "react")},
+		z.Field{Name: "format", Schema: z.Default(z.Enum("html", "react", "svg", "tailwind", "tailwind-html", "css-modules", "angular", "svelte"), "react")},
 		z.Field{Name: "cssVariables", Schema: z.Default(z.Bool(), false)},
 	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		d := store.Doc()
@@ -848,6 +848,22 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 				jsonv.NewObject("type", "text", "text", "// "+strings.TrimSuffix(mod.FileName, ".module.css")+".tsx\n"+mod.Component),
 				jsonv.NewObject("type", "text", "text", "/* "+mod.FileName+" */\n"+mod.CSS),
 			}), nil
+		case "angular":
+			ang, err := core.ExportAngular(d, a.Str("rootId"), a.Bool("cssVariables"))
+			if err != nil {
+				return nil, err
+			}
+			return jsonv.NewObject("content", []any{
+				jsonv.NewObject("type", "text", "text", "// "+ang.FileBase+".component.ts\n"+ang.Typescript),
+				jsonv.NewObject("type", "text", "text", "<!-- "+ang.FileBase+".component.html -->\n"+ang.Template),
+				jsonv.NewObject("type", "text", "text", "/* "+ang.FileBase+".component.css */\n"+ang.Styles),
+			}), nil
+		case "svelte":
+			sv, err := core.ExportSvelte(d, a.Str("rootId"), a.Bool("cssVariables"))
+			if err != nil {
+				return nil, err
+			}
+			return textResult("<!-- " + sv.FileName + " -->\n" + sv.Source), nil
 		}
 		r, err := core.ExportSVG(d, a.Str("rootId"), nil)
 		if err != nil {

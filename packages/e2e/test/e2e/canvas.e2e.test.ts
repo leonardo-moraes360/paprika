@@ -146,6 +146,35 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await doc()).nodes.plano?.name).toBe("Card · plano Pro");
   });
 
+  it("ordem Z: Page Up/Down e botões Ordem; Ctrl+Z desfaz; ignora input", async () => {
+    const roots = () => doc().then((d) => d.rootIds);
+    await expect.poll(roots).toEqual(["login", "plano"]);
+
+    await page.locator('[data-layer-id="login"]').click();
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    await page.locator('[data-layer-id="login"]').click();
+    await page.keyboard.press("PageUp");
+    await expect.poll(roots).toEqual(["plano", "login"]);
+    await page.keyboard.press("Control+z");
+    await expect.poll(roots).toEqual(["login", "plano"]);
+
+    await page.locator('[data-layer-id="login"]').click();
+    await page.getByTestId("arrange-front").click();
+    await expect.poll(roots).toEqual(["plano", "login"]);
+    await page.keyboard.press("Control+z");
+    await expect.poll(roots).toEqual(["login", "plano"]);
+
+    await page.locator('[data-layer-id="login"]').click();
+    await page.keyboard.press("Control+PageDown");
+    await expect.poll(roots).toEqual(["login", "plano"]);
+
+    const nameInput = page.getByLabel("Nome", { exact: true });
+    await nameInput.click();
+    await page.keyboard.press("PageUp");
+    await expect.poll(roots).toEqual(["login", "plano"]);
+    await expect.poll(async () => (await doc()).nodes.login?.name).toBe("Login · mobile");
+  });
+
   it("inspector: Opacidade recusa letras, cola inválida e limita ao intervalo 0–1", async () => {
     await page.locator('[data-layer-id="plano"]').click();
     const opacity = page.getByLabel("Opacidade", { exact: true });
