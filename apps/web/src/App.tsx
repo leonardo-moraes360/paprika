@@ -14,6 +14,7 @@ import { navigate, parseRoute, useRoute, workspacePath } from "./route";
 import { useLive, useLiveActions, useLiveConnection } from "./useDocument";
 import { bar, cx } from "./ui";
 import { openWorkspace } from "./workspaces";
+import { WorkspaceNotice } from "./WorkspaceNotice";
 
 // Plain class names next to utilities ("left", "right", "doc-name", "is-active") are hooks for the E2E suite.
 const boot = "grid h-full place-content-center justify-items-center gap-3 text-muted";
@@ -107,6 +108,7 @@ export function App() {
       <>
         <OverviewRoute activeId={activeId} connected={connected} />
         <ErrorToast />
+        <WorkspaceNotice />
       </>
     );
   }
@@ -402,6 +404,7 @@ function Editor() {
           onError={live.showError}
         />
         <ErrorToast />
+        <WorkspaceNotice />
       </main>
       <PanelResizer side="right" label="Largura do painel de propriedades" panel={rightPanel} limits={RIGHT_PANEL} />
       <aside aria-label="Propriedades" className={cx("right overflow-auto border-l border-line bg-panel [grid-area:right] max-wide:border-t max-wide:border-l-0", rightPanel.collapsed && "hidden")}>

@@ -360,6 +360,18 @@ sem páginas, e ligar o renomear em `apps/web`. Seis frames raiz (três estados,
 - O `lint_design` apontou a legenda de 11 px (`small-text`) nos seis frames; 12 px resolveu, então as legendas ficam no menor tamanho legível do app.
 - O modo `light` no frame, mais os mesmos tokens `pg.*` sobrescritos em `set_tokens {mode: "light"}`, renderizou os dois temas a partir de um só conjunto de nós, sem editar cor por frame.
 
+## 2026-11-22: aviso no canvas quando um agente apaga ou troca o workspace (PAP-B-037, design first)
+
+Tarefa: desenhar o aviso sem bloquear (apagar com contagens, abrir, renomear; claro e escuro) antes de
+ligar o `WorkspaceNotice` e o broadcast WebSocket `workspaceOp`. Seis frames raiz.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 101 | Ouvir operações de workspace no canvas sem pollear HTTP | `list_workspace_ops` existe, mas o canvas ao vivo só via patches do documento; apagar o workspace ativo deixava o humano num editor morto até dar refresh | Broadcast de cada entrada nova do log como `{type:workspaceOp, op}` no hub WebSocket (ler o log; pular entradas anteriores ao subscriber) | P2 |
+
+- Roots com altura fixa; PNGs em `docs/assets/boards/PAP-B-037/`.
+- Aviso com `role=status` e sem roubar foco; na visão geral o mount cobre o delete depois que a rota do canvas some.
+
 ## 2026-11-22: painéis laterais recolhem num botão flutuante (PAP-B-024, design first)
 
 Tarefa: desenhar os painéis recolhidos (só o da esquerda, os dois) ao lado do layout expandido, claro e escuro,

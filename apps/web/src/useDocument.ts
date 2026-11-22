@@ -13,6 +13,18 @@ export interface Activity {
   changed: string[];
 }
 
+export type WorkspaceOpKind = "rename" | "open" | "delete";
+
+/** A workspace operation by someone other than this canvas's user (an MCP agent), read from the server's operations log. */
+export interface WorkspaceNotice {
+  id: number;
+  actor: string;
+  op: WorkspaceOpKind;
+  workspaceName: string;
+  /** For a delete: what went with the workspace (counts from the log entry). */
+  detail: Record<string, unknown>;
+}
+
 export interface DocState {
   doc: Document | null;
   version: number;
@@ -27,6 +39,7 @@ export interface DocState {
   agents: AgentPresence[];
   /** Sincronização de time (ADR 0004): undefined = servidor sem --team; null = ainda sem status. */
   team: TeamStatus | null | undefined;
+  workspaceNotice: WorkspaceNotice | null;
 }
 
 type ServerMsg =
@@ -34,6 +47,7 @@ type ServerMsg =
   | { type: "ack"; reqId: string; version: number }
   | { type: "error"; reqId?: string; message: string }
   | { type: "team"; status: TeamStatus }
+  | { type: "workspaceOp"; op: { actor: string; op: WorkspaceOpKind | "create"; workspaceId: string; workspaceName: string; detail: Record<string, unknown> } }
   | PresenceMsg;
 
 function changedIds(prev: Document | null, next: Document): string[] {
@@ -65,10 +79,12 @@ export class LiveStore {
     agentTouched: new Set(),
     agents: [],
     team: undefined,
+    workspaceNotice: null,
   };
   private listeners = new Set<Listener>();
   private ws: WebSocket | null = null;
   private seq = 0;
+  private noticeSeq = 0;
 
   getState = (): DocState => this.state;
 
@@ -138,6 +154,15 @@ export class LiveStore {
           });
         } else if (msg.type === "team") {
           this.set((s) => ({ ...s, team: msg.status }));
+        } else if (msg.type === "workspaceOp") {
+          const { op } = msg;
+          const kind = op.op;
+          if (kind === "create" || !op.actor.startsWith("agent")) return;
+          this.set((s) =>
+            kind === "rename" && s.doc?.id !== op.workspaceId
+              ? s
+              : { ...s, workspaceNotice: { id: ++this.noticeSeq, actor: op.actor, op: kind, workspaceName: op.workspaceName, detail: op.detail ?? {} } },
+          );
         } else if (msg.type === "presence") {
           this.set((s) => ({ ...s, agents: applyPresence(s.agents, msg) }));
         } else if (msg.type === "error") {
@@ -173,6 +198,7 @@ export class LiveStore {
     apply: (ops: Op[], label = "") => this.sendRaw({ type: "ops", ops, label }),
     undo: () => this.sendRaw({ type: "undo" }),
     redo: () => this.sendRaw({ type: "redo" }),
+    dismissWorkspaceNotice: () => this.set((s) => (s.workspaceNotice === null ? s : { ...s, workspaceNotice: null })),
     clearError: () => this.set((s) => (s.error === null ? s : { ...s, error: null })),
     /** Mostra um erro local (ex.: agrupar algo que não pode), no mesmo aviso dos erros do servidor. */
     showError: (message: string) => this.set((s) => ({ ...s, error: message })),

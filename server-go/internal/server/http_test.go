@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -8,6 +9,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/coder/websocket"
+	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 )
 
 func httpDo(t *testing.T, srv *RunningServer, method, path string, headers map[string]string, body string) (int, string, http.Header) {
@@ -196,5 +200,52 @@ func BenchmarkMCPToolsCall(b *testing.B) {
 		if res.StatusCode != 200 {
 			b.Fatalf("status %d", res.StatusCode)
 		}
+	}
+}
+
+func TestWorkspaceOpsBroadcast(t *testing.T) {
+	s, _ := openTemp(t)
+	before, err := s.CreateWorkspace("antes", "user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv, err := StartHTTP(s, HTTPOptions{Host: "127.0.0.1", Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c, _, err := websocket.Dial(ctx, strings.Replace(srv.URL, "http", "ws", 1)+"/ws", &websocket.DialOptions{HTTPHeader: http.Header{"Origin": {srv.URL}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.CloseNow()
+	next := func() *jsonv.Object {
+		t.Helper()
+		for {
+			_, data, err := c.Read(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			v, _ := jsonv.Parse(data)
+			if m := v.(*jsonv.Object); m.Str("type") == "workspaceOp" {
+				op, _ := m.Get("op")
+				return op.(*jsonv.Object)
+			}
+		}
+	}
+	if _, err := s.DeleteWorkspace(s.DocID(), "agent:claude-code"); err != nil {
+		t.Fatal(err)
+	}
+	opened := next()
+	if opened.Str("op") != "open" || opened.Str("actor") != "agent:claude-code" || opened.Str("workspaceId") != before.ID {
+		t.Fatalf("first op: %s", jsonv.Stringify(opened, ""))
+	}
+	deleted := next()
+	raw, _ := deleted.Get("detail")
+	detail, _ := raw.(*jsonv.Object)
+	if deleted.Str("op") != "delete" || detail == nil || detail.Str("successor") != before.ID || detail.Bool("active") != true {
+		t.Fatalf("second op: %s", jsonv.Stringify(deleted, ""))
 	}
 }
