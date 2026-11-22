@@ -1,38 +1,20 @@
 import type { Document, Node } from "./schema.js";
+import { SHAPE_SVG_CSS, SHAPE_TEXT_CSS, cssToString, tokenStylesheet, type CSS } from "./style.js";
 import {
-  SHAPE_SVG_CSS,
-  SHAPE_TEXT_CSS,
-  connectorAttrs,
-  connectorLabelAttrs,
-  cssToString,
-  modeOf,
-  nodeStyle,
-  pathAttrs,
-  shapeAttrs,
-  tokenStylesheet,
-  type CSS,
-} from "./style.js";
-import {
+  componentName,
   escapeHtml,
   exportParts,
   jsxNode,
+  jsxStyleAttr,
+  pascalName,
   type Bounds,
   type RenderOptions,
   type StyleEmitter,
 } from "./render.js";
 
-/**
- * `export_code { format: "tailwind" | "css-modules" }`.
- *
- * Both start from `nodeStyle`, the function the canvas itself paints with, and neither one is
- * allowed to drop a declaration it cannot express: what the target has no utility for goes back
- * into an inline `style`. The promise of the format is that the exported screen *is* the screen,
- * so an unmapped property is a visible fallback (and the golden-board tests fail on it), never a
- * silent visual change.
- */
+const arb = (v: string) => v.replace(/_/g, "\\_").replace(/\s+/g, "_");
 
-/** Inside a Tailwind arbitrary value a space closes the class, so they become underscores. */
-const arb = (v: string) => v.replace(/\s+/g, "_");
+const UNSAFE = /[\[\]{};]/;
 
 const POSITION = new Set(["static", "fixed", "absolute", "relative", "sticky"]);
 const DISPLAY = new Map([
@@ -110,21 +92,19 @@ const SIZE_VALUE = new Map([
 ]);
 const BORDER_STYLE = new Map([
   ["solid", "border-solid"],
-  ["dashed", "border-dashed", ],
+  ["dashed", "border-dashed"],
   ["dotted", "border-dotted"],
   ["none", "border-none"],
 ]);
 
-/** `1px solid #c43d27`: the shorthand is not a Tailwind arbitrary value, so it splits in three. */
 function borderClasses(value: string): string[] | undefined {
   const m = value.match(/^(\d+(?:\.\d+)?px)\s+(solid|dashed|dotted|none)\s+(.+)$/);
   if (!m) return undefined;
   const style = BORDER_STYLE.get(m[2]!);
   if (!style) return undefined;
-  return [`border-[${arb(m[1]!)}]`, style, `border-[${arb(m[3]!)}]`];
+  return [`border-[length:${arb(m[1]!)}]`, style, `border-[color:${arb(m[3]!)}]`];
 }
 
-/** `16px` → `p-[16px]`; four sides → the four directional utilities (what the canvas means). */
 function paddingClasses(value: string): string[] | undefined {
   const parts = value.trim().split(/\s+/);
   if (parts.length === 1) return [`p-[${parts[0]!}]`];
@@ -133,12 +113,9 @@ function paddingClasses(value: string): string[] | undefined {
   return undefined;
 }
 
-/**
- * One `nodeStyle` declaration as Tailwind utilities; `undefined` means "this target has no
- * utility for it", and the caller keeps it inline.
- */
 export function tailwindClassesFor(key: string, value: string | number): string[] | undefined {
   const v = String(value);
+  if (UNSAFE.test(v)) return undefined;
   switch (key) {
     case "boxSizing":
       return v === "border-box" ? ["box-border"] : v === "content-box" ? ["box-content"] : undefined;
@@ -195,7 +172,7 @@ export function tailwindClassesFor(key: string, value: string | number): string[
     }
     case "background":
     case "backgroundColor":
-      return [`bg-[${arb(v)}]`];
+      return [`bg-[color:${arb(v)}]`];
     case "border":
       return borderClasses(v);
     case "borderRadius":
@@ -209,11 +186,11 @@ export function tailwindClassesFor(key: string, value: string | number): string[
     case "overflow":
       return OVERFLOW.get(v) ? [OVERFLOW.get(v)!] : undefined;
     case "color":
-      return [`text-[${arb(v)}]`];
+      return [`text-[color:${arb(v)}]`];
     case "fontFamily":
-      return [`font-[${arb(v)}]`];
+      return [`font-[family-name:${arb(v)}]`];
     case "fontSize":
-      return [`text-[${arb(v)}]`];
+      return [`text-[length:${arb(v)}]`];
     case "fontWeight":
       return v === "normal" ? ["font-normal"] : v === "bold" ? ["font-bold"] : [`font-[${v}]`];
     case "lineHeight":
@@ -234,9 +211,7 @@ export function tailwindClassesFor(key: string, value: string | number): string[
 }
 
 export interface TailwindCSS {
-  /** The utilities, in the order `nodeStyle` emitted the declarations. */
   classes: string[];
-  /** What the target could not express: goes back inline so the pixel does not move. */
   fallback: CSS;
 }
 
@@ -251,80 +226,52 @@ export function tailwindClasses(css: CSS): TailwindCSS {
   return { classes, fallback };
 }
 
-/** ` class="…"` for the HTML document, plus `style` only for what has no utility. */
-export const tailwindClassAttr: StyleEmitter = (css) => {
+const tailwindClassAttr: StyleEmitter = (css) => {
   const { classes, fallback } = tailwindClasses(css);
   const cls = classes.length ? ` class="${escapeHtml(classes.join(" "))}"` : "";
   const inline = Object.keys(fallback).length ? ` style="${escapeHtml(cssToString(fallback))}"` : "";
   return `${cls}${inline}`;
 };
 
-/** ` className="…"` for the JSX component. */
-export const tailwindClassNameAttr: StyleEmitter = (css) => {
+const tailwindClassNameAttr: StyleEmitter = (css, owner) => {
   const { classes, fallback } = tailwindClasses(css);
   const cls = classes.length ? ` className=${JSON.stringify(classes.join(" "))}` : "";
-  const inline = Object.keys(fallback).length ? jsxStyleObject(fallback) : "";
+  const inline = Object.keys(fallback).length ? jsxStyleAttr(fallback, owner) : "";
   return `${cls}${inline}`;
 };
 
-function jsxStyleObject(css: CSS): string {
-  return ` style={{ ${Object.entries(css)
-    .map(([k, v]) => `${k}: ${typeof v === "number" ? v : JSON.stringify(v)}`)
-    .join(", ")} }}`;
-}
+export const TAILWIND_CDN = "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4";
 
-/** The CDN is what the parity test renders; a project with its own Tailwind build drops the tag. */
-export const TAILWIND_CDN = "https://cdn.tailwindcss.com";
-
-/** The `<body>` box: the same numbers the HTML export writes in its stylesheet, as utilities. */
 function bodyClasses(bounds: Bounds, background: string): string {
-  return ["relative", `w-[${bounds.width}px]`, `h-[${bounds.height}px]`, `bg-[${arb(String(background))}]`, "font-[Inter_system-ui_sans-serif]"].join(" ");
+  return [
+    "relative",
+    `w-[${bounds.width}px]`,
+    `h-[${bounds.height}px]`,
+    `bg-[color:${arb(background)}]`,
+    "font-[family-name:Inter,system-ui,sans-serif]",
+    "antialiased",
+  ].join(" ");
 }
 
-/**
- * Standalone HTML with utility classes: same tree as the `html` format, but the styling is
- * Tailwind (CDN tag included, so the file renders as it is) and the token sheet is only there
- * when `cssVariables` asked for `var(--nome)`.
- */
 export function renderTailwindHTML(doc: Document, opts: RenderOptions = {}): { html: string; bounds: Bounds } {
   const p = exportParts(doc, opts, tailwindClassAttr);
   const tokens = p.vars ? `\n<style>${tokenStylesheet(doc)}</style>` : "";
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(doc.name)}</title>
 <script src="${TAILWIND_CDN}"></script>${tokens}
-</head><body${p.bodyMode} class="${bodyClasses(p.bounds, p.background)}">${p.body}</body></html>`;
+</head><body${p.bodyMode} class="${escapeHtml(bodyClasses(p.bounds, p.background))}">${p.body}</body></html>`;
   return { html, bounds: p.bounds };
 }
 
-/** Component name, identical to the `react` format so the two exports are sibling screens. */
-function componentName(s: string): string {
-  const base = pascal(s).replace(/^[^A-Za-z]+/, "");
-  return base ? base[0]!.toUpperCase() + base.slice(1) : "Design";
-}
-
-/** "Card grande" → "CardGrande"; accents are dropped, as in the React export. */
-function pascal(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^A-Za-z0-9]+(.)?/g, (_, c: string | undefined) => (c ? c.toUpperCase() : ""));
-}
-
-function requireRoot(doc: Document, rootId: string): Node {
+function exportRoot(doc: Document, rootId: string): Node {
   const node = doc.nodes[rootId];
   if (!node) throw new Error(`node "${rootId}" does not exist`);
   if (node.type === "page") throw new Error(`"${rootId}" is a page; export one of its frames (export_code with the frame id)`);
   return node;
 }
 
-/**
- * React (TSX) component with utility classes. With `cssVariables`, tokens come out as
- * `var(--nome)` inside the classes and the module exports `tokensCss` (the sheet per mode), the
- * same contract as the `react` format: the app includes the sheet once and switches mode through
- * `data-paprika-mode`.
- */
 export function exportTailwind(doc: Document, rootId: string, opts: { cssVariables?: boolean } = {}): string {
-  const node = requireRoot(doc, rootId);
+  const node = exportRoot(doc, rootId);
   const vars = !!opts.cssVariables;
   const tokens = vars ? `export const tokensCss = ${JSON.stringify(tokenStylesheet(doc))};\n\n` : "";
   const name = componentName(node.name || node.id);
@@ -332,123 +279,47 @@ export function exportTailwind(doc: Document, rootId: string, opts: { cssVariabl
 }
 
 export interface CssModuleExport {
-  /** The React (TSX) component that imports the module. */
   component: string;
-  /** The contents of `<Name>.module.css`. */
   css: string;
-  /** The suggested file name for the sheet. */
   fileName: string;
 }
 
-/** One rule per node, named after it; the declarations are exactly `nodeStyle`'s. */
-class ModuleRules {
-  private rules: string[] = [];
-  private used = new Set<string>();
-  private shared = new Map<string, string>();
-
-  for(node: Node): string {
-    const base = camel(node.name || node.id) || "node";
+function cssModuleEmitter(): { emit: StyleEmitter; sheet: () => string } {
+  const rules: string[] = [];
+  const used = new Set<string>();
+  const shared = new Map<string, string>();
+  const unique = (label: string) => {
+    const pascal = pascalName(label);
+    const base = pascal ? pascal[0]!.toLowerCase() + pascal.slice(1) : "node";
     let name = base;
-    for (let i = 2; this.used.has(name); i++) name = `${base}${i}`;
-    this.used.add(name);
+    for (let i = 2; used.has(name); i++) name = `${base}${i}`;
+    used.add(name);
     return name;
-  }
-
-  add(selector: string, css: CSS): void {
-    this.rules.push(`.${selector}{${cssToString(css)}}`);
-  }
-
-  /** The shape's outline and text blocks are the same on every shape: one rule, emitted once. */
-  sharedClass(key: string, label: string, css: CSS): string {
-    let name = this.shared.get(key);
-    if (!name) {
-      name = camel(label);
-      this.used.add(name);
-      this.shared.set(key, name);
-      this.add(name, css);
-    }
-    return name;
-  }
-
-  build(): string {
-    return this.rules.join("");
-  }
+  };
+  const emit: StyleEmitter = (css, owner) => {
+    let name: string;
+    if (typeof owner === "string") {
+      const known = shared.get(owner);
+      if (known) return ` className={styles.${known}}`;
+      name = unique(owner);
+      shared.set(owner, name);
+    } else name = unique(owner.name || owner.id);
+    rules.push(`.${name}{${cssToString(css)}}`);
+    return ` className={styles.${name}}`;
+  };
+  return { emit, sheet: () => rules.join("\n") };
 }
 
-function camel(s: string): string {
-  const p = pascal(s);
-  return p ? p[0]!.toLowerCase() + p.slice(1) : "";
-}
-
-/**
- * `export_code { format: "css-modules" }`: `<Name>.tsx` plus `<Name>.module.css`, for a project
- * that wants no Tailwind and no inline styles. The token sheet, when asked for, sits at the top
- * of the module so mode switching keeps working the same way.
- */
 export function exportCssModules(doc: Document, rootId: string, opts: { cssVariables?: boolean } = {}): CssModuleExport {
-  const node = requireRoot(doc, rootId);
+  const node = exportRoot(doc, rootId);
   const vars = !!opts.cssVariables;
   const name = componentName(node.name || node.id);
-  const rules = new ModuleRules();
-  const component = moduleNode(doc, node, true, "    ", vars, rules);
+  const { emit, sheet } = cssModuleEmitter();
+  const body = jsxNode(doc, node, true, "    ", vars, emit);
   const tokens = vars ? `${tokenStylesheet(doc)}\n` : "";
   return {
-    component: `import styles from "./${name}.module.css";\n\nexport function ${name}() {\n  return (\n${component}\n  );\n}\n`,
-    css: `${tokens}${rules.build()}`,
+    component: `import styles from "./${name}.module.css";\n\nexport function ${name}() {\n  return (\n${body}\n  );\n}\n`,
+    css: `${tokens}${sheet()}\n`,
     fileName: `${name}.module.css`,
   };
-}
-
-/** Its own walk: every node needs its class name, so the rules object is threaded through. */
-function moduleNode(doc: Document, node: Node, asRoot: boolean, indent: string, vars: boolean, rules: ModuleRules): string {
-  const selector = rules.for(node);
-  rules.add(selector, nodeStyle(doc, node, { asRoot, vars }));
-  const style = ` className={styles.${selector}}`;
-  const mode = (node.type === "frame" || node.type === "page") && node.mode ? node.mode : asRoot && vars ? modeOf(doc, node) : undefined;
-  const attrs = `${node.name ? ` data-name=${JSON.stringify(node.name)}` : ""}${mode ? ` data-paprika-mode=${JSON.stringify(mode)}` : ""}`;
-  switch (node.type) {
-    case "frame":
-    case "group":
-    case "page": {
-      const kids = node.children
-        .map((c) => doc.nodes[c])
-        .filter((c): c is Node => !!c)
-        .map((c) => moduleNode(doc, c, false, indent + "  ", vars, rules))
-        .join("\n");
-      return kids ? `${indent}<div${attrs}${style}>\n${kids}\n${indent}</div>` : `${indent}<div${attrs}${style} />`;
-    }
-    case "text":
-      return `${indent}<div${attrs}${style}>${jsxText(node.text)}</div>`;
-    case "image":
-      return `${indent}<img${attrs}${style} src=${JSON.stringify(node.src)} alt=${JSON.stringify(node.alt)} />`;
-    case "path": {
-      const a = pathAttrs(doc, node, { vars });
-      return `${indent}<svg${attrs}${style}${jsxAttrs(a.svg)}>\n${indent}  <path${jsxAttrs(a.path)} />\n${indent}</svg>`;
-    }
-    case "connector": {
-      const label = connectorLabelAttrs(doc, node, { vars });
-      const text = label ? `\n${indent}  <text${jsxAttrs(label)}>{${JSON.stringify(node.label)}}</text>` : "";
-      return `${indent}<svg${attrs}${style}>\n${indent}  <path${jsxAttrs(connectorAttrs(doc, node, { vars }))} />${text}\n${indent}</svg>`;
-    }
-    case "shape": {
-      const a = shapeAttrs(doc, node, { vars });
-      const fold = a.fold ? `\n${indent}    <path${jsxAttrs(a.fold)} />` : "";
-      const svgClass = rules.sharedClass("shapeSvg", "shapeSvg", SHAPE_SVG_CSS);
-      const textClass = rules.sharedClass("shapeText", "shapeText", SHAPE_TEXT_CSS);
-      return `${indent}<div${attrs}${style}>\n${indent}  <svg${jsxAttrs(a.svg)} className={styles.${svgClass}}>\n${indent}    <path${jsxAttrs(a.path)} />${fold}\n${indent}  </svg>\n${indent}  <div className={styles.${textClass}}>${jsxText(node.text)}</div>\n${indent}</div>`;
-    }
-    default:
-      return `${indent}<div${attrs}${style} />`;
-    }
-}
-
-function jsxAttrs(o: Record<string, string | number | undefined>): string {
-  return Object.entries(o)
-    .filter(([, v]) => v !== undefined)
-    .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : JSON.stringify(v)}`)
-    .join("");
-}
-
-function jsxText(s: string): string {
-  return s.replace(/[{}<>]/g, (c) => `{${JSON.stringify(c)}}`).replace(/\n/g, "{'\\n'}");
 }

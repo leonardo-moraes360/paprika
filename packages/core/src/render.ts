@@ -65,18 +65,10 @@ function modeAttr(node: Node): string {
   return (node.type === "frame" || node.type === "page") && node.mode ? ` data-paprika-mode="${escapeHtml(node.mode)}"` : "";
 }
 
-/**
- * Como um estilo de nó vira atributo no export. `nodeStyle` é a única fonte de verdade; o HTML
- * serializa declarações inline, o Tailwind serializa classes utilitárias e o CSS module escreve
- * uma regra — os três caminhos andam juntos de propósito, para que a paridade de pixels entre
- * eles seja uma propriedade do código, não uma esperança.
- */
-export type StyleEmitter = (css: CSS) => string;
+export type StyleEmitter = (css: CSS, owner: Node | string) => string;
 
-/** ` style="…"` do export HTML (o comportamento histórico). */
 export const htmlStyleAttr: StyleEmitter = (css) => ` style="${escapeHtml(cssToString(css))}"`;
 
-/** ` style={{…}}` do export React. */
 export const jsxStyleAttr: StyleEmitter = (css) => ` style=${jsxStyle(css)}`;
 
 function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, emit: StyleEmitter, offset?: { x: number; y: number }): string {
@@ -87,7 +79,7 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, e
   }
   const attrs = `data-paprika-id="${escapeHtml(node.id)}" data-paprika-type="${node.type}"${
     node.name ? ` data-name="${escapeHtml(node.name)}"` : ""
-  }${modeAttr(node)}${emit(css)}`;
+  }${modeAttr(node)}${emit(css, node)}`;
   switch (node.type) {
     case "frame":
     case "group":
@@ -115,7 +107,7 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, e
     case "shape": {
       const a = shapeAttrs(doc, node, { vars });
       const fold = a.fold ? `<path${svgAttrs(a.fold)}/>` : "";
-      return `<div ${attrs}><svg xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)}${emit(SHAPE_SVG_CSS)}><path${svgAttrs(a.path)}/>${fold}</svg><div${emit(SHAPE_TEXT_CSS)}>${escapeHtml(node.text)}</div></div>`;
+      return `<div ${attrs}><svg xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)}${emit(SHAPE_SVG_CSS, "shapeSvg")}><path${svgAttrs(a.path)}/>${fold}</svg><div${emit(SHAPE_TEXT_CSS, "shapeText")}>${escapeHtml(node.text)}</div></div>`;
     }
     default:
       return `<div ${attrs}></div>`;
@@ -141,16 +133,10 @@ function renderCanvas(doc: Document, pageId: string | undefined, vars: boolean, 
   return { body, bounds };
 }
 
-/**
- * As peças de um export: o corpo já estilizado pelo `emit`, a caixa do conteúdo, o fundo e o modo
- * de tema do contêiner de topo. Compartilhado por HTML, Tailwind e CSS module — os três diferem
- * no invólucro e em como o estilo é escrito, nunca no que é desenhado.
- */
 export interface ExportParts {
   body: string;
   bounds: Bounds;
   background: string;
-  /** ` data-paprika-mode="…"` quando há variáveis de tema em vigor no topo do export. */
   bodyMode: string;
   vars: boolean;
 }
@@ -189,20 +175,19 @@ function jsxStyle(css: CSS): string {
     .join(", ")} }}`;
 }
 
-function jsxAttrs(o: Record<string, string | number | undefined>): string {
+export function jsxAttrs(o: Record<string, string | number | undefined>): string {
   return Object.entries(o)
     .filter(([, v]) => v !== undefined)
     .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : JSON.stringify(v)}`)
     .join("");
 }
 
-function jsxText(s: string): string {
+export function jsxText(s: string): string {
   return s.replace(/[{}<>]/g, (c) => `{${JSON.stringify(c)}}`).replace(/\n/g, "{'\\n'}");
 }
 
-/** A árvore JSX de um nó, com o estilo escrito pelo `emit` (inline no export React, classes no Tailwind). */
 export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, vars: boolean, emit: StyleEmitter): string {
-  const style = emit(nodeStyle(doc, node, { asRoot, vars }));
+  const style = emit(nodeStyle(doc, node, { asRoot, vars }), node);
   const mode = (node.type === "frame" || node.type === "page") && node.mode ? node.mode : asRoot && vars ? modeOf(doc, node) : undefined;
   const name = `${node.name ? ` data-name=${JSON.stringify(node.name)}` : ""}${mode ? ` data-paprika-mode=${JSON.stringify(mode)}` : ""}`;
   switch (node.type) {
@@ -239,19 +224,23 @@ export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: stri
     case "shape": {
       const a = shapeAttrs(doc, node, { vars });
       const fold = a.fold ? `\n${indent}    <path${jsxAttrs(a.fold)} />` : "";
-      return `${indent}<div${name}${style}>\n${indent}  <svg${jsxAttrs(a.svg)}${emit(SHAPE_SVG_CSS)}>\n${indent}    <path${jsxAttrs(a.path)} />${fold}\n${indent}  </svg>\n${indent}  <div${emit(SHAPE_TEXT_CSS)}>${jsxText(node.text)}</div>\n${indent}</div>`;
+      return `${indent}<div${name}${style}>\n${indent}  <svg${jsxAttrs(a.svg)}${emit(SHAPE_SVG_CSS, "shapeSvg")}>\n${indent}    <path${jsxAttrs(a.path)} />${fold}\n${indent}  </svg>\n${indent}  <div${emit(SHAPE_TEXT_CSS, "shapeText")}>${jsxText(node.text)}</div>\n${indent}</div>`;
     }
     default:
       return `${indent}<div${name}${style} />`;
   }
 }
 
-function componentName(s: string): string {
-  const base = s
+export function pascalName(s: string): string {
+  return s
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^A-Za-z0-9]+(.)?/g, (_, c: string | undefined) => (c ? c.toUpperCase() : ""))
     .replace(/^[^A-Za-z]+/, "");
+}
+
+export function componentName(s: string): string {
+  const base = pascalName(s);
   return base ? base[0]!.toUpperCase() + base.slice(1) : "Design";
 }
 

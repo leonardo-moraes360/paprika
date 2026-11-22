@@ -5,7 +5,9 @@ import {
   applyOps,
   arcToCubics,
   createDocument,
+  exportCssModules,
   exportSVG,
+  exportTailwind,
   importHTML,
   importSVG,
   isSVGText,
@@ -14,7 +16,11 @@ import {
   parseMarkup,
   parseTransform,
   pathBounds,
+  nodeStyle,
   renderHTML,
+  renderTailwindHTML,
+  tailwindClasses,
+  tailwindClassesFor,
   textContent,
   type Document,
   type MarkupElement,
@@ -173,5 +179,124 @@ describe("exportSVG", () => {
     expect(() => exportSVG(doc)).toThrow(/depends on auto layout/);
     const boxes = Object.fromEntries(Object.keys(doc.nodes).map((id) => [id, [0, 0, 10, 10] as [number, number, number, number]]));
     expect(exportSVG(doc, { measure: { boxes } }).svg).toContain('data-name="Login · mobile"');
+  });
+});
+
+const cardDoc = (): Document =>
+  applyOps(createDocument("Cards", "d"), [
+    { op: "set_tokens", tokens: { bg: "#ffffff", ink: "#1e2336" } },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "card", name: "Card grande", width: 320, height: 200, fill: "$bg", radius: 8,
+        layout: { mode: "column", gap: 8, padding: 16 },
+        stroke: { color: "#c43d27", width: 1 }, shadow: { x: 0, y: 2, blur: 4, spread: 0, color: "rgba(0,0,0,.2)" },
+        children: [
+          { type: "text", id: "title", name: "Título", text: "Olá {mundo}", fontSize: 24, color: "$ink", width: "fill", height: "hug" },
+          { type: "rect", id: "bar", name: "Título", width: "fill", height: 4, fill: "#ff278c" },
+          { type: "shape", id: "s1", shape: "note", x: 0, y: 0, width: 80, height: 60, text: "n" },
+          { type: "shape", id: "s2", shape: "note", x: 0, y: 0, width: 80, height: 60, text: "m" },
+        ],
+      },
+    },
+  ]).doc;
+
+describe("tailwindClassesFor", () => {
+  it("mapeia declarações do nodeStyle para utilitários", () => {
+    expect(tailwindClassesFor("display", "flex")).toEqual(["flex"]);
+    expect(tailwindClassesFor("display", "none")).toEqual(["hidden"]);
+    expect(tailwindClassesFor("width", "320px")).toEqual(["w-[320px]"]);
+    expect(tailwindClassesFor("width", "100%")).toEqual(["w-full"]);
+    expect(tailwindClassesFor("padding", "16px")).toEqual(["p-[16px]"]);
+    expect(tailwindClassesFor("padding", "1px 2px 3px 4px")).toEqual(["pt-[1px]", "pr-[2px]", "pb-[3px]", "pl-[4px]"]);
+    expect(tailwindClassesFor("border", "1px solid #c43d27")).toEqual(["border-[length:1px]", "border-solid", "border-[color:#c43d27]"]);
+    expect(tailwindClassesFor("boxShadow", "0px 2px 4px 0px rgba(0, 0, 0, 0.2)")).toEqual(["shadow-[0px_2px_4px_0px_rgba(0,_0,_0,_0.2)]"]);
+    expect(tailwindClassesFor("background", "var(--bg)")).toEqual(["bg-[color:var(--bg)]"]);
+    expect(tailwindClassesFor("fontSize", "var(--size)")).toEqual(["text-[length:var(--size)]"]);
+    expect(tailwindClassesFor("fontFamily", "Inter_x")).toEqual(["font-[family-name:Inter\\_x]"]);
+  });
+
+  it("o que não tem utilitário volta para o estilo inline", () => {
+    expect(tailwindClassesFor("transform", "scale(2)")).toBeUndefined();
+    expect(tailwindClassesFor("alignItems", "weird")).toBeUndefined();
+    expect(tailwindClassesFor("fontFamily", "a]b")).toBeUndefined();
+    expect(tailwindClassesFor("unknownProp", "1")).toBeUndefined();
+    expect(tailwindClasses({ display: "flex", transform: "scale(2)", unknownProp: 1 })).toEqual({
+      classes: ["flex"],
+      fallback: { transform: "scale(2)", unknownProp: 1 },
+    });
+  });
+});
+
+describe("export tailwind", () => {
+  it("renderTailwindHTML troca style por class e mantém o resto da árvore do html", () => {
+    const doc = cardDoc();
+    const { html, bounds } = renderTailwindHTML(doc, { rootId: "card" });
+    expect(bounds).toEqual(renderHTML(doc, { rootId: "card" }).bounds);
+    expect(html).toContain("@tailwindcss/browser");
+    expect(html).toContain('data-paprika-id="card"');
+    expect(html).toContain('class="relative w-[320px] h-[200px]');
+    expect(html).not.toContain("<style>");
+    expect(html).not.toMatch(/ style="/);
+  });
+
+  it("exportTailwind gera TSX com className e sem style para o que tem utilitário", () => {
+    const tsx = exportTailwind(cardDoc(), "card");
+    expect(tsx).toContain("export function CardGrande()");
+    expect(tsx).toContain('className="');
+    expect(tsx).not.toContain("style={{");
+    expect(tsx).toContain("{\"{\"}mundo{\"}\"}");
+    expect(tsx).not.toContain("tokensCss");
+  });
+
+  it("cssVariables escreve tokens como var(--nome) e exporta tokensCss", () => {
+    const doc = cardDoc();
+    const tsx = exportTailwind(doc, "card", { cssVariables: true });
+    expect(tsx).toContain("export const tokensCss =");
+    expect(tsx).toContain("bg-[color:var(--bg)]");
+    expect(tsx).toContain("text-[color:var(--ink)]");
+    expect(renderTailwindHTML(doc, { cssVariables: true }).html).toContain(":root{");
+  });
+
+  it("recusa páginas e nós inexistentes como o export react", () => {
+    const doc = applyOps(createDocument("P", "p"), [{ op: "create", node: { type: "page", id: "pg", name: "P" } }]).doc;
+    expect(() => exportTailwind(doc, "pg")).toThrow(/is a page/);
+    expect(() => exportTailwind(doc, "nope")).toThrow(/does not exist/);
+  });
+});
+
+describe("export css-modules", () => {
+  it("uma regra por nó com as declarações do nodeStyle", () => {
+    const doc = cardDoc();
+    const out = exportCssModules(doc, "card");
+    expect(out.fileName).toBe("CardGrande.module.css");
+    expect(out.component).toContain('import styles from "./CardGrande.module.css";');
+    expect(out.component).toContain("export function CardGrande()");
+    expect(out.component).toContain("className={styles.cardGrande}");
+    expect(out.component).not.toContain("style=");
+    const rule = (name: string) => out.css.split("\n").find((l) => l.startsWith(`.${name}{`));
+    expect(rule("cardGrande")).toBe(`.cardGrande{${Object.entries(nodeStyle(doc, doc.nodes.card!, { asRoot: true }))
+      .map(([k, v]) => `${k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)}:${v}`)
+      .join(";")}}`);
+  });
+
+  it("nomes repetidos ganham sufixo e o contorno das formas é uma regra só", () => {
+    const out = exportCssModules(cardDoc(), "card");
+    expect(out.component).toContain("styles.titulo}");
+    expect(out.component).toContain("styles.titulo2}");
+    expect(out.component.match(/styles\.shapeSvg\}/g)).toHaveLength(2);
+    expect(out.css.match(/^\.shapeSvg\{/gm)).toHaveLength(1);
+    expect(out.css.match(/^\.shapeText\{/gm)).toHaveLength(1);
+  });
+
+  it("cssVariables põe a folha de tokens no topo do módulo", () => {
+    const out = exportCssModules(cardDoc(), "card", { cssVariables: true });
+    expect(out.css.startsWith(":root{")).toBe(true);
+    expect(out.css).toContain("background:var(--bg)");
+  });
+
+  it("recusa páginas", () => {
+    const doc = applyOps(createDocument("P", "p"), [{ op: "create", node: { type: "page", id: "pg", name: "P" } }]).doc;
+    expect(() => exportCssModules(doc, "pg")).toThrow(/is a page/);
   });
 });
