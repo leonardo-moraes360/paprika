@@ -28,7 +28,7 @@ path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fil
   viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,
   o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó
   ganha a caixa do desenho. Curvas: "C c1x c1y c2x c2y x y" (cúbica), "Q cx cy x y" (quadrática), S/T espelham
-  o controle anterior (curvas suaves). Use path_info para conferir bounds antes de posicionar.
+  o controle anterior (curvas suaves). Use get_bounds (caixas absolutas + cantos rotacionados), path_info para conferir bounds antes de posicionar.
 shape: shape (rect|ellipse|diamond|triangle|note), text (centralizado; numa nota, no topo à esquerda), color, fontFamily, fontSize,
   fontWeight, lineHeight, textAlign. width/height são números (padrão 160×80; nota 160×160). fill/stroke/radius/shadow
   pintam o contorno; campos omitidos na criação ganham o padrão do tipo (branco com borda escura; note = nota adesiva amarela).
