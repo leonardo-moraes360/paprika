@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/big"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -119,8 +120,8 @@ func EffectiveBackground(doc *Document, node *Node) (RGBA, bool) {
 		cur = parentOf(doc, cur)
 	}
 	bg := named["white"]
-	for i := len(layers) - 1; i >= 0; i-- {
-		bg = blend(layers[i], bg)
+	for _, layer := range slices.Backward(layers) {
+		bg = blend(layer, bg)
 	}
 	return bg, true
 }

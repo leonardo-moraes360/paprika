@@ -335,13 +335,13 @@ func TextContent(e *MarkupElement) string {
 // ParseStyle reads "a: b; c: d" into an ordered map (lowercase names, trimmed values).
 func ParseStyle(s string) map[string]string {
 	out := map[string]string{}
-	for _, part := range strings.Split(s, ";") {
-		at := strings.Index(part, ":")
-		if at < 0 {
+	for part := range strings.SplitSeq(s, ";") {
+		before, after, ok := strings.Cut(part, ":")
+		if !ok {
 			continue
 		}
-		k := asciiLower(jsonv.Trim(part[:at]))
-		v := jsonv.Trim(part[at+1:])
+		k := asciiLower(jsonv.Trim(before))
+		v := jsonv.Trim(after)
 		if k != "" && v != "" {
 			out[k] = v
 		}

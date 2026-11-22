@@ -444,7 +444,7 @@ func PathBounds(segs []Segment) Bounds {
 			add(s.To)
 		case 'C':
 			add(s.To)
-			for axis := 0; axis < 2; axis++ {
+			for axis := range 2 {
 				g := func(p Point) float64 {
 					if axis == 0 {
 						return p.X
@@ -465,7 +465,7 @@ func PathBounds(segs []Segment) Bounds {
 			}
 		case 'Q':
 			add(s.To)
-			for axis := 0; axis < 2; axis++ {
+			for axis := range 2 {
 				var c0, cc, c2 float64
 				if axis == 0 {
 					c0, cc, c2 = cur.X, s.C.X, s.To.X
@@ -498,4 +498,17 @@ func PathBounds(segs []Segment) Bounds {
 		return Bounds{}
 	}
 	return Bounds{minX, minY, maxX - minX, maxY - minY}
+}
+
+// PathOrigin is the offset from the node origin (0,0) to the drawing's top-left.
+func PathOrigin(segs []Segment) Point {
+	b := PathBounds(segs)
+	return Point{b.X, b.Y}
+}
+
+// NormalizePath moves the drawing to (0,0) and returns the previous origin (add to the node's x/y).
+func NormalizePath(segs []Segment) (moved []Segment, origin Point, bounds Bounds) {
+	origin = PathOrigin(segs)
+	moved = TranslatePath(segs, -origin.X, -origin.Y)
+	return moved, origin, PathBounds(moved)
 }

@@ -43,8 +43,9 @@ describe("API: MCP", () => {
         "apply_ops", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
+        "get_bounds",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
-        "rename_workspace", "render_screenshot", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
+        "rename_workspace", "render_screenshot", "resize_image", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
       ].sort(),
     );
@@ -340,6 +341,8 @@ describe("API: MCP", () => {
     const info = JSON.parse(textOf(await call(c, "path_info", { id: "wave" })));
     expect(info).toMatchObject({ segments: 2, curves: 1, closed: false });
     expect(info.bounds.y).toBeGreaterThan(10);
+    expect(info.origin).toEqual({ x: info.bounds.x, y: info.bounds.y });
+    expect(info.transformOrigin).toEqual({ x: 50, y: (node.height as number) / 2 });
     const bad = await call(c, "create_nodes", { nodes: [{ type: "path", d: "M0 0 C 10 10 20" }] });
     expect(bad.isError).toBe(true);
     expect(textOf(bad)).toMatch(/invalid d: number expected at position \d+/);
@@ -349,6 +352,36 @@ describe("API: MCP", () => {
     expect(tsx).toContain("strokeWidth={4}");
     await call(c, "undo");
     expect((await srv.doc()).nodes.wave).toBeUndefined();
+  });
+
+  it("get_bounds resolve auto-layout e cantos rotacionados", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      nodes: [{
+        type: "frame", id: "outer", x: 0, y: 0, width: 320, height: 200,
+        layout: { mode: "column", gap: 8, padding: 16 },
+        children: [
+          {
+            type: "frame", id: "inner", width: "fill", height: "hug",
+            layout: { mode: "row", gap: 4, padding: 8, align: "center" },
+            children: [
+              { type: "rect", id: "a", width: 40, height: 20, fill: "#111" },
+              { type: "rect", id: "b", width: "fill", height: 20, fill: "#222" },
+              { type: "rect", id: "spin", width: 24, height: 24, rotation: 90, fill: "#333" },
+            ],
+          },
+          { type: "path", id: "gap", d: "M40 30 L80 30 L60 70 Z", normalize: true, fill: "#c43d27" },
+        ],
+      }],
+    });
+    const bounds = JSON.parse(textOf(await call(c, "get_bounds", { ids: ["inner", "b", "spin", "gap"] })));
+    expect(bounds.boxes.inner.width).toBeCloseTo(288, 0);
+    expect(bounds.boxes.b.width).toBeCloseTo(288 - 16 - 40 - 24 - 8, 0);
+    expect(bounds.boxes.spin.corners).toHaveLength(4);
+    expect(bounds.boxes.spin.origin).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
+    const gap = (await srv.doc()).nodes.gap as PathNode;
+    expect(gap).toMatchObject({ x: 40, y: 30, width: 40, height: 40 });
+    expect(gap.d.startsWith("M0 0") || gap.d.startsWith("M0 0 ")).toBe(true);
   });
 
   it("diagramas: draw_diagram, setas que seguem a forma, export SVG medido e undo", async () => {
@@ -477,6 +510,69 @@ describe("API: MCP", () => {
     expect(bad.isError).toBe(true);
     expect(textOf(bad)).toBe("the HTML has no elements to import");
   }, 30_000);
+
+  it("resize_image: presets, fit, upscale/downscale, GIF primeiro frame, sem Chromium", async () => {
+    const previousChromium = process.env.PAPRIKA_CHROMIUM;
+    delete process.env.PAPRIKA_CHROMIUM;
+    const fixtures = join(repoRoot, "server-go/internal/server/testdata/images");
+    const previous = process.env.PAPRIKA_IMPORT_DIRS;
+    process.env.PAPRIKA_IMPORT_DIRS = fixtures;
+    const own = await startServer();
+    if (previous === undefined) delete process.env.PAPRIKA_IMPORT_DIRS;
+    else process.env.PAPRIKA_IMPORT_DIRS = previous;
+    if (previousChromium === undefined) delete process.env.PAPRIKA_CHROMIUM;
+    else process.env.PAPRIKA_CHROMIUM = previousChromium;
+    const c = new Client({ name: "parity", version: "0" });
+    try {
+      await c.connect(new StreamableHTTPClientTransport(new URL(`${own.url}/mcp`)));
+      const presets: { preset: string | { width: number; height: number }; tw: number; th: number }[] = [
+        { preset: "qhd", tw: 960, th: 540 },
+        { preset: "hd", tw: 1280, th: 720 },
+        { preset: "2k", tw: 2560, th: 1440 },
+        { preset: "4k", tw: 3840, th: 2160 },
+        { preset: { width: 64, height: 48 }, tw: 64, th: 48 },
+      ];
+      for (const p of presets) {
+        for (const fit of ["contain", "cover", "fill"] as const) {
+          const r = await call(c, "resize_image", { src: join(fixtures, "pixel.png"), preset: p.preset, fit });
+          expect(r.isError, textOf(r)).toBeFalsy();
+          const out = JSON.parse(textOf(r));
+          expect(out).toMatchObject({ targetWidth: p.tw, targetHeight: p.th, fit, format: "png", sourceFormat: "png" });
+          if (fit === "contain") {
+            expect(out.width).toBeLessThanOrEqual(p.tw);
+            expect(out.height).toBeLessThanOrEqual(p.th);
+          } else {
+            expect(out).toMatchObject({ width: p.tw, height: p.th });
+          }
+        }
+      }
+      const up = await call(c, "resize_image", { src: join(fixtures, "pixel.png"), preset: "hd", fit: "fill" });
+      expect(up.isError, textOf(up)).toBeFalsy();
+      expect(JSON.parse(textOf(up))).toMatchObject({ width: 1280, height: 720 });
+      const gif = await call(c, "resize_image", { src: join(fixtures, "animated.gif"), preset: "qhd", fit: "contain" });
+      expect(gif.isError, textOf(gif)).toBeFalsy();
+      const gifOut = JSON.parse(textOf(gif));
+      expect(gifOut.format).toBe("gif");
+      expect(gifOut.warnings.join(" ")).toMatch(/first frame/i);
+      const created = await call(c, "resize_image", { src: join(fixtures, "pixel.png"), preset: { width: 20, height: 15 }, fit: "fill" });
+      const id = JSON.parse(textOf(created)).created[0] as string;
+      const before = JSON.parse(textOf(await call(c, "get_nodes", { ids: [id] })))[0].src as string;
+      const resized = await call(c, "resize_image", { nodeId: id, preset: { width: 40, height: 30 }, fit: "fill" });
+      expect(resized.isError, textOf(resized)).toBeFalsy();
+      expect(JSON.parse(textOf(resized))).toMatchObject({ id, width: 40, height: 30 });
+      const after = JSON.parse(textOf(await call(c, "get_nodes", { ids: [id] })))[0].src as string;
+      expect(after).not.toBe(before);
+      const undo = await call(c, "undo", {});
+      expect(undo.isError).toBeFalsy();
+      expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: [id] })))[0].src).toBe(before);
+      const avif = await call(c, "resize_image", { src: join(fixtures, "pixel.avif"), preset: "hd", fit: "cover" });
+      expect(avif.isError).toBe(true);
+      expect(textOf(avif)).toMatch(/AVIF/);
+    } finally {
+      await c.close();
+      await own.stop();
+    }
+  }, 60_000);
 
   it("importar imagem raster: formatos, GIF animado, path traversal e arquivo grande demais", async () => {
     const fixtures = join(repoRoot, "server-go/internal/server/testdata/images");

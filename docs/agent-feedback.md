@@ -12,7 +12,7 @@ Task: an agent drew 5 flat paprika icons with increasing complexity (3 → ~20 s
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 1 | Organic shapes (a pepper silhouette) | Only `rect`/`ellipse` exist; the pepper had to be built from overlapping, rotated ellipses | Add a `path` node (SVG `d`, fill/stroke) and boolean union of children (`path` with bezier curves done on 2026-11-21, see below; boolean union still open) | P1 |
-| 2 | Put a stem on the tip of a rotated pod | Rotation pivots on the box center, so the agent had to do trigonometry; the calyx was misplaced twice and only caught by screenshot | `get_bounds` tool returning the rotated geometry (corners, tips), and an `origin` (transform-origin) field | P1 |
+| 2 | Put a stem on the tip of a rotated pod | Rotation pivots on the box center, so the agent had to do trigonometry; the calyx was misplaced twice and only caught by screenshot | Done (2026-11-22, PAP-A-001): `get_bounds` returns origin + rotated corners; `path_info` adds origin / transformOrigin | — |
 | 3 | Same icon at 4 sizes | No components/instances or scale: the script regenerated every shape with a scale factor (4× the nodes, edits don't propagate) | Components + instances with `scale`; `duplicate_nodes` with scale | P1 |
 | 4 | 5 themes side by side | Tokens are global, so they had to be namespaced by hand (`p1.brand` … `p5.brand`) and rewritten in every node | Done (2026-11-21, see #45): theme modes (`set_tokens` with `mode`) and `mode` on a frame or page; named collections are still open | — |
 | 5 | Check the result visually on the user's machine | `render_screenshot` failed: Playwright 1.63 needs Chromium build 1243, only 1228 was installed | Detect a missing browser at startup, return the exact fix command in the error, and fall back to rendering through an open canvas tab | P1 |
@@ -32,7 +32,7 @@ Task: add bezier curves so agents and humans can draw organic shapes, then redra
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 15 | A node box that matches the drawing | Without `width`/`height` the box runs from the node origin to the far edge of the curve, so a `d` that starts at (40,30) leaves empty space at the top left, and overflow lint measures that box | `normalize: true` on create (move the drawing to 0,0 and shift `x`/`y`), or report the gap in `path_info` | P2 |
+| 15 | A node box that matches the drawing | Without `width`/`height` the box runs from the node origin to the far edge of the curve, so a `d` that starts at (40,30) leaves empty space at the top left, and overflow lint measures that box | Done (2026-11-22, PAP-A-001): `normalize: true` on create_nodes / create; `path_info.origin` reports the gap | — |
 | 16 | Layer several paths as one shape (body, shadow, highlight, calyx) | Each part repeats the same `x`/`y`; moving the pepper means moving 5 nodes | `group` node (see #8) or a `paths: []` list on one node | P2 |
 | 17 | Edit one control point | Changing a curve means rewriting the whole `d` string | Canvas part done (2026-11-21, see #43); `update_path_points` (move anchor/handle by index) for agents is still open | P3 |
 | 18 | Know the drawn size before placing a part | `path_info` with `canvasBounds` answered it in one call; it also caught a typo (`d inválido: número esperado na posição 12`) | Keep: return position-accurate parse errors for every string field | — |
@@ -57,7 +57,7 @@ Task: prototype the canvas in Rust/WASM (vello on WebGPU, vello_cpu fallback) an
 | 23 | Load an example document outside the server | `examples/bezier.paprika.json` omits defaults (`visible`, `opacity`…); a renderer that read it without `parseDocument` drew nothing in every mode, and only a screenshot showed it | Write examples normalized, or say in AGENTS.md that every reader must go through `parseDocument` | P3 |
 | 24 | Check a GPU-rendered canvas from an agent's headless browser | Headless Chromium without a GPU loses the WebGPU device when a canvas is presented (plain JS too), so pixels come back empty | If the canvas ever moves to WebGPU, keep `render_screenshot` on the HTML path, or render offscreen and read pixels back (as `gpu-readback-check.cjs` does) | P2 |
 | 25 | Pick the fast path automatically | Headless Chromium offers a *software* WebGPU adapter (SwiftShader) that is 45–220× slower than vello_cpu; a naive "WebGPU if available" picks it | Treat `DeviceType::Cpu` adapters as no GPU (done in the prototype) | — |
-| 26 | One geometry source for agents and renderers | The prototype re-derives boxes (and measures a hidden DOM for auto layout) because core exposes no resolved geometry | A core `layout(doc)` returning absolute boxes would serve the renderer, `get_bounds` (#2) and geometry lint (#6) | P2 |
+| 26 | One geometry source for agents and renderers | The prototype re-derives boxes (and measures a hidden DOM for auto layout) because core exposes no resolved geometry | Done (2026-11-22, PAP-A-001): core `layout(doc)` (+ Go port / goldens); MCP `get_bounds` | — |
 
 ## 2026-11-21: WASM canvas integration (`crates/render`, ADR 0002)
 
@@ -107,7 +107,7 @@ Task: `importSVG`, `importHTML` and `exportSVG` in the core (TS and Go), the MCP
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 40 | Bring an icon from an SVG set | Before, an agent had to translate each `<rect>`/`<circle>`/arc by hand into `d`; `import_svg` now does it in one call and says what it dropped in `warnings` | Support `<use>`/`<symbol>` sprites and `<text>` (as `text` nodes), which icon sets and logos often use | P2 |
-| 41 | Export SVG of a node with auto layout without a browser | The core can't place `hug`/`fill`/row/column children by itself, so `exportSVG` without a measure fails with a message that points to `export_code` | A core `layout(doc)` (#26) would let the core export everything and give agents boxes too | P2 |
+| 41 | Export SVG of a node with auto layout without a browser | The core can't place `hug`/`fill`/row/column children by itself, so `exportSVG` without a measure fails with a message that points to `export_code` | Done for geometry (2026-11-22, PAP-A-001): `layout(doc)` is the base; wire into exportSVG in PAP-A-002 | — |
 | 42 | Reuse a component from a live web page | `import_html` reads inline `style=""` only; HTML copied from most sites relies on classes, so the result is plain | An option that renders the HTML in the server's Chromium and imports computed styles | P2 |
 
 ## 2026-11-21: point-by-point path editing (backlog slice 1, item 4)
@@ -408,3 +408,17 @@ Task: redesign the scene inspector into collapsible sections before implementing
 |---|--------|---------------|----------|------|
 | 106 | Inspector height that proves the compact layout | `aside.right.scrollHeight` stayed 856 px before and after because the grid area forces a tall scroll container; `#right-tabpanel` height dropped 759 → 303 px (~60%) for the demo text node at 1440×900 (`packages/e2e/b022-measure.mjs`) | Use `panel` / `panelScroll` in the measure script (and in acceptance notes), not only `aside.scrollHeight` | P3 |
 | 107 | Boards on the shared MCP server | `:4777` answered slowly during the ticket, so only the existing design frames plus runtime screenshots were committed; no new fixed-height frames were drawn over MCP in this pass | Same as #97: a boards document in git that agents can `load` without depending on whichever volume is mounted on the maintainer's port | P2 |
+
+## 2026-11-22: ghost preview while drawing (PAP-B-043, design first)
+
+Task: draw the ghost of the real node (fill/outline/defaults) inside the draft area while dragging a
+creation tool, light and dark, then paint it from `nodeStyle` in `Canvas.tsx` with no document write
+until release. Eight fixed-height frames on `Interfaces` (`docs/assets/boards/PAP-B-043/`).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 108 | Screenshots as files | Same as #100/#101: `render_screenshot` returns PNG only as base64 in the JSON-RPC content, so a small client script had to decode each shot into `docs/assets/boards/PAP-B-043/` | Optional `path` on `render_screenshot` that writes the file | P2 |
+| 109 | Free space for new boards | Top-level frames already fill y≈0…8320 and x≈0…3000; the outline depth-1 listing was enough to pick `y=9000`, but parallel tickets still race for the same band | `get_document_outline` returning the page content box, or `place: "free"` on `create_nodes` (same as #103) | P3 |
+
+- Active workspace was already `Paprika - UI` / page `Interfaces`; no `open_workspace`.
+- Ghost is `aria-hidden` and `pointer-events: none` (`data-testid="draft-ghost"`); connector arrow ghost left out of this ticket's draft-only scope.
