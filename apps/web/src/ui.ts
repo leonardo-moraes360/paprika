@@ -9,12 +9,16 @@ export const cx = (...names: (string | false | null | undefined)[]) => names.fil
 const control = "[&_:is(input,select,textarea)]:w-full [&_:is(input,select,textarea)]:min-w-0 [&_:is(input,select,textarea)]:border-0 [&_:is(input,select,textarea)]:outline-none";
 
 export const ui = {
-  section: "p-3",
-  h2: "mx-0 mt-0 mb-2.5 text-sm font-bold uppercase tracking-[0.06em] text-muted [&_code]:normal-case [&_code]:tracking-normal",
+  section: "flex flex-col gap-1 p-2",
+  h2: "mx-0 mt-0 mb-1 text-xs font-bold uppercase tracking-[0.06em] text-muted [&_code]:normal-case [&_code]:tracking-normal",
   h3: "mx-0 mt-4 mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted",
+  inspectorSection: "min-w-0 border-t border-line pt-1 first:border-t-0 first:pt-0",
+  inspectorSectionTrigger:
+    "flex h-6 w-full min-w-0 cursor-pointer items-center gap-1 rounded-sm border-0 bg-transparent px-0.5 text-xs font-semibold text-muted outline-none hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
+  inspectorSectionBody: "grid gap-1 pb-1",
   muted: "text-muted",
-  grid: "grid gap-1.5",
-  grid2: "grid grid-cols-2 gap-1.5",
+  grid: "grid gap-1",
+  grid2: "grid grid-cols-2 gap-1",
   /** Label + control in one rounded box; `wide` stacks them (textarea). */
   field: (wide = false) =>
     cx(
