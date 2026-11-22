@@ -46,8 +46,6 @@ var (
 	imgSrcRe    = regexp.MustCompile(`^(?:https?:|data:image/)`)
 )
 
-func fptr(v float64) *float64 { return &v }
-
 // px is "12px" or "0" → 12/0; anything else → nil.
 func cssPxValue(v string, ok bool) *float64 {
 	if !ok {
@@ -61,7 +59,7 @@ func cssPxValue(v string, ok bool) *float64 {
 	if m[2] == "" && n != 0 {
 		return nil
 	}
-	return fptr(n)
+	return new(n)
 }
 
 func cssPx(css map[string]string, k string) *float64 {
@@ -185,11 +183,11 @@ func textStyleOf(css map[string]string, tag string, parent textStyle, ctx *htmlC
 	}
 	h, isHeading := headingSize[tag]
 	if fs := cssPx(css, "font-size"); fs != nil && *fs >= 1 {
-		t.fontSize = fptr(math.Min(1000, *fs))
+		t.fontSize = new(math.Min(1000, *fs))
 	} else if css["font-size"] != "" {
 		ctx.warn(fmt.Sprintf("font-size \"%s\" is not px; skipped", css["font-size"]))
 	} else if isHeading {
-		t.fontSize = fptr(h)
+		t.fontSize = new(h)
 	}
 	if fw := css["font-weight"]; fw != "" {
 		var n float64
@@ -202,10 +200,10 @@ func textStyleOf(css map[string]string, tag string, parent textStyle, ctx *htmlC
 			n = jsonv.ToNumber(fw)
 		}
 		if isInteger(n) && n >= 100 && n <= 900 {
-			t.fontWeight = fptr(n)
+			t.fontWeight = new(n)
 		}
 	} else if isHeading || tag == "b" || tag == "strong" {
-		t.fontWeight = fptr(700)
+		t.fontWeight = new(float64(700))
 	}
 	if lh := css["line-height"]; lh != "" {
 		p := cssPxValue(lh, true)
@@ -214,11 +212,11 @@ func textStyleOf(css map[string]string, tag string, parent textStyle, ctx *htmlC
 			if t.fontSize != nil {
 				base = *t.fontSize
 			}
-			t.lineHeight = fptr(Round4(*p / base))
+			t.lineHeight = new(Round4(*p / base))
 		} else if lh == "normal" {
-			t.lineHeight = fptr(1.2)
+			t.lineHeight = new(1.2)
 		} else if n := jsonv.ToNumber(lh); !math.IsNaN(n) && !math.IsInf(n, 0) {
-			t.lineHeight = fptr(n)
+			t.lineHeight = new(n)
 		}
 	}
 	if ls := cssPx(css, "letter-spacing"); ls != nil {

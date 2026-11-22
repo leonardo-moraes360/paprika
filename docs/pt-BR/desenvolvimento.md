@@ -35,7 +35,7 @@ examples/         demo gerada por um agente via MCP (packages/e2e/scripts/seed-d
 
 ## Servidor (Go + SQLite)
 
-O servidor fica em `server-go/` e guarda documentos, tokens e o histórico de undo/redo em SQLite; arquivos `.paprika.json` entram e saem com `paprika import` / `paprika export` (para versionar um design, por exemplo). Comandos, estrutura do banco e testes: [server-go/README.pt-BR.md](../../server-go/README.pt-BR.md); registro da decisão: [ADR 0001](adr/0001-servidor-go-sqlite.md).
+O servidor fica em `server-go/` e guarda documentos, tokens e o histórico de undo/redo em SQLite; arquivos `.paprika.json` entram e saem com `paprika import` / `paprika export` (para versionar um design, por exemplo). Comandos, estrutura do banco e testes: [server-go/README.pt-BR.md](../../server-go/README.pt-BR.md); registro da decisão: [ADR 0001](adr/0001-servidor-go-sqlite.md). O lint (`cd server-go && golangci-lint run`) inclui o analisador `modernize` para a CI manter limpas as reescritas no estilo do gopls (`errors.AsType`, `slices.Contains`, …).
 
 ## Comandos
 
