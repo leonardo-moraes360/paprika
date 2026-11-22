@@ -53,7 +53,7 @@ O resto no stdout é evento. O sidecar termina quando o stdin fecha.
 
 | Comando `t` | Campos | Resultado |
 | --- | --- | --- |
-| `status` | | `{id, name, fingerprint, team, peers: [{id, name, state: direct\|relay\|connecting\|offline, rttMs, presence}], docs, rejected}` |
+| `status` | | `{id, name, fingerprint, app, format, team, peers: [{id, name, state: direct\|relay\|connecting\|offline, rttMs, app, format, presence}], docs, rejected}` |
 | `addr` | | Endereço deste endpoint (id mais endereços diretos e URL do relay). |
 | `peer.add` | `addr` | Permite e disca um peer pelo endereço (anterior aos times; fica para testes e redes locais). |
 | `presence` | `data` | Manda a presença de um agente local para todos os peers conectados. |
@@ -74,10 +74,10 @@ O resto no stdout é evento. O sidecar termina quando o stdin fecha.
 | `peer` | `peer`, `state: connected\|disconnected` |
 | `presence` | `peer`, `name`, `data` |
 | `remote` | `doc`, `state` (workspace materializado, abaixo), `authors` |
-| `rejected` | `peer`, `reason` (fora do time, assinatura inválida, convite usado/vencido/revogado…) |
+| `rejected` | `peer`, `reason` (fora do time, assinatura inválida, convite usado/vencido/revogado, formato de documento incompatível…) |
+| `log` | `level`, `msg` (ex.: warn quando as versões de app diferem mas o formato bate) |
 | `joined` | `peer`, `name`: alguém entrou com um convite desta instância |
 | `removed` | `peer`: esta instância removeu esse membro |
-| `log` | `level`, `msg` |
 
 ### Conjunto de mudanças (`local`)
 
@@ -114,12 +114,24 @@ ALPN `paprika/sync/1`, um stream bidirecional, frames de tamanho `u32` big-endia
 
 | Mensagem `t` | Campos | Quando |
 | --- | --- | --- |
-| `hello` | `name`, `addr`, `peers` (endereços dos outros membros), `team`, `have` (`{doc: {autor: seq}}`) | Primeiro frame de cada lado. |
+| `hello` | `name`, `addr`, `peers` (endereços dos outros membros), `team`, `have` (`{doc: {autor: seq}}`), `app` (semver do paprika-sync), `format` (formato do documento, ex. `paprika/1`) | Primeiro frame de cada lado. |
 | `envs` | `envs: [envelope]` | Envelopes que faltam ao outro lado (depois do `hello`), e cada novo ao vivo. Quem recebe repassa envelopes novos aos outros peers. |
 | `team` | `team` | O arquivo de time mudou (alguém entrou). |
 | `presence` | `data` | Efêmero; nunca gravado. |
 
 Quando os dois lados discam ao mesmo tempo, fica a conexão discada pelo menor id de endpoint.
+
+### Compatibilidade de versões
+
+Os ALPNs continuam versionados como hoje (`paprika/sync/1`, `paprika/join/1`). Em cada `hello` de sync e em cada pedido/resposta de join, os peers também trocam **app** (versão do pacote `crates/sync`) e **format** (string do formato do documento, a mesma de `packages/core` `FORMAT` / `paprika/1`):
+
+| Caso | Comportamento |
+| --- | --- |
+| Mesmo `format`, mesmo `app` | Sync / join como de costume. |
+| Mesmo `format`, `app` diferente | Sync / join segue; os dois lados emitem um warn com quem, as duas versões de app e que o formato bate. |
+| `format` diferente, ou o peer omitiu `format` | Sync / join é recusado. Os dois lados recebem um erro acionável (quem, format/app local vs do peer, como atualizar: mesmo build / imagem Docker, depois reconectar). A conexão de sync fecha com código de aplicação `3`. |
+
+`GET /api/team` (e o payload WebSocket `{type: "team", status}`) expõem `app` / `format` locais no status e o último `app` / `format` conhecido de cada entrada em `peers`.
 
 ### Envelope
 
@@ -150,9 +162,10 @@ Quando os dois lados discam ao mesmo tempo, fica a conexão discada pelo menor i
   entradas válidas.
 - Um link de convite é `paprika://join/<id do time>?n=<nome do time>&a=<endereço de quem convida, JSON em base64url>&s=<segredo>&e=<expiração, segundos unix>`.
   Quem convida guarda só o SHA-256 do segredo, a expiração e se já foi usado. Quem entra disca para quem
-  convidou no ALPN `paprika/join/1` e manda `{team, secret, name}`; quem convidou confere segredo, validade e
-  uso único, assina a entrada de membro de quem entra e responde com o arquivo de time e os endereços dos
-  membros.
+  convidou no ALPN `paprika/join/1` e manda `{team, secret, name, app, format}`; quem convidou confere segredo,
+  validade, uso único e compatibilidade de formato, assina a entrada de membro de quem entra e responde com o
+  arquivo de time, os endereços dos membros e o próprio `app` / `format`. Quem entra confere as versões de quem
+  convidou antes de gravar o arquivo de time.
 
 ### Remover membro, trocar chave
 

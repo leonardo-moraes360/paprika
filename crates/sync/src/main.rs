@@ -12,9 +12,10 @@ use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 use paprika_sync::node::{Config, Node};
+use paprika_sync::proto::{APP_VERSION, FORMAT_VERSION};
 
 fn usage() -> &'static str {
-    "usage: paprika-sync --data DIR [--name NAME] [--no-relay] [--bind ADDR]"
+    "usage: paprika-sync --data DIR [--name NAME] [--no-relay] [--bind ADDR] [--app SEMVER] [--format paprika/N]"
 }
 
 fn parse_args() -> Result<Config> {
@@ -22,6 +23,8 @@ fn parse_args() -> Result<Config> {
     let mut name = String::new();
     let mut relay = true;
     let mut bind = None;
+    let mut app = APP_VERSION.to_string();
+    let mut format = FORMAT_VERSION.to_string();
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
@@ -29,6 +32,8 @@ fn parse_args() -> Result<Config> {
             "--name" => name = args.next().unwrap_or_default(),
             "--no-relay" => relay = false,
             "--bind" => bind = Some(args.next().unwrap_or_default().parse()?),
+            "--app" => app = args.next().unwrap_or_default(),
+            "--format" => format = args.next().unwrap_or_default(),
             "--version" => {
                 println!("paprika-sync {}", env!("CARGO_PKG_VERSION"));
                 std::process::exit(0);
@@ -48,6 +53,8 @@ fn parse_args() -> Result<Config> {
         name,
         relay,
         bind,
+        app,
+        format,
     })
 }
 

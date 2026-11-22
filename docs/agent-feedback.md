@@ -432,3 +432,13 @@ Task: draw the activity feed (actor color+name, action, relative time, batch gro
 | 110 | Agent name color that passes contrast on the panel | Putting the agent blue (`#3b82f6`) on both the dot and the name failed WCAG AA on `$pg.panel2` (3.69:1); the sheet kept the color on the dot only and used `$pg.fg` for the name | Document that presence colors are for fills/dots, not for body text on panel surfaces, or ship text-safe variants next to `AGENT_COLORS` | P3 || 111 | `$pg.select` as marker label ink in light mode | The "agora" marker label at `$pg.select` on the light panel was 3.91:1; switching the label to `$pg.fg` and leaving the line in select fixed lint without inventing a new token | A `select-ink` (or darker light-mode `$pg.select`) for text on light surfaces | P3 |
 - `layout.padding: [6, 8]` (two values) is rejected; four values or a single number work. Same class of friction as other tickets.
 - Undo/redo position is derived client-side from leading `desfazer:` / `refazer:` labels in the existing WS activity feed — no server change.
+
+## 2026-11-22: layer order shortcuts and Ordem section (PAP-B-021, design first)
+
+Task: draw the inspector **Ordem** section and the Z-order shortcut map (light and dark, fixed height) on the `Interfaces` page of `Paprika - UI` before wiring `Page Up`/`Page Down` (+ Ctrl/Cmd for front/back) in `Canvas.tsx` and the four arrange actions in `Inspector.tsx`. Four root frames, one `create_nodes` call; PNGs under `docs/assets/boards/PAP-B-021/`; boards export refreshed in `docs/design/boards.paprika.json`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | Draw on `Paprika - UI` without `open_workspace` | The workspace was already active (`list_workspaces`), so the sheet landed without switching; if another ticket had left a different active doc, the only options would still be asking the human or a second server (same as #92) | Optional `workspaceId` on document tools | P2 |
+- `lint_design` on the four frames: 0 errors; `small-text` warnings are the 11 px section/chip labels matching the app.
+- Shortcut map chosen and documented in `docs/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.
