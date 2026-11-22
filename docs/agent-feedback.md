@@ -11,7 +11,7 @@ Task: an agent drew 5 flat paprika icons with increasing complexity (3 → ~20 s
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 1 | Organic shapes (a pepper silhouette) | Only `rect`/`ellipse` exist; the pepper had to be built from overlapping, rotated ellipses | Add a `path` node (SVG `d`, fill/stroke) and boolean union of children (`path` with bezier curves done on 2026-11-21, see below; boolean union still open) | P1 |
+| 1 | Organic shapes (a pepper silhouette) | Only `rect`/`ellipse` exist; the pepper had to be built from overlapping, rotated ellipses | Add a `path` node (SVG `d`, fill/stroke) and boolean union of children (`path` with bezier curves done on 2026-11-21; MCP `combine_paths` / core boolean ops done in PAP-A-003 — canvas command still open) | P1 |
 | 2 | Put a stem on the tip of a rotated pod | Rotation pivots on the box center, so the agent had to do trigonometry; the calyx was misplaced twice and only caught by screenshot | Done (2026-11-22, PAP-A-001): `get_bounds` returns origin + rotated corners; `path_info` adds origin / transformOrigin | — |
 | 3 | Same icon at 4 sizes | No components/instances or scale: the script regenerated every shape with a scale factor (4× the nodes, edits don't propagate) | Components + instances with `scale`; `duplicate_nodes` with scale | P1 |
 | 4 | 5 themes side by side | Tokens are global, so they had to be namespaced by hand (`p1.brand` … `p5.brand`) and rewritten in every node | Done (2026-11-21, see #45): theme modes (`set_tokens` with `mode`) and `mode` on a frame or page; named collections are still open | — |
@@ -236,7 +236,7 @@ Task: draw a flat red bell pepper (three lobes, thin white curved gaps, olive st
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 76 | Cut thin gaps out of a shape | No boolean ops or masks, so the gaps are white strokes painted over the red body; that only reads right on a light background and the export has no real holes | `subtract`/`union` in `apply_ops` (or a `mask` on group) that produces a new `path`; at least a stroke `knockout` option | P2 |
+| 76 | Cut thin gaps out of a shape | No boolean ops or masks, so the gaps are white strokes painted over the red body; that only reads right on a light background and the export has no real holes | `combine_paths` (`subtract`/`union`/…) in MCP/`apply_ops` done (PAP-A-003); canvas command and optional `mask` on `group` / stroke `knockout` still open | P2 |
 | 77 | Restyle a node and keep it on top | Turning two filled lobes into gap strokes left them under the body; needed a separate `move_nodes` (no `index` = end) to fix the z-order | Accept `index` (or `"front"`/`"back"`) in `update_nodes` props | P3 |
 | 78 | Trace a reference image | The user's picture reached the agent only as an image; there was no easy way to place it under the drawing, so every bezier point was estimated by eye and mapped with a hand-computed scale, which took three screenshot rounds | A `reference` option on `create_nodes`/`import_svg` (or an `image` node from a local file path) placed locked at 50% opacity, plus `render_screenshot` with a `compare` image shown side by side | P2 |
 | 79 | Save the screenshot as a file | `render_screenshot` only returns the image to the agent; writing the PNG to the repo meant copying the client's cached blob | Optional `path` (the server writes it) or `format: "url"` returning `/api/screenshot/...` to download | P3 |

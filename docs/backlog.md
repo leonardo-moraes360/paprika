@@ -104,7 +104,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Pen tool to create paths | `P`, bezier handles, close on first point | ✅ | — |
 | Edit points and handles of an existing path | Double-click a path: drag points and handles, add, remove, corner/smooth (2026-11-21); `d` in the inspector | ✅ | — |
 | Import/paste SVG as editable `path` layers | `import_svg`, `Ctrl+V` in the canvas (2026-11-21): paths, shapes (axis-aligned rect/ellipse stay native), groups, transforms, inherited paint; no text, images, gradients or `<style>` CSS | ✅ | — |
-| Boolean operations (union, subtract, intersect, exclude) | — (fb#1, fb#76; see Q) | ⬜ | P1 |
+| Boolean operations (union, subtract, intersect, exclude) | — (fb#1, fb#76; see Q). Batch 3: PAP-A-003 — MCP `combine_paths` + core op (canvas command later). | ✅ | P1 |
 | Convert rect/ellipse to path | — | ⬜ | P2 |
 | Snapping and guides for points, half-pixel snapping | — | ⬜ | P3 |
 | Mirror, repeat, shape builder, vector networks | — | ⬜ | P3 |
@@ -252,7 +252,7 @@ Every item still open in the [agent feedback log](agent-feedback.md) (fb#1 to fb
 |---|---|---|---|---|
 | Move a board between Paprika servers | `import_document` (a `.paprika.json` in, a new workspace out, without switching the active one); `paprika export --root <id>` for one frame; `create_nodes` ignores derived connector fields instead of refusing them Batch 3: PAP-B-013. | fb#72, fb#75 | ⬜ | P1 |
 | Core geometry: absolute boxes for agents | A core `layout(doc)` returning absolute boxes (Go port held by fixtures), a `get_bounds` tool with rotated corners, an `origin` field, and `normalize` on path create (or the offset in `path_info`); the core export uses the same boxes, so SVG of auto-layout nodes needs no browser Batch 3: PAP-A-001. | fb#2, fb#15, fb#26, fb#41 | ✅ | P1 |
-| Boolean operations and cut-outs | `union`/`subtract`/`intersect`/`exclude` producing a new `path` (MCP op + canvas command), or a `mask` on `group`; same item as F "Boolean operations" Batch 3: PAP-A-003. | fb#1, fb#76 | ⬜ | P1 |
+| Boolean operations and cut-outs | `union`/`subtract`/`intersect`/`exclude` producing a new `path` (MCP op + canvas command), or a `mask` on `group`; same item as F "Boolean operations" Batch 3: PAP-A-003 — MCP `combine_paths` done; canvas command still open. | fb#1, fb#76 | ✅ | P1 |
 | Trace a reference image | Place an image (local file or data URL) as a locked, semi-transparent reference under a frame; `render_screenshot` with a `compare` image side by side | fb#78 | ⬜ | P2 |
 | Lint that points at what matters | Group `lint_design` results by rule (counts + first N ids), `minSeverity`, per-node `lintIgnore`; new rules: row/column children wider than the frame, geometry (siblings that don't touch, gaps under 4 px, fully hidden shapes) | fb#6, fb#9, fb#69, fb#70 | 🟡 | P2 |
 | Agents edit path points | `edit_path` (anchor index + new position, handles) over the canvas helpers, and anchors listed in `path_info` | fb#17, fb#43 | 🟡 | P2 |

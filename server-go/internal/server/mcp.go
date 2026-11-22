@@ -475,6 +475,25 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return writeWith(a, []any{op}, labelOr(a, "ungroup "+count(len(ids))+" group(s)"), "released", jsonv.FromGo(released))
 		})
 
+	add("combine_paths", z.Object(
+		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(2).Max(500)},
+		z.Field{Name: "operation", Schema: z.Enum("union", "subtract", "intersect", "exclude")},
+		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+		optStr("id"),
+		label(), batch(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		ids := a.Strings("ids")
+		id := a.Str("id")
+		if !a.Has("id") {
+			id = core.NewID()
+		}
+		op := jsonv.NewObject("op", "combine_paths", "ids", a.Arr("ids"), "operation", a.Str("operation"), "id", id)
+		if a.Has("name") {
+			op.Set("name", a.Str("name"))
+		}
+		return writeWith(a, []any{op}, labelOr(a, "combine "+count(len(ids))+" path(s)"), "path", id)
+	})
+
 	add("create_page", z.Object(
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
