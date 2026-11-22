@@ -18,7 +18,8 @@ import {
   type PageNode,
   type SceneNode,
 } from "@paprika/core";
-import type { Activity } from "./useDocument";
+import { Activity } from "./Activity";
+import type { Activity as ActivityEntry } from "./useDocument";
 import { ColorField, Field, ModeField, SelectField, num, size } from "./inspector/fields";
 import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
@@ -55,7 +56,7 @@ interface Props {
   node: Node | null;
   selected: string[];
   apply(ops: Op[], label?: string): void;
-  activity: Activity[];
+  activity: ActivityEntry[];
   onSelect(id: string): void;
   onSelectMany(ids: string[]): void;
   onError(message: string): void;
@@ -105,24 +106,24 @@ function ArrangeSection({ ids, apply }: { ids: string[]; apply: Props["apply"] }
     <InspectorSection id="arrange" title="Ordem" defaultOpen>
       <div className={actions} data-testid="arrange-actions">
         <Hint label="Trazer para frente (Ctrl+Page Up)">
-          <button type="button" data-testid="arrange-front" onClick={() => run("front")}>
+          <Button type="button" variant="secondary" size="sm" data-testid="arrange-front" onClick={() => run("front")}>
             Trazer para frente
-          </button>
+          </Button>
         </Hint>
         <Hint label="Avançar (Page Up)">
-          <button type="button" data-testid="arrange-forward" onClick={() => run("forward")}>
+          <Button type="button" variant="secondary" size="sm" data-testid="arrange-forward" onClick={() => run("forward")}>
             Avançar
-          </button>
+          </Button>
         </Hint>
         <Hint label="Recuar (Page Down)">
-          <button type="button" data-testid="arrange-backward" onClick={() => run("backward")}>
+          <Button type="button" variant="secondary" size="sm" data-testid="arrange-backward" onClick={() => run("backward")}>
             Recuar
-          </button>
+          </Button>
         </Hint>
         <Hint label="Enviar para fundo (Ctrl+Page Down)">
-          <button type="button" data-testid="arrange-back" onClick={() => run("back")}>
+          <Button type="button" variant="secondary" size="sm" data-testid="arrange-back" onClick={() => run("back")}>
             Enviar para fundo
-          </button>
+          </Button>
         </Hint>
       </div>
     </InspectorSection>
@@ -230,6 +231,7 @@ export function Inspector(props: Props) {
                 { value: "rect", label: "caixa" },
                 { value: "ellipse", label: "oval" },
                 { value: "diamond", label: "losango (decisão)" },
+                { value: "triangle", label: "triângulo" },
                 { value: "note", label: "nota adesiva" },
               ]}
             />
@@ -616,7 +618,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
   );
 }
 
-function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: Activity[]; onSelect(id: string): void }) {
+function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: ActivityEntry[]; onSelect(id: string): void }) {
   const [newToken, setNewToken] = useState("");
   const [newModeToken, setNewModeToken] = useState("");
   const issues = lintDocument(doc).filter((i) => i.severity !== "info");
@@ -694,26 +696,7 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
         )}
       </InspectorSection>
       <InspectorSection id="activity" title="Atividade">
-        <ul className={list}>
-          {activity.length === 0 && <li className="flex gap-2 text-ui-muted-foreground">Nenhuma edição ainda.</li>}
-          {activity.slice(0, 15).map((a) => (
-            <li key={a.id} className={cn("flex gap-2", a.actor.startsWith("agent") ? "text-accent-ink" : "text-ui-muted-foreground")}>
-              <span className="inline-flex items-start gap-1 font-semibold whitespace-nowrap">
-                {a.actor.startsWith("agent") ? (
-                  <>
-                    <Bot className="mt-px shrink-0" size={14} aria-hidden />
-                    {a.actor.slice(6)}
-                  </>
-                ) : a.actor === "user" ? (
-                  "você"
-                ) : (
-                  a.actor
-                )}
-              </span>
-              <span>{a.label || "edição"}</span>
-            </li>
-          ))}
-        </ul>
+        <Activity activity={activity} />
       </InspectorSection>
     </div>
   );
