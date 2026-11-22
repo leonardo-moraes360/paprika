@@ -296,14 +296,20 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const list = page.getByTestId("font-picker-list");
     await expect.poll(() => list.count()).toBe(1);
     await page.getByTestId("font-option-Georgia").click();
-    await expect.poll(async () => (await doc()).nodes["8succ2i53s"]?.fontFamily).toBe("Georgia, serif");
+    await expect.poll(async () => {
+      const n = (await doc()).nodes["8succ2i53s"];
+      return n?.type === "text" ? n.fontFamily : undefined;
+    }).toBe("Georgia, serif");
     await expect.poll(() => trigger.innerText()).toMatch(/Georgia/);
 
     await trigger.click();
     const search = page.getByPlaceholder("Buscar fonte…");
     await search.fill("Comic Sans MS");
     await page.getByTestId("font-picker-custom").click();
-    await expect.poll(async () => (await doc()).nodes["8succ2i53s"]?.fontFamily).toBe("Comic Sans MS");
+    await expect.poll(async () => {
+      const n = (await doc()).nodes["8succ2i53s"];
+      return n?.type === "text" ? n.fontFamily : undefined;
+    }).toBe("Comic Sans MS");
 
     await trigger.click();
     await expect.poll(() => page.getByTestId("font-picker-system").count()).toBe(1);
