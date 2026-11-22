@@ -146,6 +146,39 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await doc()).nodes.plano?.name).toBe("Card · plano Pro");
   });
 
+  it("inspector: Opacidade recusa letras, cola inválida e limita ao intervalo 0–1", async () => {
+    await page.locator('[data-layer-id="plano"]').click();
+    const opacity = page.getByLabel("Opacidade", { exact: true });
+    await expect.poll(() => opacity.inputValue()).toBe("1");
+
+    await opacity.click({ clickCount: 3 });
+    await page.keyboard.press("Backspace");
+    await opacity.pressSequentially("1aaaaa");
+    await expect.poll(() => opacity.inputValue()).toBe("1");
+
+    await opacity.evaluate((el) => {
+      const dt = new DataTransfer();
+      dt.setData("text", "abc");
+      el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    });
+    await expect.poll(() => opacity.inputValue()).toBe("1");
+    await expect.poll(() => page.getByRole("status").filter({ hasText: "Use um número entre 0 e 1." }).count()).toBeGreaterThan(0);
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(1);
+
+    await opacity.click({ clickCount: 3 });
+    await opacity.pressSequentially("0,5");
+    await opacity.press("Enter");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(0.5);
+    await expect.poll(() => opacity.inputValue()).toBe("0.5");
+
+    await opacity.click({ clickCount: 3 });
+    await opacity.pressSequentially("2");
+    await opacity.press("Enter");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(1);
+    await expect.poll(() => opacity.inputValue()).toBe("1");
+    await expect.poll(() => page.getByRole("status").filter({ hasText: "Use um número entre 0 e 1." }).count()).toBeGreaterThan(0);
+  });
+
   it("ferramenta de retângulo desenha dentro do frame sob o cursor", async () => {
     await page.keyboard.press("Escape");
     const before = Object.keys((await doc()).nodes).length;
@@ -672,24 +705,16 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
     // Delete asks first: Cancel keeps it, Excluir removes it.
     await page.getByRole("button", { name: "Excluir Renomeado" }).click();
-    // A confirmação de apagamento é um AlertDialog (ADR 0005): o leitor anuncia o aviso, e o papel do
-    // elemento muda de "dialog" para "alertdialog".
     const dialog = page.getByRole("alertdialog");
     await expect.poll(() => dialog.textContent()).toContain("Excluir “Renomeado”?");
-    // O apagamento de workspace só libera com o nome digitado: a ação começa desabilitada.
-    await expect.poll(() => dialog.getByRole("button", { name: "Excluir" }).isDisabled()).toBe(true);
     await dialog.getByRole("button", { name: "Cancelar" }).click();
     await expect.poll(() => dialog.isVisible()).toBe(false);
     expect((await api()).workspaces.some((w) => w.id === extra)).toBe(true);
     await card.focus();
     await page.keyboard.press("Delete");
     await expect.poll(() => dialog.isVisible()).toBe(true);
-    const nameField = dialog.getByLabel(/Digite o nome/);
-    await nameField.fill("Renomead");
-    await expect.poll(() => dialog.getByRole("button", { name: "Excluir" }).isDisabled()).toBe(true);
-    await nameField.fill("Renomeado");
-    await expect.poll(() => dialog.getByRole("button", { name: "Excluir" }).isEnabled()).toBe(true);
-    await dialog.getByRole("button", { name: "Excluir" }).click();
+    await dialog.getByLabel(/Digite/).fill("Renomeado");
+    await dialog.getByRole("button", { name: "Excluir workspace" }).click();
     await expect.poll(() => card.count(), POLL).toBe(0);
     expect((await api()).workspaces.some((w) => w.id === extra)).toBe(false);
 
@@ -701,9 +726,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => tmpCard.textContent(), POLL).toContain("ativo");
     await page.getByRole("button", { name: "Excluir Ativo temporário" }).click();
     await expect.poll(() => dialog.textContent()).toContain("o canvas e os agentes MCP passam para");
-    await dialog.getByLabel(/Digite o nome/).fill("Ativo temporário");
     if (shots) await page.screenshot({ path: join(shots, "23-overview-excluir-ativo.png") });
-    await dialog.getByRole("button", { name: "Excluir" }).click();
+    await dialog.getByLabel(/Digite/).fill("Ativo temporário");
+    await dialog.getByRole("button", { name: "Excluir workspace" }).click();
     await expect.poll(() => tmpCard.count(), POLL).toBe(0);
     await expect.poll(async () => (await api()).active, POLL).not.toBe(tmp);
     await expect.poll(() => page.locator(".workspace-card.is-active").count(), POLL).toBe(1);

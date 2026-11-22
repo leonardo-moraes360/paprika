@@ -8,7 +8,7 @@
       "listChanged": true
     }
   },
-  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (color), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, mode (theme mode, see below). With row/column layout, children's x/y are ignored.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https:// or data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). An instance is a frame with\n  instanceOf = the component id and an optional scale (create_instance): its children are generated copies, with\n  derived ids and sourceId = the id of the source node; changing the component changes every instance. On a copy,\n  update only changes fill, color, text, src, alt, visible and opacity (stored as an instance override; null goes back\n  to the component); on the root, fill becomes an override and width/height/layout/stroke/radius/shadow/clip come from\n  the component (use scale). Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use path_info to check bounds before positioning.\nshape: shape (rect|ellipse|diamond|note), text (centered; top-left on a note), color, fontFamily, fontSize, fontWeight,\n  lineHeight, textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning.\n5. render_screenshot to check visually; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes); export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces); every tool works on the active one, which is also the one on the human's canvas. open_workspace switches it for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; delete_workspace cannot be undone, so only call it after the human confirms.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
+  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (color), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, mode (theme mode, see below). With row/column layout, children's x/y are ignored.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https:// or data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). An instance is a frame with\n  instanceOf = the component id and an optional scale (create_instance): its children are generated copies, with\n  derived ids and sourceId = the id of the source node; changing the component changes every instance. On a copy,\n  update only changes fill, color, text, src, alt, visible and opacity (stored as an instance override; null goes back\n  to the component); on the root, fill becomes an override and width/height/layout/stroke/radius/shadow/clip come from\n  the component (use scale). Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use path_info to check bounds before positioning.\nshape: shape (rect|ellipse|diamond|note), text (centered; top-left on a note), color, fontFamily, fontSize, fontWeight,\n  lineHeight, textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning.\n5. render_screenshot to check visually; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes); export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces); every tool works on the active one, which is also the one on the human's canvas. open_workspace switches it for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
   "tools": [
     {
       "name": "get_design_guide",
@@ -263,7 +263,7 @@
     {
       "name": "create_nodes",
       "title": "Create nodes",
-      "description": "Creates one or more nodes (with nested children in frames) under parentId (null/omitted = canvas). Atomic. Returns the created ids in order.",
+      "description": "Creates one or more nodes (with nested children in frames) under parentId (null/omitted = canvas). Atomic. Returns the created ids in order. On a connector, x, y, width, height and d follow from/to: if a copied node carries them, create_nodes ignores those fields and says so in warnings.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3333,6 +3333,88 @@
       }
     },
     {
+      "name": "list_workspace_ops",
+      "title": "Workspace operations log",
+      "description": "Workspace operations in this server: create, rename, open and delete, each with who acted (\"user\" for the canvas and its HTTP API, or the agent's name over MCP), when, and which workspace. Newest first, optionally narrowed to one workspace. A delete entry carries the same summary delete_workspace returns, which is what a canvas notice shows. Entries outlive the workspace they name. This is not the document's undo history: that is get_history.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 20,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "only operations of this workspace (from list_workspaces)"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "number",
+                  "description": "Unix ms"
+                },
+                "actor": {
+                  "type": "string",
+                  "description": "\"user\" or the agent name that acted"
+                },
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "create",
+                    "rename",
+                    "open",
+                    "delete"
+                  ]
+                },
+                "workspaceId": {
+                  "type": "string"
+                },
+                "workspaceName": {
+                  "type": "string",
+                  "description": "the name at the time of the operation"
+                },
+                "detail": {
+                  "type": "object",
+                  "description": "rename: {from}; import: {source:\"import\"}; delete: the WorkspaceDeletion summary; otherwise {}"
+                }
+              },
+              "required": [
+                "at",
+                "actor",
+                "op",
+                "workspaceId",
+                "workspaceName",
+                "detail"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
       "name": "open_workspace",
       "title": "Open workspace",
       "description": "Makes another workspace the active one: every tool and the human's canvas switch to it, and undo history starts from that workspace. Tell the human before switching away from what they are looking at.",
@@ -3481,6 +3563,86 @@
       }
     },
     {
+      "name": "import_document",
+      "title": "Import document",
+      "description": "Stores a .paprika.json document (written by paprika export or paprika export --root) as a new workspace on this server. It does not become active: the human's canvas and every other tool keep working in the current workspace until open_workspace. A document whose id already exists here is stored as a copy with a new document id (node ids are kept).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "document": {
+            "description": "the .paprika.json document object (format paprika/1), read from the file",
+            "type": "object"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "workspace name override (default: the document's name)"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "workspace": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "nodes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updatedAt": {
+                "type": "number",
+                "description": "Unix ms of the last write"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "cover": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "nodes",
+              "updatedAt",
+              "active",
+              "cover"
+            ],
+            "additionalProperties": false
+          },
+          "active": {
+            "type": "string",
+            "description": "id of the workspace that stays active (the import never switches it)"
+          }
+        },
+        "required": [
+          "workspace",
+          "active"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
       "name": "rename_workspace",
       "title": "Rename workspace",
       "description": "Renames a workspace (the name shown on the overview). Renaming the active one is an undoable write (rename_document); any other is renamed in place.",
@@ -3561,7 +3723,7 @@
     {
       "name": "delete_workspace",
       "title": "Delete workspace",
-      "description": "Deletes a workspace for good (it cannot be undone). Deleting the active one first opens the most recently updated other workspace for everyone; the only workspace cannot be deleted. Ask the human for explicit confirmation first.",
+      "description": "Deletes a workspace for good, in two calls. Without confirmToken nothing is deleted: the result is a summary of what would be lost (name, node/page/frame/image/connector counts, stored undo entries, the last edit, whether it has a cover, and which workspace would become active) plus a short-lived confirmToken tied to that workspace id. Show that summary to the human, and call again with the token only after they agree. The token is single-use and expires in about two minutes; reusing it or sending one for another workspace is refused with an actionable error. Deleting the active workspace first opens the most recently updated other one for everyone, and the only workspace cannot be deleted.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3569,6 +3731,11 @@
             "type": "string",
             "minLength": 1,
             "description": "Workspace id (from list_workspaces)"
+          },
+          "confirmToken": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Token from the first call of this same workspace. Omit it to get the summary and a token."
           }
         },
         "required": [
@@ -3578,22 +3745,120 @@
       },
       "outputSchema": {
         "type": "object",
-        "properties": {
-          "deleted": {
-            "type": "string",
-            "description": "Id of the deleted workspace"
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "deleted": {
+                "type": "string",
+                "description": "Id of the deleted workspace"
+              },
+              "active": {
+                "type": "string",
+                "description": "Id of the active workspace afterwards"
+              },
+              "notice": {
+                "type": "string",
+                "description": "reminder to tell the human what was deleted"
+              }
+            },
+            "required": [
+              "deleted",
+              "active"
+            ],
+            "additionalProperties": false
           },
-          "active": {
-            "type": "string",
-            "description": "Id of the active workspace afterwards"
+          {
+            "type": "object",
+            "properties": {
+              "needsConfirmation": {
+                "type": "boolean"
+              },
+              "summary": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "nodes": {
+                    "type": "integer"
+                  },
+                  "pages": {
+                    "type": "integer"
+                  },
+                  "frames": {
+                    "type": "integer"
+                  },
+                  "images": {
+                    "type": "integer"
+                  },
+                  "connectors": {
+                    "type": "integer"
+                  },
+                  "historyEntries": {
+                    "type": "integer",
+                    "description": "undo steps the workspace holds; none of them survive the delete"
+                  },
+                  "hasCover": {
+                    "type": "boolean"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "successor": {
+                    "type": "string",
+                    "description": "workspace that becomes active if this one goes"
+                  },
+                  "lastEditAt": {
+                    "type": "number",
+                    "description": "Unix ms of the last stored edit"
+                  },
+                  "lastEditBy": {
+                    "type": "string"
+                  },
+                  "lastEditLabel": {
+                    "type": "string"
+                  },
+                  "undoable": {
+                    "type": "boolean",
+                    "description": "always false: no undo brings a deleted workspace back"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "name",
+                  "nodes",
+                  "pages",
+                  "frames",
+                  "images",
+                  "connectors",
+                  "historyEntries",
+                  "hasCover",
+                  "active",
+                  "undoable"
+                ],
+                "additionalProperties": false
+              },
+              "confirmToken": {
+                "type": "string"
+              },
+              "expiresInMs": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "needsConfirmation",
+              "summary",
+              "confirmToken",
+              "expiresInMs"
+            ],
+            "additionalProperties": false
           }
-        },
-        "required": [
-          "deleted",
-          "active"
         ],
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": false
+        "$schema": "http://json-schema.org/draft-07/schema#"
       },
       "annotations": {
         "destructiveHint": true
@@ -4216,6 +4481,105 @@
           "created",
           "version",
           "warnings"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "duplicate_nodes",
+      "title": "Duplicate nodes",
+      "description": "Duplicates nodes with their whole subtree in one undo step (new ids; instances stay instances of the same component, scale multiplies their scale; connectors between duplicated nodes point at the copies, the others keep their ends). Each copy goes in its source's parent, nudged by offset (default 40 on x and y). scale grows or shrinks the copy from its own top-left corner: sizes, children positions, text size, strokes, radius, shadow, gap and padding; hug/fill stay. props is written on each copy's root (for example {mode: \"dark\"} for a light/dark pair). Returns the id of each copy and the map from every source node to its copy.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "offset": {
+            "description": "Distance of each copy from its source, on x and y, in the parent's coordinates (default 40; 0 puts it on top)",
+            "type": "number"
+          },
+          "parentId": {
+            "description": "Parent of the copies (null = canvas level; default: each source's parent)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scale": {
+            "description": "Multiplier for sizes, spacing, text and instance scale (default 1)",
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 100
+          },
+          "props": {
+            "description": "Fields written on each copy's root, e.g. {mode: \"dark\"}; id, type, parentId, children, sourceId and instanceOf are refused",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "copies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "map": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "copies",
+          "map",
+          "created",
+          "version"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false

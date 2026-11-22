@@ -35,16 +35,18 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `get_document_outline` | Compact tree + tokens + version |
 | `get_nodes` / `find_nodes` | Full node JSON / search by type, name, text |
 | `path_info` | Validates SVG path data and returns the exact bounds (bezier and arc extremes included) and the normalized `d` |
-| `create_nodes` | Creates nested trees in one call |
+| `create_nodes` | Creates nested trees in one call; on a connector `x`/`y`/`width`/`height`/`d` follow `from`/`to`, so a copied node that carries them gets a warning instead of a refusal |
 | `draw_diagram` | Draws a diagram (flowchart, architecture, mind map) from a list of shapes and edges: lays the shapes out in layers (`direction`: down or right, to the right of existing content) and connects them with arrows that follow the shapes; an edge can carry a `label` |
 | `update_nodes` / `move_nodes` / `delete_nodes` | Atomic batch edits. `index` in `update` props or in `move` sets Z-order in the node's parent: a number from 0 (the back) or `front` / `back` / `forward` / `backward`, in the same undo step as the other fields |
 | `group_nodes` / `ungroup_nodes` | Wraps sibling nodes in a `group` (the drawing stays put) / puts them back |
+| `duplicate_nodes` | Copies nodes with their whole subtree in one undo step: `offset` (default 40), `parentId`, `scale` (sizes, text, strokes, spacing and instance `scale`) and `props` written on each copy (`{ "mode": "dark" }` makes the light/dark pair). Instances stay instances of the same component; connectors between duplicated nodes follow the copies. Returns `copies` (one id per source) and `map` (every source node to its copy) |
 | `create_page` | Adds a page; the first one moves the current canvas into "Página 1" |
 | `create_component` / `create_instance` / `detach_instance` | Marks a frame as a component / places a copy of it (with `scale` and `overrides`; returns the id of every copy) / turns an instance into plain nodes |
 | `apply_ops` | Mixed transaction (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
 | `set_tokens` | Design tokens (`$name`) for colors and sizes; with `mode`, the values of a theme mode (e.g. `dark`) that frames and pages pick with `mode` |
-| `list_workspaces` / `open_workspace` / `create_workspace` | Lists the workspaces (documents) of the server / makes one active for every tool and the human's canvas / creates an empty one |
-| `rename_workspace` / `delete_workspace` | Renames a workspace (undoable when it is the active one) / deletes one for good (the active one hands over to the most recently updated other; the only one cannot be deleted) |
+| `list_workspaces` / `open_workspace` / `create_workspace` / `import_document` | Lists the workspaces (documents) of the server / makes one active for every tool and the human's canvas / creates an empty one / stores a `.paprika.json` (e.g. from `paprika export --root ID`) as a new workspace without switching the active one |
+| `rename_workspace` / `delete_workspace` | Renames a workspace (undoable when it is the active one) / deletes one for good, in two calls: without `confirmToken` nothing is deleted and the result is a summary of what would be lost (counts, last edit, cover, which workspace takes over) plus a token that lasts about two minutes and belongs to that workspace; the second call with the token deletes (the active one hands over to the most recently updated other; the only one cannot be deleted) |
+| `list_workspace_ops` | The workspace operations log — create, rename, open and delete, each with who acted (`user` or the agent's name), when and which workspace; a delete entry keeps the summary, and entries outlive the workspace they name |
 | `set_workspace_cover` | Puts an image on a workspace's overview card: a screenshot of one of its frames (`rootId`), an image (`image`, base64 or data URL) or none (`clear`, back to the first letter) |
 | `undo` / `redo` / `get_history` | History shared with the human; every write tool takes `batch`, so several calls with the same batch become one undo step |
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |

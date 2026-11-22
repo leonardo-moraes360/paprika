@@ -1,10 +1,11 @@
 import { useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 import { ImageOff, ImagePlus, Pencil, Plus, Trash2 } from "lucide-react";
 import { errorText } from "./api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { InlineName } from "./InlineName";
+import { cn } from "./lib/cn";
 import { bar, cx, ui } from "./ui";
-import { ConfirmDialog } from "./ConfirmDialog";
 import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type Workspace } from "./workspaces";
 
 /** Same limit as the server; bigger images are scaled down in the browser first. */
@@ -80,8 +81,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   /** One click opens a card; the pencil button or F2 renames it. */
   const [renaming, setRenaming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Workspace | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const coverInput = useRef<HTMLInputElement>(null);
   /** Workspace whose cover the file picker is choosing. */
   const coverFor = useRef<string | null>(null);
@@ -120,27 +120,15 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   };
 
   const askDelete = (w: Workspace) => {
-    setDeleteError(null);
     setDeleting(w);
+    setConfirming(true);
   };
 
-  /**
-   * The delete error belongs inside the confirmation, because the page's banner sits behind its scrim, so
-   * this mutation does not ride `attempt`. A success closes the dialog and clears any older banner.
-   */
   const confirmDelete = async () => {
     const w = deleting;
+    setConfirming(false);
     if (!w) return;
-    setDeleteBusy(true);
-    try {
-      await mutations.remove.mutateAsync(w.id);
-      setFailure(null);
-      setDeleting(null);
-    } catch (err) {
-      setDeleteError(`Não foi possível excluir o workspace: ${errorText(err)}`);
-    } finally {
-      setDeleteBusy(false);
-    }
+    await attempt("excluir o workspace", () => mutations.remove.mutateAsync(w.id));
   };
 
   const onCardKey = (e: KeyboardEvent, w: Workspace) => {
@@ -286,7 +274,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                   )}
                   <button
                     type="button"
-                    className={cx(ui.iconBtn, "px-1.5 py-1 text-lg text-ui-destructive-text hover:bg-ui-destructive disabled:cursor-default disabled:opacity-60")}
+                    className={cn(ui.iconBtn, ui.dangerBtn, "px-1.5 py-1 text-lg disabled:cursor-default disabled:opacity-60")}
                     aria-label={`Excluir ${w.name}`}
                     title={count > 1 ? "Excluir (Delete)" : "O único workspace não pode ser excluído"}
                     disabled={count <= 1}
@@ -311,27 +299,21 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
             if (file && coverFor.current) void setCover(coverFor.current, file);
           }}
         />
-        {deleting && (
-          <ConfirmDialog
-            title={`Excluir “${deleting.name}”?`}
-            description={`${deleting.nodes} ${deleting.nodes === 1 ? "nó" : "nós"} e o histórico de desfazer serão apagados. Essa ação não pode ser desfeita.`}
-            detail={
-              deleting.active && successor ? (
-                <p className="m-0 text-xs text-ui-muted-foreground">
-                  Este é o workspace ativo: o canvas e os agentes MCP passam para “{successor.name}”.
-                </p>
-              ) : null
-            }
-            error={deleteError}
-            actionLabel={deleteBusy ? "Excluindo…" : "Excluir"}
-            actionIcon={<Trash2 size={14} />}
-            confirmWith={deleting.name}
-            busy={deleteBusy}
-            onConfirm={() => void confirmDelete()}
-            onClose={() => setDeleting(null)}
-            className="max-w-[420px]"
-          />
-        )}
+        <ConfirmDialog
+          open={confirming}
+          onOpenChange={setConfirming}
+          title={`Excluir “${deleting?.name ?? ""}”?`}
+          description={
+            deleting && `${deleting.nodes} ${deleting.nodes === 1 ? "nó" : "nós"} e o histórico de desfazer serão apagados. Essa ação não pode ser desfeita.`
+          }
+          confirmLabel="Excluir workspace"
+          typeToConfirm={deleting?.name}
+          onConfirm={confirmDelete}
+        >
+          {deleting?.active && successor && (
+            <p className="m-0 text-xs text-ui-muted-foreground">Este é o workspace ativo: o canvas e os agentes MCP passam para “{successor.name}”.</p>
+          )}
+        </ConfirmDialog>
       </main>
     </div>
   );

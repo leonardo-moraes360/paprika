@@ -31,8 +31,8 @@ Dois pontos do ADR 0003 fazem disso uma decisão, e não uma instalação de pac
    | secondary / -foreground / -hover | `--color-ui-secondary*` | `panel-2` / `fg` / #313a5c | `canvas` #e7e9f0 / #141827 / #d9deea |
    | muted / muted-foreground | `--color-ui-muted*` | `panel-2` / `muted` #a6acc4 | `canvas` / #5d6478 |
    | accent / accent-foreground | `--color-ui-accent*` | `panel-2` / `fg` | `canvas` / #141827 |
-   | destructive / -foreground / -hover | `--color-ui-destructive*` | `accent-soft` (o acento a 18%) / `accent-ink` / `accent-soft-strong` (32%) | o acento a 10% / #b3300f / o acento a 14% — reajustado pelo PAP-B-026, ver *Ações destrutivas* |
-   | destructive como texto | `--color-ui-destructive-text` | `accent-ink` #ffb4a6 | #b3300f |
+   | destructive / -foreground / -hover | `--color-ui-destructive*` | `danger` #cc2f50 / branco / `danger-dark` #a31d3d — matiz própria, não o acento, ver *Cor de perigo* | mesmo preenchimento e hover; o token de texto vira #a8173a |
+   | destructive como texto | `--color-ui-destructive-text` | `danger-ink` #ff9fb2 (7,01:1 em `panel-2`) | #a8173a (7,37:1 no branco) |
    | border / input | `--color-ui-border` / `-input` | `line` #2c3350 | #d3d7e3 / #c6cbd9 |
    | ring (foco) / link | `--color-ui-ring` / `-link` | `select` #4cc7d8 | #0b7183 |
    | overlay atrás de diálogos | `--color-ui-overlay` | rgb(9 12 22 / .66) | rgb(20 24 39 / .42) |
@@ -58,51 +58,46 @@ Dois pontos do ADR 0003 fazem disso uma decisão, e não uma instalação de pac
 | scrim `bg-black/80` do diálogo | `bg-ui-overlay` | a marca noturna, e o mesmo valor que o board carrega |
 | `shadow-md`/`shadow-lg` | `shadow-float` | o tema define duas sombras; o board usa a flutuante |
 | `text-destructive` para texto vermelho | `text-ui-destructive-text` | 2,72:1 como texto no noturno, 7,97:1 com o ink |
-| `AlertDialogAction` é sempre o botão primário | ele aceita `variant`, e a confirmação passa `destructive` | confirmar um apagamento não pode parecer o chamado principal do app |
+| `AlertDialogAction` é sempre o botão primário | o `ConfirmDialog` troca para as classes destrutivas via `className` | confirmar um apagamento não pode parecer o chamado principal do app |
 | variantes `sm:`/`md:` | removidas | o tema fechado tem um ponto de quebra (`wide`) |
 | `React.forwardRef` + `displayName` | componentes de função, `ref` como prop (React 19), `data-slot` | é o estilo atual do upstream; `data-slot` é também o que a suíte E2E seleciona |
 | `import { X } from "@radix-ui/react-x"` | `import { X as XPrimitive } from "radix-ui"` | um pacote MIT em vez de treze |
 | rótulo `Close` no diálogo | "Fechar", `aria-label` no botão | a UI do app é pt-BR, e um botão só de ícone mantém o nome acessível |
 
-### Ações destrutivas (PAP-B-026)
+### Cor de perigo e o padrão de confirmação (PAP-B-026)
 
-O backlog pedia um botão de perigo, e a resposta ingênua já estava na tabela acima: `destructive` era
-`accent-strong`, o vermelho da marca, preenchido — o mesmo botão do primário. O acento do Paprika *é*
-vermelho, então matiz nenhuma separa "apagar isso para sempre" de "é aqui que você clica". O que separa é o
-tratamento, e o Paprika já tem uma linguagem de perigo nas suas faixas de erro (a entrada no time que
-falhou, as operações recusadas, "você não está mais neste time"): o acento como lavanda translúcida com o
-ink como texto. A variante destrutiva usa exatamente isso, e o vermelho cheio fica só para o primário.
+O acento do Paprika é vermelho, então o mapeamento padrão do primitivo — `destructive` = `accent-strong` — fazia
+do botão de apagar e do chamado principal **o mesmo botão**. A resposta, desenhada antes e entrada pelo PR #95, é
+uma matiz própria: o token da marca `--color-danger` #cc2f50, `--color-danger-dark` #a31d3d no hover e
+`--color-danger-ink` #ff9fb2 como texto (#a8173a em `.ui-light`), para onde apontam os apelidos
+`--color-ui-destructive*`. Perigo continua um botão vermelho preenchido; o que separa do primário é a matiz, não
+o tratamento.
 
-| token | valor | por quê |
-|-------|-------|---------|
-| `--color-ui-destructive` | `var(--color-accent-soft)` — o acento a 18%, 10% em `.ui-light` | uma lavanda sobre a superfície que está embaixo, então lê igual em `panel`, em `panel-2` e num cartão branco |
-| `--color-ui-destructive-foreground` | `var(--color-accent-ink)` #ffb4a6, #b3300f em `.ui-light` | o mesmo ink das faixas de erro |
-| `--color-accent-soft-strong` | o acento a 32%, 14% em `.ui-light` | o hover; no claro ele para em 14% porque uma lavanda mais forte derruba o texto abaixo de 4,5:1 |
+Medido pela suíte de acessibilidade, nos dois escopos de tema: branco sobre o preenchimento dá **5,13:1** em
+repouso e **7,50:1** no hover; como texto, o ink fica em 7,01:1 no noturno e 7,37:1 no branco. O teste também
+asser que o preenchimento de perigo não é a cor do primário.
 
-Medido pela suíte de acessibilidade, texto sobre a superfície composta: **8,68:1** em repouso e **7,16:1**
-no hover no escuro; **5,00:1** e **4,75:1** no claro. Os quatro números são asseridos, não contas de cabeça.
+A outra candidata, desenhada na mesma folha antes do #95 e rejeitada, pegava emprestada a linguagem de aviso que
+o app já tinha: o acento como lavanda translúcida com `accent-ink` como texto. Perdeu nos dois pontos — uma
+lavanda do acento lê como um primário discreto, não como perigo, e no claro o alpha do hover precisou ser limitado
+a 14% para o texto não cair abaixo de 4,5:1. Com matiz própria o botão pode ficar preenchido e o hover pode ficar
+**mais escuro**, que é o que se espera de uma ação de perigo.
 
-Duas regras decidem o que recebe o tratamento:
+Duas regras dizem o que recebe o tratamento:
 
-1. **Perigo marca o que o Ctrl+Z não traz de volta.** Excluir um workspace e remover uma pessoa do time
-   carregam a linguagem de perigo no gatilho e no botão de confirmar. Apagar um nó, uma página ou uma seleção
-   é desfazível e fica neutro — pintar todo apagamento de vermelho faria o vermelho não significar nada.
-   Trocar a chave desta instância e revogar links de convite também são irreversíveis, mas ficaram como
-   estavam: o PAP-B-026 limitou `Team.tsx` ao botão de remover, e uma regra aplicada pela metade é uma regra
-   que o próximo agente lê errado — então estão aqui listadas, não meia-implementadas.
-2. **Ação irreversível tem confirmação com o verbo.** O `ConfirmDialog`
-   (`apps/web/src/ConfirmDialog.tsx`) compõe o primitivo AlertDialog: título com o verbo, o
-   que se perde na descrição, `Cancelar` primeiro, a ação destrutiva por último, e o erro dentro do diálogo,
-   porque o aviso da página fica atrás da scrim. O Radix abre um AlertDialog com o foco no **cancelar**, que
-   é o padrão seguro. O apagamento de workspace é o caso em que a confirmação sozinha não basta: a ação
-   fica desabilitada até a pessoa digitar o nome do workspace, porque perder um workspace perde também o
-   histórico de desfazer dele. Ele é usado pelo apagamento do overview e pelo `RemoveMemberDialog`. Revogar
-   links de convite é destrutivo, mas continua num passo só: já acontece dentro de um diálogo que a pessoa
-   abriu de propósito, e um segundo modal em cima de outro é pior que o risco que evitaria.
+1. **Perigo marca o que o Ctrl+Z não traz de volta.** Excluir um workspace e remover uma pessoa do time. Apagar
+   um nó, uma página ou uma seleção é desfazível e fica neutro — pintar todo apagamento de vermelho faria o
+   vermelho não significar nada. Trocar a chave desta instância e revogar links de convite também são
+   irreversíveis, mas ficaram como estavam: o ticket limitou `Team.tsx` ao botão de remover.
+2. **Ação irreversível tem confirmação com o verbo** — e o apagamento de workspace ainda pede o nome digitado. O
+   `ConfirmDialog` (`apps/web/src/ConfirmDialog.tsx`) compõe o primitivo AlertDialog: verbo no título, o que se
+   perde na descrição, `Cancelar` primeiro, a ação destrutiva por último e o erro dentro do diálogo, porque o
+   aviso da página fica atrás da scrim. O Radix abre o AlertDialog com o foco no **cancelar**, que é o padrão
+   seguro.
 
-O que ficou deliberadamente **de fora**: o aviso (toast) no canvas dizendo o que um agente apagou ou para
-qual workspace um agente mudou. Ele lê o resumo que `delete_workspace` devolve, e isso é o PAP-B-015, que
-ainda não entrou — a linha do backlog fica aberta nessa metade.
+Ainda falta, e está registrado no backlog: o aviso (toast) no canvas dizendo o que um agente apagou ou para qual
+workspace ele mudou. Ele lê o resumo que `delete_workspace` devolve, que é o PAP-B-015 (PR #97); o aviso em si
+ainda não tem ticket.
 
 ## Verificação
 

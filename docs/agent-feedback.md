@@ -286,6 +286,44 @@ Task: draw before/after selection handles and an NW-drag demo on the `Interfaces
 
 - Three root frames, one `create_nodes` call; `lint_design` 0 after fixing measure/note sizes; screenshots in `docs/assets/boards/PAP-B-029`.
 
+## 2026-11-22: numeric inspector fields (PAP-B-027, design first)
+
+Task: draw the Opacidade field states (normal, focused, invalid with message) in light and dark on the `Interfaces` page of the Paprika workspace before fixing `Field`/`setNum`; six fixed-height root frames, one `create_nodes` call, then screenshots under `docs/assets/boards/PAP-B-027/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 89 | `layout.padding` as `[0, 8]` (two values) | `create_nodes` answered `layout.padding: Invalid input`; only a scalar or a 4-tuple is accepted. Had to switch every padding to a single number | Document the accepted padding shapes in `get_design_guide` / tool schema (1 or 4, not 2) | P3 |
+| 90 | `radius: "$radius.md"` on a sheet that already uses `$ui.*` fills | Same refusal as #83 (`expected number, received string`); the board used literal `6` / `8` again | Same as #83: accept `$radius.*` where a length is expected | P3 |
+| 91 | Know which ids in `created` are the roots | `create_nodes` returns a flat DFS list of every nested id; the six board roots were not the first six entries, so the first screenshot pass hit titles and labels | Prefer roots-first in `created`, or return `{roots, created}` like `create_page` already distinguishes `page` | P3 |
+
+- Fixed heights on the six roots avoided the hug screenshot pitfall called out in the ticket; `render_screenshot` with `scale: 2` was enough to judge focus ring and invalid message.
+- `find_nodes {name: "PAP-B-027 field", type: "frame"}` was the reliable way to map board name → id after the flat `created` list.
+
+## 2026-11-22: danger button and confirmation dialog (PAP-B-026, design first)
+
+Task: draw the danger button (states, light and dark) and the confirmation dialogs (workspace delete with the typed name, empty and filled; remove member) on the `Interfaces` page, then add the dialog and the danger tokens in `apps/web`. Eight fixed-height root frames, ~190 nodes, one `create_nodes` call. The active workspace on the maintainer's server was not `Paprika`, so the board was drawn on a throwaway `paprika serve` (renamed `Paprika`) and the PNGs went to the PR.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 92 | Drawing in a workspace that is not the active one | The ticket says to draw in `Paprika` without calling `open_workspace`, but every tool works on the active workspace, so the only options were to ask the human to switch or to run a second server | An optional `workspaceId` on the document tools (read and write), so an agent can draw in a named workspace without moving the human's canvas | P2 |
+| 93 | A `fontFamily` that the renderer does not have | `fontFamily: "Inter"` rendered in a serif in `render_screenshot` (the app falls back to the system sans in its CSS stack), so the first sheet did not look like the app until the family became `sans-serif` | Fall back to the generic sans-serif when the family is missing, or accept a stack (`"Inter, sans-serif"`) in `fontFamily` | P3 |
+| 94 | A `mode: "dark"` frame on a document whose base tokens are the dark ones | `lint_design` answered `unknown-mode` for `dark` until the same tokens were also written with `set_tokens {mode: "dark"}`, which is a duplicate of the base values | Treat a mode with no tokens as the base without a warning when the document defines only one other mode, or let `set_tokens` alias a mode to the base | P3 |
+
+- `lint_design` on the eight frames: 0 errors; the `small-text` warnings are the app's own 11 px type (item 82).
+- A focus ring drawn as a wrapper frame with `layout` and no `mode` collapsed to a dot (`hug-without-layout`); the lint named it, and `layout: {mode: "row", padding: 2}` fixed it.
+- Contrast was computed before drawing, so the red landed once: white on `#cc2f50` is 5.13:1 and the ink `#ff9fb2` is 7.01:1 on `#272d45`.
+## 2026-11-22: two-step delete and the operations log (PAP-B-015, server)
+
+Task: `delete_workspace` in two calls (summary + short-lived token) and a readable log of workspace
+operations. No design sheet: the change is server-side; the UI half (the canvas notice) is PAP-B-026.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 95 | One place for the agent guide | The guide lives twice — `instructions` in `server-go/contract/mcp.json` (en) and `server-go/contract/guide.pt-BR.md` — and a sentence about a tool has to be edited in both by hand. Nothing checks that the two agree, so a tool can be described in one language and not the other | A test that every tool name in the contract appears in both guide texts (the same way `TestToolsMatchContract` pins tool names to the handlers) would catch it; the sentence for `delete_workspace` was edited twice here on purpose | P2 |
+| 96 | Contract and handler stay in step | Adding `list_workspace_ops` failed only `TestToolsMatchContract` at first, which is the right forcing function; but the tool-name list in `packages/e2e/test/api.test.ts` is a third copy that fails separately, with a diff that does not say which side moved | Keep both checks, and print in the api failure whether the server, the contract or the test list is the one that changed | P3 |
+
+- The store's `mu` is not reentrant, and `DeleteWorkspace` already calls `OpenWorkspace`: the successor's `open` entry is logged before the `delete` entry, so reading the log newest-first gives the delete first and the takeover below it. Worth knowing for whoever writes the notice that is still missing.
+- The design document at `127.0.0.1:4777` disappeared once that endpoint moved to the compose stack with a fresh volume: the `Interfaces` page with the PAP-B-030 and PAP-B-034 sheets is gone, and only the PNGs committed under `docs/assets/boards/` survived. PAP-B-026's sheet was redrawn on a local server. Whatever lands of the "keep the boards in the repository" proposal, a server reset should not cost a redraw.
 ## 2026-11-22: destructive language and the confirmation pattern (PAP-B-026, design first)
 
 Task: draw the danger button (before and after, both theme scopes) and the confirmation pattern before
@@ -294,7 +332,7 @@ captured before and after.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 88 | The design boards to survive a server change | `127.0.0.1:4777` went from the host-run server to the compose stack with a fresh volume: the `Paprika` document that holds the `Interfaces` page — the PAP-B-030 sheet, the PAP-B-034 sheet, and the PAP-B-026 frames I had drawn minutes earlier — was no longer listed by `list_workspaces`. Only the PNGs committed under `docs/assets/boards/` survived, and the sheet had to be drawn a second time from the script on a `paprika serve` I started myself | Export the board document into the repository (`design/boards.paprika.json`, the way `design/landing.paprika.json` carries the landing page) and refresh it as sheets land; a server reset would then cost a reload, not a redraw | P1 |
-| 89 | A contrast check that does not lie | The first hover measurement returned the resting color because `transition-colors` had not landed, so the assertion passed without ever testing the hover state; a manual probe with a 300 ms wait showed the hover wash was darker and the light text had fallen to 4,39:1 | Nothing for the tool to change. Recorded because it is easy to repeat: wait for the transition, then read, and assert both states — which the suite now does | P3 |
+| 97 | The design boards to survive a server change | `127.0.0.1:4777` went from the host-run server to the compose stack with a fresh volume: the `Paprika` document that holds the `Interfaces` page — the PAP-B-030 sheet, the PAP-B-034 sheet, and the PAP-B-026 frames I had drawn minutes earlier — was no longer listed by `list_workspaces`. Only the PNGs committed under `docs/assets/boards/` survived, and the sheet had to be drawn a second time from the script on a `paprika serve` I started myself | Export the board document into the repository (`design/boards.paprika.json`, the way `design/landing.paprika.json` carries the landing page) and refresh it as sheets land; a server reset would then cost a reload, not a redraw | P1 |
+| 98 | A contrast check that does not lie | The first hover measurement returned the resting color because `transition-colors` had not landed, so the assertion passed without ever testing the hover state; a manual probe with a 300 ms wait showed the hover wash was darker and the light text had fallen to 4,39:1 | Nothing for the tool to change. Recorded because it is easy to repeat: wait for the transition, then read, and assert both states — which the suite now does | P3 |
 
 - `lint_design` reported the light destructive text at 4,05:1 on the first sheet, before a line of code was written — the same class of mistake it caught on the PAP-B-030 sheet, and the token alphas are what they are now because of it.

@@ -31,8 +31,6 @@
   /* Fill behind white text (buttons, badges): #e04a2b with white is 4.05:1, this is 4.99:1 (WCAG 1.4.3 AA). */
   --color-accent-strong: #c8401f;
   --color-accent-soft: rgb(224 74 43 / 0.18);
-  /* The same accent as a stronger wash: the hover of a danger action (ADR 0005). */
-  --color-accent-soft-strong: rgb(224 74 43 / 0.32);
   --color-accent-ink: #ffb4a6;
   --color-accent-pale: #ffd2c9;
   --color-toast: #3a1d19;
@@ -44,6 +42,10 @@
   --color-label: #5d5763;
   /* The darker brand red, used for the hover of a filled control ($accent.dark in the design document). */
   --color-accent-dark: #a93220;
+  /* Danger is its own hue, apart from the brand red: delete and remove must not look like the primary action. White on the fill is 5.13:1, on the hover 7.50:1; the ink as text is 7.01:1 on panel-2. */
+  --color-danger: #cc2f50;
+  --color-danger-dark: #a31d3d;
+  --color-danger-ink: #ff9fb2;
 
   /*
    * Semantic names of the shadcn primitives (docs/adr/0005-shadcn-ui.md), namespaced `ui-` so the brand
@@ -67,16 +69,11 @@
   --color-ui-muted-foreground: var(--color-muted);
   --color-ui-accent: var(--color-panel-2);
   --color-ui-accent-foreground: var(--color-fg);
-  /*
-   * A danger action borrows the warning language the app already uses in its error bands (ADR 0005): the
-   * accent as a translucent wash, the ink as the text. Filling the button with the brand red would make
-   * "delete" and "the main thing to click" the same button, which is what the backlog asked to fix.
-   */
-  --color-ui-destructive: var(--color-accent-soft);
-  --color-ui-destructive-foreground: var(--color-accent-ink);
-  --color-ui-destructive-hover: var(--color-accent-soft-strong);
-  /* Red as text needs its own token: #c8401f on the night surfaces is 2.72:1, the ink is 7.97:1. */
-  --color-ui-destructive-text: var(--color-accent-ink);
+  --color-ui-destructive: var(--color-danger);
+  --color-ui-destructive-foreground: var(--color-white);
+  --color-ui-destructive-hover: var(--color-danger-dark);
+  /* Red as text needs its own token: #cc2f50 on the night surfaces is 2.42:1 on panel-2, the ink is 7.01:1. */
+  --color-ui-destructive-text: var(--color-danger-ink);
   --color-ui-border: var(--color-line);
   --color-ui-input: var(--color-line);
   --color-ui-field: var(--color-panel-2);
@@ -211,7 +208,7 @@
  * single place to grow from. `.ui-light` only redefines variables, so a light panel can sit next to a dark
  * one without a second stylesheet, and no selector here reaches the document under `.world`.
  * Checked for WCAG AA: #141827 on #f2f3f8 = 15.9:1; #5d6478 on #e7e9f0 = 4.86:1; #c8401f with white = 4.99:1;
- * #b3300f on #ffffff = 6.28:1; the focus ring #0b7183 on #f2f3f8 = 5.12:1.
+ * #a8173a on #ffffff = 7.37:1, on #f2f3f8 = 6.65:1, on #e7e9f0 = 6.08:1; #cc2f50 with white = 5.13:1; the focus ring #0b7183 on #f2f3f8 = 5.12:1.
  */
 @layer base {
   .ui-light {
@@ -233,17 +230,10 @@
     --color-ui-muted-foreground: #5d6478;
     --color-ui-accent: var(--color-canvas);
     --color-ui-accent-foreground: #141827;
-    /*
-     * On a white card the same wash needs less accent, and it must stay below the point where the text stops
-     * passing AA: at 10% the ink reads 5,5:1, and the hover at 14% still reads 5,2:1 (measured by the
-     * accessibility suite). The ink darkens with the surface.
-     */
-    --color-accent-soft: rgb(224 74 43 / 0.1);
-    --color-accent-soft-strong: rgb(224 74 43 / 0.14);
-    --color-ui-destructive: var(--color-accent-soft);
-    --color-ui-destructive-foreground: #b3300f;
-    --color-ui-destructive-hover: var(--color-accent-soft-strong);
-    --color-ui-destructive-text: #b3300f;
+    --color-ui-destructive: var(--color-danger);
+    --color-ui-destructive-foreground: var(--color-white);
+    --color-ui-destructive-hover: var(--color-danger-dark);
+    --color-ui-destructive-text: #a8173a;
     --color-ui-border: #d3d7e3;
     --color-ui-input: #c6cbd9;
     --color-ui-field: #fff;

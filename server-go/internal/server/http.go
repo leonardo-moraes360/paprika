@@ -361,7 +361,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 				send(c.Writer, 400, errBody(err.Error()), "")
 				return
 			}
-			info, err := store.CreateWorkspace(parsed.(*jsonv.Object).Str("name"))
+			info, err := store.CreateWorkspace(parsed.(*jsonv.Object).Str("name"), "user")
 			if err != nil {
 				send(c.Writer, 500, errBody(err.Error()), "")
 				return

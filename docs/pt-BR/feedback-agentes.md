@@ -287,6 +287,44 @@ adicionar as alças NW/NE/SW/SE em `apps/web/src/Canvas.tsx`.
 
 - Três frames raiz, uma chamada `create_nodes`; `lint_design` 0 depois de corrigir tamanhos da medida/nota; capturas em `docs/assets/boards/PAP-B-029`.
 
+## 2026-11-22: campos numéricos do inspector (PAP-B-027, design first)
+
+Tarefa: desenhar os estados do campo Opacidade (normal, focado, inválido com mensagem) em claro e escuro na página `Interfaces` do workspace Paprika antes de corrigir `Field`/`setNum`; seis frames raiz com altura fixa, uma chamada `create_nodes`, depois screenshots em `docs/assets/boards/PAP-B-027/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 89 | `layout.padding` como `[0, 8]` (dois valores) | `create_nodes` respondeu `layout.padding: Invalid input`; só aceita escalar ou tupla de 4. Precisei trocar todo padding para um número só | Documentar as formas aceitas de padding no `get_design_guide` / schema da ferramenta (1 ou 4, não 2) | P3 |
+| 90 | `radius: "$radius.md"` numa folha que já usa fills `$ui.*` | Mesma recusa do #83 (`expected number, received string`); o board voltou a usar literais `6` / `8` | Igual ao #83: aceitar `$radius.*` onde se espera comprimento | P3 |
+| 91 | Saber quais ids em `created` são as raízes | `create_nodes` devolve uma lista plana em DFS de todos os ids aninhados; as seis raízes do board não eram as seis primeiras, e a primeira passagem de screenshot pegou títulos e rótulos | Preferir raízes primeiro em `created`, ou devolver `{roots, created}` como o `create_page` já distingue `page` | P3 |
+
+- Alturas fixas nas seis raízes evitaram o hang/pitfall de hug do ticket; `render_screenshot` com `scale: 2` bastou para julgar anel de foco e mensagem inválida.
+- `find_nodes {name: "PAP-B-027 field", type: "frame"}` foi o jeito confiável de mapear nome do board → id depois da lista plana `created`.
+
+## 2026-11-22: botão de perigo e diálogo de confirmação (PAP-B-026, design first)
+
+Tarefa: desenhar o botão de perigo (estados, claro e escuro) e os diálogos de confirmação (excluir workspace com o nome digitado, vazio e preenchido; remover membro) na página `Interfaces`, depois criar o diálogo e os tokens de perigo em `apps/web`. Oito frames raiz de altura fixa, ~190 nós, uma chamada `create_nodes`. O workspace ativo no servidor do mantenedor não era o `Paprika`, então o board foi desenhado num `paprika serve` descartável (renomeado `Paprika`) e os PNGs foram para o PR.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 92 | Desenhar num workspace que não é o ativo | O ticket manda desenhar no `Paprika` sem chamar `open_workspace`, mas toda ferramenta age no workspace ativo; sobrou pedir ao humano para trocar ou subir um segundo servidor | Um `workspaceId` opcional nas ferramentas de documento (leitura e escrita), para o agente desenhar num workspace nomeado sem mexer no canvas do humano | P2 |
+| 93 | Um `fontFamily` que o renderizador não tem | `fontFamily: "Inter"` saiu em serifa no `render_screenshot` (o app cai na sans do sistema na pilha do CSS), então a primeira folha não parecia o app até a família virar `sans-serif` | Cair na sans-serif genérica quando a família não existe, ou aceitar uma pilha (`"Inter, sans-serif"`) em `fontFamily` | P3 |
+| 94 | Um frame `mode: "dark"` num documento cujos tokens base já são os escuros | O `lint_design` respondeu `unknown-mode` para `dark` até os mesmos tokens serem gravados também com `set_tokens {mode: "dark"}`, duplicando os valores da base | Tratar um modo sem tokens como a base, sem aviso, quando o documento só define um outro modo, ou deixar o `set_tokens` apelidar um modo para a base | P3 |
+
+- `lint_design` nos oito frames: 0 erros; os avisos `small-text` são o tipo de 11 px do próprio app (item 82).
+- Um anel de foco desenhado como frame de embrulho com `layout` sem `mode` colapsou num ponto (`hug-without-layout`); o lint apontou, e `layout: {mode: "row", padding: 2}` resolveu.
+- O contraste foi calculado antes de desenhar, então o vermelho acertou de primeira: branco sobre `#cc2f50` dá 5,13:1 e a tinta `#ff9fb2` dá 7,01:1 sobre `#272d45`.
+## 2026-11-22: apagamento em dois passos e o log de operações (PAP-B-015, servidor)
+
+Tarefa: `delete_workspace` em duas chamadas (resumo + token de curta duração) e um log legível das operações
+de workspace. Sem folha de design: a mudança é no servidor; a metade de UI (o aviso no canvas) é o PAP-B-026.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 95 | Um lugar só para o guia do agente | O guia vive em dois lugares — `instructions` em `server-go/contract/mcp.json` (en) e `server-go/contract/guide.pt-BR.md` — e uma frase sobre uma ferramenta tem que ser editada nas duas à mão. Nada confere se elas batem, então uma ferramenta pode estar descrita num idioma e não no outro | Um teste conferindo que todo nome de ferramenta do contrato aparece nos dois guias (do jeito que `TestToolsMatchContract` amarra os nomes aos handlers) pegaria isso; a frase do `delete_workspace` foi editada duas vezes de propósito | P2 |
+| 96 | Contrato e handler andarem juntos | Criar `list_workspace_ops` primeiro só falhou em `TestToolsMatchContract`, que é o mecanismo certo; mas a lista de nomes em `packages/e2e/test/api.test.ts` é uma terceira cópia, que falha separada e com um diff que não diz qual lado se moveu | Manter as duas checagens e, na falha do api, imprimir se quem mudou foi o servidor, o contrato ou a lista do teste | P3 |
+
+- O `mu` do store não é reentrante, e `DeleteWorkspace` já chama `OpenWorkspace`: a entrada `open` do sucessor é logada antes da entrada `delete`, então ler o log do mais recente para o mais antigo dá o apagamento primeiro e a troca logo abaixo. Útil para quem escrever o aviso que ainda falta.
+- O documento de design em `127.0.0.1:4777` sumiu quando aquele endpoint passou à pilha do compose com volume novo: a página `Interfaces`, com as folhas do PAP-B-030 e do PAP-B-034, não existe mais, e só os PNGs commitados em `docs/assets/boards/` sobraram. A folha do PAP-B-026 foi redesenhada num servidor local. O que quer que entre da proposta de guardar as folhas no repositório, um reset de servidor não deveria custar um redesenho.
 ## 2026-11-22: linguagem de perigo e o padrão de confirmação (PAP-B-026, design first)
 
 Tarefa: desenhar o botão de perigo (antes e depois, nos dois escopos de tema) e o padrão de confirmação antes
@@ -295,7 +333,7 @@ capturado antes e depois.
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
-| 88 | As folhas de design sobreviverem a uma troca de servidor | `127.0.0.1:4777` saiu do servidor rodando no host e passou à pilha do compose com um volume novo: o documento `Paprika`, que guarda a página `Interfaces` — a folha do PAP-B-030, a do PAP-B-034 e os frames do PAP-B-026 que eu tinha desenhado minutos antes — sumiu do `list_workspaces`. Só os PNGs commitados em `docs/assets/boards/` sobraram, e a folha teve que ser desenhada de novo pelo script num `paprika serve` que subi eu mesmo | Exportar o documento das folhas para dentro do repositório (`design/boards.paprika.json`, como `design/landing.paprika.json` guarda a landing page) e atualizar a exportação conforme as folhas entram; um reset de servidor custaria um reload, não um redesenho | P1 |
-| 89 | Um teste de contraste que não minta | A primeira medição do hover devolveu a cor de repouso porque o `transition-colors` ainda não tinha aterrissado, então a asserção passou sem nunca testar o hover; uma sonda manual com espera de 300 ms mostrou que a lavanda do hover é mais forte e que o texto claro tinha caído para 4,39:1 | Nada para a ferramenta mudar. Registrado porque é fácil repetir: espere a transição, leia depois, e assera os dois estados — como a suíte faz agora | P3 |
+| 97 | As folhas de design sobreviverem a uma troca de servidor | `127.0.0.1:4777` saiu do servidor rodando no host e passou à pilha do compose com um volume novo: o documento `Paprika`, que guarda a página `Interfaces` — a folha do PAP-B-030, a do PAP-B-034 e os frames do PAP-B-026 que eu tinha desenhado minutos antes — sumiu do `list_workspaces`. Só os PNGs commitados em `docs/assets/boards/` sobraram, e a folha teve que ser desenhada de novo pelo script num `paprika serve` que subi eu mesmo | Exportar o documento das folhas para dentro do repositório (`design/boards.paprika.json`, como `design/landing.paprika.json` guarda a landing page) e atualizar a exportação conforme as folhas entram; um reset de servidor custaria um reload, não um redesenho | P1 |
+| 98 | Um teste de contraste que não minta | A primeira medição do hover devolveu a cor de repouso porque o `transition-colors` ainda não tinha aterrissado, então a asserção passou sem nunca testar o hover; uma sonda manual com espera de 300 ms mostrou que a lavanda do hover é mais forte e que o texto claro tinha caído para 4,39:1 | Nada para a ferramenta mudar. Registrado porque é fácil repetir: espere a transição, leia depois, e assera os dois estados — como a suíte faz agora | P3 |
 
 - O `lint_design` apontou o texto destrutivo claro em 4,05:1 já na primeira folha, antes de qualquer linha de código — o mesmo tipo de erro que pegou na folha do PAP-B-030, e os alfas dos tokens são os que são hoje por causa dele.

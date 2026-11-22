@@ -12,16 +12,6 @@ const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
 
 /** Keyboard and ARIA checks of the editor (WCAG 2.1: 2.1.1 keyboard, 2.4.3 focus order, 4.1.2 name/role/value). */
-/** Composes a translucent computed color (the danger wash) over an opaque hex backdrop. */
-function overWash(fg: string, backdrop: string) {
-  const nums = (fg.match(/[\d.]+/g) ?? []).map(Number);
-  const [r, g, b, a = 1] = nums.length >= 4 ? nums : [...nums, 1];
-  const bg = [1, 3, 5].map((i) => parseInt(backdrop.slice(i, i + 2), 16));
-  const mix = (c: number, base: number) => Math.round(c * a! + base * (1 - a!));
-  const hex = (v: number) => v.toString(16).padStart(2, "0");
-  return `rgb(${mix(r!, bg[0]!)}, ${mix(g!, bg[1]!)}, ${mix(b!, bg[2]!)})`;
-}
-
 /**
  * WCAG 1.4.3 ratio between two computed color strings. The page only reports the colors (`fg`, `bg`); the
  * math lives here, so the three contrast checks share one implementation.
@@ -277,22 +267,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
         expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
       }
 
-      // PAP-B-026: a lavanda de perigo é translúcida, então o fundo efetivo é a superfície do painel por
-      // baixo dela. Compõe as duas antes de medir o texto.
-      // The danger wash is translucent, so its effective background is the panel behind it: compose the two
-      // before measuring, in the resting state and on hover (PAP-B-026).
-      const BACKDROP = { dark: "#141827", light: "#f2f3f8" } as const;
-      for (const panel of ["dark", "light"] as const) {
-        const danger = gal.locator(`[data-panel=${panel}] [data-slot=button]`).filter({ hasText: "Excluir" }).first();
-        for (const state of ["rest", "hover"] as const) {
-          // transition-colors: the wash reaches its hover value a beat later, so measure after it lands.
-          if (state === "hover") await danger.hover();
-          else await gal.mouse.move(5, 5);
-          await gal.waitForTimeout(300);
-          const [fg, wash] = await danger.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor] as [string, string]);
-          expect(contrastRatio(fg, overWash(wash, BACKDROP[panel]))).toBeGreaterThanOrEqual(4.5);
-        }
-      }
     });
 
     it("o diálogo prende o foco, o Tab não escapa e o Esc devolve ao gatilho (2.1.2)", async () => {
@@ -372,6 +346,83 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       // …but the document under .world keeps the browser defaults the export and the screenshot use.
       expect(probe!.world).toBe("0s");
       expect(probe!.worldLineHeight).toBe("normal");
+    });
+
+    it("o botão de perigo passa de 4,5:1 nos dois temas, no repouso e no hover, e não é a cor do primário (1.4.3)", async () => {
+      for (const panel of ["dark", "light"] as const) {
+        const danger = gal.locator(`[data-panel=${panel}] [data-slot=button]`).filter({ hasText: /^Excluir$/ }).first();
+        let restBg = "";
+        for (const state of ["rest", "hover"] as const) {
+          if (state === "hover") await danger.hover();
+          else await gal.mouse.move(5, 5);
+          // transition-colors: the hover color only lands a beat later, so measure after it settles.
+          await gal.waitForTimeout(300);
+          const [fg, bg] = await danger.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor] as [string, string]);
+          expect(contrastRatio(fg, bg), `${panel} ${state}`).toBeGreaterThanOrEqual(4.5);
+          if (state === "rest") restBg = bg;
+        }
+        const [, primary] = await contrastIn(panel, "button");
+        expect(restBg).not.toBe(primary);
+      }
+    });
+  });
+
+  describe("confirmação de exclusão do overview (PAP-B-026)", () => {
+    let ov: Page;
+    let extra: string;
+
+    beforeAll(async () => {
+      ov = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      const made = await fetch(`${external!.url}/api/workspaces`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Para confirmar" }),
+      });
+      extra = ((await made.json()) as { workspace: { id: string } }).workspace.id;
+      await ov.goto(external!.url);
+      await ov.locator(`[data-workspace-id="${extra}"]`).waitFor();
+    }, 30_000);
+
+    afterAll(async () => {
+      await ov?.close();
+    });
+
+    const exists = async () => {
+      const list = (await (await fetch(`${external!.url}/api/workspaces`)).json()) as { workspaces: { id: string }[] };
+      return list.workspaces.some((w) => w.id === extra);
+    };
+
+    it("abre com o foco em Cancelar, o Esc cancela e devolve o foco ao botão de excluir", async () => {
+      const trash = ov.getByRole("button", { name: "Excluir Para confirmar" });
+      await trash.focus();
+      await ov.keyboard.press("Enter");
+      const dialog = ov.getByRole("alertdialog");
+      await dialog.waitFor();
+      await expect(ov.evaluate(() => document.activeElement?.textContent?.trim())).resolves.toBe("Cancelar");
+      await ov.keyboard.press("Escape");
+      await expect.poll(() => dialog.count()).toBe(0);
+      await expect.poll(() => trash.evaluate((el) => el === document.activeElement)).toBe(true);
+      expect(await exists()).toBe(true);
+    });
+
+    it("excluir pede o nome digitado: só o nome exato libera o botão, que passa de 4,5:1", async () => {
+      await ov.getByRole("button", { name: "Excluir Para confirmar" }).click();
+      const dialog = ov.getByRole("alertdialog");
+      await dialog.waitFor();
+      const confirm = dialog.getByRole("button", { name: "Excluir workspace" });
+      await expect.poll(() => confirm.isDisabled()).toBe(true);
+      const field = dialog.getByLabel(/Digite/);
+      await field.fill("para confirmar");
+      await expect.poll(() => confirm.isDisabled()).toBe(true);
+      await field.fill("Para confirmar");
+      await expect.poll(() => confirm.isEnabled()).toBe(true);
+      const [fg, bg] = await confirm.evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return [cs.color, cs.backgroundColor] as [string, string];
+      });
+      expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+      await confirm.click();
+      await expect.poll(exists, { timeout: 10_000 }).toBe(false);
     });
   });
 });

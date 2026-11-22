@@ -33,7 +33,7 @@ func httpDo(t *testing.T, srv *RunningServer, method, path string, headers map[s
 
 func TestHTTPRouteTable(t *testing.T) {
 	s, _ := openTemp(t)
-	ws, err := s.CreateWorkspace("outro")
+	ws, err := s.CreateWorkspace("outro", "user")
 	if err != nil {
 		t.Fatal(err)
 	}
