@@ -44,6 +44,7 @@ describe("API: MCP", () => {
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_svg",
         "lint_design", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
         "rename_workspace", "render_screenshot", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
+        "duplicate_nodes",
       ].sort(),
     );
     for (const t of tools) expect(t.inputSchema.type).toBe("object");
@@ -532,6 +533,44 @@ describe("API: MCP", () => {
     expect(modules[1]).toContain(".cardTailwind{box-sizing:border-box;");
     const missing = await call(c, "export_code", { rootId: "nope", format: "css-modules" });
     expect(missing.isError).toBe(true);
+  });
+
+  it("duplicate_nodes: light/dark pair in one call, connectors re-pointed, one undo step", async () => {
+    const c = client;
+    await call(c, "set_tokens", { tokens: { bg: "#ffffff", fg: "#1e2336" } });
+    await call(c, "set_tokens", { mode: "dark", tokens: { bg: "#14161f", fg: "#f2f2f2" } });
+    await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "frame", id: "board", name: "Board", x: 0, y: 0, width: 300, height: 120, fill: "$bg",
+          children: [
+            { type: "shape", id: "a", x: 10, y: 10, width: 80, height: 40, text: "A", color: "$fg", fill: "$bg" },
+            { type: "shape", id: "b", x: 150, y: 10, width: 80, height: 40, text: "B", color: "$fg", fill: "$bg" },
+            { type: "connector", id: "ab", from: { nodeId: "a" }, to: { nodeId: "b" } },
+          ],
+        },
+      ],
+    });
+    const r = (await c.callTool({ name: "duplicate_nodes", arguments: { ids: ["board"], offset: 340, props: { mode: "dark", name: "Board dark" } } })) as ToolResult & {
+      structuredContent?: { copies: string[]; map: Record<string, string>; created: string[]; version: number };
+    };
+    const sc = r.structuredContent!;
+    expect(JSON.parse(textOf(r))).toEqual(sc);
+    expect(sc.copies).toHaveLength(1);
+    expect(Object.keys(sc.map).sort()).toEqual(["a", "ab", "b", "board"]);
+    expect(sc.created).toHaveLength(4);
+    const copy = JSON.parse(textOf(await call(c, "get_nodes", { ids: [sc.copies[0]!, sc.map.ab!] }))) as {
+      id: string; mode?: string; name: string; x: number; from?: { nodeId: string }; to?: { nodeId: string };
+    }[];
+    expect(copy[0]).toMatchObject({ id: sc.copies[0], mode: "dark", name: "Board dark", x: 340 });
+    expect(copy[1]!.from?.nodeId).toBe(sc.map.a);
+    expect(copy[1]!.to?.nodeId).toBe(sc.map.b);
+    expect(JSON.parse(textOf(await call(c, "lint_design", {}))).issues).toEqual([]);
+    expect(textOf(await call(c, "duplicate_nodes", { ids: ["board"], props: { id: "x" } }))).toMatch(/props cannot set id/);
+    expect(textOf(await call(c, "duplicate_nodes", { ids: ["nope"] }))).toBe("nodes do not exist: nope");
+    await call(c, "undo");
+    expect(textOf(await call(c, "get_nodes", { ids: [sc.copies[0]!] }))).toMatch(/nodes do not exist/);
+    expect(textOf(await call(c, "get_document_outline"))).toContain("4 nodes");
   });
 
   it("agent layer: structuredContent, undo batch, actor from clientInfo over HTTP sessions, pt-BR guide", async () => {

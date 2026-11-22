@@ -584,3 +584,56 @@ func TestPresence(t *testing.T) {
 		t.Fatalf("ttl: %d", len(r))
 	}
 }
+
+func TestMCPDuplicateNodes(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	callText(t, m, "set_tokens", obj("tokens", obj("bg", "#ffffff", "fg", "#1e2336")))
+	callText(t, m, "set_tokens", obj("mode", "dark", "tokens", obj("bg", "#14161f", "fg", "#f2f2f2")))
+	callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "frame", "id", "board", "name", "Board", "x", 0.0, "y", 0.0, "width", 300.0, "height", 120.0, "fill", "$bg", "children", []any{
+		obj("type", "shape", "id", "a", "x", 10.0, "y", 10.0, "width", 80.0, "height", 40.0, "text", "A", "color", "$fg", "fill", "$bg"),
+		obj("type", "shape", "id", "b", "x", 150.0, "y", 10.0, "width", 80.0, "height", 40.0, "text", "B", "color", "$fg", "fill", "$bg"),
+		obj("type", "connector", "id", "ab", "from", obj("nodeId", "a"), "to", obj("nodeId", "b")),
+	})}))
+	before := s.Version()
+
+	r := m.CallTool(context.Background(), "duplicate_nodes", obj("ids", []any{"board"}, "offset", 340.0, "props", obj("mode", "dark", "name", "Board dark")), true)
+	if r.Bool("isError") {
+		t.Fatalf("duplicate: %s", jsonv.Stringify(r, ""))
+	}
+	sc := r.Obj("structuredContent")
+	copies := sc.Strings("copies")
+	if len(copies) != 1 || sc.Obj("map").Len() != 4 || len(sc.Strings("created")) != 4 || s.Version() != before+1 {
+		t.Fatalf("result: %s (version %d, before %d)", jsonv.Stringify(sc, ""), s.Version(), before)
+	}
+	copy := core.GetNode(s.Doc(), copies[0])
+	if copy.Str("mode") != "dark" || copy.Str("name") != "Board dark" || copy.Num("x") != 340 || copy.Num("y") != 340 {
+		t.Fatalf("copy: %s", jsonv.Stringify(copy, ""))
+	}
+	conn := core.GetNode(s.Doc(), sc.Obj("map").Str("ab"))
+	if conn.Obj("from").Str("nodeId") != sc.Obj("map").Str("a") || conn.Obj("to").Str("nodeId") != sc.Obj("map").Str("b") {
+		t.Fatalf("connector not re-pointed: %s", jsonv.Stringify(conn, ""))
+	}
+	if out, isErr := callText(t, m, "lint_design", obj()); isErr || !strings.Contains(out, `"issues": []`) {
+		t.Fatalf("lint: %q", out)
+	}
+
+	callText(t, m, "undo", obj())
+	if core.GetNode(s.Doc(), copies[0]) != nil || core.Nodes(s.Doc()).Len() != 4 {
+		t.Fatalf("undo did not remove the whole copy: %d nodes", core.Nodes(s.Doc()).Len())
+	}
+
+	for _, c := range []struct {
+		args *jsonv.Object
+		want string
+	}{
+		{obj("ids", []any{"nope"}), "nodes do not exist: nope"},
+		{obj("ids", []any{"board"}, "scale", 0.0), "scale"},
+		{obj("ids", []any{"board"}, "props", obj("id", "x")), "props cannot set id"},
+		{obj("ids", []any{"board"}, "parentId", "nope"), `parent "nope" does not exist`},
+	} {
+		if out, isErr := callText(t, m, "duplicate_nodes", c.args); !isErr || !strings.Contains(out, c.want) {
+			t.Fatalf("error %s: %q", c.want, out)
+		}
+	}
+}

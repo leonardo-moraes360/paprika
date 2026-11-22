@@ -13,7 +13,7 @@ const core = await import(join(root, "packages/core/dist/index.js"));
 const {
   applyOps, createDocument, parseDocument, copyId, History, outline, describeNode, lintDocument, renderHTML,
   exportReact, exportTailwind, exportCssModules, renderTailwindHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
-  parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, importSVG, importHTML, exportSVG,
+  parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, importSVG, importHTML, exportSVG,
   diagramOps, shapeOutline, tailwindClassesFor,
 } = core;
 
@@ -401,6 +401,35 @@ const structureCases = [
   ["free", "page", { id: "pn", name: "Nova", firstId: "pf" }],
   ["empty", "page", { id: "pn" }],
   ["paged", "page", { id: "pn" }],
+  ["card", "duplicate", { ids: ["card"] }],
+  ["card", "duplicate", { ids: ["card"], offset: 0, scale: 2, props: { fill: "#101010" } }],
+  ["card", "duplicate", { ids: ["card"], parentId: null, offset: -12.5 }],
+  ["card", "duplicate", { ids: ["card", "title", "card"] }],
+  ["card", "duplicate", { ids: ["title", "bar"], offset: 10, scale: 0.5 }],
+  ["themed", "duplicate", { ids: ["t-light"], offset: 680, props: { mode: "dark", name: "Tema dark" } }],
+  ["free", "duplicate", { ids: ["e1", "r1"], scale: 1.5 }],
+  ["free", "duplicate", { ids: ["p1"], scale: 2 }],
+  ["grouped", "duplicate", { ids: ["g1"], scale: 2, offset: 5 }],
+  ["paged", "duplicate", { ids: ["board"], parentId: "pg2", offset: 0 }],
+  ["comp", "duplicate", { ids: ["i1"], scale: 2 }],
+  ["comp", "duplicate", { ids: ["i1", "i2"], props: { name: "Cópia" } }],
+  ["diagram", "duplicate", { ids: ["box"] }],
+  ["diagram", "duplicate", { ids: ["box", "start"], scale: 2 }],
+  ["diagram", "duplicate", { ids: ["start", "ask", "yes"], offset: 0 }],
+  ["diagram", "duplicate", { ids: ["gq"], props: { opacity: 0.5 } }],
+  ["diagram", "duplicate", { ids: ["flow"], scale: 0.5 }],
+  ["diagram", "duplicate", { ids: ["flowi"], scale: 2 }],
+  ["diagram", "duplicate", { ids: ["flowi", "flow"] }],
+  ["diagram", "duplicate", { ids: ["k1"] }],
+  ["paged", "duplicate", { ids: ["pg1"] }],
+  ["comp", "duplicate", { ids: [copyId("i1", "lbl")] }],
+  ["card", "duplicate", { ids: [] }],
+  ["card", "duplicate", { ids: ["card", "zz", "yy"] }],
+  ["card", "duplicate", { ids: ["card"], scale: 0 }],
+  ["card", "duplicate", { ids: ["card"], scale: -2 }],
+  ["card", "duplicate", { ids: ["card"], props: { id: "x", children: [] } }],
+  ["card", "duplicate", { ids: ["card"], props: { width: 5 } }],
+  ["card", "duplicate", { ids: ["card"], parentId: "nope" }],
 ];
 const structure = structureCases.map(([docName, kind, args]) => {
   const d = docs[docName];
@@ -410,14 +439,24 @@ const structure = structureCases.map(([docName, kind, args]) => {
       return { ops: p.ops, id: p.id };
     }
     if (kind === "ungroup") return ungroupOps(d, args.ids);
+    if (kind === "duplicate") {
+      const p = duplicateOps(d, args.ids, args);
+      return { ops: p.ops, map: p.map };
+    }
     const p = addPageOps(d, { id: args.id, name: args.name, firstId: args.firstId });
     return { ops: p.ops, id: p.id };
   });
   if (!r.ok) return { doc: docName, kind, args, ok: false, error: r.error };
   const applied = err(() => applyOps(d, r.value.ops));
+  const pairs = Object.entries(r.value.map ?? {});
+  const derived = applied.ok
+    ? Object.values(applied.value.doc.nodes).flatMap((n) =>
+        typeof n.sourceId === "string" ? pairs.filter(([, to]) => n.id === copyId(to, n.sourceId)).map(([from, to]) => [n.id, `@${from}~${n.sourceId}`]) : [])
+    : [];
+  const stable = (text) => [...derived, ...pairs.map(([from, to]) => [to, `@${from}`])].reduce((acc, [from, to]) => acc.split(from).join(to), text);
   return {
-    doc: docName, kind, args, ok: true, ops: JSON.stringify(r.value.ops), id: r.value.id, released: r.value.released,
-    result: applied.ok ? json(applied.value.doc) : undefined, applyError: applied.ok ? undefined : applied.error,
+    doc: docName, kind, args, ok: true, ops: stable(JSON.stringify(r.value.ops)), id: r.value.id, released: r.value.released,
+    result: applied.ok ? stable(json(applied.value.doc)) : undefined, applyError: applied.ok ? undefined : stable(applied.error),
   };
 });
 

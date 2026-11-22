@@ -4306,6 +4306,105 @@
       "execution": {
         "taskSupport": "forbidden"
       }
+    },
+    {
+      "name": "duplicate_nodes",
+      "title": "Duplicate nodes",
+      "description": "Duplicates nodes with their whole subtree in one undo step (new ids; instances stay instances of the same component, scale multiplies their scale; connectors between duplicated nodes point at the copies, the others keep their ends). Each copy goes in its source's parent, nudged by offset (default 40 on x and y). scale grows or shrinks the copy from its own top-left corner: sizes, children positions, text size, strokes, radius, shadow, gap and padding; hug/fill stay. props is written on each copy's root (for example {mode: \"dark\"} for a light/dark pair). Returns the id of each copy and the map from every source node to its copy.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "offset": {
+            "description": "Distance of each copy from its source, on x and y, in the parent's coordinates (default 40; 0 puts it on top)",
+            "type": "number"
+          },
+          "parentId": {
+            "description": "Parent of the copies (null = canvas level; default: each source's parent)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scale": {
+            "description": "Multiplier for sizes, spacing, text and instance scale (default 1)",
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 100
+          },
+          "props": {
+            "description": "Fields written on each copy's root, e.g. {mode: \"dark\"}; id, type, parentId, children, sourceId and instanceOf are refused",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "copies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "map": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "copies",
+          "map",
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
     }
   ]
 }

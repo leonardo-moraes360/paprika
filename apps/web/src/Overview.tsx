@@ -1,8 +1,10 @@
 import { useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 import { ImageOff, ImagePlus, Pencil, Plus, Trash2 } from "lucide-react";
 import { errorText } from "./api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { InlineName } from "./InlineName";
+import { cn } from "./lib/cn";
 import { bar, cx, ui } from "./ui";
 import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type Workspace } from "./workspaces";
 
@@ -79,7 +81,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   /** One click opens a card; the pencil button or F2 renames it. */
   const [renaming, setRenaming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Workspace | null>(null);
-  const dialog = useRef<HTMLDialogElement>(null);
+  const [confirming, setConfirming] = useState(false);
   const coverInput = useRef<HTMLInputElement>(null);
   /** Workspace whose cover the file picker is choosing. */
   const coverFor = useRef<string | null>(null);
@@ -119,12 +121,12 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
 
   const askDelete = (w: Workspace) => {
     setDeleting(w);
-    dialog.current?.showModal();
+    setConfirming(true);
   };
 
   const confirmDelete = async () => {
     const w = deleting;
-    dialog.current?.close();
+    setConfirming(false);
     if (!w) return;
     await attempt("excluir o workspace", () => mutations.remove.mutateAsync(w.id));
   };
@@ -272,7 +274,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                   )}
                   <button
                     type="button"
-                    className={cx(ui.iconBtn, "px-1.5 py-1 text-lg disabled:cursor-default disabled:opacity-60")}
+                    className={cn(ui.iconBtn, ui.dangerBtn, "px-1.5 py-1 text-lg disabled:cursor-default disabled:opacity-60")}
                     aria-label={`Excluir ${w.name}`}
                     title={count > 1 ? "Excluir (Delete)" : "O único workspace não pode ser excluído"}
                     disabled={count <= 1}
@@ -297,36 +299,21 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
             if (file && coverFor.current) void setCover(coverFor.current, file);
           }}
         />
-        <dialog
-          ref={dialog}
-          className="m-auto max-w-[420px] rounded-xl border border-line bg-panel px-5.5 py-5 text-fg backdrop:bg-night/70"
-          aria-labelledby="delete-title"
-          // The close event is queued: when the dialog is reopened right after closing (Cancel, then Delete),
-          // the old event arrives while it is open again and must not empty it.
-          onClose={(e) => !e.currentTarget.open && setDeleting(null)}
+        <ConfirmDialog
+          open={confirming}
+          onOpenChange={setConfirming}
+          title={`Excluir “${deleting?.name ?? ""}”?`}
+          description={
+            deleting && `${deleting.nodes} ${deleting.nodes === 1 ? "nó" : "nós"} e o histórico de desfazer serão apagados. Essa ação não pode ser desfeita.`
+          }
+          confirmLabel="Excluir workspace"
+          typeToConfirm={deleting?.name}
+          onConfirm={confirmDelete}
         >
-          {deleting && (
-            <form method="dialog" onSubmit={(e) => e.preventDefault()}>
-              <h2 id="delete-title" className="mx-0 mt-0 mb-2 text-lg">
-                Excluir “{deleting.name}”?
-              </h2>
-              <p className="mx-0 mt-0 mb-2.5 text-muted">
-                {deleting.nodes} {deleting.nodes === 1 ? "nó" : "nós"} e o histórico de desfazer serão apagados. Essa ação não pode ser desfeita.
-              </p>
-              {deleting.active && successor && (
-                <p className="mx-0 mt-0 mb-2.5 text-muted">Este é o workspace ativo: o canvas e os agentes MCP passam para “{successor.name}”.</p>
-              )}
-              <div className="mt-4 flex justify-end gap-2">
-                <button type="button" className={button(false)} onClick={() => dialog.current?.close()}>
-                  Cancelar
-                </button>
-                <button type="button" className={button(true)} onClick={() => void confirmDelete()}>
-                  Excluir
-                </button>
-              </div>
-            </form>
+          {deleting?.active && successor && (
+            <p className="m-0 text-xs text-ui-muted-foreground">Este é o workspace ativo: o canvas e os agentes MCP passam para “{successor.name}”.</p>
           )}
-        </dialog>
+        </ConfirmDialog>
       </main>
     </div>
   );

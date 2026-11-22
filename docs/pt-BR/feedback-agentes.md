@@ -299,3 +299,17 @@ Tarefa: desenhar os estados do campo Opacidade (normal, focado, inválido com me
 
 - Alturas fixas nas seis raízes evitaram o hang/pitfall de hug do ticket; `render_screenshot` com `scale: 2` bastou para julgar anel de foco e mensagem inválida.
 - `find_nodes {name: "PAP-B-027 field", type: "frame"}` foi o jeito confiável de mapear nome do board → id depois da lista plana `created`.
+
+## 2026-11-22: botão de perigo e diálogo de confirmação (PAP-B-026, design first)
+
+Tarefa: desenhar o botão de perigo (estados, claro e escuro) e os diálogos de confirmação (excluir workspace com o nome digitado, vazio e preenchido; remover membro) na página `Interfaces`, depois criar o diálogo e os tokens de perigo em `apps/web`. Oito frames raiz de altura fixa, ~190 nós, uma chamada `create_nodes`. O workspace ativo no servidor do mantenedor não era o `Paprika`, então o board foi desenhado num `paprika serve` descartável (renomeado `Paprika`) e os PNGs foram para o PR.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 92 | Desenhar num workspace que não é o ativo | O ticket manda desenhar no `Paprika` sem chamar `open_workspace`, mas toda ferramenta age no workspace ativo; sobrou pedir ao humano para trocar ou subir um segundo servidor | Um `workspaceId` opcional nas ferramentas de documento (leitura e escrita), para o agente desenhar num workspace nomeado sem mexer no canvas do humano | P2 |
+| 93 | Um `fontFamily` que o renderizador não tem | `fontFamily: "Inter"` saiu em serifa no `render_screenshot` (o app cai na sans do sistema na pilha do CSS), então a primeira folha não parecia o app até a família virar `sans-serif` | Cair na sans-serif genérica quando a família não existe, ou aceitar uma pilha (`"Inter, sans-serif"`) em `fontFamily` | P3 |
+| 94 | Um frame `mode: "dark"` num documento cujos tokens base já são os escuros | O `lint_design` respondeu `unknown-mode` para `dark` até os mesmos tokens serem gravados também com `set_tokens {mode: "dark"}`, duplicando os valores da base | Tratar um modo sem tokens como a base, sem aviso, quando o documento só define um outro modo, ou deixar o `set_tokens` apelidar um modo para a base | P3 |
+
+- `lint_design` nos oito frames: 0 erros; os avisos `small-text` são o tipo de 11 px do próprio app (item 82).
+- Um anel de foco desenhado como frame de embrulho com `layout` sem `mode` colapsou num ponto (`hug-without-layout`); o lint apontou, e `layout: {mode: "row", padding: 2}` resolveu.
+- O contraste foi calculado antes de desenhar, então o vermelho acertou de primeira: branco sobre `#cc2f50` dá 5,13:1 e a tinta `#ff9fb2` dá 7,01:1 sobre `#272d45`.
