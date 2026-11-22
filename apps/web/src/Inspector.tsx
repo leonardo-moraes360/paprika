@@ -48,9 +48,15 @@ function Field({ label, value, onCommit, type = "text", placeholder, title, min,
   const msgId = useId();
   // Enter grava e tira o foco; o blur não pode gravar de novo antes do servidor responder.
   const lastCommitted = useRef<string | null>(null);
+  const pendingClampMsg = useRef<string | null>(null);
   useEffect(() => {
     setV(value === undefined ? "" : String(value));
     lastCommitted.current = null;
+    if (pendingClampMsg.current) {
+      setError(pendingClampMsg.current);
+      pendingClampMsg.current = null;
+      return;
+    }
     setError(null);
   }, [value]);
   const range: NumericRange = { min, max, integer };
@@ -59,21 +65,28 @@ function Field({ label, value, onCommit, type = "text", placeholder, title, min,
     if (type === "number" && !keywords?.length) {
       const result = commitNumeric(v, range);
       if (!result.ok) {
+        pendingClampMsg.current = null;
         setV(baseline());
         setError(result.message);
         return;
       }
       if (result.clamped) setError(result.message ?? rangeMessage(range));
-      else setError(null);
+      else {
+        pendingClampMsg.current = null;
+        setError(null);
+      }
       if (result.text === baseline() || result.text === lastCommitted.current) {
+        pendingClampMsg.current = null;
         setV(result.text);
         return;
       }
       lastCommitted.current = result.text;
       setV(result.text);
+      if (result.clamped) pendingClampMsg.current = result.message ?? rangeMessage(range);
       onCommit(result.text);
       return;
     }
+    pendingClampMsg.current = null;
     if (v === baseline() || v === lastCommitted.current) return;
     lastCommitted.current = v;
     onCommit(v);
@@ -89,6 +102,7 @@ function Field({ label, value, onCommit, type = "text", placeholder, title, min,
       const next = e.target.value;
       if (type === "number" && !allowsNumberFieldInput(next, keywords)) return;
       setV(next);
+      pendingClampMsg.current = null;
       if (error) setError(null);
     },
     onPaste:
@@ -97,6 +111,7 @@ function Field({ label, value, onCommit, type = "text", placeholder, title, min,
             const text = e.clipboardData.getData("text");
             if (!allowsNumberFieldInput(text, keywords)) {
               e.preventDefault();
+              pendingClampMsg.current = null;
               setError(rangeMessage(range));
               setV(baseline());
             }
@@ -110,6 +125,7 @@ function Field({ label, value, onCommit, type = "text", placeholder, title, min,
         (e.target as HTMLElement).blur();
       }
       if (e.key === "Escape") {
+        pendingClampMsg.current = null;
         setV(baseline());
         setError(null);
         (e.target as HTMLElement).blur();
