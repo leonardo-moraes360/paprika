@@ -243,3 +243,19 @@ Tarefa: desenhar um pimentão vermelho plano (três lóbulos, vãos brancos fino
 
 - Um `viewBox` comum em todos os paths deixou a iteração trivial: cada camada usa as mesmas coordenadas 400×400, e redesenhar a silhueta foi um único `update_nodes`.
 - `render_screenshot` com `scale: 2` bastou para avaliar a qualidade das curvas.
+
+## 2026-11-22: folha de componentes shadcn na página Interfaces (PAP-B-030, design first)
+
+Tarefa: desenhar, por MCP, a folha com cada primitivo shadcn e seus estados (hover, foco, desabilitado, aberto), em claro e escuro, na página `Interfaces` do workspace Paprika, antes de instalar qualquer dependência; depois implementar os primitivos em `apps/web`. Cinco frames raiz, ~570 nós, cinco chamadas `create_nodes`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 80 | Screenshot de uma subárvore que mantém o modo de tema | `render_screenshot { rootId: <frame dentro de um frame com mode: "light"> }` pintou a subárvore com os tokens base (escuro): o modo de um ancestral não viaja até a captura de uma subárvore. Dois close-ups que comparei lado a lado não eram comparáveis, e o contorno (capturar o frame raiz inteiro e recortar localmente) custa bytes e tempo | Resolver o modo herdado para a raiz de uma subárvore, ou aceitar `mode` em `render_screenshot` | P2 |
+| 81 | Saber que um frame de layout aninhado pegou a caixa padrão | Um frame sem `width`/`height` vira 100×100, e os filhos posicionados dentro dele somem do render: a primeira folha saiu com um único botão visível, sem erro e sem aviso, e o `lint_design` ficou calado. O guia documenta `hug`/`fill`, mas não esse padrão | Uma regra no `lint_design` para frame de layout travado em 100×100 cujos filhos saem da caixa (o caso "era hug que se queria"), ou um aviso no `create_nodes` | P2 |
+| 82 | Texto pequeno numa folha de componentes | O `lint_design` devolveu 31 avisos `small-text` pelas legendas de 10 e 11px de uma folha que espelha o app, cuja própria escala tipográfica (ADR 0003) é `text-2xs` 10px e `text-xs` 11px — o mesmo terreno dos #69 e #70 | Deixar a regra ler um token do documento (um `$text.min`) ou uma opção por chamada, para que avisos que são a intenção do design não precisem ser relidos a cada rodada | P3 |
+| 83 | Tokens em todos os campos de estilo | `radius: "$radius.md"` foi recusado ("expected number, received string") enquanto `fill` e `color` aceitam `$token`. Todo raio da folha ficou como número literal, então os raios da folha não acompanham uma troca de token como as cores acompanham | Aceitar `$radius.*` em `radius`, e `$space.*`/`$text.*` onde se espera um comprimento ou tamanho | P3 |
+| 84 | O mesmo formato de resultado nas ferramentas de leitura | `get_nodes` responde JSON (`{"nodes": […]}`) e `find_nodes` responde linhas de texto (`frame#id "nome" …`); um script que percorre a árvore por nome precisa tratar dois formatos, e foi exatamente aí que a primeira tentativa falhou | Manter o texto (boa leitura no chat) e aceitar `format: "json"`, ou devolver `structuredContent` em toda ferramenta, como o guia já promete para as de JSON | P3 |
+
+- Os modos de tema fizeram exatamente o que esta folha pedia: `set_tokens {mode: "light"}` mais `mode: "light"` no frame deram um único desenho em dois temas, e os valores claros são agora os valores que `apps/web/src/styles.css` publica em `.ui-light` — board e código decididos uma vez, não duas.
+- Depois da correção, o `lint_design` fica com 0 erros nos cinco frames; o único erro de `contrast` que ele pegou (um link em 4,24:1 sobre superfície clara) era um erro real na paleta, e hoje é outro token no código.
+- Redesenhar saiu mais barato que remendar: `delete_nodes` nas cinco raízes e um `create_nodes` novo, tudo num `batch`, desfeito por um único `undo`.
