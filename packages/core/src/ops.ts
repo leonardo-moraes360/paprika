@@ -16,7 +16,7 @@ import {
   knownKeys,
 } from "./schema.js";
 import { newId } from "./id.js";
-import { parsePath, pathBounds } from "./path.js";
+import { normalizePath as shiftPathToOrigin, parsePath, pathBounds, serializePath } from "./path.js";
 import { addPageOps, groupOps, ungroupOps } from "./structure.js";
 import { combinePathsOps } from "./boolean.js";
 import { round4 } from "./num.js";
@@ -297,7 +297,19 @@ function createNode(
   i: number,
   created: string[],
 ): string {
-  const { children, ...rest } = input;
+  const { children, ...restIn } = input;
+  const rest: Record<string, unknown> = { ...restIn };
+  let doNormalize = false;
+  if ("normalize" in rest) {
+    if (input.type !== "path") {
+      /* leave it: knownKeys rejects unknown fields */
+    } else if (rest.normalize !== true && rest.normalize !== false) {
+      throw new OpError(`normalize must be true or false`, i);
+    } else {
+      doNormalize = rest.normalize === true;
+      delete rest.normalize;
+    }
+  }
   const id = input.id ?? newId();
   if (doc.nodes[id]) throw new OpError(`id "${id}" already exists`, i);
   if (children && !CONTAINER_TYPES.has(input.type))
@@ -316,6 +328,19 @@ function createNode(
   const list = container(doc, parentId, i);
   checkPlacement(input.type, parentId, i);
   const props: Record<string, unknown> = { ...rest };
+  // normalize: true move o desenho para (0,0) e soma o deslocamento a x/y (fb#15).
+  if (input.type === "path" && doNormalize && typeof props.d === "string") {
+    try {
+      const n = shiftPathToOrigin(parsePath(props.d));
+      props.d = serializePath(n.segs);
+      if (n.origin.x || n.origin.y) {
+        props.x = (typeof props.x === "number" ? props.x : 0) + n.origin.x;
+        props.y = (typeof props.y === "number" ? props.y : 0) + n.origin.y;
+      }
+    } catch {
+      /* o erro de `d` sai da validação abaixo */
+    }
+  }
   // Sem width/height, um path ganha a caixa do próprio desenho (ou do viewBox): o agente só escreve `d`.
   if (input.type === "path" && typeof props.d === "string" && (props.width === undefined || props.height === undefined)) {
     const vb = Array.isArray(props.viewBox) ? (props.viewBox as number[]) : null;

@@ -34,7 +34,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `get_design_guide` | Modelo de nós, campos e fluxo recomendado; em inglês, ou em português com `language: "pt-BR"` |
 | `get_document_outline` | Árvore compacta + tokens + versão |
 | `get_nodes` / `find_nodes` | JSON completo de nós / busca por tipo, nome, texto |
-| `create_nodes` | Cria árvores aninhadas numa chamada; num conector `x`/`y`/`width`/`height`/`d` seguem `from`/`to`, então um nó copiado que os traz recebe um aviso, não uma recusa |
+| `create_nodes` | Cria árvores aninhadas numa chamada; num conector `x`/`y`/`width`/`height`/`d` seguem `from`/`to`, então um nó copiado que os traz recebe um aviso, não uma recusa; num path, `normalize: true` leva o desenho para (0,0) e desloca `x`/`y` |
 | `draw_diagram` | Desenha um diagrama (fluxograma, arquitetura, mapa mental) a partir de formas e ligações: distribui as formas em camadas (`direction`: para baixo ou para a direita, à direita do conteúdo existente) e liga com setas que seguem as formas; uma ligação pode ter `label` |
 | `update_nodes` / `move_nodes` / `delete_nodes` | Edição em lote, atômica. `index` nos props do `update` ou no `move` define a ordem Z no pai do nó: número a partir de 0 (o fundo) ou `front` / `back` / `forward` / `backward`, no mesmo passo de desfazer dos outros campos |
 | `group_nodes` / `ungroup_nodes` | Põe nós irmãos num `group` (o desenho não se move) / devolve ao pai |
@@ -50,7 +50,8 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `set_workspace_cover` | Põe uma imagem no card do workspace na página inicial: o screenshot de um frame dele (`rootId`), uma imagem (`image`, base64 ou data URL) ou nenhuma (`clear`, volta a primeira letra) |
 | `undo` / `redo` / `get_history` | Histórico compartilhado com o humano; toda ferramenta de escrita aceita `batch`, e várias chamadas com o mesmo batch viram um passo só de undo |
 | `lint_design` | Contraste WCAG AA, overflow, tokens inexistentes, texto pequeno, alt |
-| `path_info` | Valida dados de caminho SVG e devolve a caixa exata (com extremos de bezier e arcos) e o `d` normalizado |
+| `path_info` | Valida dados de caminho SVG e devolve a caixa exata (com extremos de bezier e arcos), a `origin` do desenho (deslocamento desde a origem do nó) e o `d` normalizado; com `id` também devolve a caixa no canvas, a origem da transformação e os cantos rotacionados |
+| `get_bounds` | Caixas absolutas depois do auto layout (row/column, hug/fill): `x`/`y`/`width`/`height`, `origin` da transformação (centro da caixa) e os quatro cantos após a rotação; `ids` / `rootId` opcionais |
 | `render_screenshot` | PNG de um nó, de uma página ou do canvas |
 | `import_svg` / `import_html` | Transforma SVG colado (paths, formas, grupos, transforms) ou HTML com estilos inline em nós editáveis; o que não dá para importar volta em `warnings` |
 | `import_image` | Coloca uma imagem raster (PNG, JPEG, WebP, AVIF ou GIF) como nó `image` no tamanho natural do arquivo. `src` é data URL ou caminho local sob `PAPRIKA_IMPORT_DIRS` (padrão: o diretório de trabalho do servidor). Arquivos acima de 3500000 bytes são recusados. Os bytes originais ficam embutidos, então GIF/WebP/AVIF animados continuam animados no canvas e no HTML (`render_screenshot` captura um frame) |
