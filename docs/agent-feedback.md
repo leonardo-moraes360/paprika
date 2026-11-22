@@ -434,3 +434,13 @@ before replacing the native `input type=color` with a popover. Six fixed-height 
 | 110 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | `get_document_outline` (or `create_nodes`) returning the page content bbox / `place: "free"` — same as #103 | P3 || 111 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/assets/boards/PAP-B-023/` | Optional `path` on `render_screenshot` (same as #100 / #101) | P2 || 112 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
 - Active workspace was already `Paprika - UI`; no `open_workspace`.
 - `lint_design` on the page still reports one unrelated contrast error from an older sheet; the new frames added no errors.
+
+## 2026-11-22: layer order shortcuts and Ordem section (PAP-B-021, design first)
+
+Task: draw the inspector **Ordem** section and the Z-order shortcut map (light and dark, fixed height) on the `Interfaces` page of `Paprika - UI` before wiring `Page Up`/`Page Down` (+ Ctrl/Cmd for front/back) in `Canvas.tsx` and the four arrange actions in `Inspector.tsx`. Four root frames, one `create_nodes` call; PNGs under `docs/assets/boards/PAP-B-021/`; boards export refreshed in `docs/design/boards.paprika.json`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | Draw on `Paprika - UI` without `open_workspace` | The workspace was already active (`list_workspaces`), so the sheet landed without switching; if another ticket had left a different active doc, the only options would still be asking the human or a second server (same as #92) | Optional `workspaceId` on document tools | P2 |
+- `lint_design` on the four frames: 0 errors; `small-text` warnings are the 11 px section/chip labels matching the app.
+- Shortcut map chosen and documented in `docs/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.

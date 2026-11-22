@@ -436,3 +436,13 @@ PNGs em `docs/assets/boards/PAP-B-023/`; export dos boards via `GET /api/export`
 | 110 | Y livre para frames de boards em paralelo | Vários tickets compartilham `Interfaces`; o outline é prosa, então colocar o PAP-B-023 exigiu exportar o documento e varrer os `y` de topo à mão (pousou em `y=11000`) | `get_document_outline` (ou `create_nodes`) devolvendo a bbox do conteúdo da página / `place: "free"` — igual ao #103 | P3 || 111 | Capturas como arquivo | O `render_screenshot` ainda devolve base64 no JSON; um script Node teve que decodificar cada PNG em `docs/assets/boards/PAP-B-023/` | `path` opcional no `render_screenshot` (igual ao #100 / #101) | P2 || 112 | Escape que fecha um popover sem limpar a seleção | O `App.tsx` escuta Escape no `window` e troca a seleção; o primeiro Esc do color picker também desmontava o campo do inspector antes do foco voltar ao swatch | Ignorar Escape quando o alvo está dentro de `[data-slot="popover-content"]` / diálogo (feito neste ticket); popovers também devem dar `stopPropagation` | P2 |
 - O workspace ativo já era `Paprika - UI`; sem `open_workspace`.
 - O `lint_design` da página ainda aponta um erro de contraste antigo sem relação; os frames novos não acrescentaram erros.
+
+## 2026-11-22: atalhos de ordem Z e seção Ordem (PAP-B-021, design first)
+
+Tarefa: desenhar a seção **Ordem** do inspector e o mapa de atalhos de ordem Z (claro e escuro, altura fixa) na página `Interfaces` de `Paprika - UI` antes de ligar `Page Up`/`Page Down` (+ Ctrl/Cmd para frente/fundo) em `Canvas.tsx` e as quatro ações de ordem em `Inspector.tsx`. Quatro frames raiz, uma chamada `create_nodes`; PNGs em `docs/assets/boards/PAP-B-021/`; export dos boards atualizado em `docs/design/boards.paprika.json`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 110 | Desenhar em `Paprika - UI` sem `open_workspace` | O workspace já estava ativo (`list_workspaces`), então a prancha entrou sem trocar; se outro ticket tivesse deixado outro doc ativo, as opções ainda seriam pedir ao humano ou um segundo servidor (igual ao #92) | `workspaceId` opcional nas ferramentas de documento | P2 |
+- `lint_design` nos quatro frames: 0 erros; avisos `small-text` são os rótulos de 11 px da seção/chip, iguais ao app.
+- Mapa de atalhos escolhido e documentado em `docs/pt-BR/canvas.md`: `Page Up`/`Page Down` = avançar/recuar, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd no macOS) = frente/fundo.

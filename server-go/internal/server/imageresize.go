@@ -101,50 +101,50 @@ func applyOrientation(img image.Image, orient int) image.Image {
 	switch orient {
 	case 2:
 		dst = image.NewNRGBA(image.Rect(0, 0, w, h))
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
+		for y := range h {
+			for x := range w {
 				dst.Set(w-1-x, y, img.At(b.Min.X+x, b.Min.Y+y))
 			}
 		}
 	case 3:
 		dst = image.NewNRGBA(image.Rect(0, 0, w, h))
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
+		for y := range h {
+			for x := range w {
 				dst.Set(w-1-x, h-1-y, img.At(b.Min.X+x, b.Min.Y+y))
 			}
 		}
 	case 4:
 		dst = image.NewNRGBA(image.Rect(0, 0, w, h))
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
+		for y := range h {
+			for x := range w {
 				dst.Set(x, h-1-y, img.At(b.Min.X+x, b.Min.Y+y))
 			}
 		}
 	case 5:
 		dst = image.NewNRGBA(image.Rect(0, 0, h, w))
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
+		for y := range h {
+			for x := range w {
 				dst.Set(y, x, img.At(b.Min.X+x, b.Min.Y+y))
 			}
 		}
 	case 6:
 		dst = image.NewNRGBA(image.Rect(0, 0, h, w))
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
+		for y := range h {
+			for x := range w {
 				dst.Set(h-1-y, x, img.At(b.Min.X+x, b.Min.Y+y))
 			}
 		}
 	case 7:
 		dst = image.NewNRGBA(image.Rect(0, 0, h, w))
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
+		for y := range h {
+			for x := range w {
 				dst.Set(h-1-y, w-1-x, img.At(b.Min.X+x, b.Min.Y+y))
 			}
 		}
 	case 8:
 		dst = image.NewNRGBA(image.Rect(0, 0, h, w))
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
+		for y := range h {
+			for x := range w {
 				dst.Set(y, w-1-x, img.At(b.Min.X+x, b.Min.Y+y))
 			}
 		}
