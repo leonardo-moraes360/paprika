@@ -55,7 +55,8 @@ func samePt(a, b Point) bool                 { return nearly(a.X, b.X) && nearly
 func crossXY(ax, ay, bx, by float64) float64 { return ax*by - ay*bx }
 func dotXY(ax, ay, bx, by float64) float64   { return ax*bx + ay*by }
 func dist2(a, b Point) float64 {
-	dx, dy := a.X-b.X, a.Y-b.Y
+	dx := a.X - b.X
+	dy := a.Y - b.Y
 	return dx*dx + dy*dy
 }
 
