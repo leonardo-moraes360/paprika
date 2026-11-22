@@ -27,7 +27,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Agrupar / envolver a seleção num frame, desagrupar | Nó `group`, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21); ainda sem "envolver num frame" | 🟡 | P2 |
 | Filho absoluto dentro de frame com layout ("ignorar layout") | Filhos de linha/coluna sempre seguem o fluxo | ⬜ | P1 |
 | Raio por canto | `radius` único | 🟡 | P1 |
-| Ordem Z (avançar, recuar, frente, fundo) | `move_nodes` com `index`; sem atalhos no canvas | 🟡 | P1 |
+| Ordem Z (avançar, recuar, frente, fundo) | `update_nodes`/`move_nodes` aceitam `index`: número a partir de 0, ou `front`/`back`/`forward`/`backward`, num único passo de desfazer (2026-11-22); sem atalhos no canvas (PAP-B-021) | 🟡 | P1 |
 | Ocultar, travar, destravar tudo | `visible`, `locked`; sem "destravar tudo" | 🟡 | P2 |
 | Alinhar e distribuir a seleção | — | ⬜ | P2 |
 | Constraints (comportamento quando o pai redimensiona) | — | ⬜ | P2 |

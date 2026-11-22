@@ -361,6 +361,27 @@ const opCases = [
   ["diagram", [{ op: "ungroup", ids: ["gq"] }]],
   ["diagram", [{ op: "detach", ids: ["flowi"] }, { op: "update", id: "flow", props: { x: -100 } }]],
   ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { visible: false } }]],
+  // ---- z-order in one call: `index` in move and in update props (PAP-B-014) ----
+  ["free", [{ op: "update", id: "r1", props: { index: "front" } }]],
+  ["free", [{ op: "update", id: "p1", props: { index: "back", opacity: 0.5 } }]],
+  ["free", [{ op: "update", id: "e1", props: { index: "forward" } }]],
+  ["free", [{ op: "update", id: "e1", props: { index: "backward" } }]],
+  ["free", [{ op: "update", id: "t1", props: { index: 2 } }]],
+  ["free", [{ op: "update", id: "board", props: { index: "front" } }]], // único nó do topo: no-op
+  ["free", [{ op: "update", id: "r1", props: { index: "sideways" } }]],
+  ["free", [{ op: "update", id: "r1", props: { index: -1 } }]],
+  ["free", [{ op: "update", id: "r1", props: { index: 1.5 } }]],
+  ["free", [{ op: "update", id: "r1", props: { index: null } }]],
+  ["free", [{ op: "move", id: "p1", parentId: "board", index: "forward" }]],
+  ["free", [{ op: "move", id: "r1", parentId: "board", index: "backward" }]],
+  ["grouped", [{ op: "update", id: "e1", props: { index: "front" } }]], // reordena dentro do group (fitGroups)
+  ["grouped", [{ op: "move", id: "r1", parentId: "g1", index: "front" }]],
+  ["paged", [{ op: "update", id: "pg1", props: { index: "front" } }]], // páginas reordenam no topo
+  ["paged", [{ op: "update", id: "r2", props: { index: "forward" } }]], // dentro do group da página 2
+  ["diagram", [{ op: "update", id: "k1", props: { index: "front" } }]], // conector reordenado, pontas seguem
+  ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { index: "front" } }]], // cópia: recusa com copyRule
+  ["comp", [{ op: "move", id: copyId("i1", "lbl"), parentId: "i1", index: "front" }]],
+  ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { index: "sideways" } }]], // inválido: direto, não copyRule
 ];
 
 // ---- composite operations (groups, pages): the generated primitive ops ----
@@ -411,7 +432,8 @@ const opResults = opCases.map(([docName, ops]) => {
 const zodCases = [{ op: "x" }, { op: "update", id: 1, props: {} }, 5, { op: "create", node: { type: "rect" }, index: -1 },
   { op: "set_tokens", tokens: { "a b": 1, ok: true } }, { op: "restore", nodes: [{ type: "zz" }], rootId: "a", parentId: null, index: 0 },
   { op: "rename_document", name: "x".repeat(201) }, { op: "move", id: "a", parentId: 3 }, { op: "group", ids: [] }, { op: "ungroup" },
-  { op: "add_page", name: 3 }];
+  { op: "add_page", name: 3 }, { op: "move", id: "a", parentId: null, index: "sideways" }, { op: "move", id: "a", parentId: null, index: 1.5 },
+  { op: "move", id: "a", parentId: null, index: 0 }, { op: "move", id: "a", parentId: null, index: "front" }];
 // ---- draw_diagram plans ----
 const diagramCases = [
   ["empty", { nodes: [{ id: "a", text: "A" }, { id: "b", shape: "note" }, { id: "c", shape: "diamond", width: 100, height: 100 }], edges: [{ from: "a", to: "b" }, { from: "a", to: "c" }, { from: "a", to: "c" }, { from: "c", to: "a", id: "back" }] }],
@@ -577,12 +599,13 @@ for (let run = 0; run < 52; run++) {
             ...(run >= 45 ? [{ type: "shape", id: `n${run}_${n++}`, shape: pick(["rect", "ellipse", "diamond", "note"]), text: pick(["", "Oi", "Dois\nlinhas"]), x: Math.round(rand() * 400), y: Math.round(rand() * 300) },
               { type: "connector", id: `n${run}_${n++}`, from: { nodeId: pick(ids) }, to: pick([{ nodeId: pick(ids), side: pick(["auto", "top", "left"]) }, { x: 10, y: -20 }]), route: pick(["straight", "elbow"]) }] : [])]) });
         else if (t < 0.5) ops.push({ op: "update", id, props: pick([{ x: Math.round(rand() * 500) - 50 }, { name: "Renomeado" }, { fill: null }, { opacity: rand() }, { width: "fill" }, { visible: false }, { bogus: 1 },
+          { index: pick(["front", "back", "forward", "backward"]) }, { index: Math.floor(rand() * 3) },
           ...(extra ? [{ y: -Math.round(rand() * 80) }, { rotation: Math.round(rand() * 90) }] : []),
           ...(run >= 35 ? [{ scale: pick([0.5, 2, 1.25]) }, { text: "Trocado" }, { color: "#00ff00" }, { component: true }, { instanceOf: pick(["btn", "badge"]) }] : [])]) });
         else if (run >= 35 && t < 0.55) ops.push(pick([{ op: "detach", ids: [pick(["i1", "i2", "i3", id])] },
           { op: "create", parentId: pick(frames) ?? null, node: { type: "frame", id: `n${run}_${n++}`, instanceOf: pick(["btn", "badge"]), scale: pick([1, 2]) } }]));
         else if (t < 0.65) ops.push({ op: "delete", id: pick(ids) });
-        else if (t < 0.85) ops.push({ op: "move", id, parentId: rand() < 0.3 ? null : pick(frames) ?? null, ...(rand() < 0.5 ? { index: Math.floor(rand() * 3) } : {}) });
+        else if (t < 0.85) ops.push({ op: "move", id, parentId: rand() < 0.3 ? null : pick(frames) ?? null, ...(rand() < 0.5 ? { index: pick([0, 1, 2, "front", "back", "forward", "backward"]) } : {}) });
         else ops.push({ op: "set_tokens", tokens: { [pick(["brand", "ink", "novo", "10"])]: pick(["#123456", 12, null]) } });
       }
       step = { kind: "apply", ops };

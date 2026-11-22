@@ -211,3 +211,73 @@ describe("composite ops inside applyOps", () => {
     expect(() => applyOps(scene(), [{ op: "ungroup", ids: [] }])).toThrow(/ids: Too small/);
   });
 });
+
+describe("z-order in one call (update/move with index)", () => {
+  const kids = (doc: Document, id = "f") => (doc.nodes[id] as { children: string[] }).children;
+
+  it("update with index reorders inside the current parent (front = top of the stack)", () => {
+    expect(kids(applyOps(scene(), [{ op: "update", id: "a", props: { index: "front" } }]).doc)).toEqual(["b", "c", "a"]);
+    expect(kids(applyOps(scene(), [{ op: "update", id: "c", props: { index: "back" } }]).doc)).toEqual(["c", "a", "b"]);
+    expect(kids(applyOps(scene(), [{ op: "update", id: "c", props: { index: 0 } }]).doc)).toEqual(["c", "a", "b"]);
+    expect(kids(applyOps(scene(), [{ op: "update", id: "a", props: { index: 1 } }]).doc)).toEqual(["b", "a", "c"]);
+    expect(kids(applyOps(scene(), [{ op: "update", id: "a", props: { index: 9 } }]).doc)).toEqual(["b", "c", "a"]); // clampa no fim
+  });
+
+  it("forward/backward take one step and stop at the ends", () => {
+    expect(kids(applyOps(scene(), [{ op: "update", id: "a", props: { index: "forward" } }]).doc)).toEqual(["b", "a", "c"]);
+    expect(kids(applyOps(scene(), [{ op: "update", id: "c", props: { index: "forward" } }]).doc)).toEqual(["a", "b", "c"]); // já no topo
+    expect(kids(applyOps(scene(), [{ op: "update", id: "a", props: { index: "backward" } }]).doc)).toEqual(["a", "b", "c"]); // já no fundo
+    expect(kids(applyOps(scene(), [{ op: "update", id: "c", props: { index: "backward" } }]).doc)).toEqual(["a", "c", "b"]);
+  });
+
+  it("index + fields in one update is one undo step that restores both", () => {
+    const h = new History(scene());
+    h.apply([{ op: "update", id: "a", props: { index: "front", fill: "#000000" } }]);
+    expect(kids(h.doc)).toEqual(["b", "c", "a"]);
+    expect(h.doc.nodes.a).toMatchObject({ fill: "#000000" });
+    expect(h.entries().length).toBe(1);
+    h.undo();
+    expect(h.doc).toEqual(scene());
+  });
+
+  it("move accepts the same names, and undo restores the numeric position", () => {
+    expect(kids(applyOps(scene(), [{ op: "move", id: "a", parentId: "f", index: "front" }]).doc)).toEqual(["b", "c", "a"]);
+    expect(kids(applyOps(scene(), [{ op: "move", id: "c", parentId: "f", index: "backward" }]).doc)).toEqual(["a", "c", "b"]);
+    const h = new History(scene());
+    h.apply([{ op: "move", id: "a", parentId: "f", index: "back" }]); // já estava no fundo: no-op
+    expect(kids(h.doc)).toEqual(["a", "b", "c"]);
+    h.apply([{ op: "move", id: "c", parentId: "f", index: "front" }]);
+    h.undo();
+    expect(h.doc).toEqual(scene());
+  });
+
+  it("front/back respect the parent: only that parent's children change", () => {
+    const doc0 = applyOps(scene(), [{ op: "group", ids: ["a", "b"], id: "g" }]).doc;
+    expect(kids(doc0)).toEqual(["g", "c"]);
+    const doc = applyOps(doc0, [{ op: "update", id: "a", props: { index: "front" } }]).doc;
+    expect((doc.nodes.g as GroupNode).children).toEqual(["b", "a"]);
+    expect(kids(doc)).toEqual(["g", "c"]);
+    const doc2 = applyOps(doc0, [{ op: "update", id: "c", props: { index: "back" } }]).doc;
+    expect(kids(doc2)).toEqual(["c", "g"]);
+    expect((doc2.nodes.g as GroupNode).children).toEqual(["a", "b"]);
+  });
+
+  it("pages and root nodes reorder at the canvas level", () => {
+    const doc0 = applyOps(scene(), [{ op: "add_page", id: "p2", firstId: "p1", name: "Duas" }]).doc;
+    expect(doc0.rootIds).toEqual(["p1", "p2"]);
+    const h = new History(doc0);
+    h.apply([{ op: "update", id: "p1", props: { index: "front" } }]);
+    expect(h.doc.rootIds).toEqual(["p2", "p1"]);
+    h.undo();
+    expect(h.doc.rootIds).toEqual(["p1", "p2"]);
+  });
+
+  it("rejects an index that is not a position with an actionable error", () => {
+    expect(() => applyOps(scene(), [{ op: "update", id: "a", props: { index: "up" } }])).toThrow(
+      /^op\[0\]: props\.index must be a number \(0 is the back\) or "front", "back", "forward" or "backward" \(got "up"\)/,
+    );
+    expect(() => applyOps(scene(), [{ op: "update", id: "a", props: { index: -1 } }])).toThrow(/\(got -1\)/);
+    expect(() => applyOps(scene(), [{ op: "update", id: "a", props: { index: 1.5 } }])).toThrow(/^op\[0\]: props\.index/);
+    expect(() => applyOps(scene(), [{ op: "move", id: "a", parentId: "f", index: "up" }])).toThrow(/invalid operation/);
+  });
+});

@@ -37,7 +37,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `path_info` | Validates SVG path data and returns the exact bounds (bezier and arc extremes included) and the normalized `d` |
 | `create_nodes` | Creates nested trees in one call |
 | `draw_diagram` | Draws a diagram (flowchart, architecture, mind map) from a list of shapes and edges: lays the shapes out in layers (`direction`: down or right, to the right of existing content) and connects them with arrows that follow the shapes; an edge can carry a `label` |
-| `update_nodes` / `move_nodes` / `delete_nodes` | Atomic batch edits |
+| `update_nodes` / `move_nodes` / `delete_nodes` | Atomic batch edits. `index` in `update` props or in `move` sets Z-order in the node's parent: a number from 0 (the back) or `front` / `back` / `forward` / `backward`, in the same undo step as the other fields |
 | `group_nodes` / `ungroup_nodes` | Wraps sibling nodes in a `group` (the drawing stays put) / puts them back |
 | `create_page` | Adds a page; the first one moves the current canvas into "Página 1" |
 | `create_component` / `create_instance` / `detach_instance` | Marks a frame as a component / places a copy of it (with `scale` and `overrides`; returns the id of every copy) / turns an instance into plain nodes |

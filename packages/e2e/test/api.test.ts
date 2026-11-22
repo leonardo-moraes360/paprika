@@ -378,6 +378,45 @@ describe("API: MCP", () => {
     expect(Object.keys((await srv.doc()).nodes)).toEqual([]);
   });
 
+  it("Z-order numa chamada: update/move com index, um passo de desfazer, frente/fundo no pai (PAP-B-014)", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      nodes: [{ type: "frame", id: "box", name: "Box", width: 300, height: 200, fill: "#ffffff", children: [
+        { type: "rect", id: "z1", x: 10, y: 10, width: 50, height: 50 },
+        { type: "rect", id: "z2", x: 70, y: 10, width: 50, height: 50 },
+        { type: "rect", id: "z3", x: 130, y: 10, width: 50, height: 50 },
+      ] }],
+    });
+    const box = async () => (await srv.doc()).nodes.box;
+    expect(await box()).toMatchObject({ children: ["z1", "z2", "z3"] });
+    // index junto de campos: mesma chamada, um único passo de desfazer que restaura os dois.
+    await call(c, "update_nodes", { updates: [{ id: "z1", props: { index: "front", name: "top" } }] });
+    expect(await box()).toMatchObject({ children: ["z2", "z3", "z1"] });
+    expect((await srv.doc()).nodes.z1).toMatchObject({ name: "top" });
+    const nEntries = async () => (JSON.parse(textOf(await call(c, "get_history", { limit: 10 }))) as unknown[]).length;
+    const before = await nEntries();
+    await call(c, "undo");
+    expect(await nEntries()).toBe(before - 1);
+    expect(await box()).toMatchObject({ children: ["z1", "z2", "z3"] });
+    expect((await srv.doc()).nodes.z1).not.toMatchObject({ name: "top" });
+    // move aceita os mesmos nomes; back/forward/backward no pai.
+    await call(c, "move_nodes", { moves: [{ id: "z3", parentId: "box", index: "back" }] });
+    expect(await box()).toMatchObject({ children: ["z3", "z1", "z2"] });
+    await call(c, "move_nodes", { moves: [{ id: "z3", parentId: "box", index: "forward" }] });
+    expect(await box()).toMatchObject({ children: ["z1", "z3", "z2"] });
+    await call(c, "update_nodes", { updates: [{ id: "z2", props: { index: 0 } }] });
+    expect(await box()).toMatchObject({ children: ["z2", "z1", "z3"] });
+    // frente/fundo respeitam o pai: o nível do canvas não muda.
+    expect((await srv.doc()).rootIds).toEqual(["box"]);
+    // índice que não é posição: erro acionável, nada é aplicado.
+    const bad = await call(c, "update_nodes", { updates: [{ id: "z1", props: { index: "up" } }] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toContain('props.index must be a number (0 is the back) or "front", "back", "forward" or "backward" (got "up")');
+    const badMove = await call(c, "move_nodes", { moves: [{ id: "z1", parentId: "box", index: "up" }] });
+    expect(badMove.isError).toBe(true);
+    expect(await box()).toMatchObject({ children: ["z2", "z1", "z3"] });
+  });
+
   it("render_screenshot devolve PNG no tamanho pedido", async () => {
     await call(client, "create_nodes", { nodes: [{ type: "rect", id: "r", width: 50, height: 40, fill: "#ff278c" }] });
     const r = await call(client, "render_screenshot", { rootId: "r", scale: 2 });
