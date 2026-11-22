@@ -2,8 +2,9 @@
 
 # ADR 0003: Tailwind CSS na interface do app do canvas
 
-- **Status:** Aceito
-- **Data:** 2026-11-21
+- **Status:** Aceito, emendado pelo ADR 0005
+- **Data:** 2026-11-21 (emendado 2026-11-22)
+- **Emendado por:** [ADR 0005: componentes shadcn sobre o tema fechado do Paprika](0005-shadcn-ui.md) — as restrições abaixo continuam valendo; aquele ADR acrescenta como uma biblioteca de componentes vive dentro delas.
 - **Código:** [`apps/web/src/styles.css`](../../../apps/web/src/styles.css) (tema), [`apps/web/src/ui.ts`](../../../apps/web/src/ui.ts) (listas de classes compartilhadas), [`apps/web/vite.config.ts`](../../../apps/web/vite.config.ts)
 
 ## Contexto

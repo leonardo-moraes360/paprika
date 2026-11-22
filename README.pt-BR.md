@@ -96,6 +96,7 @@ A lista completa de ferramentas e atalhos está em [Usando o canvas](docs/pt-BR/
 | Rodar com Docker: importar, exportar, backup, portas | [Docker](docs/pt-BR/docker.md) |
 | Compilar a partir do código, rodar os testes, contribuir com código | [Desenvolvimento](docs/pt-BR/desenvolvimento.md) · [CI](docs/pt-BR/ci.md) |
 | Entender como ele é construído | [Arquitetura](docs/pt-BR/arquitetura.md) · [Servidor Go](server-go/README.pt-BR.md) · [Decisões (ADRs)](docs/pt-BR/adr/) |
+| Conferir uma tela contra o board aprovado | [Verificação visual](docs/pt-BR/verificacao-visual.md) |
 | Ver o que está planejado | [Backlog](docs/pt-BR/backlog.md) |
 
 ## Bom saber
