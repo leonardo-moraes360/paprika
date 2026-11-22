@@ -205,3 +205,14 @@ Simpler for the next agent:
 - `get_document_outline` with `depth: 0` was enough to confirm the result cheaply.
 - `lint_design` caught every literal color in the landing page (`raw-color`), which led to an `on.brand` token.
 - One style engine: the screenshots the agent checked come from the same `nodeStyle` the canvas uses.
+
+## 2026-11-22: accessibility round (contrast proposal)
+
+Task: draw a before/after board of the contrast fixes (white text on the accent, agent tag colors) over MCP HTTP, from a cloud session, and screenshot it for the user's decision.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 71 | A screenshot of a board that hugs its content | `render_screenshot` of a root `frame` with `width`/`height: "hug"` returned a 2×2 PNG, with no error or warning; the canvas showed the board at full size (it measures in the browser), the screenshot uses the stored size. The workaround was to measure the board in the canvas and set a fixed width and height | Measure `hug` roots in headless Chromium before the screenshot (the SVG export already measures), or answer with an error that says the root has no size | P1 |
+| 72 | Draw in the user's own Paprika from a cloud session | The design-first rule points at `127.0.0.1:4777` on the user's machine; a cloud session cannot reach it, so the board lives in a throwaway server in the container and only its PNG reaches the user | `paprika export --root <id>` of a single frame plus an `import_nodes` tool, or let the team sync carry a shared "proposals" workspace | P2 |
+
+- Nested `create_nodes` built the whole board (≈100 nodes) in one call; with `width`/`height: "hug"` on every text there was no 100×100 text problem this time (#65 still holds for the default).

@@ -1,6 +1,7 @@
 import { useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 import { ImageOff, ImagePlus, Pencil, Plus, Trash2 } from "lucide-react";
 import { errorText } from "./api";
+import { ConnectionStatus } from "./ConnectionStatus";
 import { InlineName } from "./InlineName";
 import { bar, cx, ui } from "./ui";
 import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type Workspace } from "./workspaces";
@@ -53,7 +54,7 @@ const tile = (h: number): CSSProperties => ({
 const button = (primary: boolean) =>
   cx(
     "cursor-pointer rounded-lg border px-3.5 py-1.75 disabled:cursor-default disabled:opacity-60",
-    primary ? "border-accent bg-accent font-semibold text-white" : "border-line bg-panel",
+    primary ? "border-accent-strong bg-accent-strong font-semibold text-white" : "border-line bg-panel",
   );
 
 interface Props {
@@ -146,8 +147,9 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
           <strong>Paprika</strong>
         </div>
         <div className={bar.status}>
-          <span className={bar.dot(connected)} />
+          <span className={bar.dot(connected)} aria-hidden />
           <span className={bar.statusText}>{connected ? "MCP em /mcp" : "desconectado"}</span>
+          <ConnectionStatus connected={connected} />
         </div>
       </header>
       <main className="min-h-0 overflow-auto px-6 pt-8 pb-12 *:mx-auto *:max-w-[1080px]">
@@ -244,7 +246,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                   </span>
                 </span>
                 {w.active && (
-                  <span className="absolute top-2.5 right-2.5 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-white" title="Aberto no servidor: os agentes MCP leem e escrevem neste">
+                  <span className="absolute top-2.5 right-2.5 rounded-full bg-accent-strong px-2 py-0.5 text-xs font-semibold text-white" title="Aberto no servidor: os agentes MCP leem e escrevem neste">
                     ativo
                   </span>
                 )}

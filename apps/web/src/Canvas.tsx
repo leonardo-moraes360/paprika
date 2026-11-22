@@ -652,8 +652,11 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const isPanKey = (e: KeyboardEvent) => e.code === "Space" || e.key === "Enter";
     const typing = (t: EventTarget | null) =>
       t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || (t instanceof HTMLElement && t.isContentEditable);
+    // A control reached by keyboard (Tab shows its focus ring) keeps Enter/Space to activate it (WCAG 2.1.1).
+    // After a mouse click the control has focus without :focus-visible, so the keys still pan.
+    const keyboardFocus = (t: EventTarget | null) => t instanceof HTMLElement && t !== document.body && t.matches(":focus-visible");
     const down = (e: KeyboardEvent) => {
-      if (!isPanKey(e) || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!isPanKey(e) || typing(e.target) || keyboardFocus(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       e.preventDefault(); // evita rolar a página ou "clicar" o botão focado
       spaceDown.current = true;
       if (panRef.current === "off") setPan("ready");
