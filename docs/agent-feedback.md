@@ -409,14 +409,28 @@ Task: redesign the scene inspector into collapsible sections before implementing
 | 106 | Inspector height that proves the compact layout | `aside.right.scrollHeight` stayed 856 px before and after because the grid area forces a tall scroll container; `#right-tabpanel` height dropped 759 → 303 px (~60%) for the demo text node at 1440×900 (`packages/e2e/b022-measure.mjs`) | Use `panel` / `panelScroll` in the measure script (and in acceptance notes), not only `aside.scrollHeight` | P3 |
 | 107 | Boards on the shared MCP server | `:4777` answered slowly during the ticket, so only the existing design frames plus runtime screenshots were committed; no new fixed-height frames were drawn over MCP in this pass | Same as #97: a boards document in git that agents can `load` without depending on whichever volume is mounted on the maintainer's port | P2 |
 
+## 2026-11-22: ghost preview while drawing (PAP-B-043, design first)
+
+Task: draw the ghost of the real node (fill/outline/defaults) inside the draft area while dragging a
+creation tool, light and dark, then paint it from `nodeStyle` in `Canvas.tsx` with no document write
+until release. Eight fixed-height frames on `Interfaces` (`docs/assets/boards/PAP-B-043/`).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 108 | Screenshots as files | Same as #100/#101: `render_screenshot` returns PNG only as base64 in the JSON-RPC content, so a small client script had to decode each shot into `docs/assets/boards/PAP-B-043/` | Optional `path` on `render_screenshot` that writes the file | P2 |
+| 109 | Free space for new boards | Top-level frames already fill y≈0…8320 and x≈0…3000; the outline depth-1 listing was enough to pick `y=9000`, but parallel tickets still race for the same band | `get_document_outline` returning the page content box, or `place: "free"` on `create_nodes` (same as #103) | P3 |
+
+- Active workspace was already `Paprika - UI` / page `Interfaces`; no `open_workspace`.
+- Ghost is `aria-hidden` and `pointer-events: none` (`data-testid="draft-ghost"`); connector arrow ghost left out of this ticket's draft-only scope.
+
 ## 2026-11-22: triangle shape (PAP-A-004, design first)
 
 Task: draw toolbar / inspector / canvas states for `ShapeKind` `triangle` on `Interfaces` (light+dark, fixed height), then ship schema, outline, connectors, toolbar `G`, inspector picker and `draw_diagram`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 108 | Toolbar tool lives in `App.tsx` | Ticket paths listed only `Canvas.tsx` for the toolbar+shortcut, but `TOOLS[]` and the keydown handler are in `App.tsx`; edited that file for the `G` / Triangle entry and queried `agent:leonardo` | Keep toolbar registry next to the buttons, or move `TOOLS` into `Canvas.tsx` so lane paths match | P3 |
-| 109 | `shapeDefaults` gate in `ops` | `ops.ts` / `ops.go` only apply defaults for a hard-coded kind list; `triangle` needed the same one-line branch (not in the ticket `paths`) | Drive the gate from `ShapeKind` / `shapeDefaults` so new kinds do not touch `ops` | P3 |
+| 110 | Toolbar tool lives in `App.tsx` | Ticket paths listed only `Canvas.tsx` for the toolbar+shortcut, but `TOOLS[]` and the keydown handler are in `App.tsx`; edited that file for the `G` / Triangle entry and queried `agent:leonardo` | Keep toolbar registry next to the buttons, or move `TOOLS` into `Canvas.tsx` so lane paths match | P3 |
+| 111 | `shapeDefaults` gate in `ops` | `ops.ts` / `ops.go` only apply defaults for a hard-coded kind list; `triangle` needed the same one-line branch (not in the ticket `paths`) | Drive the gate from `ShapeKind` / `shapeDefaults` so new kinds do not touch `ops` | P3 |
 
 - Six frames at `docs/assets/boards/PAP-A-004/`; boards re-exported via `GET /api/export` into `docs/design/boards.paprika.json` (no `open_workspace`).
 - `wasmPaintable` stays false for `shape` nodes (DOM paints the triangle outline).

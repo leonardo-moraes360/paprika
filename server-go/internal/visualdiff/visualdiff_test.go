@@ -15,8 +15,8 @@ import (
 // solid builds a w x h picture and paints on it through paint, so each case says what it draws.
 func solid(w, h int, c color.RGBA) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			img.SetRGBA(x, y, c)
 		}
 	}
@@ -396,8 +396,8 @@ func TestEmptyImageIsRefused(t *testing.T) {
 func TestTranslucentHoleIsADifference(t *testing.T) {
 	a := white10()
 	b := image.NewNRGBA(image.Rect(0, 0, 10, 10))
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+	for y := range 10 {
+		for x := range 10 {
 			b.SetNRGBA(x, y, color.NRGBA{255, 255, 255, 255})
 		}
 	}

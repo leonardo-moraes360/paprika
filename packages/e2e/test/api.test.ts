@@ -44,7 +44,7 @@ describe("API: MCP", () => {
         "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
-        "rename_workspace", "render_screenshot", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
+        "rename_workspace", "render_screenshot", "resize_image", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
       ].sort(),
     );
@@ -490,6 +490,69 @@ describe("API: MCP", () => {
     expect(bad.isError).toBe(true);
     expect(textOf(bad)).toBe("the HTML has no elements to import");
   }, 30_000);
+
+  it("resize_image: presets, fit, upscale/downscale, GIF primeiro frame, sem Chromium", async () => {
+    const previousChromium = process.env.PAPRIKA_CHROMIUM;
+    delete process.env.PAPRIKA_CHROMIUM;
+    const fixtures = join(repoRoot, "server-go/internal/server/testdata/images");
+    const previous = process.env.PAPRIKA_IMPORT_DIRS;
+    process.env.PAPRIKA_IMPORT_DIRS = fixtures;
+    const own = await startServer();
+    if (previous === undefined) delete process.env.PAPRIKA_IMPORT_DIRS;
+    else process.env.PAPRIKA_IMPORT_DIRS = previous;
+    if (previousChromium === undefined) delete process.env.PAPRIKA_CHROMIUM;
+    else process.env.PAPRIKA_CHROMIUM = previousChromium;
+    const c = new Client({ name: "parity", version: "0" });
+    try {
+      await c.connect(new StreamableHTTPClientTransport(new URL(`${own.url}/mcp`)));
+      const presets: { preset: string | { width: number; height: number }; tw: number; th: number }[] = [
+        { preset: "qhd", tw: 960, th: 540 },
+        { preset: "hd", tw: 1280, th: 720 },
+        { preset: "2k", tw: 2560, th: 1440 },
+        { preset: "4k", tw: 3840, th: 2160 },
+        { preset: { width: 64, height: 48 }, tw: 64, th: 48 },
+      ];
+      for (const p of presets) {
+        for (const fit of ["contain", "cover", "fill"] as const) {
+          const r = await call(c, "resize_image", { src: join(fixtures, "pixel.png"), preset: p.preset, fit });
+          expect(r.isError, textOf(r)).toBeFalsy();
+          const out = JSON.parse(textOf(r));
+          expect(out).toMatchObject({ targetWidth: p.tw, targetHeight: p.th, fit, format: "png", sourceFormat: "png" });
+          if (fit === "contain") {
+            expect(out.width).toBeLessThanOrEqual(p.tw);
+            expect(out.height).toBeLessThanOrEqual(p.th);
+          } else {
+            expect(out).toMatchObject({ width: p.tw, height: p.th });
+          }
+        }
+      }
+      const up = await call(c, "resize_image", { src: join(fixtures, "pixel.png"), preset: "hd", fit: "fill" });
+      expect(up.isError, textOf(up)).toBeFalsy();
+      expect(JSON.parse(textOf(up))).toMatchObject({ width: 1280, height: 720 });
+      const gif = await call(c, "resize_image", { src: join(fixtures, "animated.gif"), preset: "qhd", fit: "contain" });
+      expect(gif.isError, textOf(gif)).toBeFalsy();
+      const gifOut = JSON.parse(textOf(gif));
+      expect(gifOut.format).toBe("gif");
+      expect(gifOut.warnings.join(" ")).toMatch(/first frame/i);
+      const created = await call(c, "resize_image", { src: join(fixtures, "pixel.png"), preset: { width: 20, height: 15 }, fit: "fill" });
+      const id = JSON.parse(textOf(created)).created[0] as string;
+      const before = JSON.parse(textOf(await call(c, "get_nodes", { ids: [id] })))[0].src as string;
+      const resized = await call(c, "resize_image", { nodeId: id, preset: { width: 40, height: 30 }, fit: "fill" });
+      expect(resized.isError, textOf(resized)).toBeFalsy();
+      expect(JSON.parse(textOf(resized))).toMatchObject({ id, width: 40, height: 30 });
+      const after = JSON.parse(textOf(await call(c, "get_nodes", { ids: [id] })))[0].src as string;
+      expect(after).not.toBe(before);
+      const undo = await call(c, "undo", {});
+      expect(undo.isError).toBeFalsy();
+      expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: [id] })))[0].src).toBe(before);
+      const avif = await call(c, "resize_image", { src: join(fixtures, "pixel.avif"), preset: "hd", fit: "cover" });
+      expect(avif.isError).toBe(true);
+      expect(textOf(avif)).toMatch(/AVIF/);
+    } finally {
+      await c.close();
+      await own.stop();
+    }
+  }, 60_000);
 
   it("importar imagem raster: formatos, GIF animado, path traversal e arquivo grande demais", async () => {
     const fixtures = join(repoRoot, "server-go/internal/server/testdata/images");

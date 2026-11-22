@@ -407,15 +407,16 @@ func RouteConnector(doc *Document, c *Node) error {
 		}
 		parts[k] = cmd + dpt(local(p))
 	}
-	d := strings.Join(parts, " ")
+	var d strings.Builder
+	d.WriteString(strings.Join(parts, " "))
 	for _, h := range heads {
-		d += " M" + dpt(local(h[0])) + " L" + dpt(local(h[1])) + " L" + dpt(local(h[2]))
+		d.WriteString(" M" + dpt(local(h[0])) + " L" + dpt(local(h[1])) + " L" + dpt(local(h[2])))
 	}
 	c.Set("x", Round4(ox-origin.X))
 	c.Set("y", Round4(oy-origin.Y))
 	c.Set("width", Round4(maxX-minX+2*pad))
 	c.Set("height", Round4(maxY-minY+2*pad))
-	c.Set("d", d)
+	c.Set("d", d.String())
 	return nil
 }
 

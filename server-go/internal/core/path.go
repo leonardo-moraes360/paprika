@@ -444,7 +444,7 @@ func PathBounds(segs []Segment) Bounds {
 			add(s.To)
 		case 'C':
 			add(s.To)
-			for axis := 0; axis < 2; axis++ {
+			for axis := range 2 {
 				g := func(p Point) float64 {
 					if axis == 0 {
 						return p.X
@@ -465,7 +465,7 @@ func PathBounds(segs []Segment) Bounds {
 			}
 		case 'Q':
 			add(s.To)
-			for axis := 0; axis < 2; axis++ {
+			for axis := range 2 {
 				var c0, cc, c2 float64
 				if axis == 0 {
 					c0, cc, c2 = cur.X, s.C.X, s.To.X

@@ -410,14 +410,29 @@ Tarefa: redesenhar o inspector de cena em seções recolhíveis antes de impleme
 | 106 | Altura do inspector que prova o layout compacto | O `aside.right.scrollHeight` ficou em 856 px antes e depois porque a área do grid força um container alto; a altura de `#right-tabpanel` caiu de 759 para 303 px (~60%) com o nó de texto do demo em 1440×900 (`packages/e2e/b022-measure.mjs`) | Usar `panel` / `panelScroll` no script de medição (e nas notas de aceite), não só `aside.scrollHeight` | P3 |
 | 107 | Boards no servidor MCP compartilhado | O `:4777` respondeu devagar durante o ticket, então só os frames de design existentes mais screenshots da runtime foram commitados; nenhum frame novo de altura fixa foi desenhado no MCP nesta passagem | Igual ao #97: um documento de boards no git que os agentes possam `load` sem depender do volume montado na porta do mantenedor | P2 |
 
+## 2026-11-22: fantasma do elemento enquanto desenha (PAP-B-043, design first)
+
+Tarefa: desenhar o fantasma do nó real (preenchimento/contorno/padrões) dentro da área de rascunho ao
+arrastar uma ferramenta de criação, claro e escuro, depois pintá-lo a partir de `nodeStyle` em
+`Canvas.tsx` sem escrever no documento até soltar. Oito frames de altura fixa em `Interfaces`
+(`docs/assets/boards/PAP-B-043/`).
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 108 | Capturas de tela como arquivo | Igual ao #100/#101: `render_screenshot` só devolve o PNG em base64 no conteúdo JSON-RPC, então um script cliente teve que decodificar cada shot em `docs/assets/boards/PAP-B-043/` | Argumento opcional `path` em `render_screenshot` que grave o arquivo | P2 |
+| 109 | Espaço livre para boards novos | Frames de topo já ocupam y≈0…8320 e x≈0…3000; o outline com depth 1 bastou para escolher `y=9000`, mas tickets paralelos ainda disputam a mesma faixa | `get_document_outline` devolvendo a caixa do conteúdo da página, ou `place: "free"` em `create_nodes` (igual ao #103) | P3 |
+
+- O workspace ativo já era `Paprika - UI` / página `Interfaces`; sem `open_workspace`.
+- O fantasma é `aria-hidden` e `pointer-events: none` (`data-testid="draft-ghost"`); o fantasma da seta do conector ficou fora do escopo draft-only deste ticket.
+
 ## 2026-11-22: forma triângulo (PAP-A-004, design first)
 
 Tarefa: desenhar estados da toolbar / inspector / canvas para o `ShapeKind` `triangle` em `Interfaces` (claro+escuro, altura fixa), depois entregar schema, contorno, conectores, toolbar `G`, seletor do inspector e `draw_diagram`.
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|----------------|----------|------|
-| 108 | Ferramenta da toolbar em `App.tsx` | Os paths do ticket listavam só `Canvas.tsx` para toolbar+atalho, mas `TOOLS[]` e o keydown estão em `App.tsx`; editei esse arquivo para a entrada `G` / Triangle e perguntei ao `agent:leonardo` | Manter o registro da toolbar junto dos botões, ou mover `TOOLS` para `Canvas.tsx` para os paths da raia baterem | P3 |
-| 109 | Gate de `shapeDefaults` em `ops` | `ops.ts` / `ops.go` só aplicam padrões a uma lista fixa de kinds; `triangle` precisou da mesma linha (fora dos `paths` do ticket) | Derivar o gate de `ShapeKind` / `shapeDefaults` para kinds novos não tocarem em `ops` | P3 |
+| 110 | Ferramenta da toolbar em `App.tsx` | Os paths do ticket listavam só `Canvas.tsx` para toolbar+atalho, mas `TOOLS[]` e o keydown estão em `App.tsx`; editei esse arquivo para a entrada `G` / Triangle e perguntei ao `agent:leonardo` | Manter o registro da toolbar junto dos botões, ou mover `TOOLS` para `Canvas.tsx` para os paths da raia baterem | P3 |
+| 111 | Gate de `shapeDefaults` em `ops` | `ops.ts` / `ops.go` só aplicam padrões a uma lista fixa de kinds; `triangle` precisou da mesma linha (fora dos `paths` do ticket) | Derivar o gate de `ShapeKind` / `shapeDefaults` para kinds novos não tocarem em `ops` | P3 |
 
 - Seis frames em `docs/assets/boards/PAP-A-004/`; boards reexportados via `GET /api/export` em `docs/design/boards.paprika.json` (sem `open_workspace`).
 - `wasmPaintable` continua falso para nós `shape` (o DOM pinta o contorno do triângulo).
