@@ -1133,6 +1133,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
   it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(p, "pt-BR");
     try {
       await p.goto(`${url}/w/${(await doc()).id}`);
       await p.waitForSelector('[data-paprika-id="login"]');
