@@ -76,7 +76,7 @@ Status: ✅ feito · 🟡 parcial · ⬜ falta. Prioridade: **P1** próxima leva
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | Tokens globais (`$nome`) para cores e tamanhos, definidos por agentes | `set_tokens` | ✅ | — |
-| Modos de tema (claro/escuro/compacto) e coleções de tokens | `document.modes` + `set_tokens` com `mode`, inspector (2026-11-21); ainda sem coleções nomeadas | 🟡 | P2 |
+| Modos de tema (claro/escuro/compacto) e coleções de tokens | `document.modes` + `set_tokens` com `mode`, inspector (2026-11-21), persistidos no SQLite (2026-11-22); ainda sem coleções nomeadas | 🟡 | P2 |
 | Override de tokens por frame | `mode` num frame ou página aplica um modo ao subtree (2026-11-21) | ✅ | — |
 | Tokens exportados como variáveis CSS no export HTML/React | `export_code` com `cssVariables` (2026-11-21): `:root` mais regras `[data-paprika-mode]`; o React exporta `tokensCss` | ✅ | — |
 | Tokens tipados (cor, raio, espaçamento, fonte…) com validação | String/número sem tipo | 🟡 | P2 |
@@ -173,7 +173,7 @@ Decisão pendente: escrever efeitos próprios (WebGL/WebGPU, ligado à avaliaç�
 | Workspace com vários arquivos, pastas, miniaturas | Página de workspaces em `/` (2026-11-21): listar, criar, abrir, renomear, excluir; um workspace ativo compartilhado por canvas e agentes (`list_workspaces`, `open_workspace`, `create_workspace`, `rename_workspace`, `delete_workspace`), imagem de capa por card (upload ou `set_workspace_cover` a partir de um frame). Ainda sem pastas | 🟡 | P2 |
 | Abas para arquivos abertos | — | ⬜ | P3 |
 | Dados ao vivo no design (buscar de uma API ou planilha) | — | ⬜ | P3 |
-| Edição multiusuário em tempo real (CRDT) | Um escritor + watcher | ⬜ | P3 |
+| Edição multiusuário em tempo real (CRDT) | Sincronização de time peer to peer: sidecar Iroh + Loro, `paprika serve --team`, operações assinadas, convites que expiram (ADR 0004, PRs #61–#69); remover membro e trocar chave (2026-11-22); modo time no Compose (`compose.team.yaml`). Falta: sair por conta própria, papéis de aprovação | 🟡 | P2 |
 | Painel de scripts / plugins | — | ⬜ | P3 |
 | Configurações de compartilhamento, SSO, organizações, CDN de assets, planos e cotas | — | — | Fora |
 
@@ -181,20 +181,23 @@ Decisão pendente: escrever efeitos próprios (WebGL/WebGPU, ligado à avaliaç�
 
 Issues abertas do SonarCloud importadas em 2026-11-21 (projeto `leonardo-moraes360_paprika`; filtro: Segurança + Confiabilidade, impacto Blocker/High/Medium, status Open/Confirmed; código em `main` 21841f7). 40 issues, nenhuma Blocker. Corrigir no código; não mudar o status das issues à mão no SonarCloud.
 
+Atualização 2026-11-22: todas as issues abaixo estão corrigidas no código (commits `fix(sonar)` na `main`, mais S7773 em `packages/core` e S2077 em `store.go` na segunda leva do backlog). O SonarCloud as fecha na próxima análise da `main`.
+
+
 | Regra | Impacto | Onde | Correção | Status | Pri. |
 |---|---|---|---|---|---|
-| S8707 path traversal por argumento de CLI (3) | Segurança High | `bench/tasks/lib.mjs:17` (`packages/server/scripts/bezier-demo.mjs:8, 31` saiu junto com o servidor TypeScript) | Resolver o caminho e exigir que fique dentro de `process.cwd()` antes de ler, `rm` ou gravar | ⬜ | P1 |
-| S6506 HTTPS não forçado em redirect (2) | Segurança Medium | `.github/workflows/ci.yml:377`; `.github/actions/setup-rust-wasm/action.yml:23` | `curl --proto '=https' --proto-redir '=https'` (o sha256 continua) | ⬜ | P1 |
-| S2077 SQL montado dinamicamente (1) | Segurança Medium | `server-go/internal/server/store.go:332` | Nomes de tabela vêm de lista fixa (provável falso positivo); escrever os três `DELETE` literais | ⬜ | P2 |
-| S7688 `[` em vez de `[[` (10) | Confiabilidade High | `.claude/hooks/session-start.sh:27, 34, 43, 46, 68, 80 (×2), 98 (×3)` | Usar `[[ … ]]` (o script é bash) | ⬜ | P1 |
-| S2871 `sort()` sem comparador (1) | Confiabilidade High | `.github/scripts/check-actions-pinned.mjs:105` | Comparador explícito por code point, mantendo a ordem atual | ⬜ | P1 |
-| S8786 regex com backtracking super-linear (3) | Confiabilidade Medium | `apps/site/scripts/build.mjs:287`; `apps/web/src/Inspector.tsx:380`; `.github/scripts/check-actions-pinned.mjs:27` | Remover quantificadores adjacentes ambíguos (ex.: `/^# +(\S.*)$/m`) e cobrir com teste | ⬜ | P2 |
-| S7773 `parseInt`/`parseFloat`/`isNaN` globais (10) | Confiabilidade Medium | `bench/tasks/lib.mjs:126 (×4)`; `packages/core/src/lint.ts:26, 31 (×2), 121`; `apps/web/src/Inspector.tsx:373, 383` | `Number.parseInt` / `Number.parseFloat` / `Number.isNaN` | ⬜ | P2 |
-| S9383 promises sem tratamento (5) | Confiabilidade Medium | `experiments/canvas-wasm/bench/webgpu-canvas-probe.cjs:4, 11`; `main.ts:177`; `run.cjs:12`; `gpu-readback-check.cjs:7` | `.catch()` que loga e sai com 1 (ou excluir `experiments/` da análise) | ⬜ | P3 |
-| S6848 elemento interativo não nativo (1) | Confiabilidade Medium | `apps/web/src/Layers.tsx:32` | `role`, `tabIndex={0}` e Enter/Espaço no `onKeyDown`, ou um `<button>` | ⬜ | P2 |
-| S9379 `autoFocus` (1) | Confiabilidade Medium | `apps/web/src/Pages.tsx:54` | Focar via `ref` + `useEffect` ao entrar em edição | ⬜ | P3 |
-| S3923 ternário com ramos iguais (1) | Confiabilidade Medium | `apps/site/scripts/draw-landing.mjs:161` | Usar `"link:./"` direto | ⬜ | P3 |
-| Input sem label (2) | Confiabilidade Medium | `experiments/canvas-wasm/bench/index.html:16, 17` | `<label for>` ou `aria-label` | ⬜ | P3 |
+| S8707 path traversal por argumento de CLI (3) | Segurança High | `bench/tasks/lib.mjs:17` (`packages/server/scripts/bezier-demo.mjs:8, 31` saiu junto com o servidor TypeScript) | Resolver o caminho e exigir que fique dentro de `process.cwd()` antes de ler, `rm` ou gravar | ✅ | — |
+| S6506 HTTPS não forçado em redirect (2) | Segurança Medium | `.github/workflows/ci.yml:377`; `.github/actions/setup-rust-wasm/action.yml:23` | `curl --proto '=https' --proto-redir '=https'` (o sha256 continua) | ✅ | — |
+| S2077 SQL montado dinamicamente (1) | Segurança Medium | `server-go/internal/server/store.go:332` | Nomes de tabela vêm de lista fixa (provável falso positivo); escrever os três `DELETE` literais | ✅ | — |
+| S7688 `[` em vez de `[[` (10) | Confiabilidade High | `.claude/hooks/session-start.sh:27, 34, 43, 46, 68, 80 (×2), 98 (×3)` | Usar `[[ … ]]` (o script é bash) | ✅ | — |
+| S2871 `sort()` sem comparador (1) | Confiabilidade High | `.github/scripts/check-actions-pinned.mjs:105` | Comparador explícito por code point, mantendo a ordem atual | ✅ | — |
+| S8786 regex com backtracking super-linear (3) | Confiabilidade Medium | `apps/site/scripts/build.mjs:287`; `apps/web/src/Inspector.tsx:380`; `.github/scripts/check-actions-pinned.mjs:27` | Remover quantificadores adjacentes ambíguos (ex.: `/^# +(\S.*)$/m`) e cobrir com teste | ✅ | — |
+| S7773 `parseInt`/`parseFloat`/`isNaN` globais (10) | Confiabilidade Medium | `bench/tasks/lib.mjs:126 (×4)`; `packages/core/src/lint.ts:26, 31 (×2), 121`; `apps/web/src/Inspector.tsx:373, 383` | `Number.parseInt` / `Number.parseFloat` / `Number.isNaN` | ✅ | — |
+| S9383 promises sem tratamento (5) | Confiabilidade Medium | `experiments/canvas-wasm/bench/webgpu-canvas-probe.cjs:4, 11`; `main.ts:177`; `run.cjs:12`; `gpu-readback-check.cjs:7` | `.catch()` que loga e sai com 1 (ou excluir `experiments/` da análise) | ✅ | — |
+| S6848 elemento interativo não nativo (1) | Confiabilidade Medium | `apps/web/src/Layers.tsx:32` | `role`, `tabIndex={0}` e Enter/Espaço no `onKeyDown`, ou um `<button>` | ✅ | — |
+| S9379 `autoFocus` (1) | Confiabilidade Medium | `apps/web/src/Pages.tsx:54` | Focar via `ref` + `useEffect` ao entrar em edição | ✅ | — |
+| S3923 ternário com ramos iguais (1) | Confiabilidade Medium | `apps/site/scripts/draw-landing.mjs:161` | Usar `"link:./"` direto | ✅ | — |
+| Input sem label (2) | Confiabilidade Medium | `experiments/canvas-wasm/bench/index.html:16, 17` | `<label for>` ou `aria-label` | ✅ | — |
 
 ## O. Diagramas
 
@@ -205,8 +208,44 @@ Diagramas simples (fluxogramas, esboços de arquitetura, mapas mentais) desenhad
 | Formas com texto dentro (caixa, elipse, losango) e notas adesivas | Nó `shape`, ferramentas `S`/`D`/`N`, texto editado no lugar (2026-11-21) | ✅ | — |
 | Setas que prendem nas formas e as acompanham, retas ou em cotovelo | Nó `connector`, ferramenta `A`, geometria derivada das pontas (2026-11-21) | ✅ | — |
 | Agente desenha um diagrama inteiro numa chamada, com layout automático | `draw_diagram` (2026-11-21) | ✅ | — |
-| Rótulos nas setas | — | ⬜ | P1 |
+| Rótulos nas setas | `label` no `connector` e nas arestas do `draw_diagram`, desenhado no meio da linha com halo, editável no inspector (2026-11-22, fb#57) | ✅ | — |
 | Setas que desviam de outras formas | A rota em cotovelo ignora obstáculos | ⬜ | P2 |
 | Setas curvas e mais formas (cilindro, paralelogramo, nuvem) | — | ⬜ | P2 |
 | Prender ou soltar a ponta de uma seta arrastando no canvas | Só pelo inspector | ⬜ | P2 |
 | Estilo desenhado à mão | — | ⬜ | P3 |
+
+## P. Pedidos do mantenedor (2026-11-22)
+
+Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados). As restrições de cada linha fazem parte do pedido.
+
+| Capacidade | Restrições e notas | Status | Pri. |
+|---|---|---|---|
+| Exportar em PDF, HTML, CSS (Tailwind ou CSS Modules), React, Angular ou Svelte | Incluir nas ferramentas de MCP. Amplia J (hoje: HTML, React com estilos inline, SVG) | ⬜ | a definir |
+| Exportar SVG, PNG, JPEG, AVIF, WebP | Incluir nas ferramentas de MCP. **Não utilizar Chromium headless**: incluir no canvas (TS) ou no servidor Go. Hoje SVG e PNG passam pelo Chromium headless (J) | ⬜ | a definir |
+| Redimensionar imagens para semi HD, HD, 2K, 4K | Incluir nas ferramentas de MCP. **Não utilizar Chromium headless**: incluir no canvas (TS) ou no servidor Go | ⬜ | a definir |
+| Transformar o uso do atributo `title` em tooltips acessíveis | Continua a revisão de acessibilidade ([thread "Revisar acessibilidade do Paprika"](https://claude.ai/code/project/chan_01QGCFibNVKw2MsxBcqe4Jmi?thread=cmsg_01QGCFibNVKw2MsxBcqe4Jmi1MtFJYQ4HiNMD17jXKGUrG), PR #70) | ⬜ | a definir |
+| Menus laterais colapsam num botão flutuante ao passar do mínimo de compressão | Canto superior esquerdo ou direito; para expandir o menu, clicar no botão correspondente | ⬜ | a definir |
+| Migrar para componentes shadcn | Manter o tema próprio do Paprika (ADR 0003, Tailwind sem Preflight) | ⬜ | a definir |
+| Melhorar as animações dos elementos em tela com tailwind-animate | — | ⬜ | a definir |
+| Color picker customizado | Hoje o inspector usa o seletor de cor nativo | ⬜ | a definir |
+| Comprimir melhor a informação do inspector | Hoje é uma área de rolagem gigantesca com muita informação | ⬜ | a definir |
+| Melhorar visualmente o histórico de atividade | Hoje é um aglomerado de informação mal formatada | ⬜ | a definir |
+| Controle de ordem das camadas: enviar ao fundo ou trazer à frente de forma arbitrária | Atalhos como Page Up / Page Down, e também via MCP. Hoje só `move_nodes` com `index`, sem atalho no canvas (ver A, "Ordem Z") | ⬜ | a definir |
+| Componentes reutilizáveis entre páginas e entre workspaces | Hoje `component`/`instanceOf` só funcionam dentro de um documento (H); falta: biblioteca compartilhada entre workspaces, instância que aponta para outro workspace e como as atualizações chegam até ela | ⬜ | a definir |
+
+<details><summary>Pedido original (texto do mantenedor)</summary>
+
+- Adicionar suporte para exportar em pdf, html, css (tailwind ou css modules), react, angular ou svelt. Incluir nas ferramentas de mcp.
+- permitir exportar svg, png, jpeg, avif, webp. Incluir nas ferramentas de mcp. Não utilizar chromium headless, incluir no canvas (ts) ou no servidor go.
+- Permitir redimensionar imagens para semi hd, hd 2k, 4k. Incluir nas ferramentas de mcp. Não utilizar chromium headless, incluir no canvas (ts) ou no servidor go.
+- transforma uso do atributo tittle em tooltips acessíveis.
+- fazer com que ao ir além do mínimo de compressão dos menus laterais no canvas, eles colapsem em um botão flutuante (canto superior esquerdo ou direito). Para expandir o menu em questão deve-se clicar no botão correspondente.
+- migrar para componentes shadcn.
+- melhorar animações dos elementos em tela com tailwind-animate.
+- adicionar color picker customizado.
+- comprimir melhor informação do `inspector`, hoje ele é uma scroll área gigantesca com muita informação.
+- melhorar visualmente histórico de atividade, hoje ele é um aglomerado de informaçao mal formatada.
+- adicionar controle de background e foreground nas camadas, permitindo enviar uma camada para background ou trazer para foreground de forma arbitrária. Utilizando por exemplo page up ou page down.
+- capacidade de criar componentes reutilizáveis entre páginas ou workspaces no canvas.
+
+</details>
