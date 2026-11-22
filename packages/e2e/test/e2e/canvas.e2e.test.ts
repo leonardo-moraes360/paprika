@@ -146,6 +146,39 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await doc()).nodes.plano?.name).toBe("Card · plano Pro");
   });
 
+  it("inspector: Opacidade recusa letras, cola inválida e limita ao intervalo 0–1", async () => {
+    await page.locator('[data-layer-id="plano"]').click();
+    const opacity = page.getByLabel("Opacidade", { exact: true });
+    await expect.poll(() => opacity.inputValue()).toBe("1");
+
+    await opacity.click({ clickCount: 3 });
+    await page.keyboard.press("Backspace");
+    await opacity.pressSequentially("1aaaaa");
+    await expect.poll(() => opacity.inputValue()).toBe("1");
+
+    await opacity.evaluate((el) => {
+      const dt = new DataTransfer();
+      dt.setData("text", "abc");
+      el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    });
+    await expect.poll(() => opacity.inputValue()).toBe("1");
+    await expect.poll(() => page.getByRole("status").filter({ hasText: "Use um número entre 0 e 1." }).count()).toBeGreaterThan(0);
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(1);
+
+    await opacity.click({ clickCount: 3 });
+    await opacity.pressSequentially("0,5");
+    await opacity.press("Enter");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(0.5);
+    await expect.poll(() => opacity.inputValue()).toBe("0.5");
+
+    await opacity.click({ clickCount: 3 });
+    await opacity.pressSequentially("2");
+    await opacity.press("Enter");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(1);
+    await expect.poll(() => opacity.inputValue()).toBe("1");
+    await expect.poll(() => page.getByRole("status").filter({ hasText: "Use um número entre 0 e 1." }).count()).toBeGreaterThan(0);
+  });
+
   it("ferramenta de retângulo desenha dentro do frame sob o cursor", async () => {
     await page.keyboard.press("Escape");
     const before = Object.keys((await doc()).nodes).length;

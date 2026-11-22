@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Bot } from "lucide-react";
 import {
   copyOwner,
@@ -20,6 +20,7 @@ import {
   type SceneNode,
 } from "@paprika/core";
 import type { Activity } from "./useDocument";
+import { allowsNumberFieldInput, commitNumeric, parseNumeric, rangeMessage, type NumericRange } from "./numericInput";
 import { cx, ui } from "./ui";
 
 const list = "m-0 grid list-none gap-1 p-0";
@@ -34,19 +35,46 @@ interface FieldProps {
   type?: "text" | "number" | "textarea";
   placeholder?: string;
   title?: string;
+  min?: number;
+  max?: number;
+  integer?: boolean;
+  keywords?: readonly string[];
 }
 
 /** Campo que só grava ao sair ou apertar Enter: uma entrada no histórico por edição. */
-function Field({ label, value, onCommit, type = "text", placeholder, title }: FieldProps) {
+function Field({ label, value, onCommit, type = "text", placeholder, title, min, max, integer, keywords }: FieldProps) {
   const [v, setV] = useState(value === undefined ? "" : String(value));
+  const [error, setError] = useState<string | null>(null);
+  const msgId = useId();
   // Enter grava e tira o foco; o blur não pode gravar de novo antes do servidor responder.
   const lastCommitted = useRef<string | null>(null);
   useEffect(() => {
     setV(value === undefined ? "" : String(value));
     lastCommitted.current = null;
+    setError(null);
   }, [value]);
+  const range: NumericRange = { min, max, integer };
+  const baseline = () => (value === undefined ? "" : String(value));
   const commit = () => {
-    if (v === (value === undefined ? "" : String(value)) || v === lastCommitted.current) return;
+    if (type === "number" && !keywords?.length) {
+      const result = commitNumeric(v, range);
+      if (!result.ok) {
+        setV(baseline());
+        setError(result.message);
+        return;
+      }
+      if (result.clamped) setError(result.message ?? rangeMessage(range));
+      else setError(null);
+      if (result.text === baseline() || result.text === lastCommitted.current) {
+        setV(result.text);
+        return;
+      }
+      lastCommitted.current = result.text;
+      setV(result.text);
+      onCommit(result.text);
+      return;
+    }
+    if (v === baseline() || v === lastCommitted.current) return;
     lastCommitted.current = v;
     onCommit(v);
   };
@@ -55,7 +83,25 @@ function Field({ label, value, onCommit, type = "text", placeholder, title }: Fi
     placeholder,
     title,
     "aria-label": label,
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setV(e.target.value),
+    "aria-invalid": error ? true : undefined,
+    "aria-describedby": error ? msgId : undefined,
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const next = e.target.value;
+      if (type === "number" && !allowsNumberFieldInput(next, keywords)) return;
+      setV(next);
+      if (error) setError(null);
+    },
+    onPaste:
+      type === "number"
+        ? (e: React.ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+            const text = e.clipboardData.getData("text");
+            if (!allowsNumberFieldInput(text, keywords)) {
+              e.preventDefault();
+              setError(rangeMessage(range));
+              setV(baseline());
+            }
+          }
+        : undefined,
     onBlur: commit,
     onKeyDown: (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !(type === "textarea" && e.shiftKey)) {
@@ -64,16 +110,29 @@ function Field({ label, value, onCommit, type = "text", placeholder, title }: Fi
         (e.target as HTMLElement).blur();
       }
       if (e.key === "Escape") {
-        setV(value === undefined ? "" : String(value));
+        setV(baseline());
+        setError(null);
         (e.target as HTMLElement).blur();
       }
     },
   };
   return (
-    <label className={ui.field(type === "textarea")}>
-      <span>{label}</span>
-      {type === "textarea" ? <textarea rows={3} {...common} /> : <input inputMode={type === "number" ? "decimal" : undefined} {...common} />}
-    </label>
+    <div className="grid min-w-0 gap-1">
+      <label
+        className={cx(
+          ui.field(type === "textarea"),
+          error && "border-ui-destructive focus-within:border-ui-destructive [&_span]:text-ui-destructive-text",
+        )}
+      >
+        <span>{label}</span>
+        {type === "textarea" ? <textarea rows={3} {...common} /> : <input inputMode={type === "number" ? "decimal" : undefined} {...common} />}
+      </label>
+      {error && (
+        <p id={msgId} role="status" aria-live="polite" className="m-0 text-2xs text-ui-destructive-text">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -107,10 +166,7 @@ function ColorField({ doc, label, value, mode, onCommit }: { doc: Document; labe
   );
 }
 
-const num = (v: string) => {
-  const n = Number(v.replace(",", "."));
-  return Number.isFinite(n) ? n : undefined;
-};
+const num = (v: string) => parseNumeric(v);
 const size = (v: string): number | string | undefined => (v === "hug" || v === "fill" ? v : num(v));
 
 interface Props {
@@ -199,15 +255,15 @@ export function Inspector(props: Props) {
       <div className={ui.grid2}>
         <Field label="X" type="number" value={node.x} onCommit={setNum("x")} />
         <Field label="Y" type="number" value={node.y} onCommit={setNum("y")} />
-        <Field label="L" type="number" value={node.width} title="número, hug ou fill" onCommit={(v) => size(v) !== undefined && set({ width: size(v) })} />
-        <Field label="A" type="number" value={node.height} title="número, hug ou fill" onCommit={(v) => size(v) !== undefined && set({ height: size(v) })} />
+        <Field label="L" type="number" value={node.width} title="número, hug ou fill" keywords={["hug", "fill"]} onCommit={(v) => size(v) !== undefined && set({ width: size(v) })} />
+        <Field label="A" type="number" value={node.height} title="número, hug ou fill" keywords={["hug", "fill"]} onCommit={(v) => size(v) !== undefined && set({ height: size(v) })} />
         <Field label="Rotação" type="number" value={node.rotation} onCommit={setNum("rotation")} />
-        <Field label="Opacidade" type="number" value={node.opacity} onCommit={setNum("opacity")} />
+        <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={setNum("opacity")} />
       </div>
       <h3 className={ui.h3}>Aparência</h3>
       <div className={ui.grid}>
         <ColorField doc={doc} mode={themeMode} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />
-        {node.type !== "ellipse" && node.type !== "path" && <Field label="Raio" type="number" value={node.radius} onCommit={setNum("radius")} />}
+        {node.type !== "ellipse" && node.type !== "path" && <Field label="Raio" type="number" value={node.radius} min={0} onCommit={setNum("radius")} />}
         <ColorField
           doc={doc}
           mode={themeMode}
@@ -215,7 +271,7 @@ export function Inspector(props: Props) {
           value={node.stroke?.color}
           onCommit={(v) => set({ stroke: v ? { color: v, width: node.stroke?.width ?? 1 } : null })}
         />
-        {node.stroke && <Field label="Espessura" type="number" value={node.stroke.width} onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke!, width: num(v) } })} />}
+        {node.stroke && <Field label="Espessura" type="number" value={node.stroke.width} min={0} onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke!, width: num(v) } })} />}
       </div>
 
       {node.type === "text" && (
@@ -227,8 +283,8 @@ export function Inspector(props: Props) {
           </div>
           <div className={ui.grid2}>
             <Field label="Tamanho" value={node.fontSize} onCommit={(v) => set({ fontSize: v.startsWith("$") ? v : num(v) })} />
-            <Field label="Peso" type="number" value={node.fontWeight} onCommit={setNum("fontWeight")} />
-            <Field label="Altura linha" type="number" value={node.lineHeight} onCommit={setNum("lineHeight")} />
+            <Field label="Peso" type="number" value={node.fontWeight} min={100} max={900} integer onCommit={setNum("fontWeight")} />
+            <Field label="Altura linha" type="number" value={node.lineHeight} min={0} onCommit={setNum("lineHeight")} />
             <label className={ui.field()}>
               <span>Alinhamento</span>
               <select value={node.textAlign} onChange={(e) => set({ textAlign: e.target.value })}>
@@ -262,7 +318,7 @@ export function Inspector(props: Props) {
           </div>
           <div className={ui.grid2}>
             <Field label="Tamanho" value={node.fontSize} onCommit={(v) => set({ fontSize: v.startsWith("$") ? v : num(v) })} />
-            <Field label="Peso" type="number" value={node.fontWeight} onCommit={setNum("fontWeight")} />
+            <Field label="Peso" type="number" value={node.fontWeight} min={100} max={900} integer onCommit={setNum("fontWeight")} />
             <label className={ui.field()}>
               <span>Alinhamento</span>
               <select value={node.textAlign} onChange={(e) => set({ textAlign: e.target.value })}>
@@ -323,7 +379,7 @@ export function Inspector(props: Props) {
             </label>
             {node.layout && node.layout.mode !== "none" && (
               <>
-                <Field label="Gap" type="number" value={node.layout.gap} onCommit={(v) => num(v) !== undefined && set({ layout: { ...node.layout, gap: num(v) } })} />
+                <Field label="Gap" type="number" value={node.layout.gap} min={0} onCommit={(v) => num(v) !== undefined && set({ layout: { ...node.layout, gap: num(v) } })} />
                 <Field
                   label="Padding"
                   value={Array.isArray(node.layout.padding) ? node.layout.padding.join(" ") : node.layout.padding}
@@ -433,9 +489,9 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
       <div className={ui.grid2}>
         <Field label="X" type="number" value={node.x} onCommit={setNum("x")} />
         <Field label="Y" type="number" value={node.y} onCommit={setNum("y")} />
-        <Field label="Escala" type="number" value={node.scale ?? 1} title="0.01 a 100" onCommit={setNum("scale")} />
+        <Field label="Escala" type="number" value={node.scale ?? 1} title="0.01 a 100" min={0.01} max={100} onCommit={setNum("scale")} />
         <Field label="Rotação" type="number" value={node.rotation} onCommit={setNum("rotation")} />
-        <Field label="Opacidade" type="number" value={node.opacity} onCommit={setNum("opacity")} />
+        <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={setNum("opacity")} />
         <Field label="Tamanho" value={`${node.width}×${node.height}`} onCommit={() => onError("o tamanho vem do componente; mude a escala")} />
       </div>
       <div className={ui.grid}>
@@ -528,8 +584,8 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
           </select>
         </label>
         <ColorField doc={doc} mode={modeOf(doc, node)} label="Cor" value={node.stroke.color} onCommit={(v) => v && set({ stroke: { ...node.stroke, color: v } })} />
-        <Field label="Espessura" type="number" value={node.stroke.width} onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke, width: num(v) } })} />
-        <Field label="Opacidade" type="number" value={node.opacity} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
+        <Field label="Espessura" type="number" value={node.stroke.width} min={0} onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke, width: num(v) } })} />
+        <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
       </div>
       <p className={ui.muted}>A linha segue as formas: mova as formas ou troque os lados para redesenhar.</p>
       <h3 className={ui.h3}>Notas para agentes</h3>
@@ -560,7 +616,7 @@ function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; inst
         {node.type === "text" && <ColorField doc={doc} label="Cor" value={node.color} onCommit={(v) => set({ color: v })} />}
         {node.type !== "group" && node.type !== "connector" && <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />}
         {node.type === "image" && <Field label="URL" value={node.src.startsWith("data:") ? "(data URI)" : node.src} onCommit={(v) => set({ src: v })} />}
-        <Field label="Opacidade" type="number" value={node.opacity} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
+        <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
         <label className={ui.field()}>
           <span>Visível</span>
           <select value={String(node.visible)} onChange={(e) => set({ visible: e.target.value === "true" })}>
@@ -615,7 +671,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
       <div className={ui.grid2}>
         <Field label="X" type="number" value={group.x} onCommit={setNum("x")} />
         <Field label="Y" type="number" value={group.y} onCommit={setNum("y")} />
-        <Field label="Opacidade" type="number" value={group.opacity} onCommit={setNum("opacity")} />
+        <Field label="Opacidade" type="number" value={group.opacity} min={0} max={1} onCommit={setNum("opacity")} />
       </div>
       <p className={ui.muted}>
         {group.width} × {group.height}: a caixa segue os {group.children.length} filho(s). Duplo clique no canvas seleciona um filho.
