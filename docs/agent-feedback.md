@@ -346,3 +346,15 @@ dark, before the inline editor on the canvas. Six root frames, ~40 nodes.
 |---|--------|---------------|----------|------|
 | 99 | A text field state with a dashed focus outline | The editor draws a dashed `select` outline, but `stroke` on rect and frame has only `color` and `width`, so the sheet shows it solid; the caret is a 1.5 px rect on top of a text node | A `dash` field on `stroke` for rect, ellipse and frame (connectors already have `dashed`) would let a sheet match what `nodeStyle` paints | P3 |
 | 100 | Exporting the board document from a containerised server | `paprika export --db <db>` needs the database file, which lives in the compose volume; the doc is reachable only through `GET /api/export` | Mention `curl http://127.0.0.1:4777/api/export` in `docs/design-boards.md` next to the CLI form | P3 |
+## 2026-11-22: renaming the only page (PAP-B-020, design first)
+
+Task: draw the pages panel before, while and after renaming the placeholder "Página 1" of a workspace with no
+pages, then wire the rename in `apps/web`. Six root frames (three states, light and dark), ~60 nodes.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 99 | A page to draw on in an empty document | The active workspace had no nodes, so the `Interfaces` page did not exist and `create_page` had to be the first call; the board document in the repository (`docs/design/boards.paprika.json`) holds a different page, so nothing to import without `--replace` wiping the sheets other tickets draw in parallel | A `create_page` that is a no-op (returns the existing id) when a page with that name exists, so concurrent tickets can all "ensure" `Interfaces` without racing | P3 |
+| 100 | A screenshot as a file | `render_screenshot` returns the PNG only as base64 inside the JSON-RPC result, so saving it under `docs/assets/boards/` takes a decoding script on every ticket | An optional `path` (inside a configured directory) that writes the file and returns its location | P3 |
+
+- `lint_design` flagged the 11 px caption (`small-text`) on all six frames; 12 px fixed it, so captions stay at the app's smallest legible size.
+- Mode `light` on the frame plus the same `pg.*` tokens overridden under `set_tokens {mode: "light"}` rendered both themes from one set of nodes with no per-frame color edits.

@@ -18,6 +18,7 @@ interface Props {
 // "page" and "is-active" stay as hooks for the E2E suite ("layer", "is-selected" and "layer-name" in Layers too).
 const pageRow = "page group flex h-6.5 cursor-default items-center rounded-sm py-0 pr-1.5 pl-2";
 const pageActive = "is-active bg-accent-soft text-accent-pale";
+const placeholder = "placeholder";
 
 export function Pages({ doc, pageId, onOpen, apply }: Props) {
   const [editing, setEditing] = useState<string | null>(null);
@@ -26,6 +27,17 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
   const add = () => {
     const id = newId();
     apply([{ op: "add_page", id }], "criar página");
+    onOpen(id);
+  };
+  const adopt = (name: string) => {
+    const id = newId();
+    apply(
+      [
+        { op: "create", parentId: null, index: 0, node: { type: "page", id, name } },
+        ...doc.rootIds.map((r): Op => ({ op: "move", id: r, parentId: id })),
+      ],
+      "renomear página",
+    );
     onOpen(id);
   };
   return (
@@ -38,8 +50,33 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
       </h2>
       <ul className="m-0 list-none p-0" aria-label="Páginas">
         {pages.length === 0 && (
-          <li className={cx(pageRow, pageActive)} title="Workspace sem páginas: o primeiro + cria a página 1 com este conteúdo">
-            Página 1
+          <li
+            className={cx(pageRow, pageActive)}
+            title="Workspace sem páginas: o primeiro + cria a página 1 com este conteúdo"
+            onDoubleClick={() => setEditing(placeholder)}
+          >
+            {editing === placeholder ? (
+              <InlineName
+                className="min-w-0 flex-1 rounded-[3px] border border-select bg-panel-2 px-1 py-px text-fg"
+                label="Nome da página"
+                value="Página 1"
+                onCommit={adopt}
+                onDone={() => setEditing(null)}
+              />
+            ) : (
+              <button
+                type="button"
+                className="min-w-0 flex-1 cursor-default truncate border-0 bg-transparent p-0 text-left"
+                title="Duplo clique ou F2 para renomear"
+                onKeyDown={(e) => {
+                  if (e.key !== "F2") return;
+                  e.preventDefault();
+                  setEditing(placeholder);
+                }}
+              >
+                Página 1
+              </button>
+            )}
           </li>
         )}
         {pages.map((p) => (
