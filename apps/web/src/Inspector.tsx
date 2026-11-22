@@ -17,7 +17,9 @@ import {
   type PageNode,
   type SceneNode,
 } from "@paprika/core";
+import { Bot } from "lucide-react";
 import type { Activity } from "./useDocument";
+import { FontPicker } from "./FontPicker";
 import { ColorField, Field, ModeField, SelectField, num, size } from "./inspector/fields";
 import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
@@ -53,7 +55,7 @@ interface Props {
   node: Node | null;
   selected: string[];
   apply(ops: Op[], label?: string): void;
-  activity: ActivityEntry[];
+  activity: Activity[];
   onSelect(id: string): void;
   onSelectMany(ids: string[]): void;
   onError(message: string): void;
@@ -101,7 +103,7 @@ function ArrangeSection({ ids, apply }: { ids: string[]; apply: Props["apply"] }
     );
   return (
     <InspectorSection id="arrange" title="Ordem" defaultOpen>
-      <div className={ui.actions} data-testid="arrange-actions">
+      <div className={actions} data-testid="arrange-actions">
         <button type="button" data-testid="arrange-front" title="Trazer para frente (Ctrl+Page Up)" onClick={() => run("front")}>
           Trazer para frente
         </button>
@@ -200,7 +202,7 @@ export function Inspector(props: Props) {
             <Field label="Altura linha" type="number" value={node.lineHeight} min={0} onCommit={setNum("lineHeight")} />
             <SelectField label="Alinhamento" value={node.textAlign} onChange={(v) => set({ textAlign: v })} options={ALIGN_OPTS} />
           </div>
-          <Field label="Fonte" value={node.fontFamily} onCommit={(v) => set({ fontFamily: v })} />
+          <FontPicker doc={doc} value={node.fontFamily} onCommit={(v) => set({ fontFamily: v })} />
         </InspectorSection>
       )}
 
@@ -600,7 +602,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
   );
 }
 
-function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: ActivityEntry[]; onSelect(id: string): void }) {
+function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: Activity[]; onSelect(id: string): void }) {
   const [newToken, setNewToken] = useState("");
   const [newModeToken, setNewModeToken] = useState("");
   const issues = lintDocument(doc).filter((i) => i.severity !== "info");

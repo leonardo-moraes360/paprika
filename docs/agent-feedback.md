@@ -502,3 +502,14 @@ Task: draw the inspector **Ordem** section and the Z-order shortcut map (light a
 | 110 | Draw on `Paprika - UI` without `open_workspace` | The workspace was already active (`list_workspaces`), so the sheet landed without switching; if another ticket had left a different active doc, the only options would still be asking the human or a second server (same as #92) | Optional `workspaceId` on document tools | P2 |
 - `lint_design` on the four frames: 0 errors; `small-text` warnings are the 11 px section/chip labels matching the app.
 - Shortcut map chosen and documented in `docs/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.
+
+## 2026-11-22: system fonts combobox (PAP-B-047, design first)
+
+Task: draw the closed and open FontPicker states (light and dark) on `Interfaces`, then replace the free-text `fontFamily` field on text nodes with a shadcn combobox. Four fixed-height frames; PNGs under `docs/assets/boards/PAP-B-047/`; boards export refreshed.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 112 | Screenshots as files | Same as #108: `render_screenshot` returns base64 only; `scripts/draw-pap-b-047.mjs` decoded into `docs/assets/boards/PAP-B-047/` | Optional `path` on `render_screenshot` | P2 |
+| 113 | Free band on a crowded Interfaces page | Outline depth 1 bottoms out near y≈13580 (A-004 / B-032); this ticket used y=13800 | `place: "free"` on `create_nodes` (same as #103/#109/#111) | P3 |
+- Local Font Access is gated behind an explicit button — opening the popover never calls `queryLocalFonts`.
+- `cmdk` 1.1.1 pinned for the Command primitive (ADR 0005 dependency list).

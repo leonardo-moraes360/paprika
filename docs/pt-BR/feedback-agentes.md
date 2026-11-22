@@ -505,3 +505,14 @@ Tarefa: desenhar a seção **Ordem** do inspector e o mapa de atalhos de ordem Z
 | 110 | Desenhar em `Paprika - UI` sem `open_workspace` | O workspace já estava ativo (`list_workspaces`), então a prancha entrou sem trocar; se outro ticket tivesse deixado outro doc ativo, as opções ainda seriam pedir ao humano ou um segundo servidor (igual ao #92) | `workspaceId` opcional nas ferramentas de documento | P2 |
 - `lint_design` nos quatro frames: 0 erros; avisos `small-text` são os rótulos de 11 px da seção/chip, iguais ao app.
 - Mapa de atalhos escolhido e documentado em `docs/pt-BR/canvas.md`: `Page Up`/`Page Down` = avançar/recuar, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd no macOS) = frente/fundo.
+
+## 2026-11-22: combobox de fontes do sistema (PAP-B-047, design first)
+
+Tarefa: desenhar os estados fechado e aberto do FontPicker (claro e escuro) em `Interfaces`, depois trocar o `fontFamily` em texto livre nos nós de texto por um combobox shadcn. Quatro frames de altura fixa; PNGs em `docs/assets/boards/PAP-B-047/`; export dos boards atualizado.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 112 | Screenshots como arquivos | Igual ao #108: `render_screenshot` devolve só base64; `scripts/draw-pap-b-047.mjs` decodificou em `docs/assets/boards/PAP-B-047/` | `path` opcional em `render_screenshot` | P2 |
+| 113 | Faixa livre numa página Interfaces cheia | O outline depth 1 termina perto de y≈13580 (A-004 / B-032); este ticket usou y=13800 | `place: "free"` em `create_nodes` (igual a #103/#109/#111) | P3 |
+- Local Font Access fica atrás de um botão explícito — abrir o popover nunca chama `queryLocalFonts`.
+- `cmdk` 1.1.1 fixado para o primitivo Command (lista de dependências do ADR 0005).

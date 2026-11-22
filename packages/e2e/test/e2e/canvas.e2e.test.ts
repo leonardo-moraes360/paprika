@@ -284,6 +284,33 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => picker.count()).toBe(0);
   });
 
+  it("inspector: FontPicker troca a família e aceita fonte digitada", async () => {
+    await page.locator('[data-layer-id="8succ2i53s"]').click();
+    const textSection = page.getByTestId("inspector-section-text");
+    const textTrigger = textSection.getByRole("button", { name: "Texto" });
+    if ((await textTrigger.getAttribute("aria-expanded")) !== "true") await textTrigger.click();
+
+    const trigger = page.getByTestId("font-picker");
+    await expect.poll(() => trigger.count()).toBe(1);
+    await trigger.click();
+    const list = page.getByTestId("font-picker-list");
+    await expect.poll(() => list.count()).toBe(1);
+    await page.getByTestId("font-option-Georgia").click();
+    await expect.poll(async () => (await doc()).nodes["8succ2i53s"]?.fontFamily).toBe("Georgia, serif");
+    await expect.poll(() => trigger.innerText()).toMatch(/Georgia/);
+
+    await trigger.click();
+    const search = page.getByPlaceholder("Buscar fonte…");
+    await search.fill("Comic Sans MS");
+    await page.getByTestId("font-picker-custom").click();
+    await expect.poll(async () => (await doc()).nodes["8succ2i53s"]?.fontFamily).toBe("Comic Sans MS");
+
+    await trigger.click();
+    await expect.poll(() => page.getByTestId("font-picker-system").count()).toBe(1);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => list.count()).toBe(0);
+  });
+
   it("ferramenta de retângulo desenha dentro do frame sob o cursor", async () => {
     await page.keyboard.press("Escape");
     const before = Object.keys((await doc()).nodes).length;
