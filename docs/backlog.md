@@ -220,7 +220,7 @@ Not from SonarCloud: simplifications that `gopls` suggests in the editor (screen
 
 | Rule | Impact | Where | Fix | Status | Pri. |
 |---|---|---|---|---|---|
-| gopls `modernize` hints, e.g. `errorsastype` ("errors.As can be simplified using AsType[usageError]") | Maintainability | `server-go`: 6 `errors.As` calls (`cmd/paprika/main.go`, `internal/server/http.go`, `internal/server/mcp.go`, `internal/core/ops.go`) plus whatever else the analyzer flags | Run `modernize -fix ./...` (golang.org/x/tools) across `server-go` and review the diff (`go.mod` is already `go 1.26.0`, which `errors.AsType` needs). Then enable the `modernize` linter in `server-go/.golangci.yml` so CI (`go-lint`, golangci-lint v2.15.0) keeps it clean. Keep math rewrites out, like the `-QF*` exclusion, to keep parity with the TypeScript core. Requested 2026-11-22. Not in a batch yet. | ⬜ | TBD |
+| gopls `modernize` hints, e.g. `errorsastype` ("errors.As can be simplified using AsType[usageError]") | Maintainability | `server-go`: 6 `errors.As` calls (`cmd/paprika/main.go`, `internal/server/http.go`, `internal/server/mcp.go`, `internal/core/ops.go`) plus whatever else the analyzer flags | Run `modernize -fix ./...` (golang.org/x/tools) across `server-go` and review the diff (`go.mod` is already `go 1.26.0`, which `errors.AsType` needs). Then enable the `modernize` linter in `server-go/.golangci.yml` so CI (`go-lint`, golangci-lint v2.15.0) keeps it clean. Keep math rewrites out, like the `-QF*` exclusion, to keep parity with the TypeScript core. Requested 2026-11-22. Not in a batch yet. | ✅ | — |
 
 ## O. Diagrams
 

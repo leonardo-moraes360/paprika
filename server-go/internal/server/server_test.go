@@ -572,7 +572,7 @@ func TestPresence(t *testing.T) {
 
 	now := time.Unix(1000, 0)
 	h := NewPresenceHub(func() time.Time { return now })
-	for i := 0; i < 70; i++ {
+	for i := range 70 {
 		h.Report("k"+strconv.Itoa(i), "agent:x", "get_nodes", nil)
 	}
 	h.Report("k6", "agent:x", "get_nodes", nil) // moves k6 to the end
