@@ -22,8 +22,9 @@ use crate::{
     crdt::Change,
     envelope::{Cert, Envelope},
     keys,
-    proto::{self, ALPN_SYNC},
+    proto::{self, ALPN_JOIN, ALPN_SYNC},
     store::{Accepted, DocStore},
+    team::{InviteLink, Invites, TeamFile},
 };
 
 /// Messages between peers on the sync stream.
@@ -37,11 +38,33 @@ pub enum PeerMsg {
         /// workspace → author → highest sequence number held.
         #[serde(default)]
         have: HashMap<String, HashMap<String, u64>>,
+        #[serde(default)]
+        team: Option<TeamFile>,
     },
     /// Signed envelopes the other side lacks, or a new one live.
     Envs { envs: Vec<Envelope> },
     /// Ephemeral presence (agents' cursors, the person online); never stored.
     Presence { data: Value },
+    /// The team file changed (someone joined).
+    Team { team: TeamFile },
+}
+
+/// Invite redemption on ALPN `paprika/join/1`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "t", rename_all = "snake_case")]
+pub enum JoinMsg {
+    Request {
+        team: String,
+        secret: String,
+        name: String,
+    },
+    Ok {
+        team: TeamFile,
+        peers: Vec<EndpointAddr>,
+    },
+    Error {
+        reason: String,
+    },
 }
 
 /// Events for the Go server (stdout).
@@ -68,7 +91,11 @@ struct Peer {
 #[derive(Default)]
 struct State {
     peers: HashMap<EndpointId, Peer>,
+    /// Keys allowed to sync: the team's members plus peers added by address (`peer.add`).
     allowed: HashSet<EndpointId>,
+    static_allowed: HashSet<EndpointId>,
+    team: Option<TeamFile>,
+    invites: Option<Invites>,
     addrs: HashMap<EndpointId, EndpointAddr>,
     names: HashMap<EndpointId, String>,
     presence: HashMap<EndpointId, Value>,
@@ -80,6 +107,58 @@ struct State {
 impl State {
     fn docs(&mut self) -> &mut DocStore {
         self.docs.as_mut().expect("doc store opened at start")
+    }
+
+    fn refresh_allowed(&mut self, me: &EndpointId) {
+        let mut allowed = self.static_allowed.clone();
+        if let Some(t) = &self.team {
+            for (k, e) in t.members() {
+                self.names.entry(k).or_insert(e.name);
+                allowed.insert(k);
+            }
+        }
+        allowed.remove(me);
+        self.allowed = allowed;
+    }
+}
+
+#[derive(Clone)]
+struct JoinHandler(std::sync::Weak<Inner>);
+
+impl std::fmt::Debug for JoinHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("JoinHandler")
+    }
+}
+
+impl ProtocolHandler for JoinHandler {
+    /// Anyone may knock with an invite; only this protocol, never sync, is open to strangers.
+    async fn accept(&self, conn: Connection) -> Result<(), AcceptError> {
+        let Some(inner) = self.0.upgrade() else {
+            return Ok(());
+        };
+        let node = Node(inner);
+        let (mut send, mut recv) = conn.accept_bi().await?;
+        let reply = match proto::read_frame::<JoinMsg>(&mut recv).await {
+            Ok(Some(JoinMsg::Request { team, secret, name })) => {
+                match node.redeem(conn.remote_id(), &team, &secret, &name) {
+                    Ok(msg) => msg,
+                    Err(e) => {
+                        node.event(json!({"t": "rejected", "peer": conn.remote_id().to_string(), "reason": format!("invite: {e:#}")}));
+                        JoinMsg::Error {
+                            reason: format!("{e:#}"),
+                        }
+                    }
+                }
+            }
+            _ => JoinMsg::Error {
+                reason: "expected a join request".into(),
+            },
+        };
+        let _ = proto::write_frame(&mut send, &reply).await;
+        let _ = send.finish();
+        conn.closed().await;
+        Ok(())
     }
 }
 
@@ -128,11 +207,18 @@ impl Node {
     pub async fn start(cfg: Config, out: Out) -> Result<Self> {
         // Disk work off the async runtime.
         let data = cfg.data.clone();
-        let (key, docs) = tokio::task::spawn_blocking(move || -> Result<(SecretKey, DocStore)> {
-            std::fs::create_dir_all(&data)
-                .with_context(|| format!("creating {}", data.display()))?;
-            Ok((crate::keys::load_or_create(&data)?, DocStore::open(&data)?))
-        })
+        let (key, docs, team, invites) = tokio::task::spawn_blocking(
+            move || -> Result<(SecretKey, DocStore, Option<TeamFile>, Invites)> {
+                std::fs::create_dir_all(&data)
+                    .with_context(|| format!("creating {}", data.display()))?;
+                Ok((
+                    crate::keys::load_or_create(&data)?,
+                    DocStore::open(&data)?,
+                    TeamFile::load(&data)?,
+                    Invites::load(&data),
+                ))
+            },
+        )
         .await??;
         let mut b = if cfg.relay {
             Endpoint::builder(presets::N0)
@@ -155,6 +241,7 @@ impl Node {
         let inner = Arc::new_cyclic(|weak: &std::sync::Weak<Inner>| {
             let router = Router::builder(endpoint)
                 .accept(ALPN_SYNC, SyncHandler(weak.clone()))
+                .accept(ALPN_JOIN, JoinHandler(weak.clone()))
                 .spawn();
             Inner {
                 cfg,
@@ -162,12 +249,16 @@ impl Node {
                 router,
                 state: Mutex::new(State {
                     docs: Some(docs),
+                    team,
+                    invites: Some(invites),
                     ..State::default()
                 }),
                 out,
             }
         });
         let node = Node(inner);
+        let me = node.id();
+        node.0.state.lock().unwrap().refresh_allowed(&me);
         node.spawn_redial();
         node.spawn_status();
         Ok(node)
@@ -198,7 +289,9 @@ impl Node {
         if addr.id == self.id() {
             return;
         }
-        st.allowed.insert(addr.id);
+        st.static_allowed.insert(addr.id);
+        let me = self.id();
+        st.refresh_allowed(&me);
         let entry = st
             .addrs
             .entry(addr.id)
@@ -322,7 +415,142 @@ impl Node {
             addr: self.addr(),
             peers,
             have,
+            team: st.team.clone(),
         }
+    }
+
+    /// Merges a team file from a peer of the same team; saves and spreads it when it grew.
+    fn merge_team(&self, from: Option<EndpointId>, other: TeamFile) {
+        let me = self.id();
+        let grew = {
+            let mut st = self.0.state.lock().unwrap();
+            let Some(team) = st.team.as_mut() else { return };
+            match team.merge(&other) {
+                Ok(true) => {
+                    let _ = team.save(&self.0.cfg.data);
+                    st.refresh_allowed(&me);
+                    true
+                }
+                _ => false,
+            }
+        };
+        if grew {
+            let team = self.0.state.lock().unwrap().team.clone();
+            if let Some(team) = team {
+                self.broadcast(PeerMsg::Team { team }, from);
+            }
+        }
+    }
+
+    /// Inviter side: spends the invite and signs the joiner's member entry.
+    fn redeem(
+        &self,
+        joiner: EndpointId,
+        team_id: &str,
+        secret_b64: &str,
+        name: &str,
+    ) -> Result<JoinMsg> {
+        use base64::Engine;
+        let secret = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(secret_b64)
+            .context("bad secret")?;
+        let me = self.id();
+        let (team, peers) = {
+            let mut st = self.0.state.lock().unwrap();
+            let Some(t) = st.team.as_ref() else {
+                bail!("this instance is not in a team")
+            };
+            if t.id != team_id {
+                bail!("invite for another team");
+            }
+            st.invites.as_mut().unwrap().redeem(&secret)?;
+            let _ = st.invites.as_ref().unwrap().save(&self.0.cfg.data);
+            let name = if name.trim().is_empty() {
+                joiner.fmt_short().to_string()
+            } else {
+                name.trim().chars().take(80).collect()
+            };
+            st.team.as_mut().unwrap().add(&self.0.key, &joiner, &name)?;
+            st.team.as_ref().unwrap().save(&self.0.cfg.data)?;
+            st.names.insert(joiner, name);
+            st.refresh_allowed(&me);
+            let mut peers: Vec<EndpointAddr> = st
+                .allowed
+                .iter()
+                .filter(|id| **id != joiner)
+                .filter_map(|id| st.addrs.get(id).cloned())
+                .collect();
+            peers.push(self.addr());
+            (st.team.clone().unwrap(), peers)
+        };
+        self.broadcast(PeerMsg::Team { team: team.clone() }, None);
+        self.event(json!({"t": "joined", "peer": joiner.to_string(), "name": name}));
+        Ok(JoinMsg::Ok { team, peers })
+    }
+
+    /// Joiner side: dials the inviter on the join ALPN with the link's secret.
+    async fn join(&self, link: &str) -> Result<Value> {
+        use base64::Engine;
+        let l = InviteLink::parse(link)?;
+        if l.expires < crate::team::now() {
+            bail!("invite expired");
+        }
+        let current = self.0.state.lock().unwrap().team.clone();
+        if let Some(t) = current
+            && t.id != l.team
+        {
+            bail!("this instance is already in the team {}", t.name);
+        }
+        let conn = tokio::time::timeout(
+            Duration::from_secs(30),
+            self.endpoint().connect(l.addr.clone(), ALPN_JOIN),
+        )
+        .await
+        .map_err(|_| anyhow!("could not reach the inviter in 30s"))?
+        .map_err(|e| anyhow!("connecting to the inviter: {e}"))?;
+        let (mut send, mut recv) = conn.open_bi().await?;
+        let secret = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&l.secret);
+        proto::write_frame(
+            &mut send,
+            &JoinMsg::Request {
+                team: l.team.clone(),
+                secret,
+                name: self.0.cfg.name.clone(),
+            },
+        )
+        .await?;
+        let reply = proto::read_frame::<JoinMsg>(&mut recv).await?;
+        conn.close(0u32.into(), b"done");
+        let (team, peers) = match reply {
+            Some(JoinMsg::Ok { team, peers }) => (team, peers),
+            Some(JoinMsg::Error { reason }) => bail!("{reason}"),
+            _ => bail!("the inviter did not answer"),
+        };
+        if team.id != l.team || !team.is_member(&self.id()) {
+            bail!("the inviter answered with a team that does not include this instance");
+        }
+        let me = self.id();
+        {
+            let mut st = self.0.state.lock().unwrap();
+            team.save(&self.0.cfg.data)?;
+            st.team = Some(team.clone());
+            st.refresh_allowed(&me);
+            for a in peers {
+                if a.id != me {
+                    st.addrs
+                        .entry(a.id)
+                        .or_insert_with(|| EndpointAddr::new(a.id))
+                        .addrs
+                        .extend(a.addrs);
+                }
+            }
+        }
+        let inviter = l.addr.id;
+        let node = self.clone();
+        tokio::spawn(async move {
+            let _ = tokio::time::timeout(Duration::from_secs(10), node.connect(inviter)).await;
+        });
+        Ok(json!({"team": team.id, "name": team.name}))
     }
 
     /// Extra messages right after the hello (extended by the sync layer).
@@ -342,7 +570,11 @@ impl Node {
                 addr,
                 peers,
                 have,
+                team,
             } => {
+                if let Some(team) = team {
+                    self.merge_team(Some(from), team);
+                }
                 let mut st = self.0.state.lock().unwrap();
                 // Catch the peer up: every envelope it does not have yet, as signed by its author.
                 let missing = st.docs().missing_for(&have);
@@ -372,6 +604,7 @@ impl Node {
                 }
             }
             PeerMsg::Envs { envs } => self.on_envs(from, envs),
+            PeerMsg::Team { team } => self.merge_team(Some(from), team),
             PeerMsg::Presence { data } => {
                 let name = {
                     let mut st = self.0.state.lock().unwrap();
@@ -551,8 +784,37 @@ impl Node {
             .map(|d| d.docs.iter().map(|(id, doc)| json!({"id": id, "envelopes": doc.envs.len(), "authors": doc.have.len()})).collect())
             .unwrap_or_default();
         docs.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
+        let team = st.team.as_ref().map(|t| {
+            let valid = t.members();
+            let mut agents: HashMap<String, Vec<String>> = HashMap::new();
+            if let Some(d) = &st.docs {
+                for doc in d.docs.values() {
+                    for env in &doc.envs {
+                        if let Some(c) = &env.cert {
+                            let list = agents.entry(c.member.clone()).or_default();
+                            if !list.contains(&c.name) {
+                                list.push(c.name.clone());
+                            }
+                        }
+                    }
+                }
+            }
+            let mut members: Vec<Value> = valid
+                .iter()
+                .map(|(k, e)| {
+                    let mut a = agents.get(&e.key).cloned().unwrap_or_default();
+                    a.sort();
+                    json!({"key": e.key, "name": e.name, "fingerprint": keys::fingerprint(k), "addedBy": e.added_by,
+                           "addedByName": keys::parse_public(&e.added_by).ok().and_then(|b| valid.get(&b)).map(|b| b.name.clone()),
+                           "at": e.at, "founder": e.key == t.founder, "you": *k == self.id(), "agents": a})
+                })
+                .collect();
+            members.sort_by_key(|m| m["at"].as_u64());
+            let invites: Vec<Value> = st.invites.as_ref().map(|i| i.active().iter().map(|i| json!({"expires": i.expires})).collect()).unwrap_or_default();
+            json!({"id": t.id, "name": t.name, "members": members, "invites": invites})
+        });
         json!({"id": self.id().to_string(), "name": self.0.cfg.name, "fingerprint": crate::keys::fingerprint(&self.id()),
-               "peers": peers, "docs": docs, "rejected": st.rejected.len(), "lastRejected": st.rejected.last()})
+               "team": team, "peers": peers, "docs": docs, "rejected": st.rejected.len(), "lastRejected": st.rejected.last()})
     }
 
     /// Handles one command from the Go server.
@@ -580,6 +842,62 @@ impl Node {
                 self.broadcast(PeerMsg::Presence { data }, None);
                 Ok(Value::Null)
             }
+            "team.create" => {
+                let name = cmd["name"]
+                    .as_str()
+                    .map(str::trim)
+                    .filter(|n| !n.is_empty())
+                    .context("team name")?;
+                let me = self.id();
+                let mut st = self.0.state.lock().unwrap();
+                if let Some(t) = &st.team {
+                    bail!("this instance is already in the team {}", t.name);
+                }
+                let member = if self.0.cfg.name.is_empty() {
+                    "eu".to_string()
+                } else {
+                    self.0.cfg.name.clone()
+                };
+                let team = TeamFile::create(&self.0.key, name, &member);
+                team.save(&self.0.cfg.data)?;
+                st.team = Some(team.clone());
+                st.refresh_allowed(&me);
+                Ok(json!({"team": team.id, "name": team.name}))
+            }
+            "invite.create" => {
+                let ttl = cmd["ttlSecs"].as_u64().unwrap_or(3600);
+                let mut st = self.0.state.lock().unwrap();
+                let Some(team) = st.team.clone() else {
+                    bail!("create or join a team first")
+                };
+                let (secret, expires) = st.invites.as_mut().unwrap().create(ttl);
+                st.invites.as_ref().unwrap().save(&self.0.cfg.data)?;
+                drop(st);
+                let link = InviteLink {
+                    team: team.id.clone(),
+                    name: team.name.clone(),
+                    addr: self.addr(),
+                    secret,
+                    expires,
+                };
+                Ok(
+                    json!({"link": link.encode(), "expiresAt": expires, "team": team.id, "fingerprint": team_fingerprint(&team.id)}),
+                )
+            }
+            "invite.revoke" => {
+                let mut st = self.0.state.lock().unwrap();
+                let n = st.invites.as_mut().unwrap().revoke_all();
+                st.invites.as_ref().unwrap().save(&self.0.cfg.data)?;
+                Ok(json!({"revoked": n}))
+            }
+            "invite.inspect" => {
+                let l = InviteLink::parse(cmd["link"].as_str().context("link")?)?;
+                Ok(
+                    json!({"team": l.team, "name": l.name, "inviter": l.addr.id.to_string(), "inviterFingerprint": keys::fingerprint(&l.addr.id),
+                          "fingerprint": team_fingerprint(&l.team), "expiresAt": l.expires, "expired": l.expires < crate::team::now()}),
+                )
+            }
+            "join" => self.join(cmd["link"].as_str().context("link")?).await,
             "share" => {
                 let doc = cmd["doc"].as_str().context("doc")?;
                 let (key, cert) = self.signer(cmd["author"].as_str().unwrap_or_default());
@@ -633,6 +951,17 @@ impl Node {
             _ => bail!("unknown command {t:?}"),
         }
     }
+}
+
+/// Short form of a team id to read aloud ("7F3A · 91C2 · E04A · 2B9E").
+pub fn team_fingerprint(id: &str) -> String {
+    let up = id.to_uppercase();
+    up.as_bytes()
+        .chunks(4)
+        .take(4)
+        .map(|c| String::from_utf8_lossy(c).to_string())
+        .collect::<Vec<_>>()
+        .join(" · ")
 }
 
 /// "direct" or "relay" by the selected path, and its round trip in ms.
