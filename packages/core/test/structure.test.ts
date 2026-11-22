@@ -151,7 +151,7 @@ describe("pages", () => {
     expect(pageRoots(doc, "p2")).toEqual([]);
     expect(addPageOps(doc).ops).toHaveLength(1);
     expect(outline(doc)).toBe(
-      ['page#p1 "Página 1"', '  frame#f "Tela" 400×300 @0,0 fill=#ffffff', "    rect#a 20×10 @40,50 fill=#ff0000", "    ellipse#b 30×30 @100,20 fill=#00ff00", '    text#c 100×20 @10,200 "fora" 16/400 color=#111111', 'page#p2 "Rascunhos"'].join("\n"),
+      ['page#p1 "Página 1"', '  frame#f "Tela" 400×300 @0,0 fill=#ffffff', "    rect#a 20×10 @40,50 fill=#ff0000", "    ellipse#b 30×30 @100,20 fill=#00ff00", '    text#c 100×20 @10,200 "fora" 16/400 color=#111111', 'page#p2 "Rascunhos"', "content: page=p1 x=0 y=0 w=400 h=300", "next: x=480 y=0"].join("\n"),
     );
   });
 
@@ -334,13 +334,13 @@ function diagramBoard(): Document {
 }
 
 describe("duplicate_nodes", () => {
-  it("copies a board with the whole subtree, new ids and the default offset", () => {
+  it("copies a board beside the original when offset is omitted", () => {
     const doc0 = themedBoard();
     const plan = duplicateOps(doc0, ["board"]);
     const { doc } = applyOps(doc0, plan.ops);
     const copy = doc.nodes[plan.copies[0]!] as NodeT & { children: string[] };
     expect(plan.copies).toHaveLength(1);
-    expect(copy).toMatchObject({ type: "frame", name: "Board", x: 40, y: 40, width: 320, height: 120, fill: "$bg" });
+    expect(copy).toMatchObject({ type: "frame", name: "Board", x: 400, y: 0, width: 320, height: 120, fill: "$bg" });
     expect(copy.children).toHaveLength(2);
     expect(copy.children).not.toContain("title");
     expect(Object.keys(plan.map).sort()).toEqual(["bar", "board", "title"]);
@@ -395,7 +395,7 @@ describe("duplicate_nodes", () => {
     const plan = duplicateOps(doc0, ["inst"], { scale: 2 });
     const { doc } = applyOps(doc0, plan.ops);
     const copy = doc.nodes[plan.copies[0]!]!;
-    expect(copy).toMatchObject({ instanceOf: "board", scale: 3, x: 540, y: 40, width: 960 });
+    expect(copy).toMatchObject({ instanceOf: "board", scale: 3, x: 1060, y: 0, width: 960 });
     expect(copy.component).toBeUndefined();
     expect(Object.keys(plan.map)).toEqual(["inst"]);
     expect(Object.values(doc.nodes).filter((n) => n.sourceId === "title")).toHaveLength(2);
@@ -441,7 +441,7 @@ describe("duplicate_nodes", () => {
     const out = applyOps(doc0, duplicateOps(doc0, ["a"], { parentId: null, offset: 0 }).ops).doc;
     expect(out.rootIds).toHaveLength(2);
     const into = duplicateOps(doc0, ["a"], { parentId: "f" });
-    expect(applyOps(doc0, into.ops).doc.nodes[into.copies[0]!]).toMatchObject({ parentId: "f", x: 80, y: 90 });
+    expect(applyOps(doc0, into.ops).doc.nodes[into.copies[0]!]).toMatchObject({ parentId: "f", x: 140, y: 50 });
   });
 
   it("refuses with an actionable error", () => {

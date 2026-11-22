@@ -286,8 +286,26 @@ func DuplicateOps(doc *Document, ids []string, args *jsonv.Object) (*DuplicatePl
 	offset, scale := DuplicateOffset, 1.0
 	parentGiven, parentID := false, any(nil)
 	var props *jsonv.Object
+	placeBeside := args == nil || (!args.Has("place") && !args.Has("offset"))
+	placed := false
+	var place any
+	if args != nil && args.Has("place") {
+		place, _ = args.Get("place")
+		if place == "none" {
+			placeBeside = false
+			if !args.Has("offset") {
+				offset = 0
+			}
+		} else {
+			placed = true
+			placeBeside = false
+			offset = 0
+		}
+	} else if placeBeside {
+		offset = 0
+	}
 	if args != nil {
-		if args.Has("offset") {
+		if args.Has("offset") && !placed {
 			offset = args.Num("offset")
 		}
 		if args.Has("scale") {
@@ -425,7 +443,13 @@ func DuplicateOps(doc *Document, ids []string, args *jsonv.Object) (*DuplicatePl
 		if !parentGiven {
 			pid, _ = src.Get("parentId")
 		}
-		plan.Ops = append(plan.Ops, jsonv.NewObject("op", "create", "parentId", pid, "node", node))
+		op := jsonv.NewObject("op", "create", "parentId", pid, "node", node)
+		if placed {
+			op.Set("place", place)
+		} else if placeBeside && src.Str("type") != "connector" {
+			op.Set("place", jsonv.NewObject("near", id, "side", "right"))
+		}
+		plan.Ops = append(plan.Ops, op)
 		plan.Copies = append(plan.Copies, node.Str("id"))
 	}
 	return plan, nil

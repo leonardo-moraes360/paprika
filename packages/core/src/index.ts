@@ -20,3 +20,4 @@ export * from "./htmlImport.js";
 export * from "./svgExport.js";
 export * from "./diagram.js";
 export * from "./boolean.js";
+export * from "./placement.js";

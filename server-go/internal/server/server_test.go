@@ -252,7 +252,7 @@ func TestMCPToolsAndErrors(t *testing.T) {
 		t.Fatalf("create: %q", out)
 	}
 	out, _ = callText(t, m, "find_nodes", obj("type", "rect"))
-	if out != "rect#a 100×100 @0,0\nrect#b 100×100 @0,0" {
+	if out != "rect#a 100×100 @0,0\nrect#b 100×100 @180,0" {
 		t.Fatalf("find: %q", out)
 	}
 	out, isErr = callText(t, m, "get_document_outline", obj("depth", 51.0))
@@ -361,7 +361,14 @@ func TestMCPGroupsAndPages(t *testing.T) {
 	if len(roots) != 2 || core.GetNode(s.Doc(), roots[0]).Str("name") != "Página 1" {
 		t.Fatalf("pages: %v", roots)
 	}
-	if out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect")})); !isErr || !strings.Contains(out, "has pages") {
+	out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect", "id", "loose")}))
+	if isErr {
+		t.Fatalf("place onto page: %q", out)
+	}
+	if p := core.GetNode(s.Doc(), "loose").Str("parentId"); p != roots[0] {
+		t.Fatalf("placed parent %q, want %q", p, roots[0])
+	}
+	if out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect", "x", 1.0, "y", 1.0)})); !isErr || !strings.Contains(out, "has pages") {
 		t.Fatalf("loose: %q", out)
 	}
 }

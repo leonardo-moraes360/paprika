@@ -244,8 +244,8 @@ describe("lint", () => {
 describe("consulta", () => {
   it("outline é compacto e respeita profundidade", () => {
     const { doc } = card();
-    expect(outline(doc, { depth: 0 })).toBe('frame#card "Card" 320×200 @0,0 fill=#ffffff column gap=8\n  … 2 filho(s)');
-    expect(outline(doc).split("\n")).toHaveLength(3);
+    expect(outline(doc, { depth: 0 })).toBe('frame#card "Card" 320×200 @0,0 fill=#ffffff column gap=8\n  … 2 filho(s)\ncontent: x=0 y=0 w=320 h=200\nnext: x=400 y=0');
+    expect(outline(doc).split("\n")).toHaveLength(5);
   });
 
   it("queryNodes filtra por tipo, nome e texto", () => {

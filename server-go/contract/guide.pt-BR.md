@@ -43,6 +43,8 @@ Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cor
 Modos de tema: set_tokens com mode ("dark", "compact"…) grava só os tokens que mudam; "mode" num frame ou página aplica o modo ao subtree (dá para pôr a mesma tela clara e escura lado a lado). export_code com cssVariables: true sai com var(--token) e uma regra por modo.
 "fill" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.
 
+Posicionamento: um frame novo de topo deixa x e y de fora (ou passa place:"free") e cai no espaço livre, à direita do conteúdo da página, no mesmo topo, respiro 80, quebrando para a linha de baixo depois de 2400px a partir da esquerda do conteúdo. place é "free" | "below" | "right" | {near, side: left|right|above|below} | "none" (x/y exatos). Escritas simultâneas não ocupam o mesmo lugar. get_document_outline e get_bounds sem ids devolvem a caixa do conteúdo da página e o próximo lugar livre. Desenhe overlays (modais, menus, toasts) por último, ou traga-os para a frente com index:"front". Uma escrita avisa quando um nó novo de topo sobrepõe outro e diz o lugar livre mais próximo.
+
 Fluxo recomendado:
 1. get_document_outline para se orientar (barato).
 2. set_tokens com a paleta e a escala tipográfica.
