@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -298,8 +299,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		}
 		body, present, err := readBody(c.Request)
 		if err != nil {
-			var he *httpError
-			if errors.As(err, &he) {
+			if he, ok := errors.AsType[*httpError](err); ok {
 				send(c.Writer, he.status, errBody(he.msg), "")
 				return
 			}
@@ -348,8 +348,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		case http.MethodPost:
 			body, present, err := readBody(c.Request)
 			if err != nil {
-				var he *httpError
-				if errors.As(err, &he) {
+				if he, ok := errors.AsType[*httpError](err); ok {
 					send(c.Writer, he.status, errBody(he.msg), "")
 					return
 				}
@@ -380,8 +379,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		case http.MethodPatch:
 			body, present, err := readBody(c.Request)
 			if err != nil {
-				var he *httpError
-				if errors.As(err, &he) {
+				if he, ok := errors.AsType[*httpError](err); ok {
 					send(c.Writer, he.status, errBody(he.msg), "")
 					return
 				}
@@ -621,8 +619,8 @@ func broadcastWorkspaceOps(store *Store, hub *wsHub) func() {
 				continue
 			}
 			current := make(map[string]bool, len(entries))
-			for i := len(entries) - 1; i >= 0; i-- {
-				op := entries[i]
+			for _, op := range slices.Backward(entries) {
+
 				k := key(op)
 				current[k] = true
 				if seen[k] {

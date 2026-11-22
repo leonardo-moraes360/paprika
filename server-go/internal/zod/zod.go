@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -311,12 +312,7 @@ type EnumSchema struct{ Values []string }
 func Enum(values ...string) *EnumSchema { return &EnumSchema{values} }
 
 func (s *EnumSchema) Has(v string) bool {
-	for _, x := range s.Values {
-		if x == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s.Values, v)
 }
 
 func (s *EnumSchema) parse(v any, present bool, path []any, c *ctx) (any, bool) {
@@ -450,7 +446,7 @@ func (t tuple) parse(v any, present bool, path []any, c *ctx) (any, bool) {
 			"code", "too_big", "maximum", float64(n), "inclusive", true, "origin", "array")
 	}
 	out := make([]any, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		o, _ := t.items[i].parse(arr[i], true, push(path, i), c)
 		out[i] = o
 	}

@@ -19,7 +19,7 @@ func board(w, h int, seed int) *image.RGBA {
 		for x := 40; x < w-40; x += 300 {
 			rect(img, x, y, x+260, y+120, color.RGBA{0xff, 0xff, 0xff, 0xff})
 			rect(img, x, y, x+260, y+1, color.RGBA{0x2a, 0x9d, 0x8f, 0xff})
-			for t := 0; t < 5; t++ { // thin bars read as text and give the comparator edges
+			for t := range 5 { // thin bars read as text and give the comparator edges
 				rect(img, x+12, y+20+t*16, x+12+120+((x+y+t+seed)%100), y+28+t*16, color.RGBA{0x1f, 0x24, 0x28, 0xff})
 			}
 		}

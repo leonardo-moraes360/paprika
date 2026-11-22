@@ -44,7 +44,7 @@ func TokenValue(doc *Document, name, mode string) (any, bool) {
 // given (tokens may chain, up to 8 levels).
 func ResolveValue(doc *Document, v any, mode string) any {
 	cur := v
-	for depth := 0; depth < 8; depth++ {
+	for range 8 {
 		s, ok := cur.(string)
 		if !ok || !strings.HasPrefix(s, "$") {
 			break
@@ -121,13 +121,14 @@ func tokenDecls(doc *Document, tokens *jsonv.Object) string {
 
 // TokenStylesheet is the tokens as CSS variables: base values on :root and one rule per mode.
 func TokenStylesheet(doc *Document) string {
-	out := ":root{" + tokenDecls(doc, Tokens(doc)) + "}"
+	var out strings.Builder
+	out.WriteString(":root{" + tokenDecls(doc, Tokens(doc)) + "}")
 	if modes := Modes(doc); modes != nil {
 		for _, k := range modes.Keys() {
-			out += `[data-paprika-mode="` + k + `"]{` + tokenDecls(doc, modes.Obj(k)) + "}"
+			out.WriteString(`[data-paprika-mode="` + k + `"]{` + tokenDecls(doc, modes.Obj(k)) + "}")
 		}
 	}
-	return out
+	return out.String()
 }
 
 // jsString is String(v) for JSON scalars.
