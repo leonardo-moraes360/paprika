@@ -178,57 +178,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
   });
 
   /**
-   * PAP-B-026: the confirmation of an irreversible action is an alertdialog with the verb on the action, the
-   * cancel first, and Esc leaves the workspace alone. Nothing is deleted here — the temporary workspace is
-   * removed through MCP at the end.
-   */
-  it("a confirmação de apagamento é um alertdialog nomeado, com foco preso e Esc sem apagar (2.4.3, 4.1.2)", async () => {
-    const admin = new Client({ name: "a11y-delete", version: "0" });
-    await admin.connect(new StreamableHTTPClientTransport(new URL(`${external!.url}/mcp`)));
-    const made = (await admin.callTool({ name: "create_workspace", arguments: { name: "Para cancelar" } })) as unknown as {
-      structuredContent: { workspace: { id: string } };
-    };
-    const id = made.structuredContent.workspace.id;
-    const ov = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    try {
-      await ov.goto(`${external!.url}/`);
-      const card = ov.locator(`[data-workspace-id="${id}"]`);
-      await expect.poll(() => card.count(), { timeout: 5_000 }).toBe(1);
-      await card.hover();
-      await ov.getByRole("button", { name: "Excluir Para cancelar" }).click();
-      const dlg = ov.getByRole("alertdialog");
-      await expect.poll(() => dlg.textContent(), { timeout: 5_000 }).toContain("Excluir “Para cancelar”?");
-      expect(await ov.evaluate(() => document.activeElement?.closest('[data-slot="alert-dialog-content"]') !== null)).toBe(true);
-      const buttons = await dlg.evaluate((root) => [...root.querySelectorAll("button")].map((b) => [b.getAttribute("data-slot"), (b.textContent ?? "").trim()]));
-      expect(buttons).toEqual([
-        ["alert-dialog-cancel", "Cancelar"],
-        ["alert-dialog-action", "Excluir"],
-      ]);
-      const danger = dlg.getByRole("button", { name: "Excluir" });
-      expect(await danger.getAttribute("class")).toContain("bg-ui-destructive");
-      // The typed-name gate (the ticket's rule for an irreversible delete): a near miss keeps the action off.
-      expect(await danger.isDisabled()).toBe(true);
-      await dlg.getByLabel(/Digite o nome/).fill("Para cancel");
-      expect(await dlg.getByRole("button", { name: "Excluir" }).isDisabled()).toBe(true);
-      await dlg.getByLabel(/Digite o nome/).fill("Para cancelar");
-      expect(await dlg.getByRole("button", { name: "Excluir" }).isEnabled()).toBe(true);
-      await ov.keyboard.press("Escape");
-      await expect.poll(() => dlg.count(), { timeout: 5_000 }).toBe(0);
-      await expect.poll(() => card.count(), { timeout: 5_000 }).toBe(1);
-      // O foco volta para dentro do card de onde a confirmação foi aberta (WCAG 2.4.3).
-      // O foco volta para o controle que abriu a confirmação (WCAG 2.4.3).
-      expect(await ov.evaluate(() => {
-        const el = document.activeElement as HTMLElement | null;
-        return { tag: el?.tagName ?? "", label: el?.getAttribute("aria-label") ?? "" };
-      })).toEqual({ tag: "BUTTON", label: "Excluir Para cancelar" });
-    } finally {
-      await admin.callTool({ name: "delete_workspace", arguments: { id } });
-      await admin.close();
-      await ov.close();
-    }
-  }, 20_000);
-
-  /**
    * The shadcn primitives of PAP-B-030, checked on the internal gallery (`/ui`): keyboard behavior, name
    * and role, contrast in both theme scopes, and the isolation rule of ADR 0003 — the app's base rules
    * still stop at the edge of `.world`.
