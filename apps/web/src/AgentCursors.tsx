@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { Document } from "@paprika/core";
+import { useLive } from "./useDocument";
 import { AGENT_IDLE_MS, AGENT_TTL_MS, agentPage, toolVerb, type AgentPresence } from "./agents";
 import { cx } from "./ui";
 
@@ -24,7 +25,6 @@ export type Box = { x: number; y: number; w: number; h: number };
 
 interface Props {
   doc: Document;
-  agents: AgentPresence[];
   view: View;
   viewportRef: RefObject<HTMLDivElement | null>;
   /** Muda quando o layout muda sem o documento mudar (arraste em andamento). */
@@ -41,7 +41,9 @@ interface Props {
  * que o agente agiu por último, com o nome dele e o que está fazendo. Só desenha: nada aqui é
  * clicável (pointer-events: none) e nada vai para o documento.
  */
-export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId, onOpenPage, onFocus }: Props) {
+export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpenPage, onFocus }: Props) {
+  // Presence is read here, not passed down: a presence message re-renders the cursors only.
+  const agents = useLive((s) => s.agents);
   const viewRef = useRef(view);
   viewRef.current = view;
   const [boxes, setBoxes] = useState<Record<string, Box[]>>({});

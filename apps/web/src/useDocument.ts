@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import type { Document, Op } from "@paprika/core";
 import { applyPresence, type AgentPresence, type PresenceMsg } from "./agents";
 import type { TeamStatus } from "./Team";
@@ -46,9 +46,15 @@ function changedIds(prev: Document | null, next: Document): string[] {
   return out;
 }
 
-/** Conexão ao vivo com o servidor: recebe o documento a cada mudança e envia operações do humano. */
-export function useDocument() {
-  const [state, setState] = useState<DocState>({
+type Listener = () => void;
+
+/**
+ * Estado ao vivo (documento, presença, atividade, erro) fora do React: o WebSocket escreve aqui e
+ * cada componente assina só a fatia que usa (`useLive`), então uma mensagem de presença de agente
+ * re-renderiza os cursores, não o editor inteiro.
+ */
+export class LiveStore {
+  private state: DocState = {
     doc: null,
     version: 0,
     connected: false,
@@ -59,29 +65,52 @@ export function useDocument() {
     agentTouched: new Set(),
     agents: [],
     team: undefined,
-  });
-  const wsRef = useRef<WebSocket | null>(null);
-  const seq = useRef(0);
+  };
+  private listeners = new Set<Listener>();
+  private ws: WebSocket | null = null;
+  private seq = 0;
 
-  useEffect(() => {
+  getState = (): DocState => this.state;
+
+  subscribe = (l: Listener): (() => void) => {
+    this.listeners.add(l);
+    return () => this.listeners.delete(l);
+  };
+
+  /** Troca o estado (mantém as referências das fatias que não mudaram) e avisa os assinantes. */
+  set = (update: (s: DocState) => DocState): void => {
+    const next = update(this.state);
+    if (next === this.state) return;
+    this.state = next;
+    for (const l of this.listeners) l();
+  };
+
+  /** Abre o WebSocket (reconecta a cada 1 s) e devolve a função que fecha. */
+  connect = (): (() => void) => {
     let closed = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let flash: ReturnType<typeof setTimeout> | undefined;
-    const connect = () => {
+    const open = () => {
       const proto = location.protocol === "https:" ? "wss" : "ws";
       const ws = new WebSocket(`${proto}://${location.host}/ws`);
-      wsRef.current = ws;
+      this.ws = ws;
       // Reconnecting clears only the "offline" error: an error shown before the socket opened (e.g. a
       // workspace URL that does not exist) must stay on screen.
-      ws.onopen = () => setState((s) => ({ ...s, connected: true, error: s.error === OFFLINE ? null : s.error }));
       ws.onclose = () => {
-        setState((s) => ({ ...s, connected: false }));
-        if (!closed) retry = setTimeout(connect, 1000);
+        // A socket replaced by a newer connect() (StrictMode remount) must not mark the new one offline.
+        if (this.ws !== ws) return;
+        this.set((s) => ({ ...s, connected: false }));
+        if (!closed) retry = setTimeout(open, 1000);
+      };
+      ws.onopen = () => {
+        if (this.ws !== ws) return;
+        this.set((s) => ({ ...s, connected: true, error: s.error === OFFLINE ? null : s.error }));
       };
       ws.onmessage = (ev) => {
+        if (this.ws !== ws) return;
         const msg = JSON.parse(String(ev.data)) as ServerMsg;
         if (msg.type === "doc") {
-          setState((s) => {
+          this.set((s) => {
             // Another workspace: nothing carries over (its nodes are not "changed", the feed starts over).
             if (s.doc && s.doc.id !== msg.doc.id) {
               clearTimeout(flash);
@@ -95,7 +124,7 @@ export function useDocument() {
                 : [{ id: msg.version, actor: msg.actor, label: msg.label, at: Date.now(), changed }, ...s.activity].slice(0, 30);
             if (fromAgent) {
               clearTimeout(flash);
-              flash = setTimeout(() => setState((x) => ({ ...x, agentTouched: new Set() })), 1600);
+              flash = setTimeout(() => this.set((x) => ({ ...x, agentTouched: new Set() })), 1600);
             }
             return {
               ...s,
@@ -108,45 +137,67 @@ export function useDocument() {
             };
           });
         } else if (msg.type === "team") {
-          setState((s) => ({ ...s, team: msg.status }));
+          this.set((s) => ({ ...s, team: msg.status }));
         } else if (msg.type === "presence") {
-          setState((s) => ({ ...s, agents: applyPresence(s.agents, msg) }));
+          this.set((s) => ({ ...s, agents: applyPresence(s.agents, msg) }));
         } else if (msg.type === "error") {
-          setState((s) => ({ ...s, error: msg.message }));
+          this.set((s) => ({ ...s, error: msg.message }));
         }
       };
     };
-    connect();
+    open();
     // Team mode is on when the server answers /api/team with JSON (without --team the SPA fallback answers HTML).
     fetch("/api/team")
       .then(async (r) => (r.ok && (r.headers.get("content-type") ?? "").includes("json") ? ((await r.json()) as TeamStatus) : undefined))
-      .then((team) => team && setState((s) => ({ ...s, team: s.team ?? team })))
+      .then((team) => team && this.set((s) => ({ ...s, team: s.team ?? team })))
       .catch(() => {});
     return () => {
       closed = true;
       clearTimeout(retry);
       clearTimeout(flash);
-      wsRef.current?.close();
+      this.ws?.close();
     };
-  }, []);
+  };
 
-  const sendRaw = useCallback((payload: object) => {
-    const ws = wsRef.current;
+  private sendRaw(payload: object) {
+    const ws = this.ws;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setState((s) => ({ ...s, error: OFFLINE }));
+      this.set((s) => ({ ...s, error: OFFLINE }));
       return;
     }
-    ws.send(JSON.stringify({ ...payload, reqId: String(++seq.current) }));
-  }, []);
+    ws.send(JSON.stringify({ ...payload, reqId: String(++this.seq) }));
+  }
 
-  const apply = useCallback((ops: Op[], label = "") => sendRaw({ type: "ops", ops, label }), [sendRaw]);
-  const undo = useCallback(() => sendRaw({ type: "undo" }), [sendRaw]);
-  const redo = useCallback(() => sendRaw({ type: "redo" }), [sendRaw]);
-  const clearError = useCallback(() => setState((s) => ({ ...s, error: null })), []);
-  /** Mostra um erro local (ex.: agrupar algo que não pode), no mesmo aviso dos erros do servidor. */
-  const showError = useCallback((message: string) => setState((s) => ({ ...s, error: message })), []);
-
-  return { ...state, apply, undo, redo, clearError, showError };
+  /** Ações estáveis (mesma referência sempre): podem ir em deps de efeitos sem re-assinar nada. */
+  readonly actions = {
+    apply: (ops: Op[], label = "") => this.sendRaw({ type: "ops", ops, label }),
+    undo: () => this.sendRaw({ type: "undo" }),
+    redo: () => this.sendRaw({ type: "redo" }),
+    clearError: () => this.set((s) => (s.error === null ? s : { ...s, error: null })),
+    /** Mostra um erro local (ex.: agrupar algo que não pode), no mesmo aviso dos erros do servidor. */
+    showError: (message: string) => this.set((s) => ({ ...s, error: message })),
+  };
 }
 
-export type LiveDocument = ReturnType<typeof useDocument>;
+/** A conexão da aba (uma por página). */
+export const liveStore = new LiveStore();
+
+/** Liga a conexão ao vivo enquanto o componente estiver montado (o App, uma vez). */
+export function useLiveConnection(store: LiveStore = liveStore): void {
+  useEffect(() => store.connect(), [store]);
+}
+
+/**
+ * Assina uma fatia do estado ao vivo. O seletor deve devolver um valor estável (um campo do estado
+ * ou um primitivo): o componente só re-renderiza quando ele muda (`Object.is`).
+ */
+export function useLive<T>(selector: (s: DocState) => T, store: LiveStore = liveStore): T {
+  return useSyncExternalStore(store.subscribe, () => selector(store.getState()));
+}
+
+/** apply/undo/redo/showError/clearError do store (referências estáveis). */
+export function useLiveActions(store: LiveStore = liveStore): LiveStore["actions"] {
+  return store.actions;
+}
+
+export type LiveActions = LiveStore["actions"];

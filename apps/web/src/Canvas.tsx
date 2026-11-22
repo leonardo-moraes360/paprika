@@ -46,7 +46,6 @@ import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, typ
 import { InlineName } from "./InlineName";
 import { AgentCursors, type Box } from "./AgentCursors";
 import { cx, ui } from "./ui";
-import type { AgentPresence } from "./agents";
 
 /** Drawing tools show a crosshair over the canvas. */
 const CROSSHAIR = new Set<string>(["frame", "rect", "ellipse", "text", "pen"]);
@@ -139,8 +138,6 @@ interface Props {
   onToolDone(): void;
   apply(ops: Op[], label?: string): void;
   agentTouched: Set<string>;
-  /** Agentes presentes: cada um com cursor e seleção próprios. */
-  agents?: AgentPresence[];
   /** Abre outra página (ex.: a de um agente na lista de presença). */
   onOpenPage?(id: string): void;
   onError?(message: string): void;
@@ -346,7 +343,7 @@ function ShapeTextEditor({ text, onCommit, onDone }: { text: string; onCommit(te
   );
 }
 
-export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, agents = [], onOpenPage, onError }: Props) {
+export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, onOpenPage, onError }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 40, y: 40, zoom: 1 });
@@ -1161,7 +1158,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         ))}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
-      <AgentCursors doc={doc} agents={agents} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} onFocus={focusBox} />
+      <AgentCursors doc={doc} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} onFocus={focusBox} />
       {frameLabels.map((l) => (
         <div
           key={l.id}
