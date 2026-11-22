@@ -85,11 +85,11 @@ func TestPlaceConcurrentWriters(t *testing.T) {
 	m := NewMCP(s, "agent:test", nil)
 	var wg sync.WaitGroup
 	errCh := make(chan string, 6)
-	for g := 0; g < 2; g++ {
+	for g := range 2 {
 		wg.Add(1)
 		go func(g int) {
 			defer wg.Done()
-			for i := 0; i < 3; i++ {
+			for i := range 3 {
 				r := m.CallTool(context.Background(), "create_nodes", obj("nodes", []any{
 					obj("type", "frame", "name", fmt.Sprintf("f%d-%d", g, i), "width", 200.0, "height", 100.0),
 				}), true)

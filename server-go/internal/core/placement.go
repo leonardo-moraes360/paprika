@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 )
@@ -542,7 +543,7 @@ func OverlapWarnings(doc *Document, created []string) []string {
 		}
 		x, y := nearestFree(occupied, self.box.W, self.box.H, self.box.X, self.box.Y)
 		on := GetNode(doc, other.id)
-		warnings = append(warnings, fmt.Sprintf(`%s "%s" overlaps "%s"; nearest free spot is %s,%s`, n.Str("type"), nodeLabel(n, id), nodeLabel(on, other.id), placeNum(x), placeNum(y)))
+		warnings = append(warnings, fmt.Sprintf("%s %s overlaps %s; nearest free spot is %s,%s", n.Str("type"), strconv.Quote(nodeLabel(n, id)), strconv.Quote(nodeLabel(on, other.id)), placeNum(x), placeNum(y)))
 	}
 	return warnings
 }
