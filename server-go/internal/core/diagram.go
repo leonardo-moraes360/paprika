@@ -210,7 +210,7 @@ func clipToOutline(e dend, toward Pt) Pt {
 func clipRayToTriangle(hw, hh, dx, dy float64) float64 {
 	verts := [3]Pt{{0, -hh}, {hw, hh}, {-hw, hh}}
 	best := math.Inf(1)
-	for k := 0; k < 3; k++ {
+	for k := range 3 {
 		a := verts[k]
 		b := verts[(k+1)%3]
 		ex, ey := b.X-a.X, b.Y-a.Y
