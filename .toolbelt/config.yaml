@@ -1,16 +1,5 @@
-defaults:
-    sandbox: false
-    timeout: 30s
-    json_output: false
-sandbox:
-    allow_net: []
-    cpu_limit: 100
-    mem_limit: 1G
-    time_limit: 5m
 graph:
-    auto_index: true
     index_on_change: true
-    infer_relations: false
     languages:
         - go
         - javascript
@@ -40,7 +29,6 @@ graph:
     max_file_bytes: 524288
 vault:
     path: .toolbelt/vault
-    sync_on_change: true
     max_note_bytes: 262144
     types:
         - fact
@@ -48,10 +36,6 @@ vault:
         - context
         - log
     graph: true
-logging:
-    level: info
-    file: .toolbelt/logs/tb.log
-    format: text
 bench:
     tasks_dir: bench/tasks
     fixtures_dir: bench/fixtures
@@ -63,7 +47,8 @@ verify:
     test_cmd: pnpm test && pnpm go:test && pnpm test:api && pnpm test:e2e
     hidden_test_cmd: ""
     build_cmd: pnpm run build
-    lint_cmd: pnpm typecheck && cd server-go && go vet ./...
+    typecheck_cmd: pnpm typecheck
+    lint_cmd: pnpm go:vet
 review:
     require_approved_sha: false
 env:

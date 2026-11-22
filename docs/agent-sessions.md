@@ -8,8 +8,8 @@ Every agent session on this repository must be able to run `tb` (toolbelt), beca
 
 | Where | What the hook does |
 | --- | --- |
-| Cloud session (`CLAUDE_CODE_REMOTE=true`) | If the `tb` on `PATH` (or in `$(go env GOPATH)/bin`) is not exactly the pinned module, runs `go install github.com/leonardo-moraes360/toolbelt/cmd/tb@v0.0.10`, puts it on `PATH` through `CLAUDE_ENV_FILE`, runs `pnpm install --frozen-lockfile` when the manifests changed, and sets `PAPRIKA_CHROMIUM=/opt/pw-browsers/chromium` when that browser exists. |
-| Local session | Installs nothing. If `tb` is missing or is not the pinned version, it tells the agent the install command. |
+| Cloud session (`CLAUDE_CODE_REMOTE=true`) | If the `tb` on `PATH` (or in `$(go env GOPATH)/bin`) is not exactly the pinned module, runs `go install github.com/leonardo-moraes360/toolbelt/cmd/tb@v1.0.0-rc.3`, puts it on `PATH` through `CLAUDE_ENV_FILE`, runs `pnpm install --frozen-lockfile` when the manifests changed, and sets `PAPRIKA_CHROMIUM=/opt/pw-browsers/chromium` when that browser exists. |
+| Local session | Installs nothing. Accepts a `tb` whose module version is the pinned one (a build from a toolbelt checkout has no module hash); otherwise it tells the agent the install command. |
 
 The first run in a new container takes about 30 s (Go downloads the toolchain the toolbelt's `go.mod` asks for, then builds `tb`); later runs check the binary and return in milliseconds. The hook is synchronous, so the session waits for it and `tb` is there from the first turn.
 
@@ -17,9 +17,9 @@ The first run in a new container takes about 30 s (Go downloads the toolchain th
 
 - The version is pinned (`TB_VERSION`) together with its module hash (`TB_SUM`, the `h1:` line from `sum.golang.org`).
 - `go install` runs outside any module with checksum verification forced on: `GOSUMDB=sum.golang.org` and `GOFLAGS`, `GONOSUMDB`, `GOPRIVATE`, `GOINSECURE` cleared, so the environment cannot turn it off. The Go toolchain it fetches (`GOTOOLCHAIN=auto`) is verified the same way.
-- After installing, the hook reads the module line embedded in the binary (`go version -m`) and fails if it is not `v0.0.10` with that exact hash.
+- After installing, the hook reads the module line embedded in the binary (`go version -m`) and fails if it is not `v1.0.0-rc.3` with that exact hash.
 
-`tb version` prints `toolbelt dev`/`commit: unknown` for a `go install` build; use `go version -m "$(command -v tb)"` to see the module version and hash.
+`tb version` prints the version for a `go install` build but `commit: unknown` and `embed: unavailable (built without embednative)`: the cloud build has no native embedding engine, so `tb graph search --mode semantic|hybrid` is unavailable there (lexical search, verify, guard and mem work). Use `go version -m "$(command -v tb)"` to see the module version and hash.
 
 ## Bumping `tb`
 

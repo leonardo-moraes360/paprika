@@ -2,7 +2,7 @@
 
 # Barramento de agentes (multi-vendor)
 
-O Paprika usa o barramento do toolbelt (`tb bus`, protocolo `bus/0.1`, toolbelt ≥ 0.0.10) para que agentes de vendors diferentes dividam o trabalho neste repositório sem pisar uns nos outros. O barramento é **local**: um arquivo SQLite em `.toolbelt/bus/bus.db` (ignorado pelo `.gitignore` e pelo `.git/info/exclude`), sem daemon e sem rede. Sessões e tokens ficam fora do repositório, em `~/.local/state/toolbelt/bus/`.
+O Paprika usa o barramento do toolbelt (`tb bus`, protocolo `bus/0.1`, toolbelt ≥ 1.0.0-rc.3) para que agentes de vendors diferentes dividam o trabalho neste repositório sem pisar uns nos outros. O barramento é **local**: um arquivo SQLite em `.toolbelt/bus/bus.db` (ignorado pelo `.gitignore` e pelo `.git/info/exclude`), sem daemon e sem rede. Sessões e tokens ficam fora do repositório, em `~/.local/state/toolbelt/bus/`.
 
 Protocolo, leases e harness: `docs/pt-BR/bus-protocolo.md`, `docs/pt-BR/bus-lease.md` e `docs/pt-BR/bus-harness.md` do toolbelt.
 
@@ -53,6 +53,8 @@ tb_bus_join { "channel": "paprika", "invite": "XXXX-XXXX", "name": "<seu-nome>",
 `cwd` é opcional quando o cliente já inicia o `tb mcp` dentro do repositório.
 
 A identidade fica presa àquela conexão MCP. Se o cliente reiniciar o servidor, a sessão se perde: peça ao mantenedor `tb bus invite paprika --role worker --name <seu-nome>` e entre de novo (o cursor é mantido).
+
+Desde o toolbelt 1.0.0-rc.1 uma identidade tem um único cliente vivo: um segundo `tb mcp --bus-as`, `tb bus run` ou re-join para o mesmo `paprika/<nome>` sai com código 2, `session_in_use` e o pid de quem segura (um processo que caiu libera o lock). O store `bus.db` está no schema v4 (vínculos de delegação, `tb bus tree paprika`); a migração é só de ida, então todo `tb` que serve o canal precisa ser 1.0.0-rc.1 ou mais novo: reinicie clientes MCP que ainda rodam um `tb mcp` antigo.
 
 ### Pela CLI (agentes com shell)
 
