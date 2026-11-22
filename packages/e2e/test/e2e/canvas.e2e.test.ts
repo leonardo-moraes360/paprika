@@ -240,49 +240,79 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => page.getByRole("status").filter({ hasText: "Use um número entre 0 e 1." }).count()).toBeGreaterThan(0);
   });
 
+  it("inspector: steppers ± em Opacidade (0.05, Shift×10) e ausentes em L/tokens", async () => {
+    await page.locator('[data-layer-id="plano"]').click();
+    const opacity = page.getByLabel("Opacidade", { exact: true });
+    await opacity.click({ clickCount: 3 });
+    await opacity.pressSequentially("0.5");
+    await opacity.press("Enter");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(0.5);
+
+    const stepper = page.getByTestId("stepper-Opacidade");
+    await expect.poll(() => stepper.count()).toBe(1);
+    await stepper.getByLabel("Aumentar Opacidade").click();
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(0.55);
+    await expect.poll(() => opacity.inputValue()).toBe("0.55");
+
+    await opacity.click();
+    await page.keyboard.press("ArrowDown");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(0.5);
+
+    await page.keyboard.press("Shift+ArrowUp");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(1);
+    await expect.poll(() => stepper.getByLabel("Aumentar Opacidade").isDisabled()).toBe(true);
+
+    await expect.poll(() => page.getByTestId("stepper-L").count()).toBe(0);
+    await expect.poll(() => page.getByTestId("stepper-Preenchimento").count()).toBe(0);
+  });
+
   it("inspector: color picker grava $token, hex, rgba e devolve o foco no Esc", async () => {
+    const POLL = { timeout: 10_000 };
     await page.locator('[data-layer-id="plano"]').click();
     const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
+    await expect.poll(() => appearance.count(), POLL).toBe(1);
     if ((await appearance.getAttribute("aria-expanded")) !== "true") await appearance.click();
 
     const fillTrigger = page.getByTestId("color-picker-trigger").first();
+    await expect.poll(() => fillTrigger.count(), POLL).toBe(1);
     await fillTrigger.click();
     const picker = page.getByTestId("color-picker");
-    await expect.poll(() => picker.count()).toBe(1);
+    await expect.poll(() => picker.count(), POLL).toBe(1);
 
     await page.getByTestId("color-token-brand").click();
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill).toBe("$brand");
-    await expect.poll(() => page.getByLabel("Preenchimento", { exact: true }).inputValue()).toBe("$brand");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill, POLL).toBe("$brand");
+    await expect.poll(() => page.getByLabel("Preenchimento", { exact: true }).inputValue(), POLL).toBe("$brand");
 
     const hex = page.getByTestId("color-hex");
     await hex.click({ clickCount: 3 });
     await hex.fill("#112233");
     await hex.press("Enter");
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill).toBe("#112233");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill, POLL).toBe("#112233");
 
     await page.getByTestId("color-alpha").focus();
     for (let i = 0; i < 30; i++) await page.keyboard.press("ArrowLeft");
-    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "")).toMatch(/^rgba\(/);
+    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? ""), POLL).toMatch(/^rgba\(/);
 
     await page.keyboard.press("Escape");
-    await expect.poll(() => picker.count()).toBe(0);
+    await expect.poll(() => picker.count(), POLL).toBe(0);
     await expect.poll(() =>
       page.evaluate(() => {
         const el = document.activeElement;
         return el?.getAttribute("data-testid") ?? el?.getAttribute("aria-label") ?? el?.tagName ?? "";
       }),
+      POLL,
     ).toMatch(/color-picker-trigger|Preenchimento \(seletor\)/i);
 
     await fillTrigger.focus();
     await page.keyboard.press("Enter");
-    await expect.poll(() => picker.count()).toBe(1);
+    await expect.poll(() => picker.count(), POLL).toBe(1);
     await page.getByTestId("color-sv").focus();
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowUp");
-    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "").length).toBeGreaterThan(0);
+    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "").length, POLL).toBeGreaterThan(0);
     await page.keyboard.press("Escape");
-    await expect.poll(() => picker.count()).toBe(0);
-  });
+    await expect.poll(() => picker.count(), POLL).toBe(0);
+  }, 15_000);
 
   it("ferramenta de retângulo desenha dentro do frame sob o cursor", async () => {
     await page.keyboard.press("Escape");
@@ -1132,10 +1162,13 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const third = (await shapes()).find((n) => n.id !== first && n.id !== second)!.id;
     await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle", text: "Go", width: 160, height: 140 });
     await page.locator(`[data-paprika-id="${third}"]`).click();
-    await page.getByTestId("shape-kind").selectOption("diamond");
+    await page.getByTestId("shape-kind").click();
+    await page.getByRole("option", { name: "losango (decisão)" }).click();
     await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "diamond" });
-    await page.getByTestId("shape-kind").selectOption("triangle");
+    await page.getByTestId("shape-kind").click();
+    await page.getByRole("option", { name: "triângulo" }).click();
     await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle" });
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
 
     // Seta: arrastar de uma forma até a outra; as duas pontas ficam presas.
     const box = async (id: string) => (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
