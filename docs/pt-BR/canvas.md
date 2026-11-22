@@ -21,7 +21,7 @@ Colar e exportar: `Ctrl+V` com SVG ou HTML (por exemplo, copiado de uma página 
 Páginas: o painel "Páginas" à esquerda troca de página, `+` cria uma (o primeiro `+` transforma o canvas atual na "Página 1"), duplo clique renomeia, `×` apaga (dá para desfazer).
 Renomear: duplo clique numa camada do painel "Camadas" ou no título de um frame no canvas renomeia no lugar. `Enter` ou clicar fora confirma, `Esc` cancela; cada renomeação é um passo de desfazer. Cópias de instância herdam o nome do componente.
 Navegação: rolar = pan, `Ctrl`+rolar = zoom, segurar `Espaço` (ou `Enter`) e arrastar = pan (o cursor vira uma mão).
-Edições do agente piscam no canvas e aparecem em "Atividade".
+Edições do agente piscam no canvas e aparecem em "Atividade": cada linha mostra o ator (ponto de cor e nome), a ação, o tempo relativo, o agrupamento de lote para edições seguidas do mesmo ator, e o marcador "agora" da posição de desfazer/refazer; rótulos longos truncam com o texto completo em `aria-label`.
 Presença dos agentes: cada agente conectado pelo MCP ganha cursor, nome e cor próprios no canvas, como num multiplayer. Cada chamada de ferramenta (inclusive leituras) leva o cursor até os nós em que ele agiu, contorna esses nós e mostra o que o agente está fazendo; a lista no canto superior direito mostra quem está no documento. Duas sessões do mesmo cliente ganham nomes distintos ("claude-code", "claude-code 2"). A presença não é salva: um agente ocioso esmaece após 15 s e some após 2 minutos.
 
 ## Renderizador: DOM ou WASM
