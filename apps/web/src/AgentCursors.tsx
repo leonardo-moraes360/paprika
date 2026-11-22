@@ -158,7 +158,9 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
               <button
                 type="button"
                 className={cx(
-                  "m-0 flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--agent)_55%,transparent)] bg-panel py-0.75 pr-2.25 pl-1.75 text-fg transition-opacity duration-600 ease-[ease]",
+                  // Superfície e texto pelos aliases semânticos (ADR 0005): iguais aos tokens da marca no
+                  // tema noturno de hoje, e prontos para o escopo claro. A cor do agente continua própria.
+                  "m-0 flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--agent)_55%,transparent)] bg-ui-card py-0.75 pr-2.25 pl-1.75 text-ui-foreground transition-opacity duration-600 ease-[ease]",
                   "enabled:pointer-events-auto enabled:cursor-pointer enabled:hover:border-(--agent) focus-visible:outline-2 focus-visible:outline-(--agent)",
                   tagFont,
                   now - a.at > AGENT_IDLE_MS && "opacity-55",

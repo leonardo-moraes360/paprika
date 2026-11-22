@@ -229,3 +229,73 @@ Tarefa: desenhar via MCP as telas de rótulo nas setas e do time antes de implem
 
 - #69 e #70 voltaram no painel do time: o `lint_design` acusou os rótulos de 11 px do próprio app (22 avisos) e não pegou um botão "Remover" que estourava a linha.
 - O #71 foi resolvido pela mesma mudança do #29 (raízes `hug` são medidas no navegador antes do screenshot).
+
+## 2026-11-22: ilustração plana de pimentão (paths bezier)
+
+Tarefa: desenhar um pimentão vermelho plano (três lóbulos, vãos brancos finos e curvos, cabo verde-oliva) numa página nova "Pimentão" do workspace "Paprika", primeiro a partir de uma descrição em texto e depois da imagem do usuário, com nós `path` compartilhando um `viewBox` 400×400, e salvar os PNGs em `design/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 76 | Recortar vãos finos de uma forma | Sem operações booleanas nem máscaras, os vãos são traços brancos pintados sobre o corpo vermelho; só funciona em fundo claro e o export não tem furos de verdade | `subtract`/`union` no `apply_ops` (ou `mask` em group) gerando um novo `path`; no mínimo uma opção `knockout` no traço | P2 |
+| 77 | Mudar o estilo de um nó e mantê-lo por cima | Ao transformar dois lóbulos preenchidos em traços de vão, eles ficaram sob o corpo; foi preciso um `move_nodes` separado (sem `index` = fim) para corrigir a ordem | Aceitar `index` (ou `"front"`/`"back"`) nas props do `update_nodes` | P3 |
+| 78 | Decalcar uma imagem de referência | A imagem do usuário chegou ao agente só como imagem; não havia jeito fácil de colocá-la sob o desenho, então cada ponto bezier foi estimado no olho e mapeado com uma escala calculada à mão, em três rodadas de screenshot | Opção `reference` no `create_nodes`/`import_svg` (ou nó `image` a partir de arquivo local) travada a 50% de opacidade, e `render_screenshot` com uma imagem `compare` lado a lado | P2 |
+| 79 | Salvar o screenshot em arquivo | `render_screenshot` só devolve a imagem ao agente; gravar o PNG no repo exigiu copiar o blob em cache do cliente | `path` opcional (o servidor grava) ou `format: "url"` devolvendo `/api/screenshot/...` para baixar | P3 |
+
+- Um `viewBox` comum em todos os paths deixou a iteração trivial: cada camada usa as mesmas coordenadas 400×400, e redesenhar a silhueta foi um único `update_nodes`.
+- `render_screenshot` com `scale: 2` bastou para avaliar a qualidade das curvas.
+
+## 2026-11-22: folha de componentes shadcn na página Interfaces (PAP-B-030, design first)
+
+Tarefa: desenhar, por MCP, a folha com cada primitivo shadcn e seus estados (hover, foco, desabilitado, aberto), em claro e escuro, na página `Interfaces` do workspace Paprika, antes de instalar qualquer dependência; depois implementar os primitivos em `apps/web`. Cinco frames raiz, ~570 nós, cinco chamadas `create_nodes`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 80 | Screenshot de uma subárvore que mantém o modo de tema | `render_screenshot { rootId: <frame dentro de um frame com mode: "light"> }` pintou a subárvore com os tokens base (escuro): o modo de um ancestral não viaja até a captura de uma subárvore. Dois close-ups que comparei lado a lado não eram comparáveis, e o contorno (capturar o frame raiz inteiro e recortar localmente) custa bytes e tempo | Resolver o modo herdado para a raiz de uma subárvore, ou aceitar `mode` em `render_screenshot` | P2 |
+| 81 | Saber que um frame de layout aninhado pegou a caixa padrão | Um frame sem `width`/`height` vira 100×100, e os filhos posicionados dentro dele somem do render: a primeira folha saiu com um único botão visível, sem erro e sem aviso, e o `lint_design` ficou calado. O guia documenta `hug`/`fill`, mas não esse padrão | Uma regra no `lint_design` para frame de layout travado em 100×100 cujos filhos saem da caixa (o caso "era hug que se queria"), ou um aviso no `create_nodes` | P2 |
+| 82 | Texto pequeno numa folha de componentes | O `lint_design` devolveu 31 avisos `small-text` pelas legendas de 10 e 11px de uma folha que espelha o app, cuja própria escala tipográfica (ADR 0003) é `text-2xs` 10px e `text-xs` 11px — o mesmo terreno dos #69 e #70 | Deixar a regra ler um token do documento (um `$text.min`) ou uma opção por chamada, para que avisos que são a intenção do design não precisem ser relidos a cada rodada | P3 |
+| 83 | Tokens em todos os campos de estilo | `radius: "$radius.md"` foi recusado ("expected number, received string") enquanto `fill` e `color` aceitam `$token`. Todo raio da folha ficou como número literal, então os raios da folha não acompanham uma troca de token como as cores acompanham | Aceitar `$radius.*` em `radius`, e `$space.*`/`$text.*` onde se espera um comprimento ou tamanho | P3 |
+| 84 | O mesmo formato de resultado nas ferramentas de leitura | `get_nodes` responde JSON (`{"nodes": […]}`) e `find_nodes` responde linhas de texto (`frame#id "nome" …`); um script que percorre a árvore por nome precisa tratar dois formatos, e foi exatamente aí que a primeira tentativa falhou | Manter o texto (boa leitura no chat) e aceitar `format: "json"`, ou devolver `structuredContent` em toda ferramenta, como o guia já promete para as de JSON | P3 |
+
+- Os modos de tema fizeram exatamente o que esta folha pedia: `set_tokens {mode: "light"}` mais `mode: "light"` no frame deram um único desenho em dois temas, e os valores claros são agora os valores que `apps/web/src/styles.css` publica em `.ui-light` — board e código decididos uma vez, não duas.
+- Depois da correção, o `lint_design` fica com 0 erros nos cinco frames; o único erro de `contrast` que ele pegou (um link em 4,24:1 sobre superfície clara) era um erro real na paleta, e hoje é outro token no código.
+- Redesenhar saiu mais barato que remendar: `delete_nodes` nas cinco raízes e um `create_nodes` novo, tudo num `batch`, desfeito por um único `undo`.
+
+## 2026-11-22: painel de time e roster de agentes, antes e depois (PAP-B-034, design first)
+
+Tarefa: desenhar o painel de time e o roster de agentes como estão hoje e como ficam sobre os primitivos, nos dois
+escopos de tema, e migrar `apps/web/src/Team.tsx` e o roster em `apps/web/src/AgentCursors.tsx`. Cinco frames raiz na
+página `Interfaces`, ~560 nós, e depois o app real em modo `--team` capturado para o registro.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 85 | A captura do próprio app dentro do documento de design, como referência do "antes" | Os nós de imagem não se dimensionam como o quadro diz: o mesmo PNG 280×856 pintou certo num quadro 190×581 com `fit: "contain"` num frame e virou uma tira de ~60×12 noutro em que o quadro era do tamanho da fonte; uma fonte 1440×900 num quadro 560×350 não pintou nada. O `lint_design` ficou limpo e nenhum erro voltou — só descobri olhando o `render_screenshot`. As capturas acabaram commitadas ao lado do board, não dentro dele | Documentar o que `width`/`height` fazem num nó `image` (escalam, recortam, ou nada), e fazer uma fonte maior que o quadro escalar ou reportar | P2 |
+| 86 | Um board cujos nomes de token são os nomes do código | Os tokens da folha são `ui.card` e `ui.mutedFg` (pontos, abreviações), enquanto `apps/web/src/styles.css` publica `--color-ui-card` e `--color-ui-muted-foreground`. Nada liga um ao outro, então "comparar board com código" é passo humano, e digitei os mesmos valores nos dois lados | Aceitar um alias ou `source` no token (ex.: `ui.card` → `--color-ui-card`), ou deixar o `set_tokens` ler os nomes de um arquivo CSS | P3 |
+| 87 | Um token do documento para o vermelho que o app pinta | `--color-accent-strong: #c8401f` está no CSS, mas os tokens de marca do documento são `$accent` (#e04a2b) e `$accent.dark`. Todo botão primário da folha ficou literal, e o `lint_design` devolve infos `raw-color` neles | Adicionar `$accent.strong` (e o ink) aos tokens de marca do documento, para board e CSS chamarem a mesma cor pelo mesmo nome | P3 |
+
+- Um construtor, dois modos: a mesma função do painel desenhou `antes` e `depois` e depois a folha clara, então as três folhas são a mesma geometria e só mudam os pares de tokens e o tamanho dos controles. Isso deixou a comparação legível.
+- `lint_design` nos cinco frames: 0 erros, os mesmos avisos `small-text` da folha do PAP-B-030 (o tipo de 11 e 12px do próprio painel), mais os infos `raw-color` do item 87.
+- As alturas dos frames tiveram que ser ajustadas na mão de novo (o item 81 continua valendo): uma coluna `hug` dentro de uma linha `hug` cortava o segundo painel até o frame externo ganhar altura explícita.
+
+## 2026-11-22: alças de redimensionar nos quatro cantos (PAP-B-029, design first)
+
+Tarefa: desenhar antes/depois das alças de seleção e um demo de arraste no NW na página `Interfaces`, depois
+adicionar as alças NW/NE/SW/SE em `apps/web/src/Canvas.tsx`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 88 | Comprimentos com token no create_nodes sem segunda passada | `radius: "$radius.md"` e `fontSize: "$text.2xs"` foram recusados (`expected number`); a medida começou em 10px/`$select` sobre `$canvas` e falhou o contraste até um `update_nodes` | Igual ao #83: aceitar `$radius.*` / `$text.*` nesses campos para a folha bater com a escala do app num único create | P3 |
+
+- Três frames raiz, uma chamada `create_nodes`; `lint_design` 0 depois de corrigir tamanhos da medida/nota; capturas em `docs/assets/boards/PAP-B-029`.
+
+## 2026-11-22: campos numéricos do inspector (PAP-B-027, design first)
+
+Tarefa: desenhar os estados do campo Opacidade (normal, focado, inválido com mensagem) em claro e escuro na página `Interfaces` do workspace Paprika antes de corrigir `Field`/`setNum`; seis frames raiz com altura fixa, uma chamada `create_nodes`, depois screenshots em `docs/assets/boards/PAP-B-027/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 89 | `layout.padding` como `[0, 8]` (dois valores) | `create_nodes` respondeu `layout.padding: Invalid input`; só aceita escalar ou tupla de 4. Precisei trocar todo padding para um número só | Documentar as formas aceitas de padding no `get_design_guide` / schema da ferramenta (1 ou 4, não 2) | P3 |
+| 90 | `radius: "$radius.md"` numa folha que já usa fills `$ui.*` | Mesma recusa do #83 (`expected number, received string`); o board voltou a usar literais `6` / `8` | Igual ao #83: aceitar `$radius.*` onde se espera comprimento | P3 |
+| 91 | Saber quais ids em `created` são as raízes | `create_nodes` devolve uma lista plana em DFS de todos os ids aninhados; as seis raízes do board não eram as seis primeiras, e a primeira passagem de screenshot pegou títulos e rótulos | Preferir raízes primeiro em `created`, ou devolver `{roots, created}` como o `create_page` já distingue `page` | P3 |
+
+- Alturas fixas nas seis raízes evitaram o hang/pitfall de hug do ticket; `render_screenshot` com `scale: 2` bastou para julgar anel de foco e mensagem inválida.
+- `find_nodes {name: "PAP-B-027 field", type: "frame"}` foi o jeito confiável de mapear nome do board → id depois da lista plana `created`.

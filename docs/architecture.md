@@ -42,6 +42,8 @@
 
 `server-go/` is the only server; the TypeScript server it was ported from has been removed. `server-go/internal/core` is a port of `@paprika/core`, which the canvas runs and which stays the reference: fixtures generated from the TypeScript core (`pnpm go:golden`) lock the Go port byte for byte. The MCP contract (tool definitions, instructions) is `server-go/contract/mcp.json`, served verbatim; `packages/e2e` checks the binary from outside (MCP, HTTP, WebSocket, canvas).
 
+**HTTP layer.** `StartHTTP` mounts the canvas, `/api/*`, team routes, `/ws` and Streamable HTTP `/mcp` on [Gin](https://gin-gonic.com/) (`gin.New()`, release mode, trusted proxies disabled). Panic recovery and the Host/Origin check (`AllowedRequest`) run as middleware before every route, including 404s. `/ws` still uses `github.com/coder/websocket` inside a Gin handler; `team.Service.Routes` takes a Gin router. The MCP protocol (`MCP.Handle`, tools, schemas) and stdio (`ServeStdio`) stay outside Gin.
+
 ## Known limitations (v0.1)
 
 - Two processes on the same database (`serve` + `mcp`) see each other's commits within ~300 ms, but each keeps its own active workspace. To use MCP and the canvas together, prefer `paprika serve` + MCP over HTTP.
@@ -60,3 +62,4 @@
 - [ADR 0002: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)](adr/0002-canvas-renderer-rust-wasm.md): accepted as an opt-in hybrid renderer; the DOM stays the default.
 - [ADR 0003: Tailwind CSS for the canvas app UI](adr/0003-tailwind-css.md): accepted; Tailwind v4 without Preflight, so the app CSS never changes how a document renders.
 - [ADR 0004: Peer-to-peer team sync (Iroh, Loro, Rust sidecar)](adr/0004-p2p-team-sync.md): accepted; protocol in [team-sync.md](team-sync.md).
+- [ADR 0005: shadcn components on Paprika's closed theme](adr/0005-shadcn-ui.md): accepted; amends ADR 0003 — copied primitives in `apps/web/src/components/ui/`, `ui-*` semantic tokens, still no Preflight.

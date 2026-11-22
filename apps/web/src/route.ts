@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 
-/** `/` = overview of the workspaces; `/w/<id>` = the canvas of that workspace. */
-export type Route = { view: "overview" } | { view: "canvas"; id: string };
+/**
+ * `/` = overview of the workspaces; `/w/<id>` = the canvas of that workspace;
+ * `/ui` = the primitive gallery, an internal QA surface that the app never links to (ADR 0005).
+ */
+export type Route = { view: "overview" } | { view: "canvas"; id: string } | { view: "gallery" };
 
 export function parseRoute(pathname: string): Route {
+  if (pathname === "/ui" || pathname === "/ui/") return { view: "gallery" };
   const m = /^\/w\/([^/]+)\/?$/.exec(pathname);
   if (!m) return { view: "overview" };
   try {
