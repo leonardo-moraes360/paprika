@@ -68,7 +68,6 @@ pub fn app_version_warn(
     ))
 }
 
-
 pub async fn write_frame<T: Serialize>(send: &mut SendStream, msg: &T) -> Result<()> {
     let body = serde_json::to_vec(msg)?;
     if body.len() > MAX_FRAME {
