@@ -4773,6 +4773,185 @@
       }
     },
     {
+      "name": "resize_image",
+      "title": "Resize image",
+      "description": "Resamples an image node's pixels (or creates a node from src) to a named preset or a custom size, without Chromium. Presets: qhd 960×540, hd 1280×720 (720p, not Full HD 1920×1080), 2k 2560×1440, 4k 3840×2160. fit contain keeps the aspect ratio inside the box (output may be smaller on one side), cover fills the box and center-crops, fill stretches. Decodes PNG/JPEG/GIF/WebP with pure Go (golang.org/x/image); AVIF is refused; animated GIF keeps the first frame only; animated WebP is refused. Encodes back as the same format when a pure-Go encoder exists (PNG, JPEG, GIF), otherwise PNG. Same size limits as import_image (3500000 bytes). One undo step.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "description": "Existing image node to update (replaces src, width and height)",
+            "type": "string",
+            "minLength": 1
+          },
+          "src": {
+            "description": "Data URL or local path under PAPRIKA_IMPORT_DIRS; required when nodeId is omitted (creates a new image node)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000000
+          },
+          "preset": {
+            "description": "Named size or {width,height}",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "qhd",
+                  "hd",
+                  "2k",
+                  "4k"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 100000
+                  },
+                  "height": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 100000
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "fit": {
+            "type": "string",
+            "enum": [
+              "cover",
+              "contain",
+              "fill"
+            ],
+            "default": "contain"
+          },
+          "parentId": {
+            "description": "Parent when creating from src (default: top level)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "preset"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "width": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "targetWidth": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "targetHeight": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "jpeg",
+              "gif"
+            ]
+          },
+          "sourceFormat": {
+            "type": "string",
+            "enum": [
+              "png",
+              "jpeg",
+              "webp",
+              "avif",
+              "gif"
+            ]
+          },
+          "fit": {
+            "type": "string",
+            "enum": [
+              "cover",
+              "contain",
+              "fill"
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "created",
+          "version",
+          "width",
+          "height",
+          "targetWidth",
+          "targetHeight",
+          "format",
+          "sourceFormat",
+          "fit",
+          "warnings"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
       "name": "duplicate_nodes",
       "title": "Duplicate nodes",
       "description": "Duplicates nodes with their whole subtree in one undo step (new ids; instances stay instances of the same component, scale multiplies their scale; connectors between duplicated nodes point at the copies, the others keep their ends). Each copy goes in its source's parent, nudged by offset (default 40 on x and y). scale grows or shrinks the copy from its own top-left corner: sizes, children positions, text size, strokes, radius, shadow, gap and padding; hug/fill stay. props is written on each copy's root (for example {mode: \"dark\"} for a light/dark pair). Returns the id of each copy and the map from every source node to its copy.",
