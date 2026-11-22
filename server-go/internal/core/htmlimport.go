@@ -40,7 +40,7 @@ var (
 	fontBadRe   = regexp.MustCompile(`[;{}<>()]`)
 	flexFillRe  = regexp.MustCompile(`^1(?:[` + jsWS + `]+1[` + jsWS + `]+0(?:px|%)?)?$`)
 	rotateRe    = regexp.MustCompile(`rotate\((-?[\d.]+)deg\)`)
-	borderRe    = regexp.MustCompile(`^(\d+(?:\.\d+)?)px[` + jsWS + `]+(?:solid|dashed|dotted|double)[` + jsWS + `]+(.+)$`)
+	borderRe    = regexp.MustCompile(`^(\d+(?:\.\d+)?)px[` + jsWS + `]+(solid|dashed|dotted|double)[` + jsWS + `]+(.+)$`)
 	shadowRe    = regexp.MustCompile(`^(-?[\d.]+)px[` + jsWS + `]+(-?[\d.]+)px[` + jsWS + `]+([\d.]+)px(?:[` + jsWS + `]+(-?[\d.]+)px)?[` + jsWS + `]+(.+)$`)
 	dropShRe    = regexp.MustCompile(`drop-shadow\((-?[\d.]+)px[` + jsWS + `]+(-?[\d.]+)px[` + jsWS + `]+([\d.]+)px[` + jsWS + `]+(.+)\)$`)
 	imgSrcRe    = regexp.MustCompile(`^(?:https?:|data:image/)`)
@@ -336,8 +336,12 @@ func boxProps(node *jsonv.Object, css map[string]string, ctx *htmlCtx, foreign b
 		node.Set("fill", fill)
 	}
 	if m := borderRe.FindStringSubmatch(jsonv.Trim(css["border"])); m != nil {
-		if c := htmlColor(m[2], ctx); c != "" {
-			node.Set("stroke", jsonv.NewObject("color", c, "width", jsonv.ToNumber(m[1])))
+		if c := htmlColor(m[3], ctx); c != "" {
+			style := "solid"
+			if m[2] == "dashed" || m[2] == "dotted" {
+				style = m[2]
+			}
+			node.Set("stroke", jsonv.NewObject("color", c, "width", jsonv.ToNumber(m[1]), "style", style, "position", "inside"))
 		}
 	}
 	if r := cssPx(css, "border-radius"); r != nil && *r > 0 && node.Str("type") != "ellipse" {

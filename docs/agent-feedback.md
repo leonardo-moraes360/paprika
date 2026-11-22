@@ -517,6 +517,17 @@ Task: draw the inspector **Ordem** section and the Z-order shortcut map (light a
 - `lint_design` on the four frames: 0 errors; `small-text` warnings are the 11 px section/chip labels matching the app.
 - Shortcut map chosen and documented in `docs/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.
 
+## 2026-11-22: several border types (PAP-B-044, design first)
+
+Task: extend `stroke` with `style` (`solid`|`dashed`|`dotted`) and `position` (`inside`|`center`|`outside`) for frame/rect/ellipse/path/shape, then inspector Estilo/Posição. Four fixed-height frames on `Interfaces` (`docs/assets/boards/PAP-B-044/`); boards export refreshed.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 113 | Stable `Interfaces` page id across parallel tickets | Active workspace flipped to `Paprika - UI` mid-ticket; the old `interfaces` page was gone and a new empty `Interfaces` page had to be created (`id: interfaces`) while other tickets used `interfaces-pap020` / `interfaces-pap045` | `create_page` that reuses an existing page by name (same as #99) | P2 |
+| 114 | Screenshots as files | Same as #100/#101: `render_screenshot` returns base64 only | Optional `path` on `render_screenshot` | P3 |
+- Default `style`/`position` stay omitted in the document (helpers treat missing as solid / type-aware position) so round-trips and goldens do not grow a `style: "solid"` on every stroke.
+- WASM cannot dash or reposition strokes: `wasmPaintable` returns false and the DOM paints them (crates/render untouched).
+- Closes the friction in #99 (dashed stroke on boxes) via `stroke.style`.
 ## 2026-11-22: numeric inspector steppers (PAP-B-046, design first)
 
 Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill and `$token` without steppers, focus ring and clamp-at-min states in light and dark before wiring `Field` steppers; six fixed-height root frames; screenshots under `docs/assets/boards/PAP-B-046/`; local `paprika serve` on `:4799` because the shared `:4777` workspace was crowded by parallel tickets.
@@ -541,6 +552,16 @@ Task: draw toolbar docked top/left/right/bottom (light and dark) on `Interfaces`
 
 - Active workspace was already `Paprica · UI` (empty of prior boards until recovered); used existing `page#interfaces` without `open_workspace`.
 - Collapsed-panel buttons shift with `[&_[data-panel-toggle=left]]:left-14` from `App.tsx` when the toolbar shares that edge — no change to `PanelResizer.tsx` (outside the ticket paths).
+## 2026-11-22: system fonts combobox (PAP-B-047, design first)
+
+Task: draw the closed and open FontPicker states (light and dark) on `Interfaces`, then replace the free-text `fontFamily` field on text nodes with a shadcn combobox. Four fixed-height frames; PNGs under `docs/assets/boards/PAP-B-047/`; boards export refreshed.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 115 | Screenshots as files | Same as #108: `render_screenshot` returns base64 only; `scripts/draw-pap-b-047.mjs` decoded into `docs/assets/boards/PAP-B-047/` | Optional `path` on `render_screenshot` | P2 |
+| 116 | Free band on a crowded Interfaces page | Outline depth 1 bottoms out near y≈13580 (A-004 / B-032); this ticket used y=13800 | `place: "free"` on `create_nodes` (same as #103/#109/#111) | P3 |
+- Local Font Access is gated behind an explicit button — opening the popover never calls `queryLocalFonts`.
+- `cmdk` 1.1.1 pinned for the Command primitive (ADR 0005 dependency list).
 ## 2026-11-22: drag and drop reparent + file drop (PAP-B-049, design first)
 
 Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states (light and dark) on `Interfaces`, then wire canvas DnD + Layers row DnD + OS file import in `apps/web`. Eight fixed-height root frames; PNGs under `docs/assets/boards/PAP-B-049/`; boards export refreshed via `GET /api/export`.

@@ -16,9 +16,16 @@ export const ColorValue = z
 
 export const Size = z.union([z.number().min(0).max(100_000), z.enum(["hug", "fill"])]);
 
+export const StrokeStyle = z.enum(["solid", "dashed", "dotted"]);
+export const StrokePosition = z.enum(["inside", "center", "outside"]);
+
 export const Stroke = z.object({
   color: ColorValue,
   width: z.number().min(0).max(1000),
+  /** Omitted means solid (see `strokeStyleOf`). */
+  style: StrokeStyle.optional(),
+  /** Boxes default to inside; paths default to center when omitted (see `strokePositionOf`). */
+  position: StrokePosition.optional(),
 });
 
 export const Shadow = z.object({
@@ -282,6 +289,9 @@ export const Document = z.object({
 
 export type ColorValue = z.infer<typeof ColorValue>;
 export type Size = z.infer<typeof Size>;
+export type Stroke = z.infer<typeof Stroke>;
+export type StrokeStyle = z.infer<typeof StrokeStyle>;
+export type StrokePosition = z.infer<typeof StrokePosition>;
 export type Layout = z.infer<typeof Layout>;
 export type FrameNode = z.infer<typeof FrameNode>;
 export type RectNode = z.infer<typeof RectNode>;
