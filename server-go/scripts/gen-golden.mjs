@@ -12,9 +12,9 @@ const root = resolve(here, "../..");
 const core = await import(join(root, "packages/core/dist/index.js"));
 const {
   applyOps, createDocument, parseDocument, copyId, History, outline, describeNode, lintDocument, renderHTML,
-  exportReact, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
+  exportReact, exportTailwind, exportCssModules, renderTailwindHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
   parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, importSVG, importHTML, exportSVG,
-  diagramOps, shapeOutline,
+  diagramOps, shapeOutline, tailwindClassesFor,
 } = core;
 
 const json = (v) => JSON.stringify(v, null, 2);
@@ -516,6 +516,25 @@ const views = Object.entries(viewDocs).map(([name, doc]) => {
       const r = err(() => exportReact(doc, id, { cssVariables: true }));
       return [id, r.ok ? r.value : `ERROR: ${r.error}`];
     })),
+    tailwind: Object.fromEntries(ids.map((id) => {
+      const r = err(() => exportTailwind(doc, id));
+      return [id, r.ok ? r.value : `ERROR: ${r.error}`];
+    })),
+    tailwindVars: Object.fromEntries(doc.rootIds.map((id) => {
+      const r = err(() => exportTailwind(doc, id, { cssVariables: true }));
+      return [id, r.ok ? r.value : `ERROR: ${r.error}`];
+    })),
+    tailwindHtml: renderTailwindHTML(doc).html,
+    tailwindHtmlVars: renderTailwindHTML(doc, { cssVariables: true }).html,
+    tailwindHtmlRoots: Object.fromEntries(doc.rootIds.map((id) => [id, renderTailwindHTML(doc, { rootId: id, cssVariables: true }).html])),
+    cssModules: Object.fromEntries(doc.rootIds.map((id) => {
+      const r = err(() => exportCssModules(doc, id));
+      return [id, r.ok ? JSON.stringify(r.value) : `ERROR: ${r.error}`];
+    })),
+    cssModulesVars: Object.fromEntries(doc.rootIds.map((id) => {
+      const r = err(() => exportCssModules(doc, id, { cssVariables: true }));
+      return [id, r.ok ? JSON.stringify(r.value) : `ERROR: ${r.error}`];
+    })),
     describe: Object.fromEntries(ids.map((id) => [id, describeNode(doc.nodes[id])])),
     style: Object.fromEntries(ids.map((id) => [id, cssToString(nodeStyle(doc, doc.nodes[id]))])),
     find: {
@@ -669,7 +688,24 @@ const svgExports = Object.entries(docs).map(([name, doc]) => {
   };
 });
 
-const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, created: createDocument("Sem título", "abc") };
+const tailwindMapCases = [
+  ["boxSizing", "border-box"], ["boxSizing", "content-box"], ["boxSizing", "initial"], ["position", "absolute"], ["position", "weird"],
+  ["left", "0px"], ["top", "calc(1px + 2px)"], ["width", "100%"], ["width", "fit-content"], ["width", "320px"], ["height", "auto"],
+  ["minWidth", "0"], ["minHeight", "0px"], ["minWidth", "10px"], ["maxWidth", "50%"], ["maxHeight", "9px"], ["flex", "1 1 0"],
+  ["flexShrink", 0], ["flexShrink", 2], ["flexGrow", 1], ["flexGrow", "2"], ["alignItems", "center"], ["alignItems", "weird"],
+  ["alignSelf", "auto"], ["justifyContent", "space-evenly"], ["flexDirection", "column-reverse"], ["flexWrap", "wrap"], ["flexWrap", "wrap-reverse"],
+  ["gap", "8px"], ["padding", "16px"], ["padding", "1px 2px"], ["padding", "1px 2px 3px 4px"], ["padding", "1px 2px 3px"], ["padding", "  4px  "],
+  ["margin", 0], ["margin", "auto"], ["display", "none"], ["display", "table"], ["opacity", 0.5], ["transform", "rotate(-12.5deg)"], ["transform", "scale(2)"],
+  ["background", "var(--bg)"], ["background", "rgba(0, 0, 0, 0.5)"], ["backgroundColor", "#fff"], ["border", "1px solid #c43d27"], ["border", "2px dashed red"],
+  ["border", "1px groove red"], ["border", "thin solid red"], ["borderRadius", "50%"], ["boxShadow", "0px 2px 4px 0px rgba(0,0,0,.2)"],
+  ["filter", "drop-shadow(0px 1px 2px #000)"], ["filter", "blur(2px)"], ["overflow", "hidden"], ["overflow", "clip"], ["color", "#111"],
+  ["fontFamily", "Inter, sans-serif"], ["fontFamily", "a_b c"], ["fontFamily", "a]b"], ["fontFamily", "a;b"], ["fontSize", "16px"], ["fontWeight", "normal"],
+  ["fontWeight", "bold"], ["fontWeight", 600], ["lineHeight", 1.4], ["letterSpacing", "0.5px"], ["textAlign", "justify"], ["textAlign", "weird"],
+  ["whiteSpace", "pre-wrap"], ["overflowWrap", "anywhere"], ["overflowWrap", "break-word"], ["overflowWrap", "normal"], ["objectFit", "scale-down"],
+  ["objectFit", "weird"], ["unknownProp", "1"],
+].map(([key, value]) => ({ key, value, classes: tailwindClassesFor(key, value) ?? null }));
+
+const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, created: createDocument("Sem título", "abc"), tailwindMapCases };
 const dest = join(here, "../internal/core/testdata/golden.json");
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");
