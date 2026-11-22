@@ -1083,21 +1083,48 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
 
   const single = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
   const resizable = !!single && single.type !== "group" && single.type !== "page" && single.type !== "connector" && !isInstance(single) && !copyOwner(doc, single);
-  const onResizeDown = (e: RPointerEvent) => {
+  const onResizeDown = (corner: "nw" | "ne" | "sw" | "se") => (e: RPointerEvent) => {
     e.stopPropagation();
     const node = single;
-    if (!node || !box || !resizable || node.type === "page" || node.locked) return;
+    if (!node || !box || !resizable || node.type === "page" || node.locked || !isScene(node)) return;
     const id = node.id;
     const sx = e.clientX;
     const sy = e.clientY;
     takeOverPreview();
-    const w0 = box.width / view.zoom;
-    const h0 = box.height / view.zoom;
-    let last = { width: Math.round(w0), height: Math.round(h0) };
+    const shownAt = previewRef.current?.[id];
+    const x0 = shownAt?.x ?? node.x;
+    const y0 = shownAt?.y ?? node.y;
+    const w0 = shownAt?.width ?? (typeof node.width === "number" ? node.width : box.width / view.zoom);
+    const h0 = shownAt?.height ?? (typeof node.height === "number" ? node.height : box.height / view.zoom);
+    const absolute = isAbsolute(doc, node);
+    let last: { x?: number; y?: number; width: number; height: number } = {
+      width: Math.round(w0),
+      height: Math.round(h0),
+      ...(absolute ? { x: Math.round(x0), y: Math.round(y0) } : {}),
+    };
     const move = (ev: PointerEvent) => {
+      const dx = (ev.clientX - sx) / view.zoom;
+      const dy = (ev.clientY - sy) / view.zoom;
+      let left = x0;
+      let top = y0;
+      let right = x0 + w0;
+      let bottom = y0 + h0;
+      if (corner === "nw" || corner === "sw") left = x0 + dx;
+      if (corner === "ne" || corner === "se") right = x0 + w0 + dx;
+      if (corner === "nw" || corner === "ne") top = y0 + dy;
+      if (corner === "sw" || corner === "se") bottom = y0 + h0 + dy;
+      if (right - left < 1) {
+        if (corner === "nw" || corner === "sw") left = right - 1;
+        else right = left + 1;
+      }
+      if (bottom - top < 1) {
+        if (corner === "nw" || corner === "ne") top = bottom - 1;
+        else bottom = top + 1;
+      }
       last = {
-        width: Math.max(1, Math.round(w0 + (ev.clientX - sx) / view.zoom)),
-        height: Math.max(1, Math.round(h0 + (ev.clientY - sy) / view.zoom)),
+        width: Math.round(right - left),
+        height: Math.round(bottom - top),
+        ...(absolute ? { x: Math.round(left), y: Math.round(top) } : {}),
       };
       setPreview({ [id]: last });
     };
@@ -1204,7 +1231,14 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       ))}
       {box && (
         <div className={cx("pointer-events-none absolute border-[1.5px] border-select", selected.length > 1 && "border-dashed")} style={box} data-testid="selection" data-count={selected.length}>
-          {resizable && !editView && <div className="pointer-events-auto absolute -right-1.25 -bottom-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" onPointerDown={onResizeDown} title="Redimensionar" />}
+          {resizable && !editView && (
+            <>
+              <div className="pointer-events-auto absolute -top-1.25 -left-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" data-resize="nw" onPointerDown={onResizeDown("nw")} title="Redimensionar canto superior esquerdo" />
+              <div className="pointer-events-auto absolute -top-1.25 -right-1.25 size-[9px] cursor-nesw-resize border-[1.5px] border-select bg-white" data-resize="ne" onPointerDown={onResizeDown("ne")} title="Redimensionar canto superior direito" />
+              <div className="pointer-events-auto absolute -bottom-1.25 -left-1.25 size-[9px] cursor-nesw-resize border-[1.5px] border-select bg-white" data-resize="sw" onPointerDown={onResizeDown("sw")} title="Redimensionar canto inferior esquerdo" />
+              <div className="pointer-events-auto absolute -right-1.25 -bottom-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" data-resize="se" onPointerDown={onResizeDown("se")} title="Redimensionar canto inferior direito" />
+            </>
+          )}
           <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink">
             {Math.round(box.width / view.zoom)} × {Math.round(box.height / view.zoom)}
           </div>

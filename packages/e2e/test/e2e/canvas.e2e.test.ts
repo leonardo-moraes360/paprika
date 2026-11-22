@@ -971,4 +971,44 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.getByRole("button", { name: "Enquadrar" }).click();
     if (shots) await page.screenshot({ path: join(shots, "17-diagrama-agente.png") });
   }, 30_000);
+
+  it("seleção mostra quatro alças e arrastar o canto NW mantém o SE fixo", async () => {
+    const POLL = { timeout: 10_000 };
+    await page.keyboard.press("Escape");
+    const pageId = page.locator(".page.is-active");
+    const parentId = (await pageId.getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const id = "resize-four-corners";
+    const created = await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId,
+        label: "retângulo para redimensionar",
+        nodes: [{ type: "rect", id, name: "Resize me", x: 40, y: 40, width: 160, height: 100, fill: "#d9d4cf" }],
+      },
+    });
+    expect(created.isError).toBeFalsy();
+    await expect.poll(async () => (await doc()).nodes[id]?.type, POLL).toBe("rect");
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    await page.locator(`[data-paprika-id="${id}"]`).click();
+    const sel = page.getByTestId("selection");
+    await expect.poll(() => sel.locator("[data-resize]").count(), POLL).toBe(4);
+    const before = (await doc()).nodes[id] as { x: number; y: number; width: number; height: number };
+    const seBefore = { x: before.x + before.width, y: before.y + before.height };
+    const handle = (await sel.locator('[data-resize="nw"]').boundingBox())!;
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + handle.width / 2 - 30, handle.y + handle.height / 2 - 20, { steps: 6 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => {
+        const n = (await doc()).nodes[id] as { x: number; y: number; width: number; height: number };
+        return n.width > before.width && n.height > before.height;
+      }, POLL)
+      .toBe(true);
+    const after = (await doc()).nodes[id] as { x: number; y: number; width: number; height: number };
+    expect(after.x + after.width).toBeCloseTo(seBefore.x, 0);
+    expect(after.y + after.height).toBeCloseTo(seBefore.y, 0);
+    expect(after.x).toBeLessThan(before.x);
+    expect(after.y).toBeLessThan(before.y);
+  }, 30_000);
 });
