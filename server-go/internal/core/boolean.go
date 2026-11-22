@@ -62,7 +62,7 @@ func dist2(a, b Point) float64 {
 func ringArea(ring boolRing) float64 {
 	var a float64
 	n := len(ring)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		p, q := ring[i], ring[(i+1)%n]
 		a += p.X*q.Y - q.X*p.Y
 	}
@@ -121,7 +121,7 @@ func cleanRing(ring boolRing) boolRing {
 func pointInRing(p Point, ring boolRing) bool {
 	inside := false
 	n := len(ring)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		a, b := ring[i], ring[(i+1)%n]
 		hit := (a.Y > p.Y) != (b.Y > p.Y) && p.X < ((b.X-a.X)*(p.Y-a.Y))/(b.Y-a.Y+0)+a.X
 		if hit {
@@ -155,7 +155,7 @@ func pointInMulti(p Point, multi boolMulti) bool {
 func windingAt(p Point, ring boolRing) int {
 	w := 0
 	n := len(ring)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		a, b := ring[i], ring[(i+1)%n]
 		if a.Y <= p.Y {
 			if b.Y > p.Y && crossXY(b.X-a.X, b.Y-a.Y, p.X-a.X, p.Y-a.Y) > 0 {
@@ -254,7 +254,7 @@ func arcToCubicPts(from Point, s Segment) []Point {
 	}
 	n := int(math.Max(1, math.Ceil(math.Abs(dt)/(math.Pi/2))))
 	out := []Point{}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		a1 := t1 + (dt*float64(i))/float64(n)
 		a2 := t1 + (dt*float64(i+1))/float64(n)
 		alpha := (math.Sin(a2-a1) * (math.Sqrt(4+3*math.Pow(math.Tan((a2-a1)/2), 2)) - 1)) / 3
@@ -365,7 +365,7 @@ func rectRing(w, h, radius float64) boolRing {
 func ellipseRing(w, h float64) boolRing {
 	rx, ry := w/2, h/2
 	out := make(boolRing, boolEllipse)
-	for i := 0; i < boolEllipse; i++ {
+	for i := range boolEllipse {
 		t := (float64(i) / boolEllipse) * math.Pi * 2
 		out[i] = Point{rx + rx*math.Cos(t), ry + ry*math.Sin(t)}
 	}
@@ -401,7 +401,7 @@ func ringsToMulti(rings []boolRing, fillRule string) boolMulti {
 	sort.Slice(areas, func(i, j int) bool { return areas[i].a > areas[j].a })
 	used := map[int]bool{}
 	multi := boolMulti{}
-	for i := 0; i < len(areas); i++ {
+	for i := range areas {
 		if used[i] {
 			continue
 		}
@@ -554,7 +554,7 @@ func polyEdges(multi boolMulti, src int) []boolEdge {
 	edges := []boolEdge{}
 	add := func(ring boolRing) {
 		n := len(ring)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			a, b := ring[i], ring[(i+1)%n]
 			if !samePt(a, b) {
 				edges = append(edges, boolEdge{A: a, B: b, Src: src})
@@ -758,7 +758,7 @@ func nestRings(rings []boolRing) boolMulti {
 	for i := range parent {
 		parent[i] = -1
 	}
-	for i := 0; i < len(items); i++ {
+	for i := range items {
 		p := items[i].r[0]
 		for j := i - 1; j >= 0; j-- {
 			if pointInRing(p, items[j].r) {
@@ -769,7 +769,7 @@ func nestRings(rings []boolRing) boolMulti {
 	}
 	multi := boolMulti{}
 	holesOf := map[int]*[]boolRing{}
-	for i := 0; i < len(items); i++ {
+	for i := range items {
 		depth := 0
 		for p := parent[i]; p >= 0; p = parent[p] {
 			depth++
