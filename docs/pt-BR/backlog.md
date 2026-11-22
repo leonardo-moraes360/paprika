@@ -246,6 +246,8 @@ Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados)
 | Três estilos de traçado de seta: reto, arredondado, curva livre | Leitura registrada em 2026-11-22 (o screenshot do mantenedor mostra a seta em cotovelo de hoje): (1) reto, com cantos vivos, o que `route: "elbow"` desenha hoje (`route: "straight"` também existe); (2) arredondado, a mesma rota em cotovelo com cantos arredondados; (3) curva livre, uma bezier cuja alça se arrasta no canvas para dar forma. Também pelo MCP e no inspector. Detalha O "Setas curvas" e relaciona com O "Prender ou soltar a ponta de uma seta arrastando" e com a edição de pontos de F | ⬜ | a definir |
 | Duplo clique na seta adiciona, edita ou remove o rótulo | Edição no lugar, no canvas, como o texto das formas (O). Hoje o `label` só é editado no inspector (O "Rótulos nas setas", PR #75); apagar o texto remove o rótulo | ⬜ | a definir |
 | Arrastar a toolbar e ancorar na esquerda, no topo, na direita ou no fundo | Hoje a toolbar flutuante é fixa, centralizada no topo do canvas (`apps/web/src/App.tsx`). Nas laterais ela fica vertical; o lado escolhido é lembrado. Planejar junto com a linha dos menus laterais acima (colapsar num botão flutuante), para a toolbar e os painéis não disputarem a mesma borda | ⬜ | a definir |
+| Alças de redimensionar nos quatro cantos | Hoje o nó selecionado tem uma só alça, no canto inferior direito (`apps/web/src/Canvas.tsx`, screenshot do mantenedor). Arrastar um canto mantém o canto oposto no lugar. Relaciona com B "Hit test e alças que respeitam rotação" | ⬜ | a definir |
+| Atalhos para travar a proporção ao redimensionar, com indicação visual | Três travas: quadrada (1:1); retangular pelo comprimento; retangular pela altura. Teclas modificadoras como `Shift` ou `Ctrl` (o mapeamento exato fica para o planejamento); uma indicação no canvas mostra qual trava está ativa. Hoje o redimensionamento não aceita modificador nem trava proporção. Em aberto no planejamento: se "pelo comprimento/pela altura" é manter a proporção atual com esse lado comandando, ou redimensionar só nesse eixo | ⬜ | a definir |
 
 <details><summary>Pedido original (texto do mantenedor)</summary>
 
@@ -273,5 +275,7 @@ Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados)
 - Adicionar 3 tipos de contorno de seta: reto (já existe), arredondado, arredondado livre (posso arrastar a curva, como se fosse uma bezier).
 - Dois cliques na seta permite adicionar/editar/remover sua label.
 - Permitir arrastar a toolbar e ancorar na esquerda, topo, direita e fundo.
+- Quatro pontos no dragger de elemento.
+- Atalhos de proporção: travar proporção quadrada; travar proporção retangular, no comprimento; travar proporção retangular, na altura; normalmente se usa ctrl ou shift para este tipo de atalho; incluir tip visual de qual proporção foi travada.
 
 </details>
