@@ -886,6 +886,21 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		}
 		return importWrite(r, a, "import HTML")
 	})
+
+	add("duplicate_nodes", z.Object(
+		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+		z.Field{Name: "offset", Schema: z.Optional(z.Number())},
+		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
+		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.01).Max(100))},
+		z.Field{Name: "props", Schema: z.Optional(z.Record(z.String(), z.Unknown()))},
+		label(), batch(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		plan, err := core.DuplicateOps(store.Doc(), a.Strings("ids"), a)
+		if err != nil {
+			return nil, err
+		}
+		return writeWith(a, plan.Ops, labelOr(a, "duplicate "+count(len(plan.Copies))+" node(s)"), "copies", jsonv.FromGo(plan.Copies), "map", plan.Map)
+	})
 	return m
 }
 

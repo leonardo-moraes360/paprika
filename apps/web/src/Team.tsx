@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Copy, KeyRound, Link2, Share2, UserPlus, Users } from "lucide-react";
 import { encode } from "uqr";
 import type { AgentPresence } from "./agents";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { cx, ui } from "./ui";
 import { cn } from "./lib/cn";
 import { buttonVariants } from "./components/ui/button";
@@ -389,33 +390,26 @@ export function RemoveMemberDialog({ member, onClose }: { member: TeamMember; on
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   return (
-    <Modal
+    <ConfirmDialog
+      open
+      onOpenChange={(o) => !o && !busy && onClose()}
       title={`Remover ${member.name} do time?`}
       description={`A chave de ${member.name} (ed25519 ${member.fingerprint}) e as dos agentes dela deixam de sincronizar. O que já foi mudado continua nos workspaces; mudanças novas assinadas por essa chave são recusadas.`}
-      onClose={onClose}
-      className="max-w-[520px]"
+      confirmLabel={`Remover ${member.name}`}
+      pendingLabel="Removendo…"
+      pending={busy}
+      confirmClassName="team-remove-confirm"
+      onConfirm={() => {
+        setBusy(true);
+        api(`/api/team/members/${encodeURIComponent(member.key)}`, "DELETE")
+          .then(onClose)
+          .catch((e) => setError(String(e.message ?? e)))
+          .finally(() => setBusy(false));
+      }}
     >
       <p className="m-0 text-xs text-ui-muted-foreground">Para voltar, a pessoa precisa de um convite novo.</p>
       {error && <ErrorNote text={error} className="team-remove-error" />}
-      <DialogFooter>
-        <button className={btn()} onClick={onClose}>
-          Cancelar
-        </button>
-        <button
-          className={cx(btn(true), "team-remove-confirm")}
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            api(`/api/team/members/${encodeURIComponent(member.key)}`, "DELETE")
-              .then(onClose)
-              .catch((e) => setError(String(e.message ?? e)))
-              .finally(() => setBusy(false));
-          }}
-        >
-          {busy ? "Removendo…" : `Remover ${member.name}`}
-        </button>
-      </DialogFooter>
-    </Modal>
+    </ConfirmDialog>
   );
 }
 
@@ -511,7 +505,7 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
                     </button>
                   )}
                   {!m.you && !m.founder && canRemove && (
-                    <button className={cx(btn(), "team-remove")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
+                    <button className={cn(btn(), ui.dangerBtn, "team-remove")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
                       Remover
                     </button>
                   )}
@@ -653,7 +647,7 @@ export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: {
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Chip label={label} tone={tone} />
                   {team.canRemove && !m.you && !m.founder && (
-                    <button className={cx(btn(), "team-remove px-2")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
+                    <button className={cn(btn(), ui.dangerBtn, "team-remove px-2")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
                       Remover
                     </button>
                   )}
