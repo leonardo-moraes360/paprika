@@ -989,9 +989,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
         parentId: "lbl-frame",
         direction: "right",
         nodes: [
-          { id: "lbl-a", text: "Início" },
-          { id: "lbl-b", text: "Fim" },
-          { id: "lbl-c", text: "Erro" },
+          { id: "lbl-a", text: "Início", x: 20, y: 150, width: 140, height: 60 },
+          { id: "lbl-b", text: "Fim", x: 460, y: 30, width: 140, height: 60 },
+          { id: "lbl-c", text: "Erro", x: 460, y: 270, width: 140, height: 60 },
         ],
         edges: [{ from: "lbl-a", to: "lbl-b", route: "straight" }, { from: "lbl-a", to: "lbl-c" }],
       },
@@ -1010,6 +1010,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
         return { x: m.a * pt.x + m.c * pt.y + m.e, y: m.b * pt.x + m.d * pt.y + m.f };
       }, at);
       await page.mouse.dblclick(p.x, p.y);
+      await page.waitForTimeout(400);
     };
     const labelOf = async (id: string) => (await connector(id)).label;
     const history = async () => {
@@ -1019,9 +1020,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
     for (const id of ["lbl-a-to-lbl-b", "lbl-a-to-lbl-c"]) {
       await dblclickMiddle(id);
-      await page.waitForTimeout(500);
-      console.log("DBG", await editor.count(), await page.locator("[data-testid=connector-label-editor]").evaluateAll((e) => e.map((x) => x.outerHTML)), (await connector(id)).d);
-      await page.screenshot({ path: "/tmp/shots28/dbg.png" });
       await editor.waitFor();
       await expect.poll(() => editor.inputValue(), POLL).toBe("");
       await page.keyboard.type("sim");
