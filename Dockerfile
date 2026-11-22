@@ -10,7 +10,8 @@
 #   runtime (default)  Ubuntu 24.04 + Chromium headless shell, so `render_screenshot` works.
 #   slim               distroless, no Chromium: everything except screenshots (~10x smaller).
 #
-# Versions follow the repository: Node 22 + pnpm from package.json, Go minor from GO_VERSION in
+# Versions follow the repository: Node 26 (CI tests the `engines` floor, 22) + pnpm from
+# package.json `packageManager`, Go minor from GO_VERSION in
 # .github/workflows/ci.yml, wasm-bindgen from crates/render/Cargo.toml (checked below). Base image
 # tags are literal so Dependabot can bump them; to swap one (a mirror, an internal registry), use
 # `docker buildx build --build-context ubuntu:24.04=docker-image://<other image> .`.
@@ -54,12 +55,13 @@ RUN --mount=type=cache,id=cargo-registry-sync,target=/usr/local/cargo/registry \
  && install -D target/x86_64-unknown-linux-musl/release/paprika-sync /out/paprika-sync
 
 # ------------------------------------------------------------------ canvas (apps/web + packages/core)
-FROM node:22-bookworm-slim AS web
+FROM node:26-bookworm-slim AS web
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=1
-RUN corepack enable
 WORKDIR /src
 # Manifests first, so `pnpm install` stays cached until a dependency changes.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+# Node 25+ no longer ships corepack, so install the exact pnpm from `packageManager` with npm.
+RUN npm install --global --no-audit --no-fund "$(node -p 'require("./package.json").packageManager')"
 COPY packages/core/package.json packages/core/
 COPY apps/web/package.json apps/web/
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
