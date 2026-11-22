@@ -85,7 +85,9 @@ func parseFloatAttr(s string) float64 {
 		return 0
 	}
 	var v float64
-	fmt.Sscanf(s, "%f", &v)
+	if _, err := fmt.Sscanf(s, "%f", &v); err != nil {
+		return 0
+	}
 	return v
 }
 

@@ -101,7 +101,6 @@ func drawTextNode(doc *core.Document, n *core.Node, measure core.Measure, dst *i
 	ox, oy := box[0]*scale, box[1]*scale
 	w, h := box[2]*scale, box[3]*scale
 
-	lines := []string{}
 	if measure.Lines != nil {
 		if ls, ok := measure.Lines[n.Str("id")]; ok {
 			for _, l := range ls {
@@ -115,7 +114,7 @@ func drawTextNode(doc *core.Document, n *core.Node, measure core.Measure, dst *i
 	if text == "" {
 		return nil
 	}
-	lines = strings.Split(text, "\n")
+	lines := strings.Split(text, "\n")
 	align := n.Str("textAlign")
 	if align == "" {
 		align = "left"

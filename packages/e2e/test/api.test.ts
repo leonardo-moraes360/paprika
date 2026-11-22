@@ -550,9 +550,11 @@ describe("API: MCP", () => {
         nodes: [{ type: "frame", id: "shot", width: 80, height: 40, fill: "#c43d27", children: [] }],
       });
       for (const format of ["png", "jpeg", "webp", "pdf"] as const) {
-        const out = await call(c, "export_image", { rootId: "shot", format, scale: 1 });
+        const out = (await call(c, "export_image", { rootId: "shot", format, scale: 1 })) as ToolResult & {
+          structuredContent?: { width: number; height: number; format: string; mimeType: string };
+        };
         expect(out.isError, textOf(out)).toBeFalsy();
-        const sc = out.structuredContent as { width: number; height: number; format: string; mimeType: string };
+        const sc = out.structuredContent!;
         expect(sc.width).toBe(80);
         expect(sc.height).toBe(40);
         expect(sc.format).toBe(format);
