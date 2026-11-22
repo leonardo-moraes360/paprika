@@ -18,7 +18,7 @@ import {
   type PageNode,
   type SceneNode,
 } from "@paprika/core";
-import type { Activity } from "./useDocument";
+import type { Activity as ActivityEntry } from "./useDocument";
 import { ColorField, Field, ModeField, SelectField, num, size } from "./inspector/fields";
 import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
@@ -112,7 +112,7 @@ function ArrangeSection({ ids, apply }: { ids: string[]; apply: Props["apply"] }
     );
   return (
     <InspectorSection id="arrange" title="Ordem" defaultOpen>
-      <div className={ui.actions} data-testid="arrange-actions">
+      <div className={actions} data-testid="arrange-actions">
         <button type="button" data-testid="arrange-front" title="Trazer para frente (Ctrl+Page Up)" onClick={() => run("front")}>
           Trazer para frente
         </button>
