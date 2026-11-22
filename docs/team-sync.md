@@ -78,7 +78,6 @@ Everything else on stdout is an event. The sidecar exits when its stdin closes.
 | `log` | `level`, `msg` (e.g. warn when peer app versions differ but format matches) |
 | `joined` | `peer`, `name`: someone joined with an invite from this instance |
 | `removed` | `peer`: this instance removed that member |
-| `log` | `level`, `msg` |
 
 ### Change set (`local`)
 

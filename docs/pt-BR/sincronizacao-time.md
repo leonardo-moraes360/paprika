@@ -78,7 +78,6 @@ O resto no stdout é evento. O sidecar termina quando o stdin fecha.
 | `log` | `level`, `msg` (ex.: warn quando as versões de app diferem mas o formato bate) |
 | `joined` | `peer`, `name`: alguém entrou com um convite desta instância |
 | `removed` | `peer`: esta instância removeu esse membro |
-| `log` | `level`, `msg` |
 
 ### Conjunto de mudanças (`local`)
 
