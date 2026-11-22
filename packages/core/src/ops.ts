@@ -60,17 +60,43 @@ export const CreateOp = z.object({
 export const UpdateOp = z.object({
   op: z.literal("update"),
   id: z.string(),
-  /** Campos a alterar. `null` remove o campo (volta ao padrão). Objetos (layout, stroke...) são substituídos inteiros. */
+  /**
+   * Campos a alterar. `null` remove o campo (volta ao padrão). Objetos (layout, stroke...) são substituídos inteiros.
+   * `index` não é campo do nó: é uma diretiva de ordem Z (número a partir de 0, ou "front"/"back"/
+   * "forward"/"backward") que reordena o nó dentro do pai atual, no mesmo passo de desfazer.
+   */
   props: z.record(z.string(), z.unknown()),
 });
 
 export const DeleteOp = z.object({ op: z.literal("delete"), id: z.string() });
 
+/** Posição na pilha dentro do pai: número a partir de 0 (o fundo) ou por nome. */
+const Z_STEPS = ["front", "back", "forward", "backward"] as const;
+type ZStep = (typeof Z_STEPS)[number];
+const ZIndexSchema = z.union([z.number().int().min(0), z.enum(Z_STEPS)]);
+const Z_INDEX_HINT = `props.index must be a number (0 is the back) or "front", "back", "forward" or "backward"`;
+
+const isValidZIndex = (v: unknown): v is number | ZStep =>
+  typeof v === "number" ? Number.isInteger(v) && v >= 0 : typeof v === "string" && (Z_STEPS as readonly string[]).includes(v);
+
+/**
+ * Resolve a posição pedida para índice de inserção na lista do pai *sem* o nó (o `move` tira antes
+ * de inserir): `undefined` = fim da fila, o topo da pilha ("front"). `forward`/`backward` partem do
+ * índice atual do nó. A inversa de qualquer dessas é sempre um índice numérico.
+ */
+function zStepToIndex(v: number | ZStep | undefined, fromIndex: number): number | undefined {
+  if (v === undefined || v === "front") return undefined;
+  if (typeof v === "number") return v;
+  if (v === "back") return 0;
+  if (v === "forward") return fromIndex + 1;
+  return Math.max(0, fromIndex - 1);
+}
+
 export const MoveOp = z.object({
   op: z.literal("move"),
   id: z.string(),
   parentId: z.string().nullable(),
-  index: z.number().int().min(0).optional(),
+  index: z.optional(ZIndexSchema),
 });
 
 export const SetTokensOp = z.object({
@@ -326,26 +352,42 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
     case "update": {
       const node = doc.nodes[op.id];
       if (!node) throw new OpError(`node "${op.id}" does not exist`, i);
+      // `index` nos props é a diretiva de ordem Z: reordena no pai atual antes de aplicar os campos.
+      let props = op.props;
+      const reorder: Op[] = [];
+      if ("index" in props) {
+        const v = props.index;
+        if (!isValidZIndex(v)) throw new OpError(`${Z_INDEX_HINT} (got ${JSON.stringify(v)})`, i);
+        const ownerCopy = copyOwner(doc, node);
+        if (ownerCopy) throw new OpError(copyRule(op.id, ownerCopy.id), i);
+        const list = container(doc, node.parentId, i);
+        const fromIndex = list.indexOf(op.id);
+        list.splice(fromIndex, 1);
+        insertAt(list, op.id, zStepToIndex(v, fromIndex));
+        reorder.push({ op: "move", id: op.id, parentId: node.parentId, index: fromIndex });
+        props = { ...props };
+        delete props.index;
+      }
       const owner = copyOwner(doc, node);
       if (owner) {
-        const bad = Object.keys(op.props).filter((k) => !isCopyOverride(k));
+        const bad = Object.keys(props).filter((k) => !isCopyOverride(k));
         if (bad.length) throw new OpError(`${copyRule(op.id, owner.id)} (got ${bad.join(", ")})`, i);
-        return [updateOverride(doc, owner, node, (node as { sourceId: string }).sourceId, op.props, i)];
+        return [...[updateOverride(doc, owner, node, (node as { sourceId: string }).sourceId, props, i)], ...reorder];
       }
-      if ("sourceId" in op.props && instanceOwner(doc, node.parentId)) throw new OpError(SOURCE_ID, i);
-      if (!isInstance(node)) return [updatePlain(doc, node, op.props, i)];
-      const derived = Object.keys(op.props).filter((k) => isRootDerived(k) && k !== "fill");
+      if ("sourceId" in props && instanceOwner(doc, node.parentId)) throw new OpError(SOURCE_ID, i);
+      if (!isInstance(node)) return [updatePlain(doc, node, props, i), ...reorder];
+      const derived = Object.keys(props).filter((k) => isRootDerived(k) && k !== "fill");
       if (derived.length)
         throw new OpError(`${derived.join(", ")} of "${op.id}" come from the component "${node.instanceOf}"; edit the component, change scale or detach it`, i);
       // O fill da raiz vira override, aplicado depois do resto (que pode trocar o componente).
-      const { fill, ...rest } = op.props;
+      const { fill, ...rest } = props;
       const inverse: Op[] = [];
       if (Object.keys(rest).length) inverse.push(updatePlain(doc, node, rest, i));
-      if ("fill" in op.props) {
+      if ("fill" in props) {
         const cur = doc.nodes[op.id]!;
         inverse.unshift(isInstance(cur) ? updateOverride(doc, cur, cur, cur.instanceOf, { fill }, i) : updatePlain(doc, cur, { fill }, i));
       }
-      return inverse;
+      return [...inverse, ...reorder];
     }
     case "delete": {
       const node = doc.nodes[op.id];
@@ -392,7 +434,7 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       const to = container(doc, op.parentId, i);
       checkPlacement(node.type, op.parentId, i);
       from.splice(fromIndex, 1);
-      insertAt(to, op.id, op.index);
+      insertAt(to, op.id, zStepToIndex(op.index, fromIndex));
       const oldParent = node.parentId;
       node.parentId = op.parentId;
       return [{ op: "move", id: op.id, parentId: oldParent, index: fromIndex }];

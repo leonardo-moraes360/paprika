@@ -36,7 +36,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `get_nodes` / `find_nodes` | JSON completo de nós / busca por tipo, nome, texto |
 | `create_nodes` | Cria árvores aninhadas numa chamada |
 | `draw_diagram` | Desenha um diagrama (fluxograma, arquitetura, mapa mental) a partir de formas e ligações: distribui as formas em camadas (`direction`: para baixo ou para a direita, à direita do conteúdo existente) e liga com setas que seguem as formas; uma ligação pode ter `label` |
-| `update_nodes` / `move_nodes` / `delete_nodes` | Edição em lote, atômica |
+| `update_nodes` / `move_nodes` / `delete_nodes` | Edição em lote, atômica. `index` nos props do `update` ou no `move` define a ordem Z no pai do nó: número a partir de 0 (o fundo) ou `front` / `back` / `forward` / `backward`, no mesmo passo de desfazer dos outros campos |
 | `group_nodes` / `ungroup_nodes` | Põe nós irmãos num `group` (o desenho não se move) / devolve ao pai |
 | `create_page` | Cria uma página; a primeira leva o canvas atual para "Página 1" |
 | `create_component` / `create_instance` / `detach_instance` | Marca um frame como componente / põe uma cópia dele (com `scale` e `overrides`; retorna o id de cada cópia) / transforma uma instância em nós comuns |

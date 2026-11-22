@@ -368,7 +368,7 @@
     {
       "name": "update_nodes",
       "title": "Update nodes",
-      "description": "Changes fields of several nodes in one atomic transaction. null removes a field. Objects (layout, stroke, shadow) are replaced whole.",
+      "description": "Changes fields of several nodes in one atomic transaction. null removes a field. Objects (layout, stroke, shadow) are replaced whole. The pseudo-field index (a number, 0 = the back, or \"front\", \"back\", \"forward\", \"backward\") reorders the node in its current parent — same call, same undo step.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -501,7 +501,7 @@
     {
       "name": "move_nodes",
       "title": "Move nodes",
-      "description": "Changes the parent and/or the order of nodes (parentId null = canvas). Does not change x/y.",
+      "description": "Changes the parent and/or the order of nodes (parentId null = canvas). Does not change x/y. index is the position in the new parent (0 = the back) or a step: \"front\", \"back\", \"forward\", \"backward\".",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -521,9 +521,21 @@
                   ]
                 },
                 "index": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "enum": [
+                        "front",
+                        "back",
+                        "forward",
+                        "backward"
+                      ]
+                    }
+                  ]
                 }
               },
               "required": [

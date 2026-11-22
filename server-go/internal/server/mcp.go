@@ -371,7 +371,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "moves", Schema: z.Array(z.Object(
 			z.Field{Name: "id", Schema: z.String()},
 			z.Field{Name: "parentId", Schema: z.Nullable(z.String())},
-			z.Field{Name: "index", Schema: z.Optional(z.Int().Min(0))},
+			z.Field{Name: "index", Schema: z.Optional(z.Union(z.Int().Min(0), z.Enum("front", "back", "forward", "backward")))},
 		)).Min(1)},
 		label(), batch(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {

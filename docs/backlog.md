@@ -27,7 +27,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Group / wrap selection in a frame, unwrap | `group` node, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21); no "wrap in frame" yet | 🟡 | P2 |
 | Absolute child inside an auto-layout frame ("ignore layout") | Children of row/column always flow | ⬜ | P1 |
 | Corner radius per corner | Single `radius` | 🟡 | P1 |
-| Z-order (forward, backward, front, back) | `move_nodes` with `index`; no canvas shortcuts | 🟡 | P1 |
+| Z-order (forward, backward, front, back) | `update_nodes`/`move_nodes` take `index`: a number from 0, or `front`/`back`/`forward`/`backward`, one undo step (2026-11-22); no canvas shortcuts (PAP-B-021) | 🟡 | P1 |
 | Hide, lock, unlock all | `visible`, `locked`; no "unlock all" | 🟡 | P2 |
 | Align and distribute selection | — | ⬜ | P2 |
 | Constraints (behavior when the parent resizes) | — | ⬜ | P2 |

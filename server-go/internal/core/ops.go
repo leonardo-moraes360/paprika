@@ -56,7 +56,7 @@ func init() {
 			z.Field{Name: "op", Schema: z.Literal("move")},
 			z.Field{Name: "id", Schema: z.String()},
 			z.Field{Name: "parentId", Schema: z.Nullable(z.String())},
-			z.Field{Name: "index", Schema: z.Optional(z.Int().Min(0))},
+			z.Field{Name: "index", Schema: z.Optional(z.Union(z.Int().Min(0), z.Enum("front", "back", "forward", "backward")))},
 		)),
 		z.Option("set_tokens", z.Object(
 			z.Field{Name: "op", Schema: z.Literal("set_tokens")},
@@ -528,6 +528,72 @@ func optIndex(op *jsonv.Object) *int {
 	return &n
 }
 
+// Z-order positions (parity with the TypeScript reference): a number from 0 (the back) or
+// front/back/forward/backward. The primitive `move` takes them in `index`; `update` takes the
+// same in props.index as a directive (it is not a node field). Inverse ops always carry numbers.
+const zIndexHint = `props.index must be a number (0 is the back) or "front", "back", "forward" or "backward"`
+
+func validZIndex(v any) bool {
+	switch t := v.(type) {
+	case float64:
+		return !math.IsInf(t, 0) && !math.IsNaN(t) && t == math.Trunc(t) && t >= 0
+	case string:
+		switch t {
+		case "front", "back", "forward", "backward":
+			return true
+		}
+	}
+	return false
+}
+
+// zStepToIndex resolves a requested position into an insertion index in the parent list
+// without the node (`move` removes before it inserts): nil = end of the list ("front" is the
+// top). forward/backward start from the node's current index.
+func zStepToIndex(v any, fromIndex int) *int {
+	switch t := v.(type) {
+	case nil:
+		return nil
+	case float64:
+		n := int(t)
+		return &n
+	case string:
+		switch t {
+		case "front":
+			return nil
+		case "back":
+			n := 0
+			return &n
+		case "forward":
+			n := fromIndex + 1
+			return &n
+		default: // backward, guarded at 0
+			n := fromIndex - 1
+			if n < 0 {
+				n = 0
+			}
+			return &n
+		}
+	}
+	return nil
+}
+
+// moveIndex resolves the op's index (present or not) for the same-parent or cross-parent move.
+func moveIndex(op *jsonv.Object, fromIndex int) *int {
+	v, ok := op.Get("index")
+	if !ok {
+		return nil
+	}
+	return zStepToIndex(v, fromIndex)
+}
+
+// withReorder appends the reorder inverse (always last: undo restores fields, then position).
+func withReorder(inv any, reorder []any) any {
+	if len(reorder) == 0 {
+		return inv
+	}
+	return append(flatten(inv), reorder...)
+}
+
 func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, error) {
 	switch op.Str("op") {
 	case "create":
@@ -546,6 +612,28 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			return nil, opErr(i, `node "%s" does not exist`, id)
 		}
 		props := op.Obj("props")
+		// `index` in props is the Z-order directive: reorder in the current parent before the fields.
+		var reorder []any
+		if props.Has("index") {
+			v, _ := props.Get("index")
+			if !validZIndex(v) {
+				return nil, opErr(i, "%s (got %s)", zIndexHint, jsonv.Stringify(v, ""))
+			}
+			if owner := CopyOwner(doc, node); owner != nil {
+				return nil, opErr(i, "%s", copyRule(id, owner.Str("id")))
+			}
+			parentID := mustGet(node, "parentId")
+			list, err := container(doc, parentID, i)
+			if err != nil {
+				return nil, err
+			}
+			fromIndex := list.indexOf(id)
+			list.removeAt(fromIndex)
+			list.insertAt(id, zStepToIndex(v, fromIndex))
+			reorder = append(reorder, jsonv.NewObject("op", "move", "id", id, "parentId", parentID, "index", float64(fromIndex)))
+			props = props.Spread()
+			props.Delete("index")
+		}
 		if owner := CopyOwner(doc, node); owner != nil {
 			var bad []string
 			for _, k := range props.Keys() {
@@ -556,13 +644,21 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			if len(bad) > 0 {
 				return nil, opErr(i, "%s (got %s)", copyRule(id, owner.Str("id")), strings.Join(bad, ", "))
 			}
-			return updateOverride(doc, owner, node, node.Str("sourceId"), props, i)
+			inv, err := updateOverride(doc, owner, node, node.Str("sourceId"), props, i)
+			if err != nil {
+				return nil, err
+			}
+			return withReorder(inv, reorder), nil
 		}
 		if props.Has("sourceId") && InstanceOwner(doc, mustGet(node, "parentId")) != nil {
 			return nil, opErr(i, sourceIDRule)
 		}
 		if !IsInstance(node) {
-			return updatePlain(doc, node, props, i)
+			inv, err := updatePlain(doc, node, props, i)
+			if err != nil {
+				return nil, err
+			}
+			return withReorder(inv, reorder), nil
 		}
 		var derived []string
 		for _, k := range props.Keys() {
@@ -598,7 +694,7 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			}
 			inverse = append([]any{inv}, inverse...)
 		}
-		return inverse, nil
+		return withReorder(inverse, reorder), nil
 
 	case "delete":
 		id := op.Str("id")
@@ -708,7 +804,7 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			return nil, err
 		}
 		from.removeAt(fromIndex)
-		to.insertAt(id, optIndex(op))
+		to.insertAt(id, moveIndex(op, fromIndex))
 		node.Set("parentId", target)
 		return jsonv.NewObject("op", "move", "id", id, "parentId", oldParent, "index", float64(fromIndex)), nil
 
