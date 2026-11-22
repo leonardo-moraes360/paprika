@@ -134,6 +134,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | Servidor MCP embutido (stdio + HTTP), leitura e escrita, CLI | `paprika serve`/`mcp`, 32 ferramentas (contrato `server-go/contract/mcp.json`) | ✅ | — |
+| Camada HTTP e MCP com [Gin](https://gin-gonic.com/) (`github.com/gin-gonic/gin`) | Grupos de rotas Gin para `/api`, time, `/mcp`, `/ws` e o canvas estático; Host/Origin + recover de panic como middleware; `/ws` mantém `coder/websocket`; protocolo MCP e stdio fora do Gin. Contrato inalterado (PAP-B-036). | ✅ | — |
 | Leituras econômicas em tokens | `get_document_outline` | ✅ | — |
 | Resultados estruturados (`outputSchema` + `structuredContent`) | Toda ferramenta que responde JSON declara `outputSchema` e devolve `structuredContent` (2026-11-21) | ✅ | — |
 | Guia e erros em inglês (pt-BR opcional) | Guia, descrições das ferramentas, erros, avisos e lint em inglês; `get_design_guide {language: "pt-BR"}` (2026-11-21). A interface do canvas segue em pt-BR | ✅ | — |

@@ -42,6 +42,8 @@
 
 `server-go/` is the only server; the TypeScript server it was ported from has been removed. `server-go/internal/core` is a port of `@paprika/core`, which the canvas runs and which stays the reference: fixtures generated from the TypeScript core (`pnpm go:golden`) lock the Go port byte for byte. The MCP contract (tool definitions, instructions) is `server-go/contract/mcp.json`, served verbatim; `packages/e2e` checks the binary from outside (MCP, HTTP, WebSocket, canvas).
 
+**HTTP layer.** `StartHTTP` mounts the canvas, `/api/*`, team routes, `/ws` and Streamable HTTP `/mcp` on [Gin](https://gin-gonic.com/) (`gin.New()`, release mode, trusted proxies disabled). Panic recovery and the Host/Origin check (`AllowedRequest`) run as middleware before every route, including 404s. `/ws` still uses `github.com/coder/websocket` inside a Gin handler; `team.Service.Routes` takes a Gin router. The MCP protocol (`MCP.Handle`, tools, schemas) and stdio (`ServeStdio`) stay outside Gin.
+
 ## Known limitations (v0.1)
 
 - Two processes on the same database (`serve` + `mcp`) see each other's commits within ~300 ms, but each keeps its own active workspace. To use MCP and the canvas together, prefer `paprika serve` + MCP over HTTP.

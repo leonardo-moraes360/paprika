@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/coder/websocket"
+	"github.com/gin-gonic/gin"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 	z "github.com/leonardo-moraes360/paprika/server-go/internal/zod"
@@ -37,7 +38,7 @@ type HTTPOptions struct {
 
 // TeamRoutes is what the HTTP server needs from the team package (which imports this one).
 type TeamRoutes interface {
-	Routes(mux *http.ServeMux)
+	Routes(r gin.IRoutes)
 	// Recent returns the WebSocket messages a canvas that just connected needs.
 	Recent() []string
 	// OnMessage subscribes to WebSocket messages for every canvas; returns the unsubscribe.
@@ -231,61 +232,75 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		})
 	}
 
-	mux := http.NewServeMux()
-	if opts.Team != nil {
-		opts.Team.Routes(mux)
-	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	gin.SetMode(gin.ReleaseMode)
+	engine := gin.New()
+	engine.RedirectTrailingSlash = false
+	engine.RedirectFixedPath = false
+	_ = engine.SetTrustedProxies(nil)
+	engine.Use(func(c *gin.Context) {
 		defer func() {
 			if p := recover(); p != nil {
 				logf(fmt.Sprintf("erro HTTP: %v", p))
-				send(w, 500, errBody(fmt.Sprint(p)), "")
+				if !c.Writer.Written() {
+					send(c.Writer, 500, errBody(fmt.Sprint(p)), "")
+				}
+				c.Abort()
 			}
 		}()
-		if !AllowedRequest(r, opts.Host, port) {
-			if r.URL.Path == "/ws" && strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
-				w.WriteHeader(http.StatusForbidden)
+		if !AllowedRequest(c.Request, opts.Host, port) {
+			if c.Request.URL.Path == "/ws" && strings.EqualFold(c.Request.Header.Get("Upgrade"), "websocket") {
+				c.Status(http.StatusForbidden)
+				c.Abort()
 				return
 			}
-			send(w, 403, errBody("Host/Origin não permitido"), "")
+			send(c.Writer, 403, errBody("Host/Origin não permitido"), "")
+			c.Abort()
 			return
 		}
-		mux.ServeHTTP(w, r)
+		c.Next()
 	})
 
+	if opts.Team != nil {
+		opts.Team.Routes(engine)
+	}
+
 	clients := newClientNames(1024)
-	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
-		ua := r.Header.Get("User-Agent")
+	engine.Any("/mcp", func(c *gin.Context) {
+		ua := c.Request.Header.Get("User-Agent")
 		if ua == "" {
 			ua = "http"
 		}
 		actor := "agent:" + strings.SplitN(ua, "/", 2)[0]
-		serveMCPHTTP(w, r, NewMCP(store, actor, opts.Shot), clients)
+		serveMCPHTTP(c.Writer, c.Request, NewMCP(store, actor, opts.Shot), clients)
 	})
-	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		send(w, 200, jsonv.NewObject("ok", true, "version", float64(store.Version()), "file", store.Path(), "storage", "sqlite", "docId", store.DocID()), "")
+	engine.Any("/api/health", func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet {
+			send(c.Writer, 405, errBody("método não permitido"), "")
+			return
+		}
+		send(c.Writer, 200, jsonv.NewObject("ok", true, "version", float64(store.Version()), "file", store.Path(), "storage", "sqlite", "docId", store.DocID()), "")
 	})
-	mux.HandleFunc("/api/document", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			send(w, 405, errBody("método não permitido"), "")
+	engine.Any("/api/document", func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet {
+			send(c.Writer, 405, errBody("método não permitido"), "")
 			return
 		}
 		doc, version, _, _ := store.Snapshot()
-		send(w, 200, jsonv.NewObject("doc", doc, "version", float64(version)), "")
+		send(c.Writer, 200, jsonv.NewObject("doc", doc, "version", float64(version)), "")
 	})
-	mux.HandleFunc("/api/ops", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			send(w, 405, errBody("método não permitido"), "")
+	engine.Any("/api/ops", func(c *gin.Context) {
+		if c.Request.Method != http.MethodPost {
+			send(c.Writer, 405, errBody("método não permitido"), "")
 			return
 		}
-		body, present, err := readBody(r)
+		body, present, err := readBody(c.Request)
 		if err != nil {
 			var he *httpError
 			if errors.As(err, &he) {
-				send(w, he.status, errBody(he.msg), "")
+				send(c.Writer, he.status, errBody(he.msg), "")
 				return
 			}
-			send(w, 500, errBody(err.Error()), "")
+			send(c.Writer, 500, errBody(err.Error()), "")
 			return
 		}
 		var parsed any
@@ -295,7 +310,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			_, _, err = z.ParseUndefined(apiOpsBody)
 		}
 		if err != nil {
-			send(w, 400, errBody(err.Error()), "")
+			send(c.Writer, 400, errBody(err.Error()), "")
 			return
 		}
 		b := parsed.(*jsonv.Object)
@@ -305,37 +320,37 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		}
 		res, err := store.Apply(b.Arr("ops"), actor, b.Str("label"))
 		if err != nil {
-			send(w, 422, errBody(err.Error()), "")
+			send(c.Writer, 422, errBody(err.Error()), "")
 			return
 		}
-		send(w, 200, jsonv.NewObject("created", jsonv.FromGo(res.Created), "version", float64(store.Version())), "")
+		send(c.Writer, 200, jsonv.NewObject("created", jsonv.FromGo(res.Created), "version", float64(store.Version())), "")
 	})
-	mux.HandleFunc("/api/export", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			send(w, 405, errBody("método não permitido"), "")
+	engine.Any("/api/export", func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet {
+			send(c.Writer, 405, errBody("método não permitido"), "")
 			return
 		}
-		w.Header().Set("content-disposition", `attachment; filename="`+safeFileName(store.Doc().Str("name"))+`.paprika.json"`)
-		send(w, 200, jsonv.Stringify(store.Doc(), "  ")+"\n", "application/json")
+		c.Writer.Header().Set("content-disposition", `attachment; filename="`+safeFileName(store.Doc().Str("name"))+`.paprika.json"`)
+		send(c.Writer, 200, jsonv.Stringify(store.Doc(), "  ")+"\n", "application/json")
 	})
-	mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
+	engine.Any("/api/workspaces", func(c *gin.Context) {
+		switch c.Request.Method {
 		case http.MethodGet:
 			ws, err := store.ListWorkspaces()
 			if err != nil {
-				send(w, 500, errBody(err.Error()), "")
+				send(c.Writer, 500, errBody(err.Error()), "")
 				return
 			}
-			send(w, 200, jsonv.NewObject("active", store.DocID(), "workspaces", jsonv.FromGo(ws)), "")
+			send(c.Writer, 200, jsonv.NewObject("active", store.DocID(), "workspaces", jsonv.FromGo(ws)), "")
 		case http.MethodPost:
-			body, present, err := readBody(r)
+			body, present, err := readBody(c.Request)
 			if err != nil {
 				var he *httpError
 				if errors.As(err, &he) {
-					send(w, he.status, errBody(he.msg), "")
+					send(c.Writer, he.status, errBody(he.msg), "")
 					return
 				}
-				send(w, 500, errBody(err.Error()), "")
+				send(c.Writer, 500, errBody(err.Error()), "")
 				return
 			}
 			if !present {
@@ -343,31 +358,31 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			}
 			parsed, err := z.Parse(workspaceBody, body)
 			if err != nil {
-				send(w, 400, errBody(err.Error()), "")
+				send(c.Writer, 400, errBody(err.Error()), "")
 				return
 			}
 			info, err := store.CreateWorkspace(parsed.(*jsonv.Object).Str("name"))
 			if err != nil {
-				send(w, 500, errBody(err.Error()), "")
+				send(c.Writer, 500, errBody(err.Error()), "")
 				return
 			}
-			send(w, 201, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+			send(c.Writer, 201, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
 		default:
-			send(w, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("método não permitido"), "")
 		}
 	})
-	mux.HandleFunc("/api/workspaces/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-		switch r.Method {
+	engine.Any("/api/workspaces/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		switch c.Request.Method {
 		case http.MethodPatch:
-			body, present, err := readBody(r)
+			body, present, err := readBody(c.Request)
 			if err != nil {
 				var he *httpError
 				if errors.As(err, &he) {
-					send(w, he.status, errBody(he.msg), "")
+					send(c.Writer, he.status, errBody(he.msg), "")
 					return
 				}
-				send(w, 500, errBody(err.Error()), "")
+				send(c.Writer, 500, errBody(err.Error()), "")
 				return
 			}
 			if !present {
@@ -375,178 +390,175 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			}
 			parsed, err := z.Parse(renameWorkspaceBody, body)
 			if err != nil {
-				send(w, 400, errBody(err.Error()), "")
+				send(c.Writer, 400, errBody(err.Error()), "")
 				return
 			}
 			name := strings.TrimSpace(parsed.(*jsonv.Object).Str("name"))
 			if name == "" {
-				send(w, 400, errBody("o nome não pode ficar vazio"), "")
+				send(c.Writer, 400, errBody("o nome não pode ficar vazio"), "")
 				return
 			}
 			info, err := store.RenameWorkspace(id, name, "user")
 			if errors.Is(err, ErrNoWorkspace) {
-				send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+				send(c.Writer, 404, errBody(`workspace "`+id+`" não existe`), "")
 				return
 			}
 			if err != nil {
-				send(w, 500, errBody(err.Error()), "")
+				send(c.Writer, 500, errBody(err.Error()), "")
 				return
 			}
-			send(w, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+			send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
 		case http.MethodDelete:
 			active, err := store.DeleteWorkspace(id, "user")
 			switch {
 			case errors.Is(err, ErrNoWorkspace):
-				send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+				send(c.Writer, 404, errBody(`workspace "`+id+`" não existe`), "")
 			case errors.Is(err, ErrLastWorkspace):
-				send(w, 409, errBody("não é possível excluir o único workspace"), "")
+				send(c.Writer, 409, errBody("não é possível excluir o único workspace"), "")
 			case err != nil:
-				send(w, 500, errBody(err.Error()), "")
+				send(c.Writer, 500, errBody(err.Error()), "")
 			default:
-				send(w, 200, jsonv.NewObject("deleted", id, "active", active), "")
+				send(c.Writer, 200, jsonv.NewObject("deleted", id, "active", active), "")
 			}
 		default:
-			send(w, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("método não permitido"), "")
 		}
 	})
-	mux.HandleFunc("/api/workspaces/{id}/cover", func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
+	engine.Any("/api/workspaces/:id/cover", func(c *gin.Context) {
+		id := c.Param("id")
 		var info WorkspaceInfo
 		var err error
-		switch r.Method {
+		switch c.Request.Method {
 		case http.MethodGet:
 			data, mime, err := store.Cover(id)
 			if errors.Is(err, ErrNoWorkspace) {
-				send(w, 404, errBody(`workspace "`+id+`" não tem capa`), "")
+				send(c.Writer, 404, errBody(`workspace "`+id+`" não tem capa`), "")
 				return
 			}
 			if err != nil {
-				send(w, 500, errBody(err.Error()), "")
+				send(c.Writer, 500, errBody(err.Error()), "")
 				return
 			}
-			// The URL carries ?v=<updatedAt>, so a new cover is a new URL.
-			h := w.Header()
+			h := c.Writer.Header()
 			h.Set("content-type", mime)
 			h.Set("cache-control", "private, max-age=31536000, immutable")
 			h.Set("x-content-type-options", "nosniff")
 			h.Set("content-security-policy", "default-src 'none'")
-			w.WriteHeader(200)
-			w.Write(data)
+			c.Writer.WriteHeader(200)
+			c.Writer.Write(data)
 			return
 		case http.MethodPut:
-			data, rerr := io.ReadAll(io.LimitReader(r.Body, MaxCoverBytes+1))
+			data, rerr := io.ReadAll(io.LimitReader(c.Request.Body, MaxCoverBytes+1))
 			if rerr != nil {
-				send(w, 400, errBody(rerr.Error()), "")
+				send(c.Writer, 400, errBody(rerr.Error()), "")
 				return
 			}
 			info, err = store.SetCover(id, data)
 		case http.MethodDelete:
 			info, err = store.ClearCover(id)
 		default:
-			send(w, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("método não permitido"), "")
 			return
 		}
 		switch {
 		case errors.Is(err, ErrNoWorkspace):
-			send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+			send(c.Writer, 404, errBody(`workspace "`+id+`" não existe`), "")
 		case errors.Is(err, ErrBadCover):
-			send(w, 415, errBody("a capa precisa ser uma imagem PNG, JPEG, WebP ou GIF de até 2 MiB"), "")
+			send(c.Writer, 415, errBody("a capa precisa ser uma imagem PNG, JPEG, WebP ou GIF de até 2 MiB"), "")
 		case err != nil:
-			send(w, 500, errBody(err.Error()), "")
+			send(c.Writer, 500, errBody(err.Error()), "")
 		default:
-			send(w, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+			send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
 		}
 	})
-	mux.HandleFunc("/api/workspaces/{id}/open", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			send(w, 405, errBody("método não permitido"), "")
+	engine.Any("/api/workspaces/:id/open", func(c *gin.Context) {
+		if c.Request.Method != http.MethodPost {
+			send(c.Writer, 405, errBody("método não permitido"), "")
 			return
 		}
-		id := r.PathValue("id")
+		id := c.Param("id")
 		info, err := store.OpenWorkspace(id, "user")
 		if errors.Is(err, ErrNoWorkspace) {
-			send(w, 404, errBody(`workspace "`+id+`" não existe`), "")
+			send(c.Writer, 404, errBody(`workspace "`+id+`" não existe`), "")
 			return
 		}
 		if err != nil {
-			send(w, 500, errBody(err.Error()), "")
+			send(c.Writer, 500, errBody(err.Error()), "")
 			return
 		}
-		send(w, 200, jsonv.NewObject("workspace", jsonv.FromGo(info), "version", float64(store.Version())), "")
+		send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info), "version", float64(store.Version())), "")
 	})
-	mux.HandleFunc("/api/render", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			send(w, 405, errBody("método não permitido"), "")
+	engine.Any("/api/render", func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet {
+			send(c.Writer, 405, errBody("método não permitido"), "")
 			return
 		}
-		html, _, err := core.RenderHTML(store.Doc(), core.RenderOptions{RootID: r.URL.Query().Get("root")})
+		html, _, err := core.RenderHTML(store.Doc(), core.RenderOptions{RootID: c.Query("root")})
 		if err != nil {
-			send(w, 500, errBody(err.Error()), "")
+			send(c.Writer, 500, errBody(err.Error()), "")
 			return
 		}
-		send(w, 200, html, mimeTypes[".html"])
+		send(c.Writer, 200, html, mimeTypes[".html"])
 	})
-	mux.HandleFunc("/api/screenshot", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			send(w, 405, errBody("método não permitido"), "")
+	engine.Any("/api/screenshot", func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet {
+			send(c.Writer, 405, errBody("método não permitido"), "")
 			return
 		}
 		if opts.Shot == nil {
-			send(w, 500, errBody("screenshot indisponível neste servidor"), "")
+			send(c.Writer, 500, errBody("screenshot indisponível neste servidor"), "")
 			return
 		}
-		scale, _ := strconv.ParseFloat(r.URL.Query().Get("scale"), 64)
+		scale, _ := strconv.ParseFloat(c.Query("scale"), 64)
 		if scale == 0 {
 			scale = 1
 		}
-		png, _, _, err := opts.Shot.Screenshot(r.Context(), store.Doc(), r.URL.Query().Get("root"), scale)
+		png, _, _, err := opts.Shot.Screenshot(c.Request.Context(), store.Doc(), c.Query("root"), scale)
 		if err != nil {
 			logf("erro HTTP: " + err.Error())
-			send(w, 500, errBody(err.Error()), "")
+			send(c.Writer, 500, errBody(err.Error()), "")
 			return
 		}
-		send(w, 200, png, "image/png")
+		send(c.Writer, 200, png, "image/png")
 	})
-	mux.HandleFunc("/api/svg", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			send(w, 405, errBody("método não permitido"), "")
+	engine.Any("/api/svg", func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet {
+			send(c.Writer, 405, errBody("método não permitido"), "")
 			return
 		}
 		if opts.Shot == nil {
-			send(w, 500, errBody("export SVG indisponível neste servidor"), "")
+			send(c.Writer, 500, errBody("export SVG indisponível neste servidor"), "")
 			return
 		}
-		// JSON (not image/svg+xml) so the SVG is never rendered on the server's origin.
-		res, err := opts.Shot.ExportSVG(r.Context(), store.Doc(), r.URL.Query().Get("root"))
+		res, err := opts.Shot.ExportSVG(c.Request.Context(), store.Doc(), c.Query("root"))
 		if err != nil {
 			logf("erro HTTP: " + err.Error())
-			send(w, 500, errBody(err.Error()), "")
+			send(c.Writer, 500, errBody(err.Error()), "")
 			return
 		}
 		ws := make([]any, len(res.Warnings))
 		for i, x := range res.Warnings {
 			ws[i] = x
 		}
-		send(w, 200, jsonv.NewObject("svg", res.SVG, "width", res.Width, "height", res.Height, "warnings", ws), "")
+		send(c.Writer, 200, jsonv.NewObject("svg", res.SVG, "width", res.Width, "height", res.Height, "warnings", ws), "")
 	})
-	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		// Host/Origin were validated above; the library's own origin check is redundant.
-		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+	engine.GET("/ws", func(c *gin.Context) {
+		conn, err := websocket.Accept(c.Writer, c.Request, &websocket.AcceptOptions{InsecureSkipVerify: true})
 		if err != nil {
 			return
 		}
 		conn.SetReadLimit(maxBody)
-		serveWS(r.Context(), conn, store, hub, docMessage, opts.Team)
+		serveWS(c.Request.Context(), conn, store, hub, docMessage, opts.Team)
 	})
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			send(w, 405, errBody("método não permitido"), "")
+	engine.NoRoute(func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
+			send(c.Writer, 405, errBody("método não permitido"), "")
 			return
 		}
-		serveStatic(w, r, webRoot)
+		serveStatic(c.Writer, c.Request, webRoot)
 	})
 
-	srv := &http.Server{Handler: handler}
+	srv := &http.Server{Handler: engine}
 	go func() {
 		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logf("erro HTTP: " + err.Error())
