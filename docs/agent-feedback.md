@@ -337,6 +337,15 @@ captured before and after.
 
 - `lint_design` reported the light destructive text at 4,05:1 on the first sheet, before a line of code was written — the same class of mistake it caught on the PAP-B-030 sheet, and the token alphas are what they are now because of it.
 
+## 2026-11-22: double-click an arrow to edit its label (PAP-B-028, design first)
+
+Task: draw the arrow label in three states (no label, editing with caret and halo, with label), light and
+dark, before the inline editor on the canvas. Six root frames, ~40 nodes.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 99 | A text field state with a dashed focus outline | The editor draws a dashed `select` outline, but `stroke` on rect and frame has only `color` and `width`, so the sheet shows it solid; the caret is a 1.5 px rect on top of a text node | A `dash` field on `stroke` for rect, ellipse and frame (connectors already have `dashed`) would let a sheet match what `nodeStyle` paints | P3 |
+| 100 | Exporting the board document from a containerised server | `paprika export --db <db>` needs the database file, which lives in the compose volume; the doc is reachable only through `GET /api/export` | Mention `curl http://127.0.0.1:4777/api/export` in `docs/design-boards.md` next to the CLI form | P3 |
 ## 2026-11-22: renaming the only page (PAP-B-020, design first)
 
 Task: draw the pages panel before, while and after renaming the placeholder "Página 1" of a workspace with no

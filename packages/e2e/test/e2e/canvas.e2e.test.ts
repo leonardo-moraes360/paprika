@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { copyId, type Document, type FrameNode } from "@paprika/core";
+import { connectorMidpoint, copyId, type Document, type FrameNode } from "@paprika/core";
 import { startServer, type ExternalServer } from "../harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
@@ -1011,6 +1011,98 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.getByRole("button", { name: "Enquadrar" }).click();
     if (shots) await page.screenshot({ path: join(shots, "17-diagrama-agente.png") });
   }, 30_000);
+
+  it("seta: duplo clique no meio da rota adiciona, edita e remove o rótulo (reta e cotovelo, dentro de um frame), Esc cancela e Ctrl+Z desfaz", async () => {
+    const POLL = { timeout: 10_000 };
+    await page.keyboard.press("Escape");
+    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const frame = await agent.callTool({
+      name: "create_nodes",
+      arguments: { parentId, nodes: [{ type: "frame", id: "lbl-frame", name: "Rótulos", x: 1400, y: 40, width: 640, height: 360, fill: "#ffffff" }] },
+    });
+    expect(frame.isError).toBeFalsy();
+    const drawn = await agent.callTool({
+      name: "draw_diagram",
+      arguments: {
+        parentId: "lbl-frame",
+        direction: "right",
+        nodes: [
+          { id: "lbl-a", text: "Início", x: 20, y: 150, width: 140, height: 60 },
+          { id: "lbl-b", text: "Fim", x: 460, y: 30, width: 140, height: 60 },
+          { id: "lbl-c", text: "Erro", x: 460, y: 270, width: 140, height: 60 },
+        ],
+        edges: [{ from: "lbl-a", to: "lbl-b", route: "straight" }, { from: "lbl-a", to: "lbl-c" }],
+      },
+    });
+    expect(drawn.isError).toBeFalsy();
+    await expect.poll(() => page.locator('[data-paprika-id="lbl-a-to-lbl-b"] path').count(), POLL).toBe(2);
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    const connector = async (id: string) => (await doc()).nodes[id] as unknown as { id: string; d: string; label?: string; parentId: string };
+    await expect.poll(() => page.locator('[data-paprika-id="lbl-a-to-lbl-b"] path').count(), POLL).toBe(2);
+    expect((await connector("lbl-a-to-lbl-b")).parentId).toBe("lbl-frame");
+    const editor = page.getByTestId("connector-label-editor");
+    const dblclickMiddle = async (id: string) => {
+      const at = connectorMidpoint((await connector(id)).d)!;
+      const p = await page.locator(`[data-paprika-id="${id}"] path[data-connector-hit]`).evaluate((el, pt) => {
+        const m = (el as SVGPathElement).getScreenCTM()!;
+        return { x: m.a * pt.x + m.c * pt.y + m.e, y: m.b * pt.x + m.d * pt.y + m.f };
+      }, at);
+      await page.mouse.dblclick(p.x, p.y);
+      await page.waitForTimeout(400);
+    };
+    const labelOf = async (id: string) => (await connector(id)).label;
+    const history = async () => {
+      const hist = (await agent.callTool({ name: "get_history", arguments: {} })) as { content: { text: string }[] };
+      return JSON.parse(hist.content[0]!.text).at(-1);
+    };
+
+    for (const id of ["lbl-a-to-lbl-b", "lbl-a-to-lbl-c"]) {
+      await dblclickMiddle(id);
+      await editor.waitFor();
+      await expect.poll(() => editor.inputValue(), POLL).toBe("");
+      await page.keyboard.type("sim");
+      await page.keyboard.press("Enter");
+      await expect.poll(() => labelOf(id), POLL).toBe("sim");
+      await expect.poll(() => page.locator(`[data-paprika-id="${id}"] [data-connector-label]`).textContent(), POLL).toBe("sim");
+      await expect.poll(() => editor.count(), POLL).toBe(0);
+      expect(await history()).toMatchObject({ actor: "user", label: "editar rótulo" });
+      if (shots && id === "lbl-a-to-lbl-b") await page.screenshot({ path: join(shots, "18-seta-com-rotulo.png") });
+
+      await dblclickMiddle(id);
+      await editor.waitFor();
+      await expect.poll(() => editor.inputValue(), POLL).toBe("sim");
+      if (shots && id === "lbl-a-to-lbl-b") await page.screenshot({ path: join(shots, "19-seta-editando-rotulo.png") });
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.type("talvez");
+      await page.keyboard.press("Enter");
+      await expect.poll(() => labelOf(id), POLL).toBe("talvez");
+
+      await dblclickMiddle(id);
+      await editor.waitFor();
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.type("outro");
+      await page.keyboard.press("Escape");
+      await expect.poll(() => editor.count(), POLL).toBe(0);
+      expect(await labelOf(id)).toBe("talvez");
+
+      await dblclickMiddle(id);
+      await editor.waitFor();
+      await editor.fill("");
+      await page.keyboard.press("Enter");
+      await expect.poll(async () => "label" in (await connector(id)), POLL).toBe(false);
+      await expect.poll(() => page.locator(`[data-paprika-id="${id}"] [data-connector-label]`).count(), POLL).toBe(0);
+
+      await page.keyboard.press("ControlOrMeta+z");
+      await expect.poll(() => labelOf(id), POLL).toBe("talvez");
+    }
+
+    // Duplo clique numa forma continua editando o texto da forma.
+    const shape = (await page.locator('[data-paprika-id="lbl-a"]').boundingBox())!;
+    await page.mouse.dblclick(shape.x + shape.width / 2, shape.y + shape.height / 2);
+    await page.getByTestId("shape-text-editor").waitFor();
+    expect(await editor.count()).toBe(0);
+    await page.keyboard.press("Escape");
+  }, 60_000);
 
   it("seleção mostra quatro alças e arrastar o canto NW mantém o SE fixo", async () => {
     const POLL = { timeout: 10_000 };

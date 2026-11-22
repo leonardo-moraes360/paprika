@@ -338,6 +338,15 @@ capturado antes e depois.
 
 - O `lint_design` apontou o texto destrutivo claro em 4,05:1 já na primeira folha, antes de qualquer linha de código — o mesmo tipo de erro que pegou na folha do PAP-B-030, e os alfas dos tokens são os que são hoje por causa dele.
 
+## 2026-11-22: duplo clique na seta para editar o rótulo (PAP-B-028, design first)
+
+Tarefa: desenhar o rótulo da seta em três estados (sem rótulo, editando com cursor e halo, com rótulo), claro e
+escuro, antes do editor no lugar no canvas. Seis frames raiz, ~40 nós.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 99 | Estado de campo de texto com contorno de foco tracejado | O editor desenha um contorno `select` tracejado, mas `stroke` em rect e frame só tem `color` e `width`, então a folha mostra o contorno contínuo; o cursor é um rect de 1,5 px sobre um nó de texto | Um campo `dash` em `stroke` de rect, ellipse e frame (conectores já têm `dashed`) deixaria a folha igual ao que o `nodeStyle` pinta | P3 |
+| 100 | Exportar o documento das folhas de um servidor em container | `paprika export --db <db>` precisa do arquivo do banco, que fica no volume do compose; o documento só é alcançável por `GET /api/export` | Citar `curl http://127.0.0.1:4777/api/export` em `docs/design-boards.md` ao lado da forma pela CLI | P3 |
 ## 2026-11-22: renomear a única página (PAP-B-020, design first)
 
 Tarefa: desenhar o painel de páginas antes, durante e depois de renomear o placeholder "Página 1" de um workspace

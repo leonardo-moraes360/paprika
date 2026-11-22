@@ -237,7 +237,7 @@ Simple diagrams (flowcharts, architecture sketches, mind maps) drawn by the huma
 | Re-attach or detach an arrow end by dragging it on the canvas | Inspector only | ⬜ | P2 |
 | Hand-drawn style | — | ⬜ | P3 |
 | Three arrow line styles: square, rounded, free curve | Reading recorded on 2026-11-22 (screenshot from the maintainer shows today's elbow arrow): (1) square corners, what `route: "elbow"` draws today (`route: "straight"` also exists); (2) rounded, the same elbow route with rounded corners; (3) free curve, a bezier whose handle can be dragged on the canvas to shape it. Also over MCP and in the inspector. Takes over the curved arrows of the old O row "Curved arrows and more shapes" and relates to O "Re-attach or detach an arrow end by dragging" and F point editing. Requested 2026-11-22. Batch 4. | ⬜ | TBD |
-| Double-click an arrow to add, edit or remove its label | Inline editing on the canvas, like shape text (O). Today the `label` is edited only in the inspector (O "Labels on arrows", PR #75); clearing the text removes the label. Requested 2026-11-22. Batch 3: PAP-B-028. | ⬜ | TBD |
+| Double-click an arrow to add, edit or remove its label | Double-click an arrow on the canvas opens an input at the middle of its route (`ConnectorLabelEditor`), like shape text: Enter or blur commits through `applyOps`, Esc cancels, clearing the text removes the label (one undo step; straight and elbow routes, inside frames too). Requested 2026-11-22. Batch 3: PAP-B-028. | ✅ | — |
 | Triangle as a simple shape | New `ShapeKind` next to `rect`, `ellipse`, `diamond`, `note` (O), with a toolbar tool, in the inspector shape picker and over MCP (`draw_diagram` too). Requested 2026-11-22. Batch 3: PAP-A-004. | ⬜ | TBD |
 
 ## P. Maintainer requests (2026-11-22)
