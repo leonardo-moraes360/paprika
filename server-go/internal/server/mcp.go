@@ -707,7 +707,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 
 	add("export_code", z.Object(
 		z.Field{Name: "rootId", Schema: z.String()},
-		z.Field{Name: "format", Schema: z.Default(z.Enum("html", "react", "svg"), "react")},
+		z.Field{Name: "format", Schema: z.Default(z.Enum("html", "react", "svg", "tailwind", "tailwind-html", "css-modules"), "react")},
 		z.Field{Name: "cssVariables", Schema: z.Default(z.Bool(), false)},
 	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		d := store.Doc()
@@ -724,6 +724,27 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 				return nil, err
 			}
 			return textResult(code), nil
+		case "tailwind":
+			code, err := core.ExportTailwind(d, a.Str("rootId"), a.Bool("cssVariables"))
+			if err != nil {
+				return nil, err
+			}
+			return textResult(code), nil
+		case "tailwind-html":
+			html, _, err := core.RenderTailwindHTML(d, core.RenderOptions{RootID: a.Str("rootId"), CSSVariables: a.Bool("cssVariables")})
+			if err != nil {
+				return nil, err
+			}
+			return textResult(html), nil
+		case "css-modules":
+			mod, err := core.ExportCSSModules(d, a.Str("rootId"), a.Bool("cssVariables"))
+			if err != nil {
+				return nil, err
+			}
+			return jsonv.NewObject("content", []any{
+				jsonv.NewObject("type", "text", "text", "// "+strings.TrimSuffix(mod.FileName, ".module.css")+".tsx\n"+mod.Component),
+				jsonv.NewObject("type", "text", "text", "/* "+mod.FileName+" */\n"+mod.CSS),
+			}), nil
 		}
 		if m.shot == nil {
 			return nil, errors.New("SVG export unavailable on this server")

@@ -503,6 +503,36 @@ describe("API: MCP", () => {
     expect(lint.issues.filter((i: { rule: string }) => i.rule === "unknown-token")).toEqual([]);
   });
 
+  it("export_code: tailwind, tailwind-html e css-modules saem do mesmo estilo do canvas", async () => {
+    const c = client;
+    const created = await call(c, "create_nodes", {
+      nodes: [
+        { type: "frame", id: "tw", name: "Card Tailwind", x: 0, y: 900, width: 200, height: 80, fill: "#ffffff", radius: 8, children: [{ type: "text", id: "twT", text: "Oi", color: "#111111", fontSize: 14 }] },
+      ],
+    });
+    expect(created.isError, textOf(created)).toBeFalsy();
+    const react = textOf(await call(c, "export_code", { rootId: "tw", format: "react" }));
+    const tailwind = textOf(await call(c, "export_code", { rootId: "tw", format: "tailwind" }));
+    expect(tailwind).toContain("export function CardTailwind()");
+    expect(tailwind).toContain('className="');
+    expect(tailwind).toContain("bg-[color:#ffffff]");
+    expect(tailwind).toContain("rounded-[8px]");
+    expect(tailwind).not.toContain("style={{");
+    expect(tailwind).not.toBe(react);
+    const page = textOf(await call(c, "export_code", { rootId: "tw", format: "tailwind-html" }));
+    expect(page).toContain("@tailwindcss/browser");
+    expect(page).toContain('data-paprika-id="tw"');
+    expect(page).not.toContain(' style="');
+    const modules = (await call(c, "export_code", { rootId: "tw", format: "css-modules", cssVariables: true })).content.map((x) => x.text ?? "");
+    expect(modules).toHaveLength(2);
+    expect(modules[0]).toContain('import styles from "./CardTailwind.module.css";');
+    expect(modules[0]).toContain("className={styles.cardTailwind}");
+    expect(modules[1]).toContain("/* CardTailwind.module.css */");
+    expect(modules[1]).toContain(".cardTailwind{box-sizing:border-box;");
+    const missing = await call(c, "export_code", { rootId: "nope", format: "css-modules" });
+    expect(missing.isError).toBe(true);
+  });
+
   it("agent layer: structuredContent, undo batch, actor from clientInfo over HTTP sessions, pt-BR guide", async () => {
     const c = client;
     const r = (await c.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "b1" }], batch: "draw 3" } })) as ToolResult & { structuredContent?: unknown };

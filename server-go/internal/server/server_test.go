@@ -507,6 +507,40 @@ func TestMCPImportExportSVG(t *testing.T) {
 	}
 }
 
+func TestMCPExportTailwindAndCSSModules(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	if _, isErr := callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "frame", "id", "card", "name", "Card grande", "width", 120.0, "height", 80.0, "fill", "#ffffff",
+		"children", []any{obj("type", "text", "id", "t", "text", "Olá", "fontSize", 16.0)})})); isErr {
+		t.Fatal("create_nodes")
+	}
+	tw, isErr := callText(t, m, "export_code", obj("rootId", "card", "format", "tailwind"))
+	if isErr || !strings.Contains(tw, "export function CardGrande()") || !strings.Contains(tw, `className="`) || strings.Contains(tw, "style={{") {
+		t.Fatalf("tailwind: %q", tw)
+	}
+	twh, isErr := callText(t, m, "export_code", obj("rootId", "card", "format", "tailwind-html"))
+	if isErr || !strings.Contains(twh, "@tailwindcss/browser") || !strings.Contains(twh, ` class="`) || strings.Contains(twh, ` style="`) {
+		t.Fatalf("tailwind-html: %q", twh)
+	}
+	r := m.CallTool(context.Background(), "export_code", obj("rootId", "card", "format", "css-modules", "cssVariables", true), true)
+	content := r.Arr("content")
+	if r.Bool("isError") || len(content) != 2 {
+		t.Fatalf("css-modules: %s", jsonv.Stringify(r, ""))
+	}
+	tsx, css := content[0].(*jsonv.Object).Str("text"), content[1].(*jsonv.Object).Str("text")
+	if !strings.HasPrefix(tsx, "// CardGrande.tsx\nimport styles from \"./CardGrande.module.css\";") || !strings.Contains(tsx, "className={styles.cardGrande}") {
+		t.Fatalf("css-modules component: %q", tsx)
+	}
+	if !strings.HasPrefix(css, "/* CardGrande.module.css */\n:root{") || !strings.Contains(css, ".cardGrande{box-sizing:border-box;") {
+		t.Fatalf("css-modules sheet: %q", css)
+	}
+	for _, format := range []string{"tailwind", "tailwind-html", "css-modules"} {
+		if out, isErr := callText(t, m, "export_code", obj("rootId", "nope", "format", format)); !isErr || out != `node "nope" does not exist` {
+			t.Fatalf("%s missing node: %q", format, out)
+		}
+	}
+}
+
 func TestPresence(t *testing.T) {
 	s, _ := openTemp(t)
 	var got []Presence
