@@ -196,10 +196,7 @@
         "b047-closed-dark",
         "b047-open-dark",
         "b047-closed-light",
-        "b047-open-light",
-        "b051-dark",
-        "b051-light",
-        "b051-states"
+        "b047-open-light"
       ]
     },
     "qto7bo99tl": {
@@ -61572,10 +61569,9 @@
       "radius": 12,
       "type": "frame",
       "children": [
-        "e045-title",
-        "e045-a",
-        "e045-b",
-        "e045-line"
+        "s",
+        "t",
+        "s-to-t"
       ],
       "clip": true
     },
@@ -61594,12 +61590,7 @@
       "fill": "#f7f5f2",
       "radius": 12,
       "type": "frame",
-      "children": [
-        "r045-title",
-        "r045-a",
-        "r045-b",
-        "r045-line"
-      ],
+      "children": [],
       "clip": true
     },
     "pap045-curve": {
@@ -61617,13 +61608,7 @@
       "fill": "#f7f5f2",
       "radius": 12,
       "type": "frame",
-      "children": [
-        "c045-title",
-        "c045-a",
-        "c045-b",
-        "c045-line",
-        "c045-handle"
-      ],
+      "children": [],
       "clip": true
     },
     "pap045-inspector": {
@@ -65190,6 +65175,90 @@
       "lineHeight": 1.4,
       "letterSpacing": 0,
       "textAlign": "left"
+    },
+    "s": {
+      "id": "s",
+      "name": "",
+      "parentId": "pap045-elbow",
+      "x": 40,
+      "y": 100,
+      "width": 160,
+      "height": 80,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "fill": "#ffffff",
+      "stroke": {
+        "color": "#1e2336",
+        "width": 2
+      },
+      "radius": 8,
+      "type": "shape",
+      "shape": "rect",
+      "text": "A",
+      "color": "#1e2336",
+      "fontFamily": "Inter, system-ui, sans-serif",
+      "fontSize": 16,
+      "fontWeight": 500,
+      "lineHeight": 1.3,
+      "textAlign": "center"
+    },
+    "t": {
+      "id": "t",
+      "name": "",
+      "parentId": "pap045-elbow",
+      "x": 200,
+      "y": 180,
+      "width": 160,
+      "height": 80,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "fill": "#ffffff",
+      "stroke": {
+        "color": "#1e2336",
+        "width": 2
+      },
+      "radius": 8,
+      "type": "shape",
+      "shape": "rect",
+      "text": "B",
+      "color": "#1e2336",
+      "fontFamily": "Inter, system-ui, sans-serif",
+      "fontSize": 16,
+      "fontWeight": 500,
+      "lineHeight": 1.3,
+      "textAlign": "center"
+    },
+    "s-to-t": {
+      "id": "s-to-t",
+      "name": "",
+      "parentId": "pap045-elbow",
+      "type": "connector",
+      "x": 182,
+      "y": 138,
+      "width": 36,
+      "height": 90,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "from": {
+        "nodeId": "s"
+      },
+      "to": {
+        "nodeId": "t"
+      },
+      "route": "elbow",
+      "startArrow": "none",
+      "endArrow": "arrow",
+      "stroke": {
+        "color": "#1e2336",
+        "width": 2
+      },
+      "dashed": false,
+      "d": "M18 2 L34 2 L18 2 L18 82 L2 82 L18 82 M6 88 L18 82 L6 76"
     },
     "b047-closed-dark": {
       "id": "b047-closed-dark",

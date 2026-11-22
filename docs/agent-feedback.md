@@ -540,6 +540,18 @@ Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill a
 - `lint_design` small-text warnings for 12 px labels match the inspector density; no new contrast errors on the six roots.
 - Step sizes chosen to match the ticket: opacity `0.05`, weight `100`, else `1`, Shift×10; validation/clamp reused from PAP-B-027.
 
+## 2026-11-22: dockable toolbar (PAP-B-048, design first)
+
+Task: draw toolbar docked top/left/right/bottom (light and dark) on `Interfaces` of the active `Paprica · UI` workspace, then implement grip-drag docking, localStorage, keyboard menu, and clearance for PAP-B-024 collapsed-panel buttons. Eight fixed-height (720×420) root frames; PNGs under `docs/assets/boards/PAP-B-048/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 112 | `render_screenshot` argument name | Passing `id` is silently ignored (schema only has `rootId`); the tool screenshots something else (here a 280×220 unrelated frame) and every PNG comes back identical | Reject unknown args, or accept `id` as an alias of `rootId`, and say so in the tool description | P2 |
+| 113 | Light `mode` with `$pg.*` tokens | Frames with `mode: "light"` still rendered the dark `$pg.*` palette because `modes.light` on this server only carried `$ui.*`; had to redraw the light boards with literal colors | Document which token prefixes participate in theme modes, or seed `$pg.*` into `light` when the boards workspace is created | P2 |
+| 114 | Screenshots as files | Same as #101: base64 only; a local script wrote `docs/assets/boards/PAP-B-048/` | Optional `path` on `render_screenshot` | P3 |
+
+- Active workspace was already `Paprica · UI` (empty of prior boards until recovered); used existing `page#interfaces` without `open_workspace`.
+- Collapsed-panel buttons shift with `[&_[data-panel-toggle=left]]:left-14` from `App.tsx` when the toolbar shares that edge — no change to `PanelResizer.tsx` (outside the ticket paths).
 ## 2026-11-22: system fonts combobox (PAP-B-047, design first)
 
 Task: draw the closed and open FontPicker states (light and dark) on `Interfaces`, then replace the free-text `fontFamily` field on text nodes with a shadcn combobox. Four fixed-height frames; PNGs under `docs/assets/boards/PAP-B-047/`; boards export refreshed.
