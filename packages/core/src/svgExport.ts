@@ -129,7 +129,7 @@ export function exportSVG(
     if (a.fold) body += `<path${svgAttrs(a.fold)}/>`;
     body += "</g>";
     const fs = resolveValue(doc, n.fontSize, mode);
-    const size = typeof fs === "number" ? fs : parseFloat(String(fs)) || 16;
+    const size = typeof fs === "number" ? fs : Number.parseFloat(String(fs)) || 16;
     const measured = opts.measure?.lines?.[n.id];
     let tspans = "";
     let anchor = "";
@@ -214,7 +214,7 @@ export function exportSVG(
     }
     if (n.type === "text") {
       const fs = resolveValue(doc, n.fontSize, mode);
-      const size = typeof fs === "number" ? fs : parseFloat(String(fs)) || 16;
+      const size = typeof fs === "number" ? fs : Number.parseFloat(String(fs)) || 16;
       const color = escapeHtml(String(resolveValue(doc, n.color, mode)));
       const measuredLines = opts.measure?.lines?.[n.id];
       let tspans = "";

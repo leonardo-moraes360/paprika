@@ -49,10 +49,11 @@ Defaults: `--db` is `./paprika.db` (or `$PAPRIKA_DB`); `--doc` is the most recen
 |---|---|
 | `documents` | id, format, name, `root_ids` (JSON), version, timestamps |
 | `tokens` | one row per token: name, JSON value, order |
+| `modes` | one row per theme mode (`document.modes`): name, order and the tokens it overrides as JSON |
 | `nodes` | one row per node: id, `parent_id`, `type`, `name`, order and the validated node JSON in `data` |
 | `history` | undo and redo stacks: actor, label, ops, inverse ops, time |
 
-Every change (document + history) is one SQLite transaction, committed before the agent or the canvas gets an answer, so undo/redo survives restarts. Only changed nodes and tokens are rewritten. Two processes on the same database (`serve` + `mcp`) pick up each other's commits within ~300 ms (`PRAGMA data_version`). The tables are meant to be read with plain SQL, e.g. `sqlite3 design.db "SELECT id, name FROM nodes WHERE type = 'text'"`; write through the server so validation and history apply.
+Every change (document + history) is one SQLite transaction, committed before the agent or the canvas gets an answer, so undo/redo survives restarts. Only changed nodes, tokens and modes are rewritten. Two processes on the same database (`serve` + `mcp`) pick up each other's commits within ~300 ms (`PRAGMA data_version`). The tables are meant to be read with plain SQL, e.g. `sqlite3 design.db "SELECT id, name FROM nodes WHERE type = 'text'"`; write through the server so validation and history apply.
 
 ## Layout
 

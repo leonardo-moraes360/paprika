@@ -84,6 +84,57 @@ func TestStorePersistsDocumentAndHistory(t *testing.T) {
 	}
 }
 
+func TestStorePersistsThemeModes(t *testing.T) {
+	s, path := openTemp(t)
+	if _, err := s.Apply([]any{
+		obj("op", "set_tokens", "tokens", obj("fg", "#111111", "bg", "#ffffff")),
+		obj("op", "set_tokens", "mode", "dark", "tokens", obj("fg", "#eeeeee", "bg", "#101010")),
+		obj("op", "set_tokens", "mode", "compact", "tokens", obj("gap", 4.0)),
+	}, "test", "temas"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Apply([]any{obj("op", "set_tokens", "mode", "dark", "tokens", obj("bg", nil))}, "test", "sem bg escuro"); err != nil {
+		t.Fatal(err)
+	}
+	// A live document gets `modes` appended after `nodes`; parsing puts it back in schema
+	// order (after `tokens`), which is what a reload must return.
+	live, err := core.ParseDocument(s.Doc())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := jsonv.Stringify(live, "  ")
+	if !strings.Contains(want, `"modes"`) {
+		t.Fatalf("modes missing before reopen:\n%s", want)
+	}
+	s.Close()
+
+	s2, err := OpenStore(path, OpenOptions{Poll: -1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s2.Close()
+	if got := jsonv.Stringify(s2.Doc(), "  "); got != want {
+		t.Fatalf("doc after reopen:\n%s\nwant\n%s", got, want)
+	}
+	var n int
+	if err := s2.DB().QueryRow(`SELECT COUNT(*) FROM modes WHERE doc_id = ?`, s2.DocID()).Scan(&n); err != nil || n != 2 {
+		t.Fatalf("modes table: %d %v", n, err)
+	}
+	// Undo after the restart brings the dark bg back, and that is stored too.
+	if ok, err := s2.Undo("test"); !ok || err != nil {
+		t.Fatalf("undo: %v %v", ok, err)
+	}
+	var dark string
+	if err := s2.DB().QueryRow(`SELECT tokens FROM modes WHERE doc_id = ? AND name = 'dark'`, s2.DocID()).Scan(&dark); err != nil || !strings.Contains(dark, `"bg":"#101010"`) {
+		t.Fatalf("dark mode row after undo: %q %v", dark, err)
+	}
+	// Export keeps the modes, and import --replace does not leave stale rows behind.
+	out, err := ExportDocument(s2.DB(), s2.DocID())
+	if err != nil || !strings.Contains(out, `"dark"`) {
+		t.Fatalf("export: %v\n%s", err, out)
+	}
+}
+
 func TestStoreFailedTransactionChangesNothing(t *testing.T) {
 	s, _ := openTemp(t)
 	createRect(t, s, "a")

@@ -23,12 +23,12 @@ export function parseColor(input: string): RGBA | undefined {
     let h = hex[1]!;
     if (h.length === 3 || h.length === 4) h = [...h].map((c) => c + c).join("");
     if (h.length !== 6 && h.length !== 8) return undefined;
-    const n = (i: number) => parseInt(h.slice(i, i + 2), 16);
+    const n = (i: number) => Number.parseInt(h.slice(i, i + 2), 16);
     return { r: n(0), g: n(2), b: n(4), a: h.length === 8 ? n(6) / 255 : 1 };
   }
   const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+%?))?\s*\)$/.exec(s);
   if (rgb) {
-    const a = rgb[4] === undefined ? 1 : rgb[4].endsWith("%") ? parseFloat(rgb[4]) / 100 : parseFloat(rgb[4]);
+    const a = rgb[4] === undefined ? 1 : rgb[4].endsWith("%") ? Number.parseFloat(rgb[4]) / 100 : Number.parseFloat(rgb[4]);
     return { r: +rgb[1]!, g: +rgb[2]!, b: +rgb[3]!, a };
   }
   return undefined;
@@ -125,7 +125,7 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
       if (node.type === "text" && !node.text.trim())
         issues.push({ rule: "empty-text", severity: "warning", nodeId: id, message: "empty text" });
       const fs = resolveValue(doc, node.fontSize, modeOf(doc, node));
-      const size = typeof fs === "number" ? fs : parseFloat(String(fs));
+      const size = typeof fs === "number" ? fs : Number.parseFloat(String(fs));
       if (size < 12)
         issues.push({ rule: "small-text", severity: "warning", nodeId: id, message: `font size ${size}px (< 12px)` });
       const fg = parseColor(String(resolveValue(doc, node.color, modeOf(doc, node))));

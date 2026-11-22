@@ -263,7 +263,7 @@ const SHAPES = new Set(["path", "rect", "circle", "ellipse", "line", "polyline",
 
 const num = (s: string | undefined, fallback = 0): number => {
   if (s === undefined) return fallback;
-  const v = parseFloat(s);
+  const v = Number.parseFloat(s);
   return Number.isFinite(v) ? v : fallback;
 };
 
