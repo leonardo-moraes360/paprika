@@ -11,7 +11,7 @@ Tarefa: um agente desenhou 5 ícones flat de páprica com complexidade crescente
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 1 | Formas orgânicas (silhueta de pimentão) | Só existem `rect`/`ellipse`; o pimentão foi montado com elipses sobrepostas e rotacionadas | Nó `path` (SVG `d`, fill/stroke) e união booleana de filhos (`path` com curvas bezier feito em 2026-11-21, ver abaixo; união booleana ainda aberta) | P1 |
+| 1 | Formas orgânicas (silhueta de pimentão) | Só existem `rect`/`ellipse`; o pimentão foi montado com elipses sobrepostas e rotacionadas | Nó `path` (SVG `d`, fill/stroke) e união booleana de filhos (`path` com curvas bezier feito em 2026-11-21; MCP `combine_paths` / ops booleanas no core feitos em PAP-A-003 — comando no canvas ainda aberto) | P1 |
 | 2 | Pôr o cabo na ponta de uma vagem rotacionada | A rotação gira em torno do centro da caixa e o agente teve de fazer trigonometria; o cálice ficou fora do lugar duas vezes e só o screenshot mostrou | Ferramenta `get_bounds` com a geometria rotacionada (cantos, pontas) e um campo `origin` (transform-origin) | P1 |
 | 3 | O mesmo ícone em 4 tamanhos | Sem componentes/instâncias nem escala: o script regerou todas as formas com um fator (4× os nós, edição não propaga) | Componentes + instâncias com `scale`; `duplicate_nodes` com escala | P1 |
 | 4 | 5 temas lado a lado | Tokens são globais; foi preciso prefixar à mão (`p1.brand` … `p5.brand`) e reescrever em cada nó | Feito (2026-11-21, ver #45): modos de tema (`set_tokens` com `mode`) e `mode` num frame ou página; coleções nomeadas continuam em aberto | — |
@@ -236,7 +236,7 @@ Tarefa: desenhar um pimentão vermelho plano (três lóbulos, vãos brancos fino
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
-| 76 | Recortar vãos finos de uma forma | Sem operações booleanas nem máscaras, os vãos são traços brancos pintados sobre o corpo vermelho; só funciona em fundo claro e o export não tem furos de verdade | `subtract`/`union` no `apply_ops` (ou `mask` em group) gerando um novo `path`; no mínimo uma opção `knockout` no traço | P2 |
+| 76 | Recortar vãos finos de uma forma | Sem operações booleanas nem máscaras, os vãos são traços brancos pintados sobre o corpo vermelho; só funciona em fundo claro e o export não tem furos de verdade | `combine_paths` (`subtract`/`union`/…) no MCP/`apply_ops` feito (PAP-A-003); comando no canvas e `mask` em group / `knockout` no traço ainda abertos | P2 |
 | 77 | Mudar o estilo de um nó e mantê-lo por cima | Ao transformar dois lóbulos preenchidos em traços de vão, eles ficaram sob o corpo; foi preciso um `move_nodes` separado (sem `index` = fim) para corrigir a ordem | Aceitar `index` (ou `"front"`/`"back"`) nas props do `update_nodes` | P3 |
 | 78 | Decalcar uma imagem de referência | A imagem do usuário chegou ao agente só como imagem; não havia jeito fácil de colocá-la sob o desenho, então cada ponto bezier foi estimado no olho e mapeado com uma escala calculada à mão, em três rodadas de screenshot | Opção `reference` no `create_nodes`/`import_svg` (ou nó `image` a partir de arquivo local) travada a 50% de opacidade, e `render_screenshot` com uma imagem `compare` lado a lado | P2 |
 | 79 | Salvar o screenshot em arquivo | `render_screenshot` só devolve a imagem ao agente; gravar o PNG no repo exigiu copiar o blob em cache do cliente | `path` opcional (o servidor grava) ou `format: "url"` devolvendo `/api/screenshot/...` para baixar | P3 |

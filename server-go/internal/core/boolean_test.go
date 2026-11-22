@@ -78,6 +78,60 @@ func TestCombinePathsSubtractRing(t *testing.T) {
 	}
 }
 
+func TestCombinePathsDisjoint(t *testing.T) {
+	doc := CreateDocument("T", "doc")
+	r, err := ApplyOps(doc, []any{
+		jsonv.NewObject("op", "create", "node", jsonv.NewObject(
+			"type", "frame", "id", "f", "width", 400.0, "height", 200.0,
+			"children", []any{
+				jsonv.NewObject("type", "rect", "id", "a", "x", 0.0, "y", 0.0, "width", 40.0, "height", 40.0, "fill", "#c43d27"),
+				jsonv.NewObject("type", "ellipse", "id", "b", "x", 200.0, "y", 20.0, "width", 40.0, "height", 40.0, "fill", "#1e2336"),
+			},
+		)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := ApplyOps(r.Doc, []any{
+		jsonv.NewObject("op", "combine_paths", "ids", []any{"a", "b"}, "operation", "union", "id", "u"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := GetNode(out.Doc, "u")
+	if u == nil || u.Str("type") != "path" {
+		t.Fatal("expected path")
+	}
+	if strings.Count(u.Str("d"), "Z") < 2 {
+		t.Fatalf("expected two contours, d=%s", u.Str("d"))
+	}
+}
+
+func TestCombinePathsRotated(t *testing.T) {
+	doc := CreateDocument("T", "doc")
+	r, err := ApplyOps(doc, []any{
+		jsonv.NewObject("op", "create", "node", jsonv.NewObject(
+			"type", "frame", "id", "f", "width", 300.0, "height", 300.0,
+			"children", []any{
+				jsonv.NewObject("type", "rect", "id", "a", "x", 40.0, "y", 40.0, "width", 80.0, "height", 80.0, "fill", "#c43d27"),
+				jsonv.NewObject("type", "rect", "id", "b", "x", 70.0, "y", 70.0, "width", 80.0, "height", 80.0, "rotation", 45.0, "fill", "#1e2336"),
+			},
+		)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := ApplyOps(r.Doc, []any{
+		jsonv.NewObject("op", "combine_paths", "ids", []any{"a", "b"}, "operation", "union", "id", "u"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if GetNode(out.Doc, "u") == nil || GetNode(out.Doc, "u").Str("type") != "path" {
+		t.Fatal("expected rotated union path")
+	}
+}
+
 func TestCombinePathsRejects(t *testing.T) {
 	doc := CreateDocument("T", "doc")
 	r, err := ApplyOps(doc, []any{
