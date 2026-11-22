@@ -676,12 +676,19 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     // elemento muda de "dialog" para "alertdialog".
     const dialog = page.getByRole("alertdialog");
     await expect.poll(() => dialog.textContent()).toContain("Excluir “Renomeado”?");
+    // O apagamento de workspace só libera com o nome digitado: a ação começa desabilitada.
+    await expect.poll(() => dialog.getByRole("button", { name: "Excluir" }).isDisabled()).toBe(true);
     await dialog.getByRole("button", { name: "Cancelar" }).click();
     await expect.poll(() => dialog.isVisible()).toBe(false);
     expect((await api()).workspaces.some((w) => w.id === extra)).toBe(true);
     await card.focus();
     await page.keyboard.press("Delete");
     await expect.poll(() => dialog.isVisible()).toBe(true);
+    const nameField = dialog.getByLabel(/Digite o nome/);
+    await nameField.fill("Renomead");
+    await expect.poll(() => dialog.getByRole("button", { name: "Excluir" }).isDisabled()).toBe(true);
+    await nameField.fill("Renomeado");
+    await expect.poll(() => dialog.getByRole("button", { name: "Excluir" }).isEnabled()).toBe(true);
     await dialog.getByRole("button", { name: "Excluir" }).click();
     await expect.poll(() => card.count(), POLL).toBe(0);
     expect((await api()).workspaces.some((w) => w.id === extra)).toBe(false);
@@ -694,6 +701,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => tmpCard.textContent(), POLL).toContain("ativo");
     await page.getByRole("button", { name: "Excluir Ativo temporário" }).click();
     await expect.poll(() => dialog.textContent()).toContain("o canvas e os agentes MCP passam para");
+    await dialog.getByLabel(/Digite o nome/).fill("Ativo temporário");
     if (shots) await page.screenshot({ path: join(shots, "23-overview-excluir-ativo.png") });
     await dialog.getByRole("button", { name: "Excluir" }).click();
     await expect.poll(() => tmpCard.count(), POLL).toBe(0);

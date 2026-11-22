@@ -3,7 +3,9 @@
  * primitivo. O verbo fica no título e na ação — nunca "OK" —, Cancelar vem primeiro, e a ação usa a
  * variante destrutiva (lavanda do acento + texto `accent.ink`), que é a linguagem de aviso do app.
  */
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Input } from "./components/ui/input";
+import { Label } from "./components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,7 +15,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "./alert-dialog";
+} from "./components/ui/alert-dialog";
 
 export function ConfirmDialog({
   title,
@@ -24,6 +26,7 @@ export function ConfirmDialog({
   actionIcon,
   cancelLabel = "Cancelar",
   hideAction = false,
+  confirmWith = null,
   busy = false,
   onConfirm,
   onClose,
@@ -40,6 +43,8 @@ export function ConfirmDialog({
   cancelLabel?: string;
   /** A ação já aconteceu: sobra só a saída. */
   hideAction?: boolean;
+  /** Apagamento sem volta: a ação só libera quando a pessoa escreve o nome exatamente como está. */
+  confirmWith?: string | null;
   busy?: boolean;
   onConfirm(): void;
   onClose(): void;
@@ -54,6 +59,8 @@ export function ConfirmDialog({
       if (opener.current?.isConnected) opener.current.focus();
     };
   }, []);
+  const [typed, setTyped] = useState("");
+  const ready = confirmWith === null || typed.trim() === confirmWith;
   return (
     <AlertDialog open onOpenChange={(o) => !o && onClose()}>
       <AlertDialogContent className={className}>
@@ -63,6 +70,12 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         {detail}
         {error ? <p data-slot="confirm-error" className="m-0 text-xs text-ui-destructive-text">{error}</p> : null}
+        {confirmWith !== null && (
+          <div className="grid gap-1.5">
+            <Label htmlFor="confirm-name">Digite o nome para liberar: {confirmWith}</Label>
+            <Input id="confirm-name" data-slot="confirm-name" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+          </div>
+        )}
         <AlertDialogFooter>
           <AlertDialogCancel data-slot="alert-dialog-cancel" disabled={busy}>
             {cancelLabel}
@@ -70,7 +83,7 @@ export function ConfirmDialog({
           {!hideAction && (
           <AlertDialogAction
             variant="destructive"
-            disabled={busy}
+            disabled={busy || !ready}
             onClick={(e) => {
               // O Radix fecharia sozinho; a confirmação é assíncrona e o diálogo continua aberto enquanto
               // a ação trabalha, mostrando o erro se ela falhar.

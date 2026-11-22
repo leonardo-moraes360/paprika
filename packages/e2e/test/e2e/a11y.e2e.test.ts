@@ -214,7 +214,14 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
         ["alert-dialog-cancel", "Cancelar"],
         ["alert-dialog-action", "Excluir"],
       ]);
-      expect(await dlg.getByRole("button", { name: "Excluir" }).getAttribute("class")).toContain("bg-ui-destructive");
+      const danger = dlg.getByRole("button", { name: "Excluir" });
+      expect(await danger.getAttribute("class")).toContain("bg-ui-destructive");
+      // The typed-name gate (the ticket's rule for an irreversible delete): a near miss keeps the action off.
+      expect(await danger.isDisabled()).toBe(true);
+      await dlg.getByLabel(/Digite o nome/).fill("Para cancel");
+      expect(await dlg.getByRole("button", { name: "Excluir" }).isDisabled()).toBe(true);
+      await dlg.getByLabel(/Digite o nome/).fill("Para cancelar");
+      expect(await dlg.getByRole("button", { name: "Excluir" }).isEnabled()).toBe(true);
       await ov.keyboard.press("Escape");
       await expect.poll(() => dlg.count(), { timeout: 5_000 }).toBe(0);
       await expect.poll(() => card.count(), { timeout: 5_000 }).toBe(1);

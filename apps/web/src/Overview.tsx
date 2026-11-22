@@ -4,7 +4,7 @@ import { errorText } from "./api";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { InlineName } from "./InlineName";
 import { bar, cx, ui } from "./ui";
-import { ConfirmDialog } from "./components/ui/confirm-dialog";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type Workspace } from "./workspaces";
 
 /** Same limit as the server; bigger images are scaled down in the browser first. */
@@ -325,6 +325,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
             error={deleteError}
             actionLabel={deleteBusy ? "Excluindo…" : "Excluir"}
             actionIcon={<Trash2 size={14} />}
+            confirmWith={deleting.name}
             busy={deleteBusy}
             onConfirm={() => void confirmDelete()}
             onClose={() => setDeleting(null)}

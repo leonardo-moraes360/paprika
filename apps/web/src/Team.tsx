@@ -8,7 +8,7 @@ import { buttonVariants } from "./components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
-import { ConfirmDialog } from "./components/ui/confirm-dialog";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 /** Team sync status from the server (`/api/team`, `{type: "team"}` on /ws). See docs/team-sync.md. */
 export interface TeamMember {
@@ -285,9 +285,7 @@ export function InviteDialog({ status, onClose }: { status: TeamStatus; onClose(
       </div>
       <DialogFooter>
         <button
-          // A revogação já é uma decisão explícita dentro de um diálogo aberto: não se põe um segundo
-          // diálogo por cima, mas ela entra na linguagem de perigo (ADR 0005).
-          className={cx(btnDanger(), "team-revoke")}
+          className={btn()}
           onClick={() =>
             api("/api/team/invites", "DELETE")
               .then(onClose)
@@ -427,33 +425,36 @@ export function RotateKeyDialog({ status, onClose }: { status: TeamStatus; onClo
   // The status refreshes with the new key once the sidecar restarts: keep the one we started from.
   const [before] = useState(status.fingerprint);
   return (
-    <ConfirmDialog
+    <Modal
       title="Gerar nova chave?"
       description="Use se esta máquina ou a chave vazou. A chave nova assina a troca junto com a antiga e o time passa a aceitar só a nova. O sidecar reinicia e os convites ativos são revogados."
-      detail={
-        <>
-          <p className="m-0 text-xs text-ui-muted-foreground">
-            {done ? "Chave antiga" : "Chave atual"}: ed25519 {before}. Alguém do time precisa estar online para receber a troca.
-          </p>
-          {done && <p className="m-0 text-sm text-leaf">Chave nova: ed25519 {done}</p>}
-        </>
-      }
-      error={error}
-      actionLabel={busy ? "Trocando…" : "Gerar nova chave"}
-      actionIcon={<KeyRound size={14} />}
-      cancelLabel={done ? "Fechar" : "Cancelar"}
-      hideAction={done !== null}
-      busy={busy}
-      className="team-rotate-dialog max-w-[520px]"
       onClose={onClose}
-      onConfirm={() => {
-        setBusy(true);
-        api<{ fingerprint: string }>("/api/team/rotate", "POST")
-          .then((r) => setDone(r.fingerprint))
-          .catch((e) => setError(String(e.message ?? e)))
-          .finally(() => setBusy(false));
-      }}
-    />
+      className="max-w-[520px]"
+    >
+      <p className="m-0 text-xs text-ui-muted-foreground">{done ? "Chave antiga" : "Chave atual"}: ed25519 {before}. Alguém do time precisa estar online para receber a troca.</p>
+      {error && <ErrorNote text={error} className="team-rotate-error" />}
+      {done && <p className="m-0 text-sm text-leaf">Chave nova: ed25519 {done}</p>}
+      <DialogFooter>
+        <button className={btn()} onClick={onClose}>
+          {done ? "Fechar" : "Cancelar"}
+        </button>
+        {!done && (
+          <button
+            className={cx(btn(true), "team-rotate-confirm")}
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              api<{ fingerprint: string }>("/api/team/rotate", "POST")
+                .then((r) => setDone(r.fingerprint))
+                .catch((e) => setError(String(e.message ?? e)))
+                .finally(() => setBusy(false));
+            }}
+          >
+            <KeyRound size={14} /> {busy ? "Trocando…" : "Gerar nova chave"}
+          </button>
+        )}
+      </DialogFooter>
+    </Modal>
   );
 }
 
