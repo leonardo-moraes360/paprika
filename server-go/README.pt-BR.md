@@ -49,6 +49,7 @@ Padrões: `--db` é `./paprika.db` (ou `$PAPRIKA_DB`); `--doc` é o documento at
 |---|---|
 | `documents` | id, formato, nome, `root_ids` (JSON), versão, datas |
 | `tokens` | uma linha por token: nome, valor JSON, ordem |
+| `modes` | uma linha por modo de tema (`document.modes`): nome, ordem e os tokens que ele sobrescreve, em JSON |
 | `nodes` | uma linha por nó: id, `parent_id`, `type`, `name`, ordem e o JSON validado do nó em `data` |
 | `history` | pilhas de desfazer e refazer: autor, rótulo, ops, ops inversas, horário |
 

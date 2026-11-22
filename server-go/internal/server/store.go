@@ -54,6 +54,13 @@ CREATE TABLE IF NOT EXISTS tokens (
   value  TEXT NOT NULL,               -- JSON string or number
   PRIMARY KEY (doc_id, name)
 );
+CREATE TABLE IF NOT EXISTS modes (
+  doc_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  name   TEXT NOT NULL,               -- theme mode (document.modes key)
+  ord    INTEGER NOT NULL,            -- insertion order (JSON key order)
+  tokens TEXT NOT NULL,               -- JSON object: the tokens this mode overrides
+  PRIMARY KEY (doc_id, name)
+);
 CREATE TABLE IF NOT EXISTS nodes (
   doc_id    TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   id        TEXT NOT NULL,
@@ -170,6 +177,10 @@ func LoadDocument(q querier, id string) (*core.Document, int64, error) {
 		tokens.Set(k, val)
 	}
 	rows.Close()
+	modes, err := loadModes(q, id)
+	if err != nil {
+		return nil, 0, err
+	}
 	nodes := jsonv.NewObject()
 	rows, err = q.Query(`SELECT id, data FROM nodes WHERE doc_id = ? ORDER BY ord`, id)
 	if err != nil {
@@ -189,12 +200,42 @@ func LoadDocument(q querier, id string) (*core.Document, int64, error) {
 		nodes.Set(nid, n)
 	}
 	rows.Close()
-	raw := jsonv.NewObject("format", format, "id", id, "name", name, "tokens", tokens, "rootIds", rootIDs, "nodes", nodes)
+	raw := jsonv.NewObject("format", format, "id", id, "name", name, "tokens", tokens)
+	if modes != nil {
+		raw.Set("modes", modes)
+	}
+	raw.Set("rootIds", rootIDs)
+	raw.Set("nodes", nodes)
 	doc, err := core.ParseDocument(raw)
 	if err != nil {
 		return nil, 0, fmt.Errorf("documento %s inválido no banco: %w", id, err)
 	}
 	return doc, version, nil
+}
+
+// loadModes reads document.modes (nil when the document has none).
+func loadModes(q querier, id string) (*jsonv.Object, error) {
+	rows, err := q.Query(`SELECT name, tokens FROM modes WHERE doc_id = ? ORDER BY ord`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var modes *jsonv.Object
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, err
+		}
+		val, err := jsonv.Parse([]byte(v))
+		if err != nil {
+			return nil, err
+		}
+		if modes == nil {
+			modes = jsonv.NewObject()
+		}
+		modes.Set(k, val)
+	}
+	return modes, rows.Err()
 }
 
 type querier interface {
@@ -203,7 +244,7 @@ type querier interface {
 	Exec(query string, args ...any) (sql.Result, error)
 }
 
-// writeDocument stores doc, writing only the nodes and tokens that changed since prev (nil = all).
+// writeDocument stores doc, writing only the nodes, tokens and modes that changed since prev (nil = all).
 func writeDocument(tx querier, doc, prev *core.Document, version int64, now int64) error {
 	id := doc.Str("id")
 	roots := jsonv.Stringify(doc.Arr("rootIds"), "")
@@ -218,6 +259,13 @@ func writeDocument(tx querier, doc, prev *core.Document, version int64, now int6
 			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, value = excluded.value`, id, k, ord, jsonv.Stringify(v, ""))
 		return err
 	}, `DELETE FROM tokens WHERE doc_id = ? AND name = ?`); err != nil {
+		return err
+	}
+	if err := syncRows(tx, `modes`, id, core.Modes(doc), prevObj(prev, core.Modes), func(k string, v any, ord int) error {
+		_, err := tx.Exec(`INSERT INTO modes(doc_id, name, ord, tokens) VALUES (?, ?, ?, ?)
+			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, tokens = excluded.tokens`, id, k, ord, jsonv.Stringify(v, ""))
+		return err
+	}, `DELETE FROM modes WHERE doc_id = ? AND name = ?`); err != nil {
 		return err
 	}
 	return syncRows(tx, `nodes`, id, core.Nodes(doc), prevObj(prev, core.Nodes), func(k string, v any, ord int) error {
@@ -339,8 +387,13 @@ func ImportDocument(db *sql.DB, raw []byte, replace bool) (*core.Document, error
 	case err == nil && !replace:
 		return nil, fmt.Errorf(`documento "%s" já existe no banco (use --replace para sobrescrever)`, id)
 	case err == nil:
-		for _, t := range []string{"nodes", "tokens", "history"} {
-			if _, err := tx.Exec(`DELETE FROM `+t+` WHERE doc_id = ?`, id); err != nil {
+		for _, q := range []string{
+			`DELETE FROM nodes WHERE doc_id = ?`,
+			`DELETE FROM tokens WHERE doc_id = ?`,
+			`DELETE FROM modes WHERE doc_id = ?`,
+			`DELETE FROM history WHERE doc_id = ?`,
+		} {
+			if _, err := tx.Exec(q, id); err != nil {
 				return nil, err
 			}
 		}
