@@ -88,7 +88,8 @@ mod tests {
 
     #[test]
     fn different_format_refuses() {
-        let e = check_versions("0.0.1", "paprika/1", "ana", "abcd", "0.0.1", "paprika/2").unwrap_err();
+        let e =
+            check_versions("0.0.1", "paprika/1", "ana", "abcd", "0.0.1", "paprika/2").unwrap_err();
         assert!(e.contains("incompatible document format"));
         assert!(e.contains("paprika/2"));
     }

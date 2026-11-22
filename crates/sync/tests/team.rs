@@ -8,9 +8,12 @@ use tokio::sync::mpsc;
 
 async fn start(dir: &std::path::Path, name: &str) -> (Node, mpsc::UnboundedReceiver<Value>) {
     let (tx, rx) = mpsc::unbounded_channel();
-    (Node::start(Config::test(dir.to_path_buf(), name), tx)
-        .await
-        .unwrap(), rx)
+    (
+        Node::start(Config::test(dir.to_path_buf(), name), tx)
+            .await
+            .unwrap(),
+        rx,
+    )
 }
 
 async fn start_with(
@@ -158,7 +161,10 @@ async fn join_refuses_incompatible_format_on_both_sides() {
     assert!(err.contains("incompatible document format"), "{err}");
     assert!(err.contains("paprika/0"), "{err}");
     let r = wait_for(&mut ea, |v| {
-        v["t"] == "rejected" && v["reason"].as_str().is_some_and(|s| s.contains("incompatible document format"))
+        v["t"] == "rejected"
+            && v["reason"]
+                .as_str()
+                .is_some_and(|s| s.contains("incompatible document format"))
     })
     .await;
     assert!(r["reason"].as_str().unwrap().contains("Bruno"));

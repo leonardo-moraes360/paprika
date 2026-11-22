@@ -466,11 +466,7 @@ impl Node {
                 old.conn.close(0u32.into(), b"duplicate");
             }
             let name = st.names.get(&remote).cloned().unwrap_or_default();
-            let (app, format) = st
-                .versions
-                .get(&remote)
-                .cloned()
-                .unwrap_or_default();
+            let (app, format) = st.versions.get(&remote).cloned().unwrap_or_default();
             st.peers.insert(
                 remote,
                 Peer {
@@ -545,7 +541,8 @@ impl Node {
 
     fn push_rejected(&self, peer: &EndpointId, reason: &str) {
         let mut st = self.0.state.lock().unwrap();
-        st.rejected.push(json!({"peer": peer.to_string(), "reason": reason}));
+        st.rejected
+            .push(json!({"peer": peer.to_string(), "reason": reason}));
         if st.rejected.len() > 50 {
             let n = st.rejected.len() - 50;
             st.rejected.drain(0..n);
@@ -683,13 +680,9 @@ impl Node {
                     self.event(json!({"t": "rejected", "peer": inviter.to_string(), "reason": reason.clone()}));
                     bail!("{reason}");
                 }
-                if let Some(w) = proto::app_version_warn(
-                    &self.0.cfg.app,
-                    "",
-                    &short,
-                    &app,
-                    &self.0.cfg.format,
-                ) {
+                if let Some(w) =
+                    proto::app_version_warn(&self.0.cfg.app, "", &short, &app, &self.0.cfg.format)
+                {
                     self.event(json!({"t": "log", "level": "warn", "msg": w}));
                 }
                 (team, peers)
@@ -762,7 +755,9 @@ impl Node {
                         }
                     }
                     self.push_rejected(&from, &reason);
-                    self.event(json!({"t": "rejected", "peer": from.to_string(), "reason": reason}));
+                    self.event(
+                        json!({"t": "rejected", "peer": from.to_string(), "reason": reason}),
+                    );
                     return Ok(false);
                 }
                 if let Some(w) = proto::app_version_warn(

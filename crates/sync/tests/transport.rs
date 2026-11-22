@@ -9,9 +9,12 @@ use tokio::sync::mpsc;
 
 async fn start(dir: &std::path::Path, name: &str) -> (Node, mpsc::UnboundedReceiver<Value>) {
     let (tx, rx) = mpsc::unbounded_channel();
-    (Node::start(Config::test(dir.to_path_buf(), name), tx)
-        .await
-        .unwrap(), rx)
+    (
+        Node::start(Config::test(dir.to_path_buf(), name), tx)
+            .await
+            .unwrap(),
+        rx,
+    )
 }
 
 async fn start_with(
@@ -87,23 +90,40 @@ async fn incompatible_format_is_refused_on_both_sides() {
         .await
         .unwrap();
     let ra = wait_for(&mut ea, |v| {
-        v["t"] == "rejected" && v["reason"].as_str().is_some_and(|r| r.contains("incompatible document format"))
+        v["t"] == "rejected"
+            && v["reason"]
+                .as_str()
+                .is_some_and(|r| r.contains("incompatible document format"))
     })
     .await;
     let rb = wait_for(&mut eb, |v| {
-        v["t"] == "rejected" && v["reason"].as_str().is_some_and(|r| r.contains("incompatible document format"))
+        v["t"] == "rejected"
+            && v["reason"]
+                .as_str()
+                .is_some_and(|r| r.contains("incompatible document format"))
     })
     .await;
     assert!(ra["reason"].as_str().unwrap().contains("paprika/0"));
     assert!(rb["reason"].as_str().unwrap().contains(FORMAT_VERSION));
-    assert!(ra["reason"].as_str().unwrap().contains("Upgrade") || ra["reason"].as_str().unwrap().contains("upgrade"));
+    assert!(
+        ra["reason"].as_str().unwrap().contains("Upgrade")
+            || ra["reason"].as_str().unwrap().contains("upgrade")
+    );
     tokio::time::sleep(Duration::from_millis(200)).await;
     let a_status = a.status();
     let b_status = b.status();
     let a_peers = a_status["peers"].as_array().unwrap();
     let b_peers = b_status["peers"].as_array().unwrap();
-    assert!(a_peers.iter().all(|p| p["state"] != "direct" && p["state"] != "relay"));
-    assert!(b_peers.iter().all(|p| p["state"] != "direct" && p["state"] != "relay"));
+    assert!(
+        a_peers
+            .iter()
+            .all(|p| p["state"] != "direct" && p["state"] != "relay")
+    );
+    assert!(
+        b_peers
+            .iter()
+            .all(|p| p["state"] != "direct" && p["state"] != "relay")
+    );
 }
 
 #[tokio::test]
@@ -122,18 +142,24 @@ async fn different_app_version_syncs_with_warning() {
     let wa = wait_for(&mut ea, |v| {
         v["t"] == "log"
             && v["level"] == "warn"
-            && v["msg"].as_str().is_some_and(|m| m.contains("9.9.9") && m.contains("Sync continues"))
+            && v["msg"]
+                .as_str()
+                .is_some_and(|m| m.contains("9.9.9") && m.contains("Sync continues"))
     })
     .await;
     let _wb = wait_for(&mut eb, |v| {
         v["t"] == "log"
             && v["level"] == "warn"
-            && v["msg"].as_str().is_some_and(|m| m.contains("0.0.1") && m.contains("Sync continues"))
+            && v["msg"]
+                .as_str()
+                .is_some_and(|m| m.contains("0.0.1") && m.contains("Sync continues"))
     })
     .await;
     assert!(wa["msg"].as_str().unwrap().contains(FORMAT_VERSION));
     let st = wait_for(&mut ea, |v| {
-        v["t"] == "status" && v["status"]["peers"][0]["state"] == "direct" && v["status"]["peers"][0]["app"] == "9.9.9"
+        v["t"] == "status"
+            && v["status"]["peers"][0]["state"] == "direct"
+            && v["status"]["peers"][0]["app"] == "9.9.9"
     })
     .await;
     assert_eq!(st["status"]["peers"][0]["format"], FORMAT_VERSION);
