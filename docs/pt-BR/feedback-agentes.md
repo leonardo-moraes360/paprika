@@ -359,3 +359,18 @@ sem páginas, e ligar o renomear em `apps/web`. Seis frames raiz (três estados,
 
 - O `lint_design` apontou a legenda de 11 px (`small-text`) nos seis frames; 12 px resolveu, então as legendas ficam no menor tamanho legível do app.
 - O modo `light` no frame, mais os mesmos tokens `pg.*` sobrescritos em `set_tokens {mode: "light"}`, renderizou os dois temas a partir de um só conjunto de nós, sem editar cor por frame.
+
+## 2026-11-22: painéis laterais recolhem num botão flutuante (PAP-B-024, design first)
+
+Tarefa: desenhar os painéis recolhidos (só o da esquerda, os dois) ao lado do layout expandido, claro e escuro,
+e conferir que os botões flutuantes não cobrem a toolbar nem a lista de agentes, antes de escrever a UI. Seis
+frames raiz em `Interfaces`, desenhados por um script numa única chamada de `create_nodes`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 101 | Capturas de tela como arquivo | `render_screenshot` só devolve base64 dentro do JSON do resultado, então cada PNG teve que ser decodificado à mão num script antes de entrar em `docs/assets/boards/` | Um argumento opcional `path` (ou um resource link) que grave o PNG onde quem chama disser | P2 |
+| 102 | Um mock em escala menor vira texto minúsculo no lint | As folhas são o layout real a dois terços do tamanho, então todo rótulo tem 8–9px e o `lint_design` devolve um aviso `small-text` por rótulo, o que enterra os achados que importam | Um jeito por frame de dizer "este frame é um mock em escala" (ou um argumento `minFontSize`) para a contagem de avisos continuar significando algo | P3 |
+| 103 | Espaço livre para um frame novo | Nada diz onde o próximo frame de topo cabe sem pisar no de um ticket paralelo: o outline teve que ser varrido atrás de coordenadas e as folhas foram para `x=2000` na mão | `get_document_outline` (ou uma chamada nova) devolvendo a caixa do conteúdo da página, ou `create_nodes` aceitando `place: "free"` | P3 |
+| 104 | Ícones pelo nome | Os botões flutuantes usam `PanelLeftOpen` e `PanelRightOpen` do lucide, e a folha teve que carregar o path deles digitado à mão, que é como um ícone da folha pode divergir do app | O `import_svg` já existe; um jeito de importar um ícone do lucide pelo nome fecharia o ciclo | P3 |
+
+- O botão do painel direito recolhido cai onde está a lista de agentes (canto superior direito do canvas); a folha mostrou isso antes de qualquer código, e a lista desce para baixo do botão só enquanto aquele painel está recolhido.
