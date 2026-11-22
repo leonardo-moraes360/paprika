@@ -440,6 +440,21 @@ arrastar uma ferramenta de criação, claro e escuro, depois pintá-lo a partir 
 - O workspace ativo já era `Paprika - UI` / página `Interfaces`; sem `open_workspace`.
 - O fantasma é `aria-hidden` e `pointer-events: none` (`data-testid="draft-ghost"`); o fantasma da seta do conector ficou fora do escopo draft-only deste ticket.
 
+## 2026-11-22: inspector no shadcn (PAP-B-032, design first)
+
+Tarefa: desenhar o inspector (campos compactos, seções recolhíveis, selects, ações secundárias) nos dois
+escopos de tema em `127.0.0.1:4777`, depois migrar `Inspector.tsx` + `inspector/*` para `Input`, `Textarea`,
+`Label`, `Select`, `Button` e `Collapsible`. Quatro frames em `docs/assets/boards/PAP-B-032/`; export dos
+boards atualizado.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 110 | Capturas de tela como arquivo | Igual ao #108: `render_screenshot` só devolve PNG em base64; um script cliente decodificou em `docs/assets/boards/PAP-B-032/` | Argumento opcional `path` em `render_screenshot` | P2 |
+| 111 | Faixa livre sem disputar tickets paralelos | O outline depth 1 listava frames até y≈11820 (B-023/B-033/B-043); este ticket escolheu y=12400 / 13160 | `place: "free"` em `create_nodes` (igual ao #103/#109) | P3 |
+
+- `lint_design` com `rootIds` ainda conta o documento inteiro; os quatro frames nossos tinham 0 erros próprios.
+- Mantida a casca compacta do campo (densidade B-022): os primitivos ficam dentro de `bg-ui-muted` sem borda própria; o `Select` Radix substituiu o `<select>` nativo (teste E2E de modo de tema atualizado para clicar a opção).
+- Layers/Pages ficaram de fora (PAP-B-033 é dono desse chrome).
 ## 2026-11-22: forma triângulo (PAP-A-004, design first)
 
 Tarefa: desenhar estados da toolbar / inspector / canvas para o `ShapeKind` `triangle` em `Interfaces` (claro+escuro, altura fixa), depois entregar schema, contorno, conectores, toolbar `G`, seletor do inspector e `draw_diagram`.

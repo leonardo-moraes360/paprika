@@ -697,7 +697,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => fg("tema1t")).toBe("rgb(242, 242, 242)");
 
     await page.locator('[data-layer-id="tema0"]').click();
-    await page.getByLabel("Modo de tema").selectOption("escuro");
+    await page.getByLabel("Modo de tema").click();
+    await page.getByRole("option", { name: "escuro", exact: true }).click();
     await expect.poll(() => bg("tema0")).toBe("rgb(20, 22, 31)");
     await expect.poll(async () => ((await doc()).nodes.tema0 as { mode?: string }).mode).toBe("escuro");
 
