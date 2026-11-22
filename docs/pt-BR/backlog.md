@@ -236,6 +236,7 @@ Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados)
 | Bug: não dá para renomear a primeira página de um workspace quando ela é a única | Causa encontrada: workspace sem páginas mostra uma linha "Página 1" de placeholder (`apps/web/src/Pages.tsx`) que não é um nó de página de verdade, então o duplo clique não faz nada; renomear deveria criar a página e dar o nome | ⬜ | a definir |
 | Ações destrutivas | Variante de botão danger (e padrão de confirmação) para excluir/remover; hoje tudo usa o botão primário da marca | ⬜ | a definir |
 | Design system como conceito no canvas | Um lugar para tokens, componentes e regras do workspace, de onde agentes e pessoas desenham (relaciona com E e H) | ⬜ | a definir |
+| Verificação adversarial assistida no canvas | Portar para Rust ou Go. Provar com números que cada tela da app bate com o board aprovado, claro e escuro: um gerador ajusta a app até a semelhança de pixels chegar a ≥ 95 % por tela e modo, e um discriminador independente refaz build, referências, capturas e comparação e reprova por nota, trapaça (referência alterada, máscara sem razão, comparador mexido), regressão ou contraste; no máximo 3 rodadas, depois decide um humano. Peças a portar: comparador (pixelmatch, threshold 0.1, preenchimento magenta quando o tamanho difere, máscaras com razão), referências renderizadas dos boards, captura, gate de contraste, guarda contra trapaça. Especificação enviada pelo mantenedor (harness TS/Playwright de outro projeto) | ⬜ | a definir |
 
 <details><summary>Pedido original (texto do mantenedor)</summary>
 
@@ -255,5 +256,6 @@ Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados)
 - não consigo renomear primeira página criada em um workspace, que não tem segunda página
 - adicionar conceito de destructive actions, hoje tudo usa o botão brand primary
 - introduzir no canvas o conceito de design system
+- embutir no canvas conceito de verificação adversarial assistida, portar o código para rust ou go.
 
 </details>
