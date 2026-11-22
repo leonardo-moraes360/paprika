@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Copy, KeyRound, Link2, Share2, UserPlus, Users } from "lucide-react";
+import { Copy, KeyRound, Link2, Share2, UserMinus, UserPlus, Users } from "lucide-react";
 import { encode } from "uqr";
 import type { AgentPresence } from "./agents";
 import { cx, ui } from "./ui";
@@ -8,6 +8,7 @@ import { buttonVariants } from "./components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
+import { ConfirmDialog } from "./components/ui/confirm-dialog";
 
 /** Team sync status from the server (`/api/team`, `{type: "team"}` on /ws). See docs/team-sync.md. */
 export interface TeamMember {
@@ -126,6 +127,12 @@ function Chip({ label, tone }: { label: string; tone: Tone }) {
  */
 const btn = (primary = false) =>
   cn(buttonVariants({ size: "sm", variant: primary ? "default" : "secondary" }), "[&_svg]:size-3.5 hover:border-select");
+
+/**
+ * Gatilho de uma ação que o Ctrl+Z não desfaz: a lavanda do acento com o texto `accent.ink` (ADR 0005). É o
+ * que separa "remover do time" de um botão secundário qualquer, sem disputar com o vermelho cheio da marca.
+ */
+const btnDanger = () => cn(buttonVariants({ size: "sm", variant: "destructive" }), "[&_svg]:size-3.5");
 
 function Avatar({ name, you }: { name: string; you?: boolean }) {
   return (
@@ -278,7 +285,9 @@ export function InviteDialog({ status, onClose }: { status: TeamStatus; onClose(
       </div>
       <DialogFooter>
         <button
-          className={btn()}
+          // A revogação já é uma decisão explícita dentro de um diálogo aberto: não se põe um segundo
+          // diálogo por cima, mas ela entra na linguagem de perigo (ADR 0005).
+          className={cx(btnDanger(), "team-revoke")}
           onClick={() =>
             api("/api/team/invites", "DELETE")
               .then(onClose)
@@ -389,33 +398,24 @@ export function RemoveMemberDialog({ member, onClose }: { member: TeamMember; on
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   return (
-    <Modal
+    <ConfirmDialog
       title={`Remover ${member.name} do time?`}
       description={`A chave de ${member.name} (ed25519 ${member.fingerprint}) e as dos agentes dela deixam de sincronizar. O que já foi mudado continua nos workspaces; mudanças novas assinadas por essa chave são recusadas.`}
+      detail={<p className="m-0 text-xs text-ui-muted-foreground">Para voltar, a pessoa precisa de um convite novo.</p>}
+      error={error}
+      actionLabel={busy ? "Removendo…" : `Remover ${member.name}`}
+      actionIcon={<UserMinus size={14} />}
+      busy={busy}
+      className="team-remove-dialog max-w-[520px]"
       onClose={onClose}
-      className="max-w-[520px]"
-    >
-      <p className="m-0 text-xs text-ui-muted-foreground">Para voltar, a pessoa precisa de um convite novo.</p>
-      {error && <ErrorNote text={error} className="team-remove-error" />}
-      <DialogFooter>
-        <button className={btn()} onClick={onClose}>
-          Cancelar
-        </button>
-        <button
-          className={cx(btn(true), "team-remove-confirm")}
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            api(`/api/team/members/${encodeURIComponent(member.key)}`, "DELETE")
-              .then(onClose)
-              .catch((e) => setError(String(e.message ?? e)))
-              .finally(() => setBusy(false));
-          }}
-        >
-          {busy ? "Removendo…" : `Remover ${member.name}`}
-        </button>
-      </DialogFooter>
-    </Modal>
+      onConfirm={() => {
+        setBusy(true);
+        api(`/api/team/members/${encodeURIComponent(member.key)}`, "DELETE")
+          .then(onClose)
+          .catch((e) => setError(String(e.message ?? e)))
+          .finally(() => setBusy(false));
+      }}
+    />
   );
 }
 
@@ -427,36 +427,33 @@ export function RotateKeyDialog({ status, onClose }: { status: TeamStatus; onClo
   // The status refreshes with the new key once the sidecar restarts: keep the one we started from.
   const [before] = useState(status.fingerprint);
   return (
-    <Modal
+    <ConfirmDialog
       title="Gerar nova chave?"
       description="Use se esta máquina ou a chave vazou. A chave nova assina a troca junto com a antiga e o time passa a aceitar só a nova. O sidecar reinicia e os convites ativos são revogados."
+      detail={
+        <>
+          <p className="m-0 text-xs text-ui-muted-foreground">
+            {done ? "Chave antiga" : "Chave atual"}: ed25519 {before}. Alguém do time precisa estar online para receber a troca.
+          </p>
+          {done && <p className="m-0 text-sm text-leaf">Chave nova: ed25519 {done}</p>}
+        </>
+      }
+      error={error}
+      actionLabel={busy ? "Trocando…" : "Gerar nova chave"}
+      actionIcon={<KeyRound size={14} />}
+      cancelLabel={done ? "Fechar" : "Cancelar"}
+      hideAction={done !== null}
+      busy={busy}
+      className="team-rotate-dialog max-w-[520px]"
       onClose={onClose}
-      className="max-w-[520px]"
-    >
-      <p className="m-0 text-xs text-ui-muted-foreground">{done ? "Chave antiga" : "Chave atual"}: ed25519 {before}. Alguém do time precisa estar online para receber a troca.</p>
-      {error && <ErrorNote text={error} className="team-rotate-error" />}
-      {done && <p className="m-0 text-sm text-leaf">Chave nova: ed25519 {done}</p>}
-      <DialogFooter>
-        <button className={btn()} onClick={onClose}>
-          {done ? "Fechar" : "Cancelar"}
-        </button>
-        {!done && (
-          <button
-            className={cx(btn(true), "team-rotate-confirm")}
-            disabled={busy}
-            onClick={() => {
-              setBusy(true);
-              api<{ fingerprint: string }>("/api/team/rotate", "POST")
-                .then((r) => setDone(r.fingerprint))
-                .catch((e) => setError(String(e.message ?? e)))
-                .finally(() => setBusy(false));
-            }}
-          >
-            <KeyRound size={14} /> {busy ? "Trocando…" : "Gerar nova chave"}
-          </button>
-        )}
-      </DialogFooter>
-    </Modal>
+      onConfirm={() => {
+        setBusy(true);
+        api<{ fingerprint: string }>("/api/team/rotate", "POST")
+          .then((r) => setDone(r.fingerprint))
+          .catch((e) => setError(String(e.message ?? e)))
+          .finally(() => setBusy(false));
+      }}
+    />
   );
 }
 
@@ -511,7 +508,7 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
                     </button>
                   )}
                   {!m.you && !m.founder && canRemove && (
-                    <button className={cx(btn(), "team-remove")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
+                    <button className={cx(btnDanger(), "team-remove")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
                       Remover
                     </button>
                   )}
@@ -653,7 +650,7 @@ export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: {
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Chip label={label} tone={tone} />
                   {team.canRemove && !m.you && !m.founder && (
-                    <button className={cx(btn(), "team-remove px-2")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
+                    <button className={cx(btnDanger(), "team-remove px-2")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
                       Remover
                     </button>
                   )}

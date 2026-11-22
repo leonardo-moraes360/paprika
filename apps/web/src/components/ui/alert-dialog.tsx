@@ -3,6 +3,7 @@
  * Sem botão X: a decisão fica nos dois botões (o focus trap do Radix começa no botão de ação).
  */
 import type { ComponentProps } from "react";
+import type { VariantProps } from "class-variance-authority";
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 import { cn } from "../../lib/cn";
 import { buttonVariants } from "./button";
@@ -71,8 +72,23 @@ export function AlertDialogDescription({ className, ...props }: ComponentProps<t
   );
 }
 
-export function AlertDialogAction({ className, ...props }: ComponentProps<typeof AlertDialogPrimitive.Action>) {
-  return <AlertDialogPrimitive.Action data-slot="alert-dialog-action" className={cn(buttonVariants({ size: "sm" }), className)} {...props} />;
+/**
+ * O botão da ação. Aceita `variant` (a upstream só pinta o primário): a confirmação de um apagamento usa
+ * `destructive` (ADR 0005), e uma confirmação neutra fica no padrão.
+ */
+export function AlertDialogAction({
+  className,
+  variant,
+  size,
+  ...props
+}: ComponentProps<typeof AlertDialogPrimitive.Action> & VariantProps<typeof buttonVariants>) {
+  return (
+    <AlertDialogPrimitive.Action
+      data-slot="alert-dialog-action"
+      className={cn(buttonVariants({ variant: variant ?? "default", size: size ?? "sm" }), className)}
+      {...props}
+    />
+  );
 }
 
 export function AlertDialogCancel({ className, ...props }: ComponentProps<typeof AlertDialogPrimitive.Cancel>) {

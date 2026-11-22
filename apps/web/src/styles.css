@@ -31,6 +31,8 @@
   /* Fill behind white text (buttons, badges): #e04a2b with white is 4.05:1, this is 4.99:1 (WCAG 1.4.3 AA). */
   --color-accent-strong: #c8401f;
   --color-accent-soft: rgb(224 74 43 / 0.18);
+  /* The same accent as a stronger wash: the hover of a danger action (ADR 0005). */
+  --color-accent-soft-strong: rgb(224 74 43 / 0.32);
   --color-accent-ink: #ffb4a6;
   --color-accent-pale: #ffd2c9;
   --color-toast: #3a1d19;
@@ -65,9 +67,14 @@
   --color-ui-muted-foreground: var(--color-muted);
   --color-ui-accent: var(--color-panel-2);
   --color-ui-accent-foreground: var(--color-fg);
-  --color-ui-destructive: var(--color-accent-strong);
-  --color-ui-destructive-foreground: var(--color-white);
-  --color-ui-destructive-hover: var(--color-accent-dark);
+  /*
+   * A danger action borrows the warning language the app already uses in its error bands (ADR 0005): the
+   * accent as a translucent wash, the ink as the text. Filling the button with the brand red would make
+   * "delete" and "the main thing to click" the same button, which is what the backlog asked to fix.
+   */
+  --color-ui-destructive: var(--color-accent-soft);
+  --color-ui-destructive-foreground: var(--color-accent-ink);
+  --color-ui-destructive-hover: var(--color-accent-soft-strong);
   /* Red as text needs its own token: #c8401f on the night surfaces is 2.72:1, the ink is 7.97:1. */
   --color-ui-destructive-text: var(--color-accent-ink);
   --color-ui-border: var(--color-line);
@@ -226,9 +233,16 @@
     --color-ui-muted-foreground: #5d6478;
     --color-ui-accent: var(--color-canvas);
     --color-ui-accent-foreground: #141827;
-    --color-ui-destructive: var(--color-accent-strong);
-    --color-ui-destructive-foreground: var(--color-white);
-    --color-ui-destructive-hover: var(--color-accent-dark);
+    /*
+     * On a white card the same wash needs less accent, and it must stay below the point where the text stops
+     * passing AA: at 10% the ink reads 5,5:1, and the hover at 14% still reads 5,2:1 (measured by the
+     * accessibility suite). The ink darkens with the surface.
+     */
+    --color-accent-soft: rgb(224 74 43 / 0.1);
+    --color-accent-soft-strong: rgb(224 74 43 / 0.14);
+    --color-ui-destructive: var(--color-accent-soft);
+    --color-ui-destructive-foreground: #b3300f;
+    --color-ui-destructive-hover: var(--color-accent-soft-strong);
     --color-ui-destructive-text: #b3300f;
     --color-ui-border: #d3d7e3;
     --color-ui-input: #c6cbd9;
