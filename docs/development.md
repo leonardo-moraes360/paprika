@@ -16,7 +16,7 @@ server-go/bin/paprika serve --db design.db
 # canvas: http://127.0.0.1:4777   ·   MCP: http://127.0.0.1:4777/mcp
 ```
 
-Screenshots and SVG export over MCP need a Chromium. The server finds Playwright's browsers on its own; if none is installed, install one (or point `PAPRIKA_CHROMIUM` at any Chrome):
+Screenshots over MCP need a Chromium (SVG export uses core `layout(doc)` and does not). The server finds Playwright's browsers on its own; if none is installed, install one (or point `PAPRIKA_CHROMIUM` at any Chrome):
 
 ```bash
 pnpm --filter @paprika/e2e exec playwright install chromium

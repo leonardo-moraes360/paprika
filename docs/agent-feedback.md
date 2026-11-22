@@ -107,7 +107,7 @@ Task: `importSVG`, `importHTML` and `exportSVG` in the core (TS and Go), the MCP
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 40 | Bring an icon from an SVG set | Before, an agent had to translate each `<rect>`/`<circle>`/arc by hand into `d`; `import_svg` now does it in one call and says what it dropped in `warnings` | Support `<use>`/`<symbol>` sprites and `<text>` (as `text` nodes), which icon sets and logos often use | P2 |
-| 41 | Export SVG of a node with auto layout without a browser | The core can't place `hug`/`fill`/row/column children by itself, so `exportSVG` without a measure fails with a message that points to `export_code` | Done for geometry (2026-11-22, PAP-A-001): `layout(doc)` is the base; wire into exportSVG in PAP-A-002 | — |
+| 41 | Export SVG of a node with auto layout without a browser | The core can't place `hug`/`fill`/row/column children by itself, so `exportSVG` without a measure fails with a message that points to `export_code` | Done (2026-11-22, PAP-A-002): `exportSVG` / `export_code` svg / `GET /api/svg` use `layout(doc)` boxes; text splits on `\n`; gradients and background images stay out | — |
 | 42 | Reuse a component from a live web page | `import_html` reads inline `style=""` only; HTML copied from most sites relies on classes, so the result is plain | An option that renders the HTML in the server's Chromium and imports computed styles | P2 |
 
 ## 2026-11-21: point-by-point path editing (backlog slice 1, item 4)
