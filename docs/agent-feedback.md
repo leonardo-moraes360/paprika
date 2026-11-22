@@ -349,3 +349,17 @@ pages, then wire the rename in `apps/web`. Six root frames (three states, light 
 
 - `lint_design` flagged the 11 px caption (`small-text`) on all six frames; 12 px fixed it, so captions stay at the app's smallest legible size.
 - Mode `light` on the frame plus the same `pg.*` tokens overridden under `set_tokens {mode: "light"}` rendered both themes from one set of nodes with no per-frame color edits.
+
+## 2026-11-22: overview and dialogs on shadcn (PAP-B-031, design first)
+
+Task: draw the workspace overview (grid, new-workspace form, delete confirmation) in both theme scopes on
+`127.0.0.1:4777`, then migrate `Overview.tsx` onto `Card`, `Button` and `Input`, and add `card.tsx`. Six frames
+are in `docs/assets/boards/PAP-B-031/`; the board export in `docs/design/boards.paprika.json` already carries
+the PAP-B-031 sheets from an earlier draw (`/tmp/b031/draw.mjs`).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 101 | Reuse an earlier draw without redrawing | The PNGs and `boards.paprika.json` nodes were already committed from a prior session; this ticket only copied shots and applied the markup | Nothing new — the board-in-repo pattern from item 97 paid off here | — |
+
+- `ConfirmDialog` was already on `AlertDialog` with `variant: "destructive"` on the confirm action (PAP-B-026); overview only consumes it.
+- Workspace cards keep `outline` instead of `border` so the cover cannot clip the active edge; `Card` ships with `border-ui-border` but the overview overrides with `border-0` plus the existing outline classes.

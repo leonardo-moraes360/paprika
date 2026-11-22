@@ -350,3 +350,17 @@ sem páginas, e ligar o renomear em `apps/web`. Seis frames raiz (três estados,
 
 - O `lint_design` apontou a legenda de 11 px (`small-text`) nos seis frames; 12 px resolveu, então as legendas ficam no menor tamanho legível do app.
 - O modo `light` no frame, mais os mesmos tokens `pg.*` sobrescritos em `set_tokens {mode: "light"}`, renderizou os dois temas a partir de um só conjunto de nós, sem editar cor por frame.
+
+## 2026-11-22: visão geral e diálogos no shadcn (PAP-B-031, design first)
+
+Tarefa: desenhar a visão geral de workspaces (grade, formulário de novo workspace, confirmação de exclusão) nos
+dois escopos de tema em `127.0.0.1:4777`, depois migrar `Overview.tsx` para `Card`, `Button` e `Input` e
+adicionar `card.tsx`. Seis frames em `docs/assets/boards/PAP-B-031/`; o export de boards em
+`docs/design/boards.paprika.json` já trazia as folhas PAP-B-031 de um desenho anterior (`/tmp/b031/draw.mjs`).
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 101 | Reaproveitar um desenho sem redesenhar | Os PNGs e os nós em `boards.paprika.json` já vinham de uma sessão anterior; o ticket só copiou os shots e aplicou o markup | Nada novo — o padrão de board no repositório (item 97) funcionou aqui | — |
+
+- O `ConfirmDialog` já estava em `AlertDialog` com `variant: "destructive"` na ação de confirmar (PAP-B-026); a visão geral só consome.
+- Os cards de workspace mantêm `outline` em vez de `border` para a capa não comer a borda ativa; o `Card` vem com `border-ui-border`, mas a visão geral sobrescreve com `border-0` e as classes de outline que já existiam.
