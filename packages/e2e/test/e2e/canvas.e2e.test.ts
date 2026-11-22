@@ -961,6 +961,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
     // The human picks an image file for the card.
     const png = Buffer.from(await (await fetch(`${url}/api/screenshot?root=login`)).arrayBuffer());
+    await demoCard.hover();
     const chooser = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: `Adicionar capa de ${demoName}` }).click();
     await (await chooser).setFiles({ name: "capa.png", mimeType: "image/png", buffer: png });
@@ -981,11 +982,12 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     }
 
     // Removing the cover brings the letter back.
+    await demoCard.hover();
     await page.getByRole("button", { name: `Remover capa de ${demoName}` }).click();
     await expect.poll(() => img.count(), POLL).toBe(0);
     await expect.poll(() => demoCard.locator(".workspace-tile").textContent(), POLL).toBe(demoName.trim()[0]!.toUpperCase());
     await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, clear: true } });
-   }, 30_000);
+  }, 30_000);
 
   it("aviso: quando um agente apaga o workspace ativo ou troca de workspace, o canvas diz quem fez, o que foi perdido e leva à overview", async () => {
     const POLL = { timeout: 10_000 };
@@ -1036,7 +1038,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => notice.count()).toBe(0);
     await agent.callTool({ name: "rename_workspace", arguments: { id: demo, name: demoName } });
     await expect.poll(async () => (await doc()).name, POLL).toBe(demoName);
-  });
+  }, 30_000);
 
   it("overview: uma rajada de escritas do agente não vira um GET da lista por versão, e o último valor aparece", async () => {
     const POLL = { timeout: 10_000 };

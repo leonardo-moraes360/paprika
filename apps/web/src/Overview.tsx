@@ -273,8 +273,14 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                     </Button>
                   </Hint>
                   {w.cover && (
-                    <Hint label={m.removeCover}>
-                      <Button type="button" variant="ghost" className={iconAction} aria-label={`${m.removeCover} ${w.name}`} onClick={() => void setCover(w.id, null)}>
+                    <Hint label={m.overviewCoverAria(m.removeCover, w.name)}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className={iconAction}
+                        aria-label={m.overviewCoverAria(m.removeCover, w.name)}
+                        onClick={() => void setCover(w.id, null)}
+                      >
                         <ImageOff size={16} />
                       </Button>
                     </Hint>

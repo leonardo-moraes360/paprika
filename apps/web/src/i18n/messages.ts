@@ -145,12 +145,19 @@ export type Messages = {
   nodePlural: string;
   pageSingular: string;
   pagePlural: string;
+  frameSingular: string;
+  framePlural: string;
+  imageSingular: string;
+  imagePlural: string;
+  connectorSingular: string;
+  connectorPlural: string;
   relativeNow: string;
   untitled: string;
   noticeDeleted: (name: string) => string;
   noticeOpened: (name: string) => string;
   noticeRenamed: (name: string) => string;
   noticeSummary: (parts: string[]) => string;
+  noticeEdits: (n: number) => string;
   viewWorkspaces: string;
   dismissNotice: string;
   invalidResponse: (path: string) => string;
@@ -333,7 +340,7 @@ const en: Messages = {
   deleteWorkspaceBlocked: "The only workspace cannot be deleted",
   coverImage: "Cover image",
   changeCover: "Change",
-  removeCover: "Remove cover",
+  removeCover: "Remove",
   coverConvertFail: "could not convert the image",
   listWorkspacesFail: (err) => `Could not list workspaces: ${err}`,
   mutationFail: (what, err) => `Could not ${what}: ${err}`,
@@ -426,14 +433,21 @@ const en: Messages = {
   nodePlural: "nodes",
   pageSingular: "page",
   pagePlural: "pages",
+  frameSingular: "frame",
+  framePlural: "frames",
+  imageSingular: "image",
+  imagePlural: "images",
+  connectorSingular: "connector",
+  connectorPlural: "connectors",
   relativeNow: "now",
   untitled: "Untitled",
   noticeDeleted: (name) => `deleted workspace “${name}”`,
   noticeOpened: (name) => `opened workspace “${name}”`,
   noticeRenamed: (name) => `renamed the workspace to “${name}”`,
   noticeSummary: (parts) => parts.join(" · "),
+  noticeEdits: (n) => (n === 1 ? "1 edit in history" : `${n} edits in history`),
   viewWorkspaces: "View workspaces",
-  dismissNotice: "Dismiss",
+  dismissNotice: "Dismiss notice",
   invalidResponse: (path) => `invalid response from ${path}`,
   offline: "no connection to the server",
   colorRecent: "Recent",
@@ -615,7 +629,7 @@ const pt: Messages = {
   deleteWorkspaceBlocked: "O único workspace não pode ser excluído",
   coverImage: "Imagem de capa",
   changeCover: "Trocar",
-  removeCover: "Remover capa",
+  removeCover: "Remover",
   coverConvertFail: "não foi possível converter a imagem",
   listWorkspacesFail: (err) => `Não foi possível listar os workspaces: ${err}`,
   mutationFail: (what, err) => `Não foi possível ${what}: ${err}`,
@@ -708,14 +722,21 @@ const pt: Messages = {
   nodePlural: "nós",
   pageSingular: "página",
   pagePlural: "páginas",
+  frameSingular: "frame",
+  framePlural: "frames",
+  imageSingular: "imagem",
+  imagePlural: "imagens",
+  connectorSingular: "conector",
+  connectorPlural: "conectores",
   relativeNow: "agora",
   untitled: "Sem título",
   noticeDeleted: (name) => `apagou o workspace “${name}”`,
   noticeOpened: (name) => `abriu o workspace “${name}”`,
   noticeRenamed: (name) => `renomeou o workspace para “${name}”`,
   noticeSummary: (parts) => parts.join(" · "),
+  noticeEdits: (n) => (n === 1 ? "1 edição no histórico" : `${n} edições no histórico`),
   viewWorkspaces: "Ver workspaces",
-  dismissNotice: "Dispensar",
+  dismissNotice: "Dispensar aviso",
   invalidResponse: (path) => `resposta inválida de ${path}`,
   offline: "sem conexão com o servidor",
   colorRecent: "Recentes",

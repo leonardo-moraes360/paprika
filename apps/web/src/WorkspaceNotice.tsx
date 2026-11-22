@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { AGENT_COLORS } from "./agents";
 import { Button } from "./components/ui/button";
-import { useT } from "./i18n";
+import { useT, type Messages } from "./i18n";
 import { navigate } from "./route";
 import { useLive, useLiveActions, type WorkspaceNotice as Notice } from "./useDocument";
 
@@ -14,6 +14,25 @@ function actorColor(actor: string, agents: { actor: string; color: string }[]): 
   return AGENT_COLORS[hash % AGENT_COLORS.length]!;
 }
 
+type CountKey = "nodes" | "pages" | "frames" | "images" | "connectors";
+
+function deletedSummary(detail: Notice["detail"], m: Messages): string {
+  const counts: [CountKey, string, string][] = [
+    ["nodes", m.nodeSingular, m.nodePlural],
+    ["pages", m.pageSingular, m.pagePlural],
+    ["frames", m.frameSingular, m.framePlural],
+    ["images", m.imageSingular, m.imagePlural],
+    ["connectors", m.connectorSingular, m.connectorPlural],
+  ];
+  const parts = counts.flatMap(([key, one, many]) => {
+    const n = Number(detail[key]);
+    return n > 0 ? [`${n} ${n === 1 ? one : many}`] : [];
+  });
+  const edits = Number(detail.historyEntries);
+  if (edits > 0) parts.push(m.noticeEdits(edits));
+  return m.noticeSummary(parts);
+}
+
 /**
  * Tells the human that an agent deleted, opened or renamed a workspace (the server's operations log, over the
  * WebSocket). The region is always mounted so screen readers announce what appears in it; the card never takes
@@ -24,20 +43,7 @@ export function WorkspaceNotice() {
   const notice = useLive((s) => s.workspaceNotice);
   const agents = useLive((s) => s.agents);
   const { dismissWorkspaceNotice } = useLiveActions();
-  const summary =
-    notice?.op === "delete"
-      ? (() => {
-          const detail = notice.detail;
-          const parts: string[] = [];
-          const nodes = Number(detail.nodes);
-          if (nodes > 0) parts.push(`${nodes} ${nodes === 1 ? m.nodeSingular : m.nodePlural}`);
-          const pages = Number(detail.pages);
-          if (pages > 0) parts.push(`${pages} ${pages === 1 ? m.pageSingular : m.pagePlural}`);
-          const edits = Number(detail.historyEntries);
-          if (edits > 0) parts.push(`${edits} ${edits === 1 ? m.editSingular : m.editPlural}`);
-          return m.noticeSummary(parts);
-        })()
-      : "";
+  const summary = notice?.op === "delete" ? deletedSummary(notice.detail, m) : "";
   const what =
     notice &&
     (notice.op === "delete" ? m.noticeDeleted : notice.op === "open" ? m.noticeOpened : m.noticeRenamed)(notice.workspaceName);
