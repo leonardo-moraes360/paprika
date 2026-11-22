@@ -57,6 +57,8 @@ func ShapeOutline(n *Node) (d, fold string) {
 			" A" + dnum(rx) + " " + dnum(ry) + " 0 1 0 " + dpt(Pt{i, h / 2}) + " Z", ""
 	case "diamond":
 		return "M" + dpt(Pt{w / 2, i}) + " L" + dpt(Pt{w - i, h / 2}) + " L" + dpt(Pt{w / 2, h - i}) + " L" + dpt(Pt{i, h / 2}) + " Z", ""
+	case "triangle":
+		return "M" + dpt(Pt{w / 2, i}) + " L" + dpt(Pt{w - i, h - i}) + " L" + dpt(Pt{i, h - i}) + " Z", ""
 	case "note":
 		f := math.Min(24, math.Min(w/4, h/4))
 		return "M" + dpt(Pt{i, i}) + " L" + dpt(Pt{w - i - f, i}) + " L" + dpt(Pt{w - i, i + f}) + " L" + dpt(Pt{w - i, h - i}) + " L" + dpt(Pt{i, h - i}) + " Z",
@@ -89,6 +91,8 @@ func ShapePadding(n *Node) (float64, float64) {
 	switch n.Str("shape") {
 	case "diamond":
 		return math.Max(8, h/4), math.Max(8, w/4)
+	case "triangle":
+		return math.Max(8, h/3), math.Max(8, w/4)
 	case "ellipse":
 		return math.Max(8, h*0.15), math.Max(8, w*0.15)
 	}
@@ -144,7 +148,7 @@ func resolveEnd(doc *Document, c *Node, key string, origin Pt) (dend, error) {
 		outline := "rect"
 		if n.Str("type") == "ellipse" {
 			outline = "ellipse"
-		} else if n.Str("type") == "shape" && (n.Str("shape") == "ellipse" || n.Str("shape") == "diamond") {
+		} else if n.Str("type") == "shape" && (n.Str("shape") == "ellipse" || n.Str("shape") == "diamond" || n.Str("shape") == "triangle") {
 			outline = n.Str("shape")
 		}
 		side := e.Str("side")
@@ -187,6 +191,8 @@ func clipToOutline(e dend, toward Pt) Pt {
 		t = 1 / math.Sqrt((dx/hw)*(dx/hw)+(dy/hh)*(dy/hh))
 	case "diamond":
 		t = 1 / (math.Abs(dx)/hw + math.Abs(dy)/hh)
+	case "triangle":
+		t = clipRayToTriangle(hw, hh, dx, dy)
 	default:
 		tx, ty := math.Inf(1), math.Inf(1)
 		if dx != 0 {
@@ -198,6 +204,30 @@ func clipToOutline(e dend, toward Pt) Pt {
 		t = math.Min(tx, ty)
 	}
 	return Pt{c.X + dx*t, c.Y + dy*t}
+}
+
+// clipRayToTriangle is the ray-from-centre hit distance for the isosceles triangle of the box.
+func clipRayToTriangle(hw, hh, dx, dy float64) float64 {
+	verts := [3]Pt{{0, -hh}, {hw, hh}, {-hw, hh}}
+	best := math.Inf(1)
+	for k := 0; k < 3; k++ {
+		a := verts[k]
+		b := verts[(k+1)%3]
+		ex, ey := b.X-a.X, b.Y-a.Y
+		det := dx*ey - dy*ex
+		if math.Abs(det) < 1e-12 {
+			continue
+		}
+		t := (a.X*ey - a.Y*ex) / det
+		s := (a.X*dy - a.Y*dx) / det
+		if t > 1e-12 && s >= -1e-9 && s <= 1+1e-9 && t < best {
+			best = t
+		}
+	}
+	if math.IsInf(best, 1) {
+		return 1
+	}
+	return best
 }
 
 var sideDir = map[string]Pt{"top": {0, -1}, "right": {1, 0}, "bottom": {0, 1}, "left": {-1, 0}}

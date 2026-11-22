@@ -141,7 +141,7 @@ func fontSizeSchema() z.Schema {
 }
 
 // ShapeKinds: the outlines a diagram shape can take.
-var ShapeKinds = []string{"rect", "ellipse", "diamond", "note"}
+var ShapeKinds = []string{"rect", "ellipse", "diamond", "triangle", "note"}
 
 // shapeSchema: a diagram shape with text inside (see diagram.go).
 func shapeSchema() *z.ObjectSchema {

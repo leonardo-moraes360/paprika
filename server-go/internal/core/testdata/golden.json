@@ -23621,7 +23621,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: invalid node: shape: Invalid option: expected one of \"rect\"|\"ellipse\"|\"diamond\"|\"note\""
+   "error": "op[0]: invalid node: shape: Invalid option: expected one of \"rect\"|\"ellipse\"|\"diamond\"|\"triangle\"|\"note\""
   },
   {
    "doc": "empty",
@@ -23637,7 +23637,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: invalid node: shape: Invalid option: expected one of \"rect\"|\"ellipse\"|\"diamond\"|\"note\"; text: Invalid input: expected string, received number"
+   "error": "op[0]: invalid node: shape: Invalid option: expected one of \"rect\"|\"ellipse\"|\"diamond\"|\"triangle\"|\"note\"; text: Invalid input: expected string, received number"
   },
   {
    "doc": "empty",

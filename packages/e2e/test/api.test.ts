@@ -379,6 +379,19 @@ describe("API: MCP", () => {
     await call(c, "undo");
     await call(c, "undo");
     expect(Object.keys((await srv.doc()).nodes)).toEqual([]);
+    const tri = (await c.callTool({
+      name: "draw_diagram",
+      arguments: {
+        nodes: [{ id: "tip", text: "Go", shape: "triangle" }, { id: "box", text: "Next" }],
+        edges: [{ from: "tip", to: "box" }],
+      },
+    })) as ToolResult & { structuredContent?: { nodes: string[]; edges: string[] } };
+    expect(tri.isError).toBeFalsy();
+    expect(tri.structuredContent?.nodes).toEqual(["tip", "box"]);
+    const after = await srv.doc();
+    expect(after.nodes.tip).toMatchObject({ type: "shape", shape: "triangle" });
+    expect(after.nodes["tip-to-box"]).toMatchObject({ type: "connector", from: { nodeId: "tip" }, to: { nodeId: "box" } });
+    expect((after.nodes["tip-to-box"] as { d: string }).d.startsWith("M")).toBe(true);
   });
 
   it("Z-order numa chamada: update/move com index, um passo de desfazer, frente/fundo no pai (PAP-B-014)", async () => {

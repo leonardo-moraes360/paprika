@@ -53,7 +53,8 @@ type Shape = Exclude<SceneNode, { type: "group" | "text" | "image" | "shape" | "
 const SHAPES = new Set<Node["type"]>(["frame", "rect", "ellipse", "path"]);
 const isShape = (n: Node): n is Shape => SHAPES.has(n.type);
 
-/** True when the WASM layer can draw this node's own paint exactly as `nodeStyle` would. */
+/** True when the WASM layer can draw this node's own paint exactly as `nodeStyle` would.
+ * Diagram `shape` nodes (rect/ellipse/diamond/triangle/note) stay on the DOM. */
 export function wasmPaintable(doc: Document, n: Node): boolean {
   if (!isShape(n)) return false;
   if (!solidColor(doc, n.fill, modeOf(doc, n))) return false;

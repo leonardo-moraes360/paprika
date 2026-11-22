@@ -45,8 +45,26 @@ describe("shape", () => {
 
   it("outlines keep the stroke inside the box", () => {
     expect(shapeOutline({ shape: "diamond", width: 100, height: 60, radius: 0, stroke: { color: "#000", width: 2 } }).d).toBe("M50 1 L99 30 L50 59 L1 30 Z");
+    expect(shapeOutline({ shape: "triangle", width: 100, height: 60, radius: 0, stroke: { color: "#000", width: 2 } }).d).toBe("M50 1 L99 59 L1 59 Z");
     const note = shapeOutline({ shape: "note", width: 100, height: 100, radius: 0 });
     expect(note.fold).toBe("M76 0 L76 24 L100 24 Z");
+  });
+
+  it("clips connectors to a triangle outline like a diamond", () => {
+    const d = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "shape", id: "t", x: 0, y: 0, width: 160, height: 80, shape: "triangle", text: "A" } },
+      { op: "create", node: { type: "shape", id: "b", x: 300, y: 0, shape: "ellipse", text: "B" } },
+      { op: "create", node: { type: "connector", id: "c", from: { nodeId: "t" }, to: { nodeId: "b" }, route: "straight" } },
+    ]).doc;
+    const c = d.nodes.c as ConnectorNode;
+    expect(c.d.startsWith("M")).toBe(true);
+    expect(c.x).toBeGreaterThan(0);
+    const plan = diagramOps(d, {
+      nodes: [{ id: "q", text: "?", shape: "triangle" }, { id: "y", text: "Yes" }],
+      edges: [{ from: "q", to: "y" }],
+    });
+    expect(plan.nodes).toEqual(["q", "y"]);
+    expect(plan.ops[0]).toMatchObject({ node: { type: "shape", shape: "triangle" } });
   });
 
   it("renders the outline behind the text in HTML, React and SVG", () => {
