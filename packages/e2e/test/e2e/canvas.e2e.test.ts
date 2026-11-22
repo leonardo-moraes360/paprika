@@ -428,46 +428,30 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
   it("stroke style e position: tracejado dentro e sólido fora no canvas", async () => {
     await agent.callTool({
-      name: "create_nodes",
+      name: "update_nodes",
       arguments: {
-        parentId: "login",
-        nodes: [
-          {
-            type: "rect",
-            id: "strokeDash",
-            x: 40,
-            y: 500,
-            width: 80,
-            height: 40,
-            fill: "#fbf8f4",
-            stroke: { color: "#1e2336", width: 2, style: "dashed", position: "inside" },
-          },
-          {
-            type: "rect",
-            id: "strokeOut",
-            x: 140,
-            y: 500,
-            width: 80,
-            height: 40,
-            fill: "#fbf8f4",
-            stroke: { color: "#c43d27", width: 4, style: "solid", position: "outside" },
-          },
+        updates: [
+          { id: "login", props: { stroke: { color: "#1e2336", width: 2, style: "dashed", position: "inside" } } },
+          { id: "plano", props: { stroke: { color: "#c43d27", width: 4, style: "solid", position: "outside" } } },
         ],
       },
     });
-    const dash = page.locator('[data-paprika-id="strokeDash"]');
-    const out = page.locator('[data-paprika-id="strokeOut"]');
-    await expect.poll(() => dash.count()).toBe(1);
-    await expect
-      .poll(() => dash.evaluate((el) => getComputedStyle(el).borderTopStyle))
-      .toBe("dashed");
-    await expect
-      .poll(() => out.evaluate((el) => [getComputedStyle(el).outlineStyle, getComputedStyle(el).outlineOffset]))
-      .toEqual(["solid", "0px"]);
-    await page.locator('[data-layer-id="strokeDash"]').click();
-    await page.getByRole("button", { name: "Preenchimento e traço" }).click().catch(() => undefined);
-    await expect(page.getByTestId("stroke-style")).toBeVisible();
-    await expect(page.getByTestId("stroke-position")).toBeVisible();
+    await expect.poll(async () => (await doc()).nodes.login).toMatchObject({
+      stroke: { style: "dashed", position: "inside", width: 2 },
+    });
+    await expect.poll(async () => (await doc()).nodes.plano).toMatchObject({
+      stroke: { style: "solid", position: "outside", width: 4 },
+    });
+    const login = page.locator('[data-paprika-id="login"]');
+    const plano = page.locator('[data-paprika-id="plano"]');
+    await expect.poll(() => login.evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe("dashed");
+    await expect.poll(() => plano.evaluate((el) => [getComputedStyle(el).outlineStyle, getComputedStyle(el).outlineOffset])).toEqual(["solid", "0px"]);
+    await page.locator('[data-layer-id="login"]').click();
+    await expect.poll(() => page.getByTestId("selection").getAttribute("data-count")).toBe("1");
+    const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
+    if ((await appearance.getAttribute("data-state")) !== "open") await appearance.click();
+    await expect.poll(() => page.getByTestId("stroke-style").count()).toBe(1);
+    await expect.poll(() => page.getByTestId("stroke-position").count()).toBe(1);
   });
 
   it("screenshot pelo MCP usa o mesmo motor do canvas", async () => {
