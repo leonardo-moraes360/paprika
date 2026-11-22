@@ -64,7 +64,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Cor moderna: `oklch()`, `color-mix()`, Display P3, seletor OKLCH | As strings passam para o CSS, mas o lint não entende e o seletor é hex sRGB | 🟡 | P2 |
 | Modos de mesclagem (blend modes) | — | ⬜ | P3 |
 | Painel de cores da seleção (todas as cores usadas) | — | ⬜ | P3 |
-| Vários tipos de borda nos elementos | Hoje `stroke` é só `{color, width}` (`packages/core/src/schema.ts`) e o inspector mostra cor e espessura; só conectores têm `dashed`. Falta: estilos sólido, tracejado, pontilhado e parecidos (e, a decidir no planejamento, posição interna/centro/externa e borda por lado). Relaciona com C "Várias sombras, sombra interna, outline". Pedido de 2026-11-22. Leva 4. | ⬜ | a definir |
+| Vários tipos de borda nos elementos | Hoje `stroke` é só `{color, width}` (`packages/core/src/schema.ts`) e o inspector mostra cor e espessura; só conectores têm `dashed`. Falta: estilos sólido, tracejado, pontilhado e parecidos, e a posição da borda (interna, centro, externa). Borda por lado fica de fora por enquanto (mantenedor, 2026-11-22). Relaciona com C "Várias sombras, sombra interna, outline". Pedido de 2026-11-22. Leva 4. | ⬜ | a definir |
 | Color picker customizado | Hoje o inspector usa o seletor de cor nativo. Pedido de 2026-11-22. Leva 3: PAP-B-023. | ⬜ | a definir |
 
 ## D. Tipografia
