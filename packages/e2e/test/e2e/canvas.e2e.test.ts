@@ -755,6 +755,44 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await doc()).name, POLL).toBe(demoName);
   });
 
+  it("páginas: renomear a Página 1 implícita cria a página com o nome, leva o conteúdo e desfaz num passo", async () => {
+    const POLL = { timeout: 10_000 };
+    const demo = (await doc()).id;
+    const created = await fetch(`${url}/api/workspaces`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Só uma página" }) });
+    const solo = ((await created.json()) as { workspace: { id: string } }).workspace.id;
+    await agent.callTool({ name: "open_workspace", arguments: { id: solo } });
+    await agent.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "frame", id: "capa", name: "Capa", width: 200, height: 120, fill: "#ffffff" }] } });
+    await page.goto(`${url}/w/${solo}`);
+    await page.waitForSelector('[data-paprika-id="capa"]');
+    const pageNodes = async () => Object.values((await doc()).nodes).filter((n) => n.type === "page");
+    expect(await pageNodes()).toHaveLength(0);
+
+    const row = page.getByRole("list", { name: "Páginas" }).locator("li");
+    await row.dblclick();
+    const input = page.getByLabel("Nome da página");
+    expect(await input.inputValue()).toBe("Página 1");
+    await input.fill("Abertura");
+    await input.press("Enter");
+
+    await expect.poll(async () => (await pageNodes()).length, POLL).toBe(1);
+    const d = await doc();
+    const [pageId] = d.rootIds as [string];
+    expect(d.rootIds).toHaveLength(1);
+    expect(d.nodes[pageId]).toMatchObject({ type: "page", name: "Abertura" });
+    expect(d.nodes.capa?.parentId).toBe(pageId);
+    await expect.poll(() => page.locator(".page.is-active").textContent(), POLL).toContain("Abertura");
+    await expect.poll(() => page.locator('[data-paprika-id="capa"]').count(), POLL).toBe(1);
+
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("Control+z");
+    await expect.poll(async () => (await pageNodes()).length, POLL).toBe(0);
+    expect((await doc()).nodes.capa?.parentId).toBeNull();
+    expect((await doc()).rootIds).toEqual(["capa"]);
+
+    await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
+    await fetch(`${url}/api/workspaces/${solo}`, { method: "DELETE" });
+  });
+
   it("overview: capa por arquivo (trocar e remover) e por screenshot do agente; sem capa fica a letra", async () => {
     const POLL = { timeout: 10_000 };
     const { id: demo, name: demoName } = await doc();
