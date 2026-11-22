@@ -104,7 +104,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Caneta para criar paths | `P`, alças bezier, fecha no primeiro vértice | ✅ | — |
 | Editar pontos e alças de um path existente | Duplo clique no vetor: arrastar pontos e alças, adicionar, remover, canto/suave (2026-11-21); `d` no inspector | ✅ | — |
 | Importar/colar SVG como camadas `path` editáveis | `import_svg`, `Ctrl+V` no canvas (2026-11-21): paths, formas (rect/ellipse alinhados aos eixos ficam nativos), grupos, transforms, pintura herdada; sem texto, imagens, gradientes ou CSS de `<style>` | ✅ | — |
-| Operações booleanas (união, subtração, interseção, exclusão) | — (fb#1, fb#76; ver Q) | ⬜ | P1 |
+| Operações booleanas (união, subtração, interseção, exclusão) | — (fb#1, fb#76; ver Q). Leva 3: PAP-A-003 — MCP `combine_paths` + op no core (comando no canvas depois). | ✅ | P1 |
 | Converter rect/ellipse em path | — | ⬜ | P2 |
 | Snapping e guias para pontos, snapping a meio pixel | — | ⬜ | P3 |
 | Espelhar, repetir, shape builder, vector networks | — | ⬜ | P3 |
@@ -289,7 +289,7 @@ Todo item ainda aberto no [log de feedback dos agentes](feedback-agentes.md) (fb
 |---|---|---|---|---|
 | Levar um quadro de um servidor Paprika para outro | `import_document` (entra um `.paprika.json`, sai um workspace novo, sem trocar o ativo); `paprika export --root <id>` de um frame; `create_nodes` ignora os campos derivados do connector em vez de recusar Leva 3: PAP-B-013. | fb#72, fb#75 | ⬜ | P1 |
 | Geometria no core: caixas absolutas para agentes | Um `layout(doc)` no core que devolve caixas absolutas (port em Go preso às fixtures), uma ferramenta `get_bounds` com os cantos rotacionados, um campo `origin` e `normalize` ao criar path (ou o deslocamento no `path_info`); o export do core usa as mesmas caixas, então o SVG de nós com auto layout dispensa navegador Leva 3: PAP-A-001. | fb#2, fb#15, fb#26, fb#41 | ⬜ | P1 |
-| Operações booleanas e recortes | `union`/`subtract`/`intersect`/`exclude` gerando um novo `path` (op no MCP + comando no canvas), ou `mask` em `group`; mesmo item de F "Operações booleanas" Leva 3: PAP-A-003. | fb#1, fb#76 | ⬜ | P1 |
+| Operações booleanas e recortes | `union`/`subtract`/`intersect`/`exclude` gerando um novo `path` (op no MCP + comando no canvas), ou `mask` em `group`; mesmo item de F "Operações booleanas" Leva 3: PAP-A-003 — MCP `combine_paths` feito; comando no canvas ainda aberto. | fb#1, fb#76 | ✅ | P1 |
 | Decalcar uma imagem de referência | Colocar uma imagem (arquivo local ou data URL) como referência travada e semitransparente sob um frame; `render_screenshot` com uma imagem `compare` lado a lado | fb#78 | ⬜ | P2 |
 | Lint que aponta o que importa | Agrupar o resultado do `lint_design` por regra (contagem + primeiros N ids), `minSeverity`, `lintIgnore` por nó; regras novas: filhos de row/column mais largos que o frame, geometria (irmãos que não se tocam, vãos abaixo de 4 px, formas totalmente escondidas) | fb#6, fb#9, fb#69, fb#70 | 🟡 | P2 |
 | Agentes editam pontos de path | `edit_path` (índice da âncora + nova posição, alças) sobre os helpers do canvas, e âncoras listadas no `path_info` | fb#17, fb#43 | 🟡 | P2 |

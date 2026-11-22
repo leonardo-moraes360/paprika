@@ -113,6 +113,8 @@ func TestGoldenStructure(t *testing.T) {
 			ops, id, err = GroupOps(d, args.Strings("ids"), args.Str("id"), args.Str("name"))
 		case "ungroup":
 			ops, released, err = UngroupOps(d, args.Strings("ids"))
+		case "combine":
+			ops, id, err = CombinePathsOps(d, args.Strings("ids"), BooleanOperation(args.Str("operation")), args.Str("id"), args.Str("name"))
 		default:
 			ops, id = AddPageOps(d, args.Str("id"), args.Str("name"), args.Str("firstId"), "")
 		}
