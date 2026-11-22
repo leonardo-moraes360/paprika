@@ -408,3 +408,15 @@ Task: redesign the scene inspector into collapsible sections before implementing
 |---|--------|---------------|----------|------|
 | 106 | Inspector height that proves the compact layout | `aside.right.scrollHeight` stayed 856 px before and after because the grid area forces a tall scroll container; `#right-tabpanel` height dropped 759 → 303 px (~60%) for the demo text node at 1440×900 (`packages/e2e/b022-measure.mjs`) | Use `panel` / `panelScroll` in the measure script (and in acceptance notes), not only `aside.scrollHeight` | P3 |
 | 107 | Boards on the shared MCP server | `:4777` answered slowly during the ticket, so only the existing design frames plus runtime screenshots were committed; no new fixed-height frames were drawn over MCP in this pass | Same as #97: a boards document in git that agents can `load` without depending on whichever volume is mounted on the maintainer's port | P2 |
+
+## 2026-11-22: aspect-ratio lock shortcuts while resizing (PAP-B-042, design first)
+
+Task: draw free / keep-ratio / square selection states (light and dark) on the `Interfaces` page of `Paprika - UI`, then wire `Shift` and `Shift+Alt` locks plus a canvas hint in `apps/web/src/Canvas.tsx`. Six fixed-height root frames; screenshots in `docs/assets/boards/PAP-B-042/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 108 | `lint_design` scoped to the ticket's roots | Calling `lint_design` with `rootIds` for the six PAP-B-042 frames still returned hundreds of warnings and one contrast error from older sheets on the same page (`nodeId` outside the requested roots) | Honor `rootIds` as a hard subtree filter so a ticket can prove its own lint without noise from parallel boards | P2 |
+| 109 | Screenshots as files | Same as #100 / #101: `render_screenshot` returns base64 only; a short local script had to decode into `docs/assets/boards/PAP-B-042/` | Optional `path` on `render_screenshot` | P3 |
+
+- Active workspace was already `Paprika - UI`; `Interfaces` existed (`interfaces-pap020`); no `open_workspace`.
+- Fixed 360 px frame heights avoided the hug screenshot pitfall; `render_screenshot` with `scale: 2` was enough to judge the hint badges.

@@ -409,3 +409,15 @@ Tarefa: redesenhar o inspector de cena em seções recolhíveis antes de impleme
 |---|-------------|-----------------|----------|------|
 | 106 | Altura do inspector que prova o layout compacto | O `aside.right.scrollHeight` ficou em 856 px antes e depois porque a área do grid força um container alto; a altura de `#right-tabpanel` caiu de 759 para 303 px (~60%) com o nó de texto do demo em 1440×900 (`packages/e2e/b022-measure.mjs`) | Usar `panel` / `panelScroll` no script de medição (e nas notas de aceite), não só `aside.scrollHeight` | P3 |
 | 107 | Boards no servidor MCP compartilhado | O `:4777` respondeu devagar durante o ticket, então só os frames de design existentes mais screenshots da runtime foram commitados; nenhum frame novo de altura fixa foi desenhado no MCP nesta passagem | Igual ao #97: um documento de boards no git que os agentes possam `load` sem depender do volume montado na porta do mantenedor | P2 |
+
+## 2026-11-22: atalhos de proporção ao redimensionar (PAP-B-042, design first)
+
+Tarefa: desenhar os estados livre / manter proporção / quadrado (claro e escuro) na página `Interfaces` do `Paprika - UI`, depois ligar as travas `Shift` e `Shift+Alt` e a dica no canvas em `apps/web/src/Canvas.tsx`. Seis frames raiz de altura fixa; capturas em `docs/assets/boards/PAP-B-042/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 108 | `lint_design` limitado às raízes do ticket | Chamar `lint_design` com `rootIds` dos seis frames PAP-B-042 ainda devolveu centenas de avisos e um erro de contraste de folhas antigas na mesma página (`nodeId` fora das raízes pedidas) | Respeitar `rootIds` como filtro duro da subárvore para o ticket provar o próprio lint sem ruído de boards paralelos | P2 |
+| 109 | Screenshots como arquivo | Igual ao #100 / #101: `render_screenshot` só devolve base64; um script local teve que decodificar em `docs/assets/boards/PAP-B-042/` | `path` opcional no `render_screenshot` | P3 |
+
+- O workspace ativo já era `Paprika - UI`; `Interfaces` existia (`interfaces-pap020`); sem `open_workspace`.
+- Alturas fixas de 360 px evitaram o problema de screenshot com hug; `render_screenshot` com `scale: 2` bastou para julgar as dicas.

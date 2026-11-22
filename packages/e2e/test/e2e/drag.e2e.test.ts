@@ -146,6 +146,67 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
       return changed / (p.length / 4);
     }, [a.toString("base64"), b.toString("base64")]);
 
+  it("Shift no redimensionamento mantém a proporção e o canto oposto; a dica mostra Proporção", async () => {
+    await open("dom");
+    const b = await shown();
+    await page.mouse.click(b.x + 6, b.y + 6);
+    const before = await stored();
+    const ratio = before.width / before.height;
+    const nw = { x: before.x, y: before.y };
+    const se = page.getByTestId("selection").locator('[data-resize="se"]');
+    const handle = (await se.boundingBox())!;
+    const hx = handle.x + handle.width / 2;
+    const hy = handle.y + handle.height / 2;
+    await se.hover();
+    await page.mouse.down();
+    await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", code: "ShiftLeft", shiftKey: true, bubbles: true })));
+    await page.mouse.move(hx + 80, hy + 10, { steps: 8 });
+    const hint = page.getByTestId("resize-lock-hint");
+    expect(await hint.count()).toBe(1);
+    expect(await hint.getAttribute("data-lock")).toBe("ratio");
+    expect(await hint.textContent()).toContain("Proporção");
+    await page.mouse.up();
+    await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keyup", { key: "Shift", code: "ShiftLeft", shiftKey: false, bubbles: true })));
+    await expect.poll(async () => (await stored()).width).not.toBe(before.width);
+    const after = await stored();
+    expect(Math.min(Math.abs(after.width - Math.round(after.height * ratio)), Math.abs(after.height - Math.round(after.width / ratio)))).toBeLessThanOrEqual(1);
+    expect(after.x).toBeCloseTo(nw.x, 0);
+    expect(after.y).toBeCloseTo(nw.y, 0);
+    expect(await page.getByTestId("resize-lock-hint").count()).toBe(0);
+  }, 30_000);
+
+  it("Shift+Alt no redimensionamento trava 1:1 e mantém o canto oposto", async () => {
+    await open("dom");
+    const b = await shown();
+    await page.mouse.click(b.x + 6, b.y + 6);
+    const before = await stored();
+    const nw = { x: before.x, y: before.y };
+    const se = page.getByTestId("selection").locator('[data-resize="se"]');
+    const handle = (await se.boundingBox())!;
+    const hx = handle.x + handle.width / 2;
+    const hy = handle.y + handle.height / 2;
+    await se.hover();
+    await page.mouse.down();
+    await page.evaluate(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", code: "ShiftLeft", shiftKey: true, altKey: true, bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", code: "AltLeft", shiftKey: true, altKey: true, bubbles: true }));
+    });
+    await page.mouse.move(hx + 60, hy + 20, { steps: 8 });
+    const hint = page.getByTestId("resize-lock-hint");
+    expect(await hint.count()).toBe(1);
+    expect(await hint.getAttribute("data-lock")).toBe("square");
+    expect(await hint.textContent()).toContain("1:1");
+    await page.mouse.up();
+    await page.evaluate(() => {
+      window.dispatchEvent(new KeyboardEvent("keyup", { key: "Alt", code: "AltLeft", shiftKey: false, altKey: false, bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent("keyup", { key: "Shift", code: "ShiftLeft", shiftKey: false, altKey: false, bubbles: true }));
+    });
+    await expect.poll(async () => Math.abs((await stored()).width - (await stored()).height)).toBeLessThanOrEqual(1);
+    const after = await stored();
+    expect(after.x).toBeCloseTo(nw.x, 0);
+    expect(after.y).toBeCloseTo(nw.y, 0);
+  }, 30_000);
+
   it("arrastar um painel lateral além do mínimo o recolhe num botão flutuante que devolve a última largura", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     try {
