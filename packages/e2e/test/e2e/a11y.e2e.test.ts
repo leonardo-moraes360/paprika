@@ -122,7 +122,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     await expect(zoomIn.getAttribute("aria-label")).resolves.toBe("Aumentar zoom");
     await expect(zoomIn.getAttribute("title")).resolves.toBeNull();
     await zoomIn.focus();
-    const tip = page.locator("[data-slot=tooltip-content]");
+    const tip = page.locator('[data-slot=tooltip-content][data-state$="open"]');
     await tip.waitFor({ timeout: 3_000 });
     await expect(tip.first().textContent()).resolves.toBe("Aumentar zoom");
     await page.keyboard.press("Escape");
@@ -372,6 +372,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       const dialog = ov.getByRole("alertdialog");
       await dialog.waitFor();
       await expect(ov.evaluate(() => document.activeElement?.textContent?.trim())).resolves.toBe("Cancelar");
+      await expect.poll(() => ov.locator("[data-slot=tooltip-content]").count(), { timeout: 3_000 }).toBe(0);
       await ov.keyboard.press("Escape");
       await expect.poll(() => dialog.count()).toBe(0);
       await expect.poll(() => trash.evaluate((el) => el === document.activeElement)).toBe(true);
