@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -149,7 +150,7 @@ func ArcToCubics(from Point, s Segment) []Segment {
 		return Point{-rx*math.Sin(t)*cos - ry*math.Cos(t)*sin, -rx*math.Sin(t)*sin + ry*math.Cos(t)*cos}
 	}
 	out := make([]Segment, 0, n)
-	for j := 0; j < n; j++ {
+	for j := range n {
 		a := t1 + step*float64(j)
 		b := a + step
 		p0 := pt(a)
@@ -232,10 +233,8 @@ type paint struct {
 	fillOpacity, strokeOpacity float64
 }
 
-func strp(s string) *string { return &s }
-
 var (
-	inheritDefault = paint{fill: strp("#000000"), strokeWidth: 1, fillRule: "nonzero", cap: "butt", join: "miter", fillOpacity: 1, strokeOpacity: 1}
+	inheritDefault = paint{fill: new("#000000"), strokeWidth: 1, fillRule: "nonzero", cap: "butt", join: "miter", fillOpacity: 1, strokeOpacity: 1}
 	svgSkip        = map[string]bool{"defs": true, "title": true, "desc": true, "metadata": true, "style": true, "script": true, "clippath": true, "lineargradient": true, "radialgradient": true, "symbol": true, "marker": true, "pattern": true, "mask": true, "filter": true}
 	svgContainers  = map[string]bool{"g": true, "a": true, "svg": true, "switch": true}
 	svgShapes      = map[string]bool{"path": true, "rect": true, "circle": true, "ellipse": true, "line": true, "polyline": true, "polygon": true}
@@ -279,15 +278,15 @@ func cleanColor(v string, warn func(string)) *string {
 		return nil
 	}
 	if s == "currentColor" || s == "currentcolor" {
-		return strp("#000000")
+		return new("#000000")
 	}
 	if svgURLRe.MatchString(s) {
 		warn("gradients and patterns (url(#…)) are not imported; using gray")
-		return strp("#808080")
+		return new("#808080")
 	}
 	if strings.ContainsAny(s, ";{}<>") || jsonv.Len16(s) > 200 {
 		warn(fmt.Sprintf("invalid color \"%s\" skipped", jsonv.Slice16(s, 40)))
-		return strp("#000000")
+		return new("#000000")
 	}
 	return &s
 }
@@ -647,10 +646,8 @@ type ImportOptions struct {
 func newWarner() (*[]string, func(string)) {
 	warnings := []string{}
 	return &warnings, func(w string) {
-		for _, x := range warnings {
-			if x == w {
-				return
-			}
+		if slices.Contains(warnings, w) {
+			return
 		}
 		warnings = append(warnings, w)
 	}

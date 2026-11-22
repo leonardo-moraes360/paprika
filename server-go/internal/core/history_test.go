@@ -31,7 +31,7 @@ func TestHistoryBatch(t *testing.T) {
 	if n := len(h.Entries()); n != 3 {
 		t.Fatalf("entries after other actor: %d", n)
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if _, _, err := h.Undo(); err != nil {
 			t.Fatal(err)
 		}

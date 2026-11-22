@@ -998,8 +998,7 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 		}
 		parsed, err := z.Parse(t.schema, rawArgs)
 		if err != nil {
-			var ze *z.Error
-			errors.As(err, &ze)
+			ze, _ := errors.AsType[*z.Error](err)
 			return errorResult((&mcpError{codeInvalidParams, "Input validation error: Invalid arguments for tool " + name + ": " + z.SDKFormat(ze)}).Error())
 		}
 		args = parsed.(*jsonv.Object)

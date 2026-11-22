@@ -47,8 +47,7 @@ func execute(args []string, stdout, stderr io.Writer) int {
 	if err == nil {
 		return 0
 	}
-	var ue usageError
-	if errors.As(err, &ue) {
+	if ue, ok := errors.AsType[usageError](err); ok {
 		if ue.message == "" {
 			_ = root.Help()
 		} else {

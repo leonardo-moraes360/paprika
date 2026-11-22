@@ -207,8 +207,8 @@ func Compare(a, b image.Image, opts *Options) (*Result, error) {
 	// caller passes is compared against the same scale here.
 	threshold := o.Threshold * yiqScale
 
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			i := y*w + x
 			if res.Diff != nil {
 				// Base: the reference (image A) dimmed, so the marks read on top of it.
