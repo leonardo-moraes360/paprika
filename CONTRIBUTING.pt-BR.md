@@ -44,7 +44,7 @@ O mapa e as regras obrigatórias estão no [AGENTS.md](AGENTS.md); valem para hu
 - `packages/core` não faz I/O. Toda mutação do documento passa por `applyOps`.
 - Estilo visual novo entra no `nodeStyle`, para que canvas, screenshot e código exportado continuem idênticos.
 - O servidor é o `server-go/`; o `server-go/internal/core` é um port do `packages/core`, que o canvas roda. Mudar o `packages/core` exige a mesma mudança em Go, fixtures regeneradas (`pnpm go:golden`) e `pnpm go:test` passando.
-- Ferramenta MCP nova exige a definição em `server-go/contract/mcp.json`, o handler e um teste Go, um cenário em `packages/e2e/test/api.test.ts` e uma linha nos dois READMEs.
+- Ferramenta MCP nova exige a definição em `server-go/contract/mcp.json`, o handler e um teste Go, um cenário em `packages/e2e/test/api.test.ts` e uma linha nas duas tabelas de ferramentas MCP (`docs/mcp.md` e `docs/pt-BR/mcp.md`).
 
 ## Documentação
 

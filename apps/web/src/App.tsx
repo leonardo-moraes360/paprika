@@ -6,10 +6,12 @@ import { Inspector } from "./Inspector";
 import { Layers } from "./Layers";
 import { Pages } from "./Pages";
 import { LEFT_PANEL, PanelResizer, RIGHT_PANEL, usePanelWidth } from "./PanelResizer";
+import { api, errorText } from "./api";
 import { Overview } from "./Overview";
 import { navigate, parseRoute, useRoute, workspacePath } from "./route";
 import { useDocument, type LiveDocument } from "./useDocument";
 import { bar, cx } from "./ui";
+import { openWorkspace } from "./workspaces";
 
 // Plain class names next to utilities ("left", "right", "doc-name", "is-active") are hooks for the E2E suite.
 const boot = "grid h-full place-content-center justify-items-center gap-3 text-muted";
@@ -76,15 +78,11 @@ export function App() {
   useEffect(() => {
     if (!routeId) return;
     pending.current = routeId;
-    void fetch(`/api/workspaces/${encodeURIComponent(routeId)}/open`, { method: "POST" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
-      })
-      .catch((e: unknown) => {
-        // pending stays set: a doc that arrives meanwhile must not send the URL to the active workspace.
-        navigate("/", { replace: true });
-        showError(`Não foi possível abrir o workspace: ${e instanceof Error ? e.message : String(e)}`);
-      });
+    openWorkspace(routeId).catch((e: unknown) => {
+      // pending stays set: a doc that arrives meanwhile must not send the URL to the active workspace.
+      navigate("/", { replace: true });
+      showError(`Não foi possível abrir o workspace: ${errorText(e)}`);
+    });
   }, [routeId, showError]);
 
   useEffect(() => {
@@ -264,9 +262,8 @@ function Editor({ live }: { live: LiveDocument }) {
   const exportSvg = async () => {
     const root = selected.length === 1 ? selected[0]! : (pageId ?? "");
     try {
-      const res = await fetch(`/api/svg${root ? `?root=${encodeURIComponent(root)}` : ""}`);
-      const body = (await res.json()) as { svg?: string; warnings?: string[]; error?: string };
-      if (!res.ok || !body.svg) throw new Error(body.error ?? res.statusText);
+      const body = await api<{ svg?: string; warnings?: string[] }>(`/api/svg${root ? `?root=${encodeURIComponent(root)}` : ""}`);
+      if (!body.svg) throw new Error("o servidor não devolveu o SVG");
       const url = URL.createObjectURL(new Blob([body.svg], { type: "image/svg+xml" }));
       const a = document.createElement("a");
       a.href = url;
@@ -275,7 +272,7 @@ function Editor({ live }: { live: LiveDocument }) {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       if (body.warnings?.length) live.showError(`SVG exportado com avisos: ${body.warnings.join("; ")}`);
     } catch (err) {
-      live.showError(`Falha ao exportar SVG: ${err instanceof Error ? err.message : String(err)}`);
+      live.showError(`Falha ao exportar SVG: ${errorText(err)}`);
     }
   };
 
@@ -361,6 +358,7 @@ function Editor({ live }: { live: LiveDocument }) {
           apply={live.apply}
           agentTouched={live.agentTouched}
           agents={live.agents}
+          onOpenPage={openPage}
           onError={live.showError}
         />
         {live.error && (

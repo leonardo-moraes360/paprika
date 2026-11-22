@@ -44,7 +44,7 @@ import {
 import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { InlineName } from "./InlineName";
-import { AgentCursors } from "./AgentCursors";
+import { AgentCursors, type Box } from "./AgentCursors";
 import { cx, ui } from "./ui";
 import type { AgentPresence } from "./agents";
 
@@ -141,6 +141,8 @@ interface Props {
   agentTouched: Set<string>;
   /** Agentes presentes: cada um com cursor e seleção próprios. */
   agents?: AgentPresence[];
+  /** Abre outra página (ex.: a de um agente na lista de presença). */
+  onOpenPage?(id: string): void;
   onError?(message: string): void;
 }
 
@@ -344,7 +346,7 @@ function ShapeTextEditor({ text, onCommit, onDone }: { text: string; onCommit(te
   );
 }
 
-export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, agents = [], onError }: Props) {
+export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, agents = [], onOpenPage, onError }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 40, y: 40, zoom: 1 });
@@ -426,6 +428,16 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const z = Math.max(0.1, zoom);
     setView({ zoom: z, x: (vp.width - b.width * z) / 2 - b.x * z, y: (vp.height - b.height * z) / 2 - b.y * z });
   }, [doc, pageId]);
+
+  // Centraliza uma caixa do mundo (ex.: o cursor de um agente), afastando o zoom só se ela não couber.
+  const focusBox = useCallback((b: Box) => {
+    const vp = viewportRef.current?.getBoundingClientRect();
+    if (!vp) return;
+    setView((v) => {
+      const z = Math.max(0.1, Math.min(v.zoom, (vp.width - 120) / Math.max(b.w, 1), (vp.height - 120) / Math.max(b.h, 1)));
+      return { zoom: z, x: vp.width / 2 - (b.x + b.w / 2) * z, y: vp.height / 2 - (b.y + b.h / 2) * z };
+    });
+  }, []);
 
   // Enquadra o conteúdo na primeira carga, quando o servidor passa a servir outro documento e ao trocar de página.
   const fittedDocId = useRef<string | null>(null);
@@ -1149,7 +1161,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         ))}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
-      <AgentCursors doc={doc} agents={agents} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} />
+      <AgentCursors doc={doc} agents={agents} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} onFocus={focusBox} />
       {frameLabels.map((l) => (
         <div
           key={l.id}
