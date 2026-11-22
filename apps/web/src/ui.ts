@@ -37,6 +37,9 @@ export const ui = {
   colorTokenSwatch: "size-[22px] rounded-md border border-line",
   colorRecent:
     "size-5 cursor-pointer rounded-md border border-line p-0 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
+  actions:
+    "mx-0 my-2 flex gap-1.5 [&_button]:cursor-pointer [&_button]:rounded-sm [&_button]:border [&_button]:border-line [&_button]:bg-panel-2 [&_button]:px-2.5 [&_button]:py-1 [&_button]:text-fg [&_button:hover]:border-select",
+  link: "cursor-pointer border-0 bg-transparent p-0 text-select underline",
   activityList: "m-0 grid list-none gap-1 p-0",
   activityRow: "grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-1.5 rounded-md bg-panel-2 px-1.5 py-1 text-xs text-fg",
   activityBatch: "outline outline-1 outline-select",
