@@ -54,7 +54,7 @@ RUN --mount=type=cache,id=cargo-registry-sync,target=/usr/local/cargo/registry \
  && install -D target/x86_64-unknown-linux-musl/release/paprika-sync /out/paprika-sync
 
 # ------------------------------------------------------------------ canvas (apps/web + packages/core)
-FROM node:22-bookworm-slim AS web
+FROM node:26-bookworm-slim AS web
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=1
 RUN corepack enable
 WORKDIR /src
