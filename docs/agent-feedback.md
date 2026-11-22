@@ -423,6 +423,15 @@ until release. Eight fixed-height frames on `Interfaces` (`docs/assets/boards/PA
 - Active workspace was already `Paprika - UI` / page `Interfaces`; no `open_workspace`.
 - Ghost is `aria-hidden` and `pointer-events: none` (`data-testid="draft-ghost"`); connector arrow ghost left out of this ticket's draft-only scope.
 
+## 2026-11-22: aspect-ratio lock shortcuts while resizing (PAP-B-042, design first)
+
+Task: draw free / keep-ratio / square selection states (light and dark) on the `Interfaces` page of `Paprika - UI`, then wire `Shift` and `Shift+Alt` locks plus a canvas hint in `apps/web/src/Canvas.tsx`. Six fixed-height root frames; screenshots in `docs/assets/boards/PAP-B-042/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | `lint_design` scoped to the ticket's roots | Calling `lint_design` with `rootIds` for the six PAP-B-042 frames still returned hundreds of warnings and one contrast error from older sheets on the same page (`nodeId` outside the requested roots) | Honor `rootIds` as a hard subtree filter so a ticket can prove its own lint without noise from parallel boards | P2 || 111 | Screenshots as files | Same as #100 / #101: `render_screenshot` returns base64 only; a short local script had to decode into `docs/assets/boards/PAP-B-042/` | Optional `path` on `render_screenshot` | P3 |
+- Active workspace was already `Paprika - UI`; `Interfaces` existed (`interfaces-pap020`); no `open_workspace`.
+- Fixed 360 px frame heights avoided the hug screenshot pitfall; `render_screenshot` with `scale: 2` was enough to judge the hint badges.
 ## 2026-11-22: better activity history (PAP-B-025, design first)
 
 Task: draw the activity feed (actor color+name, action, relative time, batch grouping, undo/redo marker) light and dark before extracting `Activity.tsx` from the Inspector. Four root frames on `Interfaces` (`PAP-B-025 feed|undo` × light/dark), fixed height 320; PNGs under `docs/assets/boards/PAP-B-025/`.

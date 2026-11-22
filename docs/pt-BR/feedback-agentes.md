@@ -425,6 +425,15 @@ arrastar uma ferramenta de criação, claro e escuro, depois pintá-lo a partir 
 - O workspace ativo já era `Paprika - UI` / página `Interfaces`; sem `open_workspace`.
 - O fantasma é `aria-hidden` e `pointer-events: none` (`data-testid="draft-ghost"`); o fantasma da seta do conector ficou fora do escopo draft-only deste ticket.
 
+## 2026-11-22: atalhos de proporção ao redimensionar (PAP-B-042, design first)
+
+Tarefa: desenhar os estados livre / manter proporção / quadrado (claro e escuro) na página `Interfaces` do `Paprika - UI`, depois ligar as travas `Shift` e `Shift+Alt` e a dica no canvas em `apps/web/src/Canvas.tsx`. Seis frames raiz de altura fixa; capturas em `docs/assets/boards/PAP-B-042/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 110 | `lint_design` limitado às raízes do ticket | Chamar `lint_design` com `rootIds` dos seis frames PAP-B-042 ainda devolveu centenas de avisos e um erro de contraste de folhas antigas na mesma página (`nodeId` fora das raízes pedidas) | Respeitar `rootIds` como filtro duro da subárvore para o ticket provar o próprio lint sem ruído de boards paralelos | P2 || 111 | Screenshots como arquivo | Igual ao #100 / #101: `render_screenshot` só devolve base64; um script local teve que decodificar em `docs/assets/boards/PAP-B-042/` | `path` opcional no `render_screenshot` | P3 |
+- O workspace ativo já era `Paprika - UI`; `Interfaces` existia (`interfaces-pap020`); sem `open_workspace`.
+- Alturas fixas de 360 px evitaram o problema de screenshot com hug; `render_screenshot` com `scale: 2` bastou para julgar as dicas.
 ## 2026-11-22: histórico de atividade (PAP-B-025, design first)
 
 Tarefa: desenhar o feed de atividade (ator cor+nome, ação, tempo relativo, agrupamento de lote, marcador de desfazer/refazer) em claro e escuro antes de extrair `Activity.tsx` do Inspector. Quatro frames raiz em `Interfaces` (`PAP-B-025 feed|undo` × light/dark), altura fixa 320; PNGs em `docs/assets/boards/PAP-B-025/`.

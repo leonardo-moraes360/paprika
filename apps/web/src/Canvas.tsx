@@ -1237,6 +1237,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
 
   const single = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
   const resizable = !!single && single.type !== "group" && single.type !== "page" && single.type !== "connector" && !isInstance(single) && !copyOwner(doc, single);
+  const [resizeLock, setResizeLock] = useState<"ratio" | "square" | null>(null);
   const onResizeDown = (corner: "nw" | "ne" | "sw" | "se") => (e: RPointerEvent) => {
     e.stopPropagation();
     const node = single;
@@ -1250,15 +1251,18 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const y0 = shownAt?.y ?? node.y;
     const w0 = shownAt?.width ?? (typeof node.width === "number" ? node.width : box.width / view.zoom);
     const h0 = shownAt?.height ?? (typeof node.height === "number" ? node.height : box.height / view.zoom);
+    const ratio0 = w0 / Math.max(h0, 1e-6);
     const absolute = isAbsolute(doc, node);
     let last: { x?: number; y?: number; width: number; height: number } = {
       width: Math.round(w0),
       height: Math.round(h0),
       ...(absolute ? { x: Math.round(x0), y: Math.round(y0) } : {}),
     };
-    const move = (ev: PointerEvent) => {
-      const dx = (ev.clientX - sx) / view.zoom;
-      const dy = (ev.clientY - sy) / view.zoom;
+    const held = { shift: e.shiftKey, alt: e.altKey };
+    let lastClient = { x: e.clientX, y: e.clientY };
+    const applyAt = (clientX: number, clientY: number) => {
+      const dx = (clientX - sx) / view.zoom;
+      const dy = (clientY - sy) / view.zoom;
       let left = x0;
       let top = y0;
       let right = x0 + w0;
@@ -1275,6 +1279,27 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         if (corner === "nw" || corner === "ne") top = bottom - 1;
         else bottom = top + 1;
       }
+      const lock: "ratio" | "square" | null = held.shift ? (held.alt ? "square" : "ratio") : null;
+      setResizeLock(lock);
+      if (lock) {
+        let width = right - left;
+        let height = bottom - top;
+        const dw = Math.abs(width - w0);
+        const dh = Math.abs(height - h0);
+        if (lock === "square") {
+          const side = Math.max(1, dw >= dh ? width : height);
+          width = side;
+          height = side;
+        } else if (dw >= dh) {
+          height = Math.max(1, width / ratio0);
+        } else {
+          width = Math.max(1, height * ratio0);
+        }
+        if (corner === "nw" || corner === "sw") left = right - width;
+        else right = left + width;
+        if (corner === "nw" || corner === "ne") top = bottom - height;
+        else bottom = top + height;
+      }
       last = {
         width: Math.round(right - left),
         height: Math.round(bottom - top),
@@ -1282,13 +1307,29 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       };
       setPreview({ [id]: last });
     };
+    const move = (ev: PointerEvent) => {
+      if (ev.shiftKey) held.shift = true;
+      if (ev.altKey) held.alt = true;
+      lastClient = { x: ev.clientX, y: ev.clientY };
+      applyAt(ev.clientX, ev.clientY);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      held.shift = ev.shiftKey || ev.getModifierState("Shift");
+      held.alt = ev.altKey || ev.getModifierState("Alt");
+      applyAt(lastClient.x, lastClient.y);
+    };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      setResizeLock(null);
       commitPreview({ [id]: last }, [{ op: "update", id, props: last }], "redimensionar");
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
   };
 
   const editedShape = textEditId ? doc.nodes[textEditId] : undefined;
@@ -1402,6 +1443,15 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink">
             {Math.round(box.width / view.zoom)} × {Math.round(box.height / view.zoom)}
           </div>
+          {resizeLock && (
+            <div
+              className="absolute top-[calc(100%+28px)] left-1/2 -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink"
+              data-testid="resize-lock-hint"
+              data-lock={resizeLock}
+            >
+              {resizeLock === "square" ? "1:1 · Shift+Alt" : "Proporção · Shift"}
+            </div>
+          )}
         </div>
       )}
       {draft && isDraftTool(tool) && (
