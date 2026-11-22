@@ -335,6 +335,7 @@ export interface DiagramEdge {
   dashed?: boolean;
   stroke?: unknown;
   name?: string;
+  label?: string;
 }
 
 export interface DiagramInput {
@@ -489,7 +490,7 @@ export function diagramOps(doc: Document, input: DiagramInput): DiagramPlan {
       to: end(e.to, e.toSide),
       route: e.route ?? "elbow",
     };
-    for (const k of ["name", "startArrow", "endArrow", "dashed", "stroke"] as const) if (e[k] !== undefined) node[k] = e[k];
+    for (const k of ["name", "startArrow", "endArrow", "dashed", "stroke", "label"] as const) if (e[k] !== undefined) node[k] = e[k];
     plan.ops.push({ op: "create", parentId, node });
     plan.edges.push(id);
   }

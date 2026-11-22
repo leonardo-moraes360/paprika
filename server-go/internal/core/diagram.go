@@ -719,7 +719,7 @@ func DiagramOps(doc *Document, input *jsonv.Object) (*DiagramPlan, error) {
 			route = v
 		}
 		node := jsonv.NewObject("type", "connector", "id", id, "from", end(e.Str("from"), "fromSide"), "to", end(e.Str("to"), "toSide"), "route", route)
-		for _, k := range []string{"name", "startArrow", "endArrow", "dashed", "stroke"} {
+		for _, k := range []string{"name", "startArrow", "endArrow", "dashed", "stroke", "label"} {
 			if v, ok := e.Get(k); ok {
 				node.Set(k, jsonv.Clone(v))
 			}

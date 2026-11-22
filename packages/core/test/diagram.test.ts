@@ -195,3 +195,35 @@ describe("diagramOps", () => {
     expect(() => diagramOps(d, { parentId: "a", nodes: [{ id: "x" }] })).toThrow("only frame, group and page");
   });
 });
+
+describe("connector labels (fb#57)", () => {
+  it("connectorMidpoint walks the line by length and ignores the arrowheads", async () => {
+    const { connectorMidpoint } = await import("../src/index.js");
+    expect(connectorMidpoint("M116 2 L116 30 L8 30 L8 58 M2 46 L8 58 L14 46")).toEqual({ x: 62, y: 30 });
+    expect(connectorMidpoint("M0 0 L10 0")).toEqual({ x: 5, y: 0 });
+    expect(connectorMidpoint("")).toBeNull();
+  });
+
+  it("a label is drawn halfway along the route with a halo of the background, in every export", () => {
+    const d0 = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "frame", id: "f", width: 400, height: 300, fill: "#fbf8f4", children: [] } },
+    ]).doc;
+    const plan = diagramOps(d0, {
+      parentId: "f",
+      nodes: [{ id: "a", text: "A", x: 0, y: 0 }, { id: "b", text: "B", x: 0, y: 200 }],
+      edges: [{ from: "a", to: "b", route: "straight", label: "sim <ok>" }],
+    });
+    const doc = applyOps(d0, plan.ops).doc;
+    const c = doc.nodes["a-to-b"] as ConnectorNode;
+    expect(c.label).toBe("sim <ok>");
+    expect(outline(doc)).toContain('label="sim <ok>"');
+    const html = renderHTML(doc, { rootId: "f" }).html;
+    expect(html).toMatch(/<text [^>]*stroke="#fbf8f4"[^>]*paint-order="stroke"[^>]*>sim &lt;ok&gt;<\/text>/);
+    expect(exportReact(doc, "f")).toContain('{"sim <ok>"}</text>');
+    const { svg } = exportSVG(doc, "f");
+    expect(svg).toContain(">sim &lt;ok&gt;</text>");
+    // Without a label nothing changes.
+    const plain = applyOps(doc, [{ op: "update", id: "a-to-b", props: { label: null } }]).doc;
+    expect(renderHTML(plain, { rootId: "f" }).html).not.toContain("<text");
+  });
+});

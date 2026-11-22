@@ -15,6 +15,7 @@ import {
   pathAttrs,
   pathBounds,
   connectorAttrs,
+  connectorLabelAttrs,
   routeConnectors,
   shapeAttrs,
   SHAPE_SVG_CSS,
@@ -281,6 +282,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
     }
     case "connector": {
       const a = connectorAttrs(doc, node);
+      const label = connectorLabelAttrs(doc, node);
       // O <svg> não pega clique: só o traço (e uma faixa invisível mais larga em volta dele).
       return (
         <svg {...props} style={{ ...css, pointerEvents: "none" }} xmlns="http://www.w3.org/2000/svg" width={node.width} height={node.height}>
@@ -295,6 +297,11 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
             strokeDasharray={a.strokeDasharray}
             style={{ pointerEvents: "visibleStroke" }}
           />
+          {label && (
+            <text {...label} style={{ pointerEvents: "none", userSelect: "none" }} data-connector-label="">
+              {node.label}
+            </text>
+          )}
         </svg>
       );
     }

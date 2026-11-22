@@ -119,7 +119,11 @@ func renderNode(doc *Document, node *Node, asRoot, vars bool, offset *Point) str
 		svg, path := PathAttrsVars(doc, node, vars)
 		return "<svg " + attrs + ` xmlns="http://www.w3.org/2000/svg"` + svgAttrs(svg) + "><path" + svgAttrs(path) + "/></svg>"
 	case "connector":
-		return "<svg " + attrs + ` xmlns="http://www.w3.org/2000/svg"><path` + svgAttrs(ConnectorAttrs(doc, node, vars)) + "/></svg>"
+		text := ""
+		if label := ConnectorLabelAttrs(doc, node, vars); label != nil {
+			text = "<text" + svgAttrs(label) + ">" + EscapeHTML(node.Str("label")) + "</text>"
+		}
+		return "<svg " + attrs + ` xmlns="http://www.w3.org/2000/svg"><path` + svgAttrs(ConnectorAttrs(doc, node, vars)) + "/>" + text + "</svg>"
 	case "shape":
 		svg, path, fold := ShapeAttrs(doc, node, vars)
 		f := ""
@@ -271,7 +275,11 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool) s
 		svg, path := PathAttrsVars(doc, node, vars)
 		return indent + "<svg" + name + " style=" + style + jsxAttrs(svg) + ">\n" + indent + "  <path" + jsxAttrs(path) + " />\n" + indent + "</svg>"
 	case "connector":
-		return indent + "<svg" + name + " style=" + style + ">\n" + indent + "  <path" + jsxAttrs(ConnectorAttrs(doc, node, vars)) + " />\n" + indent + "</svg>"
+		text := ""
+		if label := ConnectorLabelAttrs(doc, node, vars); label != nil {
+			text = "\n" + indent + "  <text" + jsxAttrs(label) + ">{" + jsonv.Quote(node.Str("label")) + "}</text>"
+		}
+		return indent + "<svg" + name + " style=" + style + ">\n" + indent + "  <path" + jsxAttrs(ConnectorAttrs(doc, node, vars)) + " />" + text + "\n" + indent + "</svg>"
 	case "shape":
 		svg, path, fold := ShapeAttrs(doc, node, vars)
 		f := ""

@@ -126,8 +126,8 @@ const diagram = () => {
       { id: "memo", text: "Lembrar <de> revisar", shape: "note", x: 600, y: -20.5, rotation: 5, fontSize: 14 },
     ],
     edges: [
-      { from: "start", to: "ask" }, { from: "ask", to: "yes", toSide: "left" }, { from: "ask", to: "no", dashed: true },
-      { from: "no", to: "ask", route: "straight", startArrow: "arrow" }, { from: "memo", to: "no", route: "straight", endArrow: "none", stroke: { color: "$ink", width: 1 } },
+      { from: "start", to: "ask" }, { from: "ask", to: "yes", toSide: "left", label: "sim" }, { from: "ask", to: "no", dashed: true, label: "não <já>" },
+      { from: "no", to: "ask", route: "straight", startArrow: "arrow" }, { from: "memo", to: "no", route: "straight", endArrow: "none", stroke: { color: "$ink", width: 1 }, label: "nota" },
     ],
   });
   const d1 = applyOps(d0, plan.ops).doc;
@@ -135,10 +135,10 @@ const diagram = () => {
     { op: "create", node: { type: "frame", id: "box", x: 900, y: 0, width: 300, height: 200, fill: "#fbf8f4", children: [
       { type: "shape", id: "in1", x: 20, y: 20, width: 80, height: 40, text: "A" },
       { type: "group", id: "gq", children: [{ type: "shape", id: "in2", x: 180, y: 120, width: 80, height: 50, shape: "ellipse", opacity: 0.5 }] },
-      { type: "connector", id: "k1", from: { nodeId: "in1", side: "right" }, to: { nodeId: "in2", side: "top" }, route: "elbow" },
+      { type: "connector", id: "k1", from: { nodeId: "in1", side: "right" }, to: { nodeId: "in2", side: "top" }, route: "elbow", label: "dentro" },
       { type: "connector", id: "k2", from: { x: 10.5, y: 190 }, to: { nodeId: "in1" }, visible: false },
     ] } },
-    { op: "create", parentId: "gq", node: { type: "connector", id: "k3", from: { nodeId: "in2" }, to: { nodeId: "start" } } },
+    { op: "create", parentId: "gq", node: { type: "connector", id: "k3", from: { nodeId: "in2" }, to: { nodeId: "start" }, label: "volta" } },
     { op: "create", node: { type: "frame", id: "flow", component: true, x: 0, y: 500, width: 300, height: 80, children: [
       { type: "shape", id: "c1", x: 0, y: 10, width: 80, height: 50, text: "x" },
       { type: "shape", id: "c2", x: 200, y: 10, width: 80, height: 50, shape: "diamond" },

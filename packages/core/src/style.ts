@@ -267,6 +267,66 @@ export function connectorAttrs(doc: Document, node: ConnectorNode, opts: { vars?
   return a;
 }
 
+/** Ponto no meio (pelo comprimento) da linha de um conector: o primeiro subcaminho de `d` (as pontas vêm depois). */
+export function connectorMidpoint(d: string): { x: number; y: number } | null {
+  const line = d.split(" M")[0] ?? "";
+  const pts = [...line.matchAll(/[ML](-?[\d.]+)[ ,](-?[\d.]+)/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+  if (!pts.length) return null;
+  const seg = (k: number) => Math.sqrt((pts[k + 1]!.x - pts[k]!.x) ** 2 + (pts[k + 1]!.y - pts[k]!.y) ** 2);
+  let total = 0;
+  for (let k = 0; k < pts.length - 1; k++) total += seg(k);
+  let left = total / 2;
+  for (let k = 0; k < pts.length - 1; k++) {
+    const l = seg(k);
+    if (left <= l && l > 0) {
+      const t = left / l;
+      return { x: round(pts[k]!.x + (pts[k + 1]!.x - pts[k]!.x) * t), y: round(pts[k]!.y + (pts[k + 1]!.y - pts[k]!.y) * t) };
+    }
+    left -= l;
+  }
+  return pts[0]!;
+}
+
+/** Fundo atrás de um conector: o fill do ancestral mais próximo (sem gradiente), ou branco. */
+function connectorHalo(doc: Document, node: ConnectorNode, vars?: boolean): string {
+  let cur = node.parentId ? doc.nodes[node.parentId] : undefined;
+  while (cur) {
+    const fill = cur.type === "frame" || cur.type === "page" || cur.type === "rect" || cur.type === "ellipse" ? cur.fill : undefined;
+    if (fill && fill !== "transparent" && !/gradient|url\(/i.test(fill)) return String(paintValue(doc, fill, modeOf(doc, cur), vars));
+    cur = cur.parentId ? doc.nodes[cur.parentId] : undefined;
+  }
+  return "#ffffff";
+}
+
+/**
+ * Atributos do <text> do rótulo de um conector (null sem rótulo): no meio da rota, na cor do traço, com
+ * um halo da cor do fundo (paint-order stroke) para a linha não cruzar as letras. Fonte única para
+ * canvas, HTML/screenshot, React e SVG.
+ */
+export function connectorLabelAttrs(
+  doc: Document,
+  node: ConnectorNode,
+  opts: { vars?: boolean } = {},
+): { x: number; y: number; fill: string; stroke: string; strokeWidth: number; strokeLinejoin: "round"; paintOrder: string; fontFamily: string; fontSize: number; fontWeight: number; textAnchor: "middle"; dominantBaseline: "central" } | null {
+  if (!node.label) return null;
+  const at = connectorMidpoint(node.d);
+  if (!at) return null;
+  return {
+    x: at.x,
+    y: at.y,
+    fill: String(paintValue(doc, node.stroke.color, modeOf(doc, node), opts.vars)),
+    stroke: connectorHalo(doc, node, opts.vars),
+    strokeWidth: 6,
+    strokeLinejoin: "round",
+    paintOrder: "stroke",
+    fontFamily: "Inter, system-ui, sans-serif",
+    fontSize: 12,
+    fontWeight: 600,
+    textAnchor: "middle",
+    dominantBaseline: "central",
+  };
+}
+
 /** Atributos do <svg> e do <path> de um nó path. Fonte única para canvas, HTML/screenshot e React. */
 export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean } = {}): {
   svg: { viewBox?: string; preserveAspectRatio?: string };

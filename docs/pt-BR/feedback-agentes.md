@@ -158,7 +158,7 @@ Tarefa: nós `shape` e `connector`, ferramentas no canvas e `draw_diagram` para 
 |---|-------------|-----------------|----------|------|
 | 55 | Apagar uma forma e a seta dela numa chamada | `delete_nodes` com a forma primeiro e depois o conector falhava: o delete da forma já tinha levado o conector. Corrigido: um conector removido assim antes, na mesma transação, é ignorado (apagar duas vezes continua sendo erro) | — | — |
 | 56 | Saber os ids das setas que o `draw_diagram` criou | O padrão é `<from>-to-<to>` (com `-2`, `-3` nas repetições) e eles voltam em `edges`, na ordem da entrada | — | — |
-| 57 | Dizer o que uma seta significa ("sim", "não") | Conectores ainda não têm rótulo; o agente põe um texto pequeno ao lado da seta, que não a acompanha | Um `label` no conector, posicionado no meio da rota | P1 |
+| 57 | Dizer o que uma seta significa ("sim", "não") | Conectores ainda não têm rótulo; o agente põe um texto pequeno ao lado da seta, que não a acompanha | Feito (2026-11-22): `label` nos conectores e nas ligações do `draw_diagram`, desenhado no meio da rota na cor do traço, com um halo da cor do fundo | — |
 | 58 | Mover uma forma de um diagrama sem cruzar outras | A rota em cotovelo ignora obstáculos, então uma forma movida pode fazer uma seta cruzar outra forma | Rota em cotovelo que desvia de obstáculos, ou um modo `relayout` no `draw_diagram` para ids existentes | P2 |
 
 ## 2026-11-21: renomear e excluir workspaces
