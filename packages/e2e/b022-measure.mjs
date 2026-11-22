@@ -1,15 +1,14 @@
 import { copyFile, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { chromium } from "playwright";
-import { startServer } from "/home/leonardo/workspace/pessoal/paprika-PAP-B-022/packages/e2e/test/harness.ts";
+import { repoRoot, startServer } from "./test/harness.js";
 
-const root = "/home/leonardo/workspace/pessoal/paprika-PAP-B-022";
 const out = process.argv[2];
 const dir = await mkdtemp(join(tmpdir(), "b022-"));
 const file = join(dir, "demo.paprika.json");
-await copyFile(join(root, "examples/demo.paprika.json"), file);
-const server = await startServer({ seed: file, webRoot: join(root, "apps/web/dist") });
+await copyFile(join(repoRoot, "examples/demo.paprika.json"), file);
+const server = await startServer({ seed: file, webRoot: join(repoRoot, "apps/web/dist") });
 const browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 await page.goto(server.url);
