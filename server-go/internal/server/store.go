@@ -3,7 +3,10 @@
 package server
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -90,6 +93,16 @@ CREATE TABLE IF NOT EXISTS covers (
   data       BLOB NOT NULL,
   updated_at INTEGER NOT NULL         -- Unix ms (cache-busting key of the cover URL)
 );
+CREATE TABLE IF NOT EXISTS workspace_ops (
+  seq        INTEGER PRIMARY KEY AUTOINCREMENT,
+  at         INTEGER NOT NULL,           -- Unix ms
+  actor      TEXT NOT NULL,              -- "user" or the MCP agent name
+  op         TEXT NOT NULL,              -- create | rename | open | delete
+  doc_id     TEXT NOT NULL,
+  doc_name   TEXT NOT NULL,              -- the name at the time of the operation
+  detail     TEXT NOT NULL DEFAULT '{}'  -- JSON: for a delete, what went with it
+);
+CREATE INDEX IF NOT EXISTS workspace_ops_recent ON workspace_ops(seq DESC);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '1');
 `
@@ -615,6 +628,9 @@ type Store struct {
 	stopOnce    sync.Once
 	// Presence holds the agents' cursors for the canvas. Ephemeral: never written to SQLite.
 	Presence *PresenceHub
+	// deleteGrants are the short-lived tokens a second delete_workspace call must carry. Ephemeral on
+	// purpose: a restart drops them, so the missing path fails closed (the caller gets a new summary).
+	deleteGrants map[string]deleteGrant
 }
 
 // OpenOptions select the document of the database to serve.
@@ -1074,6 +1090,71 @@ func (s *Store) workspaceInfo(id string) (WorkspaceInfo, error) {
 	return WorkspaceInfo{}, ErrNoWorkspace
 }
 
+// WorkspaceOp is one entry of the workspace operations log: who did what to which document, when. It is
+// not part of any document and not in any undo stack: a deleted workspace still leaves its delete entry,
+// which is the point of keeping the list at all.
+type WorkspaceOp struct {
+	At      int64  `json:"at"`
+	Actor   string `json:"actor"`
+	Op      string `json:"op"` // create | rename | open | delete
+	DocID   string `json:"workspaceId"`
+	DocName string `json:"workspaceName"`
+	Detail  any    `json:"detail"`
+}
+
+// MaxWorkspaceOps bounds one read of the log.
+const MaxWorkspaceOps = 200
+
+// logWorkspaceOp appends one entry. Best effort on purpose: the operation already happened, and an audit
+// row that fails to write must not turn a completed delete into an error an agent would retry.
+func (s *Store) logWorkspaceOp(actor, op, id, name string, detail any) {
+	if detail == nil {
+		detail = map[string]any{}
+	}
+	encoded, err := json.Marshal(detail)
+	if err != nil {
+		return
+	}
+	_, _ = s.db.Exec(`INSERT INTO workspace_ops(at, actor, op, doc_id, doc_name, detail) VALUES(?,?,?,?,?,?)`,
+		time.Now().UnixMilli(), actor, op, id, name, string(encoded))
+}
+
+// ListWorkspaceOps reads the most recent workspace operations, newest first, optionally narrowed to one
+// workspace. Entries stay after the workspace is deleted.
+func (s *Store) ListWorkspaceOps(limit int, workspaceID string) ([]WorkspaceOp, error) {
+	if limit <= 0 || limit > MaxWorkspaceOps {
+		limit = 50
+	}
+	query := `SELECT at, actor, op, doc_id, doc_name, detail FROM workspace_ops`
+	args := []any{}
+	if workspaceID != "" {
+		query += ` WHERE doc_id = ?`
+		args = append(args, workspaceID)
+	}
+	query += ` ORDER BY seq DESC LIMIT ?`
+	args = append(args, limit)
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []WorkspaceOp{}
+	for rows.Next() {
+		var op WorkspaceOp
+		var detail string
+		if err := rows.Scan(&op.At, &op.Actor, &op.Op, &op.DocID, &op.DocName, &detail); err != nil {
+			return nil, err
+		}
+		var parsed any
+		if err := json.Unmarshal([]byte(detail), &parsed); err != nil {
+			parsed = detail
+		}
+		op.Detail = parsed
+		out = append(out, op)
+	}
+	return out, rows.Err()
+}
+
 // OpenWorkspace makes another document the active one: the canvas and the MCP tools switch to it
 // (ChangeEvent with Kind "open"), with that document's own stored undo history.
 func (s *Store) OpenWorkspace(id, actor string) (WorkspaceInfo, error) {
@@ -1094,12 +1175,14 @@ func (s *Store) OpenWorkspace(id, actor string) (WorkspaceInfo, error) {
 	ev := ChangeEvent{doc, s.version, actor, "abrir workspace: " + doc.Str("name"), "open", s.docID}
 	s.mu.Unlock()
 	emit(ls, ev)
+	s.logWorkspaceOp(actor, "open", id, info.Name, nil)
 	info.Active = true
 	return info, nil
 }
 
 // CreateWorkspace stores a new empty document (it does not become active). Blank name: "Sem título".
-func (s *Store) CreateWorkspace(name string) (WorkspaceInfo, error) {
+// actor is who asked: "user" from the HTTP API, the MCP agent name over MCP.
+func (s *Store) CreateWorkspace(name, actor string) (WorkspaceInfo, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		name = "Sem título"
@@ -1109,6 +1192,7 @@ func (s *Store) CreateWorkspace(name string) (WorkspaceInfo, error) {
 	if err := writeDocument(s.db, doc, nil, 0, now); err != nil {
 		return WorkspaceInfo{}, err
 	}
+	s.logWorkspaceOp(actor, "create", doc.Str("id"), name, nil)
 	return WorkspaceInfo{doc.Str("id"), name, 0, now, false, nil}, nil
 }
 
@@ -1116,7 +1200,7 @@ func (s *Store) CreateWorkspace(name string) (WorkspaceInfo, error) {
 // active one: the human's canvas and every tool keep working where they were. The document is
 // validated like a file load (core.ParseDocument); if its id already exists here the copy gets
 // a new document id (node ids are kept).
-func (s *Store) ImportWorkspace(input any, name string) (WorkspaceInfo, error) {
+func (s *Store) ImportWorkspace(input any, name, actor string) (WorkspaceInfo, error) {
 	doc, err := core.ParseDocument(input)
 	if err != nil {
 		return WorkspaceInfo{}, fmt.Errorf("document: %w", err)
@@ -1134,10 +1218,15 @@ func (s *Store) ImportWorkspace(input any, name string) (WorkspaceInfo, error) {
 	case !errors.Is(err, sql.ErrNoRows):
 		return WorkspaceInfo{}, err
 	}
-	if err := writeDocument(s.db, doc, nil, 0, time.Now().UnixMilli()); err != nil {
+	now := time.Now().UnixMilli()
+	if err := writeDocument(s.db, doc, nil, 0, now); err != nil {
 		return WorkspaceInfo{}, err
 	}
-	return s.workspaceInfo(id)
+	info, err := s.workspaceInfo(id)
+	if err == nil {
+		s.logWorkspaceOp(actor, "create", id, info.Name, map[string]any{"source": "import"})
+	}
+	return info, err
 }
 
 // ErrLastWorkspace is returned by DeleteWorkspace when the id is the only document: the server
@@ -1164,6 +1253,7 @@ func (s *Store) RenameWorkspace(id, name, actor string) (WorkspaceInfo, error) {
 		if _, err := s.Apply([]any{jsonv.NewObject("op", "rename_document", "name", name)}, actor, "renomear workspace"); err != nil {
 			return WorkspaceInfo{}, err
 		}
+		s.logWorkspaceOp(actor, "rename", id, name, map[string]any{"from": info.Name})
 		return s.workspaceInfo(id)
 	}
 	// Same path as every other write (applyOps), outside the active history: no undo entry.
@@ -1187,8 +1277,162 @@ func (s *Store) RenameWorkspace(id, name, actor string) (WorkspaceInfo, error) {
 	if err := tx.Commit(); err != nil {
 		return WorkspaceInfo{}, err
 	}
+	s.logWorkspaceOp(actor, "rename", id, name, map[string]any{"from": info.Name})
 	info.Name, info.UpdatedAt = name, now
 	return info, nil
+}
+
+// WorkspaceDeletion is what deleting a workspace would take with it. An agent reads it, shows it to the
+// human, and only then repeats the call with the token (see IssueDeleteConfirm).
+type WorkspaceDeletion struct {
+	ID             string `json:"workspaceId"`
+	Name           string `json:"name"`
+	Nodes          int    `json:"nodes"`
+	Pages          int    `json:"pages"`
+	Frames         int    `json:"frames"`
+	Images         int    `json:"images"`
+	Connectors     int    `json:"connectors"`
+	HistoryEntries int    `json:"historyEntries"`
+	HasCover       bool   `json:"hasCover"`
+	Active         bool   `json:"active"`
+	Successor      string `json:"successor,omitempty"`
+	LastEditAt     int64  `json:"lastEditAt,omitempty"`
+	LastEditBy     string `json:"lastEditBy,omitempty"`
+	LastEditLabel  string `json:"lastEditLabel,omitempty"`
+	Undoable       bool   `json:"undoable"` // always false here: no undo brings a deleted workspace back
+}
+
+// DescribeWorkspaceDeletion counts what a delete would remove. It reads stored rows only, so it describes
+// a workspace that is not the active one as well; successor follows the same rule as DeleteWorkspace.
+func (s *Store) DescribeWorkspaceDeletion(id string) (WorkspaceDeletion, error) {
+	info, err := s.workspaceInfo(id)
+	if err != nil {
+		return WorkspaceDeletion{}, err
+	}
+	d := WorkspaceDeletion{ID: id, Name: info.Name, Active: info.Active, Successor: info.ID, Undoable: false}
+	d.Successor = ""
+	rows, err := s.db.Query(`SELECT type, COUNT(*) FROM nodes WHERE doc_id = ? GROUP BY type`, id)
+	if err != nil {
+		return d, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var typ string
+		var count int
+		if err := rows.Scan(&typ, &count); err != nil {
+			return d, err
+		}
+		d.Nodes += count
+		switch typ {
+		case "page":
+			d.Pages += count
+		case "frame":
+			d.Frames += count
+		case "image":
+			d.Images += count
+		case "connector":
+			d.Connectors += count
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return d, err
+	}
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM history WHERE doc_id = ? AND stack = 'undo'`, id).Scan(&d.HistoryEntries); err != nil {
+		return d, err
+	}
+	var at int64
+	var actor, label string
+	err = s.db.QueryRow(`SELECT at, actor, label FROM history WHERE doc_id = ? AND stack = 'undo' ORDER BY seq DESC LIMIT 1`, id).Scan(&at, &actor, &label)
+	switch {
+	case err == nil:
+		d.LastEditAt, d.LastEditBy, d.LastEditLabel = at, actor, label
+	case !errors.Is(err, sql.ErrNoRows):
+		return d, err
+	}
+	var coverAt int64
+	err = s.db.QueryRow(`SELECT updated_at FROM covers WHERE doc_id = ?`, id).Scan(&coverAt)
+	switch {
+	case err == nil:
+		d.HasCover = true
+	case !errors.Is(err, sql.ErrNoRows):
+		return d, err
+	}
+	for _, w := range mustList(s) {
+		if w.ID != id {
+			d.Successor = w.ID
+			break
+		}
+	}
+	return d, nil
+}
+
+// mustList is the successor lookup of DeleteWorkspace reused by the summary: the list is already ordered
+// most recently updated first, and a read error leaves the successor empty (the delete path reports it).
+func mustList(s *Store) []WorkspaceInfo {
+	ws, err := s.ListWorkspaces()
+	if err != nil {
+		return nil
+	}
+	return ws
+}
+
+// DeleteConfirmTTL is how long a confirmToken lives. Short on purpose: the token exists to make the agent
+// fetch and show the summary, not to be cached across a session.
+const DeleteConfirmTTL = 2 * time.Minute
+
+// ErrBadConfirmToken is a token that was never issued, was already spent, or belongs to another
+// workspace; ErrExpiredConfirmToken is a token that timed out. Both mean "get a fresh summary".
+var (
+	ErrBadConfirmToken     = errors.New("confirmToken is not valid")
+	ErrExpiredConfirmToken = errors.New("confirmToken has expired")
+)
+
+type deleteGrant struct {
+	docID     string
+	expiresAt int64
+}
+
+// IssueDeleteConfirm hands out the token the second delete_workspace call must carry, bound to the
+// workspace id. Grants live in memory: a restart drops them, which fails closed.
+func (s *Store) IssueDeleteConfirm(id string) (string, int64, error) {
+	if _, err := s.workspaceInfo(id); err != nil {
+		return "", 0, err
+	}
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", 0, err
+	}
+	token := hex.EncodeToString(buf)
+	now := time.Now().UnixMilli()
+	ttl := DeleteConfirmTTL.Milliseconds()
+	s.mu.Lock()
+	if s.deleteGrants == nil {
+		s.deleteGrants = map[string]deleteGrant{}
+	}
+	for spent, grant := range s.deleteGrants {
+		if grant.expiresAt < now {
+			delete(s.deleteGrants, spent)
+		}
+	}
+	s.deleteGrants[token] = deleteGrant{docID: id, expiresAt: now + ttl}
+	s.mu.Unlock()
+	return token, ttl, nil
+}
+
+// ConsumeDeleteConfirm checks the token was issued for this workspace and spends it: one token deletes one
+// workspace once, and reusing it is refused.
+func (s *Store) ConsumeDeleteConfirm(id, token string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	grant, ok := s.deleteGrants[token]
+	if !ok || grant.docID != id {
+		return ErrBadConfirmToken
+	}
+	delete(s.deleteGrants, token)
+	if time.Now().UnixMilli() > grant.expiresAt {
+		return ErrExpiredConfirmToken
+	}
+	return nil
 }
 
 // DeleteWorkspace removes a workspace with its nodes, tokens and history. Deleting the active one
@@ -1215,6 +1459,11 @@ func (s *Store) DeleteWorkspace(id, actor string) (string, error) {
 	if next == "" {
 		return "", ErrLastWorkspace
 	}
+	summary, err := s.DescribeWorkspaceDeletion(id)
+	if err != nil {
+		return "", err
+	}
+	summary.Successor = next
 	if target.Active {
 		if _, err := s.OpenWorkspace(next, actor); err != nil {
 			return "", err
@@ -1224,6 +1473,7 @@ func (s *Store) DeleteWorkspace(id, actor string) (string, error) {
 	if _, err := s.db.Exec(`DELETE FROM documents WHERE id = ?`, id); err != nil {
 		return "", err
 	}
+	s.logWorkspaceOp(actor, "delete", id, target.Name, summary)
 	return s.DocID(), nil
 }
 

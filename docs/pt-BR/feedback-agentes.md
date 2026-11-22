@@ -313,3 +313,15 @@ Tarefa: desenhar o botão de perigo (estados, claro e escuro) e os diálogos de 
 - `lint_design` nos oito frames: 0 erros; os avisos `small-text` são o tipo de 11 px do próprio app (item 82).
 - Um anel de foco desenhado como frame de embrulho com `layout` sem `mode` colapsou num ponto (`hug-without-layout`); o lint apontou, e `layout: {mode: "row", padding: 2}` resolveu.
 - O contraste foi calculado antes de desenhar, então o vermelho acertou de primeira: branco sobre `#cc2f50` dá 5,13:1 e a tinta `#ff9fb2` dá 7,01:1 sobre `#272d45`.
+## 2026-11-22: apagamento em dois passos e o log de operações (PAP-B-015, servidor)
+
+Tarefa: `delete_workspace` em duas chamadas (resumo + token de curta duração) e um log legível das operações
+de workspace. Sem folha de design: a mudança é no servidor; a metade de UI (o aviso no canvas) é o PAP-B-026.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 95 | Um lugar só para o guia do agente | O guia vive em dois lugares — `instructions` em `server-go/contract/mcp.json` (en) e `server-go/contract/guide.pt-BR.md` — e uma frase sobre uma ferramenta tem que ser editada nas duas à mão. Nada confere se elas batem, então uma ferramenta pode estar descrita num idioma e não no outro | Um teste conferindo que todo nome de ferramenta do contrato aparece nos dois guias (do jeito que `TestToolsMatchContract` amarra os nomes aos handlers) pegaria isso; a frase do `delete_workspace` foi editada duas vezes de propósito | P2 |
+| 96 | Contrato e handler andarem juntos | Criar `list_workspace_ops` primeiro só falhou em `TestToolsMatchContract`, que é o mecanismo certo; mas a lista de nomes em `packages/e2e/test/api.test.ts` é uma terceira cópia, que falha separada e com um diff que não diz qual lado se moveu | Manter as duas checagens e, na falha do api, imprimir se quem mudou foi o servidor, o contrato ou a lista do teste | P3 |
+
+- O `mu` do store não é reentrante, e `DeleteWorkspace` já chama `OpenWorkspace`: a entrada `open` do sucessor é logada antes da entrada `delete`, então ler o log do mais recente para o mais antigo dá o apagamento primeiro e a troca logo abaixo. Útil para quem escrever o aviso que ainda falta.
+- O documento de design em `127.0.0.1:4777` sumiu quando aquele endpoint passou à pilha do compose com volume novo: a página `Interfaces`, com as folhas do PAP-B-030 e do PAP-B-034, não existe mais, e só os PNGs commitados em `docs/assets/boards/` sobraram. A folha do PAP-B-026 foi redesenhada num servidor local. O que quer que entre da proposta de guardar as folhas no repositório, um reset de servidor não deveria custar um redesenho.

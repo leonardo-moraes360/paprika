@@ -42,7 +42,7 @@ describe("API: MCP", () => {
         "apply_ops", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_svg",
-        "lint_design", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
+        "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
         "rename_workspace", "render_screenshot", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
       ].sort(),
@@ -647,6 +647,66 @@ describe("API: MCP", () => {
 });
 
 describe("API: HTTP + WebSocket", () => {
+
+  /**
+   * PAP-B-015: an agent deleting a workspace goes through a summary and a short-lived token, and every
+   * workspace operation (its own and the human's) stays readable afterwards.
+   */
+  it("delete_workspace exige dois passos e o log de operações mostra quem fez o quê", async () => {
+    type WithStruct = ToolResult & { structuredContent: Record<string, unknown> };
+    const workspaces = async () =>
+      (((await call(client, "list_workspaces")) as WithStruct).structuredContent.workspaces as { id: string; name: string; active: boolean }[]);
+    const active = (await workspaces()).find((w) => w.active)!.id;
+    const post = (path: string, body?: unknown) =>
+      fetch(`${srv.url}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+
+    const created = await post("/api/workspaces", { name: "Sobra" });
+    expect(created.status).toBe(201);
+    const spare = ((await created.json()) as { workspace: { id: string } }).workspace.id;
+
+    // First call: nothing is deleted, and what would be lost comes back with the token.
+    const ask = (await call(client, "delete_workspace", { id: active })) as WithStruct;
+    expect(ask.isError).toBeFalsy();
+    expect(ask.structuredContent?.needsConfirmation).toBe(true);
+    const summary = ask.structuredContent?.summary as { name: string; nodes: number; active: boolean; undoable: boolean; successor: string };
+    expect(summary).toMatchObject({ active: true, undoable: false, successor: spare });
+    const token = String(ask.structuredContent?.confirmToken ?? "");
+    expect(token).toMatch(/^[0-9a-f]{32}$/);
+    expect((await workspaces()).length).toBe(2);
+
+    // The token belongs to one workspace: pointing it at the other is refused with an actionable message.
+    const wrong = await call(client, "delete_workspace", { id: spare, confirmToken: token });
+    expect(wrong.isError).toBe(true);
+    expect(textOf(wrong)).toContain("not valid");
+    expect((await workspaces()).length).toBe(2);
+
+    // Second call with the right token: it deletes, and the same token cannot be spent twice.
+    const gone = await call(client, "delete_workspace", { id: active, confirmToken: token });
+    expect(gone.isError, textOf(gone)).toBeFalsy();
+    expect((await workspaces()).map((w) => w.id)).toEqual([spare]);
+    // The token was spent: the reuse is refused before the workspace is even looked up, and the message
+    // points back at the first call (which then answers "does not exist").
+    const again = await call(client, "delete_workspace", { id: active, confirmToken: token });
+    expect(again.isError).toBe(true);
+    expect(textOf(again)).toContain("confirmToken is not valid");
+    expect(textOf(await call(client, "delete_workspace", { id: active }))).toContain("does not exist");
+
+    // The log: the human's create says "user", the agent's delete keeps the summary of what was lost.
+    const ops = (await call(client, "list_workspace_ops", { limit: 20 })) as WithStruct;
+    const entries = ops.structuredContent?.entries as { op: string; actor: string; workspaceId: string; detail: Record<string, unknown> }[];
+    // The delete logs the successor opening before the delete itself: newest first is the delete.
+    expect(entries[0]).toMatchObject({ op: "delete", workspaceId: active });
+    expect(entries.some((e) => e.op === "open" && e.workspaceId === spare)).toBe(true);
+    expect(entries.some((e) => e.op === "create" && e.actor === "user" && e.workspaceId === spare)).toBe(true);
+    const deleted = entries.find((e) => e.op === "delete" && e.workspaceId === active);
+    expect(deleted).toBeTruthy();
+    expect(deleted!.actor).not.toBe("user");
+    expect(deleted!.detail).toMatchObject({ undoable: false, successor: spare });
+    // Narrowing to a workspace that no longer exists still reads its entries.
+    const narrowed = (await call(client, "list_workspace_ops", { workspaceId: active })) as WithStruct;
+    expect((narrowed.structuredContent?.entries as unknown[]).length).toBeGreaterThan(0);
+  });
+
   it("agente via MCP HTTP e canvas via WS veem as mesmas mudanças", async () => {
     const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
     const messages: { type: string; doc?: { nodes: Record<string, unknown> }; actor?: string; kind?: string; reqId?: string; message?: string }[] = [];
@@ -878,9 +938,18 @@ describe("API: HTTP + WebSocket", () => {
     expect((await req("DELETE", `/api/workspaces/${a.id}`)).status).toBe(404);
 
     const b = ((await (await req("POST", "/api/workspaces", { name: "B" })).json()) as { workspace: Info }).workspace;
-    const mcpDel = (await call(client, "delete_workspace", { id: b.id })) as ToolResult & { structuredContent: { deleted: string; active: string } };
+    // PAP-B-015: over MCP the delete is two calls; the summary is what the human is shown.
+    const ask = (await call(client, "delete_workspace", { id: b.id })) as ToolResult & {
+      structuredContent: { needsConfirmation: boolean; confirmToken: string; summary: { name: string; undoable: boolean } };
+    };
+    expect(ask.structuredContent).toMatchObject({ needsConfirmation: true, summary: { name: "B", undoable: false } });
+    expect((await list()).workspaces.some((w) => w.id === b.id)).toBe(true);
+    const mcpDel = (await call(client, "delete_workspace", { id: b.id, confirmToken: ask.structuredContent.confirmToken })) as ToolResult & {
+      structuredContent: { deleted: string; active: string; notice: string };
+    };
     expect(mcpDel.isError, textOf(mcpDel)).toBeFalsy();
-    expect(mcpDel.structuredContent).toEqual({ deleted: b.id, active: after.active });
+    expect(mcpDel.structuredContent).toMatchObject({ deleted: b.id, active: after.active });
+    expect(mcpDel.structuredContent.notice).toContain("list_workspace_ops");
     expect(textOf(await call(client, "delete_workspace", { id: "nope" }))).toBe('workspace "nope" does not exist (see list_workspaces)');
     await call(client, "open_workspace", { id: start });
   });
