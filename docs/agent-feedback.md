@@ -361,3 +361,18 @@ Task: draw the non-blocking notice (delete with counts, open, rename; light and 
 
 - Fixed-height roots; PNGs under `docs/assets/boards/PAP-B-037/`.
 - Notice uses `role=status` and never steals focus; overview mount shows delete notices after the canvas route is gone.
+
+## 2026-11-22: side panels collapse into a floating button (PAP-B-024, design first)
+
+Task: draw the collapsed panels (left only, both) next to the expanded layout, light and dark, and check that
+the floating buttons clear the toolbar and the agent roster, before writing the UI. Six root frames on
+`Interfaces`, drawn from one script in a single `create_nodes` call.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 101 | Screenshots as files | `render_screenshot` only returns base64 inside the JSON result, so each PNG had to be decoded by hand in a script before it could land in `docs/assets/boards/` | An optional `path` argument (or a resource link) that writes the PNG where the caller says | P2 |
+| 102 | A mock at a smaller scale lints as tiny text | The boards are the real layout at two thirds of its size, so every label is 8–9px and `lint_design` returns a `small-text` warning per label, which buries the findings that matter | A per-frame way to say "this frame is a scaled mock" (or a `minFontSize` argument) so the warning count stays meaningful | P3 |
+| 103 | Free space for a new frame | Nothing says where the next top-level frame can go without overlapping a parallel ticket's: the outline had to be scanned for coordinates and the boards went to `x=2000` by hand | `get_document_outline` (or a new call) returning the bounding box of the page's content, or `create_nodes` accepting `place: "free"` | P3 |
+| 104 | Icons by name | The floating buttons use `PanelLeftOpen` and `PanelRightOpen` from lucide, and the board had to carry their path data typed in by hand, which is how an icon on the sheet can drift from the one in the app | `import_svg` already exists; a way to import a lucide icon by name would close the loop | P3 |
+
+- The collapsed right panel puts its button where the agent roster sits (top right of the canvas); the sheet showed it before any code did, and the roster moves down under the button only while that panel is collapsed.
