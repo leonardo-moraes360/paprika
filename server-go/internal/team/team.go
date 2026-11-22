@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/server"
 )
 
@@ -274,100 +275,94 @@ func (t *Service) Share(doc string) error {
 // Flush waits until every change queued so far reached the sidecar or the store.
 func (t *Service) Flush() { t.sync.flush() }
 
-// Routes registers /api/team/* on mux.
-func (t *Service) Routes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/team/share", func(w http.ResponseWriter, r *http.Request) {
+// Routes registers /api/team/* on the Gin router.
+func (t *Service) Routes(r gin.IRoutes) {
+	r.POST("/api/team/share", func(c *gin.Context) {
 		var body struct {
 			Doc string `json:"doc"`
 		}
-		if err := readJSON(r, &body); err != nil {
-			errJSON(w, 400, err)
+		if err := readJSON(c.Request, &body); err != nil {
+			errJSON(c.Writer, 400, err)
 			return
 		}
 		if body.Doc == "" {
 			body.Doc = t.store.DocID()
 		}
 		if err := t.Share(body.Doc); err != nil {
-			errJSON(w, 400, err)
+			errJSON(c.Writer, 400, err)
 			return
 		}
-		writeJSON(w, 200, map[string]any{"doc": body.Doc})
+		writeJSON(c.Writer, 200, map[string]any{"doc": body.Doc})
 	})
-	mux.HandleFunc("GET /api/team", func(w http.ResponseWriter, r *http.Request) {
-		t.call(w, r, map[string]any{"t": "status"})
+	r.GET("/api/team", func(c *gin.Context) {
+		t.call(c.Writer, c.Request, map[string]any{"t": "status"})
 	})
-	// Adds a peer by its Iroh address (JSON from GET /api/team/addr of the other instance).
-	mux.HandleFunc("POST /api/team/peers", func(w http.ResponseWriter, r *http.Request) {
+	r.POST("/api/team/peers", func(c *gin.Context) {
 		var body struct {
 			Addr json.RawMessage `json:"addr"`
 		}
-		if err := readJSON(r, &body); err != nil || len(body.Addr) == 0 {
-			errJSON(w, 400, fmt.Errorf("body: {\"addr\": <endpoint address>}"))
+		if err := readJSON(c.Request, &body); err != nil || len(body.Addr) == 0 {
+			errJSON(c.Writer, 400, fmt.Errorf("body: {\"addr\": <endpoint address>}"))
 			return
 		}
-		t.call(w, r, map[string]any{"t": "peer.add", "addr": body.Addr})
+		t.call(c.Writer, c.Request, map[string]any{"t": "peer.add", "addr": body.Addr})
 	})
-	mux.HandleFunc("GET /api/team/addr", func(w http.ResponseWriter, r *http.Request) {
-		t.call(w, r, map[string]any{"t": "addr"})
+	r.GET("/api/team/addr", func(c *gin.Context) {
+		t.call(c.Writer, c.Request, map[string]any{"t": "addr"})
 	})
-	// Creates a team with this instance as founder.
-	mux.HandleFunc("POST /api/team", func(w http.ResponseWriter, r *http.Request) {
+	r.POST("/api/team", func(c *gin.Context) {
 		var body struct {
 			Name string `json:"name"`
 		}
-		if err := readJSON(r, &body); err != nil {
-			errJSON(w, 400, err)
+		if err := readJSON(c.Request, &body); err != nil {
+			errJSON(c.Writer, 400, err)
 			return
 		}
-		t.call(w, r, map[string]any{"t": "team.create", "name": body.Name})
+		t.call(c.Writer, c.Request, map[string]any{"t": "team.create", "name": body.Name})
 	})
-	// A single-use invite link (also shown as a QR on the canvas).
-	mux.HandleFunc("POST /api/team/invites", func(w http.ResponseWriter, r *http.Request) {
+	r.POST("/api/team/invites", func(c *gin.Context) {
 		var body struct {
 			TTLSecs int `json:"ttlSecs"`
 		}
-		if err := readJSON(r, &body); err != nil {
-			errJSON(w, 400, err)
+		if err := readJSON(c.Request, &body); err != nil {
+			errJSON(c.Writer, 400, err)
 			return
 		}
 		if body.TTLSecs <= 0 {
 			body.TTLSecs = 3600
 		}
-		t.call(w, r, map[string]any{"t": "invite.create", "ttlSecs": body.TTLSecs})
+		t.call(c.Writer, c.Request, map[string]any{"t": "invite.create", "ttlSecs": body.TTLSecs})
 	})
-	mux.HandleFunc("DELETE /api/team/invites", func(w http.ResponseWriter, r *http.Request) {
-		t.call(w, r, map[string]any{"t": "invite.revoke"})
+	r.DELETE("/api/team/invites", func(c *gin.Context) {
+		t.call(c.Writer, c.Request, map[string]any{"t": "invite.revoke"})
 	})
-	// What a link says before accepting it: team, inviter, fingerprint, expiry.
-	mux.HandleFunc("POST /api/team/invites/inspect", func(w http.ResponseWriter, r *http.Request) {
+	r.POST("/api/team/invites/inspect", func(c *gin.Context) {
 		var body struct {
 			Link string `json:"link"`
 		}
-		if err := readJSON(r, &body); err != nil {
-			errJSON(w, 400, err)
+		if err := readJSON(c.Request, &body); err != nil {
+			errJSON(c.Writer, 400, err)
 			return
 		}
-		t.call(w, r, map[string]any{"t": "invite.inspect", "link": body.Link})
+		t.call(c.Writer, c.Request, map[string]any{"t": "invite.inspect", "link": body.Link})
 	})
-	// The founder takes a member out (docs/team-sync.md); the key comes from GET /api/team.
-	mux.HandleFunc("DELETE /api/team/members/{key}", func(w http.ResponseWriter, r *http.Request) {
-		t.call(w, r, map[string]any{"t": "member.remove", "key": r.PathValue("key")})
+	r.DELETE("/api/team/members/:key", func(c *gin.Context) {
+		t.call(c.Writer, c.Request, map[string]any{"t": "member.remove", "key": c.Param("key")})
 	})
-	// Replaces this instance's key; the sidecar restarts and active invite links stop working.
-	mux.HandleFunc("POST /api/team/rotate", func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	r.POST("/api/team/rotate", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Second)
 		defer cancel()
 		res, err := t.RotateKey(ctx)
-		t.reply(w, res, err)
+		t.reply(c.Writer, res, err)
 	})
-	mux.HandleFunc("POST /api/team/join", func(w http.ResponseWriter, r *http.Request) {
+	r.POST("/api/team/join", func(c *gin.Context) {
 		var body struct {
 			Link string `json:"link"`
 		}
-		if err := readJSON(r, &body); err != nil {
-			errJSON(w, 400, err)
+		if err := readJSON(c.Request, &body); err != nil {
+			errJSON(c.Writer, 400, err)
 			return
 		}
-		t.call(w, r, map[string]any{"t": "join", "link": body.Link})
+		t.call(c.Writer, c.Request, map[string]any{"t": "join", "link": body.Link})
 	})
 }
