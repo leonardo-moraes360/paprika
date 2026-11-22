@@ -89,19 +89,24 @@ Duas regras decidem o que recebe o tratamento:
    confirmar. Apagar um nó, uma página ou uma seleção é desfazível e fica neutro — pintar todo apagamento de
    vermelho faria o vermelho não significar nada.
 2. **Ação irreversível tem confirmação com o verbo.** O `ConfirmDialog`
-   (`apps/web/src/components/ui/confirm-dialog.tsx`) compõe o primitivo AlertDialog: título com o verbo, o
+   (`apps/web/src/ConfirmDialog.tsx`) compõe o primitivo AlertDialog: título com o verbo, o
    que se perde na descrição, `Cancelar` primeiro, a ação destrutiva por último, e o erro dentro do diálogo,
    porque o aviso da página fica atrás da scrim. O Radix abre um AlertDialog com o foco no **cancelar**, que
-   é o padrão seguro. Ele é usado pelo apagamento do overview, pelo `RemoveMemberDialog` e pelo
-   `RotateKeyDialog`. Revogar links de convite é destrutivo, mas continua num passo só: já acontece dentro
-   de um diálogo que a pessoa abriu de propósito, e um segundo modal em cima de outro é pior que o risco que
-   evitaria.
+   é o padrão seguro. O apagamento de workspace é o caso em que a confirmação sozinha não basta: a ação
+   fica desabilitada até a pessoa digitar o nome do workspace, porque perder um workspace perde também o
+   histórico de desfazer dele. Ele é usado pelo apagamento do overview e pelo `RemoveMemberDialog`. Revogar
+   links de convite é destrutivo, mas continua num passo só: já acontece dentro de um diálogo que a pessoa
+   abriu de propósito, e um segundo modal em cima de outro é pior que o risco que evitaria.
+
+O que ficou deliberadamente **de fora**: o aviso (toast) no canvas dizendo o que um agente apagou ou para
+qual workspace um agente mudou. Ele lê o resumo que `delete_workspace` devolve, e isso é o PAP-B-015, que
+ainda não entrou — a linha do backlog fica aberta nessa metade.
 
 ## Verificação
 
 - `pnpm check` (build com o renderizador WASM, typecheck, fixtures, testes de TS e Go, suítes de API e E2E contra o servidor em Go).
 - `packages/e2e/test/e2e/a11y.e2e.test.ts`, PAP-B-026: a confirmação de apagar workspace é asserida como `alertdialog` com os botões na ordem `Cancelar` e depois `Excluir`, com a ação carregando as classes destrutivas, com o foco começando dentro e voltando ao gatilho no Esc, e com o Esc deixando o workspace na lista; o botão destrutivo é medido em 4,5:1 ou mais nos dois escopos de tema, em repouso e no hover (a lavanda é translúcida, então o teste a compõe sobre o painel de antes de medir).
-- `packages/e2e/test/e2e/canvas.e2e.test.ts`: o fluxo do overview lê essa confirmação pelo papel `alertdialog` em vez de `dialog`; as asserções em si (Cancelar mantém, Excluir apaga, apagar o ativo move o canvas e os agentes) continuam as mesmas.
+- `packages/e2e/test/e2e/canvas.e2e.test.ts`: o fluxo do overview lê essa confirmação pelo papel `alertdialog` em vez de `dialog` e digita o nome do workspace onde antes clicava direto; as asserções em si (Cancelar mantém, Excluir apaga, apagar o ativo move o canvas e os agentes) continuam as mesmas.
 - `packages/e2e/test/e2e/a11y.e2e.test.ts`, bloco novo "galeria de primitivas (/ui)": o diálogo prende o foco e oito Tabs continuam dentro dele, Esc devolve o foco ao gatilho; o alert-dialog abre com o foco dentro e o escopo `ui-light` viaja com o portal; a tooltip abre pelo teclado, não só no hover; o menu abre com Enter, nomeia os itens (`menuitem`, inclusive o destrutivo), anda com as setas e fecha no Esc; o botão primário passa de 4,5:1 nos dois escopos; e sob `prefers-reduced-motion: reduce` as animações do chrome são neutralizadas enquanto um nó dentro de `.world` mantém `transition-duration: 0s` e o container `.world` mantém `line-height: normal`.
 - Isolamento do canvas: a suíte E2E do canvas e a suíte WASM (que compara o renderizador do DOM com o de Rust, pixel a pixel) estão inalteradas e passam. Além disso, a mesma página do canvas (`/w/<id>` no servidor em Go, 1440×900, Chromium) foi capturada no `origin/main` e neste branch: **0 de 1.296.000 pixels diferem**. Nada neste ticket toca o DOM sob `.world` — cada regra nova é uma classe utilitária num primitivo ou um escopo `:not(.world, .world *)`.
 - Bundle, `vite build` no `origin/main` e neste branch: CSS 29,02 kB → 45,94 kB (6,59 kB → 9,12 kB gzip); o JS de entrada do app 554,31 kB → 585,85 kB (170,30 kB → 181,03 kB gzip), que é `cn()` mais o `ConnectionStatus` migrado; os primitivos e o Radix ficam no chunk lazy da galeria, 179,69 kB (52,46 kB gzip), carregado só em `/ui`. Eles passam para o chunk do app quando PAP-B-031…034 migrarem cada tela.

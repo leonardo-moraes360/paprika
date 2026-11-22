@@ -90,19 +90,24 @@ Two rules decide what receives the treatment:
    confirm button. Deleting a node, a page or a selection is undoable and stays neutral — painting every
    delete red would make red mean nothing.
 2. **An irreversible action gets a confirmation with the verb in it.** `ConfirmDialog`
-   (`apps/web/src/components/ui/confirm-dialog.tsx`) composes the AlertDialog primitive: title with the verb,
+   (`apps/web/src/ConfirmDialog.tsx`) composes the AlertDialog primitive: title with the verb,
    what is lost in the description, `Cancelar` first, the destructive action last, and errors rendered
    inside the dialog because the page banner sits behind the scrim. Radix opens an AlertDialog with focus on
-   **cancel**, which is the safe default. It is used by the overview's workspace delete,
-   `RemoveMemberDialog` and `RotateKeyDialog`. Revoking invite links is destructive but stays a single step:
-   it already happens inside a dialog the person opened on purpose, and a second modal on top of a modal is
-   worse than the risk it prevents.
+   **cancel**, which is the safe default. A workspace delete is the case where the confirmation alone is not
+   enough: the action stays disabled until the person types the workspace's name, because losing a workspace
+   loses its undo history with it. It is used by the overview's workspace delete and by `RemoveMemberDialog`.
+   Revoking invite links is destructive but stays a single step: it already happens inside a dialog the
+   person opened on purpose, and a second modal on top of a modal is worse than the risk it prevents.
+
+What is deliberately **not** in this change: the canvas toast naming what an agent deleted or which workspace
+an agent switched to. That reads the summary `delete_workspace` returns, and that is PAP-B-015, which has not
+landed; the backlog row stays open on that half.
 
 ## Verification
 
 - `pnpm check` (build with the WASM renderer, typecheck, fixtures, TS and Go tests, API and E2E suites against the Go server).
 - `packages/e2e/test/e2e/a11y.e2e.test.ts`, PAP-B-026: the workspace-delete confirmation is asserted as an `alertdialog` whose buttons come in the order `Cancelar` then `Excluir`, whose action carries the destructive classes, whose focus starts inside it and returns to the trigger on Esc, and whose Esc leaves the workspace on the list; the destructive button is measured at 4.5:1 or better in both theme scopes, at rest and on hover (the wash is translucent, so the test composes it over the panel behind it before measuring).
-- `packages/e2e/test/e2e/canvas.e2e.test.ts`: the overview flow reads that confirmation by role `alertdialog` instead of `dialog`; the assertions themselves (Cancel keeps it, Excluir removes it, deleting the active workspace moves the canvas and the agents) are unchanged.
+- `packages/e2e/test/e2e/canvas.e2e.test.ts`: the overview flow reads that confirmation by role `alertdialog` instead of `dialog`, and types the workspace name where it previously clicked straight through; the assertions themselves (Cancel keeps it, Excluir removes it, deleting the active workspace moves the canvas and the agents) are unchanged.
 - `packages/e2e/test/e2e/a11y.e2e.test.ts`, new block "galeria de primitivas (/ui)": the dialog traps focus and eight Tab presses stay inside, Esc returns focus to the trigger; the alert dialog opens with focus inside and its `ui-light` scope travels with the portal; the tooltip opens from the keyboard, not only on hover; the menu opens with Enter, names its items (`menuitem`, including the destructive one), moves with arrows and closes with Esc; the primary button passes 4.5:1 in both theme scopes; and under `prefers-reduced-motion: reduce` the chrome animations are neutralized while a node inside `.world` keeps `transition-duration: 0s` and the `.world` container keeps `line-height: normal`.
 - Isolation of the canvas: the canvas E2E suite and the WASM suite (which compares the DOM renderer with the Rust one, pixel by pixel) are unchanged and pass. On top of that, the same canvas page (`/w/<id>` over the Go server, 1440×900, Chromium) was screenshotted on `origin/main` and on this branch: **0 of 1.296.000 pixels differ**. Nothing in this ticket touches the DOM under `.world` — every new rule is either a utility class on a primitive or a `:not(.world, .world *)` scope.
 - Bundle, `vite build` on `origin/main` and on this branch: CSS 29.02 kB → 45.94 kB (6.59 kB → 9.12 kB gzip); the app entry JS 554.31 kB → 585.85 kB (170.30 kB → 181.03 kB gzip), which is `cn()` plus the migrated `ConnectionStatus`; the primitives and Radix sit in the lazy gallery chunk, 179.69 kB (52.46 kB gzip), loaded only on `/ui`. They move into the app chunk as PAP-B-031…034 migrate each screen.
