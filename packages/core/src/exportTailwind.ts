@@ -1,5 +1,5 @@
 import type { Document, Node } from "./schema.js";
-import { SHAPE_SVG_CSS, SHAPE_TEXT_CSS, cssToString, tokenStylesheet, type CSS } from "./style.js";
+import { cssToString, tokenStylesheet, type CSS } from "./style.js";
 import {
   componentName,
   escapeHtml,
@@ -12,7 +12,7 @@ import {
   type StyleEmitter,
 } from "./render.js";
 
-const arb = (v: string) => v.replace(/_/g, "\\_").replace(/\s+/g, "_");
+const arb = (v: string) => v.replace(/\\/g, "\\\\").replace(/_/g, "\\_").replace(/\s+/g, "_");
 
 const UNSAFE = /[\[\]{};]/;
 
@@ -98,11 +98,11 @@ const BORDER_STYLE = new Map([
 ]);
 
 function borderClasses(value: string): string[] | undefined {
-  const m = value.match(/^(\d+(?:\.\d+)?px)\s+(solid|dashed|dotted|none)\s+(.+)$/);
-  if (!m) return undefined;
-  const style = BORDER_STYLE.get(m[2]!);
+  const [width, styleName, ...color] = value.split(/\s+/);
+  if (!width || !styleName || color.length === 0 || !/^\d+(?:\.\d+)?px$/.test(width)) return undefined;
+  const style = BORDER_STYLE.get(styleName);
   if (!style) return undefined;
-  return [`border-[length:${arb(m[1]!)}]`, style, `border-[color:${arb(m[3]!)}]`];
+  return [`border-[length:${arb(width)}]`, style, `border-[color:${arb(color.join(" "))}]`];
 }
 
 function paddingClasses(value: string): string[] | undefined {
