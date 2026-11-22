@@ -245,6 +245,7 @@ Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados)
 | OTA update completo (download assinado, rollback) | Futuro, só quando existir binário standalone ou app desktop. No Docker, atualizar é trocar a imagem: um binário que se substitui dentro do container briga com isso e se perde no próximo `up --build`. Depende das duas linhas acima e de releases publicadas | ⬜ | a definir |
 | Três estilos de traçado de seta: reto, arredondado, curva livre | Leitura registrada em 2026-11-22 (o screenshot do mantenedor mostra a seta em cotovelo de hoje): (1) reto, com cantos vivos, o que `route: "elbow"` desenha hoje (`route: "straight"` também existe); (2) arredondado, a mesma rota em cotovelo com cantos arredondados; (3) curva livre, uma bezier cuja alça se arrasta no canvas para dar forma. Também pelo MCP e no inspector. Detalha O "Setas curvas" e relaciona com O "Prender ou soltar a ponta de uma seta arrastando" e com a edição de pontos de F | ⬜ | a definir |
 | Duplo clique na seta adiciona, edita ou remove o rótulo | Edição no lugar, no canvas, como o texto das formas (O). Hoje o `label` só é editado no inspector (O "Rótulos nas setas", PR #75); apagar o texto remove o rótulo | ⬜ | a definir |
+| Arrastar a toolbar e ancorar na esquerda, no topo, na direita ou no fundo | Hoje a toolbar flutuante é fixa, centralizada no topo do canvas (`apps/web/src/App.tsx`). Nas laterais ela fica vertical; o lado escolhido é lembrado. Planejar junto com a linha dos menus laterais acima (colapsar num botão flutuante), para a toolbar e os painéis não disputarem a mesma borda | ⬜ | a definir |
 
 <details><summary>Pedido original (texto do mantenedor)</summary>
 
@@ -271,5 +272,6 @@ Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados)
 - implementação de ota update? (registrado como aviso de versão nova + checagem de versão entre peers; OTA completo fica para depois)
 - Adicionar 3 tipos de contorno de seta: reto (já existe), arredondado, arredondado livre (posso arrastar a curva, como se fosse uma bezier).
 - Dois cliques na seta permite adicionar/editar/remover sua label.
+- Permitir arrastar a toolbar e ancorar na esquerda, topo, direita e fundo.
 
 </details>
