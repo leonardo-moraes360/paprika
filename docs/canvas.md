@@ -1,0 +1,34 @@
+# Using the canvas
+
+Everything you can do by hand in the browser: workspaces, tools, shortcuts, diagrams and how agents show up. Back to the [README](../README.md).
+
+Português: [pt-BR/canvas.md](pt-BR/canvas.md).
+
+## Workspaces and tools
+
+Workspaces: `http://127.0.0.1:4777` opens on the workspace overview: one click selects a card, a double click (or Enter) opens that workspace's canvas at `/w/<id>`, a double click on the name (or F2) renames it, the picture button (or dropping an image on the card) sets its cover image, and the trash button (or Delete) deletes it after a confirmation; without a cover the card shows the first letter of the name; the Paprika logo goes back. A workspace is one document of the database. The server has one active workspace, shared by the canvas and the MCP agents: opening a workspace (on the canvas or with `open_workspace`) switches it for everyone, and the canvas follows when an agent switches. HTTP: `GET /api/workspaces`, `POST /api/workspaces` (`{ "name" }`), `POST /api/workspaces/<id>/open`, `PATCH /api/workspaces/<id>` (`{ "name" }`), `DELETE /api/workspaces/<id>` (409 for the only workspace), `GET`/`PUT`/`DELETE /api/workspaces/<id>/cover` (PUT takes the raw PNG, JPEG, WebP or GIF, at most 2 MiB; never SVG).
+
+Shortcuts: `V` select, `F` frame, `R` rectangle, `O` ellipse, `T` text, `P` pen (click = corner point, click and drag = bezier handles, click the first point to close, `Enter`/`Esc`/double-click to finish an open path, `Backspace` removes the last point), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicate, `Delete`, arrows (Shift = 10px), `Esc` selects the parent.
+Selection: `Shift`-click (canvas or layers) adds or removes a node, dragging on empty canvas draws a selection box, `Ctrl+A` selects the siblings (or the whole page), `Ctrl+G` groups the selection, `Ctrl+Shift+G` ungroups. A click inside a group selects the group; double-click selects the node under the cursor. Dragging, arrows, `Delete` and `Ctrl+D` act on the whole selection.
+
+Components: "Make component" in the inspector of a frame, then "New instance". A click inside an instance selects the instance; select a copy in the layers (or double-click it) to override its text, colors, opacity or visibility. Changes to the component reach every instance; "Detach" turns an instance into plain nodes.
+Theme modes: the inspector's document panel lists the tokens of each mode and adds one with `dark: bg = #14161f`; "Theme mode" on a frame or page applies a mode to everything inside it.
+Diagrams: `S` box, `D` diamond (decision), `N` sticky note, `A` arrow. A click creates a shape at its default size (or drag to size it) and starts editing its text; double-click a shape to edit the text again (`Enter` adds a line, `Esc`, `Ctrl+Enter` or clicking away confirms). With the arrow tool, drag from one shape to another: both ends stick to the shapes and the arrow follows them when they move (an end dropped on empty canvas stays at that point). Deleting a shape deletes its arrows; the inspector switches an arrow between elbow and straight, picks the side of each end, the arrowheads and dashes.
+Point editing: double-click a path to edit its points. Drag a point (its handles come along) or a handle (the opposite handle mirrors it; hold `Alt` to move it alone). Double-click a point to switch between corner and smooth, double-click the outline to add a point, `Delete` removes the selected point, `Esc` or `Enter` finish. Each gesture is one undo step. Quadratic curves and arcs become cubic curves once you edit them.
+Paste and export: `Ctrl+V` with SVG markup or HTML (e.g. copied from a web page) in the clipboard creates editable nodes inside the selected frame, or on the page at the center of the view. The `⇩` toolbar button downloads the selection (or the current page) as SVG.
+Pages: the "Páginas" panel on the left switches pages, `+` adds one (the first `+` turns the current canvas into "Página 1"), double-click renames, `×` deletes (undoable).
+Renaming: double-click a layer in the "Camadas" panel or a frame title on the canvas to rename it in place. `Enter` or clicking away confirms, `Esc` cancels; each rename is one undo step. Instance copies take their name from the component.
+Navigation: scroll = pan, `Ctrl`+scroll = zoom, hold `Space` (or `Enter`) and drag = pan (the cursor turns into a hand).
+Agent edits flash on the canvas and show up under "Atividade" (activity).
+Agent presence: every agent connected over MCP gets its own cursor, name and color on the canvas, like a multiplayer session. Each tool call (reads too) moves the cursor to the nodes it acted on, outlines them and labels what the agent is doing; the list at the top right shows who is in the document. Two sessions of the same client get distinct names ("claude-code", "claude-code 2"). Presence is not saved: an idle agent fades after 15 s and disappears after 2 minutes.
+
+## Renderer: DOM or WASM
+
+The button at the right of the zoom pill switches how shapes are drawn ([ADR 0002](adr/0002-canvas-renderer-rust-wasm.md)):
+
+- **DOM** (default): every node is an HTML element styled by `nodeStyle`, the same engine as the screenshot and the export.
+- **WASM**: frames, rectangles, ellipses and paths are drawn by `crates/render` (Rust, [vello](https://github.com/linebender/vello)) on a `<canvas>` under the DOM. It uses **WebGPU** when the browser has a hardware adapter (the button reads `GPU`) and falls back to **vello_cpu** otherwise (`CPU`), including when only a software WebGPU adapter exists. Text, images, selection and hit testing stay in the DOM.
+
+The choice is saved in the browser; `?renderer=wasm` or `?renderer=dom` in the URL overrides it. Nodes the WASM layer cannot draw exactly (gradients and other non-solid colors, a shadow on a path) keep their DOM paint. Known difference: text and images always sit above WASM-drawn shapes, even when a shape comes later in the layer order. Screenshots and exports are unchanged (HTML).
+
+The WASM renderer is built by `pnpm build` when Rust is installed (`rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version 0.2.130`); without it the build prints a warning and the button stays disabled. `PAPRIKA_REQUIRE_WASM=1` turns that warning into an error.
