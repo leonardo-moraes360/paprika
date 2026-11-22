@@ -1,6 +1,6 @@
 import { parseColor } from "./lint.js";
 import { pageRoots, type Document, type Node, type SceneNode } from "./schema.js";
-import { modeOf, resolveValue } from "./style.js";
+import { modeOf, resolveValue, strokePositionOf, strokeStyleOf } from "./style.js";
 
 /**
  * Display list for the WASM canvas renderer (`crates/render`, ADR 0002).
@@ -60,6 +60,12 @@ export function wasmPaintable(doc: Document, n: Node): boolean {
   if (!solidColor(doc, n.fill, modeOf(doc, n))) return false;
   if (n.stroke && !solidColor(doc, n.stroke.color, modeOf(doc, n))) return false;
   if (n.shadow && (n.type === "path" || !solidColor(doc, n.shadow.color, modeOf(doc, n)))) return false;
+  // WASM paints solid centered path strokes and solid inside box borders only.
+  if (n.stroke && n.stroke.width > 0) {
+    if (strokeStyleOf(n.stroke) !== "solid") return false;
+    const wasmPos = n.type === "path" ? "center" : "inside";
+    if (strokePositionOf(n) !== wasmPos) return false;
+  }
   return true;
 }
 

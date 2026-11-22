@@ -47,6 +47,16 @@ const YES_NO = [
   { value: "true", label: "sim" },
   { value: "false", label: "não" },
 ] as const;
+const STROKE_STYLE_OPTS = [
+  { value: "solid", label: "sólido" },
+  { value: "dashed", label: "tracejado" },
+  { value: "dotted", label: "pontilhado" },
+] as const;
+const STROKE_POS_OPTS = [
+  { value: "inside", label: "dentro" },
+  { value: "center", label: "centro" },
+  { value: "outside", label: "fora" },
+] as const;
 
 interface Props {
   doc: Document;
@@ -182,9 +192,44 @@ export function Inspector(props: Props) {
             mode={themeMode}
             label="Borda"
             value={node.stroke?.color}
-            onCommit={(v) => set({ stroke: v ? { color: v, width: node.stroke?.width ?? 1 } : null })}
+            onCommit={(v) =>
+              set({
+                stroke: v
+                  ? {
+                      color: v,
+                      width: node.stroke?.width ?? 1,
+                      style: node.stroke?.style ?? "solid",
+                      position: node.stroke?.position ?? (node.type === "path" ? "center" : "inside"),
+                    }
+                  : null,
+              })
+            }
           />
-          {node.stroke && <Field label="Espessura" type="number" value={node.stroke.width} min={0} onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke!, width: num(v) } })} />}
+          {node.stroke && (
+            <>
+              <Field
+                label="Espessura"
+                type="number"
+                value={node.stroke.width}
+                min={0}
+                onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke!, width: num(v) } })}
+              />
+              <SelectField
+                label="Estilo"
+                value={node.stroke.style ?? "solid"}
+                testId="stroke-style"
+                onChange={(v) => set({ stroke: { ...node.stroke!, style: v } })}
+                options={STROKE_STYLE_OPTS}
+              />
+              <SelectField
+                label="Posição"
+                value={node.stroke.position ?? (node.type === "path" ? "center" : "inside")}
+                testId="stroke-position"
+                onChange={(v) => set({ stroke: { ...node.stroke!, position: v } })}
+                options={STROKE_POS_OPTS}
+              />
+            </>
+          )}
         </div>
       </InspectorSection>
 

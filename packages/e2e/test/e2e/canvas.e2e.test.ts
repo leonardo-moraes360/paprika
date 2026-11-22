@@ -426,6 +426,50 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(await el.locator("path").getAttribute("stroke")).toBe("#c43d27");
   });
 
+  it("stroke style e position: tracejado dentro e sólido fora no canvas", async () => {
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId: "login",
+        nodes: [
+          {
+            type: "rect",
+            id: "strokeDash",
+            x: 40,
+            y: 500,
+            width: 80,
+            height: 40,
+            fill: "#fbf8f4",
+            stroke: { color: "#1e2336", width: 2, style: "dashed", position: "inside" },
+          },
+          {
+            type: "rect",
+            id: "strokeOut",
+            x: 140,
+            y: 500,
+            width: 80,
+            height: 40,
+            fill: "#fbf8f4",
+            stroke: { color: "#c43d27", width: 4, style: "solid", position: "outside" },
+          },
+        ],
+      },
+    });
+    const dash = page.locator('[data-paprika-id="strokeDash"]');
+    const out = page.locator('[data-paprika-id="strokeOut"]');
+    await expect.poll(() => dash.count()).toBe(1);
+    await expect
+      .poll(() => dash.evaluate((el) => getComputedStyle(el).borderTopStyle))
+      .toBe("dashed");
+    await expect
+      .poll(() => out.evaluate((el) => [getComputedStyle(el).outlineStyle, getComputedStyle(el).outlineOffset]))
+      .toEqual(["solid", "0px"]);
+    await page.locator('[data-layer-id="strokeDash"]').click();
+    await page.getByRole("button", { name: "Preenchimento e traço" }).click().catch(() => undefined);
+    await expect(page.getByTestId("stroke-style")).toBeVisible();
+    await expect(page.getByTestId("stroke-position")).toBeVisible();
+  });
+
   it("screenshot pelo MCP usa o mesmo motor do canvas", async () => {
     const r = (await agent.callTool({ name: "render_screenshot", arguments: { rootId: "login" } })) as {
       content: { type: string; data?: string }[];

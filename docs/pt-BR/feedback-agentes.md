@@ -505,3 +505,15 @@ Tarefa: desenhar a seção **Ordem** do inspector e o mapa de atalhos de ordem Z
 | 110 | Desenhar em `Paprika - UI` sem `open_workspace` | O workspace já estava ativo (`list_workspaces`), então a prancha entrou sem trocar; se outro ticket tivesse deixado outro doc ativo, as opções ainda seriam pedir ao humano ou um segundo servidor (igual ao #92) | `workspaceId` opcional nas ferramentas de documento | P2 |
 - `lint_design` nos quatro frames: 0 erros; avisos `small-text` são os rótulos de 11 px da seção/chip, iguais ao app.
 - Mapa de atalhos escolhido e documentado em `docs/pt-BR/canvas.md`: `Page Up`/`Page Down` = avançar/recuar, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd no macOS) = frente/fundo.
+
+## 2026-11-22: vários tipos de borda (PAP-B-044, design first)
+
+Tarefa: estender `stroke` com `style` (`solid`|`dashed`|`dotted`) e `position` (`inside`|`center`|`outside`) em frame/rect/ellipse/path/shape, depois Estilo/Posição no inspector. Quatro frames de altura fixa em `Interfaces` (`docs/assets/boards/PAP-B-044/`); export dos boards atualizado.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 113 | Id estável da página `Interfaces` entre tickets em paralelo | O workspace ativo virou `Paprika - UI` no meio do ticket; a página `interfaces` antiga sumiu e foi preciso criar outra (`id: interfaces`) enquanto outros tickets usavam `interfaces-pap020` / `interfaces-pap045` | `create_page` que reaproveita página existente pelo nome (igual ao #99) | P2 |
+| 114 | Screenshots como arquivos | Igual ao #100/#101: `render_screenshot` só devolve base64 | `path` opcional em `render_screenshot` | P3 |
+- `style`/`position` padrão ficam omitidos no documento (helpers tratam ausência como sólido / posição por tipo) para round-trips e goldens não ganharem `style: "solid"` em todo stroke.
+- WASM não traça dash nem reposiciona: `wasmPaintable` devolve false e o DOM pinta (crates/render intacto).
+- Fecha o atrito do #99 (traço tracejado em caixas) via `stroke.style`.

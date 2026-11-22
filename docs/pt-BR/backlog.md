@@ -65,7 +65,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Cor moderna: `oklch()`, `color-mix()`, Display P3, seletor OKLCH | As strings passam para o CSS, mas o lint não entende e o seletor é hex sRGB | 🟡 | P2 |
 | Modos de mesclagem (blend modes) | — | ⬜ | P3 |
 | Painel de cores da seleção (todas as cores usadas) | — | ⬜ | P3 |
-| Vários tipos de borda nos elementos | Hoje `stroke` é só `{color, width}` (`packages/core/src/schema.ts`) e o inspector mostra cor e espessura; só conectores têm `dashed`. Falta: estilos sólido, tracejado, pontilhado e parecidos, e a posição da borda (interna, centro, externa). Borda por lado fica de fora por enquanto (mantenedor, 2026-11-22). Relaciona com C "Várias sombras, sombra interna, outline". Pedido de 2026-11-22. Leva 4. | ⬜ | a definir |
+| Vários tipos de borda nos elementos | `stroke` tem `style` opcional (`solid`\|`dashed`\|`dotted`, traço a partir da espessura) e `position` (`inside`\|`center`\|`outside`) em frame/rect/ellipse/path/shape; inspector Estilo/Posição; WASM cai no DOM fora do padrão. Borda por lado ainda fora. (2026-11-22, PAP-B-044). | ✅ | — |
 | Color picker customizado | Popover próprio (SV, matiz/alpha, hex/rgb, swatches de tokens do documento → `$token`, recentes, teclado). Substitui o `input type=color` nativo (2026-11-22, PAP-B-023). | ✅ | — |
 
 ## D. Tipografia
