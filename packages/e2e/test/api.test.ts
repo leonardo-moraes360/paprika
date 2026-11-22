@@ -672,7 +672,7 @@ describe("API: MCP", () => {
     expect(lint.issues.filter((i: { rule: string }) => i.rule === "unknown-token")).toEqual([]);
   });
 
-  it("export_code: tailwind, tailwind-html e css-modules saem do mesmo estilo do canvas", async () => {
+  it("export_code: tailwind, tailwind-html, css-modules, angular e svelte saem do mesmo estilo do canvas", async () => {
     const c = client;
     const created = await call(c, "create_nodes", {
       nodes: [
@@ -698,8 +698,24 @@ describe("API: MCP", () => {
     expect(modules[0]).toContain("className={styles.cardTailwind}");
     expect(modules[1]).toContain("/* CardTailwind.module.css */");
     expect(modules[1]).toContain(".cardTailwind{box-sizing:border-box;");
-    const missing = await call(c, "export_code", { rootId: "nope", format: "css-modules" });
-    expect(missing.isError).toBe(true);
+    const angular = (await call(c, "export_code", { rootId: "tw", format: "angular", cssVariables: true })).content.map((x) => x.text ?? "");
+    expect(angular).toHaveLength(3);
+    expect(angular[0]).toContain("// CardTailwind.component.ts");
+    expect(angular[0]).toContain('selector: "app-card-tailwind"');
+    expect(angular[0]).toContain("standalone: true");
+    expect(angular[1]).toContain('class="cardTailwind"');
+    expect(angular[1]).not.toContain(' style="');
+    expect(angular[2]).toContain("/* CardTailwind.component.css */");
+    expect(angular[2]).toContain(".cardTailwind{box-sizing:border-box;");
+    const svelte = textOf(await call(c, "export_code", { rootId: "tw", format: "svelte" }));
+    expect(svelte).toContain("<!-- CardTailwind.svelte -->");
+    expect(svelte).toContain("<style>");
+    expect(svelte).toContain('class="cardTailwind"');
+    expect(svelte).not.toContain(' style="');
+    for (const format of ["css-modules", "angular", "svelte"] as const) {
+      const missing = await call(c, "export_code", { rootId: "nope", format });
+      expect(missing.isError).toBe(true);
+    }
   });
 
   it("duplicate_nodes: light/dark pair in one call, connectors re-pointed, one undo step", async () => {
