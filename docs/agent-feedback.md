@@ -514,3 +514,14 @@ Task: extend `stroke` with `style` (`solid`|`dashed`|`dotted`) and `position` (`
 - Default `style`/`position` stay omitted in the document (helpers treat missing as solid / type-aware position) so round-trips and goldens do not grow a `style: "solid"` on every stroke.
 - WASM cannot dash or reposition strokes: `wasmPaintable` returns false and the DOM paints them (crates/render untouched).
 - Closes the friction in #99 (dashed stroke on boxes) via `stroke.style`.
+## 2026-11-22: numeric inspector steppers (PAP-B-046, design first)
+
+Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill and `$token` without steppers, focus ring and clamp-at-min states in light and dark before wiring `Field` steppers; six fixed-height root frames; screenshots under `docs/assets/boards/PAP-B-046/`; local `paprika serve` on `:4799` because the shared `:4777` workspace was crowded by parallel tickets.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 113 | `render_screenshot` param name | Passing `id` silently screenshots the whole canvas (identical PNGs for every frame); the contract expects `rootId` | Reject unknown `id` or alias `id` → `rootId` in the tool schema / handler | P2 |
+| 114 | Quiet local server for parallel boards | Shared `:4777` had other agents' sheets and returned confusing stacked frames at `(0,0)`; a throwaway `paprika serve --port 4799` was the reliable path (same class as #92) | Optional `workspaceId` on document tools so tickets do not fight for the active doc | P2 |
+
+- `lint_design` small-text warnings for 12 px labels match the inspector density; no new contrast errors on the six roots.
+- Step sizes chosen to match the ticket: opacity `0.05`, weight `100`, else `1`, Shift×10; validation/clamp reused from PAP-B-027.

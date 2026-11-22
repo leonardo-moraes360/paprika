@@ -517,3 +517,14 @@ Tarefa: estender `stroke` com `style` (`solid`|`dashed`|`dotted`) e `position` (
 - `style`/`position` padrão ficam omitidos no documento (helpers tratam ausência como sólido / posição por tipo) para round-trips e goldens não ganharem `style: "solid"` em todo stroke.
 - WASM não traça dash nem reposiciona: `wasmPaintable` devolve false e o DOM pinta (crates/render intacto).
 - Fecha o atrito do #99 (traço tracejado em caixas) via `stroke.style`.
+## 2026-11-22: steppers numéricos no inspector (PAP-B-046, design first)
+
+Tarefa: desenhar campos numéricos puros com `±` (opacidade / peso / espessura), hug/fill e `$token` sem stepper, anel de foco e estado no mínimo (claro e escuro) antes de ligar os steppers no `Field`; seis frames raiz de altura fixa; capturas em `docs/assets/boards/PAP-B-046/`; `paprika serve` local na `:4799` porque o workspace compartilhado na `:4777` estava lotado por tickets paralelos.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 113 | Nome do parâmetro em `render_screenshot` | Passar `id` captura o canvas inteiro em silêncio (PNGs idênticos para cada frame); o contrato espera `rootId` | Recusar `id` desconhecido ou alias `id` → `rootId` no schema / handler | P2 |
+| 114 | Servidor local quieto para boards em paralelo | A `:4777` compartilhada tinha folhas de outros agentes e frames empilhados em `(0,0)`; um `paprika serve --port 4799` descartável foi o caminho confiável (mesma classe do #92) | `workspaceId` opcional nas ferramentas de documento para os tickets não brigarem pelo doc ativo | P2 |
+
+- Avisos `small-text` do `lint_design` nos rótulos de 12 px batem com a densidade do inspector; nenhum erro novo de contraste nas seis raízes.
+- Passos escolhidos conforme o ticket: opacidade `0.05`, peso `100`, senão `1`, Shift×10; validação/clamp reutilizados do PAP-B-027.
