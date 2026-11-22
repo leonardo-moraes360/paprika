@@ -45,6 +45,7 @@ import {
 import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { InlineName } from "./InlineName";
+import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
 import { AgentCursors, type Box } from "./AgentCursors";
 import { cx, ui } from "./ui";
 
@@ -284,8 +285,9 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
       const a = connectorAttrs(doc, node);
       const label = connectorLabelAttrs(doc, node);
       // O <svg> não pega clique: só o traço (e uma faixa invisível mais larga em volta dele).
+      const editing = textEdit?.id === node.id ? textEdit : null;
       return (
-        <svg {...props} style={{ ...css, pointerEvents: "none" }} xmlns="http://www.w3.org/2000/svg" width={node.width} height={node.height}>
+        <svg {...props} style={{ ...css, pointerEvents: "none", ...(editing && { overflow: "visible" }) }} xmlns="http://www.w3.org/2000/svg" width={node.width} height={node.height}>
           <path d={a.d} fill="none" stroke="transparent" strokeWidth={Math.max(12, a.strokeWidth + 8)} style={{ pointerEvents: "stroke" }} data-connector-hit="" />
           <path
             d={a.d}
@@ -297,11 +299,12 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
             strokeDasharray={a.strokeDasharray}
             style={{ pointerEvents: "visibleStroke" }}
           />
-          {label && (
+          {label && !editing && (
             <text {...label} style={{ pointerEvents: "none", userSelect: "none" }} data-connector-label="">
               {node.label}
             </text>
           )}
+          {editing && <ConnectorLabelEditor doc={doc} node={node} onCommit={editing.onCommit} onDone={editing.onDone} />}
         </svg>
       );
     }
@@ -1078,6 +1081,11 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       setTextEditId(node.id);
       return;
     }
+    if (node?.type === "connector" && !node.locked && !copyOwner(doc, node) && (selected.includes(node.id) || pickTarget(doc, node.id, selected) === node.id)) {
+      onSelect([node.id]);
+      setTextEditId(node.id);
+      return;
+    }
     onSelect([target.dataset.paprikaId!]);
   };
 
@@ -1145,7 +1153,13 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           onCommit: (text: string) => apply([{ op: "update", id: editedShape.id, props: { text } }], "editar texto"),
           onDone: () => setTextEditId(null),
         }
-      : null;
+      : editedShape?.type === "connector"
+        ? {
+            id: editedShape.id,
+            onCommit: (text: string) => apply([{ op: "update", id: editedShape.id, props: { label: text.trim() ? text.trim() : null } }], "editar rótulo"),
+            onDone: () => setTextEditId(null),
+          }
+        : null;
 
   const rootNodes = roots.map((id) => doc.nodes[id]).filter((n): n is Node => !!n);
   const marqueeRect = marquee && {

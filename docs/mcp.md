@@ -52,6 +52,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
 | `render_screenshot` | PNG of a node, a page or the whole canvas |
 | `import_svg` / `import_html` | Turns pasted SVG (paths, shapes, groups, transforms) or HTML with inline styles into editable nodes; what can't be imported comes back in `warnings` |
+| `import_image` | Places a raster image (PNG, JPEG, WebP, AVIF or GIF) as an `image` node sized from the file. `src` is a data URL or a local path under `PAPRIKA_IMPORT_DIRS` (default: the server's working directory). Files over 3500000 bytes are refused. Original bytes are kept, so animated GIF/WebP/AVIF stay animated on the canvas and in HTML exports (`render_screenshot` captures one frame) |
 | `export_code` | Standalone HTML, a React (TSX) component, vector SVG (layout measured in headless Chromium), a React component with Tailwind utility classes (`tailwind`), standalone HTML with Tailwind classes (`tailwind-html`) or a React component plus its `.module.css` (`css-modules`: two text blocks, the `.tsx` first and the stylesheet second); `cssVariables: true` writes tokens as `var(--name)` with one rule per theme mode |
 
 Agent layer:

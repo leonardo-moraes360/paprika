@@ -337,6 +337,15 @@ captured before and after.
 
 - `lint_design` reported the light destructive text at 4,05:1 on the first sheet, before a line of code was written — the same class of mistake it caught on the PAP-B-030 sheet, and the token alphas are what they are now because of it.
 
+## 2026-11-22: double-click an arrow to edit its label (PAP-B-028, design first)
+
+Task: draw the arrow label in three states (no label, editing with caret and halo, with label), light and
+dark, before the inline editor on the canvas. Six root frames, ~40 nodes.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 99 | A text field state with a dashed focus outline | The editor draws a dashed `select` outline, but `stroke` on rect and frame has only `color` and `width`, so the sheet shows it solid; the caret is a 1.5 px rect on top of a text node | A `dash` field on `stroke` for rect, ellipse and frame (connectors already have `dashed`) would let a sheet match what `nodeStyle` paints | P3 |
+| 100 | Exporting the board document from a containerised server | `paprika export --db <db>` needs the database file, which lives in the compose volume; the doc is reachable only through `GET /api/export` | Mention `curl http://127.0.0.1:4777/api/export` in `docs/design-boards.md` next to the CLI form | P3 |
 ## 2026-11-22: renaming the only page (PAP-B-020, design first)
 
 Task: draw the pages panel before, while and after renaming the placeholder "Página 1" of a workspace with no
@@ -349,6 +358,33 @@ pages, then wire the rename in `apps/web`. Six root frames (three states, light 
 
 - `lint_design` flagged the 11 px caption (`small-text`) on all six frames; 12 px fixed it, so captions stay at the app's smallest legible size.
 - Mode `light` on the frame plus the same `pg.*` tokens overridden under `set_tokens {mode: "light"}` rendered both themes from one set of nodes with no per-frame color edits.
+
+## 2026-11-22: canvas notice when an agent deletes or switches a workspace (PAP-B-037, design first)
+
+Task: draw the non-blocking notice (delete with counts, open, rename; light and dark) before wiring
+`WorkspaceNotice` and the `workspaceOp` WebSocket broadcast. Six root frames.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 101 | Hearing workspace ops on the canvas without polling HTTP | `list_workspace_ops` exists, but the live canvas only saw document patches; a delete of the active workspace left the human on a dead editor until a refresh | Broadcast each new op log entry as `{type:workspaceOp, op}` over the existing WebSocket hub (poll the log; skip entries that predate the subscriber) | P2 |
+
+- Fixed-height roots; PNGs under `docs/assets/boards/PAP-B-037/`.
+- Notice uses `role=status` and never steals focus; overview mount shows delete notices after the canvas route is gone.
+
+## 2026-11-22: side panels collapse into a floating button (PAP-B-024, design first)
+
+Task: draw the collapsed panels (left only, both) next to the expanded layout, light and dark, and check that
+the floating buttons clear the toolbar and the agent roster, before writing the UI. Six root frames on
+`Interfaces`, drawn from one script in a single `create_nodes` call.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 101 | Screenshots as files | `render_screenshot` only returns base64 inside the JSON result, so each PNG had to be decoded by hand in a script before it could land in `docs/assets/boards/` | An optional `path` argument (or a resource link) that writes the PNG where the caller says | P2 |
+| 102 | A mock at a smaller scale lints as tiny text | The boards are the real layout at two thirds of its size, so every label is 8–9px and `lint_design` returns a `small-text` warning per label, which buries the findings that matter | A per-frame way to say "this frame is a scaled mock" (or a `minFontSize` argument) so the warning count stays meaningful | P3 |
+| 103 | Free space for a new frame | Nothing says where the next top-level frame can go without overlapping a parallel ticket's: the outline had to be scanned for coordinates and the boards went to `x=2000` by hand | `get_document_outline` (or a new call) returning the bounding box of the page's content, or `create_nodes` accepting `place: "free"` | P3 |
+| 104 | Icons by name | The floating buttons use `PanelLeftOpen` and `PanelRightOpen` from lucide, and the board had to carry their path data typed in by hand, which is how an icon on the sheet can drift from the one in the app | `import_svg` already exists; a way to import a lucide icon by name would close the loop | P3 |
+
+- The collapsed right panel puts its button where the agent roster sits (top right of the canvas); the sheet showed it before any code did, and the roster moves down under the button only while that panel is collapsed.
 
 ## 2026-11-22: overview and dialogs on shadcn (PAP-B-031, design first)
 

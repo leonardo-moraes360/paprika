@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
@@ -205,6 +206,8 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		}
 		hub.mu.Unlock()
 	})
+
+	stopOps := broadcastWorkspaceOps(store, hub)
 
 	unsubscribePresence := store.Presence.OnPresence(func(p Presence) {
 		msg := p.Message()
@@ -574,6 +577,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		server: srv,
 		ln:     ln,
 		close: func() {
+			stopOps()
 			unsubscribe()
 			unsubscribePresence()
 			unsubscribeTeam()
@@ -584,6 +588,61 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			hub.mu.Unlock()
 		},
 	}, nil
+}
+
+// workspaceOpsPoll is how often the operations log is read for entries the canvases have not heard about.
+const workspaceOpsPoll = 100 * time.Millisecond
+
+// broadcastWorkspaceOps sends every new entry of the workspace operations log to the WebSocket clients as a
+// workspaceOp message: the canvas shows who deleted, switched or renamed a workspace. Entries that existed
+// when the server started are not replayed. The returned function stops it.
+func broadcastWorkspaceOps(store *Store, hub *wsHub) func() {
+	key := func(op WorkspaceOp) string {
+		return fmt.Sprintf("%d|%s|%s|%s", op.At, op.Actor, op.Op, op.DocID)
+	}
+	seen := map[string]bool{}
+	if entries, err := store.ListWorkspaceOps(MaxWorkspaceOps, ""); err == nil {
+		for _, op := range entries {
+			seen[key(op)] = true
+		}
+	}
+	stop := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(workspaceOpsPoll)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+			}
+			entries, err := store.ListWorkspaceOps(MaxWorkspaceOps, "")
+			if err != nil {
+				continue
+			}
+			current := make(map[string]bool, len(entries))
+			for i := len(entries) - 1; i >= 0; i-- {
+				op := entries[i]
+				k := key(op)
+				current[k] = true
+				if seen[k] {
+					continue
+				}
+				msg := jsonv.Stringify(jsonv.NewObject("type", "workspaceOp", "op", jsonv.FromGo(op)), "")
+				hub.mu.Lock()
+				for _, ch := range hub.conns {
+					select {
+					case ch <- msg:
+					default:
+					}
+				}
+				hub.mu.Unlock()
+			}
+			seen = current
+		}
+	}()
+	var once sync.Once
+	return func() { once.Do(func() { close(stop) }) }
 }
 
 func safeFileName(s string) string {
