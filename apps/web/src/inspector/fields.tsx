@@ -7,6 +7,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
+import { Hint } from "../components/ui/tooltip";
 import { cn } from "../lib/cn";
 import {
   allowsNumberFieldInput,
@@ -107,7 +108,6 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
   const common = {
     value: v,
     placeholder,
-    title,
     "aria-label": label,
     "aria-invalid": error ? true : undefined,
     "aria-describedby": error ? msgId : undefined,
@@ -158,6 +158,12 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
       }
     },
   };
+  const control =
+    type === "textarea" ? (
+      <Textarea rows={2} className={cn(controlBare, "min-h-0 resize-y px-0 py-0")} {...common} />
+    ) : (
+      <Input inputMode={type === "number" ? "decimal" : undefined} className={controlBare} {...common} />
+    );
   return (
     <div className="grid min-w-0 gap-0.5">
       <div
@@ -168,11 +174,7 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
         )}
       >
         <Label>{label}</Label>
-        {type === "textarea" ? (
-          <Textarea rows={2} className={cn(controlBare, "min-h-0 resize-y px-0 py-0")} {...common} />
-        ) : (
-          <Input inputMode={type === "number" ? "decimal" : undefined} className={controlBare} {...common} />
-        )}
+        <Hint label={title}>{control}</Hint>
         {steppers && (
           <div className="flex items-center gap-0.5" data-testid={`stepper-${label}`}>
             <Button
