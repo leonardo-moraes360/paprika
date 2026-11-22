@@ -38,11 +38,15 @@ export interface TeamPeer {
   name: string;
   state: "direct" | "relay" | "connecting" | "offline";
   rttMs?: number | null;
+  app?: string;
+  format?: string;
 }
 export interface TeamStatus {
   id: string;
   name: string;
   fingerprint: string;
+  app?: string;
+  format?: string;
   team: {
     id: string;
     name: string;
