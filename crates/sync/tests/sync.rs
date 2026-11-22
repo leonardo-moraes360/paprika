@@ -9,13 +9,9 @@ use tokio::sync::mpsc;
 
 async fn start(dir: &std::path::Path, name: &str) -> (Node, mpsc::UnboundedReceiver<Value>) {
     let (tx, rx) = mpsc::unbounded_channel();
-    let cfg = Config {
-        data: dir.to_path_buf(),
-        name: name.into(),
-        relay: false,
-        bind: Some("127.0.0.1:0".parse().unwrap()),
-    };
-    (Node::start(cfg, tx).await.unwrap(), rx)
+    (Node::start(Config::test(dir.to_path_buf(), name), tx)
+        .await
+        .unwrap(), rx)
 }
 
 async fn wait_for(rx: &mut mpsc::UnboundedReceiver<Value>, pred: impl Fn(&Value) -> bool) -> Value {

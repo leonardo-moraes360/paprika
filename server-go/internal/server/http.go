@@ -38,6 +38,8 @@ type HTTPOptions struct {
 }
 
 // TeamRoutes is what the HTTP server needs from the team package (which imports this one).
+// Team status payloads (`GET /api/team`, `{type:"team",status}` on /ws) are opaque JSON from the
+// sidecar and may include `app` / `format` (local and per peer); see docs/team-sync.md.
 type TeamRoutes interface {
 	Routes(r gin.IRoutes)
 	// Recent returns the WebSocket messages a canvas that just connected needs.

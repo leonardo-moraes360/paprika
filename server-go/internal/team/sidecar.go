@@ -77,6 +77,8 @@ type Options struct {
 	Name    string
 	NoRelay bool   // loopback/LAN only: no public relays or address lookup (tests)
 	Bind    string // e.g. 127.0.0.1:0
+	App     string // optional paprika-sync --app override (tests)
+	Format  string // optional paprika-sync --format override (tests)
 	Stderr  io.Writer
 }
 
@@ -95,6 +97,12 @@ func Start(ctx context.Context, opts Options, onEvent func(Event)) (*Sidecar, er
 	}
 	if opts.Bind != "" {
 		args = append(args, "--bind", opts.Bind)
+	}
+	if opts.App != "" {
+		args = append(args, "--app", opts.App)
+	}
+	if opts.Format != "" {
+		args = append(args, "--format", opts.Format)
 	}
 	cmd := exec.Command(bin, args...)
 	cmd.Stderr = opts.Stderr

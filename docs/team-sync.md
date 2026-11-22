@@ -53,7 +53,7 @@ Everything else on stdout is an event. The sidecar exits when its stdin closes.
 
 | Command `t` | Fields | Result |
 | --- | --- | --- |
-| `status` | | `{id, name, fingerprint, team, peers: [{id, name, state: direct\|relay\|connecting\|offline, rttMs, presence}], docs, rejected}` |
+| `status` | | `{id, name, fingerprint, app, format, team, peers: [{id, name, state: direct\|relay\|connecting\|offline, rttMs, app, format, presence}], docs, rejected}` |
 | `addr` | | This endpoint's address (id plus direct addresses and relay URL). |
 | `peer.add` | `addr` | Allows and dials a peer by address (before teams; kept for tests and LAN setups). |
 | `presence` | `data` | Sends a local agent's presence to every connected peer. |
@@ -74,7 +74,8 @@ Everything else on stdout is an event. The sidecar exits when its stdin closes.
 | `peer` | `peer`, `state: connected\|disconnected` |
 | `presence` | `peer`, `name`, `data` |
 | `remote` | `doc`, `state` (materialized workspace, below), `authors` |
-| `rejected` | `peer`, `reason` (not a member, bad signature, invite used/expired/revoked…) |
+| `rejected` | `peer`, `reason` (not a member, bad signature, invite used/expired/revoked, incompatible document format…) |
+| `log` | `level`, `msg` (e.g. warn when peer app versions differ but format matches) |
 | `joined` | `peer`, `name`: someone joined with an invite from this instance |
 | `removed` | `peer`: this instance removed that member |
 | `log` | `level`, `msg` |
@@ -114,12 +115,24 @@ ALPN `paprika/sync/1`, one bidirectional stream, frames of `u32` big-endian leng
 
 | Message `t` | Fields | When |
 | --- | --- | --- |
-| `hello` | `name`, `addr`, `peers` (addresses of other members), `team`, `have` (`{doc: {author: seq}}`) | First frame on each side. |
+| `hello` | `name`, `addr`, `peers` (addresses of other members), `team`, `have` (`{doc: {author: seq}}`), `app` (paprika-sync semver), `format` (document format, e.g. `paprika/1`) | First frame on each side. |
 | `envs` | `envs: [envelope]` | Envelopes the other side lacks (after `hello`), then each new one live. Receivers forward new envelopes to their other peers. |
 | `team` | `team` | The team file changed (a member joined). |
 | `presence` | `data` | Ephemeral; never stored. |
 
 When both sides dial at once, the connection dialed by the smaller endpoint id is kept.
+
+### Version compatibility
+
+ALPNs stay versioned as today (`paprika/sync/1`, `paprika/join/1`). On every sync `hello` and every join request/reply, peers also exchange **app** (`crates/sync` package version) and **format** (the document format string, same as `packages/core` `FORMAT` / `paprika/1`):
+
+| Case | Behaviour |
+| --- | --- |
+| Same `format`, same `app` | Sync / join as usual. |
+| Same `format`, different `app` | Sync / join continues; both sides emit a warn log naming who, both app versions, and that the format matches. |
+| Different `format`, or peer omitted `format` | Sync / join is refused. Both sides get an actionable error (who, local vs peer format and app, how to update: same build / Docker image, then reconnect). The sync connection is closed with application error code `3`. |
+
+`GET /api/team` (and the `{type: "team", status}` WebSocket payload) expose local `app` / `format` on the status object and each peer's last known `app` / `format` on every entry in `peers`.
 
 ### Envelope
 
@@ -149,8 +162,9 @@ When both sides dial at once, the connection dialed by the smaller endpoint id i
   team id, key, name, addedBy, at) verifies. Merging two team files is the union of their valid entries.
 - An invite link is `paprika://join/<team id>?n=<team name>&a=<inviter address, base64url JSON>&s=<secret>&e=<expiry, unix seconds>`.
   The inviter keeps only the SHA-256 of the secret, its expiry and whether it was used. The joiner dials the
-  inviter on ALPN `paprika/join/1` and sends `{team, secret, name}`; the inviter checks the secret, expiry and
-  single use, signs the joiner's member entry and answers with the team file and the members' addresses.
+  inviter on ALPN `paprika/join/1` and sends `{team, secret, name, app, format}`; the inviter checks the secret, expiry,
+  single use and format compatibility, signs the joiner's member entry and answers with the team file, the members'
+  addresses and its own `app` / `format`. The joiner checks the inviter's versions before saving the team file.
 
 ### Removing a member, rotating a key
 

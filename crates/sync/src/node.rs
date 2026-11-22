@@ -22,7 +22,7 @@ use crate::{
     crdt::Change,
     envelope::{Cert, Envelope},
     keys,
-    proto::{self, ALPN_JOIN, ALPN_SYNC},
+    proto::{self, ALPN_JOIN, ALPN_SYNC, APP_VERSION, FORMAT_VERSION},
     store::{Accepted, DocStore},
     team::{InviteLink, Invites, Left, Roster, TeamFile},
 };
@@ -40,6 +40,12 @@ pub enum PeerMsg {
         have: HashMap<String, HashMap<String, u64>>,
         #[serde(default)]
         team: Option<TeamFile>,
+        /// paprika-sync / app semver; missing treated as unknown.
+        #[serde(default)]
+        app: String,
+        /// Document format (`paprika/N`); must match or sync is refused.
+        #[serde(default)]
+        format: String,
     },
     /// Signed envelopes the other side lacks, or a new one live.
     Envs { envs: Vec<Envelope> },
@@ -57,10 +63,18 @@ pub enum JoinMsg {
         team: String,
         secret: String,
         name: String,
+        #[serde(default)]
+        app: String,
+        #[serde(default)]
+        format: String,
     },
     Ok {
         team: TeamFile,
         peers: Vec<EndpointAddr>,
+        #[serde(default)]
+        app: String,
+        #[serde(default)]
+        format: String,
     },
     Error {
         reason: String,
@@ -77,6 +91,24 @@ pub struct Config {
     /// Use Iroh's public relays and DNS address lookup (off in tests: loopback only).
     pub relay: bool,
     pub bind: Option<std::net::SocketAddr>,
+    /// App semver advertised in handshakes; defaults to [`APP_VERSION`].
+    pub app: String,
+    /// Document format advertised in handshakes; defaults to [`FORMAT_VERSION`].
+    pub format: String,
+}
+
+impl Config {
+    /// Loopback test config with the crate's default versions.
+    pub fn test(data: PathBuf, name: impl Into<String>) -> Self {
+        Self {
+            data,
+            name: name.into(),
+            relay: false,
+            bind: Some("127.0.0.1:0".parse().unwrap()),
+            app: APP_VERSION.into(),
+            format: FORMAT_VERSION.into(),
+        }
+    }
 }
 
 struct Peer {
@@ -86,6 +118,8 @@ struct Peer {
     /// Who dialed: the connection dialed by the smaller id wins when both sides dial at once.
     dialer: EndpointId,
     since: Instant,
+    app: String,
+    format: String,
 }
 
 #[derive(Default)]
@@ -100,6 +134,8 @@ struct State {
     invites: Option<Invites>,
     addrs: HashMap<EndpointId, EndpointAddr>,
     names: HashMap<EndpointId, String>,
+    /// Last known app/format from a peer's hello (kept while offline).
+    versions: HashMap<EndpointId, (String, String)>,
     presence: HashMap<EndpointId, Value>,
     docs: Option<DocStore>,
     /// Envelopes or connections refused (not a member, bad signature…), newest last.
@@ -164,13 +200,43 @@ impl ProtocolHandler for JoinHandler {
         let node = Node(inner);
         let (mut send, mut recv) = conn.accept_bi().await?;
         let reply = match proto::read_frame::<JoinMsg>(&mut recv).await {
-            Ok(Some(JoinMsg::Request { team, secret, name })) => {
-                match node.redeem(conn.remote_id(), &team, &secret, &name) {
-                    Ok(msg) => msg,
-                    Err(e) => {
-                        node.event(json!({"t": "rejected", "peer": conn.remote_id().to_string(), "reason": format!("invite: {e:#}")}));
-                        JoinMsg::Error {
-                            reason: format!("{e:#}"),
+            Ok(Some(JoinMsg::Request {
+                team,
+                secret,
+                name,
+                app,
+                format,
+            })) => {
+                let remote = conn.remote_id();
+                let short = remote.fmt_short().to_string();
+                if let Err(reason) = proto::check_versions(
+                    &node.0.cfg.app,
+                    &node.0.cfg.format,
+                    &name,
+                    &short,
+                    &app,
+                    &format,
+                ) {
+                    node.push_rejected(&remote, &reason);
+                    node.event(json!({"t": "rejected", "peer": remote.to_string(), "reason": reason.clone()}));
+                    JoinMsg::Error { reason }
+                } else {
+                    if let Some(w) = proto::app_version_warn(
+                        &node.0.cfg.app,
+                        &name,
+                        &short,
+                        &app,
+                        &node.0.cfg.format,
+                    ) {
+                        node.event(json!({"t": "log", "level": "warn", "msg": w}));
+                    }
+                    match node.redeem(remote, &team, &secret, &name) {
+                        Ok(msg) => msg,
+                        Err(e) => {
+                            node.event(json!({"t": "rejected", "peer": remote.to_string(), "reason": format!("invite: {e:#}")}));
+                            JoinMsg::Error {
+                                reason: format!("{e:#}"),
+                            }
                         }
                     }
                 }
@@ -400,6 +466,11 @@ impl Node {
                 old.conn.close(0u32.into(), b"duplicate");
             }
             let name = st.names.get(&remote).cloned().unwrap_or_default();
+            let (app, format) = st
+                .versions
+                .get(&remote)
+                .cloned()
+                .unwrap_or_default();
             st.peers.insert(
                 remote,
                 Peer {
@@ -408,6 +479,8 @@ impl Node {
                     tx: tx.clone(),
                     dialer,
                     since: Instant::now(),
+                    app,
+                    format,
                 },
             );
         }
@@ -426,11 +499,13 @@ impl Node {
         });
         loop {
             match proto::read_frame::<PeerMsg>(&mut recv).await {
-                Ok(Some(msg)) => {
-                    if let Err(e) = self.on_msg(remote, msg) {
+                Ok(Some(msg)) => match self.on_msg(remote, msg) {
+                    Ok(true) => {}
+                    Ok(false) => break,
+                    Err(e) => {
                         self.event(json!({"t": "log", "level": "warn", "msg": format!("from {}: {e:#}", remote.fmt_short())}));
                     }
-                }
+                },
                 Ok(None) => break,
                 Err(_) => break,
             }
@@ -463,6 +538,17 @@ impl Node {
             peers,
             have,
             team: st.team.clone(),
+            app: self.0.cfg.app.clone(),
+            format: self.0.cfg.format.clone(),
+        }
+    }
+
+    fn push_rejected(&self, peer: &EndpointId, reason: &str) {
+        let mut st = self.0.state.lock().unwrap();
+        st.rejected.push(json!({"peer": peer.to_string(), "reason": reason}));
+        if st.rejected.len() > 50 {
+            let n = st.rejected.len() - 50;
+            st.rejected.drain(0..n);
         }
     }
 
@@ -533,7 +619,12 @@ impl Node {
         };
         self.broadcast(PeerMsg::Team { team: team.clone() }, None);
         self.event(json!({"t": "joined", "peer": joiner.to_string(), "name": name}));
-        Ok(JoinMsg::Ok { team, peers })
+        Ok(JoinMsg::Ok {
+            team,
+            peers,
+            app: self.0.cfg.app.clone(),
+            format: self.0.cfg.format.clone(),
+        })
     }
 
     /// Joiner side: dials the inviter on the join ALPN with the link's secret.
@@ -564,13 +655,45 @@ impl Node {
                 team: l.team.clone(),
                 secret,
                 name: self.0.cfg.name.clone(),
+                app: self.0.cfg.app.clone(),
+                format: self.0.cfg.format.clone(),
             },
         )
         .await?;
         let reply = proto::read_frame::<JoinMsg>(&mut recv).await?;
         conn.close(0u32.into(), b"done");
         let (team, peers) = match reply {
-            Some(JoinMsg::Ok { team, peers }) => (team, peers),
+            Some(JoinMsg::Ok {
+                team,
+                peers,
+                app,
+                format,
+            }) => {
+                let inviter = l.addr.id;
+                let short = inviter.fmt_short().to_string();
+                if let Err(reason) = proto::check_versions(
+                    &self.0.cfg.app,
+                    &self.0.cfg.format,
+                    "",
+                    &short,
+                    &app,
+                    &format,
+                ) {
+                    self.push_rejected(&inviter, &reason);
+                    self.event(json!({"t": "rejected", "peer": inviter.to_string(), "reason": reason.clone()}));
+                    bail!("{reason}");
+                }
+                if let Some(w) = proto::app_version_warn(
+                    &self.0.cfg.app,
+                    "",
+                    &short,
+                    &app,
+                    &self.0.cfg.format,
+                ) {
+                    self.event(json!({"t": "log", "level": "warn", "msg": w}));
+                }
+                (team, peers)
+            }
             Some(JoinMsg::Error { reason }) => bail!("{reason}"),
             _ => bail!("the inviter did not answer"),
         };
@@ -611,7 +734,8 @@ impl Node {
             .unwrap_or_default()
     }
 
-    fn on_msg(&self, from: EndpointId, msg: PeerMsg) -> Result<()> {
+    /// Handles one peer message. `Ok(false)` means the connection must close (incompatible format).
+    fn on_msg(&self, from: EndpointId, msg: PeerMsg) -> Result<bool> {
         match msg {
             PeerMsg::Hello {
                 name,
@@ -619,11 +743,42 @@ impl Node {
                 peers,
                 have,
                 team,
+                app,
+                format,
             } => {
+                let short = from.fmt_short().to_string();
+                if let Err(reason) = proto::check_versions(
+                    &self.0.cfg.app,
+                    &self.0.cfg.format,
+                    &name,
+                    &short,
+                    &app,
+                    &format,
+                ) {
+                    {
+                        let st = self.0.state.lock().unwrap();
+                        if let Some(p) = st.peers.get(&from) {
+                            p.conn.close(3u32.into(), b"incompatible format");
+                        }
+                    }
+                    self.push_rejected(&from, &reason);
+                    self.event(json!({"t": "rejected", "peer": from.to_string(), "reason": reason}));
+                    return Ok(false);
+                }
+                if let Some(w) = proto::app_version_warn(
+                    &self.0.cfg.app,
+                    &name,
+                    &short,
+                    &app,
+                    &self.0.cfg.format,
+                ) {
+                    self.event(json!({"t": "log", "level": "warn", "msg": w}));
+                }
                 if let Some(team) = team {
                     self.merge_team(Some(from), team);
                 }
                 let mut st = self.0.state.lock().unwrap();
+                st.versions.insert(from, (app.clone(), format.clone()));
                 // Catch the peer up: every envelope it does not have yet, as signed by its author.
                 let missing = st.docs().missing_for(&have);
                 if !missing.is_empty()
@@ -634,6 +789,8 @@ impl Node {
                 st.names.insert(from, name.clone());
                 if let Some(p) = st.peers.get_mut(&from) {
                     p.name = name;
+                    p.app = app;
+                    p.format = format;
                 }
                 st.addrs
                     .entry(from)
@@ -664,7 +821,7 @@ impl Node {
                 );
             }
         }
-        Ok(())
+        Ok(true)
     }
 
     /// Accepts envelopes from a peer, forwards the new ones to the other peers and tells the Go
@@ -818,14 +975,27 @@ impl Node {
             .iter()
             .map(|id| {
                 let name = st.names.get(id).cloned().unwrap_or_default();
+                let (known_app, known_format) = st.versions.get(id).cloned().unwrap_or_default();
                 match st.peers.get(id) {
                     Some(p) => {
                         let (path, rtt) = path_of(&p.conn);
+                        let app = if p.app.is_empty() {
+                            known_app
+                        } else {
+                            p.app.clone()
+                        };
+                        let format = if p.format.is_empty() {
+                            known_format
+                        } else {
+                            p.format.clone()
+                        };
                         json!({"id": id.to_string(), "name": if p.name.is_empty() { name } else { p.name.clone() },
                                "state": path, "rttMs": rtt, "connectedFor": p.since.elapsed().as_secs(),
+                               "app": app, "format": format,
                                "presence": st.presence.get(id)})
                     }
-                    None => json!({"id": id.to_string(), "name": name, "state": "offline"}),
+                    None => json!({"id": id.to_string(), "name": name, "state": "offline",
+                                   "app": known_app, "format": known_format}),
                 }
             })
             .collect();
@@ -882,6 +1052,7 @@ impl Node {
                    "member": valid.contains_key(&me), "canRemove": founder == Some(me)})
         });
         json!({"id": self.id().to_string(), "name": self.0.cfg.name, "fingerprint": crate::keys::fingerprint(&self.id()),
+               "app": self.0.cfg.app, "format": self.0.cfg.format,
                "team": team, "peers": peers, "docs": docs, "rejected": st.rejected.len(), "lastRejected": st.rejected.last()})
     }
 

@@ -8,12 +8,21 @@ use tokio::sync::mpsc;
 
 async fn start(dir: &std::path::Path, name: &str) -> (Node, mpsc::UnboundedReceiver<Value>) {
     let (tx, rx) = mpsc::unbounded_channel();
-    let cfg = Config {
-        data: dir.to_path_buf(),
-        name: name.into(),
-        relay: false,
-        bind: Some("127.0.0.1:0".parse().unwrap()),
-    };
+    (Node::start(Config::test(dir.to_path_buf(), name), tx)
+        .await
+        .unwrap(), rx)
+}
+
+async fn start_with(
+    dir: &std::path::Path,
+    name: &str,
+    app: &str,
+    format: &str,
+) -> (Node, mpsc::UnboundedReceiver<Value>) {
+    let (tx, rx) = mpsc::unbounded_channel();
+    let mut cfg = Config::test(dir.to_path_buf(), name);
+    cfg.app = app.into();
+    cfg.format = format.into();
     (Node::start(cfg, tx).await.unwrap(), rx)
 }
 
@@ -123,6 +132,37 @@ async fn invite_join_and_sync() {
         .await
         .unwrap_err();
     assert!(err.to_string().contains("revoked"), "{err}");
+}
+
+#[tokio::test]
+async fn join_refuses_incompatible_format_on_both_sides() {
+    use paprika_sync::proto::{APP_VERSION, FORMAT_VERSION};
+    let (da, db) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (a, mut ea) = start_with(da.path(), "Ana", APP_VERSION, FORMAT_VERSION).await;
+    let (b, _eb) = start_with(db.path(), "Bruno", APP_VERSION, "paprika/0").await;
+    a.command(&json!({"t": "team.create", "name": "T"}))
+        .await
+        .unwrap();
+    let link = a
+        .command(&json!({"t": "invite.create", "ttlSecs": 600}))
+        .await
+        .unwrap()["link"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let err = b
+        .command(&json!({"t": "join", "link": link}))
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("incompatible document format"), "{err}");
+    assert!(err.contains("paprika/0"), "{err}");
+    let r = wait_for(&mut ea, |v| {
+        v["t"] == "rejected" && v["reason"].as_str().is_some_and(|s| s.contains("incompatible document format"))
+    })
+    .await;
+    assert!(r["reason"].as_str().unwrap().contains("Bruno"));
+    assert_eq!(members(&a), vec!["Ana"]);
 }
 
 #[tokio::test]
