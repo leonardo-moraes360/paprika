@@ -40,15 +40,28 @@ func ShapeDefaults(kind string) *jsonv.Object {
 	return o
 }
 
-// ShapeOutline is the outline of a shape in local coordinates, inset half the stroke width.
-// fold is "" except for the sticky note.
+// ShapeOutline is the outline of a shape in local coordinates; the inset follows stroke.position
+// (default: inside). fold is "" except for the sticky note.
 func ShapeOutline(n *Node) (d, fold string) {
 	w, h := n.Num("width"), n.Num("height")
 	sw := 0.0
+	pos := "inside"
 	if st := n.Obj("stroke"); st != nil && st.Num("width") > 0 {
 		sw = st.Num("width")
+		if p := st.Str("position"); p != "" {
+			pos = p
+		}
 	}
-	i := math.Min(sw/2, math.Min(w/2, h/2))
+	half := sw / 2
+	raw := 0.0
+	switch pos {
+	case "inside":
+		raw = half
+	case "outside":
+		raw = -half
+	}
+	maxI := math.Min(w/2, h/2)
+	i := math.Max(-maxI, math.Min(maxI, raw))
 	switch n.Str("shape") {
 	case "ellipse":
 		rx := math.Max(0, w/2-i)
