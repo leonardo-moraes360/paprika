@@ -163,7 +163,8 @@ function page(c, mobile) {
       row(
         "link:./",
         [
-          { type: "image", name: "Ícone", src: ICON, alt: "Paprika", width: 36, height: 36, radius: 9 },
+          // alt="": the word "Paprika" sits right next to it, so the link already has its name.
+          { type: "image", name: "Ícone", src: ICON, alt: "", width: 36, height: 36, radius: 9 },
           T("Paprika", mobile ? 19 : 21, { width: "hug", fontWeight: 700, lineHeight: 1.2 }),
         ],
         { gap: 12 },
@@ -191,7 +192,7 @@ function page(c, mobile) {
         radius: 999,
         fill: "$brand.soft",
       }),
-      T(c.title, s.h1, { fontWeight: 800, lineHeight: 1.06, letterSpacing: mobile ? -0.8 : -1.6 }),
+      T(c.title, s.h1, { name: "h1", fontWeight: 800, lineHeight: 1.06, letterSpacing: mobile ? -0.8 : -1.6 }),
       T(c.lead, s.lead, { color: "$muted", lineHeight: 1.55 }),
       row(
         "Chamadas",
@@ -230,7 +231,7 @@ function page(c, mobile) {
     col(
       name,
       [
-        col("Cabeçalho", [T(title, s.h2, { fontWeight: 800, lineHeight: 1.15, letterSpacing: mobile ? -0.5 : -1 }), ...(lead ? [T(lead, s.lead - 2, { color: "$muted" })] : [])], { gap: 12 }),
+        col("Cabeçalho", [T(title, s.h2, { name: "h2", fontWeight: 800, lineHeight: 1.15, letterSpacing: mobile ? -0.5 : -1 }), ...(lead ? [T(lead, s.lead - 2, { color: "$muted" })] : [])], { gap: 12 }),
         ...body,
       ],
       { gap: mobile ? 24 : 36, padding: [mobile ? 48 : 80, px, mobile ? 48 : 80, px] },
