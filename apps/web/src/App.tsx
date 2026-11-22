@@ -11,7 +11,7 @@ import { api, errorText } from "./api";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { Overview } from "./Overview";
 import { navigate, parseRoute, useRoute, workspacePath } from "./route";
-import { useDocument, type LiveDocument } from "./useDocument";
+import { useLive, useLiveActions, useLiveConnection } from "./useDocument";
 import { bar, cx } from "./ui";
 import { openWorkspace } from "./workspaces";
 
@@ -69,13 +69,17 @@ const siblingsOf = (doc: Document, parentId: string | null) => {
  * (an agent) switches, the canvas follows and the URL is updated.
  */
 export function App() {
-  const live = useDocument();
+  useLiveConnection();
+  // App subscribes to the active workspace id and the connection only: the document, presence and
+  // activity are read by the components that draw them (useLive), so an agent's presence message
+  // does not re-render the editor.
+  const activeId = useLive((s) => s.doc?.id ?? null);
+  const connected = useLive((s) => s.connected);
+  const { showError } = useLiveActions();
   const route = useRoute();
   const routeId = route.view === "canvas" ? route.id : null;
-  const activeId = live.doc?.id ?? null;
   // The workspace this tab asked the server to open and is still waiting for.
   const pending = useRef<string | null>(null);
-  const { showError } = live;
 
   useEffect(() => {
     if (!routeId) return;
@@ -101,29 +105,57 @@ export function App() {
   if (!routeId) {
     return (
       <>
-        <Overview connected={live.connected} activeId={activeId} version={live.version} onOpen={(id) => navigate(workspacePath(id))} />
-        {live.error && (
-          <div className={toast} role="alert" onClick={live.clearError}>
-            {live.error}
-          </div>
-        )}
+        <OverviewRoute activeId={activeId} connected={connected} />
+        <ErrorToast />
       </>
     );
   }
-  if (!live.doc || activeId !== routeId) {
+  if (!activeId || activeId !== routeId) {
     return (
       <div className={boot}>
         <img className="inline-block size-14 flex-none" src="/icon.svg" alt="" />
-        <p>{live.connected ? "Abrindo workspace…" : "Conectando ao servidor Paprika…"}</p>
+        <p>{connected ? "Abrindo workspace…" : "Conectando ao servidor Paprika…"}</p>
       </div>
     );
   }
   // key: another workspace starts with a clean selection, page and tool.
-  return <Editor key={activeId} live={live} />;
+  return <Editor key={activeId} />;
 }
 
-function Editor({ live }: { live: LiveDocument }) {
-  const { doc } = live;
+/** The overview refreshes on every committed version, so the version is read here, not in App. */
+function OverviewRoute({ activeId, connected }: { activeId: string | null; connected: boolean }) {
+  const version = useLive((s) => s.version);
+  return <Overview connected={connected} activeId={activeId} version={version} onOpen={(id) => navigate(workspacePath(id))} />;
+}
+
+function ErrorToast() {
+  const error = useLive((s) => s.error);
+  const { clearError } = useLiveActions();
+  if (!error) return null;
+  return (
+    <div className={toast} role="alert" onClick={clearError}>
+      {error}
+    </div>
+  );
+}
+
+/** The team panel is the other reader of agent presence (besides the cursors on the canvas). */
+function LiveTeamPanel(props: Omit<Parameters<typeof TeamPanel>[0], "agents">) {
+  const agents = useLive((s) => s.agents);
+  return <TeamPanel {...props} agents={agents} />;
+}
+
+function Editor() {
+  const doc = useLive((s) => s.doc);
+  const connected = useLive((s) => s.connected);
+  const version = useLive((s) => s.version);
+  const canUndo = useLive((s) => s.canUndo);
+  const canRedo = useLive((s) => s.canRedo);
+  const activity = useLive((s) => s.activity);
+  const agentTouched = useLive((s) => s.agentTouched);
+  const team = useLive((s) => s.team);
+  const actions = useLiveActions();
+  const live = { ...actions, connected, version, canUndo, canRedo, activity, agentTouched, team };
   const [selected, setSelected] = useState<string[]>([]);
   const [tool, setTool] = useState<Tool>("select");
   const [pageChoice, setPageChoice] = useState<string | null>(null);
@@ -364,15 +396,10 @@ function Editor({ live }: { live: LiveDocument }) {
           onToolDone={() => setTool("select")}
           apply={live.apply}
           agentTouched={live.agentTouched}
-          agents={live.agents}
           onOpenPage={openPage}
           onError={live.showError}
         />
-        {live.error && (
-          <div className={toast} role="alert" onClick={live.clearError}>
-            {live.error}
-          </div>
-        )}
+        <ErrorToast />
       </main>
       <PanelResizer side="right" label="Largura do painel de propriedades" width={rightWidth} limits={RIGHT_PANEL} onChange={setRightWidth} />
       <aside aria-label="Propriedades" className="right overflow-auto border-l border-line bg-panel [grid-area:right] max-wide:border-t max-wide:border-l-0">
@@ -406,9 +433,8 @@ function Editor({ live }: { live: LiveDocument }) {
         )}
         <div id="right-tabpanel" role={live.team !== undefined ? "tabpanel" : undefined} aria-labelledby={live.team !== undefined ? `right-tab-${rightTab}` : undefined}>
         {live.team !== undefined && rightTab === "team" ? (
-          <TeamPanel
+          <LiveTeamPanel
             status={live.team}
-            agents={live.agents}
             docId={doc.id}
             onInvite={() => setTeamDialog("invite")}
             onJoin={() => setTeamDialog("join")}
