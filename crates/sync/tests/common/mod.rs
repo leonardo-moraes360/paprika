@@ -14,6 +14,7 @@ pub async fn start(dir: &std::path::Path, name: &str) -> (Node, mpsc::UnboundedR
     )
 }
 
+#[allow(dead_code)]
 pub async fn start_with(
     dir: &std::path::Path,
     name: &str,
@@ -43,6 +44,7 @@ pub async fn wait_for(
     .expect("timed out waiting for event")
 }
 
+#[allow(dead_code)]
 pub async fn connect_peers(a: &Node, b: &Node) {
     b.command(&json!({"t": "peer.add", "addr": a.addr()}))
         .await
