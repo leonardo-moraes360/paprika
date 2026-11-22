@@ -133,6 +133,54 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
   });
 
   /**
+   * The agent roster of PAP-B-034: the pills moved onto the theme's semantic tokens, so the same checks that
+   * covered them before still hold — the pill is reachable and focusable, it names itself, and its text stays
+   * readable on its own background for every agent color.
+   */
+  it("o roster de agentes é focável, tem nome e passa de 4,5:1 (2.4.7, 1.4.3)", async () => {
+    const agents: Client[] = [];
+    for (let i = 0; i < 4; i++) {
+      const c = new Client({ name: `a11y-roster-${i}`, version: "0" });
+      await c.connect(new StreamableHTTPClientTransport(new URL(`${external!.url}/mcp`)));
+      await c.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
+      agents.push(c);
+    }
+    const pill = page.getByTestId("agent-focus");
+    // Presence from earlier tests fades out on its own, so the count is a floor, not an exact number.
+    await expect.poll(() => pill.count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(4);
+    const rows = await pill.evaluateAll((els) => {
+      const rgb = (s: string) => (s.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
+      const lum = (c: number[]) => {
+        const [r, g, b] = c.map((v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4));
+        return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+      };
+      const ratio = (el: Element) => {
+        const cs = getComputedStyle(el);
+        const [a, b] = [lum(rgb(cs.color)), lum(rgb(cs.backgroundColor))].sort((x, y) => y - x);
+        return (a! + 0.05) / (b! + 0.05);
+      };
+      return els.map((el) => {
+        el.focus();
+        return {
+          named: (el.getAttribute("title") ?? "").length > 0,
+          focused: document.activeElement === el,
+          ratio: ratio(el),
+          agentColor: getComputedStyle(el).getPropertyValue("--agent").trim(),
+        };
+      });
+    });
+    for (const c of agents) await c.close();
+    expect(rows.length).toBeGreaterThanOrEqual(4);
+    for (const r of rows) {
+      expect(r.named).toBe(true);
+      expect(r.focused).toBe(true);
+      expect(r.ratio).toBeGreaterThanOrEqual(4.5);
+    }
+    // Several agent colors are covered: the pill text does not depend on one lucky pairing.
+    expect(new Set(rows.map((r) => r.agentColor)).size).toBeGreaterThanOrEqual(4);
+  });
+
+  /**
    * The shadcn primitives of PAP-B-030, checked on the internal gallery (`/ui`): keyboard behavior, name
    * and role, contrast in both theme scopes, and the isolation rule of ADR 0003 — the app's base rules
    * still stop at the edge of `.world`.
