@@ -52,7 +52,8 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `set_workspace_cover` | Puts an image on a workspace's overview card: a screenshot of one of its frames (`rootId`), an image (`image`, base64 or data URL) or none (`clear`, back to the first letter) |
 | `undo` / `redo` / `get_history` | History shared with the human; every write tool takes `batch`, so several calls with the same batch become one undo step |
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
-| `render_screenshot` | PNG of a node, a page or the whole canvas |
+| `render_screenshot` | PNG of a node, a page or the whole canvas (headless Chromium) |
+| `export_image` | PNG, JPEG, WebP, AVIF or vector PDF of a node/page/canvas **without Chromium**: rasterizes core `ExportSVG` (layout geometry) in pure Go; PDF draws the same path as vectors |
 | `import_svg` / `import_html` | Turns pasted SVG (paths, shapes, groups, transforms) or HTML with inline styles into editable nodes; what can't be imported comes back in `warnings`. The result includes `ids`, `roots` and `created` in the same shape as `create_nodes`, plus one text line per root |
 | `import_image` | Places a raster image (PNG, JPEG, WebP, AVIF or GIF) as an `image` node sized from the file. `src` is a data URL or a local path under `PAPRIKA_IMPORT_DIRS` (default: the server's working directory). Files over 3500000 bytes are refused. Original bytes are kept, so animated GIF/WebP/AVIF stay animated on the canvas and in HTML exports (`render_screenshot` captures one frame). Returns `ids`, `roots` and `created` in the same shape as `create_nodes`, plus one text line per root |
 | `resize_image` | Resamples an `image` node (or creates one from `src`) to `qhd` 960×540, `hd` 1280×720, `2k` 2560×1440, `4k` 3840×2160, or `{width,height}`. Pure Go (`golang.org/x/image` CatmullRom); no Chromium. `fit`: `contain` (default), `cover`, `fill`. Animated GIF → first frame; animated WebP and AVIF refused. Same format when encodable in pure Go (PNG/JPEG/GIF), else PNG |
@@ -81,4 +82,5 @@ Agent layer:
 ```
 
 Types: `frame` (container with paint and free, row or column layout), `group` (wraps nodes without painting; its box follows the children), `frame` with `component: true` (a component) or `instanceOf` (an instance: its children are generated copies of the component, scaled by `scale`, with `overrides`), `page` (a separate canvas in the file; once a document has pages, every top-level node is a page and the frames live inside them), `rect`, `ellipse`, `text`, `image`, `path` (vector shape from SVG path data: lines, cubic and quadratic bezier curves, arcs; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin`, optional `viewBox` to scale an icon grid).
+`stroke` is `{ color, width, style?, position? }` with `style` `solid`|`dashed`|`dotted` (dash pattern from width; omit = solid) and `position` `inside`|`center`|`outside` (omit = inside for boxes/shapes, center for paths).
 Sizes: a number, `"hug"` (fit content) or `"fill"` (take the parent's space). Details in [docs/architecture.md](architecture.md). Planned work lives in [docs/backlog.md](backlog.md).

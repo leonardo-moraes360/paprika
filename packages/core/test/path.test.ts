@@ -104,6 +104,18 @@ describe("path: nó no documento", () => {
     expect(html).not.toContain("border:");
   });
 
+  it("stroke dashed adds stroke-dasharray from width", () => {
+    const base = createDocument("t", "d");
+    const { doc } = applyOps(base, [
+      {
+        op: "create",
+        node: { type: "path", id: "p", d: "M0 0 L20 0", stroke: { color: "#000", width: 2, style: "dashed" } },
+      },
+    ]);
+    const { html } = renderHTML(doc, { rootId: "p" });
+    expect(html).toContain('stroke-dasharray="6 5"');
+  });
+
   it("d inválido é rejeitado de forma atômica; lint avisa path invisível", () => {
     const base = createDocument("t", "d");
     expect(() =>
