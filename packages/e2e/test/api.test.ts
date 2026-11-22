@@ -40,7 +40,7 @@ describe("API: MCP", () => {
     expect(tools).toEqual(contract.tools);
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
-        "apply_ops", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
+        "apply_ops", "combine_paths", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "get_bounds",
@@ -257,6 +257,17 @@ describe("API: MCP", () => {
     `);
     expect(textOf(await call(c, "group_nodes", { ids: ["g", "f"] }))).toMatch(/same parent/);
     expect(JSON.parse(textOf(await call(c, "ungroup_nodes", { ids: ["g"] }))).released).toEqual(["a", "b"]);
+    await call(c, "create_nodes", {
+      parentId: "f",
+      nodes: [
+        { type: "rect", id: "c1", x: 120, y: 20, width: 60, height: 60, fill: "#c43d27" },
+        { type: "rect", id: "c2", x: 150, y: 50, width: 60, height: 60, fill: "#1e2336" },
+      ],
+    });
+    const combined = JSON.parse(textOf(await call(c, "combine_paths", { ids: ["c1", "c2"], operation: "union", id: "cu" })));
+    expect(combined.path).toBe("cu");
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["cu"] })))[0]).toMatchObject({ type: "path", fill: "#c43d27", id: "cu" });
+    expect(textOf(await call(c, "get_nodes", { ids: ["c1"] }))).toMatch(/do not exist/);
     expect(JSON.parse(textOf(await call(c, "create_page", { id: "p2", name: "Variações" }))).page).toBe("p2");
     expect(textOf(await call(c, "create_nodes", { nodes: [{ type: "rect" }] }))).toMatch(/has pages/);
     await call(c, "create_nodes", { parentId: "p2", nodes: [{ type: "rect", id: "r", width: 10, height: 10 }] });
@@ -266,11 +277,12 @@ describe("API: MCP", () => {
         frame#f "Tela" 300×200 @0,0
           rect#a 30×30 @10,20
           rect#b 30×30 @60,40
+          path#cu 90×90 @120,20 fill=#c43d27 d="M0 0 L60 0 L60 30 L90 30 L90 90 L30 90 L30 60..."
       page#p2 "Variações"
         rect#r 10×10 @0,0"
     `);
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
-    expect(hist.map((h: { label: string }) => h.label)).toEqual(["group 2 node(s)", "ungroup 1 group(s)", "create page", "create 1 node(s)"]);
+    expect(hist.map((h: { label: string }) => h.label)).toEqual(["create 2 node(s)", "combine 2 path(s)", "create page", "create 1 node(s)"]);
   });
 
   it("fluxo completo: tokens → criar → lint → corrigir → exportar → desfazer", async () => {
@@ -412,6 +424,19 @@ describe("API: MCP", () => {
     await call(c, "undo");
     await call(c, "undo");
     expect(Object.keys((await srv.doc()).nodes)).toEqual([]);
+    const tri = (await c.callTool({
+      name: "draw_diagram",
+      arguments: {
+        nodes: [{ id: "tip", text: "Go", shape: "triangle" }, { id: "box", text: "Next" }],
+        edges: [{ from: "tip", to: "box" }],
+      },
+    })) as ToolResult & { structuredContent?: { nodes: string[]; edges: string[] } };
+    expect(tri.isError).toBeFalsy();
+    expect(tri.structuredContent?.nodes).toEqual(["tip", "box"]);
+    const after = await srv.doc();
+    expect(after.nodes.tip).toMatchObject({ type: "shape", shape: "triangle" });
+    expect(after.nodes["tip-to-box"]).toMatchObject({ type: "connector", from: { nodeId: "tip" }, to: { nodeId: "box" } });
+    expect((after.nodes["tip-to-box"] as { d: string }).d.startsWith("M")).toBe(true);
   });
 
   it("Z-order numa chamada: update/move com index, um passo de desfazer, frente/fundo no pai (PAP-B-014)", async () => {
@@ -505,7 +530,7 @@ describe("API: MCP", () => {
     expect(out.isError, textOf(out)).toBeFalsy();
     expect(anon(out.content[0]!.text!)).toMatchInlineSnapshot(`"<svg xmlns="http://www.w3.org/2000/svg" width="200" height="64" viewBox="0 0 200 64"><g data-paprika-id="…" transform="translate(0 0)"><rect x="0" y="0" width="200" height="64" fill="#fbf8f4"/><g data-paprika-id="…" transform="translate(12 12)"><rect x="0" y="0" width="40" height="40" rx="8" fill="#c43d27"/></g><g data-paprika-id="…" transform="translate(60 12)"><rect x="1" y="1" width="126" height="38" fill="none" stroke="#1d1a1f" stroke-width="2"/></g></g></svg>"`);
     const icon = await call(c, "export_code", { rootId: svgOut.created[0], format: "svg" });
-    expect(anon(icon.content[0]!.text!)).toMatchInlineSnapshot(`"<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><g data-paprika-id="…" data-name="Ícone" transform="translate(0 0)"><g data-paprika-id="…" transform="translate(0 0)"><svg width="44" height="44" overflow="visible"><path d="M13.56 0.12 L37.19 4.29 C41.54 5.06 44.45 9.21 43.68 13.56 L39.52 37.19 C38.75 41.54 34.6 44.45 30.25 43.68 L6.61 39.52 C2.26 38.75 -0.64 34.6 0.12 30.25 L4.29 6.61 C5.06 2.26 9.21 -0.64 13.56 0.12 Z" fill="#c43d27" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round"/></svg></g><g data-paprika-id="…" transform="translate(13.89 13.89)"><svg width="17" height="17" overflow="visible"><path d="M15.88 9.39 C15.11 13.74 10.96 16.65 6.61 15.88 C2.26 15.11 -0.64 10.96 0.12 6.61 C0.89 2.26 5.04 -0.64 9.39 0.12 C13.74 0.89 16.65 5.04 15.88 9.39 Z" fill="#fff" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round"/></svg></g></g></svg>"`);
+    expect(anon(icon.content[0]!.text!)).toMatchInlineSnapshot(`"<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><g data-paprika-id="…" data-name="Ícone" transform="translate(0 0)"><g data-paprika-id="…" transform="translate(0 0)"><svg width="44" height="44" overflow="visible"><path d="M13.56 0.12 L37.19 4.29 C41.54 5.06 44.45 9.21 43.68 13.56 L39.52 37.19 C38.75 41.54 34.6 44.45 30.25 43.68 L6.61 39.52 C2.26 38.75 -0.64 34.6 0.12 30.25 L4.29 6.61 C5.06 2.26 9.21 -0.64 13.56 0.12 Z" fill="#c43d27" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round"/></svg></g><g data-paprika-id="…" transform="translate(13.9 13.9)"><svg width="17" height="17" overflow="visible"><path d="M15.88 9.39 C15.11 13.74 10.96 16.65 6.61 15.88 C2.26 15.11 -0.64 10.96 0.12 6.61 C0.89 2.26 5.04 -0.64 9.39 0.12 C13.74 0.89 16.65 5.04 15.88 9.39 Z" fill="#fff" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round"/></svg></g></g></svg>"`);
     const bad = await call(c, "import_html", { html: "<!-- nada -->" });
     expect(bad.isError).toBe(true);
     expect(textOf(bad)).toBe("the HTML has no elements to import");

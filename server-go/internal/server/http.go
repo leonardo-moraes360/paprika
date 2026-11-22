@@ -529,11 +529,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(c.Writer, 405, errBody("método não permitido"), "")
 			return
 		}
-		if opts.Shot == nil {
-			send(c.Writer, 500, errBody("export SVG indisponível neste servidor"), "")
-			return
-		}
-		res, err := opts.Shot.ExportSVG(c.Request.Context(), store.Doc(), c.Query("root"))
+		res, err := core.ExportSVG(store.Doc(), c.Query("root"), nil)
 		if err != nil {
 			logf("erro HTTP: " + err.Error())
 			send(c.Writer, 500, errBody(err.Error()), "")

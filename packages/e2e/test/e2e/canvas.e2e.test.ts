@@ -85,6 +85,38 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     if (shots) await page.screenshot({ path: join(shots, "02-agente-editou.png") });
   });
 
+  it("atividade: escrita MCP mostra o nome do agente e undo move o marcador", async () => {
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    const section = page.getByTestId("inspector-section-activity");
+    const trigger = section.getByRole("button", { name: "Atividade" });
+    if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        nodes: [{ type: "rect", id: "act025", x: 20, y: 20, width: 12, height: 12, fill: "#3b82f6" }],
+        label: "retângulo atividade",
+      },
+    });
+    const list = page.getByTestId("activity-list");
+    const row = list.getByTestId("activity-row").filter({ hasText: "e2e-agent" }).first();
+    await expect.poll(() => row.innerText()).toMatch(/retângulo atividade/);
+    const marker = list.getByTestId("activity-marker");
+    const indexOf = (el: Element) => [...el.parentElement!.children].indexOf(el);
+    const before = await marker.evaluate(indexOf);
+    expect(before).toBe(0);
+    await page.getByRole("button", { name: "Desfazer" }).click();
+    await expect.poll(() => marker.evaluate(indexOf)).toBeGreaterThan(before);
+    await expect.poll(() => list.getByTestId("activity-row").first().innerText()).toMatch(/desfazer:/);
+    // Leave the agent creating inside "plano" so the next presence test still sees "criando".
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId: "plano",
+        nodes: [{ type: "rect", id: "act025-keep", x: 0, y: 0, width: 4, height: 4 }],
+      },
+    });
+  });
+
   it("presença: cada agente tem cursor, seleção e cor próprios; o cursor desliza até os nós em que ele age", async () => {
     // The previous test left the agent's cursor on the new footer, inside "plano".
     const cursor = page.locator('[data-testid="agent-cursor"]');
@@ -206,6 +238,50 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(1);
     await expect.poll(() => opacity.inputValue()).toBe("1");
     await expect.poll(() => page.getByRole("status").filter({ hasText: "Use um número entre 0 e 1." }).count()).toBeGreaterThan(0);
+  });
+
+  it("inspector: color picker grava $token, hex, rgba e devolve o foco no Esc", async () => {
+    await page.locator('[data-layer-id="plano"]').click();
+    const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
+    if ((await appearance.getAttribute("aria-expanded")) !== "true") await appearance.click();
+
+    const fillTrigger = page.getByTestId("color-picker-trigger").first();
+    await fillTrigger.click();
+    const picker = page.getByTestId("color-picker");
+    await expect.poll(() => picker.count()).toBe(1);
+
+    await page.getByTestId("color-token-brand").click();
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill).toBe("$brand");
+    await expect.poll(() => page.getByLabel("Preenchimento", { exact: true }).inputValue()).toBe("$brand");
+
+    const hex = page.getByTestId("color-hex");
+    await hex.click({ clickCount: 3 });
+    await hex.fill("#112233");
+    await hex.press("Enter");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill).toBe("#112233");
+
+    await page.getByTestId("color-alpha").focus();
+    for (let i = 0; i < 30; i++) await page.keyboard.press("ArrowLeft");
+    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "")).toMatch(/^rgba\(/);
+
+    await page.keyboard.press("Escape");
+    await expect.poll(() => picker.count()).toBe(0);
+    await expect.poll(() =>
+      page.evaluate(() => {
+        const el = document.activeElement;
+        return el?.getAttribute("data-testid") ?? el?.getAttribute("aria-label") ?? el?.tagName ?? "";
+      }),
+    ).toMatch(/color-picker-trigger|Preenchimento \(seletor\)/i);
+
+    await fillTrigger.focus();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => picker.count()).toBe(1);
+    await page.getByTestId("color-sv").focus();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowUp");
+    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "").length).toBeGreaterThan(0);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => picker.count()).toBe(0);
   });
 
   it("ferramenta de retângulo desenha dentro do frame sob o cursor", async () => {
@@ -515,7 +591,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => ((await doc()).nodes[inst] as { instanceOf?: string }).instanceOf).toBeUndefined();
     expect(((await doc()).nodes[pro] as { text: string; sourceId?: string })).toMatchObject({ text: "Equipe" });
   });
-  it("colar SVG e HTML vira nós; o botão exporta SVG medido no navegador", async () => {
+  it("colar SVG e HTML vira nós; o botão exporta SVG via layout do core", async () => {
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Selecionar" }).click();
     const paste = (type: string, data: string) =>
@@ -1045,6 +1121,21 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await shapes()).find((n) => n.id !== first), POLL).toMatchObject({ shape: "diamond", text: "Ok?" });
     const second = (await shapes()).find((n) => n.id !== first)!.id;
     await expect.poll(() => page.locator(`[data-paprika-id="${second}"]`).innerText(), POLL).toBe("Ok?");
+
+    // Triângulo pelo atalho G; o seletor do inspector troca o contorno.
+    await page.keyboard.press("g");
+    await page.mouse.click(vp.x + 200, vp.y + 420);
+    await expect.poll(async () => (await shapes()).length, POLL).toBe(3);
+    await page.getByTestId("shape-text-editor").waitFor();
+    await page.keyboard.type("Go");
+    await page.keyboard.press("Escape");
+    const third = (await shapes()).find((n) => n.id !== first && n.id !== second)!.id;
+    await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle", text: "Go", width: 160, height: 140 });
+    await page.locator(`[data-paprika-id="${third}"]`).click();
+    await page.getByTestId("shape-kind").selectOption("diamond");
+    await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "diamond" });
+    await page.getByTestId("shape-kind").selectOption("triangle");
+    await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle" });
 
     // Seta: arrastar de uma forma até a outra; as duas pontas ficam presas.
     const box = async (id: string) => (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;

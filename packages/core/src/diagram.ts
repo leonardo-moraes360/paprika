@@ -57,6 +57,8 @@ export function shapeOutline(n: Pick<ShapeNode, "shape" | "width" | "height" | "
     }
     case "diamond":
       return { d: `M${pt({ x: w / 2, y: i })} L${pt({ x: w - i, y: h / 2 })} L${pt({ x: w / 2, y: h - i })} L${pt({ x: i, y: h / 2 })} Z` };
+    case "triangle":
+      return { d: `M${pt({ x: w / 2, y: i })} L${pt({ x: w - i, y: h - i })} L${pt({ x: i, y: h - i })} Z` };
     case "note": {
       const f = foldSize(w, h);
       return {
@@ -90,6 +92,7 @@ export function shapeOutline(n: Pick<ShapeNode, "shape" | "width" | "height" | "
 /** Recuo do texto dentro da forma: [vertical, horizontal] em px (losango e elipse guardam o miolo). */
 export function shapePadding(n: Pick<ShapeNode, "shape" | "width" | "height">): [number, number] {
   if (n.shape === "diamond") return [Math.max(8, n.height / 4), Math.max(8, n.width / 4)];
+  if (n.shape === "triangle") return [Math.max(8, n.height / 3), Math.max(8, n.width / 4)];
   if (n.shape === "ellipse") return [Math.max(8, n.height * 0.15), Math.max(8, n.width * 0.15)];
   return [12, 12];
 }
@@ -125,7 +128,7 @@ function canvasBox(doc: Document, n: Exclude<Node, { type: "page" }>): Box {
 interface End {
   /** Caixa do nó (ponta presa) ou null (ponta solta em `p`). */
   box: Box | null;
-  outline: "rect" | "ellipse" | "diamond";
+  outline: "rect" | "ellipse" | "diamond" | "triangle";
   side: Side | null;
   p: Pt;
 }
@@ -139,7 +142,12 @@ function resolveEnd(doc: Document, c: ConnectorNode, key: "from" | "to", origin:
     if (n.type === "page" || n.type === "connector")
       throw new ConnectorError(`connector "${c.id}": ${key}.nodeId "${e.nodeId}" is a ${n.type}; attach to a shape or another node on the canvas`);
     const box = canvasBox(doc, n);
-    const outline = n.type === "ellipse" ? "ellipse" : n.type === "shape" && (n.shape === "ellipse" || n.shape === "diamond") ? n.shape : "rect";
+    const outline =
+      n.type === "ellipse"
+        ? "ellipse"
+        : n.type === "shape" && (n.shape === "ellipse" || n.shape === "diamond" || n.shape === "triangle")
+          ? n.shape
+          : "rect";
     const side = e.side && e.side !== "auto" ? e.side : null;
     return { box, outline, side, p: { x: box.x + box.w / 2, y: box.y + box.h / 2 } };
   }
@@ -173,12 +181,35 @@ function clipToOutline(e: End, toward: Pt): Pt {
   let t: number;
   if (e.outline === "ellipse") t = 1 / Math.sqrt((dx / hw) * (dx / hw) + (dy / hh) * (dy / hh));
   else if (e.outline === "diamond") t = 1 / (Math.abs(dx) / hw + Math.abs(dy) / hh);
+  else if (e.outline === "triangle") t = clipRayToTriangle(hw, hh, dx, dy);
   else {
     const tx = dx === 0 ? Infinity : hw / Math.abs(dx);
     const ty = dy === 0 ? Infinity : hh / Math.abs(dy);
     t = Math.min(tx, ty);
   }
   return { x: c.x + dx * t, y: c.y + dy * t };
+}
+
+/** Interseção do raio do centro na direção (dx,dy) com o triângulo isósceles da caixa (topo / BL / BR). */
+function clipRayToTriangle(hw: number, hh: number, dx: number, dy: number): number {
+  const verts: Pt[] = [
+    { x: 0, y: -hh },
+    { x: hw, y: hh },
+    { x: -hw, y: hh },
+  ];
+  let best = Infinity;
+  for (let k = 0; k < 3; k++) {
+    const a = verts[k]!;
+    const b = verts[(k + 1) % 3]!;
+    const ex = b.x - a.x;
+    const ey = b.y - a.y;
+    const det = dx * ey - dy * ex;
+    if (Math.abs(det) < 1e-12) continue;
+    const t = (a.x * ey - a.y * ex) / det;
+    const s = (a.x * dy - a.y * dx) / det;
+    if (t > 1e-12 && s >= -1e-9 && s <= 1 + 1e-9) best = Math.min(best, t);
+  }
+  return best === Infinity ? 1 : best;
 }
 
 const DIR: Record<Side, Pt> = { top: { x: 0, y: -1 }, right: { x: 1, y: 0 }, bottom: { x: 0, y: 1 }, left: { x: -1, y: 0 } };

@@ -9,8 +9,8 @@ import (
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 )
 
-// Port of packages/core/src/svgExport.ts: a node, a page or the canvas as vector SVG. Automatic
-// layout is measured by a browser (contract/measure.js over the HTML of RenderHTML).
+// Port of packages/core/src/svgExport.ts: a node, a page or the canvas as vector SVG. Boxes come
+// from Layout when measure is nil; an explicit measure overrides boxes and text lines (goldens).
 
 // MeasureLine is one laid-out text line, relative to the node box (baseline y).
 type MeasureLine struct {
@@ -19,10 +19,57 @@ type MeasureLine struct {
 	Y float64 `json:"y"`
 }
 
-// Measure holds the browser-measured boxes ([x, y, w, h] before rotation) and text lines.
+// Measure holds boxes ([x, y, w, h] before rotation, relative to the export origin) and text lines.
 type Measure struct {
 	Boxes map[string][4]float64    `json:"boxes"`
 	Lines map[string][]MeasureLine `json:"lines,omitempty"`
+}
+
+// MeasureFromLayout remaps Layout boxes so the export origin is (0, 0).
+func MeasureFromLayout(doc *Document, rootID string) (Measure, error) {
+	opts := LayoutOptions{}
+	if rootID != "" {
+		opts.RootID = rootID
+	}
+	laid, err := Layout(doc, opts)
+	if err != nil {
+		return Measure{}, err
+	}
+	var node *Node
+	if rootID != "" {
+		node = GetNode(doc, rootID)
+		if node == nil {
+			return Measure{}, fmt.Errorf(`node "%s" does not exist`, rootID)
+		}
+	}
+	var page, single *Node
+	if node != nil {
+		if node.Str("type") == "page" {
+			page = node
+		} else {
+			single = node
+		}
+	} else {
+		page = FirstPage(doc)
+	}
+	ox, oy := 0.0, 0.0
+	if single != nil {
+		if b, ok := laid[single.Str("id")]; ok {
+			ox, oy = b.X, b.Y
+		}
+	} else {
+		pageID := ""
+		if page != nil {
+			pageID = page.Str("id")
+		}
+		cb := CanvasBounds(doc, pageID)
+		ox, oy = cb.X, cb.Y
+	}
+	boxes := map[string][4]float64{}
+	for id, b := range laid {
+		boxes[id] = [4]float64{b.X - ox, b.Y - oy, b.Width, b.Height}
+	}
+	return Measure{Boxes: boxes}, nil
 }
 
 // SVGResult is the exported SVG and its size.
@@ -50,7 +97,7 @@ func svgPaint(doc *Document, n *Node, k string, warn func(string)) (string, bool
 	return s, true
 }
 
-// ExportSVG renders rootID ("" = the canvas of the first page) as SVG; measure may be nil.
+// ExportSVG renders rootID ("" = the canvas of the first page) as SVG; nil measure uses Layout.
 func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error) {
 	warnings, warn := newWarner()
 	f := r2
@@ -84,36 +131,27 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		b := CanvasBounds(doc, pageID)
 		cb = &b
 	}
+	if measure == nil {
+		m, err := MeasureFromLayout(doc, rootID)
+		if err != nil {
+			return SVGResult{}, err
+		}
+		measure = &m
+	}
 	measured := map[string][4]float64{}
-	if measure != nil && measure.Boxes != nil {
+	if measure.Boxes != nil {
 		measured = measure.Boxes
 	}
 	boxes := map[string]box{}
 
-	boxOf := func(n *Node, parent box, inFlow, root bool) (*box, error) {
+	boxOf := func(n *Node, _parent box, _, _root bool) (*box, error) {
+		if n.Str("type") == "page" {
+			return nil, nil
+		}
 		if m, ok := measured[n.Str("id")]; ok {
 			return &m, nil
 		}
-		if measure != nil || n.Str("type") == "page" {
-			return nil, nil
-		}
-		w, wok := n.Get("width")
-		h, hok := n.Get("height")
-		wf, wnum := w.(float64)
-		hf, hnum := h.(float64)
-		if inFlow || !wok || !hok || !wnum || !hnum {
-			return nil, fmt.Errorf(`"%s" depends on auto layout (row/column, hug or fill); export through the server (export_code with format "svg"), which measures the layout in a browser`, n.Str("id"))
-		}
-		if single != nil && root {
-			return &box{0, 0, wf, hf}, nil
-		}
-		var x, y float64
-		if root && cb != nil {
-			x, y = n.Num("x")-cb.X, n.Num("y")-cb.Y
-		} else {
-			x, y = parent[0]+n.Num("x"), parent[1]+n.Num("y")
-		}
-		return &box{x, y, wf, hf}, nil
+		return nil, nil
 	}
 
 	var emit func(n *Node, parent box, root bool) (string, error)

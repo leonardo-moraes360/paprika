@@ -575,6 +575,24 @@ func subtreeIds(doc *Document, rootID string) map[string]bool {
 	return out
 }
 
+func pageIdOf(doc *Document, id string) string {
+	cur := GetNode(doc, id)
+	for cur != nil {
+		if cur.Str("type") == "page" {
+			return cur.Str("id")
+		}
+		pid := cur.Str("parentId")
+		if pid == "" {
+			break
+		}
+		cur = GetNode(doc, pid)
+	}
+	if p := FirstPage(doc); p != nil {
+		return p.Str("id")
+	}
+	return ""
+}
+
 // LayoutOptions filters the result of Layout.
 type LayoutOptions struct {
 	RootID string
@@ -591,6 +609,8 @@ func Layout(doc *Document, opts LayoutOptions) (map[string]LayoutBox, error) {
 	if opts.RootID != "" {
 		if n := GetNode(doc, opts.RootID); n != nil && n.Str("type") == "page" {
 			pageID = opts.RootID
+		} else {
+			pageID = pageIdOf(doc, opts.RootID)
 		}
 	}
 	if pageID == "" {

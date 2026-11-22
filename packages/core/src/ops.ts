@@ -18,6 +18,7 @@ import {
 import { newId } from "./id.js";
 import { normalizePath as shiftPathToOrigin, parsePath, pathBounds, serializePath } from "./path.js";
 import { addPageOps, groupOps, ungroupOps } from "./structure.js";
+import { combinePathsOps } from "./boolean.js";
 import { round4 } from "./num.js";
 import { ConnectorError, connectorsAttachedTo, routeConnectors, shapeDefaults } from "./diagram.js";
 import {
@@ -132,6 +133,15 @@ export const AddPageOp = z.object({
 /** Desanexa instâncias: viram frames comuns com cópias normais (expandida em updates). */
 export const DetachOp = z.object({ op: z.literal("detach"), ids: z.array(z.string()).min(1).max(500) });
 
+/** Combina path/rect/ellipse/shape numa path via união, subtração, interseção ou exclusão. */
+export const CombinePathsOp = z.object({
+  op: z.literal("combine_paths"),
+  ids: z.array(z.string()).min(2).max(500),
+  operation: z.enum(["union", "subtract", "intersect", "exclude"]),
+  id: z.string().optional(),
+  name: z.string().max(200).optional(),
+});
+
 /** Operação interna usada como inversa de `delete` (desfazer). */
 export const RestoreOp = z.object({
   op: z.literal("restore"),
@@ -153,6 +163,7 @@ export const Op = z.discriminatedUnion("op", [
   UngroupOp,
   AddPageOp,
   DetachOp,
+  CombinePathsOp,
 ]);
 
 export type Op = z.input<typeof Op>;
@@ -355,7 +366,7 @@ function createNode(
   // Campos ausentes de uma forma nova ganham o padrão do tipo (a nota adesiva: amarela, sem borda, com sombra).
   if (input.type === "shape") {
     const kind = typeof props.shape === "string" ? props.shape : "rect";
-    if (kind === "rect" || kind === "ellipse" || kind === "diamond" || kind === "note") {
+    if (kind === "rect" || kind === "ellipse" || kind === "diamond" || kind === "triangle" || kind === "note") {
       for (const [k, v] of Object.entries(shapeDefaults(kind))) if (props[k] === undefined) props[k] = v;
     }
   }
@@ -490,7 +501,8 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
     case "group":
     case "ungroup":
     case "add_page":
-    case "detach": {
+    case "detach":
+    case "combine_paths": {
       // Expandidas contra o documento *atual* (não o que o cliente via), dentro da mesma transação.
       let plan: Op[];
       try {
@@ -501,7 +513,9 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
               ? ungroupOps(doc, op.ids).ops
               : op.op === "detach"
                 ? (syncInstances(doc), detachOps(doc, op.ids))
-                : addPageOps(doc, op).ops;
+                : op.op === "combine_paths"
+                  ? combinePathsOps(doc, op.ids, { operation: op.operation, id: op.id, name: op.name }).ops
+                  : addPageOps(doc, op).ops;
       } catch (e) {
         throw e instanceof OpError ? e : new OpError((e as Error).message, i);
       }
