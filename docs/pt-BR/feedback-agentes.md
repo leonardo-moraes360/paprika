@@ -396,7 +396,16 @@ adicionar `card.tsx`. Seis frames em `docs/assets/boards/PAP-B-031/`; o export d
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 101 | Reaproveitar um desenho sem redesenhar | Os PNGs e os nós em `boards.paprika.json` já vinham de uma sessão anterior; o ticket só copiou os shots e aplicou o markup | Nada novo — o padrão de board no repositório (item 97) funcionou aqui | — |
+| 105 | Reaproveitar um desenho sem redesenhar | Os PNGs e os nós em `boards.paprika.json` já vinham de uma sessão anterior; o ticket só copiou os shots e aplicou o markup | Nada novo — o padrão de board no repositório (item 97) funcionou aqui | — |
 
 - O `ConfirmDialog` já estava em `AlertDialog` com `variant: "destructive"` na ação de confirmar (PAP-B-026); a visão geral só consome.
 - Os cards de workspace mantêm `outline` em vez de `border` para a capa não comer a borda ativa; o `Card` vem com `border-ui-border`, mas a visão geral sobrescreve com `border-0` e as classes de outline que já existiam.
+
+## 2026-11-22: inspector compacto (PAP-B-022, design parcial)
+
+Tarefa: redesenhar o inspector de cena em seções recolhíveis antes de implementar `apps/web/src/inspector/**`. Dois frames de design (`PAP-B-022 texto escuro` / `claro`) já estão em `docs/design/boards.paprika.json`; o redraw completo no MCP em `:4777` foi pulado com o servidor compartilhado lento, e os PNGs antes/depois em `docs/assets/boards/PAP-B-022/` carregam o caso de medição.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 106 | Altura do inspector que prova o layout compacto | O `aside.right.scrollHeight` ficou em 856 px antes e depois porque a área do grid força um container alto; a altura de `#right-tabpanel` caiu de 759 para 303 px (~60%) com o nó de texto do demo em 1440×900 (`packages/e2e/b022-measure.mjs`) | Usar `panel` / `panelScroll` no script de medição (e nas notas de aceite), não só `aside.scrollHeight` | P3 |
+| 107 | Boards no servidor MCP compartilhado | O `:4777` respondeu devagar durante o ticket, então só os frames de design existentes mais screenshots da runtime foram commitados; nenhum frame novo de altura fixa foi desenhado no MCP nesta passagem | Igual ao #97: um documento de boards no git que os agentes possam `load` sem depender do volume montado na porta do mantenedor | P2 |
