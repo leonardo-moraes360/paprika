@@ -144,6 +144,42 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     expect(await diffRatio(page, before, await shot())).toBeGreaterThan(0.05);
   });
 
+  it.each([
+    ["camadas", "Largura do painel de camadas", 1],
+    ["propriedades", "Largura do painel de propriedades", -1],
+  ] as const)("redimensionar o painel de %s não pisca a camada WASM", async (_name, label, dir) => {
+    await open("wasm");
+    // A ResizeObserver created after the canvas's runs right after it, still before the frame is
+    // painted: if the layer is blank here, that frame reaches the screen without the shapes.
+    await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="wasm-layer"]')!;
+      const ctx = canvas.getContext("2d")!; // CPU backend: the same 2d context the renderer uses
+      const frames: boolean[] = [];
+      (window as unknown as { __frames: boolean[] }).__frames = frames;
+      new ResizeObserver(() => {
+        const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let painted = false;
+        for (let i = 3; i < px.length; i += 4) if (px[i]) { painted = true; break; }
+        frames.push(painted);
+      }).observe(document.querySelector('[data-testid="viewport"]')!);
+    });
+    const handle = page.getByRole("separator", { name: label });
+    const box = (await handle.boundingBox())!;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + box.width / 2, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) {
+      await page.mouse.move(box.x + box.width / 2 + i * 12 * dir, y);
+      await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
+    }
+    await page.mouse.up();
+    await page.getByRole("separator", { name: label }).dblclick(); // back to the default width
+    const frames = await page.evaluate(() => (window as unknown as { __frames: boolean[] }).__frames);
+    expect(frames.length).toBeGreaterThan(4); // the first call is the observe() itself
+    expect(frames.filter((p) => !p)).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
   it("o botão alterna o renderizador e a escolha fica salva", async () => {
     await open("dom");
     await page.getByTestId("renderer-toggle").click();

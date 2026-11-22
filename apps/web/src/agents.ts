@@ -1,5 +1,7 @@
 /** Presença dos agentes no canvas (mensagens `presence` do servidor). Puro: testável sem DOM. */
 
+import type { Document, PageNode } from "@paprika/core";
+
 export interface PresenceMsg {
   type: "presence";
   agent: string;
@@ -77,3 +79,13 @@ const VERBS: Record<string, string> = {
 
 /** Rótulo curto do que o agente está fazendo. */
 export const toolVerb = (tool: string) => VERBS[tool] ?? tool;
+
+/** Página dos últimos nós do agente (a do primeiro que ainda existe); undefined num documento sem páginas. */
+export function agentPage(doc: Document, nodes: string[]): PageNode | undefined {
+  for (const id of nodes) {
+    let n = doc.nodes[id];
+    while (n?.parentId) n = doc.nodes[n.parentId];
+    if (n?.type === "page") return n;
+  }
+  return undefined;
+}

@@ -1,0 +1,78 @@
+# Agentes e MCP
+
+Como um agente de IA conversa com o Paprika: como conectar, as ferramentas que ele recebe e o formato do arquivo por trás de um design. Voltar ao [README](../../README.pt-BR.md).
+
+English: [../mcp.md](../mcp.md).
+
+## Conectar um agente
+
+**HTTP (recomendado, com o canvas aberto):** suba o Paprika (`docker compose up -d --build`, ou `paprika serve` a partir do código) e aponte o agente para `http://127.0.0.1:4777/mcp`. Com Docker, stdio também funciona: veja [docker.md](docker.md).
+
+Claude Code:
+
+```bash
+claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
+```
+
+**stdio** (agentes que só falam stdio). O processo também sobe o canvas na porta 4777, se estiver livre:
+
+```json
+{
+  "mcpServers": {
+    "paprika": {
+      "command": "<CAMINHO>/paprika/server-go/bin/paprika",
+      "args": ["mcp", "--db", "<CAMINHO>/design.db"]
+    }
+  }
+}
+```
+
+## Ferramentas MCP
+
+| Ferramenta | O que faz |
+|---|---|
+| `get_design_guide` | Modelo de nós, campos e fluxo recomendado; em inglês, ou em português com `language: "pt-BR"` |
+| `get_document_outline` | Árvore compacta + tokens + versão |
+| `get_nodes` / `find_nodes` | JSON completo de nós / busca por tipo, nome, texto |
+| `create_nodes` | Cria árvores aninhadas numa chamada |
+| `draw_diagram` | Desenha um diagrama (fluxograma, arquitetura, mapa mental) a partir de formas e ligações: distribui as formas em camadas (`direction`: para baixo ou para a direita, à direita do conteúdo existente) e liga com setas que seguem as formas |
+| `update_nodes` / `move_nodes` / `delete_nodes` | Edição em lote, atômica |
+| `group_nodes` / `ungroup_nodes` | Põe nós irmãos num `group` (o desenho não se move) / devolve ao pai |
+| `create_page` | Cria uma página; a primeira leva o canvas atual para "Página 1" |
+| `create_component` / `create_instance` / `detach_instance` | Marca um frame como componente / põe uma cópia dele (com `scale` e `overrides`; retorna o id de cada cópia) / transforma uma instância em nós comuns |
+| `apply_ops` | Transação mista (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
+| `set_tokens` | Design tokens (`$nome`) para cores e tamanhos; com `mode`, os valores de um modo de tema (ex.: `dark`) que frames e páginas escolhem com `mode` |
+| `list_workspaces` / `open_workspace` / `create_workspace` | Lista os workspaces (documentos) do servidor / torna um deles o ativo para todas as ferramentas e para o canvas do humano / cria um vazio |
+| `rename_workspace` / `delete_workspace` | Renomeia um workspace (com desfazer quando é o ativo) / exclui um de vez (o ativo passa para o outro atualizado mais recentemente; o único não pode ser excluído) |
+| `set_workspace_cover` | Põe uma imagem no card do workspace na página inicial: o screenshot de um frame dele (`rootId`), uma imagem (`image`, base64 ou data URL) ou nenhuma (`clear`, volta a primeira letra) |
+| `undo` / `redo` / `get_history` | Histórico compartilhado com o humano; toda ferramenta de escrita aceita `batch`, e várias chamadas com o mesmo batch viram um passo só de undo |
+| `lint_design` | Contraste WCAG AA, overflow, tokens inexistentes, texto pequeno, alt |
+| `path_info` | Valida dados de caminho SVG e devolve a caixa exata (com extremos de bezier e arcos) e o `d` normalizado |
+| `render_screenshot` | PNG de um nó, de uma página ou do canvas |
+| `import_svg` / `import_html` | Transforma SVG colado (paths, formas, grupos, transforms) ou HTML com estilos inline em nós editáveis; o que não dá para importar volta em `warnings` |
+| `export_code` | HTML autocontido, componente React (TSX) ou SVG vetorial (layout medido num Chromium headless); `cssVariables: true` escreve os tokens como `var(--nome)`, com uma regra por modo de tema |
+
+Camada de agentes:
+- O guia, as descrições das ferramentas, os erros, os avisos e as mensagens do lint são em inglês (o guia também em português, ver acima).
+- As ferramentas que respondem JSON declaram `outputSchema` e devolvem `structuredContent`; o bloco de texto continua com o mesmo JSON (no `get_nodes` e no `get_history`, o array puro).
+- O histórico identifica o agente pelo `clientInfo.name` do MCP (`agent:claude-code`). No HTTP o servidor é stateless, então o `initialize` devolve um `Mcp-Session-Id` que só guarda esse nome; sem ele, vale o User-Agent, como antes.
+
+## Formato do documento
+
+```jsonc
+{
+  "format": "paprika/1",
+  "name": "Demo",
+  "tokens": { "brand": "#c43d27", "text.md": 16 },
+  "rootIds": ["login"],
+  "nodes": {
+    "login": { "type": "frame", "id": "login", "parentId": null, "width": 390, "height": 760,
+               "layout": { "mode": "column", "gap": 20, "padding": 24 }, "children": ["t1"] },
+    "t1": { "type": "text", "id": "t1", "parentId": "login", "text": "Olá", "color": "$brand",
+            "width": "fill", "height": "hug" }
+  }
+}
+```
+
+Tipos: `frame` (contêiner com pintura e layout livre, linha ou coluna), `group` (agrupa sem pintar; a caixa segue os filhos), `frame` com `component: true` (componente) ou `instanceOf` (instância: os filhos são cópias geradas do componente, escaladas por `scale`, com `overrides`), `page` (canvas separado no arquivo; com páginas, todo nó de topo é página e os frames ficam dentro delas), `rect`, `ellipse`, `text`, `image`, `path` (forma vetorial com dados de caminho SVG: retas, curvas bezier cúbicas e quadráticas, arcos; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin` e `viewBox` opcional para escalar um grid de ícone).
+Tamanhos: número, `"hug"` (conteúdo) ou `"fill"` (ocupa o espaço do pai). Detalhes em [docs/pt-BR/arquitetura.md](arquitetura.md). O trabalho planejado está em [docs/pt-BR/backlog.md](backlog.md).
