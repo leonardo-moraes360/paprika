@@ -338,6 +338,19 @@ capturado antes e depois.
 
 - O `lint_design` apontou o texto destrutivo claro em 4,05:1 já na primeira folha, antes de qualquer linha de código — o mesmo tipo de erro que pegou na folha do PAP-B-030, e os alfas dos tokens são os que são hoje por causa dele.
 
+## 2026-11-22: renomear a única página (PAP-B-020, design first)
+
+Tarefa: desenhar o painel de páginas antes, durante e depois de renomear o placeholder "Página 1" de um workspace
+sem páginas, e ligar o renomear em `apps/web`. Seis frames raiz (três estados, claro e escuro), ~60 nós.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 99 | Uma página para desenhar num documento vazio | O workspace ativo não tinha nós, então a página `Interfaces` não existia e `create_page` teve de ser a primeira chamada; o documento de boards do repositório (`docs/design/boards.paprika.json`) guarda outra página, então não havia o que importar sem que o `--replace` apagasse as folhas que outros tickets desenham em paralelo | Um `create_page` que não faz nada (devolve o id existente) quando já há página com esse nome, para que tickets concorrentes possam "garantir" `Interfaces` sem corrida | P3 |
+| 100 | Screenshot como arquivo | `render_screenshot` devolve o PNG só em base64 dentro do resultado JSON-RPC, então salvar em `docs/assets/boards/` exige um script de decodificação a cada ticket | Um `path` opcional (dentro de um diretório configurado) que grava o arquivo e devolve o local | P3 |
+
+- O `lint_design` apontou a legenda de 11 px (`small-text`) nos seis frames; 12 px resolveu, então as legendas ficam no menor tamanho legível do app.
+- O modo `light` no frame, mais os mesmos tokens `pg.*` sobrescritos em `set_tokens {mode: "light"}`, renderizou os dois temas a partir de um só conjunto de nós, sem editar cor por frame.
+
 ## 2026-11-22: painéis laterais recolhem num botão flutuante (PAP-B-024, design first)
 
 Tarefa: desenhar os painéis recolhidos (só o da esquerda, os dois) ao lado do layout expandido, claro e escuro,
@@ -346,9 +359,9 @@ frames raiz em `Interfaces`, desenhados por um script numa única chamada de `cr
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
-| 99 | Capturas de tela como arquivo | `render_screenshot` só devolve base64 dentro do JSON do resultado, então cada PNG teve que ser decodificado à mão num script antes de entrar em `docs/assets/boards/` | Um argumento opcional `path` (ou um resource link) que grave o PNG onde quem chama disser | P2 |
-| 100 | Um mock em escala menor vira texto minúsculo no lint | As folhas são o layout real a dois terços do tamanho, então todo rótulo tem 8–9px e o `lint_design` devolve um aviso `small-text` por rótulo, o que enterra os achados que importam | Um jeito por frame de dizer "este frame é um mock em escala" (ou um argumento `minFontSize`) para a contagem de avisos continuar significando algo | P3 |
-| 101 | Espaço livre para um frame novo | Nada diz onde o próximo frame de topo cabe sem pisar no de um ticket paralelo: o outline teve que ser varrido atrás de coordenadas e as folhas foram para `x=2000` na mão | `get_document_outline` (ou uma chamada nova) devolvendo a caixa do conteúdo da página, ou `create_nodes` aceitando `place: "free"` | P3 |
-| 102 | Ícones pelo nome | Os botões flutuantes usam `PanelLeftOpen` e `PanelRightOpen` do lucide, e a folha teve que carregar o path deles digitado à mão, que é como um ícone da folha pode divergir do app | O `import_svg` já existe; um jeito de importar um ícone do lucide pelo nome fecharia o ciclo | P3 |
+| 101 | Capturas de tela como arquivo | `render_screenshot` só devolve base64 dentro do JSON do resultado, então cada PNG teve que ser decodificado à mão num script antes de entrar em `docs/assets/boards/` | Um argumento opcional `path` (ou um resource link) que grave o PNG onde quem chama disser | P2 |
+| 102 | Um mock em escala menor vira texto minúsculo no lint | As folhas são o layout real a dois terços do tamanho, então todo rótulo tem 8–9px e o `lint_design` devolve um aviso `small-text` por rótulo, o que enterra os achados que importam | Um jeito por frame de dizer "este frame é um mock em escala" (ou um argumento `minFontSize`) para a contagem de avisos continuar significando algo | P3 |
+| 103 | Espaço livre para um frame novo | Nada diz onde o próximo frame de topo cabe sem pisar no de um ticket paralelo: o outline teve que ser varrido atrás de coordenadas e as folhas foram para `x=2000` na mão | `get_document_outline` (ou uma chamada nova) devolvendo a caixa do conteúdo da página, ou `create_nodes` aceitando `place: "free"` | P3 |
+| 104 | Ícones pelo nome | Os botões flutuantes usam `PanelLeftOpen` e `PanelRightOpen` do lucide, e a folha teve que carregar o path deles digitado à mão, que é como um ícone da folha pode divergir do app | O `import_svg` já existe; um jeito de importar um ícone do lucide pelo nome fecharia o ciclo | P3 |
 
 - O botão do painel direito recolhido cai onde está a lista de agentes (canto superior direito do canvas); a folha mostrou isso antes de qualquer código, e a lista desce para baixo do botão só enquanto aquele painel está recolhido.
