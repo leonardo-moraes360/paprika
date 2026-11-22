@@ -440,6 +440,17 @@ arrastar uma ferramenta de criação, claro e escuro, depois pintá-lo a partir 
 - O workspace ativo já era `Paprika - UI` / página `Interfaces`; sem `open_workspace`.
 - O fantasma é `aria-hidden` e `pointer-events: none` (`data-testid="draft-ghost"`); o fantasma da seta do conector ficou fora do escopo draft-only deste ticket.
 
+## 2026-11-22: forma triângulo (PAP-A-004, design first)
+
+Tarefa: desenhar estados da toolbar / inspector / canvas para o `ShapeKind` `triangle` em `Interfaces` (claro+escuro, altura fixa), depois entregar schema, contorno, conectores, toolbar `G`, seletor do inspector e `draw_diagram`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 110 | Ferramenta da toolbar em `App.tsx` | Os paths do ticket listavam só `Canvas.tsx` para toolbar+atalho, mas `TOOLS[]` e o keydown estão em `App.tsx`; editei esse arquivo para a entrada `G` / Triangle e perguntei ao `agent:leonardo` | Manter o registro da toolbar junto dos botões, ou mover `TOOLS` para `Canvas.tsx` para os paths da raia baterem | P3 |
+| 111 | Gate de `shapeDefaults` em `ops` | `ops.ts` / `ops.go` só aplicam padrões a uma lista fixa de kinds; `triangle` precisou da mesma linha (fora dos `paths` do ticket) | Derivar o gate de `ShapeKind` / `shapeDefaults` para kinds novos não tocarem em `ops` | P3 |
+
+- Seis frames em `docs/assets/boards/PAP-A-004/`; boards reexportados via `GET /api/export` em `docs/design/boards.paprika.json` (sem `open_workspace`).
+- `wasmPaintable` continua falso para nós `shape` (o DOM pinta o contorno do triângulo).
 ## 2026-11-22: color picker customizado (PAP-B-023, design first)
 
 Tarefa: desenhar os estados fechado, aberto e alpha do campo de cor do inspector (claro e escuro) em

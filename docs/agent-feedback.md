@@ -438,6 +438,17 @@ until release. Eight fixed-height frames on `Interfaces` (`docs/assets/boards/PA
 - Active workspace was already `Paprika - UI` / page `Interfaces`; no `open_workspace`.
 - Ghost is `aria-hidden` and `pointer-events: none` (`data-testid="draft-ghost"`); connector arrow ghost left out of this ticket's draft-only scope.
 
+## 2026-11-22: triangle shape (PAP-A-004, design first)
+
+Task: draw toolbar / inspector / canvas states for `ShapeKind` `triangle` on `Interfaces` (light+dark, fixed height), then ship schema, outline, connectors, toolbar `G`, inspector picker and `draw_diagram`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | Toolbar tool lives in `App.tsx` | Ticket paths listed only `Canvas.tsx` for the toolbar+shortcut, but `TOOLS[]` and the keydown handler are in `App.tsx`; edited that file for the `G` / Triangle entry and queried `agent:leonardo` | Keep toolbar registry next to the buttons, or move `TOOLS` into `Canvas.tsx` so lane paths match | P3 |
+| 111 | `shapeDefaults` gate in `ops` | `ops.ts` / `ops.go` only apply defaults for a hard-coded kind list; `triangle` needed the same one-line branch (not in the ticket `paths`) | Drive the gate from `ShapeKind` / `shapeDefaults` so new kinds do not touch `ops` | P3 |
+
+- Six frames at `docs/assets/boards/PAP-A-004/`; boards re-exported via `GET /api/export` into `docs/design/boards.paprika.json` (no `open_workspace`).
+- `wasmPaintable` stays false for `shape` nodes (DOM paints the triangle outline).
 ## 2026-11-22: custom color picker (PAP-B-023, design first)
 
 Task: draw the closed, open and alpha states of the inspector color field (light and dark) on `Interfaces`

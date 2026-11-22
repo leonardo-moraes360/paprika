@@ -203,6 +203,7 @@ export function Inspector(props: Props) {
                 <option value="rect">caixa</option>
                 <option value="ellipse">oval</option>
                 <option value="diamond">losango (decisão)</option>
+                <option value="triangle">triângulo</option>
                 <option value="note">nota adesiva</option>
               </select>
             </label>
