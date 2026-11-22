@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Bot } from "lucide-react";
 import {
   copyOwner,
   groupOps,
@@ -24,6 +25,7 @@ import { ColorField, Field, ModeField, SelectField, num, size } from "./inspecto
 import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import { Hint } from "./components/ui/tooltip";
 import { cn } from "./lib/cn";
 import { ui } from "./ui";
 
@@ -104,18 +106,26 @@ function ArrangeSection({ ids, apply }: { ids: string[]; apply: Props["apply"] }
   return (
     <InspectorSection id="arrange" title="Ordem" defaultOpen>
       <div className={actions} data-testid="arrange-actions">
-        <Button type="button" variant="secondary" size="sm" data-testid="arrange-front" title="Trazer para frente (Ctrl+Page Up)" onClick={() => run("front")}>
-          Trazer para frente
-        </Button>
-        <Button type="button" variant="secondary" size="sm" data-testid="arrange-forward" title="Avançar (Page Up)" onClick={() => run("forward")}>
-          Avançar
-        </Button>
-        <Button type="button" variant="secondary" size="sm" data-testid="arrange-backward" title="Recuar (Page Down)" onClick={() => run("backward")}>
-          Recuar
-        </Button>
-        <Button type="button" variant="secondary" size="sm" data-testid="arrange-back" title="Enviar para fundo (Ctrl+Page Down)" onClick={() => run("back")}>
-          Enviar para fundo
-        </Button>
+        <Hint label="Trazer para frente (Ctrl+Page Up)">
+          <Button type="button" variant="secondary" size="sm" data-testid="arrange-front" onClick={() => run("front")}>
+            Trazer para frente
+          </Button>
+        </Hint>
+        <Hint label="Avançar (Page Up)">
+          <Button type="button" variant="secondary" size="sm" data-testid="arrange-forward" onClick={() => run("forward")}>
+            Avançar
+          </Button>
+        </Hint>
+        <Hint label="Recuar (Page Down)">
+          <Button type="button" variant="secondary" size="sm" data-testid="arrange-backward" onClick={() => run("backward")}>
+            Recuar
+          </Button>
+        </Hint>
+        <Hint label="Enviar para fundo (Ctrl+Page Down)">
+          <Button type="button" variant="secondary" size="sm" data-testid="arrange-back" onClick={() => run("back")}>
+            Enviar para fundo
+          </Button>
+        </Hint>
       </div>
     </InspectorSection>
   );
@@ -129,13 +139,17 @@ export function Inspector(props: Props) {
       <div className={ui.section} data-testid="multi-selection">
         <h2 className={ui.h2}>{selected.length} nós selecionados</h2>
         <div className={actions}>
-          <Button type="button" variant="secondary" size="sm" onClick={a.group} title="Agrupar (Ctrl+G)">
-            Agrupar
-          </Button>
-          {a.canUngroup && (
-            <Button type="button" variant="secondary" size="sm" onClick={a.ungroup} title="Desagrupar (Ctrl+Shift+G)">
-              Desagrupar
+          <Hint label="Agrupar (Ctrl+G)">
+            <Button type="button" variant="secondary" size="sm" onClick={a.group}>
+              Agrupar
             </Button>
+          </Hint>
+          {a.canUngroup && (
+            <Hint label="Desagrupar (Ctrl+Shift+G)">
+              <Button type="button" variant="secondary" size="sm" onClick={a.ungroup}>
+                Desagrupar
+              </Button>
+            </Hint>
           )}
         </div>
         <ArrangeSection ids={selected} apply={apply} />
@@ -590,9 +604,11 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
           {group.width} × {group.height}: a caixa segue os {group.children.length} filho(s). Duplo clique no canvas seleciona um filho.
         </p>
         <div className={actions}>
-          <Button type="button" variant="secondary" size="sm" onClick={a.ungroup} title="Desagrupar (Ctrl+Shift+G)">
-            Desagrupar
-          </Button>
+          <Hint label="Desagrupar (Ctrl+Shift+G)">
+            <Button type="button" variant="secondary" size="sm" onClick={a.ungroup}>
+              Desagrupar
+            </Button>
+          </Hint>
         </div>
       </InspectorSection>
       <ArrangeSection ids={[group.id]} apply={props.apply} />
