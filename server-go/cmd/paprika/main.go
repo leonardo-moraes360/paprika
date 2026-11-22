@@ -29,8 +29,11 @@ Uso:
       MCP via stdio (para agentes que só falam stdio). Sobe o canvas na porta, se livre.
   paprika import ARQUIVO.paprika.json [--db paprika.db] [--replace]
       Importa um documento .paprika.json para o banco (imprime o id).
-  paprika export [--db paprika.db] [--doc ID] [-o ARQUIVO]
+  paprika export [--db paprika.db] [--doc ID] [--root ID] [-o ARQUIVO]
       Exporta o documento como .paprika.json (stdout sem -o), para versionar no git.
+      Com --root, exporta só aquele frame (ou group/page) como documento autônomo: a subtree,
+      os componentes das instâncias, os tokens e modos que eles usam; conectores que apontam
+      para fora são descartados (aviso no stderr). Para abrir em outro servidor: import_document.
   paprika list   [--db paprika.db]
       Lista os documentos do banco.
 
@@ -119,6 +122,7 @@ func run(args []string) error {
 	teamNoRelay := fs.Bool("team-no-relay", false, "")
 	teamBind := fs.String("team-bind", "", "")
 	replace := fs.Bool("replace", false, "")
+	root := fs.String("root", "", "")
 	out := fs.String("o", "", "")
 	fs.StringVar(out, "out", "", "")
 	// Accept flags before and after positionals (`import file --db x` and `import --db x file`).
@@ -177,8 +181,17 @@ func run(args []string) error {
 			}
 			id = docs[0].ID
 		}
-		text, err := server.ExportDocument(conn, id)
-		if err != nil {
+		var text string
+		if *root != "" {
+			var warns []string
+			text, warns, err = server.ExportFrame(conn, id, *root)
+			if err != nil {
+				return err
+			}
+			for _, w := range warns {
+				logf(w)
+			}
+		} else if text, err = server.ExportDocument(conn, id); err != nil {
 			return err
 		}
 		if *out == "" {

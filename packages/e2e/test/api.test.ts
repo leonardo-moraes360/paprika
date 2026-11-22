@@ -2,6 +2,7 @@
 // through MCP (HTTP and stdio), the WebSocket and the HTTP API (see server-go/README.md).
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { request } from "node:http";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -40,7 +41,7 @@ describe("API: MCP", () => {
       [
         "apply_ops", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "find_nodes", "get_design_guide",
-        "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_html", "import_svg",
+        "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_svg",
         "lint_design", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
         "rename_workspace", "render_screenshot", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
       ].sort(),
@@ -581,6 +582,59 @@ describe("API: MCP", () => {
       await stdio.close();
     }
   }, 30_000);
+
+  it("mover um board entre servidores: export --root no A, import_document no B, outline igual (PAP-B-013)", async () => {
+    const c = client;
+    await call(c, "set_tokens", { tokens: { ink: "#111111", paper: "#fbf8f4", accent: "$ink", unused: "#123456" } });
+    await call(c, "create_nodes", { nodes: [
+      { type: "frame", id: "chip", name: "Chip", component: true, x: 500, y: 0, width: 60, height: 60, fill: "$ink", children: [
+        { type: "rect", id: "ck", x: 5, y: 5, width: 20, height: 20 },
+      ] },
+      { type: "rect", id: "fora", x: 900, y: 0, width: 30, height: 30 },
+      { type: "frame", id: "board", name: "Board", x: 0, y: 0, width: 300, height: 200, fill: "$paper", children: [
+        { type: "shape", id: "a", shape: "rect", x: 10, y: 10, width: 80, height: 40, fill: "$accent" },
+        { type: "shape", id: "b", shape: "rect", x: 150, y: 60, width: 80, height: 40, color: "$ink" },
+        { type: "connector", id: "k-in", from: { nodeId: "a" }, to: { nodeId: "b" } },
+        { type: "connector", id: "k-out", from: { nodeId: "a" }, to: { nodeId: "fora" } },
+        { type: "frame", id: "inst", instanceOf: "chip", x: 20, y: 120 },
+      ] },
+    ] });
+    const outlineA = textOf(await call(c, "get_document_outline", {}));
+    // CLI on server A: only the board and what it needs; the dangling arrow is dropped with a warning.
+    const out = join(srv.dir, "board.json");
+    const cli = spawnSync(srv.stdioCommand().command, ["export", "--root", "board", "--db", join(srv.dir, "doc.db"), "-o", out], { encoding: "utf8" });
+    expect(cli.status, cli.stderr).toBe(0);
+    expect(cli.stderr).toContain('conector "k-out"');
+    const exported = JSON.parse(readFileSync(out, "utf8")) as { nodes: Record<string, unknown>; tokens: Record<string, unknown> };
+    expect(exported.nodes.fora).toBeUndefined();
+    expect(exported.tokens).toEqual({ paper: "#fbf8f4", ink: "#111111", accent: "$ink" });
+    // MCP into a second server: a new workspace, the active one untouched, ids kept.
+    const srvB = await startServer();
+    const b = new Client({ name: "parity-b", version: "0" });
+    try {
+      await b.connect(new StreamableHTTPClientTransport(new URL(`${srvB.url}/mcp`)));
+      const before = JSON.parse(textOf(await call(b, "list_workspaces", {})));
+      const r = (await call(b, "import_document", { document: exported })) as ToolResult & { structuredContent?: { workspace: { id: string; name: string; active: boolean; nodes: number }; active: string } };
+      expect(r.isError, textOf(r)).toBeFalsy();
+      const sc = r.structuredContent!;
+      expect(sc.workspace).toMatchObject({ name: "Board", active: false, nodes: Object.keys(exported.nodes).length });
+      expect(sc.active).toBe(before.active);
+      const after = JSON.parse(textOf(await call(b, "list_workspaces", {})));
+      expect(after.active).toBe(before.active); // the human's canvas did not move
+      expect(after.workspaces).toHaveLength(2);
+      expect(textOf(await call(b, "get_document_outline", {}))).not.toContain("board");
+      await call(b, "open_workspace", { id: sc.workspace.id });
+      const tree = (s: string) => s.slice(s.indexOf("\n\n") + 2);
+      const dropped = (s: string) => tree(s).split("\n").filter((l) => !l.includes("#fora") && !l.includes("#k-out")).join("\n");
+      expect(tree(textOf(await call(b, "get_document_outline", {})))).toBe(dropped(outlineA));
+      // Same document again: a copy with a new workspace id, not an error.
+      const again = (await call(b, "import_document", { document: exported })) as ToolResult & { structuredContent?: { workspace: { id: string } } };
+      expect(again.structuredContent!.workspace.id).not.toBe(sc.workspace.id);
+    } finally {
+      await b.close();
+      await srvB.stop();
+    }
+  }, 60_000);
 });
 
 describe("API: HTTP + WebSocket", () => {
