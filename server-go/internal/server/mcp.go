@@ -105,10 +105,9 @@ type MCP struct {
 	shot    Screenshotter
 }
 
-// Screenshotter renders HTML in a browser: PNG screenshots and the measured SVG export.
+// Screenshotter renders HTML in a browser for PNG screenshots.
 type Screenshotter interface {
 	Screenshot(ctx context.Context, doc *core.Document, rootID string, scale float64) (png []byte, width, height int, err error)
-	ExportSVG(ctx context.Context, doc *core.Document, rootID string) (core.SVGResult, error)
 }
 
 func optStr(name string) z.Field { return z.Field{Name: name, Schema: z.Optional(z.String())} }
@@ -885,10 +884,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			}
 			return textResult("<!-- " + sv.FileName + " -->\n" + sv.Source), nil
 		}
-		if m.shot == nil {
-			return nil, errors.New("SVG export unavailable on this server")
-		}
-		r, err := m.shot.ExportSVG(ctx, d, a.Str("rootId"))
+		r, err := core.ExportSVG(d, a.Str("rootId"), nil)
 		if err != nil {
 			return nil, err
 		}

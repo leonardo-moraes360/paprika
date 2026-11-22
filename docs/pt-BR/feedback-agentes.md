@@ -107,7 +107,7 @@ Tarefa: `importSVG`, `importHTML` e `exportSVG` no core (TS e Go), as ferramenta
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
 | 40 | Trazer um ícone de um conjunto SVG | Antes o agente traduzia cada `<rect>`/`<circle>`/arco à mão para `d`; agora o `import_svg` faz isso numa chamada e diz o que ficou de fora em `warnings` | Suportar sprites `<use>`/`<symbol>` e `<text>` (como nós `text`), comuns em ícones e logos | P2 |
-| 41 | Exportar SVG de um nó com auto layout sem navegador | O core não coloca sozinho filhos `hug`/`fill`/row/column, então `exportSVG` sem medida falha apontando para `export_code` | Feito para geometria (2026-11-22, PAP-A-001): `layout(doc)` é a base; ligar ao exportSVG no PAP-A-002 | — |
+| 41 | Exportar SVG de um nó com auto layout sem navegador | O core não coloca sozinho filhos `hug`/`fill`/row/column, então `exportSVG` sem medida falha apontando para `export_code` | Feito (2026-11-22, PAP-A-002): `exportSVG` / `export_code` svg / `GET /api/svg` usam as caixas do `layout(doc)`; o texto quebra em `\n`; gradientes e imagens de fundo ficam de fora | — |
 | 42 | Reaproveitar um componente de uma página web | O `import_html` só lê `style=""` inline; o HTML copiado da maioria dos sites depende de classes, então o resultado sai simples | Uma opção que renderiza o HTML no Chromium do servidor e importa os estilos computados | P2 |
 
 ## 2026-11-21: edição de path ponto a ponto (leva 1 do backlog, item 4)

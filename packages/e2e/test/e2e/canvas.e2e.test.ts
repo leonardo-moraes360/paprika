@@ -591,7 +591,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => ((await doc()).nodes[inst] as { instanceOf?: string }).instanceOf).toBeUndefined();
     expect(((await doc()).nodes[pro] as { text: string; sourceId?: string })).toMatchObject({ text: "Equipe" });
   });
-  it("colar SVG e HTML vira nós; o botão exporta SVG medido no navegador", async () => {
+  it("colar SVG e HTML vira nós; o botão exporta SVG via layout do core", async () => {
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Selecionar" }).click();
     const paste = (type: string, data: string) =>

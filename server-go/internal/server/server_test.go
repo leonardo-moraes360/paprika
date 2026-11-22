@@ -561,7 +561,7 @@ func TestMCPImportExportSVG(t *testing.T) {
 	if out, isErr := callText(t, m, "import_html", obj("html", `<div style="display:flex; gap:8px"><span>Olá</span></div>`, "label", "colar")); isErr || !strings.Contains(out, `"created"`) {
 		t.Fatalf("import_html: %q", out)
 	}
-	if out, isErr := callText(t, m, "export_code", obj("rootId", created, "format", "svg")); !isErr || out != "SVG export unavailable on this server" {
+	if out, isErr := callText(t, m, "export_code", obj("rootId", created, "format", "svg")); isErr || !strings.Contains(out, "<svg xmlns=") || !strings.Contains(out, `data-paprika-id="`+created+`"`) {
 		t.Fatalf("export svg without browser: %q", out)
 	}
 }
