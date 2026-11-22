@@ -1,7 +1,7 @@
 import type { NodeInput, Op } from "./ops.js";
 import { round4 } from "./num.js";
 import { newId } from "./id.js";
-import { copyOwner } from "./component.js";
+import { copyOwner, scaleGeometry } from "./component.js";
 import { firstPage, isContainer, isScene, type Document, type Node as NodeT } from "./schema.js";
 
 /**
@@ -102,33 +102,23 @@ export function addPageOps(
   return { ops, id };
 }
 
-/** `duplicate_nodes`: deslocamento padrão em x e y, em coordenadas do pai. */
 export const DUPLICATE_OFFSET = 40;
 
 export interface DuplicateOptions {
-  /** Distância da cópia em relação ao original (padrão `DUPLICATE_OFFSET`; 0 coloca exatamente em cima). */
   offset?: number;
-  /** Pai das cópias (null = nível do canvas). Padrão: o pai de cada original. */
   parentId?: string | null;
-  /** Multiplica caixas numéricas e o `scale` de instâncias. Texto não reflowa. */
   scale?: number;
-  /** Campos escritos em cada raiz duplicada (`{ mode: "dark" }` para o par claro/escuro). */
   props?: Record<string, unknown>;
 }
 
 export interface DuplicatePlan {
   ops: Op[];
-  /** Id de cada cópia, na ordem dos ids pedidos. */
   copies: string[];
-  /** original → cópia, incluindo os descendentes (conecta quem quiser referenciar depois). */
   map: Record<string, string>;
 }
 
-/** Campos que a cópia não herda: o create define id/pai/filhos, e `sourceId` é gerado pela instância. */
 const DUP_SKIP = new Set(["id", "parentId", "children", "sourceId"]);
-/** Geometria derivada de um conector: o `create` recusa, e as pontas definem tudo. */
 const DUP_CONNECTOR_DERIVED = new Set(["x", "y", "width", "height", "d"]);
-/** Campos que `props` não pode escrever (o create recusaria ou quebraria a árvore). */
 const DUP_PROPS_FORBIDDEN = new Set(["id", "type", "parentId", "children", "sourceId", "instanceOf"]);
 
 function underNode(doc: Document, id: string, ancestor: string): boolean {
@@ -140,21 +130,12 @@ function underNode(doc: Document, id: string, ancestor: string): boolean {
   return false;
 }
 
-/** Os filhos de um nó na árvore (uma instância não desce: suas cópias são geradas). */
 function childNodes(doc: Document, n: NodeT): NodeT[] {
   if (typeof (n as Record<string, unknown>).instanceOf === "string") return [];
   if (!isContainer(n)) return [];
   return (n.children ?? []).map((c) => doc.nodes[c]).filter((c): c is NodeT => !!c && c.type !== "page");
 }
 
-/**
- * Duplica nós com o desenho e o estilo, num só passo de desfazer: cada raiz vira um `create` com a
- * árvore inteira dentro (ids novos), instâncias continuam instâncias do mesmo componente, e os
- * conectores que ligam dois nós duplicados apontam para as cópias — os que saem do conjunto ficam
- * onde estavam. `scale` multiplica as caixas numéricas (hug/fill seguem o fluxo) e o `scale` das
- * instâncias; `props` vale para cada raiz. A seleção que pega um nó e um descendente dele duplica
- * o descendente uma vez só, dentro da cópia do ancestral.
- */
 export function duplicateOps(doc: Document, ids: readonly string[], opts: DuplicateOptions = {}): DuplicatePlan {
   if (!ids.length) throw new Error("pass at least one id to duplicate");
   const unique = [...new Set(ids)];
@@ -177,7 +158,6 @@ export function duplicateOps(doc: Document, ids: readonly string[], opts: Duplic
     if (bad.length) throw new Error(`props cannot set ${bad.join(", ")}: the copy keeps those from its source`);
   }
 
-  // ids novos primeiro: um conector pode apontar para um nó que vem depois na árvore.
   const map = new Map<string, string>();
   for (const id of roots) {
     const src = doc.nodes[id]!;
@@ -190,38 +170,40 @@ export function duplicateOps(doc: Document, ids: readonly string[], opts: Duplic
   }
 
   const num = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
-  const scaled = (v: unknown): unknown => {
-    const n = num(v);
-    return n === undefined ? v : round4(n * scale);
-  };
 
   const build = (src: NodeT, isRoot: boolean): NodeInput => {
+    const rec = src as Record<string, unknown>;
     const input: NodeInput = { type: src.type, id: map.get(src.id)! };
-    // A geometria de um conector é derivada das pontas: levar x/y/width/height/d no create seria
-    // recusado (e é recalculada de qualquer forma).
     const isConnector = src.type === "connector";
-    for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
+    const isInstance = typeof rec.instanceOf === "string";
+    for (const [k, v] of Object.entries(rec)) {
       if (DUP_SKIP.has(k) || (isConnector && DUP_CONNECTOR_DERIVED.has(k))) continue;
       input[k] = v;
     }
+    if (src.type === "group") {
+      delete input.width;
+      delete input.height;
+    }
+    if (!isInstance) scaleGeometry(input, scale, false);
     if (!isConnector) {
-      const rec = src as Record<string, unknown>;
-      input.x = round4((num(rec.x) ?? 0) * scale + (isRoot ? offset : 0));
-      input.y = round4((num(rec.y) ?? 0) * scale + (isRoot ? offset : 0));
-      if ("width" in rec) input.width = scaled(rec.width);
-      if ("height" in rec) input.height = scaled(rec.height);
+      const factor = isRoot ? 1 : scale;
+      input.x = round4((num(rec.x) ?? 0) * factor + (isRoot ? offset : 0));
+      input.y = round4((num(rec.y) ?? 0) * factor + (isRoot ? offset : 0));
     }
     if (isConnector) {
+      const factor = isRoot ? 1 : scale;
+      const shift = isRoot ? offset : 0;
       for (const end of ["from", "to"] as const) {
-        const e = (src as Record<string, unknown>)[end] as Record<string, unknown> | undefined;
-        if (e) input[end] = { ...e, nodeId: map.get(String(e.nodeId)) ?? e.nodeId };
+        const e = rec[end] as Record<string, unknown> | undefined;
+        if (!e) continue;
+        const next: Record<string, unknown> = { ...e };
+        if (typeof e.nodeId === "string") next.nodeId = map.get(e.nodeId) ?? e.nodeId;
+        if (num(e.x) !== undefined) next.x = round4(num(e.x)! * factor + shift);
+        if (num(e.y) !== undefined) next.y = round4(num(e.y)! * factor + shift);
+        input[end] = next;
       }
     }
-    if (typeof (src as Record<string, unknown>).instanceOf === "string") {
-      // A instância escala pelo próprio campo; as cópias internas são geradas por ela. `instanceOf`
-      // fica no componente de origem: duplicar não cria um componente novo.
-      input.scale = round4((num((src as Record<string, unknown>).scale) ?? 1) * scale);
-    }
+    if (isInstance) input.scale = round4((num(rec.scale) ?? 1) * scale);
     const kids = childNodes(doc, src).map((c) => build(c, false));
     if (kids.length) input.children = kids;
     return input;

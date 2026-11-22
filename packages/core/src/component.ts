@@ -95,7 +95,7 @@ export function setOverride(inst: FrameNode, srcId: string, key: string, v: unkn
   else delete inst.overrides;
 }
 
-function scaleGeometry(n: Record<string, unknown>, s: number, withPosition: boolean) {
+export function scaleGeometry(n: Record<string, unknown>, s: number, withPosition: boolean) {
   if (s === 1) return;
   const sc = (v: unknown) => (typeof v === "number" ? round4(v * s) : v);
   if (n.type === "path" && !n.viewBox && typeof n.width === "number" && typeof n.height === "number")

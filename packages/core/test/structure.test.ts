@@ -6,6 +6,7 @@ import {
   canvasBounds,
   createDocument,
   displayList,
+  duplicateOps,
   exportReact,
   groupOps,
   lintDocument,
@@ -18,6 +19,7 @@ import {
   type Box,
   type Document,
   type GroupNode,
+  type Node as NodeT,
 } from "../src/index.js";
 
 function scene(): Document {
@@ -279,5 +281,184 @@ describe("z-order in one call (update/move with index)", () => {
     expect(() => applyOps(scene(), [{ op: "update", id: "a", props: { index: -1 } }])).toThrow(/\(got -1\)/);
     expect(() => applyOps(scene(), [{ op: "update", id: "a", props: { index: 1.5 } }])).toThrow(/^op\[0\]: props\.index/);
     expect(() => applyOps(scene(), [{ op: "move", id: "a", parentId: "f", index: "up" }])).toThrow(/invalid operation/);
+  });
+});
+
+function themedBoard(): Document {
+  return applyOps(createDocument("T", "d"), [
+    { op: "set_tokens", tokens: { bg: "#ffffff", fg: "#1e2336", line: "#c43d27" } },
+    { op: "set_tokens", mode: "dark", tokens: { bg: "#14161f", fg: "#f2f2f2", line: "#ff8a75" } },
+    {
+      op: "create",
+      node: {
+        type: "frame",
+        id: "board",
+        name: "Board",
+        x: 0,
+        y: 0,
+        width: 320,
+        height: 120,
+        fill: "$bg",
+        layout: { mode: "column", gap: 8, padding: 16 },
+        children: [
+          { type: "text", id: "title", text: "Hello", color: "$fg", fontSize: 24, width: "fill", height: "hug" },
+          { type: "rect", id: "bar", width: "fill", height: 4, fill: "$line" },
+        ],
+      },
+    },
+  ]).doc;
+}
+
+function diagramBoard(): Document {
+  return applyOps(createDocument("T", "d"), [
+    {
+      op: "create",
+      node: {
+        type: "frame",
+        id: "flow",
+        x: 100,
+        y: 50,
+        width: 400,
+        height: 200,
+        children: [
+          { type: "shape", id: "a", x: 20, y: 20, width: 80, height: 40, text: "A" },
+          { type: "shape", id: "b", x: 200, y: 120, width: 80, height: 40, text: "B" },
+          { type: "connector", id: "ab", from: { nodeId: "a" }, to: { nodeId: "b" } },
+          { type: "connector", id: "free", from: { nodeId: "a" }, to: { x: 350, y: 20 } },
+        ],
+      },
+    },
+    { op: "create", node: { type: "shape", id: "out", x: 600, y: 50, width: 80, height: 40, text: "Out" } },
+    { op: "create", node: { type: "connector", id: "outer", from: { nodeId: "b" }, to: { nodeId: "out" } } },
+  ]).doc;
+}
+
+describe("duplicate_nodes", () => {
+  it("copies a board with the whole subtree, new ids and the default offset", () => {
+    const doc0 = themedBoard();
+    const plan = duplicateOps(doc0, ["board"]);
+    const { doc } = applyOps(doc0, plan.ops);
+    const copy = doc.nodes[plan.copies[0]!] as NodeT & { children: string[] };
+    expect(plan.copies).toHaveLength(1);
+    expect(copy).toMatchObject({ type: "frame", name: "Board", x: 40, y: 40, width: 320, height: 120, fill: "$bg" });
+    expect(copy.children).toHaveLength(2);
+    expect(copy.children).not.toContain("title");
+    expect(Object.keys(plan.map).sort()).toEqual(["bar", "board", "title"]);
+    expect(doc.nodes[plan.map.title!]).toMatchObject({ text: "Hello", color: "$fg", parentId: copy.id });
+    expect(doc.rootIds).toEqual(["board", copy.id]);
+  });
+
+  it("makes the light/dark pair: mode in props, offset beside the original, lint clean on both", () => {
+    const doc0 = themedBoard();
+    expect(lintDocument(doc0)).toEqual([]);
+    const plan = duplicateOps(doc0, ["board"], { offset: 360, props: { mode: "dark", name: "Board dark" } });
+    const { doc } = applyOps(doc0, plan.ops);
+    const copy = doc.nodes[plan.copies[0]!]!;
+    expect(copy).toMatchObject({ mode: "dark", name: "Board dark", x: 360, y: 360 });
+    expect(lintDocument(doc, { rootId: "board" })).toEqual([]);
+    expect(lintDocument(doc, { rootId: copy.id })).toEqual([]);
+    expect(lintDocument(doc)).toEqual([]);
+  });
+
+  it("is one undo step", () => {
+    const h = new History(themedBoard());
+    const plan = duplicateOps(h.doc, ["board", "board"], { props: { mode: "dark" } });
+    h.apply(plan.ops, { label: "duplicate" });
+    expect(h.doc.rootIds).toHaveLength(2);
+    h.undo();
+    expect(h.doc.rootIds).toEqual(["board"]);
+    expect(Object.keys(h.doc.nodes).sort()).toEqual(["bar", "board", "title"]);
+  });
+
+  it("scale multiplies sizes, text, strokes and layout; root keeps its corner plus the offset", () => {
+    const doc0 = applyOps(themedBoard(), [{ op: "update", id: "board", props: { x: 100, y: 10, radius: 8, stroke: { color: "#000000", width: 2 } } }]).doc;
+    const plan = duplicateOps(doc0, ["board"], { scale: 2, offset: 0 });
+    const { doc } = applyOps(doc0, plan.ops);
+    expect(doc.nodes[plan.copies[0]!]).toMatchObject({
+      x: 100,
+      y: 10,
+      width: 640,
+      height: 240,
+      radius: 16,
+      stroke: { width: 4 },
+      layout: { gap: 16, padding: 32 },
+    });
+    expect(doc.nodes[plan.map.title!]).toMatchObject({ fontSize: 48, width: "fill", height: "hug" });
+    expect(doc.nodes[plan.map.bar!]).toMatchObject({ height: 8, width: "fill" });
+  });
+
+  it("an instance stays an instance of the same component and scale multiplies", () => {
+    const doc0 = applyOps(themedBoard(), [
+      { op: "update", id: "board", props: { component: true } },
+      { op: "create", node: { type: "frame", id: "inst", instanceOf: "board", x: 500, y: 0, scale: 1.5 } },
+    ]).doc;
+    const plan = duplicateOps(doc0, ["inst"], { scale: 2 });
+    const { doc } = applyOps(doc0, plan.ops);
+    const copy = doc.nodes[plan.copies[0]!]!;
+    expect(copy).toMatchObject({ instanceOf: "board", scale: 3, x: 540, y: 40, width: 960 });
+    expect(copy.component).toBeUndefined();
+    expect(Object.keys(plan.map)).toEqual(["inst"]);
+    expect(Object.values(doc.nodes).filter((n) => n.sourceId === "title")).toHaveLength(2);
+  });
+
+  it("re-points connectors between duplicated nodes and leaves the others where they were", () => {
+    const doc0 = diagramBoard();
+    const plan = duplicateOps(doc0, ["flow"], { scale: 2 });
+    const { doc } = applyOps(doc0, plan.ops);
+    const kid = (id: string) => doc.nodes[plan.map[id]!] as NodeT & Record<string, any>;
+    expect(kid("ab").from.nodeId).toBe(plan.map.a);
+    expect(kid("ab").to.nodeId).toBe(plan.map.b);
+    expect(kid("free").to).toEqual({ x: 700, y: 40 });
+    expect(doc.nodes.ab).toMatchObject({ from: { nodeId: "a" }, to: { nodeId: "b" } });
+
+    const alone = duplicateOps(doc0, ["outer"], { offset: 10 });
+    const result = applyOps(doc0, alone.ops).doc;
+    expect(result.nodes[alone.copies[0]!]).toMatchObject({ from: { nodeId: "b" }, to: { nodeId: "out" } });
+
+    const both = duplicateOps(doc0, ["flow", "out", "outer"]);
+    const pair = applyOps(doc0, both.ops).doc;
+    expect(pair.nodes[both.map.outer!]).toMatchObject({ from: { nodeId: both.map.b }, to: { nodeId: both.map.out } });
+  });
+
+  it("a node and its descendant are copied once, inside the ancestor's copy", () => {
+    const doc0 = themedBoard();
+    const plan = duplicateOps(doc0, ["board", "title"]);
+    expect(plan.copies).toHaveLength(1);
+    expect(Object.keys(plan.map).sort()).toEqual(["bar", "board", "title"]);
+  });
+
+  it("duplicates a group without carrying its derived box", () => {
+    const doc0 = applyOps(scene(), [{ op: "group", ids: ["a", "b"], id: "g" }]).doc;
+    const plan = duplicateOps(doc0, ["g"], { scale: 2, offset: 0 });
+    const { doc } = applyOps(doc0, plan.ops);
+    const g = doc.nodes[plan.copies[0]!] as GroupNode;
+    expect(g).toMatchObject({ type: "group", x: 40, y: 20, width: 180, height: 80 });
+    expect(g.children).toHaveLength(2);
+  });
+
+  it("parentId moves the copies to another parent or to the canvas", () => {
+    const doc0 = scene();
+    const out = applyOps(doc0, duplicateOps(doc0, ["a"], { parentId: null, offset: 0 }).ops).doc;
+    expect(out.rootIds).toHaveLength(2);
+    const into = duplicateOps(doc0, ["a"], { parentId: "f" });
+    expect(applyOps(doc0, into.ops).doc.nodes[into.copies[0]!]).toMatchObject({ parentId: "f", x: 80, y: 90 });
+  });
+
+  it("refuses with an actionable error", () => {
+    const doc0 = applyOps(themedBoard(), [
+      { op: "update", id: "board", props: { component: true } },
+      { op: "create", node: { type: "frame", id: "inst", instanceOf: "board" } },
+    ]).doc;
+    const copyOfTitle = Object.values(doc0.nodes).find((n) => n.sourceId === "title")!.id;
+    expect(() => duplicateOps(doc0, [])).toThrow("pass at least one id to duplicate");
+    expect(() => duplicateOps(doc0, ["board", "zz", "yy"])).toThrow("nodes do not exist: zz, yy");
+    expect(() => duplicateOps(doc0, [copyOfTitle])).toThrow(/is a copy inside the instance "inst"; duplicate the instance instead/);
+    expect(() => duplicateOps(doc0, ["board"], { scale: 0 })).toThrow("scale must be a number above 0");
+    expect(() => duplicateOps(doc0, ["board"], { offset: Number.NaN })).toThrow("offset must be a finite number");
+    expect(() => duplicateOps(doc0, ["board"], { props: { id: "x", children: [] } })).toThrow(
+      "props cannot set id, children: the copy keeps those from its source",
+    );
+    const paged = applyOps(scene(), [{ op: "add_page", id: "p2", firstId: "p1" }]).doc;
+    expect(() => duplicateOps(paged, ["p1"])).toThrow(/is a page; duplicate the frames on it instead/);
   });
 });
