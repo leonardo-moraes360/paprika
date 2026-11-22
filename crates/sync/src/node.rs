@@ -548,12 +548,18 @@ impl Node {
             peer_format,
         ) {
             self.push_rejected(peer, &reason);
-            self.event(json!({"t": "rejected", "peer": peer.to_string(), "reason": reason.clone()}));
+            self.event(
+                json!({"t": "rejected", "peer": peer.to_string(), "reason": reason.clone()}),
+            );
             return Err(reason);
         }
-        if let Some(w) =
-            proto::app_version_warn(&self.0.cfg.app, peer_name, &short, peer_app, &self.0.cfg.format)
-        {
+        if let Some(w) = proto::app_version_warn(
+            &self.0.cfg.app,
+            peer_name,
+            &short,
+            peer_app,
+            &self.0.cfg.format,
+        ) {
             self.event(json!({"t": "log", "level": "warn", "msg": w}));
         }
         Ok(())
