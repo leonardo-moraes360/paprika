@@ -672,7 +672,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
     // Delete asks first: Cancel keeps it, Excluir removes it.
     await page.getByRole("button", { name: "Excluir Renomeado" }).click();
-    const dialog = page.getByRole("dialog");
+    // A confirmação de apagamento é um AlertDialog (ADR 0005): o leitor anuncia o aviso, e o papel do
+    // elemento muda de "dialog" para "alertdialog".
+    const dialog = page.getByRole("alertdialog");
     await expect.poll(() => dialog.textContent()).toContain("Excluir “Renomeado”?");
     await dialog.getByRole("button", { name: "Cancelar" }).click();
     await expect.poll(() => dialog.isVisible()).toBe(false);

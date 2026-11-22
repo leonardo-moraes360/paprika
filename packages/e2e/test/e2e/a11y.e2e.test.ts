@@ -12,6 +12,16 @@ const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
 
 /** Keyboard and ARIA checks of the editor (WCAG 2.1: 2.1.1 keyboard, 2.4.3 focus order, 4.1.2 name/role/value). */
+/** Composes a translucent computed color (the danger wash) over an opaque hex backdrop. */
+function overWash(fg: string, backdrop: string) {
+  const nums = (fg.match(/[\d.]+/g) ?? []).map(Number);
+  const [r, g, b, a = 1] = nums.length >= 4 ? nums : [...nums, 1];
+  const bg = [1, 3, 5].map((i) => parseInt(backdrop.slice(i, i + 2), 16));
+  const mix = (c: number, base: number) => Math.round(c * a! + base * (1 - a!));
+  const hex = (v: number) => v.toString(16).padStart(2, "0");
+  return `rgb(${mix(r!, bg[0]!)}, ${mix(g!, bg[1]!)}, ${mix(b!, bg[2]!)})`;
+}
+
 /**
  * WCAG 1.4.3 ratio between two computed color strings. The page only reports the colors (`fg`, `bg`); the
  * math lives here, so the three contrast checks share one implementation.
@@ -178,6 +188,50 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
   });
 
   /**
+   * PAP-B-026: the confirmation of an irreversible action is an alertdialog with the verb on the action, the
+   * cancel first, and Esc leaves the workspace alone. Nothing is deleted here — the temporary workspace is
+   * removed through MCP at the end.
+   */
+  it("a confirmação de apagamento é um alertdialog nomeado, com foco preso e Esc sem apagar (2.4.3, 4.1.2)", async () => {
+    const admin = new Client({ name: "a11y-delete", version: "0" });
+    await admin.connect(new StreamableHTTPClientTransport(new URL(`${external!.url}/mcp`)));
+    const made = (await admin.callTool({ name: "create_workspace", arguments: { name: "Para cancelar" } })) as unknown as {
+      structuredContent: { workspace: { id: string } };
+    };
+    const id = made.structuredContent.workspace.id;
+    const ov = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    try {
+      await ov.goto(`${external!.url}/`);
+      const card = ov.locator(`[data-workspace-id="${id}"]`);
+      await expect.poll(() => card.count(), { timeout: 5_000 }).toBe(1);
+      await card.hover();
+      await ov.getByRole("button", { name: "Excluir Para cancelar" }).click();
+      const dlg = ov.getByRole("alertdialog");
+      await expect.poll(() => dlg.textContent(), { timeout: 5_000 }).toContain("Excluir “Para cancelar”?");
+      expect(await ov.evaluate(() => document.activeElement?.closest('[data-slot="alert-dialog-content"]') !== null)).toBe(true);
+      const buttons = await dlg.evaluate((root) => [...root.querySelectorAll("button")].map((b) => [b.getAttribute("data-slot"), (b.textContent ?? "").trim()]));
+      expect(buttons).toEqual([
+        ["alert-dialog-cancel", "Cancelar"],
+        ["alert-dialog-action", "Excluir"],
+      ]);
+      expect(await dlg.getByRole("button", { name: "Excluir" }).getAttribute("class")).toContain("bg-ui-destructive");
+      await ov.keyboard.press("Escape");
+      await expect.poll(() => dlg.count(), { timeout: 5_000 }).toBe(0);
+      await expect.poll(() => card.count(), { timeout: 5_000 }).toBe(1);
+      // O foco volta para dentro do card de onde a confirmação foi aberta (WCAG 2.4.3).
+      // O foco volta para o controle que abriu a confirmação (WCAG 2.4.3).
+      expect(await ov.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return { tag: el?.tagName ?? "", label: el?.getAttribute("aria-label") ?? "" };
+      })).toEqual({ tag: "BUTTON", label: "Excluir Para cancelar" });
+    } finally {
+      await admin.callTool({ name: "delete_workspace", arguments: { id } });
+      await admin.close();
+      await ov.close();
+    }
+  }, 20_000);
+
+  /**
    * The shadcn primitives of PAP-B-030, checked on the internal gallery (`/ui`): keyboard behavior, name
    * and role, contrast in both theme scopes, and the isolation rule of ADR 0003 — the app's base rules
    * still stop at the edge of `.world`.
@@ -214,6 +268,23 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       for (const panel of ["dark", "light"] as const) {
         const [fg, bg] = await contrastIn(panel, "button");
         expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+      }
+
+      // PAP-B-026: a lavanda de perigo é translúcida, então o fundo efetivo é a superfície do painel por
+      // baixo dela. Compõe as duas antes de medir o texto.
+      // The danger wash is translucent, so its effective background is the panel behind it: compose the two
+      // before measuring, in the resting state and on hover (PAP-B-026).
+      const BACKDROP = { dark: "#141827", light: "#f2f3f8" } as const;
+      for (const panel of ["dark", "light"] as const) {
+        const danger = gal.locator(`[data-panel=${panel}] [data-slot=button]`).filter({ hasText: "Excluir" }).first();
+        for (const state of ["rest", "hover"] as const) {
+          // transition-colors: the wash reaches its hover value a beat later, so measure after it lands.
+          if (state === "hover") await danger.hover();
+          else await gal.mouse.move(5, 5);
+          await gal.waitForTimeout(300);
+          const [fg, wash] = await danger.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor] as [string, string]);
+          expect(contrastRatio(fg, overWash(wash, BACKDROP[panel]))).toBeGreaterThanOrEqual(4.5);
+        }
       }
     });
 
