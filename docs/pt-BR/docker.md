@@ -20,6 +20,19 @@ docker compose up -d --build
 
 Conecte um agente como num servidor local: `claude mcp add --transport http paprika http://localhost:4777/mcp`.
 
+### Modo time
+
+O `compose.team.yaml` liga a sincronização de time peer to peer ([sincronizacao-time.md](sincronizacao-time.md)) por cima do `compose.yaml`:
+
+```bash
+PAPRIKA_TEAM_NAME=Ana docker compose -f compose.yaml -f compose.team.yaml up -d --build
+```
+
+- **Nome.** `PAPRIKA_TEAM_NAME` é como os outros membros veem você (padrão `paprika`).
+- **Chave.** A chave, o arquivo do time, os convites e o log de operações ficam em `/data/paprika.team/`, no mesmo volume do banco, então sobrevivem a `docker rm` e a upgrades. Faça backup do volume: perder a chave significa ser convidado de novo.
+- **Rede.** O endpoint Iroh usa a porta UDP `4778` no container. Atrás do NAT do Docker, os pares se encontram pelos relays; descomente a porta `4778:4778/udp` no `compose.team.yaml` para conexões diretas. Só chaves da allowlist do time são aceitas, mas a porta fica aberta para quem alcança o host.
+- **Voltar ao local.** `docker compose up -d` (sem o segundo arquivo) sobe o servidor sem `--team`; os dados do time continuam no volume.
+
 - **Dados.** O banco SQLite fica em `/data/paprika.db` dentro do container (`PAPRIKA_DB`); `/data` é um volume, então documentos, tokens e o histórico de desfazer/refazer sobrevivem a `docker rm` e a upgrades da imagem. Faça backup com `paprika export` (abaixo) ou copiando o volume.
 - **Porta.** Mantenha a porta do host em **4777**. O servidor só aceita requisições cujo `Host`/`Origin` seja `localhost:4777`, `127.0.0.1:4777` ou `[::1]:4777` (a proteção contra DNS rebinding), então `-p 8080:4777` responde `403`. Para outra porta, troque os dois lados e a do servidor: `-p 127.0.0.1:5000:5000 paprika serve --host 0.0.0.0 --port 5000`.
 - **Exposição.** Dentro do container o servidor escuta em `0.0.0.0` (precisa, para o encaminhamento de porta do Docker). Publique no loopback do host (`127.0.0.1:4777:4777`, como acima), a não ser que queira compartilhar: não há autenticação.

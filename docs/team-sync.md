@@ -34,7 +34,7 @@ server-go/bin/paprika serve --team --team-name Ana
 | `--team-no-relay` | off | No public relays or DNS address lookup: loopback/LAN only (tests). |
 | `--team-bind` | any | UDP address of the Iroh endpoint, for example `127.0.0.1:0`. |
 
-The Docker image ships `paprika-sync` next to `paprika` ([docker.md](docker.md)).
+The Docker image ships `paprika-sync` next to `paprika`; with Compose, add `compose.team.yaml` ([docker.md](docker.md#team-mode)).
 
 ## Layers
 

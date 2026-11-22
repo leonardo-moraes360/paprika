@@ -72,7 +72,7 @@ export function planFor(files, { ciFull = false } = {}) {
   const actions = area(/^\.github\//);
   // The image's own files. Everything else that goes into the image (core, web, crates/render,
   // crates/sync, server-go) is one of the areas above.
-  const dockerfiles = area(/^(Dockerfile|\.dockerignore|compose\.yaml)$/);
+  const dockerfiles = area(/^(Dockerfile|\.dockerignore|compose(\.team)?\.yaml)$/);
 
   // Unit tests per workspace package. A package runs every test when one of its dependencies
   // changed (vitest cannot see through the built `dist/` of a workspace dependency); when only the

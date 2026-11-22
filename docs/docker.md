@@ -20,6 +20,19 @@ docker compose up -d --build
 
 Connect an agent exactly as with a local server: `claude mcp add --transport http paprika http://localhost:4777/mcp`.
 
+### Team mode
+
+`compose.team.yaml` turns on the peer-to-peer team sync ([team-sync.md](team-sync.md)) on top of `compose.yaml`:
+
+```bash
+PAPRIKA_TEAM_NAME=Ana docker compose -f compose.yaml -f compose.team.yaml up -d --build
+```
+
+- **Name.** `PAPRIKA_TEAM_NAME` is how the other members see you (default `paprika`).
+- **Key.** The key, the team file, invites and the operation log live in `/data/paprika.team/`, in the same volume as the database, so they survive `docker rm` and upgrades. Back up the volume: losing the key means being invited again.
+- **Network.** The Iroh endpoint binds UDP `4778` in the container. From Docker's NAT, peers still reach each other through relays; uncomment the `4778:4778/udp` port in `compose.team.yaml` for direct connections. Only keys on the team's allowlist are accepted, but that port is open to whoever can reach the host.
+- **Back to local.** `docker compose up -d` (without the second file) starts the server without `--team`; the team data stays in the volume.
+
 - **Data.** The SQLite database is `/data/paprika.db` inside the container (`PAPRIKA_DB`); `/data` is a volume, so documents, tokens and the undo/redo history survive `docker rm` and image upgrades. Back it up with `paprika export` (below) or by copying the volume.
 - **Port.** Keep the host port at **4777**. The server only accepts requests whose `Host`/`Origin` is `localhost:4777`, `127.0.0.1:4777` or `[::1]:4777` (its DNS-rebinding protection), so `-p 8080:4777` answers `403`. To use another port, change both sides and the server's: `-p 127.0.0.1:5000:5000 paprika serve --host 0.0.0.0 --port 5000`.
 - **Exposure.** Inside the container the server binds `0.0.0.0` (it has to, for Docker's port forwarding). Publish it on the host's loopback (`127.0.0.1:4777:4777`, as above) unless you mean to share it: there is no authentication.

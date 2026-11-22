@@ -34,7 +34,7 @@ server-go/bin/paprika serve --team --team-name Ana
 | `--team-no-relay` | desligado | Sem relays públicos nem busca de endereço por DNS: só loopback/rede local (testes). |
 | `--team-bind` | qualquer | Endereço UDP do endpoint Iroh, por exemplo `127.0.0.1:0`. |
 
-A imagem Docker leva o `paprika-sync` ao lado do `paprika` ([docker.md](docker.md)).
+A imagem Docker leva o `paprika-sync` ao lado do `paprika`; no Compose, acrescente o `compose.team.yaml` ([docker.md](docker.md#modo-time)).
 
 ## Camadas
 

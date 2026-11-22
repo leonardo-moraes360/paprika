@@ -9,7 +9,7 @@
 - `apps/site`: landing page (`design/landing.paprika.json`, drawn over MCP by `scripts/draw-landing.mjs`) and docs site; `scripts/build.mjs` renders both into `dist/` for GitHub Pages (`.github/workflows/pages.yml`). Not part of `pnpm build`.
 - `crates/sync`: team sync sidecar `paprika-sync` (Iroh transport, Loro CRDT, keys), spoken to over stdio by `server-go/internal/team` (`paprika serve --team`). [ADR 0004](docs/adr/0004-p2p-team-sync.md), protocol in `docs/team-sync.md`.
 - `crates/render`: Rust renderer (vello on WebGPU, vello_cpu fallback) compiled to WASM by `crates/render/build.mjs` into `apps/web/src/wasm/` (gitignored). Input: `displayList` from `packages/core/src/displayList.ts`.
-- `Dockerfile` (+ `.dockerignore`, `compose.yaml`): one image with the Go server, the canvas and the WASM renderer; SQLite in the `/data` volume. Targets `runtime` (with Chrome headless shell) and `slim`. Pinned versions to keep in step and the CI smoke test: `docs/docker.md`.
+- `Dockerfile` (+ `.dockerignore`, `compose.yaml`, `compose.team.yaml` for the P2P team mode): one image with the Go server, the canvas and the WASM renderer; SQLite in the `/data` volume. Targets `runtime` (with Chrome headless shell) and `slim`. Pinned versions to keep in step and the CI smoke test: `docs/docker.md`.
 
 ## Rules
 

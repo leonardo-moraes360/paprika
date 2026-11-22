@@ -431,6 +431,10 @@ jobs:
           persist-credentials: false
       # The runner's own Docker + BuildKit, no third-party action: the Dockerfile pins its inputs
       # (base image tags, checksums of wasm-bindgen and the Chrome headless shell, lockfiles).
+      - name: Compose files are valid
+        run: |
+          docker compose -f compose.yaml config -q
+          docker compose -f compose.yaml -f compose.team.yaml config -q
       - name: Build (runtime target)
         run: docker build --progress=plain -t paprika:ci .
       - name: Smoke test (runtime target)

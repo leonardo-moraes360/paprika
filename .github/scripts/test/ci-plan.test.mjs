@@ -223,7 +223,7 @@ describe("each area selects its jobs", () => {
   });
 
   it("the Docker recipe builds the image and runs nothing else", () => {
-    for (const file of ["Dockerfile", ".dockerignore", "compose.yaml"]) {
+    for (const file of ["Dockerfile", ".dockerignore", "compose.yaml", "compose.team.yaml"]) {
       assert.deepEqual(plan([file]), { ...NOTHING, docker: true }, file);
     }
   });
