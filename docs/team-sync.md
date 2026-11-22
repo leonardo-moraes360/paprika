@@ -59,7 +59,8 @@ Everything else on stdout is an event. The sidecar exits when its stdin closes.
 | `presence` | `data` | Sends a local agent's presence to every connected peer. |
 | `team.create` | `name` | Creates a team with this instance as founder. |
 | `invite.create` | `ttlSecs` | `{link, expiresAt}`: a single-use invite. |
-| `invite.revoke` | `link`? | Revokes one invite (or all). |
+| `invite.revoke` | | Revokes every active invite. |
+| `invite.inspect` | `link` | `{team, name, inviter, inviterFingerprint, fingerprint, expiresAt, expired}`: what a link says, before joining. |
 | `join` | `link` | Joins the team behind the invite; the shared workspaces then arrive as `remote` events. |
 | `share` | `doc`, `state`, `author` | Starts sharing a workspace: its current state becomes the first envelope. |
 | `local` | `doc`, `author`, `changes` | One committed local transaction as a change set (below). |
@@ -71,20 +72,21 @@ Everything else on stdout is an event. The sidecar exits when its stdin closes.
 | `peer` | `peer`, `state: connected\|disconnected` |
 | `presence` | `peer`, `name`, `data` |
 | `remote` | `doc`, `state` (materialized workspace, below), `authors` |
-| `rejected` | `peer`, `reason` (not a member, bad signature…) |
+| `rejected` | `peer`, `reason` (not a member, bad signature, invite used/expired/revoked…) |
+| `joined` | `peer`, `name`: someone joined with an invite from this instance |
 | `log` | `level`, `msg` |
 
 ### Change set (`local`)
 
-Go diffs the document before and after a commit and sends, in order:
+Go diffs the document before and after a commit and sends, in order (moves come before deletes, so a node moved out of a deleted frame survives on every peer):
 
 ```json
 [
-  {"k": "delete", "id": "old"},
   {"k": "create", "id": "n1", "parent": "frame1", "fields": {"type": "rect", "name": "Card", "fill": "$panel"}},
   {"k": "move",   "id": "n2", "parent": null},
   {"k": "set",    "id": "n3", "fields": {"fill": "#fff", "shadow": null}},
   {"k": "order",  "parent": "frame1", "children": ["n2", "n1", "n4"]},
+  {"k": "delete", "id": "old"},
   {"k": "tokens", "mode": "", "set": {"accent": "#e04a2b", "old": null}},
   {"k": "name",   "value": "Checkout"}
 ]
@@ -97,8 +99,11 @@ connector's `x`/`y`/`width`/`height`/`d` and a group's `width`/`height`.
 ### Materialized state (`remote`)
 
 `{name, rootIds, nodes: {id: {…fields, parentId, children?}}, tokens, modes}`: what the Loro document holds,
-in tree order. Go turns the difference with its document into ops (deletes, creates parent first, moves,
-updates, `set_tokens`, `rename_document`) and applies them in one transaction outside the local undo stack.
+in tree order. Go turns the difference with its document into ops and applies them in one transaction outside
+the local undo stack: nodes whose parent changed move first, then gone nodes are deleted, a walk in tree order
+creates the missing ones and puts the rest in place, then field updates, `set_tokens` and `rename_document`
+(`server-go/internal/team/diff.go`). The transaction is recorded with actor `peer:<who>` and kind `remote`.
+A workspace the instance does not have yet is created.
 
 ## Peer protocol
 
@@ -154,12 +159,23 @@ When both sides dial at once, the connection dialed by the smaller endpoint id i
 | `POST /api/team` `{name}` | Create a team. |
 | `POST /api/team/invites` `{ttlSecs}` | Create an invite link. |
 | `DELETE /api/team/invites` | Revoke the active invites. |
+| `POST /api/team/invites/inspect` `{link}` | Preview a link (team, inviter, fingerprint, expiry). |
 | `POST /api/team/join` `{link}` | Join a team. |
 | `POST /api/team/share` `{doc}` | Share a workspace with the team. |
 
 `/ws` sends `{type: "team", status}` whenever the status changes. Remote agents arrive as ordinary
 `{type: "presence"}` messages whose `agent` starts with `peer:` and whose `actor` ends with ` @ <person>`, so
 the canvas draws their cursors like local ones.
+
+## On the canvas
+
+With `--team`, the top bar shows one chip with the worst state across peers (only this device, connecting, N online · synced, via relay, offline, key rejected) and the right panel gets a **Time** tab next to the Inspector (`apps/web/src/Team.tsx`):
+
+- no team yet: create one, or join with a link;
+- a team: connection and sync state, a button to share the open workspace, people with their path (direct with RTT, relay, offline) and, under each person, the agents running on their instance (remote agents also get their cursor on the canvas, as `name @ person`);
+- **Convidar**: a link and its QR, expiry (15 min, 1 h, 24 h, 7 days), countdown, the team fingerprint to read aloud, revoke;
+- **Entrar**: paste a link, preview (team, fingerprint, your key) before joining, clear errors for expired or used links;
+- **Chaves do time**: members' keys, who added them, the agents each one runs, rejected operations.
 
 ## Limits (v1)
 

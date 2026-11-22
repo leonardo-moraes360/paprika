@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 #
-# Paprika in one image: the Go server (MCP + HTTP/WS + SQLite), the canvas (apps/web) and the
-# Rust/WASM renderer (crates/render). See docs/docker.md.
+# Paprika in one image: the Go server (MCP + HTTP/WS + SQLite), the canvas (apps/web), the
+# Rust/WASM renderer (crates/render) and the team sync sidecar (crates/sync). See docs/docker.md.
 #
 #   docker build -t paprika .
 #   docker run --rm -p 127.0.0.1:4777:4777 -v paprika-data:/data paprika
@@ -38,6 +38,21 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
  && wasm-bindgen --target web --out-dir /out \
       target/wasm32-unknown-unknown/release/paprika_render.wasm
 
+# ------------------------------------------------------------------ team sync sidecar (crates/sync)
+# Static musl binary, so it runs on distroless/static next to the Go server (ADR 0004).
+FROM rust:1.100-slim-trixie AS sync
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends musl-tools \
+ && rm -rf /var/lib/apt/lists/* \
+ && rustup target add x86_64-unknown-linux-musl
+WORKDIR /src/crates/sync
+COPY crates/sync/ ./
+# Own registry cache: the wasm stage builds at the same time and would race on unpacking crates.
+RUN --mount=type=cache,id=cargo-registry-sync,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/crates/sync/target \
+    cargo build --locked --release --target x86_64-unknown-linux-musl \
+ && install -D target/x86_64-unknown-linux-musl/release/paprika-sync /out/paprika-sync
+
 # ------------------------------------------------------------------ canvas (apps/web + packages/core)
 FROM node:22-bookworm-slim AS web
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=1
@@ -72,6 +87,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # ------------------------------------------------------------------ slim: no Chromium
 FROM gcr.io/distroless/static-debian13:nonroot AS slim
 COPY --from=server /out/paprika /app/paprika
+COPY --from=sync /out/paprika-sync /app/paprika-sync
 COPY --from=web /src/apps/web/dist/ /app/web/
 COPY --from=server --chown=65532:65532 /out/data /data
 ENV PAPRIKA_DB=/data/paprika.db PAPRIKA_WEB_ROOT=/app/web
@@ -112,6 +128,7 @@ RUN apt-get update \
  && install -d -o paprika -g paprika /data
 COPY --from=chrome /opt/chrome/ /opt/chrome/
 COPY --from=server /out/paprika /app/paprika
+COPY --from=sync /out/paprika-sync /app/paprika-sync
 COPY --from=web /src/apps/web/dist/ /app/web/
 ENV PAPRIKA_DB=/data/paprika.db PAPRIKA_WEB_ROOT=/app/web PAPRIKA_CHROMIUM=/opt/chrome/chrome-headless-shell
 USER paprika

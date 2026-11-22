@@ -30,6 +30,7 @@ const NOTHING = {
   golden: false,
   go: false,
   rust: false,
+  sync: false,
   codeql: false,
   codeql_matrix: "[]",
   docker: false,
@@ -40,7 +41,7 @@ const plan = (files) => planFor(files);
 /** Every optional job on, with the core unit tests in "all" mode and both suites. */
 function assertEverythingOn(p, why) {
   assert.equal(p.full, true, `${why}: full`);
-  for (const key of ["build", "ts", "unit", "suites", "golden", "go", "rust", "codeql", "docker"]) {
+  for (const key of ["build", "ts", "unit", "suites", "golden", "go", "rust", "sync", "codeql", "docker"]) {
     assert.equal(p[key], true, `${why}: ${key}`);
   }
   assert.deepEqual(
@@ -173,6 +174,20 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript", "rust"]);
   });
 
+  it("crates/sync runs the team sync job, Rust CodeQL and the image, not the canvas", () => {
+    const p = plan(["crates/sync/src/node.rs"]);
+    assert.equal(p.sync, true);
+    assert.equal(p.rust, false, "the WASM renderer jobs stay off");
+    assert.equal(p.ts, false);
+    assert.equal(p.go, false);
+    assert.equal(p.docker, true, "the image ships paprika-sync");
+    assert.deepEqual(JSON.parse(p.codeql_matrix), ["rust"]);
+  });
+
+  it("server-go also runs the team sync job (internal/team runs against the sidecar)", () => {
+    assert.equal(plan(["server-go/internal/team/team.go"]).sync, true);
+  });
+
   it("server-go runs the Go jobs and never the TS-only ones", () => {
     const p = plan(["server-go/internal/core/ops.go"]);
     assert.equal(p.go, true);
@@ -277,7 +292,7 @@ describe("the published interface", () => {
     const lines = planLines(plan(["docs/ci.md"]));
     assert.equal(
       lines,
-      "full=false\nbuild=false\nts=false\nunit=false\nunit_matrix=[]\nsuites=false\nsuites_matrix=[]\ngolden=false\ngo=false\nrust=false\ncodeql=false\ncodeql_matrix=[]\ndocker=false\n",
+      "full=false\nbuild=false\nts=false\nunit=false\nunit_matrix=[]\nsuites=false\nsuites_matrix=[]\ngolden=false\ngo=false\nrust=false\nsync=false\ncodeql=false\ncodeql_matrix=[]\ndocker=false\n",
     );
   });
 

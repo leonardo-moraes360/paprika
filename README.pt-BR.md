@@ -83,6 +83,7 @@ host: o servidor só aceita essa porta.
 - Fazer **diagramas**: caixas, decisões, notas adesivas e setas que acompanham as formas.
 - Colar SVG ou HTML de qualquer lugar e receber camadas editáveis; baixar o resultado em SVG.
 - Ver **cada agente conectado** no canvas, com cursor, nome e cor próprios.
+- Trabalhar **em time sem servidor**: `paprika serve --team` conecta o Paprika e os agentes de cada pessoa peer to peer (Iroh + CRDT Loro), com convite por link ou QR e só as chaves do time aceitas ([Sincronização de time](docs/pt-BR/sincronizacao-time.md)).
 
 A lista completa de ferramentas e atalhos está em [Usando o canvas](docs/pt-BR/canvas.md).
 

@@ -59,7 +59,8 @@ O resto no stdout é evento. O sidecar termina quando o stdin fecha.
 | `presence` | `data` | Manda a presença de um agente local para todos os peers conectados. |
 | `team.create` | `name` | Cria um time com esta instância como fundadora. |
 | `invite.create` | `ttlSecs` | `{link, expiresAt}`: um convite de uso único. |
-| `invite.revoke` | `link`? | Revoga um convite (ou todos). |
+| `invite.revoke` | | Revoga todos os convites ativos. |
+| `invite.inspect` | `link` | `{team, name, inviter, inviterFingerprint, fingerprint, expiresAt, expired}`: o que um link diz, antes de entrar. |
 | `join` | `link` | Entra no time do convite; os workspaces compartilhados chegam depois como eventos `remote`. |
 | `share` | `doc`, `state`, `author` | Começa a compartilhar um workspace: o estado atual vira o primeiro envelope. |
 | `local` | `doc`, `author`, `changes` | Uma transação local gravada, como conjunto de mudanças (abaixo). |
@@ -71,20 +72,21 @@ O resto no stdout é evento. O sidecar termina quando o stdin fecha.
 | `peer` | `peer`, `state: connected\|disconnected` |
 | `presence` | `peer`, `name`, `data` |
 | `remote` | `doc`, `state` (workspace materializado, abaixo), `authors` |
-| `rejected` | `peer`, `reason` (fora do time, assinatura inválida…) |
+| `rejected` | `peer`, `reason` (fora do time, assinatura inválida, convite usado/vencido/revogado…) |
+| `joined` | `peer`, `name`: alguém entrou com um convite desta instância |
 | `log` | `level`, `msg` |
 
 ### Conjunto de mudanças (`local`)
 
-O Go compara o documento antes e depois de um commit e manda, nesta ordem:
+O Go compara o documento antes e depois de um commit e manda, nesta ordem (movimentos antes das remoções, para um nó tirado de um frame apagado sobreviver em todos os peers):
 
 ```json
 [
-  {"k": "delete", "id": "old"},
   {"k": "create", "id": "n1", "parent": "frame1", "fields": {"type": "rect", "name": "Card", "fill": "$panel"}},
   {"k": "move",   "id": "n2", "parent": null},
   {"k": "set",    "id": "n3", "fields": {"fill": "#fff", "shadow": null}},
   {"k": "order",  "parent": "frame1", "children": ["n2", "n1", "n4"]},
+  {"k": "delete", "id": "old"},
   {"k": "tokens", "mode": "", "set": {"accent": "#e04a2b", "old": null}},
   {"k": "name",   "value": "Checkout"}
 ]
@@ -97,9 +99,11 @@ sidecar move nós da árvore até a ordem bater. Dados derivados nunca viajam: c
 ### Estado materializado (`remote`)
 
 `{name, rootIds, nodes: {id: {…campos, parentId, children?}}, tokens, modes}`: o que o documento Loro tem,
-na ordem da árvore. O Go transforma a diferença com o próprio documento em ops (remoções, criações com o pai
-antes, movimentos, atualizações, `set_tokens`, `rename_document`) e as aplica numa transação fora da pilha
-local de undo.
+na ordem da árvore. O Go transforma a diferença com o próprio documento em ops e as aplica numa transação fora
+da pilha local de undo: nós cujo pai mudou se movem primeiro, depois os que sumiram são apagados, um passeio na
+ordem da árvore cria os que faltam e põe o resto no lugar, e por fim atualizações de campos, `set_tokens` e
+`rename_document` (`server-go/internal/team/diff.go`). A transação fica com ator `peer:<quem>` e tipo `remote`.
+Um workspace que a instância ainda não tem é criado.
 
 ## Protocolo entre peers
 
@@ -157,12 +161,23 @@ Quando os dois lados discam ao mesmo tempo, fica a conexão discada pelo menor i
 | `POST /api/team` `{name}` | Cria um time. |
 | `POST /api/team/invites` `{ttlSecs}` | Cria um link de convite. |
 | `DELETE /api/team/invites` | Revoga os convites ativos. |
+| `POST /api/team/invites/inspect` `{link}` | Prévia de um link (time, quem convida, impressão digital, validade). |
 | `POST /api/team/join` `{link}` | Entra num time. |
 | `POST /api/team/share` `{doc}` | Compartilha um workspace com o time. |
 
 O `/ws` manda `{type: "team", status}` sempre que o status muda. Agentes remotos chegam como mensagens
 `{type: "presence"}` comuns cujo `agent` começa com `peer:` e cujo `actor` termina com ` @ <pessoa>`, então o
 canvas desenha os cursores deles como os locais.
+
+## No canvas
+
+Com `--team`, a barra superior mostra um chip com o pior estado entre os peers (só neste dispositivo, conectando, N online · sincronizado, via relay, offline, chave rejeitada) e o painel direito ganha a aba **Time** ao lado do Inspector (`apps/web/src/Team.tsx`):
+
+- sem time: criar um, ou entrar com um link;
+- com time: estado da conexão e do sync, um botão para compartilhar o workspace aberto, as pessoas com o caminho de cada uma (direto com RTT, relay, offline) e, sob cada pessoa, os agentes que rodam na instância dela (agentes remotos também ganham cursor no canvas, como `nome @ pessoa`);
+- **Convidar**: link e QR, validade (15 min, 1 h, 24 h, 7 dias), contagem regressiva, a impressão digital do time para ler em voz alta, revogar;
+- **Entrar**: colar um link, prévia (time, impressão digital, sua chave) antes de entrar, erros claros para link vencido ou usado;
+- **Chaves do time**: chaves dos membros, quem adicionou cada uma, os agentes de cada um, operações rejeitadas.
 
 ## Limites (v1)
 

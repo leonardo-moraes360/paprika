@@ -3,6 +3,7 @@ import { Bot, Circle, Diamond, Download, Frame, MousePointer2, MoveUpRight, PenT
 import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
+import { InviteDialog, JoinDialog, KeysDialog, TeamChip, TeamPanel } from "./Team";
 import { Layers } from "./Layers";
 import { Pages } from "./Pages";
 import { LEFT_PANEL, PanelResizer, RIGHT_PANEL, usePanelWidth } from "./PanelResizer";
@@ -125,6 +126,8 @@ function Editor({ live }: { live: LiveDocument }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [tool, setTool] = useState<Tool>("select");
   const [pageChoice, setPageChoice] = useState<string | null>(null);
+  const [rightTab, setRightTab] = useState<"inspector" | "team">("inspector");
+  const [teamDialog, setTeamDialog] = useState<"invite" | "join" | "keys" | null>(null);
   const [leftWidth, setLeftWidth] = usePanelWidth("paprika.panel.left", LEFT_PANEL);
   const [rightWidth, setRightWidth] = usePanelWidth("paprika.panel.right", RIGHT_PANEL);
   // Página ativa: a escolhida, se ainda existe; senão a primeira (null num documento sem páginas).
@@ -306,6 +309,7 @@ function Editor({ live }: { live: LiveDocument }) {
           <span className="doc-name truncate text-muted max-wide:hidden">{doc.name}</span>
         </div>
         <div className={bar.status}>
+          {live.team !== undefined && <TeamChip status={live.team} onClick={() => setRightTab("team")} />}
           {lastAgent && Date.now() - lastAgent.at < 8000 && (
             <span className="agent-pill inline-flex max-w-[280px] items-center gap-1 rounded-full bg-accent-soft px-2 py-0.75 text-accent-ink">
               <Bot className="shrink-0" size={14} aria-hidden />
@@ -369,6 +373,31 @@ function Editor({ live }: { live: LiveDocument }) {
       </main>
       <PanelResizer side="right" label="Largura do painel de propriedades" width={rightWidth} limits={RIGHT_PANEL} onChange={setRightWidth} />
       <aside className="right overflow-auto border-l border-line bg-panel [grid-area:right] max-wide:border-t max-wide:border-l-0">
+        {live.team !== undefined && (
+          <div className="right-tabs m-3 mb-0 grid grid-cols-2 gap-0.5 rounded-md bg-night p-0.5" role="tablist">
+            {(["inspector", "team"] as const).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={rightTab === t}
+                className={cx("cursor-pointer rounded-sm border-0 py-1 text-xs", rightTab === t ? "is-active bg-panel-2 font-semibold text-fg" : "bg-transparent text-muted")}
+                onClick={() => setRightTab(t)}
+              >
+                {t === "inspector" ? "Inspector" : "Time"}
+              </button>
+            ))}
+          </div>
+        )}
+        {live.team !== undefined && rightTab === "team" ? (
+          <TeamPanel
+            status={live.team}
+            agents={live.agents}
+            docId={doc.id}
+            onInvite={() => setTeamDialog("invite")}
+            onJoin={() => setTeamDialog("join")}
+            onKeys={() => setTeamDialog("keys")}
+          />
+        ) : (
         <Inspector
           doc={doc}
           node={node}
@@ -385,7 +414,11 @@ function Editor({ live }: { live: LiveDocument }) {
           onSelectMany={setSelected}
           onError={live.showError}
         />
+        )}
       </aside>
+      {teamDialog === "invite" && live.team && <InviteDialog status={live.team} onClose={() => setTeamDialog(null)} />}
+      {teamDialog === "join" && <JoinDialog status={live.team ?? null} onClose={() => setTeamDialog(null)} />}
+      {teamDialog === "keys" && live.team && <KeysDialog status={live.team} onClose={() => setTeamDialog(null)} onInvite={() => setTeamDialog("invite")} />}
     </div>
   );
 }
