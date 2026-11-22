@@ -231,22 +231,36 @@ impl Node {
     pub async fn start(cfg: Config, out: Out) -> Result<Self> {
         // Disk work off the async runtime.
         let data = cfg.data.clone();
-        let (key, docs, team, invites) = tokio::task::spawn_blocking(
-            move || -> Result<(SecretKey, DocStore, Option<TeamFile>, Invites)> {
+        type Loaded = (
+            SecretKey,
+            DocStore,
+            Option<TeamFile>,
+            Invites,
+            Vec<EndpointAddr>,
+        );
+        let (key, docs, team, invites, hint) =
+            tokio::task::spawn_blocking(move || -> Result<Loaded> {
                 std::fs::create_dir_all(&data)
                     .with_context(|| format!("creating {}", data.display()))?;
                 let team = TeamFile::load(&data)?;
                 // A key rotation that was saved in the team file but not swapped in yet.
                 crate::keys::adopt_next(&data, |k| team.as_ref().is_some_and(|t| t.is_member(k)))?;
+                // Addresses saved by a key rotation, a hint for the first dials.
+                let hint_path = data.join("addrs.json");
+                let hint: Vec<EndpointAddr> = std::fs::read(&hint_path)
+                    .ok()
+                    .and_then(|b| serde_json::from_slice(&b).ok())
+                    .unwrap_or_default();
+                let _ = std::fs::remove_file(&hint_path);
                 Ok((
                     crate::keys::load_or_create(&data)?,
                     DocStore::open(&data)?,
                     team,
                     Invites::load(&data),
+                    hint,
                 ))
-            },
-        )
-        .await??;
+            })
+            .await??;
         let mut b = if cfg.relay {
             Endpoint::builder(presets::N0)
         } else {
@@ -287,16 +301,8 @@ impl Node {
         let me = node.id();
         {
             let mut st = node.0.state.lock().unwrap();
-            // Addresses saved by a key rotation, a hint for the first dials.
-            let hint = node.0.cfg.data.join("addrs.json");
-            if let Some(list) = std::fs::read(&hint)
-                .ok()
-                .and_then(|b| serde_json::from_slice::<Vec<EndpointAddr>>(&b).ok())
-            {
-                for a in list.into_iter().filter(|a| a.id != me) {
-                    st.addrs.insert(a.id, a);
-                }
-                let _ = std::fs::remove_file(&hint);
+            for a in hint.into_iter().filter(|a| a.id != me) {
+                st.addrs.insert(a.id, a);
             }
             st.refresh_allowed(&me);
         }
@@ -985,7 +991,7 @@ impl Node {
             }
             "key.rotate" => {
                 let me = self.id();
-                let (team, new) = {
+                let (team, new, addrs) = {
                     let mut st = self.0.state.lock().unwrap();
                     let Some(mut team) = st.team.clone() else {
                         bail!("create or join a team first")
@@ -1010,12 +1016,9 @@ impl Node {
                     st.invites.as_ref().unwrap().save(&self.0.cfg.data)?;
                     // The restarted process dials the peers it knew without waiting for discovery.
                     let addrs: Vec<&EndpointAddr> = st.addrs.values().collect();
-                    let _ = std::fs::write(
-                        self.0.cfg.data.join("addrs.json"),
-                        serde_json::to_vec(&addrs)?,
-                    );
-                    (team, new.public())
+                    (team, new.public(), serde_json::to_vec(&addrs)?)
                 };
+                let _ = tokio::fs::write(self.0.cfg.data.join("addrs.json"), addrs).await;
                 self.broadcast(PeerMsg::Team { team }, None);
                 // Give the frames time to leave before the Go server restarts this process.
                 tokio::time::sleep(Duration::from_millis(1500)).await;
