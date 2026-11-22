@@ -16,7 +16,6 @@ import (
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
-	"github.com/leonardo-moraes360/paprika/server-go/contract"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
 )
 
@@ -179,46 +178,6 @@ func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID stri
 		return nil, 0, 0, fmt.Errorf("screenshot falhou: %w", err)
 	}
 	return png, int(math.Round(width * scale)), int(math.Round(height * scale)), nil
-}
-
-// ExportSVG renders the export HTML, measures boxes and text lines (contract.Measure, the same
-// script as @paprika/core) and builds the SVG in core.
-func (c *Chrome) ExportSVG(ctx context.Context, doc *core.Document, rootID string) (core.SVGResult, error) {
-	bg := ""
-	if rootID != "" {
-		if n := core.GetNode(doc, rootID); n == nil || n.Str("type") != "page" {
-			bg = "transparent"
-		}
-	}
-	html, bounds, err := core.RenderHTML(doc, core.RenderOptions{RootID: rootID, Background: bg})
-	if err != nil {
-		return core.SVGResult{}, err
-	}
-	width := math.Max(1, math.Ceil(bounds.Width))
-	height := math.Max(1, math.Ceil(bounds.Height))
-	browser, err := c.ensure()
-	if err != nil {
-		return core.SVGResult{}, err
-	}
-	tab, cancel := chromedp.NewContext(browser)
-	defer cancel()
-	tab, cancelTimeout := context.WithTimeout(tab, 15*time.Second)
-	defer cancelTimeout()
-	go func() {
-		select {
-		case <-ctx.Done():
-			cancelTimeout()
-		case <-tab.Done():
-		}
-	}()
-	if err = chromedp.Do(tab, loadHTML(html, width, height, 1, false)); err != nil {
-		return core.SVGResult{}, fmt.Errorf("export SVG falhou: %w", err)
-	}
-	m, err := chromedp.Run(tab, chromedp.Evaluate[core.Measure](contract.Measure))
-	if err != nil {
-		return core.SVGResult{}, fmt.Errorf("export SVG falhou: %w", err)
-	}
-	return core.ExportSVG(doc, rootID, &m)
 }
 
 // viewportGuess is the viewport used to lay out a hug/fill root before it is measured.

@@ -2,23 +2,23 @@ import { firstPage, pageRoots, isContainer, type Document, type Node } from "./s
 import { canvasBounds, escapeHtml, svgAttrs } from "./render.js";
 import { connectorAttrs, connectorLabelAttrs, modeOf, pathAttrs, resolveValue, shapeAttrs } from "./style.js";
 import { shapePadding } from "./diagram.js";
+import { layout } from "./layout.js";
 
 /**
- * Exporta um nó, uma página ou o canvas como SVG vetorial. O layout automático (row/column, hug,
- * fill) é resolvido pelo navegador: quem exporta renderiza o HTML de `renderHTML` num Chromium,
- * roda `MEASURE_SCRIPT` e passa o resultado em `measure` (caixas antes da rotação e linhas de
- * texto já quebradas). Sem `measure`, só nós com posição absoluta e tamanho em números podem ser
- * exportados, e o texto quebra apenas em `\n`.
+ * Exporta um nó, uma página ou o canvas como SVG vetorial. As caixas vêm de `layout(doc)`
+ * (auto layout row/column, hug e fill sem navegador). `measure` opcional sobrescreve as caixas
+ * e as linhas de texto (usado nos goldens e em caminhos legados). Sem `measure.lines`, o texto
+ * quebra só em `\n` (a medição de glifos do navegador não entra no SVG).
  */
 
 export interface Measure {
-  /** Caixa de cada nó na página do HTML: [x, y, largura, altura], sem rotação. */
+  /** Caixa de cada nó: [x, y, largura, altura], sem rotação, relativa à origem do export. */
   boxes: Record<string, [number, number, number, number]>;
   /** Linhas de cada texto, relativas à caixa do nó: texto, x e y da linha de base. */
   lines?: Record<string, { t: string; x: number; y: number }[]>;
 }
 
-/** Script para `page.evaluate` (Playwright ou CDP) no HTML de `renderHTML`; devolve um `Measure`. */
+/** Script legado para `page.evaluate` no HTML de `renderHTML`; devolve um `Measure`. */
 export const MEASURE_SCRIPT = `(() => {
   const r2 = (v) => Math.round(v * 100) / 100;
   const els = Array.from(document.querySelectorAll("[data-paprika-id]"));
@@ -63,6 +63,33 @@ export const MEASURE_SCRIPT = `(() => {
   return { boxes, lines };
 })()`;
 
+/** Absolute layout boxes remapped so the export origin is (0, 0). */
+export function measureFromLayout(doc: Document, rootId?: string): Measure {
+  const laid = layout(doc, rootId ? { rootId } : {});
+  const node = rootId ? doc.nodes[rootId] : undefined;
+  if (rootId && !node) throw new Error(`node "${rootId}" does not exist`);
+  const page = node ? (node.type === "page" ? node : undefined) : firstPage(doc);
+  const single = node && node.type !== "page" ? node : undefined;
+  let ox = 0;
+  let oy = 0;
+  if (single) {
+    const b = laid[single.id];
+    if (b) {
+      ox = b.x;
+      oy = b.y;
+    }
+  } else {
+    const cb = canvasBounds(doc, page?.id);
+    ox = cb.x;
+    oy = cb.y;
+  }
+  const boxes: Record<string, [number, number, number, number]> = {};
+  for (const [id, b] of Object.entries(laid)) {
+    boxes[id] = [b.x - ox, b.y - oy, b.width, b.height];
+  }
+  return { boxes };
+}
+
 const f = (n: number) => {
   const v = Math.round(n * 100) / 100;
   return Object.is(v, -0) ? "0" : String(v);
@@ -94,21 +121,13 @@ export function exportSVG(
   const single = node && node.type !== "page" ? node : undefined;
   const roots = single ? [single.id] : pageRoots(doc, page?.id);
   const cb = single ? undefined : canvasBounds(doc, page?.id);
-  const measured = opts.measure?.boxes ?? {};
+  const measure = opts.measure ?? measureFromLayout(doc, opts.rootId);
+  const measured = measure.boxes;
   const boxes = new Map<string, Box>();
 
-  // Caixas: medidas pelo navegador ou, sem medida, derivadas de x/y/width/height em números.
-  const boxOf = (n: Node, parent: Box, inFlow: boolean, root: boolean): Box | undefined => {
-    const m = measured[n.id];
-    if (m) return m;
-    if (opts.measure) return undefined; // medido e sem caixa: escondido
+  const boxOf = (n: Node, _parent: Box, _inFlow: boolean, _root: boolean): Box | undefined => {
     if (n.type === "page") return undefined;
-    if (inFlow || typeof n.width !== "number" || typeof n.height !== "number")
-      throw new Error(`"${n.id}" depends on auto layout (row/column, hug or fill); export through the server (export_code with format "svg"), which measures the layout in a browser`);
-    if (single && root) return [0, 0, n.width, n.height];
-    const x = root && cb ? n.x - cb.x : parent[0] + n.x;
-    const y = root && cb ? n.y - cb.y : parent[1] + n.y;
-    return [x, y, n.width, n.height];
+    return measured[n.id];
   };
 
   /** Forma de diagrama: contorno (e dobra), depois o texto em linhas (medidas ou quebradas em \n). */
@@ -130,10 +149,10 @@ export function exportSVG(
     body += "</g>";
     const fs = resolveValue(doc, n.fontSize, mode);
     const size = typeof fs === "number" ? fs : Number.parseFloat(String(fs)) || 16;
-    const measured = opts.measure?.lines?.[n.id];
+    const measuredLines = measure.lines?.[n.id];
     let tspans = "";
     let anchor = "";
-    if (measured) tspans = measured.map((l) => `<tspan x="${f(l.x)}" y="${f(l.y)}">${escapeHtml(l.t)}</tspan>`).join("");
+    if (measuredLines) tspans = measuredLines.map((l) => `<tspan x="${f(l.x)}" y="${f(l.y)}">${escapeHtml(l.t)}</tspan>`).join("");
     else if (n.text) {
       const [pv, ph] = shapePadding(n);
       const lh = n.lineHeight * size;
@@ -218,7 +237,7 @@ export function exportSVG(
       const fs = resolveValue(doc, n.fontSize, mode);
       const size = typeof fs === "number" ? fs : Number.parseFloat(String(fs)) || 16;
       const color = escapeHtml(String(resolveValue(doc, n.color, mode)));
-      const measuredLines = opts.measure?.lines?.[n.id];
+      const measuredLines = measure.lines?.[n.id];
       let tspans = "";
       let anchor = "";
       if (measuredLines) {

@@ -157,10 +157,10 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | HTML autocontido, React (estilos inline), PNG | `export_code`, `render_screenshot` | ✅ | — |
-| Export SVG (frame ou seleção) | `export_code` formato `svg`, `⇩` na barra, `GET /api/svg` (2026-11-21): layout e linhas de texto medidos num Chromium headless; gradientes e imagens de fundo ficam de fora | ✅ | — |
+| Export SVG (frame ou seleção) | `export_code` formato `svg`, `⇩` na barra, `GET /api/svg` (2026-11-22, PAP-A-002): caixas do `layout(doc)` do core, sem Chromium headless; o texto quebra em `\n` (quebra por glifo continua aproximada); gradientes e imagens de fundo ficam de fora | ✅ | — |
 | Export em vídeo de frames animados | — | ⬜ | P3 |
 | Exportar em PDF, HTML, CSS (Tailwind ou CSS Modules), React, Angular ou Svelte | Incluir nas ferramentas de MCP. Amplia J (hoje: HTML, React com estilos inline, SVG). Pedido de 2026-11-22. Leva 3: PAP-B-016 ✅ (formatos `tailwind`, `tailwind-html` e `css-modules` do `export_code`, gerados a partir do `nodeStyle`; a página Tailwind renderiza como o export HTML com até 1% de diferença nos quadros de exemplo, conferido no Chromium contra um build do Tailwind v4); PDF, Angular e Svelte na leva 4. Substitui as linhas antigas "Export com classes Tailwind" e "React + CSS module / variáveis CSS" (variáveis CSS já feitas, ver E). | 🟡 | P2 |
-| Exportar SVG, PNG, JPEG, AVIF, WebP | Incluir nas ferramentas de MCP. **Não utilizar Chromium headless**: incluir no canvas (TS) ou no servidor Go. Hoje SVG e PNG passam pelo Chromium headless (J). Pedido de 2026-11-22. Leva 3: PAP-A-002 (SVG sem Chromium headless, sobre a geometria do core do PAP-A-001); formatos raster na leva 4. Substitui a linha antiga "WebP/AVIF, PDF" (PDF está na linha acima). | ⬜ | P2 |
+| Exportar SVG, PNG, JPEG, AVIF, WebP | Incluir nas ferramentas de MCP. **Não utilizar Chromium headless**: incluir no canvas (TS) ou no servidor Go. SVG: PAP-A-002 ✅ (`export_code`/`GET /api/svg` a partir do `layout(doc)`). PNG ainda usa Chromium headless (J). Pedido de 2026-11-22. Formatos raster (PNG/JPEG/WebP/AVIF) na leva 4. Substitui a linha antiga "WebP/AVIF, PDF" (PDF está na linha acima). | 🟡 | P2 |
 | Redimensionar imagens para semi HD, HD, 2K, 4K | Incluir nas ferramentas de MCP. **Não utilizar Chromium headless**: incluir no canvas (TS) ou no servidor Go. Pedido de 2026-11-22. Leva 4. | ✅ | PAP-B-040 |
 
 ## K. Recursos generativos no canvas
