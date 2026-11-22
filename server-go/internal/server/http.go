@@ -516,12 +516,30 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		if scale == 0 {
 			scale = 1
 		}
-		png, _, _, err := opts.Shot.Screenshot(c.Request.Context(), store.Doc(), c.Query("root"), scale)
+		png, _, _, err := opts.Shot.Screenshot(c.Request.Context(), store.Doc(), c.Query("root"), scale, c.Query("mode"))
 		if err != nil {
 			logf("erro HTTP: " + err.Error())
 			send(c.Writer, 500, errBody(err.Error()), "")
 			return
 		}
+		send(c.Writer, 200, png, "image/png")
+	})
+	engine.Any("/api/screenshot/:id", func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet {
+			send(c.Writer, 405, errBody("método não permitido"), "")
+			return
+		}
+		arc, ok := opts.Shot.(shotArchive)
+		if !ok {
+			send(c.Writer, 404, errBody("screenshot não encontrado"), "")
+			return
+		}
+		png, ok := arc.PNG(c.Param("id"))
+		if !ok {
+			send(c.Writer, 404, errBody("screenshot não encontrado"), "")
+			return
+		}
+		c.Writer.Header().Set("content-security-policy", "default-src 'none'")
 		send(c.Writer, 200, png, "image/png")
 	})
 	engine.Any("/api/svg", func(c *gin.Context) {
@@ -557,6 +575,9 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		serveStatic(c.Writer, c.Request, webRoot)
 	})
 
+	if msg := chromiumStartup(opts.Shot); msg != "" {
+		logf(msg)
+	}
 	srv := &http.Server{Handler: engine}
 	go func() {
 		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {

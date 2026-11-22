@@ -2,13 +2,18 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,15 +22,18 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
+	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 )
 
 // Chrome renders the same HTML as the export (core.NodeStyle) in headless Chromium over CDP.
 // The browser starts on first use and is reused.
 type Chrome struct {
-	mu        sync.Mutex
-	allocStop context.CancelFunc
-	browser   context.Context
-	stop      context.CancelFunc
+	mu         sync.Mutex
+	allocStop  context.CancelFunc
+	browser    context.Context
+	stop       context.CancelFunc
+	saved      map[string][]byte
+	savedOrder []string
 }
 
 const maxSide = 4096.0
@@ -70,15 +78,140 @@ func FindChromium() string {
 	return ""
 }
 
+const chromiumInstallCommand = "pnpm --filter @paprika/e2e exec playwright install chromium"
+
+const shotArchiveLimit = 32
+
+var chromiumRevRe = regexp.MustCompile(`(?:chromium_headless_shell|chromium)-(\d+)`)
+
+var shotIDRe = regexp.MustCompile(`^[0-9a-f]{16}$`)
+
+func chromiumProblem() string {
+	path := ""
+	if env := os.Getenv("PAPRIKA_CHROMIUM"); env != "" {
+		st, err := os.Stat(env)
+		if err != nil || st.IsDir() {
+			return fmt.Sprintf("screenshot unavailable: PAPRIKA_CHROMIUM=%s is not a browser binary. Install Chromium with '%s' or set PAPRIKA_CHROMIUM to an installed Chrome", env, chromiumInstallCommand)
+		}
+		path = env
+	} else {
+		path = FindChromium()
+		if path == "" {
+			return fmt.Sprintf("screenshot unavailable: Chromium not found. Install it with '%s' or set PAPRIKA_CHROMIUM", chromiumInstallCommand)
+		}
+	}
+	return chromiumMismatch(path)
+}
+
+func chromiumRevision(path string) string {
+	m := chromiumRevRe.FindStringSubmatch(filepath.ToSlash(path))
+	if m == nil {
+		return ""
+	}
+	return m[1]
+}
+
+func findBrowsersJSON() string {
+	var roots []string
+	if wd, err := os.Getwd(); err == nil {
+		roots = append(roots, wd)
+	}
+	if exe, err := os.Executable(); err == nil {
+		roots = append(roots, filepath.Dir(exe))
+	}
+	seen := map[string]bool{}
+	for _, root := range roots {
+		dir := root
+		for range 8 {
+			if seen[dir] {
+				break
+			}
+			seen[dir] = true
+			direct := filepath.Join(dir, "node_modules", "playwright-core", "browsers.json")
+			if st, err := os.Stat(direct); err == nil && !st.IsDir() {
+				return direct
+			}
+			matches, _ := filepath.Glob(filepath.Join(dir, "node_modules", ".pnpm", "playwright-core@*", "node_modules", "playwright-core", "browsers.json"))
+			if len(matches) > 0 {
+				sort.Strings(matches)
+				return matches[len(matches)-1]
+			}
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break
+			}
+			dir = parent
+		}
+	}
+	return ""
+}
+
+func expectedChromiumRevisions() map[string]bool {
+	p := findBrowsersJSON()
+	if p == "" {
+		return nil
+	}
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return nil
+	}
+	var doc struct {
+		Browsers []struct {
+			Name     string `json:"name"`
+			Revision string `json:"revision"`
+		} `json:"browsers"`
+	}
+	if json.Unmarshal(data, &doc) != nil {
+		return nil
+	}
+	out := map[string]bool{}
+	for _, b := range doc.Browsers {
+		if (b.Name == "chromium" || b.Name == "chromium-headless-shell") && b.Revision != "" {
+			out[b.Revision] = true
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func chromiumMismatch(path string) string {
+	got := chromiumRevision(path)
+	if got == "" {
+		return ""
+	}
+	want := expectedChromiumRevisions()
+	if len(want) == 0 || want[got] {
+		return ""
+	}
+	expected := make([]string, 0, len(want))
+	for rev := range want {
+		expected = append(expected, rev)
+	}
+	sort.Strings(expected)
+	return fmt.Sprintf("screenshot unavailable: Chromium build %s is installed, but Playwright expects build %s. Install it with '%s' or set PAPRIKA_CHROMIUM", got, strings.Join(expected, " or "), chromiumInstallCommand)
+}
+
+func chromiumStartup(shot Screenshotter) string {
+	if _, ok := shot.(*Chrome); !ok {
+		return ""
+	}
+	return chromiumProblem()
+}
+
 func (c *Chrome) ensure() (context.Context, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.browser != nil && c.browser.Err() == nil {
 		return c.browser, nil
 	}
+	if msg := chromiumProblem(); msg != "" {
+		return nil, errors.New(msg)
+	}
 	path := FindChromium()
 	if path == "" {
-		return nil, errors.New("screenshot unavailable: Chromium not found. Install it with 'npx playwright install chromium' or set PAPRIKA_CHROMIUM")
+		return nil, fmt.Errorf("screenshot unavailable: Chromium not found. Install it with '%s' or set PAPRIKA_CHROMIUM", chromiumInstallCommand)
 	}
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.ExecPath(path),
@@ -95,14 +228,15 @@ func (c *Chrome) ensure() (context.Context, error) {
 	if err := chromedp.Do(browser); err != nil {
 		stop()
 		allocStop()
-		return nil, fmt.Errorf("screenshot unavailable: failed to start %s: %w", path, err)
+		return nil, fmt.Errorf("screenshot unavailable: failed to start %s: %w. Install Chromium with '%s' or set PAPRIKA_CHROMIUM", path, err, chromiumInstallCommand)
 	}
 	c.allocStop, c.browser, c.stop = allocStop, browser, stop
 	return browser, nil
 }
 
 // Screenshot renders a node (or the whole canvas) to PNG. The scale is reduced so no side exceeds 4096px.
-func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID string, scale float64) ([]byte, int, int, error) {
+func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) ([]byte, int, int, error) {
+	doc = docForMode(doc, rootID, mode)
 	// A node comes out transparent; a page (or the canvas) uses its own background, or white.
 	bg := ""
 	if rootID != "" {
@@ -235,4 +369,156 @@ func (c *Chrome) Close() {
 		c.allocStop()
 		c.stop, c.allocStop, c.browser = nil, nil, nil
 	}
+}
+
+type shotArchive interface {
+	StorePNG(png []byte) string
+	PNG(id string) ([]byte, bool)
+}
+
+func (c *Chrome) StorePNG(png []byte) string {
+	id := newShotID()
+	buf := append([]byte(nil), png...)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.saved == nil {
+		c.saved = map[string][]byte{}
+	}
+	c.saved[id] = buf
+	c.savedOrder = append(c.savedOrder, id)
+	for len(c.savedOrder) > shotArchiveLimit {
+		drop := c.savedOrder[0]
+		c.savedOrder = c.savedOrder[1:]
+		delete(c.saved, drop)
+	}
+	return id
+}
+
+func (c *Chrome) PNG(id string) ([]byte, bool) {
+	if !shotIDRe.MatchString(id) {
+		return nil, false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	png, ok := c.saved[id]
+	if !ok {
+		return nil, false
+	}
+	return append([]byte(nil), png...), true
+}
+
+func newShotID() string {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return fmt.Sprintf("%016x", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b[:])
+}
+
+func docForMode(doc *core.Document, rootID, mode string) *core.Document {
+	if mode == "" || doc == nil {
+		return doc
+	}
+	clone, ok := jsonv.Clone(doc).(*jsonv.Object)
+	if !ok || clone == nil {
+		return doc
+	}
+	if rootID != "" {
+		if n := core.GetNode(clone, rootID); n != nil {
+			if target := themeCarrier(clone, n); target != nil {
+				target.Set("mode", mode)
+			}
+		}
+		return clone
+	}
+	if p := core.FirstPage(clone); p != nil {
+		p.Set("mode", mode)
+		return clone
+	}
+	for _, id := range clone.Strings("rootIds") {
+		n := core.GetNode(clone, id)
+		if n != nil && (n.Str("type") == "frame" || n.Str("type") == "page") {
+			n.Set("mode", mode)
+		}
+	}
+	return clone
+}
+
+func themeCarrier(doc *core.Document, n *core.Node) *core.Node {
+	for cur, depth := n, 0; cur != nil && depth < 1000; depth++ {
+		if t := cur.Str("type"); t == "frame" || t == "page" {
+			return cur
+		}
+		pid, ok := core.ParentID(cur)
+		if !ok || pid == "" {
+			return nil
+		}
+		cur = core.GetNode(doc, pid)
+	}
+	return nil
+}
+
+func screenshotDir(dbPath string) (string, error) {
+	raw := os.Getenv("PAPRIKA_SCREENSHOTS")
+	if raw == "" {
+		raw = filepath.Join(filepath.Dir(dbPath), "screenshots")
+	}
+	abs, err := filepath.Abs(raw)
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(abs, 0o755); err != nil {
+		return "", err
+	}
+	real, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", err
+	}
+	return real, nil
+}
+
+func writeScreenshot(dbPath, rel string, png []byte) (string, error) {
+	dir, err := screenshotDir(dbPath)
+	if err != nil {
+		return "", err
+	}
+	clean := filepath.Clean(rel)
+	if clean == "." || clean == "" || filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q is outside the screenshot directory (%s)", rel, dir)
+	}
+	abs := filepath.Join(dir, clean)
+	if !within(dir, abs) {
+		return "", fmt.Errorf("path %q is outside the screenshot directory (%s)", rel, dir)
+	}
+	parent := filepath.Dir(abs)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return "", err
+	}
+	realParent, err := filepath.EvalSymlinks(parent)
+	if err != nil || (realParent != dir && !within(dir, realParent)) {
+		return "", fmt.Errorf("path %q is outside the screenshot directory (%s)", rel, dir)
+	}
+	dest := filepath.Join(realParent, filepath.Base(abs))
+	if !within(dir, dest) {
+		return "", fmt.Errorf("path %q is outside the screenshot directory (%s)", rel, dir)
+	}
+	if st, lerr := os.Lstat(dest); lerr == nil && st.Mode()&os.ModeSymlink != 0 {
+		real, rerr := filepath.EvalSymlinks(dest)
+		if rerr != nil || !within(dir, real) {
+			return "", fmt.Errorf("path %q is outside the screenshot directory (%s)", rel, dir)
+		}
+		dest = real
+	}
+	if err := os.WriteFile(dest, png, 0o644); err != nil {
+		return "", err
+	}
+	return dest, nil
+}
+
+func screenshotURL(shot Screenshotter, png []byte) string {
+	arc, ok := shot.(shotArchive)
+	if !ok {
+		return ""
+	}
+	return "/api/screenshot/" + arc.StorePNG(png)
 }

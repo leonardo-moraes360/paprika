@@ -85,6 +85,7 @@ func TestHTTPRouteTable(t *testing.T) {
 		{"POST", "/api/render", "", 405, "método não permitido", true},
 		{"GET", "/api/screenshot", "", 500, "screenshot indisponível", true},
 		{"POST", "/api/screenshot", "", 405, "método não permitido", true},
+		{"GET", "/api/screenshot/missing", "", 404, "screenshot não encontrado", true},
 		{"GET", "/api/svg", "", 200, "", true},
 		{"POST", "/api/svg", "", 405, "método não permitido", true},
 		{"GET", "/", "", 200, "", false},

@@ -4329,7 +4329,7 @@
     {
       "name": "render_screenshot",
       "title": "Screenshot",
-      "description": "PNG of a node (a page: its canvas; without rootId: the canvas, or the first page), rendered by the same engine as the canvas and the export.",
+      "description": "PNG of a node (a page: its canvas; without rootId: the canvas, or the first page), rendered by the same engine as the canvas and the export. path writes the PNG under the screenshot directory (the database directory's screenshots/, or PAPRIKA_SCREENSHOTS); a path that leaves that directory is refused. With path the result is {path, width, height, url} and no image bytes; url is /api/screenshot/<id>. Without path the image is returned as before, plus url. mode paints the subtree in that theme mode (light, dark, …); omitted, a subtree keeps the mode it inherits from its frame or page. A missing or mismatched Chromium returns the command: pnpm --filter @paprika/e2e exec playwright install chromium.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4341,6 +4341,12 @@
             "type": "number",
             "minimum": 0.1,
             "maximum": 4
+          },
+          "path": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
           }
         },
         "$schema": "http://json-schema.org/draft-07/schema#"
@@ -4357,6 +4363,12 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "path": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
           }
         },
         "required": [
