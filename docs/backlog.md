@@ -232,3 +232,7 @@ Added by the maintainer on 2026-11-22, to plan later (not started). The constrai
 | Better-looking activity history | Today it is a block of poorly formatted information | ⬜ | TBD |
 | Layer order: send to back or bring to front, arbitrarily | Shortcuts such as Page Up / Page Down, and also over MCP. Today only `move_nodes` with `index`, no canvas shortcut (see A, "Z-order") | ⬜ | TBD |
 | Components reusable across pages and across workspaces | Today `component`/`instanceOf` only work inside one document (H); missing: a library shared by workspaces, instances that point to another workspace, and how updates reach them | ⬜ | TBD |
+| Multiplayer LLM chat in the canvas | Floating, centered at the bottom of the canvas; shared by the people (and agents) of the workspace | ⬜ | TBD |
+| Bug: the first page of a workspace cannot be renamed while it is the only one | Cause found: a workspace without pages shows a placeholder "Página 1" row (`apps/web/src/Pages.tsx`) that is not a real page node, so double-click does nothing; renaming it should create the page and name it | ⬜ | TBD |
+| Destructive actions | A danger button variant (and confirmation pattern) for delete/remove; today every action uses the brand primary button | ⬜ | TBD |
+| Design system as a concept in the canvas | A place for the workspace's tokens, components and rules that agents and people draw from (relates to E and H) | ⬜ | TBD |

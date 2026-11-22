@@ -232,6 +232,10 @@ Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados)
 | Melhorar visualmente o histórico de atividade | Hoje é um aglomerado de informação mal formatada | ⬜ | a definir |
 | Controle de ordem das camadas: enviar ao fundo ou trazer à frente de forma arbitrária | Atalhos como Page Up / Page Down, e também via MCP. Hoje só `move_nodes` com `index`, sem atalho no canvas (ver A, "Ordem Z") | ⬜ | a definir |
 | Componentes reutilizáveis entre páginas e entre workspaces | Hoje `component`/`instanceOf` só funcionam dentro de um documento (H); falta: biblioteca compartilhada entre workspaces, instância que aponta para outro workspace e como as atualizações chegam até ela | ⬜ | a definir |
+| Chat de LLM multiplayer no canvas | Flutuante, centralizado na parte inferior do canvas; compartilhado pelas pessoas (e agentes) do workspace | ⬜ | a definir |
+| Bug: não dá para renomear a primeira página de um workspace quando ela é a única | Causa encontrada: workspace sem páginas mostra uma linha "Página 1" de placeholder (`apps/web/src/Pages.tsx`) que não é um nó de página de verdade, então o duplo clique não faz nada; renomear deveria criar a página e dar o nome | ⬜ | a definir |
+| Ações destrutivas | Variante de botão danger (e padrão de confirmação) para excluir/remover; hoje tudo usa o botão primário da marca | ⬜ | a definir |
+| Design system como conceito no canvas | Um lugar para tokens, componentes e regras do workspace, de onde agentes e pessoas desenham (relaciona com E e H) | ⬜ | a definir |
 
 <details><summary>Pedido original (texto do mantenedor)</summary>
 
@@ -247,5 +251,9 @@ Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados)
 - melhorar visualmente histórico de atividade, hoje ele é um aglomerado de informaçao mal formatada.
 - adicionar controle de background e foreground nas camadas, permitindo enviar uma camada para background ou trazer para foreground de forma arbitrária. Utilizando por exemplo page up ou page down.
 - capacidade de criar componentes reutilizáveis entre páginas ou workspaces no canvas.
+- introduzir no canvas o conceito de chat de llm multiplayer, parte inferior, centralizado e flutuante
+- não consigo renomear primeira página criada em um workspace, que não tem segunda página
+- adicionar conceito de destructive actions, hoje tudo usa o botão brand primary
+- introduzir no canvas o conceito de design system
 
 </details>
