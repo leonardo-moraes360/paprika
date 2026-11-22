@@ -2,11 +2,14 @@
  * Tailwind CSS v4, without Preflight (docs/adr/0003-tailwind-css.md): the canvas paints user documents with
  * nodeStyle's inline styles, and they must look the same as in the HTML export and the screenshot, which
  * run on the browser defaults. Components style themselves with utilities; this file only holds the theme
- * (brand "Estúdio noturno", docs/brand) and the few base rules the app always had.
+ * (brand "Estúdio noturno", docs/brand), the semantic aliases of the shadcn primitives
+ * (docs/adr/0005-shadcn-ui.md) and the few base rules the app always had.
  */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
+/* enter/exit animations of the primitives (ADR 0005); no Preflight and no base rules in this package. */
+@import "tw-animate-css";
 
 @source "./";
 @source not "./wasm";
@@ -37,6 +40,42 @@
   --color-select: #4cc7d8;
   --color-select-ink: #0d1220;
   --color-label: #5d5763;
+  /* The darker brand red, used for the hover of a filled control ($accent.dark in the design document). */
+  --color-accent-dark: #a93220;
+
+  /*
+   * Semantic names of the shadcn primitives (docs/adr/0005-shadcn-ui.md), namespaced `ui-` so the brand
+   * names of ADR 0003 keep their meaning: `text-muted` is a text color and shadcn's `muted` is a surface.
+   * These are aliases, not new colors — each one points at a brand token above. The only exception is the
+   * light mirror in `.ui-light` at the end of this file. Contrast numbers are in ADR 0005.
+   */
+  --color-ui-background: var(--color-night);
+  --color-ui-foreground: var(--color-fg);
+  --color-ui-card: var(--color-panel);
+  --color-ui-card-foreground: var(--color-fg);
+  --color-ui-popover: var(--color-panel-2);
+  --color-ui-popover-foreground: var(--color-fg);
+  --color-ui-primary: var(--color-accent-strong);
+  --color-ui-primary-foreground: var(--color-white);
+  --color-ui-primary-hover: var(--color-accent-dark);
+  --color-ui-secondary: var(--color-panel-2);
+  --color-ui-secondary-foreground: var(--color-fg);
+  --color-ui-secondary-hover: #313a5c;
+  --color-ui-muted: var(--color-panel-2);
+  --color-ui-muted-foreground: var(--color-muted);
+  --color-ui-accent: var(--color-panel-2);
+  --color-ui-accent-foreground: var(--color-fg);
+  --color-ui-destructive: var(--color-accent-strong);
+  --color-ui-destructive-foreground: var(--color-white);
+  --color-ui-destructive-hover: var(--color-accent-dark);
+  /* Red as text needs its own token: #c8401f on the night surfaces is 2.72:1, the ink is 7.97:1. */
+  --color-ui-destructive-text: var(--color-accent-ink);
+  --color-ui-border: var(--color-line);
+  --color-ui-input: var(--color-line);
+  --color-ui-field: var(--color-panel-2);
+  --color-ui-ring: var(--color-select);
+  --color-ui-link: var(--color-select);
+  --color-ui-overlay: rgb(9 12 22 / 0.66);
 
   --text-*: initial;
   --text-2xs: 10px;
@@ -155,5 +194,64 @@
   :not(.world, .world *)::-webkit-scrollbar-thumb:hover,
   :not(.world, .world *)::-webkit-scrollbar-thumb:active {
     background-color: var(--scrollbar-thumb-hover);
+  }
+}
+
+/*
+ * Light mirror of the semantic tokens (docs/adr/0005-shadcn-ui.md). The app still ships one theme — the
+ * night brand of ADR 0003 — and these values exist so the primitives can be drawn and checked in light as
+ * well, on the board and on `/ui`, and so the "Theme modes (light/dark/compact)" row of the backlog has a
+ * single place to grow from. `.ui-light` only redefines variables, so a light panel can sit next to a dark
+ * one without a second stylesheet, and no selector here reaches the document under `.world`.
+ * Checked for WCAG AA: #141827 on #f2f3f8 = 15.9:1; #5d6478 on #e7e9f0 = 4.86:1; #c8401f with white = 4.99:1;
+ * #b3300f on #ffffff = 6.28:1; the focus ring #0b7183 on #f2f3f8 = 5.12:1.
+ */
+@layer base {
+  .ui-light {
+    color-scheme: light;
+
+    --color-ui-background: #f2f3f8;
+    --color-ui-foreground: #141827;
+    --color-ui-card: #fff;
+    --color-ui-card-foreground: #141827;
+    --color-ui-popover: #fff;
+    --color-ui-popover-foreground: #141827;
+    --color-ui-primary: var(--color-accent-strong);
+    --color-ui-primary-foreground: var(--color-white);
+    --color-ui-primary-hover: var(--color-accent-dark);
+    --color-ui-secondary: var(--color-canvas);
+    --color-ui-secondary-foreground: #141827;
+    --color-ui-secondary-hover: #d9deea;
+    --color-ui-muted: var(--color-canvas);
+    --color-ui-muted-foreground: #5d6478;
+    --color-ui-accent: var(--color-canvas);
+    --color-ui-accent-foreground: #141827;
+    --color-ui-destructive: var(--color-accent-strong);
+    --color-ui-destructive-foreground: var(--color-white);
+    --color-ui-destructive-hover: var(--color-accent-dark);
+    --color-ui-destructive-text: #b3300f;
+    --color-ui-border: #d3d7e3;
+    --color-ui-input: #c6cbd9;
+    --color-ui-field: #fff;
+    --color-ui-ring: #0b7183;
+    --color-ui-link: #0b7183;
+    --color-ui-overlay: rgb(20 24 39 / 0.42);
+  }
+}
+
+/*
+ * tw-animate-css 1.4.0 ships no reduced-motion guard, so the enter/exit animations stop here. Scoped with
+ * :not(.world, .world *), exactly like the scrollbars above: a document painted on the canvas keeps the
+ * browser defaults it has in the HTML export and in the screenshot (ADR 0003). The animation still runs
+ * (0.01ms), so Radix, which unmounts on animationend, still closes.
+ */
+@layer base {
+  @media (prefers-reduced-motion: reduce) {
+    :not(.world, .world *) {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
