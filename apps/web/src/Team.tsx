@@ -176,6 +176,31 @@ function Modal({ title, description, onClose, className, children }: { title: st
   );
 }
 
+/** Rótulo acima do campo: o padrão dos primitivos (ADR 0005), usado nos três campos do painel. */
+function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  return (
+    <div className={ui.grid}>
+      <Label htmlFor={id}>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+/** The one-line error a dialog shows above its buttons. */
+function ErrorNote({ text, className }: { text: string; className?: string }) {
+  return <p className={cn("m-0 rounded-md border border-accent bg-toast p-2 text-sm text-accent-pale", className)}>{text}</p>;
+}
+
+/** A titled warning band: what happened, then what it means. Used by join, keys and the "you were removed" notice. */
+function ToastBand({ title, body, titleClass, bodyClass }: { title: string; body: ReactNode; titleClass?: string; bodyClass?: string }) {
+  return (
+    <div className="grid gap-1 rounded-lg border border-accent bg-toast p-3">
+      <strong className={cn("text-sm text-accent-pale", titleClass)}>{title}</strong>
+      <span className={cn("text-xs text-accent-ink", bodyClass)}>{body}</span>
+    </div>
+  );
+}
+
 const TTLS: [string, number][] = [
   ["15 min", 900],
   ["1 h", 3600],
@@ -216,14 +241,13 @@ export function InviteDialog({ status, onClose }: { status: TeamStatus; onClose(
       onClose={onClose}
       className="max-w-[640px]"
     >
-      {error && <p className="m-0 rounded-md border border-accent bg-toast p-2 text-sm text-accent-pale">{error}</p>}
+      {error && <ErrorNote text={error} />}
       <div className="flex flex-wrap items-start gap-5">
         {invite ? <Qr text={invite.link} /> : <div className="size-[168px] rounded-md bg-panel-2" />}
         <div className="grid min-w-[260px] flex-1 gap-3">
-          <div className={ui.grid}>
-            <Label htmlFor="invite-link">Link de convite</Label>
+          <Field id="invite-link" label="Link de convite">
             <Input id="invite-link" className="invite-link font-mono text-xs" readOnly value={invite?.link ?? "gerando…"} onFocus={(e) => e.target.select()} />
-          </div>
+          </Field>
           <div className="grid gap-1.5">
             <span className="text-xs text-ui-muted-foreground">Expira em</span>
             <div className="grid grid-cols-4 gap-0.5 rounded-md bg-ui-background p-0.5" role="radiogroup" aria-label="Validade do convite">
@@ -309,10 +333,9 @@ export function JoinDialog({ status, onClose }: { status: TeamStatus | null; onC
   const expiredFor = preview?.expired ? Math.max(1, Math.round((Date.now() / 1000 - preview.expiresAt) / 60)) : 0;
   return (
     <Modal title="Entrar em um time" description="Cole o link ou leia o QR de quem convidou." onClose={onClose} className="max-w-[520px]">
-      <div className={ui.grid}>
-        <Label htmlFor="join-link">Link de convite</Label>
+      <Field id="join-link" label="Link de convite">
         <Input id="join-link" className="join-link font-mono text-xs" value={link} placeholder="paprika://join/…" onChange={(e) => setLink(e.target.value)} autoFocus />
-      </div>
+      </Field>
       {preview && !preview.expired && (
         <div className="team-preview grid gap-2 rounded-lg border border-ui-border bg-ui-background p-3">
           <div className="flex items-center gap-2.5">
@@ -331,16 +354,10 @@ export function JoinDialog({ status, onClose }: { status: TeamStatus | null; onC
         </div>
       )}
       {preview?.expired && (
-        <div className="grid gap-1 rounded-lg border border-accent bg-toast p-3">
-          <strong className="text-sm text-accent-pale">Convite expirado há {expiredFor} min</strong>
-          <span className="text-xs text-accent-ink">Peça um novo link. Nada foi alterado no seu Paprika.</span>
-        </div>
+        <ToastBand title={`Convite expirado há ${expiredFor} min`} body="Peça um novo link. Nada foi alterado no seu Paprika." />
       )}
       {error && (
-        <div className="grid gap-1 rounded-lg border border-accent bg-toast p-3">
-          <strong className="text-sm text-accent-pale">Não deu para entrar</strong>
-          <span className="join-error text-xs text-accent-ink">{error}</span>
-        </div>
+        <ToastBand title="Não deu para entrar" body={error} bodyClass="join-error" />
       )}
       {done && <p className="m-0 text-sm text-leaf">Você entrou no time. Os workspaces compartilhados aparecem na página inicial.</p>}
       <DialogFooter>
@@ -379,7 +396,7 @@ export function RemoveMemberDialog({ member, onClose }: { member: TeamMember; on
       className="max-w-[520px]"
     >
       <p className="m-0 text-xs text-ui-muted-foreground">Para voltar, a pessoa precisa de um convite novo.</p>
-      {error && <p className="team-remove-error m-0 rounded-md border border-accent bg-toast p-2 text-sm text-accent-pale">{error}</p>}
+      {error && <ErrorNote text={error} className="team-remove-error" />}
       <DialogFooter>
         <button className={btn()} onClick={onClose}>
           Cancelar
@@ -417,7 +434,7 @@ export function RotateKeyDialog({ status, onClose }: { status: TeamStatus; onClo
       className="max-w-[520px]"
     >
       <p className="m-0 text-xs text-ui-muted-foreground">{done ? "Chave antiga" : "Chave atual"}: ed25519 {before}. Alguém do time precisa estar online para receber a troca.</p>
-      {error && <p className="team-rotate-error m-0 rounded-md border border-accent bg-toast p-2 text-sm text-accent-pale">{error}</p>}
+      {error && <ErrorNote text={error} className="team-rotate-error" />}
       {done && <p className="m-0 text-sm text-leaf">Chave nova: ed25519 {done}</p>}
       <DialogFooter>
         <button className={btn()} onClick={onClose}>
@@ -446,9 +463,8 @@ export function RotateKeyDialog({ status, onClose }: { status: TeamStatus; onClo
 function RemovedNotice({ team }: { team: NonNullable<TeamStatus["team"]> }) {
   if (team.member !== false) return null;
   return (
-    <div className="team-removed-you grid gap-1 rounded-lg border border-accent bg-toast p-3">
-      <strong className="text-sm text-accent-pale">Você não está mais neste time</strong>
-      <span className="text-xs text-accent-ink">Suas mudanças ficam só neste dispositivo. Para voltar, peça um convite novo.</span>
+    <div className="team-removed-you">
+      <ToastBand title="Você não está mais neste time" body="Suas mudanças ficam só neste dispositivo. Para voltar, peça um convite novo." />
     </div>
   );
 }
@@ -528,10 +544,7 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
         </tbody>
       </table>
       {status.rejected > 0 && (
-        <div className="grid gap-1 rounded-lg border border-accent bg-toast p-3">
-          <strong className="text-sm text-accent-pale">{status.rejected} operação(ões) ou conexão(ões) rejeitada(s)</strong>
-          <span className="text-xs text-accent-ink">{status.lastRejected?.reason ?? ""}. Nada foi aplicado.</span>
-        </div>
+        <ToastBand title={`${status.rejected} operação(ões) ou conexão(ões) rejeitada(s)`} body={`${status.lastRejected?.reason ?? ""}. Nada foi aplicado.`} />
       )}
       <p className="m-0 flex items-center gap-2 text-xs text-muted">
         <span className="rounded-full bg-panel-2 px-2 py-0.5">em breve</span>
@@ -559,10 +572,9 @@ export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: {
       <section className={cx(ui.section, "team-panel grid gap-3")}>
         <h2 className={ui.h2}>Time</h2>
         <p className="m-0 text-sm text-muted">Este Paprika ainda não está em um time. Crie um e convide as pessoas, ou entre com um link de convite.</p>
-        <div className={ui.grid}>
-          <Label htmlFor="team-name">Nome</Label>
+        <Field id="team-name" label="Nome">
           <Input id="team-name" value={name} placeholder="Estúdio Norte" onChange={(e) => setName(e.target.value)} />
-        </div>
+        </Field>
         {error && <p className="m-0 text-xs text-accent-ink">{error}</p>}
         <div className="flex flex-wrap gap-2">
           <button
