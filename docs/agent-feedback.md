@@ -5,6 +5,8 @@
 Friction found while AI agents used Paprika through MCP, recorded during real work.
 Format: date · task · what the agent needed vs. what happened · proposal · priority.
 
+Numbers 112–122 were given on 2026-11-22 to rows that parallel tickets had numbered 99–111 a second time; `fb#N` in the backlog uses the new numbers.
+
 ## 2026-11-21: drawing 5 icon + theme proposals (`examples/brand/draw-brand.mjs`)
 
 Task: an agent drew 5 flat paprika icons with increasing complexity (3 → ~20 shapes), each shown at 240/96/48/24 px next to a palette and a UI sample, using only MCP tools.
@@ -13,12 +15,12 @@ Task: an agent drew 5 flat paprika icons with increasing complexity (3 → ~20 s
 |---|--------|---------------|----------|------|
 | 1 | Organic shapes (a pepper silhouette) | Only `rect`/`ellipse` exist; the pepper had to be built from overlapping, rotated ellipses | Add a `path` node (SVG `d`, fill/stroke) and boolean union of children (`path` with bezier curves done on 2026-11-21; MCP `combine_paths` / core boolean ops done in PAP-A-003 — canvas command still open) | P1 |
 | 2 | Put a stem on the tip of a rotated pod | Rotation pivots on the box center, so the agent had to do trigonometry; the calyx was misplaced twice and only caught by screenshot | Done (2026-11-22, PAP-A-001): `get_bounds` returns origin + rotated corners; `path_info` adds origin / transformOrigin | — |
-| 3 | Same icon at 4 sizes | No components/instances or scale: the script regenerated every shape with a scale factor (4× the nodes, edits don't propagate) | Components + instances with `scale`; `duplicate_nodes` with scale | P1 |
+| 3 | Same icon at 4 sizes | No components/instances or scale: the script regenerated every shape with a scale factor (4× the nodes, edits don't propagate) | Done (2026-11-22, PAP-B-017: `duplicate_nodes` with `scale`). Components + instances with `scale`; `duplicate_nodes` with scale | — |
 | 4 | 5 themes side by side | Tokens are global, so they had to be namespaced by hand (`p1.brand` … `p5.brand`) and rewritten in every node | Done (2026-11-21, see #45): theme modes (`set_tokens` with `mode`) and `mode` on a frame or page; named collections are still open | — |
 | 5 | Check the result visually on the user's machine | `render_screenshot` failed: Playwright 1.63 needs Chromium build 1243, only 1228 was installed | Detect a missing browser at startup, return the exact fix command in the error, and fall back to rendering through an open canvas tab | P1 |
 | 6 | Catch visual mistakes without a screenshot | `lint_design` passed while the calyx floated off the pod | Geometry lint: children that don't touch any sibling, near-misses (< 4px gaps), shapes fully hidden behind others | P2 |
 | 7 | Read structured results | Tools return JSON as text; the agent has to parse strings | Done (2026-11-21, see #48): `outputSchema` + `structuredContent` on every JSON tool | — |
-| 8 | Layout wrappers that don't clip | Every wrapper frame needed `clip: false` and `fill: "transparent"` | A `group` node, or `clip: false` by default when a frame has auto layout | P3 |
+| 8 | Layout wrappers that don't clip | Every wrapper frame needed `clip: false` and `fill: "transparent"` | Done (2026-11-21, `group` node). A `group` node, or `clip: false` by default when a frame has auto layout | — |
 | 9 | Quiet lint | 21 `raw-color` infos for intentional literals (white handles, black text on buttons) | Per-node `lintIgnore: ["raw-color"]` and a `minSeverity` parameter | P3 |
 | 10 | See who did what | The actor name comes from the HTTP User-Agent (`node`, `brand-agent`), not from the MCP client | Done (2026-11-21, see #48): `agent:<clientInfo.name>`, also over HTTP | — |
 | 11 | One undo step for "draw proposal 3" | 7 history entries for one script run (rename, tokens, 5 creates) | Done (2026-11-21, see #48): `batch` on every write tool | — |
@@ -33,7 +35,7 @@ Task: add bezier curves so agents and humans can draw organic shapes, then redra
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 15 | A node box that matches the drawing | Without `width`/`height` the box runs from the node origin to the far edge of the curve, so a `d` that starts at (40,30) leaves empty space at the top left, and overflow lint measures that box | Done (2026-11-22, PAP-A-001): `normalize: true` on create_nodes / create; `path_info.origin` reports the gap | — |
-| 16 | Layer several paths as one shape (body, shadow, highlight, calyx) | Each part repeats the same `x`/`y`; moving the pepper means moving 5 nodes | `group` node (see #8) or a `paths: []` list on one node | P2 |
+| 16 | Layer several paths as one shape (body, shadow, highlight, calyx) | Each part repeats the same `x`/`y`; moving the pepper means moving 5 nodes | Done (2026-11-21, `group` node). `group` node (see #8) or a `paths: []` list on one node | — |
 | 17 | Edit one control point | Changing a curve means rewriting the whole `d` string | Canvas part done (2026-11-21, see #43); `update_path_points` (move anchor/handle by index) for agents is still open | P3 |
 | 18 | Know the drawn size before placing a part | `path_info` with `canvasBounds` answered it in one call; it also caught a typo (`d inválido: número esperado na posição 12`) | Keep: return position-accurate parse errors for every string field | — |
 
@@ -125,7 +127,7 @@ Task: `document.modes` and `mode` on frames and pages in the core (TS and Go), `
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 45 | Show the same screen light and dark | Before, an agent duplicated the frame and rewrote every color; now it writes the dark values once (`set_tokens` with `mode`) and sets `mode` on a copy | A `duplicate_nodes` tool that takes overrides (`mode` here) would make the side-by-side one call | P2 |
+| 45 | Show the same screen light and dark | Before, an agent duplicated the frame and rewrote every color; now it writes the dark values once (`set_tokens` with `mode`) and sets `mode` on a copy | Done (2026-11-22, PAP-B-017: `duplicate_nodes` with `props`). A `duplicate_nodes` tool that takes overrides (`mode` here) would make the side-by-side one call | — |
 | 46 | Know which value a node really gets | `get_nodes` shows `$fg`; the value depends on the nearest `mode` above. The outline prints `mode=` on frames and the modes with their tokens | A `resolve` flag on `get_nodes` that adds the resolved paint per node | P3 |
 | 47 | Use a token only one mode defines | It resolves inside that mode and is an `unknown-token` error elsewhere; in a CSS-variables export it becomes `var(--x)` with no base value | Keep the error; agents should set a base value too | — |
 
@@ -167,9 +169,9 @@ Task: rename and delete on the overview (double click on the name, delete with a
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 59 | Keep an agent from deleting work on its own | `delete_workspace` has `destructiveHint` and the guide asks for the human's confirmation, but nothing enforces it; the canvas asks, MCP does not | Two steps: the first call returns what would be lost and a token, the second call with the token deletes | P2 |
-| 60 | Undo a rename | Renaming the active workspace is a `rename_document` write (undoable); renaming another one changes it in place, with no undo | A per-server activity log for workspace operations, or a trash that keeps deleted workspaces for a while | P3 |
-| 61 | Tell the human why the canvas moved | Deleting the active workspace opens the most recently updated other one for everyone; the canvas follows, with no message | A short notice on the canvas ("workspace X deleted by agent:Y") | P3 |
+| 59 | Keep an agent from deleting work on its own | `delete_workspace` has `destructiveHint` and the guide asks for the human's confirmation, but nothing enforces it; the canvas asks, MCP does not | Done (2026-11-22, PAP-B-015). Two steps: the first call returns what would be lost and a token, the second call with the token deletes | — |
+| 60 | Undo a rename | Renaming the active workspace is a `rename_document` write (undoable); renaming another one changes it in place, with no undo | Done (2026-11-22, PAP-B-015: `list_workspace_ops`). A per-server activity log for workspace operations, or a trash that keeps deleted workspaces for a while | — |
+| 61 | Tell the human why the canvas moved | Deleting the active workspace opens the most recently updated other one for everyone; the canvas follows, with no message | Done (2026-11-22, PAP-B-037). A short notice on the canvas ("workspace X deleted by agent:Y") | — |
 
 ## 2026-11-21: workspace covers
 
@@ -213,7 +215,7 @@ Task: draw a before/after board of the contrast fixes (white text on the accent,
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 71 | A screenshot of a board that hugs its content | `render_screenshot` of a root `frame` with `width`/`height: "hug"` returned a 2×2 PNG, with no error or warning; the canvas showed the board at full size (it measures in the browser), the screenshot uses the stored size. The workaround was to measure the board in the canvas and set a fixed width and height | Done (2026-11-22): `hug`/`fill` roots are measured in headless Chromium before the screenshot (same change as #29) | — |
-| 72 | Draw in the user's own Paprika from a cloud session | The design-first rule points at `127.0.0.1:4777` on the user's machine; a cloud session cannot reach it, so the board lives in a throwaway server in the container and only its PNG reaches the user | `paprika export --root <id>` of a single frame plus an `import_nodes` tool, or let the team sync carry a shared "proposals" workspace | P2 |
+| 72 | Draw in the user's own Paprika from a cloud session | The design-first rule points at `127.0.0.1:4777` on the user's machine; a cloud session cannot reach it, so the board lives in a throwaway server in the container and only its PNG reaches the user | Done (2026-11-22, PAP-B-013: `export --root` + `import_document`). `paprika export --root <id>` of a single frame plus an `import_nodes` tool, or let the team sync carry a shared "proposals" workspace | — |
 
 - Nested `create_nodes` built the whole board (≈100 nodes) in one call; with `width`/`height: "hug"` on every text there was no 100×100 text problem this time (#65 still holds for the default).
 
@@ -225,7 +227,7 @@ Task: draw the arrow-label and team screens over MCP before building them (desig
 |---|--------|---------------|----------|------|
 | 73 | Put a label in the middle of an arrow (before `label` existed) | Had to read the connector's derived `d`, find the middle of the first subpath by hand and place a `text` there; it drifts when the arrow moves | Done (2026-11-22): `label` on `connector` and on `draw_diagram` edges, drawn at the middle with a halo | — |
 | 74 | Tell a diagram's history label from an edge label | `draw_diagram` already takes a top-level `label` (the history entry); edges now take `label` too, so the same word means two things in one call | Rename the top-level one to `historyLabel` in a future contract version (keep `label` as an alias), or say it in both descriptions | P3 |
-| 75 | Copy a board into the user's own Paprika | Same as #72: the cloud session drew in its own server; to put it in the user's Paprika it exported the workspace, turned it into nested `create_nodes` (dropping the derived `x/y/width/height/d` of connectors, which `create_nodes` refuses) and ran that script on the user's machine through Remote Control. `create_workspace` + `open_workspace` also switched the active workspace of the user's server, and putting the previous one back by id missed once (the active one changed under it) | An `import_document` MCP tool (a `.paprika.json` in, a new workspace out, without switching the active one), and `create_nodes` ignoring derived connector fields instead of refusing them | P1 |
+| 75 | Copy a board into the user's own Paprika | Same as #72: the cloud session drew in its own server; to put it in the user's Paprika it exported the workspace, turned it into nested `create_nodes` (dropping the derived `x/y/width/height/d` of connectors, which `create_nodes` refuses) and ran that script on the user's machine through Remote Control. `create_workspace` + `open_workspace` also switched the active workspace of the user's server, and putting the previous one back by id missed once (the active one changed under it) | Done (2026-11-22, PAP-B-013). An `import_document` MCP tool (a `.paprika.json` in, a new workspace out, without switching the active one), and `create_nodes` ignoring derived connector fields instead of refusing them | — |
 
 - #69 and #70 came back on the team panel: `lint_design` flagged the app's own 11 px labels (22 warnings) and missed a "Remover" button that overflowed its row.
 - #71 is fixed by the same change as #29 (hug roots are measured in the browser before the screenshot).
@@ -237,7 +239,7 @@ Task: draw a flat red bell pepper (three lobes, thin white curved gaps, olive st
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 76 | Cut thin gaps out of a shape | No boolean ops or masks, so the gaps are white strokes painted over the red body; that only reads right on a light background and the export has no real holes | `combine_paths` (`subtract`/`union`/…) in MCP/`apply_ops` done (PAP-A-003); canvas command and optional `mask` on `group` / stroke `knockout` still open | P2 |
-| 77 | Restyle a node and keep it on top | Turning two filled lobes into gap strokes left them under the body; needed a separate `move_nodes` (no `index` = end) to fix the z-order | Accept `index` (or `"front"`/`"back"`) in `update_nodes` props | P3 |
+| 77 | Restyle a node and keep it on top | Turning two filled lobes into gap strokes left them under the body; needed a separate `move_nodes` (no `index` = end) to fix the z-order | Done (2026-11-22, PAP-B-014). Accept `index` (or `"front"`/`"back"`) in `update_nodes` props | — |
 | 78 | Trace a reference image | The user's picture reached the agent only as an image; there was no easy way to place it under the drawing, so every bezier point was estimated by eye and mapped with a hand-computed scale, which took three screenshot rounds | A `reference` option on `create_nodes`/`import_svg` (or an `image` node from a local file path) placed locked at 50% opacity, plus `render_screenshot` with a `compare` image shown side by side | P2 |
 | 79 | Save the screenshot as a file | `render_screenshot` only returns the image to the agent; writing the PNG to the repo meant copying the client's cached blob | Optional `path` (the server writes it) or `format: "url"` returning `/api/screenshot/...` to download | P3 |
 
@@ -332,7 +334,7 @@ captured before and after.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 97 | The design boards to survive a server change | `127.0.0.1:4777` went from the host-run server to the compose stack with a fresh volume: the `Paprika` document that holds the `Interfaces` page — the PAP-B-030 sheet, the PAP-B-034 sheet, and the PAP-B-026 frames I had drawn minutes earlier — was no longer listed by `list_workspaces`. Only the PNGs committed under `docs/assets/boards/` survived, and the sheet had to be drawn a second time from the script on a `paprika serve` I started myself | Export the board document into the repository (`design/boards.paprika.json`, the way `design/landing.paprika.json` carries the landing page) and refresh it as sheets land; a server reset would then cost a reload, not a redraw | P1 |
+| 97 | The design boards to survive a server change | `127.0.0.1:4777` went from the host-run server to the compose stack with a fresh volume: the `Paprika` document that holds the `Interfaces` page — the PAP-B-030 sheet, the PAP-B-034 sheet, and the PAP-B-026 frames I had drawn minutes earlier — was no longer listed by `list_workspaces`. Only the PNGs committed under `docs/assets/boards/` survived, and the sheet had to be drawn a second time from the script on a `paprika serve` I started myself | Done (2026-11-22, PR #98: `docs/design/boards.paprika.json`). Export the board document into the repository (`design/boards.paprika.json`, the way `design/landing.paprika.json` carries the landing page) and refresh it as sheets land; a server reset would then cost a reload, not a redraw | — |
 | 98 | A contrast check that does not lie | The first hover measurement returned the resting color because `transition-colors` had not landed, so the assertion passed without ever testing the hover state; a manual probe with a 300 ms wait showed the hover wash was darker and the light text had fallen to 4,39:1 | Nothing for the tool to change. Recorded because it is easy to repeat: wait for the transition, then read, and assert both states — which the suite now does | P3 |
 
 - `lint_design` reported the light destructive text at 4,05:1 on the first sheet, before a line of code was written — the same class of mistake it caught on the PAP-B-030 sheet, and the token alphas are what they are now because of it.
@@ -353,8 +355,8 @@ pages, then wire the rename in `apps/web`. Six root frames (three states, light 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 99 | A page to draw on in an empty document | The active workspace had no nodes, so the `Interfaces` page did not exist and `create_page` had to be the first call; the board document in the repository (`docs/design/boards.paprika.json`) holds a different page, so nothing to import without `--replace` wiping the sheets other tickets draw in parallel | A `create_page` that is a no-op (returns the existing id) when a page with that name exists, so concurrent tickets can all "ensure" `Interfaces` without racing | P3 |
-| 100 | A screenshot as a file | `render_screenshot` returns the PNG only as base64 inside the JSON-RPC result, so saving it under `docs/assets/boards/` takes a decoding script on every ticket | An optional `path` (inside a configured directory) that writes the file and returns its location | P3 |
+| 112 | A page to draw on in an empty document | The active workspace had no nodes, so the `Interfaces` page did not exist and `create_page` had to be the first call; the board document in the repository (`docs/design/boards.paprika.json`) holds a different page, so nothing to import without `--replace` wiping the sheets other tickets draw in parallel | A `create_page` that is a no-op (returns the existing id) when a page with that name exists, so concurrent tickets can all "ensure" `Interfaces` without racing | P3 |
+| 113 | A screenshot as a file | `render_screenshot` returns the PNG only as base64 inside the JSON-RPC result, so saving it under `docs/assets/boards/` takes a decoding script on every ticket | An optional `path` (inside a configured directory) that writes the file and returns its location | P3 |
 
 - `lint_design` flagged the 11 px caption (`small-text`) on all six frames; 12 px fixed it, so captions stay at the app's smallest legible size.
 - Mode `light` on the frame plus the same `pg.*` tokens overridden under `set_tokens {mode: "light"}` rendered both themes from one set of nodes with no per-frame color edits.
@@ -366,7 +368,7 @@ Task: draw the non-blocking notice (delete with counts, open, rename; light and 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 101 | Hearing workspace ops on the canvas without polling HTTP | `list_workspace_ops` exists, but the live canvas only saw document patches; a delete of the active workspace left the human on a dead editor until a refresh | Broadcast each new op log entry as `{type:workspaceOp, op}` over the existing WebSocket hub (poll the log; skip entries that predate the subscriber) | P2 |
+| 101 | Hearing workspace ops on the canvas without polling HTTP | `list_workspace_ops` exists, but the live canvas only saw document patches; a delete of the active workspace left the human on a dead editor until a refresh | Done (2026-11-22, PAP-B-037). Broadcast each new op log entry as `{type:workspaceOp, op}` over the existing WebSocket hub (poll the log; skip entries that predate the subscriber) | — |
 
 - Fixed-height roots; PNGs under `docs/assets/boards/PAP-B-037/`.
 - Notice uses `role=status` and never steals focus; overview mount shows delete notices after the canvas route is gone.
@@ -379,7 +381,7 @@ the floating buttons clear the toolbar and the agent roster, before writing the 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 101 | Screenshots as files | `render_screenshot` only returns base64 inside the JSON result, so each PNG had to be decoded by hand in a script before it could land in `docs/assets/boards/` | An optional `path` argument (or a resource link) that writes the PNG where the caller says | P2 |
+| 114 | Screenshots as files | `render_screenshot` only returns base64 inside the JSON result, so each PNG had to be decoded by hand in a script before it could land in `docs/assets/boards/` | An optional `path` argument (or a resource link) that writes the PNG where the caller says | P2 |
 | 102 | A mock at a smaller scale lints as tiny text | The boards are the real layout at two thirds of its size, so every label is 8–9px and `lint_design` returns a `small-text` warning per label, which buries the findings that matter | A per-frame way to say "this frame is a scaled mock" (or a `minFontSize` argument) so the warning count stays meaningful | P3 |
 | 103 | Free space for a new frame | Nothing says where the next top-level frame can go without overlapping a parallel ticket's: the outline had to be scanned for coordinates and the boards went to `x=2000` by hand | `get_document_outline` (or a new call) returning the bounding box of the page's content, or `create_nodes` accepting `place: "free"` | P3 |
 | 104 | Icons by name | The floating buttons use `PanelLeftOpen` and `PanelRightOpen` from lucide, and the board had to carry their path data typed in by hand, which is how an icon on the sheet can drift from the one in the app | `import_svg` already exists; a way to import a lucide icon by name would close the loop | P3 |
@@ -422,7 +424,7 @@ Task: redesign the scene inspector into collapsible sections before implementing
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 106 | Inspector height that proves the compact layout | `aside.right.scrollHeight` stayed 856 px before and after because the grid area forces a tall scroll container; `#right-tabpanel` height dropped 759 → 303 px (~60%) for the demo text node at 1440×900 (`packages/e2e/b022-measure.mjs`) | Use `panel` / `panelScroll` in the measure script (and in acceptance notes), not only `aside.scrollHeight` | P3 |
-| 107 | Boards on the shared MCP server | `:4777` answered slowly during the ticket, so only the existing design frames plus runtime screenshots were committed; no new fixed-height frames were drawn over MCP in this pass | Same as #97: a boards document in git that agents can `load` without depending on whichever volume is mounted on the maintainer's port | P2 |
+| 107 | Boards on the shared MCP server | `:4777` answered slowly during the ticket, so only the existing design frames plus runtime screenshots were committed; no new fixed-height frames were drawn over MCP in this pass | Done (2026-11-22, PR #98). Same as #97: a boards document in git that agents can `load` without depending on whichever volume is mounted on the maintainer's port | — |
 
 ## 2026-11-22: ghost preview while drawing (PAP-B-043, design first)
 
@@ -432,8 +434,8 @@ until release. Eight fixed-height frames on `Interfaces` (`docs/assets/boards/PA
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 108 | Screenshots as files | Same as #100/#101: `render_screenshot` returns PNG only as base64 in the JSON-RPC content, so a small client script had to decode each shot into `docs/assets/boards/PAP-B-043/` | Optional `path` on `render_screenshot` that writes the file | P2 |
-| 109 | Free space for new boards | Top-level frames already fill y≈0…8320 and x≈0…3000; the outline depth-1 listing was enough to pick `y=9000`, but parallel tickets still race for the same band | `get_document_outline` returning the page content box, or `place: "free"` on `create_nodes` (same as #103) | P3 |
+| 115 | Screenshots as files | Same as #100/#101: `render_screenshot` returns PNG only as base64 in the JSON-RPC content, so a small client script had to decode each shot into `docs/assets/boards/PAP-B-043/` | Optional `path` on `render_screenshot` that writes the file | P2 |
+| 116 | Free space for new boards | Top-level frames already fill y≈0…8320 and x≈0…3000; the outline depth-1 listing was enough to pick `y=9000`, but parallel tickets still race for the same band | `get_document_outline` returning the page content box, or `place: "free"` on `create_nodes` (same as #103) | P3 |
 
 - Active workspace was already `Paprika - UI` / page `Interfaces`; no `open_workspace`.
 - Ghost is `aria-hidden` and `pointer-events: none` (`data-testid="draft-ghost"`); connector arrow ghost left out of this ticket's draft-only scope.
@@ -447,7 +449,7 @@ scopes on `127.0.0.1:4777`, then migrate `Inspector.tsx` + `inspector/*` onto `I
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 110 | Screenshots as files | Same as #108: `render_screenshot` returns PNG only as base64; a client script decoded into `docs/assets/boards/PAP-B-032/` | Optional `path` on `render_screenshot` | P2 |
-| 111 | Free band without racing parallel tickets | Outline depth 1 listed frames through y≈11820 (B-023/B-033/B-043); this ticket picked y=12400 / 13160 | `place: "free"` on `create_nodes` (same as #103/#109) | P3 |
+| 111 | Free band without racing parallel tickets | Outline depth 1 listed frames through y≈11820 (B-023/B-033/B-043); this ticket picked y=12400 / 13160 | `place: "free"` on `create_nodes` (same as #103/#116) | P3 |
 
 - `lint_design` with `rootIds` still walks the whole document for counts; our four frames had 0 errors of their own.
 - Compact field shell kept (B-022 density): primitives sit inside `bg-ui-muted` with bare borders; Radix `Select` replaced native `<select>` (E2E theme-mode test updated to click the option).
@@ -458,8 +460,8 @@ Task: draw toolbar / inspector / canvas states for `ShapeKind` `triangle` on `In
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | Toolbar tool lives in `App.tsx` | Ticket paths listed only `Canvas.tsx` for the toolbar+shortcut, but `TOOLS[]` and the keydown handler are in `App.tsx`; edited that file for the `G` / Triangle entry and queried `agent:leonardo` | Keep toolbar registry next to the buttons, or move `TOOLS` into `Canvas.tsx` so lane paths match | P3 |
-| 111 | `shapeDefaults` gate in `ops` | `ops.ts` / `ops.go` only apply defaults for a hard-coded kind list; `triangle` needed the same one-line branch (not in the ticket `paths`) | Drive the gate from `ShapeKind` / `shapeDefaults` so new kinds do not touch `ops` | P3 |
+| 117 | Toolbar tool lives in `App.tsx` | Ticket paths listed only `Canvas.tsx` for the toolbar+shortcut, but `TOOLS[]` and the keydown handler are in `App.tsx`; edited that file for the `G` / Triangle entry and queried `agent:leonardo` | Keep toolbar registry next to the buttons, or move `TOOLS` into `Canvas.tsx` so lane paths match | P3 |
+| 118 | `shapeDefaults` gate in `ops` | `ops.ts` / `ops.go` only apply defaults for a hard-coded kind list; `triangle` needed the same one-line branch (not in the ticket `paths`) | Drive the gate from `ShapeKind` / `shapeDefaults` so new kinds do not touch `ops` | P3 |
 
 - Six frames at `docs/assets/boards/PAP-A-004/`; boards re-exported via `GET /api/export` into `docs/design/boards.paprika.json` (no `open_workspace`).
 - `wasmPaintable` stays false for `shape` nodes (DOM paints the triangle outline).
@@ -471,7 +473,7 @@ before replacing the native `input type=color` with a popover. Six fixed-height 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | `get_document_outline` (or `create_nodes`) returning the page content bbox / `place: "free"` — same as #103 | P3 || 111 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/assets/boards/PAP-B-023/` | Optional `path` on `render_screenshot` (same as #100 / #101) | P2 || 112 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
+| 119 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | `get_document_outline` (or `create_nodes`) returning the page content bbox / `place: "free"` — same as #103 | P3 || 111 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/assets/boards/PAP-B-023/` | Optional `path` on `render_screenshot` (same as #100 / #101) | P2 || 112 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
 - Active workspace was already `Paprika - UI`; no `open_workspace`.
 - `lint_design` on the page still reports one unrelated contrast error from an older sheet; the new frames added no errors.
 ## 2026-11-22: aspect-ratio lock shortcuts while resizing (PAP-B-042, design first)
@@ -480,7 +482,7 @@ Task: draw free / keep-ratio / square selection states (light and dark) on the `
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | `lint_design` scoped to the ticket's roots | Calling `lint_design` with `rootIds` for the six PAP-B-042 frames still returned hundreds of warnings and one contrast error from older sheets on the same page (`nodeId` outside the requested roots) | Honor `rootIds` as a hard subtree filter so a ticket can prove its own lint without noise from parallel boards | P2 || 111 | Screenshots as files | Same as #100 / #101: `render_screenshot` returns base64 only; a short local script had to decode into `docs/assets/boards/PAP-B-042/` | Optional `path` on `render_screenshot` | P3 |
+| 120 | `lint_design` scoped to the ticket's roots | Calling `lint_design` with `rootIds` for the six PAP-B-042 frames still returned hundreds of warnings and one contrast error from older sheets on the same page (`nodeId` outside the requested roots) | Honor `rootIds` as a hard subtree filter so a ticket can prove its own lint without noise from parallel boards | P2 || 111 | Screenshots as files | Same as #100 / #101: `render_screenshot` returns base64 only; a short local script had to decode into `docs/assets/boards/PAP-B-042/` | Optional `path` on `render_screenshot` | P3 |
 - Active workspace was already `Paprika - UI`; `Interfaces` existed (`interfaces-pap020`); no `open_workspace`.
 - Fixed 360 px frame heights avoided the hug screenshot pitfall; `render_screenshot` with `scale: 2` was enough to judge the hint badges.
 ## 2026-11-22: better activity history (PAP-B-025, design first)
@@ -489,7 +491,7 @@ Task: draw the activity feed (actor color+name, action, relative time, batch gro
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | Agent name color that passes contrast on the panel | Putting the agent blue (`#3b82f6`) on both the dot and the name failed WCAG AA on `$pg.panel2` (3.69:1); the sheet kept the color on the dot only and used `$pg.fg` for the name | Document that presence colors are for fills/dots, not for body text on panel surfaces, or ship text-safe variants next to `AGENT_COLORS` | P3 || 111 | `$pg.select` as marker label ink in light mode | The "agora" marker label at `$pg.select` on the light panel was 3.91:1; switching the label to `$pg.fg` and leaving the line in select fixed lint without inventing a new token | A `select-ink` (or darker light-mode `$pg.select`) for text on light surfaces | P3 |
+| 121 | Agent name color that passes contrast on the panel | Putting the agent blue (`#3b82f6`) on both the dot and the name failed WCAG AA on `$pg.panel2` (3.69:1); the sheet kept the color on the dot only and used `$pg.fg` for the name | Document that presence colors are for fills/dots, not for body text on panel surfaces, or ship text-safe variants next to `AGENT_COLORS` | P3 || 111 | `$pg.select` as marker label ink in light mode | The "agora" marker label at `$pg.select` on the light panel was 3.91:1; switching the label to `$pg.fg` and leaving the line in select fixed lint without inventing a new token | A `select-ink` (or darker light-mode `$pg.select`) for text on light surfaces | P3 |
 - `layout.padding: [6, 8]` (two values) is rejected; four values or a single number work. Same class of friction as other tickets.
 - Undo/redo position is derived client-side from leading `desfazer:` / `refazer:` labels in the existing WS activity feed — no server change.
 
@@ -499,6 +501,6 @@ Task: draw the inspector **Ordem** section and the Z-order shortcut map (light a
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | Draw on `Paprika - UI` without `open_workspace` | The workspace was already active (`list_workspaces`), so the sheet landed without switching; if another ticket had left a different active doc, the only options would still be asking the human or a second server (same as #92) | Optional `workspaceId` on document tools | P2 |
+| 122 | Draw on `Paprika - UI` without `open_workspace` | The workspace was already active (`list_workspaces`), so the sheet landed without switching; if another ticket had left a different active doc, the only options would still be asking the human or a second server (same as #92) | Optional `workspaceId` on document tools | P2 |
 - `lint_design` on the four frames: 0 errors; `small-text` warnings are the 11 px section/chip labels matching the app.
 - Shortcut map chosen and documented in `docs/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.
