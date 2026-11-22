@@ -705,7 +705,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
     // Delete asks first: Cancel keeps it, Excluir removes it.
     await page.getByRole("button", { name: "Excluir Renomeado" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("alertdialog");
     await expect.poll(() => dialog.textContent()).toContain("Excluir “Renomeado”?");
     await dialog.getByRole("button", { name: "Cancelar" }).click();
     await expect.poll(() => dialog.isVisible()).toBe(false);
@@ -713,7 +713,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await card.focus();
     await page.keyboard.press("Delete");
     await expect.poll(() => dialog.isVisible()).toBe(true);
-    await dialog.getByRole("button", { name: "Excluir" }).click();
+    await dialog.getByLabel(/Digite/).fill("Renomeado");
+    await dialog.getByRole("button", { name: "Excluir workspace" }).click();
     await expect.poll(() => card.count(), POLL).toBe(0);
     expect((await api()).workspaces.some((w) => w.id === extra)).toBe(false);
 
@@ -726,7 +727,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.getByRole("button", { name: "Excluir Ativo temporário" }).click();
     await expect.poll(() => dialog.textContent()).toContain("o canvas e os agentes MCP passam para");
     if (shots) await page.screenshot({ path: join(shots, "23-overview-excluir-ativo.png") });
-    await dialog.getByRole("button", { name: "Excluir" }).click();
+    await dialog.getByLabel(/Digite/).fill("Ativo temporário");
+    await dialog.getByRole("button", { name: "Excluir workspace" }).click();
     await expect.poll(() => tmpCard.count(), POLL).toBe(0);
     await expect.poll(async () => (await api()).active, POLL).not.toBe(tmp);
     await expect.poll(() => page.locator(".workspace-card.is-active").count(), POLL).toBe(1);

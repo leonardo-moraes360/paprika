@@ -31,6 +31,8 @@ export const ui = {
   link: "cursor-pointer border-0 bg-transparent p-0 text-select underline",
   /** Small icon button (Lucide icons: plus, x…). */
   iconBtn: "inline-flex cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent px-1 py-0.5 text-md leading-none text-muted hover:bg-panel-2 hover:text-fg",
+  /** Merge over `iconBtn` or a secondary button (with `cn`) for the ones that delete or remove: the danger ink at rest and on hover. */
+  dangerBtn: "text-ui-destructive-text hover:text-ui-destructive-text",
   /** Inline rename field (layers, pages, frame labels). */
   renameInput: "min-w-0 rounded-[3px] border border-select bg-panel px-1 py-0 text-fg outline-none",
 };

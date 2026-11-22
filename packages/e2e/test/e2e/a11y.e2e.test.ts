@@ -295,5 +295,78 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       expect(probe!.world).toBe("0s");
       expect(probe!.worldLineHeight).toBe("normal");
     });
+
+    it("o botão de perigo passa de 4,5:1 nos dois temas e não é a cor do botão primário (1.4.3)", async () => {
+      for (const panel of ["dark", "light"] as const) {
+        const [fg, bg] = await gal.evaluate((panel) => {
+          const el = [...document.querySelectorAll(`[data-panel=${panel}] [data-slot=button]`)].find((b) => b.textContent?.trim() === "Excluir");
+          if (!el) throw new Error(`no destructive button in [data-panel=${panel}]`);
+          const cs = getComputedStyle(el);
+          return [cs.color, cs.backgroundColor] as [string, string];
+        }, panel);
+        expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+        const [, primary] = await contrastIn(panel, "button");
+        expect(bg).not.toBe(primary);
+      }
+    });
+  });
+
+  describe("confirmação de exclusão do overview (PAP-B-026)", () => {
+    let ov: Page;
+    let extra: string;
+
+    beforeAll(async () => {
+      ov = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      const made = await fetch(`${external!.url}/api/workspaces`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Para confirmar" }),
+      });
+      extra = ((await made.json()) as { workspace: { id: string } }).workspace.id;
+      await ov.goto(external!.url);
+      await ov.locator(`[data-workspace-id="${extra}"]`).waitFor();
+    }, 30_000);
+
+    afterAll(async () => {
+      await ov?.close();
+    });
+
+    const exists = async () => {
+      const list = (await (await fetch(`${external!.url}/api/workspaces`)).json()) as { workspaces: { id: string }[] };
+      return list.workspaces.some((w) => w.id === extra);
+    };
+
+    it("abre com o foco em Cancelar, o Esc cancela e devolve o foco ao botão de excluir", async () => {
+      const trash = ov.getByRole("button", { name: "Excluir Para confirmar" });
+      await trash.focus();
+      await ov.keyboard.press("Enter");
+      const dialog = ov.getByRole("alertdialog");
+      await dialog.waitFor();
+      await expect(ov.evaluate(() => document.activeElement?.textContent?.trim())).resolves.toBe("Cancelar");
+      await ov.keyboard.press("Escape");
+      await expect.poll(() => dialog.count()).toBe(0);
+      await expect.poll(() => trash.evaluate((el) => el === document.activeElement)).toBe(true);
+      expect(await exists()).toBe(true);
+    });
+
+    it("excluir pede o nome digitado: só o nome exato libera o botão, que passa de 4,5:1", async () => {
+      await ov.getByRole("button", { name: "Excluir Para confirmar" }).click();
+      const dialog = ov.getByRole("alertdialog");
+      await dialog.waitFor();
+      const confirm = dialog.getByRole("button", { name: "Excluir workspace" });
+      await expect.poll(() => confirm.isDisabled()).toBe(true);
+      const field = dialog.getByLabel(/Digite/);
+      await field.fill("para confirmar");
+      await expect.poll(() => confirm.isDisabled()).toBe(true);
+      await field.fill("Para confirmar");
+      await expect.poll(() => confirm.isEnabled()).toBe(true);
+      const [fg, bg] = await confirm.evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return [cs.color, cs.backgroundColor] as [string, string];
+      });
+      expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+      await confirm.click();
+      await expect.poll(exists, { timeout: 10_000 }).toBe(false);
+    });
   });
 });
