@@ -212,6 +212,8 @@ export function SelectField({
 }
 
 export function ColorField({ doc, label, value, mode, onCommit }: { doc: Document; label: string; value: string | undefined; mode?: string; onCommit(v: string | null): void }) {
+  const resolved = value ? String(resolveValue(doc, value, mode)) : "";
+  const hex = /^#[0-9a-f]{6}$/i.test(resolved) ? resolved : "#000000";
   return (
     <div className="grid grid-cols-[28px_1fr] items-center gap-1.5">
       <input className="size-7 rounded-md border border-ui-input bg-transparent p-0" type="color" aria-label={`${label} (seletor)`} value={hex} onChange={(e) => onCommit(e.target.value)} />

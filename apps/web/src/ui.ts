@@ -17,7 +17,18 @@ export const ui = {
   iconBtn: "inline-flex cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent px-1 py-0.5 text-md leading-none text-muted hover:bg-panel-2 hover:text-fg",
   /** Merge over `iconBtn` or a secondary button (with `cn`) for the ones that delete or remove: the danger ink at rest and on hover. */
   dangerBtn: "text-ui-destructive-text hover:text-ui-destructive-text",
+  actions:
+    "mx-0 my-2 flex gap-1.5 [&_button]:cursor-pointer [&_button]:rounded-sm [&_button]:border [&_button]:border-line [&_button]:bg-panel-2 [&_button]:px-2.5 [&_button]:py-1 [&_button]:text-fg [&_button:hover]:border-select",
   renameInput: "min-w-0 rounded-[3px] border border-select bg-panel px-1 py-0 text-fg outline-none",
+  activityList: "m-0 grid list-none gap-1 p-0",
+  activityRow: "grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-1.5 rounded-md bg-panel-2 px-1.5 py-1 text-xs text-fg",
+  activityBatch: "outline outline-1 outline-select",
+  activityDot: "size-2 shrink-0 rounded-full",
+  activityActor: "max-w-[4.5rem] truncate font-semibold text-fg",
+  activityLabel: "min-w-0 truncate text-muted",
+  activityTime: "shrink-0 text-muted tabular-nums",
+  activityMarker: "flex items-center gap-1.5 py-0.5 text-xs font-semibold text-select",
+  activityMarkerLine: "h-px min-w-2 flex-1 bg-select",
   colorSwatch:
     "size-7 shrink-0 cursor-pointer rounded-md border border-line bg-transparent p-0 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
   colorPopover: "border-line bg-panel-2 text-fg shadow-float",

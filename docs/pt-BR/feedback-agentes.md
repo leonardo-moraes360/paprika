@@ -505,3 +505,16 @@ Tarefa: desenhar a seção **Ordem** do inspector e o mapa de atalhos de ordem Z
 | 110 | Desenhar em `Paprika - UI` sem `open_workspace` | O workspace já estava ativo (`list_workspaces`), então a prancha entrou sem trocar; se outro ticket tivesse deixado outro doc ativo, as opções ainda seriam pedir ao humano ou um segundo servidor (igual ao #92) | `workspaceId` opcional nas ferramentas de documento | P2 |
 - `lint_design` nos quatro frames: 0 erros; avisos `small-text` são os rótulos de 11 px da seção/chip, iguais ao app.
 - Mapa de atalhos escolhido e documentado em `docs/pt-BR/canvas.md`: `Page Up`/`Page Down` = avançar/recuar, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd no macOS) = frente/fundo.
+
+## 2026-11-22: toolbar ancorável (PAP-B-048, design first)
+
+Tarefa: desenhar a toolbar ancorada no topo/esquerda/direita/fundo (claro e escuro) em `Interfaces` do workspace ativo `Paprica · UI`, depois implementar arraste pela alça, localStorage, menu por teclado e folga para os botões dos painéis recolhidos (PAP-B-024). Oito frames raiz de altura fixa (720×420); PNGs em `docs/assets/boards/PAP-B-048/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 112 | Nome do argumento de `render_screenshot` | Passar `id` é ignorado em silêncio (o schema só tem `rootId`); a ferramenta captura outra coisa (aqui um frame 280×220 sem relação) e todos os PNGs saem iguais | Recusar args desconhecidos, ou aceitar `id` como alias de `rootId`, e dizer isso na descrição | P2 |
+| 113 | `mode` claro com tokens `$pg.*` | Frames com `mode: "light"` ainda pintavam a paleta escura de `$pg.*` porque `modes.light` neste servidor só tinha `$ui.*`; foi preciso redesenhar o claro com cores literais | Documentar quais prefixos entram nos modos de tema, ou semear `$pg.*` no `light` quando o workspace de boards é criado | P2 |
+| 114 | Screenshots como arquivo | Igual ao #101: só base64; um script local gravou `docs/assets/boards/PAP-B-048/` | `path` opcional no `render_screenshot` | P3 |
+
+- O workspace ativo já era `Paprica · UI`; usei o `page#interfaces` existente sem `open_workspace`.
+- Os botões dos painéis recolhidos se afastam com `[&_[data-panel-toggle=left]]:left-14` a partir do `App.tsx` quando a toolbar compartilha a borda — sem mudar `PanelResizer.tsx` (fora dos paths do ticket).
