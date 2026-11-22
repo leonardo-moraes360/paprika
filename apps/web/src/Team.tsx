@@ -1,8 +1,13 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Copy, KeyRound, Link2, Share2, UserPlus, Users, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Copy, KeyRound, Link2, Share2, UserPlus, Users } from "lucide-react";
 import { encode } from "uqr";
 import type { AgentPresence } from "./agents";
 import { cx, ui } from "./ui";
+import { cn } from "./lib/cn";
+import { buttonVariants } from "./components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./components/ui/dialog";
+import { Input } from "./components/ui/input";
+import { Label } from "./components/ui/label";
 
 /** Team sync status from the server (`/api/team`, `{type: "team"}` on /ws). See docs/team-sync.md. */
 export interface TeamMember {
@@ -67,7 +72,7 @@ export function teamFingerprint(id: string) {
 }
 
 type Tone = "ok" | "warn" | "busy" | "off" | "bad";
-const TONE_DOT: Record<Tone, string> = { ok: "bg-leaf", warn: "bg-warn", busy: "bg-select", off: "bg-muted", bad: "bg-accent" };
+const TONE_DOT: Record<Tone, string> = { ok: "bg-leaf", warn: "bg-warn", busy: "bg-select", off: "bg-ui-muted-foreground", bad: "bg-accent" };
 
 /** The worst state across peers, as one line for the top bar. */
 export function teamSummary(st: TeamStatus | null): { label: string; tone: Tone } {
@@ -87,7 +92,7 @@ export function TeamChip({ status, onClick }: { status: TeamStatus | null; onCli
   const s = teamSummary(status);
   return (
     <button
-      className="team-chip inline-flex max-w-[320px] cursor-pointer items-center gap-2 rounded-full border border-line bg-panel-2 px-2.5 py-0.75 text-fg hover:border-select"
+      className="team-chip inline-flex max-w-[320px] cursor-pointer items-center gap-2 rounded-full border border-ui-input bg-ui-secondary px-2.5 py-0.75 text-ui-foreground hover:border-select"
       onClick={onClick}
       title="Time: pessoas, agentes e sincronização"
     >
@@ -106,18 +111,21 @@ const STATE_LABEL: Record<TeamPeer["state"], [string, Tone]> = {
 
 function Chip({ label, tone }: { label: string; tone: Tone }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-night px-2 py-0.5 text-xs font-semibold text-muted">
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-ui-background px-2 py-0.5 text-xs font-semibold text-ui-muted-foreground">
       <span className={cx("size-1.5 rounded-full", TONE_DOT[tone])} />
       {label}
     </span>
   );
 }
 
+/**
+ * The panel's buttons ride `buttonVariants` from the Button primitive (ADR 0005): `size="sm"` is 28px, the
+ * secondary variant is the panel-2 fill the old list had without its border, and the primary is the brand
+ * red. The 14px icon is kept on purpose: the primitive paints 16px, which would grow every row of a panel
+ * that is 280px wide.
+ */
 const btn = (primary = false) =>
-  cx(
-    "inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold",
-    primary ? "border-accent-strong bg-accent-strong text-white hover:opacity-90" : "border-line bg-panel-2 text-fg hover:border-select",
-  );
+  cn(buttonVariants({ size: "sm", variant: primary ? "default" : "secondary" }), "[&_svg]:size-3.5 hover:border-select");
 
 function Avatar({ name, you }: { name: string; you?: boolean }) {
   return (
@@ -138,66 +146,57 @@ export function Qr({ text, size = 168 }: { text: string; size?: number }) {
   );
 }
 
-/** Tabbable elements inside a dialog, in order (for the focus trap). */
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-function Modal({ title, onClose, children, width = 560 }: { title: string; onClose(): void; children: React.ReactNode; width?: number }) {
-  const box = useRef<HTMLDivElement>(null);
-  const titleId = useId();
+/**
+ * Dialog of the panel: the Dialog primitive, whose Radix root gives the portal, the scrim, the focus trap
+ * and Esc (ADR 0005). The hand-rolled version that was here is what Radix guarantees now. `className`
+ * carries the width, because these dialogs are wider than the primitive's 420px, and `description` is
+ * required: a Radix dialog without a description warns in the console, and each of these has a lead line.
+ */
+function Modal({ title, description, onClose, className, children }: { title: string; description: string; onClose(): void; className?: string; children: ReactNode }) {
+  // These dialogs mount and unmount with the panel's state, and a Radix dialog that is unmounted while open
+  // does not put the focus back. Radix handles the trap and the initial focus; this keeps WCAG 2.4.3 for the
+  // way the panel actually closes them (the state goes away), which is what the old hand-rolled Modal did.
+  const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    // Capture: the canvas shortcuts listen on window too and must not see Escape while a dialog is open.
-    addEventListener("keydown", onKey, true);
-    return () => removeEventListener("keydown", onKey, true);
-  }, [onClose]);
-  useEffect(() => {
-    // Focus moves into the dialog (unless a field already took it, e.g. autoFocus) and goes back
-    // to whatever opened it when the dialog closes (WCAG 2.4.3).
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    if (!box.current?.contains(document.activeElement)) box.current?.focus();
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     return () => {
-      if (opener?.isConnected) opener.focus();
+      if (opener.current?.isConnected) opener.current.focus();
     };
   }, []);
-  // Tab and Shift+Tab stay inside the dialog while it is open.
-  const trap = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "Tab" || !box.current) return;
-    const items = [...box.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null);
-    if (!items.length) return;
-    const first = items[0]!;
-    const last = items[items.length - 1]!;
-    const at = document.activeElement;
-    if (e.shiftKey && (at === first || at === box.current)) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && at === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
   return (
-    <div className="team-modal fixed inset-0 z-50 flex items-center justify-center bg-night/70" onPointerDown={onClose}>
-      <div
-        ref={box}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        className="grid max-h-[90vh] max-w-[calc(100vw-32px)] gap-4 overflow-auto rounded-xl border border-line bg-panel p-6 shadow-float outline-none"
-        style={{ width }}
-        onPointerDown={(e) => e.stopPropagation()}
-        onKeyDown={trap}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <h2 id={titleId} className="m-0 text-lg font-bold">
-            {title}
-          </h2>
-          <button className={ui.iconBtn} onClick={onClose} aria-label="Fechar">
-            <X size={16} />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className={cn("max-h-[90vh] overflow-auto", className)}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
         {children}
-      </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Rótulo acima do campo: o padrão dos primitivos (ADR 0005), usado nos três campos do painel. */
+function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  return (
+    <div className={ui.grid}>
+      <Label htmlFor={id}>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+/** The one-line error a dialog shows above its buttons. */
+function ErrorNote({ text, className }: { text: string; className?: string }) {
+  return <p className={cn("m-0 rounded-md border border-accent bg-toast p-2 text-sm text-accent-pale", className)}>{text}</p>;
+}
+
+/** A titled warning band: what happened, then what it means. Used by join, keys and the "you were removed" notice. */
+function ToastBand({ title, body, titleClass, bodyClass }: { title: string; body: ReactNode; titleClass?: string; bodyClass?: string }) {
+  return (
+    <div className="grid gap-1 rounded-lg border border-accent bg-toast p-3">
+      <strong className={cn("text-sm text-accent-pale", titleClass)}>{title}</strong>
+      <span className={cn("text-xs text-accent-ink", bodyClass)}>{body}</span>
     </div>
   );
 }
@@ -236,25 +235,28 @@ export function InviteDialog({ status, onClose }: { status: TeamStatus; onClose(
   const left = invite ? Math.max(0, Math.round(invite.expiresAt - now)) : 0;
   const mmss = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
   return (
-    <Modal title={`Convidar para ${status.team?.name ?? "o time"}`} onClose={onClose} width={640}>
-      <p className="m-0 text-sm text-muted">Quem abrir o link entra no time com a própria chave. O link vale uma vez e expira.</p>
-      {error && <p className="m-0 rounded-md border border-accent bg-toast p-2 text-sm text-accent-pale">{error}</p>}
+    <Modal
+      title={`Convidar para ${status.team?.name ?? "o time"}`}
+      description="Quem abrir o link entra no time com a própria chave. O link vale uma vez e expira."
+      onClose={onClose}
+      className="max-w-[640px]"
+    >
+      {error && <ErrorNote text={error} />}
       <div className="flex flex-wrap items-start gap-5">
         {invite ? <Qr text={invite.link} /> : <div className="size-[168px] rounded-md bg-panel-2" />}
         <div className="grid min-w-[260px] flex-1 gap-3">
-          <label className={ui.field(true)}>
-            <span>Link de convite</span>
-            <input className="invite-link font-mono text-xs" readOnly value={invite?.link ?? "gerando…"} onFocus={(e) => e.target.select()} />
-          </label>
+          <Field id="invite-link" label="Link de convite">
+            <Input id="invite-link" className="invite-link font-mono text-xs" readOnly value={invite?.link ?? "gerando…"} onFocus={(e) => e.target.select()} />
+          </Field>
           <div className="grid gap-1.5">
-            <span className="text-xs text-muted">Expira em</span>
-            <div className="grid grid-cols-4 gap-0.5 rounded-md bg-night p-0.5" role="radiogroup" aria-label="Validade do convite">
+            <span className="text-xs text-ui-muted-foreground">Expira em</span>
+            <div className="grid grid-cols-4 gap-0.5 rounded-md bg-ui-background p-0.5" role="radiogroup" aria-label="Validade do convite">
               {TTLS.map(([label, secs]) => (
                 <button
                   key={secs}
                   role="radio"
                   aria-checked={ttl === secs}
-                  className={cx("cursor-pointer rounded-sm border-0 py-1 text-xs", ttl === secs ? "bg-panel-2 font-semibold text-fg" : "bg-transparent text-muted")}
+                  className={cn("cursor-pointer rounded-sm border-0 py-1 text-xs", ttl === secs ? "bg-ui-card font-semibold text-ui-foreground" : "bg-transparent text-ui-muted-foreground")}
                   onClick={() => setTtl(secs)}
                 >
                   {label}
@@ -263,18 +265,18 @@ export function InviteDialog({ status, onClose }: { status: TeamStatus; onClose(
             </div>
           </div>
           {invite && (
-            <p className="m-0 flex items-center gap-2 text-xs text-muted">
+            <p className="m-0 flex items-center gap-2 text-xs text-ui-muted-foreground">
               <span className="size-2 rounded-full bg-warn" />
               expira às {clock(invite.expiresAt)} · faltam {mmss} · uso único
             </p>
           )}
-          <div className="grid gap-1 rounded-md bg-night p-2.5">
-            <span className="text-xs text-muted">Confira por voz com quem entra:</span>
+          <div className="grid gap-1 rounded-md bg-ui-background p-2.5">
+            <span className="text-xs text-ui-muted-foreground">Confira por voz com quem entra:</span>
             <strong className="font-mono text-md text-accent-ink">{teamFingerprint(status.team?.id ?? "")}</strong>
           </div>
         </div>
       </div>
-      <div className="flex justify-end gap-2">
+      <DialogFooter>
         <button
           className={btn()}
           onClick={() =>
@@ -296,7 +298,7 @@ export function InviteDialog({ status, onClose }: { status: TeamStatus; onClose(
         >
           <Copy size={14} /> {copied ? "Copiado" : "Copiar link"}
         </button>
-      </div>
+      </DialogFooter>
     </Modal>
   );
 }
@@ -330,14 +332,12 @@ export function JoinDialog({ status, onClose }: { status: TeamStatus | null; onC
   }, [link]);
   const expiredFor = preview?.expired ? Math.max(1, Math.round((Date.now() / 1000 - preview.expiresAt) / 60)) : 0;
   return (
-    <Modal title="Entrar em um time" onClose={onClose} width={520}>
-      <p className="m-0 text-sm text-muted">Cole o link ou leia o QR de quem convidou.</p>
-      <label className={ui.field(true)}>
-        <span>Link de convite</span>
-        <input className="join-link font-mono text-xs" value={link} placeholder="paprika://join/…" onChange={(e) => setLink(e.target.value)} autoFocus />
-      </label>
+    <Modal title="Entrar em um time" description="Cole o link ou leia o QR de quem convidou." onClose={onClose} className="max-w-[520px]">
+      <Field id="join-link" label="Link de convite">
+        <Input id="join-link" className="join-link font-mono text-xs" value={link} placeholder="paprika://join/…" onChange={(e) => setLink(e.target.value)} autoFocus />
+      </Field>
       {preview && !preview.expired && (
-        <div className="team-preview grid gap-2 rounded-lg border border-line bg-night p-3">
+        <div className="team-preview grid gap-2 rounded-lg border border-ui-border bg-ui-background p-3">
           <div className="flex items-center gap-2.5">
             <Avatar name={preview.name} />
             <div className="grid">
@@ -354,19 +354,13 @@ export function JoinDialog({ status, onClose }: { status: TeamStatus | null; onC
         </div>
       )}
       {preview?.expired && (
-        <div className="grid gap-1 rounded-lg border border-accent bg-toast p-3">
-          <strong className="text-sm text-accent-pale">Convite expirado há {expiredFor} min</strong>
-          <span className="text-xs text-accent-ink">Peça um novo link. Nada foi alterado no seu Paprika.</span>
-        </div>
+        <ToastBand title={`Convite expirado há ${expiredFor} min`} body="Peça um novo link. Nada foi alterado no seu Paprika." />
       )}
       {error && (
-        <div className="grid gap-1 rounded-lg border border-accent bg-toast p-3">
-          <strong className="text-sm text-accent-pale">Não deu para entrar</strong>
-          <span className="join-error text-xs text-accent-ink">{error}</span>
-        </div>
+        <ToastBand title="Não deu para entrar" body={error} bodyClass="join-error" />
       )}
       {done && <p className="m-0 text-sm text-leaf">Você entrou no time. Os workspaces compartilhados aparecem na página inicial.</p>}
-      <div className="flex justify-end gap-2">
+      <DialogFooter>
         <button className={btn()} onClick={onClose}>
           {done ? "Fechar" : "Cancelar"}
         </button>
@@ -385,7 +379,7 @@ export function JoinDialog({ status, onClose }: { status: TeamStatus | null; onC
             {busy ? "Conectando…" : "Entrar"}
           </button>
         )}
-      </div>
+      </DialogFooter>
     </Modal>
   );
 }
@@ -395,13 +389,15 @@ export function RemoveMemberDialog({ member, onClose }: { member: TeamMember; on
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   return (
-    <Modal title={`Remover ${member.name} do time?`} onClose={onClose} width={520}>
-      <p className="m-0 text-sm text-muted">
-        A chave de {member.name} (ed25519 {member.fingerprint}) e as dos agentes dela deixam de sincronizar. O que já foi mudado continua nos workspaces; mudanças novas assinadas por essa chave são recusadas.
-      </p>
-      <p className="m-0 text-sm text-muted">Para voltar, a pessoa precisa de um convite novo.</p>
-      {error && <p className="team-remove-error m-0 rounded-md border border-accent bg-toast p-2 text-sm text-accent-pale">{error}</p>}
-      <div className="flex justify-end gap-2">
+    <Modal
+      title={`Remover ${member.name} do time?`}
+      description={`A chave de ${member.name} (ed25519 ${member.fingerprint}) e as dos agentes dela deixam de sincronizar. O que já foi mudado continua nos workspaces; mudanças novas assinadas por essa chave são recusadas.`}
+      onClose={onClose}
+      className="max-w-[520px]"
+    >
+      <p className="m-0 text-xs text-ui-muted-foreground">Para voltar, a pessoa precisa de um convite novo.</p>
+      {error && <ErrorNote text={error} className="team-remove-error" />}
+      <DialogFooter>
         <button className={btn()} onClick={onClose}>
           Cancelar
         </button>
@@ -418,7 +414,7 @@ export function RemoveMemberDialog({ member, onClose }: { member: TeamMember; on
         >
           {busy ? "Removendo…" : `Remover ${member.name}`}
         </button>
-      </div>
+      </DialogFooter>
     </Modal>
   );
 }
@@ -431,14 +427,16 @@ export function RotateKeyDialog({ status, onClose }: { status: TeamStatus; onClo
   // The status refreshes with the new key once the sidecar restarts: keep the one we started from.
   const [before] = useState(status.fingerprint);
   return (
-    <Modal title="Gerar nova chave?" onClose={onClose} width={520}>
-      <p className="m-0 text-sm text-muted">
-        Use se esta máquina ou a chave vazou. A chave nova assina a troca junto com a antiga e o time passa a aceitar só a nova. O sidecar reinicia e os convites ativos são revogados.
-      </p>
-      <p className="m-0 text-xs text-muted">{done ? "Chave antiga" : "Chave atual"}: ed25519 {before}. Alguém do time precisa estar online para receber a troca.</p>
-      {error && <p className="team-rotate-error m-0 rounded-md border border-accent bg-toast p-2 text-sm text-accent-pale">{error}</p>}
+    <Modal
+      title="Gerar nova chave?"
+      description="Use se esta máquina ou a chave vazou. A chave nova assina a troca junto com a antiga e o time passa a aceitar só a nova. O sidecar reinicia e os convites ativos são revogados."
+      onClose={onClose}
+      className="max-w-[520px]"
+    >
+      <p className="m-0 text-xs text-ui-muted-foreground">{done ? "Chave antiga" : "Chave atual"}: ed25519 {before}. Alguém do time precisa estar online para receber a troca.</p>
+      {error && <ErrorNote text={error} className="team-rotate-error" />}
       {done && <p className="m-0 text-sm text-leaf">Chave nova: ed25519 {done}</p>}
-      <div className="flex justify-end gap-2">
+      <DialogFooter>
         <button className={btn()} onClick={onClose}>
           {done ? "Fechar" : "Cancelar"}
         </button>
@@ -457,7 +455,7 @@ export function RotateKeyDialog({ status, onClose }: { status: TeamStatus; onClo
             <KeyRound size={14} /> {busy ? "Trocando…" : "Gerar nova chave"}
           </button>
         )}
-      </div>
+      </DialogFooter>
     </Modal>
   );
 }
@@ -465,9 +463,8 @@ export function RotateKeyDialog({ status, onClose }: { status: TeamStatus; onClo
 function RemovedNotice({ team }: { team: NonNullable<TeamStatus["team"]> }) {
   if (team.member !== false) return null;
   return (
-    <div className="team-removed-you grid gap-1 rounded-lg border border-accent bg-toast p-3">
-      <strong className="text-sm text-accent-pale">Você não está mais neste time</strong>
-      <span className="text-xs text-accent-ink">Suas mudanças ficam só neste dispositivo. Para voltar, peça um convite novo.</span>
+    <div className="team-removed-you">
+      <ToastBand title="Você não está mais neste time" body="Suas mudanças ficam só neste dispositivo. Para voltar, peça um convite novo." />
     </div>
   );
 }
@@ -484,8 +481,7 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
   const peerState = (key: string) => status.peers.find((p) => p.id === key)?.state ?? "offline";
   const date = (unix: number) => new Date(unix * 1000).toLocaleDateString([], { day: "2-digit", month: "short" });
   return (
-    <Modal title="Chaves do time" onClose={onClose} width={860}>
-      <p className="m-0 text-sm text-muted">Só operações assinadas por estas chaves entram nos workspaces do time.</p>
+    <Modal title="Chaves do time" description="Só operações assinadas por estas chaves entram nos workspaces do time." onClose={onClose} className="max-w-[860px]">
       {status.team && <RemovedNotice team={status.team} />}
       <table className="team-keys w-full border-collapse text-sm">
         <thead>
@@ -548,21 +544,18 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
         </tbody>
       </table>
       {status.rejected > 0 && (
-        <div className="grid gap-1 rounded-lg border border-accent bg-toast p-3">
-          <strong className="text-sm text-accent-pale">{status.rejected} operação(ões) ou conexão(ões) rejeitada(s)</strong>
-          <span className="text-xs text-accent-ink">{status.lastRejected?.reason ?? ""}. Nada foi aplicado.</span>
-        </div>
+        <ToastBand title={`${status.rejected} operação(ões) ou conexão(ões) rejeitada(s)`} body={`${status.lastRejected?.reason ?? ""}. Nada foi aplicado.`} />
       )}
       <p className="m-0 flex items-center gap-2 text-xs text-muted">
         <span className="rounded-full bg-panel-2 px-2 py-0.5">em breve</span>
         Aprovação de mudanças por papel (revisor, editor) entra como camada sobre estas chaves.
       </p>
       {inside && (
-        <div className="flex justify-end">
+        <DialogFooter>
           <button className={btn(true)} onClick={onInvite}>
             <UserPlus size={14} /> Convidar
           </button>
-        </div>
+        </DialogFooter>
       )}
     </Modal>
   );
@@ -579,10 +572,9 @@ export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: {
       <section className={cx(ui.section, "team-panel grid gap-3")}>
         <h2 className={ui.h2}>Time</h2>
         <p className="m-0 text-sm text-muted">Este Paprika ainda não está em um time. Crie um e convide as pessoas, ou entre com um link de convite.</p>
-        <label className={ui.field()}>
-          <span>Nome</span>
-          <input value={name} placeholder="Estúdio Norte" onChange={(e) => setName(e.target.value)} />
-        </label>
+        <Field id="team-name" label="Nome">
+          <Input id="team-name" value={name} placeholder="Estúdio Norte" onChange={(e) => setName(e.target.value)} />
+        </Field>
         {error && <p className="m-0 text-xs text-accent-ink">{error}</p>}
         <div className="flex flex-wrap gap-2">
           <button

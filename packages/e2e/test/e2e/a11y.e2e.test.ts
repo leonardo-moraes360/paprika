@@ -12,6 +12,20 @@ const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
 
 /** Keyboard and ARIA checks of the editor (WCAG 2.1: 2.1.1 keyboard, 2.4.3 focus order, 4.1.2 name/role/value). */
+/**
+ * WCAG 1.4.3 ratio between two computed color strings. The page only reports the colors (`fg`, `bg`); the
+ * math lives here, so the three contrast checks share one implementation.
+ */
+function contrastRatio(fg: string, bg: string) {
+  const channel = (v: number) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+  const lum = (s: string) => {
+    const [r, g, b] = (s.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+    return 0.2126 * channel(r ?? 0) + 0.7152 * channel(g ?? 0) + 0.0722 * channel(b ?? 0);
+  };
+  const [hi, lo] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+  return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
+}
+
 describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclado", () => {
   let dir: string;
   let external: ExternalServer | undefined;
@@ -112,24 +126,55 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       agents.push(c);
     }
     await expect.poll(() => page.locator(".agent-cursor").count(), { timeout: 10_000 }).toBe(8);
-    const ratios = await page.evaluate(() => {
-      const rgb = (s: string) => (s.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
-      const lum = (c: number[]) => {
-        const [r, g, b] = c.map((v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4));
-        return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
-      };
-      const ratio = (el: Element) => {
-        const cs = getComputedStyle(el);
-        const [a, b] = [lum(rgb(cs.color)), lum(rgb(cs.backgroundColor))].sort((x, y) => y - x);
-        return (a! + 0.05) / (b! + 0.05);
-      };
+    const swatch = await page.evaluate(() => {
+      const colors = (el: Element): [string, string] => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor];
       const tags = [...document.querySelectorAll(".agent-cursor span")].filter((el) => el.parentElement?.classList.contains("agent-cursor"));
-      return { tags: tags.map(ratio), tool: ratio(document.querySelector("nav[aria-label=Ferramentas] .is-active")!) };
+      return { tags: tags.map(colors), tool: colors(document.querySelector("nav[aria-label=Ferramentas] .is-active")!) };
     });
     for (const c of agents) await c.close();
-    expect(ratios.tags).toHaveLength(8);
-    for (const r of ratios.tags) expect(r).toBeGreaterThanOrEqual(4.5);
-    expect(ratios.tool).toBeGreaterThanOrEqual(4.5);
+    expect(swatch.tags).toHaveLength(8);
+    for (const [fg, bg] of swatch.tags) expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(swatch.tool[0], swatch.tool[1])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  /**
+   * The agent roster of PAP-B-034: the pills moved onto the theme's semantic tokens, so the same checks that
+   * covered them before still hold — the pill is reachable and focusable, it names itself, and its text stays
+   * readable on its own background for every agent color.
+   */
+  it("o roster de agentes é focável, tem nome e passa de 4,5:1 (2.4.7, 1.4.3)", async () => {
+    const agents: Client[] = [];
+    for (let i = 0; i < 4; i++) {
+      const c = new Client({ name: `a11y-roster-${i}`, version: "0" });
+      await c.connect(new StreamableHTTPClientTransport(new URL(`${external!.url}/mcp`)));
+      await c.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
+      agents.push(c);
+    }
+    const pill = page.getByTestId("agent-focus");
+    // Presence from earlier tests fades out on its own, so the count is a floor, not an exact number.
+    await expect.poll(() => pill.count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(4);
+    const rows = await pill.evaluateAll((els) =>
+      els.map((el) => {
+        el.focus();
+        const cs = getComputedStyle(el);
+        return {
+          named: (el.getAttribute("title") ?? "").length > 0,
+          focused: document.activeElement === el,
+          fg: cs.color,
+          bg: cs.backgroundColor,
+          agentColor: cs.getPropertyValue("--agent").trim(),
+        };
+      }),
+    );
+    for (const c of agents) await c.close();
+    expect(rows.length).toBeGreaterThanOrEqual(4);
+    for (const r of rows) {
+      expect(r.named).toBe(true);
+      expect(r.focused).toBe(true);
+      expect(contrastRatio(r.fg, r.bg)).toBeGreaterThanOrEqual(4.5);
+    }
+    // Several agent colors are covered: the pill text does not depend on one lucky pairing.
+    expect(new Set(rows.map((r) => r.agentColor)).size).toBeGreaterThanOrEqual(4);
   });
 
   /**
@@ -157,13 +202,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
           const el = document.querySelector(`[data-panel=${panel}] [data-slot=${slot}]`);
           if (!el) throw new Error(`no [data-slot=${slot}] in [data-panel=${panel}]`);
           const cs = getComputedStyle(el);
-          const channel = (v: number) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
-          const lum = (s: string) => {
-            const [r, g, b] = (s.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
-            return 0.2126 * channel(r!) + 0.7152 * channel(g!) + 0.0722 * channel(b!);
-          };
-          const pair = [lum(cs.color), lum(cs.backgroundColor)].sort((x, y) => y - x);
-          return ((pair[0] ?? 0) + 0.05) / ((pair[1] ?? 0) + 0.05);
+          return [cs.color, cs.backgroundColor] as [string, string];
         },
         { panel, slot },
       );
@@ -172,8 +211,10 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       gal.locator(`[data-panel=${panel}] button`).filter({ hasText: text }).first();
 
     it("o botão primário passa de 4,5:1 nos dois temas (1.4.3)", async () => {
-      expect(await contrastIn("dark", "button")).toBeGreaterThanOrEqual(4.5);
-      expect(await contrastIn("light", "button")).toBeGreaterThanOrEqual(4.5);
+      for (const panel of ["dark", "light"] as const) {
+        const [fg, bg] = await contrastIn(panel, "button");
+        expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+      }
     });
 
     it("o diálogo prende o foco, o Tab não escapa e o Esc devolve ao gatilho (2.1.2)", async () => {

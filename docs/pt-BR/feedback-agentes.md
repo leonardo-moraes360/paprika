@@ -259,3 +259,19 @@ Tarefa: desenhar, por MCP, a folha com cada primitivo shadcn e seus estados (hov
 - Os modos de tema fizeram exatamente o que esta folha pedia: `set_tokens {mode: "light"}` mais `mode: "light"` no frame deram um único desenho em dois temas, e os valores claros são agora os valores que `apps/web/src/styles.css` publica em `.ui-light` — board e código decididos uma vez, não duas.
 - Depois da correção, o `lint_design` fica com 0 erros nos cinco frames; o único erro de `contrast` que ele pegou (um link em 4,24:1 sobre superfície clara) era um erro real na paleta, e hoje é outro token no código.
 - Redesenhar saiu mais barato que remendar: `delete_nodes` nas cinco raízes e um `create_nodes` novo, tudo num `batch`, desfeito por um único `undo`.
+
+## 2026-11-22: painel de time e roster de agentes, antes e depois (PAP-B-034, design first)
+
+Tarefa: desenhar o painel de time e o roster de agentes como estão hoje e como ficam sobre os primitivos, nos dois
+escopos de tema, e migrar `apps/web/src/Team.tsx` e o roster em `apps/web/src/AgentCursors.tsx`. Cinco frames raiz na
+página `Interfaces`, ~560 nós, e depois o app real em modo `--team` capturado para o registro.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 85 | A captura do próprio app dentro do documento de design, como referência do "antes" | Os nós de imagem não se dimensionam como o quadro diz: o mesmo PNG 280×856 pintou certo num quadro 190×581 com `fit: "contain"` num frame e virou uma tira de ~60×12 noutro em que o quadro era do tamanho da fonte; uma fonte 1440×900 num quadro 560×350 não pintou nada. O `lint_design` ficou limpo e nenhum erro voltou — só descobri olhando o `render_screenshot`. As capturas acabaram commitadas ao lado do board, não dentro dele | Documentar o que `width`/`height` fazem num nó `image` (escalam, recortam, ou nada), e fazer uma fonte maior que o quadro escalar ou reportar | P2 |
+| 86 | Um board cujos nomes de token são os nomes do código | Os tokens da folha são `ui.card` e `ui.mutedFg` (pontos, abreviações), enquanto `apps/web/src/styles.css` publica `--color-ui-card` e `--color-ui-muted-foreground`. Nada liga um ao outro, então "comparar board com código" é passo humano, e digitei os mesmos valores nos dois lados | Aceitar um alias ou `source` no token (ex.: `ui.card` → `--color-ui-card`), ou deixar o `set_tokens` ler os nomes de um arquivo CSS | P3 |
+| 87 | Um token do documento para o vermelho que o app pinta | `--color-accent-strong: #c8401f` está no CSS, mas os tokens de marca do documento são `$accent` (#e04a2b) e `$accent.dark`. Todo botão primário da folha ficou literal, e o `lint_design` devolve infos `raw-color` neles | Adicionar `$accent.strong` (e o ink) aos tokens de marca do documento, para board e CSS chamarem a mesma cor pelo mesmo nome | P3 |
+
+- Um construtor, dois modos: a mesma função do painel desenhou `antes` e `depois` e depois a folha clara, então as três folhas são a mesma geometria e só mudam os pares de tokens e o tamanho dos controles. Isso deixou a comparação legível.
+- `lint_design` nos cinco frames: 0 erros, os mesmos avisos `small-text` da folha do PAP-B-030 (o tipo de 11 e 12px do próprio painel), mais os infos `raw-color` do item 87.
+- As alturas dos frames tiveram que ser ajustadas na mão de novo (o item 81 continua valendo): uma coluna `hug` dentro de uma linha `hug` cortava o segundo painel até o frame externo ganhar altura explícita.
