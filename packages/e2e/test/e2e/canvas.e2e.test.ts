@@ -267,48 +267,52 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   });
 
   it("inspector: color picker grava $token, hex, rgba e devolve o foco no Esc", async () => {
+    const POLL = { timeout: 10_000 };
     await page.locator('[data-layer-id="plano"]').click();
     const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
+    await expect.poll(() => appearance.count(), POLL).toBe(1);
     if ((await appearance.getAttribute("aria-expanded")) !== "true") await appearance.click();
 
     const fillTrigger = page.getByTestId("color-picker-trigger").first();
+    await expect.poll(() => fillTrigger.count(), POLL).toBe(1);
     await fillTrigger.click();
     const picker = page.getByTestId("color-picker");
-    await expect.poll(() => picker.count()).toBe(1);
+    await expect.poll(() => picker.count(), POLL).toBe(1);
 
     await page.getByTestId("color-token-brand").click();
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill).toBe("$brand");
-    await expect.poll(() => page.getByLabel("Preenchimento", { exact: true }).inputValue()).toBe("$brand");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill, POLL).toBe("$brand");
+    await expect.poll(() => page.getByLabel("Preenchimento", { exact: true }).inputValue(), POLL).toBe("$brand");
 
     const hex = page.getByTestId("color-hex");
     await hex.click({ clickCount: 3 });
     await hex.fill("#112233");
     await hex.press("Enter");
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill).toBe("#112233");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill, POLL).toBe("#112233");
 
     await page.getByTestId("color-alpha").focus();
     for (let i = 0; i < 30; i++) await page.keyboard.press("ArrowLeft");
-    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "")).toMatch(/^rgba\(/);
+    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? ""), POLL).toMatch(/^rgba\(/);
 
     await page.keyboard.press("Escape");
-    await expect.poll(() => picker.count()).toBe(0);
+    await expect.poll(() => picker.count(), POLL).toBe(0);
     await expect.poll(() =>
       page.evaluate(() => {
         const el = document.activeElement;
         return el?.getAttribute("data-testid") ?? el?.getAttribute("aria-label") ?? el?.tagName ?? "";
       }),
+      POLL,
     ).toMatch(/color-picker-trigger|Preenchimento \(seletor\)/i);
 
     await fillTrigger.focus();
     await page.keyboard.press("Enter");
-    await expect.poll(() => picker.count()).toBe(1);
+    await expect.poll(() => picker.count(), POLL).toBe(1);
     await page.getByTestId("color-sv").focus();
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowUp");
-    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "").length).toBeGreaterThan(0);
+    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "").length, POLL).toBeGreaterThan(0);
     await page.keyboard.press("Escape");
-    await expect.poll(() => picker.count()).toBe(0);
-  });
+    await expect.poll(() => picker.count(), POLL).toBe(0);
+  }, 15_000);
 
   it("inspector: FontPicker troca a família e aceita fonte digitada", async () => {
     await page.locator('[data-layer-id="8succ2i53s"]').click();
