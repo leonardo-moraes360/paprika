@@ -34,7 +34,7 @@ var (
 )
 
 func twArb(v string) string {
-	return reWS.ReplaceAllString(strings.ReplaceAll(strings.ReplaceAll(v, `\`, `\\`), "_", `\_`), "_")
+	return reWS.ReplaceAllString(strings.ReplaceAll(v, "_", `\_`), "_")
 }
 
 func twLookup(m map[string]string, v string) ([]string, bool) {

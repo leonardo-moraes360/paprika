@@ -12,7 +12,7 @@ import {
   type StyleEmitter,
 } from "./render.js";
 
-const arb = (v: string) => v.replace(/\\/g, "\\\\").replace(/_/g, "\\_").replace(/\s+/g, "_");
+const arb = (v: string) => v.replace(/_|\s+/g, (m) => (m === "_" ? "\\_" : "_"));
 
 const UNSAFE = /[\[\]{};]/;
 
