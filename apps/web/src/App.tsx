@@ -12,19 +12,23 @@ import { ConnectionStatus } from "./ConnectionStatus";
 import { Overview } from "./Overview";
 import { navigate, parseRoute, useRoute, workspacePath } from "./route";
 import { useLive, useLiveActions, useLiveConnection } from "./useDocument";
-import { bar, cx } from "./ui";
+import { Button } from "./components/ui/button";
+import { Separator } from "./components/ui/separator";
+import { statusDotVariants } from "./components/ui/status";
+import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
+import { cn } from "./lib/cn";
+import { bar } from "./ui";
 import { openWorkspace } from "./workspaces";
 import { WorkspaceNotice } from "./WorkspaceNotice";
 
-// Plain class names next to utilities ("left", "right", "doc-name", "is-active") are hooks for the E2E suite.
-const boot = "grid h-full place-content-center justify-items-center gap-3 text-muted";
+const boot = "grid h-full place-content-center justify-items-center gap-3 text-ui-muted-foreground";
 const toast = "absolute bottom-4 left-1/2 max-w-[70%] -translate-x-1/2 cursor-pointer rounded-lg border border-accent bg-toast px-3 py-2 text-accent-pale";
-const toolSep = "mx-1.5 h-5 w-px bg-line";
-const toolButton = (active: boolean) =>
-  cx(
-    "inline-flex h-[30px] w-8 cursor-pointer items-center justify-center rounded-md border-0 enabled:hover:bg-panel-2 disabled:cursor-default disabled:opacity-35",
-    active ? "is-active bg-accent-strong text-white" : "bg-transparent",
-  );
+const toolItemClass =
+  "h-[30px] w-8 shrink-0 rounded-md border-0 bg-transparent p-0 text-ui-foreground hover:bg-ui-secondary hover:text-ui-foreground data-[state=on]:bg-accent-strong data-[state=on]:text-white data-[state=on]:hover:bg-accent-strong data-[state=on]:hover:text-white [&_svg]:size-[18px]";
+const actionItemClass =
+  "inline-flex h-[30px] w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-ui-foreground hover:bg-ui-secondary disabled:cursor-default disabled:opacity-35 [&_svg]:size-[18px]";
 
 /** Lucide icon size in the floating toolbar, in px. */
 const TOOL_ICON = 18;
@@ -319,15 +323,15 @@ function Editor() {
 
   return (
     <div
-      className={cx(
+      className={cn(
         "grid h-full grid-cols-[var(--left-w,240px)_minmax(0,1fr)_var(--right-w,280px)] grid-rows-[44px_1fr] [grid-template-areas:'top_top_top'_'left_center_right']",
         "max-wide:grid-cols-1 max-wide:grid-rows-[44px_1fr_220px] max-wide:[grid-template-areas:'top'_'center'_'right']",
       )}
       style={{ "--left-w": `${leftPanel.collapsed ? 0 : leftPanel.width}px`, "--right-w": `${rightPanel.collapsed ? 0 : rightPanel.width}px` } as CSSProperties}>
-      <header className={cx(bar.topbar, "[grid-area:top]")}>
+      <header className={cn(bar.topbar, "border-ui-border bg-ui-card [grid-area:top]")}>
         <div className={bar.brand}>
           <a
-            className="group/home flex items-center gap-2 rounded-md text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select"
+            className="group/home flex items-center gap-2 rounded-md text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ring"
             href="/"
             title="Todos os workspaces"
             onClick={(e) => {
@@ -338,11 +342,10 @@ function Editor() {
             <img className={bar.logo} src="/icon.svg" alt="" />
             <strong className="group-hover/home:text-accent-ink">Paprika</strong>
           </a>
-          <span className="text-line" aria-hidden>
+          <span className="text-ui-border" aria-hidden>
             /
           </span>
-          {/* The page's heading; on narrow screens it stays for screen readers only. */}
-          <h1 className="doc-name m-0 truncate text-muted [font:inherit] max-wide:sr-only">{doc.name}</h1>
+          <h1 className="doc-name m-0 truncate text-ui-muted-foreground [font:inherit] max-wide:sr-only">{doc.name}</h1>
         </div>
         <div className={bar.status}>
           {live.team !== undefined && <TeamChip status={live.team} onClick={() => setRightTab("team")} />}
@@ -352,45 +355,78 @@ function Editor() {
               <span className="truncate">{lastAgent.label}</span>
             </span>
           )}
-          <span className={bar.dot(live.connected)} aria-hidden />
+          <span className={statusDotVariants({ tone: live.connected ? "ok" : "alert" })} aria-hidden />
           <span className={bar.statusText}>{live.connected ? `v${live.version} · MCP em /mcp` : "desconectado"}</span>
           <ConnectionStatus connected={live.connected} />
         </div>
       </header>
-      <aside aria-label="Páginas e camadas" className={cx("left overflow-auto border-r border-line bg-panel [grid-area:left] max-wide:hidden", leftPanel.collapsed && "hidden")}>
+      <aside aria-label="Páginas e camadas" className={cn("left overflow-auto border-r border-ui-border bg-ui-card [grid-area:left] max-wide:hidden", leftPanel.collapsed && "hidden")}>
         <Pages doc={doc} pageId={pageId} onOpen={openPage} apply={live.apply} />
         <Layers doc={doc} pageId={pageId} selected={selected} onSelect={setSelected} apply={live.apply} />
       </aside>
       <PanelResizer side="left" label="Largura do painel de camadas" panel={leftPanel} limits={LEFT_PANEL} />
-      <main className={cx("relative overflow-hidden [grid-area:center]", rightPanel.collapsed && "[&_[data-testid=agent-roster]]:top-14")}>
+      <main className={cn("relative overflow-hidden [grid-area:center]", rightPanel.collapsed && "[&_[data-testid=agent-roster]]:top-14")}>
         {leftPanel.collapsed && <PanelToggle side="left" label="Mostrar painel de camadas" panel={leftPanel} />}
         {rightPanel.collapsed && <PanelToggle side="right" label="Mostrar painel de propriedades" panel={rightPanel} />}
-        {/* Floating toolbar, centered at the top of the canvas. */}
-        <nav className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-line bg-panel p-1 shadow-float" aria-label="Ferramentas" onPointerDown={(e) => e.stopPropagation()}>
-          {TOOLS.map((t) => (
-            <button
-              key={t.tool}
-              className={toolButton(tool === t.tool)}
-              onClick={() => setTool(t.tool)}
-              title={`${t.label} (${t.key.toUpperCase()})`}
-              aria-pressed={tool === t.tool}
-              aria-label={t.label}
+        <TooltipProvider delayDuration={400}>
+          <nav
+            className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-ui-border bg-ui-card p-1 shadow-float"
+            aria-label="Ferramentas"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <ToggleGroup
+              type="multiple"
+              rovingFocus={false}
+              value={[tool]}
+              onValueChange={(next) => {
+                const added = next.find((v) => v !== tool);
+                if (added) setTool(added as Tool);
+              }}
+              className="gap-0.5"
             >
-              <t.icon size={TOOL_ICON} strokeWidth={1.75} />
-            </button>
-          ))}
-          <span className={toolSep} />
-          <button className={toolButton(false)} onClick={live.undo} disabled={!live.canUndo} title="Desfazer (Ctrl+Z)" aria-label="Desfazer">
-            <Undo2 size={TOOL_ICON} strokeWidth={1.75} />
-          </button>
-          <button className={toolButton(false)} onClick={live.redo} disabled={!live.canRedo} title="Refazer (Ctrl+Shift+Z)" aria-label="Refazer">
-            <Redo2 size={TOOL_ICON} strokeWidth={1.75} />
-          </button>
-          <span className={toolSep} />
-          <button className={toolButton(false)} onClick={exportSvg} title="Exportar SVG (seleção, ou a página)" aria-label="Exportar SVG">
-            <Download size={TOOL_ICON} strokeWidth={1.75} />
-          </button>
-        </nav>
+              {TOOLS.map((t) => (
+                <Tooltip key={t.tool}>
+                  <TooltipTrigger asChild>
+                    <ToggleGroupItem
+                      value={t.tool}
+                      className={cn(toolItemClass, tool === t.tool && "is-active")}
+                      aria-label={t.label}
+                    >
+                      <t.icon size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
+                    </ToggleGroupItem>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">{`${t.label} (${t.key.toUpperCase()})`}</TooltipContent>
+                </Tooltip>
+              ))}
+            </ToggleGroup>
+            <Separator orientation="vertical" className="mx-1.5 h-5" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" className={actionItemClass} onClick={live.undo} disabled={!live.canUndo} aria-label="Desfazer">
+                  <Undo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Desfazer (Ctrl+Z)</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" className={actionItemClass} onClick={live.redo} disabled={!live.canRedo} aria-label="Refazer">
+                  <Redo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Refazer (Ctrl+Shift+Z)</TooltipContent>
+            </Tooltip>
+            <Separator orientation="vertical" className="mx-1.5 h-5" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" className={actionItemClass} onClick={exportSvg} aria-label="Exportar SVG">
+                  <Download size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Exportar SVG (seleção, ou a página)</TooltipContent>
+            </Tooltip>
+          </nav>
+        </TooltipProvider>
         <Canvas
           doc={doc}
           selected={selected}
@@ -407,34 +443,35 @@ function Editor() {
         <WorkspaceNotice />
       </main>
       <PanelResizer side="right" label="Largura do painel de propriedades" panel={rightPanel} limits={RIGHT_PANEL} />
-      <aside aria-label="Propriedades" className={cx("right overflow-auto border-l border-line bg-panel [grid-area:right] max-wide:border-t max-wide:border-l-0", rightPanel.collapsed && "hidden")}>
+      <aside aria-label="Propriedades" className={cn("right overflow-auto border-l border-ui-border bg-ui-card [grid-area:right] max-wide:border-t max-wide:border-l-0", rightPanel.collapsed && "hidden")}>
         {live.team !== undefined && (
-          <div className="right-tabs m-3 mb-0 grid grid-cols-2 gap-0.5 rounded-md bg-night p-0.5" role="tablist" aria-label="Painel da direita">
-            {(["inspector", "team"] as const).map((t) => (
-              <button
-                key={t}
-                id={`right-tab-${t}`}
-                role="tab"
-                aria-selected={rightTab === t}
-                aria-controls="right-tabpanel"
-                // Roving tabindex: one Tab stop for the tab list, the arrows switch tabs (WAI-ARIA tabs pattern).
-                tabIndex={rightTab === t ? 0 : -1}
-                onKeyDown={(e) => {
-                  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") return;
-                  e.preventDefault();
-                  e.stopPropagation(); // the arrows would also nudge the selection on the canvas
-                  const next = rightTab === "inspector" ? "team" : "inspector";
-                  const to = e.key === "Home" ? "inspector" : e.key === "End" ? "team" : next;
-                  setRightTab(to);
-                  document.getElementById(`right-tab-${to}`)?.focus();
-                }}
-                className={cx("cursor-pointer rounded-sm border-0 py-1 text-xs", rightTab === t ? "is-active bg-panel-2 font-semibold text-fg" : "bg-transparent text-muted")}
-                onClick={() => setRightTab(t)}
-              >
-                {t === "inspector" ? "Inspector" : "Time"}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            value={rightTab}
+            onValueChange={(v) => setRightTab(v as "inspector" | "team")}
+            className="right-tabs m-3 mb-0 gap-0"
+          >
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-0.5 rounded-md bg-night p-0.5" aria-label="Painel da direita">
+              {(["inspector", "team"] as const).map((t) => (
+                <TabsTrigger
+                  key={t}
+                  id={`right-tab-${t}`}
+                  value={t}
+                  aria-controls="right-tabpanel"
+                  className={cn(
+                    "rounded-sm py-1 text-xs data-[state=active]:bg-ui-secondary data-[state=active]:text-ui-foreground data-[state=active]:shadow-none",
+                    rightTab === t && "is-active",
+                  )}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Home" || e.key === "End") {
+                      e.stopPropagation();
+                    }
+                  }}
+                >
+                  {t === "inspector" ? "Inspector" : "Time"}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         )}
         <div id="right-tabpanel" role={live.team !== undefined ? "tabpanel" : undefined} aria-labelledby={live.team !== undefined ? `right-tab-${rightTab}` : undefined}>
         {live.team !== undefined && rightTab === "team" ? (
@@ -453,7 +490,6 @@ function Editor() {
           apply={live.apply}
           activity={live.activity}
           onSelect={(id) => {
-            // Um nó de outra página (ex.: um item da revisão) abre a página dele.
             let top = doc.nodes[id];
             while (top?.parentId) top = doc.nodes[top.parentId];
             if (top?.type === "page" && top.id !== pageId) setPageChoice(top.id);
