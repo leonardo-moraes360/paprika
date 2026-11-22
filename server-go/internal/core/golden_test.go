@@ -101,8 +101,14 @@ func TestGoldenStructure(t *testing.T) {
 		var ops []any
 		var id string
 		var released []string
+		var dup *DuplicatePlan
 		var err error
 		switch c.Str("kind") {
+		case "duplicate":
+			dup, err = DuplicateOps(d, args.Strings("ids"), args)
+			if dup != nil {
+				ops = dup.Ops
+			}
 		case "group":
 			ops, id, err = GroupOps(d, args.Strings("ids"), args.Str("id"), args.Str("name"))
 		case "ungroup":
@@ -122,19 +128,50 @@ func TestGoldenStructure(t *testing.T) {
 			t.Errorf("%s: unexpected error %v", where, err)
 			continue
 		}
-		eq(t, where+" ops", jsonv.Stringify(jsonv.FromGo(ops), ""), c.Str("ops"))
+		r, aerr := ApplyOps(d, ops)
+		stable := func(text string) string {
+			if dup == nil {
+				return text
+			}
+			var from []string
+			var to []string
+			if aerr == nil {
+				for _, nid := range Nodes(r.Doc).Keys() {
+					src := GetNode(r.Doc, nid).Str("sourceId")
+					if src == "" {
+						continue
+					}
+					for _, orig := range dup.Map.Keys() {
+						copied, _ := dup.Map.Get(orig)
+						if nid == CopyID(copied.(string), src) {
+							from = append(from, nid)
+							to = append(to, "@"+orig+"~"+src)
+						}
+					}
+				}
+			}
+			for _, orig := range dup.Map.Keys() {
+				copied, _ := dup.Map.Get(orig)
+				from = append(from, copied.(string))
+				to = append(to, "@"+orig)
+			}
+			for i := range from {
+				text = strings.ReplaceAll(text, from[i], to[i])
+			}
+			return text
+		}
+		eq(t, where+" ops", stable(jsonv.Stringify(jsonv.FromGo(ops), "")), c.Str("ops"))
 		if c.Has("id") {
 			eq(t, where+" id", id, c.Str("id"))
 		}
 		if c.Has("released") {
 			eq(t, where+" released", strings.Join(released, ","), strings.Join(c.Strings("released"), ","))
 		}
-		r, aerr := ApplyOps(d, ops)
 		if c.Has("applyError") {
 			if aerr == nil {
 				t.Errorf("%s: expected apply error %q", where, c.Str("applyError"))
 			} else {
-				eq(t, where+" apply error", aerr.Error(), c.Str("applyError"))
+				eq(t, where+" apply error", stable(aerr.Error()), c.Str("applyError"))
 			}
 			continue
 		}
@@ -142,7 +179,7 @@ func TestGoldenStructure(t *testing.T) {
 			t.Errorf("%s: apply error %v", where, aerr)
 			continue
 		}
-		eq(t, where+" result", jsonv.Stringify(r.Doc, "  "), c.Str("result"))
+		eq(t, where+" result", stable(jsonv.Stringify(r.Doc, "  ")), c.Str("result"))
 	}
 }
 
