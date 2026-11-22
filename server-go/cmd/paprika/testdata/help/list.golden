@@ -1,0 +1,8 @@
+Lista os documentos do banco
+
+Uso:
+  paprika list [flags]
+
+Opções:
+      --db string   Banco SQLite (criado se não existir); o padrão vem de $PAPRIKA_DB (default "paprika.db")
+  -h, --help        Mostra a ajuda

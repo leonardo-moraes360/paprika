@@ -1,0 +1,13 @@
+MCP via stdio (para agentes que só falam stdio). Sobe o canvas na porta, se livre.
+
+Uso:
+  paprika mcp [flags]
+
+Opções:
+      --db string     Banco SQLite (criado se não existir); o padrão vem de $PAPRIKA_DB (default "paprika.db")
+      --doc string    Id do documento; sem ele, o atualizado mais recentemente (um vazio é criado se o banco estiver vazio). Os documentos do banco são os workspaces da página inicial (/)
+  -h, --help          Mostra a ajuda
+      --host string   Interface de bind. Expor fora do loopback não tem autenticação (default "127.0.0.1")
+      --no-ui         Não sobe o canvas HTTP
+  -p, --port int      Porta HTTP (0 = aleatória) (default 4777)
+      --web string    Build do canvas (apps/web/dist); sem ele, $PAPRIKA_WEB_ROOT ou detectado

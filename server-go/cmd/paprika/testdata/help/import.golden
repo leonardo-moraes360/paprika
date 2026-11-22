@@ -1,0 +1,9 @@
+Importa um documento .paprika.json para o banco (imprime o id).
+
+Uso:
+  paprika import ARQUIVO.paprika.json [flags]
+
+Opções:
+      --db string   Banco SQLite (criado se não existir); o padrão vem de $PAPRIKA_DB (default "paprika.db")
+  -h, --help        Mostra a ajuda
+      --replace     Substitui o documento que já existe com o mesmo id

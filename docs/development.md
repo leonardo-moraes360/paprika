@@ -51,6 +51,18 @@ CI runs on pull requests only and picks the jobs from the files the PR changes: 
 
 This repository uses [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) as its agent harness: invariants live in `.toolbelt/invariants.yaml` (`tb mem list`), and `tb verify run` / `tb stack verify guard` run before work is called done. Claude Code cloud sessions install the pinned `tb` on start ([docs/agent-sessions.md](agent-sessions.md)).
 
+## CLI
+
+The `paprika` binary is built on [Cobra](https://cobra.dev/): one command per subcommand (`serve`, `mcp`, `import`, `export`, `list`, `version`), each with its own flags and `paprika <command> --help`.
+
+```bash
+server-go/bin/paprika --help
+server-go/bin/paprika export --help
+source <(server-go/bin/paprika completion bash)    # also zsh and fish
+```
+
+`server-go/cmd/paprika/cli_test.go` locks the surface: golden `--help` output and flag table (`server-go/cmd/paprika/testdata/`, refresh with `cd server-go && go test ./cmd/paprika -update` when you change a flag on purpose), the invocations that `Dockerfile`, `compose.team.yaml`, `package.json` and `packages/e2e/test/harness.ts` use, and the exit codes (2 for an unknown command, 1 for a bad flag or a runtime error).
+
 ## Security
 
 - Binds to `127.0.0.1` by default; Host and Origin are validated (blocks DNS rebinding and CSRF from pages open in the browser).
