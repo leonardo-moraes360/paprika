@@ -17,7 +17,7 @@ import { Separator } from "./components/ui/separator";
 import { statusDotVariants } from "./components/ui/status";
 import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
+import { Hint, Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
 import { cn } from "./lib/cn";
 import { bar } from "./ui";
 import { openWorkspace } from "./workspaces";
@@ -273,7 +273,14 @@ function Editor() {
       }
       if (e.key === "Escape") {
         const t = e.target;
-        if (t instanceof Element && t.closest('[data-slot="popover-content"], [data-slot="dialog-content"], [role="dialog"], [role="alertdialog"]')) return;
+        if (
+          t instanceof Element &&
+          t.closest(
+            '[data-slot="popover-content"], [data-slot="dialog-content"], [data-slot="tooltip-content"], [role="dialog"], [role="alertdialog"], [role="tooltip"]',
+          )
+        )
+          return;
+        if (document.querySelector('[data-slot="tooltip-content"]')) return;
         setTool("select");
         const parent = nodes[0]?.parentId;
         setSelected(parent && doc.nodes[parent]?.type !== "page" ? [parent] : []);
@@ -333,18 +340,19 @@ function Editor() {
       style={{ "--left-w": `${leftPanel.collapsed ? 0 : leftPanel.width}px`, "--right-w": `${rightPanel.collapsed ? 0 : rightPanel.width}px` } as CSSProperties}>
       <header className={cn(bar.topbar, "border-ui-border bg-ui-card [grid-area:top]")}>
         <div className={bar.brand}>
-          <a
-            className="group/home flex items-center gap-2 rounded-md text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ring"
-            href="/"
-            title="Todos os workspaces"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/");
-            }}
-          >
-            <img className={bar.logo} src="/icon.svg" alt="" />
-            <strong className="group-hover/home:text-accent-ink">Paprika</strong>
-          </a>
+          <Hint label="Todos os workspaces" side="bottom">
+            <a
+              className="group/home flex items-center gap-2 rounded-md text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ring"
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/");
+              }}
+            >
+              <img className={bar.logo} src="/icon.svg" alt="" />
+              <strong className="group-hover/home:text-accent-ink">Paprika</strong>
+            </a>
+          </Hint>
           <span className="text-ui-border" aria-hidden>
             /
           </span>
@@ -371,65 +379,63 @@ function Editor() {
       <main className={cn("relative overflow-hidden [grid-area:center]", rightPanel.collapsed && "[&_[data-testid=agent-roster]]:top-14")}>
         {leftPanel.collapsed && <PanelToggle side="left" label="Mostrar painel de camadas" panel={leftPanel} />}
         {rightPanel.collapsed && <PanelToggle side="right" label="Mostrar painel de propriedades" panel={rightPanel} />}
-        <TooltipProvider delayDuration={400}>
-          <nav
-            className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-ui-border bg-ui-card p-1 shadow-float"
-            aria-label="Ferramentas"
-            onPointerDown={(e) => e.stopPropagation()}
+        <nav
+          className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-ui-border bg-ui-card p-1 shadow-float"
+          aria-label="Ferramentas"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <ToggleGroup
+            type="multiple"
+            rovingFocus={false}
+            value={[tool]}
+            onValueChange={(next) => {
+              const added = next.find((v) => v !== tool);
+              if (added) setTool(added as Tool);
+            }}
+            className="gap-0.5"
           >
-            <ToggleGroup
-              type="multiple"
-              rovingFocus={false}
-              value={[tool]}
-              onValueChange={(next) => {
-                const added = next.find((v) => v !== tool);
-                if (added) setTool(added as Tool);
-              }}
-              className="gap-0.5"
-            >
-              {TOOLS.map((t) => (
-                <Tooltip key={t.tool}>
-                  <TooltipTrigger asChild>
-                    <ToggleGroupItem
-                      value={t.tool}
-                      className={cn(toolItemClass, tool === t.tool && "is-active")}
-                      aria-label={t.label}
-                    >
-                      <t.icon size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-                    </ToggleGroupItem>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">{`${t.label} (${t.key.toUpperCase()})`}</TooltipContent>
-                </Tooltip>
-              ))}
-            </ToggleGroup>
-            <Separator orientation="vertical" className="mx-1.5 h-5" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" className={actionItemClass} onClick={live.undo} disabled={!live.canUndo} aria-label="Desfazer">
-                  <Undo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Desfazer (Ctrl+Z)</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" className={actionItemClass} onClick={live.redo} disabled={!live.canRedo} aria-label="Refazer">
-                  <Redo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Refazer (Ctrl+Shift+Z)</TooltipContent>
-            </Tooltip>
-            <Separator orientation="vertical" className="mx-1.5 h-5" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" className={actionItemClass} onClick={exportSvg} aria-label="Exportar SVG">
-                  <Download size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Exportar SVG (seleção, ou a página)</TooltipContent>
-            </Tooltip>
-          </nav>
-        </TooltipProvider>
+            {TOOLS.map((t) => (
+              <Tooltip key={t.tool}>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem
+                    value={t.tool}
+                    className={cn(toolItemClass, tool === t.tool && "is-active")}
+                    aria-label={t.label}
+                  >
+                    <t.icon size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{`${t.label} (${t.key.toUpperCase()})`}</TooltipContent>
+              </Tooltip>
+            ))}
+          </ToggleGroup>
+          <Separator orientation="vertical" className="mx-1.5 h-5" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" className={actionItemClass} onClick={live.undo} disabled={!live.canUndo} aria-label="Desfazer">
+                <Undo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Desfazer (Ctrl+Z)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" className={actionItemClass} onClick={live.redo} disabled={!live.canRedo} aria-label="Refazer">
+                <Redo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Refazer (Ctrl+Shift+Z)</TooltipContent>
+          </Tooltip>
+          <Separator orientation="vertical" className="mx-1.5 h-5" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" className={actionItemClass} onClick={exportSvg} aria-label="Exportar SVG">
+                <Download size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Exportar SVG (seleção, ou a página)</TooltipContent>
+          </Tooltip>
+        </nav>
         <Canvas
           doc={doc}
           selected={selected}

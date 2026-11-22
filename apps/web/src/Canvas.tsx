@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent } from "react";
 import { Maximize, Minus, Plus } from "lucide-react";
 import {
   copyOwner,
   FORMAT,
   importHTML,
   importSVG,
+  isContainer,
   isInstance,
   anchorsToPath,
   canvasBounds,
@@ -48,6 +49,7 @@ import {
 import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { Button } from "./components/ui/button";
+import { Hint } from "./components/ui/tooltip";
 import { InlineName } from "./InlineName";
 import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
 import { AgentCursors, type Box } from "./AgentCursors";
@@ -164,6 +166,33 @@ const isAbsolute = (doc: Document, n: Node) => {
   const p = n.parentId ? doc.nodes[n.parentId] : undefined;
   return n.type !== "page" && (!p || p.type !== "frame" || !p.layout || p.layout.mode === "none");
 };
+
+const isFlowFrame = (n: Node | undefined): boolean => n?.type === "frame" && !!n.layout && n.layout.mode !== "none";
+
+const isUnder = (doc: Document, id: string, ancestor: string): boolean => {
+  for (let p = doc.nodes[id]?.parentId; p; p = doc.nodes[p]?.parentId ?? null) if (p === ancestor) return true;
+  return false;
+};
+
+const dropAccepts = (doc: Document, parentId: string | null, dragged: ReadonlySet<string>): boolean => {
+  if (parentId === null) return true;
+  if (dragged.has(parentId)) return false;
+  for (const id of dragged) if (isUnder(doc, parentId, id)) return false;
+  const n = doc.nodes[parentId];
+  if (!isContainer(n) || n.type === "page") return false;
+  if (isInstance(n) || copyOwner(doc, n)) return false;
+  return true;
+};
+
+type DropSpot = {
+  parentId: string | null;
+  index: number | undefined;
+  highlightId: string | null;
+  flow: boolean;
+};
+
+/** IMAGE_MIME for OS file drops (PAP-B-019 path via data URI create). */
+const IMAGE_FILE = /^image\/(png|jpe?g|webp|avif|gif)$/i;
 
 /**
  * Clicar dentro de um grupo seleciona o grupo mais externo (ou mantém o grupo já selecionado, para
@@ -335,9 +364,12 @@ interface RenderProps {
   edit: { id: string; subs: Subpath[]; sel: AnchorRef | null } | null;
   /** Forma com o texto em edição no próprio canvas. */
   textEdit?: { id: string; onCommit(text: string): void; onDone(): void } | null;
+  /** Nó em arraste: sem hit-test, para o alvo sob o cursor aparecer. */
+  dragging?: boolean;
+  dragIds?: ReadonlySet<string>;
 }
 
-function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEdit }: RenderProps) {
+function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEdit, dragging, dragIds }: RenderProps) {
   const css = nodeStyle(doc, node) as CSSProperties;
   const wasmPaints = wasm && wasmPaintable(doc, node);
   if (wasmPaints) {
@@ -347,6 +379,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
     delete css.boxShadow;
     delete css.filter;
   }
+  if (dragging) css.pointerEvents = "none";
   const pv = preview?.[node.id];
   if (pv) {
     if (pv.x !== undefined) css.left = pv.x;
@@ -368,7 +401,22 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
         <div {...props}>
           {node.children.map((c) => {
             const child = doc.nodes[c];
-            return child ? <RenderNode key={c} doc={doc} node={child} preview={preview} touched={touched} pen={pen} zoom={zoom} wasm={wasm} edit={edit} textEdit={textEdit} /> : null;
+            return child ? (
+              <RenderNode
+                key={c}
+                doc={doc}
+                node={child}
+                preview={preview}
+                touched={touched}
+                pen={pen}
+                zoom={zoom}
+                wasm={wasm}
+                edit={edit}
+                textEdit={textEdit}
+                dragging={!!dragIds?.has(c)}
+                dragIds={dragIds}
+              />
+            ) : null;
           })}
           {pen && pen.parentId === node.id && <PenOverlay pen={pen} zoom={zoom} />}
         </div>
@@ -549,6 +597,10 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   /** Caixa que envolve a seleção, e a de cada nó quando há mais de um. */
   const [box, setBox] = useState<Rect | null>(null);
   const [boxes, setBoxes] = useState<(Rect & { id: string })[]>([]);
+  /** Alvo de reparent/reordenação durante o arraste (anel + marcador de inserção). */
+  const [dropUi, setDropUi] = useState<{ highlight: Rect | null; marker: Rect | null } | null>(null);
+  const [dragIds, setDragIds] = useState<string[] | null>(null);
+  const [fileOver, setFileOver] = useState(false);
   const roots = pageRoots(doc, pageId);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [frameLabels, setFrameLabels] = useState<{ id: string; name: string; left: number; top: number }[]>([]);
@@ -1013,6 +1065,129 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     [view],
   );
 
+  const vpRect = useCallback((el: Element): Rect => {
+    const vpr = viewportRef.current!.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    return { left: r.left - vpr.left, top: r.top - vpr.top, width: r.width, height: r.height };
+  }, []);
+
+  const flowIndex = useCallback(
+    (parentId: string, clientX: number, clientY: number, dragged: ReadonlySet<string>): number => {
+      const parent = doc.nodes[parentId];
+      if (!parent || !isContainer(parent) || parent.type === "page") return 0;
+      const mode = parent.type === "frame" && parent.layout?.mode === "row" ? "row" : "column";
+      const kids = parent.children.filter((id) => !dragged.has(id));
+      const vp = viewportRef.current!;
+      for (let i = 0; i < kids.length; i++) {
+        const el = vp.querySelector(`[data-paprika-id="${CSS.escape(kids[i]!)}"]`);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        const mid = mode === "row" ? r.left + r.width / 2 : r.top + r.height / 2;
+        const pos = mode === "row" ? clientX : clientY;
+        if (pos < mid) return i;
+      }
+      return kids.length;
+    },
+    [doc],
+  );
+
+  const resolveDrop = useCallback(
+    (clientX: number, clientY: number, dragged: ReadonlySet<string>): DropSpot => {
+      const vp = viewportRef.current;
+      let highlightId: string | null = null;
+      if (vp) {
+        const restored: [HTMLElement | SVGElement, string][] = [];
+        for (const id of dragged) {
+          const el = vp.querySelector<HTMLElement | SVGElement>(`[data-paprika-id="${CSS.escape(id)}"]`);
+          if (!el) continue;
+          restored.push([el, el.style.pointerEvents]);
+          el.style.pointerEvents = "none";
+        }
+        try {
+          for (const el of document.elementsFromPoint(clientX, clientY)) {
+            if (!(el instanceof Element) || !vp.contains(el)) continue;
+            const host = el.closest<HTMLElement | SVGElement>("[data-paprika-id]");
+            if (!host || !vp.contains(host)) continue;
+            const id = host.dataset.paprikaId!;
+            if (dragged.has(id) || [...dragged].some((d) => isUnder(doc, id, d))) continue;
+            const n = doc.nodes[id];
+            if (!n) continue;
+            if (isContainer(n) && n.type !== "page" && dropAccepts(doc, id, dragged)) {
+              highlightId = id;
+              break;
+            }
+            if (n.parentId && dropAccepts(doc, n.parentId, dragged) && isFlowFrame(doc.nodes[n.parentId])) {
+              highlightId = n.parentId;
+              break;
+            }
+            if (n.parentId && dropAccepts(doc, n.parentId, dragged) && isContainer(doc.nodes[n.parentId]) && doc.nodes[n.parentId]!.type !== "page") {
+              highlightId = n.parentId;
+              break;
+            }
+          }
+        } finally {
+          for (const [el, prev] of restored) el.style.pointerEvents = prev;
+        }
+      }
+      const parentId = highlightId;
+      const flow = isFlowFrame(parentId ? doc.nodes[parentId] : undefined);
+      const index = flow && parentId ? flowIndex(parentId, clientX, clientY, dragged) : undefined;
+      return { parentId, index, highlightId, flow };
+    },
+    [doc, flowIndex],
+  );
+
+  const paintDropUi = useCallback(
+    (spot: DropSpot, dragged: ReadonlySet<string>) => {
+      const vp = viewportRef.current;
+      if (!vp || !spot.highlightId) {
+        setDropUi(null);
+        return;
+      }
+      const host = vp.querySelector(`[data-paprika-id="${CSS.escape(spot.highlightId)}"]`);
+      if (!host) {
+        setDropUi(null);
+        return;
+      }
+      const highlight = vpRect(host);
+      let marker: Rect | null = null;
+      if (spot.flow && spot.parentId != null && spot.index !== undefined) {
+        const parent = doc.nodes[spot.parentId];
+        if (parent && isContainer(parent) && parent.type !== "page") {
+          const mode = parent.type === "frame" && parent.layout?.mode === "row" ? "row" : "column";
+          const kids = parent.children.filter((id) => !dragged.has(id));
+          const pad = 2;
+          if (kids.length === 0) {
+            marker =
+              mode === "row"
+                ? { left: highlight.left + 8, top: highlight.top + 8, width: 3, height: Math.max(24, highlight.height - 16) }
+                : { left: highlight.left + 8, top: highlight.top + 8, width: Math.max(24, highlight.width - 16), height: 3 };
+          } else if (spot.index >= kids.length) {
+            const last = vp.querySelector(`[data-paprika-id="${CSS.escape(kids[kids.length - 1]!)}"]`);
+            if (last) {
+              const r = vpRect(last);
+              marker =
+                mode === "row"
+                  ? { left: r.left + r.width + pad, top: r.top, width: 3, height: r.height }
+                  : { left: r.left, top: r.top + r.height + pad, width: r.width, height: 3 };
+            }
+          } else {
+            const next = vp.querySelector(`[data-paprika-id="${CSS.escape(kids[spot.index]!)}"]`);
+            if (next) {
+              const r = vpRect(next);
+              marker =
+                mode === "row"
+                  ? { left: r.left - pad - 1, top: r.top, width: 3, height: r.height }
+                  : { left: r.left, top: r.top - pad - 1, width: r.width, height: 3 };
+            }
+          }
+        }
+      }
+      setDropUi({ highlight, marker });
+    },
+    [doc, vpRect],
+  );
+
   const startPan = (e: RPointerEvent) => {
     const sx = e.clientX;
     const sy = e.clientY;
@@ -1108,28 +1283,85 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const shownAt = previewRef.current ?? {};
     const movable = group
       .map((g) => doc.nodes[g])
-      .filter((n): n is SceneNode => isScene(n) && n.type !== "connector" && !n.locked && isAbsolute(doc, n) && !copyOwner(doc, n))
-      // A node dropped a moment ago may still be waiting for the server: drag it from where it is shown.
+      .filter((n): n is SceneNode => isScene(n) && n.type !== "connector" && !n.locked && !copyOwner(doc, n))
       .map((n) => ({ ...n, x: shownAt[n.id]?.x ?? n.x, y: shownAt[n.id]?.y ?? n.y }) as SceneNode);
     if (!movable.length) return;
+    const dragged = new Set(movable.map((n) => n.id));
+    const absOnly = movable.every((n) => isAbsolute(doc, n));
     takeOverPreview();
     const start = toWorld(e.clientX, e.clientY);
     let moved = false;
     let last: Preview = {};
+    let spot: DropSpot = { parentId: null, index: undefined, highlightId: null, flow: false };
     const move = (ev: PointerEvent) => {
       const p = toWorld(ev.clientX, ev.clientY);
       const dx = p.x - start.x;
       const dy = p.y - start.y;
       if (!moved && Math.hypot(dx, dy) * view.zoom < 3) return;
+      if (!moved) setDragIds([...dragged]);
       moved = true;
+      spot = resolveDrop(ev.clientX, ev.clientY, dragged);
+      paintDropUi(spot, dragged);
+      if (!absOnly) return;
+      if (spot.highlightId && !spot.flow && movable.some((n) => n.parentId !== spot.highlightId)) {
+        const local = localFor(spot.parentId, ev.clientX, ev.clientY);
+        last = Object.fromEntries(
+          movable.map((n, i) => {
+            const el = viewportRef.current?.querySelector(`[data-paprika-id="${CSS.escape(n.id)}"]`);
+            const w = el ? el.getBoundingClientRect().width / view.zoom : typeof n.width === "number" ? n.width : 40;
+            const h = el ? el.getBoundingClientRect().height / view.zoom : typeof n.height === "number" ? n.height : 40;
+            return [n.id, { x: Math.round(local.x - w / 2 + i * 8), y: Math.round(local.y - h / 2 + i * 8) }];
+          }),
+        );
+        setPreview(last);
+        return;
+      }
       last = Object.fromEntries(movable.map((n) => [n.id, { x: Math.round(n.x + dx), y: Math.round(n.y + dy) }]));
       setPreview(last);
     };
-    const up = () => {
+    const up = (ev: PointerEvent) => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      setDropUi(null);
+      setDragIds(null);
       if (!moved) return;
-      commitPreview(last, Object.entries(last).map(([nid, props]) => ({ op: "update", id: nid, props })), movable.length > 1 ? `mover ${movable.length} nós` : "mover");
+      spot = resolveDrop(ev.clientX, ev.clientY, dragged);
+      const dest = spot.highlightId;
+      const ops: Op[] = [];
+      if (dest && spot.flow) {
+        let index = spot.index ?? 0;
+        for (const n of movable) {
+          ops.push({ op: "move", id: n.id, parentId: dest, index });
+          index += 1;
+        }
+        apply(ops, movable.every((n) => n.parentId === dest) ? "reordenar" : "reparentear");
+        setPreview(null);
+        return;
+      }
+      if (dest && movable.some((n) => n.parentId !== dest)) {
+        for (const n of movable) {
+          ops.push({ op: "move", id: n.id, parentId: dest });
+          const props = last[n.id];
+          if (props?.x !== undefined && props?.y !== undefined) ops.push({ op: "update", id: n.id, props: { x: props.x, y: props.y } });
+          else {
+            const local = localFor(dest, ev.clientX, ev.clientY);
+            ops.push({ op: "update", id: n.id, props: { x: Math.round(local.x), y: Math.round(local.y) } });
+          }
+        }
+        if (Object.keys(last).length) commitPreview(last, ops, movable.length > 1 ? `mover ${movable.length} nós` : "reparentear");
+        else apply(ops, "reparentear");
+        return;
+      }
+      if (!Object.keys(last).length) return;
+      if (!absOnly) {
+        setPreview(null);
+        return;
+      }
+      commitPreview(
+        last,
+        Object.entries(last).map(([nid, props]) => ({ op: "update", id: nid, props })),
+        movable.length > 1 ? `mover ${movable.length} nós` : "mover",
+      );
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -1365,6 +1597,86 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     height: Math.abs(draft.y1 - draft.y0) * view.zoom,
   };
 
+  const onFileDragOver = (e: RDragEvent) => {
+    if (![...e.dataTransfer.types].includes("Files")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    setFileOver(true);
+  };
+
+  const importFilesAt = async (files: FileList | File[], clientX: number, clientY: number) => {
+    const list = [...files];
+    if (!list.length) return;
+    const spot = resolveDrop(clientX, clientY, new Set());
+    const into = spot.highlightId && !isInstance(doc.nodes[spot.highlightId]!) && !copyOwner(doc, doc.nodes[spot.highlightId]!) ? spot.highlightId : pageId;
+    const at = localFor(into, clientX, clientY);
+    const ops: Op[] = [];
+    const ids: string[] = [];
+    let warnings: string[] = [];
+    let ox = 0;
+    for (const file of list) {
+      const name = file.name || "arquivo";
+      try {
+        if (IMAGE_FILE.test(file.type) || /\.(png|jpe?g|webp|avif|gif)$/i.test(name)) {
+          const src = await new Promise<string>((ok, fail) => {
+            const r = new FileReader();
+            r.onload = () => ok(String(r.result));
+            r.onerror = () => fail(r.error ?? new Error("leitura"));
+            r.readAsDataURL(file);
+          });
+          const size = await new Promise<{ w: number; h: number }>((ok, fail) => {
+            const img = new Image();
+            img.onload = () => ok({ w: img.naturalWidth || 100, h: img.naturalHeight || 100 });
+            img.onerror = () => fail(new Error("imagem inválida"));
+            img.src = src;
+          });
+          const max = 480;
+          const scale = Math.min(1, max / Math.max(size.w, size.h));
+          const id = newId();
+          ids.push(id);
+          ops.push({
+            op: "create",
+            parentId: into,
+            node: {
+              type: "image",
+              id,
+              name: name.replace(/\.[^.]+$/, "") || "Imagem",
+              x: Math.round(at.x + ox),
+              y: Math.round(at.y),
+              width: Math.max(1, Math.round(size.w * scale)),
+              height: Math.max(1, Math.round(size.h * scale)),
+              src,
+              fit: "contain",
+              alt: name,
+            },
+          });
+          ox += Math.round(size.w * scale) + 16;
+        } else if (file.type === "image/svg+xml" || /\.svg$/i.test(name) || file.type === "text/html" || /\.html?$/i.test(name)) {
+          const text = await file.text();
+          const svg = file.type === "image/svg+xml" || /\.svg$/i.test(name) || isSVGText(text.trim());
+          const r = svg ? importSVG(text, { x: Math.round(at.x + ox), y: Math.round(at.y) }) : importHTML(text, { x: Math.round(at.x + ox), y: Math.round(at.y) });
+          if (!r.nodes.length) throw new Error(r.warnings.join("; ") || "nada para importar");
+          warnings = warnings.concat(r.warnings);
+          for (const node of r.nodes) {
+            const id = newId();
+            node.id = id;
+            ids.push(id);
+            ops.push({ op: "create", parentId: into, node });
+          }
+          ox += 40;
+        } else {
+          onError?.(`Formato não suportado: ${name}`);
+        }
+      } catch (err) {
+        onError?.(`Não deu para importar ${name}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    if (!ops.length) return;
+    apply(ops, ops.length > 1 ? `importar ${ops.length} arquivos` : "importar arquivo");
+    onSelect(ids);
+    if (warnings.length) onError?.(`Importado com avisos: ${warnings.join("; ")}`);
+  };
+
   return (
     <div
       ref={viewportRef}
@@ -1375,14 +1687,32 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         // Pan: open hand while the key is held, closed hand while dragging; wins over nodes and tools.
         pan === "ready" && "is-pan-ready cursor-grab! **:cursor-grab!",
         pan === "panning" && "is-panning cursor-grabbing! **:cursor-grabbing!",
+        fileOver && "outline outline-2 outline-select outline-offset-[-2px]",
       )}
       onPointerDown={onPointerDown}
       onPointerMove={pen ? onPenHover : undefined}
       onDoubleClick={pen ? onPenDouble : onDeepSelect}
+      onDragEnter={onFileDragOver}
+      onDragOver={onFileDragOver}
+      onDragLeave={(e) => {
+        if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as globalThis.Node)) setFileOver(false);
+      }}
+      onDrop={(e) => {
+        if (![...e.dataTransfer.types].includes("Files")) return;
+        e.preventDefault();
+        setFileOver(false);
+        void importFilesAt(e.dataTransfer.files, e.clientX, e.clientY);
+      }}
       data-testid="viewport"
+      data-file-over={fileOver ? "1" : undefined}
     >
       {renderer === "wasm" && <canvas ref={wasmLayer.canvasRef} className="pointer-events-none absolute inset-0 size-full" data-testid="wasm-layer" data-backend={wasmLayer.status.backend} />}
-      <div ref={worldRef} className="world absolute top-0 left-0 origin-top-left [&_[data-paprika-id]]:select-none" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
+      <div
+        ref={worldRef}
+        className={cx("world absolute top-0 left-0 origin-top-left [&_[data-paprika-id]]:select-none", dragIds && "is-node-dragging")}
+        style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}
+        data-dragging={dragIds?.join(",") || undefined}
+      >
         {rootNodes.map((n) => (
           <RenderNode
             key={n.id}
@@ -1395,40 +1725,42 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             wasm={wasmLayer.active}
             edit={editView}
             textEdit={textEdit}
+            dragging={!!dragIds?.includes(n.id)}
+            dragIds={dragIds ? new Set(dragIds) : undefined}
           />
         ))}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
       <AgentCursors doc={doc} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} onFocus={focusBox} />
       {frameLabels.map((l) => (
-        <div
-          key={l.id}
-          className={cx("absolute cursor-default text-xs whitespace-nowrap", selected.includes(l.id) ? "text-select" : "text-label")}
-          style={{ left: l.left, top: l.top - 20 }}
-          data-frame-label={l.id}
-          title="Duplo clique para renomear"
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            const additive = e.shiftKey || e.metaKey || e.ctrlKey;
-            onSelect(additive ? (selected.includes(l.id) ? selected.filter((s) => s !== l.id) : [...selected, l.id]) : [l.id]);
-          }}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            setRenaming(l.id);
-          }}
-        >
-          {renaming === l.id ? (
-            <InlineName
-              className={cx(ui.renameInput, "pointer-events-auto h-[18px] w-[180px]")}
-              label="Nome do frame"
-              value={doc.nodes[l.id]?.name ?? ""}
-              onCommit={(name) => apply([{ op: "update", id: l.id, props: { name } }], "renomear frame")}
-              onDone={() => setRenaming(null)}
-            />
-          ) : (
-            l.name
-          )}
-        </div>
+        <Hint key={l.id} label={renaming === l.id ? undefined : "Duplo clique para renomear"}>
+          <div
+            className={cx("absolute cursor-default text-xs whitespace-nowrap", selected.includes(l.id) ? "text-select" : "text-label")}
+            style={{ left: l.left, top: l.top - 20 }}
+            data-frame-label={l.id}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+              onSelect(additive ? (selected.includes(l.id) ? selected.filter((s) => s !== l.id) : [...selected, l.id]) : [l.id]);
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              setRenaming(l.id);
+            }}
+          >
+            {renaming === l.id ? (
+              <InlineName
+                className={cx(ui.renameInput, "pointer-events-auto h-[18px] w-[180px]")}
+                label="Nome do frame"
+                value={doc.nodes[l.id]?.name ?? ""}
+                onCommit={(name) => apply([{ op: "update", id: l.id, props: { name } }], "renomear frame")}
+                onDone={() => setRenaming(null)}
+              />
+            ) : (
+              l.name
+            )}
+          </div>
+        </Hint>
       ))}
       {boxes.map((b) => (
         <div key={b.id} className="pointer-events-none absolute border border-select opacity-70" style={{ left: b.left, top: b.top, width: b.width, height: b.height }} />
@@ -1437,10 +1769,18 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         <div className={cx("pointer-events-none absolute border-[1.5px] border-select", selected.length > 1 && "border-dashed")} style={box} data-testid="selection" data-count={selected.length}>
           {resizable && !editView && (
             <>
-              <div className="pointer-events-auto absolute -top-1.25 -left-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" data-resize="nw" onPointerDown={onResizeDown("nw")} title="Redimensionar canto superior esquerdo" />
-              <div className="pointer-events-auto absolute -top-1.25 -right-1.25 size-[9px] cursor-nesw-resize border-[1.5px] border-select bg-white" data-resize="ne" onPointerDown={onResizeDown("ne")} title="Redimensionar canto superior direito" />
-              <div className="pointer-events-auto absolute -bottom-1.25 -left-1.25 size-[9px] cursor-nesw-resize border-[1.5px] border-select bg-white" data-resize="sw" onPointerDown={onResizeDown("sw")} title="Redimensionar canto inferior esquerdo" />
-              <div className="pointer-events-auto absolute -right-1.25 -bottom-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" data-resize="se" onPointerDown={onResizeDown("se")} title="Redimensionar canto inferior direito" />
+              <Hint label="Redimensionar canto superior esquerdo">
+                <div className="pointer-events-auto absolute -top-1.25 -left-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" data-resize="nw" onPointerDown={onResizeDown("nw")} />
+              </Hint>
+              <Hint label="Redimensionar canto superior direito">
+                <div className="pointer-events-auto absolute -top-1.25 -right-1.25 size-[9px] cursor-nesw-resize border-[1.5px] border-select bg-white" data-resize="ne" onPointerDown={onResizeDown("ne")} />
+              </Hint>
+              <Hint label="Redimensionar canto inferior esquerdo">
+                <div className="pointer-events-auto absolute -bottom-1.25 -left-1.25 size-[9px] cursor-nesw-resize border-[1.5px] border-select bg-white" data-resize="sw" onPointerDown={onResizeDown("sw")} />
+              </Hint>
+              <Hint label="Redimensionar canto inferior direito">
+                <div className="pointer-events-auto absolute -right-1.25 -bottom-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" data-resize="se" onPointerDown={onResizeDown("se")} />
+              </Hint>
             </>
           )}
           <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink">
@@ -1472,42 +1812,57 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         </svg>
       )}
       {marqueeRect && <div className="pointer-events-none absolute border border-select bg-select/8" style={marqueeRect} data-testid="marquee" />}
+      {dropUi?.highlight && (
+        <div className="pointer-events-none absolute border-2 border-select" style={dropUi.highlight} data-testid="drop-target" />
+      )}
+      {dropUi?.marker && (
+        <div className="pointer-events-none absolute rounded-sm bg-select" style={dropUi.marker} data-testid="drop-marker" />
+      )}
       <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-ui-border bg-ui-card p-0.5" onPointerDown={(e) => e.stopPropagation()}>
-        <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom" title="Diminuir zoom">
-          <Minus size={14} aria-hidden />
-        </Button>
+        <Hint label="Diminuir zoom">
+          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom">
+            <Minus size={14} aria-hidden />
+          </Button>
+        </Hint>
         <span className="min-w-11 text-center text-ui-muted-foreground">{Math.round(view.zoom * 100)}%</span>
-        <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom" title="Aumentar zoom">
-          <Plus size={14} aria-hidden />
-        </Button>
-        <Button variant="ghost" className={zoomButton} onClick={fit} aria-label="Enquadrar" title="Enquadrar (Shift+1)">
-          <Maximize size={14} aria-hidden />
-        </Button>
-        <Button
-          variant="ghost"
-          className={cn(
-            "h-6 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-xs font-semibold tracking-[0.02em] hover:bg-ui-secondary disabled:cursor-not-allowed disabled:opacity-40",
-            renderer === "wasm" ? "text-accent" : "text-ui-muted-foreground",
-          )}
-          data-testid="renderer-toggle"
-          data-backend={renderer === "wasm" ? wasmLayer.status.backend : "dom"}
-          disabled={!wasmAvailable && renderer === "dom"}
-          aria-pressed={renderer === "wasm"}
-          title={
+        <Hint label="Aumentar zoom">
+          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom">
+            <Plus size={14} aria-hidden />
+          </Button>
+        </Hint>
+        <Hint label="Enquadrar (Shift+1)">
+          <Button variant="ghost" className={zoomButton} onClick={fit} aria-label="Enquadrar">
+            <Maximize size={14} aria-hidden />
+          </Button>
+        </Hint>
+        <Hint
+          label={
             renderer === "wasm"
               ? `Renderizador WASM (${wasmLayer.status.backend})${wasmLayer.status.detail ? `: ${wasmLayer.status.detail}` : ""}. Clique para voltar ao DOM.`
               : wasmAvailable
                 ? "Renderizador DOM. Clique para desenhar formas com WASM (WebGPU, ou CPU sem GPU)."
                 : "Renderizador WASM não compilado (pnpm build com Rust instalado)."
           }
-          onClick={() => {
-            const next = renderer === "wasm" ? "dom" : "wasm";
-            saveRendererMode(next);
-            setRenderer(next);
-          }}
         >
-          {renderer === "dom" ? "DOM" : wasmLayer.status.backend === "webgpu" ? "GPU" : wasmLayer.status.backend === "cpu" ? "CPU" : "WASM"}
-        </Button>
+          <Button
+            variant="ghost"
+            className={cn(
+              "h-6 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-xs font-semibold tracking-[0.02em] hover:bg-ui-secondary disabled:cursor-not-allowed disabled:opacity-40",
+              renderer === "wasm" ? "text-accent" : "text-ui-muted-foreground",
+            )}
+            data-testid="renderer-toggle"
+            data-backend={renderer === "wasm" ? wasmLayer.status.backend : "dom"}
+            disabled={!wasmAvailable && renderer === "dom"}
+            aria-pressed={renderer === "wasm"}
+            onClick={() => {
+              const next = renderer === "wasm" ? "dom" : "wasm";
+              saveRendererMode(next);
+              setRenderer(next);
+            }}
+          >
+            {renderer === "dom" ? "DOM" : wasmLayer.status.backend === "webgpu" ? "GPU" : wasmLayer.status.backend === "cpu" ? "CPU" : "WASM"}
+          </Button>
+        </Hint>
       </div>
     </div>
   );
