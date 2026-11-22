@@ -336,3 +336,16 @@ captured before and after.
 | 98 | A contrast check that does not lie | The first hover measurement returned the resting color because `transition-colors` had not landed, so the assertion passed without ever testing the hover state; a manual probe with a 300 ms wait showed the hover wash was darker and the light text had fallen to 4,39:1 | Nothing for the tool to change. Recorded because it is easy to repeat: wait for the transition, then read, and assert both states — which the suite now does | P3 |
 
 - `lint_design` reported the light destructive text at 4,05:1 on the first sheet, before a line of code was written — the same class of mistake it caught on the PAP-B-030 sheet, and the token alphas are what they are now because of it.
+
+## 2026-11-22: renaming the only page (PAP-B-020, design first)
+
+Task: draw the pages panel before, while and after renaming the placeholder "Página 1" of a workspace with no
+pages, then wire the rename in `apps/web`. Six root frames (three states, light and dark), ~60 nodes.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 99 | A page to draw on in an empty document | The active workspace had no nodes, so the `Interfaces` page did not exist and `create_page` had to be the first call; the board document in the repository (`docs/design/boards.paprika.json`) holds a different page, so nothing to import without `--replace` wiping the sheets other tickets draw in parallel | A `create_page` that is a no-op (returns the existing id) when a page with that name exists, so concurrent tickets can all "ensure" `Interfaces` without racing | P3 |
+| 100 | A screenshot as a file | `render_screenshot` returns the PNG only as base64 inside the JSON-RPC result, so saving it under `docs/assets/boards/` takes a decoding script on every ticket | An optional `path` (inside a configured directory) that writes the file and returns its location | P3 |
+
+- `lint_design` flagged the 11 px caption (`small-text`) on all six frames; 12 px fixed it, so captions stay at the app's smallest legible size.
+- Mode `light` on the frame plus the same `pg.*` tokens overridden under `set_tokens {mode: "light"}` rendered both themes from one set of nodes with no per-frame color edits.
