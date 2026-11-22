@@ -14,9 +14,12 @@ const server = await createServer({
 const {
   allowsNumberFieldInput,
   commitNumeric,
+  defaultNumericStep,
   isNumericTyping,
   parseNumeric,
   rangeMessage,
+  stepAmount,
+  stepNumeric,
 } = await server.ssrLoadModule("/src/numericInput.ts");
 after(() => server.close());
 
@@ -83,5 +86,57 @@ describe("commitNumeric", () => {
   it("refuses unparsable input with a range message", () => {
     const got = commitNumeric("abc", { min: 0, max: 1 });
     assert.deepEqual(got, { ok: false, message: rangeMessage({ min: 0, max: 1 }) });
+  });
+});
+
+describe("defaultNumericStep / stepNumeric", () => {
+  it("uses 0.05 for opacity, 100 for weight, else 1", () => {
+    assert.equal(defaultNumericStep({ min: 0, max: 1 }), 0.05);
+    assert.equal(defaultNumericStep({ min: 100, max: 900, integer: true }), 100);
+    assert.equal(defaultNumericStep({ min: 0 }), 1);
+    assert.equal(stepAmount({ min: 0, max: 1 }, true), 0.5);
+    assert.equal(stepAmount({ min: 100, max: 900, integer: true }, true), 1000);
+  });
+
+  it("steps opacity by 0.05 and clamps to 0..1", () => {
+    const up = stepNumeric(0.5, 1, { min: 0, max: 1 });
+    assert.equal(up.ok, true);
+    assert.equal(up.value, 0.55);
+    assert.equal(up.clamped, false);
+
+    const shift = stepNumeric(0.5, 1, { min: 0, max: 1 }, { shift: true });
+    assert.equal(shift.ok, true);
+    assert.equal(shift.value, 1);
+    assert.equal(shift.clamped, false);
+
+    const over = stepNumeric(0.8, 1, { min: 0, max: 1 }, { shift: true });
+    assert.equal(over.ok, true);
+    assert.equal(over.value, 1);
+    assert.equal(over.clamped, true);
+
+    const down = stepNumeric(0.02, -1, { min: 0, max: 1 });
+    assert.equal(down.ok, true);
+    assert.equal(down.value, 0);
+    assert.equal(down.clamped, true);
+  });
+
+  it("steps fontWeight by 100 as integer", () => {
+    const up = stepNumeric(400, 1, { min: 100, max: 900, integer: true });
+    assert.equal(up.ok, true);
+    assert.equal(up.value, 500);
+
+    const low = stepNumeric(100, -1, { min: 100, max: 900, integer: true });
+    assert.equal(low.ok, true);
+    assert.equal(low.value, 100);
+    assert.equal(low.clamped, true);
+  });
+
+  it("steps position-like fields by 1 (Shift×10)", () => {
+    const up = stepNumeric(10, 1, {});
+    assert.equal(up.ok, true);
+    assert.equal(up.value, 11);
+    const shift = stepNumeric(10, -1, {}, { shift: true });
+    assert.equal(shift.ok, true);
+    assert.equal(shift.value, 0);
   });
 });

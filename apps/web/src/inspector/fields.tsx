@@ -1,12 +1,21 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { Minus, Plus } from "lucide-react";
 import type { Document } from "@paprika/core";
 import { ColorPicker } from "../ColorPicker";
+import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import { cn } from "../lib/cn";
-import { allowsNumberFieldInput, commitNumeric, parseNumeric, rangeMessage, type NumericRange } from "../numericInput";
+import {
+  allowsNumberFieldInput,
+  commitNumeric,
+  parseNumeric,
+  rangeMessage,
+  stepNumeric,
+  type NumericRange,
+} from "../numericInput";
 
 export const fieldShell = (wide = false) =>
   cn(
@@ -17,6 +26,9 @@ export const fieldShell = (wide = false) =>
 
 const controlBare =
   "h-7 border-0 bg-transparent px-0 shadow-none focus-visible:border-0 focus-visible:outline-none focus-visible:outline-offset-0";
+
+const stepBtn =
+  "h-5 w-5 shrink-0 rounded-sm border-0 bg-transparent p-0 text-ui-foreground hover:bg-ui-secondary disabled:cursor-default disabled:opacity-40 [&_svg]:size-3";
 
 interface FieldProps {
   label: string;
@@ -29,9 +41,10 @@ interface FieldProps {
   max?: number;
   integer?: boolean;
   keywords?: readonly string[];
+  step?: number;
 }
 
-export function Field({ label, value, onCommit, type = "text", placeholder, title, min, max, integer, keywords }: FieldProps) {
+export function Field({ label, value, onCommit, type = "text", placeholder, title, min, max, integer, keywords, step }: FieldProps) {
   const [v, setV] = useState(value === undefined ? "" : String(value));
   const [error, setError] = useState<string | null>(null);
   const msgId = useId();
@@ -49,31 +62,34 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
     setError(null);
   }, [value]);
   const range: NumericRange = { min, max, integer };
+  const steppers = type === "number" && !keywords?.length;
   const baseline = () => (value === undefined ? "" : String(value));
+  const applyCommit = (result: ReturnType<typeof commitNumeric>) => {
+    if (!result.ok) {
+      pendingClampMsg.current = null;
+      setV(baseline());
+      setError(result.message);
+      return;
+    }
+    if (result.clamped) {
+      const msg = result.message ?? rangeMessage(range);
+      setError(msg);
+      pendingClampMsg.current = msg;
+    } else {
+      pendingClampMsg.current = null;
+      setError(null);
+    }
+    if (result.text === baseline() || result.text === lastCommitted.current) {
+      setV(result.text);
+      return;
+    }
+    lastCommitted.current = result.text;
+    setV(result.text);
+    onCommit(result.text);
+  };
   const commit = () => {
     if (type === "number" && !keywords?.length) {
-      const result = commitNumeric(v, range);
-      if (!result.ok) {
-        pendingClampMsg.current = null;
-        setV(baseline());
-        setError(result.message);
-        return;
-      }
-      if (result.clamped) {
-        const msg = result.message ?? rangeMessage(range);
-        setError(msg);
-        pendingClampMsg.current = msg;
-      } else {
-        pendingClampMsg.current = null;
-        setError(null);
-      }
-      if (result.text === baseline() || result.text === lastCommitted.current) {
-        setV(result.text);
-        return;
-      }
-      lastCommitted.current = result.text;
-      setV(result.text);
-      onCommit(result.text);
+      applyCommit(commitNumeric(v, range));
       return;
     }
     pendingClampMsg.current = null;
@@ -81,6 +97,13 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
     lastCommitted.current = v;
     onCommit(v);
   };
+  const nudge = (direction: 1 | -1, shift: boolean) => {
+    const current = parseNumeric(v) ?? parseNumeric(baseline());
+    applyCommit(stepNumeric(current, direction, range, { shift, step }));
+  };
+  const currentNum = parseNumeric(v) ?? parseNumeric(baseline());
+  const atMin = steppers && min !== undefined && currentNum !== undefined && currentNum <= min;
+  const atMax = steppers && max !== undefined && currentNum !== undefined && currentNum >= max;
   const common = {
     value: v,
     placeholder,
@@ -115,6 +138,11 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
       commit();
     },
     onKeyDown: (e: React.KeyboardEvent) => {
+      if (steppers && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        e.preventDefault();
+        nudge(e.key === "ArrowUp" ? 1 : -1, e.shiftKey);
+        return;
+      }
       if (e.key === "Enter" && !(type === "textarea" && e.shiftKey)) {
         e.preventDefault();
         skipBlurCommit.current = true;
@@ -135,6 +163,7 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
       <div
         className={cn(
           fieldShell(type === "textarea"),
+          steppers && "grid-cols-[auto_1fr_auto]",
           error && "border-ui-destructive focus-within:border-ui-destructive [&_[data-slot=label]]:text-ui-destructive-text",
         )}
       >
@@ -143,6 +172,36 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
           <Textarea rows={2} className={cn(controlBare, "min-h-0 resize-y px-0 py-0")} {...common} />
         ) : (
           <Input inputMode={type === "number" ? "decimal" : undefined} className={controlBare} {...common} />
+        )}
+        {steppers && (
+          <div className="flex items-center gap-0.5" data-testid={`stepper-${label}`}>
+            <Button
+              type="button"
+              variant="ghost"
+              className={stepBtn}
+              aria-label={`Diminuir ${label}`}
+              title={`Diminuir ${label}`}
+              disabled={atMin}
+              tabIndex={-1}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => nudge(-1, e.shiftKey)}
+            >
+              <Minus aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className={stepBtn}
+              aria-label={`Aumentar ${label}`}
+              title={`Aumentar ${label}`}
+              disabled={atMax}
+              tabIndex={-1}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => nudge(1, e.shiftKey)}
+            >
+              <Plus aria-hidden />
+            </Button>
+          </div>
         )}
       </div>
       {error && (
