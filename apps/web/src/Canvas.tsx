@@ -17,8 +17,12 @@ import {
   pathAttrs,
   pathBounds,
   connectorAttrs,
+  connectorCurveHandle,
   connectorLabelAttrs,
+  originOf,
+  round4,
   routeConnectors,
+  type ConnectorNode,
   shapeAttrs,
   shapeDefaults,
   SHAPE_SVG_CSS,
@@ -101,7 +105,7 @@ interface View {
 }
 
 /** Posições/tamanhos provisórios durante um arraste (um ou vários nós). */
-type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number }>;
+type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number; control?: { x: number; y: number } }>;
 
 /** How long a dropped preview waits for the server before giving way to what the server has. */
 const PENDING_MS = 3000;
@@ -114,7 +118,14 @@ function snapshot(doc: Document, pv: Preview): Preview {
     const cur: Preview[string] = {};
     for (const k of Object.keys(props) as (keyof Preview[string])[]) {
       const v = n?.[k];
-      cur[k] = typeof v === "number" ? v : undefined;
+      if (k === "control") {
+        if (v && typeof v === "object" && "x" in (v as object) && "y" in (v as object)) {
+          const c = v as { x: number; y: number };
+          cur.control = { x: c.x, y: c.y };
+        }
+      } else if (typeof v === "number") {
+        cur[k] = v;
+      }
     }
     out[id] = cur;
   }
@@ -122,7 +133,16 @@ function snapshot(doc: Document, pv: Preview): Preview {
 }
 
 function samePreview(a: Preview, b: Preview): boolean {
-  return Object.entries(b).every(([id, props]) => Object.entries(props).every(([k, v]) => a[id]?.[k as keyof Preview[string]] === v));
+  return Object.entries(b).every(([id, props]) =>
+    Object.entries(props).every(([k, v]) => {
+      if (k === "control") {
+        const ac = a[id]?.control;
+        const bc = v as { x: number; y: number } | undefined;
+        return !!ac && !!bc && ac.x === bc.x && ac.y === bc.y;
+      }
+      return a[id]?.[k as "x" | "y" | "width" | "height"] === v;
+    }),
+  );
 }
 
 /** Retângulo de seleção (marquee), em coordenadas do viewport. */
@@ -1479,6 +1499,39 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
 
   const single = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
   const resizable = !!single && single.type !== "group" && single.type !== "page" && single.type !== "connector" && !isInstance(single) && !copyOwner(doc, single);
+  const curveConn = single?.type === "connector" && single.route === "curve" && !single.locked && !copyOwner(doc, single) ? (shown.nodes[single.id] as ConnectorNode) : null;
+  const curveHandle = curveConn ? connectorCurveHandle(shown, curveConn) : null;
+  const onCurveHandleDown = (e: RPointerEvent) => {
+    e.stopPropagation();
+    if (!curveConn || !viewportRef.current) return;
+    const id = curveConn.id;
+    const origin = originOf(doc, curveConn.parentId);
+    takeOverPreview();
+    let last = {
+      control: {
+        x: round4((e.clientX - viewportRef.current.getBoundingClientRect().left - view.x) / view.zoom - origin.x),
+        y: round4((e.clientY - viewportRef.current.getBoundingClientRect().top - view.y) / view.zoom - origin.y),
+      },
+    };
+    setPreview({ [id]: last });
+    const move = (ev: PointerEvent) => {
+      const vpr = viewportRef.current!.getBoundingClientRect();
+      last = {
+        control: {
+          x: round4((ev.clientX - vpr.left - view.x) / view.zoom - origin.x),
+          y: round4((ev.clientY - vpr.top - view.y) / view.zoom - origin.y),
+        },
+      };
+      setPreview({ [id]: last });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      commitPreview({ [id]: last }, [{ op: "update", id, props: last }], "curvar seta");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
   const [resizeLock, setResizeLock] = useState<"ratio" | "square" | null>(null);
   const onResizeDown = (corner: "nw" | "ne" | "sw" | "se") => (e: RPointerEvent) => {
     e.stopPropagation();
@@ -1736,6 +1789,15 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             dragIds={dragIds ? new Set(dragIds) : undefined}
           />
         ))}
+        {curveHandle && (
+          <div
+            className="pointer-events-auto absolute size-2.5 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-[1.5px] border-select bg-white active:cursor-grabbing"
+            style={{ left: curveHandle.x, top: curveHandle.y }}
+            data-testid="connector-curve-handle"
+            title="Arrastar para curvar"
+            onPointerDown={onCurveHandleDown}
+          />
+        )}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
       <AgentCursors doc={doc} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} onFocus={focusBox} />

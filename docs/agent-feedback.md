@@ -517,6 +517,14 @@ Task: draw the inspector **Ordem** section and the Z-order shortcut map (light a
 - `lint_design` on the four frames: 0 errors; `small-text` warnings are the 11 px section/chip labels matching the app.
 - Shortcut map chosen and documented in `docs/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.
 
+## 2026-11-22: three arrow line styles (PAP-B-045, design first)
+
+Task: draw elbow / rounded / curve connector states and the inspector Traço picker on `Interfaces` before coding `route: "rounded"|"curve"`. Four frames on a new Interfaces page; PNGs under `docs/assets/boards/PAP-B-045/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 112 | Preview `rounded` / `curve` on the live `:4777` server | The maintainer binary still only accepts `straight`\|`elbow`, so `draw_diagram` refused the new routes; the sheet used `path` mocks for the three styles | Ship the schema before asking agents to redesign against production, or run a ticket-local `paprika serve` for design | P3 |
+- Active workspace was `Paprika - UI`; a second `Interfaces` page (`interfaces-pap045`) was created because the outline was large — prefer reusing `interfaces-pap020` when present.
 ## 2026-11-22: several border types (PAP-B-044, design first)
 
 Task: extend `stroke` with `style` (`solid`|`dashed`|`dotted`) and `position` (`inside`|`center`|`outside`) for frame/rect/ellipse/path/shape, then inspector Estilo/Posição. Four fixed-height frames on `Interfaces` (`docs/assets/boards/PAP-B-044/`); boards export refreshed.
@@ -527,8 +535,7 @@ Task: extend `stroke` with `style` (`solid`|`dashed`|`dotted`) and `position` (`
 | 114 | Screenshots as files | Same as #100/#101: `render_screenshot` returns base64 only | Optional `path` on `render_screenshot` | P3 |
 - Default `style`/`position` stay omitted in the document (helpers treat missing as solid / type-aware position) so round-trips and goldens do not grow a `style: "solid"` on every stroke.
 - WASM cannot dash or reposition strokes: `wasmPaintable` returns false and the DOM paints them (crates/render untouched).
-- Closes the friction in #99 (dashed stroke on boxes) via `stroke.style`.
-## 2026-11-22: numeric inspector steppers (PAP-B-046, design first)
+- Closes the friction in #99 (dashed stroke on boxes) via `stroke.style`.## 2026-11-22: numeric inspector steppers (PAP-B-046, design first)
 
 Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill and `$token` without steppers, focus ring and clamp-at-min states in light and dark before wiring `Field` steppers; six fixed-height root frames; screenshots under `docs/assets/boards/PAP-B-046/`; local `paprika serve` on `:4799` because the shared `:4777` workspace was crowded by parallel tickets.
 
@@ -540,6 +547,18 @@ Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill a
 - `lint_design` small-text warnings for 12 px labels match the inspector density; no new contrast errors on the six roots.
 - Step sizes chosen to match the ticket: opacity `0.05`, weight `100`, else `1`, Shift×10; validation/clamp reused from PAP-B-027.
 
+## 2026-11-22: dockable toolbar (PAP-B-048, design first)
+
+Task: draw toolbar docked top/left/right/bottom (light and dark) on `Interfaces` of the active `Paprica · UI` workspace, then implement grip-drag docking, localStorage, keyboard menu, and clearance for PAP-B-024 collapsed-panel buttons. Eight fixed-height (720×420) root frames; PNGs under `docs/assets/boards/PAP-B-048/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 112 | `render_screenshot` argument name | Passing `id` is silently ignored (schema only has `rootId`); the tool screenshots something else (here a 280×220 unrelated frame) and every PNG comes back identical | Reject unknown args, or accept `id` as an alias of `rootId`, and say so in the tool description | P2 |
+| 113 | Light `mode` with `$pg.*` tokens | Frames with `mode: "light"` still rendered the dark `$pg.*` palette because `modes.light` on this server only carried `$ui.*`; had to redraw the light boards with literal colors | Document which token prefixes participate in theme modes, or seed `$pg.*` into `light` when the boards workspace is created | P2 |
+| 114 | Screenshots as files | Same as #101: base64 only; a local script wrote `docs/assets/boards/PAP-B-048/` | Optional `path` on `render_screenshot` | P3 |
+
+- Active workspace was already `Paprica · UI` (empty of prior boards until recovered); used existing `page#interfaces` without `open_workspace`.
+- Collapsed-panel buttons shift with `[&_[data-panel-toggle=left]]:left-14` from `App.tsx` when the toolbar shares that edge — no change to `PanelResizer.tsx` (outside the ticket paths).
 ## 2026-11-22: system fonts combobox (PAP-B-047, design first)
 
 Task: draw the closed and open FontPicker states (light and dark) on `Interfaces`, then replace the free-text `fontFamily` field on text nodes with a shadcn combobox. Four fixed-height frames; PNGs under `docs/assets/boards/PAP-B-047/`; boards export refreshed.

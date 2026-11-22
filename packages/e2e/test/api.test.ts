@@ -446,6 +446,26 @@ describe("API: MCP", () => {
     expect((after.nodes["tip-to-box"] as { d: string }).d.startsWith("M")).toBe(true);
   });
 
+  it("diagramas: rotas rounded e curve (PAP-B-045)", async () => {
+    const c = client;
+    const r = (await c.callTool({
+      name: "draw_diagram",
+      arguments: {
+        nodes: [{ id: "a", text: "A", x: 0, y: 0 }, { id: "b", text: "B", x: 240, y: 120 }],
+        edges: [
+          { from: "a", to: "b", id: "round", route: "rounded", radius: 12 },
+          { from: "a", to: "b", id: "bend", route: "curve", control: { x: 120, y: -40 } },
+        ],
+      },
+    })) as ToolResult & { structuredContent?: unknown };
+    expect(r.isError).toBeFalsy();
+    const doc = await srv.doc();
+    expect(doc.nodes.round).toMatchObject({ route: "rounded", radius: 12 });
+    expect((doc.nodes.round as { d: string }).d).toContain("A");
+    expect(doc.nodes.bend).toMatchObject({ route: "curve", control: { x: 120, y: -40 } });
+    expect((doc.nodes.bend as { d: string }).d).toMatch(/ C/);
+  });
+
   it("Z-order numa chamada: update/move com index, um passo de desfazer, frente/fundo no pai (PAP-B-014)", async () => {
     const c = client;
     await call(c, "create_nodes", {
