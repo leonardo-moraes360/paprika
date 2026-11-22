@@ -17,7 +17,8 @@ import {
   type PageNode,
   type SceneNode,
 } from "@paprika/core";
-import type { Activity } from "./useDocument";
+import { Activity } from "./Activity";
+import type { Activity as ActivityEntry } from "./useDocument";
 import { ColorField, Field, ModeField, SelectField, num, size } from "./inspector/fields";
 import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
@@ -101,19 +102,19 @@ function ArrangeSection({ ids, apply }: { ids: string[]; apply: Props["apply"] }
     );
   return (
     <InspectorSection id="arrange" title="Ordem" defaultOpen>
-      <div className={ui.actions} data-testid="arrange-actions">
-        <button type="button" data-testid="arrange-front" title="Trazer para frente (Ctrl+Page Up)" onClick={() => run("front")}>
+      <div className={actions} data-testid="arrange-actions">
+        <Button type="button" variant="secondary" size="sm" data-testid="arrange-front" title="Trazer para frente (Ctrl+Page Up)" onClick={() => run("front")}>
           Trazer para frente
-        </button>
-        <button type="button" data-testid="arrange-forward" title="Avançar (Page Up)" onClick={() => run("forward")}>
+        </Button>
+        <Button type="button" variant="secondary" size="sm" data-testid="arrange-forward" title="Avançar (Page Up)" onClick={() => run("forward")}>
           Avançar
-        </button>
-        <button type="button" data-testid="arrange-backward" title="Recuar (Page Down)" onClick={() => run("backward")}>
+        </Button>
+        <Button type="button" variant="secondary" size="sm" data-testid="arrange-backward" title="Recuar (Page Down)" onClick={() => run("backward")}>
           Recuar
-        </button>
-        <button type="button" data-testid="arrange-back" title="Enviar para fundo (Ctrl+Page Down)" onClick={() => run("back")}>
+        </Button>
+        <Button type="button" variant="secondary" size="sm" data-testid="arrange-back" title="Enviar para fundo (Ctrl+Page Down)" onClick={() => run("back")}>
           Enviar para fundo
-        </button>
+        </Button>
       </div>
     </InspectorSection>
   );
@@ -216,6 +217,7 @@ export function Inspector(props: Props) {
                 { value: "rect", label: "caixa" },
                 { value: "ellipse", label: "oval" },
                 { value: "diamond", label: "losango (decisão)" },
+                { value: "triangle", label: "triângulo" },
                 { value: "note", label: "nota adesiva" },
               ]}
             />
@@ -678,26 +680,7 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
         )}
       </InspectorSection>
       <InspectorSection id="activity" title="Atividade">
-        <ul className={list}>
-          {activity.length === 0 && <li className="flex gap-2 text-ui-muted-foreground">Nenhuma edição ainda.</li>}
-          {activity.slice(0, 15).map((a) => (
-            <li key={a.id} className={cn("flex gap-2", a.actor.startsWith("agent") ? "text-accent-ink" : "text-ui-muted-foreground")}>
-              <span className="inline-flex items-start gap-1 font-semibold whitespace-nowrap">
-                {a.actor.startsWith("agent") ? (
-                  <>
-                    <Bot className="mt-px shrink-0" size={14} aria-hidden />
-                    {a.actor.slice(6)}
-                  </>
-                ) : a.actor === "user" ? (
-                  "você"
-                ) : (
-                  a.actor
-                )}
-              </span>
-              <span>{a.label || "edição"}</span>
-            </li>
-          ))}
-        </ul>
+        <Activity activity={activity} />
       </InspectorSection>
     </div>
   );
