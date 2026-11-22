@@ -76,7 +76,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
 | Global tokens (`$name`) for colors and sizes, set by agents | `set_tokens` | ✅ | — |
-| Theme modes (light/dark/compact) and token collections | `document.modes` + `set_tokens` with `mode`, inspector (2026-11-21); no named collections yet | 🟡 | P2 |
+| Theme modes (light/dark/compact) and token collections | `document.modes` + `set_tokens` with `mode`, inspector (2026-11-21), persisted in SQLite (2026-11-22); no named collections yet | 🟡 | P2 |
 | Frame-scoped token overrides | `mode` on a frame or page applies a mode to its subtree (2026-11-21) | ✅ | — |
 | Tokens exported as CSS variables in HTML/React export | `export_code` `cssVariables` (2026-11-21): `:root` plus `[data-paprika-mode]` rules; React exports `tokensCss` | ✅ | — |
 | Typed tokens (color, radius, spacing, font…) with validation | Untyped string/number | 🟡 | P2 |
@@ -173,7 +173,7 @@ Decision pending: write our own effects (WebGL/WebGPU, ties into the WASM evalua
 | Workspace with several files, folders, thumbnails | Overview of the workspaces at `/` (2026-11-21): list, create, open, rename, delete; one active workspace shared by canvas and agents (`list_workspaces`, `open_workspace`, `create_workspace`, `rename_workspace`, `delete_workspace`), cover image per card (upload or `set_workspace_cover` from a frame). No folders yet | 🟡 | P2 |
 | Tabs for open files | — | ⬜ | P3 |
 | Live data in designs (fetch from an API or sheet) | — | ⬜ | P3 |
-| Real-time multi-user editing (CRDT) | Single writer + watcher | ⬜ | P3 |
+| Real-time multi-user editing (CRDT) | Peer-to-peer team sync: Iroh + Loro sidecar, `paprika serve --team`, signed operations, expiring invites (ADR 0004, PRs #61–#69); remove a member and rotate a key (2026-11-22); team mode in Compose (`compose.team.yaml`). Missing: leaving on your own, approval roles | 🟡 | P2 |
 | Script / plugin pane | — | ⬜ | P3 |
 | Sharing settings, SSO, organizations, hosted CDN assets, plans and quotas | — | — | Out |
 
@@ -181,20 +181,23 @@ Decision pending: write our own effects (WebGL/WebGPU, ties into the WASM evalua
 
 Open SonarCloud issues imported on 2026-11-21 (project `leonardo-moraes360_paprika`; filter: Security + Reliability, impact Blocker/High/Medium, status Open/Confirmed; code at `main` 21841f7). 40 issues, none Blocker. Fix in code; don't change issue status in SonarCloud by hand.
 
+Update 2026-11-22: every issue below is fixed in code (the `fix(sonar)` commits on `main`, plus S7773 in `packages/core` and S2077 in `store.go` in the second backlog batch). SonarCloud closes them on its next analysis of `main`.
+
+
 | Rule | Impact | Where | Fix | Status | Pri. |
 |---|---|---|---|---|---|
-| S8707 path traversal from CLI args (3) | Security High | `bench/tasks/lib.mjs:17` (`packages/server/scripts/bezier-demo.mjs:8, 31` went away with the TypeScript server) | Resolve the path and require it to stay under `process.cwd()` before reading, `rm` or writing | ⬜ | P1 |
-| S6506 HTTPS not enforced on redirects (2) | Security Medium | `.github/workflows/ci.yml:377`; `.github/actions/setup-rust-wasm/action.yml:23` | `curl --proto '=https' --proto-redir '=https'` (the sha256 check stays) | ⬜ | P1 |
-| S2077 dynamically formatted SQL (1) | Security Medium | `server-go/internal/server/store.go:332` | Table names come from a fixed list (likely false positive); write the three `DELETE`s as literals | ⬜ | P2 |
-| S7688 `[` instead of `[[` (10) | Reliability High | `.claude/hooks/session-start.sh:27, 34, 43, 46, 68, 80 (×2), 98 (×3)` | Use `[[ … ]]` (the script is bash) | ⬜ | P1 |
-| S2871 `sort()` without a compare function (1) | Reliability High | `.github/scripts/check-actions-pinned.mjs:105` | Explicit code-point comparator, so the order stays the same | ⬜ | P1 |
-| S8786 regex with super-linear backtracking (3) | Reliability Medium | `apps/site/scripts/build.mjs:287`; `apps/web/src/Inspector.tsx:380`; `.github/scripts/check-actions-pinned.mjs:27` | Remove ambiguous adjacent quantifiers (e.g. `/^# +(\S.*)$/m`) and cover with a test | ⬜ | P2 |
-| S7773 global `parseInt`/`parseFloat`/`isNaN` (10) | Reliability Medium | `bench/tasks/lib.mjs:126 (×4)`; `packages/core/src/lint.ts:26, 31 (×2), 121`; `apps/web/src/Inspector.tsx:373, 383` | `Number.parseInt` / `Number.parseFloat` / `Number.isNaN` | ⬜ | P2 |
-| S9383 floating promises (5) | Reliability Medium | `experiments/canvas-wasm/bench/webgpu-canvas-probe.cjs:4, 11`; `main.ts:177`; `run.cjs:12`; `gpu-readback-check.cjs:7` | `.catch()` that logs and exits 1 (or exclude `experiments/` from analysis) | ⬜ | P3 |
-| S6848 non-native interactive element (1) | Reliability Medium | `apps/web/src/Layers.tsx:32` | `role`, `tabIndex={0}` and Enter/Space in `onKeyDown`, or a `<button>` | ⬜ | P2 |
-| S9379 `autoFocus` (1) | Reliability Medium | `apps/web/src/Pages.tsx:54` | Focus through a `ref` + `useEffect` when editing starts | ⬜ | P3 |
-| S3923 ternary with identical branches (1) | Reliability Medium | `apps/site/scripts/draw-landing.mjs:161` | Use `"link:./"` directly | ⬜ | P3 |
-| Input without label (2) | Reliability Medium | `experiments/canvas-wasm/bench/index.html:16, 17` | `<label for>` or `aria-label` | ⬜ | P3 |
+| S8707 path traversal from CLI args (3) | Security High | `bench/tasks/lib.mjs:17` (`packages/server/scripts/bezier-demo.mjs:8, 31` went away with the TypeScript server) | Resolve the path and require it to stay under `process.cwd()` before reading, `rm` or writing | ✅ | — |
+| S6506 HTTPS not enforced on redirects (2) | Security Medium | `.github/workflows/ci.yml:377`; `.github/actions/setup-rust-wasm/action.yml:23` | `curl --proto '=https' --proto-redir '=https'` (the sha256 check stays) | ✅ | — |
+| S2077 dynamically formatted SQL (1) | Security Medium | `server-go/internal/server/store.go:332` | Table names come from a fixed list (likely false positive); write the three `DELETE`s as literals | ✅ | — |
+| S7688 `[` instead of `[[` (10) | Reliability High | `.claude/hooks/session-start.sh:27, 34, 43, 46, 68, 80 (×2), 98 (×3)` | Use `[[ … ]]` (the script is bash) | ✅ | — |
+| S2871 `sort()` without a compare function (1) | Reliability High | `.github/scripts/check-actions-pinned.mjs:105` | Explicit code-point comparator, so the order stays the same | ✅ | — |
+| S8786 regex with super-linear backtracking (3) | Reliability Medium | `apps/site/scripts/build.mjs:287`; `apps/web/src/Inspector.tsx:380`; `.github/scripts/check-actions-pinned.mjs:27` | Remove ambiguous adjacent quantifiers (e.g. `/^# +(\S.*)$/m`) and cover with a test | ✅ | — |
+| S7773 global `parseInt`/`parseFloat`/`isNaN` (10) | Reliability Medium | `bench/tasks/lib.mjs:126 (×4)`; `packages/core/src/lint.ts:26, 31 (×2), 121`; `apps/web/src/Inspector.tsx:373, 383` | `Number.parseInt` / `Number.parseFloat` / `Number.isNaN` | ✅ | — |
+| S9383 floating promises (5) | Reliability Medium | `experiments/canvas-wasm/bench/webgpu-canvas-probe.cjs:4, 11`; `main.ts:177`; `run.cjs:12`; `gpu-readback-check.cjs:7` | `.catch()` that logs and exits 1 (or exclude `experiments/` from analysis) | ✅ | — |
+| S6848 non-native interactive element (1) | Reliability Medium | `apps/web/src/Layers.tsx:32` | `role`, `tabIndex={0}` and Enter/Space in `onKeyDown`, or a `<button>` | ✅ | — |
+| S9379 `autoFocus` (1) | Reliability Medium | `apps/web/src/Pages.tsx:54` | Focus through a `ref` + `useEffect` when editing starts | ✅ | — |
+| S3923 ternary with identical branches (1) | Reliability Medium | `apps/site/scripts/draw-landing.mjs:161` | Use `"link:./"` directly | ✅ | — |
+| Input without label (2) | Reliability Medium | `experiments/canvas-wasm/bench/index.html:16, 17` | `<label for>` or `aria-label` | ✅ | — |
 
 ## O. Diagrams
 
@@ -205,8 +208,32 @@ Simple diagrams (flowcharts, architecture sketches, mind maps) drawn by the huma
 | Shapes with text inside (box, ellipse, diamond) and sticky notes | `shape` node, `S`/`D`/`N` tools, text edited in place (2026-11-21) | ✅ | — |
 | Arrows that stick to shapes and follow them, straight or elbow | `connector` node, `A` tool, geometry derived from the ends (2026-11-21) | ✅ | — |
 | Agent draws a whole diagram in one call, with automatic layout | `draw_diagram` (2026-11-21) | ✅ | — |
-| Labels on arrows | — | ⬜ | P1 |
+| Labels on arrows | `label` on `connector` and on `draw_diagram` edges, drawn at the middle of the line with a halo, edited in the inspector (2026-11-22, fb#57) | ✅ | — |
 | Arrows that route around other shapes | Elbow routes ignore obstacles | ⬜ | P2 |
 | Curved arrows and more shapes (cylinder, parallelogram, cloud) | — | ⬜ | P2 |
 | Re-attach or detach an arrow end by dragging it on the canvas | Inspector only | ⬜ | P2 |
 | Hand-drawn style | — | ⬜ | P3 |
+
+## P. Maintainer requests (2026-11-22)
+
+Added by the maintainer on 2026-11-22, to plan later (not started). The constraints in each row are part of the request.
+
+| Capability | Constraints and notes | Status | Pri. |
+|---|---|---|---|
+| Export to PDF, HTML, CSS (Tailwind or CSS Modules), React, Angular or Svelte | Also as MCP tools. Extends J (today: HTML, React with inline styles, SVG) | ⬜ | TBD |
+| Export to SVG, PNG, JPEG, AVIF, WebP | Also as MCP tools. **No headless Chromium**: in the canvas (TS) or in the Go server. Today SVG and PNG go through headless Chromium (J) | ⬜ | TBD |
+| Resize images to qHD ("semi HD"), HD, 2K, 4K | Also as MCP tools. **No headless Chromium**: in the canvas (TS) or in the Go server | ⬜ | TBD |
+| Turn `title` attributes into accessible tooltips | Follows the accessibility review ([thread "Revisar acessibilidade do Paprika"](https://claude.ai/code/project/chan_01QGCFibNVKw2MsxBcqe4Jmi?thread=cmsg_01QGCFibNVKw2MsxBcqe4Jmi1MtFJYQ4HiNMD17jXKGUrG), PR #70) | ⬜ | TBD |
+| Side panels collapse into a floating button when shrunk past their minimum | Top-left or top-right corner; clicking the button expands that panel | ⬜ | TBD |
+| Migrate the UI to shadcn components | Keep Paprika's own theme (ADR 0003, Tailwind without Preflight) | ⬜ | TBD |
+| Better on-screen animations with tailwind-animate | — | ⬜ | TBD |
+| Custom color picker | Today the inspector uses the native color input | ⬜ | TBD |
+| Compact inspector | Today it is one long scroll area with a lot of information | ⬜ | TBD |
+| Better-looking activity history | Today it is a block of poorly formatted information | ⬜ | TBD |
+| Layer order: send to back or bring to front, arbitrarily | Shortcuts such as Page Up / Page Down, and also over MCP. Today only `move_nodes` with `index`, no canvas shortcut (see A, "Z-order") | ⬜ | TBD |
+| Components reusable across pages and across workspaces | Today `component`/`instanceOf` only work inside one document (H); missing: a library shared by workspaces, instances that point to another workspace, and how updates reach them | ⬜ | TBD |
+| Multiplayer LLM chat in the canvas | Floating, centered at the bottom of the canvas; shared by the people (and agents) of the workspace | ⬜ | TBD |
+| Bug: the first page of a workspace cannot be renamed while it is the only one | Cause found: a workspace without pages shows a placeholder "Página 1" row (`apps/web/src/Pages.tsx`) that is not a real page node, so double-click does nothing; renaming it should create the page and name it | ⬜ | TBD |
+| Destructive actions | A danger button variant (and confirmation pattern) for delete/remove; today every action uses the brand primary button | ⬜ | TBD |
+| Design system as a concept in the canvas | A place for the workspace's tokens, components and rules that agents and people draw from (relates to E and H) | ⬜ | TBD |
+| Assisted adversarial verification in the canvas | Port to Rust or Go. Prove with numbers that each app screen matches the approved board, light and dark: a generator tunes the app until pixel similarity reaches ≥ 95 % per screen and mode, and an independent discriminator redoes the build, references, captures and comparison and fails it on score, cheating (edited references, unjustified masks, comparator changes), regression or contrast; at most 3 rounds, then a human decides. Pieces to port: comparator (pixelmatch, threshold 0.1, magenta padding on size mismatch, masks with a reason), references rendered from the boards, capture, contrast gate, cheat guard. Spec supplied by the maintainer (TS/Playwright harness from another project) | ⬜ | TBD |
