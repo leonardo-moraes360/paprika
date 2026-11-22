@@ -243,3 +243,19 @@ Task: draw a flat red bell pepper (three lobes, thin white curved gaps, olive st
 
 - One shared `viewBox` on every path made iteration trivial: each layer is in the same 400×400 coordinates, so redrawing the silhouette was a single `update_nodes`.
 - `render_screenshot` with `scale: 2` was enough to judge curve quality.
+
+## 2026-11-22: shadcn component sheet on the Interfaces page (PAP-B-030, design first)
+
+Task: draw, over MCP, the sheet of every shadcn primitive with its states (hover, focus, disabled, open) in light and dark on the `Interfaces` page of the Paprika workspace, before installing any dependency; then implement the primitives in `apps/web`. Five root frames, ~570 nodes, five `create_nodes` calls.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 80 | A screenshot of a subtree that keeps its theme mode | `render_screenshot { rootId: <frame inside a frame with mode: "light"> }` painted the subtree with the base (dark) tokens: the mode of an ancestor does not travel to a subtree capture. Two close-ups I compared side by side were not comparable, and the workaround (capture the whole root frame, crop locally) costs bytes and time | Resolve the inherited mode for a subtree root, or accept `mode` on `render_screenshot` | P2 |
+| 81 | Knowing that a nested layout frame took the default box | A frame with no `width`/`height` gets 100×100, and the children laid out inside it then disappear from the render: the first sheet came out showing one button, with no error and no warning, and `lint_design` stayed silent. The guide documents `hug`/`fill` but not that default | A `lint_design` rule for a fixed 100×100 layout frame whose laid-out children leave its box (the "hug was meant" case), or a warning in `create_nodes` | P2 |
+| 82 | Small text on a component sheet | `lint_design` returned 31 `small-text` warnings for the 10 and 11 px captions of a sheet that mirrors the app, whose own type scale (ADR 0003) is `text-2xs` 10px and `text-xs` 11px — the same ground #69 and #70 were filed on | Let the rule read a document token (a `$text.min`) or an option per call, so warnings that are the design intent are not re-read every run | P3 |
+| 83 | Tokens in every style field | `radius: "$radius.md"` was refused ("expected number, received string") while `fill` and `color` take `$token`. Every radius in the sheet ended up a literal, so the sheet's radii cannot follow a token change the way its colors do | Accept `$radius.*` in `radius`, and `$space.*`/`$text.*` where a length or size is expected | P3 |
+| 84 | The same result shape from the read tools | `get_nodes` answers JSON (`{"nodes": […]}`) and `find_nodes` answers text lines (`frame#id "name" …`); a script that walks a tree by name has to handle two shapes, and the first pass failed exactly there | Keep the text rendering (it reads well in a chat) and accept `format: "json"`, or return `structuredContent` from every tool, as the guide already promises for the JSON ones | P3 |
+
+- Theme modes did exactly what this sheet needed: `set_tokens {mode: "light"}` plus `mode: "light"` on the frame gave one drawing in two themes, and the light values are now the values `apps/web/src/styles.css` ships in `.ui-light` — the board and the code were decided once, not twice.
+- `lint_design` after the fix reports 0 errors on all five frames; the one `contrast` error it did catch (a 4.24:1 link on a light surface) was a real mistake in the palette, and it is now a different token in the code.
+- Redrawing was cheaper than patching: `delete_nodes` on the five roots plus a fresh `create_nodes`, all in one `batch`, undone by a single `undo`.
