@@ -78,7 +78,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Variable font axes and OpenType features | — | ⬜ | P3 |
 | Text shortcuts (bold, italic, size/weight steps), auto line height | — | ⬜ | P3 |
 | CJK word-keep, combining marks, multi-codepoint emoji checks | Browser default | 🟡 | P3 |
-| System fonts on any element with text | A font picker that lists the fonts installed on the machine (e.g. Local Font Access API, with a fallback list) for `text`, `shape` and every node that has `fontFamily`. Today `fontFamily` is a free text field. Relates to D "Font tokens". Requested 2026-11-22. Batch 4. | ⬜ | TBD |
+| System fonts on any element with text | A font picker that lists the fonts installed on the machine (e.g. Local Font Access API, with a fallback list) for `text`, `shape` and every node that has `fontFamily`. Today `fontFamily` is a free text field. Relates to D "Font tokens". Requested 2026-11-22. Batch 4: PAP-B-047 — inspector **Fonte** on `text` is a shadcn combobox (`FontPicker`): common stacks + fonts already in the document; Local Font Access API only on **Usar fontes do sistema…** (never at load); custom typing still commits; list rows preview in their face. Shape / other `fontFamily` call sites later. | 🟡 | TBD |
 | Import and export fonts in several formats | E.g. TTF, OTF, WOFF, WOFF2: fonts embedded in the workspace (as assets) and carried in exports (`@font-face` in HTML/CSS, embedded in SVG/PDF). Also over MCP. Respect each font's license when embedding. Relates to the export rows in J. Requested 2026-11-22. Batch 4. | ⬜ | TBD |
 
 ## E. Tokens and themes

@@ -547,6 +547,16 @@ Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill a
 - `lint_design` small-text warnings for 12 px labels match the inspector density; no new contrast errors on the six roots.
 - Step sizes chosen to match the ticket: opacity `0.05`, weight `100`, else `1`, Shift×10; validation/clamp reused from PAP-B-027.
 
+## 2026-11-22: system fonts combobox (PAP-B-047, design first)
+
+Task: draw the closed and open FontPicker states (light and dark) on `Interfaces`, then replace the free-text `fontFamily` field on text nodes with a shadcn combobox. Four fixed-height frames; PNGs under `docs/assets/boards/PAP-B-047/`; boards export refreshed.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 115 | Screenshots as files | Same as #108: `render_screenshot` returns base64 only; `scripts/draw-pap-b-047.mjs` decoded into `docs/assets/boards/PAP-B-047/` | Optional `path` on `render_screenshot` | P2 |
+| 116 | Free band on a crowded Interfaces page | Outline depth 1 bottoms out near y≈13580 (A-004 / B-032); this ticket used y=13800 | `place: "free"` on `create_nodes` (same as #103/#109/#111) | P3 |
+- Local Font Access is gated behind an explicit button — opening the popover never calls `queryLocalFonts`.
+- `cmdk` 1.1.1 pinned for the Command primitive (ADR 0005 dependency list).
 ## 2026-11-22: drag and drop reparent + file drop (PAP-B-049, design first)
 
 Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states (light and dark) on `Interfaces`, then wire canvas DnD + Layers row DnD + OS file import in `apps/web`. Eight fixed-height root frames; PNGs under `docs/assets/boards/PAP-B-049/`; boards export refreshed via `GET /api/export`.
