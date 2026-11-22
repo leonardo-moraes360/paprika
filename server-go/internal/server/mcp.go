@@ -507,7 +507,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if a.Has("name") {
 			op.Set("name", a.Str("name"))
 		}
-		// `page` names the new page: `created` also lists the first page made the first time ("Página 1").
+		// `page` names the new page: `created` also lists the first page made the first time ("Page 1").
 		return writeWith(a, []any{op}, labelOr(a, "create page"), "page", id)
 	})
 

@@ -507,6 +507,20 @@ Task: replace every HTML `title` in `apps/web` with the shadcn Tooltip (`Hint` h
 - App-level Esc no longer clears the selection while a tooltip is open (`[data-slot=tooltip-content]`).
 - a11y E2E: zoom + Retângulo open on focus, Esc closes, no native `title`; agent roster asserts tooltip instead of `title`.
 
+## 2026-11-22: Internationalization en + pt-BR (PAP-B-052, design first)
+
+Task: web UI + default names follow the chosen language; detect from the browser, switch in the app, remember; HTTP API errors → English like MCP. Six frames (overview and language switch × en/pt-BR × dark/light) drawn over MCP; PNGs in `docs/assets/boards/PAP-B-052/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 115 | Boards export from Docker volume | Same as #113: `:4777` holds the drawn sheets; this agent committed PNGs from `render_screenshot` and left `docs/design/boards.paprika.json` for a host-mounted export | MCP `export_document` or a host-mounted DB path for agents | P2 |
+| 116 | Wire every remaining Inspector/Team string | Shell, overview, pages, layers, zoom, arrange and multi-select are on the dict; many Inspector field labels and Team copy are still Portuguese literals while keys already exist in `apps/web/src/i18n/messages.ts` | Finish the field-by-field pass (or generate labels from the catalog) in a follow-up | P2 |
+| 117 | MCP create_page default name in the pt-BR guide | Core/MCP empty-name fallback is now English (`Page 1`); `guide.pt-BR.md` still describes `"Página 1"` | Align the Portuguese guide with the English default (or say the UI localizes when it passes `name`) | P3 |
+
+- Lightweight dict modules (no i18next): `LocaleProvider` outside the single `TooltipProvider` so language switches do not remount tips.
+- E2E: `pinLocale(page, "pt-BR")` in a11y/canvas/drag; `i18n.e2e.test.ts` smokes both languages and the switcher.
+- Hotspots (`is-active`, `add-page`, `data-testid`, roles) stay language-stable.
+
 ## 2026-11-22: layer order shortcuts and Ordem section (PAP-B-021, design first)
 
 Task: draw the inspector **Ordem** section and the Z-order shortcut map (light and dark, fixed height) on the `Interfaces` page of `Paprika - UI` before wiring `Page Up`/`Page Down` (+ Ctrl/Cmd for front/back) in `Canvas.tsx` and the four arrange actions in `Inspector.tsx`. Four root frames, one `create_nodes` call; PNGs under `docs/assets/boards/PAP-B-021/`; boards export refreshed in `docs/design/boards.paprika.json`.

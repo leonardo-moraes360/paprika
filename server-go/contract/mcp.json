@@ -964,7 +964,7 @@
     {
       "name": "create_page",
       "title": "Create page",
-      "description": "Creates a page (a separate canvas in the same file). The first time, the current content first moves to a page named \"Página 1\". Create screens on it with create_nodes {parentId: page id}. Returns {page, created, version}: `page` is the new page's id; `created` lists every page made, in order (the first call also makes \"Página 1\").",
+      "description": "Creates a page (a separate canvas in the same file). The first time, the current content first moves to a page named \"Page 1\". Create screens on it with create_nodes {parentId: page id}. Returns {page, created, version}: `page` is the new page's id; `created` lists every page made, in order (the first call also makes \"Page 1\").",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3798,7 +3798,7 @@
           "name": {
             "type": "string",
             "maxLength": 120,
-            "description": "Workspace name, shown on the overview (blank: \"Sem título\")"
+            "description": "Workspace name, shown on the overview (blank: \"Untitled\")"
           }
         },
         "required": [

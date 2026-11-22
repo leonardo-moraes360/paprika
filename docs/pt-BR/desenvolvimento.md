@@ -28,10 +28,12 @@ pnpm --filter @paprika/e2e exec playwright install chromium
 packages/core     modelo (zod), applyOps atômico, History, nodeStyle, render/export, lint, outline
 server-go/        o servidor (Go + SQLite): MCP (stdio e HTTP), WebSocket, API HTTP, screenshot, CLI
 packages/e2e      suítes black-box contra o binário do servidor: API MCP/HTTP/WS e E2E do canvas (Playwright)
-apps/web          canvas React + Vite
+apps/web          canvas React + Vite (`src/i18n/`: strings en + pt-BR, detecção/troca de idioma)
 apps/site         landing page (desenhada no Paprika) + site de docs, publicados em paprika.js.org
 examples/         demo gerada por um agente via MCP (packages/e2e/scripts/seed-demo.mjs)
 ```
+
+A UI do canvas segue o idioma do navegador na primeira visita (`en` ou `pt-BR`), pode ser trocada na barra superior e lembra a escolha no `localStorage` (`paprika.locale`). Nomes padrão de página ("Page 1" / "Página 1") e workspace em branco seguem esse idioma quando criados pela UI; MCP/HTTP caem no inglês. Mensagens de erro da API HTTP ficam em inglês (como o MCP). As suítes E2E fixam `pt-BR` via `packages/e2e/test/e2e/locale.ts`, salvo quando o teste cobre o inglês.
 
 ## Servidor (Go + SQLite)
 

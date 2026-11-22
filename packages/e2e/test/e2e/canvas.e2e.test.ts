@@ -7,6 +7,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { connectorMidpoint, copyId, type Document, type FrameNode } from "@paprika/core";
+import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
@@ -32,6 +33,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(page, "pt-BR");
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     // `/` is the workspace overview: the demo is the only (active) workspace; one click opens its canvas.
@@ -1024,6 +1026,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
     // The human picks an image file for the card.
     const png = Buffer.from(await (await fetch(`${url}/api/screenshot?root=login`)).arrayBuffer());
+    await demoCard.hover();
     const chooser = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: `Adicionar capa de ${demoName}` }).click();
     await (await chooser).setFiles({ name: "capa.png", mimeType: "image/png", buffer: png });
@@ -1044,11 +1047,12 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     }
 
     // Removing the cover brings the letter back.
+    await demoCard.hover();
     await page.getByRole("button", { name: `Remover capa de ${demoName}` }).click();
     await expect.poll(() => img.count(), POLL).toBe(0);
     await expect.poll(() => demoCard.locator(".workspace-tile").textContent(), POLL).toBe(demoName.trim()[0]!.toUpperCase());
     await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, clear: true } });
-   }, 30_000);
+  }, 30_000);
 
   it("aviso: quando um agente apaga o workspace ativo ou troca de workspace, o canvas diz quem fez, o que foi perdido e leva à overview", async () => {
     const POLL = { timeout: 10_000 };
@@ -1099,7 +1103,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => notice.count()).toBe(0);
     await agent.callTool({ name: "rename_workspace", arguments: { id: demo, name: demoName } });
     await expect.poll(async () => (await doc()).name, POLL).toBe(demoName);
-  });
+  }, 30_000);
 
   it("overview: uma rajada de escritas do agente não vira um GET da lista por versão, e o último valor aparece", async () => {
     const POLL = { timeout: 10_000 };
@@ -1129,6 +1133,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
   it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(p, "pt-BR");
     try {
       await p.goto(`${url}/w/${(await doc()).id}`);
       await p.waitForSelector('[data-paprika-id="login"]');

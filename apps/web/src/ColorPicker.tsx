@@ -3,6 +3,7 @@ import type { Document } from "@paprika/core";
 import { resolveValue } from "@paprika/core";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 import { Hint } from "./components/ui/tooltip";
+import { useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { cx, ui } from "./ui";
 
@@ -179,6 +180,7 @@ export function ColorPicker({
   mode?: string;
   onCommit(v: string | null): void;
 }) {
+  const m = useT();
   const [open, setOpen] = useState(false);
   const [hsva, setHsva] = useState<Hsva>(() => hsvaFromValue(doc, value, mode));
   const [hexText, setHexText] = useState("");
@@ -356,7 +358,7 @@ export function ColorPicker({
           <div
             role="slider"
             tabIndex={0}
-            aria-label="Saturação e brilho"
+            aria-label={m.colorSatBri}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(hsva.s * 100)}
@@ -375,7 +377,7 @@ export function ColorPicker({
           <div
             role="slider"
             tabIndex={0}
-            aria-label="Matiz"
+            aria-label={m.colorHue}
             aria-valuemin={0}
             aria-valuemax={360}
             aria-valuenow={Math.round(hsva.h)}
@@ -390,7 +392,7 @@ export function ColorPicker({
           <div
             role="slider"
             tabIndex={0}
-            aria-label="Alpha"
+            aria-label={m.colorAlpha}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(hsva.a * 100)}
@@ -453,7 +455,7 @@ export function ColorPicker({
           </div>
           {tokens.length > 0 && (
             <div className="grid gap-1.5">
-              <p className="m-0 text-2xs font-semibold text-muted">Tokens do documento</p>
+              <p className="m-0 text-2xs font-semibold text-muted">{m.colorTokens}</p>
               <div className="flex flex-wrap gap-2" data-testid="color-tokens">
                 {tokens.map((tok) => (
                   <Hint key={tok.name} label={`$${tok.name}`}>
@@ -477,7 +479,7 @@ export function ColorPicker({
           )}
           {recent.length > 0 && (
             <div className="grid gap-1.5">
-              <p className="m-0 text-2xs font-semibold text-muted">Recentes</p>
+              <p className="m-0 text-2xs font-semibold text-muted">{m.colorRecent}</p>
               <div className="flex flex-wrap gap-1.5" data-testid="color-recent">
                 {recent.map((c) => {
                   const css = c.startsWith("$") ? String(resolveValue(doc, c, mode)) : c;

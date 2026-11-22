@@ -472,7 +472,7 @@ func TestGoldenBadDocs(t *testing.T) {
 		}
 		eq(t, "doc error "+jsonv.Stringify(input, ""), err.Error(), c.Str("error"))
 	}
-	eq(t, "createDocument", jsonv.Stringify(CreateDocument("Sem título", "abc"), ""), jsonv.Stringify(g.Obj("created"), ""))
+	eq(t, "createDocument", jsonv.Stringify(CreateDocument("Untitled", "abc"), ""), jsonv.Stringify(g.Obj("created"), ""))
 }
 
 func TestToFixedTies(t *testing.T) {

@@ -15,18 +15,12 @@ import { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { cn } from "./lib/cn";
 import type { Tool } from "./Canvas";
+import { useT } from "./i18n";
 
 export type ToolbarDock = "top" | "left" | "right" | "bottom";
 
 const STORAGE_KEY = "paprika.toolbar.dock";
 const DOCKS: ToolbarDock[] = ["top", "left", "right", "bottom"];
-const DOCK_LABEL: Record<ToolbarDock, string> = {
-  top: "Topo",
-  left: "Esquerda",
-  right: "Direita",
-  bottom: "Fundo",
-};
-
 const TOOL_ICON = 18;
 
 const toolItemClass =
@@ -37,7 +31,8 @@ const actionItemClass =
 export function readToolbarDock(): ToolbarDock {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw && DOCKS.includes(raw as ToolbarDock)) return raw as ToolbarDock;
+    const safe = DOCKS.find((item) => item === raw);
+    if (safe) return safe;
   } catch {
     /* sem storage: topo */
   }
@@ -45,8 +40,10 @@ export function readToolbarDock(): ToolbarDock {
 }
 
 function saveToolbarDock(dock: ToolbarDock) {
+  const safe = DOCKS.find((item) => item === dock);
+  if (!safe) return;
   try {
-    localStorage.setItem(STORAGE_KEY, dock);
+    localStorage.setItem(STORAGE_KEY, safe);
   } catch {
     /* sem storage: vale só nesta aba */
   }
@@ -87,6 +84,7 @@ export function Toolbar({
   dock: ToolbarDock;
   onDock: (dock: ToolbarDock) => void;
 }) {
+  const m = useT();
   const vertical = dock === "left" || dock === "right";
   const tipSide = dock === "left" ? "right" : dock === "right" ? "left" : dock === "bottom" ? "top" : "bottom";
   const drag = useRef<{ pointerId: number } | null>(null);
@@ -149,7 +147,7 @@ export function Toolbar({
           dock === "right" && "top-1/2 right-3 -translate-y-1/2",
           dragging && "opacity-90",
         )}
-        aria-label="Ferramentas"
+        aria-label={m.tools}
         data-toolbar-dock={dock}
         onPointerDown={(e) => e.stopPropagation()}
       >
@@ -161,7 +159,7 @@ export function Toolbar({
                 "inline-flex shrink-0 cursor-grab items-center justify-center rounded-md border-0 bg-transparent text-ui-muted-foreground hover:bg-ui-secondary hover:text-ui-foreground active:cursor-grabbing",
                 vertical ? "h-4 w-8" : "h-[30px] w-4",
               )}
-              aria-label="Arrastar barra de ferramentas"
+              aria-label={m.toolbarDrag}
               data-toolbar-grip
               onPointerDown={onGripPointerDown}
               onPointerMove={onGripPointerMove}
@@ -171,7 +169,7 @@ export function Toolbar({
               <GripVertical size={16} strokeWidth={1.75} className={cn(vertical && "rotate-90")} aria-hidden />
             </button>
           </TooltipTrigger>
-          <TooltipContent side={tipSide}>Arrastar para ancorar</TooltipContent>
+          <TooltipContent side={tipSide}>{m.toolbarDragHint}</TooltipContent>
         </Tooltip>
         <ToggleGroup
           type="multiple"
@@ -201,47 +199,47 @@ export function Toolbar({
         <Separator orientation={vertical ? "horizontal" : "vertical"} className={vertical ? "my-1.5 w-5" : "mx-1.5 h-5"} />
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" className={actionItemClass} onClick={onUndo} disabled={!canUndo} aria-label="Desfazer">
+            <Button variant="ghost" className={actionItemClass} onClick={onUndo} disabled={!canUndo} aria-label={m.undo}>
               <Undo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side={tipSide}>Desfazer (Ctrl+Z)</TooltipContent>
+          <TooltipContent side={tipSide}>{m.undoHint}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" className={actionItemClass} onClick={onRedo} disabled={!canRedo} aria-label="Refazer">
+            <Button variant="ghost" className={actionItemClass} onClick={onRedo} disabled={!canRedo} aria-label={m.redo}>
               <Redo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side={tipSide}>Refazer (Ctrl+Shift+Z)</TooltipContent>
+          <TooltipContent side={tipSide}>{m.redoHint}</TooltipContent>
         </Tooltip>
         <Separator orientation={vertical ? "horizontal" : "vertical"} className={vertical ? "my-1.5 w-5" : "mx-1.5 h-5"} />
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" className={actionItemClass} onClick={onExport} aria-label="Exportar SVG">
+            <Button variant="ghost" className={actionItemClass} onClick={onExport} aria-label={m.exportSvg}>
               <Download size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side={tipSide}>Exportar SVG (seleção, ou a página)</TooltipContent>
+          <TooltipContent side={tipSide}>{m.exportSvgHint}</TooltipContent>
         </Tooltip>
         <DropdownMenu>
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className={actionItemClass} aria-label="Menu da barra de ferramentas">
+                <Button variant="ghost" className={actionItemClass} aria-label={m.toolbarMenu}>
                   <Ellipsis size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
                 </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
-            <TooltipContent side={tipSide}>Posição da barra</TooltipContent>
+            <TooltipContent side={tipSide}>{m.toolbarPosition}</TooltipContent>
           </Tooltip>
           <DropdownMenuContent side={tipSide} align="center">
-            <DropdownMenuLabel>Ancorar barra</DropdownMenuLabel>
+            <DropdownMenuLabel>{m.toolbarDockLabel}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuRadioGroup value={dock} onValueChange={(v) => setDock(v as ToolbarDock)}>
               {DOCKS.map((d) => (
                 <DropdownMenuRadioItem key={d} value={d}>
-                  {DOCK_LABEL[d]}
+                  {d === "top" ? m.dockTop : d === "left" ? m.dockLeft : d === "right" ? m.dockRight : m.dockBottom}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
