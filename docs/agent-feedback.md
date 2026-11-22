@@ -298,3 +298,17 @@ Task: draw the Opacidade field states (normal, focused, invalid with message) in
 
 - Fixed heights on the six roots avoided the hug screenshot pitfall called out in the ticket; `render_screenshot` with `scale: 2` was enough to judge focus ring and invalid message.
 - `find_nodes {name: "PAP-B-027 field", type: "frame"}` was the reliable way to map board name → id after the flat `created` list.
+
+## 2026-11-22: danger button and confirmation dialog (PAP-B-026, design first)
+
+Task: draw the danger button (states, light and dark) and the confirmation dialogs (workspace delete with the typed name, empty and filled; remove member) on the `Interfaces` page, then add the dialog and the danger tokens in `apps/web`. Eight fixed-height root frames, ~190 nodes, one `create_nodes` call. The active workspace on the maintainer's server was not `Paprika`, so the board was drawn on a throwaway `paprika serve` (renamed `Paprika`) and the PNGs went to the PR.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 92 | Drawing in a workspace that is not the active one | The ticket says to draw in `Paprika` without calling `open_workspace`, but every tool works on the active workspace, so the only options were to ask the human to switch or to run a second server | An optional `workspaceId` on the document tools (read and write), so an agent can draw in a named workspace without moving the human's canvas | P2 |
+| 93 | A `fontFamily` that the renderer does not have | `fontFamily: "Inter"` rendered in a serif in `render_screenshot` (the app falls back to the system sans in its CSS stack), so the first sheet did not look like the app until the family became `sans-serif` | Fall back to the generic sans-serif when the family is missing, or accept a stack (`"Inter, sans-serif"`) in `fontFamily` | P3 |
+| 94 | A `mode: "dark"` frame on a document whose base tokens are the dark ones | `lint_design` answered `unknown-mode` for `dark` until the same tokens were also written with `set_tokens {mode: "dark"}`, which is a duplicate of the base values | Treat a mode with no tokens as the base without a warning when the document defines only one other mode, or let `set_tokens` alias a mode to the base | P3 |
+
+- `lint_design` on the eight frames: 0 errors; the `small-text` warnings are the app's own 11 px type (item 82).
+- A focus ring drawn as a wrapper frame with `layout` and no `mode` collapsed to a dot (`hug-without-layout`); the lint named it, and `layout: {mode: "row", padding: 2}` fixed it.
+- Contrast was computed before drawing, so the red landed once: white on `#cc2f50` is 5.13:1 and the ink `#ff9fb2` is 7.01:1 on `#272d45`.
