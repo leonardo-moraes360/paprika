@@ -50,7 +50,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `lint_design` | WCAG AA contrast, overflow, missing tokens, small text, alt text |
 | `render_screenshot` | PNG of a node, a page or the whole canvas |
 | `import_svg` / `import_html` | Turns pasted SVG (paths, shapes, groups, transforms) or HTML with inline styles into editable nodes; what can't be imported comes back in `warnings` |
-| `export_code` | Standalone HTML, a React (TSX) component or vector SVG (layout measured in headless Chromium); `cssVariables: true` writes tokens as `var(--name)` with one rule per theme mode |
+| `export_code` | Standalone HTML, a React (TSX) component, vector SVG (layout measured in headless Chromium), a React component with Tailwind utility classes (`tailwind`), standalone HTML with Tailwind classes (`tailwind-html`) or a React component plus its `.module.css` (`css-modules`: two text blocks, the `.tsx` first and the stylesheet second); `cssVariables: true` writes tokens as `var(--name)` with one rule per theme mode |
 
 Agent layer:
 - The guide, tool descriptions, errors, warnings and lint messages are in English (the guide also in pt-BR, see above).

@@ -50,7 +50,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `path_info` | Valida dados de caminho SVG e devolve a caixa exata (com extremos de bezier e arcos) e o `d` normalizado |
 | `render_screenshot` | PNG de um nó, de uma página ou do canvas |
 | `import_svg` / `import_html` | Transforma SVG colado (paths, formas, grupos, transforms) ou HTML com estilos inline em nós editáveis; o que não dá para importar volta em `warnings` |
-| `export_code` | HTML autocontido, componente React (TSX) ou SVG vetorial (layout medido num Chromium headless); `cssVariables: true` escreve os tokens como `var(--nome)`, com uma regra por modo de tema |
+| `export_code` | HTML autocontido, componente React (TSX), SVG vetorial (layout medido num Chromium headless), componente React com classes utilitárias do Tailwind (`tailwind`), HTML autocontido com classes do Tailwind (`tailwind-html`) ou componente React mais o seu `.module.css` (`css-modules`: dois blocos de texto, o `.tsx` primeiro e a folha de estilo depois); `cssVariables: true` escreve os tokens como `var(--nome)`, com uma regra por modo de tema |
 
 Camada de agentes:
 - O guia, as descrições das ferramentas, os erros, os avisos e as mensagens do lint são em inglês (o guia também em português, ver acima).
