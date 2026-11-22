@@ -243,6 +243,8 @@ Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados)
 | Aviso de versão nova no app | Primeiro passo menor do pedido de OTA (combinado com o mantenedor em 2026-11-22). O app consulta as releases do GitHub e mostra "há uma versão nova" com o comando para atualizar (`git pull` + `docker compose up -d --build`). Precisa antes de releases publicadas: o repositório ainda não tem tags nem releases; `paprika --version` já informa `server.Version` | ⬜ | a definir |
 | Checagem de versão entre peers do time | O risco real hoje: duas instâncias em versões diferentes podem divergir no CRDT ou nas operações assinadas. Os ALPNs do sidecar têm versão (`paprika/sync/1`, `paprika/join/1`), mas os peers não comparam a versão do app nem do formato do documento; a checagem deve avisar ou recusar a sincronização com um peer incompatível (M, "Edição multiusuário em tempo real", ADR 0004) | ⬜ | a definir |
 | OTA update completo (download assinado, rollback) | Futuro, só quando existir binário standalone ou app desktop. No Docker, atualizar é trocar a imagem: um binário que se substitui dentro do container briga com isso e se perde no próximo `up --build`. Depende das duas linhas acima e de releases publicadas | ⬜ | a definir |
+| Três estilos de traçado de seta: reto, arredondado, curva livre | Leitura registrada em 2026-11-22 (o screenshot do mantenedor mostra a seta em cotovelo de hoje): (1) reto, com cantos vivos, o que `route: "elbow"` desenha hoje (`route: "straight"` também existe); (2) arredondado, a mesma rota em cotovelo com cantos arredondados; (3) curva livre, uma bezier cuja alça se arrasta no canvas para dar forma. Também pelo MCP e no inspector. Detalha O "Setas curvas" e relaciona com O "Prender ou soltar a ponta de uma seta arrastando" e com a edição de pontos de F | ⬜ | a definir |
+| Duplo clique na seta adiciona, edita ou remove o rótulo | Edição no lugar, no canvas, como o texto das formas (O). Hoje o `label` só é editado no inspector (O "Rótulos nas setas", PR #75); apagar o texto remove o rótulo | ⬜ | a definir |
 
 <details><summary>Pedido original (texto do mantenedor)</summary>
 
@@ -267,5 +269,7 @@ Adicionados pelo mantenedor em 2026-11-22, para planejar depois (não iniciados)
 - Permitir fazer drag and drop dos elementos dentro do canvas.
 - adicionar i18n
 - implementação de ota update? (registrado como aviso de versão nova + checagem de versão entre peers; OTA completo fica para depois)
+- Adicionar 3 tipos de contorno de seta: reto (já existe), arredondado, arredondado livre (posso arrastar a curva, como se fosse uma bezier).
+- Dois cliques na seta permite adicionar/editar/remover sua label.
 
 </details>
