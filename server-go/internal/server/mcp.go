@@ -265,6 +265,41 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return textResult(strings.Join(lines, "\n")), nil
 	})
 
+	add("get_bounds", z.Object(
+		z.Field{Name: "ids", Schema: z.Optional(z.Array(z.String()).Min(1).Max(500))},
+		optStr("rootId"),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		d := store.Doc()
+		opts := core.LayoutOptions{RootID: a.Str("rootId")}
+		if a.Has("ids") {
+			opts.IDs = a.Strings("ids")
+		}
+		boxes, err := core.Layout(d, opts)
+		if err != nil {
+			return nil, err
+		}
+		if a.Has("ids") {
+			missing := []string{}
+			for _, id := range opts.IDs {
+				if _, ok := boxes[id]; !ok {
+					if core.GetNode(d, id) == nil {
+						missing = append(missing, id)
+					}
+				}
+			}
+			if len(missing) > 0 {
+				return nil, fmt.Errorf("nodes do not exist: %s", strings.Join(missing, ", "))
+			}
+		}
+		out := jsonv.NewObject()
+		boxesObj := jsonv.NewObject()
+		for id, b := range boxes {
+			boxesObj.Set(id, core.LayoutBoxJSON(b))
+		}
+		out.Set("boxes", boxesObj)
+		return jsonResult(out), nil
+	})
+
 	add("path_info", z.Object(
 		z.Field{Name: "d", Schema: z.Optional(z.String().Max(200_000))},
 		optStr("id"),
@@ -272,6 +307,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		src := a.Str("d")
 		ox, oy := 0.0, 0.0
 		id := a.Str("id")
+		var nodeW, nodeH, nodeRot float64
 		if id != "" {
 			n := core.GetNode(store.Doc(), id)
 			if n == nil {
@@ -281,6 +317,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 				return nil, fmt.Errorf(`node "%s" is %s, not a path`, id, t)
 			}
 			src, ox, oy = n.Str("d"), n.Num("x"), n.Num("y")
+			nodeW, nodeH, nodeRot = n.Num("width"), n.Num("height"), n.Num("rotation")
 		}
 		if src == "" {
 			return nil, errors.New("pass d or id")
@@ -290,6 +327,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return nil, err
 		}
 		b := core.PathBounds(segs)
+		originLocal := core.PathOrigin(segs)
 		curves, closed := 0, false
 		for _, s := range segs {
 			switch s.Cmd {
@@ -305,9 +343,19 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			"curves", float64(curves),
 			"closed", closed,
 			"bounds", jsonv.NewObject("x", r(b.X), "y", r(b.Y), "width", r(b.Width), "height", r(b.Height)),
+			"origin", jsonv.NewObject("x", r(originLocal.X), "y", r(originLocal.Y)),
 		)
 		if id != "" {
 			out.Set("canvasBounds", jsonv.NewObject("x", r(ox+b.X), "y", r(oy+b.Y), "width", r(b.Width), "height", r(b.Height)))
+			boxes, _ := core.Layout(store.Doc(), core.LayoutOptions{IDs: []string{id}})
+			if lb, ok := boxes[id]; ok {
+				out.Set("transformOrigin", jsonv.NewObject("x", r(lb.Origin.X), "y", r(lb.Origin.Y)))
+				out.Set("corners", core.LayoutBoxJSON(lb).Arr("corners"))
+			} else {
+				cx, cy := ox+nodeW/2, oy+nodeH/2
+				out.Set("transformOrigin", jsonv.NewObject("x", r(cx), "y", r(cy)))
+				_ = nodeRot
+			}
 		}
 		out.Set("normalized", core.SerializePath(segs))
 		return jsonResult(out), nil
@@ -941,6 +989,97 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		)), nil
 	})
 
+	add("resize_image", z.Object(
+		z.Field{Name: "nodeId", Schema: z.Optional(z.String().Min(1))},
+		z.Field{Name: "src", Schema: z.Optional(z.String().Min(1).Max(5_000_000))},
+		z.Field{Name: "preset", Schema: z.Union(
+			z.Enum("qhd", "hd", "2k", "4k"),
+			z.Object(
+				z.Field{Name: "width", Schema: z.Number().Min(1).Max(100000)},
+				z.Field{Name: "height", Schema: z.Number().Min(1).Max(100000)},
+			),
+		)},
+		z.Field{Name: "fit", Schema: z.Optional(z.Enum("cover", "contain", "fill"))},
+		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
+		z.Field{Name: "x", Schema: z.Optional(z.Number())},
+		z.Field{Name: "y", Schema: z.Optional(z.Number())},
+		label(), batch(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		if !a.Has("nodeId") && !a.Has("src") {
+			return nil, errors.New("resize_image requires nodeId or src")
+		}
+		preset, _ := a.Get("preset")
+		tw, th, err := resolveResizeTarget(preset)
+		if err != nil {
+			return nil, err
+		}
+		fit := "contain"
+		if a.Has("fit") {
+			fit = a.Str("fit")
+		}
+		var info rasterInfo
+		var base string
+		var nodeID string
+		if a.Has("nodeId") {
+			nodeID = a.Str("nodeId")
+			n := core.GetNode(store.Doc(), nodeID)
+			if n == nil {
+				return nil, fmt.Errorf("node %q not found", nodeID)
+			}
+			if n.Str("type") != "image" {
+				return nil, fmt.Errorf("node %q is not an image", nodeID)
+			}
+			src := n.Str("src")
+			if a.Has("src") {
+				src = a.Str("src")
+			}
+			info, base, err = loadImportImage(src)
+		} else {
+			info, base, err = loadImportImage(a.Str("src"))
+		}
+		if err != nil {
+			return nil, err
+		}
+		out, err := resizeRaster(info, tw, th, fit)
+		if err != nil {
+			return nil, err
+		}
+		warnings := []any{}
+		if out.warning != "" {
+			warnings = append(warnings, out.warning)
+		}
+		srcURL := out.dataURL()
+		if nodeID != "" {
+			props := jsonv.NewObject("src", srcURL, "width", float64(out.width), "height", float64(out.height))
+			res, err := store.ApplyBatch([]any{jsonv.NewObject("op", "update", "id", nodeID, "props", props)}, m.actorName(), labelOr(a, "resize image"), a.Str("batch"))
+			if err != nil {
+				return nil, err
+			}
+			return jsonResult(jsonv.NewObject(
+				"id", nodeID, "created", jsonv.FromGo(res.Created), "version", float64(store.Version()),
+				"width", float64(out.width), "height", float64(out.height),
+				"targetWidth", float64(tw), "targetHeight", float64(th),
+				"format", out.format, "sourceFormat", out.srcFmt, "fit", fit, "warnings", warnings,
+			)), nil
+		}
+		name := base
+		if name == "" {
+			name = "Image"
+		}
+		node := jsonv.NewObject("type", "image", "name", name, "src", srcURL, "x", a.Num("x"), "y", a.Num("y"), "width", float64(out.width), "height", float64(out.height), "fit", fit)
+		parent, _ := a.Get("parentId")
+		res, err := store.ApplyBatch([]any{jsonv.NewObject("op", "create", "parentId", parent, "node", node)}, m.actorName(), labelOr(a, "resize image"), a.Str("batch"))
+		if err != nil {
+			return nil, err
+		}
+		return jsonResult(jsonv.NewObject(
+			"created", jsonv.FromGo(res.Created), "version", float64(store.Version()),
+			"width", float64(out.width), "height", float64(out.height),
+			"targetWidth", float64(tw), "targetHeight", float64(th),
+			"format", out.format, "sourceFormat", out.srcFmt, "fit", fit, "warnings", warnings,
+		)), nil
+	})
+
 	add("duplicate_nodes", z.Object(
 		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
 		z.Field{Name: "offset", Schema: z.Optional(z.Number())},
@@ -998,8 +1137,7 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 		}
 		parsed, err := z.Parse(t.schema, rawArgs)
 		if err != nil {
-			var ze *z.Error
-			errors.As(err, &ze)
+			ze, _ := errors.AsType[*z.Error](err)
 			return errorResult((&mcpError{codeInvalidParams, "Input validation error: Invalid arguments for tool " + name + ": " + z.SDKFormat(ze)}).Error())
 		}
 		args = parsed.(*jsonv.Object)

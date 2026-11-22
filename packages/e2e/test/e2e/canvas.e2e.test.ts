@@ -225,6 +225,30 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     if (shots) await page.screenshot({ path: join(shots, "03-retangulo-desenhado.png") });
   });
 
+  it("fantasma do elemento enquanto arrasta a ferramenta: estilo do nó, aria-hidden, sem escrita até soltar", async () => {
+    await page.keyboard.press("Escape");
+    const before = Object.keys((await doc()).nodes).length;
+    await page.getByRole("button", { name: "Retângulo", exact: true }).click();
+    const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
+    const x0 = vp.x + 40;
+    const y0 = vp.y + vp.height - 200;
+    await page.mouse.move(x0, y0);
+    await page.mouse.down();
+    await page.mouse.move(x0 + 140, y0 + 90, { steps: 8 });
+    const ghost = page.getByTestId("draft-ghost");
+    await expect.poll(() => ghost.count()).toBe(1);
+    expect(await ghost.getAttribute("aria-hidden")).toBe("true");
+    expect(await ghost.getAttribute("data-ghost-tool")).toBe("rect");
+    await expect.poll(async () => Object.keys((await doc()).nodes).length).toBe(before);
+    const pe = await ghost.evaluate((el) => getComputedStyle(el).pointerEvents);
+    expect(pe).toBe("none");
+    await page.mouse.up();
+    await expect.poll(() => ghost.count()).toBe(0);
+    await expect.poll(async () => Object.keys((await doc()).nodes).length).toBe(before + 1);
+    const rects = Object.values((await doc()).nodes).filter((n) => n.type === "rect" && n.parentId === null);
+    expect(rects.length).toBeGreaterThanOrEqual(1);
+  });
+
   for (const key of ["Space", "Enter"]) {
     it(`segurar ${key} sobre o board vira mão aberta; arrastando, mão fechada que move o board`, async () => {
       await page.keyboard.press("Escape");
