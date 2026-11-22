@@ -12,7 +12,7 @@ Tarefa: um agente desenhou 5 ícones flat de páprica com complexidade crescente
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
 | 1 | Formas orgânicas (silhueta de pimentão) | Só existem `rect`/`ellipse`; o pimentão foi montado com elipses sobrepostas e rotacionadas | Nó `path` (SVG `d`, fill/stroke) e união booleana de filhos (`path` com curvas bezier feito em 2026-11-21, ver abaixo; união booleana ainda aberta) | P1 |
-| 2 | Pôr o cabo na ponta de uma vagem rotacionada | A rotação gira em torno do centro da caixa e o agente teve de fazer trigonometria; o cálice ficou fora do lugar duas vezes e só o screenshot mostrou | Ferramenta `get_bounds` com a geometria rotacionada (cantos, pontas) e um campo `origin` (transform-origin) | P1 |
+| 2 | Pôr o cabo na ponta de uma vagem rotacionada | A rotação gira em torno do centro da caixa e o agente teve de fazer trigonometria; o cálice ficou fora do lugar duas vezes e só o screenshot mostrou | Feito (2026-11-22, PAP-A-001): `get_bounds` devolve origin + cantos; `path_info` ganha origin / transformOrigin | — |
 | 3 | O mesmo ícone em 4 tamanhos | Sem componentes/instâncias nem escala: o script regerou todas as formas com um fator (4× os nós, edição não propaga) | Componentes + instâncias com `scale`; `duplicate_nodes` com escala | P1 |
 | 4 | 5 temas lado a lado | Tokens são globais; foi preciso prefixar à mão (`p1.brand` … `p5.brand`) e reescrever em cada nó | Feito (2026-11-21, ver #45): modos de tema (`set_tokens` com `mode`) e `mode` num frame ou página; coleções nomeadas continuam em aberto | — |
 | 5 | Conferir o resultado na máquina do usuário | `render_screenshot` falhou: o Playwright 1.63 exige o Chromium 1243 e só havia o 1228 | Detectar o browser ausente ao iniciar, devolver o comando exato de correção no erro e cair para renderização via aba do canvas aberta | P1 |
@@ -32,7 +32,7 @@ Tarefa: adicionar curvas bezier para agentes e humanos desenharem formas orgâni
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 15 | Caixa do nó igual ao desenho | Sem `width`/`height`, a caixa vai da origem do nó até a borda da curva; um `d` que começa em (40,30) deixa espaço vazio no canto e o lint de overflow mede essa caixa | `normalize: true` no create (leva o desenho para 0,0 e ajusta `x`/`y`), ou informar a folga no `path_info` | P2 |
+| 15 | Caixa do nó igual ao desenho | Sem `width`/`height`, a caixa vai da origem do nó até a borda da curva; um `d` que começa em (40,30) deixa espaço vazio no canto e o lint de overflow mede essa caixa | Feito (2026-11-22, PAP-A-001): `normalize: true` no create; `path_info.origin` informa a folga | — |
 | 16 | Camadas de vários paths como uma forma (corpo, sombra, brilho, cálice) | Cada parte repete o mesmo `x`/`y`; mover a pimenta é mover 5 nós | Nó `group` (ver #8) ou lista `paths: []` num nó só | P2 |
 | 17 | Editar um ponto de controle | Mudar uma curva exige reescrever a string `d` inteira | Parte do canvas feita (2026-11-21, ver #43); `update_path_points` (mover âncora/alça por índice) para agentes continua em aberto | P3 |
 | 18 | Saber o tamanho desenhado antes de posicionar uma parte | `path_info` com `canvasBounds` respondeu numa chamada só; também pegou um erro de digitação (`d inválido: número esperado na posição 12`) | Manter: erros de parse com posição em todo campo string | — |
@@ -57,7 +57,7 @@ Tarefa: prototipar o canvas em Rust/WASM (vello no WebGPU, fallback vello_cpu) e
 | 23 | Carregar um documento de exemplo fora do servidor | `examples/bezier.paprika.json` omite defaults (`visible`, `opacity`…); um renderizador que o leu sem `parseDocument` não desenhou nada em nenhum modo, e só o screenshot mostrou | Gravar os exemplos normalizados, ou dizer no AGENTS.md que todo leitor passa por `parseDocument` | P3 |
 | 24 | Conferir um canvas desenhado na GPU pelo navegador headless do agente | O Chromium headless sem GPU perde o device WebGPU ao apresentar um canvas (em JS puro também), então os pixels voltam vazios | Se o canvas for para WebGPU, manter o `render_screenshot` no caminho HTML, ou renderizar offscreen e ler os pixels (como faz `gpu-readback-check.cjs`) | P2 |
 | 25 | Escolher o caminho rápido sozinho | O Chromium headless oferece um adapter WebGPU *por software* (SwiftShader), de 45 a 220× mais lento que o vello_cpu; um "WebGPU se existir" ingênuo escolhe ele | Tratar adapters `DeviceType::Cpu` como sem GPU (feito no protótipo) | — |
-| 26 | Uma fonte de geometria para agentes e renderizadores | O protótipo recalcula as caixas (e mede um DOM oculto para auto layout) porque o core não expõe geometria resolvida | Um `layout(doc)` no core devolvendo caixas absolutas serviria ao renderizador, ao `get_bounds` (#2) e ao lint de geometria (#6) | P2 |
+| 26 | Uma fonte de geometria para agentes e renderizadores | O protótipo recalcula as caixas (e mede um DOM oculto para auto layout) porque o core não expõe geometria resolvida | Feito (2026-11-22, PAP-A-001): `layout(doc)` no core (+ port Go / goldens); MCP `get_bounds` | — |
 
 ## 2026-11-21: integração do canvas WASM (`crates/render`, ADR 0002)
 
@@ -107,7 +107,7 @@ Tarefa: `importSVG`, `importHTML` e `exportSVG` no core (TS e Go), as ferramenta
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
 | 40 | Trazer um ícone de um conjunto SVG | Antes o agente traduzia cada `<rect>`/`<circle>`/arco à mão para `d`; agora o `import_svg` faz isso numa chamada e diz o que ficou de fora em `warnings` | Suportar sprites `<use>`/`<symbol>` e `<text>` (como nós `text`), comuns em ícones e logos | P2 |
-| 41 | Exportar SVG de um nó com layout automático sem navegador | O core não posiciona sozinho filhos `hug`/`fill`/row/column, então o `exportSVG` sem medida falha com uma mensagem que aponta o `export_code` | Um `layout(doc)` no core (#26) deixaria o core exportar tudo e daria as caixas aos agentes | P2 |
+| 41 | Exportar SVG de um nó com auto layout sem navegador | O core não coloca sozinho filhos `hug`/`fill`/row/column, então `exportSVG` sem medida falha apontando para `export_code` | Feito para geometria (2026-11-22, PAP-A-001): `layout(doc)` é a base; ligar ao exportSVG no PAP-A-002 | — |
 | 42 | Reaproveitar um componente de uma página web | O `import_html` só lê `style=""` inline; o HTML copiado da maioria dos sites depende de classes, então o resultado sai simples | Uma opção que renderiza o HTML no Chromium do servidor e importa os estilos computados | P2 |
 
 ## 2026-11-21: edição de path ponto a ponto (leva 1 do backlog, item 4)
