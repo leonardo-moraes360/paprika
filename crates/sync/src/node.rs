@@ -24,7 +24,7 @@ use crate::{
     keys,
     proto::{self, ALPN_JOIN, ALPN_SYNC},
     store::{Accepted, DocStore},
-    team::{InviteLink, Invites, TeamFile},
+    team::{InviteLink, Invites, Left, Roster, TeamFile},
 };
 
 /// Messages between peers on the sync stream.
@@ -45,7 +45,7 @@ pub enum PeerMsg {
     Envs { envs: Vec<Envelope> },
     /// Ephemeral presence (agents' cursors, the person online); never stored.
     Presence { data: Value },
-    /// The team file changed (someone joined).
+    /// The team file changed (someone joined, was removed or rotated a key).
     Team { team: TeamFile },
 }
 
@@ -95,6 +95,8 @@ struct State {
     allowed: HashSet<EndpointId>,
     static_allowed: HashSet<EndpointId>,
     team: Option<TeamFile>,
+    /// What `team` vouches for, recomputed with `allowed`.
+    roster: Roster,
     invites: Option<Invites>,
     addrs: HashMap<EndpointId, EndpointAddr>,
     names: HashMap<EndpointId, String>,
@@ -111,14 +113,36 @@ impl State {
 
     fn refresh_allowed(&mut self, me: &EndpointId) {
         let mut allowed = self.static_allowed.clone();
-        if let Some(t) = &self.team {
-            for (k, e) in t.members() {
-                self.names.entry(k).or_insert(e.name);
-                allowed.insert(k);
+        self.roster = self.team.as_ref().map(TeamFile::roster).unwrap_or_default();
+        for (k, (e, _)) in &self.roster.left {
+            self.names.entry(*k).or_insert(e.name.clone());
+        }
+        // An instance that was removed (or whose key was retired) stops syncing with the team.
+        let inside = self.team.is_none() || self.roster.members.contains_key(me);
+        for (k, e) in &self.roster.members {
+            self.names.entry(*k).or_insert(e.name.clone());
+            if inside {
+                allowed.insert(*k);
             }
         }
         allowed.remove(me);
         self.allowed = allowed;
+    }
+
+    /// Closes the connections of peers that are no longer allowed (removed, key retired).
+    fn drop_strangers(&mut self) -> Vec<EndpointId> {
+        let gone: Vec<EndpointId> = self
+            .peers
+            .keys()
+            .filter(|id| !self.allowed.contains(*id))
+            .copied()
+            .collect();
+        for id in &gone {
+            if let Some(p) = self.peers.get(id) {
+                p.conn.close(2u32.into(), b"left the team");
+            }
+        }
+        gone
     }
 }
 
@@ -211,10 +235,13 @@ impl Node {
             move || -> Result<(SecretKey, DocStore, Option<TeamFile>, Invites)> {
                 std::fs::create_dir_all(&data)
                     .with_context(|| format!("creating {}", data.display()))?;
+                let team = TeamFile::load(&data)?;
+                // A key rotation that was saved in the team file but not swapped in yet.
+                crate::keys::adopt_next(&data, |k| team.as_ref().is_some_and(|t| t.is_member(k)))?;
                 Ok((
                     crate::keys::load_or_create(&data)?,
                     DocStore::open(&data)?,
-                    TeamFile::load(&data)?,
+                    team,
                     Invites::load(&data),
                 ))
             },
@@ -258,7 +285,21 @@ impl Node {
         });
         let node = Node(inner);
         let me = node.id();
-        node.0.state.lock().unwrap().refresh_allowed(&me);
+        {
+            let mut st = node.0.state.lock().unwrap();
+            // Addresses saved by a key rotation, a hint for the first dials.
+            let hint = node.0.cfg.data.join("addrs.json");
+            if let Some(list) = std::fs::read(&hint)
+                .ok()
+                .and_then(|b| serde_json::from_slice::<Vec<EndpointAddr>>(&b).ok())
+            {
+                for a in list.into_iter().filter(|a| a.id != me) {
+                    st.addrs.insert(a.id, a);
+                }
+                let _ = std::fs::remove_file(&hint);
+            }
+            st.refresh_allowed(&me);
+        }
         node.spawn_redial();
         node.spawn_status();
         Ok(node)
@@ -439,6 +480,7 @@ impl Node {
             if let Some(team) = team {
                 self.broadcast(PeerMsg::Team { team }, from);
             }
+            self.0.state.lock().unwrap().drop_strangers();
         }
     }
 
@@ -629,8 +671,12 @@ impl Node {
         {
             let mut st = self.0.state.lock().unwrap();
             let allowed = st.allowed.clone();
+            let roster = st.roster.clone();
             for env in envs {
-                match st.docs().accept(&env, |m| *m == me || allowed.contains(m)) {
+                let ok = |m: &EndpointId, e: &Envelope| {
+                    *m == me || allowed.contains(m) || roster.accepts(m, &e.doc, &e.author, e.seq)
+                };
+                match st.docs().accept(&env, ok) {
                     Ok(Accepted::New) => {
                         if !changed.contains(&env.doc) {
                             changed.push(env.doc.clone());
@@ -785,7 +831,8 @@ impl Node {
             .unwrap_or_default();
         docs.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
         let team = st.team.as_ref().map(|t| {
-            let valid = t.members();
+            let valid = &st.roster.members;
+            let founder = st.roster.founder().copied();
             let mut agents: HashMap<String, Vec<String>> = HashMap::new();
             if let Some(d) = &st.docs {
                 for doc in d.docs.values() {
@@ -805,13 +852,28 @@ impl Node {
                     let mut a = agents.get(&e.key).cloned().unwrap_or_default();
                     a.sort();
                     json!({"key": e.key, "name": e.name, "fingerprint": keys::fingerprint(k), "addedBy": e.added_by,
-                           "addedByName": keys::parse_public(&e.added_by).ok().and_then(|b| valid.get(&b)).map(|b| b.name.clone()),
-                           "at": e.at, "founder": e.key == t.founder, "you": *k == self.id(), "agents": a})
+                           "addedByName": keys::parse_public(&e.added_by).ok().and_then(|b| st.names.get(&b).cloned()),
+                           "at": e.at, "founder": Some(*k) == founder, "you": *k == self.id(), "agents": a,
+                           "rotated": st.roster.left.values().any(|(_, l)| matches!(l, Left::Rotated(r) if r.new == e.key))})
                 })
                 .collect();
-            members.sort_by_key(|m| m["at"].as_u64());
+            // Founder first, then by arrival (several can share a second).
+            members.sort_by_key(|m| (m["founder"] != true, m["at"].as_u64(), m["name"].as_str().map(str::to_string)));
+            let mut removed: Vec<Value> = st
+                .roster
+                .left
+                .iter()
+                .filter_map(|(k, (e, l))| match l {
+                    Left::Removed(r) => Some(json!({"key": e.key, "name": e.name, "fingerprint": keys::fingerprint(k), "at": r.at,
+                        "by": r.by, "byName": keys::parse_public(&r.by).ok().and_then(|b| st.names.get(&b).cloned()), "you": *k == self.id()})),
+                    Left::Rotated(_) => None,
+                })
+                .collect();
+            removed.sort_by_key(|m| m["at"].as_u64());
+            let me = self.id();
             let invites: Vec<Value> = st.invites.as_ref().map(|i| i.active().iter().map(|i| json!({"expires": i.expires})).collect()).unwrap_or_default();
-            json!({"id": t.id, "name": t.name, "members": members, "invites": invites})
+            json!({"id": t.id, "name": t.name, "members": members, "removed": removed, "invites": invites,
+                   "member": valid.contains_key(&me), "canRemove": founder == Some(me)})
         });
         json!({"id": self.id().to_string(), "name": self.0.cfg.name, "fingerprint": crate::keys::fingerprint(&self.id()),
                "team": team, "peers": peers, "docs": docs, "rejected": st.rejected.len(), "lastRejected": st.rejected.last()})
@@ -882,6 +944,83 @@ impl Node {
                 };
                 Ok(
                     json!({"link": link.encode(), "expiresAt": expires, "team": team.id, "fingerprint": team_fingerprint(&team.id)}),
+                )
+            }
+            "member.remove" => {
+                let key = keys::parse_public(cmd["key"].as_str().context("key")?)?;
+                let me = self.id();
+                let team = {
+                    let mut st = self.0.state.lock().unwrap();
+                    let Some(mut team) = st.team.clone() else {
+                        bail!("create or join a team first")
+                    };
+                    // Keep what this instance already holds from the member; later envelopes are refused.
+                    let upto = st.docs().cut_for(&key.to_string());
+                    team.remove(&self.0.key, &key, upto)?;
+                    team.save(&self.0.cfg.data)?;
+                    st.team = Some(team.clone());
+                    st.refresh_allowed(&me);
+                    team
+                };
+                // The removed instance gets the file too (so it knows), then its connection closes.
+                let removed = self
+                    .0
+                    .state
+                    .lock()
+                    .unwrap()
+                    .peers
+                    .get(&key)
+                    .map(|p| p.tx.clone());
+                if let Some(tx) = removed {
+                    let _ = tx.send(PeerMsg::Team { team: team.clone() });
+                }
+                self.broadcast(PeerMsg::Team { team }, Some(key));
+                let node = self.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    node.0.state.lock().unwrap().drop_strangers();
+                });
+                self.event(json!({"t": "removed", "peer": key.to_string()}));
+                Ok(json!({"removed": key.to_string()}))
+            }
+            "key.rotate" => {
+                let me = self.id();
+                let (team, new) = {
+                    let mut st = self.0.state.lock().unwrap();
+                    let Some(mut team) = st.team.clone() else {
+                        bail!("create or join a team first")
+                    };
+                    if !st.roster.members.contains_key(&me) {
+                        bail!("this instance is not a member of the team");
+                    }
+                    // The new key only reaches the team through a peer that is online now.
+                    if st.roster.members.len() > 1 && st.peers.is_empty() {
+                        bail!(
+                            "no team member is online: connect to someone first, so the new key reaches the team"
+                        );
+                    }
+                    let upto = st.docs().cut_for(&me.to_string());
+                    let new = SecretKey::from_bytes(&keys::random32());
+                    team.rotate(&self.0.key, &new, upto)?;
+                    keys::stage_next(&self.0.cfg.data, &new)?;
+                    team.save(&self.0.cfg.data)?;
+                    st.team = Some(team.clone());
+                    // Invite links carry the old address: they stop working.
+                    st.invites.as_mut().unwrap().revoke_all();
+                    st.invites.as_ref().unwrap().save(&self.0.cfg.data)?;
+                    // The restarted process dials the peers it knew without waiting for discovery.
+                    let addrs: Vec<&EndpointAddr> = st.addrs.values().collect();
+                    let _ = std::fs::write(
+                        self.0.cfg.data.join("addrs.json"),
+                        serde_json::to_vec(&addrs)?,
+                    );
+                    (team, new.public())
+                };
+                self.broadcast(PeerMsg::Team { team }, None);
+                // Give the frames time to leave before the Go server restarts this process.
+                tokio::time::sleep(Duration::from_millis(1500)).await;
+                Ok(
+                    json!({"old": me.to_string(), "new": new.to_string(), "fingerprint": keys::fingerprint(&new), "restart": true}),
                 )
             }
             "invite.revoke" => {

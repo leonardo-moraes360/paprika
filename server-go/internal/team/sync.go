@@ -80,7 +80,7 @@ func (s *syncer) flush() {
 func (s *syncer) call(cmd map[string]any) (json.RawMessage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	return s.t.sc.Call(ctx, cmd)
+	return s.t.side().Call(ctx, cmd)
 }
 
 func metaKey(doc string) string { return "team.synced." + doc }

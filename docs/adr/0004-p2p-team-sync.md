@@ -113,7 +113,7 @@ authority. A team can point to its own relay. Tests run with relays and lookup d
   envelope log (what peers converge on). The sidecar's state can always be rebuilt from SQLite plus the log.
 - Undo semantics change only in a team: it reverts local transactions, and a revert may partly fail if a
   peer deleted the nodes it touched (reported, not silent).
-- Removing a member, rotating keys and approval roles are not covered yet. The team file format leaves room
-  for signed removal entries.
+- Removing a member and rotating keys came later (2026-11-22) as signed `removals`/`rotations` in the team file
+  with a per-author cut (`upto`), see docs/team-sync.md. Approval roles are not covered yet.
 - Presence (agents' cursors, people online) travels as ephemeral messages on the same connections and is
   never stored.

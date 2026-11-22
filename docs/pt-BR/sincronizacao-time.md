@@ -64,6 +64,8 @@ O resto no stdout é evento. O sidecar termina quando o stdin fecha.
 | `join` | `link` | Entra no time do convite; os workspaces compartilhados chegam depois como eventos `remote`. |
 | `share` | `doc`, `state`, `author` | Começa a compartilhar um workspace: o estado atual vira o primeiro envelope. |
 | `local` | `doc`, `author`, `changes` | Uma transação local gravada, como conjunto de mudanças (abaixo). |
+| `member.remove` | `key` | Só quem fundou: assina a remoção desse membro (abaixo) e espalha. `{removed}` |
+| `key.rotate` | | Troca a chave desta instância (abaixo). `{old, new, fingerprint, restart: true}`: o servidor Go reinicia o sidecar. |
 
 | Evento `t` | Campos |
 | --- | --- |
@@ -74,6 +76,7 @@ O resto no stdout é evento. O sidecar termina quando o stdin fecha.
 | `remote` | `doc`, `state` (workspace materializado, abaixo), `authors` |
 | `rejected` | `peer`, `reason` (fora do time, assinatura inválida, convite usado/vencido/revogado…) |
 | `joined` | `peer`, `name`: alguém entrou com um convite desta instância |
+| `removed` | `peer`: esta instância removeu esse membro |
 | `log` | `level`, `msg` |
 
 ### Conjunto de mudanças (`local`)
@@ -151,6 +154,36 @@ Quando os dois lados discam ao mesmo tempo, fica a conexão discada pelo menor i
   uso único, assina a entrada de membro de quem entra e responde com o arquivo de time e os endereços dos
   membros.
 
+### Remover membro, trocar chave
+
+O arquivo de time também leva `removals` e `rotations` (fora do JSON enquanto vazios, então arquivos antigos
+carregam como estão):
+
+```json
+"removals":  [{"key": "<chave>", "by": "<chave de quem fundou>", "at": 1795300500, "upto": {"<doc>": {"<autor>": 12}}, "sig": "<hex>"}],
+"rotations": [{"old": "<chave>", "new": "<chave>", "at": 1795300600, "upto": {…}, "sigOld": "<hex>", "sigNew": "<hex>"}]
+```
+
+- **Cadeia de fundação:** a chave de quem fundou e cada chave para a qual ela foi trocada. Só a última chave da
+  cadeia remove membros, e nenhuma chave da cadeia pode ser removida.
+- **Remoção** (assinada por quem fundou sobre `paprika-remove/1`, time, chave, by, at e o JSON canônico de
+  `upto`): a chave deixa de ser membro. **Troca** (assinada pela chave antiga *e* pela nova sobre
+  `paprika-rotate/1`, …): a chave nova herda nome e direitos, a antiga é aposentada. Vale a primeira troca de
+  cada chave antiga; uma troca depois da remoção não conta.
+- **`upto`** é o corte: por workspace e chave de autor (a chave do membro e as dos agentes dele), o maior número
+  de sequência ainda aceito de uma chave que saiu. Sai do log de quem assina, então quem entra depois ainda
+  reproduz o histórico; o que vier depois é recusado (`rejected`). Envelopes do membro removido que quem fundou
+  ainda não tinha recebido se perdem para os peers que também não os tinham.
+- Entradas de membro só contam se quem assinou não tinha saído antes do `at` delas. Remoções e trocas se fundem
+  como membros (união das que têm assinatura válida).
+- Uma instância removida fica sabendo pelo arquivo de time, fecha as conexões e mostra o aviso (status
+  `team.member: false`); as mudanças dela ficam naquele dispositivo. Os peers fecham a conexão com a chave que saiu.
+- **Passos da troca:** o sidecar recusa quando ninguém do time está online (a chave nova não chegaria a
+  ninguém), exceto num time de uma pessoa só. Grava a chave nova em `key.next`, salva o arquivo de time, revoga
+  os convites ativos (os links levam o endereço antigo), manda o arquivo de time aos peers e responde; o
+  servidor Go reinicia o sidecar, que só adota `key.next` na partida se o arquivo de time tiver essa troca. Os
+  endereços conhecidos ficam em `addrs.json` para as primeiras conexões.
+
 ## HTTP e WebSocket
 
 | Rota | |
@@ -164,6 +197,8 @@ Quando os dois lados discam ao mesmo tempo, fica a conexão discada pelo menor i
 | `POST /api/team/invites/inspect` `{link}` | Prévia de um link (time, quem convida, impressão digital, validade). |
 | `POST /api/team/join` `{link}` | Entra num time. |
 | `POST /api/team/share` `{doc}` | Compartilha um workspace com o time. |
+| `DELETE /api/team/members/{key}` | Remove um membro (só quem fundou). |
+| `POST /api/team/rotate` | Troca a chave desta instância e reinicia o sidecar. |
 
 O `/ws` manda `{type: "team", status}` sempre que o status muda. Agentes remotos chegam como mensagens
 `{type: "presence"}` comuns cujo `agent` começa com `peer:` e cujo `actor` termina com ` @ <pessoa>`, então o
@@ -177,11 +212,14 @@ Com `--team`, a barra superior mostra um chip com o pior estado entre os peers (
 - com time: estado da conexão e do sync, um botão para compartilhar o workspace aberto, as pessoas com o caminho de cada uma (direto com RTT, relay, offline) e, sob cada pessoa, os agentes que rodam na instância dela (agentes remotos também ganham cursor no canvas, como `nome @ pessoa`);
 - **Convidar**: link e QR, validade (15 min, 1 h, 24 h, 7 dias), contagem regressiva, a impressão digital do time para ler em voz alta, revogar;
 - **Entrar**: colar um link, prévia (time, impressão digital, sua chave) antes de entrar, erros claros para link vencido ou usado;
-- **Chaves do time**: chaves dos membros, quem adicionou cada uma, os agentes de cada um, operações rejeitadas.
+- **Chaves do time**: chaves dos membros, quem adicionou cada uma, os agentes de cada um, membros removidos, operações rejeitadas; **Gerar nova chave** na sua linha e **Remover** nas outras (só quem fundou), cada um com confirmação;
+- **Remover** também aparece ao lado de cada pessoa na aba Time para quem fundou; uma instância removida mostra um aviso e deixa de oferecer convites.
 
 ## Limites (v1)
 
-- Um time por instância. Sair, remover membro e trocar chaves não estão implementados.
+- Um time por instância. Sair por conta própria ainda não está implementado (quem fundou remove).
+- Remoção e troca se ordenam pelo `at` do relógio de quem assina; um membro removido poderia antedatar uma
+  entrada que ele assina. Papéis (aprovação por revisor/editor) não estão implementados.
 - O undo reverte só transações locais; pode falhar em parte quando um peer apagou o que ele toca.
 - Um merge que o core recusa (raro: edições estruturais concorrentes que quebram as regras de páginas) é
   aplicado op por op e o resto é informado; a próxima edição que o torne válido conserta.

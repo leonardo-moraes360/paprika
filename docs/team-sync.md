@@ -64,6 +64,8 @@ Everything else on stdout is an event. The sidecar exits when its stdin closes.
 | `join` | `link` | Joins the team behind the invite; the shared workspaces then arrive as `remote` events. |
 | `share` | `doc`, `state`, `author` | Starts sharing a workspace: its current state becomes the first envelope. |
 | `local` | `doc`, `author`, `changes` | One committed local transaction as a change set (below). |
+| `member.remove` | `key` | Founder only: signs a removal of that member (see below) and spreads it. `{removed}` |
+| `key.rotate` | | Replaces this instance's key (below). `{old, new, fingerprint, restart: true}`: the Go server restarts the sidecar. |
 
 | Event `t` | Fields |
 | --- | --- |
@@ -74,6 +76,7 @@ Everything else on stdout is an event. The sidecar exits when its stdin closes.
 | `remote` | `doc`, `state` (materialized workspace, below), `authors` |
 | `rejected` | `peer`, `reason` (not a member, bad signature, invite used/expired/revoked…) |
 | `joined` | `peer`, `name`: someone joined with an invite from this instance |
+| `removed` | `peer`: this instance removed that member |
 | `log` | `level`, `msg` |
 
 ### Change set (`local`)
@@ -149,6 +152,36 @@ When both sides dial at once, the connection dialed by the smaller endpoint id i
   inviter on ALPN `paprika/join/1` and sends `{team, secret, name}`; the inviter checks the secret, expiry and
   single use, signs the joiner's member entry and answers with the team file and the members' addresses.
 
+### Removing a member, rotating a key
+
+The team file also carries `removals` and `rotations` (left out of the JSON while empty, so older files load
+as they are):
+
+```json
+"removals":  [{"key": "<key>", "by": "<founder key>", "at": 1795300500, "upto": {"<doc>": {"<author>": 12}}, "sig": "<hex>"}],
+"rotations": [{"old": "<key>", "new": "<key>", "at": 1795300600, "upto": {…}, "sigOld": "<hex>", "sigNew": "<hex>"}]
+```
+
+- **Founder chain:** the founder key, then each key it rotated to. Only the last key of the chain removes
+  members, and no key of the chain can be removed.
+- **Removal** (signed by the founder over `paprika-remove/1`, team, key, by, at and the canonical JSON of
+  `upto`): the key stops being a member. **Rotation** (signed by the old *and* the new key over
+  `paprika-rotate/1`, …): the new key takes the old one's name and rights, the old one is retired. The first
+  rotation per old key wins; a rotation after the key was removed does not count.
+- **`upto`** is the cut: per workspace and author key (the member's own key and its agents' keys), the highest
+  sequence number still accepted from a key that left. It is taken from the signer's own log, so a newcomer can
+  still replay the history; anything later is refused (`rejected`). Envelopes of the removed member that the
+  founder had not received yet are lost for the peers that did not have them either.
+- Member entries count only when their signer had not left before their `at`. Removals and rotations merge like
+  members (union of the ones whose signatures verify).
+- A removed instance learns it from the team file, closes its connections and shows it (status
+  `team.member: false`); its changes stay on that device. Peers close their connection to a key that left.
+- **Rotation steps:** the sidecar refuses it when nobody of the team is online (the new key would reach no one),
+  except in a team of one. It writes the new key to `key.next`, saves the team file, revokes the active invites
+  (their links carry the old address), sends the team file to the peers and returns; the Go server restarts the
+  sidecar, which swaps `key.next` in at start only when the team file has that rotation. The addresses it knew
+  are kept in `addrs.json` for the first dials.
+
 ## HTTP and WebSocket
 
 | Route | |
@@ -162,6 +195,8 @@ When both sides dial at once, the connection dialed by the smaller endpoint id i
 | `POST /api/team/invites/inspect` `{link}` | Preview a link (team, inviter, fingerprint, expiry). |
 | `POST /api/team/join` `{link}` | Join a team. |
 | `POST /api/team/share` `{doc}` | Share a workspace with the team. |
+| `DELETE /api/team/members/{key}` | Remove a member (founder only). |
+| `POST /api/team/rotate` | Rotate this instance's key and restart the sidecar. |
 
 `/ws` sends `{type: "team", status}` whenever the status changes. Remote agents arrive as ordinary
 `{type: "presence"}` messages whose `agent` starts with `peer:` and whose `actor` ends with ` @ <person>`, so
@@ -175,11 +210,14 @@ With `--team`, the top bar shows one chip with the worst state across peers (onl
 - a team: connection and sync state, a button to share the open workspace, people with their path (direct with RTT, relay, offline) and, under each person, the agents running on their instance (remote agents also get their cursor on the canvas, as `name @ person`);
 - **Convidar**: a link and its QR, expiry (15 min, 1 h, 24 h, 7 days), countdown, the team fingerprint to read aloud, revoke;
 - **Entrar**: paste a link, preview (team, fingerprint, your key) before joining, clear errors for expired or used links;
-- **Chaves do time**: members' keys, who added them, the agents each one runs, rejected operations.
+- **Chaves do time**: members' keys, who added them, the agents each one runs, removed members, rejected operations; **Gerar nova chave** on your own row and **Remover** on the others (founder only), each with a confirmation;
+- **Remover** also sits next to each person in the Time tab for the founder; a removed instance shows a notice and no longer offers invites.
 
 ## Limits (v1)
 
-- One team per instance. Leaving, removing a member and rotating keys are not implemented.
+- One team per instance. Leaving on your own is not implemented yet (the founder removes).
+- Removal and rotation order by the `at` of the signer's clock; a removed member could backdate an entry it
+  signs. Roles (approval by reviewer/editor) are not implemented.
 - Undo reverts local transactions only; it can fail in part when a peer deleted what it touches.
 - A merge that the core rejects (rare: concurrent structural edits that break page rules) is applied op by op
   and the rest is reported; the next edit that makes it valid heals it.

@@ -117,7 +117,8 @@ desligados, pelo loopback.
   SQLite mais o log.
 - A semântica do undo só muda em time: ele reverte transações locais, e uma reversão pode falhar em parte se
   um peer apagou os nós que ela toca (informado, não silencioso).
-- Remover membro, trocar chaves e papéis de aprovação ainda não estão cobertos. O formato do arquivo de time
-  deixa espaço para entradas de remoção assinadas.
+- Remover membro e trocar chaves vieram depois (2026-11-22), como `removals`/`rotations` assinadas no arquivo
+  de time com um corte por autor (`upto`), ver docs/pt-BR/sincronizacao-time.md. Papéis de aprovação ainda não
+  estão cobertos.
 - Presença (cursores dos agentes, pessoas online) viaja como mensagens efêmeras nas mesmas conexões e nunca é
   gravada.
