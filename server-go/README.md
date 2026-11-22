@@ -6,7 +6,7 @@ The Paprika server: 29 MCP tools (stdio and Streamable HTTP at `/mcp`), atomic o
 
 ## Build and run
 
-Requirements: Go 1.26+ (the `go` command downloads the toolchain if needed). Chromium is only needed for screenshots and SVG export: the server uses `$PAPRIKA_CHROMIUM`, then Playwright's browsers (`$PLAYWRIGHT_BROWSERS_PATH` or `~/.cache/ms-playwright`), then `chromium`/`google-chrome` on `PATH`.
+Requirements: Go 1.26+ (the `go` command downloads the toolchain if needed). Chromium is only needed for screenshots (SVG export uses core `layout(doc)`): the server uses `$PAPRIKA_CHROMIUM`, then Playwright's browsers (`$PLAYWRIGHT_BROWSERS_PATH` or `~/.cache/ms-playwright`), then `chromium`/`google-chrome` on `PATH`.
 
 ```bash
 pnpm install && pnpm build            # builds the canvas (apps/web/dist) and the server (pnpm go:build)
@@ -83,7 +83,7 @@ scripts/           fixture and measure-script generators (run with Node against 
 
 `@paprika/core` (TypeScript) stays the reference: the canvas runs it, and `internal/core` must produce the same results. Three layers check the server:
 
-1. **Golden fixtures** (`internal/core/testdata/golden.json`, from `scripts/gen-golden.mjs`): operation results and errors, zod error JSON, history, outline, lint, HTML, React, CSS of every node of 23 documents, path parsing/bounds, colors, SVG/HTML import, SVG export (with and without a synthetic browser measure) and 500 seeded random steps. `go test` compares byte for byte.
+1. **Golden fixtures** (`internal/core/testdata/golden.json`, from `scripts/gen-golden.mjs`): operation results and errors, zod error JSON, history, outline, lint, HTML, React, CSS of every node of 23 documents, path parsing/bounds, colors, SVG/HTML import, SVG export (from `layout(doc)`, plus optional synthetic measure overrides) and 500 seeded random steps. `go test` compares byte for byte.
 2. **Black-box API suite** (`packages/e2e/test/api.test.ts`): MCP over HTTP and stdio (including the served contract), WebSocket, HTTP API and Host/Origin checks, run against a server process.
 3. **Canvas E2E** (`packages/e2e/test/e2e`): Playwright drives the canvas served by the binary, including the WASM renderer.
 

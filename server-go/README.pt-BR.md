@@ -6,7 +6,7 @@ O servidor do Paprika: 29 ferramentas MCP (stdio e Streamable HTTP em `/mcp`), o
 
 ## Compilar e rodar
 
-Requisitos: Go 1.26+ (o comando `go` baixa o toolchain se precisar). O Chromium só é necessário para screenshots e export SVG: o servidor usa `$PAPRIKA_CHROMIUM`, depois os navegadores do Playwright (`$PLAYWRIGHT_BROWSERS_PATH` ou `~/.cache/ms-playwright`), depois `chromium`/`google-chrome` no `PATH`.
+Requisitos: Go 1.26+ (o comando `go` baixa o toolchain se precisar). O Chromium só é necessário para screenshots (o export SVG usa o `layout(doc)` do core): o servidor usa `$PAPRIKA_CHROMIUM`, depois os navegadores do Playwright (`$PLAYWRIGHT_BROWSERS_PATH` ou `~/.cache/ms-playwright`), depois `chromium`/`google-chrome` no `PATH`.
 
 ```bash
 pnpm install && pnpm build            # compila o canvas (apps/web/dist) e o servidor (pnpm go:build)
@@ -83,7 +83,7 @@ scripts/           geradores das fixtures e do script de medida (rodam com Node 
 
 O `@paprika/core` (TypeScript) continua sendo a referência: o canvas roda ele, e o `internal/core` precisa produzir os mesmos resultados. Três camadas conferem o servidor:
 
-1. **Fixtures golden** (`internal/core/testdata/golden.json`, de `scripts/gen-golden.mjs`): resultados e erros de operações, JSON de erro do zod, histórico, outline, lint, HTML, React, CSS de cada nó de 23 documentos, parse/bounds de paths, cores, import de SVG/HTML, export SVG (com e sem uma medida sintética do navegador) e 500 passos aleatórios com semente. O `go test` compara byte a byte.
+1. **Fixtures golden** (`internal/core/testdata/golden.json`, de `scripts/gen-golden.mjs`): resultados e erros de operações, JSON de erro do zod, histórico, outline, lint, HTML, React, CSS de cada nó de 23 documentos, parse/bounds de paths, cores, import de SVG/HTML, export SVG (a partir do `layout(doc)`, mais overrides opcionais de medida sintética) e 500 passos aleatórios com semente. O `go test` compara byte a byte.
 2. **Suíte black-box da API** (`packages/e2e/test/api.test.ts`): MCP via HTTP e stdio (incluindo o contrato servido), WebSocket, API HTTP e checagem de Host/Origin, contra um processo servidor.
 3. **E2E do canvas** (`packages/e2e/test/e2e`): o Playwright dirige o canvas servido pelo binário, incluindo o renderizador WASM.
 
