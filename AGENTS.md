@@ -18,6 +18,7 @@
 3. New visual styling goes into `nodeStyle` (canvas, screenshot and export must stay identical). If it changes how a frame/rect/ellipse/path is painted, also update `displayList` + `wasmPaintable` (or make `wasmPaintable` return false so the DOM keeps painting it); `packages/e2e/test/e2e/wasm.e2e.test.ts` compares both renderers pixel by pixel.
 4. New MCP tool: add its definition to `server-go/contract/mcp.json` and its handler in `server-go/internal/server/mcp.go`, a Go test, a scenario in `packages/e2e/test/api.test.ts` (and the name in its tool list), and a row in both MCP tool tables (`docs/mcp.md` and `docs/pt-BR/mcp.md`). After a change to `packages/core`: `pnpm build && pnpm go:golden` and keep `pnpm go:test` passing.
 5. Docs: English is primary (`README.md`, `docs/`); the Brazilian Portuguese mirror (`README.pt-BR.md`, `docs/pt-BR/`) is updated in the same change.
+6. Design first: any change that touches an interface (`apps/web`, `apps/site`, new screens, visual tweaks) is drawn in a local Paprika over MCP (`http://127.0.0.1:4777/mcp`) before it is implemented. Attach screenshots of the frames (`render_screenshot`) to the PR, and log MCP friction in `docs/agent-feedback.md` (+ `docs/pt-BR/feedback-agentes.md`). If no Paprika server is reachable, start one (`paprika serve`) or say in the PR why the design step was skipped.
 
 ## Verification
 
