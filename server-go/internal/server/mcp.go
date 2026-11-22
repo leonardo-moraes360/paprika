@@ -595,7 +595,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		})
 	add("create_workspace", z.Object(z.Field{Name: "name", Schema: z.String().Max(120)}),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-			info, err := store.CreateWorkspace(a.Str("name"))
+			info, err := store.CreateWorkspace(a.Str("name"), m.actorName())
 			if err != nil {
 				return nil, err
 			}
@@ -607,7 +607,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(120))},
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		doc, _ := a.Get("document")
-		info, err := store.ImportWorkspace(doc, a.Str("name"))
+		info, err := store.ImportWorkspace(doc, a.Str("name"), m.actorName())
 		if err != nil {
 			return nil, err
 		}
@@ -626,21 +626,56 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			}
 			return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info))), nil
 		})
-	add("delete_workspace", z.Object(z.Field{Name: "id", Schema: z.String().Min(1)}),
-		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-			id := a.Str("id")
-			active, err := store.DeleteWorkspace(id, m.actorName())
-			if errors.Is(err, ErrNoWorkspace) {
-				return nil, fmt.Errorf(`workspace "%s" does not exist (see list_workspaces)`, id)
-			}
-			if errors.Is(err, ErrLastWorkspace) {
-				return nil, fmt.Errorf(`workspace "%s" is the only one and cannot be deleted`, id)
-			}
+	add("delete_workspace", z.Object(
+		z.Field{Name: "id", Schema: z.String().Min(1)},
+		optStr("confirmToken"),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		id, token := a.Str("id"), a.Str("confirmToken")
+		if token == "" {
+			// Nothing is deleted here. The call returns what would be lost and a token bound to this
+			// workspace: the agent shows the summary to the human, then repeats the call with the token.
+			summary, err := store.DescribeWorkspaceDeletion(id)
 			if err != nil {
-				return nil, err
+				return nil, workspaceActionError(id, err)
 			}
-			return jsonResult(jsonv.NewObject("deleted", id, "active", active)), nil
-		})
+			issued, ttl, err := store.IssueDeleteConfirm(id)
+			if err != nil {
+				return nil, workspaceActionError(id, err)
+			}
+			return jsonResult(jsonv.NewObject(
+				"needsConfirmation", true,
+				"summary", jsonv.FromGo(summary),
+				"confirmToken", issued,
+				"expiresInMs", float64(ttl),
+			)), nil
+		}
+		if err := store.ConsumeDeleteConfirm(id, token); err != nil {
+			switch {
+			case errors.Is(err, ErrExpiredConfirmToken):
+				return nil, fmt.Errorf(`confirmToken for workspace "%s" has expired: call delete_workspace without a token for a fresh summary`, id)
+			case errors.Is(err, ErrBadConfirmToken):
+				return nil, fmt.Errorf(`confirmToken is not valid for workspace "%s": it is single-use and tied to one workspace, so call delete_workspace without a token again to get the summary and a new token`, id)
+			default:
+				return nil, workspaceActionError(id, err)
+			}
+		}
+		active, err := store.DeleteWorkspace(id, m.actorName())
+		if err != nil {
+			return nil, workspaceActionError(id, err)
+		}
+		return jsonResult(jsonv.NewObject("deleted", id, "active", active, "notice", "tell the human what was deleted: see list_workspace_ops for the entry")), nil
+	})
+
+	add("list_workspace_ops", z.Object(
+		z.Field{Name: "limit", Schema: z.Default(z.Int().Min(1).Max(200), 20.0)},
+		optStr("workspaceId"),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		entries, err := store.ListWorkspaceOps(int(a.Num("limit")), a.Str("workspaceId"))
+		if err != nil {
+			return nil, err
+		}
+		return jsonShown(jsonv.NewObject("entries", jsonv.FromGo(entries)), jsonv.FromGo(entries)), nil
+	})
 
 	add("set_workspace_cover", z.Object(
 		z.Field{Name: "id", Schema: z.String().Min(1)},
@@ -1014,4 +1049,15 @@ func stripConnectorDerived(nodes []any) []string {
 		walk(n)
 	}
 	return warnings
+}
+
+// workspaceActionError is the actionable text an agent reads when a workspace call cannot go through.
+func workspaceActionError(id string, err error) error {
+	switch {
+	case errors.Is(err, ErrNoWorkspace):
+		return fmt.Errorf(`workspace "%s" does not exist (see list_workspaces)`, id)
+	case errors.Is(err, ErrLastWorkspace):
+		return fmt.Errorf(`workspace "%s" is the only one and cannot be deleted`, id)
+	}
+	return err
 }
