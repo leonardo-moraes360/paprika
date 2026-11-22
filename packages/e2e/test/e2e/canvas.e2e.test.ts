@@ -1434,4 +1434,45 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(after.x).toBeLessThan(before.x);
     expect(after.y).toBeLessThan(before.y);
   }, 30_000);
+
+  it("seta: inspector troca rota cotovelo/arredondado/curva e a alça da curva grava control", async () => {
+    const POLL = { timeout: 10_000 };
+    await page.keyboard.press("Escape");
+    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const made = await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId,
+        nodes: [
+          { type: "shape", id: "rt-a", text: "A", x: 40, y: 40, width: 100, height: 60 },
+          { type: "shape", id: "rt-b", text: "B", x: 280, y: 160, width: 100, height: 60 },
+          { type: "connector", id: "rt-c", from: { nodeId: "rt-a", side: "right" }, to: { nodeId: "rt-b", side: "left" }, route: "elbow" },
+        ],
+      },
+    });
+    expect(made.isError).toBeFalsy();
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    await page.locator('[data-layer-id="rt-c"] .layer-name').first().click();
+    const route = page.getByTestId("connector-route");
+    await route.click();
+    await page.getByRole("option", { name: "arredondado" }).click();
+    await expect.poll(async () => (await doc()).nodes["rt-c"], POLL).toMatchObject({ route: "rounded" });
+    await page.getByTestId("connector-radius").getByLabel("Raio", { exact: true }).fill("16");
+    await page.getByTestId("connector-radius").getByLabel("Raio", { exact: true }).press("Enter");
+    await expect.poll(async () => ((await doc()).nodes["rt-c"] as { radius: number }).radius, POLL).toBe(16);
+    await expect.poll(async () => ((await doc()).nodes["rt-c"] as { d: string }).d.includes("A"), POLL).toBe(true);
+    await route.click();
+    await page.getByRole("option", { name: "curva" }).click();
+    await expect.poll(async () => (await doc()).nodes["rt-c"], POLL).toMatchObject({ route: "curve" });
+    await expect.poll(() => page.getByTestId("connector-curve-handle").count(), POLL).toBe(1);
+    const handle = (await page.getByTestId("connector-curve-handle").boundingBox())!;
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 40, handle.y - 50, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(async () => {
+      const c = (await doc()).nodes["rt-c"] as { control?: { x: number; y: number }; d: string };
+      return !!c.control && c.d.includes("C");
+    }, POLL).toBe(true);
+  }, 30_000);
 });

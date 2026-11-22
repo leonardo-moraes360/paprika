@@ -34,7 +34,7 @@ shape: shape (rect|ellipse|diamond|triangle|note), text (centralizado; numa nota
   fontWeight, lineHeight, textAlign. width/height são números (padrão 160×80; nota 160×160). fill/stroke/radius/shadow
   pintam o contorno; campos omitidos na criação ganham o padrão do tipo (branco com borda escura; note = nota adesiva amarela).
 connector: from/to = {nodeId, side?: auto|top|right|bottom|left} (preso a um nó) ou {x, y} (ponto solto nas coordenadas
-  do pai), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,
+  do pai), route (straight|elbow|rounded|curve), radius (cantos arredondados), control {x,y} (alça da curva nas coords do pai), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,
   label (texto no meio da rota, na cor do traço: "sim", "não"). x, y, width, height e
   d são calculados a partir das pontas a cada escrita (só leitura): mover uma forma redesenha os conectores dela, e
   apagar um nó apaga os conectores presos a ele.

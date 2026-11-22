@@ -526,9 +526,17 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
             options={[
               { value: "straight", label: "reta" },
               { value: "elbow", label: "cotovelo" },
+              { value: "rounded", label: "arredondado" },
+              { value: "curve", label: "curva" },
             ]}
           />
+          {node.route === "rounded" && (
+            <div data-testid="connector-radius">
+              <Field label="Raio" type="number" value={node.radius} min={0} onCommit={(v) => num(v) !== undefined && set({ radius: num(v) })} />
+            </div>
+          )}
           <SelectField label="Tracejado" value={String(node.dashed)} onChange={(v) => set({ dashed: v === "true" })} options={YES_NO} />
+          {node.route === "curve" && <p className={ui.muted}>Arraste a alça no canvas para curvar a seta.</p>}
           <SelectField
             label="Seta no início"
             value={node.startArrow}

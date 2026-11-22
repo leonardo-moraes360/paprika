@@ -115,6 +115,21 @@ describe("connector", () => {
     expect(conn(sided).d.split(" M")[0]).toBe("M2 2 L2 62 L302 62 L302 122");
   });
 
+  it("rounded elbows use arcs at corners; curve is a cubic with an optional control", () => {
+    const rounded = two([
+      { op: "update", id: "c", props: { route: "rounded", radius: 12 } },
+      { op: "update", id: "b", props: { y: 200 } },
+    ]);
+    const rd = conn(rounded).d.split(" M")[0]!;
+    expect(rd).toContain("A12 12");
+    expect(rd.startsWith("M")).toBe(true);
+    const curved = two([{ op: "update", id: "c", props: { route: "curve", control: { x: 220, y: -40 } } }]);
+    const cd = conn(curved).d.split(" M")[0]!;
+    expect(cd).toMatch(/^M[\d.]+ [\d.]+ C/);
+    const handle = applyOps(curved, [{ op: "update", id: "c", props: { control: { x: 100, y: 80 } } }]).doc;
+    expect(conn(handle).d).not.toBe(conn(curved).d);
+  });
+
   it("free ends use the parent's coordinates; arrows on both ends", () => {
     const d = applyOps(createDocument(), [
       { op: "create", node: { type: "frame", id: "f", x: 100, y: 100, width: 400, height: 300 } },
