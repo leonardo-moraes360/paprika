@@ -845,7 +845,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(await notice.locator(".workspace-notice-summary").count()).toBe(0);
 
     // The notice is a polite live region and never takes focus.
-    expect(await page.locator('[role="status"]:has(.workspace-notice)').count()).toBe(1);
+    expect(await page.locator(".workspace-notice[role='status']").count()).toBe(1);
     expect(await page.evaluate(() => document.activeElement?.closest(".workspace-notice") ?? null)).toBeNull();
 
     await agent.callTool({

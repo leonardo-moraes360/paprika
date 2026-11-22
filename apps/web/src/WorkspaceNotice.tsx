@@ -49,9 +49,9 @@ export function WorkspaceNotice() {
   const { dismissWorkspaceNotice } = useLiveActions();
   const summary = notice?.op === "delete" ? deletedSummary(notice.detail) : "";
   return (
-    <div role="status" className="pointer-events-none fixed right-4 bottom-4 z-40 w-80 max-w-[calc(100%-2rem)]">
+    <div className="pointer-events-none fixed right-4 bottom-4 z-40 w-80 max-w-[calc(100%-2rem)]" aria-live="polite">
       {notice && (
-        <div key={notice.id} className="workspace-notice pointer-events-auto grid gap-2 rounded-lg border border-ui-border bg-ui-popover p-3 text-ui-popover-foreground shadow-float">
+        <div key={notice.id} role="status" className="workspace-notice pointer-events-auto grid gap-2 rounded-lg border border-ui-border bg-ui-popover p-3 text-ui-popover-foreground shadow-float">
           <div className="flex items-start gap-2">
             <span className="mt-1 size-2.5 shrink-0 rounded-full" style={{ background: actorColor(notice.actor, agents) }} aria-hidden />
             <p className="m-0 min-w-0 flex-1 text-md font-bold">
