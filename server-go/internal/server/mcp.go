@@ -799,6 +799,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			z.Field{Name: "dashed", Schema: z.Optional(z.Bool())},
 			z.Field{Name: "stroke", Schema: z.Optional(core.StrokeSchema)},
 			z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+			z.Field{Name: "label", Schema: z.Optional(z.String().Max(200))},
 		)).Max(1000), []any{})},
 		label(), batch(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {

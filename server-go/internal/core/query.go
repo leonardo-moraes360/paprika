@@ -103,6 +103,9 @@ func DescribeNode(n *Node) string {
 		if n.Bool("dashed") {
 			parts = append(parts, "dashed")
 		}
+		if l := n.Str("label"); l != "" {
+			parts = append(parts, "label="+jsonv.Quote(l))
+		}
 	}
 	if typ == "image" {
 		src := n.Str("src")

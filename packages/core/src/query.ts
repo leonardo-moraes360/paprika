@@ -46,6 +46,7 @@ export function describeNode(n: Node): string {
     parts.push(`${end(n.from)}->${end(n.to)}`, n.route);
     if (n.startArrow !== "none" || n.endArrow !== "arrow") parts.push(`arrows=${n.startArrow}/${n.endArrow}`);
     if (n.dashed) parts.push("dashed");
+    if (n.label) parts.push(`label=${JSON.stringify(n.label)}`);
   }
   if (n.type === "image") parts.push(`src=${n.src.startsWith("data:") ? "data:…" : n.src}`);
   if (!n.visible) parts.push("hidden");

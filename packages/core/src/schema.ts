@@ -212,6 +212,8 @@ export const ConnectorNode = z.object({
   endArrow: z.enum(["none", "arrow"]).default("arrow"),
   stroke: Stroke.default({ color: "#1e2336", width: 2 }),
   dashed: z.boolean().default(false),
+  /** Rótulo no meio da rota ("sim", "não"), na cor do traço. */
+  label: z.string().max(200).optional(),
   /** Gerado: o traçado (linha + pontas) em coordenadas locais. */
   d: z.string().max(10_000).default(""),
 });

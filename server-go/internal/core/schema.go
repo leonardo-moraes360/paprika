@@ -193,6 +193,7 @@ func connectorSchema() *z.ObjectSchema {
 		z.Field{Name: "endArrow", Schema: z.Default(z.Enum("none", "arrow"), "arrow")},
 		z.Field{Name: "stroke", Schema: z.Default(strokeSchema, jsonv.NewObject("color", "#1e2336", "width", 2.0))},
 		z.Field{Name: "dashed", Schema: z.Default(z.Bool(), false)},
+		z.Field{Name: "label", Schema: z.Optional(z.String().Max(200))},
 		z.Field{Name: "d", Schema: z.Default(z.String().Max(10_000), "")},
 	)
 }

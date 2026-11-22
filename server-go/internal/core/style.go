@@ -2,7 +2,9 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -425,6 +427,83 @@ func ConnectorAttrs(doc *Document, node *Node, vars bool) []Attr {
 		a = append(a, Attr{"strokeDasharray", jsonv.FormatNumber(round2(sw*3)) + " " + jsonv.FormatNumber(round2(sw*2.5))})
 	}
 	return a
+}
+
+var connectorPoint = regexp.MustCompile(`[ML](-?[\d.]+)[ ,](-?[\d.]+)`)
+
+// ConnectorMidpoint is the point halfway (by length) along a connector's line: the first subpath of
+// d (the arrowheads come after it). ok is false when d has no points.
+func ConnectorMidpoint(d string) (x, y float64, ok bool) {
+	line, _, _ := strings.Cut(d, " M")
+	var pts [][2]float64
+	for _, m := range connectorPoint.FindAllStringSubmatch(line, -1) {
+		px, _ := strconv.ParseFloat(m[1], 64)
+		py, _ := strconv.ParseFloat(m[2], 64)
+		pts = append(pts, [2]float64{px, py})
+	}
+	if len(pts) == 0 {
+		return 0, 0, false
+	}
+	seg := func(k int) float64 {
+		dx, dy := pts[k+1][0]-pts[k][0], pts[k+1][1]-pts[k][1]
+		return math.Sqrt(dx*dx + dy*dy)
+	}
+	total := 0.0
+	for k := 0; k < len(pts)-1; k++ {
+		total += seg(k)
+	}
+	left := total / 2
+	for k := 0; k < len(pts)-1; k++ {
+		l := seg(k)
+		if left <= l && l > 0 {
+			t := left / l
+			return round2(pts[k][0] + (pts[k+1][0]-pts[k][0])*t), round2(pts[k][1] + (pts[k+1][1]-pts[k][1])*t), true
+		}
+		left -= l
+	}
+	return pts[0][0], pts[0][1], true
+}
+
+var connectorHaloSkip = regexp.MustCompile(`(?i)gradient|url\(`)
+
+// connectorHalo is the background behind a connector: the nearest ancestor's fill (no gradient), or white.
+func connectorHalo(doc *Document, node *Node, vars bool) string {
+	cur := parentOf(doc, node)
+	for cur != nil {
+		switch cur.Str("type") {
+		case "frame", "page", "rect", "ellipse":
+			if f := cur.Str("fill"); f != "" && f != "transparent" && !connectorHaloSkip.MatchString(f) {
+				return jsString(paintValue(doc, f, ModeOf(doc, cur), vars))
+			}
+		}
+		cur = parentOf(doc, cur)
+	}
+	return "#ffffff"
+}
+
+// ConnectorLabelAttrs returns the attributes of a connector's label <text> (nil without a label):
+// halfway along the route, in the stroke color, with a halo of the background color.
+func ConnectorLabelAttrs(doc *Document, node *Node, vars bool) []Attr {
+	if node.Str("label") == "" {
+		return nil
+	}
+	x, y, ok := ConnectorMidpoint(node.Str("d"))
+	if !ok {
+		return nil
+	}
+	return []Attr{
+		{"x", x}, {"y", y},
+		{"fill", jsString(paintValue(doc, node.Obj("stroke").Str("color"), ModeOf(doc, node), vars))},
+		{"stroke", connectorHalo(doc, node, vars)},
+		{"strokeWidth", 6.0},
+		{"strokeLinejoin", "round"},
+		{"paintOrder", "stroke"},
+		{"fontFamily", "Inter, system-ui, sans-serif"},
+		{"fontSize", 12.0},
+		{"fontWeight", 600.0},
+		{"textAnchor", "middle"},
+		{"dominantBaseline", "central"},
+	}
 }
 
 // Attr is one SVG attribute (value string or float64).

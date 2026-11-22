@@ -1,6 +1,6 @@
 import { firstPage, pageRoots, isContainer, type Document, type Node } from "./schema.js";
 import { canvasBounds, escapeHtml, svgAttrs } from "./render.js";
-import { connectorAttrs, modeOf, pathAttrs, resolveValue, shapeAttrs } from "./style.js";
+import { connectorAttrs, connectorLabelAttrs, modeOf, pathAttrs, resolveValue, shapeAttrs } from "./style.js";
 import { shapePadding } from "./diagram.js";
 
 /**
@@ -169,7 +169,9 @@ export function exportSVG(
     if (n.type === "group") return `${open}${kids()}</g>`;
     if (n.type === "connector") {
       const a = connectorAttrs(doc, n);
-      return `${open}<path${svgAttrs(a)}/></g>`;
+      const label = connectorLabelAttrs(doc, n);
+      const text = label ? `<text${svgAttrs(label)}>${escapeHtml(n.label!)}</text>` : "";
+      return `${open}<path${svgAttrs(a)}/>${text}</g>`;
     }
     if (n.type === "shape") return `${open}${shapeSVG(n, w, h)}</g>`;
 
