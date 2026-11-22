@@ -69,6 +69,39 @@ function structureActions(doc: Document, ids: string[], props: Pick<Props, "appl
   };
 }
 
+const Z_LABEL: Record<"front" | "back" | "forward" | "backward", string> = {
+  front: "trazer para frente",
+  forward: "avançar",
+  backward: "recuar",
+  back: "enviar para fundo",
+};
+
+function ArrangeSection({ ids, apply }: { ids: string[]; apply: Props["apply"] }) {
+  const run = (index: keyof typeof Z_LABEL) =>
+    apply(
+      ids.map((id) => ({ op: "update", id, props: { index } })),
+      Z_LABEL[index],
+    );
+  return (
+    <InspectorSection id="arrange" title="Ordem" defaultOpen>
+      <div className={ui.actions} data-testid="arrange-actions">
+        <button type="button" data-testid="arrange-front" title="Trazer para frente (Ctrl+Page Up)" onClick={() => run("front")}>
+          Trazer para frente
+        </button>
+        <button type="button" data-testid="arrange-forward" title="Avançar (Page Up)" onClick={() => run("forward")}>
+          Avançar
+        </button>
+        <button type="button" data-testid="arrange-backward" title="Recuar (Page Down)" onClick={() => run("backward")}>
+          Recuar
+        </button>
+        <button type="button" data-testid="arrange-back" title="Enviar para fundo (Ctrl+Page Down)" onClick={() => run("back")}>
+          Enviar para fundo
+        </button>
+      </div>
+    </InspectorSection>
+  );
+}
+
 export function Inspector(props: Props) {
   const { doc, node, selected, apply, activity, onSelect } = props;
   if (selected.length > 1) {
@@ -86,6 +119,7 @@ export function Inspector(props: Props) {
             </button>
           )}
         </div>
+        <ArrangeSection ids={selected} apply={apply} />
         <p className={ui.muted}>Arraste para mover todos; setas empurram; Delete apaga; Ctrl+D duplica.</p>
       </div>
     );
@@ -311,6 +345,8 @@ export function Inspector(props: Props) {
         </InspectorSection>
       )}
 
+      <ArrangeSection ids={[node.id]} apply={apply} />
+
       <InspectorSection id="notes" title="Notas para agentes">
         <Field label="Notas" type="textarea" value={node.notes} placeholder="Intenção, restrições, conteúdo real…" onCommit={(v) => set({ notes: v || null })} />
       </InspectorSection>
@@ -353,6 +389,7 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
       <InspectorSection id="instance-fill" title="Preenchimento">
         <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v }, "override")} />
       </InspectorSection>
+      <ArrangeSection ids={[node.id]} apply={apply} />
       <div className={ui.actions}>
         <button onClick={() => onSelect(node.instanceOf)}>Ir para o componente</button>
         {overrides > 0 && <button onClick={() => set({ overrides: null }, "limpar overrides")}>Limpar overrides</button>}
@@ -445,6 +482,7 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
         </div>
         <p className={ui.muted}>A linha segue as formas: mova as formas ou troque os lados para redesenhar.</p>
       </InspectorSection>
+      <ArrangeSection ids={[node.id]} apply={apply} />
       <InspectorSection id="notes" title="Notas para agentes">
         <Field label="Notas" type="textarea" value={node.notes} onCommit={(v) => set({ notes: v || null })} />
       </InspectorSection>
@@ -544,6 +582,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
           </button>
         </div>
       </InspectorSection>
+      <ArrangeSection ids={[group.id]} apply={props.apply} />
       <InspectorSection id="notes" title="Notas para agentes">
         <Field label="Notas" type="textarea" value={group.notes} onCommit={(v) => set({ notes: v || null })} />
       </InspectorSection>

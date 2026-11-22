@@ -4259,7 +4259,7 @@
     {
       "name": "export_code",
       "title": "Export code",
-      "description": "Exports a node as standalone HTML, a React (TSX) component with inline styles, vector SVG (svg: the layout is measured in headless Chromium, like render_screenshot; a page rootId exports the page), a React (TSX) component with Tailwind utility classes (tailwind), standalone HTML with Tailwind utility classes and the Tailwind browser script (tailwind-html), or a React component plus its .module.css (css-modules: two text blocks, the .tsx first and the stylesheet second). Tailwind and CSS Modules output come from the same styles as the canvas, so the exported screen matches it; declarations Tailwind has no utility for stay inline.",
+      "description": "Exports a node as standalone HTML, a React (TSX) component with inline styles, vector SVG (svg: the layout is measured in headless Chromium, like render_screenshot; a page rootId exports the page), a React (TSX) component with Tailwind utility classes (tailwind), standalone HTML with Tailwind utility classes and the Tailwind browser script (tailwind-html), a React component plus its .module.css (css-modules: two text blocks, the .tsx first and the stylesheet second), an Angular standalone component (angular: three text blocks — .ts, template .html, then .css), or a Svelte single-file component (svelte). Tailwind, CSS Modules, Angular and Svelte output come from the same styles as the canvas, so the exported screen matches it; declarations Tailwind has no utility for stay inline.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4275,12 +4275,14 @@
               "svg",
               "tailwind",
               "tailwind-html",
-              "css-modules"
+              "css-modules",
+              "angular",
+              "svelte"
             ]
           },
           "cssVariables": {
             "default": false,
-            "description": "html/react/tailwind/tailwind-html/css-modules: tokens as var(--name), with one stylesheet rule per theme mode (react and tailwind export tokensCss; css-modules puts the sheet at the top of the .module.css)",
+            "description": "html/react/tailwind/tailwind-html/css-modules/angular/svelte: tokens as var(--name), with one stylesheet rule per theme mode (react and tailwind export tokensCss; css-modules and angular put the sheet at the top of the CSS; svelte wraps :root and [data-paprika-mode] in :global)",
             "type": "boolean"
           }
         },

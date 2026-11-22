@@ -12,7 +12,7 @@ const root = resolve(here, "../..");
 const core = await import(join(root, "packages/core/dist/index.js"));
 const {
   applyOps, createDocument, parseDocument, copyId, History, outline, describeNode, lintDocument, renderHTML,
-  exportReact, exportTailwind, exportCssModules, renderTailwindHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
+  exportReact, exportTailwind, exportCssModules, exportAngular, exportSvelte, renderTailwindHTML, renderFrameworkHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
   parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, importSVG, importHTML, exportSVG,
   diagramOps, shapeOutline, tailwindClassesFor, layout, measureText, FONT_AVG, normalizePath, pathOrigin,
 } = core;
@@ -575,6 +575,24 @@ const views = Object.entries(viewDocs).map(([name, doc]) => {
       const r = err(() => exportCssModules(doc, id, { cssVariables: true }));
       return [id, r.ok ? JSON.stringify(r.value) : `ERROR: ${r.error}`];
     })),
+    angular: Object.fromEntries(doc.rootIds.map((id) => {
+      const r = err(() => exportAngular(doc, id));
+      return [id, r.ok ? JSON.stringify(r.value) : `ERROR: ${r.error}`];
+    })),
+    angularVars: Object.fromEntries(doc.rootIds.map((id) => {
+      const r = err(() => exportAngular(doc, id, { cssVariables: true }));
+      return [id, r.ok ? JSON.stringify(r.value) : `ERROR: ${r.error}`];
+    })),
+    svelte: Object.fromEntries(doc.rootIds.map((id) => {
+      const r = err(() => exportSvelte(doc, id));
+      return [id, r.ok ? JSON.stringify(r.value) : `ERROR: ${r.error}`];
+    })),
+    svelteVars: Object.fromEntries(doc.rootIds.map((id) => {
+      const r = err(() => exportSvelte(doc, id, { cssVariables: true }));
+      return [id, r.ok ? JSON.stringify(r.value) : `ERROR: ${r.error}`];
+    })),
+    frameworkHtml: renderFrameworkHTML(doc).html,
+    frameworkHtmlVars: renderFrameworkHTML(doc, { cssVariables: true }).html,
     describe: Object.fromEntries(ids.map((id) => [id, describeNode(doc.nodes[id])])),
     style: Object.fromEntries(ids.map((id) => [id, cssToString(nodeStyle(doc, doc.nodes[id]))])),
     find: {
