@@ -205,3 +205,14 @@ Mais simples para o próximo agente:
 - `get_document_outline` com `depth: 0` bastou para confirmar o resultado gastando pouco.
 - O `lint_design` pegou toda cor literal da landing page (`raw-color`), o que gerou o token `on.brand`.
 - Um só motor de estilo: os screenshots que o agente conferiu saem do mesmo `nodeStyle` do canvas.
+
+## 2026-11-22: rodada de acessibilidade (proposta de contraste)
+
+Tarefa: desenhar pelo MCP HTTP, numa sessão na nuvem, um quadro antes/depois das correções de contraste (texto branco sobre o acento, cores das etiquetas de agente) e tirar o screenshot para a decisão do usuário.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 71 | Screenshot de um quadro que abraça o conteúdo | `render_screenshot` de um `frame` raiz com `width`/`height: "hug"` devolveu um PNG de 2×2, sem erro nem aviso; o canvas mostrava o quadro inteiro (ele mede no navegador), o screenshot usa o tamanho gravado. O contorno foi medir o quadro no canvas e fixar largura e altura | Medir raízes `hug` no Chromium headless antes do screenshot (o export SVG já mede), ou responder com um erro dizendo que a raiz não tem tamanho | P1 |
+| 72 | Desenhar no Paprika do próprio usuário a partir da nuvem | A regra design-first aponta para `127.0.0.1:4777` na máquina do usuário; a sessão na nuvem não alcança esse endereço, então o quadro ficou num servidor descartável no container e só o PNG chega ao usuário | `paprika export --root <id>` de um frame só mais uma tool `import_nodes`, ou deixar o sync do time levar um workspace compartilhado de "propostas" | P2 |
+
+- Um `create_nodes` aninhado montou o quadro inteiro (≈100 nós) numa chamada; com `width`/`height: "hug"` em todo texto, o problema do texto 100×100 não apareceu desta vez (o #65 continua valendo para o padrão).
