@@ -143,6 +143,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Group several writes into one undo step | `batch` on every write tool (2026-11-21) | ✅ | — |
 | Actor name from MCP `clientInfo` | `agent:<clientInfo.name>` on stdio and HTTP (session id carries the name) (2026-11-21) | ✅ | — |
 | Agent presence on the canvas (cursor, what it is editing) | Own cursor, outline, name and color per agent session, roster; implicit from every tool call (2026-11-21) | ✅ | — |
+| Move a board between Paprika servers | `paprika export --root ID` writes one frame plus the components and tokens it needs as a standalone `.paprika.json`; MCP `import_document` stores it as a new workspace without switching the active one, and `create_nodes` tolerates a connector's derived fields with a warning (2026-11-22) | ✅ | — |
 | Comments for humans and agents (create, resolve, filter) | `notes` field only | 🟡 | P2 |
 | Manage files via MCP (list, create, open, rename, archive), several files at once | Workspaces over MCP: `list_workspaces`, `create_workspace`, `open_workspace`, `rename_workspace`, `delete_workspace` (2026-11-21, see M); missing: archive, and reading another workspace without switching the active one (Q "Work on another workspace without moving the human") | 🟡 | P2 |
 | "Connect your agent" panel with ready configs per client | README snippets | 🟡 | P2 |

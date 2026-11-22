@@ -34,7 +34,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `get_design_guide` | Modelo de nós, campos e fluxo recomendado; em inglês, ou em português com `language: "pt-BR"` |
 | `get_document_outline` | Árvore compacta + tokens + versão |
 | `get_nodes` / `find_nodes` | JSON completo de nós / busca por tipo, nome, texto |
-| `create_nodes` | Cria árvores aninhadas numa chamada |
+| `create_nodes` | Cria árvores aninhadas numa chamada; num conector `x`/`y`/`width`/`height`/`d` seguem `from`/`to`, então um nó copiado que os traz recebe um aviso, não uma recusa |
 | `draw_diagram` | Desenha um diagrama (fluxograma, arquitetura, mapa mental) a partir de formas e ligações: distribui as formas em camadas (`direction`: para baixo ou para a direita, à direita do conteúdo existente) e liga com setas que seguem as formas; uma ligação pode ter `label` |
 | `update_nodes` / `move_nodes` / `delete_nodes` | Edição em lote, atômica. `index` nos props do `update` ou no `move` define a ordem Z no pai do nó: número a partir de 0 (o fundo) ou `front` / `back` / `forward` / `backward`, no mesmo passo de desfazer dos outros campos |
 | `group_nodes` / `ungroup_nodes` | Põe nós irmãos num `group` (o desenho não se move) / devolve ao pai |
@@ -42,7 +42,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | `create_component` / `create_instance` / `detach_instance` | Marca um frame como componente / põe uma cópia dele (com `scale` e `overrides`; retorna o id de cada cópia) / transforma uma instância em nós comuns |
 | `apply_ops` | Transação mista (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
 | `set_tokens` | Design tokens (`$nome`) para cores e tamanhos; com `mode`, os valores de um modo de tema (ex.: `dark`) que frames e páginas escolhem com `mode` |
-| `list_workspaces` / `open_workspace` / `create_workspace` | Lista os workspaces (documentos) do servidor / torna um deles o ativo para todas as ferramentas e para o canvas do humano / cria um vazio |
+| `list_workspaces` / `open_workspace` / `create_workspace` / `import_document` | Lista os workspaces (documentos) do servidor / torna um deles o ativo para todas as ferramentas e para o canvas do humano / cria um vazio / guarda um `.paprika.json` (ex.: do `paprika export --root ID`) como novo workspace sem trocar o ativo |
 | `rename_workspace` / `delete_workspace` | Renomeia um workspace (com desfazer quando é o ativo) / exclui um de vez (o ativo passa para o outro atualizado mais recentemente; o único não pode ser excluído) |
 | `set_workspace_cover` | Põe uma imagem no card do workspace na página inicial: o screenshot de um frame dele (`rootId`), uma imagem (`image`, base64 ou data URL) ou nenhuma (`clear`, volta a primeira letra) |
 | `undo` / `redo` / `get_history` | Histórico compartilhado com o humano; toda ferramenta de escrita aceita `batch`, e várias chamadas com o mesmo batch viram um passo só de undo |

@@ -263,7 +263,7 @@
     {
       "name": "create_nodes",
       "title": "Create nodes",
-      "description": "Creates one or more nodes (with nested children in frames) under parentId (null/omitted = canvas). Atomic. Returns the created ids in order.",
+      "description": "Creates one or more nodes (with nested children in frames) under parentId (null/omitted = canvas). Atomic. Returns the created ids in order. On a connector, x, y, width, height and d follow from/to: if a copied node carries them, create_nodes ignores those fields and says so in warnings.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3472,6 +3472,86 @@
         },
         "required": [
           "workspace"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "import_document",
+      "title": "Import document",
+      "description": "Stores a .paprika.json document (written by paprika export or paprika export --root) as a new workspace on this server. It does not become active: the human's canvas and every other tool keep working in the current workspace until open_workspace. A document whose id already exists here is stored as a copy with a new document id (node ids are kept).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "document": {
+            "description": "the .paprika.json document object (format paprika/1), read from the file",
+            "type": "object"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "workspace name override (default: the document's name)"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "workspace": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "nodes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updatedAt": {
+                "type": "number",
+                "description": "Unix ms of the last write"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "cover": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "nodes",
+              "updatedAt",
+              "active",
+              "cover"
+            ],
+            "additionalProperties": false
+          },
+          "active": {
+            "type": "string",
+            "description": "id of the workspace that stays active (the import never switches it)"
+          }
+        },
+        "required": [
+          "workspace",
+          "active"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false

@@ -143,6 +143,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Agrupar várias escritas num só passo de desfazer | `batch` em toda ferramenta de escrita (2026-11-21) | ✅ | — |
 | Nome do ator vindo do `clientInfo` do MCP | `agent:<clientInfo.name>` no stdio e no HTTP (o id de sessão guarda o nome) (2026-11-21) | ✅ | — |
 | Presença do agente no canvas (cursor, o que está editando) | Cursor, contorno, nome e cor próprios por sessão de agente, lista de presentes; implícita em toda chamada de ferramenta (2026-11-21) | ✅ | — |
+| Mover um board entre servidores Paprika | `paprika export --root ID` escreve um frame com os componentes e tokens de que ele precisa como `.paprika.json` autônomo; o `import_document` do MCP o guarda como novo workspace sem trocar o ativo, e o `create_nodes` tolera os campos derivados de conector com aviso (2026-11-22) | ✅ | — |
 | Comentários para humanos e agentes (criar, resolver, filtrar) | Só o campo `notes` | 🟡 | P2 |
 | Gerenciar arquivos pelo MCP (listar, criar, abrir, renomear, arquivar), vários ao mesmo tempo | Workspaces pelo MCP: `list_workspaces`, `create_workspace`, `open_workspace`, `rename_workspace`, `delete_workspace` (2026-11-21, ver M); falta: arquivar, e ler outro workspace sem trocar o ativo (Q "Trabalhar em outro workspace sem mover o humano") | 🟡 | P2 |
 | Painel "conectar seu agente" com configs prontas por cliente | Trechos no README | 🟡 | P2 |

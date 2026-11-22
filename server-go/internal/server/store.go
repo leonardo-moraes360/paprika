@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -414,6 +415,186 @@ func ExportDocument(db *sql.DB, id string) (string, error) {
 		return "", err
 	}
 	return jsonv.Stringify(doc, "  ") + "\n", nil
+}
+
+// tokenRef is a $token reference inside any string value (token chains included).
+var tokenRef = regexp.MustCompile(`\$[A-Za-z0-9_.-]{1,100}`)
+
+// ExportFrame builds a standalone `.paprika.json` from one frame (or group, or page): its
+// subtree, the components its instances use, the tokens and theme modes those nodes reference
+// (following `$token` chains), and the connectors whose ends all fit inside. A connector that
+// points outside the kept set is dropped and reported in warnings; ids are kept, so importing
+// the result on another server shows the same board.
+func ExportFrame(db *sql.DB, docID, rootID string) (string, []string, error) {
+	doc, _, err := LoadDocument(db, docID)
+	if err != nil {
+		return "", nil, err
+	}
+	root := core.GetNode(doc, rootID)
+	if root == nil {
+		return "", nil, fmt.Errorf(`o nó "%s" não existe no documento "%s"`, rootID, docID)
+	}
+	if t := root.Str("type"); t != "frame" && t != "group" && t != "page" {
+		return "", nil, fmt.Errorf(`export --root precisa de um frame, group ou page; "%s" é %s`, rootID, t)
+	}
+	warnings := []string{}
+	keep := map[string]bool{}
+	var add func(id string)
+	add = func(id string) {
+		if keep[id] {
+			return
+		}
+		n := core.GetNode(doc, id)
+		if n == nil {
+			return
+		}
+		keep[id] = true
+		for _, c := range n.Strings("children") {
+			add(c)
+		}
+		if src := n.Str("instanceOf"); src != "" {
+			add(src)
+		}
+	}
+	add(rootID)
+	for _, id := range core.Nodes(doc).Keys() {
+		if !keep[id] {
+			continue
+		}
+		n := core.GetNode(doc, id)
+		if n.Str("type") != "connector" {
+			continue
+		}
+		var outside []string
+		for _, end := range []string{"from", "to"} {
+			if e := n.Obj(end); e != nil {
+				if ref := e.Str("nodeId"); ref != "" && !keep[ref] {
+					outside = append(outside, ref)
+				}
+			}
+		}
+		if len(outside) > 0 {
+			delete(keep, id) // connectors are leaves: dropping one orphans nothing else
+			warnings = append(warnings, fmt.Sprintf(`conector "%s" descartado: a ponta aponta para "%s", que está fora de "%s"`, id, strings.Join(outside, `", "`), rootID))
+		}
+	}
+	// Tokens and theme modes the kept nodes reference, transitively.
+	refs := map[string]bool{}
+	neededModes := map[string]bool{}
+	var scanStrings func(v any)
+	scanStrings = func(v any) {
+		switch t := v.(type) {
+		case string:
+			for _, m := range tokenRef.FindAllString(t, -1) {
+				refs[m[1:]] = true
+			}
+		case *jsonv.Object:
+			for _, k := range t.Keys() {
+				child, _ := t.Get(k)
+				scanStrings(child)
+			}
+		case []any:
+			for _, x := range t {
+				scanStrings(x)
+			}
+		}
+	}
+	tokens := jsonv.NewObject()
+	src := core.Tokens(doc)
+	for {
+		for _, id := range core.Nodes(doc).Keys() {
+			if !keep[id] {
+				continue
+			}
+			n := core.GetNode(doc, id)
+			scanStrings(n)
+			if mode := n.Str("mode"); mode != "" {
+				neededModes[mode] = true
+			}
+		}
+		for m := range neededModes {
+			if md := core.Modes(doc).Obj(m); md != nil {
+				scanStrings(md)
+			}
+		}
+		added := false
+		for name := range refs {
+			if !tokens.Has(name) {
+				if v, ok := src.Get(name); ok {
+					tokens.Set(name, jsonv.Clone(v))
+					added = true
+				}
+			}
+		}
+		if !added {
+			break
+		}
+		scanStrings(tokens)
+	}
+	nodes := jsonv.NewObject()
+	for _, id := range core.Nodes(doc).Keys() {
+		if !keep[id] {
+			continue
+		}
+		n := jsonv.Clone(core.GetNode(doc, id)).(*jsonv.Object)
+		if id == rootID {
+			n.Set("parentId", nil)
+		}
+		if kids := n.Arr("children"); kids != nil {
+			kept := []any{}
+			for _, c := range kids {
+				if s, ok := c.(string); ok && keep[s] {
+					kept = append(kept, c)
+				}
+			}
+			n.Set("children", kept)
+		}
+		nodes.Set(id, n)
+	}
+	name := root.Str("name")
+	if name == "" {
+		name = doc.Str("name")
+	}
+	// The export keeps the top level in the document's original order (component sources of
+	// instances come along), so the imported outline matches the one the board left behind. A
+	// root that was not top level (a frame inside another) is placed first.
+	roots := []any{}
+	rootWasTop := false
+	for _, id := range doc.Strings("rootIds") {
+		if keep[id] {
+			roots = append(roots, id)
+			if id == rootID {
+				rootWasTop = true
+			}
+		}
+	}
+	if !rootWasTop {
+		roots = append([]any{rootID}, roots...)
+	}
+	out := jsonv.NewObject(
+		"format", doc.Str("format"),
+		"id", core.NewID(),
+		"name", name,
+		"rootIds", roots,
+		"nodes", nodes,
+		"tokens", tokens,
+	)
+	var modesOut *jsonv.Object
+	for m := range neededModes {
+		if md := core.Modes(doc).Obj(m); md != nil {
+			if modesOut == nil {
+				modesOut = jsonv.NewObject()
+			}
+			modesOut.Set(m, jsonv.Clone(md))
+		}
+	}
+	if modesOut != nil {
+		out.Set("modes", modesOut)
+	}
+	if _, err := core.ParseDocument(out); err != nil {
+		return "", warnings, fmt.Errorf("documento exportado inválido (bug?): %w", err)
+	}
+	return jsonv.Stringify(out, "  ") + "\n", warnings, nil
 }
 
 // Store owns the active document in memory and in SQLite. Every mutation goes through
@@ -929,6 +1110,34 @@ func (s *Store) CreateWorkspace(name string) (WorkspaceInfo, error) {
 		return WorkspaceInfo{}, err
 	}
 	return WorkspaceInfo{doc.Str("id"), name, 0, now, false, nil}, nil
+}
+
+// ImportWorkspace stores a .paprika.json document as a new workspace without touching the
+// active one: the human's canvas and every tool keep working where they were. The document is
+// validated like a file load (core.ParseDocument); if its id already exists here the copy gets
+// a new document id (node ids are kept).
+func (s *Store) ImportWorkspace(input any, name string) (WorkspaceInfo, error) {
+	doc, err := core.ParseDocument(input)
+	if err != nil {
+		return WorkspaceInfo{}, fmt.Errorf("document: %w", err)
+	}
+	if n := strings.TrimSpace(name); n != "" {
+		doc.Set("name", n)
+	}
+	id := doc.Str("id")
+	var version int64
+	err = s.db.QueryRow(`SELECT version FROM documents WHERE id = ?`, id).Scan(&version)
+	switch {
+	case err == nil:
+		id = core.NewID()
+		doc.Set("id", id)
+	case !errors.Is(err, sql.ErrNoRows):
+		return WorkspaceInfo{}, err
+	}
+	if err := writeDocument(s.db, doc, nil, 0, time.Now().UnixMilli()); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	return s.workspaceInfo(id)
 }
 
 // ErrLastWorkspace is returned by DeleteWorkspace when the id is the only document: the server
