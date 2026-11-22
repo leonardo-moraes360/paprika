@@ -349,3 +349,15 @@ pages, then wire the rename in `apps/web`. Six root frames (three states, light 
 
 - `lint_design` flagged the 11 px caption (`small-text`) on all six frames; 12 px fixed it, so captions stay at the app's smallest legible size.
 - Mode `light` on the frame plus the same `pg.*` tokens overridden under `set_tokens {mode: "light"}` rendered both themes from one set of nodes with no per-frame color edits.
+
+## 2026-11-22: canvas notice when an agent deletes or switches a workspace (PAP-B-037, design first)
+
+Task: draw the non-blocking notice (delete with counts, open, rename; light and dark) before wiring
+`WorkspaceNotice` and the `workspaceOp` WebSocket broadcast. Six root frames.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 101 | Hearing workspace ops on the canvas without polling HTTP | `list_workspace_ops` exists, but the live canvas only saw document patches; a delete of the active workspace left the human on a dead editor until a refresh | Broadcast each new op log entry as `{type:workspaceOp, op}` over the existing WebSocket hub (poll the log; skip entries that predate the subscriber) | P2 |
+
+- Fixed-height roots; PNGs under `docs/assets/boards/PAP-B-037/`.
+- Notice uses `role=status` and never steals focus; overview mount shows delete notices after the canvas route is gone.

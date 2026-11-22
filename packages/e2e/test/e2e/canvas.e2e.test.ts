@@ -829,6 +829,57 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, clear: true } });
    }, 30_000);
 
+  it("aviso: quando um agente apaga o workspace ativo ou troca de workspace, o canvas diz quem fez, o que foi perdido e leva à overview", async () => {
+    const POLL = { timeout: 10_000 };
+    const { id: demo, name: demoName } = await doc();
+    const structured = (r: unknown) => (r as { structuredContent: Record<string, any> }).structuredContent;
+    await page.goto(`${url}/w/${demo}`);
+    await page.waitForSelector('[data-paprika-id="login"]');
+    const notice = page.locator(".workspace-notice");
+    expect(await notice.count()).toBe(0);
+
+    const tmp = structured(await agent.callTool({ name: "create_workspace", arguments: { name: "Aviso temporário" } })).workspace.id as string;
+    await agent.callTool({ name: "open_workspace", arguments: { id: tmp } });
+    await expect.poll(() => notice.textContent(), POLL).toContain("e2e-agent abriu o workspace “Aviso temporário”");
+    await expect.poll(() => new URL(page.url()).pathname, POLL).toBe(`/w/${tmp}`);
+    expect(await notice.locator(".workspace-notice-summary").count()).toBe(0);
+
+    // The notice is a polite live region and never takes focus.
+    expect(await page.locator('[role="status"]:has(.workspace-notice)').count()).toBe(1);
+    expect(await page.evaluate(() => document.activeElement?.closest(".workspace-notice") ?? null)).toBeNull();
+
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: { nodes: [{ type: "frame", id: "a1", width: 100, height: 60 }, { type: "frame", id: "a2", width: 100, height: 60 }] },
+    });
+    await page.waitForSelector('[data-paprika-id="a2"]');
+
+    // Two steps: the summary and the token, then the delete.
+    const ask = structured(await agent.callTool({ name: "delete_workspace", arguments: { id: tmp } }));
+    expect(ask.needsConfirmation).toBe(true);
+    await agent.callTool({ name: "delete_workspace", arguments: { id: tmp, confirmToken: ask.confirmToken } });
+    await expect.poll(() => notice.textContent(), POLL).toContain("e2e-agent apagou o workspace “Aviso temporário”");
+    await expect.poll(() => notice.locator(".workspace-notice-summary").textContent(), POLL).toMatch(/2 nós.*2 frames/);
+    await expect.poll(() => new URL(page.url()).pathname, POLL).not.toBe(`/w/${tmp}`);
+    expect(await page.evaluate(() => document.activeElement?.closest(".workspace-notice") ?? null)).toBeNull();
+    if (shots) await page.screenshot({ path: join(shots, "25-aviso-apagou.png") });
+
+    await notice.getByRole("button", { name: "Ver workspaces" }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+    await expect.poll(() => notice.count()).toBe(0);
+    await expect.poll(() => page.locator(".workspace-card.is-active").count(), POLL).toBe(1);
+
+    // A rename of the open workspace by an agent shows who did it; the dismiss button closes it.
+    await page.goto(`${url}/w/${demo}`);
+    await page.waitForSelector('[data-paprika-id="login"]');
+    await agent.callTool({ name: "rename_workspace", arguments: { id: demo, name: "Demo do agente" } });
+    await expect.poll(() => notice.textContent(), POLL).toContain("e2e-agent renomeou o workspace para “Demo do agente”");
+    await notice.getByRole("button", { name: "Dispensar aviso" }).click();
+    await expect.poll(() => notice.count()).toBe(0);
+    await agent.callTool({ name: "rename_workspace", arguments: { id: demo, name: demoName } });
+    await expect.poll(async () => (await doc()).name, POLL).toBe(demoName);
+  });
+
   it("overview: uma rajada de escritas do agente não vira um GET da lista por versão, e o último valor aparece", async () => {
     const POLL = { timeout: 10_000 };
     const { id: demo } = await doc();
