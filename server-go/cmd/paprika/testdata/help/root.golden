@@ -1,0 +1,21 @@
+paprika 0.1.0 (Go): ferramenta de design local para agentes de IA, com MCP embutido e dados em SQLite.
+
+Uso:
+  paprika [flags]
+  paprika [comando]
+
+Comandos:
+  completion  Gera o script de autocompletar para o shell
+  export      Exporta o documento como .paprika.json
+  help        Mostra a ajuda de um comando
+  import      Importa um documento .paprika.json para o banco
+  list        Lista os documentos do banco
+  mcp         Serve o MCP via stdio (para agentes que só falam stdio)
+  serve       Sobe o canvas, a API HTTP, o MCP via HTTP e o sync ao vivo
+  version     Mostra a versão
+
+Opções:
+  -h, --help      Mostra a ajuda
+  -v, --version   Mostra a versão
+
+Use "paprika [comando] --help" para saber mais sobre um comando.

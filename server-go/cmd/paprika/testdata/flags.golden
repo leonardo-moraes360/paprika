@@ -1,0 +1,49 @@
+[paprika ]
+--help	-h	bool	"false"
+--version	-v	bool	"false"
+[paprika completion]
+--help	-h	bool	"false"
+[paprika completion bash]
+--help	-h	bool	"false"
+--no-descriptions	-	bool	"false"
+[paprika completion fish]
+--help	-h	bool	"false"
+--no-descriptions	-	bool	"false"
+[paprika completion zsh]
+--help	-h	bool	"false"
+--no-descriptions	-	bool	"false"
+[paprika export]
+--db	-	string	"paprika.db"
+--doc	-	string	""
+--help	-h	bool	"false"
+--out	-o	string	""
+--root	-	string	""
+[paprika import]
+--db	-	string	"paprika.db"
+--help	-h	bool	"false"
+--replace	-	bool	"false"
+[paprika list]
+--db	-	string	"paprika.db"
+--help	-h	bool	"false"
+[paprika mcp]
+--db	-	string	"paprika.db"
+--doc	-	string	""
+--help	-h	bool	"false"
+--host	-	string	"127.0.0.1"
+--no-ui	-	bool	"false"
+--port	-p	int	"4777"
+--web	-	string	""
+[paprika serve]
+--db	-	string	"paprika.db"
+--doc	-	string	""
+--help	-h	bool	"false"
+--host	-	string	"127.0.0.1"
+--port	-p	int	"4777"
+--team	-	bool	"false"
+--team-bind	-	string	""
+--team-dir	-	string	""
+--team-name	-	string	"tester"
+--team-no-relay	-	bool	"false"
+--web	-	string	""
+[paprika version]
+--help	-h	bool	"false"

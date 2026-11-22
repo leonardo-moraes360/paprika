@@ -1,0 +1,8 @@
+Gera o script de autocompletar para o bash.
+
+Uso:
+  paprika completion bash
+
+Opções:
+  -h, --help              Mostra a ajuda
+      --no-descriptions   Desativa as descrições do autocompletar

@@ -35,11 +35,23 @@ ou via stdio:
 
 | Comando | O que faz |
 |---|---|
-| `paprika serve [--db F] [--doc ID] [--port 4777] [--host 127.0.0.1] [--web DIR]` | Canvas, API HTTP, MCP via HTTP e WebSocket |
+| `paprika serve [--db F] [--doc ID] [--port 4777] [--host 127.0.0.1] [--web DIR] [--team]` | Canvas, API HTTP, MCP via HTTP e WebSocket |
 | `paprika mcp [--db F] [--doc ID] [--port 4777] [--no-ui]` | MCP via stdio; também serve o canvas se a porta estiver livre |
 | `paprika import ARQUIVO.paprika.json [--db F] [--replace]` | Valida e grava um documento (o histórico começa vazio) |
-| `paprika export [--db F] [--doc ID] [-o ARQUIVO]` | Escreve o documento como `.paprika.json` (stdout sem `-o`) |
+| `paprika export [--db F] [--doc ID] [--root ID] [-o ARQUIVO]` | Escreve o documento como `.paprika.json` (stdout sem `-o`) |
 | `paprika list [--db F]` | Lista os documentos do banco |
+
+Cada comando tem seu próprio `--help` (`paprika serve --help`, `paprika help export`). As flags podem vir antes ou depois dos posicionais. `paprika version` e `-v`/`--version` imprimem a versão. O texto de ajuda segue em português por enquanto.
+
+Autocompletar no shell para bash, zsh e fish:
+
+```bash
+source <(paprika completion bash)
+paprika completion zsh > "${fpath[1]}/_paprika"
+paprika completion fish > ~/.config/fish/completions/paprika.fish
+```
+
+Um comando desconhecido sai com código 2 e sugere o mais parecido; uma flag inválida ou qualquer erro em execução sai com código 1.
 
 Padrões: `--db` é `./paprika.db` (ou `$PAPRIKA_DB`); `--doc` é o documento atualizado mais recentemente, e um vazio é criado quando o banco está vazio. `--web` usa `$PAPRIKA_WEB_ROOT` e depois `apps/web/dist` ao lado do binário ou no diretório atual.
 

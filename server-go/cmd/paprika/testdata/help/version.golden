@@ -1,0 +1,7 @@
+Mostra a versão
+
+Uso:
+  paprika version [flags]
+
+Opções:
+  -h, --help   Mostra a ajuda

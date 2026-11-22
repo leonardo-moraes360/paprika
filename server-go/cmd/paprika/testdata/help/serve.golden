@@ -1,0 +1,18 @@
+Canvas em http://host:port, MCP Streamable HTTP em /mcp, sync ao vivo em /ws.
+Com --team, sobe o sidecar paprika-sync e sincroniza com o time P2P (docs/team-sync.md).
+
+Uso:
+  paprika serve [flags]
+
+Opções:
+      --db string          Banco SQLite (criado se não existir); o padrão vem de $PAPRIKA_DB (default "paprika.db")
+      --doc string         Id do documento; sem ele, o atualizado mais recentemente (um vazio é criado se o banco estiver vazio). Os documentos do banco são os workspaces da página inicial (/)
+  -h, --help               Mostra a ajuda
+      --host string        Interface de bind. Expor fora do loopback não tem autenticação (default "127.0.0.1")
+  -p, --port int           Porta HTTP (0 = aleatória) (default 4777)
+      --team               Entra no modo time: Iroh + CRDT via sidecar paprika-sync ($PAPRIKA_SYNC ou ao lado do binário)
+      --team-bind string   Endereço UDP do endpoint Iroh (ex.: 127.0.0.1:0)
+      --team-dir string    Pasta da chave, do arquivo de time e do log de operações; sem ela, <db>.team/
+      --team-name string   Seu nome para o time; o padrão vem de $USER (default "tester")
+      --team-no-relay      Sem relays públicos nem busca de endereço (só rede local; testes)
+      --web string         Build do canvas (apps/web/dist); sem ele, $PAPRIKA_WEB_ROOT ou detectado

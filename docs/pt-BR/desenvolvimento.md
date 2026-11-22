@@ -51,6 +51,18 @@ O CI roda só em pull requests e escolhe os jobs pelos arquivos que a PR altera:
 
 Este repositório usa o [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) como harness: invariantes em `.toolbelt/invariants.yaml` (`tb mem list`) e `tb verify run` / `tb stack verify guard` antes de concluir. Sessões do Claude Code na nuvem instalam o `tb` fixado ao iniciar ([docs/pt-BR/sessoes-agentes.md](sessoes-agentes.md)).
 
+## CLI
+
+O binário `paprika` usa [Cobra](https://cobra.dev/): um comando por subcomando (`serve`, `mcp`, `import`, `export`, `list`, `version`), cada um com suas flags e `paprika <comando> --help`.
+
+```bash
+server-go/bin/paprika --help
+server-go/bin/paprika export --help
+source <(server-go/bin/paprika completion bash)    # também zsh e fish
+```
+
+`server-go/cmd/paprika/cli_test.go` trava a superfície: saída golden do `--help` e tabela de flags (`server-go/cmd/paprika/testdata/`, atualize com `cd server-go && go test ./cmd/paprika -update` quando mudar uma flag de propósito), as invocações que `Dockerfile`, `compose.team.yaml`, `package.json` e `packages/e2e/test/harness.ts` usam e os códigos de saída (2 para comando desconhecido, 1 para flag inválida ou erro em execução).
+
 ## Segurança
 
 - Escuta em `127.0.0.1` por padrão; Host e Origin são validados (bloqueia DNS rebinding e CSRF de páginas abertas no navegador).

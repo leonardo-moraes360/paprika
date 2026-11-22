@@ -1,0 +1,14 @@
+Exporta o documento como .paprika.json (stdout sem -o), para versionar no git.
+Com --root, exporta só aquele frame (ou group/page) como documento autônomo: a subtree,
+os componentes das instâncias, os tokens e modos que eles usam; conectores que apontam
+para fora são descartados (aviso no stderr). Para abrir em outro servidor: import_document.
+
+Uso:
+  paprika export [flags]
+
+Opções:
+      --db string     Banco SQLite (criado se não existir); o padrão vem de $PAPRIKA_DB (default "paprika.db")
+      --doc string    Id do documento; sem ele, o atualizado mais recentemente (um vazio é criado se o banco estiver vazio). Os documentos do banco são os workspaces da página inicial (/)
+  -h, --help          Mostra a ajuda
+  -o, --out string    Arquivo de saída; sem ele, stdout
+      --root string   Exporta só este frame (ou group/page) como documento autônomo

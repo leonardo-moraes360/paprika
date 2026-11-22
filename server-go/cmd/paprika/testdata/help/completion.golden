@@ -1,0 +1,14 @@
+Gera o script de autocompletar do paprika para bash, zsh ou fish.
+
+Uso:
+  paprika completion [comando]
+
+Comandos:
+  bash        Gera o script de autocompletar para o bash
+  fish        Gera o script de autocompletar para o fish
+  zsh         Gera o script de autocompletar para o zsh
+
+Opções:
+  -h, --help   Mostra a ajuda
+
+Use "paprika completion [comando] --help" para saber mais sobre um comando.
