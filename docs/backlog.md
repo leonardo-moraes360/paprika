@@ -213,6 +213,12 @@ Update 2026-11-22: every issue below is fixed in code (the `fix(sonar)` commits 
 | S3923 ternary with identical branches (1) | Reliability Medium | `apps/site/scripts/draw-landing.mjs:161` | Use `"link:./"` directly | ✅ | — |
 | Input without label (2) | Reliability Medium | `experiments/canvas-wasm/bench/index.html:16, 17` | `<label for>` or `aria-label` | ✅ | — |
 
+Not from SonarCloud: simplifications that `gopls` suggests in the editor (screenshot from the maintainer, 2026-11-22).
+
+| Rule | Impact | Where | Fix | Status | Pri. |
+|---|---|---|---|---|---|
+| gopls `modernize` hints, e.g. `errorsastype` ("errors.As can be simplified using AsType[usageError]") | Maintainability | `server-go`: 6 `errors.As` calls (`cmd/paprika/main.go`, `internal/server/http.go`, `internal/server/mcp.go`, `internal/core/ops.go`) plus whatever else the analyzer flags | Run `modernize -fix ./...` (golang.org/x/tools) across `server-go` and review the diff (`go.mod` is already `go 1.26.0`, which `errors.AsType` needs). Then enable the `modernize` linter in `server-go/.golangci.yml` so CI (`go-lint`, golangci-lint v2.15.0) keeps it clean. Keep math rewrites out, like the `-QF*` exclusion, to keep parity with the TypeScript core. Requested 2026-11-22. Not in a batch yet. | ⬜ | TBD |
+
 ## O. Diagrams
 
 Simple diagrams (flowcharts, architecture sketches, mind maps) drawn by the human on the canvas or by an agent over MCP. Excalidraw and Whimsical are references for the kind of feature only; the look follows Paprika's own theme.
