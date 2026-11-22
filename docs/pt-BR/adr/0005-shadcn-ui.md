@@ -31,7 +31,7 @@ Dois pontos do ADR 0003 fazem disso uma decisão, e não uma instalação de pac
    | secondary / -foreground / -hover | `--color-ui-secondary*` | `panel-2` / `fg` / #313a5c | `canvas` #e7e9f0 / #141827 / #d9deea |
    | muted / muted-foreground | `--color-ui-muted*` | `panel-2` / `muted` #a6acc4 | `canvas` / #5d6478 |
    | accent / accent-foreground | `--color-ui-accent*` | `panel-2` / `fg` | `canvas` / #141827 |
-   | destructive / -foreground / -hover | `--color-ui-destructive*` | `accent-strong` / branco / `accent-dark` | igual |
+   | destructive / -foreground / -hover | `--color-ui-destructive*` | `accent-soft` (o acento a 18%) / `accent-ink` / `accent-soft-strong` (32%) | o acento a 10% / #b3300f / o acento a 14% — reajustado pelo PAP-B-026, ver *Ações destrutivas* |
    | destructive como texto | `--color-ui-destructive-text` | `accent-ink` #ffb4a6 | #b3300f |
    | border / input | `--color-ui-border` / `-input` | `line` #2c3350 | #d3d7e3 / #c6cbd9 |
    | ring (foco) / link | `--color-ui-ring` / `-link` | `select` #4cc7d8 | #0b7183 |
@@ -58,14 +58,50 @@ Dois pontos do ADR 0003 fazem disso uma decisão, e não uma instalação de pac
 | scrim `bg-black/80` do diálogo | `bg-ui-overlay` | a marca noturna, e o mesmo valor que o board carrega |
 | `shadow-md`/`shadow-lg` | `shadow-float` | o tema define duas sombras; o board usa a flutuante |
 | `text-destructive` para texto vermelho | `text-ui-destructive-text` | 2,72:1 como texto no noturno, 7,97:1 com o ink |
+| `AlertDialogAction` é sempre o botão primário | ele aceita `variant`, e a confirmação passa `destructive` | confirmar um apagamento não pode parecer o chamado principal do app |
 | variantes `sm:`/`md:` | removidas | o tema fechado tem um ponto de quebra (`wide`) |
 | `React.forwardRef` + `displayName` | componentes de função, `ref` como prop (React 19), `data-slot` | é o estilo atual do upstream; `data-slot` é também o que a suíte E2E seleciona |
 | `import { X } from "@radix-ui/react-x"` | `import { X as XPrimitive } from "radix-ui"` | um pacote MIT em vez de treze |
 | rótulo `Close` no diálogo | "Fechar", `aria-label` no botão | a UI do app é pt-BR, e um botão só de ícone mantém o nome acessível |
 
+### Ações destrutivas (PAP-B-026)
+
+O backlog pedia um botão de perigo, e a resposta ingênua já estava na tabela acima: `destructive` era
+`accent-strong`, o vermelho da marca, preenchido — o mesmo botão do primário. O acento do Paprika *é*
+vermelho, então matiz nenhuma separa "apagar isso para sempre" de "é aqui que você clica". O que separa é o
+tratamento, e o Paprika já tem uma linguagem de perigo nas suas faixas de erro (a entrada no time que
+falhou, as operações recusadas, "você não está mais neste time"): o acento como lavanda translúcida com o
+ink como texto. A variante destrutiva usa exatamente isso, e o vermelho cheio fica só para o primário.
+
+| token | valor | por quê |
+|-------|-------|---------|
+| `--color-ui-destructive` | `var(--color-accent-soft)` — o acento a 18%, 10% em `.ui-light` | uma lavanda sobre a superfície que está embaixo, então lê igual em `panel`, em `panel-2` e num cartão branco |
+| `--color-ui-destructive-foreground` | `var(--color-accent-ink)` #ffb4a6, #b3300f em `.ui-light` | o mesmo ink das faixas de erro |
+| `--color-accent-soft-strong` | o acento a 32%, 14% em `.ui-light` | o hover; no claro ele para em 14% porque uma lavanda mais forte derruba o texto abaixo de 4,5:1 |
+
+Medido pela suíte de acessibilidade, texto sobre a superfície composta: **8,68:1** em repouso e **7,16:1**
+no hover no escuro; **5,00:1** e **4,75:1** no claro. Os quatro números são asseridos, não contas de cabeça.
+
+Duas regras decidem o que recebe o tratamento:
+
+1. **Perigo marca o que o Ctrl+Z não traz de volta.** Excluir um workspace, remover uma pessoa do time e
+   trocar a chave desta instância são irreversíveis: carregam a linguagem de perigo no gatilho e no botão de
+   confirmar. Apagar um nó, uma página ou uma seleção é desfazível e fica neutro — pintar todo apagamento de
+   vermelho faria o vermelho não significar nada.
+2. **Ação irreversível tem confirmação com o verbo.** O `ConfirmDialog`
+   (`apps/web/src/components/ui/confirm-dialog.tsx`) compõe o primitivo AlertDialog: título com o verbo, o
+   que se perde na descrição, `Cancelar` primeiro, a ação destrutiva por último, e o erro dentro do diálogo,
+   porque o aviso da página fica atrás da scrim. O Radix abre um AlertDialog com o foco no **cancelar**, que
+   é o padrão seguro. Ele é usado pelo apagamento do overview, pelo `RemoveMemberDialog` e pelo
+   `RotateKeyDialog`. Revogar links de convite é destrutivo, mas continua num passo só: já acontece dentro
+   de um diálogo que a pessoa abriu de propósito, e um segundo modal em cima de outro é pior que o risco que
+   evitaria.
+
 ## Verificação
 
 - `pnpm check` (build com o renderizador WASM, typecheck, fixtures, testes de TS e Go, suítes de API e E2E contra o servidor em Go).
+- `packages/e2e/test/e2e/a11y.e2e.test.ts`, PAP-B-026: a confirmação de apagar workspace é asserida como `alertdialog` com os botões na ordem `Cancelar` e depois `Excluir`, com a ação carregando as classes destrutivas, com o foco começando dentro e voltando ao gatilho no Esc, e com o Esc deixando o workspace na lista; o botão destrutivo é medido em 4,5:1 ou mais nos dois escopos de tema, em repouso e no hover (a lavanda é translúcida, então o teste a compõe sobre o painel de antes de medir).
+- `packages/e2e/test/e2e/canvas.e2e.test.ts`: o fluxo do overview lê essa confirmação pelo papel `alertdialog` em vez de `dialog`; as asserções em si (Cancelar mantém, Excluir apaga, apagar o ativo move o canvas e os agentes) continuam as mesmas.
 - `packages/e2e/test/e2e/a11y.e2e.test.ts`, bloco novo "galeria de primitivas (/ui)": o diálogo prende o foco e oito Tabs continuam dentro dele, Esc devolve o foco ao gatilho; o alert-dialog abre com o foco dentro e o escopo `ui-light` viaja com o portal; a tooltip abre pelo teclado, não só no hover; o menu abre com Enter, nomeia os itens (`menuitem`, inclusive o destrutivo), anda com as setas e fecha no Esc; o botão primário passa de 4,5:1 nos dois escopos; e sob `prefers-reduced-motion: reduce` as animações do chrome são neutralizadas enquanto um nó dentro de `.world` mantém `transition-duration: 0s` e o container `.world` mantém `line-height: normal`.
 - Isolamento do canvas: a suíte E2E do canvas e a suíte WASM (que compara o renderizador do DOM com o de Rust, pixel a pixel) estão inalteradas e passam. Além disso, a mesma página do canvas (`/w/<id>` no servidor em Go, 1440×900, Chromium) foi capturada no `origin/main` e neste branch: **0 de 1.296.000 pixels diferem**. Nada neste ticket toca o DOM sob `.world` — cada regra nova é uma classe utilitária num primitivo ou um escopo `:not(.world, .world *)`.
 - Bundle, `vite build` no `origin/main` e neste branch: CSS 29,02 kB → 45,94 kB (6,59 kB → 9,12 kB gzip); o JS de entrada do app 554,31 kB → 585,85 kB (170,30 kB → 181,03 kB gzip), que é `cn()` mais o `ConnectionStatus` migrado; os primitivos e o Radix ficam no chunk lazy da galeria, 179,69 kB (52,46 kB gzip), carregado só em `/ui`. Eles passam para o chunk do app quando PAP-B-031…034 migrarem cada tela.

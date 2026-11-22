@@ -31,7 +31,7 @@ Two things about ADR 0003 make this a decision and not a package install:
    | secondary / -foreground / -hover | `--color-ui-secondary*` | `panel-2` / `fg` / #313a5c | `canvas` #e7e9f0 / #141827 / #d9deea |
    | muted / muted-foreground | `--color-ui-muted*` | `panel-2` / `muted` #a6acc4 | `canvas` / #5d6478 |
    | accent / accent-foreground | `--color-ui-accent*` | `panel-2` / `fg` | `canvas` / #141827 |
-   | destructive / -foreground / -hover | `--color-ui-destructive*` | `accent-strong` / white / `accent-dark` | same |
+   | destructive / -foreground / -hover | `--color-ui-destructive*` | `accent-soft` (the accent at 18%) / `accent-ink` / `accent-soft-strong` (32%) | the accent at 10% / #b3300f / the accent at 14% — re-tuned by PAP-B-026, see *Destructive actions* |
    | destructive as text | `--color-ui-destructive-text` | `accent-ink` #ffb4a6 | #b3300f |
    | border / input | `--color-ui-border` / `-input` | `line` #2c3350 | #d3d7e3 / #c6cbd9 |
    | ring (focus) / link | `--color-ui-ring` / `-link` | `select` #4cc7d8 | #0b7183 |
@@ -58,14 +58,51 @@ Two things about ADR 0003 make this a decision and not a package install:
 | `bg-black/80` dialog scrim | `bg-ui-overlay` | the night brand, and the same value the board carries |
 | `shadow-md`/`shadow-lg` | `shadow-float` | the theme defines two shadows; the board uses the floating one |
 | `text-destructive` for red text | `text-ui-destructive-text` | 2.72:1 as text on the night surfaces, 7.97:1 with the ink |
+| `AlertDialogAction` is always the primary button | it takes a `variant`, and a confirmation passes `destructive` | a delete confirmation must not look like the app's main call to action |
 | `sm:`/`md:` variants | removed | the closed theme has one breakpoint (`wide`) |
 | `React.forwardRef` + `displayName` | function components, `ref` as a prop (React 19), `data-slot` | the current upstream style; `data-slot` is also what the E2E suite selects |
 | `import { X } from "@radix-ui/react-x"` | `import { X as XPrimitive } from "radix-ui"` | one MIT package instead of thirteen |
 | `Close` label in the dialog | "Fechar", `aria-label` on the button | the app UI is pt-BR, and an icon-only control keeps its accessible name |
 
+### Destructive actions (PAP-B-026)
+
+The backlog asked for a danger button, and the naive answer was already in the table above: `destructive`
+was `accent-strong`, the brand red, filled — the same button as the primary. Paprika's accent *is* red, so
+hue cannot separate "delete this for good" from "the thing you are meant to click". What separates them is
+treatment, and Paprika already has a danger language in its error bands (the failed join, the rejected
+operations, "you are no longer in this team"): the accent as a translucent wash with the ink as the text.
+The destructive variant now uses exactly that, and the filled brand red is reserved for the primary action.
+
+| token | value | why |
+|-------|-------|-----|
+| `--color-ui-destructive` | `var(--color-accent-soft)` — the accent at 18%, 10% in `.ui-light` | a wash over whatever surface sits under it, so it reads the same on `panel`, on `panel-2` and on a white card |
+| `--color-ui-destructive-foreground` | `var(--color-accent-ink)` #ffb4a6, #b3300f in `.ui-light` | the ink the error bands already use |
+| `--color-accent-soft-strong` | the accent at 32%, 14% in `.ui-light` | the hover; in the light scope it stops at 14% because a stronger wash pulls the text below 4.5:1 |
+
+Measured by the accessibility suite, text over the composed surface: **8.68:1** at rest and **7.16:1** on
+hover in the dark scope, **5.00:1** and **4.75:1** in the light scope. Those four numbers are asserted, not
+quoted from arithmetic.
+
+Two rules decide what receives the treatment:
+
+1. **Danger marks what Ctrl+Z cannot bring back.** Deleting a workspace, removing a member from a team and
+   rotating this instance's key are irreversible: they carry the danger language on the trigger and on the
+   confirm button. Deleting a node, a page or a selection is undoable and stays neutral — painting every
+   delete red would make red mean nothing.
+2. **An irreversible action gets a confirmation with the verb in it.** `ConfirmDialog`
+   (`apps/web/src/components/ui/confirm-dialog.tsx`) composes the AlertDialog primitive: title with the verb,
+   what is lost in the description, `Cancelar` first, the destructive action last, and errors rendered
+   inside the dialog because the page banner sits behind the scrim. Radix opens an AlertDialog with focus on
+   **cancel**, which is the safe default. It is used by the overview's workspace delete,
+   `RemoveMemberDialog` and `RotateKeyDialog`. Revoking invite links is destructive but stays a single step:
+   it already happens inside a dialog the person opened on purpose, and a second modal on top of a modal is
+   worse than the risk it prevents.
+
 ## Verification
 
 - `pnpm check` (build with the WASM renderer, typecheck, fixtures, TS and Go tests, API and E2E suites against the Go server).
+- `packages/e2e/test/e2e/a11y.e2e.test.ts`, PAP-B-026: the workspace-delete confirmation is asserted as an `alertdialog` whose buttons come in the order `Cancelar` then `Excluir`, whose action carries the destructive classes, whose focus starts inside it and returns to the trigger on Esc, and whose Esc leaves the workspace on the list; the destructive button is measured at 4.5:1 or better in both theme scopes, at rest and on hover (the wash is translucent, so the test composes it over the panel behind it before measuring).
+- `packages/e2e/test/e2e/canvas.e2e.test.ts`: the overview flow reads that confirmation by role `alertdialog` instead of `dialog`; the assertions themselves (Cancel keeps it, Excluir removes it, deleting the active workspace moves the canvas and the agents) are unchanged.
 - `packages/e2e/test/e2e/a11y.e2e.test.ts`, new block "galeria de primitivas (/ui)": the dialog traps focus and eight Tab presses stay inside, Esc returns focus to the trigger; the alert dialog opens with focus inside and its `ui-light` scope travels with the portal; the tooltip opens from the keyboard, not only on hover; the menu opens with Enter, names its items (`menuitem`, including the destructive one), moves with arrows and closes with Esc; the primary button passes 4.5:1 in both theme scopes; and under `prefers-reduced-motion: reduce` the chrome animations are neutralized while a node inside `.world` keeps `transition-duration: 0s` and the `.world` container keeps `line-height: normal`.
 - Isolation of the canvas: the canvas E2E suite and the WASM suite (which compares the DOM renderer with the Rust one, pixel by pixel) are unchanged and pass. On top of that, the same canvas page (`/w/<id>` over the Go server, 1440×900, Chromium) was screenshotted on `origin/main` and on this branch: **0 of 1.296.000 pixels differ**. Nothing in this ticket touches the DOM under `.world` — every new rule is either a utility class on a primitive or a `:not(.world, .world *)` scope.
 - Bundle, `vite build` on `origin/main` and on this branch: CSS 29.02 kB → 45.94 kB (6.59 kB → 9.12 kB gzip); the app entry JS 554.31 kB → 585.85 kB (170.30 kB → 181.03 kB gzip), which is `cn()` plus the migrated `ConnectionStatus`; the primitives and Radix sit in the lazy gallery chunk, 179.69 kB (52.46 kB gzip), loaded only on `/ui`. They move into the app chunk as PAP-B-031…034 migrate each screen.

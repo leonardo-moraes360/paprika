@@ -285,3 +285,16 @@ Task: draw before/after selection handles and an NW-drag demo on the `Interfaces
 | 88 | Token lengths in create_nodes without a second pass | `radius: "$radius.md"` and `fontSize: "$text.2xs"` were refused (`expected number`); the measure label started at 10px/`$select` on `$canvas` and failed contrast until a follow-up `update_nodes` | Same as #83: accept `$radius.*` / `$text.*` on those fields so a board can match the app scale in one create | P3 |
 
 - Three root frames, one `create_nodes` call; `lint_design` 0 after fixing measure/note sizes; screenshots in `docs/assets/boards/PAP-B-029`.
+
+## 2026-11-22: destructive language and the confirmation pattern (PAP-B-026, design first)
+
+Task: draw the danger button (before and after, both theme scopes) and the confirmation pattern before
+changing any code, then apply them in `apps/web`. Five root frames, ~330 nodes, plus the real overview
+captured before and after.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 88 | The design boards to survive a server change | `127.0.0.1:4777` went from the host-run server to the compose stack with a fresh volume: the `Paprika` document that holds the `Interfaces` page — the PAP-B-030 sheet, the PAP-B-034 sheet, and the PAP-B-026 frames I had drawn minutes earlier — was no longer listed by `list_workspaces`. Only the PNGs committed under `docs/assets/boards/` survived, and the sheet had to be drawn a second time from the script on a `paprika serve` I started myself | Export the board document into the repository (`design/boards.paprika.json`, the way `design/landing.paprika.json` carries the landing page) and refresh it as sheets land; a server reset would then cost a reload, not a redraw | P1 |
+| 89 | A contrast check that does not lie | The first hover measurement returned the resting color because `transition-colors` had not landed, so the assertion passed without ever testing the hover state; a manual probe with a 300 ms wait showed the hover wash was darker and the light text had fallen to 4,39:1 | Nothing for the tool to change. Recorded because it is easy to repeat: wait for the transition, then read, and assert both states — which the suite now does | P3 |
+
+- `lint_design` reported the light destructive text at 4,05:1 on the first sheet, before a line of code was written — the same class of mistake it caught on the PAP-B-030 sheet, and the token alphas are what they are now because of it.

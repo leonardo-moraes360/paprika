@@ -286,3 +286,16 @@ adicionar as alças NW/NE/SW/SE em `apps/web/src/Canvas.tsx`.
 | 88 | Comprimentos com token no create_nodes sem segunda passada | `radius: "$radius.md"` e `fontSize: "$text.2xs"` foram recusados (`expected number`); a medida começou em 10px/`$select` sobre `$canvas` e falhou o contraste até um `update_nodes` | Igual ao #83: aceitar `$radius.*` / `$text.*` nesses campos para a folha bater com a escala do app num único create | P3 |
 
 - Três frames raiz, uma chamada `create_nodes`; `lint_design` 0 depois de corrigir tamanhos da medida/nota; capturas em `docs/assets/boards/PAP-B-029`.
+
+## 2026-11-22: linguagem de perigo e o padrão de confirmação (PAP-B-026, design first)
+
+Tarefa: desenhar o botão de perigo (antes e depois, nos dois escopos de tema) e o padrão de confirmação antes
+de mexer em qualquer código, e aplicar depois em `apps/web`. Cinco frames raiz, ~330 nós, mais o overview real
+capturado antes e depois.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 88 | As folhas de design sobreviverem a uma troca de servidor | `127.0.0.1:4777` saiu do servidor rodando no host e passou à pilha do compose com um volume novo: o documento `Paprika`, que guarda a página `Interfaces` — a folha do PAP-B-030, a do PAP-B-034 e os frames do PAP-B-026 que eu tinha desenhado minutos antes — sumiu do `list_workspaces`. Só os PNGs commitados em `docs/assets/boards/` sobraram, e a folha teve que ser desenhada de novo pelo script num `paprika serve` que subi eu mesmo | Exportar o documento das folhas para dentro do repositório (`design/boards.paprika.json`, como `design/landing.paprika.json` guarda a landing page) e atualizar a exportação conforme as folhas entram; um reset de servidor custaria um reload, não um redesenho | P1 |
+| 89 | Um teste de contraste que não minta | A primeira medição do hover devolveu a cor de repouso porque o `transition-colors` ainda não tinha aterrissado, então a asserção passou sem nunca testar o hover; uma sonda manual com espera de 300 ms mostrou que a lavanda do hover é mais forte e que o texto claro tinha caído para 4,39:1 | Nada para a ferramenta mudar. Registrado porque é fácil repetir: espere a transição, leia depois, e assera os dois estados — como a suíte faz agora | P3 |
+
+- O `lint_design` apontou o texto destrutivo claro em 4,05:1 já na primeira folha, antes de qualquer linha de código — o mesmo tipo de erro que pegou na folha do PAP-B-030, e os alfas dos tokens são os que são hoje por causa dele.
