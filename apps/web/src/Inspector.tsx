@@ -49,6 +49,7 @@ function Field({ label, value, onCommit, type = "text", placeholder, title, min,
   // Enter grava e tira o foco; o blur não pode gravar de novo antes do servidor responder.
   const lastCommitted = useRef<string | null>(null);
   const pendingClampMsg = useRef<string | null>(null);
+  const skipBlurCommit = useRef(false);
   useEffect(() => {
     setV(value === undefined ? "" : String(value));
     lastCommitted.current = null;
@@ -70,19 +71,20 @@ function Field({ label, value, onCommit, type = "text", placeholder, title, min,
         setError(result.message);
         return;
       }
-      if (result.clamped) setError(result.message ?? rangeMessage(range));
-      else {
+      if (result.clamped) {
+        const msg = result.message ?? rangeMessage(range);
+        setError(msg);
+        pendingClampMsg.current = msg;
+      } else {
         pendingClampMsg.current = null;
         setError(null);
       }
       if (result.text === baseline() || result.text === lastCommitted.current) {
-        pendingClampMsg.current = null;
         setV(result.text);
         return;
       }
       lastCommitted.current = result.text;
       setV(result.text);
-      if (result.clamped) pendingClampMsg.current = result.message ?? rangeMessage(range);
       onCommit(result.text);
       return;
     }
@@ -117,15 +119,23 @@ function Field({ label, value, onCommit, type = "text", placeholder, title, min,
             }
           }
         : undefined,
-    onBlur: commit,
+    onBlur: () => {
+      if (skipBlurCommit.current) {
+        skipBlurCommit.current = false;
+        return;
+      }
+      commit();
+    },
     onKeyDown: (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !(type === "textarea" && e.shiftKey)) {
         e.preventDefault();
+        skipBlurCommit.current = true;
         commit();
         (e.target as HTMLElement).blur();
       }
       if (e.key === "Escape") {
         pendingClampMsg.current = null;
+        skipBlurCommit.current = true;
         setV(baseline());
         setError(null);
         (e.target as HTMLElement).blur();
