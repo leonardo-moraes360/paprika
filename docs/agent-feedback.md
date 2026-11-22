@@ -336,3 +336,13 @@ captured before and after.
 | 98 | A contrast check that does not lie | The first hover measurement returned the resting color because `transition-colors` had not landed, so the assertion passed without ever testing the hover state; a manual probe with a 300 ms wait showed the hover wash was darker and the light text had fallen to 4,39:1 | Nothing for the tool to change. Recorded because it is easy to repeat: wait for the transition, then read, and assert both states — which the suite now does | P3 |
 
 - `lint_design` reported the light destructive text at 4,05:1 on the first sheet, before a line of code was written — the same class of mistake it caught on the PAP-B-030 sheet, and the token alphas are what they are now because of it.
+
+## 2026-11-22: double-click an arrow to edit its label (PAP-B-028, design first)
+
+Task: draw the arrow label in three states (no label, editing with caret and halo, with label), light and
+dark, before the inline editor on the canvas. Six root frames, ~40 nodes.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 99 | A text field state with a dashed focus outline | The editor draws a dashed `select` outline, but `stroke` on rect and frame has only `color` and `width`, so the sheet shows it solid; the caret is a 1.5 px rect on top of a text node | A `dash` field on `stroke` for rect, ellipse and frame (connectors already have `dashed`) would let a sheet match what `nodeStyle` paints | P3 |
+| 100 | Exporting the board document from a containerised server | `paprika export --db <db>` needs the database file, which lives in the compose volume; the doc is reachable only through `GET /api/export` | Mention `curl http://127.0.0.1:4777/api/export` in `docs/design-boards.md` next to the CLI form | P3 |

@@ -337,3 +337,13 @@ capturado antes e depois.
 | 98 | Um teste de contraste que não minta | A primeira medição do hover devolveu a cor de repouso porque o `transition-colors` ainda não tinha aterrissado, então a asserção passou sem nunca testar o hover; uma sonda manual com espera de 300 ms mostrou que a lavanda do hover é mais forte e que o texto claro tinha caído para 4,39:1 | Nada para a ferramenta mudar. Registrado porque é fácil repetir: espere a transição, leia depois, e assera os dois estados — como a suíte faz agora | P3 |
 
 - O `lint_design` apontou o texto destrutivo claro em 4,05:1 já na primeira folha, antes de qualquer linha de código — o mesmo tipo de erro que pegou na folha do PAP-B-030, e os alfas dos tokens são os que são hoje por causa dele.
+
+## 2026-11-22: duplo clique na seta para editar o rótulo (PAP-B-028, design first)
+
+Tarefa: desenhar o rótulo da seta em três estados (sem rótulo, editando com cursor e halo, com rótulo), claro e
+escuro, antes do editor no lugar no canvas. Seis frames raiz, ~40 nós.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 99 | Estado de campo de texto com contorno de foco tracejado | O editor desenha um contorno `select` tracejado, mas `stroke` em rect e frame só tem `color` e `width`, então a folha mostra o contorno contínuo; o cursor é um rect de 1,5 px sobre um nó de texto | Um campo `dash` em `stroke` de rect, ellipse e frame (conectores já têm `dashed`) deixaria a folha igual ao que o `nodeStyle` pinta | P3 |
+| 100 | Exportar o documento das folhas de um servidor em container | `paprika export --db <db>` precisa do arquivo do banco, que fica no volume do compose; o documento só é alcançável por `GET /api/export` | Citar `curl http://127.0.0.1:4777/api/export` em `docs/design-boards.md` ao lado da forma pela CLI | P3 |
