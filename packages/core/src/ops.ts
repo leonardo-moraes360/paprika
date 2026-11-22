@@ -21,6 +21,7 @@ import { normalizePath as shiftPathToOrigin, parsePath, pathBounds, serializePat
 import { addPageOps, groupOps, ungroupOps } from "./structure.js";
 import { combinePathsOps } from "./boolean.js";
 import { round4 } from "./num.js";
+import { PlaceSpecSchema, resolvePlace } from "./placement.js";
 import { ConnectorError, connectorsAttachedTo, routeConnectors, shapeDefaults } from "./diagram.js";
 import {
   COPY_OVERRIDES,
@@ -57,6 +58,7 @@ export const CreateOp = z.object({
   node: NodeInputSchema,
   parentId: z.string().nullable().default(null),
   index: z.number().int().min(0).optional(),
+  place: PlaceSpecSchema.optional(),
 });
 
 export const UpdateOp = z.object({
@@ -383,7 +385,16 @@ function createNode(
 function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): Op[] {
   switch (op.op) {
     case "create": {
-      const id = createNode(doc, op.node, op.parentId, op.index, i, created);
+      let parentId = op.parentId;
+      const node = op.node;
+      if (op.place && op.place !== "none") {
+        try {
+          parentId = resolvePlace(doc, parentId, node, op.place);
+        } catch (e) {
+          throw new OpError(e instanceof Error ? e.message : String(e), i);
+        }
+      }
+      const id = createNode(doc, node, parentId, op.index, i, created);
       return [{ op: "delete", id }];
     }
     case "update": {

@@ -23,7 +23,7 @@ Task: an agent drew 5 flat paprika icons with increasing complexity (3 → ~20 s
 | 10 | See who did what | The actor name comes from the HTTP User-Agent (`node`, `brand-agent`), not from the MCP client | Done (2026-11-21, see #48): `agent:<clientInfo.name>`, also over HTTP | — |
 | 11 | One undo step for "draw proposal 3" | 7 history entries for one script run (rename, tokens, 5 creates) | Done (2026-11-21, see #48): `batch` on every write tool | — |
 | 12 | Agent-facing language | Guide and errors are in Brazilian Portuguese; English prompts mix languages | Done (2026-11-21, see #48): guide, descriptions and errors in English; `get_design_guide {language: "pt-BR"}` | — |
-| 13 | Several boards | Everything shares one canvas; proposals had to be stacked by hand with fixed `y` offsets | Pages, plus `layout` on the canvas root (auto-stack top-level frames) | P3 |
+| 13 | Several boards | Everything shares one canvas; proposals had to be stacked by hand with fixed `y` offsets | Done (2026-11-22, PAP-B-061): pages already shipped; a new top-level frame with no x/y lands in free space (`place: "free"`) | — |
 | 14 | Watch the agent draw after the server switched files | The open canvas tab reconnected to the new document but kept the old zoom/pan, so the new boards could be off-screen (fixed: the canvas now refits when the document id changes) | Done in this change | — |
 
 ## 2026-11-21: bezier curves (`path` node, pen tool, `path_info`)
@@ -381,7 +381,7 @@ the floating buttons clear the toolbar and the agent roster, before writing the 
 |---|--------|---------------|----------|------|
 | 101 | Screenshots as files | `render_screenshot` only returns base64 inside the JSON result, so each PNG had to be decoded by hand in a script before it could land in `docs/assets/boards/` | An optional `path` argument (or a resource link) that writes the PNG where the caller says | P2 |
 | 102 | A mock at a smaller scale lints as tiny text | The boards are the real layout at two thirds of its size, so every label is 8–9px and `lint_design` returns a `small-text` warning per label, which buries the findings that matter | A per-frame way to say "this frame is a scaled mock" (or a `minFontSize` argument) so the warning count stays meaningful | P3 |
-| 103 | Free space for a new frame | Nothing says where the next top-level frame can go without overlapping a parallel ticket's: the outline had to be scanned for coordinates and the boards went to `x=2000` by hand | `get_document_outline` (or a new call) returning the bounding box of the page's content, or `create_nodes` accepting `place: "free"` | P3 |
+| 103 | Free space for a new frame | Nothing says where the next top-level frame can go without overlapping a parallel ticket's: the outline had to be scanned for coordinates and the boards went to `x=2000` by hand | Done (2026-11-22, PAP-B-061): `get_document_outline` and `get_bounds` (no ids) return the page content box and the next free spot; `create_nodes` defaults to `place: "free"` when x and y are omitted | — |
 | 104 | Icons by name | The floating buttons use `PanelLeftOpen` and `PanelRightOpen` from lucide, and the board had to carry their path data typed in by hand, which is how an icon on the sheet can drift from the one in the app | `import_svg` already exists; a way to import a lucide icon by name would close the loop | P3 |
 
 - The collapsed right panel puts its button where the agent roster sits (top right of the canvas); the sheet showed it before any code did, and the roster moves down under the button only while that panel is collapsed.
@@ -433,7 +433,7 @@ until release. Eight fixed-height frames on `Interfaces` (`docs/assets/boards/PA
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 108 | Screenshots as files | Same as #100/#101: `render_screenshot` returns PNG only as base64 in the JSON-RPC content, so a small client script had to decode each shot into `docs/assets/boards/PAP-B-043/` | Optional `path` on `render_screenshot` that writes the file | P2 |
-| 109 | Free space for new boards | Top-level frames already fill y≈0…8320 and x≈0…3000; the outline depth-1 listing was enough to pick `y=9000`, but parallel tickets still race for the same band | `get_document_outline` returning the page content box, or `place: "free"` on `create_nodes` (same as #103) | P3 |
+| 109 | Free space for new boards | Top-level frames already fill y≈0…8320 and x≈0…3000; the outline depth-1 listing was enough to pick `y=9000`, but parallel tickets still race for the same band | Done (2026-11-22, PAP-B-061): same as #103 — content box, next free spot, and `place: "free"` | — |
 
 - Active workspace was already `Paprika - UI` / page `Interfaces`; no `open_workspace`.
 - Ghost is `aria-hidden` and `pointer-events: none` (`data-testid="draft-ghost"`); connector arrow ghost left out of this ticket's draft-only scope.
@@ -447,7 +447,7 @@ scopes on `127.0.0.1:4777`, then migrate `Inspector.tsx` + `inspector/*` onto `I
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 110 | Screenshots as files | Same as #108: `render_screenshot` returns PNG only as base64; a client script decoded into `docs/assets/boards/PAP-B-032/` | Optional `path` on `render_screenshot` | P2 |
-| 111 | Free band without racing parallel tickets | Outline depth 1 listed frames through y≈11820 (B-023/B-033/B-043); this ticket picked y=12400 / 13160 | `place: "free"` on `create_nodes` (same as #103/#109) | P3 |
+| 111 | Free band without racing parallel tickets | Outline depth 1 listed frames through y≈11820 (B-023/B-033/B-043); this ticket picked y=12400 / 13160 | Done (2026-11-22, PAP-B-061): `place: "free"` on `create_nodes` (same as #103/#109) | — |
 
 - `lint_design` with `rootIds` still walks the whole document for counts; our four frames had 0 errors of their own.
 - Compact field shell kept (B-022 density): primitives sit inside `bg-ui-muted` with bare borders; Radix `Select` replaced native `<select>` (E2E theme-mode test updated to click the option).
@@ -471,7 +471,7 @@ before replacing the native `input type=color` with a popover. Six fixed-height 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | `get_document_outline` (or `create_nodes`) returning the page content bbox / `place: "free"` — same as #103 | P3 || 111 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/assets/boards/PAP-B-023/` | Optional `path` on `render_screenshot` (same as #100 / #101) | P2 || 112 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
+| 110 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | Done (2026-11-22, PAP-B-061): page content box and `place: "free"`, same as #103 | — || 111 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/assets/boards/PAP-B-023/` | Optional `path` on `render_screenshot` (same as #100 / #101) | P2 || 112 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
 - Active workspace was already `Paprika - UI`; no `open_workspace`.
 - `lint_design` on the page still reports one unrelated contrast error from an older sheet; the new frames added no errors.
 ## 2026-11-22: aspect-ratio lock shortcuts while resizing (PAP-B-042, design first)
