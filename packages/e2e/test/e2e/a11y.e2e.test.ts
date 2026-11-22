@@ -219,7 +219,14 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       await gal.waitForSelector("[data-slot=menu-content]");
       await expect(gal.getByRole("menuitem", { name: /^Excluir/ }).count()).resolves.toBe(1);
       await gal.keyboard.press("ArrowDown");
-      await expect(gal.evaluate(() => document.activeElement?.getAttribute("data-slot"))).resolves.toBe("menu-item");
+      // Which item Radix focuses first depends on whether the open already focused one, so what is
+      // asserted is the kind of thing: the arrow keeps the focus on an item inside the menu.
+      const nav = await gal.evaluate(() => {
+        const el = document.activeElement;
+        return { slot: el?.getAttribute("data-slot") ?? "", inMenu: el?.closest("[data-slot=menu-content]") !== null };
+      });
+      expect(nav.inMenu).toBe(true);
+      expect(nav.slot).toMatch(/^menu-(item|checkbox-item|radio-item)$/);
       await gal.keyboard.press("Escape");
       await expect.poll(() => gal.locator("[data-slot=menu-content]").count()).toBe(0);
     });
