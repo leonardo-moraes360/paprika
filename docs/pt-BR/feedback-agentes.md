@@ -11,7 +11,7 @@ Tarefa: um agente desenhou 5 ícones flat de páprica com complexidade crescente
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 1 | Formas orgânicas (silhueta de pimentão) | Só existem `rect`/`ellipse`; o pimentão foi montado com elipses sobrepostas e rotacionadas | Nó `path` (SVG `d`, fill/stroke) e união booleana de filhos (`path` com curvas bezier feito em 2026-11-21, ver abaixo; união booleana ainda aberta) | P1 |
+| 1 | Formas orgânicas (silhueta de pimentão) | Só existem `rect`/`ellipse`; o pimentão foi montado com elipses sobrepostas e rotacionadas | Nó `path` (SVG `d`, fill/stroke) e união booleana de filhos (`path` com curvas bezier feito em 2026-11-21; MCP `combine_paths` / ops booleanas no core feitos em PAP-A-003 — comando no canvas ainda aberto) | P1 |
 | 2 | Pôr o cabo na ponta de uma vagem rotacionada | A rotação gira em torno do centro da caixa e o agente teve de fazer trigonometria; o cálice ficou fora do lugar duas vezes e só o screenshot mostrou | Feito (2026-11-22, PAP-A-001): `get_bounds` devolve origin + cantos; `path_info` ganha origin / transformOrigin | — |
 | 3 | O mesmo ícone em 4 tamanhos | Sem componentes/instâncias nem escala: o script regerou todas as formas com um fator (4× os nós, edição não propaga) | Componentes + instâncias com `scale`; `duplicate_nodes` com escala | P1 |
 | 4 | 5 temas lado a lado | Tokens são globais; foi preciso prefixar à mão (`p1.brand` … `p5.brand`) e reescrever em cada nó | Feito (2026-11-21, ver #45): modos de tema (`set_tokens` com `mode`) e `mode` num frame ou página; coleções nomeadas continuam em aberto | — |
@@ -107,7 +107,7 @@ Tarefa: `importSVG`, `importHTML` e `exportSVG` no core (TS e Go), as ferramenta
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
 | 40 | Trazer um ícone de um conjunto SVG | Antes o agente traduzia cada `<rect>`/`<circle>`/arco à mão para `d`; agora o `import_svg` faz isso numa chamada e diz o que ficou de fora em `warnings` | Suportar sprites `<use>`/`<symbol>` e `<text>` (como nós `text`), comuns em ícones e logos | P2 |
-| 41 | Exportar SVG de um nó com auto layout sem navegador | O core não coloca sozinho filhos `hug`/`fill`/row/column, então `exportSVG` sem medida falha apontando para `export_code` | Feito para geometria (2026-11-22, PAP-A-001): `layout(doc)` é a base; ligar ao exportSVG no PAP-A-002 | — |
+| 41 | Exportar SVG de um nó com auto layout sem navegador | O core não coloca sozinho filhos `hug`/`fill`/row/column, então `exportSVG` sem medida falha apontando para `export_code` | Feito (2026-11-22, PAP-A-002): `exportSVG` / `export_code` svg / `GET /api/svg` usam as caixas do `layout(doc)`; o texto quebra em `\n`; gradientes e imagens de fundo ficam de fora | — |
 | 42 | Reaproveitar um componente de uma página web | O `import_html` só lê `style=""` inline; o HTML copiado da maioria dos sites depende de classes, então o resultado sai simples | Uma opção que renderiza o HTML no Chromium do servidor e importa os estilos computados | P2 |
 
 ## 2026-11-21: edição de path ponto a ponto (leva 1 do backlog, item 4)
@@ -236,7 +236,7 @@ Tarefa: desenhar um pimentão vermelho plano (três lóbulos, vãos brancos fino
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
-| 76 | Recortar vãos finos de uma forma | Sem operações booleanas nem máscaras, os vãos são traços brancos pintados sobre o corpo vermelho; só funciona em fundo claro e o export não tem furos de verdade | `subtract`/`union` no `apply_ops` (ou `mask` em group) gerando um novo `path`; no mínimo uma opção `knockout` no traço | P2 |
+| 76 | Recortar vãos finos de uma forma | Sem operações booleanas nem máscaras, os vãos são traços brancos pintados sobre o corpo vermelho; só funciona em fundo claro e o export não tem furos de verdade | `combine_paths` (`subtract`/`union`/…) no MCP/`apply_ops` feito (PAP-A-003); comando no canvas e `mask` em group / `knockout` no traço ainda abertos | P2 |
 | 77 | Mudar o estilo de um nó e mantê-lo por cima | Ao transformar dois lóbulos preenchidos em traços de vão, eles ficaram sob o corpo; foi preciso um `move_nodes` separado (sem `index` = fim) para corrigir a ordem | Aceitar `index` (ou `"front"`/`"back"`) nas props do `update_nodes` | P3 |
 | 78 | Decalcar uma imagem de referência | A imagem do usuário chegou ao agente só como imagem; não havia jeito fácil de colocá-la sob o desenho, então cada ponto bezier foi estimado no olho e mapeado com uma escala calculada à mão, em três rodadas de screenshot | Opção `reference` no `create_nodes`/`import_svg` (ou nó `image` a partir de arquivo local) travada a 50% de opacidade, e `render_screenshot` com uma imagem `compare` lado a lado | P2 |
 | 79 | Salvar o screenshot em arquivo | `render_screenshot` só devolve a imagem ao agente; gravar o PNG no repo exigiu copiar o blob em cache do cliente | `path` opcional (o servidor grava) ou `format: "url"` devolvendo `/api/screenshot/...` para baixar | P3 |
@@ -401,6 +401,21 @@ adicionar `card.tsx`. Seis frames em `docs/assets/boards/PAP-B-031/`; o export d
 - O `ConfirmDialog` já estava em `AlertDialog` com `variant: "destructive"` na ação de confirmar (PAP-B-026); a visão geral só consome.
 - Os cards de workspace mantêm `outline` em vez de `border` para a capa não comer a borda ativa; o `Card` vem com `border-ui-border`, mas a visão geral sobrescreve com `border-0` e as classes de outline que já existiam.
 
+## 2026-11-22: shell, toolbar, camadas e páginas no shadcn (PAP-B-033, design first)
+
+Tarefa: desenhar o shell do editor (expandido, esquerdo recolhido, ambos recolhidos) nos dois escopos de
+tema em `127.0.0.1:4777`, depois migrar `App` / toolbar / `Layers` / `Pages` / `InlineName` / `PanelResizer`
+para os primitivos. Seis frames em `docs/assets/boards/PAP-B-033/`; o export em
+`docs/design/boards.paprika.json` os carrega.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 108 | ToggleGroup que mantém `role=button` + `aria-pressed` | O Radix `type="single"` vira radiogroup (`role=radio`, `aria-checked`, `aria-pressed` limpo). O E2E da toolbar (`getByRole("button")` + `aria-pressed` + classe `is-active`) quebraria | Usar `type="multiple"` com valor controlado de um item e `rovingFocus={false}` para o Tab continuar andando em cada ferramenta; manter o `<nav aria-label="Ferramentas">` por fora | P2 |
+| 109 | Rótulo de aba inativa na faixa night no claro | A faixa de abas do painel direito fica `bg-night` nos dois escopos; `$pg.muted` sob `mode=light` é `#5d6478` e o lint marca 2.99:1 sobre night | No board (e no app) usar o muted noturno (`$muted` / `text-muted`) nos rótulos que sentam na faixa night | P3 |
+
+- Os hotspots de E2E (`is-active`, `layer-name`, `page`, `data-panel-toggle`, `treeitem`, `add-page`) ficaram como classes/ganchos plain.
+- `ui.iconBtn` saiu de `ui.ts`; Inspector/Team/Overview ainda donos das entradas restantes.
+
 ## 2026-11-22: inspector compacto (PAP-B-022, design parcial)
 
 Tarefa: redesenhar o inspector de cena em seções recolhíveis antes de implementar `apps/web/src/inspector/**`. Dois frames de design (`PAP-B-022 texto escuro` / `claro`) já estão em `docs/design/boards.paprika.json`; o redraw completo no MCP em `:4777` foi pulado com o servidor compartilhado lento, e os PNGs antes/depois em `docs/assets/boards/PAP-B-022/` carregam o caso de medição.
@@ -436,6 +451,35 @@ Tarefa: desenhar estados da toolbar / inspector / canvas para o `ShapeKind` `tri
 
 - Seis frames em `docs/assets/boards/PAP-A-004/`; boards reexportados via `GET /api/export` em `docs/design/boards.paprika.json` (sem `open_workspace`).
 - `wasmPaintable` continua falso para nós `shape` (o DOM pinta o contorno do triângulo).
+## 2026-11-22: color picker customizado (PAP-B-023, design first)
+
+Tarefa: desenhar os estados fechado, aberto e alpha do campo de cor do inspector (claro e escuro) em
+`Interfaces` antes de trocar o `input type=color` nativo por um popover. Seis frames raiz de altura fixa;
+PNGs em `docs/assets/boards/PAP-B-023/`; export dos boards via `GET /api/export`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 110 | Y livre para frames de boards em paralelo | Vários tickets compartilham `Interfaces`; o outline é prosa, então colocar o PAP-B-023 exigiu exportar o documento e varrer os `y` de topo à mão (pousou em `y=11000`) | `get_document_outline` (ou `create_nodes`) devolvendo a bbox do conteúdo da página / `place: "free"` — igual ao #103 | P3 || 111 | Capturas como arquivo | O `render_screenshot` ainda devolve base64 no JSON; um script Node teve que decodificar cada PNG em `docs/assets/boards/PAP-B-023/` | `path` opcional no `render_screenshot` (igual ao #100 / #101) | P2 || 112 | Escape que fecha um popover sem limpar a seleção | O `App.tsx` escuta Escape no `window` e troca a seleção; o primeiro Esc do color picker também desmontava o campo do inspector antes do foco voltar ao swatch | Ignorar Escape quando o alvo está dentro de `[data-slot="popover-content"]` / diálogo (feito neste ticket); popovers também devem dar `stopPropagation` | P2 |
+- O workspace ativo já era `Paprika - UI`; sem `open_workspace`.
+- O `lint_design` da página ainda aponta um erro de contraste antigo sem relação; os frames novos não acrescentaram erros.
+## 2026-11-22: atalhos de proporção ao redimensionar (PAP-B-042, design first)
+
+Tarefa: desenhar os estados livre / manter proporção / quadrado (claro e escuro) na página `Interfaces` do `Paprika - UI`, depois ligar as travas `Shift` e `Shift+Alt` e a dica no canvas em `apps/web/src/Canvas.tsx`. Seis frames raiz de altura fixa; capturas em `docs/assets/boards/PAP-B-042/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 110 | `lint_design` limitado às raízes do ticket | Chamar `lint_design` com `rootIds` dos seis frames PAP-B-042 ainda devolveu centenas de avisos e um erro de contraste de folhas antigas na mesma página (`nodeId` fora das raízes pedidas) | Respeitar `rootIds` como filtro duro da subárvore para o ticket provar o próprio lint sem ruído de boards paralelos | P2 || 111 | Screenshots como arquivo | Igual ao #100 / #101: `render_screenshot` só devolve base64; um script local teve que decodificar em `docs/assets/boards/PAP-B-042/` | `path` opcional no `render_screenshot` | P3 |
+- O workspace ativo já era `Paprika - UI`; `Interfaces` existia (`interfaces-pap020`); sem `open_workspace`.
+- Alturas fixas de 360 px evitaram o problema de screenshot com hug; `render_screenshot` com `scale: 2` bastou para julgar as dicas.
+## 2026-11-22: histórico de atividade (PAP-B-025, design first)
+
+Tarefa: desenhar o feed de atividade (ator cor+nome, ação, tempo relativo, agrupamento de lote, marcador de desfazer/refazer) em claro e escuro antes de extrair `Activity.tsx` do Inspector. Quatro frames raiz em `Interfaces` (`PAP-B-025 feed|undo` × light/dark), altura fixa 320; PNGs em `docs/assets/boards/PAP-B-025/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 110 | Cor do nome do agente que passe contraste no painel | Usar o azul do agente (`#3b82f6`) no ponto e no nome falhou WCAG AA em `$pg.panel2` (3.69:1); a folha manteve a cor só no ponto e `$pg.fg` no nome | Documentar que as cores de presença são para preenchimento/pontos, não para texto no painel, ou oferecer variantes seguras ao lado de `AGENT_COLORS` | P3 || 111 | `$pg.select` como tinta do marcador no modo claro | O rótulo "agora" em `$pg.select` no painel claro ficou em 3.91:1; trocar o rótulo para `$pg.fg` e deixar a linha em select corrigiu o lint sem token novo | Um `select-ink` (ou `$pg.select` mais escuro no modo claro) para texto em superfícies claras | P3 |
+- `layout.padding: [6, 8]` (dois valores) é rejeitado; quatro valores ou um número só funcionam.
+- A posição de desfazer/refazer vem no cliente dos rótulos iniciais `desfazer:` / `refazer:` no feed WS existente — sem mudança no servidor.
 
 ## 2026-11-22: atalhos de ordem Z e seção Ordem (PAP-B-021, design first)
 

@@ -179,9 +179,12 @@ describe("exportSVG", () => {
     expect(exportSVG(doc, { rootId: "a" }).svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" width="40" height="20" viewBox="0 0 40 20">/);
   });
 
-  it("layout automático exige medida do navegador", () => {
+  it("layout automático usa layout(doc), sem navegador", () => {
     const doc = example("demo.paprika.json");
-    expect(() => exportSVG(doc)).toThrow(/depends on auto layout/);
+    const r = exportSVG(doc);
+    expect(r.svg).toContain('data-name="Login · mobile"');
+    expect(r.width).toBeGreaterThan(0);
+    expect(r.height).toBeGreaterThan(0);
     const boxes = Object.fromEntries(Object.keys(doc.nodes).map((id) => [id, [0, 0, 10, 10] as [number, number, number, number]]));
     expect(exportSVG(doc, { measure: { boxes } }).svg).toContain('data-name="Login · mobile"');
   });

@@ -13,7 +13,7 @@ const core = await import(join(root, "packages/core/dist/index.js"));
 const {
   applyOps, createDocument, parseDocument, copyId, History, outline, describeNode, lintDocument, renderHTML,
   exportReact, exportTailwind, exportCssModules, exportAngular, exportSvelte, renderTailwindHTML, renderFrameworkHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
-  parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, importSVG, importHTML, exportSVG,
+  parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, combinePathsOps, importSVG, importHTML, exportSVG,
   diagramOps, shapeOutline, tailwindClassesFor, layout, measureText, FONT_AVG, normalizePath, pathOrigin,
 } = core;
 
@@ -288,6 +288,13 @@ const opCases = [
   ["free", [{ op: "add_page", id: "p2", firstId: "p1", firstName: "Início", name: "Dois" }]],
   ["paged", [{ op: "add_page", id: "p3" }, { op: "create", parentId: "p3", node: { type: "rect", id: "r3" } }]],
   ["paged", [{ op: "add_page", id: "pg1" }]],
+  ["free", [{ op: "combine_paths", ids: ["r1", "e1"], operation: "union", id: "cu" }]],
+  ["free", [{ op: "combine_paths", ids: ["r1", "e1"], operation: "subtract", id: "cs" }]],
+  ["free", [{ op: "combine_paths", ids: ["r1", "e1"], operation: "intersect", id: "ci" }]],
+  ["free", [{ op: "combine_paths", ids: ["r1", "e1"], operation: "exclude", id: "ce" }]],
+  ["free", [{ op: "combine_paths", ids: ["r1"], operation: "union" }]],
+  ["free", [{ op: "combine_paths", ids: ["r1", "board"], operation: "union" }]],
+  ["free", [{ op: "combine_paths", ids: ["r1", "t1"], operation: "union" }]],
   // components and instances
   ["comp", [{ op: "update", id: "lbl", props: { text: "Salvar", fontSize: 16 } }]],
   ["comp", [{ op: "update", id: "btn", props: { fill: "#000000", radius: 2, layout: { mode: "column", gap: 2 } } }]],
@@ -431,6 +438,9 @@ const structureCases = [
   ["card", "duplicate", { ids: ["card"], props: { id: "x", children: [] } }],
   ["card", "duplicate", { ids: ["card"], props: { width: 5 } }],
   ["card", "duplicate", { ids: ["card"], parentId: "nope" }],
+  ["free", "combine", { ids: ["r1", "e1"], operation: "union", id: "cu" }],
+  ["free", "combine", { ids: ["r1", "e1"], operation: "subtract", id: "cs" }],
+  ["free", "combine", { ids: ["r1"], operation: "union" }],
 ];
 const structure = structureCases.map(([docName, kind, args]) => {
   const d = docs[docName];
@@ -443,6 +453,10 @@ const structure = structureCases.map(([docName, kind, args]) => {
     if (kind === "duplicate") {
       const p = duplicateOps(d, args.ids, args);
       return { ops: p.ops, map: p.map };
+    }
+    if (kind === "combine") {
+      const p = combinePathsOps(d, args.ids, { operation: args.operation, id: args.id, name: args.name });
+      return { ops: p.ops, id: p.id };
     }
     const p = addPageOps(d, { id: args.id, name: args.name, firstId: args.firstId });
     return { ops: p.ops, id: p.id };

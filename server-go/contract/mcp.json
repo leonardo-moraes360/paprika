@@ -820,6 +820,85 @@
       }
     },
     {
+      "name": "combine_paths",
+      "title": "Boolean path combine",
+      "description": "Combines 2+ path, rect, ellipse or shape siblings into one path via union, subtract, intersect or exclude. Keeps the bottom-most node's style, deletes the sources, one undo step. Returns the new path id. Canvas UI for this is separate.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 2,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "union",
+              "subtract",
+              "intersect",
+              "exclude"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "id": {
+            "description": "Result path id (default: generated)",
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "batch": {
+            "description": "Undo batch: consecutive writes from this agent with the same batch become one undo step (and one history entry, labeled with the batch)",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "ids",
+          "operation"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "path",
+          "created",
+          "version"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
       "name": "ungroup_nodes",
       "title": "Ungroup",
       "description": "Removes groups: their children go back to the group's parent, in its place, keeping position, opacity and visibility.",
@@ -1170,7 +1249,7 @@
     {
       "name": "apply_ops",
       "title": "Operation transaction",
-      "description": "Applies a mixed list of operations (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) in one atomic transaction.",
+      "description": "Applies a mixed list of operations (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach, combine_paths) in one atomic transaction.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3138,6 +3217,44 @@
                     "op",
                     "ids"
                   ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "combine_paths"
+                    },
+                    "ids": {
+                      "minItems": 2,
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "operation": {
+                      "type": "string",
+                      "enum": [
+                        "union",
+                        "subtract",
+                        "intersect",
+                        "exclude"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 200
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "ids",
+                    "operation"
+                  ]
                 }
               ]
             }
@@ -4259,7 +4376,7 @@
     {
       "name": "export_code",
       "title": "Export code",
-      "description": "Exports a node as standalone HTML, a React (TSX) component with inline styles, vector SVG (svg: the layout is measured in headless Chromium, like render_screenshot; a page rootId exports the page), a React (TSX) component with Tailwind utility classes (tailwind), standalone HTML with Tailwind utility classes and the Tailwind browser script (tailwind-html), a React component plus its .module.css (css-modules: two text blocks, the .tsx first and the stylesheet second), an Angular standalone component (angular: three text blocks — .ts, template .html, then .css), or a Svelte single-file component (svelte). Tailwind, CSS Modules, Angular and Svelte output come from the same styles as the canvas, so the exported screen matches it; declarations Tailwind has no utility for stay inline.",
+      "description": "Exports a node as standalone HTML, a React (TSX) component with inline styles, vector SVG (svg: boxes from core layout(doc), no headless Chromium; a page rootId exports the page), a React (TSX) component with Tailwind utility classes (tailwind), standalone HTML with Tailwind utility classes and the Tailwind browser script (tailwind-html), a React component plus its .module.css (css-modules: two text blocks, the .tsx first and the stylesheet second), an Angular standalone component (angular: three text blocks — .ts, template .html, then .css), or a Svelte single-file component (svelte). Tailwind, CSS Modules, Angular and Svelte output come from the same styles as the canvas, so the exported screen matches it; declarations Tailwind has no utility for stay inline.",
       "inputSchema": {
         "type": "object",
         "properties": {

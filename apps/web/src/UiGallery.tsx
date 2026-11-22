@@ -18,6 +18,7 @@ import { Label } from "./components/ui/label";
 import { Separator } from "./components/ui/separator";
 import { Slider } from "./components/ui/slider";
 import { Toggle } from "./components/ui/toggle";
+import { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
 import { ScrollArea } from "./components/ui/scroll-area";
@@ -141,6 +142,17 @@ function GalleryBody({ light }: { light: boolean }) {
         <Toggle variant="outline" defaultPressed aria-label="Grade">
           Grade
         </Toggle>
+        <ToggleGroup type="single" defaultValue="select" aria-label="Ferramentas" className="rounded-md border border-ui-border p-0.5">
+          <ToggleGroupItem value="select" aria-label="Selecionar" size="sm">
+            V
+          </ToggleGroupItem>
+          <ToggleGroupItem value="frame" aria-label="Frame" size="sm">
+            F
+          </ToggleGroupItem>
+          <ToggleGroupItem value="rect" aria-label="Retângulo" size="sm">
+            R
+          </ToggleGroupItem>
+        </ToggleGroup>
         <Slider value={opacity} onValueChange={setOpacity} min={0} max={1} step={0.1} className="w-40" aria-label="Opacidade" />
         <span className="text-xs text-ui-muted-foreground">{opacity[0]?.toFixed(1)}</span>
         <Separator className="w-8" />

@@ -11,7 +11,7 @@ Task: an agent drew 5 flat paprika icons with increasing complexity (3 → ~20 s
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 1 | Organic shapes (a pepper silhouette) | Only `rect`/`ellipse` exist; the pepper had to be built from overlapping, rotated ellipses | Add a `path` node (SVG `d`, fill/stroke) and boolean union of children (`path` with bezier curves done on 2026-11-21, see below; boolean union still open) | P1 |
+| 1 | Organic shapes (a pepper silhouette) | Only `rect`/`ellipse` exist; the pepper had to be built from overlapping, rotated ellipses | Add a `path` node (SVG `d`, fill/stroke) and boolean union of children (`path` with bezier curves done on 2026-11-21; MCP `combine_paths` / core boolean ops done in PAP-A-003 — canvas command still open) | P1 |
 | 2 | Put a stem on the tip of a rotated pod | Rotation pivots on the box center, so the agent had to do trigonometry; the calyx was misplaced twice and only caught by screenshot | Done (2026-11-22, PAP-A-001): `get_bounds` returns origin + rotated corners; `path_info` adds origin / transformOrigin | — |
 | 3 | Same icon at 4 sizes | No components/instances or scale: the script regenerated every shape with a scale factor (4× the nodes, edits don't propagate) | Components + instances with `scale`; `duplicate_nodes` with scale | P1 |
 | 4 | 5 themes side by side | Tokens are global, so they had to be namespaced by hand (`p1.brand` … `p5.brand`) and rewritten in every node | Done (2026-11-21, see #45): theme modes (`set_tokens` with `mode`) and `mode` on a frame or page; named collections are still open | — |
@@ -107,7 +107,7 @@ Task: `importSVG`, `importHTML` and `exportSVG` in the core (TS and Go), the MCP
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 40 | Bring an icon from an SVG set | Before, an agent had to translate each `<rect>`/`<circle>`/arc by hand into `d`; `import_svg` now does it in one call and says what it dropped in `warnings` | Support `<use>`/`<symbol>` sprites and `<text>` (as `text` nodes), which icon sets and logos often use | P2 |
-| 41 | Export SVG of a node with auto layout without a browser | The core can't place `hug`/`fill`/row/column children by itself, so `exportSVG` without a measure fails with a message that points to `export_code` | Done for geometry (2026-11-22, PAP-A-001): `layout(doc)` is the base; wire into exportSVG in PAP-A-002 | — |
+| 41 | Export SVG of a node with auto layout without a browser | The core can't place `hug`/`fill`/row/column children by itself, so `exportSVG` without a measure fails with a message that points to `export_code` | Done (2026-11-22, PAP-A-002): `exportSVG` / `export_code` svg / `GET /api/svg` use `layout(doc)` boxes; text splits on `\n`; gradients and background images stay out | — |
 | 42 | Reuse a component from a live web page | `import_html` reads inline `style=""` only; HTML copied from most sites relies on classes, so the result is plain | An option that renders the HTML in the server's Chromium and imports computed styles | P2 |
 
 ## 2026-11-21: point-by-point path editing (backlog slice 1, item 4)
@@ -236,7 +236,7 @@ Task: draw a flat red bell pepper (three lobes, thin white curved gaps, olive st
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 76 | Cut thin gaps out of a shape | No boolean ops or masks, so the gaps are white strokes painted over the red body; that only reads right on a light background and the export has no real holes | `subtract`/`union` in `apply_ops` (or a `mask` on group) that produces a new `path`; at least a stroke `knockout` option | P2 |
+| 76 | Cut thin gaps out of a shape | No boolean ops or masks, so the gaps are white strokes painted over the red body; that only reads right on a light background and the export has no real holes | `combine_paths` (`subtract`/`union`/…) in MCP/`apply_ops` done (PAP-A-003); canvas command and optional `mask` on `group` / stroke `knockout` still open | P2 |
 | 77 | Restyle a node and keep it on top | Turning two filled lobes into gap strokes left them under the body; needed a separate `move_nodes` (no `index` = end) to fix the z-order | Accept `index` (or `"front"`/`"back"`) in `update_nodes` props | P3 |
 | 78 | Trace a reference image | The user's picture reached the agent only as an image; there was no easy way to place it under the drawing, so every bezier point was estimated by eye and mapped with a hand-computed scale, which took three screenshot rounds | A `reference` option on `create_nodes`/`import_svg` (or an `image` node from a local file path) placed locked at 50% opacity, plus `render_screenshot` with a `compare` image shown side by side | P2 |
 | 79 | Save the screenshot as a file | `render_screenshot` only returns the image to the agent; writing the PNG to the repo meant copying the client's cached blob | Optional `path` (the server writes it) or `format: "url"` returning `/api/screenshot/...` to download | P3 |
@@ -400,6 +400,21 @@ the PAP-B-031 sheets from an earlier draw (`/tmp/b031/draw.mjs`).
 - `ConfirmDialog` was already on `AlertDialog` with `variant: "destructive"` on the confirm action (PAP-B-026); overview only consumes it.
 - Workspace cards keep `outline` instead of `border` so the cover cannot clip the active edge; `Card` ships with `border-ui-border` but the overview overrides with `border-0` plus the existing outline classes.
 
+## 2026-11-22: shell, toolbar, layers and pages on shadcn (PAP-B-033, design first)
+
+Task: draw the editor shell (expanded, left collapsed, both collapsed) in both theme scopes on
+`127.0.0.1:4777`, then migrate `App` / toolbar / `Layers` / `Pages` / `InlineName` / `PanelResizer` onto the
+primitives. Six frames are in `docs/assets/boards/PAP-B-033/`; the board export in
+`docs/design/boards.paprika.json` carries them.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 108 | ToggleGroup that keeps `role=button` + `aria-pressed` | Radix `type="single"` turns items into a radiogroup (`role=radio`, `aria-checked`, `aria-pressed` cleared). The toolbar E2E (`getByRole("button")` + `aria-pressed` + class `is-active`) would fail | Use `type="multiple"` with a controlled single value and `rovingFocus={false}` so Tab still walks every tool; keep the outer `<nav aria-label="Ferramentas">` | P2 |
+| 109 | Inactive tab label on a night strip in light mode | The right-panel tab strip stays `bg-night` in both scopes; `$pg.muted` under `mode=light` is `#5d6478` and linted at 2.99:1 on night | Board (and app) keep night muted (`$muted` / `text-muted`) for labels that sit on the night strip | P3 |
+
+- E2E hotspots (`is-active`, `layer-name`, `page`, `data-panel-toggle`, `treeitem`, `add-page`) stayed as plain class/hooks.
+- `ui.iconBtn` left `ui.ts`; Inspector/Team/Overview still own the remaining entries.
+
 ## 2026-11-22: compact inspector (PAP-B-022, design partial)
 
 Task: redesign the scene inspector into collapsible sections before implementing `apps/web/src/inspector/**`. Two design frames (`PAP-B-022 texto escuro` / `claro`) already live in `docs/design/boards.paprika.json`; a full MCP redraw on `:4777` was skipped when the shared server was slow, and the app before/after PNGs under `docs/assets/boards/PAP-B-022/` carry the measurement case instead.
@@ -434,6 +449,35 @@ Task: draw toolbar / inspector / canvas states for `ShapeKind` `triangle` on `In
 
 - Six frames at `docs/assets/boards/PAP-A-004/`; boards re-exported via `GET /api/export` into `docs/design/boards.paprika.json` (no `open_workspace`).
 - `wasmPaintable` stays false for `shape` nodes (DOM paints the triangle outline).
+## 2026-11-22: custom color picker (PAP-B-023, design first)
+
+Task: draw the closed, open and alpha states of the inspector color field (light and dark) on `Interfaces`
+before replacing the native `input type=color` with a popover. Six fixed-height root frames; PNGs under
+`docs/assets/boards/PAP-B-023/`; board export refreshed via `GET /api/export`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | `get_document_outline` (or `create_nodes`) returning the page content bbox / `place: "free"` — same as #103 | P3 || 111 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/assets/boards/PAP-B-023/` | Optional `path` on `render_screenshot` (same as #100 / #101) | P2 || 112 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
+- Active workspace was already `Paprika - UI`; no `open_workspace`.
+- `lint_design` on the page still reports one unrelated contrast error from an older sheet; the new frames added no errors.
+## 2026-11-22: aspect-ratio lock shortcuts while resizing (PAP-B-042, design first)
+
+Task: draw free / keep-ratio / square selection states (light and dark) on the `Interfaces` page of `Paprika - UI`, then wire `Shift` and `Shift+Alt` locks plus a canvas hint in `apps/web/src/Canvas.tsx`. Six fixed-height root frames; screenshots in `docs/assets/boards/PAP-B-042/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | `lint_design` scoped to the ticket's roots | Calling `lint_design` with `rootIds` for the six PAP-B-042 frames still returned hundreds of warnings and one contrast error from older sheets on the same page (`nodeId` outside the requested roots) | Honor `rootIds` as a hard subtree filter so a ticket can prove its own lint without noise from parallel boards | P2 || 111 | Screenshots as files | Same as #100 / #101: `render_screenshot` returns base64 only; a short local script had to decode into `docs/assets/boards/PAP-B-042/` | Optional `path` on `render_screenshot` | P3 |
+- Active workspace was already `Paprika - UI`; `Interfaces` existed (`interfaces-pap020`); no `open_workspace`.
+- Fixed 360 px frame heights avoided the hug screenshot pitfall; `render_screenshot` with `scale: 2` was enough to judge the hint badges.
+## 2026-11-22: better activity history (PAP-B-025, design first)
+
+Task: draw the activity feed (actor color+name, action, relative time, batch grouping, undo/redo marker) light and dark before extracting `Activity.tsx` from the Inspector. Four root frames on `Interfaces` (`PAP-B-025 feed|undo` × light/dark), fixed height 320; PNGs under `docs/assets/boards/PAP-B-025/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | Agent name color that passes contrast on the panel | Putting the agent blue (`#3b82f6`) on both the dot and the name failed WCAG AA on `$pg.panel2` (3.69:1); the sheet kept the color on the dot only and used `$pg.fg` for the name | Document that presence colors are for fills/dots, not for body text on panel surfaces, or ship text-safe variants next to `AGENT_COLORS` | P3 || 111 | `$pg.select` as marker label ink in light mode | The "agora" marker label at `$pg.select` on the light panel was 3.91:1; switching the label to `$pg.fg` and leaving the line in select fixed lint without inventing a new token | A `select-ink` (or darker light-mode `$pg.select`) for text on light surfaces | P3 |
+- `layout.padding: [6, 8]` (two values) is rejected; four values or a single number work. Same class of friction as other tickets.
+- Undo/redo position is derived client-side from leading `desfazer:` / `refazer:` labels in the existing WS activity feed — no server change.
 
 ## 2026-11-22: layer order shortcuts and Ordem section (PAP-B-021, design first)
 

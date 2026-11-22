@@ -273,6 +273,28 @@ func TestMCPToolsAndErrors(t *testing.T) {
 	}
 }
 
+func TestMCPCombinePaths(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "frame", "id", "f", "width", 300.0, "height", 200.0, "children", []any{
+		obj("type", "rect", "id", "a", "x", 10.0, "y", 20.0, "width", 60.0, "height", 60.0, "fill", "#c43d27"),
+		obj("type", "rect", "id", "b", "x", 40.0, "y", 50.0, "width", 60.0, "height", 60.0, "fill", "#1e2336"),
+	})}))
+	out, isErr := callText(t, m, "combine_paths", obj("ids", []any{"a", "b"}, "operation", "union", "id", "cu"))
+	if isErr {
+		t.Fatalf("combine_paths: %s", out)
+	}
+	if !strings.Contains(out, `"path": "cu"`) {
+		t.Fatalf("combine_paths result: %s", out)
+	}
+	if n := core.GetNode(s.Doc(), "cu"); n == nil || n.Str("type") != "path" || n.Str("fill") != "#c43d27" {
+		t.Fatalf("expected combined path with bottom fill, got %v", n)
+	}
+	if core.GetNode(s.Doc(), "a") != nil {
+		t.Fatal("combine_paths should delete sources")
+	}
+}
+
 func TestMCPGetBounds(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)
@@ -539,7 +561,7 @@ func TestMCPImportExportSVG(t *testing.T) {
 	if out, isErr := callText(t, m, "import_html", obj("html", `<div style="display:flex; gap:8px"><span>Olá</span></div>`, "label", "colar")); isErr || !strings.Contains(out, `"created"`) {
 		t.Fatalf("import_html: %q", out)
 	}
-	if out, isErr := callText(t, m, "export_code", obj("rootId", created, "format", "svg")); !isErr || out != "SVG export unavailable on this server" {
+	if out, isErr := callText(t, m, "export_code", obj("rootId", created, "format", "svg")); isErr || !strings.Contains(out, "<svg xmlns=") || !strings.Contains(out, `data-paprika-id="`+created+`"`) {
 		t.Fatalf("export svg without browser: %q", out)
 	}
 }

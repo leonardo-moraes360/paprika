@@ -19,4 +19,4 @@ export * from "./pathEdit.js";
 export * from "./htmlImport.js";
 export * from "./svgExport.js";
 export * from "./diagram.js";
-export * from "./layout.js";
+export * from "./boolean.js";

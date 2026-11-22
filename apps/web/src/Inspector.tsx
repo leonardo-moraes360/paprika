@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Bot } from "lucide-react";
 import {
   copyOwner,
   groupOps,
@@ -18,7 +17,8 @@ import {
   type PageNode,
   type SceneNode,
 } from "@paprika/core";
-import type { Activity } from "./useDocument";
+import { Activity } from "./Activity";
+import type { Activity as ActivityEntry } from "./useDocument";
 import { ColorField, Field, ModeField, num, size } from "./inspector/fields";
 import { InspectorSection } from "./inspector/InspectorSection";
 import { cx, ui } from "./ui";
@@ -35,7 +35,7 @@ interface Props {
   node: Node | null;
   selected: string[];
   apply(ops: Op[], label?: string): void;
-  activity: Activity[];
+  activity: ActivityEntry[];
   onSelect(id: string): void;
   onSelectMany(ids: string[]): void;
   onError(message: string): void;
@@ -590,7 +590,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
   );
 }
 
-function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: Activity[]; onSelect(id: string): void }) {
+function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: ActivityEntry[]; onSelect(id: string): void }) {
   const [newToken, setNewToken] = useState("");
   const [newModeToken, setNewModeToken] = useState("");
   const issues = lintDocument(doc).filter((i) => i.severity !== "info");
@@ -668,26 +668,7 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
         )}
       </InspectorSection>
       <InspectorSection id="activity" title="Atividade">
-        <ul className={list}>
-          {activity.length === 0 && <li className="flex gap-2 text-muted">Nenhuma edição ainda.</li>}
-          {activity.slice(0, 15).map((a) => (
-            <li key={a.id} className={cx("flex gap-2", a.actor.startsWith("agent") ? "text-accent-ink" : "text-muted")}>
-              <span className="inline-flex items-start gap-1 font-semibold whitespace-nowrap">
-                {a.actor.startsWith("agent") ? (
-                  <>
-                    <Bot className="mt-px shrink-0" size={14} aria-hidden />
-                    {a.actor.slice(6)}
-                  </>
-                ) : a.actor === "user" ? (
-                  "você"
-                ) : (
-                  a.actor
-                )}
-              </span>
-              <span>{a.label || "edição"}</span>
-            </li>
-          ))}
-        </ul>
+        <Activity activity={activity} />
       </InspectorSection>
     </div>
   );
