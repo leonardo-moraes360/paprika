@@ -8,6 +8,7 @@ import { Layers } from "./Layers";
 import { Pages } from "./Pages";
 import { LEFT_PANEL, PanelResizer, RIGHT_PANEL, usePanelWidth } from "./PanelResizer";
 import { api, errorText } from "./api";
+import { ConnectionStatus } from "./ConnectionStatus";
 import { Overview } from "./Overview";
 import { navigate, parseRoute, useRoute, workspacePath } from "./route";
 import { useDocument, type LiveDocument } from "./useDocument";
@@ -21,7 +22,7 @@ const toolSep = "mx-1.5 h-5 w-px bg-line";
 const toolButton = (active: boolean) =>
   cx(
     "inline-flex h-[30px] w-8 cursor-pointer items-center justify-center rounded-md border-0 enabled:hover:bg-panel-2 disabled:cursor-default disabled:opacity-35",
-    active ? "is-active bg-accent text-white" : "bg-transparent",
+    active ? "is-active bg-accent-strong text-white" : "bg-transparent",
   );
 
 /** Lucide icon size in the floating toolbar, in px. */
@@ -306,7 +307,8 @@ function Editor({ live }: { live: LiveDocument }) {
           <span className="text-line" aria-hidden>
             /
           </span>
-          <span className="doc-name truncate text-muted max-wide:hidden">{doc.name}</span>
+          {/* The page's heading; on narrow screens it stays for screen readers only. */}
+          <h1 className="doc-name m-0 truncate text-muted [font:inherit] max-wide:sr-only">{doc.name}</h1>
         </div>
         <div className={bar.status}>
           {live.team !== undefined && <TeamChip status={live.team} onClick={() => setRightTab("team")} />}
@@ -316,11 +318,12 @@ function Editor({ live }: { live: LiveDocument }) {
               <span className="truncate">{lastAgent.label}</span>
             </span>
           )}
-          <span className={bar.dot(live.connected)} />
+          <span className={bar.dot(live.connected)} aria-hidden />
           <span className={bar.statusText}>{live.connected ? `v${live.version} · MCP em /mcp` : "desconectado"}</span>
+          <ConnectionStatus connected={live.connected} />
         </div>
       </header>
-      <aside className="left overflow-auto border-r border-line bg-panel [grid-area:left] max-wide:hidden">
+      <aside aria-label="Páginas e camadas" className="left overflow-auto border-r border-line bg-panel [grid-area:left] max-wide:hidden">
         <Pages doc={doc} pageId={pageId} onOpen={openPage} apply={live.apply} />
         <Layers doc={doc} pageId={pageId} selected={selected} onSelect={setSelected} apply={live.apply} />
       </aside>
@@ -372,14 +375,27 @@ function Editor({ live }: { live: LiveDocument }) {
         )}
       </main>
       <PanelResizer side="right" label="Largura do painel de propriedades" width={rightWidth} limits={RIGHT_PANEL} onChange={setRightWidth} />
-      <aside className="right overflow-auto border-l border-line bg-panel [grid-area:right] max-wide:border-t max-wide:border-l-0">
+      <aside aria-label="Propriedades" className="right overflow-auto border-l border-line bg-panel [grid-area:right] max-wide:border-t max-wide:border-l-0">
         {live.team !== undefined && (
-          <div className="right-tabs m-3 mb-0 grid grid-cols-2 gap-0.5 rounded-md bg-night p-0.5" role="tablist">
+          <div className="right-tabs m-3 mb-0 grid grid-cols-2 gap-0.5 rounded-md bg-night p-0.5" role="tablist" aria-label="Painel da direita">
             {(["inspector", "team"] as const).map((t) => (
               <button
                 key={t}
+                id={`right-tab-${t}`}
                 role="tab"
                 aria-selected={rightTab === t}
+                aria-controls="right-tabpanel"
+                // Roving tabindex: one Tab stop for the tab list, the arrows switch tabs (WAI-ARIA tabs pattern).
+                tabIndex={rightTab === t ? 0 : -1}
+                onKeyDown={(e) => {
+                  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") return;
+                  e.preventDefault();
+                  e.stopPropagation(); // the arrows would also nudge the selection on the canvas
+                  const next = rightTab === "inspector" ? "team" : "inspector";
+                  const to = e.key === "Home" ? "inspector" : e.key === "End" ? "team" : next;
+                  setRightTab(to);
+                  document.getElementById(`right-tab-${to}`)?.focus();
+                }}
                 className={cx("cursor-pointer rounded-sm border-0 py-1 text-xs", rightTab === t ? "is-active bg-panel-2 font-semibold text-fg" : "bg-transparent text-muted")}
                 onClick={() => setRightTab(t)}
               >
@@ -388,6 +404,7 @@ function Editor({ live }: { live: LiveDocument }) {
             ))}
           </div>
         )}
+        <div id="right-tabpanel" role={live.team !== undefined ? "tabpanel" : undefined} aria-labelledby={live.team !== undefined ? `right-tab-${rightTab}` : undefined}>
         {live.team !== undefined && rightTab === "team" ? (
           <TeamPanel
             status={live.team}
@@ -415,6 +432,7 @@ function Editor({ live }: { live: LiveDocument }) {
           onError={live.showError}
         />
         )}
+        </div>
       </aside>
       {teamDialog === "invite" && live.team && <InviteDialog status={live.team} onClose={() => setTeamDialog(null)} />}
       {teamDialog === "join" && <JoinDialog status={live.team ?? null} onClose={() => setTeamDialog(null)} />}

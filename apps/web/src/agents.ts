@@ -29,8 +29,33 @@ export interface AgentPresence {
 export const AGENT_IDLE_MS = 15_000;
 export const AGENT_TTL_MS = 120_000;
 
-/** Cores distintas entre si e do acento da marca, legíveis com texto branco. */
-export const AGENT_COLORS = ["#3b82f6", "#10b981", "#a855f7", "#f59e0b", "#ec4899", "#6366f1", "#84cc16", "#a16207"];
+/**
+ * Cores distintas entre si e do acento da marca. O texto sobre cada uma é o de `agentInk` (branco ou o fundo
+ * noturno), e todas passam de 4,5:1 com ele (WCAG 1.4.3 AA); roxo e índigo foram escurecidos para isso.
+ */
+export const AGENT_COLORS = ["#3b82f6", "#10b981", "#9645f0", "#f59e0b", "#ec4899", "#5b5ef0", "#84cc16", "#a16207"];
+
+const NIGHT = "#141827";
+
+/** Luminância relativa (WCAG) de uma cor #rrggbb. */
+function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const v = Number.parseInt(hex.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+}
+
+/** Razão de contraste entre duas cores #rrggbb. */
+export function contrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi! + 0.05) / (lo! + 0.05);
+}
+
+/** Cor do texto sobre a cor de um agente: branco ou o fundo noturno, o que contrastar mais. */
+export function agentInk(color: string): string {
+  return contrast("#ffffff", color) >= contrast(NIGHT, color) ? "#ffffff" : NIGHT;
+}
 
 const baseName = (actor: string) => actor.replace(/^agent:/, "") || "agente";
 

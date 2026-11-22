@@ -36,7 +36,7 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
           <Plus size={14} />
         </button>
       </h2>
-      <ul className="m-0 list-none p-0">
+      <ul className="m-0 list-none p-0" aria-label="Páginas">
         {pages.length === 0 && (
           <li className={cx(pageRow, pageActive)} title="Workspace sem páginas: o primeiro + cria a página 1 com este conteúdo">
             Página 1
@@ -59,11 +59,25 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
                 onDone={() => setEditing(null)}
               />
             ) : (
-              <span className="flex-1 truncate">{p.name || p.id}</span>
+              // A button so the keyboard can reach and open the page (the row's click handler still does it for the mouse).
+              <button
+                type="button"
+                className="min-w-0 flex-1 cursor-default truncate border-0 bg-transparent p-0 text-left"
+                aria-current={p.id === pageId ? "page" : undefined}
+                title="Duplo clique ou F2 para renomear"
+                onKeyDown={(e) => {
+                  if (e.key !== "F2") return;
+                  e.preventDefault();
+                  setEditing(p.id);
+                }}
+              >
+                {p.name || p.id}
+              </button>
             )}
             {pages.length > 1 && editing !== p.id && (
               <button
-                className={cx(ui.iconBtn, "invisible group-hover:visible")}
+                // Transparent, not invisible: an invisible button cannot take keyboard focus.
+                className={cx(ui.iconBtn, "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100")}
                 aria-label={`Apagar página ${p.name || p.id}`}
                 title="Apagar página (desfazer com Ctrl+Z)"
                 onClick={(e) => {
