@@ -292,7 +292,7 @@ func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH 
 }
 
 type place struct {
-	id             string
+	id              string
 	x, y, w, h, rot float64
 }
 
@@ -337,8 +337,8 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 	gap := lay.Num("gap")
 
 	type base struct {
-		n                  *Node
-		baseW, baseH       float64
+		n                   *Node
+		baseW, baseH        float64
 		fillMain, fillCross bool
 	}
 	bases := make([]base, len(kids))
@@ -357,7 +357,7 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 		}
 		bases[i] = base{
 			n: c, baseW: bw, baseH: bh,
-			fillMain: (row && sizeKind(c, "width") == "fill") || (!row && sizeKind(c, "height") == "fill"),
+			fillMain:  (row && sizeKind(c, "width") == "fill") || (!row && sizeKind(c, "height") == "fill"),
 			fillCross: (row && sizeKind(c, "height") == "fill") || (!row && sizeKind(c, "width") == "fill"),
 		}
 	}

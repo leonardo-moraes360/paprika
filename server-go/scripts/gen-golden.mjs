@@ -747,7 +747,7 @@ const tailwindMapCases = [
 
 const stableLayout = (doc, opts) => {
   const boxes = layout(doc, opts);
-  return JSON.stringify(Object.fromEntries(Object.keys(boxes).sort().map((id) => [id, boxes[id]])));
+  return JSON.stringify(Object.fromEntries(Object.keys(boxes).sort((a, b) => a.localeCompare(b)).map((id) => [id, boxes[id]])));
 };
 const layouts = Object.entries(docs).map(([name, doc]) => ({
   name,
