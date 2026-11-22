@@ -39,15 +39,25 @@ export const ui = {
   dangerBtn: "text-ui-destructive-text hover:text-ui-destructive-text",
   /** Inline rename field (layers, pages, frame labels). */
   renameInput: "min-w-0 rounded-[3px] border border-select bg-panel px-1 py-0 text-fg outline-none",
-  activityList: "m-0 grid list-none gap-1 p-0",
-  activityRow: "grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-1.5 rounded-md bg-panel-2 px-1.5 py-1 text-xs text-fg",
-  activityBatch: "outline outline-1 outline-select",
-  activityDot: "size-2 shrink-0 rounded-full",
-  activityActor: "max-w-[4.5rem] truncate font-semibold text-fg",
-  activityLabel: "min-w-0 truncate text-muted",
-  activityTime: "shrink-0 text-muted tabular-nums",
-  activityMarker: "flex items-center gap-1.5 py-0.5 text-xs font-semibold text-select",
-  activityMarkerLine: "h-px min-w-2 flex-1 bg-select",
+  colorSwatch:
+    "size-7 shrink-0 cursor-pointer rounded-md border border-line bg-transparent p-0 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
+  colorPopover: "border-line bg-panel-2 text-fg shadow-float",
+  colorSv:
+    "relative h-[140px] w-full cursor-crosshair touch-none rounded-md border border-line outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
+  colorSlider:
+    "relative h-3 w-full cursor-pointer touch-none rounded-full border border-line outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
+  colorAlpha: "bg-[length:8px_8px]",
+  colorCursor:
+    "pointer-events-none absolute size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-night bg-white",
+  colorThumb:
+    "pointer-events-none absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-tag",
+  colorChannel:
+    "grid gap-0.5 text-2xs text-muted [&_input]:h-7 [&_input]:rounded-md [&_input]:border [&_input]:border-line [&_input]:bg-panel [&_input]:px-1.5 [&_input]:text-sm [&_input]:text-fg [&_input]:outline-none [&_input:focus-visible]:border-select",
+  colorToken:
+    "flex w-12 cursor-pointer flex-col items-center gap-1 border-0 bg-transparent p-0 text-2xs text-muted outline-none hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
+  colorTokenSwatch: "size-[22px] rounded-md border border-line",
+  colorRecent:
+    "size-5 cursor-pointer rounded-md border border-line p-0 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
 };
 
 /** Top bar shared by the overview and the canvas. */

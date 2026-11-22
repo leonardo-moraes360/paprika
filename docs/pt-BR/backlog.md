@@ -66,7 +66,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Modos de mesclagem (blend modes) | — | ⬜ | P3 |
 | Painel de cores da seleção (todas as cores usadas) | — | ⬜ | P3 |
 | Vários tipos de borda nos elementos | Hoje `stroke` é só `{color, width}` (`packages/core/src/schema.ts`) e o inspector mostra cor e espessura; só conectores têm `dashed`. Falta: estilos sólido, tracejado, pontilhado e parecidos, e a posição da borda (interna, centro, externa). Borda por lado fica de fora por enquanto (mantenedor, 2026-11-22). Relaciona com C "Várias sombras, sombra interna, outline". Pedido de 2026-11-22. Leva 4. | ⬜ | a definir |
-| Color picker customizado | Hoje o inspector usa o seletor de cor nativo. Pedido de 2026-11-22. Leva 3: PAP-B-023. | ⬜ | a definir |
+| Color picker customizado | Popover próprio (SV, matiz/alpha, hex/rgb, swatches de tokens do documento → `$token`, recentes, teclado). Substitui o `input type=color` nativo (2026-11-22, PAP-B-023). | ✅ | — |
 
 ## D. Tipografia
 
@@ -253,7 +253,7 @@ Os pedidos do mantenedor de 2026-11-22 foram movidos em 2026-11-22 para as seç�
 - fazer com que ao ir além do mínimo de compressão dos menus laterais no canvas, eles colapsem em um botão flutuante (canto superior esquerdo ou direito). Para expandir o menu em questão deve-se clicar no botão correspondente.
 - migrar para componentes shadcn.
 - melhorar animações dos elementos em tela com tailwind-animate.
-- adicionar color picker customizado.
+- ~~adicionar color picker customizado~~ (PAP-B-023).
 - comprimir melhor informação do `inspector`, hoje ele é uma scroll área gigantesca com muita informação.
 - melhorar visualmente histórico de atividade, hoje ele é um aglomerado de informaçao mal formatada.
 - adicionar controle de background e foreground nas camadas, permitindo enviar uma camada para background ou trazer para foreground de forma arbitrária. Utilizando por exemplo page up ou page down.

@@ -66,7 +66,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Blend modes | — | ⬜ | P3 |
 | Selection colors panel (all colors used in the selection) | — | ⬜ | P3 |
 | Several border types for elements | Today `stroke` is only `{color, width}` (`packages/core/src/schema.ts`) and the inspector shows color and width; only connectors have `dashed`. Missing: solid, dashed, dotted and similar styles, and the border position (inside, center, outside). Per-side borders are out for now (maintainer, 2026-11-22). Relates to C "Multiple shadows, inner shadow, outline". Requested 2026-11-22. Batch 4. | ⬜ | TBD |
-| Custom color picker | Today the inspector uses the native color input. Requested 2026-11-22. Batch 3: PAP-B-023. | ⬜ | TBD |
+| Custom color picker | Custom popover (SV, hue/alpha, hex/rgb, document token swatches → `$token`, recent colors, keyboard). Replaces the native color input (2026-11-22, PAP-B-023). | ✅ | — |
 
 ## D. Typography
 

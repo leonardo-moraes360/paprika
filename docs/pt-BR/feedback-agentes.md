@@ -425,6 +425,17 @@ arrastar uma ferramenta de criação, claro e escuro, depois pintá-lo a partir 
 - O workspace ativo já era `Paprika - UI` / página `Interfaces`; sem `open_workspace`.
 - O fantasma é `aria-hidden` e `pointer-events: none` (`data-testid="draft-ghost"`); o fantasma da seta do conector ficou fora do escopo draft-only deste ticket.
 
+## 2026-11-22: color picker customizado (PAP-B-023, design first)
+
+Tarefa: desenhar os estados fechado, aberto e alpha do campo de cor do inspector (claro e escuro) em
+`Interfaces` antes de trocar o `input type=color` nativo por um popover. Seis frames raiz de altura fixa;
+PNGs em `docs/assets/boards/PAP-B-023/`; export dos boards via `GET /api/export`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 110 | Y livre para frames de boards em paralelo | Vários tickets compartilham `Interfaces`; o outline é prosa, então colocar o PAP-B-023 exigiu exportar o documento e varrer os `y` de topo à mão (pousou em `y=11000`) | `get_document_outline` (ou `create_nodes`) devolvendo a bbox do conteúdo da página / `place: "free"` — igual ao #103 | P3 || 111 | Capturas como arquivo | O `render_screenshot` ainda devolve base64 no JSON; um script Node teve que decodificar cada PNG em `docs/assets/boards/PAP-B-023/` | `path` opcional no `render_screenshot` (igual ao #100 / #101) | P2 || 112 | Escape que fecha um popover sem limpar a seleção | O `App.tsx` escuta Escape no `window` e troca a seleção; o primeiro Esc do color picker também desmontava o campo do inspector antes do foco voltar ao swatch | Ignorar Escape quando o alvo está dentro de `[data-slot="popover-content"]` / diálogo (feito neste ticket); popovers também devem dar `stopPropagation` | P2 |
+- O workspace ativo já era `Paprika - UI`; sem `open_workspace`.
+- O `lint_design` da página ainda aponta um erro de contraste antigo sem relação; os frames novos não acrescentaram erros.
 ## 2026-11-22: atalhos de proporção ao redimensionar (PAP-B-042, design first)
 
 Tarefa: desenhar os estados livre / manter proporção / quadrado (claro e escuro) na página `Interfaces` do `Paprika - UI`, depois ligar as travas `Shift` e `Shift+Alt` e a dica no canvas em `apps/web/src/Canvas.tsx`. Seis frames raiz de altura fixa; capturas em `docs/assets/boards/PAP-B-042/`.
