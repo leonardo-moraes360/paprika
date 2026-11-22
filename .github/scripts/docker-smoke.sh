@@ -28,9 +28,10 @@ fail() {
   exit 1
 }
 
+# start [ARGS...]: (re)creates the container on the volume; ARGS replace the image's CMD.
 start() {
   docker rm -f "$name" >/dev/null 2>&1 || true
-  docker run -d --name "$name" -p "127.0.0.1:${port}:4777" -v "${volume}:/data" "$image" >/dev/null
+  docker run -d --name "$name" -p "127.0.0.1:${port}:4777" -v "${volume}:/data" "$image" "$@" >/dev/null
   for _ in $(seq 1 50); do
     curl -fsS -o /dev/null "$base/" 2>/dev/null && return 0
     sleep 0.2
@@ -111,5 +112,23 @@ init
 outline=$(tool 5 get_document_outline '{}')
 grep -q 'Docker smoke' <<<"$outline" || fail "node lost after restart: $(head -c 400 <<<"$outline")"
 echo "ok   SQLite on the volume survives a restart"
+
+# Team mode (compose.team.yaml): the sidecar ships in the image, starts, and keeps its key on the volume.
+team_args=(serve --host 0.0.0.0 --port 4777 --team --team-name smoke --team-no-relay --team-bind 0.0.0.0:4778)
+team_id() {
+  for _ in $(seq 1 50); do
+    local body
+    body=$(curl -fsS "$base/api/team" 2>/dev/null) && grep -q '"fingerprint"' <<<"$body" && { json 'r.id' <<<"$body"; return 0; }
+    sleep 0.2
+  done
+  fail "GET /api/team did not answer with the team status"
+}
+start "${team_args[@]}"
+key1=$(team_id)
+[[ -n "$key1" ]] || fail "team status without a key id"
+start "${team_args[@]}"
+key2=$(team_id)
+[[ "$key1" = "$key2" ]] || fail "team key changed after a restart ($key1 -> $key2)"
+echo "ok   team mode: paprika-sync up, key kept on the volume ($key1)"
 
 echo "docker smoke: all checks passed for $image"

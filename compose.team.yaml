@@ -1,0 +1,21 @@
+# Team mode (P2P sync, docs/team-sync.md) on top of compose.yaml:
+#   PAPRIKA_TEAM_NAME=Ana docker compose -f compose.yaml -f compose.team.yaml up -d --build
+# The key, team file, invites and operation log live in the same volume (/data/paprika.team), so
+# they survive upgrades like the database. Back the volume up: losing the key means joining again.
+services:
+  paprika:
+    command:
+      - serve
+      - --host
+      - 0.0.0.0
+      - --port
+      - "4777"
+      - --team
+      - --team-name
+      - ${PAPRIKA_TEAM_NAME:-paprika}
+      # Fixed UDP port for the Iroh endpoint. Peers still connect through relays from Docker's NAT;
+      # publish the port below for direct connections (only team members' keys are accepted).
+      - --team-bind
+      - 0.0.0.0:4778
+    # ports:
+    #   - "4778:4778/udp"
