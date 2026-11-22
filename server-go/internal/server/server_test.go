@@ -534,7 +534,26 @@ func TestMCPExportTailwindAndCSSModules(t *testing.T) {
 	if !strings.HasPrefix(css, "/* CardGrande.module.css */\n:root{") || !strings.Contains(css, ".cardGrande{box-sizing:border-box;") {
 		t.Fatalf("css-modules sheet: %q", css)
 	}
-	for _, format := range []string{"tailwind", "tailwind-html", "css-modules"} {
+	ang := m.CallTool(context.Background(), "export_code", obj("rootId", "card", "format", "angular", "cssVariables", true), true)
+	angContent := ang.Arr("content")
+	if ang.Bool("isError") || len(angContent) != 3 {
+		t.Fatalf("angular: %s", jsonv.Stringify(ang, ""))
+	}
+	ts, tpl, cssAng := angContent[0].(*jsonv.Object).Str("text"), angContent[1].(*jsonv.Object).Str("text"), angContent[2].(*jsonv.Object).Str("text")
+	if !strings.HasPrefix(ts, "// CardGrande.component.ts\nimport { Component }") || !strings.Contains(ts, `selector: "app-card-grande"`) || !strings.Contains(ts, "standalone: true") {
+		t.Fatalf("angular ts: %q", ts)
+	}
+	if !strings.Contains(tpl, `class="cardGrande"`) || strings.Contains(tpl, ` style="`) {
+		t.Fatalf("angular template: %q", tpl)
+	}
+	if !strings.HasPrefix(cssAng, "/* CardGrande.component.css */\n:root{") || !strings.Contains(cssAng, ".cardGrande{box-sizing:border-box;") {
+		t.Fatalf("angular css: %q", cssAng)
+	}
+	sv, isErr := callText(t, m, "export_code", obj("rootId", "card", "format", "svelte"))
+	if isErr || !strings.HasPrefix(sv, "<!-- CardGrande.svelte -->\n") || !strings.Contains(sv, "<style>") || !strings.Contains(sv, `class="cardGrande"`) {
+		t.Fatalf("svelte: %q", sv)
+	}
+	for _, format := range []string{"tailwind", "tailwind-html", "css-modules", "angular", "svelte"} {
 		if out, isErr := callText(t, m, "export_code", obj("rootId", "nope", "format", format)); !isErr || out != `node "nope" does not exist` {
 			t.Fatalf("%s missing node: %q", format, out)
 		}

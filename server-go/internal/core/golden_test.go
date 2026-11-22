@@ -322,7 +322,48 @@ func TestGoldenViews(t *testing.T) {
 				}
 				eq(t, name+" "+key+" "+id, got, c.Obj(key).Str(id))
 			}
+			for _, vars := range []bool{false, true} {
+				key := "angular"
+				if vars {
+					key = "angularVars"
+				}
+				a, err := ExportAngular(doc, id, vars)
+				got := "ERROR: "
+				if err != nil {
+					got += err.Error()
+				} else {
+					got = jsonv.Stringify(jsonv.NewObject(
+						"typescript", a.Typescript, "template", a.Template, "styles", a.Styles,
+						"className", a.ClassName, "selector", a.Selector, "fileBase", a.FileBase,
+					), "")
+				}
+				eq(t, name+" "+key+" "+id, got, c.Obj(key).Str(id))
+			}
+			for _, vars := range []bool{false, true} {
+				key := "svelte"
+				if vars {
+					key = "svelteVars"
+				}
+				s, err := ExportSvelte(doc, id, vars)
+				got := "ERROR: "
+				if err != nil {
+					got += err.Error()
+				} else {
+					got = jsonv.Stringify(jsonv.NewObject("source", s.Source, "fileName", s.FileName), "")
+				}
+				eq(t, name+" "+key+" "+id, got, c.Obj(key).Str(id))
+			}
 		}
+		fwh, _, err := RenderFrameworkHTML(doc, RenderOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		eq(t, name+" framework html", fwh, c.Str("frameworkHtml"))
+		fwhv, _, err := RenderFrameworkHTML(doc, RenderOptions{CSSVariables: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		eq(t, name+" framework html vars", fwhv, c.Str("frameworkHtmlVars"))
 		ids := func(ns []*Node) string {
 			s := make([]string, len(ns))
 			for i, n := range ns {
