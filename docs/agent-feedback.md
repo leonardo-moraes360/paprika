@@ -243,3 +243,58 @@ Task: draw a flat red bell pepper (three lobes, thin white curved gaps, olive st
 
 - One shared `viewBox` on every path made iteration trivial: each layer is in the same 400×400 coordinates, so redrawing the silhouette was a single `update_nodes`.
 - `render_screenshot` with `scale: 2` was enough to judge curve quality.
+
+## 2026-11-22: shadcn component sheet on the Interfaces page (PAP-B-030, design first)
+
+Task: draw, over MCP, the sheet of every shadcn primitive with its states (hover, focus, disabled, open) in light and dark on the `Interfaces` page of the Paprika workspace, before installing any dependency; then implement the primitives in `apps/web`. Five root frames, ~570 nodes, five `create_nodes` calls.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 80 | A screenshot of a subtree that keeps its theme mode | `render_screenshot { rootId: <frame inside a frame with mode: "light"> }` painted the subtree with the base (dark) tokens: the mode of an ancestor does not travel to a subtree capture. Two close-ups I compared side by side were not comparable, and the workaround (capture the whole root frame, crop locally) costs bytes and time | Resolve the inherited mode for a subtree root, or accept `mode` on `render_screenshot` | P2 |
+| 81 | Knowing that a nested layout frame took the default box | A frame with no `width`/`height` gets 100×100, and the children laid out inside it then disappear from the render: the first sheet came out showing one button, with no error and no warning, and `lint_design` stayed silent. The guide documents `hug`/`fill` but not that default | A `lint_design` rule for a fixed 100×100 layout frame whose laid-out children leave its box (the "hug was meant" case), or a warning in `create_nodes` | P2 |
+| 82 | Small text on a component sheet | `lint_design` returned 31 `small-text` warnings for the 10 and 11 px captions of a sheet that mirrors the app, whose own type scale (ADR 0003) is `text-2xs` 10px and `text-xs` 11px — the same ground #69 and #70 were filed on | Let the rule read a document token (a `$text.min`) or an option per call, so warnings that are the design intent are not re-read every run | P3 |
+| 83 | Tokens in every style field | `radius: "$radius.md"` was refused ("expected number, received string") while `fill` and `color` take `$token`. Every radius in the sheet ended up a literal, so the sheet's radii cannot follow a token change the way its colors do | Accept `$radius.*` in `radius`, and `$space.*`/`$text.*` where a length or size is expected | P3 |
+| 84 | The same result shape from the read tools | `get_nodes` answers JSON (`{"nodes": […]}`) and `find_nodes` answers text lines (`frame#id "name" …`); a script that walks a tree by name has to handle two shapes, and the first pass failed exactly there | Keep the text rendering (it reads well in a chat) and accept `format: "json"`, or return `structuredContent` from every tool, as the guide already promises for the JSON ones | P3 |
+
+- Theme modes did exactly what this sheet needed: `set_tokens {mode: "light"}` plus `mode: "light"` on the frame gave one drawing in two themes, and the light values are now the values `apps/web/src/styles.css` ships in `.ui-light` — the board and the code were decided once, not twice.
+- `lint_design` after the fix reports 0 errors on all five frames; the one `contrast` error it did catch (a 4.24:1 link on a light surface) was a real mistake in the palette, and it is now a different token in the code.
+- Redrawing was cheaper than patching: `delete_nodes` on the five roots plus a fresh `create_nodes`, all in one `batch`, undone by a single `undo`.
+
+## 2026-11-22: team panel and agent roster, before and after (PAP-B-034, design first)
+
+Task: draw the team panel and the agent roster as they are today and as they become on the primitives, in both
+theme scopes, then migrate `apps/web/src/Team.tsx` and the roster in `apps/web/src/AgentCursors.tsx`. Five root
+frames on the `Interfaces` page, ~560 nodes, then the real app in `--team` mode captured for the record.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 85 | The app's own screenshot inside the design document, as the "before" reference | Image nodes do not size the way the box says: the same 280×856 PNG painted correctly into a 190×581 `fit: "contain"` box in one frame and as a ~60×12 sliver in another where the box equalled the source; a 1440×900 source in a 560×350 box painted nothing at all. `lint_design` stayed clean and no error came back, so I only found it by looking at `render_screenshot`. The captures ended up committed next to the board instead of inside it | Document what `width`/`height` do for an `image` node (scale, crop, or neither), and make a source larger than its box either scale down or report it | P2 |
+| 86 | A board whose token names are the code's token names | The sheet's tokens are `ui.card` and `ui.mutedFg` (dots, abbreviations), while `apps/web/src/styles.css` ships `--color-ui-card` and `--color-ui-muted-foreground`. Nothing links the two, so "compare the board with the code" is a human step and I typed the same values in both places | Let a token carry an alias or `source` (e.g. `ui.card` → `--color-ui-card`), or let `set_tokens` read the names from a CSS file | P3 |
+| 87 | A document token for the red the app actually paints | `--color-accent-strong: #c8401f` is in the CSS, but the brand tokens in the document are `$accent` (#e04a2b) and `$accent.dark`. Every primary button on the sheet is a literal, and `lint_design` returns `raw-color` infos on them | Add `$accent.strong` (and its ink) to the document's brand tokens so board and CSS call the same color by the same name | P3 |
+
+- One builder, two modes: the same panel function drew `antes` and `depois` and then the light frame, so the three sheets are the same geometry and only the token pairs and the control sizes differ. That made the comparison readable.
+- `lint_design` on the five frames: 0 errors, the same `small-text` warnings as the PAP-B-030 sheet (the panel's own 11 and 12 px type), plus the `raw-color` infos of item 87.
+- The frame heights had to be fixed by hand again (item 81 still stands): a `hug` column inside a `hug` row clipped the second panel until the outer frame got an explicit height.
+
+## 2026-11-22: four-corner resize handles (PAP-B-029, design first)
+
+Task: draw before/after selection handles and an NW-drag demo on the `Interfaces` page, then add NW/NE/SW/SE handles in `apps/web/src/Canvas.tsx`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 88 | Token lengths in create_nodes without a second pass | `radius: "$radius.md"` and `fontSize: "$text.2xs"` were refused (`expected number`); the measure label started at 10px/`$select` on `$canvas` and failed contrast until a follow-up `update_nodes` | Same as #83: accept `$radius.*` / `$text.*` on those fields so a board can match the app scale in one create | P3 |
+
+- Three root frames, one `create_nodes` call; `lint_design` 0 after fixing measure/note sizes; screenshots in `docs/assets/boards/PAP-B-029`.
+
+## 2026-11-22: numeric inspector fields (PAP-B-027, design first)
+
+Task: draw the Opacidade field states (normal, focused, invalid with message) in light and dark on the `Interfaces` page of the Paprika workspace before fixing `Field`/`setNum`; six fixed-height root frames, one `create_nodes` call, then screenshots under `docs/assets/boards/PAP-B-027/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 89 | `layout.padding` as `[0, 8]` (two values) | `create_nodes` answered `layout.padding: Invalid input`; only a scalar or a 4-tuple is accepted. Had to switch every padding to a single number | Document the accepted padding shapes in `get_design_guide` / tool schema (1 or 4, not 2) | P3 |
+| 90 | `radius: "$radius.md"` on a sheet that already uses `$ui.*` fills | Same refusal as #83 (`expected number, received string`); the board used literal `6` / `8` again | Same as #83: accept `$radius.*` where a length is expected | P3 |
+| 91 | Know which ids in `created` are the roots | `create_nodes` returns a flat DFS list of every nested id; the six board roots were not the first six entries, so the first screenshot pass hit titles and labels | Prefer roots-first in `created`, or return `{roots, created}` like `create_page` already distinguishes `page` | P3 |
+
+- Fixed heights on the six roots avoided the hug screenshot pitfall called out in the ticket; `render_screenshot` with `scale: 2` was enough to judge focus ring and invalid message.
+- `find_nodes {name: "PAP-B-027 field", type: "frame"}` was the reliable way to map board name → id after the flat `created` list.
