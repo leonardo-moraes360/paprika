@@ -83,4 +83,5 @@ Agent layer:
 ```
 
 Types: `frame` (container with paint and free, row or column layout), `group` (wraps nodes without painting; its box follows the children), `frame` with `component: true` (a component) or `instanceOf` (an instance: its children are generated copies of the component, scaled by `scale`, with `overrides`), `page` (a separate canvas in the file; once a document has pages, every top-level node is a page and the frames live inside them), `rect`, `ellipse`, `text`, `image`, `path` (vector shape from SVG path data: lines, cubic and quadratic bezier curves, arcs; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin`, optional `viewBox` to scale an icon grid).
+`stroke` is `{ color, width, style?, position? }` with `style` `solid`|`dashed`|`dotted` (dash pattern from width; omit = solid) and `position` `inside`|`center`|`outside` (omit = inside for boxes/shapes, center for paths).
 Sizes: a number, `"hug"` (fit content) or `"fill"` (take the parent's space). Details in [docs/architecture.md](architecture.md). Planned work lives in [docs/backlog.md](backlog.md).

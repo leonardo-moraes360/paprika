@@ -16,6 +16,42 @@ import (
 // CSS is an ordered camelCase style object (values are string or float64).
 type CSS = jsonv.Object
 
+// StrokeStyleOf returns solid|dashed|dotted (default solid).
+func StrokeStyleOf(stroke *jsonv.Object) string {
+	if stroke == nil {
+		return "solid"
+	}
+	if s := stroke.Str("style"); s != "" {
+		return s
+	}
+	return "solid"
+}
+
+// StrokePositionOf returns inside|center|outside. Paths default to center; boxes to inside.
+func StrokePositionOf(node *Node) string {
+	if st := node.Obj("stroke"); st != nil {
+		if p := st.Str("position"); p != "" {
+			return p
+		}
+	}
+	if node.Str("type") == "path" {
+		return "center"
+	}
+	return "inside"
+}
+
+// StrokeDasharray is the dash pattern derived from width (same scale as connector dashes).
+func StrokeDasharray(width float64, style string) string {
+	switch style {
+	case "dashed":
+		return jsonv.FormatNumber(round2(width*3)) + " " + jsonv.FormatNumber(round2(width*2.5))
+	case "dotted":
+		return jsonv.FormatNumber(round2(width)) + " " + jsonv.FormatNumber(round2(width*1.5))
+	default:
+		return ""
+	}
+}
+
 // ModeOf is the theme mode in effect for a node: its own or the nearest frame/page ancestor's.
 func ModeOf(doc *Document, node *Node) string {
 	for n, depth := node, 0; n != nil && depth < 1000; n, depth = parentOf(doc, n), depth+1 {
@@ -318,7 +354,20 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		css.Set("background", jsString(paint(fill)))
 	}
 	if st := node.Obj("stroke"); st != nil {
-		css.Set("border", px(st.Num("width"))+" solid "+jsString(paint(st.Str("color"))))
+		style := StrokeStyleOf(st)
+		pos := StrokePositionOf(node)
+		w := px(st.Num("width"))
+		c := jsString(paint(st.Str("color")))
+		if pos == "inside" {
+			css.Set("border", w+" "+style+" "+c)
+		} else {
+			css.Set("outline", w+" "+style+" "+c)
+			if pos == "center" {
+				css.Set("outlineOffset", "-"+jsonv.FormatNumber(round2(st.Num("width")/2))+"px")
+			} else {
+				css.Set("outlineOffset", "0px")
+			}
+		}
 	}
 	if typ == "ellipse" {
 		css.Set("borderRadius", "50%")
@@ -403,7 +452,11 @@ func ShapeAttrs(doc *Document, node *Node, vars bool) (svg, path, fold []Attr) {
 	}
 	path = []Attr{{"d", d}, {"fill", fill}, {"strokeLinejoin", "round"}}
 	if st := node.Obj("stroke"); st != nil && st.Num("width") > 0 {
-		path = append(path, Attr{"stroke", jsString(paintValue(doc, st.Str("color"), themeMode, vars))}, Attr{"strokeWidth", st.Num("width")})
+		sw := st.Num("width")
+		path = append(path, Attr{"stroke", jsString(paintValue(doc, st.Str("color"), themeMode, vars))}, Attr{"strokeWidth", sw})
+		if dash := StrokeDasharray(sw, StrokeStyleOf(st)); dash != "" {
+			path = append(path, Attr{"strokeDasharray", dash})
+		}
 	}
 	svg = []Attr{{"width", node.Num("width")}, {"height", node.Num("height")}}
 	if f != "" {
@@ -425,7 +478,7 @@ func ConnectorAttrs(doc *Document, node *Node, vars bool) []Attr {
 		{"strokeLinejoin", "round"},
 	}
 	if node.Bool("dashed") {
-		a = append(a, Attr{"strokeDasharray", jsonv.FormatNumber(round2(sw*3)) + " " + jsonv.FormatNumber(round2(sw*2.5))})
+		a = append(a, Attr{"strokeDasharray", StrokeDasharray(sw, "dashed")})
 	}
 	return a
 }
@@ -538,7 +591,17 @@ func PathAttrsVars(doc *Document, node *Node, vars bool) (svg, path []Attr) {
 		{"strokeLinejoin", node.Str("strokeJoin")},
 	}
 	if st := node.Obj("stroke"); st != nil && st.Num("width") > 0 {
-		path = append(path, Attr{"stroke", jsString(paintValue(doc, st.Str("color"), themeMode, vars))}, Attr{"strokeWidth", st.Num("width")})
+		sw := st.Num("width")
+		pos := StrokePositionOf(node)
+		path = append(path, Attr{"stroke", jsString(paintValue(doc, st.Str("color"), themeMode, vars))})
+		if pos == "outside" && fill != "none" {
+			path = append(path, Attr{"strokeWidth", sw * 2}, Attr{"paintOrder", "stroke fill"})
+		} else {
+			path = append(path, Attr{"strokeWidth", sw})
+		}
+		if dash := StrokeDasharray(sw, StrokeStyleOf(st)); dash != "" {
+			path = append(path, Attr{"strokeDasharray", dash})
+		}
 	}
 	return svg, path
 }

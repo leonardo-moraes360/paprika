@@ -65,7 +65,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Cor moderna: `oklch()`, `color-mix()`, Display P3, seletor OKLCH | As strings passam para o CSS, mas o lint não entende e o seletor é hex sRGB | 🟡 | P2 |
 | Modos de mesclagem (blend modes) | — | ⬜ | P3 |
 | Painel de cores da seleção (todas as cores usadas) | — | ⬜ | P3 |
-| Vários tipos de borda nos elementos | Hoje `stroke` é só `{color, width}` (`packages/core/src/schema.ts`) e o inspector mostra cor e espessura; só conectores têm `dashed`. Falta: estilos sólido, tracejado, pontilhado e parecidos, e a posição da borda (interna, centro, externa). Borda por lado fica de fora por enquanto (mantenedor, 2026-11-22). Relaciona com C "Várias sombras, sombra interna, outline". Pedido de 2026-11-22. Leva 4. | ⬜ | a definir |
+| Vários tipos de borda nos elementos | `stroke` tem `style` opcional (`solid`\|`dashed`\|`dotted`, traço a partir da espessura) e `position` (`inside`\|`center`\|`outside`) em frame/rect/ellipse/path/shape; inspector Estilo/Posição; WASM cai no DOM fora do padrão. Borda por lado ainda fora. (2026-11-22, PAP-B-044). | ✅ | — |
 | Color picker customizado | Popover próprio (SV, matiz/alpha, hex/rgb, swatches de tokens do documento → `$token`, recentes, teclado). Substitui o `input type=color` nativo (2026-11-22, PAP-B-023). | ✅ | — |
 
 ## D. Tipografia
@@ -78,7 +78,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Eixos de fontes variáveis e recursos OpenType | — | ⬜ | P3 |
 | Atalhos de texto (negrito, itálico, passos de tamanho/peso), altura de linha automática | — | ⬜ | P3 |
 | CJK sem quebra de palavra, diacríticos combinados, emoji com vários codepoints | Padrão do navegador | 🟡 | P3 |
-| Fontes do sistema em qualquer elemento com texto | Um seletor de fonte que lista as fontes instaladas na máquina (ex.: Local Font Access API, com lista de reserva) para `text`, `shape` e todo nó com `fontFamily`. Hoje `fontFamily` é um campo de texto livre. Relaciona com D "Tokens de fonte". Pedido de 2026-11-22. Leva 4. | ⬜ | a definir |
+| Fontes do sistema em qualquer elemento com texto | Um seletor de fonte que lista as fontes instaladas na máquina (ex.: Local Font Access API, com lista de reserva) para `text`, `shape` e todo nó com `fontFamily`. Hoje `fontFamily` é um campo de texto livre. Relaciona com D "Tokens de fonte". Pedido de 2026-11-22. Leva 4: PAP-B-047 — **Fonte** no inspector de `text` é um combobox shadcn (`FontPicker`): pilhas comuns + fontes já no documento; Local Font Access API só em **Usar fontes do sistema…** (nunca no load); digitação livre ainda grava; prévia na lista. Shape / outros call sites depois. | 🟡 | a definir |
 | Importar e exportar fontes em vários formatos | Ex.: TTF, OTF, WOFF, WOFF2: fontes guardadas no workspace (como assets) e levadas nos exports (`@font-face` em HTML/CSS, embutidas em SVG/PDF). Também pelo MCP. Respeitar a licença de cada fonte ao embutir. Relaciona com as linhas de export em J. Pedido de 2026-11-22. Leva 4. | ⬜ | a definir |
 
 ## E. Tokens e temas

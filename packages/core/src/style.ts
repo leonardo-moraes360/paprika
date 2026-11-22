@@ -1,4 +1,15 @@
-import type { ConnectorNode, Document, Layout, Node, PathNode, ShapeNode, Size } from "./schema.js";
+import type {
+  ConnectorNode,
+  Document,
+  Layout,
+  Node,
+  PathNode,
+  ShapeNode,
+  Size,
+  Stroke,
+  StrokePosition,
+  StrokeStyle,
+} from "./schema.js";
 import { NOTE_FOLD_FILL, shapeOutline, shapePadding } from "./diagram.js";
 
 export type CSS = Record<string, string | number>;
@@ -76,6 +87,23 @@ export function tokenStylesheet(doc: Document): string {
 
 const px = (n: number) => `${round(n)}px`;
 const round = (n: number) => Math.round(n * 100) / 100;
+
+export function strokeStyleOf(stroke: Pick<Stroke, "style"> | undefined): StrokeStyle {
+  return stroke?.style ?? "solid";
+}
+
+/** Paths default to center (SVG); frames/rects/ellipses/shapes default to inside (CSS border). */
+export function strokePositionOf(node: Pick<Node, "type"> & { stroke?: Pick<Stroke, "position"> | null }): StrokePosition {
+  if (node.stroke?.position) return node.stroke.position;
+  return node.type === "path" ? "center" : "inside";
+}
+
+/** Dash pattern derived from stroke width (same scale as connector dashes). */
+export function strokeDasharray(width: number, style: StrokeStyle): string | undefined {
+  if (style === "dashed") return `${round(width * 3)} ${round(width * 2.5)}`;
+  if (style === "dotted") return `${round(width)} ${round(width * 1.5)}`;
+  return undefined;
+}
 
 function padding(p: Layout["padding"]): string {
   return Array.isArray(p) ? p.map(px).join(" ") : px(p);
@@ -158,7 +186,17 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
     return css;
   }
   if (node.fill) css.background = String(paint(node.fill));
-  if (node.stroke) css.border = `${px(node.stroke.width)} solid ${paint(node.stroke.color)}`;
+  if (node.stroke) {
+    const style = strokeStyleOf(node.stroke);
+    const pos = strokePositionOf(node);
+    const w = px(node.stroke.width);
+    const c = paint(node.stroke.color);
+    if (pos === "inside") css.border = `${w} ${style} ${c}`;
+    else {
+      css.outline = `${w} ${style} ${c}`;
+      css.outlineOffset = pos === "center" ? `-${round(node.stroke.width / 2)}px` : "0px";
+    }
+  }
   if (node.type === "ellipse") css.borderRadius = "50%";
   else if (node.radius) css.borderRadius = px(node.radius);
   if (node.shadow) {
@@ -225,7 +263,7 @@ export const SHAPE_TEXT_CSS: CSS = { position: "relative", width: "100%" };
  */
 export function shapeAttrs(doc: Document, node: ShapeNode, opts: { vars?: boolean } = {}): {
   svg: { width: number; height: number };
-  path: { d: string; fill: string; stroke?: string; strokeWidth?: number; strokeLinejoin: string };
+  path: { d: string; fill: string; stroke?: string; strokeWidth?: number; strokeLinejoin: string; strokeDasharray?: string };
   fold?: { d: string; fill: string };
 } {
   const mode = modeOf(doc, node);
@@ -238,6 +276,8 @@ export function shapeAttrs(doc: Document, node: ShapeNode, opts: { vars?: boolea
   if (node.stroke && node.stroke.width > 0) {
     path.stroke = String(paintValue(doc, node.stroke.color, mode, opts.vars));
     path.strokeWidth = node.stroke.width;
+    const dash = strokeDasharray(node.stroke.width, strokeStyleOf(node.stroke));
+    if (dash) path.strokeDasharray = dash;
   }
   const out: ReturnType<typeof shapeAttrs> = { svg: { width: node.width, height: node.height }, path };
   if (o.fold) out.fold = { d: o.fold, fill: NOTE_FOLD_FILL };
@@ -263,7 +303,7 @@ export function connectorAttrs(doc: Document, node: ConnectorNode, opts: { vars?
     strokeLinecap: "round",
     strokeLinejoin: "round",
   };
-  if (node.dashed) a.strokeDasharray = `${round(sw * 3)} ${round(sw * 2.5)}`;
+  if (node.dashed) a.strokeDasharray = strokeDasharray(sw, "dashed");
   return a;
 }
 
@@ -330,7 +370,17 @@ export function connectorLabelAttrs(
 /** Atributos do <svg> e do <path> de um nó path. Fonte única para canvas, HTML/screenshot e React. */
 export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean } = {}): {
   svg: { viewBox?: string; preserveAspectRatio?: string };
-  path: { d: string; fill: string; fillRule: string; stroke?: string; strokeWidth?: number; strokeLinecap: string; strokeLinejoin: string };
+  path: {
+    d: string;
+    fill: string;
+    fillRule: string;
+    stroke?: string;
+    strokeWidth?: number;
+    strokeLinecap: string;
+    strokeLinejoin: string;
+    strokeDasharray?: string;
+    paintOrder?: string;
+  };
 } {
   const mode = modeOf(doc, node);
   const svg: { viewBox?: string; preserveAspectRatio?: string } = {};
@@ -346,8 +396,18 @@ export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean 
     strokeLinejoin: node.strokeJoin,
   };
   if (node.stroke && node.stroke.width > 0) {
+    const sw = node.stroke.width;
+    const pos = strokePositionOf(node);
     path.stroke = String(paintValue(doc, node.stroke.color, mode, opts.vars));
-    path.strokeWidth = node.stroke.width;
+    // Outside + fill: double width with fill on top covers the inner half (SVG has no stroke-alignment).
+    if (pos === "outside" && node.fill) {
+      path.strokeWidth = sw * 2;
+      path.paintOrder = "stroke fill";
+    } else {
+      path.strokeWidth = sw;
+    }
+    const dash = strokeDasharray(sw, strokeStyleOf(node.stroke));
+    if (dash) path.strokeDasharray = dash;
   }
   return { svg, path };
 }

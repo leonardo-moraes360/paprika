@@ -65,7 +65,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Modern color: `oklch()`, `color-mix()`, Display P3, OKLCH picker | Strings pass through to CSS, but lint can't parse them and the picker is sRGB hex | 🟡 | P2 |
 | Blend modes | — | ⬜ | P3 |
 | Selection colors panel (all colors used in the selection) | — | ⬜ | P3 |
-| Several border types for elements | Today `stroke` is only `{color, width}` (`packages/core/src/schema.ts`) and the inspector shows color and width; only connectors have `dashed`. Missing: solid, dashed, dotted and similar styles, and the border position (inside, center, outside). Per-side borders are out for now (maintainer, 2026-11-22). Relates to C "Multiple shadows, inner shadow, outline". Requested 2026-11-22. Batch 4. | ⬜ | TBD |
+| Several border types for elements | `stroke` has optional `style` (`solid`\|`dashed`\|`dotted`, dash from width) and `position` (`inside`\|`center`\|`outside`) for frame/rect/ellipse/path/shape; inspector Estilo/Posição; WASM falls back to DOM when non-default. Per-side borders still out. (2026-11-22, PAP-B-044). | ✅ | — |
 | Custom color picker | Custom popover (SV, hue/alpha, hex/rgb, document token swatches → `$token`, recent colors, keyboard). Replaces the native color input (2026-11-22, PAP-B-023). | ✅ | — |
 
 ## D. Typography
@@ -78,7 +78,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Variable font axes and OpenType features | — | ⬜ | P3 |
 | Text shortcuts (bold, italic, size/weight steps), auto line height | — | ⬜ | P3 |
 | CJK word-keep, combining marks, multi-codepoint emoji checks | Browser default | 🟡 | P3 |
-| System fonts on any element with text | A font picker that lists the fonts installed on the machine (e.g. Local Font Access API, with a fallback list) for `text`, `shape` and every node that has `fontFamily`. Today `fontFamily` is a free text field. Relates to D "Font tokens". Requested 2026-11-22. Batch 4. | ⬜ | TBD |
+| System fonts on any element with text | A font picker that lists the fonts installed on the machine (e.g. Local Font Access API, with a fallback list) for `text`, `shape` and every node that has `fontFamily`. Today `fontFamily` is a free text field. Relates to D "Font tokens". Requested 2026-11-22. Batch 4: PAP-B-047 — inspector **Fonte** on `text` is a shadcn combobox (`FontPicker`): common stacks + fonts already in the document; Local Font Access API only on **Usar fontes do sistema…** (never at load); custom typing still commits; list rows preview in their face. Shape / other `fontFamily` call sites later. | 🟡 | TBD |
 | Import and export fonts in several formats | E.g. TTF, OTF, WOFF, WOFF2: fonts embedded in the workspace (as assets) and carried in exports (`@font-face` in HTML/CSS, embedded in SVG/PDF). Also over MCP. Respect each font's license when embedding. Relates to the export rows in J. Requested 2026-11-22. Batch 4. | ⬜ | TBD |
 
 ## E. Tokens and themes
