@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Bot, Circle, Diamond, Download, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Redo2, Square, StickyNote, Type, Undo2, type LucideIcon } from "lucide-react";
+import { Bot, Circle, Diamond, Download, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Redo2, Square, StickyNote, Triangle, Type, Undo2, type LucideIcon } from "lucide-react";
 import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
@@ -38,6 +38,7 @@ const TOOLS: { tool: Tool; key: string; label: string; icon: LucideIcon }[] = [
   { tool: "pen", key: "p", label: "Caneta (bezier)", icon: PenTool },
   { tool: "shape", key: "s", label: "Caixa de diagrama", icon: Square },
   { tool: "diamond", key: "d", label: "Decisão (losango)", icon: Diamond },
+  { tool: "triangle", key: "g", label: "Triângulo", icon: Triangle },
   { tool: "note", key: "n", label: "Nota adesiva", icon: StickyNote },
   { tool: "connector", key: "a", label: "Seta (prende nas formas)", icon: MoveUpRight },
 ];

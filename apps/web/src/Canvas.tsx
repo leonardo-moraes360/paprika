@@ -54,10 +54,10 @@ const CROSSHAIR = new Set<string>(["frame", "rect", "ellipse", "text", "pen"]);
 
 const zoomButton = "inline-flex h-6 w-6.5 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent hover:bg-panel-2";
 
-export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "note" | "connector";
+export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "triangle" | "note" | "connector";
 
 /** Ferramentas que criam uma forma de diagrama (nó shape), com o tipo de contorno. */
-const SHAPE_TOOLS = { shape: "rect", diamond: "diamond", note: "note" } as const;
+const SHAPE_TOOLS = { shape: "rect", diamond: "diamond", triangle: "triangle", note: "note" } as const;
 type ShapeTool = keyof typeof SHAPE_TOOLS;
 const isShapeTool = (t: Tool): t is ShapeTool => t in SHAPE_TOOLS;
 
@@ -923,9 +923,9 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         let h = Math.round(Math.abs(d.y1 - d.y0));
         const clicked = w < 4 && h < 4;
         const kind = tool as Exclude<Tool, "select" | "pen" | "connector">;
-        const defaults = { frame: [390, 844], rect: [120, 80], ellipse: [80, 80], text: [200, 32], shape: [160, 80], diamond: [160, 100], note: [160, 160] } as const;
+        const defaults = { frame: [390, 844], rect: [120, 80], ellipse: [80, 80], text: [200, 32], shape: [160, 80], diamond: [160, 100], triangle: [160, 140], note: [160, 160] } as const;
         if (clicked) [w, h] = defaults[kind];
-        const names = { frame: "Frame", rect: "Retângulo", ellipse: "Elipse", text: "Texto", shape: "Caixa", diamond: "Decisão", note: "Nota" } as const;
+        const names = { frame: "Frame", rect: "Retângulo", ellipse: "Elipse", text: "Texto", shape: "Caixa", diamond: "Decisão", triangle: "Triângulo", note: "Nota" } as const;
         const count = isShapeTool(kind)
           ? Object.values(doc.nodes).filter((n) => n.type === "shape" && n.shape === SHAPE_TOOLS[kind]).length + 1
           : Object.values(doc.nodes).filter((n) => n.type === tool).length + 1;

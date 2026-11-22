@@ -992,6 +992,21 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const second = (await shapes()).find((n) => n.id !== first)!.id;
     await expect.poll(() => page.locator(`[data-paprika-id="${second}"]`).innerText(), POLL).toBe("Ok?");
 
+    // Triângulo pelo atalho G; o seletor do inspector troca o contorno.
+    await page.keyboard.press("g");
+    await page.mouse.click(vp.x + 200, vp.y + 420);
+    await expect.poll(async () => (await shapes()).length, POLL).toBe(3);
+    await page.getByTestId("shape-text-editor").waitFor();
+    await page.keyboard.type("Go");
+    await page.keyboard.press("Escape");
+    const third = (await shapes()).find((n) => n.shape === "triangle" || n.text === "Go")!.id;
+    await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle", text: "Go", width: 160, height: 140 });
+    await page.locator(`[data-paprika-id="${third}"]`).click();
+    await page.getByTestId("shape-kind").selectOption("diamond");
+    await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "diamond" });
+    await page.getByTestId("shape-kind").selectOption("triangle");
+    await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle" });
+
     // Seta: arrastar de uma forma até a outra; as duas pontas ficam presas.
     const box = async (id: string) => (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
     const a = await box(first);
