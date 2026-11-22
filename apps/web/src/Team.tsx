@@ -95,12 +95,12 @@ function Chip({ label, tone }: { label: string; tone: Tone }) {
 const btn = (primary = false) =>
   cx(
     "inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold",
-    primary ? "border-accent bg-accent text-white hover:opacity-90" : "border-line bg-panel-2 text-fg hover:border-select",
+    primary ? "border-accent-strong bg-accent-strong text-white hover:opacity-90" : "border-line bg-panel-2 text-fg hover:border-select",
   );
 
 function Avatar({ name, you }: { name: string; you?: boolean }) {
   return (
-    <span className={cx("inline-flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white", you ? "bg-accent" : "bg-label")}>
+    <span className={cx("inline-flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white", you ? "bg-accent-strong" : "bg-label")}>
       {(name || "?").slice(0, 1).toUpperCase()}
     </span>
   );

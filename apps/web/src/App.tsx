@@ -22,7 +22,7 @@ const toolSep = "mx-1.5 h-5 w-px bg-line";
 const toolButton = (active: boolean) =>
   cx(
     "inline-flex h-[30px] w-8 cursor-pointer items-center justify-center rounded-md border-0 enabled:hover:bg-panel-2 disabled:cursor-default disabled:opacity-35",
-    active ? "is-active bg-accent text-white" : "bg-transparent",
+    active ? "is-active bg-accent-strong text-white" : "bg-transparent",
   );
 
 /** Lucide icon size in the floating toolbar, in px. */

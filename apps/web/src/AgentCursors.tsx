@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { Document } from "@paprika/core";
-import { AGENT_IDLE_MS, AGENT_TTL_MS, agentPage, toolVerb, type AgentPresence } from "./agents";
+import { AGENT_IDLE_MS, AGENT_TTL_MS, agentInk, agentPage, toolVerb, type AgentPresence } from "./agents";
 import { cx } from "./ui";
 
 /** Caixa que envolve todas as caixas. */
@@ -124,7 +124,7 @@ export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId
           const tipY = bottom - Math.min(12 / z, (bottom - top) / 4) + (stack * 24) / z;
           const idle = now - a.at > AGENT_IDLE_MS;
           return (
-            <div key={a.agent} className={cx("transition-opacity duration-600 ease-[ease]", idle && "opacity-45")} style={{ ["--agent" as string]: a.color }} data-agent={a.agent} data-testid="agent-cursor">
+            <div key={a.agent} className={cx("transition-opacity duration-600 ease-[ease]", idle && "opacity-45")} style={{ ["--agent" as string]: a.color, ["--agent-ink" as string]: agentInk(a.color) }} data-agent={a.agent} data-testid="agent-cursor">
               {bs.map((b, i) => (
                 <div
                   key={i}
@@ -139,7 +139,7 @@ export function AgentCursors({ doc, agents, view, viewportRef, layoutKey, pageId
                 <svg className="-mt-[1.5px] -ml-[1.5px] drop-shadow-cursor" width="18" height="20" viewBox="0 0 18 20" aria-hidden>
                   <path className="fill-(--agent) stroke-white stroke-[1.2] [stroke-linejoin:round]" d="M1.5 1.5 L1.5 16.5 L5.6 12.6 L8.4 18.6 L11.1 17.4 L8.4 11.5 L14.2 11.5 Z" />
                 </svg>
-                <span className={cx("mt-3.5 -ml-0.5 rounded-md bg-(--agent) px-1.75 py-0.5 whitespace-nowrap text-white shadow-tag", tagFont)}>
+                <span className={cx("mt-3.5 -ml-0.5 rounded-md bg-(--agent) px-1.75 py-0.5 whitespace-nowrap text-(--agent-ink) shadow-tag", tagFont)}>
                   {a.name} <em className={cx("font-normal not-italic opacity-85", !idle && "after:content-['…']")}>{toolVerb(a.tool)}</em>
                 </span>
               </div>

@@ -4,6 +4,8 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { startServer, type ExternalServer } from "../harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
@@ -98,5 +100,35 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     await expect(page.getByRole("complementary", { name: "Propriedades" }).count()).resolves.toBe(1);
     await expect(page.getByRole("heading", { level: 1 }).textContent()).resolves.toBe(await page.locator(".doc-name").textContent());
     await expect(page.getByRole("status").textContent()).resolves.toBe("Conectado ao servidor");
+  });
+
+  it("texto sobre o acento e sobre as cores de agente passa de 4,5:1 (1.4.3)", async () => {
+    // Several agents, so the check covers more than the first color.
+    const agents: Client[] = [];
+    for (let i = 0; i < 8; i++) {
+      const c = new Client({ name: `a11y-agent-${i}`, version: "0" });
+      await c.connect(new StreamableHTTPClientTransport(new URL(`${external!.url}/mcp`)));
+      await c.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
+      agents.push(c);
+    }
+    await expect.poll(() => page.locator(".agent-cursor").count(), { timeout: 10_000 }).toBe(8);
+    const ratios = await page.evaluate(() => {
+      const rgb = (s: string) => (s.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
+      const lum = (c: number[]) => {
+        const [r, g, b] = c.map((v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4));
+        return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+      };
+      const ratio = (el: Element) => {
+        const cs = getComputedStyle(el);
+        const [a, b] = [lum(rgb(cs.color)), lum(rgb(cs.backgroundColor))].sort((x, y) => y - x);
+        return (a! + 0.05) / (b! + 0.05);
+      };
+      const tags = [...document.querySelectorAll(".agent-cursor span")].filter((el) => el.parentElement?.classList.contains("agent-cursor"));
+      return { tags: tags.map(ratio), tool: ratio(document.querySelector("nav[aria-label=Ferramentas] .is-active")!) };
+    });
+    for (const c of agents) await c.close();
+    expect(ratios.tags).toHaveLength(8);
+    for (const r of ratios.tags) expect(r).toBeGreaterThanOrEqual(4.5);
+    expect(ratios.tool).toBeGreaterThanOrEqual(4.5);
   });
 });

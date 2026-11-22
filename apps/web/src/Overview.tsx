@@ -54,7 +54,7 @@ const tile = (h: number): CSSProperties => ({
 const button = (primary: boolean) =>
   cx(
     "cursor-pointer rounded-lg border px-3.5 py-1.75 disabled:cursor-default disabled:opacity-60",
-    primary ? "border-accent bg-accent font-semibold text-white" : "border-line bg-panel",
+    primary ? "border-accent-strong bg-accent-strong font-semibold text-white" : "border-line bg-panel",
   );
 
 interface Props {
@@ -246,7 +246,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                   </span>
                 </span>
                 {w.active && (
-                  <span className="absolute top-2.5 right-2.5 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-white" title="Aberto no servidor: os agentes MCP leem e escrevem neste">
+                  <span className="absolute top-2.5 right-2.5 rounded-full bg-accent-strong px-2 py-0.5 text-xs font-semibold text-white" title="Aberto no servidor: os agentes MCP leem e escrevem neste">
                     ativo
                   </span>
                 )}
