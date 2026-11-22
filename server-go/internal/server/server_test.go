@@ -365,7 +365,7 @@ func TestMCPGroupsAndPages(t *testing.T) {
 		t.Fatalf("page: %q", out)
 	}
 	roots := s.Doc().Strings("rootIds")
-	if len(roots) != 2 || core.GetNode(s.Doc(), roots[0]).Str("name") != "Página 1" {
+	if len(roots) != 2 || core.GetNode(s.Doc(), roots[0]).Str("name") != "Page 1" {
 		t.Fatalf("pages: %v", roots)
 	}
 	out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect", "id", "loose")}))
@@ -507,7 +507,7 @@ func TestHTTPTransportRules(t *testing.T) {
 	if code, _ := do("GET", "/api/health", map[string]string{"Host": "evil.example:1"}, ""); code != 403 {
 		t.Fatalf("evil host: %d", code)
 	}
-	if code, body := do("GET", "/", nil, ""); code != 200 || !strings.Contains(body, "Canvas não compilado") {
+	if code, body := do("GET", "/", nil, ""); code != 200 || !strings.Contains(body, "Canvas not built") {
 		t.Fatalf("placeholder: %d", code)
 	}
 	code, body = do("GET", "/api/export", nil, "")

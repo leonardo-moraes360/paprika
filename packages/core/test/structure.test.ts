@@ -145,13 +145,13 @@ describe("pages", () => {
     const plan = addPageOps(doc0, { id: "p2", name: "Rascunhos", firstId: "p1" });
     const { doc } = applyOps(doc0, plan.ops);
     expect(doc.rootIds).toEqual(["p1", "p2"]);
-    expect(doc.nodes.p1).toMatchObject({ type: "page", name: "Página 1", children: ["f"], parentId: null });
+    expect(doc.nodes.p1).toMatchObject({ type: "page", name: "Page 1", children: ["f"], parentId: null });
     expect(doc.nodes.f!.parentId).toBe("p1");
     expect(pageRoots(doc)).toEqual(["f"]);
     expect(pageRoots(doc, "p2")).toEqual([]);
     expect(addPageOps(doc).ops).toHaveLength(1);
     expect(outline(doc)).toBe(
-      ['page#p1 "Página 1"', '  frame#f "Tela" 400×300 @0,0 fill=#ffffff', "    rect#a 20×10 @40,50 fill=#ff0000", "    ellipse#b 30×30 @100,20 fill=#00ff00", '    text#c 100×20 @10,200 "fora" 16/400 color=#111111', 'page#p2 "Rascunhos"', "content: page=p1 x=0 y=0 w=400 h=300", "next: x=480 y=0"].join("\n"),
+      ['page#p1 "Page 1"', '  frame#f "Tela" 400×300 @0,0 fill=#ffffff', "    rect#a 20×10 @40,50 fill=#ff0000", "    ellipse#b 30×30 @100,20 fill=#00ff00", '    text#c 100×20 @10,200 "fora" 16/400 color=#111111', 'page#p2 "Rascunhos"', "content: page=p1 x=0 y=0 w=400 h=300", "next: x=480 y=0"].join("\n"),
     );
   });
 

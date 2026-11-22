@@ -2,6 +2,7 @@ import type { NodeInput, Op } from "./ops.js";
 import { round4 } from "./num.js";
 import type { PlaceSpec } from "./placement.js";
 import { newId } from "./id.js";
+import { defaultPageName } from "./names.js";
 import { copyOwner, scaleGeometry } from "./component.js";
 import { firstPage, isContainer, isScene, type Document, type Node as NodeT } from "./schema.js";
 
@@ -94,12 +95,12 @@ export function addPageOps(
   let count = pages;
   if (!firstPage(doc) && doc.rootIds.length) {
     const firstId = opts.firstId ?? newId();
-    ops.push({ op: "create", parentId: null, index: 0, node: { type: "page", id: firstId, name: opts.firstName || "Página 1" } });
+    ops.push({ op: "create", parentId: null, index: 0, node: { type: "page", id: firstId, name: opts.firstName || defaultPageName(1) } });
     for (const r of doc.rootIds) ops.push({ op: "move", id: r, parentId: firstId });
     count = 1;
   }
   const id = opts.id ?? newId();
-  ops.push({ op: "create", parentId: null, node: { type: "page", id, name: opts.name || `Página ${count + 1}` } });
+  ops.push({ op: "create", parentId: null, node: { type: "page", id, name: opts.name || defaultPageName(count + 1) } });
   return { ops, id };
 }
 

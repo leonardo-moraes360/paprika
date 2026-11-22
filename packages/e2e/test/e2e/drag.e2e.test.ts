@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { repoRoot, startServer, type ExternalServer } from "../harness.js";
+import { pinLocale } from "./locale.js";
 
 const webRoot = join(repoRoot, "apps/web/dist");
 const wasmBuilt = existsSync(join(repoRoot, "apps/web/src/wasm/paprika_render.js"));
@@ -43,6 +44,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     server = await startServer({ seed: join(repoRoot, "examples/demo.paprika.json"), webRoot });
     browser = await chromium.launch({ executablePath: process.env.PAPRIKA_CHROMIUM || undefined });
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(page, "pt-BR");
     await page.routeWebSocket(/\/ws$/, (ws) => {
       const upstream = ws.connectToServer();
       upstream.onMessage((m) => (link.holding ? link.queue.push(() => ws.send(m)) : ws.send(m)));
@@ -209,6 +211,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
 
   it("arrastar a toolbar pela alça ancora em cada borda e o lado fica no localStorage", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(p, "pt-BR");
     try {
       const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
       await p.goto(`${server.url}/w/${encodeURIComponent(active)}`);
@@ -290,6 +293,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
 
   it("arrastar um painel lateral além do mínimo o recolhe num botão flutuante que devolve a última largura", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(p, "pt-BR");
     try {
       const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
       await p.goto(`${server.url}/w/${encodeURIComponent(active)}`);
@@ -386,6 +390,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: drag and drop reparent e arquivos (P
     server = await startServer({ seed: join(repoRoot, "examples/demo.paprika.json"), webRoot });
     browser = await chromium.launch({ executablePath: process.env.PAPRIKA_CHROMIUM || undefined });
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(page, "pt-BR");
     const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
     await page.goto(`${server.url}/w/${encodeURIComponent(active)}`);
     await page.waitForSelector(NODE);

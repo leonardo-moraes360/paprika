@@ -1,9 +1,11 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { Document, Op } from "@paprika/core";
 import { applyPresence, type AgentPresence, type PresenceMsg } from "./agents";
+import { catalogs } from "./i18n/messages";
+import { t } from "./i18n/store";
 import type { TeamStatus } from "./Team";
 
-const OFFLINE = "sem conexão com o servidor";
+const offlineMessages = new Set(Object.values(catalogs).map((m) => m.offline));
 
 export interface Activity {
   id: number;
@@ -120,7 +122,7 @@ export class LiveStore {
       };
       ws.onopen = () => {
         if (this.ws !== ws) return;
-        this.set((s) => ({ ...s, connected: true, error: s.error === OFFLINE ? null : s.error }));
+        this.set((s) => ({ ...s, connected: true, error: s.error && offlineMessages.has(s.error) ? null : s.error }));
       };
       ws.onmessage = (ev) => {
         if (this.ws !== ws) return;
@@ -187,7 +189,7 @@ export class LiveStore {
   private sendRaw(payload: object) {
     const ws = this.ws;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      this.set((s) => ({ ...s, error: OFFLINE }));
+      this.set((s) => ({ ...s, error: t().offline }));
       return;
     }
     ws.send(JSON.stringify({ ...payload, reqId: String(++this.seq) }));

@@ -21,7 +21,7 @@ func TestWorkspacesListOpenCreate(t *testing.T) {
 	if created.Name != "Landing" || created.Active || created.Nodes != 0 {
 		t.Fatalf("created = %+v", created)
 	}
-	if blank, _ := s.CreateWorkspace(" ", "user"); blank.Name != "Sem título" {
+	if blank, _ := s.CreateWorkspace(" ", "user"); blank.Name != "Untitled" {
 		t.Fatalf("blank name = %q", blank.Name)
 	}
 	ws, err := s.ListWorkspaces()

@@ -12,6 +12,7 @@ export * from "./path.js";
 export * from "./layout.js";
 export * from "./displayList.js";
 export * from "./structure.js";
+export * from "./names.js";
 export * from "./component.js";
 export * from "./markup.js";
 export * from "./svgImport.js";

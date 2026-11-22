@@ -8,6 +8,7 @@ import { Button } from "./components/ui/button";
 import { Card, CardContent } from "./components/ui/card";
 import { Input } from "./components/ui/input";
 import { Hint } from "./components/ui/tooltip";
+import { LanguageSwitcher, untitledFor, useLocale, useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { bar, cx, ui } from "./ui";
 import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type Workspace } from "./workspaces";
@@ -17,7 +18,7 @@ const MAX_COVER_BYTES = 2 * 1024 * 1024;
 const COVER_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 /** The image as the server takes it: as is when small enough, else scaled to 960px wide as WebP. */
-async function coverBody(file: File): Promise<Blob> {
+async function coverBody(file: File, failMsg: string): Promise<Blob> {
   if (file.size <= MAX_COVER_BYTES && COVER_TYPES.includes(file.type)) return file;
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, 960 / bitmap.width);
@@ -27,21 +28,20 @@ async function coverBody(file: File): Promise<Blob> {
   canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
   const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/webp", 0.85));
-  if (!blob) throw new Error("não foi possível converter a imagem");
+  if (!blob) throw new Error(failMsg);
   return blob;
 }
 
-const rtf = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
-
-/** "agora", "há 5 minutos", "ontem"… */
-export function relativeTime(at: number, now = Date.now()): string {
+/** "now", "5 minutes ago", "yesterday"… */
+export function relativeTime(at: number, locale: string, nowLabel: string, now = Date.now()): string {
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   const s = Math.round((at - now) / 1000);
   const abs = Math.abs(s);
-  if (abs < 45) return "agora";
+  if (abs < 45) return nowLabel;
   if (abs < 3600) return rtf.format(Math.round(s / 60), "minute");
   if (abs < 86_400) return rtf.format(Math.round(s / 3600), "hour");
   if (abs < 30 * 86_400) return rtf.format(Math.round(s / 86_400), "day");
-  return new Date(at).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(at).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 }
 
 /** Hue of the card's tile, stable per workspace (around the brand's warm and cool accents). */
@@ -69,13 +69,15 @@ interface Props {
 
 /** Home page: the workspaces of this server; opening one goes to its canvas. */
 export function Overview({ connected, activeId, version, onOpen }: Props) {
+  const m = useT();
+  const { locale } = useLocale();
   const list = useWorkspaces();
   useWorkspacesFollow(activeId, version);
   const mutations = useWorkspaceMutations();
   const workspaces = list.data ?? null;
   /** Error of the last mutation; a later success clears it. */
   const [failure, setFailure] = useState<string | null>(null);
-  const error = failure ?? (list.error ? `Não foi possível listar os workspaces: ${errorText(list.error)}` : null);
+  const error = failure ?? (list.error ? m.listWorkspacesFail(errorText(list.error)) : null);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   /** One click opens a card; the pencil button or F2 renames it. */
@@ -93,14 +95,15 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
       setFailure(null);
       return out;
     } catch (err) {
-      setFailure(`Não foi possível ${what}: ${errorText(err)}`);
+      setFailure(m.mutationFail(what, errorText(err)));
       return undefined;
     }
   };
 
   const create = async (e: FormEvent) => {
     e.preventDefault();
-    const w = await attempt("criar o workspace", () => mutations.create.mutateAsync(name.trim()));
+    const trimmed = name.trim() || untitledFor();
+    const w = await attempt(m.whatCreateWorkspace, () => mutations.create.mutateAsync(trimmed));
     if (!w) return;
     setName("");
     setCreating(false);
@@ -109,10 +112,12 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
 
   const count = workspaces?.length ?? 0;
 
-  const rename = (w: Workspace, next: string) => attempt("renomear o workspace", () => mutations.rename.mutateAsync({ id: w.id, name: next }));
+  const rename = (w: Workspace, next: string) => attempt(m.whatRenameWorkspace, () => mutations.rename.mutateAsync({ id: w.id, name: next }));
 
   const setCover = (id: string, file: File | null) =>
-    attempt(`${file ? "trocar" : "remover"} a capa`, async () => mutations.cover.mutateAsync({ id, body: file ? await coverBody(file) : null }));
+    attempt(file ? m.whatChangeCover : m.whatRemoveCover, async () =>
+      mutations.cover.mutateAsync({ id, body: file ? await coverBody(file, m.coverConvertFail) : null }),
+    );
 
   const pickCover = (id: string) => {
     coverFor.current = id;
@@ -128,7 +133,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
     const w = deleting;
     setConfirming(false);
     if (!w) return;
-    await attempt("excluir o workspace", () => mutations.remove.mutateAsync(w.id));
+    await attempt(m.whatDeleteWorkspace, () => mutations.remove.mutateAsync(w.id));
   };
 
   const onCardKey = (e: KeyboardEvent, w: Workspace) => {
@@ -141,6 +146,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
 
   /** Where the canvas and the agents go when the active workspace is deleted (the list is most recent first). */
   const successor = deleting?.active ? workspaces?.find((w) => w.id !== deleting.id) : undefined;
+  const countLabel = workspaces ? m.overviewCount(count) : m.loading;
   return (
     <div className="grid h-full grid-rows-[44px_1fr]">
       <header className={bar.topbar}>
@@ -149,42 +155,40 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
           <strong>Paprika</strong>
         </div>
         <div className={bar.status}>
+          <LanguageSwitcher />
           <span className={bar.dot(connected)} aria-hidden />
-          <span className={bar.statusText}>{connected ? "MCP em /mcp" : "desconectado"}</span>
+          <span className={bar.statusText}>{connected ? m.mcpOn : m.disconnectedShort}</span>
           <ConnectionStatus connected={connected} />
         </div>
       </header>
       <main className="min-h-0 overflow-auto px-6 pt-8 pb-12 *:mx-auto *:max-w-[1080px]">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="mx-0 mt-0 mb-1.5 text-xl font-[650]">Workspaces</h1>
-            <p className="m-0 text-muted">
-              {workspaces ? `${count} ${count === 1 ? "workspace" : "workspaces"} neste servidor.` : "Carregando…"} O ativo é o que os agentes
-              enxergam pelo MCP. Clique para abrir; F2 ou o lápis renomeia.
-            </p>
+            <h1 className="mx-0 mt-0 mb-1.5 text-xl font-[650]">{m.overviewHeading}</h1>
+            <p className="m-0 text-muted">{m.overviewLead(countLabel)}</p>
           </div>
           {creating ? (
             <form className="flex items-center gap-2" onSubmit={create}>
               <Input
                 className="w-60 max-w-[50vw]"
                 autoFocus
-                aria-label="Nome do workspace"
-                placeholder="Nome do workspace"
+                aria-label={m.workspaceName}
+                placeholder={m.workspaceName}
                 value={name}
                 maxLength={120}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => e.key === "Escape" && setCreating(false)}
               />
               <Button type="submit" disabled={mutations.create.isPending}>
-                Criar
+                {m.createWorkspace}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setCreating(false)}>
-                Cancelar
+                {m.cancel}
               </Button>
             </form>
           ) : (
             <Button onClick={() => setCreating(true)}>
-              <Plus className="-ml-0.5" size={15} aria-hidden /> Novo workspace
+              <Plus className="-ml-0.5" size={15} aria-hidden /> {m.newWorkspace}
             </Button>
           )}
         </div>
@@ -193,19 +197,15 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
             {error}
           </div>
         )}
-        <ul className="grid list-none grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 p-0" aria-label="Workspaces">
+        <ul className="grid list-none grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 p-0" aria-label={m.overviewHeading}>
           {workspaces?.map((w) => (
             <li key={w.id} className="group relative">
               <Card
                 role="button"
                 tabIndex={0}
-                aria-label={`Abrir workspace ${w.name}`}
+                aria-label={m.overviewOpenAria(w.name)}
                 className={cn(
                   // "workspace-card" and "is-active" stay as hooks for the E2E suite.
-                  // No lift on hover: moving onto the action buttons (outside the card) dropped it back, a visible flick.
-                  // The hover color follows the <li>, so it holds while the pointer is on those buttons.
-                  // The edge is an inset outline, not a border: outlines paint over the children, so the cover cannot
-                  // eat the rounded corners. The focus ring is a box-shadow, which overflow-hidden does not clip.
                   "workspace-card relative w-full cursor-pointer gap-0 overflow-hidden border-0 p-0 text-left",
                   "outline-1 -outline-offset-1 outline-solid transition-[outline-color] duration-120",
                   "focus-visible:shadow-[0_0_0_2px_var(--color-night),0_0_0_4px_var(--color-select)]",
@@ -224,7 +224,6 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
               >
                 <span className="workspace-tile grid h-32 place-items-center overflow-hidden border-b border-ui-border text-tile font-bold" style={tile(hue(w.id))} aria-hidden>
                   {w.cover ? (
-                    // "workspace-tile" and "workspace-cover" are hooks for the E2E suite.
                     <img className="workspace-cover size-full object-cover object-top" src={w.cover} alt="" draggable={false} />
                   ) : (
                     (w.name.trim()[0] ?? "?").toUpperCase()
@@ -234,7 +233,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                   {renaming === w.id ? (
                     <InlineName
                       className={cx(ui.renameInput, "-mx-1.75 -my-0.75 px-1.5 py-0.5 text-md font-semibold")}
-                      label="Novo nome do workspace"
+                      label={m.workspaceNameNew}
                       value={w.name}
                       maxLength={120}
                       onCommit={(next) => void rename(w, next)}
@@ -244,50 +243,56 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                     <span className="workspace-name truncate text-md font-semibold">{w.name}</span>
                   )}
                   <span className="text-ui-muted-foreground">
-                    {w.nodes} {w.nodes === 1 ? "nó" : "nós"} · {relativeTime(w.updatedAt)}
+                    {w.nodes} {w.nodes === 1 ? m.nodeSingular : m.nodePlural} · {relativeTime(w.updatedAt, locale, m.relativeNow)}
                   </span>
                 </CardContent>
                 {w.active && (
-                  <Hint label="Aberto no servidor: os agentes MCP leem e escrevem neste">
+                  <Hint label={m.overviewActiveHint}>
                     <span className="absolute top-2.5 right-2.5 rounded-full bg-ui-primary px-2 py-0.5 text-xs font-semibold text-ui-primary-foreground" tabIndex={0}>
-                      ativo
+                      {m.overviewActive}
                     </span>
                   </Hint>
                 )}
               </Card>
               {renaming !== w.id && (
                 <span className="absolute right-2.5 bottom-3 flex gap-0.5 rounded-md bg-ui-card opacity-0 transition-opacity duration-120 group-hover:opacity-100 group-focus-within:opacity-100">
-                  <Hint label="Renomear (F2)">
-                    <Button type="button" variant="ghost" className={iconAction} aria-label={`Renomear ${w.name}`} onClick={() => setRenaming(w.id)}>
+                  <Hint label={m.overviewRenameHint}>
+                    <Button type="button" variant="ghost" className={iconAction} aria-label={m.overviewRenameAria(w.name)} onClick={() => setRenaming(w.id)}>
                       <Pencil size={16} />
                     </Button>
                   </Hint>
-                  <Hint label={`${w.cover ? "Trocar" : "Adicionar"} capa (ou arraste uma imagem para o card)`}>
+                  <Hint label={m.overviewCoverHint(!!w.cover)}>
                     <Button
                       type="button"
                       variant="ghost"
                       className={iconAction}
-                      aria-label={`${w.cover ? "Trocar" : "Adicionar"} capa de ${w.name}`}
+                      aria-label={m.overviewCoverAria(w.cover ? m.changeCover : m.overviewAddCover, w.name)}
                       onClick={() => pickCover(w.id)}
                     >
                       <ImagePlus size={16} />
                     </Button>
                   </Hint>
                   {w.cover && (
-                    <Hint label="Remover capa">
-                      <Button type="button" variant="ghost" className={iconAction} aria-label={`Remover capa de ${w.name}`} onClick={() => void setCover(w.id, null)}>
+                    <Hint label={m.overviewCoverAria(m.removeCover, w.name)}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className={iconAction}
+                        aria-label={m.overviewCoverAria(m.removeCover, w.name)}
+                        onClick={() => void setCover(w.id, null)}
+                      >
                         <ImageOff size={16} />
                       </Button>
                     </Hint>
                   )}
-                  <Hint label={count > 1 ? "Excluir (Delete)" : "O único workspace não pode ser excluído"}>
+                  <Hint label={count > 1 ? m.deleteWorkspace : m.deleteWorkspaceBlocked}>
                     {count <= 1 ? (
                       <span className="inline-flex" tabIndex={0}>
                         <Button
                           type="button"
                           variant="ghost"
                           className={cn(iconAction, "text-ui-destructive-text hover:text-ui-destructive-text")}
-                          aria-label={`Excluir ${w.name}`}
+                          aria-label={m.overviewDeleteAria(w.name)}
                           disabled
                           onClick={() => askDelete(w)}
                         >
@@ -299,7 +304,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                         type="button"
                         variant="ghost"
                         className={cn(iconAction, "text-ui-destructive-text hover:text-ui-destructive-text")}
-                        aria-label={`Excluir ${w.name}`}
+                        aria-label={m.overviewDeleteAria(w.name)}
                         onClick={() => askDelete(w)}
                       >
                         <Trash2 size={16} />
@@ -316,7 +321,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
           type="file"
           accept="image/png,image/jpeg,image/webp,image/gif"
           hidden
-          aria-label="Imagem de capa"
+          aria-label={m.coverImage}
           onChange={(e) => {
             const file = e.currentTarget.files?.[0];
             e.currentTarget.value = "";
@@ -326,16 +331,17 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
         <ConfirmDialog
           open={confirming}
           onOpenChange={setConfirming}
-          title={`Excluir “${deleting?.name ?? ""}”?`}
+          title={m.deleteWorkspaceTitle(deleting?.name ?? "")}
           description={
-            deleting && `${deleting.nodes} ${deleting.nodes === 1 ? "nó" : "nós"} e o histórico de desfazer serão apagados. Essa ação não pode ser desfeita.`
+            deleting &&
+            m.deleteWorkspaceBody(`${deleting.nodes} ${deleting.nodes === 1 ? m.nodeSingular : m.nodePlural}`)
           }
-          confirmLabel="Excluir workspace"
+          confirmLabel={m.deleteWorkspaceConfirm}
           typeToConfirm={deleting?.name}
           onConfirm={confirmDelete}
         >
           {deleting?.active && successor && (
-            <p className="m-0 text-xs text-ui-muted-foreground">Este é o workspace ativo: o canvas e os agentes MCP passam para “{successor.name}”.</p>
+            <p className="m-0 text-xs text-ui-muted-foreground">{m.overviewActiveSuccessor(successor.name)}</p>
           )}
         </ConfirmDialog>
       </main>

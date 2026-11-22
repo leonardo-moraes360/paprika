@@ -16,6 +16,7 @@ import {
   knownKeys,
 } from "./schema.js";
 import { newId } from "./id.js";
+import { defaultUntitledName } from "./names.js";
 import { normalizePath as shiftPathToOrigin, parsePath, pathBounds, serializePath } from "./path.js";
 import { addPageOps, groupOps, ungroupOps } from "./structure.js";
 import { combinePathsOps } from "./boolean.js";
@@ -123,7 +124,7 @@ export const GroupOp = z.object({
 /** Desfaz groups (expandida em move + update + delete no momento da aplicação). */
 export const UngroupOp = z.object({ op: z.literal("ungroup"), ids: z.array(z.string()).min(1).max(500) });
 
-/** Cria uma página; a primeira leva o conteúdo atual para "Página 1" (`firstId`/`firstName`). */
+/** Cria uma página; a primeira leva o conteúdo atual para o nome padrão (`firstId`/`firstName`). */
 export const AddPageOp = z.object({
   op: z.literal("add_page"),
   id: z.string().optional(),
@@ -581,7 +582,7 @@ export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
 }
 
 /** Cria um documento vazio válido. */
-export function createDocument(name = "Sem título", id = newId()): DocumentT {
+export function createDocument(name = defaultUntitledName(), id = newId()): DocumentT {
   return Document.parse({ format: "paprika/1", id, name });
 }
 
