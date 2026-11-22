@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { Maximize, Minus, Plus } from "lucide-react";
 import {
   copyOwner,
+  FORMAT,
   importHTML,
   importSVG,
   isInstance,
@@ -18,6 +19,7 @@ import {
   connectorLabelAttrs,
   routeConnectors,
   shapeAttrs,
+  shapeDefaults,
   SHAPE_SVG_CSS,
   SHAPE_TEXT_CSS,
   serializePath,
@@ -36,6 +38,7 @@ import {
   type AnchorRef,
   type ConnectorEnd,
   type PathNode,
+  type ShapeNode,
   type Subpath,
   type Document,
   type Node,
@@ -60,6 +63,15 @@ export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "s
 const SHAPE_TOOLS = { shape: "rect", diamond: "diamond", note: "note" } as const;
 type ShapeTool = keyof typeof SHAPE_TOOLS;
 const isShapeTool = (t: Tool): t is ShapeTool => t in SHAPE_TOOLS;
+
+/** Tamanho padrão ao soltar com um clique (sem arrastar). */
+const DRAFT_DEFAULTS = { frame: [390, 844], rect: [120, 80], ellipse: [80, 80], text: [200, 32], shape: [160, 80], diamond: [160, 100], note: [160, 160] } as const;
+
+type DraftTool = Exclude<Tool, "select" | "pen" | "connector">;
+const isDraftTool = (t: Tool): t is DraftTool => t !== "select" && t !== "pen" && t !== "connector";
+
+const GHOST_ID = "draft-ghost";
+const GHOST_OPACITY = 0.45;
 
 /** Seta em construção: ponta inicial e cursor, em coordenadas do viewport. */
 interface LinkDraft {
@@ -191,6 +203,119 @@ function PenOverlay({ pen, zoom }: { pen: PenDraft; zoom: number }) {
         </g>
       ))}
     </svg>
+  );
+}
+
+/** Nó provisório com os mesmos padrões do create ao soltar a ferramenta. */
+function draftGhostNode(tool: DraftTool, w: number, h: number): Node {
+  const base = {
+    id: GHOST_ID,
+    name: "",
+    parentId: null as string | null,
+    x: 0,
+    y: 0,
+    width: w,
+    height: h,
+    rotation: 0,
+    opacity: 1,
+    visible: true,
+    locked: false,
+    radius: 0,
+  };
+  if (tool === "frame") return { ...base, type: "frame", fill: "#ffffff", children: [], clip: true };
+  if (tool === "rect") return { ...base, type: "rect", fill: "#d9d4cf" };
+  if (tool === "ellipse") return { ...base, type: "ellipse", fill: "#d9d4cf" };
+  if (tool === "text") {
+    return {
+      ...base,
+      type: "text",
+      text: "Texto",
+      color: "#111111",
+      fontFamily: "Inter, system-ui, sans-serif",
+      fontSize: 16,
+      fontWeight: 400,
+      lineHeight: 1.4,
+      letterSpacing: 0,
+      textAlign: "left",
+      height: "hug",
+    };
+  }
+  const kind = SHAPE_TOOLS[tool];
+  const defaults = shapeDefaults(kind);
+  return {
+    ...base,
+    type: "shape",
+    shape: kind,
+    text: "",
+    color: "#1e2336",
+    fontFamily: "Inter, system-ui, sans-serif",
+    fontSize: 16,
+    fontWeight: 500,
+    lineHeight: 1.3,
+    textAlign: kind === "note" ? "left" : "center",
+    ...defaults,
+    width: w,
+    height: h,
+  } as ShapeNode;
+}
+
+/** Fantasma semi-transparente do nó real enquanto a ferramenta de criação arrasta (ou no clique). */
+function DraftGhost({
+  tool,
+  draft,
+  zoom,
+  tokens,
+  modes,
+}: {
+  tool: DraftTool;
+  draft: Draft;
+  zoom: number;
+  tokens: Document["tokens"];
+  modes: Document["modes"];
+}) {
+  let w = Math.abs(draft.x1 - draft.x0);
+  let h = Math.abs(draft.y1 - draft.y0);
+  const clicked = w < 4 && h < 4;
+  if (clicked) [w, h] = DRAFT_DEFAULTS[tool];
+  const x = clicked ? draft.x0 : Math.min(draft.x0, draft.x1);
+  const y = clicked ? draft.y0 : Math.min(draft.y0, draft.y1);
+  const node = draftGhostNode(tool, Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+  const ghostDoc: Document = {
+    format: FORMAT,
+    id: "ghost",
+    name: "",
+    tokens,
+    modes,
+    rootIds: [GHOST_ID],
+    nodes: { [GHOST_ID]: node },
+  };
+  const css = nodeStyle(ghostDoc, node, { asRoot: true }) as CSSProperties;
+  const left = draft.originLeft + x * zoom;
+  const top = draft.originTop + y * zoom;
+  const shape = node.type === "shape" ? shapeAttrs(ghostDoc, node) : null;
+  return (
+    <div
+      data-testid="draft-ghost"
+      data-ghost-tool={tool}
+      aria-hidden
+      className="pointer-events-none absolute overflow-visible"
+      style={{ left, top, width: Math.round(w) * zoom, height: Math.round(h) * zoom }}
+    >
+      <div className="pointer-events-none origin-top-left" style={{ width: Math.round(w), height: Math.round(h), transform: `scale(${zoom})` }}>
+        <div style={{ ...css, position: "relative", left: 0, top: 0, opacity: GHOST_OPACITY }}>
+          {node.type === "text" ? node.text : null}
+          {shape && node.type === "shape" ? (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" width={shape.svg.width} height={shape.svg.height} style={SHAPE_SVG_CSS as CSSProperties}>
+                <path d={shape.path.d} fill={shape.path.fill} stroke={shape.path.stroke} strokeWidth={shape.path.strokeWidth} strokeLinejoin="round" />
+                {shape.fold && <path d={shape.fold.d} fill={shape.fold.fill} />}
+              </svg>
+              <div style={SHAPE_TEXT_CSS as CSSProperties}>{node.text}</div>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -922,9 +1047,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         let w = Math.round(Math.abs(d.x1 - d.x0));
         let h = Math.round(Math.abs(d.y1 - d.y0));
         const clicked = w < 4 && h < 4;
-        const kind = tool as Exclude<Tool, "select" | "pen" | "connector">;
-        const defaults = { frame: [390, 844], rect: [120, 80], ellipse: [80, 80], text: [200, 32], shape: [160, 80], diamond: [160, 100], note: [160, 160] } as const;
-        if (clicked) [w, h] = defaults[kind];
+        const kind = tool as DraftTool;
+        if (clicked) [w, h] = DRAFT_DEFAULTS[kind];
         const names = { frame: "Frame", rect: "Retângulo", ellipse: "Elipse", text: "Texto", shape: "Caixa", diamond: "Decisão", note: "Nota" } as const;
         const count = isShapeTool(kind)
           ? Object.values(doc.nodes).filter((n) => n.type === "shape" && n.shape === SHAPE_TOOLS[kind]).length + 1
@@ -1258,7 +1382,14 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           </div>
         </div>
       )}
-      {draftRect && <div className="pointer-events-none absolute border border-dashed border-select bg-select/10" style={draftRect} />}
+      {draft && isDraftTool(tool) && (
+        <>
+          {draftRect && Math.abs(draft.x1 - draft.x0) >= 4 && Math.abs(draft.y1 - draft.y0) >= 4 && (
+            <div className="pointer-events-none absolute border border-dashed border-select bg-select/10" style={draftRect} aria-hidden />
+          )}
+          <DraftGhost tool={tool} draft={draft} zoom={view.zoom} tokens={doc.tokens} modes={doc.modes} />
+        </>
+      )}
       {link && (
         <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" data-testid="link-draft">
           <line className="stroke-select stroke-2 [stroke-dasharray:5_4]" x1={link.x0} y1={link.y0} x2={link.x1} y2={link.y1} />
