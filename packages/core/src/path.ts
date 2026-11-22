@@ -181,6 +181,25 @@ export function serializePath(segs: Segment[]): string {
     .join(" ");
 }
 
+/**
+ * Offset from the node origin (0,0) to the drawing's top-left (path bounds). Agents use this to
+ * place stems on rotated pods without measuring empty padding in the box (fb#15).
+ */
+export function pathOrigin(segs: Segment[]): Point {
+  const b = pathBounds(segs);
+  return { x: b.x, y: b.y };
+}
+
+/**
+ * Moves the drawing to (0,0) and returns the previous origin (to add to the node's x/y). Same
+ * geometry as `normalize: true` on create_nodes.
+ */
+export function normalizePath(segs: Segment[]): { segs: Segment[]; origin: Point; bounds: PathBounds } {
+  const origin = pathOrigin(segs);
+  const moved = translatePath(segs, -origin.x, -origin.y);
+  return { segs: moved, origin, bounds: pathBounds(moved) };
+}
+
 /** Desloca todos os pontos (útil para normalizar um caminho desenhado para a origem do nó). */
 export function translatePath(segs: Segment[], dx: number, dy: number): Segment[] {
   const t = (pt: Point): Point => ({ x: pt.x + dx, y: pt.y + dy });

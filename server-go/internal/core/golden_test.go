@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 
@@ -322,7 +323,48 @@ func TestGoldenViews(t *testing.T) {
 				}
 				eq(t, name+" "+key+" "+id, got, c.Obj(key).Str(id))
 			}
+			for _, vars := range []bool{false, true} {
+				key := "angular"
+				if vars {
+					key = "angularVars"
+				}
+				a, err := ExportAngular(doc, id, vars)
+				got := "ERROR: "
+				if err != nil {
+					got += err.Error()
+				} else {
+					got = jsonv.Stringify(jsonv.NewObject(
+						"typescript", a.Typescript, "template", a.Template, "styles", a.Styles,
+						"className", a.ClassName, "selector", a.Selector, "fileBase", a.FileBase,
+					), "")
+				}
+				eq(t, name+" "+key+" "+id, got, c.Obj(key).Str(id))
+			}
+			for _, vars := range []bool{false, true} {
+				key := "svelte"
+				if vars {
+					key = "svelteVars"
+				}
+				s, err := ExportSvelte(doc, id, vars)
+				got := "ERROR: "
+				if err != nil {
+					got += err.Error()
+				} else {
+					got = jsonv.Stringify(jsonv.NewObject("source", s.Source, "fileName", s.FileName), "")
+				}
+				eq(t, name+" "+key+" "+id, got, c.Obj(key).Str(id))
+			}
 		}
+		fwh, _, err := RenderFrameworkHTML(doc, RenderOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		eq(t, name+" framework html", fwh, c.Str("frameworkHtml"))
+		fwhv, _, err := RenderFrameworkHTML(doc, RenderOptions{CSSVariables: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		eq(t, name+" framework html vars", fwhv, c.Str("frameworkHtmlVars"))
 		ids := func(ns []*Node) string {
 			s := make([]string, len(ns))
 			for i, n := range ns {
@@ -619,5 +661,120 @@ func TestGoldenShapeOutlines(t *testing.T) {
 		out := c.Obj("out")
 		eq(t, fmt.Sprintf("outline %d d", i), d, out.Str("d"))
 		eq(t, fmt.Sprintf("outline %d fold", i), fold, out.Str("fold"))
+	}
+}
+
+func TestGoldenLayouts(t *testing.T) {
+	g := loadGolden(t)
+	if !g.Has("layouts") {
+		t.Fatal("layouts fixture missing — run pnpm go:golden")
+	}
+	docs := map[string]string{}
+	for _, view := range g.Arr("views") {
+		o := view.(*jsonv.Object)
+		docs[o.Str("name")] = o.Str("doc")
+	}
+	for _, v := range g.Arr("layouts") {
+		c := v.(*jsonv.Object)
+		name := c.Str("name")
+		raw, ok := docs[name]
+		if !ok || raw == "" {
+			t.Fatalf("no view doc for layout %s", name)
+		}
+		d := mustDoc(t, raw)
+		boxes, err := Layout(d, LayoutOptions{})
+		want := c.Obj("layout")
+		if !want.Bool("ok") {
+			if err == nil {
+				t.Errorf("layout %s: expected error %q", name, want.Str("error"))
+			} else {
+				eq(t, "layout err "+name, err.Error(), want.Str("error"))
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("layout %s: %v", name, err)
+			continue
+		}
+		eq(t, "layout "+name, stringifyLayout(boxes), want.Str("value"))
+		byRoot := c.Obj("byRoot")
+		for _, id := range byRoot.Keys() {
+			r := byRoot.Obj(id)
+			boxes2, err2 := Layout(d, LayoutOptions{RootID: id})
+			if !r.Bool("ok") {
+				if err2 == nil {
+					t.Errorf("layout %s root %s: expected error", name, id)
+				} else {
+					eq(t, "layout root err "+name+"/"+id, err2.Error(), r.Str("error"))
+				}
+				continue
+			}
+			if err2 != nil {
+				t.Errorf("layout %s root %s: %v", name, id, err2)
+				continue
+			}
+			eq(t, "layout root "+name+"/"+id, stringifyLayout(boxes2), r.Str("value"))
+		}
+	}
+}
+
+func stringifyLayout(boxes map[string]LayoutBox) string {
+	gotObj := jsonv.NewObject()
+	ids := make([]string, 0, len(boxes))
+	for id := range boxes {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		gotObj.Set(id, LayoutBoxJSON(boxes[id]))
+	}
+	return jsonv.Stringify(gotObj, "")
+}
+
+func TestGoldenTextMetrics(t *testing.T) {
+	g := loadGolden(t)
+	if !g.Has("textMetrics") {
+		t.Fatal("textMetrics fixture missing — run pnpm go:golden")
+	}
+	for i, v := range g.Arr("textMetrics") {
+		c := v.(*jsonv.Object)
+		near(t, c.Num("fontAvg"), FontAvg, 1e-12)
+		hasMax := c.Has("maxWidth")
+		maxW := 0.0
+		if hasMax {
+			maxW = c.Num("maxWidth")
+		}
+		got := MeasureText(c.Str("text"), c.Num("fontSize"), c.Num("fontWeight"), c.Num("lineHeight"), c.Num("letterSpacing"), maxW, hasMax)
+		want := c.Obj("result")
+		near(t, got.Width, want.Num("width"), 1e-9)
+		near(t, got.Height, want.Num("height"), 1e-9)
+		if got.Lines != int(want.Num("lines")) {
+			t.Errorf("textMetrics[%d] lines: got %d want %v", i, got.Lines, want.Num("lines"))
+		}
+	}
+}
+
+func TestGoldenPathNorm(t *testing.T) {
+	g := loadGolden(t)
+	if !g.Has("pathNorm") {
+		t.Fatal("pathNorm fixture missing — run pnpm go:golden")
+	}
+	for _, v := range g.Arr("pathNorm") {
+		c := v.(*jsonv.Object)
+		segs, err := ParsePath(c.Str("d"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		o := PathOrigin(segs)
+		wantO := c.Obj("origin")
+		near(t, o.X, wantO.Num("x"), 1e-9)
+		near(t, o.Y, wantO.Num("y"), 1e-9)
+		moved, _, b := NormalizePath(segs)
+		eq(t, "pathNorm "+c.Str("d"), SerializePath(moved), c.Str("normalized"))
+		wantB := c.Obj("bounds")
+		near(t, b.X, wantB.Num("x"), 1e-9)
+		near(t, b.Y, wantB.Num("y"), 1e-9)
+		near(t, b.Width, wantB.Num("width"), 1e-9)
+		near(t, b.Height, wantB.Num("height"), 1e-9)
 	}
 }

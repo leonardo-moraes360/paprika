@@ -273,6 +273,43 @@ func TestMCPToolsAndErrors(t *testing.T) {
 	}
 }
 
+func TestMCPGetBounds(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	callText(t, m, "create_nodes", obj("nodes", []any{obj(
+		"type", "frame", "id", "outer", "width", 200.0, "height", 100.0,
+		"layout", obj("mode", "column", "gap", 8.0, "padding", 10.0),
+		"children", []any{
+			obj("type", "rect", "id", "a", "width", "fill", "height", 20.0, "fill", "#111"),
+			obj("type", "rect", "id", "spin", "width", 20.0, "height", 10.0, "rotation", 90.0, "fill", "#222"),
+		},
+	)}))
+	out, isErr := callText(t, m, "get_bounds", obj("ids", []any{"a", "spin"}))
+	if isErr {
+		t.Fatalf("get_bounds: %q", out)
+	}
+	v, err := jsonv.Parse([]byte(out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	boxes := v.(*jsonv.Object).Obj("boxes")
+	if boxes.Obj("a").Num("width") != 180 {
+		t.Fatalf("fill width: %s", jsonv.Stringify(boxes.Obj("a"), ""))
+	}
+	if len(boxes.Obj("spin").Arr("corners")) != 4 {
+		t.Fatalf("corners: %s", jsonv.Stringify(boxes.Obj("spin"), ""))
+	}
+	info, isErr := callText(t, m, "path_info", obj("d", "M40 30 L80 30 L60 70 Z"))
+	if isErr {
+		t.Fatalf("path_info: %q", info)
+	}
+	pi, _ := jsonv.Parse([]byte(info))
+	o := pi.(*jsonv.Object).Obj("origin")
+	if o.Num("x") != 40 || o.Num("y") != 30 {
+		t.Fatalf("origin: %s", jsonv.Stringify(o, ""))
+	}
+}
+
 func TestMCPGroupsAndPages(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)
@@ -534,7 +571,26 @@ func TestMCPExportTailwindAndCSSModules(t *testing.T) {
 	if !strings.HasPrefix(css, "/* CardGrande.module.css */\n:root{") || !strings.Contains(css, ".cardGrande{box-sizing:border-box;") {
 		t.Fatalf("css-modules sheet: %q", css)
 	}
-	for _, format := range []string{"tailwind", "tailwind-html", "css-modules"} {
+	ang := m.CallTool(context.Background(), "export_code", obj("rootId", "card", "format", "angular", "cssVariables", true), true)
+	angContent := ang.Arr("content")
+	if ang.Bool("isError") || len(angContent) != 3 {
+		t.Fatalf("angular: %s", jsonv.Stringify(ang, ""))
+	}
+	ts, tpl, cssAng := angContent[0].(*jsonv.Object).Str("text"), angContent[1].(*jsonv.Object).Str("text"), angContent[2].(*jsonv.Object).Str("text")
+	if !strings.HasPrefix(ts, "// CardGrande.component.ts\nimport { Component }") || !strings.Contains(ts, `selector: "app-card-grande"`) || !strings.Contains(ts, "standalone: true") {
+		t.Fatalf("angular ts: %q", ts)
+	}
+	if !strings.Contains(tpl, `class="cardGrande"`) || strings.Contains(tpl, ` style="`) {
+		t.Fatalf("angular template: %q", tpl)
+	}
+	if !strings.HasPrefix(cssAng, "/* CardGrande.component.css */\n:root{") || !strings.Contains(cssAng, ".cardGrande{box-sizing:border-box;") {
+		t.Fatalf("angular css: %q", cssAng)
+	}
+	sv, isErr := callText(t, m, "export_code", obj("rootId", "card", "format", "svelte"))
+	if isErr || !strings.HasPrefix(sv, "<!-- CardGrande.svelte -->\n") || !strings.Contains(sv, "<style>") || !strings.Contains(sv, `class="cardGrande"`) {
+		t.Fatalf("svelte: %q", sv)
+	}
+	for _, format := range []string{"tailwind", "tailwind-html", "css-modules", "angular", "svelte"} {
 		if out, isErr := callText(t, m, "export_code", obj("rootId", "nope", "format", format)); !isErr || out != `node "nope" does not exist` {
 			t.Fatalf("%s missing node: %q", format, out)
 		}

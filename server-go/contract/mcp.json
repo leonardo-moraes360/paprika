@@ -8,7 +8,7 @@
       "listChanged": true
     }
   },
-  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (color), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, mode (theme mode, see below). With row/column layout, children's x/y are ignored.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https:// or data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). An instance is a frame with\n  instanceOf = the component id and an optional scale (create_instance): its children are generated copies, with\n  derived ids and sourceId = the id of the source node; changing the component changes every instance. On a copy,\n  update only changes fill, color, text, src, alt, visible and opacity (stored as an instance override; null goes back\n  to the component); on the root, fill becomes an override and width/height/layout/stroke/radius/shadow/clip come from\n  the component (use scale). Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use path_info to check bounds before positioning.\nshape: shape (rect|ellipse|diamond|note), text (centered; top-left on a note), color, fontFamily, fontSize, fontWeight,\n  lineHeight, textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning.\n5. render_screenshot to check visually; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes), import_image for a PNG, JPEG, WebP, AVIF or GIF file; export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces); every tool works on the active one, which is also the one on the human's canvas. open_workspace switches it for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
+  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (color), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, mode (theme mode, see below). With row/column layout, children's x/y are ignored.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https:// or data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). An instance is a frame with\n  instanceOf = the component id and an optional scale (create_instance): its children are generated copies, with\n  derived ids and sourceId = the id of the source node; changing the component changes every instance. On a copy,\n  update only changes fill, color, text, src, alt, visible and opacity (stored as an instance override; null goes back\n  to the component); on the root, fill becomes an override and width/height/layout/stroke/radius/shadow/clip come from\n  the component (use scale). Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use get_bounds (absolute boxes + rotated corners), path_info to check bounds before positioning.\nshape: shape (rect|ellipse|diamond|note), text (centered; top-left on a note), color, fontFamily, fontSize, fontWeight,\n  lineHeight, textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning.\n5. render_screenshot to check visually; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes), import_image for a PNG, JPEG, WebP, AVIF or GIF file; export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces); every tool works on the active one, which is also the one on the human's canvas. open_workspace switches it for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
   "tools": [
     {
       "name": "get_design_guide",
@@ -111,6 +111,113 @@
       }
     },
     {
+      "name": "get_bounds",
+      "title": "Resolved geometry",
+      "description": "Absolute boxes for nodes after auto-layout (row/column, hug/fill), with transform origin and the four corners after rotation. Optional `ids` filters the result; optional `rootId` limits to that subtree (still resolves ancestors for flex). Without both, returns every node on the current page.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "type": "string"
+            }
+          },
+          "rootId": {
+            "type": "string"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "boxes": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                },
+                "width": {
+                  "type": "number"
+                },
+                "height": {
+                  "type": "number"
+                },
+                "origin": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "corners": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 4,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "width",
+                "height",
+                "origin",
+                "corners"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "boxes"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
       "name": "find_nodes",
       "title": "Find nodes",
       "description": "Search by type, or by a substring of the name or the text, optionally inside a subtree.",
@@ -160,7 +267,7 @@
     {
       "name": "path_info",
       "title": "Path geometry",
-      "description": "Validates SVG path data (d) and returns the exact box of the drawing (including the extremes of bezier curves and arcs), the number of segments and d normalized to absolute commands. Pass `d` or the `id` of a path node.",
+      "description": "Validates SVG path data (d) and returns the exact box of the drawing (including the extremes of bezier curves and arcs), the drawing `origin` (offset from the node origin to the path bounds), the number of segments and d normalized to absolute commands. Pass `d` or the `id` of a path node; with `id` also returns canvasBounds, transformOrigin and rotated corners.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -241,6 +348,62 @@
           },
           "normalized": {
             "type": "string"
+          },
+          "origin": {
+            "description": "Offset from the node origin (0,0) to the drawing's top-left (use normalize:true on create to clear it)",
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "transformOrigin": {
+            "description": "With id: CSS transform-origin (box centre) in canvas coordinates",
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "corners": {
+            "description": "With id: the four corners after rotation (TL, TR, BR, BL)",
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -248,7 +411,8 @@
           "curves",
           "closed",
           "bounds",
-          "normalized"
+          "normalized",
+          "origin"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
@@ -263,7 +427,7 @@
     {
       "name": "create_nodes",
       "title": "Create nodes",
-      "description": "Creates one or more nodes (with nested children in frames) under parentId (null/omitted = canvas). Atomic. Returns the created ids in order. On a connector, x, y, width, height and d follow from/to: if a copied node carries them, create_nodes ignores those fields and says so in warnings.",
+      "description": "Creates one or more nodes (with nested children in frames) under parentId (null/omitted = canvas). Atomic. Returns the created ids in order. On a connector, x, y, width, height and d follow from/to: if a copied node carries them, create_nodes ignores those fields and says so in warnings. On a path, `normalize: true` moves the drawing to (0,0) and adds the previous offset to x/y so the node box matches the ink.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4094,7 +4258,7 @@
     {
       "name": "export_code",
       "title": "Export code",
-      "description": "Exports a node as standalone HTML, a React (TSX) component with inline styles, vector SVG (svg: the layout is measured in headless Chromium, like render_screenshot; a page rootId exports the page), a React (TSX) component with Tailwind utility classes (tailwind), standalone HTML with Tailwind utility classes and the Tailwind browser script (tailwind-html), or a React component plus its .module.css (css-modules: two text blocks, the .tsx first and the stylesheet second). Tailwind and CSS Modules output come from the same styles as the canvas, so the exported screen matches it; declarations Tailwind has no utility for stay inline.",
+      "description": "Exports a node as standalone HTML, a React (TSX) component with inline styles, vector SVG (svg: the layout is measured in headless Chromium, like render_screenshot; a page rootId exports the page), a React (TSX) component with Tailwind utility classes (tailwind), standalone HTML with Tailwind utility classes and the Tailwind browser script (tailwind-html), a React component plus its .module.css (css-modules: two text blocks, the .tsx first and the stylesheet second), an Angular standalone component (angular: three text blocks — .ts, template .html, then .css), or a Svelte single-file component (svelte). Tailwind, CSS Modules, Angular and Svelte output come from the same styles as the canvas, so the exported screen matches it; declarations Tailwind has no utility for stay inline.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4110,12 +4274,14 @@
               "svg",
               "tailwind",
               "tailwind-html",
-              "css-modules"
+              "css-modules",
+              "angular",
+              "svelte"
             ]
           },
           "cssVariables": {
             "default": false,
-            "description": "html/react/tailwind/tailwind-html/css-modules: tokens as var(--name), with one stylesheet rule per theme mode (react and tailwind export tokensCss; css-modules puts the sheet at the top of the .module.css)",
+            "description": "html/react/tailwind/tailwind-html/css-modules/angular/svelte: tokens as var(--name), with one stylesheet rule per theme mode (react and tailwind export tokensCss; css-modules and angular put the sheet at the top of the CSS; svelte wraps :root and [data-paprika-mode] in :global)",
             "type": "boolean"
           }
         },

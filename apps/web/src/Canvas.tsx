@@ -927,6 +927,28 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     return () => window.removeEventListener("keydown", onKey, true);
   }, [pathEdit, commitPath]);
 
+  useEffect(() => {
+    const typing = (t: EventTarget | null) =>
+      t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || (t instanceof HTMLElement && t.isContentEditable);
+    const onKey = (e: KeyboardEvent) => {
+      if (typing(e.target) || (e.key !== "PageUp" && e.key !== "PageDown") || e.altKey) return;
+      const nodes = selected
+        .map((id) => doc.nodes[id])
+        .filter((n): n is SceneNode => !!isScene(n) && !n.locked && !copyOwner(doc, n));
+      if (!nodes.length) return;
+      e.preventDefault();
+      const mod = e.metaKey || e.ctrlKey;
+      const index = e.key === "PageUp" ? (mod ? "front" : "forward") : mod ? "back" : "backward";
+      const label = { front: "trazer para frente", forward: "avançar", back: "enviar para fundo", backward: "recuar" }[index];
+      apply(
+        nodes.map((n) => ({ op: "update", id: n.id, props: { index } })),
+        label,
+      );
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [apply, doc, selected]);
+
   /** Arraste de âncora ou alça. Alt solta a alça oposta (canto); sem Alt ela espelha (suave). */
   const startPathDrag = (e: RPointerEvent, hit: Extract<ReturnType<typeof pathHit>, { ref: AnchorRef }>) => {
     const st = pathEditRef.current;
