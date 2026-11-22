@@ -25,6 +25,8 @@ type Service struct {
 	listeners map[int]func(string)
 	nextID    int
 	stopPres  func()
+	stopDocs  func()
+	sync      *syncer
 }
 
 // New starts the sidecar for store. The returned service must be closed.
@@ -33,11 +35,15 @@ func New(ctx context.Context, store *server.Store, opts Options, log func(string
 		log = func(string) {}
 	}
 	t := &Service{store: store, log: log, listeners: map[int]func(string){}}
+	t.sync = newSyncer(t)
 	sc, err := Start(ctx, opts, t.onEvent)
 	if err != nil {
+		t.sync.close()
 		return nil, err
 	}
 	t.sc = sc
+	t.sync.enqueue(t.sync.start)
+	t.stopDocs = store.OnChange(func(ev server.ChangeEvent) { t.sync.enqueue(func() { t.sync.onChange(ev) }) })
 	// Local agents' presence goes to the peers; presence that came from peers is not sent back.
 	t.stopPres = store.Presence.OnPresence(func(p server.Presence) {
 		if strings.HasPrefix(p.Agent, "peer:") {
@@ -59,6 +65,11 @@ func (t *Service) Close() {
 	if t.stopPres != nil {
 		t.stopPres()
 	}
+	if t.stopDocs != nil {
+		t.stopDocs()
+	}
+	t.sync.flush()
+	t.sync.close()
 	t.sc.Close()
 }
 
@@ -95,6 +106,18 @@ func (t *Service) onEvent(ev Event) {
 			name = t.peerName(peer)
 		}
 		t.store.Presence.Report("peer:"+peer[:8]+":"+agent, actor+" @ "+name, tool, nodes)
+	case "remote":
+		doc, _ := ev["doc"].(string)
+		state, _ := json.Marshal(ev["state"])
+		var by []string
+		if arr, ok := ev["by"].([]any); ok {
+			for _, b := range arr {
+				if s, ok := b.(string); ok {
+					by = append(by, s)
+				}
+			}
+		}
+		t.sync.enqueue(func() { t.sync.onRemote(doc, state, by) })
 	case "log":
 		t.log(fmt.Sprintf("sync: %v", ev["msg"]))
 	case "rejected":
@@ -201,8 +224,35 @@ func (t *Service) call(w http.ResponseWriter, r *http.Request, cmd map[string]an
 	_, _ = w.Write(res)
 }
 
+// Share starts sharing a workspace with the team (the active one when doc is empty).
+func (t *Service) Share(doc string) error {
+	if doc == "" {
+		doc = t.store.DocID()
+	}
+	errc := make(chan error, 1)
+	t.sync.enqueue(func() { errc <- t.sync.share(doc) })
+	return <-errc
+}
+
+// Flush waits until every change queued so far reached the sidecar or the store.
+func (t *Service) Flush() { t.sync.flush() }
+
 // Routes registers /api/team/* on mux.
 func (t *Service) Routes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /api/team/share", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Doc string `json:"doc"`
+		}
+		if err := readJSON(r, &body); err != nil {
+			errJSON(w, 400, err)
+			return
+		}
+		if err := t.Share(body.Doc); err != nil {
+			errJSON(w, 400, err)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"doc": body.Doc})
+	})
 	mux.HandleFunc("GET /api/team", func(w http.ResponseWriter, r *http.Request) {
 		t.call(w, r, map[string]any{"t": "status"})
 	})

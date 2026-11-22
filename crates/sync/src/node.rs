@@ -18,7 +18,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
-use crate::proto::{self, ALPN_SYNC};
+use crate::{
+    crdt::Change,
+    envelope::{Cert, Envelope},
+    keys,
+    proto::{self, ALPN_SYNC},
+    store::{Accepted, DocStore},
+};
 
 /// Messages between peers on the sync stream.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,7 +34,12 @@ pub enum PeerMsg {
         name: String,
         addr: EndpointAddr,
         peers: Vec<EndpointAddr>,
+        /// workspace → author → highest sequence number held.
+        #[serde(default)]
+        have: HashMap<String, HashMap<String, u64>>,
     },
+    /// Signed envelopes the other side lacks, or a new one live.
+    Envs { envs: Vec<Envelope> },
     /// Ephemeral presence (agents' cursors, the person online); never stored.
     Presence { data: Value },
 }
@@ -61,6 +72,15 @@ struct State {
     addrs: HashMap<EndpointId, EndpointAddr>,
     names: HashMap<EndpointId, String>,
     presence: HashMap<EndpointId, Value>,
+    docs: Option<DocStore>,
+    /// Envelopes or connections refused (not a member, bad signature…), newest last.
+    rejected: Vec<Value>,
+}
+
+impl State {
+    fn docs(&mut self) -> &mut DocStore {
+        self.docs.as_mut().expect("doc store opened at start")
+    }
 }
 
 #[derive(Clone)]
@@ -108,10 +128,10 @@ impl Node {
     pub async fn start(cfg: Config, out: Out) -> Result<Self> {
         // Disk work off the async runtime.
         let data = cfg.data.clone();
-        let key = tokio::task::spawn_blocking(move || -> Result<SecretKey> {
+        let (key, docs) = tokio::task::spawn_blocking(move || -> Result<(SecretKey, DocStore)> {
             std::fs::create_dir_all(&data)
                 .with_context(|| format!("creating {}", data.display()))?;
-            crate::keys::load_or_create(&data)
+            Ok((crate::keys::load_or_create(&data)?, DocStore::open(&data)?))
         })
         .await??;
         let mut b = if cfg.relay {
@@ -140,7 +160,10 @@ impl Node {
                 cfg,
                 key,
                 router,
-                state: Mutex::new(State::default()),
+                state: Mutex::new(State {
+                    docs: Some(docs),
+                    ..State::default()
+                }),
                 out,
             }
         });
@@ -293,10 +316,12 @@ impl Node {
             .iter()
             .filter_map(|id| st.addrs.get(id).cloned())
             .collect();
+        let have = st.docs.as_ref().map(DocStore::summary).unwrap_or_default();
         PeerMsg::Hello {
             name: self.0.cfg.name.clone(),
             addr: self.addr(),
             peers,
+            have,
         }
     }
 
@@ -312,8 +337,20 @@ impl Node {
 
     fn on_msg(&self, from: EndpointId, msg: PeerMsg) -> Result<()> {
         match msg {
-            PeerMsg::Hello { name, addr, peers } => {
+            PeerMsg::Hello {
+                name,
+                addr,
+                peers,
+                have,
+            } => {
                 let mut st = self.0.state.lock().unwrap();
+                // Catch the peer up: every envelope it does not have yet, as signed by its author.
+                let missing = st.docs().missing_for(&have);
+                if !missing.is_empty()
+                    && let Some(p) = st.peers.get(&from)
+                {
+                    let _ = p.tx.send(PeerMsg::Envs { envs: missing });
+                }
                 st.names.insert(from, name.clone());
                 if let Some(p) = st.peers.get_mut(&from) {
                     p.name = name;
@@ -334,6 +371,7 @@ impl Node {
                     }
                 }
             }
+            PeerMsg::Envs { envs } => self.on_envs(from, envs),
             PeerMsg::Presence { data } => {
                 let name = {
                     let mut st = self.0.state.lock().unwrap();
@@ -346,6 +384,92 @@ impl Node {
             }
         }
         Ok(())
+    }
+
+    /// Accepts envelopes from a peer, forwards the new ones to the other peers and tells the Go
+    /// server the new state of each workspace that changed.
+    fn on_envs(&self, from: EndpointId, envs: Vec<Envelope>) {
+        let me = self.id();
+        let mut fresh = Vec::new();
+        let mut changed: Vec<String> = Vec::new();
+        let mut refused = Vec::new();
+        {
+            let mut st = self.0.state.lock().unwrap();
+            let allowed = st.allowed.clone();
+            for env in envs {
+                match st.docs().accept(&env, |m| *m == me || allowed.contains(m)) {
+                    Ok(Accepted::New) => {
+                        if !changed.contains(&env.doc) {
+                            changed.push(env.doc.clone());
+                        }
+                        fresh.push(env);
+                    }
+                    Ok(Accepted::Known) => {}
+                    Err(e) => refused.push(json!({"peer": from.to_string(), "author": env.author, "doc": env.doc, "reason": format!("{e:#}")})),
+                }
+            }
+            st.rejected.extend(refused.iter().cloned());
+            let n = st.rejected.len();
+            if n > 50 {
+                st.rejected.drain(..n - 50);
+            }
+        }
+        for mut ev in refused {
+            ev["t"] = json!("rejected");
+            self.event(ev);
+        }
+        if !fresh.is_empty() {
+            self.broadcast(
+                PeerMsg::Envs {
+                    envs: fresh.clone(),
+                },
+                Some(from),
+            );
+        }
+        for doc in changed {
+            self.emit_remote(&doc, &fresh);
+        }
+    }
+
+    fn emit_remote(&self, doc: &str, envs: &[Envelope]) {
+        let st = self.0.state.lock().unwrap();
+        let Some(shared) = st.docs.as_ref().and_then(|d| d.docs.get(doc)) else {
+            return;
+        };
+        let state = shared.crdt.materialize();
+        let mut by: Vec<String> = Vec::new();
+        for env in envs.iter().filter(|e| e.doc == doc) {
+            let member = env
+                .cert
+                .as_ref()
+                .map_or(env.author.clone(), |c| c.member.clone());
+            let person = keys::parse_public(&member)
+                .ok()
+                .and_then(|k| st.names.get(&k).cloned())
+                .unwrap_or_else(|| member.chars().take(8).collect());
+            let label = match &env.cert {
+                Some(c) => format!("{} @ {person}", c.name),
+                None => person,
+            };
+            if !by.contains(&label) {
+                by.push(label);
+            }
+        }
+        drop(st);
+        self.event(json!({"t": "remote", "doc": doc, "state": state, "by": by}));
+    }
+
+    /// The key that signs for a local actor: the member key, or a derived agent key with its
+    /// delegation certificate for MCP agents ("agent:<client name>").
+    fn signer(&self, actor: &str) -> (SecretKey, Option<Cert>) {
+        match actor.strip_prefix("agent:") {
+            Some(name) if !name.is_empty() => {
+                let k = keys::agent_key(&self.0.key, name);
+                let cert = Cert::issue(&self.0.key, &k.public(), name);
+                (k, Some(cert))
+            }
+            _ => (self.0.key.clone(), None),
+        }
     }
 
     pub fn broadcast(&self, msg: PeerMsg, except: Option<EndpointId>) {
@@ -421,7 +545,14 @@ impl Node {
             })
             .collect();
         peers.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
-        json!({"id": self.id().to_string(), "name": self.0.cfg.name, "fingerprint": crate::keys::fingerprint(&self.id()), "peers": peers})
+        let mut docs: Vec<Value> = st
+            .docs
+            .as_ref()
+            .map(|d| d.docs.iter().map(|(id, doc)| json!({"id": id, "envelopes": doc.envs.len(), "authors": doc.have.len()})).collect())
+            .unwrap_or_default();
+        docs.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
+        json!({"id": self.id().to_string(), "name": self.0.cfg.name, "fingerprint": crate::keys::fingerprint(&self.id()),
+               "peers": peers, "docs": docs, "rejected": st.rejected.len(), "lastRejected": st.rejected.last()})
     }
 
     /// Handles one command from the Go server.
@@ -448,6 +579,56 @@ impl Node {
                     .insert(self.id(), data.clone());
                 self.broadcast(PeerMsg::Presence { data }, None);
                 Ok(Value::Null)
+            }
+            "share" => {
+                let doc = cmd["doc"].as_str().context("doc")?;
+                let (key, cert) = self.signer(cmd["author"].as_str().unwrap_or_default());
+                let env =
+                    self.0
+                        .state
+                        .lock()
+                        .unwrap()
+                        .docs()
+                        .share(doc, &key, cert, &cmd["state"])?;
+                self.broadcast(PeerMsg::Envs { envs: vec![env] }, None);
+                Ok(json!({"doc": doc}))
+            }
+            "local" => {
+                let doc = cmd["doc"].as_str().context("doc")?;
+                let changes: Vec<Change> =
+                    serde_json::from_value(cmd["changes"].clone()).context("changes")?;
+                let (key, cert) = self.signer(cmd["author"].as_str().unwrap_or_default());
+                let env = {
+                    let mut st = self.0.state.lock().unwrap();
+                    if !st.docs().is_shared(doc) {
+                        return Ok(json!({"shared": false}));
+                    }
+                    st.docs().local(doc, &key, cert, &changes)?
+                };
+                let seq = env.as_ref().map(|e| e.seq);
+                if let Some(env) = env {
+                    self.broadcast(PeerMsg::Envs { envs: vec![env] }, None);
+                }
+                Ok(json!({"shared": true, "seq": seq}))
+            }
+            "state" => {
+                let doc = cmd["doc"].as_str().context("doc")?;
+                let st = self.0.state.lock().unwrap();
+                let shared = st
+                    .docs
+                    .as_ref()
+                    .and_then(|d| d.docs.get(doc))
+                    .with_context(|| format!("workspace {doc} is not shared"))?;
+                Ok(shared.crdt.materialize())
+            }
+            "docs" => {
+                let st = self.0.state.lock().unwrap();
+                let ids: Vec<&String> = st
+                    .docs
+                    .as_ref()
+                    .map(|d| d.docs.keys().collect())
+                    .unwrap_or_default();
+                Ok(json!(ids))
             }
             _ => bail!("unknown command {t:?}"),
         }
