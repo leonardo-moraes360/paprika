@@ -105,7 +105,7 @@ export function shapePadding(n: Pick<ShapeNode, "shape" | "width" | "height">): 
 // Conectores
 
 /** Origem, no canvas, do espaço de coordenadas de um contêiner (a soma de x/y dos ancestrais). */
-function originOf(doc: Document, parentId: string | null): Pt {
+export function originOf(doc: Document, parentId: string | null): Pt {
   let x = 0;
   let y = 0;
   for (let id = parentId, depth = 0; id && depth < 1000; depth++) {
@@ -293,14 +293,177 @@ function arrowHead(tip: Pt, from: Pt, sw: number): [Pt, Pt, Pt] | null {
   return [{ x: bx - uy * half, y: by + ux * half }, tip, { x: bx + uy * half, y: by - ux * half }];
 }
 
+/** Deslocamento perpendicular padrão da alça quando `control` não está gravado. */
+const CURVE_OFFSET = 40;
+
+/** Alça implícita: meio do segmento, 40px perpendiculares (só + − × ÷ e raiz). */
+export function defaultCurveControl(start: Pt, end: Pt): Pt {
+  const mx = (start.x + end.x) / 2;
+  const my = (start.y + end.y) / 2;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1e-6) return { x: mx, y: my - CURVE_OFFSET };
+  return { x: mx - (dy / len) * CURVE_OFFSET, y: my + (dx / len) * CURVE_OFFSET };
+}
+
+/** Converte a alça quadrática P1 numa cúbica (c1, c2) equivalente. */
+function quadraticToCubic(start: Pt, handle: Pt, end: Pt): { c1: Pt; c2: Pt } {
+  return {
+    c1: { x: start.x + (2 / 3) * (handle.x - start.x), y: start.y + (2 / 3) * (handle.y - start.y) },
+    c2: { x: end.x + (2 / 3) * (handle.x - end.x), y: end.y + (2 / 3) * (handle.y - end.y) },
+  };
+}
+
+function connectorFrame(bounds: Pt[], sw: number): {
+  ox: number;
+  oy: number;
+  width: number;
+  height: number;
+  local: (p: Pt) => Pt;
+} {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (const p of bounds) {
+    minX = Math.min(minX, p.x);
+    minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x);
+    maxY = Math.max(maxY, p.y);
+  }
+  const pad = Math.max(1, sw);
+  const ox = round4(minX - pad);
+  const oy = round4(minY - pad);
+  return {
+    ox,
+    oy,
+    width: round4(maxX - minX + 2 * pad),
+    height: round4(maxY - minY + 2 * pad),
+    local: (p: Pt): Pt => ({ x: p.x - ox, y: p.y - oy }),
+  };
+}
+
+function applyConnectorPath(
+  c: ConnectorNode,
+  origin: Pt,
+  frame: ReturnType<typeof connectorFrame>,
+  dBody: string,
+  heads: [Pt, Pt, Pt][],
+): void {
+  let d = dBody;
+  for (const [w1, tip, w2] of heads) d += ` M${pt(frame.local(w1))} L${pt(frame.local(tip))} L${pt(frame.local(w2))}`;
+  c.x = round4(frame.ox - origin.x);
+  c.y = round4(frame.oy - origin.y);
+  c.width = frame.width;
+  c.height = frame.height;
+  c.d = d;
+}
+
+/** Cotovelo com cantos em arco SVG; `samples` cobre a caixa (inclui aproximações dos arcos). */
+function roundedElbowPath(pts: Pt[], radius: number): { dParts: string[]; samples: Pt[] } {
+  if (pts.length < 2) return { dParts: [], samples: [] };
+  if (pts.length < 3 || radius <= 0) {
+    return { dParts: pts.map((p, k) => `${k ? "L" : "M"}${pt(p)}`), samples: pts };
+  }
+  const samples: Pt[] = [pts[0]!];
+  const dParts: string[] = [`M${pt(pts[0]!)}`];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const prev = pts[i - 1]!;
+    const cur = pts[i]!;
+    const next = pts[i + 1]!;
+    const d0x = cur.x - prev.x;
+    const d0y = cur.y - prev.y;
+    const d1x = next.x - cur.x;
+    const d1y = next.y - cur.y;
+    const len0 = Math.sqrt(d0x * d0x + d0y * d0y);
+    const len1 = Math.sqrt(d1x * d1x + d1y * d1y);
+    if (len0 < 1e-6 || len1 < 1e-6) continue;
+    const r = Math.min(radius, len0 / 2, len1 / 2);
+    if (r < 1e-6) {
+      dParts.push(`L${pt(cur)}`);
+      samples.push(cur);
+      continue;
+    }
+    const ux0 = d0x / len0;
+    const uy0 = d0y / len0;
+    const ux1 = d1x / len1;
+    const uy1 = d1y / len1;
+    const pEnter = { x: cur.x - ux0 * r, y: cur.y - uy0 * r };
+    const pLeave = { x: cur.x + ux1 * r, y: cur.y + uy1 * r };
+    dParts.push(`L${pt(pEnter)}`);
+    samples.push(pEnter);
+    const cross = ux0 * uy1 - uy0 * ux1;
+    const sweep = cross > 0 ? 1 : 0;
+    dParts.push(`A${num(r)} ${num(r)} 0 0 ${sweep} ${pt(pLeave)}`);
+    // Aproximação do meio do arco (bissetriz unitária) para a caixa.
+    const bx = ux1 - ux0;
+    const by = uy1 - uy0;
+    const bl = Math.sqrt(bx * bx + by * by);
+    if (bl > 1e-6) {
+      const k = r * (Math.SQRT2 - 1);
+      samples.push({ x: cur.x + (bx / bl) * k, y: cur.y + (by / bl) * k });
+    }
+    samples.push(pLeave);
+  }
+  const last = pts[pts.length - 1]!;
+  dParts.push(`L${pt(last)}`);
+  samples.push(last);
+  return { dParts, samples };
+}
+
+/**
+ * Posição da alça da curva no canvas (absoluta). Null se a rota não for `curve` ou as pontas
+ * não resolvem. Usa `control` gravado ou o deslocamento padrão.
+ */
+export function connectorCurveHandle(doc: Document, c: ConnectorNode): Pt | null {
+  if (c.route !== "curve") return null;
+  const origin = originOf(doc, c.parentId);
+  let a: End;
+  let b: End;
+  try {
+    a = resolveEnd(doc, c, "from", origin);
+    b = resolveEnd(doc, c, "to", origin);
+  } catch {
+    return null;
+  }
+  const [start, end] = straightPoints(a, b);
+  if (c.control) return { x: origin.x + c.control.x, y: origin.y + c.control.y };
+  return defaultCurveControl(start!, end!);
+}
+
 /** Calcula x, y, width, height e d de um conector. Muta o nó. */
 export function routeConnector(doc: Document, c: ConnectorNode): void {
   const origin = originOf(doc, c.parentId);
   const a = resolveEnd(doc, c, "from", origin);
   const b = resolveEnd(doc, c, "to", origin);
-  const line = c.route === "elbow" ? elbowPoints(a, b) : straightPoints(a, b);
   const sw = c.stroke.width;
   const heads: [Pt, Pt, Pt][] = [];
+  let dBody: string;
+  let bounds: Pt[];
+
+  if (c.route === "curve") {
+    const [start, end] = straightPoints(a, b);
+    const handle = c.control
+      ? { x: origin.x + c.control.x, y: origin.y + c.control.y }
+      : defaultCurveControl(start!, end!);
+    const { c1, c2 } = quadraticToCubic(start!, handle, end!);
+    if (c.endArrow === "arrow") {
+      const h = arrowHead(end!, c2, sw);
+      if (h) heads.push(h);
+    }
+    if (c.startArrow === "arrow") {
+      const h = arrowHead(start!, c1, sw);
+      if (h) heads.push(h);
+    }
+    bounds = [start!, c1, c2, end!, handle, ...heads.flat()];
+    const frame = connectorFrame(bounds, sw);
+    dBody = `M${pt(frame.local(start!))} C${pt(frame.local(c1))} ${pt(frame.local(c2))} ${pt(frame.local(end!))}`;
+    applyConnectorPath(c, origin, frame, dBody, heads);
+    return;
+  }
+
+  const line = c.route === "elbow" || c.route === "rounded" ? elbowPoints(a, b) : straightPoints(a, b);
   if (c.endArrow === "arrow" && line.length >= 2) {
     const h = arrowHead(line[line.length - 1]!, line[line.length - 2]!, sw);
     if (h) heads.push(h);
@@ -309,29 +472,20 @@ export function routeConnector(doc: Document, c: ConnectorNode): void {
     const h = arrowHead(line[0]!, line[1]!, sw);
     if (h) heads.push(h);
   }
-  const all = [...line, ...heads.flat()];
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity;
-  for (const p of all) {
-    minX = Math.min(minX, p.x);
-    minY = Math.min(minY, p.y);
-    maxX = Math.max(maxX, p.x);
-    maxY = Math.max(maxY, p.y);
+
+  if (c.route === "rounded") {
+    const { samples } = roundedElbowPath(line, c.radius);
+    bounds = [...samples, ...heads.flat()];
+    const frame = connectorFrame(bounds, sw);
+    dBody = roundedElbowPath(line.map(frame.local), c.radius).dParts.join(" ");
+    applyConnectorPath(c, origin, frame, dBody, heads);
+    return;
   }
-  // Margem de uma espessura: o traço e as pontas não encostam na borda da caixa.
-  const pad = Math.max(1, sw);
-  const ox = round4(minX - pad);
-  const oy = round4(minY - pad);
-  const local = (p: Pt): Pt => ({ x: p.x - ox, y: p.y - oy });
-  let d = line.map((p, k) => `${k ? "L" : "M"}${pt(local(p))}`).join(" ");
-  for (const [w1, tip, w2] of heads) d += ` M${pt(local(w1))} L${pt(local(tip))} L${pt(local(w2))}`;
-  c.x = round4(ox - origin.x);
-  c.y = round4(oy - origin.y);
-  c.width = round4(maxX - minX + 2 * pad);
-  c.height = round4(maxY - minY + 2 * pad);
-  c.d = d;
+
+  bounds = [...line, ...heads.flat()];
+  const frame = connectorFrame(bounds, sw);
+  dBody = line.map((p, k) => `${k ? "L" : "M"}${pt(frame.local(p))}`).join(" ");
+  applyConnectorPath(c, origin, frame, dBody, heads);
 }
 
 /** Recalcula todos os conectores do documento. Muta `doc`; lança ConnectorError numa ponta inválida. */
@@ -365,6 +519,8 @@ export interface DiagramEdge {
   fromSide?: string;
   toSide?: string;
   route?: string;
+  radius?: number;
+  control?: { x: number; y: number };
   startArrow?: string;
   endArrow?: string;
   dashed?: boolean;
@@ -525,7 +681,8 @@ export function diagramOps(doc: Document, input: DiagramInput): DiagramPlan {
       to: end(e.to, e.toSide),
       route: e.route ?? "elbow",
     };
-    for (const k of ["name", "startArrow", "endArrow", "dashed", "stroke", "label"] as const) if (e[k] !== undefined) node[k] = e[k];
+    for (const k of ["name", "startArrow", "endArrow", "dashed", "stroke", "label", "radius", "control"] as const)
+      if (e[k] !== undefined) node[k] = e[k];
     plan.ops.push({ op: "create", parentId, node });
     plan.edges.push(id);
   }

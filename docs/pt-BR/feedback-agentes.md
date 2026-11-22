@@ -520,6 +520,14 @@ Tarefa: desenhar a seção **Ordem** do inspector e o mapa de atalhos de ordem Z
 - `lint_design` nos quatro frames: 0 erros; avisos `small-text` são os rótulos de 11 px da seção/chip, iguais ao app.
 - Mapa de atalhos escolhido e documentado em `docs/pt-BR/canvas.md`: `Page Up`/`Page Down` = avançar/recuar, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd no macOS) = frente/fundo.
 
+## 2026-11-22: três estilos de traçado de seta (PAP-B-045, design first)
+
+Tarefa: desenhar cotovelo / arredondado / curva e o picker Traço do inspector em `Interfaces` antes de codar `route: "rounded"|"curve"`. Quatro frames numa página Interfaces nova; PNGs em `docs/assets/boards/PAP-B-045/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 112 | Pré-visualizar `rounded` / `curve` no servidor `:4777` ao vivo | O binário do mantenedor ainda só aceita `straight`\|`elbow`, então o `draw_diagram` recusou as rotas novas; a folha usou mocks em `path` | Publicar o schema antes de pedir redesenho no production, ou subir um `paprika serve` local do ticket | P3 |
+- O workspace ativo era `Paprika - UI`; uma segunda página `Interfaces` (`interfaces-pap045`) foi criada porque o outline era grande — preferir reutilizar `interfaces-pap020` quando existir.
 ## 2026-11-22: vários tipos de borda (PAP-B-044, design first)
 
 Tarefa: estender `stroke` com `style` (`solid`|`dashed`|`dotted`) e `position` (`inside`|`center`|`outside`) em frame/rect/ellipse/path/shape, depois Estilo/Posição no inspector. Quatro frames de altura fixa em `Interfaces` (`docs/assets/boards/PAP-B-044/`); export dos boards atualizado.
@@ -530,8 +538,7 @@ Tarefa: estender `stroke` com `style` (`solid`|`dashed`|`dotted`) e `position` (
 | 114 | Screenshots como arquivos | Igual ao #100/#101: `render_screenshot` só devolve base64 | `path` opcional em `render_screenshot` | P3 |
 - `style`/`position` padrão ficam omitidos no documento (helpers tratam ausência como sólido / posição por tipo) para round-trips e goldens não ganharem `style: "solid"` em todo stroke.
 - WASM não traça dash nem reposiciona: `wasmPaintable` devolve false e o DOM pinta (crates/render intacto).
-- Fecha o atrito do #99 (traço tracejado em caixas) via `stroke.style`.
-## 2026-11-22: steppers numéricos no inspector (PAP-B-046, design first)
+- Fecha o atrito do #99 (traço tracejado em caixas) via `stroke.style`.## 2026-11-22: steppers numéricos no inspector (PAP-B-046, design first)
 
 Tarefa: desenhar campos numéricos puros com `±` (opacidade / peso / espessura), hug/fill e `$token` sem stepper, anel de foco e estado no mínimo (claro e escuro) antes de ligar os steppers no `Field`; seis frames raiz de altura fixa; capturas em `docs/assets/boards/PAP-B-046/`; `paprika serve` local na `:4799` porque o workspace compartilhado na `:4777` estava lotado por tickets paralelos.
 
