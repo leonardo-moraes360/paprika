@@ -61,3 +61,56 @@ func TestJoinByInviteThenSync(t *testing.T) {
 		t.Fatalf("reused invite: %v", err)
 	}
 }
+
+func TestRemoveMemberAndRotateKey(t *testing.T) {
+	a, b, c := newInstance(t, "Ana"), newInstance(t, "Bruno"), newInstance(t, "Carla")
+	call(t, a, map[string]any{"t": "team.create", "name": "T"})
+	for _, who := range []*instance{b, c} {
+		var inv struct {
+			Link string `json:"link"`
+		}
+		_ = json.Unmarshal(call(t, a, map[string]any{"t": "invite.create", "ttlSecs": 600}), &inv)
+		call(t, who, map[string]any{"t": "join", "link": inv.Link})
+	}
+	if err := a.team.Share(""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.store.Apply(ops(t, `[{"op":"create","node":{"type":"frame","id":"card","width":120,"height":80,"fill":"#ffffff"}}]`), "user", "card"); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "B and C get the card", func() bool {
+		return core.GetNode(b.store.Doc(), "card") != nil && core.GetNode(c.store.Doc(), "card") != nil
+	})
+
+	// The founder removes Bruno: his later edits reach nobody.
+	call(t, a, map[string]any{"t": "member.remove", "key": b.team.Sidecar().ID})
+	eventually(t, "B knows it left", func() bool {
+		var st struct {
+			Team struct{ Member bool } `json:"team"`
+		}
+		_ = json.Unmarshal(call(t, b, map[string]any{"t": "status"}), &st)
+		return !st.Team.Member
+	})
+	if _, err := b.store.Apply(ops(t, `[{"op":"update","id":"card","props":{"fill":"#000000"}}]`), "user", "fora"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Carla rotates her key: the sidecar restarts with a new id and keeps syncing.
+	old := c.team.Sidecar().ID
+	res, err := c.team.RotateKey(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.team.Sidecar().ID == old || !strings.Contains(string(res), c.team.Sidecar().ID) {
+		t.Fatalf("rotation: %s, id %s → %s", res, old, c.team.Sidecar().ID)
+	}
+	if _, err := c.store.Apply(ops(t, `[{"op":"update","id":"card","props":{"fill":"#e04a2b"}}]`), "user", "nova chave"); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "A gets Carla's edit signed by the new key", func() bool {
+		return a.store.Doc().Obj("nodes").Obj("card").Str("fill") == "#e04a2b"
+	})
+	if a.store.Doc().Obj("nodes").Obj("card").Str("fill") == "#000000" || c.store.Doc().Obj("nodes").Obj("card").Str("fill") == "#000000" {
+		t.Fatal("an edit of the removed member got in")
+	}
+}

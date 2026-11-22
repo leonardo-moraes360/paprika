@@ -17,8 +17,11 @@ import (
 // surface the canvas uses.
 type Service struct {
 	store *server.Store
-	sc    *Sidecar
+	opts  Options
 	log   func(string)
+
+	scMu sync.Mutex
+	sc   *Sidecar // swapped by a key rotation: read it through side()
 
 	mu        sync.Mutex
 	status    json.RawMessage
@@ -34,7 +37,7 @@ func New(ctx context.Context, store *server.Store, opts Options, log func(string
 	if log == nil {
 		log = func(string) {}
 	}
-	t := &Service{store: store, log: log, listeners: map[int]func(string){}}
+	t := &Service{store: store, opts: opts, log: log, listeners: map[int]func(string){}}
 	t.sync = newSyncer(t)
 	sc, err := Start(ctx, opts, t.onEvent)
 	if err != nil {
@@ -51,14 +54,40 @@ func New(ctx context.Context, store *server.Store, opts Options, log func(string
 		}
 		c, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_, _ = sc.Call(c, map[string]any{"t": "presence", "data": map[string]any{
+		_, _ = t.side().Call(c, map[string]any{"t": "presence", "data": map[string]any{
 			"agent": p.Agent, "actor": p.Actor, "tool": p.Tool, "nodes": p.Nodes, "doc": store.DocID()}})
 	})
 	return t, nil
 }
 
 // Sidecar exposes the process (tests, CLI).
-func (t *Service) Sidecar() *Sidecar { return t.sc }
+func (t *Service) Sidecar() *Sidecar { return t.side() }
+
+func (t *Service) side() *Sidecar {
+	t.scMu.Lock()
+	defer t.scMu.Unlock()
+	return t.sc
+}
+
+// RotateKey gives this instance a new member key (signed by the old one and spread to the
+// team), then restarts the sidecar with it: Iroh binds the endpoint to the key.
+func (t *Service) RotateKey(ctx context.Context) (json.RawMessage, error) {
+	t.sync.flush() // changes signed by the old key go out first
+	res, err := t.side().Call(ctx, map[string]any{"t": "key.rotate"})
+	if err != nil {
+		return nil, err
+	}
+	t.scMu.Lock()
+	defer t.scMu.Unlock()
+	t.sc.Close()
+	sc, err := Start(ctx, t.opts, t.onEvent)
+	if err != nil {
+		return nil, fmt.Errorf("the key changed but the sidecar did not restart: %w (restart Paprika)", err)
+	}
+	t.sc = sc
+	t.log("time: chave trocada; sidecar reiniciado com " + sc.ID[:8])
+	return res, nil
+}
 
 // Close stops the sidecar.
 func (t *Service) Close() {
@@ -70,7 +99,7 @@ func (t *Service) Close() {
 	}
 	t.sync.flush()
 	t.sync.close()
-	t.sc.Close()
+	t.side().Close()
 }
 
 func (t *Service) onEvent(ev Event) {
@@ -124,6 +153,8 @@ func (t *Service) onEvent(ev Event) {
 		t.log(fmt.Sprintf("sync: recusado %v (%v)", ev["peer"], ev["reason"]))
 	case "joined":
 		t.log(fmt.Sprintf("time: %v entrou com um convite", ev["name"]))
+	case "removed":
+		t.log(fmt.Sprintf("time: %v removido(a) do time", ev["peer"]))
 	}
 }
 
@@ -186,7 +217,7 @@ func (t *Service) Recent() []string {
 
 // Status asks the sidecar for the current status.
 func (t *Service) Status(ctx context.Context) (json.RawMessage, error) {
-	return t.sc.Call(ctx, map[string]any{"t": "status"})
+	return t.side().Call(ctx, map[string]any{"t": "status"})
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
@@ -214,7 +245,11 @@ func readJSON(r *http.Request, v any) error {
 func (t *Service) call(w http.ResponseWriter, r *http.Request, cmd map[string]any) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	res, err := t.sc.Call(ctx, cmd)
+	res, err := t.side().Call(ctx, cmd)
+	t.reply(w, res, err)
+}
+
+func (t *Service) reply(w http.ResponseWriter, res json.RawMessage, err error) {
 	if err != nil {
 		errJSON(w, 400, err)
 		return
@@ -313,6 +348,17 @@ func (t *Service) Routes(mux *http.ServeMux) {
 			return
 		}
 		t.call(w, r, map[string]any{"t": "invite.inspect", "link": body.Link})
+	})
+	// The founder takes a member out (docs/team-sync.md); the key comes from GET /api/team.
+	mux.HandleFunc("DELETE /api/team/members/{key}", func(w http.ResponseWriter, r *http.Request) {
+		t.call(w, r, map[string]any{"t": "member.remove", "key": r.PathValue("key")})
+	})
+	// Replaces this instance's key; the sidecar restarts and active invite links stop working.
+	mux.HandleFunc("POST /api/team/rotate", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		defer cancel()
+		res, err := t.RotateKey(ctx)
+		t.reply(w, res, err)
 	})
 	mux.HandleFunc("POST /api/team/join", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {

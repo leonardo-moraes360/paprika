@@ -20,6 +20,12 @@ pub fn load_or_create(dir: &Path) -> Result<SecretKey> {
     }
     fs::create_dir_all(dir)?;
     let key = SecretKey::from_bytes(&random32());
+    write_private(&path, &key)?;
+    Ok(key)
+}
+
+fn write_private(path: &Path, key: &SecretKey) -> Result<()> {
+    let _ = fs::remove_file(path);
     let mut opts = fs::OpenOptions::new();
     opts.write(true).create_new(true);
     #[cfg(unix)]
@@ -28,10 +34,35 @@ pub fn load_or_create(dir: &Path) -> Result<SecretKey> {
         opts.mode(0o600);
     }
     let mut f = opts
-        .open(&path)
+        .open(path)
         .with_context(|| format!("creating {}", path.display()))?;
     f.write_all(&key.to_bytes())?;
-    Ok(key)
+    f.sync_all()?;
+    Ok(())
+}
+
+/// Stages a rotated key as `<dir>/key.next`; [`adopt_next`] swaps it in at the next start.
+pub fn stage_next(dir: &Path, key: &SecretKey) -> Result<()> {
+    write_private(&dir.join("key.next"), key)
+}
+
+/// At start: when `key.next` exists and `accept(its public key)` says the team file already has
+/// the rotation to it, it becomes `key`; otherwise it is dropped (the rotation never happened).
+pub fn adopt_next(dir: &Path, accept: impl Fn(&PublicKey) -> bool) -> Result<bool> {
+    let next = dir.join("key.next");
+    if !next.exists() {
+        return Ok(false);
+    }
+    let bytes = fs::read(&next)?;
+    let ok = <[u8; 32]>::try_from(bytes.as_slice())
+        .map(|b| SecretKey::from_bytes(&b))
+        .is_ok_and(|k| accept(&k.public()));
+    if ok {
+        fs::rename(&next, dir.join("key"))?;
+    } else {
+        fs::remove_file(&next)?;
+    }
+    Ok(ok)
 }
 
 pub fn random32() -> [u8; 32] {
@@ -114,6 +145,20 @@ mod tests {
                 .mode();
             assert_eq!(mode & 0o777, 0o600);
         }
+    }
+
+    #[test]
+    fn a_staged_key_is_adopted_only_when_the_team_has_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = load_or_create(dir.path()).unwrap();
+        let next = SecretKey::from_bytes(&[4; 32]);
+        stage_next(dir.path(), &next).unwrap();
+        assert!(!adopt_next(dir.path(), |_| false).unwrap());
+        assert_eq!(load_or_create(dir.path()).unwrap().public(), old.public());
+        stage_next(dir.path(), &next).unwrap();
+        assert!(adopt_next(dir.path(), |k| *k == next.public()).unwrap());
+        assert_eq!(load_or_create(dir.path()).unwrap().public(), next.public());
+        assert!(!dir.path().join("key.next").exists());
     }
 
     #[test]
