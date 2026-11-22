@@ -386,11 +386,25 @@ the floating buttons clear the toolbar and the agent roster, before writing the 
 
 - The collapsed right panel puts its button where the agent roster sits (top right of the canvas); the sheet showed it before any code did, and the roster moves down under the button only while that panel is collapsed.
 
+## 2026-11-22: overview and dialogs on shadcn (PAP-B-031, design first)
+
+Task: draw the workspace overview (grid, new-workspace form, delete confirmation) in both theme scopes on
+`127.0.0.1:4777`, then migrate `Overview.tsx` onto `Card`, `Button` and `Input`, and add `card.tsx`. Six frames
+are in `docs/assets/boards/PAP-B-031/`; the board export in `docs/design/boards.paprika.json` already carries
+the PAP-B-031 sheets from an earlier draw (`/tmp/b031/draw.mjs`).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 105 | Reuse an earlier draw without redrawing | The PNGs and `boards.paprika.json` nodes were already committed from a prior session; this ticket only copied shots and applied the markup | Nothing new — the board-in-repo pattern from item 97 paid off here | — |
+
+- `ConfirmDialog` was already on `AlertDialog` with `variant: "destructive"` on the confirm action (PAP-B-026); overview only consumes it.
+- Workspace cards keep `outline` instead of `border` so the cover cannot clip the active edge; `Card` ships with `border-ui-border` but the overview overrides with `border-0` plus the existing outline classes.
+
 ## 2026-11-22: compact inspector (PAP-B-022, design partial)
 
 Task: redesign the scene inspector into collapsible sections before implementing `apps/web/src/inspector/**`. Two design frames (`PAP-B-022 texto escuro` / `claro`) already live in `docs/design/boards.paprika.json`; a full MCP redraw on `:4777` was skipped when the shared server was slow, and the app before/after PNGs under `docs/assets/boards/PAP-B-022/` carry the measurement case instead.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 101 | Inspector height that proves the compact layout | `aside.right.scrollHeight` stayed 856 px before and after because the grid area forces a tall scroll container; `#right-tabpanel` height dropped 759 → 303 px (~60%) for the demo text node at 1440×900 (`packages/e2e/b022-measure.mjs`) | Use `panel` / `panelScroll` in the measure script (and in acceptance notes), not only `aside.scrollHeight` | P3 |
-| 102 | Boards on the shared MCP server | `:4777` answered slowly during the ticket, so only the existing design frames plus runtime screenshots were committed; no new fixed-height frames were drawn over MCP in this pass | Same as #97: a boards document in git that agents can `load` without depending on whichever volume is mounted on the maintainer's port | P2 |
+| 106 | Inspector height that proves the compact layout | `aside.right.scrollHeight` stayed 856 px before and after because the grid area forces a tall scroll container; `#right-tabpanel` height dropped 759 → 303 px (~60%) for the demo text node at 1440×900 (`packages/e2e/b022-measure.mjs`) | Use `panel` / `panelScroll` in the measure script (and in acceptance notes), not only `aside.scrollHeight` | P3 |
+| 107 | Boards on the shared MCP server | `:4777` answered slowly during the ticket, so only the existing design frames plus runtime screenshots were committed; no new fixed-height frames were drawn over MCP in this pass | Same as #97: a boards document in git that agents can `load` without depending on whichever volume is mounted on the maintainer's port | P2 |

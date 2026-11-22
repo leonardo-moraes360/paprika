@@ -11,6 +11,7 @@ import { useState, type ReactNode } from "react";
 import { Check, ChevronDown, Copy, Trash2 } from "lucide-react";
 import { cn } from "./lib/cn";
 import { Button } from "./components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./components/ui/card";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
 import { Label } from "./components/ui/label";
@@ -81,6 +82,19 @@ function GalleryBody({ light }: { light: boolean }) {
         <Button variant="outline" size="icon" aria-label="Confirmar">
           <Check aria-hidden />
         </Button>
+      </Section>
+
+      <Section title="Cartão">
+        <Card className="w-52">
+          <CardHeader className="pb-2">
+            <CardTitle>Workspace</CardTitle>
+            <CardDescription>12 nós · agora</CardDescription>
+          </CardHeader>
+          <CardContent className="text-xs text-ui-muted-foreground">Capa opcional e renomeação inline.</CardContent>
+          <CardFooter>
+            <Button size="sm">Abrir</Button>
+          </CardFooter>
+        </Card>
       </Section>
 
       <Section title="Campos">

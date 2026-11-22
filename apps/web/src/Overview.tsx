@@ -4,6 +4,9 @@ import { errorText } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { InlineName } from "./InlineName";
+import { Button } from "./components/ui/button";
+import { Card, CardContent } from "./components/ui/card";
+import { Input } from "./components/ui/input";
 import { cn } from "./lib/cn";
 import { bar, cx, ui } from "./ui";
 import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type Workspace } from "./workspaces";
@@ -53,11 +56,7 @@ const tile = (h: number): CSSProperties => ({
   background: `radial-gradient(circle at 30% 20%, hsl(${h} 60% 40% / 0.55), transparent 60%), linear-gradient(160deg, var(--color-panel-2), var(--color-night))`,
 });
 
-const button = (primary: boolean) =>
-  cx(
-    "cursor-pointer rounded-lg border px-3.5 py-1.75 disabled:cursor-default disabled:opacity-60",
-    primary ? "border-accent-strong bg-accent-strong font-semibold text-white" : "border-line bg-panel",
-  );
+const iconAction = "h-auto px-1.5 py-1";
 
 interface Props {
   connected: boolean;
@@ -164,9 +163,9 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
             </p>
           </div>
           {creating ? (
-            <form className="flex gap-2" onSubmit={create}>
-              <input
-                className="w-60 max-w-[50vw] rounded-lg border border-line bg-panel-2 px-2.5 py-1.75 focus:outline-2 focus:-outline-offset-1 focus:outline-select"
+            <form className="flex items-center gap-2" onSubmit={create}>
+              <Input
+                className="w-60 max-w-[50vw]"
                 autoFocus
                 aria-label="Nome do workspace"
                 placeholder="Nome do workspace"
@@ -175,17 +174,17 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => e.key === "Escape" && setCreating(false)}
               />
-              <button type="submit" className={button(true)} disabled={mutations.create.isPending}>
+              <Button type="submit" disabled={mutations.create.isPending}>
                 Criar
-              </button>
-              <button type="button" className={button(false)} onClick={() => setCreating(false)}>
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setCreating(false)}>
                 Cancelar
-              </button>
+              </Button>
             </form>
           ) : (
-            <button className={button(true)} onClick={() => setCreating(true)}>
-              <Plus className="-ml-0.5 align-[-3px]" size={15} aria-hidden /> Novo workspace
-            </button>
+            <Button onClick={() => setCreating(true)}>
+              <Plus className="-ml-0.5" size={15} aria-hidden /> Novo workspace
+            </Button>
           )}
         </div>
         {error && (
@@ -196,17 +195,17 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
         <ul className="grid list-none grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 p-0" aria-label="Workspaces">
           {workspaces?.map((w) => (
             <li key={w.id} className="group relative">
-              <div
+              <Card
                 role="button"
                 tabIndex={0}
                 aria-label={`Abrir workspace ${w.name}`}
-                className={cx(
+                className={cn(
                   // "workspace-card" and "is-active" stay as hooks for the E2E suite.
                   // No lift on hover: moving onto the action buttons (outside the card) dropped it back, a visible flick.
                   // The hover color follows the <li>, so it holds while the pointer is on those buttons.
                   // The edge is an inset outline, not a border: outlines paint over the children, so the cover cannot
                   // eat the rounded corners. The focus ring is a box-shadow, which overflow-hidden does not clip.
-                  "workspace-card relative flex w-full cursor-pointer flex-col overflow-hidden rounded-xl border-0 bg-panel p-0 text-left",
+                  "workspace-card relative w-full cursor-pointer gap-0 overflow-hidden border-0 p-0 text-left",
                   "outline-1 -outline-offset-1 outline-solid transition-[outline-color] duration-120",
                   "focus-visible:shadow-[0_0_0_2px_var(--color-night),0_0_0_4px_var(--color-select)]",
                   w.active ? "is-active outline-accent" : "outline-line group-hover:outline-muted",
@@ -222,7 +221,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                 }}
                 data-workspace-id={w.id}
               >
-                <span className="workspace-tile grid h-32 place-items-center overflow-hidden border-b border-line text-tile font-bold" style={tile(hue(w.id))} aria-hidden>
+                <span className="workspace-tile grid h-32 place-items-center overflow-hidden border-b border-ui-border text-tile font-bold" style={tile(hue(w.id))} aria-hidden>
                   {w.cover ? (
                     // "workspace-tile" and "workspace-cover" are hooks for the E2E suite.
                     <img className="workspace-cover size-full object-cover object-top" src={w.cover} alt="" draggable={false} />
@@ -230,7 +229,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                     (w.name.trim()[0] ?? "?").toUpperCase()
                   )}
                 </span>
-                <span className="grid min-w-0 gap-1 px-3.5 pt-3 pb-3.5">
+                <CardContent className="grid min-w-0 gap-1 px-3.5 pt-3 pb-3.5">
                   {renaming === w.id ? (
                     <InlineName
                       className={cx(ui.renameInput, "-mx-1.75 -my-0.75 px-1.5 py-0.5 text-md font-semibold")}
@@ -243,45 +242,47 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                   ) : (
                     <span className="workspace-name truncate text-md font-semibold">{w.name}</span>
                   )}
-                  <span className="text-muted">
+                  <span className="text-ui-muted-foreground">
                     {w.nodes} {w.nodes === 1 ? "nó" : "nós"} · {relativeTime(w.updatedAt)}
                   </span>
-                </span>
+                </CardContent>
                 {w.active && (
-                  <span className="absolute top-2.5 right-2.5 rounded-full bg-accent-strong px-2 py-0.5 text-xs font-semibold text-white" title="Aberto no servidor: os agentes MCP leem e escrevem neste">
+                  <span className="absolute top-2.5 right-2.5 rounded-full bg-ui-primary px-2 py-0.5 text-xs font-semibold text-ui-primary-foreground" title="Aberto no servidor: os agentes MCP leem e escrevem neste">
                     ativo
                   </span>
                 )}
-              </div>
+              </Card>
               {renaming !== w.id && (
-                <span className="absolute right-2.5 bottom-3 flex gap-0.5 rounded-md bg-panel opacity-0 transition-opacity duration-120 group-hover:opacity-100 group-focus-within:opacity-100">
-                  <button type="button" className={cx(ui.iconBtn, "px-1.5 py-1 text-lg")} aria-label={`Renomear ${w.name}`} title="Renomear (F2)" onClick={() => setRenaming(w.id)}>
+                <span className="absolute right-2.5 bottom-3 flex gap-0.5 rounded-md bg-ui-card opacity-0 transition-opacity duration-120 group-hover:opacity-100 group-focus-within:opacity-100">
+                  <Button type="button" variant="ghost" className={iconAction} aria-label={`Renomear ${w.name}`} title="Renomear (F2)" onClick={() => setRenaming(w.id)}>
                     <Pencil size={16} />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className={cx(ui.iconBtn, "px-1.5 py-1 text-lg")}
+                    variant="ghost"
+                    className={iconAction}
                     aria-label={`${w.cover ? "Trocar" : "Adicionar"} capa de ${w.name}`}
                     title={`${w.cover ? "Trocar" : "Adicionar"} capa (ou arraste uma imagem para o card)`}
                     onClick={() => pickCover(w.id)}
                   >
                     <ImagePlus size={16} />
-                  </button>
+                  </Button>
                   {w.cover && (
-                    <button type="button" className={cx(ui.iconBtn, "px-1.5 py-1 text-lg")} aria-label={`Remover capa de ${w.name}`} title="Remover capa" onClick={() => void setCover(w.id, null)}>
+                    <Button type="button" variant="ghost" className={iconAction} aria-label={`Remover capa de ${w.name}`} title="Remover capa" onClick={() => void setCover(w.id, null)}>
                       <ImageOff size={16} />
-                    </button>
+                    </Button>
                   )}
-                  <button
+                  <Button
                     type="button"
-                    className={cn(ui.iconBtn, ui.dangerBtn, "px-1.5 py-1 text-lg disabled:cursor-default disabled:opacity-60")}
+                    variant="ghost"
+                    className={cn(iconAction, "text-ui-destructive-text hover:text-ui-destructive-text")}
                     aria-label={`Excluir ${w.name}`}
                     title={count > 1 ? "Excluir (Delete)" : "O único workspace não pode ser excluído"}
                     disabled={count <= 1}
                     onClick={() => askDelete(w)}
                   >
                     <Trash2 size={16} />
-                  </button>
+                  </Button>
                 </span>
               )}
             </li>
