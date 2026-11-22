@@ -298,3 +298,15 @@ Task: draw the Opacidade field states (normal, focused, invalid with message) in
 
 - Fixed heights on the six roots avoided the hug screenshot pitfall called out in the ticket; `render_screenshot` with `scale: 2` was enough to judge focus ring and invalid message.
 - `find_nodes {name: "PAP-B-027 field", type: "frame"}` was the reliable way to map board name → id after the flat `created` list.
+
+## 2026-11-22: two-step delete and the operations log (PAP-B-015, server)
+
+Task: `delete_workspace` in two calls (summary + short-lived token) and a readable log of workspace
+operations. No design sheet: the change is server-side; the UI half (the canvas notice) is PAP-B-026.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 90 | One place for the agent guide | The guide lives twice — `instructions` in `server-go/contract/mcp.json` (en) and `server-go/contract/guide.pt-BR.md` — and a sentence about a tool has to be edited in both by hand. Nothing checks that the two agree, so a tool can be described in one language and not the other | A test that every tool name in the contract appears in both guide texts (the same way `TestToolsMatchContract` pins tool names to the handlers) would catch it; the sentence for `delete_workspace` was edited twice here on purpose | P2 |
+| 91 | Contract and handler stay in step | Adding `list_workspace_ops` failed only `TestToolsMatchContract` at first, which is the right forcing function; but the tool-name list in `packages/e2e/test/api.test.ts` is a third copy that fails separately, with a diff that does not say which side moved | Keep both checks, and print in the api failure whether the server, the contract or the test list is the one that changed | P3 |
+
+- The store's `mu` is not reentrant, and `DeleteWorkspace` already calls `OpenWorkspace`: the successor's `open` entry is logged before the `delete` entry, so reading the log newest-first gives the delete first and the takeover below it. Worth knowing for whoever writes the PAP-B-026 notice.
