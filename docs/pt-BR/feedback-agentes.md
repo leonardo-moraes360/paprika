@@ -260,15 +260,31 @@ Tarefa: desenhar, por MCP, a folha com cada primitivo shadcn e seus estados (hov
 - Depois da correção, o `lint_design` fica com 0 erros nos cinco frames; o único erro de `contrast` que ele pegou (um link em 4,24:1 sobre superfície clara) era um erro real na paleta, e hoje é outro token no código.
 - Redesenhar saiu mais barato que remendar: `delete_nodes` nas cinco raízes e um `create_nodes` novo, tudo num `batch`, desfeito por um único `undo`.
 
+## 2026-11-22: painel de time e roster de agentes, antes e depois (PAP-B-034, design first)
+
+Tarefa: desenhar o painel de time e o roster de agentes como estão hoje e como ficam sobre os primitivos, nos dois
+escopos de tema, e migrar `apps/web/src/Team.tsx` e o roster em `apps/web/src/AgentCursors.tsx`. Cinco frames raiz na
+página `Interfaces`, ~560 nós, e depois o app real em modo `--team` capturado para o registro.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 85 | A captura do próprio app dentro do documento de design, como referência do "antes" | Os nós de imagem não se dimensionam como o quadro diz: o mesmo PNG 280×856 pintou certo num quadro 190×581 com `fit: "contain"` num frame e virou uma tira de ~60×12 noutro em que o quadro era do tamanho da fonte; uma fonte 1440×900 num quadro 560×350 não pintou nada. O `lint_design` ficou limpo e nenhum erro voltou — só descobri olhando o `render_screenshot`. As capturas acabaram commitadas ao lado do board, não dentro dele | Documentar o que `width`/`height` fazem num nó `image` (escalam, recortam, ou nada), e fazer uma fonte maior que o quadro escalar ou reportar | P2 |
+| 86 | Um board cujos nomes de token são os nomes do código | Os tokens da folha são `ui.card` e `ui.mutedFg` (pontos, abreviações), enquanto `apps/web/src/styles.css` publica `--color-ui-card` e `--color-ui-muted-foreground`. Nada liga um ao outro, então "comparar board com código" é passo humano, e digitei os mesmos valores nos dois lados | Aceitar um alias ou `source` no token (ex.: `ui.card` → `--color-ui-card`), ou deixar o `set_tokens` ler os nomes de um arquivo CSS | P3 |
+| 87 | Um token do documento para o vermelho que o app pinta | `--color-accent-strong: #c8401f` está no CSS, mas os tokens de marca do documento são `$accent` (#e04a2b) e `$accent.dark`. Todo botão primário da folha ficou literal, e o `lint_design` devolve infos `raw-color` neles | Adicionar `$accent.strong` (e o ink) aos tokens de marca do documento, para board e CSS chamarem a mesma cor pelo mesmo nome | P3 |
+
+- Um construtor, dois modos: a mesma função do painel desenhou `antes` e `depois` e depois a folha clara, então as três folhas são a mesma geometria e só mudam os pares de tokens e o tamanho dos controles. Isso deixou a comparação legível.
+- `lint_design` nos cinco frames: 0 erros, os mesmos avisos `small-text` da folha do PAP-B-030 (o tipo de 11 e 12px do próprio painel), mais os infos `raw-color` do item 87.
+- As alturas dos frames tiveram que ser ajustadas na mão de novo (o item 81 continua valendo): uma coluna `hug` dentro de uma linha `hug` cortava o segundo painel até o frame externo ganhar altura explícita.
+
 ## 2026-11-22: campos numéricos do inspector (PAP-B-027, design first)
 
 Tarefa: desenhar os estados do campo Opacidade (normal, focado, inválido com mensagem) em claro e escuro na página `Interfaces` do workspace Paprika antes de corrigir `Field`/`setNum`; seis frames raiz com altura fixa, uma chamada `create_nodes`, depois screenshots em `docs/assets/boards/PAP-B-027/`.
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
-| 85 | `layout.padding` como `[0, 8]` (dois valores) | `create_nodes` respondeu `layout.padding: Invalid input`; só aceita escalar ou tupla de 4. Precisei trocar todo padding para um número só | Documentar as formas aceitas de padding no `get_design_guide` / schema da ferramenta (1 ou 4, não 2) | P3 |
-| 86 | `radius: "$radius.md"` numa folha que já usa fills `$ui.*` | Mesma recusa do #83 (`expected number, received string`); o board voltou a usar literais `6` / `8` | Igual ao #83: aceitar `$radius.*` onde se espera comprimento | P3 |
-| 87 | Saber quais ids em `created` são as raízes | `create_nodes` devolve uma lista plana em DFS de todos os ids aninhados; as seis raízes do board não eram as seis primeiras, e a primeira passagem de screenshot pegou títulos e rótulos | Preferir raízes primeiro em `created`, ou devolver `{roots, created}` como o `create_page` já distingue `page` | P3 |
+| 88 | `layout.padding` como `[0, 8]` (dois valores) | `create_nodes` respondeu `layout.padding: Invalid input`; só aceita escalar ou tupla de 4. Precisei trocar todo padding para um número só | Documentar as formas aceitas de padding no `get_design_guide` / schema da ferramenta (1 ou 4, não 2) | P3 |
+| 89 | `radius: "$radius.md"` numa folha que já usa fills `$ui.*` | Mesma recusa do #83 (`expected number, received string`); o board voltou a usar literais `6` / `8` | Igual ao #83: aceitar `$radius.*` onde se espera comprimento | P3 |
+| 90 | Saber quais ids em `created` são as raízes | `create_nodes` devolve uma lista plana em DFS de todos os ids aninhados; as seis raízes do board não eram as seis primeiras, e a primeira passagem de screenshot pegou títulos e rótulos | Preferir raízes primeiro em `created`, ou devolver `{roots, created}` como o `create_page` já distingue `page` | P3 |
 
 - Alturas fixas nas seis raízes evitaram o hang/pitfall de hug do ticket; `render_screenshot` com `scale: 2` bastou para julgar anel de foco e mensagem inválida.
 - `find_nodes {name: "PAP-B-027 field", type: "frame"}` foi o jeito confiável de mapear nome do board → id depois da lista plana `created`.
