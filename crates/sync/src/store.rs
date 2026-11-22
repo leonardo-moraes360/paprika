@@ -249,11 +249,12 @@ impl DocStore {
         }
     }
 
-    /// Accepts an envelope from a peer after `allowed(member)` approved the member behind it.
+    /// Accepts an envelope from a peer after `allowed(member, env)` approved the member behind it
+    /// (a member that left is still allowed for the envelopes up to its cut, see team.rs).
     pub fn accept(
         &mut self,
         env: &Envelope,
-        allowed: impl Fn(&PublicKey) -> bool,
+        allowed: impl Fn(&PublicKey, &Envelope) -> bool,
     ) -> Result<Accepted> {
         check_doc_id(&env.doc)?;
         if self
@@ -265,7 +266,7 @@ impl DocStore {
             return Ok(Accepted::Known);
         }
         let (blob, member) = env.verify()?;
-        if !allowed(&member) {
+        if !allowed(&member, env) {
             bail!("{} is not a team member", member.fmt_short());
         }
         let shared = self
@@ -295,6 +296,29 @@ impl DocStore {
                     .unwrap_or(0);
                 if env.seq > max {
                     out.push(env.clone());
+                }
+            }
+        }
+        out
+    }
+
+    /// Highest sequence number per workspace and author of the envelopes that `member` is
+    /// responsible for (its own and its agents'): the cut when that member leaves the team.
+    pub fn cut_for(&self, member: &str) -> crate::team::Upto {
+        let mut out = crate::team::Upto::new();
+        for (id, doc) in &self.docs {
+            for env in &doc.envs {
+                let m = env
+                    .cert
+                    .as_ref()
+                    .map_or(env.author.as_str(), |c| c.member.as_str());
+                if m == member {
+                    let max = out
+                        .entry(id.clone())
+                        .or_default()
+                        .entry(env.author.clone())
+                        .or_insert(0);
+                    *max = (*max).max(env.seq);
                 }
             }
         }
@@ -359,8 +383,8 @@ mod tests {
         let dir2 = tempfile::tempdir().unwrap();
         let mut other = DocStore::open(dir2.path()).unwrap();
         for env in s2.missing_for(&HashMap::new()) {
-            assert_eq!(other.accept(&env, |_| true).unwrap(), Accepted::New);
-            assert_eq!(other.accept(&env, |_| true).unwrap(), Accepted::Known);
+            assert_eq!(other.accept(&env, |_, _| true).unwrap(), Accepted::New);
+            assert_eq!(other.accept(&env, |_, _| true).unwrap(), Accepted::Known);
         }
         assert_eq!(other.docs["d1"].crdt.materialize(), m);
     }
@@ -380,7 +404,7 @@ mod tests {
             .unwrap();
         let dir2 = tempfile::tempdir().unwrap();
         let mut b = DocStore::open(dir2.path()).unwrap();
-        assert!(b.accept(&env, |_| false).is_err());
+        assert!(b.accept(&env, |_, _| false).is_err());
         assert!(!b.is_shared("d"));
     }
 }

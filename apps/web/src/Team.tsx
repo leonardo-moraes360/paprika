@@ -15,6 +15,17 @@ export interface TeamMember {
   founder: boolean;
   you: boolean;
   agents: string[];
+  /** This key replaced an older key of the same person (key rotation). */
+  rotated?: boolean;
+}
+export interface RemovedMember {
+  key: string;
+  name: string;
+  fingerprint: string;
+  at: number;
+  by: string;
+  byName?: string | null;
+  you: boolean;
 }
 export interface TeamPeer {
   id: string;
@@ -26,7 +37,17 @@ export interface TeamStatus {
   id: string;
   name: string;
   fingerprint: string;
-  team: { id: string; name: string; members: TeamMember[]; invites: { expires: number }[] } | null;
+  team: {
+    id: string;
+    name: string;
+    members: TeamMember[];
+    removed?: RemovedMember[];
+    invites: { expires: number }[];
+    /** False when this instance was removed (or its key retired): it no longer syncs. */
+    member?: boolean;
+    /** Only the founder removes members. */
+    canRemove?: boolean;
+  } | null;
   peers: TeamPeer[];
   docs: { id: string; envelopes: number; authors: number }[];
   rejected: number;
@@ -369,17 +390,107 @@ export function JoinDialog({ status, onClose }: { status: TeamStatus | null; onC
   );
 }
 
+/** Confirms taking a member out of the team (founder only). */
+export function RemoveMemberDialog({ member, onClose }: { member: TeamMember; onClose(): void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <Modal title={`Remover ${member.name} do time?`} onClose={onClose} width={520}>
+      <p className="m-0 text-sm text-muted">
+        A chave de {member.name} (ed25519 {member.fingerprint}) e as dos agentes dela deixam de sincronizar. O que já foi mudado continua nos workspaces; mudanças novas assinadas por essa chave são recusadas.
+      </p>
+      <p className="m-0 text-sm text-muted">Para voltar, a pessoa precisa de um convite novo.</p>
+      {error && <p className="team-remove-error m-0 rounded-md border border-accent bg-toast p-2 text-sm text-accent-pale">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button className={btn()} onClick={onClose}>
+          Cancelar
+        </button>
+        <button
+          className={cx(btn(true), "team-remove-confirm")}
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            api(`/api/team/members/${encodeURIComponent(member.key)}`, "DELETE")
+              .then(onClose)
+              .catch((e) => setError(String(e.message ?? e)))
+              .finally(() => setBusy(false));
+          }}
+        >
+          {busy ? "Removendo…" : `Remover ${member.name}`}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Confirms replacing this instance's key (the sidecar restarts with the new one). */
+export function RotateKeyDialog({ status, onClose }: { status: TeamStatus; onClose(): void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+  // The status refreshes with the new key once the sidecar restarts: keep the one we started from.
+  const [before] = useState(status.fingerprint);
+  return (
+    <Modal title="Gerar nova chave?" onClose={onClose} width={520}>
+      <p className="m-0 text-sm text-muted">
+        Use se esta máquina ou a chave vazou. A chave nova assina a troca junto com a antiga e o time passa a aceitar só a nova. O sidecar reinicia e os convites ativos são revogados.
+      </p>
+      <p className="m-0 text-xs text-muted">{done ? "Chave antiga" : "Chave atual"}: ed25519 {before}. Alguém do time precisa estar online para receber a troca.</p>
+      {error && <p className="team-rotate-error m-0 rounded-md border border-accent bg-toast p-2 text-sm text-accent-pale">{error}</p>}
+      {done && <p className="m-0 text-sm text-leaf">Chave nova: ed25519 {done}</p>}
+      <div className="flex justify-end gap-2">
+        <button className={btn()} onClick={onClose}>
+          {done ? "Fechar" : "Cancelar"}
+        </button>
+        {!done && (
+          <button
+            className={cx(btn(true), "team-rotate-confirm")}
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              api<{ fingerprint: string }>("/api/team/rotate", "POST")
+                .then((r) => setDone(r.fingerprint))
+                .catch((e) => setError(String(e.message ?? e)))
+                .finally(() => setBusy(false));
+            }}
+          >
+            <KeyRound size={14} /> {busy ? "Trocando…" : "Gerar nova chave"}
+          </button>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function RemovedNotice({ team }: { team: NonNullable<TeamStatus["team"]> }) {
+  if (team.member !== false) return null;
+  return (
+    <div className="team-removed-you grid gap-1 rounded-lg border border-accent bg-toast p-3">
+      <strong className="text-sm text-accent-pale">Você não está mais neste time</strong>
+      <span className="text-xs text-accent-ink">Suas mudanças ficam só neste dispositivo. Para voltar, peça um convite novo.</span>
+    </div>
+  );
+}
+
 export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; onClose(): void; onInvite(): void }) {
   const members = status.team?.members ?? [];
+  const removed = status.team?.removed ?? [];
+  const canRemove = !!status.team?.canRemove;
+  const inside = status.team?.member !== false;
+  const [removing, setRemoving] = useState<TeamMember | null>(null);
+  const [rotating, setRotating] = useState(false);
+  if (removing) return <RemoveMemberDialog member={removing} onClose={() => setRemoving(null)} />;
+  if (rotating) return <RotateKeyDialog status={status} onClose={() => setRotating(false)} />;
   const peerState = (key: string) => status.peers.find((p) => p.id === key)?.state ?? "offline";
   const date = (unix: number) => new Date(unix * 1000).toLocaleDateString([], { day: "2-digit", month: "short" });
   return (
     <Modal title="Chaves do time" onClose={onClose} width={860}>
       <p className="m-0 text-sm text-muted">Só operações assinadas por estas chaves entram nos workspaces do time.</p>
+      {status.team && <RemovedNotice team={status.team} />}
       <table className="team-keys w-full border-collapse text-sm">
         <thead>
           <tr className="text-left text-xs text-muted">
-            {["Quem", "Tipo", "Chave pública", "Delegada por", "Desde", "Estado"].map((h) => (
+            {["Quem", "Tipo", "Chave pública", "Delegada por", "Desde", "Estado", ""].map((h) => (
               <th key={h} className="border-b border-line px-2 py-2 font-semibold">
                 {h}
               </th>
@@ -394,9 +505,21 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
                 <td className="border-b border-line px-2 py-2 font-semibold">{m.name}{m.you ? " (você)" : ""}</td>
                 <td className="border-b border-line px-2 py-2 text-muted">pessoa</td>
                 <td className="border-b border-line px-2 py-2 font-mono text-xs text-accent-ink" title={m.key}>ed25519 {m.fingerprint}</td>
-                <td className="border-b border-line px-2 py-2 text-muted">{m.founder ? "fundador(a)" : `${m.addedByName ?? "?"} (convite)`}</td>
+                <td className="border-b border-line px-2 py-2 text-muted">{m.rotated ? "troca de chave" : m.founder ? "fundador(a)" : `${m.addedByName ?? "?"} (convite)`}</td>
                 <td className="border-b border-line px-2 py-2 text-muted">{date(m.at)}</td>
                 <td className="border-b border-line px-2 py-2"><Chip label={st} tone={st === "ativa" ? "ok" : "off"} /></td>
+                <td className="border-b border-line px-2 py-2 text-right">
+                  {m.you && inside && (
+                    <button className={cx(btn(), "team-rotate whitespace-nowrap")} onClick={() => setRotating(true)}>
+                      Gerar nova chave
+                    </button>
+                  )}
+                  {!m.you && !m.founder && canRemove && (
+                    <button className={cx(btn(), "team-remove")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
+                      Remover
+                    </button>
+                  )}
+                </td>
               </tr>,
               ...m.agents.map((a) => (
                 <tr key={`${m.key}/${a}`}>
@@ -406,10 +529,22 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
                   <td className="border-b border-line px-2 py-2 text-muted">{m.name}</td>
                   <td className="border-b border-line px-2 py-2 text-muted">—</td>
                   <td className="border-b border-line px-2 py-2"><Chip label="ativa" tone="ok" /></td>
+                  <td className="border-b border-line px-2 py-2" />
                 </tr>
               )),
             ];
           })}
+          {removed.map((m) => (
+            <tr key={`removed/${m.key}`} className="team-removed text-muted">
+              <td className="border-b border-line px-2 py-2 font-semibold">{m.name}{m.you ? " (você)" : ""}</td>
+              <td className="border-b border-line px-2 py-2">pessoa</td>
+              <td className="border-b border-line px-2 py-2 font-mono text-xs" title={m.key}>ed25519 {m.fingerprint}</td>
+              <td className="border-b border-line px-2 py-2">removida por {m.byName ?? "?"}</td>
+              <td className="border-b border-line px-2 py-2">{date(m.at)}</td>
+              <td className="border-b border-line px-2 py-2"><Chip label="removida" tone="bad" /></td>
+              <td className="border-b border-line px-2 py-2" />
+            </tr>
+          ))}
         </tbody>
       </table>
       {status.rejected > 0 && (
@@ -422,11 +557,13 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
         <span className="rounded-full bg-panel-2 px-2 py-0.5">em breve</span>
         Aprovação de mudanças por papel (revisor, editor) entra como camada sobre estas chaves.
       </p>
-      <div className="flex justify-end">
-        <button className={btn(true)} onClick={onInvite}>
-          <UserPlus size={14} /> Convidar
-        </button>
-      </div>
+      {inside && (
+        <div className="flex justify-end">
+          <button className={btn(true)} onClick={onInvite}>
+            <UserPlus size={14} /> Convidar
+          </button>
+        </div>
+      )}
     </Modal>
   );
 }
@@ -435,6 +572,7 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
 export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: { status: TeamStatus | null; agents: AgentPresence[]; docId: string; onInvite(): void; onJoin(): void; onKeys(): void }) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<TeamMember | null>(null);
   if (!status) return <section className={ui.section}><p className={ui.muted}>Conectando ao sidecar do time…</p></section>;
   if (!status.team) {
     return (
@@ -483,6 +621,7 @@ export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: {
           Time {teamFingerprint(team.id).split(" · ").slice(0, 2).join("·")} · {team.members.length} pessoa(s) · {team.members.reduce((n, m) => n + m.agents.length, 0)} agente(s)
         </span>
       </div>
+      <RemovedNotice team={team} />
       <div className="grid gap-2">
         <h3 className={ui.h3}>Conexão e sync</h3>
         <div className="team-sync grid gap-1.5 rounded-lg border border-line bg-night p-3 text-xs">
@@ -507,7 +646,8 @@ export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: {
         {team.members.map((m) => {
           const peer = status.peers.find((p) => p.id === m.key);
           const [label, tone] = m.you ? (["local", "off"] as [string, Tone]) : STATE_LABEL[peer?.state ?? "offline"];
-          const sub = m.you ? "este dispositivo" : peer?.state === "direct" ? `QUIC direto${peer.rttMs != null ? ` · ${peer.rttMs} ms` : ""}` : peer?.state === "relay" ? `via relay${peer.rttMs != null ? ` · ${peer.rttMs} ms` : ""}` : "offline";
+          const where = m.you ? "este dispositivo" : peer?.state === "direct" ? `QUIC direto${peer.rttMs != null ? ` · ${peer.rttMs} ms` : ""}` : peer?.state === "relay" ? `via relay${peer.rttMs != null ? ` · ${peer.rttMs} ms` : ""}` : "offline";
+          const sub = m.founder ? `${where} · fundador(a)` : where;
           return (
             <div key={m.key} className="team-person grid gap-1.5">
               <div className="flex items-center justify-between gap-2">
@@ -518,17 +658,33 @@ export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: {
                     <span className="truncate text-xs text-muted">{sub}</span>
                   </div>
                 </div>
-                <Chip label={label} tone={tone} />
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Chip label={label} tone={tone} />
+                  {team.canRemove && !m.you && !m.founder && (
+                    <button className={cx(btn(), "team-remove px-2")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
+                      Remover
+                    </button>
+                  )}
+                </div>
               </div>
               {(m.you ? localAgents : remoteAgents(m.name)).map(agentLine)}
             </div>
           );
         })}
+        {team.canRemove && team.members.length > 1 && <p className="m-0 text-xs text-muted">Só quem fundou o time remove pessoas.</p>}
+        {(team.removed?.length ?? 0) > 0 && (
+          <p className="team-removed-count m-0 text-xs text-muted">
+            {team.removed!.length} removida(s): {team.removed!.map((r) => r.name).join(", ")}. Veja em Chaves do time.
+          </p>
+        )}
       </div>
+      {removing && <RemoveMemberDialog member={removing} onClose={() => setRemoving(null)} />}
       <div className="flex flex-wrap gap-2">
-        <button className={cx(btn(true), "team-invite")} onClick={onInvite}>
-          <UserPlus size={14} /> Convidar
-        </button>
+        {team.member !== false && (
+          <button className={cx(btn(true), "team-invite")} onClick={onInvite}>
+            <UserPlus size={14} /> Convidar
+          </button>
+        )}
         <button className={btn()} onClick={onKeys}>
           <KeyRound size={14} /> Chaves do time
         </button>

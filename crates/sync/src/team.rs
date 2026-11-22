@@ -1,7 +1,7 @@
 //! The team file (allowlist of member keys) and invites (ADR 0004, docs/team-sync.md).
 
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
@@ -31,6 +31,37 @@ pub struct MemberEntry {
     pub sig: String,
 }
 
+/// workspace → author key → highest sequence number still accepted from a key that left.
+pub type Upto = BTreeMap<String, BTreeMap<String, u64>>;
+
+/// The founder (or a key it rotated to) takes a member out of the team. Envelopes of that
+/// member (and of its agents) are still accepted up to `upto`, so a newcomer can replay the
+/// history; anything later is refused.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Removal {
+    pub key: String,
+    pub by: String,
+    pub at: u64,
+    #[serde(default)]
+    pub upto: Upto,
+    pub sig: String,
+}
+
+/// A member replaces its key: signed by the old and by the new key. The new key inherits the
+/// name and the rights; the old one is retired (accepted up to `upto`, like a removal).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Rotation {
+    pub old: String,
+    pub new: String,
+    pub at: u64,
+    #[serde(default)]
+    pub upto: Upto,
+    pub sig_old: String,
+    pub sig_new: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TeamFile {
     pub id: String,
@@ -38,6 +69,62 @@ pub struct TeamFile {
     pub founder: String,
     pub nonce: String,
     pub members: Vec<MemberEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub removals: Vec<Removal>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rotations: Vec<Rotation>,
+}
+
+/// Why a key that once was a member no longer is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Left {
+    Removed(Removal),
+    Rotated(Rotation),
+}
+
+impl Left {
+    pub fn at(&self) -> u64 {
+        match self {
+            Left::Removed(r) => r.at,
+            Left::Rotated(r) => r.at,
+        }
+    }
+    pub fn upto(&self) -> &Upto {
+        match self {
+            Left::Removed(r) => &r.upto,
+            Left::Rotated(r) => &r.upto,
+        }
+    }
+}
+
+/// Every key the team file vouches for, split into who is a member now and who left.
+#[derive(Debug, Clone, Default)]
+pub struct Roster {
+    /// Current members.
+    pub members: HashMap<PublicKey, MemberEntry>,
+    /// Keys that were members and left (removed, or replaced by a new key).
+    pub left: HashMap<PublicKey, (MemberEntry, Left)>,
+    /// The founder key and the keys it rotated to, oldest first; the last one is the founder now.
+    pub founders: Vec<PublicKey>,
+}
+
+impl Roster {
+    pub fn founder(&self) -> Option<&PublicKey> {
+        self.founders.last()
+    }
+
+    /// Whether an envelope of `member` (authored by `author`, number `seq`) is still accepted.
+    pub fn accepts(&self, member: &PublicKey, doc: &str, author: &str, seq: u64) -> bool {
+        if self.members.contains_key(member) {
+            return true;
+        }
+        self.left.get(member).is_some_and(|(_, l)| {
+            l.upto()
+                .get(doc)
+                .and_then(|a| a.get(author))
+                .is_some_and(|max| seq <= *max)
+        })
+    }
 }
 
 fn team_id(founder: &str, nonce: &str) -> String {
@@ -56,6 +143,61 @@ fn member_bytes(team: &str, key: &str, name: &str, added_by: &str, at: u64) -> V
     .join(&b'\n')
 }
 
+fn upto_json(upto: &Upto) -> Vec<u8> {
+    // BTreeMap: keys are sorted, so the JSON is canonical.
+    serde_json::to_vec(upto).unwrap_or_default()
+}
+
+fn removal_bytes(team: &str, key: &str, by: &str, at: u64, upto: &Upto) -> Vec<u8> {
+    [
+        b"paprika-remove/1".as_slice(),
+        team.as_bytes(),
+        key.as_bytes(),
+        by.as_bytes(),
+        at.to_string().as_bytes(),
+        &upto_json(upto),
+    ]
+    .join(&b'\n')
+}
+
+fn rotation_bytes(team: &str, old: &str, new: &str, at: u64, upto: &Upto) -> Vec<u8> {
+    [
+        b"paprika-rotate/1".as_slice(),
+        team.as_bytes(),
+        old.as_bytes(),
+        new.as_bytes(),
+        at.to_string().as_bytes(),
+        &upto_json(upto),
+    ]
+    .join(&b'\n')
+}
+
+impl Removal {
+    fn verifies(&self, team: &str) -> bool {
+        keys::parse_public(&self.by).is_ok_and(|by| {
+            keys::verify(
+                &by,
+                &removal_bytes(team, &self.key, &self.by, self.at, &self.upto),
+                &self.sig,
+            )
+            .is_ok()
+        }) && keys::parse_public(&self.key).is_ok()
+    }
+}
+
+impl Rotation {
+    fn verifies(&self, team: &str) -> bool {
+        let bytes = rotation_bytes(team, &self.old, &self.new, self.at, &self.upto);
+        let (Ok(old), Ok(new)) = (keys::parse_public(&self.old), keys::parse_public(&self.new))
+        else {
+            return false;
+        };
+        old != new
+            && keys::verify(&old, &bytes, &self.sig_old).is_ok()
+            && keys::verify(&new, &bytes, &self.sig_new).is_ok()
+    }
+}
+
 impl TeamFile {
     /// A new team whose founder (and first member) is `founder`.
     pub fn create(founder: &SecretKey, team_name: &str, member_name: &str) -> Self {
@@ -68,6 +210,8 @@ impl TeamFile {
             founder: f,
             nonce,
             members: vec![],
+            removals: vec![],
+            rotations: vec![],
         };
         let entry = t.sign_entry(founder, &founder.public(), member_name);
         t.members.push(entry);
@@ -97,14 +241,82 @@ impl TeamFile {
         Ok(())
     }
 
-    /// Members whose entry chains back to the founder through valid signatures.
+    /// Current members: entries that chain back to the founder through valid signatures, minus
+    /// the keys that were removed or rotated away.
     pub fn members(&self) -> HashMap<PublicKey, MemberEntry> {
-        let mut valid: HashMap<PublicKey, MemberEntry> = HashMap::new();
+        self.roster().members
+    }
+
+    /// Who the team file vouches for (docs/team-sync.md, "Removing a member, rotating a key"):
+    /// 1. the founder chain: the founder key, then each key it rotated to;
+    /// 2. removals signed by a founder-chain key, of a key outside that chain;
+    /// 3. rotations signed by both keys, the first one per old key winning, unless the old key
+    ///    was removed before it;
+    /// 4. entries only count when their signer had not left before their `at` (same second counts).
+    pub fn roster(&self) -> Roster {
+        let mut r = Roster::default();
         if self.check_id().is_err() {
-            return valid;
+            return r;
         }
         let Ok(founder) = keys::parse_public(&self.founder) else {
-            return valid;
+            return r;
+        };
+        let mut rots: Vec<&Rotation> = self
+            .rotations
+            .iter()
+            .filter(|x| x.verifies(&self.id))
+            .collect();
+        rots.sort_by(|a, b| (a.at, &a.new).cmp(&(b.at, &b.new)));
+        // 1. Founder chain.
+        r.founders.push(founder);
+        loop {
+            let cur = r.founders.last().unwrap().to_string();
+            let Some(next) = rots
+                .iter()
+                .find(|x| x.old == cur)
+                .and_then(|x| keys::parse_public(&x.new).ok())
+            else {
+                break;
+            };
+            if r.founders.contains(&next) {
+                break;
+            }
+            r.founders.push(next);
+        }
+        let chain: HashSet<String> = r.founders.iter().map(|k| k.to_string()).collect();
+        // 2. Removals: the earliest valid one per key.
+        let mut removed: HashMap<String, &Removal> = HashMap::new();
+        for x in &self.removals {
+            if !chain.contains(&x.by) || chain.contains(&x.key) || !x.verifies(&self.id) {
+                continue;
+            }
+            match removed.get(&x.key) {
+                Some(prev) if prev.at <= x.at => {}
+                _ => {
+                    removed.insert(x.key.clone(), x);
+                }
+            }
+        }
+        // 3. Rotations: the first per old key, unless it was removed at or before it.
+        let mut rotated: HashMap<String, &Rotation> = HashMap::new();
+        for x in &rots {
+            if rotated.contains_key(&x.old) || removed.get(&x.old).is_some_and(|d| d.at <= x.at) {
+                continue;
+            }
+            rotated.insert(x.old.clone(), x);
+        }
+        let ended = |k: &str| -> Option<u64> {
+            let a = removed.get(k).map(|x| x.at);
+            let b = rotated.get(k).map(|x| x.at);
+            match (a, b) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            }
+        };
+        // 4. Fixed point over entries and rotations.
+        let mut valid: HashMap<PublicKey, MemberEntry> = HashMap::new();
+        let active_at = |valid: &HashMap<PublicKey, MemberEntry>, k: &PublicKey, at: u64| {
+            valid.contains_key(k) && ended(&k.to_string()).is_none_or(|end| at <= end)
         };
         loop {
             let before = valid.len();
@@ -117,10 +329,10 @@ impl TeamFile {
                 if valid.contains_key(&key) {
                     continue;
                 }
-                let signer_ok = if by == founder {
-                    e.key == self.founder || valid.contains_key(&founder)
+                let signer_ok = if by == founder && e.key == self.founder {
+                    true
                 } else {
-                    valid.contains_key(&by)
+                    active_at(&valid, &by, e.at)
                 };
                 if signer_ok
                     && keys::verify(
@@ -133,10 +345,51 @@ impl TeamFile {
                     valid.insert(key, e.clone());
                 }
             }
+            for x in rotated.values() {
+                let (Ok(old), Ok(new)) = (keys::parse_public(&x.old), keys::parse_public(&x.new))
+                else {
+                    continue;
+                };
+                if valid.contains_key(&new) {
+                    continue;
+                }
+                if let Some(prev) = valid.get(&old).cloned()
+                    && removed.get(&x.old).is_none_or(|d| x.at < d.at)
+                {
+                    valid.insert(
+                        new,
+                        MemberEntry {
+                            key: x.new.clone(),
+                            name: prev.name.clone(),
+                            added_by: x.old.clone(),
+                            at: x.at,
+                            sig: x.sig_old.clone(),
+                        },
+                    );
+                }
+            }
             if valid.len() == before {
-                return valid;
+                break;
             }
         }
+        for (k, e) in valid {
+            let ks = k.to_string();
+            let left = match (removed.get(&ks), rotated.get(&ks)) {
+                (Some(d), Some(x)) if x.at < d.at => Some(Left::Rotated((*x).clone())),
+                (Some(d), _) => Some(Left::Removed((*d).clone())),
+                (None, Some(x)) => Some(Left::Rotated((*x).clone())),
+                (None, None) => None,
+            };
+            match left {
+                Some(l) => {
+                    r.left.insert(k, (e, l));
+                }
+                None => {
+                    r.members.insert(k, e);
+                }
+            }
+        }
+        r
     }
 
     pub fn is_member(&self, key: &PublicKey) -> bool {
@@ -156,7 +409,8 @@ impl TeamFile {
         Ok(entry)
     }
 
-    /// Union of the valid entries of both files (same team). Returns whether anything was added.
+    /// Union of the valid entries, removals and rotations of both files (same team). Returns
+    /// whether anything was added.
     pub fn merge(&mut self, other: &TeamFile) -> Result<bool> {
         if other.id != self.id {
             bail!("another team ({})", other.id);
@@ -169,17 +423,80 @@ impl TeamFile {
                 changed = true;
             }
         }
+        for x in &other.removals {
+            if !self.removals.contains(x) && x.verifies(&self.id) {
+                self.removals.push(x.clone());
+                changed = true;
+            }
+        }
+        for x in &other.rotations {
+            if !self.rotations.contains(x) && x.verifies(&self.id) {
+                self.rotations.push(x.clone());
+                changed = true;
+            }
+        }
         if changed {
-            // Keep only entries that validate, so a forged entry never sticks.
-            let valid = self.members();
+            // Keep only entries that validate (members now or keys that left), so a forged entry
+            // never sticks while the history of who added whom stays.
+            let r = self.roster();
             self.members.retain(|e| {
-                keys::parse_public(&e.key)
-                    .ok()
-                    .and_then(|k| valid.get(&k))
-                    .is_some_and(|v| v == e)
+                keys::parse_public(&e.key).ok().is_some_and(|k| {
+                    r.members.get(&k).or_else(|| r.left.get(&k).map(|(m, _)| m)) == Some(e)
+                })
             });
         }
         Ok(changed)
+    }
+
+    /// Takes `key` out of the team, signed by `by` (the founder, or the key it rotated to).
+    pub fn remove(&mut self, by: &SecretKey, key: &PublicKey, upto: Upto) -> Result<Removal> {
+        let r = self.roster();
+        if r.founder() != Some(&by.public()) {
+            bail!("only the founder removes members");
+        }
+        if r.founders.contains(key) {
+            bail!("the founder cannot be removed");
+        }
+        if !r.members.contains_key(key) {
+            bail!("{} is not a member", key.fmt_short());
+        }
+        let (k, b, at) = (key.to_string(), by.public().to_string(), now());
+        let sig = hex::encode(
+            by.sign(&removal_bytes(&self.id, &k, &b, at, &upto))
+                .to_bytes(),
+        );
+        let x = Removal {
+            key: k,
+            by: b,
+            at,
+            upto,
+            sig,
+        };
+        self.removals.push(x.clone());
+        Ok(x)
+    }
+
+    /// Replaces the member key `old` by `new` (signed by both).
+    pub fn rotate(&mut self, old: &SecretKey, new: &SecretKey, upto: Upto) -> Result<Rotation> {
+        if !self.is_member(&old.public()) {
+            bail!("only a member can rotate its key");
+        }
+        let (o, n, at) = (old.public().to_string(), new.public().to_string(), now());
+        let bytes = rotation_bytes(&self.id, &o, &n, at, &upto);
+        let x = Rotation {
+            old: o,
+            new: n,
+            at,
+            upto,
+            sig_old: hex::encode(old.sign(&bytes).to_bytes()),
+            sig_new: hex::encode(new.sign(&bytes).to_bytes()),
+        };
+        self.rotations.push(x.clone());
+        if !self.is_member(&new.public()) {
+            self.rotations.pop();
+            bail!("the rotation did not validate");
+        }
+        Ok(x)
     }
 
     pub fn load(data: &Path) -> Result<Option<Self>> {
@@ -380,6 +697,109 @@ mod tests {
                 .iter()
                 .any(|e| e.key == eve.public().to_string())
         );
+    }
+
+    fn upto(doc: &str, author: &SecretKey, seq: u64) -> Upto {
+        BTreeMap::from([(
+            doc.to_string(),
+            BTreeMap::from([(author.public().to_string(), seq)]),
+        )])
+    }
+
+    #[test]
+    fn the_founder_removes_a_member() {
+        let (ana, bruno, carla) = (key(1), key(2), key(3));
+        let mut t = TeamFile::create(&ana, "Estúdio", "Ana");
+        t.add(&ana, &bruno.public(), "Bruno").unwrap();
+        t.add(&ana, &carla.public(), "Carla").unwrap();
+        assert_eq!(
+            t.remove(&bruno, &carla.public(), Upto::new())
+                .unwrap_err()
+                .to_string(),
+            "only the founder removes members"
+        );
+        assert!(t.remove(&ana, &ana.public(), Upto::new()).is_err());
+        t.remove(&ana, &bruno.public(), upto("d", &bruno, 3))
+            .unwrap();
+        let r = t.roster();
+        assert!(!r.members.contains_key(&bruno.public()));
+        assert!(r.members.contains_key(&carla.public()));
+        assert!(matches!(r.left[&bruno.public()].1, Left::Removed(_)));
+        // Up to seq 3 in "d" still counts (history); later, or in another workspace, does not.
+        let b = bruno.public().to_string();
+        assert!(r.accepts(&bruno.public(), "d", &b, 3));
+        assert!(!r.accepts(&bruno.public(), "d", &b, 4));
+        assert!(!r.accepts(&bruno.public(), "e", &b, 1));
+        // A removed member cannot add anyone any more.
+        assert!(t.add(&bruno, &key(4).public(), "Dani").is_err());
+
+        // The removal spreads by merge; a forged one (signed by Carla) does not.
+        let mut other = TeamFile {
+            removals: vec![],
+            ..t.clone()
+        };
+        assert!(other.is_member(&bruno.public()));
+        other.merge(&t).unwrap();
+        assert!(!other.is_member(&bruno.public()));
+        let mut forged = t.clone();
+        forged.removals.push(Removal {
+            key: carla.public().to_string(),
+            by: ana.public().to_string(),
+            at: now(),
+            upto: Upto::new(),
+            sig: hex::encode(carla.sign(b"x").to_bytes()),
+        });
+        other.merge(&forged).unwrap();
+        assert!(other.is_member(&carla.public()));
+        assert_eq!(other.removals.len(), 1);
+    }
+
+    #[test]
+    fn a_member_rotates_its_key() {
+        let (ana, bruno, bruno2, eve) = (key(1), key(2), key(5), key(9));
+        let mut t = TeamFile::create(&ana, "Estúdio", "Ana");
+        t.add(&ana, &bruno.public(), "Bruno").unwrap();
+        assert!(
+            t.rotate(&eve, &key(8), Upto::new()).is_err(),
+            "a stranger cannot rotate"
+        );
+        t.rotate(&bruno, &bruno2, upto("d", &bruno, 7)).unwrap();
+        let r = t.roster();
+        assert_eq!(r.members[&bruno2.public()].name, "Bruno");
+        assert!(!r.members.contains_key(&bruno.public()));
+        assert!(r.accepts(&bruno.public(), "d", &bruno.public().to_string(), 7));
+        assert!(!r.accepts(&bruno.public(), "d", &bruno.public().to_string(), 8));
+        // The new key carries the rights; the old one does not.
+        t.add(&bruno2, &key(3).public(), "Carla").unwrap();
+        assert!(t.add(&bruno, &key(4).public(), "Dani").is_err());
+        // A rotation signed only by the old key does not count.
+        let mut half = t.clone();
+        let mut bad = t.rotations[0].clone();
+        bad.new = eve.public().to_string();
+        half.rotations = vec![bad];
+        assert!(!half.is_member(&eve.public()));
+    }
+
+    #[test]
+    fn the_founder_rotates_and_keeps_founding() {
+        let (ana, ana2, bruno) = (key(1), key(6), key(2));
+        let mut t = TeamFile::create(&ana, "Estúdio", "Ana");
+        t.add(&ana, &bruno.public(), "Bruno").unwrap();
+        t.rotate(&ana, &ana2, Upto::new()).unwrap();
+        let r = t.roster();
+        assert_eq!(r.founder(), Some(&ana2.public()));
+        assert!(
+            t.remove(&ana, &bruno.public(), Upto::new()).is_err(),
+            "the old key is retired"
+        );
+        t.remove(&ana2, &bruno.public(), Upto::new()).unwrap();
+        assert!(!t.is_member(&bruno.public()));
+        assert!(t.remove(&ana2, &ana2.public(), Upto::new()).is_err());
+        // The file still loads from JSON written before removals and rotations existed.
+        let mut old = serde_json::to_value(TeamFile::create(&ana, "E", "Ana")).unwrap();
+        old.as_object_mut().unwrap().remove("removals");
+        let back: TeamFile = serde_json::from_value(old).unwrap();
+        assert!(back.removals.is_empty() && back.is_member(&ana.public()));
     }
 
     #[test]
