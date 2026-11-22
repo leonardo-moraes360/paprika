@@ -94,6 +94,7 @@ The full list of tools and shortcuts is in [Using the canvas](docs/canvas.md).
 | Run with Docker: import, export, backups, ports | [Docker](docs/docker.md) |
 | Build from source, run the tests, contribute code | [Development](docs/development.md) · [CI](docs/ci.md) |
 | Understand how it is built | [Architecture](docs/architecture.md) · [Go server](server-go/README.md) · [Decisions (ADRs)](docs/adr/) |
+| Check a screen against its approved board | [Visual verification](docs/visual-verification.md) |
 | See what's planned | [Backlog](docs/backlog.md) |
 
 ## Good to know
