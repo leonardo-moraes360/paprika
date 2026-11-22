@@ -10,6 +10,7 @@ visible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spre
 frame: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,
   justify: start|center|end|between, wrap}. Com layout row/column, x/y dos filhos são ignorados.
 text: text, color, fontFamily, fontSize (n | "$token"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.
+  Sem width/height, um texto novo abraça o conteúdo ("hug" nos dois eixos); dê width para quebrar linhas.
 image: src (https:// ou data:image/), fit (cover|contain|fill), alt.
 group: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir
   dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.

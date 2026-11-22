@@ -164,6 +164,17 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
     if (node.type === "group" && node.children.length === 0)
       issues.push({ rule: "empty-group", severity: "info", nodeId: id, message: "empty group; delete it or move nodes into it" });
 
+    if (node.type === "frame" && (!node.layout || node.layout.mode === "none") && node.children.length > 0) {
+      const axes = (["width", "height"] as const).filter((k) => node[k] === "hug");
+      if (axes.length)
+        issues.push({
+          rule: "hug-without-layout",
+          severity: "warning",
+          nodeId: id,
+          message: `${axes.join(" and ")} "hug" on a frame without layout is 0 px (its children are placed absolutely, so nothing is hugged); set layout {mode: "column"} or a number`,
+        });
+    }
+
     const parent = node.parentId ? doc.nodes[node.parentId] : undefined;
     const absolute = parent?.type === "frame" && (!parent.layout || parent.layout.mode === "none");
     if (

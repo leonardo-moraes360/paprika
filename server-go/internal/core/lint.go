@@ -291,6 +291,18 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 			add("empty-group", "info", id, "empty group; delete it or move nodes into it")
 		}
 
+		if typ == "frame" && (node.Obj("layout") == nil || node.Obj("layout").Str("mode") == "none") && len(node.Arr("children")) > 0 {
+			var axes []string
+			for _, k := range []string{"width", "height"} {
+				if v, _ := node.Get(k); v == "hug" {
+					axes = append(axes, k)
+				}
+			}
+			if len(axes) > 0 {
+				add("hug-without-layout", "warning", id, strings.Join(axes, " and ")+` "hug" on a frame without layout is 0 px (its children are placed absolutely, so nothing is hugged); set layout {mode: "column"} or a number`)
+			}
+		}
+
 		parent := parentOf(doc, node)
 		absolute := parent != nil && parent.Str("type") == "frame" && (parent.Obj("layout") == nil || parent.Obj("layout").Str("mode") == "none")
 		if absolute && node.Bool("visible") {

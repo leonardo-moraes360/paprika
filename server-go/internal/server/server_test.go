@@ -307,6 +307,38 @@ func TestMCPGroupsAndPages(t *testing.T) {
 	}
 }
 
+// fb#65, #67, #68: friction an agent hit while drawing a board.
+func TestMCPAgentDefaults(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	if _, isErr := callText(t, m, "create_nodes", obj("nodes", []any{
+		obj("type", "text", "id", "label", "text", "Olá"),
+		obj("type", "text", "id", "para", "text", "Longo", "width", 240.0),
+		obj("type", "frame", "id", "cell", "height", "hug", "children", []any{obj("type", "text", "id", "inside", "text", "x")}),
+		obj("type", "shape", "id", "s1", "x", 0.0, "y", 0.0),
+		obj("type", "shape", "id", "s2", "x", 300.0, "y", 0.0),
+	})); isErr {
+		t.Fatal("create failed")
+	}
+	if n := core.GetNode(s.Doc(), "label"); n.Str("width") != "hug" || n.Str("height") != "hug" {
+		t.Fatalf("text without size: %s", jsonv.Stringify(n, ""))
+	}
+	if n := core.GetNode(s.Doc(), "para"); n.Num("width") != 240 || n.Str("height") != "hug" {
+		t.Fatalf("text with width only: %s", jsonv.Stringify(n, ""))
+	}
+	out, _ := callText(t, m, "lint_design", obj())
+	if !strings.Contains(out, "hug-without-layout") || !strings.Contains(out, `"cell"`) {
+		t.Fatalf("lint: %s", out)
+	}
+	if _, isErr := callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "connector", "id", "c1", "from", obj("nodeId", "s1"), "to", obj("nodeId", "s2"))})); isErr {
+		t.Fatal("connector failed")
+	}
+	out, isErr := callText(t, m, "delete_nodes", obj("ids", []any{"cell", "s1"}))
+	if isErr || out != "{\n  \"deleted\": [\n    \"cell\",\n    \"inside\",\n    \"s1\",\n    \"c1\"\n  ],\n  \"version\": 3\n}" {
+		t.Fatalf("delete: %q", out)
+	}
+}
+
 func TestMCPComponents(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)
