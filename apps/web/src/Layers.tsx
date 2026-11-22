@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Circle, Component, Diamond, Eye, EyeOff, File, Frame, Group, Image, MoveUpRight, PenTool, RectangleHorizontal, Square, Type, type LucideIcon } from "lucide-react";
 import { isContainer, isInstance, pageRoots, type ConnectorEnd, type Document, type Node, type Op } from "@paprika/core";
 import { Button } from "./components/ui/button";
+import { Hint } from "./components/ui/tooltip";
 import { InlineName } from "./InlineName";
 import { cn } from "./lib/cn";
 
@@ -105,18 +106,19 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
               onDone={() => setEditing(null)}
             />
           ) : (
-            <span
-              id={`layer-name-${id}`}
-              className={cn("layer-name flex-1 truncate", !n.visible && "opacity-45")}
-              title={n.sourceId === undefined ? "Duplo clique ou F2 para renomear" : undefined}
-              onDoubleClick={(e) => {
-                if (n.sourceId !== undefined) return;
-                e.stopPropagation();
-                setEditing(id);
-              }}
-            >
-              {n.name || layerFallback(doc, n)}
-            </span>
+            <Hint label={n.sourceId === undefined ? "Duplo clique ou F2 para renomear" : undefined}>
+              <span
+                id={`layer-name-${id}`}
+                className={cn("layer-name flex-1 truncate", !n.visible && "opacity-45")}
+                onDoubleClick={(e) => {
+                  if (n.sourceId !== undefined) return;
+                  e.stopPropagation();
+                  setEditing(id);
+                }}
+              >
+                {n.name || layerFallback(doc, n)}
+              </span>
+            </Hint>
           )}
           <Button
             variant="ghost"

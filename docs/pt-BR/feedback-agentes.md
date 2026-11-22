@@ -496,6 +496,20 @@ Tarefa: desenhar o feed de atividade (ator cor+nome, ação, tempo relativo, agr
 - `layout.padding: [6, 8]` (dois valores) é rejeitado; quatro valores ou um número só funcionam.
 - A posição de desfazer/refazer vem no cliente dos rótulos iniciais `desfazer:` / `refazer:` no feed WS existente — sem mudança no servidor.
 
+## 2026-11-22: atributos `title` → tooltips acessíveis (PAP-B-051, design first)
+
+Tarefa: trocar todo `title` HTML em `apps/web` pelo Tooltip shadcn (`Hint`: hover + foco, Esc fecha), mantendo `aria-label` nos botões de ícone. Três frames em `Interfaces` (`Paprika - UI`): antes/depois escuro, antes/depois claro, estados foco/Esc. PNGs em `docs/assets/boards/PAP-B-051/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 112 | Tinta do texto vs `fill` nos boards | Preencher `fill` num nó de texto deixou `color` no padrão `#111111`; o lint comparou `color` com o próprio `fill` e marcou contraste ~1:1 na folha clara | Documentar que a tinta do texto é `color` (não `fill`) no guia / exemplos de `create_nodes` | P2 |
+| 113 | Export do DB vivo dos boards | O store em `:4777` é volume Docker; este agente não teve caminho aprovado para `paprika export` no container, então só os PNGs entraram no commit | Continuar atualizando `docs/design/boards.paprika.json` a partir de um DB montado no host, ou MCP `export_document` | P2 |
+| 114 | Controles desabilitados e Tooltip | O Radix não abre tooltip num botão `disabled` (sem ponteiro/foco); o excluir do overview com um só workspace e as pills de agente idle precisam de um `span` focável em volta | Anotar o padrão do span junto do `Hint` no ADR 0005 ou na galeria | P3 |
+
+- `TooltipProvider` foi para `main.tsx` (Overview, Editor e `/ui` compartilham o delay); a toolbar flutuante deixou o provider local.
+- Esc no App não limpa a seleção enquanto um tooltip está aberto (`[data-slot=tooltip-content]`).
+- E2E a11y: zoom + Retângulo abrem no foco, Esc fecha, sem `title` nativo; roster de agentes asserta tooltip em vez de `title`.
+
 ## 2026-11-22: atalhos de ordem Z e seção Ordem (PAP-B-021, design first)
 
 Tarefa: desenhar a seção **Ordem** do inspector e o mapa de atalhos de ordem Z (claro e escuro, altura fixa) na página `Interfaces` de `Paprika - UI` antes de ligar `Page Up`/`Page Down` (+ Ctrl/Cmd para frente/fundo) em `Canvas.tsx` e as quatro ações de ordem em `Inspector.tsx`. Quatro frames raiz, uma chamada `create_nodes`; PNGs em `docs/assets/boards/PAP-B-021/`; export dos boards atualizado em `docs/design/boards.paprika.json`.

@@ -493,6 +493,20 @@ Task: draw the activity feed (actor color+name, action, relative time, batch gro
 - `layout.padding: [6, 8]` (two values) is rejected; four values or a single number work. Same class of friction as other tickets.
 - Undo/redo position is derived client-side from leading `desfazer:` / `refazer:` labels in the existing WS activity feed — no server change.
 
+## 2026-11-22: title attributes → accessible tooltips (PAP-B-051, design first)
+
+Task: replace every HTML `title` in `apps/web` with the shadcn Tooltip (`Hint` helper: hover + focus, Esc dismisses) while icon buttons keep `aria-label`. Three frames on `Interfaces` (`Paprika - UI`): before/after dark, before/after light, focus/Esc states. PNGs in `docs/assets/boards/PAP-B-051/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 112 | Text paint vs `fill` on boards | Setting `fill` on a text node left `color` at the default `#111111`; lint compared `color` to the node's own `fill` and reported ~1:1 contrast on the light sheet | Document that text ink is `color` (not `fill`) in the design-guide / create_nodes examples agents copy | P2 |
+| 113 | Export of the live boards DB | The maintainer's `:4777` store is a Docker volume; this agent had no approved path to `paprika export` from the container, so only the PNGs were committed | Keep refreshing `docs/design/boards.paprika.json` from a host-mounted DB, or add an MCP `export_document` | P2 |
+| 114 | Disabled controls and Tooltip | Radix does not open a tooltip on a `disabled` button (no pointer/focus events); the overview delete-when-alone and idle agent pills need a focusable wrapper `span` | Note the span-wrapper pattern next to `Hint` in ADR 0005 or the gallery | P3 |
+
+- `TooltipProvider` moved to `main.tsx` so Overview, Editor and `/ui` share one delay; the floating toolbar dropped its local provider.
+- App-level Esc no longer clears the selection while a tooltip is open (`[data-slot=tooltip-content]`).
+- a11y E2E: zoom + Retângulo open on focus, Esc closes, no native `title`; agent roster asserts tooltip instead of `title`.
+
 ## 2026-11-22: layer order shortcuts and Ordem section (PAP-B-021, design first)
 
 Task: draw the inspector **Ordem** section and the Z-order shortcut map (light and dark, fixed height) on the `Interfaces` page of `Paprika - UI` before wiring `Page Up`/`Page Down` (+ Ctrl/Cmd for front/back) in `Canvas.tsx` and the four arrange actions in `Inspector.tsx`. Four root frames, one `create_nodes` call; PNGs under `docs/assets/boards/PAP-B-021/`; boards export refreshed in `docs/design/boards.paprika.json`.

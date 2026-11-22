@@ -9,6 +9,7 @@ import { buttonVariants } from "./components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
+import { Hint } from "./components/ui/tooltip";
 
 /** Team sync status from the server (`/api/team`, `{type: "team"}` on /ws). See docs/team-sync.md. */
 export interface TeamMember {
@@ -96,14 +97,15 @@ export function teamSummary(st: TeamStatus | null): { label: string; tone: Tone 
 export function TeamChip({ status, onClick }: { status: TeamStatus | null; onClick(): void }) {
   const s = teamSummary(status);
   return (
-    <button
-      className="team-chip inline-flex max-w-[320px] cursor-pointer items-center gap-2 rounded-full border border-ui-input bg-ui-secondary px-2.5 py-0.75 text-ui-foreground hover:border-select"
-      onClick={onClick}
-      title="Time: pessoas, agentes e sincronização"
-    >
-      <span className={cx("size-2 shrink-0 rounded-full", TONE_DOT[s.tone])} />
-      <span className="truncate text-xs font-semibold">{s.label}</span>
-    </button>
+    <Hint label="Time: pessoas, agentes e sincronização" side="bottom">
+      <button
+        className="team-chip inline-flex max-w-[320px] cursor-pointer items-center gap-2 rounded-full border border-ui-input bg-ui-secondary px-2.5 py-0.75 text-ui-foreground hover:border-select"
+        onClick={onClick}
+      >
+        <span className={cx("size-2 shrink-0 rounded-full", TONE_DOT[s.tone])} />
+        <span className="truncate text-xs font-semibold">{s.label}</span>
+      </button>
+    </Hint>
   );
 }
 
@@ -498,7 +500,11 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
               <tr key={m.key}>
                 <td className="border-b border-line px-2 py-2 font-semibold">{m.name}{m.you ? " (você)" : ""}</td>
                 <td className="border-b border-line px-2 py-2 text-muted">pessoa</td>
-                <td className="border-b border-line px-2 py-2 font-mono text-xs text-accent-ink" title={m.key}>ed25519 {m.fingerprint}</td>
+                <td className="border-b border-line px-2 py-2 font-mono text-xs text-accent-ink">
+                  <Hint label={m.key}>
+                    <span tabIndex={0}>ed25519 {m.fingerprint}</span>
+                  </Hint>
+                </td>
                 <td className="border-b border-line px-2 py-2 text-muted">{m.rotated ? "troca de chave" : m.founder ? "fundador(a)" : `${m.addedByName ?? "?"} (convite)`}</td>
                 <td className="border-b border-line px-2 py-2 text-muted">{date(m.at)}</td>
                 <td className="border-b border-line px-2 py-2"><Chip label={st} tone={st === "ativa" ? "ok" : "off"} /></td>
@@ -532,7 +538,11 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
             <tr key={`removed/${m.key}`} className="team-removed text-muted">
               <td className="border-b border-line px-2 py-2 font-semibold">{m.name}{m.you ? " (você)" : ""}</td>
               <td className="border-b border-line px-2 py-2">pessoa</td>
-              <td className="border-b border-line px-2 py-2 font-mono text-xs" title={m.key}>ed25519 {m.fingerprint}</td>
+              <td className="border-b border-line px-2 py-2 font-mono text-xs">
+                <Hint label={m.key}>
+                  <span tabIndex={0}>ed25519 {m.fingerprint}</span>
+                </Hint>
+              </td>
               <td className="border-b border-line px-2 py-2">removida por {m.byName ?? "?"}</td>
               <td className="border-b border-line px-2 py-2">{date(m.at)}</td>
               <td className="border-b border-line px-2 py-2"><Chip label="removida" tone="bad" /></td>

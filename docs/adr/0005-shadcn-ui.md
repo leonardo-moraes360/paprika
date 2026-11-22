@@ -112,6 +112,7 @@ itself has no ticket yet.
 
 - The theme stays closed and Preflight stays out; the primitives carry their own resets.
 - Two names coexist for a while: `ui.ts` (until PAP-B-031…034 delete each unused entry) and `components/ui/`. `AGENTS.md` says which one new UI code uses. PAP-B-033 freed `ui.iconBtn` and moved the shell, toolbar (`ToggleGroup`+`Tooltip`), layers, pages, `InlineName`, `PanelResizer` and the top-bar status dot onto the primitives; Inspector (PAP-B-032) still reads `ui.ts`.
+- PAP-B-051: HTML `title` attributes in `apps/web` are gone; use `Hint` (or `Tooltip`+`TooltipTrigger`+`TooltipContent`) from `components/ui/tooltip.tsx`. `TooltipProvider` lives once in `main.tsx`. Icon-only buttons keep `aria-label`; wrap a disabled control in a focusable `span` when it still needs a tip.
 - A light theme now exists at the token level only; the app does not offer it yet.
 - `tw-animate-css` is the animation source, so the "tailwind-animate" backlog row is partly covered; the row stays open until the app's own animations use it.
 - Adding a component later is a copy plus two mechanical rewrites (paths and color names), because there is no `@/` alias; that is recorded here rather than paid for with a new config surface.

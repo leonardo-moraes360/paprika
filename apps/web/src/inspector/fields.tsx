@@ -5,6 +5,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
+import { Hint } from "../components/ui/tooltip";
 import { cn } from "../lib/cn";
 import { allowsNumberFieldInput, commitNumeric, parseNumeric, rangeMessage, type NumericRange } from "../numericInput";
 
@@ -84,7 +85,6 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
   const common = {
     value: v,
     placeholder,
-    title,
     "aria-label": label,
     "aria-invalid": error ? true : undefined,
     "aria-describedby": error ? msgId : undefined,
@@ -130,6 +130,12 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
       }
     },
   };
+  const control =
+    type === "textarea" ? (
+      <Textarea rows={2} className={cn(controlBare, "min-h-0 resize-y px-0 py-0")} {...common} />
+    ) : (
+      <Input inputMode={type === "number" ? "decimal" : undefined} className={controlBare} {...common} />
+    );
   return (
     <div className="grid min-w-0 gap-0.5">
       <div
@@ -139,11 +145,7 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
         )}
       >
         <Label>{label}</Label>
-        {type === "textarea" ? (
-          <Textarea rows={2} className={cn(controlBare, "min-h-0 resize-y px-0 py-0")} {...common} />
-        ) : (
-          <Input inputMode={type === "number" ? "decimal" : undefined} className={controlBare} {...common} />
-        )}
+        <Hint label={title}>{control}</Hint>
       </div>
       {error && (
         <p id={msgId} role="status" aria-live="polite" className="m-0 text-2xs text-ui-destructive-text">
@@ -212,6 +214,8 @@ export function SelectField({
 }
 
 export function ColorField({ doc, label, value, mode, onCommit }: { doc: Document; label: string; value: string | undefined; mode?: string; onCommit(v: string | null): void }) {
+  const resolved = value ? String(resolveValue(doc, value, mode)) : "";
+  const hex = /^#[0-9a-f]{6}$/i.test(resolved) ? resolved : "#000000";
   return (
     <div className="grid grid-cols-[28px_1fr] items-center gap-1.5">
       <input className="size-7 rounded-md border border-ui-input bg-transparent p-0" type="color" aria-label={`${label} (seletor)`} value={hex} onChange={(e) => onCommit(e.target.value)} />
