@@ -385,3 +385,17 @@ the floating buttons clear the toolbar and the agent roster, before writing the 
 | 104 | Icons by name | The floating buttons use `PanelLeftOpen` and `PanelRightOpen` from lucide, and the board had to carry their path data typed in by hand, which is how an icon on the sheet can drift from the one in the app | `import_svg` already exists; a way to import a lucide icon by name would close the loop | P3 |
 
 - The collapsed right panel puts its button where the agent roster sits (top right of the canvas); the sheet showed it before any code did, and the roster moves down under the button only while that panel is collapsed.
+
+## 2026-11-22: overview and dialogs on shadcn (PAP-B-031, design first)
+
+Task: draw the workspace overview (grid, new-workspace form, delete confirmation) in both theme scopes on
+`127.0.0.1:4777`, then migrate `Overview.tsx` onto `Card`, `Button` and `Input`, and add `card.tsx`. Six frames
+are in `docs/assets/boards/PAP-B-031/`; the board export in `docs/design/boards.paprika.json` already carries
+the PAP-B-031 sheets from an earlier draw (`/tmp/b031/draw.mjs`).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 101 | Reuse an earlier draw without redrawing | The PNGs and `boards.paprika.json` nodes were already committed from a prior session; this ticket only copied shots and applied the markup | Nothing new — the board-in-repo pattern from item 97 paid off here | — |
+
+- `ConfirmDialog` was already on `AlertDialog` with `variant: "destructive"` on the confirm action (PAP-B-026); overview only consumes it.
+- Workspace cards keep `outline` instead of `border` so the cover cannot clip the active edge; `Card` ships with `border-ui-border` but the overview overrides with `border-0` plus the existing outline classes.

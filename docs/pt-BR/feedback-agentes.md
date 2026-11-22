@@ -386,3 +386,17 @@ frames raiz em `Interfaces`, desenhados por um script numa única chamada de `cr
 | 104 | Ícones pelo nome | Os botões flutuantes usam `PanelLeftOpen` e `PanelRightOpen` do lucide, e a folha teve que carregar o path deles digitado à mão, que é como um ícone da folha pode divergir do app | O `import_svg` já existe; um jeito de importar um ícone do lucide pelo nome fecharia o ciclo | P3 |
 
 - O botão do painel direito recolhido cai onde está a lista de agentes (canto superior direito do canvas); a folha mostrou isso antes de qualquer código, e a lista desce para baixo do botão só enquanto aquele painel está recolhido.
+
+## 2026-11-22: visão geral e diálogos no shadcn (PAP-B-031, design first)
+
+Tarefa: desenhar a visão geral de workspaces (grade, formulário de novo workspace, confirmação de exclusão) nos
+dois escopos de tema em `127.0.0.1:4777`, depois migrar `Overview.tsx` para `Card`, `Button` e `Input` e
+adicionar `card.tsx`. Seis frames em `docs/assets/boards/PAP-B-031/`; o export de boards em
+`docs/design/boards.paprika.json` já trazia as folhas PAP-B-031 de um desenho anterior (`/tmp/b031/draw.mjs`).
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 101 | Reaproveitar um desenho sem redesenhar | Os PNGs e os nós em `boards.paprika.json` já vinham de uma sessão anterior; o ticket só copiou os shots e aplicou o markup | Nada novo — o padrão de board no repositório (item 97) funcionou aqui | — |
+
+- O `ConfirmDialog` já estava em `AlertDialog` com `variant: "destructive"` na ação de confirmar (PAP-B-026); a visão geral só consome.
+- Os cards de workspace mantêm `outline` em vez de `border` para a capa não comer a borda ativa; o `Card` vem com `border-ui-border`, mas a visão geral sobrescreve com `border-0` e as classes de outline que já existiam.
