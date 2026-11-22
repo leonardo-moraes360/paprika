@@ -542,3 +542,18 @@ Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill a
 
 - `lint_design` small-text warnings for 12 px labels match the inspector density; no new contrast errors on the six roots.
 - Step sizes chosen to match the ticket: opacity `0.05`, weight `100`, else `1`, Shift×10; validation/clamp reused from PAP-B-027.
+
+## 2026-11-22: drag and drop reparent + file drop (PAP-B-049, design first)
+
+Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states (light and dark) on `Interfaces`, then wire canvas DnD + Layers row DnD + OS file import in `apps/web`. Eight fixed-height root frames; PNGs under `docs/assets/boards/PAP-B-049/`; boards export refreshed via `GET /api/export`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | Active workspace name match | Ticket said `Paprika - UI`; the live server had `Paprica · UI` (typo/rename) with parallel tickets already drawing on page `interfaces` | Treat close names as the UI board workspace, or pin the id in the assign payload | P3 |
+| 111 | `create_page` race on Interfaces | Calling `create_page` while another agent also ensured `Interfaces` produced empty duplicate pages (`38ktwolyd1`, `qhf8mcdwke`) alongside `page#interfaces` | Idempotent `create_page` by name (same as #99) | P2 |
+| 112 | Free Y among parallel boards | PAP-B-051 frames already sat at y≈40; PAP-B-049 had to be moved after create to y=1100+ | Outline bbox / `place: "free"` (same as #103 / #110) | P3 |
+| 113 | Screenshots as files | `render_screenshot` still returns base64 in MCP content; local decode into `docs/assets/boards/PAP-B-049/` | Optional `path` on `render_screenshot` | P3 |
+| 114 | Broken main typecheck | `ui.ts` lost `activity*`/`actions` in merge `3f0bda1`; Inspector still referenced `ActivityEntry`/`Bot`; ColorField had undefined `hex` | Guard merge of `ui.ts` / restore Activity wiring; this PR restored the missing pieces so `pnpm check` can run | P1 |
+
+- Drew on active `Paprica · UI` / page `interfaces` without `open_workspace` after querying the maintainer about the name mismatch.
+- Canvas DnD only touches `Canvas.tsx`; Layers HTML5 DnD in `Layers.tsx`; E2E in `drag.e2e.test.ts`.

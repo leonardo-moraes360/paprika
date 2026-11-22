@@ -545,3 +545,18 @@ Tarefa: desenhar campos numéricos puros com `±` (opacidade / peso / espessura)
 
 - Avisos `small-text` do `lint_design` nos rótulos de 12 px batem com a densidade do inspector; nenhum erro novo de contraste nas seis raízes.
 - Passos escolhidos conforme o ticket: opacidade `0.05`, peso `100`, senão `1`, Shift×10; validação/clamp reutilizados do PAP-B-027.
+
+## 2026-11-22: drag and drop reparent + soltar arquivo (PAP-B-049, design first)
+
+Tarefa: desenhar estados de reparent / inserção em auto-layout / reordenação em Camadas / soltar arquivo (claro e escuro) em `Interfaces`, depois ligar o DnD do canvas + linhas de Camadas + importação de arquivo do SO em `apps/web`. Oito frames raiz de altura fixa; PNGs em `docs/assets/boards/PAP-B-049/`; export dos boards atualizado via `GET /api/export`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 110 | Nome do workspace ativo | O ticket pedia `Paprika - UI`; o servidor vivo tinha `Paprica · UI` (typo/renome) com outros tickets já desenhando na página `interfaces` | Aceitar nomes próximos como o workspace de UI, ou fixar o id no payload da assign | P3 |
+| 111 | Corrida de `create_page` em Interfaces | Chamar `create_page` enquanto outro agente também garantia `Interfaces` gerou páginas vazias duplicadas além de `page#interfaces` | `create_page` idempotente por nome (igual ao #99) | P2 |
+| 112 | Y livre entre boards paralelos | Frames do PAP-B-051 já estavam em y≈40; PAP-B-049 precisou ser movido depois para y=1100+ | Bbox no outline / `place: "free"` (igual ao #103 / #110) | P3 |
+| 113 | Screenshots como arquivos | `render_screenshot` ainda devolve base64 no conteúdo MCP; decode local para `docs/assets/boards/PAP-B-049/` | `path` opcional em `render_screenshot` | P3 |
+| 114 | Typecheck quebrado no main | `ui.ts` perdeu `activity*`/`actions` no merge `3f0bda1`; Inspector ainda citava `ActivityEntry`/`Bot`; ColorField tinha `hex` indefinido | Proteger merge de `ui.ts` / religar Activity; este PR restaurou o mínimo para o `pnpm check` rodar | P1 |
+
+- Desenhou no ativo `Paprica · UI` / página `interfaces` sem `open_workspace` depois de consultar o mantenedor sobre o nome.
+- DnD do canvas só em `Canvas.tsx`; DnD HTML5 das Camadas em `Layers.tsx`; E2E em `drag.e2e.test.ts`.

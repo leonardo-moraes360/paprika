@@ -57,7 +57,7 @@ interface Props {
   node: Node | null;
   selected: string[];
   apply(ops: Op[], label?: string): void;
-  activity: Activity[];
+  activity: ActivityEntry[];
   onSelect(id: string): void;
   onSelectMany(ids: string[]): void;
   onError(message: string): void;
@@ -621,7 +621,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
   );
 }
 
-function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: Activity[]; onSelect(id: string): void }) {
+function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: ActivityEntry[]; onSelect(id: string): void }) {
   const [newToken, setNewToken] = useState("");
   const [newModeToken, setNewModeToken] = useState("");
   const issues = lintDocument(doc).filter((i) => i.severity !== "info");
