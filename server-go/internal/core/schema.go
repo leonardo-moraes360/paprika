@@ -54,6 +54,8 @@ var (
 	strokeSchema = z.Object(
 		z.Field{Name: "color", Schema: colorValue()},
 		z.Field{Name: "width", Schema: lengthMinMax(0, 1000)},
+		z.Field{Name: "style", Schema: z.Optional(z.Enum("solid", "dashed", "dotted"))},
+		z.Field{Name: "position", Schema: z.Optional(z.Enum("inside", "center", "outside"))},
 	)
 	shadowSchema = z.Object(
 		z.Field{Name: "x", Schema: lengthAny()},

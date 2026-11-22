@@ -48,7 +48,7 @@ Fluxo recomendado:
 2. set_tokens com a paleta e a escala tipográfica.
 3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.
 4. lint_design e corrija o que vier como error/warning.
-5. render_screenshot para conferir visualmente; export_code para levar ao código.
+5. render_screenshot para conferir visualmente; export_image para PNG/JPEG/WebP/AVIF/PDF sem Chromium; export_code para levar ao código.
 Para trazer um ícone ou um trecho de página pronto, use import_svg ou import_html (viram nós editáveis), import_image para um arquivo PNG, JPEG, WebP, AVIF ou GIF; export_code com format "svg" devolve SVG vetorial.
 Toda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. Para várias chamadas virarem um passo só de undo (ex.: "desenhar a proposta 3"), passe o mesmo batch em cada uma; o batch fecha quando outra pessoa escreve ou desfaz no meio.
 Resultados: as ferramentas que devolvem JSON também devolvem structuredContent conforme o outputSchema; leia esse campo em vez de interpretar o texto.

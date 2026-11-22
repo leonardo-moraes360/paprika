@@ -43,13 +43,17 @@ function foldSize(w: number, h: number): number {
   return Math.min(24, w / 4, h / 4);
 }
 
-/** Contorno de uma forma em coordenadas locais, recuado meia espessura do traço (o traço fica dentro da caixa). */
+/** Contorno de uma forma em coordenadas locais; o recuo segue `stroke.position` (padrão: dentro). */
 export function shapeOutline(n: Pick<ShapeNode, "shape" | "width" | "height" | "radius" | "stroke">): { d: string; fold?: string } {
   const w = n.width;
   const h = n.height;
   const sw = n.stroke && typeof n.stroke.width === "number" && n.stroke.width > 0 ? n.stroke.width : 0;
   const radius = typeof n.radius === "number" ? n.radius : 0;
-  const i = Math.min(sw / 2, w / 2, h / 2);
+  const pos = n.stroke?.position ?? "inside";
+  const half = sw / 2;
+  const raw = pos === "inside" ? half : pos === "outside" ? -half : 0;
+  const maxI = Math.min(w / 2, h / 2);
+  const i = Math.max(-maxI, Math.min(maxI, raw));
   switch (n.shape) {
     case "ellipse": {
       const rx = Math.max(0, w / 2 - i);

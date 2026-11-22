@@ -360,17 +360,33 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 				sw = got
 			}
 		}
+		pos, style := "inside", "solid"
+		if sw != 0 {
+			pos = StrokePositionOf(n)
+			style = StrokeStyleOf(st)
+		}
+		dashAttr := ""
+		if dash := StrokeDasharray(sw, style); dash != "" {
+			dashAttr = fmt.Sprintf(` stroke-dasharray="%s"`, EscapeHTML(dash))
+		}
 		strokeAttr := ""
 		if sw != 0 {
 			sc, _ := st.Get("color")
-			strokeAttr = fmt.Sprintf(` stroke="%s" stroke-width="%s"`, EscapeHTML(jsString(ResolveValue(doc, sc, ModeOf(doc, n)))), f(sw))
+			strokeAttr = fmt.Sprintf(` stroke="%s" stroke-width="%s"%s`, EscapeHTML(jsString(ResolveValue(doc, sc, ModeOf(doc, n)))), f(sw), dashAttr)
 		}
 		fillVal := "none"
 		if hasFill {
 			fillVal = fill
 		}
 		fillAttr := fmt.Sprintf(` fill="%s"`, EscapeHTML(fillVal))
-		inset := fmt.Sprintf(`x="%s" y="%s" width="%s" height="%s"`, f(sw/2), f(sw/2), f(math.Max(0, w-sw)), f(math.Max(0, h-sw)))
+		insetBy := 0.0
+		switch pos {
+		case "inside":
+			insetBy = sw / 2
+		case "outside":
+			insetBy = -sw / 2
+		}
+		inset := fmt.Sprintf(`x="%s" y="%s" width="%s" height="%s"`, f(insetBy), f(insetBy), f(math.Max(0, w-insetBy*2)), f(math.Max(0, h-insetBy*2)))
 		r := 0.0
 		if typ != "ellipse" && typ != "path" {
 			rv, _ := n.Get("radius")
@@ -378,7 +394,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		}
 		radius, clipRadius := "", ""
 		if r != 0 && !math.IsNaN(r) {
-			radius = fmt.Sprintf(` rx="%s"`, f(math.Max(0, r-sw/2)))
+			radius = fmt.Sprintf(` rx="%s"`, f(math.Max(0, r-insetBy)))
 			clipRadius = fmt.Sprintf(` rx="%s"`, f(r))
 		}
 		var body strings.Builder
@@ -390,7 +406,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 				fmt.Fprintf(&body, `<rect width="%s" height="%s"%s fill="none"%s/>`, f(w), f(h), radius, shadowAttr)
 			}
 		case "ellipse":
-			fmt.Fprintf(&body, `<ellipse cx="%s" cy="%s" rx="%s" ry="%s"%s%s%s/>`, f(w/2), f(h/2), f(math.Max(0, (w-sw)/2)), f(math.Max(0, (h-sw)/2)), fillAttr, strokeAttr, shadowAttr)
+			fmt.Fprintf(&body, `<ellipse cx="%s" cy="%s" rx="%s" ry="%s"%s%s%s/>`, f(w/2), f(h/2), f(math.Max(0, (w-insetBy*2)/2)), f(math.Max(0, (h-insetBy*2)/2)), fillAttr, strokeAttr, shadowAttr)
 		case "path":
 			svgA, pathA := PathAttrs(doc, n)
 			attrs := make([]Attr, len(pathA))

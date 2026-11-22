@@ -520,6 +520,17 @@ Tarefa: desenhar a seção **Ordem** do inspector e o mapa de atalhos de ordem Z
 - `lint_design` nos quatro frames: 0 erros; avisos `small-text` são os rótulos de 11 px da seção/chip, iguais ao app.
 - Mapa de atalhos escolhido e documentado em `docs/pt-BR/canvas.md`: `Page Up`/`Page Down` = avançar/recuar, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd no macOS) = frente/fundo.
 
+## 2026-11-22: vários tipos de borda (PAP-B-044, design first)
+
+Tarefa: estender `stroke` com `style` (`solid`|`dashed`|`dotted`) e `position` (`inside`|`center`|`outside`) em frame/rect/ellipse/path/shape, depois Estilo/Posição no inspector. Quatro frames de altura fixa em `Interfaces` (`docs/assets/boards/PAP-B-044/`); export dos boards atualizado.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 113 | Id estável da página `Interfaces` entre tickets em paralelo | O workspace ativo virou `Paprika - UI` no meio do ticket; a página `interfaces` antiga sumiu e foi preciso criar outra (`id: interfaces`) enquanto outros tickets usavam `interfaces-pap020` / `interfaces-pap045` | `create_page` que reaproveita página existente pelo nome (igual ao #99) | P2 |
+| 114 | Screenshots como arquivos | Igual ao #100/#101: `render_screenshot` só devolve base64 | `path` opcional em `render_screenshot` | P3 |
+- `style`/`position` padrão ficam omitidos no documento (helpers tratam ausência como sólido / posição por tipo) para round-trips e goldens não ganharem `style: "solid"` em todo stroke.
+- WASM não traça dash nem reposiciona: `wasmPaintable` devolve false e o DOM pinta (crates/render intacto).
+- Fecha o atrito do #99 (traço tracejado em caixas) via `stroke.style`.
 ## 2026-11-22: steppers numéricos no inspector (PAP-B-046, design first)
 
 Tarefa: desenhar campos numéricos puros com `±` (opacidade / peso / espessura), hug/fill e `$token` sem stepper, anel de foco e estado no mínimo (claro e escuro) antes de ligar os steppers no `Field`; seis frames raiz de altura fixa; capturas em `docs/assets/boards/PAP-B-046/`; `paprika serve` local na `:4799` porque o workspace compartilhado na `:4777` estava lotado por tickets paralelos.
@@ -532,6 +543,16 @@ Tarefa: desenhar campos numéricos puros com `±` (opacidade / peso / espessura)
 - Avisos `small-text` do `lint_design` nos rótulos de 12 px batem com a densidade do inspector; nenhum erro novo de contraste nas seis raízes.
 - Passos escolhidos conforme o ticket: opacidade `0.05`, peso `100`, senão `1`, Shift×10; validação/clamp reutilizados do PAP-B-027.
 
+## 2026-11-22: combobox de fontes do sistema (PAP-B-047, design first)
+
+Tarefa: desenhar os estados fechado e aberto do FontPicker (claro e escuro) em `Interfaces`, depois trocar o `fontFamily` em texto livre nos nós de texto por um combobox shadcn. Quatro frames de altura fixa; PNGs em `docs/assets/boards/PAP-B-047/`; export dos boards atualizado.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 115 | Screenshots como arquivos | Igual ao #108: `render_screenshot` devolve só base64; `scripts/draw-pap-b-047.mjs` decodificou em `docs/assets/boards/PAP-B-047/` | `path` opcional em `render_screenshot` | P2 |
+| 116 | Faixa livre numa página Interfaces cheia | O outline depth 1 termina perto de y≈13580 (A-004 / B-032); este ticket usou y=13800 | `place: "free"` em `create_nodes` (igual a #103/#109/#111) | P3 |
+- Local Font Access fica atrás de um botão explícito — abrir o popover nunca chama `queryLocalFonts`.
+- `cmdk` 1.1.1 fixado para o primitivo Command (lista de dependências do ADR 0005).
 ## 2026-11-22: drag and drop reparent + soltar arquivo (PAP-B-049, design first)
 
 Tarefa: desenhar estados de reparent / inserção em auto-layout / reordenação em Camadas / soltar arquivo (claro e escuro) em `Interfaces`, depois ligar o DnD do canvas + linhas de Camadas + importação de arquivo do SO em `apps/web`. Oito frames raiz de altura fixa; PNGs em `docs/assets/boards/PAP-B-049/`; export dos boards atualizado via `GET /api/export`.

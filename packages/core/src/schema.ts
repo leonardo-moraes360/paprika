@@ -37,9 +37,14 @@ function lengthValue(min?: number, max?: number) {
 
 const padLength = lengthValue(0);
 
+export const StrokeStyle = z.enum(["solid", "dashed", "dotted"]);
+export const StrokePosition = z.enum(["inside", "center", "outside"]);
+
 export const Stroke = z.object({
   color: ColorValue,
   width: lengthValue(0, 1000),
+  style: StrokeStyle.optional(),
+  position: StrokePosition.optional(),
 });
 
 export const Shadow = z.object({
@@ -301,6 +306,9 @@ export const Document = z.object({
 
 export type ColorValue = z.infer<typeof ColorValue>;
 export type Size = z.infer<typeof Size>;
+export type Stroke = z.infer<typeof Stroke>;
+export type StrokeStyle = z.infer<typeof StrokeStyle>;
+export type StrokePosition = z.infer<typeof StrokePosition>;
 export type Layout = z.infer<typeof Layout>;
 export type FrameNode = z.infer<typeof FrameNode>;
 export type RectNode = z.infer<typeof RectNode>;

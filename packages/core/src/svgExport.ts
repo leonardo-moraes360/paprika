@@ -1,6 +1,17 @@
 import { firstPage, pageRoots, isContainer, type Document, type Node } from "./schema.js";
 import { canvasBounds, escapeHtml, svgAttrs } from "./render.js";
-import { connectorAttrs, connectorLabelAttrs, modeOf, pathAttrs, resolveLength, resolveValue, shapeAttrs } from "./style.js";
+import {
+  connectorAttrs,
+  connectorLabelAttrs,
+  modeOf,
+  pathAttrs,
+  resolveLength,
+  resolveValue,
+  shapeAttrs,
+  strokeDasharray,
+  strokePositionOf,
+  strokeStyleOf,
+} from "./style.js";
 import { shapePadding } from "./diagram.js";
 import { layout } from "./layout.js";
 
@@ -209,13 +220,20 @@ export function exportSVG(
     }
     const fill = n.type === "path" ? undefined : paint(doc, n.fill, mode, warn);
     const sw = n.type !== "path" && n.stroke && len(doc, n, n.stroke.width) > 0 ? len(doc, n, n.stroke.width) : 0;
-    const strokeAttr = sw ? ` stroke="${escapeHtml(String(resolveValue(doc, n.stroke!.color, mode)))}" stroke-width="${f(sw)}"` : "";
+    const pos = sw && n.stroke ? strokePositionOf(n) : "inside";
+    const style = sw && n.stroke ? strokeStyleOf(n.stroke) : "solid";
+    const dash = sw && n.stroke ? strokeDasharray(sw, style) : undefined;
+    const dashAttr = dash ? ` stroke-dasharray="${escapeHtml(dash)}"` : "";
+    const strokeAttr = sw
+      ? ` stroke="${escapeHtml(String(resolveValue(doc, n.stroke!.color, mode)))}" stroke-width="${f(sw)}"${dashAttr}`
+      : "";
     const fillAttr = ` fill="${escapeHtml(fill ?? "none")}"`;
-    // A borda do CSS fica por dentro da caixa; o traço do SVG é centrado: recua meia espessura.
-    const inset = `x="${f(sw / 2)}" y="${f(sw / 2)}" width="${f(Math.max(0, w - sw))}" height="${f(Math.max(0, h - sw))}"`;
+    // SVG stroke is centered: shift the path so the painted band matches CSS position.
+    const insetBy = pos === "inside" ? sw / 2 : pos === "outside" ? -sw / 2 : 0;
+    const inset = `x="${f(insetBy)}" y="${f(insetBy)}" width="${f(Math.max(0, w - insetBy * 2))}" height="${f(Math.max(0, h - insetBy * 2))}"`;
     // O CSS limita o raio à metade do lado menor (pílula); o SVG limitaria cada eixo (elipse).
     const r = n.type !== "ellipse" && n.type !== "path" ? Math.min(len(doc, n, n.radius), w / 2, h / 2) : 0;
-    const radius = r ? ` rx="${f(Math.max(0, r - sw / 2))}"` : "";
+    const radius = r ? ` rx="${f(Math.max(0, r - insetBy))}"` : "";
     const clipRadius = r ? ` rx="${f(r)}"` : "";
     let body = "";
     switch (n.type) {
@@ -228,7 +246,7 @@ export function exportSVG(
         break;
       }
       case "ellipse":
-        body += `<ellipse cx="${f(w / 2)}" cy="${f(h / 2)}" rx="${f(Math.max(0, (w - sw) / 2))}" ry="${f(Math.max(0, (h - sw) / 2))}"${fillAttr}${strokeAttr}${shadowAttr}/>`;
+        body += `<ellipse cx="${f(w / 2)}" cy="${f(h / 2)}" rx="${f(Math.max(0, (w - insetBy * 2) / 2))}" ry="${f(Math.max(0, (h - insetBy * 2) / 2))}"${fillAttr}${strokeAttr}${shadowAttr}/>`;
         break;
       case "path": {
         const a = pathAttrs(doc, n);

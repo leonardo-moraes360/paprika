@@ -60,5 +60,9 @@ describe("displayList", () => {
     expect(wasmPaintable(doc, doc.nodes.t!)).toBe(false);
     const shadowPath = { ...doc.nodes.p!, shadow: { x: 0, y: 0, blur: 2, spread: 0, color: "#000" } } as typeof doc.nodes.p;
     expect(wasmPaintable(doc, shadowPath!)).toBe(false);
+    const dashed = { ...doc.nodes.r!, stroke: { color: "#000", width: 2, style: "dashed" as const } };
+    expect(wasmPaintable(doc, dashed)).toBe(false);
+    const outside = { ...doc.nodes.r!, stroke: { color: "#000", width: 2, position: "outside" as const } };
+    expect(wasmPaintable(doc, outside)).toBe(false);
   });
 });
