@@ -747,14 +747,17 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
           <input className={tokenAdd} aria-label="Novo token de modo" placeholder="dark: bg = #14161f" value={newModeToken} onChange={(e) => setNewModeToken(e.target.value)} />
         </form>
       </div>
-      <h3 className={ui.h3}>Revisão {issues.length > 0 && <span className="rounded-full bg-accent px-1.5 py-0 text-2xs text-white">{issues.length}</span>}</h3>
+      <h3 className={ui.h3}>Revisão {issues.length > 0 && <span className="rounded-full bg-accent-strong px-1.5 py-0 text-2xs text-white">{issues.length}</span>}</h3>
       {issues.length === 0 ? (
         <p className={ui.muted}>Sem problemas de contraste, overflow ou tokens.</p>
       ) : (
         <ul className={list}>
           {issues.slice(0, 30).map((i, k) => (
-            <li key={k} className={cx("cursor-pointer rounded-md border-l-3 bg-panel-2 px-2 py-1.5", SEVERITY[i.severity] ?? "border-l-muted")} onClick={() => onSelect(i.nodeId)}>
-              <strong>{i.rule}</strong> {i.message}
+            <li key={k} className={cx("rounded-md border-l-3 bg-panel-2", SEVERITY[i.severity] ?? "border-l-muted")}>
+              {/* A button, so the keyboard can also jump to the node of an issue. */}
+              <button type="button" className="w-full cursor-pointer border-0 bg-transparent px-2 py-1.5 text-left" onClick={() => onSelect(i.nodeId)}>
+                <strong>{i.rule}</strong> {i.message}
+              </button>
             </li>
           ))}
         </ul>

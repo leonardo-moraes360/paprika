@@ -25,6 +25,8 @@
   --color-fg: #eef0f7;
   --color-muted: #a6acc4;
   --color-accent: #e04a2b;
+  /* Fill behind white text (buttons, badges): #e04a2b with white is 4.05:1, this is 4.99:1 (WCAG 1.4.3 AA). */
+  --color-accent-strong: #c8401f;
   --color-accent-soft: rgb(224 74 43 / 0.18);
   --color-accent-ink: #ffb4a6;
   --color-accent-pale: #ffd2c9;

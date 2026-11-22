@@ -71,6 +71,8 @@ copy("docs/brand/icon.svg", "icon.svg");
 
 const doc = JSON.parse(readFileSync(join(SITE, "design", "landing.paprika.json"), "utf8"));
 const LINK = /^link:(.+)$/;
+/** Text nodes named `h1`…`h3` are the page's headings (WCAG 1.3.1: the outline is in the markup, not only in the font size). */
+const HEADING = /^h[1-3]$/;
 
 function renderNode(node, asRoot) {
   const css = nodeStyle(doc, node, { asRoot });
@@ -110,6 +112,7 @@ function renderNode(node, asRoot) {
     const ext = /^https?:/.test(href) ? ' rel="noopener"' : "";
     return `<a ${attrs} href="${escapeHtml(href)}"${ext}>${inner}</a>`;
   }
+  if (node.type === "text" && HEADING.test(node.name ?? "")) return `<${node.name} ${attrs}>${inner}</${node.name}>`;
   return `<div ${attrs}>${inner}</div>`;
 }
 
@@ -118,6 +121,7 @@ body{font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;c
 a{text-decoration:none;color:inherit;cursor:pointer}
 a:hover{filter:brightness(1.15)}
 a:focus-visible{outline:2px solid #4cc7d8;outline-offset:3px;border-radius:6px}
+h1,h2,h3{margin:0;font-size:inherit;font-weight:inherit}
 .lp-mobile{display:none}
 @media (max-width:${MOBILE_MAX}px){.lp-desktop{display:none}.lp-mobile{display:block}}`;
 
@@ -136,7 +140,7 @@ for (const l of landing) {
       icon: rel(l.page, "icon.svg"),
       css: landingCss,
     }) +
-    `<body><div class="lp-desktop">${renderNode(desktop, true)}</div><div class="lp-mobile">${renderNode(mobile, true)}</div></body></html>\n`;
+    `<body><main><div class="lp-desktop">${renderNode(desktop, true)}</div><div class="lp-mobile">${renderNode(mobile, true)}</div></main></body></html>\n`;
   write(l.page, html);
 }
 
@@ -179,9 +183,12 @@ const DOCS = {
     ["CODE_OF_CONDUCT.pt-BR.md", "docs/pt-BR/codigo-de-conduta.html", "Código de Conduta"],
   ],
 };
+/** Name of a heading's "#" link, in the page's language: the bare "#" says nothing to a screen reader. */
+const anchorLabel = (page, text) => (page.startsWith("docs/pt-BR/") ? `Link para a seção “${text}”` : `Link to the “${text}” section`);
+
 const UI = {
-  en: { home: "./", other: "pt-BR", otherLabel: "Português", docs: "Docs", edit: "Edit this page on GitHub", landing: "index.html" },
-  "pt-BR": { home: "pt-BR/", other: "en", otherLabel: "English", docs: "Docs", edit: "Editar esta página no GitHub", landing: "pt-BR/index.html" },
+  en: { home: "./", other: "pt-BR", otherLabel: "Português", docs: "Docs", edit: "Edit this page on GitHub", landing: "index.html", skip: "Skip to content" },
+  "pt-BR": { home: "pt-BR/", other: "en", otherLabel: "English", docs: "Docs", edit: "Editar esta página no GitHub", landing: "pt-BR/index.html", skip: "Pular para o conteúdo" },
 };
 
 /** Source path → output page, for both languages. */
@@ -235,11 +242,12 @@ function renderMarkdown(md, src, page) {
       heading({ tokens, depth }) {
         const html = this.parser.parseInline(tokens);
         // Slug from the plain text, so markup never reaches the id.
-        let id = slug(this.parser.parseInline(tokens, this.parser.textRenderer)) || `section`;
+        const text = this.parser.parseInline(tokens, this.parser.textRenderer);
+        let id = slug(text) || `section`;
         const n = used.get(id) ?? 0;
         used.set(id, n + 1);
         if (n) id = `${id}-${n}`;
-        return `<h${depth} id="${id}"><a class="anchor" href="#${id}" aria-hidden="true">#</a>${html}</h${depth}>\n`;
+        return `<h${depth} id="${id}"><a class="anchor" href="#${id}" aria-label="${escapeHtml(anchorLabel(page, text))}">#</a>${html}</h${depth}>\n`;
       },
     },
   });
@@ -268,7 +276,9 @@ main h1{font-size:40px;line-height:1.15;letter-spacing:-.8px;margin:8px 0 20px}
 main h2{font-size:27px;line-height:1.25;margin:44px 0 14px;padding-top:8px;border-top:1px solid var(--line)}
 main h3{font-size:20px;margin:30px 0 10px}
 main h1 .anchor,main h2 .anchor,main h3 .anchor,main h4 .anchor{float:left;margin-left:-1em;padding-right:.25em;color:var(--muted);text-decoration:none;opacity:0}
-main :is(h1,h2,h3,h4):hover .anchor{opacity:1}
+main :is(h1,h2,h3,h4):hover .anchor,main .anchor:focus-visible{opacity:1}
+.skip{position:absolute;left:16px;top:-48px;z-index:10;padding:8px 14px;border-radius:8px;background:var(--panel);color:var(--text)}
+.skip:focus{top:12px}
 main p,main li{color:#d9dcea}
 main code{font:.88em/1.5 "JetBrains Mono",ui-monospace,monospace;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.1em .35em}
 main pre{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:18px 20px;overflow:auto}
@@ -311,10 +321,11 @@ for (const [lang, entries] of Object.entries(DOCS)) {
         css: docsCss,
       }) +
       `<body>
+<a class="skip" href="#content">${ui.skip}</a>
 <header class="top"><a class="brand" href="${rel(page, ui.home)}"><img src="${rel(page, "icon.svg")}" alt="">Paprika</a>
 <nav><a href="${rel(page, pretty(entries[0][1]))}">${ui.docs}</a><a href="${REPO}" rel="noopener">GitHub</a><a href="${rel(page, pretty(counterpart) || "./")}" hreflang="${ui.other}">${ui.otherLabel}</a></nav></header>
-<div class="wrap"><aside><ul>${sidebar}</ul></aside>
-<main>${body}<p class="edit"><a href="${REPO}/edit/main/${src}" rel="noopener">${ui.edit}</a></p></main></div>
+<div class="wrap"><aside><nav aria-label="${ui.docs}"><ul>${sidebar}</ul></nav></aside>
+<main id="content">${body}<p class="edit"><a href="${REPO}/edit/main/${src}" rel="noopener">${ui.edit}</a></p></main></div>
 </body></html>\n`;
     write(page, html);
   });
