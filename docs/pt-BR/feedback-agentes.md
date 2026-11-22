@@ -229,3 +229,17 @@ Tarefa: desenhar via MCP as telas de rótulo nas setas e do time antes de implem
 
 - #69 e #70 voltaram no painel do time: o `lint_design` acusou os rótulos de 11 px do próprio app (22 avisos) e não pegou um botão "Remover" que estourava a linha.
 - O #71 foi resolvido pela mesma mudança do #29 (raízes `hug` são medidas no navegador antes do screenshot).
+
+## 2026-11-22: ilustração plana de pimentão (paths bezier)
+
+Tarefa: desenhar um pimentão vermelho plano (três lóbulos, vãos brancos finos e curvos, cabo verde-oliva) numa página nova "Pimentão" do workspace "Paprika", primeiro a partir de uma descrição em texto e depois da imagem do usuário, com nós `path` compartilhando um `viewBox` 400×400, e salvar os PNGs em `design/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 76 | Recortar vãos finos de uma forma | Sem operações booleanas nem máscaras, os vãos são traços brancos pintados sobre o corpo vermelho; só funciona em fundo claro e o export não tem furos de verdade | `subtract`/`union` no `apply_ops` (ou `mask` em group) gerando um novo `path`; no mínimo uma opção `knockout` no traço | P2 |
+| 77 | Mudar o estilo de um nó e mantê-lo por cima | Ao transformar dois lóbulos preenchidos em traços de vão, eles ficaram sob o corpo; foi preciso um `move_nodes` separado (sem `index` = fim) para corrigir a ordem | Aceitar `index` (ou `"front"`/`"back"`) nas props do `update_nodes` | P3 |
+| 78 | Decalcar uma imagem de referência | A imagem do usuário chegou ao agente só como imagem; não havia jeito fácil de colocá-la sob o desenho, então cada ponto bezier foi estimado no olho e mapeado com uma escala calculada à mão, em três rodadas de screenshot | Opção `reference` no `create_nodes`/`import_svg` (ou nó `image` a partir de arquivo local) travada a 50% de opacidade, e `render_screenshot` com uma imagem `compare` lado a lado | P2 |
+| 79 | Salvar o screenshot em arquivo | `render_screenshot` só devolve a imagem ao agente; gravar o PNG no repo exigiu copiar o blob em cache do cliente | `path` opcional (o servidor grava) ou `format: "url"` devolvendo `/api/screenshot/...` para baixar | P3 |
+
+- Um `viewBox` comum em todos os paths deixou a iteração trivial: cada camada usa as mesmas coordenadas 400×400, e redesenhar a silhueta foi um único `update_nodes`.
+- `render_screenshot` com `scale: 2` bastou para avaliar a qualidade das curvas.

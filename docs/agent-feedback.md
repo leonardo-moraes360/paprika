@@ -229,3 +229,17 @@ Task: draw the arrow-label and team screens over MCP before building them (desig
 
 - #69 and #70 came back on the team panel: `lint_design` flagged the app's own 11 px labels (22 warnings) and missed a "Remover" button that overflowed its row.
 - #71 is fixed by the same change as #29 (hug roots are measured in the browser before the screenshot).
+
+## 2026-11-22: flat bell pepper illustration (bezier paths)
+
+Task: draw a flat red bell pepper (three lobes, thin white curved gaps, olive stem) on a new page "Pimentão" of the "Paprika" workspace, first from a text description and then from the user's picture, with `path` nodes sharing one 400×400 `viewBox`, and save the PNGs to `design/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 76 | Cut thin gaps out of a shape | No boolean ops or masks, so the gaps are white strokes painted over the red body; that only reads right on a light background and the export has no real holes | `subtract`/`union` in `apply_ops` (or a `mask` on group) that produces a new `path`; at least a stroke `knockout` option | P2 |
+| 77 | Restyle a node and keep it on top | Turning two filled lobes into gap strokes left them under the body; needed a separate `move_nodes` (no `index` = end) to fix the z-order | Accept `index` (or `"front"`/`"back"`) in `update_nodes` props | P3 |
+| 78 | Trace a reference image | The user's picture reached the agent only as an image; there was no easy way to place it under the drawing, so every bezier point was estimated by eye and mapped with a hand-computed scale, which took three screenshot rounds | A `reference` option on `create_nodes`/`import_svg` (or an `image` node from a local file path) placed locked at 50% opacity, plus `render_screenshot` with a `compare` image shown side by side | P2 |
+| 79 | Save the screenshot as a file | `render_screenshot` only returns the image to the agent; writing the PNG to the repo meant copying the client's cached blob | Optional `path` (the server writes it) or `format: "url"` returning `/api/screenshot/...` to download | P3 |
+
+- One shared `viewBox` on every path made iteration trivial: each layer is in the same 400×400 coordinates, so redrawing the silhouette was a single `update_nodes`.
+- `render_screenshot` with `scale: 2` was enough to judge curve quality.
