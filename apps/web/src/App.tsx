@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Bot, Circle, Diamond, Download, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Redo2, Square, StickyNote, Triangle, Type, Undo2, type LucideIcon } from "lucide-react";
+import { Bot, Circle, Diamond, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Square, StickyNote, Triangle, Type, type LucideIcon } from "lucide-react";
 import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
@@ -12,27 +12,18 @@ import { ConnectionStatus } from "./ConnectionStatus";
 import { Overview } from "./Overview";
 import { navigate, parseRoute, useRoute, workspacePath } from "./route";
 import { useLive, useLiveActions, useLiveConnection } from "./useDocument";
-import { Button } from "./components/ui/button";
-import { Separator } from "./components/ui/separator";
 import { statusDotVariants } from "./components/ui/status";
 import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
-import { Hint, Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
+import { Hint } from "./components/ui/tooltip";
 import { cn } from "./lib/cn";
 import { bar } from "./ui";
 import { openWorkspace } from "./workspaces";
 import { LanguageSwitcher, useT } from "./i18n";
 import { WorkspaceNotice } from "./WorkspaceNotice";
+import { readToolbarDock, Toolbar, type ToolbarDock } from "./Toolbar";
 
 const boot = "grid h-full place-content-center justify-items-center gap-3 text-ui-muted-foreground";
 const toast = "absolute bottom-4 left-1/2 max-w-[70%] -translate-x-1/2 cursor-pointer rounded-lg border border-accent bg-toast px-3 py-2 text-accent-pale";
-const toolItemClass =
-  "h-[30px] w-8 shrink-0 rounded-md border-0 bg-transparent p-0 text-ui-foreground hover:bg-ui-secondary hover:text-ui-foreground data-[state=on]:bg-accent-strong data-[state=on]:text-white data-[state=on]:hover:bg-accent-strong data-[state=on]:hover:text-white [&_svg]:size-[18px]";
-const actionItemClass =
-  "inline-flex h-[30px] w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-ui-foreground hover:bg-ui-secondary disabled:cursor-default disabled:opacity-35 [&_svg]:size-[18px]";
-
-/** Lucide icon size in the floating toolbar, in px. */
-const TOOL_ICON = 18;
 
 const TOOL_DEFS: { tool: Tool; key: string; labelKey: keyof import("./i18n").Messages; icon: LucideIcon }[] = [
   { tool: "select", key: "v", labelKey: "toolSelect", icon: MousePointer2 },
@@ -173,6 +164,7 @@ function Editor() {
   const [teamDialog, setTeamDialog] = useState<"invite" | "join" | "keys" | null>(null);
   const leftPanel = usePanel("paprika.panel.left", LEFT_PANEL);
   const rightPanel = usePanel("paprika.panel.right", RIGHT_PANEL);
+  const [toolbarDock, setToolbarDock] = useState<ToolbarDock>(() => readToolbarDock());
   // Página ativa: a escolhida, se ainda existe; senão a primeira (null num documento sem páginas).
   const pageId = doc ? (pageChoice && doc.nodes[pageChoice]?.type === "page" ? pageChoice : (firstPage(doc)?.id ?? null)) : null;
 
@@ -313,6 +305,8 @@ function Editor() {
     );
   }
 
+  const tools = TOOL_DEFS.map((t) => ({ tool: t.tool, key: t.key, label: m[t.labelKey] as string, icon: t.icon }));
+
   // O servidor mede o layout num navegador e devolve o SVG em JSON; o download é feito aqui.
   const exportSvg = async () => {
     const root = selected.length === 1 ? selected[0]! : (pageId ?? "");
@@ -380,66 +374,28 @@ function Editor() {
         <Layers doc={doc} pageId={pageId} selected={selected} onSelect={setSelected} apply={live.apply} />
       </aside>
       <PanelResizer side="left" label={m.layersPanelWidth} panel={leftPanel} limits={LEFT_PANEL} />
-      <main className={cn("relative overflow-hidden [grid-area:center]", rightPanel.collapsed && "[&_[data-testid=agent-roster]]:top-14")}>
+      <main
+        className={cn(
+          "relative overflow-hidden [grid-area:center]",
+          rightPanel.collapsed && "[&_[data-testid=agent-roster]]:top-14",
+          toolbarDock === "left" && "[&_[data-panel-toggle=left]]:left-14",
+          toolbarDock === "right" && "[&_[data-panel-toggle=right]]:right-14",
+        )}
+      >
         {leftPanel.collapsed && <PanelToggle side="left" label={m.showLayersPanel} panel={leftPanel} />}
         {rightPanel.collapsed && <PanelToggle side="right" label={m.showPropsPanel} panel={rightPanel} />}
-        <nav
-          className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-ui-border bg-ui-card p-1 shadow-float"
-          aria-label={m.tools}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <ToggleGroup
-            type="multiple"
-            rovingFocus={false}
-            value={[tool]}
-            onValueChange={(next) => {
-              const added = next.find((v) => v !== tool);
-              if (added) setTool(added as Tool);
-            }}
-            className="gap-0.5"
-          >
-            {TOOL_DEFS.map((t) => (
-              <Tooltip key={t.tool}>
-                <TooltipTrigger asChild>
-                  <ToggleGroupItem
-                    value={t.tool}
-                    className={cn(toolItemClass, tool === t.tool && "is-active")}
-                    aria-label={m[t.labelKey] as string}
-                  >
-                    <t.icon size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-                  </ToggleGroupItem>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{`${m[t.labelKey] as string} (${t.key.toUpperCase()})`}</TooltipContent>
-              </Tooltip>
-            ))}
-          </ToggleGroup>
-          <Separator orientation="vertical" className="mx-1.5 h-5" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" className={actionItemClass} onClick={live.undo} disabled={!live.canUndo} aria-label={m.undo}>
-                <Undo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{m.undoHint}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" className={actionItemClass} onClick={live.redo} disabled={!live.canRedo} aria-label={m.redo}>
-                <Redo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{m.redoHint}</TooltipContent>
-          </Tooltip>
-          <Separator orientation="vertical" className="mx-1.5 h-5" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" className={actionItemClass} onClick={exportSvg} aria-label={m.exportSvg}>
-                <Download size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{m.exportSvgHint}</TooltipContent>
-          </Tooltip>
-        </nav>
+        <Toolbar
+          tools={tools}
+          tool={tool}
+          onTool={setTool}
+          canUndo={live.canUndo}
+          canRedo={live.canRedo}
+          onUndo={live.undo}
+          onRedo={live.redo}
+          onExport={exportSvg}
+          dock={toolbarDock}
+          onDock={setToolbarDock}
+        />
         <Canvas
           doc={doc}
           selected={selected}

@@ -98,6 +98,15 @@ export type Messages = {
   exportSvgMissing: string;
   exportSvgWarn: (warnings: string) => string;
   exportSvgFail: (err: string) => string;
+  toolbarDrag: string;
+  toolbarDragHint: string;
+  toolbarMenu: string;
+  toolbarPosition: string;
+  toolbarDockLabel: string;
+  dockTop: string;
+  dockLeft: string;
+  dockRight: string;
+  dockBottom: string;
   pages: string;
   newPage: string;
   pageName: string;
@@ -386,6 +395,15 @@ const en: Messages = {
   exportSvgMissing: "the server did not return SVG",
   exportSvgWarn: (w) => `SVG exported with warnings: ${w}`,
   exportSvgFail: (err) => `Failed to export SVG: ${err}`,
+  toolbarDrag: "Drag toolbar",
+  toolbarDragHint: "Drag to dock",
+  toolbarMenu: "Toolbar menu",
+  toolbarPosition: "Toolbar position",
+  toolbarDockLabel: "Dock toolbar",
+  dockTop: "Top",
+  dockLeft: "Left",
+  dockRight: "Right",
+  dockBottom: "Bottom",
   pages: "Pages",
   newPage: "New page",
   pageName: "Page name",
@@ -579,9 +597,8 @@ const en: Messages = {
 };
 
 const pt: Messages = {
+  ...en,
   language: "Idioma",
-  languageEn: "English",
-  languagePt: "Português",
   switchLanguage: "Idioma",
   cancel: "Cancelar",
   close: "Fechar",
@@ -598,13 +615,9 @@ const pt: Messages = {
   you: "você",
   now: "agora",
   galleryLoading: "Galeria…",
-  workspacesTitle: "Workspaces · Paprika",
-  documentTitle: (name) => `${name} · Paprika`,
-  overviewHeading: "Workspaces",
   overviewLead: (count) =>
     `${count} neste servidor. O ativo é o que os agentes enxergam pelo MCP. Clique para abrir; F2 ou o lápis renomeia.`,
   overviewEmpty: "Nenhum workspace ainda. Crie o primeiro.",
-  overviewCount: (n) => (n === 1 ? "1 workspace" : `${n} workspaces`),
   overviewActive: "ativo",
   overviewActiveHint: "Aberto no servidor: os agentes MCP leem e escrevem neste",
   overviewRenameHint: "Renomear (F2)",
@@ -648,7 +661,6 @@ const pt: Messages = {
   pagesAndLayers: "Páginas e camadas",
   properties: "Propriedades",
   rightPanel: "Painel da direita",
-  inspectorTab: "Inspector",
   teamTab: "Time",
   layersPanelWidth: "Largura do painel de camadas",
   propsPanelWidth: "Largura do painel de propriedades",
@@ -656,7 +668,6 @@ const pt: Messages = {
   showPropsPanel: "Mostrar painel de propriedades",
   tools: "Ferramentas",
   toolSelect: "Selecionar",
-  toolFrame: "Frame",
   toolRect: "Retângulo",
   toolEllipse: "Elipse",
   toolText: "Texto",
@@ -675,6 +686,15 @@ const pt: Messages = {
   exportSvgMissing: "o servidor não devolveu o SVG",
   exportSvgWarn: (w) => `SVG exportado com avisos: ${w}`,
   exportSvgFail: (err) => `Falha ao exportar SVG: ${err}`,
+  toolbarDrag: "Arrastar barra de ferramentas",
+  toolbarDragHint: "Arrastar para ancorar",
+  toolbarMenu: "Menu da barra de ferramentas",
+  toolbarPosition: "Posição da barra",
+  toolbarDockLabel: "Ancorar barra",
+  dockTop: "Topo",
+  dockLeft: "Esquerda",
+  dockRight: "Direita",
+  dockBottom: "Fundo",
   pages: "Páginas",
   newPage: "Nova página",
   pageName: "Nome da página",
@@ -695,15 +715,12 @@ const pt: Messages = {
   zoomOut: "Diminuir zoom",
   zoomFit: "Enquadrar",
   zoomFitHint: "Enquadrar (Shift+1)",
-  rendererDom: "DOM",
-  rendererWasm: "WASM",
   rendererWasmUnavailable: "Renderizador WASM não compilado (pnpm build com Rust instalado).",
   rendererWasmHint: (backend) => `Renderizador WASM (${backend}). Clique para voltar ao DOM.`,
   rendererDomHint: "Renderizador DOM. Clique para tentar WASM.",
   pasteFail: (err) => `Não deu para colar: ${err}`,
   nothingToPaste: "nada para colar",
   ratioLock: "Proporção · Shift",
-  ratioLockAlt: "1:1 · Shift+Alt",
   renameFrameHint: "Duplo clique para renomear",
   resizeCorner: (corner) => `Redimensionar canto ${corner}`,
   cornerTl: "superior esquerdo",
@@ -722,8 +739,6 @@ const pt: Messages = {
   nodePlural: "nós",
   pageSingular: "página",
   pagePlural: "páginas",
-  frameSingular: "frame",
-  framePlural: "frames",
   imageSingular: "imagem",
   imagePlural: "imagens",
   connectorSingular: "conector",
@@ -733,7 +748,6 @@ const pt: Messages = {
   noticeDeleted: (name) => `apagou o workspace “${name}”`,
   noticeOpened: (name) => `abriu o workspace “${name}”`,
   noticeRenamed: (name) => `renomeou o workspace para “${name}”`,
-  noticeSummary: (parts) => parts.join(" · "),
   noticeEdits: (n) => (n === 1 ? "1 edição no histórico" : `${n} edições no histórico`),
   viewWorkspaces: "Ver workspaces",
   dismissNotice: "Dispensar aviso",
@@ -743,7 +757,6 @@ const pt: Messages = {
   colorTokens: "Tokens do documento",
   colorSatBri: "Saturação e brilho",
   colorHue: "Matiz",
-  colorAlpha: "Alpha",
   connectorLabel: "Rótulo da seta",
   confirmCancel: "Cancelar",
   typeToConfirmBefore: "Digite ",
@@ -777,8 +790,6 @@ const pt: Messages = {
   letterSpacing: "Espaçamento",
   align: "Alinhamento",
   notes: "Notas",
-  tokens: "Tokens",
-  lint: "Lint",
   activity: "Atividade",
   instanceOf: "Instância de",
   scale: "Escala",
@@ -788,7 +799,6 @@ const pt: Messages = {
   lockSize: "Travar tamanho",
   autoLayout: "Layout automático",
   gap: "Espaço",
-  padding: "Padding",
   clip: "Recortar",
   visible: "Visível",
   locked: "Travado",

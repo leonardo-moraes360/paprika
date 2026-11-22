@@ -29,8 +29,10 @@ export function readStoredLocale(storage: Storage | null = typeof localStorage !
 
 export function writeStoredLocale(locale: Locale, storage: Storage | null = typeof localStorage !== "undefined" ? localStorage : null): void {
   if (!storage) return;
+  const safe = LOCALES.find((item) => item === locale);
+  if (!safe) return;
   try {
-    storage.setItem(LOCALE_STORAGE_KEY, locale);
+    storage.setItem(LOCALE_STORAGE_KEY, safe);
   } catch {
     /* ignore quota / private mode */
   }

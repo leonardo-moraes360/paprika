@@ -973,7 +973,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			optStr("id"),
 			z.Field{Name: "fromSide", Schema: z.Optional(core.ConnectorSideSchema)},
 			z.Field{Name: "toSide", Schema: z.Optional(core.ConnectorSideSchema)},
-			z.Field{Name: "route", Schema: z.Optional(z.Enum("straight", "elbow"))},
+			z.Field{Name: "route", Schema: z.Optional(z.Enum("straight", "elbow", "rounded", "curve"))},
+			z.Field{Name: "radius", Schema: z.Optional(z.Number().Min(0).Max(1000))},
+			z.Field{Name: "control", Schema: z.Optional(z.Object(
+				z.Field{Name: "x", Schema: z.Number()},
+				z.Field{Name: "y", Schema: z.Number()},
+			))},
 			z.Field{Name: "startArrow", Schema: z.Optional(z.Enum("none", "arrow"))},
 			z.Field{Name: "endArrow", Schema: z.Optional(z.Enum("none", "arrow"))},
 			z.Field{Name: "dashed", Schema: z.Optional(z.Bool())},

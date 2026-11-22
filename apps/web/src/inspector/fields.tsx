@@ -278,6 +278,5 @@ export function ColorField({ doc, label, value, mode, onCommit }: { doc: Documen
     </div>
   );
 }
-
 export const num = (v: string) => parseNumeric(v);
 export const size = (v: string): number | string | undefined => (v === "hug" || v === "fill" ? v : num(v));
