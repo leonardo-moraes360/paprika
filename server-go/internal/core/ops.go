@@ -372,8 +372,7 @@ func jsToNumber(v any, present bool) float64 {
 }
 
 func formatZod(err error) string {
-	var ze *z.Error
-	if errors.As(err, &ze) {
+	if ze, ok := errors.AsType[*z.Error](err); ok {
 		return z.Format(ze)
 	}
 	return err.Error()
@@ -574,10 +573,7 @@ func zStepToIndex(v any, fromIndex int) *int {
 			n := fromIndex + 1
 			return &n
 		default: // backward, guarded at 0
-			n := fromIndex - 1
-			if n < 0 {
-				n = 0
-			}
+			n := max(fromIndex-1, 0)
 			return &n
 		}
 	}
