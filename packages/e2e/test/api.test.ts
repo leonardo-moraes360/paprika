@@ -91,7 +91,7 @@ describe("API: MCP", () => {
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
         "apply_ops", "combine_paths", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
-        "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "find_nodes", "get_design_guide",
+        "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "get_bounds",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
@@ -639,6 +639,38 @@ describe("API: MCP", () => {
     expect(bad.isError).toBe(true);
     expect(textOf(bad)).toBe("the HTML has no elements to import");
   }, 30_000);
+
+  it("export_image: PNG/JPEG/WebP/PDF sem Chromium a partir do SVG do core", async () => {
+    const previousChromium = process.env.PAPRIKA_CHROMIUM;
+    delete process.env.PAPRIKA_CHROMIUM;
+    const own = await startServer();
+    if (previousChromium === undefined) delete process.env.PAPRIKA_CHROMIUM;
+    else process.env.PAPRIKA_CHROMIUM = previousChromium;
+    const c = new Client({ name: "parity", version: "0" });
+    try {
+      await c.connect(new StreamableHTTPClientTransport(new URL(`${own.url}/mcp`)));
+      await call(c, "create_nodes", {
+        parentId: null,
+        nodes: [{ type: "frame", id: "shot", width: 80, height: 40, fill: "#c43d27", children: [] }],
+      });
+      for (const format of ["png", "jpeg", "webp", "pdf"] as const) {
+        const out = (await call(c, "export_image", { rootId: "shot", format, scale: 1 })) as ToolResult & {
+          structuredContent?: { width: number; height: number; format: string; mimeType: string };
+        };
+        expect(out.isError, textOf(out)).toBeFalsy();
+        const sc = out.structuredContent!;
+        expect(sc.width).toBe(80);
+        expect(sc.height).toBe(40);
+        expect(sc.format).toBe(format);
+        expect(sc.mimeType.length).toBeGreaterThan(3);
+        const img = out.content.find((b) => b.type === "image");
+        expect(img?.data?.length ?? 0).toBeGreaterThan(40);
+      }
+    } finally {
+      await c.close();
+      await own.stop();
+    }
+  }, 60_000);
 
   it("resize_image: presets, fit, upscale/downscale, GIF primeiro frame, sem Chromium", async () => {
     const previousChromium = process.env.PAPRIKA_CHROMIUM;

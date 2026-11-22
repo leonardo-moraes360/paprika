@@ -267,6 +267,13 @@ func TestMCPToolsAndErrors(t *testing.T) {
 	if !isErr || !strings.Contains(out, "screenshot unavailable") {
 		t.Fatalf("screenshot without browser: %q", out)
 	}
+	out, isErr = callText(t, m, "export_image", obj("format", "png"))
+	if isErr {
+		t.Fatalf("export_image without Chromium: %q", out)
+	}
+	if !strings.Contains(out, "png") {
+		t.Fatalf("export_image: %q", out)
+	}
 	out, isErr = callText(t, m, "path_info", obj())
 	if !isErr || out != "pass d or id" {
 		t.Fatalf("path_info: %q", out)

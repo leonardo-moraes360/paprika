@@ -10,6 +10,7 @@ import (
 
 	"github.com/leonardo-moraes360/paprika/server-go/contract"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
+	"github.com/leonardo-moraes360/paprika/server-go/internal/export"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 	z "github.com/leonardo-moraes360/paprika/server-go/internal/zod"
 )
@@ -107,7 +108,7 @@ type MCP struct {
 
 // Screenshotter renders HTML in a browser for PNG screenshots.
 type Screenshotter interface {
-	Screenshot(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) (png []byte, width, height int, err error)
+	ScreenshotMode(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) (png []byte, width, height int, err error)
 }
 
 func optStr(name string) z.Field { return z.Field{Name: name, Schema: z.Optional(z.String())} }
@@ -780,7 +781,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 				err = derr
 				break
 			}
-			png, _, _, serr := m.shot.Screenshot(ctx, doc, a.Str("rootId"), 1, "")
+			png, _, _, serr := m.shot.ScreenshotMode(ctx, doc, a.Str("rootId"), 1, "")
 			if serr != nil {
 				return nil, serr
 			}
@@ -819,7 +820,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if m.shot == nil {
 			return nil, errors.New("screenshot unavailable on this server")
 		}
-		png, w, h, err := m.shot.Screenshot(ctx, store.Doc(), a.Str("rootId"), a.Num("scale"), a.Str("mode"))
+		png, w, h, err := m.shot.ScreenshotMode(ctx, store.Doc(), a.Str("rootId"), a.Num("scale"), a.Str("mode"))
 		if err != nil {
 			return nil, err
 		}
@@ -842,6 +843,29 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			jsonv.NewObject("type", "image", "data", base64.StdEncoding.EncodeToString(png), "mimeType", "image/png"),
 			jsonv.NewObject("type", "text", "text", fmt.Sprintf("%d×%dpx", w, h)),
 		}, "structuredContent", structured), nil
+	})
+
+	add("export_image", z.Object(
+		optStr("rootId"),
+		z.Field{Name: "format", Schema: z.Default(z.Enum("png", "jpeg", "webp", "avif", "pdf"), "png")},
+		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		out, err := export.Export(store.Doc(), a.Str("rootId"), a.Str("format"), a.Num("scale"))
+		if err != nil {
+			return nil, err
+		}
+		content := []any{
+			jsonv.NewObject("type", "image", "data", base64.StdEncoding.EncodeToString(out.Data), "mimeType", out.Mime),
+			jsonv.NewObject("type", "text", "text", fmt.Sprintf("%d×%d %s", out.Width, out.Height, out.Format)),
+		}
+		sc := jsonv.NewObject(
+			"width", float64(out.Width),
+			"height", float64(out.Height),
+			"format", out.Format,
+			"mimeType", out.Mime,
+			"warnings", jsonv.FromGo(out.Warnings),
+		)
+		return jsonv.NewObject("content", content, "structuredContent", sc), nil
 	})
 
 	add("export_code", z.Object(

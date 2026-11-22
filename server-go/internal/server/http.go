@@ -516,7 +516,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		if scale == 0 {
 			scale = 1
 		}
-		png, _, _, err := opts.Shot.Screenshot(c.Request.Context(), store.Doc(), c.Query("root"), scale, c.Query("mode"))
+		png, _, _, err := opts.Shot.ScreenshotMode(c.Request.Context(), store.Doc(), c.Query("root"), scale, c.Query("mode"))
 		if err != nil {
 			logf("erro HTTP: " + err.Error())
 			send(c.Writer, 500, errBody(err.Error()), "")

@@ -235,7 +235,11 @@ func (c *Chrome) ensure() (context.Context, error) {
 }
 
 // Screenshot renders a node (or the whole canvas) to PNG. The scale is reduced so no side exceeds 4096px.
-func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) ([]byte, int, int, error) {
+func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID string, scale float64) ([]byte, int, int, error) {
+	return c.ScreenshotMode(ctx, doc, rootID, scale, "")
+}
+
+func (c *Chrome) ScreenshotMode(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) ([]byte, int, int, error) {
 	doc = docForMode(doc, rootID, mode)
 	// A node comes out transparent; a page (or the canvas) uses its own background, or white.
 	bg := ""

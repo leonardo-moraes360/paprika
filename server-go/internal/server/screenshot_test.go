@@ -29,7 +29,7 @@ func TestChromeScreenshot(t *testing.T) {
 	}
 	c := &Chrome{}
 	defer c.Close()
-	data, w, h, err := c.Screenshot(context.Background(), res.Doc, "r", 2, "")
+	data, w, h, err := c.Screenshot(context.Background(), res.Doc, "r", 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestChromeScreenshotHugRoot(t *testing.T) {
 	}
 	c := &Chrome{}
 	defer c.Close()
-	data, w, h, err := c.Screenshot(context.Background(), res.Doc, "f", 1, "")
+	data, w, h, err := c.Screenshot(context.Background(), res.Doc, "f", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestChromeScreenshotHugRoot(t *testing.T) {
 		t.Fatalf("hug frame: got %dx%d, image %v", w, h, b)
 	}
 	// A text created without width/height hugs on both axes (fb#65): its box is its line.
-	_, w, h, err = c.Screenshot(context.Background(), res.Doc, "t", 1, "")
+	_, w, h, err = c.Screenshot(context.Background(), res.Doc, "t", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestScreenshotMissingBrowser(t *testing.T) {
 	}
 	c := &Chrome{}
 	defer c.Close()
-	if _, _, _, err := c.Screenshot(context.Background(), res.Doc, "r", 1, ""); err == nil || !strings.Contains(err.Error(), chromiumInstallCommand) {
+	if _, _, _, err := c.Screenshot(context.Background(), res.Doc, "r", 1); err == nil || !strings.Contains(err.Error(), chromiumInstallCommand) {
 		t.Fatalf("failure message: %v", err)
 	}
 	s, _ := openTemp(t)
@@ -139,21 +139,21 @@ func TestChromeScreenshotMode(t *testing.T) {
 	}
 	c := &Chrome{}
 	defer c.Close()
-	light, _, _, err := c.Screenshot(context.Background(), res.Doc, "sub", 1, "")
+	light, _, _, err := c.Screenshot(context.Background(), res.Doc, "sub", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if r, g, b := pngPixel(t, light, 20, 10); r < 250 || g < 250 || b < 250 {
 		t.Fatalf("inherited light subtree of a dark page: rgb %d,%d,%d", r, g, b)
 	}
-	dark, _, _, err := c.Screenshot(context.Background(), res.Doc, "subdark", 1, "")
+	dark, _, _, err := c.Screenshot(context.Background(), res.Doc, "subdark", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if r, g, b := pngPixel(t, dark, 20, 10); r > 40 || g > 40 || b > 40 {
 		t.Fatalf("dark subtree: rgb %d,%d,%d", r, g, b)
 	}
-	forced, _, _, err := c.Screenshot(context.Background(), res.Doc, "subdark", 1, "light")
+	forced, _, _, err := c.ScreenshotMode(context.Background(), res.Doc, "subdark", 1, "light")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ type memShot struct {
 	saved map[string][]byte
 }
 
-func (m *memShot) Screenshot(context.Context, *core.Document, string, float64, string) ([]byte, int, int, error) {
+func (m *memShot) ScreenshotMode(context.Context, *core.Document, string, float64, string) ([]byte, int, int, error) {
 	return append([]byte(nil), m.png...), m.w, m.h, nil
 }
 
