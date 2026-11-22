@@ -1,33 +1,9 @@
 import { X } from "lucide-react";
 import { AGENT_COLORS } from "./agents";
 import { Button } from "./components/ui/button";
+import { useT } from "./i18n";
 import { navigate } from "./route";
 import { useLive, useLiveActions, type WorkspaceNotice as Notice } from "./useDocument";
-
-const COUNTS: [key: string, one: string, many: string][] = [
-  ["nodes", "nó", "nós"],
-  ["pages", "página", "páginas"],
-  ["frames", "frame", "frames"],
-  ["images", "imagem", "imagens"],
-  ["connectors", "conector", "conectores"],
-];
-
-/** Counts of what a delete took with it, from the log entry: "47 nós · 3 páginas · 120 edições no histórico". */
-function deletedSummary(detail: Notice["detail"]): string {
-  const parts = COUNTS.flatMap(([key, one, many]) => {
-    const n = Number(detail[key]);
-    return n > 0 ? [`${n} ${n === 1 ? one : many}`] : [];
-  });
-  const edits = Number(detail.historyEntries);
-  if (edits > 0) parts.push(`${edits} ${edits === 1 ? "edição" : "edições"} no histórico`);
-  return parts.join(" · ");
-}
-
-const WHAT: Record<Notice["op"], (name: string) => string> = {
-  delete: (name) => `apagou o workspace “${name}”`,
-  open: (name) => `abriu o workspace “${name}”`,
-  rename: (name) => `renomeou o workspace para “${name}”`,
-};
 
 /** Agent color: the one in the presence list when the agent is there, else a stable pick from the same palette. */
 function actorColor(actor: string, agents: { actor: string; color: string }[]): string {
@@ -44,10 +20,27 @@ function actorColor(actor: string, agents: { actor: string; color: string }[]): 
  * focus, and stays until it is dismissed or replaced by the next one.
  */
 export function WorkspaceNotice() {
+  const m = useT();
   const notice = useLive((s) => s.workspaceNotice);
   const agents = useLive((s) => s.agents);
   const { dismissWorkspaceNotice } = useLiveActions();
-  const summary = notice?.op === "delete" ? deletedSummary(notice.detail) : "";
+  const summary =
+    notice?.op === "delete"
+      ? (() => {
+          const detail = notice.detail;
+          const parts: string[] = [];
+          const nodes = Number(detail.nodes);
+          if (nodes > 0) parts.push(`${nodes} ${nodes === 1 ? m.nodeSingular : m.nodePlural}`);
+          const pages = Number(detail.pages);
+          if (pages > 0) parts.push(`${pages} ${pages === 1 ? m.pageSingular : m.pagePlural}`);
+          const edits = Number(detail.historyEntries);
+          if (edits > 0) parts.push(`${edits} ${edits === 1 ? m.editSingular : m.editPlural}`);
+          return m.noticeSummary(parts);
+        })()
+      : "";
+  const what =
+    notice &&
+    (notice.op === "delete" ? m.noticeDeleted : notice.op === "open" ? m.noticeOpened : m.noticeRenamed)(notice.workspaceName);
   return (
     <div className="pointer-events-none fixed right-4 bottom-4 z-40 w-80 max-w-[calc(100%-2rem)]" aria-live="polite">
       {notice && (
@@ -55,9 +48,9 @@ export function WorkspaceNotice() {
           <div className="flex items-start gap-2">
             <span className="mt-1 size-2.5 shrink-0 rounded-full" style={{ background: actorColor(notice.actor, agents) }} aria-hidden />
             <p className="m-0 min-w-0 flex-1 text-md font-bold">
-              <span className="workspace-notice-actor">{notice.actor.replace(/^agent:/, "")}</span> {WHAT[notice.op](notice.workspaceName)}
+              <span className="workspace-notice-actor">{notice.actor.replace(/^agent:/, "")}</span> {what}
             </p>
-            <Button className="-mt-0.5 -mr-1 size-6 shrink-0" variant="ghost" size="icon" aria-label="Dispensar aviso" onClick={dismissWorkspaceNotice}>
+            <Button className="-mt-0.5 -mr-1 size-6 shrink-0" variant="ghost" size="icon" aria-label={m.dismissNotice} onClick={dismissWorkspaceNotice}>
               <X aria-hidden />
             </Button>
           </div>
@@ -72,7 +65,7 @@ export function WorkspaceNotice() {
                 navigate("/");
               }}
             >
-              Ver workspaces
+              {m.viewWorkspaces}
             </Button>
           </div>
         </div>

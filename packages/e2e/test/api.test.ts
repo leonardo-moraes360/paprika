@@ -272,7 +272,7 @@ describe("API: MCP", () => {
     expect(textOf(await call(c, "create_nodes", { nodes: [{ type: "rect" }] }))).toMatch(/has pages/);
     await call(c, "create_nodes", { parentId: "p2", nodes: [{ type: "rect", id: "r", width: 10, height: 10 }] });
     const outline = textOf(await call(c, "get_document_outline"));
-    expect(outline.split("\n").slice(3).join("\n").replace(/page#\w+ "Página 1"/, "page#P1")).toMatchInlineSnapshot(`
+    expect(outline.split("\n").slice(3).join("\n").replace(/page#\w+ "Page 1"/, "page#P1")).toMatchInlineSnapshot(`
       "page#P1
         frame#f "Tela" 300×200 @0,0
           rect#a 30×30 @10,20
@@ -1065,7 +1065,7 @@ describe("API: HTTP + WebSocket", () => {
     expect(textOf(bad)).toBe('workspace "nope" does not exist (see list_workspaces)');
     const missing = await post("/api/workspaces/nope/open");
     expect(missing.status).toBe(404);
-    expect(await missing.json()).toEqual({ error: 'workspace "nope" não existe' });
+    expect(await missing.json()).toEqual({ error: 'workspace "nope" does not exist' });
     expect((await fetch(`${srv.url}/api/workspaces/${first}/open`)).status).toBe(405);
     ws.close();
   });
@@ -1136,7 +1136,7 @@ describe("API: HTTP + WebSocket", () => {
     expect((await req("PATCH", `/api/workspaces/${a.id}`, { name: 3 })).status).toBe(400);
     const missing = await req("PATCH", "/api/workspaces/nope", { name: "x" });
     expect(missing.status).toBe(404);
-    expect(await missing.json()).toEqual({ error: 'workspace "nope" não existe' });
+    expect(await missing.json()).toEqual({ error: 'workspace "nope" does not exist' });
     expect((await req("GET", `/api/workspaces/${a.id}`)).status).toBe(405);
 
     const mcp = (await call(client, "rename_workspace", { id: a.id, name: "A3" })) as ToolResult & { structuredContent: { workspace: Info } };

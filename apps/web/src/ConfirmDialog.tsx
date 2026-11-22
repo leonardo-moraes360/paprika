@@ -13,6 +13,7 @@ import {
 import { buttonVariants } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
+import { useT } from "./i18n";
 import { cn } from "./lib/cn";
 
 interface Props {
@@ -48,6 +49,7 @@ export function ConfirmDialog({ open, onOpenChange, ...rest }: Props) {
 }
 
 function ConfirmBody({ title, description, confirmLabel, pendingLabel, pending, typeToConfirm, confirmClassName, onConfirm, children }: Omit<Props, "open" | "onOpenChange">) {
+  const m = useT();
   const [typed, setTyped] = useState("");
   const inputId = useId();
   const ready = !pending && (typeToConfirm === undefined || typed === typeToConfirm);
@@ -64,7 +66,9 @@ function ConfirmBody({ title, description, confirmLabel, pendingLabel, pending, 
       {typeToConfirm !== undefined && (
         <div className="grid gap-1.5">
           <Label htmlFor={inputId}>
-            Digite <strong className="font-bold text-ui-foreground">{typeToConfirm}</strong> para confirmar
+            {m.typeToConfirmBefore}
+            <strong className="font-bold text-ui-foreground">{typeToConfirm}</strong>
+            {m.typeToConfirmAfter}
           </Label>
           <Input
             id={inputId}
@@ -82,7 +86,7 @@ function ConfirmBody({ title, description, confirmLabel, pendingLabel, pending, 
         </div>
       )}
       <AlertDialogFooter>
-        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+        <AlertDialogCancel>{m.cancel}</AlertDialogCancel>
         <AlertDialogAction
           className={cn(buttonVariants({ variant: "destructive", size: "sm" }), "confirm-action", confirmClassName)}
           disabled={!ready}

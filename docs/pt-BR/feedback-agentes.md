@@ -496,6 +496,20 @@ Tarefa: desenhar o feed de atividade (ator cor+nome, ação, tempo relativo, agr
 - `layout.padding: [6, 8]` (dois valores) é rejeitado; quatro valores ou um número só funcionam.
 - A posição de desfazer/refazer vem no cliente dos rótulos iniciais `desfazer:` / `refazer:` no feed WS existente — sem mudança no servidor.
 
+## 2026-11-22: Internacionalização en + pt-BR (PAP-B-052, design first)
+
+Tarefa: UI web + nomes padrão seguem o idioma escolhido; detectar do navegador, trocar no app, lembrar; erros da API HTTP → inglês como o MCP. Seis frames (overview e troca de idioma × en/pt-BR × escuro/claro) desenhados via MCP; PNGs em `docs/assets/boards/PAP-B-052/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 115 | Export das boards no volume Docker | Igual ao #113: o `:4777` guarda as pranchas; este agente commitou os PNGs do `render_screenshot` e deixou `docs/design/boards.paprika.json` para um export com DB montado no host | MCP `export_document` ou caminho de DB montado no host para agentes | P2 |
+| 116 | Ligar o resto das strings do Inspector/Time | Shell, overview, páginas, camadas, zoom, ordem e multi-seleção estão no dicionário; muitos rótulos de campo do Inspector e textos do Time ainda são literais em português, embora as chaves já existam em `apps/web/src/i18n/messages.ts` | Terminar o passe campo a campo (ou gerar rótulos do catálogo) num follow-up | P2 |
+| 117 | Nome padrão do `create_page` no guia pt-BR | O fallback sem nome no core/MCP agora é inglês (`Page 1`); `guide.pt-BR.md` ainda descreve `"Página 1"` | Alinhar o guia em português ao padrão inglês (ou dizer que a UI localiza quando passa `name`) | P3 |
+
+- Dicionários leves (sem i18next): `LocaleProvider` fora do único `TooltipProvider` para a troca de idioma não remountar as dicas.
+- E2E: `pinLocale(page, "pt-BR")` em a11y/canvas/drag; `i18n.e2e.test.ts` faz smoke nos dois idiomas e no seletor.
+- Hotspots (`is-active`, `add-page`, `data-testid`, roles) continuam estáveis ao idioma.
+
 ## 2026-11-22: atributos `title` → tooltips acessíveis (PAP-B-051, design first)
 
 Tarefa: trocar todo `title` HTML em `apps/web` pelo Tooltip shadcn (`Hint`: hover + foco, Esc fecha), mantendo `aria-label` nos botões de ícone. Três frames em `Interfaces` (`Paprika - UI`): antes/depois escuro, antes/depois claro, estados foco/Esc. PNGs em `docs/assets/boards/PAP-B-051/`.

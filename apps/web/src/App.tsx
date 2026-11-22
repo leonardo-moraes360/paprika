@@ -21,6 +21,7 @@ import { Hint, Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/t
 import { cn } from "./lib/cn";
 import { bar } from "./ui";
 import { openWorkspace } from "./workspaces";
+import { LanguageSwitcher, useT } from "./i18n";
 import { WorkspaceNotice } from "./WorkspaceNotice";
 
 const boot = "grid h-full place-content-center justify-items-center gap-3 text-ui-muted-foreground";
@@ -33,18 +34,18 @@ const actionItemClass =
 /** Lucide icon size in the floating toolbar, in px. */
 const TOOL_ICON = 18;
 
-const TOOLS: { tool: Tool; key: string; label: string; icon: LucideIcon }[] = [
-  { tool: "select", key: "v", label: "Selecionar", icon: MousePointer2 },
-  { tool: "frame", key: "f", label: "Frame", icon: Frame },
-  { tool: "rect", key: "r", label: "Retângulo", icon: RectangleHorizontal },
-  { tool: "ellipse", key: "o", label: "Elipse", icon: Circle },
-  { tool: "text", key: "t", label: "Texto", icon: Type },
-  { tool: "pen", key: "p", label: "Caneta (bezier)", icon: PenTool },
-  { tool: "shape", key: "s", label: "Caixa de diagrama", icon: Square },
-  { tool: "diamond", key: "d", label: "Decisão (losango)", icon: Diamond },
-  { tool: "triangle", key: "g", label: "Triângulo", icon: Triangle },
-  { tool: "note", key: "n", label: "Nota adesiva", icon: StickyNote },
-  { tool: "connector", key: "a", label: "Seta (prende nas formas)", icon: MoveUpRight },
+const TOOL_DEFS: { tool: Tool; key: string; labelKey: keyof import("./i18n").Messages; icon: LucideIcon }[] = [
+  { tool: "select", key: "v", labelKey: "toolSelect", icon: MousePointer2 },
+  { tool: "frame", key: "f", labelKey: "toolFrame", icon: Frame },
+  { tool: "rect", key: "r", labelKey: "toolRect", icon: RectangleHorizontal },
+  { tool: "ellipse", key: "o", labelKey: "toolEllipse", icon: Circle },
+  { tool: "text", key: "t", labelKey: "toolText", icon: Type },
+  { tool: "pen", key: "p", labelKey: "toolPen", icon: PenTool },
+  { tool: "shape", key: "s", labelKey: "toolShape", icon: Square },
+  { tool: "diamond", key: "d", labelKey: "toolDiamond", icon: Diamond },
+  { tool: "triangle", key: "g", labelKey: "toolTriangle", icon: Triangle },
+  { tool: "note", key: "n", labelKey: "toolNote", icon: StickyNote },
+  { tool: "connector", key: "a", labelKey: "toolConnector", icon: MoveUpRight },
 ];
 
 /** Converte uma subárvore em NodeInput com ids novos (para duplicar). */
@@ -76,6 +77,7 @@ const siblingsOf = (doc: Document, parentId: string | null) => {
  */
 export function App() {
   useLiveConnection();
+  const m = useT();
   // App subscribes to the active workspace id and the connection only: the document, presence and
   // activity are read by the components that draw them (useLive), so an agent's presence message
   // does not re-render the editor.
@@ -93,9 +95,9 @@ export function App() {
     openWorkspace(routeId).catch((e: unknown) => {
       // pending stays set: a doc that arrives meanwhile must not send the URL to the active workspace.
       navigate("/", { replace: true });
-      showError(`Não foi possível abrir o workspace: ${errorText(e)}`);
+      showError(m.openWorkspaceFail(errorText(e)));
     });
-  }, [routeId, showError]);
+  }, [routeId, showError, m]);
 
   useEffect(() => {
     // The URL is checked too: this effect can run after a navigation it has not rendered yet.
@@ -105,8 +107,8 @@ export function App() {
   }, [routeId, activeId]);
 
   useEffect(() => {
-    if (!routeId) document.title = "Workspaces · Paprika";
-  }, [routeId]);
+    if (!routeId) document.title = m.workspacesTitle;
+  }, [routeId, m]);
 
   if (!routeId) {
     return (
@@ -121,7 +123,7 @@ export function App() {
     return (
       <div className={boot}>
         <img className="inline-block size-14 flex-none" src="/icon.svg" alt="" />
-        <p>{connected ? "Abrindo workspace…" : "Conectando ao servidor Paprika…"}</p>
+        <p>{connected ? m.openingWorkspace : m.connectingServer}</p>
       </div>
     );
   }
@@ -153,6 +155,7 @@ function LiveTeamPanel(props: Omit<Parameters<typeof TeamPanel>[0], "agents">) {
 }
 
 function Editor() {
+  const m = useT();
   const doc = useLive((s) => s.doc);
   const connected = useLive((s) => s.connected);
   const version = useLive((s) => s.version);
@@ -187,8 +190,8 @@ function Editor() {
   };
 
   useEffect(() => {
-    if (doc) document.title = `${doc.name} · Paprika`;
-  }, [doc?.name]);
+    if (doc) document.title = m.documentTitle(doc.name);
+  }, [doc?.name, m]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -294,7 +297,7 @@ function Editor() {
         if (ops.length) live.apply(ops, "mover");
         return;
       }
-      const t2 = TOOLS.find((x) => x.key === e.key.toLowerCase());
+      const t2 = TOOL_DEFS.find((x) => x.key === e.key.toLowerCase());
       if (t2 && !mod) setTool(t2.tool);
     };
     window.addEventListener("keydown", onKey);
@@ -305,7 +308,7 @@ function Editor() {
     return (
       <div className={boot}>
         <img className="inline-block size-14 flex-none" src="/icon.svg" alt="" />
-        <p>{live.connected ? "Carregando workspace…" : "Conectando ao servidor Paprika…"}</p>
+        <p>{live.connected ? m.loadingWorkspace : m.connectingServer}</p>
       </div>
     );
   }
@@ -315,16 +318,16 @@ function Editor() {
     const root = selected.length === 1 ? selected[0]! : (pageId ?? "");
     try {
       const body = await api<{ svg?: string; warnings?: string[] }>(`/api/svg${root ? `?root=${encodeURIComponent(root)}` : ""}`);
-      if (!body.svg) throw new Error("o servidor não devolveu o SVG");
+      if (!body.svg) throw new Error(m.exportSvgMissing);
       const url = URL.createObjectURL(new Blob([body.svg], { type: "image/svg+xml" }));
       const a = document.createElement("a");
       a.href = url;
       a.download = `${(doc.nodes[root]?.name || doc.name || "paprika").replace(/[\\/:*?"<>|]+/g, "-")}.svg`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      if (body.warnings?.length) live.showError(`SVG exportado com avisos: ${body.warnings.join("; ")}`);
+      if (body.warnings?.length) live.showError(m.exportSvgWarn(body.warnings.join("; ")));
     } catch (err) {
-      live.showError(`Falha ao exportar SVG: ${errorText(err)}`);
+      live.showError(m.exportSvgFail(errorText(err)));
     }
   };
 
@@ -340,7 +343,7 @@ function Editor() {
       style={{ "--left-w": `${leftPanel.collapsed ? 0 : leftPanel.width}px`, "--right-w": `${rightPanel.collapsed ? 0 : rightPanel.width}px` } as CSSProperties}>
       <header className={cn(bar.topbar, "border-ui-border bg-ui-card [grid-area:top]")}>
         <div className={bar.brand}>
-          <Hint label="Todos os workspaces" side="bottom">
+          <Hint label={m.allWorkspaces} side="bottom">
             <a
               className="group/home flex items-center gap-2 rounded-md text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ring"
               href="/"
@@ -359,6 +362,7 @@ function Editor() {
           <h1 className="doc-name m-0 truncate text-ui-muted-foreground [font:inherit] max-wide:sr-only">{doc.name}</h1>
         </div>
         <div className={bar.status}>
+          <LanguageSwitcher />
           {live.team !== undefined && <TeamChip status={live.team} onClick={() => setRightTab("team")} />}
           {lastAgent && Date.now() - lastAgent.at < 8000 && (
             <span className="agent-pill inline-flex max-w-[280px] items-center gap-1 rounded-full bg-accent-soft px-2 py-0.75 text-accent-ink">
@@ -367,21 +371,21 @@ function Editor() {
             </span>
           )}
           <span className={statusDotVariants({ tone: live.connected ? "ok" : "alert" })} aria-hidden />
-          <span className={bar.statusText}>{live.connected ? `v${live.version} · MCP em /mcp` : "desconectado"}</span>
+          <span className={bar.statusText}>{live.connected ? `v${live.version} · ${m.mcpOn}` : m.disconnectedShort}</span>
           <ConnectionStatus connected={live.connected} />
         </div>
       </header>
-      <aside aria-label="Páginas e camadas" className={cn("left overflow-auto border-r border-ui-border bg-ui-card [grid-area:left] max-wide:hidden", leftPanel.collapsed && "hidden")}>
+      <aside aria-label={m.pagesAndLayers} className={cn("left overflow-auto border-r border-ui-border bg-ui-card [grid-area:left] max-wide:hidden", leftPanel.collapsed && "hidden")}>
         <Pages doc={doc} pageId={pageId} onOpen={openPage} apply={live.apply} />
         <Layers doc={doc} pageId={pageId} selected={selected} onSelect={setSelected} apply={live.apply} />
       </aside>
-      <PanelResizer side="left" label="Largura do painel de camadas" panel={leftPanel} limits={LEFT_PANEL} />
+      <PanelResizer side="left" label={m.layersPanelWidth} panel={leftPanel} limits={LEFT_PANEL} />
       <main className={cn("relative overflow-hidden [grid-area:center]", rightPanel.collapsed && "[&_[data-testid=agent-roster]]:top-14")}>
-        {leftPanel.collapsed && <PanelToggle side="left" label="Mostrar painel de camadas" panel={leftPanel} />}
-        {rightPanel.collapsed && <PanelToggle side="right" label="Mostrar painel de propriedades" panel={rightPanel} />}
+        {leftPanel.collapsed && <PanelToggle side="left" label={m.showLayersPanel} panel={leftPanel} />}
+        {rightPanel.collapsed && <PanelToggle side="right" label={m.showPropsPanel} panel={rightPanel} />}
         <nav
           className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-ui-border bg-ui-card p-1 shadow-float"
-          aria-label="Ferramentas"
+          aria-label={m.tools}
           onPointerDown={(e) => e.stopPropagation()}
         >
           <ToggleGroup
@@ -394,46 +398,46 @@ function Editor() {
             }}
             className="gap-0.5"
           >
-            {TOOLS.map((t) => (
+            {TOOL_DEFS.map((t) => (
               <Tooltip key={t.tool}>
                 <TooltipTrigger asChild>
                   <ToggleGroupItem
                     value={t.tool}
                     className={cn(toolItemClass, tool === t.tool && "is-active")}
-                    aria-label={t.label}
+                    aria-label={m[t.labelKey] as string}
                   >
                     <t.icon size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
                   </ToggleGroupItem>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">{`${t.label} (${t.key.toUpperCase()})`}</TooltipContent>
+                <TooltipContent side="bottom">{`${m[t.labelKey] as string} (${t.key.toUpperCase()})`}</TooltipContent>
               </Tooltip>
             ))}
           </ToggleGroup>
           <Separator orientation="vertical" className="mx-1.5 h-5" />
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" className={actionItemClass} onClick={live.undo} disabled={!live.canUndo} aria-label="Desfazer">
+              <Button variant="ghost" className={actionItemClass} onClick={live.undo} disabled={!live.canUndo} aria-label={m.undo}>
                 <Undo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Desfazer (Ctrl+Z)</TooltipContent>
+            <TooltipContent side="bottom">{m.undoHint}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" className={actionItemClass} onClick={live.redo} disabled={!live.canRedo} aria-label="Refazer">
+              <Button variant="ghost" className={actionItemClass} onClick={live.redo} disabled={!live.canRedo} aria-label={m.redo}>
                 <Redo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Refazer (Ctrl+Shift+Z)</TooltipContent>
+            <TooltipContent side="bottom">{m.redoHint}</TooltipContent>
           </Tooltip>
           <Separator orientation="vertical" className="mx-1.5 h-5" />
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" className={actionItemClass} onClick={exportSvg} aria-label="Exportar SVG">
+              <Button variant="ghost" className={actionItemClass} onClick={exportSvg} aria-label={m.exportSvg}>
                 <Download size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Exportar SVG (seleção, ou a página)</TooltipContent>
+            <TooltipContent side="bottom">{m.exportSvgHint}</TooltipContent>
           </Tooltip>
         </nav>
         <Canvas
@@ -451,15 +455,15 @@ function Editor() {
         <ErrorToast />
         <WorkspaceNotice />
       </main>
-      <PanelResizer side="right" label="Largura do painel de propriedades" panel={rightPanel} limits={RIGHT_PANEL} />
-      <aside aria-label="Propriedades" className={cn("right overflow-auto border-l border-ui-border bg-ui-card [grid-area:right] max-wide:border-t max-wide:border-l-0", rightPanel.collapsed && "hidden")}>
+      <PanelResizer side="right" label={m.propsPanelWidth} panel={rightPanel} limits={RIGHT_PANEL} />
+      <aside aria-label={m.properties} className={cn("right overflow-auto border-l border-ui-border bg-ui-card [grid-area:right] max-wide:border-t max-wide:border-l-0", rightPanel.collapsed && "hidden")}>
         {live.team !== undefined && (
           <Tabs
             value={rightTab}
             onValueChange={(v) => setRightTab(v as "inspector" | "team")}
             className="right-tabs m-3 mb-0 gap-0"
           >
-            <TabsList className="grid h-auto w-full grid-cols-2 gap-0.5 rounded-md bg-night p-0.5" aria-label="Painel da direita">
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-0.5 rounded-md bg-night p-0.5" aria-label={m.rightPanel}>
               {(["inspector", "team"] as const).map((t) => (
                 <TabsTrigger
                   key={t}
@@ -476,7 +480,7 @@ function Editor() {
                     }
                   }}
                 >
-                  {t === "inspector" ? "Inspector" : "Time"}
+                  {t === "inspector" ? m.inspectorTab : m.teamTab}
                 </TabsTrigger>
               ))}
             </TabsList>

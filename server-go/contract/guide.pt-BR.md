@@ -16,7 +16,7 @@ group: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, wid
   dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.
 page: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, todo nó de topo é página e os
   frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o
-  conteúdo atual para "Página 1". Telas de outra página: get_document_outline {rootId: id da página}.
+  conteúdo atual para "Page 1" (inglês; a UI passa o nome localizado). Telas de outra página: get_document_outline {rootId: id da página}.
 Componentes: um frame com component: true é um componente (create_component). Uma instância é um frame com
   instanceOf = id do componente e scale opcional (create_instance): os filhos são cópias geradas, com ids
   derivados e sourceId = id do nó de origem; mudar o componente muda todas as instâncias. Numa cópia, update só

@@ -7,6 +7,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { connectorMidpoint, copyId, type Document, type FrameNode } from "@paprika/core";
+import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
@@ -32,6 +33,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(page, "pt-BR");
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     // `/` is the workspace overview: the demo is the only (active) workspace; one click opens its canvas.

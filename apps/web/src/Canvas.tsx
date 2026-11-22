@@ -52,6 +52,7 @@ import { Hint } from "./components/ui/tooltip";
 import { InlineName } from "./InlineName";
 import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
 import { AgentCursors, type Box } from "./AgentCursors";
+import { useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { cx, ui } from "./ui";
 
@@ -483,6 +484,7 @@ function ShapeTextEditor({ text, onCommit, onDone }: { text: string; onCommit(te
 }
 
 export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, onOpenPage, onError }: Props) {
+  const m = useT();
   const viewportRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 40, y: 40, zoom: 1 });
@@ -1461,7 +1463,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
               data-testid="resize-lock-hint"
               data-lock={resizeLock}
             >
-              {resizeLock === "square" ? "1:1 · Shift+Alt" : "Proporção · Shift"}
+              {resizeLock === "square" ? m.ratioLockAlt : m.ratioLock}
             </div>
           )}
         </div>
@@ -1482,19 +1484,19 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       )}
       {marqueeRect && <div className="pointer-events-none absolute border border-select bg-select/8" style={marqueeRect} data-testid="marquee" />}
       <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-ui-border bg-ui-card p-0.5" onPointerDown={(e) => e.stopPropagation()}>
-        <Hint label="Diminuir zoom">
-          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom">
+        <Hint label={m.zoomOut}>
+          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label={m.zoomOut}>
             <Minus size={14} aria-hidden />
           </Button>
         </Hint>
         <span className="min-w-11 text-center text-ui-muted-foreground">{Math.round(view.zoom * 100)}%</span>
-        <Hint label="Aumentar zoom">
-          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom">
+        <Hint label={m.zoomIn}>
+          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label={m.zoomIn}>
             <Plus size={14} aria-hidden />
           </Button>
         </Hint>
-        <Hint label="Enquadrar (Shift+1)">
-          <Button variant="ghost" className={zoomButton} onClick={fit} aria-label="Enquadrar">
+        <Hint label={m.zoomFitHint}>
+          <Button variant="ghost" className={zoomButton} onClick={fit} aria-label={m.zoomFit}>
             <Maximize size={14} aria-hidden />
           </Button>
         </Hint>

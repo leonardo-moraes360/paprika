@@ -810,7 +810,7 @@ const pathNorm = ["M40 30 L80 30 L60 70 Z", "M0 0 L10 10", "M10 10 C 20 0 30 0 4
   return { d, origin: pathOrigin(segs), normalized: serializePath(n.segs), bounds: n.bounds };
 });
 
-const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, created: createDocument("Sem título", "abc"), tailwindMapCases };
+const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, created: createDocument("Untitled", "abc"), tailwindMapCases };
 const dest = join(here, "../internal/core/testdata/golden.json");
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");

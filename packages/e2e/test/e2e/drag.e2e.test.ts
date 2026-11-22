@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { repoRoot, startServer, type ExternalServer } from "../harness.js";
+import { pinLocale } from "./locale.js";
 
 const webRoot = join(repoRoot, "apps/web/dist");
 const wasmBuilt = existsSync(join(repoRoot, "apps/web/src/wasm/paprika_render.js"));
@@ -43,6 +44,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     server = await startServer({ seed: join(repoRoot, "examples/demo.paprika.json"), webRoot });
     browser = await chromium.launch({ executablePath: process.env.PAPRIKA_CHROMIUM || undefined });
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(page, "pt-BR");
     await page.routeWebSocket(/\/ws$/, (ws) => {
       const upstream = ws.connectToServer();
       upstream.onMessage((m) => (link.holding ? link.queue.push(() => ws.send(m)) : ws.send(m)));

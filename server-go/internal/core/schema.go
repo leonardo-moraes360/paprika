@@ -321,7 +321,7 @@ var (
 var DocumentSchema = z.Object(
 	z.Field{Name: "format", Schema: z.Literal(Format)},
 	z.Field{Name: "id", Schema: z.String()},
-	z.Field{Name: "name", Schema: z.Default(z.String(), "Sem título")},
+	z.Field{Name: "name", Schema: z.Default(z.String(), "Untitled")},
 	z.Field{Name: "tokens", Schema: z.Default(z.Record(TokenNameSchema, TokenValueSchema), jsonv.NewObject())},
 	z.Field{Name: "modes", Schema: z.Optional(z.Record(ModeNameSchema, z.Record(TokenNameSchema, TokenValueSchema)))},
 	z.Field{Name: "rootIds", Schema: z.Default(z.Array(z.String()), []any{})},
