@@ -541,7 +541,7 @@ Tarefa: desenhar estados de reparent / inserção em auto-layout / reordenação
 | 110 | Nome do workspace ativo | O ticket pedia `Paprika - UI`; o servidor vivo tinha `Paprica · UI` (typo/renome) com outros tickets já desenhando na página `interfaces` | Aceitar nomes próximos como o workspace de UI, ou fixar o id no payload da assign | P3 |
 | 111 | Corrida de `create_page` em Interfaces | Chamar `create_page` enquanto outro agente também garantia `Interfaces` gerou páginas vazias duplicadas além de `page#interfaces` | `create_page` idempotente por nome (igual ao #99) | P2 |
 | 112 | Y livre entre boards paralelos | Frames do PAP-B-051 já estavam em y≈40; PAP-B-049 precisou ser movido depois para y=1100+ | Bbox no outline / `place: "free"` (igual ao #103 / #110) | P3 |
-| 113 | Screenshots como arquivos | `render_screenshot` ainda devolve base64 no conteúdo MCP; decode local para `docs/assets/boards/PAP-B-049/` | `path` opcional em `render_screenshot` | P3 |
+| 113 | Screenshots como arquivos | `render_screenshot` ainda devolve base64 no conteúdo MCP; decode local para `docs/assets/boards/PAP-B-049/` | Feito (2026-11-22, PAP-B-062): `path` opcional no `render_screenshot` | — |
 | 114 | Typecheck quebrado no main | `ui.ts` perdeu `activity*`/`actions` no merge `3f0bda1`; Inspector ainda citava `ActivityEntry`/`Bot`; ColorField tinha `hex` indefinido | Proteger merge de `ui.ts` / religar Activity; este PR restaurou o mínimo para o `pnpm check` rodar | P1 |
 
 - Desenhou no ativo `Paprica · UI` / página `interfaces` sem `open_workspace` depois de consultar o mantenedor sobre o nome.
