@@ -1023,7 +1023,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.getByTestId("shape-text-editor").waitFor();
     await page.keyboard.type("Go");
     await page.keyboard.press("Escape");
-    const third = (await shapes()).find((n) => n.shape === "triangle" || n.text === "Go")!.id;
+    const third = (await shapes()).find((n) => n.id !== first && n.id !== second)!.id;
     await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle", text: "Go", width: 160, height: 140 });
     await page.locator(`[data-paprika-id="${third}"]`).click();
     await page.getByTestId("shape-kind").selectOption("diamond");
