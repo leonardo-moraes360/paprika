@@ -9,7 +9,9 @@ Imported on 2026-11-21 from a capability list the maintainer collected from publ
 Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · **P2** after · **P3** later · **Out** out of scope for a local tool.
 `fb#N` points to an item in the [agent feedback log](agent-feedback.md).
 
-## Suggested first slice (after the Go server and the WASM evaluation)
+## Batches
+
+Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 2026-11-22 (PRs #71–#77). Batch 3 is on the local tb bus (`docs/agent-bus.md`, channel `paprika`): its ids (PAP-A-001…003 for cloud threads, PAP-B-013…026 for bus workers) are written in the rows they cover. "Batch 4" marks what was left for the next one. Rows with no batch are not planned yet.
 
 1. Multi-select, `group` and pages (A, B).
 2. Components and instances (H).
@@ -27,7 +29,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Group / wrap selection in a frame, unwrap | `group` node, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21); no "wrap in frame" yet | 🟡 | P2 |
 | Absolute child inside an auto-layout frame ("ignore layout") | Children of row/column always flow | ⬜ | P1 |
 | Corner radius per corner | Single `radius` | 🟡 | P1 |
-| Z-order (forward, backward, front, back) | `update_nodes`/`move_nodes` take `index`: a number from 0, or `front`/`back`/`forward`/`backward`, one undo step (2026-11-22); no canvas shortcuts (PAP-B-021) | 🟡 | P1 |
+| Z-order (forward, backward, front, back) | `update_nodes`/`move_nodes` take `index`: a number from 0, or `front`/`back`/`forward`/`backward`, one undo step (2026-11-22); no canvas shortcuts yet: Page Up / Page Down and a menu were requested on 2026-11-22, batch 3: PAP-B-021. | 🟡 | P1 |
 | Hide, lock, unlock all | `visible`, `locked`; no "unlock all" | 🟡 | P2 |
 | Align and distribute selection | — | ⬜ | P2 |
 | Constraints (behavior when the parent resizes) | — | ⬜ | P2 |
@@ -47,6 +49,9 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Eyedropper (sample a color from the canvas) | — | ⬜ | P2 |
 | Duplicate by modifier-drag | `Ctrl+D` duplicate | 🟡 | P3 |
 | Hide UI (focus mode), rename shortcut, collapse layer tree | Double-click a layer or a frame title on the canvas to rename it in place (`Enter` confirms, `Esc` cancels, undoable) (2026-11-21); layer tree collapses; no focus mode | 🟡 | P3 |
+| Drag and drop elements in the canvas | Reading recorded on 2026-11-22 (the request only says "drag and drop the elements inside the canvas"): (1) drag a node to move it **and reparent it**: dropping it inside a frame or group, or onto another layer, makes that its parent, and inside an auto-layout frame the drop point picks its position among the children; (2) drop external files (images, SVG, HTML) from the OS onto the canvas, using the import row in G. Today dragging only moves absolutely positioned nodes inside their current parent (x/y `update`); children of auto-layout frames cannot be dragged, nothing reparents, the Layers panel has no drag, and only the workspace cover accepts a dropped file (overview). MCP already reparents with `move_nodes` (`parentId`, `index`). Relates to A "Z-order", B "Duplicate by modifier-drag", O "Re-attach or detach an arrow end by dragging". Requested 2026-11-22. Batch 4. | ⬜ | TBD |
+| Resize handles on all four corners | Today a selected node has a single resize handle, at the bottom-right corner (`apps/web/src/Canvas.tsx`, screenshot from the maintainer). Dragging a corner keeps the opposite corner in place. Relates to B "Rotation-aware hit testing and handles". Requested 2026-11-22. | ⬜ | TBD |
+| Aspect-ratio lock shortcuts while resizing, with a visual hint | Three locks: square (1:1); rectangular driven by the width; rectangular driven by the height. Modifier keys such as `Shift` or `Ctrl` (exact mapping decided when planned); a hint on the canvas shows which lock is active. Today resizing takes no modifier and there is no ratio lock. "Driven by the width/height" (maintainer, 2026-11-22): keep the current ratio while that side leads and the other follows. Requested 2026-11-22. | ⬜ | TBD |
 
 ## C. Styling
 
@@ -59,6 +64,8 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Modern color: `oklch()`, `color-mix()`, Display P3, OKLCH picker | Strings pass through to CSS, but lint can't parse them and the picker is sRGB hex | 🟡 | P2 |
 | Blend modes | — | ⬜ | P3 |
 | Selection colors panel (all colors used in the selection) | — | ⬜ | P3 |
+| Several border types for elements | Today `stroke` is only `{color, width}` (`packages/core/src/schema.ts`) and the inspector shows color and width; only connectors have `dashed`. Missing: solid, dashed, dotted and similar styles (and, to decide when planned, inside/center/outside position and per-side borders). Relates to C "Multiple shadows, inner shadow, outline". Requested 2026-11-22. | ⬜ | TBD |
+| Custom color picker | Today the inspector uses the native color input. Requested 2026-11-22. Batch 3: PAP-B-023. | ⬜ | TBD |
 
 ## D. Typography
 
@@ -70,6 +77,8 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Variable font axes and OpenType features | — | ⬜ | P3 |
 | Text shortcuts (bold, italic, size/weight steps), auto line height | — | ⬜ | P3 |
 | CJK word-keep, combining marks, multi-codepoint emoji checks | Browser default | 🟡 | P3 |
+| System fonts on any element with text | A font picker that lists the fonts installed on the machine (e.g. Local Font Access API, with a fallback list) for `text`, `shape` and every node that has `fontFamily`. Today `fontFamily` is a free text field. Relates to D "Font tokens". Requested 2026-11-22. | ⬜ | TBD |
+| Import and export fonts in several formats | E.g. TTF, OTF, WOFF, WOFF2: fonts embedded in the workspace (as assets) and carried in exports (`@font-face` in HTML/CSS, embedded in SVG/PDF). Also over MCP. Respect each font's license when embedding. Relates to the export rows in J. Requested 2026-11-22. | ⬜ | TBD |
 
 ## E. Tokens and themes
 
@@ -84,6 +93,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Generate tokens from an existing codebase via MCP | — | ⬜ | P2 |
 | Tokens with `calc()` / `color-mix()` | Token chains only | ⬜ | P3 |
 | Copy tokens between files | — | ⬜ | P3 |
+| Design system as a concept in the canvas | A place for the workspace's tokens, components and rules that agents and people draw from (relates to E and H). Requested 2026-11-22. Batch 4. | ⬜ | TBD |
 
 ## F. Vector
 
@@ -107,6 +117,7 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Paste or drop images (stored as data URI or local asset) | `image` node via MCP only | 🟡 | P2 |
 | Capture an element from any web page into nodes (browser extension) | — | ⬜ | P3 |
 | Import from other design tools' clipboards | — | ⬜ | Out |
+| Import PNG, JPEG, WebP, AVIF, GIF, `.fig` and other formats, besides SVG and HTML | Also as MCP tools. Extends G: today only SVG and HTML are imported (`import_svg`/`import_html`, `Ctrl+V`) and an `image` node is created only over MCP (G, "Paste or drop images"). Raster files become `image` nodes (data URI or local asset; decide whether animated GIFs keep moving). Dropping files on the canvas is in B, "Drag and drop elements in the canvas". **`.fig` needs a decision**: it is an undocumented proprietary format, and reading it directly would mean reverse engineering, which the originality rule forbids; options are a documented route (the vendor's public API or its SVG/PDF exports) or leaving it out, as G already does for other design tools' clipboards. "etc." in the request: other formats (e.g. PDF) to be listed when planned. Requested 2026-11-22. Batch 3: PAP-B-019 (`import_image` for the raster formats); `.fig` and the rest in batch 4. | ⬜ | TBD |
 
 ## H. Components and reuse
 
@@ -116,12 +127,13 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Component props and slots | — | ⬜ | P2 |
 | Code components (render real components from the user's repo) | — | ⬜ | P3 |
 | Icon packs / UI kit starters | — | ⬜ | P3 |
+| Components reusable across pages and across workspaces | Today `component`/`instanceOf` only work inside one document (H); missing: a library shared by workspaces, instances that point to another workspace, and how updates reach them. Requested 2026-11-22. Batch 4. | ⬜ | TBD |
 
 ## I. Agent layer (MCP and CLI)
 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
-| Embedded MCP server (stdio + HTTP), read and write, CLI | `paprika serve`/`mcp`, 23 tools | ✅ | — |
+| Embedded MCP server (stdio + HTTP), read and write, CLI | `paprika serve`/`mcp`, 32 tools (contract `server-go/contract/mcp.json`) | ✅ | — |
 | Token-efficient reads | `get_document_outline` | ✅ | — |
 | Structured results (`outputSchema` + `structuredContent`) | Every JSON tool declares `outputSchema` and returns `structuredContent` (2026-11-21) | ✅ | — |
 | Guide and errors in English (pt-BR optional) | Guide, tool descriptions, errors, warnings and lint in English; `get_design_guide {language: "pt-BR"}` (2026-11-21). The canvas UI is still pt-BR | ✅ | — |
@@ -129,11 +141,12 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 | Actor name from MCP `clientInfo` | `agent:<clientInfo.name>` on stdio and HTTP (session id carries the name) (2026-11-21) | ✅ | — |
 | Agent presence on the canvas (cursor, what it is editing) | Own cursor, outline, name and color per agent session, roster; implicit from every tool call (2026-11-21) | ✅ | — |
 | Comments for humans and agents (create, resolve, filter) | `notes` field only | 🟡 | P2 |
-| Manage files via MCP (list, create, open, rename, archive), several files at once | One file per process | ⬜ | P2 |
+| Manage files via MCP (list, create, open, rename, archive), several files at once | Workspaces over MCP: `list_workspaces`, `create_workspace`, `open_workspace`, `rename_workspace`, `delete_workspace` (2026-11-21, see M); missing: archive, and reading another workspace without switching the active one (Q "Work on another workspace without moving the human") | 🟡 | P2 |
 | "Connect your agent" panel with ready configs per client | README snippets | 🟡 | P2 |
 | Geometry help for agents (rotated bounds, origin, geometry lint) | `path_info` only (fb#2, fb#6) | 🟡 | P2 |
 | Visual diff between versions (for CI) | — | ⬜ | P3 |
 | Remote MCP (server outside the user's machine) | Local by design | ⬜ | Out |
+| Assisted adversarial verification in the canvas | Port to Rust or Go. Prove with numbers that each app screen matches the approved board, light and dark: a generator tunes the app until pixel similarity reaches ≥ 95 % per screen and mode, and an independent discriminator redoes the build, references, captures and comparison and fails it on score, cheating (edited references, unjustified masks, comparator changes), regression or contrast; at most 3 rounds, then a human decides. Pieces to port: comparator (pixelmatch, threshold 0.1, magenta padding on size mismatch, masks with a reason), references rendered from the boards, capture, contrast gate, cheat guard. Spec supplied by the maintainer (TS/Playwright harness from another project). Requested 2026-11-22. Batch 3: PAP-B-018 (image comparator in Go, first piece). | ⬜ | TBD |
 
 ## J. Export and handoff
 
@@ -141,10 +154,10 @@ Status: ✅ done · 🟡 partial · ⬜ missing. Priority: **P1** next slice · 
 |---|---|---|---|
 | Standalone HTML, React (inline styles), PNG | `export_code`, `render_screenshot` | ✅ | — |
 | SVG export (frame or selection) | `export_code` format `svg`, `⇩` in the toolbar, `GET /api/svg` (2026-11-21): layout and text lines measured in headless Chromium; gradients and background images are left out | ✅ | — |
-| Tailwind classes export | — | ⬜ | P2 |
-| WebP/AVIF, PDF (single or combined frames) | — | ⬜ | P2 |
-| React + CSS module / CSS variables | — (see E) | ⬜ | P2 |
 | Video export of animated frames | — | ⬜ | P3 |
+| Export to PDF, HTML, CSS (Tailwind or CSS Modules), React, Angular or Svelte | Also as MCP tools. Extends J (today: HTML, React with inline styles, SVG). Requested 2026-11-22. Batch 3: PAP-B-016 (Tailwind and CSS Modules); PDF, Angular and Svelte in batch 4. Replaces the older rows "Tailwind classes export" and "React + CSS module / CSS variables" (CSS variables are done, see E). | ⬜ | P2 |
+| Export to SVG, PNG, JPEG, AVIF, WebP | Also as MCP tools. **No headless Chromium**: in the canvas (TS) or in the Go server. Today SVG and PNG go through headless Chromium (J). Requested 2026-11-22. Batch 3: PAP-A-002 (SVG without headless Chromium, on PAP-A-001's core geometry); raster formats in batch 4. Replaces the older row "WebP/AVIF, PDF" (PDF is in the row above). | ⬜ | P2 |
+| Resize images to qHD ("semi HD"), HD, 2K, 4K | Also as MCP tools. **No headless Chromium**: in the canvas (TS) or in the Go server. Requested 2026-11-22. Batch 4. | ⬜ | TBD |
 
 ## K. Generative features in the canvas
 
@@ -176,13 +189,13 @@ Decision pending: write our own effects (WebGL/WebGPU, ties into the WASM evalua
 | Real-time multi-user editing (CRDT) | Peer-to-peer team sync: Iroh + Loro sidecar, `paprika serve --team`, signed operations, expiring invites (ADR 0004, PRs #61–#69); remove a member and rotate a key (2026-11-22); team mode in Compose (`compose.team.yaml`). Missing: leaving on your own, approval roles | 🟡 | P2 |
 | Script / plugin pane | — | ⬜ | P3 |
 | Sharing settings, SSO, organizations, hosted CDN assets, plans and quotas | — | — | Out |
+| Multiplayer LLM chat in the canvas | Floating, centered at the bottom of the canvas; shared by the people (and agents) of the workspace. Requested 2026-11-22. Batch 4. | ⬜ | TBD |
 
 ## N. Code health (SonarCloud)
 
 Open SonarCloud issues imported on 2026-11-21 (project `leonardo-moraes360_paprika`; filter: Security + Reliability, impact Blocker/High/Medium, status Open/Confirmed; code at `main` 21841f7). 40 issues, none Blocker. Fix in code; don't change issue status in SonarCloud by hand.
 
 Update 2026-11-22: every issue below is fixed in code (the `fix(sonar)` commits on `main`, plus S7773 in `packages/core` and S2077 in `store.go` in the second backlog batch). SonarCloud closes them on its next analysis of `main`.
-
 
 | Rule | Impact | Where | Fix | Status | Pri. |
 |---|---|---|---|---|---|
@@ -210,50 +223,16 @@ Simple diagrams (flowcharts, architecture sketches, mind maps) drawn by the huma
 | Agent draws a whole diagram in one call, with automatic layout | `draw_diagram` (2026-11-21) | ✅ | — |
 | Labels on arrows | `label` on `connector` and on `draw_diagram` edges, drawn at the middle of the line with a halo, edited in the inspector (2026-11-22, fb#57) | ✅ | — |
 | Arrows that route around other shapes | Elbow routes ignore obstacles | ⬜ | P2 |
-| Curved arrows and more shapes (cylinder, parallelogram, cloud) | — | ⬜ | P2 |
+| More shapes (cylinder, parallelogram, cloud) | — (curved arrows: see "Three arrow line styles" below; triangle below) | ⬜ | P2 |
 | Re-attach or detach an arrow end by dragging it on the canvas | Inspector only | ⬜ | P2 |
 | Hand-drawn style | — | ⬜ | P3 |
+| Three arrow line styles: square, rounded, free curve | Reading recorded on 2026-11-22 (screenshot from the maintainer shows today's elbow arrow): (1) square corners, what `route: "elbow"` draws today (`route: "straight"` also exists); (2) rounded, the same elbow route with rounded corners; (3) free curve, a bezier whose handle can be dragged on the canvas to shape it. Also over MCP and in the inspector. Takes over the curved arrows of the old O row "Curved arrows and more shapes" and relates to O "Re-attach or detach an arrow end by dragging" and F point editing. Requested 2026-11-22. | ⬜ | TBD |
+| Double-click an arrow to add, edit or remove its label | Inline editing on the canvas, like shape text (O). Today the `label` is edited only in the inspector (O "Labels on arrows", PR #75); clearing the text removes the label. Requested 2026-11-22. | ⬜ | TBD |
+| Triangle as a simple shape | New `ShapeKind` next to `rect`, `ellipse`, `diamond`, `note` (O), with a toolbar tool, in the inspector shape picker and over MCP (`draw_diagram` too). Requested 2026-11-22. | ⬜ | TBD |
 
 ## P. Maintainer requests (2026-11-22)
 
-Added by the maintainer on 2026-11-22, to plan later (not started). The constraints in each row are part of the request.
-
-| Capability | Constraints and notes | Status | Pri. |
-|---|---|---|---|
-| Export to PDF, HTML, CSS (Tailwind or CSS Modules), React, Angular or Svelte | Also as MCP tools. Extends J (today: HTML, React with inline styles, SVG) | ⬜ | TBD |
-| Export to SVG, PNG, JPEG, AVIF, WebP | Also as MCP tools. **No headless Chromium**: in the canvas (TS) or in the Go server. Today SVG and PNG go through headless Chromium (J) | ⬜ | TBD |
-| Resize images to qHD ("semi HD"), HD, 2K, 4K | Also as MCP tools. **No headless Chromium**: in the canvas (TS) or in the Go server | ⬜ | TBD |
-| Turn `title` attributes into accessible tooltips | Follows the accessibility review ([thread "Revisar acessibilidade do Paprika"](https://claude.ai/code/project/chan_01QGCFibNVKw2MsxBcqe4Jmi?thread=cmsg_01QGCFibNVKw2MsxBcqe4Jmi1MtFJYQ4HiNMD17jXKGUrG), PR #70) | ⬜ | TBD |
-| Side panels collapse into a floating button when shrunk past their minimum | Top-left or top-right corner; clicking the button expands that panel | ⬜ | TBD |
-| Migrate the UI to shadcn components | Keep Paprika's own theme (ADR 0003, Tailwind without Preflight) | ⬜ | TBD |
-| Better on-screen animations with tailwind-animate | — | ⬜ | TBD |
-| Custom color picker | Today the inspector uses the native color input | ⬜ | TBD |
-| Compact inspector | Today it is one long scroll area with a lot of information | ⬜ | TBD |
-| Better-looking activity history | Today it is a block of poorly formatted information | ⬜ | TBD |
-| Layer order: send to back or bring to front, arbitrarily | Shortcuts such as Page Up / Page Down, and also over MCP. Today only `move_nodes` with `index`, no canvas shortcut (see A, "Z-order") | ⬜ | TBD |
-| Components reusable across pages and across workspaces | Today `component`/`instanceOf` only work inside one document (H); missing: a library shared by workspaces, instances that point to another workspace, and how updates reach them | ⬜ | TBD |
-| Multiplayer LLM chat in the canvas | Floating, centered at the bottom of the canvas; shared by the people (and agents) of the workspace | ⬜ | TBD |
-| Bug: the first page of a workspace cannot be renamed while it is the only one | Cause found: a workspace without pages shows a placeholder "Página 1" row (`apps/web/src/Pages.tsx`) that is not a real page node, so double-click does nothing; renaming it should create the page and name it | ⬜ | TBD |
-| Destructive actions | A danger button variant (and confirmation pattern) for delete/remove; today every action uses the brand primary button | ⬜ | TBD |
-| Design system as a concept in the canvas | A place for the workspace's tokens, components and rules that agents and people draw from (relates to E and H) | ⬜ | TBD |
-| Assisted adversarial verification in the canvas | Port to Rust or Go. Prove with numbers that each app screen matches the approved board, light and dark: a generator tunes the app until pixel similarity reaches ≥ 95 % per screen and mode, and an independent discriminator redoes the build, references, captures and comparison and fails it on score, cheating (edited references, unjustified masks, comparator changes), regression or contrast; at most 3 rounds, then a human decides. Pieces to port: comparator (pixelmatch, threshold 0.1, magenta padding on size mismatch, masks with a reason), references rendered from the boards, capture, contrast gate, cheat guard. Spec supplied by the maintainer (TS/Playwright harness from another project) | ⬜ | TBD |
-| Import PNG, JPEG, WebP, AVIF, GIF, `.fig` and other formats, besides SVG and HTML | Also as MCP tools. Extends G: today only SVG and HTML are imported (`import_svg`/`import_html`, `Ctrl+V`) and an `image` node is created only over MCP (G, "Paste or drop images"). Raster files become `image` nodes (data URI or local asset; decide whether animated GIFs keep moving). Dropping files on the canvas is in the next row. **`.fig` needs a decision**: it is an undocumented proprietary format, and reading it directly would mean reverse engineering, which the originality rule forbids; options are a documented route (the vendor's public API or its SVG/PDF exports) or leaving it out, as G already does for other design tools' clipboards. "etc." in the request: other formats (e.g. PDF) to be listed when planned | ⬜ | TBD |
-| Drag and drop elements in the canvas | Reading recorded on 2026-11-22 (the request only says "drag and drop the elements inside the canvas"): (1) drag a node to move it **and reparent it**: dropping it inside a frame or group, or onto another layer, makes that its parent, and inside an auto-layout frame the drop point picks its position among the children; (2) drop external files (images, SVG, HTML) from the OS onto the canvas, using the import row above. Today dragging only moves absolutely positioned nodes inside their current parent (x/y `update`); children of auto-layout frames cannot be dragged, nothing reparents, the Layers panel has no drag, and only the workspace cover accepts a dropped file (overview). MCP already reparents with `move_nodes` (`parentId`, `index`). Relates to A "Z-order", B "Duplicate by modifier-drag", O "Re-attach or detach an arrow end by dragging" and the layer-order row above | ⬜ | TBD |
-| Internationalization (i18n) | Reading recorded on 2026-11-22 (the request only says "add i18n"): translate the web app UI, at least English and pt-BR to match the bilingual docs, with a way to pick the language. Today the canvas UI, HTTP API messages and default names ("Página 1") are pt-BR only (I, "Guide and errors in English"); the agent-facing text is English with `get_design_guide {language: "pt-BR"}`, and the site already has en and pt-BR pages. Open when planned: whether default names and API messages follow the UI language, and which other languages come next | ⬜ | TBD |
-| New version notice in the app | Smaller first step of the OTA request (agreed with the maintainer on 2026-11-22). The app checks the GitHub releases and shows "a new version is available" with the update command (`git pull` + `docker compose up -d --build`). Needs published releases first: the repo has no tags or releases yet; `paprika --version` already reports `server.Version` | ⬜ | TBD |
-| Version check between team peers | The real risk today: two instances on different versions can diverge in the CRDT or in signed operations. The sidecar's ALPNs are versioned (`paprika/sync/1`, `paprika/join/1`), but peers do not compare app or document-format versions; the check should warn or refuse sync on an incompatible peer (M, "Real-time multi-user editing", ADR 0004) | ⬜ | TBD |
-| Full OTA update (signed download, rollback) | Future, only once there is a standalone binary or desktop app. Under Docker an update means replacing the image: a binary that replaces itself inside the container fights that and is lost on the next `up --build`. Depends on the two rows above and on published releases | ⬜ | TBD |
-| Three arrow line styles: square, rounded, free curve | Reading recorded on 2026-11-22 (screenshot from the maintainer shows today's elbow arrow): (1) square corners, what `route: "elbow"` draws today (`route: "straight"` also exists); (2) rounded, the same elbow route with rounded corners; (3) free curve, a bezier whose handle can be dragged on the canvas to shape it. Also over MCP and in the inspector. Refines O "Curved arrows" and relates to O "Re-attach or detach an arrow end by dragging" and F point editing | ⬜ | TBD |
-| Double-click an arrow to add, edit or remove its label | Inline editing on the canvas, like shape text (O). Today the `label` is edited only in the inspector (O "Labels on arrows", PR #75); clearing the text removes the label | ⬜ | TBD |
-| Drag the toolbar and dock it left, top, right or bottom | Today the floating toolbar is fixed, centered at the top of the canvas (`apps/web/src/App.tsx`). On the left and right it becomes vertical; the chosen side is remembered. Plan together with the side panels row above (collapse into a floating button), so the toolbar and the panels don't fight for the same edge | ⬜ | TBD |
-| Resize handles on all four corners | Today a selected node has a single resize handle, at the bottom-right corner (`apps/web/src/Canvas.tsx`, screenshot from the maintainer). Dragging a corner keeps the opposite corner in place. Relates to B "Rotation-aware hit testing and handles" | ⬜ | TBD |
-| Aspect-ratio lock shortcuts while resizing, with a visual hint | Three locks: square (1:1); rectangular driven by the width; rectangular driven by the height. Modifier keys such as `Shift` or `Ctrl` (exact mapping decided when planned); a hint on the canvas shows which lock is active. Today resizing takes no modifier and there is no ratio lock. "Driven by the width/height" (maintainer, 2026-11-22): keep the current ratio while that side leads and the other follows | ⬜ | TBD |
-| Several border types for elements | Today `stroke` is only `{color, width}` (`packages/core/src/schema.ts`) and the inspector shows color and width; only connectors have `dashed`. Missing: solid, dashed, dotted and similar styles (and, to decide when planned, inside/center/outside position and per-side borders). Relates to C "Multiple shadows, inner shadow, outline" | ⬜ | TBD |
-| Triangle as a simple shape | New `ShapeKind` next to `rect`, `ellipse`, `diamond`, `note` (O), with a toolbar tool, in the inspector shape picker and over MCP (`draw_diagram` too) | ⬜ | TBD |
-| `+` and `−` buttons on every purely numeric field | A stepper in the inspector for fields such as opacity, weight, stroke width and position; fields that accept tokens (`$name`) or text keep a plain input. Relates to B "Configurable nudge step" | ⬜ | TBD |
-| Bug: numeric fields accept non-numeric text | Screenshot from the maintainer: "Opacidade" shows `1aaaaa`. Cause: `Field` with `type="number"` renders a text `<input>` with only `inputMode="decimal"` (`apps/web/src/Inspector.tsx`), and `setNum` silently drops a value that does not parse. Numeric fields should refuse non-numeric input (and say why when a pasted value is rejected) | ⬜ | TBD |
-| System fonts on any element with text | A font picker that lists the fonts installed on the machine (e.g. Local Font Access API, with a fallback list) for `text`, `shape` and every node that has `fontFamily`. Today `fontFamily` is a free text field. Relates to D "Font tokens" | ⬜ | TBD |
-| Import and export fonts in several formats | E.g. TTF, OTF, WOFF, WOFF2: fonts embedded in the workspace (as assets) and carried in exports (`@font-face` in HTML/CSS, embedded in SVG/PDF). Also over MCP. Respect each font's license when embedding. Relates to J and the export rows above | ⬜ | TBD |
+The maintainer's requests of 2026-11-22 were moved on 2026-11-22 into the thematic sections (A, B, C, D, E, G, H, I, J, M, O) and the new sections R (app interface) and S (releases); each moved row says "Requested 2026-11-22". The constraints in each row are part of the request.
 
 ## Q. From the agent feedback log (2026-11-22)
 
@@ -261,17 +240,17 @@ Every item still open in the [agent feedback log](agent-feedback.md) (fb#1 to fb
 
 | Work item | What to build | Feedback | Status | Pri. |
 |---|---|---|---|---|
-| Move a board between Paprika servers | `import_document` (a `.paprika.json` in, a new workspace out, without switching the active one); `paprika export --root <id>` for one frame; `create_nodes` ignores derived connector fields instead of refusing them | fb#72, fb#75 | ⬜ | P1 |
-| Core geometry: absolute boxes for agents | A core `layout(doc)` returning absolute boxes (Go port held by fixtures), a `get_bounds` tool with rotated corners, an `origin` field, and `normalize` on path create (or the offset in `path_info`); the core export uses the same boxes, so SVG of auto-layout nodes needs no browser | fb#2, fb#15, fb#26, fb#41 | ⬜ | P1 |
-| Boolean operations and cut-outs | `union`/`subtract`/`intersect`/`exclude` producing a new `path` (MCP op + canvas command), or a `mask` on `group`; same item as F "Boolean operations" | fb#1, fb#76 | ⬜ | P1 |
+| Move a board between Paprika servers | `import_document` (a `.paprika.json` in, a new workspace out, without switching the active one); `paprika export --root <id>` for one frame; `create_nodes` ignores derived connector fields instead of refusing them Batch 3: PAP-B-013. | fb#72, fb#75 | ⬜ | P1 |
+| Core geometry: absolute boxes for agents | A core `layout(doc)` returning absolute boxes (Go port held by fixtures), a `get_bounds` tool with rotated corners, an `origin` field, and `normalize` on path create (or the offset in `path_info`); the core export uses the same boxes, so SVG of auto-layout nodes needs no browser Batch 3: PAP-A-001. | fb#2, fb#15, fb#26, fb#41 | ⬜ | P1 |
+| Boolean operations and cut-outs | `union`/`subtract`/`intersect`/`exclude` producing a new `path` (MCP op + canvas command), or a `mask` on `group`; same item as F "Boolean operations" Batch 3: PAP-A-003. | fb#1, fb#76 | ⬜ | P1 |
 | Trace a reference image | Place an image (local file or data URL) as a locked, semi-transparent reference under a frame; `render_screenshot` with a `compare` image side by side | fb#78 | ⬜ | P2 |
 | Lint that points at what matters | Group `lint_design` results by rule (counts + first N ids), `minSeverity`, per-node `lintIgnore`; new rules: row/column children wider than the frame, geometry (siblings that don't touch, gaps under 4 px, fully hidden shapes) | fb#6, fb#9, fb#69, fb#70 | 🟡 | P2 |
 | Agents edit path points | `edit_path` (anchor index + new position, handles) over the canvas helpers, and anchors listed in `path_info` | fb#17, fb#43 | 🟡 | P2 |
-| Duplicate with changes | `duplicate_nodes` with `scale` and overrides (for example `mode: "dark"` for a light/dark pair) | fb#3, fb#45 | ⬜ | P2 |
+| Duplicate with changes | `duplicate_nodes` with `scale` and overrides (for example `mode: "dark"` for a light/dark pair) Batch 3: PAP-B-017. | fb#3, fb#45 | ⬜ | P2 |
 | Work on another workspace without moving the human | Optional `workspace` on the read tools (outline, nodes, screenshot); the active workspace id in the outline's first line and in write results; one `History` per workspace for the life of the process | fb#52, fb#53, fb#54 | ⬜ | P2 |
-| Z-order without an extra call | `index` or `"front"`/`"back"` in `update_nodes` props; pairs with P "Layer order" (canvas shortcuts) | fb#77 | ⬜ | P2 |
+| Z-order without an extra call | `index` as a number or `front`/`back`/`forward`/`backward` in `update_nodes` props and `move_nodes` (2026-11-22, PAP-B-014); canvas shortcuts in A "Z-order" | fb#77 | ✅ | — |
 | Screenshots agents can rely on | Detect a missing browser at startup and return the fix command; optional `path` or a download URL on `render_screenshot`; report the active renderer in the WebSocket hello and the outline (the screenshot stays on the HTML path) | fb#5, fb#24, fb#27, fb#28, fb#79 | 🟡 | P2 |
-| Safer deletes | Two-step `delete_workspace` (first call returns what would be lost and a token); a trash or activity log for workspace operations; a canvas notice when an agent deletes or switches the workspace | fb#59, fb#60, fb#61 | ⬜ | P2 |
+| Safer deletes | Two-step `delete_workspace` (first call returns what would be lost and a token); a trash or activity log for workspace operations; a canvas notice when an agent deletes or switches the workspace Batch 3: PAP-B-015 (two-step `delete_workspace`). | fb#59, fb#60, fb#61 | ⬜ | P2 |
 | Nested components | Instances inside components, overrides addressed by path (`instance/copy`) | fb#39 | ⬜ | P2 |
 | Import fidelity | `import_svg`: `<use>`/`<symbol>` sprites and `<text>` as `text` nodes; `import_html`: an option that renders in the server's Chromium and imports computed styles | fb#40, fb#42 | ⬜ | P2 |
 | Web semantics in the document | `href` on frames and text (exported as `<a>`), responsive roots (`minWidth`/`maxWidth` or breakpoint variants), `decorative` images, document-level image assets | fb#30, fb#31, fb#32, fb#33 | ⬜ | P2 |
@@ -280,3 +259,32 @@ Every item still open in the [agent feedback log](agent-feedback.md) (fb#1 to fb
 | Small conveniences | `pageId` default on `create_nodes` (the page the human sees); typed size tokens scaled by `scale`; `resolve` on `get_nodes`; read-only `sql_query`; open batch shown in the activity list; one UI language (or a setting); live cover and cover in export; normalized examples; edited paths as "ignore layout" children (A) | fb#21, fb#23, fb#36, fb#38, fb#44, fb#46, fb#49, fb#51, fb#63, fb#64 | ⬜ | P3 |
 
 Already covered by shipped work, to mark "Done" in the log: fb#8 and fb#16 (`group` node), fb#13 (pages; auto-stacking top-level frames is still open, see A).
+
+## R. App interface (shell, panels, inspector)
+
+The editor's own interface, apart from what is drawn on the canvas. Every row here is a UI change: draw it in a local Paprika over MCP first (AGENTS rule 6, design-first).
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| Bug: the first page of a workspace cannot be renamed while it is the only one | Cause found: a workspace without pages shows a placeholder "Página 1" row (`apps/web/src/Pages.tsx`) that is not a real page node, so double-click does nothing; renaming it should create the page and name it. Requested 2026-11-22. Batch 3: PAP-B-020. | ⬜ | TBD |
+| Bug: numeric fields accept non-numeric text | Screenshot from the maintainer: "Opacidade" shows `1aaaaa`. Cause: `Field` with `type="number"` renders a text `<input>` with only `inputMode="decimal"` (`apps/web/src/Inspector.tsx`), and `setNum` silently drops a value that does not parse. Numeric fields should refuse non-numeric input (and say why when a pasted value is rejected). Requested 2026-11-22. | ⬜ | TBD |
+| Compact inspector | Today it is one long scroll area with a lot of information. Requested 2026-11-22. Batch 3: PAP-B-022. | ⬜ | TBD |
+| `+` and `−` buttons on every purely numeric field | A stepper in the inspector for fields such as opacity, weight, stroke width and position; fields that accept tokens (`$name`) or text keep a plain input. Relates to B "Configurable nudge step". Requested 2026-11-22. | ⬜ | TBD |
+| Better-looking activity history | Today it is a block of poorly formatted information. Requested 2026-11-22. Batch 3: PAP-B-025. | ⬜ | TBD |
+| Side panels collapse into a floating button when shrunk past their minimum | Top-left or top-right corner; clicking the button expands that panel. Requested 2026-11-22. Batch 3: PAP-B-024. | ⬜ | TBD |
+| Drag the toolbar and dock it left, top, right or bottom | Today the floating toolbar is fixed, centered at the top of the canvas (`apps/web/src/App.tsx`). On the left and right it becomes vertical; the chosen side is remembered. Plan together with the side panels row above (collapse into a floating button), so the toolbar and the panels don't fight for the same edge. Requested 2026-11-22. | ⬜ | TBD |
+| Destructive actions | A danger button variant (and confirmation pattern) for delete/remove; today every action uses the brand primary button. Requested 2026-11-22. Batch 3: PAP-B-026. | ⬜ | TBD |
+| Turn `title` attributes into accessible tooltips | Follows the accessibility review ([thread "Revisar acessibilidade do Paprika"](https://claude.ai/code/project/chan_01QGCFibNVKw2MsxBcqe4Jmi?thread=cmsg_01QGCFibNVKw2MsxBcqe4Jmi1MtFJYQ4HiNMD17jXKGUrG), PR #70). Requested 2026-11-22. Batch 4. | ⬜ | TBD |
+| Internationalization (i18n) | Reading recorded on 2026-11-22 (the request only says "add i18n"): translate the web app UI, at least English and pt-BR to match the bilingual docs, with a way to pick the language. Today the canvas UI, HTTP API messages and default names ("Página 1") are pt-BR only (I, "Guide and errors in English"); the agent-facing text is English with `get_design_guide {language: "pt-BR"}`, and the site already has en and pt-BR pages. Open when planned: whether default names and API messages follow the UI language, and which other languages come next. Requested 2026-11-22. | ⬜ | TBD |
+| Migrate the UI to shadcn components | Keep Paprika's own theme (ADR 0003, Tailwind without Preflight). Requested 2026-11-22. Batch 4. | ⬜ | TBD |
+| Better on-screen animations with tailwind-animate | Requested 2026-11-22. Batch 4. | ⬜ | TBD |
+
+## S. Releases and updates
+
+From the maintainer's "OTA update?" question (2026-11-22): smaller steps first, full OTA only with a standalone binary or desktop app.
+
+| Capability | Paprika today | Status | Pri. |
+|---|---|---|---|
+| New version notice in the app | Smaller first step of the OTA request (agreed with the maintainer on 2026-11-22). The app checks the GitHub releases and shows "a new version is available" with the update command (`git pull` + `docker compose up -d --build`). Needs published releases first: the repo has no tags or releases yet; `paprika --version` already reports `server.Version`. Requested 2026-11-22. | ⬜ | TBD |
+| Version check between team peers | The real risk today: two instances on different versions can diverge in the CRDT or in signed operations. The sidecar's ALPNs are versioned (`paprika/sync/1`, `paprika/join/1`), but peers do not compare app or document-format versions; the check should warn or refuse sync on an incompatible peer (M, "Real-time multi-user editing", ADR 0004). Requested 2026-11-22. | ⬜ | TBD |
+| Full OTA update (signed download, rollback) | Future, only once there is a standalone binary or desktop app. Under Docker an update means replacing the image: a binary that replaces itself inside the container fights that and is lost on the next `up --build`. Depends on the two rows above and on published releases. Requested 2026-11-22. | ⬜ | TBD |
