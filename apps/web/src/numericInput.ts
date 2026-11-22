@@ -62,3 +62,31 @@ export function commitNumeric(raw: string, range: NumericRange = {}): NumericCom
   if (clamped) return { ok: true, value: n, text, clamped: true, message: rangeMessage(range) };
   return { ok: true, value: n, text, clamped: false };
 }
+
+export function defaultNumericStep(range: NumericRange = {}): number {
+  if (range.min === 0 && range.max === 1) return 0.05;
+  if (range.integer && range.min === 100 && range.max === 900) return 100;
+  return 1;
+}
+
+export function stepAmount(range: NumericRange = {}, shift = false, step?: number): number {
+  const base = step ?? defaultNumericStep(range);
+  return shift ? base * 10 : base;
+}
+
+function cleanStepResult(n: number, range: NumericRange): number {
+  if (range.integer) return Math.round(n);
+  return Math.round(n * 1e6) / 1e6;
+}
+
+export function stepNumeric(
+  current: number | undefined,
+  direction: 1 | -1,
+  range: NumericRange = {},
+  opts: { shift?: boolean; step?: number } = {},
+): NumericCommit {
+  const delta = stepAmount(range, !!opts.shift, opts.step) * direction;
+  const start = current ?? (range.min !== undefined ? range.min : 0);
+  const next = cleanStepResult(start + delta, range);
+  return commitNumeric(String(next), range);
+}
