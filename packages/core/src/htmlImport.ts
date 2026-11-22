@@ -179,10 +179,13 @@ function boxProps(node: NodeInput, css: ReadonlyMap<string, string>, ctx: Ctx, f
   if (node.type === "group") return;
   const fill = color(css.get("background-color") ?? css.get("background"), ctx);
   if (fill && (!foreign || (fill !== "transparent" && fill !== "none"))) node.fill = fill;
-  const border = /^(\d+(?:\.\d+)?)px\s+(?:solid|dashed|dotted|double)\s+(.+)$/.exec((css.get("border") ?? "").trim());
+  const border = /^(\d+(?:\.\d+)?)px\s+(solid|dashed|dotted|double)\s+(.+)$/.exec((css.get("border") ?? "").trim());
   if (border) {
-    const c = color(border[2], ctx);
-    if (c) node.stroke = { color: c, width: Number(border[1]) };
+    const c = color(border[3], ctx);
+    if (c) {
+      const style = border[2] === "dashed" || border[2] === "dotted" ? border[2] : "solid";
+      node.stroke = { color: c, width: Number(border[1]), style, position: "inside" };
+    }
   }
   const radius = px(css.get("border-radius"));
   if (radius !== undefined && radius > 0 && node.type !== "ellipse") node.radius = radius;

@@ -288,8 +288,9 @@ jobs:
         working-directory: server-go
         env:
           PKGS: ${{ steps.pkgs.outputs.list }}
+          CGO_ENABLED: "0"
         # shellcheck disable=SC2086 # word splitting of the package list is intended
-        run: go test -shuffle=on $PKGS
+        run: go test -tags nodynamic -shuffle=on $PKGS
 
   # ---------------------------------------------------------------- Rust
 
@@ -371,7 +372,9 @@ jobs:
       # Two real instances (Go store + sidecar each) talking over loopback.
       - name: go test ./internal/team
         working-directory: server-go
-        run: PAPRIKA_SYNC="$GITHUB_WORKSPACE/crates/sync/target/debug/paprika-sync" go test -count=1 ./internal/team/...
+        env:
+          CGO_ENABLED: "0"
+        run: PAPRIKA_SYNC="$GITHUB_WORKSPACE/crates/sync/target/debug/paprika-sync" go test -tags nodynamic -count=1 ./internal/team/...
 
   # ---------------------------------------------------------------- CodeQL
 
@@ -412,7 +415,9 @@ jobs:
       - name: Build Go (traced by CodeQL)
         if: matrix.language == 'go'
         working-directory: server-go
-        run: go build -buildvcs=false ./...
+        env:
+          CGO_ENABLED: "0"
+        run: go build -tags nodynamic -buildvcs=false ./...
       - uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
         with:
           category: /language:${{ matrix.language }}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/leonardo-moraes360/paprika/server-go/contract"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
+	"github.com/leonardo-moraes360/paprika/server-go/internal/export"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 	z "github.com/leonardo-moraes360/paprika/server-go/internal/zod"
 )
@@ -861,6 +862,29 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		}, "structuredContent", jsonv.NewObject("width", float64(w), "height", float64(h))), nil
 	})
 
+	add("export_image", z.Object(
+		optStr("rootId"),
+		z.Field{Name: "format", Schema: z.Default(z.Enum("png", "jpeg", "webp", "avif", "pdf"), "png")},
+		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		out, err := export.Export(store.Doc(), a.Str("rootId"), a.Str("format"), a.Num("scale"))
+		if err != nil {
+			return nil, err
+		}
+		content := []any{
+			jsonv.NewObject("type", "image", "data", base64.StdEncoding.EncodeToString(out.Data), "mimeType", out.Mime),
+			jsonv.NewObject("type", "text", "text", fmt.Sprintf("%d×%d %s", out.Width, out.Height, out.Format)),
+		}
+		sc := jsonv.NewObject(
+			"width", float64(out.Width),
+			"height", float64(out.Height),
+			"format", out.Format,
+			"mimeType", out.Mime,
+			"warnings", jsonv.FromGo(out.Warnings),
+		)
+		return jsonv.NewObject("content", content, "structuredContent", sc), nil
+	})
+
 	add("export_code", z.Object(
 		z.Field{Name: "rootId", Schema: z.String()},
 		z.Field{Name: "format", Schema: z.Default(z.Enum("html", "react", "svg", "tailwind", "tailwind-html", "css-modules", "angular", "svelte"), "react")},
@@ -992,7 +1016,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			optStr("id"),
 			z.Field{Name: "fromSide", Schema: z.Optional(core.ConnectorSideSchema)},
 			z.Field{Name: "toSide", Schema: z.Optional(core.ConnectorSideSchema)},
-			z.Field{Name: "route", Schema: z.Optional(z.Enum("straight", "elbow"))},
+			z.Field{Name: "route", Schema: z.Optional(z.Enum("straight", "elbow", "rounded", "curve"))},
+			z.Field{Name: "radius", Schema: z.Optional(z.Number().Min(0).Max(1000))},
+			z.Field{Name: "control", Schema: z.Optional(z.Object(
+				z.Field{Name: "x", Schema: z.Number()},
+				z.Field{Name: "y", Schema: z.Number()},
+			))},
 			z.Field{Name: "startArrow", Schema: z.Optional(z.Enum("none", "arrow"))},
 			z.Field{Name: "endArrow", Schema: z.Optional(z.Enum("none", "arrow"))},
 			z.Field{Name: "dashed", Schema: z.Optional(z.Bool())},

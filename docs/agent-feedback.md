@@ -493,6 +493,20 @@ Task: draw the activity feed (actor color+name, action, relative time, batch gro
 - `layout.padding: [6, 8]` (two values) is rejected; four values or a single number work. Same class of friction as other tickets.
 - Undo/redo position is derived client-side from leading `desfazer:` / `refazer:` labels in the existing WS activity feed — no server change.
 
+## 2026-11-22: title attributes → accessible tooltips (PAP-B-051, design first)
+
+Task: replace every HTML `title` in `apps/web` with the shadcn Tooltip (`Hint` helper: hover + focus, Esc dismisses) while icon buttons keep `aria-label`. Three frames on `Interfaces` (`Paprika - UI`): before/after dark, before/after light, focus/Esc states. PNGs in `docs/assets/boards/PAP-B-051/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 112 | Text paint vs `fill` on boards | Setting `fill` on a text node left `color` at the default `#111111`; lint compared `color` to the node's own `fill` and reported ~1:1 contrast on the light sheet | Document that text ink is `color` (not `fill`) in the design-guide / create_nodes examples agents copy | P2 |
+| 113 | Export of the live boards DB | The maintainer's `:4777` store is a Docker volume; this agent had no approved path to `paprika export` from the container, so only the PNGs were committed | Keep refreshing `docs/design/boards.paprika.json` from a host-mounted DB, or add an MCP `export_document` | P2 |
+| 114 | Disabled controls and Tooltip | Radix does not open a tooltip on a `disabled` button (no pointer/focus events); the overview delete-when-alone and idle agent pills need a focusable wrapper `span` | Note the span-wrapper pattern next to `Hint` in ADR 0005 or the gallery | P3 |
+
+- `TooltipProvider` moved to `main.tsx` so Overview, Editor and `/ui` share one delay; the floating toolbar dropped its local provider.
+- App-level Esc no longer clears the selection while a tooltip is open (`[data-slot=tooltip-content]`).
+- a11y E2E: zoom + Retângulo open on focus, Esc closes, no native `title`; agent roster asserts tooltip instead of `title`.
+
 ## 2026-11-22: layer order shortcuts and Ordem section (PAP-B-021, design first)
 
 Task: draw the inspector **Ordem** section and the Z-order shortcut map (light and dark, fixed height) on the `Interfaces` page of `Paprika - UI` before wiring `Page Up`/`Page Down` (+ Ctrl/Cmd for front/back) in `Canvas.tsx` and the four arrange actions in `Inspector.tsx`. Four root frames, one `create_nodes` call; PNGs under `docs/assets/boards/PAP-B-021/`; boards export refreshed in `docs/design/boards.paprika.json`.
@@ -503,7 +517,25 @@ Task: draw the inspector **Ordem** section and the Z-order shortcut map (light a
 - `lint_design` on the four frames: 0 errors; `small-text` warnings are the 11 px section/chip labels matching the app.
 - Shortcut map chosen and documented in `docs/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.
 
-## 2026-11-22: numeric inspector steppers (PAP-B-046, design first)
+## 2026-11-22: three arrow line styles (PAP-B-045, design first)
+
+Task: draw elbow / rounded / curve connector states and the inspector Traço picker on `Interfaces` before coding `route: "rounded"|"curve"`. Four frames on a new Interfaces page; PNGs under `docs/assets/boards/PAP-B-045/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 112 | Preview `rounded` / `curve` on the live `:4777` server | The maintainer binary still only accepts `straight`\|`elbow`, so `draw_diagram` refused the new routes; the sheet used `path` mocks for the three styles | Ship the schema before asking agents to redesign against production, or run a ticket-local `paprika serve` for design | P3 |
+- Active workspace was `Paprika - UI`; a second `Interfaces` page (`interfaces-pap045`) was created because the outline was large — prefer reusing `interfaces-pap020` when present.
+## 2026-11-22: several border types (PAP-B-044, design first)
+
+Task: extend `stroke` with `style` (`solid`|`dashed`|`dotted`) and `position` (`inside`|`center`|`outside`) for frame/rect/ellipse/path/shape, then inspector Estilo/Posição. Four fixed-height frames on `Interfaces` (`docs/assets/boards/PAP-B-044/`); boards export refreshed.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 113 | Stable `Interfaces` page id across parallel tickets | Active workspace flipped to `Paprika - UI` mid-ticket; the old `interfaces` page was gone and a new empty `Interfaces` page had to be created (`id: interfaces`) while other tickets used `interfaces-pap020` / `interfaces-pap045` | `create_page` that reuses an existing page by name (same as #99) | P2 |
+| 114 | Screenshots as files | Same as #100/#101: `render_screenshot` returns base64 only | Optional `path` on `render_screenshot` | P3 |
+- Default `style`/`position` stay omitted in the document (helpers treat missing as solid / type-aware position) so round-trips and goldens do not grow a `style: "solid"` on every stroke.
+- WASM cannot dash or reposition strokes: `wasmPaintable` returns false and the DOM paints them (crates/render untouched).
+- Closes the friction in #99 (dashed stroke on boxes) via `stroke.style`.## 2026-11-22: numeric inspector steppers (PAP-B-046, design first)
 
 Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill and `$token` without steppers, focus ring and clamp-at-min states in light and dark before wiring `Field` steppers; six fixed-height root frames; screenshots under `docs/assets/boards/PAP-B-046/`; local `paprika serve` on `:4799` because the shared `:4777` workspace was crowded by parallel tickets.
 
@@ -514,3 +546,40 @@ Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill a
 
 - `lint_design` small-text warnings for 12 px labels match the inspector density; no new contrast errors on the six roots.
 - Step sizes chosen to match the ticket: opacity `0.05`, weight `100`, else `1`, Shift×10; validation/clamp reused from PAP-B-027.
+
+## 2026-11-22: dockable toolbar (PAP-B-048, design first)
+
+Task: draw toolbar docked top/left/right/bottom (light and dark) on `Interfaces` of the active `Paprica · UI` workspace, then implement grip-drag docking, localStorage, keyboard menu, and clearance for PAP-B-024 collapsed-panel buttons. Eight fixed-height (720×420) root frames; PNGs under `docs/assets/boards/PAP-B-048/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 112 | `render_screenshot` argument name | Passing `id` is silently ignored (schema only has `rootId`); the tool screenshots something else (here a 280×220 unrelated frame) and every PNG comes back identical | Reject unknown args, or accept `id` as an alias of `rootId`, and say so in the tool description | P2 |
+| 113 | Light `mode` with `$pg.*` tokens | Frames with `mode: "light"` still rendered the dark `$pg.*` palette because `modes.light` on this server only carried `$ui.*`; had to redraw the light boards with literal colors | Document which token prefixes participate in theme modes, or seed `$pg.*` into `light` when the boards workspace is created | P2 |
+| 114 | Screenshots as files | Same as #101: base64 only; a local script wrote `docs/assets/boards/PAP-B-048/` | Optional `path` on `render_screenshot` | P3 |
+
+- Active workspace was already `Paprica · UI` (empty of prior boards until recovered); used existing `page#interfaces` without `open_workspace`.
+- Collapsed-panel buttons shift with `[&_[data-panel-toggle=left]]:left-14` from `App.tsx` when the toolbar shares that edge — no change to `PanelResizer.tsx` (outside the ticket paths).
+## 2026-11-22: system fonts combobox (PAP-B-047, design first)
+
+Task: draw the closed and open FontPicker states (light and dark) on `Interfaces`, then replace the free-text `fontFamily` field on text nodes with a shadcn combobox. Four fixed-height frames; PNGs under `docs/assets/boards/PAP-B-047/`; boards export refreshed.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 115 | Screenshots as files | Same as #108: `render_screenshot` returns base64 only; `scripts/draw-pap-b-047.mjs` decoded into `docs/assets/boards/PAP-B-047/` | Optional `path` on `render_screenshot` | P2 |
+| 116 | Free band on a crowded Interfaces page | Outline depth 1 bottoms out near y≈13580 (A-004 / B-032); this ticket used y=13800 | `place: "free"` on `create_nodes` (same as #103/#109/#111) | P3 |
+- Local Font Access is gated behind an explicit button — opening the popover never calls `queryLocalFonts`.
+- `cmdk` 1.1.1 pinned for the Command primitive (ADR 0005 dependency list).
+## 2026-11-22: drag and drop reparent + file drop (PAP-B-049, design first)
+
+Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states (light and dark) on `Interfaces`, then wire canvas DnD + Layers row DnD + OS file import in `apps/web`. Eight fixed-height root frames; PNGs under `docs/assets/boards/PAP-B-049/`; boards export refreshed via `GET /api/export`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | Active workspace name match | Ticket said `Paprika - UI`; the live server had `Paprica · UI` (typo/rename) with parallel tickets already drawing on page `interfaces` | Treat close names as the UI board workspace, or pin the id in the assign payload | P3 |
+| 111 | `create_page` race on Interfaces | Calling `create_page` while another agent also ensured `Interfaces` produced empty duplicate pages (`38ktwolyd1`, `qhf8mcdwke`) alongside `page#interfaces` | Idempotent `create_page` by name (same as #99) | P2 |
+| 112 | Free Y among parallel boards | PAP-B-051 frames already sat at y≈40; PAP-B-049 had to be moved after create to y=1100+ | Outline bbox / `place: "free"` (same as #103 / #110) | P3 |
+| 113 | Screenshots as files | `render_screenshot` still returns base64 in MCP content; local decode into `docs/assets/boards/PAP-B-049/` | Optional `path` on `render_screenshot` | P3 |
+| 114 | Broken main typecheck | `ui.ts` lost `activity*`/`actions` in merge `3f0bda1`; Inspector still referenced `ActivityEntry`/`Bot`; ColorField had undefined `hex` | Guard merge of `ui.ts` / restore Activity wiring; this PR restored the missing pieces so `pnpm check` can run | P1 |
+
+- Drew on active `Paprica · UI` / page `interfaces` without `open_workspace` after querying the maintainer about the name mismatch.
+- Canvas DnD only touches `Canvas.tsx`; Layers HTML5 DnD in `Layers.tsx`; E2E in `drag.e2e.test.ts`.

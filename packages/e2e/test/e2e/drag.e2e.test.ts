@@ -207,6 +207,87 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     expect(after.y).toBeCloseTo(nw.y, 0);
   }, 30_000);
 
+  it("arrastar a toolbar pela alça ancora em cada borda e o lado fica no localStorage", async () => {
+    const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    try {
+      const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
+      await p.goto(`${server.url}/w/${encodeURIComponent(active)}`);
+      await p.waitForSelector(NODE);
+      await p.evaluate(() => localStorage.removeItem("paprika.toolbar.dock"));
+      await p.reload();
+      await p.waitForSelector(NODE);
+
+      const toolbar = () => p.getByRole("navigation", { name: "Ferramentas" });
+      const grip = () => p.getByRole("button", { name: "Arrastar barra de ferramentas" });
+      const mainBox = async () => (await p.locator("main").boundingBox())!;
+
+      const expectDock = async (dock: "top" | "left" | "right" | "bottom") => {
+        await expect.poll(() => toolbar().getAttribute("data-toolbar-dock")).toBe(dock);
+        const bar = (await toolbar().boundingBox())!;
+        const main = await mainBox();
+        if (dock === "top" || dock === "bottom") {
+          expect(bar.height).toBeLessThan(bar.width);
+          expect(Math.abs(bar.x + bar.width / 2 - (main.x + main.width / 2))).toBeLessThan(3);
+          if (dock === "top") expect(bar.y).toBeLessThan(main.y + 60);
+          else expect(bar.y + bar.height).toBeGreaterThan(main.y + main.height - 60);
+        } else {
+          expect(bar.width).toBeLessThan(bar.height);
+          expect(Math.abs(bar.y + bar.height / 2 - (main.y + main.height / 2))).toBeLessThan(3);
+          if (dock === "left") expect(bar.x).toBeLessThan(main.x + 60);
+          else expect(bar.x + bar.width).toBeGreaterThan(main.x + main.width - 60);
+        }
+        expect(await p.evaluate(() => localStorage.getItem("paprika.toolbar.dock") ?? "top")).toBe(dock);
+      };
+
+      await expectDock("top");
+
+      const dragGripTo = async (x: number, y: number) => {
+        const g = (await grip().boundingBox())!;
+        await p.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+        await p.mouse.down();
+        await p.mouse.move(x, y, { steps: 12 });
+        await p.mouse.up();
+      };
+
+      const main = await mainBox();
+      await dragGripTo(main.x + 8, main.y + main.height / 2);
+      await expectDock("left");
+
+      await p.reload();
+      await p.waitForSelector(NODE);
+      await expectDock("left");
+
+      await dragGripTo(main.x + main.width - 8, main.y + main.height / 2);
+      await expectDock("right");
+
+      await dragGripTo(main.x + main.width / 2, main.y + main.height - 8);
+      await expectDock("bottom");
+
+      await dragGripTo(main.x + main.width / 2, main.y + 8);
+      await expectDock("top");
+
+      await p.getByRole("button", { name: "Menu da barra de ferramentas" }).click();
+      await p.getByRole("menuitemradio", { name: "Esquerda" }).click();
+      await expectDock("left");
+
+      await p.evaluate(() => {
+        localStorage.setItem("paprika.panel.left.collapsed", "1");
+      });
+      await p.reload();
+      await p.waitForSelector(NODE);
+      await expectDock("left");
+      const showLeft = p.getByRole("button", { name: "Mostrar painel de camadas" });
+      expect(await showLeft.count()).toBe(1);
+      const toggle = (await showLeft.boundingBox())!;
+      const bar = (await toolbar().boundingBox())!;
+      const overlap =
+        toggle.x < bar.x + bar.width && bar.x < toggle.x + toggle.width && toggle.y < bar.y + bar.height && bar.y < toggle.y + toggle.height;
+      expect(overlap).toBe(false);
+    } finally {
+      await p.close();
+    }
+  });
+
   it("arrastar um painel lateral além do mínimo o recolhe num botão flutuante que devolve a última largura", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     try {
@@ -294,4 +375,157 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
       expect(await changedShare(frames[1]!, frames[2]!)).toBeLessThan(0.002);
     });
   }
+});
+
+describe.skipIf(!existsSync(webRoot))("E2E: drag and drop reparent e arquivos (PAP-B-049)", () => {
+  let server: ExternalServer;
+  let browser: Browser;
+  let page: Page;
+
+  beforeAll(async () => {
+    server = await startServer({ seed: join(repoRoot, "examples/demo.paprika.json"), webRoot });
+    browser = await chromium.launch({ executablePath: process.env.PAPRIKA_CHROMIUM || undefined });
+    page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
+    await page.goto(`${server.url}/w/${encodeURIComponent(active)}`);
+    await page.waitForSelector(NODE);
+  }, 60_000);
+
+  afterAll(async () => {
+    await browser?.close();
+    await server?.stop();
+  });
+
+  const postOps = async (ops: unknown[], label: string) => {
+    const res = await page.evaluate(
+      async ({ ops, label }) => {
+        const r = await fetch("/api/ops", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ops, label }),
+        });
+        return { ok: r.ok, status: r.status, text: await r.text() };
+      },
+      { ops, label },
+    );
+    if (!res.ok) throw new Error(`ops ${res.status}: ${res.text}`);
+  };
+
+  const boxOf = async (id: string) => (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
+
+  const undoOnce = async () => {
+    await page.keyboard.press("Control+z");
+  };
+
+  it("reparent: soltar um nó livre dentro de um frame troca o pai (um undo)", async () => {
+    await postOps(
+      [
+        { op: "create", parentId: null, node: { type: "frame", id: "drop-frame", name: "Alvo", x: 900, y: 40, width: 260, height: 200, fill: "#ffffff" } },
+        { op: "create", parentId: null, node: { type: "rect", id: "drop-rect", name: "Livre", x: 820, y: 280, width: 80, height: 50, fill: "#c43d27" } },
+      ],
+      "setup reparent",
+    );
+    await page.waitForSelector('[data-paprika-id="drop-rect"]');
+    await page.waitForSelector('[data-paprika-id="drop-frame"]');
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    await page.waitForTimeout(200);
+    await page.locator('[data-paprika-id="drop-rect"]').click({ position: { x: 10, y: 10 } });
+    const from = await boxOf("drop-rect");
+    const to = await boxOf("drop-frame");
+    await page.mouse.move(from.x + 10, from.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 16 });
+    await expect.poll(async () => page.getByTestId("drop-target").count()).toBe(1);
+    await page.mouse.up();
+    await expect.poll(async () => (await server.doc()).nodes["drop-rect"]?.parentId).toBe("drop-frame");
+    await undoOnce();
+    await expect.poll(async () => (await server.doc()).nodes["drop-rect"]?.parentId ?? null).toBe(null);
+  }, 30_000);
+
+  it("auto-layout: reordenar filhos pelo arraste com marcador", async () => {
+    await postOps(
+      [
+        {
+          op: "create",
+          parentId: null,
+          node: {
+            type: "frame",
+            id: "flow",
+            name: "Flow",
+            x: 900,
+            y: 280,
+            width: 200,
+            height: 260,
+            fill: "#ffffff",
+            layout: { mode: "column", gap: 8, padding: 12 },
+          },
+        },
+        { op: "create", parentId: "flow", node: { type: "rect", id: "flow-a", name: "A", width: 160, height: 40, fill: "#d9d4cf" } },
+        { op: "create", parentId: "flow", node: { type: "rect", id: "flow-b", name: "B", width: 160, height: 40, fill: "#c43d27" } },
+        { op: "create", parentId: "flow", node: { type: "rect", id: "flow-c", name: "C", width: 160, height: 40, fill: "#4cc7d8" } },
+      ],
+      "setup flow",
+    );
+    await page.waitForSelector('[data-paprika-id="flow-a"]');
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    await page.waitForTimeout(200);
+    await expect.poll(async () => ((await server.doc()).nodes.flow as { children: string[] }).children.join(",")).toBe("flow-a,flow-b,flow-c");
+    const a = await boxOf("flow-a");
+    const c = await boxOf("flow-c");
+    await page.locator('[data-paprika-id="flow-a"]').click({ position: { x: 20, y: 10 } });
+    await page.mouse.move(a.x + 20, a.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(c.x + c.width / 2, c.y + c.height + 4, { steps: 16 });
+    await expect.poll(async () => page.getByTestId("drop-marker").count()).toBe(1);
+    await page.mouse.up();
+    await expect.poll(async () => ((await server.doc()).nodes.flow as { children: string[] }).children.join(",")).toBe("flow-b,flow-c,flow-a");
+    await undoOnce();
+    await expect.poll(async () => ((await server.doc()).nodes.flow as { children: string[] }).children.join(",")).toBe("flow-a,flow-b,flow-c");
+  }, 30_000);
+
+  it("camadas: arrastar linha reordena irmãos (um undo)", async () => {
+    const kids = ((await server.doc()).nodes.flow as { children: string[] } | undefined)?.children;
+    expect(kids).toEqual(["flow-a", "flow-b", "flow-c"]);
+    const rowA = page.locator('[data-layer-id="flow-a"]');
+    const rowC = page.locator('[data-layer-id="flow-c"]');
+    await rowA.scrollIntoViewIfNeeded();
+    await rowA.dragTo(rowC, { targetPosition: { x: 40, y: 22 } });
+    await expect.poll(async () => ((await server.doc()).nodes.flow as { children: string[] }).children.join(",")).not.toBe("flow-a,flow-b,flow-c");
+    expect(((await server.doc()).nodes.flow as { children: string[] }).children[0]).not.toBe("flow-a");
+    await undoOnce();
+    await expect.poll(async () => ((await server.doc()).nodes.flow as { children: string[] }).children.join(",")).toBe("flow-a,flow-b,flow-c");
+  }, 30_000);
+
+  it("soltar PNG e SVG no canvas importa (um undo cada)", async () => {
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR42mP8z8BQz0AEYBxVSF+FAP5FDvcfRYWgAAAAAElFTkSuQmCC",
+      "base64",
+    );
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="#c43d27"/></svg>`;
+    const before = Object.keys((await server.doc()).nodes).length;
+    const vp = (await page.getByTestId("viewport").boundingBox())!;
+    await page.evaluate(
+      async ({ pngB64, svgText, x, y }) => {
+        const dt = new DataTransfer();
+        const pngFile = new File([Uint8Array.from(atob(pngB64), (c) => c.charCodeAt(0))], "pixel.png", { type: "image/png" });
+        const svgFile = new File([svgText], "box.svg", { type: "image/svg+xml" });
+        dt.items.add(pngFile);
+        const target = document.querySelector('[data-testid="viewport"]')!;
+        target.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt }));
+        target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
+        const drop = new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt });
+        target.dispatchEvent(drop);
+        const dt2 = new DataTransfer();
+        dt2.items.add(svgFile);
+        target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x + 40, clientY: y + 40, dataTransfer: dt2 }));
+      },
+      { pngB64: png.toString("base64"), svgText: svg, x: vp.x + 200, y: vp.y + 120 },
+    );
+    await expect.poll(async () => Object.keys((await server.doc()).nodes).length).toBeGreaterThan(before + 1);
+    const nodes = (await server.doc()).nodes;
+    const images = Object.values(nodes).filter((n) => (n as { type: string }).type === "image");
+    expect(images.length).toBeGreaterThanOrEqual(1);
+    await undoOnce();
+    await undoOnce();
+  }, 30_000);
 });

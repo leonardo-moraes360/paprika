@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEve
 import type { Document } from "@paprika/core";
 import { resolveValue } from "@paprika/core";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
+import { Hint } from "./components/ui/tooltip";
 import { cn } from "./lib/cn";
 import { cx, ui } from "./ui";
 
@@ -455,21 +456,21 @@ export function ColorPicker({
               <p className="m-0 text-2xs font-semibold text-muted">Tokens do documento</p>
               <div className="flex flex-wrap gap-2" data-testid="color-tokens">
                 {tokens.map((tok) => (
-                  <button
-                    key={tok.name}
-                    type="button"
-                    className={ui.colorToken}
-                    title={`$${tok.name}`}
-                    aria-label={`Token $${tok.name}`}
-                    data-testid={`color-token-${tok.name}`}
-                    onClick={() => {
-                      commitColor(`$${tok.name}`);
-                      setHsva(hsvaFromValue(doc, `$${tok.name}`, mode));
-                    }}
-                  >
-                    <span className={ui.colorTokenSwatch} style={{ background: tok.css }} />
-                    <span className="truncate">${tok.name}</span>
-                  </button>
+                  <Hint key={tok.name} label={`$${tok.name}`}>
+                    <button
+                      type="button"
+                      className={ui.colorToken}
+                      aria-label={`Token $${tok.name}`}
+                      data-testid={`color-token-${tok.name}`}
+                      onClick={() => {
+                        commitColor(`$${tok.name}`);
+                        setHsva(hsvaFromValue(doc, `$${tok.name}`, mode));
+                      }}
+                    >
+                      <span className={ui.colorTokenSwatch} style={{ background: tok.css }} />
+                      <span className="truncate">${tok.name}</span>
+                    </button>
+                  </Hint>
                 ))}
               </div>
             </div>
@@ -481,18 +482,18 @@ export function ColorPicker({
                 {recent.map((c) => {
                   const css = c.startsWith("$") ? String(resolveValue(doc, c, mode)) : c;
                   return (
-                    <button
-                      key={c}
-                      type="button"
-                      className={ui.colorRecent}
-                      style={{ background: parseCssColor(css) ? css : "#000" }}
-                      aria-label={`Recente ${c}`}
-                      title={c}
-                      onClick={() => {
-                        commitColor(c);
-                        setHsva(hsvaFromValue(doc, c, mode));
-                      }}
-                    />
+                    <Hint key={c} label={c}>
+                      <button
+                        type="button"
+                        className={ui.colorRecent}
+                        style={{ background: parseCssColor(css) ? css : "#000" }}
+                        aria-label={`Recente ${c}`}
+                        onClick={() => {
+                          commitColor(c);
+                          setHsva(hsvaFromValue(doc, c, mode));
+                        }}
+                      />
+                    </Hint>
                   );
                 })}
               </div>

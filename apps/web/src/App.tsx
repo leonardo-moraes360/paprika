@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Bot, Circle, Diamond, Download, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Redo2, Square, StickyNote, Triangle, Type, Undo2, type LucideIcon } from "lucide-react";
+import { Bot, Circle, Diamond, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Square, StickyNote, Triangle, Type, type LucideIcon } from "lucide-react";
 import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
@@ -12,26 +12,17 @@ import { ConnectionStatus } from "./ConnectionStatus";
 import { Overview } from "./Overview";
 import { navigate, parseRoute, useRoute, workspacePath } from "./route";
 import { useLive, useLiveActions, useLiveConnection } from "./useDocument";
-import { Button } from "./components/ui/button";
-import { Separator } from "./components/ui/separator";
 import { statusDotVariants } from "./components/ui/status";
 import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
+import { Hint } from "./components/ui/tooltip";
 import { cn } from "./lib/cn";
 import { bar } from "./ui";
 import { openWorkspace } from "./workspaces";
 import { WorkspaceNotice } from "./WorkspaceNotice";
+import { readToolbarDock, Toolbar, type ToolbarDock } from "./Toolbar";
 
 const boot = "grid h-full place-content-center justify-items-center gap-3 text-ui-muted-foreground";
 const toast = "absolute bottom-4 left-1/2 max-w-[70%] -translate-x-1/2 cursor-pointer rounded-lg border border-accent bg-toast px-3 py-2 text-accent-pale";
-const toolItemClass =
-  "h-[30px] w-8 shrink-0 rounded-md border-0 bg-transparent p-0 text-ui-foreground hover:bg-ui-secondary hover:text-ui-foreground data-[state=on]:bg-accent-strong data-[state=on]:text-white data-[state=on]:hover:bg-accent-strong data-[state=on]:hover:text-white [&_svg]:size-[18px]";
-const actionItemClass =
-  "inline-flex h-[30px] w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-ui-foreground hover:bg-ui-secondary disabled:cursor-default disabled:opacity-35 [&_svg]:size-[18px]";
-
-/** Lucide icon size in the floating toolbar, in px. */
-const TOOL_ICON = 18;
 
 const TOOLS: { tool: Tool; key: string; label: string; icon: LucideIcon }[] = [
   { tool: "select", key: "v", label: "Selecionar", icon: MousePointer2 },
@@ -170,6 +161,7 @@ function Editor() {
   const [teamDialog, setTeamDialog] = useState<"invite" | "join" | "keys" | null>(null);
   const leftPanel = usePanel("paprika.panel.left", LEFT_PANEL);
   const rightPanel = usePanel("paprika.panel.right", RIGHT_PANEL);
+  const [toolbarDock, setToolbarDock] = useState<ToolbarDock>(() => readToolbarDock());
   // Página ativa: a escolhida, se ainda existe; senão a primeira (null num documento sem páginas).
   const pageId = doc ? (pageChoice && doc.nodes[pageChoice]?.type === "page" ? pageChoice : (firstPage(doc)?.id ?? null)) : null;
 
@@ -273,7 +265,14 @@ function Editor() {
       }
       if (e.key === "Escape") {
         const t = e.target;
-        if (t instanceof Element && t.closest('[data-slot="popover-content"], [data-slot="dialog-content"], [role="dialog"], [role="alertdialog"]')) return;
+        if (
+          t instanceof Element &&
+          t.closest(
+            '[data-slot="popover-content"], [data-slot="dialog-content"], [data-slot="tooltip-content"], [role="dialog"], [role="alertdialog"], [role="tooltip"]',
+          )
+        )
+          return;
+        if (document.querySelector('[data-slot="tooltip-content"]')) return;
         setTool("select");
         const parent = nodes[0]?.parentId;
         setSelected(parent && doc.nodes[parent]?.type !== "page" ? [parent] : []);
@@ -333,18 +332,19 @@ function Editor() {
       style={{ "--left-w": `${leftPanel.collapsed ? 0 : leftPanel.width}px`, "--right-w": `${rightPanel.collapsed ? 0 : rightPanel.width}px` } as CSSProperties}>
       <header className={cn(bar.topbar, "border-ui-border bg-ui-card [grid-area:top]")}>
         <div className={bar.brand}>
-          <a
-            className="group/home flex items-center gap-2 rounded-md text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ring"
-            href="/"
-            title="Todos os workspaces"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/");
-            }}
-          >
-            <img className={bar.logo} src="/icon.svg" alt="" />
-            <strong className="group-hover/home:text-accent-ink">Paprika</strong>
-          </a>
+          <Hint label="Todos os workspaces" side="bottom">
+            <a
+              className="group/home flex items-center gap-2 rounded-md text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ring"
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/");
+              }}
+            >
+              <img className={bar.logo} src="/icon.svg" alt="" />
+              <strong className="group-hover/home:text-accent-ink">Paprika</strong>
+            </a>
+          </Hint>
           <span className="text-ui-border" aria-hidden>
             /
           </span>
@@ -368,68 +368,28 @@ function Editor() {
         <Layers doc={doc} pageId={pageId} selected={selected} onSelect={setSelected} apply={live.apply} />
       </aside>
       <PanelResizer side="left" label="Largura do painel de camadas" panel={leftPanel} limits={LEFT_PANEL} />
-      <main className={cn("relative overflow-hidden [grid-area:center]", rightPanel.collapsed && "[&_[data-testid=agent-roster]]:top-14")}>
+      <main
+        className={cn(
+          "relative overflow-hidden [grid-area:center]",
+          rightPanel.collapsed && "[&_[data-testid=agent-roster]]:top-14",
+          toolbarDock === "left" && "[&_[data-panel-toggle=left]]:left-14",
+          toolbarDock === "right" && "[&_[data-panel-toggle=right]]:right-14",
+        )}
+      >
         {leftPanel.collapsed && <PanelToggle side="left" label="Mostrar painel de camadas" panel={leftPanel} />}
         {rightPanel.collapsed && <PanelToggle side="right" label="Mostrar painel de propriedades" panel={rightPanel} />}
-        <TooltipProvider delayDuration={400}>
-          <nav
-            className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-ui-border bg-ui-card p-1 shadow-float"
-            aria-label="Ferramentas"
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <ToggleGroup
-              type="multiple"
-              rovingFocus={false}
-              value={[tool]}
-              onValueChange={(next) => {
-                const added = next.find((v) => v !== tool);
-                if (added) setTool(added as Tool);
-              }}
-              className="gap-0.5"
-            >
-              {TOOLS.map((t) => (
-                <Tooltip key={t.tool}>
-                  <TooltipTrigger asChild>
-                    <ToggleGroupItem
-                      value={t.tool}
-                      className={cn(toolItemClass, tool === t.tool && "is-active")}
-                      aria-label={t.label}
-                    >
-                      <t.icon size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-                    </ToggleGroupItem>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">{`${t.label} (${t.key.toUpperCase()})`}</TooltipContent>
-                </Tooltip>
-              ))}
-            </ToggleGroup>
-            <Separator orientation="vertical" className="mx-1.5 h-5" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" className={actionItemClass} onClick={live.undo} disabled={!live.canUndo} aria-label="Desfazer">
-                  <Undo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Desfazer (Ctrl+Z)</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" className={actionItemClass} onClick={live.redo} disabled={!live.canRedo} aria-label="Refazer">
-                  <Redo2 size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Refazer (Ctrl+Shift+Z)</TooltipContent>
-            </Tooltip>
-            <Separator orientation="vertical" className="mx-1.5 h-5" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" className={actionItemClass} onClick={exportSvg} aria-label="Exportar SVG">
-                  <Download size={TOOL_ICON} strokeWidth={1.75} aria-hidden />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Exportar SVG (seleção, ou a página)</TooltipContent>
-            </Tooltip>
-          </nav>
-        </TooltipProvider>
+        <Toolbar
+          tools={TOOLS}
+          tool={tool}
+          onTool={setTool}
+          canUndo={live.canUndo}
+          canRedo={live.canRedo}
+          onUndo={live.undo}
+          onRedo={live.redo}
+          onExport={exportSvg}
+          dock={toolbarDock}
+          onDock={setToolbarDock}
+        />
         <Canvas
           doc={doc}
           selected={selected}

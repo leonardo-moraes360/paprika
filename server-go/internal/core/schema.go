@@ -38,6 +38,8 @@ var (
 	strokeSchema = z.Object(
 		z.Field{Name: "color", Schema: colorValue()},
 		z.Field{Name: "width", Schema: z.Number().Min(0).Max(1000)},
+		z.Field{Name: "style", Schema: z.Optional(z.Enum("solid", "dashed", "dotted"))},
+		z.Field{Name: "position", Schema: z.Optional(z.Enum("inside", "center", "outside"))},
 	)
 	shadowSchema = z.Object(
 		z.Field{Name: "x", Schema: z.Number()},
@@ -188,7 +190,12 @@ func connectorSchema() *z.ObjectSchema {
 		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"),
 		z.Field{Name: "from", Schema: connectorEndSchema()},
 		z.Field{Name: "to", Schema: connectorEndSchema()},
-		z.Field{Name: "route", Schema: z.Default(z.Enum("straight", "elbow"), "straight")},
+		z.Field{Name: "route", Schema: z.Default(z.Enum("straight", "elbow", "rounded", "curve"), "straight")},
+		z.Field{Name: "radius", Schema: z.Default(z.Number().Min(0).Max(1000), 0.0)},
+		z.Field{Name: "control", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number()},
+			z.Field{Name: "y", Schema: z.Number()},
+		))},
 		z.Field{Name: "startArrow", Schema: z.Default(z.Enum("none", "arrow"), "none")},
 		z.Field{Name: "endArrow", Schema: z.Default(z.Enum("none", "arrow"), "arrow")},
 		z.Field{Name: "stroke", Schema: z.Default(strokeSchema, jsonv.NewObject("color", "#1e2336", "width", 2.0))},
