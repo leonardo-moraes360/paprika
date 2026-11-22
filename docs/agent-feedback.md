@@ -400,6 +400,21 @@ the PAP-B-031 sheets from an earlier draw (`/tmp/b031/draw.mjs`).
 - `ConfirmDialog` was already on `AlertDialog` with `variant: "destructive"` on the confirm action (PAP-B-026); overview only consumes it.
 - Workspace cards keep `outline` instead of `border` so the cover cannot clip the active edge; `Card` ships with `border-ui-border` but the overview overrides with `border-0` plus the existing outline classes.
 
+## 2026-11-22: shell, toolbar, layers and pages on shadcn (PAP-B-033, design first)
+
+Task: draw the editor shell (expanded, left collapsed, both collapsed) in both theme scopes on
+`127.0.0.1:4777`, then migrate `App` / toolbar / `Layers` / `Pages` / `InlineName` / `PanelResizer` onto the
+primitives. Six frames are in `docs/assets/boards/PAP-B-033/`; the board export in
+`docs/design/boards.paprika.json` carries them.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 108 | ToggleGroup that keeps `role=button` + `aria-pressed` | Radix `type="single"` turns items into a radiogroup (`role=radio`, `aria-checked`, `aria-pressed` cleared). The toolbar E2E (`getByRole("button")` + `aria-pressed` + class `is-active`) would fail | Use `type="multiple"` with a controlled single value and `rovingFocus={false}` so Tab still walks every tool; keep the outer `<nav aria-label="Ferramentas">` | P2 |
+| 109 | Inactive tab label on a night strip in light mode | The right-panel tab strip stays `bg-night` in both scopes; `$pg.muted` under `mode=light` is `#5d6478` and linted at 2.99:1 on night | Board (and app) keep night muted (`$muted` / `text-muted`) for labels that sit on the night strip | P3 |
+
+- E2E hotspots (`is-active`, `layer-name`, `page`, `data-panel-toggle`, `treeitem`, `add-page`) stayed as plain class/hooks.
+- `ui.iconBtn` left `ui.ts`; Inspector/Team/Overview still own the remaining entries.
+
 ## 2026-11-22: compact inspector (PAP-B-022, design partial)
 
 Task: redesign the scene inspector into collapsible sections before implementing `apps/web/src/inspector/**`. Two design frames (`PAP-B-022 texto escuro` / `claro`) already live in `docs/design/boards.paprika.json`; a full MCP redraw on `:4777` was skipped when the shared server was slow, and the app before/after PNGs under `docs/assets/boards/PAP-B-022/` carry the measurement case instead.

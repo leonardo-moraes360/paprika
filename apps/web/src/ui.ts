@@ -1,6 +1,6 @@
 /**
- * Tailwind class lists shared by the panels (theme in styles.css). One place for the pieces that repeat across
- * Pages, Layers and Inspector, so a field or a section header looks the same everywhere.
+ * Tailwind class lists still shared by panels that have not migrated (Inspector, Team, Overview
+ * rename). Shell/toolbar/layers/pages (PAP-B-033) use `components/ui/` + `cn` instead. ADR 0005.
  */
 
 /** Joins class names, skipping falsy ones: `cx("a", on && "b")`. */
@@ -19,7 +19,6 @@ export const ui = {
   muted: "text-muted",
   grid: "grid gap-1",
   grid2: "grid grid-cols-2 gap-1",
-  /** Label + control in one rounded box; `wide` stacks them (textarea). */
   field: (wide = false) =>
     cx(
       "grid min-w-0 items-center gap-1.5 rounded-md border border-transparent bg-panel-2 focus-within:border-accent",
@@ -28,16 +27,10 @@ export const ui = {
       "[&_:is(input,textarea)]:bg-transparent [&_select]:bg-panel-2 [&_:is(input,select)]:h-7 [&_textarea]:resize-y",
       wide ? "grid-cols-1 p-1.5" : "grid-cols-[auto_1fr] px-1.5",
     ),
-  /** Row of secondary buttons. */
   actions:
     "mx-0 my-2 flex gap-1.5 [&_button]:cursor-pointer [&_button]:rounded-sm [&_button]:border [&_button]:border-line [&_button]:bg-panel-2 [&_button]:px-2.5 [&_button]:py-1 [&_button]:text-fg [&_button:hover]:border-select",
-  /** Button that reads as a link. */
   link: "cursor-pointer border-0 bg-transparent p-0 text-select underline",
-  /** Small icon button (Lucide icons: plus, x…). */
-  iconBtn: "inline-flex cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent px-1 py-0.5 text-md leading-none text-muted hover:bg-panel-2 hover:text-fg",
-  /** Merge over `iconBtn` or a secondary button (with `cn`) for the ones that delete or remove: the danger ink at rest and on hover. */
   dangerBtn: "text-ui-destructive-text hover:text-ui-destructive-text",
-  /** Inline rename field (layers, pages, frame labels). */
   renameInput: "min-w-0 rounded-[3px] border border-select bg-panel px-1 py-0 text-fg outline-none",
   colorSwatch:
     "size-7 shrink-0 cursor-pointer rounded-md border border-line bg-transparent p-0 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
@@ -60,13 +53,12 @@ export const ui = {
     "size-5 cursor-pointer rounded-md border border-line p-0 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
 };
 
-/** Top bar shared by the overview and the canvas. */
+/** Top bar shared by the overview (canvas shell uses the same tokens inline — PAP-B-033). */
 export const bar = {
   topbar: "flex items-center justify-between gap-4 border-b border-line bg-panel px-3",
   brand: "flex min-w-0 items-center gap-2",
   logo: "inline-block size-[22px] flex-none",
   status: "flex items-center gap-2 whitespace-nowrap",
-  /** Status text next to the dot: hidden on narrow screens. */
   statusText: "text-muted max-wide:hidden",
   dot: (on: boolean) => cx("size-2 rounded-full", on ? "bg-leaf" : "bg-accent"),
 };

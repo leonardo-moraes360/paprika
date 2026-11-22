@@ -112,7 +112,7 @@ ainda não tem ticket.
 ## Consequências
 
 - O tema continua fechado e o Preflight continua de fora; os primitivos carregam os próprios resets.
-- Dois nomes coexistem por um tempo: `ui.ts` (até PAP-B-031…034 apagarem cada entrada que ficar sem uso) e `components/ui/`. O `AGENTS.md` diz qual deles o código novo de UI usa.
+- Dois nomes coexistem por um tempo: `ui.ts` (até PAP-B-031…034 apagarem cada entrada que ficar sem uso) e `components/ui/`. O `AGENTS.md` diz qual deles o código novo de UI usa. O PAP-B-033 liberou `ui.iconBtn` e moveu o shell, a toolbar (`ToggleGroup`+`Tooltip`), camadas, páginas, `InlineName`, `PanelResizer` e o ponto de status da barra superior para os primitivos; o Inspector (PAP-B-032) ainda lê `ui.ts`.
 - Um tema claro existe agora só no nível dos tokens; o app ainda não o oferece.
 - `tw-animate-css` é a fonte das animações, então a linha "tailwind-animate" do backlog fica parcialmente coberta; a linha continua aberta até as animações do próprio app usarem isso.
 - Acrescentar um componente depois é copiar e fazer duas reescritas mecânicas (caminhos e nomes de cor), porque não há alias `@/`; isso fica registrado aqui em vez de ser pago com uma superfície nova de configuração.

@@ -1,27 +1,20 @@
 import { useEffect, useRef } from "react";
+import { Input } from "./components/ui/input";
+import { cn } from "./lib/cn";
 
 interface Props {
   value: string;
   label: string;
   className?: string;
-  /** Default 200 (node and page names). */
   maxLength?: number;
-  /** Recebe o nome já aparado e diferente do atual; um nome vazio não é enviado. */
   onCommit(name: string): void;
   onDone(): void;
 }
 
-/**
- * Campo de renomear no lugar: Enter ou sair do campo confirma, Esc cancela.
- * O Esc marca o cancelamento antes de desmontar, para o blur que vem depois não confirmar.
- */
 export function InlineName({ value, label, className, maxLength = 200, onCommit, onDone }: Props) {
   const settled = useRef(false);
   const field = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    // S9379: `autoFocus` fires during render, before the row is in the DOM, and React 19 marks it
-    // deprecated. Focusing the ref after mount is the same UX: the field takes focus, and the existing
-    // onFocus handler selects the current name.
     field.current?.focus();
   }, []);
   const finish = (name: string | null) => {
@@ -32,9 +25,9 @@ export function InlineName({ value, label, className, maxLength = 200, onCommit,
     onDone();
   };
   return (
-    <input
+    <Input
       ref={field}
-      className={className}
+      className={cn("h-auto rounded-[3px] border-select bg-ui-card px-1 py-0 text-ui-foreground focus-visible:border-ui-ring", className)}
       aria-label={label}
       defaultValue={value}
       maxLength={maxLength}

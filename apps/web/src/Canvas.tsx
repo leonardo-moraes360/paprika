@@ -47,15 +47,18 @@ import {
 } from "@paprika/core";
 import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
+import { Button } from "./components/ui/button";
 import { InlineName } from "./InlineName";
 import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
 import { AgentCursors, type Box } from "./AgentCursors";
+import { cn } from "./lib/cn";
 import { cx, ui } from "./ui";
 
 /** Drawing tools show a crosshair over the canvas. */
 const CROSSHAIR = new Set<string>(["frame", "rect", "ellipse", "text", "pen"]);
 
-const zoomButton = "inline-flex h-6 w-6.5 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent hover:bg-panel-2";
+const zoomButton =
+  "inline-flex h-6 w-6.5 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-ui-foreground hover:bg-ui-secondary disabled:cursor-default disabled:opacity-40 [&_svg]:size-3.5";
 
 export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "note" | "connector";
 
@@ -1469,21 +1472,22 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         </svg>
       )}
       {marqueeRect && <div className="pointer-events-none absolute border border-select bg-select/8" style={marqueeRect} data-testid="marquee" />}
-      <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-line bg-panel p-0.5" onPointerDown={(e) => e.stopPropagation()}>
-        <button className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom" title="Diminuir zoom">
-          <Minus size={14} />
-        </button>
-        <span className="min-w-11 text-center text-muted">{Math.round(view.zoom * 100)}%</span>
-        <button className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom" title="Aumentar zoom">
-          <Plus size={14} />
-        </button>
-        <button className={zoomButton} onClick={fit} aria-label="Enquadrar" title="Enquadrar (Shift+1)">
-          <Maximize size={14} />
-        </button>
-        <button
-          className={cx(
-            "h-6 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-xs font-semibold tracking-[0.02em] hover:bg-panel-2 disabled:cursor-not-allowed disabled:opacity-40",
-            renderer === "wasm" ? "text-accent" : "text-muted",
+      <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-ui-border bg-ui-card p-0.5" onPointerDown={(e) => e.stopPropagation()}>
+        <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom" title="Diminuir zoom">
+          <Minus size={14} aria-hidden />
+        </Button>
+        <span className="min-w-11 text-center text-ui-muted-foreground">{Math.round(view.zoom * 100)}%</span>
+        <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom" title="Aumentar zoom">
+          <Plus size={14} aria-hidden />
+        </Button>
+        <Button variant="ghost" className={zoomButton} onClick={fit} aria-label="Enquadrar" title="Enquadrar (Shift+1)">
+          <Maximize size={14} aria-hidden />
+        </Button>
+        <Button
+          variant="ghost"
+          className={cn(
+            "h-6 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-xs font-semibold tracking-[0.02em] hover:bg-ui-secondary disabled:cursor-not-allowed disabled:opacity-40",
+            renderer === "wasm" ? "text-accent" : "text-ui-muted-foreground",
           )}
           data-testid="renderer-toggle"
           data-backend={renderer === "wasm" ? wasmLayer.status.backend : "dom"}
@@ -1503,7 +1507,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           }}
         >
           {renderer === "dom" ? "DOM" : wasmLayer.status.backend === "webgpu" ? "GPU" : wasmLayer.status.backend === "cpu" ? "CPU" : "WASM"}
-        </button>
+        </Button>
       </div>
     </div>
   );

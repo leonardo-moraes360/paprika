@@ -401,6 +401,21 @@ adicionar `card.tsx`. Seis frames em `docs/assets/boards/PAP-B-031/`; o export d
 - O `ConfirmDialog` já estava em `AlertDialog` com `variant: "destructive"` na ação de confirmar (PAP-B-026); a visão geral só consome.
 - Os cards de workspace mantêm `outline` em vez de `border` para a capa não comer a borda ativa; o `Card` vem com `border-ui-border`, mas a visão geral sobrescreve com `border-0` e as classes de outline que já existiam.
 
+## 2026-11-22: shell, toolbar, camadas e páginas no shadcn (PAP-B-033, design first)
+
+Tarefa: desenhar o shell do editor (expandido, esquerdo recolhido, ambos recolhidos) nos dois escopos de
+tema em `127.0.0.1:4777`, depois migrar `App` / toolbar / `Layers` / `Pages` / `InlineName` / `PanelResizer`
+para os primitivos. Seis frames em `docs/assets/boards/PAP-B-033/`; o export em
+`docs/design/boards.paprika.json` os carrega.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 108 | ToggleGroup que mantém `role=button` + `aria-pressed` | O Radix `type="single"` vira radiogroup (`role=radio`, `aria-checked`, `aria-pressed` limpo). O E2E da toolbar (`getByRole("button")` + `aria-pressed` + classe `is-active`) quebraria | Usar `type="multiple"` com valor controlado de um item e `rovingFocus={false}` para o Tab continuar andando em cada ferramenta; manter o `<nav aria-label="Ferramentas">` por fora | P2 |
+| 109 | Rótulo de aba inativa na faixa night no claro | A faixa de abas do painel direito fica `bg-night` nos dois escopos; `$pg.muted` sob `mode=light` é `#5d6478` e o lint marca 2.99:1 sobre night | No board (e no app) usar o muted noturno (`$muted` / `text-muted`) nos rótulos que sentam na faixa night | P3 |
+
+- Os hotspots de E2E (`is-active`, `layer-name`, `page`, `data-panel-toggle`, `treeitem`, `add-page`) ficaram como classes/ganchos plain.
+- `ui.iconBtn` saiu de `ui.ts`; Inspector/Team/Overview ainda donos das entradas restantes.
+
 ## 2026-11-22: inspector compacto (PAP-B-022, design parcial)
 
 Tarefa: redesenhar o inspector de cena em seções recolhíveis antes de implementar `apps/web/src/inspector/**`. Dois frames de design (`PAP-B-022 texto escuro` / `claro`) já estão em `docs/design/boards.paprika.json`; o redraw completo no MCP em `:4777` foi pulado com o servidor compartilhado lento, e os PNGs antes/depois em `docs/assets/boards/PAP-B-022/` carregam o caso de medição.
