@@ -19,16 +19,35 @@ import {
   type SceneNode,
 } from "@paprika/core";
 import type { Activity } from "./useDocument";
-import { ColorField, Field, ModeField, num, size } from "./inspector/fields";
+import { ColorField, Field, ModeField, SelectField, num, size } from "./inspector/fields";
 import { InspectorSection } from "./inspector/InspectorSection";
-import { cx, ui } from "./ui";
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
+import { cn } from "./lib/cn";
+import { ui } from "./ui";
 
 export { parseModeTokenAssignment, parseTokenAssignment, tokenValue } from "./inspector/tokenParsing";
 import { parseModeTokenAssignment, parseTokenAssignment, tokenValue } from "./inspector/tokenParsing";
 
 const list = "m-0 grid list-none gap-1 p-0";
-const tokenAdd = "h-7 w-full rounded-md border border-dashed border-line bg-transparent px-2";
-const SEVERITY: Record<string, string> = { error: "border-l-accent", warning: "border-l-warn" };
+const actions = "mx-0 my-2 flex flex-wrap gap-1.5";
+const SEVERITY: Record<string, string> = { error: "border-l-ui-primary", warning: "border-l-warn" };
+const ALIGN_OPTS = [
+  { value: "left", label: "esquerda" },
+  { value: "center", label: "centro" },
+  { value: "right", label: "direita" },
+] as const;
+const SIDE_OPTS = [
+  { value: "auto", label: "automático" },
+  { value: "top", label: "cima" },
+  { value: "right", label: "direita" },
+  { value: "bottom", label: "baixo" },
+  { value: "left", label: "esquerda" },
+] as const;
+const YES_NO = [
+  { value: "true", label: "sim" },
+  { value: "false", label: "não" },
+] as const;
 
 interface Props {
   doc: Document;
@@ -41,7 +60,6 @@ interface Props {
   onError(message: string): void;
 }
 
-/** Agrupar/desagrupar com o mesmo plano do atalho e da ferramenta MCP; erros viram aviso. */
 function structureActions(doc: Document, ids: string[], props: Pick<Props, "apply" | "onSelectMany" | "onError">) {
   const run = (f: () => void) => {
     try {
@@ -55,7 +73,7 @@ function structureActions(doc: Document, ids: string[], props: Pick<Props, "appl
     canUngroup: groups.length > 0,
     group: () =>
       run(() => {
-        groupOps(doc, ids); // valida antes de enviar
+        groupOps(doc, ids);
         const id = newId();
         props.apply([{ op: "group", ids, id }], "agrupar");
         props.onSelectMany([id]);
@@ -76,14 +94,14 @@ export function Inspector(props: Props) {
     return (
       <div className={ui.section} data-testid="multi-selection">
         <h2 className={ui.h2}>{selected.length} nós selecionados</h2>
-        <div className={ui.actions}>
-          <button onClick={a.group} title="Agrupar (Ctrl+G)">
+        <div className={actions}>
+          <Button type="button" variant="secondary" size="sm" onClick={a.group} title="Agrupar (Ctrl+G)">
             Agrupar
-          </button>
+          </Button>
           {a.canUngroup && (
-            <button onClick={a.ungroup} title="Desagrupar (Ctrl+Shift+G)">
+            <Button type="button" variant="secondary" size="sm" onClick={a.ungroup} title="Desagrupar (Ctrl+Shift+G)">
               Desagrupar
-            </button>
+            </Button>
           )}
         </div>
         <p className={ui.muted}>Arraste para mover todos; setas empurram; Delete apaga; Ctrl+D duplica.</p>
@@ -147,14 +165,7 @@ export function Inspector(props: Props) {
             <Field label="Tamanho" value={node.fontSize} onCommit={(v) => set({ fontSize: v.startsWith("$") ? v : num(v) })} />
             <Field label="Peso" type="number" value={node.fontWeight} min={100} max={900} integer onCommit={setNum("fontWeight")} />
             <Field label="Altura linha" type="number" value={node.lineHeight} min={0} onCommit={setNum("lineHeight")} />
-            <label className={ui.field()}>
-              <span>Alinhamento</span>
-              <select aria-label="Alinhamento" value={node.textAlign} onChange={(e) => set({ textAlign: e.target.value })}>
-                <option value="left">esquerda</option>
-                <option value="center">centro</option>
-                <option value="right">direita</option>
-              </select>
-            </label>
+            <SelectField label="Alinhamento" value={node.textAlign} onChange={(v) => set({ textAlign: v })} options={ALIGN_OPTS} />
           </div>
           <Field label="Fonte" value={node.fontFamily} onCommit={(v) => set({ fontFamily: v })} />
         </InspectorSection>
@@ -163,29 +174,25 @@ export function Inspector(props: Props) {
       {node.type === "shape" && (
         <InspectorSection id="shape" title="Forma" defaultOpen>
           <div className={ui.grid}>
-            <label className={ui.field()}>
-              <span>Tipo</span>
-              <select value={node.shape} onChange={(e) => set({ shape: e.target.value }, "trocar forma")} data-testid="shape-kind">
-                <option value="rect">caixa</option>
-                <option value="ellipse">oval</option>
-                <option value="diamond">losango (decisão)</option>
-                <option value="note">nota adesiva</option>
-              </select>
-            </label>
+            <SelectField
+              label="Tipo"
+              value={node.shape}
+              testId="shape-kind"
+              onChange={(v) => set({ shape: v }, "trocar forma")}
+              options={[
+                { value: "rect", label: "caixa" },
+                { value: "ellipse", label: "oval" },
+                { value: "diamond", label: "losango (decisão)" },
+                { value: "note", label: "nota adesiva" },
+              ]}
+            />
             <Field label="Texto" type="textarea" value={node.text} title="Duplo clique na forma edita o texto no canvas" onCommit={(v) => set({ text: v }, "editar texto")} />
             <ColorField doc={doc} mode={themeMode} label="Cor do texto" value={node.color} onCommit={(v) => v && set({ color: v })} />
           </div>
           <div className={ui.grid2}>
             <Field label="Tamanho" value={node.fontSize} onCommit={(v) => set({ fontSize: v.startsWith("$") ? v : num(v) })} />
             <Field label="Peso" type="number" value={node.fontWeight} min={100} max={900} integer onCommit={setNum("fontWeight")} />
-            <label className={ui.field()}>
-              <span>Alinhamento</span>
-              <select aria-label="Alinhamento" value={node.textAlign} onChange={(e) => set({ textAlign: e.target.value })}>
-                <option value="left">esquerda</option>
-                <option value="center">centro</option>
-                <option value="right">direita</option>
-              </select>
-            </label>
+            <SelectField label="Alinhamento" value={node.textAlign} onChange={(v) => set({ textAlign: v })} options={ALIGN_OPTS} />
           </div>
         </InspectorSection>
       )}
@@ -193,10 +200,13 @@ export function Inspector(props: Props) {
       {node.type === "frame" && (
         <>
           <InspectorSection id="frame-component" title="Componente" defaultOpen>
-            <div className={ui.actions} data-testid="component-actions">
+            <div className={actions} data-testid="component-actions">
               {node.component ? (
                 <>
-                  <button
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => {
                       const id = newId();
                       const w = typeof node.width === "number" ? node.width : 0;
@@ -205,11 +215,15 @@ export function Inspector(props: Props) {
                     }}
                   >
                     Nova instância
-                  </button>
-                  <button onClick={() => set({ component: null }, "deixar de ser componente")}>Deixar de ser componente</button>
+                  </Button>
+                  <Button type="button" variant="secondary" size="sm" onClick={() => set({ component: null }, "deixar de ser componente")}>
+                    Deixar de ser componente
+                  </Button>
                 </>
               ) : (
-                <button onClick={() => set({ component: true }, "criar componente")}>Tornar componente</button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => set({ component: true }, "criar componente")}>
+                  Tornar componente
+                </Button>
               )}
             </div>
           </InspectorSection>
@@ -218,24 +232,17 @@ export function Inspector(props: Props) {
           </InspectorSection>
           <InspectorSection id="frame-layout" title="Layout auto" defaultOpen={!!node.layout?.mode && node.layout.mode !== "none"}>
             <div className={ui.grid2}>
-              <label className={ui.field()}>
-                <span>Modo</span>
-                <select
-                  value={node.layout?.mode ?? "none"}
-                  onChange={(e) => set({ layout: e.target.value === "none" ? null : { ...(node.layout ?? {}), mode: e.target.value } }, "layout")}
-                >
-                  <option value="none">livre</option>
-                  <option value="row">linha</option>
-                  <option value="column">coluna</option>
-                </select>
-              </label>
-              <label className={ui.field()}>
-                <span>Recortar</span>
-                <select value={String(node.clip)} onChange={(e) => set({ clip: e.target.value === "true" })}>
-                  <option value="true">sim</option>
-                  <option value="false">não</option>
-                </select>
-              </label>
+              <SelectField
+                label="Modo"
+                value={node.layout?.mode ?? "none"}
+                onChange={(v) => set({ layout: v === "none" ? null : { ...(node.layout ?? {}), mode: v } }, "layout")}
+                options={[
+                  { value: "none", label: "livre" },
+                  { value: "row", label: "linha" },
+                  { value: "column", label: "coluna" },
+                ]}
+              />
+              <SelectField label="Recortar" value={String(node.clip)} onChange={(v) => set({ clip: v === "true" })} options={YES_NO} />
               {node.layout && node.layout.mode !== "none" && (
                 <>
                   <Field label="Gap" type="number" value={node.layout.gap} min={0} onCommit={(v) => num(v) !== undefined && set({ layout: { ...node.layout, gap: num(v) } })} />
@@ -249,22 +256,18 @@ export function Inspector(props: Props) {
                       set({ layout: { ...node.layout, padding } });
                     }}
                   />
-                  <label className={ui.field()}>
-                    <span>Alinhar</span>
-                    <select value={node.layout.align} onChange={(e) => set({ layout: { ...node.layout, align: e.target.value } })}>
-                      {["start", "center", "end", "stretch"].map((o) => (
-                        <option key={o}>{o}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className={ui.field()}>
-                    <span>Distribuir</span>
-                    <select value={node.layout.justify} onChange={(e) => set({ layout: { ...node.layout, justify: e.target.value } })}>
-                      {["start", "center", "end", "between"].map((o) => (
-                        <option key={o}>{o}</option>
-                      ))}
-                    </select>
-                  </label>
+                  <SelectField
+                    label="Alinhar"
+                    value={node.layout.align}
+                    onChange={(v) => set({ layout: { ...node.layout, align: v } })}
+                    options={["start", "center", "end", "stretch"].map((o) => ({ value: o, label: o }))}
+                  />
+                  <SelectField
+                    label="Distribuir"
+                    value={node.layout.justify}
+                    onChange={(v) => set({ layout: { ...node.layout, justify: v } })}
+                    options={["start", "center", "end", "between"].map((o) => ({ value: o, label: o }))}
+                  />
                 </>
               )}
             </div>
@@ -276,29 +279,27 @@ export function Inspector(props: Props) {
         <InspectorSection id="path" title="Vetor" defaultOpen>
           <Field label="Caminho (d)" type="textarea" value={node.d} title="M L H V C S Q T A Z (SVG). Duplo clique no vetor edita os pontos no canvas." onCommit={(v) => v.trim() && set({ d: v.trim() }, "editar caminho")} />
           <div className={ui.grid2}>
-            <label className={ui.field()}>
-              <span>Regra</span>
-              <select value={node.fillRule} onChange={(e) => set({ fillRule: e.target.value })}>
-                <option value="nonzero">nonzero</option>
-                <option value="evenodd">evenodd</option>
-              </select>
-            </label>
-            <label className={ui.field()}>
-              <span>Ponta</span>
-              <select value={node.strokeCap} onChange={(e) => set({ strokeCap: e.target.value })}>
-                {["butt", "round", "square"].map((o) => (
-                  <option key={o}>{o}</option>
-                ))}
-              </select>
-            </label>
-            <label className={ui.field()}>
-              <span>Junção</span>
-              <select value={node.strokeJoin} onChange={(e) => set({ strokeJoin: e.target.value })}>
-                {["miter", "round", "bevel"].map((o) => (
-                  <option key={o}>{o}</option>
-                ))}
-              </select>
-            </label>
+            <SelectField
+              label="Regra"
+              value={node.fillRule}
+              onChange={(v) => set({ fillRule: v })}
+              options={[
+                { value: "nonzero", label: "nonzero" },
+                { value: "evenodd", label: "evenodd" },
+              ]}
+            />
+            <SelectField
+              label="Ponta"
+              value={node.strokeCap}
+              onChange={(v) => set({ strokeCap: v })}
+              options={["butt", "round", "square"].map((o) => ({ value: o, label: o }))}
+            />
+            <SelectField
+              label="Junção"
+              value={node.strokeJoin}
+              onChange={(v) => set({ strokeJoin: v })}
+              options={["miter", "round", "bevel"].map((o) => ({ value: o, label: o }))}
+            />
           </div>
         </InspectorSection>
       )}
@@ -317,7 +318,6 @@ export function Inspector(props: Props) {
   );
 }
 
-/** Instância: posição e escala são dela; o resto vem do componente (fill aceita override). */
 function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNode & { instanceOf: string } }) {
   const { doc, apply, onSelect, onError } = props;
   const comp = doc.nodes[node.instanceOf];
@@ -333,7 +333,10 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
         instância <code className={ui.muted}>#{node.id}</code>
       </h2>
       <p className={ui.muted}>
-        de <button className={ui.link} onClick={() => onSelect(node.instanceOf)}>{comp?.name || node.instanceOf}</button>
+        de{" "}
+        <Button type="button" variant="link" size="xs" className="h-auto p-0" onClick={() => onSelect(node.instanceOf)}>
+          {comp?.name || node.instanceOf}
+        </Button>
         {overrides > 0 && ` · ${overrides} override(s)`}
       </p>
       <div className={ui.grid}>
@@ -352,10 +355,18 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
       <InspectorSection id="instance-fill" title="Preenchimento">
         <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v }, "override")} />
       </InspectorSection>
-      <div className={ui.actions}>
-        <button onClick={() => onSelect(node.instanceOf)}>Ir para o componente</button>
-        {overrides > 0 && <button onClick={() => set({ overrides: null }, "limpar overrides")}>Limpar overrides</button>}
-        <button onClick={() => apply([{ op: "detach", ids: [node.id] }], "desanexar instância")}>Desanexar</button>
+      <div className={actions}>
+        <Button type="button" variant="secondary" size="sm" onClick={() => onSelect(node.instanceOf)}>
+          Ir para o componente
+        </Button>
+        {overrides > 0 && (
+          <Button type="button" variant="secondary" size="sm" onClick={() => set({ overrides: null }, "limpar overrides")}>
+            Limpar overrides
+          </Button>
+        )}
+        <Button type="button" variant="secondary" size="sm" onClick={() => apply([{ op: "detach", ids: [node.id] }], "desanexar instância")}>
+          Desanexar
+        </Button>
       </div>
       <InspectorSection id="notes" title="Notas para agentes">
         <Field label="Notas" type="textarea" value={node.notes} onCommit={(v) => set({ notes: v || null })} />
@@ -364,7 +375,6 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
   );
 }
 
-/** Conector: rótulo, pontas, rota, setas e traço. A geometria é calculada pelo servidor a partir das pontas. */
 function ConnectorPanel({ connector: node, ...props }: Props & { connector: ConnectorNode }) {
   const { doc, apply, onSelect } = props;
   const set = (p: Record<string, unknown>, label = "editar conector") => apply([{ op: "update", id: node.id, props: p }], label);
@@ -379,18 +389,18 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
     return (
       <div className={ui.grid2} key={key}>
         <p className={ui.muted}>
-          {label}: <button className={ui.link} onClick={() => onSelect(e.nodeId!)}>{doc.nodes[e.nodeId]?.name || `#${e.nodeId}`}</button>
+          {label}:{" "}
+          <Button type="button" variant="link" size="xs" className="h-auto p-0" onClick={() => onSelect(e.nodeId!)}>
+            {doc.nodes[e.nodeId]?.name || `#${e.nodeId}`}
+          </Button>
         </p>
-        <label className={ui.field()}>
-          <span>Lado</span>
-          <select value={e.side ?? "auto"} onChange={(ev) => set({ [key]: { nodeId: e.nodeId, side: ev.target.value } })} data-testid={`connector-${key}-side`}>
-            {["auto", "top", "right", "bottom", "left"].map((o) => (
-              <option key={o} value={o}>
-                {{ auto: "automático", top: "cima", right: "direita", bottom: "baixo", left: "esquerda" }[o]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label="Lado"
+          value={e.side ?? "auto"}
+          testId={`connector-${key}-side`}
+          onChange={(v) => set({ [key]: { nodeId: e.nodeId, side: v } })}
+          options={SIDE_OPTS}
+        />
       </div>
     );
   };
@@ -410,37 +420,38 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
       </InspectorSection>
       <InspectorSection id="connector-stroke" title="Traço" defaultOpen>
         <div className={ui.grid2}>
-        <label className={ui.field()}>
-          <span>Rota</span>
-          <select value={node.route} onChange={(e) => set({ route: e.target.value })} data-testid="connector-route">
-            <option value="straight">reta</option>
-            <option value="elbow">cotovelo</option>
-          </select>
-        </label>
-        <label className={ui.field()}>
-          <span>Tracejado</span>
-          <select value={String(node.dashed)} onChange={(e) => set({ dashed: e.target.value === "true" })}>
-            <option value="false">não</option>
-            <option value="true">sim</option>
-          </select>
-        </label>
-        <label className={ui.field()}>
-          <span>Seta no início</span>
-          <select value={node.startArrow} onChange={(e) => set({ startArrow: e.target.value })}>
-            <option value="none">nenhuma</option>
-            <option value="arrow">seta</option>
-          </select>
-        </label>
-        <label className={ui.field()}>
-          <span>Seta no fim</span>
-          <select value={node.endArrow} onChange={(e) => set({ endArrow: e.target.value })}>
-            <option value="none">nenhuma</option>
-            <option value="arrow">seta</option>
-          </select>
-        </label>
-        <ColorField doc={doc} mode={modeOf(doc, node)} label="Cor" value={node.stroke.color} onCommit={(v) => v && set({ stroke: { ...node.stroke, color: v } })} />
-        <Field label="Espessura" type="number" value={node.stroke.width} min={0} onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke, width: num(v) } })} />
-        <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
+          <SelectField
+            label="Rota"
+            value={node.route}
+            testId="connector-route"
+            onChange={(v) => set({ route: v })}
+            options={[
+              { value: "straight", label: "reta" },
+              { value: "elbow", label: "cotovelo" },
+            ]}
+          />
+          <SelectField label="Tracejado" value={String(node.dashed)} onChange={(v) => set({ dashed: v === "true" })} options={YES_NO} />
+          <SelectField
+            label="Seta no início"
+            value={node.startArrow}
+            onChange={(v) => set({ startArrow: v })}
+            options={[
+              { value: "none", label: "nenhuma" },
+              { value: "arrow", label: "seta" },
+            ]}
+          />
+          <SelectField
+            label="Seta no fim"
+            value={node.endArrow}
+            onChange={(v) => set({ endArrow: v })}
+            options={[
+              { value: "none", label: "nenhuma" },
+              { value: "arrow", label: "seta" },
+            ]}
+          />
+          <ColorField doc={doc} mode={modeOf(doc, node)} label="Cor" value={node.stroke.color} onCommit={(v) => v && set({ stroke: { ...node.stroke, color: v } })} />
+          <Field label="Espessura" type="number" value={node.stroke.width} min={0} onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke, width: num(v) } })} />
+          <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
         </div>
         <p className={ui.muted}>A linha segue as formas: mova as formas ou troque os lados para redesenhar.</p>
       </InspectorSection>
@@ -451,7 +462,6 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
   );
 }
 
-/** Cópia dentro de uma instância: só os campos de aparência viram override. */
 function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; instance: FrameNode }) {
   const { doc, apply, onSelect } = props;
   const set = (p: Record<string, unknown>) => apply([{ op: "update", id: node.id, props: p }], "override");
@@ -463,8 +473,14 @@ function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; inst
         {node.type} <code className={ui.muted}>#{node.id}</code>
       </h2>
       <p className={ui.muted}>
-        cópia de <button className={ui.link} onClick={() => onSelect(src)}>#{src}</button> na instância{" "}
-        <button className={ui.link} onClick={() => onSelect(instance.id)}>{instance.name || instance.id}</button>
+        cópia de{" "}
+        <Button type="button" variant="link" size="xs" className="h-auto p-0" onClick={() => onSelect(src)}>
+          #{src}
+        </Button>{" "}
+        na instância{" "}
+        <Button type="button" variant="link" size="xs" className="h-auto p-0" onClick={() => onSelect(instance.id)}>
+          {instance.name || instance.id}
+        </Button>
       </p>
       <InspectorSection id="copy-appearance" title="Aparência" defaultOpen>
         <div className={ui.grid}>
@@ -473,18 +489,14 @@ function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; inst
           {node.type !== "group" && node.type !== "connector" && <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />}
           {node.type === "image" && <Field label="URL" value={node.src.startsWith("data:") ? "(data URI)" : node.src} onCommit={(v) => set({ src: v })} />}
           <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={(v) => num(v) !== undefined && set({ opacity: num(v) })} />
-          <label className={ui.field()}>
-            <span>Visível</span>
-            <select value={String(node.visible)} onChange={(e) => set({ visible: e.target.value === "true" })}>
-              <option value="true">sim</option>
-              <option value="false">não</option>
-            </select>
-          </label>
+          <SelectField label="Visível" value={String(node.visible)} onChange={(v) => set({ visible: v === "true" })} options={YES_NO} />
         </div>
       </InspectorSection>
       {Object.keys(ov).length > 0 && (
-        <div className={ui.actions}>
-          <button onClick={() => set(Object.fromEntries(Object.keys(ov).map((k) => [k, null])))}>Restaurar do componente</button>
+        <div className={actions}>
+          <Button type="button" variant="secondary" size="sm" onClick={() => set(Object.fromEntries(Object.keys(ov).map((k) => [k, null])))}>
+            Restaurar do componente
+          </Button>
         </div>
       )}
       <p className={ui.muted}>Posição, tamanho e estrutura vêm do componente.</p>
@@ -537,10 +549,10 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
         <p className={ui.muted}>
           {group.width} × {group.height}: a caixa segue os {group.children.length} filho(s). Duplo clique no canvas seleciona um filho.
         </p>
-        <div className={ui.actions}>
-          <button onClick={a.ungroup} title="Desagrupar (Ctrl+Shift+G)">
+        <div className={actions}>
+          <Button type="button" variant="secondary" size="sm" onClick={a.ungroup} title="Desagrupar (Ctrl+Shift+G)">
             Desagrupar
-          </button>
+          </Button>
         </div>
       </InspectorSection>
       <InspectorSection id="notes" title="Notas para agentes">
@@ -562,63 +574,63 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
       </div>
       <InspectorSection id="tokens" title="Tokens">
         <div className={ui.grid}>
-        {Object.entries(doc.tokens).map(([k, v]) => (
-          <div className="flex items-center gap-1.5 [&>label]:flex-1" key={k}>
-            {typeof v === "string" && /^#|^rgb/.test(v) && <span className="size-4 flex-none rounded-sm border border-line" style={{ background: v }} />}
-            <Field label={`$${k}`} value={v} onCommit={(nv) => apply([{ op: "set_tokens", tokens: { [k]: nv === "" ? null : tokenValue(nv) } }], "token")} />
-          </div>
-        ))}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const token = parseTokenAssignment(newToken);
-            if (!token) return;
-            apply([{ op: "set_tokens", tokens: { [token.name]: tokenValue(token.value.trim()) } }], "token");
-            setNewToken("");
-          }}
-        >
-          <input className={tokenAdd} aria-label="Novo token" placeholder="nome = #e8553d" value={newToken} onChange={(e) => setNewToken(e.target.value)} />
-        </form>
+          {Object.entries(doc.tokens).map(([k, v]) => (
+            <div className="flex items-center gap-1.5 [&>div]:flex-1" key={k}>
+              {typeof v === "string" && /^#|^rgb/.test(v) && <span className="size-4 flex-none rounded-sm border border-ui-border" style={{ background: v }} />}
+              <Field label={`$${k}`} value={v} onCommit={(nv) => apply([{ op: "set_tokens", tokens: { [k]: nv === "" ? null : tokenValue(nv) } }], "token")} />
+            </div>
+          ))}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const token = parseTokenAssignment(newToken);
+              if (!token) return;
+              apply([{ op: "set_tokens", tokens: { [token.name]: tokenValue(token.value.trim()) } }], "token");
+              setNewToken("");
+            }}
+          >
+            <Input className="h-7 border-dashed" aria-label="Novo token" placeholder="nome = #e8553d" value={newToken} onChange={(e) => setNewToken(e.target.value)} />
+          </form>
         </div>
       </InspectorSection>
       <InspectorSection id="modes" title="Modos de tema">
         <div className={ui.grid} data-testid="theme-modes">
-        {Object.entries(doc.modes ?? {}).map(([mode, tokens]) =>
-          Object.entries(tokens).map(([k, v]) => (
-            <div className="flex items-center gap-1.5 [&>label]:flex-1" key={`${mode}/${k}`}>
-              {typeof v === "string" && /^#|^rgb/.test(v) && <span className="size-4 flex-none rounded-sm border border-line" style={{ background: v }} />}
-              <Field
-                label={`${mode} · $${k}`}
-                value={v}
-                onCommit={(nv) => apply([{ op: "set_tokens", mode, tokens: { [k]: nv === "" ? null : tokenValue(nv) } }], "token do modo")}
-              />
-            </div>
-          )),
-        )}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const token = parseModeTokenAssignment(newModeToken);
-            if (!token) return;
-            apply([{ op: "set_tokens", mode: token.mode, tokens: { [token.name]: tokenValue(token.value.trim()) } }], "token do modo");
-            setNewModeToken("");
-          }}
-        >
-          <input className={tokenAdd} aria-label="Novo token de modo" placeholder="dark: bg = #14161f" value={newModeToken} onChange={(e) => setNewModeToken(e.target.value)} />
-        </form>
+          {Object.entries(doc.modes ?? {}).map(([mode, tokens]) =>
+            Object.entries(tokens).map(([k, v]) => (
+              <div className="flex items-center gap-1.5 [&>div]:flex-1" key={`${mode}/${k}`}>
+                {typeof v === "string" && /^#|^rgb/.test(v) && <span className="size-4 flex-none rounded-sm border border-ui-border" style={{ background: v }} />}
+                <Field
+                  label={`${mode} · $${k}`}
+                  value={v}
+                  onCommit={(nv) => apply([{ op: "set_tokens", mode, tokens: { [k]: nv === "" ? null : tokenValue(nv) } }], "token do modo")}
+                />
+              </div>
+            )),
+          )}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const token = parseModeTokenAssignment(newModeToken);
+              if (!token) return;
+              apply([{ op: "set_tokens", mode: token.mode, tokens: { [token.name]: tokenValue(token.value.trim()) } }], "token do modo");
+              setNewModeToken("");
+            }}
+          >
+            <Input className="h-7 border-dashed" aria-label="Novo token de modo" placeholder="dark: bg = #14161f" value={newModeToken} onChange={(e) => setNewModeToken(e.target.value)} />
+          </form>
         </div>
       </InspectorSection>
       <InspectorSection
         id="review"
         title="Revisão"
-        badge={issues.length > 0 ? <span className="rounded-full bg-accent-strong px-1.5 py-0 text-2xs text-white">{issues.length}</span> : undefined}
+        badge={issues.length > 0 ? <span className="rounded-full bg-ui-primary px-1.5 py-0 text-2xs text-ui-primary-foreground">{issues.length}</span> : undefined}
       >
         {issues.length === 0 ? (
           <p className={ui.muted}>Sem problemas de contraste, overflow ou tokens.</p>
         ) : (
           <ul className={list}>
             {issues.slice(0, 30).map((i, k) => (
-              <li key={k} className={cx("rounded-md border-l-3 bg-panel-2", SEVERITY[i.severity] ?? "border-l-muted")}>
+              <li key={k} className={cn("rounded-md border-l-3 bg-ui-muted", SEVERITY[i.severity] ?? "border-l-ui-muted-foreground")}>
                 <button type="button" className="w-full cursor-pointer border-0 bg-transparent px-2 py-1.5 text-left" onClick={() => onSelect(i.nodeId)}>
                   <strong>{i.rule}</strong> {i.message}
                 </button>
@@ -629,9 +641,9 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
       </InspectorSection>
       <InspectorSection id="activity" title="Atividade">
         <ul className={list}>
-          {activity.length === 0 && <li className="flex gap-2 text-muted">Nenhuma edição ainda.</li>}
+          {activity.length === 0 && <li className="flex gap-2 text-ui-muted-foreground">Nenhuma edição ainda.</li>}
           {activity.slice(0, 15).map((a) => (
-            <li key={a.id} className={cx("flex gap-2", a.actor.startsWith("agent") ? "text-accent-ink" : "text-muted")}>
+            <li key={a.id} className={cn("flex gap-2", a.actor.startsWith("agent") ? "text-accent-ink" : "text-ui-muted-foreground")}>
               <span className="inline-flex items-start gap-1 font-semibold whitespace-nowrap">
                 {a.actor.startsWith("agent") ? (
                   <>

@@ -422,3 +422,18 @@ until release. Eight fixed-height frames on `Interfaces` (`docs/assets/boards/PA
 
 - Active workspace was already `Paprika - UI` / page `Interfaces`; no `open_workspace`.
 - Ghost is `aria-hidden` and `pointer-events: none` (`data-testid="draft-ghost"`); connector arrow ghost left out of this ticket's draft-only scope.
+
+## 2026-11-22: inspector on shadcn (PAP-B-032, design first)
+
+Task: draw the inspector (compact fields, collapsible sections, selects, secondary actions) in both theme
+scopes on `127.0.0.1:4777`, then migrate `Inspector.tsx` + `inspector/*` onto `Input`, `Textarea`, `Label`,
+`Select`, `Button` and `Collapsible`. Four frames in `docs/assets/boards/PAP-B-032/`; boards export refreshed.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | Screenshots as files | Same as #108: `render_screenshot` returns PNG only as base64; a client script decoded into `docs/assets/boards/PAP-B-032/` | Optional `path` on `render_screenshot` | P2 |
+| 111 | Free band without racing parallel tickets | Outline depth 1 listed frames through y≈11820 (B-023/B-033/B-043); this ticket picked y=12400 / 13160 | `place: "free"` on `create_nodes` (same as #103/#109) | P3 |
+
+- `lint_design` with `rootIds` still walks the whole document for counts; our four frames had 0 errors of their own.
+- Compact field shell kept (B-022 density): primitives sit inside `bg-ui-muted` with bare borders; Radix `Select` replaced native `<select>` (E2E theme-mode test updated to click the option).
+- Layers/Pages left alone (PAP-B-033 owns that chrome).

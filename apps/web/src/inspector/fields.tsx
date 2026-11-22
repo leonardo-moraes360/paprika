@@ -1,8 +1,22 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { Document } from "@paprika/core";
 import { resolveValue } from "@paprika/core";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Textarea } from "../components/ui/textarea";
+import { cn } from "../lib/cn";
 import { allowsNumberFieldInput, commitNumeric, parseNumeric, rangeMessage, type NumericRange } from "../numericInput";
-import { cx, ui } from "../ui";
+
+export const fieldShell = (wide = false) =>
+  cn(
+    "grid min-w-0 items-center gap-1.5 rounded-md border border-transparent bg-ui-muted focus-within:border-ui-ring",
+    "[&_[data-slot=label]]:whitespace-nowrap [&_[data-slot=label]]:font-normal",
+    wide ? "grid-cols-1 p-1.5" : "grid-cols-[auto_1fr] px-1.5",
+  );
+
+const controlBare =
+  "h-7 border-0 bg-transparent px-0 shadow-none focus-visible:border-0 focus-visible:outline-none focus-visible:outline-offset-0";
 
 interface FieldProps {
   label: string;
@@ -118,15 +132,19 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
   };
   return (
     <div className="grid min-w-0 gap-0.5">
-      <label
-        className={cx(
-          ui.field(type === "textarea"),
-          error && "border-ui-destructive focus-within:border-ui-destructive [&_span]:text-ui-destructive-text",
+      <div
+        className={cn(
+          fieldShell(type === "textarea"),
+          error && "border-ui-destructive focus-within:border-ui-destructive [&_[data-slot=label]]:text-ui-destructive-text",
         )}
       >
-        <span>{label}</span>
-        {type === "textarea" ? <textarea rows={2} {...common} /> : <input inputMode={type === "number" ? "decimal" : undefined} {...common} />}
-      </label>
+        <Label>{label}</Label>
+        {type === "textarea" ? (
+          <Textarea rows={2} className={cn(controlBare, "min-h-0 resize-y px-0 py-0")} {...common} />
+        ) : (
+          <Input inputMode={type === "number" ? "decimal" : undefined} className={controlBare} {...common} />
+        )}
+      </div>
       {error && (
         <p id={msgId} role="status" aria-live="polite" className="m-0 text-2xs text-ui-destructive-text">
           {error}
@@ -136,21 +154,60 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
   );
 }
 
+const MODE_BASE = "__base__";
+
 export function ModeField({ doc, value, inherited, onCommit }: { doc: Document; value: string | undefined; inherited?: string; onCommit(v: string | null): void }) {
   const modes = Object.keys(doc.modes ?? {});
   if (value && !modes.includes(value)) modes.push(value);
   return (
-    <label className={ui.field()}>
-      <span>Modo de tema</span>
-      <select aria-label="Modo de tema" value={value ?? ""} onChange={(e) => onCommit(e.target.value || null)}>
-        <option value="">{inherited ? `herdado (${inherited})` : "base"}</option>
-        {modes.map((m) => (
-          <option key={m} value={m}>
-            {m}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className={fieldShell()}>
+      <Label>Modo de tema</Label>
+      <Select value={value ?? MODE_BASE} onValueChange={(v) => onCommit(v === MODE_BASE ? null : v)}>
+        <SelectTrigger aria-label="Modo de tema" className={cn(controlBare, "justify-between gap-1 px-0 [&>svg]:size-3")}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={MODE_BASE}>{inherited ? `herdado (${inherited})` : "base"}</SelectItem>
+          {modes.map((m) => (
+            <SelectItem key={m} value={m}>
+              {m}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+export function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  testId,
+}: {
+  label: string;
+  value: string;
+  onChange(v: string): void;
+  options: readonly { readonly value: string; readonly label: string }[];
+  testId?: string;
+}) {
+  return (
+    <div className={fieldShell()}>
+      <Label>{label}</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger aria-label={label} data-testid={testId} className={cn(controlBare, "justify-between gap-1 px-0 [&>svg]:size-3")}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -159,7 +216,7 @@ export function ColorField({ doc, label, value, mode, onCommit }: { doc: Documen
   const hex = /^#[0-9a-f]{6}$/i.test(resolved) ? resolved : "#000000";
   return (
     <div className="grid grid-cols-[28px_1fr] items-center gap-1.5">
-      <input className="size-7 rounded-md border border-line bg-transparent p-0" type="color" aria-label={`${label} (seletor)`} value={hex} onChange={(e) => onCommit(e.target.value)} />
+      <input className="size-7 rounded-md border border-ui-input bg-transparent p-0" type="color" aria-label={`${label} (seletor)`} value={hex} onChange={(e) => onCommit(e.target.value)} />
       <Field label={label} value={value} placeholder="nenhuma" title="#hex, rgba() ou $token" onCommit={(v) => onCommit(v.trim() || null)} />
     </div>
   );
