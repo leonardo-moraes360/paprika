@@ -434,6 +434,24 @@ before replacing the native `input type=color` with a popover. Six fixed-height 
 | 110 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | `get_document_outline` (or `create_nodes`) returning the page content bbox / `place: "free"` — same as #103 | P3 || 111 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/assets/boards/PAP-B-023/` | Optional `path` on `render_screenshot` (same as #100 / #101) | P2 || 112 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
 - Active workspace was already `Paprika - UI`; no `open_workspace`.
 - `lint_design` on the page still reports one unrelated contrast error from an older sheet; the new frames added no errors.
+## 2026-11-22: aspect-ratio lock shortcuts while resizing (PAP-B-042, design first)
+
+Task: draw free / keep-ratio / square selection states (light and dark) on the `Interfaces` page of `Paprika - UI`, then wire `Shift` and `Shift+Alt` locks plus a canvas hint in `apps/web/src/Canvas.tsx`. Six fixed-height root frames; screenshots in `docs/assets/boards/PAP-B-042/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | `lint_design` scoped to the ticket's roots | Calling `lint_design` with `rootIds` for the six PAP-B-042 frames still returned hundreds of warnings and one contrast error from older sheets on the same page (`nodeId` outside the requested roots) | Honor `rootIds` as a hard subtree filter so a ticket can prove its own lint without noise from parallel boards | P2 || 111 | Screenshots as files | Same as #100 / #101: `render_screenshot` returns base64 only; a short local script had to decode into `docs/assets/boards/PAP-B-042/` | Optional `path` on `render_screenshot` | P3 |
+- Active workspace was already `Paprika - UI`; `Interfaces` existed (`interfaces-pap020`); no `open_workspace`.
+- Fixed 360 px frame heights avoided the hug screenshot pitfall; `render_screenshot` with `scale: 2` was enough to judge the hint badges.
+## 2026-11-22: better activity history (PAP-B-025, design first)
+
+Task: draw the activity feed (actor color+name, action, relative time, batch grouping, undo/redo marker) light and dark before extracting `Activity.tsx` from the Inspector. Four root frames on `Interfaces` (`PAP-B-025 feed|undo` × light/dark), fixed height 320; PNGs under `docs/assets/boards/PAP-B-025/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | Agent name color that passes contrast on the panel | Putting the agent blue (`#3b82f6`) on both the dot and the name failed WCAG AA on `$pg.panel2` (3.69:1); the sheet kept the color on the dot only and used `$pg.fg` for the name | Document that presence colors are for fills/dots, not for body text on panel surfaces, or ship text-safe variants next to `AGENT_COLORS` | P3 || 111 | `$pg.select` as marker label ink in light mode | The "agora" marker label at `$pg.select` on the light panel was 3.91:1; switching the label to `$pg.fg` and leaving the line in select fixed lint without inventing a new token | A `select-ink` (or darker light-mode `$pg.select`) for text on light surfaces | P3 |
+- `layout.padding: [6, 8]` (two values) is rejected; four values or a single number work. Same class of friction as other tickets.
+- Undo/redo position is derived client-side from leading `desfazer:` / `refazer:` labels in the existing WS activity feed — no server change.
 
 ## 2026-11-22: layer order shortcuts and Ordem section (PAP-B-021, design first)
 

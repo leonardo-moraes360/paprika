@@ -436,6 +436,24 @@ PNGs em `docs/assets/boards/PAP-B-023/`; export dos boards via `GET /api/export`
 | 110 | Y livre para frames de boards em paralelo | Vários tickets compartilham `Interfaces`; o outline é prosa, então colocar o PAP-B-023 exigiu exportar o documento e varrer os `y` de topo à mão (pousou em `y=11000`) | `get_document_outline` (ou `create_nodes`) devolvendo a bbox do conteúdo da página / `place: "free"` — igual ao #103 | P3 || 111 | Capturas como arquivo | O `render_screenshot` ainda devolve base64 no JSON; um script Node teve que decodificar cada PNG em `docs/assets/boards/PAP-B-023/` | `path` opcional no `render_screenshot` (igual ao #100 / #101) | P2 || 112 | Escape que fecha um popover sem limpar a seleção | O `App.tsx` escuta Escape no `window` e troca a seleção; o primeiro Esc do color picker também desmontava o campo do inspector antes do foco voltar ao swatch | Ignorar Escape quando o alvo está dentro de `[data-slot="popover-content"]` / diálogo (feito neste ticket); popovers também devem dar `stopPropagation` | P2 |
 - O workspace ativo já era `Paprika - UI`; sem `open_workspace`.
 - O `lint_design` da página ainda aponta um erro de contraste antigo sem relação; os frames novos não acrescentaram erros.
+## 2026-11-22: atalhos de proporção ao redimensionar (PAP-B-042, design first)
+
+Tarefa: desenhar os estados livre / manter proporção / quadrado (claro e escuro) na página `Interfaces` do `Paprika - UI`, depois ligar as travas `Shift` e `Shift+Alt` e a dica no canvas em `apps/web/src/Canvas.tsx`. Seis frames raiz de altura fixa; capturas em `docs/assets/boards/PAP-B-042/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 110 | `lint_design` limitado às raízes do ticket | Chamar `lint_design` com `rootIds` dos seis frames PAP-B-042 ainda devolveu centenas de avisos e um erro de contraste de folhas antigas na mesma página (`nodeId` fora das raízes pedidas) | Respeitar `rootIds` como filtro duro da subárvore para o ticket provar o próprio lint sem ruído de boards paralelos | P2 || 111 | Screenshots como arquivo | Igual ao #100 / #101: `render_screenshot` só devolve base64; um script local teve que decodificar em `docs/assets/boards/PAP-B-042/` | `path` opcional no `render_screenshot` | P3 |
+- O workspace ativo já era `Paprika - UI`; `Interfaces` existia (`interfaces-pap020`); sem `open_workspace`.
+- Alturas fixas de 360 px evitaram o problema de screenshot com hug; `render_screenshot` com `scale: 2` bastou para julgar as dicas.
+## 2026-11-22: histórico de atividade (PAP-B-025, design first)
+
+Tarefa: desenhar o feed de atividade (ator cor+nome, ação, tempo relativo, agrupamento de lote, marcador de desfazer/refazer) em claro e escuro antes de extrair `Activity.tsx` do Inspector. Quatro frames raiz em `Interfaces` (`PAP-B-025 feed|undo` × light/dark), altura fixa 320; PNGs em `docs/assets/boards/PAP-B-025/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 110 | Cor do nome do agente que passe contraste no painel | Usar o azul do agente (`#3b82f6`) no ponto e no nome falhou WCAG AA em `$pg.panel2` (3.69:1); a folha manteve a cor só no ponto e `$pg.fg` no nome | Documentar que as cores de presença são para preenchimento/pontos, não para texto no painel, ou oferecer variantes seguras ao lado de `AGENT_COLORS` | P3 || 111 | `$pg.select` como tinta do marcador no modo claro | O rótulo "agora" em `$pg.select` no painel claro ficou em 3.91:1; trocar o rótulo para `$pg.fg` e deixar a linha em select corrigiu o lint sem token novo | Um `select-ink` (ou `$pg.select` mais escuro no modo claro) para texto em superfícies claras | P3 |
+- `layout.padding: [6, 8]` (dois valores) é rejeitado; quatro valores ou um número só funcionam.
+- A posição de desfazer/refazer vem no cliente dos rótulos iniciais `desfazer:` / `refazer:` no feed WS existente — sem mudança no servidor.
 
 ## 2026-11-22: atalhos de ordem Z e seção Ordem (PAP-B-021, design first)
 
