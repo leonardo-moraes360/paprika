@@ -409,7 +409,7 @@ func ringsToMulti(rings []boolRing, fillRule string) boolMulti {
 		holes := []boolRing{}
 		used[i] = true
 		sample := outer[0]
-		for j := 0; j < len(areas); j++ {
+		for j := range areas {
 			if used[j] || j == i {
 				continue
 			}
@@ -424,7 +424,7 @@ func ringsToMulti(rings []boolRing, fillRule string) boolMulti {
 				continue
 			}
 			nested := false
-			for k := 0; k < len(areas); k++ {
+			for k := range areas {
 				if k == i || k == j || used[k] {
 					continue
 				}
@@ -674,7 +674,7 @@ func linkRings(fragments []boolEdge) []boolRing {
 	sort.Strings(keys)
 	for _, sk := range keys {
 		list := adj[sk]
-		for si := 0; si < len(list); si++ {
+		for si := range list {
 			if adj[sk][si].used {
 				continue
 			}
@@ -689,7 +689,7 @@ func linkRings(fragments []boolEdge) []boolRing {
 			tmp := adj[sk]
 			tmp[si].used = true
 			adj[sk] = tmp
-			for guard := 0; guard < 100000; guard++ {
+			for range 100000 {
 				ring = append(ring, next)
 				if samePt(next, start) && len(ring) > 2 {
 					break
