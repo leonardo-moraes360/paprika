@@ -122,7 +122,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     await expect(zoomIn.getAttribute("aria-label")).resolves.toBe("Aumentar zoom");
     await expect(zoomIn.getAttribute("title")).resolves.toBeNull();
     await zoomIn.focus();
-    const tip = page.locator("[data-slot=tooltip-content]");
+    const tip = page.locator("[data-slot=tooltip-content]:not([data-state=closed])");
     await tip.waitFor({ timeout: 3_000 });
     await expect(tip.first().textContent()).resolves.toBe("Aumentar zoom");
     await page.keyboard.press("Escape");
