@@ -20,7 +20,7 @@ Paste and export: `Ctrl+V` with SVG markup or HTML (e.g. copied from a web page)
 Pages: the "Páginas" panel on the left switches pages, `+` adds one (the first `+` turns the current canvas into "Página 1"), double-click renames, `×` deletes (undoable).
 Renaming: double-click a layer in the "Camadas" panel or a frame title on the canvas to rename it in place. `Enter` or clicking away confirms, `Esc` cancels; each rename is one undo step. Instance copies take their name from the component.
 Navigation: scroll = pan, `Ctrl`+scroll = zoom, hold `Space` (or `Enter`) and drag = pan (the cursor turns into a hand).
-Agent edits flash on the canvas and show up under "Atividade" (activity).
+Agent edits flash on the canvas and show up under "Atividade" (activity): each row shows the actor (color dot and name), the action, a relative time, batch grouping for consecutive edits by the same actor, and an "agora" marker for the undo/redo position; long labels truncate with the full text in `aria-label`.
 Agent presence: every agent connected over MCP gets its own cursor, name and color on the canvas, like a multiplayer session. Each tool call (reads too) moves the cursor to the nodes it acted on, outlines them and labels what the agent is doing; the list at the top right shows who is in the document. Two sessions of the same client get distinct names ("claude-code", "claude-code 2"). Presence is not saved: an idle agent fades after 15 s and disappears after 2 minutes.
 
 ## Renderer: DOM or WASM

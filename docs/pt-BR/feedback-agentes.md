@@ -425,6 +425,16 @@ arrastar uma ferramenta de criação, claro e escuro, depois pintá-lo a partir 
 - O workspace ativo já era `Paprika - UI` / página `Interfaces`; sem `open_workspace`.
 - O fantasma é `aria-hidden` e `pointer-events: none` (`data-testid="draft-ghost"`); o fantasma da seta do conector ficou fora do escopo draft-only deste ticket.
 
+## 2026-11-22: histórico de atividade (PAP-B-025, design first)
+
+Tarefa: desenhar o feed de atividade (ator cor+nome, ação, tempo relativo, agrupamento de lote, marcador de desfazer/refazer) em claro e escuro antes de extrair `Activity.tsx` do Inspector. Quatro frames raiz em `Interfaces` (`PAP-B-025 feed|undo` × light/dark), altura fixa 320; PNGs em `docs/assets/boards/PAP-B-025/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 110 | Cor do nome do agente que passe contraste no painel | Usar o azul do agente (`#3b82f6`) no ponto e no nome falhou WCAG AA em `$pg.panel2` (3.69:1); a folha manteve a cor só no ponto e `$pg.fg` no nome | Documentar que as cores de presença são para preenchimento/pontos, não para texto no painel, ou oferecer variantes seguras ao lado de `AGENT_COLORS` | P3 || 111 | `$pg.select` como tinta do marcador no modo claro | O rótulo "agora" em `$pg.select` no painel claro ficou em 3.91:1; trocar o rótulo para `$pg.fg` e deixar a linha em select corrigiu o lint sem token novo | Um `select-ink` (ou `$pg.select` mais escuro no modo claro) para texto em superfícies claras | P3 |
+- `layout.padding: [6, 8]` (dois valores) é rejeitado; quatro valores ou um número só funcionam.
+- A posição de desfazer/refazer vem no cliente dos rótulos iniciais `desfazer:` / `refazer:` no feed WS existente — sem mudança no servidor.
+
 ## 2026-11-22: atalhos de ordem Z e seção Ordem (PAP-B-021, design first)
 
 Tarefa: desenhar a seção **Ordem** do inspector e o mapa de atalhos de ordem Z (claro e escuro, altura fixa) na página `Interfaces` de `Paprika - UI` antes de ligar `Page Up`/`Page Down` (+ Ctrl/Cmd para frente/fundo) em `Canvas.tsx` e as quatro ações de ordem em `Inspector.tsx`. Quatro frames raiz, uma chamada `create_nodes`; PNGs em `docs/assets/boards/PAP-B-021/`; export dos boards atualizado em `docs/design/boards.paprika.json`.

@@ -423,6 +423,16 @@ until release. Eight fixed-height frames on `Interfaces` (`docs/assets/boards/PA
 - Active workspace was already `Paprika - UI` / page `Interfaces`; no `open_workspace`.
 - Ghost is `aria-hidden` and `pointer-events: none` (`data-testid="draft-ghost"`); connector arrow ghost left out of this ticket's draft-only scope.
 
+## 2026-11-22: better activity history (PAP-B-025, design first)
+
+Task: draw the activity feed (actor color+name, action, relative time, batch grouping, undo/redo marker) light and dark before extracting `Activity.tsx` from the Inspector. Four root frames on `Interfaces` (`PAP-B-025 feed|undo` × light/dark), fixed height 320; PNGs under `docs/assets/boards/PAP-B-025/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 110 | Agent name color that passes contrast on the panel | Putting the agent blue (`#3b82f6`) on both the dot and the name failed WCAG AA on `$pg.panel2` (3.69:1); the sheet kept the color on the dot only and used `$pg.fg` for the name | Document that presence colors are for fills/dots, not for body text on panel surfaces, or ship text-safe variants next to `AGENT_COLORS` | P3 || 111 | `$pg.select` as marker label ink in light mode | The "agora" marker label at `$pg.select` on the light panel was 3.91:1; switching the label to `$pg.fg` and leaving the line in select fixed lint without inventing a new token | A `select-ink` (or darker light-mode `$pg.select`) for text on light surfaces | P3 |
+- `layout.padding: [6, 8]` (two values) is rejected; four values or a single number work. Same class of friction as other tickets.
+- Undo/redo position is derived client-side from leading `desfazer:` / `refazer:` labels in the existing WS activity feed — no server change.
+
 ## 2026-11-22: layer order shortcuts and Ordem section (PAP-B-021, design first)
 
 Task: draw the inspector **Ordem** section and the Z-order shortcut map (light and dark, fixed height) on the `Interfaces` page of `Paprika - UI` before wiring `Page Up`/`Page Down` (+ Ctrl/Cmd for front/back) in `Canvas.tsx` and the four arrange actions in `Inspector.tsx`. Four root frames, one `create_nodes` call; PNGs under `docs/assets/boards/PAP-B-021/`; boards export refreshed in `docs/design/boards.paprika.json`.
