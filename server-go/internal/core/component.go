@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -22,12 +23,7 @@ var CopyOverrides = []string{"fill", "color", "text", "src", "alt", "visible", "
 var RootDerived = []string{"fill", "stroke", "radius", "shadow", "layout", "clip", "width", "height"}
 
 func inList(list []string, k string) bool {
-	for _, v := range list {
-		if v == k {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, k)
 }
 
 // IsInstance reports whether n is a frame with instanceOf.

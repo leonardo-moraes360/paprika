@@ -8,6 +8,7 @@ linters:
   default: standard # errcheck, govet, ineffassign, staticcheck, unused
   enable:
     - unconvert
+    - modernize
   settings:
     errcheck:
       # Best-effort cleanup and response writes: there is nothing useful to do with the error.

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -193,9 +194,7 @@ func (s *Sidecar) Call(ctx context.Context, cmd map[string]any) (json.RawMessage
 	s.pending[id] = ch
 	s.mu.Unlock()
 	msg := map[string]any{"id": id}
-	for k, v := range cmd {
-		msg[k] = v
-	}
+	maps.Copy(msg, cmd)
 	line, err := json.Marshal(msg)
 	if err != nil {
 		return nil, err

@@ -254,7 +254,7 @@ func tiffOrientation(t []byte) int {
 		return 1
 	}
 	n := int(order.Uint16(t[ifd : ifd+2]))
-	for e := 0; e < n; e++ {
+	for e := range n {
 		at := ifd + 2 + e*12
 		if at+12 > len(t) {
 			return 1
