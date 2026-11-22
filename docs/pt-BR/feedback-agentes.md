@@ -325,3 +325,15 @@ de workspace. Sem folha de design: a mudança é no servidor; a metade de UI (o 
 
 - O `mu` do store não é reentrante, e `DeleteWorkspace` já chama `OpenWorkspace`: a entrada `open` do sucessor é logada antes da entrada `delete`, então ler o log do mais recente para o mais antigo dá o apagamento primeiro e a troca logo abaixo. Útil para quem escrever o aviso que ainda falta.
 - O documento de design em `127.0.0.1:4777` sumiu quando aquele endpoint passou à pilha do compose com volume novo: a página `Interfaces`, com as folhas do PAP-B-030 e do PAP-B-034, não existe mais, e só os PNGs commitados em `docs/assets/boards/` sobraram. A folha do PAP-B-026 foi redesenhada num servidor local. O que quer que entre da proposta de guardar as folhas no repositório, um reset de servidor não deveria custar um redesenho.
+## 2026-11-22: linguagem de perigo e o padrão de confirmação (PAP-B-026, design first)
+
+Tarefa: desenhar o botão de perigo (antes e depois, nos dois escopos de tema) e o padrão de confirmação antes
+de mexer em qualquer código, e aplicar depois em `apps/web`. Cinco frames raiz, ~330 nós, mais o overview real
+capturado antes e depois.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 97 | As folhas de design sobreviverem a uma troca de servidor | `127.0.0.1:4777` saiu do servidor rodando no host e passou à pilha do compose com um volume novo: o documento `Paprika`, que guarda a página `Interfaces` — a folha do PAP-B-030, a do PAP-B-034 e os frames do PAP-B-026 que eu tinha desenhado minutos antes — sumiu do `list_workspaces`. Só os PNGs commitados em `docs/assets/boards/` sobraram, e a folha teve que ser desenhada de novo pelo script num `paprika serve` que subi eu mesmo | Exportar o documento das folhas para dentro do repositório (`design/boards.paprika.json`, como `design/landing.paprika.json` guarda a landing page) e atualizar a exportação conforme as folhas entram; um reset de servidor custaria um reload, não um redesenho | P1 |
+| 98 | Um teste de contraste que não minta | A primeira medição do hover devolveu a cor de repouso porque o `transition-colors` ainda não tinha aterrissado, então a asserção passou sem nunca testar o hover; uma sonda manual com espera de 300 ms mostrou que a lavanda do hover é mais forte e que o texto claro tinha caído para 4,39:1 | Nada para a ferramenta mudar. Registrado porque é fácil repetir: espere a transição, leia depois, e assera os dois estados — como a suíte faz agora | P3 |
+
+- O `lint_design` apontou o texto destrutivo claro em 4,05:1 já na primeira folha, antes de qualquer linha de código — o mesmo tipo de erro que pegou na folha do PAP-B-030, e os alfas dos tokens são os que são hoje por causa dele.

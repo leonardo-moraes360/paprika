@@ -215,6 +215,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
         const [fg, bg] = await contrastIn(panel, "button");
         expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
       }
+
     });
 
     it("o diálogo prende o foco, o Tab não escapa e o Esc devolve ao gatilho (2.1.2)", async () => {
@@ -296,17 +297,21 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       expect(probe!.worldLineHeight).toBe("normal");
     });
 
-    it("o botão de perigo passa de 4,5:1 nos dois temas e não é a cor do botão primário (1.4.3)", async () => {
+    it("o botão de perigo passa de 4,5:1 nos dois temas, no repouso e no hover, e não é a cor do primário (1.4.3)", async () => {
       for (const panel of ["dark", "light"] as const) {
-        const [fg, bg] = await gal.evaluate((panel) => {
-          const el = [...document.querySelectorAll(`[data-panel=${panel}] [data-slot=button]`)].find((b) => b.textContent?.trim() === "Excluir");
-          if (!el) throw new Error(`no destructive button in [data-panel=${panel}]`);
-          const cs = getComputedStyle(el);
-          return [cs.color, cs.backgroundColor] as [string, string];
-        }, panel);
-        expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+        const danger = gal.locator(`[data-panel=${panel}] [data-slot=button]`).filter({ hasText: /^Excluir$/ }).first();
+        let restBg = "";
+        for (const state of ["rest", "hover"] as const) {
+          if (state === "hover") await danger.hover();
+          else await gal.mouse.move(5, 5);
+          // transition-colors: the hover color only lands a beat later, so measure after it settles.
+          await gal.waitForTimeout(300);
+          const [fg, bg] = await danger.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor] as [string, string]);
+          expect(contrastRatio(fg, bg), `${panel} ${state}`).toBeGreaterThanOrEqual(4.5);
+          if (state === "rest") restBg = bg;
+        }
         const [, primary] = await contrastIn(panel, "button");
-        expect(bg).not.toBe(primary);
+        expect(restBg).not.toBe(primary);
       }
     });
   });

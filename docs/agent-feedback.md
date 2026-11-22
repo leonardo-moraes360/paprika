@@ -324,3 +324,15 @@ operations. No design sheet: the change is server-side; the UI half (the canvas 
 
 - The store's `mu` is not reentrant, and `DeleteWorkspace` already calls `OpenWorkspace`: the successor's `open` entry is logged before the `delete` entry, so reading the log newest-first gives the delete first and the takeover below it. Worth knowing for whoever writes the notice that is still missing.
 - The design document at `127.0.0.1:4777` disappeared once that endpoint moved to the compose stack with a fresh volume: the `Interfaces` page with the PAP-B-030 and PAP-B-034 sheets is gone, and only the PNGs committed under `docs/assets/boards/` survived. PAP-B-026's sheet was redrawn on a local server. Whatever lands of the "keep the boards in the repository" proposal, a server reset should not cost a redraw.
+## 2026-11-22: destructive language and the confirmation pattern (PAP-B-026, design first)
+
+Task: draw the danger button (before and after, both theme scopes) and the confirmation pattern before
+changing any code, then apply them in `apps/web`. Five root frames, ~330 nodes, plus the real overview
+captured before and after.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 97 | The design boards to survive a server change | `127.0.0.1:4777` went from the host-run server to the compose stack with a fresh volume: the `Paprika` document that holds the `Interfaces` page — the PAP-B-030 sheet, the PAP-B-034 sheet, and the PAP-B-026 frames I had drawn minutes earlier — was no longer listed by `list_workspaces`. Only the PNGs committed under `docs/assets/boards/` survived, and the sheet had to be drawn a second time from the script on a `paprika serve` I started myself | Export the board document into the repository (`design/boards.paprika.json`, the way `design/landing.paprika.json` carries the landing page) and refresh it as sheets land; a server reset would then cost a reload, not a redraw | P1 |
+| 98 | A contrast check that does not lie | The first hover measurement returned the resting color because `transition-colors` had not landed, so the assertion passed without ever testing the hover state; a manual probe with a 300 ms wait showed the hover wash was darker and the light text had fallen to 4,39:1 | Nothing for the tool to change. Recorded because it is easy to repeat: wait for the transition, then read, and assert both states — which the suite now does | P3 |
+
+- `lint_design` reported the light destructive text at 4,05:1 on the first sheet, before a line of code was written — the same class of mistake it caught on the PAP-B-030 sheet, and the token alphas are what they are now because of it.

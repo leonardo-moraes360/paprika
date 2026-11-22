@@ -31,8 +31,8 @@ Two things about ADR 0003 make this a decision and not a package install:
    | secondary / -foreground / -hover | `--color-ui-secondary*` | `panel-2` / `fg` / #313a5c | `canvas` #e7e9f0 / #141827 / #d9deea |
    | muted / muted-foreground | `--color-ui-muted*` | `panel-2` / `muted` #a6acc4 | `canvas` / #5d6478 |
    | accent / accent-foreground | `--color-ui-accent*` | `panel-2` / `fg` | `canvas` / #141827 |
-   | destructive / -foreground / -hover | `--color-ui-destructive*` | `accent-strong` / white / `accent-dark` | same |
-   | destructive as text | `--color-ui-destructive-text` | `accent-ink` #ffb4a6 | #b3300f |
+   | destructive / -foreground / -hover | `--color-ui-destructive*` | `danger` #cc2f50 / white / `danger-dark` #a31d3d — its own hue, not the accent, see *Danger color* | same fill and hover; the text token becomes #a8173a |
+   | destructive as text | `--color-ui-destructive-text` | `danger-ink` #ff9fb2 (7.01:1 on `panel-2`) | #a8173a (7.37:1 on white) |
    | border / input | `--color-ui-border` / `-input` | `line` #2c3350 | #d3d7e3 / #c6cbd9 |
    | ring (focus) / link | `--color-ui-ring` / `-link` | `select` #4cc7d8 | #0b7183 |
    | overlay behind dialogs | `--color-ui-overlay` | rgb(9 12 22 / .66) | rgb(20 24 39 / .42) |
@@ -58,14 +58,51 @@ Two things about ADR 0003 make this a decision and not a package install:
 | `bg-black/80` dialog scrim | `bg-ui-overlay` | the night brand, and the same value the board carries |
 | `shadow-md`/`shadow-lg` | `shadow-float` | the theme defines two shadows; the board uses the floating one |
 | `text-destructive` for red text | `text-ui-destructive-text` | 2.72:1 as text on the night surfaces, 7.97:1 with the ink |
+| `AlertDialogAction` is always the primary button | `ConfirmDialog` swaps in the destructive classes through `className` | a delete confirmation must not look like the app's main call to action |
 | `sm:`/`md:` variants | removed | the closed theme has one breakpoint (`wide`) |
 | `React.forwardRef` + `displayName` | function components, `ref` as a prop (React 19), `data-slot` | the current upstream style; `data-slot` is also what the E2E suite selects |
 | `import { X } from "@radix-ui/react-x"` | `import { X as XPrimitive } from "radix-ui"` | one MIT package instead of thirteen |
 | `Close` label in the dialog | "Fechar", `aria-label` on the button | the app UI is pt-BR, and an icon-only control keeps its accessible name |
 
+### Danger color and the confirmation pattern (PAP-B-026)
+
+Paprika's accent is red, so the primitive's default mapping — `destructive` = `accent-strong` — made the delete
+button and the main call to action **the same button**. The answer, drawn first and merged in PR #95, is a hue of
+its own: the brand token `--color-danger` #cc2f50, `--color-danger-dark` #a31d3d for the hover and
+`--color-danger-ink` #ff9fb2 as text (#a8173a in `.ui-light`), which the `--color-ui-destructive*` aliases point
+at. Danger stays a filled red button; what separates it from the primary is the hue, not the treatment.
+
+Measured by the accessibility suite, in both theme scopes: white on the fill is **5.13:1** at rest and
+**7.50:1** on hover; written as text, the ink is 7.01:1 on the night surfaces and 7.37:1 on white. The test also
+asserts the danger fill is not the primary's color.
+
+The other candidate, drawn on the same sheet before #95 and rejected, borrowed the app's existing warning
+language: the accent as a translucent wash with `accent-ink` as the text. It lost on both counts — a wash of the
+accent reads as a quiet primary rather than as danger, and in the light scope its hover alpha had to be capped at
+14% to keep the text above 4.5:1. With a hue of its own the button can stay filled and the hover can get
+*darker*, which is what a danger action is expected to do.
+
+Two rules say what receives the treatment:
+
+1. **Danger marks what Ctrl+Z cannot bring back.** Deleting a workspace and removing a member from a team carry
+   it. Deleting a node, a page or a selection is undoable and stays neutral — painting every delete red would
+   make red mean nothing. Rotating an instance key and revoking invite links are irreversible too but were left
+   alone: the ticket scoped `Team.tsx` to the remove-member button.
+2. **An irreversible action gets a confirmation with the verb in it** — and a workspace delete also asks for the
+   workspace's name typed. `ConfirmDialog` (`apps/web/src/ConfirmDialog.tsx`) composes the AlertDialog primitive:
+   verb in the title, what is lost in the description, `Cancelar` first, the destructive action last, and the
+   error inside the dialog, because the page banner sits behind the scrim. Radix opens an AlertDialog with the
+   focus on **cancel**, which is the safe default.
+
+Still missing, and tracked in the backlog: the canvas toast naming what an agent deleted or which workspace an
+agent switched to. It reads the summary `delete_workspace` returns, which is PAP-B-015 (PR #97); the notice
+itself has no ticket yet.
+
 ## Verification
 
 - `pnpm check` (build with the WASM renderer, typecheck, fixtures, TS and Go tests, API and E2E suites against the Go server).
+- `packages/e2e/test/e2e/a11y.e2e.test.ts`, PAP-B-026: the workspace-delete confirmation is asserted as an `alertdialog` whose buttons come in the order `Cancelar` then `Excluir`, whose action carries the destructive classes, whose focus starts inside it and returns to the trigger on Esc, and whose Esc leaves the workspace on the list; the destructive button is measured at 4.5:1 or better in both theme scopes, at rest and on hover (the wash is translucent, so the test composes it over the panel behind it before measuring).
+- `packages/e2e/test/e2e/canvas.e2e.test.ts`: the overview flow reads that confirmation by role `alertdialog` instead of `dialog`, and types the workspace name where it previously clicked straight through; the assertions themselves (Cancel keeps it, Excluir removes it, deleting the active workspace moves the canvas and the agents) are unchanged.
 - `packages/e2e/test/e2e/a11y.e2e.test.ts`, new block "galeria de primitivas (/ui)": the dialog traps focus and eight Tab presses stay inside, Esc returns focus to the trigger; the alert dialog opens with focus inside and its `ui-light` scope travels with the portal; the tooltip opens from the keyboard, not only on hover; the menu opens with Enter, names its items (`menuitem`, including the destructive one), moves with arrows and closes with Esc; the primary button passes 4.5:1 in both theme scopes; and under `prefers-reduced-motion: reduce` the chrome animations are neutralized while a node inside `.world` keeps `transition-duration: 0s` and the `.world` container keeps `line-height: normal`.
 - Isolation of the canvas: the canvas E2E suite and the WASM suite (which compares the DOM renderer with the Rust one, pixel by pixel) are unchanged and pass. On top of that, the same canvas page (`/w/<id>` over the Go server, 1440×900, Chromium) was screenshotted on `origin/main` and on this branch: **0 of 1.296.000 pixels differ**. Nothing in this ticket touches the DOM under `.world` — every new rule is either a utility class on a primitive or a `:not(.world, .world *)` scope.
 - Bundle, `vite build` on `origin/main` and on this branch: CSS 29.02 kB → 45.94 kB (6.59 kB → 9.12 kB gzip); the app entry JS 554.31 kB → 585.85 kB (170.30 kB → 181.03 kB gzip), which is `cn()` plus the migrated `ConnectionStatus`; the primitives and Radix sit in the lazy gallery chunk, 179.69 kB (52.46 kB gzip), loaded only on `/ui`. They move into the app chunk as PAP-B-031…034 migrate each screen.
