@@ -273,6 +273,43 @@ func TestMCPToolsAndErrors(t *testing.T) {
 	}
 }
 
+func TestMCPGetBounds(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	callText(t, m, "create_nodes", obj("nodes", []any{obj(
+		"type", "frame", "id", "outer", "width", 200.0, "height", 100.0,
+		"layout", obj("mode", "column", "gap", 8.0, "padding", 10.0),
+		"children", []any{
+			obj("type", "rect", "id", "a", "width", "fill", "height", 20.0, "fill", "#111"),
+			obj("type", "rect", "id", "spin", "width", 20.0, "height", 10.0, "rotation", 90.0, "fill", "#222"),
+		},
+	)}))
+	out, isErr := callText(t, m, "get_bounds", obj("ids", []any{"a", "spin"}))
+	if isErr {
+		t.Fatalf("get_bounds: %q", out)
+	}
+	v, err := jsonv.Parse([]byte(out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	boxes := v.(*jsonv.Object).Obj("boxes")
+	if boxes.Obj("a").Num("width") != 180 {
+		t.Fatalf("fill width: %s", jsonv.Stringify(boxes.Obj("a"), ""))
+	}
+	if len(boxes.Obj("spin").Arr("corners")) != 4 {
+		t.Fatalf("corners: %s", jsonv.Stringify(boxes.Obj("spin"), ""))
+	}
+	info, isErr := callText(t, m, "path_info", obj("d", "M40 30 L80 30 L60 70 Z"))
+	if isErr {
+		t.Fatalf("path_info: %q", info)
+	}
+	pi, _ := jsonv.Parse([]byte(info))
+	o := pi.(*jsonv.Object).Obj("origin")
+	if o.Num("x") != 40 || o.Num("y") != 30 {
+		t.Fatalf("origin: %s", jsonv.Stringify(o, ""))
+	}
+}
+
 func TestMCPGroupsAndPages(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)

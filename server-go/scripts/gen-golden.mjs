@@ -14,7 +14,7 @@ const {
   applyOps, createDocument, parseDocument, copyId, History, outline, describeNode, lintDocument, renderHTML,
   exportReact, exportTailwind, exportCssModules, renderTailwindHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
   parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, importSVG, importHTML, exportSVG,
-  diagramOps, shapeOutline, tailwindClassesFor,
+  diagramOps, shapeOutline, tailwindClassesFor, layout, measureText, FONT_AVG, normalizePath, pathOrigin,
 } = core;
 
 const json = (v) => JSON.stringify(v, null, 2);
@@ -213,6 +213,7 @@ const opCases = [
   ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M0 0", viewBox: [0, 0] } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M2 2 L22 22", viewBox: [0, 0, 24, 24], stroke: { color: "#000", width: 2 } } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "wave", d: "M0 40 C 30 -10 70 90 100 40", stroke: { color: "#c43d27", width: 4 } } }]],
+  ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M40 30 L80 30 L60 70 Z", normalize: true, fill: "#c43d27" } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M0 0 L10 10", width: null, height: 5 } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M0 0 L10 10", shadow: { x: 1, y: 2, blur: 3, color: "#0008" } } }]],
   ["empty", [{ op: "x" }]],
@@ -744,9 +745,42 @@ const tailwindMapCases = [
   ["objectFit", "weird"], ["unknownProp", "1"],
 ].map(([key, value]) => ({ key, value, classes: tailwindClassesFor(key, value) ?? null }));
 
-const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, created: createDocument("Sem título", "abc"), tailwindMapCases };
+const stableLayout = (doc, opts) => {
+  const boxes = layout(doc, opts);
+  return JSON.stringify(Object.fromEntries(Object.keys(boxes).sort().map((id) => [id, boxes[id]])));
+};
+const layouts = Object.entries(docs).map(([name, doc]) => ({
+  name,
+  layout: err(() => stableLayout(doc)),
+  byRoot: Object.fromEntries(
+    doc.rootIds.slice(0, 8).map((id) => [id, err(() => stableLayout(doc, { rootId: id }))]),
+  ),
+}));
+const textMetrics = [
+  { text: "Olá", fontSize: 16, fontWeight: 400, lineHeight: 1.4, letterSpacing: 0 },
+  { text: "Olá", fontSize: 32, fontWeight: 400, lineHeight: 1.4, letterSpacing: 0 },
+  { text: "a\nb", fontSize: 10, fontWeight: 400, lineHeight: 1.4, letterSpacing: 0 },
+  { text: "wrap me please", fontSize: 14, fontWeight: 600, lineHeight: 1.2, letterSpacing: 0.5, maxWidth: 40 },
+  { text: "", fontSize: 12, fontWeight: 400, lineHeight: 1.4, letterSpacing: 0 },
+].map((c) => ({
+  ...c,
+  fontAvg: FONT_AVG,
+  result: measureText(c.text, c.fontSize, {
+    fontWeight: c.fontWeight,
+    lineHeight: c.lineHeight,
+    letterSpacing: c.letterSpacing,
+    maxWidth: c.maxWidth,
+  }),
+}));
+const pathNorm = ["M40 30 L80 30 L60 70 Z", "M0 0 L10 10", "M10 10 C 20 0 30 0 40 10"].map((d) => {
+  const segs = parsePath(d);
+  const n = normalizePath(segs);
+  return { d, origin: pathOrigin(segs), normalized: serializePath(n.segs), bounds: n.bounds };
+});
+
+const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, created: createDocument("Sem título", "abc"), tailwindMapCases };
 const dest = join(here, "../internal/core/testdata/golden.json");
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");
-console.log(`golden: ${opResults.length} op cases, ${views.length} documents, ${paths.length} paths → ${dest}`);
+console.log(`golden: ${opResults.length} op cases, ${views.length} documents, ${paths.length} paths, ${layouts.length} layouts → ${dest}`);
 void Document;

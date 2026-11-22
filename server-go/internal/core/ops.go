@@ -388,6 +388,21 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 	if hasChildren && !IsContainer(typ) {
 		return opErr(i, "only frame, group and page take children (got %s)", typ)
 	}
+	doNormalize := false
+	if rest.Has("normalize") {
+		if typ != "path" {
+			/* leave it: KnownKeys rejects unknown fields */
+		} else {
+			v, _ := rest.Get("normalize")
+			switch b := v.(type) {
+			case bool:
+				doNormalize = b
+				rest.Delete("normalize")
+			default:
+				return opErr(i, "normalize must be true or false")
+			}
+		}
+	}
 	allowed := KnownKeys(typ)
 	var unknown []string
 	for _, k := range rest.Keys() {
@@ -430,6 +445,29 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 		return err
 	}
 	props := rest.Spread()
+	// normalize: true moves the drawing to (0,0) and adds the offset to x/y (fb#15).
+	if doNormalize && typ == "path" {
+		if d, ok := props.Get("d"); ok {
+			if ds, isStr := d.(string); isStr {
+				if segs, perr := ParsePath(ds); perr == nil {
+					moved, origin, _ := NormalizePath(segs)
+					props.Set("d", SerializePath(moved))
+					if origin.X != 0 || origin.Y != 0 {
+						x := 0.0
+						y := 0.0
+						if v, has := props.Get("x"); has {
+							x = jsToNumber(v, true)
+						}
+						if v, has := props.Get("y"); has {
+							y = jsToNumber(v, true)
+						}
+						props.Set("x", x+origin.X)
+						props.Set("y", y+origin.Y)
+					}
+				}
+			}
+		}
+	}
 	// Without width/height a path gets the box of its own drawing (or of its viewBox).
 	if d, ok := props.Get("d"); ok && typ == "path" {
 		if ds, isStr := d.(string); isStr && (!props.Has("width") || !props.Has("height")) {
