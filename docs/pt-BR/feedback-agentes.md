@@ -275,3 +275,14 @@ página `Interfaces`, ~560 nós, e depois o app real em modo `--team` capturado 
 - Um construtor, dois modos: a mesma função do painel desenhou `antes` e `depois` e depois a folha clara, então as três folhas são a mesma geometria e só mudam os pares de tokens e o tamanho dos controles. Isso deixou a comparação legível.
 - `lint_design` nos cinco frames: 0 erros, os mesmos avisos `small-text` da folha do PAP-B-030 (o tipo de 11 e 12px do próprio painel), mais os infos `raw-color` do item 87.
 - As alturas dos frames tiveram que ser ajustadas na mão de novo (o item 81 continua valendo): uma coluna `hug` dentro de uma linha `hug` cortava o segundo painel até o frame externo ganhar altura explícita.
+
+## 2026-11-22: alças de redimensionar nos quatro cantos (PAP-B-029, design first)
+
+Tarefa: desenhar antes/depois das alças de seleção e um demo de arraste no NW na página `Interfaces`, depois
+adicionar as alças NW/NE/SW/SE em `apps/web/src/Canvas.tsx`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 88 | Comprimentos com token no create_nodes sem segunda passada | `radius: "$radius.md"` e `fontSize: "$text.2xs"` foram recusados (`expected number`); a medida começou em 10px/`$select` sobre `$canvas` e falhou o contraste até um `update_nodes` | Igual ao #83: aceitar `$radius.*` / `$text.*` nesses campos para a folha bater com a escala do app num único create | P3 |
+
+- Três frames raiz, uma chamada `create_nodes`; `lint_design` 0 depois de corrigir tamanhos da medida/nota; capturas em `docs/assets/boards/PAP-B-029`.
