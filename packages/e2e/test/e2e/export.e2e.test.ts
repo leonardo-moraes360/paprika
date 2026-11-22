@@ -105,7 +105,7 @@ describe("E2E: export tailwind vs html", () => {
         const css = await utilitiesFor(classes);
         const ungenerated = await page.evaluate(([list, sheet]) => (list as string[]).filter((c) => !(sheet as string).includes(`.${CSS.escape(c)}`)), [classes, css] as const);
         expect(ungenerated).toEqual([]);
-        const html = tailwind.html.replace(/<script src="[^"]*"><\/script\s*>/, `<style>${css}</style>`);
+        const html = tailwind.html.replace(/<script src="[^"]*"><\/script[^>]*>/, `<style>${css}</style>`);
         const a = await shoot(reference.html, reference.bounds);
         const b = await shoot(html, tailwind.bounds);
         expect(await diffRatio(page, a, b)).toBeLessThan(0.01);
