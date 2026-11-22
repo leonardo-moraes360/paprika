@@ -267,6 +267,8 @@ function Editor() {
         return;
       }
       if (e.key === "Escape") {
+        const t = e.target;
+        if (t instanceof Element && t.closest('[data-slot="popover-content"], [data-slot="dialog-content"], [role="dialog"], [role="alertdialog"]')) return;
         setTool("select");
         const parent = nodes[0]?.parentId;
         setSelected(parent && doc.nodes[parent]?.type !== "page" ? [parent] : []);

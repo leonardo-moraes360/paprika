@@ -179,6 +179,50 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => page.getByRole("status").filter({ hasText: "Use um número entre 0 e 1." }).count()).toBeGreaterThan(0);
   });
 
+  it("inspector: color picker grava $token, hex, rgba e devolve o foco no Esc", async () => {
+    await page.locator('[data-layer-id="plano"]').click();
+    const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
+    if ((await appearance.getAttribute("aria-expanded")) !== "true") await appearance.click();
+
+    const fillTrigger = page.getByTestId("color-picker-trigger").first();
+    await fillTrigger.click();
+    const picker = page.getByTestId("color-picker");
+    await expect.poll(() => picker.count()).toBe(1);
+
+    await page.getByTestId("color-token-brand").click();
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill).toBe("$brand");
+    await expect.poll(() => page.getByLabel("Preenchimento", { exact: true }).inputValue()).toBe("$brand");
+
+    const hex = page.getByTestId("color-hex");
+    await hex.click({ clickCount: 3 });
+    await hex.fill("#112233");
+    await hex.press("Enter");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill).toBe("#112233");
+
+    await page.getByTestId("color-alpha").focus();
+    for (let i = 0; i < 30; i++) await page.keyboard.press("ArrowLeft");
+    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "")).toMatch(/^rgba\(/);
+
+    await page.keyboard.press("Escape");
+    await expect.poll(() => picker.count()).toBe(0);
+    await expect.poll(() =>
+      page.evaluate(() => {
+        const el = document.activeElement;
+        return el?.getAttribute("data-testid") ?? el?.getAttribute("aria-label") ?? el?.tagName ?? "";
+      }),
+    ).toMatch(/color-picker-trigger|Preenchimento \(seletor\)/i);
+
+    await fillTrigger.focus();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => picker.count()).toBe(1);
+    await page.getByTestId("color-sv").focus();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowUp");
+    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "").length).toBeGreaterThan(0);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => picker.count()).toBe(0);
+  });
+
   it("ferramenta de retângulo desenha dentro do frame sob o cursor", async () => {
     await page.keyboard.press("Escape");
     const before = Object.keys((await doc()).nodes).length;

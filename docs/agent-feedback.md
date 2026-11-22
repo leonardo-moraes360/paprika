@@ -408,3 +408,18 @@ Task: redesign the scene inspector into collapsible sections before implementing
 |---|--------|---------------|----------|------|
 | 106 | Inspector height that proves the compact layout | `aside.right.scrollHeight` stayed 856 px before and after because the grid area forces a tall scroll container; `#right-tabpanel` height dropped 759 → 303 px (~60%) for the demo text node at 1440×900 (`packages/e2e/b022-measure.mjs`) | Use `panel` / `panelScroll` in the measure script (and in acceptance notes), not only `aside.scrollHeight` | P3 |
 | 107 | Boards on the shared MCP server | `:4777` answered slowly during the ticket, so only the existing design frames plus runtime screenshots were committed; no new fixed-height frames were drawn over MCP in this pass | Same as #97: a boards document in git that agents can `load` without depending on whichever volume is mounted on the maintainer's port | P2 |
+
+## 2026-11-22: custom color picker (PAP-B-023, design first)
+
+Task: draw the closed, open and alpha states of the inspector color field (light and dark) on `Interfaces`
+before replacing the native `input type=color` with a popover. Six fixed-height root frames; PNGs under
+`docs/assets/boards/PAP-B-023/`; board export refreshed via `GET /api/export`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 108 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | `get_document_outline` (or `create_nodes`) returning the page content bbox / `place: "free"` — same as #103 | P3 |
+| 109 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/assets/boards/PAP-B-023/` | Optional `path` on `render_screenshot` (same as #100 / #101) | P2 |
+| 110 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
+
+- Active workspace was already `Paprika - UI`; no `open_workspace`.
+- `lint_design` on the page still reports one unrelated contrast error from an older sheet; the new frames added no errors.

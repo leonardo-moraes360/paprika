@@ -409,3 +409,18 @@ Tarefa: redesenhar o inspector de cena em seções recolhíveis antes de impleme
 |---|-------------|-----------------|----------|------|
 | 106 | Altura do inspector que prova o layout compacto | O `aside.right.scrollHeight` ficou em 856 px antes e depois porque a área do grid força um container alto; a altura de `#right-tabpanel` caiu de 759 para 303 px (~60%) com o nó de texto do demo em 1440×900 (`packages/e2e/b022-measure.mjs`) | Usar `panel` / `panelScroll` no script de medição (e nas notas de aceite), não só `aside.scrollHeight` | P3 |
 | 107 | Boards no servidor MCP compartilhado | O `:4777` respondeu devagar durante o ticket, então só os frames de design existentes mais screenshots da runtime foram commitados; nenhum frame novo de altura fixa foi desenhado no MCP nesta passagem | Igual ao #97: um documento de boards no git que os agentes possam `load` sem depender do volume montado na porta do mantenedor | P2 |
+
+## 2026-11-22: color picker customizado (PAP-B-023, design first)
+
+Tarefa: desenhar os estados fechado, aberto e alpha do campo de cor do inspector (claro e escuro) em
+`Interfaces` antes de trocar o `input type=color` nativo por um popover. Seis frames raiz de altura fixa;
+PNGs em `docs/assets/boards/PAP-B-023/`; export dos boards via `GET /api/export`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 108 | Y livre para frames de boards em paralelo | Vários tickets compartilham `Interfaces`; o outline é prosa, então colocar o PAP-B-023 exigiu exportar o documento e varrer os `y` de topo à mão (pousou em `y=11000`) | `get_document_outline` (ou `create_nodes`) devolvendo a bbox do conteúdo da página / `place: "free"` — igual ao #103 | P3 |
+| 109 | Capturas como arquivo | O `render_screenshot` ainda devolve base64 no JSON; um script Node teve que decodificar cada PNG em `docs/assets/boards/PAP-B-023/` | `path` opcional no `render_screenshot` (igual ao #100 / #101) | P2 |
+| 110 | Escape que fecha um popover sem limpar a seleção | O `App.tsx` escuta Escape no `window` e troca a seleção; o primeiro Esc do color picker também desmontava o campo do inspector antes do foco voltar ao swatch | Ignorar Escape quando o alvo está dentro de `[data-slot="popover-content"]` / diálogo (feito neste ticket); popovers também devem dar `stopPropagation` | P2 |
+
+- O workspace ativo já era `Paprika - UI`; sem `open_workspace`.
+- O `lint_design` da página ainda aponta um erro de contraste antigo sem relação; os frames novos não acrescentaram erros.
