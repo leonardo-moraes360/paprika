@@ -27,6 +27,7 @@ export const PLAN_KEYS = [
   "golden",
   "go",
   "rust",
+  "sync",
   "codeql",
   "codeql_matrix",
   "docker",
@@ -64,10 +65,13 @@ export function planFor(files, { ciFull = false } = {}) {
   const web = area(/^apps\/web\//) || rust;
   const examples = area(/^examples\//);
   const go = area(/^server-go\//);
+  // The team sync sidecar (crates/sync) and the Go package that drives it: built and tested
+  // together, since server-go/internal/team runs against the real binary.
+  const sync = area(/^crates\/sync\//) || go;
   const benchTs = area(/^experiments\/canvas-wasm\/bench\//);
   const actions = area(/^\.github\//);
   // The image's own files. Everything else that goes into the image (core, web, crates/render,
-  // server-go) is one of the areas above.
+  // crates/sync, server-go) is one of the areas above.
   const dockerfiles = area(/^(Dockerfile|\.dockerignore|compose\.yaml)$/);
 
   // Unit tests per workspace package. A package runs every test when one of its dependencies
@@ -90,10 +94,10 @@ export function planFor(files, { ciFull = false } = {}) {
   if (actions) codeql.push("actions");
   if (ts || benchTs) codeql.push("javascript-typescript");
   if (go) codeql.push("go");
-  if (rust) codeql.push("rust");
+  if (rust || area(/^crates\/sync\//)) codeql.push("rust");
 
   // Build the Docker image and smoke-test it when its recipe or anything it packages changed.
-  const docker = dockerfiles || core || web || go;
+  const docker = dockerfiles || core || web || go || area(/^crates\/sync\//);
 
   return {
     full,
@@ -106,6 +110,7 @@ export function planFor(files, { ciFull = false } = {}) {
     golden,
     go,
     rust,
+    sync,
     codeql: codeql.length > 0,
     codeql_matrix: JSON.stringify(codeql),
     docker,

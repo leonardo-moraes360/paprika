@@ -181,7 +181,24 @@ Tarefa: imagem de capa nos cards da página inicial (enviar, soltar, remover; se
 | 63 | Manter a capa em dia com o design | A capa é uma foto: edições depois no frame não a atualizam | Uma capa "viva" opcional que renderiza de novo o frame escolhido quando o workspace muda (com debounce) | P3 |
 | 64 | Levar a capa num export | As capas ficam no SQLite ao lado do documento, não no `.paprika.json`, então o `paprika export` as deixa de fora | Exportar/importar a capa como data URL num campo opcional de topo | P3 |
 
+## 2026-11-21: telas do time P2P (Iroh + CRDT)
 
+Tarefa: desenhar as telas do time (painel do time com pessoas, agentes remotos e estado de conexão; convite com link e QR; entrar com progresso e erro de convite vencido; chaves do time; os estados de sync da barra superior) numa página nova "Time P2P" do workspace "Paprika", por um script pelo MCP HTTP (cerca de 900 nós em 9 chamadas `create_nodes`).
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 65 | Texto que se ajusta ao conteúdo dentro de auto layout | Um `text` criado sem `width`/`height` tem 100×100, então cada rótulo de uma linha/coluna ocupou um quadrado de 100 px e o primeiro rascunho ficou inutilizável; os nós desenhados à mão no mesmo workspace são todos `hug`×`hug`. Custou apagar e redesenhar tudo | `text` novo com `width: "hug", height: "hug"` por padrão (e `height: "hug"` quando só vier `width`) | P0 |
+| 66 | Usar o id que `create_page` devolveu | `create_page` responde `{page, created}` e `create_nodes` responde `{created}`; o script leu `created[0]` do jeito errado e passou o objeto inteiro como `parentId` | Um formato de resultado para toda tool de criação: `{created: [...]}` primeiro, `page` como extra | P2 |
+| 67 | Saber o que `delete_nodes` removeu | Responde `{"created": []}` | `{deleted: [ids, incluindo subárvores e conectores presos]}` | P2 |
+| 68 | Um frame sem layout que abraça o texto | Um `frame` com `height: "hug"` e sem `layout` (modo none) colapsa para 0, então o texto dentro some; as células da tabela ficaram vazias sem aviso | `hug` num frame sem layout se ajustar às caixas dos filhos, ou o `lint_design` apontar "hug em frame sem layout" | P1 |
+| 69 | Ver no `lint_design` os problemas que importam | 140 avisos na página, quase todos um por rótulo de 11 px, com os poucos estouros reais no meio | Agrupar por regra com contagem e até N ids por regra; uma opção para subir o limite de `small-text` ou desligar uma regra | P2 |
+| 70 | Pegar uma linha mais larga que o frame antes do screenshot | Três cards de 400 px mais os espaços estouraram um quadro de 1320 px; só o screenshot mostrou | Overflow no `lint_design` para filhos de row/column cuja soma passa do frame (existe para texto, não para layouts) | P2 |
+
+Mais simples para o próximo agente:
+
+1. Texto com `hug`×`hug` por padrão (#65): a única mudança que teria poupado um redesenho.
+2. Um formato de resultado para as tools de criar/apagar (#66, #67).
+3. Lint que agrupa e aponta estouro de layout (#68–#70).
 
 - `create_nodes` aninhado montou uma proposta inteira (≈60 nós) numa chamada, de forma atômica.
 - O contraste do `lint_design` guiou a escolha de tokens (`brand.dark` para texto branco em botões).

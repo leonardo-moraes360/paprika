@@ -100,20 +100,25 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
   const [ready, setReady] = useState(false);
   const frame = useRef(0);
 
+  /** Renders the current scene right away (same task, so before the next paint). */
+  const drawNow = useCallback(() => {
+    cancelAnimationFrame(frame.current);
+    const r = rendererRef.current;
+    if (!r) return;
+    const v = viewRef.current;
+    const dpr = window.devicePixelRatio || 1;
+    try {
+      r.render(v.x * dpr, v.y * dpr, v.zoom * dpr);
+    } catch (e) {
+      setStatus({ backend: "error", detail: String(e) });
+    }
+  }, []);
+
+  /** Coalesces several changes in one frame into a single render on the next animation frame. */
   const draw = useCallback(() => {
     cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(() => {
-      const r = rendererRef.current;
-      if (!r) return;
-      const v = viewRef.current;
-      const dpr = window.devicePixelRatio || 1;
-      try {
-        r.render(v.x * dpr, v.y * dpr, v.zoom * dpr);
-      } catch (e) {
-        setStatus({ backend: "error", detail: String(e) });
-      }
-    });
-  }, []);
+    frame.current = requestAnimationFrame(drawNow);
+  }, [drawNow]);
 
   // Create the renderer when the WASM mode is on; free it when it is turned off.
   useEffect(() => {
@@ -152,7 +157,10 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
     };
   }, [mode, viewportRef]);
 
-  // Keep the backing store at device resolution.
+  // Keep the backing store at device resolution. Setting canvas.width/height clears the bitmap,
+  // and ResizeObserver callbacks run after this frame's animation callbacks but before its paint:
+  // deferring the render to the next rAF would paint a blank layer for one frame on every resize
+  // step (dragging a side panel resizes the viewport on every pointermove), so render right here.
   useEffect(() => {
     if (!ready) return;
     const vp = viewportRef.current!;
@@ -168,12 +176,11 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
       canvas.width = w;
       canvas.height = h;
       r.resize(w, h); // reconfigures the WebGPU surface or the CPU pixmap
-
-      draw();
+      drawNow();
     });
     ro.observe(vp);
     return () => ro.disconnect();
-  }, [ready, viewportRef, draw]);
+  }, [ready, viewportRef, drawNow]);
 
   // Rebuild the display list after React commits the DOM (layout is final here).
   useLayoutEffect(() => {
