@@ -356,7 +356,15 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			for i, id := range ids {
 				ops[i] = jsonv.NewObject("op", "delete", "id", id)
 			}
-			return write(a, ops, labelOr(a, "delete "+count(len(ids))+" node(s)"))
+			r, err := store.ApplyBatch(ops, m.actorName(), labelOr(a, "delete "+count(len(ids))+" node(s)"), a.Str("batch"))
+			if err != nil {
+				return nil, err
+			}
+			deleted := r.Removed
+			if deleted == nil {
+				deleted = []string{}
+			}
+			return jsonResult(jsonv.NewObject("deleted", jsonv.FromGo(deleted), "version", float64(store.Version()))), nil
 		})
 
 	add("move_nodes", z.Object(
@@ -423,6 +431,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if a.Has("name") {
 			op.Set("name", a.Str("name"))
 		}
+		// `page` names the new page: `created` also lists the first page made the first time ("Página 1").
 		return writeWith(a, []any{op}, labelOr(a, "create page"), "page", id)
 	})
 

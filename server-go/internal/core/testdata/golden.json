@@ -19,13 +19,13 @@
        }
       }
      ],
-     "sha256": "ef6e039b3e74964b746002a5574727070ac3f6016e59931f063b17bebea374b2",
+     "sha256": "37092cedb8aab4d37c9ab487d7beffbfb5664e288d4a129ccfad3429cc66a464",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "ef6e039b3e74964b746002a5574727070ac3f6016e59931f063b17bebea374b2",
+     "sha256": "37092cedb8aab4d37c9ab487d7beffbfb5664e288d4a129ccfad3429cc66a464",
      "canUndo": true,
      "canRedo": false
     },
@@ -45,7 +45,7 @@
       }
      ],
      "error": "op[0]: unknown field for path: bogus",
-     "sha256": "ef6e039b3e74964b746002a5574727070ac3f6016e59931f063b17bebea374b2",
+     "sha256": "37092cedb8aab4d37c9ab487d7beffbfb5664e288d4a129ccfad3429cc66a464",
      "canUndo": true,
      "canRedo": false
     },
@@ -69,7 +69,7 @@
       }
      ],
      "error": "op[1]: moving \"board\" into itself would create a cycle",
-     "sha256": "ef6e039b3e74964b746002a5574727070ac3f6016e59931f063b17bebea374b2",
+     "sha256": "37092cedb8aab4d37c9ab487d7beffbfb5664e288d4a129ccfad3429cc66a464",
      "canUndo": true,
      "canRedo": false
     },
@@ -98,7 +98,7 @@
       }
      ],
      "error": "op[2]: unknown field for path: bogus",
-     "sha256": "ef6e039b3e74964b746002a5574727070ac3f6016e59931f063b17bebea374b2",
+     "sha256": "37092cedb8aab4d37c9ab487d7beffbfb5664e288d4a129ccfad3429cc66a464",
      "canUndo": true,
      "canRedo": false
     },
@@ -113,13 +113,13 @@
        }
       }
      ],
-     "sha256": "f86195025e45463d7e1f34bd6a276ab2de6f62a8295058a675805338df8c227d",
+     "sha256": "39c4e58ac910e44e49879ba7732e6d574aafc330142cf3663856a28619571a6e",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "f86195025e45463d7e1f34bd6a276ab2de6f62a8295058a675805338df8c227d",
+     "sha256": "39c4e58ac910e44e49879ba7732e6d574aafc330142cf3663856a28619571a6e",
      "canUndo": true,
      "canRedo": false
     },
@@ -142,7 +142,7 @@
        "id": "3etpiwkw0u"
       }
      ],
-     "sha256": "099925d1d0f4a872b538cd0d2772bbb86469288b105b5f83f3859efd5ed65727",
+     "sha256": "2eb7027b73dca69738c11f2c40496f180092d1a04e9baa0c325db834b32a225f",
      "canUndo": true,
      "canRedo": false
     },
@@ -170,7 +170,7 @@
       }
      ],
      "error": "op[1]: unknown field for path: bogus",
-     "sha256": "099925d1d0f4a872b538cd0d2772bbb86469288b105b5f83f3859efd5ed65727",
+     "sha256": "2eb7027b73dca69738c11f2c40496f180092d1a04e9baa0c325db834b32a225f",
      "canUndo": true,
      "canRedo": false
     },
@@ -188,7 +188,7 @@
        }
       }
      ],
-     "sha256": "8a884a528a52ce23d43ca393a0386b86efe05f56d84ab3cda2feb6f9a725943c",
+     "sha256": "44411d2a90fa148f9f6067309e233ada3f7290993b92fabc508cb7e9c7c580c7",
      "canUndo": true,
      "canRedo": false
     },
@@ -211,13 +211,13 @@
        "id": "64t9tb2vg3"
       }
      ],
-     "sha256": "a8c89fe4653e2ac32338882af26c17bb14461ff581a20ef3f0b6ff185e103cab",
+     "sha256": "c160e556606e95713e73beca4728a687113e98073bdec938fb0f0eb8f9a6c180",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "711781d70878238b0ea2d90cd13c5cb3d5ba1d9c6f7d31926402d40d71f40d81",
+     "sha256": "72a2f8c1656e48478ba04f4de21df03ecb4299ac83544ec555a86d921caee8cb",
      "canUndo": true,
      "canRedo": true
     },
@@ -238,7 +238,7 @@
       }
      ],
      "error": "op[0]: unknown field for path: bogus",
-     "sha256": "711781d70878238b0ea2d90cd13c5cb3d5ba1d9c6f7d31926402d40d71f40d81",
+     "sha256": "72a2f8c1656e48478ba04f4de21df03ecb4299ac83544ec555a86d921caee8cb",
      "canUndo": true,
      "canRedo": true
     },
@@ -280,7 +280,7 @@
        }
       }
      ],
-     "sha256": "cbea6f6963a7256dfa56fb35369035c48b69d531e0529004a58f6a7fe1f00d2b",
+     "sha256": "8cbacedfd4e2aaabfa1e42cd3275f81889b2b55c4e3063ebd0ea174933b8081e",
      "canUndo": true,
      "canRedo": false
     },
@@ -306,7 +306,7 @@
        }
       }
      ],
-     "sha256": "2da04de7c94d2fcacb74c6818231f95c36779528535916446249c4a269f4efea",
+     "sha256": "198134a9158b7cf481cb04f3d3a0fb565437acc62d00dbe55e375504133c56d9",
      "canUndo": true,
      "canRedo": false
     },
@@ -329,31 +329,31 @@
        "parentId": null
       }
      ],
-     "sha256": "d82783ff58863c1b0aef214f2a86d5cf9a49f2f011ca4d2ef9b9d2fb5a2d03be",
+     "sha256": "0a5e4cea33ec514204dda1c9f3f288e23b5b38b566fab68e5e36df86b77967af",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "d82783ff58863c1b0aef214f2a86d5cf9a49f2f011ca4d2ef9b9d2fb5a2d03be",
+     "sha256": "0a5e4cea33ec514204dda1c9f3f288e23b5b38b566fab68e5e36df86b77967af",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "d82783ff58863c1b0aef214f2a86d5cf9a49f2f011ca4d2ef9b9d2fb5a2d03be",
+     "sha256": "0a5e4cea33ec514204dda1c9f3f288e23b5b38b566fab68e5e36df86b77967af",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "1317f8d23aac93a6843125e0d76f019d017c383bbe8062a6564689b48d516dfc",
+     "sha256": "3d4799a10acab007262820459499353503898102b2c2869590960e5e8cb8f96c",
      "canUndo": true,
      "canRedo": true
     },
     {
      "kind": "undo",
-     "sha256": "3d764aab20808fb67393e9a9706e5c2914b68017dee74bf0a27dd37538305bd0",
+     "sha256": "51e8fa97a03abc068e74eb9448ec0e48fb8431351d65177ad9deebb468fe9c3e",
      "canUndo": true,
      "canRedo": true
     }
@@ -396,7 +396,7 @@
        }
       }
      ],
-     "sha256": "916ab7be2d09c2ff0242dced430c4ea0284de388fcbbd9456e592e4a7861d540",
+     "sha256": "1a5ae139c39801ae3259d5ea1a5536afbb9d52eaf56349b88450954faec3b9e5",
      "canUndo": true,
      "canRedo": false
     },
@@ -418,7 +418,7 @@
        }
       }
      ],
-     "sha256": "547cbf8cd7dae93ae160b593dd203cf7c6787001e08bf9299c08641709ecbf8e",
+     "sha256": "de8c0906c2b25209858fd6563801234bc1c3e2d08f670873a3aac71d79715713",
      "canUndo": true,
      "canRedo": false
     },
@@ -436,13 +436,13 @@
        }
       }
      ],
-     "sha256": "e74c8abfa22ecf48988224c4adffee43d4f1d4e8e25e8c6dcda21f19597876cf",
+     "sha256": "817a7d2225de3655d8a1edbd5596d9afd656c975f9f0f0108dc61774d6e27be4",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "e74c8abfa22ecf48988224c4adffee43d4f1d4e8e25e8c6dcda21f19597876cf",
+     "sha256": "817a7d2225de3655d8a1edbd5596d9afd656c975f9f0f0108dc61774d6e27be4",
      "canUndo": true,
      "canRedo": false
     },
@@ -454,7 +454,7 @@
        "id": "ver3w1zqsa"
       }
      ],
-     "sha256": "c7cdd1e270c5856ab818e3958710b9692bd6f2ede748f768d6e36b3a976506fc",
+     "sha256": "ec4c7b063d168994cd094dda4c7883a87d1b14ec1f4e86237d56ceda89004c00",
      "canUndo": true,
      "canRedo": false
     },
@@ -482,7 +482,7 @@
        }
       }
      ],
-     "sha256": "a875aef767e763c0f3b8d738d3298a8b8c0ddb0177d96165948d6b6f43f814dc",
+     "sha256": "4e24e12a3d8727baed33e2e0b6c7f026efa13302c71bd517b7138eabb7f078c4",
      "canUndo": true,
      "canRedo": false
     },
@@ -503,7 +503,7 @@
        "index": 2
       }
      ],
-     "sha256": "2d1aa45f92f45d7380e8932651cc10a085ea05ca2874ead076717b800410f644",
+     "sha256": "8bed1be5287fdf4595233fff784e9545cbd01f22c67a41a1065835ca4a0b1f39",
      "canUndo": true,
      "canRedo": false
     },
@@ -522,7 +522,7 @@
        }
       }
      ],
-     "sha256": "9e06bcae24ed28f23d3b03455eaa8dc80e9b3a0ee17c8159e6ac20fbf1de97ec",
+     "sha256": "2ed9feaf53d30681e02d529e840f9743c393a22fb6b3c1c2d03f219526bb2132",
      "canUndo": true,
      "canRedo": false
     },
@@ -542,7 +542,7 @@
        "index": 0
       }
      ],
-     "sha256": "fe2c99e42be85c5fa13e809d85fe9d8bc1f0b832ee61bcd1854e9c53f79b6568",
+     "sha256": "4dcbdfdddc30d7263d7755893ed4b880776dbe7344c52aff7e76314cbcd1bb9d",
      "canUndo": true,
      "canRedo": false
     },
@@ -556,19 +556,19 @@
        "index": 2
       }
      ],
-     "sha256": "bba77f0e730df995a204d72403c22058052c4137e3a4e651c8976cf45c419d59",
+     "sha256": "0f824c52fcb412d4ff1a31d7304b5cdfa858aeeb27e9b9967cc510ea7c796225",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "fe2c99e42be85c5fa13e809d85fe9d8bc1f0b832ee61bcd1854e9c53f79b6568",
+     "sha256": "4dcbdfdddc30d7263d7755893ed4b880776dbe7344c52aff7e76314cbcd1bb9d",
      "canUndo": true,
      "canRedo": true
     },
     {
      "kind": "redo",
-     "sha256": "bba77f0e730df995a204d72403c22058052c4137e3a4e651c8976cf45c419d59",
+     "sha256": "0f824c52fcb412d4ff1a31d7304b5cdfa858aeeb27e9b9967cc510ea7c796225",
      "canUndo": true,
      "canRedo": false
     },
@@ -588,7 +588,7 @@
        "index": 0
       }
      ],
-     "sha256": "3365d4ea80cffe008179e9b779eb55753523291594593cd522995157061b0970",
+     "sha256": "076957f80c5ba40d37475648b8d0c9da8fcdbbb268e9c7ebc12d732c4ca4c1d7",
      "canUndo": true,
      "canRedo": false
     },
@@ -649,7 +649,7 @@
        }
       }
      ],
-     "sha256": "162e9facc612ef70ca5941fa579ea77c373a82698d2c7d5828a09e98b64f5a44",
+     "sha256": "5b0e1862e5ea42a3fcaab13d24b9a02393fedf6725be39e8f2e7f49d9395db4a",
      "canUndo": true,
      "canRedo": false
     },
@@ -674,7 +674,7 @@
        }
       }
      ],
-     "sha256": "f1c532f84d4aef8d545c24f78cd7b885a558f5396aa34d9e21530f9ab2c3e7d3",
+     "sha256": "b1fd29b1b43bdeba16fa1c38ac01d7a4d53d653e219cd5dbeff2a820af924da2",
      "canUndo": true,
      "canRedo": false
     },
@@ -698,7 +698,7 @@
        }
       }
      ],
-     "sha256": "dafa8c8a092d9139f1be3355d21a2b300149c901eb38e722b59f34b8250fb222",
+     "sha256": "29485882b9c98eb5a634e7b3b5f33d9c5a45764b5af0ea186c74d1fbb941b8ce",
      "canUndo": true,
      "canRedo": false
     },
@@ -726,7 +726,7 @@
        }
       }
      ],
-     "sha256": "1876e3a040f536a9a57a3182536a6bc46eed6a06ad415376f665cc4ed98449d3",
+     "sha256": "dcd36034bfeb40d3abbd1eba1b98f16792de0600e81e23a0396d043aa5dbd44c",
      "canUndo": true,
      "canRedo": false
     },
@@ -749,7 +749,7 @@
        }
       }
      ],
-     "sha256": "52cda192c369fb8705682b27666a6c22e7b8c9eaced80ef9791c0fdbbfe0208c",
+     "sha256": "c2cce27d763c75d80f825af6b9291132e4a8bfbeb742ae805096ea8c81bd91b6",
      "canUndo": true,
      "canRedo": false
     }
@@ -1190,7 +1190,7 @@
        "index": 0
       }
      ],
-     "sha256": "f56a6ae0868e725bd34b89130b6159fda35b23a0a6ffd768efd1f9d03d653a2a",
+     "sha256": "36c2ede87d9a1b7344847b5a53a33d769129b4ddca50cd9f1f5fbc29ee280964",
      "canUndo": true,
      "canRedo": false
     },
@@ -1207,7 +1207,7 @@
        }
       }
      ],
-     "sha256": "2c52a1f1e2a9d90323258e5abac788f561714461a0782b968b92a648b399bfaa",
+     "sha256": "3ff5c488afcb817b4d16d173b6e4a336def2ce0a4eb0ea68026147d8b8e9be50",
      "canUndo": true,
      "canRedo": false
     },
@@ -1391,7 +1391,7 @@
        }
       }
      ],
-     "sha256": "07ccc4d3457fadceee00c660414a06741f9a177c1f3d18f5837d28796395a129",
+     "sha256": "93f273245f484f30f6d9ad000b04680693de28cfb6d9f12fb9348076c7f7476e",
      "canUndo": true,
      "canRedo": false
     },
@@ -1495,7 +1495,7 @@
        }
       }
      ],
-     "sha256": "c62a1b494e7cdae7141756f70fcaa003f5b5fae131348ee69cce8cb7028ba9f3",
+     "sha256": "c1a1dc52cf0064a2253291b4869850f573a8a767d22da5908e39a1fc42f2f6d3",
      "canUndo": true,
      "canRedo": false
     },
@@ -1518,7 +1518,7 @@
       }
      ],
      "error": "op[0]: invalid node: d: invalid d: number expected at position 8 (end of text)",
-     "sha256": "c62a1b494e7cdae7141756f70fcaa003f5b5fae131348ee69cce8cb7028ba9f3",
+     "sha256": "c1a1dc52cf0064a2253291b4869850f573a8a767d22da5908e39a1fc42f2f6d3",
      "canUndo": true,
      "canRedo": false
     }
@@ -2580,7 +2580,7 @@
        }
       }
      ],
-     "sha256": "32c8174ea1ef3b544a19b1aeac17c46cb05fcbba4afc7815e1cc581b933fa624",
+     "sha256": "b5f851cb6f18e698c7bc22ef58bd3b31247277b913e04c1cd4f909d5410f65b8",
      "canUndo": true,
      "canRedo": false
     }
@@ -2895,7 +2895,7 @@
        }
       }
      ],
-     "sha256": "6a740eac7699c4c0fe5ef509a3377f61d41eaf5b7d91dae3fe823522926994c4",
+     "sha256": "226d3b9550d7f40d101f333649bdea1b0d080111ed023ccd95dd4f91d48bc4fd",
      "canUndo": true,
      "canRedo": false
     },
@@ -2909,7 +2909,7 @@
        "index": 0
       }
      ],
-     "sha256": "445971a623731cb68523cb5db46c861655f469396d289d4a0bca9ec2c1799f14",
+     "sha256": "e32a1c8152515314a7038497efd8bb9a87c5b8f94b6c53ed23a045afe8c15bef",
      "canUndo": true,
      "canRedo": false
     },
@@ -2940,7 +2940,7 @@
        "parentId": "k18gevl7yh"
       }
      ],
-     "sha256": "4c802bef774bf855a25b32df77d2c4421a2e855690d4d86cac8bcf5a62f76941",
+     "sha256": "e4f8b491a817ec09698d51c2ded6c0a728d37289808bfec9987d4fde234b2b23",
      "canUndo": true,
      "canRedo": false
     },
@@ -2960,7 +2960,7 @@
       }
      ],
      "error": "op[0]: unknown field for frame: bogus",
-     "sha256": "4c802bef774bf855a25b32df77d2c4421a2e855690d4d86cac8bcf5a62f76941",
+     "sha256": "e4f8b491a817ec09698d51c2ded6c0a728d37289808bfec9987d4fde234b2b23",
      "canUndo": true,
      "canRedo": false
     }
@@ -3014,7 +3014,7 @@
        "id": "dfr285peh5"
       }
      ],
-     "sha256": "cd58f8a1f0bcbe2df33d9b15219b0c235773a8dd07a7815ea17fe911fd185e09",
+     "sha256": "54e1a4f7d28c2f0cf7f3e4f0c68f1e025a18e532ba2374566ac6a34eb4d35a1c",
      "canUndo": true,
      "canRedo": false
     },
@@ -3029,7 +3029,7 @@
        }
       }
      ],
-     "sha256": "5bad6545e5a633c7d1e078386291ac8af9ba78ff496ac07dc6a8d1ec66440518",
+     "sha256": "a6d55fc41d7631b4643dadc0481859328e888dbdcb3ce7aeffe059ec818e6439",
      "canUndo": true,
      "canRedo": false
     },
@@ -3057,7 +3057,7 @@
        }
       }
      ],
-     "sha256": "5b7e1eccaabde4d333794ed6956adc8d7586c926537d50c8da8c420cf00c96ec",
+     "sha256": "7a54c2f6531d19c02e4172d8a236d61f3d726e4cc3078fa6debde3dee8e384d5",
      "canUndo": true,
      "canRedo": false
     },
@@ -3094,7 +3094,7 @@
        }
       }
      ],
-     "sha256": "63721fd87df993138e779b22df1c603e37fc6aecce8187fbba5f934726dfaa77",
+     "sha256": "dc50a338d1d746333bd05888d17f571e5d2bbb77842d4b3624dbf86b5629f9f2",
      "canUndo": true,
      "canRedo": false
     },
@@ -3122,7 +3122,7 @@
        }
       }
      ],
-     "sha256": "294cdf6ce664a590c41832acc127b524dcada2d79e1d30f41ec4113ce1d25ef5",
+     "sha256": "86cd0bb8374cc84acff6ca669fc2cdca7c2fd106a98ec7efed3bba5a3b547ce0",
      "canUndo": true,
      "canRedo": false
     },
@@ -3146,7 +3146,7 @@
        }
       }
      ],
-     "sha256": "e446582d822ea3072913489610f76905498e6d940f11b74dceecbcb4bed60bef",
+     "sha256": "a6a7d8b8acf02ed89eaacf22dcf688b52258e35dd950a834de94c67a31ef0e3c",
      "canUndo": true,
      "canRedo": false
     },
@@ -3173,7 +3173,7 @@
        "index": 1
       }
      ],
-     "sha256": "f8cdaa828205282afb905d3ccab0b322e8b968d71cc29d657d3948fa474b0108",
+     "sha256": "7fc01ba54d04e44a72d5a3ec001d5946328941c158dcb6486bfeba76717d3e3b",
      "canUndo": true,
      "canRedo": false
     },
@@ -3192,7 +3192,7 @@
        "parentId": "board"
       }
      ],
-     "sha256": "53375ce6f0135adfbcd1bcacb855c0c9e4f5a6f27743cc99960109b34780fb71",
+     "sha256": "f19f95a9e3089499d1f780409dbba46a2ef138e125954b6b555cd432fa477104",
      "canUndo": true,
      "canRedo": false
     },
@@ -3210,7 +3210,7 @@
        }
       }
      ],
-     "sha256": "b67aca6a7dd95f85b8b9de11a375ccd69abeceafb5d6abe4fb7c107b0b3a49e8",
+     "sha256": "35cf5664fa3f14af42897203d808323fd19b72ede46122e227468f4d9079fc64",
      "canUndo": true,
      "canRedo": false
     },
@@ -3235,7 +3235,7 @@
       }
      ],
      "error": "op[2]: moving \"board\" into itself would create a cycle",
-     "sha256": "b67aca6a7dd95f85b8b9de11a375ccd69abeceafb5d6abe4fb7c107b0b3a49e8",
+     "sha256": "35cf5664fa3f14af42897203d808323fd19b72ede46122e227468f4d9079fc64",
      "canUndo": true,
      "canRedo": false
     },
@@ -3249,7 +3249,7 @@
        "index": 1
       }
      ],
-     "sha256": "b67aca6a7dd95f85b8b9de11a375ccd69abeceafb5d6abe4fb7c107b0b3a49e8",
+     "sha256": "35cf5664fa3f14af42897203d808323fd19b72ede46122e227468f4d9079fc64",
      "canUndo": true,
      "canRedo": false
     },
@@ -3263,7 +3263,7 @@
        "index": 2
       }
      ],
-     "sha256": "8934070c324f433a1337d6191ee17f0e850e441ba9d0221bb3aec071532334fa",
+     "sha256": "b0468a6eee547926e53d7f4892c232be930846c56aaf3f7d6e3e48c67ef993c7",
      "canUndo": true,
      "canRedo": false
     },
@@ -3291,7 +3291,7 @@
        }
       }
      ],
-     "sha256": "31e4e210df00441919c27d8050abe946882ae2dd593a463d77b5e59c7241163c",
+     "sha256": "a9b611db386e735533afb1d81eafcbe4cdcad3146ae83112c027fead5fd67974",
      "canUndo": true,
      "canRedo": false
     },
@@ -3305,7 +3305,7 @@
        }
       }
      ],
-     "sha256": "a249d0b05fc8472876d48e5d0e06f06bb57a705e54d031fba4016bbf692a887c",
+     "sha256": "b48da09644c481519fa54e2165a6f67ea22b04c0536226123e39aabb70ce91b8",
      "canUndo": true,
      "canRedo": false
     },
@@ -3328,13 +3328,13 @@
       }
      ],
      "error": "op[0]: unknown field for path: bogus",
-     "sha256": "a249d0b05fc8472876d48e5d0e06f06bb57a705e54d031fba4016bbf692a887c",
+     "sha256": "b48da09644c481519fa54e2165a6f67ea22b04c0536226123e39aabb70ce91b8",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "a249d0b05fc8472876d48e5d0e06f06bb57a705e54d031fba4016bbf692a887c",
+     "sha256": "b48da09644c481519fa54e2165a6f67ea22b04c0536226123e39aabb70ce91b8",
      "canUndo": true,
      "canRedo": false
     },
@@ -3477,7 +3477,7 @@
        }
       }
      ],
-     "sha256": "f8db2a15e896703c303bd6efe35eadeb3f4f1a826889989293975071157420f4",
+     "sha256": "a7a5d6bfbffb7fb6dc853bff7af37eb23306300b3aabd03911c7589f683f5a76",
      "canUndo": true,
      "canRedo": false
     },
@@ -3491,7 +3491,7 @@
        "index": 2
       }
      ],
-     "sha256": "589ee7bef4c3f739d05e3f25a3c3d3b40589a63a6f27e3eee5259799f94612a2",
+     "sha256": "f366cb2547f14580ace61ecf8fc4bdbdb69ccd4e98c4c21b112d1c5d44d05851",
      "canUndo": true,
      "canRedo": false
     },
@@ -3510,13 +3510,13 @@
        }
       }
      ],
-     "sha256": "280bef8437aedac699f1d9d440d5fba4dca614351d7be9b3affb3896bc516ad4",
+     "sha256": "f3266ab751953de078ddd9b76e40cb05b73bd01f6d08e4761b299ba67421fa39",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "589ee7bef4c3f739d05e3f25a3c3d3b40589a63a6f27e3eee5259799f94612a2",
+     "sha256": "f366cb2547f14580ace61ecf8fc4bdbdb69ccd4e98c4c21b112d1c5d44d05851",
      "canUndo": true,
      "canRedo": true
     },
@@ -3542,7 +3542,7 @@
       }
      ],
      "error": "op[0]: unknown field for text: bogus",
-     "sha256": "589ee7bef4c3f739d05e3f25a3c3d3b40589a63a6f27e3eee5259799f94612a2",
+     "sha256": "f366cb2547f14580ace61ecf8fc4bdbdb69ccd4e98c4c21b112d1c5d44d05851",
      "canUndo": true,
      "canRedo": true
     },
@@ -3561,7 +3561,7 @@
        }
       }
      ],
-     "sha256": "40e4297a50b6bf2cab174ea39bdc7b0212a3b6a327055f8114e484a487a84b7c",
+     "sha256": "26b10781f664130ea45e670f5e48b2d7a38d56992520125088f4604e296c30ed",
      "canUndo": true,
      "canRedo": false
     },
@@ -3585,13 +3585,13 @@
        }
       }
      ],
-     "sha256": "8b051f9698bfb6f173927b1a817ac90cde6b5b90bbc485d87252e8a83c0d1c41",
+     "sha256": "17f0155929a43544881b9b917b027fe7d198e77e4515e6b05aa9ba5e74495c08",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "8b051f9698bfb6f173927b1a817ac90cde6b5b90bbc485d87252e8a83c0d1c41",
+     "sha256": "17f0155929a43544881b9b917b027fe7d198e77e4515e6b05aa9ba5e74495c08",
      "canUndo": true,
      "canRedo": false
     },
@@ -3621,25 +3621,25 @@
       }
      ],
      "error": "op[1]: unknown field for text: bogus",
-     "sha256": "8b051f9698bfb6f173927b1a817ac90cde6b5b90bbc485d87252e8a83c0d1c41",
+     "sha256": "17f0155929a43544881b9b917b027fe7d198e77e4515e6b05aa9ba5e74495c08",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "8b051f9698bfb6f173927b1a817ac90cde6b5b90bbc485d87252e8a83c0d1c41",
+     "sha256": "17f0155929a43544881b9b917b027fe7d198e77e4515e6b05aa9ba5e74495c08",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "8b051f9698bfb6f173927b1a817ac90cde6b5b90bbc485d87252e8a83c0d1c41",
+     "sha256": "17f0155929a43544881b9b917b027fe7d198e77e4515e6b05aa9ba5e74495c08",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "40e4297a50b6bf2cab174ea39bdc7b0212a3b6a327055f8114e484a487a84b7c",
+     "sha256": "26b10781f664130ea45e670f5e48b2d7a38d56992520125088f4604e296c30ed",
      "canUndo": true,
      "canRedo": true
     },
@@ -3668,7 +3668,7 @@
        }
       }
      ],
-     "sha256": "017cd35f406c4def946392c7b90ef6fd14bbe025cdc53f95bb085cc2ac14b4ae",
+     "sha256": "91e4260684b82a24ca1d1002fdfab8292ae6d05c494e4e04067abc5c692217f5",
      "canUndo": true,
      "canRedo": false
     },
@@ -3697,7 +3697,7 @@
        "id": "74oxmaizym"
       }
      ],
-     "sha256": "75dcf07421fe1e5432e2800d245e77a32d64d687fdd40e2a44f06bbd68233a94",
+     "sha256": "8d0e48b5b793af09874a69a1a2a60b6e2f89cae7d6505e4f2ca7e9829e701552",
      "canUndo": true,
      "canRedo": false
     }
@@ -3784,7 +3784,7 @@
        }
       }
      ],
-     "sha256": "c57bb0f9b627fa5d95890150037a8a0492878783be9417592ed6374bd10747b8",
+     "sha256": "c0a85489bee32e7c4bd96beb3baddfd754fdb3db922a142f11e5d0080747f6fd",
      "canUndo": true,
      "canRedo": false
     },
@@ -3802,7 +3802,7 @@
        }
       }
      ],
-     "sha256": "7afa9c294f34fa03300d2f715ba8bf8003018da74d5eef9fdff84e28337d42ae",
+     "sha256": "a884d3285c1ee0c25ad248b334286b34365c7e01a1c9d9418c71e1e4b5dd4df8",
      "canUndo": true,
      "canRedo": false
     },
@@ -3831,13 +3831,13 @@
       }
      ],
      "error": "op[0]: unknown field for frame: bogus",
-     "sha256": "7afa9c294f34fa03300d2f715ba8bf8003018da74d5eef9fdff84e28337d42ae",
+     "sha256": "a884d3285c1ee0c25ad248b334286b34365c7e01a1c9d9418c71e1e4b5dd4df8",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "7afa9c294f34fa03300d2f715ba8bf8003018da74d5eef9fdff84e28337d42ae",
+     "sha256": "a884d3285c1ee0c25ad248b334286b34365c7e01a1c9d9418c71e1e4b5dd4df8",
      "canUndo": true,
      "canRedo": false
     },
@@ -3865,7 +3865,7 @@
        }
       }
      ],
-     "sha256": "e07b45b4d9d314e1fa9b99234351065a84e11d7b8219b53c9fee56c1a0f402dd",
+     "sha256": "060322cbfc4d6185294810738c33f86f78dbd00bba777bb89e3ab7ec4b96626e",
      "canUndo": true,
      "canRedo": false
     },
@@ -3891,13 +3891,13 @@
       }
      ],
      "error": "op[2]: unknown field for path: bogus",
-     "sha256": "e07b45b4d9d314e1fa9b99234351065a84e11d7b8219b53c9fee56c1a0f402dd",
+     "sha256": "060322cbfc4d6185294810738c33f86f78dbd00bba777bb89e3ab7ec4b96626e",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "e07b45b4d9d314e1fa9b99234351065a84e11d7b8219b53c9fee56c1a0f402dd",
+     "sha256": "060322cbfc4d6185294810738c33f86f78dbd00bba777bb89e3ab7ec4b96626e",
      "canUndo": true,
      "canRedo": false
     },
@@ -3921,7 +3921,7 @@
        }
       }
      ],
-     "sha256": "b6bdcb99e24da2f93142bf5f2208898e6cb4ab6b7c7c694a7b0b7d52ea4473c2",
+     "sha256": "b93a60b115e07a2772c9f035944349c65e67b786eb826eba23c6a9d5be776fcc",
      "canUndo": true,
      "canRedo": false
     },
@@ -3950,7 +3950,7 @@
        }
       }
      ],
-     "sha256": "e9ef74a00951375848bcf59a0d4ac238f8833a7ae5cfb317caa7c15263841f51",
+     "sha256": "e744b54bfd9a666d78ecedf1b269e6e7948ecb7544e6ab2f985937377190bff8",
      "canUndo": true,
      "canRedo": false
     },
@@ -3981,7 +3981,7 @@
        }
       }
      ],
-     "sha256": "f368bb2ac95003fa9930312d26836c45d864fd9405c8628272d6d7eb19d36e61",
+     "sha256": "ec64059c634127d12929d71d17004c5b6151cdb404a649cce29c63d14c48a1f0",
      "canUndo": true,
      "canRedo": false
     },
@@ -4001,7 +4001,7 @@
        }
       }
      ],
-     "sha256": "42a964205df60841518185bc76ea91e0a721062ae9c95843772856d4c242e3a8",
+     "sha256": "9b7367517d955e82ff66e3d64eeaa2741b37a9aef3113346ce5a4a7792449e71",
      "canUndo": true,
      "canRedo": false
     },
@@ -4029,19 +4029,19 @@
        }
       }
      ],
-     "sha256": "f11d259dfb320d1a41fb7625c5afdd301ce9ff73a531991b0fa1e0f249f5c1d3",
+     "sha256": "21f1b32fb033a8b231d61cd672071b72a4cb82bc16b2156e19063534c66e1f22",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "f11d259dfb320d1a41fb7625c5afdd301ce9ff73a531991b0fa1e0f249f5c1d3",
+     "sha256": "21f1b32fb033a8b231d61cd672071b72a4cb82bc16b2156e19063534c66e1f22",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "f11d259dfb320d1a41fb7625c5afdd301ce9ff73a531991b0fa1e0f249f5c1d3",
+     "sha256": "21f1b32fb033a8b231d61cd672071b72a4cb82bc16b2156e19063534c66e1f22",
      "canUndo": true,
      "canRedo": false
     },
@@ -4062,13 +4062,13 @@
        }
       }
      ],
-     "sha256": "90c8e739dbe50f18ea8782153f99b06d3ae5b532ded04be222ce54ab787c217a",
+     "sha256": "886a709016db11f85e16b10c484d2cc385445c4fd2f17fc94ed860c84d133cd3",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "f11d259dfb320d1a41fb7625c5afdd301ce9ff73a531991b0fa1e0f249f5c1d3",
+     "sha256": "21f1b32fb033a8b231d61cd672071b72a4cb82bc16b2156e19063534c66e1f22",
      "canUndo": true,
      "canRedo": true
     },
@@ -4112,13 +4112,13 @@
        }
       }
      ],
-     "sha256": "612fff38e2c525eb5b5cd06e2aeaa293f640e0b0415d1dbec939648cbdcbce6d",
+     "sha256": "7226ae9f42acc1980b2b032ff4b17bf4e3d680f2afb1c6e6b4aefe99e0425357",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "612fff38e2c525eb5b5cd06e2aeaa293f640e0b0415d1dbec939648cbdcbce6d",
+     "sha256": "7226ae9f42acc1980b2b032ff4b17bf4e3d680f2afb1c6e6b4aefe99e0425357",
      "canUndo": true,
      "canRedo": false
     }
@@ -4163,7 +4163,7 @@
        }
       }
      ],
-     "sha256": "58ab74cf7b2217877b16ea46dbd0e29b37448629e7f6f4c09bb1a1f67283ec8b",
+     "sha256": "52f41acc8b3ff0d906cf71633a75e79507f6f1e99c01f9430368d7ecba6118a4",
      "canUndo": true,
      "canRedo": false
     },
@@ -4190,7 +4190,7 @@
        }
       }
      ],
-     "sha256": "d08d6083243918017c904e26335545bfb1ab40ae7883097e5f9964b184f431e9",
+     "sha256": "f3151c18aed2fd53190a23b1c7c2fd56c2d9be27a97e5b63d40e2d1e6dde2f7f",
      "canUndo": true,
      "canRedo": false
     },
@@ -4203,7 +4203,7 @@
        "parentId": "k18gevl7yh"
       }
      ],
-     "sha256": "645ac3b3e0883f5da83c1631cf7d50390821931ea27a7ae0bc3d30de469dba88",
+     "sha256": "bee8672ec48d4e93b6e9aaf309f4899bd747a971d78d22f95193f4888e917f8b",
      "canUndo": true,
      "canRedo": false
     },
@@ -4233,7 +4233,7 @@
        }
       }
      ],
-     "sha256": "b84fefb06e453162328c836526b0fefebf4ccff7c557ec3669ee8900d7bdf18b",
+     "sha256": "7550aa2c5dd9e8fe2c99b51f76640b7767d11c2aa3be639a35cb663593a10915",
      "canUndo": true,
      "canRedo": false
     },
@@ -4260,13 +4260,13 @@
        "index": 1
       }
      ],
-     "sha256": "977d162ba8448d71af4857340b98fc724a08da41bdb886cae0db9b292ea141f2",
+     "sha256": "1b1160dd1894f2f4efd6c6d8b8ee6ab766e63a2d5757db1af788b3b1c72cbf51",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "b84fefb06e453162328c836526b0fefebf4ccff7c557ec3669ee8900d7bdf18b",
+     "sha256": "7550aa2c5dd9e8fe2c99b51f76640b7767d11c2aa3be639a35cb663593a10915",
      "canUndo": true,
      "canRedo": true
     },
@@ -4292,7 +4292,7 @@
       }
      ],
      "error": "op[0]: unknown field for text: bogus",
-     "sha256": "b84fefb06e453162328c836526b0fefebf4ccff7c557ec3669ee8900d7bdf18b",
+     "sha256": "7550aa2c5dd9e8fe2c99b51f76640b7767d11c2aa3be639a35cb663593a10915",
      "canUndo": true,
      "canRedo": true
     },
@@ -4305,7 +4305,7 @@
        "parentId": null
       }
      ],
-     "sha256": "fbb9ce4e9fedb2676a87dec8de20dcd7f91321dbe7594a17bca7391fb10c6884",
+     "sha256": "dc56ccc5ce6529068c2f671c21f38ae046865355ee9b477fecd58f3a404cc86c",
      "canUndo": true,
      "canRedo": false
     },
@@ -4332,7 +4332,7 @@
        }
       }
      ],
-     "sha256": "e694450e4e658c9f11507d9f144fa90e98493e2f66b82ebb9566a404a7f3384a",
+     "sha256": "94b9e00686013a48219a90c9d69a02a9710655619ba3843ea0bb63d05b870b75",
      "canUndo": true,
      "canRedo": false
     },
@@ -4349,7 +4349,7 @@
        }
       }
      ],
-     "sha256": "4bf609296f9eda31d7d7ec6a730c4b78085e594c7ea2ee2644a40869d4e1418b",
+     "sha256": "f06c6b75aaa4b2e4c79b5d2fd559fe2a4d3c9f17af7838f51cc7d6eb9d09d457",
      "canUndo": true,
      "canRedo": false
     },
@@ -4388,7 +4388,7 @@
        }
       }
      ],
-     "sha256": "8f627969c806959815ad6aa58a21a726f46c305974b80b196e1d1e4ec44d5eec",
+     "sha256": "caf41665d06c90b4bea458fb5edba69fcdf5588b4347e4efecdb99e97e050568",
      "canUndo": true,
      "canRedo": false
     },
@@ -4407,7 +4407,7 @@
        "id": "n11_11"
       }
      ],
-     "sha256": "92c4c4b2cd54846d5204bd140469a01c9f2c4ed9e0bd3e8cd6af25ba8f7e384a",
+     "sha256": "58655b50c67b1dfbb78bc69b39b8279872189024cf18858faadcdd49696f2584",
      "canUndo": true,
      "canRedo": false
     },
@@ -4439,7 +4439,7 @@
        }
       }
      ],
-     "sha256": "cf42b90e282a517e218bbabbcf7a51232e68836a25ab94784ca5cc30d03b0c3e",
+     "sha256": "bfece4a4f568838557098f5d847d81735a0e1214f1921edbacc2f74dcaec0530",
      "canUndo": true,
      "canRedo": false
     },
@@ -4453,7 +4453,7 @@
        }
       }
      ],
-     "sha256": "570827ce234046f68e91755019b2fe1eecb47f870981a1f1ba67283b6bdc8d93",
+     "sha256": "56a0087e7111fde32c07c96f5796f61faa7accb302a2e1e1b79f736fed15f023",
      "canUndo": true,
      "canRedo": false
     },
@@ -4479,7 +4479,7 @@
        "id": "n11_6"
       }
      ],
-     "sha256": "0fd682715467dc6a5a6a66d2d00fefe9075c74c1a906694df3da4549bf32e784",
+     "sha256": "932c0745f0242895bbb6a04a7409e60665b9002eea6fd39055973b9df973cfd3",
      "canUndo": true,
      "canRedo": false
     },
@@ -4504,7 +4504,7 @@
       }
      ],
      "error": "op[0]: invalid node: d: invalid d: number expected at position 8 (end of text)",
-     "sha256": "0fd682715467dc6a5a6a66d2d00fefe9075c74c1a906694df3da4549bf32e784",
+     "sha256": "932c0745f0242895bbb6a04a7409e60665b9002eea6fd39055973b9df973cfd3",
      "canUndo": true,
      "canRedo": false
     },
@@ -4530,7 +4530,7 @@
        "parentId": null
       }
      ],
-     "sha256": "7d5cb49c71b20346fa43ee2684b5555be8947a7eaae4b328e85671f749d4708a",
+     "sha256": "95a415a4628ee8ddafbc0c1a8f421e1e1fde7f3806857f78866c898d664e3f6d",
      "canUndo": true,
      "canRedo": false
     },
@@ -4552,7 +4552,7 @@
        }
       }
      ],
-     "sha256": "7d5cb49c71b20346fa43ee2684b5555be8947a7eaae4b328e85671f749d4708a",
+     "sha256": "95a415a4628ee8ddafbc0c1a8f421e1e1fde7f3806857f78866c898d664e3f6d",
      "canUndo": true,
      "canRedo": false
     },
@@ -4581,7 +4581,7 @@
        }
       }
      ],
-     "sha256": "3407a07d41834f574af7b6ae42956b6db89348ebc4603e1c111e0d758677d6e3",
+     "sha256": "491022e1ce5e4ec05be69910e53fcb614cdeb53993e5622ae952296eb6d3b2e2",
      "canUndo": true,
      "canRedo": false
     }
@@ -4649,7 +4649,7 @@
        }
       }
      ],
-     "sha256": "aa8e1de7aaba998c7109844a53e9de488cd1e359354c19fd1e36bc7c6fe4d826",
+     "sha256": "70bdc3d7eec792024a7a6fc39de0869563e6c46ba738a677d6e3ffa394b69ed1",
      "canUndo": true,
      "canRedo": false
     },
@@ -4662,7 +4662,7 @@
        "parentId": "board"
       }
      ],
-     "sha256": "64b94a989ea59c57db6dd7f9cd20a45ac7b7f0c87775cbc9ae4e080603c2d05e",
+     "sha256": "59026b99080e30e474bf1ab0412c49158bb4ea3e5347469cc9dd4819a9bb652c",
      "canUndo": true,
      "canRedo": false
     },
@@ -4688,7 +4688,7 @@
        "id": "5rf19krb2r"
       }
      ],
-     "sha256": "587e651f0550598223cd3728376ce4fa322f38d34c251f918fb79bfe3977f643",
+     "sha256": "8df85e14546268e0227d9dfb25e65fa03955515fd1c2a7a8c630c05569f91f43",
      "canUndo": true,
      "canRedo": false
     },
@@ -4719,7 +4719,7 @@
        }
       }
      ],
-     "sha256": "dd885f87fe0a078b5b1597f3462020c589290fe3877193d4379b678086cf31ac",
+     "sha256": "a52bbac1ed76b0f76463e27356a50e470bc8d08b63cfc9f1f15039f301d569cc",
      "canUndo": true,
      "canRedo": false
     },
@@ -4739,7 +4739,7 @@
        "parentId": null
       }
      ],
-     "sha256": "02c69c8a1c3cf4095f13bfdab9ad1e3f86b79904a1f8b0339c9a10f7f01bc72f",
+     "sha256": "0b675ea977364c81fd8c6b92ad4f3645357733c875e2dc3a216018eb3e38ebd1",
      "canUndo": true,
      "canRedo": false
     },
@@ -4777,13 +4777,13 @@
        }
       }
      ],
-     "sha256": "00af4fd9b1e3b3efddf58cd0b23ee2de727b346acacaacae27ab2d9942567783",
+     "sha256": "394370e2ead016c11e793057ba7d278b242c104294fdcfa1ce904226910521aa",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "02c69c8a1c3cf4095f13bfdab9ad1e3f86b79904a1f8b0339c9a10f7f01bc72f",
+     "sha256": "0b675ea977364c81fd8c6b92ad4f3645357733c875e2dc3a216018eb3e38ebd1",
      "canUndo": true,
      "canRedo": true
     },
@@ -4818,7 +4818,7 @@
       }
      ],
      "error": "op[0]: unknown field for rect: bogus",
-     "sha256": "02c69c8a1c3cf4095f13bfdab9ad1e3f86b79904a1f8b0339c9a10f7f01bc72f",
+     "sha256": "0b675ea977364c81fd8c6b92ad4f3645357733c875e2dc3a216018eb3e38ebd1",
      "canUndo": true,
      "canRedo": true
     },
@@ -4843,13 +4843,13 @@
        "id": "n12_15"
       }
      ],
-     "sha256": "adec1c280aaf3559aa0d38a95922670af08d6dda2fea6ff457d45eaec09c9893",
+     "sha256": "4aeab5bdc4f8167daac8550e12e3a3f15dfa7f1a45f7d388225c82caff665028",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "adec1c280aaf3559aa0d38a95922670af08d6dda2fea6ff457d45eaec09c9893",
+     "sha256": "4aeab5bdc4f8167daac8550e12e3a3f15dfa7f1a45f7d388225c82caff665028",
      "canUndo": true,
      "canRedo": false
     },
@@ -4863,7 +4863,7 @@
        }
       }
      ],
-     "sha256": "6fe28e79419206b436a828b98fa27860ffdd8dbc2fb727ec72f8da8f63aff83d",
+     "sha256": "2c8348e66cd9749d5b9714aa0fdca5397a14f265ffca0533ecd334ee60661feb",
      "canUndo": true,
      "canRedo": false
     },
@@ -4891,7 +4891,7 @@
        }
       }
      ],
-     "sha256": "426bd098a25f398a7306f140b565fb572a983b57d82751e25997cc5b27af6b8c",
+     "sha256": "bcb36be95e606fe8b5cb02834d637ba1a2e737acbe45a0988ceb9a79eb2312b5",
      "canUndo": true,
      "canRedo": false
     },
@@ -4904,7 +4904,7 @@
        "parentId": "board"
       }
      ],
-     "sha256": "e251822a31894a38ca23920e7ecc1e0bbdfa5554ec157a54147a9b8a9e8e95fa",
+     "sha256": "75415963d449c794047638836663a44d3d62120102288cc45e8717d289b63907",
      "canUndo": true,
      "canRedo": false
     },
@@ -4937,13 +4937,13 @@
        }
       }
      ],
-     "sha256": "5210afe912c75e999cc4cda0758b16e461314a083dbceba56addcffa7268fe0d",
+     "sha256": "729b9484a0b0f31f23e9b6a75dd6515bc0707947c834d3d84cc89896b76d2670",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "5210afe912c75e999cc4cda0758b16e461314a083dbceba56addcffa7268fe0d",
+     "sha256": "729b9484a0b0f31f23e9b6a75dd6515bc0707947c834d3d84cc89896b76d2670",
      "canUndo": true,
      "canRedo": false
     },
@@ -4967,7 +4967,7 @@
        }
       }
      ],
-     "sha256": "e6d2617d2c29207b4ce0c58dbb693d76018a26706214760dd385044a0533fb8b",
+     "sha256": "0c3bee79eee45e814d3fa56dfa34d4855baba8fea0b5064b5ef1be7905f25ec1",
      "canUndo": true,
      "canRedo": false
     },
@@ -4991,7 +4991,7 @@
        "id": "3etpiwkw0u"
       }
      ],
-     "sha256": "4209a4f298d3fa514caedc6fc62d9cecaff0169d4e80b64df9747885d9aa22b9",
+     "sha256": "cafb8a6ae2b250560af1b511494fb9e544b30dbc320f49ca046d51d94dcf9275",
      "canUndo": true,
      "canRedo": false
     },
@@ -5012,7 +5012,7 @@
        }
       }
      ],
-     "sha256": "8be722fd8cf94db8a9c871fe6d7b68fee2f520c2a14b47206a9a84ad3a37404f",
+     "sha256": "5615eaa577fa097070905a4fe02544af6383598ae6df62d810b9000d45ace40b",
      "canUndo": true,
      "canRedo": false
     }
@@ -5836,7 +5836,7 @@
        }
       }
      ],
-     "sha256": "ddf8e43de0ea542c3e7141a1ee398328b60eec7a7514c36374e2cded422d23a4",
+     "sha256": "d1039236a9f7201b37e6158349e3d869b0526b805b5889f0e5df9179232c67c0",
      "canUndo": true,
      "canRedo": false
     },
@@ -5875,7 +5875,7 @@
       }
      ],
      "error": "op[2]: unknown field for frame: bogus",
-     "sha256": "ddf8e43de0ea542c3e7141a1ee398328b60eec7a7514c36374e2cded422d23a4",
+     "sha256": "d1039236a9f7201b37e6158349e3d869b0526b805b5889f0e5df9179232c67c0",
      "canUndo": true,
      "canRedo": false
     },
@@ -5900,19 +5900,19 @@
        "id": "1vztrdpnq1"
       }
      ],
-     "sha256": "6dee90a2fa2b05eabec82993b6f2fd87c0412bedefa9036aa573a33460c68738",
+     "sha256": "a1f8df503e95ad4076c630862cf8965248e1f4463ffd54d762282faf74c2136c",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "6dee90a2fa2b05eabec82993b6f2fd87c0412bedefa9036aa573a33460c68738",
+     "sha256": "a1f8df503e95ad4076c630862cf8965248e1f4463ffd54d762282faf74c2136c",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "2b9a23bd58d5d985658b42d65e8d579759de41b53d98cd92e92cb28cbe81bd0a",
+     "sha256": "061aa2854b913ea8a68c11ec70e1a21387944e7f247c853b212b0a4954226d92",
      "canUndo": true,
      "canRedo": true
     },
@@ -5933,7 +5933,7 @@
        }
       }
      ],
-     "sha256": "5d36fed2eb81d117f567126410581cd81f3b66ee1b1fc04b691c140f56f6e34f",
+     "sha256": "c131b36f9c68a04716d9f0aef04636635f10c6d5a8e3a26649d2e63393d95c3a",
      "canUndo": true,
      "canRedo": false
     },
@@ -5967,7 +5967,7 @@
       }
      ],
      "error": "op[2]: unknown field for frame: bogus",
-     "sha256": "5d36fed2eb81d117f567126410581cd81f3b66ee1b1fc04b691c140f56f6e34f",
+     "sha256": "c131b36f9c68a04716d9f0aef04636635f10c6d5a8e3a26649d2e63393d95c3a",
      "canUndo": true,
      "canRedo": false
     },
@@ -5995,7 +5995,7 @@
        }
       }
      ],
-     "sha256": "dcd4e8e71d6838d0685b087e25fce148744de96252d6cf0509a2fad7cb84f3c4",
+     "sha256": "191987809df33109a17c68950bbfc808b2192d823a5e0df4a3ac1b8316f2ae1b",
      "canUndo": true,
      "canRedo": false
     },
@@ -6015,7 +6015,7 @@
        }
       }
      ],
-     "sha256": "74fb93f5d0d21efdf725946705b1f9fd93a3936bebfc20f51cc6e835f57de085",
+     "sha256": "20a70e93585742f21353e2da8c20d34eb4dc135361ac7d271a125ece63d09f0d",
      "canUndo": true,
      "canRedo": false
     },
@@ -6029,7 +6029,7 @@
       }
      ],
      "error": "op[0]: moving \"login\" into itself would create a cycle",
-     "sha256": "74fb93f5d0d21efdf725946705b1f9fd93a3936bebfc20f51cc6e835f57de085",
+     "sha256": "20a70e93585742f21353e2da8c20d34eb4dc135361ac7d271a125ece63d09f0d",
      "canUndo": true,
      "canRedo": false
     },
@@ -6049,7 +6049,7 @@
        "index": 2
       }
      ],
-     "sha256": "913c2522f557916ccad0b1b897563022f519bff81a017cc5044e9f80ac5308f7",
+     "sha256": "e5e8323d14e6a55f85db7b0f0f9198c911cd20892abb50de96cf443786c53a7a",
      "canUndo": true,
      "canRedo": false
     },
@@ -6092,7 +6092,7 @@
        }
       }
      ],
-     "sha256": "7677c0514dc907ffcee82057753f8dc7f2d021683d75a750e96db682bc82d09d",
+     "sha256": "d9c7385aff613b6d7f16c23e794bedab74bb43991fda05e724d49cf6be1977dc",
      "canUndo": true,
      "canRedo": false
     },
@@ -6105,13 +6105,13 @@
        "parentId": null
       }
      ],
-     "sha256": "64acb6fdf082dc11aa394546ee4948de1287f0899b5aa288d5c83686fd5f3096",
+     "sha256": "a874f7d7b09f128d14ad24991425ed42adee817619d833d46db9d7ecc3adc860",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "64acb6fdf082dc11aa394546ee4948de1287f0899b5aa288d5c83686fd5f3096",
+     "sha256": "a874f7d7b09f128d14ad24991425ed42adee817619d833d46db9d7ecc3adc860",
      "canUndo": true,
      "canRedo": false
     },
@@ -6126,7 +6126,7 @@
        }
       }
      ],
-     "sha256": "ae8273b317e3d5d686f3ef0d082e3e127a3a416618d587f677de4fe910679e2a",
+     "sha256": "6fd3a4a65cf0ccce51956246e168ac7d7ee378aed733480d56c3ec72981eccac",
      "canUndo": true,
      "canRedo": false
     },
@@ -6152,7 +6152,7 @@
        }
       }
      ],
-     "sha256": "603f1fe8d4d33ef63283ff3252416cfa53735671f3cdc89e196ed2fe9bd0b3fd",
+     "sha256": "dadf23514131e053a258f3bc274436990b3d4dee1c168585af90bde6c83e0322",
      "canUndo": true,
      "canRedo": false
     },
@@ -6177,13 +6177,13 @@
        "id": "mh4nt8js79"
       }
      ],
-     "sha256": "0df6f1eb922b494d59c6d7d6200a8a418b65cbbff40686f50f173a5610cd0003",
+     "sha256": "6c2d54d0e297726b654ab829b8895ff5a6ad926d59e4a03abf003b0ea082d6f4",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "0df6f1eb922b494d59c6d7d6200a8a418b65cbbff40686f50f173a5610cd0003",
+     "sha256": "6c2d54d0e297726b654ab829b8895ff5a6ad926d59e4a03abf003b0ea082d6f4",
      "canUndo": true,
      "canRedo": false
     }
@@ -6405,7 +6405,7 @@
        }
       }
      ],
-     "sha256": "eeeb1f253a9a5039fdf57df71cbb6dff8530058032ca416f6d3b61df94c7a499",
+     "sha256": "28a6ed20bf6590710c4c783eb0a2bd19890926ac580e02bd855e60650a26b335",
      "canUndo": true,
      "canRedo": false
     },
@@ -6419,7 +6419,7 @@
        }
       }
      ],
-     "sha256": "eeeb1f253a9a5039fdf57df71cbb6dff8530058032ca416f6d3b61df94c7a499",
+     "sha256": "28a6ed20bf6590710c4c783eb0a2bd19890926ac580e02bd855e60650a26b335",
      "canUndo": true,
      "canRedo": false
     },
@@ -6455,7 +6455,7 @@
        }
       }
      ],
-     "sha256": "f85ad761dc15a678f60e1d35411bd5ba21c48a4a025ea73d72c6668a84bb9393",
+     "sha256": "4dbb161eddc4ad6e7725bedbdcc7cbc9599a77e6edb5d2c54cc6678e7d8f0ae2",
      "canUndo": true,
      "canRedo": false
     },
@@ -6482,13 +6482,13 @@
        }
       }
      ],
-     "sha256": "ed9352d050e1608656325f599aac0d80acfd9a4b664b47ad29fd7b7ece3a75c7",
+     "sha256": "39efa31a802cf6608c08b112513c2c5e9816a6b67a8c15e2142aedcd754b8494",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "ed9352d050e1608656325f599aac0d80acfd9a4b664b47ad29fd7b7ece3a75c7",
+     "sha256": "39efa31a802cf6608c08b112513c2c5e9816a6b67a8c15e2142aedcd754b8494",
      "canUndo": true,
      "canRedo": false
     },
@@ -6501,7 +6501,7 @@
        "parentId": null
       }
      ],
-     "sha256": "ed9352d050e1608656325f599aac0d80acfd9a4b664b47ad29fd7b7ece3a75c7",
+     "sha256": "39efa31a802cf6608c08b112513c2c5e9816a6b67a8c15e2142aedcd754b8494",
      "canUndo": true,
      "canRedo": false
     },
@@ -6527,7 +6527,7 @@
        "index": 0
       }
      ],
-     "sha256": "c23d3db57aad2c5ab51e48ae1cdc6776a5c694a24b2e31ea536f8272b5f336fe",
+     "sha256": "7e66eace6214a7539b0e91e06722e7cf8d6d570887ad7d80030a7554d7706cc7",
      "canUndo": true,
      "canRedo": false
     },
@@ -6548,7 +6548,7 @@
       }
      ],
      "error": "op[0]: moving \"n16_18\" into itself would create a cycle",
-     "sha256": "c23d3db57aad2c5ab51e48ae1cdc6776a5c694a24b2e31ea536f8272b5f336fe",
+     "sha256": "7e66eace6214a7539b0e91e06722e7cf8d6d570887ad7d80030a7554d7706cc7",
      "canUndo": true,
      "canRedo": false
     },
@@ -6562,13 +6562,13 @@
        }
       }
      ],
-     "sha256": "c23d3db57aad2c5ab51e48ae1cdc6776a5c694a24b2e31ea536f8272b5f336fe",
+     "sha256": "7e66eace6214a7539b0e91e06722e7cf8d6d570887ad7d80030a7554d7706cc7",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "c23d3db57aad2c5ab51e48ae1cdc6776a5c694a24b2e31ea536f8272b5f336fe",
+     "sha256": "7e66eace6214a7539b0e91e06722e7cf8d6d570887ad7d80030a7554d7706cc7",
      "canUndo": true,
      "canRedo": true
     },
@@ -6587,7 +6587,7 @@
        }
       }
      ],
-     "sha256": "e4ef814f2c471965d82b688e833a98d348d540d5d36e8437a5c5d4aad000fc22",
+     "sha256": "30384d2fdc12d135e62ccbf1bc086c89dae4523fdc463b7034687e0f6e4605e9",
      "canUndo": true,
      "canRedo": false
     },
@@ -6601,7 +6601,7 @@
        "index": 0
       }
      ],
-     "sha256": "83b8ad716597339d8ec056e41fc8d77589d1bb30b3e4da5f92a6645b5aeb4544",
+     "sha256": "093aeaabb635ef4cb95670aa1ce89fd1a9ebaf8b240a1832d3fbfde9aa9c9995",
      "canUndo": true,
      "canRedo": false
     }
@@ -6704,7 +6704,7 @@
        "parentId": "login"
       }
      ],
-     "sha256": "9beeff2b2170f6e01d517e23edfc89f8dc0b64739b208cbbf5fcac8054a1fcae",
+     "sha256": "790fcd55530024ed593db48765fdf0282d4b5cba3936cc2024b5b16426921b7a",
      "canUndo": true,
      "canRedo": false
     },
@@ -6722,7 +6722,7 @@
        "id": "8qqd3xnzi7"
       }
      ],
-     "sha256": "95e75af08b3beebc6c9138823c46bfafca9e2d0c3c2a69908e4726e6eddd285a",
+     "sha256": "d0bd5ca497bd04d5a642414dcefb0fdc800380b7e33c818d24b756aa9151ccf8",
      "canUndo": true,
      "canRedo": false
     },
@@ -6743,7 +6743,7 @@
        }
       }
      ],
-     "sha256": "95e75af08b3beebc6c9138823c46bfafca9e2d0c3c2a69908e4726e6eddd285a",
+     "sha256": "d0bd5ca497bd04d5a642414dcefb0fdc800380b7e33c818d24b756aa9151ccf8",
      "canUndo": true,
      "canRedo": false
     },
@@ -6755,13 +6755,13 @@
        "id": "r0980ga944"
       }
      ],
-     "sha256": "404938f417618bb75e0d2a1e690fb66d704340a7760f769e5ae9ac1bf3c7a01c",
+     "sha256": "be3c5df07493cbe3e98355b530d461831d55ff0ca93c933a3a8989b390d8cbc5",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "b599697d809ad310957c0fb6aa6bce09e80ff9ccecdaed81a1068c671d9d2dfb",
+     "sha256": "10c4cb0c0f372df228c25aaa2cfebf351029094b76e032e7c4ae64edb80af782",
      "canUndo": true,
      "canRedo": true
     },
@@ -6775,7 +6775,7 @@
        }
       }
      ],
-     "sha256": "b599697d809ad310957c0fb6aa6bce09e80ff9ccecdaed81a1068c671d9d2dfb",
+     "sha256": "10c4cb0c0f372df228c25aaa2cfebf351029094b76e032e7c4ae64edb80af782",
      "canUndo": true,
      "canRedo": false
     },
@@ -6807,7 +6807,7 @@
        }
       }
      ],
-     "sha256": "a1e90b7a03f2b8dbeead966b703ed5f85bc257183b211266b2da79ccd5a9f80e",
+     "sha256": "a681211ecf2755b932f4e430a3a53fcf41c81b21ceba99f8ec6bbba8696d0cd1",
      "canUndo": true,
      "canRedo": false
     },
@@ -6832,7 +6832,7 @@
        "parentId": null
       }
      ],
-     "sha256": "f4d2becfe36db406480ab83f24652e2b7b95f804a6ce27cf5acc778e7cdd8037",
+     "sha256": "71c9a58f7391947994e6eedac356a239efbc2c844fa639c283ab66355aafcceb",
      "canUndo": true,
      "canRedo": false
     },
@@ -6861,19 +6861,19 @@
        }
       }
      ],
-     "sha256": "94f21253d4c5fa02b7c54a9721653d1cf618313355faef04ea2aa9c64548321c",
+     "sha256": "4866ab9fa184ca5b81277f5b18e1761c20d2b3b2d1a18add67e274685d934cc4",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "94f21253d4c5fa02b7c54a9721653d1cf618313355faef04ea2aa9c64548321c",
+     "sha256": "4866ab9fa184ca5b81277f5b18e1761c20d2b3b2d1a18add67e274685d934cc4",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "94f21253d4c5fa02b7c54a9721653d1cf618313355faef04ea2aa9c64548321c",
+     "sha256": "4866ab9fa184ca5b81277f5b18e1761c20d2b3b2d1a18add67e274685d934cc4",
      "canUndo": true,
      "canRedo": false
     },
@@ -6888,7 +6888,7 @@
        }
       }
      ],
-     "sha256": "e06891af236e2798d7e4f5a2bd884d4e359167efcc9ce20262416751bb726029",
+     "sha256": "65cf4d23629fbff8a5c284e3e37bbdbd9121ce1cb1c4b2a776a3128dd887d8e2",
      "canUndo": true,
      "canRedo": false
     },
@@ -6915,7 +6915,7 @@
        }
       }
      ],
-     "sha256": "ae18e9f61e58439515b9b3ecdd3886d89368e7817f88055a071558f72506f412",
+     "sha256": "9081ff0e6d5ee83b0193abc08f8d6a67fde2b63c73c51aa17ceec4bd1ee39042",
      "canUndo": true,
      "canRedo": false
     }
@@ -7112,7 +7112,7 @@
        }
       }
      ],
-     "sha256": "dcdc22bd68605d3d02f934ecca986e930f654e21a6cd9e736c0f1a5e2544f1d7",
+     "sha256": "1f1917e90d68923cf74e3b1a03d712f2e417e5b02146b3dc89338471b26759b0",
      "canUndo": true,
      "canRedo": false
     },
@@ -7139,7 +7139,7 @@
       }
      ],
      "error": "op[1]: unknown field for path: bogus",
-     "sha256": "dcdc22bd68605d3d02f934ecca986e930f654e21a6cd9e736c0f1a5e2544f1d7",
+     "sha256": "1f1917e90d68923cf74e3b1a03d712f2e417e5b02146b3dc89338471b26759b0",
      "canUndo": true,
      "canRedo": false
     },
@@ -7171,7 +7171,7 @@
        }
       }
      ],
-     "sha256": "244355e29e9ab6a7d68db155828b956b68cdaff2730106cf92fb92df482208c8",
+     "sha256": "86439a38dad32ec418c2a01efcc76f621c90cde83726e8c414506b655c227832",
      "canUndo": true,
      "canRedo": false
     },
@@ -7196,7 +7196,7 @@
        }
       }
      ],
-     "sha256": "3e51c6df6a39c2c9d0858364ccbaa757ac5a343bbac92e43b47b369ab9448ea3",
+     "sha256": "aaa7beb80fa14e8068f510cfff304d11f7f1fc1e0590f6ef553f22cdd7253b42",
      "canUndo": true,
      "canRedo": false
     },
@@ -7208,7 +7208,7 @@
        "id": "n18_0"
       }
      ],
-     "sha256": "3defb18f4fb09fa1315aa8549b6a3755fb81159a29ac65b3d030657014e28077",
+     "sha256": "ef52539a74be974e63ee8f1c77e2505724a714fce89e59c2e3453104f4b1b682",
      "canUndo": true,
      "canRedo": false
     },
@@ -7220,19 +7220,19 @@
        "id": "n18_36"
       }
      ],
-     "sha256": "3a7626fd0cb8345a890896d695583c1245daa3b92516f3f183b9f06f4f391de9",
+     "sha256": "a81055e23f4a5624aff943aadc26df511ed4cf6f048195e63e8db29a763bc696",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "3defb18f4fb09fa1315aa8549b6a3755fb81159a29ac65b3d030657014e28077",
+     "sha256": "ef52539a74be974e63ee8f1c77e2505724a714fce89e59c2e3453104f4b1b682",
      "canUndo": true,
      "canRedo": true
     },
     {
      "kind": "redo",
-     "sha256": "3a7626fd0cb8345a890896d695583c1245daa3b92516f3f183b9f06f4f391de9",
+     "sha256": "a81055e23f4a5624aff943aadc26df511ed4cf6f048195e63e8db29a763bc696",
      "canUndo": true,
      "canRedo": false
     },
@@ -7258,7 +7258,7 @@
        }
       }
      ],
-     "sha256": "6a5c35cd841b03738369a4f4558de561f1145d532648fe40c77891296b7d16d4",
+     "sha256": "9d9165096085d39ba12561105f0d53284c29e2aade5bb4e47f07d5d7a1d6d876",
      "canUndo": true,
      "canRedo": false
     },
@@ -7271,7 +7271,7 @@
        "parentId": "board"
       }
      ],
-     "sha256": "1c3354b963775632f044193f3f7a87424c8467922e5123dd3176c9901f2d845e",
+     "sha256": "8d81e5cd6dd615112b7f58648dd83a54fffecff6ae929ea5b92245e8d12673ab",
      "canUndo": true,
      "canRedo": false
     },
@@ -7289,7 +7289,7 @@
        "id": "n18_30"
       }
      ],
-     "sha256": "ea29e11d34050a45ed55ab88f48eec08af84ee11267762232b93e25e83bbef83",
+     "sha256": "e329c65691a125e226b6878880f8d0d4251b03593340ca39f5cb43f392a8ff6e",
      "canUndo": true,
      "canRedo": false
     },
@@ -7303,7 +7303,7 @@
        }
       }
      ],
-     "sha256": "106c4f19e14547384d730209ef477016dd238fe3e5604a6aedec6f37e0fd12dc",
+     "sha256": "2cc0cb006215f9752a8583cfac1a12af383284142481b9a2bafbac661de88649",
      "canUndo": true,
      "canRedo": false
     }
@@ -7957,7 +7957,7 @@
        "id": "64t9tb2vg3"
       }
      ],
-     "sha256": "d84ab59b6c1d5a6843ed735bf669fe9160cbdfe333594be0e6d30509eced840f",
+     "sha256": "764acf6b63f7926ac0f3ef041c321d15cda0346b242fcee7fe931ea0dc9b0145",
      "canUndo": true,
      "canRedo": false
     },
@@ -7980,7 +7980,7 @@
        "parentId": null
       }
      ],
-     "sha256": "a29ba4ffd1c6db4a4e11d04821ffdf51b4d12bf94d2494b9473e113436bacced",
+     "sha256": "1018d89e14d9c5798bdc5bf84aa048a91cd4075a6504d604b94d6c05c3f0421c",
      "canUndo": true,
      "canRedo": false
     },
@@ -7994,7 +7994,7 @@
        "index": 1
       }
      ],
-     "sha256": "1da9fc82e7c002b117f9607250ce92b0a70e8944c3b0a16a602d67c93d1587fe",
+     "sha256": "a09c01ba1214747f81064477a89eb9e752ee557bc8c1cc242148fb93c7de82b0",
      "canUndo": true,
      "canRedo": false
     },
@@ -8031,7 +8031,7 @@
        }
       }
      ],
-     "sha256": "235a4d52270579ef54ecda31ac16c6623d89912a8d6357be7db70eb4fc4992d7",
+     "sha256": "62be080d5b1252b2f8c7acc4537756cbbd1f0c178324bfc2fffda41f2eb4e29d",
      "canUndo": true,
      "canRedo": false
     },
@@ -8060,7 +8060,7 @@
        }
       }
      ],
-     "sha256": "97203564cc2d1a5ffa10ec5be77a0624685350830ca23b051f62b585f8c8d4b5",
+     "sha256": "724813e10a3fad51bb0a5b2613befac90d8b37563e039ac7f89d4c74f82d3af4",
      "canUndo": true,
      "canRedo": false
     },
@@ -8074,7 +8074,7 @@
        "index": 0
       }
      ],
-     "sha256": "4c378c3b8e573beaef0b968d3137db5427f7d14b8df74d248332082f7ff53992",
+     "sha256": "dc7f4107e69d463c58b36fcffb935a3da7abf6e597ec60765ee9ed7ac5e7fa30",
      "canUndo": true,
      "canRedo": false
     },
@@ -8089,7 +8089,7 @@
        }
       }
      ],
-     "sha256": "e5b3cffa22893530d0a66f322cd36e41ccd3411be758cc6a724fb2acaa19b880",
+     "sha256": "a98109abbb1a9c87a0e1550359a7b3b91c082844990509c00df4732e2e32bbac",
      "canUndo": true,
      "canRedo": false
     },
@@ -8122,7 +8122,7 @@
        }
       }
      ],
-     "sha256": "0c9e395ad90e7573982b7417de4f12c59b8b54b49d9bbccbf50f653325750079",
+     "sha256": "1e594d084db116cf33d520e29fcd6a3b98acc70580dde33fdf108af7ee56efff",
      "canUndo": true,
      "canRedo": false
     },
@@ -8134,7 +8134,7 @@
        "id": "n20_0"
       }
      ],
-     "sha256": "10d4c20370dec8d83cc302bf618146982026d83f7ef4db05dc521dd32abee2dc",
+     "sha256": "2877b20017d972d2e1253f90ba30963bfd4d29a43a1bbb08995e188a3894b323",
      "canUndo": true,
      "canRedo": false
     },
@@ -8155,7 +8155,7 @@
        }
       }
      ],
-     "sha256": "8de84ae3cba17ddac0d3267bcebc83a435bede99bf50c0fa7f236ed7a216e0c4",
+     "sha256": "26965ca779565d634b5b6454c9a76cad79488f8fe32db647468f0d66cf457c0b",
      "canUndo": true,
      "canRedo": false
     },
@@ -8168,7 +8168,7 @@
        "parentId": null
       }
      ],
-     "sha256": "8de84ae3cba17ddac0d3267bcebc83a435bede99bf50c0fa7f236ed7a216e0c4",
+     "sha256": "26965ca779565d634b5b6454c9a76cad79488f8fe32db647468f0d66cf457c0b",
      "canUndo": true,
      "canRedo": false
     },
@@ -8180,7 +8180,7 @@
        "id": "n20_19"
       }
      ],
-     "sha256": "9100d097f98d98f98eec2ada6cf004b721c185979d427d586a73da583590e5b5",
+     "sha256": "d70ee5907beeb9d1f3e024025cd590c79b84864352f3dc1c7c5b127ff41fffed",
      "canUndo": true,
      "canRedo": false
     }
@@ -8228,7 +8228,7 @@
        }
       }
      ],
-     "sha256": "4c8ec498181c9da84371e0ef08fce70f27f1f942c4e284d0e8dad41341693efa",
+     "sha256": "b8608fe52fc6f5bbeb3eee917d8bb52bde86c7ab9ef8d42bea1cc26cff10d7b9",
      "canUndo": true,
      "canRedo": false
     },
@@ -8505,7 +8505,7 @@
        }
       }
      ],
-     "sha256": "88565bd3b5d1d9220766ad86ffb20e90cb4bda27d2b5fd776745c96d9aff0cae",
+     "sha256": "872c25d4780a9ebaf79f427061fb977037cb35a1769f0dc003a63669c72b89ca",
      "canUndo": true,
      "canRedo": false
     },
@@ -8530,7 +8530,7 @@
        }
       }
      ],
-     "sha256": "31e0d2203e53f20aac3ac7a46673c40159c83d06a3611d51970c191e55d9d3f8",
+     "sha256": "da4485f2c5c60e525c108c37f32b1fe5bec0f91c6e1fe6543b3d81c34761128a",
      "canUndo": true,
      "canRedo": false
     },
@@ -8545,7 +8545,7 @@
        }
       }
      ],
-     "sha256": "6d92d2601f8b952a1a1ece57afe93bd70b97a771a985c4a11a0b2239ffe52b40",
+     "sha256": "102b86b05984b34c21f7c6011708e1448bef60a4d7d1c2bf8d58aabe92965ece",
      "canUndo": true,
      "canRedo": false
     }
@@ -8740,7 +8740,7 @@
        }
       }
      ],
-     "sha256": "62f460893cc6c9fa9a0a5270131a67993ca1e95e9e7bc81553ce732db5ecd83f",
+     "sha256": "96e18774cf980491fb6217d2b6404049632ad54d0646acb1d8637c0f1d0ea5a5",
      "canUndo": true,
      "canRedo": false
     },
@@ -8760,7 +8760,7 @@
       }
      ],
      "error": "op[1]: node \"3etpiwkw0u\" does not exist",
-     "sha256": "62f460893cc6c9fa9a0a5270131a67993ca1e95e9e7bc81553ce732db5ecd83f",
+     "sha256": "96e18774cf980491fb6217d2b6404049632ad54d0646acb1d8637c0f1d0ea5a5",
      "canUndo": true,
      "canRedo": false
     },
@@ -8939,7 +8939,7 @@
        }
       }
      ],
-     "sha256": "9e13658d3c8c495a6f17db051616c0208f3f4d66e64648d36608a2046d210393",
+     "sha256": "a73d7a8d67cdb4d6eb7515894956ab3a2375e81d38a859987e65eb4e090d754a",
      "canUndo": true,
      "canRedo": false
     },
@@ -8965,7 +8965,7 @@
        }
       }
      ],
-     "sha256": "74f3e766cbcbd56f1be3211c573604455060cee5379d4b5d1a9c8f3fc117d06b",
+     "sha256": "4667a6385e44b52a672778c6b0c25e912e6b75e62ed94abe27a4996ef1f5861d",
      "canUndo": true,
      "canRedo": false
     },
@@ -8985,7 +8985,7 @@
        }
       }
      ],
-     "sha256": "516ee4b21f6d7f7fae3f547b8124b4494c6ee05810776aa47b3f405a9e1fbd9b",
+     "sha256": "3a66b46f845fb4c1cfbe3fa93e8af724d6116585bdce13896af3835b4ec0665d",
      "canUndo": true,
      "canRedo": false
     },
@@ -8999,7 +8999,7 @@
        "index": 0
       }
      ],
-     "sha256": "9179aeee9852ee32231da8df41235e4721b7e732749df6afb869194f074aea31",
+     "sha256": "a4168b9deb2f0fd5d56db77ac156daa99d80fe15b5652d1cc1499c1f16743865",
      "canUndo": true,
      "canRedo": false
     },
@@ -9020,13 +9020,13 @@
       }
      ],
      "error": "op[1]: unknown field for text: bogus",
-     "sha256": "9179aeee9852ee32231da8df41235e4721b7e732749df6afb869194f074aea31",
+     "sha256": "a4168b9deb2f0fd5d56db77ac156daa99d80fe15b5652d1cc1499c1f16743865",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "9179aeee9852ee32231da8df41235e4721b7e732749df6afb869194f074aea31",
+     "sha256": "a4168b9deb2f0fd5d56db77ac156daa99d80fe15b5652d1cc1499c1f16743865",
      "canUndo": true,
      "canRedo": false
     },
@@ -9041,13 +9041,13 @@
        }
       }
      ],
-     "sha256": "a3ab16a9f21901e698e02a850b8031ce5de17422b8868cdc0688622344abf805",
+     "sha256": "5112a3f4b348183a30bce533b8901490728c0511d286b83ff437a2c7c26d5594",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "9179aeee9852ee32231da8df41235e4721b7e732749df6afb869194f074aea31",
+     "sha256": "a4168b9deb2f0fd5d56db77ac156daa99d80fe15b5652d1cc1499c1f16743865",
      "canUndo": true,
      "canRedo": true
     },
@@ -9061,7 +9061,7 @@
        }
       }
      ],
-     "sha256": "178422b505e4419857b3dac208bb17adcbd42e2c0da290ac922cd0b4ad57dc1b",
+     "sha256": "adb9093fde5ae1fb4ee9fd33aacd7a793560ac6290bf5dd5d7dc991b03119cbf",
      "canUndo": true,
      "canRedo": false
     },
@@ -9091,7 +9091,7 @@
        "index": 0
       }
      ],
-     "sha256": "b1867910d082bce19d9a2ca0bdc1244bf53516d8581248cdd168ba146f6fcbc8",
+     "sha256": "08d4d736ad1c08cba6ab56063ed77bccd05b6693aae9029cf6d1aa905a969b3a",
      "canUndo": true,
      "canRedo": false
     },
@@ -9120,7 +9120,7 @@
        }
       }
      ],
-     "sha256": "4d24e8c8c37bd155ee0a2f3b402f819cf73ed1af15681d6ebf8a58f6a0827f5b",
+     "sha256": "9b7432de3519936c272d596a9b780163ceb760595dc2ea26e9e51a81a02cbeaf",
      "canUndo": true,
      "canRedo": false
     },
@@ -9132,7 +9132,7 @@
        "id": "74oxmaizym"
       }
      ],
-     "sha256": "a3d02f1c21ebbaea5fe979df8a85eae1265329b7f1df7869d27e51c5b0b98da4",
+     "sha256": "e54a37f2259bb3c2a3b3f75df776b082ce40b25553c9d659d5f0478d47a6b707",
      "canUndo": true,
      "canRedo": false
     },
@@ -9145,7 +9145,7 @@
        "parentId": "1vztrdpnq1"
       }
      ],
-     "sha256": "fb201e6d7cd185f6ab38d551a65a47121b7a3d095213be1cc15ba946bbe0c215",
+     "sha256": "25cc0f2e1133afd0921f5b9172c72e2a7dc9382566b9dbab7bdd3d2611195b73",
      "canUndo": true,
      "canRedo": false
     },
@@ -9169,7 +9169,7 @@
       }
      ],
      "error": "op[0]: invalid node: d: invalid d: number expected at position 8 (end of text)",
-     "sha256": "fb201e6d7cd185f6ab38d551a65a47121b7a3d095213be1cc15ba946bbe0c215",
+     "sha256": "25cc0f2e1133afd0921f5b9172c72e2a7dc9382566b9dbab7bdd3d2611195b73",
      "canUndo": true,
      "canRedo": false
     },
@@ -9183,13 +9183,13 @@
        }
       }
      ],
-     "sha256": "acfa73e51019c3e4d274a2ded35634f3ef6a8c422a04e67311bb909546f2e1cd",
+     "sha256": "199e70ed8fc6801459e2a23ab3b9f32538c07db58a1ec81b965d6c09652a81a8",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "fb201e6d7cd185f6ab38d551a65a47121b7a3d095213be1cc15ba946bbe0c215",
+     "sha256": "25cc0f2e1133afd0921f5b9172c72e2a7dc9382566b9dbab7bdd3d2611195b73",
      "canUndo": true,
      "canRedo": true
     },
@@ -9211,7 +9211,7 @@
       }
      ],
      "error": "op[1]: unknown field for frame: bogus",
-     "sha256": "fb201e6d7cd185f6ab38d551a65a47121b7a3d095213be1cc15ba946bbe0c215",
+     "sha256": "25cc0f2e1133afd0921f5b9172c72e2a7dc9382566b9dbab7bdd3d2611195b73",
      "canUndo": true,
      "canRedo": true
     },
@@ -9230,7 +9230,7 @@
        }
       }
      ],
-     "sha256": "94b4f83ba53d3d34fed79583e83ebdfb429eae9211c0953a724d4d4bb0407895",
+     "sha256": "f1069b26c291b1139bbd698e95666115c43e17d2b0425e102f69b591088d3583",
      "canUndo": true,
      "canRedo": false
     },
@@ -9258,7 +9258,7 @@
        }
       }
      ],
-     "sha256": "268fc6346095091d616867f8a438e0d8c1321df96708dac2de57caf125129f33",
+     "sha256": "ddf0c06146cc6e66da3bbbf8eac97b61a884af91b2c35f647f3a44d9af584f4c",
      "canUndo": true,
      "canRedo": false
     },
@@ -9277,7 +9277,7 @@
        }
       }
      ],
-     "sha256": "a0198fad4cd51c75b7b94851eafc907432c590c9427e2206829cedd0963ac388",
+     "sha256": "52d9287e86b5dd87e7580fed70a8584b7582d4d51d2390e3a349fed7aa7cfb13",
      "canUndo": true,
      "canRedo": false
     }
@@ -9400,7 +9400,7 @@
        }
       }
      ],
-     "sha256": "0b1875c7e7c9d05ee533cd72a2750f8f1f49cf2394306f6b8039c011b7e903cf",
+     "sha256": "11b0734ddf5fb8f63ec9ab93bfc0ca0b43f2e5b3f21985df976ddbbe9e6c67bf",
      "canUndo": true,
      "canRedo": false
     },
@@ -9490,7 +9490,7 @@
        }
       }
      ],
-     "sha256": "01c3f16dac8140b19fa4d8588fdf4abe5be083164f0d7ad6f893a78ade24ebe8",
+     "sha256": "fef32d1c4b3a76ad431d4ebdfa9a8bbae7abde64f4bec14210e5e8f1d08685cb",
      "canUndo": true,
      "canRedo": false
     },
@@ -9832,7 +9832,7 @@
        }
       }
      ],
-     "sha256": "da6492e3d3645827fdd810a5b87ef794b633fe155d8ae3451919d10d36297a24",
+     "sha256": "9e51ecec41f1610f6d3c1ff9a1e3f6783cff12d659bbbfd00bb95be31850755e",
      "canUndo": true,
      "canRedo": false
     },
@@ -9859,7 +9859,7 @@
       }
      ],
      "error": "op[2]: unknown field for rect: bogus",
-     "sha256": "da6492e3d3645827fdd810a5b87ef794b633fe155d8ae3451919d10d36297a24",
+     "sha256": "9e51ecec41f1610f6d3c1ff9a1e3f6783cff12d659bbbfd00bb95be31850755e",
      "canUndo": true,
      "canRedo": false
     },
@@ -9901,7 +9901,7 @@
       }
      ],
      "error": "op[2]: a page can only be at the canvas level (parentId null)",
-     "sha256": "da6492e3d3645827fdd810a5b87ef794b633fe155d8ae3451919d10d36297a24",
+     "sha256": "9e51ecec41f1610f6d3c1ff9a1e3f6783cff12d659bbbfd00bb95be31850755e",
      "canUndo": true,
      "canRedo": false
     },
@@ -10908,7 +10908,7 @@
        }
       }
      ],
-     "sha256": "1bd119005af07726a9fd635fb45597fb32f26a1c5596bca4f8af7e2cd142bc97",
+     "sha256": "e05484734b3236f7181be46f11e20781d3bb3721fc113a73f6d8ba08cc9d4903",
      "canUndo": true,
      "canRedo": false
     },
@@ -10921,7 +10921,7 @@
        "parentId": "pg2"
       }
      ],
-     "sha256": "92dbb330f0d086cde55573fec94f22b746c7cc0cd90f4c3949365a796c012f4c",
+     "sha256": "28f8897944991ea9932daa54c7893f418faa6bff6cf4aec5fe3f98abb0f2dc33",
      "canUndo": true,
      "canRedo": false
     },
@@ -10954,7 +10954,7 @@
       }
      ],
      "error": "op[1]: the document has pages, but \"n27_65\" is at the canvas level; move it to a page (parentId = the page id)",
-     "sha256": "92dbb330f0d086cde55573fec94f22b746c7cc0cd90f4c3949365a796c012f4c",
+     "sha256": "28f8897944991ea9932daa54c7893f418faa6bff6cf4aec5fe3f98abb0f2dc33",
      "canUndo": true,
      "canRedo": false
     },
@@ -10980,7 +10980,7 @@
       }
      ],
      "error": "op[0]: a page can only be at the canvas level (parentId null)",
-     "sha256": "92dbb330f0d086cde55573fec94f22b746c7cc0cd90f4c3949365a796c012f4c",
+     "sha256": "28f8897944991ea9932daa54c7893f418faa6bff6cf4aec5fe3f98abb0f2dc33",
      "canUndo": true,
      "canRedo": false
     },
@@ -11002,13 +11002,13 @@
        }
       }
      ],
-     "sha256": "303b0c0f444715bb18042528be83f5a9ad8291c5ebcfbd9de96b81c3cbf80eef",
+     "sha256": "08bf362a90e0c7c4dd51562df9f3b917ce324b054afe349ef37e1369588fd629",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "303b0c0f444715bb18042528be83f5a9ad8291c5ebcfbd9de96b81c3cbf80eef",
+     "sha256": "08bf362a90e0c7c4dd51562df9f3b917ce324b054afe349ef37e1369588fd629",
      "canUndo": true,
      "canRedo": false
     }
@@ -11058,7 +11058,7 @@
        }
       }
      ],
-     "sha256": "5a4a5d18b64cae2451b3af452eab96e9d835bcad2a624fec53db63d4638d9e24",
+     "sha256": "6a11ba3096c9711f1bd4307e2e4f8f87360d8edf6598c33e46f8962f45d48052",
      "canUndo": true,
      "canRedo": false
     },
@@ -11076,7 +11076,7 @@
        "id": "p1"
       }
      ],
-     "sha256": "fce2b4624dd2247571c1241e38377c118803b56fcb6e29503b4b241c406d8238",
+     "sha256": "f7df63ebc369f00036465f89b975834b61f69a858ce02af964e5821985b15808",
      "canUndo": true,
      "canRedo": false
     },
@@ -11094,7 +11094,7 @@
       }
      ],
      "error": "op[1]: node \"g1\" does not exist",
-     "sha256": "fce2b4624dd2247571c1241e38377c118803b56fcb6e29503b4b241c406d8238",
+     "sha256": "f7df63ebc369f00036465f89b975834b61f69a858ce02af964e5821985b15808",
      "canUndo": true,
      "canRedo": false
     },
@@ -11120,7 +11120,7 @@
       }
      ],
      "error": "op[2]: node \"e1\" does not exist",
-     "sha256": "fce2b4624dd2247571c1241e38377c118803b56fcb6e29503b4b241c406d8238",
+     "sha256": "f7df63ebc369f00036465f89b975834b61f69a858ce02af964e5821985b15808",
      "canUndo": true,
      "canRedo": false
     },
@@ -11145,7 +11145,7 @@
        }
       }
      ],
-     "sha256": "4bf8f68e6c49ea7661c7ca56e92e423b6eb0ad6f8de111d5204b5986aaa1c4b2",
+     "sha256": "0c51195f9704bb27001c18c82ee7fa52f7c9ff2c500d956759211fa7dadf196e",
      "canUndo": true,
      "canRedo": false
     },
@@ -11172,13 +11172,13 @@
        }
       }
      ],
-     "sha256": "6030ab600a44aee78b0e58a117074a5a2fc4acadf8fcf580f10063aa46d104fa",
+     "sha256": "60d2b189c7ab8ab20c22ceec6375b3d3bf6e09c652e23c358bb81da8198c7408",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "4bf8f68e6c49ea7661c7ca56e92e423b6eb0ad6f8de111d5204b5986aaa1c4b2",
+     "sha256": "0c51195f9704bb27001c18c82ee7fa52f7c9ff2c500d956759211fa7dadf196e",
      "canUndo": true,
      "canRedo": true
     },
@@ -11198,7 +11198,7 @@
        "parentId": "g1"
       }
      ],
-     "sha256": "fd8a414615b4d73ad81424f072627d85c326b4bdffc0a523a4b14d1a03084373",
+     "sha256": "6229a655a3a036bd9fa3a9a6cdf65e8200ea345b5a5ac68a62409908958f2059",
      "canUndo": true,
      "canRedo": false
     },
@@ -11224,7 +11224,7 @@
        "parentId": null
       }
      ],
-     "sha256": "b4ee9f8756cb04eed0100c418196ce784f526365c6d2f85596521aa59a1e46c5",
+     "sha256": "b7cfa012fbf2b730155d08149f9697b1a311e5850ea5ac083b58ecd02875ca8b",
      "canUndo": true,
      "canRedo": false
     },
@@ -11238,7 +11238,7 @@
        }
       }
      ],
-     "sha256": "b4ee9f8756cb04eed0100c418196ce784f526365c6d2f85596521aa59a1e46c5",
+     "sha256": "b7cfa012fbf2b730155d08149f9697b1a311e5850ea5ac083b58ecd02875ca8b",
      "canUndo": true,
      "canRedo": false
     },
@@ -11278,7 +11278,7 @@
       }
      ],
      "error": "op[0]: moving \"board\" into itself would create a cycle",
-     "sha256": "b4ee9f8756cb04eed0100c418196ce784f526365c6d2f85596521aa59a1e46c5",
+     "sha256": "b7cfa012fbf2b730155d08149f9697b1a311e5850ea5ac083b58ecd02875ca8b",
      "canUndo": true,
      "canRedo": false
     },
@@ -11292,7 +11292,7 @@
        }
       }
      ],
-     "sha256": "b4ee9f8756cb04eed0100c418196ce784f526365c6d2f85596521aa59a1e46c5",
+     "sha256": "b7cfa012fbf2b730155d08149f9697b1a311e5850ea5ac083b58ecd02875ca8b",
      "canUndo": true,
      "canRedo": false
     },
@@ -11319,7 +11319,7 @@
        }
       }
      ],
-     "sha256": "dd4c744b75df47243e2fd26177dc9a170509b15555eae51b13df0ec7c04f524d",
+     "sha256": "76e287ee724cfc9f3fe2f2fe9679a343c17ca0f6fd8a7384eec4ef28ef6b3ea0",
      "canUndo": true,
      "canRedo": false
     },
@@ -11334,7 +11334,7 @@
        }
       }
      ],
-     "sha256": "31caa83b089d01f43a06e15fc69fdae3c83473f0eda28c40c1a10a66a788dbf1",
+     "sha256": "9a77d7eab1dceec1a04a4eef9a2d45466e0d755f04dc12d5dcd064c9afa426f2",
      "canUndo": true,
      "canRedo": false
     },
@@ -11358,7 +11358,7 @@
        "parentId": null
       }
      ],
-     "sha256": "55bf2541c9431d49547f2c921cee6d748da6631cbdd552e0805f94bb421d0931",
+     "sha256": "c8b8c78cd5b733e6f5d8a346f24d9ccf7d42609eed963ec4747c5abed12bbd99",
      "canUndo": true,
      "canRedo": false
     },
@@ -11376,7 +11376,7 @@
       }
      ],
      "error": "op[0]: a page can only be at the canvas level (parentId null)",
-     "sha256": "55bf2541c9431d49547f2c921cee6d748da6631cbdd552e0805f94bb421d0931",
+     "sha256": "c8b8c78cd5b733e6f5d8a346f24d9ccf7d42609eed963ec4747c5abed12bbd99",
      "canUndo": true,
      "canRedo": false
     },
@@ -11396,13 +11396,13 @@
        "parentId": "n28_35"
       }
      ],
-     "sha256": "9546e8465315d30b31373ded245b0beab1d52ac41bebcba73d0d310a9ab4b377",
+     "sha256": "4645924cdbbdeff9b99efdc79da42d0e750c459934b0658d27df12bdb036dc06",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "9546e8465315d30b31373ded245b0beab1d52ac41bebcba73d0d310a9ab4b377",
+     "sha256": "4645924cdbbdeff9b99efdc79da42d0e750c459934b0658d27df12bdb036dc06",
      "canUndo": true,
      "canRedo": false
     },
@@ -11423,7 +11423,7 @@
       }
      ],
      "error": "op[0]: moving \"n28_35\" into itself would create a cycle",
-     "sha256": "9546e8465315d30b31373ded245b0beab1d52ac41bebcba73d0d310a9ab4b377",
+     "sha256": "4645924cdbbdeff9b99efdc79da42d0e750c459934b0658d27df12bdb036dc06",
      "canUndo": true,
      "canRedo": false
     }
@@ -11551,7 +11551,7 @@
        }
       }
      ],
-     "sha256": "8f9819d6837b5096b38b91886de4aa9169793b671444cb992ee63b2a5c4b2f23",
+     "sha256": "3b87444686050f7b49373d8edcad08739744b65f83885276f154bf59a835e41a",
      "canUndo": true,
      "canRedo": false
     },
@@ -11569,19 +11569,19 @@
       }
      ],
      "error": "op[1]: the document has pages, but \"r2\" is at the canvas level; move it to a page (parentId = the page id)",
-     "sha256": "8f9819d6837b5096b38b91886de4aa9169793b671444cb992ee63b2a5c4b2f23",
+     "sha256": "3b87444686050f7b49373d8edcad08739744b65f83885276f154bf59a835e41a",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "8f9819d6837b5096b38b91886de4aa9169793b671444cb992ee63b2a5c4b2f23",
+     "sha256": "3b87444686050f7b49373d8edcad08739744b65f83885276f154bf59a835e41a",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "8f9819d6837b5096b38b91886de4aa9169793b671444cb992ee63b2a5c4b2f23",
+     "sha256": "3b87444686050f7b49373d8edcad08739744b65f83885276f154bf59a835e41a",
      "canUndo": true,
      "canRedo": false
     },
@@ -11599,7 +11599,7 @@
        "parentId": "g2"
       }
      ],
-     "sha256": "9e368d5f016fd2a0d8bbc0ce5b0db79b45e2b893cb5b023e7e910360b195044e",
+     "sha256": "2bcb006c0e99d4d58c76add97cd1e9b996ec0734455f1ae2a6e47ee7c520e0c9",
      "canUndo": true,
      "canRedo": false
     },
@@ -12825,13 +12825,13 @@
        }
       }
      ],
-     "sha256": "6f5a1f06d71a71f7ad3554831b8d67ff8505c98d5206d24208275a40b82e7b01",
+     "sha256": "f84f3a0ca95e0bc7bbf05598be449debf2bf567854201b1af19430e8c2bc5e3e",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "6f5a1f06d71a71f7ad3554831b8d67ff8505c98d5206d24208275a40b82e7b01",
+     "sha256": "f84f3a0ca95e0bc7bbf05598be449debf2bf567854201b1af19430e8c2bc5e3e",
      "canUndo": true,
      "canRedo": false
     },
@@ -12859,7 +12859,7 @@
       }
      ],
      "error": "op[0]: unknown field for group: bogus",
-     "sha256": "6f5a1f06d71a71f7ad3554831b8d67ff8505c98d5206d24208275a40b82e7b01",
+     "sha256": "f84f3a0ca95e0bc7bbf05598be449debf2bf567854201b1af19430e8c2bc5e3e",
      "canUndo": true,
      "canRedo": false
     },
@@ -12880,7 +12880,7 @@
        }
       }
      ],
-     "sha256": "9898a42b3500252e621d634db4ccc1034e2244c933a10242cb40c5417c5b73a0",
+     "sha256": "9c4831dd0f6a0b03e54be6b7474643f9d300798adb4cb5827d831fa29c159f30",
      "canUndo": true,
      "canRedo": false
     }
@@ -13336,7 +13336,7 @@
        }
       }
      ],
-     "sha256": "f3614f3236adb2e12e8af0e7edd5ecdcc3c3b08f9e620f674617e53e5ef1b632",
+     "sha256": "4ba6893ecc5aef91c6dabf3cb9b72b7b442ef6faf6e55aa45d766039c2f8a523",
      "canUndo": true,
      "canRedo": false
     },
@@ -13350,7 +13350,7 @@
       }
      ],
      "error": "op[0]: the document has pages, but \"n33_65\" is at the canvas level; move it to a page (parentId = the page id)",
-     "sha256": "f3614f3236adb2e12e8af0e7edd5ecdcc3c3b08f9e620f674617e53e5ef1b632",
+     "sha256": "4ba6893ecc5aef91c6dabf3cb9b72b7b442ef6faf6e55aa45d766039c2f8a523",
      "canUndo": true,
      "canRedo": false
     },
@@ -13365,7 +13365,7 @@
       }
      ],
      "error": "op[0]: the document has pages, but \"t1\" is at the canvas level; move it to a page (parentId = the page id)",
-     "sha256": "f3614f3236adb2e12e8af0e7edd5ecdcc3c3b08f9e620f674617e53e5ef1b632",
+     "sha256": "4ba6893ecc5aef91c6dabf3cb9b72b7b442ef6faf6e55aa45d766039c2f8a523",
      "canUndo": true,
      "canRedo": false
     },
@@ -13615,13 +13615,13 @@
        }
       }
      ],
-     "sha256": "fccfea490cab04ae3b86d633ffe310a9c0c39a0b66aeb0a308001afc74235c37",
+     "sha256": "66662fdde5b98b3e7e3c8c89543e32ef65367dad5d8128646ad34c6f1a3c4b68",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "fccfea490cab04ae3b86d633ffe310a9c0c39a0b66aeb0a308001afc74235c37",
+     "sha256": "66662fdde5b98b3e7e3c8c89543e32ef65367dad5d8128646ad34c6f1a3c4b68",
      "canUndo": true,
      "canRedo": false
     },
@@ -13642,13 +13642,13 @@
        }
       }
      ],
-     "sha256": "d375700b1b21a784c077b6b057c75c9dc187c7c38b8d8020ece13c940d17eac7",
+     "sha256": "c23a8665fb4a2eefe4a9b399945834592ea9bef80df37f46220470f6a1fb858a",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "fccfea490cab04ae3b86d633ffe310a9c0c39a0b66aeb0a308001afc74235c37",
+     "sha256": "66662fdde5b98b3e7e3c8c89543e32ef65367dad5d8128646ad34c6f1a3c4b68",
      "canUndo": true,
      "canRedo": true
     },
@@ -13681,13 +13681,13 @@
        }
       }
      ],
-     "sha256": "4b188efa486e3157d10b5340cf5f70016502d1ef89719d66a31be908230fc159",
+     "sha256": "478481927e10882b9c4378734c0d97bcfe7e640306093c8e963e995f8e971227",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "fccfea490cab04ae3b86d633ffe310a9c0c39a0b66aeb0a308001afc74235c37",
+     "sha256": "66662fdde5b98b3e7e3c8c89543e32ef65367dad5d8128646ad34c6f1a3c4b68",
      "canUndo": true,
      "canRedo": true
     },
@@ -13702,13 +13702,13 @@
        }
       }
      ],
-     "sha256": "a6f1bd72c9fbad4005b79af72afff38bc24585eb30eef86799d8faaf405f9b33",
+     "sha256": "74b99dd8e1333685c2286e472ca56e634655121218419876c7d6aa78a3522d69",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "fccfea490cab04ae3b86d633ffe310a9c0c39a0b66aeb0a308001afc74235c37",
+     "sha256": "66662fdde5b98b3e7e3c8c89543e32ef65367dad5d8128646ad34c6f1a3c4b68",
      "canUndo": true,
      "canRedo": true
     },
@@ -13722,7 +13722,7 @@
        "index": 1
       }
      ],
-     "sha256": "fccfea490cab04ae3b86d633ffe310a9c0c39a0b66aeb0a308001afc74235c37",
+     "sha256": "66662fdde5b98b3e7e3c8c89543e32ef65367dad5d8128646ad34c6f1a3c4b68",
      "canUndo": true,
      "canRedo": false
     }
@@ -14029,13 +14029,13 @@
        "id": "i3"
       }
      ],
-     "sha256": "3ccef538f8b56423e25c65e92e9bc546fc5cb5e178f40703835ef69cc49c5e7d",
+     "sha256": "8b3c1cc4d5e34d0545fb35b137fbeba277ff0db909c5388195b9049a5d9aaeba",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "3ccef538f8b56423e25c65e92e9bc546fc5cb5e178f40703835ef69cc49c5e7d",
+     "sha256": "8b3c1cc4d5e34d0545fb35b137fbeba277ff0db909c5388195b9049a5d9aaeba",
      "canUndo": true,
      "canRedo": false
     },
@@ -14054,7 +14054,7 @@
       }
      ],
      "error": "op[1]: \"i1\" is an instance: its content comes from the component; edit the component, use overrides or detach it",
-     "sha256": "3ccef538f8b56423e25c65e92e9bc546fc5cb5e178f40703835ef69cc49c5e7d",
+     "sha256": "8b3c1cc4d5e34d0545fb35b137fbeba277ff0db909c5388195b9049a5d9aaeba",
      "canUndo": true,
      "canRedo": false
     },
@@ -14069,7 +14069,7 @@
       }
      ],
      "error": "op[0]: \"i2\" is an instance: its content comes from the component; edit the component, use overrides or detach it",
-     "sha256": "3ccef538f8b56423e25c65e92e9bc546fc5cb5e178f40703835ef69cc49c5e7d",
+     "sha256": "8b3c1cc4d5e34d0545fb35b137fbeba277ff0db909c5388195b9049a5d9aaeba",
      "canUndo": true,
      "canRedo": false
     },
@@ -15889,7 +15889,7 @@
        }
       }
      ],
-     "sha256": "513c913202ed70531d47cd969ae8e5e0cd9587c8785f5cd0f734b9ad9d429a6a",
+     "sha256": "2f0ebb7dc912f88ee6f99e611a74ddddb960db056ba7c5165b5d57cd26ecb71d",
      "canUndo": true,
      "canRedo": false
     },
@@ -15925,7 +15925,7 @@
       }
      ],
      "error": "op[1]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
-     "sha256": "513c913202ed70531d47cd969ae8e5e0cd9587c8785f5cd0f734b9ad9d429a6a",
+     "sha256": "2f0ebb7dc912f88ee6f99e611a74ddddb960db056ba7c5165b5d57cd26ecb71d",
      "canUndo": true,
      "canRedo": false
     },
@@ -15946,7 +15946,7 @@
       }
      ],
      "error": "op[0]: \"i2-1e234di13gu8m6\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got y)",
-     "sha256": "513c913202ed70531d47cd969ae8e5e0cd9587c8785f5cd0f734b9ad9d429a6a",
+     "sha256": "2f0ebb7dc912f88ee6f99e611a74ddddb960db056ba7c5165b5d57cd26ecb71d",
      "canUndo": true,
      "canRedo": false
     },
@@ -15980,7 +15980,7 @@
       }
      ],
      "error": "op[0]: \"i3\" is an instance: its content comes from the component; edit the component, use overrides or detach it",
-     "sha256": "513c913202ed70531d47cd969ae8e5e0cd9587c8785f5cd0f734b9ad9d429a6a",
+     "sha256": "2f0ebb7dc912f88ee6f99e611a74ddddb960db056ba7c5165b5d57cd26ecb71d",
      "canUndo": true,
      "canRedo": false
     },
@@ -16014,7 +16014,7 @@
        ]
       }
      ],
-     "sha256": "8fdc1451f3871a262ee58847cef58156178b04f2f199f0e9db565fd2f279f436",
+     "sha256": "4fe04828ba6781bdf3fea4cc8b94de7bde299c25f0fb563c1a691f2a6cd7931d",
      "canUndo": true,
      "canRedo": false
     },
@@ -16045,7 +16045,7 @@
       }
      ],
      "error": "op[0]: \"i3\" is an instance: its content comes from the component; edit the component, use overrides or detach it",
-     "sha256": "8fdc1451f3871a262ee58847cef58156178b04f2f199f0e9db565fd2f279f436",
+     "sha256": "4fe04828ba6781bdf3fea4cc8b94de7bde299c25f0fb563c1a691f2a6cd7931d",
      "canUndo": true,
      "canRedo": false
     },
@@ -16071,7 +16071,7 @@
        }
       }
      ],
-     "sha256": "412e35d2c0ee38c7b5308bd1d30adeda5ea1f5a6576fa514485dba92f72a6dbc",
+     "sha256": "ea3f291759c430487e2f675d293514466dda004ec0e457c0670993d19b83f61c",
      "canUndo": true,
      "canRedo": false
     },
@@ -16106,7 +16106,7 @@
       }
      ],
      "error": "op[1]: \"i3\" is an instance: its content comes from the component; edit the component, use overrides or detach it",
-     "sha256": "412e35d2c0ee38c7b5308bd1d30adeda5ea1f5a6576fa514485dba92f72a6dbc",
+     "sha256": "ea3f291759c430487e2f675d293514466dda004ec0e457c0670993d19b83f61c",
      "canUndo": true,
      "canRedo": false
     },
@@ -16143,7 +16143,7 @@
       }
      ],
      "error": "op[1]: a page can only be at the canvas level (parentId null)",
-     "sha256": "412e35d2c0ee38c7b5308bd1d30adeda5ea1f5a6576fa514485dba92f72a6dbc",
+     "sha256": "ea3f291759c430487e2f675d293514466dda004ec0e457c0670993d19b83f61c",
      "canUndo": true,
      "canRedo": false
     },
@@ -16172,7 +16172,7 @@
       }
      ],
      "error": "op[0]: unknown field for text: bogus",
-     "sha256": "412e35d2c0ee38c7b5308bd1d30adeda5ea1f5a6576fa514485dba92f72a6dbc",
+     "sha256": "ea3f291759c430487e2f675d293514466dda004ec0e457c0670993d19b83f61c",
      "canUndo": true,
      "canRedo": false
     },
@@ -16201,7 +16201,7 @@
       }
      ],
      "error": "op[0]: unknown field for text: bogus",
-     "sha256": "412e35d2c0ee38c7b5308bd1d30adeda5ea1f5a6576fa514485dba92f72a6dbc",
+     "sha256": "ea3f291759c430487e2f675d293514466dda004ec0e457c0670993d19b83f61c",
      "canUndo": true,
      "canRedo": false
     },
@@ -16229,7 +16229,7 @@
        "index": 0
       }
      ],
-     "sha256": "5d5578085959a5e5d0e1fa4e5c2de5d010e3783611ee84ac7529f8c35a80c5b3",
+     "sha256": "a905131d2ec69878e22412a2cedfe9f9409aa8faaa79aff5a4c969a8e62cfd1d",
      "canUndo": true,
      "canRedo": false
     }
@@ -16768,7 +16768,7 @@
        }
       }
      ],
-     "sha256": "d1506ba4f8d7c1f37eea53403daa14258ade5ce39575ba57701351351d3c0db3",
+     "sha256": "0c6e80b15e61360db5a6a651fcc17984dc06f2b6e3f345c273aabe4f45e27824",
      "canUndo": true,
      "canRedo": false
     },
@@ -16791,7 +16791,7 @@
       }
      ],
      "error": "op[0]: \"i1\" is an instance: its content comes from the component; edit the component, use overrides or detach it",
-     "sha256": "d1506ba4f8d7c1f37eea53403daa14258ade5ce39575ba57701351351d3c0db3",
+     "sha256": "0c6e80b15e61360db5a6a651fcc17984dc06f2b6e3f345c273aabe4f45e27824",
      "canUndo": true,
      "canRedo": false
     },
@@ -16812,7 +16812,7 @@
        }
       }
      ],
-     "sha256": "22537255ff970f9a2d4012c2607f23d2a359b6f3ac9b13901d118d2a9ce8cd1b",
+     "sha256": "1b404f0d8da544c30be2d1d855ba9257a10f0b208fb9427bf1d2db92246a84d7",
      "canUndo": true,
      "canRedo": false
     },
@@ -16839,7 +16839,7 @@
        }
       }
      ],
-     "sha256": "a88297c0b436002be1d1629aa1684733a8c615250eda29f15d588ccd56be2396",
+     "sha256": "09ab7f8d783f60af16a5aa701f11651ce55aae2d7953ed16a62b660c70176db5",
      "canUndo": true,
      "canRedo": false
     },
@@ -16866,7 +16866,7 @@
       }
      ],
      "error": "op[0]: unknown field for rect: scale",
-     "sha256": "a88297c0b436002be1d1629aa1684733a8c615250eda29f15d588ccd56be2396",
+     "sha256": "09ab7f8d783f60af16a5aa701f11651ce55aae2d7953ed16a62b660c70176db5",
      "canUndo": true,
      "canRedo": false
     },
@@ -16897,7 +16897,7 @@
        }
       }
      ],
-     "sha256": "15304bb9289f5334cdcaf69ca0981ae8029686e2094cc3b33740dc1d9f5d88e5",
+     "sha256": "07e6afe16036731e45afcddb6ac42bb8a2b99d4f8fd8ab6355c2d1f87007a120",
      "canUndo": true,
      "canRedo": false
     },
@@ -16923,7 +16923,7 @@
       }
      ],
      "error": "op[1]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
-     "sha256": "15304bb9289f5334cdcaf69ca0981ae8029686e2094cc3b33740dc1d9f5d88e5",
+     "sha256": "07e6afe16036731e45afcddb6ac42bb8a2b99d4f8fd8ab6355c2d1f87007a120",
      "canUndo": true,
      "canRedo": false
     },
@@ -16947,19 +16947,19 @@
        }
       }
      ],
-     "sha256": "6921265db6029f4bd019d1990abe9d6e7fa5f187f0f2491af08449bf07cba7d2",
+     "sha256": "7a9bdf0ab239533af0feec07aced3ab4b64d5ff54b96637a0a38310c720f6d57",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "04f9b95a7f705efbaceb89183f2bebce5170d816ffc24a6c81156287dcb69a44",
+     "sha256": "af6a33b17ac08903b13ec3d8763b0ec5f7f0cd5306e4bf5c25fa9511cc5832f5",
      "canUndo": true,
      "canRedo": true
     },
     {
      "kind": "undo",
-     "sha256": "5709002b4cebc95553ce685074f7e4b1febc4ffce1be8c3ab2d915242c60c50a",
+     "sha256": "e3317d0c8f3c63ab808d4388d5d808bfe5a426acf44a4baea3a850d2a2522643",
      "canUndo": true,
      "canRedo": true
     }
@@ -18239,7 +18239,7 @@
        }
       }
      ],
-     "sha256": "5fb213aae14a776f29bf8326e2625fc7bf4204132a7687c4ff6edcb0087d0c48",
+     "sha256": "55b2bbc960e44650999fd6603ae9f70c976f22695d075ce8daa6e38a19fa9cd5",
      "canUndo": true,
      "canRedo": false
     },
@@ -18263,7 +18263,7 @@
        "parentId": null
       }
      ],
-     "sha256": "93d0dc74c4c12b52e8a2e8964448774df0bee94f4eab0b778f026fa6113b4ca9",
+     "sha256": "98687af5462ce14e915f04dc29ec612b336a57a6a10403c4b94cb24851e97b93",
      "canUndo": true,
      "canRedo": false
     },
@@ -18288,7 +18288,7 @@
        }
       }
      ],
-     "sha256": "a75e8a6e491bc9ac65ecd9d6247b8eee2b24a2254d2ee88fd53caf21dfd62d5b",
+     "sha256": "57e4efec5cbbd99fa692430aa0e9aaabfba22e14b4af463d7dc1957e83775e0e",
      "canUndo": true,
      "canRedo": false
     },
@@ -18313,13 +18313,13 @@
       }
      ],
      "error": "op[0]: connector \"n46_59\": to.nodeId \"ask-to-no\" is a connector; attach to a shape or another node on the canvas",
-     "sha256": "a75e8a6e491bc9ac65ecd9d6247b8eee2b24a2254d2ee88fd53caf21dfd62d5b",
+     "sha256": "57e4efec5cbbd99fa692430aa0e9aaabfba22e14b4af463d7dc1957e83775e0e",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "b4279b5eb281f657c930027f859b6b651f1c927b1f6cbff0c6db7016d1f76cbf",
+     "sha256": "aacfe007a7f74d7e550aff342dac942d1e80b519853cfa2daaad909182c181f6",
      "canUndo": true,
      "canRedo": true
     },
@@ -18345,7 +18345,7 @@
        }
       }
      ],
-     "sha256": "e0945119c3b7691f5c6e223141cba8f15d480bb2346a5cf6e0cc3f0200665cfa",
+     "sha256": "246ab434315551f1e12b81adb3704ba6e951b6d44318d7461af2481ffacaf876",
      "canUndo": true,
      "canRedo": false
     },
@@ -18373,7 +18373,7 @@
        }
       }
      ],
-     "sha256": "f2b7ffbd90b40db65862bfe07edbc6b1b20954a941cd14ad5cc94e155aeca071",
+     "sha256": "96a00c296601d1df154ca0703dd464aff16fee49750aa0ac83d9614f0b20fc18",
      "canUndo": true,
      "canRedo": false
     },
@@ -18400,13 +18400,13 @@
        }
       }
      ],
-     "sha256": "9e3cea94c2c1abfc39100e273fa765d8abd8716ef4555b0b3c0dbff0b02d1310",
+     "sha256": "c54140c3aeb4b9a9aa00fe3cdb7a0ef41f15ffb1fad783089627d78eb97a0b84",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "9e3cea94c2c1abfc39100e273fa765d8abd8716ef4555b0b3c0dbff0b02d1310",
+     "sha256": "c54140c3aeb4b9a9aa00fe3cdb7a0ef41f15ffb1fad783089627d78eb97a0b84",
      "canUndo": true,
      "canRedo": false
     },
@@ -18420,7 +18420,7 @@
        }
       }
      ],
-     "sha256": "9519f1eb5763bc526912dcae5142957169b4a9078cc208a523cc94568a80b08b",
+     "sha256": "6d4b5c5eaa7c41b09e3d91d41453f9db10b36a166b38568006c88397edad5591",
      "canUndo": true,
      "canRedo": false
     },
@@ -18435,7 +18435,7 @@
       }
      ],
      "error": "op[0]: node \"i3\" does not exist",
-     "sha256": "9519f1eb5763bc526912dcae5142957169b4a9078cc208a523cc94568a80b08b",
+     "sha256": "6d4b5c5eaa7c41b09e3d91d41453f9db10b36a166b38568006c88397edad5591",
      "canUndo": true,
      "canRedo": false
     },
@@ -18469,7 +18469,7 @@
       }
      ],
      "error": "op[0]: \"flowi-1air8m81q1nctc\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got bogus)",
-     "sha256": "9519f1eb5763bc526912dcae5142957169b4a9078cc208a523cc94568a80b08b",
+     "sha256": "6d4b5c5eaa7c41b09e3d91d41453f9db10b36a166b38568006c88397edad5591",
      "canUndo": true,
      "canRedo": false
     },
@@ -18484,7 +18484,7 @@
        }
       }
      ],
-     "sha256": "5f719f831de5ff60650be4836314c054b0da14a986efb07ca08097ee71c0bf65",
+     "sha256": "5296a18685c19ca1cbde98cdd9c24d4e7cb087d7ac26b6e3d9e88a7a32f18bd6",
      "canUndo": true,
      "canRedo": false
     },
@@ -18509,13 +18509,13 @@
       }
      ],
      "error": "op[1]: \"flowi\" is an instance: its content comes from the component; edit the component, use overrides or detach it",
-     "sha256": "5f719f831de5ff60650be4836314c054b0da14a986efb07ca08097ee71c0bf65",
+     "sha256": "5296a18685c19ca1cbde98cdd9c24d4e7cb087d7ac26b6e3d9e88a7a32f18bd6",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "9519f1eb5763bc526912dcae5142957169b4a9078cc208a523cc94568a80b08b",
+     "sha256": "6d4b5c5eaa7c41b09e3d91d41453f9db10b36a166b38568006c88397edad5591",
      "canUndo": true,
      "canRedo": true
     }
@@ -19032,7 +19032,7 @@
        }
       }
      ],
-     "sha256": "0265b43ac28630a6cbb4f8e1ddaf1451f56225eca0b013c5dd9ecc5b1db16d63",
+     "sha256": "8f38d40e50d8bfd463455de0a7d60b0f92f25d1b05a0cd76c42d750193ffb463",
      "canUndo": true,
      "canRedo": false
     },
@@ -19067,7 +19067,7 @@
        }
       }
      ],
-     "sha256": "9296a9ff95abfc9dfeb1b27e1cab2ce9b1e527a4af002dc6d1999d33e510dff9",
+     "sha256": "004ae732c20cd99a7297ff5aed4d4357ff5b0196d6e8a821409c45ea5e69dfba",
      "canUndo": true,
      "canRedo": false
     },
@@ -19104,7 +19104,7 @@
        }
       }
      ],
-     "sha256": "a6cf7fe45b7370ac0f8264179d8e05019335914f8cd37f02602cc505981c3049",
+     "sha256": "386db42191bc008973962e035124cc4279e4428ae8b2b15b858111a34ed20641",
      "canUndo": true,
      "canRedo": false
     },
@@ -19122,13 +19122,13 @@
        }
       }
      ],
-     "sha256": "409a9858c34873d343db464bdb00ff778fc76e281909ae2cb558ae50d135d730",
+     "sha256": "87655d37ecd91de53d79e351f595f30a2a843a84c4abcbc73fba5ede5adc54ab",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "redo",
-     "sha256": "409a9858c34873d343db464bdb00ff778fc76e281909ae2cb558ae50d135d730",
+     "sha256": "87655d37ecd91de53d79e351f595f30a2a843a84c4abcbc73fba5ede5adc54ab",
      "canUndo": true,
      "canRedo": false
     },
@@ -19141,13 +19141,13 @@
       }
      ],
      "error": "op[0]: \"flowi-039avlw15f4yj8\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
-     "sha256": "409a9858c34873d343db464bdb00ff778fc76e281909ae2cb558ae50d135d730",
+     "sha256": "87655d37ecd91de53d79e351f595f30a2a843a84c4abcbc73fba5ede5adc54ab",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "a6cf7fe45b7370ac0f8264179d8e05019335914f8cd37f02602cc505981c3049",
+     "sha256": "386db42191bc008973962e035124cc4279e4428ae8b2b15b858111a34ed20641",
      "canUndo": true,
      "canRedo": true
     },
@@ -19171,7 +19171,7 @@
        "id": "memo-to-no"
       }
      ],
-     "sha256": "902447ed526d23dba8c8bae2fcfbf3053e448e702829892ad45f8fad5409c8ce",
+     "sha256": "0ee6b0601bae17d74035d767a1e70cab1b211dac5a467835f84f8cb6b30e4604",
      "canUndo": true,
      "canRedo": false
     },
@@ -19189,7 +19189,7 @@
        }
       }
      ],
-     "sha256": "922cb49cbc423ee598ad4047c9b81890b8179de46159c1479d6dd7dab2717033",
+     "sha256": "b0ee1fecd0141cf163b7cb773664cb0f38984568a54c25df9ed3ea0f2078b07f",
      "canUndo": true,
      "canRedo": false
     },
@@ -19205,7 +19205,7 @@
       }
      ],
      "error": "op[0]: unknown field for rect: color",
-     "sha256": "922cb49cbc423ee598ad4047c9b81890b8179de46159c1479d6dd7dab2717033",
+     "sha256": "b0ee1fecd0141cf163b7cb773664cb0f38984568a54c25df9ed3ea0f2078b07f",
      "canUndo": true,
      "canRedo": false
     },
@@ -19219,13 +19219,13 @@
        }
       }
      ],
-     "sha256": "97d619bd0eb29b65027f3b480ed2ab55ced408ea1468d7b428e113fd6f89fd86",
+     "sha256": "e7b5744db00469136d48e7d698cb22a4b7c3aa023242295f4537f301e5a72b67",
      "canUndo": true,
      "canRedo": false
     },
     {
      "kind": "undo",
-     "sha256": "922cb49cbc423ee598ad4047c9b81890b8179de46159c1479d6dd7dab2717033",
+     "sha256": "b0ee1fecd0141cf163b7cb773664cb0f38984568a54c25df9ed3ea0f2078b07f",
      "canUndo": true,
      "canRedo": true
     },
@@ -19240,7 +19240,7 @@
       }
      ],
      "error": "op[0]: moving \"box\" into itself would create a cycle",
-     "sha256": "922cb49cbc423ee598ad4047c9b81890b8179de46159c1479d6dd7dab2717033",
+     "sha256": "b0ee1fecd0141cf163b7cb773664cb0f38984568a54c25df9ed3ea0f2078b07f",
      "canUndo": true,
      "canRedo": true
     },
@@ -19254,7 +19254,7 @@
        }
       }
      ],
-     "sha256": "922cb49cbc423ee598ad4047c9b81890b8179de46159c1479d6dd7dab2717033",
+     "sha256": "b0ee1fecd0141cf163b7cb773664cb0f38984568a54c25df9ed3ea0f2078b07f",
      "canUndo": true,
      "canRedo": false
     },
@@ -19275,7 +19275,7 @@
       }
      ],
      "error": "op[0]: \"flowi\" is an instance: its content comes from the component; edit the component, use overrides or detach it",
-     "sha256": "922cb49cbc423ee598ad4047c9b81890b8179de46159c1479d6dd7dab2717033",
+     "sha256": "b0ee1fecd0141cf163b7cb773664cb0f38984568a54c25df9ed3ea0f2078b07f",
      "canUndo": true,
      "canRedo": false
     },
@@ -19309,7 +19309,7 @@
       }
      ],
      "error": "op[2]: connector \"n48_109\": from.nodeId \"cf\" is a connector; attach to a shape or another node on the canvas",
-     "sha256": "922cb49cbc423ee598ad4047c9b81890b8179de46159c1479d6dd7dab2717033",
+     "sha256": "b0ee1fecd0141cf163b7cb773664cb0f38984568a54c25df9ed3ea0f2078b07f",
      "canUndo": true,
      "canRedo": false
     }
@@ -21155,7 +21155,7 @@
     }
    ],
    "ok": true,
-   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"t\"\n  ],\n  \"nodes\": {\n    \"t\": {\n      \"id\": \"t\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"a\\nb\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": \"$text.md\",\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 1.5,\n      \"textAlign\": \"left\"\n    }\n  }\n}",
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"t\"\n  ],\n  \"nodes\": {\n    \"t\": {\n      \"id\": \"t\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"a\\nb\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": \"$text.md\",\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 1.5,\n      \"textAlign\": \"left\"\n    }\n  }\n}",
    "inverse": "[{\"op\":\"delete\",\"id\":\"t\"}]",
    "created": [
     "t"
@@ -21893,7 +21893,7 @@
     }
    ],
    "ok": true,
-   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"card\"\n  ],\n  \"nodes\": {\n    \"card\": {\n      \"id\": \"card\",\n      \"name\": \"Card\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 320,\n      \"height\": 200,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"title\",\n        \"bar\",\n        \"f2\"\n      ],\n      \"clip\": true,\n      \"layout\": {\n        \"mode\": \"column\",\n        \"gap\": 8,\n        \"padding\": 16,\n        \"align\": \"start\",\n        \"justify\": \"start\",\n        \"wrap\": false\n      }\n    },\n    \"title\": {\n      \"id\": \"title\",\n      \"name\": \"Título\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"fill\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Olá\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 24,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"bar\": {\n      \"id\": \"bar\",\n      \"name\": \"\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"fill\",\n      \"height\": 4,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ff278c\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"f2\": {\n      \"id\": \"f2\",\n      \"name\": \"\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"t2\",\n        \"f3\"\n      ],\n      \"clip\": false\n    },\n    \"t2\": {\n      \"id\": \"t2\",\n      \"name\": \"\",\n      \"parentId\": \"f2\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"{x} <y>\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"f3\": {\n      \"id\": \"f3\",\n      \"name\": \"\",\n      \"parentId\": \"f2\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [],\n      \"clip\": true\n    }\n  }\n}",
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"card\"\n  ],\n  \"nodes\": {\n    \"card\": {\n      \"id\": \"card\",\n      \"name\": \"Card\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 320,\n      \"height\": 200,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"title\",\n        \"bar\",\n        \"f2\"\n      ],\n      \"clip\": true,\n      \"layout\": {\n        \"mode\": \"column\",\n        \"gap\": 8,\n        \"padding\": 16,\n        \"align\": \"start\",\n        \"justify\": \"start\",\n        \"wrap\": false\n      }\n    },\n    \"title\": {\n      \"id\": \"title\",\n      \"name\": \"Título\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"fill\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Olá\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 24,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"bar\": {\n      \"id\": \"bar\",\n      \"name\": \"\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"fill\",\n      \"height\": 4,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ff278c\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"f2\": {\n      \"id\": \"f2\",\n      \"name\": \"\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"t2\",\n        \"f3\"\n      ],\n      \"clip\": false\n    },\n    \"t2\": {\n      \"id\": \"t2\",\n      \"name\": \"\",\n      \"parentId\": \"f2\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"{x} <y>\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"f3\": {\n      \"id\": \"f3\",\n      \"name\": \"\",\n      \"parentId\": \"f2\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [],\n      \"clip\": true\n    }\n  }\n}",
    "inverse": "[{\"op\":\"delete\",\"id\":\"f2\"}]",
    "created": [
     "f2",
@@ -26163,34 +26163,34 @@
   },
   {
    "name": "op32",
-   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"t\"\n  ],\n  \"nodes\": {\n    \"t\": {\n      \"id\": \"t\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"a\\nb\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": \"$text.md\",\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 1.5,\n      \"textAlign\": \"left\"\n    }\n  }\n}",
-   "outline": "text#t 100×100 @0,0 \"a\\nb\" $text.md/400 color=#111111",
-   "outlineDepth0": "text#t 100×100 @0,0 \"a\\nb\" $text.md/400 color=#111111",
-   "outlineDepth1": "text#t 100×100 @0,0 \"a\\nb\" $text.md/400 color=#111111",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"t\"\n  ],\n  \"nodes\": {\n    \"t\": {\n      \"id\": \"t\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"a\\nb\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": \"$text.md\",\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 1.5,\n      \"textAlign\": \"left\"\n    }\n  }\n}",
+   "outline": "text#t hug×hug @0,0 \"a\\nb\" $text.md/400 color=#111111",
+   "outlineDepth0": "text#t hug×hug @0,0 \"a\\nb\" $text.md/400 color=#111111",
+   "outlineDepth1": "text#t hug×hug @0,0 \"a\\nb\" $text.md/400 color=#111111",
    "lint": "[{\"rule\":\"unknown-token\",\"severity\":\"error\",\"nodeId\":\"t\",\"message\":\"token \\\"$text.md\\\" does not exist\"}]",
    "lintRoots": {
     "t": "[{\"rule\":\"unknown-token\",\"severity\":\"error\",\"nodeId\":\"t\",\"message\":\"token \\\"$text.md\\\" does not exist\"}]"
    },
-   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:$text.md;font-weight:400;line-height:1.4;letter-spacing:1.5px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a\nb</div></body></html>",
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:1px;height:1px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:$text.md;font-weight:400;line-height:1.4;letter-spacing:1.5px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a\nb</div></body></html>",
    "htmlRoots": {
-    "t": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:$text.md;font-weight:400;line-height:1.4;letter-spacing:1.5px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a\nb</div></body></html>"
+    "t": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:1px;height:1px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:$text.md;font-weight:400;line-height:1.4;letter-spacing:1.5px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a\nb</div></body></html>"
    },
    "htmlPages": {},
    "react": {
-    "t": "export function T() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"$text.md\", fontWeight: 400, lineHeight: 1.4, letterSpacing: \"1.5px\", textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>a{'\\n'}b</div>\n  );\n}\n"
+    "t": "export function T() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"$text.md\", fontWeight: 400, lineHeight: 1.4, letterSpacing: \"1.5px\", textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>a{'\\n'}b</div>\n  );\n}\n"
    },
-   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:$text.md;font-weight:400;line-height:1.4;letter-spacing:1.5px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a\nb</div></body></html>",
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:1px;height:1px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:$text.md;font-weight:400;line-height:1.4;letter-spacing:1.5px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a\nb</div></body></html>",
    "htmlVarsRoots": {
-    "t": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:$text.md;font-weight:400;line-height:1.4;letter-spacing:1.5px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a\nb</div></body></html>"
+    "t": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:1px;height:1px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:$text.md;font-weight:400;line-height:1.4;letter-spacing:1.5px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a\nb</div></body></html>"
    },
    "reactVars": {
-    "t": "export const tokensCss = \":root{}\";\n\nexport function T() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"$text.md\", fontWeight: 400, lineHeight: 1.4, letterSpacing: \"1.5px\", textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>a{'\\n'}b</div>\n  );\n}\n"
+    "t": "export const tokensCss = \":root{}\";\n\nexport function T() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"$text.md\", fontWeight: 400, lineHeight: 1.4, letterSpacing: \"1.5px\", textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>a{'\\n'}b</div>\n  );\n}\n"
    },
    "describe": {
-    "t": "text#t 100×100 @0,0 \"a\\nb\" $text.md/400 color=#111111"
+    "t": "text#t hug×hug @0,0 \"a\\nb\" $text.md/400 color=#111111"
    },
    "style": {
-    "t": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:$text.md;font-weight:400;line-height:1.4;letter-spacing:1.5px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0"
+    "t": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:$text.md;font-weight:400;line-height:1.4;letter-spacing:1.5px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0"
    },
    "find": {
     "text": [
@@ -26758,42 +26758,42 @@
   },
   {
    "name": "op78",
-   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"card\"\n  ],\n  \"nodes\": {\n    \"card\": {\n      \"id\": \"card\",\n      \"name\": \"Card\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 320,\n      \"height\": 200,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"title\",\n        \"bar\",\n        \"f2\"\n      ],\n      \"clip\": true,\n      \"layout\": {\n        \"mode\": \"column\",\n        \"gap\": 8,\n        \"padding\": 16,\n        \"align\": \"start\",\n        \"justify\": \"start\",\n        \"wrap\": false\n      }\n    },\n    \"title\": {\n      \"id\": \"title\",\n      \"name\": \"Título\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"fill\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Olá\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 24,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"bar\": {\n      \"id\": \"bar\",\n      \"name\": \"\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"fill\",\n      \"height\": 4,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ff278c\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"f2\": {\n      \"id\": \"f2\",\n      \"name\": \"\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"t2\",\n        \"f3\"\n      ],\n      \"clip\": false\n    },\n    \"t2\": {\n      \"id\": \"t2\",\n      \"name\": \"\",\n      \"parentId\": \"f2\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"{x} <y>\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"f3\": {\n      \"id\": \"f3\",\n      \"name\": \"\",\n      \"parentId\": \"f2\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [],\n      \"clip\": true\n    }\n  }\n}",
-   "outline": "frame#card \"Card\" 320×200 @0,0 fill=#ffffff column gap=8\n  text#title \"Título\" fill×hug @0,0 \"Olá\" 24/400 color=#111111\n  rect#bar fill×4 @0,0 fill=#ff278c\n  frame#f2 100×100 @0,0\n    text#t2 100×100 @0,0 \"{x} <y>\" 16/400 color=#111111\n    frame#f3 100×100 @0,0",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"card\"\n  ],\n  \"nodes\": {\n    \"card\": {\n      \"id\": \"card\",\n      \"name\": \"Card\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 320,\n      \"height\": 200,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"title\",\n        \"bar\",\n        \"f2\"\n      ],\n      \"clip\": true,\n      \"layout\": {\n        \"mode\": \"column\",\n        \"gap\": 8,\n        \"padding\": 16,\n        \"align\": \"start\",\n        \"justify\": \"start\",\n        \"wrap\": false\n      }\n    },\n    \"title\": {\n      \"id\": \"title\",\n      \"name\": \"Título\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"fill\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Olá\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 24,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"bar\": {\n      \"id\": \"bar\",\n      \"name\": \"\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"fill\",\n      \"height\": 4,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ff278c\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"f2\": {\n      \"id\": \"f2\",\n      \"name\": \"\",\n      \"parentId\": \"card\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"t2\",\n        \"f3\"\n      ],\n      \"clip\": false\n    },\n    \"t2\": {\n      \"id\": \"t2\",\n      \"name\": \"\",\n      \"parentId\": \"f2\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"{x} <y>\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"f3\": {\n      \"id\": \"f3\",\n      \"name\": \"\",\n      \"parentId\": \"f2\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [],\n      \"clip\": true\n    }\n  }\n}",
+   "outline": "frame#card \"Card\" 320×200 @0,0 fill=#ffffff column gap=8\n  text#title \"Título\" fill×hug @0,0 \"Olá\" 24/400 color=#111111\n  rect#bar fill×4 @0,0 fill=#ff278c\n  frame#f2 100×100 @0,0\n    text#t2 hug×hug @0,0 \"{x} <y>\" 16/400 color=#111111\n    frame#f3 100×100 @0,0",
    "outlineDepth0": "frame#card \"Card\" 320×200 @0,0 fill=#ffffff column gap=8\n  … 3 filho(s)",
    "outlineDepth1": "frame#card \"Card\" 320×200 @0,0 fill=#ffffff column gap=8\n  text#title \"Título\" fill×hug @0,0 \"Olá\" 24/400 color=#111111\n  rect#bar fill×4 @0,0 fill=#ff278c\n  frame#f2 100×100 @0,0\n    … 2 filho(s)",
    "lint": "[]",
    "lintRoots": {
     "card": "[]"
    },
-   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:200px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"card\" data-paprika-type=\"frame\" data-name=\"Card\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:200px;background:#ffffff;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:16px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"title\" data-paprika-type=\"text\" data-name=\"Título\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:24px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Olá</div><div data-paprika-id=\"bar\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:4px;flex-shrink:0;background:#ff278c\"></div><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:relative;width:100px;flex-shrink:0;height:100px\"><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div><div data-paprika-id=\"f3\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden\"></div></div></div></body></html>",
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:200px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"card\" data-paprika-type=\"frame\" data-name=\"Card\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:200px;background:#ffffff;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:16px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"title\" data-paprika-type=\"text\" data-name=\"Título\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:24px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Olá</div><div data-paprika-id=\"bar\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:4px;flex-shrink:0;background:#ff278c\"></div><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:relative;width:100px;flex-shrink:0;height:100px\"><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div><div data-paprika-id=\"f3\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden\"></div></div></div></body></html>",
    "htmlRoots": {
-    "card": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:200px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"card\" data-paprika-type=\"frame\" data-name=\"Card\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:200px;background:#ffffff;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:16px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"title\" data-paprika-type=\"text\" data-name=\"Título\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:24px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Olá</div><div data-paprika-id=\"bar\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:4px;flex-shrink:0;background:#ff278c\"></div><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:relative;width:100px;flex-shrink:0;height:100px\"><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div><div data-paprika-id=\"f3\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden\"></div></div></div></body></html>"
+    "card": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:200px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"card\" data-paprika-type=\"frame\" data-name=\"Card\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:200px;background:#ffffff;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:16px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"title\" data-paprika-type=\"text\" data-name=\"Título\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:24px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Olá</div><div data-paprika-id=\"bar\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:4px;flex-shrink:0;background:#ff278c\"></div><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:relative;width:100px;flex-shrink:0;height:100px\"><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div><div data-paprika-id=\"f3\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden\"></div></div></div></body></html>"
    },
    "htmlPages": {},
    "react": {
-    "card": "export function Card() {\n  return (\n    <div data-name=\"Card\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"320px\", flexShrink: 0, height: \"200px\", background: \"#ffffff\", overflow: \"hidden\", display: \"flex\", flexDirection: \"column\", gap: \"8px\", padding: \"16px\", alignItems: \"flex-start\", justifyContent: \"flex-start\" }}>\n      <div data-name=\"Título\" style={{ boxSizing: \"border-box\", position: \"relative\", alignSelf: \"stretch\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"24px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Olá</div>\n      <div style={{ boxSizing: \"border-box\", position: \"relative\", alignSelf: \"stretch\", height: \"4px\", flexShrink: 0, background: \"#ff278c\" }} />\n      <div style={{ boxSizing: \"border-box\", position: \"relative\", width: \"100px\", flexShrink: 0, height: \"100px\" }}>\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", overflow: \"hidden\" }} />\n      </div>\n    </div>\n  );\n}\n",
+    "card": "export function Card() {\n  return (\n    <div data-name=\"Card\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"320px\", flexShrink: 0, height: \"200px\", background: \"#ffffff\", overflow: \"hidden\", display: \"flex\", flexDirection: \"column\", gap: \"8px\", padding: \"16px\", alignItems: \"flex-start\", justifyContent: \"flex-start\" }}>\n      <div data-name=\"Título\" style={{ boxSizing: \"border-box\", position: \"relative\", alignSelf: \"stretch\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"24px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Olá</div>\n      <div style={{ boxSizing: \"border-box\", position: \"relative\", alignSelf: \"stretch\", height: \"4px\", flexShrink: 0, background: \"#ff278c\" }} />\n      <div style={{ boxSizing: \"border-box\", position: \"relative\", width: \"100px\", flexShrink: 0, height: \"100px\" }}>\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", overflow: \"hidden\" }} />\n      </div>\n    </div>\n  );\n}\n",
     "title": "export function Titulo() {\n  return (\n    <div data-name=\"Título\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100%\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"24px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Olá</div>\n  );\n}\n",
     "bar": "export function Bar() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100%\", height: \"4px\", flexShrink: 0, background: \"#ff278c\" }} />\n  );\n}\n",
-    "f2": "export function F2() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", overflow: \"hidden\" }} />\n    </div>\n  );\n}\n",
-    "t2": "export function T2() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n  );\n}\n",
+    "f2": "export function F2() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", overflow: \"hidden\" }} />\n    </div>\n  );\n}\n",
+    "t2": "export function T2() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n  );\n}\n",
     "f3": "export function F3() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", overflow: \"hidden\" }} />\n  );\n}\n"
    },
-   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:200px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"card\" data-paprika-type=\"frame\" data-name=\"Card\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:200px;background:#ffffff;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:16px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"title\" data-paprika-type=\"text\" data-name=\"Título\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:24px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Olá</div><div data-paprika-id=\"bar\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:4px;flex-shrink:0;background:#ff278c\"></div><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:relative;width:100px;flex-shrink:0;height:100px\"><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div><div data-paprika-id=\"f3\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden\"></div></div></div></body></html>",
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:200px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"card\" data-paprika-type=\"frame\" data-name=\"Card\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:200px;background:#ffffff;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:16px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"title\" data-paprika-type=\"text\" data-name=\"Título\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:24px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Olá</div><div data-paprika-id=\"bar\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:4px;flex-shrink:0;background:#ff278c\"></div><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:relative;width:100px;flex-shrink:0;height:100px\"><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div><div data-paprika-id=\"f3\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden\"></div></div></div></body></html>",
    "htmlVarsRoots": {
-    "card": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:200px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"card\" data-paprika-type=\"frame\" data-name=\"Card\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:200px;background:#ffffff;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:16px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"title\" data-paprika-type=\"text\" data-name=\"Título\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:24px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Olá</div><div data-paprika-id=\"bar\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:4px;flex-shrink:0;background:#ff278c\"></div><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:relative;width:100px;flex-shrink:0;height:100px\"><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div><div data-paprika-id=\"f3\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden\"></div></div></div></body></html>",
+    "card": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:200px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"card\" data-paprika-type=\"frame\" data-name=\"Card\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:200px;background:#ffffff;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:16px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"title\" data-paprika-type=\"text\" data-name=\"Título\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:24px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Olá</div><div data-paprika-id=\"bar\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:relative;align-self:stretch;height:4px;flex-shrink:0;background:#ff278c\"></div><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:relative;width:100px;flex-shrink:0;height:100px\"><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div><div data-paprika-id=\"f3\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden\"></div></div></div></body></html>",
     "title": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:1px;height:1px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"title\" data-paprika-type=\"text\" data-name=\"Título\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100%;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:24px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Olá</div></body></html>",
     "bar": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:1px;height:4px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"bar\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100%;height:4px;flex-shrink:0;background:#ff278c\"></div></body></html>",
-    "f2": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px\"><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div><div data-paprika-id=\"f3\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden\"></div></div></body></html>",
-    "t2": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div></body></html>",
+    "f2": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"f2\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px\"><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div><div data-paprika-id=\"f3\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden\"></div></div></body></html>",
+    "t2": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:1px;height:1px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"t2\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">{x} &lt;y&gt;</div></body></html>",
     "f3": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"f3\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden\"></div></body></html>"
    },
    "reactVars": {
-    "card": "export const tokensCss = \":root{}\";\n\nexport function Card() {\n  return (\n    <div data-name=\"Card\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"320px\", flexShrink: 0, height: \"200px\", background: \"#ffffff\", overflow: \"hidden\", display: \"flex\", flexDirection: \"column\", gap: \"8px\", padding: \"16px\", alignItems: \"flex-start\", justifyContent: \"flex-start\" }}>\n      <div data-name=\"Título\" style={{ boxSizing: \"border-box\", position: \"relative\", alignSelf: \"stretch\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"24px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Olá</div>\n      <div style={{ boxSizing: \"border-box\", position: \"relative\", alignSelf: \"stretch\", height: \"4px\", flexShrink: 0, background: \"#ff278c\" }} />\n      <div style={{ boxSizing: \"border-box\", position: \"relative\", width: \"100px\", flexShrink: 0, height: \"100px\" }}>\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", overflow: \"hidden\" }} />\n      </div>\n    </div>\n  );\n}\n",
+    "card": "export const tokensCss = \":root{}\";\n\nexport function Card() {\n  return (\n    <div data-name=\"Card\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"320px\", flexShrink: 0, height: \"200px\", background: \"#ffffff\", overflow: \"hidden\", display: \"flex\", flexDirection: \"column\", gap: \"8px\", padding: \"16px\", alignItems: \"flex-start\", justifyContent: \"flex-start\" }}>\n      <div data-name=\"Título\" style={{ boxSizing: \"border-box\", position: \"relative\", alignSelf: \"stretch\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"24px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Olá</div>\n      <div style={{ boxSizing: \"border-box\", position: \"relative\", alignSelf: \"stretch\", height: \"4px\", flexShrink: 0, background: \"#ff278c\" }} />\n      <div style={{ boxSizing: \"border-box\", position: \"relative\", width: \"100px\", flexShrink: 0, height: \"100px\" }}>\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n        <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", overflow: \"hidden\" }} />\n      </div>\n    </div>\n  );\n}\n",
     "title": "export const tokensCss = \":root{}\";\n\nexport function Titulo() {\n  return (\n    <div data-name=\"Título\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100%\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"24px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Olá</div>\n  );\n}\n",
     "bar": "export const tokensCss = \":root{}\";\n\nexport function Bar() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100%\", height: \"4px\", flexShrink: 0, background: \"#ff278c\" }} />\n  );\n}\n",
-    "f2": "export const tokensCss = \":root{}\";\n\nexport function F2() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", overflow: \"hidden\" }} />\n    </div>\n  );\n}\n",
-    "t2": "export const tokensCss = \":root{}\";\n\nexport function T2() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n  );\n}\n",
+    "f2": "export const tokensCss = \":root{}\";\n\nexport function F2() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", overflow: \"hidden\" }} />\n    </div>\n  );\n}\n",
+    "t2": "export const tokensCss = \":root{}\";\n\nexport function T2() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>{\"{\"}x{\"}\"} {\"<\"}y{\">\"}</div>\n  );\n}\n",
     "f3": "export const tokensCss = \":root{}\";\n\nexport function F3() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", overflow: \"hidden\" }} />\n  );\n}\n"
    },
    "describe": {
@@ -26801,7 +26801,7 @@
     "title": "text#title \"Título\" fill×hug @0,0 \"Olá\" 24/400 color=#111111",
     "bar": "rect#bar fill×4 @0,0 fill=#ff278c",
     "f2": "frame#f2 100×100 @0,0",
-    "t2": "text#t2 100×100 @0,0 \"{x} <y>\" 16/400 color=#111111",
+    "t2": "text#t2 hug×hug @0,0 \"{x} <y>\" 16/400 color=#111111",
     "f3": "frame#f3 100×100 @0,0"
    },
    "style": {
@@ -26809,7 +26809,7 @@
     "title": "box-sizing:border-box;position:relative;align-self:stretch;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:24px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0",
     "bar": "box-sizing:border-box;position:relative;align-self:stretch;height:4px;flex-shrink:0;background:#ff278c",
     "f2": "box-sizing:border-box;position:relative;width:100px;flex-shrink:0;height:100px",
-    "t2": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0",
+    "t2": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0",
     "f3": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;overflow:hidden"
    },
    "find": {
@@ -27762,9 +27762,9 @@
    "outline": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4\n  group#g1 \"Par\" 115.9904×100 @20,14.7596\n    rect#r1 20×10 @20,35.2404 fill=#c43d27\n    ellipse#e1 30×30 @80.5,5.4904 fill=#1e2336\n    frame#inner hug×10 @0,90\n      rect#x1 100×100 @0,0\n  text#t1 hug×hug @10,200 \"Livre\" 16/400 color=#1e2336\n  path#p1 80×9 @200,100 d=\"M0 0 C 20 -30 60 30 80 0\" stroke=#c43d27/3",
    "outlineDepth0": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4\n  … 3 filho(s)",
    "outlineDepth1": "frame#board \"Board\" 400×300 @0,0 fill=#fbf8f4\n  group#g1 \"Par\" 115.9904×100 @20,14.7596\n    … 3 filho(s)\n  text#t1 hug×hug @10,200 \"Livre\" 16/400 color=#1e2336\n  path#p1 80×9 @200,100 d=\"M0 0 C 20 -30 60 30 80 0\" stroke=#c43d27/3",
-   "lint": "[]",
+   "lint": "[{\"rule\":\"hug-without-layout\",\"severity\":\"warning\",\"nodeId\":\"inner\",\"message\":\"width \\\"hug\\\" on a frame without layout is 0 px (its children are placed absolutely, so nothing is hugged); set layout {mode: \\\"column\\\"} or a number\"}]",
    "lintRoots": {
-    "board": "[]"
+    "board": "[{\"rule\":\"hug-without-layout\",\"severity\":\"warning\",\"nodeId\":\"inner\",\"message\":\"width \\\"hug\\\" on a frame without layout is 0 px (its children are placed absolutely, so nothing is hugged); set layout {mode: \\\"column\\\"} or a number\"}]"
    },
    "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:400px;height:300px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"board\" data-paprika-type=\"frame\" data-name=\"Board\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:400px;flex-shrink:0;height:300px;background:#fbf8f4;overflow:hidden\"><div data-paprika-id=\"g1\" data-paprika-type=\"group\" data-name=\"Par\" style=\"box-sizing:border-box;position:absolute;left:20px;top:14.76px;width:115.99px;flex-shrink:0;height:100px\"><div data-paprika-id=\"r1\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:20px;top:35.24px;width:20px;flex-shrink:0;height:10px;background:#c43d27\"></div><div data-paprika-id=\"e1\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:80.5px;top:5.49px;width:30px;flex-shrink:0;height:30px;transform:rotate(30deg);background:#1e2336;border-radius:50%\"></div><div data-paprika-id=\"inner\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:90px;width:max-content;height:10px;flex-shrink:0;overflow:hidden\"><div data-paprika-id=\"x1\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px\"></div></div></div><div data-paprika-id=\"t1\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:10px;top:200px;width:max-content;height:max-content;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Livre</div><svg data-paprika-id=\"p1\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:200px;top:100px;width:80px;flex-shrink:0;height:9px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 C 20 -30 60 30 80 0\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke=\"#c43d27\" stroke-width=\"3\"/></svg></div></body></html>",
    "htmlRoots": {

@@ -644,6 +644,12 @@ func (s *Store) ApplyBatch(ops []any, actor, label, batch string) (*core.ApplyRe
 		s.mu.Unlock()
 		return nil, fmt.Errorf("falha ao gravar no banco: %w", err)
 	}
+	after := core.Nodes(r.Doc)
+	for _, id := range core.Nodes(prevDoc).Keys() {
+		if !after.Has(id) {
+			r.Removed = append(r.Removed, id)
+		}
+	}
 	s.mu.Unlock()
 	emit(ls, ev)
 	return r, nil

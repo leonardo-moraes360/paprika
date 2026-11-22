@@ -215,6 +215,7 @@ type ApplyResult struct {
 	Doc     *Document
 	Inverse []any // ops that undo the transaction, in application order
 	Created []string
+	Removed []string // ids gone after the transaction (filled by server.Store, not by ApplyOps)
 }
 
 // listRef addresses a mutable id list (doc.rootIds or a frame's children).
@@ -449,6 +450,15 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 				if v, has := props.Get(kv.key); !has || v == nil {
 					props.Set(kv.key, jsMax1(math.Ceil(kv.val)))
 				}
+			}
+		}
+	}
+	// Without width/height a new text hugs its content (the 100×100 Base default turned every
+	// row/column label into a square). With width only, the height follows the lines.
+	if typ == "text" {
+		for _, k := range []string{"width", "height"} {
+			if v, has := props.Get(k); !has || v == nil {
+				props.Set(k, "hug")
 			}
 		}
 	}

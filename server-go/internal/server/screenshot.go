@@ -115,11 +115,28 @@ func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID stri
 	if err != nil {
 		return nil, 0, 0, err
 	}
+	// A loose root sized "hug"/"fill" has no box in the core (RootBounds gives 1px), so it is
+	// measured in the browser after loading and the viewport is resized to it.
+	measureW, measureH := false, false
+	if n := core.GetNode(doc, rootID); rootID != "" && n != nil && n.Str("type") != "page" {
+		w, _ := n.Get("width")
+		h, _ := n.Get("height")
+		_, wNum := w.(float64)
+		_, hNum := h.(float64)
+		measureW, measureH = !wNum, !hNum
+	}
 	width := math.Ceil(bounds.Width)
 	height := math.Ceil(bounds.Height)
+	if measureW {
+		width = viewportGuess
+	}
+	if measureH {
+		height = viewportGuess
+	}
 	if scale == 0 {
 		scale = 1
 	}
+	want := scale
 	scale = math.Max(0.1, math.Min(scale, math.Min(maxSide/width, maxSide/height)))
 	browser, err := c.ensure()
 	if err != nil {
@@ -137,15 +154,27 @@ func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID stri
 		}
 	}()
 	var png []byte
-	err = chromedp.Do(tab,
-		loadHTML(html, width, height, scale, rootID != ""),
-		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
+	err = chromedp.Do(tab, loadHTML(html, width, height, scale, rootID != ""))
+	if err == nil && (measureW || measureH) {
+		var size []float64
+		size, err = chromedp.Run(tab, chromedp.Evaluate[[]float64](fmt.Sprintf(measureRoot, measureW, measureH)))
+		if err == nil && len(size) == 2 {
+			width, height = size[0], size[1]
+			scale = math.Max(0.1, math.Min(want, math.Min(maxSide/width, maxSide/height)))
+			err = chromedp.Do(tab, chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
+				_, err := cdp.Call(ctx, t, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{Width: int64(width), Height: int64(height), DeviceScaleFactor: scale})
+				return err
+			}))
+		}
+	}
+	if err == nil {
+		err = chromedp.Do(tab, chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
 			fromSurface := true
 			r, err := cdp.Call(ctx, t, page.CaptureScreenshot, page.CaptureScreenshotParams{Format: page.CaptureScreenshotFormatPng, FromSurface: &fromSurface})
 			png = r.Data
 			return err
-		}),
-	)
+		}))
+	}
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("screenshot falhou: %w", err)
 	}
@@ -191,6 +220,24 @@ func (c *Chrome) ExportSVG(ctx context.Context, doc *core.Document, rootID strin
 	}
 	return core.ExportSVG(doc, rootID, &m)
 }
+
+// viewportGuess is the viewport used to lay out a hug/fill root before it is measured.
+const viewportGuess = 1280
+
+// measureRoot (args: measure width, measure height) lets the body follow the root on the
+// measured axes, then pins the body to the root's rounded box and returns it as [w, h].
+const measureRoot = `((mw, mh) => {
+  const b = document.body, el = b.firstElementChild;
+  if (!el) return [1, 1];
+  if (mw) b.style.width = "max-content";
+  if (mh) b.style.height = "max-content";
+  const r = el.getBoundingClientRect();
+  const w = mw ? Math.max(1, Math.ceil(r.width)) : b.getBoundingClientRect().width;
+  const h = mh ? Math.max(1, Math.ceil(r.height)) : b.getBoundingClientRect().height;
+  b.style.width = w + "px";
+  b.style.height = h + "px";
+  return [w, h];
+})(%t, %t)`
 
 // loadHTML sizes the viewport, puts the HTML in the tab and waits for its images and fonts.
 func loadHTML(html string, width, height, scale float64, transparent bool) chromedp.Action[chromedp.Void] {

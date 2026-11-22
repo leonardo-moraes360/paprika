@@ -478,6 +478,18 @@ describe("API: MCP", () => {
     expect(textOf(await call(c, "get_design_guide", { language: "pt-BR" }))).toMatch(/^# Paprika: guia para agentes/);
     const bad = await call(c, "delete_nodes", { ids: ["nope"] });
     expect(textOf(bad)).toBe('op[0]: node "nope" does not exist');
+    // fb#65 + fb#67: a text without a size hugs; delete_nodes says what went away (subtree and arrows).
+    await call(c, "create_nodes", {
+      nodes: [
+        { type: "frame", id: "box", layout: { mode: "column" }, children: [{ type: "text", id: "lbl", text: "Olá" }] },
+        { type: "shape", id: "far", x: 400, y: 0 },
+        { type: "connector", id: "arrow", from: { nodeId: "box" }, to: { nodeId: "far" } },
+      ],
+    });
+    const lbl = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["lbl"] })))[0];
+    expect([lbl.width, lbl.height]).toEqual(["hug", "hug"]);
+    const del = (await c.callTool({ name: "delete_nodes", arguments: { ids: ["box"] } })) as ToolResult & { structuredContent?: { deleted: string[] } };
+    expect(del.structuredContent?.deleted).toEqual(["box", "lbl", "arrow"]);
   });
 
   it("MCP via stdio enxerga as mudanças do servidor HTTP", async () => {
