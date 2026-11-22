@@ -14,6 +14,7 @@ import { navigate, parseRoute, useRoute, workspacePath } from "./route";
 import { useLive, useLiveActions, useLiveConnection } from "./useDocument";
 import { statusDotVariants } from "./components/ui/status";
 import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { Hint } from "./components/ui/tooltip";
 import { cn } from "./lib/cn";
 import { bar } from "./ui";
 import { openWorkspace } from "./workspaces";
@@ -264,7 +265,14 @@ function Editor() {
       }
       if (e.key === "Escape") {
         const t = e.target;
-        if (t instanceof Element && t.closest('[data-slot="popover-content"], [data-slot="dialog-content"], [role="dialog"], [role="alertdialog"]')) return;
+        if (
+          t instanceof Element &&
+          t.closest(
+            '[data-slot="popover-content"], [data-slot="dialog-content"], [data-slot="tooltip-content"], [role="dialog"], [role="alertdialog"], [role="tooltip"]',
+          )
+        )
+          return;
+        if (document.querySelector('[data-slot="tooltip-content"]')) return;
         setTool("select");
         const parent = nodes[0]?.parentId;
         setSelected(parent && doc.nodes[parent]?.type !== "page" ? [parent] : []);
@@ -324,18 +332,19 @@ function Editor() {
       style={{ "--left-w": `${leftPanel.collapsed ? 0 : leftPanel.width}px`, "--right-w": `${rightPanel.collapsed ? 0 : rightPanel.width}px` } as CSSProperties}>
       <header className={cn(bar.topbar, "border-ui-border bg-ui-card [grid-area:top]")}>
         <div className={bar.brand}>
-          <a
-            className="group/home flex items-center gap-2 rounded-md text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ring"
-            href="/"
-            title="Todos os workspaces"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/");
-            }}
-          >
-            <img className={bar.logo} src="/icon.svg" alt="" />
-            <strong className="group-hover/home:text-accent-ink">Paprika</strong>
-          </a>
+          <Hint label="Todos os workspaces" side="bottom">
+            <a
+              className="group/home flex items-center gap-2 rounded-md text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ring"
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/");
+              }}
+            >
+              <img className={bar.logo} src="/icon.svg" alt="" />
+              <strong className="group-hover/home:text-accent-ink">Paprika</strong>
+            </a>
+          </Hint>
           <span className="text-ui-border" aria-hidden>
             /
           </span>

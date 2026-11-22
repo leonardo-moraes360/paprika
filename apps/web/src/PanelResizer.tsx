@@ -2,6 +2,7 @@ import { useCallback, useRef, useState, type KeyboardEvent, type PointerEvent } 
 import { flushSync } from "react-dom";
 import { PanelLeftOpen, PanelRightOpen } from "lucide-react";
 import { Button } from "./components/ui/button";
+import { Hint } from "./components/ui/tooltip";
 import { cn } from "./lib/cn";
 
 export interface PanelLimits {
@@ -84,21 +85,22 @@ export function usePanel(key: string, limits: PanelLimits): Panel {
 export function PanelToggle({ side, label, panel }: { side: "left" | "right"; label: string; panel: Panel }) {
   const Icon = side === "left" ? PanelLeftOpen : PanelRightOpen;
   return (
-    <Button
-      variant="secondary"
-      size="icon"
-      className={cn(
-        "absolute top-3 z-10 size-8 rounded-lg border border-ui-border bg-ui-card text-ui-card-foreground shadow-float hover:bg-ui-secondary-hover max-wide:hidden",
-        side === "left" ? "left-3" : "right-3",
-      )}
-      data-panel-toggle={side}
-      title={label}
-      aria-label={label}
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={() => panel.setCollapsed(false)}
-    >
-      <Icon size={16} strokeWidth={1.75} aria-hidden />
-    </Button>
+    <Hint label={label}>
+      <Button
+        variant="secondary"
+        size="icon"
+        className={cn(
+          "absolute top-3 z-10 size-8 rounded-lg border border-ui-border bg-ui-card text-ui-card-foreground shadow-float hover:bg-ui-secondary-hover max-wide:hidden",
+          side === "left" ? "left-3" : "right-3",
+        )}
+        data-panel-toggle={side}
+        aria-label={label}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => panel.setCollapsed(false)}
+      >
+        <Icon size={16} strokeWidth={1.75} aria-hidden />
+      </Button>
+    </Hint>
   );
 }
 
@@ -165,28 +167,29 @@ export function PanelResizer({
   if (panel.collapsed) return null;
 
   return (
-    <div
-      className={cn(
-        "relative z-5 w-[9px] cursor-col-resize touch-none overflow-auto bg-ui-card outline-none max-wide:hidden",
-        "after:absolute after:inset-y-0 after:inset-x-0.75 after:rounded-xs after:transition-[background] after:duration-120",
-        side === "left" ? "-mr-1.25 justify-self-end border-r border-ui-border [grid-area:left]" : "-ml-1.25 justify-self-start border-l border-ui-border [grid-area:right]",
-        active ? "after:bg-accent" : "hover:after:bg-ui-border focus-visible:after:bg-accent",
-      )}
-      role="separator"
-      aria-orientation="vertical"
-      aria-label={label}
-      aria-valuemin={limits.min}
-      aria-valuemax={limits.max}
-      aria-valuenow={width}
-      tabIndex={0}
-      title={`${label} (duplo clique: ${limits.initial}px)`}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={end}
-      onPointerCancel={end}
-      onLostPointerCapture={end}
-      onDoubleClick={() => onChange(limits.initial)}
-      onKeyDown={onKeyDown}
-    />
+    <Hint label={`${label} (duplo clique: ${limits.initial}px)`}>
+      <div
+        className={cn(
+          "relative z-5 w-[9px] cursor-col-resize touch-none overflow-auto bg-ui-card outline-none max-wide:hidden",
+          "after:absolute after:inset-y-0 after:inset-x-0.75 after:rounded-xs after:transition-[background] after:duration-120",
+          side === "left" ? "-mr-1.25 justify-self-end border-r border-ui-border [grid-area:left]" : "-ml-1.25 justify-self-start border-l border-ui-border [grid-area:right]",
+          active ? "after:bg-accent" : "hover:after:bg-ui-border focus-visible:after:bg-accent",
+        )}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={label}
+        aria-valuemin={limits.min}
+        aria-valuemax={limits.max}
+        aria-valuenow={width}
+        tabIndex={0}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={end}
+        onPointerCancel={end}
+        onLostPointerCapture={end}
+        onDoubleClick={() => onChange(limits.initial)}
+        onKeyDown={onKeyDown}
+      />
+    </Hint>
   );
 }
