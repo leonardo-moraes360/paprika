@@ -679,7 +679,9 @@ func linkRings(fragments []boolEdge) []boolRing {
 				continue
 			}
 			var sx, sy float64
-			fmt.Sscanf(sk, "%f,%f", &sx, &sy)
+			if _, err := fmt.Sscanf(sk, "%f,%f", &sx, &sy); err != nil {
+				continue
+			}
 			start := Point{sx, sy}
 			ring := boolRing{start}
 			cur := start
