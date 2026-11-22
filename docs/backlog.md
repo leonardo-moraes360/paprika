@@ -65,7 +65,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Modern color: `oklch()`, `color-mix()`, Display P3, OKLCH picker | Strings pass through to CSS, but lint can't parse them and the picker is sRGB hex | 🟡 | P2 |
 | Blend modes | — | ⬜ | P3 |
 | Selection colors panel (all colors used in the selection) | — | ⬜ | P3 |
-| Several border types for elements | Today `stroke` is only `{color, width}` (`packages/core/src/schema.ts`) and the inspector shows color and width; only connectors have `dashed`. Missing: solid, dashed, dotted and similar styles, and the border position (inside, center, outside). Per-side borders are out for now (maintainer, 2026-11-22). Relates to C "Multiple shadows, inner shadow, outline". Requested 2026-11-22. Batch 4. | ⬜ | TBD |
+| Several border types for elements | `stroke` has optional `style` (`solid`\|`dashed`\|`dotted`, dash from width) and `position` (`inside`\|`center`\|`outside`) for frame/rect/ellipse/path/shape; inspector Estilo/Posição; WASM falls back to DOM when non-default. Per-side borders still out. (2026-11-22, PAP-B-044). | ✅ | — |
 | Custom color picker | Custom popover (SV, hue/alpha, hex/rgb, document token swatches → `$token`, recent colors, keyboard). Replaces the native color input (2026-11-22, PAP-B-023). | ✅ | — |
 
 ## D. Typography
