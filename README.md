@@ -81,6 +81,7 @@ If something fails, show me the error and what you'd suggest. Keep host port
 - Make **diagrams**: boxes, decisions, sticky notes and arrows that follow the shapes.
 - Paste SVG or HTML from anywhere and get editable layers; download the result as SVG.
 - See **every connected agent** on the canvas with its own cursor, name and color.
+- Work as a **team without a server**: `paprika serve --team` connects each person's Paprika and agents peer to peer (Iroh + a Loro CRDT), with invites by link or QR and only the team's keys accepted ([Team sync](docs/team-sync.md)).
 
 The full list of tools and shortcuts is in [Using the canvas](docs/canvas.md).
 

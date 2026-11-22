@@ -249,6 +249,9 @@ func (t *Service) Routes(mux *http.ServeMux) {
 			errJSON(w, 400, err)
 			return
 		}
+		if body.Doc == "" {
+			body.Doc = t.store.DocID()
+		}
 		if err := t.Share(body.Doc); err != nil {
 			errJSON(w, 400, err)
 			return
