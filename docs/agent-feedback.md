@@ -502,3 +502,12 @@ Task: draw the inspector **Ordem** section and the Z-order shortcut map (light a
 | 110 | Draw on `Paprika - UI` without `open_workspace` | The workspace was already active (`list_workspaces`), so the sheet landed without switching; if another ticket had left a different active doc, the only options would still be asking the human or a second server (same as #92) | Optional `workspaceId` on document tools | P2 |
 - `lint_design` on the four frames: 0 errors; `small-text` warnings are the 11 px section/chip labels matching the app.
 - Shortcut map chosen and documented in `docs/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.
+
+## 2026-11-22: three arrow line styles (PAP-B-045, design first)
+
+Task: draw elbow / rounded / curve connector states and the inspector Traço picker on `Interfaces` before coding `route: "rounded"|"curve"`. Four frames on a new Interfaces page; PNGs under `docs/assets/boards/PAP-B-045/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 112 | Preview `rounded` / `curve` on the live `:4777` server | The maintainer binary still only accepts `straight`\|`elbow`, so `draw_diagram` refused the new routes; the sheet used `path` mocks for the three styles | Ship the schema before asking agents to redesign against production, or run a ticket-local `paprika serve` for design | P3 |
+- Active workspace was `Paprika - UI`; a second `Interfaces` page (`interfaces-pap045`) was created because the outline was large — prefer reusing `interfaces-pap020` when present.

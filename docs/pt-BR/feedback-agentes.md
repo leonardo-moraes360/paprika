@@ -505,3 +505,12 @@ Tarefa: desenhar a seção **Ordem** do inspector e o mapa de atalhos de ordem Z
 | 110 | Desenhar em `Paprika - UI` sem `open_workspace` | O workspace já estava ativo (`list_workspaces`), então a prancha entrou sem trocar; se outro ticket tivesse deixado outro doc ativo, as opções ainda seriam pedir ao humano ou um segundo servidor (igual ao #92) | `workspaceId` opcional nas ferramentas de documento | P2 |
 - `lint_design` nos quatro frames: 0 erros; avisos `small-text` são os rótulos de 11 px da seção/chip, iguais ao app.
 - Mapa de atalhos escolhido e documentado em `docs/pt-BR/canvas.md`: `Page Up`/`Page Down` = avançar/recuar, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd no macOS) = frente/fundo.
+
+## 2026-11-22: três estilos de traçado de seta (PAP-B-045, design first)
+
+Tarefa: desenhar cotovelo / arredondado / curva e o picker Traço do inspector em `Interfaces` antes de codar `route: "rounded"|"curve"`. Quatro frames numa página Interfaces nova; PNGs em `docs/assets/boards/PAP-B-045/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 112 | Pré-visualizar `rounded` / `curve` no servidor `:4777` ao vivo | O binário do mantenedor ainda só aceita `straight`\|`elbow`, então o `draw_diagram` recusou as rotas novas; a folha usou mocks em `path` | Publicar o schema antes de pedir redesenho no production, ou subir um `paprika serve` local do ticket | P3 |
+- O workspace ativo era `Paprika - UI`; uma segunda página `Interfaces` (`interfaces-pap045`) foi criada porque o outline era grande — preferir reutilizar `interfaces-pap020` quando existir.

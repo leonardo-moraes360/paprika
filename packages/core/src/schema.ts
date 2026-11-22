@@ -207,7 +207,14 @@ export const ConnectorNode = z.object({
   sourceId: Base.sourceId,
   from: ConnectorEnd,
   to: ConnectorEnd,
-  route: z.enum(["straight", "elbow"]).default("straight"),
+  route: z.enum(["straight", "elbow", "rounded", "curve"]).default("straight"),
+  /** Raio dos cantos quando `route` é `rounded` (ignorado nas outras rotas). */
+  radius: z.number().min(0).max(1000).default(0),
+  /**
+   * Alça da curva livre (`route: "curve"`) nas coordenadas do pai. Sem ela, a rota usa um
+   * deslocamento perpendicular derivado das pontas (recalculado a cada roteamento).
+   */
+  control: z.object({ x: z.number(), y: z.number() }).optional(),
   startArrow: z.enum(["none", "arrow"]).default("none"),
   endArrow: z.enum(["none", "arrow"]).default("arrow"),
   stroke: Stroke.default({ color: "#1e2336", width: 2 }),

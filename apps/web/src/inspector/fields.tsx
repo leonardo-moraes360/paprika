@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { Document } from "@paprika/core";
-import { resolveValue } from "@paprika/core";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
+import { ColorPicker } from "../ColorPicker";
 import { cn } from "../lib/cn";
 import { allowsNumberFieldInput, commitNumeric, parseNumeric, rangeMessage, type NumericRange } from "../numericInput";
 
@@ -214,7 +214,7 @@ export function SelectField({
 export function ColorField({ doc, label, value, mode, onCommit }: { doc: Document; label: string; value: string | undefined; mode?: string; onCommit(v: string | null): void }) {
   return (
     <div className="grid grid-cols-[28px_1fr] items-center gap-1.5">
-      <input className="size-7 rounded-md border border-ui-input bg-transparent p-0" type="color" aria-label={`${label} (seletor)`} value={hex} onChange={(e) => onCommit(e.target.value)} />
+      <ColorPicker doc={doc} label={label} value={value} mode={mode} onCommit={onCommit} />
       <Field label={label} value={value} placeholder="nenhuma" title="#hex, rgba() ou $token" onCommit={(v) => onCommit(v.trim() || null)} />
     </div>
   );

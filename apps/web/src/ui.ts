@@ -37,6 +37,15 @@ export const ui = {
   colorTokenSwatch: "size-[22px] rounded-md border border-line",
   colorRecent:
     "size-5 cursor-pointer rounded-md border border-line p-0 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
+  activityList: "m-0 grid list-none gap-1 p-0",
+  activityRow: "grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-1.5 rounded-md bg-panel-2 px-1.5 py-1 text-xs text-fg",
+  activityBatch: "outline outline-1 outline-select",
+  activityDot: "size-2 shrink-0 rounded-full",
+  activityActor: "max-w-[4.5rem] truncate font-semibold text-fg",
+  activityLabel: "min-w-0 truncate text-muted",
+  activityTime: "shrink-0 text-muted tabular-nums",
+  activityMarker: "flex items-center gap-1.5 py-0.5 text-xs font-semibold text-select",
+  activityMarkerLine: "h-px min-w-2 flex-1 bg-select",
 };
 
 /** Top bar shared by the overview (canvas shell uses the same tokens inline — PAP-B-033). */
