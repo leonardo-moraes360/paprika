@@ -336,3 +336,18 @@ captured before and after.
 | 98 | A contrast check that does not lie | The first hover measurement returned the resting color because `transition-colors` had not landed, so the assertion passed without ever testing the hover state; a manual probe with a 300 ms wait showed the hover wash was darker and the light text had fallen to 4,39:1 | Nothing for the tool to change. Recorded because it is easy to repeat: wait for the transition, then read, and assert both states — which the suite now does | P3 |
 
 - `lint_design` reported the light destructive text at 4,05:1 on the first sheet, before a line of code was written — the same class of mistake it caught on the PAP-B-030 sheet, and the token alphas are what they are now because of it.
+
+## 2026-11-22: side panels collapse into a floating button (PAP-B-024, design first)
+
+Task: draw the collapsed panels (left only, both) next to the expanded layout, light and dark, and check that
+the floating buttons clear the toolbar and the agent roster, before writing the UI. Six root frames on
+`Interfaces`, drawn from one script in a single `create_nodes` call.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 99 | Screenshots as files | `render_screenshot` only returns base64 inside the JSON result, so each PNG had to be decoded by hand in a script before it could land in `docs/assets/boards/` | An optional `path` argument (or a resource link) that writes the PNG where the caller says | P2 |
+| 100 | A mock at a smaller scale lints as tiny text | The boards are the real layout at two thirds of its size, so every label is 8–9px and `lint_design` returns a `small-text` warning per label, which buries the findings that matter | A per-frame way to say "this frame is a scaled mock" (or a `minFontSize` argument) so the warning count stays meaningful | P3 |
+| 101 | Free space for a new frame | Nothing says where the next top-level frame can go without overlapping a parallel ticket's: the outline had to be scanned for coordinates and the boards went to `x=2000` by hand | `get_document_outline` (or a new call) returning the bounding box of the page's content, or `create_nodes` accepting `place: "free"` | P3 |
+| 102 | Icons by name | The floating buttons use `PanelLeftOpen` and `PanelRightOpen` from lucide, and the board had to carry their path data typed in by hand, which is how an icon on the sheet can drift from the one in the app | `import_svg` already exists; a way to import a lucide icon by name would close the loop | P3 |
+
+- The collapsed right panel puts its button where the agent roster sits (top right of the canvas); the sheet showed it before any code did, and the roster moves down under the button only while that panel is collapsed.

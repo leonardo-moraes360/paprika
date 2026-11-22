@@ -337,3 +337,18 @@ capturado antes e depois.
 | 98 | Um teste de contraste que não minta | A primeira medição do hover devolveu a cor de repouso porque o `transition-colors` ainda não tinha aterrissado, então a asserção passou sem nunca testar o hover; uma sonda manual com espera de 300 ms mostrou que a lavanda do hover é mais forte e que o texto claro tinha caído para 4,39:1 | Nada para a ferramenta mudar. Registrado porque é fácil repetir: espere a transição, leia depois, e assera os dois estados — como a suíte faz agora | P3 |
 
 - O `lint_design` apontou o texto destrutivo claro em 4,05:1 já na primeira folha, antes de qualquer linha de código — o mesmo tipo de erro que pegou na folha do PAP-B-030, e os alfas dos tokens são os que são hoje por causa dele.
+
+## 2026-11-22: painéis laterais recolhem num botão flutuante (PAP-B-024, design first)
+
+Tarefa: desenhar os painéis recolhidos (só o da esquerda, os dois) ao lado do layout expandido, claro e escuro,
+e conferir que os botões flutuantes não cobrem a toolbar nem a lista de agentes, antes de escrever a UI. Seis
+frames raiz em `Interfaces`, desenhados por um script numa única chamada de `create_nodes`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 99 | Capturas de tela como arquivo | `render_screenshot` só devolve base64 dentro do JSON do resultado, então cada PNG teve que ser decodificado à mão num script antes de entrar em `docs/assets/boards/` | Um argumento opcional `path` (ou um resource link) que grave o PNG onde quem chama disser | P2 |
+| 100 | Um mock em escala menor vira texto minúsculo no lint | As folhas são o layout real a dois terços do tamanho, então todo rótulo tem 8–9px e o `lint_design` devolve um aviso `small-text` por rótulo, o que enterra os achados que importam | Um jeito por frame de dizer "este frame é um mock em escala" (ou um argumento `minFontSize`) para a contagem de avisos continuar significando algo | P3 |
+| 101 | Espaço livre para um frame novo | Nada diz onde o próximo frame de topo cabe sem pisar no de um ticket paralelo: o outline teve que ser varrido atrás de coordenadas e as folhas foram para `x=2000` na mão | `get_document_outline` (ou uma chamada nova) devolvendo a caixa do conteúdo da página, ou `create_nodes` aceitando `place: "free"` | P3 |
+| 102 | Ícones pelo nome | Os botões flutuantes usam `PanelLeftOpen` e `PanelRightOpen` do lucide, e a folha teve que carregar o path deles digitado à mão, que é como um ícone da folha pode divergir do app | O `import_svg` já existe; um jeito de importar um ícone do lucide pelo nome fecharia o ciclo | P3 |
+
+- O botão do painel direito recolhido cai onde está a lista de agentes (canto superior direito do canvas); a folha mostrou isso antes de qualquer código, e a lista desce para baixo do botão só enquanto aquele painel está recolhido.
