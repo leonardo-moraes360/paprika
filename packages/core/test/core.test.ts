@@ -267,3 +267,27 @@ describe("parseDocument", () => {
     expect(() => parseDocument(orphan)).toThrow(/orphan|parentId/);
   });
 });
+
+describe("agent defaults (fb#65, fb#68)", () => {
+  it("a text created without width/height hugs its content", () => {
+    const { doc } = applyOps(createDocument("T"), [
+      { op: "create", node: { type: "text", id: "a", text: "Olá" } },
+      { op: "create", node: { type: "text", id: "b", text: "Longo", width: 240 } },
+      { op: "create", node: { type: "text", id: "c", text: "Fixo", width: 80, height: 20 } },
+    ]);
+    expect([doc.nodes.a!.width, doc.nodes.a!.height]).toEqual(["hug", "hug"]);
+    expect([doc.nodes.b!.width, doc.nodes.b!.height]).toEqual([240, "hug"]);
+    expect([doc.nodes.c!.width, doc.nodes.c!.height]).toEqual([80, 20]);
+  });
+
+  it("lint flags hug on a frame without layout that has children", () => {
+    const { doc } = applyOps(createDocument("T"), [
+      { op: "create", node: { type: "frame", id: "cell", name: "Cell", height: "hug", children: [{ type: "text", text: "x" }] } },
+      { op: "create", node: { type: "frame", id: "col", name: "Col", height: "hug", layout: { mode: "column" }, children: [{ type: "text", text: "y" }] } },
+      { op: "create", node: { type: "frame", id: "empty", name: "Empty", width: "hug" } },
+    ]);
+    const hits = lintDocument(doc).filter((i) => i.rule === "hug-without-layout");
+    expect(hits.map((i) => i.nodeId)).toEqual(["cell"]);
+    expect(hits[0]!.message).toContain('height "hug"');
+  });
+});

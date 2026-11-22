@@ -295,6 +295,12 @@ function createNode(
     props.width ??= Math.max(1, Math.ceil(w));
     props.height ??= Math.max(1, Math.ceil(h));
   }
+  // Sem width/height, um texto novo abraça o conteúdo (hug): o padrão 100×100 de Base virava um
+  // quadrado em cada rótulo de row/column. Com só width, a altura segue as linhas.
+  if (input.type === "text") {
+    props.width ??= "hug";
+    props.height ??= "hug";
+  }
   // Campos ausentes de uma forma nova ganham o padrão do tipo (a nota adesiva: amarela, sem borda, com sombra).
   if (input.type === "shape") {
     const kind = typeof props.shape === "string" ? props.shape : "rect";
