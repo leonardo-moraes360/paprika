@@ -1391,8 +1391,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await route.click();
     await page.getByRole("option", { name: "arredondado" }).click();
     await expect.poll(async () => (await doc()).nodes["rt-c"], POLL).toMatchObject({ route: "rounded" });
-    await page.getByTestId("connector-radius").getByLabel("Raio").fill("16");
-    await page.getByTestId("connector-radius").getByLabel("Raio").press("Enter");
+    await page.getByTestId("connector-radius").getByLabel("Raio", { exact: true }).fill("16");
+    await page.getByTestId("connector-radius").getByLabel("Raio", { exact: true }).press("Enter");
     await expect.poll(async () => ((await doc()).nodes["rt-c"] as { radius: number }).radius, POLL).toBe(16);
     await expect.poll(async () => ((await doc()).nodes["rt-c"] as { d: string }).d.includes("A"), POLL).toBe(true);
     await route.click();
