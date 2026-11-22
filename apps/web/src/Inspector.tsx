@@ -20,6 +20,7 @@ import {
 } from "@paprika/core";
 import { Activity } from "./Activity";
 import type { Activity as ActivityEntry } from "./useDocument";
+import { FontPicker } from "./FontPicker";
 import { ColorField, Field, ModeField, SelectField, num, size } from "./inspector/fields";
 import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
@@ -260,7 +261,7 @@ export function Inspector(props: Props) {
             <Field label="Altura linha" type="number" value={node.lineHeight} min={0} onCommit={setNum("lineHeight")} />
             <SelectField label="Alinhamento" value={node.textAlign} onChange={(v) => set({ textAlign: v })} options={ALIGN_OPTS} />
           </div>
-          <Field label="Fonte" value={node.fontFamily} onCommit={(v) => set({ fontFamily: v })} />
+          <FontPicker doc={doc} value={node.fontFamily} onCommit={(v) => set({ fontFamily: v })} />
         </InspectorSection>
       )}
 

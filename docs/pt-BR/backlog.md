@@ -78,7 +78,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Eixos de fontes variáveis e recursos OpenType | — | ⬜ | P3 |
 | Atalhos de texto (negrito, itálico, passos de tamanho/peso), altura de linha automática | — | ⬜ | P3 |
 | CJK sem quebra de palavra, diacríticos combinados, emoji com vários codepoints | Padrão do navegador | 🟡 | P3 |
-| Fontes do sistema em qualquer elemento com texto | Um seletor de fonte que lista as fontes instaladas na máquina (ex.: Local Font Access API, com lista de reserva) para `text`, `shape` e todo nó com `fontFamily`. Hoje `fontFamily` é um campo de texto livre. Relaciona com D "Tokens de fonte". Pedido de 2026-11-22. Leva 4. | ⬜ | a definir |
+| Fontes do sistema em qualquer elemento com texto | Um seletor de fonte que lista as fontes instaladas na máquina (ex.: Local Font Access API, com lista de reserva) para `text`, `shape` e todo nó com `fontFamily`. Hoje `fontFamily` é um campo de texto livre. Relaciona com D "Tokens de fonte". Pedido de 2026-11-22. Leva 4: PAP-B-047 — **Fonte** no inspector de `text` é um combobox shadcn (`FontPicker`): pilhas comuns + fontes já no documento; Local Font Access API só em **Usar fontes do sistema…** (nunca no load); digitação livre ainda grava; prévia na lista. Shape / outros call sites depois. | 🟡 | a definir |
 | Importar e exportar fontes em vários formatos | Ex.: TTF, OTF, WOFF, WOFF2: fontes guardadas no workspace (como assets) e levadas nos exports (`@font-face` em HTML/CSS, embutidas em SVG/PDF). Também pelo MCP. Respeitar a licença de cada fonte ao embutir. Relaciona com as linhas de export em J. Pedido de 2026-11-22. Leva 4. | ⬜ | a definir |
 
 ## E. Tokens e temas
