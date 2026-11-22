@@ -134,6 +134,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | Servidor MCP embutido (stdio + HTTP), leitura e escrita, CLI | `paprika serve`/`mcp`, 32 ferramentas (contrato `server-go/contract/mcp.json`) | ✅ | — |
+| CLI do servidor com [Cobra](https://cobra.dev/) (`github.com/spf13/cobra`) | Hoje `server-go/cmd/paprika/main.go` faz o parse à mão: um `switch` no primeiro argumento (`serve`, `mcp`, `import`, `export`, `list`, `help`, `version`) e um único `flag.FlagSet` com todas as flags de todos os comandos, um laço para aceitar flags antes ou depois dos posicionais e um texto de ajuda escrito à mão (pt-BR). Com Cobra cada comando declara suas flags e sua ajuda, ganha `paprika <cmd> --help`, autocompletar no shell e sugestão para comando digitado errado; flags, `$PAPRIKA_DB`/`$PAPRIKA_WEB_ROOT` e códigos de saída continuam iguais. Combina com a linha de i18n (ajuda no idioma escolhido) e abre espaço para comandos futuros como `team`. Pedido de 2026-11-22. Ainda sem leva. | ⬜ | a definir |
 | Leituras econômicas em tokens | `get_document_outline` | ✅ | — |
 | Resultados estruturados (`outputSchema` + `structuredContent`) | Toda ferramenta que responde JSON declara `outputSchema` e devolve `structuredContent` (2026-11-21) | ✅ | — |
 | Guia e erros em inglês (pt-BR opcional) | Guia, descrições das ferramentas, erros, avisos e lint em inglês; `get_design_guide {language: "pt-BR"}` (2026-11-21). A interface do canvas segue em pt-BR | ✅ | — |

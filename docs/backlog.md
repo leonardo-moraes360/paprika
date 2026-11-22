@@ -134,6 +134,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
 | Embedded MCP server (stdio + HTTP), read and write, CLI | `paprika serve`/`mcp`, 32 tools (contract `server-go/contract/mcp.json`) | ✅ | — |
+| Server CLI on [Cobra](https://cobra.dev/) (`github.com/spf13/cobra`) | Today `server-go/cmd/paprika/main.go` parses by hand: a `switch` on the first argument (`serve`, `mcp`, `import`, `export`, `list`, `help`, `version`) and one shared `flag.FlagSet` with every flag of every command, a loop so flags may come before or after positionals, and a hand-written help text (pt-BR). With Cobra each command declares its own flags and help, gets `paprika <cmd> --help`, shell completion and suggestions for typos; flags, `$PAPRIKA_DB`/`$PAPRIKA_WEB_ROOT` and exit codes stay the same. Fits the i18n row (help text in the chosen language) and room for future commands such as `team`. Requested 2026-11-22. Not in a batch yet. | ⬜ | TBD |
 | Token-efficient reads | `get_document_outline` | ✅ | — |
 | Structured results (`outputSchema` + `structuredContent`) | Every JSON tool declares `outputSchema` and returns `structuredContent` (2026-11-21) | ✅ | — |
 | Guide and errors in English (pt-BR optional) | Guide, tool descriptions, errors, warnings and lint in English; `get_design_guide {language: "pt-BR"}` (2026-11-21). The canvas UI is still pt-BR | ✅ | — |
