@@ -371,7 +371,8 @@ func RouteConnector(doc *Document, c *Node) error {
 	} else {
 		line = straightPoints(a, b)
 	}
-	sw := c.Obj("stroke").Num("width")
+	swRaw, _ := c.Obj("stroke").Get("width")
+	sw, _ := ResolveLength(doc, swRaw, ModeOf(doc, c))
 	var heads [][3]Pt
 	if c.Str("endArrow") == "arrow" && len(line) >= 2 {
 		if h, ok := arrowHead(line[len(line)-1], line[len(line)-2], sw); ok {

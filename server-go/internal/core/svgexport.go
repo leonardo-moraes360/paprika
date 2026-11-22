@@ -12,6 +12,13 @@ import (
 // Port of packages/core/src/svgExport.ts: a node, a page or the canvas as vector SVG. Boxes come
 // from Layout when measure is nil; an explicit measure overrides boxes and text lines (goldens).
 
+func svgLen(doc *Document, n *Node, v any) float64 {
+	if f, ok := ResolveLength(doc, v, ModeOf(doc, n)); ok {
+		return f
+	}
+	return 0
+}
+
 // MeasureLine is one laid-out text line, relative to the node box (baseline y).
 type MeasureLine struct {
 	T string  `json:"t"`
@@ -162,12 +169,16 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		_, pathA, fold := ShapeAttrs(doc, n, false)
 		defs, shadowAttr := "", ""
 		if s := n.Obj("shadow"); s != nil {
-			if s.Num("spread") != 0 {
+			sp, _ := s.Get("spread")
+			if svgLen(doc, n, sp) != 0 {
 				warn("shadow with spread: SVG uses only offset, blur and color")
 			}
 			sc, _ := s.Get("color")
+			sx, _ := s.Get("x")
+			sy, _ := s.Get("y")
+			sb, _ := s.Get("blur")
 			defs += fmt.Sprintf(`<filter id="shadow-%s" x="-50%%" y="-50%%" width="200%%" height="200%%"><feDropShadow dx="%s" dy="%s" stdDeviation="%s" flood-color="%s"/></filter>`,
-				id, f(s.Num("x")), f(s.Num("y")), f(s.Num("blur")/2), EscapeHTML(jsString(ResolveValue(doc, sc, mode))))
+				id, f(svgLen(doc, n, sx)), f(svgLen(doc, n, sy)), f(svgLen(doc, n, sb)/2), EscapeHTML(jsString(ResolveValue(doc, sc, mode))))
 			shadowAttr = fmt.Sprintf(` filter="url(#shadow-%s)"`, id)
 		}
 		attrs := make([]Attr, len(pathA))
@@ -208,7 +219,8 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 			}
 		} else if n.Str("text") != "" {
 			pv, ph := ShapePadding(n)
-			lh := n.Num("lineHeight") * size
+			lhv, _ := n.Get("lineHeight")
+			lh := svgLen(doc, n, lhv) * size
 			split := strings.Split(n.Str("text"), "\n")
 			top := (h - float64(len(split))*lh) / 2
 			if n.Str("shape") == "note" {
@@ -324,12 +336,16 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 
 		defs, shadowAttr := "", ""
 		if s := n.Obj("shadow"); s != nil && typ != "text" {
-			if s.Num("spread") != 0 {
+			sp, _ := s.Get("spread")
+			if svgLen(doc, n, sp) != 0 {
 				warn("shadow with spread: SVG uses only offset, blur and color")
 			}
 			sc, _ := s.Get("color")
+			sx, _ := s.Get("x")
+			sy, _ := s.Get("y")
+			sb, _ := s.Get("blur")
 			defs += fmt.Sprintf(`<filter id="shadow-%s" x="-50%%" y="-50%%" width="200%%" height="200%%"><feDropShadow dx="%s" dy="%s" stdDeviation="%s" flood-color="%s"/></filter>`,
-				id, f(s.Num("x")), f(s.Num("y")), f(s.Num("blur")/2), EscapeHTML(jsString(ResolveValue(doc, sc, ModeOf(doc, n)))))
+				id, f(svgLen(doc, n, sx)), f(svgLen(doc, n, sy)), f(svgLen(doc, n, sb)/2), EscapeHTML(jsString(ResolveValue(doc, sc, ModeOf(doc, n)))))
 			shadowAttr = fmt.Sprintf(` filter="url(#shadow-%s)"`, id)
 		}
 		fill, hasFill := "", false
@@ -338,8 +354,11 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		}
 		sw := 0.0
 		st := n.Obj("stroke")
-		if typ != "path" && st != nil && st.Num("width") > 0 {
-			sw = st.Num("width")
+		if typ != "path" && st != nil {
+			w, _ := st.Get("width")
+			if got := svgLen(doc, n, w); got > 0 {
+				sw = got
+			}
 		}
 		strokeAttr := ""
 		if sw != 0 {
@@ -354,7 +373,8 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		inset := fmt.Sprintf(`x="%s" y="%s" width="%s" height="%s"`, f(sw/2), f(sw/2), f(math.Max(0, w-sw)), f(math.Max(0, h-sw)))
 		r := 0.0
 		if typ != "ellipse" && typ != "path" {
-			r = math.Min(n.Num("radius"), math.Min(w/2, h/2))
+			rv, _ := n.Get("radius")
+			r = math.Min(svgLen(doc, n, rv), math.Min(w/2, h/2))
 		}
 		radius, clipRadius := "", ""
 		if r != 0 && !math.IsNaN(r) {
@@ -411,7 +431,8 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 					fmt.Fprintf(&tspans, `<tspan x="%s" y="%s">%s</tspan>`, f(l.X), f(l.Y), EscapeHTML(l.T))
 				}
 			} else {
-				lh := n.Num("lineHeight") * size
+				lhv, _ := n.Get("lineHeight")
+				lh := svgLen(doc, n, lhv) * size
 				align := n.Str("textAlign")
 				ax := 0.0
 				if align == "center" {
@@ -433,7 +454,8 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 				}
 			}
 			ls := ""
-			if v := n.Num("letterSpacing"); v != 0 {
+			lsv, _ := n.Get("letterSpacing")
+			if v := svgLen(doc, n, lsv); v != 0 {
 				ls = fmt.Sprintf(` letter-spacing="%s"`, f(v))
 			}
 			fw, _ := n.Get("fontWeight")
@@ -449,7 +471,8 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 				fit = "xMidYMid meet"
 			}
 			src := EscapeHTML(n.Str("src"))
-			if n.Num("radius") != 0 {
+			clipR, _ := n.Get("radius")
+			if svgLen(doc, n, clipR) != 0 {
 				defs += fmt.Sprintf(`<clipPath id="clip-%s"><rect width="%s" height="%s"%s/></clipPath>`, id, f(w), f(h), clipRadius)
 				fmt.Fprintf(&body, `<image href="%s" width="%s" height="%s" preserveAspectRatio="%s" clip-path="url(#clip-%s)"/>`, src, f(w), f(h), fit, id)
 			} else {

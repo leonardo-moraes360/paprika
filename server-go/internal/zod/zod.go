@@ -280,6 +280,22 @@ func (s *NumberSchema) parse(v any, present bool, path []any, c *ctx) (any, bool
 	return f, true
 }
 
+type numberOrToken struct {
+	num *NumberSchema
+	re  *regexp.Regexp
+}
+
+func NumberOrToken(num *NumberSchema, re *regexp.Regexp) Schema {
+	return numberOrToken{num, re}
+}
+
+func (s numberOrToken) parse(v any, present bool, path []any, c *ctx) (any, bool) {
+	if str, ok := v.(string); ok && s.re.MatchString(str) {
+		return str, true
+	}
+	return s.num.parse(v, present, path, c)
+}
+
 // ---- boolean, literal, enum, unknown ----
 
 type boolSchema struct{}

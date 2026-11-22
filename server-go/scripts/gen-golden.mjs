@@ -390,6 +390,9 @@ const opCases = [
   ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { index: "front" } }]], // cópia: recusa com copyRule
   ["comp", [{ op: "move", id: copyId("i1", "lbl"), parentId: "i1", index: "front" }]],
   ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { index: "sideways" } }]], // inválido: direto, não copyRule
+  ["empty", [{ op: "set_tokens", tokens: { brand: "#ff0000" } }, { op: "create", node: { type: "rect", id: "r", radius: "$brand" } }]],
+  ["empty", [{ op: "set_tokens", tokens: { "text.huge": 2000 } }, { op: "create", node: { type: "text", id: "t", text: "a", fontSize: "$text.huge" } }]],
+  ["empty", [{ op: "set_tokens", tokens: { "space.md": 8, "radius.md": 12 } }, { op: "create", node: { type: "frame", id: "f", radius: "$radius.md", stroke: { color: "#111", width: "$space.md" }, layout: { mode: "column", gap: "$space.md", padding: ["$space.md", 4, "$space.md", 4] }, children: [{ type: "text", id: "t", text: "a", fontSize: "$space.md", lineHeight: 1.4, letterSpacing: "$space.md" }] } }]],
 ];
 
 // ---- composite operations (groups, pages): the generated primitive ops ----

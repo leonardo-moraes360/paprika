@@ -416,7 +416,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
       const editing = textEdit?.id === node.id ? textEdit : null;
       return (
         <svg {...props} style={{ ...css, pointerEvents: "none", ...(editing && { overflow: "visible" }) }} xmlns="http://www.w3.org/2000/svg" width={node.width} height={node.height}>
-          <path d={a.d} fill="none" stroke="transparent" strokeWidth={Math.max(12, a.strokeWidth + 8)} style={{ pointerEvents: "stroke" }} data-connector-hit="" />
+          <path d={a.d} fill="none" stroke="transparent" strokeWidth={Math.max(12, (typeof a.strokeWidth === "number" ? a.strokeWidth : 0) + 8)} style={{ pointerEvents: "stroke" }} data-connector-hit="" />
           <path
             d={a.d}
             fill="none"

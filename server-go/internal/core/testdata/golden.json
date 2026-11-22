@@ -24590,6 +24590,100 @@
    ],
    "ok": false,
    "error": "op[0]: props.index must be a number (0 is the back) or \"front\", \"back\", \"forward\" or \"backward\" (got \"sideways\")"
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "set_tokens",
+     "tokens": {
+      "brand": "#ff0000"
+     }
+    },
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
+      "id": "r",
+      "radius": "$brand"
+     }
+    }
+   ],
+   "ok": false,
+   "error": "op[1]: node \"r\" radius: token \"$brand\" resolved to \"#ff0000\", expected a length"
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "set_tokens",
+     "tokens": {
+      "text.huge": 2000
+     }
+    },
+    {
+     "op": "create",
+     "node": {
+      "type": "text",
+      "id": "t",
+      "text": "a",
+      "fontSize": "$text.huge"
+     }
+    }
+   ],
+   "ok": false,
+   "error": "op[1]: node \"t\" fontSize: token \"$text.huge\" is 2000, expected a number >= 1 and <= 1000"
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "set_tokens",
+     "tokens": {
+      "space.md": 8,
+      "radius.md": 12
+     }
+    },
+    {
+     "op": "create",
+     "node": {
+      "type": "frame",
+      "id": "f",
+      "radius": "$radius.md",
+      "stroke": {
+       "color": "#111",
+       "width": "$space.md"
+      },
+      "layout": {
+       "mode": "column",
+       "gap": "$space.md",
+       "padding": [
+        "$space.md",
+        4,
+        "$space.md",
+        4
+       ]
+      },
+      "children": [
+       {
+        "type": "text",
+        "id": "t",
+        "text": "a",
+        "fontSize": "$space.md",
+        "lineHeight": 1.4,
+        "letterSpacing": "$space.md"
+       }
+      ]
+     }
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {\n    \"space.md\": 8,\n    \"radius.md\": 12\n  },\n  \"rootIds\": [\n    \"f\"\n  ],\n  \"nodes\": {\n    \"f\": {\n      \"id\": \"f\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#111\",\n        \"width\": \"$space.md\"\n      },\n      \"radius\": \"$radius.md\",\n      \"type\": \"frame\",\n      \"children\": [\n        \"t\"\n      ],\n      \"clip\": true,\n      \"layout\": {\n        \"mode\": \"column\",\n        \"gap\": \"$space.md\",\n        \"padding\": [\n          \"$space.md\",\n          4,\n          \"$space.md\",\n          4\n        ],\n        \"align\": \"start\",\n        \"justify\": \"start\",\n        \"wrap\": false\n      }\n    },\n    \"t\": {\n      \"id\": \"t\",\n      \"name\": \"\",\n      \"parentId\": \"f\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"a\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": \"$space.md\",\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": \"$space.md\",\n      \"textAlign\": \"left\"\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"delete\",\"id\":\"f\"},{\"op\":\"set_tokens\",\"tokens\":{\"space.md\":null,\"radius.md\":null}}]",
+   "created": [
+    "f",
+    "t"
+   ]
   }
  ],
  "diagrams": [
@@ -41662,6 +41756,86 @@
     ],
     "within": [
      "start"
+    ]
+   }
+  },
+  {
+   "name": "op221",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {\n    \"space.md\": 8,\n    \"radius.md\": 12\n  },\n  \"rootIds\": [\n    \"f\"\n  ],\n  \"nodes\": {\n    \"f\": {\n      \"id\": \"f\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#111\",\n        \"width\": \"$space.md\"\n      },\n      \"radius\": \"$radius.md\",\n      \"type\": \"frame\",\n      \"children\": [\n        \"t\"\n      ],\n      \"clip\": true,\n      \"layout\": {\n        \"mode\": \"column\",\n        \"gap\": \"$space.md\",\n        \"padding\": [\n          \"$space.md\",\n          4,\n          \"$space.md\",\n          4\n        ],\n        \"align\": \"start\",\n        \"justify\": \"start\",\n        \"wrap\": false\n      }\n    },\n    \"t\": {\n      \"id\": \"t\",\n      \"name\": \"\",\n      \"parentId\": \"f\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"a\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": \"$space.md\",\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": \"$space.md\",\n      \"textAlign\": \"left\"\n    }\n  }\n}",
+   "outline": "frame#f 100×100 @0,0 column gap=$space.md\n  text#t hug×hug @0,0 \"a\" $space.md/400 color=#111111",
+   "outlineDepth0": "frame#f 100×100 @0,0 column gap=$space.md\n  … 1 filho(s)",
+   "outlineDepth1": "frame#f 100×100 @0,0 column gap=$space.md\n  text#t hug×hug @0,0 \"a\" $space.md/400 color=#111111",
+   "lint": "[{\"rule\":\"unnamed-frame\",\"severity\":\"info\",\"nodeId\":\"f\",\"message\":\"top-level frame without a name\"},{\"rule\":\"small-text\",\"severity\":\"warning\",\"nodeId\":\"t\",\"message\":\"font size 8px (< 12px)\"}]",
+   "lintRoots": {
+    "f": "[{\"rule\":\"unnamed-frame\",\"severity\":\"info\",\"nodeId\":\"f\",\"message\":\"top-level frame without a name\"},{\"rule\":\"small-text\",\"severity\":\"warning\",\"nodeId\":\"t\",\"message\":\"font size 8px (< 12px)\"}]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"f\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:8px solid #111;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:8px 4px 8px 4px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:8px;font-weight:400;line-height:1.4;letter-spacing:8px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a</div></div></body></html>",
+   "htmlRoots": {
+    "f": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"f\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:8px solid #111;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:8px 4px 8px 4px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:8px;font-weight:400;line-height:1.4;letter-spacing:8px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a</div></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "f": "export function F() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", border: \"8px solid #111\", borderRadius: \"12px\", overflow: \"hidden\", display: \"flex\", flexDirection: \"column\", gap: \"8px\", padding: \"8px 4px 8px 4px\", alignItems: \"flex-start\", justifyContent: \"flex-start\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"relative\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"8px\", fontWeight: 400, lineHeight: 1.4, letterSpacing: \"8px\", textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>a</div>\n    </div>\n  );\n}\n",
+    "t": "export function T() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"8px\", fontWeight: 400, lineHeight: 1.4, letterSpacing: \"8px\", textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>a</div>\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--space\\.md:8px;--radius\\.md:12px}</style>\n</head><body><div data-paprika-id=\"f\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:var(--space\\.md) solid #111;border-radius:var(--radius\\.md);overflow:hidden;display:flex;flex-direction:column;gap:var(--space\\.md);padding:var(--space\\.md) 4px var(--space\\.md) 4px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:var(--space\\.md);font-weight:400;line-height:1.4;letter-spacing:var(--space\\.md);text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a</div></div></body></html>",
+   "htmlVarsRoots": {
+    "f": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--space\\.md:8px;--radius\\.md:12px}</style>\n</head><body><div data-paprika-id=\"f\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:var(--space\\.md) solid #111;border-radius:var(--radius\\.md);overflow:hidden;display:flex;flex-direction:column;gap:var(--space\\.md);padding:var(--space\\.md) 4px var(--space\\.md) 4px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:var(--space\\.md);font-weight:400;line-height:1.4;letter-spacing:var(--space\\.md);text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a</div></div></body></html>",
+    "t": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:1px;height:1px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--space\\.md:8px;--radius\\.md:12px}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:var(--space\\.md);font-weight:400;line-height:1.4;letter-spacing:var(--space\\.md);text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">a</div></body></html>"
+   },
+   "reactVars": {
+    "f": "export const tokensCss = \":root{--space\\\\.md:8px;--radius\\\\.md:12px}\";\n\nexport function F() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", border: \"var(--space\\\\.md) solid #111\", borderRadius: \"var(--radius\\\\.md)\", overflow: \"hidden\", display: \"flex\", flexDirection: \"column\", gap: \"var(--space\\\\.md)\", padding: \"var(--space\\\\.md) 4px var(--space\\\\.md) 4px\", alignItems: \"flex-start\", justifyContent: \"flex-start\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"relative\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"var(--space\\\\.md)\", fontWeight: 400, lineHeight: 1.4, letterSpacing: \"var(--space\\\\.md)\", textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>a</div>\n    </div>\n  );\n}\n",
+    "t": "export const tokensCss = \":root{--space\\\\.md:8px;--radius\\\\.md:12px}\";\n\nexport function T() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"max-content\", height: \"max-content\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"var(--space\\\\.md)\", fontWeight: 400, lineHeight: 1.4, letterSpacing: \"var(--space\\\\.md)\", textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>a</div>\n  );\n}\n"
+   },
+   "tailwind": {
+    "f": "export function F() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] border-[length:8px] border-solid border-[color:#111] rounded-[12px] overflow-hidden flex flex-col gap-[8px] pt-[8px] pr-[4px] pb-[8px] pl-[4px] items-start justify-start\">\n      <div className=\"box-border relative w-max h-max text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:8px] font-[400] leading-[1.4] tracking-[8px] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">a</div>\n    </div>\n  );\n}\n",
+    "t": "export function T() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-max h-max text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:8px] font-[400] leading-[1.4] tracking-[8px] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">a</div>\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "f": "export const tokensCss = \":root{--space\\\\.md:8px;--radius\\\\.md:12px}\";\n\nexport function F() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] rounded-[var(--radius\\\\.md)] overflow-hidden flex flex-col gap-[var(--space\\\\.md)] pt-[var(--space\\\\.md)] pr-[4px] pb-[var(--space\\\\.md)] pl-[4px] items-start justify-start\" style={{ border: \"var(--space\\\\.md) solid #111\" }}>\n      <div className=\"box-border relative w-max h-max text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:var(--space\\\\.md)] font-[400] leading-[1.4] tracking-[var(--space\\\\.md)] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">a</div>\n    </div>\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"f\" data-paprika-type=\"frame\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] border-[length:8px] border-solid border-[color:#111] rounded-[12px] overflow-hidden flex flex-col gap-[8px] pt-[8px] pr-[4px] pb-[8px] pl-[4px] items-start justify-start\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" class=\"box-border relative w-max h-max text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:8px] font-[400] leading-[1.4] tracking-[8px] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">a</div></div></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{--space\\.md:8px;--radius\\.md:12px}</style>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"f\" data-paprika-type=\"frame\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] rounded-[var(--radius\\.md)] overflow-hidden flex flex-col gap-[var(--space\\.md)] pt-[var(--space\\.md)] pr-[4px] pb-[var(--space\\.md)] pl-[4px] items-start justify-start\" style=\"border:var(--space\\.md) solid #111\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" class=\"box-border relative w-max h-max text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:var(--space\\.md)] font-[400] leading-[1.4] tracking-[var(--space\\.md)] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">a</div></div></body></html>",
+   "tailwindHtmlRoots": {
+    "f": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{--space\\.md:8px;--radius\\.md:12px}</style>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"f\" data-paprika-type=\"frame\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] rounded-[var(--radius\\.md)] overflow-hidden flex flex-col gap-[var(--space\\.md)] pt-[var(--space\\.md)] pr-[4px] pb-[var(--space\\.md)] pl-[4px] items-start justify-start\" style=\"border:var(--space\\.md) solid #111\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" class=\"box-border relative w-max h-max text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:var(--space\\.md)] font-[400] leading-[1.4] tracking-[var(--space\\.md)] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">a</div></div></body></html>"
+   },
+   "cssModules": {
+    "f": "{\"component\":\"import styles from \\\"./F.module.css\\\";\\n\\nexport function F() {\\n  return (\\n    <div className={styles.f}>\\n      <div className={styles.t}>a</div>\\n    </div>\\n  );\\n}\\n\",\"css\":\".f{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:8px solid #111;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:8px 4px 8px 4px;align-items:flex-start;justify-content:flex-start}\\n.t{box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:8px;font-weight:400;line-height:1.4;letter-spacing:8px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"fileName\":\"F.module.css\"}"
+   },
+   "cssModulesVars": {
+    "f": "{\"component\":\"import styles from \\\"./F.module.css\\\";\\n\\nexport function F() {\\n  return (\\n    <div className={styles.f}>\\n      <div className={styles.t}>a</div>\\n    </div>\\n  );\\n}\\n\",\"css\":\":root{--space\\\\.md:8px;--radius\\\\.md:12px}\\n.f{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:var(--space\\\\.md) solid #111;border-radius:var(--radius\\\\.md);overflow:hidden;display:flex;flex-direction:column;gap:var(--space\\\\.md);padding:var(--space\\\\.md) 4px var(--space\\\\.md) 4px;align-items:flex-start;justify-content:flex-start}\\n.t{box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:var(--space\\\\.md);font-weight:400;line-height:1.4;letter-spacing:var(--space\\\\.md);text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"fileName\":\"F.module.css\"}"
+   },
+   "angular": {
+    "f": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-f\\\",\\n  standalone: true,\\n  templateUrl: \\\"./F.component.html\\\",\\n  styleUrl: \\\"./F.component.css\\\",\\n})\\nexport class F {}\\n\",\"template\":\"<div data-paprika-id=\\\"f\\\" data-paprika-type=\\\"frame\\\" class=\\\"f\\\"><div data-paprika-id=\\\"t\\\" data-paprika-type=\\\"text\\\" class=\\\"t\\\">a</div></div>\\n\",\"styles\":\".f{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:8px solid #111;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:8px 4px 8px 4px;align-items:flex-start;justify-content:flex-start}\\n.t{box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:8px;font-weight:400;line-height:1.4;letter-spacing:8px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"className\":\"F\",\"selector\":\"app-f\",\"fileBase\":\"F\"}"
+   },
+   "angularVars": {
+    "f": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-f\\\",\\n  standalone: true,\\n  templateUrl: \\\"./F.component.html\\\",\\n  styleUrl: \\\"./F.component.css\\\",\\n})\\nexport class F {}\\n\",\"template\":\"<div data-paprika-id=\\\"f\\\" data-paprika-type=\\\"frame\\\" class=\\\"f\\\"><div data-paprika-id=\\\"t\\\" data-paprika-type=\\\"text\\\" class=\\\"t\\\">a</div></div>\\n\",\"styles\":\":root{--space\\\\.md:8px;--radius\\\\.md:12px}\\n.f{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:var(--space\\\\.md) solid #111;border-radius:var(--radius\\\\.md);overflow:hidden;display:flex;flex-direction:column;gap:var(--space\\\\.md);padding:var(--space\\\\.md) 4px var(--space\\\\.md) 4px;align-items:flex-start;justify-content:flex-start}\\n.t{box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:var(--space\\\\.md);font-weight:400;line-height:1.4;letter-spacing:var(--space\\\\.md);text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"className\":\"F\",\"selector\":\"app-f\",\"fileBase\":\"F\"}"
+   },
+   "svelte": {
+    "f": "{\"source\":\"<div data-paprika-id=\\\"f\\\" data-paprika-type=\\\"frame\\\" class=\\\"f\\\"><div data-paprika-id=\\\"t\\\" data-paprika-type=\\\"text\\\" class=\\\"t\\\">a</div></div>\\n\\n<style>\\n.f{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:8px solid #111;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:8px 4px 8px 4px;align-items:flex-start;justify-content:flex-start}\\n.t{box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:8px;font-weight:400;line-height:1.4;letter-spacing:8px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n</style>\\n\",\"fileName\":\"F.svelte\"}"
+   },
+   "svelteVars": {
+    "f": "{\"source\":\"<div data-paprika-id=\\\"f\\\" data-paprika-type=\\\"frame\\\" class=\\\"f\\\"><div data-paprika-id=\\\"t\\\" data-paprika-type=\\\"text\\\" class=\\\"t\\\">a</div></div>\\n\\n<style>\\n:global(:root){--space\\\\.md:8px;--radius\\\\.md:12px}\\n.f{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:var(--space\\\\.md) solid #111;border-radius:var(--radius\\\\.md);overflow:hidden;display:flex;flex-direction:column;gap:var(--space\\\\.md);padding:var(--space\\\\.md) 4px var(--space\\\\.md) 4px;align-items:flex-start;justify-content:flex-start}\\n.t{box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:var(--space\\\\.md);font-weight:400;line-height:1.4;letter-spacing:var(--space\\\\.md);text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n</style>\\n\",\"fileName\":\"F.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.f{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:8px solid #111;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:8px 4px 8px 4px;align-items:flex-start;justify-content:flex-start}\n.t{box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:8px;font-weight:400;line-height:1.4;letter-spacing:8px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}</style>\n</head><body><div data-paprika-id=\"f\" data-paprika-type=\"frame\" class=\"f\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" class=\"t\">a</div></div></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--space\\.md:8px;--radius\\.md:12px}\n.f{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:var(--space\\.md) solid #111;border-radius:var(--radius\\.md);overflow:hidden;display:flex;flex-direction:column;gap:var(--space\\.md);padding:var(--space\\.md) 4px var(--space\\.md) 4px;align-items:flex-start;justify-content:flex-start}\n.t{box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:var(--space\\.md);font-weight:400;line-height:1.4;letter-spacing:var(--space\\.md);text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}</style>\n</head><body><div data-paprika-id=\"f\" data-paprika-type=\"frame\" class=\"f\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" class=\"t\">a</div></div></body></html>",
+   "describe": {
+    "f": "frame#f 100×100 @0,0 column gap=$space.md",
+    "t": "text#t hug×hug @0,0 \"a\" $space.md/400 color=#111111"
+   },
+   "style": {
+    "f": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;border:8px solid #111;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:8px 4px 8px 4px;align-items:flex-start;justify-content:flex-start",
+    "t": "box-sizing:border-box;position:relative;width:max-content;height:max-content;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:8px;font-weight:400;line-height:1.4;letter-spacing:8px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0"
+   },
+   "find": {
+    "text": [
+     "t"
+    ],
+    "nameA": [],
+    "textE": [],
+    "within": [
+     "f",
+     "t"
     ]
    }
   }

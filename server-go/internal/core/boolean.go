@@ -461,7 +461,7 @@ func nodeSize(n *Node) (w, h float64) {
 	return
 }
 
-func nodeGeometry(n *Node) boolMulti {
+func nodeGeometry(doc *Document, n *Node) boolMulti {
 	typ := n.Str("type")
 	switch typ {
 	case "page", "group", "connector", "frame", "text", "image":
@@ -470,9 +470,12 @@ func nodeGeometry(n *Node) boolMulti {
 	w, h := nodeSize(n)
 	rot := n.Num("rotation")
 	x, y := n.Num("x"), n.Num("y")
+	mode := ModeOf(doc, n)
+	radiusRaw, _ := n.Get("radius")
+	radius, _ := ResolveLength(doc, radiusRaw, mode)
 	switch typ {
 	case "rect":
-		ring := mapRingLocal(rectRing(w, h, n.Num("radius")), x, y, w, h, rot)
+		ring := mapRingLocal(rectRing(w, h, radius), x, y, w, h, rot)
 		if len(ring) >= 3 {
 			return boolMulti{{Outer: ensureCCW(ring)}}
 		}
@@ -482,7 +485,7 @@ func nodeGeometry(n *Node) boolMulti {
 			return boolMulti{{Outer: ensureCCW(ring)}}
 		}
 	case "shape":
-		d, _ := ShapeOutline(n)
+		d, _ := ShapeOutline(lengthsResolved(doc, n))
 		segs, err := ParsePath(d)
 		if err != nil {
 			return nil
@@ -990,9 +993,9 @@ func CombinePathsOps(doc *Document, ids []string, operation BooleanOperation, id
 	if operation == BoolSubtract {
 		ordered = unique
 	}
-	result := nodeGeometry(GetNode(doc, ordered[0]))
+	result := nodeGeometry(doc, GetNode(doc, ordered[0]))
 	for i := 1; i < len(ordered); i++ {
-		result = BooleanMulti(result, nodeGeometry(GetNode(doc, ordered[i])), operation)
+		result = BooleanMulti(result, nodeGeometry(doc, GetNode(doc, ordered[i])), operation)
 	}
 	if len(result) == 0 {
 		return nil, "", fmt.Errorf("boolean %s produced an empty path", operation)

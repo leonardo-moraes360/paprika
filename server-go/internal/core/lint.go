@@ -146,15 +146,44 @@ func tokenRefs(n *Node) []string {
 	}
 	if st := n.Obj("stroke"); st != nil {
 		check(st.Str("color"))
+		w, _ := st.Get("width")
+		check(w)
 	}
 	if sh := n.Obj("shadow"); sh != nil {
 		check(sh.Str("color"))
+		for _, k := range []string{"x", "y", "blur", "spread"} {
+			v, _ := sh.Get(k)
+			check(v)
+		}
+	}
+	if r, ok := n.Get("radius"); ok {
+		check(r)
+	}
+	if n.Str("type") == "frame" {
+		if l := n.Obj("layout"); l != nil {
+			g, _ := l.Get("gap")
+			check(g)
+			p, _ := l.Get("padding")
+			if arr, ok := p.([]any); ok {
+				for _, v := range arr {
+					check(v)
+				}
+			} else {
+				check(p)
+			}
+		}
 	}
 	if t := n.Str("type"); t == "text" || t == "shape" {
 		c, _ := n.Get("color")
 		check(c)
 		fs, _ := n.Get("fontSize")
 		check(fs)
+		lh, _ := n.Get("lineHeight")
+		check(lh)
+	}
+	if n.Str("type") == "text" {
+		ls, _ := n.Get("letterSpacing")
+		check(ls)
 	}
 	return refs
 }
@@ -269,7 +298,12 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 		if typ == "path" {
 			_, hasFill := node.Get("fill")
 			st := node.Obj("stroke")
-			if !hasFill && !(st != nil && st.Num("width") > 0) {
+			sw := 0.0
+			if st != nil {
+				w, _ := st.Get("width")
+				sw, _ = ResolveLength(doc, w, ModeOf(doc, node))
+			}
+			if !hasFill && !(sw > 0) {
 				add("invisible-path", "warning", id, "a path without fill or stroke is invisible; set fill or stroke {color,width}")
 			}
 		}

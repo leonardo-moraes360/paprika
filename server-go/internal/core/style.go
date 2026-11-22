@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -75,6 +76,61 @@ func isKnownToken(doc *Document, name string) bool {
 		}
 	}
 	return false
+}
+
+// ResolveLength resolves a length literal or a numeric `$token`. ok is false when it is missing or not a number.
+func ResolveLength(doc *Document, v any, mode string) (float64, bool) {
+	switch t := v.(type) {
+	case float64:
+		return t, true
+	case string:
+		r := ResolveValue(doc, t, mode)
+		if f, ok := r.(float64); ok && !math.IsNaN(f) && !math.IsInf(f, 0) {
+			return f, true
+		}
+	}
+	return 0, false
+}
+
+func lengthVar(doc *Document, v any, vars bool) (string, bool) {
+	s, ok := v.(string)
+	if vars && ok && strings.HasPrefix(s, "$") && isKnownToken(doc, s[1:]) {
+		return "var(" + CSSVarName(s[1:]) + ")", true
+	}
+	return "", false
+}
+
+func cssLen(doc *Document, v any, mode string, vars bool) string {
+	if ref, ok := lengthVar(doc, v, vars); ok {
+		return ref
+	}
+	if n, ok := ResolveLength(doc, v, mode); ok {
+		return px(n)
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return px(0)
+}
+
+func cssNum(doc *Document, v any, mode string, vars bool) any {
+	if ref, ok := lengthVar(doc, v, vars); ok {
+		return "calc(" + ref + " / 1px)"
+	}
+	if n, ok := ResolveLength(doc, v, mode); ok {
+		return n
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return 0.0
+}
+
+func strokeWidthAttr(doc *Document, v any, vars bool, resolved float64) any {
+	if ref, ok := lengthVar(doc, v, vars); ok {
+		return ref
+	}
+	return resolved
 }
 
 // paintValue resolves a paint value in the node's mode, or gives `var(--token)` when vars.
@@ -153,16 +209,16 @@ func round2(n float64) float64 { return jsonv.Round(n*100) / 100 }
 
 func px(n float64) string { return jsonv.FormatNumber(round2(n)) + "px" }
 
-func padding(p any) string {
+func paddingCSS(doc *Document, p any, mode string, vars bool) string {
+	one := func(v any) string { return cssLen(doc, v, mode, vars) }
 	if arr, ok := p.([]any); ok {
 		parts := make([]string, len(arr))
 		for i, v := range arr {
-			parts[i] = px(v.(float64))
+			parts[i] = one(v)
 		}
 		return strings.Join(parts, " ")
 	}
-	f, _ := p.(float64)
-	return px(f)
+	return one(p)
 }
 
 func sizeProps(css *CSS, axis string, size any, parentMode string) {
@@ -289,7 +345,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 			css.Set("display", "none")
 		}
 		if s := node.Obj("shadow"); s != nil {
-			css.Set("filter", "drop-shadow("+px(s.Num("x"))+" "+px(s.Num("y"))+" "+px(s.Num("blur"))+" "+jsString(paint(s.Str("color")))+")")
+			css.Set("filter", shadowFilter(doc, s, themeMode, vars, paint))
 		}
 		return css
 	}
@@ -309,24 +365,31 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		pv, ph := ShapePadding(node)
 		css.Set("padding", px(pv)+" "+px(ph))
 		if s := node.Obj("shadow"); s != nil {
-			css.Set("filter", "drop-shadow("+px(s.Num("x"))+" "+px(s.Num("y"))+" "+px(s.Num("blur"))+" "+jsString(paint(s.Str("color")))+")")
+			css.Set("filter", shadowFilter(doc, s, themeMode, vars, paint))
 		}
-		textCSS(css, node, paint)
+		textCSS(css, doc, node, themeMode, vars, paint)
 		return css
 	}
 	if fill, ok := node.Get("fill"); ok {
 		css.Set("background", jsString(paint(fill)))
 	}
 	if st := node.Obj("stroke"); st != nil {
-		css.Set("border", px(st.Num("width"))+" solid "+jsString(paint(st.Str("color"))))
+		w, _ := st.Get("width")
+		css.Set("border", cssLen(doc, w, themeMode, vars)+" solid "+jsString(paint(st.Str("color"))))
 	}
 	if typ == "ellipse" {
 		css.Set("borderRadius", "50%")
-	} else if r := node.Num("radius"); r != 0 {
-		css.Set("borderRadius", px(r))
+	} else if rv, ok := node.Get("radius"); ok {
+		if f, isNum := rv.(float64); !isNum || f != 0 {
+			css.Set("borderRadius", cssLen(doc, rv, themeMode, vars))
+		}
 	}
 	if s := node.Obj("shadow"); s != nil {
-		css.Set("boxShadow", px(s.Num("x"))+" "+px(s.Num("y"))+" "+px(s.Num("blur"))+" "+px(s.Num("spread"))+" "+jsString(paint(s.Str("color"))))
+		sx, _ := s.Get("x")
+		sy, _ := s.Get("y")
+		sb, _ := s.Get("blur")
+		ss, _ := s.Get("spread")
+		css.Set("boxShadow", cssLen(doc, sx, themeMode, vars)+" "+cssLen(doc, sy, themeMode, vars)+" "+cssLen(doc, sb, themeMode, vars)+" "+cssLen(doc, ss, themeMode, vars)+" "+jsString(paint(s.Str("color"))))
 	}
 
 	switch typ {
@@ -341,9 +404,10 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 				css.Set("display", "none")
 			}
 			css.Set("flexDirection", l.Str("mode"))
-			css.Set("gap", px(l.Num("gap")))
+			gap, _ := l.Get("gap")
+			css.Set("gap", cssLen(doc, gap, themeMode, vars))
 			pad, _ := l.Get("padding")
-			css.Set("padding", padding(pad))
+			css.Set("padding", paddingCSS(doc, pad, themeMode, vars))
 			css.Set("alignItems", alignMap[l.Str("align")])
 			css.Set("justifyContent", justifyMap[l.Str("justify")])
 			if l.Bool("wrap") {
@@ -351,7 +415,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 			}
 		}
 	case "text":
-		textCSS(css, node, paint)
+		textCSS(css, doc, node, themeMode, vars, paint)
 		css.Set("margin", 0.0)
 	case "image":
 		css.Set("objectFit", node.Str("fit"))
@@ -365,21 +429,26 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 }
 
 // textCSS: typography of text and shape nodes (same property order in both).
-func textCSS(css *CSS, node *Node, paint func(any) any) {
+func shadowFilter(doc *Document, s *Node, mode string, vars bool, paint func(any) any) string {
+	x, _ := s.Get("x")
+	y, _ := s.Get("y")
+	b, _ := s.Get("blur")
+	return "drop-shadow(" + cssLen(doc, x, mode, vars) + " " + cssLen(doc, y, mode, vars) + " " + cssLen(doc, b, mode, vars) + " " + jsString(paint(s.Str("color"))) + ")"
+}
+
+func textCSS(css *CSS, doc *Document, node *Node, mode string, vars bool, paint func(any) any) {
 	color, _ := node.Get("color")
 	css.Set("color", jsString(paint(color)))
 	css.Set("fontFamily", node.Str("fontFamily"))
 	fsv, _ := node.Get("fontSize")
-	fs := paint(fsv)
-	if n, ok := fs.(float64); ok {
-		css.Set("fontSize", px(n))
-	} else {
-		css.Set("fontSize", jsString(fs))
-	}
+	css.Set("fontSize", cssLen(doc, fsv, mode, vars))
 	css.Set("fontWeight", node.Num("fontWeight"))
-	css.Set("lineHeight", node.Num("lineHeight"))
-	if ls := node.Num("letterSpacing"); ls != 0 {
-		css.Set("letterSpacing", px(ls))
+	lh, _ := node.Get("lineHeight")
+	css.Set("lineHeight", cssNum(doc, lh, mode, vars))
+	if ls, ok := node.Get("letterSpacing"); ok {
+		if f, isNum := ls.(float64); !isNum || f != 0 {
+			css.Set("letterSpacing", cssLen(doc, ls, mode, vars))
+		}
 	}
 	css.Set("textAlign", node.Str("textAlign"))
 	css.Set("whiteSpace", "pre-wrap")
@@ -396,14 +465,17 @@ func ShapeTextCSS() *CSS { return jsonv.NewObject("position", "relative", "width
 // ShapeAttrs: the outline <svg> size, the outline <path> and, on a sticky note, the fold.
 func ShapeAttrs(doc *Document, node *Node, vars bool) (svg, path, fold []Attr) {
 	themeMode := ModeOf(doc, node)
-	d, f := ShapeOutline(node)
+	d, f := ShapeOutline(lengthsResolved(doc, node))
 	fill := "none"
 	if fv, ok := node.Get("fill"); ok {
 		fill = jsString(paintValue(doc, fv, themeMode, vars))
 	}
 	path = []Attr{{"d", d}, {"fill", fill}, {"strokeLinejoin", "round"}}
-	if st := node.Obj("stroke"); st != nil && st.Num("width") > 0 {
-		path = append(path, Attr{"stroke", jsString(paintValue(doc, st.Str("color"), themeMode, vars))}, Attr{"strokeWidth", st.Num("width")})
+	if st := node.Obj("stroke"); st != nil {
+		w, _ := st.Get("width")
+		if sw, ok := ResolveLength(doc, w, themeMode); ok && sw > 0 {
+			path = append(path, Attr{"stroke", jsString(paintValue(doc, st.Str("color"), themeMode, vars))}, Attr{"strokeWidth", strokeWidthAttr(doc, w, vars, sw)})
+		}
 	}
 	svg = []Attr{{"width", node.Num("width")}, {"height", node.Num("height")}}
 	if f != "" {
@@ -415,17 +487,23 @@ func ShapeAttrs(doc *Document, node *Node, vars bool) (svg, path, fold []Attr) {
 // ConnectorAttrs: the <path> of a connector (line and arrowheads, no fill).
 func ConnectorAttrs(doc *Document, node *Node, vars bool) []Attr {
 	st := node.Obj("stroke")
-	sw := st.Num("width")
+	mode := ModeOf(doc, node)
+	w, _ := st.Get("width")
+	sw, _ := ResolveLength(doc, w, mode)
 	a := []Attr{
 		{"d", node.Str("d")},
 		{"fill", "none"},
-		{"stroke", jsString(paintValue(doc, st.Str("color"), ModeOf(doc, node), vars))},
-		{"strokeWidth", sw},
+		{"stroke", jsString(paintValue(doc, st.Str("color"), mode, vars))},
+		{"strokeWidth", strokeWidthAttr(doc, w, vars, sw)},
 		{"strokeLinecap", "round"},
 		{"strokeLinejoin", "round"},
 	}
 	if node.Bool("dashed") {
-		a = append(a, Attr{"strokeDasharray", jsonv.FormatNumber(round2(sw*3)) + " " + jsonv.FormatNumber(round2(sw*2.5))})
+		dash := jsonv.FormatNumber(round2(sw*3)) + " " + jsonv.FormatNumber(round2(sw*2.5))
+		if ref, ok := lengthVar(doc, w, vars); ok {
+			dash = "calc(" + ref + " * 3) calc(" + ref + " * 2.5)"
+		}
+		a = append(a, Attr{"strokeDasharray", dash})
 	}
 	return a
 }
@@ -537,8 +615,11 @@ func PathAttrsVars(doc *Document, node *Node, vars bool) (svg, path []Attr) {
 		{"strokeLinecap", node.Str("strokeCap")},
 		{"strokeLinejoin", node.Str("strokeJoin")},
 	}
-	if st := node.Obj("stroke"); st != nil && st.Num("width") > 0 {
-		path = append(path, Attr{"stroke", jsString(paintValue(doc, st.Str("color"), themeMode, vars))}, Attr{"strokeWidth", st.Num("width")})
+	if st := node.Obj("stroke"); st != nil {
+		w, _ := st.Get("width")
+		if sw, ok := ResolveLength(doc, w, themeMode); ok && sw > 0 {
+			path = append(path, Attr{"stroke", jsString(paintValue(doc, st.Str("color"), themeMode, vars))}, Attr{"strokeWidth", strokeWidthAttr(doc, w, vars, sw)})
+		}
 	}
 	return svg, path
 }
@@ -563,4 +644,162 @@ func CSSToString(css *CSS) string {
 		parts = append(parts, kebab(k)+":"+val)
 	}
 	return strings.Join(parts, ";")
+}
+
+func lengthsResolved(doc *Document, n *Node) *Node {
+	mode := ModeOf(doc, n)
+	c := jsonv.Clone(n).(*Node)
+	if v, ok := n.Get("radius"); ok {
+		if f, ok := ResolveLength(doc, v, mode); ok {
+			c.Set("radius", f)
+		}
+	}
+	if st := n.Obj("stroke"); st != nil {
+		if w, ok := st.Get("width"); ok {
+			if f, ok := ResolveLength(doc, w, mode); ok && c.Obj("stroke") != nil {
+				c.Obj("stroke").Set("width", f)
+			}
+		}
+	}
+	return c
+}
+
+func jsonNum(n float64) string {
+	b, _ := json.Marshal(n)
+	return string(b)
+}
+
+func lengthProblem(doc *Document, id, field string, value any, min, max *float64, mode string) string {
+	s, ok := value.(string)
+	if !ok || !strings.HasPrefix(s, "$") {
+		return ""
+	}
+	resolved := ResolveValue(doc, s, mode)
+	if t, ok := resolved.(string); ok && strings.HasPrefix(t, "$") {
+		return ""
+	}
+	n, isNum := resolved.(float64)
+	if !isNum || math.IsNaN(n) || math.IsInf(n, 0) {
+		shown, _ := json.Marshal(resolved)
+		return fmt.Sprintf("node %q %s: token %q resolved to %s, expected a length", id, field, s, shown)
+	}
+	shown := jsonNum(n)
+	if min != nil && max != nil && (n < *min || n > *max) {
+		return fmt.Sprintf("node %q %s: token %q is %s, expected a number >= %s and <= %s", id, field, s, shown, jsonNum(*min), jsonNum(*max))
+	}
+	if min != nil && n < *min {
+		return fmt.Sprintf("node %q %s: token %q is %s, expected a number >= %s", id, field, s, shown, jsonNum(*min))
+	}
+	if max != nil && n > *max {
+		return fmt.Sprintf("node %q %s: token %q is %s, expected a number <= %s", id, field, s, shown, jsonNum(*max))
+	}
+	return ""
+}
+
+func fptr(v float64) *float64 { return &v }
+
+func LengthTokenError(doc *Document) string {
+	seen := map[string]bool{}
+	var walk func(id string) string
+	walk = func(id string) string {
+		if seen[id] {
+			return ""
+		}
+		seen[id] = true
+		n := GetNode(doc, id)
+		if n == nil {
+			return ""
+		}
+		typ := n.Str("type")
+		if typ == "page" || typ == "group" {
+			for _, c := range n.Strings("children") {
+				if m := walk(c); m != "" {
+					return m
+				}
+			}
+			return ""
+		}
+		mode := ModeOf(doc, n)
+		check := func(field string, value any, min, max *float64) string {
+			return lengthProblem(doc, n.Str("id"), field, value, min, max, mode)
+		}
+		var msg string
+		if typ == "connector" {
+			if st := n.Obj("stroke"); st != nil {
+				w, _ := st.Get("width")
+				msg = check("stroke.width", w, fptr(0), fptr(1000))
+			}
+		} else {
+			if v, ok := n.Get("radius"); ok {
+				msg = check("radius", v, fptr(0), nil)
+			}
+			if st := n.Obj("stroke"); st != nil && msg == "" {
+				w, _ := st.Get("width")
+				msg = check("stroke.width", w, fptr(0), fptr(1000))
+			}
+			if sh := n.Obj("shadow"); sh != nil && msg == "" {
+				x, _ := sh.Get("x")
+				y, _ := sh.Get("y")
+				b, _ := sh.Get("blur")
+				sp, _ := sh.Get("spread")
+				msg = check("shadow.x", x, nil, nil)
+				if msg == "" {
+					msg = check("shadow.y", y, nil, nil)
+				}
+				if msg == "" {
+					msg = check("shadow.blur", b, fptr(0), nil)
+				}
+				if msg == "" {
+					msg = check("shadow.spread", sp, nil, nil)
+				}
+			}
+			if typ == "frame" && msg == "" {
+				if l := n.Obj("layout"); l != nil {
+					g, _ := l.Get("gap")
+					msg = check("layout.gap", g, fptr(0), nil)
+					if msg == "" {
+						p, _ := l.Get("padding")
+						if arr, ok := p.([]any); ok {
+							for i, v := range arr {
+								if msg = check(fmt.Sprintf("layout.padding.%d", i), v, fptr(0), nil); msg != "" {
+									break
+								}
+							}
+						} else {
+							msg = check("layout.padding", p, fptr(0), nil)
+						}
+					}
+				}
+			}
+			if (typ == "text" || typ == "shape") && msg == "" {
+				fs, _ := n.Get("fontSize")
+				msg = check("fontSize", fs, fptr(1), fptr(1000))
+				if msg == "" {
+					lh, _ := n.Get("lineHeight")
+					msg = check("lineHeight", lh, fptr(0), fptr(10))
+				}
+			}
+			if typ == "text" && msg == "" {
+				ls, _ := n.Get("letterSpacing")
+				msg = check("letterSpacing", ls, nil, nil)
+			}
+		}
+		if msg != "" {
+			return msg
+		}
+		if typ == "frame" {
+			for _, c := range n.Strings("children") {
+				if m := walk(c); m != "" {
+					return m
+				}
+			}
+		}
+		return ""
+	}
+	for _, id := range doc.Strings("rootIds") {
+		if m := walk(id); m != "" {
+			return m
+		}
+	}
+	return ""
 }

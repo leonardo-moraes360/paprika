@@ -306,6 +306,8 @@ Todo item ainda aberto no [log de feedback dos agentes](feedback-agentes.md) (fb
 | Limpezas de contrato para a próxima versão incompatível | Texto e `structuredContent` como o mesmo objeto; `historyLabel` com `label` como alias; ids de sessão desconhecidos respondem 404 para o cliente reinicializar; um só nome de ator nos dois transportes | fb#22, fb#48, fb#50, fb#74 | 🟡 | P3 |
 | Pequenas conveniências | `pageId` padrão no `create_nodes` (a página que o humano vê); tokens de tamanho tipados multiplicados por `scale`; `resolve` no `get_nodes`; `sql_query` somente leitura; batch aberto visível na lista de atividade; uma só língua na UI (ou configuração); capa ao vivo e capa no export; exemplos normalizados; paths editados como filhos "ignorar layout" (A) | fb#21, fb#23, fb#36, fb#38, fb#44, fb#46, fb#49, fb#51, fb#63, fb#64 | ⬜ | P3 |
 
+| Tokens em todo campo de comprimento | Radius, gap, padding (um número ou quatro; não dois), espessura do traço, fontSize, lineHeight, letterSpacing e shadow x/y/blur/spread aceitam um token cujo valor é um comprimento. Resolvido como as cores (canvas, screenshot e export iguais); `cssVariables` escreve `var(--token)`, line-height como `calc(var(--token) / 1px)`. Um token de cor num campo de comprimento é recusado. Mudar um token `$space` relayouta todo frame que o usa (2026-11-22, PAP-B-065). | fb#83, fb#88, fb#89, fb#90 | ✅ | — |
+
 Já cobertos por trabalho entregue, para marcar "Feito" no log: fb#8 e fb#16 (nó `group`), fb#13 (páginas; empilhar frames de topo automaticamente continua aberto, ver A).
 
 ## R. Interface do app (casca, painéis, inspector)

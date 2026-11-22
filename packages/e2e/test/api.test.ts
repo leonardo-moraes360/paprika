@@ -870,6 +870,46 @@ describe("API: MCP", () => {
       await srvB.stop();
     }
   }, 60_000);
+
+  it("tokens de comprimento: create, reflow, recusa de cor e var() no export", async () => {
+    const c = client;
+    const guide = textOf(await call(c, "get_design_guide", {}));
+    expect(guide).toMatch(/not two values/);
+    expect(guide).toMatch(/\[top, right, bottom, left\]/);
+    await call(c, "set_tokens", { tokens: { "space.md": 8, "radius.md": 12, brand: "#ff0000" } });
+    await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "frame", id: "la", width: 120, height: 100, radius: "$radius.md",
+          layout: { mode: "column", gap: "$space.md", padding: "$space.md" },
+          children: [
+            { type: "rect", id: "la1", width: 20, height: 20 },
+            { type: "rect", id: "la2", width: 20, height: 20 },
+          ],
+        },
+        {
+          type: "frame", id: "lb", x: 200, width: 80, height: 80,
+          layout: { mode: "column", gap: "$space.md", padding: ["$space.md", 4, "$space.md", 4] },
+          children: [{ type: "rect", id: "lb1", width: 20, height: 20 }],
+        },
+      ],
+    });
+    const before = JSON.parse(textOf(await call(c, "get_bounds", { ids: ["la1", "la2", "lb1"] })));
+    expect(before.boxes.la1.y).toBeCloseTo(8, 5);
+    expect(before.boxes.la2.y).toBeCloseTo(36, 5);
+    expect(before.boxes.lb1.y).toBeCloseTo(8, 5);
+    await call(c, "set_tokens", { tokens: { "space.md": 24 } });
+    const after = JSON.parse(textOf(await call(c, "get_bounds", { ids: ["la1", "la2", "lb1"] })));
+    expect(after.boxes.la1.y).toBeCloseTo(24, 5);
+    expect(after.boxes.la2.y).toBeCloseTo(68, 5);
+    expect(after.boxes.lb1.y).toBeCloseTo(24, 5);
+    const bad = (await c.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "bad", radius: "$brand" }] } })) as ToolResult;
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toContain('token "$brand" resolved to "#ff0000", expected a length');
+    const html = textOf(await call(c, "export_code", { rootId: "la", format: "html", cssVariables: true }));
+    expect(html).toContain("gap:var(--space\\.md)");
+    expect(html).toContain("border-radius:var(--radius\\.md)");
+  });
 });
 
 describe("API: HTTP + WebSocket", () => {

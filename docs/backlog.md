@@ -269,6 +269,8 @@ Every item still open in the [agent feedback log](agent-feedback.md) (fb#1 to fb
 | Contract cleanups for the next breaking version | Text and `structuredContent` as the same object; `historyLabel` with `label` as an alias; unknown session ids answer 404 so clients re-initialize; one actor name in both transports | fb#22, fb#48, fb#50, fb#74 | 🟡 | P3 |
 | Small conveniences | `pageId` default on `create_nodes` (the page the human sees); typed size tokens scaled by `scale`; `resolve` on `get_nodes`; read-only `sql_query`; open batch shown in the activity list; one UI language (or a setting); live cover and cover in export; normalized examples; edited paths as "ignore layout" children (A) | fb#21, fb#23, fb#36, fb#38, fb#44, fb#46, fb#49, fb#51, fb#63, fb#64 | ⬜ | P3 |
 
+| Tokens in every length field | Radius, gap, padding (one number or four; not two), stroke width, fontSize, lineHeight, letterSpacing and shadow x/y/blur/spread accept a token whose value is a length. Resolved like colors (canvas, screenshot and export match); `cssVariables` writes `var(--token)`, line-height as `calc(var(--token) / 1px)`. A color token in a length field is refused. Changing a `$space` token re-lays out every frame that uses it (2026-11-22, PAP-B-065). | fb#83, fb#88, fb#89, fb#90 | ✅ | — |
+
 Already covered by shipped work, to mark "Done" in the log: fb#8 and fb#16 (`group` node), fb#13 (pages; auto-stacking top-level frames is still open, see A).
 
 ## R. App interface (shell, panels, inspector)

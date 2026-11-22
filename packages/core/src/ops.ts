@@ -21,6 +21,7 @@ import { addPageOps, groupOps, ungroupOps } from "./structure.js";
 import { combinePathsOps } from "./boolean.js";
 import { round4 } from "./num.js";
 import { ConnectorError, connectorsAttachedTo, routeConnectors, shapeDefaults } from "./diagram.js";
+import { lengthTokenError } from "./style.js";
 import {
   COPY_OVERRIDES,
   InstanceError,
@@ -559,6 +560,8 @@ export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
     // Um group que contém instâncias só sabe o tamanho delas depois da sincronização.
     inverse.unshift(...fitGroups(draft));
     // Conectores seguem as pontas: geometria derivada, sem inversa (o desfazer recalcula).
+    const lengthErr = lengthTokenError(draft);
+    if (lengthErr) throw new OpError(lengthErr, last);
     try {
       routeConnectors(draft);
     } catch (e) {

@@ -1,6 +1,6 @@
 import { firstPage, pageRoots, isContainer, type Document, type Node } from "./schema.js";
 import { canvasBounds, escapeHtml, svgAttrs } from "./render.js";
-import { connectorAttrs, connectorLabelAttrs, modeOf, pathAttrs, resolveValue, shapeAttrs } from "./style.js";
+import { connectorAttrs, connectorLabelAttrs, modeOf, pathAttrs, resolveLength, resolveValue, shapeAttrs } from "./style.js";
 import { shapePadding } from "./diagram.js";
 import { layout } from "./layout.js";
 
@@ -10,6 +10,10 @@ import { layout } from "./layout.js";
  * e as linhas de texto (usado nos goldens e em caminhos legados). Sem `measure.lines`, o texto
  * quebra só em `\n` (a medição de glifos do navegador não entra no SVG).
  */
+
+function len(doc: Document, n: Node, v: number | string | undefined): number {
+  return resolveLength(doc, v, modeOf(doc, n)) ?? 0;
+}
 
 export interface Measure {
   /** Caixa de cada nó: [x, y, largura, altura], sem rotação, relativa à origem do export. */
@@ -139,8 +143,8 @@ export function exportSVG(
     let shadowAttr = "";
     if (n.shadow) {
       const s = n.shadow;
-      if (s.spread) warn("shadow with spread: SVG uses only offset, blur and color");
-      defs += `<filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${f(s.x)}" dy="${f(s.y)}" stdDeviation="${f(s.blur / 2)}" flood-color="${escapeHtml(String(resolveValue(doc, s.color, mode)))}"/></filter>`;
+      if (len(doc, n, s.spread)) warn("shadow with spread: SVG uses only offset, blur and color");
+      defs += `<filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${f(len(doc, n, s.x))}" dy="${f(len(doc, n, s.y))}" stdDeviation="${f(len(doc, n, s.blur) / 2)}" flood-color="${escapeHtml(String(resolveValue(doc, s.color, mode)))}"/></filter>`;
       shadowAttr = ` filter="url(#shadow-${id})"`;
     }
     const fill = a.path.fill === "none" ? "none" : (paint(doc, n.fill, mode, warn) ?? "none");
@@ -155,7 +159,7 @@ export function exportSVG(
     if (measuredLines) tspans = measuredLines.map((l) => `<tspan x="${f(l.x)}" y="${f(l.y)}">${escapeHtml(l.t)}</tspan>`).join("");
     else if (n.text) {
       const [pv, ph] = shapePadding(n);
-      const lh = n.lineHeight * size;
+      const lh = len(doc, n, n.lineHeight) * size;
       const lines = n.text.split("\n");
       const top = n.shape === "note" ? pv : (h - lines.length * lh) / 2;
       const ax = n.textAlign === "center" ? w / 2 : n.textAlign === "right" ? w - ph : ph;
@@ -199,18 +203,18 @@ export function exportSVG(
     let shadowAttr = "";
     if (n.shadow && n.type !== "text") {
       const s = n.shadow;
-      if (s.spread) warn("shadow with spread: SVG uses only offset, blur and color");
-      defs += `<filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${f(s.x)}" dy="${f(s.y)}" stdDeviation="${f(s.blur / 2)}" flood-color="${escapeHtml(String(resolveValue(doc, s.color, mode)))}"/></filter>`;
+      if (len(doc, n, s.spread)) warn("shadow with spread: SVG uses only offset, blur and color");
+      defs += `<filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${f(len(doc, n, s.x))}" dy="${f(len(doc, n, s.y))}" stdDeviation="${f(len(doc, n, s.blur) / 2)}" flood-color="${escapeHtml(String(resolveValue(doc, s.color, mode)))}"/></filter>`;
       shadowAttr = ` filter="url(#shadow-${id})"`;
     }
     const fill = n.type === "path" ? undefined : paint(doc, n.fill, mode, warn);
-    const sw = n.type !== "path" && n.stroke && n.stroke.width > 0 ? n.stroke.width : 0;
+    const sw = n.type !== "path" && n.stroke && len(doc, n, n.stroke.width) > 0 ? len(doc, n, n.stroke.width) : 0;
     const strokeAttr = sw ? ` stroke="${escapeHtml(String(resolveValue(doc, n.stroke!.color, mode)))}" stroke-width="${f(sw)}"` : "";
     const fillAttr = ` fill="${escapeHtml(fill ?? "none")}"`;
     // A borda do CSS fica por dentro da caixa; o traço do SVG é centrado: recua meia espessura.
     const inset = `x="${f(sw / 2)}" y="${f(sw / 2)}" width="${f(Math.max(0, w - sw))}" height="${f(Math.max(0, h - sw))}"`;
     // O CSS limita o raio à metade do lado menor (pílula); o SVG limitaria cada eixo (elipse).
-    const r = n.type !== "ellipse" && n.type !== "path" ? Math.min(n.radius, w / 2, h / 2) : 0;
+    const r = n.type !== "ellipse" && n.type !== "path" ? Math.min(len(doc, n, n.radius), w / 2, h / 2) : 0;
     const radius = r ? ` rx="${f(Math.max(0, r - sw / 2))}"` : "";
     const clipRadius = r ? ` rx="${f(r)}"` : "";
     let body = "";
@@ -243,7 +247,7 @@ export function exportSVG(
       if (measuredLines) {
         tspans = measuredLines.map((l) => `<tspan x="${f(l.x)}" y="${f(l.y)}">${escapeHtml(l.t)}</tspan>`).join("");
       } else {
-        const lh = n.lineHeight * size;
+        const lh = len(doc, n, n.lineHeight) * size;
         const ax = n.textAlign === "center" ? w / 2 : n.textAlign === "right" ? w : 0;
         if (n.textAlign !== "left") anchor = ` text-anchor="${n.textAlign === "center" ? "middle" : "end"}"`;
         tspans = n.text
@@ -251,12 +255,12 @@ export function exportSVG(
           .map((t, k) => (t ? `<tspan x="${f(ax)}" y="${f(k * lh + (lh - size) / 2 + size * 0.8)}">${escapeHtml(t)}</tspan>` : ""))
           .join("");
       }
-      const ls = n.letterSpacing ? ` letter-spacing="${f(n.letterSpacing)}"` : "";
+      const ls = n.letterSpacing ? ` letter-spacing="${f(len(doc, n, n.letterSpacing))}"` : "";
       body += `<text xml:space="preserve" font-family="${escapeHtml(n.fontFamily)}" font-size="${f(size)}" font-weight="${n.fontWeight}" fill="${color}"${ls}${anchor}>${tspans}</text>`;
     }
     if (n.type === "image") {
       const fit = n.fit === "cover" ? "xMidYMid slice" : n.fit === "contain" ? "xMidYMid meet" : "none";
-      if (n.radius) {
+      if (len(doc, n, n.radius)) {
         defs += `<clipPath id="clip-${id}"><rect width="${f(w)}" height="${f(h)}"${clipRadius}/></clipPath>`;
         body += `<image href="${escapeHtml(n.src)}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}" clip-path="url(#clip-${id})"/>`;
       } else body += `<image href="${escapeHtml(n.src)}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}"/>`;

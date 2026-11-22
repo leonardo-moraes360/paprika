@@ -973,6 +973,9 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 		}
 		// A group holding instances only knows their size after the sync.
 		inverse = append(fitGroups(draft), inverse...)
+		if msg := LengthTokenError(draft); msg != "" {
+			return nil, opErr(len(ops)-1, "%s", msg)
+		}
 		// Connectors follow their ends: derived geometry, no inverse (undo recomputes it).
 		if err := RouteConnectors(draft); err != nil {
 			return nil, opErr(len(ops)-1, "%s", err.Error())
