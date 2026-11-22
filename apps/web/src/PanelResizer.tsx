@@ -1,4 +1,6 @@
 import { useCallback, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { flushSync } from "react-dom";
+import { PanelLeftOpen, PanelRightOpen } from "lucide-react";
 import { cx } from "./ui";
 
 /** Limites de um painel lateral redimensionável (px). */
@@ -12,6 +14,7 @@ export const LEFT_PANEL: PanelLimits = { min: 200, max: 480, initial: 240 };
 export const RIGHT_PANEL: PanelLimits = { min: 240, max: 480, initial: 280 };
 
 const STEP = 16;
+const COLLAPSE_SLACK = 32;
 
 const clamp = (w: number, { min, max }: PanelLimits) => Math.round(Math.min(max, Math.max(min, w)));
 
@@ -33,9 +36,34 @@ function saveWidth(key: string, w: number) {
   }
 }
 
-/** Largura persistida em localStorage, sempre dentro de [min, max]. */
-export function usePanelWidth(key: string, limits: PanelLimits) {
+function readCollapsed(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveCollapsed(key: string, collapsed: boolean) {
+  try {
+    if (collapsed) localStorage.setItem(key, "1");
+    else localStorage.removeItem(key);
+  } catch {
+    /* sem storage: o estado vale só nesta aba */
+  }
+}
+
+export interface Panel {
+  width: number;
+  collapsed: boolean;
+  setWidth: (w: number, persist?: boolean) => void;
+  setCollapsed: (collapsed: boolean) => void;
+}
+
+/** Largura persistida em localStorage, sempre dentro de [min, max], e se o painel está recolhido. */
+export function usePanel(key: string, limits: PanelLimits): Panel {
   const [width, setWidthState] = useState(() => readWidth(key, limits));
+  const [collapsed, setCollapsedState] = useState(() => readCollapsed(`${key}.collapsed`));
   const setWidth = useCallback(
     (w: number, persist = true) => {
       const next = clamp(w, limits);
@@ -44,27 +72,54 @@ export function usePanelWidth(key: string, limits: PanelLimits) {
     },
     [key, limits],
   );
-  return [width, setWidth] as const;
+  const setCollapsed = useCallback(
+    (next: boolean) => {
+      setCollapsedState(next);
+      saveCollapsed(`${key}.collapsed`, next);
+    },
+    [key],
+  );
+  return { width, collapsed, setWidth, setCollapsed };
+}
+
+/** Botão flutuante no canto do canvas que devolve um painel recolhido. */
+export function PanelToggle({ side, label, panel }: { side: "left" | "right"; label: string; panel: Panel }) {
+  const Icon = side === "left" ? PanelLeftOpen : PanelRightOpen;
+  return (
+    <button
+      className={cx(
+        "absolute top-3 z-10 inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-line bg-panel p-0 text-fg shadow-float hover:bg-panel-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select max-wide:hidden",
+        side === "left" ? "left-3" : "right-3",
+      )}
+      data-panel-toggle={side}
+      title={label}
+      aria-label={label}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={() => panel.setCollapsed(false)}
+    >
+      <Icon size={16} strokeWidth={1.75} aria-hidden />
+    </button>
+  );
 }
 
 /**
  * Alça de arraste na borda interna de um painel lateral. `side` diz de que lado o painel está:
  * na esquerda, arrastar para a direita alarga; na direita, arrastar para a esquerda alarga.
  * Teclado: ←/→ (Shift = passo maior), Home/End = mínimo/máximo; duplo clique volta ao padrão.
+ * Arrastar (ou encolher pelo teclado) além do mínimo recolhe o painel; o botão flutuante o devolve com a última largura.
  */
 export function PanelResizer({
   side,
   label,
-  width,
+  panel,
   limits,
-  onChange,
 }: {
   side: "left" | "right";
   label: string;
-  width: number;
+  panel: Panel;
   limits: PanelLimits;
-  onChange: (w: number, persist?: boolean) => void;
 }) {
+  const { width, setWidth: onChange, setCollapsed } = panel;
   const drag = useRef<{ x: number; w: number; last: number } | null>(null);
   const [active, setActive] = useState(false);
   const dir = side === "left" ? 1 : -1;
@@ -87,6 +142,11 @@ export function PanelResizer({
     if (!d) return;
     drag.current = null;
     setActive(false);
+    if (d.last < limits.min - COLLAPSE_SLACK) {
+      onChange(d.w);
+      setCollapsed(true);
+      return;
+    }
     onChange(d.last);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -99,8 +159,16 @@ export function PanelResizer({
     };
     if (!(e.key in keys)) return;
     e.preventDefault();
-    onChange(keys[e.key]!);
+    const next = keys[e.key]!;
+    if (next < limits.min && width === limits.min) {
+      flushSync(() => setCollapsed(true));
+      document.querySelector<HTMLElement>(`[data-panel-toggle=${side}]`)?.focus();
+      return;
+    }
+    onChange(next);
   };
+
+  if (panel.collapsed) return null;
 
   return (
     <div

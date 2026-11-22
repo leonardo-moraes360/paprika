@@ -6,7 +6,7 @@ import { Inspector } from "./Inspector";
 import { InviteDialog, JoinDialog, KeysDialog, TeamChip, TeamPanel } from "./Team";
 import { Layers } from "./Layers";
 import { Pages } from "./Pages";
-import { LEFT_PANEL, PanelResizer, RIGHT_PANEL, usePanelWidth } from "./PanelResizer";
+import { LEFT_PANEL, PanelResizer, PanelToggle, RIGHT_PANEL, usePanel } from "./PanelResizer";
 import { api, errorText } from "./api";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { Overview } from "./Overview";
@@ -161,8 +161,8 @@ function Editor() {
   const [pageChoice, setPageChoice] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<"inspector" | "team">("inspector");
   const [teamDialog, setTeamDialog] = useState<"invite" | "join" | "keys" | null>(null);
-  const [leftWidth, setLeftWidth] = usePanelWidth("paprika.panel.left", LEFT_PANEL);
-  const [rightWidth, setRightWidth] = usePanelWidth("paprika.panel.right", RIGHT_PANEL);
+  const leftPanel = usePanel("paprika.panel.left", LEFT_PANEL);
+  const rightPanel = usePanel("paprika.panel.right", RIGHT_PANEL);
   // Página ativa: a escolhida, se ainda existe; senão a primeira (null num documento sem páginas).
   const pageId = doc ? (pageChoice && doc.nodes[pageChoice]?.type === "page" ? pageChoice : (firstPage(doc)?.id ?? null)) : null;
 
@@ -321,7 +321,7 @@ function Editor() {
         "grid h-full grid-cols-[var(--left-w,240px)_minmax(0,1fr)_var(--right-w,280px)] grid-rows-[44px_1fr] [grid-template-areas:'top_top_top'_'left_center_right']",
         "max-wide:grid-cols-1 max-wide:grid-rows-[44px_1fr_220px] max-wide:[grid-template-areas:'top'_'center'_'right']",
       )}
-      style={{ "--left-w": `${leftWidth}px`, "--right-w": `${rightWidth}px` } as CSSProperties}>
+      style={{ "--left-w": `${leftPanel.collapsed ? 0 : leftPanel.width}px`, "--right-w": `${rightPanel.collapsed ? 0 : rightPanel.width}px` } as CSSProperties}>
       <header className={cx(bar.topbar, "[grid-area:top]")}>
         <div className={bar.brand}>
           <a
@@ -355,12 +355,14 @@ function Editor() {
           <ConnectionStatus connected={live.connected} />
         </div>
       </header>
-      <aside aria-label="Páginas e camadas" className="left overflow-auto border-r border-line bg-panel [grid-area:left] max-wide:hidden">
+      <aside aria-label="Páginas e camadas" className={cx("left overflow-auto border-r border-line bg-panel [grid-area:left] max-wide:hidden", leftPanel.collapsed && "hidden")}>
         <Pages doc={doc} pageId={pageId} onOpen={openPage} apply={live.apply} />
         <Layers doc={doc} pageId={pageId} selected={selected} onSelect={setSelected} apply={live.apply} />
       </aside>
-      <PanelResizer side="left" label="Largura do painel de camadas" width={leftWidth} limits={LEFT_PANEL} onChange={setLeftWidth} />
-      <main className="relative overflow-hidden [grid-area:center]">
+      <PanelResizer side="left" label="Largura do painel de camadas" panel={leftPanel} limits={LEFT_PANEL} />
+      <main className={cx("relative overflow-hidden [grid-area:center]", rightPanel.collapsed && "[&_[data-testid=agent-roster]]:top-14")}>
+        {leftPanel.collapsed && <PanelToggle side="left" label="Mostrar painel de camadas" panel={leftPanel} />}
+        {rightPanel.collapsed && <PanelToggle side="right" label="Mostrar painel de propriedades" panel={rightPanel} />}
         {/* Floating toolbar, centered at the top of the canvas. */}
         <nav className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-line bg-panel p-1 shadow-float" aria-label="Ferramentas" onPointerDown={(e) => e.stopPropagation()}>
           {TOOLS.map((t) => (
@@ -401,8 +403,8 @@ function Editor() {
         />
         <ErrorToast />
       </main>
-      <PanelResizer side="right" label="Largura do painel de propriedades" width={rightWidth} limits={RIGHT_PANEL} onChange={setRightWidth} />
-      <aside aria-label="Propriedades" className="right overflow-auto border-l border-line bg-panel [grid-area:right] max-wide:border-t max-wide:border-l-0">
+      <PanelResizer side="right" label="Largura do painel de propriedades" panel={rightPanel} limits={RIGHT_PANEL} />
+      <aside aria-label="Propriedades" className={cx("right overflow-auto border-l border-line bg-panel [grid-area:right] max-wide:border-t max-wide:border-l-0", rightPanel.collapsed && "hidden")}>
         {live.team !== undefined && (
           <div className="right-tabs m-3 mb-0 grid grid-cols-2 gap-0.5 rounded-md bg-night p-0.5" role="tablist" aria-label="Painel da direita">
             {(["inspector", "team"] as const).map((t) => (

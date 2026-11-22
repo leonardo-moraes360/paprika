@@ -840,7 +840,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       expect(await width("aside.left")).toBe(340);
       await dragBy(left, 1000); // trava no máximo
       expect(await width("aside.left")).toBe(480);
-      await dragBy(left, -1000); // trava no mínimo
+      await dragBy(left, -290); // trava no mínimo
       expect(await width("aside.left")).toBe(200);
 
       await dragBy(right, -60); // à direita, arrastar para a esquerda alarga
