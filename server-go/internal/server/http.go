@@ -31,6 +31,17 @@ type HTTPOptions struct {
 	WebRoot string // build of the canvas (apps/web/dist); empty serves a placeholder page
 	Log     func(string)
 	Shot    Screenshotter
+	// Team is the team sync service (ADR 0004); nil when the instance is not in a team.
+	Team TeamRoutes
+}
+
+// TeamRoutes is what the HTTP server needs from the team package (which imports this one).
+type TeamRoutes interface {
+	Routes(mux *http.ServeMux)
+	// Recent returns the WebSocket messages a canvas that just connected needs.
+	Recent() []string
+	// OnMessage subscribes to WebSocket messages for every canvas; returns the unsubscribe.
+	OnMessage(fn func(string)) func()
 }
 
 var mimeTypes = map[string]string{
@@ -206,7 +217,24 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		hub.mu.Unlock()
 	})
 
+	unsubscribeTeam := func() {}
+	if opts.Team != nil {
+		unsubscribeTeam = opts.Team.OnMessage(func(msg string) {
+			hub.mu.Lock()
+			for _, ch := range hub.conns {
+				select {
+				case ch <- msg:
+				default:
+				}
+			}
+			hub.mu.Unlock()
+		})
+	}
+
 	mux := http.NewServeMux()
+	if opts.Team != nil {
+		opts.Team.Routes(mux)
+	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if p := recover(); p != nil {
@@ -508,7 +536,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			return
 		}
 		conn.SetReadLimit(maxBody)
-		serveWS(r.Context(), conn, store, hub, docMessage)
+		serveWS(r.Context(), conn, store, hub, docMessage, opts.Team)
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -536,6 +564,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		close: func() {
 			unsubscribe()
 			unsubscribePresence()
+			unsubscribeTeam()
 			hub.mu.Lock()
 			for c := range hub.conns {
 				c.CloseNow()
@@ -593,7 +622,7 @@ func serveStatic(w http.ResponseWriter, r *http.Request, webRoot string) {
 }
 
 func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub,
-	docMessage func(*core.Document, int64, string, string, string, bool, bool) string) {
+	docMessage func(*core.Document, int64, string, string, string, bool, bool) string, team TeamRoutes) {
 	out := make(chan string, 64)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -603,6 +632,14 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 		select {
 		case out <- p.Message():
 		default:
+		}
+	}
+	if team != nil {
+		for _, m := range team.Recent() {
+			select {
+			case out <- m:
+			default:
+			}
 		}
 	}
 	hub.mu.Lock()
