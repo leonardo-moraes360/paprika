@@ -3,13 +3,16 @@ import { Bot, Circle, Diamond, Download, Frame, MousePointer2, MoveUpRight, PenT
 import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
+import { InviteDialog, JoinDialog, KeysDialog, TeamChip, TeamPanel } from "./Team";
 import { Layers } from "./Layers";
 import { Pages } from "./Pages";
 import { LEFT_PANEL, PanelResizer, RIGHT_PANEL, usePanelWidth } from "./PanelResizer";
+import { api, errorText } from "./api";
 import { Overview } from "./Overview";
 import { navigate, parseRoute, useRoute, workspacePath } from "./route";
 import { useDocument, type LiveDocument } from "./useDocument";
 import { bar, cx } from "./ui";
+import { openWorkspace } from "./workspaces";
 
 // Plain class names next to utilities ("left", "right", "doc-name", "is-active") are hooks for the E2E suite.
 const boot = "grid h-full place-content-center justify-items-center gap-3 text-muted";
@@ -76,15 +79,11 @@ export function App() {
   useEffect(() => {
     if (!routeId) return;
     pending.current = routeId;
-    void fetch(`/api/workspaces/${encodeURIComponent(routeId)}/open`, { method: "POST" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
-      })
-      .catch((e: unknown) => {
-        // pending stays set: a doc that arrives meanwhile must not send the URL to the active workspace.
-        navigate("/", { replace: true });
-        showError(`Não foi possível abrir o workspace: ${e instanceof Error ? e.message : String(e)}`);
-      });
+    openWorkspace(routeId).catch((e: unknown) => {
+      // pending stays set: a doc that arrives meanwhile must not send the URL to the active workspace.
+      navigate("/", { replace: true });
+      showError(`Não foi possível abrir o workspace: ${errorText(e)}`);
+    });
   }, [routeId, showError]);
 
   useEffect(() => {
@@ -127,6 +126,8 @@ function Editor({ live }: { live: LiveDocument }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [tool, setTool] = useState<Tool>("select");
   const [pageChoice, setPageChoice] = useState<string | null>(null);
+  const [rightTab, setRightTab] = useState<"inspector" | "team">("inspector");
+  const [teamDialog, setTeamDialog] = useState<"invite" | "join" | "keys" | null>(null);
   const [leftWidth, setLeftWidth] = usePanelWidth("paprika.panel.left", LEFT_PANEL);
   const [rightWidth, setRightWidth] = usePanelWidth("paprika.panel.right", RIGHT_PANEL);
   // Página ativa: a escolhida, se ainda existe; senão a primeira (null num documento sem páginas).
@@ -264,9 +265,8 @@ function Editor({ live }: { live: LiveDocument }) {
   const exportSvg = async () => {
     const root = selected.length === 1 ? selected[0]! : (pageId ?? "");
     try {
-      const res = await fetch(`/api/svg${root ? `?root=${encodeURIComponent(root)}` : ""}`);
-      const body = (await res.json()) as { svg?: string; warnings?: string[]; error?: string };
-      if (!res.ok || !body.svg) throw new Error(body.error ?? res.statusText);
+      const body = await api<{ svg?: string; warnings?: string[] }>(`/api/svg${root ? `?root=${encodeURIComponent(root)}` : ""}`);
+      if (!body.svg) throw new Error("o servidor não devolveu o SVG");
       const url = URL.createObjectURL(new Blob([body.svg], { type: "image/svg+xml" }));
       const a = document.createElement("a");
       a.href = url;
@@ -275,7 +275,7 @@ function Editor({ live }: { live: LiveDocument }) {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       if (body.warnings?.length) live.showError(`SVG exportado com avisos: ${body.warnings.join("; ")}`);
     } catch (err) {
-      live.showError(`Falha ao exportar SVG: ${err instanceof Error ? err.message : String(err)}`);
+      live.showError(`Falha ao exportar SVG: ${errorText(err)}`);
     }
   };
 
@@ -309,6 +309,7 @@ function Editor({ live }: { live: LiveDocument }) {
           <span className="doc-name truncate text-muted max-wide:hidden">{doc.name}</span>
         </div>
         <div className={bar.status}>
+          {live.team !== undefined && <TeamChip status={live.team} onClick={() => setRightTab("team")} />}
           {lastAgent && Date.now() - lastAgent.at < 8000 && (
             <span className="agent-pill inline-flex max-w-[280px] items-center gap-1 rounded-full bg-accent-soft px-2 py-0.75 text-accent-ink">
               <Bot className="shrink-0" size={14} aria-hidden />
@@ -361,6 +362,7 @@ function Editor({ live }: { live: LiveDocument }) {
           apply={live.apply}
           agentTouched={live.agentTouched}
           agents={live.agents}
+          onOpenPage={openPage}
           onError={live.showError}
         />
         {live.error && (
@@ -371,6 +373,31 @@ function Editor({ live }: { live: LiveDocument }) {
       </main>
       <PanelResizer side="right" label="Largura do painel de propriedades" width={rightWidth} limits={RIGHT_PANEL} onChange={setRightWidth} />
       <aside className="right overflow-auto border-l border-line bg-panel [grid-area:right] max-wide:border-t max-wide:border-l-0">
+        {live.team !== undefined && (
+          <div className="right-tabs m-3 mb-0 grid grid-cols-2 gap-0.5 rounded-md bg-night p-0.5" role="tablist">
+            {(["inspector", "team"] as const).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={rightTab === t}
+                className={cx("cursor-pointer rounded-sm border-0 py-1 text-xs", rightTab === t ? "is-active bg-panel-2 font-semibold text-fg" : "bg-transparent text-muted")}
+                onClick={() => setRightTab(t)}
+              >
+                {t === "inspector" ? "Inspector" : "Time"}
+              </button>
+            ))}
+          </div>
+        )}
+        {live.team !== undefined && rightTab === "team" ? (
+          <TeamPanel
+            status={live.team}
+            agents={live.agents}
+            docId={doc.id}
+            onInvite={() => setTeamDialog("invite")}
+            onJoin={() => setTeamDialog("join")}
+            onKeys={() => setTeamDialog("keys")}
+          />
+        ) : (
         <Inspector
           doc={doc}
           node={node}
@@ -387,7 +414,11 @@ function Editor({ live }: { live: LiveDocument }) {
           onSelectMany={setSelected}
           onError={live.showError}
         />
+        )}
       </aside>
+      {teamDialog === "invite" && live.team && <InviteDialog status={live.team} onClose={() => setTeamDialog(null)} />}
+      {teamDialog === "join" && <JoinDialog status={live.team ?? null} onClose={() => setTeamDialog(null)} />}
+      {teamDialog === "keys" && live.team && <KeysDialog status={live.team} onClose={() => setTeamDialog(null)} onInvite={() => setTeamDialog("invite")} />}
     </div>
   );
 }

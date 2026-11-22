@@ -40,6 +40,7 @@ jobs:
       golden: ${{ steps.plan.outputs.golden }}
       go: ${{ steps.plan.outputs.go }}
       rust: ${{ steps.plan.outputs.rust }}
+      sync: ${{ steps.plan.outputs.sync }}
       codeql: ${{ steps.plan.outputs.codeql }}
       codeql_matrix: ${{ steps.plan.outputs.codeql_matrix }}
       docker: ${{ steps.plan.outputs.docker }}
@@ -331,6 +332,47 @@ jobs:
         if: matrix.task == 'test'
         run: cargo test --locked
 
+  # ---------------------------------------------------------------- Team sync
+
+  sync:
+    name: Team sync (paprika-sync + internal/team)
+    needs: plan
+    if: needs.plan.outputs.sync == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: crates/sync
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: server-go/go.sum
+      - name: cargo fmt --check
+        working-directory: crates/sync
+        run: cargo fmt --check
+      - name: clippy
+        working-directory: crates/sync
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: cargo test
+        working-directory: crates/sync
+        run: cargo test --locked
+      - name: Build the sidecar
+        working-directory: crates/sync
+        run: cargo build --locked
+      # Two real instances (Go store + sidecar each) talking over loopback.
+      - name: go test ./internal/team
+        working-directory: server-go
+        run: PAPRIKA_SYNC="$GITHUB_WORKSPACE/crates/sync/target/debug/paprika-sync" go test -count=1 ./internal/team/...
+
   # ---------------------------------------------------------------- CodeQL
 
   codeql:
@@ -441,7 +483,7 @@ jobs:
     name: CI OK
     # The one check to require in branch protection: green when every job that ran passed and
     # the skipped ones were skipped on purpose by the plan.
-    needs: [plan, build, unit, suites, golden, go-lint, govulncheck, go-test, rust, codeql, docker, secrets]
+    needs: [plan, build, unit, suites, golden, go-lint, govulncheck, go-test, rust, sync, codeql, docker, secrets]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2

@@ -6,195 +6,109 @@
 
 # Paprika
 
-Ferramenta de design **local** para agentes de IA, com **servidor MCP embutido**.
-Você e o agente editam o mesmo documento ao mesmo tempo: o agente via MCP, você no canvas do navegador.
-Toda edição dos dois passa pelo mesmo caminho (operações atômicas validadas), entra no mesmo histórico de desfazer e é salva em um arquivo `.paprika.json` versionável no git.
+**Uma ferramenta de design em que você e o seu agente de IA desenham juntos.**
 
-> Projeto original. O Paper (paper.design) foi apenas referência de conceito ("canvas em HTML/CSS conectado a agentes"); nenhum código, asset ou comportamento foi copiado ou obtido por engenharia reversa.
+Você abre um canvas no navegador. O seu agente (o Claude Code, ou qualquer outro agente que fale [MCP](https://modelcontextprotocol.io)) ganha um conjunto de ferramentas próprio para criar telas, componentes e diagramas nesse mesmo canvas. Você vê o cursor dele se mexendo enquanto ele trabalha, ajusta o que quiser com as próprias mãos e desfaz qualquer coisa que um dos dois tenha feito.
 
-## Por que
+Tudo roda no seu computador. Não tem conta para criar, não tem limite de uso e nenhum serviço na nuvem guarda os seus designs.
 
-| Problema com agentes em ferramentas de design | Como o Paprika resolve |
+## Por que você pode gostar
+
+- **O seu agente desenha, não só escreve código.** Peça uma tela de login, um fluxograma ou um conjunto de ícones e veja aparecer.
+- **Você continua no controle.** Você vê o que o agente está mexendo na hora, e os dois compartilham o mesmo histórico de desfazer, então nada se perde.
+- **O agente confere o próprio trabalho.** Ele tira screenshots e verifica contraste de cores, texto que não cabe e tokens de design faltando antes de dizer que terminou.
+- **Do design ao código.** Um design pode ser exportado como HTML, componente React ou SVG.
+- **Continua sendo seu.** Os designs ficam num banco de dados local e podem ser exportados para um arquivo simples que você guarda no git.
+
+## Começando
+
+Você precisa do [Docker](https://docs.docker.com/get-docker/). Depois, num terminal:
+
+```bash
+git clone https://github.com/leonardo-moraes360/paprika.git
+cd paprika
+docker compose up -d --build
+```
+
+O primeiro build leva alguns minutos. Quando terminar:
+
+1. Abra **http://localhost:4777** no navegador. Você verá os seus workspaces; dê um clique duplo num deles para abrir o canvas.
+2. Conecte o seu agente em **http://localhost:4777/mcp**. No Claude Code:
+
+   ```bash
+   claude mcp add --transport http paprika http://localhost:4777/mcp
+   ```
+
+   Outros agentes: adicione um servidor MCP do tipo "HTTP" (às vezes chamado de "streamable HTTP") com esse endereço.
+3. Peça alguma coisa ao agente, como *"Use o Paprika para desenhar uma tela de cadastro para o app de uma cafeteria."*
+
+Os designs ficam guardados num volume do Docker e sobrevivem a reinícios. `docker compose down` para o Paprika; `docker compose up -d` sobe de novo.
+
+Prefere não usar Docker? Veja [como rodar sem Docker](docs/pt-BR/desenvolvimento.md#rodar-sem-docker).
+
+### Ou deixe o seu agente fazer o setup
+
+Cole este prompt no seu agente (funciona melhor num que consiga rodar comandos no terminal, como o Claude Code):
+
+```text
+Por favor, configure o Paprika para mim, uma ferramenta de design local para
+agentes de IA (https://github.com/leonardo-moraes360/paprika).
+
+1. Confira se o Docker e o Docker Compose estão instalados e rodando. Se não
+   estiverem, pare e me diga como instalar; não instale nada sem me perguntar
+   antes.
+2. Clone o repositório numa pasta que eu escolher (me pergunte; o padrão é
+   ~/paprika) e rode `docker compose up -d --build` dentro dela. O primeiro
+   build pode levar alguns minutos.
+3. Espere até http://localhost:4777/api/workspaces responder e então me diga
+   para abrir http://localhost:4777 no navegador.
+4. Adicione o Paprika a você mesmo como servidor MCP por HTTP em
+   http://localhost:4777/mcp. No Claude Code:
+   claude mcp add --transport http paprika http://localhost:4777/mcp
+   Se precisar reiniciar ou abrir uma sessão nova para ver as ferramentas,
+   me avise.
+5. Quando as ferramentas aparecerem, chame `get_design_guide` com
+   `language: "pt-BR"` e desenhe um pequeno frame de boas-vindas no canvas
+   para eu ver funcionando.
+
+Se algo falhar, me mostre o erro e o que você sugere. Mantenha a porta 4777 no
+host: o servidor só aceita essa porta.
+```
+
+## O que dá para fazer
+
+- Organizar os designs em **workspaces**, cada um com as próprias páginas e uma capa na tela inicial.
+- Desenhar frames, formas, texto, imagens e **vetores livres** com a caneta.
+- Criar **componentes** e reutilizá-los como instâncias; trocar entre **tema claro e escuro** com tokens de design.
+- Fazer **diagramas**: caixas, decisões, notas adesivas e setas que acompanham as formas.
+- Colar SVG ou HTML de qualquer lugar e receber camadas editáveis; baixar o resultado em SVG.
+- Ver **cada agente conectado** no canvas, com cursor, nome e cor próprios.
+- Trabalhar **em time sem servidor**: `paprika serve --team` conecta o Paprika e os agentes de cada pessoa peer to peer (Iroh + CRDT Loro), com convite por link ou QR e só as chaves do time aceitas ([Sincronização de time](docs/pt-BR/sincronizacao-time.md)).
+
+A lista completa de ferramentas e atalhos está em [Usando o canvas](docs/pt-BR/canvas.md).
+
+## Para saber mais
+
+| Se você quer… | Leia |
 |---|---|
-| Agente gasta tokens lendo árvores enormes | `get_document_outline`: uma linha por nó, com profundidade configurável |
-| Edição parcial deixa o arquivo quebrado | Toda escrita é uma transação: tudo ou nada |
-| Campos com typo somem em silêncio | Campos desconhecidos são rejeitados com mensagem acionável |
-| Agente não sabe se ficou bom | `lint_design` (contraste WCAG, overflow, tokens) + `render_screenshot` |
-| O que o agente vê ≠ o que o humano vê ≠ o código | Um único motor de estilo (`nodeStyle`) para canvas, screenshot e export |
-| Limite de chamadas / SaaS | 100% local, sem conta, sem limite |
+| Aprender o canvas, os atalhos e os diagramas | [Usando o canvas](docs/pt-BR/canvas.md) |
+| Conectar um agente, ver todas as ferramentas MCP e o formato do arquivo | [Agentes e MCP](docs/pt-BR/mcp.md) |
+| Rodar com Docker: importar, exportar, backup, portas | [Docker](docs/pt-BR/docker.md) |
+| Compilar a partir do código, rodar os testes, contribuir com código | [Desenvolvimento](docs/pt-BR/desenvolvimento.md) · [CI](docs/pt-BR/ci.md) |
+| Entender como ele é construído | [Arquitetura](docs/pt-BR/arquitetura.md) · [Servidor Go](server-go/README.pt-BR.md) · [Decisões (ADRs)](docs/pt-BR/adr/) |
+| Ver o que está planejado | [Backlog](docs/pt-BR/backlog.md) |
 
-## Início rápido
+## Bom saber
 
-Requisitos: Node 22+, pnpm 10+ e Go 1.26+.
-
-```bash
-pnpm install
-pnpm build                                   # canvas + binário do servidor (server-go/bin/paprika)
-server-go/bin/paprika import examples/demo.paprika.json --db design.db
-server-go/bin/paprika serve --db design.db
-# canvas: http://127.0.0.1:4777   ·   MCP: http://127.0.0.1:4777/mcp
-```
-
-Screenshot e export SVG pelo MCP precisam de um Chromium. O servidor encontra sozinho os navegadores do Playwright; se não houver nenhum, instale um (ou aponte `PAPRIKA_CHROMIUM` para qualquer Chrome):
-
-```bash
-pnpm --filter @paprika/e2e exec playwright install chromium
-```
-
-### Com Docker
-
-Uma imagem com o servidor, o canvas e o renderizador WASM; o banco SQLite fica num volume:
-
-```bash
-docker compose up -d --build                 # ou: docker build -t paprika . && docker run -d -p 127.0.0.1:4777:4777 -v paprika-data:/data paprika
-# canvas: http://localhost:4777   ·   MCP: http://localhost:4777/mcp
-```
-
-Mantenha a porta do host em 4777 (o servidor confere o `Host`). Importar/exportar, stdio, o alvo `slim` e como a imagem é montada: [docs/pt-BR/docker.md](docs/pt-BR/docker.md).
-
-## Conectar um agente
-
-**HTTP (recomendado, com o canvas aberto):** rode `paprika serve` e aponte o agente para `http://127.0.0.1:4777/mcp`.
-
-Claude Code:
-
-```bash
-claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
-```
-
-**stdio** (agentes que só falam stdio). O processo também sobe o canvas na porta 4777, se estiver livre:
-
-```json
-{
-  "mcpServers": {
-    "paprika": {
-      "command": "<CAMINHO>/paprika/server-go/bin/paprika",
-      "args": ["mcp", "--db", "<CAMINHO>/design.db"]
-    }
-  }
-}
-```
-
-## Ferramentas MCP
-
-| Ferramenta | O que faz |
-|---|---|
-| `get_design_guide` | Modelo de nós, campos e fluxo recomendado; em inglês, ou em português com `language: "pt-BR"` |
-| `get_document_outline` | Árvore compacta + tokens + versão |
-| `get_nodes` / `find_nodes` | JSON completo de nós / busca por tipo, nome, texto |
-| `create_nodes` | Cria árvores aninhadas numa chamada |
-| `draw_diagram` | Desenha um diagrama (fluxograma, arquitetura, mapa mental) a partir de formas e ligações: distribui as formas em camadas (`direction`: para baixo ou para a direita, à direita do conteúdo existente) e liga com setas que seguem as formas |
-| `update_nodes` / `move_nodes` / `delete_nodes` | Edição em lote, atômica |
-| `group_nodes` / `ungroup_nodes` | Põe nós irmãos num `group` (o desenho não se move) / devolve ao pai |
-| `create_page` | Cria uma página; a primeira leva o canvas atual para "Página 1" |
-| `create_component` / `create_instance` / `detach_instance` | Marca um frame como componente / põe uma cópia dele (com `scale` e `overrides`; retorna o id de cada cópia) / transforma uma instância em nós comuns |
-| `apply_ops` | Transação mista (create, update, delete, move, set_tokens, rename_document, group, ungroup, add_page, detach) |
-| `set_tokens` | Design tokens (`$nome`) para cores e tamanhos; com `mode`, os valores de um modo de tema (ex.: `dark`) que frames e páginas escolhem com `mode` |
-| `list_workspaces` / `open_workspace` / `create_workspace` | Lista os workspaces (documentos) do servidor / torna um deles o ativo para todas as ferramentas e para o canvas do humano / cria um vazio |
-| `rename_workspace` / `delete_workspace` | Renomeia um workspace (com desfazer quando é o ativo) / exclui um de vez (o ativo passa para o outro atualizado mais recentemente; o único não pode ser excluído) |
-| `set_workspace_cover` | Põe uma imagem no card do workspace na página inicial: o screenshot de um frame dele (`rootId`), uma imagem (`image`, base64 ou data URL) ou nenhuma (`clear`, volta a primeira letra) |
-| `undo` / `redo` / `get_history` | Histórico compartilhado com o humano; toda ferramenta de escrita aceita `batch`, e várias chamadas com o mesmo batch viram um passo só de undo |
-| `lint_design` | Contraste WCAG AA, overflow, tokens inexistentes, texto pequeno, alt |
-| `path_info` | Valida dados de caminho SVG e devolve a caixa exata (com extremos de bezier e arcos) e o `d` normalizado |
-| `render_screenshot` | PNG de um nó, de uma página ou do canvas |
-| `import_svg` / `import_html` | Transforma SVG colado (paths, formas, grupos, transforms) ou HTML com estilos inline em nós editáveis; o que não dá para importar volta em `warnings` |
-| `export_code` | HTML autocontido, componente React (TSX) ou SVG vetorial (layout medido num Chromium headless); `cssVariables: true` escreve os tokens como `var(--nome)`, com uma regra por modo de tema |
-
-Camada de agentes:
-- O guia, as descrições das ferramentas, os erros, os avisos e as mensagens do lint são em inglês (o guia também em português, ver acima).
-- As ferramentas que respondem JSON declaram `outputSchema` e devolvem `structuredContent`; o bloco de texto continua com o mesmo JSON (no `get_nodes` e no `get_history`, o array puro).
-- O histórico identifica o agente pelo `clientInfo.name` do MCP (`agent:claude-code`). No HTTP o servidor é stateless, então o `initialize` devolve um `Mcp-Session-Id` que só guarda esse nome; sem ele, vale o User-Agent, como antes.
-
-## Canvas
-
-Workspaces: `http://127.0.0.1:4777` abre na página de workspaces: um clique seleciona um card, um clique duplo (ou Enter) abre o canvas daquele workspace em `/w/<id>`, um clique duplo no nome (ou F2) renomeia, o botão de imagem (ou soltar uma imagem no card) define a capa, e a lixeira (ou Delete) exclui depois de uma confirmação; sem capa o card mostra a primeira letra do nome; o logo do Paprika volta. Um workspace é um documento do banco. O servidor tem um workspace ativo, compartilhado pelo canvas e pelos agentes MCP: abrir um workspace (no canvas ou com `open_workspace`) troca o ativo para todos, e o canvas acompanha quando um agente troca. HTTP: `GET /api/workspaces`, `POST /api/workspaces` (`{ "name" }`), `POST /api/workspaces/<id>/open`, `PATCH /api/workspaces/<id>` (`{ "name" }`), `DELETE /api/workspaces/<id>` (409 para o único workspace), `GET`/`PUT`/`DELETE /api/workspaces/<id>/cover` (o PUT recebe o PNG, JPEG, WebP ou GIF cru, até 2 MiB; nunca SVG).
-
-Atalhos: `V` selecionar, `F` frame, `R` retângulo, `O` elipse, `T` texto, `P` caneta (clique = vértice reto, clicar e arrastar = alças bezier, clicar no primeiro vértice fecha, `Enter`/`Esc`/duplo clique terminam um traço aberto, `Backspace` remove o último vértice), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicar, `Delete`, setas (Shift = 10px), `Esc` sobe para o pai.
-Seleção: `Shift`+clique (no canvas ou nas camadas) adiciona ou tira um nó, arrastar no vazio desenha a caixa de seleção, `Ctrl+A` seleciona os irmãos (ou a página inteira), `Ctrl+G` agrupa, `Ctrl+Shift+G` desagrupa. Clicar dentro de um grupo seleciona o grupo; duplo clique seleciona o nó sob o cursor. Arrastar, setas, `Delete` e `Ctrl+D` valem para a seleção inteira.
-
-Componentes: "Tornar componente" no inspector de um frame, depois "Nova instância". Clicar dentro de uma instância seleciona a instância; selecione uma cópia nas camadas (ou com duplo clique) para trocar texto, cores, opacidade ou visibilidade. Mudanças no componente chegam a todas as instâncias; "Desanexar" transforma a instância em nós comuns.
-Modos de tema: o painel do documento no inspector lista os tokens de cada modo e adiciona um com `dark: bg = #14161f`; "Modo de tema" num frame ou página aplica o modo a tudo que está dentro.
-Diagramas: `S` caixa, `D` losango (decisão), `N` nota adesiva, `A` seta. Um clique cria a forma no tamanho padrão (ou arraste para escolher o tamanho) e já abre o texto para editar; duplo clique numa forma edita o texto de novo (`Enter` quebra linha, `Esc`, `Ctrl+Enter` ou clicar fora confirmam). Com a seta, arraste de uma forma até outra: as duas pontas ficam presas e a seta acompanha as formas quando elas se movem (uma ponta solta no canvas vazio fica naquele ponto). Apagar uma forma apaga as setas dela; o inspector troca a seta entre cotovelo e reta, escolhe o lado de cada ponta, as pontas de seta e o tracejado.
-Edição de pontos: duplo clique num vetor edita os pontos. Arraste um ponto (as alças vão junto) ou uma alça (a oposta espelha; segure `Alt` para mover só ela). Duplo clique num ponto alterna entre canto e suave, duplo clique no contorno adiciona um ponto, `Delete` remove o ponto selecionado, `Esc` ou `Enter` terminam. Cada gesto é um passo de desfazer. Curvas quadráticas e arcos viram curvas cúbicas depois da edição.
-Colar e exportar: `Ctrl+V` com SVG ou HTML (por exemplo, copiado de uma página web) na área de transferência cria nós editáveis dentro do frame selecionado, ou na página, no centro da tela. O botão `⇩` da barra baixa a seleção (ou a página atual) como SVG.
-Páginas: o painel "Páginas" à esquerda troca de página, `+` cria uma (o primeiro `+` transforma o canvas atual na "Página 1"), duplo clique renomeia, `×` apaga (dá para desfazer).
-Renomear: duplo clique numa camada do painel "Camadas" ou no título de um frame no canvas renomeia no lugar. `Enter` ou clicar fora confirma, `Esc` cancela; cada renomeação é um passo de desfazer. Cópias de instância herdam o nome do componente.
-Navegação: rolar = pan, `Ctrl`+rolar = zoom, segurar `Espaço` (ou `Enter`) e arrastar = pan (o cursor vira uma mão).
-Edições do agente piscam no canvas e aparecem em "Atividade".
-Presença dos agentes: cada agente conectado pelo MCP ganha cursor, nome e cor próprios no canvas, como num multiplayer. Cada chamada de ferramenta (inclusive leituras) leva o cursor até os nós em que ele agiu, contorna esses nós e mostra o que o agente está fazendo; a lista no canto superior direito mostra quem está no documento. Duas sessões do mesmo cliente ganham nomes distintos ("claude-code", "claude-code 2"). A presença não é salva: um agente ocioso esmaece após 15 s e some após 2 minutos.
-
-### Renderizador: DOM ou WASM
-
-O botão à direita do controle de zoom troca como as formas são desenhadas ([ADR 0002](docs/pt-BR/adr/0002-renderizador-canvas-rust-wasm.md)):
-
-- **DOM** (padrão): cada nó é um elemento HTML estilizado pelo `nodeStyle`, o mesmo motor do screenshot e do export.
-- **WASM**: frames, retângulos, elipses e paths são desenhados pelo `crates/render` (Rust, [vello](https://github.com/linebender/vello)) num `<canvas>` abaixo do DOM. Usa **WebGPU** quando o navegador tem um adapter de hardware (o botão mostra `GPU`) e cai para o **vello_cpu** nos outros casos (`CPU`), inclusive quando só existe um adapter WebGPU por software. Texto, imagens, seleção e hit testing continuam no DOM.
-
-A escolha fica salva no navegador; `?renderer=wasm` ou `?renderer=dom` na URL têm prioridade. Nós que a camada WASM não consegue desenhar com exatidão (gradientes e outras cores não sólidas, sombra em path) continuam pintados pelo DOM. Diferença conhecida: texto e imagens ficam sempre acima das formas desenhadas pelo WASM, mesmo quando a forma vem depois na ordem das camadas. Screenshots e exports não mudam (HTML).
-
-O renderizador WASM é compilado pelo `pnpm build` quando o Rust está instalado (`rustup target add wasm32-unknown-unknown` e `cargo install wasm-bindgen-cli --version 0.2.130`); sem ele o build mostra um aviso e o botão fica desabilitado. `PAPRIKA_REQUIRE_WASM=1` transforma o aviso em erro.
-
-## Formato do documento
-
-```jsonc
-{
-  "format": "paprika/1",
-  "name": "Demo",
-  "tokens": { "brand": "#c43d27", "text.md": 16 },
-  "rootIds": ["login"],
-  "nodes": {
-    "login": { "type": "frame", "id": "login", "parentId": null, "width": 390, "height": 760,
-               "layout": { "mode": "column", "gap": 20, "padding": 24 }, "children": ["t1"] },
-    "t1": { "type": "text", "id": "t1", "parentId": "login", "text": "Olá", "color": "$brand",
-            "width": "fill", "height": "hug" }
-  }
-}
-```
-
-Tipos: `frame` (contêiner com pintura e layout livre, linha ou coluna), `group` (agrupa sem pintar; a caixa segue os filhos), `frame` com `component: true` (componente) ou `instanceOf` (instância: os filhos são cópias geradas do componente, escaladas por `scale`, com `overrides`), `page` (canvas separado no arquivo; com páginas, todo nó de topo é página e os frames ficam dentro delas), `rect`, `ellipse`, `text`, `image`, `path` (forma vetorial com dados de caminho SVG: retas, curvas bezier cúbicas e quadráticas, arcos; `fill`, `stroke`, `fillRule`, `strokeCap`, `strokeJoin` e `viewBox` opcional para escalar um grid de ícone).
-Tamanhos: número, `"hug"` (conteúdo) ou `"fill"` (ocupa o espaço do pai). Detalhes em [docs/pt-BR/arquitetura.md](docs/pt-BR/arquitetura.md). O trabalho planejado está em [docs/pt-BR/backlog.md](docs/pt-BR/backlog.md).
-
-## Estrutura
-
-```
-packages/core     modelo (zod), applyOps atômico, History, nodeStyle, render/export, lint, outline
-server-go/        o servidor (Go + SQLite): MCP (stdio e HTTP), WebSocket, API HTTP, screenshot, CLI
-packages/e2e      suítes black-box contra o binário do servidor: API MCP/HTTP/WS e E2E do canvas (Playwright)
-apps/web          canvas React + Vite
-apps/site         landing page (desenhada no Paprika) + site de docs, publicados em paprika.js.org
-examples/         demo gerada por um agente via MCP (packages/e2e/scripts/seed-demo.mjs)
-```
-
-## Servidor (Go + SQLite)
-
-O servidor fica em `server-go/` e guarda documentos, tokens e o histórico de undo/redo em SQLite; arquivos `.paprika.json` entram e saem com `paprika import` / `paprika export` (para versionar um design, por exemplo). Comandos, estrutura do banco e testes: [server-go/README.pt-BR.md](server-go/README.pt-BR.md); registro da decisão: [ADR 0001](docs/pt-BR/adr/0001-servidor-go-sqlite.md).
-
-## Desenvolvimento
-
-```bash
-pnpm check        # build + typecheck + fixtures em dia + testes unitários e Go + suítes da API e E2E
-pnpm dev          # servidor com o demo (dev.db, recriado ao iniciar); em outro terminal: pnpm --filter @paprika/web dev
-pnpm test:api     # suíte black-box MCP/HTTP/WS contra server-go/bin/paprika
-pnpm test:e2e     # E2E do canvas (Playwright) contra server-go/bin/paprika
-pnpm test:render  # renderizador Rust (crates/render): testes nativos com vello_cpu
-```
-
-O CI roda só em pull requests e escolhe os jobs pelos arquivos que a PR altera: veja [docs/pt-BR/ci.md](docs/pt-BR/ci.md).
-
-Este repositório usa o [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) como harness: invariantes em `.toolbelt/invariants.yaml` (`tb mem list`) e `tb verify run` / `tb stack verify guard` antes de concluir. Sessões do Claude Code na nuvem instalam o `tb` fixado ao iniciar ([docs/pt-BR/sessoes-agentes.md](docs/pt-BR/sessoes-agentes.md)).
-
-## Segurança
-
-- Bind em `127.0.0.1` por padrão; Host e Origin são validados (bloqueia DNS rebinding e CSRF de páginas abertas no navegador).
-- Não há autenticação: `--host 0.0.0.0` expõe o documento para a rede. Use só em rede confiável.
-- A imagem Docker escuta em `0.0.0.0` dentro do container; publique no loopback do host (`-p 127.0.0.1:4777:4777`, como faz o `compose.yaml`) ([docs/pt-BR/docker.md](docs/pt-BR/docker.md)).
-- Imagens `https://` são carregadas pelo Chromium no screenshot.
-
-Para reportar uma vulnerabilidade, use o reporte privado de vulnerabilidades do GitHub; veja o [SECURITY.pt-BR.md](SECURITY.pt-BR.md). Não abra issue pública.
+- O Paprika só escuta na sua própria máquina (`localhost`) e **não tem login**. Não o exponha numa rede em que você não confia.
+- Screenshots e exportação em SVG usam um Chrome headless, que a imagem Docker já traz.
+- Achou um problema de segurança? Reporte de forma privada, como explica o [SECURITY.pt-BR.md](SECURITY.pt-BR.md), e não numa issue pública.
 
 ## Como contribuir
 
-Veja o [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md). Toda participação segue o [Código de Conduta](CODE_OF_CONDUCT.pt-BR.md).
+Ideias, relatos de bug e pull requests são bem-vindos. Comece pelo [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md); todo mundo que participa segue o [Código de Conduta](CODE_OF_CONDUCT.pt-BR.md).
+
+O Paprika é um projeto original. O Paper (paper.design) foi apenas referência de conceito ("canvas em HTML/CSS conectado a agentes"); nenhum código, asset ou comportamento foi copiado ou obtido por engenharia reversa.
 
 ## Licença
 

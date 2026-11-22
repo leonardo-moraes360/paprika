@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 #
-# Paprika in one image: the Go server (MCP + HTTP/WS + SQLite), the canvas (apps/web) and the
-# Rust/WASM renderer (crates/render). See docs/docker.md.
+# Paprika in one image: the Go server (MCP + HTTP/WS + SQLite), the canvas (apps/web), the
+# Rust/WASM renderer (crates/render) and the team sync sidecar (crates/sync). See docs/docker.md.
 #
 #   docker build -t paprika .
 #   docker run --rm -p 127.0.0.1:4777:4777 -v paprika-data:/data paprika
@@ -10,7 +10,8 @@
 #   runtime (default)  Ubuntu 24.04 + Chromium headless shell, so `render_screenshot` works.
 #   slim               distroless, no Chromium: everything except screenshots (~10x smaller).
 #
-# Versions follow the repository: Node 22 + pnpm from package.json, Go minor from GO_VERSION in
+# Versions follow the repository: Node 26 (CI tests the `engines` floor, 22) + pnpm from
+# package.json `packageManager`, Go minor from GO_VERSION in
 # .github/workflows/ci.yml, wasm-bindgen from crates/render/Cargo.toml (checked below). Base image
 # tags are literal so Dependabot can bump them; to swap one (a mirror, an internal registry), use
 # `docker buildx build --build-context ubuntu:24.04=docker-image://<other image> .`.
@@ -38,13 +39,29 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
  && wasm-bindgen --target web --out-dir /out \
       target/wasm32-unknown-unknown/release/paprika_render.wasm
 
+# ------------------------------------------------------------------ team sync sidecar (crates/sync)
+# Static musl binary, so it runs on distroless/static next to the Go server (ADR 0004).
+FROM rust:1.100-slim-trixie AS sync
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends musl-tools \
+ && rm -rf /var/lib/apt/lists/* \
+ && rustup target add x86_64-unknown-linux-musl
+WORKDIR /src/crates/sync
+COPY crates/sync/ ./
+# Own registry cache: the wasm stage builds at the same time and would race on unpacking crates.
+RUN --mount=type=cache,id=cargo-registry-sync,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/crates/sync/target \
+    cargo build --locked --release --target x86_64-unknown-linux-musl \
+ && install -D target/x86_64-unknown-linux-musl/release/paprika-sync /out/paprika-sync
+
 # ------------------------------------------------------------------ canvas (apps/web + packages/core)
-FROM node:22-bookworm-slim AS web
+FROM node:26-bookworm-slim AS web
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=1
-RUN corepack enable
 WORKDIR /src
 # Manifests first, so `pnpm install` stays cached until a dependency changes.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+# Node 25+ no longer ships corepack, so install the exact pnpm from `packageManager` with npm.
+RUN npm install --global --no-audit --no-fund "$(node -p 'require("./package.json").packageManager')"
 COPY packages/core/package.json packages/core/
 COPY apps/web/package.json apps/web/
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
@@ -58,7 +75,7 @@ RUN pnpm --filter @paprika/core build \
  && test -n "$(find apps/web/dist -name '*.wasm' -print -quit)"
 
 # ------------------------------------------------------------------ server (server-go)
-FROM golang:1.26-trixie AS server
+FROM golang:1.27-trixie AS server
 WORKDIR /src/server-go
 COPY server-go/go.mod server-go/go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
@@ -72,6 +89,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # ------------------------------------------------------------------ slim: no Chromium
 FROM gcr.io/distroless/static-debian13:nonroot AS slim
 COPY --from=server /out/paprika /app/paprika
+COPY --from=sync /out/paprika-sync /app/paprika-sync
 COPY --from=web /src/apps/web/dist/ /app/web/
 COPY --from=server --chown=65532:65532 /out/data /data
 ENV PAPRIKA_DB=/data/paprika.db PAPRIKA_WEB_ROOT=/app/web
@@ -85,7 +103,7 @@ CMD ["serve", "--host", "0.0.0.0", "--port", "4777"]
 # ------------------------------------------------------------------ Chromium for render_screenshot
 # Chrome for Testing's headless shell, the same build Playwright 1.65.1 (packages/e2e) runs the
 # screenshot tests with. Bump CHROME_VERSION and its checksum together with Playwright.
-FROM ubuntu:24.04 AS chrome
+FROM ubuntu:26.04 AS chrome
 ARG CHROME_VERSION=159.0.8154.6
 ADD --checksum=sha256:77a6442fd3c8acd3bef9e1067fc26f5ef464277d22f0e8cb58dc3e4077a3e458 \
     https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chrome-headless-shell-linux64.zip \
@@ -96,7 +114,7 @@ RUN apt-get update \
  && mv /opt/chrome-headless-shell-linux64 /opt/chrome
 
 # ------------------------------------------------------------------ runtime (default): with Chromium
-FROM ubuntu:24.04 AS runtime
+FROM ubuntu:26.04 AS runtime
 # The headless shell's shared libraries (Playwright's list for Ubuntu 24.04), fonts-inter (the
 # canvas's and the screenshot's font; Liberation and Noto Color Emoji as fallbacks) and tini, which reaps
 # Chromium's child processes since paprika would otherwise be PID 1.
@@ -112,6 +130,7 @@ RUN apt-get update \
  && install -d -o paprika -g paprika /data
 COPY --from=chrome /opt/chrome/ /opt/chrome/
 COPY --from=server /out/paprika /app/paprika
+COPY --from=sync /out/paprika-sync /app/paprika-sync
 COPY --from=web /src/apps/web/dist/ /app/web/
 ENV PAPRIKA_DB=/data/paprika.db PAPRIKA_WEB_ROOT=/app/web PAPRIKA_CHROMIUM=/opt/chrome/chrome-headless-shell
 USER paprika

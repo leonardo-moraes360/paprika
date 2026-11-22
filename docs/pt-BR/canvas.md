@@ -1,0 +1,34 @@
+# Usando o canvas
+
+Tudo o que dá para fazer à mão no navegador: workspaces, ferramentas, atalhos, diagramas e como os agentes aparecem. Voltar ao [README](../../README.pt-BR.md).
+
+English: [../canvas.md](../canvas.md).
+
+## Workspaces e ferramentas
+
+Workspaces: `http://127.0.0.1:4777` abre na página de workspaces: um clique seleciona um card, um clique duplo (ou Enter) abre o canvas daquele workspace em `/w/<id>`, um clique duplo no nome (ou F2) renomeia, o botão de imagem (ou soltar uma imagem no card) define a capa, e a lixeira (ou Delete) exclui depois de uma confirmação; sem capa o card mostra a primeira letra do nome; o logo do Paprika volta. Um workspace é um documento do banco. O servidor tem um workspace ativo, compartilhado pelo canvas e pelos agentes MCP: abrir um workspace (no canvas ou com `open_workspace`) troca o ativo para todos, e o canvas acompanha quando um agente troca. HTTP: `GET /api/workspaces`, `POST /api/workspaces` (`{ "name" }`), `POST /api/workspaces/<id>/open`, `PATCH /api/workspaces/<id>` (`{ "name" }`), `DELETE /api/workspaces/<id>` (409 para o único workspace), `GET`/`PUT`/`DELETE /api/workspaces/<id>/cover` (o PUT recebe o PNG, JPEG, WebP ou GIF cru, até 2 MiB; nunca SVG).
+
+Atalhos: `V` selecionar, `F` frame, `R` retângulo, `O` elipse, `T` texto, `P` caneta (clique = vértice reto, clicar e arrastar = alças bezier, clicar no primeiro vértice fecha, `Enter`/`Esc`/duplo clique terminam um traço aberto, `Backspace` remove o último vértice), `Ctrl+Z` / `Ctrl+Shift+Z`, `Ctrl+D` duplicar, `Delete`, setas (Shift = 10px), `Esc` sobe para o pai.
+Seleção: `Shift`+clique (no canvas ou nas camadas) adiciona ou tira um nó, arrastar no vazio desenha a caixa de seleção, `Ctrl+A` seleciona os irmãos (ou a página inteira), `Ctrl+G` agrupa, `Ctrl+Shift+G` desagrupa. Clicar dentro de um grupo seleciona o grupo; duplo clique seleciona o nó sob o cursor. Arrastar, setas, `Delete` e `Ctrl+D` valem para a seleção inteira.
+
+Componentes: "Tornar componente" no inspector de um frame, depois "Nova instância". Clicar dentro de uma instância seleciona a instância; selecione uma cópia nas camadas (ou com duplo clique) para trocar texto, cores, opacidade ou visibilidade. Mudanças no componente chegam a todas as instâncias; "Desanexar" transforma a instância em nós comuns.
+Modos de tema: o painel do documento no inspector lista os tokens de cada modo e adiciona um com `dark: bg = #14161f`; "Modo de tema" num frame ou página aplica o modo a tudo que está dentro.
+Diagramas: `S` caixa, `D` losango (decisão), `N` nota adesiva, `A` seta. Um clique cria a forma no tamanho padrão (ou arraste para escolher o tamanho) e já abre o texto para editar; duplo clique numa forma edita o texto de novo (`Enter` quebra linha, `Esc`, `Ctrl+Enter` ou clicar fora confirmam). Com a seta, arraste de uma forma até outra: as duas pontas ficam presas e a seta acompanha as formas quando elas se movem (uma ponta solta no canvas vazio fica naquele ponto). Apagar uma forma apaga as setas dela; o inspector troca a seta entre cotovelo e reta, escolhe o lado de cada ponta, as pontas de seta e o tracejado.
+Edição de pontos: duplo clique num vetor edita os pontos. Arraste um ponto (as alças vão junto) ou uma alça (a oposta espelha; segure `Alt` para mover só ela). Duplo clique num ponto alterna entre canto e suave, duplo clique no contorno adiciona um ponto, `Delete` remove o ponto selecionado, `Esc` ou `Enter` terminam. Cada gesto é um passo de desfazer. Curvas quadráticas e arcos viram curvas cúbicas depois da edição.
+Colar e exportar: `Ctrl+V` com SVG ou HTML (por exemplo, copiado de uma página web) na área de transferência cria nós editáveis dentro do frame selecionado, ou na página, no centro da tela. O botão `⇩` da barra baixa a seleção (ou a página atual) como SVG.
+Páginas: o painel "Páginas" à esquerda troca de página, `+` cria uma (o primeiro `+` transforma o canvas atual na "Página 1"), duplo clique renomeia, `×` apaga (dá para desfazer).
+Renomear: duplo clique numa camada do painel "Camadas" ou no título de um frame no canvas renomeia no lugar. `Enter` ou clicar fora confirma, `Esc` cancela; cada renomeação é um passo de desfazer. Cópias de instância herdam o nome do componente.
+Navegação: rolar = pan, `Ctrl`+rolar = zoom, segurar `Espaço` (ou `Enter`) e arrastar = pan (o cursor vira uma mão).
+Edições do agente piscam no canvas e aparecem em "Atividade".
+Presença dos agentes: cada agente conectado pelo MCP ganha cursor, nome e cor próprios no canvas, como num multiplayer. Cada chamada de ferramenta (inclusive leituras) leva o cursor até os nós em que ele agiu, contorna esses nós e mostra o que o agente está fazendo; a lista no canto superior direito mostra quem está no documento. Duas sessões do mesmo cliente ganham nomes distintos ("claude-code", "claude-code 2"). A presença não é salva: um agente ocioso esmaece após 15 s e some após 2 minutos.
+
+## Renderizador: DOM ou WASM
+
+O botão à direita do controle de zoom troca como as formas são desenhadas ([ADR 0002](adr/0002-renderizador-canvas-rust-wasm.md)):
+
+- **DOM** (padrão): cada nó é um elemento HTML estilizado pelo `nodeStyle`, o mesmo motor do screenshot e do export.
+- **WASM**: frames, retângulos, elipses e paths são desenhados pelo `crates/render` (Rust, [vello](https://github.com/linebender/vello)) num `<canvas>` abaixo do DOM. Usa **WebGPU** quando o navegador tem um adapter de hardware (o botão mostra `GPU`) e cai para o **vello_cpu** nos outros casos (`CPU`), inclusive quando só existe um adapter WebGPU por software. Texto, imagens, seleção e hit testing continuam no DOM.
+
+A escolha fica salva no navegador; `?renderer=wasm` ou `?renderer=dom` na URL têm prioridade. Nós que a camada WASM não consegue desenhar com exatidão (gradientes e outras cores não sólidas, sombra em path) continuam pintados pelo DOM. Diferença conhecida: texto e imagens ficam sempre acima das formas desenhadas pelo WASM, mesmo quando a forma vem depois na ordem das camadas. Screenshots e exports não mudam (HTML).
+
+O renderizador WASM é compilado pelo `pnpm build` quando o Rust está instalado (`rustup target add wasm32-unknown-unknown` e `cargo install wasm-bindgen-cli --version 0.2.130`); sem ele o build mostra um aviso e o botão fica desabilitado. `PAPRIKA_REQUIRE_WASM=1` transforma o aviso em erro.

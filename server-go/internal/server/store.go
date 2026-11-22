@@ -25,7 +25,8 @@ type ChangeEvent struct {
 	Version int64
 	Actor   string
 	Label   string
-	Kind    string // apply | undo | redo | reload
+	Kind    string // apply | undo | redo | reload | open | remote
+	DocID   string // the workspace that changed
 }
 
 // HistorySummary is one row of get_history.
@@ -559,7 +560,7 @@ func (s *Store) commitLocked(prev *core.Document, actor, label, kind string) ([]
 	for _, fn := range s.listeners {
 		ls = append(ls, fn)
 	}
-	return ls, ChangeEvent{doc, version, actor, label, kind}, nil
+	return ls, ChangeEvent{doc, version, actor, label, kind, s.docID}, nil
 }
 
 func emit(ls []func(ChangeEvent), e ChangeEvent) {
@@ -593,6 +594,104 @@ func (s *Store) ApplyBatch(ops []any, actor, label, batch string) (*core.ApplyRe
 	s.mu.Unlock()
 	emit(ls, ev)
 	return r, nil
+}
+
+// RemoteResult is the outcome of ApplyRemote.
+type RemoteResult struct {
+	Ops     int      // operations computed
+	Failed  []string // operations the core refused (applied one by one after the batch failed)
+	Created bool     // the workspace did not exist and was created
+}
+
+// applyTolerant applies ops as one transaction; when the core refuses it, it applies them one by
+// one and skips the ones that fail, so a merge the schema rejects heals as much as it can.
+func applyTolerant(doc *core.Document, ops []any) (*core.Document, []string) {
+	if r, err := core.ApplyOps(doc, ops); err == nil {
+		return r.Doc, nil
+	}
+	var failed []string
+	cur := doc
+	for _, op := range ops {
+		r, err := core.ApplyOps(cur, []any{op})
+		if err != nil {
+			failed = append(failed, err.Error())
+			continue
+		}
+		cur = r.Doc
+	}
+	return cur, failed
+}
+
+// ApplyRemote applies changes that came from the team (ADR 0004) to workspace docID, which may be
+// the active one, another one, or a new one (created with name). opsFor computes the operations
+// against the current document under the store lock. The change goes through applyOps but not
+// into the undo history: undo reverts local transactions only.
+func (s *Store) ApplyRemote(docID, name, actor, label string, opsFor func(cur *core.Document) []any) (RemoteResult, error) {
+	s.mu.Lock()
+	if docID == s.docID {
+		prev := s.history.Doc()
+		ops := opsFor(prev)
+		if len(ops) == 0 {
+			s.mu.Unlock()
+			return RemoteResult{}, nil
+		}
+		next, failed := applyTolerant(prev, ops)
+		res := RemoteResult{Ops: len(ops), Failed: failed}
+		if len(failed) == len(ops) {
+			s.mu.Unlock()
+			return res, nil
+		}
+		undo, redo := s.history.Entries(), s.history.RedoEntries()
+		s.history = core.Restore(next, undo, redo)
+		ls, ev, err := s.commitLocked(prev, actor, label, "remote")
+		if err != nil {
+			s.history = core.Restore(prev, undo, redo)
+			s.mu.Unlock()
+			return res, fmt.Errorf("falha ao gravar no banco: %w", err)
+		}
+		s.mu.Unlock()
+		emit(ls, ev)
+		return res, nil
+	}
+	defer s.mu.Unlock()
+	res := RemoteResult{}
+	doc, version, err := LoadDocument(s.db, docID)
+	var prev *core.Document
+	if err != nil {
+		var exists int
+		_ = s.db.QueryRow(`SELECT COUNT(*) FROM documents WHERE id = ?`, docID).Scan(&exists)
+		if exists > 0 {
+			return res, err
+		}
+		if name == "" {
+			name = "Sem título"
+		}
+		doc, version, res.Created = core.CreateDocument(name, docID), 0, true
+	} else {
+		prev = doc
+	}
+	ops := opsFor(doc)
+	res.Ops = len(ops)
+	next := doc
+	if len(ops) > 0 {
+		next, res.Failed = applyTolerant(doc, ops)
+	}
+	if !res.Created && next == doc {
+		return res, nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return res, err
+	}
+	defer tx.Rollback()
+	if err := writeDocument(tx, next, prev, version+1, time.Now().UnixMilli()); err != nil {
+		return res, err
+	}
+	if err := tx.Commit(); err != nil {
+		return res, err
+	}
+	s.dataVersion = s.readDataVersion()
+	return res, nil
 }
 
 func (s *Store) step(actor string, redo bool) (bool, error) {
@@ -658,7 +757,7 @@ func (s *Store) ReloadIfChanged() (bool, error) {
 	for _, fn := range s.listeners {
 		ls = append(ls, fn)
 	}
-	ev := ChangeEvent{s.history.Doc(), s.version, "db", "banco alterado por outro processo", "reload"}
+	ev := ChangeEvent{s.history.Doc(), s.version, "db", "banco alterado por outro processo", "reload", s.docID}
 	s.mu.Unlock()
 	emit(ls, ev)
 	return true, nil
@@ -752,7 +851,7 @@ func (s *Store) OpenWorkspace(id, actor string) (WorkspaceInfo, error) {
 		ls = append(ls, fn)
 	}
 	doc := s.history.Doc()
-	ev := ChangeEvent{doc, s.version, actor, "abrir workspace: " + doc.Str("name"), "open"}
+	ev := ChangeEvent{doc, s.version, actor, "abrir workspace: " + doc.Str("name"), "open", s.docID}
 	s.mu.Unlock()
 	emit(ls, ev)
 	info.Active = true

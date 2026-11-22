@@ -72,8 +72,9 @@ Multi-stage, com cache mounts do BuildKit para cargo, pnpm e Go:
 1. **wasm** (`rust:1.100-slim-trixie`): `cargo build --release --target wasm32-unknown-unknown` + `wasm-bindgen` (binário da release, com checksum fixado, mesma versão e checksum de `.github/actions/setup-rust-wasm`). O estágio falha se `WASM_BINDGEN_VERSION` divergir do pin `=` em `crates/render/Cargo.toml`.
 2. **web** (`node:22-bookworm-slim`, pnpm do `packageManager`): instala só `@paprika/web` e as dependências do workspace, compila `packages/core` e roda `vite build` com o WASM do estágio 1 (o build confere que um `.wasm` foi parar em `dist/`).
 3. **server** (`golang:1.26-trixie`): binário estático (`CGO_ENABLED=0`; `modernc.org/sqlite` é Go puro).
+   **sync** (`rust:1.100-slim-trixie` + `musl-tools`): o sidecar de sincronização de time `paprika-sync` (`crates/sync`), binário musl estático para rodar também no distroless ([sincronizacao-time.md](sincronizacao-time.md)).
 4. **chrome**: o headless shell do Chrome for Testing, o mesmo build (159.0.8154.6) que o Playwright 1.65.1 usa em `packages/e2e`, com checksum fixado.
-5. **runtime** / **slim**: binário em `/app/paprika`, canvas em `/app/web` (`PAPRIKA_WEB_ROOT`), headless shell em `/opt/chrome` (`PAPRIKA_CHROMIUM`).
+5. **runtime** / **slim**: binário em `/app/paprika` (e `/app/paprika-sync` ao lado, achado pelo `serve --team`), canvas em `/app/web` (`PAPRIKA_WEB_ROOT`), headless shell em `/opt/chrome` (`PAPRIKA_CHROMIUM`).
 
 O `.dockerignore` é uma allowlist: o contexto de build só leva os arquivos que os estágios copiam.
 
@@ -85,7 +86,7 @@ Ao subir versões, mantenha juntos:
 
 ## CI
 
-O job `docker` de `.github/workflows/ci.yml` faz o build do alvo padrão e roda `.github/scripts/docker-smoke.sh` contra ele: canvas e asset WASM servidos, `Host` estranho recusado, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` em `/mcp`, e o banco sobrevivendo a um restart do container no mesmo volume. Roda quando o PR mexe no `Dockerfile`, `.dockerignore`, `compose.yaml` ou em algo que entra na imagem (`server-go/`, `apps/web/`, `crates/render/`, `packages/core/`), e nas execuções completas. Veja [ci.md](ci.md).
+O job `docker` de `.github/workflows/ci.yml` faz o build do alvo padrão e roda `.github/scripts/docker-smoke.sh` contra ele: canvas e asset WASM servidos, `Host` estranho recusado, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` em `/mcp`, e o banco sobrevivendo a um restart do container no mesmo volume. Roda quando o PR mexe no `Dockerfile`, `.dockerignore`, `compose.yaml` ou em algo que entra na imagem (`server-go/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), e nas execuções completas. Veja [ci.md](ci.md).
 
 Para rodar a mesma checagem localmente:
 
