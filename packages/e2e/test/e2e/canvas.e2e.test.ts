@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { copyId, type Document, type FrameNode } from "@paprika/core";
+import { connectorMidpoint, copyId, type Document, type FrameNode } from "@paprika/core";
 import { startServer, type ExternalServer } from "../harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
@@ -829,6 +829,57 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, clear: true } });
    }, 30_000);
 
+  it("aviso: quando um agente apaga o workspace ativo ou troca de workspace, o canvas diz quem fez, o que foi perdido e leva à overview", async () => {
+    const POLL = { timeout: 10_000 };
+    const { id: demo, name: demoName } = await doc();
+    const structured = (r: unknown) => (r as { structuredContent: Record<string, any> }).structuredContent;
+    await page.goto(`${url}/w/${demo}`);
+    await page.waitForSelector('[data-paprika-id="login"]');
+    const notice = page.locator(".workspace-notice");
+    expect(await notice.count()).toBe(0);
+
+    const tmp = structured(await agent.callTool({ name: "create_workspace", arguments: { name: "Aviso temporário" } })).workspace.id as string;
+    await agent.callTool({ name: "open_workspace", arguments: { id: tmp } });
+    await expect.poll(() => notice.textContent(), POLL).toContain("e2e-agent abriu o workspace “Aviso temporário”");
+    await expect.poll(() => new URL(page.url()).pathname, POLL).toBe(`/w/${tmp}`);
+    expect(await notice.locator(".workspace-notice-summary").count()).toBe(0);
+
+    // The notice is a polite live region and never takes focus.
+    expect(await page.locator(".workspace-notice[role='status']").count()).toBe(1);
+    expect(await page.evaluate(() => document.activeElement?.closest(".workspace-notice") ?? null)).toBeNull();
+
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: { nodes: [{ type: "frame", id: "a1", width: 100, height: 60 }, { type: "frame", id: "a2", width: 100, height: 60 }] },
+    });
+    await page.waitForSelector('[data-paprika-id="a2"]');
+
+    // Two steps: the summary and the token, then the delete.
+    const ask = structured(await agent.callTool({ name: "delete_workspace", arguments: { id: tmp } }));
+    expect(ask.needsConfirmation).toBe(true);
+    await agent.callTool({ name: "delete_workspace", arguments: { id: tmp, confirmToken: ask.confirmToken } });
+    await expect.poll(() => notice.textContent(), POLL).toContain("e2e-agent apagou o workspace “Aviso temporário”");
+    await expect.poll(() => notice.locator(".workspace-notice-summary").textContent(), POLL).toMatch(/2 nós.*2 frames/);
+    await expect.poll(() => new URL(page.url()).pathname, POLL).not.toBe(`/w/${tmp}`);
+    expect(await page.evaluate(() => document.activeElement?.closest(".workspace-notice") ?? null)).toBeNull();
+    if (shots) await page.screenshot({ path: join(shots, "25-aviso-apagou.png") });
+
+    await notice.getByRole("button", { name: "Ver workspaces" }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+    await expect.poll(() => notice.count()).toBe(0);
+    await expect.poll(() => page.locator(".workspace-card.is-active").count(), POLL).toBe(1);
+
+    // A rename of the open workspace by an agent shows who did it; the dismiss button closes it.
+    await page.goto(`${url}/w/${demo}`);
+    await page.waitForSelector('[data-paprika-id="login"]');
+    await agent.callTool({ name: "rename_workspace", arguments: { id: demo, name: "Demo do agente" } });
+    await expect.poll(() => notice.textContent(), POLL).toContain("e2e-agent renomeou o workspace para “Demo do agente”");
+    await notice.getByRole("button", { name: "Dispensar aviso" }).click();
+    await expect.poll(() => notice.count()).toBe(0);
+    await agent.callTool({ name: "rename_workspace", arguments: { id: demo, name: demoName } });
+    await expect.poll(async () => (await doc()).name, POLL).toBe(demoName);
+  });
+
   it("overview: uma rajada de escritas do agente não vira um GET da lista por versão, e o último valor aparece", async () => {
     const POLL = { timeout: 10_000 };
     const { id: demo } = await doc();
@@ -878,7 +929,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       expect(await width("aside.left")).toBe(340);
       await dragBy(left, 1000); // trava no máximo
       expect(await width("aside.left")).toBe(480);
-      await dragBy(left, -1000); // trava no mínimo
+      await dragBy(left, -290); // trava no mínimo
       expect(await width("aside.left")).toBe(200);
 
       await dragBy(right, -60); // à direita, arrastar para a esquerda alarga
@@ -1011,6 +1062,98 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.getByRole("button", { name: "Enquadrar" }).click();
     if (shots) await page.screenshot({ path: join(shots, "17-diagrama-agente.png") });
   }, 30_000);
+
+  it("seta: duplo clique no meio da rota adiciona, edita e remove o rótulo (reta e cotovelo, dentro de um frame), Esc cancela e Ctrl+Z desfaz", async () => {
+    const POLL = { timeout: 10_000 };
+    await page.keyboard.press("Escape");
+    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const frame = await agent.callTool({
+      name: "create_nodes",
+      arguments: { parentId, nodes: [{ type: "frame", id: "lbl-frame", name: "Rótulos", x: 1400, y: 40, width: 640, height: 360, fill: "#ffffff" }] },
+    });
+    expect(frame.isError).toBeFalsy();
+    const drawn = await agent.callTool({
+      name: "draw_diagram",
+      arguments: {
+        parentId: "lbl-frame",
+        direction: "right",
+        nodes: [
+          { id: "lbl-a", text: "Início", x: 20, y: 150, width: 140, height: 60 },
+          { id: "lbl-b", text: "Fim", x: 460, y: 30, width: 140, height: 60 },
+          { id: "lbl-c", text: "Erro", x: 460, y: 270, width: 140, height: 60 },
+        ],
+        edges: [{ from: "lbl-a", to: "lbl-b", route: "straight" }, { from: "lbl-a", to: "lbl-c" }],
+      },
+    });
+    expect(drawn.isError).toBeFalsy();
+    await expect.poll(() => page.locator('[data-paprika-id="lbl-a-to-lbl-b"] path').count(), POLL).toBe(2);
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    const connector = async (id: string) => (await doc()).nodes[id] as unknown as { id: string; d: string; label?: string; parentId: string };
+    await expect.poll(() => page.locator('[data-paprika-id="lbl-a-to-lbl-b"] path').count(), POLL).toBe(2);
+    expect((await connector("lbl-a-to-lbl-b")).parentId).toBe("lbl-frame");
+    const editor = page.getByTestId("connector-label-editor");
+    const dblclickMiddle = async (id: string) => {
+      const at = connectorMidpoint((await connector(id)).d)!;
+      const p = await page.locator(`[data-paprika-id="${id}"] path[data-connector-hit]`).evaluate((el, pt) => {
+        const m = (el as SVGPathElement).getScreenCTM()!;
+        return { x: m.a * pt.x + m.c * pt.y + m.e, y: m.b * pt.x + m.d * pt.y + m.f };
+      }, at);
+      await page.mouse.dblclick(p.x, p.y);
+      await page.waitForTimeout(400);
+    };
+    const labelOf = async (id: string) => (await connector(id)).label;
+    const history = async () => {
+      const hist = (await agent.callTool({ name: "get_history", arguments: {} })) as { content: { text: string }[] };
+      return JSON.parse(hist.content[0]!.text).at(-1);
+    };
+
+    for (const id of ["lbl-a-to-lbl-b", "lbl-a-to-lbl-c"]) {
+      await dblclickMiddle(id);
+      await editor.waitFor();
+      await expect.poll(() => editor.inputValue(), POLL).toBe("");
+      await page.keyboard.type("sim");
+      await page.keyboard.press("Enter");
+      await expect.poll(() => labelOf(id), POLL).toBe("sim");
+      await expect.poll(() => page.locator(`[data-paprika-id="${id}"] [data-connector-label]`).textContent(), POLL).toBe("sim");
+      await expect.poll(() => editor.count(), POLL).toBe(0);
+      expect(await history()).toMatchObject({ actor: "user", label: "editar rótulo" });
+      if (shots && id === "lbl-a-to-lbl-b") await page.screenshot({ path: join(shots, "18-seta-com-rotulo.png") });
+
+      await dblclickMiddle(id);
+      await editor.waitFor();
+      await expect.poll(() => editor.inputValue(), POLL).toBe("sim");
+      if (shots && id === "lbl-a-to-lbl-b") await page.screenshot({ path: join(shots, "19-seta-editando-rotulo.png") });
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.type("talvez");
+      await page.keyboard.press("Enter");
+      await expect.poll(() => labelOf(id), POLL).toBe("talvez");
+
+      await dblclickMiddle(id);
+      await editor.waitFor();
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.type("outro");
+      await page.keyboard.press("Escape");
+      await expect.poll(() => editor.count(), POLL).toBe(0);
+      expect(await labelOf(id)).toBe("talvez");
+
+      await dblclickMiddle(id);
+      await editor.waitFor();
+      await editor.fill("");
+      await page.keyboard.press("Enter");
+      await expect.poll(async () => "label" in (await connector(id)), POLL).toBe(false);
+      await expect.poll(() => page.locator(`[data-paprika-id="${id}"] [data-connector-label]`).count(), POLL).toBe(0);
+
+      await page.keyboard.press("ControlOrMeta+z");
+      await expect.poll(() => labelOf(id), POLL).toBe("talvez");
+    }
+
+    // Duplo clique numa forma continua editando o texto da forma.
+    const shape = (await page.locator('[data-paprika-id="lbl-a"]').boundingBox())!;
+    await page.mouse.dblclick(shape.x + shape.width / 2, shape.y + shape.height / 2);
+    await page.getByTestId("shape-text-editor").waitFor();
+    expect(await editor.count()).toBe(0);
+    await page.keyboard.press("Escape");
+  }, 60_000);
 
   it("seleção mostra quatro alças e arrastar o canto NW mantém o SE fixo", async () => {
     const POLL = { timeout: 10_000 };

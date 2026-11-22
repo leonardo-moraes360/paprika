@@ -1,7 +1,8 @@
 // Black-box API suite for the Go server: it runs as a separate process and is reached only
 // through MCP (HTTP and stdio), the WebSocket and the HTTP API (see server-go/README.md).
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { request } from "node:http";
@@ -41,7 +42,7 @@ describe("API: MCP", () => {
       [
         "apply_ops", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "find_nodes", "get_design_guide",
-        "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_svg",
+        "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
         "rename_workspace", "render_screenshot", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
@@ -475,6 +476,64 @@ describe("API: MCP", () => {
     const bad = await call(c, "import_html", { html: "<!-- nada -->" });
     expect(bad.isError).toBe(true);
     expect(textOf(bad)).toBe("the HTML has no elements to import");
+  }, 30_000);
+
+  it("importar imagem raster: formatos, GIF animado, path traversal e arquivo grande demais", async () => {
+    const fixtures = join(repoRoot, "server-go/internal/server/testdata/images");
+    const base = mkdtempSync(join(tmpdir(), "paprika-img-"));
+    const allowed = join(base, "allowed");
+    const outside = join(base, "outside");
+    mkdirSync(allowed);
+    mkdirSync(outside);
+    for (const f of ["pixel.png", "pixel.jpg", "pixel.gif", "animated.gif", "pixel.webp", "pixel.avif"]) copyFileSync(join(fixtures, f), join(allowed, f));
+    copyFileSync(join(fixtures, "pixel.png"), join(outside, "secret.png"));
+    symlinkSync(join(outside, "secret.png"), join(allowed, "escape.png"));
+    writeFileSync(join(allowed, "big.png"), Buffer.concat([Buffer.from("\x89PNG\r\n\x1a\n", "latin1"), Buffer.alloc(3_500_000)]));
+    const previous = process.env.PAPRIKA_IMPORT_DIRS;
+    process.env.PAPRIKA_IMPORT_DIRS = allowed;
+    const own = await startServer();
+    if (previous === undefined) delete process.env.PAPRIKA_IMPORT_DIRS;
+    else process.env.PAPRIKA_IMPORT_DIRS = previous;
+    const c = new Client({ name: "parity", version: "0" });
+    try {
+      await c.connect(new StreamableHTTPClientTransport(new URL(`${own.url}/mcp`)));
+      const expected: Record<string, { format: string; animated: boolean }> = {
+        "pixel.png": { format: "png", animated: false },
+        "pixel.jpg": { format: "jpeg", animated: false },
+        "pixel.gif": { format: "gif", animated: false },
+        "animated.gif": { format: "gif", animated: true },
+        "pixel.webp": { format: "webp", animated: false },
+        "pixel.avif": { format: "avif", animated: false },
+      };
+      for (const [file, want] of Object.entries(expected)) {
+        const r = await call(c, "import_image", { src: join(allowed, file) });
+        expect(r.isError, textOf(r)).toBeFalsy();
+        const out = JSON.parse(textOf(r));
+        expect(out).toMatchObject({ format: want.format, naturalWidth: 4, naturalHeight: 3, animated: want.animated });
+        expect(out.warnings).toHaveLength(want.animated ? 1 : 0);
+        const [node] = JSON.parse(textOf(await call(c, "get_nodes", { ids: out.created })));
+        expect(node).toMatchObject({ type: "image", width: 4, height: 3 });
+        expect(node.src).toBe(`data:image/${want.format};base64,${readFileSync(join(allowed, file)).toString("base64")}`);
+      }
+      const shrunk = await call(c, "import_image", { src: "pixel.png", width: 2, fit: "contain", x: 5, y: 6, label: "logo" });
+      expect(shrunk.isError, textOf(shrunk)).toBeFalsy();
+      const [small] = JSON.parse(textOf(await call(c, "get_nodes", { ids: JSON.parse(textOf(shrunk)).created })));
+      expect(small).toMatchObject({ width: 2, height: 1.5, fit: "contain", x: 5, y: 6 });
+      const version = await own.version();
+      for (const src of ["../outside/secret.png", join(outside, "secret.png"), "escape.png", "../../../../../../../../etc/passwd"]) {
+        const r = await call(c, "import_image", { src });
+        expect(r.isError, src).toBe(true);
+        expect(textOf(r)).toMatch(/outside the allowed directories|file not found/);
+      }
+      const big = await call(c, "import_image", { src: join(allowed, "big.png") });
+      expect(big.isError).toBe(true);
+      expect(textOf(big)).toContain("too large");
+      expect(textOf(big)).toContain("limit 3500000 bytes");
+      expect(await own.version()).toBe(version);
+    } finally {
+      await c.close();
+      await own.stop();
+    }
   }, 30_000);
 
   it("modos de tema: set_tokens com mode, frame com mode, export com variáveis CSS", async () => {

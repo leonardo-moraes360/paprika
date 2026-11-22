@@ -907,6 +907,39 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		}
 		return importWrite(r, a, "import HTML")
 	})
+	add("import_image", importFields(
+		z.Field{Name: "src", Schema: z.String().Min(1).Max(5_000_000)},
+		z.Field{Name: "width", Schema: z.Optional(z.Number().Min(1).Max(100000))},
+		z.Field{Name: "fit", Schema: z.Optional(z.Enum("cover", "contain", "fill"))},
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		img, base, err := loadImportImage(a.Str("src"))
+		if err != nil {
+			return nil, err
+		}
+		w, h := fitWidth(img.width, img.height, a.Num("width"))
+		name := base
+		if name == "" {
+			name = "Image"
+		}
+		node := jsonv.NewObject("type", "image", "name", name, "src", img.dataURL(), "x", a.Num("x"), "y", a.Num("y"), "width", w, "height", h)
+		if a.Has("fit") {
+			node.Set("fit", a.Str("fit"))
+		}
+		parent, _ := a.Get("parentId")
+		res, err := store.ApplyBatch([]any{jsonv.NewObject("op", "create", "parentId", parent, "node", node)}, m.actorName(), labelOr(a, "import image"), a.Str("batch"))
+		if err != nil {
+			return nil, err
+		}
+		warnings := []any{}
+		if img.animated {
+			warnings = append(warnings, "animated "+strings.ToUpper(img.format())+": kept animated (the original bytes are embedded unchanged); render_screenshot shows a single frame")
+		}
+		return jsonResult(jsonv.NewObject(
+			"created", jsonv.FromGo(res.Created), "version", float64(store.Version()),
+			"width", w, "height", h, "naturalWidth", float64(img.width), "naturalHeight", float64(img.height), "format", img.format(), "animated", img.animated,
+			"warnings", warnings,
+		)), nil
+	})
 
 	add("duplicate_nodes", z.Object(
 		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
