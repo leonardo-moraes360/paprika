@@ -116,6 +116,29 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     await expect(page.getByRole("status").textContent()).resolves.toBe("Conectado ao servidor");
   });
 
+  /** PAP-B-051: native `title` → accessible Tooltip (hover+focus, Esc dismisses); icon buttons keep aria-label. */
+  it("tooltips do chrome abrem no foco, fecham no Esc e os ícones mantêm aria-label (1.4.13, 4.1.2)", async () => {
+    const zoomIn = page.getByRole("button", { name: "Aumentar zoom" });
+    await expect(zoomIn.getAttribute("aria-label")).resolves.toBe("Aumentar zoom");
+    await expect(zoomIn.getAttribute("title")).resolves.toBeNull();
+    await zoomIn.focus();
+    const tip = page.locator("[data-slot=tooltip-content]");
+    await tip.waitFor({ timeout: 3_000 });
+    await expect(tip.first().textContent()).resolves.toBe("Aumentar zoom");
+    await page.keyboard.press("Escape");
+    await expect.poll(() => tip.count()).toBe(0);
+    await expect.poll(() => zoomIn.evaluate((el) => el === document.activeElement)).toBe(true);
+
+    const rect = page.getByRole("button", { name: "Retângulo" });
+    await expect(rect.getAttribute("aria-label")).resolves.toBe("Retângulo");
+    await expect(rect.getAttribute("title")).resolves.toBeNull();
+    await rect.focus();
+    await tip.waitFor({ timeout: 3_000 });
+    await expect(tip.first().textContent()).resolves.toMatch(/Retângulo/);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => tip.count()).toBe(0);
+  });
+
   it("texto sobre o acento e sobre as cores de agente passa de 4,5:1 (1.4.3)", async () => {
     // Several agents, so the check covers more than the first color.
     const agents: Client[] = [];
@@ -158,18 +181,19 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
         el.focus();
         const cs = getComputedStyle(el);
         return {
-          named: (el.getAttribute("title") ?? "").length > 0,
           focused: document.activeElement === el,
           fg: cs.color,
           bg: cs.backgroundColor,
           agentColor: cs.getPropertyValue("--agent").trim(),
+          nativeTitle: el.getAttribute("title"),
         };
       }),
     );
+    await expect.poll(() => page.locator("[data-slot=tooltip-content]").count(), { timeout: 3_000 }).toBeGreaterThan(0);
     for (const c of agents) await c.close();
     expect(rows.length).toBeGreaterThanOrEqual(4);
     for (const r of rows) {
-      expect(r.named).toBe(true);
+      expect(r.nativeTitle).toBeNull();
       expect(r.focused).toBe(true);
       expect(contrastRatio(r.fg, r.bg)).toBeGreaterThanOrEqual(4.5);
     }
