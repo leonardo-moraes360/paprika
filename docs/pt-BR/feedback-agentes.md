@@ -337,3 +337,16 @@ capturado antes e depois.
 | 98 | Um teste de contraste que não minta | A primeira medição do hover devolveu a cor de repouso porque o `transition-colors` ainda não tinha aterrissado, então a asserção passou sem nunca testar o hover; uma sonda manual com espera de 300 ms mostrou que a lavanda do hover é mais forte e que o texto claro tinha caído para 4,39:1 | Nada para a ferramenta mudar. Registrado porque é fácil repetir: espere a transição, leia depois, e assera os dois estados — como a suíte faz agora | P3 |
 
 - O `lint_design` apontou o texto destrutivo claro em 4,05:1 já na primeira folha, antes de qualquer linha de código — o mesmo tipo de erro que pegou na folha do PAP-B-030, e os alfas dos tokens são os que são hoje por causa dele.
+
+## 2026-11-22: renomear a única página (PAP-B-020, design first)
+
+Tarefa: desenhar o painel de páginas antes, durante e depois de renomear o placeholder "Página 1" de um workspace
+sem páginas, e ligar o renomear em `apps/web`. Seis frames raiz (três estados, claro e escuro), ~60 nós.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|-----------------|----------|------|
+| 99 | Uma página para desenhar num documento vazio | O workspace ativo não tinha nós, então a página `Interfaces` não existia e `create_page` teve de ser a primeira chamada; o documento de boards do repositório (`docs/design/boards.paprika.json`) guarda outra página, então não havia o que importar sem que o `--replace` apagasse as folhas que outros tickets desenham em paralelo | Um `create_page` que não faz nada (devolve o id existente) quando já há página com esse nome, para que tickets concorrentes possam "garantir" `Interfaces` sem corrida | P3 |
+| 100 | Screenshot como arquivo | `render_screenshot` devolve o PNG só em base64 dentro do resultado JSON-RPC, então salvar em `docs/assets/boards/` exige um script de decodificação a cada ticket | Um `path` opcional (dentro de um diretório configurado) que grava o arquivo e devolve o local | P3 |
+
+- O `lint_design` apontou a legenda de 11 px (`small-text`) nos seis frames; 12 px resolveu, então as legendas ficam no menor tamanho legível do app.
+- O modo `light` no frame, mais os mesmos tokens `pg.*` sobrescritos em `set_tokens {mode: "light"}`, renderizou os dois temas a partir de um só conjunto de nós, sem editar cor por frame.
