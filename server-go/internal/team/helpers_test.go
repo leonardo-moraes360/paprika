@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,9 +31,37 @@ func sidecarBin(t *testing.T) string {
 type instance struct {
 	store *server.Store
 	team  *Service
+	logs  *logBuf
+}
+
+type logBuf struct {
+	mu    sync.Mutex
+	lines []string
+}
+
+func (b *logBuf) add(m string) {
+	b.mu.Lock()
+	b.lines = append(b.lines, m)
+	b.mu.Unlock()
+}
+
+func (b *logBuf) has(substr string) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for _, l := range b.lines {
+		if strings.Contains(l, substr) {
+			return true
+		}
+	}
+	return false
 }
 
 func newInstance(t *testing.T, name string) *instance {
+	t.Helper()
+	return newInstanceVersions(t, name, "", "")
+}
+
+func newInstanceVersions(t *testing.T, name, app, format string) *instance {
 	t.Helper()
 	dir := t.TempDir()
 	// Every test instance starts on the same workspace id, like peers of one team.
@@ -48,13 +78,20 @@ func newInstance(t *testing.T, name string) *instance {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := New(context.Background(), store, Options{Bin: sidecarBin(t), DataDir: filepath.Join(dir, "team"), Name: name, NoRelay: true, Bind: "127.0.0.1:0"}, func(m string) { t.Log(name + ": " + m) })
+	logs := &logBuf{}
+	svc, err := New(context.Background(), store, Options{
+		Bin: sidecarBin(t), DataDir: filepath.Join(dir, "team"), Name: name,
+		NoRelay: true, Bind: "127.0.0.1:0", App: app, Format: format,
+	}, func(m string) {
+		t.Log(name + ": " + m)
+		logs.add(m)
+	})
 	if err != nil {
 		store.Close()
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { svc.Close(); store.Close() })
-	return &instance{store, svc}
+	return &instance{store, svc, logs}
 }
 
 func eventually(t *testing.T, what string, cond func() bool) {
