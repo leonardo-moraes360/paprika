@@ -1,6 +1,6 @@
 import { parseColor } from "./lint.js";
 import { pageRoots, type Document, type Node, type SceneNode } from "./schema.js";
-import { modeOf, resolveLength, resolveValue, strokePositionOf, strokeStyleOf } from "./style.js";
+import { modeOf, resolveCorners, resolveLength, resolveValue, strokePositionOf, strokeStyleOf, uniformCorner } from "./style.js";
 
 /**
  * Display list for the WASM canvas renderer (`crates/render`, ADR 0002).
@@ -53,9 +53,28 @@ type Shape = Exclude<SceneNode, { type: "group" | "text" | "image" | "shape" | "
 const SHAPES = new Set<Node["type"]>(["frame", "rect", "ellipse", "path"]);
 const isShape = (n: Node): n is Shape => SHAPES.has(n.type);
 
+function unevenCorners(doc: Document, n: Node): boolean {
+  if ((n.type !== "frame" && n.type !== "rect") || !Array.isArray(n.radius)) return false;
+  return uniformCorner(resolveCorners(doc, n.radius, modeOf(doc, n))) === undefined;
+}
+
+function underUnevenFrame(doc: Document, n: Node): boolean {
+  const seen = new Set<string>();
+  let id = n.parentId;
+  while (id && !seen.has(id)) {
+    seen.add(id);
+    const p = doc.nodes[id];
+    if (!p) return false;
+    if (p.type === "frame" && unevenCorners(doc, p)) return true;
+    id = p.parentId;
+  }
+  return false;
+}
+
 /** True when the WASM layer can draw this node's own paint exactly as `nodeStyle` would.
  * Diagram `shape` nodes (rect/ellipse/diamond/triangle/note) stay on the DOM. */
 export function wasmPaintable(doc: Document, n: Node): boolean {
+  if (underUnevenFrame(doc, n) || unevenCorners(doc, n)) return false;
   if (!isShape(n)) return false;
   if (!solidColor(doc, n.fill, modeOf(doc, n))) return false;
   if (n.stroke && !solidColor(doc, n.stroke.color, modeOf(doc, n))) return false;
@@ -92,7 +111,7 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, page
       b.y,
       b.w,
       b.h,
-      n.type === "ellipse" || n.type === "path" ? 0 : len(n.radius),
+      n.type === "ellipse" || n.type === "path" ? 0 : Array.isArray(n.radius) ? resolveCorners(doc, n.radius, mode)[0]! : len(n.radius),
       n.rotation,
       opacity,
       ...f,
@@ -119,12 +138,14 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, page
     const paint = wasmPaintable(doc, n);
     if (isShape(n)) (paint ? painted : domPainted).add(id);
     switch (n.type) {
-      case "frame":
-        if (n.clip) emit(KIND.pushClip, n, b, o, paint);
+      case "frame": {
+        const clip = n.clip && !unevenCorners(doc, n);
+        if (clip) emit(KIND.pushClip, n, b, o, paint);
         else if (paint) emit(KIND.rect, n, b, o, paint);
         for (const c of n.children) walk(c, o);
-        if (n.clip) out.push(KIND.popClip, ...new Array<number>(DISPLAY_STRIDE - 1).fill(0));
+        if (clip) out.push(KIND.popClip, ...new Array<number>(DISPLAY_STRIDE - 1).fill(0));
         break;
+      }
       case "rect":
         if (paint) emit(KIND.rect, n, b, o, paint);
         break;

@@ -142,12 +142,12 @@ describe("API: MCP", () => {
     expect(tools).toEqual(contract.tools);
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
-        "apply_ops", "combine_paths", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
+        "apply_ops", "archive_workspace", "combine_paths", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "get_bounds",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
-        "rename_workspace", "render_screenshot", "resize_image", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
+        "rename_workspace", "render_screenshot", "resize_image", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
         "claim_pin", "list_pins", "resolve_pin", "wait_for_pins",
       ].sort(),
@@ -542,6 +542,39 @@ describe("API: MCP", () => {
     const gap = (await srv.doc()).nodes.gap as PathNode;
     expect(gap).toMatchObject({ x: 40, y: 30, width: 40, height: 40 });
     expect(gap.d.startsWith("M0 0") || gap.d.startsWith("M0 0 ")).toBe(true);
+  });
+
+  it("layoutPositioning absolute sai do fluxo, do gap e do hug", async () => {
+    const bad = await call(client, "create_nodes", { nodes: [{ type: "rect", id: "nope", layoutPositioning: "pinned" }] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toMatch(/layoutPositioning/);
+    await call(client, "create_nodes", {
+      place: "none",
+      nodes: [{
+        type: "frame", id: "arow", x: 0, y: 0, width: "hug", height: "hug",
+        layout: { mode: "row", gap: 8, padding: 0 },
+        children: [
+          { type: "rect", id: "aa", width: 40, height: 20, fill: "#111111" },
+          { type: "rect", id: "apin", width: 16, height: 16, x: 100, y: 4, fill: "#c43d27", layoutPositioning: "absolute" },
+          { type: "rect", id: "ab", width: 30, height: 20, fill: "#222222" },
+        ],
+      }],
+    });
+    expect((await srv.doc()).nodes.apin).toMatchObject({ layoutPositioning: "absolute", x: 100, y: 4 });
+    const bounds = JSON.parse(textOf(await call(client, "get_bounds", { ids: ["arow", "aa", "ab", "apin"] })));
+    expect(bounds.boxes.arow.width).toBeCloseTo(78, 0);
+    expect(bounds.boxes.arow.height).toBeCloseTo(20, 0);
+    expect(bounds.boxes.aa).toMatchObject({ x: 0, y: 0 });
+    expect(bounds.boxes.ab.x).toBeCloseTo(48, 0);
+    expect(bounds.boxes.apin).toMatchObject({ x: 100, y: 4, width: 16, height: 16 });
+    const html = textOf(await call(client, "export_code", { rootId: "arow", format: "html" }));
+    expect(html).toContain('data-paprika-id="apin"');
+    expect(html).toContain("left:100px");
+    expect(html).toContain("position:absolute");
+    await call(client, "update_nodes", { updates: [{ id: "apin", props: { layoutPositioning: null } }] });
+    expect((await srv.doc()).nodes.apin).not.toHaveProperty("layoutPositioning");
+    const back = JSON.parse(textOf(await call(client, "get_bounds", { ids: ["arow"] })));
+    expect(back.boxes.arow.width).toBeCloseTo(102, 0);
   });
 
   it("diagramas: draw_diagram, setas que seguem a forma, export SVG medido e undo", async () => {
@@ -1219,6 +1252,30 @@ describe("API: MCP", () => {
     const missing = await client.callTool({ name: "claim_pin", arguments: { id: "nope" } });
     expect(missing.isError).toBe(true);
   });
+
+  it("radius aceita um valor ou [tl, tr, br, bl] em frame, rect e image", async () => {
+    const c = client;
+    expect(textOf(await call(c, "get_design_guide", {}))).toMatch(/\[tl, tr, br, bl\]/);
+    expect(textOf(await call(c, "get_design_guide", { language: "pt-BR" }))).toMatch(/\[tl, tr, br, bl\]/);
+    await call(c, "set_tokens", { tokens: { "radius.md": 10 } });
+    const created = await call(c, "create_nodes", {
+      nodes: [
+        { type: "rect", id: "rc", width: 80, height: 40, fill: "#c8401f", radius: [24, "$radius.md", 0, 4] },
+        { type: "image", id: "ri", width: 40, height: 40, src: "data:image/png;base64,aaaa", radius: [0, 8, 8, 0], alt: "a" },
+      ],
+    });
+    expect(created.isError, textOf(created)).toBeFalsy();
+    const html = textOf(await call(c, "export_code", { rootId: "rc", format: "html" }));
+    expect(html).toContain("border-radius:24px 10px 0px 4px");
+    const svg = textOf(await call(c, "export_code", { rootId: "rc", format: "svg" }));
+    expect(svg).toContain("<path");
+    expect(svg).not.toContain("rx=");
+    const badShape = (await c.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "ellipse", id: "re", radius: [1, 2, 3, 4] }] } })) as ToolResult;
+    expect(badShape.isError).toBe(true);
+    const short = (await c.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "rs", radius: [1, 2] }] } })) as ToolResult;
+    expect(short.isError).toBe(true);
+  });
+
   it("posiciona frames de topo sem sobreposição (PAP-B-061)", async () => {
     expect(client.getInstructions()).toContain("Placement:");
     expect(textOf(await call(client, "get_design_guide", { language: "pt-BR" }))).toContain("Posicionamento:");
@@ -1491,7 +1548,8 @@ describe("API: HTTP + WebSocket", () => {
     type Info = { id: string; name: string; nodes: number; updatedAt: number; active: boolean };
     const created = (await call(client, "create_workspace", { name: "  Landing  " })) as ToolResult & { structuredContent: { workspace: Info } };
     const landing = created.structuredContent.workspace;
-    expect(Object.keys(landing)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover"]);
+    expect(Object.keys(landing)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover", "archived"]);
+    expect(landing).toMatchObject({ archived: false });
     expect(landing).toMatchObject({ name: "Landing", nodes: 0, active: false });
 
     const post = (path: string, body?: unknown) =>
@@ -1590,7 +1648,7 @@ describe("API: HTTP + WebSocket", () => {
     const renamed = await req("PATCH", `/api/workspaces/${a.id}`, { name: "  A2  " });
     expect(renamed.status).toBe(200);
     const info = ((await renamed.json()) as { workspace: Info }).workspace;
-    expect(Object.keys(info)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover"]);
+    expect(Object.keys(info)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover", "archived"]);
     expect(info).toMatchObject({ id: a.id, name: "A2", active: false });
     expect((await list()).workspaces.find((w) => w.id === a.id)?.name).toBe("A2");
     expect((await req("PATCH", `/api/workspaces/${a.id}`, { name: "  " })).status).toBe(400);
@@ -1639,6 +1697,60 @@ describe("API: HTTP + WebSocket", () => {
     expect(mcpDel.structuredContent.notice).toContain("list_workspace_ops");
     expect(textOf(await call(client, "delete_workspace", { id: "nope" }))).toBe('workspace "nope" does not exist (see list_workspaces)');
     await call(client, "open_workspace", { id: start });
+  });
+
+  it("workspaces: arquivar esconde da lista e restaurar devolve, sem apagar", async () => {
+    type Info = { id: string; name: string; archived: boolean; active: boolean };
+    type WithStruct = ToolResult & { structuredContent: { workspace: Info; active: string; workspaces: Info[] } };
+    const list = async (q = "") => (await (await fetch(`${srv.url}/api/workspaces${q}`)).json()) as { active: string; workspaces: Info[] };
+    const start = (await list()).active;
+    expect((await fetch(`${srv.url}/api/workspaces/${start}/archive`, { method: "POST" })).status).toBe(409);
+    const made = await fetch(`${srv.url}/api/workspaces`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Para arquivar" }),
+    });
+    const spare = ((await made.json()) as { workspace: Info }).workspace;
+    expect(spare.archived).toBe(false);
+
+    const archived = (await call(client, "archive_workspace", { id: spare.id })) as WithStruct;
+    expect(archived.isError, textOf(archived)).toBeFalsy();
+    assertOutput("archive_workspace", archived.structuredContent);
+    expect(archived.structuredContent.workspace).toMatchObject({ id: spare.id, archived: true, active: false });
+    expect(archived.structuredContent.active).toBe(start);
+    expect((await list()).workspaces.some((w) => w.id === spare.id)).toBe(false);
+    expect((await list("?archived=1")).workspaces.map((w) => w.id)).toEqual([spare.id]);
+    const included = (await call(client, "list_workspaces", { includeArchived: true })) as WithStruct;
+    assertOutput("list_workspaces", included.structuredContent);
+    expect(included.structuredContent.workspaces.find((w) => w.id === spare.id)?.archived).toBe(true);
+    expect((await call(client, "list_workspaces") as WithStruct).structuredContent.workspaces.some((w) => w.id === spare.id)).toBe(false);
+
+    const restored = (await call(client, "unarchive_workspace", { id: spare.id })) as WithStruct;
+    expect(restored.isError, textOf(restored)).toBeFalsy();
+    assertOutput("unarchive_workspace", restored.structuredContent);
+    expect(restored.structuredContent.workspace.archived).toBe(false);
+    expect((await list()).workspaces.some((w) => w.id === spare.id)).toBe(true);
+
+    const switched = await fetch(`${srv.url}/api/workspaces/${start}/archive`, { method: "POST" });
+    expect(switched.status).toBe(200);
+    const body = (await switched.json()) as { workspace: Info; active: string };
+    expect(body.workspace.archived).toBe(true);
+    expect(body.active).toBe(spare.id);
+    expect((await list()).active).toBe(spare.id);
+    expect((await list()).workspaces.some((w) => w.id === start)).toBe(false);
+
+    const opened = await fetch(`${srv.url}/api/workspaces/${start}/open`, { method: "POST" });
+    expect(opened.status).toBe(200);
+    expect(((await opened.json()) as { workspace: Info }).workspace).toMatchObject({ id: start, archived: false, active: true });
+    expect((await list()).workspaces.some((w) => w.id === start)).toBe(true);
+
+    expect(textOf(await call(client, "archive_workspace", { id: "nope" }))).toBe('workspace "nope" does not exist (see list_workspaces)');
+    expect((await fetch(`${srv.url}/api/workspaces/nope/archive`, { method: "POST" })).status).toBe(404);
+    expect((await fetch(`${srv.url}/api/workspaces/${spare.id}/archive`, { method: "GET" })).status).toBe(405);
+    const ops = (await call(client, "list_workspace_ops", { workspaceId: spare.id })) as ToolResult & { structuredContent: { entries: { op: string }[] } };
+    assertOutput("list_workspace_ops", ops.structuredContent);
+    expect(ops.structuredContent.entries.map((e) => e.op)).toContain("archive");
+    expect(ops.structuredContent.entries.map((e) => e.op)).toContain("unarchive");
   });
 
   it("bloqueia Host/Origin externos (DNS rebinding / CSRF)", async () => {

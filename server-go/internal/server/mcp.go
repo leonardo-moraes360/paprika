@@ -866,8 +866,10 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return jsonShown(jsonv.NewObject("entries", shown), shown), nil
 	})
 
-	add("list_workspaces", nil, func(context.Context, *jsonv.Object) (ToolResult, error) {
-		ws, err := store.ListWorkspaces()
+	add("list_workspaces", z.Object(
+		z.Field{Name: "includeArchived", Schema: z.Optional(z.Bool())},
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		ws, err := store.ListWorkspacesFiltered(a.Bool("includeArchived"), false)
 		if err != nil {
 			return nil, err
 		}
@@ -924,6 +926,24 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 				return nil, err
 			}
 			return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info))), nil
+		})
+	add("archive_workspace", z.Object(z.Field{Name: "id", Schema: z.String().Min(1)}),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			id := a.Str("id")
+			info, err := store.ArchiveWorkspace(id, m.actorName())
+			if err != nil {
+				return nil, workspaceActionError(id, err)
+			}
+			return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info), "active", store.DocID())), nil
+		})
+	add("unarchive_workspace", z.Object(z.Field{Name: "id", Schema: z.String().Min(1)}),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			id := a.Str("id")
+			info, err := store.UnarchiveWorkspace(id, m.actorName())
+			if err != nil {
+				return nil, workspaceActionError(id, err)
+			}
+			return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info), "active", store.DocID())), nil
 		})
 	add("delete_workspace", z.Object(
 		z.Field{Name: "id", Schema: z.String().Min(1)},
@@ -1744,6 +1764,8 @@ func workspaceActionError(id string, err error) error {
 		return fmt.Errorf(`workspace "%s" does not exist (see list_workspaces)`, id)
 	case errors.Is(err, ErrLastWorkspace):
 		return fmt.Errorf(`workspace "%s" is the only one and cannot be deleted`, id)
+	case errors.Is(err, ErrArchiveOnly):
+		return fmt.Errorf(`workspace "%s" is the only one and cannot be archived`, id)
 	}
 	return err
 }

@@ -601,6 +601,28 @@ Tarefa: desenhar estados de reparent / inserção em auto-layout / reordenação
 - Desenhou no ativo `Paprica · UI` / página `interfaces` sem `open_workspace` depois de consultar o mantenedor sobre o nome.
 - DnD do canvas só em `Canvas.tsx`; DnD HTML5 das Camadas em `Layers.tsx`; E2E em `drag.e2e.test.ts`.
 
+## 2026-11-23: filho absoluto no auto-layout (PAP-B-069, design first)
+
+Tarefa: desenhar o interruptor "Ignorar layout" do inspector (desligado, ligado, escuro) e uma linha com um selo no próprio x/y, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`), antes de adicionar `layoutPositioning`. Quatro frames de tamanho fixo; PNGs em `docs/assets/boards/PAP-B-069/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 117 | Vermelho da marca como texto no fundo noturno | `$ui.primary` (`#c8401f`) sobre `$ui.bg` dá 3.54:1, então os kickers escuros falharam no `lint_design` até a tinta virar `#ffd2c9` | Um token de tinta clara para o vermelho da marca nas superfícies noturnas (o modo claro já passa) | P2 |
+| 118 | Screenshots no repositório | `render_screenshot` com `path` grava no volume do servidor (`/data/screenshots/...`) e devolve esse caminho mais `/api/screenshot/<id>`; o PR ainda copia o PNG com curl | Documentar que `path` é relativo ao diretório de screenshots do servidor, ou aceitar um caminho num diretório do host | P3 |
+
+- Endereçou o workspace pelo id de `list_workspaces`. Não chamou `open_workspace`. Usou a página `interfaces` que já existia (há uma segunda página também chamada Interfaces).
+- O frame de comportamento é um mock: o servidor vivo ainda não aceita `layoutPositioning`, então o selo é um irmão posicionado por x/y, não um filho absoluto de verdade da linha.
+- `lint_design` nos quatro roots: 0 erros e 0 avisos depois de encurtar a dica do estado ligado e deixar os campos em hug.
+
+## 2026-11-23: raio por canto (PAP-B-070, design first)
+
+Tarefa: desenhar os controles de cantos ligados e soltos, mais um cartão de amostra, na página `Interfaces` do workspace `Paprica · UI` (`workspaceId`, sem `open_workspace`) antes de implementar `radius` como um comprimento ou `[tl, tr, br, bl]`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 117 | Screenshot de um frame | `render_screenshot` recebe `rootId`. Passar `id` é ignorado e a ferramenta devolve a primeira página (aqui, o frame "clamp dark" do PAP-B-046) sem erro | Recusar nomes de argumento desconhecidos, ou citar `rootId` no erro quando o caller manda `id` | P3 |
+| 118 | Ver quatro cantos diferentes no servidor que está no ar | `create_nodes` com `radius: [1, 2, 3, 4]` falhou: `expected number, received array`. A amostra teve de ser um path até esta mudança entrar | O servidor em execução só passa a aceitar o raio novo depois deste build | — |
+
 ## 2026-11-23: design dos apontamentos (design first, thread na nuvem)
 
 Tarefa: desenhar a proposta de "apontar um elemento ou área e dizer ao agente o que fazer" (5 quadros: canvas, compositor, painel, contrato MCP, fluxo), primeiro num `paprika serve` na nuvem e depois no Paprika local do mantenedor em `Paprica · UI` (página nova, `workspaceId` em toda escrita, workspace ativo intocado). PNGs em `docs/assets/boards/agent-pins/`.
@@ -615,9 +637,22 @@ Tarefa: desenhar a proposta de "apontar um elemento ou área e dizer ao agente o
 - `workspaceId` em `create_page`/`create_nodes` funcionou bem: os quadros foram para `Paprica · UI` com o canvas parado no workspace ativo do mantenedor.
 - `create_page {ensure: true}` + `place: "free"` posicionou os cinco quadros sem sobreposição e sem coordenadas à mão.
 
+## 2026-11-23: arquivar workspaces (PAP-B-071, design first)
+
+Tarefa: desenhar a ação de arquivar na overview e o filtro Arquivados (inglês escuro, arquivados escuro, português claro) em `Interfaces` de `Paprica · UI` (`cmio9n368k`, página `interfaces`) antes de implementar archive/unarchive. Quatro frames de altura fixa em x=6400; PNGs em `docs/assets/boards/PAP-B-071/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 122 | O workspace de UI nomeado no ticket | O payload pedia `Paprika - UI`. O workspace vivo é `Paprica · UI`. A correção do supervisor chegou depois do claim | Fixar o id do workspace no payload da assign (igual ao #110) | P3 |
+| 123 | Um lugar livre em `Interfaces` | `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0 mesmo com vários frames na página, então `place: "free"` não serviu | A caixa de conteúdo da página deveria incluir os frames filhos | P2 |
+| 124 | MCP durante um restart | As primeiras chamadas voltaram corpo vazio enquanto a `:4777` reiniciava; uma nova tentativa curta listou os workspaces | Manter o aviso de restart no ticket; clientes devem repetir uma resposta vazia | P3 |
+
+- Endereçou o board por `workspaceId` e não chamou `open_workspace`.
+- `lint_design` apontou a fileira de ações em português saindo de um card de 300px (`layout-overflow`); alargar o card para 360 limpou o aviso.
+
 ## 2026-11-23: implementação dos apontamentos
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 122 | Adicionar ferramentas ao contrato por script | `server-go/contract/mcp.json` é formatado à mão (linhas com `,` soltas, layouts misturados), então reserializar reescreve milhares de linhas; quatro ferramentas e o campo `openPins` em 22 outputSchemas tiveram de entrar como texto | Normalizar o arquivo uma vez (um formatador JSON, checado na CI) para as próximas edições virarem diffs pequenos | P3 |
-| 123 | Saber que o humano deixou um pedido | Antes dos apontamentos, o "faça isto aqui" do humano só chegava ao agente pelo chat | Feito aqui: `list_pins` e `openPins` nos resultados de escrita | — |
+| 125 | Adicionar ferramentas ao contrato por script | `server-go/contract/mcp.json` é formatado à mão (linhas com `,` soltas, layouts misturados), então reserializar reescreve milhares de linhas; quatro ferramentas e o campo `openPins` em 22 outputSchemas tiveram de entrar como texto | Normalizar o arquivo uma vez (um formatador JSON, checado na CI) para as próximas edições virarem diffs pequenos | P3 |
+| 126 | Saber que o humano deixou um pedido | Antes dos apontamentos, o "faça isto aqui" do humano só chegava ao agente pelo chat | Feito aqui: `list_pins` e `openPins` nos resultados de escrita | — |

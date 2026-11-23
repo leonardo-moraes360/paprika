@@ -1,5 +1,5 @@
 import { useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
-import { ImageOff, ImagePlus, Pencil, Plus, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ImageOff, ImagePlus, Pencil, Plus, Trash2 } from "lucide-react";
 import { errorText } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ConnectionStatus } from "./ConnectionStatus";
@@ -71,7 +71,8 @@ interface Props {
 export function Overview({ connected, activeId, version, onOpen }: Props) {
   const m = useT();
   const { locale } = useLocale();
-  const list = useWorkspaces();
+  const [filter, setFilter] = useState<"active" | "archived">("active");
+  const list = useWorkspaces(filter === "archived");
   useWorkspacesFollow(activeId, version);
   const mutations = useWorkspaceMutations();
   const workspaces = list.data ?? null;
@@ -111,6 +112,9 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   };
 
   const count = workspaces?.length ?? 0;
+  const showingArchived = filter === "archived";
+  const canDelete = showingArchived || count > 1;
+  const canArchive = !showingArchived && count > 1;
 
   const rename = (w: Workspace, next: string) => attempt(m.whatRenameWorkspace, () => mutations.rename.mutateAsync({ id: w.id, name: next }));
 
@@ -139,14 +143,14 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   const onCardKey = (e: KeyboardEvent, w: Workspace) => {
     if (e.key === "Enter" || e.key === " ") onOpen(w.id);
     else if (e.key === "F2") setRenaming(w.id);
-    else if ((e.key === "Delete" || e.key === "Backspace") && count > 1) askDelete(w);
+    else if ((e.key === "Delete" || e.key === "Backspace") && canDelete) askDelete(w);
     else return;
     e.preventDefault();
   };
 
   /** Where the canvas and the agents go when the active workspace is deleted (the list is most recent first). */
   const successor = deleting?.active ? workspaces?.find((w) => w.id !== deleting.id) : undefined;
-  const countLabel = workspaces ? m.overviewCount(count) : m.loading;
+  const countLabel = workspaces ? (showingArchived ? m.overviewArchivedCount(count) : m.overviewCount(count)) : m.loading;
   return (
     <div className="grid h-full grid-rows-[44px_1fr]">
       <header className={bar.topbar}>
@@ -192,11 +196,33 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
             </Button>
           )}
         </div>
+        <div className="mb-4 flex gap-2" role="group" aria-label={m.overviewFilterArchived}>
+          <Button
+            type="button"
+            variant={showingArchived ? "secondary" : "default"}
+            className={cn("workspace-filter", !showingArchived && "is-active")}
+            aria-pressed={!showingArchived}
+            onClick={() => setFilter("active")}
+          >
+            {m.overviewFilterAll}
+          </Button>
+          <Button
+            type="button"
+            variant={showingArchived ? "default" : "secondary"}
+            className={cn("workspace-filter", showingArchived && "is-active")}
+            aria-pressed={showingArchived}
+            onClick={() => setFilter("archived")}
+          >
+            {m.overviewFilterArchived}
+          </Button>
+        </div>
+        {showingArchived && <h2 className="workspace-archived mx-0 mt-0 mb-4 text-md font-[650]">{m.overviewArchivedHeading}</h2>}
         {error && (
           <div className="mb-4 rounded-lg bg-accent-soft px-3 py-2.5 text-accent-ink" role="alert">
             {error}
           </div>
         )}
+        {showingArchived && workspaces?.length === 0 && <p className="m-0 text-muted">{m.overviewArchivedEmpty}</p>}
         <ul className="grid list-none grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 p-0" aria-label={m.overviewHeading}>
           {workspaces?.map((w) => (
             <li key={w.id} className="group relative">
@@ -253,6 +279,11 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                     </span>
                   </Hint>
                 )}
+                {showingArchived && (
+                  <span className="absolute top-2.5 right-2.5 rounded-full bg-ui-secondary px-2 py-0.5 text-xs font-semibold text-ui-secondary-foreground">
+                    {m.overviewFilterArchived}
+                  </span>
+                )}
               </Card>
               {renaming !== w.id && (
                 <span className="absolute right-2.5 bottom-3 flex gap-0.5 rounded-md bg-ui-card opacity-0 transition-opacity duration-120 group-hover:opacity-100 group-focus-within:opacity-100">
@@ -285,8 +316,47 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                       </Button>
                     </Hint>
                   )}
-                  <Hint label={count > 1 ? m.deleteWorkspace : m.deleteWorkspaceBlocked}>
-                    {count <= 1 ? (
+                  {showingArchived ? (
+                    <Hint label={m.overviewRestoreHint}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className={iconAction}
+                        aria-label={m.overviewRestoreAria(w.name)}
+                        onClick={() => void attempt(m.whatRestoreWorkspace, () => mutations.unarchive.mutateAsync(w.id))}
+                      >
+                        <ArchiveRestore size={16} aria-hidden />
+                      </Button>
+                    </Hint>
+                  ) : (
+                    <Hint label={canArchive ? m.overviewArchiveHint : m.overviewArchiveBlocked}>
+                      {canArchive ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className={iconAction}
+                          aria-label={m.overviewArchiveAria(w.name)}
+                          onClick={() => void attempt(m.whatArchiveWorkspace, () => mutations.archive.mutateAsync(w.id))}
+                        >
+                          <Archive size={16} aria-hidden />
+                        </Button>
+                      ) : (
+                        <span className="inline-flex" tabIndex={0}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className={iconAction}
+                            aria-label={m.overviewArchiveAria(w.name)}
+                            disabled
+                          >
+                            <Archive size={16} aria-hidden />
+                          </Button>
+                        </span>
+                      )}
+                    </Hint>
+                  )}
+                  <Hint label={canDelete ? m.deleteWorkspace : m.deleteWorkspaceBlocked}>
+                    {!canDelete ? (
                       <span className="inline-flex" tabIndex={0}>
                         <Button
                           type="button"
