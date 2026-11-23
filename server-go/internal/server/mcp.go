@@ -1030,12 +1030,45 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info))), nil
 	})
 
-	add("lint_design", z.Object(optStr("rootId"), workspaceID()), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+	add("lint_design", z.Object(
+		optStr("rootId"),
+		z.Field{Name: "rootIds", Schema: z.Optional(z.Array(z.String()).Max(50))},
+		z.Field{Name: "minSeverity", Schema: z.Optional(z.Enum("info", "warning", "error"))},
+		z.Field{Name: "minFontSize", Schema: z.Optional(z.Number().Min(1).Max(1000))},
+		z.Field{Name: "maxIds", Schema: z.Default(z.Int().Min(1).Max(50), 8.0)},
+		workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		d, err := docOf(a)
 		if err != nil {
 			return nil, err
 		}
-		issues := core.LintDocument(d, a.Str("rootId"))
+		roots := []string{}
+		if id := a.Str("rootId"); id != "" {
+			roots = append(roots, id)
+		}
+		roots = append(roots, a.Strings("rootIds")...)
+		seen := map[string]bool{}
+		opts := core.LintOpts{MinSeverity: a.Str("minSeverity")}
+		for _, id := range roots {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			if core.GetNode(d, id) == nil {
+				return nil, fmt.Errorf(`node "%s" does not exist`, id)
+			}
+			if opts.RootID == "" {
+				opts.RootID = id
+			} else {
+				opts.RootIDs = append(opts.RootIDs, id)
+			}
+		}
+		if _, ok := a.Get("minFontSize"); ok {
+			opts.MinFontSize = a.Num("minFontSize")
+		}
+		issues := core.LintDocumentOpts(d, opts)
+		maxIDs := int(a.Num("maxIds"))
+		groups := core.GroupLint(issues, maxIDs)
 		counts := map[string]int{"error": 0, "warning": 0, "info": 0}
 		for _, i := range issues {
 			counts[i.Severity]++
@@ -1043,6 +1076,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return jsonResult(jsonv.NewObject(
 			"ok", counts["error"] == 0,
 			"counts", jsonv.NewObject("error", float64(counts["error"]), "warning", float64(counts["warning"]), "info", float64(counts["info"])),
+			"groups", jsonv.FromGo(groups),
 			"issues", jsonv.FromGo(issues),
 		)), nil
 	})

@@ -97,6 +97,7 @@ func baseFields() []z.Field {
 		{Name: "shadow", Schema: z.Optional(shadowSchema)},
 		{Name: "notes", Schema: z.Optional(z.String().Max(4000))},
 		{Name: "sourceId", Schema: z.Optional(z.String())},
+		{Name: "lintIgnore", Schema: z.Optional(z.Array(z.String().Regex(`^[a-z0-9-]{1,40}$`, `/^[a-z0-9-]{1,40}$/`, "lint rule must be [a-z0-9-]{1,40}")).Max(20))},
 	}
 }
 
@@ -126,7 +127,7 @@ func groupSchema() *z.ObjectSchema {
 		baseField("x"), baseField("y"),
 		z.Field{Name: "width", Schema: z.Default(z.Number().Min(0), 0.0)},
 		z.Field{Name: "height", Schema: z.Default(z.Number().Min(0), 0.0)},
-		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"),
+		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"), baseField("lintIgnore"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
 	)
 }
@@ -138,7 +139,7 @@ func pageSchema() *z.ObjectSchema {
 		z.Field{Name: "type", Schema: z.Literal("page")},
 		z.Field{Name: "fill", Schema: z.Optional(colorValue())},
 		z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
-		baseField("notes"),
+		baseField("notes"), baseField("lintIgnore"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
 	)
 }
@@ -204,7 +205,7 @@ func connectorSchema() *z.ObjectSchema {
 		baseField("x"), baseField("y"),
 		z.Field{Name: "width", Schema: z.Default(z.Number().Min(0), 0.0)},
 		z.Field{Name: "height", Schema: z.Default(z.Number().Min(0), 0.0)},
-		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"),
+		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"), baseField("lintIgnore"),
 		z.Field{Name: "from", Schema: connectorEndSchema()},
 		z.Field{Name: "to", Schema: connectorEndSchema()},
 		z.Field{Name: "route", Schema: z.Default(z.Enum("straight", "elbow", "rounded", "curve"), "straight")},
@@ -271,6 +272,7 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.01).Max(100))},
 		z.Field{Name: "overrides", Schema: z.Optional(overridesSchema())},
 		z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
+		z.Field{Name: "scaledMock", Schema: z.Optional(z.Bool())},
 	),
 	"rect":    nodeSchema("rect"),
 	"ellipse": nodeSchema("ellipse"),

@@ -6,9 +6,9 @@ text, image, path (vetor com curvas bezier), shape (forma de diagrama com texto 
 nós). Só frame, group e page têm filhos.
 
 Campos comuns: name, x, y, width, height (número | "hug" | "fill"), rotation, opacity (0..1),
-visible, locked, fill (cor), stroke {color, width: n | "$token"}, radius (n | "$token"), shadow {x, y, blur, spread: n | "$token", color}, notes.
+visible, locked, fill (cor), stroke {color, width: n | "$token"}, radius (n | "$token"), shadow {x, y, blur, spread: n | "$token", color}, notes, lintIgnore (nomes de regras que o lint_design ignora neste nó).
 frame: clip (bool), layout {mode: none|row|column, gap (n | "$token"), padding (um número ou [topo, direita, baixo, esquerda]; cada um n | "$token"; não dois valores), align: start|center|end|stretch,
-  justify: start|center|end|between, wrap}. Com layout row/column, x/y dos filhos são ignorados.
+  justify: start|center|end|between, wrap}, scaledMock (true: mock em escala; o lint_design não avisa small-text dentro dele). Com layout row/column, x/y dos filhos são ignorados.
 text: text, color, fontFamily, fontSize (n | "$token"), fontWeight (100..900), lineHeight (n | "$token"), letterSpacing (n | "$token"), textAlign.
   Sem width/height, um texto novo abraça o conteúdo ("hug" nos dois eixos); dê width para quebrar linhas.
 image: src (https:// ou data:image/), fit (cover|contain|fill), alt.
@@ -50,7 +50,7 @@ Fluxo recomendado:
 1. get_document_outline para se orientar (barato).
 2. set_tokens com a paleta e a escala tipográfica.
 3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.
-4. lint_design e corrija o que vier como error/warning.
+4. lint_design e corrija o que vier como error/warning. rootIds (ou rootId) limita às subárvores. groups dobra cada regra numa contagem e nos primeiros maxIds ids (padrão 8), em ordem de severidade; issues continua com cada achado. minSeverity (info|warning|error) descarta o que é mais quieto. minFontSize sobe o piso de small-text (padrão 12). Um frame com scaledMock, ou lintIgnore no nó, tira da lista o tipo pequeno e as cores literais de propósito.
 5. render_screenshot para conferir visualmente; export_image para PNG/JPEG/WebP/AVIF/PDF sem Chromium; export_code para levar ao código.
 Para trazer um ícone ou um trecho de página pronto, use import_svg ou import_html (viram nós editáveis), import_image para um arquivo PNG, JPEG, WebP, AVIF ou GIF; export_code com format "svg" devolve SVG vetorial.
 Toda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. Para várias chamadas virarem um passo só de undo (ex.: "desenhar a proposta 3"), passe o mesmo batch em cada uma; o batch fecha quando outra pessoa escreve ou desfaz no meio.
