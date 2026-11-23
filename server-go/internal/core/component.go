@@ -154,9 +154,21 @@ func scaleGeometry(n *jsonv.Object, s float64, withPosition bool) {
 		n.Set("y", sc(y))
 	}
 	for _, k := range []string{"width", "height", "radius", "letterSpacing", "fontSize"} {
-		if v, ok := n.Get(k); ok {
-			n.Set(k, sc(v))
+		v, ok := n.Get(k)
+		if !ok {
+			continue
 		}
+		if k == "radius" {
+			if arr, isArr := v.([]any); isArr {
+				out := make([]any, len(arr))
+				for i, item := range arr {
+					out[i] = sc(item)
+				}
+				n.Set(k, out)
+				continue
+			}
+		}
+		n.Set(k, sc(v))
 	}
 	if st := n.Obj("stroke"); st != nil {
 		st = st.Spread()

@@ -149,6 +149,24 @@ const diagram = () => {
   ]).doc;
 };
 
+const corners = () =>
+  applyOps(base(), [
+    { op: "set_tokens", tokens: { "radius.md": 12, brand: "#ff0000" } },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "board", name: "Cantos", width: 360, height: 220, fill: "#ffffff", clip: true, radius: [24, 8, 0, 16],
+        children: [
+          { type: "rect", id: "mix", x: 16, y: 16, width: 120, height: 80, fill: "#c8401f", radius: ["$radius.md", 4, 0, 8] },
+          { type: "rect", id: "same", x: 160, y: 16, width: 80, height: 80, fill: "#111111", radius: [8, 8, 8, 8] },
+          { type: "image", id: "img", x: 16, y: 120, width: 64, height: 48, src: "data:image/png;base64,aaaa", radius: [0, 12, 12, 0], alt: "a" },
+          { type: "frame", id: "btn", component: true, x: 160, y: 120, width: 80, height: 32, fill: "#333333", radius: [10, 0, 4, 8] },
+        ],
+      },
+    },
+    { op: "create", node: { type: "frame", id: "inst", instanceOf: "btn", x: 260, y: 120, scale: 2 } },
+  ]).doc;
+
 const docs = {
   empty: base(),
   comp: comp(),
@@ -160,6 +178,7 @@ const docs = {
   demo: parseDocument(JSON.parse(readFileSync(join(root, "examples/demo.paprika.json"), "utf8"))),
   bezier: parseDocument(JSON.parse(readFileSync(join(root, "examples/bezier.paprika.json"), "utf8"))),
   diagram: diagram(),
+  corners: corners(),
 };
 
 // ---- operation cases: [baseDoc, ops] ----
@@ -393,6 +412,10 @@ const opCases = [
   ["comp", [{ op: "move", id: copyId("i1", "lbl"), parentId: "i1", index: "front" }]],
   ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { index: "sideways" } }]], // inválido: direto, não copyRule
   ["empty", [{ op: "set_tokens", tokens: { brand: "#ff0000" } }, { op: "create", node: { type: "rect", id: "r", radius: "$brand" } }]],
+  ["empty", [R({ radius: [8, 4, 0, 2] })]],
+  ["empty", [R({ radius: [1, 2] })]],
+  ["empty", [{ op: "create", node: { type: "ellipse", id: "e", radius: [1, 2, 3, 4] } }]],
+  ["empty", [{ op: "set_tokens", tokens: { "radius.md": 12, brand: "#ff0000" } }, { op: "create", node: { type: "rect", id: "r", radius: ["$radius.md", "$brand", 0, 1] } }]],
   ["empty", [{ op: "set_tokens", tokens: { "text.huge": 2000 } }, { op: "create", node: { type: "text", id: "t", text: "a", fontSize: "$text.huge" } }]],
   ["empty", [{ op: "set_tokens", tokens: { "space.md": 8, "radius.md": 12 } }, { op: "create", node: { type: "frame", id: "f", radius: "$radius.md", stroke: { color: "#111", width: "$space.md" }, layout: { mode: "column", gap: "$space.md", padding: ["$space.md", 4, "$space.md", 4] }, children: [{ type: "text", id: "t", text: "a", fontSize: "$space.md", lineHeight: 1.4, letterSpacing: "$space.md" }] } }]],
   ["empty", [{ op: "create", place: "free", node: { type: "frame", id: "a", name: "A", width: 200, height: 100 } }, { op: "create", place: "free", node: { type: "frame", id: "b", name: "B", width: 200, height: 100 } }, { op: "create", place: "free", node: { type: "frame", id: "c", name: "C", width: 2200, height: 100 } }]],

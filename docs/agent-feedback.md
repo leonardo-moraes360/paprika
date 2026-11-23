@@ -597,3 +597,12 @@ Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states 
 
 - Drew on active `Paprica · UI` / page `interfaces` without `open_workspace` after querying the maintainer about the name mismatch.
 - Canvas DnD only touches `Canvas.tsx`; Layers HTML5 DnD in `Layers.tsx`; E2E in `drag.e2e.test.ts`.
+
+## 2026-11-23: corner radius per corner (PAP-B-070, design first)
+
+Task: draw the linked and unlinked corner controls, plus a sample card, on page `Interfaces` of workspace `Paprica · UI` (`workspaceId`, no `open_workspace`) before implementing `radius` as one length or `[tl, tr, br, bl]`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 117 | Screenshot one frame | `render_screenshot` takes `rootId`. Passing `id` is ignored and the tool returns the first page (here, the PAP-B-046 "clamp dark" frame) with no error | Reject unknown argument names, or document `rootId` in the error when the caller sends `id` | P3 |
+| 118 | Preview four different corners on the live server | `create_nodes` with `radius: [1, 2, 3, 4]` failed: `expected number, received array`. The sample had to be a path until this change shipped | The running server only learns the new radius after this build | — |

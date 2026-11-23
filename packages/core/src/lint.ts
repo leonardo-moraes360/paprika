@@ -105,7 +105,8 @@ function tokenRefs(node: Node): string[] {
     check(node.shadow.blur);
     check(node.shadow.spread);
   }
-  check(node.radius);
+  if (Array.isArray(node.radius)) node.radius.forEach(check);
+  else check(node.radius);
   if (node.type === "frame" && node.layout) {
     check(node.layout.gap);
     const p = node.layout.padding;

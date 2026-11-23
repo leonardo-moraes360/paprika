@@ -1480,4 +1480,29 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       return !!c.control && c.d.includes("C");
     }, POLL).toBe(true);
   }, 30_000);
+
+  it("inspector liga e desliga o raio de cada canto", async () => {
+    const POLL = { timeout: 10_000 };
+    const id = "radius-corners";
+    const created = await agent.callTool({
+      name: "create_nodes",
+      arguments: { nodes: [{ type: "rect", id, x: 48, y: 48, width: 140, height: 80, fill: "#c8401f", radius: 8 }] },
+    });
+    expect(created.isError).toBeFalsy();
+    await page.locator(`[data-paprika-id="${id}"]`).click();
+    const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
+    if ((await appearance.getAttribute("data-state")) !== "open") await appearance.click();
+    await expect.poll(() => page.getByTestId("radius-corners").getAttribute("data-state"), POLL).toBe("linked");
+    await page.getByTestId("radius-link").click();
+    await expect.poll(async () => (await doc()).nodes[id], POLL).toMatchObject({ radius: [8, 8, 8, 8] });
+    await expect.poll(() => page.getByTestId("radius-corners").getAttribute("data-state"), POLL).toBe("unlinked");
+    const tl = page.getByTestId("radius-tl").getByLabel("TL");
+    await tl.fill("24");
+    await tl.press("Enter");
+    await expect.poll(async () => ((await doc()).nodes[id] as { radius: number[] }).radius[0], POLL).toBe(24);
+    await expect.poll(() => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).borderTopLeftRadius), POLL).toBe("24px");
+    await expect.poll(() => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).borderBottomRightRadius), POLL).toBe("8px");
+    await page.getByTestId("radius-link").click();
+    await expect.poll(async () => (await doc()).nodes[id], POLL).toMatchObject({ radius: 24 });
+  });
 });

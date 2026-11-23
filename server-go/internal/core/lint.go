@@ -157,7 +157,13 @@ func tokenRefs(n *Node) []string {
 		}
 	}
 	if r, ok := n.Get("radius"); ok {
-		check(r)
+		if arr, isArr := r.([]any); isArr {
+			for _, v := range arr {
+				check(v)
+			}
+		} else {
+			check(r)
+		}
 	}
 	if n.Str("type") == "frame" {
 		if l := n.Obj("layout"); l != nil {

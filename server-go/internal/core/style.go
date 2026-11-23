@@ -271,6 +271,61 @@ func paddingCSS(doc *Document, p any, mode string, vars bool) string {
 	return one(p)
 }
 
+func ResolveCorners(doc *Document, radius any, mode string) (out [4]float64) {
+	if arr, ok := radius.([]any); ok {
+		for i := 0; i < 4 && i < len(arr); i++ {
+			if f, ok := ResolveLength(doc, arr[i], mode); ok {
+				out[i] = f
+			}
+		}
+		return
+	}
+	if f, ok := ResolveLength(doc, radius, mode); ok {
+		return [4]float64{f, f, f, f}
+	}
+	return
+}
+
+func UsedCornerRadii(w, h float64, radii [4]float64) [4]float64 {
+	for i := range radii {
+		if radii[i] < 0 {
+			radii[i] = 0
+		}
+	}
+	fit := func(sum, limit float64) float64 {
+		if sum > limit && limit > 0 {
+			return limit / sum
+		}
+		return 1
+	}
+	factor := math.Min(math.Min(fit(radii[0]+radii[1], w), fit(radii[3]+radii[2], w)), math.Min(fit(radii[0]+radii[3], h), fit(radii[1]+radii[2], h)))
+	for i := range radii {
+		radii[i] *= factor
+	}
+	return radii
+}
+
+func radiusCSS(doc *Document, radius any, mode string, vars bool) (string, bool) {
+	if arr, ok := radius.([]any); ok {
+		parts := make([]string, len(arr))
+		nonzero := false
+		for i, v := range arr {
+			parts[i] = cssLen(doc, v, mode, vars)
+			if parts[i] != "0px" {
+				nonzero = true
+			}
+		}
+		if !nonzero {
+			return "", false
+		}
+		return strings.Join(parts, " "), true
+	}
+	if f, isNum := radius.(float64); isNum && f == 0 {
+		return "", false
+	}
+	return cssLen(doc, radius, mode, vars), true
+}
+
 func sizeProps(css *CSS, axis string, size any, parentMode string) {
 	if n, ok := size.(float64); ok {
 		css.Set(axis, px(n))
@@ -448,8 +503,8 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	if typ == "ellipse" {
 		css.Set("borderRadius", "50%")
 	} else if rv, ok := node.Get("radius"); ok {
-		if f, isNum := rv.(float64); !isNum || f != 0 {
-			css.Set("borderRadius", cssLen(doc, rv, themeMode, vars))
+		if cssR, ok := radiusCSS(doc, rv, themeMode, vars); ok {
+			css.Set("borderRadius", cssR)
 		}
 	}
 	if s := node.Obj("shadow"); s != nil {
@@ -811,7 +866,15 @@ func LengthTokenError(doc *Document) string {
 			}
 		} else {
 			if v, ok := n.Get("radius"); ok {
-				msg = check("radius", v, new(float64(0)), nil)
+				if arr, isArr := v.([]any); isArr {
+					for i, item := range arr {
+						if msg == "" {
+							msg = check(fmt.Sprintf("radius.%d", i), item, new(float64(0)), nil)
+						}
+					}
+				} else {
+					msg = check("radius", v, new(float64(0)), nil)
+				}
 			}
 			if st := n.Obj("stroke"); st != nil && msg == "" {
 				w, _ := st.Get("width")

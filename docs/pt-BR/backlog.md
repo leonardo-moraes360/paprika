@@ -28,7 +28,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Páginas dentro de um arquivo | Nós `page`, lista de páginas no canvas, `create_page` (2026-11-21) | ✅ | — |
 | Agrupar / envolver a seleção num frame, desagrupar | Nó `group`, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21); ainda sem "envolver num frame" | 🟡 | P2 |
 | Filho absoluto dentro de frame com layout ("ignorar layout") | Filhos de linha/coluna sempre seguem o fluxo | ⬜ | P1 |
-| Raio por canto | `radius` único | 🟡 | P1 |
+| Raio por canto | `radius` em frame, rect e image é um comprimento ou `[tl, tr, br, bl]` (cada um número ou `$token`). O inspector liga ou desliga os cantos (2026-11-23, PAP-B-070). | ✅ | — |
 | Ordem Z (avançar, recuar, frente, fundo) | `update_nodes`/`move_nodes` aceitam `index`: número a partir de 0, ou `front`/`back`/`forward`/`backward`, num único passo de desfazer (2026-11-22). Canvas: `Page Up`/`Page Down` um passo, `Ctrl+Page Up`/`Ctrl+Page Down` frente/fundo; seção **Ordem** no inspector (2026-11-22, PAP-B-021). | ✅ | — |
 | Ocultar, travar, destravar tudo | `visible`, `locked`; sem "destravar tudo" | 🟡 | P2 |
 | Alinhar e distribuir a seleção | — | ⬜ | P2 |

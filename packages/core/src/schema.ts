@@ -36,6 +36,8 @@ function lengthValue(min?: number, max?: number) {
 }
 
 const padLength = lengthValue(0);
+const cornerLength = lengthValue(0);
+const cornerRadius = z.union([cornerLength, z.tuple([cornerLength, cornerLength, cornerLength, cornerLength])]).default(0);
 
 export const StrokeStyle = z.enum(["solid", "dashed", "dotted"]);
 export const StrokePosition = z.enum(["inside", "center", "outside"]);
@@ -101,6 +103,7 @@ export const Overrides = z.record(OverrideSource, z.record(OverrideField, z.unkn
 
 export const FrameNode = z.object({
   ...Base,
+  radius: cornerRadius,
   type: z.literal("frame"),
   children: z.array(z.string()).default([]),
   clip: z.boolean().default(true),
@@ -119,7 +122,7 @@ export const FrameNode = z.object({
   scaledMock: z.boolean().optional(),
 });
 
-export const RectNode = z.object({ ...Base, type: z.literal("rect") });
+export const RectNode = z.object({ ...Base, radius: cornerRadius, type: z.literal("rect") });
 export const EllipseNode = z.object({ ...Base, type: z.literal("ellipse") });
 
 const TextFontFamily = z
@@ -143,6 +146,7 @@ export const TextNode = z.object({
 
 export const ImageNode = z.object({
   ...Base,
+  radius: cornerRadius,
   type: z.literal("image"),
   src: z
     .string()

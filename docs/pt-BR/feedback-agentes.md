@@ -600,3 +600,12 @@ Tarefa: desenhar estados de reparent / inserção em auto-layout / reordenação
 
 - Desenhou no ativo `Paprica · UI` / página `interfaces` sem `open_workspace` depois de consultar o mantenedor sobre o nome.
 - DnD do canvas só em `Canvas.tsx`; DnD HTML5 das Camadas em `Layers.tsx`; E2E em `drag.e2e.test.ts`.
+
+## 2026-11-23: raio por canto (PAP-B-070, design first)
+
+Tarefa: desenhar os controles de cantos ligados e soltos, mais um cartão de amostra, na página `Interfaces` do workspace `Paprica · UI` (`workspaceId`, sem `open_workspace`) antes de implementar `radius` como um comprimento ou `[tl, tr, br, bl]`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 117 | Screenshot de um frame | `render_screenshot` recebe `rootId`. Passar `id` é ignorado e a ferramenta devolve a primeira página (aqui, o frame "clamp dark" do PAP-B-046) sem erro | Recusar nomes de argumento desconhecidos, ou citar `rootId` no erro quando o caller manda `id` | P3 |
+| 118 | Ver quatro cantos diferentes no servidor que está no ar | `create_nodes` com `radius: [1, 2, 3, 4]` falhou: `expected number, received array`. A amostra teve de ser um path até esta mudança entrar | O servidor em execução só passa a aceitar o raio novo depois deste build | — |
