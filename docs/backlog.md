@@ -74,7 +74,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 |---|---|---|---|
 | Font family, size, weight, line height, letter spacing, alignment | `text` node | ✅ | — |
 | Rich text (style per character/word, editable by agents) | One style per node | ⬜ | P2 |
-| Font tokens (family, weight, size, line height, letter spacing) | Typed on `set_tokens` (`fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`). Untyped numbers still work. The inspector accepts `$` on those fields. PAP-B-082 | ✅ | — |
+| Font tokens (family, weight, size, line height, letter spacing) | Typed on `set_tokens` (`fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`). Untyped numbers still work. The inspector accepts `$` on those fields. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Variable font axes and OpenType features | — | ⬜ | P3 |
 | Text shortcuts (bold, italic, size/weight steps), auto line height | — | ⬜ | P3 |
 | CJK word-keep, combining marks, multi-codepoint emoji checks | Browser default | 🟡 | P3 |
@@ -86,11 +86,11 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
 | Global tokens (`$name`) for colors and sizes, set by agents | `set_tokens` | ✅ | — |
-| Theme modes (light/dark/compact) and token collections | `document.modes` + `set_tokens` with `mode`, inspector, SQLite. A collection is a name on `tokenMeta` (`set_tokens` `collection`), grouped in the inspector, not a second value map. PAP-B-082 | ✅ | — |
+| Theme modes (light/dark/compact) and token collections | `document.modes` + `set_tokens` with `mode`, inspector, SQLite. A collection is a name on `tokenMeta` (`set_tokens` `collection`), grouped in the inspector, not a second value map. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Frame-scoped token overrides | `mode` on a frame or page applies a mode to its subtree (2026-11-21) | ✅ | — |
 | Tokens exported as CSS variables in HTML/React export | `export_code` `cssVariables` (2026-11-21): `:root` plus `[data-paprika-mode]` rules; React exports `tokensCss` | ✅ | — |
-| Typed tokens (color, radius, spacing, font…) with validation | `set_tokens` `type` (`color`, `length`, `fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`), checked on set and on use. No type leaves the string/number behavior. Persisted in SQLite `token_meta`. PAP-B-082 | ✅ | — |
-| Detach a token from a node | `detach_tokens` in MCP and the inspector replaces `$name` with the literal resolved in the node's mode. PAP-B-082 | ✅ | — |
+| Typed tokens (color, radius, spacing, font…) with validation | `set_tokens` `type` (`color`, `length`, `fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`), checked on set and on use. No type leaves the string/number behavior. Persisted in SQLite `token_meta`. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
+| Detach a token from a node | `detach_tokens` in MCP and the inspector replaces `$name` with the literal resolved in the node's mode. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Generate tokens from an existing codebase via MCP | — | ⬜ | P2 |
 | Tokens with `calc()` / `color-mix()` | Token chains only | ⬜ | P3 |
 | Copy tokens between files | — | ⬜ | P3 |
