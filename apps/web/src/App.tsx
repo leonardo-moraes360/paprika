@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Bot, Circle, Crosshair, Diamond, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Square, StickyNote, Triangle, Type, type LucideIcon } from "lucide-react";
-import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
+import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, wrapOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
 import { InviteDialog, JoinDialog, KeysDialog, TeamChip, TeamPanel } from "./Team";
@@ -214,16 +214,22 @@ function Editor() {
         setSelected([...siblingsOf(doc, parent)]);
         return;
       }
-      if (mod && key === "g" && nodes.length) {
+      if (mod && (key === "g" || e.code === "KeyG") && nodes.length) {
         e.preventDefault();
         try {
-          if (e.shiftKey) {
+          if (e.altKey && !e.shiftKey) {
+            const ids = nodes.map((n) => n.id);
+            const id = newId();
+            wrapOps(doc, ids);
+            live.apply([{ op: "wrap", ids, id }], "envolver em frame");
+            setSelected([id]);
+          } else if (e.shiftKey && !e.altKey) {
             const groups = nodes.filter((n) => n.type === "group").map((n) => n.id);
             if (!groups.length) return;
             const { released } = ungroupOps(doc, groups); // valida antes de enviar
             live.apply([{ op: "ungroup", ids: groups }], "desagrupar");
             setSelected(released);
-          } else {
+          } else if (!e.altKey) {
             const ids = nodes.map((n) => n.id);
             groupOps(doc, ids); // valida antes de enviar; o servidor expande contra o documento atual
             const id = newId();

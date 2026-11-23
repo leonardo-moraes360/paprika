@@ -1594,4 +1594,49 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => pin.evaluate((el) => getComputedStyle(el).position), POLL).toBe("absolute");
     await agent.callTool({ name: "delete_nodes", arguments: { ids: ["abs-row"] } });
   }, 30_000);
+
+  it("alinha, envolve com Ctrl+Alt+G, mostra todos e destrava todos", async () => {
+    const POLL = { timeout: 10_000 };
+    const madePage = await agent.callTool({ name: "create_page", arguments: { id: "pAlign", name: "Alinhar" } });
+    expect(madePage.isError, JSON.stringify(madePage.content)).toBeFalsy();
+    await page.locator('[data-page-id="pAlign"]').click();
+    const made = await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId: "pAlign",
+        place: "none",
+        nodes: [
+          { type: "rect", id: "alA", name: "AlA", x: 40, y: 20, width: 40, height: 20, fill: "#c43d27" },
+          { type: "rect", id: "alB", name: "AlB", x: 140, y: 80, width: 30, height: 30, fill: "#1e2336" },
+        ],
+      },
+    });
+    expect(made.isError, JSON.stringify(made.content)).toBeFalsy();
+    const rowA = page.locator('[data-layer-id="alA"]');
+    await rowA.click();
+    await page.locator('[data-layer-id="alB"]').click({ modifiers: ["Shift"] });
+    await expect.poll(() => page.getByTestId("selection").getAttribute("data-count"), POLL).toBe("2");
+    await page.getByTestId("align-left").click();
+    await expect.poll(async () => (await doc()).nodes.alB, POLL).toMatchObject({ x: 40 });
+    await page.keyboard.press("Control+Alt+g");
+    await expect.poll(async () => (await doc()).nodes.alA?.parentId, POLL).not.toBe("pAlign");
+    const frameId = (await doc()).nodes.alA!.parentId!;
+    expect((await doc()).nodes[frameId]).toMatchObject({ type: "frame" });
+    await page.getByRole("button", { name: "Desfazer" }).click();
+    await expect.poll(async () => (await doc()).nodes.alA?.parentId, POLL).toBe("pAlign");
+    const flag = async (id: string, key: "locked" | "visible") => {
+      const n = (await doc()).nodes[id];
+      return n && n.type !== "page" ? n[key] : undefined;
+    };
+    await rowA.hover();
+    await rowA.getByTestId("layer-lock").click();
+    await expect.poll(() => flag("alA", "locked"), POLL).toBe(true);
+    await page.getByTestId("unlock-all").click();
+    await expect.poll(() => flag("alA", "locked"), POLL).toBe(false);
+    await page.locator('[data-layer-id="alB"]').getByRole("button", { name: "Ocultar AlB" }).click();
+    await expect.poll(() => flag("alB", "visible"), POLL).toBe(false);
+    await page.getByTestId("show-all").click();
+    await expect.poll(() => flag("alB", "visible"), POLL).toBe(true);
+    await agent.callTool({ name: "delete_nodes", arguments: { ids: ["pAlign"] } });
+  }, 30_000);
 });

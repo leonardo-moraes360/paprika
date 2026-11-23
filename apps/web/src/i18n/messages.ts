@@ -232,6 +232,20 @@ export type Messages = {
   selectedNodes: (n: number) => string;
   groupNodes: string;
   ungroupNodes: string;
+  alignSection: string;
+  alignLeft: string;
+  alignCenter: string;
+  alignRight: string;
+  alignTop: string;
+  alignMiddle: string;
+  alignBottom: string;
+  distributeHorizontal: string;
+  distributeVertical: string;
+  wrapInFrame: string;
+  showAll: string;
+  unlockAll: string;
+  lockLayer: (name: string) => string;
+  unlockLayer: (name: string) => string;
   arrange: string;
   bringForward: string;
   sendBackward: string;
@@ -573,6 +587,20 @@ const en: Messages = {
   selectedNodes: (n) => `${n} nodes selected`,
   groupNodes: "Group",
   ungroupNodes: "Ungroup",
+  alignSection: "Align",
+  alignLeft: "Align left",
+  alignCenter: "Align center",
+  alignRight: "Align right",
+  alignTop: "Align top",
+  alignMiddle: "Align middle",
+  alignBottom: "Align bottom",
+  distributeHorizontal: "Distribute horizontally",
+  distributeVertical: "Distribute vertically",
+  wrapInFrame: "Wrap in frame",
+  showAll: "Show all",
+  unlockAll: "Unlock all",
+  lockLayer: (name) => `Lock ${name}`,
+  unlockLayer: (name) => `Unlock ${name}`,
   arrange: "Order",
   bringForward: "Bring forward",
   sendBackward: "Send backward",
@@ -622,7 +650,7 @@ const en: Messages = {
   src: "Source",
   shadow: "Shadow",
   noSelection: "Nothing selected",
-  multiSelectionHint: "Edit shared properties or group the selection.",
+  multiSelectionHint: "Align, distribute or wrap the selection. Each action is one undo.",
   teamTitle: "Team: people, agents and sync",
   teamChipHint: "Team sync",
   teamEmpty: "This Paprika is not in a team yet. Create one and invite people, or join with an invite link.",
@@ -901,6 +929,20 @@ const pt: Messages = {
   selectedNodes: (n) => `${n} nós selecionados`,
   groupNodes: "Agrupar",
   ungroupNodes: "Desagrupar",
+  alignSection: "Alinhar",
+  alignLeft: "Alinhar à esquerda",
+  alignCenter: "Alinhar ao centro",
+  alignRight: "Alinhar à direita",
+  alignTop: "Alinhar ao topo",
+  alignMiddle: "Alinhar ao meio",
+  alignBottom: "Alinhar à base",
+  distributeHorizontal: "Distribuir na horizontal",
+  distributeVertical: "Distribuir na vertical",
+  wrapInFrame: "Envolver em frame",
+  showAll: "Mostrar todos",
+  unlockAll: "Destravar todos",
+  lockLayer: (name) => `Travar ${name}`,
+  unlockLayer: (name) => `Destravar ${name}`,
   arrange: "Ordem",
   bringForward: "Avançar",
   sendBackward: "Recuar",
@@ -947,7 +989,7 @@ const pt: Messages = {
   src: "Origem",
   shadow: "Sombra",
   noSelection: "Nada selecionado",
-  multiSelectionHint: "Edite propriedades compartilhadas ou agrupe a seleção.",
+  multiSelectionHint: "Alinhe, distribua ou envolva a seleção. Cada ação é um desfazer.",
   teamTitle: "Time: pessoas, agentes e sincronização",
   teamChipHint: "Sync do time",
   teamEmpty: "Este Paprika ainda não está em um time. Crie um e convide as pessoas, ou entre com um link de convite.",

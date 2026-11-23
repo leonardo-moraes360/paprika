@@ -677,3 +677,15 @@ Tarefa: desenhar os estados aberto, no meio do deslize, fechado e com movimento 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #123, ainda aberto: `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0, então os frames foram posicionados varrendo o `y` de profundidade 1 (pousaram em y=3600).
 - `lint_design` nos quatro frames ficou limpo depois que os chevrons foram para 12px. O corpo cortado no meio do deslize precisou de `lintIgnore: ["layout-overflow"]` porque o corte é o frame.
+
+## 2026-11-23: alinhar, envolver e revelar (PAP-B-089, design first)
+
+Tarefa: desenhar o inspector da seleção múltipla (alinhar, distribuir, envolver num frame) e as ações de revelar nas camadas (mostrar todos, destravar todos, cadeado por linha) na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de implementar. Dois frames em y=4200 (`pap089lroot`, `pap089droot`). PNGs em `docs/assets/boards/PAP-B-089/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 130 | Texto na cor primária sobre um card escuro | O rótulo de travado usou `$ui.primary` (`#c8401f`) em `$ui.card` e o `lint_design` acusou contraste 3,12:1 | Reservar `$ui.primary` para preenchimento; usar `$ui.destructiveText` ou `$ui.fg` para texto sobre `$ui.card` no tema escuro | P3 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual a #123 e #128, ainda aberto: `get_bounds` em `page#interfaces` devolveu caixa de conteúdo vazia, e uma segunda página vazia também se chama `Interfaces` (`h6jut017rv`). Os frames foram posicionados lendo `x`/`y` de profundidade 1 (pousaram em y=4200).
+- `lint_design` nos dois frames ficou limpo depois que o rótulo travado passou a `$ui.destructiveText`.

@@ -20810,6 +20810,149 @@
   },
   {
    "doc": "free",
+   "kind": "align",
+   "args": {
+    "ids": [
+     "r1",
+     "e1"
+    ],
+    "edge": "left"
+   },
+   "ok": true,
+   "ops": "[{\"op\":\"update\",\"id\":\"e1\",\"props\":{\"x\":45.4904}}]",
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"board\"\n  ],\n  \"nodes\": {\n    \"board\": {\n      \"id\": \"board\",\n      \"name\": \"Board\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 400,\n      \"height\": 300,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#fbf8f4\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"r1\",\n        \"e1\",\n        \"t1\",\n        \"p1\"\n      ],\n      \"clip\": true\n    },\n    \"r1\": {\n      \"id\": \"r1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 40,\n      \"y\": 50,\n      \"width\": 20,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"e1\": {\n      \"id\": \"e1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 45.4904,\n      \"y\": 20.25,\n      \"width\": 30,\n      \"height\": 30,\n      \"rotation\": 30,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#1e2336\",\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"t1\": {\n      \"id\": \"t1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 10,\n      \"y\": 200,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Livre\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"p1\": {\n      \"id\": \"p1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 200,\n      \"y\": 100,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#c43d27\",\n        \"width\": 3\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 C 20 -30 60 30 80 0\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    }\n  }\n}"
+  },
+  {
+   "doc": "free",
+   "kind": "align",
+   "args": {
+    "ids": [
+     "r1"
+    ],
+    "edge": "left"
+   },
+   "ok": false,
+   "error": "pass at least 2 ids to align"
+  },
+  {
+   "doc": "free",
+   "kind": "align",
+   "args": {
+    "ids": [
+     "r1",
+     "e1"
+    ],
+    "edge": "sideways"
+   },
+   "ok": false,
+   "error": "edge must be left, center, right, top, middle or bottom"
+  },
+  {
+   "doc": "card",
+   "kind": "align",
+   "args": {
+    "ids": [
+     "title",
+     "bar"
+    ],
+    "edge": "top"
+   },
+   "ok": false,
+   "error": "\"card\" has layout column: its children follow the flow and cannot be aligned; set the layout to none"
+  },
+  {
+   "doc": "free",
+   "kind": "distribute",
+   "args": {
+    "ids": [
+     "r1",
+     "e1",
+     "t1"
+    ],
+    "axis": "horizontal"
+   },
+   "ok": true,
+   "ops": "[{\"op\":\"update\",\"id\":\"r1\",\"props\":{\"x\":64.5848}}]",
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"board\"\n  ],\n  \"nodes\": {\n    \"board\": {\n      \"id\": \"board\",\n      \"name\": \"Board\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 400,\n      \"height\": 300,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#fbf8f4\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"r1\",\n        \"e1\",\n        \"t1\",\n        \"p1\"\n      ],\n      \"clip\": true\n    },\n    \"r1\": {\n      \"id\": \"r1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 64.5848,\n      \"y\": 50,\n      \"width\": 20,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"e1\": {\n      \"id\": \"e1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 100.5,\n      \"y\": 20.25,\n      \"width\": 30,\n      \"height\": 30,\n      \"rotation\": 30,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#1e2336\",\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"t1\": {\n      \"id\": \"t1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 10,\n      \"y\": 200,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Livre\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"p1\": {\n      \"id\": \"p1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 200,\n      \"y\": 100,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#c43d27\",\n        \"width\": 3\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 C 20 -30 60 30 80 0\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    }\n  }\n}"
+  },
+  {
+   "doc": "free",
+   "kind": "distribute",
+   "args": {
+    "ids": [
+     "r1",
+     "e1"
+    ],
+    "axis": "vertical"
+   },
+   "ok": false,
+   "error": "pass at least 3 ids to distribute"
+  },
+  {
+   "doc": "free",
+   "kind": "wrap",
+   "args": {
+    "ids": [
+     "e1",
+     "r1"
+    ],
+    "id": "wf",
+    "name": "Quadro"
+   },
+   "ok": true,
+   "ops": "[{\"op\":\"create\",\"parentId\":\"board\",\"index\":2,\"node\":{\"type\":\"frame\",\"id\":\"wf\",\"name\":\"Quadro\",\"x\":40,\"y\":14.7596,\"width\":95.9904,\"height\":45.2404,\"fill\":\"transparent\",\"clip\":false}},{\"op\":\"move\",\"id\":\"r1\",\"parentId\":\"wf\"},{\"op\":\"update\",\"id\":\"r1\",\"props\":{\"x\":0,\"y\":35.2404}},{\"op\":\"move\",\"id\":\"e1\",\"parentId\":\"wf\"},{\"op\":\"update\",\"id\":\"e1\",\"props\":{\"x\":60.5,\"y\":5.4904}}]",
+   "id": "wf",
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"board\"\n  ],\n  \"nodes\": {\n    \"board\": {\n      \"id\": \"board\",\n      \"name\": \"Board\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 400,\n      \"height\": 300,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#fbf8f4\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"wf\",\n        \"t1\",\n        \"p1\"\n      ],\n      \"clip\": true\n    },\n    \"r1\": {\n      \"id\": \"r1\",\n      \"name\": \"\",\n      \"parentId\": \"wf\",\n      \"x\": 0,\n      \"y\": 35.2404,\n      \"width\": 20,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"e1\": {\n      \"id\": \"e1\",\n      \"name\": \"\",\n      \"parentId\": \"wf\",\n      \"x\": 60.5,\n      \"y\": 5.4904,\n      \"width\": 30,\n      \"height\": 30,\n      \"rotation\": 30,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#1e2336\",\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"t1\": {\n      \"id\": \"t1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 10,\n      \"y\": 200,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Livre\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"p1\": {\n      \"id\": \"p1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 200,\n      \"y\": 100,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#c43d27\",\n        \"width\": 3\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 C 20 -30 60 30 80 0\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    },\n    \"wf\": {\n      \"id\": \"wf\",\n      \"name\": \"Quadro\",\n      \"parentId\": \"board\",\n      \"x\": 40,\n      \"y\": 14.7596,\n      \"width\": 95.9904,\n      \"height\": 45.2404,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"transparent\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"r1\",\n        \"e1\"\n      ],\n      \"clip\": false\n    }\n  }\n}"
+  },
+  {
+   "doc": "free",
+   "kind": "wrap",
+   "args": {
+    "ids": [
+     "p1"
+    ],
+    "id": "wp"
+   },
+   "ok": true,
+   "ops": "[{\"op\":\"create\",\"parentId\":\"board\",\"index\":4,\"node\":{\"type\":\"frame\",\"id\":\"wp\",\"name\":\"Frame 2\",\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"fill\":\"transparent\",\"clip\":false}},{\"op\":\"move\",\"id\":\"p1\",\"parentId\":\"wp\"},{\"op\":\"update\",\"id\":\"p1\",\"props\":{\"x\":0,\"y\":0}}]",
+   "id": "wp",
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"board\"\n  ],\n  \"nodes\": {\n    \"board\": {\n      \"id\": \"board\",\n      \"name\": \"Board\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 400,\n      \"height\": 300,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#fbf8f4\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"r1\",\n        \"e1\",\n        \"t1\",\n        \"wp\"\n      ],\n      \"clip\": true\n    },\n    \"r1\": {\n      \"id\": \"r1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 40,\n      \"y\": 50,\n      \"width\": 20,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"e1\": {\n      \"id\": \"e1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 100.5,\n      \"y\": 20.25,\n      \"width\": 30,\n      \"height\": 30,\n      \"rotation\": 30,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#1e2336\",\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"t1\": {\n      \"id\": \"t1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 10,\n      \"y\": 200,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Livre\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"p1\": {\n      \"id\": \"p1\",\n      \"name\": \"\",\n      \"parentId\": \"wp\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#c43d27\",\n        \"width\": 3\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 C 20 -30 60 30 80 0\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    },\n    \"wp\": {\n      \"id\": \"wp\",\n      \"name\": \"Frame 2\",\n      \"parentId\": \"board\",\n      \"x\": 200,\n      \"y\": 100,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"transparent\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"p1\"\n      ],\n      \"clip\": false\n    }\n  }\n}"
+  },
+  {
+   "doc": "card",
+   "kind": "wrap",
+   "args": {
+    "ids": [
+     "title"
+    ],
+    "id": "wt"
+   },
+   "ok": false,
+   "error": "\"card\" has layout column: its children follow the flow and cannot be wrapped; set the layout to none"
+  },
+  {
+   "doc": "free",
+   "kind": "reveal",
+   "args": {
+    "kind": "hidden"
+   },
+   "ok": true,
+   "ops": "[]",
+   "released": [],
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"board\"\n  ],\n  \"nodes\": {\n    \"board\": {\n      \"id\": \"board\",\n      \"name\": \"Board\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 400,\n      \"height\": 300,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#fbf8f4\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"r1\",\n        \"e1\",\n        \"t1\",\n        \"p1\"\n      ],\n      \"clip\": true\n    },\n    \"r1\": {\n      \"id\": \"r1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 40,\n      \"y\": 50,\n      \"width\": 20,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#c43d27\",\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"e1\": {\n      \"id\": \"e1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 100.5,\n      \"y\": 20.25,\n      \"width\": 30,\n      \"height\": 30,\n      \"rotation\": 30,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#1e2336\",\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"t1\": {\n      \"id\": \"t1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 10,\n      \"y\": 200,\n      \"width\": \"hug\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Livre\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"p1\": {\n      \"id\": \"p1\",\n      \"name\": \"\",\n      \"parentId\": \"board\",\n      \"x\": 200,\n      \"y\": 100,\n      \"width\": 80,\n      \"height\": 9,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"stroke\": {\n        \"color\": \"#c43d27\",\n        \"width\": 3\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 C 20 -30 60 30 80 0\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    }\n  }\n}"
+  },
+  {
+   "doc": "free",
+   "kind": "reveal",
+   "args": {
+    "kind": "locked",
+    "pageId": "nope"
+   },
+   "ok": false,
+   "error": "page \"nope\" does not exist"
+  },
+  {
+   "doc": "free",
    "kind": "combine",
    "args": {
     "ids": [
@@ -21808,7 +21951,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: invalid operation: op: Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'combine_paths'"
+   "error": "op[0]: invalid operation: op: Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'combine_paths' | 'align' | 'distribute' | 'wrap' | 'reveal'"
   },
   {
    "doc": "empty",
@@ -25567,7 +25710,7 @@
    "input": {
     "op": "x"
    },
-   "error": "[\n  {\n    \"code\": \"invalid_union\",\n    \"errors\": [],\n    \"note\": \"No matching discriminator\",\n    \"discriminator\": \"op\",\n    \"options\": [\n      \"create\",\n      \"update\",\n      \"delete\",\n      \"move\",\n      \"set_tokens\",\n      \"rename_document\",\n      \"restore\",\n      \"group\",\n      \"ungroup\",\n      \"add_page\",\n      \"detach\",\n      \"combine_paths\"\n    ],\n    \"path\": [\n      \"op\"\n    ],\n    \"message\": \"Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'combine_paths'\"\n  }\n]"
+   "error": "[\n  {\n    \"code\": \"invalid_union\",\n    \"errors\": [],\n    \"note\": \"No matching discriminator\",\n    \"discriminator\": \"op\",\n    \"options\": [\n      \"create\",\n      \"update\",\n      \"delete\",\n      \"move\",\n      \"set_tokens\",\n      \"rename_document\",\n      \"restore\",\n      \"group\",\n      \"ungroup\",\n      \"add_page\",\n      \"detach\",\n      \"combine_paths\",\n      \"align\",\n      \"distribute\",\n      \"wrap\",\n      \"reveal\"\n    ],\n    \"path\": [\n      \"op\"\n    ],\n    \"message\": \"Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'combine_paths' | 'align' | 'distribute' | 'wrap' | 'reveal'\"\n  }\n]"
   },
   {
    "input": {

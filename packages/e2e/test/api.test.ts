@@ -145,6 +145,7 @@ describe("API: MCP", () => {
         "apply_ops", "archive_workspace", "combine_paths", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
+        "align_nodes", "distribute_nodes", "wrap_nodes", "show_all", "unlock_all",
         "get_bounds",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
         "rename_workspace", "render_screenshot", "resize_image", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
@@ -392,6 +393,38 @@ describe("API: MCP", () => {
     `);
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
     expect(hist.map((h: { label: string }) => h.label)).toEqual(["create 2 node(s)", "combine 2 path(s)", "create page", "create 1 node(s)"]);
+  });
+
+  it("alinha, distribui, envolve e revela num desfazer cada", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      nodes: [{
+        type: "frame", id: "f", width: 400, height: 200,
+        children: [
+          { type: "rect", id: "a", x: 10, y: 20, width: 40, height: 20, fill: "#c43d27" },
+          { type: "rect", id: "b", x: 80, y: 50, width: 20, height: 40, fill: "#1e2336" },
+          { type: "rect", id: "c", x: 140, y: 10, width: 30, height: 10, fill: "#3355ff", visible: false, locked: true },
+        ],
+      }],
+    });
+    const aligned = JSON.parse(textOf(await call(c, "align_nodes", { ids: ["a", "b", "c"], edge: "left" })));
+    expect(aligned.created).toEqual([]);
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["a", "b", "c"] }))).map((n: { x: number }) => n.x)).toEqual([10, 10, 10]);
+    await call(c, "undo");
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["b"] })))[0].x).toBe(80);
+    expect((await call(c, "distribute_nodes", { ids: ["a", "b"], axis: "horizontal" })).isError).toBe(true);
+    await call(c, "distribute_nodes", { ids: ["a", "b", "c"], axis: "horizontal" });
+    const wrapped = JSON.parse(textOf(await call(c, "wrap_nodes", { ids: ["a", "b"], id: "wf", name: "Caixa" })));
+    expect(wrapped.frame).toBe("wf");
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["wf", "a"] })))).toMatchObject([
+      { type: "frame", id: "wf", clip: false, fill: "transparent", name: "Caixa" },
+      { parentId: "wf" },
+    ]);
+    expect(JSON.parse(textOf(await call(c, "show_all", {}))).ids).toEqual(["c"]);
+    expect(JSON.parse(textOf(await call(c, "unlock_all", {}))).ids).toEqual(["c"]);
+    await call(c, "undo");
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["c"] })))[0].locked).toBe(true);
+    expect(JSON.parse(textOf(await call(c, "show_all", {}))).ids).toEqual([]);
   });
 
   it("create_nodes devolve raízes e create_page ensure reaproveita a página", async () => {

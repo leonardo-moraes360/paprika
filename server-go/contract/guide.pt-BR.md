@@ -14,6 +14,9 @@ text: text, color, fontFamily, fontSize (n | "$token"), fontWeight (100..900), l
 image: src (https:// ou data:image/), fit (cover|contain|fill), alt.
 group: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir
   dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.
+  wrap_nodes põe os mesmos irmãos num frame novo (o desenho não se move, um desfazer). align_nodes (edge: left|center|right|top|middle|bottom)
+  e distribute_nodes (axis: horizontal|vertical, pelo menos 3) movem os irmãos num desfazer. show_all e unlock_all revelam o que está oculto
+  ou travado; pageId limita à página, e omitir cobre o documento inteiro.
 page: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, todo nó de topo é página e os
   frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o
   conteúdo atual para "Page 1" (inglês; a UI passa o nome localizado). create_page {ensure: true, name} devolve a página que já tem esse nome

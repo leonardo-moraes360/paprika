@@ -674,3 +674,15 @@ Task: draw the open, mid-slide, closed and reduced-motion states of an inspector
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123, still open: `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0, so the frames were placed by scanning depth-1 `y` (landed at y=3600).
 - `lint_design` on the four frames was clean after the chevrons moved to 12px. A clipped mid-slide body needed `lintIgnore: ["layout-overflow"]` because the clip is the frame.
+
+## 2026-11-23: align, wrap and reveal (PAP-B-089, design first)
+
+Task: draw the multi-selection inspector (align, distribute, wrap in a frame) and the layers reveal actions (show all, unlock all, per-row lock) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before implementing them. Two frames at y=4200 (`pap089lroot`, `pap089droot`). PNGs in `docs/assets/boards/PAP-B-089/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 130 | Primary-colored text on a dark card | The locked-state label used `$ui.primary` (`#c8401f`) on `$ui.card` and `lint_design` reported contrast 3.12:1 | Keep `$ui.primary` for fills; use `$ui.destructiveText` or `$ui.fg` for text on `$ui.card` in the dark theme | P3 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123 and #128, still open: `get_bounds` on `page#interfaces` returned an empty content box, and a second empty page is also named `Interfaces` (`h6jut017rv`). Frames were placed by reading depth-1 `x`/`y` (landed at y=4200).
+- `lint_design` on both frames was clean after the locked label switched to `$ui.destructiveText`.

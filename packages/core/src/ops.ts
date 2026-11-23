@@ -18,7 +18,7 @@ import {
 import { newId } from "./id.js";
 import { defaultUntitledName } from "./names.js";
 import { normalizePath as shiftPathToOrigin, parsePath, pathBounds, serializePath } from "./path.js";
-import { addPageOps, groupOps, ungroupOps } from "./structure.js";
+import { addPageOps, alignOps, distributeOps, groupOps, localBox, revealOps, ungroupOps, wrapOps } from "./structure.js";
 import { combinePathsOps } from "./boolean.js";
 import { round4 } from "./num.js";
 import { PlaceSpecSchema, resolvePlace } from "./placement.js";
@@ -137,6 +137,35 @@ export const AddPageOp = z.object({
 /** Desanexa instâncias: viram frames comuns com cópias normais (expandida em updates). */
 export const DetachOp = z.object({ op: z.literal("detach"), ids: z.array(z.string()).min(1).max(500) });
 
+/** Alinha irmãos pela caixa da seleção (um passo de desfazer). */
+export const AlignOp = z.object({
+  op: z.literal("align"),
+  ids: z.array(z.string()).min(2).max(500),
+  edge: z.enum(["left", "center", "right", "top", "middle", "bottom"]),
+});
+
+/** Distribui irmãos com o mesmo vão (um passo de desfazer). */
+export const DistributeOp = z.object({
+  op: z.literal("distribute"),
+  ids: z.array(z.string()).min(3).max(500),
+  axis: z.enum(["horizontal", "vertical"]),
+});
+
+/** Envolve irmãos num frame novo (um passo de desfazer). */
+export const WrapOp = z.object({
+  op: z.literal("wrap"),
+  ids: z.array(z.string()).min(1).max(500),
+  id: z.string().optional(),
+  name: z.string().max(200).optional(),
+});
+
+/** Mostra tudo o que está oculto, ou destrava tudo, na página ou no documento. */
+export const RevealOp = z.object({
+  op: z.literal("reveal"),
+  kind: z.enum(["hidden", "locked"]),
+  pageId: z.string().optional(),
+});
+
 /** Combina path/rect/ellipse/shape numa path via união, subtração, interseção ou exclusão. */
 export const CombinePathsOp = z.object({
   op: z.literal("combine_paths"),
@@ -168,6 +197,10 @@ export const Op = z.discriminatedUnion("op", [
   AddPageOp,
   DetachOp,
   CombinePathsOp,
+  AlignOp,
+  DistributeOp,
+  WrapOp,
+  RevealOp,
 ]);
 
 export type Op = z.input<typeof Op>;
@@ -515,7 +548,11 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
     case "ungroup":
     case "add_page":
     case "detach":
-    case "combine_paths": {
+    case "combine_paths":
+    case "align":
+    case "distribute":
+    case "wrap":
+    case "reveal": {
       // Expandidas contra o documento *atual* (não o que o cliente via), dentro da mesma transação.
       let plan: Op[];
       try {
@@ -528,7 +565,15 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
                 ? (syncInstances(doc), detachOps(doc, op.ids))
                 : op.op === "combine_paths"
                   ? combinePathsOps(doc, op.ids, { operation: op.operation, id: op.id, name: op.name }).ops
-                  : addPageOps(doc, op).ops;
+                  : op.op === "align"
+                    ? alignOps(doc, op.ids, op.edge).ops
+                    : op.op === "distribute"
+                      ? distributeOps(doc, op.ids, op.axis).ops
+                      : op.op === "wrap"
+                        ? wrapOps(doc, op.ids, { id: op.id, name: op.name }).ops
+                        : op.op === "reveal"
+                          ? revealOps(doc, op.kind, op.pageId).ops
+                          : addPageOps(doc, op).ops;
       } catch (e) {
         throw e instanceof OpError ? e : new OpError((e as Error).message, i);
       }
@@ -625,23 +670,6 @@ function checkPages(doc: DocumentT, i: number) {
 
 
 const EPS = 1e-3;
-
-/** Caixa (sem rotação do pai) de um nó dentro do pai: considera a própria rotação em torno do centro. */
-export function localBox(n: NodeT): { minX: number; minY: number; maxX: number; maxY: number } {
-  if (!isScene(n)) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-  const w = typeof n.width === "number" ? n.width : 0;
-  const h = typeof n.height === "number" ? n.height : 0;
-  const rotation = n.type === "group" || n.type === "connector" ? 0 : n.rotation;
-  if (!rotation) return { minX: n.x, minY: n.y, maxX: n.x + w, maxY: n.y + h };
-  const rad = (rotation * Math.PI) / 180;
-  const cos = Math.abs(Math.cos(rad));
-  const sin = Math.abs(Math.sin(rad));
-  const hw = (w * cos + h * sin) / 2;
-  const hh = (w * sin + h * cos) / 2;
-  const cx = n.x + w / 2;
-  const cy = n.y + h / 2;
-  return { minX: cx - hw, minY: cy - hh, maxX: cx + hw, maxY: cy + hh };
-}
 
 /**
  * Ajusta a caixa de cada group aos filhos (do mais fundo para o mais raso), mantendo o desenho
