@@ -203,7 +203,7 @@ describe("API: MCP", () => {
     `);
     const bad = await call(c, "update_nodes", { updates: [{ id: JSON.parse(textOf(inst)).copies.lbl, props: { x: 3 } }] });
     expect(bad.isError).toBe(true);
-    expect(textOf(bad)).toMatchInlineSnapshot(`"op[0]: "i1-0bzyiqi0vw20y4" is a copy inside the instance "i1": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got x)"`);
+    expect(textOf(bad)).toMatchInlineSnapshot(`"op[0]: "i1-0bzyiqi0vw20y4" is a copy inside the instance "i1": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got x)"`);
     await call(c, "update_nodes", { updates: [{ id: "lbl", props: { fontSize: 20 } }, { id: "i1", props: { fill: "#000000" } }] });
     const nodes = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["i1", JSON.parse(textOf(inst)).copies.lbl] })));
     expect(nodes).toMatchInlineSnapshot(`
@@ -502,6 +502,33 @@ describe("API: MCP", () => {
     expect(hist).toHaveLength(2);
     expect(hist[1]).toMatchObject({ label: "create 1 node(s)", ops: 1 });
     expect(hist[1].actor).toMatch(/^agent:/);
+  });
+
+  it("runs de texto vão no create, no get e no HTML", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "text", id: "rich", text: "Hello bold link", width: 280, height: 40,
+          runs: [
+            { start: 6, end: 10, fontWeight: 700, color: "#c43d27" },
+            { start: 11, end: 15, italic: true, href: "https://paprika.dev", fontSize: 28 },
+          ],
+        },
+      ],
+    });
+    const nodes = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["rich"] })));
+    expect(nodes[0].runs).toEqual([
+      { start: 6, end: 10, fontWeight: 700, color: "#c43d27" },
+      { start: 11, end: 15, italic: true, href: "https://paprika.dev", fontSize: 28 },
+    ]);
+    const html = textOf(await call(c, "export_code", { rootId: "rich", format: "html" }));
+    expect(html).toContain("font-weight:700");
+    expect(html).toContain('href="https://paprika.dev"');
+    expect(html).toContain("font-style:italic");
+    const bad = await call(c, "update_nodes", { updates: [{ id: "rich", props: { runs: [{ start: 0, end: 99, fontWeight: 700 }] } }] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toMatch(/run ends past the text/);
   });
 
   it("erros voltam como isError com mensagem acionável e sem efeito colateral", async () => {

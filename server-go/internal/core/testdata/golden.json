@@ -13604,7 +13604,7 @@
        }
       }
      ],
-     "error": "op[1]: \"i3-19usgs517w2zul\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got bogus)",
+     "error": "op[1]: \"i3-19usgs517w2zul\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got bogus)",
      "sha256": "94b202aa61cc67ce5945476b7e9855a4454da1fa2031a6dc0ae4c8e67a6ac6c5",
      "canUndo": true,
      "canRedo": false
@@ -13673,7 +13673,7 @@
        "index": "back"
       }
      ],
-     "error": "op[1]: \"i3-19usgs517w2zul\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[1]: \"i3-19usgs517w2zul\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "77bcbf0c1c77cc779fd9faeba5719da0fc3af06399f82ebc7899db53fe12f374",
      "canUndo": true,
      "canRedo": false
@@ -13809,7 +13809,7 @@
        "parentId": "i3"
       }
      ],
-     "error": "op[0]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[0]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": false
@@ -13856,7 +13856,7 @@
        }
       }
      ],
-     "error": "op[1]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[1]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": false
@@ -13898,7 +13898,7 @@
        }
       }
      ],
-     "error": "op[1]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[1]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": false
@@ -13917,7 +13917,7 @@
        "index": 0
       }
      ],
-     "error": "op[0]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[0]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": false
@@ -14052,7 +14052,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[0]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "ff3e0699612a65778f47942a7a50999a6a1cf9ffd9250e3de13aa7af17ef71cb",
      "canUndo": true,
      "canRedo": false
@@ -14167,7 +14167,7 @@
        "parentId": null
       }
      ],
-     "error": "op[0]: \"i3-1jte5sh01ybxhv\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[0]: \"i3-1jte5sh01ybxhv\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "3f4f88b8233d09cd41a5ceb3f13fc5da06159737c86ee253748ef2944f8263cb",
      "canUndo": true,
      "canRedo": false
@@ -14198,7 +14198,7 @@
        }
       }
      ],
-     "error": "op[1]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[1]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "3f4f88b8233d09cd41a5ceb3f13fc5da06159737c86ee253748ef2944f8263cb",
      "canUndo": true,
      "canRedo": false
@@ -14248,7 +14248,7 @@
        "id": "i3-13wdmqh00odcjz"
       }
      ],
-     "error": "op[0]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[0]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": false
@@ -14366,7 +14366,7 @@
        "id": "i3-13wdmqh00odcjz"
       }
      ],
-     "error": "op[0]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[0]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "377512c15e1332a061ed0964d74f6b7fbdf38d02e1c135bfe6c5e384e1926df0",
      "canUndo": true,
      "canRedo": false
@@ -14398,7 +14398,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i3-19usgs517w2zul\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[0]: \"i3-19usgs517w2zul\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": true
@@ -14454,7 +14454,7 @@
        }
       }
      ],
-     "error": "op[1]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got instanceOf)",
+     "error": "op[1]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got instanceOf)",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": true
@@ -14588,7 +14588,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[0]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "fde88458831e5ba9227e99b14bb4c5f2ee4a48ed16fcfa06cc6af48afed76c07",
      "canUndo": true,
      "canRedo": false
@@ -14659,7 +14659,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i3-14mqdmf18d88r7\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got name)",
+     "error": "op[0]: \"i3-14mqdmf18d88r7\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got name)",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": false
@@ -14736,7 +14736,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got bogus)",
+     "error": "op[0]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got bogus)",
      "sha256": "972cfd0959f670a82f4e525ddd32716a346a29571728c2cb5567122cd2912c2e",
      "canUndo": true,
      "canRedo": false
@@ -14769,7 +14769,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i3-0w9utif19o4v9z\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got scale)",
+     "error": "op[0]: \"i3-0w9utif19o4v9z\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got scale)",
      "sha256": "972cfd0959f670a82f4e525ddd32716a346a29571728c2cb5567122cd2912c2e",
      "canUndo": true,
      "canRedo": false
@@ -14786,7 +14786,7 @@
        "id": "r1"
       }
      ],
-     "error": "op[0]: \"i3-14mqdmf18d88r7\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[0]: \"i3-14mqdmf18d88r7\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "972cfd0959f670a82f4e525ddd32716a346a29571728c2cb5567122cd2912c2e",
      "canUndo": true,
      "canRedo": false
@@ -14832,7 +14832,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[0]: \"i3-13wdmqh00odcjz\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "bc4ab7f75e80a74ed8d80ea75c0a0ea36f18af54dc0f1c35e5593d4b38b49928",
      "canUndo": true,
      "canRedo": false
@@ -15073,7 +15073,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[0]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "b2f62e3d00f26a66e0d3196a6a70d1088e18735ede1c2dc4cc2352cd81280167",
      "canUndo": true,
      "canRedo": false
@@ -15226,7 +15226,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got y)",
+     "error": "op[0]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got y)",
      "sha256": "71d0af6b2815a0ff88b0f9eab7a3a13641091ed400907ab6a26c99160659b264",
      "canUndo": true,
      "canRedo": true
@@ -15549,7 +15549,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got bogus)",
+     "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got bogus)",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": false
@@ -15601,7 +15601,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got width)",
+     "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got width)",
      "sha256": "49900850874f2e7822badfa6cce6263dcc5c0f83ec360f1caef820aafd0d15bc",
      "canUndo": true,
      "canRedo": false
@@ -15616,7 +15616,7 @@
        "index": "front"
       }
      ],
-     "error": "op[0]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[0]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "49900850874f2e7822badfa6cce6263dcc5c0f83ec360f1caef820aafd0d15bc",
      "canUndo": true,
      "canRedo": false
@@ -15941,7 +15941,7 @@
        }
       }
      ],
-     "error": "op[1]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got x)",
+     "error": "op[1]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got x)",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": false
@@ -16602,7 +16602,7 @@
        "id": "btn"
       }
      ],
-     "error": "op[1]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[1]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": false
@@ -16691,7 +16691,7 @@
        }
       }
      ],
-     "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got component)",
+     "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got component)",
      "sha256": "a57e17932d206a43eac6a1047992cfe903bc1f50c006ede34a8f1e1b3649ce82",
      "canUndo": true,
      "canRedo": false
@@ -16741,7 +16741,7 @@
        "id": "i2-0ov6n7z0wq0u11"
       }
      ],
-     "error": "op[1]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[1]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "a57e17932d206a43eac6a1047992cfe903bc1f50c006ede34a8f1e1b3649ce82",
      "canUndo": true,
      "canRedo": false
@@ -16786,7 +16786,7 @@
        "id": "i2-18kyngc19e59l0"
       }
      ],
-     "error": "op[1]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[1]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "475bed27f1ed5fa1095783314d4c7ccfd96a3dea5edbcc9625b484620bb14cb4",
      "canUndo": true,
      "canRedo": false
@@ -16860,7 +16860,7 @@
        "parentId": null
       }
      ],
-     "error": "op[0]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got y)",
+     "error": "op[0]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got y)",
      "sha256": "2932f6b969301fdf6432b6cf08873c2663e0c4ade1ef739815e3318d79a5e40b",
      "canUndo": true,
      "canRedo": true
@@ -17052,7 +17052,7 @@
        "parentId": null
       }
      ],
-     "error": "op[0]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[0]: \"i2-18kyngc19e59l0\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": false,
      "canRedo": false
@@ -17185,7 +17185,7 @@
        "index": "forward"
       }
      ],
-     "error": "op[2]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[2]: \"i2-0ov6n7z0wq0u11\" is a copy inside the instance \"i2\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "0c9dbada3f0baae58f2c13acff715c2a2df3c22d91af3f0f1be84b9cc82f01b2",
      "canUndo": true,
      "canRedo": false
@@ -17335,7 +17335,7 @@
        "id": "i3-0z5qbwp02ug3av"
       }
      ],
-     "error": "op[1]: \"i3-0z5qbwp02ug3av\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[1]: \"i3-0z5qbwp02ug3av\" is a copy inside the instance \"i3\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "812071ba7bc45e0ff56efc5d05d66529c176bb9a9c261970697aa58bf8b1f031",
      "canUndo": true,
      "canRedo": false
@@ -17526,7 +17526,7 @@
        }
       }
      ],
-     "error": "op[0]: \"flowi-1e4m2mv0bauybr\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[0]: \"flowi-1e4m2mv0bauybr\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "f583308341379d580f423a0100fe2485af9e860a43c8b730b6889dfd796520d2",
      "canUndo": true,
      "canRedo": false
@@ -17623,7 +17623,7 @@
        "index": "back"
       }
      ],
-     "error": "op[0]: \"flowi-1air8m81q1nctc\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[0]: \"flowi-1air8m81q1nctc\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "11f940e2e5d69b68077280a3e9496fdc8e2efa6828791153ccaf7d051dadb15b",
      "canUndo": false,
      "canRedo": true
@@ -18112,7 +18112,7 @@
        "id": "flowi-1ynsnyt0dkmk1h"
       }
      ],
-     "error": "op[2]: \"flowi-1ynsnyt0dkmk1h\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[2]: \"flowi-1ynsnyt0dkmk1h\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "3dbf2fde6fd58d7066b82df37eade48f6cebc9f966a4f57ad990e532bbca803c",
      "canUndo": true,
      "canRedo": false
@@ -18932,7 +18932,7 @@
        "id": "flowi"
       }
      ],
-     "error": "op[0]: \"flowi-1vu4j0p1f6s3wh\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[0]: \"flowi-1vu4j0p1f6s3wh\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "9f6171f2f6d0c4e0437d25563ef46500c9fd1076a8b4681f04171e070c601b57",
      "canUndo": true,
      "canRedo": false
@@ -19035,7 +19035,7 @@
        "id": "flowi-0439oot0shpt31"
       }
      ],
-     "error": "op[0]: \"flowi-0439oot0shpt31\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
+     "error": "op[0]: \"flowi-0439oot0shpt31\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false",
      "sha256": "eb1bcdec43c9ac8293027d1d4c96d44ec778531150c44f28b9bedde50b8f2c31",
      "canUndo": true,
      "canRedo": false
@@ -19585,7 +19585,7 @@
        "parentId": "box"
       }
      ],
-     "error": "op[2]: \"flowi-1ka6olr1ffynin\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[2]: \"flowi-1ka6olr1ffynin\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "e381d95ff19e860a5a46dda4cd69018484ceed9a5debf2a8dcb5d7990226ca6b",
      "canUndo": true,
      "canRedo": false
@@ -19708,7 +19708,7 @@
        }
       }
      ],
-     "error": "op[0]: \"flowi-1e4m2mv0bauybr\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got name)",
+     "error": "op[0]: \"flowi-1e4m2mv0bauybr\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got name)",
      "sha256": "9b79a535e2eb3d4a92602a7ca76f10e93c1a71ba03cf111330d7324e5f3afc31",
      "canUndo": true,
      "canRedo": false
@@ -19954,7 +19954,7 @@
        "parentId": "gq"
       }
      ],
-     "error": "op[2]: \"flowi-1air8m81q1nctc\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it",
+     "error": "op[2]: \"flowi-1air8m81q1nctc\" is a copy inside the instance \"flowi\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it",
      "sha256": "11f940e2e5d69b68077280a3e9496fdc8e2efa6828791153ccaf7d051dadb15b",
      "canUndo": false,
      "canRedo": true
@@ -23677,7 +23677,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: instance \"i1\": override \"x\" in \"lbl\" is not allowed (root: fill; copies: fill, color, text, src, alt, visible, opacity)"
+   "error": "op[0]: instance \"i1\": override \"x\" in \"lbl\" is not allowed (root: fill; copies: fill, color, text, src, alt, visible, opacity, runs)"
   },
   {
    "doc": "comp",
@@ -23733,7 +23733,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: instance \"i1\": override \"radius\" in \"btn\" is not allowed (root: fill; copies: fill, color, text, src, alt, visible, opacity)"
+   "error": "op[0]: instance \"i1\": override \"radius\" in \"btn\" is not allowed (root: fill; copies: fill, color, text, src, alt, visible, opacity, runs)"
   },
   {
    "doc": "comp",
@@ -23796,7 +23796,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got x, fontSize)"
+   "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got x, fontSize)"
   },
   {
    "doc": "comp",
@@ -23824,7 +23824,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: \"i1-1qrxohh1a842nx\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got sourceId)"
+   "error": "op[0]: \"i1-1qrxohh1a842nx\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got sourceId)"
   },
   {
    "doc": "comp",
@@ -23835,7 +23835,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it; to hide it, use visible: false"
+   "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it; to hide it, use visible: false"
   },
   {
    "doc": "comp",
@@ -23847,7 +23847,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it"
+   "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it"
   },
   {
    "doc": "comp",
@@ -25053,7 +25053,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it"
+   "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it"
   },
   {
    "doc": "comp",
@@ -25066,7 +25066,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it"
+   "error": "op[0]: \"i1-0bzyiqi0vw20y4\" is a copy inside the instance \"i1\": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it"
   },
   {
    "doc": "diagram",
@@ -25653,6 +25653,134 @@
    "created": [
     "r"
    ]
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "text",
+      "id": "t",
+      "text": "Hi",
+      "width": 40,
+      "height": 20,
+      "runs": [
+       {
+        "start": 0,
+        "end": 2,
+        "fontWeight": 700
+       }
+      ]
+     }
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"t\"\n  ],\n  \"nodes\": {\n    \"t\": {\n      \"id\": \"t\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 40,\n      \"height\": 20,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Hi\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\",\n      \"runs\": [\n        {\n          \"start\": 0,\n          \"end\": 2,\n          \"fontWeight\": 700\n        }\n      ]\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"delete\",\"id\":\"t\"}]",
+   "created": [
+    "t"
+   ]
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "text",
+      "id": "t",
+      "text": "Hi",
+      "width": 40,
+      "height": 20,
+      "runs": [
+       {
+        "start": 0,
+        "end": 9,
+        "fontWeight": 700
+       }
+      ]
+     }
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: invalid node: runs.0.end: run ends past the text"
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "text",
+      "id": "t",
+      "text": "Hi",
+      "width": 40,
+      "height": 20,
+      "runs": [
+       {
+        "start": 2,
+        "end": 2,
+        "fontWeight": 700
+       }
+      ]
+     }
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: invalid node: runs.0: run start must be before end"
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "text",
+      "id": "t",
+      "text": "Hi",
+      "width": 40,
+      "height": 20,
+      "runs": [
+       {
+        "start": 0,
+        "end": 1
+       },
+       {
+        "start": 0,
+        "end": 2,
+        "fontWeight": 700
+       }
+      ]
+     }
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: invalid node: runs.0: run has no style; runs: runs overlap or are out of order"
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "text",
+      "id": "t",
+      "text": "Hi",
+      "width": 40,
+      "height": 20,
+      "runs": [
+       {
+        "start": 0,
+        "end": 2,
+        "href": "javascript:alert(1)"
+       }
+      ]
+     }
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: invalid node: runs.0.href: href must be http(s), mailto, or a path starting with / or #"
   }
  ],
  "diagrams": [
@@ -26300,6 +26428,88 @@
     "nameA": [],
     "textE": [],
     "within": []
+   }
+  },
+  {
+   "name": "rich",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {\n    \"brand\": \"#c43d27\",\n    \"text.lg\": 28\n  },\n  \"rootIds\": [\n    \"box\"\n  ],\n  \"nodes\": {\n    \"box\": {\n      \"id\": \"box\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 320,\n      \"height\": 80,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [\n        \"hello\"\n      ],\n      \"clip\": true\n    },\n    \"hello\": {\n      \"id\": \"hello\",\n      \"name\": \"\",\n      \"parentId\": \"box\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 280,\n      \"height\": 40,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Hello bold link\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\",\n      \"runs\": [\n        {\n          \"start\": 6,\n          \"end\": 10,\n          \"fontWeight\": 700,\n          \"color\": \"$brand\"\n        },\n        {\n          \"start\": 11,\n          \"end\": 15,\n          \"fontSize\": \"$text.lg\",\n          \"italic\": true,\n          \"href\": \"https://paprika.dev\"\n        }\n      ]\n    }\n  }\n}",
+   "outline": "frame#box 320×80 @0,0 fill=#ffffff\n  text#hello 280×40 @0,0 \"Hello bold link\" 16/400 color=#111111 runs=2\ncontent: x=0 y=0 w=320 h=80\nnext: x=400 y=0",
+   "outlineDepth0": "frame#box 320×80 @0,0 fill=#ffffff\n  … 1 filho(s)\ncontent: x=0 y=0 w=320 h=80\nnext: x=400 y=0",
+   "outlineDepth1": "frame#box 320×80 @0,0 fill=#ffffff\n  text#hello 280×40 @0,0 \"Hello bold link\" 16/400 color=#111111 runs=2\ncontent: x=0 y=0 w=320 h=80\nnext: x=400 y=0",
+   "lint": "[{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"box\",\"message\":\"literal fill \\\"#ffffff\\\"; prefer a token\"},{\"rule\":\"unnamed-frame\",\"severity\":\"info\",\"nodeId\":\"box\",\"message\":\"top-level frame without a name\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"hello\",\"message\":\"literal color \\\"#111111\\\"; prefer a token\"}]",
+   "lintRoots": {
+    "box": "[{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"box\",\"message\":\"literal fill \\\"#ffffff\\\"; prefer a token\"},{\"rule\":\"unnamed-frame\",\"severity\":\"info\",\"nodeId\":\"box\",\"message\":\"top-level frame without a name\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"hello\",\"message\":\"literal color \\\"#111111\\\"; prefer a token\"}]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:80px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"box\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden\"><div data-paprika-id=\"hello\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Hello <span style=\"font-weight:700;color:#c43d27\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:28px;font-style:italic;text-decoration:underline\">link</a></div></div></body></html>",
+   "htmlRoots": {
+    "box": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:80px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"box\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden\"><div data-paprika-id=\"hello\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Hello <span style=\"font-weight:700;color:#c43d27\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:28px;font-style:italic;text-decoration:underline\">link</a></div></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "box": "export function Box() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"320px\", flexShrink: 0, height: \"80px\", background: \"#ffffff\", overflow: \"hidden\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"280px\", flexShrink: 0, height: \"40px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Hello <span style={{ fontWeight: 700, color: \"#c43d27\" }}>bold</span> <a href=\"https://paprika.dev\" style={{ fontSize: \"28px\", fontStyle: \"italic\", textDecoration: \"underline\" }}>link</a></div>\n    </div>\n  );\n}\n",
+    "hello": "export function Hello() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"280px\", flexShrink: 0, height: \"40px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Hello <span style={{ fontWeight: 700, color: \"#c43d27\" }}>bold</span> <a href=\"https://paprika.dev\" style={{ fontSize: \"28px\", fontStyle: \"italic\", textDecoration: \"underline\" }}>link</a></div>\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:80px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--brand:#c43d27;--text\\.lg:28px}</style>\n</head><body><div data-paprika-id=\"box\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden\"><div data-paprika-id=\"hello\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Hello <span style=\"font-weight:700;color:var(--brand)\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:var(--text\\.lg);font-style:italic;text-decoration:underline\">link</a></div></div></body></html>",
+   "htmlVarsRoots": {
+    "box": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:80px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--brand:#c43d27;--text\\.lg:28px}</style>\n</head><body><div data-paprika-id=\"box\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden\"><div data-paprika-id=\"hello\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Hello <span style=\"font-weight:700;color:var(--brand)\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:var(--text\\.lg);font-style:italic;text-decoration:underline\">link</a></div></div></body></html>",
+    "hello": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:280px;height:40px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--brand:#c43d27;--text\\.lg:28px}</style>\n</head><body><div data-paprika-id=\"hello\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Hello <span style=\"font-weight:700;color:var(--brand)\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:var(--text\\.lg);font-style:italic;text-decoration:underline\">link</a></div></body></html>"
+   },
+   "reactVars": {
+    "box": "export const tokensCss = \":root{--brand:#c43d27;--text\\\\.lg:28px}\";\n\nexport function Box() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"320px\", flexShrink: 0, height: \"80px\", background: \"#ffffff\", overflow: \"hidden\" }}>\n      <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"280px\", flexShrink: 0, height: \"40px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Hello <span style={{ fontWeight: 700, color: \"var(--brand)\" }}>bold</span> <a href=\"https://paprika.dev\" style={{ fontSize: \"var(--text\\\\.lg)\", fontStyle: \"italic\", textDecoration: \"underline\" }}>link</a></div>\n    </div>\n  );\n}\n",
+    "hello": "export const tokensCss = \":root{--brand:#c43d27;--text\\\\.lg:28px}\";\n\nexport function Hello() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"280px\", flexShrink: 0, height: \"40px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}>Hello <span style={{ fontWeight: 700, color: \"var(--brand)\" }}>bold</span> <a href=\"https://paprika.dev\" style={{ fontSize: \"var(--text\\\\.lg)\", fontStyle: \"italic\", textDecoration: \"underline\" }}>link</a></div>\n  );\n}\n"
+   },
+   "tailwind": {
+    "box": "export function Box() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[320px] shrink-0 h-[80px] bg-[color:#ffffff] overflow-hidden\">\n      <div className=\"box-border absolute left-[0px] top-[0px] w-[280px] shrink-0 h-[40px] text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[400] leading-[1.4] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">Hello <span style={{ fontWeight: 700, color: \"#c43d27\" }}>bold</span> <a href=\"https://paprika.dev\" style={{ fontSize: \"28px\", fontStyle: \"italic\", textDecoration: \"underline\" }}>link</a></div>\n    </div>\n  );\n}\n",
+    "hello": "export function Hello() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[280px] shrink-0 h-[40px] text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[400] leading-[1.4] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">Hello <span style={{ fontWeight: 700, color: \"#c43d27\" }}>bold</span> <a href=\"https://paprika.dev\" style={{ fontSize: \"28px\", fontStyle: \"italic\", textDecoration: \"underline\" }}>link</a></div>\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "box": "export const tokensCss = \":root{--brand:#c43d27;--text\\\\.lg:28px}\";\n\nexport function Box() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[320px] shrink-0 h-[80px] bg-[color:#ffffff] overflow-hidden\">\n      <div className=\"box-border absolute left-[0px] top-[0px] w-[280px] shrink-0 h-[40px] text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[400] leading-[1.4] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">Hello <span style={{ fontWeight: 700, color: \"var(--brand)\" }}>bold</span> <a href=\"https://paprika.dev\" style={{ fontSize: \"var(--text\\\\.lg)\", fontStyle: \"italic\", textDecoration: \"underline\" }}>link</a></div>\n    </div>\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[320px] h-[80px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"box\" data-paprika-type=\"frame\" class=\"box-border absolute left-[0px] top-[0px] w-[320px] shrink-0 h-[80px] bg-[color:#ffffff] overflow-hidden\"><div data-paprika-id=\"hello\" data-paprika-type=\"text\" class=\"box-border absolute left-[0px] top-[0px] w-[280px] shrink-0 h-[40px] text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[400] leading-[1.4] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">Hello <span style=\"font-weight:700;color:#c43d27\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:28px;font-style:italic;text-decoration:underline\">link</a></div></div></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{--brand:#c43d27;--text\\.lg:28px}</style>\n</head><body class=\"relative w-[320px] h-[80px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"box\" data-paprika-type=\"frame\" class=\"box-border absolute left-[0px] top-[0px] w-[320px] shrink-0 h-[80px] bg-[color:#ffffff] overflow-hidden\"><div data-paprika-id=\"hello\" data-paprika-type=\"text\" class=\"box-border absolute left-[0px] top-[0px] w-[280px] shrink-0 h-[40px] text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[400] leading-[1.4] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">Hello <span style=\"font-weight:700;color:var(--brand)\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:var(--text\\.lg);font-style:italic;text-decoration:underline\">link</a></div></div></body></html>",
+   "tailwindHtmlRoots": {
+    "box": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{--brand:#c43d27;--text\\.lg:28px}</style>\n</head><body class=\"relative w-[320px] h-[80px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"box\" data-paprika-type=\"frame\" class=\"box-border absolute left-[0px] top-[0px] w-[320px] shrink-0 h-[80px] bg-[color:#ffffff] overflow-hidden\"><div data-paprika-id=\"hello\" data-paprika-type=\"text\" class=\"box-border absolute left-[0px] top-[0px] w-[280px] shrink-0 h-[40px] text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[400] leading-[1.4] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\">Hello <span style=\"font-weight:700;color:var(--brand)\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:var(--text\\.lg);font-style:italic;text-decoration:underline\">link</a></div></div></body></html>"
+   },
+   "cssModules": {
+    "box": "{\"component\":\"import styles from \\\"./Box.module.css\\\";\\n\\nexport function Box() {\\n  return (\\n    <div className={styles.box}>\\n      <div className={styles.hello}>Hello <span style={{ fontWeight: 700, color: \\\"#c43d27\\\" }}>bold</span> <a href=\\\"https://paprika.dev\\\" style={{ fontSize: \\\"28px\\\", fontStyle: \\\"italic\\\", textDecoration: \\\"underline\\\" }}>link</a></div>\\n    </div>\\n  );\\n}\\n\",\"css\":\".box{box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden}\\n.hello{box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"fileName\":\"Box.module.css\"}"
+   },
+   "cssModulesVars": {
+    "box": "{\"component\":\"import styles from \\\"./Box.module.css\\\";\\n\\nexport function Box() {\\n  return (\\n    <div className={styles.box}>\\n      <div className={styles.hello}>Hello <span style={{ fontWeight: 700, color: \\\"var(--brand)\\\" }}>bold</span> <a href=\\\"https://paprika.dev\\\" style={{ fontSize: \\\"var(--text\\\\\\\\.lg)\\\", fontStyle: \\\"italic\\\", textDecoration: \\\"underline\\\" }}>link</a></div>\\n    </div>\\n  );\\n}\\n\",\"css\":\":root{--brand:#c43d27;--text\\\\.lg:28px}\\n.box{box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden}\\n.hello{box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"fileName\":\"Box.module.css\"}"
+   },
+   "angular": {
+    "box": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-box\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Box.component.html\\\",\\n  styleUrl: \\\"./Box.component.css\\\",\\n})\\nexport class Box {}\\n\",\"template\":\"<div data-paprika-id=\\\"box\\\" data-paprika-type=\\\"frame\\\" class=\\\"box\\\"><div data-paprika-id=\\\"hello\\\" data-paprika-type=\\\"text\\\" class=\\\"hello\\\">Hello <span style=\\\"font-weight:700;color:#c43d27\\\">bold</span> <a href=\\\"https://paprika.dev\\\" style=\\\"font-size:28px;font-style:italic;text-decoration:underline\\\">link</a></div></div>\\n\",\"styles\":\".box{box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden}\\n.hello{box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"className\":\"Box\",\"selector\":\"app-box\",\"fileBase\":\"Box\"}"
+   },
+   "angularVars": {
+    "box": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-box\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Box.component.html\\\",\\n  styleUrl: \\\"./Box.component.css\\\",\\n})\\nexport class Box {}\\n\",\"template\":\"<div data-paprika-id=\\\"box\\\" data-paprika-type=\\\"frame\\\" class=\\\"box\\\"><div data-paprika-id=\\\"hello\\\" data-paprika-type=\\\"text\\\" class=\\\"hello\\\">Hello <span style=\\\"font-weight:700;color:var(--brand)\\\">bold</span> <a href=\\\"https://paprika.dev\\\" style=\\\"font-size:var(--text\\\\.lg);font-style:italic;text-decoration:underline\\\">link</a></div></div>\\n\",\"styles\":\":root{--brand:#c43d27;--text\\\\.lg:28px}\\n.box{box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden}\\n.hello{box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"className\":\"Box\",\"selector\":\"app-box\",\"fileBase\":\"Box\"}"
+   },
+   "svelte": {
+    "box": "{\"source\":\"<div data-paprika-id=\\\"box\\\" data-paprika-type=\\\"frame\\\" class=\\\"box\\\"><div data-paprika-id=\\\"hello\\\" data-paprika-type=\\\"text\\\" class=\\\"hello\\\">Hello <span style=\\\"font-weight:700;color:#c43d27\\\">bold</span> <a href=\\\"https://paprika.dev\\\" style=\\\"font-size:28px;font-style:italic;text-decoration:underline\\\">link</a></div></div>\\n\\n<style>\\n.box{box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden}\\n.hello{box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n</style>\\n\",\"fileName\":\"Box.svelte\"}"
+   },
+   "svelteVars": {
+    "box": "{\"source\":\"<div data-paprika-id=\\\"box\\\" data-paprika-type=\\\"frame\\\" class=\\\"box\\\"><div data-paprika-id=\\\"hello\\\" data-paprika-type=\\\"text\\\" class=\\\"hello\\\">Hello <span style=\\\"font-weight:700;color:var(--brand)\\\">bold</span> <a href=\\\"https://paprika.dev\\\" style=\\\"font-size:var(--text\\\\.lg);font-style:italic;text-decoration:underline\\\">link</a></div></div>\\n\\n<style>\\n:global(:root){--brand:#c43d27;--text\\\\.lg:28px}\\n.box{box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden}\\n.hello{box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n</style>\\n\",\"fileName\":\"Box.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:80px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.box{box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden}\n.hello{box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}</style>\n</head><body><div data-paprika-id=\"box\" data-paprika-type=\"frame\" class=\"box\"><div data-paprika-id=\"hello\" data-paprika-type=\"text\" class=\"hello\">Hello <span style=\"font-weight:700;color:#c43d27\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:28px;font-style:italic;text-decoration:underline\">link</a></div></div></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:80px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--brand:#c43d27;--text\\.lg:28px}\n.box{box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden}\n.hello{box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}</style>\n</head><body><div data-paprika-id=\"box\" data-paprika-type=\"frame\" class=\"box\"><div data-paprika-id=\"hello\" data-paprika-type=\"text\" class=\"hello\">Hello <span style=\"font-weight:700;color:var(--brand)\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:var(--text\\.lg);font-style:italic;text-decoration:underline\">link</a></div></div></body></html>",
+   "describe": {
+    "box": "frame#box 320×80 @0,0 fill=#ffffff",
+    "hello": "text#hello 280×40 @0,0 \"Hello bold link\" 16/400 color=#111111 runs=2"
+   },
+   "style": {
+    "box": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden",
+    "hello": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0"
+   },
+   "find": {
+    "text": [
+     "hello"
+    ],
+    "nameA": [],
+    "textE": [
+     "hello"
+    ],
+    "within": [
+     "box",
+     "hello"
+    ]
    }
   },
   {
@@ -44849,6 +45059,79 @@
      "r"
     ]
    }
+  },
+  {
+   "name": "op249",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"t\"\n  ],\n  \"nodes\": {\n    \"t\": {\n      \"id\": \"t\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 40,\n      \"height\": 20,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Hi\",\n      \"color\": \"#111111\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\",\n      \"runs\": [\n        {\n          \"start\": 0,\n          \"end\": 2,\n          \"fontWeight\": 700\n        }\n      ]\n    }\n  }\n}",
+   "outline": "text#t 40×20 @0,0 \"Hi\" 16/400 color=#111111 runs=1\ncontent: x=0 y=0 w=40 h=20\nnext: x=120 y=0",
+   "outlineDepth0": "text#t 40×20 @0,0 \"Hi\" 16/400 color=#111111 runs=1\ncontent: x=0 y=0 w=40 h=20\nnext: x=120 y=0",
+   "outlineDepth1": "text#t 40×20 @0,0 \"Hi\" 16/400 color=#111111 runs=1\ncontent: x=0 y=0 w=40 h=20\nnext: x=120 y=0",
+   "lint": "[]",
+   "lintRoots": {
+    "t": "[]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\"><span style=\"font-weight:700\">Hi</span></div></body></html>",
+   "htmlRoots": {
+    "t": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\"><span style=\"font-weight:700\">Hi</span></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "t": "export function T() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"40px\", flexShrink: 0, height: \"20px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}><span style={{ fontWeight: 700 }}>Hi</span></div>\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\"><span style=\"font-weight:700\">Hi</span></div></body></html>",
+   "htmlVarsRoots": {
+    "t": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\"><span style=\"font-weight:700\">Hi</span></div></body></html>"
+   },
+   "reactVars": {
+    "t": "export const tokensCss = \":root{}\";\n\nexport function T() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"40px\", flexShrink: 0, height: \"20px\", color: \"#111111\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 400, lineHeight: 1.4, textAlign: \"left\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\", margin: 0 }}><span style={{ fontWeight: 700 }}>Hi</span></div>\n  );\n}\n"
+   },
+   "tailwind": {
+    "t": "export function T() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[20px] text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[400] leading-[1.4] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\"><span style={{ fontWeight: 700 }}>Hi</span></div>\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "t": "export const tokensCss = \":root{}\";\n\nexport function T() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[20px] text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[400] leading-[1.4] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\"><span style={{ fontWeight: 700 }}>Hi</span></div>\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[40px] h-[20px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" class=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[20px] text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[400] leading-[1.4] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\"><span style=\"font-weight:700\">Hi</span></div></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[40px] h-[20px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" class=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[20px] text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[400] leading-[1.4] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\"><span style=\"font-weight:700\">Hi</span></div></body></html>",
+   "tailwindHtmlRoots": {
+    "t": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[40px] h-[20px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"t\" data-paprika-type=\"text\" class=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[20px] text-[color:#111111] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[400] leading-[1.4] text-left whitespace-pre-wrap [overflow-wrap:anywhere] m-0\"><span style=\"font-weight:700\">Hi</span></div></body></html>"
+   },
+   "cssModules": {
+    "t": "{\"component\":\"import styles from \\\"./T.module.css\\\";\\n\\nexport function T() {\\n  return (\\n    <div className={styles.t}><span style={{ fontWeight: 700 }}>Hi</span></div>\\n  );\\n}\\n\",\"css\":\".t{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"fileName\":\"T.module.css\"}"
+   },
+   "cssModulesVars": {
+    "t": "{\"component\":\"import styles from \\\"./T.module.css\\\";\\n\\nexport function T() {\\n  return (\\n    <div className={styles.t}><span style={{ fontWeight: 700 }}>Hi</span></div>\\n  );\\n}\\n\",\"css\":\":root{}\\n.t{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"fileName\":\"T.module.css\"}"
+   },
+   "angular": {
+    "t": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-t\\\",\\n  standalone: true,\\n  templateUrl: \\\"./T.component.html\\\",\\n  styleUrl: \\\"./T.component.css\\\",\\n})\\nexport class T {}\\n\",\"template\":\"<div data-paprika-id=\\\"t\\\" data-paprika-type=\\\"text\\\" class=\\\"t\\\"><span style=\\\"font-weight:700\\\">Hi</span></div>\\n\",\"styles\":\".t{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"className\":\"T\",\"selector\":\"app-t\",\"fileBase\":\"T\"}"
+   },
+   "angularVars": {
+    "t": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-t\\\",\\n  standalone: true,\\n  templateUrl: \\\"./T.component.html\\\",\\n  styleUrl: \\\"./T.component.css\\\",\\n})\\nexport class T {}\\n\",\"template\":\"<div data-paprika-id=\\\"t\\\" data-paprika-type=\\\"text\\\" class=\\\"t\\\"><span style=\\\"font-weight:700\\\">Hi</span></div>\\n\",\"styles\":\":root{}\\n.t{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n\",\"className\":\"T\",\"selector\":\"app-t\",\"fileBase\":\"T\"}"
+   },
+   "svelte": {
+    "t": "{\"source\":\"<div data-paprika-id=\\\"t\\\" data-paprika-type=\\\"text\\\" class=\\\"t\\\"><span style=\\\"font-weight:700\\\">Hi</span></div>\\n\\n<style>\\n.t{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n</style>\\n\",\"fileName\":\"T.svelte\"}"
+   },
+   "svelteVars": {
+    "t": "{\"source\":\"<div data-paprika-id=\\\"t\\\" data-paprika-type=\\\"text\\\" class=\\\"t\\\"><span style=\\\"font-weight:700\\\">Hi</span></div>\\n\\n<style>\\n:global(:root){}\\n.t{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}\\n</style>\\n\",\"fileName\":\"T.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.t{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" class=\"t\"><span style=\"font-weight:700\">Hi</span></div></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}\n.t{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}</style>\n</head><body><div data-paprika-id=\"t\" data-paprika-type=\"text\" class=\"t\"><span style=\"font-weight:700\">Hi</span></div></body></html>",
+   "describe": {
+    "t": "text#t 40×20 @0,0 \"Hi\" 16/400 color=#111111 runs=1"
+   },
+   "style": {
+    "t": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0"
+   },
+   "find": {
+    "text": [
+     "t"
+    ],
+    "nameA": [],
+    "textE": [],
+    "within": [
+     "t"
+    ]
+   }
   }
  ],
  "paths": [
@@ -45447,6 +45730,20 @@
     }
    },
    {
+    "src": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:80px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"box\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden\"><div data-paprika-id=\"hello\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Hello <span style=\"font-weight:700;color:#c43d27\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:28px;font-style:italic;text-decoration:underline\">link</a></div></div></body></html>",
+    "result": {
+     "ok": true,
+     "value": "{\"nodes\":[{\"type\":\"frame\",\"x\":1,\"y\":0,\"width\":320,\"height\":80,\"fill\":\"#ffffff\",\"clip\":true,\"children\":[{\"type\":\"text\",\"text\":\"Hello bold link\",\"x\":0,\"y\":0,\"width\":280,\"height\":40,\"color\":\"#111111\",\"fontFamily\":\"Inter, system-ui, sans-serif\",\"fontSize\":16,\"fontWeight\":400,\"lineHeight\":1.4,\"textAlign\":\"left\"}]}],\"warnings\":[]}"
+    }
+   },
+   {
+    "src": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:320px;height:80px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"box\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:320px;flex-shrink:0;height:80px;background:#ffffff;overflow:hidden\"><div data-paprika-id=\"hello\" data-paprika-type=\"text\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:280px;flex-shrink:0;height:40px;color:#111111;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:400;line-height:1.4;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:0\">Hello <span style=\"font-weight:700;color:#c43d27\">bold</span> <a href=\"https://paprika.dev\" style=\"font-size:28px;font-style:italic;text-decoration:underline\">link</a></div></div></body></html>",
+    "result": {
+     "ok": true,
+     "value": "{\"nodes\":[{\"type\":\"frame\",\"x\":1,\"y\":0,\"width\":320,\"height\":80,\"fill\":\"#ffffff\",\"clip\":true,\"children\":[{\"type\":\"text\",\"text\":\"Hello bold link\",\"x\":0,\"y\":0,\"width\":280,\"height\":40,\"color\":\"#111111\",\"fontFamily\":\"Inter, system-ui, sans-serif\",\"fontSize\":16,\"fontWeight\":400,\"lineHeight\":1.4,\"textAlign\":\"left\"}]}],\"warnings\":[]}"
+    }
+   },
+   {
     "src": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:1px;height:1px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"row\" data-paprika-type=\"frame\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:max-content;height:max-content;background:#ffffff;overflow:hidden;display:flex;flex-direction:row;gap:8px;padding:0px;align-items:flex-start;justify-content:flex-start\"><div data-paprika-id=\"a\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:relative;width:40px;flex-shrink:0;height:20px;background:#111111\"></div><div data-paprika-id=\"pin\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:100px;top:4px;width:16px;flex-shrink:0;height:16px;background:#c43d27\"></div><div data-paprika-id=\"b\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:relative;width:30px;flex-shrink:0;height:20px;background:#222222\"></div></div></body></html>",
     "result": {
      "ok": true,
@@ -45779,6 +46076,38 @@
     }
    },
    "measure": "{\"boxes\":{},\"lines\":{}}"
+  },
+  {
+   "name": "rich",
+   "plain": {
+    "": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"320\\\" height=\\\"80\\\" viewBox=\\\"0 0 320 80\\\"><rect width=\\\"320\\\" height=\\\"80\\\" fill=\\\"#ffffff\\\"/><g data-paprika-id=\\\"box\\\" transform=\\\"translate(0 0)\\\"><defs><clipPath id=\\\"clip-box\\\"><rect width=\\\"320\\\" height=\\\"80\\\"/></clipPath></defs><rect x=\\\"0\\\" y=\\\"0\\\" width=\\\"320\\\" height=\\\"80\\\" fill=\\\"#ffffff\\\"/><g clip-path=\\\"url(#clip-box)\\\"><g data-paprika-id=\\\"hello\\\" transform=\\\"translate(0 0)\\\"><text xml:space=\\\"preserve\\\" font-family=\\\"Inter, system-ui, sans-serif\\\" font-size=\\\"16\\\" font-weight=\\\"400\\\" fill=\\\"#111111\\\"><tspan x=\\\"0\\\" y=\\\"28\\\">Hello <tspan font-weight=\\\"700\\\" fill=\\\"#c43d27\\\">bold</tspan> <a href=\\\"https://paprika.dev\\\"><tspan font-size=\\\"28\\\" font-style=\\\"italic\\\" text-decoration=\\\"underline\\\">link</tspan></a></tspan></text></g></g></g></svg>\",\"width\":320,\"height\":80,\"warnings\":[]}"
+    },
+    "box": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"320\\\" height=\\\"80\\\" viewBox=\\\"0 0 320 80\\\"><g data-paprika-id=\\\"box\\\" transform=\\\"translate(0 0)\\\"><defs><clipPath id=\\\"clip-box\\\"><rect width=\\\"320\\\" height=\\\"80\\\"/></clipPath></defs><rect x=\\\"0\\\" y=\\\"0\\\" width=\\\"320\\\" height=\\\"80\\\" fill=\\\"#ffffff\\\"/><g clip-path=\\\"url(#clip-box)\\\"><g data-paprika-id=\\\"hello\\\" transform=\\\"translate(0 0)\\\"><text xml:space=\\\"preserve\\\" font-family=\\\"Inter, system-ui, sans-serif\\\" font-size=\\\"16\\\" font-weight=\\\"400\\\" fill=\\\"#111111\\\"><tspan x=\\\"0\\\" y=\\\"28\\\">Hello <tspan font-weight=\\\"700\\\" fill=\\\"#c43d27\\\">bold</tspan> <a href=\\\"https://paprika.dev\\\"><tspan font-size=\\\"28\\\" font-style=\\\"italic\\\" text-decoration=\\\"underline\\\">link</tspan></a></tspan></text></g></g></g></svg>\",\"width\":320,\"height\":80,\"warnings\":[]}"
+    },
+    "hello": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"280\\\" height=\\\"40\\\" viewBox=\\\"0 0 280 40\\\"><g data-paprika-id=\\\"hello\\\" transform=\\\"translate(0 0)\\\"><text xml:space=\\\"preserve\\\" font-family=\\\"Inter, system-ui, sans-serif\\\" font-size=\\\"16\\\" font-weight=\\\"400\\\" fill=\\\"#111111\\\"><tspan x=\\\"0\\\" y=\\\"28\\\">Hello <tspan font-weight=\\\"700\\\" fill=\\\"#c43d27\\\">bold</tspan> <a href=\\\"https://paprika.dev\\\"><tspan font-size=\\\"28\\\" font-style=\\\"italic\\\" text-decoration=\\\"underline\\\">link</tspan></a></tspan></text></g></svg>\",\"width\":280,\"height\":40,\"warnings\":[]}"
+    }
+   },
+   "measured": {
+    "": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"320\\\" height=\\\"80\\\" viewBox=\\\"0 0 320 80\\\"><rect width=\\\"320\\\" height=\\\"80\\\" fill=\\\"#ffffff\\\"/><g data-paprika-id=\\\"box\\\" transform=\\\"translate(0 0)\\\"><defs><clipPath id=\\\"clip-box\\\"><rect width=\\\"50\\\" height=\\\"20\\\"/></clipPath></defs><rect x=\\\"0\\\" y=\\\"0\\\" width=\\\"50\\\" height=\\\"20\\\" fill=\\\"#ffffff\\\"/><g clip-path=\\\"url(#clip-box)\\\"><g data-paprika-id=\\\"hello\\\" transform=\\\"translate(10.12 5.5)\\\"><text xml:space=\\\"preserve\\\" font-family=\\\"Inter, system-ui, sans-serif\\\" font-size=\\\"16\\\" font-weight=\\\"400\\\" fill=\\\"#111111\\\"><tspan x=\\\"1.5\\\" y=\\\"12.25\\\">Hello</tspan><tspan x=\\\"0\\\" y=\\\"30\\\">&lt;&amp;&gt;</tspan></text></g></g></g></svg>\",\"width\":320,\"height\":80,\"warnings\":[]}"
+    },
+    "box": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"50\\\" height=\\\"20\\\" viewBox=\\\"0 0 50 20\\\"><g data-paprika-id=\\\"box\\\" transform=\\\"translate(0 0)\\\"><defs><clipPath id=\\\"clip-box\\\"><rect width=\\\"50\\\" height=\\\"20\\\"/></clipPath></defs><rect x=\\\"0\\\" y=\\\"0\\\" width=\\\"50\\\" height=\\\"20\\\" fill=\\\"#ffffff\\\"/><g clip-path=\\\"url(#clip-box)\\\"><g data-paprika-id=\\\"hello\\\" transform=\\\"translate(10.12 5.5)\\\"><text xml:space=\\\"preserve\\\" font-family=\\\"Inter, system-ui, sans-serif\\\" font-size=\\\"16\\\" font-weight=\\\"400\\\" fill=\\\"#111111\\\"><tspan x=\\\"1.5\\\" y=\\\"12.25\\\">Hello</tspan><tspan x=\\\"0\\\" y=\\\"30\\\">&lt;&amp;&gt;</tspan></text></g></g></g></svg>\",\"width\":50,\"height\":20,\"warnings\":[]}"
+    },
+    "hello": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"51\\\" height=\\\"20.33\\\" viewBox=\\\"0 0 51 20.33\\\"><g data-paprika-id=\\\"hello\\\" transform=\\\"translate(10.12 5.5)\\\"><text xml:space=\\\"preserve\\\" font-family=\\\"Inter, system-ui, sans-serif\\\" font-size=\\\"16\\\" font-weight=\\\"400\\\" fill=\\\"#111111\\\"><tspan x=\\\"1.5\\\" y=\\\"12.25\\\">Hello</tspan><tspan x=\\\"0\\\" y=\\\"30\\\">&lt;&amp;&gt;</tspan></text></g></svg>\",\"width\":51,\"height\":20.333333333333332,\"warnings\":[]}"
+    }
+   },
+   "measure": "{\"boxes\":{\"box\":[0,0,50,20],\"hello\":[10.123,5.5,51,20.333333333333332]},\"lines\":{\"hello\":[{\"t\":\"Hello\",\"x\":1.5,\"y\":12.25},{\"t\":\"<&>\",\"x\":0,\"y\":30}]}}"
   },
   {
    "name": "absflow",
@@ -47013,6 +47342,19 @@
     "value": "{}"
    },
    "byRoot": {}
+  },
+  {
+   "name": "rich",
+   "layout": {
+    "ok": true,
+    "value": "{\"box\":{\"x\":0,\"y\":0,\"width\":320,\"height\":80,\"origin\":{\"x\":160,\"y\":40},\"corners\":[{\"x\":0,\"y\":0},{\"x\":320,\"y\":0},{\"x\":320,\"y\":80},{\"x\":0,\"y\":80}]},\"hello\":{\"x\":0,\"y\":0,\"width\":280,\"height\":40,\"origin\":{\"x\":140,\"y\":20},\"corners\":[{\"x\":0,\"y\":0},{\"x\":280,\"y\":0},{\"x\":280,\"y\":40},{\"x\":0,\"y\":40}]}}"
+   },
+   "byRoot": {
+    "box": {
+     "ok": true,
+     "value": "{\"box\":{\"x\":0,\"y\":0,\"width\":320,\"height\":80,\"origin\":{\"x\":160,\"y\":40},\"corners\":[{\"x\":0,\"y\":0},{\"x\":320,\"y\":0},{\"x\":320,\"y\":80},{\"x\":0,\"y\":80}]},\"hello\":{\"x\":0,\"y\":0,\"width\":280,\"height\":40,\"origin\":{\"x\":140,\"y\":20},\"corners\":[{\"x\":0,\"y\":0},{\"x\":280,\"y\":0},{\"x\":280,\"y\":40},{\"x\":0,\"y\":40}]}}"
+    }
+   }
   },
   {
    "name": "absflow",

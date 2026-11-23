@@ -774,3 +774,16 @@ Tarefa: desenhar os eixos de constraint do inspector (escuro: direita/topo, clar
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - O frame de comportamento é um mock: o servidor vivo ainda não aceita `constraints`, então os retângulos de antes/depois estão em x/y.
 - `lint_design` nos três roots: 0 erros e 0 avisos.
+## 2026-11-23: trechos de texto (PAP-B-085, design first)
+
+Tarefa: desenhar o texto pintado, o editor no canvas e a dica do inspector na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de `runs` em nós de texto. Frames `b085-painted`, `b085-editor`, `b085-inspector` em y=10840. PNGs em `docs/assets/boards/PAP-B-085/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 143 | O texto de `create_nodes` como JSON | O texto da ferramenta é JSON mais uma linha legível por raiz, então `JSON.parse` do texto inteiro falha depois que os nós já existem | Devolver um único valor JSON, ou documentar que o cliente lê o primeiro valor | P2 |
+| 144 | Desenhar `runs` e itálico no board ao vivo | O servidor em `:4777` ainda rejeita `runs` e `italic`, então o board simula com nós de texto separados, uma face Georgia e um sublinhado de 1px | Esperado até este build ser o que serve o MCP | — |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (10840).
+- Igual ao #129: os bytes de `render_screenshot` foram gravados nos PNGs a partir do resultado da ferramenta.
+- A linha do preço quebrou até o frame ficar com 720 de largura e o nó do preço com 160×40. O nome do workspace é `Paprica · UI`.

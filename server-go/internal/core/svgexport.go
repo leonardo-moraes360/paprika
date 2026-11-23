@@ -5,6 +5,7 @@ import (
 	"math"
 	"regexp"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 )
@@ -525,7 +526,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 				}
 			} else {
 				lhv, _ := n.Get("lineHeight")
-				lh := svgLen(doc, n, lhv) * size
+				mult := svgLen(doc, n, lhv)
 				align := n.Str("textAlign")
 				ax := 0.0
 				if align == "center" {
@@ -540,9 +541,26 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 					}
 					anchor = fmt.Sprintf(` text-anchor="%s"`, a)
 				}
-				for k, t := range strings.Split(n.Str("text"), "\n") {
-					if t != "" {
-						fmt.Fprintf(&tspans, `<tspan x="%s" y="%s">%s</tspan>`, f(ax), f(float64(k)*lh+(lh-size)/2+size*0.8), EscapeHTML(t))
+				runs := n.Arr("runs")
+				if len(runs) == 0 {
+					lh := mult * size
+					for k, t := range strings.Split(n.Str("text"), "\n") {
+						if t != "" {
+							fmt.Fprintf(&tspans, `<tspan x="%s" y="%s">%s</tspan>`, f(ax), f(float64(k)*lh+(lh-size)/2+size*0.8), EscapeHTML(t))
+						}
+					}
+				} else {
+					abs := 0
+					top := 0.0
+					for _, t := range strings.Split(n.Str("text"), "\n") {
+						sizeL := lineRunSize(doc, n, t, abs, size)
+						lh := mult * sizeL
+						if t != "" {
+							y := top + (lh-sizeL)/2 + sizeL*0.8
+							fmt.Fprintf(&tspans, `<tspan x="%s" y="%s">%s</tspan>`, f(ax), f(y), richLineInner(doc, n, t, abs))
+						}
+						top += lh
+						abs += len(utf16.Encode([]rune(t))) + 1
 					}
 				}
 			}
@@ -627,4 +645,71 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 	}
 	svg := fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="%s" height="%s" viewBox="0 0 %s %s">%s%s</svg>`, f(width), f(height), f(width), f(height), bg, content.String())
 	return SVGResult{SVG: svg, Width: width, Height: height, Warnings: *warnings}, nil
+}
+
+func resolvedSize(doc *Document, n *Node, v any, fallback float64) float64 {
+	mode := ModeOf(doc, n)
+	got := ResolveValue(doc, v, mode)
+	if f, ok := got.(float64); ok {
+		return f
+	}
+	p := jsonv.ParseFloat(jsString(got))
+	if math.IsNaN(p) || p == 0 {
+		return fallback
+	}
+	return p
+}
+
+func lineRunSize(doc *Document, n *Node, line string, abs int, base float64) float64 {
+	size := base
+	end := abs + len(utf16.Encode([]rune(line)))
+	for _, item := range n.Arr("runs") {
+		o, ok := item.(*jsonv.Object)
+		if !ok {
+			continue
+		}
+		fs, ok := o.Get("fontSize")
+		if !ok {
+			continue
+		}
+		if int(o.Num("end")) <= abs || int(o.Num("start")) >= end {
+			continue
+		}
+		if s := resolvedSize(doc, n, fs, base); s > size {
+			size = s
+		}
+	}
+	return size
+}
+
+func richLineInner(doc *Document, n *Node, line string, abs int) string {
+	mode := ModeOf(doc, n)
+	var b strings.Builder
+	for _, p := range PiecesInRange(line, abs, n.Arr("runs")) {
+		if p.Run == nil {
+			b.WriteString(EscapeHTML(p.Text))
+			continue
+		}
+		var attrs strings.Builder
+		if w, ok := p.Run.Get("fontWeight"); ok {
+			fmt.Fprintf(&attrs, ` font-weight="%s"`, jsString(w))
+		}
+		if c, ok := p.Run.Get("color"); ok {
+			fmt.Fprintf(&attrs, ` fill="%s"`, EscapeHTML(jsString(ResolveValue(doc, c, mode))))
+		}
+		if fs, ok := p.Run.Get("fontSize"); ok {
+			fmt.Fprintf(&attrs, ` font-size="%s"`, r2(resolvedSize(doc, n, fs, 16)))
+		}
+		if p.Run.Bool("italic") {
+			attrs.WriteString(` font-style="italic"`)
+		}
+		if href, ok := p.Run.Get("href"); ok {
+			attrs.WriteString(` text-decoration="underline"`)
+			inner := "<tspan" + attrs.String() + ">" + EscapeHTML(p.Text) + "</tspan>"
+			b.WriteString(`<a href="` + EscapeHTML(jsString(href)) + `">` + inner + `</a>`)
+			continue
+		}
+		b.WriteString("<tspan" + attrs.String() + ">" + EscapeHTML(p.Text) + "</tspan>")
+	}
+	return b.String()
 }

@@ -212,18 +212,58 @@ const TextFontFamily = z
   .refine((v) => !/[;{}<>()]/.test(v), "fontFamily cannot contain ; { } < > ( )")
   .default("Inter, system-ui, sans-serif");
 
-export const TextNode = z.object({
-  ...Base,
-  type: z.literal("text"),
-  text: z.string().max(20_000).default(""),
-  color: ColorValue.default("#111111"),
-  fontFamily: TextFontFamily,
-  fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
-  fontWeight: fontWeightValue.default(400),
-  lineHeight: lengthValue(0, 10).default(1.4),
-  letterSpacing: lengthValue().default(0),
-  textAlign: z.enum(["left", "center", "right"]).default("left"),
+const hrefValue = z
+  .string()
+  .max(2000)
+  .refine((v) => /^(https?:\/\/|mailto:|[#/])/.test(v) && !/[\s<>"']/.test(v), "href must be http(s), mailto, or a path starting with / or #");
+
+export const TextRun = z.object({
+  start: z.number().int().min(0),
+  end: z.number().int().min(0),
+  fontWeight: fontWeightValue.optional(),
+  color: ColorValue.optional(),
+  fontSize: z.union([z.number().min(1).max(1000), lengthToken]).optional(),
+  italic: z.boolean().optional(),
+  href: hrefValue.optional(),
 });
+
+function textRunIssues(text: string, runs: z.infer<typeof TextRun>[] | undefined): { path: (string | number)[]; message: string }[] {
+  if (!runs?.length) return [];
+  const issues: { path: (string | number)[]; message: string }[] = [];
+  let prev = 0;
+  let overlap = false;
+  for (let i = 0; i < runs.length; i++) {
+    const run = runs[i]!;
+    if (run.start >= run.end) issues.push({ path: ["runs", i], message: "run start must be before end" });
+    if (run.end > text.length) issues.push({ path: ["runs", i, "end"], message: "run ends past the text" });
+    const styled = run.fontWeight !== undefined || run.color !== undefined || run.fontSize !== undefined || run.italic === true || run.href !== undefined;
+    if (!styled) issues.push({ path: ["runs", i], message: "run has no style" });
+    if (!overlap && run.start < prev) {
+      issues.push({ path: ["runs"], message: "runs overlap or are out of order" });
+      overlap = true;
+    }
+    if (run.start >= prev && run.start < run.end) prev = run.end;
+  }
+  return issues;
+}
+
+export const TextNode = z
+  .object({
+    ...Base,
+    type: z.literal("text"),
+    text: z.string().max(20_000).default(""),
+    color: ColorValue.default("#111111"),
+    fontFamily: TextFontFamily,
+    fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
+    fontWeight: fontWeightValue.default(400),
+    lineHeight: lengthValue(0, 10).default(1.4),
+    letterSpacing: lengthValue().default(0),
+    textAlign: z.enum(["left", "center", "right"]).default("left"),
+    runs: z.array(TextRun).max(200).optional(),
+  })
+  .superRefine((node, ctx) => {
+    for (const issue of textRunIssues(node.text, node.runs)) ctx.addIssue({ code: "custom", message: issue.message, path: issue.path });
+  });
 
 export const ImageNode = z.object({
   ...Base,
@@ -418,6 +458,7 @@ export type Layout = z.infer<typeof Layout>;
 export type FrameNode = z.infer<typeof FrameNode>;
 export type RectNode = z.infer<typeof RectNode>;
 export type EllipseNode = z.infer<typeof EllipseNode>;
+export type TextRun = z.infer<typeof TextRun>;
 export type TextNode = z.infer<typeof TextNode>;
 export type ImageNode = z.infer<typeof ImageNode>;
 export type PathNode = z.infer<typeof PathNode>;

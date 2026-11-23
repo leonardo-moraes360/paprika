@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"math"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -114,11 +115,14 @@ func drawTextNode(doc *core.Document, n *core.Node, measure core.Measure, dst *i
 	if text == "" {
 		return nil
 	}
-	lines := strings.Split(text, "\n")
 	align := n.Str("textAlign")
 	if align == "" {
 		align = "left"
 	}
+	if n.Str("type") == "text" && len(n.Arr("runs")) > 0 {
+		return drawRichLines(doc, n, dst, scale, ox, oy, w, size, weight, col, lh, align)
+	}
+	lines := strings.Split(text, "\n")
 	top := (h - float64(len(lines))*lineH) / 2
 	if n.Str("type") == "shape" && n.Str("shape") == "note" {
 		pv, _ := core.ShapePadding(n)
@@ -142,6 +146,93 @@ func drawTextNode(doc *core.Document, n *core.Node, measure core.Measure, dst *i
 		baseline := top + float64(k)*lineH + (lineH-size*scale)/2 + size*scale*0.8
 		d.Dot = fixed.P(int(math.Round(ox+ax)), int(math.Round(oy+baseline)))
 		d.DrawString(line)
+	}
+	return nil
+}
+
+func resolvedExportSize(doc *core.Document, v any, mode string, fallback float64) float64 {
+	got := core.ResolveValue(doc, v, mode)
+	if f, ok := got.(float64); ok {
+		return f
+	}
+	p := jsonv.ParseFloat(fmt.Sprint(got))
+	if math.IsNaN(p) || p == 0 {
+		return fallback
+	}
+	return p
+}
+
+func drawRichLines(doc *core.Document, n *core.Node, dst *image.RGBA, scale, ox, oy, w, baseSize float64, baseWeight int, base core.RGBA, lineHeight float64, align string) error {
+	mode := core.ModeOf(doc, n)
+	abs := 0
+	top := 0.0
+	for _, line := range strings.Split(n.Str("text"), "\n") {
+		units := len(utf16.Encode([]rune(line)))
+		sizeL := baseSize
+		for _, item := range n.Arr("runs") {
+			o, ok := item.(*jsonv.Object)
+			if !ok {
+				continue
+			}
+			fs, ok := o.Get("fontSize")
+			if !ok || int(o.Num("end")) <= abs || int(o.Num("start")) >= abs+units {
+				continue
+			}
+			if s := resolvedExportSize(doc, fs, mode, baseSize); s > sizeL {
+				sizeL = s
+			}
+		}
+		lineH := lineHeight * sizeL * scale
+		if line != "" {
+			pieces := core.PiecesInRange(line, abs, n.Arr("runs"))
+			total := 0.0
+			widths := make([]float64, len(pieces))
+			faces := make([]font.Face, len(pieces))
+			cols := make([]color.RGBA, len(pieces))
+			for i, p := range pieces {
+				sz, wt, col := baseSize, baseWeight, toColor(base)
+				if p.Run != nil {
+					if fs, ok := p.Run.Get("fontSize"); ok {
+						sz = resolvedExportSize(doc, fs, mode, baseSize)
+					}
+					if fw, ok := p.Run.Get("fontWeight"); ok {
+						if f, ok := fw.(float64); ok {
+							wt = int(f)
+						}
+					}
+					if c, ok := p.Run.Get("color"); ok {
+						if parsed, ok := core.ParseColor(fmt.Sprint(core.ResolveValue(doc, c, mode))); ok {
+							col = toColor(parsed)
+						}
+					}
+				}
+				face, err := faceFor(wt, sz*scale)
+				if err != nil {
+					return err
+				}
+				faces[i] = face
+				cols[i] = col
+				widths[i] = float64(font.MeasureString(face, p.Text)) / 64
+				total += widths[i]
+			}
+			ax := 0.0
+			switch align {
+			case "center":
+				ax = (w - total) / 2
+			case "right":
+				ax = w - total
+			}
+			x := ox + ax
+			baseline := oy + top + (lineH-sizeL*scale)/2 + sizeL*scale*0.8
+			for i, p := range pieces {
+				d := &font.Drawer{Dst: dst, Src: image.NewUniform(cols[i]), Face: faces[i]}
+				d.Dot = fixed.P(int(math.Round(x)), int(math.Round(baseline)))
+				d.DrawString(p.Text)
+				x += widths[i]
+			}
+		}
+		top += lineH
+		abs += units + 1
 	}
 	return nil
 }

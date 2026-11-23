@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent } from "react";
-import { Maximize, Minus, Plus } from "lucide-react";
+import { Bold, Italic, Link2, Maximize, Minus, Plus } from "lucide-react";
 import {
   copyOwner,
   FORMAT,
@@ -15,6 +15,9 @@ import {
   pageRoots,
   nodeGradient,
   nodeStyle,
+  textPieces,
+  textRunCSS,
+  type TextRun,
   parsePath,
   pathAttrs,
   pathBounds,
@@ -393,8 +396,8 @@ interface RenderProps {
   wasm: boolean;
   /** Path em edição ponto a ponto, com os subcaminhos a desenhar. */
   edit: { id: string; subs: Subpath[]; sel: AnchorRef | null } | null;
-  /** Forma com o texto em edição no próprio canvas. */
-  textEdit?: { id: string; onCommit(text: string): void; onDone(): void } | null;
+  /** Forma, conector ou texto em edição no próprio canvas. */
+  textEdit?: { id: string; onCommit(text: string): void; onCommitRich?(text: string, runs: TextRun[] | null): void; onDone(): void } | null;
   /** Nó em arraste: sem hit-test, para o alvo sob o cursor aparecer. */
   dragging?: boolean;
   dragIds?: ReadonlySet<string>;
@@ -453,8 +456,24 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
           {pen && pen.parentId === node.id && <PenOverlay pen={pen} zoom={zoom} />}
         </div>
       );
-    case "text":
-      return <div {...props}>{node.text}</div>;
+    case "text": {
+      const editing =
+        textEdit?.id === node.id && textEdit.onCommitRich
+          ? { onCommit: textEdit.onCommitRich, onDone: textEdit.onDone }
+          : null;
+      if (editing) props.style = { ...css, overflow: "visible" };
+      return (
+        <div {...props}>
+          {editing ? (
+            <TextRunEditor doc={doc} node={node} onCommit={editing.onCommit} onDone={editing.onDone} />
+          ) : node.runs?.length ? (
+            <TextRuns doc={doc} node={node} />
+          ) : (
+            node.text
+          )}
+        </div>
+      );
+    }
     case "image":
       return <img {...props} src={node.src} alt={node.alt} draggable={false} />;
     case "path": {
@@ -528,6 +547,348 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
     default:
       return <div {...props} />;
   }
+}
+
+function TextRuns({ doc, node }: { doc: Document; node: Extract<Node, { type: "text" }> }) {
+  return (
+    <>
+      {textPieces(node.text, node.runs).map((piece, i) => {
+        if (!piece.run) return <span key={i}>{piece.text}</span>;
+        const style = textRunCSS(doc, node, piece.run) as CSSProperties;
+        if (piece.run.href) {
+          return (
+            <a key={i} href={piece.run.href} style={style} onClick={(e) => e.preventDefault()}>
+              {piece.text}
+            </a>
+          );
+        }
+        return (
+          <span key={i} style={style}>
+            {piece.text}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+function runStyled(run: TextRun): boolean {
+  return run.fontWeight !== undefined || run.color !== undefined || run.fontSize !== undefined || run.italic === true || !!run.href;
+}
+
+function editRange(
+  text: string,
+  runs: readonly TextRun[] | undefined,
+  a: number,
+  b: number,
+  apply: (run: TextRun | undefined) => TextRun | null,
+): TextRun[] | null {
+  const next: TextRun[] = [];
+  let at = 0;
+  const emit = (s: number, e: number, run: TextRun | undefined | null) => {
+    if (!run || e <= s) return;
+    const copy: TextRun = { ...run, start: s, end: e };
+    if (runStyled(copy)) next.push(copy);
+  };
+  for (const piece of textPieces(text, runs)) {
+    const ps = at;
+    const pe = at + piece.text.length;
+    at = pe;
+    const lo = Math.max(ps, a);
+    const hi = Math.min(pe, b);
+    if (hi <= lo) {
+      emit(ps, pe, piece.run);
+      continue;
+    }
+    emit(ps, lo, piece.run);
+    emit(lo, hi, apply(piece.run ? { ...piece.run } : undefined));
+    emit(hi, pe, piece.run);
+  }
+  return next.length ? next : null;
+}
+
+function markOf(el: HTMLElement): Partial<TextRun> {
+  const mark: Partial<TextRun> = {};
+  const weight = el.dataset.weight || (el.tagName === "B" || el.tagName === "STRONG" ? "700" : "");
+  if (weight) mark.fontWeight = Number(weight);
+  const color = el.dataset.color || (el.tagName === "FONT" ? el.getAttribute("color") ?? "" : "");
+  if (color) mark.color = color;
+  if (el.dataset.size) {
+    const size = el.dataset.size;
+    mark.fontSize = size.startsWith("$") ? size : Number(size);
+  }
+  if (el.dataset.italic === "1" || el.tagName === "I" || el.tagName === "EM") mark.italic = true;
+  const href = el.getAttribute("href");
+  if (href) mark.href = href;
+  return mark;
+}
+
+function readEditable(root: HTMLElement): { text: string; runs: TextRun[] | null } {
+  let text = "";
+  const runs: TextRun[] = [];
+  let open: { start: number; key: string; mark: Partial<TextRun> } | null = null;
+  const close = (at: number) => {
+    if (!open) return;
+    if (at > open.start) {
+      const run = { start: open.start, end: at, ...open.mark } as TextRun;
+      if (runStyled(run)) runs.push(run);
+    }
+    open = null;
+  };
+  const ensure = (mark: Partial<TextRun>) => {
+    const key = JSON.stringify(mark);
+    if (open && open.key === key) return;
+    close(text.length);
+    if (key !== "{}") open = { start: text.length, key, mark };
+  };
+  const walk = (node: globalThis.Node, mark: Partial<TextRun>) => {
+    if (node.nodeType === globalThis.Node.TEXT_NODE) {
+      const chunk = (node.textContent ?? "").replace(/\u00a0/g, " ");
+      if (!chunk) return;
+      ensure(mark);
+      text += chunk;
+      return;
+    }
+    if (!(node instanceof HTMLElement)) return;
+    if (node.tagName === "BR") {
+      close(text.length);
+      text += "\n";
+      return;
+    }
+    if (node !== root && (node.tagName === "DIV" || node.tagName === "P") && text.length > 0 && !text.endsWith("\n")) {
+      close(text.length);
+      text += "\n";
+    }
+    const next = { ...mark, ...markOf(node) };
+    for (const child of node.childNodes) walk(child, next);
+  };
+  walk(root, {});
+  close(text.length);
+  return { text, runs: runs.length ? runs : null };
+}
+
+function paintEditable(root: HTMLElement, text: string, runs: readonly TextRun[] | null | undefined) {
+  root.replaceChildren();
+  for (const piece of textPieces(text, runs ?? undefined)) {
+    if (!piece.run) {
+      root.append(document.createTextNode(piece.text));
+      continue;
+    }
+    const el = piece.run.href ? document.createElement("a") : document.createElement("span");
+    if (piece.run.fontWeight !== undefined) {
+      el.dataset.weight = String(piece.run.fontWeight);
+      el.style.fontWeight = String(piece.run.fontWeight);
+    }
+    if (piece.run.color !== undefined) {
+      el.dataset.color = String(piece.run.color);
+      el.style.color = String(piece.run.color);
+    }
+    if (piece.run.fontSize !== undefined) {
+      el.dataset.size = String(piece.run.fontSize);
+      if (typeof piece.run.fontSize === "number") el.style.fontSize = `${piece.run.fontSize}px`;
+    }
+    if (piece.run.italic) {
+      el.dataset.italic = "1";
+      el.style.fontStyle = "italic";
+    }
+    if (piece.run.href) {
+      el.setAttribute("href", piece.run.href);
+      el.style.textDecoration = "underline";
+    }
+    el.textContent = piece.text;
+    root.append(el);
+  }
+}
+
+function selectionOffsets(root: HTMLElement): { start: number; end: number } | null {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return null;
+  const before = (node: globalThis.Node, offset: number) => {
+    const probe = document.createRange();
+    probe.selectNodeContents(root);
+    probe.setEnd(node, offset);
+    return probe.toString().replace(/\u00a0/g, " ").length;
+  };
+  const start = before(range.startContainer, range.startOffset);
+  const end = before(range.endContainer, range.endOffset);
+  return start <= end ? { start, end } : { start: end, end: start };
+}
+
+function selectOffsets(root: HTMLElement, start: number, end: number) {
+  const range = document.createRange();
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let seen = 0;
+  let startNode: Text | null = null;
+  let startOff = 0;
+  let endNode: Text | null = null;
+  let endOff = 0;
+  while (walker.nextNode()) {
+    const current = walker.currentNode as Text;
+    const len = current.length;
+    if (!startNode && seen + len >= start) {
+      startNode = current;
+      startOff = start - seen;
+    }
+    if (!endNode && seen + len >= end) {
+      endNode = current;
+      endOff = end - seen;
+      break;
+    }
+    seen += len;
+  }
+  if (!startNode || !endNode) return;
+  range.setStart(startNode, startOff);
+  range.setEnd(endNode, endOff);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
+function TextRunEditor({
+  doc,
+  node,
+  onCommit,
+  onDone,
+}: {
+  doc: Document;
+  node: Extract<Node, { type: "text" }>;
+  onCommit(text: string, runs: TextRun[] | null): void;
+  onDone(): void;
+}) {
+  const shell = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const done = useRef(false);
+  const savedSel = useRef<{ start: number; end: number } | null>(null);
+  const [size, setSize] = useState(typeof node.fontSize === "number" ? String(node.fontSize) : "16");
+  const [color, setColor] = useState(typeof node.color === "string" && node.color.startsWith("#") ? node.color : "#c43d27");
+  const [href, setHref] = useState("https://");
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    paintEditable(el, node.text, node.runs);
+    el.focus();
+  }, [node.id, node.text, node.runs]);
+  const finish = () => {
+    if (done.current) return;
+    done.current = true;
+    const el = ref.current;
+    const next = el ? readEditable(el) : { text: node.text, runs: node.runs ?? null };
+    const same = next.text === node.text && JSON.stringify(next.runs) === JSON.stringify(node.runs ?? null);
+    if (!same) onCommit(next.text, next.runs);
+    onDone();
+  };
+  const applySel = (apply: (run: TextRun | undefined) => TextRun | null) => {
+    const el = ref.current;
+    if (!el) return;
+    const live = selectionOffsets(el);
+    const sel = live && live.start !== live.end ? live : savedSel.current;
+    if (!sel || sel.start === sel.end) return;
+    const cur = readEditable(el);
+    const runs = editRange(cur.text, cur.runs ?? undefined, sel.start, sel.end, apply);
+    paintEditable(el, cur.text, runs);
+    selectOffsets(el, sel.start, sel.end);
+  };
+  const hrefOk = /^(https?:\/\/|mailto:|[#/])/.test(href) && !/[\s<>"']/.test(href);
+  return (
+    <div ref={shell} className="relative" onPointerDown={(e) => e.stopPropagation()}>
+      <div
+        className="absolute bottom-full left-0 z-10 mb-1 flex items-center gap-1 rounded-md border border-line bg-panel p-1"
+        onMouseDown={(e) => {
+          const el = ref.current;
+          if (el) savedSel.current = selectionOffsets(el);
+          if (!(e.target instanceof HTMLElement) || !e.target.closest("input")) e.preventDefault();
+        }}
+      >
+        <button type="button" className={ui.iconBtn} aria-label="Negrito" onClick={() => applySel((run) => {
+          const next: TextRun = { start: 0, end: 0, ...(run ?? {}) };
+          if (next.fontWeight === 700) delete next.fontWeight;
+          else next.fontWeight = 700;
+          return runStyled(next) ? next : null;
+        })}>
+          <Bold aria-hidden className="size-3.5" />
+        </button>
+        <button type="button" className={ui.iconBtn} aria-label="Itálico" onClick={() => applySel((run) => {
+          const next: TextRun = { start: 0, end: 0, ...(run ?? {}) };
+          if (next.italic) delete next.italic;
+          else next.italic = true;
+          return runStyled(next) ? next : null;
+        })}>
+          <Italic aria-hidden className="size-3.5" />
+        </button>
+        <input
+          aria-label="Tamanho"
+          className="h-6 w-12 rounded border border-line bg-panel px-1 text-xs text-fg"
+          value={size}
+          onChange={(e) => setSize(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            const n = Number(size);
+            if (!Number.isFinite(n) || n < 1 || n > 1000) return;
+            applySel((run) => ({ start: 0, end: 0, ...(run ?? {}), fontSize: n }));
+          }}
+        />
+        <input aria-label="Cor" type="color" className="h-6 w-6 cursor-pointer border-0 bg-transparent p-0" value={color} onChange={(e) => {
+          const next = e.target.value;
+          setColor(next);
+          applySel((run) => ({ start: 0, end: 0, ...(run ?? {}), color: next }));
+        }} />
+        <input
+          aria-label="Link"
+          className="h-6 w-36 rounded border border-line bg-panel px-1 text-xs text-fg"
+          value={href}
+          onChange={(e) => setHref(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            if (!hrefOk) return;
+            applySel((run) => ({ start: 0, end: 0, ...(run ?? {}), href }));
+          }}
+        />
+        <button type="button" className={ui.iconBtn} aria-label="Aplicar link" disabled={!hrefOk} onClick={() => applySel((run) => ({ start: 0, end: 0, ...(run ?? {}), href }))}>
+          <Link2 aria-hidden className="size-3.5" />
+        </button>
+      </div>
+      <div
+        ref={ref}
+        role="textbox"
+        aria-label="Texto"
+        contentEditable
+        suppressContentEditableWarning
+        className="min-h-4 whitespace-pre-wrap outline-none"
+        onKeyDown={(e) => {
+          if (e.key === "Escape" || ((e.metaKey || e.ctrlKey) && e.key === "Enter")) {
+            e.preventDefault();
+            finish();
+            return;
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return;
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            const br = document.createTextNode("\n");
+            range.insertNode(br);
+            range.setStartAfter(br);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        }}
+        onBlur={(e) => {
+          const next = e.relatedTarget;
+          if (next instanceof globalThis.Node && shell.current?.contains(next)) return;
+          finish();
+        }}
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest("a")) e.preventDefault();
+        }}
+      />
+    </div>
+  );
 }
 
 /** Texto de uma forma editado no lugar: Enter quebra linha, Esc ou Ctrl+Enter (ou sair do campo) confirma. */
@@ -1594,6 +1955,11 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     // Duplo clique num path já selecionado (ou fora de grupo) entra na edição ponto a ponto.
     if (node?.type === "path" && (selected.includes(node.id) || pickTarget(doc, node.id, selected) === node.id) && startPathEdit(node)) return;
     // Duplo clique numa forma de diagrama edita o texto dela.
+    if (node?.type === "text" && !node.locked && (selected.includes(node.id) || pickTarget(doc, node.id, selected) === node.id)) {
+      onSelect([node.id]);
+      setTextEditId(node.id);
+      return;
+    }
     if (node?.type === "shape" && !node.locked && !copyOwner(doc, node) && (selected.includes(node.id) || pickTarget(doc, node.id, selected) === node.id)) {
       onSelect([node.id]);
       setTextEditId(node.id);
@@ -1822,7 +2188,15 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             onCommit: (text: string) => apply([{ op: "update", id: editedShape.id, props: { label: text.trim() ? text.trim() : null } }], "editar rótulo"),
             onDone: () => setTextEditId(null),
           }
-        : null;
+        : editedShape?.type === "text"
+          ? {
+              id: editedShape.id,
+              onCommit: () => {},
+              onCommitRich: (text: string, runs: TextRun[] | null) =>
+                apply([{ op: "update", id: editedShape.id, props: { text, runs: runs ?? null } }], "editar texto"),
+              onDone: () => setTextEditId(null),
+            }
+          : null;
 
   const rootNodes = roots.map((id) => doc.nodes[id]).filter((n): n is Node => !!n);
   const marqueeRect = marquee && {

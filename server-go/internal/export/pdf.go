@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -421,6 +422,10 @@ func drawPDFText(doc *core.Document, n *core.Node, pdf *gofpdf.Fpdf, measure cor
 	if n.Str("type") == "text" {
 		top = 0
 	}
+	if n.Str("type") == "text" && len(n.Arr("runs")) > 0 {
+		drawPDFRich(doc, n, pdf, fonts, text, ox, oy, w, size, weight, col, lh, scale, align)
+		return
+	}
 	for k, line := range lines {
 		if line == "" {
 			continue
@@ -435,5 +440,94 @@ func drawPDFText(doc *core.Document, n *core.Node, pdf *gofpdf.Fpdf, measure cor
 		}
 		baseline := top + float64(k)*lineH + (lineH-size*scale)/2 + size*scale*0.8
 		pdf.Text(ox+ax, oy+baseline, line)
+	}
+}
+
+func pdfFace(fonts pdfFonts, weight int) string {
+	switch {
+	case weight >= 650:
+		return fonts.bold
+	case weight >= 500:
+		return fonts.semibold
+	default:
+		return fonts.regular
+	}
+}
+
+func drawPDFRich(doc *core.Document, n *core.Node, pdf *gofpdf.Fpdf, fonts pdfFonts, text string, ox, oy, w, baseSize float64, baseWeight int, base core.RGBA, lineHeight, scale float64, align string) {
+	mode := core.ModeOf(doc, n)
+	abs := 0
+	top := 0.0
+	for _, line := range strings.Split(text, "\n") {
+		units := len(utf16.Encode([]rune(line)))
+		sizeL := baseSize
+		for _, item := range n.Arr("runs") {
+			o, ok := item.(*jsonv.Object)
+			if !ok {
+				continue
+			}
+			fs, ok := o.Get("fontSize")
+			if !ok || int(o.Num("end")) <= abs || int(o.Num("start")) >= abs+units {
+				continue
+			}
+			if s := resolvedExportSize(doc, fs, mode, baseSize); s > sizeL {
+				sizeL = s
+			}
+		}
+		lineH := lineHeight * sizeL * scale
+		if line != "" {
+			pieces := core.PiecesInRange(line, abs, n.Arr("runs"))
+			widths := make([]float64, len(pieces))
+			total := 0.0
+			for i, p := range pieces {
+				sz, wt := baseSize, baseWeight
+				if p.Run != nil {
+					if fs, ok := p.Run.Get("fontSize"); ok {
+						sz = resolvedExportSize(doc, fs, mode, baseSize)
+					}
+					if fw, ok := p.Run.Get("fontWeight"); ok {
+						if f, ok := fw.(float64); ok {
+							wt = int(f)
+						}
+					}
+				}
+				pdf.SetFont(pdfFace(fonts, wt), "", sz*scale)
+				widths[i] = pdf.GetStringWidth(p.Text)
+				total += widths[i]
+			}
+			ax := 0.0
+			switch align {
+			case "center":
+				ax = (w - total) / 2
+			case "right":
+				ax = w - total
+			}
+			x := ox + ax
+			baseline := oy + top + (lineH-sizeL*scale)/2 + sizeL*scale*0.8
+			for i, p := range pieces {
+				sz, wt, colr := baseSize, baseWeight, base
+				if p.Run != nil {
+					if fs, ok := p.Run.Get("fontSize"); ok {
+						sz = resolvedExportSize(doc, fs, mode, baseSize)
+					}
+					if fw, ok := p.Run.Get("fontWeight"); ok {
+						if f, ok := fw.(float64); ok {
+							wt = int(f)
+						}
+					}
+					if c, ok := p.Run.Get("color"); ok {
+						if parsed, ok := core.ParseColor(fmt.Sprint(core.ResolveValue(doc, c, mode))); ok {
+							colr = parsed
+						}
+					}
+				}
+				pdf.SetTextColor(int(colr.R), int(colr.G), int(colr.B))
+				pdf.SetFont(pdfFace(fonts, wt), "", sz*scale)
+				pdf.Text(x, baseline, p.Text)
+				x += widths[i]
+			}
+		}
+		top += lineH
+		abs += units + 1
 	}
 }

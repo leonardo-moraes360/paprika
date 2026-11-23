@@ -9,6 +9,8 @@ import {
   type PathNode,
   type ShadowSpec,
   type ShapeNode,
+  type TextNode,
+  type TextRun,
   type Size,
   type Stroke,
   type StrokePosition,
@@ -529,6 +531,17 @@ function textCss(
   css.textAlign = node.textAlign;
   css.whiteSpace = "pre-wrap";
   css.overflowWrap = "anywhere";
+  return css;
+}
+
+export function textRunCSS(doc: Document, node: TextNode, run: TextRun, vars?: boolean): CSS {
+  const css: CSS = {};
+  const mode = modeOf(doc, node);
+  if (run.fontWeight !== undefined) css.fontWeight = fontWeightCSS(doc, run.fontWeight, mode, vars);
+  if (run.color !== undefined) css.color = String(paintValue(doc, run.color, mode, vars));
+  if (run.fontSize !== undefined) css.fontSize = lengthCSS(doc, run.fontSize, mode, vars, "px");
+  if (run.italic) css.fontStyle = "italic";
+  if (run.href) css.textDecoration = "underline";
   return css;
 }
 

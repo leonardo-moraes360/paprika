@@ -517,10 +517,17 @@ type Field struct {
 	Schema Schema
 }
 
+// ObjectIssue is one problem reported by ObjectSchema.Check, with a path relative to the object.
+type ObjectIssue struct {
+	Path    []any
+	Message string
+}
+
 type ObjectSchema struct {
 	Fields   []Field
 	catchall Schema
 	check    func(any) string
+	issues   func(*jsonv.Object) []ObjectIssue
 }
 
 func Object(fields ...Field) *ObjectSchema { return &ObjectSchema{Fields: fields} }
@@ -532,9 +539,16 @@ func (o *ObjectSchema) Check(fn func(any) string) *ObjectSchema {
 	return &n
 }
 
+// Issues adds path-specific object issues after the fields parse (z.object().superRefine()).
+func (o *ObjectSchema) Issues(fn func(*jsonv.Object) []ObjectIssue) *ObjectSchema {
+	n := *o
+	n.issues = fn
+	return &n
+}
+
 // Catchall keeps unknown keys, validated by s (z.object().catchall()).
 func (o *ObjectSchema) Catchall(s Schema) *ObjectSchema {
-	return &ObjectSchema{Fields: o.Fields, catchall: s}
+	return &ObjectSchema{Fields: o.Fields, catchall: s, check: o.check, issues: o.issues}
 }
 
 // Extend returns a new shape with extra fields appended (or replaced in place).
@@ -552,7 +566,7 @@ func (o *ObjectSchema) Extend(fields ...Field) *ObjectSchema {
 			out = append(out, f)
 		}
 	}
-	return &ObjectSchema{Fields: out, catchall: o.catchall}
+	return &ObjectSchema{Fields: out, catchall: o.catchall, check: o.check, issues: o.issues}
 }
 
 // Keys lists the shape's keys.
@@ -595,6 +609,11 @@ func (o *ObjectSchema) parse(v any, present bool, path []any, c *ctx) (any, bool
 	if o.check != nil {
 		if msg := o.check(out); msg != "" {
 			c.addCheck(path, "custom", msg, "code", "custom")
+		}
+	}
+	if o.issues != nil {
+		for _, is := range o.issues(out) {
+			c.add(append(append([]any{}, path...), is.Path...), "custom", is.Message, "code", "custom")
 		}
 	}
 	return out, true
