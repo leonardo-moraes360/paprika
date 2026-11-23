@@ -462,3 +462,60 @@ func TestWorkspaceDeleteNeedsTokenAndLogsOps(t *testing.T) {
 		t.Fatalf("delete entry lost its summary: %+v", last.Detail)
 	}
 }
+
+func TestApplyInKeepsTheCanvasAndHistoryApart(t *testing.T) {
+	s, _ := openTemp(t)
+	active := s.DocID()
+	createRect(t, s, "on-a")
+	other, err := s.CreateWorkspace("Board", "agent:test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var events []ChangeEvent
+	s.OnChange(func(e ChangeEvent) { events = append(events, e) })
+
+	_, head, err := s.ApplyIn(other.ID, []any{obj("op", "create", "node", obj("type", "rect", "id", "on-b"))}, "agent:test", "draw b", "batch-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if head.ID != other.ID || head.Name != "Board" || head.Version != 1 {
+		t.Fatalf("head = %+v", head)
+	}
+	if s.DocID() != active || !s.Doc().Obj("nodes").Has("on-a") || s.Doc().Obj("nodes").Has("on-b") {
+		t.Fatalf("active moved or A changed: %s", s.DocID())
+	}
+	if len(events) != 0 {
+		t.Fatalf("writing another workspace broadcast %d events", len(events))
+	}
+	b, err := s.ReadWorkspace(other.ID)
+	if err != nil || core.GetNode(b.Doc, "on-b") == nil {
+		t.Fatalf("B: %+v %v", b, err)
+	}
+	if _, _, err := s.ApplyIn(other.ID, []any{obj("op", "create", "node", obj("type", "rect", "id", "on-b2"))}, "agent:test", "draw b2", "batch-b"); err != nil {
+		t.Fatal(err)
+	}
+	ok, head, err := s.StepIn(other.ID, "agent:test", false)
+	if err != nil || !ok || head.CanUndo || core.GetNode(head.Doc, "on-b") != nil || core.GetNode(head.Doc, "on-b2") != nil {
+		t.Fatalf("undo B: ok=%v head=%+v err=%v", ok, head, err)
+	}
+	if !s.Doc().Obj("nodes").Has("on-a") || !s.CanUndo() || s.DocID() != active {
+		t.Fatal("undo in B touched A")
+	}
+	if _, err := s.OpenWorkspace(other.ID, "user"); err != nil {
+		t.Fatal(err)
+	}
+	if s.CanUndo() || s.Doc().Obj("nodes").Has("on-b") {
+		t.Fatal("opening B restored a history the undo already cleared")
+	}
+	if _, err := s.OpenWorkspace(active, "user"); err != nil || !s.CanUndo() || !s.Doc().Obj("nodes").Has("on-a") {
+		t.Fatal("A history did not survive the round trip")
+	}
+	_, _, err = s.ApplyIn("missing", []any{obj("op", "create", "node", obj("type", "rect", "id", "x"))}, "agent:test", "nope", "")
+	if !errors.Is(err, ErrNoWorkspace) {
+		t.Fatalf("unknown workspace: %v", err)
+	}
+	choice := s.WorkspaceChoiceError("missing")
+	if !strings.Contains(choice.Error(), active) || !strings.Contains(choice.Error(), `"Board"`) || !strings.Contains(choice.Error(), "Workspaces:") {
+		t.Fatalf("choice error: %v", choice)
+	}
+}

@@ -620,6 +620,7 @@ type Store struct {
 	docID       string
 	history     *core.History
 	version     int64
+	aside       map[string]*wsLive
 	dataVersion int64
 	listeners   map[int]func(ChangeEvent)
 	nextID      int
@@ -786,31 +787,284 @@ func (s *Store) RecentHistory(limit int) []HistorySummary {
 	return out
 }
 
-// commit persists the new state; on failure the in-memory state is rolled back by the caller.
-func (s *Store) commitLocked(prev *core.Document, actor, label, kind string) ([]func(ChangeEvent), ChangeEvent, error) {
-	version := s.version + 1
-	doc := s.history.Doc()
+// wsLive is one workspace's document and undo history kept in this process.
+type wsLive struct {
+	history *core.History
+	version int64
+}
+
+// WorkspaceHead names the workspace a read or write actually used.
+type WorkspaceHead struct {
+	ID      string
+	Name    string
+	Version int64
+	Doc     *core.Document
+	CanUndo bool
+	CanRedo bool
+}
+
+func (s *Store) persistLocked(docID string, doc, prev *core.Document, version int64, undo, redo []core.HistoryEntry) error {
 	tx, err := s.db.Begin()
 	if err != nil {
-		return nil, ChangeEvent{}, err
+		return err
 	}
 	defer tx.Rollback()
 	if err := writeDocument(tx, doc, prev, version, time.Now().UnixMilli()); err != nil {
-		return nil, ChangeEvent{}, err
+		return err
 	}
-	if err := writeHistory(tx, s.docID, s.history.Entries(), s.history.RedoEntries()); err != nil {
-		return nil, ChangeEvent{}, err
+	if err := writeHistory(tx, docID, undo, redo); err != nil {
+		return err
 	}
 	if err := tx.Commit(); err != nil {
-		return nil, ChangeEvent{}, err
+		return err
 	}
-	s.version = version
 	s.dataVersion = s.readDataVersion()
+	return nil
+}
+
+func (s *Store) listenersLocked() []func(ChangeEvent) {
 	ls := make([]func(ChangeEvent), 0, len(s.listeners))
 	for _, fn := range s.listeners {
 		ls = append(ls, fn)
 	}
-	return ls, ChangeEvent{doc, version, actor, label, kind, s.docID}, nil
+	return ls
+}
+
+func headOf(id string, live *wsLive) WorkspaceHead {
+	d := live.history.Doc()
+	return WorkspaceHead{ID: id, Name: d.Str("name"), Version: live.version, Doc: d, CanUndo: live.history.CanUndo(), CanRedo: live.history.CanRedo()}
+}
+
+func removedIDs(prev *core.Document, r *core.ApplyResult) {
+	after := core.Nodes(r.Doc)
+	for _, id := range core.Nodes(prev).Keys() {
+		if !after.Has(id) {
+			r.Removed = append(r.Removed, id)
+		}
+	}
+}
+
+// commit persists the new state; on failure the in-memory state is rolled back by the caller.
+func (s *Store) commitLocked(prev *core.Document, actor, label, kind string) ([]func(ChangeEvent), ChangeEvent, error) {
+	version := s.version + 1
+	doc := s.history.Doc()
+	if err := s.persistLocked(s.docID, doc, prev, version, s.history.Entries(), s.history.RedoEntries()); err != nil {
+		return nil, ChangeEvent{}, err
+	}
+	s.version = version
+	return s.listenersLocked(), ChangeEvent{doc, version, actor, label, kind, s.docID}, nil
+}
+
+func (s *Store) ensureAsideLocked(id string) (*wsLive, error) {
+	var dbVersion int64
+	err := s.db.QueryRow(`SELECT version FROM documents WHERE id = ?`, id).Scan(&dbVersion)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNoWorkspace
+	}
+	if err != nil {
+		return nil, err
+	}
+	if s.aside == nil {
+		s.aside = map[string]*wsLive{}
+	}
+	if live, ok := s.aside[id]; ok && live.version == dbVersion {
+		return live, nil
+	}
+	doc, version, err := LoadDocument(s.db, id)
+	if err != nil {
+		return nil, err
+	}
+	undo, redo, err := loadHistory(s.db, id)
+	if err != nil {
+		return nil, err
+	}
+	live := &wsLive{history: core.Restore(doc, undo, redo), version: version}
+	s.aside[id] = live
+	return live, nil
+}
+
+func (s *Store) liveLocked(id string) (*wsLive, bool, error) {
+	if id == "" || id == s.docID {
+		return &wsLive{history: s.history, version: s.version}, false, nil
+	}
+	live, err := s.ensureAsideLocked(id)
+	return live, true, err
+}
+
+// ReadWorkspace returns the document of id, or of the active workspace when id is empty.
+// The active workspace is not switched.
+func (s *Store) ReadWorkspace(id string) (WorkspaceHead, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	live, aside, err := s.liveLocked(id)
+	if err != nil {
+		return WorkspaceHead{}, err
+	}
+	target := id
+	if !aside {
+		target = s.docID
+	}
+	return headOf(target, live), nil
+}
+
+// WorkspaceChoiceError is the unknown-workspaceId error, naming the workspaces that do exist.
+func (s *Store) WorkspaceChoiceError(id string) error {
+	rows, err := s.db.Query(`SELECT id, name FROM documents ORDER BY updated_at DESC, id`)
+	if err != nil {
+		return fmt.Errorf("workspace %q does not exist (see list_workspaces)", id)
+	}
+	defer rows.Close()
+	var parts []string
+	for rows.Next() {
+		var wid, name string
+		if err := rows.Scan(&wid, &name); err != nil {
+			return fmt.Errorf("workspace %q does not exist (see list_workspaces)", id)
+		}
+		parts = append(parts, fmt.Sprintf("%s %q", wid, name))
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("workspace %q does not exist (see list_workspaces)", id)
+	}
+	list := "(none)"
+	if len(parts) > 0 {
+		list = strings.Join(parts, ", ")
+	}
+	return fmt.Errorf("workspace %q does not exist. Workspaces: %s", id, list)
+}
+
+// ApplyIn runs a transaction on id, or on the active workspace when id is empty.
+// Only a write to the active workspace is broadcast; another workspace keeps its own history
+// and does not move the canvas.
+func (s *Store) ApplyIn(id string, ops []any, actor, label, batch string) (*core.ApplyResult, WorkspaceHead, error) {
+	s.mu.Lock()
+	live, aside, err := s.liveLocked(id)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, WorkspaceHead{}, err
+	}
+	target := s.docID
+	if aside {
+		target = id
+	}
+	prevDoc := live.history.Doc()
+	prevUndo := append([]core.HistoryEntry(nil), live.history.Entries()...)
+	prevRedo := append([]core.HistoryEntry(nil), live.history.RedoEntries()...)
+	r, err := live.history.ApplyBatch(ops, actor, label, batch)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, WorkspaceHead{}, err
+	}
+	version := live.version + 1
+	if err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries()); err != nil {
+		restored := core.Restore(prevDoc, prevUndo, prevRedo)
+		if aside {
+			live.history = restored
+		} else {
+			s.history = restored
+		}
+		s.mu.Unlock()
+		return nil, WorkspaceHead{}, fmt.Errorf("falha ao gravar no banco: %w", err)
+	}
+	live.version = version
+	if !aside {
+		s.history = live.history
+		s.version = version
+	}
+	removedIDs(prevDoc, r)
+	head := headOf(target, live)
+	var ls []func(ChangeEvent)
+	var ev ChangeEvent
+	if !aside {
+		ls = s.listenersLocked()
+		ev = ChangeEvent{head.Doc, version, actor, label, "apply", target}
+	}
+	s.mu.Unlock()
+	if !aside {
+		emit(ls, ev)
+	}
+	return r, head, nil
+}
+
+// StepIn undoes or redoes one entry on id, or on the active workspace when id is empty.
+func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error) {
+	s.mu.Lock()
+	live, aside, err := s.liveLocked(id)
+	if err != nil {
+		s.mu.Unlock()
+		return false, WorkspaceHead{}, err
+	}
+	target := s.docID
+	if aside {
+		target = id
+	}
+	prevDoc := live.history.Doc()
+	prevUndo := append([]core.HistoryEntry(nil), live.history.Entries()...)
+	prevRedo := append([]core.HistoryEntry(nil), live.history.RedoEntries()...)
+	var e core.HistoryEntry
+	var ok bool
+	kind, prefix := "undo", "desfazer"
+	if redo {
+		kind, prefix = "redo", "refazer"
+		e, ok, err = live.history.Redo()
+	} else {
+		e, ok, err = live.history.Undo()
+	}
+	if err != nil || !ok {
+		head := headOf(target, live)
+		s.mu.Unlock()
+		return false, head, err
+	}
+	version := live.version + 1
+	what := e.Label
+	if what == "" {
+		what = e.Actor
+	}
+	if err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries()); err != nil {
+		restored := core.Restore(prevDoc, prevUndo, prevRedo)
+		if aside {
+			live.history = restored
+		} else {
+			s.history = restored
+		}
+		s.mu.Unlock()
+		return false, WorkspaceHead{}, fmt.Errorf("falha ao gravar no banco: %w", err)
+	}
+	live.version = version
+	if !aside {
+		s.history = live.history
+		s.version = version
+	}
+	head := headOf(target, live)
+	var ls []func(ChangeEvent)
+	var ev ChangeEvent
+	if !aside {
+		ls = s.listenersLocked()
+		ev = ChangeEvent{head.Doc, version, actor, prefix + ": " + what, kind, target}
+	}
+	s.mu.Unlock()
+	if !aside {
+		emit(ls, ev)
+	}
+	return true, head, nil
+}
+
+// RecentHistoryIn returns the last limit undo entries of id, or of the active workspace when id is empty.
+func (s *Store) RecentHistoryIn(id string, limit int) ([]HistorySummary, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	live, _, err := s.liveLocked(id)
+	if err != nil {
+		return nil, err
+	}
+	entries := live.history.Entries()
+	if limit < len(entries) {
+		entries = entries[len(entries)-limit:]
+	}
+	out := make([]HistorySummary, len(entries))
+	for i, e := range entries {
+		out[i] = HistorySummary{e.Actor, e.Label, e.At, len(e.Ops)}
+	}
+	return out, nil
 }
 
 func emit(ls []func(ChangeEvent), e ChangeEvent) {
@@ -947,6 +1201,15 @@ func (s *Store) ApplyRemote(docID, name, actor, label string, opsFor func(cur *c
 		return res, err
 	}
 	s.dataVersion = s.readDataVersion()
+	if live, ok := s.aside[docID]; ok {
+		if live.version == version {
+			undo, redo := live.history.Entries(), live.history.RedoEntries()
+			live.history = core.Restore(next, undo, redo)
+			live.version = version + 1
+		} else {
+			delete(s.aside, docID)
+		}
+	}
 	return res, nil
 }
 
@@ -1163,14 +1426,44 @@ func (s *Store) OpenWorkspace(id, actor string) (WorkspaceInfo, error) {
 		return info, err
 	}
 	s.mu.Lock()
-	if err := s.load(id); err != nil {
+	if id == s.docID {
 		s.mu.Unlock()
-		return WorkspaceInfo{}, err
+		info.Active = true
+		return info, nil
 	}
-	ls := make([]func(ChangeEvent), 0, len(s.listeners))
-	for _, fn := range s.listeners {
-		ls = append(ls, fn)
+	if s.aside == nil {
+		s.aside = map[string]*wsLive{}
 	}
+	oldID := s.docID
+	s.aside[oldID] = &wsLive{history: s.history, version: s.version}
+	switched := false
+	if live, ok := s.aside[id]; ok {
+		var dbVersion int64
+		qerr := s.db.QueryRow(`SELECT version FROM documents WHERE id = ?`, id).Scan(&dbVersion)
+		if qerr == nil && live.version == dbVersion {
+			delete(s.aside, id)
+			s.docID = id
+			s.history = live.history
+			s.version = live.version
+			s.dataVersion = s.readDataVersion()
+			switched = true
+		} else {
+			delete(s.aside, id)
+		}
+	}
+	if !switched {
+		if err := s.load(id); err != nil {
+			parked := s.aside[oldID]
+			delete(s.aside, oldID)
+			s.docID = oldID
+			s.history = parked.history
+			s.version = parked.version
+			s.mu.Unlock()
+			return WorkspaceInfo{}, err
+		}
+	}
+	delete(s.aside, s.docID)
+	ls := s.listenersLocked()
 	doc := s.history.Doc()
 	ev := ChangeEvent{doc, s.version, actor, "abrir workspace: " + doc.Str("name"), "open", s.docID}
 	s.mu.Unlock()
@@ -1277,6 +1570,9 @@ func (s *Store) RenameWorkspace(id, name, actor string) (WorkspaceInfo, error) {
 	if err := tx.Commit(); err != nil {
 		return WorkspaceInfo{}, err
 	}
+	s.mu.Lock()
+	delete(s.aside, id)
+	s.mu.Unlock()
 	s.logWorkspaceOp(actor, "rename", id, name, map[string]any{"from": info.Name})
 	info.Name, info.UpdatedAt = name, now
 	return info, nil
@@ -1473,6 +1769,9 @@ func (s *Store) DeleteWorkspace(id, actor string) (string, error) {
 	if _, err := s.db.Exec(`DELETE FROM documents WHERE id = ?`, id); err != nil {
 		return "", err
 	}
+	s.mu.Lock()
+	delete(s.aside, id)
+	s.mu.Unlock()
 	s.logWorkspaceOp(actor, "delete", id, target.Name, summary)
 	return s.DocID(), nil
 }

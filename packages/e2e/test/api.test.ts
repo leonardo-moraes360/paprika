@@ -33,6 +33,13 @@ afterEach(async () => {
 const call = async (c: Client, name: string, args: Record<string, unknown> = {}) =>
   (await c.callTool({ name, arguments: args })) as ToolResult;
 const textOf = (r: ToolResult) => r.content.map((c) => c.text ?? "").join("\n");
+const textBody = (r: ToolResult) =>
+  textOf(r).replace(/,\n  "workspaceId": "[^"]+"/g, "").replace(/,\n  "workspaceName": "[^"]+"/g, "");
+const outlineText = (r: ToolResult) => textOf(r).replace(/^workspace \S+/, "workspace ID");
+const withWorkspace = async (body: Record<string, unknown>) => {
+  const doc = await srv.doc();
+  return { ...body, workspaceId: doc.id, workspaceName: doc.name };
+};
 const jsonOf = (r: ToolResult) => JSON.parse(r.content.find((c) => (c.text ?? "").trimStart().startsWith("{"))?.text ?? "null");
 
 const outputSchema = (name: string) => {
@@ -165,7 +172,7 @@ describe("API: MCP", () => {
     });
     await call(c, "create_component", { id: "btn" });
     const inst = await call(c, "create_instance", { componentId: "btn", id: "i1", scale: 1.5, overrides: { lbl: { text: "Enviar" } } });
-    expect(textOf(inst)).toMatchInlineSnapshot(`
+    expect(textBody(inst)).toMatchInlineSnapshot(`
       "{
         "instance": "i1",
         "copies": {
@@ -179,8 +186,8 @@ describe("API: MCP", () => {
       }"
     `);
     const outline = await call(c, "get_document_outline", {});
-    expect(textOf(outline)).toMatchInlineSnapshot(`
-      "document "doc" v3 · 6 nodes
+    expect(outlineText(outline)).toMatchInlineSnapshot(`
+      "workspace ID "doc" v3 · 6 nodes
       tokens: (none)
 
       frame#btn "Botão" 100×40 @10,10 fill=#3355ff row gap=4 component
@@ -265,7 +272,7 @@ describe("API: MCP", () => {
       ]
     `);
     const d = await call(c, "detach_instance", { ids: ["i1"] });
-    expect(textOf(d)).toMatchInlineSnapshot(`
+    expect(textBody(d)).toMatchInlineSnapshot(`
       "{
         "detached": [
           "i1"
@@ -275,8 +282,8 @@ describe("API: MCP", () => {
       }"
     `);
     await call(c, "undo");
-    expect(textOf(await call(c, "get_document_outline", { rootId: "i1" }))).toMatchInlineSnapshot(`
-      "document "doc" v6 · 6 nodes
+    expect(outlineText(await call(c, "get_document_outline", { rootId: "i1" }))).toMatchInlineSnapshot(`
+      "workspace ID "doc" v6 · 6 nodes
       tokens: (none)
 
       frame#i1 "Botão" 150×60 @150,10 fill=#000000 row gap=6 instanceOf=btn scale=1.5 overrides=2
@@ -301,7 +308,7 @@ describe("API: MCP", () => {
       ],
     });
     const g = await call(c, "group_nodes", { ids: ["b", "a"], id: "g", name: "Par" });
-    expect(textOf(g)).toBe('{\n  "group": "g",\n  "created": [\n    "g"\n  ],\n  "version": 2\n}');
+    expect(textBody(g)).toBe('{\n  "group": "g",\n  "created": [\n    "g"\n  ],\n  "version": 2\n}');
     const nodes = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["g", "a", "b"] })));
     expect(nodes).toMatchInlineSnapshot(`
       [
@@ -545,7 +552,7 @@ describe("API: MCP", () => {
         edges: [{ from: "start", to: "ok" }, { from: "memo", to: "ok", route: "straight", dashed: true, startArrow: "arrow" }],
       },
     })) as ToolResult & { structuredContent?: unknown };
-    expect(r.structuredContent).toEqual({ nodes: ["start", "ok", "memo"], edges: ["start-to-ok", "memo-to-ok"], created: ["start", "ok", "memo", "start-to-ok", "memo-to-ok"], version: 1 });
+    expect(r.structuredContent).toEqual(await withWorkspace({ nodes: ["start", "ok", "memo"], edges: ["start-to-ok", "memo-to-ok"], created: ["start", "ok", "memo", "start-to-ok", "memo-to-ok"], version: 1 }));
     await call(c, "update_nodes", { updates: [{ id: "ok", props: { x: 200.5 } }] });
     const doc = await srv.doc();
     expect(doc.nodes["start-to-ok"]).toMatchObject({ x: 158, y: 38, d: "M2 2 L22.25 2 L22.25 146 L42.5 146 M30.5 152 L42.5 146 L30.5 140" });
@@ -718,8 +725,8 @@ describe("API: MCP", () => {
     assertOutput("import_svg", svgOut);
     expect(svgOut).toMatchObject({ version: 1, warnings: ['CSS in <style> is not applied; use attributes or style="" on the elements'] });
     const anon = (t: string) => t.replace(/#[0-9a-z]{10}\b/g, "#…").replace(/data-paprika-id="[^"]+"/g, 'data-paprika-id="…"');
-    expect(anon(textOf(await call(c, "get_document_outline", { rootId: svgOut.ids[0] })))).toMatchInlineSnapshot(`
-      "document "doc" v1 · 3 nodes
+    expect(anon(outlineText(await call(c, "get_document_outline", { rootId: svgOut.ids[0] })))).toMatchInlineSnapshot(`
+      "workspace ID "doc" v1 · 3 nodes
       tokens: (none)
 
       group#… "Ícone" 44×44 @12.0972,12.0972
@@ -738,8 +745,8 @@ describe("API: MCP", () => {
     const htmlOut = jsonOf(html);
     assertOutput("import_html", htmlOut);
     const root = htmlOut.ids[0];
-    expect(anon(textOf(await call(c, "get_document_outline", { rootId: root })))).toMatchInlineSnapshot(`
-      "document "doc" v2 · 6 nodes
+    expect(anon(outlineText(await call(c, "get_document_outline", { rootId: root })))).toMatchInlineSnapshot(`
+      "workspace ID "doc" v2 · 6 nodes
       tokens: (none)
 
       frame#… 200×hug @0,100 fill=#fbf8f4 row gap=8
@@ -1032,17 +1039,17 @@ describe("API: MCP", () => {
   it("agent layer: structuredContent, undo batch, actor from clientInfo over HTTP sessions, pt-BR guide", async () => {
     const c = client;
     const r = (await c.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "b1" }], batch: "draw 3" } })) as ToolResult & { structuredContent?: unknown };
-    expect(r.structuredContent).toEqual({
+    expect(r.structuredContent).toEqual(await withWorkspace({
       ids: ["b1"],
       roots: [{ id: "b1", name: "", type: "rect", x: 0, y: 0, width: 100, height: 100 }],
       created: [{ id: "b1", name: "", type: "rect", parentId: null }],
       version: 1,
-    });
+    }));
     assertOutput("create_nodes", r.structuredContent);
     expect(textOf(r)).toContain("rect#b1 100×100 @0,0");
     await call(c, "set_tokens", { tokens: { ink: "#111111" }, batch: "draw 3" });
     const g = (await c.callTool({ name: "group_nodes", arguments: { ids: ["b1"], id: "gb", batch: "draw 3" } })) as ToolResult & { structuredContent?: unknown };
-    expect(g.structuredContent).toEqual({ group: "gb", created: ["gb"], version: 3 });
+    expect(g.structuredContent).toEqual(await withWorkspace({ group: "gb", created: ["gb"], version: 3 }));
     const nodes = (await c.callTool({ name: "get_nodes", arguments: { ids: ["gb"] } })) as ToolResult & { structuredContent?: { nodes: unknown[] } };
     expect(JSON.parse(textOf(nodes))).toEqual(nodes.structuredContent?.nodes);
     const hist = (await c.callTool({ name: "get_history", arguments: {} })) as ToolResult & { structuredContent?: { entries: { actor: string; label: string; ops: number }[] } };
@@ -1052,7 +1059,7 @@ describe("API: MCP", () => {
     const path = (await c.callTool({ name: "path_info", arguments: { d: "M0 0 C 0 10 10 10 10 0" } })) as ToolResult & { structuredContent?: unknown };
     expect(path.structuredContent).toEqual(JSON.parse(textOf(path)));
     const undo = (await c.callTool({ name: "undo", arguments: {} })) as ToolResult & { structuredContent?: unknown };
-    expect(undo.structuredContent).toEqual({ undone: true, version: 4, canUndo: false, canRedo: true });
+    expect(undo.structuredContent).toEqual(await withWorkspace({ undone: true, version: 4, canUndo: false, canRedo: true }));
     expect(textOf(await call(c, "get_document_outline", {}))).toContain("tokens: (none)");
     expect(textOf(await call(c, "get_design_guide", { language: "pt-BR" }))).toMatch(/^# Paprika: guia para agentes/);
     const bad = await call(c, "delete_nodes", { ids: ["nope"] });
@@ -1382,7 +1389,7 @@ describe("API: HTTP + WebSocket", () => {
     expect(opened.status).toBe(200);
     expect(((await opened.json()) as { workspace: Info }).workspace).toMatchObject({ id: landing.id, active: true });
     await waitFor(() => messages.some((m) => m.type === "doc" && m.kind === "open" && m.doc?.id === landing.id));
-    expect(textOf(await call(client, "get_document_outline"))).toMatch(/^document "Landing" v\d+ · 0 nodes/);
+    expect(textOf(await call(client, "get_document_outline"))).toMatch(/^workspace \S+ "Landing" v\d+ · 0 nodes/);
     await client.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "r2" }] } });
     expect(Object.keys((await srv.doc()).nodes)).toEqual(["r2"]);
 
@@ -1519,6 +1526,83 @@ describe("API: HTTP + WebSocket", () => {
     const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: "https://evil.example" } });
     const code = await new Promise<number>((ok) => ws.once("unexpected-response", (_req, res) => ok(res.statusCode ?? 0)));
     expect(code).toBe(403);
+  });
+
+  it("workspaceId desenha em outro workspace sem mover o canvas, e o undo de lá não toca o ativo", async () => {
+    const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
+    const docs: { id?: string; kind?: string }[] = [];
+    ws.on("message", (m) => {
+      const msg = JSON.parse(String(m)) as { type: string; kind?: string; doc?: { id: string } };
+      if (msg.type === "doc") docs.push({ id: msg.doc?.id, kind: msg.kind });
+    });
+    await new Promise((ok) => ws.once("open", ok));
+    await waitFor(() => docs.length > 0);
+
+    const active = await srv.doc();
+    const drawn = (await call(client, "create_nodes", { nodes: [{ type: "rect", id: "on-a" }] })) as ToolResult & {
+      structuredContent?: { workspaceId: string; workspaceName: string; created: string[] };
+    };
+    expect(drawn.structuredContent).toMatchObject({
+      workspaceId: active.id,
+      workspaceName: active.name,
+      ids: ["on-a"],
+      created: [{ id: "on-a", name: "", type: "rect", parentId: null }],
+    });
+
+    const created = (await call(client, "create_workspace", { name: "Board" })) as ToolResult & {
+      structuredContent: { workspace: { id: string; name: string; active: boolean } };
+    };
+    const board = created.structuredContent.workspace;
+    expect(board.active).toBe(false);
+
+    const there = (await call(client, "create_nodes", {
+      workspaceId: board.id,
+      nodes: [{ type: "rect", id: "on-b", name: "No canvas" }],
+    })) as ToolResult & { structuredContent?: { workspaceId: string; workspaceName: string; version: number; created: string[] } };
+    expect(there.isError).toBeFalsy();
+    expect(there.structuredContent).toEqual({
+      ids: ["on-b"],
+      roots: [{ id: "on-b", name: "No canvas", type: "rect", x: 0, y: 0, width: 100, height: 100 }],
+      created: [{ id: "on-b", name: "No canvas", type: "rect", parentId: null }],
+      version: 1,
+      workspaceId: board.id,
+      workspaceName: "Board",
+    });
+
+    expect((await srv.doc()).id).toBe(active.id);
+    expect(Object.keys((await srv.doc()).nodes)).toEqual(["on-a"]);
+    await waitFor(() => docs.some((d) => d.kind === "apply" && d.id === active.id));
+    expect(docs.every((d) => d.id === active.id)).toBe(true);
+
+    const home = textOf(await call(client, "get_document_outline", {}));
+    expect(home.startsWith(`workspace ${active.id} "${active.name}"`)).toBe(true);
+    expect(home).not.toContain("on-b");
+    const away = textOf(await call(client, "get_document_outline", { workspaceId: board.id }));
+    expect(away.startsWith(`workspace ${board.id} "Board"`)).toBe(true);
+    expect(away).toContain("on-b");
+    const found = textOf(await call(client, "find_nodes", { workspaceId: board.id, name: "No canvas" }));
+    expect(found).toContain("rect#on-b");
+
+    const undone = (await call(client, "undo", { workspaceId: board.id })) as ToolResult & {
+      structuredContent?: { undone: boolean; workspaceId: string; canUndo: boolean };
+    };
+    expect(undone.structuredContent).toMatchObject({ undone: true, workspaceId: board.id, canUndo: false });
+    expect(textOf(await call(client, "get_document_outline", { workspaceId: board.id }))).not.toContain("on-b");
+    expect(Object.keys((await srv.doc()).nodes)).toEqual(["on-a"]);
+    expect((await srv.doc()).id).toBe(active.id);
+
+    const back = (await call(client, "undo", {})) as ToolResult & { structuredContent?: { undone: boolean; workspaceId: string } };
+    expect(back.structuredContent).toMatchObject({ undone: true, workspaceId: active.id });
+    expect(Object.keys((await srv.doc()).nodes)).toEqual([]);
+
+    const missing = await call(client, "create_nodes", { workspaceId: "nope", nodes: [{ type: "rect", id: "z" }] });
+    expect(missing.isError).toBe(true);
+    const err = textOf(missing);
+    expect(err).toContain("workspace \"nope\" does not exist");
+    expect(err).toContain(active.id);
+    expect(err).toContain("Board");
+    expect((await srv.doc()).id).toBe(active.id);
+    ws.close();
   });
 });
 

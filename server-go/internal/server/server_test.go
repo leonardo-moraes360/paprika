@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -248,7 +249,7 @@ func TestMCPToolsAndErrors(t *testing.T) {
 		t.Fatalf("%v %q", isErr, out)
 	}
 	out, _ = callText(t, m, "create_nodes", obj("index", 0.0, "nodes", []any{obj("type", "rect", "id", "a"), obj("type", "rect", "id", "b")}))
-	if !strings.Contains(out, "\"ids\": [\n    \"a\",\n    \"b\"\n  ]") || !strings.Contains(out, "rect#a 100×100 @0,0\nrect#b 100×100 @180,0") {
+	if !strings.Contains(out, "\"ids\": [\n    \"a\",\n    \"b\"\n  ]") || !strings.Contains(out, "rect#a 100×100 @0,0\nrect#b 100×100 @180,0") || !strings.Contains(out, fmt.Sprintf("\"workspaceId\": %q", s.DocID())) || !strings.Contains(out, fmt.Sprintf("\"workspaceName\": %q", s.Doc().Str("name"))) {
 		t.Fatalf("create: %q", out)
 	}
 	out, _ = callText(t, m, "find_nodes", obj("type", "rect"))
@@ -347,7 +348,7 @@ func TestMCPGroupsAndPages(t *testing.T) {
 		obj("type", "rect", "id", "b", "x", 60.0, "y", 40.0, "width", 30.0, "height", 30.0),
 	})}))
 	out, isErr := callText(t, m, "group_nodes", obj("ids", []any{"a", "b"}, "id", "g", "name", "Par"))
-	if isErr || out != "{\n  \"group\": \"g\",\n  \"created\": [\n    \"g\"\n  ],\n  \"version\": 2\n}" {
+	if isErr || out != fmt.Sprintf("{\n  \"group\": \"g\",\n  \"created\": [\n    \"g\"\n  ],\n  \"version\": 2,\n  \"workspaceId\": %q,\n  \"workspaceName\": %q\n}", s.DocID(), s.Doc().Str("name")) {
 		t.Fatalf("group: %q", out)
 	}
 	if g := core.GetNode(s.Doc(), "g"); g.Num("x") != 10 || g.Num("width") != 80 || g.Num("height") != 50 {
@@ -407,7 +408,7 @@ func TestMCPAgentDefaults(t *testing.T) {
 		t.Fatal("connector failed")
 	}
 	out, isErr := callText(t, m, "delete_nodes", obj("ids", []any{"cell", "s1"}))
-	if isErr || out != "{\n  \"deleted\": [\n    \"cell\",\n    \"inside\",\n    \"s1\",\n    \"c1\"\n  ],\n  \"version\": 3\n}" {
+	if isErr || out != fmt.Sprintf("{\n  \"deleted\": [\n    \"cell\",\n    \"inside\",\n    \"s1\",\n    \"c1\"\n  ],\n  \"version\": 3,\n  \"workspaceId\": %q,\n  \"workspaceName\": %q\n}", s.DocID(), s.Doc().Str("name")) {
 		t.Fatalf("delete: %q", out)
 	}
 }
