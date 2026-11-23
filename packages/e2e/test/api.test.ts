@@ -1059,7 +1059,7 @@ describe("API: MCP", () => {
     const src = frames.find((n) => n.x === 1400 && n.y === 0)!;
     const dup = await call(client, "duplicate_nodes", { ids: [src.id], props: { mode: "dark", name: "Board dark" } });
     expect(dup.isError, textOf(dup)).toBeFalsy();
-    const copyId = (JSON.parse(textOf(dup)) as { copies: string[] }).copies[0]!;
+    const copyId = (jsonOf(dup) as { copies: string[] }).copies[0]!;
     const copy = (await srv.doc()).nodes[copyId]!;
     expect(copy.type).toBe("frame");
     if (copy.type !== "frame") return;
@@ -1080,7 +1080,7 @@ describe("API: MCP", () => {
     const outline = textOf(await call(client, "get_document_outline", {}));
     expect(outline).toContain("content: x=");
     expect(outline).toContain("next: x=");
-    const bounds = JSON.parse(textOf(await call(client, "get_bounds", {}))) as { content: { width: number }; next: { x: number } };
+    const bounds = jsonOf(await call(client, "get_bounds", {})) as { content: { width: number }; next: { x: number } };
     expect(bounds.content.width).toBeGreaterThan(0);
     expect(typeof bounds.next.x).toBe("number");
     await call(client, "create_nodes", {
