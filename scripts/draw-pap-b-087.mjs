@@ -1,29 +1,9 @@
 #!/usr/bin/env node
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
+import { join } from "node:path";
+import { connectBoard, saveShots, textOf } from "./design-board.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const { root, client, call } = await connectBoard("pap-b-087-design");
 const outDir = join(root, "docs/assets/boards/PAP-B-087");
-const mcpUrl = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4777/mcp";
-
-const require = createRequire(join(root, "packages/e2e/package.json"));
-const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
-const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
-
-const client = new Client({ name: "pap-b-087-design", version: "0" });
-await client.connect(new StreamableHTTPClientTransport(new URL(mcpUrl)));
-
-async function call(name, args = {}) {
-  const r = await client.callTool({ name, arguments: args });
-  if (r.isError) throw new Error(`${name}: ${JSON.stringify(r.content)}`);
-  return r;
-}
-
-function textOf(r) {
-  return (r.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
-}
 
 const wsRaw = textOf(await call("list_workspaces"));
 let parsed;
@@ -184,20 +164,12 @@ await call("create_nodes", {
   nodes: [inspector, image, menu],
 });
 
-await mkdir(outDir, { recursive: true });
 const shots = [
   ["b087-inspector", "01-inspetor-raiz.png"],
   ["b087-image", "02-imagem.png"],
   ["b087-menu", "03-menu-contexto.png"],
 ];
-for (const [rootId, file] of shots) {
-  const r = await call("render_screenshot", { workspaceId, rootId, scale: 2 });
-  const img = (r.content ?? []).find((c) => c.type === "image");
-  const b64 = img?.data;
-  if (!b64) throw new Error(`no image for ${rootId}: ${textOf(r).slice(0, 400)}`);
-  await writeFile(join(outDir, file), Buffer.from(b64, "base64"));
-  console.log("wrote", file);
-}
+await saveShots(call, workspaceId, outDir, shots);
 
 const lint = textOf(await call("lint_design", { workspaceId, rootIds: ["b087-inspector", "b087-image", "b087-menu"] }));
 console.log(lint.slice(0, 1200));

@@ -4,9 +4,9 @@
  * Talks to a local Paprika over MCP. Addresses the workspace by id and never calls open_workspace.
  * Usage: node scripts/draw-pap-b-080.mjs
  */
-import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { saveShots, textOf, unwrapTool } from "./design-board.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "docs/assets/boards/PAP-B-080");
@@ -38,13 +38,7 @@ async function rpc(method, params) {
 await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "pap-b-080-design", version: "0" } });
 
 async function call(name, args = {}) {
-  const r = await rpc("tools/call", { name, arguments: args });
-  if (r.isError) throw new Error(`${name}: ${JSON.stringify(r.content)}`);
-  return r;
-}
-
-function textOf(r) {
-  return (r.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+  return unwrapTool(name, await rpc("tools/call", { name, arguments: args }));
 }
 
 const wsRaw = textOf(await call("list_workspaces"));
@@ -283,24 +277,15 @@ const created = await call("create_nodes", {
 });
 console.log(textOf(created).slice(0, 500));
 
-await mkdir(outDir, { recursive: true });
 const shots = [
   ["b080-fx-dark", "01-efeitos-escuro.png"],
   ["b080-pv-dark", "02-previa-escuro.png"],
   ["b080-fx-light", "03-efeitos-claro.png"],
   ["b080-pv-light", "04-previa-claro.png"],
 ];
-for (const [rootId, file] of shots) {
-  const r = await call("render_screenshot", { workspaceId, rootId, scale: 2 });
-  const img = (r.content ?? []).find((c) => c.type === "image");
-  const b64 = img?.data;
-  if (!b64) {
-    console.error("no image", rootId, textOf(r).slice(0, 400));
-    continue;
-  }
-  await writeFile(join(outDir, file), Buffer.from(b64, "base64"));
-  console.log("wrote", file);
-}
+await saveShots(call, workspaceId, outDir, shots, (rootId, r) => {
+  console.error("no image", rootId, textOf(r).slice(0, 400));
+});
 
 try {
   const lint = textOf(await call("lint_design", { workspaceId, rootId: "b080-fx-dark" }));

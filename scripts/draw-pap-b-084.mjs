@@ -1,26 +1,10 @@
 #!/usr/bin/env node
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
+import { join } from "node:path";
+import { connectBoard, saveShots } from "./design-board.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = join(root, "docs/assets/boards/PAP-B-084");
-const mcpUrl = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4777/mcp";
 const sdkRoot = process.env.PAPRIKA_SDK ?? "/home/leonardo/workspace/pessoal/paprika/packages/e2e/package.json";
-
-const require = createRequire(sdkRoot);
-const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
-const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
-
-const client = new Client({ name: "pap-b-084-design", version: "0" });
-await client.connect(new StreamableHTTPClientTransport(new URL(mcpUrl)));
-
-async function call(name, args = {}) {
-  const result = await client.callTool({ name, arguments: args });
-  if (!result.isError) return result;
-  throw new Error(`${name} failed: ${JSON.stringify(result.content)}`);
-}
+const { root, call } = await connectBoard("pap-b-084-design", sdkRoot);
+const outDir = join(root, "docs/assets/boards/PAP-B-084");
 
 function textOf(result) {
   const parts = [];
@@ -224,19 +208,11 @@ await call("create_nodes", {
 const lint = textOf(await call("lint_design", { workspaceId, rootIds: nodes.map((n) => n.id), minSeverity: "warning" }));
 console.log("lint", lint.slice(0, 2000));
 
-await mkdir(outDir, { recursive: true });
 const shots = [
   ["papb084-inspector-dark", "01-inspector-dark.png"],
   ["papb084-inspector-light", "02-inspector-light.png"],
   ["papb084-behavior", "03-parent-resize.png"],
 ];
-for (const [rootId, file] of shots) {
-  const r = await call("render_screenshot", { workspaceId, rootId, scale: 2 });
-  const img = (r.content ?? []).find((c) => c.type === "image");
-  const b64 = img?.data;
-  if (!b64) throw new Error(`no image for ${rootId}: ${textOf(r).slice(0, 400)}`);
-  await writeFile(join(outDir, file), Buffer.from(b64, "base64"));
-  console.log("wrote", file);
-}
+await saveShots(call, workspaceId, outDir, shots);
 
 console.log("done", workspaceId, pageId);
