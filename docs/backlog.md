@@ -27,7 +27,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Frames with flex-like layout (row/column, gap, padding, align, wrap) | `frame.layout` | ✅ | — |
 | Pages inside a file | `page` nodes, page list in the canvas, `create_page` (2026-11-21) | ✅ | — |
 | Group / wrap selection in a frame, unwrap | `group` node, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21); no "wrap in frame" yet | 🟡 | P2 |
-| Absolute child inside an auto-layout frame ("ignore layout") | Children of row/column always flow | ⬜ | P1 |
+| Absolute child inside an auto-layout frame ("ignore layout") | `layoutPositioning: "auto"\|"absolute"` on a child (omit = auto). `"absolute"` keeps x/y relative to the parent and is skipped by flow, gap and hug. Inspector toggle on children of row/column frames (2026-11-23, PAP-B-069). Constraints/pinning stay out. | ✅ | — |
 | Corner radius per corner | Single `radius` | 🟡 | P1 |
 | Z-order (forward, backward, front, back) | `update_nodes`/`move_nodes` take `index`: a number from 0, or `front`/`back`/`forward`/`backward`, one undo step (2026-11-22). Canvas: `Page Up`/`Page Down` step, `Ctrl+Page Up`/`Ctrl+Page Down` front/back; inspector **Ordem** section (2026-11-22, PAP-B-021). | ✅ | — |
 | Hide, lock, unlock all | `visible`, `locked`; no "unlock all" | 🟡 | P2 |
@@ -251,7 +251,7 @@ Every item still open in the [agent feedback log](agent-feedback.md) (fb#1 to fb
 
 | Work item | What to build | Feedback | Status | Pri. |
 |---|---|---|---|---|
-| Move a board between Paprika servers | `import_document` (a `.paprika.json` in, a new workspace out, without switching the active one); `paprika export --root <id>` for one frame; `create_nodes` ignores derived connector fields instead of refusing them Batch 3: PAP-B-013. | fb#72, fb#75 | ⬜ | P1 |
+| Move a board between Paprika servers | Done (2026-11-22, PAP-B-013, PR #92): `paprika export --root <id>` writes one frame plus the components and tokens it needs as a standalone `.paprika.json`; MCP `import_document` stores that file as a new workspace without switching the active one; `create_nodes` ignores derived connector fields (`x`, `y`, `width`, `height`, `d`) with a warning. Tests: `TestExportFrameStandalone` and `TestImportWorkspaceKeepsActive` (`server-go/internal/server/workspace_test.go`); `TestCreateNodesIgnoresDerivedConnectorFields` (same file); CLI subtest "export with root and short out" of `TestExistingInvocationsParseToTheSameOptions` (`server-go/cmd/paprika/cli_test.go`); e2e "mover um board entre servidores: export --root no A, import_document no B, outline igual (PAP-B-013)" (`packages/e2e/test/api.test.ts`). | fb#72, fb#75 | ✅ | — |
 | Core geometry: absolute boxes for agents | A core `layout(doc)` returning absolute boxes (Go port held by fixtures), a `get_bounds` tool with rotated corners, an `origin` field, and `normalize` on path create (or the offset in `path_info`); the core export uses the same boxes, so SVG of auto-layout nodes needs no browser Batch 3: PAP-A-001. | fb#2, fb#15, fb#26, fb#41 | ✅ | P1 |
 | Boolean operations and cut-outs | `union`/`subtract`/`intersect`/`exclude` producing a new `path` (MCP op + canvas command), or a `mask` on `group`; same item as F "Boolean operations" Batch 3: PAP-A-003 — MCP `combine_paths` done; canvas command still open. | fb#1, fb#76 | ✅ | P1 |
 | Trace a reference image | Place an image (local file or data URL) as a locked, semi-transparent reference under a frame; `render_screenshot` with a `compare` image side by side | fb#78 | ⬜ | P2 |

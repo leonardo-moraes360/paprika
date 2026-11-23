@@ -91,6 +91,7 @@ func baseFields() []z.Field {
 		{Name: "opacity", Schema: z.Default(z.Number().Min(0).Max(1), 1.0)},
 		{Name: "visible", Schema: z.Default(z.Bool(), true)},
 		{Name: "locked", Schema: z.Default(z.Bool(), false)},
+		{Name: "layoutPositioning", Schema: z.Optional(z.Enum("auto", "absolute"))},
 		{Name: "fill", Schema: z.Optional(colorValue())},
 		{Name: "stroke", Schema: z.Optional(strokeSchema)},
 		{Name: "radius", Schema: z.Default(lengthMin(0), 0.0)},
@@ -128,6 +129,7 @@ func groupSchema() *z.ObjectSchema {
 		z.Field{Name: "width", Schema: z.Default(z.Number().Min(0), 0.0)},
 		z.Field{Name: "height", Schema: z.Default(z.Number().Min(0), 0.0)},
 		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"), baseField("lintIgnore"),
+		baseField("layoutPositioning"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
 	)
 }
@@ -206,6 +208,7 @@ func connectorSchema() *z.ObjectSchema {
 		z.Field{Name: "width", Schema: z.Default(z.Number().Min(0), 0.0)},
 		z.Field{Name: "height", Schema: z.Default(z.Number().Min(0), 0.0)},
 		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"), baseField("lintIgnore"),
+		baseField("layoutPositioning"),
 		z.Field{Name: "from", Schema: connectorEndSchema()},
 		z.Field{Name: "to", Schema: connectorEndSchema()},
 		z.Field{Name: "route", Schema: z.Default(z.Enum("straight", "elbow", "rounded", "curve"), "straight")},

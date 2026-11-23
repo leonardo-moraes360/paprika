@@ -598,6 +598,19 @@ Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states 
 - Drew on active `Paprica · UI` / page `interfaces` without `open_workspace` after querying the maintainer about the name mismatch.
 - Canvas DnD only touches `Canvas.tsx`; Layers HTML5 DnD in `Layers.tsx`; E2E in `drag.e2e.test.ts`.
 
+## 2026-11-23: absolute child in auto-layout (PAP-B-069, design first)
+
+Task: draw the inspector "Ignorar layout" switch (off, on, dark) and a row with a badge sitting on its own x/y, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`), before adding `layoutPositioning`. Four fixed-size frames; PNGs in `docs/assets/boards/PAP-B-069/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 117 | Brand red as text on the night background | `$ui.primary` (`#c8401f`) on `$ui.bg` is 3.54:1, so the dark kickers failed `lint_design` until the ink became `#ffd2c9` | A light ink token for the brand red on night surfaces (the light mode already passes) | P2 |
+| 118 | Screenshot files land in the repo | `render_screenshot` `path` writes under the server volume (`/data/screenshots/...`) and returns that path plus `/api/screenshot/<id>`; the PR still copies the PNG with curl | Document that `path` is relative to the server screenshot directory, or accept a path inside an allowlisted host directory | P3 |
+
+- Addressed the workspace by id from `list_workspaces`. Did not call `open_workspace`. Used the existing page `interfaces` (a second page is also named Interfaces).
+- The behavior frame is a mock: the live server does not accept `layoutPositioning` yet, so the badge is a sibling placed by x/y, not a real absolute child of the row.
+- `lint_design` on the four roots: 0 errors and 0 warnings after shortening the on-state hint and letting the field mocks hug.
+
 ## 2026-11-23: agent pins design (design first, cloud thread)
 
 Task: draw the proposal for "point at an element or area and tell the agent what to do" (5 boards: canvas, composer, panel, MCP contract, flow), first on a cloud `paprika serve`, then on the maintainer's local Paprika in `Paprica · UI` (new page, `workspaceId` on every write, active workspace untouched). PNGs in `docs/assets/boards/agent-pins/`.
