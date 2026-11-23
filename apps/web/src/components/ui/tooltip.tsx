@@ -21,6 +21,13 @@ export function TooltipContent({
       <TooltipPrimitive.Content
         data-slot="tooltip-content"
         sideOffset={sideOffset}
+        onEscapeKeyDown={(event) => {
+          const dialog = document.querySelector<HTMLElement>('[role="alertdialog"]');
+          const cancel = dialog?.querySelector<HTMLElement>('[data-slot="alert-dialog-cancel"]');
+          if (!cancel) return;
+          event.preventDefault();
+          cancel.click();
+        }}
         className={cn(
           "z-50 w-max max-w-[240px] rounded-sm border border-ui-border bg-ui-popover px-2 py-1 text-xs text-ui-popover-foreground shadow-float",
           "animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1 origin-(--radix-tooltip-content-transform-origin)",

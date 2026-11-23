@@ -1,4 +1,4 @@
-import { modeOf, resolveValue } from "./style.js";
+import { modeOf, resolveLength, resolveValue } from "./style.js";
 import { firstPage, isContainer, isScene, pageRoots, type Document, type Layout, type Node, type SceneNode, type Size } from "./schema.js";
 import { round4 } from "./num.js";
 
@@ -74,8 +74,18 @@ export function measureText(
   return { width: round4(width), height: round4(lines.length * lineH), lines: lines.length };
 }
 
-function padOf(p: Layout["padding"]): [number, number, number, number] {
-  return Array.isArray(p) ? [p[0], p[1], p[2], p[3]] : [p, p, p, p];
+function lengthOr(doc: Document, v: number | string | undefined, mode: string | undefined, fallback: number): number {
+  return resolveLength(doc, v, mode) ?? fallback;
+}
+
+function padOf(doc: Document, n: Extract<Node, { type: "frame" }>, p: Layout["padding"]): [number, number, number, number] {
+  const mode = modeOf(doc, n);
+  const one = (v: number | string) => lengthOr(doc, v, mode, 0);
+  return Array.isArray(p) ? [one(p[0]), one(p[1]), one(p[2]), one(p[3])] : [one(p), one(p), one(p), one(p)];
+}
+
+function gapOf(doc: Document, n: Extract<Node, { type: "frame" }>): number {
+  return lengthOr(doc, n.layout?.gap, modeOf(doc, n), 0);
 }
 
 function sizeNum(s: Size | undefined): number | null {
@@ -119,8 +129,8 @@ function intrinsicText(doc: Document, n: Extract<Node, { type: "text" }>, maxW?:
   const fontSize = typeof fs === "number" ? fs : Number.parseFloat(String(fs)) || 16;
   const m = measureText(n.text, fontSize, {
     fontWeight: n.fontWeight,
-    lineHeight: n.lineHeight,
-    letterSpacing: n.letterSpacing,
+    lineHeight: lengthOr(doc, n.lineHeight, mode, 1.4),
+    letterSpacing: lengthOr(doc, n.letterSpacing, mode, 0),
     maxWidth: maxW,
   });
   return { w: m.width, h: m.height };
@@ -172,8 +182,8 @@ function preferred(doc: Document, n: Node, hint?: { maxW?: number; maxH?: number
       }
       return { w: fw ?? maxX, h: fh ?? maxY };
     }
-    const [pt, pr, pb, pl] = padOf(n.layout.padding);
-    const gap = n.layout.gap;
+    const [pt, pr, pb, pl] = padOf(doc, n, n.layout.padding);
+    const gap = gapOf(doc, n);
     const kids = flowChildren(doc, n);
     const row = n.layout.mode === "row";
     const sizes = kids.map((c) => preferred(doc, c, row ? { maxH: sizedHint.maxH } : { maxW: sizedHint.maxW }));
@@ -236,14 +246,14 @@ function placeSized(doc: Document, n: Node, absX: number, absY: number, w: numbe
 }
 
 function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { layout: Layout }, absX: number, absY: number, frameW: number, frameH: number, out: Place[]): void {
-  const [pt, pr, pb, pl] = padOf(n.layout.padding);
+  const [pt, pr, pb, pl] = padOf(doc, n, n.layout.padding);
   out.push({ id: n.id, x: absX, y: absY, w: frameW, h: frameH, rotation: n.rotation });
 
   const kids = flowChildren(doc, n);
   const row = n.layout.mode === "row";
   const innerW = Math.max(0, frameW - pl - pr);
   const innerH = Math.max(0, frameH - pt - pb);
-  const gap = n.layout.gap;
+  const gap = gapOf(doc, n);
   const bases = kids.map((c) => {
     const p = preferred(doc, c, row ? { maxH: innerH } : { maxW: innerW });
     return {

@@ -47,7 +47,8 @@ function foldSize(w: number, h: number): number {
 export function shapeOutline(n: Pick<ShapeNode, "shape" | "width" | "height" | "radius" | "stroke">): { d: string; fold?: string } {
   const w = n.width;
   const h = n.height;
-  const sw = n.stroke && n.stroke.width > 0 ? n.stroke.width : 0;
+  const sw = n.stroke && typeof n.stroke.width === "number" && n.stroke.width > 0 ? n.stroke.width : 0;
+  const radius = typeof n.radius === "number" ? n.radius : 0;
   const pos = n.stroke?.position ?? "inside";
   const half = sw / 2;
   const raw = pos === "inside" ? half : pos === "outside" ? -half : 0;
@@ -71,7 +72,7 @@ export function shapeOutline(n: Pick<ShapeNode, "shape" | "width" | "height" | "
       };
     }
     default: {
-      const r = Math.max(0, Math.min(n.radius, w / 2, h / 2) - i);
+      const r = Math.max(0, Math.min(radius, w / 2, h / 2) - i);
       const [x0, y0, x1, y1] = [i, i, w - i, h - i];
       if (!r) return { d: `M${pt({ x: x0, y: y0 })} L${pt({ x: x1, y: y0 })} L${pt({ x: x1, y: y1 })} L${pt({ x: x0, y: y1 })} Z` };
       const a = (p: Pt) => `A${num(r)} ${num(r)} 0 0 1 ${pt(p)}`;
@@ -293,6 +294,26 @@ function arrowHead(tip: Pt, from: Pt, sw: number): [Pt, Pt, Pt] | null {
   return [{ x: bx - uy * half, y: by + ux * half }, tip, { x: bx + uy * half, y: by - ux * half }];
 }
 
+function connectorWidth(doc: Document, c: ConnectorNode): number {
+  let cur: string | number | undefined = c.stroke.width;
+  let mode: string | undefined;
+  for (let n: Node | undefined = c, depth = 0; n && depth < 1000; n = n.parentId ? doc.nodes[n.parentId] : undefined, depth++) {
+    if ((n.type === "frame" || n.type === "page") && n.mode) {
+      mode = n.mode;
+      break;
+    }
+  }
+  for (let depth = 0; depth < 8 && typeof cur === "string" && cur.startsWith("$"); depth++) {
+    const name: string = cur.slice(1);
+    const themed = mode && doc.modes && Object.hasOwn(doc.modes, mode) ? doc.modes[mode] : undefined;
+    const next: string | number | undefined =
+      themed && Object.hasOwn(themed, name) ? themed[name] : Object.hasOwn(doc.tokens, name) ? doc.tokens[name] : undefined;
+    if (next === undefined) return 0;
+    cur = next;
+  }
+  return typeof cur === "number" && Number.isFinite(cur) ? cur : 0;
+}
+
 /** Deslocamento perpendicular padrão da alça quando `control` não está gravado. */
 const CURVE_OFFSET = 40;
 
@@ -437,7 +458,7 @@ export function routeConnector(doc: Document, c: ConnectorNode): void {
   const origin = originOf(doc, c.parentId);
   const a = resolveEnd(doc, c, "from", origin);
   const b = resolveEnd(doc, c, "to", origin);
-  const sw = c.stroke.width;
+  const sw = connectorWidth(doc, c);
   const heads: [Pt, Pt, Pt][] = [];
   let dBody: string;
   let bounds: Pt[];

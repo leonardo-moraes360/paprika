@@ -50,7 +50,8 @@ func DescribeNode(n *Node) string {
 	}
 	if typ == "frame" {
 		if l := n.Obj("layout"); l != nil && l.Str("mode") != "none" {
-			parts = append(parts, l.Str("mode")+" gap="+jsString(l.Num("gap")))
+			g, _ := l.Get("gap")
+			parts = append(parts, l.Str("mode")+" gap="+jsString(g))
 		}
 		if m := n.Str("mode"); m != "" {
 			parts = append(parts, "mode="+m)
@@ -117,7 +118,8 @@ func DescribeNode(n *Node) string {
 	if typ == "path" {
 		parts = append(parts, "d="+jsonv.Quote(truncate(n.Str("d"), 48, 45)))
 		if st := n.Obj("stroke"); st != nil {
-			parts = append(parts, "stroke="+st.Str("color")+"/"+jsString(st.Num("width")))
+			w, _ := st.Get("width")
+			parts = append(parts, "stroke="+st.Str("color")+"/"+jsString(w))
 		}
 		if vb, ok := n.Get("viewBox"); ok {
 			parts = append(parts, "viewBox="+jsTemplate(vb))

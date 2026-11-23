@@ -1,6 +1,6 @@
 import { placementLint } from "./placement.js";
 import { isContainer, type Document, type Node } from "./schema.js";
-import { modeOf, resolveValue, tokenValue } from "./style.js";
+import { modeOf, resolveLength, resolveValue, tokenValue } from "./style.js";
 
 export interface RGBA {
   r: number;
@@ -89,16 +89,33 @@ function tokenRefs(node: Node): string[] {
   if (node.type === "group") return refs;
   if (node.type === "connector") {
     check(node.stroke.color);
+    check(node.stroke.width);
     return refs;
   }
   check(node.fill);
   if (node.type === "page") return refs;
   check(node.stroke?.color);
-  check(node.shadow?.color);
+  check(node.stroke?.width);
+  if (node.shadow) {
+    check(node.shadow.color);
+    check(node.shadow.x);
+    check(node.shadow.y);
+    check(node.shadow.blur);
+    check(node.shadow.spread);
+  }
+  check(node.radius);
+  if (node.type === "frame" && node.layout) {
+    check(node.layout.gap);
+    const p = node.layout.padding;
+    if (Array.isArray(p)) p.forEach(check);
+    else check(p);
+  }
   if (node.type === "text" || node.type === "shape") {
     check(node.color);
     check(node.fontSize);
+    check(node.lineHeight);
   }
+  if (node.type === "text") check(node.letterSpacing);
   return refs;
 }
 
@@ -147,7 +164,7 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
         issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `literal color "${node.color}"; prefer a token` });
     }
 
-    if (node.type === "path" && !node.fill && !(node.stroke && node.stroke.width > 0))
+    if (node.type === "path" && !node.fill && !(node.stroke && (resolveLength(doc, node.stroke.width, modeOf(doc, node)) ?? 0) > 0))
       issues.push({
         rule: "invisible-path",
         severity: "warning",

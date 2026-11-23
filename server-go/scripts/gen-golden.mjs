@@ -392,6 +392,9 @@ const opCases = [
   ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { index: "front" } }]], // cópia: recusa com copyRule
   ["comp", [{ op: "move", id: copyId("i1", "lbl"), parentId: "i1", index: "front" }]],
   ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { index: "sideways" } }]], // inválido: direto, não copyRule
+  ["empty", [{ op: "set_tokens", tokens: { brand: "#ff0000" } }, { op: "create", node: { type: "rect", id: "r", radius: "$brand" } }]],
+  ["empty", [{ op: "set_tokens", tokens: { "text.huge": 2000 } }, { op: "create", node: { type: "text", id: "t", text: "a", fontSize: "$text.huge" } }]],
+  ["empty", [{ op: "set_tokens", tokens: { "space.md": 8, "radius.md": 12 } }, { op: "create", node: { type: "frame", id: "f", radius: "$radius.md", stroke: { color: "#111", width: "$space.md" }, layout: { mode: "column", gap: "$space.md", padding: ["$space.md", 4, "$space.md", 4] }, children: [{ type: "text", id: "t", text: "a", fontSize: "$space.md", lineHeight: 1.4, letterSpacing: "$space.md" }] } }]],
   ["empty", [{ op: "create", place: "free", node: { type: "frame", id: "a", name: "A", width: 200, height: 100 } }, { op: "create", place: "free", node: { type: "frame", id: "b", name: "B", width: 200, height: 100 } }, { op: "create", place: "free", node: { type: "frame", id: "c", name: "C", width: 2200, height: 100 } }]],
   ["empty", [{ op: "create", node: { type: "frame", id: "light", name: "Light", x: 0, y: 0, width: 400, height: 300, fill: "#ffffff" } }, { op: "create", place: "none", node: { type: "frame", id: "dark", name: "Dark", x: 40, y: 40, width: 400, height: 300, fill: "#111111" } }]],
   ["free", [{ op: "create", place: "right", node: { type: "frame", id: "side", width: 100, height: 80 } }]],

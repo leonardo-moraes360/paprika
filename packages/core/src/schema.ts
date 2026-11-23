@@ -16,32 +16,49 @@ export const ColorValue = z
 
 export const Size = z.union([z.number().min(0).max(100_000), z.enum(["hug", "fill"])]);
 
+const lengthToken = z.string().regex(/^\$[\w.-]+$/);
+
+function lengthNumber(min?: number, max?: number) {
+  let n = z.number();
+  if (min !== undefined) n = n.min(min);
+  if (max !== undefined) n = n.max(max);
+  return n;
+}
+
+function lengthValue(min?: number, max?: number) {
+  const num = lengthNumber(min, max);
+  return z.unknown().check((ctx) => {
+    const v = ctx.value;
+    if (typeof v === "string" && /^\$[\w.-]+$/.test(v)) return;
+    const parsed = num.safeParse(v);
+    if (!parsed.success) (ctx.issues as typeof parsed.error.issues).push(...parsed.error.issues);
+  }).transform((v): number | string => v as number | string);
+}
+
+const padLength = lengthValue(0);
+
 export const StrokeStyle = z.enum(["solid", "dashed", "dotted"]);
 export const StrokePosition = z.enum(["inside", "center", "outside"]);
 
 export const Stroke = z.object({
   color: ColorValue,
-  width: z.number().min(0).max(1000),
-  /** Omitted means solid (see `strokeStyleOf`). */
+  width: lengthValue(0, 1000),
   style: StrokeStyle.optional(),
-  /** Boxes default to inside; paths default to center when omitted (see `strokePositionOf`). */
   position: StrokePosition.optional(),
 });
 
 export const Shadow = z.object({
-  x: z.number(),
-  y: z.number(),
-  blur: z.number().min(0),
-  spread: z.number().default(0),
+  x: lengthValue(),
+  y: lengthValue(),
+  blur: lengthValue(0),
+  spread: lengthValue().default(0),
   color: ColorValue,
 });
 
 export const Layout = z.object({
   mode: z.enum(["none", "row", "column"]).default("none"),
-  gap: z.number().min(0).default(0),
-  padding: z
-    .union([z.number().min(0), z.tuple([z.number().min(0), z.number().min(0), z.number().min(0), z.number().min(0)])])
-    .default(0),
+  gap: lengthValue(0).default(0),
+  padding: z.union([padLength, z.tuple([padLength, padLength, padLength, padLength])]).default(0),
   align: z.enum(["start", "center", "end", "stretch"]).default("start"),
   justify: z.enum(["start", "center", "end", "between"]).default("start"),
   wrap: z.boolean().default(false),
@@ -61,7 +78,7 @@ const Base = {
   locked: z.boolean().default(false),
   fill: ColorValue.optional(),
   stroke: Stroke.optional(),
-  radius: z.number().min(0).default(0),
+  radius: lengthValue(0).default(0),
   shadow: Shadow.optional(),
   /** Notas livres para humanos e agentes (intenção, restrições, links). */
   notes: z.string().max(4000).optional(),
@@ -115,10 +132,10 @@ export const TextNode = z.object({
   text: z.string().max(20_000).default(""),
   color: ColorValue.default("#111111"),
   fontFamily: TextFontFamily,
-  fontSize: z.union([z.number().min(1).max(1000), z.string().regex(/^\$[\w.-]+$/)]).default(16),
+  fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
   fontWeight: z.number().int().min(100).max(900).default(400),
-  lineHeight: z.number().min(0).max(10).default(1.4),
-  letterSpacing: z.number().default(0),
+  lineHeight: lengthValue(0, 10).default(1.4),
+  letterSpacing: lengthValue().default(0),
   textAlign: z.enum(["left", "center", "right"]).default("left"),
 });
 
@@ -174,9 +191,9 @@ export const ShapeNode = z.object({
   text: z.string().max(20_000).default(""),
   color: ColorValue.default("#1e2336"),
   fontFamily: TextFontFamily,
-  fontSize: z.union([z.number().min(1).max(1000), z.string().regex(/^\$[\w.-]+$/)]).default(16),
+  fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
   fontWeight: z.number().int().min(100).max(900).default(500),
-  lineHeight: z.number().min(0).max(10).default(1.3),
+  lineHeight: lengthValue(0, 10).default(1.3),
   textAlign: z.enum(["left", "center", "right"]).default("center"),
 });
 

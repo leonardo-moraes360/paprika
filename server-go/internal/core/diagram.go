@@ -495,7 +495,8 @@ func RouteConnector(doc *Document, c *Node) error {
 	if err != nil {
 		return err
 	}
-	sw := c.Obj("stroke").Num("width")
+	swRaw, _ := c.Obj("stroke").Get("width")
+	sw, _ := ResolveLength(doc, swRaw, ModeOf(doc, c))
 	route := c.Str("route")
 
 	if route == "curve" {

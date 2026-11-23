@@ -79,23 +79,35 @@ func MeasureText(text string, fontSize float64, fontWeight, lineHeight, letterSp
 	return TextMetrics{Round4(width), Round4(float64(len(lines)) * lineH), len(lines)}
 }
 
-func padOf(n *Node) (t, r, b, l float64) {
+func padOf(doc *Document, n *Node) (t, r, b, l float64) {
 	lay := n.Obj("layout")
 	if lay == nil {
 		return
 	}
+	mode := ModeOf(doc, n)
+	one := func(v any) float64 {
+		if f, ok := ResolveLength(doc, v, mode); ok {
+			return f
+		}
+		return 0
+	}
 	if v, ok := lay.Get("padding"); ok {
 		if arr, is := v.([]any); is && len(arr) == 4 {
-			return toF(arr[0]), toF(arr[1]), toF(arr[2]), toF(arr[3])
+			return one(arr[0]), one(arr[1]), one(arr[2]), one(arr[3])
 		}
-		p := toF(v)
+		p := one(v)
 		return p, p, p, p
 	}
 	return
 }
 
-func toF(v any) float64 {
-	if f, ok := v.(float64); ok {
+func gapOf(doc *Document, n *Node) float64 {
+	lay := n.Obj("layout")
+	if lay == nil {
+		return 0
+	}
+	g, _ := lay.Get("gap")
+	if f, ok := ResolveLength(doc, g, ModeOf(doc, n)); ok {
 		return f
 	}
 	return 0
@@ -161,7 +173,17 @@ func intrinsicText(doc *Document, n *Node, maxW float64, hasMax bool) wh {
 			fontSize = f
 		}
 	}
-	m := MeasureText(n.Str("text"), fontSize, n.Num("fontWeight"), n.Num("lineHeight"), n.Num("letterSpacing"), maxW, hasMax)
+	lhRaw, _ := n.Get("lineHeight")
+	lh, lhOK := ResolveLength(doc, lhRaw, mode)
+	if !lhOK {
+		lh = n.Num("lineHeight")
+	}
+	lsRaw, _ := n.Get("letterSpacing")
+	ls, lsOK := ResolveLength(doc, lsRaw, mode)
+	if !lsOK {
+		ls = n.Num("letterSpacing")
+	}
+	m := MeasureText(n.Str("text"), fontSize, n.Num("fontWeight"), lh, ls, maxW, hasMax)
 	return wh{m.Width, m.Height}
 }
 
@@ -250,8 +272,8 @@ func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH 
 			}
 			return wh{w, h}
 		}
-		pt, pr, pb, pl := padOf(n)
-		gap := n.Obj("layout").Num("gap")
+		pt, pr, pb, pl := padOf(doc, n)
+		gap := gapOf(doc, n)
 		kids := flowChildren(doc, n)
 		row := n.Obj("layout").Str("mode") == "row"
 		main, cross := 0.0, 0.0
@@ -327,14 +349,14 @@ func placeSized(doc *Document, n *Node, absX, absY, w, h float64, out *[]place) 
 }
 
 func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, out *[]place) {
-	pt, pr, pb, pl := padOf(n)
+	pt, pr, pb, pl := padOf(doc, n)
 	*out = append(*out, place{n.Str("id"), absX, absY, frameW, frameH, n.Num("rotation")})
 	kids := flowChildren(doc, n)
 	lay := n.Obj("layout")
 	row := lay.Str("mode") == "row"
 	innerW := math.Max(0, frameW-pl-pr)
 	innerH := math.Max(0, frameH-pt-pb)
-	gap := lay.Num("gap")
+	gap := gapOf(doc, n)
 
 	type base struct {
 		n                   *Node

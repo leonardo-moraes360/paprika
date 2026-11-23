@@ -1,6 +1,6 @@
 import { parseColor } from "./lint.js";
 import { pageRoots, type Document, type Node, type SceneNode } from "./schema.js";
-import { modeOf, resolveValue, strokePositionOf, strokeStyleOf } from "./style.js";
+import { modeOf, resolveLength, resolveValue, strokePositionOf, strokeStyleOf } from "./style.js";
 
 /**
  * Display list for the WASM canvas renderer (`crates/render`, ADR 0002).
@@ -61,7 +61,7 @@ export function wasmPaintable(doc: Document, n: Node): boolean {
   if (n.stroke && !solidColor(doc, n.stroke.color, modeOf(doc, n))) return false;
   if (n.shadow && (n.type === "path" || !solidColor(doc, n.shadow.color, modeOf(doc, n)))) return false;
   // WASM paints solid centered path strokes and solid inside box borders only.
-  if (n.stroke && n.stroke.width > 0) {
+  if (n.stroke && (resolveLength(doc, n.stroke.width, modeOf(doc, n)) ?? 0) > 0) {
     if (strokeStyleOf(n.stroke) !== "solid") return false;
     const wasmPos = n.type === "path" ? "center" : "inside";
     if (strokePositionOf(n) !== wasmPos) return false;
@@ -80,25 +80,28 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, page
   const domPainted = new Set<string>();
 
   const emit = (kind: number, n: Shape, b: Box, opacity: number, paint: boolean) => {
-    const f = (paint && solidColor(doc, n.fill, modeOf(doc, n))) || [0, 0, 0, 0];
-    const s = paint && n.stroke && n.stroke.width > 0 ? solidColor(doc, n.stroke.color, modeOf(doc, n)) : null;
-    const sh = paint && n.shadow ? solidColor(doc, n.shadow.color, modeOf(doc, n)) : null;
+    const mode = modeOf(doc, n);
+    const len = (v: number | string | undefined) => resolveLength(doc, v, mode) ?? 0;
+    const f = (paint && solidColor(doc, n.fill, mode)) || [0, 0, 0, 0];
+    const sw = n.stroke ? len(n.stroke.width) : 0;
+    const s = paint && n.stroke && sw > 0 ? solidColor(doc, n.stroke.color, mode) : null;
+    const sh = paint && n.shadow ? solidColor(doc, n.shadow.color, mode) : null;
     out.push(
       kind,
       b.x,
       b.y,
       b.w,
       b.h,
-      n.type === "ellipse" || n.type === "path" ? 0 : n.radius,
+      n.type === "ellipse" || n.type === "path" ? 0 : len(n.radius),
       n.rotation,
       opacity,
       ...f,
-      s ? n.stroke!.width : 0,
+      s ? sw : 0,
       ...(s ?? [0, 0, 0, 0]),
-      sh ? n.shadow!.x : 0,
-      sh ? n.shadow!.y : 0,
-      sh ? n.shadow!.blur : 0,
-      sh ? n.shadow!.spread : 0,
+      sh ? len(n.shadow!.x) : 0,
+      sh ? len(n.shadow!.y) : 0,
+      sh ? len(n.shadow!.blur) : 0,
+      sh ? len(n.shadow!.spread) : 0,
       ...(sh ?? [0, 0, 0, 0]),
     );
   };
