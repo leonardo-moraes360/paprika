@@ -91,7 +91,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Tokens exported as CSS variables in HTML/React export | `export_code` `cssVariables` (2026-11-21): `:root` plus `[data-paprika-mode]` rules; React exports `tokensCss` | ✅ | — |
 | Typed tokens (color, radius, spacing, font…) with validation | `set_tokens` `type` (`color`, `length`, `fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`), checked on set and on use. No type leaves the string/number behavior. Persisted in SQLite `token_meta`. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Detach a token from a node | `detach_tokens` in MCP and the inspector replaces `$name` with the literal resolved in the node's mode. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
-| Generate tokens from an existing codebase via MCP | `propose_tokens` turns CSS variables, a Tailwind theme or JSON tokens (the text the agent passes) into `set_tokens` operations (2026-11-23, PAP-B-083) | ✅ | — |
+| Generate tokens from an existing codebase via MCP | `propose_tokens` turns CSS variables, a Tailwind theme or JSON tokens (the text the agent passes) into `set_tokens` operations (2026-11-23, PAP-B-083). PR: https://github.com/leonardo-moraes360/paprika/pull/162. | ✅ | — |
 | Tokens with `calc()` / `color-mix()` | Token chains only | ⬜ | P3 |
 | Copy tokens between files | — | ⬜ | P3 |
 | Design system as a concept in the canvas | A place for the workspace's tokens, components and rules that agents and people draw from (relates to E and H). Requested 2026-11-22. Batch 4. | ⬜ | TBD |
