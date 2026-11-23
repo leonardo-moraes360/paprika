@@ -166,7 +166,7 @@ func drawRichLines(doc *core.Document, n *core.Node, dst *image.RGBA, scale, ox,
 	mode := core.ModeOf(doc, n)
 	abs := 0
 	top := 0.0
-	for _, line := range strings.Split(n.Str("text"), "\n") {
+	for line := range strings.SplitSeq(n.Str("text"), "\n") {
 		units := len(utf16.Encode([]rune(line)))
 		sizeL := baseSize
 		for _, item := range n.Arr("runs") {

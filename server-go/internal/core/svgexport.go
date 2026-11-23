@@ -552,7 +552,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 				} else {
 					abs := 0
 					top := 0.0
-					for _, t := range strings.Split(n.Str("text"), "\n") {
+					for t := range strings.SplitSeq(n.Str("text"), "\n") {
 						sizeL := lineRunSize(doc, n, t, abs, size)
 						lh := mult * sizeL
 						if t != "" {

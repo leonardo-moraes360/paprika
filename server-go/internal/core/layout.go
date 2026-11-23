@@ -111,7 +111,7 @@ func MeasureRich(text string, fontSize, fontWeight, lineHeight, letterSpacing, m
 	width, height := 0.0, 0.0
 	lines := 0
 	abs := 0
-	for _, para := range strings.Split(text, "\n") {
+	for para := range strings.SplitSeq(text, "\n") {
 		units := utf16.Encode([]rune(para))
 		curUnits := 0
 		curW := 0.0
@@ -138,10 +138,7 @@ func MeasureRich(text string, fontSize, fontWeight, lineHeight, letterSpacing, m
 				adv := advOf(size, weight)
 				gap := n
 				if curUnits == 0 {
-					gap = n - 1
-					if gap < 0 {
-						gap = 0
-					}
+					gap = max(0, n-1)
 				}
 				add := adv*float64(n) + letterSpacing*float64(gap)
 				if hasMax && maxW > 0 && curUnits > 0 && curW+add > maxW {

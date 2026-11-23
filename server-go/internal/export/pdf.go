@@ -458,7 +458,7 @@ func drawPDFRich(doc *core.Document, n *core.Node, pdf *gofpdf.Fpdf, fonts pdfFo
 	mode := core.ModeOf(doc, n)
 	abs := 0
 	top := 0.0
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		units := len(utf16.Encode([]rune(line)))
 		sizeL := baseSize
 		for _, item := range n.Arr("runs") {
