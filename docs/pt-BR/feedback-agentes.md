@@ -600,3 +600,16 @@ Tarefa: desenhar estados de reparent / inserção em auto-layout / reordenação
 
 - Desenhou no ativo `Paprica · UI` / página `interfaces` sem `open_workspace` depois de consultar o mantenedor sobre o nome.
 - DnD do canvas só em `Canvas.tsx`; DnD HTML5 das Camadas em `Layers.tsx`; E2E em `drag.e2e.test.ts`.
+
+## 2026-11-23: arquivar workspaces (PAP-B-071, design first)
+
+Tarefa: desenhar a ação de arquivar na overview e o filtro Arquivados (inglês escuro, arquivados escuro, português claro) em `Interfaces` de `Paprica · UI` (`cmio9n368k`, página `interfaces`) antes de implementar archive/unarchive. Quatro frames de altura fixa em x=6400; PNGs em `docs/assets/boards/PAP-B-071/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|----------------|----------|------|
+| 122 | O workspace de UI nomeado no ticket | O payload pedia `Paprika - UI`. O workspace vivo é `Paprica · UI`. A correção do supervisor chegou depois do claim | Fixar o id do workspace no payload da assign (igual ao #110) | P3 |
+| 123 | Um lugar livre em `Interfaces` | `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0 mesmo com vários frames na página, então `place: "free"` não serviu | A caixa de conteúdo da página deveria incluir os frames filhos | P2 |
+| 124 | MCP durante um restart | As primeiras chamadas voltaram corpo vazio enquanto a `:4777` reiniciava; uma nova tentativa curta listou os workspaces | Manter o aviso de restart no ticket; clientes devem repetir uma resposta vazia | P3 |
+
+- Endereçou o board por `workspaceId` e não chamou `open_workspace`.
+- `lint_design` apontou a fileira de ações em português saindo de um card de 300px (`layout-overflow`); alargar o card para 360 limpou o aviso.

@@ -37,6 +37,16 @@ export type Messages = {
   overviewOpenAria: (name: string) => string;
   overviewRenameAria: (name: string) => string;
   overviewDeleteAria: (name: string) => string;
+  overviewArchiveAria: (name: string) => string;
+  overviewRestoreAria: (name: string) => string;
+  overviewArchiveHint: string;
+  overviewRestoreHint: string;
+  overviewArchiveBlocked: string;
+  overviewFilterAll: string;
+  overviewFilterArchived: string;
+  overviewArchivedHeading: string;
+  overviewArchivedEmpty: string;
+  overviewArchivedCount: (n: number) => string;
   overviewActiveSuccessor: (name: string) => string;
   overviewOnServer: string;
   newWorkspace: string;
@@ -59,6 +69,8 @@ export type Messages = {
   whatCreateWorkspace: string;
   whatRenameWorkspace: string;
   whatDeleteWorkspace: string;
+  whatArchiveWorkspace: string;
+  whatRestoreWorkspace: string;
   whatChangeCover: string;
   whatRemoveCover: string;
   mcpOn: string;
@@ -334,6 +346,16 @@ const en: Messages = {
   overviewOpenAria: (name) => `Open workspace ${name}`,
   overviewRenameAria: (name) => `Rename ${name}`,
   overviewDeleteAria: (name) => `Delete ${name}`,
+  overviewArchiveAria: (name) => `Archive ${name}`,
+  overviewRestoreAria: (name) => `Restore ${name}`,
+  overviewArchiveHint: "Archive (keeps the file)",
+  overviewRestoreHint: "Restore to the list",
+  overviewArchiveBlocked: "The only workspace cannot be archived",
+  overviewFilterAll: "All",
+  overviewFilterArchived: "Archived",
+  overviewArchivedHeading: "Archived",
+  overviewArchivedEmpty: "No archived workspaces.",
+  overviewArchivedCount: (n) => (n === 1 ? "1 archived" : `${n} archived`),
   overviewActiveSuccessor: (name) => `This is the active workspace: the canvas and MCP agents move to “${name}”.`,
   overviewOnServer: "on this server",
   newWorkspace: "New workspace",
@@ -356,6 +378,8 @@ const en: Messages = {
   whatCreateWorkspace: "create the workspace",
   whatRenameWorkspace: "rename the workspace",
   whatDeleteWorkspace: "delete the workspace",
+  whatArchiveWorkspace: "archive the workspace",
+  whatRestoreWorkspace: "restore the workspace",
   whatChangeCover: "change the cover",
   whatRemoveCover: "remove the cover",
   mcpOn: "MCP at /mcp",
@@ -627,6 +651,16 @@ const pt: Messages = {
   overviewOpenAria: (name) => `Abrir workspace ${name}`,
   overviewRenameAria: (name) => `Renomear ${name}`,
   overviewDeleteAria: (name) => `Excluir ${name}`,
+  overviewArchiveAria: (name) => `Arquivar ${name}`,
+  overviewRestoreAria: (name) => `Restaurar ${name}`,
+  overviewArchiveHint: "Arquivar (o arquivo fica)",
+  overviewRestoreHint: "Restaurar para a lista",
+  overviewArchiveBlocked: "O único workspace não pode ser arquivado",
+  overviewFilterAll: "Todos",
+  overviewFilterArchived: "Arquivados",
+  overviewArchivedHeading: "Arquivados",
+  overviewArchivedEmpty: "Nenhum workspace arquivado.",
+  overviewArchivedCount: (n) => (n === 1 ? "1 arquivado" : `${n} arquivados`),
   overviewActiveSuccessor: (name) => `Este é o workspace ativo: o canvas e os agentes MCP passam para “${name}”.`,
   overviewOnServer: "neste servidor",
   newWorkspace: "Novo workspace",
@@ -649,6 +683,8 @@ const pt: Messages = {
   whatCreateWorkspace: "criar o workspace",
   whatRenameWorkspace: "renomear o workspace",
   whatDeleteWorkspace: "excluir o workspace",
+  whatArchiveWorkspace: "arquivar o workspace",
+  whatRestoreWorkspace: "restaurar o workspace",
   whatChangeCover: "trocar a capa",
   whatRemoveCover: "remover a capa",
   mcpOn: "MCP em /mcp",

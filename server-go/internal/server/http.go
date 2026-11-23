@@ -341,7 +341,10 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	engine.Any("/api/workspaces", func(c *gin.Context) {
 		switch c.Request.Method {
 		case http.MethodGet:
-			ws, err := store.ListWorkspaces()
+			q := c.Request.URL.Query()
+			include := q.Get("includeArchived") == "1" || q.Get("includeArchived") == "true"
+			only := q.Get("archived") == "1" || q.Get("archived") == "true"
+			ws, err := store.ListWorkspacesFiltered(include, only)
 			if err != nil {
 				send(c.Writer, 500, errBody(err.Error()), "")
 				return
@@ -472,6 +475,40 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(c.Writer, 500, errBody(err.Error()), "")
 		default:
 			send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+		}
+	})
+	engine.Any("/api/workspaces/:id/archive", func(c *gin.Context) {
+		if c.Request.Method != http.MethodPost {
+			send(c.Writer, 405, errBody("method not allowed"), "")
+			return
+		}
+		id := c.Param("id")
+		info, err := store.ArchiveWorkspace(id, "user")
+		switch {
+		case errors.Is(err, ErrNoWorkspace):
+			send(c.Writer, 404, errBody(`workspace "`+id+`" does not exist`), "")
+		case errors.Is(err, ErrArchiveOnly):
+			send(c.Writer, 409, errBody("cannot archive the only workspace"), "")
+		case err != nil:
+			send(c.Writer, 500, errBody(err.Error()), "")
+		default:
+			send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info), "active", store.DocID()), "")
+		}
+	})
+	engine.Any("/api/workspaces/:id/unarchive", func(c *gin.Context) {
+		if c.Request.Method != http.MethodPost {
+			send(c.Writer, 405, errBody("method not allowed"), "")
+			return
+		}
+		id := c.Param("id")
+		info, err := store.UnarchiveWorkspace(id, "user")
+		switch {
+		case errors.Is(err, ErrNoWorkspace):
+			send(c.Writer, 404, errBody(`workspace "`+id+`" does not exist`), "")
+		case err != nil:
+			send(c.Writer, 500, errBody(err.Error()), "")
+		default:
+			send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info), "active", store.DocID()), "")
 		}
 	})
 	engine.Any("/api/workspaces/:id/open", func(c *gin.Context) {

@@ -597,3 +597,16 @@ Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states 
 
 - Drew on active `Paprica · UI` / page `interfaces` without `open_workspace` after querying the maintainer about the name mismatch.
 - Canvas DnD only touches `Canvas.tsx`; Layers HTML5 DnD in `Layers.tsx`; E2E in `drag.e2e.test.ts`.
+
+## 2026-11-23: archive workspaces (PAP-B-071, design first)
+
+Task: draw the overview archive action and the Archived filter (dark English, dark archived, light Portuguese) on `Interfaces` of `Paprica · UI` (`cmio9n368k`, page `interfaces`) before implementing archive/unarchive. Four fixed-height frames at x=6400; PNGs under `docs/assets/boards/PAP-B-071/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 122 | The UI board named in the ticket | The assign payload said `Paprika - UI`. The live workspace is `Paprica · UI`. A supervisor correction arrived after the claim | Pin the workspace id in the assign payload (same as #110) | P3 |
+| 123 | A free spot on `Interfaces` | `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0 even though the page already holds many frames, so `place: "free"` was not usable | The page content box should include its child frames | P2 |
+| 124 | MCP during a server restart | The first calls returned an empty body while `:4777` was restarting; a short retry then listed the workspaces | Keep the restart note on the ticket; clients should retry an empty response | P3 |
+
+- Addressed the board by `workspaceId` and did not call `open_workspace`.
+- `lint_design` flagged a Portuguese action row overflowing a 300px card (`layout-overflow`); widening that card to 360 cleared it.
