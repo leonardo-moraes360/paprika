@@ -611,6 +611,15 @@ Task: draw the inspector "Ignorar layout" switch (off, on, dark) and a row with 
 - The behavior frame is a mock: the live server does not accept `layoutPositioning` yet, so the badge is a sibling placed by x/y, not a real absolute child of the row.
 - `lint_design` on the four roots: 0 errors and 0 warnings after shortening the on-state hint and letting the field mocks hug.
 
+## 2026-11-23: corner radius per corner (PAP-B-070, design first)
+
+Task: draw the linked and unlinked corner controls, plus a sample card, on page `Interfaces` of workspace `Paprica · UI` (`workspaceId`, no `open_workspace`) before implementing `radius` as one length or `[tl, tr, br, bl]`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 117 | Screenshot one frame | `render_screenshot` takes `rootId`. Passing `id` is ignored and the tool returns the first page (here, the PAP-B-046 "clamp dark" frame) with no error | Reject unknown argument names, or document `rootId` in the error when the caller sends `id` | P3 |
+| 118 | Preview four different corners on the live server | `create_nodes` with `radius: [1, 2, 3, 4]` failed: `expected number, received array`. The sample had to be a path until this change shipped | The running server only learns the new radius after this build | — |
+
 ## 2026-11-23: agent pins design (design first, cloud thread)
 
 Task: draw the proposal for "point at an element or area and tell the agent what to do" (5 boards: canvas, composer, panel, MCP contract, flow), first on a cloud `paprika serve`, then on the maintainer's local Paprika in `Paprica · UI` (new page, `workspaceId` on every write, active workspace untouched). PNGs in `docs/assets/boards/agent-pins/`.

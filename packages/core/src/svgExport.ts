@@ -5,8 +5,11 @@ import {
   connectorLabelAttrs,
   modeOf,
   pathAttrs,
+  resolveCorners,
   resolveLength,
   resolveValue,
+  usedCornerRadii,
+  uniformCorner,
   shapeAttrs,
   strokeDasharray,
   strokePositionOf,
@@ -109,6 +112,20 @@ const f = (n: number) => {
   const v = Math.round(n * 100) / 100;
   return Object.is(v, -0) ? "0" : String(v);
 };
+
+function roundedRectD(x: number, y: number, w: number, h: number, radii: [number, number, number, number]): string {
+  const [tl, tr, br, bl] = radii;
+  const parts = [`M${f(x + tl)} ${f(y)}`, `L${f(x + w - tr)} ${f(y)}`];
+  if (tr) parts.push(`A${f(tr)} ${f(tr)} 0 0 1 ${f(x + w)} ${f(y + tr)}`);
+  parts.push(`L${f(x + w)} ${f(y + h - br)}`);
+  if (br) parts.push(`A${f(br)} ${f(br)} 0 0 1 ${f(x + w - br)} ${f(y + h)}`);
+  parts.push(`L${f(x + bl)} ${f(y + h)}`);
+  if (bl) parts.push(`A${f(bl)} ${f(bl)} 0 0 1 ${f(x)} ${f(y + h - bl)}`);
+  parts.push(`L${f(x)} ${f(y + tl)}`);
+  if (tl) parts.push(`A${f(tl)} ${f(tl)} 0 0 1 ${f(x + tl)} ${f(y)}`);
+  parts.push("Z");
+  return parts.join(" ");
+}
 
 type Box = [number, number, number, number];
 
@@ -231,17 +248,31 @@ export function exportSVG(
     // SVG stroke is centered: shift the path so the painted band matches CSS position.
     const insetBy = pos === "inside" ? sw / 2 : pos === "outside" ? -sw / 2 : 0;
     const inset = `x="${f(insetBy)}" y="${f(insetBy)}" width="${f(Math.max(0, w - insetBy * 2))}" height="${f(Math.max(0, h - insetBy * 2))}"`;
-    // O CSS limita o raio à metade do lado menor (pílula); o SVG limitaria cada eixo (elipse).
-    const r = n.type !== "ellipse" && n.type !== "path" ? Math.min(len(doc, n, n.radius), w / 2, h / 2) : 0;
+    const boxRadius =
+      n.type === "ellipse" || n.type === "path" || !("radius" in n)
+        ? undefined
+        : usedCornerRadii(w, h, resolveCorners(doc, n.radius, mode));
+    const even = !boxRadius || uniformCorner(boxRadius) !== undefined;
+    const r = boxRadius && even ? boxRadius[0] : 0;
     const radius = r ? ` rx="${f(Math.max(0, r - insetBy))}"` : "";
     const clipRadius = r ? ` rx="${f(r)}"` : "";
+    const cornerPath = () => {
+      const insetR = boxRadius!.map((c) => Math.max(0, c - insetBy)) as [number, number, number, number];
+      return roundedRectD(insetBy, insetBy, Math.max(0, w - insetBy * 2), Math.max(0, h - insetBy * 2), insetR);
+    };
+    const clipDef = (clipId: string) =>
+      even
+        ? `<clipPath id="${clipId}"><rect width="${f(w)}" height="${f(h)}"${clipRadius}/></clipPath>`
+        : `<clipPath id="${clipId}"><path d="${roundedRectD(0, 0, w, h, boxRadius!)}"/></clipPath>`;
     let body = "";
     switch (n.type) {
       case "frame":
       case "rect":
       case "text":
       case "image": {
-        if (fill || sw) body += `<rect ${inset}${radius}${fillAttr}${strokeAttr}${shadowAttr}/>`;
+        if (!even && boxRadius) {
+          if (fill || sw || shadowAttr) body += `<path d="${cornerPath()}"${fillAttr}${strokeAttr}${shadowAttr}/>`;
+        } else if (fill || sw) body += `<rect ${inset}${radius}${fillAttr}${strokeAttr}${shadowAttr}/>`;
         else if (shadowAttr) body += `<rect width="${f(w)}" height="${f(h)}"${radius} fill="none"${shadowAttr}/>`;
         break;
       }
@@ -278,15 +309,15 @@ export function exportSVG(
     }
     if (n.type === "image") {
       const fit = n.fit === "cover" ? "xMidYMid slice" : n.fit === "contain" ? "xMidYMid meet" : "none";
-      if (len(doc, n, n.radius)) {
-        defs += `<clipPath id="clip-${id}"><rect width="${f(w)}" height="${f(h)}"${clipRadius}/></clipPath>`;
+      if (boxRadius && boxRadius.some((c) => c > 0)) {
+        defs += clipDef(`clip-${id}`);
         body += `<image href="${escapeHtml(n.src)}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}" clip-path="url(#clip-${id})"/>`;
       } else body += `<image href="${escapeHtml(n.src)}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}"/>`;
     }
     if (n.type === "frame") {
       const inner = kids();
       if (n.clip && inner) {
-        defs += `<clipPath id="clip-${id}"><rect width="${f(w)}" height="${f(h)}"${clipRadius}/></clipPath>`;
+        defs += clipDef(`clip-${id}`);
         body += `<g clip-path="url(#clip-${id})">${inner}</g>`;
       } else body += inner;
     }

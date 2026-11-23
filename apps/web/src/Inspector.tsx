@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot } from "lucide-react";
+import { Bot, Link2, Unlink } from "lucide-react";
 import {
   copyOwner,
   groupOps,
@@ -35,6 +35,72 @@ export { parseModeTokenAssignment, parseTokenAssignment, tokenValue } from "./in
 import { parseModeTokenAssignment, parseTokenAssignment, tokenValue } from "./inspector/tokenParsing";
 
 const list = "m-0 grid list-none gap-1 p-0";
+
+function isCornerList(radius: number | string | readonly (number | string)[]): radius is readonly (number | string)[] {
+  return Array.isArray(radius);
+}
+
+function RadiusCorners({
+  radius,
+  onChange,
+}: {
+  radius: number | string | readonly (number | string)[];
+  onChange(next: number | string | (number | string)[]): void;
+}) {
+  const cornerFields = [
+    ["TL", 0, "Canto superior esquerdo"],
+    ["TR", 1, "Canto superior direito"],
+    ["BL", 3, "Canto inferior esquerdo"],
+    ["BR", 2, "Canto inferior direito"],
+  ] as const;
+  if (isCornerList(radius)) {
+    const corners = [...radius];
+    const commitAt = (i: number, raw: string) => {
+      const n = num(raw);
+      if (n === undefined || n < 0) return;
+      const next = [...corners];
+      next[i] = n;
+      onChange(next);
+    };
+    return (
+      <div className="flex items-start gap-1" data-testid="radius-corners" data-state="unlinked">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1">
+          {cornerFields.map(([label, i, title]) => (
+            <div key={label} data-testid={`radius-${label.toLowerCase()}`}>
+              <Field label={label} title={title} type="number" value={corners[i]} min={0} onCommit={(v) => commitAt(i, v)} />
+            </div>
+          ))}
+        </div>
+        <Hint label="Ligar cantos">
+          <Button type="button" variant="secondary" size="icon" className="size-7 shrink-0" data-testid="radius-link" aria-label="Ligar cantos" aria-pressed onClick={() => onChange(corners[0] ?? 0)}>
+            <Unlink aria-hidden />
+          </Button>
+        </Hint>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-start gap-1" data-testid="radius-corners" data-state="linked">
+      <div className="min-w-0 flex-1">
+        <Field label="Raio" type="number" value={radius} min={0} onCommit={(v) => num(v) !== undefined && onChange(num(v)!)} />
+      </div>
+      <Hint label="Desligar cantos">
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className="size-7 shrink-0"
+          data-testid="radius-link"
+          aria-label="Desligar cantos"
+          aria-pressed={false}
+          onClick={() => onChange([radius, radius, radius, radius])}
+        >
+          <Link2 aria-hidden />
+        </Button>
+      </Hint>
+    </div>
+  );
+}
 const actions = "mx-0 my-2 flex flex-wrap gap-1.5";
 const SEVERITY: Record<string, string> = { error: "border-l-ui-primary", warning: "border-l-warn" };
 const ALIGN_OPTS = [
@@ -239,7 +305,12 @@ export function Inspector(props: Props) {
       <InspectorSection id="appearance" title="Preenchimento e traço">
         <div className={ui.grid}>
           <ColorField doc={doc} mode={themeMode} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />
-          {node.type !== "ellipse" && node.type !== "path" && <Field label="Raio" type="number" value={node.radius} min={0} onCommit={setNum("radius")} />}
+          {(node.type === "frame" || node.type === "rect" || node.type === "image") && (
+            <RadiusCorners radius={node.radius} onChange={(radius) => set({ radius })} />
+          )}
+          {node.type !== "ellipse" && node.type !== "path" && node.type !== "frame" && node.type !== "rect" && node.type !== "image" && (
+            <Field label="Raio" type="number" value={node.radius} min={0} onCommit={setNum("radius")} />
+          )}
           <ColorField
             doc={doc}
             mode={themeMode}
