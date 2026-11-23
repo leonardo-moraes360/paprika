@@ -678,17 +678,30 @@ Tarefa: desenhar os estados aberto, no meio do deslize, fechado e com movimento 
 - Igual ao #123, ainda aberto: `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0, então os frames foram posicionados varrendo o `y` de profundidade 1 (pousaram em y=3600).
 - `lint_design` nos quatro frames ficou limpo depois que os chevrons foram para 12px. O corpo cortado no meio do deslize precisou de `lintIgnore: ["layout-overflow"]` porque o corte é o frame.
 
+## 2026-11-23: hierarquia e o menu de camadas (PAP-B-090, design first)
+
+Tarefa: desenhar a pilha de camadas do clique direito (português claro, inglês escuro) na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de Enter / Tab / Ctrl+clique e do menu. Frames `b090light` e `b090dark` em y=4800. PNGs em `docs/assets/boards/PAP-B-090/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 130 | Tinta num nó de texto | `fill` pintou a caixa do texto. A cor do glifo ficou no padrão `#111111`, então o contraste disse `1.07:1` e não avisou que o campo do glifo é `color` | Citar as duas cores na mensagem de contraste e dizer que o glifo lê `color` | P2 |
+| 131 | A URL do screenshot no bloco de texto | O texto de `render_screenshot` foi só `1520×884px`. A URL estava em `structuredContent.url` (e no bloco de imagem, quando `path` é omitido) | Repetir `url` no bloco de texto | P3 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #128, ainda aberto: `find_nodes` ainda devolve duas páginas chamadas `Interfaces`.
+- A caixa `content` no fim do outline do documento inteiro era de outra página. O lugar livre foi o y abaixo dos frames do PAP-B-089 (4200 + 460), então estes pousaram em y=4800.
+- `lint_design` nos dois frames ficou limpo em warning e acima depois que os glifos foram para `color` e o título do card escuro usou `#141827` no card branco.
+
 ## 2026-11-23: alças que acompanham a rotação (PAP-B-091, design first)
 
 Tarefa: desenhar a seleção antes e depois de acompanhar a caixa rotacionada, claro e escuro, na página `Interfaces` do workspace `Paprica · UI` (`cmio9n368k`). Frames `b091-before-light`, `b091-after-light`, `b091-before-dark`, `b091-after-dark`. PNGs em `docs/assets/boards/PAP-B-091/`.
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 130 | A página chamada `Interfaces` | O outline lista `page#iutnyc26zo` ("Página 1") antes de `page#interfaces`. Pegar o primeiro `page#` colocou os quatro frames na página errada; `move_nodes` para `interfaces` corrigiu | Colocar o nome da página na mesma linha do id de um jeito que uma varredura de profundidade 1 não confunda, ou recusar um pai que não seja a página pedida | P2 |
-| 131 | Cantos iguais à rotação pintada | `get_bounds` girava a caixa com o sinal oposto ao `rotate()` do CSS e ao render vello, então uma alça nesses cantos ficava fora dos pixels | Feito nesta mudança: os cantos do `layout` usam a matriz do CSS em TypeScript e Go | — |
+| 132 | A página chamada `Interfaces` | O outline lista `page#iutnyc26zo` ("Página 1") antes de `page#interfaces`. Pegar o primeiro `page#` colocou os quatro frames na página errada; `move_nodes` para `interfaces` corrigiu | Colocar o nome da página na mesma linha do id de um jeito que uma varredura de profundidade 1 não confunda, ou recusar um pai que não seja a página pedida | P2 |
+| 133 | Cantos iguais à rotação pintada | `get_bounds` girava a caixa com o sinal oposto ao `rotate()` do CSS e ao render vello, então uma alça nesses cantos ficava fora dos pixels | Feito nesta mudança: os cantos do `layout` usam a matriz do CSS em TypeScript e Go | — |
 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (11880).
 - Igual ao #129, ainda aberto: o `path` do `render_screenshot` fica dentro do servidor. Os PNGs foram decodificados dos bytes da imagem no resultado da ferramenta.
 - `lint_design` ficou limpo depois de `lintIgnore` no texto da medida (`contrast`, o badge é um irmão que o texto não vê) e nas alças soltas (`detached-sibling`).
-

@@ -52,6 +52,8 @@ import {
   type SceneNode,
 } from "@paprika/core";
 import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
+import { childrenSelection, cycleSibling, layersUnderPoint } from "./hierarchy";
+import { LayerMenu } from "./LayerMenu";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { Button } from "./components/ui/button";
 import { Hint } from "./components/ui/tooltip";
@@ -740,6 +742,9 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   // Clicar no primeiro vértice fecha a forma; Enter, Esc ou duplo clique terminam aberta; Backspace desfaz o último vértice.
   const [pen, setPen] = useState<PenDraft | null>(null);
   const penRef = useRef(pen);
+  const [layerMenu, setLayerMenu] = useState<{ x: number; y: number; ids: string[] } | null>(null);
+  const layerMenuRef = useRef(layerMenu);
+  layerMenuRef.current = layerMenu;
   penRef.current = pen;
 
   /** Converte coordenadas da tela para o espaço local de um frame (ou do canvas, se null). */
@@ -845,6 +850,50 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [finishPen]);
+
+  useEffect(() => {
+    const typing = (t: EventTarget | null) =>
+      t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || (t instanceof HTMLElement && t.isContentEditable);
+    const keyboardFocus = (t: EventTarget | null) => t instanceof HTMLElement && t !== document.body && t.matches(":focus-visible");
+    const onKey = (e: KeyboardEvent) => {
+      if (typing(e.target) || keyboardFocus(e.target)) return;
+      if (layerMenuRef.current) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") return;
+        if (e.key === "Escape" || e.key === "Tab") {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          if (e.key === "Escape") setLayerMenu(null);
+          return;
+        }
+        setLayerMenu(null);
+        return;
+      }
+      if (penRef.current || pathEditRef.current) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (e.key === "Enter" && !mod && !e.altKey && !e.shiftKey) {
+        if (e.repeat) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return;
+        }
+        const kids = childrenSelection(doc, selected);
+        if (!kids.length) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onSelect(kids);
+        return;
+      }
+      if (e.key === "Tab" && !mod && !e.altKey) {
+        const next = cycleSibling(doc, selected, e.shiftKey ? -1 : 1);
+        if (!next) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onSelect([next]);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [doc, onSelect, selected]);
 
   const onPenDown = (e: RPointerEvent<HTMLDivElement>) => {
     let draft = penRef.current;
@@ -1343,8 +1392,9 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
 
     const additive = e.shiftKey || e.metaKey || e.ctrlKey;
     if (!target) return startMarquee(e, additive);
-    const id = pickTarget(doc, target.dataset.paprikaId!, selected);
-    if (additive) {
+    const deep = e.ctrlKey && !e.metaKey && !e.shiftKey;
+    const id = deep ? target.dataset.paprikaId! : pickTarget(doc, target.dataset.paprikaId!, selected);
+    if (additive && !deep) {
       onSelect(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]);
       return;
     }
@@ -1878,6 +1928,14 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       onPointerDown={onPointerDown}
       onPointerMove={pen ? onPenHover : undefined}
       onDoubleClick={pen ? onPenDouble : onDeepSelect}
+      onContextMenu={(e) => {
+        if (tool !== "select" || pen) return;
+        if ((e.target as Element).closest?.('[data-testid="layer-menu"]')) return;
+        const ids = layersUnderPoint(doc, e.clientX, e.clientY, viewportRef.current);
+        if (!ids.length) return;
+        e.preventDefault();
+        setLayerMenu({ x: e.clientX, y: e.clientY, ids });
+      }}
       onDragEnter={onFileDragOver}
       onDragOver={onFileDragOver}
       onDragLeave={(e) => {
@@ -1892,6 +1950,19 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       data-testid="viewport"
       data-file-over={fileOver ? "1" : undefined}
     >
+      {layerMenu && (
+        <LayerMenu
+          doc={doc}
+          ids={layerMenu.ids}
+          x={layerMenu.x}
+          y={layerMenu.y}
+          onSelect={(id) => {
+            onSelect([id]);
+            setLayerMenu(null);
+          }}
+          onClose={() => setLayerMenu(null)}
+        />
+      )}
       {renderer === "wasm" && <canvas ref={wasmLayer.canvasRef} className="pointer-events-none absolute inset-0 size-full" data-testid="wasm-layer" data-backend={wasmLayer.status.backend} />}
       <div
         ref={worldRef}
