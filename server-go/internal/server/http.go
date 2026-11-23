@@ -131,6 +131,26 @@ func send(w http.ResponseWriter, status int, body any, contentType string) {
 
 func errBody(msg string) *jsonv.Object { return jsonv.NewObject("error", msg) }
 
+func postWorkspace(c *gin.Context, store *Store, run func(id, actor string) (WorkspaceInfo, error)) {
+	if c.Request.Method != http.MethodPost {
+		send(c.Writer, 405, errBody("method not allowed"), "")
+		return
+	}
+	id := c.Param("id")
+	info, err := run(id, "user")
+	if err == nil {
+		send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info), "active", store.DocID()), "")
+		return
+	}
+	code, msg := 500, err.Error()
+	if errors.Is(err, ErrNoWorkspace) {
+		code, msg = 404, `workspace "`+id+`" does not exist`
+	} else if errors.Is(err, ErrArchiveOnly) {
+		code, msg = 409, "cannot archive the only workspace"
+	}
+	send(c.Writer, code, errBody(msg), "")
+}
+
 // Client → server messages over WebSocket.
 var clientMessage = z.DiscriminatedUnion("type",
 	z.Option("ops", z.Object(
@@ -477,40 +497,8 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
 		}
 	})
-	engine.Any("/api/workspaces/:id/archive", func(c *gin.Context) {
-		if c.Request.Method != http.MethodPost {
-			send(c.Writer, 405, errBody("method not allowed"), "")
-			return
-		}
-		id := c.Param("id")
-		info, err := store.ArchiveWorkspace(id, "user")
-		switch {
-		case errors.Is(err, ErrNoWorkspace):
-			send(c.Writer, 404, errBody(`workspace "`+id+`" does not exist`), "")
-		case errors.Is(err, ErrArchiveOnly):
-			send(c.Writer, 409, errBody("cannot archive the only workspace"), "")
-		case err != nil:
-			send(c.Writer, 500, errBody(err.Error()), "")
-		default:
-			send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info), "active", store.DocID()), "")
-		}
-	})
-	engine.Any("/api/workspaces/:id/unarchive", func(c *gin.Context) {
-		if c.Request.Method != http.MethodPost {
-			send(c.Writer, 405, errBody("method not allowed"), "")
-			return
-		}
-		id := c.Param("id")
-		info, err := store.UnarchiveWorkspace(id, "user")
-		switch {
-		case errors.Is(err, ErrNoWorkspace):
-			send(c.Writer, 404, errBody(`workspace "`+id+`" does not exist`), "")
-		case err != nil:
-			send(c.Writer, 500, errBody(err.Error()), "")
-		default:
-			send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info), "active", store.DocID()), "")
-		}
-	})
+	engine.Any("/api/workspaces/:id/archive", func(c *gin.Context) { postWorkspace(c, store, store.ArchiveWorkspace) })
+	engine.Any("/api/workspaces/:id/unarchive", func(c *gin.Context) { postWorkspace(c, store, store.UnarchiveWorkspace) })
 	engine.Any("/api/workspaces/:id/open", func(c *gin.Context) {
 		if c.Request.Method != http.MethodPost {
 			send(c.Writer, 405, errBody("method not allowed"), "")
