@@ -26,12 +26,12 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 |---|---|---|---|
 | Frames with flex-like layout (row/column, gap, padding, align, wrap) | `frame.layout` | ✅ | — |
 | Pages inside a file | `page` nodes, page list in the canvas, `create_page` (2026-11-21) | ✅ | — |
-| Group / wrap selection in a frame, unwrap | `group` node, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21). Wrap in a frame: `Ctrl+Alt+G`, inspector button, `wrap_nodes` (2026-11-23, PAP-B-089). | ✅ | — |
+| Group / wrap selection in a frame, unwrap | `group` node, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21). Wrap in a frame: `Ctrl+Alt+G`, inspector button, `wrap_nodes` (2026-11-23, PAP-B-089, #152). | ✅ | — |
 | Absolute child inside an auto-layout frame ("ignore layout") | `layoutPositioning: "auto"\|"absolute"` on a child (omit = auto). `"absolute"` keeps x/y relative to the parent and is skipped by flow, gap and hug. Inspector toggle on children of row/column frames (2026-11-23, PAP-B-069). Constraints/pinning stay out. | ✅ | — |
 | Corner radius per corner | `radius` on frame, rect and image is one length or `[tl, tr, br, bl]` (each a number or `$token`). The inspector links or unlinks the corners (2026-11-23, PAP-B-070). | ✅ | — |
 | Z-order (forward, backward, front, back) | `update_nodes`/`move_nodes` take `index`: a number from 0, or `front`/`back`/`forward`/`backward`, one undo step (2026-11-22). Canvas: `Page Up`/`Page Down` step, `Ctrl+Page Up`/`Ctrl+Page Down` front/back; inspector **Ordem** section (2026-11-22, PAP-B-021). | ✅ | — |
-| Hide, lock, unlock all | Eye and lock on each layer row. **Show all** / **Unlock all** on the current page (`show_all` / `unlock_all`, optional `pageId`; one undo step) (2026-11-23, PAP-B-089). | ✅ | — |
-| Align and distribute selection | Inspector icon row and `align_nodes` / `distribute_nodes`. One undo step. Siblings only; rotated nodes use the axis-aligned box (2026-11-23, PAP-B-089). | ✅ | — |
+| Hide, lock, unlock all | Eye and lock on each layer row. **Show all** / **Unlock all** on the current page (`show_all` / `unlock_all`, optional `pageId`; one undo step) (2026-11-23, PAP-B-089, #152). | ✅ | — |
+| Align and distribute selection | Inspector icon row and `align_nodes` / `distribute_nodes`. One undo step. Siblings only; rotated nodes use the axis-aligned box (2026-11-23, PAP-B-089, #152). | ✅ | — |
 | Constraints (behavior when the parent resizes) | — | ⬜ | P2 |
 | Gap and padding handles on the canvas | Inspector only | ⬜ | P2 |
 | Container and breakpoint tokens, responsive frames | — | ⬜ | P3 |
