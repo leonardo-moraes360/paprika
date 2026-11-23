@@ -32,7 +32,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 | Tool | What it does |
 |---|---|
 | `get_design_guide` | Node model, accepted fields and recommended workflow; `language: "pt-BR"` for the Brazilian Portuguese version |
-| `get_document_outline` | Compact tree + tokens + version. The first line is `workspace <id> "<name>"` plus version and node count. The last lines are the page content box and the next free spot |
+| `get_document_outline` | Compact tree + tokens + version. The first line is `workspace <id> "<name>"` plus version and node count. A `renderer:` line lists `wasm` or `dom` for each connected tab, in connection order, or `none` when no tab is connected. The last lines are the page content box and the next free spot |
 | `get_nodes` / `find_nodes` | Full node JSON / search by type, name, text |
 | `path_info` | Validates SVG path data and returns the exact bounds (bezier and arc extremes included), the drawing `origin` (offset from the node origin), and the normalized `d`; with `id` also returns canvas bounds, transform origin and rotated corners |
 | `get_bounds` | Absolute boxes after auto-layout (row/column, hug/fill): `x`/`y`/`width`/`height`, transform `origin` (box centre) and the four corners after rotation; optional `ids` / `rootId`. With no `ids`, also returns the page content box and the next free spot |
@@ -65,6 +65,7 @@ Agent layer:
 - Tools that answer JSON declare an `outputSchema` and return `structuredContent`; the text block keeps the same JSON (for `get_nodes` and `get_history`, the plain array). `create_nodes`, `duplicate_nodes` and the import tools also add one readable line per root.
 - Document tools take an optional `workspaceId` (outline, nodes, bounds, create/update/delete/move/group, tokens, lint, screenshot, export, imports, undo/redo and the other document writes). Omit it to use the active workspace, which is the human's canvas. Passing it reads or writes that workspace without `open_workspace` and without moving the canvas. The outline's first line and every write result include `workspaceId` and `workspaceName`. Each workspace keeps its own history for the life of the process. An unknown id is an error that lists the workspaces.
 - The history names the agent after its MCP `clientInfo.name` (`agent:claude-code`). Over HTTP the server is stateless, so `initialize` hands out an `Mcp-Session-Id` that only carries that name; without it, the User-Agent is used as before.
+- The open canvas reports how it paints on the WebSocket: `{type:"hello", renderer:"wasm"|"dom"}`, again when the human toggles the renderer. The server answers with the same hello. `get_document_outline` lists one value per connected tab, or `none` when no tab is connected. Screenshots stay on the HTML path.
 
 ## Document format
 

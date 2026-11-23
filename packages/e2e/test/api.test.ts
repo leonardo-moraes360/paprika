@@ -190,6 +190,7 @@ describe("API: MCP", () => {
     expect(outlineText(outline)).toMatchInlineSnapshot(`
       "workspace ID "doc" v3 · 6 nodes
       tokens: (none)
+      renderer: none
 
       frame#btn "Botão" 100×40 @10,10 fill=#3355ff row gap=4 component
         text#lbl 50×20 @0,0 "OK" 16/400 color=#ffffff
@@ -286,6 +287,7 @@ describe("API: MCP", () => {
     expect(outlineText(await call(c, "get_document_outline", { rootId: "i1" }))).toMatchInlineSnapshot(`
       "workspace ID "doc" v6 · 6 nodes
       tokens: (none)
+      renderer: none
 
       frame#i1 "Botão" 150×60 @150,10 fill=#000000 row gap=6 instanceOf=btn scale=1.5 overrides=2
         text#i1-0bzyiqi0vw20y4 75×30 @0,0 from=lbl "Enviar" 30/400 color=#ffffff
@@ -379,7 +381,7 @@ describe("API: MCP", () => {
     expect(textOf(await call(c, "create_nodes", { nodes: [{ type: "rect", x: 1, y: 1 }] }))).toMatch(/has pages/);
     await call(c, "create_nodes", { parentId: "p2", nodes: [{ type: "rect", id: "r", width: 10, height: 10 }] });
     const outline = textOf(await call(c, "get_document_outline"));
-    expect(outline.split("\n").slice(3).join("\n").replace(/page#\w+ "Page 1"/, "page#P1").replace(/page=\w+/, "page=P1")).toMatchInlineSnapshot(`
+    expect(outline.split("\n").slice(4).join("\n").replace(/page#\w+ "Page 1"/, "page#P1").replace(/page=\w+/, "page=P1")).toMatchInlineSnapshot(`
       "page#P1
         frame#f "Tela" 300×200 @0,0
           rect#a 30×30 @10,20
@@ -762,6 +764,7 @@ describe("API: MCP", () => {
     expect(anon(outlineText(await call(c, "get_document_outline", { rootId: svgOut.ids[0] })))).toMatchInlineSnapshot(`
       "workspace ID "doc" v1 · 3 nodes
       tokens: (none)
+      renderer: none
 
       group#… "Ícone" 44×44 @12.0972,12.0972
         path#… 44×44 @0,0 fill=#c43d27 d="M13.56 0.12 L37.19 4.29 C41.54 5.06 44.45 9.2..."
@@ -782,6 +785,7 @@ describe("API: MCP", () => {
     expect(anon(outlineText(await call(c, "get_document_outline", { rootId: root })))).toMatchInlineSnapshot(`
       "workspace ID "doc" v2 · 6 nodes
       tokens: (none)
+      renderer: none
 
       frame#… 200×hug @0,100 fill=#fbf8f4 row gap=8
         frame#… 40×40 @0,0 fill=#c43d27
@@ -1449,6 +1453,48 @@ describe("API: HTTP + WebSocket", () => {
     // Narrowing to a workspace that no longer exists still reads its entries.
     const narrowed = (await call(client, "list_workspace_ops", { workspaceId: active })) as WithStruct;
     expect((narrowed.structuredContent?.entries as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it("hello do WebSocket informa o renderizador ativo, e o outline lista cada aba (ou none)", async () => {
+    const line = async () =>
+      textOf(await call(client, "get_document_outline"))
+        .split("\n")
+        .find((l) => l.startsWith("renderer:"));
+    expect(await line()).toBe("renderer: none");
+
+    const open = async () => {
+      const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
+      const msgs: { type: string; renderer?: string; reqId?: string; message?: string; kind?: string }[] = [];
+      ws.on("message", (m) => msgs.push(JSON.parse(String(m))));
+      await new Promise((ok) => ws.once("open", ok));
+      await waitFor(() => msgs.some((m) => m.type === "doc" && m.kind === "reload"));
+      return { ws, msgs };
+    };
+    const a = await open();
+    expect(a.msgs[0]?.type).toBe("doc");
+    a.ws.send(JSON.stringify({ type: "hello", renderer: "wasm", reqId: "h1" }));
+    await waitFor(() => a.msgs.some((m) => m.type === "hello" && m.reqId === "h1"));
+    expect(a.msgs.find((m) => m.type === "hello")).toEqual({ type: "hello", renderer: "wasm", reqId: "h1" });
+    await waitFor(async () => (await line()) === "renderer: wasm");
+
+    a.ws.send(JSON.stringify({ type: "hello", renderer: "cpu", reqId: "bad" }));
+    await waitFor(() => a.msgs.some((m) => m.type === "error"));
+    expect(a.msgs.find((m) => m.type === "error")?.message).toContain("renderer");
+    expect(await line()).toBe("renderer: wasm");
+
+    a.ws.send(JSON.stringify({ type: "hello", renderer: "dom", reqId: "h1b" }));
+    await waitFor(() => a.msgs.some((m) => m.type === "hello" && m.renderer === "dom"));
+    expect(await line()).toBe("renderer: dom");
+
+    const b = await open();
+    b.ws.send(JSON.stringify({ type: "hello", renderer: "wasm", reqId: "h2" }));
+    await waitFor(() => b.msgs.some((m) => m.type === "hello" && m.reqId === "h2"));
+    expect(await line()).toBe("renderer: dom, wasm");
+
+    a.ws.close();
+    await waitFor(async () => (await line()) === "renderer: wasm");
+    b.ws.close();
+    await waitFor(async () => (await line()) === "renderer: none");
   });
 
   it("agente via MCP HTTP e canvas via WS veem as mesmas mudanças", async () => {

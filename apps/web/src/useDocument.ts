@@ -5,6 +5,7 @@ import { catalogs } from "./i18n/messages";
 import { t } from "./i18n/store";
 import type { TeamStatus } from "./Team";
 import { queryClient } from "./api";
+import { initialRendererMode, onRendererMode, type RendererMode } from "./wasmLayer";
 
 const offlineMessages = new Set(Object.values(catalogs).map((m) => m.offline));
 
@@ -163,6 +164,12 @@ export class LiveStore {
       docRaf = requestAnimationFrame(flushDoc);
       docTimer = setTimeout(flushDoc, 50);
     };
+    const reportRenderer = (renderer: RendererMode) => {
+      const sock = this.ws;
+      if (!sock || sock.readyState !== WebSocket.OPEN) return;
+      sock.send(JSON.stringify({ type: "hello", renderer, reqId: String(++this.seq) }));
+    };
+    const stopRenderer = onRendererMode(reportRenderer);
     const open = () => {
       const proto = location.protocol === "https:" ? "wss" : "ws";
       const ws = new WebSocket(`${proto}://${location.host}/ws`);
@@ -178,6 +185,7 @@ export class LiveStore {
       ws.onopen = () => {
         if (this.ws !== ws) return;
         this.set((s) => ({ ...s, connected: true, error: s.error && offlineMessages.has(s.error) ? null : s.error }));
+        reportRenderer(initialRendererMode());
       };
       ws.onmessage = (ev) => {
         if (this.ws !== ws) return;
@@ -217,6 +225,7 @@ export class LiveStore {
       .catch(() => {});
     return () => {
       closed = true;
+      stopRenderer();
       clearTimeout(retry);
       clearTimeout(flash);
       if (docRaf) cancelAnimationFrame(docRaf);

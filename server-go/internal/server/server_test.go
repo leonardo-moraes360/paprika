@@ -555,6 +555,121 @@ func TestWebSocketSync(t *testing.T) {
 	}
 }
 
+func TestActiveRenderer(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	line := func() string {
+		t.Helper()
+		out, isErr := callText(t, m, "get_document_outline", obj())
+		if isErr {
+			t.Fatalf("outline: %q", out)
+		}
+		for _, l := range strings.Split(out, "\n") {
+			if strings.HasPrefix(l, "renderer:") {
+				return l
+			}
+		}
+		t.Fatalf("no renderer line: %q", out)
+		return ""
+	}
+	if got := line(); got != "renderer: none" {
+		t.Fatalf("before serve: %s", got)
+	}
+	srv, err := StartHTTP(s, HTTPOptions{Host: "127.0.0.1", Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	if got := line(); got != "renderer: none" {
+		t.Fatalf("no tab: %s", got)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	dial := func() *websocket.Conn {
+		t.Helper()
+		c, _, err := websocket.Dial(ctx, strings.Replace(srv.URL, "http", "ws", 1)+"/ws", &websocket.DialOptions{HTTPHeader: http.Header{"Origin": {srv.URL}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	read := func(c *websocket.Conn) *jsonv.Object {
+		t.Helper()
+		_, data, err := c.Read(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, err := jsonv.Parse(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v.(*jsonv.Object)
+	}
+	readType := func(c *websocket.Conn, typ string) *jsonv.Object {
+		t.Helper()
+		for range 8 {
+			if m := read(c); m.Str("type") == typ {
+				return m
+			}
+		}
+		t.Fatalf("no %s message", typ)
+		return nil
+	}
+	a := dial()
+	defer a.CloseNow()
+	if m := read(a); m.Str("type") != "doc" {
+		t.Fatalf("first message: %s", jsonv.Stringify(m, ""))
+	}
+	if err := a.Write(ctx, websocket.MessageText, []byte(`{"type":"hello","renderer":"wasm","reqId":"h1"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if m := readType(a, "hello"); m.Str("renderer") != "wasm" || m.Str("reqId") != "h1" {
+		t.Fatalf("hello: %s", jsonv.Stringify(m, ""))
+	}
+	if got := line(); got != "renderer: wasm" {
+		t.Fatalf("one tab: %s", got)
+	}
+	if err := a.Write(ctx, websocket.MessageText, []byte(`{"type":"hello","renderer":"cpu"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if m := readType(a, "error"); !strings.Contains(m.Str("message"), "renderer") {
+		t.Fatalf("bad renderer: %s", jsonv.Stringify(m, ""))
+	}
+	if got := line(); got != "renderer: wasm" {
+		t.Fatalf("unchanged: %s", got)
+	}
+	b := dial()
+	defer b.CloseNow()
+	if m := read(b); m.Str("type") != "doc" {
+		t.Fatalf("second first message: %s", jsonv.Stringify(m, ""))
+	}
+	if err := b.Write(ctx, websocket.MessageText, []byte(`{"type":"hello","renderer":"dom","reqId":"h2"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if m := readType(b, "hello"); m.Str("renderer") != "dom" || m.Str("reqId") != "h2" {
+		t.Fatalf("hello 2: %s", jsonv.Stringify(m, ""))
+	}
+	if got := line(); got != "renderer: wasm, dom" {
+		t.Fatalf("two tabs: %s", got)
+	}
+	a.CloseNow()
+	deadline := time.Now().Add(2 * time.Second)
+	for line() != "renderer: dom" {
+		if time.Now().After(deadline) {
+			t.Fatalf("after first close: %s", line())
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	b.CloseNow()
+	deadline = time.Now().Add(2 * time.Second)
+	for line() != "renderer: none" {
+		if time.Now().After(deadline) {
+			t.Fatalf("after last close: %s", line())
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 func TestMCPImportExportSVG(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)
