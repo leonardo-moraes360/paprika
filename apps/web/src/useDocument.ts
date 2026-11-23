@@ -52,6 +52,12 @@ type ServerMsg =
   | { type: "workspaceOp"; op: { actor: string; op: WorkspaceOpKind | "create"; workspaceId: string; workspaceName: string; detail: Record<string, unknown> } }
   | PresenceMsg;
 
+type DocMsg = Extract<ServerMsg, { type: "doc" }>;
+
+function isDocFrame(raw: string): boolean {
+  return raw.startsWith('{"type":"doc"');
+}
+
 function changedIds(prev: Document | null, next: Document): string[] {
   if (!prev) return [];
   const out: string[] = [];
@@ -108,6 +114,53 @@ export class LiveStore {
     let closed = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let flash: ReturnType<typeof setTimeout> | undefined;
+    let pendingDoc: string | null = null;
+    let docRaf = 0;
+    let docTimer: ReturnType<typeof setTimeout> | undefined;
+    const applyDoc = (msg: DocMsg) => {
+      this.set((s) => {
+        // Another workspace: nothing carries over (its nodes are not "changed", the feed starts over).
+        if (s.doc && s.doc.id !== msg.doc.id) {
+          clearTimeout(flash);
+          return { ...s, doc: msg.doc, version: msg.version, canUndo: msg.canUndo, canRedo: msg.canRedo, activity: [], agentTouched: new Set() };
+        }
+        const changed = changedIds(s.doc, msg.doc);
+        const fromAgent = msg.actor.startsWith("agent");
+        const activity =
+          msg.kind === "reload" && msg.actor === "server"
+            ? s.activity
+            : [{ id: msg.version, actor: msg.actor, label: msg.label, at: Date.now(), changed }, ...s.activity].slice(0, 30);
+        if (fromAgent) {
+          clearTimeout(flash);
+          flash = setTimeout(() => this.set((x) => ({ ...x, agentTouched: new Set() })), 1600);
+        }
+        return {
+          ...s,
+          doc: msg.doc,
+          version: msg.version,
+          canUndo: msg.canUndo,
+          canRedo: msg.canRedo,
+          activity,
+          agentTouched: fromAgent ? new Set(changed) : s.agentTouched,
+        };
+      });
+    };
+    const flushDoc = () => {
+      if (docRaf) cancelAnimationFrame(docRaf);
+      docRaf = 0;
+      if (docTimer) clearTimeout(docTimer);
+      docTimer = undefined;
+      const raw = pendingDoc;
+      pendingDoc = null;
+      if (!raw || closed) return;
+      applyDoc(JSON.parse(raw) as DocMsg);
+    };
+    const queueDoc = (raw: string) => {
+      pendingDoc = raw;
+      if (docRaf || docTimer) return;
+      docRaf = requestAnimationFrame(flushDoc);
+      docTimer = setTimeout(flushDoc, 50);
+    };
     const open = () => {
       const proto = location.protocol === "https:" ? "wss" : "ws";
       const ws = new WebSocket(`${proto}://${location.host}/ws`);
@@ -126,34 +179,14 @@ export class LiveStore {
       };
       ws.onmessage = (ev) => {
         if (this.ws !== ws) return;
-        const msg = JSON.parse(String(ev.data)) as ServerMsg;
+        const raw = String(ev.data);
+        if (isDocFrame(raw)) {
+          queueDoc(raw);
+          return;
+        }
+        const msg = JSON.parse(raw) as ServerMsg;
         if (msg.type === "doc") {
-          this.set((s) => {
-            // Another workspace: nothing carries over (its nodes are not "changed", the feed starts over).
-            if (s.doc && s.doc.id !== msg.doc.id) {
-              clearTimeout(flash);
-              return { ...s, doc: msg.doc, version: msg.version, canUndo: msg.canUndo, canRedo: msg.canRedo, activity: [], agentTouched: new Set() };
-            }
-            const changed = changedIds(s.doc, msg.doc);
-            const fromAgent = msg.actor.startsWith("agent");
-            const activity =
-              msg.kind === "reload" && msg.actor === "server"
-                ? s.activity
-                : [{ id: msg.version, actor: msg.actor, label: msg.label, at: Date.now(), changed }, ...s.activity].slice(0, 30);
-            if (fromAgent) {
-              clearTimeout(flash);
-              flash = setTimeout(() => this.set((x) => ({ ...x, agentTouched: new Set() })), 1600);
-            }
-            return {
-              ...s,
-              doc: msg.doc,
-              version: msg.version,
-              canUndo: msg.canUndo,
-              canRedo: msg.canRedo,
-              activity,
-              agentTouched: fromAgent ? new Set(changed) : s.agentTouched,
-            };
-          });
+          queueDoc(raw);
         } else if (msg.type === "team") {
           this.set((s) => ({ ...s, team: msg.status }));
         } else if (msg.type === "workspaceOp") {
@@ -182,6 +215,11 @@ export class LiveStore {
       closed = true;
       clearTimeout(retry);
       clearTimeout(flash);
+      if (docRaf) cancelAnimationFrame(docRaf);
+      docRaf = 0;
+      if (docTimer) clearTimeout(docTimer);
+      docTimer = undefined;
+      pendingDoc = null;
       this.ws?.close();
     };
   };
