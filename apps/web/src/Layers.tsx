@@ -9,7 +9,7 @@ import { cn } from "./lib/cn";
 
 const ICON: Record<string, LucideIcon> = { frame: Frame, rect: RectangleHorizontal, ellipse: Circle, text: Type, image: Image, path: PenTool, group: Group, page: File, shape: Square, connector: MoveUpRight };
 
-function layerIcon(n: Node): LucideIcon {
+export function layerIcon(n: Node): LucideIcon {
   if (n.type === "frame" && n.component) return Component;
   if (isInstance(n)) return Diamond;
   return ICON[n.type] ?? Square;
@@ -25,6 +25,10 @@ function layerFallback(doc: Document, n: Node): string {
     return `${end(n.from)} → ${end(n.to)}`;
   }
   return n.type;
+}
+
+export function layerLabel(doc: Document, n: Node): string {
+  return n.name || layerFallback(doc, n);
 }
 
 function isUnder(doc: Document, id: string, ancestor: string): boolean {

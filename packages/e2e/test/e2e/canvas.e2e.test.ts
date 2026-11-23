@@ -393,6 +393,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   for (const key of ["Space", "Enter"]) {
     it(`segurar ${key} sobre o board vira mão aberta; arrastando, mão fechada que move o board`, async () => {
       await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
       const vp = page.locator('[data-testid="viewport"]');
       const world = page.locator(".world");
       const box = (await vp.boundingBox())!;
@@ -585,6 +586,60 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(after.nodes.plano?.parentId).toBeNull();
     // Volta ao canvas na mesma posição em que o grupo a deixou: a antiga (relativa) + a nova origem.
     expect((after.nodes.plano as { x: number }).x).toBeGreaterThan((before.nodes.plano as { x: number }).x + gx + 20);
+  });
+
+  it("hierarquia: Enter desce, Tab cicla irmãos, Ctrl+clique entra no grupo e o clique direito lista as camadas", async () => {
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Selecionar" }).click();
+    const marca = (await page.locator('[data-paprika-id="r0980ga944"]').boundingBox())!;
+    await page.mouse.click(marca.x + 8, marca.y + 8);
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe("r0980ga944");
+    await page.keyboard.press("Escape");
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe("login");
+    await page.keyboard.press("Enter");
+    const picked = () => page.locator(".layer.is-selected").evaluateAll((els) => els.map((e) => e.getAttribute("data-layer-id")));
+    const kids = ((await doc()).nodes.login as { children: string[] }).children;
+    await expect.poll(picked).toEqual(kids);
+
+    await page.keyboard.press("Escape");
+    await page.mouse.click(marca.x + 8, marca.y + 8);
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(kids[0]);
+    await page.keyboard.press("Tab");
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(kids[1]);
+    await page.keyboard.press("Shift+Tab");
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(kids[0]);
+
+    await page.locator('[data-layer-id="login"]').click();
+    await page.locator('[data-layer-id="plano"]').click({ modifiers: ["Shift"] });
+    await page.keyboard.press("Control+g");
+    const groupId = async () => Object.values((await doc()).nodes).find((n) => n.type === "group")?.id;
+    await expect.poll(groupId).toBeTruthy();
+    const g = (await groupId())!;
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    const card = (await page.locator('[data-paprika-id="plano"]').boundingBox())!;
+    await page.keyboard.down("Control");
+    await page.mouse.click(card.x + 16, card.y + 16);
+    await page.keyboard.up("Control");
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).not.toBe(g);
+    const deepId = (await page.locator(".layer.is-selected").getAttribute("data-layer-id"))!;
+    expect(deepId).toBeTruthy();
+
+    await page.mouse.click(card.x + 16, card.y + 16, { button: "right" });
+    const menu = page.getByTestId("layer-menu");
+    await menu.waitFor();
+    await expect(menu.getAttribute("aria-label")).resolves.toBe("Camadas sob o cursor");
+    await expect(menu.locator(`[data-layer-id="${deepId}"]`).count()).resolves.toBe(1);
+    await expect(menu.locator(`[data-layer-id="${g}"]`).count()).resolves.toBe(1);
+    await menu.locator(`[data-layer-id="${g}"]`).click();
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(g);
+    await expect.poll(() => menu.count()).toBe(0);
+
+    await page.keyboard.press("Enter");
+    await expect.poll(picked).toEqual(expect.arrayContaining(["login", "plano"]));
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Control+Shift+g");
+    await expect.poll(async () => (await doc()).nodes[g]).toBeUndefined();
   });
 
   it("páginas: o + leva o conteúdo para a Página 1, cria a 2 e o agente desenha nela", async () => {
