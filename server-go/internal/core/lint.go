@@ -456,12 +456,7 @@ func ignoredRule(n *Node, rule string) bool {
 	if n == nil {
 		return false
 	}
-	for _, r := range n.Strings("lintIgnore") {
-		if r == rule {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(n.Strings("lintIgnore"), rule)
 }
 
 func inScaledMock(doc *Document, node *Node) bool {
@@ -681,11 +676,7 @@ func layoutLint(doc *Document, ids []string) []LintIssue {
 		for i, cid := range kids {
 			labels[i] = nodeLabel(GetNode(doc, cid), "")
 		}
-		n := len(labels)
-		if n > 3 {
-			n = 3
-		}
-		shown := strings.Join(labels[:n], ", ")
+		shown := strings.Join(labels[:min(len(labels), 3)], ", ")
 		if len(labels) > 3 {
 			shown += " +" + jsString(float64(len(labels)-3))
 		}
