@@ -636,23 +636,33 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return write(a, ops, labelOr(a, "move "+count(len(moves))+" node(s)"))
 	})
 
-	add("group_nodes", z.Object(
+	selectionFrame := z.Object(
 		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
 		label(), batch(), workspaceID(),
-	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		ids := a.Strings("ids")
-		id := a.Str("id")
-		if !a.Has("id") {
-			id = core.NewID()
+	)
+	writeSelection := func(opName, resultKey, verb, noun string, extra ...string) func(context.Context, *jsonv.Object) (ToolResult, error) {
+		return func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			ids := a.Strings("ids")
+			id := a.Str("id")
+			if !a.Has("id") {
+				id = core.NewID()
+			}
+			kv := make([]any, 0, 6+2*len(extra))
+			kv = append(kv, "op", opName, "ids", a.Arr("ids"))
+			for _, key := range extra {
+				kv = append(kv, key, a.Str(key))
+			}
+			kv = append(kv, "id", id)
+			op := jsonv.NewObject(kv...)
+			if a.Has("name") {
+				op.Set("name", a.Str("name"))
+			}
+			return writeWith(a, []any{op}, labelOr(a, verb+" "+count(len(ids))+" "+noun), resultKey, id)
 		}
-		op := jsonv.NewObject("op", "group", "ids", a.Arr("ids"), "id", id)
-		if a.Has("name") {
-			op.Set("name", a.Str("name"))
-		}
-		return writeWith(a, []any{op}, labelOr(a, "group "+count(len(ids))+" node(s)"), "group", id)
-	})
+	}
+	add("group_nodes", selectionFrame, writeSelection("group", "group", "group", "node(s)"))
 
 	add("ungroup_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)}, label(), batch(), workspaceID()),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
@@ -689,23 +699,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return write(a, []any{op}, labelOr(a, "distribute "+count(len(ids))+" node(s) "+a.Str("axis")))
 	})
 
-	add("wrap_nodes", z.Object(
-		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
-		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
-		optStr("id"),
-		label(), batch(), workspaceID(),
-	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		ids := a.Strings("ids")
-		id := a.Str("id")
-		if !a.Has("id") {
-			id = core.NewID()
-		}
-		op := jsonv.NewObject("op", "wrap", "ids", a.Arr("ids"), "id", id)
-		if a.Has("name") {
-			op.Set("name", a.Str("name"))
-		}
-		return writeWith(a, []any{op}, labelOr(a, "wrap "+count(len(ids))+" node(s)"), "frame", id)
-	})
+	add("wrap_nodes", selectionFrame, writeSelection("wrap", "frame", "wrap", "node(s)"))
 
 	reveal := func(kind, label string) func(context.Context, *jsonv.Object) (ToolResult, error) {
 		return func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
@@ -745,18 +739,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
 		label(), batch(), workspaceID(),
-	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		ids := a.Strings("ids")
-		id := a.Str("id")
-		if !a.Has("id") {
-			id = core.NewID()
-		}
-		op := jsonv.NewObject("op", "combine_paths", "ids", a.Arr("ids"), "operation", a.Str("operation"), "id", id)
-		if a.Has("name") {
-			op.Set("name", a.Str("name"))
-		}
-		return writeWith(a, []any{op}, labelOr(a, "combine "+count(len(ids))+" path(s)"), "path", id)
-	})
+	), writeSelection("combine_paths", "path", "combine", "path(s)", "operation"))
 
 	add("create_page", z.Object(
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
