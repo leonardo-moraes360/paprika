@@ -142,12 +142,12 @@ describe("API: MCP", () => {
     expect(tools).toEqual(contract.tools);
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
-        "apply_ops", "combine_paths", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
+        "apply_ops", "archive_workspace", "combine_paths", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "get_bounds",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
-        "rename_workspace", "render_screenshot", "resize_image", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
+        "rename_workspace", "render_screenshot", "resize_image", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
       ].sort(),
     );
@@ -1514,7 +1514,8 @@ describe("API: HTTP + WebSocket", () => {
     type Info = { id: string; name: string; nodes: number; updatedAt: number; active: boolean };
     const created = (await call(client, "create_workspace", { name: "  Landing  " })) as ToolResult & { structuredContent: { workspace: Info } };
     const landing = created.structuredContent.workspace;
-    expect(Object.keys(landing)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover"]);
+    expect(Object.keys(landing)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover", "archived"]);
+    expect(landing).toMatchObject({ archived: false });
     expect(landing).toMatchObject({ name: "Landing", nodes: 0, active: false });
 
     const post = (path: string, body?: unknown) =>
@@ -1613,7 +1614,7 @@ describe("API: HTTP + WebSocket", () => {
     const renamed = await req("PATCH", `/api/workspaces/${a.id}`, { name: "  A2  " });
     expect(renamed.status).toBe(200);
     const info = ((await renamed.json()) as { workspace: Info }).workspace;
-    expect(Object.keys(info)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover"]);
+    expect(Object.keys(info)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover", "archived"]);
     expect(info).toMatchObject({ id: a.id, name: "A2", active: false });
     expect((await list()).workspaces.find((w) => w.id === a.id)?.name).toBe("A2");
     expect((await req("PATCH", `/api/workspaces/${a.id}`, { name: "  " })).status).toBe(400);
@@ -1662,6 +1663,60 @@ describe("API: HTTP + WebSocket", () => {
     expect(mcpDel.structuredContent.notice).toContain("list_workspace_ops");
     expect(textOf(await call(client, "delete_workspace", { id: "nope" }))).toBe('workspace "nope" does not exist (see list_workspaces)');
     await call(client, "open_workspace", { id: start });
+  });
+
+  it("workspaces: arquivar esconde da lista e restaurar devolve, sem apagar", async () => {
+    type Info = { id: string; name: string; archived: boolean; active: boolean };
+    type WithStruct = ToolResult & { structuredContent: { workspace: Info; active: string; workspaces: Info[] } };
+    const list = async (q = "") => (await (await fetch(`${srv.url}/api/workspaces${q}`)).json()) as { active: string; workspaces: Info[] };
+    const start = (await list()).active;
+    expect((await fetch(`${srv.url}/api/workspaces/${start}/archive`, { method: "POST" })).status).toBe(409);
+    const made = await fetch(`${srv.url}/api/workspaces`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Para arquivar" }),
+    });
+    const spare = ((await made.json()) as { workspace: Info }).workspace;
+    expect(spare.archived).toBe(false);
+
+    const archived = (await call(client, "archive_workspace", { id: spare.id })) as WithStruct;
+    expect(archived.isError, textOf(archived)).toBeFalsy();
+    assertOutput("archive_workspace", archived.structuredContent);
+    expect(archived.structuredContent.workspace).toMatchObject({ id: spare.id, archived: true, active: false });
+    expect(archived.structuredContent.active).toBe(start);
+    expect((await list()).workspaces.some((w) => w.id === spare.id)).toBe(false);
+    expect((await list("?archived=1")).workspaces.map((w) => w.id)).toEqual([spare.id]);
+    const included = (await call(client, "list_workspaces", { includeArchived: true })) as WithStruct;
+    assertOutput("list_workspaces", included.structuredContent);
+    expect(included.structuredContent.workspaces.find((w) => w.id === spare.id)?.archived).toBe(true);
+    expect((await call(client, "list_workspaces") as WithStruct).structuredContent.workspaces.some((w) => w.id === spare.id)).toBe(false);
+
+    const restored = (await call(client, "unarchive_workspace", { id: spare.id })) as WithStruct;
+    expect(restored.isError, textOf(restored)).toBeFalsy();
+    assertOutput("unarchive_workspace", restored.structuredContent);
+    expect(restored.structuredContent.workspace.archived).toBe(false);
+    expect((await list()).workspaces.some((w) => w.id === spare.id)).toBe(true);
+
+    const switched = await fetch(`${srv.url}/api/workspaces/${start}/archive`, { method: "POST" });
+    expect(switched.status).toBe(200);
+    const body = (await switched.json()) as { workspace: Info; active: string };
+    expect(body.workspace.archived).toBe(true);
+    expect(body.active).toBe(spare.id);
+    expect((await list()).active).toBe(spare.id);
+    expect((await list()).workspaces.some((w) => w.id === start)).toBe(false);
+
+    const opened = await fetch(`${srv.url}/api/workspaces/${start}/open`, { method: "POST" });
+    expect(opened.status).toBe(200);
+    expect(((await opened.json()) as { workspace: Info }).workspace).toMatchObject({ id: start, archived: false, active: true });
+    expect((await list()).workspaces.some((w) => w.id === start)).toBe(true);
+
+    expect(textOf(await call(client, "archive_workspace", { id: "nope" }))).toBe('workspace "nope" does not exist (see list_workspaces)');
+    expect((await fetch(`${srv.url}/api/workspaces/nope/archive`, { method: "POST" })).status).toBe(404);
+    expect((await fetch(`${srv.url}/api/workspaces/${spare.id}/archive`, { method: "GET" })).status).toBe(405);
+    const ops = (await call(client, "list_workspace_ops", { workspaceId: spare.id })) as ToolResult & { structuredContent: { entries: { op: string }[] } };
+    assertOutput("list_workspace_ops", ops.structuredContent);
+    expect(ops.structuredContent.entries.map((e) => e.op)).toContain("archive");
+    expect(ops.structuredContent.entries.map((e) => e.op)).toContain("unarchive");
   });
 
   it("bloqueia Host/Origin externos (DNS rebinding / CSRF)", async () => {

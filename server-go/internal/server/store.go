@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS documents (
   root_ids   TEXT NOT NULL,           -- JSON array
   version    INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL,
+  archived   INTEGER NOT NULL DEFAULT 0  -- 1: hidden from the overview and list_workspaces
 );
 CREATE TABLE IF NOT EXISTS tokens (
   doc_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
@@ -104,7 +105,7 @@ CREATE TABLE IF NOT EXISTS workspace_ops (
 );
 CREATE INDEX IF NOT EXISTS workspace_ops_recent ON workspace_ops(seq DESC);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '1');
+INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '2');
 `
 
 // OpenDB opens (and migrates) a Paprika SQLite database.
@@ -120,11 +121,31 @@ func OpenDB(path string) (*sql.DB, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1) // one connection: serialized writes and a stable PRAGMA data_version
-	if _, err := db.Exec(schemaSQL); err != nil {
+	if err := migrateDB(db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrando %s: %w", path, err)
 	}
 	return db, nil
+}
+
+// migrateDB creates the schema and adds columns that older databases do not have.
+// schema_version 2 is the archived flag on documents.
+func migrateDB(db *sql.DB) error {
+	if _, err := db.Exec(schemaSQL); err != nil {
+		return err
+	}
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('documents') WHERE name = 'archived'`).Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		if _, err := db.Exec(`ALTER TABLE documents ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+	}
+	_, err := db.Exec(`INSERT INTO meta(key, value) VALUES ('schema_version', '2')
+		ON CONFLICT(key) DO UPDATE SET value = '2'`)
+	return err
 }
 
 // DocInfo describes a stored document.
@@ -135,12 +156,13 @@ type DocInfo struct {
 	Version   int64  `json:"version"`
 	UpdatedAt int64  `json:"updatedAt"`
 	CoverAt   int64  `json:"-"` // updated_at of its cover image, 0 = no cover
+	Archived  bool   `json:"archived"`
 }
 
 // ListDocuments lists the documents in a database (most recently updated first).
 func ListDocuments(db *sql.DB) ([]DocInfo, error) {
 	rows, err := db.Query(`SELECT d.id, d.name, d.version, d.updated_at, (SELECT COUNT(*) FROM nodes n WHERE n.doc_id = d.id),
-		COALESCE((SELECT c.updated_at FROM covers c WHERE c.doc_id = d.id), 0)
+		COALESCE((SELECT c.updated_at FROM covers c WHERE c.doc_id = d.id), 0), d.archived
 		FROM documents d ORDER BY d.updated_at DESC, d.id`)
 	if err != nil {
 		return nil, err
@@ -149,9 +171,11 @@ func ListDocuments(db *sql.DB) ([]DocInfo, error) {
 	var out []DocInfo
 	for rows.Next() {
 		var d DocInfo
-		if err := rows.Scan(&d.ID, &d.Name, &d.Version, &d.UpdatedAt, &d.Nodes, &d.CoverAt); err != nil {
+		var archived int
+		if err := rows.Scan(&d.ID, &d.Name, &d.Version, &d.UpdatedAt, &d.Nodes, &d.CoverAt, &archived); err != nil {
 			return nil, err
 		}
+		d.Archived = archived != 0
 		out = append(out, d)
 	}
 	return out, rows.Err()
@@ -1314,6 +1338,7 @@ type WorkspaceInfo struct {
 	UpdatedAt int64  `json:"updatedAt"`
 	Active    bool   `json:"active"` // the document the canvas and the MCP tools read and write
 	Cover     any    `json:"cover"`  // URL of the cover image (with a cache-busting ?v=), or nil: the card shows the first letter
+	Archived  bool   `json:"archived"`
 }
 
 func coverURL(id string, at int64) any {
@@ -1327,21 +1352,38 @@ func coverURL(id string, at int64) any {
 var ErrNoWorkspace = errors.New("workspace not found")
 
 // ListWorkspaces lists the documents of the database, most recently updated first.
+// Archived workspaces are omitted; pass includeArchived to see them too, or archivedOnly for just those.
 func (s *Store) ListWorkspaces() ([]WorkspaceInfo, error) {
+	return s.listWorkspaces(false, false)
+}
+
+// ListWorkspacesFiltered is ListWorkspaces with the archive filter made explicit.
+// includeArchived returns every workspace; archivedOnly returns only the archived ones.
+func (s *Store) ListWorkspacesFiltered(includeArchived, archivedOnly bool) ([]WorkspaceInfo, error) {
+	return s.listWorkspaces(includeArchived, archivedOnly)
+}
+
+func (s *Store) listWorkspaces(includeArchived, archivedOnly bool) ([]WorkspaceInfo, error) {
 	docs, err := ListDocuments(s.db)
 	if err != nil {
 		return nil, err
 	}
 	active := s.DocID()
-	out := make([]WorkspaceInfo, len(docs))
-	for i, d := range docs {
-		out[i] = WorkspaceInfo{d.ID, d.Name, d.Nodes, d.UpdatedAt, d.ID == active, coverURL(d.ID, d.CoverAt)}
+	out := make([]WorkspaceInfo, 0, len(docs))
+	for _, d := range docs {
+		if archivedOnly && !d.Archived {
+			continue
+		}
+		if !includeArchived && !archivedOnly && d.Archived {
+			continue
+		}
+		out = append(out, WorkspaceInfo{d.ID, d.Name, d.Nodes, d.UpdatedAt, d.ID == active, coverURL(d.ID, d.CoverAt), d.Archived})
 	}
 	return out, nil
 }
 
 func (s *Store) workspaceInfo(id string) (WorkspaceInfo, error) {
-	ws, err := s.ListWorkspaces()
+	ws, err := s.listWorkspaces(true, false)
 	if err != nil {
 		return WorkspaceInfo{}, err
 	}
@@ -1359,7 +1401,7 @@ func (s *Store) workspaceInfo(id string) (WorkspaceInfo, error) {
 type WorkspaceOp struct {
 	At      int64  `json:"at"`
 	Actor   string `json:"actor"`
-	Op      string `json:"op"` // create | rename | open | delete
+	Op      string `json:"op"` // create | rename | open | archive | unarchive | delete
 	DocID   string `json:"workspaceId"`
 	DocName string `json:"workspaceName"`
 	Detail  any    `json:"detail"`
@@ -1422,8 +1464,18 @@ func (s *Store) ListWorkspaceOps(limit int, workspaceID string) ([]WorkspaceOp, 
 // (ChangeEvent with Kind "open"), with that document's own stored undo history.
 func (s *Store) OpenWorkspace(id, actor string) (WorkspaceInfo, error) {
 	info, err := s.workspaceInfo(id)
-	if err != nil || info.Active {
+	if err != nil {
 		return info, err
+	}
+	if info.Archived {
+		if err := s.writeArchived(id, false); err != nil {
+			return WorkspaceInfo{}, err
+		}
+		s.logWorkspaceOp(actor, "unarchive", id, info.Name, map[string]any{"via": "open"})
+		info.Archived = false
+	}
+	if info.Active {
+		return info, nil
 	}
 	s.mu.Lock()
 	if id == s.docID {
@@ -1486,7 +1538,7 @@ func (s *Store) CreateWorkspace(name, actor string) (WorkspaceInfo, error) {
 		return WorkspaceInfo{}, err
 	}
 	s.logWorkspaceOp(actor, "create", doc.Str("id"), name, nil)
-	return WorkspaceInfo{doc.Str("id"), name, 0, now, false, nil}, nil
+	return WorkspaceInfo{doc.Str("id"), name, 0, now, false, nil, false}, nil
 }
 
 // ImportWorkspace stores a .paprika.json document as a new workspace without touching the
@@ -1522,9 +1574,13 @@ func (s *Store) ImportWorkspace(input any, name, actor string) (WorkspaceInfo, e
 	return info, err
 }
 
-// ErrLastWorkspace is returned by DeleteWorkspace when the id is the only document: the server
-// always has an active workspace.
+// ErrLastWorkspace is returned by DeleteWorkspace when the id is the only document the server
+// can keep open: the server always has an active workspace, and an archived one does not count.
 var ErrLastWorkspace = errors.New("cannot delete the only workspace")
+
+// ErrArchiveOnly is returned by ArchiveWorkspace when it would leave the server with no
+// workspace to show. Archive hides a workspace; it does not delete it.
+var ErrArchiveOnly = errors.New("cannot archive the only workspace")
 
 // RenameWorkspace changes a workspace's name (trimmed; blank is refused by the callers). The active
 // one is renamed with a rename_document op, so the canvas follows and Ctrl+Z undoes it; another one
@@ -1736,7 +1792,7 @@ func (s *Store) ConsumeDeleteConfirm(id, token string) error {
 // agents move there; the only workspace cannot be deleted (ErrLastWorkspace). Returns the id of
 // the workspace that is active afterwards.
 func (s *Store) DeleteWorkspace(id, actor string) (string, error) {
-	ws, err := s.ListWorkspaces()
+	ws, err := s.listWorkspaces(true, false)
 	if err != nil {
 		return "", err
 	}
@@ -1745,8 +1801,8 @@ func (s *Store) DeleteWorkspace(id, actor string) (string, error) {
 	for i := range ws {
 		if ws[i].ID == id {
 			target = &ws[i]
-		} else if next == "" {
-			next = ws[i].ID // list is most recently updated first
+		} else if next == "" && !ws[i].Archived {
+			next = ws[i].ID // list is most recently updated first; an archived workspace is not a successor
 		}
 	}
 	if target == nil {
@@ -1774,6 +1830,81 @@ func (s *Store) DeleteWorkspace(id, actor string) (string, error) {
 	s.mu.Unlock()
 	s.logWorkspaceOp(actor, "delete", id, target.Name, summary)
 	return s.DocID(), nil
+}
+
+func (s *Store) writeArchived(id string, archived bool) error {
+	flag := 0
+	if archived {
+		flag = 1
+	}
+	res, err := s.db.Exec(`UPDATE documents SET archived = ?, updated_at = ? WHERE id = ?`, flag, time.Now().UnixMilli(), id)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNoWorkspace
+	}
+	return nil
+}
+
+// ArchiveWorkspace hides a workspace from the default list without deleting it. Archiving the
+// active one first opens the most recently updated other workspace that is not archived. The only
+// visible workspace cannot be archived (ErrArchiveOnly). Archiving one that is already archived
+// changes nothing.
+func (s *Store) ArchiveWorkspace(id, actor string) (WorkspaceInfo, error) {
+	info, err := s.workspaceInfo(id)
+	if err != nil {
+		return info, err
+	}
+	if info.Archived {
+		return info, nil
+	}
+	ws, err := s.listWorkspaces(true, false)
+	if err != nil {
+		return WorkspaceInfo{}, err
+	}
+	next := ""
+	for _, w := range ws {
+		if w.ID != id && !w.Archived {
+			next = w.ID
+			break
+		}
+	}
+	if next == "" {
+		return WorkspaceInfo{}, ErrArchiveOnly
+	}
+	if info.Active {
+		if _, err := s.OpenWorkspace(next, actor); err != nil {
+			return WorkspaceInfo{}, err
+		}
+	}
+	if err := s.writeArchived(id, true); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	s.logWorkspaceOp(actor, "archive", id, info.Name, nil)
+	return s.workspaceInfo(id)
+}
+
+// UnarchiveWorkspace puts an archived workspace back on the default list. It does not make it
+// active. Unarchiving one that is not archived changes nothing. Opening an archived workspace
+// also unarchives it (OpenWorkspace).
+func (s *Store) UnarchiveWorkspace(id, actor string) (WorkspaceInfo, error) {
+	info, err := s.workspaceInfo(id)
+	if err != nil {
+		return info, err
+	}
+	if !info.Archived {
+		return info, nil
+	}
+	if err := s.writeArchived(id, false); err != nil {
+		return WorkspaceInfo{}, err
+	}
+	s.logWorkspaceOp(actor, "unarchive", id, info.Name, nil)
+	return s.workspaceInfo(id)
 }
 
 // MaxCoverBytes caps a workspace cover image (the card shows it at about 240×128).

@@ -978,6 +978,49 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await doc()).name, POLL).toBe(demoName);
   });
 
+  it("overview: arquivar esconde o card e Arquivados restaura sem apagar", async () => {
+    const POLL = { timeout: 10_000 };
+    const { id: demo } = await doc();
+    const created = await fetch(`${url}/api/workspaces`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Para arquivar" }),
+    });
+    const extra = ((await created.json()) as { workspace: { id: string } }).workspace.id;
+    await page.goto(url);
+    const card = page.locator(`[data-workspace-id="${extra}"]`);
+    await expect.poll(() => card.count(), POLL).toBe(1);
+    await card.hover();
+    await page.getByRole("button", { name: "Arquivar Para arquivar" }).click();
+    await expect.poll(() => card.count(), POLL).toBe(0);
+    const listed = (await (await fetch(`${url}/api/workspaces`)).json()) as { workspaces: { id: string }[] };
+    expect(listed.workspaces.some((w) => w.id === extra)).toBe(false);
+    const kept = (await (await fetch(`${url}/api/workspaces?archived=1`)).json()) as { workspaces: { id: string; name: string }[] };
+    expect(kept.workspaces.find((w) => w.id === extra)?.name).toBe("Para arquivar");
+
+    await page.getByRole("button", { name: "Arquivados" }).click();
+    await expect.poll(() => page.locator(".workspace-archived").textContent(), POLL).toBe("Arquivados");
+    await expect.poll(() => card.count(), POLL).toBe(1);
+    await card.hover();
+    await page.getByRole("button", { name: "Restaurar Para arquivar" }).click();
+    await expect.poll(() => card.count(), POLL).toBe(0);
+    await page.getByRole("button", { name: "Todos" }).click();
+    await expect.poll(() => card.count(), POLL).toBe(1);
+
+    await card.hover();
+    await page.getByRole("button", { name: "Arquivar Para arquivar" }).click();
+    await page.getByRole("button", { name: "Arquivados" }).click();
+    await card.click();
+    await expect.poll(() => new URL(page.url()).pathname, POLL).toBe(`/w/${extra}`);
+    await expect.poll(async () => {
+      const after = (await (await fetch(`${url}/api/workspaces`)).json()) as { active: string; workspaces: { id: string }[] };
+      return after.active === extra && after.workspaces.some((w) => w.id === extra);
+    }, POLL).toBe(true);
+
+    await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
+    await fetch(`${url}/api/workspaces/${extra}`, { method: "DELETE" });
+  });
+
   it("páginas: renomear a Página 1 implícita cria a página com o nome, leva o conteúdo e desfaz num passo", async () => {
     const POLL = { timeout: 10_000 };
     const demo = (await doc()).id;
