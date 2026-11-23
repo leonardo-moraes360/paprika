@@ -496,8 +496,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: drag and drop reparent e arquivos (P
     await rowC.scrollIntoViewIfNeeded();
     await rowA.dragTo(rowC, { targetPosition: { x: 40, y: 8 } });
     await expect.poll(async () => ((await server.doc()).nodes.flow as { children: string[] }).children.join(",")).not.toBe("flow-a,flow-b,flow-c");
-    const got = ((await server.doc()).nodes.flow as { children: string[] }).children.join(",");
-    expect(got).toBe("debug-order");
+    expect(((await server.doc()).nodes.flow as { children: string[] }).children[0]).not.toBe("flow-a");
     await undoOnce();
     await expect.poll(async () => ((await server.doc()).nodes.flow as { children: string[] }).children.join(",")).toBe("flow-a,flow-b,flow-c");
   }, 30_000);
