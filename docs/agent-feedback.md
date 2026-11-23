@@ -598,6 +598,20 @@ Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states 
 - Drew on active `Paprica · UI` / page `interfaces` without `open_workspace` after querying the maintainer about the name mismatch.
 - Canvas DnD only touches `Canvas.tsx`; Layers HTML5 DnD in `Layers.tsx`; E2E in `drag.e2e.test.ts`.
 
+## 2026-11-23: agent pins design (design first, cloud thread)
+
+Task: draw the proposal for "point at an element or area and tell the agent what to do" (5 boards: canvas, composer, panel, MCP contract, flow), first on a cloud `paprika serve`, then on the maintainer's local Paprika in `Paprica · UI` (new page, `workspaceId` on every write, active workspace untouched). PNGs in `docs/assets/boards/agent-pins/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 118 | Know that `lineHeight` is a ratio | Sent `lineHeight: 18` (px); `create_nodes` refused with "Too big: expected number to be <=10". The guide only says `lineHeight (n \| "$token")` | Say "multiplier of fontSize (1.4)" in the guide and in the error | P3 |
+| 119 | Screenshot of one frame | `render_screenshot {nodeId}` returned the whole page: the right name is `rootId` and the unknown argument was silently ignored, so five "frame" shots were the same image | Reject unknown arguments (or warn), as the write tools do | P2 |
+| 120 | Use the Chromium the environment has | `PAPRIKA_CHROMIUM=/opt/pw-browsers/chromium-1243/.../chrome` was still refused ("build 1243 is installed, but Playwright expects build 1255"); a symlink without the revision in its path worked | An explicit `PAPRIKA_CHROMIUM` skips the revision check (warn instead) | P2 |
+| 121 | Draw in a workspace without touching its tokens | Writing boards into `Paprica · UI` meant inlining every color, because `set_tokens` there could overwrite the maintainer's tokens with the same names | `set_tokens {onlyMissing: true}` or a warning listing overwritten tokens | P3 |
+
+- `workspaceId` on `create_page`/`create_nodes` worked well: the boards went into `Paprica · UI` while the canvas stayed on the maintainer's active workspace.
+- `create_page {ensure: true}` + `place: "free"` placed five boards with no overlap and no manual coordinates.
+
 ## 2026-11-23: archive workspaces (PAP-B-071, design first)
 
 Task: draw the overview archive action and the Archived filter (dark English, dark archived, light Portuguese) on `Interfaces` of `Paprica · UI` (`cmio9n368k`, page `interfaces`) before implementing archive/unarchive. Four fixed-height frames at x=6400; PNGs under `docs/assets/boards/PAP-B-071/`.
