@@ -167,6 +167,7 @@ export type Messages = {
   hideLayer: (name: string) => string;
   showLayer: (name: string) => string;
   renameLayerHint: string;
+  layerMenu: string;
   zoomIn: string;
   zoomOut: string;
   zoomFit: string;
@@ -522,6 +523,7 @@ const en: Messages = {
   hideLayer: (name) => `Hide ${name}`,
   showLayer: (name) => `Show ${name}`,
   renameLayerHint: "Double-click or F2 to rename",
+  layerMenu: "Layers under the cursor",
   zoomIn: "Zoom in",
   zoomOut: "Zoom out",
   zoomFit: "Fit",
@@ -871,6 +873,7 @@ const pt: Messages = {
   hideLayer: (name) => `Ocultar ${name}`,
   showLayer: (name) => `Mostrar ${name}`,
   renameLayerHint: "Duplo clique ou F2 para renomear",
+  layerMenu: "Camadas sob o cursor",
   zoomIn: "Aumentar zoom",
   zoomOut: "Diminuir zoom",
   zoomFit: "Enquadrar",
