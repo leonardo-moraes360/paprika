@@ -290,10 +290,7 @@ func fieldOn(fields map[string]bool, name string) bool {
 	if fields[name] {
 		return true
 	}
-	head := name
-	if i := strings.IndexByte(name, '.'); i >= 0 {
-		head = name[:i]
-	}
+	head, _, _ := strings.Cut(name, ".")
 	return fields[head]
 }
 
