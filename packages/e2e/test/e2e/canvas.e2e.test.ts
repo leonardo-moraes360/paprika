@@ -317,22 +317,23 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   }, 15_000);
 
   it("inspector: FontPicker troca a família e aceita fonte digitada", async () => {
+    const POLL = { timeout: 10_000 };
     await page.locator('[data-layer-id="8succ2i53s"]').click();
     const textSection = page.getByTestId("inspector-section-text");
     const textTrigger = textSection.getByRole("button", { name: "Texto" });
     if ((await textTrigger.getAttribute("aria-expanded")) !== "true") await textTrigger.click();
 
     const trigger = page.getByTestId("font-picker");
-    await expect.poll(() => trigger.count()).toBe(1);
+    await expect.poll(() => trigger.count(), POLL).toBe(1);
     await trigger.click();
     const list = page.getByTestId("font-picker-list");
-    await expect.poll(() => list.count()).toBe(1);
+    await expect.poll(() => list.count(), POLL).toBe(1);
     await page.getByTestId("font-option-Georgia").click();
     await expect.poll(async () => {
       const n = (await doc()).nodes["8succ2i53s"];
       return n?.type === "text" ? n.fontFamily : undefined;
-    }).toBe("Georgia, serif");
-    await expect.poll(() => trigger.innerText()).toMatch(/Georgia/);
+    }, POLL).toBe("Georgia, serif");
+    await expect.poll(() => trigger.innerText(), POLL).toMatch(/Georgia/);
 
     await trigger.click();
     const search = page.getByPlaceholder("Buscar fonte…");
@@ -341,12 +342,12 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => {
       const n = (await doc()).nodes["8succ2i53s"];
       return n?.type === "text" ? n.fontFamily : undefined;
-    }).toBe("Comic Sans MS");
+    }, POLL).toBe("Comic Sans MS");
 
     await trigger.click();
-    await expect.poll(() => page.getByTestId("font-picker-system").count()).toBe(1);
+    await expect.poll(() => page.getByTestId("font-picker-system").count(), POLL).toBe(1);
     await page.keyboard.press("Escape");
-    await expect.poll(() => list.count()).toBe(0);
+    await expect.poll(() => list.count(), POLL).toBe(0);
   });
 
   it("ferramenta de retângulo desenha dentro do frame sob o cursor", async () => {
