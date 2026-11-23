@@ -57,8 +57,13 @@ func stringsOf(v any) []string {
 	case []any:
 		out := make([]string, 0, len(x))
 		for _, e := range x {
-			if s, ok := e.(string); ok {
-				out = append(out, s)
+			switch el := e.(type) {
+			case string:
+				out = append(out, el)
+			case *jsonv.Object:
+				if id := el.Str("id"); id != "" {
+					out = append(out, id)
+				}
 			}
 		}
 		return out

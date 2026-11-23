@@ -1,6 +1,8 @@
 import type { NodeInput, Op } from "./ops.js";
 import { round4 } from "./num.js";
+import type { PlaceSpec } from "./placement.js";
 import { newId } from "./id.js";
+import { defaultPageName } from "./names.js";
 import { copyOwner, scaleGeometry } from "./component.js";
 import { firstPage, isContainer, isScene, type Document, type Node as NodeT } from "./schema.js";
 
@@ -93,12 +95,12 @@ export function addPageOps(
   let count = pages;
   if (!firstPage(doc) && doc.rootIds.length) {
     const firstId = opts.firstId ?? newId();
-    ops.push({ op: "create", parentId: null, index: 0, node: { type: "page", id: firstId, name: opts.firstName || "Página 1" } });
+    ops.push({ op: "create", parentId: null, index: 0, node: { type: "page", id: firstId, name: opts.firstName || defaultPageName(1) } });
     for (const r of doc.rootIds) ops.push({ op: "move", id: r, parentId: firstId });
     count = 1;
   }
   const id = opts.id ?? newId();
-  ops.push({ op: "create", parentId: null, node: { type: "page", id, name: opts.name || `Página ${count + 1}` } });
+  ops.push({ op: "create", parentId: null, node: { type: "page", id, name: opts.name || defaultPageName(count + 1) } });
   return { ops, id };
 }
 
@@ -109,6 +111,7 @@ export interface DuplicateOptions {
   parentId?: string | null;
   scale?: number;
   props?: Record<string, unknown>;
+  place?: PlaceSpec;
 }
 
 export interface DuplicatePlan {
@@ -149,7 +152,9 @@ export function duplicateOps(doc: Document, ids: readonly string[], opts: Duplic
   }
   const roots = unique.filter((id) => !unique.some((other) => other !== id && underNode(doc, id, other)));
 
-  const offset = opts.offset ?? DUPLICATE_OFFSET;
+  const placeBeside = opts.place === undefined && opts.offset === undefined;
+  const placed = opts.place !== undefined && opts.place !== "none";
+  const offset = placed || placeBeside ? 0 : (opts.offset ?? DUPLICATE_OFFSET);
   if (!Number.isFinite(offset)) throw new Error("offset must be a finite number");
   const scale = opts.scale ?? 1;
   if (!Number.isFinite(scale) || scale <= 0) throw new Error("scale must be a number above 0");
@@ -215,7 +220,10 @@ export function duplicateOps(doc: Document, ids: readonly string[], opts: Duplic
     const src = doc.nodes[id]!;
     const node = build(src, true);
     if (opts.props) Object.assign(node, opts.props);
-    ops.push({ op: "create", parentId: opts.parentId !== undefined ? opts.parentId : src.parentId, node });
+    const op: Op = { op: "create", parentId: opts.parentId !== undefined ? opts.parentId : src.parentId, node };
+    if (placed && opts.place) op.place = opts.place;
+    else if (placeBeside && src.type !== "connector") op.place = { near: id, side: "right" };
+    ops.push(op);
     copies.push(node.id!);
   }
   return { ops, copies, map: Object.fromEntries(map) };

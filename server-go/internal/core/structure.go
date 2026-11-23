@@ -150,7 +150,7 @@ func UngroupOps(doc *Document, ids []string) ([]any, []string, error) {
 }
 
 // AddPageOps creates a page. When the document has no pages yet but has content, that content
-// first goes into a first page ("Página 1"), since with pages the top level only takes pages.
+// first goes into a first page (DefaultPageName(1) in English), since with pages the top level only takes pages.
 func AddPageOps(doc *Document, id, name, firstID, firstName string) ([]any, string) {
 	ops := []any{}
 	count := 0
@@ -165,7 +165,7 @@ func AddPageOps(doc *Document, id, name, firstID, firstName string) ([]any, stri
 			firstID = NewID()
 		}
 		if firstName == "" {
-			firstName = "Página 1"
+			firstName = DefaultPageName(1, "en")
 		}
 		ops = append(ops, jsonv.NewObject("op", "create", "parentId", nil, "index", 0.0, "node", jsonv.NewObject("type", "page", "id", firstID, "name", firstName)))
 		for _, r := range roots {
@@ -177,7 +177,7 @@ func AddPageOps(doc *Document, id, name, firstID, firstName string) ([]any, stri
 		id = NewID()
 	}
 	if name == "" {
-		name = "Página " + jsonv.FormatNumber(float64(count+1))
+		name = DefaultPageName(count+1, "en")
 	}
 	ops = append(ops, jsonv.NewObject("op", "create", "parentId", nil, "node", jsonv.NewObject("type", "page", "id", id, "name", name)))
 	return ops, id
@@ -286,8 +286,26 @@ func DuplicateOps(doc *Document, ids []string, args *jsonv.Object) (*DuplicatePl
 	offset, scale := DuplicateOffset, 1.0
 	parentGiven, parentID := false, any(nil)
 	var props *jsonv.Object
+	placeBeside := args == nil || (!args.Has("place") && !args.Has("offset"))
+	placed := false
+	var place any
+	if args != nil && args.Has("place") {
+		place, _ = args.Get("place")
+		if place == "none" {
+			placeBeside = false
+			if !args.Has("offset") {
+				offset = 0
+			}
+		} else {
+			placed = true
+			placeBeside = false
+			offset = 0
+		}
+	} else if placeBeside {
+		offset = 0
+	}
 	if args != nil {
-		if args.Has("offset") {
+		if args.Has("offset") && !placed {
 			offset = args.Num("offset")
 		}
 		if args.Has("scale") {
@@ -425,7 +443,13 @@ func DuplicateOps(doc *Document, ids []string, args *jsonv.Object) (*DuplicatePl
 		if !parentGiven {
 			pid, _ = src.Get("parentId")
 		}
-		plan.Ops = append(plan.Ops, jsonv.NewObject("op", "create", "parentId", pid, "node", node))
+		op := jsonv.NewObject("op", "create", "parentId", pid, "node", node)
+		if placed {
+			op.Set("place", place)
+		} else if placeBeside && src.Str("type") != "connector" {
+			op.Set("place", jsonv.NewObject("near", id, "side", "right"))
+		}
+		plan.Ops = append(plan.Ops, op)
 		plan.Copies = append(plan.Copies, node.Str("id"))
 	}
 	return plan, nil

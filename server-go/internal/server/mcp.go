@@ -67,6 +67,103 @@ func jsonShown(structured *jsonv.Object, shown any) ToolResult {
 	return res
 }
 
+func nodeDim(n *jsonv.Object, key string) any {
+	v, ok := n.Get(key)
+	if !ok || v == nil {
+		return 0.0
+	}
+	switch v.(type) {
+	case float64, string:
+		return v
+	default:
+		return 0.0
+	}
+}
+
+func createdShape(doc *core.Document, ids []string) (idList []any, roots []any, created []any, lines []string) {
+	set := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		set[id] = true
+	}
+	idList = make([]any, 0, len(ids))
+	created = make([]any, 0, len(ids))
+	roots = []any{}
+	for _, id := range ids {
+		idList = append(idList, id)
+		n := core.GetNode(doc, id)
+		if n == nil {
+			continue
+		}
+		var parent any
+		if v, ok := n.Get("parentId"); ok {
+			parent = v
+		}
+		created = append(created, jsonv.NewObject("id", n.Str("id"), "name", n.Str("name"), "type", n.Str("type"), "parentId", parent))
+		if pid, _ := parent.(string); pid != "" && set[pid] {
+			continue
+		}
+		roots = append(roots, jsonv.NewObject(
+			"id", n.Str("id"), "name", n.Str("name"), "type", n.Str("type"),
+			"x", n.Num("x"), "y", n.Num("y"), "width", nodeDim(n, "width"), "height", nodeDim(n, "height"),
+		))
+		lines = append(lines, core.DescribeNode(n))
+	}
+	return idList, roots, created, lines
+}
+
+func enrichCreated(out *jsonv.Object, doc *core.Document, ids []string) (*jsonv.Object, []string) {
+	idList, roots, created, lines := createdShape(doc, ids)
+	next := jsonv.NewObject()
+	placed := false
+	for _, k := range out.Keys() {
+		if k == "created" {
+			next.Set("ids", idList)
+			next.Set("roots", roots)
+			next.Set("created", created)
+			placed = true
+			continue
+		}
+		v, _ := out.Get(k)
+		next.Set(k, v)
+	}
+	if !placed {
+		next.Set("ids", idList)
+		next.Set("roots", roots)
+		next.Set("created", created)
+	}
+	return next, lines
+}
+
+func resultWithRoots(out *jsonv.Object, doc *core.Document, ids []string) ToolResult {
+	shaped, lines := enrichCreated(out, doc, ids)
+	res := jsonResult(shaped)
+	if len(lines) > 0 {
+		res.Set("content", append(res.Arr("content"), jsonv.NewObject("type", "text", "text", strings.Join(lines, "\n"))))
+	}
+	return res
+}
+
+func pageByName(doc *core.Document, name string) string {
+	match := func(id string) string {
+		n := core.GetNode(doc, id)
+		if n != nil && n.Str("type") == "page" && n.Str("name") == name {
+			return id
+		}
+		return ""
+	}
+	for _, id := range doc.Strings("rootIds") {
+		if found := match(id); found != "" {
+			return found
+		}
+	}
+	for _, id := range core.Nodes(doc).Keys() {
+		if found := match(id); found != "" {
+			return found
+		}
+	}
+	return ""
+}
+
 func errorResult(msg string) ToolResult {
 	return jsonv.NewObject("content", []any{jsonv.NewObject("type", "text", "text", msg)}, "isError", true)
 }
@@ -200,6 +297,17 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return writeBatch(a, ops, lbl, a.Str("batch"), extra...)
 	}
 	write := func(a *jsonv.Object, ops []any, lbl string) (ToolResult, error) { return writeWith(a, ops, lbl) }
+	shapedWrite := func(a *jsonv.Object, ops []any, lbl string, extra ...any) (ToolResult, *core.Document, error) {
+		r, head, err := applyHere(a, ops, lbl)
+		if err != nil {
+			return nil, nil, err
+		}
+		out := jsonv.NewObject(extra...)
+		out.Set("created", []any{})
+		out.Set("version", float64(head.Version))
+		stamp(out, head)
+		return resultWithRoots(out, head.Doc, r.Created), head.Doc, nil
+	}
 	labelOr := func(args *jsonv.Object, def string) string {
 		if args.Has("label") {
 			return args.Str("label")
@@ -339,6 +447,19 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			boxesObj.Set(id, core.LayoutBoxJSON(b))
 		}
 		out.Set("boxes", boxesObj)
+		if !a.Has("ids") {
+			sum := core.SummarizePlacement(d, a.Str("rootId"))
+			content := jsonv.NewObject()
+			if sum.PageID != "" {
+				content.Set("page", sum.PageID)
+			}
+			content.Set("x", sum.Content.X)
+			content.Set("y", sum.Content.Y)
+			content.Set("width", sum.Content.W)
+			content.Set("height", sum.Content.H)
+			out.Set("content", content)
+			out.Set("next", jsonv.NewObject("x", sum.NextX, "y", sum.NextY))
+		}
 		return jsonResult(out), nil
 	})
 
@@ -410,12 +531,24 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return jsonResult(out), nil
 	})
 
+	placeSchema := z.Optional(z.Union(
+		z.Enum("free", "below", "right", "none"),
+		z.Object(
+			z.Field{Name: "near", Schema: z.String().Min(1).Max(64)},
+			z.Field{Name: "side", Schema: z.Enum("left", "right", "above", "below")},
+		),
+	))
 	add("create_nodes", z.Object(
 		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
 		z.Field{Name: "index", Schema: z.Optional(z.Int().Min(0))},
 		z.Field{Name: "nodes", Schema: z.Array(core.NodeInputSchema).Min(1).Max(500)},
+		z.Field{Name: "place", Schema: placeSchema},
 		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		doc, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
 		nodes := a.Arr("nodes")
 		warnings := stripConnectorDerived(nodes)
 		parentID, _ := a.Get("parentId")
@@ -425,9 +558,14 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if a.Has("index") {
 				op.Set("index", a.Num("index")+float64(i))
 			}
+			if o, ok := n.(*jsonv.Object); ok {
+				if p, use := createPlace(doc, parentID, o, a); use {
+					op.Set("place", p)
+				}
+			}
 			ops[i] = op
 		}
-		r, err := write(a, ops, labelOr(a, "create "+count(len(nodes))+" node(s)"))
+		r, wrote, err := shapedWrite(a, ops, labelOr(a, "create "+count(len(nodes))+" node(s)"))
 		if err != nil {
 			return nil, err
 		}
@@ -435,6 +573,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			content := r.Arr("content")
 			r.Set("content", append(content, jsonv.NewObject("type", "text", "text", "warnings: "+strings.Join(warnings, "; "))))
 		}
+		appendOverlap(r, wrote)
 		return r, nil
 	})
 
@@ -552,8 +691,28 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("create_page", z.Object(
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
+		z.Field{Name: "ensure", Schema: z.Optional(z.Bool())},
 		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		if a.Bool("ensure") {
+			if !a.Has("name") || strings.TrimSpace(a.Str("name")) == "" {
+				return nil, errors.New("create_page ensure requires a name")
+			}
+			head, err := store.ReadWorkspace(a.Str("workspaceId"))
+			if err != nil {
+				return nil, wsErr(a.Str("workspaceId"), err)
+			}
+			if existing := pageByName(head.Doc, a.Str("name")); existing != "" {
+				out := jsonv.NewObject(
+					"page", existing,
+					"created", []any{},
+					"ensured", true,
+					"version", float64(head.Version),
+				)
+				stamp(out, head)
+				return jsonResult(out), nil
+			}
+		}
 		id := a.Str("id")
 		if !a.Has("id") {
 			id = core.NewID()
@@ -562,7 +721,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if a.Has("name") {
 			op.Set("name", a.Str("name"))
 		}
-		// `page` names the new page: `created` also lists the first page made the first time ("Página 1").
+		// `page` names the new page: `created` also lists the first page made the first time ("Page 1").
 		return writeWith(a, []any{op}, labelOr(a, "create page"), "page", id)
 	})
 
@@ -738,13 +897,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("import_document", z.Object(
 		z.Field{Name: "document", Schema: z.Object(z.Field{Name: "format", Schema: z.Optional(z.String())}).Catchall(z.Unknown())},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(120))},
+		z.Field{Name: "place", Schema: placeSchema},
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		doc, _ := a.Get("document")
 		info, err := store.ImportWorkspace(doc, a.Str("name"), m.actorName())
 		if err != nil {
 			return nil, err
 		}
-		return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info), "active", store.DocID())), nil
+		out := jsonv.NewObject("workspace", jsonv.FromGo(info), "active", store.DocID())
+		if a.Has("place") {
+			if p, _ := a.Get("place"); p != "none" {
+				out.Set("warnings", []any{`import_document keeps the file's coordinates (place "none"): it stores a separate workspace. Use import_svg, import_html or import_image to place artwork on the current page`})
+			}
+		}
+		return jsonResult(out), nil
 	})
 
 	add("rename_workspace", z.Object(z.Field{Name: "id", Schema: z.String().Min(1)}, z.Field{Name: "name", Schema: z.String().Min(1).Max(120)}),
@@ -1008,6 +1174,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
 			z.Field{Name: "x", Schema: z.Optional(z.Number())},
 			z.Field{Name: "y", Schema: z.Optional(z.Number())},
+			z.Field{Name: "place", Schema: placeSchema},
 			label(), batch(), workspaceID(),
 		)...)
 	}
@@ -1020,9 +1187,14 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return nil, errors.New(msg)
 		}
 		parent, _ := a.Get("parentId")
+		p, usePlace := importPlace(store.Doc(), a)
 		ops := make([]any, len(r.Nodes))
 		for i, n := range r.Nodes {
-			ops[i] = jsonv.NewObject("op", "create", "parentId", parent, "node", n)
+			op := jsonv.NewObject("op", "create", "parentId", parent, "node", n)
+			if usePlace {
+				op.Set("place", p)
+			}
+			ops[i] = op
 		}
 		res, head, err := applyHere(a, ops, labelOr(a, def))
 		if err != nil {
@@ -1032,9 +1204,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		for i, w := range r.Warnings {
 			ws[i] = w
 		}
-		out := jsonv.NewObject("created", jsonv.FromGo(res.Created), "version", float64(head.Version), "warnings", ws)
+		for _, w := range core.OverlapWarnings(head.Doc, res.Created) {
+			ws = append(ws, w)
+		}
+		out := jsonv.NewObject("created", []any{}, "version", float64(head.Version), "warnings", ws)
 		stamp(out, head)
-		return jsonResult(out), nil
+		return resultWithRoots(out, head.Doc, res.Created), nil
 	}
 	importOpts := func(a *jsonv.Object) core.ImportOptions {
 		o := core.ImportOptions{X: a.Num("x"), Y: a.Num("y")}
@@ -1124,7 +1299,15 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			node.Set("fit", a.Str("fit"))
 		}
 		parent, _ := a.Get("parentId")
-		res, head, err := applyHere(a, []any{jsonv.NewObject("op", "create", "parentId", parent, "node", node)}, labelOr(a, "import image"))
+		here, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		op := jsonv.NewObject("op", "create", "parentId", parent, "node", node)
+		if p, use := importPlace(here, a); use {
+			op.Set("place", p)
+		}
+		res, head, err := applyHere(a, []any{op}, labelOr(a, "import image"))
 		if err != nil {
 			return nil, err
 		}
@@ -1132,13 +1315,16 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if img.animated {
 			warnings = append(warnings, "animated "+strings.ToUpper(img.format())+": kept animated (the original bytes are embedded unchanged); render_screenshot shows a single frame")
 		}
+		for _, w := range core.OverlapWarnings(head.Doc, res.Created) {
+			warnings = append(warnings, w)
+		}
 		out := jsonv.NewObject(
-			"created", jsonv.FromGo(res.Created), "version", float64(head.Version),
+			"created", []any{}, "version", float64(head.Version),
 			"width", w, "height", h, "naturalWidth", float64(img.width), "naturalHeight", float64(img.height), "format", img.format(), "animated", img.animated,
 			"warnings", warnings,
 		)
 		stamp(out, head)
-		return jsonResult(out), nil
+		return resultWithRoots(out, head.Doc, res.Created), nil
 	})
 
 	add("resize_image", z.Object(
@@ -1246,6 +1432,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
 		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.01).Max(100))},
 		z.Field{Name: "props", Schema: z.Optional(z.Record(z.String(), z.Unknown()))},
+		z.Field{Name: "place", Schema: placeSchema},
 		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		d, err := docOf(a)
@@ -1256,7 +1443,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if err != nil {
 			return nil, err
 		}
-		return writeWith(a, plan.Ops, labelOr(a, "duplicate "+count(len(plan.Copies))+" node(s)"), "copies", jsonv.FromGo(plan.Copies), "map", plan.Map)
+		r, wrote, err := shapedWrite(a, plan.Ops, labelOr(a, "duplicate "+count(len(plan.Copies))+" node(s)"), "copies", jsonv.FromGo(plan.Copies), "map", plan.Map)
+		if err != nil {
+			return nil, err
+		}
+		appendOverlap(r, wrote)
+		return r, nil
 	})
 	return m
 }
@@ -1387,6 +1579,77 @@ func rpcError(id any, code int, msg string) *jsonv.Object {
 // call: the fields are dropped and reported as warnings. The primitive create op (canvas,
 // apply_ops) keeps refusing them, so nothing derived is ever stored by hand.
 var connectorDerivedFields = []string{"x", "y", "width", "height", "d"}
+
+func parentIsTop(doc *core.Document, parent any) bool {
+	s, ok := parent.(string)
+	if !ok || s == "" {
+		return true
+	}
+	n := core.GetNode(doc, s)
+	return n != nil && n.Str("type") == "page"
+}
+
+func createPlace(doc *core.Document, parent any, node *jsonv.Object, args *jsonv.Object) (any, bool) {
+	if node.Str("type") == "connector" || node.Str("type") == "page" {
+		return nil, false
+	}
+	if args.Has("place") {
+		p, _ := args.Get("place")
+		if p == "none" {
+			return nil, false
+		}
+		return p, true
+	}
+	if !parentIsTop(doc, parent) || node.Has("x") || node.Has("y") {
+		return nil, false
+	}
+	return "free", true
+}
+
+func importPlace(doc *core.Document, args *jsonv.Object) (any, bool) {
+	parent, _ := args.Get("parentId")
+	if args.Has("place") {
+		p, _ := args.Get("place")
+		if p == "none" {
+			return nil, false
+		}
+		return p, true
+	}
+	if args.Has("x") || args.Has("y") || !parentIsTop(doc, parent) {
+		return nil, false
+	}
+	return "free", true
+}
+
+func appendOverlap(r ToolResult, doc *core.Document) {
+	if r == nil {
+		return
+	}
+	sc := r.Obj("structuredContent")
+	if sc == nil {
+		return
+	}
+	ids := sc.Strings("created")
+	if len(ids) == 0 {
+		ids = sc.Strings("ids")
+	}
+	extra := core.OverlapWarnings(doc, ids)
+	if len(extra) == 0 {
+		return
+	}
+	cur := sc.Arr("warnings")
+	for _, w := range extra {
+		cur = append(cur, w)
+	}
+	sc.Set("warnings", cur)
+	content := r.Arr("content")
+	if len(content) == 0 {
+		return
+	}
+	if o, ok := content[0].(*jsonv.Object); ok && o.Str("type") == "text" {
+		o.Set("text", jsonv.Stringify(sc, "  "))
+	}
+}
 
 func stripConnectorDerived(nodes []any) []string {
 	var warnings []string

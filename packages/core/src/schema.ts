@@ -285,7 +285,7 @@ export const TokenName = z
 export const Document = z.object({
   format: z.literal(FORMAT),
   id: z.string(),
-  name: z.string().default("Sem título"),
+  name: z.string().default("Untitled"),
   tokens: z.record(TokenName, TokenValue).default({}),
   /** Modos de tema: por modo, os tokens que mudam (os demais vêm de `tokens`). */
   modes: z.record(ModeName, z.record(TokenName, TokenValue)).optional(),

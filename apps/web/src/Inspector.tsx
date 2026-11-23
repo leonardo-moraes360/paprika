@@ -26,6 +26,7 @@ import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Hint } from "./components/ui/tooltip";
+import { useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { ui } from "./ui";
 
@@ -108,32 +109,33 @@ const Z_LABEL: Record<"front" | "back" | "forward" | "backward", string> = {
 };
 
 function ArrangeSection({ ids, apply }: { ids: string[]; apply: Props["apply"] }) {
+  const m = useT();
   const run = (index: keyof typeof Z_LABEL) =>
     apply(
       ids.map((id) => ({ op: "update", id, props: { index } })),
       Z_LABEL[index],
     );
   return (
-    <InspectorSection id="arrange" title="Ordem" defaultOpen>
+    <InspectorSection id="arrange" title={m.arrange} defaultOpen>
       <div className={actions} data-testid="arrange-actions">
-        <Hint label="Trazer para frente (Ctrl+Page Up)">
+        <Hint label={`${m.bringToFront} (Ctrl+Page Up)`}>
           <Button type="button" variant="secondary" size="sm" data-testid="arrange-front" onClick={() => run("front")}>
-            Trazer para frente
+            {m.bringToFront}
           </Button>
         </Hint>
-        <Hint label="Avançar (Page Up)">
+        <Hint label={`${m.bringForward} (Page Up)`}>
           <Button type="button" variant="secondary" size="sm" data-testid="arrange-forward" onClick={() => run("forward")}>
-            Avançar
+            {m.bringForward}
           </Button>
         </Hint>
-        <Hint label="Recuar (Page Down)">
+        <Hint label={`${m.sendBackward} (Page Down)`}>
           <Button type="button" variant="secondary" size="sm" data-testid="arrange-backward" onClick={() => run("backward")}>
-            Recuar
+            {m.sendBackward}
           </Button>
         </Hint>
-        <Hint label="Enviar para fundo (Ctrl+Page Down)">
+        <Hint label={`${m.sendToBack} (Ctrl+Page Down)`}>
           <Button type="button" variant="secondary" size="sm" data-testid="arrange-back" onClick={() => run("back")}>
-            Enviar para fundo
+            {m.sendToBack}
           </Button>
         </Hint>
       </div>
@@ -142,28 +144,29 @@ function ArrangeSection({ ids, apply }: { ids: string[]; apply: Props["apply"] }
 }
 
 export function Inspector(props: Props) {
+  const m = useT();
   const { doc, node, selected, apply, activity, onSelect } = props;
   if (selected.length > 1) {
     const a = structureActions(doc, selected, props);
     return (
       <div className={ui.section} data-testid="multi-selection">
-        <h2 className={ui.h2}>{selected.length} nós selecionados</h2>
+        <h2 className={ui.h2}>{m.selectedNodes(selected.length)}</h2>
         <div className={actions}>
-          <Hint label="Agrupar (Ctrl+G)">
+          <Hint label={`${m.groupNodes} (Ctrl+G)`}>
             <Button type="button" variant="secondary" size="sm" onClick={a.group}>
-              Agrupar
+              {m.groupNodes}
             </Button>
           </Hint>
           {a.canUngroup && (
-            <Hint label="Desagrupar (Ctrl+Shift+G)">
+            <Hint label={`${m.ungroupNodes} (Ctrl+Shift+G)`}>
               <Button type="button" variant="secondary" size="sm" onClick={a.ungroup}>
-                Desagrupar
+                {m.ungroupNodes}
               </Button>
             </Hint>
           )}
         </div>
         <ArrangeSection ids={selected} apply={apply} />
-        <p className={ui.muted}>Arraste para mover todos; setas empurram; Delete apaga; Ctrl+D duplica.</p>
+        <p className={ui.muted}>{m.multiSelectionHint}</p>
       </div>
     );
   }

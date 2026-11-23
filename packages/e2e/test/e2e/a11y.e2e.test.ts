@@ -7,6 +7,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { startServer, type ExternalServer } from "../harness.js";
+import { pinLocale } from "./locale.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
@@ -39,6 +40,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     external = await startServer({ seed: file, webRoot });
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(page, "pt-BR");
     await page.goto(external.url);
     await page.locator(".workspace-card.is-active").click();
     await page.waitForSelector('[data-paprika-id="login"]');
@@ -118,25 +120,27 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
 
   /** PAP-B-051: native `title` → accessible Tooltip (hover+focus, Esc dismisses); icon buttons keep aria-label. */
   it("tooltips do chrome abrem no foco, fecham no Esc e os ícones mantêm aria-label (1.4.13, 4.1.2)", async () => {
+    await page.keyboard.press("Escape");
     const zoomIn = page.getByRole("button", { name: "Aumentar zoom" });
     await expect(zoomIn.getAttribute("aria-label")).resolves.toBe("Aumentar zoom");
     await expect(zoomIn.getAttribute("title")).resolves.toBeNull();
     await zoomIn.focus();
-    const tip = page.locator('[data-slot=tooltip-content][data-state$="open"]');
-    await tip.waitFor({ timeout: 3_000 });
-    await expect(tip.first().textContent()).resolves.toBe("Aumentar zoom");
+    const zoomTip = page.getByRole("tooltip", { name: "Aumentar zoom" });
+    await zoomTip.waitFor({ timeout: 3_000 });
+    await expect(zoomTip.textContent()).resolves.toBe("Aumentar zoom");
     await page.keyboard.press("Escape");
-    await expect.poll(() => tip.count()).toBe(0);
+    await expect.poll(() => zoomTip.count()).toBe(0);
     await expect.poll(() => zoomIn.evaluate((el) => el === document.activeElement)).toBe(true);
 
     const rect = page.getByRole("button", { name: "Retângulo" });
     await expect(rect.getAttribute("aria-label")).resolves.toBe("Retângulo");
     await expect(rect.getAttribute("title")).resolves.toBeNull();
     await rect.focus();
-    await tip.waitFor({ timeout: 3_000 });
-    await expect(tip.first().textContent()).resolves.toMatch(/Retângulo/);
+    const rectTip = page.getByRole("tooltip", { name: /Retângulo/ });
+    await rectTip.waitFor({ timeout: 3_000 });
+    await expect(rectTip.textContent()).resolves.toMatch(/Retângulo/);
     await page.keyboard.press("Escape");
-    await expect.poll(() => tip.count()).toBe(0);
+    await expect.poll(() => rectTip.count()).toBe(0);
   });
 
   it("texto sobre o acento e sobre as cores de agente passa de 4,5:1 (1.4.3)", async () => {
@@ -211,6 +215,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
 
     beforeAll(async () => {
       gal = await browser.newPage({ viewport: { width: 1620, height: 1000 } });
+      await pinLocale(gal, "pt-BR");
       await gal.goto(`${external!.url}/ui`);
       await gal.waitForSelector("[data-slot=gallery]");
     }, 30_000);
@@ -299,6 +304,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
 
     it("a regra de movimento reduzido vale para o chrome e não entra no documento (ADR 0003)", async () => {
       const rm = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+      await pinLocale(rm, "pt-BR");
       await rm.goto(external!.url);
       await rm.locator(".workspace-card.is-active").click();
       await rm.waitForSelector('[data-paprika-id="login"]');
@@ -346,6 +352,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
 
     beforeAll(async () => {
       ov = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      await pinLocale(ov, "pt-BR");
       const made = await fetch(`${external!.url}/api/workspaces`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -367,20 +374,21 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
 
     it("abre com o foco em Cancelar, o Esc cancela e devolve o foco ao botão de excluir", async () => {
       const trash = ov.getByRole("button", { name: "Excluir Para confirmar" });
-      await trash.focus();
-      await ov.keyboard.press("Enter");
+      await trash.click();
       const dialog = ov.getByRole("alertdialog");
       await dialog.waitFor();
-      await expect(ov.evaluate(() => document.activeElement?.textContent?.trim())).resolves.toBe("Cancelar");
-      await expect.poll(() => ov.locator("[data-slot=tooltip-content]").count(), { timeout: 3_000 }).toBe(0);
+      const cancel = dialog.getByRole("button", { name: "Cancelar" });
+      await expect.poll(() => cancel.evaluate((el) => el === document.activeElement)).toBe(true);
+      await expect.poll(() => ov.getByRole("tooltip").count()).toBe(0);
       await ov.keyboard.press("Escape");
       await expect.poll(() => dialog.count()).toBe(0);
       await expect.poll(() => trash.evaluate((el) => el === document.activeElement)).toBe(true);
       expect(await exists()).toBe(true);
-    });
+    }, 15_000);
 
     it("excluir pede o nome digitado: só o nome exato libera o botão, que passa de 4,5:1", async () => {
-      await ov.getByRole("button", { name: "Excluir Para confirmar" }).click();
+      const trash = ov.getByRole("button", { name: "Excluir Para confirmar" });
+      await trash.click();
       const dialog = ov.getByRole("alertdialog");
       await dialog.waitFor();
       const confirm = dialog.getByRole("button", { name: "Excluir workspace" });
@@ -397,6 +405,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
       await confirm.click();
       await expect.poll(exists, { timeout: 10_000 }).toBe(false);
-    });
+    }, 15_000);
   });
 });

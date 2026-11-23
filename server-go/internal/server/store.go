@@ -665,7 +665,7 @@ func OpenStore(path string, opts OpenOptions) (*Store, error) {
 		if name == "" {
 			name = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 			if name == "" {
-				name = "Sem título"
+				name = "Untitled"
 			}
 		}
 		doc := core.CreateDocument(name, "")
@@ -1174,7 +1174,7 @@ func (s *Store) ApplyRemote(docID, name, actor, label string, opsFor func(cur *c
 			return res, err
 		}
 		if name == "" {
-			name = "Sem título"
+			name = "Untitled"
 		}
 		doc, version, res.Created = core.CreateDocument(name, docID), 0, true
 	} else {
@@ -1473,12 +1473,12 @@ func (s *Store) OpenWorkspace(id, actor string) (WorkspaceInfo, error) {
 	return info, nil
 }
 
-// CreateWorkspace stores a new empty document (it does not become active). Blank name: "Sem título".
+// CreateWorkspace stores a new empty document (it does not become active). Blank name: "Untitled".
 // actor is who asked: "user" from the HTTP API, the MCP agent name over MCP.
 func (s *Store) CreateWorkspace(name, actor string) (WorkspaceInfo, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		name = "Sem título"
+		name = "Untitled"
 	}
 	doc := core.CreateDocument(name, "")
 	now := time.Now().UnixMilli()

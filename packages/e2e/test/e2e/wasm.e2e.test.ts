@@ -7,6 +7,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { startServer, type ExternalServer } from "../harness.js";
+import { pinLocale } from "./locale.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
@@ -72,6 +73,7 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await pinLocale(page, "pt-BR");
     page.on("pageerror", (e) => errors.push(e.message));
     agent = new Client({ name: "e2e-wasm", version: "0" });
     await agent.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));

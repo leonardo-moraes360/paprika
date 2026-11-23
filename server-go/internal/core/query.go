@@ -162,10 +162,11 @@ func Outline(doc *Document, rootID string, depth int) string {
 	for _, r := range roots {
 		walk(r, 0)
 	}
-	if len(lines) == 0 {
-		return "(empty document)"
+	body := "(empty document)"
+	if len(lines) > 0 {
+		body = strings.Join(lines, "\n")
 	}
-	return strings.Join(lines, "\n")
+	return body + "\n" + PlacementFooter(doc, rootID)
 }
 
 // NodeQuery filters nodes; empty strings and Limit 0 mean "not set".
