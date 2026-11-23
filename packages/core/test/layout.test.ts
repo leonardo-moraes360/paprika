@@ -46,14 +46,14 @@ describe("layout: free and rotated", () => {
     expect(boxes.r).toMatchObject({ x: 40, y: 30, width: 40, height: 20 });
     expect(boxes.r!.origin).toEqual({ x: 60, y: 40 });
     const [tl, tr, br, bl] = boxes.r!.corners;
-    near(tl.x, 50);
-    near(tl.y, 60);
-    near(tr.x, 50);
-    near(tr.y, 20);
-    near(br.x, 70);
-    near(br.y, 20);
-    near(bl.x, 70);
-    near(bl.y, 60);
+    near(tl.x, 70);
+    near(tl.y, 20);
+    near(tr.x, 70);
+    near(tr.y, 60);
+    near(br.x, 50);
+    near(br.y, 60);
+    near(bl.x, 50);
+    near(bl.y, 20);
   });
 });
 

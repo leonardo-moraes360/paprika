@@ -674,3 +674,18 @@ Task: draw the open, mid-slide, closed and reduced-motion states of an inspector
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123, still open: `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0, so the frames were placed by scanning depth-1 `y` (landed at y=3600).
 - `lint_design` on the four frames was clean after the chevrons moved to 12px. A clipped mid-slide body needed `lintIgnore: ["layout-overflow"]` because the clip is the frame.
+
+## 2026-11-23: rotation-aware handles (PAP-B-091, design first)
+
+Task: draw the selection before and after it follows a rotated box, light and dark, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Frames `b091-before-light`, `b091-after-light`, `b091-before-dark`, `b091-after-dark`. PNGs in `docs/assets/boards/PAP-B-091/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 130 | The page named `Interfaces` | The outline lists `page#iutnyc26zo` ("Página 1") before `page#interfaces`. Taking the first `page#` put the four frames on the wrong page; `move_nodes` to `interfaces` fixed it | Put the page name on the same line as the id in a way a depth-1 scan cannot confuse, or reject a parent that is not the named page | P2 |
+| 131 | Corners that match the painted rotation | `get_bounds` rotated a box with the opposite sign of CSS `rotate()` and of the vello renderer, so a handle placed on those corners sat off the pixels | Done in this change: `layout` corners use the CSS matrix in TypeScript and Go | — |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123, still open: the content box of `page#interfaces` is 0×0, so `y` came from a depth-1 scan (11880).
+- Same as #129, still open: `render_screenshot` `path` is inside the server. The PNGs were decoded from the image bytes in the tool result.
+- `lint_design` was clean after `lintIgnore` on the size badge (`contrast`, the badge is a sibling the text does not see) and on the floating handles (`detached-sibling`).
+

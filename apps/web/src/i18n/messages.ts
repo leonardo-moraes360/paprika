@@ -182,6 +182,8 @@ export type Messages = {
   ratioLockAlt: string;
   renameFrameHint: string;
   resizeCorner: (corner: string) => string;
+  rotate: string;
+  rotateHint: string;
   cornerTl: string;
   cornerTr: string;
   cornerBl: string;
@@ -523,6 +525,8 @@ const en: Messages = {
   ratioLockAlt: "1:1 · Shift+Alt",
   renameFrameHint: "Double-click to rename",
   resizeCorner: (corner) => `Resize ${corner} corner`,
+  rotate: "Rotate",
+  rotateHint: "Drag to rotate. Shift snaps to 15°.",
   cornerTl: "top-left",
   cornerTr: "top-right",
   cornerBl: "bottom-left",
@@ -855,6 +859,8 @@ const pt: Messages = {
   ratioLock: "Proporção · Shift",
   renameFrameHint: "Duplo clique para renomear",
   resizeCorner: (corner) => `Redimensionar canto ${corner}`,
+  rotate: "Girar",
+  rotateHint: "Arraste para girar. Shift trava em 15°.",
   cornerTl: "superior esquerdo",
   cornerTr: "superior direito",
   cornerBl: "inferior esquerdo",

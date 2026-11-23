@@ -44,7 +44,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Multi-select (shift-click, marquee), select all, select siblings | Shift/Ctrl-click, marquee, `Ctrl+A` selects siblings (2026-11-21) | ✅ | — |
 | Move down/up the hierarchy, deep select, cycle siblings | `Esc` selects the parent, double-click selects inside a group; no sibling cycling | 🟡 | P2 |
 | Layer tree under the cursor (context menu) | — | ⬜ | P2 |
-| Rotation-aware hit testing and handles | Box-based | ⬜ | P2 |
+| Rotation-aware hit testing and handles | Outline, corner handles and the rotate handle follow `get_bounds` corners; marquee hits that box. Corner drags keep the opposite corner fixed in the node's axes (2026-11-23, PAP-B-091). | ✅ | — |
 | Configurable nudge step | Arrows 1px, Shift 10px | 🟡 | P3 |
 | Eyedropper (sample a color from the canvas) | — | ⬜ | P2 |
 | Duplicate by modifier-drag | `Ctrl+D` duplicate | 🟡 | P3 |

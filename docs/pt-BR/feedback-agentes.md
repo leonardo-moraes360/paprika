@@ -677,3 +677,18 @@ Tarefa: desenhar os estados aberto, no meio do deslize, fechado e com movimento 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #123, ainda aberto: `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0, então os frames foram posicionados varrendo o `y` de profundidade 1 (pousaram em y=3600).
 - `lint_design` nos quatro frames ficou limpo depois que os chevrons foram para 12px. O corpo cortado no meio do deslize precisou de `lintIgnore: ["layout-overflow"]` porque o corte é o frame.
+
+## 2026-11-23: alças que acompanham a rotação (PAP-B-091, design first)
+
+Tarefa: desenhar a seleção antes e depois de acompanhar a caixa rotacionada, claro e escuro, na página `Interfaces` do workspace `Paprica · UI` (`cmio9n368k`). Frames `b091-before-light`, `b091-after-light`, `b091-before-dark`, `b091-after-dark`. PNGs em `docs/assets/boards/PAP-B-091/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 130 | A página chamada `Interfaces` | O outline lista `page#iutnyc26zo` ("Página 1") antes de `page#interfaces`. Pegar o primeiro `page#` colocou os quatro frames na página errada; `move_nodes` para `interfaces` corrigiu | Colocar o nome da página na mesma linha do id de um jeito que uma varredura de profundidade 1 não confunda, ou recusar um pai que não seja a página pedida | P2 |
+| 131 | Cantos iguais à rotação pintada | `get_bounds` girava a caixa com o sinal oposto ao `rotate()` do CSS e ao render vello, então uma alça nesses cantos ficava fora dos pixels | Feito nesta mudança: os cantos do `layout` usam a matriz do CSS em TypeScript e Go | — |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (11880).
+- Igual ao #129, ainda aberto: o `path` do `render_screenshot` fica dentro do servidor. Os PNGs foram decodificados dos bytes da imagem no resultado da ferramenta.
+- `lint_design` ficou limpo depois de `lintIgnore` no texto da medida (`contrast`, o badge é um irmão que o texto não vê) e nas alças soltas (`detached-sibling`).
+
