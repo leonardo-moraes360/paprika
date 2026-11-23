@@ -12,7 +12,9 @@ frame: clip (bool), layout {mode: none|row|column, gap (n | "$token"), padding (
 text: text, color, fontFamily (string | "$token"), fontSize (n | "$token"), fontWeight (100..900 | "$token"), lineHeight (n | "$token"), letterSpacing (n | "$token"), textAlign.
   runs (opcional, até 200): trechos {start, end} em índices UTF-16, sem sobreposição, cada um com ao menos um de fontWeight (100..900 | "$token"), color, fontSize (n | "$token"), italic: true, href (http(s), mailto, ou caminho com / ou #).
   Sem width/height, um texto novo abraça o conteúdo ("hug" nos dois eixos); dê width para quebrar linhas.
-image: src (https:// ou data:image/), fit (cover|contain|fill), alt.
+image: src (https://, data:image/ ou $asset), fit (cover|contain|fill), alt, decorative (true pula o lint de alt e exporta alt="" aria-hidden). Os nomes $asset ficam no documento via set_assets.
+frame e text podem ter href (relativo, #hash, http(s), mailto, tel), exportado como <a>. Um frame raiz pode ter minWidth e maxWidth; o export usa width 100% entre esses limites. O canvas mantém a largura de desenho.
+convert_to_path transforma rect e ellipse em path com o mesmo id (o raio entra no d).
 group: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir
   dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.
   wrap_nodes põe os mesmos irmãos num frame novo (o desenho não se move, um desfazer). align_nodes (edge: left|center|right|top|middle|bottom)

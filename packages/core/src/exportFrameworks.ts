@@ -1,6 +1,7 @@
 import type { Document, Node } from "./schema.js";
 import { cssToString, tokenStylesheet } from "./style.js";
 import {
+  bodySizeCSS,
   componentName,
   escapeHtml,
   exportParts,
@@ -51,13 +52,13 @@ function classSheetEmitter(): { emit: StyleEmitter; sheet: () => string } {
   return { emit, sheet: () => rules.join("\n") };
 }
 
-function classExport(doc: Document, rootId: string, cssVariables: boolean): { body: string; css: string; name: string; bounds: Bounds; background: string; bodyMode: string } {
+function classExport(doc: Document, rootId: string, cssVariables: boolean): { body: string; css: string; name: string; bounds: Bounds; background: string; bodyMode: string; fluid: { min: number; max: number } | null } {
   const node = exportRoot(doc, rootId);
   const name = componentName(node.name || node.id);
   const { emit, sheet } = classSheetEmitter();
   const p = exportParts(doc, { rootId, cssVariables }, emit);
   const tokens = cssVariables ? `${tokenStylesheet(doc)}\n` : "";
-  return { body: p.body, css: `${tokens}${sheet()}\n`, name, bounds: p.bounds, background: p.background, bodyMode: p.bodyMode };
+  return { body: p.body, css: `${tokens}${sheet()}\n`, name, bounds: p.bounds, background: p.background, bodyMode: p.bodyMode, fluid: p.fluid };
 }
 
 export interface AngularExport {
@@ -101,10 +102,10 @@ export function exportSvelte(doc: Document, rootId: string, opts: { cssVariables
   };
 }
 
-function previewPage(doc: Document, p: { bounds: Bounds; background: string; bodyMode: string }, body: string, css: string): { html: string; bounds: Bounds } {
+function previewPage(doc: Document, p: { bounds: Bounds; background: string; bodyMode: string; fluid: { min: number; max: number } | null }, body: string, css: string): { html: string; bounds: Bounds } {
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(doc.name)}</title>
-<style>html,body{margin:0;padding:0}body{position:relative;width:${p.bounds.width}px;height:${p.bounds.height}px;background:${escapeHtml(p.background)};font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}${css.trimEnd()}</style>
+<style>html,body{margin:0;padding:0}body{position:relative;${bodySizeCSS(p.bounds, p.fluid)};background:${escapeHtml(p.background)};font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}${css.trimEnd()}</style>
 </head><body${p.bodyMode}>${body}</body></html>`;
   return { html, bounds: p.bounds };
 }

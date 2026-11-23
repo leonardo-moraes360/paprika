@@ -11,10 +11,11 @@ interface Props {
   x: number;
   y: number;
   onSelect(id: string): void;
+  onConvert?(): void;
   onClose(): void;
 }
 
-export function LayerMenu({ doc, ids, x, y, onSelect, onClose }: Props) {
+export function LayerMenu({ doc, ids, x, y, onSelect, onConvert, onClose }: Props) {
   const m = useT();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -79,6 +80,17 @@ export function LayerMenu({ doc, ids, x, y, onSelect, onClose }: Props) {
           </button>
         );
       })}
+      {onConvert && (
+        <button
+          type="button"
+          role="menuitem"
+          data-testid="convert-to-path"
+          className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-left text-sm text-ui-popover-foreground outline-none hover:bg-ui-secondary-hover focus-visible:bg-ui-secondary-hover"
+          onClick={onConvert}
+        >
+          {m.convertToPath}
+        </button>
+      )}
     </div>,
     document.body,
   );

@@ -142,13 +142,13 @@ describe("API: MCP", () => {
     expect(tools).toEqual(contract.tools);
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
-        "apply_ops", "archive_workspace", "combine_paths", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
+        "apply_ops", "archive_workspace", "combine_paths", "convert_to_path", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "detach_tokens", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "align_nodes", "distribute_nodes", "wrap_nodes", "show_all", "unlock_all",
         "get_bounds",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
-        "rename_workspace", "render_screenshot", "resize_image", "propose_tokens", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
+        "rename_workspace", "render_screenshot", "resize_image", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
         "claim_pin", "list_pins", "resolve_pin", "wait_for_pins",
       ].sort(),
@@ -453,6 +453,44 @@ describe("API: MCP", () => {
     `);
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
     expect(hist.map((h: { label: string }) => h.label)).toEqual(["create 2 node(s)", "combine 2 path(s)", "create page", "create 1 node(s)"]);
+  });
+
+  it("semântica web e converter em caminho", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      nodes: [{
+        type: "frame", id: "f", width: 320, height: 180,
+        children: [
+          { type: "rect", id: "r", x: 10, y: 10, width: 40, height: 24, radius: 4, fill: "#112233" },
+          { type: "text", id: "t", x: 60, y: 12, text: "Docs" },
+        ],
+      }],
+    });
+    const converted = JSON.parse(textOf(await call(c, "convert_to_path", { ids: ["r"] })));
+    expect(converted.created).toContain("r");
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["r"] })))[0]).toMatchObject({ type: "path", id: "r", fill: "#112233" });
+    expect(textOf(await call(c, "undo"))).toMatch(/"undone": true/);
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["r"] })))[0].type).toBe("rect");
+    expect((await call(c, "set_assets", { assets: { logo: "https://example.com/a.png" } })).isError).toBeFalsy();
+    expect((await call(c, "create_nodes", { parentId: "f", nodes: [{ type: "image", id: "im", src: "$logo", width: 24, height: 24, decorative: true }] })).isError).toBeFalsy();
+    const missing = await call(c, "create_nodes", { parentId: "f", nodes: [{ type: "image", id: "bad", src: "$nope", width: 10, height: 10 }] });
+    expect(textOf(missing)).toMatch(/does not match an asset/);
+    await call(c, "update_nodes", { updates: [
+      { id: "f", props: { href: "https://example.com", minWidth: 200, maxWidth: 800 } },
+      { id: "t", props: { href: "/docs" } },
+    ] });
+    const html = textOf(await call(c, "export_code", { rootId: "f", format: "html" }));
+    expect(html).toMatch(/<a /);
+    expect(html).toContain('href="https://example.com"');
+    expect(html).toContain('href="/docs"');
+    expect(html).toContain("min-width:200px");
+    expect(html).toContain('src="https://example.com/a.png"');
+    expect(html).toContain('data-paprika-decorative="true"');
+    const badHref = await call(c, "update_nodes", { updates: [{ id: "f", props: { href: "javascript:alert(1)" } }] });
+    expect(textOf(badHref)).toMatch(/href must be/);
+    await call(c, "create_nodes", { parentId: "f", nodes: [{ type: "frame", id: "inner", width: 40, height: 40 }] });
+    const badWidth = await call(c, "update_nodes", { updates: [{ id: "inner", props: { minWidth: 10 } }] });
+    expect(textOf(badWidth)).toMatch(/only valid on a root frame/);
   });
 
   it("alinha, distribui, envolve e revela num desfazer cada", async () => {

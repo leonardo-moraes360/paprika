@@ -1,36 +1,19 @@
 #!/usr/bin/env node
 // Design boards for PAP-B-091. Talks to the local Paprika MCP. Does not call open_workspace.
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { createRequire } from "node:module";
+import { openClient, repoRoot, saveShots, textOf } from "./design-board.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const root = repoRoot();
 const outDir = join(root, "docs/assets/boards/PAP-B-091");
-const mcpUrl = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4777/mcp";
 
 const sdkPkg = [
   join(root, "packages/e2e/node_modules/@modelcontextprotocol/sdk/package.json"),
   join(root, "../paprika/packages/e2e/node_modules/@modelcontextprotocol/sdk/package.json"),
 ].find((p) => existsSync(p));
 if (!sdkPkg) throw new Error("MCP SDK not installed (packages/e2e)");
-const require = createRequire(sdkPkg);
-const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
-const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
-
-const client = new Client({ name: "pap-b-091-design", version: "0" });
-await client.connect(new StreamableHTTPClientTransport(new URL(mcpUrl)));
-
-async function call(name, args = {}) {
-  const r = await client.callTool({ name, arguments: args });
-  if (r.isError) throw new Error(`${name}: ${JSON.stringify(r.content)}`);
-  return r;
-}
-
-function textOf(r) {
-  return (r.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
-}
+const { client, call } = await openClient(createRequire(sdkPkg), "pap-b-091-design");
 
 function corners(x, y, w, h, rot) {
   const cx = x + w / 2;
@@ -258,24 +241,15 @@ await call("create_nodes", {
   nodes,
 });
 
-await mkdir(outDir, { recursive: true });
 const shots = [
   ["b091-before-light", "antes-claro.png"],
   ["b091-after-light", "depois-claro.png"],
   ["b091-before-dark", "antes-escuro.png"],
   ["b091-after-dark", "depois-escuro.png"],
 ];
-for (const [rootId, file] of shots) {
-  const r = await call("render_screenshot", { workspaceId, rootId, scale: 2 });
-  const img = (r.content ?? []).find((c) => c.type === "image");
-  const b64 = img?.data;
-  if (!b64) {
-    console.error("no image", rootId, textOf(r).slice(0, 300));
-    continue;
-  }
-  await writeFile(join(outDir, file), Buffer.from(b64, "base64"));
-  console.log("wrote", file);
-}
+await saveShots(call, workspaceId, outDir, shots, (rootId, r) => {
+  console.error("no image", rootId, textOf(r).slice(0, 300));
+});
 
 const lint = await call("lint_design", { workspaceId, rootIds: nodes.map((n) => n.id), minSeverity: "warning" });
 console.log(textOf(lint).slice(0, 1200));

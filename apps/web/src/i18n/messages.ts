@@ -168,6 +168,7 @@ export type Messages = {
   showLayer: (name: string) => string;
   renameLayerHint: string;
   layerMenu: string;
+  convertToPath: string;
   zoomIn: string;
   zoomOut: string;
   zoomFit: string;
@@ -553,6 +554,7 @@ const en: Messages = {
   showLayer: (name) => `Show ${name}`,
   renameLayerHint: "Double-click or F2 to rename",
   layerMenu: "Layers under the cursor",
+  convertToPath: "Convert to path",
   zoomIn: "Zoom in",
   zoomOut: "Zoom out",
   zoomFit: "Fit",
@@ -932,6 +934,7 @@ const pt: Messages = {
   showLayer: (name) => `Mostrar ${name}`,
   renameLayerHint: "Duplo clique ou F2 para renomear",
   layerMenu: "Camadas sob o cursor",
+  convertToPath: "Converter em caminho",
   zoomIn: "Aumentar zoom",
   zoomOut: "Diminuir zoom",
   zoomFit: "Enquadrar",

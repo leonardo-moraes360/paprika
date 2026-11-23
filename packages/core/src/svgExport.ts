@@ -1,4 +1,4 @@
-import { firstPage, listShadows, pageRoots, isContainer, type Document, type Node, type ShadowSpec, type TextNode } from "./schema.js";
+import { firstPage, listShadows, pageRoots, resolveAsset, isContainer, type Document, type Node, type ShadowSpec, type TextNode } from "./schema.js";
 import { canvasBounds, escapeHtml, svgAttrs } from "./render.js";
 import {
   connectorAttrs,
@@ -21,6 +21,7 @@ import {
 } from "./style.js";
 import { shapePadding } from "./diagram.js";
 import { layout } from "./layout.js";
+import { formatSvgNumber as f, roundedRectD } from "./pathOutline.js";
 import { piecesInRange } from "./textRuns.js";
 
 /**
@@ -139,25 +140,6 @@ export function measureFromLayout(doc: Document, rootId?: string): Measure {
     boxes[id] = [b.x - ox, b.y - oy, b.width, b.height];
   }
   return { boxes };
-}
-
-const f = (n: number) => {
-  const v = Math.round(n * 100) / 100;
-  return Object.is(v, -0) ? "0" : String(v);
-};
-
-function roundedRectD(x: number, y: number, w: number, h: number, radii: [number, number, number, number]): string {
-  const [tl, tr, br, bl] = radii;
-  const parts = [`M${f(x + tl)} ${f(y)}`, `L${f(x + w - tr)} ${f(y)}`];
-  if (tr) parts.push(`A${f(tr)} ${f(tr)} 0 0 1 ${f(x + w)} ${f(y + tr)}`);
-  parts.push(`L${f(x + w)} ${f(y + h - br)}`);
-  if (br) parts.push(`A${f(br)} ${f(br)} 0 0 1 ${f(x + w - br)} ${f(y + h)}`);
-  parts.push(`L${f(x + bl)} ${f(y + h)}`);
-  if (bl) parts.push(`A${f(bl)} ${f(bl)} 0 0 1 ${f(x)} ${f(y + h - bl)}`);
-  parts.push(`L${f(x)} ${f(y + tl)}`);
-  if (tl) parts.push(`A${f(tl)} ${f(tl)} 0 0 1 ${f(x + tl)} ${f(y)}`);
-  parts.push("Z");
-  return parts.join(" ");
 }
 
 type Box = [number, number, number, number];
@@ -354,8 +336,8 @@ export function exportSVG(
       const fit = n.fit === "cover" ? "xMidYMid slice" : n.fit === "contain" ? "xMidYMid meet" : "none";
       if (boxRadius && boxRadius.some((c) => c > 0)) {
         defs += clipDef(`clip-${id}`);
-        body += `<image href="${escapeHtml(n.src)}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}" clip-path="url(#clip-${id})"/>`;
-      } else body += `<image href="${escapeHtml(n.src)}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}"/>`;
+        body += `<image href="${escapeHtml(resolveAsset(doc, n.src))}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}" clip-path="url(#clip-${id})"/>`;
+      } else body += `<image href="${escapeHtml(resolveAsset(doc, n.src))}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}"/>`;
     }
     if (n.type === "frame") {
       const inner = kids();

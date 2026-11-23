@@ -4,30 +4,11 @@
  * Usage: node scripts/draw-pap-b-047.mjs
  */
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
+import { join } from "node:path";
+import { connectBoard, textOf } from "./design-board.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const { root, client, call } = await connectBoard("pap-b-047-design");
 const outDir = join(root, "docs/assets/boards/PAP-B-047");
-const mcpUrl = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4777/mcp";
-
-const require = createRequire(join(root, "packages/e2e/package.json"));
-const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
-const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
-
-const client = new Client({ name: "pap-b-047-design", version: "0" });
-await client.connect(new StreamableHTTPClientTransport(new URL(mcpUrl)));
-
-async function call(name, args = {}) {
-  const r = await client.callTool({ name, arguments: args });
-  if (r.isError) throw new Error(JSON.stringify(r.content));
-  return r;
-}
-
-function textOf(r) {
-  return (r.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
-}
 
 const wsRaw = textOf(await call("list_workspaces"));
 let workspaces;

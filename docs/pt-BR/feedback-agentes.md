@@ -75,10 +75,10 @@ Tarefa: desenhar a landing page do projeto no Paprika pelo MCP (desktop e mobile
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
 | 29 | Conferir uma página cuja altura segue o conteúdo | O `render_screenshot` de um frame raiz com `height: "hug"` devolveu uma imagem de 1280×1 px (o `rootBounds` transforma `hug` em 1 px), e o agente teve que conferir a página no próprio navegador | Feito (2026-11-22): o `render_screenshot` mede no navegador uma raiz `hug`/`fill` e dimensiona a imagem por ela | — |
-| 30 | Botões e itens de menu com link | Os nós não têm campo de link; o build do site lê uma convenção de nome (`name: "link:<href>"`) e transforma esses nós em `<a>` | Um campo `href` em frames e textos, exportado como `<a>` pelo `export_code` e mantido pelo canvas | P2 |
-| 31 | Uma página para qualquer largura de tela | Os frames raiz têm largura fixa e o `export_code` fixa o body nesse tamanho; a página foi desenhada duas vezes (1280 e 390) e o build estica as raízes até a largura da janela | Variantes de um frame por breakpoint, ou `minWidth`/`maxWidth`, e um export de página com raízes responsivas | P2 |
-| 32 | Reaproveitar a mesma imagem | O data URI do ícone se repete em 8 nós de imagem (documento com ≈200 KB) | Assets no nível do documento (referências `$asset`) ou tokens de imagem | P3 |
-| 33 | Marcar uma imagem como decorativa | O `lint_design` avisa `missing-alt` para `alt: ""`, que é o HTML correto para imagem decorativa | Um campo `decorative: true` (ou tratar `alt` vazio explícito como decorativo) | P3 |
+| 30 | Botões e itens de menu com link | Os nós não têm campo de link; o build do site lê uma convenção de nome (`name: "link:<href>"`) e transforma esses nós em `<a>` | Feito (2026-11-23, PAP-B-087): `href` opcional em frames e textos, exportado como `<a>` | — |
+| 31 | Uma página para qualquer largura de tela | Os frames raiz têm largura fixa e o `export_code` fixa o body nesse tamanho; a página foi desenhada duas vezes (1280 e 390) e o build estica as raízes até a largura da janela | Feito (2026-11-23, PAP-B-087): `minWidth`/`maxWidth` num frame raiz; o export usa largura 100% entre esses limites | — |
+| 32 | Reaproveitar a mesma imagem | O data URI do ícone se repete em 8 nós de imagem (documento com ≈200 KB) | Feito (2026-11-23, PAP-B-087): assets do documento via `set_assets` e `src` `$nome` | — |
+| 33 | Marcar uma imagem como decorativa | O `lint_design` avisa `missing-alt` para `alt: ""`, que é o HTML correto para imagem decorativa | Feito (2026-11-23, PAP-B-087): `decorative: true` pula o lint de alt e exporta `alt=""` | — |
 
 ## 2026-11-21: seleção múltipla, grupos e páginas (leva 1 do backlog)
 
@@ -774,6 +774,19 @@ Tarefa: desenhar os eixos de constraint do inspector (escuro: direita/topo, clar
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - O frame de comportamento é um mock: o servidor vivo ainda não aceita `constraints`, então os retângulos de antes/depois estão em x/y.
 - `lint_design` nos três roots: 0 erros e 0 avisos.
+## 2026-11-23: semântica web e converter em caminho (PAP-B-087, design first)
+
+Tarefa: desenhar o inspector da raiz (link, largura mínima, largura máxima), uma imagem decorativa com `$asset` e o item "Converter em caminho" no menu de contexto, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`), antes de implementar. Frames em y=11360. PNGs em `docs/assets/boards/PAP-B-087/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 147 | Rótulos de seção em 11px | O `lint_design` nos três quadros acusou small-text em rótulos e notas de 11px | Mocks do inspector deveriam usar pelo menos 12px (igual a #136) | P3 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual a #128: duas páginas chamadas Interfaces. O script usou `page#interfaces`.
+- Igual a #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (11360).
+- Igual a #129: o `path` do `render_screenshot` fica no servidor. Os PNGs foram decodificados dos bytes de imagem do resultado da ferramenta.
+
 ## 2026-11-23: trechos de texto (PAP-B-085, design first)
 
 Tarefa: desenhar o texto pintado, o editor no canvas e a dica do inspector na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de `runs` em nós de texto. Frames `b085-painted`, `b085-editor`, `b085-inspector` em y=10840. PNGs em `docs/assets/boards/PAP-B-085/`.

@@ -266,15 +266,25 @@ func tailwindClassNameAttr(css *CSS, node *Node, label string) string {
 	return out
 }
 
-func twBodyClasses(b Bounds, background string) string {
-	return strings.Join([]string{
-		"relative",
-		"w-[" + jsonv.FormatNumber(b.Width) + "px]",
-		"h-[" + jsonv.FormatNumber(b.Height) + "px]",
-		"bg-[color:" + twArb(background) + "]",
+func twBodyClasses(b Bounds, background string, fluid *fluidBox) string {
+	size := []string{"w-[" + jsonv.FormatNumber(b.Width) + "px]", "h-[" + jsonv.FormatNumber(b.Height) + "px]"}
+	if fluid != nil {
+		size = []string{
+			"w-full",
+			"min-w-[" + jsonv.FormatNumber(fluid.Min) + "px]",
+			"max-w-[" + jsonv.FormatNumber(fluid.Max) + "px]",
+			"mx-auto",
+			"h-[" + jsonv.FormatNumber(b.Height) + "px]",
+		}
+	}
+	parts := []string{"relative"}
+	parts = append(parts, size...)
+	parts = append(parts,
+		"bg-[color:"+twArb(background)+"]",
 		"font-[family-name:Inter,system-ui,sans-serif]",
 		"antialiased",
-	}, " ")
+	)
+	return strings.Join(parts, " ")
 }
 
 func RenderTailwindHTML(doc *Document, opts RenderOptions) (string, Bounds, error) {
@@ -288,7 +298,7 @@ func RenderTailwindHTML(doc *Document, opts RenderOptions) (string, Bounds, erro
 	}
 	html := "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>" + EscapeHTML(doc.Str("name")) + "</title>\n" +
 		`<script src="` + tailwindCDN + `"></script>` + tokens + "\n" +
-		"</head><body" + p.bodyMode + ` class="` + EscapeHTML(twBodyClasses(p.bounds, p.background)) + `">` + p.body + "</body></html>"
+		"</head><body" + p.bodyMode + ` class="` + EscapeHTML(twBodyClasses(p.bounds, p.background, p.fluid)) + `">` + p.body + "</body></html>"
 	return html, p.bounds, nil
 }
 

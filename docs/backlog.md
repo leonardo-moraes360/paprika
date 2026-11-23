@@ -105,7 +105,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Edit points and handles of an existing path | Double-click a path: drag points and handles, add, remove, corner/smooth (2026-11-21); `d` in the inspector | ✅ | — |
 | Import/paste SVG as editable `path` layers | `import_svg`, `Ctrl+V` in the canvas (2026-11-21): paths, shapes (axis-aligned rect/ellipse stay native), groups, transforms, inherited paint; no text, images, gradients or `<style>` CSS | ✅ | — |
 | Boolean operations (union, subtract, intersect, exclude) | — (fb#1, fb#76; see Q). Batch 3: PAP-A-003 — MCP `combine_paths` + core op (canvas command later). | ✅ | P1 |
-| Convert rect/ellipse to path | — | ⬜ | P2 |
+| Convert rect/ellipse to path | `convert_to_path` (MCP and the canvas context menu). Same id, radius baked into `d`, one undo restores the rect or ellipse (2026-11-23, PAP-B-087) | ✅ | — |
 | Snapping and guides for points, half-pixel snapping | — | ⬜ | P3 |
 | Mirror, repeat, shape builder, vector networks | — | ⬜ | P3 |
 
@@ -265,7 +265,7 @@ Every item still open in the [agent feedback log](agent-feedback.md) (fb#1 to fb
 | Safer deletes | The MCP half landed 2026-11-22 (PAP-B-015): `delete_workspace` is two calls — the first returns what would be lost and a short-lived token bound to the workspace, the second deletes — and workspace operations (create/rename/open/delete, with the actor) are readable over `list_workspace_ops`, a delete entry keeping its summary. Canvas notice landed with PAP-B-037: WebSocket `workspaceOp` broadcast + `WorkspaceNotice` (actor, counts, overview action; `role=status`). | fb#59, fb#60, fb#61 | ✅ | — |
 | Nested components | Instances inside components, overrides addressed by path (`instance/copy`). A cycle is rejected. Done (2026-11-23, PAP-B-086). PR: https://github.com/leonardo-moraes360/paprika/pull/164. | fb#39 | ✅ | — |
 | Import fidelity | `import_svg`: `<use>`/`<symbol>` sprites and `<text>` as `text` nodes; `import_html`: an option that renders in the server's Chromium and imports computed styles | fb#40, fb#42 | ⬜ | P2 |
-| Web semantics in the document | `href` on frames and text (exported as `<a>`), responsive roots (`minWidth`/`maxWidth` or breakpoint variants), `decorative` images, document-level image assets | fb#30, fb#31, fb#32, fb#33 | ⬜ | P2 |
+| Web semantics in the document | `href` on frames and text (exported as `<a>`), root `minWidth`/`maxWidth` (export width 100% between those bounds; the canvas keeps the design width), `decorative` images, document image assets via `set_assets` (2026-11-23, PAP-B-087) | fb#30, fb#31, fb#32, fb#33 | ✅ | — |
 | Diagram routing around shapes | Obstacle-aware elbow routes, or `relayout` on `draw_diagram` for existing ids | fb#58 | ⬜ | P2 |
 | Contract cleanups for the next breaking version | Text and `structuredContent` as the same object; `historyLabel` with `label` as an alias; unknown session ids answer 404 so clients re-initialize; one actor name in both transports | fb#22, fb#48, fb#50, fb#74 | 🟡 | P3 |
 | Small conveniences | `pageId` default on `create_nodes` (the page the human sees); typed size tokens scaled by `scale`; `resolve` on `get_nodes`; read-only `sql_query`; open batch shown in the activity list; one UI language (or a setting); live cover and cover in export; normalized examples; edited paths as "ignore layout" children (A) | fb#21, fb#23, fb#36, fb#38, fb#44, fb#46, fb#49, fb#51, fb#63, fb#64 | ⬜ | P3 |

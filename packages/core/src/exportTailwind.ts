@@ -252,15 +252,11 @@ const tailwindClassNameAttr: StyleEmitter = (css, owner) => {
 
 export const TAILWIND_CDN = "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4";
 
-function bodyClasses(bounds: Bounds, background: string): string {
-  return [
-    "relative",
-    `w-[${bounds.width}px]`,
-    `h-[${bounds.height}px]`,
-    `bg-[color:${arb(background)}]`,
-    "font-[family-name:Inter,system-ui,sans-serif]",
-    "antialiased",
-  ].join(" ");
+function bodyClasses(bounds: Bounds, background: string, fluid: { min: number; max: number } | null): string {
+  const size = fluid
+    ? ["w-full", `min-w-[${fluid.min}px]`, `max-w-[${fluid.max}px]`, "mx-auto", `h-[${bounds.height}px]`]
+    : [`w-[${bounds.width}px]`, `h-[${bounds.height}px]`];
+  return ["relative", ...size, `bg-[color:${arb(background)}]`, "font-[family-name:Inter,system-ui,sans-serif]", "antialiased"].join(" ");
 }
 
 export function renderTailwindHTML(doc: Document, opts: RenderOptions = {}): { html: string; bounds: Bounds } {
@@ -269,7 +265,7 @@ export function renderTailwindHTML(doc: Document, opts: RenderOptions = {}): { h
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(doc.name)}</title>
 <script src="${TAILWIND_CDN}"></script>${tokens}
-</head><body${p.bodyMode} class="${escapeHtml(bodyClasses(p.bounds, p.background))}">${p.body}</body></html>`;
+</head><body${p.bodyMode} class="${escapeHtml(bodyClasses(p.bounds, p.background, p.fluid))}">${p.body}</body></html>`;
   return { html, bounds: p.bounds };
 }
 

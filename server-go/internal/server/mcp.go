@@ -765,6 +765,15 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		label(), batch(), workspaceID(),
 	), writeSelection("combine_paths", "path", "combine", "path(s)", "operation"))
 
+	add("convert_to_path", z.Object(
+		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		ids := a.Strings("ids")
+		op := jsonv.NewObject("op", "convert_to_path", "ids", a.Arr("ids"))
+		return write(a, []any{op}, labelOr(a, "convert "+count(len(ids))+" node(s) to path"))
+	})
+
 	add("create_page", z.Object(
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
@@ -999,6 +1008,15 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			op.Set("mode", m)
 		}
 		return write(a, []any{op}, labelOr(a, "tokens"))
+	})
+
+	add("set_assets", z.Object(
+		z.Field{Name: "assets", Schema: z.Record(z.String(), z.Union(z.String(), z.Null()))},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		assets, _ := a.Get("assets")
+		op := jsonv.NewObject("op", "set_assets", "assets", assets)
+		return write(a, []any{op}, labelOr(a, "assets"))
 	})
 
 	stepResult := func(key string, ok bool, head WorkspaceHead) ToolResult {

@@ -14,6 +14,7 @@ import {
   newId,
   pageRoots,
   nodeGradient,
+  resolveAsset,
   nodeStyle,
   textPieces,
   textRunCSS,
@@ -475,7 +476,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
       );
     }
     case "image":
-      return <img {...props} src={node.src} alt={node.alt} draggable={false} />;
+      return <img {...props} src={resolveAsset(doc, node.src)} alt={node.decorative ? "" : node.alt} aria-hidden={node.decorative || undefined} draggable={false} />;
     case "path": {
       const editing = edit?.id === node.id ? edit : null;
       if (wasmPaints && !editing) return <div {...props} />;
@@ -2339,6 +2340,18 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             onSelect([id]);
             setLayerMenu(null);
           }}
+          onConvert={(() => {
+            const id = layerMenu.ids.find((nid) => {
+              const n = doc.nodes[nid];
+              return !!n && (n.type === "rect" || n.type === "ellipse") && !copyOwner(doc, n);
+            });
+            if (!id) return undefined;
+            return () => {
+              apply([{ op: "convert_to_path", ids: [id] }], "converter em caminho");
+              onSelect([id]);
+              setLayerMenu(null);
+            };
+          })()}
           onClose={() => setLayerMenu(null)}
         />
       )}
