@@ -59,8 +59,8 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
 | Fill, border, shadow, opacity, rotation | Base fields | ✅ | — |
-| Multiple shadows, inner shadow, outline | `shadow` is one object or a list of up to 8 with optional `inner`; `outline` is `{color, width, style, offset}`. A list, an inner shadow or an outline stays on the DOM. On a path or shape an inner shadow paints as an inset box; SVG warns and skips it (PAP-B-080). | ✅ | — |
-| CSS filters (blur, saturate, grayscale, brightness, sepia, invert, hue-rotate) and backdrop filters | `filter` and `backdropFilter` take those functions. An empty object is refused. WASM falls back to the DOM (PAP-B-080). | ✅ | — |
+| Multiple shadows, inner shadow, outline | `shadow` is one object or a list of up to 8 with optional `inner`; `outline` is `{color, width, style, offset}`. A list, an inner shadow or an outline stays on the DOM. On a path or shape an inner shadow paints as an inset box; SVG warns and skips it (PAP-B-080). PR: https://github.com/leonardo-moraes360/paprika/pull/156. | ✅ | — |
+| CSS filters (blur, saturate, grayscale, brightness, sepia, invert, hue-rotate) and backdrop filters | `filter` and `backdropFilter` take those functions. An empty object is refused. WASM falls back to the DOM (PAP-B-080). PR: https://github.com/leonardo-moraes360/paprika/pull/156. | ✅ | — |
 | Structured gradients (linear, radial, conic) with on-canvas handles and angle | Raw CSS string only; lint ignores it | 🟡 | P2 |
 | Modern color: `oklch()`, `color-mix()`, Display P3, OKLCH picker | Strings pass through to CSS, but lint can't parse them and the picker is sRGB hex | 🟡 | P2 |
 | Blend modes | — | ⬜ | P3 |
