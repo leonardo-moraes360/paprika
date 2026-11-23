@@ -42,6 +42,7 @@ import type { Activity as ActivityEntry } from "./useDocument";
 import { FontPicker } from "./FontPicker";
 import { EffectsSection } from "./inspector/EffectsSection";
 import { ColorField, Field, ModeField, SelectField, num, size } from "./inspector/fields";
+import { GradientField } from "./inspector/gradient";
 import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -380,7 +381,8 @@ export function Inspector(props: Props) {
       </InspectorSection>
       <InspectorSection id="appearance" title="Preenchimento e traço">
         <div className={ui.grid}>
-          <ColorField doc={doc} mode={themeMode} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />
+          <GradientField doc={doc} node={node} mode={themeMode} onChange={(props) => set(props)} />
+          {!node.gradient && <ColorField doc={doc} mode={themeMode} label={m.fill} value={node.fill} onCommit={(v) => set({ fill: v })} />}
           {(node.type === "frame" || node.type === "rect" || node.type === "image") && (
             <RadiusCorners radius={node.radius} onChange={(radius) => set({ radius })} />
           )}

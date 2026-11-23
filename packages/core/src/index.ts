@@ -1,4 +1,5 @@
 export * from "./schema.js";
+export * from "./color.js";
 export * from "./ops.js";
 export * from "./history.js";
 export * from "./style.js";

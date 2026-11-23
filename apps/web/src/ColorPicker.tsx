@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import type { Document } from "@paprika/core";
-import { resolveValue } from "@paprika/core";
+import { oklchToRgb, readOklch, resolveValue, rgbToOklch } from "@paprika/core";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 import { Hint } from "./components/ui/tooltip";
 import { useT } from "./i18n";
@@ -22,11 +22,22 @@ function round(n: number, d = 0) {
   return Math.round(n * p) / p;
 }
 
+function browserColor(s: string) {
+  return parseCssColor(s) !== null || /^(oklch|color-mix|color)\(/i.test(s.trim());
+}
+
 function isColorString(v: unknown): v is string {
   if (typeof v !== "string") return false;
   const s = v.trim();
   if (s.startsWith("$")) return true;
-  return parseCssColor(s) !== null;
+  return browserColor(s);
+}
+
+function formatOklch(l: number, c: number, h: number, a: number) {
+  const r = (n: number, d: number) => Math.round(n * 10 ** d) / 10 ** d;
+  const body = `${r(Math.min(1, Math.max(0, l)), 3)} ${r(Math.max(0, c), 3)} ${r(((h % 360) + 360) % 360, 1)}`;
+  if (a < 1 - 1e-6) return `oklch(${body} / ${r(a, 3)})`;
+  return `oklch(${body})`;
 }
 
 function parseCssColor(raw: string): Rgba | null {
@@ -129,7 +140,7 @@ function colorTokens(doc: Document, mode?: string): { name: string; css: string 
     if (seen.has(name) || typeof raw !== "string" || !isColorString(raw)) continue;
     seen.add(name);
     const css = String(resolveValue(doc, `$${name}`, mode));
-    if (!parseCssColor(css)) continue;
+    if (!browserColor(css)) continue;
     out.push({ name, css });
   }
   return out;
@@ -186,6 +197,12 @@ export function ColorPicker({
   const [hexText, setHexText] = useState("");
   const [rgbText, setRgbText] = useState("");
   const [recent, setRecent] = useState<string[]>([]);
+  const [space, setSpace] = useState<"srgb" | "oklch">("srgb");
+  const [oklch, setOklch] = useState({ l: 0.62, c: 0.19, h: 35 });
+  const spaceRef = useRef(space);
+  const oklchRef = useRef(oklch);
+  spaceRef.current = space;
+  oklchRef.current = oklch;
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const liveId = useId();
   const rgb = hsvToRgb(hsva.h, hsva.s, hsva.v);
@@ -216,6 +233,12 @@ export function ColorPicker({
   useEffect(() => {
     if (!open) return;
     setHsva(hsvaFromValue(doc, value, mode));
+    const raw = value && !value.startsWith("$") ? value : value ? String(resolveValue(doc, value, mode)) : "";
+    const parsed = readOklch(raw);
+    if (parsed) {
+      setSpace("oklch");
+      setOklch(parsed);
+    } else setSpace("srgb");
     setRecent(readRecent());
   }, [open, doc, value, mode]);
 
@@ -246,6 +269,25 @@ export function ColorPicker({
     commitColor(toCommit(r, g, b, cur.a));
   };
 
+  const applyOklch = (next: { l: number; c: number; h: number }, a = hsvaRef.current.a, commit = true) => {
+    setOklch(next);
+    const rgbO = oklchToRgb(Math.min(1, Math.max(0, next.l)), Math.max(0, next.c), next.h);
+    const hsv = rgbToHsv(rgbO.r, rgbO.g, rgbO.b);
+    const hsvaNext = { ...hsv, a };
+    setHsva(hsvaNext);
+    hsvaRef.current = hsvaNext;
+    if (commit) commitColor(formatOklch(next.l, next.c, next.h, a));
+  };
+
+  const chooseSpace = (next: "srgb" | "oklch") => {
+    setSpace(next);
+    if (value?.startsWith("$")) return;
+    if (next === "oklch") {
+      const o = rgbToOklch(rgb.r, rgb.g, rgb.b);
+      applyOklch(o, hsva.a);
+    } else commitHsva();
+  };
+
   const setOpenSafe = (next: boolean) => {
     setOpen(next);
   };
@@ -268,7 +310,13 @@ export function ColorPicker({
   };
   const svDrag = usePointerDrag(onSv, commitHsva);
   const hueDrag = usePointerDrag(onHue, commitHsva);
-  const alphaDrag = usePointerDrag(onAlpha, commitHsva);
+  const commitLive = () => {
+    if (spaceRef.current === "oklch") {
+      const o = oklchRef.current;
+      commitColor(formatOklch(o.l, o.c, o.h, hsvaRef.current.a));
+    } else commitHsva();
+  };
+  const alphaDrag = usePointerDrag(onAlpha, commitLive);
 
   const onSvKey = (e: KeyboardEvent) => {
     const step = e.shiftKey ? 0.1 : 0.02;
@@ -293,7 +341,8 @@ export function ColorPicker({
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
     const a = clamp(hsva.a + (e.key === "ArrowRight" ? step : -step), 0, 1);
-    applyHsva({ ...hsva, a });
+    if (space === "oklch") applyOklch(oklch, a);
+    else applyHsva({ ...hsva, a });
   };
 
   const commitHex = () => {
@@ -355,6 +404,67 @@ export function ColorPicker({
           <p id={liveId} className="m-0 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">
             Cor
           </p>
+          <div className="flex gap-1" data-testid="color-space">
+            <button type="button" className={cn(ui.colorToken, space === "srgb" && "is-active")} aria-pressed={space === "srgb"} data-testid="color-space-srgb" onClick={() => chooseSpace("srgb")}>
+              {m.colorSpaceSrgb}
+            </button>
+            <button type="button" className={cn(ui.colorToken, space === "oklch" && "is-active")} aria-pressed={space === "oklch"} data-testid="color-space-oklch" onClick={() => chooseSpace("oklch")}>
+              {m.colorSpaceOklch}
+            </button>
+          </div>
+          {space === "oklch" ? (
+            <div className="grid gap-2">
+              {(
+                [
+                  ["L", m.colorLightness, oklch.l, 1, "color-oklch-l"],
+                  ["C", m.colorChroma, oklch.c, 0.4, "color-oklch-c"],
+                  ["H", m.colorHue, oklch.h, 360, "color-oklch-h"],
+                ] as const
+              ).map(([key, label, valueNow, max, testid]) => (
+                <div key={key}>
+                  <div
+                    role="slider"
+                    tabIndex={0}
+                    aria-label={label}
+                    aria-valuemin={0}
+                    aria-valuemax={max}
+                    aria-valuenow={Math.round(valueNow * (key === "H" ? 1 : 100)) / (key === "H" ? 1 : 100)}
+                    data-testid={testid}
+                    className={ui.colorSlider}
+                    style={{
+                      background:
+                        key === "L"
+                          ? "linear-gradient(to right, #000, #fff)"
+                          : key === "C"
+                            ? `linear-gradient(to right, ${formatOklch(oklch.l, 0, oklch.h, 1)}, ${formatOklch(oklch.l, 0.4, oklch.h, 1)})`
+                            : "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)",
+                    }}
+                    onPointerDown={(e) => {
+                      const el = e.currentTarget;
+                      const move = (ev: PointerEvent) => {
+                        const box = el.getBoundingClientRect();
+                        const t = clamp((ev.clientX - box.left) / box.width, 0, 1) * max;
+                        applyOklch({ ...oklch, [key === "L" ? "l" : key === "C" ? "c" : "h"]: t }, hsvaRef.current.a, false);
+                      };
+                      move(e.nativeEvent);
+                      const up = (ev: PointerEvent) => {
+                        window.removeEventListener("pointermove", move);
+                        window.removeEventListener("pointerup", up);
+                        const box = el.getBoundingClientRect();
+                        const t = clamp((ev.clientX - box.left) / box.width, 0, 1) * max;
+                        applyOklch({ ...oklch, [key === "L" ? "l" : key === "C" ? "c" : "h"]: t });
+                      };
+                      window.addEventListener("pointermove", move);
+                      window.addEventListener("pointerup", up);
+                    }}
+                  >
+                    <span className={ui.colorThumb} style={{ left: `${(valueNow / max) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+          <>
           <div
             role="slider"
             tabIndex={0}
@@ -389,6 +499,8 @@ export function ColorPicker({
           >
             <span className={ui.colorThumb} style={{ left: `${(hsva.h / 360) * 100}%`, background: hueColor }} />
           </div>
+          </>
+          )}
           <div
             role="slider"
             tabIndex={0}
@@ -410,6 +522,20 @@ export function ColorPicker({
             <span className={ui.colorThumb} style={{ left: `${hsva.a * 100}%`, background: preview }} />
           </div>
           <div className="grid grid-cols-2 gap-2">
+            {space === "oklch" ? (
+              <label className={cn(ui.colorChannel, "col-span-2")}>
+                <span>OKLCH</span>
+                <input
+                  aria-label="OKLCH"
+                  data-testid="color-oklch"
+                  value={formatOklch(oklch.l, oklch.c, oklch.h, hsva.a)}
+                  onChange={(e) => {
+                    const parsed = readOklch(e.target.value);
+                    if (parsed) applyOklch(parsed, parsed.a);
+                  }}
+                />
+              </label>
+            ) : (
             <label className={ui.colorChannel}>
               <span>HEX</span>
               <input
@@ -431,6 +557,7 @@ export function ColorPicker({
                 }}
               />
             </label>
+            )}
             <label className={ui.colorChannel}>
               <span>RGB</span>
               <input
@@ -488,7 +615,7 @@ export function ColorPicker({
                       <button
                         type="button"
                         className={ui.colorRecent}
-                        style={{ background: parseCssColor(css) ? css : "#000" }}
+                        style={{ background: browserColor(css) ? css : "#000" }}
                         aria-label={`Recente ${c}`}
                         onClick={() => {
                           commitColor(c);

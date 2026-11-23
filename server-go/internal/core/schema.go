@@ -91,8 +91,20 @@ var (
 		}
 		return "filter needs at least one of blur, saturate, grayscale, brightness, sepia, invert, hueRotate"
 	})
-	padLength    = lengthMin(0)
-	cornerOne    = lengthMin(0)
+	padLength          = lengthMin(0)
+	cornerOne          = lengthMin(0)
+	gradientStopSchema = z.Object(
+		z.Field{Name: "color", Schema: colorValue()},
+		z.Field{Name: "offset", Schema: z.Number().Min(0).Max(1)},
+	)
+	gradientSchema = z.Object(
+		z.Field{Name: "type", Schema: z.Enum("linear", "radial", "conic")},
+		z.Field{Name: "angle", Schema: z.Default(z.Number().Min(-3600).Max(3600), 180.0)},
+		z.Field{Name: "cx", Schema: z.Default(z.Number().Min(0).Max(1), 0.5)},
+		z.Field{Name: "cy", Schema: z.Default(z.Number().Min(0).Max(1), 0.5)},
+		z.Field{Name: "radius", Schema: z.Default(z.Number().Min(0).Max(2), 0.5)},
+		z.Field{Name: "stops", Schema: z.Array(gradientStopSchema).Min(2).Max(12)},
+	)
 	layoutSchema = z.Object(
 		z.Field{Name: "mode", Schema: z.Default(z.Enum("none", "row", "column"), "none")},
 		z.Field{Name: "gap", Schema: z.Default(lengthMin(0), 0.0)},
@@ -121,6 +133,7 @@ func baseFields() []z.Field {
 		{Name: "locked", Schema: z.Default(z.Bool(), false)},
 		{Name: "layoutPositioning", Schema: z.Optional(z.Enum("auto", "absolute"))},
 		{Name: "fill", Schema: z.Optional(colorValue())},
+		{Name: "gradient", Schema: z.Optional(gradientSchema)},
 		{Name: "stroke", Schema: z.Optional(strokeSchema)},
 		{Name: "radius", Schema: z.Default(lengthMin(0), 0.0)},
 		{Name: "shadow", Schema: z.Optional(shadowValue)},
@@ -171,6 +184,7 @@ func pageSchema() *z.ObjectSchema {
 		baseField("id"), baseField("name"), baseField("parentId"),
 		z.Field{Name: "type", Schema: z.Literal("page")},
 		z.Field{Name: "fill", Schema: z.Optional(colorValue())},
+		z.Field{Name: "gradient", Schema: z.Optional(gradientSchema)},
 		z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
 		baseField("notes"), baseField("lintIgnore"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},

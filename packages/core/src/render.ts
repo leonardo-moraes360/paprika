@@ -5,7 +5,9 @@ import {
   connectorAttrs,
   connectorLabelAttrs,
   cssToString,
+  gradientCSS,
   modeOf,
+  nodeGradient,
   nodeStyle,
   pathAttrs,
   resolveValue,
@@ -97,7 +99,7 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, e
       return `<img ${attrs} src="${escapeHtml(node.src)}" alt="${escapeHtml(node.alt)}">`;
     case "path": {
       const a = pathAttrs(doc, node, { vars });
-      return `<svg ${attrs} xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)}><path${svgAttrs(a.path)}/></svg>`;
+      return `<svg ${attrs} xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)}>${a.svgInner}<path${svgAttrs(a.path)}/></svg>`;
     }
     case "connector": {
       const label = connectorLabelAttrs(doc, node, { vars });
@@ -107,7 +109,7 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, e
     case "shape": {
       const a = shapeAttrs(doc, node, { vars });
       const fold = a.fold ? `<path${svgAttrs(a.fold)}/>` : "";
-      return `<div ${attrs}><svg xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)}${emit(SHAPE_SVG_CSS, "shapeSvg")}><path${svgAttrs(a.path)}/>${fold}</svg><div${emit(SHAPE_TEXT_CSS, "shapeText")}>${escapeHtml(node.text)}</div></div>`;
+      return `<div ${attrs}><svg xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)}${emit(SHAPE_SVG_CSS, "shapeSvg")}>${a.svgInner}<path${svgAttrs(a.path)}/>${fold}</svg><div${emit(SHAPE_TEXT_CSS, "shapeText")}>${escapeHtml(node.text)}</div></div>`;
     }
     default:
       return `<div ${attrs}></div>`;
@@ -152,7 +154,8 @@ export function exportParts(doc: Document, opts: RenderOptions, emit: StyleEmitt
     bounds = rootBounds(doc, node.id);
     body = renderNode(doc, node, true, vars, emit);
   } else ({ body, bounds } = renderCanvas(doc, page?.id, vars, emit));
-  const background = opts.background ?? (page?.fill ? String(resolveValue(doc, page.fill, page.mode)) : "#ffffff");
+  const pageGradient = page ? nodeGradient(page) : undefined;
+  const background = opts.background ?? (pageGradient ? gradientCSS(doc, pageGradient, page?.mode, vars) : page?.fill ? String(resolveValue(doc, page.fill, page.mode)) : "#ffffff");
   // Um nó solto herda o modo dos ancestrais: no export ele vai no <body>, que é o novo topo.
   const inherited = node && node.type !== "page" && !modeAttr(node) ? modeOf(doc, node) : page?.mode;
   const bodyMode = vars && inherited ? ` data-paprika-mode="${escapeHtml(inherited)}"` : "";
@@ -214,7 +217,7 @@ export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: stri
           .filter(([, v]) => v !== undefined)
           .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : JSON.stringify(v)}`)
           .join("");
-      return `${indent}<svg${name}${style}${jsx(a.svg)}>\n${indent}  <path${jsx(a.path)} />\n${indent}</svg>`;
+      return `${indent}<svg${name}${style}${jsx(a.svg)}>\n${indent}  ${a.svgInner}<path${jsx(a.path)} />\n${indent}</svg>`;
     }
     case "connector": {
       const label = connectorLabelAttrs(doc, node, { vars });
@@ -224,7 +227,7 @@ export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: stri
     case "shape": {
       const a = shapeAttrs(doc, node, { vars });
       const fold = a.fold ? `\n${indent}    <path${jsxAttrs(a.fold)} />` : "";
-      return `${indent}<div${name}${style}>\n${indent}  <svg${jsxAttrs(a.svg)}${emit(SHAPE_SVG_CSS, "shapeSvg")}>\n${indent}    <path${jsxAttrs(a.path)} />${fold}\n${indent}  </svg>\n${indent}  <div${emit(SHAPE_TEXT_CSS, "shapeText")}>${jsxText(node.text)}</div>\n${indent}</div>`;
+      return `${indent}<div${name}${style}>\n${indent}  <svg${jsxAttrs(a.svg)}${emit(SHAPE_SVG_CSS, "shapeSvg")}>\n${indent}    ${a.svgInner}<path${jsxAttrs(a.path)} />${fold}\n${indent}  </svg>\n${indent}  <div${emit(SHAPE_TEXT_CSS, "shapeText")}>${jsxText(node.text)}</div>\n${indent}</div>`;
     }
     default:
       return `${indent}<div${name}${style} />`;
