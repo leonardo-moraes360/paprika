@@ -656,3 +656,11 @@ Tarefa: desenhar a ação de arquivar na overview e o filtro Arquivados (inglês
 |---|-----------|-----------------|----------|------|
 | 125 | Adicionar ferramentas ao contrato por script | `server-go/contract/mcp.json` é formatado à mão (linhas com `,` soltas, layouts misturados), então reserializar reescreve milhares de linhas; quatro ferramentas e o campo `openPins` em 22 outputSchemas tiveram de entrar como texto | Normalizar o arquivo uma vez (um formatador JSON, checado na CI) para as próximas edições virarem diffs pequenos | P3 |
 | 126 | Saber que o humano deixou um pedido | Antes dos apontamentos, o "faça isto aqui" do humano só chegava ao agente pelo chat | Feito aqui: `list_pins` e `openPins` nos resultados de escrita | — |
+
+## 2026-11-23: canvas em branco com escritas paralelas (PAP-B-067, design first)
+
+Tarefa: desenhar a casca do error boundary (escuro e claro) na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`, frames `che1eu41kh` e `ushnfauvoy`) antes de manter a casca do editor quando um render lança.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 127 | `layout.padding` como tupla de 2 números | `create_nodes` recusou com `op[0]: invalid node: layout.padding: Invalid input`. O erro não disse que só um número ou quatro valores são válidos. Todo padding virou um número só | Citar as formas aceitas nesse erro (um número, ou `[topo, direita, baixo, esquerda]`). O guia já diz isso (#89); a recusa ainda não | P2 |

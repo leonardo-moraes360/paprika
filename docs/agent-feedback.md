@@ -653,3 +653,11 @@ Task: draw the overview archive action and the Archived filter (dark English, da
 |---|--------|---------------|----------|------|
 | 125 | Add tools to the contract with a script | `server-go/contract/mcp.json` is hand-formatted (stray `,` lines, mixed layouts), so re-serializing it rewrites thousands of lines; four tools and an `openPins` field on 22 output schemas had to be inserted as text | Normalize the file once (one JSON formatter, checked in CI) so later edits are small diffs | P3 |
 | 126 | Know the human left a request | Before pins, a human's "do this here" only reached an agent through the chat | Done here: `list_pins` and `openPins` on write results | — |
+
+## 2026-11-23: blank canvas under parallel writes (PAP-B-067, design first)
+
+Task: draw the error-boundary shell (dark and light) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`, frames `che1eu41kh` and `ushnfauvoy`) before keeping the editor shell when a render throws.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 127 | `layout.padding` as a 2-number tuple | `create_nodes` refused it with `op[0]: invalid node: layout.padding: Invalid input`. The error did not say that only one number or four values are valid. Every padding became a single number | Name the accepted shapes in that error (one number, or `[top, right, bottom, left]`). The guide already says this (#89); the refusal still does not | P2 |
