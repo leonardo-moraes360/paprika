@@ -21,6 +21,24 @@ var named = map[string]RGBA{
 	"white":       {255, 255, 255, 1},
 	"black":       {0, 0, 0, 1},
 	"transparent": {0, 0, 0, 0},
+	"silver":      {192, 192, 192, 1},
+	"gray":        {128, 128, 128, 1},
+	"grey":        {128, 128, 128, 1},
+	"maroon":      {128, 0, 0, 1},
+	"red":         {255, 0, 0, 1},
+	"purple":      {128, 0, 128, 1},
+	"fuchsia":     {255, 0, 255, 1},
+	"magenta":     {255, 0, 255, 1},
+	"green":       {0, 128, 0, 1},
+	"lime":        {0, 255, 0, 1},
+	"olive":       {128, 128, 0, 1},
+	"yellow":      {255, 255, 0, 1},
+	"navy":        {0, 0, 128, 1},
+	"blue":        {0, 0, 255, 1},
+	"teal":        {0, 128, 128, 1},
+	"aqua":        {0, 255, 255, 1},
+	"cyan":        {0, 255, 255, 1},
+	"orange":      {255, 165, 0, 1},
 }
 
 // jsWS is JavaScript's \s as an RE2 class body.
@@ -71,6 +89,9 @@ func ParseColor(input string) (RGBA, bool) {
 		}
 		return RGBA{jsonv.ToNumber(m[1]), jsonv.ToNumber(m[2]), jsonv.ToNumber(m[3]), a}, true
 	}
+	if c, ok := parseModernColor(s, ParseColor); ok {
+		return c, true
+	}
 	return RGBA{}, false
 }
 
@@ -107,6 +128,9 @@ func EffectiveBackground(doc *Document, node *Node) (RGBA, bool) {
 		cur = parentOf(doc, node)
 	}
 	for cur != nil {
+		if nodeGradient(cur) != nil {
+			return RGBA{}, false
+		}
 		if fill, ok := cur.Get("fill"); ok {
 			c, ok := ParseColor(jsString(ResolveValue(doc, fill, ModeOf(doc, cur))))
 			if !ok {
@@ -208,6 +232,12 @@ func tokenRefs(n *Node) []string {
 	if n.Str("type") == "text" {
 		ls, _ := n.Get("letterSpacing")
 		check(ls)
+	}
+	if g := nodeGradient(n); g != nil {
+		for _, s := range gradientStops(g) {
+			c, _ := s.Get("color")
+			check(c)
+		}
 	}
 	return refs
 }
@@ -351,7 +381,7 @@ func LintDocumentOpts(doc *Document, opts LintOpts) []LintIssue {
 				w, _ := st.Get("width")
 				sw, _ = ResolveLength(doc, w, ModeOf(doc, node))
 			}
-			if !hasFill && !(sw > 0) {
+			if !hasFill && nodeGradient(node) == nil && !(sw > 0) {
 				add("invisible-path", "warning", id, "a path without fill or stroke is invisible; set fill or stroke {color,width}")
 			}
 		}
@@ -364,6 +394,14 @@ func LintDocumentOpts(doc *Document, opts LintOpts) []LintIssue {
 			fs := fill.(string)
 			if !strings.HasPrefix(fs, "$") && fs != "transparent" {
 				add("raw-color", "info", id, `literal fill "`+fs+`"; prefer a token`)
+			}
+		}
+		if g := nodeGradient(node); g != nil && hasColorTokens && typ != "group" && typ != "connector" {
+			for _, s := range gradientStops(g) {
+				c, _ := s.Get("color")
+				if cs, ok := c.(string); ok && !strings.HasPrefix(cs, "$") {
+					add("raw-color", "info", id, `literal gradient stop "`+cs+`"; prefer a token`)
+				}
 			}
 		}
 
@@ -623,6 +661,9 @@ func opaqueNode(doc *Document, n *Node) bool {
 		return false
 	}
 	if n.Num("opacity") < 0.99 {
+		return false
+	}
+	if nodeGradient(n) != nil {
 		return false
 	}
 	fill, ok := n.Get("fill")

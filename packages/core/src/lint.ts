@@ -1,3 +1,4 @@
+import { parseModernColor } from "./color.js";
 import { layout } from "./layout.js";
 import { round4 } from "./num.js";
 import { placeNum, placementLint } from "./placement.js";
@@ -15,9 +16,27 @@ const NAMED: Record<string, RGBA> = {
   white: { r: 255, g: 255, b: 255, a: 1 },
   black: { r: 0, g: 0, b: 0, a: 1 },
   transparent: { r: 0, g: 0, b: 0, a: 0 },
+  silver: { r: 192, g: 192, b: 192, a: 1 },
+  gray: { r: 128, g: 128, b: 128, a: 1 },
+  grey: { r: 128, g: 128, b: 128, a: 1 },
+  maroon: { r: 128, g: 0, b: 0, a: 1 },
+  red: { r: 255, g: 0, b: 0, a: 1 },
+  purple: { r: 128, g: 0, b: 128, a: 1 },
+  fuchsia: { r: 255, g: 0, b: 255, a: 1 },
+  magenta: { r: 255, g: 0, b: 255, a: 1 },
+  green: { r: 0, g: 128, b: 0, a: 1 },
+  lime: { r: 0, g: 255, b: 0, a: 1 },
+  olive: { r: 128, g: 128, b: 0, a: 1 },
+  yellow: { r: 255, g: 255, b: 0, a: 1 },
+  navy: { r: 0, g: 0, b: 128, a: 1 },
+  blue: { r: 0, g: 0, b: 255, a: 1 },
+  teal: { r: 0, g: 128, b: 128, a: 1 },
+  aqua: { r: 0, g: 255, b: 255, a: 1 },
+  cyan: { r: 0, g: 255, b: 255, a: 1 },
+  orange: { r: 255, g: 165, b: 0, a: 1 },
 };
 
-/** Converte hex/rgb()/rgba()/nomes básicos. Retorna undefined para formatos não suportados (gradientes etc.). */
+/** Converte hex/rgb()/oklch()/color-mix()/color() e nomes básicos. Gradientes ficam de fora. */
 export function parseColor(input: string): RGBA | undefined {
   const s = input.trim().toLowerCase();
   if (NAMED[s]) return NAMED[s];
@@ -34,7 +53,7 @@ export function parseColor(input: string): RGBA | undefined {
     const a = rgb[4] === undefined ? 1 : rgb[4].endsWith("%") ? Number.parseFloat(rgb[4]) / 100 : Number.parseFloat(rgb[4]);
     return { r: +rgb[1]!, g: +rgb[2]!, b: +rgb[3]!, a };
   }
-  return undefined;
+  return parseModernColor(s, parseColor);
 }
 
 function blend(top: RGBA, bottom: RGBA): RGBA {
@@ -61,6 +80,7 @@ export function effectiveBackground(doc: Document, node: Node): RGBA | undefined
   const layers: RGBA[] = [];
   let cur: Node | undefined = node.type === "text" || node.type === "shape" ? node : node.parentId ? doc.nodes[node.parentId] : undefined;
   while (cur) {
+    if (cur.type !== "group" && cur.type !== "connector" && "gradient" in cur && cur.gradient) return undefined;
     if (cur.type !== "group" && cur.type !== "connector" && cur.fill) {
       const c = parseColor(String(resolveValue(doc, cur.fill, modeOf(doc, cur))));
       if (!c) return undefined;
@@ -95,6 +115,9 @@ function tokenRefs(node: Node): string[] {
     return refs;
   }
   check(node.fill);
+  if ("gradient" in node && node.gradient) {
+    for (const stop of node.gradient.stops) check(stop.color);
+  }
   if (node.type === "page") return refs;
   check(node.stroke?.color);
   check(node.stroke?.width);
@@ -192,7 +215,7 @@ export function lintDocument(doc: Document, opts: LintOptions = {}): LintIssue[]
         issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `literal color "${node.color}"; prefer a token` });
     }
 
-    if (node.type === "path" && !node.fill && !(node.stroke && (resolveLength(doc, node.stroke.width, modeOf(doc, node)) ?? 0) > 0))
+    if (node.type === "path" && !node.fill && !node.gradient && !(node.stroke && (resolveLength(doc, node.stroke.width, modeOf(doc, node)) ?? 0) > 0))
       issues.push({
         rule: "invisible-path",
         severity: "warning",
@@ -205,6 +228,12 @@ export function lintDocument(doc: Document, opts: LintOptions = {}): LintIssue[]
 
     if (node.type !== "group" && node.type !== "connector" && hasColorTokens && node.fill && !node.fill.startsWith("$") && node.fill !== "transparent")
       issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `literal fill "${node.fill}"; prefer a token` });
+    if (node.type !== "group" && node.type !== "connector" && hasColorTokens && "gradient" in node && node.gradient) {
+      for (const stop of node.gradient.stops) {
+        if (!stop.color.startsWith("$"))
+          issues.push({ rule: "raw-color", severity: "info", nodeId: id, message: `literal gradient stop "${stop.color}"; prefer a token` });
+      }
+    }
 
     if (node.type === "page") continue;
     if (node.type === "group" && node.children.length === 0)
@@ -250,6 +279,7 @@ export function lintDocument(doc: Document, opts: LintOptions = {}): LintIssue[]
   const opaque = (n: Node) => {
     if (n.type !== "frame" || n.visible === false) return false;
     if (n.opacity < 0.99) return false;
+    if (n.gradient) return false;
     if (!n.fill) return false;
     const c = parseColor(String(resolveValue(doc, n.fill, modeOf(doc, n))));
     return !!c && c.a >= 0.99;
@@ -382,6 +412,7 @@ function isFlowFrame(n: Node | undefined): boolean {
 function opaqueNode(doc: Document, n: Node): boolean {
   if (!shown(n) || n.type === "text" || n.type === "group" || n.type === "connector" || n.type === "page") return false;
   if (n.type !== "frame" && n.type !== "rect" && n.type !== "ellipse" && n.type !== "path" && n.type !== "shape" && n.type !== "image") return false;
+  if ("gradient" in n && n.gradient) return false;
   if (n.opacity < 0.99 || !n.fill) return false;
   const color = parseColor(String(resolveValue(doc, n.fill, modeOf(doc, n))));
   return !!color && color.a >= 0.99;

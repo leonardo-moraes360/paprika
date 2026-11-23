@@ -15,6 +15,7 @@ export function describeNode(n: Node): string {
     return parts.join(" ");
   }
   parts.push(sizeStr(n), `@${n.x},${n.y}`);
+  if (n.type !== "group" && n.type !== "connector" && n.gradient) parts.push(`gradient=${n.gradient.type}`);
   if (n.type !== "group" && n.type !== "connector" && n.fill) parts.push(`fill=${n.fill}`);
   if (n.type === "frame" && n.layout && n.layout.mode !== "none") {
     parts.push(`${n.layout.mode} gap=${n.layout.gap}`);

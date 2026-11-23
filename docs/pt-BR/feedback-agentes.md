@@ -734,14 +734,29 @@ Tarefa: desenhar o inspector da seleção múltipla (alinhar, distribuir, envolv
 - Igual a #123 e #128, ainda aberto: `get_bounds` em `page#interfaces` devolveu caixa de conteúdo vazia, e uma segunda página vazia também se chama `Interfaces` (`h6jut017rv`). Os frames foram posicionados lendo `x`/`y` de profundidade 1 (pousaram em y=4200).
 - `lint_design` nos dois frames ficou limpo depois que o rótulo travado passou a `$ui.destructiveText`.
 
+## 2026-11-23: gradientes estruturados e OKLCH (PAP-B-081, design first)
+
+Tarefa: desenhar o inspector de preenchimento, as alças no canvas e o seletor OKLCH, claro e escuro, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de implementar `gradient` e o parser de cor. Frames em y=5400 e y=5960. PNGs em `docs/assets/boards/PAP-B-081/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 137 | Um vão livre abaixo dos boards | `get_bounds` na página `interfaces` devolveu caixa de conteúdo 0×0 e próximo ponto `0,0`, enquanto os filhos passam de x 8000 e y 5200 | Devolver a união dos filhos quando a página não tem caixa | P2 |
+| 138 | Um botão elipse dentro de um frame com auto layout | `create_nodes` rejeitou o lote inteiro: `unknown fields for ellipse: layoutPositioning` | O erro está certo; o guia deveria dizer que o campo só existe em nós que entram no fluxo | P3 |
+| 139 | Um modo escuro no mock | `mode: "dark"` acusou unknown-mode. Os tokens base já são o tema escuro; só existe `light` | Documentar que o conjunto base é o tema escuro em `Paprica · UI` | P3 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #128: duas páginas chamadas Interfaces. Usou `interfaces` (a que tem filhos), não a página vazia.
+- Igual ao #129: `render_screenshot` gravou em `/data/screenshots` do servidor. Os PNGs foram copiados da URL devolvida.
+- Oito rótulos de 11px avisaram small-text. Os boards não foram redesenhados em 12px.
+
 ## 2026-11-23: tokens tipados e desvincular (PAP-B-082, design first)
 
 Tarefa: desenhar coleções de tokens (claro e escuro) e desvincular (claro e escuro) na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de tokens tipados, coleções nomeadas e `detach_tokens`. Frames `b082tokl`, `b082tokd`, `b082detl`, `b082detd` em y=6680. PNGs em `docs/assets/boards/PAP-B-082/`.
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 138 | O arquivo do screenshot no host | `render_screenshot` com `path` gravou dentro do filesystem do servidor (`/data/screenshots/PAP-B-082/*.png`). As cópias do host saíram de `url` (`/api/screenshot/<id>`) | Igual ao #129: documentar que `path` fica no servidor e que `url` é a saída | P2 |
-| 139 | Cor de abertura num frame escuro | `$ui.primary` no fundo escuro deu 3.54:1. `lint_design` apontou contraste nos kickers | Manter a amostra conhecida (`#ffd2c9`) no guia para texto no canvas escuro | P3 |
+| 140 | O arquivo do screenshot no host | `render_screenshot` com `path` gravou dentro do filesystem do servidor (`/data/screenshots/PAP-B-082/*.png`). As cópias do host saíram de `url` (`/api/screenshot/<id>`) | Igual ao #129: documentar que `path` fica no servidor e que `url` é a saída | P2 |
+| 141 | Cor de abertura num frame escuro | `$ui.primary` no fundo escuro deu 3.54:1. `lint_design` apontou contraste nos kickers | Manter a amostra conhecida (`#ffd2c9`) no guia para texto no canvas escuro | P3 |
 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #128, ainda aberto: `find_nodes` devolve duas páginas chamadas `Interfaces`. Os frames foram para `page#interfaces`.
