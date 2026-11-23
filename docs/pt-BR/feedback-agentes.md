@@ -613,3 +613,17 @@ Tarefa: desenhar o interruptor "Ignorar layout" do inspector (desligado, ligado,
 - Endereçou o workspace pelo id de `list_workspaces`. Não chamou `open_workspace`. Usou a página `interfaces` que já existia (há uma segunda página também chamada Interfaces).
 - O frame de comportamento é um mock: o servidor vivo ainda não aceita `layoutPositioning`, então o selo é um irmão posicionado por x/y, não um filho absoluto de verdade da linha.
 - `lint_design` nos quatro roots: 0 erros e 0 avisos depois de encurtar a dica do estado ligado e deixar os campos em hug.
+
+## 2026-11-23: design dos apontamentos (design first, thread na nuvem)
+
+Tarefa: desenhar a proposta de "apontar um elemento ou área e dizer ao agente o que fazer" (5 quadros: canvas, compositor, painel, contrato MCP, fluxo), primeiro num `paprika serve` na nuvem e depois no Paprika local do mantenedor em `Paprica · UI` (página nova, `workspaceId` em toda escrita, workspace ativo intocado). PNGs em `docs/assets/boards/agent-pins/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 118 | Saber que `lineHeight` é razão | Mandei `lineHeight: 18` (px); o `create_nodes` recusou com "Too big: expected number to be <=10". O guia só diz `lineHeight (n \| "$token")` | Dizer "multiplicador do fontSize (1.4)" no guia e no erro | P3 |
+| 119 | Screenshot de um quadro | `render_screenshot {nodeId}` devolveu a página inteira: o nome certo é `rootId` e o argumento desconhecido foi ignorado em silêncio, então cinco fotos "do quadro" saíram iguais | Recusar argumentos desconhecidos (ou avisar), como as ferramentas de escrita | P2 |
+| 120 | Usar o Chromium do ambiente | `PAPRIKA_CHROMIUM=/opt/pw-browsers/chromium-1243/.../chrome` ainda foi recusado ("build 1243 is installed, but Playwright expects build 1255"); um symlink sem a revisão no caminho funcionou | `PAPRIKA_CHROMIUM` explícito pula a checagem de revisão (só avisa) | P2 |
+| 121 | Desenhar num workspace sem mexer nos tokens dele | Para gravar os quadros em `Paprica · UI` tive de escrever as cores literais, porque `set_tokens` ali poderia sobrescrever tokens do mantenedor com o mesmo nome | `set_tokens {onlyMissing: true}` ou aviso listando os tokens sobrescritos | P3 |
+
+- `workspaceId` em `create_page`/`create_nodes` funcionou bem: os quadros foram para `Paprica · UI` com o canvas parado no workspace ativo do mantenedor.
+- `create_page {ensure: true}` + `place: "free"` posicionou os cinco quadros sem sobreposição e sem coordenadas à mão.
