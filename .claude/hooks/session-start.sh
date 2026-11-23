@@ -5,7 +5,8 @@
 # - Cloud sessions (CLAUDE_CODE_REMOTE=true): installs the pinned tb with `go install` when the
 #   binary on PATH is missing or is not exactly the pinned module, then installs the pnpm
 #   dependencies `tb verify` needs (only when the lockfile changed since the last install).
-# - Local sessions: never installs anything; prints how to install tb if it is missing or stale.
+# - Local sessions: never installs anything; accepts a tb that reports the pinned version (a build
+#   from a toolbelt checkout carries no module hash) and prints how to install tb otherwise.
 #
 # Integrity: `go install` checks the module against sum.golang.org (forced on below), and the
 # installed binary must carry the pinned module hash (`go version -m`) or the hook fails.
@@ -14,8 +15,8 @@
 set -euo pipefail
 
 TB_MODULE=github.com/leonardo-moraes360/toolbelt
-TB_VERSION=v0.0.10
-TB_SUM=h1:q1ojb4SUqVyDLJgZwse+aRq3+/awVOPm/XKCs5nl3jU=
+TB_VERSION=v1.0.0-rc.3
+TB_SUM=h1:Mf5IUY33/nygmQspn6zZoShn8fKje45xrJimXrl49zM=
 
 repo="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$repo"
@@ -28,6 +29,14 @@ tb_pinned() {
   go version -m "$1" 2>/dev/null |
     awk -v m="$TB_MODULE" '$1 == "mod" && $2 == m { print $3, $4 }' |
     grep -qxF "$TB_VERSION $TB_SUM"
+}
+
+# True when $1 reports the pinned version, with or without a module hash (local sessions only).
+tb_version_ok() {
+  [[ -x "$1" ]] || return 1
+  go version -m "$1" 2>/dev/null |
+    awk -v m="$TB_MODULE" '$1 == "mod" && $2 == m { print $3 }' |
+    grep -qxF "$TB_VERSION"
 }
 
 remote=false
@@ -47,6 +56,8 @@ if [[ -n "$on_path" ]] && tb_pinned "$on_path"; then
   tb_bin="$on_path"
 elif tb_pinned "$gobin/tb"; then
   tb_bin="$gobin/tb"
+elif ! $remote && [[ -n "$on_path" ]] && tb_version_ok "$on_path"; then
+  tb_bin="$on_path"
 elif $remote; then
   log "installing $TB_MODULE/cmd/tb@$TB_VERSION into $gobin"
   # Outside any module or workspace, with checksum verification forced on: no GOFLAGS,

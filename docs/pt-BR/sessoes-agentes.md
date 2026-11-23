@@ -8,8 +8,8 @@ O `.claude/settings.json` registra um hook `SessionStart` do Claude Code, `.clau
 
 | Onde | O que o hook faz |
 | --- | --- |
-| Sessão na nuvem (`CLAUDE_CODE_REMOTE=true`) | Se o `tb` do `PATH` (ou de `$(go env GOPATH)/bin`) não for exatamente o módulo fixado, roda `go install github.com/leonardo-moraes360/toolbelt/cmd/tb@v0.0.10`, coloca o binário no `PATH` via `CLAUDE_ENV_FILE`, roda `pnpm install --frozen-lockfile` quando os manifests mudaram e define `PAPRIKA_CHROMIUM=/opt/pw-browsers/chromium` quando esse navegador existe. |
-| Sessão local | Não instala nada. Se o `tb` faltar ou não for a versão fixada, informa ao agente o comando de instalação. |
+| Sessão na nuvem (`CLAUDE_CODE_REMOTE=true`) | Se o `tb` do `PATH` (ou de `$(go env GOPATH)/bin`) não for exatamente o módulo fixado, roda `go install github.com/leonardo-moraes360/toolbelt/cmd/tb@v1.0.0-rc.3`, coloca o binário no `PATH` via `CLAUDE_ENV_FILE`, roda `pnpm install --frozen-lockfile` quando os manifests mudaram e define `PAPRIKA_CHROMIUM=/opt/pw-browsers/chromium` quando esse navegador existe. |
+| Sessão local | Não instala nada. Aceita um `tb` cuja versão de módulo é a fixada (um build feito a partir de um checkout do toolbelt não tem hash de módulo); senão, informa ao agente o comando de instalação. |
 
 A primeira execução num container novo leva cerca de 30 s (o Go baixa a toolchain pedida pelo `go.mod` do toolbelt e compila o `tb`); as seguintes só conferem o binário e terminam em milissegundos. O hook é síncrono: a sessão espera por ele e o `tb` já existe no primeiro turno.
 
@@ -17,9 +17,9 @@ A primeira execução num container novo leva cerca de 30 s (o Go baixa a toolch
 
 - A versão é fixada (`TB_VERSION`) junto com o hash do módulo (`TB_SUM`, a linha `h1:` do `sum.golang.org`).
 - O `go install` roda fora de qualquer módulo com verificação de checksum forçada: `GOSUMDB=sum.golang.org` e `GOFLAGS`, `GONOSUMDB`, `GOPRIVATE`, `GOINSECURE` zerados, então o ambiente não consegue desligá-la. A toolchain do Go baixada (`GOTOOLCHAIN=auto`) é verificada do mesmo jeito.
-- Depois de instalar, o hook lê a linha do módulo embutida no binário (`go version -m`) e falha se não for `v0.0.10` com esse hash exato.
+- Depois de instalar, o hook lê a linha do módulo embutida no binário (`go version -m`) e falha se não for `v1.0.0-rc.3` com esse hash exato.
 
-`tb version` mostra `toolbelt dev`/`commit: unknown` num build via `go install`; use `go version -m "$(command -v tb)"` para ver a versão e o hash do módulo.
+`tb version` mostra a versão num build via `go install`, mas `commit: unknown` e `embed: unavailable (built without embednative)`: o build da nuvem não tem o motor nativo de embeddings, então `tb graph search --mode semantic|hybrid` não funciona lá (busca léxica, verify, guard e mem funcionam). Use `go version -m "$(command -v tb)"` para ver a versão e o hash do módulo.
 
 ## Atualizar o `tb`
 

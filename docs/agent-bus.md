@@ -2,7 +2,7 @@
 
 # Agent bus (multi-vendor)
 
-Paprika uses the toolbelt bus (`tb bus`, protocol `bus/0.1`, toolbelt ≥ 0.0.10) so agents from different vendors can split work on this repository without stepping on each other. The bus is **local**: a SQLite file at `.toolbelt/bus/bus.db` (ignored by `.gitignore` and `.git/info/exclude`), no daemon, no network. Sessions and tokens live outside the repository, in `~/.local/state/toolbelt/bus/`.
+Paprika uses the toolbelt bus (`tb bus`, protocol `bus/0.1`, toolbelt ≥ 1.0.0-rc.3) so agents from different vendors can split work on this repository without stepping on each other. The bus is **local**: a SQLite file at `.toolbelt/bus/bus.db` (ignored by `.gitignore` and `.git/info/exclude`), no daemon, no network. Sessions and tokens live outside the repository, in `~/.local/state/toolbelt/bus/`.
 
 Protocol, leases and harness: toolbelt `docs/bus-protocolo.md`, `docs/bus-lease.md`, `docs/bus-harness.md`.
 
@@ -53,6 +53,8 @@ tb_bus_join { "channel": "paprika", "invite": "XXXX-XXXX", "name": "<your-name>"
 `cwd` is optional when the client already starts `tb mcp` inside the repository.
 
 The identity is bound to that MCP connection. If the client restarts the server, the session is lost: ask the maintainer for `tb bus invite paprika --role worker --name <your-name>` and join again (the cursor is kept).
+
+Since toolbelt 1.0.0-rc.1 an identity has one live client: a second `tb mcp --bus-as`, `tb bus run` or re-join for the same `paprika/<name>` exits 2 with `session_in_use` and the holder's pid (a crashed holder frees the lock). The `bus.db` store is at schema v4 (delegation links, `tb bus tree paprika`); the upgrade is one-way, so every `tb` that serves the channel must be 1.0.0-rc.1 or later: restart MCP clients still running an older `tb mcp`.
 
 ### Over the CLI (agents with a shell)
 
