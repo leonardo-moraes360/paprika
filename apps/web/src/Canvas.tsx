@@ -10,6 +10,7 @@ import {
   anchorsToPath,
   canvasBounds,
   isScene,
+  layout,
   newId,
   pageRoots,
   nodeStyle,
@@ -51,6 +52,8 @@ import {
   type SceneNode,
 } from "@paprika/core";
 import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
+import { childrenSelection, cycleSibling, layersUnderPoint } from "./hierarchy";
+import { LayerMenu } from "./LayerMenu";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { Button } from "./components/ui/button";
 import { Hint } from "./components/ui/tooltip";
@@ -61,6 +64,7 @@ import { PinLayer } from "./Pins";
 import { useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { cx, ui } from "./ui";
+import { boxCorner, knobFromTop, quadHitsRect, resizeBox, type Corner, type Pt } from "./selectionGeom";
 
 /** Drawing tools show a crosshair over the canvas. */
 const CROSSHAIR = new Set<string>(["frame", "rect", "ellipse", "text", "pen"]);
@@ -107,7 +111,7 @@ interface View {
 }
 
 /** Posições/tamanhos provisórios durante um arraste (um ou vários nós). */
-type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number; control?: { x: number; y: number } }>;
+type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number; rotation?: number; control?: { x: number; y: number } }>;
 
 /** How long a dropped preview waits for the server before giving way to what the server has. */
 const PENDING_MS = 3000;
@@ -142,7 +146,7 @@ function samePreview(a: Preview, b: Preview): boolean {
         const bc = v as { x: number; y: number } | undefined;
         return !!ac && !!bc && ac.x === bc.x && ac.y === bc.y;
       }
-      return a[id]?.[k as "x" | "y" | "width" | "height"] === v;
+      return a[id]?.[k as "x" | "y" | "width" | "height" | "rotation"] === v;
     }),
   );
 }
@@ -410,6 +414,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
     if (pv.y !== undefined) css.top = pv.y;
     if (pv.width !== undefined) css.width = pv.width;
     if (pv.height !== undefined) css.height = pv.height;
+    if (pv.rotation !== undefined) css.transform = pv.rotation ? `rotate(${pv.rotation}deg)` : "none";
   }
   const props = {
     "data-paprika-id": node.id,
@@ -625,10 +630,30 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       return doc;
     }
   }, [doc, preview]);
+  const previewDoc = useMemo(() => {
+    if (!preview) return doc;
+    const nodes = { ...doc.nodes };
+    let changed = false;
+    for (const [id, pv] of Object.entries(preview)) {
+      const n = nodes[id];
+      if (!n) continue;
+      nodes[id] = { ...n, ...pv } as Node;
+      changed = true;
+    }
+    return changed ? { ...doc, nodes } : doc;
+  }, [doc, preview]);
+  const placed = useMemo(() => {
+    try {
+      return layout(previewDoc, pageId ? { rootId: pageId } : {});
+    } catch {
+      return {};
+    }
+  }, [previewDoc, pageId]);
   const [marquee, setMarquee] = useState<Marquee | null>(null);
   /** Caixa que envolve a seleção, e a de cada nó quando há mais de um. */
   const [box, setBox] = useState<Rect | null>(null);
   const [boxes, setBoxes] = useState<(Rect & { id: string })[]>([]);
+  const [quads, setQuads] = useState<{ id: string; width: number; height: number; corners: Pt[] }[]>([]);
   /** Alvo de reparent/reordenação durante o arraste (anel + marcador de inserção). */
   const [dropUi, setDropUi] = useState<{ highlight: Rect | null; marker: Rect | null } | null>(null);
   const [dragIds, setDragIds] = useState<string[] | null>(null);
@@ -673,7 +698,21 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const vp = viewportRef.current;
     if (!vp) return;
     const vpr = vp.getBoundingClientRect();
+    const toVp = (p: { x: number; y: number }) => ({ x: view.x + p.x * view.zoom, y: view.y + p.y * view.zoom });
+    const quadList: { id: string; width: number; height: number; corners: Pt[] }[] = [];
     const rects = selected.flatMap((id) => {
+      const n = previewDoc.nodes[id];
+      const geom = placed[id];
+      const rot = n && n.type !== "group" && n.type !== "connector" && n.type !== "page" ? n.rotation : 0;
+      if (geom && rot) {
+        const corners = geom.corners.map(toVp);
+        quadList.push({ id, width: geom.width, height: geom.height, corners });
+        const left = Math.min(...corners.map((p) => p.x));
+        const top = Math.min(...corners.map((p) => p.y));
+        const right = Math.max(...corners.map((p) => p.x));
+        const bottom = Math.max(...corners.map((p) => p.y));
+        return [{ id, left, top, width: right - left, height: bottom - top }];
+      }
       const el = vp.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(id)}"]`);
       if (!el) return [];
       const r = el.getBoundingClientRect();
@@ -686,7 +725,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       const bottom = Math.max(...rects.map((r) => r.top + r.height));
       setBox({ left, top, width: right - left, height: bottom - top });
     } else setBox(null);
-    setBoxes(rects.length > 1 ? rects : []);
+    setBoxes(rects.length > 1 ? rects.filter((r) => !quadList.some((q) => q.id === r.id)) : []);
+    setQuads(quadList);
     setFrameLabels(
       roots.flatMap((id) => {
         const n = doc.nodes[id];
@@ -696,12 +736,15 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         return [{ id, name: n.name || id, left: r.left - vpr.left, top: r.top - vpr.top }];
       }),
     );
-  }, [doc, selected, view, preview, roots]);
+  }, [doc, selected, view, preview, roots, placed, previewDoc]);
 
   // Caneta (P): clique cria um vértice reto; clicar e arrastar puxa alças bezier simétricas.
   // Clicar no primeiro vértice fecha a forma; Enter, Esc ou duplo clique terminam aberta; Backspace desfaz o último vértice.
   const [pen, setPen] = useState<PenDraft | null>(null);
   const penRef = useRef(pen);
+  const [layerMenu, setLayerMenu] = useState<{ x: number; y: number; ids: string[] } | null>(null);
+  const layerMenuRef = useRef(layerMenu);
+  layerMenuRef.current = layerMenu;
   penRef.current = pen;
 
   /** Converte coordenadas da tela para o espaço local de um frame (ou do canvas, se null). */
@@ -807,6 +850,50 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [finishPen]);
+
+  useEffect(() => {
+    const typing = (t: EventTarget | null) =>
+      t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || (t instanceof HTMLElement && t.isContentEditable);
+    const keyboardFocus = (t: EventTarget | null) => t instanceof HTMLElement && t !== document.body && t.matches(":focus-visible");
+    const onKey = (e: KeyboardEvent) => {
+      if (typing(e.target) || keyboardFocus(e.target)) return;
+      if (layerMenuRef.current) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") return;
+        if (e.key === "Escape" || e.key === "Tab") {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          if (e.key === "Escape") setLayerMenu(null);
+          return;
+        }
+        setLayerMenu(null);
+        return;
+      }
+      if (penRef.current || pathEditRef.current) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (e.key === "Enter" && !mod && !e.altKey && !e.shiftKey) {
+        if (e.repeat) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return;
+        }
+        const kids = childrenSelection(doc, selected);
+        if (!kids.length) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onSelect(kids);
+        return;
+      }
+      if (e.key === "Tab" && !mod && !e.altKey) {
+        const next = cycleSibling(doc, selected, e.shiftKey ? -1 : 1);
+        if (!next) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onSelect([next]);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [doc, onSelect, selected]);
 
   const onPenDown = (e: RPointerEvent<HTMLDivElement>) => {
     let draft = penRef.current;
@@ -1305,8 +1392,9 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
 
     const additive = e.shiftKey || e.metaKey || e.ctrlKey;
     if (!target) return startMarquee(e, additive);
-    const id = pickTarget(doc, target.dataset.paprikaId!, selected);
-    if (additive) {
+    const deep = e.ctrlKey && !e.metaKey && !e.shiftKey;
+    const id = deep ? target.dataset.paprikaId! : pickTarget(doc, target.dataset.paprikaId!, selected);
+    if (additive && !deep) {
       onSelect(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]);
       return;
     }
@@ -1456,7 +1544,15 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const hits = () => {
       const [l, r] = [Math.min(m.x0, m.x1), Math.max(m.x0, m.x1)];
       const [t, b] = [Math.min(m.y0, m.y1), Math.max(m.y0, m.y1)];
+      const area = { left: l, top: t, right: r, bottom: b };
       return roots.filter((id) => {
+        const n = doc.nodes[id];
+        const geom = placed[id];
+        const rot = n && n.type !== "group" && n.type !== "connector" && n.type !== "page" ? n.rotation : 0;
+        if (geom && rot) {
+          const corners = geom.corners.map((p) => ({ x: view.x + p.x * view.zoom, y: view.y + p.y * view.zoom }));
+          return quadHitsRect(corners, area);
+        }
         const el = viewportRef.current!.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(id)}"]`);
         if (!el) return false;
         const rr = el.getBoundingClientRect();
@@ -1508,6 +1604,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
 
   const single = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
   const resizable = !!single && single.type !== "group" && single.type !== "page" && single.type !== "connector" && !isInstance(single) && !copyOwner(doc, single);
+  const sole = quads.length === 1 && selected.length === 1 ? quads[0] : undefined;
   const curveConn = single?.type === "connector" && single.route === "curve" && !single.locked && !copyOwner(doc, single) ? (shown.nodes[single.id] as ConnectorNode) : null;
   const curveHandle = curveConn ? connectorCurveHandle(shown, curveConn) : null;
   const onCurveHandleDown = (e: RPointerEvent) => {
@@ -1542,10 +1639,63 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     window.addEventListener("pointerup", up);
   };
   const [resizeLock, setResizeLock] = useState<"ratio" | "square" | null>(null);
-  const onResizeDown = (corner: "nw" | "ne" | "sw" | "se") => (e: RPointerEvent) => {
+  const onRotateDown = (e: RPointerEvent) => {
     e.stopPropagation();
     const node = single;
-    if (!node || !box || !resizable || node.type === "page" || node.locked || !isScene(node)) return;
+    if (!node || !resizable || !isScene(node) || node.type === "connector" || node.type === "group" || node.locked) return;
+    const id = node.id;
+    const shownAt = previewRef.current?.[id];
+    const x0 = shownAt?.x ?? node.x;
+    const y0 = shownAt?.y ?? node.y;
+    const w0 = shownAt?.width ?? (typeof node.width === "number" ? node.width : 1);
+    const h0 = shownAt?.height ?? (typeof node.height === "number" ? node.height : 1);
+    const rot0 = shownAt?.rotation ?? node.rotation;
+    const parent = node.parentId ? previewDoc.nodes[node.parentId] : undefined;
+    const geom = parent && parent.type !== "page" ? placed[parent.id] : undefined;
+    const origin = { x: geom?.x ?? 0, y: geom?.y ?? 0 };
+    const center = { x: x0 + w0 / 2, y: y0 + h0 / 2 };
+    const local = (cx: number, cy: number) => {
+      const w = toWorld(cx, cy);
+      return { x: w.x - origin.x, y: w.y - origin.y };
+    };
+    const start = local(e.clientX, e.clientY);
+    const startAngle = Math.atan2(start.y - center.y, start.x - center.x);
+    takeOverPreview();
+    let last = { rotation: rot0 };
+    const held = { shift: e.shiftKey };
+    let lastClient = { x: e.clientX, y: e.clientY };
+    const applyAt = (cx: number, cy: number) => {
+      const p = local(cx, cy);
+      let rotation = rot0 + ((Math.atan2(p.y - center.y, p.x - center.x) - startAngle) * 180) / Math.PI;
+      if (held.shift) rotation = Math.round(rotation / 15) * 15;
+      last = { rotation: Math.round(rotation * 100) / 100 };
+      setPreview({ [id]: last });
+    };
+    const move = (ev: PointerEvent) => {
+      held.shift = ev.shiftKey;
+      lastClient = { x: ev.clientX, y: ev.clientY };
+      applyAt(ev.clientX, ev.clientY);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      held.shift = ev.shiftKey || ev.getModifierState("Shift");
+      applyAt(lastClient.x, lastClient.y);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      commitPreview({ [id]: last }, [{ op: "update", id, props: last }], "girar");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+  };
+  const onResizeDown = (corner: Corner) => (e: RPointerEvent) => {
+    e.stopPropagation();
+    const node = single;
+    if (!node || !box || !resizable || node.type === "page" || node.type === "group" || node.type === "connector" || node.locked || !isScene(node)) return;
     const id = node.id;
     const sx = e.clientX;
     const sy = e.clientY;
@@ -1557,6 +1707,12 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const h0 = shownAt?.height ?? (typeof node.height === "number" ? node.height : box.height / view.zoom);
     const ratio0 = w0 / Math.max(h0, 1e-6);
     const absolute = isAbsolute(doc, node);
+    const rot = shownAt?.rotation ?? node.rotation;
+    const parent = node.parentId ? previewDoc.nodes[node.parentId] : undefined;
+    const geom = parent && parent.type !== "page" ? placed[parent.id] : undefined;
+    const origin = { x: geom?.x ?? 0, y: geom?.y ?? 0 };
+    const opposite: Record<Corner, Corner> = { nw: "se", ne: "sw", se: "nw", sw: "ne" };
+    const fixed = boxCorner(x0, y0, w0, h0, rot, opposite[corner]);
     let last: { x?: number; y?: number; width: number; height: number } = {
       width: Math.round(w0),
       height: Math.round(h0),
@@ -1565,6 +1721,19 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const held = { shift: e.shiftKey, alt: e.altKey };
     let lastClient = { x: e.clientX, y: e.clientY };
     const applyAt = (clientX: number, clientY: number) => {
+      const lock: "ratio" | "square" | null = held.shift ? (held.alt ? "square" : "ratio") : null;
+      setResizeLock(lock);
+      if (rot) {
+        const world = toWorld(clientX, clientY);
+        const next = resizeBox(corner, fixed, { x: world.x - origin.x, y: world.y - origin.y }, rot, lock, ratio0, w0, h0);
+        last = {
+          width: next.width,
+          height: next.height,
+          ...(absolute ? { x: next.x, y: next.y } : {}),
+        };
+        setPreview({ [id]: last });
+        return;
+      }
       const dx = (clientX - sx) / view.zoom;
       const dy = (clientY - sy) / view.zoom;
       let left = x0;
@@ -1583,8 +1752,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         if (corner === "nw" || corner === "ne") top = bottom - 1;
         else bottom = top + 1;
       }
-      const lock: "ratio" | "square" | null = held.shift ? (held.alt ? "square" : "ratio") : null;
-      setResizeLock(lock);
       if (lock) {
         let width = right - left;
         let height = bottom - top;
@@ -1761,6 +1928,14 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       onPointerDown={onPointerDown}
       onPointerMove={pen ? onPenHover : undefined}
       onDoubleClick={pen ? onPenDouble : onDeepSelect}
+      onContextMenu={(e) => {
+        if (tool !== "select" || pen) return;
+        if ((e.target as Element).closest?.('[data-testid="layer-menu"]')) return;
+        const ids = layersUnderPoint(doc, e.clientX, e.clientY, viewportRef.current);
+        if (!ids.length) return;
+        e.preventDefault();
+        setLayerMenu({ x: e.clientX, y: e.clientY, ids });
+      }}
       onDragEnter={onFileDragOver}
       onDragOver={onFileDragOver}
       onDragLeave={(e) => {
@@ -1775,6 +1950,19 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       data-testid="viewport"
       data-file-over={fileOver ? "1" : undefined}
     >
+      {layerMenu && (
+        <LayerMenu
+          doc={doc}
+          ids={layerMenu.ids}
+          x={layerMenu.x}
+          y={layerMenu.y}
+          onSelect={(id) => {
+            onSelect([id]);
+            setLayerMenu(null);
+          }}
+          onClose={() => setLayerMenu(null)}
+        />
+      )}
       {renderer === "wasm" && <canvas ref={wasmLayer.canvasRef} className="pointer-events-none absolute inset-0 size-full" data-testid="wasm-layer" data-backend={wasmLayer.status.backend} />}
       <div
         ref={worldRef}
@@ -1844,7 +2032,74 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       {boxes.map((b) => (
         <div key={b.id} className="pointer-events-none absolute border border-select opacity-70" style={{ left: b.left, top: b.top, width: b.width, height: b.height }} />
       ))}
-      {box && (
+      {quads
+        .filter((q) => q !== sole)
+        .map((q) => (
+          <svg key={q.id} className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden>
+            <polygon points={q.corners.map((p) => `${p.x},${p.y}`).join(" ")} className="fill-none stroke-select" strokeWidth={1} />
+          </svg>
+        ))}
+      {sole && box && (
+        <div className="pointer-events-none absolute inset-0" data-testid="selection" data-count={selected.length}>
+          <svg className="absolute inset-0 size-full overflow-visible">
+            <polygon points={sole.corners.map((p) => `${p.x},${p.y}`).join(" ")} className="fill-none stroke-select" strokeWidth={1.5} />
+            {(() => {
+              const { mid, knob } = knobFromTop(sole.corners[0]!, sole.corners[1]!, 22);
+              return <line x1={mid.x} y1={mid.y} x2={knob.x} y2={knob.y} className="stroke-select" strokeWidth={1.5} />;
+            })()}
+          </svg>
+          {([
+            ["nw", "Redimensionar canto superior esquerdo", "cursor-nwse-resize"],
+            ["ne", "Redimensionar canto superior direito", "cursor-nesw-resize"],
+            ["sw", "Redimensionar canto inferior esquerdo", "cursor-nesw-resize"],
+            ["se", "Redimensionar canto inferior direito", "cursor-nwse-resize"],
+          ] as const).map(([corner, label, cursor]) => {
+            const i = { nw: 0, ne: 1, se: 2, sw: 3 }[corner];
+            const p = sole.corners[i]!;
+            return (
+              <Hint key={corner} label={label}>
+                <div
+                  className={cx("pointer-events-auto absolute size-[9px] -translate-x-1/2 -translate-y-1/2 border-[1.5px] border-select bg-white", cursor)}
+                  style={{ left: p.x, top: p.y }}
+                  data-resize={corner}
+                  onPointerDown={onResizeDown(corner)}
+                />
+              </Hint>
+            );
+          })}
+          {(() => {
+            const { knob } = knobFromTop(sole.corners[0]!, sole.corners[1]!, 22);
+            return (
+              <Hint label={m.rotateHint}>
+                <div
+                  className="pointer-events-auto absolute size-3 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-[1.5px] border-select bg-white active:cursor-grabbing"
+                  style={{ left: knob.x, top: knob.y }}
+                  data-testid="rotate-handle"
+                  aria-label={m.rotate}
+                  onPointerDown={onRotateDown}
+                />
+              </Hint>
+            );
+          })()}
+          <div
+            className="absolute -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink"
+            style={{ left: box.left + box.width / 2, top: box.top + box.height + 6 }}
+          >
+            {Math.round(sole.width)} × {Math.round(sole.height)}
+          </div>
+          {resizeLock && (
+            <div
+              className="absolute -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink"
+              style={{ left: box.left + box.width / 2, top: box.top + box.height + 28 }}
+              data-testid="resize-lock-hint"
+              data-lock={resizeLock}
+            >
+              {resizeLock === "square" ? m.ratioLockAlt : m.ratioLock}
+            </div>
+          )}
+        </div>
+      )}
+      {box && !sole && (
         <div className={cx("pointer-events-none absolute border-[1.5px] border-select", selected.length > 1 && "border-dashed")} style={box} data-testid="selection" data-count={selected.length}>
           {resizable && !editView && (
             <>

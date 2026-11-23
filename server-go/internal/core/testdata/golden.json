@@ -21237,7 +21237,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: invalid node: shadow.y: Invalid input: expected number, received undefined; shadow.blur: Invalid input: expected number, received undefined; shadow.color: Invalid input: expected string, received undefined"
+   "error": "op[0]: invalid node: shadow: Invalid input"
   },
   {
    "doc": "empty",
@@ -25119,6 +25119,144 @@
     "card",
     "label",
     "modal"
+   ]
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
+      "id": "r",
+      "shadow": [
+       {
+        "x": 0,
+        "y": 8,
+        "blur": 16,
+        "spread": 0,
+        "color": "#00000055"
+       },
+       {
+        "x": 0,
+        "y": 2,
+        "blur": 6,
+        "color": "#4cc7d8",
+        "inner": true
+       }
+      ],
+      "outline": {
+       "color": "#4cc7d8",
+       "width": 2,
+       "style": "dashed",
+       "offset": 2
+      },
+      "filter": {
+       "blur": 1,
+       "saturate": 1.2,
+       "grayscale": 0,
+       "hueRotate": 15
+      },
+      "backdropFilter": {
+       "blur": 8
+      }
+     }
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"r\"\n  ],\n  \"nodes\": {\n    \"r\": {\n      \"id\": \"r\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": [\n        {\n          \"x\": 0,\n          \"y\": 8,\n          \"blur\": 16,\n          \"spread\": 0,\n          \"color\": \"#00000055\"\n        },\n        {\n          \"x\": 0,\n          \"y\": 2,\n          \"blur\": 6,\n          \"spread\": 0,\n          \"color\": \"#4cc7d8\",\n          \"inner\": true\n        }\n      ],\n      \"outline\": {\n        \"color\": \"#4cc7d8\",\n        \"width\": 2,\n        \"style\": \"dashed\",\n        \"offset\": 2\n      },\n      \"filter\": {\n        \"blur\": 1,\n        \"saturate\": 1.2,\n        \"grayscale\": 0,\n        \"hueRotate\": 15\n      },\n      \"backdropFilter\": {\n        \"blur\": 8\n      },\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"delete\",\"id\":\"r\"}]",
+   "created": [
+    "r"
+   ]
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "path",
+      "id": "p",
+      "d": "M0 0 L10 10",
+      "shadow": [
+       {
+        "x": 1,
+        "y": 2,
+        "blur": 3,
+        "color": "#000"
+       },
+       {
+        "x": 0,
+        "y": 0,
+        "blur": 4,
+        "color": "#fff",
+        "inner": true
+       }
+      ]
+     }
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"p\"\n  ],\n  \"nodes\": {\n    \"p\": {\n      \"id\": \"p\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 10,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": [\n        {\n          \"x\": 1,\n          \"y\": 2,\n          \"blur\": 3,\n          \"spread\": 0,\n          \"color\": \"#000\"\n        },\n        {\n          \"x\": 0,\n          \"y\": 0,\n          \"blur\": 4,\n          \"spread\": 0,\n          \"color\": \"#fff\",\n          \"inner\": true\n        }\n      ],\n      \"type\": \"path\",\n      \"d\": \"M0 0 L10 10\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"delete\",\"id\":\"p\"}]",
+   "created": [
+    "p"
+   ]
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
+      "id": "r",
+      "filter": {}
+     }
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: invalid node: filter: filter needs at least one of blur, saturate, grayscale, brightness, sepia, invert, hueRotate"
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
+      "id": "r",
+      "shadow": []
+     }
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: invalid node: shadow: Too small: expected array to have >=1 items"
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
+      "id": "r",
+      "shadow": {
+       "x": 0,
+       "y": 1,
+       "blur": 2,
+       "color": "#000",
+       "inner": true
+      }
+     }
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"r\"\n  ],\n  \"nodes\": {\n    \"r\": {\n      \"id\": \"r\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": {\n        \"x\": 0,\n        \"y\": 1,\n        \"blur\": 2,\n        \"spread\": 0,\n        \"color\": \"#000\",\n        \"inner\": true\n      },\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"delete\",\"id\":\"r\"}]",
+   "created": [
+    "r"
    ]
   }
  ],
@@ -43588,6 +43726,219 @@
      "modal"
     ]
    }
+  },
+  {
+   "name": "op238",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"r\"\n  ],\n  \"nodes\": {\n    \"r\": {\n      \"id\": \"r\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": [\n        {\n          \"x\": 0,\n          \"y\": 8,\n          \"blur\": 16,\n          \"spread\": 0,\n          \"color\": \"#00000055\"\n        },\n        {\n          \"x\": 0,\n          \"y\": 2,\n          \"blur\": 6,\n          \"spread\": 0,\n          \"color\": \"#4cc7d8\",\n          \"inner\": true\n        }\n      ],\n      \"outline\": {\n        \"color\": \"#4cc7d8\",\n        \"width\": 2,\n        \"style\": \"dashed\",\n        \"offset\": 2\n      },\n      \"filter\": {\n        \"blur\": 1,\n        \"saturate\": 1.2,\n        \"grayscale\": 0,\n        \"hueRotate\": 15\n      },\n      \"backdropFilter\": {\n        \"blur\": 8\n      },\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "outline": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "outlineDepth0": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "outlineDepth1": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "lint": "[]",
+   "lintRoots": {
+    "r": "[]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)\"></div></body></html>",
+   "htmlRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)\"></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "r": "export function R() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", boxShadow: \"0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8\", outline: \"2px dashed #4cc7d8\", outlineOffset: \"2px\", filter: \"blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg)\", backdropFilter: \"blur(8px)\" }} />\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)\"></div></body></html>",
+   "htmlVarsRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)\"></div></body></html>"
+   },
+   "reactVars": {
+    "r": "export const tokensCss = \":root{}\";\n\nexport function R() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", boxShadow: \"0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8\", outline: \"2px dashed #4cc7d8\", outlineOffset: \"2px\", filter: \"blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg)\", backdropFilter: \"blur(8px)\" }} />\n  );\n}\n"
+   },
+   "tailwind": {
+    "r": "export function R() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[0px_8px_16px_0px_#00000055,_inset_0px_2px_6px_0px_#4cc7d8] outline-[2px_dashed_#4cc7d8] outline-offset-[2px] filter-[blur(1px)_saturate(1.2)_grayscale(0)_hue-rotate(15deg)] backdrop-filter-[blur(8px)]\" />\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "r": "export const tokensCss = \":root{}\";\n\nexport function R() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[0px_8px_16px_0px_#00000055,_inset_0px_2px_6px_0px_#4cc7d8] outline-[2px_dashed_#4cc7d8] outline-offset-[2px] filter-[blur(1px)_saturate(1.2)_grayscale(0)_hue-rotate(15deg)] backdrop-filter-[blur(8px)]\" />\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[0px_8px_16px_0px_#00000055,_inset_0px_2px_6px_0px_#4cc7d8] outline-[2px_dashed_#4cc7d8] outline-offset-[2px] filter-[blur(1px)_saturate(1.2)_grayscale(0)_hue-rotate(15deg)] backdrop-filter-[blur(8px)]\"></div></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[0px_8px_16px_0px_#00000055,_inset_0px_2px_6px_0px_#4cc7d8] outline-[2px_dashed_#4cc7d8] outline-offset-[2px] filter-[blur(1px)_saturate(1.2)_grayscale(0)_hue-rotate(15deg)] backdrop-filter-[blur(8px)]\"></div></body></html>",
+   "tailwindHtmlRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[0px_8px_16px_0px_#00000055,_inset_0px_2px_6px_0px_#4cc7d8] outline-[2px_dashed_#4cc7d8] outline-offset-[2px] filter-[blur(1px)_saturate(1.2)_grayscale(0)_hue-rotate(15deg)] backdrop-filter-[blur(8px)]\"></div></body></html>"
+   },
+   "cssModules": {
+    "r": "{\"component\":\"import styles from \\\"./R.module.css\\\";\\n\\nexport function R() {\\n  return (\\n    <div className={styles.r} />\\n  );\\n}\\n\",\"css\":\".r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n\",\"fileName\":\"R.module.css\"}"
+   },
+   "cssModulesVars": {
+    "r": "{\"component\":\"import styles from \\\"./R.module.css\\\";\\n\\nexport function R() {\\n  return (\\n    <div className={styles.r} />\\n  );\\n}\\n\",\"css\":\":root{}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n\",\"fileName\":\"R.module.css\"}"
+   },
+   "angular": {
+    "r": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-r\\\",\\n  standalone: true,\\n  templateUrl: \\\"./R.component.html\\\",\\n  styleUrl: \\\"./R.component.css\\\",\\n})\\nexport class R {}\\n\",\"template\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\",\"styles\":\".r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n\",\"className\":\"R\",\"selector\":\"app-r\",\"fileBase\":\"R\"}"
+   },
+   "angularVars": {
+    "r": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-r\\\",\\n  standalone: true,\\n  templateUrl: \\\"./R.component.html\\\",\\n  styleUrl: \\\"./R.component.css\\\",\\n})\\nexport class R {}\\n\",\"template\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\",\"styles\":\":root{}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n\",\"className\":\"R\",\"selector\":\"app-r\",\"fileBase\":\"R\"}"
+   },
+   "svelte": {
+    "r": "{\"source\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\\n<style>\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n</style>\\n\",\"fileName\":\"R.svelte\"}"
+   },
+   "svelteVars": {
+    "r": "{\"source\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\\n<style>\\n:global(:root){}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n</style>\\n\",\"fileName\":\"R.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"r\"></div></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"r\"></div></body></html>",
+   "describe": {
+    "r": "rect#r 100×100 @0,0"
+   },
+   "style": {
+    "r": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)"
+   },
+   "find": {
+    "text": [],
+    "nameA": [],
+    "textE": [],
+    "within": [
+     "r"
+    ]
+   }
+  },
+  {
+   "name": "op239",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"p\"\n  ],\n  \"nodes\": {\n    \"p\": {\n      \"id\": \"p\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 10,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": [\n        {\n          \"x\": 1,\n          \"y\": 2,\n          \"blur\": 3,\n          \"spread\": 0,\n          \"color\": \"#000\"\n        },\n        {\n          \"x\": 0,\n          \"y\": 0,\n          \"blur\": 4,\n          \"spread\": 0,\n          \"color\": \"#fff\",\n          \"inner\": true\n        }\n      ],\n      \"type\": \"path\",\n      \"d\": \"M0 0 L10 10\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    }\n  }\n}",
+   "outline": "path#p 10×10 @0,0 d=\"M0 0 L10 10\"\ncontent: x=0 y=0 w=10 h=10\nnext: x=90 y=0",
+   "outlineDepth0": "path#p 10×10 @0,0 d=\"M0 0 L10 10\"\ncontent: x=0 y=0 w=10 h=10\nnext: x=90 y=0",
+   "outlineDepth1": "path#p 10×10 @0,0 d=\"M0 0 L10 10\"\ncontent: x=0 y=0 w=10 h=10\nnext: x=90 y=0",
+   "lint": "[{\"rule\":\"invisible-path\",\"severity\":\"warning\",\"nodeId\":\"p\",\"message\":\"a path without fill or stroke is invisible; set fill or stroke {color,width}\"}]",
+   "lintRoots": {
+    "p": "[{\"rule\":\"invisible-path\",\"severity\":\"warning\",\"nodeId\":\"p\",\"message\":\"a path without fill or stroke is invisible; set fill or stroke {color,width}\"}]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "htmlRoots": {
+    "p": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "p": "export function P() {\n  return (\n    <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"10px\", flexShrink: 0, height: \"10px\", overflow: \"visible\", display: \"block\", filter: \"drop-shadow(1px 2px 3px #000)\", boxShadow: \"inset 0px 0px 4px 0px #fff\" }}>\n      <path d=\"M0 0 L10 10\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "htmlVarsRoots": {
+    "p": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>"
+   },
+   "reactVars": {
+    "p": "export const tokensCss = \":root{}\";\n\nexport function P() {\n  return (\n    <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"10px\", flexShrink: 0, height: \"10px\", overflow: \"visible\", display: \"block\", filter: \"drop-shadow(1px 2px 3px #000)\", boxShadow: \"inset 0px 0px 4px 0px #fff\" }}>\n      <path d=\"M0 0 L10 10\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n"
+   },
+   "tailwind": {
+    "p": "export function P() {\n  return (\n    <svg className=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px] overflow-visible block drop-shadow-[1px_2px_3px_#000] shadow-[inset_0px_0px_4px_0px_#fff]\">\n      <path d=\"M0 0 L10 10\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "p": "export const tokensCss = \":root{}\";\n\nexport function P() {\n  return (\n    <svg className=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px] overflow-visible block drop-shadow-[1px_2px_3px_#000] shadow-[inset_0px_0px_4px_0px_#fff]\">\n      <path d=\"M0 0 L10 10\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[10px] h-[10px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><svg data-paprika-id=\"p\" data-paprika-type=\"path\" class=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px] overflow-visible block drop-shadow-[1px_2px_3px_#000] shadow-[inset_0px_0px_4px_0px_#fff]\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[10px] h-[10px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><svg data-paprika-id=\"p\" data-paprika-type=\"path\" class=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px] overflow-visible block drop-shadow-[1px_2px_3px_#000] shadow-[inset_0px_0px_4px_0px_#fff]\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "tailwindHtmlRoots": {
+    "p": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[10px] h-[10px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><svg data-paprika-id=\"p\" data-paprika-type=\"path\" class=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px] overflow-visible block drop-shadow-[1px_2px_3px_#000] shadow-[inset_0px_0px_4px_0px_#fff]\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>"
+   },
+   "cssModules": {
+    "p": "{\"component\":\"import styles from \\\"./P.module.css\\\";\\n\\nexport function P() {\\n  return (\\n    <svg className={styles.p}>\\n      <path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fillRule=\\\"nonzero\\\" strokeLinecap=\\\"round\\\" strokeLinejoin=\\\"round\\\" />\\n    </svg>\\n  );\\n}\\n\",\"css\":\".p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n\",\"fileName\":\"P.module.css\"}"
+   },
+   "cssModulesVars": {
+    "p": "{\"component\":\"import styles from \\\"./P.module.css\\\";\\n\\nexport function P() {\\n  return (\\n    <svg className={styles.p}>\\n      <path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fillRule=\\\"nonzero\\\" strokeLinecap=\\\"round\\\" strokeLinejoin=\\\"round\\\" />\\n    </svg>\\n  );\\n}\\n\",\"css\":\":root{}\\n.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n\",\"fileName\":\"P.module.css\"}"
+   },
+   "angular": {
+    "p": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-p\\\",\\n  standalone: true,\\n  templateUrl: \\\"./P.component.html\\\",\\n  styleUrl: \\\"./P.component.css\\\",\\n})\\nexport class P {}\\n\",\"template\":\"<svg data-paprika-id=\\\"p\\\" data-paprika-type=\\\"path\\\" class=\\\"p\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\",\"styles\":\".p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n\",\"className\":\"P\",\"selector\":\"app-p\",\"fileBase\":\"P\"}"
+   },
+   "angularVars": {
+    "p": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-p\\\",\\n  standalone: true,\\n  templateUrl: \\\"./P.component.html\\\",\\n  styleUrl: \\\"./P.component.css\\\",\\n})\\nexport class P {}\\n\",\"template\":\"<svg data-paprika-id=\\\"p\\\" data-paprika-type=\\\"path\\\" class=\\\"p\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\",\"styles\":\":root{}\\n.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n\",\"className\":\"P\",\"selector\":\"app-p\",\"fileBase\":\"P\"}"
+   },
+   "svelte": {
+    "p": "{\"source\":\"<svg data-paprika-id=\\\"p\\\" data-paprika-type=\\\"path\\\" class=\\\"p\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\\n<style>\\n.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n</style>\\n\",\"fileName\":\"P.svelte\"}"
+   },
+   "svelteVars": {
+    "p": "{\"source\":\"<svg data-paprika-id=\\\"p\\\" data-paprika-type=\\\"path\\\" class=\\\"p\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\\n<style>\\n:global(:root){}\\n.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n</style>\\n\",\"fileName\":\"P.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" class=\"p\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}\n.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" class=\"p\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "describe": {
+    "p": "path#p 10×10 @0,0 d=\"M0 0 L10 10\""
+   },
+   "style": {
+    "p": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff"
+   },
+   "find": {
+    "text": [],
+    "nameA": [],
+    "textE": [],
+    "within": [
+     "p"
+    ]
+   }
+  },
+  {
+   "name": "op242",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"r\"\n  ],\n  \"nodes\": {\n    \"r\": {\n      \"id\": \"r\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": {\n        \"x\": 0,\n        \"y\": 1,\n        \"blur\": 2,\n        \"spread\": 0,\n        \"color\": \"#000\",\n        \"inner\": true\n      },\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "outline": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "outlineDepth0": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "outlineDepth1": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "lint": "[]",
+   "lintRoots": {
+    "r": "[]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000\"></div></body></html>",
+   "htmlRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000\"></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "r": "export function R() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", boxShadow: \"inset 0px 1px 2px 0px #000\" }} />\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000\"></div></body></html>",
+   "htmlVarsRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000\"></div></body></html>"
+   },
+   "reactVars": {
+    "r": "export const tokensCss = \":root{}\";\n\nexport function R() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", boxShadow: \"inset 0px 1px 2px 0px #000\" }} />\n  );\n}\n"
+   },
+   "tailwind": {
+    "r": "export function R() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[inset_0px_1px_2px_0px_#000]\" />\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "r": "export const tokensCss = \":root{}\";\n\nexport function R() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[inset_0px_1px_2px_0px_#000]\" />\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[inset_0px_1px_2px_0px_#000]\"></div></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[inset_0px_1px_2px_0px_#000]\"></div></body></html>",
+   "tailwindHtmlRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[inset_0px_1px_2px_0px_#000]\"></div></body></html>"
+   },
+   "cssModules": {
+    "r": "{\"component\":\"import styles from \\\"./R.module.css\\\";\\n\\nexport function R() {\\n  return (\\n    <div className={styles.r} />\\n  );\\n}\\n\",\"css\":\".r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n\",\"fileName\":\"R.module.css\"}"
+   },
+   "cssModulesVars": {
+    "r": "{\"component\":\"import styles from \\\"./R.module.css\\\";\\n\\nexport function R() {\\n  return (\\n    <div className={styles.r} />\\n  );\\n}\\n\",\"css\":\":root{}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n\",\"fileName\":\"R.module.css\"}"
+   },
+   "angular": {
+    "r": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-r\\\",\\n  standalone: true,\\n  templateUrl: \\\"./R.component.html\\\",\\n  styleUrl: \\\"./R.component.css\\\",\\n})\\nexport class R {}\\n\",\"template\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\",\"styles\":\".r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n\",\"className\":\"R\",\"selector\":\"app-r\",\"fileBase\":\"R\"}"
+   },
+   "angularVars": {
+    "r": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-r\\\",\\n  standalone: true,\\n  templateUrl: \\\"./R.component.html\\\",\\n  styleUrl: \\\"./R.component.css\\\",\\n})\\nexport class R {}\\n\",\"template\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\",\"styles\":\":root{}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n\",\"className\":\"R\",\"selector\":\"app-r\",\"fileBase\":\"R\"}"
+   },
+   "svelte": {
+    "r": "{\"source\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\\n<style>\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n</style>\\n\",\"fileName\":\"R.svelte\"}"
+   },
+   "svelteVars": {
+    "r": "{\"source\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\\n<style>\\n:global(:root){}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n</style>\\n\",\"fileName\":\"R.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"r\"></div></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"r\"></div></body></html>",
+   "describe": {
+    "r": "rect#r 100×100 @0,0"
+   },
+   "style": {
+    "r": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000"
+   },
+   "find": {
+    "text": [],
+    "nameA": [],
+    "textE": [],
+    "within": [
+     "r"
+    ]
+   }
   }
  ],
  "paths": [
@@ -44093,6 +44444,13 @@
     "result": {
      "ok": true,
      "value": "{\"nodes\":[],\"warnings\":[\"the HTML has no elements to import\"]}"
+    }
+   },
+   {
+    "src": "<div data-paprika-type=\"rect\" style=\"position:absolute;left:0px;top:0px;width:100px;height:80px;background:#fff;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 4px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) hue-rotate(15deg);backdrop-filter:blur(8px)\"></div>",
+    "result": {
+     "ok": true,
+     "value": "{\"nodes\":[{\"type\":\"rect\",\"x\":0,\"y\":0,\"width\":100,\"height\":80,\"fill\":\"#fff\",\"shadow\":{\"x\":0,\"y\":8,\"blur\":16,\"spread\":0,\"color\":\"#00000055, inset 0px 2px 4px 0px #4cc7d8\"},\"filter\":{\"blur\":1,\"saturate\":1.2,\"hueRotate\":15},\"backdropFilter\":{\"blur\":8},\"outline\":{\"color\":\"#4cc7d8\",\"width\":2,\"style\":\"dashed\",\"offset\":2}}],\"warnings\":[]}"
     }
    },
    {
@@ -45589,12 +45947,12 @@
    "name": "comp",
    "layout": {
     "ok": true,
-    "value": "{\"badge\":{\"x\":600,\"y\":20,\"width\":60,\"height\":60,\"origin\":{\"x\":630,\"y\":50},\"corners\":[{\"x\":600,\"y\":20},{\"x\":660,\"y\":20},{\"x\":660,\"y\":80},{\"x\":600,\"y\":80}]},\"bar\":{\"x\":630,\"y\":32,\"width\":20,\"height\":6,\"origin\":{\"x\":640,\"y\":35},\"corners\":[{\"x\":629.8397,\"y\":37.4019},{\"x\":647.1603,\"y\":27.4019},{\"x\":650.1603,\"y\":32.5981},{\"x\":632.8397,\"y\":42.5981}]},\"bg\":{\"x\":605,\"y\":25,\"width\":45.1603,\"height\":20,\"origin\":{\"x\":627.5802,\"y\":35},\"corners\":[{\"x\":605,\"y\":25},{\"x\":650.1603,\"y\":25},{\"x\":650.1603,\"y\":45},{\"x\":605,\"y\":45}]},\"board\":{\"x\":0,\"y\":0,\"width\":1200,\"height\":300,\"origin\":{\"x\":600,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":1200,\"y\":0},{\"x\":1200,\"y\":300},{\"x\":0,\"y\":300}]},\"btn\":{\"x\":20,\"y\":240,\"width\":120,\"height\":40,\"origin\":{\"x\":80,\"y\":260},\"corners\":[{\"x\":20,\"y\":240},{\"x\":140,\"y\":240},{\"x\":140,\"y\":280},{\"x\":20,\"y\":280}]},\"dot\":{\"x\":605,\"y\":25,\"width\":20,\"height\":20,\"origin\":{\"x\":615,\"y\":35},\"corners\":[{\"x\":605,\"y\":25},{\"x\":625,\"y\":25},{\"x\":625,\"y\":45},{\"x\":605,\"y\":45}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":95.0096,\"y\":29.7596},{\"x\":120.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":40.7404},{\"x\":110.0096,\"y\":55.7404}]},\"i1\":{\"x\":200,\"y\":240,\"width\":120,\"height\":40,\"origin\":{\"x\":260,\"y\":260},\"corners\":[{\"x\":200,\"y\":240},{\"x\":320,\"y\":240},{\"x\":320,\"y\":280},{\"x\":200,\"y\":280}]},\"i1-0bzyiqi0vw20y4\":{\"x\":212,\"y\":250.2,\"width\":48.868,\"height\":19.6,\"origin\":{\"x\":236.434,\"y\":260},\"corners\":[{\"x\":212,\"y\":250.2},{\"x\":260.868,\"y\":250.2},{\"x\":260.868,\"y\":269.8},{\"x\":212,\"y\":269.8}]},\"i1-1qrxohh1a842nx\":{\"x\":264.868,\"y\":256,\"width\":8,\"height\":8,\"origin\":{\"x\":268.868,\"y\":260},\"corners\":[{\"x\":264.868,\"y\":256},{\"x\":272.868,\"y\":256},{\"x\":272.868,\"y\":264},{\"x\":264.868,\"y\":264}]},\"i2\":{\"x\":400,\"y\":240,\"width\":180,\"height\":60,\"origin\":{\"x\":490,\"y\":270},\"corners\":[{\"x\":396.1579,\"y\":256.0841},{\"x\":573.4233,\"y\":224.8274},{\"x\":583.8421,\"y\":283.9159},{\"x\":406.5767,\"y\":315.1726}]},\"i2-0ov6n7z0wq0u11\":{\"x\":418,\"y\":255.3,\"width\":97.986,\"height\":29.4,\"origin\":{\"x\":466.993,\"y\":270},\"corners\":[{\"x\":418,\"y\":255.3},{\"x\":515.986,\"y\":255.3},{\"x\":515.986,\"y\":284.7},{\"x\":418,\"y\":284.7}]},\"i2-18kyngc19e59l0\":{\"x\":521.986,\"y\":264,\"width\":12,\"height\":12,\"origin\":{\"x\":527.986,\"y\":270},\"corners\":[{\"x\":521.986,\"y\":264},{\"x\":533.986,\"y\":264},{\"x\":533.986,\"y\":276},{\"x\":521.986,\"y\":276}]},\"i3\":{\"x\":700,\"y\":20,\"width\":45,\"height\":45,\"origin\":{\"x\":722.5,\"y\":42.5},\"corners\":[{\"x\":700,\"y\":20},{\"x\":745,\"y\":20},{\"x\":745,\"y\":65},{\"x\":700,\"y\":65}]},\"i3-13wdmqh00odcjz\":{\"x\":703.75,\"y\":23.75,\"width\":33.8702,\"height\":15,\"origin\":{\"x\":720.6851,\"y\":31.25},\"corners\":[{\"x\":703.75,\"y\":23.75},{\"x\":737.6202,\"y\":23.75},{\"x\":737.6202,\"y\":38.75},{\"x\":703.75,\"y\":38.75}]},\"i3-14mqdmf18d88r7\":{\"x\":722.5,\"y\":29,\"width\":15,\"height\":4.5,\"origin\":{\"x\":730,\"y\":31.25},\"corners\":[{\"x\":722.3798,\"y\":33.0514},{\"x\":735.3702,\"y\":25.5514},{\"x\":737.6202,\"y\":29.4486},{\"x\":724.6298,\"y\":36.9486}]},\"i3-19usgs517w2zul\":{\"x\":703.75,\"y\":23.75,\"width\":15,\"height\":15,\"origin\":{\"x\":711.25,\"y\":31.25},\"corners\":[{\"x\":703.75,\"y\":23.75},{\"x\":718.75,\"y\":23.75},{\"x\":718.75,\"y\":38.75},{\"x\":703.75,\"y\":38.75}]},\"ico\":{\"x\":84.868,\"y\":256,\"width\":8,\"height\":8,\"origin\":{\"x\":88.868,\"y\":260},\"corners\":[{\"x\":84.868,\"y\":256},{\"x\":92.868,\"y\":256},{\"x\":92.868,\"y\":264},{\"x\":84.868,\"y\":264}]},\"lbl\":{\"x\":32,\"y\":250.2,\"width\":48.868,\"height\":19.6,\"origin\":{\"x\":56.434,\"y\":260},\"corners\":[{\"x\":32,\"y\":250.2},{\"x\":80.868,\"y\":250.2},{\"x\":80.868,\"y\":269.8},{\"x\":32,\"y\":269.8}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
+    "value": "{\"badge\":{\"x\":600,\"y\":20,\"width\":60,\"height\":60,\"origin\":{\"x\":630,\"y\":50},\"corners\":[{\"x\":600,\"y\":20},{\"x\":660,\"y\":20},{\"x\":660,\"y\":80},{\"x\":600,\"y\":80}]},\"bar\":{\"x\":630,\"y\":32,\"width\":20,\"height\":6,\"origin\":{\"x\":640,\"y\":35},\"corners\":[{\"x\":632.8397,\"y\":27.4019},{\"x\":650.1603,\"y\":37.4019},{\"x\":647.1603,\"y\":42.5981},{\"x\":629.8397,\"y\":32.5981}]},\"bg\":{\"x\":605,\"y\":25,\"width\":45.1603,\"height\":20,\"origin\":{\"x\":627.5802,\"y\":35},\"corners\":[{\"x\":605,\"y\":25},{\"x\":650.1603,\"y\":25},{\"x\":650.1603,\"y\":45},{\"x\":605,\"y\":45}]},\"board\":{\"x\":0,\"y\":0,\"width\":1200,\"height\":300,\"origin\":{\"x\":600,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":1200,\"y\":0},{\"x\":1200,\"y\":300},{\"x\":0,\"y\":300}]},\"btn\":{\"x\":20,\"y\":240,\"width\":120,\"height\":40,\"origin\":{\"x\":80,\"y\":260},\"corners\":[{\"x\":20,\"y\":240},{\"x\":140,\"y\":240},{\"x\":140,\"y\":280},{\"x\":20,\"y\":280}]},\"dot\":{\"x\":605,\"y\":25,\"width\":20,\"height\":20,\"origin\":{\"x\":615,\"y\":35},\"corners\":[{\"x\":605,\"y\":25},{\"x\":625,\"y\":25},{\"x\":625,\"y\":45},{\"x\":605,\"y\":45}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":110.0096,\"y\":14.7596},{\"x\":135.9904,\"y\":29.7596},{\"x\":120.9904,\"y\":55.7404},{\"x\":95.0096,\"y\":40.7404}]},\"i1\":{\"x\":200,\"y\":240,\"width\":120,\"height\":40,\"origin\":{\"x\":260,\"y\":260},\"corners\":[{\"x\":200,\"y\":240},{\"x\":320,\"y\":240},{\"x\":320,\"y\":280},{\"x\":200,\"y\":280}]},\"i1-0bzyiqi0vw20y4\":{\"x\":212,\"y\":250.2,\"width\":48.868,\"height\":19.6,\"origin\":{\"x\":236.434,\"y\":260},\"corners\":[{\"x\":212,\"y\":250.2},{\"x\":260.868,\"y\":250.2},{\"x\":260.868,\"y\":269.8},{\"x\":212,\"y\":269.8}]},\"i1-1qrxohh1a842nx\":{\"x\":264.868,\"y\":256,\"width\":8,\"height\":8,\"origin\":{\"x\":268.868,\"y\":260},\"corners\":[{\"x\":264.868,\"y\":256},{\"x\":272.868,\"y\":256},{\"x\":272.868,\"y\":264},{\"x\":264.868,\"y\":264}]},\"i2\":{\"x\":400,\"y\":240,\"width\":180,\"height\":60,\"origin\":{\"x\":490,\"y\":270},\"corners\":[{\"x\":406.5767,\"y\":224.8274},{\"x\":583.8421,\"y\":256.0841},{\"x\":573.4233,\"y\":315.1726},{\"x\":396.1579,\"y\":283.9159}]},\"i2-0ov6n7z0wq0u11\":{\"x\":418,\"y\":255.3,\"width\":97.986,\"height\":29.4,\"origin\":{\"x\":466.993,\"y\":270},\"corners\":[{\"x\":418,\"y\":255.3},{\"x\":515.986,\"y\":255.3},{\"x\":515.986,\"y\":284.7},{\"x\":418,\"y\":284.7}]},\"i2-18kyngc19e59l0\":{\"x\":521.986,\"y\":264,\"width\":12,\"height\":12,\"origin\":{\"x\":527.986,\"y\":270},\"corners\":[{\"x\":521.986,\"y\":264},{\"x\":533.986,\"y\":264},{\"x\":533.986,\"y\":276},{\"x\":521.986,\"y\":276}]},\"i3\":{\"x\":700,\"y\":20,\"width\":45,\"height\":45,\"origin\":{\"x\":722.5,\"y\":42.5},\"corners\":[{\"x\":700,\"y\":20},{\"x\":745,\"y\":20},{\"x\":745,\"y\":65},{\"x\":700,\"y\":65}]},\"i3-13wdmqh00odcjz\":{\"x\":703.75,\"y\":23.75,\"width\":33.8702,\"height\":15,\"origin\":{\"x\":720.6851,\"y\":31.25},\"corners\":[{\"x\":703.75,\"y\":23.75},{\"x\":737.6202,\"y\":23.75},{\"x\":737.6202,\"y\":38.75},{\"x\":703.75,\"y\":38.75}]},\"i3-14mqdmf18d88r7\":{\"x\":722.5,\"y\":29,\"width\":15,\"height\":4.5,\"origin\":{\"x\":730,\"y\":31.25},\"corners\":[{\"x\":724.6298,\"y\":25.5514},{\"x\":737.6202,\"y\":33.0514},{\"x\":735.3702,\"y\":36.9486},{\"x\":722.3798,\"y\":29.4486}]},\"i3-19usgs517w2zul\":{\"x\":703.75,\"y\":23.75,\"width\":15,\"height\":15,\"origin\":{\"x\":711.25,\"y\":31.25},\"corners\":[{\"x\":703.75,\"y\":23.75},{\"x\":718.75,\"y\":23.75},{\"x\":718.75,\"y\":38.75},{\"x\":703.75,\"y\":38.75}]},\"ico\":{\"x\":84.868,\"y\":256,\"width\":8,\"height\":8,\"origin\":{\"x\":88.868,\"y\":260},\"corners\":[{\"x\":84.868,\"y\":256},{\"x\":92.868,\"y\":256},{\"x\":92.868,\"y\":264},{\"x\":84.868,\"y\":264}]},\"lbl\":{\"x\":32,\"y\":250.2,\"width\":48.868,\"height\":19.6,\"origin\":{\"x\":56.434,\"y\":260},\"corners\":[{\"x\":32,\"y\":250.2},{\"x\":80.868,\"y\":250.2},{\"x\":80.868,\"y\":269.8},{\"x\":32,\"y\":269.8}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
    },
    "byRoot": {
     "board": {
      "ok": true,
-     "value": "{\"badge\":{\"x\":600,\"y\":20,\"width\":60,\"height\":60,\"origin\":{\"x\":630,\"y\":50},\"corners\":[{\"x\":600,\"y\":20},{\"x\":660,\"y\":20},{\"x\":660,\"y\":80},{\"x\":600,\"y\":80}]},\"bar\":{\"x\":630,\"y\":32,\"width\":20,\"height\":6,\"origin\":{\"x\":640,\"y\":35},\"corners\":[{\"x\":629.8397,\"y\":37.4019},{\"x\":647.1603,\"y\":27.4019},{\"x\":650.1603,\"y\":32.5981},{\"x\":632.8397,\"y\":42.5981}]},\"bg\":{\"x\":605,\"y\":25,\"width\":45.1603,\"height\":20,\"origin\":{\"x\":627.5802,\"y\":35},\"corners\":[{\"x\":605,\"y\":25},{\"x\":650.1603,\"y\":25},{\"x\":650.1603,\"y\":45},{\"x\":605,\"y\":45}]},\"board\":{\"x\":0,\"y\":0,\"width\":1200,\"height\":300,\"origin\":{\"x\":600,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":1200,\"y\":0},{\"x\":1200,\"y\":300},{\"x\":0,\"y\":300}]},\"btn\":{\"x\":20,\"y\":240,\"width\":120,\"height\":40,\"origin\":{\"x\":80,\"y\":260},\"corners\":[{\"x\":20,\"y\":240},{\"x\":140,\"y\":240},{\"x\":140,\"y\":280},{\"x\":20,\"y\":280}]},\"dot\":{\"x\":605,\"y\":25,\"width\":20,\"height\":20,\"origin\":{\"x\":615,\"y\":35},\"corners\":[{\"x\":605,\"y\":25},{\"x\":625,\"y\":25},{\"x\":625,\"y\":45},{\"x\":605,\"y\":45}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":95.0096,\"y\":29.7596},{\"x\":120.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":40.7404},{\"x\":110.0096,\"y\":55.7404}]},\"i1\":{\"x\":200,\"y\":240,\"width\":120,\"height\":40,\"origin\":{\"x\":260,\"y\":260},\"corners\":[{\"x\":200,\"y\":240},{\"x\":320,\"y\":240},{\"x\":320,\"y\":280},{\"x\":200,\"y\":280}]},\"i1-0bzyiqi0vw20y4\":{\"x\":212,\"y\":250.2,\"width\":48.868,\"height\":19.6,\"origin\":{\"x\":236.434,\"y\":260},\"corners\":[{\"x\":212,\"y\":250.2},{\"x\":260.868,\"y\":250.2},{\"x\":260.868,\"y\":269.8},{\"x\":212,\"y\":269.8}]},\"i1-1qrxohh1a842nx\":{\"x\":264.868,\"y\":256,\"width\":8,\"height\":8,\"origin\":{\"x\":268.868,\"y\":260},\"corners\":[{\"x\":264.868,\"y\":256},{\"x\":272.868,\"y\":256},{\"x\":272.868,\"y\":264},{\"x\":264.868,\"y\":264}]},\"i2\":{\"x\":400,\"y\":240,\"width\":180,\"height\":60,\"origin\":{\"x\":490,\"y\":270},\"corners\":[{\"x\":396.1579,\"y\":256.0841},{\"x\":573.4233,\"y\":224.8274},{\"x\":583.8421,\"y\":283.9159},{\"x\":406.5767,\"y\":315.1726}]},\"i2-0ov6n7z0wq0u11\":{\"x\":418,\"y\":255.3,\"width\":97.986,\"height\":29.4,\"origin\":{\"x\":466.993,\"y\":270},\"corners\":[{\"x\":418,\"y\":255.3},{\"x\":515.986,\"y\":255.3},{\"x\":515.986,\"y\":284.7},{\"x\":418,\"y\":284.7}]},\"i2-18kyngc19e59l0\":{\"x\":521.986,\"y\":264,\"width\":12,\"height\":12,\"origin\":{\"x\":527.986,\"y\":270},\"corners\":[{\"x\":521.986,\"y\":264},{\"x\":533.986,\"y\":264},{\"x\":533.986,\"y\":276},{\"x\":521.986,\"y\":276}]},\"i3\":{\"x\":700,\"y\":20,\"width\":45,\"height\":45,\"origin\":{\"x\":722.5,\"y\":42.5},\"corners\":[{\"x\":700,\"y\":20},{\"x\":745,\"y\":20},{\"x\":745,\"y\":65},{\"x\":700,\"y\":65}]},\"i3-13wdmqh00odcjz\":{\"x\":703.75,\"y\":23.75,\"width\":33.8702,\"height\":15,\"origin\":{\"x\":720.6851,\"y\":31.25},\"corners\":[{\"x\":703.75,\"y\":23.75},{\"x\":737.6202,\"y\":23.75},{\"x\":737.6202,\"y\":38.75},{\"x\":703.75,\"y\":38.75}]},\"i3-14mqdmf18d88r7\":{\"x\":722.5,\"y\":29,\"width\":15,\"height\":4.5,\"origin\":{\"x\":730,\"y\":31.25},\"corners\":[{\"x\":722.3798,\"y\":33.0514},{\"x\":735.3702,\"y\":25.5514},{\"x\":737.6202,\"y\":29.4486},{\"x\":724.6298,\"y\":36.9486}]},\"i3-19usgs517w2zul\":{\"x\":703.75,\"y\":23.75,\"width\":15,\"height\":15,\"origin\":{\"x\":711.25,\"y\":31.25},\"corners\":[{\"x\":703.75,\"y\":23.75},{\"x\":718.75,\"y\":23.75},{\"x\":718.75,\"y\":38.75},{\"x\":703.75,\"y\":38.75}]},\"ico\":{\"x\":84.868,\"y\":256,\"width\":8,\"height\":8,\"origin\":{\"x\":88.868,\"y\":260},\"corners\":[{\"x\":84.868,\"y\":256},{\"x\":92.868,\"y\":256},{\"x\":92.868,\"y\":264},{\"x\":84.868,\"y\":264}]},\"lbl\":{\"x\":32,\"y\":250.2,\"width\":48.868,\"height\":19.6,\"origin\":{\"x\":56.434,\"y\":260},\"corners\":[{\"x\":32,\"y\":250.2},{\"x\":80.868,\"y\":250.2},{\"x\":80.868,\"y\":269.8},{\"x\":32,\"y\":269.8}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
+     "value": "{\"badge\":{\"x\":600,\"y\":20,\"width\":60,\"height\":60,\"origin\":{\"x\":630,\"y\":50},\"corners\":[{\"x\":600,\"y\":20},{\"x\":660,\"y\":20},{\"x\":660,\"y\":80},{\"x\":600,\"y\":80}]},\"bar\":{\"x\":630,\"y\":32,\"width\":20,\"height\":6,\"origin\":{\"x\":640,\"y\":35},\"corners\":[{\"x\":632.8397,\"y\":27.4019},{\"x\":650.1603,\"y\":37.4019},{\"x\":647.1603,\"y\":42.5981},{\"x\":629.8397,\"y\":32.5981}]},\"bg\":{\"x\":605,\"y\":25,\"width\":45.1603,\"height\":20,\"origin\":{\"x\":627.5802,\"y\":35},\"corners\":[{\"x\":605,\"y\":25},{\"x\":650.1603,\"y\":25},{\"x\":650.1603,\"y\":45},{\"x\":605,\"y\":45}]},\"board\":{\"x\":0,\"y\":0,\"width\":1200,\"height\":300,\"origin\":{\"x\":600,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":1200,\"y\":0},{\"x\":1200,\"y\":300},{\"x\":0,\"y\":300}]},\"btn\":{\"x\":20,\"y\":240,\"width\":120,\"height\":40,\"origin\":{\"x\":80,\"y\":260},\"corners\":[{\"x\":20,\"y\":240},{\"x\":140,\"y\":240},{\"x\":140,\"y\":280},{\"x\":20,\"y\":280}]},\"dot\":{\"x\":605,\"y\":25,\"width\":20,\"height\":20,\"origin\":{\"x\":615,\"y\":35},\"corners\":[{\"x\":605,\"y\":25},{\"x\":625,\"y\":25},{\"x\":625,\"y\":45},{\"x\":605,\"y\":45}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":110.0096,\"y\":14.7596},{\"x\":135.9904,\"y\":29.7596},{\"x\":120.9904,\"y\":55.7404},{\"x\":95.0096,\"y\":40.7404}]},\"i1\":{\"x\":200,\"y\":240,\"width\":120,\"height\":40,\"origin\":{\"x\":260,\"y\":260},\"corners\":[{\"x\":200,\"y\":240},{\"x\":320,\"y\":240},{\"x\":320,\"y\":280},{\"x\":200,\"y\":280}]},\"i1-0bzyiqi0vw20y4\":{\"x\":212,\"y\":250.2,\"width\":48.868,\"height\":19.6,\"origin\":{\"x\":236.434,\"y\":260},\"corners\":[{\"x\":212,\"y\":250.2},{\"x\":260.868,\"y\":250.2},{\"x\":260.868,\"y\":269.8},{\"x\":212,\"y\":269.8}]},\"i1-1qrxohh1a842nx\":{\"x\":264.868,\"y\":256,\"width\":8,\"height\":8,\"origin\":{\"x\":268.868,\"y\":260},\"corners\":[{\"x\":264.868,\"y\":256},{\"x\":272.868,\"y\":256},{\"x\":272.868,\"y\":264},{\"x\":264.868,\"y\":264}]},\"i2\":{\"x\":400,\"y\":240,\"width\":180,\"height\":60,\"origin\":{\"x\":490,\"y\":270},\"corners\":[{\"x\":406.5767,\"y\":224.8274},{\"x\":583.8421,\"y\":256.0841},{\"x\":573.4233,\"y\":315.1726},{\"x\":396.1579,\"y\":283.9159}]},\"i2-0ov6n7z0wq0u11\":{\"x\":418,\"y\":255.3,\"width\":97.986,\"height\":29.4,\"origin\":{\"x\":466.993,\"y\":270},\"corners\":[{\"x\":418,\"y\":255.3},{\"x\":515.986,\"y\":255.3},{\"x\":515.986,\"y\":284.7},{\"x\":418,\"y\":284.7}]},\"i2-18kyngc19e59l0\":{\"x\":521.986,\"y\":264,\"width\":12,\"height\":12,\"origin\":{\"x\":527.986,\"y\":270},\"corners\":[{\"x\":521.986,\"y\":264},{\"x\":533.986,\"y\":264},{\"x\":533.986,\"y\":276},{\"x\":521.986,\"y\":276}]},\"i3\":{\"x\":700,\"y\":20,\"width\":45,\"height\":45,\"origin\":{\"x\":722.5,\"y\":42.5},\"corners\":[{\"x\":700,\"y\":20},{\"x\":745,\"y\":20},{\"x\":745,\"y\":65},{\"x\":700,\"y\":65}]},\"i3-13wdmqh00odcjz\":{\"x\":703.75,\"y\":23.75,\"width\":33.8702,\"height\":15,\"origin\":{\"x\":720.6851,\"y\":31.25},\"corners\":[{\"x\":703.75,\"y\":23.75},{\"x\":737.6202,\"y\":23.75},{\"x\":737.6202,\"y\":38.75},{\"x\":703.75,\"y\":38.75}]},\"i3-14mqdmf18d88r7\":{\"x\":722.5,\"y\":29,\"width\":15,\"height\":4.5,\"origin\":{\"x\":730,\"y\":31.25},\"corners\":[{\"x\":724.6298,\"y\":25.5514},{\"x\":737.6202,\"y\":33.0514},{\"x\":735.3702,\"y\":36.9486},{\"x\":722.3798,\"y\":29.4486}]},\"i3-19usgs517w2zul\":{\"x\":703.75,\"y\":23.75,\"width\":15,\"height\":15,\"origin\":{\"x\":711.25,\"y\":31.25},\"corners\":[{\"x\":703.75,\"y\":23.75},{\"x\":718.75,\"y\":23.75},{\"x\":718.75,\"y\":38.75},{\"x\":703.75,\"y\":38.75}]},\"ico\":{\"x\":84.868,\"y\":256,\"width\":8,\"height\":8,\"origin\":{\"x\":88.868,\"y\":260},\"corners\":[{\"x\":84.868,\"y\":256},{\"x\":92.868,\"y\":256},{\"x\":92.868,\"y\":264},{\"x\":84.868,\"y\":264}]},\"lbl\":{\"x\":32,\"y\":250.2,\"width\":48.868,\"height\":19.6,\"origin\":{\"x\":56.434,\"y\":260},\"corners\":[{\"x\":32,\"y\":250.2},{\"x\":80.868,\"y\":250.2},{\"x\":80.868,\"y\":269.8},{\"x\":32,\"y\":269.8}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
     }
    }
   },
@@ -45615,12 +45973,12 @@
    "name": "free",
    "layout": {
     "ok": true,
-    "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":95.0096,\"y\":29.7596},{\"x\":120.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":40.7404},{\"x\":110.0096,\"y\":55.7404}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
+    "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":110.0096,\"y\":14.7596},{\"x\":135.9904,\"y\":29.7596},{\"x\":120.9904,\"y\":55.7404},{\"x\":95.0096,\"y\":40.7404}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
    },
    "byRoot": {
     "board": {
      "ok": true,
-     "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":95.0096,\"y\":29.7596},{\"x\":120.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":40.7404},{\"x\":110.0096,\"y\":55.7404}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
+     "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":110.0096,\"y\":14.7596},{\"x\":135.9904,\"y\":29.7596},{\"x\":120.9904,\"y\":55.7404},{\"x\":95.0096,\"y\":40.7404}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
     }
    }
   },
@@ -45628,12 +45986,12 @@
    "name": "grouped",
    "layout": {
     "ok": true,
-    "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":95.0096,\"y\":29.7596},{\"x\":120.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":40.7404},{\"x\":110.0096,\"y\":55.7404}]},\"g1\":{\"x\":40,\"y\":14.7596,\"width\":95.9904,\"height\":45.2404,\"origin\":{\"x\":87.9952,\"y\":37.3798},\"corners\":[{\"x\":40,\"y\":14.7596},{\"x\":135.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":60},{\"x\":40,\"y\":60}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
+    "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":110.0096,\"y\":14.7596},{\"x\":135.9904,\"y\":29.7596},{\"x\":120.9904,\"y\":55.7404},{\"x\":95.0096,\"y\":40.7404}]},\"g1\":{\"x\":40,\"y\":14.7596,\"width\":95.9904,\"height\":45.2404,\"origin\":{\"x\":87.9952,\"y\":37.3798},\"corners\":[{\"x\":40,\"y\":14.7596},{\"x\":135.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":60},{\"x\":40,\"y\":60}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
    },
    "byRoot": {
     "board": {
      "ok": true,
-     "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":95.0096,\"y\":29.7596},{\"x\":120.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":40.7404},{\"x\":110.0096,\"y\":55.7404}]},\"g1\":{\"x\":40,\"y\":14.7596,\"width\":95.9904,\"height\":45.2404,\"origin\":{\"x\":87.9952,\"y\":37.3798},\"corners\":[{\"x\":40,\"y\":14.7596},{\"x\":135.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":60},{\"x\":40,\"y\":60}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
+     "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":110.0096,\"y\":14.7596},{\"x\":135.9904,\"y\":29.7596},{\"x\":120.9904,\"y\":55.7404},{\"x\":95.0096,\"y\":40.7404}]},\"g1\":{\"x\":40,\"y\":14.7596,\"width\":95.9904,\"height\":45.2404,\"origin\":{\"x\":87.9952,\"y\":37.3798},\"corners\":[{\"x\":40,\"y\":14.7596},{\"x\":135.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":60},{\"x\":40,\"y\":60}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
     }
    }
   },
@@ -45641,12 +45999,12 @@
    "name": "paged",
    "layout": {
     "ok": true,
-    "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":95.0096,\"y\":29.7596},{\"x\":120.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":40.7404},{\"x\":110.0096,\"y\":55.7404}]},\"g1\":{\"x\":40,\"y\":14.7596,\"width\":95.9904,\"height\":45.2404,\"origin\":{\"x\":87.9952,\"y\":37.3798},\"corners\":[{\"x\":40,\"y\":14.7596},{\"x\":135.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":60},{\"x\":40,\"y\":60}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
+    "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":110.0096,\"y\":14.7596},{\"x\":135.9904,\"y\":29.7596},{\"x\":120.9904,\"y\":55.7404},{\"x\":95.0096,\"y\":40.7404}]},\"g1\":{\"x\":40,\"y\":14.7596,\"width\":95.9904,\"height\":45.2404,\"origin\":{\"x\":87.9952,\"y\":37.3798},\"corners\":[{\"x\":40,\"y\":14.7596},{\"x\":135.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":60},{\"x\":40,\"y\":60}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
    },
    "byRoot": {
     "pg1": {
      "ok": true,
-     "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":95.0096,\"y\":29.7596},{\"x\":120.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":40.7404},{\"x\":110.0096,\"y\":55.7404}]},\"g1\":{\"x\":40,\"y\":14.7596,\"width\":95.9904,\"height\":45.2404,\"origin\":{\"x\":87.9952,\"y\":37.3798},\"corners\":[{\"x\":40,\"y\":14.7596},{\"x\":135.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":60},{\"x\":40,\"y\":60}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
+     "value": "{\"board\":{\"x\":0,\"y\":0,\"width\":400,\"height\":300,\"origin\":{\"x\":200,\"y\":150},\"corners\":[{\"x\":0,\"y\":0},{\"x\":400,\"y\":0},{\"x\":400,\"y\":300},{\"x\":0,\"y\":300}]},\"e1\":{\"x\":100.5,\"y\":20.25,\"width\":30,\"height\":30,\"origin\":{\"x\":115.5,\"y\":35.25},\"corners\":[{\"x\":110.0096,\"y\":14.7596},{\"x\":135.9904,\"y\":29.7596},{\"x\":120.9904,\"y\":55.7404},{\"x\":95.0096,\"y\":40.7404}]},\"g1\":{\"x\":40,\"y\":14.7596,\"width\":95.9904,\"height\":45.2404,\"origin\":{\"x\":87.9952,\"y\":37.3798},\"corners\":[{\"x\":40,\"y\":14.7596},{\"x\":135.9904,\"y\":14.7596},{\"x\":135.9904,\"y\":60},{\"x\":40,\"y\":60}]},\"p1\":{\"x\":200,\"y\":100,\"width\":80,\"height\":9,\"origin\":{\"x\":240,\"y\":104.5},\"corners\":[{\"x\":200,\"y\":100},{\"x\":280,\"y\":100},{\"x\":280,\"y\":109},{\"x\":200,\"y\":109}]},\"r1\":{\"x\":40,\"y\":50,\"width\":20,\"height\":10,\"origin\":{\"x\":50,\"y\":55},\"corners\":[{\"x\":40,\"y\":50},{\"x\":60,\"y\":50},{\"x\":60,\"y\":60},{\"x\":40,\"y\":60}]},\"t1\":{\"x\":10,\"y\":200,\"width\":44.16,\"height\":22.4,\"origin\":{\"x\":32.08,\"y\":211.2},\"corners\":[{\"x\":10,\"y\":200},{\"x\":54.16,\"y\":200},{\"x\":54.16,\"y\":222.4},{\"x\":10,\"y\":222.4}]}}"
     },
     "pg2": {
      "ok": true,
@@ -45709,7 +46067,7 @@
    "name": "diagram",
    "layout": {
     "ok": true,
-    "value": "{\"ask\":{\"x\":112,\"y\":144,\"width\":160,\"height\":80,\"origin\":{\"x\":192,\"y\":184},\"corners\":[{\"x\":112,\"y\":144},{\"x\":272,\"y\":144},{\"x\":272,\"y\":224},{\"x\":112,\"y\":224}]},\"ask-to-no\":{\"x\":380,\"y\":444,\"width\":122,\"height\":68,\"origin\":{\"x\":441,\"y\":478},\"corners\":[{\"x\":380,\"y\":444},{\"x\":502,\"y\":444},{\"x\":502,\"y\":512},{\"x\":380,\"y\":512}]},\"ask-to-yes\":{\"x\":-36,\"y\":444,\"width\":212,\"height\":114,\"origin\":{\"x\":70,\"y\":501},\"corners\":[{\"x\":-36,\"y\":444},{\"x\":176,\"y\":444},{\"x\":176,\"y\":558},{\"x\":-36,\"y\":558}]},\"box\":{\"x\":900,\"y\":0,\"width\":300,\"height\":200,\"origin\":{\"x\":1050,\"y\":100},\"corners\":[{\"x\":900,\"y\":0},{\"x\":1200,\"y\":0},{\"x\":1200,\"y\":200},{\"x\":900,\"y\":200}]},\"c1\":{\"x\":0,\"y\":510,\"width\":80,\"height\":50,\"origin\":{\"x\":40,\"y\":535},\"corners\":[{\"x\":0,\"y\":510},{\"x\":80,\"y\":510},{\"x\":80,\"y\":560},{\"x\":0,\"y\":560}]},\"c2\":{\"x\":200,\"y\":510,\"width\":80,\"height\":50,\"origin\":{\"x\":240,\"y\":535},\"corners\":[{\"x\":200,\"y\":510},{\"x\":280,\"y\":510},{\"x\":280,\"y\":560},{\"x\":200,\"y\":560}]},\"cf\":{\"x\":-2,\"y\":498,\"width\":244,\"height\":66.9104,\"origin\":{\"x\":120,\"y\":531.4552},\"corners\":[{\"x\":-2,\"y\":498},{\"x\":242,\"y\":498},{\"x\":242,\"y\":564.9104},{\"x\":-2,\"y\":564.9104}]},\"ck\":{\"x\":78,\"y\":527,\"width\":124,\"height\":16,\"origin\":{\"x\":140,\"y\":535},\"corners\":[{\"x\":78,\"y\":527},{\"x\":202,\"y\":527},{\"x\":202,\"y\":543},{\"x\":78,\"y\":543}]},\"flow\":{\"x\":0,\"y\":500,\"width\":300,\"height\":80,\"origin\":{\"x\":150,\"y\":540},\"corners\":[{\"x\":0,\"y\":500},{\"x\":300,\"y\":500},{\"x\":300,\"y\":580},{\"x\":0,\"y\":580}]},\"flowi\":{\"x\":400,\"y\":500,\"width\":450,\"height\":120,\"origin\":{\"x\":625,\"y\":560},\"corners\":[{\"x\":400,\"y\":500},{\"x\":850,\"y\":500},{\"x\":850,\"y\":620},{\"x\":400,\"y\":620}]},\"flowi-1air8m81q1nctc\":{\"x\":397,\"y\":497,\"width\":366,\"height\":99.3955,\"origin\":{\"x\":580,\"y\":546.6978},\"corners\":[{\"x\":397,\"y\":497},{\"x\":763,\"y\":497},{\"x\":763,\"y\":596.3955},{\"x\":397,\"y\":596.3955}]},\"flowi-1e4m2mv0bauybr\":{\"x\":517,\"y\":542.5,\"width\":186,\"height\":20,\"origin\":{\"x\":610,\"y\":552.5},\"corners\":[{\"x\":517,\"y\":542.5},{\"x\":703,\"y\":542.5},{\"x\":703,\"y\":562.5},{\"x\":517,\"y\":562.5}]},\"flowi-1xttuvw0z87xho\":{\"x\":700,\"y\":515,\"width\":120,\"height\":75,\"origin\":{\"x\":760,\"y\":552.5},\"corners\":[{\"x\":700,\"y\":515},{\"x\":820,\"y\":515},{\"x\":820,\"y\":590},{\"x\":700,\"y\":590}]},\"flowi-1ynsnyt0dkmk1h\":{\"x\":400,\"y\":515,\"width\":120,\"height\":75,\"origin\":{\"x\":460,\"y\":552.5},\"corners\":[{\"x\":400,\"y\":515},{\"x\":520,\"y\":515},{\"x\":520,\"y\":590},{\"x\":400,\"y\":590}]},\"gq\":{\"x\":1080,\"y\":120,\"width\":80,\"height\":50,\"origin\":{\"x\":1120,\"y\":145},\"corners\":[{\"x\":1080,\"y\":120},{\"x\":1160,\"y\":120},{\"x\":1160,\"y\":170},{\"x\":1080,\"y\":170}]},\"in1\":{\"x\":920,\"y\":20,\"width\":80,\"height\":40,\"origin\":{\"x\":960,\"y\":40},\"corners\":[{\"x\":920,\"y\":20},{\"x\":1000,\"y\":20},{\"x\":1000,\"y\":60},{\"x\":920,\"y\":60}]},\"in2\":{\"x\":1080,\"y\":120,\"width\":80,\"height\":50,\"origin\":{\"x\":1120,\"y\":145},\"corners\":[{\"x\":1080,\"y\":120},{\"x\":1160,\"y\":120},{\"x\":1160,\"y\":170},{\"x\":1080,\"y\":170}]},\"k1\":{\"x\":998,\"y\":38,\"width\":130,\"height\":84,\"origin\":{\"x\":1063,\"y\":80},\"corners\":[{\"x\":998,\"y\":38},{\"x\":1128,\"y\":38},{\"x\":1128,\"y\":122},{\"x\":998,\"y\":122}]},\"k2\":{\"x\":908.5,\"y\":58,\"width\":48.8372,\"height\":134,\"origin\":{\"x\":932.9186,\"y\":125},\"corners\":[{\"x\":908.5,\"y\":58},{\"x\":957.3372,\"y\":58},{\"x\":957.3372,\"y\":192},{\"x\":908.5,\"y\":192}]},\"k3\":{\"x\":268.0271,\"y\":42.2157,\"width\":814.6127,\"height\":100.3308,\"origin\":{\"x\":675.3335,\"y\":92.3811},\"corners\":[{\"x\":268.0271,\"y\":42.2157},{\"x\":1082.6398,\"y\":42.2157},{\"x\":1082.6398,\"y\":142.5465},{\"x\":268.0271,\"y\":142.5465}]},\"memo\":{\"x\":600,\"y\":-20.5,\"width\":160,\"height\":160,\"origin\":{\"x\":680,\"y\":59.5},\"corners\":[{\"x\":593.332,\"y\":-13.2231},{\"x\":752.7231,\"y\":-27.168},{\"x\":766.668,\"y\":132.2231},{\"x\":607.2769,\"y\":146.168}]},\"memo-to-no\":{\"x\":718.0298,\"y\":231.2554,\"width\":241.9851,\"height\":173.3723,\"origin\":{\"x\":839.0224,\"y\":317.9416},\"corners\":[{\"x\":718.0298,\"y\":231.2554},{\"x\":960.0149,\"y\":231.2554},{\"x\":960.0149,\"y\":404.6277},{\"x\":718.0298,\"y\":404.6277}]},\"no\":{\"x\":224,\"y\":288,\"width\":160,\"height\":80,\"origin\":{\"x\":304,\"y\":328},\"corners\":[{\"x\":224,\"y\":288},{\"x\":384,\"y\":288},{\"x\":384,\"y\":368},{\"x\":224,\"y\":368}]},\"no-to-ask\":{\"x\":424.8,\"y\":421.6,\"width\":62.4889,\"height\":79.2,\"origin\":{\"x\":456.0445,\"y\":461.2},\"corners\":[{\"x\":424.8,\"y\":421.6},{\"x\":487.2889,\"y\":421.6},{\"x\":487.2889,\"y\":500.8},{\"x\":424.8,\"y\":500.8}]},\"start\":{\"x\":112,\"y\":0,\"width\":160,\"height\":80,\"origin\":{\"x\":192,\"y\":40},\"corners\":[{\"x\":112,\"y\":0},{\"x\":272,\"y\":0},{\"x\":272,\"y\":80},{\"x\":112,\"y\":80}]},\"start-to-ask\":{\"x\":368,\"y\":156,\"width\":16,\"height\":68,\"origin\":{\"x\":376,\"y\":190},\"corners\":[{\"x\":368,\"y\":156},{\"x\":384,\"y\":156},{\"x\":384,\"y\":224},{\"x\":368,\"y\":224}]},\"yes\":{\"x\":0,\"y\":288,\"width\":160,\"height\":80,\"origin\":{\"x\":80,\"y\":328},\"corners\":[{\"x\":0,\"y\":288},{\"x\":160,\"y\":288},{\"x\":160,\"y\":368},{\"x\":0,\"y\":368}]}}"
+    "value": "{\"ask\":{\"x\":112,\"y\":144,\"width\":160,\"height\":80,\"origin\":{\"x\":192,\"y\":184},\"corners\":[{\"x\":112,\"y\":144},{\"x\":272,\"y\":144},{\"x\":272,\"y\":224},{\"x\":112,\"y\":224}]},\"ask-to-no\":{\"x\":380,\"y\":444,\"width\":122,\"height\":68,\"origin\":{\"x\":441,\"y\":478},\"corners\":[{\"x\":380,\"y\":444},{\"x\":502,\"y\":444},{\"x\":502,\"y\":512},{\"x\":380,\"y\":512}]},\"ask-to-yes\":{\"x\":-36,\"y\":444,\"width\":212,\"height\":114,\"origin\":{\"x\":70,\"y\":501},\"corners\":[{\"x\":-36,\"y\":444},{\"x\":176,\"y\":444},{\"x\":176,\"y\":558},{\"x\":-36,\"y\":558}]},\"box\":{\"x\":900,\"y\":0,\"width\":300,\"height\":200,\"origin\":{\"x\":1050,\"y\":100},\"corners\":[{\"x\":900,\"y\":0},{\"x\":1200,\"y\":0},{\"x\":1200,\"y\":200},{\"x\":900,\"y\":200}]},\"c1\":{\"x\":0,\"y\":510,\"width\":80,\"height\":50,\"origin\":{\"x\":40,\"y\":535},\"corners\":[{\"x\":0,\"y\":510},{\"x\":80,\"y\":510},{\"x\":80,\"y\":560},{\"x\":0,\"y\":560}]},\"c2\":{\"x\":200,\"y\":510,\"width\":80,\"height\":50,\"origin\":{\"x\":240,\"y\":535},\"corners\":[{\"x\":200,\"y\":510},{\"x\":280,\"y\":510},{\"x\":280,\"y\":560},{\"x\":200,\"y\":560}]},\"cf\":{\"x\":-2,\"y\":498,\"width\":244,\"height\":66.9104,\"origin\":{\"x\":120,\"y\":531.4552},\"corners\":[{\"x\":-2,\"y\":498},{\"x\":242,\"y\":498},{\"x\":242,\"y\":564.9104},{\"x\":-2,\"y\":564.9104}]},\"ck\":{\"x\":78,\"y\":527,\"width\":124,\"height\":16,\"origin\":{\"x\":140,\"y\":535},\"corners\":[{\"x\":78,\"y\":527},{\"x\":202,\"y\":527},{\"x\":202,\"y\":543},{\"x\":78,\"y\":543}]},\"flow\":{\"x\":0,\"y\":500,\"width\":300,\"height\":80,\"origin\":{\"x\":150,\"y\":540},\"corners\":[{\"x\":0,\"y\":500},{\"x\":300,\"y\":500},{\"x\":300,\"y\":580},{\"x\":0,\"y\":580}]},\"flowi\":{\"x\":400,\"y\":500,\"width\":450,\"height\":120,\"origin\":{\"x\":625,\"y\":560},\"corners\":[{\"x\":400,\"y\":500},{\"x\":850,\"y\":500},{\"x\":850,\"y\":620},{\"x\":400,\"y\":620}]},\"flowi-1air8m81q1nctc\":{\"x\":397,\"y\":497,\"width\":366,\"height\":99.3955,\"origin\":{\"x\":580,\"y\":546.6978},\"corners\":[{\"x\":397,\"y\":497},{\"x\":763,\"y\":497},{\"x\":763,\"y\":596.3955},{\"x\":397,\"y\":596.3955}]},\"flowi-1e4m2mv0bauybr\":{\"x\":517,\"y\":542.5,\"width\":186,\"height\":20,\"origin\":{\"x\":610,\"y\":552.5},\"corners\":[{\"x\":517,\"y\":542.5},{\"x\":703,\"y\":542.5},{\"x\":703,\"y\":562.5},{\"x\":517,\"y\":562.5}]},\"flowi-1xttuvw0z87xho\":{\"x\":700,\"y\":515,\"width\":120,\"height\":75,\"origin\":{\"x\":760,\"y\":552.5},\"corners\":[{\"x\":700,\"y\":515},{\"x\":820,\"y\":515},{\"x\":820,\"y\":590},{\"x\":700,\"y\":590}]},\"flowi-1ynsnyt0dkmk1h\":{\"x\":400,\"y\":515,\"width\":120,\"height\":75,\"origin\":{\"x\":460,\"y\":552.5},\"corners\":[{\"x\":400,\"y\":515},{\"x\":520,\"y\":515},{\"x\":520,\"y\":590},{\"x\":400,\"y\":590}]},\"gq\":{\"x\":1080,\"y\":120,\"width\":80,\"height\":50,\"origin\":{\"x\":1120,\"y\":145},\"corners\":[{\"x\":1080,\"y\":120},{\"x\":1160,\"y\":120},{\"x\":1160,\"y\":170},{\"x\":1080,\"y\":170}]},\"in1\":{\"x\":920,\"y\":20,\"width\":80,\"height\":40,\"origin\":{\"x\":960,\"y\":40},\"corners\":[{\"x\":920,\"y\":20},{\"x\":1000,\"y\":20},{\"x\":1000,\"y\":60},{\"x\":920,\"y\":60}]},\"in2\":{\"x\":1080,\"y\":120,\"width\":80,\"height\":50,\"origin\":{\"x\":1120,\"y\":145},\"corners\":[{\"x\":1080,\"y\":120},{\"x\":1160,\"y\":120},{\"x\":1160,\"y\":170},{\"x\":1080,\"y\":170}]},\"k1\":{\"x\":998,\"y\":38,\"width\":130,\"height\":84,\"origin\":{\"x\":1063,\"y\":80},\"corners\":[{\"x\":998,\"y\":38},{\"x\":1128,\"y\":38},{\"x\":1128,\"y\":122},{\"x\":998,\"y\":122}]},\"k2\":{\"x\":908.5,\"y\":58,\"width\":48.8372,\"height\":134,\"origin\":{\"x\":932.9186,\"y\":125},\"corners\":[{\"x\":908.5,\"y\":58},{\"x\":957.3372,\"y\":58},{\"x\":957.3372,\"y\":192},{\"x\":908.5,\"y\":192}]},\"k3\":{\"x\":268.0271,\"y\":42.2157,\"width\":814.6127,\"height\":100.3308,\"origin\":{\"x\":675.3335,\"y\":92.3811},\"corners\":[{\"x\":268.0271,\"y\":42.2157},{\"x\":1082.6398,\"y\":42.2157},{\"x\":1082.6398,\"y\":142.5465},{\"x\":268.0271,\"y\":142.5465}]},\"memo\":{\"x\":600,\"y\":-20.5,\"width\":160,\"height\":160,\"origin\":{\"x\":680,\"y\":59.5},\"corners\":[{\"x\":607.2769,\"y\":-27.168},{\"x\":766.668,\"y\":-13.2231},{\"x\":752.7231,\"y\":146.168},{\"x\":593.332,\"y\":132.2231}]},\"memo-to-no\":{\"x\":718.0298,\"y\":231.2554,\"width\":241.9851,\"height\":173.3723,\"origin\":{\"x\":839.0224,\"y\":317.9416},\"corners\":[{\"x\":718.0298,\"y\":231.2554},{\"x\":960.0149,\"y\":231.2554},{\"x\":960.0149,\"y\":404.6277},{\"x\":718.0298,\"y\":404.6277}]},\"no\":{\"x\":224,\"y\":288,\"width\":160,\"height\":80,\"origin\":{\"x\":304,\"y\":328},\"corners\":[{\"x\":224,\"y\":288},{\"x\":384,\"y\":288},{\"x\":384,\"y\":368},{\"x\":224,\"y\":368}]},\"no-to-ask\":{\"x\":424.8,\"y\":421.6,\"width\":62.4889,\"height\":79.2,\"origin\":{\"x\":456.0445,\"y\":461.2},\"corners\":[{\"x\":424.8,\"y\":421.6},{\"x\":487.2889,\"y\":421.6},{\"x\":487.2889,\"y\":500.8},{\"x\":424.8,\"y\":500.8}]},\"start\":{\"x\":112,\"y\":0,\"width\":160,\"height\":80,\"origin\":{\"x\":192,\"y\":40},\"corners\":[{\"x\":112,\"y\":0},{\"x\":272,\"y\":0},{\"x\":272,\"y\":80},{\"x\":112,\"y\":80}]},\"start-to-ask\":{\"x\":368,\"y\":156,\"width\":16,\"height\":68,\"origin\":{\"x\":376,\"y\":190},\"corners\":[{\"x\":368,\"y\":156},{\"x\":384,\"y\":156},{\"x\":384,\"y\":224},{\"x\":368,\"y\":224}]},\"yes\":{\"x\":0,\"y\":288,\"width\":160,\"height\":80,\"origin\":{\"x\":80,\"y\":328},\"corners\":[{\"x\":0,\"y\":288},{\"x\":160,\"y\":288},{\"x\":160,\"y\":368},{\"x\":0,\"y\":368}]}}"
    },
    "byRoot": {
     "start": {
@@ -45730,7 +46088,7 @@
     },
     "memo": {
      "ok": true,
-     "value": "{\"memo\":{\"x\":600,\"y\":-20.5,\"width\":160,\"height\":160,\"origin\":{\"x\":680,\"y\":59.5},\"corners\":[{\"x\":593.332,\"y\":-13.2231},{\"x\":752.7231,\"y\":-27.168},{\"x\":766.668,\"y\":132.2231},{\"x\":607.2769,\"y\":146.168}]}}"
+     "value": "{\"memo\":{\"x\":600,\"y\":-20.5,\"width\":160,\"height\":160,\"origin\":{\"x\":680,\"y\":59.5},\"corners\":[{\"x\":607.2769,\"y\":-27.168},{\"x\":766.668,\"y\":-13.2231},{\"x\":752.7231,\"y\":146.168},{\"x\":593.332,\"y\":132.2231}]}}"
     },
     "start-to-ask": {
      "ok": true,
@@ -46235,7 +46593,9 @@
   {
    "key": "filter",
    "value": "blur(2px)",
-   "classes": null
+   "classes": [
+    "filter-[blur(2px)]"
+   ]
   },
   {
    "key": "overflow",

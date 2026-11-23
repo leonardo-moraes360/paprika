@@ -180,9 +180,19 @@ export function tailwindClassesFor(key: string, value: string | number): string[
     case "boxShadow":
       return [`shadow-[${arb(v)}]`];
     case "filter": {
-      const m = v.match(/^drop-shadow\((.+)\)$/);
-      return m ? [`drop-shadow-[${arb(m[1]!)}]`] : undefined;
+      const m = v.match(/^drop-shadow\(((?:[^()]|\([^()]*\))*)\)$/);
+      if (m) return [`drop-shadow-[${arb(m[1]!)}]`];
+      if (UNSAFE.test(v)) return undefined;
+      return [`filter-[${arb(v)}]`];
     }
+    case "backdropFilter":
+      if (UNSAFE.test(v)) return undefined;
+      return [`backdrop-filter-[${arb(v)}]`];
+    case "outline":
+      if (UNSAFE.test(v)) return undefined;
+      return [`outline-[${arb(v)}]`];
+    case "outlineOffset":
+      return [`outline-offset-[${arb(v)}]`];
     case "overflow":
       return OVERFLOW.get(v) ? [OVERFLOW.get(v)!] : undefined;
     case "color":

@@ -167,6 +167,7 @@ export type Messages = {
   hideLayer: (name: string) => string;
   showLayer: (name: string) => string;
   renameLayerHint: string;
+  layerMenu: string;
   zoomIn: string;
   zoomOut: string;
   zoomFit: string;
@@ -182,6 +183,8 @@ export type Messages = {
   ratioLockAlt: string;
   renameFrameHint: string;
   resizeCorner: (corner: string) => string;
+  rotate: string;
+  rotateHint: string;
   cornerTl: string;
   cornerTr: string;
   cornerBl: string;
@@ -508,6 +511,7 @@ const en: Messages = {
   hideLayer: (name) => `Hide ${name}`,
   showLayer: (name) => `Show ${name}`,
   renameLayerHint: "Double-click or F2 to rename",
+  layerMenu: "Layers under the cursor",
   zoomIn: "Zoom in",
   zoomOut: "Zoom out",
   zoomFit: "Fit",
@@ -523,6 +527,8 @@ const en: Messages = {
   ratioLockAlt: "1:1 · Shift+Alt",
   renameFrameHint: "Double-click to rename",
   resizeCorner: (corner) => `Resize ${corner} corner`,
+  rotate: "Rotate",
+  rotateHint: "Drag to rotate. Shift snaps to 15°.",
   cornerTl: "top-left",
   cornerTr: "top-right",
   cornerBl: "bottom-left",
@@ -843,6 +849,7 @@ const pt: Messages = {
   hideLayer: (name) => `Ocultar ${name}`,
   showLayer: (name) => `Mostrar ${name}`,
   renameLayerHint: "Duplo clique ou F2 para renomear",
+  layerMenu: "Camadas sob o cursor",
   zoomIn: "Aumentar zoom",
   zoomOut: "Diminuir zoom",
   zoomFit: "Enquadrar",
@@ -855,6 +862,8 @@ const pt: Messages = {
   ratioLock: "Proporção · Shift",
   renameFrameHint: "Duplo clique para renomear",
   resizeCorner: (corner) => `Redimensionar canto ${corner}`,
+  rotate: "Girar",
+  rotateHint: "Arraste para girar. Shift trava em 15°.",
   cornerTl: "superior esquerdo",
   cornerTr: "superior direito",
   cornerBl: "inferior esquerdo",

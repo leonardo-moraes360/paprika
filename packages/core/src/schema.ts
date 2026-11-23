@@ -55,7 +55,48 @@ export const Shadow = z.object({
   blur: lengthValue(0),
   spread: lengthValue().default(0),
   color: ColorValue,
+  inner: z.boolean().optional(),
 });
+
+export const ShadowValue = z.union([Shadow, z.array(Shadow).min(1).max(8)]);
+
+export const Outline = z.object({
+  color: ColorValue,
+  width: lengthValue(0, 1000),
+  style: StrokeStyle.optional(),
+  offset: lengthValue(-1000, 1000).optional(),
+});
+
+const FILTER_KEYS = ["blur", "saturate", "grayscale", "brightness", "sepia", "invert", "hueRotate"] as const;
+
+export const FilterEffects = z
+  .object({
+    blur: lengthValue(0, 1000).optional(),
+    saturate: z.number().min(0).max(10).optional(),
+    grayscale: z.number().min(0).max(1).optional(),
+    brightness: z.number().min(0).max(10).optional(),
+    sepia: z.number().min(0).max(1).optional(),
+    invert: z.number().min(0).max(1).optional(),
+    hueRotate: z.number().min(-360).max(360).optional(),
+  })
+  .check((ctx) => {
+    const v = ctx.value as Record<string, unknown> | undefined;
+    if (!v || FILTER_KEYS.every((k) => v[k] === undefined)) {
+      ctx.issues.push({
+        code: "custom",
+        message: "filter needs at least one of blur, saturate, grayscale, brightness, sepia, invert, hueRotate",
+        input: ctx.value,
+      });
+    }
+  });
+
+export type ShadowSpec = z.infer<typeof Shadow>;
+
+export function listShadows(shadow: ShadowSpec | readonly ShadowSpec[] | undefined | null): ShadowSpec[] {
+  if (shadow == null) return [];
+  if (Array.isArray(shadow)) return shadow.slice();
+  return [shadow as ShadowSpec];
+}
 
 export const Layout = z.object({
   mode: z.enum(["none", "row", "column"]).default("none"),
@@ -82,7 +123,10 @@ const Base = {
   fill: ColorValue.optional(),
   stroke: Stroke.optional(),
   radius: lengthValue(0).default(0),
-  shadow: Shadow.optional(),
+  shadow: ShadowValue.optional(),
+  outline: Outline.optional(),
+  filter: FilterEffects.optional(),
+  backdropFilter: FilterEffects.optional(),
   /** Notas livres para humanos e agentes (intenção, restrições, links). */
   notes: z.string().max(4000).optional(),
   /** Só em cópias dentro de uma instância: id do nó do componente de onde a cópia vem (gerado). */

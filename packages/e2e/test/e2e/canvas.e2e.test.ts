@@ -393,6 +393,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   for (const key of ["Space", "Enter"]) {
     it(`segurar ${key} sobre o board vira mão aberta; arrastando, mão fechada que move o board`, async () => {
       await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
       const vp = page.locator('[data-testid="viewport"]');
       const world = page.locator(".world");
       const box = (await vp.boundingBox())!;
@@ -585,6 +586,60 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(after.nodes.plano?.parentId).toBeNull();
     // Volta ao canvas na mesma posição em que o grupo a deixou: a antiga (relativa) + a nova origem.
     expect((after.nodes.plano as { x: number }).x).toBeGreaterThan((before.nodes.plano as { x: number }).x + gx + 20);
+  });
+
+  it("hierarquia: Enter desce, Tab cicla irmãos, Ctrl+clique entra no grupo e o clique direito lista as camadas", async () => {
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Selecionar" }).click();
+    const marca = (await page.locator('[data-paprika-id="r0980ga944"]').boundingBox())!;
+    await page.mouse.click(marca.x + 8, marca.y + 8);
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe("r0980ga944");
+    await page.keyboard.press("Escape");
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe("login");
+    await page.keyboard.press("Enter");
+    const picked = () => page.locator(".layer.is-selected").evaluateAll((els) => els.map((e) => e.getAttribute("data-layer-id")));
+    const kids = ((await doc()).nodes.login as { children: string[] }).children;
+    await expect.poll(picked).toEqual(kids);
+
+    await page.keyboard.press("Escape");
+    await page.mouse.click(marca.x + 8, marca.y + 8);
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(kids[0]);
+    await page.keyboard.press("Tab");
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(kids[1]);
+    await page.keyboard.press("Shift+Tab");
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(kids[0]);
+
+    await page.locator('[data-layer-id="login"]').click();
+    await page.locator('[data-layer-id="plano"]').click({ modifiers: ["Shift"] });
+    await page.keyboard.press("Control+g");
+    const groupId = async () => Object.values((await doc()).nodes).find((n) => n.type === "group")?.id;
+    await expect.poll(groupId).toBeTruthy();
+    const g = (await groupId())!;
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    const card = (await page.locator('[data-paprika-id="plano"]').boundingBox())!;
+    await page.keyboard.down("Control");
+    await page.mouse.click(card.x + 16, card.y + 16);
+    await page.keyboard.up("Control");
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).not.toBe(g);
+    const deepId = (await page.locator(".layer.is-selected").getAttribute("data-layer-id"))!;
+    expect(deepId).toBeTruthy();
+
+    await page.mouse.click(card.x + 16, card.y + 16, { button: "right" });
+    const menu = page.getByTestId("layer-menu");
+    await menu.waitFor();
+    await expect(menu.getAttribute("aria-label")).resolves.toBe("Camadas sob o cursor");
+    await expect(menu.locator(`[data-layer-id="${deepId}"]`).count()).resolves.toBe(1);
+    await expect(menu.locator(`[data-layer-id="${g}"]`).count()).resolves.toBe(1);
+    await menu.locator(`[data-layer-id="${g}"]`).click();
+    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(g);
+    await expect.poll(() => menu.count()).toBe(0);
+
+    await page.keyboard.press("Enter");
+    await expect.poll(picked).toEqual(expect.arrayContaining(["login", "plano"]));
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Control+Shift+g");
+    await expect.poll(async () => (await doc()).nodes[g]).toBeUndefined();
   });
 
   it("páginas: o + leva o conteúdo para a Página 1, cria a 2 e o agente desenha nela", async () => {
@@ -1481,6 +1536,75 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(after.y + after.height).toBeCloseTo(seBefore.y, 0);
     expect(after.x).toBeLessThan(before.x);
     expect(after.y).toBeLessThan(before.y);
+  }, 30_000);
+
+  it("seleção rotacionada: alças nos cantos da caixa e o marquee ignora o canto vazio", async () => {
+    const POLL = { timeout: 10_000 };
+    await page.keyboard.press("Escape");
+    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const id = "spin-hit";
+    const created = await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId,
+        label: "retângulo rotacionado",
+        nodes: [{ type: "rect", id, name: "Spin", x: 700, y: 40, width: 220, height: 48, rotation: 32, fill: "#d9d4cf" }],
+      },
+    });
+    expect(created.isError).toBeFalsy();
+    await expect.poll(async () => (await doc()).nodes[id]?.type, POLL).toBe("rect");
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    const host = page.locator(`[data-paprika-id="${id}"]`);
+    const box = (await host.boundingBox())!;
+    const empty = { x: box.x + Math.max(2, box.width * 0.015), y: box.y + Math.max(2, box.height * 0.015) };
+    await page.mouse.click(empty.x, empty.y);
+    await expect.poll(() => page.locator(`[data-layer-id="${id}"].is-selected`).count(), POLL).toBe(0);
+    await page.mouse.move(empty.x, empty.y);
+    await page.mouse.down();
+    await page.mouse.move(empty.x + Math.max(4, box.width * 0.02), empty.y + Math.max(4, box.height * 0.02), { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(() => page.locator(`[data-layer-id="${id}"].is-selected`).count(), POLL).toBe(0);
+    await host.click();
+    const sel = page.getByTestId("selection");
+    await expect.poll(() => sel.locator("[data-resize]").count(), POLL).toBe(4);
+    await expect.poll(() => sel.getByTestId("rotate-handle").count(), POLL).toBe(1);
+    const nw = (await sel.locator('[data-resize="nw"]').boundingBox())!;
+    const nwCenter = { x: nw.x + nw.width / 2, y: nw.y + nw.height / 2 };
+    const vp = (await page.locator(".viewport").boundingBox())!;
+    const first = (await sel.locator("polygon").getAttribute("points"))!.split(" ")[0]!.split(",").map(Number);
+    const quad = { x: vp.x + first[0]!, y: vp.y + first[1]! };
+    expect(Math.hypot(nwCenter.x - quad.x, nwCenter.y - quad.y)).toBeLessThan(6);
+    expect(Math.hypot(quad.x - box.x, quad.y - box.y)).toBeGreaterThan(4);
+    const before = (await doc()).nodes[id] as { x: number; y: number; width: number; height: number; rotation: number };
+    const corner = (n: typeof before, which: "nw" | "se") => {
+      const w = n.width;
+      const h = n.height;
+      const cx = n.x + w / 2;
+      const cy = n.y + h / 2;
+      const rad = (n.rotation * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const dx = (which === "nw" ? -w : w) / 2;
+      const dy = (which === "nw" ? -h : h) / 2;
+      return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
+    };
+    const nwBefore = corner(before, "nw");
+    const se = (await sel.locator('[data-resize="se"]').boundingBox())!;
+    await page.mouse.move(se.x + se.width / 2, se.y + se.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(se.x + se.width / 2 + 36, se.y + se.height / 2 + 24, { steps: 6 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => {
+        const n = (await doc()).nodes[id] as { width: number; height: number };
+        return n.width !== before.width || n.height !== before.height;
+      }, POLL)
+      .toBe(true);
+    const after = (await doc()).nodes[id] as typeof before;
+    const nwAfter = corner(after, "nw");
+    expect(Math.abs(nwAfter.x - nwBefore.x)).toBeLessThan(2);
+    expect(Math.abs(nwAfter.y - nwBefore.y)).toBeLessThan(2);
+    expect(after.rotation).toBe(before.rotation);
   }, 30_000);
 
   it("seta: inspector troca rota cotovelo/arredondado/curva e a alça da curva grava control", async () => {

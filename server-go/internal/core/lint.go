@@ -149,11 +149,29 @@ func tokenRefs(n *Node) []string {
 		w, _ := st.Get("width")
 		check(w)
 	}
-	if sh := n.Obj("shadow"); sh != nil {
+	for _, sh := range shadowNodes(n) {
 		check(sh.Str("color"))
 		for _, k := range []string{"x", "y", "blur", "spread"} {
 			v, _ := sh.Get(k)
 			check(v)
+		}
+	}
+	if ol := n.Obj("outline"); ol != nil {
+		check(ol.Str("color"))
+		w, _ := ol.Get("width")
+		check(w)
+		if off, ok := ol.Get("offset"); ok {
+			check(off)
+		}
+	}
+	if f := n.Obj("filter"); f != nil {
+		if b, ok := f.Get("blur"); ok {
+			check(b)
+		}
+	}
+	if f := n.Obj("backdropFilter"); f != nil {
+		if b, ok := f.Get("blur"); ok {
+			check(b)
 		}
 	}
 	if r, ok := n.Get("radius"); ok {

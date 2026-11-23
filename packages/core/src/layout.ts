@@ -7,7 +7,8 @@ import { round4 } from "./num.js";
  *
  * `layout(doc)` walks the document and resolves row/column auto-layout, hug/fill, groups, pages
  * and instance scale into absolute boxes (canvas coordinates, before rotation). Rotation is
- * exposed as the four corners around the box centre (CSS `transform-origin: center`).
+ * exposed as the four corners around the box centre (CSS `transform-origin: center`,
+ * `rotate()` clockwise on screen).
  *
  * Text measuring uses a deterministic advance table so TypeScript and Go agree. It approximates
  * Inter / system-ui (mean Latin advance ≈ 0.552 em at weight 400); it is not glyph-accurate, so
@@ -108,7 +109,7 @@ function cornersOf(x: number, y: number, w: number, h: number, rotation: number)
   return pts.map((p) => {
     const dx = p.x - cx;
     const dy = p.y - cy;
-    return { x: round4(cx + dx * cos + dy * sin), y: round4(cy - dx * sin + dy * cos) };
+    return { x: round4(cx + dx * cos - dy * sin), y: round4(cy + dx * sin + dy * cos) };
   }) as [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
 }
 

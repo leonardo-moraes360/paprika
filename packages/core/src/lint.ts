@@ -1,7 +1,7 @@
 import { layout } from "./layout.js";
 import { round4 } from "./num.js";
 import { placeNum, placementLint } from "./placement.js";
-import { isContainer, type Document, type Node } from "./schema.js";
+import { isContainer, listShadows, type Document, type Node } from "./schema.js";
 import { modeOf, resolveLength, resolveValue, tokenValue } from "./style.js";
 
 export interface RGBA {
@@ -98,13 +98,20 @@ function tokenRefs(node: Node): string[] {
   if (node.type === "page") return refs;
   check(node.stroke?.color);
   check(node.stroke?.width);
-  if (node.shadow) {
-    check(node.shadow.color);
-    check(node.shadow.x);
-    check(node.shadow.y);
-    check(node.shadow.blur);
-    check(node.shadow.spread);
+  for (const s of listShadows(node.shadow)) {
+    check(s.color);
+    check(s.x);
+    check(s.y);
+    check(s.blur);
+    check(s.spread);
   }
+  if (node.outline) {
+    check(node.outline.color);
+    check(node.outline.width);
+    check(node.outline.offset);
+  }
+  check(node.filter?.blur);
+  check(node.backdropFilter?.blur);
   if (Array.isArray(node.radius)) node.radius.forEach(check);
   else check(node.radius);
   if (node.type === "frame" && node.layout) {

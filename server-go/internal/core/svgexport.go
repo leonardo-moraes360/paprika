@@ -12,6 +12,39 @@ import (
 // Port of packages/core/src/svgExport.ts: a node, a page or the canvas as vector SVG. Boxes come
 // from Layout when measure is nil; an explicit measure overrides boxes and text lines (goldens).
 
+func svgShadow(doc *Document, n *Node, id string, warn func(string)) (defs, attr string) {
+	shadows := shadowNodes(n)
+	if len(shadows) == 0 {
+		return "", ""
+	}
+	mode := ModeOf(doc, n)
+	prims := []string{}
+	for _, s := range shadows {
+		if s.Bool("inner") {
+			warn("inner shadow: SVG uses only offset, blur and color")
+		}
+		sp, _ := s.Get("spread")
+		if svgLen(doc, n, sp) != 0 {
+			warn("shadow with spread: SVG uses only offset, blur and color")
+		}
+		if s.Bool("inner") {
+			continue
+		}
+		sc, _ := s.Get("color")
+		sx, _ := s.Get("x")
+		sy, _ := s.Get("y")
+		sb, _ := s.Get("blur")
+		prims = append(prims, fmt.Sprintf(`<feDropShadow dx="%s" dy="%s" stdDeviation="%s" flood-color="%s"/>`,
+			r2(svgLen(doc, n, sx)), r2(svgLen(doc, n, sy)), r2(svgLen(doc, n, sb)/2), EscapeHTML(jsString(ResolveValue(doc, sc, mode)))))
+	}
+	if len(prims) == 0 {
+		return "", ""
+	}
+	defs = fmt.Sprintf(`<filter id="shadow-%s" x="-50%%" y="-50%%" width="200%%" height="200%%">%s</filter>`, id, strings.Join(prims, ""))
+	attr = fmt.Sprintf(` filter="url(#shadow-%s)"`, id)
+	return defs, attr
+}
+
 func svgLen(doc *Document, n *Node, v any) float64 {
 	if f, ok := ResolveLength(doc, v, ModeOf(doc, n)); ok {
 		return f
@@ -192,20 +225,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		mode := ModeOf(doc, n)
 		id := EscapeHTML(n.Str("id"))
 		_, pathA, fold := ShapeAttrs(doc, n, false)
-		defs, shadowAttr := "", ""
-		if s := n.Obj("shadow"); s != nil {
-			sp, _ := s.Get("spread")
-			if svgLen(doc, n, sp) != 0 {
-				warn("shadow with spread: SVG uses only offset, blur and color")
-			}
-			sc, _ := s.Get("color")
-			sx, _ := s.Get("x")
-			sy, _ := s.Get("y")
-			sb, _ := s.Get("blur")
-			defs += fmt.Sprintf(`<filter id="shadow-%s" x="-50%%" y="-50%%" width="200%%" height="200%%"><feDropShadow dx="%s" dy="%s" stdDeviation="%s" flood-color="%s"/></filter>`,
-				id, f(svgLen(doc, n, sx)), f(svgLen(doc, n, sy)), f(svgLen(doc, n, sb)/2), EscapeHTML(jsString(ResolveValue(doc, sc, mode))))
-			shadowAttr = fmt.Sprintf(` filter="url(#shadow-%s)"`, id)
-		}
+		defs, shadowAttr := svgShadow(doc, n, id, warn)
 		attrs := make([]Attr, len(pathA))
 		copy(attrs, pathA)
 		for i, a := range attrs {
@@ -360,18 +380,8 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		}
 
 		defs, shadowAttr := "", ""
-		if s := n.Obj("shadow"); s != nil && typ != "text" {
-			sp, _ := s.Get("spread")
-			if svgLen(doc, n, sp) != 0 {
-				warn("shadow with spread: SVG uses only offset, blur and color")
-			}
-			sc, _ := s.Get("color")
-			sx, _ := s.Get("x")
-			sy, _ := s.Get("y")
-			sb, _ := s.Get("blur")
-			defs += fmt.Sprintf(`<filter id="shadow-%s" x="-50%%" y="-50%%" width="200%%" height="200%%"><feDropShadow dx="%s" dy="%s" stdDeviation="%s" flood-color="%s"/></filter>`,
-				id, f(svgLen(doc, n, sx)), f(svgLen(doc, n, sy)), f(svgLen(doc, n, sb)/2), EscapeHTML(jsString(ResolveValue(doc, sc, ModeOf(doc, n)))))
-			shadowAttr = fmt.Sprintf(` filter="url(#shadow-%s)"`, id)
+		if typ != "text" {
+			defs, shadowAttr = svgShadow(doc, n, id, warn)
 		}
 		fill, hasFill := "", false
 		if typ != "path" {
