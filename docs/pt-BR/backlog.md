@@ -27,12 +27,12 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Frames com layout tipo flex (linha/coluna, gap, padding, align, wrap) | `frame.layout` | ✅ | — |
 | Páginas dentro de um arquivo | Nós `page`, lista de páginas no canvas, `create_page` (2026-11-21) | ✅ | — |
 | Agrupar / envolver a seleção num frame, desagrupar | Nó `group`, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21). Envolver num frame: `Ctrl+Alt+G`, botão no inspector, `wrap_nodes` (2026-11-23, PAP-B-089, #152). | ✅ | — |
-| Filho absoluto dentro de frame com layout ("ignorar layout") | `layoutPositioning: "auto"\|"absolute"` no filho (omitir = auto). `"absolute"` mantém x/y relativos ao pai e sai do fluxo, do gap e do hug. Toggle no inspector nos filhos de frames em linha/coluna (2026-11-23, PAP-B-069). Constraints/pinning ficam de fora. | ✅ | — |
+| Filho absoluto dentro de frame com layout ("ignorar layout") | `layoutPositioning: "auto"\|"absolute"` no filho (omitir = auto). `"absolute"` mantém x/y relativos ao pai e sai do fluxo, do gap e do hug. Toggle no inspector nos filhos de frames em linha/coluna (2026-11-23, PAP-B-069). | ✅ | — |
 | Raio por canto | `radius` em frame, rect e image é um comprimento ou `[tl, tr, br, bl]` (cada um número ou `$token`). O inspector liga ou desliga os cantos (2026-11-23, PAP-B-070). | ✅ | — |
 | Ordem Z (avançar, recuar, frente, fundo) | `update_nodes`/`move_nodes` aceitam `index`: número a partir de 0, ou `front`/`back`/`forward`/`backward`, num único passo de desfazer (2026-11-22). Canvas: `Page Up`/`Page Down` um passo, `Ctrl+Page Up`/`Ctrl+Page Down` frente/fundo; seção **Ordem** no inspector (2026-11-22, PAP-B-021). | ✅ | — |
 | Ocultar, travar, destravar tudo | Olho e cadeado em cada linha de camada. **Mostrar todos** / **Destravar todos** na página atual (`show_all` / `unlock_all`, `pageId` opcional; um desfazer) (2026-11-23, PAP-B-089, #152). | ✅ | — |
 | Alinhar e distribuir a seleção | Ícones no inspector e `align_nodes` / `distribute_nodes`. Um desfazer. Só irmãos; nó rotacionado usa a caixa alinhada aos eixos (2026-11-23, PAP-B-089, #152). | ✅ | — |
-| Constraints (comportamento quando o pai redimensiona) | — | ⬜ | P2 |
+| Constraints (comportamento quando o pai redimensiona) | `constraints: { horizontal: left\|right\|center\|scale, vertical: top\|bottom\|center\|scale }` no filho (omitir = left/top). Vale quando a largura ou a altura numérica do frame pai muda, para filhos fora do fluxo (frame livre, ou `layoutPositioning: "absolute"`). Interruptores no inspector nesses filhos (2026-11-23, PAP-B-084, #158). | ✅ | — |
 | Alças de gap e padding no canvas | Só no inspector | ⬜ | P2 |
 | Tokens de container e breakpoint, frames responsivos | — | ⬜ | P3 |
 | Layout CSS Grid | — | ⬜ | P3 |

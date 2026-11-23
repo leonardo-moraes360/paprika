@@ -243,6 +243,84 @@ function flowParent(doc: Document, node: Node): boolean {
   return p?.type === "frame" && !!p.layout && p.layout.mode !== "none";
 }
 
+function showsConstraints(doc: Document, node: Node): boolean {
+  if (node.type === "page" || node.type === "connector") return false;
+  const parent = node.parentId ? doc.nodes[node.parentId] : undefined;
+  if (!parent || parent.type !== "frame" || isInstance(parent)) return false;
+  return !flowParent(doc, node) || ignoresLayout(node);
+}
+
+function constraintNow(node: Node): { horizontal: "left" | "right" | "center" | "scale"; vertical: "top" | "bottom" | "center" | "scale" } {
+  if ("constraints" in node && node.constraints) return { horizontal: node.constraints.horizontal, vertical: node.constraints.vertical };
+  return { horizontal: "left", vertical: "top" };
+}
+
+function ConstraintsFields({ doc, node, set }: { doc: Document; node: Node; set: (props: Record<string, unknown>, label?: string) => void }) {
+  const m = useT();
+  if (!showsConstraints(doc, node)) return null;
+  const cur = constraintNow(node);
+  const axes = [
+    {
+      key: "horizontal" as const,
+      label: m.constraintHorizontal,
+      test: "h",
+      options: [
+        ["left", m.constraintLeft],
+        ["center", m.constraintCenter],
+        ["right", m.constraintRight],
+        ["scale", m.constraintScale],
+      ] as const,
+    },
+    {
+      key: "vertical" as const,
+      label: m.constraintVertical,
+      test: "v",
+      options: [
+        ["top", m.constraintTop],
+        ["center", m.constraintCenter],
+        ["bottom", m.constraintBottom],
+        ["scale", m.constraintScale],
+      ] as const,
+    },
+  ];
+  return (
+    <div className="col-span-2 grid gap-1" data-testid="constraints">
+      {axes.map((axis) => (
+        <div key={axis.key} className="grid gap-1">
+          <span className="text-xs text-ui-muted-foreground">{axis.label}</span>
+          <div className="grid grid-cols-4 gap-1" role="group" aria-label={axis.label}>
+            {axis.options.map(([value, label]) => {
+              const on = cur[axis.key] === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={on}
+                  data-testid={`constraint-${axis.test}-${value}`}
+                  className={cn(
+                    "h-6 cursor-pointer rounded-md border px-1 text-xs",
+                    on
+                      ? "is-active border-transparent bg-ui-primary font-semibold text-ui-primary-foreground"
+                      : "border-ui-border bg-ui-secondary text-ui-foreground",
+                  )}
+                  onClick={() => {
+                    if (on) return;
+                    const next = { ...cur, [axis.key]: value };
+                    set({ constraints: next.horizontal === "left" && next.vertical === "top" ? null : next }, "constraints");
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      <p className={cn(ui.muted, "m-0 text-xs")}>{m.constraintHint}</p>
+    </div>
+  );
+}
+
 function IgnoreLayoutToggle({ doc, node, set }: { doc: Document; node: Node; set: (props: Record<string, unknown>, label?: string) => void }) {
   if (!flowParent(doc, node) || node.type === "page" || node.type === "connector") return null;
   const on = ignoresLayout(node);
@@ -465,6 +543,7 @@ export function Inspector(props: Props) {
           <Field label="Rotação" type="number" value={node.rotation} onCommit={setNum("rotation")} />
           <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={setNum("opacity")} />
           <IgnoreLayoutToggle doc={doc} node={node} set={set} />
+          <ConstraintsFields doc={doc} node={node} set={set} />
         </div>
       </InspectorSection>
       <InspectorSection id="appearance" title="Preenchimento e traço">
@@ -726,6 +805,7 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
           <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={setNum("opacity")} />
           <Field label="Tamanho" value={`${node.width}×${node.height}`} onCommit={() => onError("o tamanho vem do componente; mude a escala")} />
           <IgnoreLayoutToggle doc={doc} node={node} set={set} />
+          <ConstraintsFields doc={doc} node={node} set={set} />
         </div>
       </InspectorSection>
       <InspectorSection id="instance-fill" title="Preenchimento">
@@ -932,6 +1012,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
           <Field label="Y" type="number" value={group.y} onCommit={setNum("y")} />
           <Field label="Opacidade" type="number" value={group.opacity} min={0} max={1} onCommit={setNum("opacity")} />
           <IgnoreLayoutToggle doc={props.doc} node={group} set={set} />
+          <ConstraintsFields doc={props.doc} node={group} set={set} />
         </div>
         <p className={ui.muted}>
           {group.width} × {group.height}: a caixa segue os {group.children.length} filho(s). Duplo clique no canvas seleciona um filho.

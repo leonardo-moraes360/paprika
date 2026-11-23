@@ -981,6 +981,7 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 		if err := checkPages(draft, len(ops)-1); err != nil {
 			return nil, err
 		}
+		applyConstraints(doc, draft)
 		inverse = append(fitGroups(draft), inverse...)
 		if err := SyncInstances(draft); err != nil {
 			return nil, opErr(len(ops)-1, "%s", err.Error())

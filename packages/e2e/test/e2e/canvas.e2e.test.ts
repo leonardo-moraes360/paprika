@@ -1764,4 +1764,43 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => flag("alB", "visible"), POLL).toBe(true);
     await agent.callTool({ name: "delete_nodes", arguments: { ids: ["pAlign"] } });
   }, 30_000);
+
+  it("constraints no inspector seguem o filho fora do fluxo", async () => {
+    const POLL = { timeout: 10_000 };
+    const pageId = "p084";
+    const created = await agent.callTool({
+      name: "create_page",
+      arguments: { id: pageId, name: "Constraints" },
+    });
+    expect(created.isError, JSON.stringify(created.content)).toBeFalsy();
+    await page.locator(`[data-page-id="${pageId}"]`).click();
+    const flowChild = { type: "rect", id: "c084-flow", name: "Flow", width: 30, height: 20, fill: "#111111" };
+    const pinChild = {
+      type: "rect", id: "c084-pin", name: "Pin", x: 140, y: 20, width: 40, height: 24, fill: "#c8401f",
+      layoutPositioning: "absolute", constraints: { horizontal: "right", vertical: "top" },
+    };
+    const frame = {
+      type: "frame", id: "c084", name: "Constraints", x: 1680, y: 40, width: 200, height: 80, fill: "#ffffff",
+      layout: { mode: "row", gap: 8, padding: 0 },
+      children: [flowChild, pinChild],
+    };
+    const made = await agent.callTool({
+      name: "create_nodes",
+      arguments: { parentId: pageId, place: "none", nodes: [frame] },
+    });
+    expect(made.isError, JSON.stringify(made.content)).toBeFalsy();
+    await page.locator('[data-layer-id="c084-flow"] .layer-name').click();
+    await expect.poll(() => page.getByTestId("constraints").count(), POLL).toBe(0);
+    await page.locator('[data-layer-id="c084-pin"] .layer-name').click();
+    const right = page.getByTestId("constraint-h-right");
+    await expect.poll(() => right.getAttribute("aria-pressed"), POLL).toBe("true");
+    await page.getByTestId("constraint-h-left").click();
+    await expect.poll(async () => (await doc()).nodes["c084-pin"], POLL).not.toHaveProperty("constraints");
+    await page.getByTestId("constraint-h-right").click();
+    await expect.poll(async () => (await doc()).nodes["c084-pin"], POLL).toMatchObject({ constraints: { horizontal: "right", vertical: "top" } });
+    await agent.callTool({ name: "update_nodes", arguments: { updates: [{ id: "c084", props: { width: 300 } }] } });
+    await expect.poll(async () => (await doc()).nodes["c084-pin"], POLL).toMatchObject({ x: 240, y: 20, width: 40 });
+    await agent.callTool({ name: "delete_nodes", arguments: { ids: ["p084"] } });
+
+  }, 30_000);
 });

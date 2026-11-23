@@ -135,6 +135,12 @@ const Base = {
   visible: z.boolean().default(true),
   locked: z.boolean().default(false),
   layoutPositioning: z.enum(["auto", "absolute"]).optional(),
+  constraints: z
+    .object({
+      horizontal: z.enum(["left", "right", "center", "scale"]).default("left"),
+      vertical: z.enum(["top", "bottom", "center", "scale"]).default("top"),
+    })
+    .optional(),
   fill: ColorValue.optional(),
   gradient: Gradient.optional(),
   stroke: Stroke.optional(),
@@ -354,6 +360,7 @@ export const GroupNode = z.object({
   sourceId: Base.sourceId,
   lintIgnore: Base.lintIgnore,
   layoutPositioning: Base.layoutPositioning,
+  constraints: Base.constraints,
   children: z.array(z.string()).default([]),
 });
 

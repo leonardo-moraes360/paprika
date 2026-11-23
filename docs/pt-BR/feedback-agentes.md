@@ -762,3 +762,15 @@ Tarefa: desenhar coleções de tokens (claro e escuro) e desvincular (claro e es
 - Igual ao #128, ainda aberto: `find_nodes` devolve duas páginas chamadas `Interfaces`. Os frames foram para `page#interfaces`.
 - Igual ao #123, ainda aberto: `get_document_outline` dessa página trouxe `content` 0×0 e `next` 0,0, então y=6680 veio de uma varredura de profundidade 1 abaixo dos frames que já estavam na página.
 - `lint_design` nos quatro frames ficou limpo depois que os kickers foram para `#ffd2c9`.
+
+## 2026-11-23: constraints quando o pai redimensiona (PAP-B-084, design first)
+
+Tarefa: desenhar os eixos de constraint do inspector (escuro: direita/topo, claro: escala/centro) e o antes/depois de um pai que alarga, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de adicionar `constraints`. Três frames em y=9120 (`papb084-inspector-dark`, `papb084-inspector-light`, `papb084-behavior`). PNGs em `docs/assets/boards/PAP-B-084/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 142 | Um lugar livre em `Interfaces` | Ainda aberto: `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0. As caixas de profundidade 1 terminavam perto de y=8960, então os frames foram para y=9120 | Igual à linha aberta: a caixa de conteúdo da página deveria incluir os frames filhos | P2 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- O frame de comportamento é um mock: o servidor vivo ainda não aceita `constraints`, então os retângulos de antes/depois estão em x/y.
+- `lint_design` nos três roots: 0 erros e 0 avisos.
