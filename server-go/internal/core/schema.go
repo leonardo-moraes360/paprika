@@ -34,24 +34,43 @@ func size() z.Schema {
 	return z.Union(z.Number().Min(0).Max(100_000), z.Enum("hug", "fill"))
 }
 
+var lengthTokenRe = regexp.MustCompile(`^\$[A-Za-z0-9_.-]+$`)
+
+func lengthToken() z.Schema {
+	return z.String().Regex(`^\$[A-Za-z0-9_.-]+$`, `/^\$[\w.-]+$/`, "")
+}
+
+func lengthAny() z.Schema { return z.NumberOrToken(z.Number(), lengthTokenRe) }
+
+func lengthMin(min float64) z.Schema {
+	return z.NumberOrToken(z.Number().Min(min), lengthTokenRe)
+}
+
+func lengthMinMax(min, max float64) z.Schema {
+	return z.NumberOrToken(z.Number().Min(min).Max(max), lengthTokenRe)
+}
+
 var (
 	strokeSchema = z.Object(
 		z.Field{Name: "color", Schema: colorValue()},
-		z.Field{Name: "width", Schema: z.Number().Min(0).Max(1000)},
+		z.Field{Name: "width", Schema: lengthMinMax(0, 1000)},
+		z.Field{Name: "style", Schema: z.Optional(z.Enum("solid", "dashed", "dotted"))},
+		z.Field{Name: "position", Schema: z.Optional(z.Enum("inside", "center", "outside"))},
 	)
 	shadowSchema = z.Object(
-		z.Field{Name: "x", Schema: z.Number()},
-		z.Field{Name: "y", Schema: z.Number()},
-		z.Field{Name: "blur", Schema: z.Number().Min(0)},
-		z.Field{Name: "spread", Schema: z.Default(z.Number(), 0.0)},
+		z.Field{Name: "x", Schema: lengthAny()},
+		z.Field{Name: "y", Schema: lengthAny()},
+		z.Field{Name: "blur", Schema: lengthMin(0)},
+		z.Field{Name: "spread", Schema: z.Default(lengthAny(), 0.0)},
 		z.Field{Name: "color", Schema: colorValue()},
 	)
+	padLength    = lengthMin(0)
 	layoutSchema = z.Object(
 		z.Field{Name: "mode", Schema: z.Default(z.Enum("none", "row", "column"), "none")},
-		z.Field{Name: "gap", Schema: z.Default(z.Number().Min(0), 0.0)},
+		z.Field{Name: "gap", Schema: z.Default(lengthMin(0), 0.0)},
 		z.Field{Name: "padding", Schema: z.Default(z.Union(
-			z.Number().Min(0),
-			z.Tuple(z.Number().Min(0), z.Number().Min(0), z.Number().Min(0), z.Number().Min(0)),
+			padLength,
+			z.Tuple(padLength, padLength, padLength, padLength),
 		), 0.0)},
 		z.Field{Name: "align", Schema: z.Default(z.Enum("start", "center", "end", "stretch"), "start")},
 		z.Field{Name: "justify", Schema: z.Default(z.Enum("start", "center", "end", "between"), "start")},
@@ -74,10 +93,11 @@ func baseFields() []z.Field {
 		{Name: "locked", Schema: z.Default(z.Bool(), false)},
 		{Name: "fill", Schema: z.Optional(colorValue())},
 		{Name: "stroke", Schema: z.Optional(strokeSchema)},
-		{Name: "radius", Schema: z.Default(z.Number().Min(0), 0.0)},
+		{Name: "radius", Schema: z.Default(lengthMin(0), 0.0)},
 		{Name: "shadow", Schema: z.Optional(shadowSchema)},
 		{Name: "notes", Schema: z.Optional(z.String().Max(4000))},
 		{Name: "sourceId", Schema: z.Optional(z.String())},
+		{Name: "lintIgnore", Schema: z.Optional(z.Array(z.String().Regex(`^[a-z0-9-]{1,40}$`, `/^[a-z0-9-]{1,40}$/`, "lint rule must be [a-z0-9-]{1,40}")).Max(20))},
 	}
 }
 
@@ -107,7 +127,7 @@ func groupSchema() *z.ObjectSchema {
 		baseField("x"), baseField("y"),
 		z.Field{Name: "width", Schema: z.Default(z.Number().Min(0), 0.0)},
 		z.Field{Name: "height", Schema: z.Default(z.Number().Min(0), 0.0)},
-		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"),
+		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"), baseField("lintIgnore"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
 	)
 }
@@ -119,7 +139,7 @@ func pageSchema() *z.ObjectSchema {
 		z.Field{Name: "type", Schema: z.Literal("page")},
 		z.Field{Name: "fill", Schema: z.Optional(colorValue())},
 		z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
-		baseField("notes"),
+		baseField("notes"), baseField("lintIgnore"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
 	)
 }
@@ -136,7 +156,7 @@ func fontFamilySchema() z.Schema {
 func fontSizeSchema() z.Schema {
 	return z.Default(z.Union(
 		z.Number().Min(1).Max(1000),
-		z.String().Regex(`^\$[A-Za-z0-9_.-]+$`, `/^\$[\w.-]+$/`, ""),
+		lengthToken(),
 	), 16.0)
 }
 
@@ -162,7 +182,7 @@ func shapeSchema() *z.ObjectSchema {
 		z.Field{Name: "fontFamily", Schema: fontFamilySchema()},
 		z.Field{Name: "fontSize", Schema: fontSizeSchema()},
 		z.Field{Name: "fontWeight", Schema: z.Default(z.Int().Min(100).Max(900), 500.0)},
-		z.Field{Name: "lineHeight", Schema: z.Default(z.Number().Min(0).Max(10), 1.3)},
+		z.Field{Name: "lineHeight", Schema: z.Default(lengthMinMax(0, 10), 1.3)},
 		z.Field{Name: "textAlign", Schema: z.Default(z.Enum("left", "center", "right"), "center")},
 	)
 	return z.Object(fields...)
@@ -185,10 +205,15 @@ func connectorSchema() *z.ObjectSchema {
 		baseField("x"), baseField("y"),
 		z.Field{Name: "width", Schema: z.Default(z.Number().Min(0), 0.0)},
 		z.Field{Name: "height", Schema: z.Default(z.Number().Min(0), 0.0)},
-		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"),
+		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"), baseField("lintIgnore"),
 		z.Field{Name: "from", Schema: connectorEndSchema()},
 		z.Field{Name: "to", Schema: connectorEndSchema()},
-		z.Field{Name: "route", Schema: z.Default(z.Enum("straight", "elbow"), "straight")},
+		z.Field{Name: "route", Schema: z.Default(z.Enum("straight", "elbow", "rounded", "curve"), "straight")},
+		z.Field{Name: "radius", Schema: z.Default(z.Number().Min(0).Max(1000), 0.0)},
+		z.Field{Name: "control", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number()},
+			z.Field{Name: "y", Schema: z.Number()},
+		))},
 		z.Field{Name: "startArrow", Schema: z.Default(z.Enum("none", "arrow"), "none")},
 		z.Field{Name: "endArrow", Schema: z.Default(z.Enum("none", "arrow"), "arrow")},
 		z.Field{Name: "stroke", Schema: z.Default(strokeSchema, jsonv.NewObject("color", "#1e2336", "width", 2.0))},
@@ -247,6 +272,7 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.01).Max(100))},
 		z.Field{Name: "overrides", Schema: z.Optional(overridesSchema())},
 		z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
+		z.Field{Name: "scaledMock", Schema: z.Optional(z.Bool())},
 	),
 	"rect":    nodeSchema("rect"),
 	"ellipse": nodeSchema("ellipse"),
@@ -259,13 +285,10 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 			}
 			return ""
 		}), "Inter, system-ui, sans-serif")},
-		z.Field{Name: "fontSize", Schema: z.Default(z.Union(
-			z.Number().Min(1).Max(1000),
-			z.String().Regex(`^\$[A-Za-z0-9_.-]+$`, `/^\$[\w.-]+$/`, ""),
-		), 16.0)},
+		z.Field{Name: "fontSize", Schema: fontSizeSchema()},
 		z.Field{Name: "fontWeight", Schema: z.Default(z.Int().Min(100).Max(900), 400.0)},
-		z.Field{Name: "lineHeight", Schema: z.Default(z.Number().Min(0).Max(10), 1.4)},
-		z.Field{Name: "letterSpacing", Schema: z.Default(z.Number(), 0.0)},
+		z.Field{Name: "lineHeight", Schema: z.Default(lengthMinMax(0, 10), 1.4)},
+		z.Field{Name: "letterSpacing", Schema: z.Default(lengthAny(), 0.0)},
 		z.Field{Name: "textAlign", Schema: z.Default(z.Enum("left", "center", "right"), "left")},
 	),
 	"image": nodeSchema("image",
@@ -321,7 +344,7 @@ var (
 var DocumentSchema = z.Object(
 	z.Field{Name: "format", Schema: z.Literal(Format)},
 	z.Field{Name: "id", Schema: z.String()},
-	z.Field{Name: "name", Schema: z.Default(z.String(), "Sem título")},
+	z.Field{Name: "name", Schema: z.Default(z.String(), "Untitled")},
 	z.Field{Name: "tokens", Schema: z.Default(z.Record(TokenNameSchema, TokenValueSchema), jsonv.NewObject())},
 	z.Field{Name: "modes", Schema: z.Optional(z.Record(ModeNameSchema, z.Record(TokenNameSchema, TokenValueSchema)))},
 	z.Field{Name: "rootIds", Schema: z.Default(z.Array(z.String()), []any{})},

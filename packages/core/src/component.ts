@@ -208,7 +208,13 @@ function buildInstance(doc: Document, inst: FrameNode & { instanceOf: string }) 
     delete n.component;
     scaleGeometry(n, s, true);
     // Um conector dentro do componente se prende às cópias da mesma instância.
-    if (n.type === "connector") for (const k of ["from", "to"] as const) n[k] = copyEnd(n[k] as ConnectorEnd, inst.id, inComp, s);
+    if (n.type === "connector") {
+      for (const k of ["from", "to"] as const) n[k] = copyEnd(n[k] as ConnectorEnd, inst.id, inComp, s);
+      if (s !== 1 && n.control && typeof n.control === "object") {
+        const ctl = n.control as { x: number; y: number };
+        n.control = { x: round4(ctl.x * s), y: round4(ctl.y * s) };
+      }
+    }
     for (const [k, v] of Object.entries(overrides[srcId] ?? {})) n[k] = v;
     const slot = want.length;
     want.push(undefined as unknown as NodeT);

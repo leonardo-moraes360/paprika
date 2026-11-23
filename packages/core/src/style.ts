@@ -1,4 +1,15 @@
-import type { ConnectorNode, Document, Layout, Node, PathNode, ShapeNode, Size } from "./schema.js";
+import type {
+  ConnectorNode,
+  Document,
+  Layout,
+  Node,
+  PathNode,
+  ShapeNode,
+  Size,
+  Stroke,
+  StrokePosition,
+  StrokeStyle,
+} from "./schema.js";
 import { NOTE_FOLD_FILL, shapeOutline, shapePadding } from "./diagram.js";
 
 export type CSS = Record<string, string | number>;
@@ -30,6 +41,22 @@ export function resolveValue<T extends string | number | undefined>(doc: Documen
     cur = next;
   }
   return cur as T | string | number;
+}
+
+export function resolveLength(doc: Document, v: number | string | undefined, mode?: string): number | undefined {
+  if (typeof v !== "number" && typeof v !== "string") return undefined;
+  const r = typeof v === "number" ? v : resolveValue(doc, v, mode);
+  return typeof r === "number" && Number.isFinite(r) ? r : undefined;
+}
+
+function lengthCSS(doc: Document, v: number | string, mode: string | undefined, vars: boolean | undefined, unit: "px" | "num"): string | number {
+  if (vars && typeof v === "string" && v.startsWith("$") && isKnownToken(doc, v.slice(1))) {
+    const ref = `var(${cssVarName(v.slice(1))})`;
+    return unit === "num" ? `calc(${ref} / 1px)` : ref;
+  }
+  const n = resolveLength(doc, v, mode);
+  if (n === undefined) return typeof v === "string" ? v : unit === "px" ? "0px" : 0;
+  return unit === "px" ? px(n) : n;
 }
 
 /** Nome da variável CSS de um token (`brand.dark` → `--brand\.dark`; `\` e `.` são escapados). */
@@ -77,8 +104,34 @@ export function tokenStylesheet(doc: Document): string {
 const px = (n: number) => `${round(n)}px`;
 const round = (n: number) => Math.round(n * 100) / 100;
 
-function padding(p: Layout["padding"]): string {
-  return Array.isArray(p) ? p.map(px).join(" ") : px(p);
+export function strokeStyleOf(stroke: Pick<Stroke, "style"> | undefined): StrokeStyle {
+  return stroke?.style ?? "solid";
+}
+
+export function strokePositionOf(node: Pick<Node, "type"> & { stroke?: Pick<Stroke, "position"> | null }): StrokePosition {
+  if (node.stroke?.position) return node.stroke.position;
+  return node.type === "path" ? "center" : "inside";
+}
+
+export function strokeDasharray(width: number, style: StrokeStyle): string | undefined {
+  if (style === "dashed") return `${round(width * 3)} ${round(width * 2.5)}`;
+  if (style === "dotted") return `${round(width)} ${round(width * 1.5)}`;
+  return undefined;
+}
+
+function dashOf(doc: Document, raw: number | string, vars: boolean | undefined, width: number, style: StrokeStyle): string | undefined {
+  if (vars && typeof raw === "string" && raw.startsWith("$") && isKnownToken(doc, raw.slice(1))) {
+    const ref = `var(${cssVarName(raw.slice(1))})`;
+    if (style === "dashed") return `calc(${ref} * 3) calc(${ref} * 2.5)`;
+    if (style === "dotted") return `calc(${ref} * 1) calc(${ref} * 1.5)`;
+    return undefined;
+  }
+  return strokeDasharray(width, style);
+}
+
+function paddingCSS(doc: Document, p: Layout["padding"], mode: string | undefined, vars: boolean | undefined): string {
+  const one = (v: number | string) => String(lengthCSS(doc, v, mode, vars, "px"));
+  return Array.isArray(p) ? p.map(one).join(" ") : one(p);
 }
 
 function sizeProps(axis: "width" | "height", size: Size, parentMode: Layout["mode"] | null): CSS {
@@ -138,10 +191,7 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
     // fill/stroke vão para o <path> (ver pathAttrs); a sombra segue a forma, não a caixa.
     css.overflow = "visible";
     css.display = node.visible ? "block" : "none";
-    if (node.shadow) {
-      const s = node.shadow;
-      css.filter = `drop-shadow(${px(s.x)} ${px(s.y)} ${px(s.blur)} ${paint(s.color)})`;
-    }
+    if (node.shadow) css.filter = shadowFilter(doc, node.shadow, mode, opts.vars, paint);
     return css;
   }
   if (node.type === "shape") {
@@ -150,21 +200,28 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
     css.alignItems = node.shape === "note" ? "flex-start" : "center";
     css.justifyContent = "center";
     css.padding = shapePadding(node).map(px).join(" ");
-    if (node.shadow) {
-      const s = node.shadow;
-      css.filter = `drop-shadow(${px(s.x)} ${px(s.y)} ${px(s.blur)} ${paint(s.color)})`;
-    }
-    Object.assign(css, textCss(node, paint));
+    if (node.shadow) css.filter = shadowFilter(doc, node.shadow, mode, opts.vars, paint);
+    Object.assign(css, textCss(doc, node, mode, opts.vars, paint));
     return css;
   }
   if (node.fill) css.background = String(paint(node.fill));
-  if (node.stroke) css.border = `${px(node.stroke.width)} solid ${paint(node.stroke.color)}`;
-  if (node.type === "ellipse") css.borderRadius = "50%";
-  else if (node.radius) css.borderRadius = px(node.radius);
-  if (node.shadow) {
-    const s = node.shadow;
-    css.boxShadow = `${px(s.x)} ${px(s.y)} ${px(s.blur)} ${px(s.spread)} ${paint(s.color)}`;
+  if (node.stroke) {
+    const style = strokeStyleOf(node.stroke);
+    const pos = strokePositionOf(node);
+    const w = String(lengthCSS(doc, node.stroke.width, mode, opts.vars, "px"));
+    const c = paint(node.stroke.color);
+    if (pos === "inside") css.border = `${w} ${style} ${c}`;
+    else {
+      css.outline = `${w} ${style} ${c}`;
+      if (pos === "center") {
+        const n = resolveLength(doc, node.stroke.width, mode) ?? 0;
+        css.outlineOffset = w.startsWith("var(") ? `calc(${w} / -2)` : `-${round(n / 2)}px`;
+      } else css.outlineOffset = "0px";
+    }
   }
+  if (node.type === "ellipse") css.borderRadius = "50%";
+  else if (node.radius !== 0) css.borderRadius = lengthCSS(doc, node.radius, mode, opts.vars, "px");
+  if (node.shadow) css.boxShadow = shadowBox(doc, node.shadow, mode, opts.vars, paint);
 
   switch (node.type) {
     case "frame": {
@@ -173,8 +230,8 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
       if (l && l.mode !== "none") {
         css.display = node.visible ? "flex" : "none";
         css.flexDirection = l.mode;
-        css.gap = px(l.gap);
-        css.padding = padding(l.padding);
+        css.gap = lengthCSS(doc, l.gap, mode, opts.vars, "px");
+        css.padding = paddingCSS(doc, l.padding, mode, opts.vars);
         css.alignItems = ALIGN[l.align];
         css.justifyContent = JUSTIFY[l.justify];
         if (l.wrap) css.flexWrap = "wrap";
@@ -182,7 +239,7 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
       break;
     }
     case "text": {
-      Object.assign(css, textCss(node, paint));
+      Object.assign(css, textCss(doc, node, mode, opts.vars, paint));
       css.margin = 0;
       break;
     }
@@ -197,22 +254,53 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
 }
 
 /** Tipografia de texto e de forma (mesma ordem de propriedades nos dois). */
+function shadowOffsets(doc: Document, s: { x: number | string; y: number | string; blur: number | string }, mode: string | undefined, vars: boolean | undefined): string {
+  return `${lengthCSS(doc, s.x, mode, vars, "px")} ${lengthCSS(doc, s.y, mode, vars, "px")} ${lengthCSS(doc, s.blur, mode, vars, "px")}`;
+}
+
+function shadowFilter(
+  doc: Document,
+  s: { x: number | string; y: number | string; blur: number | string; color: string },
+  mode: string | undefined,
+  vars: boolean | undefined,
+  paint: (v: string | number) => string | number,
+): string {
+  return `drop-shadow(${shadowOffsets(doc, s, mode, vars)} ${paint(s.color)})`;
+}
+
+function shadowBox(
+  doc: Document,
+  s: { x: number | string; y: number | string; blur: number | string; spread: number | string; color: string },
+  mode: string | undefined,
+  vars: boolean | undefined,
+  paint: (v: string | number) => string | number,
+): string {
+  return `${shadowOffsets(doc, s, mode, vars)} ${lengthCSS(doc, s.spread, mode, vars, "px")} ${paint(s.color)}`;
+}
+
 function textCss(
-  node: Pick<ShapeNode, "color" | "fontFamily" | "fontSize" | "fontWeight" | "lineHeight" | "textAlign"> & { letterSpacing?: number },
+  doc: Document,
+  node: Pick<ShapeNode, "color" | "fontFamily" | "fontSize" | "fontWeight" | "lineHeight" | "textAlign"> & { letterSpacing?: number | string },
+  mode: string | undefined,
+  vars: boolean | undefined,
   paint: (v: string | number) => string | number,
 ): CSS {
   const css: CSS = {};
   css.color = String(paint(node.color));
   css.fontFamily = node.fontFamily;
-  const fs = paint(node.fontSize);
-  css.fontSize = typeof fs === "number" ? px(fs) : String(fs);
+  css.fontSize = lengthCSS(doc, node.fontSize, mode, vars, "px");
   css.fontWeight = node.fontWeight;
-  css.lineHeight = node.lineHeight;
-  if (node.letterSpacing) css.letterSpacing = px(node.letterSpacing);
+  css.lineHeight = lengthCSS(doc, node.lineHeight, mode, vars, "num");
+  if (node.letterSpacing) css.letterSpacing = lengthCSS(doc, node.letterSpacing, mode, vars, "px");
   css.textAlign = node.textAlign;
   css.whiteSpace = "pre-wrap";
   css.overflowWrap = "anywhere";
   return css;
+}
+
+function strokeWidthAttr(doc: Document, v: number | string, vars: boolean | undefined, resolved: number): number | string {
+  if (vars && typeof v === "string" && v.startsWith("$") && isKnownToken(doc, v.slice(1))) return `var(${cssVarName(v.slice(1))})`;
+  return resolved;
 }
 
 /** Estilo do <svg> do contorno de uma forma (atrás do texto) e do bloco de texto. */
@@ -225,19 +313,23 @@ export const SHAPE_TEXT_CSS: CSS = { position: "relative", width: "100%" };
  */
 export function shapeAttrs(doc: Document, node: ShapeNode, opts: { vars?: boolean } = {}): {
   svg: { width: number; height: number };
-  path: { d: string; fill: string; stroke?: string; strokeWidth?: number; strokeLinejoin: string };
+  path: { d: string; fill: string; stroke?: string; strokeWidth?: number | string; strokeLinejoin: string; strokeDasharray?: string };
   fold?: { d: string; fill: string };
 } {
   const mode = modeOf(doc, node);
-  const o = shapeOutline(node);
+  const radius = resolveLength(doc, node.radius, mode) ?? 0;
+  const sw = node.stroke ? (resolveLength(doc, node.stroke.width, mode) ?? 0) : 0;
+  const o = shapeOutline({ ...node, radius, stroke: node.stroke ? { ...node.stroke, width: sw } : undefined });
   const path: ReturnType<typeof shapeAttrs>["path"] = {
     d: o.d,
     fill: node.fill ? String(paintValue(doc, node.fill, mode, opts.vars)) : "none",
     strokeLinejoin: "round",
   };
-  if (node.stroke && node.stroke.width > 0) {
+  if (node.stroke && sw > 0) {
     path.stroke = String(paintValue(doc, node.stroke.color, mode, opts.vars));
-    path.strokeWidth = node.stroke.width;
+    path.strokeWidth = strokeWidthAttr(doc, node.stroke.width, opts.vars, sw);
+    const dash = dashOf(doc, node.stroke.width, opts.vars, sw, strokeStyleOf(node.stroke));
+    if (dash) path.strokeDasharray = dash;
   }
   const out: ReturnType<typeof shapeAttrs> = { svg: { width: node.width, height: node.height }, path };
   if (o.fold) out.fold = { d: o.fold, fill: NOTE_FOLD_FILL };
@@ -249,28 +341,69 @@ export function connectorAttrs(doc: Document, node: ConnectorNode, opts: { vars?
   d: string;
   fill: string;
   stroke: string;
-  strokeWidth: number;
+  strokeWidth: number | string;
   strokeLinecap: string;
   strokeLinejoin: string;
   strokeDasharray?: string;
 } {
-  const sw = node.stroke.width;
+  const mode = modeOf(doc, node);
+  const sw = resolveLength(doc, node.stroke.width, mode) ?? 0;
   const a: ReturnType<typeof connectorAttrs> = {
     d: node.d,
     fill: "none",
-    stroke: String(paintValue(doc, node.stroke.color, modeOf(doc, node), opts.vars)),
-    strokeWidth: sw,
+    stroke: String(paintValue(doc, node.stroke.color, mode, opts.vars)),
+    strokeWidth: strokeWidthAttr(doc, node.stroke.width, opts.vars, sw),
     strokeLinecap: "round",
     strokeLinejoin: "round",
   };
-  if (node.dashed) a.strokeDasharray = `${round(sw * 3)} ${round(sw * 2.5)}`;
+  if (node.dashed) a.strokeDasharray = dashOf(doc, node.stroke.width, opts.vars, sw, "dashed");
   return a;
+}
+
+/** Amostra um cúbico (8 passos) para medir o comprimento do rótulo. */
+function sampleCubic(p0: { x: number; y: number }, p1: { x: number; y: number }, p2: { x: number; y: number }, p3: { x: number; y: number }, out: { x: number; y: number }[]) {
+  for (let i = 1; i <= 8; i++) {
+    const t = i / 8;
+    const u = 1 - t;
+    out.push({
+      x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
+      y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y,
+    });
+  }
 }
 
 /** Ponto no meio (pelo comprimento) da linha de um conector: o primeiro subcaminho de `d` (as pontas vêm depois). */
 export function connectorMidpoint(d: string): { x: number; y: number } | null {
   const line = d.split(" M")[0] ?? "";
-  const pts = [...line.matchAll(/[ML](-?[\d.]+)[ ,](-?[\d.]+)/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+  const pts: { x: number; y: number }[] = [];
+  let cur = { x: 0, y: 0 };
+  const re = /([MLCA])\s*([^MLCA]*)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(line))) {
+    const cmd = m[1]!.toUpperCase();
+    const nums = (m[2]!.match(/-?[\d.]+/g) ?? []).map(Number);
+    if (cmd === "M" || cmd === "L") {
+      for (let i = 0; i + 1 < nums.length; i += 2) {
+        cur = { x: nums[i]!, y: nums[i + 1]! };
+        pts.push(cur);
+      }
+    } else if (cmd === "C" && nums.length >= 6) {
+      for (let i = 0; i + 5 < nums.length; i += 6) {
+        const c1 = { x: nums[i]!, y: nums[i + 1]! };
+        const c2 = { x: nums[i + 2]!, y: nums[i + 3]! };
+        const end = { x: nums[i + 4]!, y: nums[i + 5]! };
+        sampleCubic(cur, c1, c2, end, pts);
+        cur = end;
+      }
+    } else if (cmd === "A" && nums.length >= 7) {
+      for (let i = 0; i + 6 < nums.length; i += 7) {
+        const end = { x: nums[i + 5]!, y: nums[i + 6]! };
+        // Corda do arco (suficiente para o rótulo no meio do cotovelo).
+        pts.push({ x: (cur.x + end.x) / 2, y: (cur.y + end.y) / 2 }, end);
+        cur = end;
+      }
+    }
+  }
   if (!pts.length) return null;
   const seg = (k: number) => Math.sqrt((pts[k + 1]!.x - pts[k]!.x) ** 2 + (pts[k + 1]!.y - pts[k]!.y) ** 2);
   let total = 0;
@@ -330,7 +463,17 @@ export function connectorLabelAttrs(
 /** Atributos do <svg> e do <path> de um nó path. Fonte única para canvas, HTML/screenshot e React. */
 export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean } = {}): {
   svg: { viewBox?: string; preserveAspectRatio?: string };
-  path: { d: string; fill: string; fillRule: string; stroke?: string; strokeWidth?: number; strokeLinecap: string; strokeLinejoin: string };
+  path: {
+    d: string;
+    fill: string;
+    fillRule: string;
+    stroke?: string;
+    strokeWidth?: number | string;
+    strokeLinecap: string;
+    strokeLinejoin: string;
+    strokeDasharray?: string;
+    paintOrder?: string;
+  };
 } {
   const mode = modeOf(doc, node);
   const svg: { viewBox?: string; preserveAspectRatio?: string } = {};
@@ -345,9 +488,17 @@ export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean 
     strokeLinecap: node.strokeCap,
     strokeLinejoin: node.strokeJoin,
   };
-  if (node.stroke && node.stroke.width > 0) {
+  const sw = node.stroke ? (resolveLength(doc, node.stroke.width, mode) ?? 0) : 0;
+  if (node.stroke && sw > 0) {
+    const pos = strokePositionOf(node);
+    const shown = strokeWidthAttr(doc, node.stroke.width, opts.vars, sw);
     path.stroke = String(paintValue(doc, node.stroke.color, mode, opts.vars));
-    path.strokeWidth = node.stroke.width;
+    if (pos === "outside" && node.fill) {
+      path.strokeWidth = typeof shown === "string" ? `calc(${shown} * 2)` : shown * 2;
+      path.paintOrder = "stroke fill";
+    } else path.strokeWidth = shown;
+    const dash = dashOf(doc, node.stroke.width, opts.vars, sw, strokeStyleOf(node.stroke));
+    if (dash) path.strokeDasharray = dash;
   }
   return { svg, path };
 }
@@ -363,4 +514,76 @@ export function cssToString(css: CSS): string {
       return `${prop}:${val}`;
     })
     .join(";");
+}
+
+type LengthBound = { min?: number; max?: number };
+
+function lengthProblem(doc: Document, id: string, field: string, value: unknown, bound: LengthBound, mode?: string): string | undefined {
+  if (typeof value !== "string" || !value.startsWith("$")) return;
+  const resolved = resolveValue(doc, value, mode);
+  if (typeof resolved === "string" && resolved.startsWith("$")) return;
+  if (typeof resolved !== "number" || !Number.isFinite(resolved))
+    return `node "${id}" ${field}: token "${value}" resolved to ${JSON.stringify(resolved)}, expected a length`;
+  const shown = JSON.stringify(resolved);
+  if (bound.min !== undefined && bound.max !== undefined && (resolved < bound.min || resolved > bound.max))
+    return `node "${id}" ${field}: token "${value}" is ${shown}, expected a number >= ${JSON.stringify(bound.min)} and <= ${JSON.stringify(bound.max)}`;
+  if (bound.min !== undefined && resolved < bound.min)
+    return `node "${id}" ${field}: token "${value}" is ${shown}, expected a number >= ${JSON.stringify(bound.min)}`;
+  if (bound.max !== undefined && resolved > bound.max)
+    return `node "${id}" ${field}: token "${value}" is ${shown}, expected a number <= ${JSON.stringify(bound.max)}`;
+}
+
+export function lengthTokenError(doc: Document): string | undefined {
+  const seen = new Set<string>();
+  const visit = (id: string): string | undefined => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    const n = doc.nodes[id];
+    if (!n) return;
+    if (n.type === "page" || n.type === "group") {
+      for (const c of n.children) {
+        const m = visit(c);
+        if (m) return m;
+      }
+      return;
+    }
+    const mode = modeOf(doc, n);
+    const check = (field: string, value: unknown, bound: LengthBound) => lengthProblem(doc, n.id, field, value, bound, mode);
+    let msg: string | undefined;
+    if (n.type === "connector") {
+      msg = check("stroke.width", n.stroke.width, { min: 0, max: 1000 });
+    } else {
+      msg = check("radius", n.radius, { min: 0 });
+      if (n.stroke) msg = msg ?? check("stroke.width", n.stroke.width, { min: 0, max: 1000 });
+      if (n.shadow) {
+        msg = msg ?? check("shadow.x", n.shadow.x, {});
+        msg = msg ?? check("shadow.y", n.shadow.y, {});
+        msg = msg ?? check("shadow.blur", n.shadow.blur, { min: 0 });
+        msg = msg ?? check("shadow.spread", n.shadow.spread, {});
+      }
+      if (n.type === "frame" && n.layout) {
+        msg = msg ?? check("layout.gap", n.layout.gap, { min: 0 });
+        const p = n.layout.padding;
+        if (Array.isArray(p)) {
+          for (let i = 0; i < p.length && !msg; i++) msg = check(`layout.padding.${i}`, p[i], { min: 0 });
+        } else msg = msg ?? check("layout.padding", p, { min: 0 });
+      }
+      if (n.type === "text" || n.type === "shape") {
+        msg = msg ?? check("fontSize", n.fontSize, { min: 1, max: 1000 });
+        msg = msg ?? check("lineHeight", n.lineHeight, { min: 0, max: 10 });
+      }
+      if (n.type === "text") msg = msg ?? check("letterSpacing", n.letterSpacing, {});
+    }
+    if (msg) return msg;
+    if (n.type === "frame") {
+      for (const c of n.children) {
+        const m = visit(c);
+        if (m) return m;
+      }
+    }
+  };
+  for (const id of doc.rootIds) {
+    const m = visit(id);
+    if (m) return m;
+  }
 }

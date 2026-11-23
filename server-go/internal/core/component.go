@@ -342,6 +342,22 @@ func buildInstance(doc *Document, inst *Node) error {
 		scaleGeometry(n, s, true)
 		// A connector inside the component attaches to the copies of the same instance.
 		if n.Str("type") == "connector" {
+			if s != 1 {
+				if ctl := n.Obj("control"); ctl != nil {
+					ctl = ctl.Spread()
+					if x, ok := ctl.Get("x"); ok {
+						if f, isNum := x.(float64); isNum {
+							ctl.Set("x", Round4(f*s))
+						}
+					}
+					if y, ok := ctl.Get("y"); ok {
+						if f, isNum := y.(float64); isNum {
+							ctl.Set("y", Round4(f*s))
+						}
+					}
+					n.Set("control", ctl)
+				}
+			}
 			for _, k := range []string{"from", "to"} {
 				if e := n.Obj(k); e != nil {
 					n.Set(k, copyEnd(e, instID, inComp, s))

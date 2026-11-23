@@ -348,9 +348,11 @@ const opCases = [
   ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 1 }, to: { x: 1, y: 2 } } }]],
   ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 1, y: 2, bogus: 1 }, to: { x: 1, y: 2 } } }]],
   ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { nodeId: "a b" }, to: { x: 1, y: 2 } } }]],
-  ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, route: "curve" } }]],
+  ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, route: "spiral" } }]],
   ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, x: 3 } }]],
   ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 0, y: 0 }, to: { x: 30, y: 40 }, route: "elbow", startArrow: "arrow", stroke: { color: "#c43d27", width: 0.5 } } }]],
+  ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 0, y: 0 }, to: { x: 80, y: 40 }, route: "rounded", radius: 12, endArrow: "none" } }]],
+  ["empty", [{ op: "create", node: { type: "connector", id: "c", from: { x: 0, y: 0 }, to: { x: 80, y: 40 }, route: "curve", control: { x: 40, y: -30 } } }]],
   ["diagram", [{ op: "update", id: "no", props: { x: 333.3, y: 420.7 } }]],
   ["diagram", [{ op: "update", id: "ask", props: { shape: "rect", width: 40 } }, { op: "update", id: "yes", props: { shape: "ellipse" } }]],
   ["diagram", [{ op: "update", id: "ask-to-yes", props: { x: 1 } }]],
@@ -390,6 +392,21 @@ const opCases = [
   ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { index: "front" } }]], // cópia: recusa com copyRule
   ["comp", [{ op: "move", id: copyId("i1", "lbl"), parentId: "i1", index: "front" }]],
   ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { index: "sideways" } }]], // inválido: direto, não copyRule
+  ["empty", [{ op: "set_tokens", tokens: { brand: "#ff0000" } }, { op: "create", node: { type: "rect", id: "r", radius: "$brand" } }]],
+  ["empty", [{ op: "set_tokens", tokens: { "text.huge": 2000 } }, { op: "create", node: { type: "text", id: "t", text: "a", fontSize: "$text.huge" } }]],
+  ["empty", [{ op: "set_tokens", tokens: { "space.md": 8, "radius.md": 12 } }, { op: "create", node: { type: "frame", id: "f", radius: "$radius.md", stroke: { color: "#111", width: "$space.md" }, layout: { mode: "column", gap: "$space.md", padding: ["$space.md", 4, "$space.md", 4] }, children: [{ type: "text", id: "t", text: "a", fontSize: "$space.md", lineHeight: 1.4, letterSpacing: "$space.md" }] } }]],
+  ["empty", [{ op: "create", place: "free", node: { type: "frame", id: "a", name: "A", width: 200, height: 100 } }, { op: "create", place: "free", node: { type: "frame", id: "b", name: "B", width: 200, height: 100 } }, { op: "create", place: "free", node: { type: "frame", id: "c", name: "C", width: 2200, height: 100 } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "light", name: "Light", x: 0, y: 0, width: 400, height: 300, fill: "#ffffff" } }, { op: "create", place: "none", node: { type: "frame", id: "dark", name: "Dark", x: 40, y: 40, width: 400, height: 300, fill: "#111111" } }]],
+  ["free", [{ op: "create", place: "right", node: { type: "frame", id: "side", width: 100, height: 80 } }]],
+  ["free", [{ op: "create", place: "below", node: { type: "frame", id: "under", width: 100, height: 80 } }]],
+  ["free", [{ op: "create", place: { near: "board", side: "right" }, node: { type: "frame", id: "by", width: 50, height: 40 } }]],
+  ["free", [{ op: "create", place: { near: "missing", side: "left" }, node: { type: "frame", id: "no", width: 10, height: 10 } }]],
+  ["paged", [{ op: "create", place: "free", node: { type: "frame", id: "onpage", name: "On page", width: 80, height: 40 } }]],
+  ["empty", [
+    { op: "create", node: { type: "frame", id: "card", name: "Card", x: 0, y: 0, width: 220, height: 140, fill: "#f4f1ea", children: [{ type: "text", id: "label", x: 16, y: 16, width: 120, height: 24, text: "Landing page", color: "#111111" }] } },
+    { op: "create", node: { type: "frame", id: "modal", name: "Delete", x: 8, y: 8, width: 200, height: 100, fill: "#ffffff" } },
+    { op: "update", id: "modal", props: { index: "back" } },
+  ]],
 ];
 
 // ---- composite operations (groups, pages): the generated primitive ops ----
@@ -810,7 +827,7 @@ const pathNorm = ["M40 30 L80 30 L60 70 Z", "M0 0 L10 10", "M10 10 C 20 0 30 0 4
   return { d, origin: pathOrigin(segs), normalized: serializePath(n.segs), bounds: n.bounds };
 });
 
-const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, created: createDocument("Sem título", "abc"), tailwindMapCases };
+const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, created: createDocument("Untitled", "abc"), tailwindMapCases };
 const dest = join(here, "../internal/core/testdata/golden.json");
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");

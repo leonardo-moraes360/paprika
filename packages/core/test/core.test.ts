@@ -191,6 +191,26 @@ describe("estilo e renderização", () => {
     expect(nodeStyle(d2, d2.nodes.card!).background).toBe("#ff278c");
   });
 
+  it("stroke style and position map to border or outline", () => {
+    const { doc } = card();
+    const { doc: dashed } = applyOps(doc, [
+      { op: "update", id: "card", props: { stroke: { color: "#1e2336", width: 2, style: "dashed", position: "inside" } } },
+    ]);
+    expect(nodeStyle(dashed, dashed.nodes.card!).border).toBe("2px dashed #1e2336");
+    const { doc: outside } = applyOps(doc, [
+      { op: "update", id: "card", props: { stroke: { color: "#c43d27", width: 4, style: "dotted", position: "outside" } } },
+    ]);
+    const o = nodeStyle(outside, outside.nodes.card!);
+    expect(o.outline).toBe("4px dotted #c43d27");
+    expect(o.outlineOffset).toBe("0px");
+    const { doc: center } = applyOps(doc, [
+      { op: "update", id: "card", props: { stroke: { color: "#000", width: 6, style: "solid", position: "center" } } },
+    ]);
+    const c = nodeStyle(center, center.nodes.card!);
+    expect(c.outline).toBe("6px solid #000");
+    expect(c.outlineOffset).toBe("-3px");
+  });
+
   it("HTML escapa texto e atributos", () => {
     const { doc } = card();
     const { doc: d2 } = applyOps(doc, [{ op: "update", id: "title", props: { text: "<script>alert(1)</script>" } }]);
@@ -244,8 +264,8 @@ describe("lint", () => {
 describe("consulta", () => {
   it("outline é compacto e respeita profundidade", () => {
     const { doc } = card();
-    expect(outline(doc, { depth: 0 })).toBe('frame#card "Card" 320×200 @0,0 fill=#ffffff column gap=8\n  … 2 filho(s)');
-    expect(outline(doc).split("\n")).toHaveLength(3);
+    expect(outline(doc, { depth: 0 })).toBe('frame#card "Card" 320×200 @0,0 fill=#ffffff column gap=8\n  … 2 filho(s)\ncontent: x=0 y=0 w=320 h=200\nnext: x=400 y=0');
+    expect(outline(doc).split("\n")).toHaveLength(5);
   });
 
   it("queryNodes filtra por tipo, nome e texto", () => {

@@ -17,8 +17,12 @@ import {
   pathAttrs,
   pathBounds,
   connectorAttrs,
+  connectorCurveHandle,
   connectorLabelAttrs,
+  originOf,
+  round4,
   routeConnectors,
+  type ConnectorNode,
   shapeAttrs,
   shapeDefaults,
   SHAPE_SVG_CSS,
@@ -53,6 +57,7 @@ import { Hint } from "./components/ui/tooltip";
 import { InlineName } from "./InlineName";
 import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
 import { AgentCursors, type Box } from "./AgentCursors";
+import { useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { cx, ui } from "./ui";
 
@@ -101,7 +106,7 @@ interface View {
 }
 
 /** Posições/tamanhos provisórios durante um arraste (um ou vários nós). */
-type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number }>;
+type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number; control?: { x: number; y: number } }>;
 
 /** How long a dropped preview waits for the server before giving way to what the server has. */
 const PENDING_MS = 3000;
@@ -114,7 +119,14 @@ function snapshot(doc: Document, pv: Preview): Preview {
     const cur: Preview[string] = {};
     for (const k of Object.keys(props) as (keyof Preview[string])[]) {
       const v = n?.[k];
-      cur[k] = typeof v === "number" ? v : undefined;
+      if (k === "control") {
+        if (v && typeof v === "object" && "x" in (v as object) && "y" in (v as object)) {
+          const c = v as { x: number; y: number };
+          cur.control = { x: c.x, y: c.y };
+        }
+      } else if (typeof v === "number") {
+        cur[k] = v;
+      }
     }
     out[id] = cur;
   }
@@ -122,7 +134,16 @@ function snapshot(doc: Document, pv: Preview): Preview {
 }
 
 function samePreview(a: Preview, b: Preview): boolean {
-  return Object.entries(b).every(([id, props]) => Object.entries(props).every(([k, v]) => a[id]?.[k as keyof Preview[string]] === v));
+  return Object.entries(b).every(([id, props]) =>
+    Object.entries(props).every(([k, v]) => {
+      if (k === "control") {
+        const ac = a[id]?.control;
+        const bc = v as { x: number; y: number } | undefined;
+        return !!ac && !!bc && ac.x === bc.x && ac.y === bc.y;
+      }
+      return a[id]?.[k as "x" | "y" | "width" | "height"] === v;
+    }),
+  );
 }
 
 /** Retângulo de seleção (marquee), em coordenadas do viewport. */
@@ -446,7 +467,14 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
       return (
         <div {...props}>
           <svg xmlns="http://www.w3.org/2000/svg" width={a.svg.width} height={a.svg.height} style={SHAPE_SVG_CSS as CSSProperties}>
-            <path d={a.path.d} fill={a.path.fill} stroke={a.path.stroke} strokeWidth={a.path.strokeWidth} strokeLinejoin="round" />
+            <path
+              d={a.path.d}
+              fill={a.path.fill}
+              stroke={a.path.stroke}
+              strokeWidth={a.path.strokeWidth}
+              strokeLinejoin="round"
+              strokeDasharray={a.path.strokeDasharray}
+            />
             {a.fold && <path d={a.fold.d} fill={a.fold.fill} />}
           </svg>
           {editing ? (
@@ -464,7 +492,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
       const editing = textEdit?.id === node.id ? textEdit : null;
       return (
         <svg {...props} style={{ ...css, pointerEvents: "none", ...(editing && { overflow: "visible" }) }} xmlns="http://www.w3.org/2000/svg" width={node.width} height={node.height}>
-          <path d={a.d} fill="none" stroke="transparent" strokeWidth={Math.max(12, a.strokeWidth + 8)} style={{ pointerEvents: "stroke" }} data-connector-hit="" />
+          <path d={a.d} fill="none" stroke="transparent" strokeWidth={Math.max(12, (typeof a.strokeWidth === "number" ? a.strokeWidth : 0) + 8)} style={{ pointerEvents: "stroke" }} data-connector-hit="" />
           <path
             d={a.d}
             fill="none"
@@ -530,6 +558,7 @@ function ShapeTextEditor({ text, onCommit, onDone }: { text: string; onCommit(te
 }
 
 export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, apply, agentTouched, onOpenPage, onError }: Props) {
+  const m = useT();
   const viewportRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 40, y: 40, zoom: 1 });
@@ -1472,6 +1501,39 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
 
   const single = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
   const resizable = !!single && single.type !== "group" && single.type !== "page" && single.type !== "connector" && !isInstance(single) && !copyOwner(doc, single);
+  const curveConn = single?.type === "connector" && single.route === "curve" && !single.locked && !copyOwner(doc, single) ? (shown.nodes[single.id] as ConnectorNode) : null;
+  const curveHandle = curveConn ? connectorCurveHandle(shown, curveConn) : null;
+  const onCurveHandleDown = (e: RPointerEvent) => {
+    e.stopPropagation();
+    if (!curveConn || !viewportRef.current) return;
+    const id = curveConn.id;
+    const origin = originOf(doc, curveConn.parentId);
+    takeOverPreview();
+    let last = {
+      control: {
+        x: round4((e.clientX - viewportRef.current.getBoundingClientRect().left - view.x) / view.zoom - origin.x),
+        y: round4((e.clientY - viewportRef.current.getBoundingClientRect().top - view.y) / view.zoom - origin.y),
+      },
+    };
+    setPreview({ [id]: last });
+    const move = (ev: PointerEvent) => {
+      const vpr = viewportRef.current!.getBoundingClientRect();
+      last = {
+        control: {
+          x: round4((ev.clientX - vpr.left - view.x) / view.zoom - origin.x),
+          y: round4((ev.clientY - vpr.top - view.y) / view.zoom - origin.y),
+        },
+      };
+      setPreview({ [id]: last });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      commitPreview({ [id]: last }, [{ op: "update", id, props: last }], "curvar seta");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
   const [resizeLock, setResizeLock] = useState<"ratio" | "square" | null>(null);
   const onResizeDown = (corner: "nw" | "ne" | "sw" | "se") => (e: RPointerEvent) => {
     e.stopPropagation();
@@ -1729,6 +1791,15 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             dragIds={dragIds ? new Set(dragIds) : undefined}
           />
         ))}
+        {curveHandle && (
+          <div
+            className="pointer-events-auto absolute size-2.5 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-[1.5px] border-select bg-white active:cursor-grabbing"
+            style={{ left: curveHandle.x, top: curveHandle.y }}
+            data-testid="connector-curve-handle"
+            title="Arrastar para curvar"
+            onPointerDown={onCurveHandleDown}
+          />
+        )}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
       <AgentCursors doc={doc} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} onFocus={focusBox} />
@@ -1792,7 +1863,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
               data-testid="resize-lock-hint"
               data-lock={resizeLock}
             >
-              {resizeLock === "square" ? "1:1 · Shift+Alt" : "Proporção · Shift"}
+              {resizeLock === "square" ? m.ratioLockAlt : m.ratioLock}
             </div>
           )}
         </div>
@@ -1819,19 +1890,19 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         <div className="pointer-events-none absolute rounded-sm bg-select" style={dropUi.marker} data-testid="drop-marker" />
       )}
       <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-ui-border bg-ui-card p-0.5" onPointerDown={(e) => e.stopPropagation()}>
-        <Hint label="Diminuir zoom">
-          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label="Diminuir zoom">
+        <Hint label={m.zoomOut}>
+          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.max(0.1, v.zoom / 1.25) }))} aria-label={m.zoomOut}>
             <Minus size={14} aria-hidden />
           </Button>
         </Hint>
         <span className="min-w-11 text-center text-ui-muted-foreground">{Math.round(view.zoom * 100)}%</span>
-        <Hint label="Aumentar zoom">
-          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label="Aumentar zoom">
+        <Hint label={m.zoomIn}>
+          <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label={m.zoomIn}>
             <Plus size={14} aria-hidden />
           </Button>
         </Hint>
-        <Hint label="Enquadrar (Shift+1)">
-          <Button variant="ghost" className={zoomButton} onClick={fit} aria-label="Enquadrar">
+        <Hint label={m.zoomFitHint}>
+          <Button variant="ghost" className={zoomButton} onClick={fit} aria-label={m.zoomFit}>
             <Maximize size={14} aria-hidden />
           </Button>
         </Hint>

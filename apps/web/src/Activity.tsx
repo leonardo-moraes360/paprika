@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AGENT_COLORS } from "./agents";
 import type { Activity as ActivityEntry } from "./useDocument";
+import { useT } from "./i18n";
 import { cx, ui } from "./ui";
 
 function isStep(label: string): boolean {
-  return /^(desfazer|refazer):/i.test(label);
+  return /^(desfazer|refazer|undo|redo):/i.test(label);
 }
 
 function markerIndex(entries: ActivityEntry[]): number {
@@ -13,10 +14,10 @@ function markerIndex(entries: ActivityEntry[]): number {
   return i;
 }
 
-function actorName(actor: string): string {
-  if (actor === "user") return "você";
-  if (actor.startsWith("agent:")) return actor.slice(6) || "agente";
-  if (actor.startsWith("agent")) return actor.replace(/^agent:?/, "") || "agente";
+function actorName(actor: string, you: string): string {
+  if (actor === "user") return you;
+  if (actor.startsWith("agent:")) return actor.slice(6) || "agent";
+  if (actor.startsWith("agent")) return actor.replace(/^agent:?/, "") || "agent";
   return actor;
 }
 
@@ -27,9 +28,9 @@ function actorColor(actor: string): string {
   return AGENT_COLORS[Math.abs(h) % AGENT_COLORS.length]!;
 }
 
-function relativeTime(at: number, now: number): string {
+function relativeTime(at: number, now: number, nowLabel: string): string {
   const s = Math.max(0, Math.floor((now - at) / 1000));
-  if (s < 5) return "agora";
+  if (s < 5) return nowLabel;
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m} min`;
@@ -57,16 +58,18 @@ function batchFlags(entries: ActivityEntry[]): boolean[] {
 }
 
 function Marker() {
+  const m = useT();
   return (
-    <li data-testid="activity-marker" className={ui.activityMarker} aria-label="Posição atual no histórico">
+    <li data-testid="activity-marker" className={ui.activityMarker} aria-label={m.historyPosition}>
       <span className={ui.activityMarkerLine} aria-hidden />
-      <span>agora</span>
+      <span>{m.now}</span>
       <span className={ui.activityMarkerLine} aria-hidden />
     </li>
   );
 }
 
 export function Activity({ activity }: { activity: ActivityEntry[] }) {
+  const m = useT();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
@@ -75,7 +78,7 @@ export function Activity({ activity }: { activity: ActivityEntry[] }) {
 
   const entries = activity.slice(0, 15);
   if (entries.length === 0) {
-    return <p className={ui.muted}>Nenhuma edição ainda.</p>;
+    return <p className={ui.muted}>{m.noEditsYet}</p>;
   }
 
   const mark = markerIndex(entries);
@@ -84,9 +87,9 @@ export function Activity({ activity }: { activity: ActivityEntry[] }) {
   for (let i = 0; i < entries.length; i++) {
     if (i === mark) rows.push(<Marker key="activity-marker" />);
     const a = entries[i]!;
-    const name = actorName(a.actor);
+    const name = actorName(a.actor, m.you);
     const color = actorColor(a.actor);
-    const label = a.label || "edição";
+    const label = a.label || m.editSingular;
     const step = isStep(label);
     rows.push(
       <li
@@ -101,7 +104,7 @@ export function Activity({ activity }: { activity: ActivityEntry[] }) {
           {label}
         </span>
         <time className={ui.activityTime} dateTime={new Date(a.at).toISOString()}>
-          {relativeTime(a.at, now)}
+          {relativeTime(a.at, now, m.now)}
         </time>
       </li>,
     );

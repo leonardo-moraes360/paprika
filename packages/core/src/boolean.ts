@@ -4,6 +4,7 @@ import { newId } from "./id.js";
 import { round4 } from "./num.js";
 import { parsePath, serializePath, translatePath, type Point, type Segment } from "./path.js";
 import { shapeOutline } from "./diagram.js";
+import { modeOf, resolveLength } from "./style.js";
 import type { Op } from "./ops.js";
 
 export type BooleanOp = "union" | "subtract" | "intersect" | "exclude";
@@ -333,13 +334,14 @@ function ringsToMulti(rings: Ring[], fillRule: "nonzero" | "evenodd"): Multi {
   return multi;
 }
 
-function nodeGeometry(n: NodeT): Multi {
+function nodeGeometry(doc: Document, n: NodeT): Multi {
   if (n.type === "page" || n.type === "group" || n.type === "connector" || n.type === "frame" || n.type === "text" || n.type === "image") return [];
   const w = typeof n.width === "number" ? n.width : 0;
   const h = typeof n.height === "number" ? n.height : 0;
   const rot = n.rotation;
+  const mode = modeOf(doc, n);
   if (n.type === "rect") {
-    const ring = mapRing(rectRing(w, h, n.radius), n.x, n.y, w, h, rot);
+    const ring = mapRing(rectRing(w, h, resolveLength(doc, n.radius, mode) ?? 0), n.x, n.y, w, h, rot);
     return ring.length >= 3 ? [{ outer: ensureCCW(ring), holes: [] }] : [];
   }
   if (n.type === "ellipse") {
@@ -347,7 +349,9 @@ function nodeGeometry(n: NodeT): Multi {
     return ring.length >= 3 ? [{ outer: ensureCCW(ring), holes: [] }] : [];
   }
   if (n.type === "shape") {
-    const local = flattenSegments(parsePath(shapeOutline(n).d));
+    const radius = resolveLength(doc, n.radius, mode) ?? 0;
+    const stroke = n.stroke ? { ...n.stroke, width: resolveLength(doc, n.stroke.width, mode) ?? 0 } : undefined;
+    const local = flattenSegments(parsePath(shapeOutline({ ...n, radius, stroke }).d));
     const rings = local.map((r) => mapRing(r, n.x, n.y, w, h, rot)).filter((r) => r.length >= 3);
     return ringsToMulti(rings, "nonzero");
   }
@@ -697,9 +701,9 @@ export function combinePathsOps(
   const byZ = [...unique].sort((a, b) => siblings.indexOf(a) - siblings.indexOf(b));
   const bottom = doc.nodes[byZ[0]!]! as Extract<NodeT, { type: "rect" | "ellipse" | "path" | "shape" }>;
   const ordered = operation === "subtract" ? unique : byZ;
-  let result = nodeGeometry(doc.nodes[ordered[0]!]!);
+  let result = nodeGeometry(doc, doc.nodes[ordered[0]!]!);
   for (let i = 1; i < ordered.length; i++) {
-    const next = nodeGeometry(doc.nodes[ordered[i]!]!);
+    const next = nodeGeometry(doc, doc.nodes[ordered[i]!]!);
     result = booleanMulti(result, next, operation);
   }
   if (!result.length) throw new Error(`boolean ${operation} produced an empty path`);

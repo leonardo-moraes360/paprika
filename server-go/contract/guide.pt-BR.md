@@ -6,17 +6,18 @@ text, image, path (vetor com curvas bezier), shape (forma de diagrama com texto 
 nós). Só frame, group e page têm filhos.
 
 Campos comuns: name, x, y, width, height (número | "hug" | "fill"), rotation, opacity (0..1),
-visible, locked, fill (cor), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.
-frame: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,
-  justify: start|center|end|between, wrap}. Com layout row/column, x/y dos filhos são ignorados.
-text: text, color, fontFamily, fontSize (n | "$token"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.
+visible, locked, fill (cor), stroke {color, width: n | "$token"}, radius (n | "$token"), shadow {x, y, blur, spread: n | "$token", color}, notes, lintIgnore (nomes de regras que o lint_design ignora neste nó).
+frame: clip (bool), layout {mode: none|row|column, gap (n | "$token"), padding (um número ou [topo, direita, baixo, esquerda]; cada um n | "$token"; não dois valores), align: start|center|end|stretch,
+  justify: start|center|end|between, wrap}, scaledMock (true: mock em escala; o lint_design não avisa small-text dentro dele). Com layout row/column, x/y dos filhos são ignorados.
+text: text, color, fontFamily, fontSize (n | "$token"), fontWeight (100..900), lineHeight (n | "$token"), letterSpacing (n | "$token"), textAlign.
   Sem width/height, um texto novo abraça o conteúdo ("hug" nos dois eixos); dê width para quebrar linhas.
 image: src (https:// ou data:image/), fit (cover|contain|fill), alt.
 group: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir
   dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.
 page: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, todo nó de topo é página e os
   frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o
-  conteúdo atual para "Página 1". Telas de outra página: get_document_outline {rootId: id da página}.
+  conteúdo atual para "Page 1" (inglês; a UI passa o nome localizado). create_page {ensure: true, name} devolve a página que já tem esse nome
+  em vez de criar outra. Telas de outra página: get_document_outline {rootId: id da página}.
 Componentes: um frame com component: true é um componente (create_component). Uma instância é um frame com
   instanceOf = id do componente e scale opcional (create_instance): os filhos são cópias geradas, com ids
   derivados e sourceId = id do nó de origem; mudar o componente muda todas as instâncias. Numa cópia, update só
@@ -29,29 +30,31 @@ path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fil
   o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó
   ganha a caixa do desenho. Curvas: "C c1x c1y c2x c2y x y" (cúbica), "Q cx cy x y" (quadrática), S/T espelham
   o controle anterior (curvas suaves). Use get_bounds (caixas absolutas + cantos rotacionados), path_info para conferir bounds antes de posicionar.
-shape: shape (rect|ellipse|diamond|triangle|note), text (centralizado; numa nota, no topo à esquerda), color, fontFamily, fontSize,
-  fontWeight, lineHeight, textAlign. width/height são números (padrão 160×80; nota 160×160). fill/stroke/radius/shadow
+shape: shape (rect|ellipse|diamond|triangle|note), text (centralizado; numa nota, no topo à esquerda), color, fontFamily, fontSize (n | "$token"),
+  fontWeight, lineHeight (n | "$token"), textAlign. width/height são números (padrão 160×80; nota 160×160). fill/stroke/radius/shadow
   pintam o contorno; campos omitidos na criação ganham o padrão do tipo (branco com borda escura; note = nota adesiva amarela).
 connector: from/to = {nodeId, side?: auto|top|right|bottom|left} (preso a um nó) ou {x, y} (ponto solto nas coordenadas
-  do pai), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,
+  do pai), route (straight|elbow|rounded|curve), radius (cantos arredondados), control {x,y} (alça da curva nas coords do pai), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,
   label (texto no meio da rota, na cor do traço: "sim", "não"). x, y, width, height e
   d são calculados a partir das pontas a cada escrita (só leitura): mover uma forma redesenha os conectores dela, e
   apagar um nó apaga os conectores presos a ele.
 Diagramas: draw_diagram recebe nodes (formas) + edges (conectores) e posiciona sozinho as formas sem x/y.
 
-Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.
+Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes. Um campo de comprimento (radius, gap, padding, espessura do traço, fontSize, lineHeight, letterSpacing, shadow x/y/blur/spread) aceita um token numérico; um token de cor nesse campo é recusado.
 Modos de tema: set_tokens com mode ("dark", "compact"…) grava só os tokens que mudam; "mode" num frame ou página aplica o modo ao subtree (dá para pôr a mesma tela clara e escura lado a lado). export_code com cssVariables: true sai com var(--token) e uma regra por modo.
 "fill" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.
+
+Posicionamento: um frame novo de topo deixa x e y de fora (ou passa place:"free") e cai no espaço livre, à direita do conteúdo da página, no mesmo topo, respiro 80, quebrando para a linha de baixo depois de 2400px a partir da esquerda do conteúdo. place é "free" | "below" | "right" | {near, side: left|right|above|below} | "none" (x/y exatos). Escritas simultâneas não ocupam o mesmo lugar. get_document_outline e get_bounds sem ids devolvem a caixa do conteúdo da página e o próximo lugar livre. Desenhe overlays (modais, menus, toasts) por último, ou traga-os para a frente com index:"front". Uma escrita avisa quando um nó novo de topo sobrepõe outro e diz o lugar livre mais próximo.
 
 Fluxo recomendado:
 1. get_document_outline para se orientar (barato).
 2. set_tokens com a paleta e a escala tipográfica.
 3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.
-4. lint_design e corrija o que vier como error/warning.
-5. render_screenshot para conferir visualmente; export_code para levar ao código.
+4. lint_design e corrija o que vier como error/warning. rootIds (ou rootId) limita às subárvores. groups dobra cada regra numa contagem e nos primeiros maxIds ids (padrão 8), em ordem de severidade; issues continua com cada achado. minSeverity (info|warning|error) descarta o que é mais quieto. minFontSize sobe o piso de small-text (padrão 12). Um frame com scaledMock, ou lintIgnore no nó, tira da lista o tipo pequeno e as cores literais de propósito.
+5. render_screenshot para conferir visualmente; export_image para PNG/JPEG/WebP/AVIF/PDF sem Chromium; export_code para levar ao código.
 Para trazer um ícone ou um trecho de página pronto, use import_svg ou import_html (viram nós editáveis), import_image para um arquivo PNG, JPEG, WebP, AVIF ou GIF; export_code com format "svg" devolve SVG vetorial.
 Toda escrita é atômica (tudo ou nada) e pode ser desfeita com undo. Para várias chamadas virarem um passo só de undo (ex.: "desenhar a proposta 3"), passe o mesmo batch em cada uma; o batch fecha quando outra pessoa escreve ou desfaz no meio.
 Resultados: as ferramentas que devolvem JSON também devolvem structuredContent conforme o outputSchema; leia esse campo em vez de interpretar o texto.
-Workspaces: o servidor guarda vários documentos (list_workspaces); toda ferramenta trabalha no ativo, que é também o do canvas do humano. open_workspace troca o ativo para todos, então pergunte ao humano antes; create_workspace cria um vazio, rename_workspace renomeia um, set_workspace_cover põe uma imagem (ou o screenshot de um frame) no card; delete_workspace não tem desfazer e leva duas chamadas: a primeira, sem confirmToken, devolve um resumo do que se perde e um token de curta duração; mostre esse resumo ao humano e só chame de novo com o token depois que ele concordar. list_workspace_ops mostra quem criou, renomeou, abriu ou apagou um workspace, e a entrada do apagamento guarda o resumo dele.
+Workspaces: o servidor guarda vários documentos (list_workspaces). As ferramentas de documento aceitam `workspaceId` opcional e leem ou escrevem nesse workspace sem `open_workspace` e sem mover o canvas do humano; sem `workspaceId`, vale o workspace ativo. A primeira linha do outline e todo resultado de escrita trazem o id e o nome desse workspace. `undo` e `redo` aceitam o mesmo `workspaceId` e desfazem só esse workspace; cada workspace guarda o próprio histórico enquanto o processo estiver no ar. Edições no workspace que o canvas está mostrando chegam ao vivo; edições em outro workspace não trocam o canvas. `open_workspace` ainda troca o ativo para todos, então pergunte ao humano antes; create_workspace cria um vazio, rename_workspace renomeia um, set_workspace_cover põe uma imagem (ou o screenshot de um frame) no card; delete_workspace não tem desfazer e leva duas chamadas: a primeira, sem confirmToken, devolve um resumo do que se perde e um token de curta duração; mostre esse resumo ao humano e só chame de novo com o token depois que ele concordar. list_workspace_ops mostra quem criou, renomeou, abriu ou apagou um workspace, e a entrada do apagamento guarda o resumo dele.
 O humano vê suas edições ao vivo no canvas. Campos desconhecidos são rejeitados com erro: leia a mensagem e ajuste.
 Erros e mensagens das ferramentas são em inglês.

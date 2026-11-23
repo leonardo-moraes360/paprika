@@ -42,6 +42,13 @@ func init() {
 			z.Field{Name: "node", Schema: NodeInputSchema},
 			z.Field{Name: "parentId", Schema: z.Default(z.Nullable(z.String()), nil)},
 			z.Field{Name: "index", Schema: z.Optional(z.Int().Min(0))},
+			z.Field{Name: "place", Schema: z.Optional(z.Union(
+				z.Enum("free", "below", "right", "none"),
+				z.Object(
+					z.Field{Name: "near", Schema: z.String().Min(1).Max(64)},
+					z.Field{Name: "side", Schema: z.Enum("left", "right", "above", "below")},
+				),
+			))},
 		)),
 		z.Option("update", z.Object(
 			z.Field{Name: "op", Schema: z.Literal("update")},
@@ -640,6 +647,14 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 	case "create":
 		parentID, _ := op.Get("parentId")
 		node := op.Obj("node")
+		if op.Has("place") {
+			p, _ := op.Get("place")
+			next, err := ResolvePlace(doc, parentID, node, p)
+			if err != nil {
+				return nil, opErr(i, "%s", err.Error())
+			}
+			parentID = next
+		}
 		before := len(*created)
 		if err := createNode(doc, node, parentID, optIndex(op), i, created); err != nil {
 			return nil, err
@@ -973,6 +988,9 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 		}
 		// A group holding instances only knows their size after the sync.
 		inverse = append(fitGroups(draft), inverse...)
+		if msg := LengthTokenError(draft); msg != "" {
+			return nil, opErr(len(ops)-1, "%s", msg)
+		}
 		// Connectors follow their ends: derived geometry, no inverse (undo recomputes it).
 		if err := RouteConnectors(draft); err != nil {
 			return nil, opErr(len(ops)-1, "%s", err.Error())

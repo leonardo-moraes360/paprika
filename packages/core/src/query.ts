@@ -1,3 +1,4 @@
+import { placementFooter } from "./placement.js";
 import { isContainer, type Document, type Node, type NodeType, type SceneNode } from "./schema.js";
 
 function sizeStr(n: SceneNode): string {
@@ -72,7 +73,8 @@ export function outline(doc: Document, opts: { rootId?: string; depth?: number }
   };
   const roots = opts.rootId ? [opts.rootId] : doc.rootIds;
   roots.forEach((r) => walk(r, 0));
-  return lines.join("\n") || "(empty document)";
+  const body = lines.join("\n") || "(empty document)";
+  return `${body}\n${placementFooter(doc, opts.rootId)}`;
 }
 
 export interface NodeQuery {

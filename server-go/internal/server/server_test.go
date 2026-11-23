@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -248,11 +249,11 @@ func TestMCPToolsAndErrors(t *testing.T) {
 		t.Fatalf("%v %q", isErr, out)
 	}
 	out, _ = callText(t, m, "create_nodes", obj("index", 0.0, "nodes", []any{obj("type", "rect", "id", "a"), obj("type", "rect", "id", "b")}))
-	if out != "{\n  \"created\": [\n    \"a\",\n    \"b\"\n  ],\n  \"version\": 1\n}" {
+	if !strings.Contains(out, "\"ids\": [\n    \"a\",\n    \"b\"\n  ]") || !strings.Contains(out, "rect#a 100×100 @0,0\nrect#b 100×100 @180,0") || !strings.Contains(out, fmt.Sprintf("\"workspaceId\": %q", s.DocID())) || !strings.Contains(out, fmt.Sprintf("\"workspaceName\": %q", s.Doc().Str("name"))) {
 		t.Fatalf("create: %q", out)
 	}
 	out, _ = callText(t, m, "find_nodes", obj("type", "rect"))
-	if out != "rect#a 100×100 @0,0\nrect#b 100×100 @0,0" {
+	if out != "rect#a 100×100 @0,0\nrect#b 100×100 @180,0" {
 		t.Fatalf("find: %q", out)
 	}
 	out, isErr = callText(t, m, "get_document_outline", obj("depth", 51.0))
@@ -266,6 +267,13 @@ func TestMCPToolsAndErrors(t *testing.T) {
 	out, isErr = callText(t, m, "render_screenshot", obj())
 	if !isErr || !strings.Contains(out, "screenshot unavailable") {
 		t.Fatalf("screenshot without browser: %q", out)
+	}
+	out, isErr = callText(t, m, "export_image", obj("format", "png"))
+	if isErr {
+		t.Fatalf("export_image without Chromium: %q", out)
+	}
+	if !strings.Contains(out, "png") {
+		t.Fatalf("export_image: %q", out)
 	}
 	out, isErr = callText(t, m, "path_info", obj())
 	if !isErr || out != "pass d or id" {
@@ -340,7 +348,7 @@ func TestMCPGroupsAndPages(t *testing.T) {
 		obj("type", "rect", "id", "b", "x", 60.0, "y", 40.0, "width", 30.0, "height", 30.0),
 	})}))
 	out, isErr := callText(t, m, "group_nodes", obj("ids", []any{"a", "b"}, "id", "g", "name", "Par"))
-	if isErr || out != "{\n  \"group\": \"g\",\n  \"created\": [\n    \"g\"\n  ],\n  \"version\": 2\n}" {
+	if isErr || out != fmt.Sprintf("{\n  \"group\": \"g\",\n  \"created\": [\n    \"g\"\n  ],\n  \"version\": 2,\n  \"workspaceId\": %q,\n  \"workspaceName\": %q\n}", s.DocID(), s.Doc().Str("name")) {
 		t.Fatalf("group: %q", out)
 	}
 	if g := core.GetNode(s.Doc(), "g"); g.Num("x") != 10 || g.Num("width") != 80 || g.Num("height") != 50 {
@@ -358,10 +366,17 @@ func TestMCPGroupsAndPages(t *testing.T) {
 		t.Fatalf("page: %q", out)
 	}
 	roots := s.Doc().Strings("rootIds")
-	if len(roots) != 2 || core.GetNode(s.Doc(), roots[0]).Str("name") != "Página 1" {
+	if len(roots) != 2 || core.GetNode(s.Doc(), roots[0]).Str("name") != "Page 1" {
 		t.Fatalf("pages: %v", roots)
 	}
-	if out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect")})); !isErr || !strings.Contains(out, "has pages") {
+	out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect", "id", "loose")}))
+	if isErr {
+		t.Fatalf("place onto page: %q", out)
+	}
+	if p := core.GetNode(s.Doc(), "loose").Str("parentId"); p != roots[0] {
+		t.Fatalf("placed parent %q, want %q", p, roots[0])
+	}
+	if out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect", "x", 1.0, "y", 1.0)})); !isErr || !strings.Contains(out, "has pages") {
 		t.Fatalf("loose: %q", out)
 	}
 }
@@ -393,7 +408,7 @@ func TestMCPAgentDefaults(t *testing.T) {
 		t.Fatal("connector failed")
 	}
 	out, isErr := callText(t, m, "delete_nodes", obj("ids", []any{"cell", "s1"}))
-	if isErr || out != "{\n  \"deleted\": [\n    \"cell\",\n    \"inside\",\n    \"s1\",\n    \"c1\"\n  ],\n  \"version\": 3\n}" {
+	if isErr || out != fmt.Sprintf("{\n  \"deleted\": [\n    \"cell\",\n    \"inside\",\n    \"s1\",\n    \"c1\"\n  ],\n  \"version\": 3,\n  \"workspaceId\": %q,\n  \"workspaceName\": %q\n}", s.DocID(), s.Doc().Str("name")) {
 		t.Fatalf("delete: %q", out)
 	}
 }
@@ -493,7 +508,7 @@ func TestHTTPTransportRules(t *testing.T) {
 	if code, _ := do("GET", "/api/health", map[string]string{"Host": "evil.example:1"}, ""); code != 403 {
 		t.Fatalf("evil host: %d", code)
 	}
-	if code, body := do("GET", "/", nil, ""); code != 200 || !strings.Contains(body, "Canvas não compilado") {
+	if code, body := do("GET", "/", nil, ""); code != 200 || !strings.Contains(body, "Canvas not built") {
 		t.Fatalf("placeholder: %d", code)
 	}
 	code, body = do("GET", "/api/export", nil, "")
@@ -681,7 +696,7 @@ func TestMCPDuplicateNodes(t *testing.T) {
 	}
 	sc := r.Obj("structuredContent")
 	copies := sc.Strings("copies")
-	if len(copies) != 1 || sc.Obj("map").Len() != 4 || len(sc.Strings("created")) != 4 || s.Version() != before+1 {
+	if len(copies) != 1 || sc.Obj("map").Len() != 4 || len(sc.Arr("ids")) != 4 || len(sc.Arr("created")) != 4 || len(sc.Arr("roots")) != 1 || s.Version() != before+1 {
 		t.Fatalf("result: %s (version %d, before %d)", jsonv.Stringify(sc, ""), s.Version(), before)
 	}
 	copy := core.GetNode(s.Doc(), copies[0])
@@ -713,5 +728,82 @@ func TestMCPDuplicateNodes(t *testing.T) {
 		if out, isErr := callText(t, m, "duplicate_nodes", c.args); !isErr || !strings.Contains(out, c.want) {
 			t.Fatalf("error %s: %q", c.want, out)
 		}
+	}
+}
+
+func TestMCPWriteResultsAndEnsurePage(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	r := m.CallTool(context.Background(), "create_nodes", obj("nodes", []any{
+		obj("type", "frame", "id", "login", "name", "Login", "width", 360.0, "height", 240.0, "children", []any{
+			obj("type", "text", "id", "h", "name", "Title", "text", "Entrar"),
+			obj("type", "text", "id", "sub", "text", "ok", "width", "fill", "height", "hug"),
+		}),
+	}), true)
+	if r.Bool("isError") {
+		t.Fatal(jsonv.Stringify(r, ""))
+	}
+	sc := r.Obj("structuredContent")
+	if len(sc.Arr("roots")) != 1 || len(sc.Arr("created")) != 3 || len(sc.Arr("ids")) != 3 {
+		t.Fatalf("shape: %s", jsonv.Stringify(sc, ""))
+	}
+	root := sc.Arr("roots")[0].(*jsonv.Object)
+	if root.Str("id") != "login" || root.Str("name") != "Login" || root.Str("type") != "frame" || root.Num("x") != 0 || root.Num("width") != 360 || root.Num("height") != 240 {
+		t.Fatalf("root: %s", jsonv.Stringify(root, ""))
+	}
+	created := sc.Arr("created")
+	login := created[0].(*jsonv.Object)
+	parent, ok := login.Get("parentId")
+	if !ok || parent != nil || login.Str("id") != "login" || created[1].(*jsonv.Object).Str("parentId") != "login" || created[2].(*jsonv.Object).Str("id") != "sub" {
+		t.Fatalf("created: %s", jsonv.Stringify(created, ""))
+	}
+	if sc.Arr("ids")[0] != "login" || sc.Arr("ids")[2] != "sub" {
+		t.Fatalf("ids: %s", jsonv.Stringify(sc.Arr("ids"), ""))
+	}
+	content := r.Arr("content")
+	if len(content) != 2 || !strings.Contains(content[1].(*jsonv.Object).Str("text"), "frame#login \"Login\" 360×240 @0,0") || strings.Contains(content[1].(*jsonv.Object).Str("text"), "text#h") {
+		t.Fatalf("lines: %s", jsonv.Stringify(content, ""))
+	}
+	parsed, err := jsonv.Parse([]byte(content[0].(*jsonv.Object).Str("text")))
+	if err != nil || jsonv.Stringify(parsed, "") != jsonv.Stringify(sc, "") {
+		t.Fatalf("text json: %v %s", err, content[0].(*jsonv.Object).Str("text"))
+	}
+
+	first := m.CallTool(context.Background(), "create_page", obj("name", "Interfaces", "ensure", true), true)
+	if first.Bool("isError") {
+		t.Fatal(jsonv.Stringify(first, ""))
+	}
+	page := first.Obj("structuredContent")
+	id := page.Str("page")
+	if id == "" || page.Bool("ensured") {
+		t.Fatalf("first ensure: %s", jsonv.Stringify(page, ""))
+	}
+	seen := false
+	for _, c := range page.Arr("created") {
+		if c == id {
+			seen = true
+		}
+	}
+	if !seen {
+		t.Fatalf("new page missing from created: %s", jsonv.Stringify(page, ""))
+	}
+	version := s.Version()
+	second := m.CallTool(context.Background(), "create_page", obj("name", "Interfaces", "ensure", true, "id", "other"), true)
+	again := second.Obj("structuredContent")
+	if second.Bool("isError") || again.Str("page") != id || !again.Bool("ensured") || len(again.Arr("created")) != 0 || s.Version() != version {
+		t.Fatalf("second ensure: %s version %d", jsonv.Stringify(again, ""), s.Version())
+	}
+	count := 0
+	for _, rid := range s.Doc().Strings("rootIds") {
+		n := core.GetNode(s.Doc(), rid)
+		if n != nil && n.Str("type") == "page" && n.Str("name") == "Interfaces" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("pages named Interfaces: %d", count)
+	}
+	if out, isErr := callText(t, m, "create_page", obj("ensure", true)); !isErr || out != "create_page ensure requires a name" {
+		t.Fatalf("missing name: %v %q", isErr, out)
 	}
 }

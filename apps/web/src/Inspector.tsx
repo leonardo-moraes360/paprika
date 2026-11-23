@@ -20,11 +20,13 @@ import {
 } from "@paprika/core";
 import { Activity } from "./Activity";
 import type { Activity as ActivityEntry } from "./useDocument";
+import { FontPicker } from "./FontPicker";
 import { ColorField, Field, ModeField, SelectField, num, size } from "./inspector/fields";
 import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Hint } from "./components/ui/tooltip";
+import { useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { ui } from "./ui";
 
@@ -49,6 +51,16 @@ const SIDE_OPTS = [
 const YES_NO = [
   { value: "true", label: "sim" },
   { value: "false", label: "não" },
+] as const;
+const STROKE_STYLE_OPTS = [
+  { value: "solid", label: "sólido" },
+  { value: "dashed", label: "tracejado" },
+  { value: "dotted", label: "pontilhado" },
+] as const;
+const STROKE_POS_OPTS = [
+  { value: "inside", label: "dentro" },
+  { value: "center", label: "centro" },
+  { value: "outside", label: "fora" },
 ] as const;
 
 interface Props {
@@ -97,32 +109,33 @@ const Z_LABEL: Record<"front" | "back" | "forward" | "backward", string> = {
 };
 
 function ArrangeSection({ ids, apply }: { ids: string[]; apply: Props["apply"] }) {
+  const m = useT();
   const run = (index: keyof typeof Z_LABEL) =>
     apply(
       ids.map((id) => ({ op: "update", id, props: { index } })),
       Z_LABEL[index],
     );
   return (
-    <InspectorSection id="arrange" title="Ordem" defaultOpen>
+    <InspectorSection id="arrange" title={m.arrange} defaultOpen>
       <div className={actions} data-testid="arrange-actions">
-        <Hint label="Trazer para frente (Ctrl+Page Up)">
+        <Hint label={`${m.bringToFront} (Ctrl+Page Up)`}>
           <Button type="button" variant="secondary" size="sm" data-testid="arrange-front" onClick={() => run("front")}>
-            Trazer para frente
+            {m.bringToFront}
           </Button>
         </Hint>
-        <Hint label="Avançar (Page Up)">
+        <Hint label={`${m.bringForward} (Page Up)`}>
           <Button type="button" variant="secondary" size="sm" data-testid="arrange-forward" onClick={() => run("forward")}>
-            Avançar
+            {m.bringForward}
           </Button>
         </Hint>
-        <Hint label="Recuar (Page Down)">
+        <Hint label={`${m.sendBackward} (Page Down)`}>
           <Button type="button" variant="secondary" size="sm" data-testid="arrange-backward" onClick={() => run("backward")}>
-            Recuar
+            {m.sendBackward}
           </Button>
         </Hint>
-        <Hint label="Enviar para fundo (Ctrl+Page Down)">
+        <Hint label={`${m.sendToBack} (Ctrl+Page Down)`}>
           <Button type="button" variant="secondary" size="sm" data-testid="arrange-back" onClick={() => run("back")}>
-            Enviar para fundo
+            {m.sendToBack}
           </Button>
         </Hint>
       </div>
@@ -131,28 +144,29 @@ function ArrangeSection({ ids, apply }: { ids: string[]; apply: Props["apply"] }
 }
 
 export function Inspector(props: Props) {
+  const m = useT();
   const { doc, node, selected, apply, activity, onSelect } = props;
   if (selected.length > 1) {
     const a = structureActions(doc, selected, props);
     return (
       <div className={ui.section} data-testid="multi-selection">
-        <h2 className={ui.h2}>{selected.length} nós selecionados</h2>
+        <h2 className={ui.h2}>{m.selectedNodes(selected.length)}</h2>
         <div className={actions}>
-          <Hint label="Agrupar (Ctrl+G)">
+          <Hint label={`${m.groupNodes} (Ctrl+G)`}>
             <Button type="button" variant="secondary" size="sm" onClick={a.group}>
-              Agrupar
+              {m.groupNodes}
             </Button>
           </Hint>
           {a.canUngroup && (
-            <Hint label="Desagrupar (Ctrl+Shift+G)">
+            <Hint label={`${m.ungroupNodes} (Ctrl+Shift+G)`}>
               <Button type="button" variant="secondary" size="sm" onClick={a.ungroup}>
-                Desagrupar
+                {m.ungroupNodes}
               </Button>
             </Hint>
           )}
         </div>
         <ArrangeSection ids={selected} apply={apply} />
-        <p className={ui.muted}>Arraste para mover todos; setas empurram; Delete apaga; Ctrl+D duplica.</p>
+        <p className={ui.muted}>{m.multiSelectionHint}</p>
       </div>
     );
   }
@@ -197,9 +211,44 @@ export function Inspector(props: Props) {
             mode={themeMode}
             label="Borda"
             value={node.stroke?.color}
-            onCommit={(v) => set({ stroke: v ? { color: v, width: node.stroke?.width ?? 1 } : null })}
+            onCommit={(v) =>
+              set({
+                stroke: v
+                  ? {
+                      color: v,
+                      width: node.stroke?.width ?? 1,
+                      style: node.stroke?.style ?? "solid",
+                      position: node.stroke?.position ?? (node.type === "path" ? "center" : "inside"),
+                    }
+                  : null,
+              })
+            }
           />
-          {node.stroke && <Field label="Espessura" type="number" value={node.stroke.width} min={0} onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke!, width: num(v) } })} />}
+          {node.stroke && (
+            <>
+              <Field
+                label="Espessura"
+                type="number"
+                value={node.stroke.width}
+                min={0}
+                onCommit={(v) => num(v) !== undefined && set({ stroke: { ...node.stroke!, width: num(v) } })}
+              />
+              <SelectField
+                label="Estilo"
+                value={node.stroke.style ?? "solid"}
+                testId="stroke-style"
+                onChange={(v) => set({ stroke: { ...node.stroke!, style: v } })}
+                options={STROKE_STYLE_OPTS}
+              />
+              <SelectField
+                label="Posição"
+                value={node.stroke.position ?? (node.type === "path" ? "center" : "inside")}
+                testId="stroke-position"
+                onChange={(v) => set({ stroke: { ...node.stroke!, position: v } })}
+                options={STROKE_POS_OPTS}
+              />
+            </>
+          )}
         </div>
       </InspectorSection>
 
@@ -215,7 +264,7 @@ export function Inspector(props: Props) {
             <Field label="Altura linha" type="number" value={node.lineHeight} min={0} onCommit={setNum("lineHeight")} />
             <SelectField label="Alinhamento" value={node.textAlign} onChange={(v) => set({ textAlign: v })} options={ALIGN_OPTS} />
           </div>
-          <Field label="Fonte" value={node.fontFamily} onCommit={(v) => set({ fontFamily: v })} />
+          <FontPicker doc={doc} value={node.fontFamily} onCommit={(v) => set({ fontFamily: v })} />
         </InspectorSection>
       )}
 
@@ -480,9 +529,17 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
             options={[
               { value: "straight", label: "reta" },
               { value: "elbow", label: "cotovelo" },
+              { value: "rounded", label: "arredondado" },
+              { value: "curve", label: "curva" },
             ]}
           />
+          {node.route === "rounded" && (
+            <div data-testid="connector-radius">
+              <Field label="Raio" type="number" value={node.radius} min={0} onCommit={(v) => num(v) !== undefined && set({ radius: num(v) })} />
+            </div>
+          )}
           <SelectField label="Tracejado" value={String(node.dashed)} onChange={(v) => set({ dashed: v === "true" })} options={YES_NO} />
+          {node.route === "curve" && <p className={ui.muted}>Arraste a alça no canvas para curvar a seta.</p>}
           <SelectField
             label="Seta no início"
             value={node.startArrow}

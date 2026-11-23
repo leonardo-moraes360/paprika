@@ -16,25 +16,49 @@ export const ColorValue = z
 
 export const Size = z.union([z.number().min(0).max(100_000), z.enum(["hug", "fill"])]);
 
+const lengthToken = z.string().regex(/^\$[\w.-]+$/);
+
+function lengthNumber(min?: number, max?: number) {
+  let n = z.number();
+  if (min !== undefined) n = n.min(min);
+  if (max !== undefined) n = n.max(max);
+  return n;
+}
+
+function lengthValue(min?: number, max?: number) {
+  const num = lengthNumber(min, max);
+  return z.unknown().check((ctx) => {
+    const v = ctx.value;
+    if (typeof v === "string" && /^\$[\w.-]+$/.test(v)) return;
+    const parsed = num.safeParse(v);
+    if (!parsed.success) (ctx.issues as typeof parsed.error.issues).push(...parsed.error.issues);
+  }).transform((v): number | string => v as number | string);
+}
+
+const padLength = lengthValue(0);
+
+export const StrokeStyle = z.enum(["solid", "dashed", "dotted"]);
+export const StrokePosition = z.enum(["inside", "center", "outside"]);
+
 export const Stroke = z.object({
   color: ColorValue,
-  width: z.number().min(0).max(1000),
+  width: lengthValue(0, 1000),
+  style: StrokeStyle.optional(),
+  position: StrokePosition.optional(),
 });
 
 export const Shadow = z.object({
-  x: z.number(),
-  y: z.number(),
-  blur: z.number().min(0),
-  spread: z.number().default(0),
+  x: lengthValue(),
+  y: lengthValue(),
+  blur: lengthValue(0),
+  spread: lengthValue().default(0),
   color: ColorValue,
 });
 
 export const Layout = z.object({
   mode: z.enum(["none", "row", "column"]).default("none"),
-  gap: z.number().min(0).default(0),
-  padding: z
-    .union([z.number().min(0), z.tuple([z.number().min(0), z.number().min(0), z.number().min(0), z.number().min(0)])])
-    .default(0),
+  gap: lengthValue(0).default(0),
+  padding: z.union([padLength, z.tuple([padLength, padLength, padLength, padLength])]).default(0),
   align: z.enum(["start", "center", "end", "stretch"]).default("start"),
   justify: z.enum(["start", "center", "end", "between"]).default("start"),
   wrap: z.boolean().default(false),
@@ -54,12 +78,13 @@ const Base = {
   locked: z.boolean().default(false),
   fill: ColorValue.optional(),
   stroke: Stroke.optional(),
-  radius: z.number().min(0).default(0),
+  radius: lengthValue(0).default(0),
   shadow: Shadow.optional(),
   /** Notas livres para humanos e agentes (intenção, restrições, links). */
   notes: z.string().max(4000).optional(),
   /** Só em cópias dentro de uma instância: id do nó do componente de onde a cópia vem (gerado). */
   sourceId: z.string().optional(),
+  lintIgnore: z.array(z.string().regex(/^[a-z0-9-]{1,40}$/, "lint rule must be [a-z0-9-]{1,40}")).max(20).optional(),
 };
 
 /** Overrides de uma instância: por id de nó do componente, os campos trocados (ver component.ts). */
@@ -91,6 +116,7 @@ export const FrameNode = z.object({
   overrides: Overrides.optional(),
   /** Modo de tema deste frame e dos descendentes (tokens de `document.modes[mode]`). */
   mode: ModeName.optional(),
+  scaledMock: z.boolean().optional(),
 });
 
 export const RectNode = z.object({ ...Base, type: z.literal("rect") });
@@ -108,10 +134,10 @@ export const TextNode = z.object({
   text: z.string().max(20_000).default(""),
   color: ColorValue.default("#111111"),
   fontFamily: TextFontFamily,
-  fontSize: z.union([z.number().min(1).max(1000), z.string().regex(/^\$[\w.-]+$/)]).default(16),
+  fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
   fontWeight: z.number().int().min(100).max(900).default(400),
-  lineHeight: z.number().min(0).max(10).default(1.4),
-  letterSpacing: z.number().default(0),
+  lineHeight: lengthValue(0, 10).default(1.4),
+  letterSpacing: lengthValue().default(0),
   textAlign: z.enum(["left", "center", "right"]).default("left"),
 });
 
@@ -167,9 +193,9 @@ export const ShapeNode = z.object({
   text: z.string().max(20_000).default(""),
   color: ColorValue.default("#1e2336"),
   fontFamily: TextFontFamily,
-  fontSize: z.union([z.number().min(1).max(1000), z.string().regex(/^\$[\w.-]+$/)]).default(16),
+  fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
   fontWeight: z.number().int().min(100).max(900).default(500),
-  lineHeight: z.number().min(0).max(10).default(1.3),
+  lineHeight: lengthValue(0, 10).default(1.3),
   textAlign: z.enum(["left", "center", "right"]).default("center"),
 });
 
@@ -205,9 +231,17 @@ export const ConnectorNode = z.object({
   locked: Base.locked,
   notes: Base.notes,
   sourceId: Base.sourceId,
+  lintIgnore: Base.lintIgnore,
   from: ConnectorEnd,
   to: ConnectorEnd,
-  route: z.enum(["straight", "elbow"]).default("straight"),
+  route: z.enum(["straight", "elbow", "rounded", "curve"]).default("straight"),
+  /** Raio dos cantos quando `route` é `rounded` (ignorado nas outras rotas). */
+  radius: z.number().min(0).max(1000).default(0),
+  /**
+   * Alça da curva livre (`route: "curve"`) nas coordenadas do pai. Sem ela, a rota usa um
+   * deslocamento perpendicular derivado das pontas (recalculado a cada roteamento).
+   */
+  control: z.object({ x: z.number(), y: z.number() }).optional(),
   startArrow: z.enum(["none", "arrow"]).default("none"),
   endArrow: z.enum(["none", "arrow"]).default("arrow"),
   stroke: Stroke.default({ color: "#1e2336", width: 2 }),
@@ -238,6 +272,7 @@ export const GroupNode = z.object({
   locked: Base.locked,
   notes: Base.notes,
   sourceId: Base.sourceId,
+  lintIgnore: Base.lintIgnore,
   children: z.array(z.string()).default([]),
 });
 
@@ -255,6 +290,7 @@ export const PageNode = z.object({
   /** Modo de tema da página inteira. */
   mode: ModeName.optional(),
   notes: Base.notes,
+  lintIgnore: Base.lintIgnore,
   children: z.array(z.string()).default([]),
 });
 
@@ -271,7 +307,7 @@ export const TokenName = z
 export const Document = z.object({
   format: z.literal(FORMAT),
   id: z.string(),
-  name: z.string().default("Sem título"),
+  name: z.string().default("Untitled"),
   tokens: z.record(TokenName, TokenValue).default({}),
   /** Modos de tema: por modo, os tokens que mudam (os demais vêm de `tokens`). */
   modes: z.record(ModeName, z.record(TokenName, TokenValue)).optional(),
@@ -282,6 +318,9 @@ export const Document = z.object({
 
 export type ColorValue = z.infer<typeof ColorValue>;
 export type Size = z.infer<typeof Size>;
+export type Stroke = z.infer<typeof Stroke>;
+export type StrokeStyle = z.infer<typeof StrokeStyle>;
+export type StrokePosition = z.infer<typeof StrokePosition>;
 export type Layout = z.infer<typeof Layout>;
 export type FrameNode = z.infer<typeof FrameNode>;
 export type RectNode = z.infer<typeof RectNode>;

@@ -7,6 +7,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { connectorMidpoint, copyId, type Document, type FrameNode } from "@paprika/core";
+import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
@@ -32,6 +33,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(page, "pt-BR");
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     // `/` is the workspace overview: the demo is the only (active) workspace; one click opens its canvas.
@@ -267,47 +269,84 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   });
 
   it("inspector: color picker grava $token, hex, rgba e devolve o foco no Esc", async () => {
+    const POLL = { timeout: 10_000 };
     await page.locator('[data-layer-id="plano"]').click();
     const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
+    await expect.poll(() => appearance.count(), POLL).toBe(1);
     if ((await appearance.getAttribute("aria-expanded")) !== "true") await appearance.click();
 
     const fillTrigger = page.getByTestId("color-picker-trigger").first();
+    await expect.poll(() => fillTrigger.count(), POLL).toBe(1);
     await fillTrigger.click();
     const picker = page.getByTestId("color-picker");
-    await expect.poll(() => picker.count()).toBe(1);
+    await expect.poll(() => picker.count(), POLL).toBe(1);
 
     await page.getByTestId("color-token-brand").click();
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill).toBe("$brand");
-    await expect.poll(() => page.getByLabel("Preenchimento", { exact: true }).inputValue()).toBe("$brand");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill, POLL).toBe("$brand");
+    await expect.poll(() => page.getByLabel("Preenchimento", { exact: true }).inputValue(), POLL).toBe("$brand");
 
     const hex = page.getByTestId("color-hex");
     await hex.click({ clickCount: 3 });
     await hex.fill("#112233");
     await hex.press("Enter");
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill).toBe("#112233");
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill, POLL).toBe("#112233");
 
     await page.getByTestId("color-alpha").focus();
     for (let i = 0; i < 30; i++) await page.keyboard.press("ArrowLeft");
-    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "")).toMatch(/^rgba\(/);
+    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? ""), POLL).toMatch(/^rgba\(/);
 
     await page.keyboard.press("Escape");
-    await expect.poll(() => picker.count()).toBe(0);
+    await expect.poll(() => picker.count(), POLL).toBe(0);
     await expect.poll(() =>
       page.evaluate(() => {
         const el = document.activeElement;
         return el?.getAttribute("data-testid") ?? el?.getAttribute("aria-label") ?? el?.tagName ?? "";
       }),
+      POLL,
     ).toMatch(/color-picker-trigger|Preenchimento \(seletor\)/i);
 
     await fillTrigger.focus();
     await page.keyboard.press("Enter");
-    await expect.poll(() => picker.count()).toBe(1);
+    await expect.poll(() => picker.count(), POLL).toBe(1);
     await page.getByTestId("color-sv").focus();
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowUp");
-    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "").length).toBeGreaterThan(0);
+    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "").length, POLL).toBeGreaterThan(0);
     await page.keyboard.press("Escape");
-    await expect.poll(() => picker.count()).toBe(0);
+    await expect.poll(() => picker.count(), POLL).toBe(0);
+  }, 15_000);
+
+  it("inspector: FontPicker troca a família e aceita fonte digitada", async () => {
+    await page.locator('[data-layer-id="8succ2i53s"]').click();
+    const textSection = page.getByTestId("inspector-section-text");
+    const textTrigger = textSection.getByRole("button", { name: "Texto" });
+    if ((await textTrigger.getAttribute("aria-expanded")) !== "true") await textTrigger.click();
+
+    const trigger = page.getByTestId("font-picker");
+    await expect.poll(() => trigger.count()).toBe(1);
+    await trigger.click();
+    const list = page.getByTestId("font-picker-list");
+    await expect.poll(() => list.count()).toBe(1);
+    await page.getByTestId("font-option-Georgia").click();
+    await expect.poll(async () => {
+      const n = (await doc()).nodes["8succ2i53s"];
+      return n?.type === "text" ? n.fontFamily : undefined;
+    }).toBe("Georgia, serif");
+    await expect.poll(() => trigger.innerText()).toMatch(/Georgia/);
+
+    await trigger.click();
+    const search = page.getByPlaceholder("Buscar fonte…");
+    await search.fill("Comic Sans MS");
+    await page.getByTestId("font-picker-custom").click();
+    await expect.poll(async () => {
+      const n = (await doc()).nodes["8succ2i53s"];
+      return n?.type === "text" ? n.fontFamily : undefined;
+    }).toBe("Comic Sans MS");
+
+    await trigger.click();
+    await expect.poll(() => page.getByTestId("font-picker-system").count()).toBe(1);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => list.count()).toBe(0);
   });
 
   it("ferramenta de retângulo desenha dentro do frame sob o cursor", async () => {
@@ -450,6 +489,34 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const box = (await el.boundingBox())!;
     expect(Math.round(box.width)).toBeGreaterThan(100);
     expect(await el.locator("path").getAttribute("stroke")).toBe("#c43d27");
+  });
+
+  it("stroke style e position: tracejado dentro e sólido fora no canvas", async () => {
+    await agent.callTool({
+      name: "update_nodes",
+      arguments: {
+        updates: [
+          { id: "login", props: { stroke: { color: "#1e2336", width: 2, style: "dashed", position: "inside" } } },
+          { id: "plano", props: { stroke: { color: "#c43d27", width: 4, style: "solid", position: "outside" } } },
+        ],
+      },
+    });
+    await expect.poll(async () => (await doc()).nodes.login).toMatchObject({
+      stroke: { style: "dashed", position: "inside", width: 2 },
+    });
+    await expect.poll(async () => (await doc()).nodes.plano).toMatchObject({
+      stroke: { style: "solid", position: "outside", width: 4 },
+    });
+    const login = page.locator('[data-paprika-id="login"]');
+    const plano = page.locator('[data-paprika-id="plano"]');
+    await expect.poll(() => login.evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe("dashed");
+    await expect.poll(() => plano.evaluate((el) => [getComputedStyle(el).outlineStyle, getComputedStyle(el).outlineOffset])).toEqual(["solid", "0px"]);
+    await page.locator('[data-layer-id="login"]').click();
+    await expect.poll(() => page.getByTestId("selection").getAttribute("data-count")).toBe("1");
+    const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
+    if ((await appearance.getAttribute("data-state")) !== "open") await appearance.click();
+    await expect.poll(() => page.getByTestId("stroke-style").count()).toBe(1);
+    await expect.poll(() => page.getByTestId("stroke-position").count()).toBe(1);
   });
 
   it("screenshot pelo MCP usa o mesmo motor do canvas", async () => {
@@ -959,6 +1026,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
     // The human picks an image file for the card.
     const png = Buffer.from(await (await fetch(`${url}/api/screenshot?root=login`)).arrayBuffer());
+    await demoCard.hover();
     const chooser = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: `Adicionar capa de ${demoName}` }).click();
     await (await chooser).setFiles({ name: "capa.png", mimeType: "image/png", buffer: png });
@@ -979,11 +1047,12 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     }
 
     // Removing the cover brings the letter back.
+    await demoCard.hover();
     await page.getByRole("button", { name: `Remover capa de ${demoName}` }).click();
     await expect.poll(() => img.count(), POLL).toBe(0);
     await expect.poll(() => demoCard.locator(".workspace-tile").textContent(), POLL).toBe(demoName.trim()[0]!.toUpperCase());
     await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, clear: true } });
-   }, 30_000);
+  }, 30_000);
 
   it("aviso: quando um agente apaga o workspace ativo ou troca de workspace, o canvas diz quem fez, o que foi perdido e leva à overview", async () => {
     const POLL = { timeout: 10_000 };
@@ -1034,7 +1103,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => notice.count()).toBe(0);
     await agent.callTool({ name: "rename_workspace", arguments: { id: demo, name: demoName } });
     await expect.poll(async () => (await doc()).name, POLL).toBe(demoName);
-  });
+  }, 30_000);
 
   it("overview: uma rajada de escritas do agente não vira um GET da lista por versão, e o último valor aparece", async () => {
     const POLL = { timeout: 10_000 };
@@ -1064,6 +1133,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
   it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(p, "pt-BR");
     try {
       await p.goto(`${url}/w/${(await doc()).id}`);
       await p.waitForSelector('[data-paprika-id="login"]');
@@ -1170,7 +1240,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const box = async (id: string) => (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
     const a = await box(first);
     const b = await box(second);
-    await page.keyboard.press("a");
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Seta (prende nas formas)" }).click();
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
     await page.mouse.down();
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 });
@@ -1367,5 +1438,46 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(after.y + after.height).toBeCloseTo(seBefore.y, 0);
     expect(after.x).toBeLessThan(before.x);
     expect(after.y).toBeLessThan(before.y);
+  }, 30_000);
+
+  it("seta: inspector troca rota cotovelo/arredondado/curva e a alça da curva grava control", async () => {
+    const POLL = { timeout: 10_000 };
+    await page.keyboard.press("Escape");
+    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const made = await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId,
+        nodes: [
+          { type: "shape", id: "rt-a", text: "A", x: 40, y: 40, width: 100, height: 60 },
+          { type: "shape", id: "rt-b", text: "B", x: 280, y: 160, width: 100, height: 60 },
+          { type: "connector", id: "rt-c", from: { nodeId: "rt-a", side: "right" }, to: { nodeId: "rt-b", side: "left" }, route: "elbow" },
+        ],
+      },
+    });
+    expect(made.isError).toBeFalsy();
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    await page.locator('[data-layer-id="rt-c"] .layer-name').first().click();
+    const route = page.getByTestId("connector-route");
+    await route.click();
+    await page.getByRole("option", { name: "arredondado" }).click();
+    await expect.poll(async () => (await doc()).nodes["rt-c"], POLL).toMatchObject({ route: "rounded" });
+    await page.getByTestId("connector-radius").getByLabel("Raio", { exact: true }).fill("16");
+    await page.getByTestId("connector-radius").getByLabel("Raio", { exact: true }).press("Enter");
+    await expect.poll(async () => ((await doc()).nodes["rt-c"] as { radius: number }).radius, POLL).toBe(16);
+    await expect.poll(async () => ((await doc()).nodes["rt-c"] as { d: string }).d.includes("A"), POLL).toBe(true);
+    await route.click();
+    await page.getByRole("option", { name: "curva" }).click();
+    await expect.poll(async () => (await doc()).nodes["rt-c"], POLL).toMatchObject({ route: "curve" });
+    await expect.poll(() => page.getByTestId("connector-curve-handle").count(), POLL).toBe(1);
+    const handle = (await page.getByTestId("connector-curve-handle").boundingBox())!;
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 40, handle.y - 50, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(async () => {
+      const c = (await doc()).nodes["rt-c"] as { control?: { x: number; y: number }; d: string };
+      return !!c.control && c.d.includes("C");
+    }, POLL).toBe(true);
   }, 30_000);
 });

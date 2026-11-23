@@ -50,6 +50,15 @@ describe("shape", () => {
     expect(note.fold).toBe("M76 0 L76 24 L100 24 Z");
   });
 
+  it("outlines honor stroke position center and outside", () => {
+    expect(shapeOutline({ shape: "diamond", width: 100, height: 60, radius: 0, stroke: { color: "#000", width: 2, position: "center" } }).d).toBe(
+      "M50 0 L100 30 L50 60 L0 30 Z",
+    );
+    expect(shapeOutline({ shape: "diamond", width: 100, height: 60, radius: 0, stroke: { color: "#000", width: 2, position: "outside" } }).d).toBe(
+      "M50 -1 L101 30 L50 61 L-1 30 Z",
+    );
+  });
+
   it("clips connectors to a triangle outline like a diamond", () => {
     const d = applyOps(createDocument("T", "d"), [
       { op: "create", node: { type: "shape", id: "t", x: 0, y: 0, width: 160, height: 80, shape: "triangle", text: "A" } },
@@ -104,6 +113,21 @@ describe("connector", () => {
     expect(c.d.split(" M")[0]).toBe("M2 2 L72 2 L72 202 L142 202");
     const sided = applyOps(d, [{ op: "update", id: "c", props: { from: { nodeId: "a", side: "bottom" }, to: { nodeId: "b", side: "top" } } }]).doc;
     expect(conn(sided).d.split(" M")[0]).toBe("M2 2 L2 62 L302 62 L302 122");
+  });
+
+  it("rounded elbows use arcs at corners; curve is a cubic with an optional control", () => {
+    const rounded = two([
+      { op: "update", id: "c", props: { route: "rounded", radius: 12 } },
+      { op: "update", id: "b", props: { y: 200 } },
+    ]);
+    const rd = conn(rounded).d.split(" M")[0]!;
+    expect(rd).toContain("A12 12");
+    expect(rd.startsWith("M")).toBe(true);
+    const curved = two([{ op: "update", id: "c", props: { route: "curve", control: { x: 220, y: -40 } } }]);
+    const cd = conn(curved).d.split(" M")[0]!;
+    expect(cd).toMatch(/^M[\d.]+ [\d.]+ C/);
+    const handle = applyOps(curved, [{ op: "update", id: "c", props: { control: { x: 100, y: 80 } } }]).doc;
+    expect(conn(handle).d).not.toBe(conn(curved).d);
   });
 
   it("free ends use the parent's coordinates; arrows on both ends", () => {
