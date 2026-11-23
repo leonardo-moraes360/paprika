@@ -2,6 +2,7 @@ package core
 
 import (
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -90,6 +91,41 @@ func TestLayoutNestedAutoLayout(t *testing.T) {
 	near(t, boxes["b"].Width, 288-16-40-24-8, 1)
 	near(t, boxes["bar"].Y, 16+40+8, 1)
 	near(t, boxes["bar"].Width, 288, 1)
+}
+
+func TestLayoutAbsoluteChild(t *testing.T) {
+	doc := mustOps(t, `[{
+		"op":"create","node":{
+			"type":"frame","id":"row","x":10,"y":20,"width":"hug","height":"hug",
+			"layout":{"mode":"row","gap":8,"padding":0,"align":"start"},
+			"children":[
+				{"type":"rect","id":"a","width":40,"height":20,"fill":"#111"},
+				{"type":"rect","id":"pin","width":16,"height":16,"x":100,"y":4,"fill":"#c43d27","layoutPositioning":"absolute"},
+				{"type":"rect","id":"b","width":30,"height":20,"fill":"#222"}
+			]
+		}
+	}]`)
+	boxes, err := Layout(doc, LayoutOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	near(t, boxes["row"].Width, 78, 0.01)
+	near(t, boxes["row"].Height, 20, 0.01)
+	near(t, boxes["a"].X, 10, 0.01)
+	near(t, boxes["b"].X, 58, 0.01)
+	near(t, boxes["pin"].X, 110, 0.01)
+	near(t, boxes["pin"].Y, 24, 0.01)
+	css := CSSToString(NodeStyle(doc, GetNode(doc, "pin"), false))
+	if !strings.Contains(css, "position:absolute") || !strings.Contains(css, "left:100px") || !strings.Contains(css, "top:4px") {
+		t.Fatalf("pin style: %s", css)
+	}
+	bad, err := jsonv.Parse([]byte(`[{"op":"create","node":{"type":"rect","id":"r","layoutPositioning":"pinned"}}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = ApplyOps(CreateDocument("t", "d"), bad.([]any)); err == nil || !strings.Contains(err.Error(), "layoutPositioning") {
+		t.Fatalf("expected rejection, got %v", err)
+	}
 }
 
 func TestNormalizePathOrigin(t *testing.T) {

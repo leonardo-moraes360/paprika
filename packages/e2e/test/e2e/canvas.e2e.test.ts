@@ -1480,4 +1480,49 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       return !!c.control && c.d.includes("C");
     }, POLL).toBe(true);
   }, 30_000);
+
+  it("filho absoluto ignora o fluxo e o inspector alterna", async () => {
+    const POLL = { timeout: 10_000 };
+    const pageId = await page.locator(".page.is-active").getAttribute("data-page-id");
+    const made = await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        ...(pageId ? { parentId: pageId } : {}),
+        place: "none",
+        nodes: [{
+          type: "frame", id: "abs-row", name: "Abs row", x: 1400, y: 40, width: 220, height: 80, fill: "#ffffff",
+          layout: { mode: "row", gap: 8, padding: 0, align: "start" },
+          children: [
+            { type: "rect", id: "abs-a", name: "A", width: 40, height: 20, fill: "#111111" },
+            { type: "rect", id: "abs-pin", name: "Pin", width: 16, height: 16, x: 160, y: 4, fill: "#c43d27", layoutPositioning: "absolute" },
+            { type: "rect", id: "abs-b", name: "B", width: 30, height: 20, fill: "#222222" },
+          ],
+        }],
+      },
+    });
+    expect(made.isError, JSON.stringify(made.content)).toBeFalsy();
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    await page.locator('[data-layer-id="abs-row"] .layer-name').click();
+    expect(await page.getByTestId("ignore-layout").count()).toBe(0);
+    await page.locator('[data-layer-id="abs-a"] .layer-name').click();
+    const flowSwitch = page.getByTestId("ignore-layout");
+    await expect.poll(() => flowSwitch.getAttribute("aria-checked"), POLL).toBe("false");
+    await page.locator('[data-layer-id="abs-pin"] .layer-name').click();
+    const sw = page.getByTestId("ignore-layout");
+    await expect.poll(() => sw.getAttribute("aria-checked"), POLL).toBe("true");
+    const pin = page.locator('[data-paprika-id="abs-pin"]');
+    await expect.poll(() => pin.evaluate((el) => getComputedStyle(el).position), POLL).toBe("absolute");
+    const ax = (await page.locator('[data-paprika-id="abs-a"]').boundingBox())!;
+    const bx = (await page.locator('[data-paprika-id="abs-b"]').boundingBox())!;
+    const px = (await pin.boundingBox())!;
+    expect(bx.x).toBeGreaterThan(ax.x + ax.width - 2);
+    expect(px.x).toBeGreaterThan(bx.x + bx.width - 2);
+    await sw.click();
+    await expect.poll(async () => (await doc()).nodes["abs-pin"], POLL).not.toMatchObject({ layoutPositioning: "absolute" });
+    await expect.poll(() => pin.evaluate((el) => getComputedStyle(el).position), POLL).toBe("relative");
+    await sw.click();
+    await expect.poll(async () => (await doc()).nodes["abs-pin"], POLL).toMatchObject({ layoutPositioning: "absolute" });
+    await expect.poll(() => pin.evaluate((el) => getComputedStyle(el).position), POLL).toBe("absolute");
+    await agent.callTool({ name: "delete_nodes", arguments: { ids: ["abs-row"] } });
+  }, 30_000);
 });

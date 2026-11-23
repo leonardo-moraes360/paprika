@@ -601,6 +601,19 @@ Tarefa: desenhar estados de reparent / inserção em auto-layout / reordenação
 - Desenhou no ativo `Paprica · UI` / página `interfaces` sem `open_workspace` depois de consultar o mantenedor sobre o nome.
 - DnD do canvas só em `Canvas.tsx`; DnD HTML5 das Camadas em `Layers.tsx`; E2E em `drag.e2e.test.ts`.
 
+## 2026-11-23: filho absoluto no auto-layout (PAP-B-069, design first)
+
+Tarefa: desenhar o interruptor "Ignorar layout" do inspector (desligado, ligado, escuro) e uma linha com um selo no próprio x/y, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`), antes de adicionar `layoutPositioning`. Quatro frames de tamanho fixo; PNGs em `docs/assets/boards/PAP-B-069/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 117 | Vermelho da marca como texto no fundo noturno | `$ui.primary` (`#c8401f`) sobre `$ui.bg` dá 3.54:1, então os kickers escuros falharam no `lint_design` até a tinta virar `#ffd2c9` | Um token de tinta clara para o vermelho da marca nas superfícies noturnas (o modo claro já passa) | P2 |
+| 118 | Screenshots no repositório | `render_screenshot` com `path` grava no volume do servidor (`/data/screenshots/...`) e devolve esse caminho mais `/api/screenshot/<id>`; o PR ainda copia o PNG com curl | Documentar que `path` é relativo ao diretório de screenshots do servidor, ou aceitar um caminho num diretório do host | P3 |
+
+- Endereçou o workspace pelo id de `list_workspaces`. Não chamou `open_workspace`. Usou a página `interfaces` que já existia (há uma segunda página também chamada Interfaces).
+- O frame de comportamento é um mock: o servidor vivo ainda não aceita `layoutPositioning`, então o selo é um irmão posicionado por x/y, não um filho absoluto de verdade da linha.
+- `lint_design` nos quatro roots: 0 erros e 0 avisos depois de encurtar a dica do estado ligado e deixar os campos em hug.
+
 ## 2026-11-23: design dos apontamentos (design first, thread na nuvem)
 
 Tarefa: desenhar a proposta de "apontar um elemento ou área e dizer ao agente o que fazer" (5 quadros: canvas, compositor, painel, contrato MCP, fluxo), primeiro num `paprika serve` na nuvem e depois no Paprika local do mantenedor em `Paprica · UI` (página nova, `workspaceId` em toda escrita, workspace ativo intocado). PNGs em `docs/assets/boards/agent-pins/`.

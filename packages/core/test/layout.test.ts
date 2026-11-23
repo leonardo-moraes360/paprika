@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   applyOps,
   createDocument,
+  cssToString,
   layout,
   measureText,
+  nodeStyle,
   normalizePath,
   parsePath,
   pathOrigin,
@@ -101,6 +103,46 @@ describe("layout: nested auto-layout (golden vs CSS flex)", () => {
     near(boxes.bar!.y, 16 + 40 + 8);
     near(boxes.bar!.width, 288);
     near(boxes.bar!.height, 4);
+  });
+});
+
+describe("layout: absolute child ignores the flow", () => {
+  it("skips gap and hug and keeps x/y relative to the parent", () => {
+    const { doc } = applyOps(createDocument("t", "d"), [
+      {
+        op: "create",
+        node: {
+          type: "frame",
+          id: "row",
+          x: 10,
+          y: 20,
+          width: "hug",
+          height: "hug",
+          layout: { mode: "row", gap: 8, padding: 0, align: "start" },
+          children: [
+            { type: "rect", id: "a", width: 40, height: 20, fill: "#111" },
+            { type: "rect", id: "pin", width: 16, height: 16, x: 100, y: 4, fill: "#c43d27", layoutPositioning: "absolute" },
+            { type: "rect", id: "b", width: 30, height: 20, fill: "#222" },
+          ],
+        },
+      },
+    ]);
+    const boxes = layout(doc);
+    expect(boxes.row).toMatchObject({ x: 10, y: 20, width: 78, height: 20 });
+    expect(boxes.a).toMatchObject({ x: 10, y: 20, width: 40, height: 20 });
+    expect(boxes.b).toMatchObject({ x: 58, y: 20, width: 30, height: 20 });
+    expect(boxes.pin).toMatchObject({ x: 110, y: 24, width: 16, height: 16 });
+    const pin = cssToString(nodeStyle(doc, doc.nodes.pin!));
+    expect(pin).toContain("position:absolute");
+    expect(pin).toContain("left:100px");
+    expect(pin).toContain("top:4px");
+    expect(cssToString(nodeStyle(doc, doc.nodes.a!))).toContain("position:relative");
+  });
+
+  it("rejects an unknown positioning value", () => {
+    expect(() =>
+      applyOps(createDocument("t", "d"), [{ op: "create", node: { type: "rect", id: "r", layoutPositioning: "pinned" } }]),
+    ).toThrow(/layoutPositioning/);
   });
 });
 

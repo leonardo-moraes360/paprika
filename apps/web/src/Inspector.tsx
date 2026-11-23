@@ -3,6 +3,7 @@ import { Bot } from "lucide-react";
 import {
   copyOwner,
   groupOps,
+  ignoresLayout,
   isInstance,
   lintDocument,
   newId,
@@ -99,6 +100,38 @@ function structureActions(doc: Document, ids: string[], props: Pick<Props, "appl
         props.onSelectMany(released);
       }),
   };
+}
+
+function flowParent(doc: Document, node: Node): boolean {
+  const p = node.parentId ? doc.nodes[node.parentId] : undefined;
+  return p?.type === "frame" && !!p.layout && p.layout.mode !== "none";
+}
+
+function IgnoreLayoutToggle({ doc, node, set }: { doc: Document; node: Node; set: (props: Record<string, unknown>, label?: string) => void }) {
+  if (!flowParent(doc, node) || node.type === "page" || node.type === "connector") return null;
+  const on = ignoresLayout(node);
+  return (
+    <>
+      <div className="col-span-2 flex items-center justify-between gap-2 py-0.5">
+        <span className="text-sm text-ui-foreground">Ignorar layout</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label="Ignorar layout"
+          data-testid="ignore-layout"
+          className={cn(
+            "relative h-5 w-9 shrink-0 cursor-pointer rounded-full border-0 p-0.5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ring",
+            on ? "bg-ui-primary" : "bg-ui-muted",
+          )}
+          onClick={() => set({ layoutPositioning: on ? null : "absolute" }, "ignorar layout")}
+        >
+          <span aria-hidden className={cn("block size-4 rounded-full bg-white transition-transform", on && "translate-x-4")} />
+        </button>
+      </div>
+      <p className={cn(ui.muted, "col-span-2 m-0")}>{on ? "Fora do fluxo. x/y relativos ao pai." : "No fluxo: gap e hug contam este filho."}</p>
+    </>
+  );
 }
 
 const Z_LABEL: Record<"front" | "back" | "forward" | "backward", string> = {
@@ -200,6 +233,7 @@ export function Inspector(props: Props) {
           <Field label="A" type="number" value={node.height} title="número, hug ou fill" keywords={["hug", "fill"]} onCommit={(v) => size(v) !== undefined && set({ height: size(v) })} />
           <Field label="Rotação" type="number" value={node.rotation} onCommit={setNum("rotation")} />
           <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={setNum("opacity")} />
+          <IgnoreLayoutToggle doc={doc} node={node} set={set} />
         </div>
       </InspectorSection>
       <InspectorSection id="appearance" title="Preenchimento e traço">
@@ -450,6 +484,7 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
           <Field label="Rotação" type="number" value={node.rotation} onCommit={setNum("rotation")} />
           <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={setNum("opacity")} />
           <Field label="Tamanho" value={`${node.width}×${node.height}`} onCommit={() => onError("o tamanho vem do componente; mude a escala")} />
+          <IgnoreLayoutToggle doc={doc} node={node} set={set} />
         </div>
       </InspectorSection>
       <InspectorSection id="instance-fill" title="Preenchimento">
@@ -655,6 +690,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
           <Field label="X" type="number" value={group.x} onCommit={setNum("x")} />
           <Field label="Y" type="number" value={group.y} onCommit={setNum("y")} />
           <Field label="Opacidade" type="number" value={group.opacity} min={0} max={1} onCommit={setNum("opacity")} />
+          <IgnoreLayoutToggle doc={props.doc} node={group} set={set} />
         </div>
         <p className={ui.muted}>
           {group.width} × {group.height}: a caixa segue os {group.children.length} filho(s). Duplo clique no canvas seleciona um filho.
