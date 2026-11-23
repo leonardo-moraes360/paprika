@@ -223,8 +223,29 @@ const grad = () =>
     },
   ]).doc;
 
+const rich = () =>
+  applyOps(base(), [
+    { op: "set_tokens", tokens: { brand: "#c43d27", "text.lg": 28 } },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "box", width: 320, height: 80, fill: "#ffffff",
+        children: [
+          {
+            type: "text", id: "hello", text: "Hello bold link", width: 280, height: 40,
+            runs: [
+              { start: 6, end: 10, fontWeight: 700, color: "$brand" },
+              { start: 11, end: 15, italic: true, href: "https://paprika.dev", fontSize: "$text.lg" },
+            ],
+          },
+        ],
+      },
+    },
+  ]).doc;
+
 const docs = {
   empty: base(),
+  rich: rich(),
   absflow: absflow(),
   comp: comp(),
   card: card(),
@@ -519,6 +540,11 @@ const opCases = [
   ["empty", [R({ filter: {} })]],
   ["empty", [R({ shadow: [] })]],
   ["empty", [R({ shadow: { x: 0, y: 1, blur: 2, color: "#000", inner: true } })]],
+  ["empty", [{ op: "create", node: { type: "text", id: "t", text: "Hi", width: 40, height: 20, runs: [{ start: 0, end: 2, fontWeight: 700 }] } }]],
+  ["empty", [{ op: "create", node: { type: "text", id: "t", text: "Hi", width: 40, height: 20, runs: [{ start: 0, end: 9, fontWeight: 700 }] } }]],
+  ["empty", [{ op: "create", node: { type: "text", id: "t", text: "Hi", width: 40, height: 20, runs: [{ start: 2, end: 2, fontWeight: 700 }] } }]],
+  ["empty", [{ op: "create", node: { type: "text", id: "t", text: "Hi", width: 40, height: 20, runs: [{ start: 0, end: 1 }, { start: 0, end: 2, fontWeight: 700 }] } }]],
+  ["empty", [{ op: "create", node: { type: "text", id: "t", text: "Hi", width: 40, height: 20, runs: [{ start: 0, end: 2, href: "javascript:alert(1)" }] } }]],
 ];
 
 // ---- composite operations (groups, pages): the generated primitive ops ----

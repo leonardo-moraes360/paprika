@@ -725,6 +725,28 @@ func textCSS(css *CSS, doc *Document, node *Node, mode string, vars bool, paint 
 	css.Set("overflowWrap", "anywhere")
 }
 
+// TextRunCSS is the extra style a run paints on top of the node. Order matches the TS object.
+func TextRunCSS(doc *Document, node *Node, run *jsonv.Object, vars bool) *CSS {
+	css := jsonv.NewObject()
+	mode := ModeOf(doc, node)
+	if w, ok := run.Get("fontWeight"); ok {
+		css.Set("fontWeight", fontWeightCSS(doc, w, mode, vars))
+	}
+	if c, ok := run.Get("color"); ok {
+		css.Set("color", jsString(paintValue(doc, c, mode, vars)))
+	}
+	if fs, ok := run.Get("fontSize"); ok {
+		css.Set("fontSize", cssLen(doc, fs, mode, vars))
+	}
+	if run.Bool("italic") {
+		css.Set("fontStyle", "italic")
+	}
+	if _, ok := run.Get("href"); ok {
+		css.Set("textDecoration", "underline")
+	}
+	return css
+}
+
 // ShapeSVGCSS and ShapeTextCSS style a shape's outline <svg> and its text block.
 func ShapeSVGCSS() *CSS {
 	return jsonv.NewObject("position", "absolute", "left", 0.0, "top", 0.0, "overflow", "visible")

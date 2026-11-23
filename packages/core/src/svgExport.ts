@@ -1,4 +1,4 @@
-import { firstPage, listShadows, pageRoots, isContainer, type Document, type Node, type ShadowSpec } from "./schema.js";
+import { firstPage, listShadows, pageRoots, isContainer, type Document, type Node, type ShadowSpec, type TextNode } from "./schema.js";
 import { canvasBounds, escapeHtml, svgAttrs } from "./render.js";
 import {
   connectorAttrs,
@@ -21,6 +21,7 @@ import {
 } from "./style.js";
 import { shapePadding } from "./diagram.js";
 import { layout } from "./layout.js";
+import { piecesInRange } from "./textRuns.js";
 
 /**
  * Exporta um nó, uma página ou o canvas como SVG vetorial. As caixas vêm de `layout(doc)`
@@ -320,13 +321,31 @@ export function exportSVG(
       if (measuredLines) {
         tspans = measuredLines.map((l) => `<tspan x="${f(l.x)}" y="${f(l.y)}">${escapeHtml(l.t)}</tspan>`).join("");
       } else {
-        const lh = len(doc, n, n.lineHeight) * size;
+        const mult = len(doc, n, n.lineHeight);
         const ax = n.textAlign === "center" ? w / 2 : n.textAlign === "right" ? w : 0;
         if (n.textAlign !== "left") anchor = ` text-anchor="${n.textAlign === "center" ? "middle" : "end"}"`;
-        tspans = n.text
-          .split("\n")
-          .map((t, k) => (t ? `<tspan x="${f(ax)}" y="${f(k * lh + (lh - size) / 2 + size * 0.8)}">${escapeHtml(t)}</tspan>` : ""))
-          .join("");
+        if (!n.runs?.length) {
+          const lh = mult * size;
+          tspans = n.text
+            .split("\n")
+            .map((t, k) => (t ? `<tspan x="${f(ax)}" y="${f(k * lh + (lh - size) / 2 + size * 0.8)}">${escapeHtml(t)}</tspan>` : ""))
+            .join("");
+        } else {
+          let abs = 0;
+          let top = 0;
+          tspans = n.text
+            .split("\n")
+            .map((t) => {
+              const sizeL = lineRunSize(doc, n, t, abs, size, mode);
+              const lh = mult * sizeL;
+              const y = top + (lh - sizeL) / 2 + sizeL * 0.8;
+              const piece = t ? `<tspan x="${f(ax)}" y="${f(y)}">${richLineInner(doc, n, t, abs, mode, f)}</tspan>` : "";
+              top += lh;
+              abs += t.length + 1;
+              return piece;
+            })
+            .join("");
+        }
       }
       const ls = n.letterSpacing ? ` letter-spacing="${f(len(doc, n, n.letterSpacing))}"` : "";
       body += `<text xml:space="preserve" font-family="${escapeHtml(resolvedFontFamily(doc, n.fontFamily, mode))}" font-size="${f(size)}" font-weight="${resolvedFontWeight(doc, n.fontWeight, mode)}" fill="${color}"${ls}${anchor}>${tspans}</text>`;
@@ -369,4 +388,44 @@ export function exportSVG(
     : `${pagePaint?.inner ?? ""}<rect width="${f(width)}" height="${f(height)}" fill="${escapeHtml(pagePaint ? pagePaint.fill : page?.fill ? String(resolveValue(doc, page.fill, page.mode)) : "#ffffff")}"/>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${f(width)}" height="${f(height)}" viewBox="0 0 ${f(width)} ${f(height)}">${bg}${content}</svg>`;
   return { svg, width, height, warnings };
+}
+
+function numSize(doc: Document, value: TextNode["fontSize"], fallback: number, mode: string | undefined): number {
+  const fs = resolveValue(doc, value, mode);
+  const size = typeof fs === "number" ? fs : Number.parseFloat(String(fs));
+  return Number.isFinite(size) && size !== 0 ? size : fallback;
+}
+
+function lineRunSize(doc: Document, n: TextNode, line: string, abs: number, base: number, mode: string | undefined): number {
+  let size = base;
+  const end = abs + line.length;
+  for (const run of n.runs ?? []) {
+    if (run.fontSize === undefined || run.end <= abs || run.start >= end) continue;
+    size = Math.max(size, numSize(doc, run.fontSize, base, mode));
+  }
+  return size;
+}
+
+function richLineInner(
+  doc: Document,
+  n: TextNode,
+  line: string,
+  abs: number,
+  mode: string | undefined,
+  f: (n: number) => string,
+): string {
+  return piecesInRange(line, abs, n.runs)
+    .map((p) => {
+      if (!p.run) return escapeHtml(p.text);
+      const attrs: string[] = [];
+      if (p.run.fontWeight !== undefined) attrs.push(` font-weight="${p.run.fontWeight}"`);
+      if (p.run.color !== undefined) attrs.push(` fill="${escapeHtml(String(resolveValue(doc, p.run.color, mode)))}"`);
+      if (p.run.fontSize !== undefined) attrs.push(` font-size="${f(numSize(doc, p.run.fontSize, 16, mode))}"`);
+      if (p.run.italic) attrs.push(` font-style="italic"`);
+      if (p.run.href) attrs.push(` text-decoration="underline"`);
+      const inner = `<tspan${attrs.join("")}>${escapeHtml(p.text)}</tspan>`;
+      if (p.run.href) return `<a href="${escapeHtml(p.run.href)}">${inner}</a>`;
+      return inner;
+    })
+    .join("");
 }

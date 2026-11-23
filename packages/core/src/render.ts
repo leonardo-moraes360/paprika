@@ -12,9 +12,11 @@ import {
   pathAttrs,
   resolveValue,
   shapeAttrs,
+  textRunCSS,
   tokenStylesheet,
   type CSS,
 } from "./style.js";
+import { textPieces } from "./textRuns.js";
 
 const kebab = (k: string) => k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
 export const svgAttrs = (o: Record<string, string | number | undefined>) =>
@@ -73,6 +75,23 @@ export const htmlStyleAttr: StyleEmitter = (css) => ` style="${escapeHtml(cssToS
 
 export const jsxStyleAttr: StyleEmitter = (css) => ` style=${jsxStyle(css)}`;
 
+function richText(doc: Document, node: Extract<Node, { type: "text" }>, vars: boolean, jsx: boolean): string {
+  if (!node.runs?.length) return jsx ? jsxText(node.text) : escapeHtml(node.text);
+  return textPieces(node.text, node.runs)
+    .map((piece) => {
+      const body = jsx ? jsxText(piece.text) : escapeHtml(piece.text);
+      if (!piece.run) return body;
+      const css = textRunCSS(doc, node, piece.run, vars);
+      const style = jsx ? ` style=${jsxStyle(css)}` : ` style="${escapeHtml(cssToString(css))}"`;
+      if (piece.run.href) {
+        const href = jsx ? JSON.stringify(piece.run.href) : `"${escapeHtml(piece.run.href)}"`;
+        return `<a href=${href}${style}>${body}</a>`;
+      }
+      return `<span${style}>${body}</span>`;
+    })
+    .join("");
+}
+
 function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, emit: StyleEmitter, offset?: { x: number; y: number }): string {
   const css: CSS = nodeStyle(doc, node, { asRoot, vars });
   if (offset && !asRoot && node.type !== "page") {
@@ -94,7 +113,7 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, e
       return `<div ${attrs}>${kids}</div>`;
     }
     case "text":
-      return `<div ${attrs}>${escapeHtml(node.text)}</div>`;
+      return `<div ${attrs}>${richText(doc, node, vars, false)}</div>`;
     case "image":
       return `<img ${attrs} src="${escapeHtml(node.src)}" alt="${escapeHtml(node.alt)}">`;
     case "path": {
@@ -207,7 +226,7 @@ export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: stri
         : `${indent}<div${name}${style} />`;
     }
     case "text":
-      return `${indent}<div${name}${style}>${jsxText(node.text)}</div>`;
+      return `${indent}<div${name}${style}>${richText(doc, node, vars, true)}</div>`;
     case "image":
       return `${indent}<img${name}${style} src=${JSON.stringify(node.src)} alt=${JSON.stringify(node.alt)} />`;
     case "path": {

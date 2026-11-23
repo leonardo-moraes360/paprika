@@ -73,7 +73,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | Família, tamanho, peso, altura de linha, espaçamento, alinhamento | Nó `text` | ✅ | — |
-| Rich text (estilo por caractere/palavra, editável por agentes) | Um estilo por nó | ⬜ | P2 |
+| Rich text (estilo por caractere/palavra, editável por agentes) | `runs` em nós de texto (peso, cor, tamanho, itálico, href), editor no canvas e exportação | ✅ | — |
 | Tokens de fonte (família, peso, tamanho, altura de linha, espaçamento) | Tipados no `set_tokens` (`fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`). Números sem tipo continuam válidos. O inspector aceita `$` nesses campos. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Eixos de fontes variáveis e recursos OpenType | — | ⬜ | P3 |
 | Atalhos de texto (negrito, itálico, passos de tamanho/peso), altura de linha automática | — | ⬜ | P3 |

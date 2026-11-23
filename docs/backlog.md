@@ -73,7 +73,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
 | Font family, size, weight, line height, letter spacing, alignment | `text` node | ✅ | — |
-| Rich text (style per character/word, editable by agents) | One style per node | ⬜ | P2 |
+| Rich text (style per character/word, editable by agents) | `runs` on text nodes (weight, color, size, italic, href), canvas editor and export | ✅ | — |
 | Font tokens (family, weight, size, line height, letter spacing) | Typed on `set_tokens` (`fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`). Untyped numbers still work. The inspector accepts `$` on those fields. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Variable font axes and OpenType features | — | ⬜ | P3 |
 | Text shortcuts (bold, italic, size/weight steps), auto line height | — | ⬜ | P3 |

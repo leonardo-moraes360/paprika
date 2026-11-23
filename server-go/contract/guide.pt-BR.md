@@ -10,6 +10,7 @@ visible, locked, layoutPositioning ("auto"|"absolute", omitir = auto), constrain
 frame: clip (bool), layout {mode: none|row|column, gap (n | "$token"), padding (um número ou [topo, direita, baixo, esquerda]; cada um n | "$token"; não dois valores), align: start|center|end|stretch,
   justify: start|center|end|between, wrap}, scaledMock (true: mock em escala; o lint_design não avisa small-text dentro dele). Com layout row/column, x/y dos filhos são ignorados, salvo layoutPositioning "absolute" (o filho fica em x/y relativos ao pai e sai do fluxo, do gap e do hug). Omitir ou "auto" permanece no fluxo.
 text: text, color, fontFamily (string | "$token"), fontSize (n | "$token"), fontWeight (100..900 | "$token"), lineHeight (n | "$token"), letterSpacing (n | "$token"), textAlign.
+  runs (opcional, até 200): trechos {start, end} em índices UTF-16, sem sobreposição, cada um com ao menos um de fontWeight (100..900 | "$token"), color, fontSize (n | "$token"), italic: true, href (http(s), mailto, ou caminho com / ou #).
   Sem width/height, um texto novo abraça o conteúdo ("hug" nos dois eixos); dê width para quebrar linhas.
 image: src (https:// ou data:image/), fit (cover|contain|fill), alt.
 group: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir
@@ -26,7 +27,7 @@ Componentes: um frame com component: true é um componente (create_component). E
   instanceOf = id do componente, scale opcional, propValues e slots (create_instance). Instâncias podem ficar
   dentro de um componente; um ciclo é recusado. Os filhos são cópias geradas, com ids derivados e sourceId = id
   de origem ou o caminho slot/id ou instancia/copia. Mudar o componente muda todas as instâncias. Numa cópia,
-  update só troca fill, color, text, src, alt, visible e opacity (vira override; null volta ao componente). Uma
+  update só troca fill, color, text, src, alt, visible, opacity e runs (vira override; null volta ao componente). Uma
   cópia aninhada se endereça pelo caminho instancia/copia, e esse caminho também aceita propValues e slots. Na
   raiz, fill vira override e width/height/layout/stroke/radius/shadow/clip vêm do componente (use scale). Uma prop
   text dirige o texto de text e shape via bind.text; uma boolean dirige bind.visible; bind.variant omite o nó
