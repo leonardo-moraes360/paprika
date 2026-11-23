@@ -53,7 +53,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
   });
 
   /** Presses Tab until `match` has focus (at most `max` times). */
-  const tabTo = async (match: (el: Element) => boolean, max = 80) => {
+  const tabTo = async (match: (el: Element) => boolean, max = 200) => {
     for (let i = 0; i < max; i++) {
       await page.keyboard.press("Tab");
       const hit = await page.evaluate((src) => new Function("el", `return (${src})(el)`)(document.activeElement), match.toString());

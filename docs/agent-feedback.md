@@ -719,14 +719,26 @@ Task: draw the effects inspector and a preview (dark and light) on page `interfa
 - `render_screenshot` without `path` returned the PNG as a base64 image block, so the host files were written directly (#129).
 - Labels at 12px and width 52 fit (Exp, Tipo, Sat). The 11px section titles still warn.
 
+## 2026-11-23: align, wrap and reveal (PAP-B-089, design first)
+
+Task: draw the multi-selection inspector (align, distribute, wrap in a frame) and the layers reveal actions (show all, unlock all, per-row lock) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before implementing them. Two frames at y=4200 (`pap089lroot`, `pap089droot`). PNGs in `docs/assets/boards/PAP-B-089/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 137 | Primary-colored text on a dark card | The locked-state label used `$ui.primary` (`#c8401f`) on `$ui.card` and `lint_design` reported contrast 3.12:1 | Keep `$ui.primary` for fills; use `$ui.destructiveText` or `$ui.fg` for text on `$ui.card` in the dark theme | P3 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123 and #128, still open: `get_bounds` on `page#interfaces` returned an empty content box, and a second empty page is also named `Interfaces` (`h6jut017rv`). Frames were placed by reading depth-1 `x`/`y` (landed at y=4200).
+- `lint_design` on both frames was clean after the locked label switched to `$ui.destructiveText`.
+
 ## 2026-11-23: typed tokens and detach (PAP-B-082, design first)
 
 Task: draw token collections (light and dark) and detach (light and dark) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before typed tokens, named collections and `detach_tokens`. Frames `b082tokl`, `b082tokd`, `b082detl`, `b082detd` at y=6680. PNGs in `docs/assets/boards/PAP-B-082/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 137 | The screenshot file on the host | `render_screenshot` `path` wrote inside the server filesystem (`/data/screenshots/PAP-B-082/*.png`). The host copies were downloaded from `url` (`/api/screenshot/<id>`) | Same as #129: document that `path` is inside the server, and that `url` is the way out | P2 |
-| 138 | A kickoff color on a dark frame | `$ui.primary` on the dark background was 3.54:1. `lint_design` reported contrast on the kickers | Keep the known swatch (`#ffd2c9`) in the guide for text on the dark canvas | P3 |
+| 138 | The screenshot file on the host | `render_screenshot` `path` wrote inside the server filesystem (`/data/screenshots/PAP-B-082/*.png`). The host copies were downloaded from `url` (`/api/screenshot/<id>`) | Same as #129: document that `path` is inside the server, and that `url` is the way out | P2 |
+| 139 | A kickoff color on a dark frame | `$ui.primary` on the dark background was 3.54:1. `lint_design` reported contrast on the kickers | Keep the known swatch (`#ffd2c9`) in the guide for text on the dark canvas | P3 |
 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #128, still open: `find_nodes` returns two pages named `Interfaces`. The frames went on `page#interfaces`.

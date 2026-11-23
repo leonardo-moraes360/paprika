@@ -647,23 +647,33 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return write(a, ops, labelOr(a, "move "+count(len(moves))+" node(s)"))
 	})
 
-	add("group_nodes", z.Object(
+	selectionFrame := z.Object(
 		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
 		label(), batch(), workspaceID(),
-	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		ids := a.Strings("ids")
-		id := a.Str("id")
-		if !a.Has("id") {
-			id = core.NewID()
+	)
+	writeSelection := func(opName, resultKey, verb, noun string, extra ...string) func(context.Context, *jsonv.Object) (ToolResult, error) {
+		return func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			ids := a.Strings("ids")
+			id := a.Str("id")
+			if !a.Has("id") {
+				id = core.NewID()
+			}
+			kv := make([]any, 0, 6+2*len(extra))
+			kv = append(kv, "op", opName, "ids", a.Arr("ids"))
+			for _, key := range extra {
+				kv = append(kv, key, a.Str(key))
+			}
+			kv = append(kv, "id", id)
+			op := jsonv.NewObject(kv...)
+			if a.Has("name") {
+				op.Set("name", a.Str("name"))
+			}
+			return writeWith(a, []any{op}, labelOr(a, verb+" "+count(len(ids))+" "+noun), resultKey, id)
 		}
-		op := jsonv.NewObject("op", "group", "ids", a.Arr("ids"), "id", id)
-		if a.Has("name") {
-			op.Set("name", a.Str("name"))
-		}
-		return writeWith(a, []any{op}, labelOr(a, "group "+count(len(ids))+" node(s)"), "group", id)
-	})
+	}
+	add("group_nodes", selectionFrame, writeSelection("group", "group", "group", "node(s)"))
 
 	add("ungroup_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)}, label(), batch(), workspaceID()),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
@@ -680,24 +690,67 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return writeWith(a, []any{op}, labelOr(a, "ungroup "+count(len(ids))+" group(s)"), "released", jsonv.FromGo(released))
 		})
 
+	add("align_nodes", z.Object(
+		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(2).Max(500)},
+		z.Field{Name: "edge", Schema: z.Enum("left", "center", "right", "top", "middle", "bottom")},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		ids := a.Strings("ids")
+		op := jsonv.NewObject("op", "align", "ids", a.Arr("ids"), "edge", a.Str("edge"))
+		return write(a, []any{op}, labelOr(a, "align "+count(len(ids))+" node(s) "+a.Str("edge")))
+	})
+
+	add("distribute_nodes", z.Object(
+		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(3).Max(500)},
+		z.Field{Name: "axis", Schema: z.Enum("horizontal", "vertical")},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		ids := a.Strings("ids")
+		op := jsonv.NewObject("op", "distribute", "ids", a.Arr("ids"), "axis", a.Str("axis"))
+		return write(a, []any{op}, labelOr(a, "distribute "+count(len(ids))+" node(s) "+a.Str("axis")))
+	})
+
+	add("wrap_nodes", selectionFrame, writeSelection("wrap", "frame", "wrap", "node(s)"))
+
+	reveal := func(kind, label string) func(context.Context, *jsonv.Object) (ToolResult, error) {
+		return func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			d, err := docOf(a)
+			if err != nil {
+				return nil, err
+			}
+			ops, ids, err := core.RevealOps(d, kind, a.Str("pageId"))
+			if err != nil {
+				return nil, err
+			}
+			if ids == nil {
+				ids = []string{}
+			}
+			if len(ops) == 0 {
+				head, err := store.ReadWorkspace(a.Str("workspaceId"))
+				if err != nil {
+					return nil, wsErr(a.Str("workspaceId"), err)
+				}
+				out := jsonv.NewObject("ids", jsonv.FromGo(ids), "created", []any{}, "version", float64(head.Version))
+				stamp(out, head)
+				return jsonResult(out), nil
+			}
+			op := jsonv.NewObject("op", "reveal", "kind", kind)
+			if a.Has("pageId") {
+				op.Set("pageId", a.Str("pageId"))
+			}
+			return writeWith(a, []any{op}, labelOr(a, label), "ids", jsonv.FromGo(ids))
+		}
+	}
+	add("show_all", z.Object(optStr("pageId"), label(), batch(), workspaceID()), reveal("hidden", "show all"))
+	add("unlock_all", z.Object(optStr("pageId"), label(), batch(), workspaceID()), reveal("locked", "unlock all"))
+
 	add("combine_paths", z.Object(
 		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(2).Max(500)},
 		z.Field{Name: "operation", Schema: z.Enum("union", "subtract", "intersect", "exclude")},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
 		label(), batch(), workspaceID(),
-	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		ids := a.Strings("ids")
-		id := a.Str("id")
-		if !a.Has("id") {
-			id = core.NewID()
-		}
-		op := jsonv.NewObject("op", "combine_paths", "ids", a.Arr("ids"), "operation", a.Str("operation"), "id", id)
-		if a.Has("name") {
-			op.Set("name", a.Str("name"))
-		}
-		return writeWith(a, []any{op}, labelOr(a, "combine "+count(len(ids))+" path(s)"), "path", id)
-	})
+	), writeSelection("combine_paths", "path", "combine", "path(s)", "operation"))
 
 	add("create_page", z.Object(
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},

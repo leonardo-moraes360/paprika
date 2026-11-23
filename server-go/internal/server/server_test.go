@@ -340,6 +340,51 @@ func TestMCPGetBounds(t *testing.T) {
 	}
 }
 
+func TestMCPArrange(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "frame", "id", "f", "width", 400.0, "height", 200.0, "children", []any{
+		obj("type", "rect", "id", "a", "x", 10.0, "y", 20.0, "width", 40.0, "height", 20.0),
+		obj("type", "rect", "id", "b", "x", 80.0, "y", 50.0, "width", 20.0, "height", 40.0),
+		obj("type", "rect", "id", "c", "x", 140.0, "y", 10.0, "width", 30.0, "height", 10.0, "visible", false, "locked", true),
+	})}))
+	out, isErr := callText(t, m, "align_nodes", obj("ids", []any{"a", "b", "c"}, "edge", "left"))
+	if isErr || core.GetNode(s.Doc(), "b").Num("x") != 10 || core.GetNode(s.Doc(), "c").Num("x") != 10 {
+		t.Fatalf("align: %q x=%v", out, core.GetNode(s.Doc(), "b").Num("x"))
+	}
+	if _, isErr = callText(t, m, "undo", obj()); isErr {
+		t.Fatal("undo")
+	}
+	if core.GetNode(s.Doc(), "b").Num("x") != 80 {
+		t.Fatalf("undo align: %v", core.GetNode(s.Doc(), "b").Num("x"))
+	}
+	if out, isErr = callText(t, m, "distribute_nodes", obj("ids", []any{"a", "b"}, "axis", "horizontal")); !isErr {
+		t.Fatalf("short distribute: %q", out)
+	}
+	out, isErr = callText(t, m, "wrap_nodes", obj("ids", []any{"a", "b"}, "id", "wf", "name", "Caixa"))
+	if isErr || !strings.Contains(out, `"frame": "wf"`) {
+		t.Fatalf("wrap: %q", out)
+	}
+	frame := core.GetNode(s.Doc(), "wf")
+	if frame.Str("type") != "frame" || frame.Bool("clip") || frame.Str("fill") != "transparent" {
+		t.Fatalf("frame: %s", jsonv.Stringify(frame, ""))
+	}
+	if core.GetNode(s.Doc(), "a").Str("parentId") != "wf" {
+		t.Fatal("parent")
+	}
+	out, isErr = callText(t, m, "show_all", obj())
+	if isErr || !strings.Contains(out, "\"c\"") {
+		t.Fatalf("show: %q", out)
+	}
+	out, isErr = callText(t, m, "unlock_all", obj())
+	if isErr || core.GetNode(s.Doc(), "c").Bool("locked") {
+		t.Fatalf("unlock: %q", out)
+	}
+	if _, isErr = callText(t, m, "undo", obj()); isErr || !core.GetNode(s.Doc(), "c").Bool("locked") {
+		t.Fatal("undo unlock")
+	}
+}
+
 func TestMCPGroupsAndPages(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)

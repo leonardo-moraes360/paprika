@@ -13,7 +13,7 @@ const core = await import(join(root, "packages/core/dist/index.js"));
 const {
   applyOps, createDocument, parseDocument, copyId, History, outline, describeNode, lintDocument, renderHTML,
   exportReact, exportTailwind, exportCssModules, exportAngular, exportSvelte, renderTailwindHTML, renderFrameworkHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
-  parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, combinePathsOps, importSVG, importHTML, exportSVG,
+  parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, combinePathsOps, alignOps, distributeOps, wrapOps, revealOps, importSVG, importHTML, exportSVG,
   diagramOps, shapeOutline, tailwindClassesFor, layout, measureText, FONT_AVG, normalizePath, pathOrigin,
 } = core;
 
@@ -510,6 +510,17 @@ const structureCases = [
   ["card", "duplicate", { ids: ["card"], props: { id: "x", children: [] } }],
   ["card", "duplicate", { ids: ["card"], props: { width: 5 } }],
   ["card", "duplicate", { ids: ["card"], parentId: "nope" }],
+  ["free", "align", { ids: ["r1", "e1"], edge: "left" }],
+  ["free", "align", { ids: ["r1"], edge: "left" }],
+  ["free", "align", { ids: ["r1", "e1"], edge: "sideways" }],
+  ["card", "align", { ids: ["title", "bar"], edge: "top" }],
+  ["free", "distribute", { ids: ["r1", "e1", "t1"], axis: "horizontal" }],
+  ["free", "distribute", { ids: ["r1", "e1"], axis: "vertical" }],
+  ["free", "wrap", { ids: ["e1", "r1"], id: "wf", name: "Quadro" }],
+  ["free", "wrap", { ids: ["p1"], id: "wp" }],
+  ["card", "wrap", { ids: ["title"], id: "wt" }],
+  ["free", "reveal", { kind: "hidden" }],
+  ["free", "reveal", { kind: "locked", pageId: "nope" }],
   ["free", "combine", { ids: ["r1", "e1"], operation: "union", id: "cu" }],
   ["free", "combine", { ids: ["r1", "e1"], operation: "subtract", id: "cs" }],
   ["free", "combine", { ids: ["r1"], operation: "union" }],
@@ -529,6 +540,16 @@ const structure = structureCases.map(([docName, kind, args]) => {
     if (kind === "combine") {
       const p = combinePathsOps(d, args.ids, { operation: args.operation, id: args.id, name: args.name });
       return { ops: p.ops, id: p.id };
+    }
+    if (kind === "align") return alignOps(d, args.ids, args.edge);
+    if (kind === "distribute") return distributeOps(d, args.ids, args.axis);
+    if (kind === "wrap") {
+      const p = wrapOps(d, args.ids, { id: args.id, name: args.name });
+      return { ops: p.ops, id: p.id };
+    }
+    if (kind === "reveal") {
+      const p = revealOps(d, args.kind, args.pageId);
+      return { ops: p.ops, released: p.ids };
     }
     const p = addPageOps(d, { id: args.id, name: args.name, firstId: args.firstId });
     return { ops: p.ops, id: p.id };
