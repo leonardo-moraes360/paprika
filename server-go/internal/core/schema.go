@@ -150,7 +150,42 @@ func baseFields() []z.Field {
 		{Name: "notes", Schema: z.Optional(z.String().Max(4000))},
 		{Name: "sourceId", Schema: z.Optional(z.String())},
 		{Name: "lintIgnore", Schema: z.Optional(z.Array(z.String().Regex(`^[a-z0-9-]{1,40}$`, `/^[a-z0-9-]{1,40}$/`, "lint rule must be [a-z0-9-]{1,40}")).Max(20))},
+		{Name: "bind", Schema: z.Optional(bindSchema())},
 	}
+}
+
+func propNameSchema() z.Schema {
+	return z.String().Regex(`^[A-Za-z][A-Za-z0-9_]{0,31}$`, `/^[A-Za-z][A-Za-z0-9_]{0,31}$/`, "prop name must be [A-Za-z][A-Za-z0-9_]{0,31}")
+}
+
+func variantOptionSchema() z.Schema {
+	return z.String().Regex(`^[A-Za-z0-9_-]{1,40}$`, `/^[A-Za-z0-9_-]{1,40}$/`, "variant option must be [A-Za-z0-9_-]{1,40}")
+}
+
+func componentPropSchema() z.Schema {
+	return z.Object(
+		z.Field{Name: "name", Schema: propNameSchema()},
+		z.Field{Name: "type", Schema: z.Enum("text", "boolean", "variant")},
+		z.Field{Name: "default", Schema: z.Optional(z.Union(z.String().Max(2000), z.Bool()))},
+		z.Field{Name: "options", Schema: z.Optional(z.Array(variantOptionSchema()).Min(1).Max(24))},
+	)
+}
+
+func bindSchema() z.Schema {
+	return z.Object(
+		z.Field{Name: "text", Schema: z.Optional(propNameSchema())},
+		z.Field{Name: "visible", Schema: z.Optional(propNameSchema())},
+		z.Field{Name: "variant", Schema: z.Optional(z.Record(propNameSchema(), variantOptionSchema()))},
+	)
+}
+
+func propValuesSchema() z.Schema {
+	return z.Record(propNameSchema(), z.Union(z.String().Max(2000), z.Bool()))
+}
+
+func slotFillsSchema() z.Schema {
+	id := z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id must be [A-Za-z0-9_-]{1,64}")
+	return z.Record(propNameSchema(), z.Array(id).Max(40))
 }
 
 func nodeSchema(typ string, extra ...z.Field) *z.ObjectSchema {
@@ -183,6 +218,8 @@ func groupSchema() *z.ObjectSchema {
 		baseField("layoutPositioning"),
 		baseField("constraints"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
+		z.Field{Name: "bind", Schema: z.Optional(bindSchema())},
+		z.Field{Name: "slot", Schema: z.Optional(propNameSchema())},
 	)
 }
 
@@ -349,6 +386,7 @@ func connectorSchema() *z.ObjectSchema {
 		z.Field{Name: "dashed", Schema: z.Default(z.Bool(), false)},
 		z.Field{Name: "label", Schema: z.Optional(z.String().Max(200))},
 		z.Field{Name: "d", Schema: z.Default(z.String().Max(10_000), "")},
+		z.Field{Name: "bind", Schema: z.Optional(bindSchema())},
 	)
 }
 
@@ -406,6 +444,10 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "overrides", Schema: z.Optional(overridesSchema())},
 		z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
 		z.Field{Name: "scaledMock", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "slot", Schema: z.Optional(propNameSchema())},
+		z.Field{Name: "componentProps", Schema: z.Optional(z.Array(componentPropSchema()).Max(24))},
+		z.Field{Name: "propValues", Schema: z.Optional(propValuesSchema())},
+		z.Field{Name: "slots", Schema: z.Optional(slotFillsSchema())},
 	).Extend(z.Field{Name: "radius", Schema: cornerRadiusSchema()}),
 	"rect":    nodeSchema("rect").Extend(z.Field{Name: "radius", Schema: cornerRadiusSchema()}),
 	"ellipse": nodeSchema("ellipse"),
@@ -549,7 +591,7 @@ var TokenMetaSchema = z.Object(
 
 // overridesSchema is Overrides in schema.ts: keys shaped like node ids and field names.
 func overridesSchema() z.Schema {
-	source := z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id must be [A-Za-z0-9_-]{1,64}")
+	source := z.String().Regex(`^[A-Za-z0-9_-]{1,64}(/[A-Za-z0-9_-]{1,64}){0,6}$`, `/^[A-Za-z0-9_-]{1,64}(\/[A-Za-z0-9_-]{1,64}){0,6}$/`, "override path must be an id or id/id (up to 7 ids)")
 	field := z.String().Regex(`^[A-Za-z]{1,32}$`, `/^[A-Za-z]{1,32}$/`, "field must be [A-Za-z]{1,32}")
 	return z.Record(source, z.Record(field, z.Unknown()))
 }

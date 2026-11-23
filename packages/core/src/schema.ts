@@ -113,6 +113,32 @@ export function listShadows(shadow: ShadowSpec | readonly ShadowSpec[] | undefin
   return [shadow as ShadowSpec];
 }
 
+export const PropName = z
+  .string()
+  .regex(/^[A-Za-z][A-Za-z0-9_]{0,31}$/, "prop name must be [A-Za-z][A-Za-z0-9_]{0,31}");
+
+export const VariantOption = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,40}$/, "variant option must be [A-Za-z0-9_-]{1,40}");
+
+export const ComponentProp = z.object({
+  name: PropName,
+  type: z.enum(["text", "boolean", "variant"]),
+  default: z.union([z.string().max(2000), z.boolean()]).optional(),
+  options: z.array(VariantOption).min(1).max(24).optional(),
+});
+
+export const Bind = z.object({
+  text: PropName.optional(),
+  visible: PropName.optional(),
+  variant: z.record(PropName, VariantOption).optional(),
+});
+
+export const PropValues = z.record(PropName, z.union([z.string().max(2000), z.boolean()]));
+
+const NodeId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}");
+export const SlotFills = z.record(PropName, z.array(NodeId).max(40));
+
 export const Layout = z.object({
   mode: z.enum(["none", "row", "column"]).default("none"),
   gap: lengthValue(0).default(0),
@@ -154,6 +180,8 @@ const Base = {
   /** Só em cópias dentro de uma instância: id do nó do componente de onde a cópia vem (gerado). */
   sourceId: z.string().optional(),
   lintIgnore: z.array(z.string().regex(/^[a-z0-9-]{1,40}$/, "lint rule must be [a-z0-9-]{1,40}")).max(20).optional(),
+  /** Liga este nó a uma prop do componente que o contém (`text`, `visible` ou `variant`). */
+  bind: Bind.optional(),
 };
 
 /** Overrides de uma instância: por id de nó do componente, os campos trocados (ver component.ts). */
@@ -178,7 +206,10 @@ export const TokenMeta = z
   })
   .refine((m) => m.type !== undefined || m.collection !== undefined, "token meta needs a type or a collection");
 
-const OverrideSource = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}");
+const OverrideSource = z.string().regex(
+  /^[A-Za-z0-9_-]{1,64}(\/[A-Za-z0-9_-]{1,64}){0,6}$/,
+  "override path must be an id or id/id (up to 7 ids)",
+);
 const OverrideField = z.string().regex(/^[A-Za-z]{1,32}$/, "field must be [A-Za-z]{1,32}");
 export const Overrides = z.record(OverrideSource, z.record(OverrideField, z.unknown()));
 
@@ -201,6 +232,14 @@ export const FrameNode = z.object({
   /** Modo de tema deste frame e dos descendentes (tokens de `document.modes[mode]`). */
   mode: ModeName.optional(),
   scaledMock: z.boolean().optional(),
+  /** Nome de slot (só dentro de um componente): a instância troca os filhos. */
+  slot: PropName.optional(),
+  /** Props declaradas por um componente (texto, boolean, variante). */
+  componentProps: z.array(ComponentProp).max(24).optional(),
+  /** Valores das props na instância (o que faltar usa o default do componente). */
+  propValues: PropValues.optional(),
+  /** Conteúdo dos slots: nome do slot → ids dos nós que a instância clona para dentro. */
+  slots: SlotFills.optional(),
 });
 
 export const RectNode = z.object({ ...Base, radius: cornerRadius, type: z.literal("rect") });
@@ -376,6 +415,7 @@ export const ConnectorNode = z.object({
   label: z.string().max(200).optional(),
   /** Gerado: o traçado (linha + pontas) em coordenadas locais. */
   d: z.string().max(10_000).default(""),
+  bind: Bind.optional(),
 });
 
 /**
@@ -402,6 +442,8 @@ export const GroupNode = z.object({
   layoutPositioning: Base.layoutPositioning,
   constraints: Base.constraints,
   children: z.array(z.string()).default([]),
+  bind: Bind.optional(),
+  slot: PropName.optional(),
 });
 
 /**

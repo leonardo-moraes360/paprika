@@ -22,12 +22,17 @@ page: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, 
   frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o
   conteúdo atual para "Page 1" (inglês; a UI passa o nome localizado). create_page {ensure: true, name} devolve a página que já tem esse nome
   em vez de criar outra. Telas de outra página: get_document_outline {rootId: id da página}.
-Componentes: um frame com component: true é um componente (create_component). Uma instância é um frame com
-  instanceOf = id do componente e scale opcional (create_instance): os filhos são cópias geradas, com ids
-  derivados e sourceId = id do nó de origem; mudar o componente muda todas as instâncias. Numa cópia, update só
-  troca fill, color, text, src, alt, visible, opacity e runs (vira override da instância; null volta ao componente);
-  na raiz, fill vira override e width/height/layout/stroke/radius/shadow/clip vêm do componente (use scale).
-  Cópias não podem ser movidas, apagadas nem receber filhos: edite o componente ou detach_instance.
+Componentes: um frame com component: true é um componente (create_component). Ele pode declarar props (text,
+  boolean, variant) e frames ou groups dentro dele podem nomear um slot. Uma instância é um frame com
+  instanceOf = id do componente, scale opcional, propValues e slots (create_instance). Instâncias podem ficar
+  dentro de um componente; um ciclo é recusado. Os filhos são cópias geradas, com ids derivados e sourceId = id
+  de origem ou o caminho slot/id ou instancia/copia. Mudar o componente muda todas as instâncias. Numa cópia,
+  update só troca fill, color, text, src, alt, visible, opacity e runs (vira override; null volta ao componente). Uma
+  cópia aninhada se endereça pelo caminho instancia/copia, e esse caminho também aceita propValues e slots. Na
+  raiz, fill vira override e width/height/layout/stroke/radius/shadow/clip vêm do componente (use scale). Uma prop
+  text dirige o texto de text e shape via bind.text; uma boolean dirige bind.visible; bind.variant omite o nó
+  salvo quando cada par combina. Cópias não podem ser movidas, apagadas nem receber filhos: edite o componente
+  ou detach_instance.
 path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),
   stroke {color,width} (traço), fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),
   viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,

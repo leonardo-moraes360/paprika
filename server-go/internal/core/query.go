@@ -63,6 +63,9 @@ func DescribeNode(n *Node) string {
 		if n.Bool("component") {
 			parts = append(parts, "component")
 		}
+		if props := n.Arr("componentProps"); len(props) > 0 {
+			parts = append(parts, fmt.Sprintf("props=%d", len(props)))
+		}
 		if IsInstance(n) {
 			parts = append(parts, "instanceOf="+n.Str("instanceOf"))
 			if sc, ok := n.Get("scale"); ok && sc != 1.0 {
@@ -71,7 +74,16 @@ func DescribeNode(n *Node) string {
 			if ov := n.Obj("overrides"); ov != nil {
 				parts = append(parts, "overrides="+jsString(float64(ov.Len())))
 			}
+			if pv := n.Obj("propValues"); pv != nil {
+				parts = append(parts, fmt.Sprintf("propValues=%d", pv.Len()))
+			}
+			if sl := n.Obj("slots"); sl != nil {
+				parts = append(parts, fmt.Sprintf("slots=%d", sl.Len()))
+			}
 		}
+	}
+	if slot := n.Str("slot"); slot != "" {
+		parts = append(parts, "slot="+slot)
 	}
 	if src, ok := n.Get("sourceId"); ok {
 		parts = append(parts, "from="+jsString(src))

@@ -484,6 +484,72 @@ func TestMCPComponents(t *testing.T) {
 	}
 }
 
+func TestMCPComponentProps(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	if _, isErr := callText(t, m, "create_nodes", obj("nodes", []any{
+		obj("type", "ellipse", "id", "gem", "width", 12.0, "height", 12.0, "fill", "#ff278c"),
+		obj("type", "frame", "id", "btn", "width", 120.0, "height", 40.0, "children", []any{
+			obj("type", "text", "id", "lbl", "text", "OK", "width", 40.0, "height", 20.0),
+			obj("type", "ellipse", "id", "dot", "width", 8.0, "height", 8.0),
+			obj("type", "rect", "id", "sm", "width", 8.0, "height", 8.0),
+			obj("type", "frame", "id", "icon", "width", 16.0, "height", 16.0, "children", []any{
+				obj("type", "rect", "id", "ph", "width", 16.0, "height", 16.0),
+			}),
+		}),
+	})); isErr {
+		t.Fatal("create failed")
+	}
+	props := []any{
+		obj("name", "label", "type", "text", "default", "OK"),
+		obj("name", "disabled", "type", "boolean", "default", false),
+		obj("name", "size", "type", "variant", "default", "md", "options", []any{"sm", "md"}),
+	}
+	if _, isErr := callText(t, m, "create_component", obj("id", "btn", "props", props)); isErr {
+		t.Fatal("component props failed")
+	}
+	if _, isErr := callText(t, m, "update_nodes", obj("updates", []any{
+		obj("id", "lbl", "props", obj("bind", obj("text", "label"))),
+		obj("id", "dot", "props", obj("bind", obj("visible", "disabled"))),
+		obj("id", "sm", "props", obj("bind", obj("variant", obj("size", "sm")))),
+		obj("id", "icon", "props", obj("slot", "icon")),
+	})); isErr {
+		t.Fatal("binds failed")
+	}
+	out, isErr := callText(t, m, "create_instance", obj(
+		"componentId", "btn", "id", "i1",
+		"propValues", obj("label", "Enviar", "disabled", false, "size", "md"),
+		"slots", obj("icon", []any{"gem"}),
+	))
+	if isErr || !strings.Contains(out, `"icon/gem": "`+core.CopyID("i1", "icon/gem")+`"`) {
+		t.Fatalf("instance: %q", out)
+	}
+	if c := core.GetNode(s.Doc(), core.CopyID("i1", "lbl")); c.Str("text") != "Enviar" {
+		t.Fatalf("label: %s", jsonv.Stringify(c, ""))
+	}
+	if core.GetNode(s.Doc(), core.CopyID("i1", "sm")) != nil {
+		t.Fatal("variant sm should be omitted")
+	}
+	if dot := core.GetNode(s.Doc(), core.CopyID("i1", "dot")); dot.Bool("visible") {
+		t.Fatal("disabled bind should hide the dot")
+	}
+	if _, isErr = callText(t, m, "create_nodes", obj("nodes", []any{
+		obj("type", "frame", "id", "card", "width", 200.0, "height", 80.0, "children", []any{
+			obj("type", "frame", "id", "btnInst", "instanceOf", "btn", "width", 120.0, "height", 40.0),
+		}),
+	})); isErr {
+		t.Fatal("nested create failed")
+	}
+	callText(t, m, "create_component", obj("id", "card"))
+	if _, isErr = callText(t, m, "create_instance", obj("componentId", "card", "id", "c1", "overrides", obj("btnInst/lbl", obj("text", "Salvar")))); isErr {
+		t.Fatal("nested instance failed")
+	}
+	lbl := core.GetNode(s.Doc(), core.CopyID(core.CopyID("c1", "btnInst"), "lbl"))
+	if lbl == nil || lbl.Str("text") != "Salvar" {
+		t.Fatalf("nested label: %s", jsonv.Stringify(lbl, ""))
+	}
+}
+
 func TestStdio(t *testing.T) {
 	s, _ := openTemp(t)
 	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}

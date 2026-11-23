@@ -109,11 +109,11 @@ describe("componentes e instâncias", () => {
     expect(() => applyOps(doc, [{ op: "create", node: { type: "rect", sourceId: "x" } }])).toThrow(/sourceId is generated/);
   });
 
-  it("regras de fim de transação: componente precisa existir e não conter instâncias", () => {
+  it("regras de fim de transação: componente precisa existir e não pode ser instância", () => {
     const doc = base();
     expect(() => applyOps(doc, [{ op: "delete", id: "btn" }])).toThrow(/component "btn" does not exist/);
     expect(() => applyOps(doc, [{ op: "update", id: "btn", props: { component: null } }])).toThrow(/is not a component/);
-    expect(() => applyOps(doc, [{ op: "move", id: "i1", parentId: "btn" }])).toThrow(/instances inside components/);
+    expect(() => applyOps(doc, [{ op: "move", id: "i1", parentId: "btn" }])).toThrow(/component cycle: "btn" → "btn"/);
     expect(() => applyOps(doc, [{ op: "update", id: "i1", props: { component: true } }])).toThrow(/cannot be a component/);
     // apagar componente e instâncias juntos funciona
     expect(() => applyOps(doc, [{ op: "delete", id: "i1" }, { op: "delete", id: "btn" }])).not.toThrow();
@@ -155,6 +155,88 @@ describe("componentes e instâncias", () => {
     expect((doc.nodes.i1 as FrameNode).children).toEqual([copyId("i1", "g")]);
     const wrap = applyOps(doc, [{ op: "group", ids: ["i1"], id: "outer" }, { op: "update", id: "i1", props: { scale: 3 } }]).doc;
     expect(wrap.nodes.outer).toMatchObject({ width: 360, height: 120 });
+  });
+
+  it("props de texto, boolean e variante, e slot preenchido pela instância", () => {
+    const doc = applyOps(createDocument("T", "d"), [
+      {
+        op: "create",
+        node: {
+          type: "frame",
+          id: "btn",
+          component: true,
+          width: 120,
+          height: 40,
+          componentProps: [
+            { name: "label", type: "text", default: "OK" },
+            { name: "disabled", type: "boolean", default: false },
+            { name: "size", type: "variant", options: ["sm", "md"], default: "md" },
+          ],
+          children: [
+            { type: "text", id: "lbl", text: "OK", width: 40, height: 20, bind: { text: "label" } },
+            { type: "ellipse", id: "dot", width: 8, height: 8, bind: { visible: "disabled" } },
+            { type: "rect", id: "sm", width: 10, height: 10, bind: { variant: { size: "sm" } } },
+            { type: "frame", id: "icon", slot: "icon", width: 16, height: 16, children: [{ type: "rect", id: "ph", width: 4, height: 4 }] },
+          ],
+        },
+      },
+      { op: "create", node: { type: "ellipse", id: "gem", width: 12, height: 12, fill: "#00aa00" } },
+      {
+        op: "create",
+        node: {
+          type: "frame",
+          id: "i1",
+          instanceOf: "btn",
+          x: 200,
+          propValues: { label: "Enviar", disabled: false, size: "md" },
+          slots: { icon: ["gem"] },
+        },
+      },
+    ]).doc;
+    expect(kid(doc, "i1", "lbl")).toMatchObject({ text: "Enviar" });
+    expect(kid(doc, "i1", "dot")).toMatchObject({ visible: false });
+    expect(doc.nodes[copyId("i1", "sm")]).toBeUndefined();
+    const icon = kid(doc, "i1", "icon") as FrameNode;
+    expect(icon.children).toEqual([copyId("i1", "icon/gem")]);
+    expect(doc.nodes[copyId("i1", "icon/gem")]).toMatchObject({ type: "ellipse", fill: "#00aa00", sourceId: "icon/gem" });
+    expect(doc.nodes[copyId("i1", "ph")]).toBeUndefined();
+  });
+
+  it("instância dentro de componente aceita override pelo caminho", () => {
+    const doc = applyOps(createDocument("T", "d"), [
+      {
+        op: "create",
+        node: {
+          type: "frame",
+          id: "btn",
+          component: true,
+          width: 80,
+          height: 32,
+          fill: "#3355ff",
+          children: [{ type: "text", id: "lbl", text: "OK", width: 20, height: 16 }],
+        },
+      },
+      {
+        op: "create",
+        node: {
+          type: "frame",
+          id: "card",
+          component: true,
+          width: 200,
+          height: 80,
+          children: [{ type: "frame", id: "btnInst", instanceOf: "btn", x: 8, y: 8 }],
+        },
+      },
+      { op: "create", node: { type: "frame", id: "c1", instanceOf: "card", x: 300, overrides: { "btnInst/lbl": { text: "Salvar" } } } },
+    ]).doc;
+    const nested = doc.nodes[copyId("c1", "btnInst")] as FrameNode;
+    expect(nested.instanceOf).toBe("btn");
+    expect(doc.nodes[copyId(nested.id, "lbl")]).toMatchObject({ text: "Salvar", sourceId: "lbl" });
+    const h = new History(doc);
+    const label = copyId(nested.id, "lbl");
+    h.apply([{ op: "update", id: label, props: { text: "Cancelar" } }], "a", "path");
+    expect((h.current.nodes.c1 as FrameNode).overrides).toEqual({ "btnInst/lbl": { text: "Cancelar" } });
+    expect((h.current.nodes[copyId(copyId("c1", "btnInst"), "lbl")] as TextNode).text).toBe("Cancelar");
   });
 
   it("renderiza a instância como frame comum", () => {
