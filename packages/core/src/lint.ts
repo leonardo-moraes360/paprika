@@ -1,3 +1,4 @@
+import { placementLint } from "./placement.js";
 import { isContainer, type Document, type Node } from "./schema.js";
 import { modeOf, resolveLength, resolveValue, tokenValue } from "./style.js";
 
@@ -218,6 +219,14 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
     if (node.type === "frame" && !node.name && (!parent || parent.type === "page"))
       issues.push({ rule: "unnamed-frame", severity: "info", nodeId: id, message: "top-level frame without a name" });
   }
+  const opaque = (n: Node) => {
+    if (n.type !== "frame" || n.visible === false) return false;
+    if (n.opacity < 0.99) return false;
+    if (!n.fill) return false;
+    const c = parseColor(String(resolveValue(doc, n.fill, modeOf(doc, n))));
+    return !!c && c.a >= 0.99;
+  };
+  issues.push(...placementLint(doc, ids, opaque));
   return issues;
 }
 

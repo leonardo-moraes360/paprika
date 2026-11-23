@@ -15,7 +15,7 @@ Task: an agent drew 5 flat paprika icons with increasing complexity (3 → ~20 s
 | 2 | Put a stem on the tip of a rotated pod | Rotation pivots on the box center, so the agent had to do trigonometry; the calyx was misplaced twice and only caught by screenshot | Done (2026-11-22, PAP-A-001): `get_bounds` returns origin + rotated corners; `path_info` adds origin / transformOrigin | — |
 | 3 | Same icon at 4 sizes | No components/instances or scale: the script regenerated every shape with a scale factor (4× the nodes, edits don't propagate) | Components + instances with `scale`; `duplicate_nodes` with scale | P1 |
 | 4 | 5 themes side by side | Tokens are global, so they had to be namespaced by hand (`p1.brand` … `p5.brand`) and rewritten in every node | Done (2026-11-21, see #45): theme modes (`set_tokens` with `mode`) and `mode` on a frame or page; named collections are still open | — |
-| 5 | Check the result visually on the user's machine | `render_screenshot` failed: Playwright 1.63 needs Chromium build 1243, only 1228 was installed | Detect a missing browser at startup, return the exact fix command in the error, and fall back to rendering through an open canvas tab | P1 |
+| 5 | Check the result visually on the user's machine | `render_screenshot` failed: Playwright 1.63 needs Chromium build 1243, only 1228 was installed | Done (2026-11-22, PAP-B-062): a missing or mismatched browser is reported at startup and when a screenshot fails, with `pnpm --filter @paprika/e2e exec playwright install chromium` | — |
 | 6 | Catch visual mistakes without a screenshot | `lint_design` passed while the calyx floated off the pod | Geometry lint: children that don't touch any sibling, near-misses (< 4px gaps), shapes fully hidden behind others | P2 |
 | 7 | Read structured results | Tools return JSON as text; the agent has to parse strings | Done (2026-11-21, see #48): `outputSchema` + `structuredContent` on every JSON tool | — |
 | 8 | Layout wrappers that don't clip | Every wrapper frame needed `clip: false` and `fill: "transparent"` | A `group` node, or `clip: false` by default when a frame has auto layout | P3 |
@@ -23,7 +23,7 @@ Task: an agent drew 5 flat paprika icons with increasing complexity (3 → ~20 s
 | 10 | See who did what | The actor name comes from the HTTP User-Agent (`node`, `brand-agent`), not from the MCP client | Done (2026-11-21, see #48): `agent:<clientInfo.name>`, also over HTTP | — |
 | 11 | One undo step for "draw proposal 3" | 7 history entries for one script run (rename, tokens, 5 creates) | Done (2026-11-21, see #48): `batch` on every write tool | — |
 | 12 | Agent-facing language | Guide and errors are in Brazilian Portuguese; English prompts mix languages | Done (2026-11-21, see #48): guide, descriptions and errors in English; `get_design_guide {language: "pt-BR"}` | — |
-| 13 | Several boards | Everything shares one canvas; proposals had to be stacked by hand with fixed `y` offsets | Pages, plus `layout` on the canvas root (auto-stack top-level frames) | P3 |
+| 13 | Several boards | Everything shares one canvas; proposals had to be stacked by hand with fixed `y` offsets | Done (2026-11-22, PAP-B-061): pages already shipped; a new top-level frame with no x/y lands in free space (`place: "free"`) | — |
 | 14 | Watch the agent draw after the server switched files | The open canvas tab reconnected to the new document but kept the old zoom/pan, so the new boards could be off-screen (fixed: the canvas now refits when the document id changes) | Done in this change | — |
 
 ## 2026-11-21: bezier curves (`path` node, pen tool, `path_info`)
@@ -239,7 +239,7 @@ Task: draw a flat red bell pepper (three lobes, thin white curved gaps, olive st
 | 76 | Cut thin gaps out of a shape | No boolean ops or masks, so the gaps are white strokes painted over the red body; that only reads right on a light background and the export has no real holes | `combine_paths` (`subtract`/`union`/…) in MCP/`apply_ops` done (PAP-A-003); canvas command and optional `mask` on `group` / stroke `knockout` still open | P2 |
 | 77 | Restyle a node and keep it on top | Turning two filled lobes into gap strokes left them under the body; needed a separate `move_nodes` (no `index` = end) to fix the z-order | Accept `index` (or `"front"`/`"back"`) in `update_nodes` props | P3 |
 | 78 | Trace a reference image | The user's picture reached the agent only as an image; there was no easy way to place it under the drawing, so every bezier point was estimated by eye and mapped with a hand-computed scale, which took three screenshot rounds | A `reference` option on `create_nodes`/`import_svg` (or an `image` node from a local file path) placed locked at 50% opacity, plus `render_screenshot` with a `compare` image shown side by side | P2 |
-| 79 | Save the screenshot as a file | `render_screenshot` only returns the image to the agent; writing the PNG to the repo meant copying the client's cached blob | Optional `path` (the server writes it) or `format: "url"` returning `/api/screenshot/...` to download | P3 |
+| 79 | Save the screenshot as a file | `render_screenshot` only returns the image to the agent; writing the PNG to the repo meant copying the client's cached blob | Done (2026-11-22, PAP-B-062): optional `path` under the screenshot directory, and `url` `/api/screenshot/<id>` | — |
 
 - One shared `viewBox` on every path made iteration trivial: each layer is in the same 400×400 coordinates, so redrawing the silhouette was a single `update_nodes`.
 - `render_screenshot` with `scale: 2` was enough to judge curve quality.
@@ -250,7 +250,7 @@ Task: draw, over MCP, the sheet of every shadcn primitive with its states (hover
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 80 | A screenshot of a subtree that keeps its theme mode | `render_screenshot { rootId: <frame inside a frame with mode: "light"> }` painted the subtree with the base (dark) tokens: the mode of an ancestor does not travel to a subtree capture. Two close-ups I compared side by side were not comparable, and the workaround (capture the whole root frame, crop locally) costs bytes and time | Resolve the inherited mode for a subtree root, or accept `mode` on `render_screenshot` | P2 |
+| 80 | A screenshot of a subtree that keeps its theme mode | `render_screenshot { rootId: <frame inside a frame with mode: "light"> }` painted the subtree with the base (dark) tokens: the mode of an ancestor does not travel to a subtree capture. Two close-ups I compared side by side were not comparable, and the workaround (capture the whole root frame, crop locally) costs bytes and time | Done (2026-11-22, PAP-B-062): a subtree keeps the theme mode it inherits, and `mode` on `render_screenshot` overrides it | — |
 | 81 | Knowing that a nested layout frame took the default box | A frame with no `width`/`height` gets 100×100, and the children laid out inside it then disappear from the render: the first sheet came out showing one button, with no error and no warning, and `lint_design` stayed silent. The guide documents `hug`/`fill` but not that default | A `lint_design` rule for a fixed 100×100 layout frame whose laid-out children leave its box (the "hug was meant" case), or a warning in `create_nodes` | P2 |
 | 82 | Small text on a component sheet | `lint_design` returned 31 `small-text` warnings for the 10 and 11 px captions of a sheet that mirrors the app, whose own type scale (ADR 0003) is `text-2xs` 10px and `text-xs` 11px — the same ground #69 and #70 were filed on | Let the rule read a document token (a `$text.min`) or an option per call, so warnings that are the design intent are not re-read every run | P3 |
 | 83 | Tokens in every style field | `radius: "$radius.md"` was refused ("expected number, received string") while `fill` and `color` take `$token`. Every radius in the sheet ended up a literal, so the sheet's radii cannot follow a token change the way its colors do | Done (2026-11-22, PAP-B-065): a length field accepts a numeric token (`$radius.*`, `$space.*`, `$text.*` or any other); a color token there is refused; changing the token re-lays out every frame that uses it | — |
@@ -294,7 +294,7 @@ Task: draw the Opacidade field states (normal, focused, invalid with message) in
 |---|--------|---------------|----------|------|
 | 89 | `layout.padding` as `[0, 8]` (two values) | `create_nodes` answered `layout.padding: Invalid input`; only a scalar or a 4-tuple is accepted. Had to switch every padding to a single number | Done (2026-11-22, PAP-B-065): the guide states padding is one number or `[top, right, bottom, left]`, not two values. Each value may be a length token | — |
 | 90 | `radius: "$radius.md"` on a sheet that already uses `$ui.*` fills | Same refusal as #83 (`expected number, received string`); the board used literal `6` / `8` again | Done (2026-11-22, PAP-B-065): same as #83 | — |
-| 91 | Know which ids in `created` are the roots | `create_nodes` returns a flat DFS list of every nested id; the six board roots were not the first six entries, so the first screenshot pass hit titles and labels | Prefer roots-first in `created`, or return `{roots, created}` like `create_page` already distinguishes `page` | P3 |
+| 91 | Know which ids in `created` are the roots | `create_nodes` returns a flat DFS list of every nested id; the six board roots were not the first six entries, so the first screenshot pass hit titles and labels | Done (2026-11-22, PAP-B-064): `create_nodes`, `duplicate_nodes` and imports return `{ids, roots, created}` (`roots` names each top-level node and its box; `created` is `{id, name, type, parentId}`; `ids` keeps the old list) and one readable line per root | — |
 
 - Fixed heights on the six roots avoided the hug screenshot pitfall called out in the ticket; `render_screenshot` with `scale: 2` was enough to judge focus ring and invalid message.
 - `find_nodes {name: "PAP-B-027 field", type: "frame"}` was the reliable way to map board name → id after the flat `created` list.
@@ -353,8 +353,8 @@ pages, then wire the rename in `apps/web`. Six root frames (three states, light 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 99 | A page to draw on in an empty document | The active workspace had no nodes, so the `Interfaces` page did not exist and `create_page` had to be the first call; the board document in the repository (`docs/design/boards.paprika.json`) holds a different page, so nothing to import without `--replace` wiping the sheets other tickets draw in parallel | A `create_page` that is a no-op (returns the existing id) when a page with that name exists, so concurrent tickets can all "ensure" `Interfaces` without racing | P3 |
-| 100 | A screenshot as a file | `render_screenshot` returns the PNG only as base64 inside the JSON-RPC result, so saving it under `docs/assets/boards/` takes a decoding script on every ticket | An optional `path` (inside a configured directory) that writes the file and returns its location | P3 |
+| 99 | A page to draw on in an empty document | The active workspace had no nodes, so the `Interfaces` page did not exist and `create_page` had to be the first call; the board document in the repository (`docs/design/boards.paprika.json`) holds a different page, so nothing to import without `--replace` wiping the sheets other tickets draw in parallel | Done (2026-11-22, PAP-B-064): `create_page` with `ensure: true` returns the existing page of that name instead of creating a second one | — |
+| 100 | A screenshot as a file | `render_screenshot` returns the PNG only as base64 inside the JSON-RPC result, so saving it under `docs/assets/boards/` takes a decoding script on every ticket | Done (2026-11-22, PAP-B-062): optional `path` inside the screenshot directory writes the file and returns its location | — |
 
 - `lint_design` flagged the 11 px caption (`small-text`) on all six frames; 12 px fixed it, so captions stay at the app's smallest legible size.
 - Mode `light` on the frame plus the same `pg.*` tokens overridden under `set_tokens {mode: "light"}` rendered both themes from one set of nodes with no per-frame color edits.
@@ -379,9 +379,9 @@ the floating buttons clear the toolbar and the agent roster, before writing the 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 101 | Screenshots as files | `render_screenshot` only returns base64 inside the JSON result, so each PNG had to be decoded by hand in a script before it could land in `docs/assets/boards/` | An optional `path` argument (or a resource link) that writes the PNG where the caller says | P2 |
+| 101 | Screenshots as files | `render_screenshot` only returns base64 inside the JSON result, so each PNG had to be decoded by hand in a script before it could land in `docs/assets/boards/` | Done (2026-11-22, PAP-B-062): optional `path` writes the PNG under the screenshot directory and returns its location | — |
 | 102 | A mock at a smaller scale lints as tiny text | The boards are the real layout at two thirds of its size, so every label is 8–9px and `lint_design` returns a `small-text` warning per label, which buries the findings that matter | A per-frame way to say "this frame is a scaled mock" (or a `minFontSize` argument) so the warning count stays meaningful | P3 |
-| 103 | Free space for a new frame | Nothing says where the next top-level frame can go without overlapping a parallel ticket's: the outline had to be scanned for coordinates and the boards went to `x=2000` by hand | `get_document_outline` (or a new call) returning the bounding box of the page's content, or `create_nodes` accepting `place: "free"` | P3 |
+| 103 | Free space for a new frame | Nothing says where the next top-level frame can go without overlapping a parallel ticket's: the outline had to be scanned for coordinates and the boards went to `x=2000` by hand | Done (2026-11-22, PAP-B-061): `get_document_outline` and `get_bounds` (no ids) return the page content box and the next free spot; `create_nodes` defaults to `place: "free"` when x and y are omitted | — |
 | 104 | Icons by name | The floating buttons use `PanelLeftOpen` and `PanelRightOpen` from lucide, and the board had to carry their path data typed in by hand, which is how an icon on the sheet can drift from the one in the app | `import_svg` already exists; a way to import a lucide icon by name would close the loop | P3 |
 
 - The collapsed right panel puts its button where the agent roster sits (top right of the canvas); the sheet showed it before any code did, and the roster moves down under the button only while that panel is collapsed.
@@ -432,8 +432,8 @@ until release. Eight fixed-height frames on `Interfaces` (`docs/assets/boards/PA
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 108 | Screenshots as files | Same as #100/#101: `render_screenshot` returns PNG only as base64 in the JSON-RPC content, so a small client script had to decode each shot into `docs/assets/boards/PAP-B-043/` | Optional `path` on `render_screenshot` that writes the file | P2 |
-| 109 | Free space for new boards | Top-level frames already fill y≈0…8320 and x≈0…3000; the outline depth-1 listing was enough to pick `y=9000`, but parallel tickets still race for the same band | `get_document_outline` returning the page content box, or `place: "free"` on `create_nodes` (same as #103) | P3 |
+| 108 | Screenshots as files | Same as #100/#101: `render_screenshot` returns PNG only as base64 in the JSON-RPC content, so a small client script had to decode each shot into `docs/assets/boards/PAP-B-043/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` writes the file | — |
+| 109 | Free space for new boards | Top-level frames already fill y≈0…8320 and x≈0…3000; the outline depth-1 listing was enough to pick `y=9000`, but parallel tickets still race for the same band | Done (2026-11-22, PAP-B-061): same as #103 — content box, next free spot, and `place: "free"` | — |
 
 - Active workspace was already `Paprika - UI` / page `Interfaces`; no `open_workspace`.
 - Ghost is `aria-hidden` and `pointer-events: none` (`data-testid="draft-ghost"`); connector arrow ghost left out of this ticket's draft-only scope.
@@ -446,8 +446,8 @@ scopes on `127.0.0.1:4777`, then migrate `Inspector.tsx` + `inspector/*` onto `I
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | Screenshots as files | Same as #108: `render_screenshot` returns PNG only as base64; a client script decoded into `docs/assets/boards/PAP-B-032/` | Optional `path` on `render_screenshot` | P2 |
-| 111 | Free band without racing parallel tickets | Outline depth 1 listed frames through y≈11820 (B-023/B-033/B-043); this ticket picked y=12400 / 13160 | `place: "free"` on `create_nodes` (same as #103/#109) | P3 |
+| 110 | Screenshots as files | Same as #108: `render_screenshot` returns PNG only as base64; a client script decoded into `docs/assets/boards/PAP-B-032/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
+| 111 | Free band without racing parallel tickets | Outline depth 1 listed frames through y≈11820 (B-023/B-033/B-043); this ticket picked y=12400 / 13160 | Done (2026-11-22, PAP-B-061): `place: "free"` on `create_nodes` (same as #103/#109) | — |
 
 - `lint_design` with `rootIds` still walks the whole document for counts; our four frames had 0 errors of their own.
 - Compact field shell kept (B-022 density): primitives sit inside `bg-ui-muted` with bare borders; Radix `Select` replaced native `<select>` (E2E theme-mode test updated to click the option).
@@ -471,7 +471,7 @@ before replacing the native `input type=color` with a popover. Six fixed-height 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | `get_document_outline` (or `create_nodes`) returning the page content bbox / `place: "free"` — same as #103 | P3 || 111 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/assets/boards/PAP-B-023/` | Optional `path` on `render_screenshot` (same as #100 / #101) | P2 || 112 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
+| 110 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | Done (2026-11-22, PAP-B-061): page content box and `place: "free"`, same as #103 | — || 111 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/assets/boards/PAP-B-023/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` (same as #100 / #101) | — || 112 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
 - Active workspace was already `Paprika - UI`; no `open_workspace`.
 - `lint_design` on the page still reports one unrelated contrast error from an older sheet; the new frames added no errors.
 ## 2026-11-22: aspect-ratio lock shortcuts while resizing (PAP-B-042, design first)
@@ -480,7 +480,7 @@ Task: draw free / keep-ratio / square selection states (light and dark) on the `
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | `lint_design` scoped to the ticket's roots | Calling `lint_design` with `rootIds` for the six PAP-B-042 frames still returned hundreds of warnings and one contrast error from older sheets on the same page (`nodeId` outside the requested roots) | Honor `rootIds` as a hard subtree filter so a ticket can prove its own lint without noise from parallel boards | P2 || 111 | Screenshots as files | Same as #100 / #101: `render_screenshot` returns base64 only; a short local script had to decode into `docs/assets/boards/PAP-B-042/` | Optional `path` on `render_screenshot` | P3 |
+| 110 | `lint_design` scoped to the ticket's roots | Calling `lint_design` with `rootIds` for the six PAP-B-042 frames still returned hundreds of warnings and one contrast error from older sheets on the same page (`nodeId` outside the requested roots) | Honor `rootIds` as a hard subtree filter so a ticket can prove its own lint without noise from parallel boards | P2 || 111 | Screenshots as files | Same as #100 / #101: `render_screenshot` returns base64 only; a short local script had to decode into `docs/assets/boards/PAP-B-042/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
 - Active workspace was already `Paprika - UI`; `Interfaces` existed (`interfaces-pap020`); no `open_workspace`.
 - Fixed 360 px frame heights avoided the hug screenshot pitfall; `render_screenshot` with `scale: 2` was enough to judge the hint badges.
 ## 2026-11-22: better activity history (PAP-B-025, design first)
@@ -507,6 +507,20 @@ Task: replace every HTML `title` in `apps/web` with the shadcn Tooltip (`Hint` h
 - App-level Esc no longer clears the selection while a tooltip is open (`[data-slot=tooltip-content]`).
 - a11y E2E: zoom + Retângulo open on focus, Esc closes, no native `title`; agent roster asserts tooltip instead of `title`.
 
+## 2026-11-22: Internationalization en + pt-BR (PAP-B-052, design first)
+
+Task: web UI + default names follow the chosen language; detect from the browser, switch in the app, remember; HTTP API errors → English like MCP. Six frames (overview and language switch × en/pt-BR × dark/light) drawn over MCP; PNGs in `docs/assets/boards/PAP-B-052/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 115 | Boards export from Docker volume | Same as #113: `:4777` holds the drawn sheets; this agent committed PNGs from `render_screenshot` and left `docs/design/boards.paprika.json` for a host-mounted export | MCP `export_document` or a host-mounted DB path for agents | P2 |
+| 116 | Wire every remaining Inspector/Team string | Shell, overview, pages, layers, zoom, arrange and multi-select are on the dict; many Inspector field labels and Team copy are still Portuguese literals while keys already exist in `apps/web/src/i18n/messages.ts` | Finish the field-by-field pass (or generate labels from the catalog) in a follow-up | P2 |
+| 117 | MCP create_page default name in the pt-BR guide | Core/MCP empty-name fallback is now English (`Page 1`); `guide.pt-BR.md` still describes `"Página 1"` | Align the Portuguese guide with the English default (or say the UI localizes when it passes `name`) | P3 |
+
+- Lightweight dict modules (no i18next): `LocaleProvider` outside the single `TooltipProvider` so language switches do not remount tips.
+- E2E: `pinLocale(page, "pt-BR")` in a11y/canvas/drag; `i18n.e2e.test.ts` smokes both languages and the switcher.
+- Hotspots (`is-active`, `add-page`, `data-testid`, roles) stay language-stable.
+
 ## 2026-11-22: layer order shortcuts and Ordem section (PAP-B-021, design first)
 
 Task: draw the inspector **Ordem** section and the Z-order shortcut map (light and dark, fixed height) on the `Interfaces` page of `Paprika - UI` before wiring `Page Up`/`Page Down` (+ Ctrl/Cmd for front/back) in `Canvas.tsx` and the four arrange actions in `Inspector.tsx`. Four root frames, one `create_nodes` call; PNGs under `docs/assets/boards/PAP-B-021/`; boards export refreshed in `docs/design/boards.paprika.json`.
@@ -517,6 +531,14 @@ Task: draw the inspector **Ordem** section and the Z-order shortcut map (light a
 - `lint_design` on the four frames: 0 errors; `small-text` warnings are the 11 px section/chip labels matching the app.
 - Shortcut map chosen and documented in `docs/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.
 
+## 2026-11-22: three arrow line styles (PAP-B-045, design first)
+
+Task: draw elbow / rounded / curve connector states and the inspector Traço picker on `Interfaces` before coding `route: "rounded"|"curve"`. Four frames on a new Interfaces page; PNGs under `docs/assets/boards/PAP-B-045/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 112 | Preview `rounded` / `curve` on the live `:4777` server | The maintainer binary still only accepts `straight`\|`elbow`, so `draw_diagram` refused the new routes; the sheet used `path` mocks for the three styles | Ship the schema before asking agents to redesign against production, or run a ticket-local `paprika serve` for design | P3 |
+- Active workspace was `Paprika - UI`; a second `Interfaces` page (`interfaces-pap045`) was created because the outline was large — prefer reusing `interfaces-pap020` when present.
 ## 2026-11-22: several border types (PAP-B-044, design first)
 
 Task: extend `stroke` with `style` (`solid`|`dashed`|`dotted`) and `position` (`inside`|`center`|`outside`) for frame/rect/ellipse/path/shape, then inspector Estilo/Posição. Four fixed-height frames on `Interfaces` (`docs/assets/boards/PAP-B-044/`); boards export refreshed.
@@ -524,11 +546,10 @@ Task: extend `stroke` with `style` (`solid`|`dashed`|`dotted`) and `position` (`
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 113 | Stable `Interfaces` page id across parallel tickets | Active workspace flipped to `Paprika - UI` mid-ticket; the old `interfaces` page was gone and a new empty `Interfaces` page had to be created (`id: interfaces`) while other tickets used `interfaces-pap020` / `interfaces-pap045` | `create_page` that reuses an existing page by name (same as #99) | P2 |
-| 114 | Screenshots as files | Same as #100/#101: `render_screenshot` returns base64 only | Optional `path` on `render_screenshot` | P3 |
+| 114 | Screenshots as files | Same as #100/#101: `render_screenshot` returns base64 only | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
 - Default `style`/`position` stay omitted in the document (helpers treat missing as solid / type-aware position) so round-trips and goldens do not grow a `style: "solid"` on every stroke.
 - WASM cannot dash or reposition strokes: `wasmPaintable` returns false and the DOM paints them (crates/render untouched).
-- Closes the friction in #99 (dashed stroke on boxes) via `stroke.style`.
-## 2026-11-22: numeric inspector steppers (PAP-B-046, design first)
+- Closes the friction in #99 (dashed stroke on boxes) via `stroke.style`.## 2026-11-22: numeric inspector steppers (PAP-B-046, design first)
 
 Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill and `$token` without steppers, focus ring and clamp-at-min states in light and dark before wiring `Field` steppers; six fixed-height root frames; screenshots under `docs/assets/boards/PAP-B-046/`; local `paprika serve` on `:4799` because the shared `:4777` workspace was crowded by parallel tickets.
 
@@ -540,13 +561,25 @@ Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill a
 - `lint_design` small-text warnings for 12 px labels match the inspector density; no new contrast errors on the six roots.
 - Step sizes chosen to match the ticket: opacity `0.05`, weight `100`, else `1`, Shift×10; validation/clamp reused from PAP-B-027.
 
+## 2026-11-22: dockable toolbar (PAP-B-048, design first)
+
+Task: draw toolbar docked top/left/right/bottom (light and dark) on `Interfaces` of the active `Paprica · UI` workspace, then implement grip-drag docking, localStorage, keyboard menu, and clearance for PAP-B-024 collapsed-panel buttons. Eight fixed-height (720×420) root frames; PNGs under `docs/assets/boards/PAP-B-048/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 112 | `render_screenshot` argument name | Passing `id` is silently ignored (schema only has `rootId`); the tool screenshots something else (here a 280×220 unrelated frame) and every PNG comes back identical | Reject unknown args, or accept `id` as an alias of `rootId`, and say so in the tool description | P2 |
+| 113 | Light `mode` with `$pg.*` tokens | Frames with `mode: "light"` still rendered the dark `$pg.*` palette because `modes.light` on this server only carried `$ui.*`; had to redraw the light boards with literal colors | Document which token prefixes participate in theme modes, or seed `$pg.*` into `light` when the boards workspace is created | P2 |
+| 114 | Screenshots as files | Same as #101: base64 only; a local script wrote `docs/assets/boards/PAP-B-048/` | Optional `path` on `render_screenshot` | P3 |
+
+- Active workspace was already `Paprica · UI` (empty of prior boards until recovered); used existing `page#interfaces` without `open_workspace`.
+- Collapsed-panel buttons shift with `[&_[data-panel-toggle=left]]:left-14` from `App.tsx` when the toolbar shares that edge — no change to `PanelResizer.tsx` (outside the ticket paths).
 ## 2026-11-22: system fonts combobox (PAP-B-047, design first)
 
 Task: draw the closed and open FontPicker states (light and dark) on `Interfaces`, then replace the free-text `fontFamily` field on text nodes with a shadcn combobox. Four fixed-height frames; PNGs under `docs/assets/boards/PAP-B-047/`; boards export refreshed.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 115 | Screenshots as files | Same as #108: `render_screenshot` returns base64 only; `scripts/draw-pap-b-047.mjs` decoded into `docs/assets/boards/PAP-B-047/` | Optional `path` on `render_screenshot` | P2 |
+| 115 | Screenshots as files | Same as #108: `render_screenshot` returns base64 only; `scripts/draw-pap-b-047.mjs` decoded into `docs/assets/boards/PAP-B-047/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
 | 116 | Free band on a crowded Interfaces page | Outline depth 1 bottoms out near y≈13580 (A-004 / B-032); this ticket used y=13800 | `place: "free"` on `create_nodes` (same as #103/#109/#111) | P3 |
 - Local Font Access is gated behind an explicit button — opening the popover never calls `queryLocalFonts`.
 - `cmdk` 1.1.1 pinned for the Command primitive (ADR 0005 dependency list).
@@ -559,7 +592,7 @@ Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states 
 | 110 | Active workspace name match | Ticket said `Paprika - UI`; the live server had `Paprica · UI` (typo/rename) with parallel tickets already drawing on page `interfaces` | Treat close names as the UI board workspace, or pin the id in the assign payload | P3 |
 | 111 | `create_page` race on Interfaces | Calling `create_page` while another agent also ensured `Interfaces` produced empty duplicate pages (`38ktwolyd1`, `qhf8mcdwke`) alongside `page#interfaces` | Idempotent `create_page` by name (same as #99) | P2 |
 | 112 | Free Y among parallel boards | PAP-B-051 frames already sat at y≈40; PAP-B-049 had to be moved after create to y=1100+ | Outline bbox / `place: "free"` (same as #103 / #110) | P3 |
-| 113 | Screenshots as files | `render_screenshot` still returns base64 in MCP content; local decode into `docs/assets/boards/PAP-B-049/` | Optional `path` on `render_screenshot` | P3 |
+| 113 | Screenshots as files | `render_screenshot` still returns base64 in MCP content; local decode into `docs/assets/boards/PAP-B-049/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
 | 114 | Broken main typecheck | `ui.ts` lost `activity*`/`actions` in merge `3f0bda1`; Inspector still referenced `ActivityEntry`/`Bot`; ColorField had undefined `hex` | Guard merge of `ui.ts` / restore Activity wiring; this PR restored the missing pieces so `pnpm check` can run | P1 |
 
 - Drew on active `Paprica · UI` / page `interfaces` without `open_workspace` after querying the maintainer about the name mismatch.

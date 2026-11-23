@@ -1,3 +1,4 @@
+import { t } from "./i18n/store";
 export type NumericRange = {
   min?: number;
   max?: number;
@@ -26,12 +27,13 @@ export function parseNumeric(raw: string): number | undefined {
 }
 
 export function rangeMessage(range: NumericRange = {}): string {
+  const m = t();
   if (range.min !== undefined && range.max !== undefined) {
-    return `Use um número entre ${range.min} e ${range.max}.`;
+    return m.numericBetween(String(range.min), String(range.max));
   }
-  if (range.min !== undefined) return `Use um número ≥ ${range.min}.`;
-  if (range.max !== undefined) return `Use um número ≤ ${range.max}.`;
-  return "Use um número.";
+  if (range.min !== undefined) return m.numericMin(String(range.min));
+  if (range.max !== undefined) return m.numericMax(String(range.max));
+  return m.numericUseNumber;
 }
 
 export type NumericCommit =

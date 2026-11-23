@@ -367,6 +367,123 @@ func arrowHead(tip, from Pt, sw float64) ([3]Pt, bool) {
 	return [3]Pt{{bx - uy*half, by + ux*half}, tip, {bx + uy*half, by - ux*half}}, true
 }
 
+const curveOffset = 40.0
+
+func defaultCurveControl(start, end Pt) Pt {
+	mx := (start.X + end.X) / 2
+	my := (start.Y + end.Y) / 2
+	dx := end.X - start.X
+	dy := end.Y - start.Y
+	l := math.Sqrt(dx*dx + dy*dy)
+	if l < 1e-6 {
+		return Pt{mx, my - curveOffset}
+	}
+	return Pt{mx - (dy/l)*curveOffset, my + (dx/l)*curveOffset}
+}
+
+func quadraticToCubic(start, handle, end Pt) (c1, c2 Pt) {
+	c1 = Pt{start.X + (2.0/3.0)*(handle.X-start.X), start.Y + (2.0/3.0)*(handle.Y-start.Y)}
+	c2 = Pt{end.X + (2.0/3.0)*(handle.X-end.X), end.Y + (2.0/3.0)*(handle.Y-end.Y)}
+	return
+}
+
+func roundedElbowPath(pts []Pt, radius float64) (dParts []string, samples []Pt) {
+	if len(pts) < 2 {
+		return nil, nil
+	}
+	if len(pts) < 3 || radius <= 0 {
+		parts := make([]string, len(pts))
+		for k, p := range pts {
+			cmd := "L"
+			if k == 0 {
+				cmd = "M"
+			}
+			parts[k] = cmd + dpt(p)
+		}
+		return parts, append([]Pt{}, pts...)
+	}
+	samples = []Pt{pts[0]}
+	dParts = []string{"M" + dpt(pts[0])}
+	for i := 1; i < len(pts)-1; i++ {
+		prev, cur, next := pts[i-1], pts[i], pts[i+1]
+		d0x, d0y := cur.X-prev.X, cur.Y-prev.Y
+		d1x, d1y := next.X-cur.X, next.Y-cur.Y
+		len0 := math.Sqrt(d0x*d0x + d0y*d0y)
+		len1 := math.Sqrt(d1x*d1x + d1y*d1y)
+		if len0 < 1e-6 || len1 < 1e-6 {
+			continue
+		}
+		r := math.Min(radius, math.Min(len0/2, len1/2))
+		if r < 1e-6 {
+			dParts = append(dParts, "L"+dpt(cur))
+			samples = append(samples, cur)
+			continue
+		}
+		ux0, uy0 := d0x/len0, d0y/len0
+		ux1, uy1 := d1x/len1, d1y/len1
+		pEnter := Pt{cur.X - ux0*r, cur.Y - uy0*r}
+		pLeave := Pt{cur.X + ux1*r, cur.Y + uy1*r}
+		dParts = append(dParts, "L"+dpt(pEnter))
+		samples = append(samples, pEnter)
+		cross := ux0*uy1 - uy0*ux1
+		sweep := 0
+		if cross > 0 {
+			sweep = 1
+		}
+		dParts = append(dParts, fmt.Sprintf("A%s %s 0 0 %d %s", dnum(r), dnum(r), sweep, dpt(pLeave)))
+		bx, by := ux1-ux0, uy1-uy0
+		bl := math.Sqrt(bx*bx + by*by)
+		if bl > 1e-6 {
+			k := r * (math.Sqrt2 - 1)
+			samples = append(samples, Pt{cur.X + (bx/bl)*k, cur.Y + (by/bl)*k})
+		}
+		samples = append(samples, pLeave)
+	}
+	last := pts[len(pts)-1]
+	dParts = append(dParts, "L"+dpt(last))
+	samples = append(samples, last)
+	return dParts, samples
+}
+
+type connectorFrame struct {
+	ox, oy, width, height float64
+	local                 func(Pt) Pt
+}
+
+func newConnectorFrame(bounds []Pt, sw float64) connectorFrame {
+	minX, minY := math.Inf(1), math.Inf(1)
+	maxX, maxY := math.Inf(-1), math.Inf(-1)
+	for _, p := range bounds {
+		minX = math.Min(minX, p.X)
+		minY = math.Min(minY, p.Y)
+		maxX = math.Max(maxX, p.X)
+		maxY = math.Max(maxY, p.Y)
+	}
+	pad := math.Max(1, sw)
+	ox := Round4(minX - pad)
+	oy := Round4(minY - pad)
+	return connectorFrame{
+		ox:     ox,
+		oy:     oy,
+		width:  Round4(maxX - minX + 2*pad),
+		height: Round4(maxY - minY + 2*pad),
+		local:  func(p Pt) Pt { return Pt{p.X - ox, p.Y - oy} },
+	}
+}
+
+func finishConnector(c *Node, origin Pt, frame connectorFrame, body string, heads [][3]Pt) {
+	var d strings.Builder
+	d.WriteString(body)
+	for _, h := range heads {
+		d.WriteString(" M" + dpt(frame.local(h[0])) + " L" + dpt(frame.local(h[1])) + " L" + dpt(frame.local(h[2])))
+	}
+	c.Set("x", Round4(frame.ox-origin.X))
+	c.Set("y", Round4(frame.oy-origin.Y))
+	c.Set("width", frame.width)
+	c.Set("height", frame.height)
+	c.Set("d", d.String())
+}
+
 // RouteConnector computes a connector's x, y, width, height and d. It mutates the node.
 func RouteConnector(doc *Document, c *Node) error {
 	origin := originOf(doc, mustGet(c, "parentId"))
@@ -378,14 +495,47 @@ func RouteConnector(doc *Document, c *Node) error {
 	if err != nil {
 		return err
 	}
+	swRaw, _ := c.Obj("stroke").Get("width")
+	sw, _ := ResolveLength(doc, swRaw, ModeOf(doc, c))
+	route := c.Str("route")
+
+	if route == "curve" {
+		line := straightPoints(a, b)
+		start, end := line[0], line[1]
+		var handle Pt
+		if ctl := c.Obj("control"); ctl != nil {
+			handle = Pt{origin.X + ctl.Num("x"), origin.Y + ctl.Num("y")}
+		} else {
+			handle = defaultCurveControl(start, end)
+		}
+		c1, c2 := quadraticToCubic(start, handle, end)
+		var heads [][3]Pt
+		if c.Str("endArrow") == "arrow" {
+			if h, ok := arrowHead(end, c2, sw); ok {
+				heads = append(heads, h)
+			}
+		}
+		if c.Str("startArrow") == "arrow" {
+			if h, ok := arrowHead(start, c1, sw); ok {
+				heads = append(heads, h)
+			}
+		}
+		bounds := []Pt{start, c1, c2, end, handle}
+		for _, h := range heads {
+			bounds = append(bounds, h[:]...)
+		}
+		frame := newConnectorFrame(bounds, sw)
+		body := "M" + dpt(frame.local(start)) + " C" + dpt(frame.local(c1)) + " " + dpt(frame.local(c2)) + " " + dpt(frame.local(end))
+		finishConnector(c, origin, frame, body, heads)
+		return nil
+	}
+
 	var line []Pt
-	if c.Str("route") == "elbow" {
+	if route == "elbow" || route == "rounded" {
 		line = elbowPoints(a, b)
 	} else {
 		line = straightPoints(a, b)
 	}
-	swRaw, _ := c.Obj("stroke").Get("width")
-	sw, _ := ResolveLength(doc, swRaw, ModeOf(doc, c))
 	var heads [][3]Pt
 	if c.Str("endArrow") == "arrow" && len(line) >= 2 {
 		if h, ok := arrowHead(line[len(line)-1], line[len(line)-2], sw); ok {
@@ -397,40 +547,38 @@ func RouteConnector(doc *Document, c *Node) error {
 			heads = append(heads, h)
 		}
 	}
+
+	if route == "rounded" {
+		radius := c.Num("radius")
+		_, samples := roundedElbowPath(line, radius)
+		bounds := append([]Pt{}, samples...)
+		for _, h := range heads {
+			bounds = append(bounds, h[:]...)
+		}
+		frame := newConnectorFrame(bounds, sw)
+		localLine := make([]Pt, len(line))
+		for i, p := range line {
+			localLine[i] = frame.local(p)
+		}
+		parts, _ := roundedElbowPath(localLine, radius)
+		finishConnector(c, origin, frame, strings.Join(parts, " "), heads)
+		return nil
+	}
+
 	all := append([]Pt{}, line...)
 	for _, h := range heads {
 		all = append(all, h[:]...)
 	}
-	minX, minY := math.Inf(1), math.Inf(1)
-	maxX, maxY := math.Inf(-1), math.Inf(-1)
-	for _, p := range all {
-		minX = math.Min(minX, p.X)
-		minY = math.Min(minY, p.Y)
-		maxX = math.Max(maxX, p.X)
-		maxY = math.Max(maxY, p.Y)
-	}
-	pad := math.Max(1, sw)
-	ox := Round4(minX - pad)
-	oy := Round4(minY - pad)
-	local := func(p Pt) Pt { return Pt{p.X - ox, p.Y - oy} }
+	frame := newConnectorFrame(all, sw)
 	parts := make([]string, len(line))
 	for k, p := range line {
 		cmd := "L"
 		if k == 0 {
 			cmd = "M"
 		}
-		parts[k] = cmd + dpt(local(p))
+		parts[k] = cmd + dpt(frame.local(p))
 	}
-	var d strings.Builder
-	d.WriteString(strings.Join(parts, " "))
-	for _, h := range heads {
-		d.WriteString(" M" + dpt(local(h[0])) + " L" + dpt(local(h[1])) + " L" + dpt(local(h[2])))
-	}
-	c.Set("x", Round4(ox-origin.X))
-	c.Set("y", Round4(oy-origin.Y))
-	c.Set("width", Round4(maxX-minX+2*pad))
-	c.Set("height", Round4(maxY-minY+2*pad))
-	c.Set("d", d.String())
+	finishConnector(c, origin, frame, strings.Join(parts, " "), heads)
 	return nil
 }
 
@@ -764,7 +912,7 @@ func DiagramOps(doc *Document, input *jsonv.Object) (*DiagramPlan, error) {
 			route = v
 		}
 		node := jsonv.NewObject("type", "connector", "id", id, "from", end(e.Str("from"), "fromSide"), "to", end(e.Str("to"), "toSide"), "route", route)
-		for _, k := range []string{"name", "startArrow", "endArrow", "dashed", "stroke", "label"} {
+		for _, k := range []string{"name", "startArrow", "endArrow", "dashed", "stroke", "label", "radius", "control"} {
 			if v, ok := e.Get(k); ok {
 				node.Set(k, jsonv.Clone(v))
 			}

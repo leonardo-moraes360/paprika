@@ -360,10 +360,50 @@ export function connectorAttrs(doc: Document, node: ConnectorNode, opts: { vars?
   return a;
 }
 
+/** Amostra um cúbico (8 passos) para medir o comprimento do rótulo. */
+function sampleCubic(p0: { x: number; y: number }, p1: { x: number; y: number }, p2: { x: number; y: number }, p3: { x: number; y: number }, out: { x: number; y: number }[]) {
+  for (let i = 1; i <= 8; i++) {
+    const t = i / 8;
+    const u = 1 - t;
+    out.push({
+      x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
+      y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y,
+    });
+  }
+}
+
 /** Ponto no meio (pelo comprimento) da linha de um conector: o primeiro subcaminho de `d` (as pontas vêm depois). */
 export function connectorMidpoint(d: string): { x: number; y: number } | null {
   const line = d.split(" M")[0] ?? "";
-  const pts = [...line.matchAll(/[ML](-?[\d.]+)[ ,](-?[\d.]+)/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+  const pts: { x: number; y: number }[] = [];
+  let cur = { x: 0, y: 0 };
+  const re = /([MLCA])\s*([^MLCA]*)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(line))) {
+    const cmd = m[1]!.toUpperCase();
+    const nums = (m[2]!.match(/-?[\d.]+/g) ?? []).map(Number);
+    if (cmd === "M" || cmd === "L") {
+      for (let i = 0; i + 1 < nums.length; i += 2) {
+        cur = { x: nums[i]!, y: nums[i + 1]! };
+        pts.push(cur);
+      }
+    } else if (cmd === "C" && nums.length >= 6) {
+      for (let i = 0; i + 5 < nums.length; i += 6) {
+        const c1 = { x: nums[i]!, y: nums[i + 1]! };
+        const c2 = { x: nums[i + 2]!, y: nums[i + 3]! };
+        const end = { x: nums[i + 4]!, y: nums[i + 5]! };
+        sampleCubic(cur, c1, c2, end, pts);
+        cur = end;
+      }
+    } else if (cmd === "A" && nums.length >= 7) {
+      for (let i = 0; i + 6 < nums.length; i += 7) {
+        const end = { x: nums[i + 5]!, y: nums[i + 6]! };
+        // Corda do arco (suficiente para o rótulo no meio do cotovelo).
+        pts.push({ x: (cur.x + end.x) / 2, y: (cur.y + end.y) / 2 }, end);
+        cur = end;
+      }
+    }
+  }
   if (!pts.length) return null;
   const seg = (k: number) => Math.sqrt((pts[k + 1]!.x - pts[k]!.x) ** 2 + (pts[k + 1]!.y - pts[k]!.y) ** 2);
   let total = 0;
