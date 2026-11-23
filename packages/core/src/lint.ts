@@ -223,7 +223,7 @@ export function lintDocument(doc: Document, opts: LintOptions = {}): LintIssue[]
         message: "a path without fill or stroke is invisible; set fill or stroke {color,width}",
       });
 
-    if (node.type === "image" && !node.alt.trim())
+    if (node.type === "image" && !node.decorative && !node.alt.trim())
       issues.push({ rule: "missing-alt", severity: "warning", nodeId: id, message: "image without alternative text (alt)" });
 
     if (node.type !== "group" && node.type !== "connector" && hasColorTokens && node.fill && !node.fill.startsWith("$") && node.fill !== "transparent")

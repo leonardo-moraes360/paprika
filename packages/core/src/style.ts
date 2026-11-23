@@ -350,6 +350,7 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
   }
   if (node.rotation) css.transform = `rotate(${round(node.rotation)}deg)`;
   if (node.opacity !== 1) css.opacity = node.opacity;
+  if ((node.type === "frame" || node.type === "text") && node.href) css.cursor = "pointer";
   if (!node.visible) css.display = "none";
   if (node.type === "path") {
     // fill/stroke vão para o <path> (ver pathAttrs); a sombra segue a forma, não a caixa.

@@ -451,6 +451,9 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	if o := node.Num("opacity"); o != 1 {
 		css.Set("opacity", o)
 	}
+	if t := node.Str("type"); (t == "frame" || t == "text") && node.Str("href") != "" {
+		css.Set("cursor", "pointer")
+	}
 	visible := node.Bool("visible")
 	if !visible {
 		css.Set("display", "none")

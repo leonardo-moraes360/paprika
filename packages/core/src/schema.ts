@@ -28,6 +28,16 @@ export const Gradient = z.object({
   stops: z.array(GradientStop).min(2).max(12),
 });
 
+const HREF_MSG = "href must be a relative URL, #hash, http(s), mailto: or tel:";
+
+export function safeHref(v: string): boolean {
+  if (!v || /[\s<>"']/.test(v)) return false;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return /^(https?:|mailto:|tel:)/i.test(v);
+  return true;
+}
+
+const Href = z.string().min(1).max(2000).refine(safeHref, HREF_MSG);
+
 export const Size = z.union([z.number().min(0).max(100_000), z.enum(["hug", "fill"])]);
 
 const lengthToken = z.string().regex(/^\$[\w.-]+$/);
@@ -201,6 +211,9 @@ export const FrameNode = z.object({
   /** Modo de tema deste frame e dos descendentes (tokens de `document.modes[mode]`). */
   mode: ModeName.optional(),
   scaledMock: z.boolean().optional(),
+  href: Href.optional(),
+  minWidth: z.number().min(0).max(100_000).optional(),
+  maxWidth: z.number().min(0).max(100_000).optional(),
 });
 
 export const RectNode = z.object({ ...Base, radius: cornerRadius, type: z.literal("rect") });
@@ -223,6 +236,7 @@ export const TextNode = z.object({
   lineHeight: lengthValue(0, 10).default(1.4),
   letterSpacing: lengthValue().default(0),
   textAlign: z.enum(["left", "center", "right"]).default("left"),
+  href: Href.optional(),
 });
 
 export const ImageNode = z.object({
@@ -232,9 +246,10 @@ export const ImageNode = z.object({
   src: z
     .string()
     .max(5_000_000)
-    .refine((v) => /^(https?:|data:image\/)/.test(v), "src must be http(s) or data:image/"),
+    .refine((v) => /^(https?:|data:image\/)/.test(v) || /^\$[\w.-]+$/.test(v), "src must be http(s), data:image/ or $asset"),
   fit: z.enum(["cover", "contain", "fill"]).default("cover"),
   alt: z.string().max(1000).default(""),
+  decorative: z.boolean().optional(),
 });
 
 /**
@@ -393,6 +408,16 @@ export const TokenName = z
   .regex(/^[\w.-]{1,100}$/, "token name must be [\\w.-]{1,100}")
   .refine((v) => v !== "__proto__", "token name cannot be __proto__");
 
+export const AssetName = z
+  .string()
+  .regex(/^[\w.-]{1,100}$/, "asset name must be [\\w.-]{1,100}")
+  .refine((v) => v !== "__proto__", "asset name cannot be __proto__");
+
+export const AssetSrc = z
+  .string()
+  .max(5_000_000)
+  .refine((v) => /^(https?:|data:image\/)/.test(v), "asset must be http(s) or data:image/");
+
 export const Document = z.object({
   format: z.literal(FORMAT),
   id: z.string(),
@@ -402,6 +427,7 @@ export const Document = z.object({
   modes: z.record(ModeName, z.record(TokenName, TokenValue)).optional(),
   /** Tipo e coleção de cada token. Ausente: o token continua sem tipo (número vale em qualquer campo de comprimento). */
   tokenMeta: z.record(TokenName, TokenMeta).optional(),
+  assets: z.record(AssetName, AssetSrc).optional(),
   /** Ids dos nós de nível superior (normalmente frames/telas), na ordem do canvas. */
   rootIds: z.array(z.string()).default([]),
   nodes: z.record(z.string(), Node).default({}),
@@ -477,6 +503,26 @@ export function pageRoots(doc: Document, pageId?: string | null): string[] {
   const page = pageId ? doc.nodes[pageId] : firstPage(doc);
   if (pageId && page?.type !== "page") throw new Error(`page "${pageId}" does not exist`);
   return page?.type === "page" ? page.children : doc.rootIds;
+}
+
+export function isRootFrame(doc: Document, node: Node): boolean {
+  if (node.type !== "frame") return false;
+  if (node.parentId == null) return true;
+  return doc.nodes[node.parentId]?.type === "page";
+}
+
+export function resolveAsset(doc: Document, src: string): string {
+  if (!src.startsWith("$")) return src;
+  const v = doc.assets?.[src.slice(1)];
+  return typeof v === "string" ? v : src;
+}
+
+export function frameFluid(node: Node): { min: number; max: number } | null {
+  if (node.type !== "frame" || (node.minWidth == null && node.maxWidth == null)) return null;
+  const w = typeof node.width === "number" ? node.width : 0;
+  const min = node.minWidth ?? w;
+  const max = node.maxWidth ?? Math.max(w, min);
+  return { min, max };
 }
 
 /** Campos aceitos por tipo de nó (para rejeitar chaves desconhecidas em vez de descartá-las em silêncio). */

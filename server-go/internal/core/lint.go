@@ -386,7 +386,7 @@ func LintDocumentOpts(doc *Document, opts LintOpts) []LintIssue {
 			}
 		}
 
-		if typ == "image" && jsonv.Trim(node.Str("alt")) == "" {
+		if typ == "image" && !node.Bool("decorative") && jsonv.Trim(node.Str("alt")) == "" {
 			add("missing-alt", "warning", id, "image without alternative text (alt)")
 		}
 

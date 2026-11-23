@@ -137,6 +137,14 @@ func init() {
 			z.Field{Name: "kind", Schema: z.Enum("hidden", "locked")},
 			z.Field{Name: "pageId", Schema: z.Optional(z.String())},
 		)),
+		z.Option("convert_to_path", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("convert_to_path")},
+			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+		)),
+		z.Option("set_assets", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("set_assets")},
+			z.Field{Name: "assets", Schema: z.Record(AssetNameSchema, z.Nullable(AssetSrcSchema))},
+		)),
 	)
 }
 
@@ -897,12 +905,41 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 	case "detach_tokens":
 		return applyDetachTokens(doc, op, i, created)
 
+	case "set_assets":
+		prev := jsonv.NewObject()
+		assets := doc.Obj("assets")
+		if assets == nil {
+			assets = jsonv.NewObject()
+			doc.Set("assets", assets)
+		}
+		in := op.Obj("assets")
+		for _, k := range in.Keys() {
+			if k == "__proto__" {
+				continue
+			}
+			v, _ := in.Get(k)
+			if old, has := assets.Get(k); has && old != nil {
+				prev.Set(k, old)
+			} else {
+				prev.Set(k, nil)
+			}
+			if v == nil {
+				assets.Delete(k)
+			} else {
+				assets.Set(k, v)
+			}
+		}
+		if assets.Len() == 0 {
+			doc.Delete("assets")
+		}
+		return jsonv.NewObject("op", "set_assets", "assets", prev), nil
+
 	case "rename_document":
 		prev := doc.Str("name")
 		doc.Set("name", op.Str("name"))
 		return jsonv.NewObject("op", "rename_document", "name", prev), nil
 
-	case "group", "ungroup", "add_page", "detach", "combine_paths", "align", "distribute", "wrap", "reveal":
+	case "group", "ungroup", "add_page", "detach", "combine_paths", "align", "distribute", "wrap", "reveal", "convert_to_path":
 		// Expanded against the *current* document, inside the same transaction.
 		var plan []any
 		var err error
@@ -925,6 +962,8 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			plan, _, err = WrapOps(doc, op.Strings("ids"), op.Str("id"), op.Str("name"))
 		case "reveal":
 			plan, _, err = RevealOps(doc, op.Str("kind"), op.Str("pageId"))
+		case "convert_to_path":
+			plan, err = ConvertToPathOps(doc, op.Strings("ids"))
 		default:
 			plan, _ = AddPageOps(doc, op.Str("id"), op.Str("name"), op.Str("firstId"), op.Str("firstName"))
 		}
@@ -989,6 +1028,9 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 		// A group holding instances only knows their size after the sync.
 		inverse = append(fitGroups(draft), inverse...)
 		if msg := LengthTokenError(draft); msg != "" {
+			return nil, opErr(len(ops)-1, "%s", msg)
+		}
+		if msg := webSemanticsError(draft); msg != "" {
 			return nil, opErr(len(ops)-1, "%s", msg)
 		}
 		// Connectors follow their ends: derived geometry, no inverse (undo recomputes it).
@@ -1070,7 +1112,39 @@ func ParseDocument(input any) (*Document, error) {
 	if len(orphans) > 0 {
 		return nil, fmt.Errorf("inconsistent document: orphan nodes %s", strings.Join(orphans, ", "))
 	}
+	if msg := webSemanticsError(doc); msg != "" {
+		return nil, fmt.Errorf("inconsistent document: %s", msg)
+	}
 	return doc, nil
+}
+
+func webSemanticsError(doc *Document) string {
+	for _, id := range Nodes(doc).Keys() {
+		n := GetNode(doc, id)
+		if n == nil {
+			continue
+		}
+		if n.Str("type") == "frame" {
+			_, hasMin := n.Get("minWidth")
+			_, hasMax := n.Get("maxWidth")
+			if hasMin || hasMax {
+				if !IsRootFrame(doc, n) {
+					return fmt.Sprintf(`minWidth and maxWidth are only valid on a root frame ("%s")`, id)
+				}
+				if hasMin && hasMax && n.Num("minWidth") > n.Num("maxWidth") {
+					return fmt.Sprintf(`minWidth cannot be greater than maxWidth on "%s"`, id)
+				}
+			}
+		}
+		if n.Str("type") == "image" && strings.HasPrefix(n.Str("src"), "$") {
+			name := n.Str("src")[1:]
+			assets := doc.Obj("assets")
+			if assets == nil || !assets.Has(name) {
+				return fmt.Sprintf(`image "%s" src "%s" does not match an asset (set_assets)`, id, n.Str("src"))
+			}
+		}
+	}
+	return ""
 }
 
 // checkPages: in a document with pages, the top level holds only pages.

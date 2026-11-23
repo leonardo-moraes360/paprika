@@ -303,6 +303,49 @@ func TestMCPCombinePaths(t *testing.T) {
 	}
 }
 
+func TestMCPConvertToPath(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect", "id", "r1", "width", 40.0, "height", 20.0, "radius", 4.0, "fill", "#112233")}))
+	out, isErr := callText(t, m, "convert_to_path", obj("ids", []any{"r1"}))
+	if isErr {
+		t.Fatalf("convert_to_path: %s", out)
+	}
+	n := core.GetNode(s.Doc(), "r1")
+	if n == nil || n.Str("type") != "path" || n.Str("fill") != "#112233" || !strings.Contains(n.Str("d"), "A4 4") {
+		t.Fatalf("expected path with baked radius, got %v", n)
+	}
+	out, isErr = callText(t, m, "convert_to_path", obj("ids", []any{"r1"}))
+	if !isErr || !strings.Contains(out, "only accepts rect or ellipse") {
+		t.Fatalf("second convert: %v %q", isErr, out)
+	}
+}
+
+func TestMCPSetAssets(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	out, isErr := callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "image", "id", "im", "src", "$logo", "width", 32.0, "height", 32.0)}))
+	if !isErr || !strings.Contains(out, "does not match an asset") {
+		t.Fatalf("missing asset: %v %q", isErr, out)
+	}
+	out, isErr = callText(t, m, "set_assets", obj("assets", obj("logo", "https://example.com/a.png")))
+	if isErr {
+		t.Fatalf("set_assets: %s", out)
+	}
+	out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "image", "id", "im", "src", "$logo", "width", 32.0, "height", 32.0, "decorative", true)}))
+	if isErr {
+		t.Fatalf("image asset: %s", out)
+	}
+	n := core.GetNode(s.Doc(), "im")
+	if n == nil || n.Str("src") != "$logo" || !n.Bool("decorative") {
+		t.Fatalf("image: %v", n)
+	}
+	html, _, err := core.RenderHTML(s.Doc(), core.RenderOptions{})
+	if err != nil || !strings.Contains(html, `src="https://example.com/a.png"`) || !strings.Contains(html, `data-paprika-decorative="true"`) {
+		t.Fatalf("html %v %s", err, html)
+	}
+}
+
 func TestMCPGetBounds(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)

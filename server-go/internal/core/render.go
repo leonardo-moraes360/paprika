@@ -108,23 +108,44 @@ func renderNode(doc *Document, node *Node, asRoot, vars bool, emit styleEmitter,
 		css.Set("left", jsonv.FormatNumber(node.Num("x")-offset.X)+"px")
 		css.Set("top", jsonv.FormatNumber(node.Num("y")-offset.Y)+"px")
 	}
+	fluid := useFluid(doc, node, asRoot)
+	if fluid {
+		applyFluid(css, node)
+	}
 	name := ""
 	if n := node.Str("name"); n != "" {
 		name = ` data-name="` + EscapeHTML(n) + `"`
 	}
+	extra := ""
+	if fluid {
+		extra = fluidData(node)
+	}
 	typ := node.Str("type")
-	attrs := fmt.Sprintf(`data-paprika-id="%s" data-paprika-type="%s"%s%s%s`, EscapeHTML(node.Str("id")), typ, name, modeAttr(node), emit(css, node, ""))
+	attrs := fmt.Sprintf(`data-paprika-id="%s" data-paprika-type="%s"%s%s%s%s`, EscapeHTML(node.Str("id")), typ, name, extra, modeAttr(node), emit(css, node, ""))
 	switch typ {
 	case "frame", "group", "page":
 		var kids strings.Builder
 		for _, c := range childNodes(doc, node) {
 			kids.WriteString(renderNode(doc, c, false, vars, emit, nil))
 		}
-		return "<div " + attrs + ">" + kids.String() + "</div>"
+		tag := "div"
+		href := ""
+		if typ == "frame" && node.Str("href") != "" {
+			tag = "a"
+			href = ` href="` + EscapeHTML(node.Str("href")) + `"`
+		}
+		return "<" + tag + " " + attrs + href + ">" + kids.String() + "</" + tag + ">"
 	case "text":
+		if node.Str("href") != "" {
+			return `<a ` + attrs + ` href="` + EscapeHTML(node.Str("href")) + `">` + EscapeHTML(node.Str("text")) + "</a>"
+		}
 		return "<div " + attrs + ">" + EscapeHTML(node.Str("text")) + "</div>"
 	case "image":
-		return "<img " + attrs + ` src="` + EscapeHTML(node.Str("src")) + `" alt="` + EscapeHTML(node.Str("alt")) + `">`
+		src := EscapeHTML(ResolveAsset(doc, node.Str("src")))
+		if node.Bool("decorative") {
+			return "<img " + attrs + ` src="` + src + `" alt="" aria-hidden="true" data-paprika-decorative="true">`
+		}
+		return "<img " + attrs + ` src="` + src + `" alt="` + EscapeHTML(node.Str("alt")) + `">`
 	case "path":
 		svg, path, inner := PathAttrsVars(doc, node, vars)
 		return "<svg " + attrs + ` xmlns="http://www.w3.org/2000/svg"` + svgAttrs(svg) + ">" + inner + "<path" + svgAttrs(path) + "/></svg>"
@@ -154,12 +175,15 @@ type RenderOptions struct {
 	CSSVariables bool
 }
 
+type fluidBox struct{ Min, Max float64 }
+
 type exportParts struct {
 	body       string
 	bounds     Bounds
 	background string
 	bodyMode   string
 	vars       bool
+	fluid      *fluidBox
 }
 
 func buildExportParts(doc *Document, opts RenderOptions, emit styleEmitter) (exportParts, error) {
@@ -218,7 +242,98 @@ func buildExportParts(doc *Document, opts RenderOptions, emit styleEmitter) (exp
 	if opts.CSSVariables && inherited != "" {
 		bodyMode = ` data-paprika-mode="` + EscapeHTML(inherited) + `"`
 	}
-	return exportParts{body, bounds, bg, bodyMode, opts.CSSVariables}, nil
+	return exportParts{body, bounds, bg, bodyMode, opts.CSSVariables, exportFluid(doc, node, page)}, nil
+}
+
+func useFluid(doc *Document, n *Node, asRoot bool) bool {
+	if _, _, ok := frameFluid(n); !ok {
+		return false
+	}
+	return asRoot || IsRootFrame(doc, n)
+}
+
+func applyFluid(css *CSS, n *Node) {
+	min, max, ok := frameFluid(n)
+	if !ok {
+		return
+	}
+	css.Set("width", "100%")
+	css.Set("minWidth", jsonv.FormatNumber(min)+"px")
+	css.Set("maxWidth", jsonv.FormatNumber(max)+"px")
+	css.Delete("flexShrink")
+}
+
+func fluidJsx(n *Node) string {
+	min, max, ok := frameFluid(n)
+	if !ok || n.Str("type") != "frame" {
+		return ""
+	}
+	w, has := n.Get("width")
+	wf, isNum := w.(float64)
+	if !has || !isNum {
+		return ""
+	}
+	return " data-paprika-width={" + jsonv.FormatNumber(wf) + "} data-paprika-min-width={" + jsonv.FormatNumber(min) + "} data-paprika-max-width={" + jsonv.FormatNumber(max) + "}"
+}
+
+func fluidData(n *Node) string {
+	min, max, ok := frameFluid(n)
+	if !ok || n.Str("type") != "frame" {
+		return ""
+	}
+	w, has := n.Get("width")
+	wf, isNum := w.(float64)
+	if !has || !isNum {
+		return ""
+	}
+	return ` data-paprika-width="` + jsonv.FormatNumber(wf) + `" data-paprika-min-width="` + jsonv.FormatNumber(min) + `" data-paprika-max-width="` + jsonv.FormatNumber(max) + `"`
+}
+
+func aggregateFluid(nodes []*Node) *fluidBox {
+	var box *fluidBox
+	for _, n := range nodes {
+		min, max, ok := frameFluid(n)
+		if !ok {
+			continue
+		}
+		if box == nil {
+			box = &fluidBox{min, max}
+			continue
+		}
+		if min < box.Min {
+			box.Min = min
+		}
+		if max > box.Max {
+			box.Max = max
+		}
+	}
+	return box
+}
+
+func exportFluid(doc *Document, node, page *Node) *fluidBox {
+	var nodes []*Node
+	if node != nil && page == nil {
+		nodes = []*Node{node}
+	} else {
+		pageID := ""
+		if page != nil {
+			pageID = page.Str("id")
+		}
+		roots, _ := PageRoots(doc, pageID)
+		for _, id := range roots {
+			if n := GetNode(doc, id); n != nil {
+				nodes = append(nodes, n)
+			}
+		}
+	}
+	return aggregateFluid(nodes)
+}
+
+func BodySizeCSS(b Bounds, fluid *fluidBox) string {
+	if fluid == nil {
+		return "width:" + jsonv.FormatNumber(b.Width) + "px;height:" + jsonv.FormatNumber(b.Height) + "px"
+	}
+	return "width:100%;min-width:" + jsonv.FormatNumber(fluid.Min) + "px;max-width:" + jsonv.FormatNumber(fluid.Max) + "px;margin-left:auto;margin-right:auto;height:" + jsonv.FormatNumber(b.Height) + "px"
 }
 
 // RenderHTML builds a self-contained HTML document (export and screenshot).
@@ -232,8 +347,8 @@ func RenderHTML(doc *Document, opts RenderOptions) (string, Bounds, error) {
 		sheet = TokenStylesheet(doc)
 	}
 	html := "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>" + EscapeHTML(doc.Str("name")) + "</title>\n" +
-		"<style>html,body{margin:0;padding:0}body{position:relative;width:" + jsonv.FormatNumber(p.bounds.Width) + "px;height:" + jsonv.FormatNumber(p.bounds.Height) +
-		"px;background:" + EscapeHTML(p.background) + ";font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}" + sheet + "</style>\n" +
+		"<style>html,body{margin:0;padding:0}body{position:relative;" + BodySizeCSS(p.bounds, p.fluid) +
+		";background:" + EscapeHTML(p.background) + ";font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}" + sheet + "</style>\n" +
 		"</head><body" + p.bodyMode + ">" + p.body + "</body></html>"
 	return html, p.bounds, nil
 }
@@ -271,10 +386,18 @@ func jsxAttrs(attrs []Attr) string {
 }
 
 func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, emit styleEmitter) string {
-	style := emit(NodeStyleVars(doc, node, asRoot, vars), node, "")
+	css := NodeStyleVars(doc, node, asRoot, vars)
+	fluid := useFluid(doc, node, asRoot)
+	if fluid {
+		applyFluid(css, node)
+	}
+	style := emit(css, node, "")
 	name := ""
 	if n := node.Str("name"); n != "" {
 		name = " data-name=" + jsonv.Quote(n)
+	}
+	if fluid {
+		name += fluidJsx(node)
 	}
 	mode := ""
 	if t := node.Str("type"); (t == "frame" || t == "page") && node.Str("mode") != "" {
@@ -291,14 +414,30 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, e
 		for _, c := range childNodes(doc, node) {
 			kids = append(kids, jsxNode(doc, c, false, indent+"  ", vars, emit))
 		}
-		if len(kids) > 0 {
-			return indent + "<div" + name + style + ">\n" + strings.Join(kids, "\n") + "\n" + indent + "</div>"
+		tag := "div"
+		href := ""
+		if node.Str("type") == "frame" && node.Str("href") != "" {
+			tag = "a"
+			href = " href=" + jsonv.Quote(node.Str("href"))
 		}
-		return indent + "<div" + name + style + " />"
+		if len(kids) > 0 {
+			return indent + "<" + tag + name + href + style + ">\n" + strings.Join(kids, "\n") + "\n" + indent + "</" + tag + ">"
+		}
+		return indent + "<" + tag + name + href + style + " />"
 	case "text":
-		return indent + "<div" + name + style + ">" + jsxText(node.Str("text")) + "</div>"
+		tag := "div"
+		href := ""
+		if node.Str("href") != "" {
+			tag = "a"
+			href = " href=" + jsonv.Quote(node.Str("href"))
+		}
+		return indent + "<" + tag + name + href + style + ">" + jsxText(node.Str("text")) + "</" + tag + ">"
 	case "image":
-		return indent + "<img" + name + style + " src=" + jsonv.Quote(node.Str("src")) + " alt=" + jsonv.Quote(node.Str("alt")) + " />"
+		hidden := " alt=" + jsonv.Quote(node.Str("alt"))
+		if node.Bool("decorative") {
+			hidden = ` alt="" aria-hidden data-paprika-decorative="true"`
+		}
+		return indent + "<img" + name + style + " src=" + jsonv.Quote(ResolveAsset(doc, node.Str("src"))) + hidden + " />"
 	case "path":
 		svg, path, inner := PathAttrsVars(doc, node, vars)
 		return indent + "<svg" + name + style + jsxAttrs(svg) + ">\n" + indent + "  " + inner + "<path" + jsxAttrs(path) + " />\n" + indent + "</svg>"

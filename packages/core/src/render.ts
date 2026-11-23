@@ -1,4 +1,4 @@
-import { firstPage, pageRoots, type Document, type Node } from "./schema.js";
+import { firstPage, frameFluid, isRootFrame, pageRoots, resolveAsset, type Document, type Node } from "./schema.js";
 import {
   SHAPE_SVG_CSS,
   SHAPE_TEXT_CSS,
@@ -73,15 +73,47 @@ export const htmlStyleAttr: StyleEmitter = (css) => ` style="${escapeHtml(cssToS
 
 export const jsxStyleAttr: StyleEmitter = (css) => ` style=${jsxStyle(css)}`;
 
+function useFluid(doc: Document, node: Node, asRoot: boolean): boolean {
+  return !!frameFluid(node) && (asRoot || isRootFrame(doc, node));
+}
+
+function applyFluid(css: CSS, node: Node) {
+  const f = frameFluid(node);
+  if (!f) return;
+  css.width = "100%";
+  css.minWidth = `${f.min}px`;
+  css.maxWidth = `${f.max}px`;
+  delete css.flexShrink;
+}
+
+function fluidData(node: Node): string {
+  const f = frameFluid(node);
+  if (!f || node.type !== "frame" || typeof node.width !== "number") return "";
+  return ` data-paprika-width="${node.width}" data-paprika-min-width="${f.min}" data-paprika-max-width="${f.max}"`;
+}
+
+function aggregateFluid(nodes: Node[]): { min: number; max: number } | null {
+  const fluids = nodes.map(frameFluid).filter((f): f is { min: number; max: number } => !!f);
+  if (!fluids.length) return null;
+  return { min: Math.min(...fluids.map((f) => f.min)), max: Math.max(...fluids.map((f) => f.max)) };
+}
+
+export function bodySizeCSS(bounds: Bounds, fluid: { min: number; max: number } | null): string {
+  if (!fluid) return `width:${bounds.width}px;height:${bounds.height}px`;
+  return `width:100%;min-width:${fluid.min}px;max-width:${fluid.max}px;margin-left:auto;margin-right:auto;height:${bounds.height}px`;
+}
+
 function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, emit: StyleEmitter, offset?: { x: number; y: number }): string {
   const css: CSS = nodeStyle(doc, node, { asRoot, vars });
   if (offset && !asRoot && node.type !== "page") {
     css.left = `${node.x - offset.x}px`;
     css.top = `${node.y - offset.y}px`;
   }
+  const fluid = useFluid(doc, node, asRoot);
+  if (fluid) applyFluid(css, node);
   const attrs = `data-paprika-id="${escapeHtml(node.id)}" data-paprika-type="${node.type}"${
     node.name ? ` data-name="${escapeHtml(node.name)}"` : ""
-  }${modeAttr(node)}${emit(css, node)}`;
+  }${fluid ? fluidData(node) : ""}${modeAttr(node)}${emit(css, node)}`;
   switch (node.type) {
     case "frame":
     case "group":
@@ -91,12 +123,20 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, e
         .filter((c): c is Node => !!c)
         .map((c) => renderNode(doc, c, false, vars, emit))
         .join("");
-      return `<div ${attrs}>${kids}</div>`;
+      const href = node.type === "frame" && node.href ? ` href="${escapeHtml(node.href)}"` : "";
+      const tag = href ? "a" : "div";
+      return `<${tag} ${attrs}${href}>${kids}</${tag}>`;
     }
-    case "text":
-      return `<div ${attrs}>${escapeHtml(node.text)}</div>`;
-    case "image":
-      return `<img ${attrs} src="${escapeHtml(node.src)}" alt="${escapeHtml(node.alt)}">`;
+    case "text": {
+      const tag = node.href ? "a" : "div";
+      const href = node.href ? ` href="${escapeHtml(node.href)}"` : "";
+      return `<${tag} ${attrs}${href}>${escapeHtml(node.text)}</${tag}>`;
+    }
+    case "image": {
+      const alt = node.decorative ? "" : node.alt;
+      const hidden = node.decorative ? ` alt="" aria-hidden="true" data-paprika-decorative="true"` : ` alt="${escapeHtml(alt)}"`;
+      return `<img ${attrs} src="${escapeHtml(resolveAsset(doc, node.src))}"${hidden}>`;
+    }
     case "path": {
       const a = pathAttrs(doc, node, { vars });
       return `<svg ${attrs} xmlns="http://www.w3.org/2000/svg"${svgAttrs(a.svg)}>${a.svgInner}<path${svgAttrs(a.path)}/></svg>`;
@@ -141,6 +181,7 @@ export interface ExportParts {
   background: string;
   bodyMode: string;
   vars: boolean;
+  fluid: { min: number; max: number } | null;
 }
 
 export function exportParts(doc: Document, opts: RenderOptions, emit: StyleEmitter): ExportParts {
@@ -150,16 +191,24 @@ export function exportParts(doc: Document, opts: RenderOptions, emit: StyleEmitt
   const node = opts.rootId ? doc.nodes[opts.rootId] : undefined;
   if (opts.rootId && !node) throw new Error(`node "${opts.rootId}" does not exist`);
   const page = node ? (node.type === "page" ? node : undefined) : firstPage(doc);
+  let fluidNodes: Node[];
   if (node && node.type !== "page") {
     bounds = rootBounds(doc, node.id);
     body = renderNode(doc, node, true, vars, emit);
-  } else ({ body, bounds } = renderCanvas(doc, page?.id, vars, emit));
+    fluidNodes = [node];
+  } else {
+    ({ body, bounds } = renderCanvas(doc, page?.id, vars, emit));
+    fluidNodes = pageRoots(doc, page?.id)
+      .map((id) => doc.nodes[id])
+      .filter((n): n is Node => !!n);
+  }
+  const fluid = aggregateFluid(fluidNodes);
   const pageGradient = page ? nodeGradient(page) : undefined;
   const background = opts.background ?? (pageGradient ? gradientCSS(doc, pageGradient, page?.mode, vars) : page?.fill ? String(resolveValue(doc, page.fill, page.mode)) : "#ffffff");
   // Um nó solto herda o modo dos ancestrais: no export ele vai no <body>, que é o novo topo.
   const inherited = node && node.type !== "page" && !modeAttr(node) ? modeOf(doc, node) : page?.mode;
   const bodyMode = vars && inherited ? ` data-paprika-mode="${escapeHtml(inherited)}"` : "";
-  return { body, bounds, background, bodyMode, vars };
+  return { body, bounds, background, bodyMode, vars, fluid };
 }
 
 /** Gera um documento HTML autocontido. Usado pelo export de código e pelo screenshot. */
@@ -167,7 +216,7 @@ export function renderHTML(doc: Document, opts: RenderOptions = {}): { html: str
   const p = exportParts(doc, opts, htmlStyleAttr);
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(doc.name)}</title>
-<style>html,body{margin:0;padding:0}body{position:relative;width:${p.bounds.width}px;height:${p.bounds.height}px;background:${escapeHtml(p.background)};font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}${p.vars ? tokenStylesheet(doc) : ""}</style>
+<style>html,body{margin:0;padding:0}body{position:relative;${bodySizeCSS(p.bounds, p.fluid)};background:${escapeHtml(p.background)};font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}${p.vars ? tokenStylesheet(doc) : ""}</style>
 </head><body${p.bodyMode}>${p.body}</body></html>`;
   return { html, bounds: p.bounds };
 }
@@ -189,10 +238,19 @@ export function jsxText(s: string): string {
   return s.replace(/[{}<>]/g, (c) => `{${JSON.stringify(c)}}`).replace(/\n/g, "{'\\n'}");
 }
 
+function fluidJsx(node: Node): string {
+  const f = frameFluid(node);
+  if (!f || node.type !== "frame" || typeof node.width !== "number") return "";
+  return ` data-paprika-width={${node.width}} data-paprika-min-width={${f.min}} data-paprika-max-width={${f.max}}`;
+}
+
 export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, vars: boolean, emit: StyleEmitter): string {
-  const style = emit(nodeStyle(doc, node, { asRoot, vars }), node);
+  const css = nodeStyle(doc, node, { asRoot, vars });
+  const fluid = useFluid(doc, node, asRoot);
+  if (fluid) applyFluid(css, node);
+  const style = emit(css, node);
   const mode = (node.type === "frame" || node.type === "page") && node.mode ? node.mode : asRoot && vars ? modeOf(doc, node) : undefined;
-  const name = `${node.name ? ` data-name=${JSON.stringify(node.name)}` : ""}${mode ? ` data-paprika-mode=${JSON.stringify(mode)}` : ""}`;
+  const name = `${node.name ? ` data-name=${JSON.stringify(node.name)}` : ""}${fluid ? fluidJsx(node) : ""}${mode ? ` data-paprika-mode=${JSON.stringify(mode)}` : ""}`;
   switch (node.type) {
     case "frame":
     case "group":
@@ -202,14 +260,22 @@ export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: stri
         .filter((c): c is Node => !!c)
         .map((c) => jsxNode(doc, c, false, indent + "  ", vars, emit))
         .join("\n");
+      const href = node.type === "frame" && node.href ? ` href=${JSON.stringify(node.href)}` : "";
+      const tag = href ? "a" : "div";
       return kids
-        ? `${indent}<div${name}${style}>\n${kids}\n${indent}</div>`
-        : `${indent}<div${name}${style} />`;
+        ? `${indent}<${tag}${name}${href}${style}>\n${kids}\n${indent}</${tag}>`
+        : `${indent}<${tag}${name}${href}${style} />`;
     }
-    case "text":
-      return `${indent}<div${name}${style}>${jsxText(node.text)}</div>`;
-    case "image":
-      return `${indent}<img${name}${style} src=${JSON.stringify(node.src)} alt=${JSON.stringify(node.alt)} />`;
+    case "text": {
+      const tag = node.href ? "a" : "div";
+      const href = node.href ? ` href=${JSON.stringify(node.href)}` : "";
+      return `${indent}<${tag}${name}${href}${style}>${jsxText(node.text)}</${tag}>`;
+    }
+    case "image": {
+      const alt = node.decorative ? "" : node.alt;
+      const hidden = node.decorative ? ` alt="" aria-hidden data-paprika-decorative="true"` : ` alt=${JSON.stringify(alt)}`;
+      return `${indent}<img${name}${style} src=${JSON.stringify(resolveAsset(doc, node.src))}${hidden} />`;
+    }
     case "path": {
       const a = pathAttrs(doc, node, { vars });
       const jsx = (o: Record<string, string | number | undefined>) =>

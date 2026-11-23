@@ -21,6 +21,7 @@ import {
   groupOps,
   ignoresLayout,
   isInstance,
+  isRootFrame,
   lintDocument,
   newId,
   modeOf,
@@ -617,6 +618,7 @@ export function Inspector(props: Props) {
             <SelectField label="Alinhamento" value={node.textAlign} onChange={(v) => set({ textAlign: v })} options={ALIGN_OPTS} />
           </div>
           <FontPicker doc={doc} value={node.fontFamily} onCommit={(v) => set({ fontFamily: v })} />
+          <Field label="Link" value={node.href ?? ""} placeholder="https://, /caminho ou #ancora" onCommit={(v) => set({ href: v.trim() || null })} />
         </InspectorSection>
       )}
 
@@ -677,6 +679,15 @@ export function Inspector(props: Props) {
                 </Button>
               )}
             </div>
+          </InspectorSection>
+          <InspectorSection id="frame-web" title="Web" defaultOpen={!!node.href || node.minWidth != null || node.maxWidth != null}>
+            <Field label="Link" value={node.href ?? ""} placeholder="https://, /caminho ou #ancora" onCommit={(v) => set({ href: v.trim() || null })} />
+            {isRootFrame(doc, node) && (
+              <div className={ui.grid2}>
+                <Field label="Larg. mín." type="number" value={node.minWidth} min={0} title="Largura mínima da raiz no export" onCommit={(v) => { if (!v.trim()) return set({ minWidth: null }); const n = num(v); if (n !== undefined) set({ minWidth: n }); }} />
+                <Field label="Larg. máx." type="number" value={node.maxWidth} min={0} title="Largura máxima da raiz no export" onCommit={(v) => { if (!v.trim()) return set({ maxWidth: null }); const n = num(v); if (n !== undefined) set({ maxWidth: n }); }} />
+              </div>
+            )}
           </InspectorSection>
           <InspectorSection id="frame-theme" title="Modo de tema" defaultOpen>
             <ModeField doc={doc} value={node.mode} inherited={modeOf(doc, node.parentId ? doc.nodes[node.parentId] : undefined)} onCommit={(v) => set({ mode: v }, "modo de tema")} />
@@ -757,8 +768,9 @@ export function Inspector(props: Props) {
 
       {node.type === "image" && (
         <InspectorSection id="image" title="Imagem" defaultOpen>
-          <Field label="URL" value={node.src.startsWith("data:") ? "(data URI)" : node.src} onCommit={(v) => set({ src: v })} />
+          <Field label="URL" value={node.src.startsWith("data:") ? "(data URI)" : node.src} title="https://, data:image/ ou $asset" onCommit={(v) => set({ src: v })} />
           <Field label="Alt" value={node.alt} onCommit={(v) => set({ alt: v })} />
+          <SelectField label="Decorativa" value={String(!!node.decorative)} onChange={(v) => set({ decorative: v === "true" ? true : null })} options={YES_NO} />
         </InspectorSection>
       )}
 

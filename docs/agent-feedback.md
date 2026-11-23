@@ -75,10 +75,10 @@ Task: design the project's landing page in Paprika over MCP (desktop and mobile,
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 29 | Check a page whose height follows its content | `render_screenshot` of a root frame with `height: "hug"` returned a 1280×1 px image (`rootBounds` turns `hug` into 1 px), so the agent had to check the page in its own browser | Done (2026-11-22): `render_screenshot` measures a `hug`/`fill` root in the browser and sizes the image to it | — |
-| 30 | Buttons and nav items that link somewhere | Nodes have no link field; the site build reads a naming convention (`name: "link:<href>"`) and turns those nodes into `<a>` | An `href` field on frames and text, exported as `<a>` by `export_code` and kept by the canvas | P2 |
-| 31 | One page for every screen width | Root frames have a fixed width and `export_code` sets the body to that size, so the page was drawn twice (1280 and 390) and the build stretches roots to the viewport | Breakpoint variants of a frame, or `minWidth`/`maxWidth`, and a page export with responsive roots | P2 |
-| 32 | Reuse the same image | The icon's data URI is repeated in 8 image nodes (≈200 KB document) | Document-level assets (`$asset` references) or image tokens | P3 |
-| 33 | Mark an image as decorative | `lint_design` warns `missing-alt` on `alt: ""`, which is correct HTML for a decorative image | A `decorative: true` flag (or treat an explicit empty `alt` as decorative) | P3 |
+| 30 | Buttons and nav items that link somewhere | Nodes have no link field; the site build reads a naming convention (`name: "link:<href>"`) and turns those nodes into `<a>` | Done (2026-11-23, PAP-B-087): optional `href` on frames and text, exported as `<a>` | — |
+| 31 | One page for every screen width | Root frames have a fixed width and `export_code` sets the body to that size, so the page was drawn twice (1280 and 390) and the build stretches roots to the viewport | Done (2026-11-23, PAP-B-087): `minWidth`/`maxWidth` on a root frame; export uses width 100% between those bounds | — |
+| 32 | Reuse the same image | The icon's data URI is repeated in 8 image nodes (≈200 KB document) | Done (2026-11-23, PAP-B-087): document assets via `set_assets` and image `src` `$name` | — |
+| 33 | Mark an image as decorative | `lint_design` warns `missing-alt` on `alt: ""`, which is correct HTML for a decorative image | Done (2026-11-23, PAP-B-087): `decorative: true` skips the missing-alt lint and exports `alt=""` | — |
 
 ## 2026-11-21: multi-select, groups and pages (backlog slice 1)
 
@@ -771,3 +771,16 @@ Task: draw the inspector constraint axes (dark: right/top, light: scale/center) 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - The behavior frame is a mock: the live server does not accept `constraints` yet, so the before/after rectangles are placed by x/y.
 - `lint_design` on the three roots: 0 errors and 0 warnings.
+
+## 2026-11-23: web semantics and convert to path (PAP-B-087, design first)
+
+Task: draw the root inspector (link, min width, max width), a decorative image with a `$asset`, and the context menu item "Converter em caminho" on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before implementing. Frames at y=11360. PNGs in `docs/assets/boards/PAP-B-087/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 143 | Section labels at 11px | `lint_design` on the three boards reported small-text on labels and notes at 11px | Inspector mocks should use at least 12px (same as #136) | P3 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #128: two pages named Interfaces. The script used `page#interfaces`.
+- Same as #123, still open: the content box of `page#interfaces` is 0×0, so `y` came from a depth-1 scan (11360).
+- Same as #129: `render_screenshot` `path` is inside the server. The PNGs were decoded from the image bytes in the tool result.

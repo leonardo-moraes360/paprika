@@ -1803,4 +1803,36 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await agent.callTool({ name: "delete_nodes", arguments: { ids: ["p084"] } });
 
   }, 30_000);
+
+  it("inspector da raiz grava o link e o menu converte o rect em caminho", async () => {
+    const d = await doc();
+    const pageId = d.rootIds.find((id) => d.nodes[id]?.type === "page") ?? null;
+    if (pageId) await page.locator(`[data-page-id="${pageId}"]`).click();
+    const made = await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        ...(pageId ? { parentId: pageId } : {}),
+        place: "none",
+        nodes: [{
+          type: "frame", id: "b087", name: "Web", x: 980, y: 40, width: 280, height: 160, fill: "#ffffff",
+          children: [{ type: "rect", id: "b087r", x: 16, y: 16, width: 72, height: 36, fill: "#112233", radius: 4 }],
+        }],
+      },
+    });
+    expect(made.isError, JSON.stringify(made.content)).toBeFalsy();
+    await page.locator('[data-layer-id="b087"] .layer-name').click();
+    const web = page.getByTestId("inspector-section-frame-web");
+    await web.getByRole("button", { name: "Web" }).click();
+    const link = web.getByLabel("Link", { exact: true });
+    await expect.poll(() => link.count()).toBe(1);
+    await expect.poll(() => web.getByLabel("Larg. mín.", { exact: true }).count()).toBe(1);
+    await link.fill("https://example.com");
+    await link.press("Enter");
+    await expect.poll(async () => (await doc()).nodes.b087).toMatchObject({ href: "https://example.com" });
+    await page.locator('[data-paprika-id="b087r"]').click({ button: "right" });
+    await page.getByTestId("convert-to-path").click();
+    await expect.poll(async () => (await doc()).nodes.b087r?.type).toBe("path");
+    await page.keyboard.press("Control+z");
+    await expect.poll(async () => (await doc()).nodes.b087r?.type).toBe("rect");
+  });
 });

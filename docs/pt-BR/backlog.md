@@ -105,7 +105,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Editar pontos e alças de um path existente | Duplo clique no vetor: arrastar pontos e alças, adicionar, remover, canto/suave (2026-11-21); `d` no inspector | ✅ | — |
 | Importar/colar SVG como camadas `path` editáveis | `import_svg`, `Ctrl+V` no canvas (2026-11-21): paths, formas (rect/ellipse alinhados aos eixos ficam nativos), grupos, transforms, pintura herdada; sem texto, imagens, gradientes ou CSS de `<style>` | ✅ | — |
 | Operações booleanas (união, subtração, interseção, exclusão) | — (fb#1, fb#76; ver Q). Leva 3: PAP-A-003 — MCP `combine_paths` + op no core (comando no canvas depois). | ✅ | P1 |
-| Converter rect/ellipse em path | — | ⬜ | P2 |
+| Converter rect/ellipse em path | `convert_to_path` (MCP e o menu de contexto do canvas). Mesmo id, raio gravado no `d`, um desfazer restaura o rect ou a ellipse (2026-11-23, PAP-B-087) | ✅ | — |
 | Snapping e guias para pontos, snapping a meio pixel | — | ⬜ | P3 |
 | Espelhar, repetir, shape builder, vector networks | — | ⬜ | P3 |
 
@@ -302,7 +302,7 @@ Todo item ainda aberto no [log de feedback dos agentes](feedback-agentes.md) (fb
 | Exclusões mais seguras | A metade MCP entrou em 2026-11-22 (PAP-B-015): `delete_workspace` em duas chamadas — a primeira devolve o que se perde e um token de curta duração preso àquele workspace, a segunda apaga — e as operações de workspace (criar/renomear/abrir/excluir, com o autor) ficam legíveis em `list_workspace_ops`, e a entrada do apagamento guarda o resumo. Aviso no canvas com PAP-B-037: broadcast WebSocket `workspaceOp` + `WorkspaceNotice` (ator, contagens, ir à visão geral; `role=status`). | fb#59, fb#60, fb#61 | ✅ | — |
 | Componentes aninhados | Instâncias dentro de componentes, overrides endereçados por caminho (`instancia/copia`) | fb#39 | ⬜ | P2 |
 | Fidelidade de importação | `import_svg`: sprites `<use>`/`<symbol>` e `<text>` como nós `text`; `import_html`: opção que renderiza no Chromium do servidor e importa os estilos computados | fb#40, fb#42 | ⬜ | P2 |
-| Semântica web no documento | `href` em frames e textos (exportado como `<a>`), raízes responsivas (`minWidth`/`maxWidth` ou variantes por breakpoint), imagens `decorative`, assets de imagem no nível do documento | fb#30, fb#31, fb#32, fb#33 | ⬜ | P2 |
+| Semântica web no documento | `href` em frames e textos (exportado como `<a>`), `minWidth`/`maxWidth` na raiz (o export usa largura 100% entre esses limites; o canvas mantém a largura de desenho), imagens `decorative`, assets de imagem via `set_assets` (2026-11-23, PAP-B-087) | fb#30, fb#31, fb#32, fb#33 | ✅ | — |
 | Roteamento de diagramas contornando formas | Rotas em cotovelo que evitam obstáculos, ou `relayout` no `draw_diagram` para ids existentes | fb#58 | ⬜ | P2 |
 | Limpezas de contrato para a próxima versão incompatível | Texto e `structuredContent` como o mesmo objeto; `historyLabel` com `label` como alias; ids de sessão desconhecidos respondem 404 para o cliente reinicializar; um só nome de ator nos dois transportes | fb#22, fb#48, fb#50, fb#74 | 🟡 | P3 |
 | Pequenas conveniências | `pageId` padrão no `create_nodes` (a página que o humano vê); tokens de tamanho tipados multiplicados por `scale`; `resolve` no `get_nodes`; `sql_query` somente leitura; batch aberto visível na lista de atividade; uma só língua na UI (ou configuração); capa ao vivo e capa no export; exemplos normalizados; paths editados como filhos "ignorar layout" (A) | fb#21, fb#23, fb#36, fb#38, fb#44, fb#46, fb#49, fb#51, fb#63, fb#64 | ⬜ | P3 |

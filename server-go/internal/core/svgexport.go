@@ -565,7 +565,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 			case "contain":
 				fit = "xMidYMid meet"
 			}
-			src := EscapeHTML(n.Str("src"))
+			src := EscapeHTML(ResolveAsset(doc, n.Str("src")))
 			if boxRadius[0] > 0 || boxRadius[1] > 0 || boxRadius[2] > 0 || boxRadius[3] > 0 {
 				defs += clipDef("clip-" + id)
 				fmt.Fprintf(&body, `<image href="%s" width="%s" height="%s" preserveAspectRatio="%s" clip-path="url(#clip-%s)"/>`, src, f(w), f(h), fit, id)

@@ -1,4 +1,4 @@
-import { firstPage, listShadows, pageRoots, isContainer, type Document, type Node, type ShadowSpec } from "./schema.js";
+import { firstPage, listShadows, pageRoots, resolveAsset, isContainer, type Document, type Node, type ShadowSpec } from "./schema.js";
 import { canvasBounds, escapeHtml, svgAttrs } from "./render.js";
 import {
   connectorAttrs,
@@ -335,8 +335,8 @@ export function exportSVG(
       const fit = n.fit === "cover" ? "xMidYMid slice" : n.fit === "contain" ? "xMidYMid meet" : "none";
       if (boxRadius && boxRadius.some((c) => c > 0)) {
         defs += clipDef(`clip-${id}`);
-        body += `<image href="${escapeHtml(n.src)}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}" clip-path="url(#clip-${id})"/>`;
-      } else body += `<image href="${escapeHtml(n.src)}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}"/>`;
+        body += `<image href="${escapeHtml(resolveAsset(doc, n.src))}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}" clip-path="url(#clip-${id})"/>`;
+      } else body += `<image href="${escapeHtml(resolveAsset(doc, n.src))}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="${fit}"/>`;
     }
     if (n.type === "frame") {
       const inner = kids();

@@ -18,7 +18,20 @@ var (
 	reColorForbidden = regexp.MustCompile(`[;{}<>]`)
 	reFontForbidden  = regexp.MustCompile(`[;{}<>()]`)
 	reImageSrc       = regexp.MustCompile(`^(https?:|data:image/)`)
+	reAssetRef       = regexp.MustCompile(`^\$[A-Za-z0-9_.-]+$`)
+	reHrefSpace      = regexp.MustCompile(`[\s<>"']`)
+	reHrefScheme     = regexp.MustCompile(`(?i)^[a-z][a-z0-9+.-]*:`)
+	reHrefSafe       = regexp.MustCompile(`(?i)^(https?:|mailto:|tel:)`)
 )
+
+func hrefSchema() z.Schema {
+	return z.Optional(z.String().Min(1).Max(2000).Refine(func(v string) string {
+		if v == "" || reHrefSpace.MatchString(v) || (reHrefScheme.MatchString(v) && !reHrefSafe.MatchString(v)) {
+			return "href must be a relative URL, #hash, http(s), mailto: or tel:"
+		}
+		return ""
+	}))
+}
 
 // ColorValue: a CSS color or a `$token` reference.
 func colorValue() *z.StringSchema {
@@ -334,6 +347,9 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "overrides", Schema: z.Optional(overridesSchema())},
 		z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
 		z.Field{Name: "scaledMock", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "href", Schema: hrefSchema()},
+		z.Field{Name: "minWidth", Schema: z.Optional(z.Number().Min(0).Max(100_000))},
+		z.Field{Name: "maxWidth", Schema: z.Optional(z.Number().Max(100_000).Min(0))},
 	).Extend(z.Field{Name: "radius", Schema: cornerRadiusSchema()}),
 	"rect":    nodeSchema("rect").Extend(z.Field{Name: "radius", Schema: cornerRadiusSchema()}),
 	"ellipse": nodeSchema("ellipse"),
@@ -351,16 +367,18 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "lineHeight", Schema: z.Default(lengthMinMax(0, 10), 1.4)},
 		z.Field{Name: "letterSpacing", Schema: z.Default(lengthAny(), 0.0)},
 		z.Field{Name: "textAlign", Schema: z.Default(z.Enum("left", "center", "right"), "left")},
+		z.Field{Name: "href", Schema: hrefSchema()},
 	),
 	"image": nodeSchema("image",
 		z.Field{Name: "src", Schema: z.String().Max(5_000_000).Refine(func(v string) string {
-			if !reImageSrc.MatchString(v) {
-				return "src must be http(s) or data:image/"
+			if !reImageSrc.MatchString(v) && !reAssetRef.MatchString(v) {
+				return "src must be http(s), data:image/ or $asset"
 			}
 			return ""
 		})},
 		z.Field{Name: "fit", Schema: z.Default(z.Enum("cover", "contain", "fill"), "cover")},
 		z.Field{Name: "alt", Schema: z.Default(z.String().Max(1000), "")},
+		z.Field{Name: "decorative", Schema: z.Optional(z.Bool())},
 	).Extend(z.Field{Name: "radius", Schema: cornerRadiusSchema()}),
 	"path": nodeSchema("path",
 		z.Field{Name: "d", Schema: z.String().Min(1).Max(200_000).Refine(func(v string) string {
@@ -399,6 +417,14 @@ var (
 	TokenValueSchema = z.Union(z.String().Max(500), z.Number())
 	TokenNameSchema  = z.String().Regex(`^[A-Za-z0-9_.-]{1,100}$`, `/^[\w.-]{1,100}$/`, `token name must be [\w.-]{1,100}`).
 				Refine(func(v string) string { return notProto(v, "token name cannot be __proto__") })
+	AssetNameSchema = z.String().Regex(`^[A-Za-z0-9_.-]{1,100}$`, `/^[\w.-]{1,100}$/`, `asset name must be [\w.-]{1,100}`).
+			Refine(func(v string) string { return notProto(v, "asset name cannot be __proto__") })
+	AssetSrcSchema = z.String().Max(5_000_000).Refine(func(v string) string {
+		if !reImageSrc.MatchString(v) {
+			return "asset must be http(s) or data:image/"
+		}
+		return ""
+	})
 )
 
 // DocumentSchema validates a whole document.
@@ -411,6 +437,7 @@ var DocumentSchema = z.Object(
 	z.Field{Name: "tokenMeta", Schema: z.Optional(z.Record(TokenNameSchema, TokenMetaSchema))},
 	z.Field{Name: "rootIds", Schema: z.Default(z.Array(z.String()), []any{})},
 	z.Field{Name: "nodes", Schema: z.Default(z.Record(z.String(), NodeSchema), jsonv.NewObject())},
+	z.Field{Name: "assets", Schema: z.Optional(z.Record(AssetNameSchema, AssetSrcSchema))},
 )
 
 // ImmutableKeys cannot be changed by an `update` op.
@@ -439,6 +466,63 @@ func Tokens(doc *Document) *jsonv.Object { return doc.Obj("tokens") }
 
 // GetNode returns doc.nodes[id] or nil.
 func GetNode(doc *Document, id string) *Node { return Nodes(doc).Obj(id) }
+
+func IsRootFrame(doc *Document, n *Node) bool {
+	if n == nil || n.Str("type") != "frame" {
+		return false
+	}
+	pid, ok := ParentID(n)
+	if !ok || pid == "" {
+		return true
+	}
+	p := GetNode(doc, pid)
+	return p != nil && p.Str("type") == "page"
+}
+
+func ResolveAsset(doc *Document, src string) string {
+	if len(src) == 0 || src[0] != '$' {
+		return src
+	}
+	assets := doc.Obj("assets")
+	if assets == nil {
+		return src
+	}
+	v, ok := assets.Get(src[1:])
+	s, isStr := v.(string)
+	if !ok || !isStr {
+		return src
+	}
+	return s
+}
+
+func frameFluid(n *Node) (min, max float64, ok bool) {
+	if n == nil || n.Str("type") != "frame" {
+		return 0, 0, false
+	}
+	_, hasMin := n.Get("minWidth")
+	_, hasMax := n.Get("maxWidth")
+	if !hasMin && !hasMax {
+		return 0, 0, false
+	}
+	w := 0.0
+	if wv, has := n.Get("width"); has {
+		if f, isNum := wv.(float64); isNum {
+			w = f
+		}
+	}
+	min = w
+	if hasMin {
+		min = n.Num("minWidth")
+	}
+	if hasMax {
+		max = n.Num("maxWidth")
+	} else if w > min {
+		max = w
+	} else {
+		max = min
+	}
+	return min, max, true
+}
 
 // ParentID returns the node's parentId ("" for top level).
 func ParentID(n *Node) (string, bool) {

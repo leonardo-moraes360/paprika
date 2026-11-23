@@ -5,6 +5,8 @@ import {
   type FrameNode,
   Node,
   NodeType,
+  AssetName,
+  AssetSrc,
   ModeName,
   CollectionName,
   TokenName,
@@ -15,6 +17,7 @@ import {
   type Node as NodeT,
   type ShadowSpec,
   isContainer,
+  isRootFrame,
   isScene,
   knownKeys,
 } from "./schema.js";
@@ -23,6 +26,7 @@ import { defaultUntitledName } from "./names.js";
 import { normalizePath as shiftPathToOrigin, parsePath, pathBounds, serializePath } from "./path.js";
 import { addPageOps, alignOps, distributeOps, groupOps, localBox, revealOps, ungroupOps, wrapOps } from "./structure.js";
 import { combinePathsOps } from "./boolean.js";
+import { convertToPathOps } from "./convert.js";
 import { round4 } from "./num.js";
 import { PlaceSpecSchema, resolvePlace } from "./placement.js";
 import { ConnectorError, connectorsAttachedTo, routeConnectors, shapeDefaults } from "./diagram.js";
@@ -193,6 +197,16 @@ export const CombinePathsOp = z.object({
   name: z.string().max(200).optional(),
 });
 
+export const ConvertToPathOp = z.object({
+  op: z.literal("convert_to_path"),
+  ids: z.array(z.string()).min(1).max(500),
+});
+
+export const SetAssetsOp = z.object({
+  op: z.literal("set_assets"),
+  assets: z.record(AssetName, AssetSrc.nullable()),
+});
+
 /** Operação interna usada como inversa de `delete` (desfazer). */
 export const RestoreOp = z.object({
   op: z.literal("restore"),
@@ -220,6 +234,8 @@ export const Op = z.discriminatedUnion("op", [
   DistributeOp,
   WrapOp,
   RevealOp,
+  ConvertToPathOp,
+  SetAssetsOp,
 ]);
 
 export type Op = z.input<typeof Op>;
@@ -607,6 +623,18 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       doc.name = op.name;
       return [{ op: "rename_document", name: prev }];
     }
+    case "set_assets": {
+      const prev: Record<string, string | null> = {};
+      const target = (doc.assets ??= {});
+      for (const [k, v] of Object.entries(op.assets)) {
+        if (k === "__proto__") continue;
+        prev[k] = Object.hasOwn(target, k) ? target[k]! : null;
+        if (v === null) delete target[k];
+        else target[k] = v;
+      }
+      if (Object.keys(target).length === 0) delete doc.assets;
+      return [{ op: "set_assets", assets: prev }];
+    }
     case "group":
     case "ungroup":
     case "add_page":
@@ -615,7 +643,8 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
     case "align":
     case "distribute":
     case "wrap":
-    case "reveal": {
+    case "reveal":
+    case "convert_to_path": {
       // Expandidas contra o documento *atual* (não o que o cliente via), dentro da mesma transação.
       let plan: Op[];
       try {
@@ -636,7 +665,9 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
                         ? wrapOps(doc, op.ids, { id: op.id, name: op.name }).ops
                         : op.op === "reveal"
                           ? revealOps(doc, op.kind, op.pageId).ops
-                          : addPageOps(doc, op).ops;
+                          : op.op === "convert_to_path"
+                            ? convertToPathOps(doc, op.ids).ops
+                            : addPageOps(doc, op).ops;
       } catch (e) {
         throw e instanceof OpError ? e : new OpError((e as Error).message, i);
       }
@@ -973,6 +1004,8 @@ export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
     // Conectores seguem as pontas: geometria derivada, sem inversa (o desfazer recalcula).
     const lengthErr = lengthTokenError(draft);
     if (lengthErr) throw new OpError(lengthErr, last);
+    const webErr = webSemanticsError(draft);
+    if (webErr) throw new OpError(webErr, last);
     try {
       routeConnectors(draft);
     } catch (e) {
@@ -1008,7 +1041,25 @@ export function parseDocument(input: unknown): DocumentT {
   if (rootTypes.size > 1) throw new Error("inconsistent document: with pages, every top-level node must be a page");
   const orphans = Object.keys(doc.nodes).filter((id) => !seen.has(id));
   if (orphans.length) throw new Error(`inconsistent document: orphan nodes ${orphans.join(", ")}`);
+  const webErr = webSemanticsError(doc);
+  if (webErr) throw new Error(`inconsistent document: ${webErr}`);
   return doc;
+}
+
+function webSemanticsError(doc: DocumentT): string | null {
+  for (const n of Object.values(doc.nodes)) {
+    if (n.type === "frame" && (n.minWidth != null || n.maxWidth != null)) {
+      if (!isRootFrame(doc, n)) return `minWidth and maxWidth are only valid on a root frame ("${n.id}")`;
+      if (n.minWidth != null && n.maxWidth != null && n.minWidth > n.maxWidth)
+        return `minWidth cannot be greater than maxWidth on "${n.id}"`;
+    }
+    if (n.type === "image" && n.src.startsWith("$")) {
+      const name = n.src.slice(1);
+      if (!doc.assets || !Object.hasOwn(doc.assets, name))
+        return `image "${n.id}" src "${n.src}" does not match an asset (set_assets)`;
+    }
+  }
+  return null;
 }
 
 /** Num documento com páginas, o nível superior só tem páginas (checado no fim da transação). */
