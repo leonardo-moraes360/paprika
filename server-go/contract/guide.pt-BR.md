@@ -16,7 +16,8 @@ group: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, wid
   dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.
 page: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, todo nó de topo é página e os
   frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o
-  conteúdo atual para "Página 1". Telas de outra página: get_document_outline {rootId: id da página}.
+  conteúdo atual para "Page 1" (inglês; a UI passa o nome localizado). create_page {ensure: true, name} devolve a página que já tem esse nome
+  em vez de criar outra. Telas de outra página: get_document_outline {rootId: id da página}.
 Componentes: um frame com component: true é um componente (create_component). Uma instância é um frame com
   instanceOf = id do componente e scale opcional (create_instance): os filhos são cópias geradas, com ids
   derivados e sourceId = id do nó de origem; mudar o componente muda todas as instâncias. Numa cópia, update só
@@ -33,7 +34,7 @@ shape: shape (rect|ellipse|diamond|triangle|note), text (centralizado; numa nota
   fontWeight, lineHeight, textAlign. width/height são números (padrão 160×80; nota 160×160). fill/stroke/radius/shadow
   pintam o contorno; campos omitidos na criação ganham o padrão do tipo (branco com borda escura; note = nota adesiva amarela).
 connector: from/to = {nodeId, side?: auto|top|right|bottom|left} (preso a um nó) ou {x, y} (ponto solto nas coordenadas
-  do pai), route (straight|elbow), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,
+  do pai), route (straight|elbow|rounded|curve), radius (cantos arredondados), control {x,y} (alça da curva nas coords do pai), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,
   label (texto no meio da rota, na cor do traço: "sim", "não"). x, y, width, height e
   d são calculados a partir das pontas a cada escrita (só leitura): mover uma forma redesenha os conectores dela, e
   apagar um nó apaga os conectores presos a ele.
@@ -42,6 +43,8 @@ Diagramas: draw_diagram recebe nodes (formas) + edges (conectores) e posiciona s
 Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes.
 Modos de tema: set_tokens com mode ("dark", "compact"…) grava só os tokens que mudam; "mode" num frame ou página aplica o modo ao subtree (dá para pôr a mesma tela clara e escura lado a lado). export_code com cssVariables: true sai com var(--token) e uma regra por modo.
 "fill" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.
+
+Posicionamento: um frame novo de topo deixa x e y de fora (ou passa place:"free") e cai no espaço livre, à direita do conteúdo da página, no mesmo topo, respiro 80, quebrando para a linha de baixo depois de 2400px a partir da esquerda do conteúdo. place é "free" | "below" | "right" | {near, side: left|right|above|below} | "none" (x/y exatos). Escritas simultâneas não ocupam o mesmo lugar. get_document_outline e get_bounds sem ids devolvem a caixa do conteúdo da página e o próximo lugar livre. Desenhe overlays (modais, menus, toasts) por último, ou traga-os para a frente com index:"front". Uma escrita avisa quando um nó novo de topo sobrepõe outro e diz o lugar livre mais próximo.
 
 Fluxo recomendado:
 1. get_document_outline para se orientar (barato).

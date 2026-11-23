@@ -7,11 +7,9 @@
  * DOM and the text stay exactly as they were.
  */
 import { StatusLiveRegion } from "./components/ui/status";
+import { useT } from "./i18n";
 
 export function ConnectionStatus({ connected }: { connected: boolean }) {
-  return (
-    <StatusLiveRegion tone={connected ? "ok" : "alert"}>
-      {connected ? "Conectado ao servidor" : "Desconectado do servidor"}
-    </StatusLiveRegion>
-  );
+  const m = useT();
+  return <StatusLiveRegion tone={connected ? "ok" : "alert"}>{connected ? m.connected : m.disconnected}</StatusLiveRegion>;
 }

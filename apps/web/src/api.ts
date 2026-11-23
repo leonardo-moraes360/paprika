@@ -1,3 +1,4 @@
+import { t } from "./i18n/store";
 import { QueryClient } from "@tanstack/react-query";
 
 /**
@@ -22,7 +23,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     body = await res.json();
   } catch {
-    if (res.ok) throw new Error(`resposta inválida de ${path}`);
+    if (res.ok) throw new Error(t().invalidResponse(path));
   }
   if (!res.ok) throw new Error((body as { error?: string } | null)?.error ?? res.statusText);
   return body as T;

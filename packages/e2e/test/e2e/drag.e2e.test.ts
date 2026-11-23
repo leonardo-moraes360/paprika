@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { repoRoot, startServer, type ExternalServer } from "../harness.js";
+import { pinLocale } from "./locale.js";
 
 const webRoot = join(repoRoot, "apps/web/dist");
 const wasmBuilt = existsSync(join(repoRoot, "apps/web/src/wasm/paprika_render.js"));
@@ -43,6 +44,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     server = await startServer({ seed: join(repoRoot, "examples/demo.paprika.json"), webRoot });
     browser = await chromium.launch({ executablePath: process.env.PAPRIKA_CHROMIUM || undefined });
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(page, "pt-BR");
     await page.routeWebSocket(/\/ws$/, (ws) => {
       const upstream = ws.connectToServer();
       upstream.onMessage((m) => (link.holding ? link.queue.push(() => ws.send(m)) : ws.send(m)));
@@ -207,8 +209,91 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     expect(after.y).toBeCloseTo(nw.y, 0);
   }, 30_000);
 
+  it("arrastar a toolbar pela alça ancora em cada borda e o lado fica no localStorage", async () => {
+    const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(p, "pt-BR");
+    try {
+      const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
+      await p.goto(`${server.url}/w/${encodeURIComponent(active)}`);
+      await p.waitForSelector(NODE);
+      await p.evaluate(() => localStorage.removeItem("paprika.toolbar.dock"));
+      await p.reload();
+      await p.waitForSelector(NODE);
+
+      const toolbar = () => p.getByRole("navigation", { name: "Ferramentas" });
+      const grip = () => p.getByRole("button", { name: "Arrastar barra de ferramentas" });
+      const mainBox = async () => (await p.locator("main").boundingBox())!;
+
+      const expectDock = async (dock: "top" | "left" | "right" | "bottom") => {
+        await expect.poll(() => toolbar().getAttribute("data-toolbar-dock")).toBe(dock);
+        const bar = (await toolbar().boundingBox())!;
+        const main = await mainBox();
+        if (dock === "top" || dock === "bottom") {
+          expect(bar.height).toBeLessThan(bar.width);
+          expect(Math.abs(bar.x + bar.width / 2 - (main.x + main.width / 2))).toBeLessThan(3);
+          if (dock === "top") expect(bar.y).toBeLessThan(main.y + 60);
+          else expect(bar.y + bar.height).toBeGreaterThan(main.y + main.height - 60);
+        } else {
+          expect(bar.width).toBeLessThan(bar.height);
+          expect(Math.abs(bar.y + bar.height / 2 - (main.y + main.height / 2))).toBeLessThan(3);
+          if (dock === "left") expect(bar.x).toBeLessThan(main.x + 60);
+          else expect(bar.x + bar.width).toBeGreaterThan(main.x + main.width - 60);
+        }
+        expect(await p.evaluate(() => localStorage.getItem("paprika.toolbar.dock") ?? "top")).toBe(dock);
+      };
+
+      await expectDock("top");
+
+      const dragGripTo = async (x: number, y: number) => {
+        const g = (await grip().boundingBox())!;
+        await p.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+        await p.mouse.down();
+        await p.mouse.move(x, y, { steps: 12 });
+        await p.mouse.up();
+      };
+
+      const main = await mainBox();
+      await dragGripTo(main.x + 8, main.y + main.height / 2);
+      await expectDock("left");
+
+      await p.reload();
+      await p.waitForSelector(NODE);
+      await expectDock("left");
+
+      await dragGripTo(main.x + main.width - 8, main.y + main.height / 2);
+      await expectDock("right");
+
+      await dragGripTo(main.x + main.width / 2, main.y + main.height - 8);
+      await expectDock("bottom");
+
+      await dragGripTo(main.x + main.width / 2, main.y + 8);
+      await expectDock("top");
+
+      await p.getByRole("button", { name: "Menu da barra de ferramentas" }).click();
+      await p.getByRole("menuitemradio", { name: "Esquerda" }).click();
+      await expectDock("left");
+
+      await p.evaluate(() => {
+        localStorage.setItem("paprika.panel.left.collapsed", "1");
+      });
+      await p.reload();
+      await p.waitForSelector(NODE);
+      await expectDock("left");
+      const showLeft = p.getByRole("button", { name: "Mostrar painel de camadas" });
+      expect(await showLeft.count()).toBe(1);
+      const toggle = (await showLeft.boundingBox())!;
+      const bar = (await toolbar().boundingBox())!;
+      const overlap =
+        toggle.x < bar.x + bar.width && bar.x < toggle.x + toggle.width && toggle.y < bar.y + bar.height && bar.y < toggle.y + toggle.height;
+      expect(overlap).toBe(false);
+    } finally {
+      await p.close();
+    }
+  });
+
   it("arrastar um painel lateral além do mínimo o recolhe num botão flutuante que devolve a última largura", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(p, "pt-BR");
     try {
       const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
       await p.goto(`${server.url}/w/${encodeURIComponent(active)}`);
@@ -305,6 +390,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: drag and drop reparent e arquivos (P
     server = await startServer({ seed: join(repoRoot, "examples/demo.paprika.json"), webRoot });
     browser = await chromium.launch({ executablePath: process.env.PAPRIKA_CHROMIUM || undefined });
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(page, "pt-BR");
     const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
     await page.goto(`${server.url}/w/${encodeURIComponent(active)}`);
     await page.waitForSelector(NODE);

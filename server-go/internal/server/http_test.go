@@ -57,39 +57,39 @@ func TestHTTPRouteTable(t *testing.T) {
 	}
 	rows := []row{
 		{"GET", "/api/health", "", 200, "", true},
-		{"POST", "/api/health", "", 405, "método não permitido", true},
+		{"POST", "/api/health", "", 405, "method not allowed", true},
 		{"GET", "/api/document", "", 200, "", true},
-		{"POST", "/api/document", "", 405, "método não permitido", true},
+		{"POST", "/api/document", "", 405, "method not allowed", true},
 		{"POST", "/api/ops", `{"ops":[{"op":"create","node":{"type":"rect","id":"r1"}}]}`, 200, "", true},
-		{"POST", "/api/ops", `{`, 400, "JSON inválido", true},
-		{"GET", "/api/ops", "", 405, "método não permitido", true},
+		{"POST", "/api/ops", `{`, 400, "invalid JSON", true},
+		{"GET", "/api/ops", "", 405, "method not allowed", true},
 		{"GET", "/api/export", "", 200, "", false},
-		{"POST", "/api/export", "", 405, "método não permitido", true},
+		{"POST", "/api/export", "", 405, "method not allowed", true},
 		{"GET", "/api/workspaces", "", 200, "", true},
 		{"POST", "/api/workspaces", `{"name":"novo"}`, 201, "", true},
-		{"POST", "/api/workspaces", `{`, 400, "JSON inválido", true},
-		{"PUT", "/api/workspaces", "", 405, "método não permitido", true},
+		{"POST", "/api/workspaces", `{`, 400, "invalid JSON", true},
+		{"PUT", "/api/workspaces", "", 405, "method not allowed", true},
 		{"PATCH", "/api/workspaces/" + ws.ID, `{"name":"renomeado"}`, 200, "", true},
-		{"PATCH", "/api/workspaces/missing", `{"name":"x"}`, 404, "não existe", true},
-		{"PATCH", "/api/workspaces/" + ws.ID, `{"name":"   "}`, 400, "não pode ficar vazio", true},
-		{"DELETE", "/api/workspaces/missing", "", 404, "não existe", true},
-		{"GET", "/api/workspaces/" + ws.ID, "", 405, "método não permitido", true},
-		{"GET", "/api/workspaces/missing/cover", "", 404, "não tem capa", true},
-		{"PUT", "/api/workspaces/missing/cover", "not-an-image", 415, "PNG, JPEG, WebP ou GIF", true},
-		{"DELETE", "/api/workspaces/missing/cover", "", 404, "não existe", true},
-		{"POST", "/api/workspaces/missing/cover", "", 405, "método não permitido", true},
+		{"PATCH", "/api/workspaces/missing", `{"name":"x"}`, 404, "does not exist", true},
+		{"PATCH", "/api/workspaces/" + ws.ID, `{"name":"   "}`, 400, "cannot be blank", true},
+		{"DELETE", "/api/workspaces/missing", "", 404, "does not exist", true},
+		{"GET", "/api/workspaces/" + ws.ID, "", 405, "method not allowed", true},
+		{"GET", "/api/workspaces/missing/cover", "", 404, "has no cover", true},
+		{"PUT", "/api/workspaces/missing/cover", "not-an-image", 415, "PNG, JPEG, WebP or GIF", true},
+		{"DELETE", "/api/workspaces/missing/cover", "", 404, "does not exist", true},
+		{"POST", "/api/workspaces/missing/cover", "", 405, "method not allowed", true},
 		{"POST", "/api/workspaces/" + ws.ID + "/open", "", 200, "", true},
-		{"POST", "/api/workspaces/missing/open", "", 404, "não existe", true},
-		{"GET", "/api/workspaces/" + ws.ID + "/open", "", 405, "método não permitido", true},
+		{"POST", "/api/workspaces/missing/open", "", 404, "does not exist", true},
+		{"GET", "/api/workspaces/" + ws.ID + "/open", "", 405, "method not allowed", true},
 		{"GET", "/api/render", "", 200, "", false},
-		{"POST", "/api/render", "", 405, "método não permitido", true},
-		{"GET", "/api/screenshot", "", 500, "screenshot indisponível", true},
-		{"POST", "/api/screenshot", "", 405, "método não permitido", true},
+		{"POST", "/api/render", "", 405, "method not allowed", true},
+		{"GET", "/api/screenshot", "", 500, "screenshot unavailable", true},
+		{"POST", "/api/screenshot", "", 405, "method not allowed", true},
 		{"GET", "/api/screenshot/missing", "", 404, "screenshot não encontrado", true},
 		{"GET", "/api/svg", "", 200, "", true},
-		{"POST", "/api/svg", "", 405, "método não permitido", true},
+		{"POST", "/api/svg", "", 405, "method not allowed", true},
 		{"GET", "/", "", 200, "", false},
-		{"POST", "/no-such", "", 405, "método não permitido", true},
+		{"POST", "/no-such", "", 405, "method not allowed", true},
 		{"GET", "/mcp", "", 405, "", false},
 		{"POST", "/mcp", `{}`, 406, "", false},
 	}
@@ -133,15 +133,15 @@ func TestHTTPHostOriginOn404AndPanic(t *testing.T) {
 	defer srv.Close()
 
 	code, body, _ := httpDo(t, srv, "GET", "/api/health", map[string]string{"Host": "evil.example:" + strconv.Itoa(srv.Port)}, "")
-	if code != 403 || !strings.Contains(body, "Host/Origin não permitido") {
+	if code != 403 || !strings.Contains(body, "Host/Origin not allowed") {
 		t.Fatalf("evil host health: %d %s", code, body)
 	}
 	code, body, _ = httpDo(t, srv, "GET", "/definitely-missing-asset.js", map[string]string{"Host": "evil.example:" + strconv.Itoa(srv.Port)}, "")
-	if code != 403 || !strings.Contains(body, "Host/Origin não permitido") {
+	if code != 403 || !strings.Contains(body, "Host/Origin not allowed") {
 		t.Fatalf("evil host 404 path: %d %s", code, body)
 	}
 	code, body, _ = httpDo(t, srv, "GET", "/api/health", map[string]string{"Origin": "http://evil.example:" + strconv.Itoa(srv.Port)}, "")
-	if code != 403 || !strings.Contains(body, "Host/Origin não permitido") {
+	if code != 403 || !strings.Contains(body, "Host/Origin not allowed") {
 		t.Fatalf("evil origin: %d %s", code, body)
 	}
 }

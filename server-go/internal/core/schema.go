@@ -190,7 +190,12 @@ func connectorSchema() *z.ObjectSchema {
 		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"),
 		z.Field{Name: "from", Schema: connectorEndSchema()},
 		z.Field{Name: "to", Schema: connectorEndSchema()},
-		z.Field{Name: "route", Schema: z.Default(z.Enum("straight", "elbow"), "straight")},
+		z.Field{Name: "route", Schema: z.Default(z.Enum("straight", "elbow", "rounded", "curve"), "straight")},
+		z.Field{Name: "radius", Schema: z.Default(z.Number().Min(0).Max(1000), 0.0)},
+		z.Field{Name: "control", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number()},
+			z.Field{Name: "y", Schema: z.Number()},
+		))},
 		z.Field{Name: "startArrow", Schema: z.Default(z.Enum("none", "arrow"), "none")},
 		z.Field{Name: "endArrow", Schema: z.Default(z.Enum("none", "arrow"), "arrow")},
 		z.Field{Name: "stroke", Schema: z.Default(strokeSchema, jsonv.NewObject("color", "#1e2336", "width", 2.0))},
@@ -323,7 +328,7 @@ var (
 var DocumentSchema = z.Object(
 	z.Field{Name: "format", Schema: z.Literal(Format)},
 	z.Field{Name: "id", Schema: z.String()},
-	z.Field{Name: "name", Schema: z.Default(z.String(), "Sem título")},
+	z.Field{Name: "name", Schema: z.Default(z.String(), "Untitled")},
 	z.Field{Name: "tokens", Schema: z.Default(z.Record(TokenNameSchema, TokenValueSchema), jsonv.NewObject())},
 	z.Field{Name: "modes", Schema: z.Optional(z.Record(ModeNameSchema, z.Record(TokenNameSchema, TokenValueSchema)))},
 	z.Field{Name: "rootIds", Schema: z.Default(z.Array(z.String()), []any{})},

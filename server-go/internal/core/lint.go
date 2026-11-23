@@ -331,6 +331,7 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 			add("unnamed-frame", "info", id, "top-level frame without a name")
 		}
 	}
+	issues = append(issues, PlacementLint(doc, ids)...)
 	return issues
 }
 

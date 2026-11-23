@@ -98,14 +98,14 @@ func readBody(r *http.Request) (any, bool, error) {
 		return nil, false, err
 	}
 	if len(data) > maxBody {
-		return nil, false, &httpError{413, "corpo excede 8 MiB"}
+		return nil, false, &httpError{413, "body exceeds 8 MiB"}
 	}
 	if len(data) == 0 {
 		return nil, false, nil
 	}
 	v, err := jsonv.Parse(data)
 	if err != nil {
-		return nil, false, &httpError{400, "JSON inválido"}
+		return nil, false, &httpError{400, "invalid JSON"}
 	}
 	return v, true, nil
 }
@@ -149,7 +149,7 @@ var apiOpsBody = z.Object(
 	z.Field{Name: "actor", Schema: z.Optional(z.String().Max(100))},
 )
 
-// POST /api/workspaces: name of the new workspace (blank: "Sem título").
+// POST /api/workspaces: name of the new workspace (blank: "Untitled").
 var workspaceBody = z.Object(z.Field{Name: "name", Schema: z.Optional(z.String().Max(120))})
 
 // PATCH /api/workspaces/{id}: new name (trimmed, not blank).
@@ -259,7 +259,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 				c.Abort()
 				return
 			}
-			send(c.Writer, 403, errBody("Host/Origin não permitido"), "")
+			send(c.Writer, 403, errBody("Host/Origin not allowed"), "")
 			c.Abort()
 			return
 		}
@@ -281,14 +281,14 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	})
 	engine.Any("/api/health", func(c *gin.Context) {
 		if c.Request.Method != http.MethodGet {
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
 		send(c.Writer, 200, jsonv.NewObject("ok", true, "version", float64(store.Version()), "file", store.Path(), "storage", "sqlite", "docId", store.DocID()), "")
 	})
 	engine.Any("/api/document", func(c *gin.Context) {
 		if c.Request.Method != http.MethodGet {
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
 		doc, version, _, _ := store.Snapshot()
@@ -296,7 +296,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	})
 	engine.Any("/api/ops", func(c *gin.Context) {
 		if c.Request.Method != http.MethodPost {
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
 		body, present, err := readBody(c.Request)
@@ -332,7 +332,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	})
 	engine.Any("/api/export", func(c *gin.Context) {
 		if c.Request.Method != http.MethodGet {
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
 		c.Writer.Header().Set("content-disposition", `attachment; filename="`+safeFileName(store.Doc().Str("name"))+`.paprika.json"`)
@@ -372,7 +372,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			}
 			send(c.Writer, 201, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
 		default:
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 		}
 	})
 	engine.Any("/api/workspaces/:id", func(c *gin.Context) {
@@ -398,12 +398,12 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			}
 			name := strings.TrimSpace(parsed.(*jsonv.Object).Str("name"))
 			if name == "" {
-				send(c.Writer, 400, errBody("o nome não pode ficar vazio"), "")
+				send(c.Writer, 400, errBody("name cannot be blank"), "")
 				return
 			}
 			info, err := store.RenameWorkspace(id, name, "user")
 			if errors.Is(err, ErrNoWorkspace) {
-				send(c.Writer, 404, errBody(`workspace "`+id+`" não existe`), "")
+				send(c.Writer, 404, errBody(`workspace "`+id+`" does not exist`), "")
 				return
 			}
 			if err != nil {
@@ -415,16 +415,16 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			active, err := store.DeleteWorkspace(id, "user")
 			switch {
 			case errors.Is(err, ErrNoWorkspace):
-				send(c.Writer, 404, errBody(`workspace "`+id+`" não existe`), "")
+				send(c.Writer, 404, errBody(`workspace "`+id+`" does not exist`), "")
 			case errors.Is(err, ErrLastWorkspace):
-				send(c.Writer, 409, errBody("não é possível excluir o único workspace"), "")
+				send(c.Writer, 409, errBody("cannot delete the only workspace"), "")
 			case err != nil:
 				send(c.Writer, 500, errBody(err.Error()), "")
 			default:
 				send(c.Writer, 200, jsonv.NewObject("deleted", id, "active", active), "")
 			}
 		default:
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 		}
 	})
 	engine.Any("/api/workspaces/:id/cover", func(c *gin.Context) {
@@ -435,7 +435,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		case http.MethodGet:
 			data, mime, err := store.Cover(id)
 			if errors.Is(err, ErrNoWorkspace) {
-				send(c.Writer, 404, errBody(`workspace "`+id+`" não tem capa`), "")
+				send(c.Writer, 404, errBody(`workspace "`+id+`" has no cover`), "")
 				return
 			}
 			if err != nil {
@@ -460,14 +460,14 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		case http.MethodDelete:
 			info, err = store.ClearCover(id)
 		default:
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
 		switch {
 		case errors.Is(err, ErrNoWorkspace):
-			send(c.Writer, 404, errBody(`workspace "`+id+`" não existe`), "")
+			send(c.Writer, 404, errBody(`workspace "`+id+`" does not exist`), "")
 		case errors.Is(err, ErrBadCover):
-			send(c.Writer, 415, errBody("a capa precisa ser uma imagem PNG, JPEG, WebP ou GIF de até 2 MiB"), "")
+			send(c.Writer, 415, errBody("cover must be a PNG, JPEG, WebP or GIF image of at most 2 MiB"), "")
 		case err != nil:
 			send(c.Writer, 500, errBody(err.Error()), "")
 		default:
@@ -476,13 +476,13 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	})
 	engine.Any("/api/workspaces/:id/open", func(c *gin.Context) {
 		if c.Request.Method != http.MethodPost {
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
 		id := c.Param("id")
 		info, err := store.OpenWorkspace(id, "user")
 		if errors.Is(err, ErrNoWorkspace) {
-			send(c.Writer, 404, errBody(`workspace "`+id+`" não existe`), "")
+			send(c.Writer, 404, errBody(`workspace "`+id+`" does not exist`), "")
 			return
 		}
 		if err != nil {
@@ -493,7 +493,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	})
 	engine.Any("/api/render", func(c *gin.Context) {
 		if c.Request.Method != http.MethodGet {
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
 		html, _, err := core.RenderHTML(store.Doc(), core.RenderOptions{RootID: c.Query("root")})
@@ -505,11 +505,11 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	})
 	engine.Any("/api/screenshot", func(c *gin.Context) {
 		if c.Request.Method != http.MethodGet {
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
 		if opts.Shot == nil {
-			send(c.Writer, 500, errBody("screenshot indisponível neste servidor"), "")
+			send(c.Writer, 500, errBody("screenshot unavailable on this server"), "")
 			return
 		}
 		scale, _ := strconv.ParseFloat(c.Query("scale"), 64)
@@ -544,7 +544,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	})
 	engine.Any("/api/svg", func(c *gin.Context) {
 		if c.Request.Method != http.MethodGet {
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
 		res, err := core.ExportSVG(store.Doc(), c.Query("root"), nil)
@@ -569,7 +569,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	})
 	engine.NoRoute(func(c *gin.Context) {
 		if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
-			send(c.Writer, 405, errBody("método não permitido"), "")
+			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
 		serveStatic(c.Writer, c.Request, webRoot)
@@ -677,18 +677,18 @@ func safeFileName(s string) string {
 
 func serveStatic(w http.ResponseWriter, r *http.Request, webRoot string) {
 	if webRoot == "" {
-		send(w, 200, `<!doctype html><meta charset="utf-8"><title>Paprika</title><p>Canvas não compilado. Rode <code>pnpm build</code>. MCP ativo em <code>/mcp</code>.</p>`, mimeTypes[".html"])
+		send(w, 200, `<!doctype html><meta charset="utf-8"><title>Paprika</title><p>Canvas not built. Run <code>pnpm build</code>. MCP is at <code>/mcp</code>.</p>`, mimeTypes[".html"])
 		return
 	}
 	rel, err := url.PathUnescape(r.URL.EscapedPath())
 	if err != nil {
-		send(w, 403, errBody("caminho proibido"), "")
+		send(w, 403, errBody("forbidden path"), "")
 		return
 	}
 	rel = strings.TrimLeft(path.Clean("/"+rel), "/")
 	file := filepath.Join(webRoot, filepath.FromSlash(rel))
 	if file != webRoot && !strings.HasPrefix(file, webRoot+string(filepath.Separator)) {
-		send(w, 403, errBody("caminho proibido"), "")
+		send(w, 403, errBody("forbidden path"), "")
 		return
 	}
 	if st, err := os.Stat(file); err != nil || st.IsDir() {
