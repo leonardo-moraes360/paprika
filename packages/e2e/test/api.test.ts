@@ -1,11 +1,12 @@
 // Black-box API suite for the Go server: it runs as a separate process and is reached only
 // through MCP (HTTP and stdio), the WebSocket and the HTTP API (see server-go/README.md).
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { request } from "node:http";
+import { inflateSync } from "node:zlib";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -77,6 +78,55 @@ const schemaErrors = (schema: any, value: unknown, path = ""): string[] => {
 const assertOutput = (name: string, value: unknown) => {
   expect(schemaErrors(outputSchema(name), value), JSON.stringify(value)).toEqual([]);
 };
+
+function pngPixel(png: Buffer, x: number, y: number): number[] {
+  const idat: Buffer[] = [];
+  let w = 0;
+  let h = 0;
+  let color = 6;
+  for (let o = 8; o + 8 <= png.length; ) {
+    const len = png.readUInt32BE(o);
+    const type = png.subarray(o + 4, o + 8).toString();
+    const data = png.subarray(o + 8, o + 8 + len);
+    if (type === "IHDR") {
+      w = data.readUInt32BE(0);
+      h = data.readUInt32BE(4);
+      color = data[9]!;
+    } else if (type === "IDAT") idat.push(data);
+    else if (type === "IEND") break;
+    o += 12 + len;
+  }
+  const bpp = color === 6 ? 4 : color === 2 ? 3 : 4;
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = w * bpp;
+  const rows: Buffer[] = [];
+  let i = 0;
+  for (let row = 0; row < h; row++) {
+    const filter = raw[i++]!;
+    const cur = Buffer.alloc(stride);
+    for (let c = 0; c < stride; c++) {
+      const left = c >= bpp ? cur[c - bpp]! : 0;
+      const up = row > 0 ? rows[row - 1]![c]! : 0;
+      const ul = row > 0 && c >= bpp ? rows[row - 1]![c - bpp]! : 0;
+      const v = raw[i++]!;
+      let pred = 0;
+      if (filter === 1) pred = left;
+      else if (filter === 2) pred = up;
+      else if (filter === 3) pred = Math.floor((left + up) / 2);
+      else if (filter === 4) {
+        const p = left + up - ul;
+        const pa = Math.abs(p - left);
+        const pb = Math.abs(p - up);
+        const pc = Math.abs(p - ul);
+        pred = pa <= pb && pa <= pc ? left : pb <= pc ? up : ul;
+      }
+      cur[c] = (v + pred) & 255;
+    }
+    rows.push(cur);
+  }
+  const px = x * bpp;
+  return [rows[y]![px]!, rows[y]![px + 1]!, rows[y]![px + 2]!];
+}
 
 describe("API: MCP", () => {
   it("serve o contrato MCP (server-go/contract/mcp.json) com JSON Schema de objeto", async () => {
@@ -600,6 +650,60 @@ describe("API: MCP", () => {
     expect(png.readUInt32BE(20)).toBe(80);
     expect(textOf(r)).toContain("100×80px");
   }, 30_000);
+
+  it("render_screenshot grava path, recusa travessia, baixa por url e pinta o modo herdado", async () => {
+    await call(client, "set_tokens", { tokens: { bg: "#111111" } });
+    await call(client, "set_tokens", { mode: "light", tokens: { bg: "#ffffff" } });
+    await call(client, "set_tokens", { mode: "dark", tokens: { bg: "#111111" } });
+    await call(client, "create_nodes", { nodes: [{ type: "page", id: "pg", mode: "dark", fill: "$bg" }] });
+    await call(client, "create_nodes", {
+      parentId: "pg",
+      nodes: [
+        {
+          type: "frame", id: "light", mode: "light", width: 40, height: 20, fill: "$bg",
+          children: [{ type: "rect", id: "sub", width: 40, height: 20, fill: "$bg" }],
+        },
+        {
+          type: "frame", id: "darkf", width: 40, height: 20, fill: "$bg",
+          children: [{ type: "rect", id: "subdark", width: 40, height: 20, fill: "$bg" }],
+        },
+      ],
+    });
+    const outside = await call(client, "render_screenshot", { rootId: "sub", path: "../secret.png" });
+    expect(outside.isError).toBe(true);
+    expect(textOf(outside)).toContain("outside");
+    const abs = await call(client, "render_screenshot", { rootId: "sub", path: "/tmp/paprika-shot.png" });
+    expect(abs.isError).toBe(true);
+    expect(textOf(abs)).toContain("outside");
+
+    const saved = JSON.parse(textOf(await call(client, "render_screenshot", { rootId: "sub", path: "boards/shot.png" }))) as {
+      path: string; width: number; height: number; url: string;
+    };
+    expect(saved.width).toBe(40);
+    expect(saved.height).toBe(20);
+    expect(saved.url).toMatch(/^\/api\/screenshot\/[0-9a-f]{16}$/);
+    expect(saved.path.startsWith(srv.dir)).toBe(true);
+    const file = readFileSync(saved.path);
+    expect(statSync(saved.path).size).toBe(file.length);
+    expect(file.subarray(1, 4).toString()).toBe("PNG");
+    expect(file.readUInt32BE(16)).toBe(saved.width);
+    expect(file.readUInt32BE(20)).toBe(saved.height);
+    const downloaded = Buffer.from(await (await fetch(`${srv.url}${saved.url}`)).arrayBuffer());
+    expect(downloaded.equals(file)).toBe(true);
+
+    const inherited = await call(client, "render_screenshot", { rootId: "sub" });
+    expect(inherited.isError, textOf(inherited)).toBeFalsy();
+    expect(inherited.content.some((c) => c.type === "image")).toBe(true);
+    const forced = await call(client, "render_screenshot", { rootId: "subdark", mode: "light" });
+    const plain = await call(client, "render_screenshot", { rootId: "subdark" });
+    const pngOf = (r: ToolResult) => Buffer.from(r.content.find((c) => c.type === "image")!.data!, "base64");
+    const lightPx = pngPixel(pngOf(forced), 20, 10);
+    const darkPx = pngPixel(pngOf(plain), 20, 10);
+    const inheritedPx = pngPixel(pngOf(inherited), 20, 10);
+    expect(lightPx.every((v) => v > 250)).toBe(true);
+    expect(inheritedPx.every((v) => v > 250)).toBe(true);
+    expect(darkPx.every((v) => v < 40)).toBe(true);
+  }, 60_000);
 
   it("importar SVG/HTML e exportar SVG", async () => {
     const c = client;

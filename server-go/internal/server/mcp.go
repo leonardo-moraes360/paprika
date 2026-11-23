@@ -205,7 +205,7 @@ type MCP struct {
 
 // Screenshotter renders HTML in a browser for PNG screenshots.
 type Screenshotter interface {
-	Screenshot(ctx context.Context, doc *core.Document, rootID string, scale float64) (png []byte, width, height int, err error)
+	ScreenshotMode(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) (png []byte, width, height int, err error)
 }
 
 func optStr(name string) z.Field { return z.Field{Name: name, Schema: z.Optional(z.String())} }
@@ -936,7 +936,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 				err = derr
 				break
 			}
-			png, _, _, serr := m.shot.Screenshot(ctx, doc, a.Str("rootId"), 1)
+			png, _, _, serr := m.shot.ScreenshotMode(ctx, doc, a.Str("rootId"), 1, "")
 			if serr != nil {
 				return nil, serr
 			}
@@ -969,18 +969,35 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("render_screenshot", z.Object(
 		optStr("rootId"),
 		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
+		optStr("path"),
+		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
 	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		if m.shot == nil {
 			return nil, errors.New("screenshot unavailable on this server")
 		}
-		png, w, h, err := m.shot.Screenshot(ctx, store.Doc(), a.Str("rootId"), a.Num("scale"))
+		png, w, h, err := m.shot.ScreenshotMode(ctx, store.Doc(), a.Str("rootId"), a.Num("scale"), a.Str("mode"))
 		if err != nil {
 			return nil, err
+		}
+		if rel := a.Str("path"); rel != "" {
+			abs, werr := writeScreenshot(store.Path(), rel, png)
+			if werr != nil {
+				return nil, werr
+			}
+			out := jsonv.NewObject("path", abs, "width", float64(w), "height", float64(h))
+			if url := screenshotURL(m.shot, png); url != "" {
+				out.Set("url", url)
+			}
+			return jsonResult(out), nil
+		}
+		structured := jsonv.NewObject("width", float64(w), "height", float64(h))
+		if url := screenshotURL(m.shot, png); url != "" {
+			structured.Set("url", url)
 		}
 		return jsonv.NewObject("content", []any{
 			jsonv.NewObject("type", "image", "data", base64.StdEncoding.EncodeToString(png), "mimeType", "image/png"),
 			jsonv.NewObject("type", "text", "text", fmt.Sprintf("%d×%dpx", w, h)),
-		}, "structuredContent", jsonv.NewObject("width", float64(w), "height", float64(h))), nil
+		}, "structuredContent", structured), nil
 	})
 
 	add("export_image", z.Object(
