@@ -812,3 +812,15 @@ Tarefa: desenhar props, um slot, uma instância com valores e um botão aninhado
 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #123, ainda aberto: `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0. Os frames foram para y=9800, abaixo do conteúdo que uma varredura de profundidade 1 já mostrava.
+
+## 2026-11-23: roster condensado (PAP-B-073, design first)
+
+Tarefa: desenhar a pílula fechada e a lista aberta de ativos e ociosos, claro e escuro, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de mudar `AgentCursors.tsx`. Frames `b073dark` e `b073light` em y=12760. PNGs em `docs/assets/boards/PAP-B-073/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 148 | Texto branco sobre um selo azul | A palavra era um nó de texto ao lado de um retângulo azul. O `lint_design` mediu contra o canvas claro (1,21:1) e ignorou o retângulo por baixo | O contraste do texto deve usar o preenchimento pintado por cima sob os glifos, não só o pai | P3 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual a #123 e #128, ainda aberto: a caixa de conteúdo de `page#interfaces` é vazia, e uma segunda página também se chama Interfaces. Os fundos de profundidade 1 colocaram os frames em y=12760.
+- Aninhar o rótulo dentro do frame do selo limpou o contraste. O `lint_design` nos dois frames ficou sem erros nem avisos.

@@ -809,3 +809,15 @@ Task: draw props, a slot, an instance with values and a nested button inside a c
 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123, still open: `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0. The frames went to y=9800, below the content that a depth-1 scan already showed.
+
+## 2026-11-23: condensed agent roster (PAP-B-073, design first)
+
+Task: draw the collapsed pill and the expanded active/idle list, light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before changing `AgentCursors.tsx`. Frames `b073dark` and `b073light` at y=12760. PNGs in `docs/assets/boards/PAP-B-073/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 148 | White label ink on a blue badge | The word sat in a text node next to a blue rect. `lint_design` measured it against the light canvas (1.21:1) and ignored the rect underneath | Contrast for text should use the topmost painted fill under the glyphs, not only the parent | P3 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123 and #128, still open: the content box of `page#interfaces` is empty, and a second page is also named Interfaces. Depth-1 bottoms put the frames at y=12760.
+- Nesting the label inside the badge frame cleared the contrast error. `lint_design` on both frames then reported no errors or warnings.
