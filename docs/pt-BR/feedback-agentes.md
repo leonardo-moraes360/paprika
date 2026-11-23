@@ -664,3 +664,16 @@ Tarefa: desenhar a casca do error boundary (escuro e claro) na página `interfac
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
 | 127 | `layout.padding` como tupla de 2 números | `create_nodes` recusou com `op[0]: invalid node: layout.padding: Invalid input`. O erro não disse que só um número ou quatro valores são válidos. Todo padding virou um número só | Citar as formas aceitas nesse erro (um número, ou `[topo, direita, baixo, esquerda]`). O guia já diz isso (#89); a recusa ainda não | P2 |
+
+## 2026-11-23: colapso das seções do inspector (PAP-B-088, design first)
+
+Tarefa: desenhar os estados aberto, no meio do deslize, fechado e com movimento reduzido de uma seção do inspector na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de corrigir o flick. Quatro frames de altura fixa em y=3600 (`b088-open`, `b088-mid`, `b088-closed`, `b088-reduce`). PNGs em `docs/assets/boards/PAP-B-088/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 128 | A página chamada `Interfaces` | `find_nodes` devolveu duas páginas com esse nome: `page#interfaces` (os boards) e uma vazia `page#h6jut017rv` | Desambiguar nomes de página repetidos no `find_nodes`, ou devolver no cabeçalho do outline só a que tem filhos | P3 |
+| 129 | O arquivo do screenshot no host | `render_screenshot` com `path` gravou `/data/screenshots/PAP-B-088/*.png` dentro do container do servidor. O repositório no host não viu o arquivo; o PNG teve de ser baixado pela `url` (`/api/screenshot/<id>`) | Devolver um caminho do host quando o servidor roda no Docker, ou documentar que `path` é o filesystem do servidor e a `url` é a saída | P2 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #123, ainda aberto: `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0, então os frames foram posicionados varrendo o `y` de profundidade 1 (pousaram em y=3600).
+- `lint_design` nos quatro frames ficou limpo depois que os chevrons foram para 12px. O corpo cortado no meio do deslize precisou de `lintIgnore: ["layout-overflow"]` porque o corte é o frame.
