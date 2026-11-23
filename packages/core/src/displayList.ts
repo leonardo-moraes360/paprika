@@ -1,6 +1,6 @@
 import { parseColor } from "./lint.js";
 import { listShadows, pageRoots, type Document, type Node, type SceneNode } from "./schema.js";
-import { modeOf, resolveCorners, resolveLength, resolveValue, strokePositionOf, strokeStyleOf, uniformCorner } from "./style.js";
+import { modeOf, nodeGradient, resolveCorners, resolveLength, resolveValue, strokePositionOf, strokeStyleOf, uniformCorner } from "./style.js";
 
 /**
  * Display list for the WASM canvas renderer (`crates/render`, ADR 0002).
@@ -44,11 +44,18 @@ function hasEffects(f: { blur?: unknown; saturate?: unknown; grayscale?: unknown
   return !!f && (f.blur !== undefined || f.saturate !== undefined || f.grayscale !== undefined || f.brightness !== undefined || f.sepia !== undefined || f.invert !== undefined || f.hueRotate !== undefined);
 }
 
-/** A CSS color (or `$token`) as straight RGBA 0..1; `null` when it is not a solid color. */
+function classicSolid(css: string): boolean {
+  if (css === "white" || css === "black") return true;
+  if (/^#[0-9a-f]{3,8}$/.test(css)) return true;
+  return /^rgba?\(/.test(css);
+}
+
+/** A classic sRGB color (or `$token`) as straight RGBA 0..1. Modern colors and gradients stay on the DOM. */
 export function solidColor(doc: Document, value: string | undefined, mode?: string): RGBA4 | null {
   if (value === undefined) return [0, 0, 0, 0];
   const css = String(resolveValue(doc, value, mode)).trim().toLowerCase();
   if (css === "transparent" || css === "none") return [0, 0, 0, 0];
+  if (!classicSolid(css)) return null;
   const c = parseColor(css);
   return c ? [c.r / 255, c.g / 255, c.b / 255, c.a] : null;
 }
@@ -80,6 +87,7 @@ function underUnevenFrame(doc: Document, n: Node): boolean {
 export function wasmPaintable(doc: Document, n: Node): boolean {
   if (underUnevenFrame(doc, n) || unevenCorners(doc, n)) return false;
   if (!isShape(n)) return false;
+  if (nodeGradient(n)) return false;
   if (!solidColor(doc, n.fill, modeOf(doc, n))) return false;
   if (n.stroke && !solidColor(doc, n.stroke.color, modeOf(doc, n))) return false;
   const shadows = listShadows(n.shadow);

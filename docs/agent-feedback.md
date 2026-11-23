@@ -730,3 +730,18 @@ Task: draw the multi-selection inspector (align, distribute, wrap in a frame) an
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123 and #128, still open: `get_bounds` on `page#interfaces` returned an empty content box, and a second empty page is also named `Interfaces` (`h6jut017rv`). Frames were placed by reading depth-1 `x`/`y` (landed at y=4200).
 - `lint_design` on both frames was clean after the locked label switched to `$ui.destructiveText`.
+
+## 2026-11-23: structured gradients and OKLCH (PAP-B-081, design first)
+
+Task: draw the fill inspector, the on-canvas handles and the OKLCH picker, light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before implementing `gradient` and the color parser. Frames at y=5400 and y=5960. PNGs in `docs/assets/boards/PAP-B-081/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 137 | A free spot under the existing boards | `get_bounds` on page `interfaces` returned a 0×0 content box and next spot `0,0`, while the children extend past x 8000 and y 5200 | Return the union of the page's children when the page itself has no box | P2 |
+| 138 | An ellipse knob inside an auto-layout frame | `create_nodes` rejected the whole batch: `unknown fields for ellipse: layoutPositioning` | The error is right; the guide should say the field is only on nodes that flow | P3 |
+| 139 | A dark mode on the mock | `mode: "dark"` linted as unknown-mode. The base tokens are already the dark theme; only `light` exists | Document that the base set is the dark theme in `Paprica · UI` | P3 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #128: two pages named Interfaces. Used `interfaces` (the one with children), not the empty page.
+- Same as #129: `render_screenshot` wrote under the server's `/data/screenshots`. The PNGs were copied from the returned URL.
+- Eight 11px labels warned as small-text. The boards were not redrawn at 12px.

@@ -13,6 +13,7 @@ import {
   layout,
   newId,
   pageRoots,
+  nodeGradient,
   nodeStyle,
   parsePath,
   pathAttrs,
@@ -56,6 +57,7 @@ import { childrenSelection, cycleSibling, layersUnderPoint } from "./hierarchy";
 import { LayerMenu } from "./LayerMenu";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { Button } from "./components/ui/button";
+import { GradientHandles } from "./GradientHandles";
 import { Hint } from "./components/ui/tooltip";
 import { InlineName } from "./InlineName";
 import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
@@ -367,6 +369,7 @@ function DraftGhost({
           {shape && node.type === "shape" ? (
             <>
               <svg xmlns="http://www.w3.org/2000/svg" width={shape.svg.width} height={shape.svg.height} style={SHAPE_SVG_CSS as CSSProperties}>
+                {shape.svgInner ? <g dangerouslySetInnerHTML={{ __html: shape.svgInner }} /> : null}
                 <path d={shape.path.d} fill={shape.path.fill} stroke={shape.path.stroke} strokeWidth={shape.path.strokeWidth} strokeLinejoin="round" />
                 {shape.fold && <path d={shape.fold.d} fill={shape.fold.fill} />}
               </svg>
@@ -462,6 +465,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
       if (editing) props.style = { ...css, overflow: "visible" };
       return (
         <svg {...props} {...a.svg}>
+          {a.svgInner ? <g dangerouslySetInnerHTML={{ __html: a.svgInner }} /> : null}
           {!wasmPaints && (
             <path {...a.path} fillRule={a.path.fillRule as "nonzero" | "evenodd"} strokeLinecap={a.path.strokeLinecap as "round"} strokeLinejoin={a.path.strokeLinejoin as "round"} />
           )}
@@ -475,6 +479,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
       return (
         <div {...props}>
           <svg xmlns="http://www.w3.org/2000/svg" width={a.svg.width} height={a.svg.height} style={SHAPE_SVG_CSS as CSSProperties}>
+            {a.svgInner ? <g dangerouslySetInnerHTML={{ __html: a.svgInner }} /> : null}
             <path
               d={a.path.d}
               fill={a.path.fill}
@@ -2116,6 +2121,15 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
                 <div className="pointer-events-auto absolute -right-1.25 -bottom-1.25 size-[9px] cursor-nwse-resize border-[1.5px] border-select bg-white" data-resize="se" onPointerDown={onResizeDown("se")} />
               </Hint>
             </>
+          )}
+          {single && single.type !== "page" && nodeGradient(single) && !single.locked && !copyOwner(doc, single) && (
+            <GradientHandles
+              doc={shown}
+              node={single}
+              width={box.width}
+              height={box.height}
+              onCommit={(gradient) => apply([{ op: "update", id: single.id, props: { gradient } }], "gradient")}
+            />
           )}
           <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink">
             {Math.round(box.width / view.zoom)} × {Math.round(box.height / view.zoom)}

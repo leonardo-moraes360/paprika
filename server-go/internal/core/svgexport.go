@@ -224,21 +224,25 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 	shapeSVG := func(n *Node, w, h float64) string {
 		mode := ModeOf(doc, n)
 		id := EscapeHTML(n.Str("id"))
-		_, pathA, fold := ShapeAttrs(doc, n, false)
+		_, pathA, fold, inner := ShapeAttrs(doc, n, false)
 		defs, shadowAttr := svgShadow(doc, n, id, warn)
 		attrs := make([]Attr, len(pathA))
 		copy(attrs, pathA)
 		for i, a := range attrs {
-			if a.Key == "fill" && a.Value != "none" {
-				pfill := "none"
-				if pf, ok := svgPaint(doc, n, "fill", warn); ok {
-					pfill = pf
-				}
-				attrs[i] = Attr{"fill", pfill}
+			if a.Key != "fill" || a.Value == "none" {
+				continue
 			}
+			if s, ok := a.Value.(string); ok && strings.HasPrefix(s, "url(") {
+				continue
+			}
+			pfill := "none"
+			if pf, ok := svgPaint(doc, n, "fill", warn); ok {
+				pfill = pf
+			}
+			attrs[i] = Attr{"fill", pfill}
 		}
 		var body strings.Builder
-		body.WriteString("<g" + shadowAttr + "><path" + svgAttrs(attrs) + "/>")
+		body.WriteString("<g" + shadowAttr + ">" + inner + "<path" + svgAttrs(attrs) + "/>")
 		if fold != nil {
 			body.WriteString("<path" + svgAttrs(fold) + "/>")
 		}
@@ -384,8 +388,16 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 			defs, shadowAttr = svgShadow(doc, n, id, warn)
 		}
 		fill, hasFill := "", false
+		paintedInner, hasPainted := "", false
 		if typ != "path" {
-			fill, hasFill = svgPaint(doc, n, "fill", warn)
+			if pf, extra, ok := svgGradientInner(doc, n, w, h, false); ok {
+				paintedInner, hasPainted = extra, true
+				if pf != "none" {
+					fill, hasFill = pf, true
+				}
+			} else {
+				fill, hasFill = svgPaint(doc, n, "fill", warn)
+			}
 		}
 		sw := 0.0
 		st := n.Obj("stroke")
@@ -464,21 +476,29 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		case "ellipse":
 			fmt.Fprintf(&body, `<ellipse cx="%s" cy="%s" rx="%s" ry="%s"%s%s%s/>`, f(w/2), f(h/2), f(math.Max(0, (w-insetBy*2)/2)), f(math.Max(0, (h-insetBy*2)/2)), fillAttr, strokeAttr, shadowAttr)
 		case "path":
-			svgA, pathA := PathAttrs(doc, n)
+			svgA, pathA, inner := PathAttrs(doc, n)
 			attrs := make([]Attr, len(pathA))
 			copy(attrs, pathA)
 			for i, a := range attrs {
-				if a.Key == "fill" {
-					pfill := "none"
-					if a.Value != "none" {
-						if pf, ok := svgPaint(doc, n, "fill", warn); ok {
-							pfill = pf
-						}
-					}
-					attrs[i] = Attr{"fill", pfill}
+				if a.Key != "fill" {
+					continue
 				}
+				if s, ok := a.Value.(string); ok && (s == "none" || strings.HasPrefix(s, "url(")) {
+					continue
+				}
+				pfill := "none"
+				if pf, ok := svgPaint(doc, n, "fill", warn); ok {
+					pfill = pf
+				}
+				attrs[i] = Attr{"fill", pfill}
 			}
-			fmt.Fprintf(&body, `<svg width="%s" height="%s"%s overflow="visible"><path%s%s/></svg>`, f(w), f(h), svgAttrs(svgA), svgAttrs(attrs), shadowAttr)
+			fmt.Fprintf(&body, `<svg width="%s" height="%s"%s overflow="visible">%s<path%s%s/></svg>`, f(w), f(h), svgAttrs(svgA), inner, svgAttrs(attrs), shadowAttr)
+		}
+		if hasPainted && typ != "path" {
+			rest := body.String()
+			body.Reset()
+			body.WriteString(paintedInner)
+			body.WriteString(rest)
 		}
 		if typ == "text" {
 			fsv, _ := n.Get("fontSize")
@@ -591,12 +611,16 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 	bg := ""
 	if single == nil {
 		fill := "#ffffff"
+		pageInner := ""
 		if page != nil {
-			if v, ok := page.Get("fill"); ok && v != "" && v != nil {
+			if pf, extra, ok := svgGradientInner(doc, page, width, height, false); ok {
+				pageInner = extra
+				fill = pf
+			} else if v, ok := page.Get("fill"); ok && v != "" && v != nil {
 				fill = jsString(ResolveValue(doc, v, page.Str("mode")))
 			}
 		}
-		bg = fmt.Sprintf(`<rect width="%s" height="%s" fill="%s"/>`, f(width), f(height), EscapeHTML(fill))
+		bg = pageInner + fmt.Sprintf(`<rect width="%s" height="%s" fill="%s"/>`, f(width), f(height), EscapeHTML(fill))
 	}
 	svg := fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="%s" height="%s" viewBox="0 0 %s %s">%s%s</svg>`, f(width), f(height), f(width), f(height), bg, content.String())
 	return SVGResult{SVG: svg, Width: width, Height: height, Warnings: *warnings}, nil

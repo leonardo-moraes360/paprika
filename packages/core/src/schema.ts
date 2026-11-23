@@ -5,14 +5,28 @@ import { pathError } from "./path.js";
 export const FORMAT = "paprika/1" as const;
 
 /**
- * Uma cor CSS (`#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, `transparent`) ou uma referência
- * a token no formato `$nome` (resolvida contra `document.tokens`).
+ * Uma cor CSS (`#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, `oklch()`, `color-mix()`,
+ * `color(display-p3 …)`, `transparent`) ou uma referência a token `$nome`.
  */
 export const ColorValue = z
   .string()
   .min(1)
   .max(200)
   .refine((v) => !/[;{}<>]/.test(v), "a color cannot contain ; { } < >");
+
+export const GradientStop = z.object({
+  color: ColorValue,
+  offset: z.number().min(0).max(1),
+});
+
+export const Gradient = z.object({
+  type: z.enum(["linear", "radial", "conic"]),
+  angle: z.number().min(-3600).max(3600).default(180),
+  cx: z.number().min(0).max(1).default(0.5),
+  cy: z.number().min(0).max(1).default(0.5),
+  radius: z.number().min(0).max(2).default(0.5),
+  stops: z.array(GradientStop).min(2).max(12),
+});
 
 export const Size = z.union([z.number().min(0).max(100_000), z.enum(["hug", "fill"])]);
 
@@ -121,6 +135,7 @@ const Base = {
   locked: z.boolean().default(false),
   layoutPositioning: z.enum(["auto", "absolute"]).optional(),
   fill: ColorValue.optional(),
+  gradient: Gradient.optional(),
   stroke: Stroke.optional(),
   radius: lengthValue(0).default(0),
   shadow: ShadowValue.optional(),
@@ -338,6 +353,7 @@ export const PageNode = z.object({
   parentId: Base.parentId,
   type: z.literal("page"),
   fill: ColorValue.optional(),
+  gradient: Gradient.optional(),
   /** Modo de tema da página inteira. */
   mode: ModeName.optional(),
   notes: Base.notes,
@@ -368,6 +384,8 @@ export const Document = z.object({
 });
 
 export type ColorValue = z.infer<typeof ColorValue>;
+export type Gradient = z.infer<typeof Gradient>;
+export type GradientStop = z.infer<typeof GradientStop>;
 export type Size = z.infer<typeof Size>;
 export type Stroke = z.infer<typeof Stroke>;
 export type StrokeStyle = z.infer<typeof StrokeStyle>;

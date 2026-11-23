@@ -472,7 +472,9 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		textCSS(css, doc, node, themeMode, vars, paint)
 		return css
 	}
-	if fill, ok := node.Get("fill"); ok {
+	if g := nodeGradient(node); g != nil {
+		css.Set("background", gradientCSS(doc, g, themeMode, vars))
+	} else if fill, ok := node.Get("fill"); ok {
 		css.Set("background", jsString(paint(fill)))
 	}
 	if st := node.Obj("stroke"); st != nil {
@@ -716,11 +718,14 @@ func ShapeSVGCSS() *CSS {
 func ShapeTextCSS() *CSS { return jsonv.NewObject("position", "relative", "width", "100%") }
 
 // ShapeAttrs: the outline <svg> size, the outline <path> and, on a sticky note, the fold.
-func ShapeAttrs(doc *Document, node *Node, vars bool) (svg, path, fold []Attr) {
+func ShapeAttrs(doc *Document, node *Node, vars bool) (svg, path, fold []Attr, inner string) {
 	themeMode := ModeOf(doc, node)
 	d, f := ShapeOutline(lengthsResolved(doc, node))
 	fill := "none"
-	if fv, ok := node.Get("fill"); ok {
+	if painted, extra, ok := svgGradientInner(doc, node, node.Num("width"), node.Num("height"), vars); ok {
+		fill = painted
+		inner = extra
+	} else if fv, ok := node.Get("fill"); ok {
 		fill = jsString(paintValue(doc, fv, themeMode, vars))
 	}
 	path = []Attr{{"d", d}, {"fill", fill}, {"strokeLinejoin", "round"}}
@@ -737,7 +742,7 @@ func ShapeAttrs(doc *Document, node *Node, vars bool) (svg, path, fold []Attr) {
 	if f != "" {
 		fold = []Attr{{"d", f}, {"fill", NoteFoldFill}}
 	}
-	return svg, path, fold
+	return svg, path, fold, inner
 }
 
 // ConnectorAttrs: the <path> of a connector (line and arrowheads, no fill).
@@ -805,6 +810,9 @@ func connectorHalo(doc *Document, node *Node, vars bool) string {
 	for cur != nil {
 		switch cur.Str("type") {
 		case "frame", "page", "rect", "ellipse":
+			if nodeGradient(cur) != nil {
+				continue
+			}
 			if f := cur.Str("fill"); f != "" && f != "transparent" && !connectorHaloSkip.MatchString(f) {
 				return jsString(paintValue(doc, f, ModeOf(doc, cur), vars))
 			}
@@ -846,10 +854,12 @@ type Attr struct {
 }
 
 // PathAttrs returns the attributes of the <svg> and <path> of a path node.
-func PathAttrs(doc *Document, node *Node) (svg, path []Attr) { return PathAttrsVars(doc, node, false) }
+func PathAttrs(doc *Document, node *Node) (svg, path []Attr, inner string) {
+	return PathAttrsVars(doc, node, false)
+}
 
 // PathAttrsVars is PathAttrs with tokens as CSS variables when vars.
-func PathAttrsVars(doc *Document, node *Node, vars bool) (svg, path []Attr) {
+func PathAttrsVars(doc *Document, node *Node, vars bool) (svg, path []Attr, inner string) {
 	themeMode := ModeOf(doc, node)
 	if vb := node.Arr("viewBox"); node.Has("viewBox") {
 		parts := make([]string, len(vb))
@@ -859,7 +869,21 @@ func PathAttrsVars(doc *Document, node *Node, vars bool) (svg, path []Attr) {
 		svg = append(svg, Attr{"viewBox", strings.Join(parts, " ")}, Attr{"preserveAspectRatio", "xMidYMid meet"})
 	}
 	fill := "none"
-	if f, ok := node.Get("fill"); ok {
+	w, h := 1.0, 1.0
+	if v, ok := node.Get("width"); ok {
+		if f, ok := v.(float64); ok {
+			w = f
+		}
+	}
+	if v, ok := node.Get("height"); ok {
+		if f, ok := v.(float64); ok {
+			h = f
+		}
+	}
+	if painted, extra, ok := svgGradientInner(doc, node, w, h, vars); ok {
+		fill = painted
+		inner = extra
+	} else if f, ok := node.Get("fill"); ok {
 		fill = jsString(paintValue(doc, f, themeMode, vars))
 	}
 	path = []Attr{
@@ -888,7 +912,7 @@ func PathAttrsVars(doc *Document, node *Node, vars bool) (svg, path []Attr) {
 			}
 		}
 	}
-	return svg, path
+	return svg, path, inner
 }
 
 var unitless = map[string]bool{"opacity": true, "fontWeight": true, "lineHeight": true, "flexShrink": true, "zIndex": true}

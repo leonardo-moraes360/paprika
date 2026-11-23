@@ -3,6 +3,7 @@ import {
   listShadows,
   type ConnectorNode,
   type Document,
+  type Gradient,
   type Layout,
   type Node,
   type PathNode,
@@ -77,6 +78,90 @@ const isKnownToken = (doc: Document, name: string) =>
 function paintValue(doc: Document, v: string | number, mode: string | undefined, vars: boolean | undefined): string | number {
   if (vars && typeof v === "string" && v.startsWith("$") && isKnownToken(doc, v.slice(1))) return `var(${cssVarName(v.slice(1))})`;
   return resolveValue(doc, v, mode);
+}
+
+function xmlEscape(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+export function nodeGradient(node: Node): Gradient | undefined {
+  if (node.type === "group" || node.type === "connector") return undefined;
+  return node.gradient;
+}
+
+function gradientStopsCSS(doc: Document, g: Gradient, mode: string | undefined, vars: boolean | undefined): string {
+  return [...g.stops]
+    .sort((a, b) => a.offset - b.offset)
+    .map((s) => `${paintValue(doc, s.color, mode, vars)} ${round(s.offset * 100)}%`)
+    .join(", ");
+}
+
+export function gradientCSS(doc: Document, g: Gradient, mode: string | undefined, vars?: boolean): string {
+  const stops = gradientStopsCSS(doc, g, mode, vars);
+  const angle = round(g.angle);
+  const cx = round(g.cx * 100);
+  const cy = round(g.cy * 100);
+  if (g.type === "radial") return `radial-gradient(ellipse ${round(g.radius * 100)}% ${round(g.radius * 100)}% at ${cx}% ${cy}%, ${stops})`;
+  if (g.type === "conic") return `conic-gradient(from ${angle}deg at ${cx}% ${cy}%, ${stops})`;
+  return `linear-gradient(${angle}deg, ${stops})`;
+}
+
+export function gradientLine(angle: number, w: number, h: number): { x1: number; y1: number; x2: number; y2: number } {
+  const rad = (angle * Math.PI) / 180;
+  const dx = Math.sin(rad);
+  const dy = -Math.cos(rad);
+  const tx = dx === 0 ? Infinity : w / 2 / Math.abs(dx);
+  const ty = dy === 0 ? Infinity : h / 2 / Math.abs(dy);
+  const t = Math.min(tx, ty);
+  return {
+    x1: (w / 2 - dx * t) / w,
+    y1: (h / 2 - dy * t) / h,
+    x2: (w / 2 + dx * t) / w,
+    y2: (h / 2 + dy * t) / h,
+  };
+}
+
+function gradientStopXML(doc: Document, g: Gradient, mode: string | undefined, vars: boolean | undefined): string {
+  return [...g.stops]
+    .sort((a, b) => a.offset - b.offset)
+    .map((s) => `<stop offset="${round(s.offset * 100)}%" stop-color="${xmlEscape(String(paintValue(doc, s.color, mode, vars)))}"/>`)
+    .join("");
+}
+
+export function svgGradientInner(doc: Document, node: Node, w: number, h: number, vars?: boolean): { fill: string; inner: string } | undefined {
+  const g = nodeGradient(node);
+  if (!g) return undefined;
+  const mode = modeOf(doc, node);
+  const id = `paprika-g-${node.id}`;
+  const stops = gradientStopXML(doc, g, mode, vars);
+  if (g.type === "linear" || g.type === "radial") {
+    const bw = w > 0 ? w : 1;
+    const bh = h > 0 ? h : 1;
+    const line = gradientLine(g.angle, bw, bh);
+    const el =
+      g.type === "linear"
+        ? `<linearGradient id="${id}" gradientUnits="objectBoundingBox" x1="${round(line.x1)}" y1="${round(line.y1)}" x2="${round(line.x2)}" y2="${round(line.y2)}">${stops}</linearGradient>`
+        : `<radialGradient id="${id}" gradientUnits="objectBoundingBox" cx="${round(g.cx)}" cy="${round(g.cy)}" r="${round(g.radius)}">${stops}</radialGradient>`;
+    return { fill: `url(#${id})`, inner: `<defs>${el}</defs>` };
+  }
+  const css = xmlEscape(gradientCSS(doc, g, mode, vars));
+  let mask = "";
+  let maskAttr = "";
+  if (node.type === "path") {
+    mask = `<mask id="paprika-gm-${node.id}"><path d="${xmlEscape(node.d)}" fill="white" fill-rule="${node.fillRule}"/></mask>`;
+    maskAttr = ` mask="url(#paprika-gm-${node.id})"`;
+  } else if (node.type === "shape") {
+    const radius = resolveLength(doc, node.radius, mode) ?? 0;
+    const sw = node.stroke ? (resolveLength(doc, node.stroke.width, mode) ?? 0) : 0;
+    const o = shapeOutline({ ...node, radius, stroke: node.stroke ? { ...node.stroke, width: sw } : undefined });
+    mask = `<mask id="paprika-gm-${node.id}"><path d="${xmlEscape(o.d)}" fill="white"/></mask>`;
+    maskAttr = ` mask="url(#paprika-gm-${node.id})"`;
+  } else if (node.type === "ellipse") {
+    mask = `<mask id="paprika-gm-${node.id}"><ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill="white"/></mask>`;
+    maskAttr = ` mask="url(#paprika-gm-${node.id})"`;
+  }
+  const under = `<foreignObject x="0" y="0" width="100%" height="100%"${maskAttr}><div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;background:${css}"></div></foreignObject>`;
+  return { fill: "none", inner: `${mask ? `<defs>${mask}</defs>` : ""}${under}` };
 }
 
 /** Escapa o que fecharia o valor ou a regra (`;`, `{`, `}`, `<`…) num valor de variável CSS. */
@@ -238,7 +323,9 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
     Object.assign(css, textCss(doc, node, mode, opts.vars, paint));
     return css;
   }
-  if (node.fill) css.background = String(paint(node.fill));
+  const gradient = nodeGradient(node);
+  if (gradient) css.background = gradientCSS(doc, gradient, mode, opts.vars);
+  else if (node.fill) css.background = String(paint(node.fill));
   if (node.stroke) {
     const style = strokeStyleOf(node.stroke);
     const pos = strokePositionOf(node);
@@ -417,14 +504,16 @@ export function shapeAttrs(doc: Document, node: ShapeNode, opts: { vars?: boolea
   svg: { width: number; height: number };
   path: { d: string; fill: string; stroke?: string; strokeWidth?: number | string; strokeLinejoin: string; strokeDasharray?: string };
   fold?: { d: string; fill: string };
+  svgInner: string;
 } {
   const mode = modeOf(doc, node);
   const radius = resolveLength(doc, node.radius, mode) ?? 0;
   const sw = node.stroke ? (resolveLength(doc, node.stroke.width, mode) ?? 0) : 0;
   const o = shapeOutline({ ...node, radius, stroke: node.stroke ? { ...node.stroke, width: sw } : undefined });
+  const painted = svgGradientInner(doc, node, node.width, node.height, opts.vars);
   const path: ReturnType<typeof shapeAttrs>["path"] = {
     d: o.d,
-    fill: node.fill ? String(paintValue(doc, node.fill, mode, opts.vars)) : "none",
+    fill: painted ? painted.fill : node.fill ? String(paintValue(doc, node.fill, mode, opts.vars)) : "none",
     strokeLinejoin: "round",
   };
   if (node.stroke && sw > 0) {
@@ -433,7 +522,7 @@ export function shapeAttrs(doc: Document, node: ShapeNode, opts: { vars?: boolea
     const dash = dashOf(doc, node.stroke.width, opts.vars, sw, strokeStyleOf(node.stroke));
     if (dash) path.strokeDasharray = dash;
   }
-  const out: ReturnType<typeof shapeAttrs> = { svg: { width: node.width, height: node.height }, path };
+  const out: ReturnType<typeof shapeAttrs> = { svg: { width: node.width, height: node.height }, path, svgInner: painted?.inner ?? "" };
   if (o.fold) out.fold = { d: o.fold, fill: NOTE_FOLD_FILL };
   return out;
 }
@@ -526,6 +615,10 @@ export function connectorMidpoint(d: string): { x: number; y: number } | null {
 function connectorHalo(doc: Document, node: ConnectorNode, vars?: boolean): string {
   let cur = node.parentId ? doc.nodes[node.parentId] : undefined;
   while (cur) {
+    if ((cur.type === "frame" || cur.type === "page" || cur.type === "rect" || cur.type === "ellipse") && cur.gradient) {
+      cur = cur.parentId ? doc.nodes[cur.parentId] : undefined;
+      continue;
+    }
     const fill = cur.type === "frame" || cur.type === "page" || cur.type === "rect" || cur.type === "ellipse" ? cur.fill : undefined;
     if (fill && fill !== "transparent" && !/gradient|url\(/i.test(fill)) return String(paintValue(doc, fill, modeOf(doc, cur), vars));
     cur = cur.parentId ? doc.nodes[cur.parentId] : undefined;
@@ -576,6 +669,7 @@ export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean 
     strokeDasharray?: string;
     paintOrder?: string;
   };
+  svgInner: string;
 } {
   const mode = modeOf(doc, node);
   const svg: { viewBox?: string; preserveAspectRatio?: string } = {};
@@ -583,9 +677,10 @@ export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean 
     svg.viewBox = node.viewBox.map(round).join(" ");
     svg.preserveAspectRatio = "xMidYMid meet";
   }
+  const painted = svgGradientInner(doc, node, typeof node.width === "number" ? node.width : 1, typeof node.height === "number" ? node.height : 1, opts.vars);
   const path: ReturnType<typeof pathAttrs>["path"] = {
     d: node.d,
-    fill: node.fill ? String(paintValue(doc, node.fill, mode, opts.vars)) : "none",
+    fill: painted ? painted.fill : node.fill ? String(paintValue(doc, node.fill, mode, opts.vars)) : "none",
     fillRule: node.fillRule,
     strokeLinecap: node.strokeCap,
     strokeLinejoin: node.strokeJoin,
@@ -602,7 +697,7 @@ export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean 
     const dash = dashOf(doc, node.stroke.width, opts.vars, sw, strokeStyleOf(node.stroke));
     if (dash) path.strokeDasharray = dash;
   }
-  return { svg, path };
+  return { svg, path, svgInner: painted?.inner ?? "" };
 }
 
 const UNITLESS = new Set(["opacity", "fontWeight", "lineHeight", "flexShrink", "zIndex"]);
