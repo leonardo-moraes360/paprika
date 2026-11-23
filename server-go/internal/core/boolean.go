@@ -928,6 +928,12 @@ func styleFromNode(n *Node) *jsonv.Object {
 		v, _ := n.Get("shadow")
 		out.Set("shadow", jsonv.Clone(v))
 	}
+	for _, k := range []string{"outline", "filter", "backdropFilter"} {
+		if n.Has(k) {
+			v, _ := n.Get(k)
+			out.Set(k, jsonv.Clone(v))
+		}
+	}
 	if n.Str("name") != "" {
 		out.Set("name", n.Str("name"))
 	}

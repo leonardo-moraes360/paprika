@@ -705,3 +705,19 @@ Tarefa: desenhar a seleção antes e depois de acompanhar a caixa rotacionada, c
 - Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (11880).
 - Igual ao #129, ainda aberto: o `path` do `render_screenshot` fica dentro do servidor. Os PNGs foram decodificados dos bytes da imagem no resultado da ferramenta.
 - `lint_design` ficou limpo depois de `lintIgnore` no texto da medida (`contrast`, o badge é um irmão que o texto não vê) e nas alças soltas (`detached-sibling`).
+
+## 2026-11-23: várias sombras, outline e filtros (PAP-B-080, design first)
+
+Tarefa: desenhar o inspector de efeitos e uma prévia (escuro e claro) na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de aceitar lista de sombras, sombra interna, outline, filter e backdropFilter. Frames `b080-fx-dark`, `b080-pv-dark`, `b080-fx-light`, `b080-pv-light` em y=7760. PNGs em `docs/assets/boards/PAP-B-080/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 134 | Um script de design num worktree novo | `@modelcontextprotocol/sdk` não está instalado na raiz, então o script não importa o cliente. JSON-RPC cru por HTTP funcionou | Documentar um trecho MCP sem dependência, ou depender do SDK na raiz | P3 |
+| 135 | O handshake MCP | `notifications/initialized` voltou method not found. Só o `initialize` bastou para `tools/call` | Clientes devem tolerar a notificação `initialized` ausente | P3 |
+| 136 | Títulos de seção em 11px | `lint_design` em `b080-fx-dark` apontou small-text nos títulos (Sombras, Contorno, Filtro, Filtro de fundo) | Mocks do inspector devem usar pelo menos 12px | P3 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #128: duas páginas chamadas Interfaces. O script prefere `page#interfaces`.
+- Igual ao #123, ainda aberto: o posicionamento varreu o `y` de profundidade 1 (primeiro passe com fundo em 6680, redesenho em 7760 depois de encurtar os rótulos). Com `rootId`, o outline trouxe coordenadas.
+- `render_screenshot` sem `path` devolveu o PNG num bloco de imagem em base64, então os arquivos do host foram gravados direto (#129).
+- Rótulos em 12px com largura 52 cabem (Exp, Tipo, Sat). Os títulos de seção em 11px ainda avisam.

@@ -8,7 +8,7 @@
       "listChanged": true
     }
   },
-  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, layoutPositioning (\"auto\"|\"absolute\", omit = auto), fill (color), stroke {color, width: n | \"$token\"}, radius (n | \"$token\", or on frame, rect and image [tl, tr, br, bl] with each corner n | \"$token\"), shadow {x, y, blur, spread: n | \"$token\", color}, notes, lintIgnore (rule names lint_design skips on this node).\nframe: clip (bool), layout {mode: none|row|column, gap (n | \"$token\"), padding (one number or [top, right, bottom, left]; each n | \"$token\"; not two values), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, scaledMock (true: a scaled mock, lint_design skips small-text inside it), mode (theme mode, see below). With row/column layout, children's x/y are ignored unless layoutPositioning is \"absolute\" (the child keeps x/y relative to the parent and is skipped by flow, gap and hug). Omit it or set \"auto\" to stay in the flow.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight (n | \"$token\"), letterSpacing (n | \"$token\"), textAlign.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https:// or data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". create_page {ensure: true, name} returns the existing page of that name instead of creating another. Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). An instance is a frame with\n  instanceOf = the component id and an optional scale (create_instance): its children are generated copies, with\n  derived ids and sourceId = the id of the source node; changing the component changes every instance. On a copy,\n  update only changes fill, color, text, src, alt, visible and opacity (stored as an instance override; null goes back\n  to the component); on the root, fill becomes an override and width/height/layout/stroke/radius/shadow/clip come from\n  the component (use scale). Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use get_bounds (absolute boxes + rotated corners), path_info to check bounds before positioning.\nshape: shape (rect|ellipse|diamond|triangle|note), text (centered; top-left on a note), color, fontFamily, fontSize, fontWeight,\n  lineHeight, textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow|rounded|curve), radius (rounded corners), control {x,y} (curve handle in parent coords), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nPlacement: a new top-level frame leaves x and y unset (or passes place:\"free\") and lands in free space, to the right of the page content, same top, gap 80, wrapping to a new row past 2400px from the content's left. place is \"free\" | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y). Concurrent writers never share a spot. get_document_outline and get_bounds with no ids report the page content box and the next free spot. Draw overlays (modals, menus, toasts) last, or bring them to the front with index:\"front\". A write warns when a new top-level node overlaps another and names the nearest free spot.\n\nPins: the human can point at a node or an area of the canvas and write what to do there (\"Point for the AI\"). Call list_pins first when the human mentions pins, and whenever a write result carries openPins; claim_pin before working on one, resolve_pin with a short reply when done. wait_for_pins waits for new ones.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning. rootIds (or rootId) lints only those subtrees. groups folds each rule to a count and the first maxIds node ids (default 8), ordered by severity; issues still lists every finding. minSeverity (info|warning|error) drops quieter findings. minFontSize raises the small-text floor (default 12). A frame with scaledMock, or lintIgnore on a node, keeps intentional small type and literal colors out of the list.\n5. render_screenshot to check visually; export_image for PNG/JPEG/WebP/AVIF/PDF without Chromium; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes), import_image for a PNG, JPEG, WebP, AVIF or GIF file; export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces). Document tools take an optional workspaceId and read or write that workspace without open_workspace and without moving the human's canvas; omit workspaceId to use the active workspace. The outline's first line and every write result include that workspace's id and name. Undo and redo take the same workspaceId and revert only that workspace; each workspace keeps its own history for the life of the process. Edits to the workspace the canvas is showing arrive live; edits to another workspace do not switch the canvas. open_workspace still switches the active workspace for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; archive_workspace hides one from list_workspaces without deleting it (the active one hands over to the most recently updated other workspace that is not archived; the only one cannot be archived) and unarchive_workspace brings it back; opening an archived workspace unarchives it; list_workspaces omits archived workspaces unless includeArchived is true, and each workspace reports archived; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened, archived, unarchived or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
+  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, layoutPositioning (\"auto\"|\"absolute\", omit = auto), fill (color), stroke {color, width: n | \"$token\"}, radius (n | \"$token\", or on frame, rect and image [tl, tr, br, bl] with each corner n | \"$token\"), shadow (one object or a list of up to 8: {x, y, blur, spread: n | \"$token\", color, inner?}), outline {color, width: n | \"$token\", style?: solid|dashed|dotted, offset?}, filter and backdropFilter {blur?: n | \"$token\", saturate? 0..10, grayscale? 0..1, brightness? 0..10, sepia? 0..1, invert? 0..1, hueRotate? -360..360}, notes, lintIgnore (rule names lint_design skips on this node).\nframe: clip (bool), layout {mode: none|row|column, gap (n | \"$token\"), padding (one number or [top, right, bottom, left]; each n | \"$token\"; not two values), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, scaledMock (true: a scaled mock, lint_design skips small-text inside it), mode (theme mode, see below). With row/column layout, children's x/y are ignored unless layoutPositioning is \"absolute\" (the child keeps x/y relative to the parent and is skipped by flow, gap and hug). Omit it or set \"auto\" to stay in the flow.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight (n | \"$token\"), letterSpacing (n | \"$token\"), textAlign.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https:// or data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". create_page {ensure: true, name} returns the existing page of that name instead of creating another. Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). An instance is a frame with\n  instanceOf = the component id and an optional scale (create_instance): its children are generated copies, with\n  derived ids and sourceId = the id of the source node; changing the component changes every instance. On a copy,\n  update only changes fill, color, text, src, alt, visible and opacity (stored as an instance override; null goes back\n  to the component); on the root, fill becomes an override and width/height/layout/stroke/radius/shadow/clip come from\n  the component (use scale). Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use get_bounds (absolute boxes + rotated corners), path_info to check bounds before positioning.\nshape: shape (rect|ellipse|diamond|triangle|note), text (centered; top-left on a note), color, fontFamily, fontSize, fontWeight,\n  lineHeight, textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow|rounded|curve), radius (rounded corners), control {x,y} (curve handle in parent coords), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nPlacement: a new top-level frame leaves x and y unset (or passes place:\"free\") and lands in free space, to the right of the page content, same top, gap 80, wrapping to a new row past 2400px from the content's left. place is \"free\" | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y). Concurrent writers never share a spot. get_document_outline and get_bounds with no ids report the page content box and the next free spot. Draw overlays (modals, menus, toasts) last, or bring them to the front with index:\"front\". A write warns when a new top-level node overlaps another and names the nearest free spot.\n\nPins: the human can point at a node or an area of the canvas and write what to do there (\"Point for the AI\"). Call list_pins first when the human mentions pins, and whenever a write result carries openPins; claim_pin before working on one, resolve_pin with a short reply when done. wait_for_pins waits for new ones.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning. rootIds (or rootId) lints only those subtrees. groups folds each rule to a count and the first maxIds node ids (default 8), ordered by severity; issues still lists every finding. minSeverity (info|warning|error) drops quieter findings. minFontSize raises the small-text floor (default 12). A frame with scaledMock, or lintIgnore on a node, keeps intentional small type and literal colors out of the list.\n5. render_screenshot to check visually; export_image for PNG/JPEG/WebP/AVIF/PDF without Chromium; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes), import_image for a PNG, JPEG, WebP, AVIF or GIF file; export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces). Document tools take an optional workspaceId and read or write that workspace without open_workspace and without moving the human's canvas; omit workspaceId to use the active workspace. The outline's first line and every write result include that workspace's id and name. Undo and redo take the same workspaceId and revert only that workspace; each workspace keeps its own history for the life of the process. Edits to the workspace the canvas is showing arrive live; edits to another workspace do not switch the canvas. open_workspace still switches the active workspace for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; archive_workspace hides one from list_workspaces without deleting it (the active one hands over to the most recently updated other workspace that is not archived; the only one cannot be archived) and unarchive_workspace brings it back; opening an archived workspace unarchives it; list_workspaces omits archived workspaces unless includeArchived is true, and each workspace reports archived; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened, archived, unarchived or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
   "tools": [
     {
       "name": "get_design_guide",
@@ -700,7 +700,7 @@
     {
       "name": "update_nodes",
       "title": "Update nodes",
-      "description": "Changes fields of several nodes in one atomic transaction. null removes a field. Objects (layout, stroke, shadow) are replaced whole. The pseudo-field index (a number, 0 = the back, or \"front\", \"back\", \"forward\", \"backward\") reorders the node in its current parent — same call, same undo step.",
+      "description": "Changes fields of several nodes in one atomic transaction. null removes a field. Objects (layout, stroke, shadow, outline, filter, backdropFilter) are replaced whole. shadow is one object or a list of up to 8. The pseudo-field index (a number, 0 = the back, or \"front\", \"back\", \"forward\", \"backward\") reorders the node in its current parent — same call, same undo step.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1884,34 +1884,73 @@
                                 ]
                               },
                               "shadow": {
+                                "anyOf": [
+                                  {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                  },
+                                  {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 8,
+                                    "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                    }
+                                  }
+                                ]
+                              },
+                              "outline": {
                                 "type": "object",
                                 "properties": {
-                                  "x": {
-                                    "type": "number"
-                                  },
-                                  "y": {
-                                    "type": "number"
-                                  },
-                                  "blur": {
-                                    "type": "number",
-                                    "minimum": 0
-                                  },
-                                  "spread": {
-                                    "default": 0,
-                                    "type": "number"
-                                  },
-                                  "color": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 200
-                                  }
+                                  "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                  "width": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "style": { "type": "string", "enum": ["solid", "dashed", "dotted"] },
+                                  "offset": { "type": "number", "minimum": -1000, "maximum": 1000 }
                                 },
-                                "required": [
-                                  "x",
-                                  "y",
-                                  "blur",
-                                  "color"
-                                ]
+                                "required": ["color", "width"]
+                              },
+                              "filter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
+                              },
+                              "backdropFilter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
                               },
                               "notes": {
                                 "type": "string",
@@ -2169,34 +2208,73 @@
                                 ]
                               },
                               "shadow": {
+                                "anyOf": [
+                                  {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                  },
+                                  {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 8,
+                                    "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                    }
+                                  }
+                                ]
+                              },
+                              "outline": {
                                 "type": "object",
                                 "properties": {
-                                  "x": {
-                                    "type": "number"
-                                  },
-                                  "y": {
-                                    "type": "number"
-                                  },
-                                  "blur": {
-                                    "type": "number",
-                                    "minimum": 0
-                                  },
-                                  "spread": {
-                                    "default": 0,
-                                    "type": "number"
-                                  },
-                                  "color": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 200
-                                  }
+                                  "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                  "width": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "style": { "type": "string", "enum": ["solid", "dashed", "dotted"] },
+                                  "offset": { "type": "number", "minimum": -1000, "maximum": 1000 }
                                 },
-                                "required": [
-                                  "x",
-                                  "y",
-                                  "blur",
-                                  "color"
-                                ]
+                                "required": ["color", "width"]
+                              },
+                              "filter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
+                              },
+                              "backdropFilter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
                               },
                               "notes": {
                                 "type": "string",
@@ -2324,34 +2402,73 @@
                                 "minimum": 0
                               },
                               "shadow": {
+                                "anyOf": [
+                                  {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                  },
+                                  {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 8,
+                                    "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                    }
+                                  }
+                                ]
+                              },
+                              "outline": {
                                 "type": "object",
                                 "properties": {
-                                  "x": {
-                                    "type": "number"
-                                  },
-                                  "y": {
-                                    "type": "number"
-                                  },
-                                  "blur": {
-                                    "type": "number",
-                                    "minimum": 0
-                                  },
-                                  "spread": {
-                                    "default": 0,
-                                    "type": "number"
-                                  },
-                                  "color": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 200
-                                  }
+                                  "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                  "width": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "style": { "type": "string", "enum": ["solid", "dashed", "dotted"] },
+                                  "offset": { "type": "number", "minimum": -1000, "maximum": 1000 }
                                 },
-                                "required": [
-                                  "x",
-                                  "y",
-                                  "blur",
-                                  "color"
-                                ]
+                                "required": ["color", "width"]
+                              },
+                              "filter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
+                              },
+                              "backdropFilter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
                               },
                               "notes": {
                                 "type": "string",
@@ -2479,34 +2596,73 @@
                                 "minimum": 0
                               },
                               "shadow": {
+                                "anyOf": [
+                                  {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                  },
+                                  {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 8,
+                                    "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                    }
+                                  }
+                                ]
+                              },
+                              "outline": {
                                 "type": "object",
                                 "properties": {
-                                  "x": {
-                                    "type": "number"
-                                  },
-                                  "y": {
-                                    "type": "number"
-                                  },
-                                  "blur": {
-                                    "type": "number",
-                                    "minimum": 0
-                                  },
-                                  "spread": {
-                                    "default": 0,
-                                    "type": "number"
-                                  },
-                                  "color": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 200
-                                  }
+                                  "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                  "width": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "style": { "type": "string", "enum": ["solid", "dashed", "dotted"] },
+                                  "offset": { "type": "number", "minimum": -1000, "maximum": 1000 }
                                 },
-                                "required": [
-                                  "x",
-                                  "y",
-                                  "blur",
-                                  "color"
-                                ]
+                                "required": ["color", "width"]
+                              },
+                              "filter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
+                              },
+                              "backdropFilter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
                               },
                               "notes": {
                                 "type": "string",
@@ -2702,34 +2858,73 @@
                                 ]
                               },
                               "shadow": {
+                                "anyOf": [
+                                  {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                  },
+                                  {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 8,
+                                    "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                    }
+                                  }
+                                ]
+                              },
+                              "outline": {
                                 "type": "object",
                                 "properties": {
-                                  "x": {
-                                    "type": "number"
-                                  },
-                                  "y": {
-                                    "type": "number"
-                                  },
-                                  "blur": {
-                                    "type": "number",
-                                    "minimum": 0
-                                  },
-                                  "spread": {
-                                    "default": 0,
-                                    "type": "number"
-                                  },
-                                  "color": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 200
-                                  }
+                                  "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                  "width": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "style": { "type": "string", "enum": ["solid", "dashed", "dotted"] },
+                                  "offset": { "type": "number", "minimum": -1000, "maximum": 1000 }
                                 },
-                                "required": [
-                                  "x",
-                                  "y",
-                                  "blur",
-                                  "color"
-                                ]
+                                "required": ["color", "width"]
+                              },
+                              "filter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
+                              },
+                              "backdropFilter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
                               },
                               "notes": {
                                 "type": "string",
@@ -2876,34 +3071,73 @@
                                 "minimum": 0
                               },
                               "shadow": {
+                                "anyOf": [
+                                  {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                  },
+                                  {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 8,
+                                    "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                    }
+                                  }
+                                ]
+                              },
+                              "outline": {
                                 "type": "object",
                                 "properties": {
-                                  "x": {
-                                    "type": "number"
-                                  },
-                                  "y": {
-                                    "type": "number"
-                                  },
-                                  "blur": {
-                                    "type": "number",
-                                    "minimum": 0
-                                  },
-                                  "spread": {
-                                    "default": 0,
-                                    "type": "number"
-                                  },
-                                  "color": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 200
-                                  }
+                                  "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                  "width": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "style": { "type": "string", "enum": ["solid", "dashed", "dotted"] },
+                                  "offset": { "type": "number", "minimum": -1000, "maximum": 1000 }
                                 },
-                                "required": [
-                                  "x",
-                                  "y",
-                                  "blur",
-                                  "color"
-                                ]
+                                "required": ["color", "width"]
+                              },
+                              "filter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
+                              },
+                              "backdropFilter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
                               },
                               "notes": {
                                 "type": "string",
@@ -3187,34 +3421,73 @@
                                 "minimum": 0
                               },
                               "shadow": {
+                                "anyOf": [
+                                  {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                  },
+                                  {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 8,
+                                    "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "blur": { "type": "number", "minimum": 0 },
+                                    "spread": { "default": 0, "type": "number" },
+                                    "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "inner": { "type": "boolean" }
+                                  },
+                                  "required": ["x", "y", "blur", "color"]
+                                    }
+                                  }
+                                ]
+                              },
+                              "outline": {
                                 "type": "object",
                                 "properties": {
-                                  "x": {
-                                    "type": "number"
-                                  },
-                                  "y": {
-                                    "type": "number"
-                                  },
-                                  "blur": {
-                                    "type": "number",
-                                    "minimum": 0
-                                  },
-                                  "spread": {
-                                    "default": 0,
-                                    "type": "number"
-                                  },
-                                  "color": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 200
-                                  }
+                                  "color": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                  "width": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "style": { "type": "string", "enum": ["solid", "dashed", "dotted"] },
+                                  "offset": { "type": "number", "minimum": -1000, "maximum": 1000 }
                                 },
-                                "required": [
-                                  "x",
-                                  "y",
-                                  "blur",
-                                  "color"
-                                ]
+                                "required": ["color", "width"]
+                              },
+                              "filter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
+                              },
+                              "backdropFilter": {
+                                "type": "object",
+                                "properties": {
+                                  "blur": { "type": "number", "minimum": 0, "maximum": 1000 },
+                                  "saturate": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "grayscale": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "brightness": { "type": "number", "minimum": 0, "maximum": 10 },
+                                  "sepia": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "invert": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "hueRotate": { "type": "number", "minimum": -360, "maximum": 360 }
+                                },
+                                "minProperties": 1
                               },
                               "notes": {
                                 "type": "string",

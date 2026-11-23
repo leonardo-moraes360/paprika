@@ -52,7 +52,7 @@ O `server-go/` é o único servidor; o servidor TypeScript do qual ele foi porta
 - Ainda não dá para pôr instâncias dentro de componentes, e só campos de aparência aceitam override (sem props nem slots de componente). `scale` não escala um `fontSize` que é token.
 - O lint de contraste ignora gradientes e imagens de fundo.
 - A presença do agente só chega aos canvas do mesmo processo: um `paprika mcp` (stdio) cuja porta estava ocupada roda sem canvas, então o cursor dele não aparece no canvas do `paprika serve`. Use MCP via HTTP para ser visto.
-- O import de SVG ignora texto, imagens, gradientes/padrões (viram cinza), máscaras, clip paths e CSS de `<style>`; o import de HTML só lê `style=""` inline (sem classes nem folhas de estilo). O export SVG deixa de fora gradientes e imagens de fundo, desenha sombras sem spread e usa `layout(doc)` (sem Chromium headless); a quebra de texto por glifo é aproximada.
+- O import de SVG ignora texto, imagens, gradientes/padrões (viram cinza), máscaras, clip paths e CSS de `<style>`; o import de HTML só lê `style=""` inline (sem classes nem folhas de estilo). O export SVG deixa de fora gradientes e imagens de fundo, desenha sombras sem spread, omite sombra interna com um aviso e usa `layout(doc)` (sem Chromium headless); a quebra de texto por glifo é aproximada.
 - Arrastar no canvas só move nós em pais sem layout automático (em row/column a ordem vem do layout).
 
 ## Registros de decisão

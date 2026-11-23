@@ -1,4 +1,4 @@
-import { firstPage, pageRoots, isContainer, type Document, type Node } from "./schema.js";
+import { firstPage, listShadows, pageRoots, isContainer, type Document, type Node, type ShadowSpec } from "./schema.js";
 import { canvasBounds, escapeHtml, svgAttrs } from "./render.js";
 import {
   connectorAttrs,
@@ -27,6 +27,34 @@ import { layout } from "./layout.js";
 
 function len(doc: Document, n: Node, v: number | string | undefined): number {
   return resolveLength(doc, v, modeOf(doc, n)) ?? 0;
+}
+
+function svgShadowFilter(
+  doc: Document,
+  n: Node,
+  id: string,
+  warn: (m: string) => void,
+): { defs: string; attr: string } {
+  const shadows = listShadows("shadow" in n ? n.shadow : undefined);
+  if (!shadows.length) return { defs: "", attr: "" };
+  const mode = modeOf(doc, n);
+  const outers: ShadowSpec[] = [];
+  for (const s of shadows) {
+    if (s.inner) warn("inner shadow: SVG uses only offset, blur and color");
+    else outers.push(s);
+    if (len(doc, n, s.spread)) warn("shadow with spread: SVG uses only offset, blur and color");
+  }
+  if (!outers.length) return { defs: "", attr: "" };
+  const prims = outers
+    .map(
+      (s) =>
+        `<feDropShadow dx="${f(len(doc, n, s.x))}" dy="${f(len(doc, n, s.y))}" stdDeviation="${f(len(doc, n, s.blur) / 2)}" flood-color="${escapeHtml(String(resolveValue(doc, s.color, mode)))}"/>`,
+    )
+    .join("");
+  return {
+    defs: `<filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%">${prims}</filter>`,
+    attr: ` filter="url(#shadow-${id})"`,
+  };
 }
 
 export interface Measure {
@@ -167,14 +195,9 @@ export function exportSVG(
     const mode = modeOf(doc, n);
     const id = escapeHtml(n.id);
     const a = shapeAttrs(doc, n);
-    let defs = "";
-    let shadowAttr = "";
-    if (n.shadow) {
-      const s = n.shadow;
-      if (len(doc, n, s.spread)) warn("shadow with spread: SVG uses only offset, blur and color");
-      defs += `<filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${f(len(doc, n, s.x))}" dy="${f(len(doc, n, s.y))}" stdDeviation="${f(len(doc, n, s.blur) / 2)}" flood-color="${escapeHtml(String(resolveValue(doc, s.color, mode)))}"/></filter>`;
-      shadowAttr = ` filter="url(#shadow-${id})"`;
-    }
+    const sh = svgShadowFilter(doc, n, id, warn);
+    const defs = sh.defs;
+    const shadowAttr = sh.attr;
     const fill = a.path.fill === "none" ? "none" : (paint(doc, n.fill, mode, warn) ?? "none");
     let body = `<g${shadowAttr}><path${svgAttrs({ ...a.path, fill })}/>`;
     if (a.fold) body += `<path${svgAttrs(a.fold)}/>`;
@@ -227,14 +250,9 @@ export function exportSVG(
     if (n.type === "shape") return `${open}${shapeSVG(n, w, h)}</g>`;
 
     const mode = modeOf(doc, n);
-    let defs = "";
-    let shadowAttr = "";
-    if (n.shadow && n.type !== "text") {
-      const s = n.shadow;
-      if (len(doc, n, s.spread)) warn("shadow with spread: SVG uses only offset, blur and color");
-      defs += `<filter id="shadow-${id}" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${f(len(doc, n, s.x))}" dy="${f(len(doc, n, s.y))}" stdDeviation="${f(len(doc, n, s.blur) / 2)}" flood-color="${escapeHtml(String(resolveValue(doc, s.color, mode)))}"/></filter>`;
-      shadowAttr = ` filter="url(#shadow-${id})"`;
-    }
+    const sh = n.type === "text" ? { defs: "", attr: "" } : svgShadowFilter(doc, n, id, warn);
+    let defs = sh.defs;
+    const shadowAttr = sh.attr;
     const fill = n.type === "path" ? undefined : paint(doc, n.fill, mode, warn);
     const sw = n.type !== "path" && n.stroke && len(doc, n, n.stroke.width) > 0 ? len(doc, n, n.stroke.width) : 0;
     const pos = sw && n.stroke ? strokePositionOf(n) : "inside";

@@ -63,7 +63,34 @@ var (
 		z.Field{Name: "blur", Schema: lengthMin(0)},
 		z.Field{Name: "spread", Schema: z.Default(lengthAny(), 0.0)},
 		z.Field{Name: "color", Schema: colorValue()},
+		z.Field{Name: "inner", Schema: z.Optional(z.Bool())},
 	)
+	shadowValue   = z.Union(shadowSchema, z.Array(shadowSchema).Min(1).Max(8))
+	outlineSchema = z.Object(
+		z.Field{Name: "color", Schema: colorValue()},
+		z.Field{Name: "width", Schema: lengthMinMax(0, 1000)},
+		z.Field{Name: "style", Schema: z.Optional(z.Enum("solid", "dashed", "dotted"))},
+		z.Field{Name: "offset", Schema: z.Optional(lengthMinMax(-1000, 1000))},
+	)
+	filterSchema = z.Object(
+		z.Field{Name: "blur", Schema: z.Optional(lengthMinMax(0, 1000))},
+		z.Field{Name: "saturate", Schema: z.Optional(z.Number().Min(0).Max(10))},
+		z.Field{Name: "grayscale", Schema: z.Optional(z.Number().Min(0).Max(1))},
+		z.Field{Name: "brightness", Schema: z.Optional(z.Number().Min(0).Max(10))},
+		z.Field{Name: "sepia", Schema: z.Optional(z.Number().Min(0).Max(1))},
+		z.Field{Name: "invert", Schema: z.Optional(z.Number().Min(0).Max(1))},
+		z.Field{Name: "hueRotate", Schema: z.Optional(z.Number().Min(-360).Max(360))},
+	).Check(func(v any) string {
+		o, _ := v.(*jsonv.Object)
+		if o != nil {
+			for _, k := range []string{"blur", "saturate", "grayscale", "brightness", "sepia", "invert", "hueRotate"} {
+				if _, ok := o.Get(k); ok {
+					return ""
+				}
+			}
+		}
+		return "filter needs at least one of blur, saturate, grayscale, brightness, sepia, invert, hueRotate"
+	})
 	padLength    = lengthMin(0)
 	cornerOne    = lengthMin(0)
 	layoutSchema = z.Object(
@@ -96,7 +123,10 @@ func baseFields() []z.Field {
 		{Name: "fill", Schema: z.Optional(colorValue())},
 		{Name: "stroke", Schema: z.Optional(strokeSchema)},
 		{Name: "radius", Schema: z.Default(lengthMin(0), 0.0)},
-		{Name: "shadow", Schema: z.Optional(shadowSchema)},
+		{Name: "shadow", Schema: z.Optional(shadowValue)},
+		{Name: "outline", Schema: z.Optional(outlineSchema)},
+		{Name: "filter", Schema: z.Optional(filterSchema)},
+		{Name: "backdropFilter", Schema: z.Optional(filterSchema)},
 		{Name: "notes", Schema: z.Optional(z.String().Max(4000))},
 		{Name: "sourceId", Schema: z.Optional(z.String())},
 		{Name: "lintIgnore", Schema: z.Optional(z.Array(z.String().Regex(`^[a-z0-9-]{1,40}$`, `/^[a-z0-9-]{1,40}$/`, "lint rule must be [a-z0-9-]{1,40}")).Max(20))},

@@ -18,7 +18,7 @@ import { round4 } from "./num.js";
 /** Campos de uma cópia que podem ser trocados numa instância. */
 export const COPY_OVERRIDES = ["fill", "color", "text", "src", "alt", "visible", "opacity"] as const;
 /** Campos da raiz da instância que vêm do componente (só `fill` aceita override). */
-export const ROOT_DERIVED = ["fill", "stroke", "radius", "shadow", "layout", "clip", "width", "height"] as const;
+export const ROOT_DERIVED = ["fill", "stroke", "radius", "shadow", "outline", "filter", "backdropFilter", "layout", "clip", "width", "height"] as const;
 
 const COPY_SET = new Set<string>(COPY_OVERRIDES);
 const ROOT_SET = new Set<string>(ROOT_DERIVED);
@@ -111,8 +111,17 @@ export function scaleGeometry(n: Record<string, unknown>, s: number, withPositio
   }
   const stroke = n.stroke as Record<string, unknown> | undefined;
   if (stroke) n.stroke = { ...stroke, width: sc(stroke.width) };
-  const shadow = n.shadow as Record<string, unknown> | undefined;
-  if (shadow) n.shadow = { ...shadow, x: sc(shadow.x), y: sc(shadow.y), blur: sc(shadow.blur), spread: sc(shadow.spread) };
+  const shadow = n.shadow as Record<string, unknown> | Record<string, unknown>[] | undefined;
+  if (shadow) {
+    const scaleOne = (s: Record<string, unknown>) => ({ ...s, x: sc(s.x), y: sc(s.y), blur: sc(s.blur), spread: sc(s.spread) });
+    n.shadow = Array.isArray(shadow) ? shadow.map(scaleOne) : scaleOne(shadow);
+  }
+  const outline = n.outline as Record<string, unknown> | undefined;
+  if (outline) n.outline = { ...outline, width: sc(outline.width), ...( "offset" in outline ? { offset: sc(outline.offset) } : {}) };
+  for (const key of ["filter", "backdropFilter"] as const) {
+    const fx = n[key] as Record<string, unknown> | undefined;
+    if (fx && "blur" in fx) n[key] = { ...fx, blur: sc(fx.blur) };
+  }
   const layout = n.layout as Record<string, unknown> | undefined;
   if (layout)
     n.layout = { ...layout, gap: sc(layout.gap), padding: Array.isArray(layout.padding) ? layout.padding.map(sc) : sc(layout.padding) };
