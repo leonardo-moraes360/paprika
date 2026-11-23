@@ -1,5 +1,5 @@
 import { modeOf, resolveLength, resolveValue } from "./style.js";
-import { firstPage, isContainer, isScene, pageRoots, type Document, type Layout, type Node, type SceneNode, type Size } from "./schema.js";
+import { firstPage, ignoresLayout, isContainer, isScene, pageRoots, type Document, type Layout, type Node, type SceneNode, type Size } from "./schema.js";
 import { round4 } from "./num.js";
 
 /**
@@ -146,6 +146,10 @@ function flowChildren(doc: Document, n: Node): SceneNode[] {
   return out;
 }
 
+function flowItems(doc: Document, n: Node): SceneNode[] {
+  return flowChildren(doc, n).filter((c) => !ignoresLayout(c));
+}
+
 function hasFlow(n: Node): n is Extract<Node, { type: "frame" }> & { layout: Layout & { mode: "row" | "column" } } {
   return n.type === "frame" && !!n.layout && n.layout.mode !== "none";
 }
@@ -184,7 +188,7 @@ function preferred(doc: Document, n: Node, hint?: { maxW?: number; maxH?: number
     }
     const [pt, pr, pb, pl] = padOf(doc, n, n.layout.padding);
     const gap = gapOf(doc, n);
-    const kids = flowChildren(doc, n);
+    const kids = flowItems(doc, n);
     const row = n.layout.mode === "row";
     const sizes = kids.map((c) => preferred(doc, c, row ? { maxH: sizedHint.maxH } : { maxW: sizedHint.maxW }));
     let main = 0;
@@ -249,7 +253,7 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
   const [pt, pr, pb, pl] = padOf(doc, n, n.layout.padding);
   out.push({ id: n.id, x: absX, y: absY, w: frameW, h: frameH, rotation: n.rotation });
 
-  const kids = flowChildren(doc, n);
+  const kids = flowItems(doc, n);
   const row = n.layout.mode === "row";
   const innerW = Math.max(0, frameW - pl - pr);
   const innerH = Math.max(0, frameH - pt - pb);
@@ -315,6 +319,12 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
     const ly = row ? pt + cross : pt + cursor;
     placeSized(doc, p.n, absX + lx, absY + ly, p.w, p.h, out);
     cursor += (row ? p.w : p.h) + (justify === "between" && placed.length > 1 ? betweenGap : gap);
+  }
+
+  for (const id of n.children) {
+    const child = doc.nodes[id];
+    if (!child || !isScene(child) || child.visible === false || child.type === "connector" || !ignoresLayout(child)) continue;
+    placeTree(doc, id, absX + child.x, absY + child.y, out, { w: frameW, h: frameH });
   }
 
   for (const c of n.children) {

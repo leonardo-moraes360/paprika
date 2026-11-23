@@ -208,6 +208,20 @@ func flowChildren(doc *Document, n *Node) []*Node {
 	return out
 }
 
+func ignoresLayout(n *Node) bool {
+	return n.Str("layoutPositioning") == "absolute"
+}
+
+func flowItems(doc *Document, n *Node) []*Node {
+	var out []*Node
+	for _, c := range flowChildren(doc, n) {
+		if !ignoresLayout(c) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func hasFlow(n *Node) bool {
 	if n.Str("type") != "frame" {
 		return false
@@ -274,7 +288,7 @@ func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH 
 		}
 		pt, pr, pb, pl := padOf(doc, n)
 		gap := gapOf(doc, n)
-		kids := flowChildren(doc, n)
+		kids := flowItems(doc, n)
 		row := n.Obj("layout").Str("mode") == "row"
 		main, cross := 0.0, 0.0
 		for i, c := range kids {
@@ -351,7 +365,7 @@ func placeSized(doc *Document, n *Node, absX, absY, w, h float64, out *[]place) 
 func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, out *[]place) {
 	pt, pr, pb, pl := padOf(doc, n)
 	*out = append(*out, place{n.Str("id"), absX, absY, frameW, frameH, n.Num("rotation")})
-	kids := flowChildren(doc, n)
+	kids := flowItems(doc, n)
 	lay := n.Obj("layout")
 	row := lay.Str("mode") == "row"
 	innerW := math.Max(0, frameW-pl-pr)
@@ -488,6 +502,19 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 		}
 		cursor += step + betweenGap
 		_ = i
+	}
+	for _, c := range n.Strings("children") {
+		child := GetNode(doc, c)
+		if child == nil || child.Str("type") == "connector" || child.Str("type") == "page" {
+			continue
+		}
+		if child.Has("visible") && !child.Bool("visible") {
+			continue
+		}
+		if !ignoresLayout(child) {
+			continue
+		}
+		placeTree(doc, c, absX+child.Num("x"), absY+child.Num("y"), out, frameW, frameH, true)
 	}
 	for _, c := range n.Strings("children") {
 		if child := GetNode(doc, c); child != nil && child.Str("type") == "connector" {

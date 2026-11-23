@@ -78,6 +78,7 @@ const Base = {
   opacity: z.number().min(0).max(1).default(1),
   visible: z.boolean().default(true),
   locked: z.boolean().default(false),
+  layoutPositioning: z.enum(["auto", "absolute"]).optional(),
   fill: ColorValue.optional(),
   stroke: Stroke.optional(),
   radius: lengthValue(0).default(0),
@@ -236,6 +237,7 @@ export const ConnectorNode = z.object({
   notes: Base.notes,
   sourceId: Base.sourceId,
   lintIgnore: Base.lintIgnore,
+  layoutPositioning: Base.layoutPositioning,
   from: ConnectorEnd,
   to: ConnectorEnd,
   route: z.enum(["straight", "elbow", "rounded", "curve"]).default("straight"),
@@ -277,6 +279,7 @@ export const GroupNode = z.object({
   notes: Base.notes,
   sourceId: Base.sourceId,
   lintIgnore: Base.lintIgnore,
+  layoutPositioning: Base.layoutPositioning,
   children: z.array(z.string()).default([]),
 });
 
@@ -369,6 +372,10 @@ export function isContainer(n: Node | undefined): n is ContainerNode {
 
 export function isScene(n: Node | undefined): n is SceneNode {
   return !!n && n.type !== "page";
+}
+
+export function ignoresLayout(n: Node): boolean {
+  return "layoutPositioning" in n && n.layoutPositioning === "absolute";
 }
 
 /** Primeira página do documento (o documento tem páginas quando o primeiro nó de topo é uma). */

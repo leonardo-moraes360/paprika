@@ -167,8 +167,25 @@ const corners = () =>
     { op: "create", node: { type: "frame", id: "inst", instanceOf: "btn", x: 260, y: 120, scale: 2 } },
   ]).doc;
 
+const absflow = () =>
+  applyOps(base(), [
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "row", x: 10, y: 20, width: "hug", height: "hug", fill: "#ffffff",
+        layout: { mode: "row", gap: 8, padding: 0, align: "start" },
+        children: [
+          { type: "rect", id: "a", width: 40, height: 20, fill: "#111111" },
+          { type: "rect", id: "pin", width: 16, height: 16, x: 100, y: 4, fill: "#c43d27", layoutPositioning: "absolute" },
+          { type: "rect", id: "b", width: 30, height: 20, fill: "#222222" },
+        ],
+      },
+    },
+  ]).doc;
+
 const docs = {
   empty: base(),
+  absflow: absflow(),
   comp: comp(),
   card: card(),
   free: free(),
@@ -194,6 +211,8 @@ const opCases = [
   ["comp", [{ op: "create", node: { type: "frame", id: "py", instanceOf: "btn", overrides: JSON.parse('{"__proto__":{"text":"x"},"lbl":{"text":"ok","__proto__":2}}') } }]],
   ["card", [{ op: "set_tokens", tokens: JSON.parse('{"__proto__":"#fff","ok":1}') }]],
   ["themed", [{ op: "set_tokens", mode: "__proto__", tokens: { fg: "#123" } }]],
+  ["empty", [R({ layoutPositioning: "pinned" })]],
+  ["empty", [R({ layoutPositioning: "absolute", x: 3, y: 4 })]],
   ["empty", [R({})]],
   ["empty", [R({ width: "big" })]],
   ["empty", [R({ width: -1 })]],

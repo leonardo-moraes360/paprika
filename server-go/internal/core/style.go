@@ -386,9 +386,10 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 			parentMode = l.Str("mode")
 		}
 	}
+	absoluteChild := parentMode != "" && !asRoot && node.Str("layoutPositioning") == "absolute"
 	css := jsonv.NewObject("boxSizing", "border-box")
 	// Connectors never join the auto layout flow: their geometry comes from their ends.
-	if parentMode != "" && !asRoot && node.Str("type") != "connector" {
+	if parentMode != "" && !asRoot && node.Str("type") != "connector" && !absoluteChild {
 		css.Set("position", "relative")
 	} else {
 		css.Set("position", "absolute")
@@ -400,7 +401,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		css.Set("top", px(y))
 	}
 	mode := parentMode
-	if asRoot {
+	if asRoot || absoluteChild {
 		mode = ""
 	}
 	w, _ := node.Get("width")

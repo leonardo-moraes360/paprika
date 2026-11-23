@@ -598,6 +598,19 @@ Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states 
 - Drew on active `Paprica · UI` / page `interfaces` without `open_workspace` after querying the maintainer about the name mismatch.
 - Canvas DnD only touches `Canvas.tsx`; Layers HTML5 DnD in `Layers.tsx`; E2E in `drag.e2e.test.ts`.
 
+## 2026-11-23: absolute child in auto-layout (PAP-B-069, design first)
+
+Task: draw the inspector "Ignorar layout" switch (off, on, dark) and a row with a badge sitting on its own x/y, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`), before adding `layoutPositioning`. Four fixed-size frames; PNGs in `docs/assets/boards/PAP-B-069/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 117 | Brand red as text on the night background | `$ui.primary` (`#c8401f`) on `$ui.bg` is 3.54:1, so the dark kickers failed `lint_design` until the ink became `#ffd2c9` | A light ink token for the brand red on night surfaces (the light mode already passes) | P2 |
+| 118 | Screenshot files land in the repo | `render_screenshot` `path` writes under the server volume (`/data/screenshots/...`) and returns that path plus `/api/screenshot/<id>`; the PR still copies the PNG with curl | Document that `path` is relative to the server screenshot directory, or accept a path inside an allowlisted host directory | P3 |
+
+- Addressed the workspace by id from `list_workspaces`. Did not call `open_workspace`. Used the existing page `interfaces` (a second page is also named Interfaces).
+- The behavior frame is a mock: the live server does not accept `layoutPositioning` yet, so the badge is a sibling placed by x/y, not a real absolute child of the row.
+- `lint_design` on the four roots: 0 errors and 0 warnings after shortening the on-state hint and letting the field mocks hug.
+
 ## 2026-11-23: corner radius per corner (PAP-B-070, design first)
 
 Task: draw the linked and unlinked corner controls, plus a sample card, on page `Interfaces` of workspace `Paprica · UI` (`workspaceId`, no `open_workspace`) before implementing `radius` as one length or `[tl, tr, br, bl]`.
@@ -606,3 +619,17 @@ Task: draw the linked and unlinked corner controls, plus a sample card, on page 
 |---|--------|---------------|----------|------|
 | 117 | Screenshot one frame | `render_screenshot` takes `rootId`. Passing `id` is ignored and the tool returns the first page (here, the PAP-B-046 "clamp dark" frame) with no error | Reject unknown argument names, or document `rootId` in the error when the caller sends `id` | P3 |
 | 118 | Preview four different corners on the live server | `create_nodes` with `radius: [1, 2, 3, 4]` failed: `expected number, received array`. The sample had to be a path until this change shipped | The running server only learns the new radius after this build | — |
+
+## 2026-11-23: agent pins design (design first, cloud thread)
+
+Task: draw the proposal for "point at an element or area and tell the agent what to do" (5 boards: canvas, composer, panel, MCP contract, flow), first on a cloud `paprika serve`, then on the maintainer's local Paprika in `Paprica · UI` (new page, `workspaceId` on every write, active workspace untouched). PNGs in `docs/assets/boards/agent-pins/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 118 | Know that `lineHeight` is a ratio | Sent `lineHeight: 18` (px); `create_nodes` refused with "Too big: expected number to be <=10". The guide only says `lineHeight (n \| "$token")` | Say "multiplier of fontSize (1.4)" in the guide and in the error | P3 |
+| 119 | Screenshot of one frame | `render_screenshot {nodeId}` returned the whole page: the right name is `rootId` and the unknown argument was silently ignored, so five "frame" shots were the same image | Reject unknown arguments (or warn), as the write tools do | P2 |
+| 120 | Use the Chromium the environment has | `PAPRIKA_CHROMIUM=/opt/pw-browsers/chromium-1243/.../chrome` was still refused ("build 1243 is installed, but Playwright expects build 1255"); a symlink without the revision in its path worked | An explicit `PAPRIKA_CHROMIUM` skips the revision check (warn instead) | P2 |
+| 121 | Draw in a workspace without touching its tokens | Writing boards into `Paprica · UI` meant inlining every color, because `set_tokens` there could overwrite the maintainer's tokens with the same names | `set_tokens {onlyMissing: true}` or a warning listing overwritten tokens | P3 |
+
+- `workspaceId` on `create_page`/`create_nodes` worked well: the boards went into `Paprica · UI` while the canvas stayed on the maintainer's active workspace.
+- `create_page {ensure: true}` + `place: "free"` placed five boards with no overlap and no manual coordinates.
