@@ -91,7 +91,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Tokens exportados como variáveis CSS no export HTML/React | `export_code` com `cssVariables` (2026-11-21): `:root` mais regras `[data-paprika-mode]`; o React exporta `tokensCss` | ✅ | — |
 | Tokens tipados (cor, raio, espaçamento, fonte…) com validação | `set_tokens` `type` (`color`, `length`, `fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`), conferido ao gravar e ao usar. Sem tipo, string/número continua válido. Persistido no SQLite `token_meta`. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Desvincular um token de um nó | `detach_tokens` no MCP e no inspector troca `$nome` pelo literal resolvido no modo do nó. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
-| Gerar tokens a partir de uma codebase via MCP | — | ⬜ | P2 |
+| Gerar tokens a partir de uma codebase via MCP | `propose_tokens` transforma variáveis CSS, um tema Tailwind ou tokens JSON (o texto que o agente passa) em operações `set_tokens` (2026-11-23, PAP-B-083). PR: https://github.com/leonardo-moraes360/paprika/pull/162. | ✅ | — |
 | Tokens com `calc()` / `color-mix()` | Só cadeias de tokens | ⬜ | P3 |
 | Copiar tokens entre arquivos | — | ⬜ | P3 |
 | Design system como conceito no canvas | Um lugar para tokens, componentes e regras do workspace, de onde agentes e pessoas desenham (relaciona com E e H). Pedido de 2026-11-22. Leva 4. | ⬜ | a definir |

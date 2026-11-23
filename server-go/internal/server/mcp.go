@@ -897,6 +897,17 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return write(a, ops, labelOr(a, "transaction of "+count(len(ops))+" op(s)"))
 		})
 
+	add("propose_tokens", z.Object(
+		z.Field{Name: "content", Schema: z.String().Min(1).Max(200_000)},
+		z.Field{Name: "format", Schema: z.Default(z.Enum("auto", "css", "tailwind", "json"), "auto")},
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		out, err := proposeFromContent(a.Str("content"), a.Str("format"))
+		if err != nil {
+			return nil, err
+		}
+		return jsonResult(out), nil
+	})
+
 	add("set_tokens", z.Object(
 		z.Field{Name: "tokens", Schema: z.Record(z.String(), z.Union(z.String(), z.Number(), z.Null()))},
 		z.Field{Name: "type", Schema: z.Optional(z.Nullable(core.TokenTypeSchema))},
