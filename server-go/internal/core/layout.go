@@ -146,7 +146,7 @@ func cornersOf(x, y, w, h, rotation float64) [4]LayoutPt {
 	cos, sin := math.Cos(rad), math.Sin(rad)
 	for i, p := range pts {
 		dx, dy := p.X-cx, p.Y-cy
-		pts[i] = LayoutPt{Round4(cx + dx*cos + dy*sin), Round4(cy - dx*sin + dy*cos)}
+		pts[i] = LayoutPt{Round4(cx + dx*cos - dy*sin), Round4(cy + dx*sin + dy*cos)}
 	}
 	return pts
 }
