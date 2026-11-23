@@ -250,6 +250,16 @@ export type Messages = {
   lockLayer: (name: string) => string;
   unlockLayer: (name: string) => string;
   arrange: string;
+  constraints: string;
+  constraintHorizontal: string;
+  constraintVertical: string;
+  constraintLeft: string;
+  constraintCenter: string;
+  constraintRight: string;
+  constraintScale: string;
+  constraintTop: string;
+  constraintBottom: string;
+  constraintHint: string;
   bringForward: string;
   sendBackward: string;
   bringToFront: string;
@@ -608,6 +618,16 @@ const en: Messages = {
   lockLayer: (name) => `Lock ${name}`,
   unlockLayer: (name) => `Unlock ${name}`,
   arrange: "Order",
+  constraints: "Constraints",
+  constraintHorizontal: "Horizontal",
+  constraintVertical: "Vertical",
+  constraintLeft: "Left",
+  constraintCenter: "Center",
+  constraintRight: "Right",
+  constraintScale: "Scale",
+  constraintTop: "Top",
+  constraintBottom: "Bottom",
+  constraintHint: "Outside the flow. Applied when the parent is resized.",
   bringForward: "Bring forward",
   sendBackward: "Send backward",
   bringToFront: "Bring to front",
@@ -953,6 +973,16 @@ const pt: Messages = {
   lockLayer: (name) => `Travar ${name}`,
   unlockLayer: (name) => `Destravar ${name}`,
   arrange: "Ordem",
+  constraints: "Constraints",
+  constraintHorizontal: "Horizontal",
+  constraintVertical: "Vertical",
+  constraintLeft: "Esq.",
+  constraintCenter: "Centro",
+  constraintRight: "Dir.",
+  constraintScale: "Escala",
+  constraintTop: "Topo",
+  constraintBottom: "Base",
+  constraintHint: "Fora do fluxo. Aplica quando o pai muda de tamanho.",
   bringForward: "Avançar",
   sendBackward: "Recuar",
   bringToFront: "Trazer para frente",

@@ -730,3 +730,15 @@ Task: draw the multi-selection inspector (align, distribute, wrap in a frame) an
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123 and #128, still open: `get_bounds` on `page#interfaces` returned an empty content box, and a second empty page is also named `Interfaces` (`h6jut017rv`). Frames were placed by reading depth-1 `x`/`y` (landed at y=4200).
 - `lint_design` on both frames was clean after the locked label switched to `$ui.destructiveText`.
+
+## 2026-11-23: constraints when the parent resizes (PAP-B-084, design first)
+
+Task: draw the inspector constraint axes (dark: right/top, light: scale/center) and a before/after of a parent growing, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before adding `constraints`. Three frames at y=9120 (`papb084-inspector-dark`, `papb084-inspector-light`, `papb084-behavior`). PNGs in `docs/assets/boards/PAP-B-084/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 123 | A free spot on `Interfaces` | Still open: `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0. Depth-1 boxes bottomed near y=8960, so the frames went to y=9120 | Same as the open row: the page content box should include its child frames | P2 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- The behavior frame is a mock: the live server does not accept `constraints` yet, so the before/after rectangles are placed by x/y.
+- `lint_design` on the three roots: 0 errors and 0 warnings.

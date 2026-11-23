@@ -24,6 +24,7 @@ import { round4 } from "./num.js";
 import { PlaceSpecSchema, resolvePlace } from "./placement.js";
 import { ConnectorError, connectorsAttachedTo, routeConnectors, shapeDefaults } from "./diagram.js";
 import { lengthTokenError } from "./style.js";
+import { applyConstraints } from "./constraints.js";
 import {
   COPY_OVERRIDES,
   InstanceError,
@@ -607,6 +608,7 @@ export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
   if (ops.length) {
     const last = ops.length - 1;
     checkPages(draft, last);
+    applyConstraints(doc, draft);
     inverse.unshift(...fitGroups(draft));
     try {
       syncInstances(draft);

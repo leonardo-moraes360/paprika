@@ -610,6 +610,29 @@ describe("API: MCP", () => {
     expect(back.boxes.arow.width).toBeCloseTo(102, 0);
   });
 
+  it("constraints reposicionam o filho fora do fluxo quando o pai muda de tamanho", async () => {
+    const bad = await call(client, "create_nodes", { nodes: [{ type: "rect", id: "badc", constraints: { horizontal: "stretch" } }] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toMatch(/constraints/);
+    await call(client, "create_nodes", {
+      place: "none",
+      nodes: [{
+        type: "frame", id: "cboard", x: 0, y: 0, width: 200, height: 100,
+        layout: { mode: "column", gap: 0, padding: 0 },
+        children: [
+          { type: "rect", id: "cflow", x: 4, y: 4, width: 20, height: 10, constraints: { horizontal: "right" } },
+          { type: "rect", id: "cpin", x: 140, y: 70, width: 40, height: 16, layoutPositioning: "absolute", constraints: { horizontal: "right", vertical: "bottom" } },
+        ],
+      }],
+    });
+    await call(client, "update_nodes", { updates: [{ id: "cboard", props: { width: 300, height: 160 } }] });
+    const nodes = (await srv.doc()).nodes;
+    expect(nodes.cpin).toMatchObject({ x: 240, y: 130, width: 40, height: 16 });
+    expect(nodes.cflow).toMatchObject({ x: 4, y: 4, width: 20 });
+    await call(client, "update_nodes", { updates: [{ id: "cpin", props: { constraints: null } }] });
+    expect((await srv.doc()).nodes.cpin).not.toHaveProperty("constraints");
+  });
+
   it("diagramas: draw_diagram, setas que seguem a forma, export SVG medido e undo", async () => {
     const c = client;
     const r = (await c.callTool({
