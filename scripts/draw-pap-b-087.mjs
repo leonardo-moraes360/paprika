@@ -42,7 +42,7 @@ const outline = textOf(await call("get_document_outline", { workspaceId, depth: 
 const pageId = (outline.match(/page#(interfaces)\b/) ?? outline.match(/page#([^\s"]+)/) ?? [])[1];
 if (!pageId) throw new Error(`no page in outline:\n${outline.slice(0, 800)}`);
 const ys = [...outline.matchAll(/@-?\d+(?:\.\d+)?,\s*(-?\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]));
-const heights = [...outline.matchAll(/(\d+(?:\.\d+)?)×(\d+(?:\.\d+)?)\s+@/g)].map((m) => Number(m[2]));
+const heights = [...outline.matchAll(/(\d{1,8}(?:\.\d{1,8})?)×(\d{1,8}(?:\.\d{1,8})?)\s+@/g)].map((m) => Number(m[2]));
 const bottoms = ys.map((y, i) => y + (heights[i] ?? 0));
 const maxBottom = bottoms.length ? Math.max(...bottoms) : 0;
 const Y = Math.ceil((maxBottom + 160) / 40) * 40;

@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 )
@@ -148,12 +149,12 @@ func ConvertToPathOps(doc *Document, ids []string) ([]any, error) {
 }
 
 func joinComma(ids []string) string {
-	out := ""
+	var b strings.Builder
 	for i, id := range ids {
 		if i > 0 {
-			out += ", "
+			b.WriteString(", ")
 		}
-		out += id
+		b.WriteString(id)
 	}
-	return out
+	return b.String()
 }
