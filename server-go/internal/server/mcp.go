@@ -67,6 +67,103 @@ func jsonShown(structured *jsonv.Object, shown any) ToolResult {
 	return res
 }
 
+func nodeDim(n *jsonv.Object, key string) any {
+	v, ok := n.Get(key)
+	if !ok || v == nil {
+		return 0.0
+	}
+	switch v.(type) {
+	case float64, string:
+		return v
+	default:
+		return 0.0
+	}
+}
+
+func createdShape(doc *core.Document, ids []string) (idList []any, roots []any, created []any, lines []string) {
+	set := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		set[id] = true
+	}
+	idList = make([]any, 0, len(ids))
+	created = make([]any, 0, len(ids))
+	roots = []any{}
+	for _, id := range ids {
+		idList = append(idList, id)
+		n := core.GetNode(doc, id)
+		if n == nil {
+			continue
+		}
+		var parent any
+		if v, ok := n.Get("parentId"); ok {
+			parent = v
+		}
+		created = append(created, jsonv.NewObject("id", n.Str("id"), "name", n.Str("name"), "type", n.Str("type"), "parentId", parent))
+		if pid, _ := parent.(string); pid != "" && set[pid] {
+			continue
+		}
+		roots = append(roots, jsonv.NewObject(
+			"id", n.Str("id"), "name", n.Str("name"), "type", n.Str("type"),
+			"x", n.Num("x"), "y", n.Num("y"), "width", nodeDim(n, "width"), "height", nodeDim(n, "height"),
+		))
+		lines = append(lines, core.DescribeNode(n))
+	}
+	return idList, roots, created, lines
+}
+
+func enrichCreated(out *jsonv.Object, doc *core.Document, ids []string) (*jsonv.Object, []string) {
+	idList, roots, created, lines := createdShape(doc, ids)
+	next := jsonv.NewObject()
+	placed := false
+	for _, k := range out.Keys() {
+		if k == "created" {
+			next.Set("ids", idList)
+			next.Set("roots", roots)
+			next.Set("created", created)
+			placed = true
+			continue
+		}
+		v, _ := out.Get(k)
+		next.Set(k, v)
+	}
+	if !placed {
+		next.Set("ids", idList)
+		next.Set("roots", roots)
+		next.Set("created", created)
+	}
+	return next, lines
+}
+
+func resultWithRoots(out *jsonv.Object, doc *core.Document, ids []string) ToolResult {
+	shaped, lines := enrichCreated(out, doc, ids)
+	res := jsonResult(shaped)
+	if len(lines) > 0 {
+		res.Set("content", append(res.Arr("content"), jsonv.NewObject("type", "text", "text", strings.Join(lines, "\n"))))
+	}
+	return res
+}
+
+func pageByName(doc *core.Document, name string) string {
+	match := func(id string) string {
+		n := core.GetNode(doc, id)
+		if n != nil && n.Str("type") == "page" && n.Str("name") == name {
+			return id
+		}
+		return ""
+	}
+	for _, id := range doc.Strings("rootIds") {
+		if found := match(id); found != "" {
+			return found
+		}
+	}
+	for _, id := range core.Nodes(doc).Keys() {
+		if found := match(id); found != "" {
+			return found
+		}
+	}
+	return ""
+}
+
 func errorResult(msg string) ToolResult {
 	return jsonv.NewObject("content", []any{jsonv.NewObject("type", "text", "text", msg)}, "isError", true)
 }
@@ -174,6 +271,16 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return writeBatch(ops, lbl, a.Str("batch"), extra...)
 	}
 	write := func(a *jsonv.Object, ops []any, lbl string) (ToolResult, error) { return writeWith(a, ops, lbl) }
+	shapedWrite := func(a *jsonv.Object, ops []any, lbl string, extra ...any) (ToolResult, error) {
+		r, err := store.ApplyBatch(ops, m.actorName(), lbl, a.Str("batch"))
+		if err != nil {
+			return nil, err
+		}
+		out := jsonv.NewObject(extra...)
+		out.Set("created", []any{})
+		out.Set("version", float64(store.Version()))
+		return resultWithRoots(out, store.Doc(), r.Created), nil
+	}
 	labelOr := func(args *jsonv.Object, def string) string {
 		if args.Has("label") {
 			return args.Str("label")
@@ -404,7 +511,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			}
 			ops[i] = op
 		}
-		r, err := write(a, ops, labelOr(a, "create "+count(len(nodes))+" node(s)"))
+		r, err := shapedWrite(a, ops, labelOr(a, "create "+count(len(nodes))+" node(s)"))
 		if err != nil {
 			return nil, err
 		}
@@ -524,8 +631,22 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("create_page", z.Object(
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
+		z.Field{Name: "ensure", Schema: z.Optional(z.Bool())},
 		label(), batch(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		if a.Bool("ensure") {
+			if !a.Has("name") || strings.TrimSpace(a.Str("name")) == "" {
+				return nil, errors.New("create_page ensure requires a name")
+			}
+			if existing := pageByName(store.Doc(), a.Str("name")); existing != "" {
+				return jsonResult(jsonv.NewObject(
+					"page", existing,
+					"created", []any{},
+					"ensured", true,
+					"version", float64(store.Version()),
+				)), nil
+			}
+		}
 		id := a.Str("id")
 		if !a.Has("id") {
 			id = core.NewID()
@@ -991,7 +1112,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		for _, w := range core.OverlapWarnings(store.Doc(), res.Created) {
 			ws = append(ws, w)
 		}
-		return jsonResult(jsonv.NewObject("created", jsonv.FromGo(res.Created), "version", float64(store.Version()), "warnings", ws)), nil
+		return resultWithRoots(jsonv.NewObject("created", []any{}, "version", float64(store.Version()), "warnings", ws), store.Doc(), res.Created), nil
 	}
 	importOpts := func(a *jsonv.Object) core.ImportOptions {
 		o := core.ImportOptions{X: a.Num("x"), Y: a.Num("y")}
@@ -1092,11 +1213,11 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		for _, w := range core.OverlapWarnings(store.Doc(), res.Created) {
 			warnings = append(warnings, w)
 		}
-		return jsonResult(jsonv.NewObject(
-			"created", jsonv.FromGo(res.Created), "version", float64(store.Version()),
+		return resultWithRoots(jsonv.NewObject(
+			"created", []any{}, "version", float64(store.Version()),
 			"width", w, "height", h, "naturalWidth", float64(img.width), "naturalHeight", float64(img.height), "format", img.format(), "animated", img.animated,
 			"warnings", warnings,
-		)), nil
+		), store.Doc(), res.Created), nil
 	})
 
 	add("resize_image", z.Object(
@@ -1203,7 +1324,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if err != nil {
 			return nil, err
 		}
-		r, err := writeWith(a, plan.Ops, labelOr(a, "duplicate "+count(len(plan.Copies))+" node(s)"), "copies", jsonv.FromGo(plan.Copies), "map", plan.Map)
+		r, err := shapedWrite(a, plan.Ops, labelOr(a, "duplicate "+count(len(plan.Copies))+" node(s)"), "copies", jsonv.FromGo(plan.Copies), "map", plan.Map)
 		if err != nil {
 			return nil, err
 		}
@@ -1389,7 +1510,11 @@ func appendOverlap(r ToolResult, doc *core.Document) {
 	if sc == nil {
 		return
 	}
-	extra := core.OverlapWarnings(doc, sc.Strings("created"))
+	ids := sc.Strings("created")
+	if len(ids) == 0 {
+		ids = sc.Strings("ids")
+	}
+	extra := core.OverlapWarnings(doc, ids)
 	if len(extra) == 0 {
 		return
 	}

@@ -268,6 +268,7 @@ Every item still open in the [agent feedback log](agent-feedback.md) (fb#1 to fb
 | Diagram routing around shapes | Obstacle-aware elbow routes, or `relayout` on `draw_diagram` for existing ids | fb#58 | ⬜ | P2 |
 | Contract cleanups for the next breaking version | Text and `structuredContent` as the same object; `historyLabel` with `label` as an alias; unknown session ids answer 404 so clients re-initialize; one actor name in both transports | fb#22, fb#48, fb#50, fb#74 | 🟡 | P3 |
 | Small conveniences | `pageId` default on `create_nodes` (the page the human sees); typed size tokens scaled by `scale`; `resolve` on `get_nodes`; read-only `sql_query`; open batch shown in the activity list; one UI language (or a setting); live cover and cover in export; normalized examples; edited paths as "ignore layout" children (A) | fb#21, fb#23, fb#36, fb#38, fb#44, fb#46, fb#49, fb#51, fb#63, fb#64 | ⬜ | P3 |
+| Write results agents can use as-is | `create_nodes`, `duplicate_nodes` and imports return `{ids, roots, created}` (`ids` keeps the old id list; `roots` is `{id, name, type, x, y, width, height}` for each new node whose parent was not created in the call; `created` is `{id, name, type, parentId}` for every new node) and one readable text line per root. `create_page` with `ensure: true` returns the existing page of that name. **Done (PAP-B-064).** | fb#91, fb#99 | ✅ | — |
 
 Already covered by shipped work, to mark "Done" in the log: fb#8 and fb#16 (`group` node), fb#13 (pages; auto-stacking top-level frames landed in PAP-B-061 as `place: "free"`).
 

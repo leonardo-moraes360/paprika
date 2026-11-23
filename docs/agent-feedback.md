@@ -294,7 +294,7 @@ Task: draw the Opacidade field states (normal, focused, invalid with message) in
 |---|--------|---------------|----------|------|
 | 89 | `layout.padding` as `[0, 8]` (two values) | `create_nodes` answered `layout.padding: Invalid input`; only a scalar or a 4-tuple is accepted. Had to switch every padding to a single number | Document the accepted padding shapes in `get_design_guide` / tool schema (1 or 4, not 2) | P3 |
 | 90 | `radius: "$radius.md"` on a sheet that already uses `$ui.*` fills | Same refusal as #83 (`expected number, received string`); the board used literal `6` / `8` again | Same as #83: accept `$radius.*` where a length is expected | P3 |
-| 91 | Know which ids in `created` are the roots | `create_nodes` returns a flat DFS list of every nested id; the six board roots were not the first six entries, so the first screenshot pass hit titles and labels | Prefer roots-first in `created`, or return `{roots, created}` like `create_page` already distinguishes `page` | P3 |
+| 91 | Know which ids in `created` are the roots | `create_nodes` returns a flat DFS list of every nested id; the six board roots were not the first six entries, so the first screenshot pass hit titles and labels | Done (2026-11-22, PAP-B-064): `create_nodes`, `duplicate_nodes` and imports return `{ids, roots, created}` (`roots` names each top-level node and its box; `created` is `{id, name, type, parentId}`; `ids` keeps the old list) and one readable line per root | — |
 
 - Fixed heights on the six roots avoided the hug screenshot pitfall called out in the ticket; `render_screenshot` with `scale: 2` was enough to judge focus ring and invalid message.
 - `find_nodes {name: "PAP-B-027 field", type: "frame"}` was the reliable way to map board name → id after the flat `created` list.
@@ -353,7 +353,7 @@ pages, then wire the rename in `apps/web`. Six root frames (three states, light 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 99 | A page to draw on in an empty document | The active workspace had no nodes, so the `Interfaces` page did not exist and `create_page` had to be the first call; the board document in the repository (`docs/design/boards.paprika.json`) holds a different page, so nothing to import without `--replace` wiping the sheets other tickets draw in parallel | A `create_page` that is a no-op (returns the existing id) when a page with that name exists, so concurrent tickets can all "ensure" `Interfaces` without racing | P3 |
+| 99 | A page to draw on in an empty document | The active workspace had no nodes, so the `Interfaces` page did not exist and `create_page` had to be the first call; the board document in the repository (`docs/design/boards.paprika.json`) holds a different page, so nothing to import without `--replace` wiping the sheets other tickets draw in parallel | Done (2026-11-22, PAP-B-064): `create_page` with `ensure: true` returns the existing page of that name instead of creating a second one | — |
 | 100 | A screenshot as a file | `render_screenshot` returns the PNG only as base64 inside the JSON-RPC result, so saving it under `docs/assets/boards/` takes a decoding script on every ticket | An optional `path` (inside a configured directory) that writes the file and returns its location | P3 |
 
 - `lint_design` flagged the 11 px caption (`small-text`) on all six frames; 12 px fixed it, so captions stay at the app's smallest legible size.

@@ -128,11 +128,11 @@ func TestPlaceDuplicateBesideAndOverlapWarning(t *testing.T) {
 	})); isErr {
 		t.Fatal(out)
 	}
-	out, isErr := callText(t, m, "duplicate_nodes", obj("ids", []any{"board"}, "props", obj("mode", "dark", "name", "Board dark")))
-	if isErr {
-		t.Fatal(out)
+	dup := m.CallTool(context.Background(), "duplicate_nodes", obj("ids", []any{"board"}, "props", obj("mode", "dark", "name", "Board dark")), true)
+	if dup.Bool("isError") {
+		t.Fatal(jsonv.Stringify(dup, ""))
 	}
-	parsed, err := jsonv.Parse([]byte(out))
+	parsed, err := jsonv.Parse([]byte(dup.Arr("content")[0].(*jsonv.Object).Str("text")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestPlaceDuplicateBesideAndOverlapWarning(t *testing.T) {
 	if n.Num("x") != 400 || n.Num("y") != 0 || n.Str("mode") != "dark" {
 		t.Fatalf("copy: %s", jsonv.Stringify(n, ""))
 	}
-	out, isErr = callText(t, m, "create_nodes", obj("place", "none", "nodes", []any{
+	out, isErr := callText(t, m, "create_nodes", obj("place", "none", "nodes", []any{
 		obj("type", "frame", "id", "dark", "name", "Dark", "x", 40.0, "y", 40.0, "width", 320.0, "height", 120.0, "fill", "#111111"),
 	}))
 	if isErr || !strings.Contains(out, `overlaps \"Board\"`) || !strings.Contains(out, "nearest free spot") {

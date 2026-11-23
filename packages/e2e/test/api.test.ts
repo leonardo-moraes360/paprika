@@ -32,6 +32,51 @@ afterEach(async () => {
 const call = async (c: Client, name: string, args: Record<string, unknown> = {}) =>
   (await c.callTool({ name, arguments: args })) as ToolResult;
 const textOf = (r: ToolResult) => r.content.map((c) => c.text ?? "").join("\n");
+const jsonOf = (r: ToolResult) => JSON.parse(r.content.find((c) => (c.text ?? "").trimStart().startsWith("{"))?.text ?? "null");
+
+const outputSchema = (name: string) => {
+  const contract = JSON.parse(readFileSync(join(repoRoot, "server-go/contract/mcp.json"), "utf8"));
+  return contract.tools.find((t: { name: string }) => t.name === name).outputSchema;
+};
+
+const schemaErrors = (schema: any, value: unknown, path = ""): string[] => {
+  if (!schema || typeof schema !== "object") return [];
+  const errors: string[] = [];
+  const types: string[] = schema.type === undefined ? [] : Array.isArray(schema.type) ? schema.type : [schema.type];
+  if (types.length) {
+    const ok = types.some((t) => {
+      if (t === "null") return value === null;
+      if (t === "array") return Array.isArray(value);
+      if (t === "integer") return typeof value === "number" && Number.isInteger(value);
+      if (t === "number") return typeof value === "number" && !Number.isNaN(value);
+      return typeof value === t;
+    });
+    if (!ok) errors.push(`${path || "/"} expected ${types.join("|")}`);
+  }
+  if (schema.enum && !schema.enum.includes(value)) errors.push(`${path} not in enum`);
+  if (Array.isArray(value) && schema.items) {
+    value.forEach((item, i) => errors.push(...schemaErrors(schema.items, item, `${path}/${i}`)));
+  }
+  if (value && typeof value === "object" && !Array.isArray(value) && schema.type === "object") {
+    const obj = value as Record<string, unknown>;
+    for (const key of schema.required ?? []) {
+      if (!(key in obj)) errors.push(`${path} missing ${key}`);
+    }
+    if (schema.additionalProperties === false) {
+      for (const key of Object.keys(obj)) {
+        if (!schema.properties?.[key]) errors.push(`${path} unexpected ${key}`);
+      }
+    }
+    for (const [key, sub] of Object.entries(schema.properties ?? {})) {
+      if (key in obj) errors.push(...schemaErrors(sub, obj[key], `${path}/${key}`));
+    }
+  }
+  return errors;
+};
+
+const assertOutput = (name: string, value: unknown) => {
+  expect(schemaErrors(outputSchema(name), value), JSON.stringify(value)).toEqual([]);
+};
 
 describe("API: MCP", () => {
   it("serve o contrato MCP (server-go/contract/mcp.json) com JSON Schema de objeto", async () => {
@@ -291,26 +336,63 @@ describe("API: MCP", () => {
     expect(hist.map((h: { label: string }) => h.label)).toEqual(["create 2 node(s)", "combine 2 path(s)", "create page", "create 1 node(s)"]);
   });
 
+  it("create_nodes devolve raízes e create_page ensure reaproveita a página", async () => {
+    const c = client;
+    const made = (await c.callTool({
+      name: "create_nodes",
+      arguments: {
+        nodes: [{
+          type: "frame", id: "board", name: "Board", x: 12, y: 8, width: 200, height: 80,
+          children: [
+            { type: "text", id: "title", name: "Title", text: "Oi", width: 40, height: 16 },
+            { type: "rect", id: "swatch", width: 10, height: 10 },
+          ],
+        }],
+      },
+    })) as ToolResult & { structuredContent?: { ids: string[]; roots: { id: string; name: string; type: string; x: number; y: number; width: number; height: number }[]; created: { id: string; name: string; type: string; parentId: string | null }[]; version: number } };
+    const sc = made.structuredContent!;
+    assertOutput("create_nodes", sc);
+    expect(sc.roots).toEqual([{ id: "board", name: "Board", type: "frame", x: 12, y: 8, width: 200, height: 80 }]);
+    expect(sc.ids).toEqual(["board", "title", "swatch"]);
+    expect(sc.created).toEqual([
+      { id: "board", name: "Board", type: "frame", parentId: null },
+      { id: "title", name: "Title", type: "text", parentId: "board" },
+      { id: "swatch", name: "", type: "rect", parentId: "board" },
+    ]);
+    expect(textOf(made)).toContain('frame#board "Board" 200×80 @12,8');
+    expect(textOf(made)).not.toContain("text#title");
+    const first = jsonOf(await call(c, "create_page", { name: "Interfaces", ensure: true }));
+    assertOutput("create_page", first);
+    const second = jsonOf(await call(c, "create_page", { name: "Interfaces", ensure: true, id: "other" }));
+    assertOutput("create_page", second);
+    expect(second).toMatchObject({ page: first.page, created: [], ensured: true, version: first.version });
+    const pages = textOf(await call(c, "get_document_outline")).match(/page#\S+ "Interfaces"/g) ?? [];
+    expect(pages).toHaveLength(1);
+    const missing = await call(c, "create_page", { ensure: true });
+    expect(missing.isError).toBe(true);
+    expect(textOf(missing)).toBe("create_page ensure requires a name");
+  });
+
   it("fluxo completo: tokens → criar → lint → corrigir → exportar → desfazer", async () => {
     const c = client;
     await call(c, "set_tokens", { tokens: { bg: "#ffffff", ink: "#111111", faint: "#dddddd" } });
-    const created = JSON.parse(
-      textOf(
-        await call(c, "create_nodes", {
-          nodes: [
-            {
-              type: "frame", id: "login", name: "Login", width: 360, height: 240, fill: "$bg",
-              layout: { mode: "column", gap: 12, padding: 24 },
-              children: [
-                { type: "text", id: "h", text: "Entrar", fontSize: 24, fontWeight: 700, color: "$ink", width: "fill", height: "hug" },
-                { type: "text", id: "sub", text: "Use seu e-mail", color: "$faint", width: "fill", height: "hug" },
-              ],
-            },
-          ],
-        }),
-      ),
+    const created = jsonOf(
+      await call(c, "create_nodes", {
+        nodes: [
+          {
+            type: "frame", id: "login", name: "Login", width: 360, height: 240, fill: "$bg",
+            layout: { mode: "column", gap: 12, padding: 24 },
+            children: [
+              { type: "text", id: "h", text: "Entrar", fontSize: 24, fontWeight: 700, color: "$ink", width: "fill", height: "hug" },
+              { type: "text", id: "sub", text: "Use seu e-mail", color: "$faint", width: "fill", height: "hug" },
+            ],
+          },
+        ],
+      }),
     );
-    expect(created.created).toEqual(["login", "h", "sub"]);
+    expect(created.ids).toEqual(["login", "h", "sub"]);
+    expect(created.roots.map((n: { id: string }) => n.id)).toEqual(["login"]);
+    expect(created.created.map((n: { id: string }) => n.id)).toEqual(["login", "h", "sub"]);
     const lint1 = JSON.parse(textOf(await call(c, "lint_design")));
     expect(lint1.ok).toBe(false);
     expect(lint1.issues.find((i: { rule: string }) => i.rule === "contrast").nodeId).toBe("sub");
@@ -349,10 +431,12 @@ describe("API: MCP", () => {
 
   it("path com bezier: cria só com d, valida, mede, renderiza e exporta", async () => {
     const c = client;
-    const created = JSON.parse(
-      textOf(await call(c, "create_nodes", { nodes: [{ type: "path", id: "wave", d: "M0 40 C 30 -10 70 90 100 40", stroke: { color: "#c43d27", width: 4 } }] })),
+    const created = jsonOf(
+      await call(c, "create_nodes", { nodes: [{ type: "path", id: "wave", d: "M0 40 C 30 -10 70 90 100 40", stroke: { color: "#c43d27", width: 4 } }] }),
     );
-    expect(created.created).toEqual(["wave"]);
+    expect(created.ids).toEqual(["wave"]);
+    expect(created.roots).toHaveLength(1);
+    expect(created.created[0]).toMatchObject({ id: "wave", type: "path", parentId: null });
     const node = (await srv.doc()).nodes.wave as PathNode;
     expect(node.width).toBe(100);
     expect(node.height).toBe(55);
@@ -524,11 +608,13 @@ describe("API: MCP", () => {
       x: 10,
       y: 10,
     });
-    const svgOut = JSON.parse(textOf(svg));
+    const svgOut = jsonOf(svg);
     expect(svgOut.created).toHaveLength(3);
+    expect(svgOut.roots).toHaveLength(1);
+    assertOutput("import_svg", svgOut);
     expect(svgOut).toMatchObject({ version: 1, warnings: ['CSS in <style> is not applied; use attributes or style="" on the elements'] });
     const anon = (t: string) => t.replace(/#[0-9a-z]{10}\b/g, "#…").replace(/data-paprika-id="[^"]+"/g, 'data-paprika-id="…"');
-    expect(anon(textOf(await call(c, "get_document_outline", { rootId: svgOut.created[0] })))).toMatchInlineSnapshot(`
+    expect(anon(textOf(await call(c, "get_document_outline", { rootId: svgOut.ids[0] })))).toMatchInlineSnapshot(`
       "document "doc" v1 · 3 nodes
       tokens: (none)
 
@@ -545,7 +631,9 @@ describe("API: MCP", () => {
       label: "colar HTML",
     });
     expect(textOf(html)).toMatch(/"created": \[/);
-    const root = JSON.parse(textOf(html)).created[0];
+    const htmlOut = jsonOf(html);
+    assertOutput("import_html", htmlOut);
+    const root = htmlOut.ids[0];
     expect(anon(textOf(await call(c, "get_document_outline", { rootId: root })))).toMatchInlineSnapshot(`
       "document "doc" v2 · 6 nodes
       tokens: (none)
@@ -559,7 +647,7 @@ describe("API: MCP", () => {
     const out = await call(c, "export_code", { rootId: root, format: "svg" });
     expect(out.isError, textOf(out)).toBeFalsy();
     expect(anon(out.content[0]!.text!)).toMatchInlineSnapshot(`"<svg xmlns="http://www.w3.org/2000/svg" width="200" height="64" viewBox="0 0 200 64"><g data-paprika-id="…" transform="translate(0 0)"><rect x="0" y="0" width="200" height="64" fill="#fbf8f4"/><g data-paprika-id="…" transform="translate(12 12)"><rect x="0" y="0" width="40" height="40" rx="8" fill="#c43d27"/></g><g data-paprika-id="…" transform="translate(60 12)"><rect x="1" y="1" width="126" height="38" fill="none" stroke="#1d1a1f" stroke-width="2"/></g></g></svg>"`);
-    const icon = await call(c, "export_code", { rootId: svgOut.created[0], format: "svg" });
+    const icon = await call(c, "export_code", { rootId: svgOut.ids[0], format: "svg" });
     expect(anon(icon.content[0]!.text!)).toMatchInlineSnapshot(`"<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><g data-paprika-id="…" data-name="Ícone" transform="translate(0 0)"><g data-paprika-id="…" transform="translate(0 0)"><svg width="44" height="44" overflow="visible"><path d="M13.56 0.12 L37.19 4.29 C41.54 5.06 44.45 9.21 43.68 13.56 L39.52 37.19 C38.75 41.54 34.6 44.45 30.25 43.68 L6.61 39.52 C2.26 38.75 -0.64 34.6 0.12 30.25 L4.29 6.61 C5.06 2.26 9.21 -0.64 13.56 0.12 Z" fill="#c43d27" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round"/></svg></g><g data-paprika-id="…" transform="translate(13.9 13.9)"><svg width="17" height="17" overflow="visible"><path d="M15.88 9.39 C15.11 13.74 10.96 16.65 6.61 15.88 C2.26 15.11 -0.64 10.96 0.12 6.61 C0.89 2.26 5.04 -0.64 9.39 0.12 C13.74 0.89 16.65 5.04 15.88 9.39 Z" fill="#fff" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round"/></svg></g></g></svg>"`);
     const bad = await call(c, "import_html", { html: "<!-- nada -->" });
     expect(bad.isError).toBe(true);
@@ -691,16 +779,18 @@ describe("API: MCP", () => {
       for (const [file, want] of Object.entries(expected)) {
         const r = await call(c, "import_image", { src: join(allowed, file) });
         expect(r.isError, textOf(r)).toBeFalsy();
-        const out = JSON.parse(textOf(r));
+        const out = jsonOf(r);
         expect(out).toMatchObject({ format: want.format, naturalWidth: 4, naturalHeight: 3, animated: want.animated });
         expect(out.warnings).toHaveLength(want.animated ? 1 : 0);
-        const [node] = JSON.parse(textOf(await call(c, "get_nodes", { ids: out.created })));
+        expect(out.roots).toHaveLength(1);
+        assertOutput("import_image", out);
+        const [node] = JSON.parse(textOf(await call(c, "get_nodes", { ids: out.ids })));
         expect(node).toMatchObject({ type: "image", width: 4, height: 3 });
         expect(node.src).toBe(`data:image/${want.format};base64,${readFileSync(join(allowed, file)).toString("base64")}`);
       }
       const shrunk = await call(c, "import_image", { src: "pixel.png", width: 2, fit: "contain", x: 5, y: 6, label: "logo" });
       expect(shrunk.isError, textOf(shrunk)).toBeFalsy();
-      const [small] = JSON.parse(textOf(await call(c, "get_nodes", { ids: JSON.parse(textOf(shrunk)).created })));
+      const [small] = JSON.parse(textOf(await call(c, "get_nodes", { ids: jsonOf(shrunk).ids })));
       expect(small).toMatchObject({ width: 2, height: 1.5, fit: "contain", x: 5, y: 6 });
       const version = await own.version();
       for (const src of ["../outside/secret.png", join(outside, "secret.png"), "escape.png", "../../../../../../../../etc/passwd"]) {
@@ -810,13 +900,17 @@ describe("API: MCP", () => {
       ],
     });
     const r = (await c.callTool({ name: "duplicate_nodes", arguments: { ids: ["board"], offset: 340, props: { mode: "dark", name: "Board dark" } } })) as ToolResult & {
-      structuredContent?: { copies: string[]; map: Record<string, string>; created: string[]; version: number };
+      structuredContent?: { copies: string[]; map: Record<string, string>; ids: string[]; roots: { id: string }[]; created: { id: string }[]; version: number };
     };
     const sc = r.structuredContent!;
-    expect(JSON.parse(textOf(r))).toEqual(sc);
+    expect(JSON.parse(r.content[0]!.text!)).toEqual(sc);
+    assertOutput("duplicate_nodes", sc);
     expect(sc.copies).toHaveLength(1);
     expect(Object.keys(sc.map).sort()).toEqual(["a", "ab", "b", "board"]);
+    expect(sc.ids).toHaveLength(4);
     expect(sc.created).toHaveLength(4);
+    expect(sc.roots).toHaveLength(1);
+    expect(textOf(r)).toContain(`frame#${sc.roots[0]!.id}`);
     const copy = JSON.parse(textOf(await call(c, "get_nodes", { ids: [sc.copies[0]!, sc.map.ab!] }))) as {
       id: string; mode?: string; name: string; x: number; from?: { nodeId: string }; to?: { nodeId: string };
     }[];
@@ -834,7 +928,14 @@ describe("API: MCP", () => {
   it("agent layer: structuredContent, undo batch, actor from clientInfo over HTTP sessions, pt-BR guide", async () => {
     const c = client;
     const r = (await c.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "b1" }], batch: "draw 3" } })) as ToolResult & { structuredContent?: unknown };
-    expect(r.structuredContent).toEqual({ created: ["b1"], version: 1 });
+    expect(r.structuredContent).toEqual({
+      ids: ["b1"],
+      roots: [{ id: "b1", name: "", type: "rect", x: 0, y: 0, width: 100, height: 100 }],
+      created: [{ id: "b1", name: "", type: "rect", parentId: null }],
+      version: 1,
+    });
+    assertOutput("create_nodes", r.structuredContent);
+    expect(textOf(r)).toContain("rect#b1 100×100 @0,0");
     await call(c, "set_tokens", { tokens: { ink: "#111111" }, batch: "draw 3" });
     const g = (await c.callTool({ name: "group_nodes", arguments: { ids: ["b1"], id: "gb", batch: "draw 3" } })) as ToolResult & { structuredContent?: unknown };
     expect(g.structuredContent).toEqual({ group: "gb", created: ["gb"], version: 3 });
@@ -958,7 +1059,7 @@ describe("API: MCP", () => {
     const src = frames.find((n) => n.x === 1400 && n.y === 0)!;
     const dup = await call(client, "duplicate_nodes", { ids: [src.id], props: { mode: "dark", name: "Board dark" } });
     expect(dup.isError, textOf(dup)).toBeFalsy();
-    const copyId = (JSON.parse(textOf(dup)) as { copies: string[] }).copies[0]!;
+    const copyId = (jsonOf(dup) as { copies: string[] }).copies[0]!;
     const copy = (await srv.doc()).nodes[copyId]!;
     expect(copy.type).toBe("frame");
     if (copy.type !== "frame") return;
@@ -979,7 +1080,7 @@ describe("API: MCP", () => {
     const outline = textOf(await call(client, "get_document_outline", {}));
     expect(outline).toContain("content: x=");
     expect(outline).toContain("next: x=");
-    const bounds = JSON.parse(textOf(await call(client, "get_bounds", {}))) as { content: { width: number }; next: { x: number } };
+    const bounds = jsonOf(await call(client, "get_bounds", {})) as { content: { width: number }; next: { x: number } };
     expect(bounds.content.width).toBeGreaterThan(0);
     expect(typeof bounds.next.x).toBe("number");
     await call(client, "create_nodes", {

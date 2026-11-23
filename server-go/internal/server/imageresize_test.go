@@ -145,11 +145,11 @@ func TestResizeImageUpAndDown(t *testing.T) {
 
 func TestResizeImageNodeIdUndo(t *testing.T) {
 	m, s, _ := resizeSetup(t)
-	imp, isErr := callText(t, m, "import_image", obj("src", "pixel.png"))
-	if isErr {
-		t.Fatalf("import: %s", imp)
+	imp := m.CallTool(t.Context(), "import_image", obj("src", "pixel.png"), true)
+	if imp.Bool("isError") {
+		t.Fatalf("import: %s", jsonv.Stringify(imp, ""))
 	}
-	id := parseToolJSON(t, imp).Arr("created")[0].(string)
+	id := imp.Obj("structuredContent").Arr("ids")[0].(string)
 	before := core.GetNode(s.Doc(), id).Str("src")
 	vBefore := s.Version()
 	out, isErr := callText(t, m, "resize_image", obj("nodeId", id, "preset", "qhd", "fit", "fill"))
