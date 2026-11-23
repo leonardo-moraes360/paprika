@@ -611,3 +611,10 @@ Task: draw the proposal for "point at an element or area and tell the agent what
 
 - `workspaceId` on `create_page`/`create_nodes` worked well: the boards went into `Paprica · UI` while the canvas stayed on the maintainer's active workspace.
 - `create_page {ensure: true}` + `place: "free"` placed five boards with no overlap and no manual coordinates.
+
+## 2026-11-23: agent pins implementation
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 122 | Add tools to the contract with a script | `server-go/contract/mcp.json` is hand-formatted (stray `,` lines, mixed layouts), so re-serializing it rewrites thousands of lines; four tools and an `openPins` field on 22 output schemas had to be inserted as text | Normalize the file once (one JSON formatter, checked in CI) so later edits are small diffs | P3 |
+| 123 | Know the human left a request | Before pins, a human's "do this here" only reached an agent through the chat | Done here: `list_pins` and `openPins` on write results | — |

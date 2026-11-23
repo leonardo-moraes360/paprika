@@ -46,6 +46,8 @@ Modos de tema: set_tokens com mode ("dark", "compact"…) grava só os tokens qu
 
 Posicionamento: um frame novo de topo deixa x e y de fora (ou passa place:"free") e cai no espaço livre, à direita do conteúdo da página, no mesmo topo, respiro 80, quebrando para a linha de baixo depois de 2400px a partir da esquerda do conteúdo. place é "free" | "below" | "right" | {near, side: left|right|above|below} | "none" (x/y exatos). Escritas simultâneas não ocupam o mesmo lugar. get_document_outline e get_bounds sem ids devolvem a caixa do conteúdo da página e o próximo lugar livre. Desenhe overlays (modais, menus, toasts) por último, ou traga-os para a frente com index:"front". Uma escrita avisa quando um nó novo de topo sobrepõe outro e diz o lugar livre mais próximo.
 
+Apontamentos: o humano pode apontar um nó ou uma área do canvas e escrever o que fazer ali ("Apontar para a IA"). Chame list_pins primeiro quando o humano falar de apontamentos e sempre que um resultado de escrita trouxer openPins; claim_pin antes de trabalhar num deles, resolve_pin com uma resposta curta ao terminar. wait_for_pins espera os novos.
+
 Fluxo recomendado:
 1. get_document_outline para se orientar (barato).
 2. set_tokens com a paleta e a escala tipográfica.

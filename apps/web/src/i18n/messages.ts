@@ -89,6 +89,38 @@ export type Messages = {
   toolTriangle: string;
   toolNote: string;
   toolConnector: string;
+  toolPin: string;
+  pinsTitle: string;
+  pinsOpenCount: (n: number) => string;
+  pinsToggle: string;
+  pinsFilterOpen: (n: number) => string;
+  pinsFilterResolved: (n: number) => string;
+  pinsFilterAll: string;
+  pinsEmpty: string;
+  pinsHint: string;
+  pinToolHint: string;
+  pinTarget: string;
+  pinArea: (w: number, h: number) => string;
+  pinTo: string;
+  pinAnyAgent: string;
+  pinPlaceholder: string;
+  pinSend: string;
+  pinSendKeys: string;
+  pinCancelKeys: string;
+  pinStatusOpen: string;
+  pinStatusClaimed: (agent: string) => string;
+  pinStatusResolved: string;
+  pinWorking: (agent: string) => string;
+  pinReplied: (agent: string) => string;
+  pinResolvedBy: (agent: string) => string;
+  pinReopen: string;
+  pinResolve: string;
+  pinDelete: string;
+  pinShow: string;
+  pinNodeGone: string;
+  pinBadge: (n: number) => string;
+  pinComposer: string;
+  pinSaveFail: (err: string) => string;
   undo: string;
   redo: string;
   undoHint: string;
@@ -386,6 +418,38 @@ const en: Messages = {
   toolTriangle: "Triangle",
   toolNote: "Sticky note",
   toolConnector: "Arrow (snaps to shapes)",
+  toolPin: "Point for the AI (click an element or drag an area)",
+  pinsTitle: "Pins",
+  pinsOpenCount: (n) => (n === 1 ? "1 open pin" : `${n} open pins`),
+  pinsToggle: "Pins for the AI (Shift+I)",
+  pinsFilterOpen: (n) => `Open ${n}`,
+  pinsFilterResolved: (n) => `Resolved ${n}`,
+  pinsFilterAll: "All",
+  pinsEmpty: "No pins here. Press I, click an element or drag an area, and write what the AI should do.",
+  pinsHint: "Click an item to bring the canvas to its pin. Resolved pins leave the canvas but stay here.",
+  pinToolHint: "click an element or drag an area",
+  pinTarget: "Target",
+  pinArea: (w, h) => `area ${w}×${h}`,
+  pinTo: "To",
+  pinAnyAgent: "Any agent",
+  pinPlaceholder: "What should the AI do here?",
+  pinSend: "Send to the AI",
+  pinSendKeys: "sends",
+  pinCancelKeys: "cancels",
+  pinStatusOpen: "Open",
+  pinStatusClaimed: (agent) => agent,
+  pinStatusResolved: "Resolved",
+  pinWorking: (agent) => `${agent} is working on this`,
+  pinReplied: (agent) => `${agent} replied`,
+  pinResolvedBy: (agent) => `resolved by ${agent}`,
+  pinReopen: "Reopen",
+  pinResolve: "Mark resolved",
+  pinDelete: "Delete pin",
+  pinShow: "Show on canvas",
+  pinNodeGone: "element deleted",
+  pinBadge: (n) => `Pin ${n}`,
+  pinComposer: "New pin for the AI",
+  pinSaveFail: (err) => `Could not save the pin: ${err}`,
   undo: "Undo",
   redo: "Redo",
   undoHint: "Undo (Ctrl+Z)",
@@ -677,6 +741,38 @@ const pt: Messages = {
   toolTriangle: "Triângulo",
   toolNote: "Nota adesiva",
   toolConnector: "Seta (prende nas formas)",
+  toolPin: "Apontar para a IA (clique num elemento ou arraste uma área)",
+  pinsTitle: "Apontamentos",
+  pinsOpenCount: (n) => (n === 1 ? "1 apontamento aberto" : `${n} apontamentos abertos`),
+  pinsToggle: "Apontamentos para a IA (Shift+I)",
+  pinsFilterOpen: (n) => `Abertos ${n}`,
+  pinsFilterResolved: (n) => `Resolvidos ${n}`,
+  pinsFilterAll: "Todos",
+  pinsEmpty: "Nenhum apontamento aqui. Aperte I, clique num elemento ou arraste uma área e escreva o que a IA deve fazer.",
+  pinsHint: "Clique num item para levar o canvas até o pino. Os resolvidos somem do canvas, mas ficam aqui.",
+  pinToolHint: "clique num elemento ou arraste uma área",
+  pinTarget: "Alvo",
+  pinArea: (w, h) => `área ${w}×${h}`,
+  pinTo: "Para",
+  pinAnyAgent: "Qualquer agente",
+  pinPlaceholder: "O que a IA deve fazer aqui?",
+  pinSend: "Enviar para a IA",
+  pinSendKeys: "envia",
+  pinCancelKeys: "cancela",
+  pinStatusOpen: "Aberto",
+  pinStatusClaimed: (agent) => agent,
+  pinStatusResolved: "Resolvido",
+  pinWorking: (agent) => `${agent} está trabalhando nisto`,
+  pinReplied: (agent) => `${agent} respondeu`,
+  pinResolvedBy: (agent) => `resolvido por ${agent}`,
+  pinReopen: "Reabrir",
+  pinResolve: "Marcar resolvido",
+  pinDelete: "Apagar apontamento",
+  pinShow: "Ver no canvas",
+  pinNodeGone: "elemento apagado",
+  pinBadge: (n) => `Apontamento ${n}`,
+  pinComposer: "Novo apontamento para a IA",
+  pinSaveFail: (err) => `Não deu para salvar o apontamento: ${err}`,
   undo: "Desfazer",
   redo: "Refazer",
   undoHint: "Desfazer (Ctrl+Z)",

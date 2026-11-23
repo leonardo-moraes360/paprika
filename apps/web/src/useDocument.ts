@@ -4,6 +4,7 @@ import { applyPresence, type AgentPresence, type PresenceMsg } from "./agents";
 import { catalogs } from "./i18n/messages";
 import { t } from "./i18n/store";
 import type { TeamStatus } from "./Team";
+import { queryClient } from "./api";
 
 const offlineMessages = new Set(Object.values(catalogs).map((m) => m.offline));
 
@@ -49,6 +50,7 @@ type ServerMsg =
   | { type: "ack"; reqId: string; version: number }
   | { type: "error"; reqId?: string; message: string }
   | { type: "team"; status: TeamStatus }
+  | { type: "pins"; rev: number }
   | { type: "workspaceOp"; op: { actor: string; op: WorkspaceOpKind | "create"; workspaceId: string; workspaceName: string; detail: Record<string, unknown> } }
   | PresenceMsg;
 
@@ -165,6 +167,8 @@ export class LiveStore {
               ? s
               : { ...s, workspaceNotice: { id: ++this.noticeSeq, actor: op.actor, op: kind, workspaceName: op.workspaceName, detail: op.detail ?? {} } },
           );
+        } else if (msg.type === "pins") {
+          void queryClient.invalidateQueries({ queryKey: ["pins"] });
         } else if (msg.type === "presence") {
           this.set((s) => ({ ...s, agents: applyPresence(s.agents, msg) }));
         } else if (msg.type === "error") {

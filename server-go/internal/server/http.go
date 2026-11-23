@@ -211,6 +211,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	})
 
 	stopOps := broadcastWorkspaceOps(store, hub)
+	stopPins := broadcastPins(store, hub)
 
 	unsubscribePresence := store.Presence.OnPresence(func(p Presence) {
 		msg := p.Message()
@@ -338,6 +339,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		c.Writer.Header().Set("content-disposition", `attachment; filename="`+safeFileName(store.Doc().Str("name"))+`.paprika.json"`)
 		send(c.Writer, 200, jsonv.Stringify(store.Doc(), "  ")+"\n", "application/json")
 	})
+	registerPinRoutes(engine, store)
 	engine.Any("/api/workspaces", func(c *gin.Context) {
 		switch c.Request.Method {
 		case http.MethodGet:
@@ -595,6 +597,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		ln:     ln,
 		close: func() {
 			stopOps()
+			stopPins()
 			unsubscribe()
 			unsubscribePresence()
 			unsubscribeTeam()

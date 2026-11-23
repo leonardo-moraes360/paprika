@@ -149,6 +149,7 @@ describe("API: MCP", () => {
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
         "rename_workspace", "render_screenshot", "resize_image", "set_tokens", "set_workspace_cover", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
+        "claim_pin", "list_pins", "resolve_pin", "wait_for_pins",
       ].sort(),
     );
     for (const t of tools) expect(t.inputSchema.type).toBe("object");
@@ -1184,6 +1185,39 @@ describe("API: MCP", () => {
     const html = textOf(await call(c, "export_code", { rootId: "la", format: "html", cssVariables: true }));
     expect(html).toContain("gap:var(--space\\.md)");
     expect(html).toContain("border-radius:var(--radius\\.md)");
+  });
+  it("apontamentos: o humano aponta pelo canvas, o agente lista, pega e resolve", async () => {
+    type WithStruct = ToolResult & { structuredContent: Record<string, unknown> };
+    expect(client.getInstructions()).toContain("list_pins");
+    const post = await fetch(`${srv.url}/api/pins`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ region: { x: 10, y: 20, width: 120, height: 40 }, text: "Aumente este título" }),
+    });
+    expect(post.status).toBe(201);
+    const { pin } = (await post.json()) as { pin: { id: string; n: number; status: string } };
+    expect(pin.status).toBe("open");
+
+    // A write result tells the agent there are open pins (outputSchema allows openPins).
+    const wrote = await call(client, "create_nodes", { nodes: [{ type: "rect", name: "pin-probe", width: 10, height: 10 }] });
+    expect(wrote.isError, textOf(wrote)).toBeFalsy();
+    expect((wrote as WithStruct).structuredContent.openPins).toBeGreaterThanOrEqual(1);
+    expect(textOf(wrote)).toContain("call list_pins");
+
+    const listed = (await call(client, "list_pins", {})) as WithStruct;
+    const mine = (listed.structuredContent.pins as { id: string; text: string; region: { width: number } }[]).find((p) => p.id === pin.id)!;
+    expect(mine.text).toBe("Aumente este título");
+    expect(mine.region.width).toBe(120);
+
+    const claimed = (await call(client, "claim_pin", { id: pin.id })) as WithStruct;
+    expect((claimed.structuredContent.pin as { status: string }).status).toBe("claimed");
+    const resolved = (await call(client, "resolve_pin", { id: pin.id, reply: "Título em 32px" })) as WithStruct;
+    expect(resolved.structuredContent.pin).toMatchObject({ status: "resolved", reply: "Título em 32px" });
+
+    const waited = (await call(client, "wait_for_pins", { timeoutMs: 0, since: listed.structuredContent.rev as number })) as WithStruct;
+    expect(waited.structuredContent.timedOut).toBe(true);
+    const missing = await client.callTool({ name: "claim_pin", arguments: { id: "nope" } });
+    expect(missing.isError).toBe(true);
   });
   it("posiciona frames de topo sem sobreposição (PAP-B-061)", async () => {
     expect(client.getInstructions()).toContain("Placement:");
