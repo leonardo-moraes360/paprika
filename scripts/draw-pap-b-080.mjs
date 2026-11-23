@@ -73,7 +73,7 @@ if (!pageId) throw new Error("Interfaces page not found");
 
 const pageOutline = textOf(await call("get_document_outline", { workspaceId, depth: 1, rootId: pageId }));
 const ys = [...pageOutline.matchAll(/@-?\d+(?:\.\d+)?,(-?\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]));
-const heights = [...pageOutline.matchAll(/(\d+(?:\.\d+)?)×(\d+(?:\.\d+)?) @/g)].map((m) => Number(m[2]));
+const heights = [...pageOutline.matchAll(/(\d{1,8}(?:\.\d{1,8})?)×(\d{1,8}(?:\.\d{1,8})?) @/g)].map((m) => Number(m[2]));
 const bottoms = ys.map((y, i) => y + (heights[i] ?? 0));
 const maxBottom = bottoms.length ? Math.max(...bottoms) : 0;
 const Y = Math.ceil((maxBottom + 240) / 40) * 40;
@@ -271,8 +271,8 @@ const nodes = [
 
 try {
   await call("delete_nodes", { workspaceId, ids: nodes.map((n) => n.id) });
-} catch (e) {
-  console.log("delete skipped", e.message);
+} catch {
+  console.log("delete skipped");
 }
 
 const created = await call("create_nodes", {
@@ -305,6 +305,6 @@ for (const [rootId, file] of shots) {
 try {
   const lint = textOf(await call("lint_design", { workspaceId, rootId: "b080-fx-dark" }));
   console.log("lint dark", lint.slice(0, 800));
-} catch (e) {
-  console.log("lint skipped", e.message);
+} catch {
+  console.log("lint skipped");
 }

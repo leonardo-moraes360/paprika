@@ -229,7 +229,7 @@ function parseShadowLayers(raw: string, ctx: Ctx) {
   if (parts.length < 2 && !/^inset\b/.test(raw)) return;
   const parsed: { x: number; y: number; blur: number; spread: number; color: string; inner?: boolean }[] = [];
   for (const part of parts) {
-    const m = /^(inset\s+)?(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px(?:\s+(-?[\d.]+)px)?\s+(.+)$/.exec(part);
+    const m = /^(inset\s+)?(-?\d{1,8}(?:\.\d{1,8})?)px\s+(-?\d{1,8}(?:\.\d{1,8})?)px\s+(\d{1,8}(?:\.\d{1,8})?)px(?:\s+(-?\d{1,8}(?:\.\d{1,8})?)px)?\s+(.+)$/.exec(part);
     if (!m) return;
     const c = color(m[6], ctx);
     if (!c) return;
@@ -290,7 +290,7 @@ function parseFilterFns(raw: string): FilterIn | undefined {
 }
 
 function parseOutlineCss(css: ReadonlyMap<string, string>, ctx: Ctx): { color: string; width: number; style: "solid" | "dashed" | "dotted"; offset?: number } | undefined {
-  const m = /^([\d.]+)px\s+(solid|dashed|dotted)\s+(.+)$/.exec((css.get("outline") ?? "").trim());
+  const m = /^(\d{1,8}(?:\.\d{1,8})?)px\s+(solid|dashed|dotted)\s+(.+)$/.exec((css.get("outline") ?? "").trim());
   if (!m) return;
   const c = color(m[3], ctx);
   if (!c) return;
