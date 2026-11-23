@@ -98,7 +98,7 @@ Tarefa: componentes (`component: true`) e instâncias (`instanceOf`, `scale`, `o
 |---|-----------|-----------------|----------|------|
 | 37 | Trocar algo numa cópia sem saber o id gerado | Os ids das cópias são derivados (instância + id de origem), então o agente não os adivinha | Feito: `create_instance` devolve `copies` (id de origem → id da cópia), e `overrides` pode ser escrito na instância pelo id de origem | — |
 | 38 | Escalar um conjunto de ícones | O mesmo ícone em 4 tamanhos agora é 1 componente + 4 instâncias com `scale`; um `fontSize` que é token não escala | Tokens tipados (backlog E) deixariam `scale` multiplicar tokens de tamanho também | P3 |
-| 39 | Pôr uma instância de botão dentro de um componente de card | Instâncias dentro de componentes ainda são recusadas, então design systems aninhados pedem detach ou componentes planos | Instâncias aninhadas, com overrides endereçados por caminho (`instância/cópia`) | P2 |
+| 39 | Pôr uma instância de botão dentro de um componente de card | Instâncias dentro de componentes eram recusadas, então design systems aninhados pediam detach ou componentes planos | Feito (2026-11-23, PAP-B-086): instâncias aninhadas, overrides endereçados por caminho (`instância/cópia`), mais props e slots de componente | — |
 
 ## 2026-11-21: colar SVG/HTML e exportar SVG (leva 1 do backlog, item 3)
 
@@ -774,3 +774,15 @@ Tarefa: desenhar os eixos de constraint do inspector (escuro: direita/topo, clar
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - O frame de comportamento é um mock: o servidor vivo ainda não aceita `constraints`, então os retângulos de antes/depois estão em x/y.
 - `lint_design` nos três roots: 0 erros e 0 avisos.
+
+## 2026-11-23: props, slots e instâncias aninhadas (PAP-B-086, design first)
+
+Tarefa: desenhar props, um slot, uma instância com valores e um botão aninhado num card, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes da mudança no modelo. Quatro frames (`papb086-props-dark`, `papb086-props-light`, `papb086-instance`, `papb086-nested`). PNGs em `docs/assets/boards/PAP-B-086/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 143 | Rótulos que cabem no frame | Os primeiros screenshots cortaram `size` porque os textos da linha estavam em x=0 dentro de um frame com raio 12 | Recuar os textos (x=16) antes de fotografar | — |
+| 144 | Uma página chamada Interfaces | `find_nodes` ainda devolve duas páginas chamadas `Interfaces`. Os frames foram para `page#interfaces`; `h6jut017rv` está vazia | Igual à linha aberta: uma página por nome, ou o outline dizer qual está vazia | P2 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #123, ainda aberto: `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0. Os frames foram para y=9800, abaixo do conteúdo que uma varredura de profundidade 1 já mostrava.

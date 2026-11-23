@@ -296,6 +296,66 @@ describe("API: MCP", () => {
     `);
   });
 
+  it("props, slots e instância aninhada", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      nodes: [
+        { type: "ellipse", id: "gem", width: 12, height: 12, fill: "#ff278c" },
+        {
+          type: "frame", id: "btn", width: 120, height: 40,
+          children: [
+            { type: "text", id: "lbl", text: "OK", width: 40, height: 20 },
+            { type: "ellipse", id: "dot", width: 8, height: 8 },
+            { type: "rect", id: "sm", width: 8, height: 8 },
+            { type: "frame", id: "icon", width: 16, height: 16, children: [{ type: "rect", id: "ph", width: 16, height: 16 }] },
+          ],
+        },
+      ],
+    });
+    await call(c, "create_component", {
+      id: "btn",
+      props: [
+        { name: "label", type: "text", default: "OK" },
+        { name: "disabled", type: "boolean", default: false },
+        { name: "size", type: "variant", default: "md", options: ["sm", "md"] },
+      ],
+    });
+    await call(c, "update_nodes", {
+      updates: [
+        { id: "lbl", props: { bind: { text: "label" } } },
+        { id: "dot", props: { bind: { visible: "disabled" } } },
+        { id: "sm", props: { bind: { variant: { size: "sm" } } } },
+        { id: "icon", props: { slot: "icon" } },
+      ],
+    });
+    const inst = await call(c, "create_instance", {
+      componentId: "btn",
+      id: "i1",
+      propValues: { label: "Enviar", disabled: false, size: "md" },
+      slots: { icon: ["gem"] },
+    });
+    const body = JSON.parse(textBody(inst));
+    expect(body.copies["icon/gem"]).toBeTruthy();
+    const outline = outlineText(await call(c, "get_document_outline", { rootId: "i1" }));
+    expect(outline).toContain("Enviar");
+    expect(outline).toContain("from=icon/gem");
+    expect(outline).not.toContain("from=sm");
+    expect(outline).toContain("hidden");
+    await call(c, "create_nodes", {
+      nodes: [{
+        type: "frame", id: "card", width: 200, height: 80,
+        children: [{ type: "frame", id: "btnInst", instanceOf: "btn", width: 120, height: 40 }],
+      }],
+    });
+    await call(c, "create_component", { id: "card" });
+    await call(c, "create_instance", {
+      componentId: "card",
+      id: "c1",
+      overrides: { "btnInst/lbl": { text: "Salvar" } },
+    });
+    expect(outlineText(await call(c, "get_document_outline", { rootId: "c1" }))).toContain("Salvar");
+  });
+
   it("grupos e páginas", async () => {
     const c = client;
     await call(c, "create_nodes", {

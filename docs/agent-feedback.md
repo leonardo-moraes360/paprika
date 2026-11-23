@@ -98,7 +98,7 @@ Task: components (`component: true`) and instances (`instanceOf`, `scale`, `over
 |---|--------|---------------|----------|------|
 | 37 | Override a copy without knowing its generated id | Copy ids are derived (instance + source id), so an agent can't guess them | Done: `create_instance` returns `copies` (source id → copy id), and `overrides` can be written on the instance by source id | — |
 | 38 | Scale an icon set | The same icon at 4 sizes is now 1 component + 4 instances with `scale`; a token `fontSize` is not scaled | Typed tokens (backlog E) would let `scale` multiply size tokens too | P3 |
-| 39 | Put a button instance inside a card component | Instances inside components are rejected for now, so nested design systems need detach or flat components | Nested instances, with overrides addressed by path (`instance/copy`) | P2 |
+| 39 | Put a button instance inside a card component | Instances inside components were rejected, so nested design systems needed detach or flat components | Done (2026-11-23, PAP-B-086): nested instances, overrides addressed by path (`instance/copy`), plus component props and slots | — |
 
 ## 2026-11-21: paste SVG/HTML and export SVG (backlog slice 1, item 3)
 
@@ -771,3 +771,15 @@ Task: draw the inspector constraint axes (dark: right/top, light: scale/center) 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - The behavior frame is a mock: the live server does not accept `constraints` yet, so the before/after rectangles are placed by x/y.
 - `lint_design` on the three roots: 0 errors and 0 warnings.
+
+## 2026-11-23: component props, slots and nested instances (PAP-B-086, design first)
+
+Task: draw props, a slot, an instance with values and a nested button inside a card, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before the model change. Four frames (`papb086-props-dark`, `papb086-props-light`, `papb086-instance`, `papb086-nested`). PNGs in `docs/assets/boards/PAP-B-086/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 143 | Labels that stay inside the frame | The first screenshots clipped `size` because the row texts sat at x=0 inside a radius-12 frame | Inset the row texts (x=16) before shooting | — |
+| 144 | One page named Interfaces | `find_nodes` still returns two pages named `Interfaces`. The frames went on `page#interfaces`; `h6jut017rv` is empty | Same open row: one page per name, or the outline should say which is empty | P2 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123, still open: `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0. The frames went to y=9800, below the content that a depth-1 scan already showed.

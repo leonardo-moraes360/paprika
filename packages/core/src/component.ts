@@ -1,4 +1,11 @@
-import { Node, isContainer, type ConnectorEnd, type Document, type FrameNode, type Node as NodeT } from "./schema.js";
+import {
+  Node,
+  isContainer,
+  type ConnectorEnd,
+  type Document,
+  type FrameNode,
+  type Node as NodeT,
+} from "./schema.js";
 import { round4 } from "./num.js";
 
 /**
@@ -13,6 +20,11 @@ import { round4 } from "./num.js";
  *
  * Numa cópia, `update` só troca campos de aparência (`COPY_OVERRIDES`) e grava o valor em
  * `overrides` da instância; geometria e estrutura vêm do componente.
+ *
+ * Um componente declara `componentProps` (text, boolean, variant). Nós dentro dele usam `bind`
+ * para ligar `text`, `visible` ou uma variante. `slot` num frame ou grupo marca um buraco que a
+ * instância preenche com `slots` (ids de nós clonados). Instâncias dentro de componentes são
+ * permitidas; um override nelas usa o caminho `instancia/copia` na instância de fora.
  */
 
 /** Campos de uma cópia que podem ser trocados numa instância. */
@@ -155,6 +167,266 @@ function descendants(doc: Document, id: string): string[] {
 /** Erro de regra de componentes, sem índice de op (quem chama adiciona). */
 export class InstanceError extends Error {}
 
+type PropDecl = { name: string; type: "text" | "boolean" | "variant"; default?: string | boolean; options?: string[] };
+type BindSpec = { text?: string; visible?: string; variant?: Record<string, string> };
+
+function propDecls(comp: FrameNode): PropDecl[] {
+  return comp.componentProps ?? [];
+}
+
+function nodeBind(n: NodeT): BindSpec | undefined {
+  return "bind" in n ? n.bind : undefined;
+}
+
+function nodeSlot(n: NodeT): string | undefined {
+  return "slot" in n ? n.slot : undefined;
+}
+
+function nodeSource(n: NodeT | undefined): string | undefined {
+  if (!n || n.type === "page") return undefined;
+  return n.sourceId;
+}
+
+/** Componente cuja definição inclui `id` (para antes de uma instância no caminho). */
+export function owningComponent(doc: Document, id: string): FrameNode | undefined {
+  let cur = doc.nodes[id]?.parentId ?? null;
+  while (cur) {
+    const n = doc.nodes[cur];
+    if (!n) return undefined;
+    if (isInstance(n)) return undefined;
+    if (n.type === "frame" && n.component) return n;
+    cur = n.parentId;
+  }
+  return undefined;
+}
+
+function resolvedProps(comp: FrameNode, inst: FrameNode): Record<string, string | boolean> {
+  const given = inst.propValues ?? {};
+  const out: Record<string, string | boolean> = {};
+  for (const p of propDecls(comp)) {
+    const v = given[p.name];
+    if (v !== undefined) out[p.name] = v;
+    else if (p.default !== undefined) out[p.name] = p.default;
+    else if (p.type === "boolean") out[p.name] = false;
+    else if (p.type === "text") out[p.name] = "";
+    else out[p.name] = p.options?.[0] ?? "";
+  }
+  return out;
+}
+
+function variantShows(bind: BindSpec | undefined, values: Record<string, string | boolean>): boolean {
+  if (!bind?.variant) return true;
+  for (const [k, want] of Object.entries(bind.variant)) if (values[k] !== want) return false;
+  return true;
+}
+
+function applyBind(n: Record<string, unknown>, bind: BindSpec | undefined, values: Record<string, string | boolean>) {
+  if (!bind) return;
+  if (bind.text && (n.type === "text" || n.type === "shape")) {
+    const v = values[bind.text];
+    if (typeof v === "string") n.text = v;
+  }
+  if (bind.visible) {
+    const v = values[bind.visible];
+    if (typeof v === "boolean") n.visible = v;
+  }
+}
+
+function componentRefs(doc: Document, compId: string): string[] {
+  const out: string[] = [];
+  const walk = (id: string) => {
+    const n = doc.nodes[id];
+    if (!isContainer(n)) return;
+    for (const c of n.children) {
+      const ch = doc.nodes[c];
+      if (!ch || nodeSource(ch)) continue;
+      if (isInstance(ch)) out.push(ch.instanceOf);
+      else walk(c);
+    }
+  };
+  walk(compId);
+  return out;
+}
+
+function checkCycles(doc: Document) {
+  const comps = Object.values(doc.nodes).filter((n): n is FrameNode => n.type === "frame" && n.component === true);
+  const edges = new Map<string, string[]>();
+  for (const c of comps) edges.set(c.id, componentRefs(doc, c.id));
+  const color = new Map<string, 0 | 1 | 2>();
+  const stack: string[] = [];
+  const dfs = (id: string) => {
+    color.set(id, 1);
+    stack.push(id);
+    for (const next of edges.get(id) ?? []) {
+      if (!edges.has(next)) continue;
+      const state = color.get(next) ?? 0;
+      if (state === 1) {
+        const i = stack.indexOf(next);
+        throw new InstanceError(`component cycle: ${[...stack.slice(i), next].map((s) => `"${s}"`).join(" → ")}`);
+      }
+      if (state === 0) dfs(next);
+    }
+    stack.pop();
+    color.set(id, 2);
+  };
+  for (const c of comps) if ((color.get(c.id) ?? 0) === 0) dfs(c.id);
+}
+
+function definitionSlots(doc: Document, compId: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const walk = (id: string) => {
+    const n = doc.nodes[id];
+    if (!isContainer(n)) return;
+    for (const c of n.children) {
+      const ch = doc.nodes[c];
+      if (!ch || nodeSource(ch)) continue;
+      const slot = nodeSlot(ch);
+      if (slot) {
+        if (out.has(slot)) throw new InstanceError(`component "${compId}": duplicate slot "${slot}"`);
+        out.set(slot, ch.id);
+      }
+      if (!isInstance(ch)) walk(c);
+    }
+  };
+  walk(compId);
+  return out;
+}
+
+function validatePropDecl(comp: FrameNode, p: PropDecl) {
+  if (p.type === "text" && p.default !== undefined && typeof p.default !== "string")
+    throw new InstanceError(`component "${comp.id}": text prop "${p.name}" default must be text`);
+  if (p.type === "boolean" && p.default !== undefined && typeof p.default !== "boolean")
+    throw new InstanceError(`component "${comp.id}": boolean prop "${p.name}" default must be boolean`);
+  if (p.type === "variant") {
+    if (!p.options?.length) throw new InstanceError(`component "${comp.id}": variant "${p.name}" needs options`);
+    if (typeof p.default !== "string" || !p.options.includes(p.default))
+      throw new InstanceError(`component "${comp.id}": variant "${p.name}" default "${String(p.default)}" is not an option`);
+  }
+}
+
+function validateBind(comp: FrameNode, n: NodeT, byName: Map<string, PropDecl>) {
+  const bind = nodeBind(n);
+  if (!bind) return;
+  if (bind.text) {
+    const p = byName.get(bind.text);
+    if (!p || p.type !== "text") throw new InstanceError(`component "${comp.id}": "${n.id}" binds text prop "${bind.text}", which is not a text prop`);
+    if (n.type !== "text" && n.type !== "shape")
+      throw new InstanceError(`component "${comp.id}": "${n.id}" binds text, but only text and shape nodes can`);
+  }
+  if (bind.visible) {
+    const p = byName.get(bind.visible);
+    if (!p || p.type !== "boolean")
+      throw new InstanceError(`component "${comp.id}": "${n.id}" binds visible prop "${bind.visible}", which is not a boolean prop`);
+  }
+  for (const [k, want] of Object.entries(bind.variant ?? {})) {
+    const p = byName.get(k);
+    if (!p || p.type !== "variant" || !p.options?.includes(want))
+      throw new InstanceError(`component "${comp.id}": "${n.id}" variant bind "${k}=${want}" does not match a variant prop`);
+  }
+}
+
+function insideOf(doc: Document, id: string, ancestor: string): boolean {
+  for (let cur: string | null = id; cur; cur = doc.nodes[cur]?.parentId ?? null) if (cur === ancestor) return true;
+  return false;
+}
+
+function subtreeHas(doc: Document, root: string, target: string): boolean {
+  if (root === target) return true;
+  const n = doc.nodes[root];
+  if (!isContainer(n)) return false;
+  return n.children.some((c) => subtreeHas(doc, c, target));
+}
+
+/**
+ * Instância onde um override de cópia é gravado, e a chave (id ou caminho `instancia/copia`).
+ * Cópias dentro de uma instância aninhada sobem até a instância que não é cópia.
+ */
+export function copyOverrideTarget(
+  doc: Document,
+  node: NodeT,
+): { inst: FrameNode & { instanceOf: string }; key: string } | undefined {
+  const owner = copyOwner(doc, node);
+  if (!owner || nodeSource(node) === undefined) return undefined;
+  let key = nodeSource(node)!;
+  let inst = owner;
+  while (inst.sourceId) {
+    key = `${inst.sourceId}/${key}`;
+    const outer = copyOwner(doc, inst);
+    if (!outer) return undefined;
+    inst = outer;
+  }
+  return { inst, key };
+}
+
+export function overrideFields(node: NodeT): readonly string[] {
+  return isInstance(node) ? [...COPY_OVERRIDES, "propValues", "slots"] : COPY_OVERRIDES;
+}
+
+function overrideSource(doc: Document, srcId: string): NodeT | undefined {
+  const leaf = srcId.includes("/") ? srcId.slice(srcId.lastIndexOf("/") + 1) : srcId;
+  return doc.nodes[leaf];
+}
+
+/**
+ * Checa as regras e gera de novo as cópias de todas as instâncias. Chamado no fim de cada
+ * transação; muta `doc`.
+ */
+function propMap(comp: FrameNode): Map<string, PropDecl> {
+  const byName = new Map<string, PropDecl>();
+  for (const p of propDecls(comp)) {
+    if (byName.has(p.name)) throw new InstanceError(`component "${comp.id}": duplicate prop "${p.name}"`);
+    validatePropDecl(comp, p);
+    byName.set(p.name, p);
+  }
+  return byName;
+}
+
+function validateInstanceValues(doc: Document, inst: FrameNode & { instanceOf: string }, comp: FrameNode) {
+  const byName = propMap(comp);
+  for (const [k, v] of Object.entries(inst.propValues ?? {})) {
+    const p = byName.get(k);
+    if (!p) throw new InstanceError(`instance "${inst.id}": unknown prop "${k}"`);
+    if (p.type === "boolean" && typeof v !== "boolean") throw new InstanceError(`instance "${inst.id}": prop "${k}" expects a boolean`);
+    if (p.type !== "boolean" && typeof v !== "string") throw new InstanceError(`instance "${inst.id}": prop "${k}" expects text`);
+    if (p.type === "variant" && !p.options?.includes(v as string))
+      throw new InstanceError(`instance "${inst.id}": prop "${k}" value "${String(v)}" is not an option`);
+  }
+  const slots = definitionSlots(doc, comp.id);
+  for (const [name, ids] of Object.entries(inst.slots ?? {})) {
+    if (!slots.has(name)) throw new InstanceError(`instance "${inst.id}": unknown slot "${name}"`);
+    for (const id of ids) {
+      const n = doc.nodes[id];
+      if (!n || n.type === "page") throw new InstanceError(`instance "${inst.id}": slot "${name}" node "${id}" does not exist`);
+      if (insideOf(doc, id, inst.id) || subtreeHas(doc, id, inst.id))
+        throw new InstanceError(`instance "${inst.id}": slot "${name}" node "${id}" is inside the instance`);
+    }
+  }
+}
+
+function mergeOverrideMaps(
+  base: FrameNode["overrides"] | undefined,
+  extra: Record<string, Record<string, unknown>>,
+): FrameNode["overrides"] {
+  const all = new Map(Object.entries(base ?? {}));
+  for (const [k, v] of Object.entries(extra)) {
+    const prev = new Map(Object.entries(all.get(k) ?? {}));
+    for (const [fk, fv] of Object.entries(v)) prev.set(fk, fv);
+    if (prev.size) all.set(k, Object.fromEntries(prev));
+    else all.delete(k);
+  }
+  return all.size ? (Object.fromEntries(all) as FrameNode["overrides"]) : undefined;
+}
+
+function ownedBy(doc: Document, nodeId: string | null, instId: string): boolean {
+  let cur = instanceOwner(doc, nodeId);
+  while (cur) {
+    if (cur.id === instId) return true;
+    if (!cur.sourceId) return false;
+    cur = instanceOwner(doc, cur.parentId);
+  }
+  return false;
+}
+
 /**
  * Checa as regras e gera de novo as cópias de todas as instâncias. Chamado no fim de cada
  * transação; muta `doc`.
@@ -164,37 +436,51 @@ export function syncInstances(doc: Document): void {
   for (const n of all) {
     if (n.type === "page") continue;
     if (n.type === "frame" && n.component && isInstance(n)) throw new InstanceError(`"${n.id}" is an instance and cannot be a component`);
+    if (n.type === "frame" && n.componentProps && !n.component)
+      throw new InstanceError(`"${n.id}" has componentProps but is not a component`);
+    if (n.type === "frame" && n.propValues && !isInstance(n)) throw new InstanceError(`"${n.id}" has propValues but is not an instance`);
+    if (n.type === "frame" && n.slots && !isInstance(n)) throw new InstanceError(`"${n.id}" has slots but is not an instance`);
     if (n.type === "frame" && n.component) {
-      const inner = descendants(doc, n.id).find((d) => isInstance(doc.nodes[d]));
-      if (inner)
-        throw new InstanceError(`component "${n.id}" contains the instance "${inner}"; instances inside components are not supported yet (detach it)`);
+      propMap(n);
+      definitionSlots(doc, n.id);
     }
     if (isInstance(n)) {
       const c = doc.nodes[n.instanceOf];
       if (!c) throw new InstanceError(`instance "${n.id}": component "${n.instanceOf}" does not exist`);
       if (c.type !== "frame" || !c.component)
         throw new InstanceError(`instance "${n.id}": "${n.instanceOf}" is not a component (set component: true on a frame)`);
+      else validateInstanceValues(doc, n, c);
     }
-    if (n.sourceId !== undefined && !copyOwner(doc, n))
+    if (nodeBind(n) && nodeSource(n) === undefined && !(n.type === "frame" && n.component)) {
+      const owner = owningComponent(doc, n.id);
+      if (!owner) throw new InstanceError(`"${n.id}" has a bind outside a component`);
+      validateBind(owner, n, propMap(owner));
+    }
+    if (nodeSource(n) !== undefined && !copyOwner(doc, n))
       throw new InstanceError(`"${n.id}" has a sourceId outside an instance; sourceId is generated by instances`);
   }
-  for (const n of all) if (isInstance(n) && doc.nodes[n.id] === n) buildInstance(doc, n);
+  checkCycles(doc);
+  for (const n of Object.values(doc.nodes)) if (isInstance(n) && doc.nodes[n.id] === n) buildInstance(doc, n);
 }
 
-function buildInstance(doc: Document, inst: FrameNode & { instanceOf: string }) {
+function overrideAllowed(doc: Document, comp: FrameNode, srcId: string, key: string): boolean {
+  if (srcId === comp.id) return key === "fill";
+  if (key === "propValues" || key === "slots") return isInstance(doc.nodes[srcId.split("/")[0] ?? ""]);
+  return COPY_SET.has(key);
+}
+
+function materialize(doc: Document, inst: FrameNode & { instanceOf: string }): { root: NodeT; nodes: NodeT[] } {
   const comp = doc.nodes[inst.instanceOf] as FrameNode;
   const s = inst.scale ?? 1;
   const overrides = inst.overrides ?? {};
+  const values = resolvedProps(comp, inst);
   for (const [srcId, ov] of Object.entries(overrides))
-    for (const k of Object.keys(ov)) {
-      const ok = srcId === comp.id ? k === "fill" : COPY_SET.has(k);
-      if (!ok)
+    for (const k of Object.keys(ov))
+      if (!overrideAllowed(doc, comp, srcId, k))
         throw new InstanceError(
-          `instance "${inst.id}": override "${k}" in "${srcId}" is not allowed (root: fill; copies: ${COPY_OVERRIDES.join(", ")})`,
+          `instance "${inst.id}": override "${k}" in "${srcId}" is not allowed (root: fill; copies: ${COPY_OVERRIDES.join(", ")}; instance path: propValues, slots)`,
         );
-    }
 
-  // Raiz: aparência e tamanho do componente (escalados); posição, rotação, opacidade etc. são da instância.
   const root: Record<string, unknown> = { ...inst };
   const src = comp as Record<string, unknown>;
   for (const k of ROOT_DERIVED) {
@@ -206,21 +492,26 @@ function buildInstance(doc: Document, inst: FrameNode & { instanceOf: string }) 
   const parsedRoot = Node.safeParse(root);
   if (!parsedRoot.success) throw new InstanceError(`instance "${inst.id}": invalid override on the root: ${formatIssues(parsedRoot.error)}`);
 
-  const inComp = new Set(descendants(doc, comp.id));
+  const inComp = definitionIds(doc, comp.id);
   const want: NodeT[] = [];
-  const copy = (srcId: string, parentId: string): string => {
-    const srcNode = doc.nodes[srcId]!;
-    const id = copyId(inst.id, srcId);
+  const claim = (id: string, srcId: string) => {
     const existing = doc.nodes[id];
-    if (existing && (existing.type === "page" || existing.sourceId !== srcId || instanceOwner(doc, existing.parentId) !== inst))
+    if (existing && (existing.type === "page" || nodeSource(existing) !== srcId || !ownedBy(doc, existing.parentId, inst.id)))
       throw new InstanceError(`instance "${inst.id}": the generated id "${id}" is already used by another node`);
+  };
+  const copy = (srcId: string, parentId: string): string | undefined => {
+    const srcNode = doc.nodes[srcId];
+    if (!srcNode || nodeSource(srcNode)) return undefined;
+    if (!variantShows(nodeBind(srcNode), values)) return undefined;
+    const id = copyId(inst.id, srcId);
+    claim(id, srcId);
+    if (isInstance(srcNode)) return nest(srcNode, srcId, id, parentId);
     const n = structuredClone(srcNode) as Record<string, unknown>;
     n.id = id;
     n.parentId = parentId;
     n.sourceId = srcId;
     delete n.component;
     scaleGeometry(n, s, true);
-    // Um conector dentro do componente se prende às cópias da mesma instância.
     if (n.type === "connector") {
       for (const k of ["from", "to"] as const) n[k] = copyEnd(n[k] as ConnectorEnd, inst.id, inComp, s);
       if (s !== 1 && n.control && typeof n.control === "object") {
@@ -228,34 +519,146 @@ function buildInstance(doc: Document, inst: FrameNode & { instanceOf: string }) 
         n.control = { x: round4(ctl.x * s), y: round4(ctl.y * s) };
       }
     }
-    for (const [k, v] of Object.entries(overrides[srcId] ?? {})) n[k] = v;
+    applyBind(n, nodeBind(srcNode), values);
+    for (const [k, v] of Object.entries(overrides[srcId] ?? {})) n[k] = structuredClone(v);
     const slot = want.length;
     want.push(undefined as unknown as NodeT);
-    if (isContainer(srcNode)) n.children = srcNode.children.map((c) => copy(c, id));
+    const slotName = nodeSlot(srcNode);
+    if (slotName && inst.slots && Object.hasOwn(inst.slots, slotName)) n.children = cloneSlot(srcId, id, inst.slots[slotName] ?? []);
+    else if (isContainer(srcNode)) {
+      const kids: string[] = [];
+      for (const c of srcNode.children) {
+        const cid = copy(c, id);
+        if (cid) kids.push(cid);
+      }
+      n.children = kids;
+    }
     const parsed = Node.safeParse(n);
-    if (!parsed.success)
-      throw new InstanceError(`instance "${inst.id}": invalid override on "${srcId}": ${formatIssues(parsed.error)}`);
+    if (!parsed.success) throw new InstanceError(`instance "${inst.id}": invalid override on "${srcId}": ${formatIssues(parsed.error)}`);
     want[slot] = parsed.data;
     return id;
   };
-  const children = comp.children.map((c) => copy(c, inst.id));
+  function nest(srcNode: FrameNode & { instanceOf: string }, srcId: string, id: string, parentId: string): string {
+    const n = structuredClone(srcNode) as Record<string, unknown>;
+    n.id = id;
+    n.parentId = parentId;
+    n.sourceId = srcId;
+    delete n.component;
+    const own = (overrides[srcId] ?? {}) as Record<string, unknown>;
+    const prefix = `${srcId}/`;
+    const nested: Record<string, Record<string, unknown>> = {};
+    for (const [k, v] of Object.entries(overrides)) if (k.startsWith(prefix)) nested[k.slice(prefix.length)] = v;
+    let merged = mergeOverrideMaps(srcNode.overrides, nested);
+    if ("fill" in own) merged = mergeOverrideMaps(merged, { [srcNode.instanceOf]: { fill: own.fill } });
+    if (merged) n.overrides = merged;
+    else delete n.overrides;
+    applyBind(n, nodeBind(srcNode), values);
+    for (const [k, v] of Object.entries(own)) {
+      if (k === "fill") continue;
+      if (k === "propValues" || k === "slots" || COPY_SET.has(k)) n[k] = structuredClone(v);
+    }
+    const inner = typeof n.scale === "number" ? n.scale : 1;
+    const eff = round4(inner * s);
+    if (eff !== 1) n.scale = eff;
+    else delete n.scale;
+    if (s !== 1) {
+      n.x = round4(Number(n.x) * s);
+      n.y = round4(Number(n.y) * s);
+    }
+    n.children = [];
+    const shell = Node.safeParse(n);
+    if (!shell.success) throw new InstanceError(`instance "${inst.id}": invalid override on "${srcId}": ${formatIssues(shell.error)}`);
+    const shellNode = shell.data;
+    if (shellNode.type !== "frame" || typeof shellNode.instanceOf !== "string")
+      throw new InstanceError(`instance "${inst.id}": invalid override on "${srcId}": not an instance`);
+    const innerTree = materialize(doc, { ...shellNode, instanceOf: shellNode.instanceOf });
+    want.push(innerTree.root, ...innerTree.nodes);
+    return innerTree.root.id;
+  }
+  function cloneSlot(slotFrameId: string, parentId: string, ids: readonly string[]): string[] {
+    const map = new Map<string, string>();
+    const index = (nid: string) => {
+      const node = doc.nodes[nid];
+      if (!node || node.type === "page") return;
+      map.set(nid, copyId(inst.id, `${slotFrameId}/${nid}`));
+      if (isContainer(node) && !isInstance(node)) for (const c of node.children) index(c);
+    };
+    for (const id of ids) index(id);
+    const walk = (nid: string, parent: string): string => {
+      const srcNode = doc.nodes[nid];
+      if (!srcNode || srcNode.type === "page") throw new InstanceError(`instance "${inst.id}": slot node "${nid}" does not exist`);
+      const path = `${slotFrameId}/${nid}`;
+      const id = map.get(nid)!;
+      claim(id, path);
+      if (isInstance(srcNode)) return nest(srcNode, path, id, parent);
+      const n = structuredClone(srcNode) as Record<string, unknown>;
+      n.id = id;
+      n.parentId = parent;
+      n.sourceId = path;
+      delete n.component;
+      scaleGeometry(n, s, true);
+      if (n.type === "connector") {
+        for (const k of ["from", "to"] as const) {
+          const end = { ...(n[k] as ConnectorEnd) };
+          if (end.nodeId && map.has(end.nodeId)) end.nodeId = map.get(end.nodeId);
+          if (s !== 1) {
+            if (end.x !== undefined) end.x = round4(end.x * s);
+            if (end.y !== undefined) end.y = round4(end.y * s);
+          }
+          n[k] = end;
+        }
+        if (s !== 1 && n.control && typeof n.control === "object") {
+          const ctl = n.control as { x: number; y: number };
+          n.control = { x: round4(ctl.x * s), y: round4(ctl.y * s) };
+        }
+      }
+      for (const [k, v] of Object.entries(overrides[path] ?? {})) n[k] = structuredClone(v);
+      const slot = want.length;
+      want.push(undefined as unknown as NodeT);
+      if (isContainer(srcNode)) n.children = srcNode.children.map((c) => walk(c, id));
+      const parsed = Node.safeParse(n);
+      if (!parsed.success) throw new InstanceError(`instance "${inst.id}": invalid override on "${path}": ${formatIssues(parsed.error)}`);
+      want[slot] = parsed.data;
+      return id;
+    };
+    return ids.map((id) => walk(id, parentId));
+  }
+  const children: string[] = [];
+  for (const c of comp.children) {
+    const cid = copy(c, inst.id);
+    if (cid) children.push(cid);
+  }
   const nextRoot = { ...parsedRoot.data, children } as NodeT;
-
-  const old = descendants(doc, inst.id);
-  const same =
-    jsonEqual(nextRoot, inst) &&
-    old.length === want.length &&
-    want.every((n, k) => old[k] === n.id && jsonEqual(doc.nodes[n.id], n));
-  if (same) return;
-  for (const id of old) delete doc.nodes[id];
-  doc.nodes[inst.id] = nextRoot;
-  for (const n of want) doc.nodes[n.id] = n;
+  return { root: nextRoot, nodes: want };
 }
 
-/**
- * Desanexa instâncias: viram frames comuns, com as cópias como nós normais (mesmos ids).
- * Gera só `update`s, então o desfazer volta à instância.
- */
+function definitionIds(doc: Document, compId: string): Set<string> {
+  const out = new Set<string>();
+  const walk = (id: string) => {
+    const n = doc.nodes[id];
+    if (!isContainer(n)) return;
+    for (const c of n.children) {
+      const ch = doc.nodes[c];
+      if (!ch || nodeSource(ch)) continue;
+      out.add(c);
+      if (!isInstance(ch)) walk(c);
+    }
+  };
+  walk(compId);
+  return out;
+}
+
+function buildInstance(doc: Document, inst: FrameNode & { instanceOf: string }) {
+  const { root, nodes } = materialize(doc, inst);
+  const old = descendants(doc, inst.id);
+  const same =
+    jsonEqual(root, inst) && old.length === nodes.length && nodes.every((n, k) => old[k] === n.id && jsonEqual(doc.nodes[n.id], n));
+  if (same) return;
+  for (const id of old) delete doc.nodes[id];
+  doc.nodes[inst.id] = root;
+  for (const n of nodes) doc.nodes[n.id] = n;
+}
+
 export function detachOps(doc: Document, ids: readonly string[]): { op: "update"; id: string; props: Record<string, unknown> }[] {
   if (!ids.length) throw new Error("pass at least one instance id");
   const ops: { op: "update"; id: string; props: Record<string, unknown> }[] = [];
@@ -263,7 +666,7 @@ export function detachOps(doc: Document, ids: readonly string[]): { op: "update"
     const n = doc.nodes[id];
     if (!n) throw new Error(`node "${id}" does not exist`);
     if (!isInstance(n)) throw new Error(`node "${id}" is not an instance (a frame with instanceOf)`);
-    ops.push({ op: "update", id, props: { instanceOf: null, scale: null, overrides: null } });
+    ops.push({ op: "update", id, props: { instanceOf: null, scale: null, overrides: null, propValues: null, slots: null } });
     for (const d of descendants(doc, id)) ops.push({ op: "update", id: d, props: { sourceId: null } });
   }
   return ops;
