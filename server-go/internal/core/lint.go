@@ -232,6 +232,16 @@ func tokenRefs(n *Node) []string {
 	if n.Str("type") == "text" {
 		ls, _ := n.Get("letterSpacing")
 		check(ls)
+		for _, item := range n.Arr("runs") {
+			o, ok := item.(*jsonv.Object)
+			if !ok {
+				continue
+			}
+			c, _ := o.Get("color")
+			check(c)
+			fs, _ := o.Get("fontSize")
+			check(fs)
+		}
 	}
 	if g := nodeGradient(n); g != nil {
 		for _, s := range gradientStops(g) {

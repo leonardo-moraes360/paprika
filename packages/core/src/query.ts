@@ -22,15 +22,20 @@ export function describeNode(n: Node): string {
   }
   if (n.type === "frame" && n.mode) parts.push(`mode=${n.mode}`);
   if (n.type === "frame" && n.component) parts.push("component");
+  if (n.type === "frame" && n.componentProps?.length) parts.push(`props=${n.componentProps.length}`);
+  if ("slot" in n && n.slot) parts.push(`slot=${n.slot}`);
   if (n.type === "frame" && n.instanceOf !== undefined) {
     parts.push(`instanceOf=${n.instanceOf}`);
     if (n.scale !== undefined && n.scale !== 1) parts.push(`scale=${n.scale}`);
     if (n.overrides) parts.push(`overrides=${Object.keys(n.overrides).length}`);
+    if (n.propValues) parts.push(`propValues=${Object.keys(n.propValues).length}`);
+    if (n.slots) parts.push(`slots=${Object.keys(n.slots).length}`);
   }
   if (n.sourceId !== undefined) parts.push(`from=${n.sourceId}`);
   if (n.type === "text") {
     const t = n.text.length > 60 ? n.text.slice(0, 57) + "..." : n.text;
     parts.push(JSON.stringify(t), `${n.fontSize}/${n.fontWeight}`, `color=${n.color}`);
+    if (n.runs?.length) parts.push(`runs=${n.runs.length}`);
   }
   if (n.type === "path") {
     const d = n.d.length > 48 ? n.d.slice(0, 45) + "..." : n.d;

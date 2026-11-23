@@ -12,9 +12,11 @@ import {
   pathAttrs,
   resolveValue,
   shapeAttrs,
+  textRunCSS,
   tokenStylesheet,
   type CSS,
 } from "./style.js";
+import { textPieces } from "./textRuns.js";
 
 const kebab = (k: string) => k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
 export const svgAttrs = (o: Record<string, string | number | undefined>) =>
@@ -103,6 +105,23 @@ export function bodySizeCSS(bounds: Bounds, fluid: { min: number; max: number } 
   return `width:100%;min-width:${fluid.min}px;max-width:${fluid.max}px;margin-left:auto;margin-right:auto;height:${bounds.height}px`;
 }
 
+function richText(doc: Document, node: Extract<Node, { type: "text" }>, vars: boolean, jsx: boolean): string {
+  if (!node.runs?.length) return jsx ? jsxText(node.text) : escapeHtml(node.text);
+  return textPieces(node.text, node.runs)
+    .map((piece) => {
+      const body = jsx ? jsxText(piece.text) : escapeHtml(piece.text);
+      if (!piece.run) return body;
+      const css = textRunCSS(doc, node, piece.run, vars);
+      const style = jsx ? ` style=${jsxStyle(css)}` : ` style="${escapeHtml(cssToString(css))}"`;
+      if (piece.run.href) {
+        const href = jsx ? JSON.stringify(piece.run.href) : `"${escapeHtml(piece.run.href)}"`;
+        return `<a href=${href}${style}>${body}</a>`;
+      }
+      return `<span${style}>${body}</span>`;
+    })
+    .join("");
+}
+
 function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, emit: StyleEmitter, offset?: { x: number; y: number }): string {
   const css: CSS = nodeStyle(doc, node, { asRoot, vars });
   if (offset && !asRoot && node.type !== "page") {
@@ -130,7 +149,7 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, e
     case "text": {
       const tag = node.href ? "a" : "div";
       const href = node.href ? ` href="${escapeHtml(node.href)}"` : "";
-      return `<${tag} ${attrs}${href}>${escapeHtml(node.text)}</${tag}>`;
+      return `<${tag} ${attrs}${href}>${richText(doc, node, vars, false)}</${tag}>`;
     }
     case "image": {
       const alt = node.decorative ? "" : node.alt;
@@ -269,7 +288,7 @@ export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: stri
     case "text": {
       const tag = node.href ? "a" : "div";
       const href = node.href ? ` href=${JSON.stringify(node.href)}` : "";
-      return `${indent}<${tag}${name}${href}${style}>${jsxText(node.text)}</${tag}>`;
+      return `${indent}<${tag}${name}${href}${style}>${richText(doc, node, vars, true)}</${tag}>`;
     }
     case "image": {
       const alt = node.decorative ? "" : node.alt;

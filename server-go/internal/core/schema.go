@@ -6,6 +6,7 @@ package core
 import (
 	"fmt"
 	"regexp"
+	"unicode/utf16"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 	z "github.com/leonardo-moraes360/paprika/server-go/internal/zod"
@@ -22,6 +23,8 @@ var (
 	reHrefSpace      = regexp.MustCompile(`[\s<>"']`)
 	reHrefScheme     = regexp.MustCompile(`(?i)^[a-z][a-z0-9+.-]*:`)
 	reHrefSafe       = regexp.MustCompile(`(?i)^(https?:|mailto:|tel:)`)
+	reHrefOK         = regexp.MustCompile(`^(https?://|mailto:|[#/])`)
+	reHrefBad        = regexp.MustCompile(`[\s<>"']`)
 )
 
 func hrefSchema() z.Schema {
@@ -160,7 +163,42 @@ func baseFields() []z.Field {
 		{Name: "notes", Schema: z.Optional(z.String().Max(4000))},
 		{Name: "sourceId", Schema: z.Optional(z.String())},
 		{Name: "lintIgnore", Schema: z.Optional(z.Array(z.String().Regex(`^[a-z0-9-]{1,40}$`, `/^[a-z0-9-]{1,40}$/`, "lint rule must be [a-z0-9-]{1,40}")).Max(20))},
+		{Name: "bind", Schema: z.Optional(bindSchema())},
 	}
+}
+
+func propNameSchema() z.Schema {
+	return z.String().Regex(`^[A-Za-z][A-Za-z0-9_]{0,31}$`, `/^[A-Za-z][A-Za-z0-9_]{0,31}$/`, "prop name must be [A-Za-z][A-Za-z0-9_]{0,31}")
+}
+
+func variantOptionSchema() z.Schema {
+	return z.String().Regex(`^[A-Za-z0-9_-]{1,40}$`, `/^[A-Za-z0-9_-]{1,40}$/`, "variant option must be [A-Za-z0-9_-]{1,40}")
+}
+
+func componentPropSchema() z.Schema {
+	return z.Object(
+		z.Field{Name: "name", Schema: propNameSchema()},
+		z.Field{Name: "type", Schema: z.Enum("text", "boolean", "variant")},
+		z.Field{Name: "default", Schema: z.Optional(z.Union(z.String().Max(2000), z.Bool()))},
+		z.Field{Name: "options", Schema: z.Optional(z.Array(variantOptionSchema()).Min(1).Max(24))},
+	)
+}
+
+func bindSchema() z.Schema {
+	return z.Object(
+		z.Field{Name: "text", Schema: z.Optional(propNameSchema())},
+		z.Field{Name: "visible", Schema: z.Optional(propNameSchema())},
+		z.Field{Name: "variant", Schema: z.Optional(z.Record(propNameSchema(), variantOptionSchema()))},
+	)
+}
+
+func propValuesSchema() z.Schema {
+	return z.Record(propNameSchema(), z.Union(z.String().Max(2000), z.Bool()))
+}
+
+func slotFillsSchema() z.Schema {
+	id := z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id must be [A-Za-z0-9_-]{1,64}")
+	return z.Record(propNameSchema(), z.Array(id).Max(40))
 }
 
 func nodeSchema(typ string, extra ...z.Field) *z.ObjectSchema {
@@ -193,6 +231,8 @@ func groupSchema() *z.ObjectSchema {
 		baseField("layoutPositioning"),
 		baseField("constraints"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
+		z.Field{Name: "bind", Schema: z.Optional(bindSchema())},
+		z.Field{Name: "slot", Schema: z.Optional(propNameSchema())},
 	)
 }
 
@@ -227,6 +267,75 @@ func fontSizeSchema() z.Schema {
 
 func fontWeightSchema(def float64) z.Schema {
 	return z.Default(z.Union(z.Int().Min(100).Max(900), lengthToken()), def)
+}
+
+func runFontWeight() z.Schema {
+	return z.Optional(z.Union(z.Int().Min(100).Max(900), lengthToken()))
+}
+
+func runFontSize() z.Schema {
+	return z.Union(z.Number().Min(1).Max(1000), lengthToken())
+}
+
+func runHrefSchema() z.Schema {
+	return z.String().Max(2000).Refine(func(v string) string {
+		if reHrefOK.MatchString(v) && !reHrefBad.MatchString(v) {
+			return ""
+		}
+		return "href must be http(s), mailto, or a path starting with / or #"
+	})
+}
+
+func textRunSchema() z.Schema {
+	return z.Object(
+		z.Field{Name: "start", Schema: z.Int().Min(0)},
+		z.Field{Name: "end", Schema: z.Int().Min(0)},
+		z.Field{Name: "fontWeight", Schema: runFontWeight()},
+		z.Field{Name: "color", Schema: z.Optional(colorValue())},
+		z.Field{Name: "fontSize", Schema: z.Optional(runFontSize())},
+		z.Field{Name: "italic", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "href", Schema: z.Optional(runHrefSchema())},
+	)
+}
+
+func checkTextRuns(v *jsonv.Object) []z.ObjectIssue {
+	runs := v.Arr("runs")
+	if len(runs) == 0 {
+		return nil
+	}
+	textLen := len(utf16.Encode([]rune(v.Str("text"))))
+	var issues []z.ObjectIssue
+	prev := 0
+	overlap := false
+	for i, item := range runs {
+		o, ok := item.(*jsonv.Object)
+		if !ok {
+			continue
+		}
+		start := int(o.Num("start"))
+		end := int(o.Num("end"))
+		if start >= end {
+			issues = append(issues, z.ObjectIssue{Path: []any{"runs", i}, Message: "run start must be before end"})
+		}
+		if end > textLen {
+			issues = append(issues, z.ObjectIssue{Path: []any{"runs", i, "end"}, Message: "run ends past the text"})
+		}
+		_, hasW := o.Get("fontWeight")
+		_, hasC := o.Get("color")
+		_, hasS := o.Get("fontSize")
+		_, hasH := o.Get("href")
+		if !hasW && !hasC && !hasS && !o.Bool("italic") && !hasH {
+			issues = append(issues, z.ObjectIssue{Path: []any{"runs", i}, Message: "run has no style"})
+		}
+		if !overlap && start < prev {
+			issues = append(issues, z.ObjectIssue{Path: []any{"runs"}, Message: "runs overlap or are out of order"})
+			overlap = true
+		}
+		if start >= prev && start < end {
+			prev = end
+		}
+	}
+	return issues
 }
 
 // ShapeKinds: the outlines a diagram shape can take.
@@ -290,6 +399,7 @@ func connectorSchema() *z.ObjectSchema {
 		z.Field{Name: "dashed", Schema: z.Default(z.Bool(), false)},
 		z.Field{Name: "label", Schema: z.Optional(z.String().Max(200))},
 		z.Field{Name: "d", Schema: z.Default(z.String().Max(10_000), "")},
+		z.Field{Name: "bind", Schema: z.Optional(bindSchema())},
 	)
 }
 
@@ -350,6 +460,10 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "href", Schema: hrefSchema()},
 		z.Field{Name: "minWidth", Schema: z.Optional(z.Number().Min(0).Max(100_000))},
 		z.Field{Name: "maxWidth", Schema: z.Optional(z.Number().Max(100_000).Min(0))},
+		z.Field{Name: "slot", Schema: z.Optional(propNameSchema())},
+		z.Field{Name: "componentProps", Schema: z.Optional(z.Array(componentPropSchema()).Max(24))},
+		z.Field{Name: "propValues", Schema: z.Optional(propValuesSchema())},
+		z.Field{Name: "slots", Schema: z.Optional(slotFillsSchema())},
 	).Extend(z.Field{Name: "radius", Schema: cornerRadiusSchema()}),
 	"rect":    nodeSchema("rect").Extend(z.Field{Name: "radius", Schema: cornerRadiusSchema()}),
 	"ellipse": nodeSchema("ellipse"),
@@ -368,7 +482,8 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "letterSpacing", Schema: z.Default(lengthAny(), 0.0)},
 		z.Field{Name: "textAlign", Schema: z.Default(z.Enum("left", "center", "right"), "left")},
 		z.Field{Name: "href", Schema: hrefSchema()},
-	),
+		z.Field{Name: "runs", Schema: z.Optional(z.Array(textRunSchema()).Max(200))},
+	).Issues(checkTextRuns),
 	"image": nodeSchema("image",
 		z.Field{Name: "src", Schema: z.String().Max(5_000_000).Refine(func(v string) string {
 			if !reImageSrc.MatchString(v) && !reAssetRef.MatchString(v) {
@@ -560,7 +675,7 @@ var TokenMetaSchema = z.Object(
 
 // overridesSchema is Overrides in schema.ts: keys shaped like node ids and field names.
 func overridesSchema() z.Schema {
-	source := z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id must be [A-Za-z0-9_-]{1,64}")
+	source := z.String().Regex(`^[A-Za-z0-9_-]{1,64}(/[A-Za-z0-9_-]{1,64}){0,6}$`, `/^[A-Za-z0-9_-]{1,64}(\/[A-Za-z0-9_-]{1,64}){0,6}$/`, "override path must be an id or id/id (up to 7 ids)")
 	field := z.String().Regex(`^[A-Za-z]{1,32}$`, `/^[A-Za-z]{1,32}$/`, "field must be [A-Za-z]{1,32}")
 	return z.Record(source, z.Record(field, z.Unknown()))
 }

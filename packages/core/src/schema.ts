@@ -123,6 +123,32 @@ export function listShadows(shadow: ShadowSpec | readonly ShadowSpec[] | undefin
   return [shadow as ShadowSpec];
 }
 
+export const PropName = z
+  .string()
+  .regex(/^[A-Za-z][A-Za-z0-9_]{0,31}$/, "prop name must be [A-Za-z][A-Za-z0-9_]{0,31}");
+
+export const VariantOption = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,40}$/, "variant option must be [A-Za-z0-9_-]{1,40}");
+
+export const ComponentProp = z.object({
+  name: PropName,
+  type: z.enum(["text", "boolean", "variant"]),
+  default: z.union([z.string().max(2000), z.boolean()]).optional(),
+  options: z.array(VariantOption).min(1).max(24).optional(),
+});
+
+export const Bind = z.object({
+  text: PropName.optional(),
+  visible: PropName.optional(),
+  variant: z.record(PropName, VariantOption).optional(),
+});
+
+export const PropValues = z.record(PropName, z.union([z.string().max(2000), z.boolean()]));
+
+const NodeId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}");
+export const SlotFills = z.record(PropName, z.array(NodeId).max(40));
+
 export const Layout = z.object({
   mode: z.enum(["none", "row", "column"]).default("none"),
   gap: lengthValue(0).default(0),
@@ -164,6 +190,8 @@ const Base = {
   /** Só em cópias dentro de uma instância: id do nó do componente de onde a cópia vem (gerado). */
   sourceId: z.string().optional(),
   lintIgnore: z.array(z.string().regex(/^[a-z0-9-]{1,40}$/, "lint rule must be [a-z0-9-]{1,40}")).max(20).optional(),
+  /** Liga este nó a uma prop do componente que o contém (`text`, `visible` ou `variant`). */
+  bind: Bind.optional(),
 };
 
 /** Overrides de uma instância: por id de nó do componente, os campos trocados (ver component.ts). */
@@ -188,7 +216,10 @@ export const TokenMeta = z
   })
   .refine((m) => m.type !== undefined || m.collection !== undefined, "token meta needs a type or a collection");
 
-const OverrideSource = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}");
+const OverrideSource = z.string().regex(
+  /^[A-Za-z0-9_-]{1,64}(\/[A-Za-z0-9_-]{1,64}){0,6}$/,
+  "override path must be an id or id/id (up to 7 ids)",
+);
 const OverrideField = z.string().regex(/^[A-Za-z]{1,32}$/, "field must be [A-Za-z]{1,32}");
 export const Overrides = z.record(OverrideSource, z.record(OverrideField, z.unknown()));
 
@@ -214,6 +245,14 @@ export const FrameNode = z.object({
   href: Href.optional(),
   minWidth: z.number().min(0).max(100_000).optional(),
   maxWidth: z.number().min(0).max(100_000).optional(),
+  /** Nome de slot (só dentro de um componente): a instância troca os filhos. */
+  slot: PropName.optional(),
+  /** Props declaradas por um componente (texto, boolean, variante). */
+  componentProps: z.array(ComponentProp).max(24).optional(),
+  /** Valores das props na instância (o que faltar usa o default do componente). */
+  propValues: PropValues.optional(),
+  /** Conteúdo dos slots: nome do slot → ids dos nós que a instância clona para dentro. */
+  slots: SlotFills.optional(),
 });
 
 export const RectNode = z.object({ ...Base, radius: cornerRadius, type: z.literal("rect") });
@@ -225,19 +264,59 @@ const TextFontFamily = z
   .refine((v) => !/[;{}<>()]/.test(v), "fontFamily cannot contain ; { } < > ( )")
   .default("Inter, system-ui, sans-serif");
 
-export const TextNode = z.object({
-  ...Base,
-  type: z.literal("text"),
-  text: z.string().max(20_000).default(""),
-  color: ColorValue.default("#111111"),
-  fontFamily: TextFontFamily,
-  fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
-  fontWeight: fontWeightValue.default(400),
-  lineHeight: lengthValue(0, 10).default(1.4),
-  letterSpacing: lengthValue().default(0),
-  textAlign: z.enum(["left", "center", "right"]).default("left"),
-  href: Href.optional(),
+const hrefValue = z
+  .string()
+  .max(2000)
+  .refine((v) => /^(https?:\/\/|mailto:|[#/])/.test(v) && !/[\s<>"']/.test(v), "href must be http(s), mailto, or a path starting with / or #");
+
+export const TextRun = z.object({
+  start: z.number().int().min(0),
+  end: z.number().int().min(0),
+  fontWeight: fontWeightValue.optional(),
+  color: ColorValue.optional(),
+  fontSize: z.union([z.number().min(1).max(1000), lengthToken]).optional(),
+  italic: z.boolean().optional(),
+  href: hrefValue.optional(),
 });
+
+function textRunIssues(text: string, runs: z.infer<typeof TextRun>[] | undefined): { path: (string | number)[]; message: string }[] {
+  if (!runs?.length) return [];
+  const issues: { path: (string | number)[]; message: string }[] = [];
+  let prev = 0;
+  let overlap = false;
+  for (let i = 0; i < runs.length; i++) {
+    const run = runs[i]!;
+    if (run.start >= run.end) issues.push({ path: ["runs", i], message: "run start must be before end" });
+    if (run.end > text.length) issues.push({ path: ["runs", i, "end"], message: "run ends past the text" });
+    const styled = run.fontWeight !== undefined || run.color !== undefined || run.fontSize !== undefined || run.italic === true || run.href !== undefined;
+    if (!styled) issues.push({ path: ["runs", i], message: "run has no style" });
+    if (!overlap && run.start < prev) {
+      issues.push({ path: ["runs"], message: "runs overlap or are out of order" });
+      overlap = true;
+    }
+    if (run.start >= prev && run.start < run.end) prev = run.end;
+  }
+  return issues;
+}
+
+export const TextNode = z
+  .object({
+    ...Base,
+    type: z.literal("text"),
+    text: z.string().max(20_000).default(""),
+    color: ColorValue.default("#111111"),
+    fontFamily: TextFontFamily,
+    fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
+    fontWeight: fontWeightValue.default(400),
+    lineHeight: lengthValue(0, 10).default(1.4),
+    letterSpacing: lengthValue().default(0),
+    textAlign: z.enum(["left", "center", "right"]).default("left"),
+    href: Href.optional(),
+    runs: z.array(TextRun).max(200).optional(),
+  })
+  .superRefine((node, ctx) => {
+    for (const issue of textRunIssues(node.text, node.runs)) ctx.addIssue({ code: "custom", message: issue.message, path: issue.path });
+  });
 
 export const ImageNode = z.object({
   ...Base,
@@ -351,6 +430,7 @@ export const ConnectorNode = z.object({
   label: z.string().max(200).optional(),
   /** Gerado: o traçado (linha + pontas) em coordenadas locais. */
   d: z.string().max(10_000).default(""),
+  bind: Bind.optional(),
 });
 
 /**
@@ -377,6 +457,8 @@ export const GroupNode = z.object({
   layoutPositioning: Base.layoutPositioning,
   constraints: Base.constraints,
   children: z.array(z.string()).default([]),
+  bind: Bind.optional(),
+  slot: PropName.optional(),
 });
 
 /**
@@ -444,6 +526,7 @@ export type Layout = z.infer<typeof Layout>;
 export type FrameNode = z.infer<typeof FrameNode>;
 export type RectNode = z.infer<typeof RectNode>;
 export type EllipseNode = z.infer<typeof EllipseNode>;
+export type TextRun = z.infer<typeof TextRun>;
 export type TextNode = z.infer<typeof TextNode>;
 export type ImageNode = z.infer<typeof ImageNode>;
 export type PathNode = z.infer<typeof PathNode>;

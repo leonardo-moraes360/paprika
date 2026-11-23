@@ -36,12 +36,13 @@ import { applyConstraints } from "./constraints.js";
 import {
   COPY_OVERRIDES,
   InstanceError,
+  copyOverrideTarget,
   copyOwner,
   detachOps,
   instanceOwner,
-  isCopyOverride,
   isInstance,
   isRootDerived,
+  overrideFields,
   setOverride,
   syncInstances,
 } from "./component.js";
@@ -335,7 +336,8 @@ function updatePlain(doc: DocumentT, node: NodeT, props: Record<string, unknown>
 
 /** `update` numa cópia (ou no fill da raiz de uma instância): grava em `overrides` da instância. */
 function updateOverride(doc: DocumentT, inst: FrameNode, node: NodeT, srcId: string, props: Record<string, unknown>, i: number): Op {
-  const src = doc.nodes[srcId];
+  const leaf = srcId.includes("/") ? srcId.slice(srcId.lastIndexOf("/") + 1) : srcId;
+  const src = doc.nodes[leaf];
   const prev: Record<string, unknown> = {};
   const allowed = knownKeys(node.type);
   const unknown = Object.keys(props).filter((k) => !allowed.has(k));
@@ -485,11 +487,12 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
         props = { ...props };
         delete props.index;
       }
-      const owner = copyOwner(doc, node);
-      if (owner) {
-        const bad = Object.keys(props).filter((k) => !isCopyOverride(k));
-        if (bad.length) throw new OpError(`${copyRule(op.id, owner.id)} (got ${bad.join(", ")})`, i);
-        return [...[updateOverride(doc, owner, node, (node as { sourceId: string }).sourceId, props, i)], ...reorder];
+      const target = copyOverrideTarget(doc, node);
+      if (target) {
+        const allowed = new Set<string>(overrideFields(node));
+        const bad = Object.keys(props).filter((k) => !allowed.has(k));
+        if (bad.length) throw new OpError(`${copyRule(op.id, target.inst.id)} (got ${bad.join(", ")})`, i);
+        return [...[updateOverride(doc, target.inst, node, target.key, props, i)], ...reorder];
       }
       if ("sourceId" in props && instanceOwner(doc, node.parentId)) throw new OpError(SOURCE_ID, i);
       if (!isInstance(node)) return [updatePlain(doc, node, props, i), ...reorder];

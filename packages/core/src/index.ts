@@ -11,6 +11,7 @@ export * from "./query.js";
 export { newId } from "./id.js";
 export * from "./path.js";
 export * from "./layout.js";
+export * from "./textRuns.js";
 export * from "./displayList.js";
 export * from "./structure.js";
 export * from "./names.js";

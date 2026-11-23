@@ -210,6 +210,19 @@ type Screenshotter interface {
 
 func optStr(name string) z.Field { return z.Field{Name: name, Schema: z.Optional(z.String())} }
 
+func propNameArg() z.Schema {
+	return z.String().Regex(`^[A-Za-z][A-Za-z0-9_]{0,31}$`, `/^[A-Za-z][A-Za-z0-9_]{0,31}$/`, "prop name must be [A-Za-z][A-Za-z0-9_]{0,31}")
+}
+
+func componentPropArg() z.Schema {
+	return z.Object(
+		z.Field{Name: "name", Schema: propNameArg()},
+		z.Field{Name: "type", Schema: z.Enum("text", "boolean", "variant")},
+		z.Field{Name: "default", Schema: z.Optional(z.Union(z.String().Max(2000), z.Bool()))},
+		z.Field{Name: "options", Schema: z.Optional(z.Array(z.String().Regex(`^[A-Za-z0-9_-]{1,40}$`, `/^[A-Za-z0-9_-]{1,40}$/`, "variant option must be [A-Za-z0-9_-]{1,40}")).Min(1).Max(24))},
+	)
+}
+
 func workspaceID() z.Field {
 	return z.Field{Name: "workspaceId", Schema: z.Optional(z.String().Min(1))}
 }
@@ -798,10 +811,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return writeWith(a, []any{op}, labelOr(a, "create page"), "page", id)
 	})
 
-	add("create_component", z.Object(z.Field{Name: "id", Schema: z.String()}, label(), batch(), workspaceID()),
+	add("create_component", z.Object(
+		z.Field{Name: "id", Schema: z.String()},
+		z.Field{Name: "props", Schema: z.Optional(z.Array(componentPropArg()).Max(24))},
+		label(), batch(), workspaceID(),
+	),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 			id := a.Str("id")
-			op := jsonv.NewObject("op", "update", "id", id, "props", jsonv.NewObject("component", true))
+			props := jsonv.NewObject("component", true)
+			if v, ok := a.Get("props"); ok {
+				props.Set("componentProps", v)
+			}
+			op := jsonv.NewObject("op", "update", "id", id, "props", props)
 			return writeWith(a, []any{op}, labelOr(a, "create component"), "component", id)
 		})
 
@@ -813,6 +834,8 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.01).Max(100))},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		z.Field{Name: "overrides", Schema: z.Optional(z.Record(z.String(), z.Record(z.String(), z.Unknown())))},
+		z.Field{Name: "propValues", Schema: z.Optional(z.Record(propNameArg(), z.Union(z.String().Max(2000), z.Bool())))},
+		z.Field{Name: "slots", Schema: z.Optional(z.Record(propNameArg(), z.Array(z.String()).Max(40)))},
 		optStr("id"),
 		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
@@ -858,6 +881,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if v, ok := a.Get("overrides"); ok {
 			node.Set("overrides", v)
 		}
+		if v, ok := a.Get("propValues"); ok {
+			node.Set("propValues", v)
+		}
+		if v, ok := a.Get("slots"); ok {
+			node.Set("slots", v)
+		}
 		var parent any
 		if v, ok := a.Get("parentId"); ok {
 			parent = v
@@ -866,18 +895,59 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		}
 		op := jsonv.NewObject("op", "create", "parentId", parent, "node", node)
 		copies := jsonv.NewObject()
-		var walk func(nid string)
-		walk = func(nid string) {
-			n := core.GetNode(d, nid)
+		var walk func(root, inst string)
+		walk = func(root, inst string) {
+			n := core.GetNode(d, root)
 			if n == nil || !core.IsContainer(n.Str("type")) {
 				return
 			}
 			for _, c := range n.Strings("children") {
-				copies.Set(c, core.CopyID(iid, c))
-				walk(c)
+				ch := core.GetNode(d, c)
+				if ch == nil || ch.Has("sourceId") {
+					continue
+				}
+				cid := core.CopyID(inst, c)
+				copies.Set(c, cid)
+				if core.IsInstance(ch) {
+					walk(ch.Str("instanceOf"), cid)
+				} else {
+					walk(c, inst)
+				}
 			}
 		}
-		walk(compID)
+		walk(compID, iid)
+		if sl := a.Obj("slots"); sl != nil {
+			frames := map[string]string{}
+			var find func(id string)
+			find = func(id string) {
+				n := core.GetNode(d, id)
+				if n == nil || !core.IsContainer(n.Str("type")) {
+					return
+				}
+				for _, c := range n.Strings("children") {
+					ch := core.GetNode(d, c)
+					if ch == nil || ch.Has("sourceId") {
+						continue
+					}
+					if name := ch.Str("slot"); name != "" {
+						frames[name] = c
+					}
+					if !core.IsInstance(ch) {
+						find(c)
+					}
+				}
+			}
+			find(compID)
+			for _, name := range sl.Keys() {
+				frame := frames[name]
+				if frame == "" {
+					continue
+				}
+				for _, src := range sl.Strings(name) {
+					copies.Set(name+"/"+src, core.CopyID(iid, frame+"/"+src))
+				}
+			}
+		}
 		return writeWith(a, []any{op}, labelOr(a, "create instance"), "instance", iid, "copies", copies)
 	})
 

@@ -203,7 +203,11 @@ func updatePlain(doc *Document, node *Node, props *jsonv.Object, i int) (any, er
 // updateOverride: an update on a copy (or on an instance root's fill) is stored in overrides.
 func updateOverride(doc *Document, inst, node *Node, srcID string, props *jsonv.Object, i int) (any, error) {
 	id := node.Str("id")
-	src := GetNode(doc, srcID)
+	leaf := srcID
+	if i := strings.LastIndex(srcID, "/"); i >= 0 {
+		leaf = srcID[i+1:]
+	}
+	src := GetNode(doc, leaf)
 	prev := jsonv.NewObject()
 	allowed := KnownKeys(node.Str("type"))
 	var unknown []string
@@ -726,17 +730,17 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			props = props.Spread()
 			props.Delete("index")
 		}
-		if owner := CopyOwner(doc, node); owner != nil {
+		if inst, key, ok := CopyOverrideTarget(doc, node); ok {
 			var bad []string
 			for _, k := range props.Keys() {
-				if !inList(CopyOverrides, k) {
+				if !inList(OverrideFields(node), k) {
 					bad = append(bad, k)
 				}
 			}
 			if len(bad) > 0 {
-				return nil, opErr(i, "%s (got %s)", copyRule(id, owner.Str("id")), strings.Join(bad, ", "))
+				return nil, opErr(i, "%s (got %s)", copyRule(id, inst.Str("id")), strings.Join(bad, ", "))
 			}
-			inv, err := updateOverride(doc, owner, node, node.Str("sourceId"), props, i)
+			inv, err := updateOverride(doc, inst, node, key, props, i)
 			if err != nil {
 				return nil, err
 			}

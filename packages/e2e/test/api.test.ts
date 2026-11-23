@@ -203,7 +203,7 @@ describe("API: MCP", () => {
     `);
     const bad = await call(c, "update_nodes", { updates: [{ id: JSON.parse(textOf(inst)).copies.lbl, props: { x: 3 } }] });
     expect(bad.isError).toBe(true);
-    expect(textOf(bad)).toMatchInlineSnapshot(`"op[0]: "i1-0bzyiqi0vw20y4" is a copy inside the instance "i1": only fill, color, text, src, alt, visible, opacity can change (they become overrides); edit the component or detach it (got x)"`);
+    expect(textOf(bad)).toMatchInlineSnapshot(`"op[0]: "i1-0bzyiqi0vw20y4" is a copy inside the instance "i1": only fill, color, text, src, alt, visible, opacity, runs can change (they become overrides); edit the component or detach it (got x)"`);
     await call(c, "update_nodes", { updates: [{ id: "lbl", props: { fontSize: 20 } }, { id: "i1", props: { fill: "#000000" } }] });
     const nodes = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["i1", JSON.parse(textOf(inst)).copies.lbl] })));
     expect(nodes).toMatchInlineSnapshot(`
@@ -294,6 +294,66 @@ describe("API: MCP", () => {
       content: x=10 y=10 w=290 h=60
       next: x=380 y=10"
     `);
+  });
+
+  it("props, slots e instância aninhada", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      nodes: [
+        { type: "ellipse", id: "gem", width: 12, height: 12, fill: "#ff278c" },
+        {
+          type: "frame", id: "btn", width: 120, height: 40,
+          children: [
+            { type: "text", id: "lbl", text: "OK", width: 40, height: 20 },
+            { type: "ellipse", id: "dot", width: 8, height: 8 },
+            { type: "rect", id: "sm", width: 8, height: 8 },
+            { type: "frame", id: "icon", width: 16, height: 16, children: [{ type: "rect", id: "ph", width: 16, height: 16 }] },
+          ],
+        },
+      ],
+    });
+    await call(c, "create_component", {
+      id: "btn",
+      props: [
+        { name: "label", type: "text", default: "OK" },
+        { name: "disabled", type: "boolean", default: false },
+        { name: "size", type: "variant", default: "md", options: ["sm", "md"] },
+      ],
+    });
+    await call(c, "update_nodes", {
+      updates: [
+        { id: "lbl", props: { bind: { text: "label" } } },
+        { id: "dot", props: { bind: { visible: "disabled" } } },
+        { id: "sm", props: { bind: { variant: { size: "sm" } } } },
+        { id: "icon", props: { slot: "icon" } },
+      ],
+    });
+    const inst = await call(c, "create_instance", {
+      componentId: "btn",
+      id: "i1",
+      propValues: { label: "Enviar", disabled: false, size: "md" },
+      slots: { icon: ["gem"] },
+    });
+    const body = JSON.parse(textBody(inst));
+    expect(body.copies["icon/gem"]).toBeTruthy();
+    const outline = outlineText(await call(c, "get_document_outline", { rootId: "i1" }));
+    expect(outline).toContain("Enviar");
+    expect(outline).toContain("from=icon/gem");
+    expect(outline).not.toContain("from=sm");
+    expect(outline).toContain("hidden");
+    await call(c, "create_nodes", {
+      nodes: [{
+        type: "frame", id: "card", width: 200, height: 80,
+        children: [{ type: "frame", id: "btnInst", instanceOf: "btn", width: 120, height: 40 }],
+      }],
+    });
+    await call(c, "create_component", { id: "card" });
+    await call(c, "create_instance", {
+      componentId: "card",
+      id: "c1",
+      overrides: { "btnInst/lbl": { text: "Salvar" } },
+    });
+    expect(outlineText(await call(c, "get_document_outline", { rootId: "c1" }))).toContain("Salvar");
   });
 
   it("grupos e páginas", async () => {
@@ -540,6 +600,33 @@ describe("API: MCP", () => {
     expect(hist).toHaveLength(2);
     expect(hist[1]).toMatchObject({ label: "create 1 node(s)", ops: 1 });
     expect(hist[1].actor).toMatch(/^agent:/);
+  });
+
+  it("runs de texto vão no create, no get e no HTML", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "text", id: "rich", text: "Hello bold link", width: 280, height: 40,
+          runs: [
+            { start: 6, end: 10, fontWeight: 700, color: "#c43d27" },
+            { start: 11, end: 15, italic: true, href: "https://paprika.dev", fontSize: 28 },
+          ],
+        },
+      ],
+    });
+    const nodes = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["rich"] })));
+    expect(nodes[0].runs).toEqual([
+      { start: 6, end: 10, fontWeight: 700, color: "#c43d27" },
+      { start: 11, end: 15, italic: true, href: "https://paprika.dev", fontSize: 28 },
+    ]);
+    const html = textOf(await call(c, "export_code", { rootId: "rich", format: "html" }));
+    expect(html).toContain("font-weight:700");
+    expect(html).toContain('href="https://paprika.dev"');
+    expect(html).toContain("font-style:italic");
+    const bad = await call(c, "update_nodes", { updates: [{ id: "rich", props: { runs: [{ start: 0, end: 99, fontWeight: 700 }] } }] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toMatch(/run ends past the text/);
   });
 
   it("erros voltam como isError com mensagem acionável e sem efeito colateral", async () => {

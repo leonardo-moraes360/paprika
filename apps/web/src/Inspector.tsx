@@ -25,6 +25,7 @@ import {
   lintDocument,
   newId,
   modeOf,
+  owningComponent,
   ungroupOps,
   wrapOps,
   type AlignEdge,
@@ -607,7 +608,13 @@ export function Inspector(props: Props) {
       {node.type === "text" && (
         <InspectorSection id="text" title="Texto">
           <div className={ui.grid}>
-            <Field label="Conteúdo" type="textarea" value={node.text} onCommit={(v) => set({ text: v }, "editar texto")} />
+            <Field
+              label="Conteúdo"
+              type="textarea"
+              value={node.text}
+              onCommit={(v) => set({ text: v, ...(v !== node.text && node.runs?.length ? { runs: null } : {}) }, "editar texto")}
+            />
+            {node.runs?.length ? <p className={ui.muted}>{node.runs.length} trechos · duplo clique no canvas</p> : null}
             <ColorField doc={doc} mode={themeMode} label="Cor" value={node.color} onCommit={(v) => v && set({ color: v })} />
           </div>
           <div className={ui.grid2}>
@@ -679,6 +686,12 @@ export function Inspector(props: Props) {
                 </Button>
               )}
             </div>
+            {node.component && (
+              <ComponentPropsFields
+                props={node.componentProps}
+                onChange={(componentProps) => set({ componentProps }, "props do componente")}
+              />
+            )}
           </InspectorSection>
           <InspectorSection id="frame-web" title="Web" defaultOpen={!!node.href || node.minWidth != null || node.maxWidth != null}>
             <Field label="Link" value={node.href ?? ""} placeholder="https://, /caminho ou #ancora" onCommit={(v) => set({ href: v.trim() || null })} />
@@ -775,6 +788,7 @@ export function Inspector(props: Props) {
       )}
 
       <TokenDetach id={node.id} node={node} apply={apply} />
+      <ComponentBind doc={doc} node={node} set={set} />
       <ArrangeSection ids={[node.id]} apply={apply} />
 
       <InspectorSection id="notes" title="Notas para agentes">
@@ -808,6 +822,7 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
       <div className={ui.grid}>
         <Field label="Nome" value={node.name} onCommit={(v) => set({ name: v }, "renomear")} />
       </div>
+      <InstanceValues doc={doc} instance={node} set={set} />
       <InspectorSection id="instance-transform" title="Posição e transformação" defaultOpen>
         <div className={ui.grid2}>
           <Field label="X" type="number" value={node.x} onCommit={setNum("x")} />
@@ -932,6 +947,7 @@ function ConnectorPanel({ connector: node, ...props }: Props & { connector: Conn
         </div>
         <p className={ui.muted}>A linha segue as formas: mova as formas ou troque os lados para redesenhar.</p>
       </InspectorSection>
+      <ComponentBind doc={doc} node={node} set={set} />
       <ArrangeSection ids={[node.id]} apply={apply} />
       <InspectorSection id="notes" title="Notas para agentes">
         <Field label="Notas" type="textarea" value={node.notes} onCommit={(v) => set({ notes: v || null })} />
@@ -962,7 +978,14 @@ function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; inst
       </p>
       <InspectorSection id="copy-appearance" title="Aparência" defaultOpen>
         <div className={ui.grid}>
-          {node.type === "text" && <Field label="Conteúdo" type="textarea" value={node.text} onCommit={(v) => set({ text: v })} />}
+          {node.type === "text" && (
+            <Field
+              label="Conteúdo"
+              type="textarea"
+              value={node.text}
+              onCommit={(v) => set({ text: v, ...(v !== node.text && node.runs?.length ? { runs: null } : {}) })}
+            />
+          )}
           {node.type === "text" && <ColorField doc={doc} label="Cor" value={node.color} onCommit={(v) => set({ color: v })} />}
           {node.type !== "group" && node.type !== "connector" && <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />}
           {node.type === "image" && <Field label="URL" value={node.src.startsWith("data:") ? "(data URI)" : node.src} onCommit={(v) => set({ src: v })} />}
@@ -1003,6 +1026,204 @@ function PagePanel({ doc, page, apply }: { doc: Document; page: PageNode; apply(
   );
 }
 
+type PropDecl = NonNullable<FrameNode["componentProps"]>[number];
+type BindSpec = NonNullable<FrameNode["bind"]>;
+
+function ComponentPropsFields({ props, onChange }: { props?: PropDecl[]; onChange: (next: PropDecl[]) => void }) {
+  const list = props ?? [];
+  const write = (next: PropDecl[]) => onChange(next);
+  return (
+    <div className={ui.grid} data-testid="component-props">
+      {list.map((p, i) => (
+        <div className={ui.grid2} key={`${p.name}-${i}`}>
+          <Field label="Prop" value={p.name} onCommit={(v) => write(list.map((item, k) => (k === i ? { ...item, name: v.trim() || item.name } : item)))} />
+          <SelectField
+            label="Tipo"
+            value={p.type}
+            onChange={(v) =>
+              write(
+                list.map((item, k) =>
+                  k === i
+                    ? {
+                        name: item.name,
+                        type: v as PropDecl["type"],
+                        ...(v === "boolean" ? { default: false } : v === "text" ? { default: "" } : { default: "md", options: ["sm", "md"] }),
+                      }
+                    : item,
+                ),
+              )
+            }
+            options={[
+              { value: "text", label: "texto" },
+              { value: "boolean", label: "boolean" },
+              { value: "variant", label: "variante" },
+            ]}
+          />
+          {p.type === "boolean" ? (
+            <SelectField
+              label="Padrão"
+              value={String(p.default === true)}
+              onChange={(v) => write(list.map((item, k) => (k === i ? { ...item, default: v === "true" } : item)))}
+              options={YES_NO}
+            />
+          ) : (
+            <Field
+              label={p.type === "variant" ? "Opções" : "Padrão"}
+              value={p.type === "variant" ? (p.options ?? []).join(" ") : String(p.default ?? "")}
+              onCommit={(v) => {
+                if (p.type === "variant") {
+                  const options = v.trim().split(/[\s,]+/).filter(Boolean);
+                  write(list.map((item, k) => (k === i ? { ...item, options, default: options.includes(String(item.default)) ? item.default : options[0] } : item)));
+                } else {
+                  write(list.map((item, k) => (k === i ? { ...item, default: v } : item)));
+                }
+              }}
+            />
+          )}
+          <Button type="button" variant="secondary" size="sm" onClick={() => write(list.filter((_, k) => k !== i))}>
+            Remover
+          </Button>
+        </div>
+      ))}
+      <Button type="button" variant="secondary" size="sm" onClick={() => write([...list, { name: "prop", type: "text", default: "" }])}>
+        Nova prop
+      </Button>
+    </div>
+  );
+}
+
+function ComponentBind({ doc, node, set }: { doc: Document; node: Node; set: (p: Record<string, unknown>, label?: string) => void }) {
+  const owner = owningComponent(doc, node.id);
+  if (!owner) return null;
+  const decls = owner.componentProps ?? [];
+  const bind: BindSpec = "bind" in node && node.bind ? node.bind : {};
+  const write = (next: BindSpec) => {
+    const clean: BindSpec = {};
+    if (next.text) clean.text = next.text;
+    if (next.visible) clean.visible = next.visible;
+    if (next.variant && Object.keys(next.variant).length) clean.variant = next.variant;
+    set({ bind: clean.text || clean.visible || clean.variant ? clean : null }, "bind");
+  };
+  const textProps = decls.filter((p) => p.type === "text");
+  const boolProps = decls.filter((p) => p.type === "boolean");
+  const variantProps = decls.filter((p) => p.type === "variant");
+  const none = { value: "", label: "—" };
+  return (
+    <InspectorSection id="component-bind" title="Props do componente" defaultOpen>
+      <div className={ui.grid2} data-testid="component-bind">
+        {textProps.length > 0 && (node.type === "text" || node.type === "shape") && (
+          <SelectField
+            label="Texto"
+            value={bind.text ?? ""}
+            onChange={(v) => write({ ...bind, text: v || undefined })}
+            options={[none, ...textProps.map((p) => ({ value: p.name, label: p.name }))]}
+          />
+        )}
+        {boolProps.length > 0 && (
+          <SelectField
+            label="Visível"
+            value={bind.visible ?? ""}
+            onChange={(v) => write({ ...bind, visible: v || undefined })}
+            options={[none, ...boolProps.map((p) => ({ value: p.name, label: p.name }))]}
+          />
+        )}
+        {variantProps.map((p) => (
+          <SelectField
+            key={p.name}
+            label={p.name}
+            value={bind.variant?.[p.name] ?? ""}
+            onChange={(v) => {
+              const variant = { ...bind.variant };
+              if (v) variant[p.name] = v;
+              else delete variant[p.name];
+              write({ ...bind, variant });
+            }}
+            options={[none, ...(p.options ?? []).map((o) => ({ value: o, label: o }))]}
+          />
+        ))}
+        {(node.type === "frame" || node.type === "group") && (
+          <Field label="Slot" value={node.slot ?? ""} onCommit={(v) => set({ slot: v.trim() || null }, "slot")} />
+        )}
+      </div>
+    </InspectorSection>
+  );
+}
+
+function componentSlotFrames(doc: Document, compId: string): { name: string; id: string }[] {
+  const out: { name: string; id: string }[] = [];
+  const walk = (id: string) => {
+    const n = doc.nodes[id];
+    if (!n || !("children" in n)) return;
+    for (const c of n.children) {
+      const ch = doc.nodes[c];
+      if (!ch || ("sourceId" in ch && ch.sourceId)) continue;
+      if ("slot" in ch && ch.slot) out.push({ name: ch.slot, id: ch.id });
+      if (!isInstance(ch)) walk(c);
+    }
+  };
+  walk(compId);
+  return out;
+}
+
+function InstanceValues({
+  doc,
+  instance,
+  set,
+}: {
+  doc: Document;
+  instance: FrameNode & { instanceOf: string };
+  set: (p: Record<string, unknown>, label?: string) => void;
+}) {
+  const comp = doc.nodes[instance.instanceOf];
+  const decls = comp?.type === "frame" ? (comp.componentProps ?? []) : [];
+  const slots = componentSlotFrames(doc, instance.instanceOf);
+  const keys = Object.keys(instance.overrides ?? {});
+  if (!decls.length && !slots.length && !keys.length) return null;
+  return (
+    <InspectorSection id="instance-props" title="Props e slots" defaultOpen>
+      <div className={ui.grid2} data-testid="instance-props">
+        {decls.map((p) => {
+          const cur = instance.propValues?.[p.name];
+          const write = (value: string | boolean) => set({ propValues: { ...instance.propValues, [p.name]: value } }, "prop da instância");
+          if (p.type === "boolean") {
+            return (
+              <SelectField
+                key={p.name}
+                label={p.name}
+                value={String(cur === true)}
+                onChange={(v) => write(v === "true")}
+                options={YES_NO}
+              />
+            );
+          }
+          if (p.type === "variant") {
+            return (
+              <SelectField
+                key={p.name}
+                label={p.name}
+                value={typeof cur === "string" ? cur : String(p.default ?? p.options?.[0] ?? "")}
+                onChange={(v) => write(v)}
+                options={(p.options ?? []).map((o) => ({ value: o, label: o }))}
+              />
+            );
+          }
+          return <Field key={p.name} label={p.name} value={typeof cur === "string" ? cur : String(p.default ?? "")} onCommit={(v) => write(v)} />;
+        })}
+        {slots.map((slot) => (
+          <Field
+            key={slot.name}
+            label={`Slot ${slot.name}`}
+            value={(instance.slots?.[slot.name] ?? []).join(" ")}
+            title="ids separados por espaço"
+            onCommit={(v) => set({ slots: { ...instance.slots, [slot.name]: v.trim() ? v.trim().split(/[\s,]+/) : [] } }, "slot da instância")}
+          />
+        ))}
+      </div>
+      {keys.length > 0 && <p className={ui.muted}>overrides: {keys.join(", ")}</p>}
+    </InspectorSection>
+  );
+}
+
 function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
   const set = (p: Record<string, unknown>, label = "editar grupo") => props.apply([{ op: "update", id: group.id, props: p }], label);
   const setNum = (key: string) => (v: string) => {
@@ -1037,6 +1258,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
           </Hint>
         </div>
       </InspectorSection>
+      <ComponentBind doc={props.doc} node={group} set={set} />
       <ArrangeSection ids={[group.id]} apply={props.apply} />
       <InspectorSection id="notes" title="Notas para agentes">
         <Field label="Notas" type="textarea" value={group.notes} onCommit={(v) => set({ notes: v || null })} />

@@ -137,9 +137,9 @@ func renderNode(doc *Document, node *Node, asRoot, vars bool, emit styleEmitter,
 		return "<" + tag + " " + attrs + href + ">" + kids.String() + "</" + tag + ">"
 	case "text":
 		if node.Str("href") != "" {
-			return `<a ` + attrs + ` href="` + EscapeHTML(node.Str("href")) + `">` + EscapeHTML(node.Str("text")) + "</a>"
+			return `<a ` + attrs + ` href="` + EscapeHTML(node.Str("href")) + `">` + richText(doc, node, vars, false) + "</a>"
 		}
-		return "<div " + attrs + ">" + EscapeHTML(node.Str("text")) + "</div>"
+		return "<div " + attrs + ">" + richText(doc, node, vars, false) + "</div>"
 	case "image":
 		src := EscapeHTML(ResolveAsset(doc, node.Str("src")))
 		if node.Bool("decorative") {
@@ -373,6 +373,42 @@ func jsxText(s string) string {
 	return strings.ReplaceAll(s, "\n", `{'\n'}`)
 }
 
+func richText(doc *Document, node *Node, vars, jsx bool) string {
+	runs := node.Arr("runs")
+	if len(runs) == 0 {
+		if jsx {
+			return jsxText(node.Str("text"))
+		}
+		return EscapeHTML(node.Str("text"))
+	}
+	var b strings.Builder
+	for _, p := range TextPieces(node.Str("text"), runs) {
+		body := EscapeHTML(p.Text)
+		if jsx {
+			body = jsxText(p.Text)
+		}
+		if p.Run == nil {
+			b.WriteString(body)
+			continue
+		}
+		css := TextRunCSS(doc, node, p.Run, vars)
+		style := ` style="` + EscapeHTML(CSSToString(css)) + `"`
+		if jsx {
+			style = " style=" + jsxStyle(css)
+		}
+		if href, ok := p.Run.Get("href"); ok {
+			if jsx {
+				b.WriteString("<a href=" + jsonv.Quote(jsString(href)) + style + ">" + body + "</a>")
+			} else {
+				b.WriteString(`<a href="` + EscapeHTML(jsString(href)) + `"` + style + ">" + body + "</a>")
+			}
+			continue
+		}
+		b.WriteString("<span" + style + ">" + body + "</span>")
+	}
+	return b.String()
+}
+
 func jsxAttrs(attrs []Attr) string {
 	var b strings.Builder
 	for _, a := range attrs {
@@ -431,7 +467,7 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, e
 			tag = "a"
 			href = " href=" + jsonv.Quote(node.Str("href"))
 		}
-		return indent + "<" + tag + name + href + style + ">" + jsxText(node.Str("text")) + "</" + tag + ">"
+		return indent + "<" + tag + name + href + style + ">" + richText(doc, node, vars, true) + "</" + tag + ">"
 	case "image":
 		hidden := " alt=" + jsonv.Quote(node.Str("alt"))
 		if node.Bool("decorative") {

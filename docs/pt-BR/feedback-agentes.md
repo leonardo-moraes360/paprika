@@ -98,7 +98,7 @@ Tarefa: componentes (`component: true`) e instâncias (`instanceOf`, `scale`, `o
 |---|-----------|-----------------|----------|------|
 | 37 | Trocar algo numa cópia sem saber o id gerado | Os ids das cópias são derivados (instância + id de origem), então o agente não os adivinha | Feito: `create_instance` devolve `copies` (id de origem → id da cópia), e `overrides` pode ser escrito na instância pelo id de origem | — |
 | 38 | Escalar um conjunto de ícones | O mesmo ícone em 4 tamanhos agora é 1 componente + 4 instâncias com `scale`; um `fontSize` que é token não escala | Tokens tipados (backlog E) deixariam `scale` multiplicar tokens de tamanho também | P3 |
-| 39 | Pôr uma instância de botão dentro de um componente de card | Instâncias dentro de componentes ainda são recusadas, então design systems aninhados pedem detach ou componentes planos | Instâncias aninhadas, com overrides endereçados por caminho (`instância/cópia`) | P2 |
+| 39 | Pôr uma instância de botão dentro de um componente de card | Instâncias dentro de componentes eram recusadas, então design systems aninhados pediam detach ou componentes planos | Feito (2026-11-23, PAP-B-086): instâncias aninhadas, overrides endereçados por caminho (`instância/cópia`), mais props e slots de componente | — |
 
 ## 2026-11-21: colar SVG/HTML e exportar SVG (leva 1 do backlog, item 3)
 
@@ -774,16 +774,41 @@ Tarefa: desenhar os eixos de constraint do inspector (escuro: direita/topo, clar
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - O frame de comportamento é um mock: o servidor vivo ainda não aceita `constraints`, então os retângulos de antes/depois estão em x/y.
 - `lint_design` nos três roots: 0 erros e 0 avisos.
-
 ## 2026-11-23: semântica web e converter em caminho (PAP-B-087, design first)
 
 Tarefa: desenhar o inspector da raiz (link, largura mínima, largura máxima), uma imagem decorativa com `$asset` e o item "Converter em caminho" no menu de contexto, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`), antes de implementar. Frames em y=11360. PNGs em `docs/assets/boards/PAP-B-087/`.
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 143 | Rótulos de seção em 11px | O `lint_design` nos três quadros acusou small-text em rótulos e notas de 11px | Mocks do inspector deveriam usar pelo menos 12px (igual a #136) | P3 |
+| 147 | Rótulos de seção em 11px | O `lint_design` nos três quadros acusou small-text em rótulos e notas de 11px | Mocks do inspector deveriam usar pelo menos 12px (igual a #136) | P3 |
 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual a #128: duas páginas chamadas Interfaces. O script usou `page#interfaces`.
 - Igual a #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (11360).
 - Igual a #129: o `path` do `render_screenshot` fica no servidor. Os PNGs foram decodificados dos bytes de imagem do resultado da ferramenta.
+
+## 2026-11-23: trechos de texto (PAP-B-085, design first)
+
+Tarefa: desenhar o texto pintado, o editor no canvas e a dica do inspector na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de `runs` em nós de texto. Frames `b085-painted`, `b085-editor`, `b085-inspector` em y=10840. PNGs em `docs/assets/boards/PAP-B-085/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 143 | O texto de `create_nodes` como JSON | O texto da ferramenta é JSON mais uma linha legível por raiz, então `JSON.parse` do texto inteiro falha depois que os nós já existem | Devolver um único valor JSON, ou documentar que o cliente lê o primeiro valor | P2 |
+| 144 | Desenhar `runs` e itálico no board ao vivo | O servidor em `:4777` ainda rejeita `runs` e `italic`, então o board simula com nós de texto separados, uma face Georgia e um sublinhado de 1px | Esperado até este build ser o que serve o MCP | — |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (10840).
+- Igual ao #129: os bytes de `render_screenshot` foram gravados nos PNGs a partir do resultado da ferramenta.
+- A linha do preço quebrou até o frame ficar com 720 de largura e o nó do preço com 160×40. O nome do workspace é `Paprica · UI`.
+
+## 2026-11-23: props, slots e instâncias aninhadas (PAP-B-086, design first)
+
+Tarefa: desenhar props, um slot, uma instância com valores e um botão aninhado num card, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes da mudança no modelo. Quatro frames (`papb086-props-dark`, `papb086-props-light`, `papb086-instance`, `papb086-nested`). PNGs em `docs/assets/boards/PAP-B-086/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 145 | Rótulos que cabem no frame | Os primeiros screenshots cortaram `size` porque os textos da linha estavam em x=0 dentro de um frame com raio 12 | Recuar os textos (x=16) antes de fotografar | — |
+| 146 | Uma página chamada Interfaces | `find_nodes` ainda devolve duas páginas chamadas `Interfaces`. Os frames foram para `page#interfaces`; `h6jut017rv` está vazia | Igual à linha aberta: uma página por nome, ou o outline dizer qual está vazia | P2 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #123, ainda aberto: `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0. Os frames foram para y=9800, abaixo do conteúdo que uma varredura de profundidade 1 já mostrava.

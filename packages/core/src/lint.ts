@@ -148,7 +148,13 @@ function tokenRefs(node: Node): string[] {
     check(node.fontSize);
     check(node.lineHeight);
   }
-  if (node.type === "text") check(node.letterSpacing);
+  if (node.type === "text") {
+    check(node.letterSpacing);
+    for (const run of node.runs ?? []) {
+      check(run.color);
+      check(run.fontSize);
+    }
+  }
   return refs;
 }
 
