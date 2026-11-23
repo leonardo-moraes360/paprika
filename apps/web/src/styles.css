@@ -259,3 +259,22 @@
     }
   }
 }
+
+@keyframes inspector-collapse-down {
+  from {
+    grid-template-rows: 0fr;
+  }
+  to {
+    grid-template-rows: 1fr;
+  }
+}
+
+@keyframes inspector-collapse-up {
+  from {
+    grid-template-rows: 1fr;
+  }
+  to {
+    grid-template-rows: 0fr;
+  }
+}
+

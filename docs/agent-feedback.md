@@ -661,3 +661,16 @@ Task: draw the error-boundary shell (dark and light) on page `interfaces` of wor
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 127 | `layout.padding` as a 2-number tuple | `create_nodes` refused it with `op[0]: invalid node: layout.padding: Invalid input`. The error did not say that only one number or four values are valid. Every padding became a single number | Name the accepted shapes in that error (one number, or `[top, right, bottom, left]`). The guide already says this (#89); the refusal still does not | P2 |
+
+## 2026-11-23: inspector section collapse (PAP-B-088, design first)
+
+Task: draw the open, mid-slide, closed and reduced-motion states of an inspector section on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before fixing the flicker. Four fixed-height frames at y=3600 (`b088-open`, `b088-mid`, `b088-closed`, `b088-reduce`). PNGs in `docs/assets/boards/PAP-B-088/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 128 | The page named `Interfaces` | `find_nodes` returned two pages with that name: `page#interfaces` (the boards) and an empty `page#h6jut017rv` | Disambiguate duplicate page names in `find_nodes`, or return the page id in the outline header only for the one that has children | P3 |
+| 129 | The screenshot file on the host | `render_screenshot` `path` wrote `/data/screenshots/PAP-B-088/*.png` inside the server container. The host repo never saw the file; the PNG had to be downloaded from `url` (`/api/screenshot/<id>`) | Return a host path when the server runs in Docker, or document that `path` is inside the server filesystem and `url` is the way out | P2 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123, still open: `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0, so the frames were placed by scanning depth-1 `y` (landed at y=3600).
+- `lint_design` on the four frames was clean after the chevrons moved to 12px. A clipped mid-slide body needed `lintIgnore: ["layout-overflow"]` because the clip is the frame.
