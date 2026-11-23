@@ -692,15 +692,29 @@ Tarefa: desenhar a pilha de camadas do clique direito (português claro, inglês
 - A caixa `content` no fim do outline do documento inteiro era de outra página. O lugar livre foi o y abaixo dos frames do PAP-B-089 (4200 + 460), então estes pousaram em y=4800.
 - `lint_design` nos dois frames ficou limpo em warning e acima depois que os glifos foram para `color` e o título do card escuro usou `#141827` no card branco.
 
+## 2026-11-23: alças que acompanham a rotação (PAP-B-091, design first)
+
+Tarefa: desenhar a seleção antes e depois de acompanhar a caixa rotacionada, claro e escuro, na página `Interfaces` do workspace `Paprica · UI` (`cmio9n368k`). Frames `b091-before-light`, `b091-after-light`, `b091-before-dark`, `b091-after-dark`. PNGs em `docs/assets/boards/PAP-B-091/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 132 | A página chamada `Interfaces` | O outline lista `page#iutnyc26zo` ("Página 1") antes de `page#interfaces`. Pegar o primeiro `page#` colocou os quatro frames na página errada; `move_nodes` para `interfaces` corrigiu | Colocar o nome da página na mesma linha do id de um jeito que uma varredura de profundidade 1 não confunda, ou recusar um pai que não seja a página pedida | P2 |
+| 133 | Cantos iguais à rotação pintada | `get_bounds` girava a caixa com o sinal oposto ao `rotate()` do CSS e ao render vello, então uma alça nesses cantos ficava fora dos pixels | Feito nesta mudança: os cantos do `layout` usam a matriz do CSS em TypeScript e Go | — |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (11880).
+- Igual ao #129, ainda aberto: o `path` do `render_screenshot` fica dentro do servidor. Os PNGs foram decodificados dos bytes da imagem no resultado da ferramenta.
+- `lint_design` ficou limpo depois de `lintIgnore` no texto da medida (`contrast`, o badge é um irmão que o texto não vê) e nas alças soltas (`detached-sibling`).
+
 ## 2026-11-23: várias sombras, outline e filtros (PAP-B-080, design first)
 
 Tarefa: desenhar o inspector de efeitos e uma prévia (escuro e claro) na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de aceitar lista de sombras, sombra interna, outline, filter e backdropFilter. Frames `b080-fx-dark`, `b080-pv-dark`, `b080-fx-light`, `b080-pv-light` em y=7760. PNGs em `docs/assets/boards/PAP-B-080/`.
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 132 | Um script de design num worktree novo | `@modelcontextprotocol/sdk` não está instalado na raiz, então o script não importa o cliente. JSON-RPC cru por HTTP funcionou | Documentar um trecho MCP sem dependência, ou depender do SDK na raiz | P3 |
-| 133 | O handshake MCP | `notifications/initialized` voltou method not found. Só o `initialize` bastou para `tools/call` | Clientes devem tolerar a notificação `initialized` ausente | P3 |
-| 134 | Títulos de seção em 11px | `lint_design` em `b080-fx-dark` apontou small-text nos títulos (Sombras, Contorno, Filtro, Filtro de fundo) | Mocks do inspector devem usar pelo menos 12px | P3 |
+| 134 | Um script de design num worktree novo | `@modelcontextprotocol/sdk` não está instalado na raiz, então o script não importa o cliente. JSON-RPC cru por HTTP funcionou | Documentar um trecho MCP sem dependência, ou depender do SDK na raiz | P3 |
+| 135 | O handshake MCP | `notifications/initialized` voltou method not found. Só o `initialize` bastou para `tools/call` | Clientes devem tolerar a notificação `initialized` ausente | P3 |
+| 136 | Títulos de seção em 11px | `lint_design` em `b080-fx-dark` apontou small-text nos títulos (Sombras, Contorno, Filtro, Filtro de fundo) | Mocks do inspector devem usar pelo menos 12px | P3 |
 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #128: duas páginas chamadas Interfaces. O script prefere `page#interfaces`.
