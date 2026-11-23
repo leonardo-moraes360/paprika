@@ -248,11 +248,11 @@ func TestMCPToolsAndErrors(t *testing.T) {
 		t.Fatalf("%v %q", isErr, out)
 	}
 	out, _ = callText(t, m, "create_nodes", obj("index", 0.0, "nodes", []any{obj("type", "rect", "id", "a"), obj("type", "rect", "id", "b")}))
-	if !strings.Contains(out, "\"ids\": [\n    \"a\",\n    \"b\"\n  ]") || !strings.Contains(out, "rect#a 100×100 @0,0\nrect#b 100×100 @0,0") {
+	if !strings.Contains(out, "\"ids\": [\n    \"a\",\n    \"b\"\n  ]") || !strings.Contains(out, "rect#a 100×100 @0,0\nrect#b 100×100 @180,0") {
 		t.Fatalf("create: %q", out)
 	}
 	out, _ = callText(t, m, "find_nodes", obj("type", "rect"))
-	if out != "rect#a 100×100 @0,0\nrect#b 100×100 @0,0" {
+	if out != "rect#a 100×100 @0,0\nrect#b 100×100 @180,0" {
 		t.Fatalf("find: %q", out)
 	}
 	out, isErr = callText(t, m, "get_document_outline", obj("depth", 51.0))
@@ -365,10 +365,17 @@ func TestMCPGroupsAndPages(t *testing.T) {
 		t.Fatalf("page: %q", out)
 	}
 	roots := s.Doc().Strings("rootIds")
-	if len(roots) != 2 || core.GetNode(s.Doc(), roots[0]).Str("name") != "Página 1" {
+	if len(roots) != 2 || core.GetNode(s.Doc(), roots[0]).Str("name") != "Page 1" {
 		t.Fatalf("pages: %v", roots)
 	}
-	if out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect")})); !isErr || !strings.Contains(out, "has pages") {
+	out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect", "id", "loose")}))
+	if isErr {
+		t.Fatalf("place onto page: %q", out)
+	}
+	if p := core.GetNode(s.Doc(), "loose").Str("parentId"); p != roots[0] {
+		t.Fatalf("placed parent %q, want %q", p, roots[0])
+	}
+	if out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "rect", "x", 1.0, "y", 1.0)})); !isErr || !strings.Contains(out, "has pages") {
 		t.Fatalf("loose: %q", out)
 	}
 }
@@ -500,7 +507,7 @@ func TestHTTPTransportRules(t *testing.T) {
 	if code, _ := do("GET", "/api/health", map[string]string{"Host": "evil.example:1"}, ""); code != 403 {
 		t.Fatalf("evil host: %d", code)
 	}
-	if code, body := do("GET", "/", nil, ""); code != 200 || !strings.Contains(body, "Canvas não compilado") {
+	if code, body := do("GET", "/", nil, ""); code != 200 || !strings.Contains(body, "Canvas not built") {
 		t.Fatalf("placeholder: %d", code)
 	}
 	code, body = do("GET", "/api/export", nil, "")

@@ -182,7 +182,6 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
               variant="ghost"
               className={stepBtn}
               aria-label={`Diminuir ${label}`}
-              title={`Diminuir ${label}`}
               disabled={atMin}
               tabIndex={-1}
               onMouseDown={(e) => e.preventDefault()}
@@ -195,7 +194,6 @@ export function Field({ label, value, onCommit, type = "text", placeholder, titl
               variant="ghost"
               className={stepBtn}
               aria-label={`Aumentar ${label}`}
-              title={`Aumentar ${label}`}
               disabled={atMax}
               tabIndex={-1}
               onMouseDown={(e) => e.preventDefault()}

@@ -404,6 +404,19 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			boxesObj.Set(id, core.LayoutBoxJSON(b))
 		}
 		out.Set("boxes", boxesObj)
+		if !a.Has("ids") {
+			sum := core.SummarizePlacement(d, a.Str("rootId"))
+			content := jsonv.NewObject()
+			if sum.PageID != "" {
+				content.Set("page", sum.PageID)
+			}
+			content.Set("x", sum.Content.X)
+			content.Set("y", sum.Content.Y)
+			content.Set("width", sum.Content.W)
+			content.Set("height", sum.Content.H)
+			out.Set("content", content)
+			out.Set("next", jsonv.NewObject("x", sum.NextX, "y", sum.NextY))
+		}
 		return jsonResult(out), nil
 	})
 
@@ -468,10 +481,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return jsonResult(out), nil
 	})
 
+	placeSchema := z.Optional(z.Union(
+		z.Enum("free", "below", "right", "none"),
+		z.Object(
+			z.Field{Name: "near", Schema: z.String().Min(1).Max(64)},
+			z.Field{Name: "side", Schema: z.Enum("left", "right", "above", "below")},
+		),
+	))
 	add("create_nodes", z.Object(
 		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
 		z.Field{Name: "index", Schema: z.Optional(z.Int().Min(0))},
 		z.Field{Name: "nodes", Schema: z.Array(core.NodeInputSchema).Min(1).Max(500)},
+		z.Field{Name: "place", Schema: placeSchema},
 		label(), batch(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		nodes := a.Arr("nodes")
@@ -483,6 +504,11 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if a.Has("index") {
 				op.Set("index", a.Num("index")+float64(i))
 			}
+			if o, ok := n.(*jsonv.Object); ok {
+				if p, use := createPlace(store.Doc(), parentID, o, a); use {
+					op.Set("place", p)
+				}
+			}
 			ops[i] = op
 		}
 		r, err := shapedWrite(a, ops, labelOr(a, "create "+count(len(nodes))+" node(s)"))
@@ -493,6 +519,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			content := r.Arr("content")
 			r.Set("content", append(content, jsonv.NewObject("type", "text", "text", "warnings: "+strings.Join(warnings, "; "))))
 		}
+		appendOverlap(r, store.Doc())
 		return r, nil
 	})
 
@@ -628,7 +655,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if a.Has("name") {
 			op.Set("name", a.Str("name"))
 		}
-		// `page` names the new page: `created` also lists the first page made the first time ("Página 1").
+		// `page` names the new page: `created` also lists the first page made the first time ("Page 1").
 		return writeWith(a, []any{op}, labelOr(a, "create page"), "page", id)
 	})
 
@@ -793,13 +820,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("import_document", z.Object(
 		z.Field{Name: "document", Schema: z.Object(z.Field{Name: "format", Schema: z.Optional(z.String())}).Catchall(z.Unknown())},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(120))},
+		z.Field{Name: "place", Schema: placeSchema},
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		doc, _ := a.Get("document")
 		info, err := store.ImportWorkspace(doc, a.Str("name"), m.actorName())
 		if err != nil {
 			return nil, err
 		}
-		return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info), "active", store.DocID())), nil
+		out := jsonv.NewObject("workspace", jsonv.FromGo(info), "active", store.DocID())
+		if a.Has("place") {
+			if p, _ := a.Get("place"); p != "none" {
+				out.Set("warnings", []any{`import_document keeps the file's coordinates (place "none"): it stores a separate workspace. Use import_svg, import_html or import_image to place artwork on the current page`})
+			}
+		}
+		return jsonResult(out), nil
 	})
 
 	add("rename_workspace", z.Object(z.Field{Name: "id", Schema: z.String().Min(1)}, z.Field{Name: "name", Schema: z.String().Min(1).Max(120)}),
@@ -1045,6 +1079,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
 			z.Field{Name: "x", Schema: z.Optional(z.Number())},
 			z.Field{Name: "y", Schema: z.Optional(z.Number())},
+			z.Field{Name: "place", Schema: placeSchema},
 			label(), batch(),
 		)...)
 	}
@@ -1057,9 +1092,14 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return nil, errors.New(msg)
 		}
 		parent, _ := a.Get("parentId")
+		p, usePlace := importPlace(store.Doc(), a)
 		ops := make([]any, len(r.Nodes))
 		for i, n := range r.Nodes {
-			ops[i] = jsonv.NewObject("op", "create", "parentId", parent, "node", n)
+			op := jsonv.NewObject("op", "create", "parentId", parent, "node", n)
+			if usePlace {
+				op.Set("place", p)
+			}
+			ops[i] = op
 		}
 		res, err := store.ApplyBatch(ops, m.actorName(), labelOr(a, def), a.Str("batch"))
 		if err != nil {
@@ -1068,6 +1108,9 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		ws := make([]any, len(r.Warnings))
 		for i, w := range r.Warnings {
 			ws[i] = w
+		}
+		for _, w := range core.OverlapWarnings(store.Doc(), res.Created) {
+			ws = append(ws, w)
 		}
 		return resultWithRoots(jsonv.NewObject("created", []any{}, "version", float64(store.Version()), "warnings", ws), store.Doc(), res.Created), nil
 	}
@@ -1155,13 +1198,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			node.Set("fit", a.Str("fit"))
 		}
 		parent, _ := a.Get("parentId")
-		res, err := store.ApplyBatch([]any{jsonv.NewObject("op", "create", "parentId", parent, "node", node)}, m.actorName(), labelOr(a, "import image"), a.Str("batch"))
+		op := jsonv.NewObject("op", "create", "parentId", parent, "node", node)
+		if p, use := importPlace(store.Doc(), a); use {
+			op.Set("place", p)
+		}
+		res, err := store.ApplyBatch([]any{op}, m.actorName(), labelOr(a, "import image"), a.Str("batch"))
 		if err != nil {
 			return nil, err
 		}
 		warnings := []any{}
 		if img.animated {
 			warnings = append(warnings, "animated "+strings.ToUpper(img.format())+": kept animated (the original bytes are embedded unchanged); render_screenshot shows a single frame")
+		}
+		for _, w := range core.OverlapWarnings(store.Doc(), res.Created) {
+			warnings = append(warnings, w)
 		}
 		return resultWithRoots(jsonv.NewObject(
 			"created", []any{}, "version", float64(store.Version()),
@@ -1267,13 +1317,19 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
 		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.01).Max(100))},
 		z.Field{Name: "props", Schema: z.Optional(z.Record(z.String(), z.Unknown()))},
+		z.Field{Name: "place", Schema: placeSchema},
 		label(), batch(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		plan, err := core.DuplicateOps(store.Doc(), a.Strings("ids"), a)
 		if err != nil {
 			return nil, err
 		}
-		return shapedWrite(a, plan.Ops, labelOr(a, "duplicate "+count(len(plan.Copies))+" node(s)"), "copies", jsonv.FromGo(plan.Copies), "map", plan.Map)
+		r, err := shapedWrite(a, plan.Ops, labelOr(a, "duplicate "+count(len(plan.Copies))+" node(s)"), "copies", jsonv.FromGo(plan.Copies), "map", plan.Map)
+		if err != nil {
+			return nil, err
+		}
+		appendOverlap(r, store.Doc())
+		return r, nil
 	})
 	return m
 }
@@ -1404,6 +1460,77 @@ func rpcError(id any, code int, msg string) *jsonv.Object {
 // call: the fields are dropped and reported as warnings. The primitive create op (canvas,
 // apply_ops) keeps refusing them, so nothing derived is ever stored by hand.
 var connectorDerivedFields = []string{"x", "y", "width", "height", "d"}
+
+func parentIsTop(doc *core.Document, parent any) bool {
+	s, ok := parent.(string)
+	if !ok || s == "" {
+		return true
+	}
+	n := core.GetNode(doc, s)
+	return n != nil && n.Str("type") == "page"
+}
+
+func createPlace(doc *core.Document, parent any, node *jsonv.Object, args *jsonv.Object) (any, bool) {
+	if node.Str("type") == "connector" || node.Str("type") == "page" {
+		return nil, false
+	}
+	if args.Has("place") {
+		p, _ := args.Get("place")
+		if p == "none" {
+			return nil, false
+		}
+		return p, true
+	}
+	if !parentIsTop(doc, parent) || node.Has("x") || node.Has("y") {
+		return nil, false
+	}
+	return "free", true
+}
+
+func importPlace(doc *core.Document, args *jsonv.Object) (any, bool) {
+	parent, _ := args.Get("parentId")
+	if args.Has("place") {
+		p, _ := args.Get("place")
+		if p == "none" {
+			return nil, false
+		}
+		return p, true
+	}
+	if args.Has("x") || args.Has("y") || !parentIsTop(doc, parent) {
+		return nil, false
+	}
+	return "free", true
+}
+
+func appendOverlap(r ToolResult, doc *core.Document) {
+	if r == nil {
+		return
+	}
+	sc := r.Obj("structuredContent")
+	if sc == nil {
+		return
+	}
+	ids := sc.Strings("created")
+	if len(ids) == 0 {
+		ids = sc.Strings("ids")
+	}
+	extra := core.OverlapWarnings(doc, ids)
+	if len(extra) == 0 {
+		return
+	}
+	cur := sc.Arr("warnings")
+	for _, w := range extra {
+		cur = append(cur, w)
+	}
+	sc.Set("warnings", cur)
+	content := r.Arr("content")
+	if len(content) == 0 {
+		return
+	}
+	if o, ok := content[0].(*jsonv.Object); ok && o.Str("type") == "text" {
+		o.Set("text", jsonv.Stringify(sc, "  "))
+	}
+}
 
 func stripConnectorDerived(nodes []any) []string {
 	var warnings []string

@@ -138,7 +138,9 @@ describe("API: MCP", () => {
         path#ico 8×8 @0,0 d="M0 0 L8 8" stroke=#ffffff/1.5
       frame#i1 "Botão" 150×60 @150,10 fill=#3355ff row gap=6 instanceOf=btn scale=1.5 overrides=1
         text#i1-0bzyiqi0vw20y4 75×30 @0,0 from=lbl "Enviar" 24/400 color=#ffffff
-        path#i1-1qrxohh1a842nx 12×12 @0,0 from=ico d="M0 0 L8 8" stroke=#ffffff/2.25 viewBox=0,0,8,8"
+        path#i1-1qrxohh1a842nx 12×12 @0,0 from=ico d="M0 0 L8 8" stroke=#ffffff/2.25 viewBox=0,0,8,8
+      content: x=10 y=10 w=290 h=60
+      next: x=380 y=10"
     `);
     const bad = await call(c, "update_nodes", { updates: [{ id: JSON.parse(textOf(inst)).copies.lbl, props: { x: 3 } }] });
     expect(bad.isError).toBe(true);
@@ -229,7 +231,9 @@ describe("API: MCP", () => {
 
       frame#i1 "Botão" 150×60 @150,10 fill=#000000 row gap=6 instanceOf=btn scale=1.5 overrides=2
         text#i1-0bzyiqi0vw20y4 75×30 @0,0 from=lbl "Enviar" 30/400 color=#ffffff
-        path#i1-1qrxohh1a842nx 12×12 @0,0 from=ico d="M0 0 L8 8" stroke=#ffffff/2.25 viewBox=0,0,8,8"
+        path#i1-1qrxohh1a842nx 12×12 @0,0 from=ico d="M0 0 L8 8" stroke=#ffffff/2.25 viewBox=0,0,8,8
+      content: x=10 y=10 w=290 h=60
+      next: x=380 y=10"
     `);
   });
 
@@ -314,17 +318,19 @@ describe("API: MCP", () => {
     expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["cu"] })))[0]).toMatchObject({ type: "path", fill: "#c43d27", id: "cu" });
     expect(textOf(await call(c, "get_nodes", { ids: ["c1"] }))).toMatch(/do not exist/);
     expect(JSON.parse(textOf(await call(c, "create_page", { id: "p2", name: "Variações" }))).page).toBe("p2");
-    expect(textOf(await call(c, "create_nodes", { nodes: [{ type: "rect" }] }))).toMatch(/has pages/);
+    expect(textOf(await call(c, "create_nodes", { nodes: [{ type: "rect", x: 1, y: 1 }] }))).toMatch(/has pages/);
     await call(c, "create_nodes", { parentId: "p2", nodes: [{ type: "rect", id: "r", width: 10, height: 10 }] });
     const outline = textOf(await call(c, "get_document_outline"));
-    expect(outline.split("\n").slice(3).join("\n").replace(/page#\w+ "Página 1"/, "page#P1")).toMatchInlineSnapshot(`
+    expect(outline.split("\n").slice(3).join("\n").replace(/page#\w+ "Page 1"/, "page#P1").replace(/page=\w+/, "page=P1")).toMatchInlineSnapshot(`
       "page#P1
         frame#f "Tela" 300×200 @0,0
           rect#a 30×30 @10,20
           rect#b 30×30 @60,40
           path#cu 90×90 @120,20 fill=#c43d27 d="M0 0 L60 0 L60 30 L90 30 L90 90 L30 90 L30 60..."
       page#p2 "Variações"
-        rect#r 10×10 @0,0"
+        rect#r 10×10 @0,0
+      content: page=P1 x=0 y=0 w=300 h=200
+      next: x=380 y=0"
     `);
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
     expect(hist.map((h: { label: string }) => h.label)).toEqual(["create 2 node(s)", "combine 2 path(s)", "create page", "create 1 node(s)"]);
@@ -614,7 +620,9 @@ describe("API: MCP", () => {
 
       group#… "Ícone" 44×44 @12.0972,12.0972
         path#… 44×44 @0,0 fill=#c43d27 d="M13.56 0.12 L37.19 4.29 C41.54 5.06 44.45 9.2..."
-        path#… 17×17 @13.9015,13.9015 fill=#fff d="M15.88 9.39 C15.11 13.74 10.96 16.65 6.61 15....""
+        path#… 17×17 @13.9015,13.9015 fill=#fff d="M15.88 9.39 C15.11 13.74 10.96 16.65 6.61 15...."
+      content: x=12.0972 y=12.0972 w=44 h=44
+      next: x=136.0972 y=12.0972"
     `);
     const html = await call(c, "import_html", {
       html: '<div style="display:flex; gap:8px; padding:12px; background:#fbf8f4; width:200px"><div style="width:40px; height:40px; background:#c43d27; border-radius:8px"></div><div style="flex:1; height:40px; border:2px solid #1d1a1f"></div></div>',
@@ -632,7 +640,9 @@ describe("API: MCP", () => {
 
       frame#… 200×hug @0,100 fill=#fbf8f4 row gap=8
         frame#… 40×40 @0,0 fill=#c43d27
-        frame#… fill×40 @0,0"
+        frame#… fill×40 @0,0
+      content: x=0 y=12.0972 w=200 h=151.9028
+      next: x=280 y=12.0972"
     `);
     const out = await call(c, "export_code", { rootId: root, format: "svg" });
     expect(out.isError, textOf(out)).toBeFalsy();
@@ -1013,8 +1023,9 @@ describe("API: MCP", () => {
       expect(textOf(await call(b, "get_document_outline", {}))).not.toContain("board");
       await call(b, "open_workspace", { id: sc.workspace.id });
       const tree = (s: string) => s.slice(s.indexOf("\n\n") + 2);
-      const dropped = (s: string) => tree(s).split("\n").filter((l) => !l.includes("#fora") && !l.includes("#k-out")).join("\n");
-      expect(tree(textOf(await call(b, "get_document_outline", {})))).toBe(dropped(outlineA));
+      const body = (s: string) => tree(s).split("\n").filter((l) => !l.startsWith("content:") && !l.startsWith("next:")).join("\n");
+      const dropped = (s: string) => body(s).split("\n").filter((l) => !l.includes("#fora") && !l.includes("#k-out")).join("\n");
+      expect(body(textOf(await call(b, "get_document_outline", {})))).toBe(dropped(outlineA));
       // Same document again: a copy with a new workspace id, not an error.
       const again = (await call(b, "import_document", { document: exported })) as ToolResult & { structuredContent?: { workspace: { id: string } } };
       expect(again.structuredContent!.workspace.id).not.toBe(sc.workspace.id);
@@ -1023,6 +1034,69 @@ describe("API: MCP", () => {
       await srvB.stop();
     }
   }, 60_000);
+
+  it("posiciona frames de topo sem sobreposição (PAP-B-061)", async () => {
+    expect(client.getInstructions()).toContain("Placement:");
+    expect(textOf(await call(client, "get_design_guide", { language: "pt-BR" }))).toContain("Posicionamento:");
+    const { tools } = await client.listTools();
+    for (const name of ["create_nodes", "duplicate_nodes", "import_svg", "import_html", "import_image", "import_document"]) {
+      expect(tools.find((t) => t.name === name)?.description).toContain("place");
+    }
+    const other = new Client({ name: "parity-place", version: "0" });
+    await other.connect(new StreamableHTTPClientTransport(new URL(`${srv.url}/mcp`)));
+    try {
+      const make = (c: Client, name: string) =>
+        call(c, "create_nodes", { nodes: [{ type: "frame", name, width: 200, height: 100 }] });
+      await Promise.all([0, 1, 2].flatMap((i) => [make(client, `A${i}`), make(other, `B${i}`)]));
+    } finally {
+      await other.close();
+    }
+    const doc = await srv.doc();
+    const frames = doc.rootIds.map((id) => doc.nodes[id]).filter((n) => n?.type === "frame");
+    expect(frames).toHaveLength(6);
+    expect(frames.map((n) => `${n.x},${n.y}`).sort()).toEqual(["0,0", "1120,0", "1400,0", "280,0", "560,0", "840,0"]);
+    expect(new Set(frames.map((n) => n.parentId))).toEqual(new Set([null]));
+    const src = frames.find((n) => n.x === 1400 && n.y === 0)!;
+    const dup = await call(client, "duplicate_nodes", { ids: [src.id], props: { mode: "dark", name: "Board dark" } });
+    expect(dup.isError, textOf(dup)).toBeFalsy();
+    const copyId = (JSON.parse(textOf(dup)) as { copies: string[] }).copies[0]!;
+    const copy = (await srv.doc()).nodes[copyId]!;
+    expect(copy.type).toBe("frame");
+    if (copy.type !== "frame") return;
+    expect(copy.x).toBe(1680);
+    expect(copy.y).toBe(0);
+    expect(copy.mode).toBe("dark");
+    await call(client, "create_nodes", { nodes: [{ type: "rect", id: "pin", x: 12, y: 34, width: 10, height: 10 }] });
+    const pin = (await srv.doc()).nodes.pin!;
+    expect(pin.type).toBe("rect");
+    if (pin.type !== "rect") return;
+    expect([pin.x, pin.y]).toEqual([12, 34]);
+    const warn = await call(client, "create_nodes", {
+      place: "none",
+      nodes: [{ type: "frame", id: "over", name: "Over", x: 0, y: 0, width: 200, height: 100, fill: "#111111" }],
+    });
+    expect(textOf(warn)).toContain("overlaps");
+    expect(textOf(warn)).toContain("nearest free spot");
+    const outline = textOf(await call(client, "get_document_outline", {}));
+    expect(outline).toContain("content: x=");
+    expect(outline).toContain("next: x=");
+    const bounds = JSON.parse(textOf(await call(client, "get_bounds", {}))) as { content: { width: number }; next: { x: number } };
+    expect(bounds.content.width).toBeGreaterThan(0);
+    expect(typeof bounds.next.x).toBe("number");
+    await call(client, "create_nodes", {
+      nodes: [
+        {
+          type: "frame", id: "card", name: "Card", x: 0, y: 4000, width: 220, height: 140, fill: "#f4f1ea",
+          children: [{ type: "text", id: "label", name: "Landing page", text: "Landing page", x: 16, y: 16, width: 120, height: 24 }],
+        },
+        { type: "frame", id: "modal", name: "Delete", x: 8, y: 4008, width: 200, height: 100, fill: "#ffffff" },
+      ],
+    });
+    await call(client, "update_nodes", { updates: [{ id: "modal", props: { index: "back" } }] });
+    const lint = textOf(await call(client, "lint_design", {}));
+    expect(lint).toContain("overlapping-boards");
+    expect(lint).toContain("covered-by-overlay");
+  }, 30_000);
 });
 
 describe("API: HTTP + WebSocket", () => {
@@ -1218,7 +1292,7 @@ describe("API: HTTP + WebSocket", () => {
     expect(textOf(bad)).toBe('workspace "nope" does not exist (see list_workspaces)');
     const missing = await post("/api/workspaces/nope/open");
     expect(missing.status).toBe(404);
-    expect(await missing.json()).toEqual({ error: 'workspace "nope" não existe' });
+    expect(await missing.json()).toEqual({ error: 'workspace "nope" does not exist' });
     expect((await fetch(`${srv.url}/api/workspaces/${first}/open`)).status).toBe(405);
     ws.close();
   });
@@ -1289,7 +1363,7 @@ describe("API: HTTP + WebSocket", () => {
     expect((await req("PATCH", `/api/workspaces/${a.id}`, { name: 3 })).status).toBe(400);
     const missing = await req("PATCH", "/api/workspaces/nope", { name: "x" });
     expect(missing.status).toBe(404);
-    expect(await missing.json()).toEqual({ error: 'workspace "nope" não existe' });
+    expect(await missing.json()).toEqual({ error: 'workspace "nope" does not exist' });
     expect((await req("GET", `/api/workspaces/${a.id}`)).status).toBe(405);
 
     const mcp = (await call(client, "rename_workspace", { id: a.id, name: "A3" })) as ToolResult & { structuredContent: { workspace: Info } };

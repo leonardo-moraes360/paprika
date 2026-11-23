@@ -8,7 +8,7 @@
       "listChanged": true
     }
   },
-  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (color), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, mode (theme mode, see below). With row/column layout, children's x/y are ignored.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https:// or data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". create_page {ensure: true, name} returns the existing page of that name instead of creating another. Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). An instance is a frame with\n  instanceOf = the component id and an optional scale (create_instance): its children are generated copies, with\n  derived ids and sourceId = the id of the source node; changing the component changes every instance. On a copy,\n  update only changes fill, color, text, src, alt, visible and opacity (stored as an instance override; null goes back\n  to the component); on the root, fill becomes an override and width/height/layout/stroke/radius/shadow/clip come from\n  the component (use scale). Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use get_bounds (absolute boxes + rotated corners), path_info to check bounds before positioning.\nshape: shape (rect|ellipse|diamond|triangle|note), text (centered; top-left on a note), color, fontFamily, fontSize, fontWeight,\n  lineHeight, textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow|rounded|curve), radius (rounded corners), control {x,y} (curve handle in parent coords), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning.\n5. render_screenshot to check visually; export_image for PNG/JPEG/WebP/AVIF/PDF without Chromium; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes), import_image for a PNG, JPEG, WebP, AVIF or GIF file; export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces); every tool works on the active one, which is also the one on the human's canvas. open_workspace switches it for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
+  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, fill (color), stroke {color,width}, radius, shadow {x,y,blur,spread,color}, notes.\nframe: clip (bool), layout {mode: none|row|column, gap, padding (n | [t,r,b,l]), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, mode (theme mode, see below). With row/column layout, children's x/y are ignored.\ntext: text, color, fontFamily, fontSize (n | \"$token\"), fontWeight (100..900), lineHeight, letterSpacing, textAlign.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https:// or data:image/), fit (cover|contain|fill), alt.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". create_page {ensure: true, name} returns the existing page of that name instead of creating another. Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). An instance is a frame with\n  instanceOf = the component id and an optional scale (create_instance): its children are generated copies, with\n  derived ids and sourceId = the id of the source node; changing the component changes every instance. On a copy,\n  update only changes fill, color, text, src, alt, visible and opacity (stored as an instance override; null goes back\n  to the component); on the root, fill becomes an override and width/height/layout/stroke/radius/shadow/clip come from\n  the component (use scale). Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use get_bounds (absolute boxes + rotated corners), path_info to check bounds before positioning.\nshape: shape (rect|ellipse|diamond|triangle|note), text (centered; top-left on a note), color, fontFamily, fontSize, fontWeight,\n  lineHeight, textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow|rounded|curve), radius (rounded corners), control {x,y} (curve handle in parent coords), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nPlacement: a new top-level frame leaves x and y unset (or passes place:\"free\") and lands in free space, to the right of the page content, same top, gap 80, wrapping to a new row past 2400px from the content's left. place is \"free\" | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y). Concurrent writers never share a spot. get_document_outline and get_bounds with no ids report the page content box and the next free spot. Draw overlays (modals, menus, toasts) last, or bring them to the front with index:\"front\". A write warns when a new top-level node overlaps another and names the nearest free spot.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning.\n5. render_screenshot to check visually; export_image for PNG/JPEG/WebP/AVIF/PDF without Chromium; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg or import_html (they become editable nodes), import_image for a PNG, JPEG, WebP, AVIF or GIF file; export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces); every tool works on the active one, which is also the one on the human's canvas. open_workspace switches it for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
   "tools": [
     {
       "name": "get_design_guide",
@@ -38,7 +38,7 @@
     {
       "name": "get_document_outline",
       "title": "Document outline",
-      "description": "Compact tree (one line per node: type#id, name, size, position, key style), tokens, theme modes and version. Cheap in tokens.",
+      "description": "Compact tree (one line per node: type#id, name, size, position, key style), tokens, theme modes and version. Cheap in tokens. The last lines are the page content box and the next free spot.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -113,7 +113,7 @@
     {
       "name": "get_bounds",
       "title": "Resolved geometry",
-      "description": "Absolute boxes for nodes after auto-layout (row/column, hug/fill), with transform origin and the four corners after rotation. Optional `ids` filters the result; optional `rootId` limits to that subtree (still resolves ancestors for flex). Without both, returns every node on the current page.",
+      "description": "Absolute boxes for nodes after auto-layout (row/column, hug/fill), with transform origin and the four corners after rotation. Optional `ids` filters the result; optional `rootId` limits to that subtree (still resolves ancestors for flex). Without both, returns every node on the current page. With no ids, also returns the page content box and the next free spot.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -202,6 +202,30 @@
               ],
               "additionalProperties": false
             }
+          }
+        ,
+          "content": {
+            "description": "Page content box. Present when ids is omitted.",
+            "type": "object",
+            "properties": {
+              "page": { "type": "string" },
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "width": { "type": "number" },
+              "height": { "type": "number" }
+            },
+            "required": ["x", "y", "width", "height"],
+            "additionalProperties": false
+          },
+          "next": {
+            "description": "Top-left of the next free spot. Present when ids is omitted.",
+            "type": "object",
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" }
+            },
+            "required": ["x", "y"],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -427,7 +451,7 @@
     {
       "name": "create_nodes",
       "title": "Create nodes",
-      "description": "Creates one or more nodes (with nested children in frames) under parentId (null/omitted = canvas). Atomic. Returns {ids, roots, created, version}: ids is every new id (the previous created list); roots is each new node whose parent was not created in this call, as {id, name, type, x, y, width, height}; created is every new node as {id, name, type, parentId}. The text is that JSON plus one readable line per root. On a connector, x, y, width, height and d follow from/to: if a copied node carries them, create_nodes ignores those fields and says so in warnings. On a path, `normalize: true` moves the drawing to (0,0) and adds the previous offset to x/y so the node box matches the ink.",
+      "description": "Creates one or more nodes (with nested children in frames) under parentId (null/omitted = canvas). Atomic. Returns {ids, roots, created, version}: ids is every new id (the previous created list); roots is each new node whose parent was not created in this call, as {id, name, type, x, y, width, height}; created is every new node as {id, name, type, parentId}. The text is that JSON plus one readable line per root. On a connector, x, y, width, height and d follow from/to: if a copied node carries them, create_nodes ignores those fields and says so in warnings. On a path, `normalize: true` moves the drawing to (0,0) and adds the previous offset to x/y so the node box matches the ink. place puts each root: \"free\" (default for a top-level node with no x/y, to the right of the page content, same top, gap 80, wrapping past 2400px), \"below\", \"right\", {near, side}, or \"none\" for the exact x/y.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -461,6 +485,25 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          }
+        ,
+          "place": {
+            "description": "Where new roots go. \"free\" (default for a top-level node with no x/y: right of the page content, same top, gap 80, wrap past 2400px) | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y).",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["free", "below", "right", "none"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "near": { "type": "string", "minLength": 1, "maxLength": 64 },
+                  "side": { "type": "string", "enum": ["left", "right", "above", "below"] }
+                },
+                "required": ["near", "side"],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -591,6 +634,13 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          }
+        ,
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -1042,7 +1092,7 @@
     {
       "name": "create_page",
       "title": "Create page",
-      "description": "Creates a page (a separate canvas in the same file). The first time, the current content first moves to a page named \"Página 1\". Create screens on it with create_nodes {parentId: page id}. Returns {page, created, version}: `page` is the new page's id; `created` lists every page made, in order (the first call also makes \"Página 1\"). With ensure: true and a name, returns the existing page of that name instead of creating a second one (`ensured`: true, `created` empty, version unchanged).",
+      "description": "Creates a page (a separate canvas in the same file). The first time, the current content first moves to a page named \"Page 1\". Create screens on it with create_nodes {parentId: page id}. Returns {page, created, version}: `page` is the new page's id; `created` lists every page made, in order (the first call also makes \"Page 1\"). With ensure: true and a name, returns the existing page of that name instead of creating a second one (`ensured`: true, `created` empty, version unchanged).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3884,7 +3934,7 @@
           "name": {
             "type": "string",
             "maxLength": 120,
-            "description": "Workspace name, shown on the overview (blank: \"Sem título\")"
+            "description": "Workspace name, shown on the overview (blank: \"Untitled\")"
           }
         },
         "required": [
@@ -3948,7 +3998,7 @@
     {
       "name": "import_document",
       "title": "Import document",
-      "description": "Stores a .paprika.json document (written by paprika export or paprika export --root) as a new workspace on this server. It does not become active: the human's canvas and every other tool keep working in the current workspace until open_workspace. A document whose id already exists here is stored as a copy with a new document id (node ids are kept).",
+      "description": "Stores a .paprika.json document (written by paprika export or paprika export --root) as a new workspace on this server. It does not become active: the human's canvas and every other tool keep working in the current workspace until open_workspace. A document whose id already exists here is stored as a copy with a new document id (node ids are kept). place is \"none\": the file is its own workspace and keeps its coordinates. To place artwork on the current page, use import_svg, import_html or import_image.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3960,6 +4010,25 @@
             "type": "string",
             "maxLength": 120,
             "description": "workspace name override (default: the document's name)"
+          }
+        ,
+          "place": {
+            "description": "Where new roots go. \"free\" (default for a top-level node with no x/y: right of the page content, same top, gap 80, wrap past 2400px) | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y).",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["free", "below", "right", "none"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "near": { "type": "string", "minLength": 1, "maxLength": 64 },
+                  "side": { "type": "string", "enum": ["left", "right", "above", "below"] }
+                },
+                "required": ["near", "side"],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -4012,6 +4081,13 @@
           "active": {
             "type": "string",
             "description": "id of the workspace that stays active (the import never switches it)"
+          }
+        ,
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -4816,7 +4892,7 @@
     {
       "name": "import_svg",
       "title": "Import SVG",
-      "description": "Turns SVG into editable nodes: path/rect/circle/ellipse/line/polyline/polygon become path (or rect/ellipse without rotation), <g> becomes group; transforms and inherited paint are applied. Text, images, gradients and CSS in <style> are skipped and listed in warnings. x/y offset the SVG's origin. Returns ids, roots and created in the same shape as create_nodes, plus warnings. The text is that JSON plus one readable line per root.",
+      "description": "Turns SVG into editable nodes: path/rect/circle/ellipse/line/polyline/polygon become path (or rect/ellipse without rotation), <g> becomes group; transforms and inherited paint are applied. Text, images, gradients and CSS in <style> are skipped and listed in warnings. x/y offset the SVG's origin. Returns ids, roots and created in the same shape as create_nodes, plus warnings. The text is that JSON plus one readable line per root. Roots honor place: \"free\" when x and y are omitted (right of the page content, gap 80), \"below\", \"right\", {near, side}, or \"none\" for the given x/y.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4851,6 +4927,25 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          }
+        ,
+          "place": {
+            "description": "Where new roots go. \"free\" (default for a top-level node with no x/y: right of the page content, same top, gap 80, wrap past 2400px) | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y).",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["free", "below", "right", "none"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "near": { "type": "string", "minLength": 1, "maxLength": 64 },
+                  "side": { "type": "string", "enum": ["left", "right", "above", "below"] }
+                },
+                "required": ["near", "side"],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -4971,7 +5066,7 @@
     {
       "name": "import_html",
       "title": "Import HTML",
-      "description": "Turns HTML with inline styles into nodes (the inverse of the export: Paprika's own HTML comes back the same). From other sources: display:flex becomes row/column layout, blocks become column, text becomes text, <img> becomes image, <svg> goes through import_svg. Classes and <style> are not applied (warnings). Returns ids, roots and created in the same shape as create_nodes, plus warnings. The text is that JSON plus one readable line per root.",
+      "description": "Turns HTML with inline styles into nodes (the inverse of the export: Paprika's own HTML comes back the same). From other sources: display:flex becomes row/column layout, blocks become column, text becomes text, <img> becomes image, <svg> goes through import_svg. Classes and <style> are not applied (warnings). Returns ids, roots and created in the same shape as create_nodes, plus warnings. The text is that JSON plus one readable line per root. Roots honor place: \"free\" when x and y are omitted (right of the page content, gap 80), \"below\", \"right\", {near, side}, or \"none\" for the given x/y.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -5002,6 +5097,25 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          }
+        ,
+          "place": {
+            "description": "Where new roots go. \"free\" (default for a top-level node with no x/y: right of the page content, same top, gap 80, wrap past 2400px) | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y).",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["free", "below", "right", "none"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "near": { "type": "string", "minLength": 1, "maxLength": 64 },
+                  "side": { "type": "string", "enum": ["left", "right", "above", "below"] }
+                },
+                "required": ["near", "side"],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -5122,7 +5236,7 @@
     {
       "name": "import_image",
       "title": "Import image",
-      "description": "Places a raster image (PNG, JPEG, WebP, AVIF or GIF) as an image node sized from the file's natural size (JPEG EXIF rotation applied). src is a data URL or a local file path: a path must resolve, symlinks included, inside an allowed directory (PAPRIKA_IMPORT_DIRS, default: the server's working directory; a relative path is taken from the first one). Files over 3500000 bytes are refused. The format comes from the bytes, not the extension. The original bytes are embedded unchanged, so an animated GIF, WebP or AVIF stays animated on the canvas and in HTML exports (render_screenshot captures one frame; warnings says so). width is a maximum: a larger image is scaled down keeping its ratio, a smaller one is never enlarged. Returns ids, roots and created in the same shape as create_nodes. The text is that JSON plus one readable line per root.",
+      "description": "Places a raster image (PNG, JPEG, WebP, AVIF or GIF) as an image node sized from the file's natural size (JPEG EXIF rotation applied). src is a data URL or a local file path: a path must resolve, symlinks included, inside an allowed directory (PAPRIKA_IMPORT_DIRS, default: the server's working directory; a relative path is taken from the first one). Files over 3500000 bytes are refused. The format comes from the bytes, not the extension. The original bytes are embedded unchanged, so an animated GIF, WebP or AVIF stays animated on the canvas and in HTML exports (render_screenshot captures one frame; warnings says so). width is a maximum: a larger image is scaled down keeping its ratio, a smaller one is never enlarged. Returns ids, roots and created in the same shape as create_nodes. The text is that JSON plus one readable line per root. The image honors place: \"free\" when x and y are omitted (right of the page content, gap 80), \"below\", \"right\", {near, side}, or \"none\" for the given x/y.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -5168,6 +5282,25 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          }
+        ,
+          "place": {
+            "description": "Where new roots go. \"free\" (default for a top-level node with no x/y: right of the page content, same top, gap 80, wrap past 2400px) | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y).",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["free", "below", "right", "none"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "near": { "type": "string", "minLength": 1, "maxLength": 64 },
+                  "side": { "type": "string", "enum": ["left", "right", "above", "below"] }
+                },
+                "required": ["near", "side"],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -5500,7 +5633,7 @@
     {
       "name": "duplicate_nodes",
       "title": "Duplicate nodes",
-      "description": "Duplicates nodes with their whole subtree in one undo step (new ids; instances stay instances of the same component, scale multiplies their scale; connectors between duplicated nodes point at the copies, the others keep their ends). Each copy goes in its source's parent, nudged by offset (default 40 on x and y). scale grows or shrinks the copy from its own top-left corner: sizes, children positions, text size, strokes, radius, shadow, gap and padding; hug/fill stay. props is written on each copy's root (for example {mode: \"dark\"} for a light/dark pair). Returns copies (one id per source) and map (every source node to its copy), plus ids, roots and created in the same shape as create_nodes. The text is that JSON plus one readable line per root.",
+      "description": "Duplicates nodes with their whole subtree in one undo step (new ids; instances stay instances of the same component, scale multiplies their scale; connectors between duplicated nodes point at the copies, the others keep their ends). Each copy goes in its source's parent. With no offset, place defaults to the right of the source (gap 80) so the copy does not land on it; place is \"free\" | \"below\" | \"right\" | {near, side} | \"none\", and an explicit offset nudges x and y. scale grows or shrinks the copy from its own top-left corner: sizes, children positions, text size, strokes, radius, shadow, gap and padding; hug/fill stay. props is written on each copy's root (for example {mode: \"dark\"} for a light/dark pair). Returns copies (one id per source) and map (every source node to its copy), plus ids, roots and created in the same shape as create_nodes. The text is that JSON plus one readable line per root.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -5546,6 +5679,25 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          }
+        ,
+          "place": {
+            "description": "Where new roots go. \"free\" (default for a top-level node with no x/y: right of the page content, same top, gap 80, wrap past 2400px) | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y).",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["free", "below", "right", "none"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "near": { "type": "string", "minLength": 1, "maxLength": 64 },
+                  "side": { "type": "string", "enum": ["left", "right", "above", "below"] }
+                },
+                "required": ["near", "side"],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -5656,6 +5808,13 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          }
+        ,
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

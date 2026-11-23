@@ -23,7 +23,7 @@ Tarefa: um agente desenhou 5 ícones flat de páprica com complexidade crescente
 | 10 | Saber quem fez o quê | O nome do ator vem do User-Agent HTTP (`node`, `brand-agent`), não do cliente MCP | Feito (2026-11-21, ver #48): `agent:<clientInfo.name>`, também no HTTP | — |
 | 11 | Um desfazer para "desenhar proposta 3" | 7 entradas no histórico para uma execução do script (nome, tokens, 5 criações) | Feito (2026-11-21, ver #48): `batch` em toda ferramenta de escrita | — |
 | 12 | Idioma para agentes | Guia e erros em português; prompts em inglês misturam idiomas | Feito (2026-11-21, ver #48): guia, descrições e erros em inglês; `get_design_guide {language: "pt-BR"}` | — |
-| 13 | Vários quadros | Tudo divide um canvas só; as propostas foram empilhadas à mão com `y` fixo | Páginas e `layout` na raiz do canvas (empilhar frames de topo) | P3 |
+| 13 | Vários quadros | Tudo divide um canvas só; as propostas foram empilhadas à mão com `y` fixo | Feito (2026-11-22, PAP-B-061): páginas já existiam; um frame novo de topo sem x/y cai no espaço livre (`place: "free"`) | — |
 | 14 | Ver o agente desenhar depois que o servidor trocou de arquivo | A aba aberta reconectou no documento novo mas manteve zoom/pan antigos; os quadros novos podiam ficar fora da tela (corrigido: o canvas reenquadra quando o id do documento muda) | Feito nesta mudança | — |
 
 ## 2026-11-21: curvas bezier (nó `path`, caneta, `path_info`)
@@ -382,7 +382,7 @@ frames raiz em `Interfaces`, desenhados por um script numa única chamada de `cr
 |---|-------------|-----------------|----------|------|
 | 101 | Capturas de tela como arquivo | `render_screenshot` só devolve base64 dentro do JSON do resultado, então cada PNG teve que ser decodificado à mão num script antes de entrar em `docs/assets/boards/` | Um argumento opcional `path` (ou um resource link) que grave o PNG onde quem chama disser | P2 |
 | 102 | Um mock em escala menor vira texto minúsculo no lint | As folhas são o layout real a dois terços do tamanho, então todo rótulo tem 8–9px e o `lint_design` devolve um aviso `small-text` por rótulo, o que enterra os achados que importam | Um jeito por frame de dizer "este frame é um mock em escala" (ou um argumento `minFontSize`) para a contagem de avisos continuar significando algo | P3 |
-| 103 | Espaço livre para um frame novo | Nada diz onde o próximo frame de topo cabe sem pisar no de um ticket paralelo: o outline teve que ser varrido atrás de coordenadas e as folhas foram para `x=2000` na mão | `get_document_outline` (ou uma chamada nova) devolvendo a caixa do conteúdo da página, ou `create_nodes` aceitando `place: "free"` | P3 |
+| 103 | Espaço livre para um frame novo | Nada diz onde o próximo frame de topo cabe sem pisar no de um ticket paralelo: o outline teve que ser varrido atrás de coordenadas e as folhas foram para `x=2000` na mão | Feito (2026-11-22, PAP-B-061): `get_document_outline` e `get_bounds` (sem ids) devolvem a caixa do conteúdo e o próximo lugar livre; `create_nodes` usa `place: "free"` quando x e y faltam | — |
 | 104 | Ícones pelo nome | Os botões flutuantes usam `PanelLeftOpen` e `PanelRightOpen` do lucide, e a folha teve que carregar o path deles digitado à mão, que é como um ícone da folha pode divergir do app | O `import_svg` já existe; um jeito de importar um ícone do lucide pelo nome fecharia o ciclo | P3 |
 
 - O botão do painel direito recolhido cai onde está a lista de agentes (canto superior direito do canvas); a folha mostrou isso antes de qualquer código, e a lista desce para baixo do botão só enquanto aquele painel está recolhido.
@@ -435,7 +435,7 @@ arrastar uma ferramenta de criação, claro e escuro, depois pintá-lo a partir 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
 | 108 | Capturas de tela como arquivo | Igual ao #100/#101: `render_screenshot` só devolve o PNG em base64 no conteúdo JSON-RPC, então um script cliente teve que decodificar cada shot em `docs/assets/boards/PAP-B-043/` | Argumento opcional `path` em `render_screenshot` que grave o arquivo | P2 |
-| 109 | Espaço livre para boards novos | Frames de topo já ocupam y≈0…8320 e x≈0…3000; o outline com depth 1 bastou para escolher `y=9000`, mas tickets paralelos ainda disputam a mesma faixa | `get_document_outline` devolvendo a caixa do conteúdo da página, ou `place: "free"` em `create_nodes` (igual ao #103) | P3 |
+| 109 | Espaço livre para boards novos | Frames de topo já ocupam y≈0…8320 e x≈0…3000; o outline com depth 1 bastou para escolher `y=9000`, mas tickets paralelos ainda disputam a mesma faixa | Feito (2026-11-22, PAP-B-061): igual ao #103 — caixa do conteúdo, próximo lugar livre e `place: "free"` | — |
 
 - O workspace ativo já era `Paprika - UI` / página `Interfaces`; sem `open_workspace`.
 - O fantasma é `aria-hidden` e `pointer-events: none` (`data-testid="draft-ghost"`); o fantasma da seta do conector ficou fora do escopo draft-only deste ticket.
@@ -450,7 +450,7 @@ boards atualizado.
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
 | 110 | Capturas de tela como arquivo | Igual ao #108: `render_screenshot` só devolve PNG em base64; um script cliente decodificou em `docs/assets/boards/PAP-B-032/` | Argumento opcional `path` em `render_screenshot` | P2 |
-| 111 | Faixa livre sem disputar tickets paralelos | O outline depth 1 listava frames até y≈11820 (B-023/B-033/B-043); este ticket escolheu y=12400 / 13160 | `place: "free"` em `create_nodes` (igual ao #103/#109) | P3 |
+| 111 | Faixa livre sem disputar tickets paralelos | O outline depth 1 listava frames até y≈11820 (B-023/B-033/B-043); este ticket escolheu y=12400 / 13160 | Feito (2026-11-22, PAP-B-061): `place: "free"` em `create_nodes` (igual ao #103/#109) | — |
 
 - `lint_design` com `rootIds` ainda conta o documento inteiro; os quatro frames nossos tinham 0 erros próprios.
 - Mantida a casca compacta do campo (densidade B-022): os primitivos ficam dentro de `bg-ui-muted` sem borda própria; o `Select` Radix substituiu o `<select>` nativo (teste E2E de modo de tema atualizado para clicar a opção).
@@ -474,7 +474,7 @@ PNGs em `docs/assets/boards/PAP-B-023/`; export dos boards via `GET /api/export`
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|----------------|----------|------|
-| 110 | Y livre para frames de boards em paralelo | Vários tickets compartilham `Interfaces`; o outline é prosa, então colocar o PAP-B-023 exigiu exportar o documento e varrer os `y` de topo à mão (pousou em `y=11000`) | `get_document_outline` (ou `create_nodes`) devolvendo a bbox do conteúdo da página / `place: "free"` — igual ao #103 | P3 || 111 | Capturas como arquivo | O `render_screenshot` ainda devolve base64 no JSON; um script Node teve que decodificar cada PNG em `docs/assets/boards/PAP-B-023/` | `path` opcional no `render_screenshot` (igual ao #100 / #101) | P2 || 112 | Escape que fecha um popover sem limpar a seleção | O `App.tsx` escuta Escape no `window` e troca a seleção; o primeiro Esc do color picker também desmontava o campo do inspector antes do foco voltar ao swatch | Ignorar Escape quando o alvo está dentro de `[data-slot="popover-content"]` / diálogo (feito neste ticket); popovers também devem dar `stopPropagation` | P2 |
+| 110 | Y livre para frames de boards em paralelo | Vários tickets compartilham `Interfaces`; o outline é prosa, então colocar o PAP-B-023 exigiu exportar o documento e varrer os `y` de topo à mão (pousou em `y=11000`) | Feito (2026-11-22, PAP-B-061): caixa do conteúdo e `place: "free"`, igual ao #103 | — || 111 | Capturas como arquivo | O `render_screenshot` ainda devolve base64 no JSON; um script Node teve que decodificar cada PNG em `docs/assets/boards/PAP-B-023/` | `path` opcional no `render_screenshot` (igual ao #100 / #101) | P2 || 112 | Escape que fecha um popover sem limpar a seleção | O `App.tsx` escuta Escape no `window` e troca a seleção; o primeiro Esc do color picker também desmontava o campo do inspector antes do foco voltar ao swatch | Ignorar Escape quando o alvo está dentro de `[data-slot="popover-content"]` / diálogo (feito neste ticket); popovers também devem dar `stopPropagation` | P2 |
 - O workspace ativo já era `Paprika - UI`; sem `open_workspace`.
 - O `lint_design` da página ainda aponta um erro de contraste antigo sem relação; os frames novos não acrescentaram erros.
 ## 2026-11-22: atalhos de proporção ao redimensionar (PAP-B-042, design first)
@@ -495,6 +495,20 @@ Tarefa: desenhar o feed de atividade (ator cor+nome, ação, tempo relativo, agr
 | 110 | Cor do nome do agente que passe contraste no painel | Usar o azul do agente (`#3b82f6`) no ponto e no nome falhou WCAG AA em `$pg.panel2` (3.69:1); a folha manteve a cor só no ponto e `$pg.fg` no nome | Documentar que as cores de presença são para preenchimento/pontos, não para texto no painel, ou oferecer variantes seguras ao lado de `AGENT_COLORS` | P3 || 111 | `$pg.select` como tinta do marcador no modo claro | O rótulo "agora" em `$pg.select` no painel claro ficou em 3.91:1; trocar o rótulo para `$pg.fg` e deixar a linha em select corrigiu o lint sem token novo | Um `select-ink` (ou `$pg.select` mais escuro no modo claro) para texto em superfícies claras | P3 |
 - `layout.padding: [6, 8]` (dois valores) é rejeitado; quatro valores ou um número só funcionam.
 - A posição de desfazer/refazer vem no cliente dos rótulos iniciais `desfazer:` / `refazer:` no feed WS existente — sem mudança no servidor.
+
+## 2026-11-22: Internacionalização en + pt-BR (PAP-B-052, design first)
+
+Tarefa: UI web + nomes padrão seguem o idioma escolhido; detectar do navegador, trocar no app, lembrar; erros da API HTTP → inglês como o MCP. Seis frames (overview e troca de idioma × en/pt-BR × escuro/claro) desenhados via MCP; PNGs em `docs/assets/boards/PAP-B-052/`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 115 | Export das boards no volume Docker | Igual ao #113: o `:4777` guarda as pranchas; este agente commitou os PNGs do `render_screenshot` e deixou `docs/design/boards.paprika.json` para um export com DB montado no host | MCP `export_document` ou caminho de DB montado no host para agentes | P2 |
+| 116 | Ligar o resto das strings do Inspector/Time | Shell, overview, páginas, camadas, zoom, ordem e multi-seleção estão no dicionário; muitos rótulos de campo do Inspector e textos do Time ainda são literais em português, embora as chaves já existam em `apps/web/src/i18n/messages.ts` | Terminar o passe campo a campo (ou gerar rótulos do catálogo) num follow-up | P2 |
+| 117 | Nome padrão do `create_page` no guia pt-BR | O fallback sem nome no core/MCP agora é inglês (`Page 1`); `guide.pt-BR.md` ainda descreve `"Página 1"` | Alinhar o guia em português ao padrão inglês (ou dizer que a UI localiza quando passa `name`) | P3 |
+
+- Dicionários leves (sem i18next): `LocaleProvider` fora do único `TooltipProvider` para a troca de idioma não remountar as dicas.
+- E2E: `pinLocale(page, "pt-BR")` em a11y/canvas/drag; `i18n.e2e.test.ts` faz smoke nos dois idiomas e no seletor.
+- Hotspots (`is-active`, `add-page`, `data-testid`, roles) continuam estáveis ao idioma.
 
 ## 2026-11-22: atributos `title` → tooltips acessíveis (PAP-B-051, design first)
 
