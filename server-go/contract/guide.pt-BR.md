@@ -50,7 +50,7 @@ Apontamentos: o humano pode apontar um nó ou uma área do canvas e escrever o q
 
 Fluxo recomendado:
 1. get_document_outline para se orientar (barato).
-2. set_tokens com a paleta e a escala tipográfica.
+2. set_tokens com a paleta e a escala tipográfica. propose_tokens lê variáveis CSS, um tema Tailwind ou tokens JSON a partir do conteúdo que você passa (o texto do arquivo, nunca um caminho no disco) e devolve operações set_tokens; não grava o documento.
 3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.
 4. lint_design e corrija o que vier como error/warning. rootIds (ou rootId) limita às subárvores. groups dobra cada regra numa contagem e nos primeiros maxIds ids (padrão 8), em ordem de severidade; issues continua com cada achado. minSeverity (info|warning|error) descarta o que é mais quieto. minFontSize sobe o piso de small-text (padrão 12). Um frame com scaledMock, ou lintIgnore no nó, tira da lista o tipo pequeno e as cores literais de propósito.
 5. render_screenshot para conferir visualmente; export_image para PNG/JPEG/WebP/AVIF/PDF sem Chromium; export_code para levar ao código.

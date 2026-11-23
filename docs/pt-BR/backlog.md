@@ -91,7 +91,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Tokens exportados como variáveis CSS no export HTML/React | `export_code` com `cssVariables` (2026-11-21): `:root` mais regras `[data-paprika-mode]`; o React exporta `tokensCss` | ✅ | — |
 | Tokens tipados (cor, raio, espaçamento, fonte…) com validação | String/número sem tipo | 🟡 | P2 |
 | Desvincular um token de um nó | Edição manual | 🟡 | P2 |
-| Gerar tokens a partir de uma codebase via MCP | — | ⬜ | P2 |
+| Gerar tokens a partir de uma codebase via MCP | `propose_tokens` transforma variáveis CSS, um tema Tailwind ou tokens JSON (o texto que o agente passa) em operações `set_tokens` (2026-11-23, PAP-B-083) | ✅ | — |
 | Tokens com `calc()` / `color-mix()` | Só cadeias de tokens | ⬜ | P3 |
 | Copiar tokens entre arquivos | — | ⬜ | P3 |
 | Design system como conceito no canvas | Um lugar para tokens, componentes e regras do workspace, de onde agentes e pessoas desenham (relaciona com E e H). Pedido de 2026-11-22. Leva 4. | ⬜ | a definir |
