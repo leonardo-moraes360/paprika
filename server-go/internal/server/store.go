@@ -120,7 +120,11 @@ func OpenDB(path string) (*sql.DB, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1) // one connection: serialized writes and a stable PRAGMA data_version
-	if _, err := db.Exec(schemaSQL + pinsSQL); err != nil {
+	if _, err := db.Exec(schemaSQL); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrando %s: %w", path, err)
+	}
+	if _, err := db.Exec(pinsSQL); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrando %s: %w", path, err)
 	}

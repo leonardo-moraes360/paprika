@@ -99,8 +99,6 @@ type NewPin struct {
 	Text   string
 }
 
-const pinColumns = `id, doc_id, n, page_id, node_id, region, text, author, status, claimed_by, reply, resolved_by, created_at, updated_at, rev`
-
 func scanPin(row interface{ Scan(...any) error }) (Pin, error) {
 	var p Pin
 	var region string
@@ -162,7 +160,7 @@ func (s *Store) CreatePin(workspaceID string, in NewPin, author string) (Pin, er
 	region, _ := json.Marshal(in.Region)
 	now := time.Now().UnixMilli()
 	id := core.NewID()
-	_, err = s.db.Exec(`INSERT INTO pins(`+pinColumns+`) VALUES(?, ?,
+	_, err = s.db.Exec(`INSERT INTO pins(id, doc_id, n, page_id, node_id, region, text, author, status, claimed_by, reply, resolved_by, created_at, updated_at, rev) VALUES(?, ?,
 		(SELECT COALESCE(MAX(n), 0) + 1 FROM pins WHERE doc_id = ?), ?, ?, ?, ?, ?, 'open', '', '', '', ?, ?,
 		(SELECT COALESCE(MAX(rev), 0) + 1 FROM pins))`,
 		id, docID, docID, in.PageID, in.NodeID, string(region), text, author, now, now)
@@ -174,7 +172,7 @@ func (s *Store) CreatePin(workspaceID string, in NewPin, author string) (Pin, er
 
 // GetPin reads one pin (deleted ones too).
 func (s *Store) GetPin(id string) (Pin, error) {
-	p, err := scanPin(s.db.QueryRow(`SELECT `+pinColumns+` FROM pins WHERE id = ?`, id))
+	p, err := scanPin(s.db.QueryRow(`SELECT id, doc_id, n, page_id, node_id, region, text, author, status, claimed_by, reply, resolved_by, created_at, updated_at, rev FROM pins WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Pin{}, ErrNoPin
 	}
@@ -195,7 +193,7 @@ type PinFilter struct {
 	AfterRev    int64
 }
 
-const listPinsSQL = `SELECT ` + pinColumns + ` FROM pins
+const listPinsSQL = `SELECT id, doc_id, n, page_id, node_id, region, text, author, status, claimed_by, reply, resolved_by, created_at, updated_at, rev FROM pins
 	WHERE doc_id = ? AND status IN (?, ?, ?) AND (? = '' OR page_id = ?) AND rev > ?
 	ORDER BY n`
 
@@ -262,14 +260,13 @@ func (s *Store) PinsRev() int64 {
 // Every pin write is one fixed statement guarded by the states it may start from, so a concurrent change
 // makes it affect no row instead of overwriting.
 const (
-	pinRevNext    = `updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins)`
-	claimPinSQL   = `UPDATE pins SET status = 'claimed', claimed_by = ?, ` + pinRevNext + ` WHERE id = ? AND status = 'open'`
+	claimPinSQL   = `UPDATE pins SET status = 'claimed', claimed_by = ?, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status = 'open'`
 	resolvePinSQL = `UPDATE pins SET status = 'resolved', reply = ?, resolved_by = ?,
-		claimed_by = CASE WHEN claimed_by = '' THEN ? ELSE claimed_by END, ` + pinRevNext + `
+		claimed_by = CASE WHEN claimed_by = '' THEN ? ELSE claimed_by END, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins)
 		WHERE id = ? AND status IN ('open', 'claimed')`
-	reopenPinSQL = `UPDATE pins SET status = 'open', claimed_by = '', ` + pinRevNext + ` WHERE id = ? AND status IN ('claimed', 'resolved')`
-	editPinSQL   = `UPDATE pins SET text = ?, ` + pinRevNext + ` WHERE id = ? AND status IN ('open', 'claimed')`
-	deletePinSQL = `UPDATE pins SET status = 'deleted', ` + pinRevNext + ` WHERE id = ? AND status IN ('open', 'claimed', 'resolved')`
+	reopenPinSQL = `UPDATE pins SET status = 'open', claimed_by = '', updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status IN ('claimed', 'resolved')`
+	editPinSQL   = `UPDATE pins SET text = ?, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status IN ('open', 'claimed')`
+	deletePinSQL = `UPDATE pins SET status = 'deleted', updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status IN ('open', 'claimed', 'resolved')`
 )
 
 // updatePin runs one of the fixed pin writes above; args are the SET values, then updated_at and id follow.
