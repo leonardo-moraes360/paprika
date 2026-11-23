@@ -6,7 +6,7 @@ text, image, path (vetor com curvas bezier), shape (forma de diagrama com texto 
 nós). Só frame, group e page têm filhos.
 
 Campos comuns: name, x, y, width, height (número | "hug" | "fill"), rotation, opacity (0..1),
-visible, locked, layoutPositioning ("auto"|"absolute", omitir = auto), fill (cor), stroke {color, width: n | "$token"}, radius (n | "$token"), shadow {x, y, blur, spread: n | "$token", color}, notes, lintIgnore (nomes de regras que o lint_design ignora neste nó).
+visible, locked, layoutPositioning ("auto"|"absolute", omitir = auto), fill (cor), stroke {color, width: n | "$token"}, radius (n | "$token", ou em frame, rect e image [tl, tr, br, bl]; cada canto n | "$token"), shadow {x, y, blur, spread: n | "$token", color}, notes, lintIgnore (nomes de regras que o lint_design ignora neste nó).
 frame: clip (bool), layout {mode: none|row|column, gap (n | "$token"), padding (um número ou [topo, direita, baixo, esquerda]; cada um n | "$token"; não dois valores), align: start|center|end|stretch,
   justify: start|center|end|between, wrap}, scaledMock (true: mock em escala; o lint_design não avisa small-text dentro dele). Com layout row/column, x/y dos filhos são ignorados, salvo layoutPositioning "absolute" (o filho fica em x/y relativos ao pai e sai do fluxo, do gap e do hug). Omitir ou "auto" permanece no fluxo.
 text: text, color, fontFamily, fontSize (n | "$token"), fontWeight (100..900), lineHeight (n | "$token"), letterSpacing (n | "$token"), textAlign.

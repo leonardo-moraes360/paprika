@@ -1218,6 +1218,30 @@ describe("API: MCP", () => {
     expect(html).toContain("gap:var(--space\\.md)");
     expect(html).toContain("border-radius:var(--radius\\.md)");
   });
+
+  it("radius aceita um valor ou [tl, tr, br, bl] em frame, rect e image", async () => {
+    const c = client;
+    expect(textOf(await call(c, "get_design_guide", {}))).toMatch(/\[tl, tr, br, bl\]/);
+    expect(textOf(await call(c, "get_design_guide", { language: "pt-BR" }))).toMatch(/\[tl, tr, br, bl\]/);
+    await call(c, "set_tokens", { tokens: { "radius.md": 10 } });
+    const created = await call(c, "create_nodes", {
+      nodes: [
+        { type: "rect", id: "rc", width: 80, height: 40, fill: "#c8401f", radius: [24, "$radius.md", 0, 4] },
+        { type: "image", id: "ri", width: 40, height: 40, src: "data:image/png;base64,aaaa", radius: [0, 8, 8, 0], alt: "a" },
+      ],
+    });
+    expect(created.isError, textOf(created)).toBeFalsy();
+    const html = textOf(await call(c, "export_code", { rootId: "rc", format: "html" }));
+    expect(html).toContain("border-radius:24px 10px 0px 4px");
+    const svg = textOf(await call(c, "export_code", { rootId: "rc", format: "svg" }));
+    expect(svg).toContain("<path");
+    expect(svg).not.toContain("rx=");
+    const badShape = (await c.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "ellipse", id: "re", radius: [1, 2, 3, 4] }] } })) as ToolResult;
+    expect(badShape.isError).toBe(true);
+    const short = (await c.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "rs", radius: [1, 2] }] } })) as ToolResult;
+    expect(short.isError).toBe(true);
+  });
+
   it("posiciona frames de topo sem sobreposição (PAP-B-061)", async () => {
     expect(client.getInstructions()).toContain("Placement:");
     expect(textOf(await call(client, "get_design_guide", { language: "pt-BR" }))).toContain("Posicionamento:");

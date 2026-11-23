@@ -104,7 +104,11 @@ export function scaleGeometry(n: Record<string, unknown>, s: number, withPositio
     n.x = sc(n.x);
     n.y = sc(n.y);
   }
-  for (const k of ["width", "height", "radius", "letterSpacing", "fontSize"]) if (k in n) n[k] = sc(n[k]);
+  for (const k of ["width", "height", "radius", "letterSpacing", "fontSize"]) {
+    if (!(k in n)) continue;
+    const v = n[k];
+    n[k] = k === "radius" && Array.isArray(v) ? v.map(sc) : sc(v);
+  }
   const stroke = n.stroke as Record<string, unknown> | undefined;
   if (stroke) n.stroke = { ...stroke, width: sc(stroke.width) };
   const shadow = n.shadow as Record<string, unknown> | undefined;

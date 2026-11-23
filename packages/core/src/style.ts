@@ -135,6 +135,35 @@ function paddingCSS(doc: Document, p: Layout["padding"], mode: string | undefine
   return Array.isArray(p) ? p.map(one).join(" ") : one(p);
 }
 
+export type CornerRadii = [number, number, number, number];
+
+export function resolveCorners(doc: Document, radius: number | string | readonly (number | string)[], mode?: string): CornerRadii {
+  const list = Array.isArray(radius) ? radius : [radius, radius, radius, radius];
+  return [0, 1, 2, 3].map((i) => resolveLength(doc, list[i], mode) ?? 0) as CornerRadii;
+}
+
+export function usedCornerRadii(w: number, h: number, radii: CornerRadii): CornerRadii {
+  const [tl, tr, br, bl] = radii.map((r) => Math.max(0, r)) as CornerRadii;
+  const fit = (sum: number, limit: number) => (sum > limit && limit > 0 ? limit / sum : 1);
+  const factor = Math.min(fit(tl + tr, w), fit(bl + br, w), fit(tl + bl, h), fit(tr + br, h));
+  return [tl * factor, tr * factor, br * factor, bl * factor];
+}
+
+export function uniformCorner(radii: CornerRadii): number | undefined {
+  return radii[0] === radii[1] && radii[1] === radii[2] && radii[2] === radii[3] ? radii[0] : undefined;
+}
+
+function radiusCSS(doc: Document, radius: number | string | readonly (number | string)[], mode: string | undefined, vars: boolean | undefined): string | undefined {
+  if (Array.isArray(radius)) {
+    const parts = radius.map((v) => String(lengthCSS(doc, v, mode, vars, "px")));
+    if (parts.every((p) => p === "0px")) return;
+    return parts.join(" ");
+  }
+  if (typeof radius !== "number" && typeof radius !== "string") return;
+  if (radius === 0) return;
+  return String(lengthCSS(doc, radius, mode, vars, "px"));
+}
+
 function sizeProps(axis: "width" | "height", size: Size, parentMode: Layout["mode"] | null): CSS {
   if (typeof size === "number") return { [axis]: px(size), flexShrink: 0 };
   if (size === "hug") return { [axis]: "max-content" };
@@ -223,7 +252,10 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
     }
   }
   if (node.type === "ellipse") css.borderRadius = "50%";
-  else if (node.radius !== 0) css.borderRadius = lengthCSS(doc, node.radius, mode, opts.vars, "px");
+  else {
+    const cssR = radiusCSS(doc, node.radius, mode, opts.vars);
+    if (cssR) css.borderRadius = cssR;
+  }
   if (node.shadow) css.boxShadow = shadowBox(doc, node.shadow, mode, opts.vars, paint);
 
   switch (node.type) {
@@ -556,7 +588,9 @@ export function lengthTokenError(doc: Document): string | undefined {
     if (n.type === "connector") {
       msg = check("stroke.width", n.stroke.width, { min: 0, max: 1000 });
     } else {
-      msg = check("radius", n.radius, { min: 0 });
+      if (Array.isArray(n.radius)) {
+        for (let i = 0; i < n.radius.length && !msg; i++) msg = check(`radius.${i}`, n.radius[i], { min: 0 });
+      } else msg = check("radius", n.radius, { min: 0 });
       if (n.stroke) msg = msg ?? check("stroke.width", n.stroke.width, { min: 0, max: 1000 });
       if (n.shadow) {
         msg = msg ?? check("shadow.x", n.shadow.x, {});

@@ -65,6 +65,7 @@ var (
 		z.Field{Name: "color", Schema: colorValue()},
 	)
 	padLength    = lengthMin(0)
+	cornerOne    = lengthMin(0)
 	layoutSchema = z.Object(
 		z.Field{Name: "mode", Schema: z.Default(z.Enum("none", "row", "column"), "none")},
 		z.Field{Name: "gap", Schema: z.Default(lengthMin(0), 0.0)},
@@ -264,6 +265,10 @@ func PageRoots(doc *Document, pageID string) ([]string, error) {
 	return doc.Strings("rootIds"), nil
 }
 
+func cornerRadiusSchema() z.Schema {
+	return z.Default(z.Union(cornerOne, z.Tuple(cornerOne, cornerOne, cornerOne, cornerOne)), 0.0)
+}
+
 // NodeSchemas by type.
 var NodeSchemas = map[string]*z.ObjectSchema{
 	"frame": nodeSchema("frame",
@@ -276,8 +281,8 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "overrides", Schema: z.Optional(overridesSchema())},
 		z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
 		z.Field{Name: "scaledMock", Schema: z.Optional(z.Bool())},
-	),
-	"rect":    nodeSchema("rect"),
+	).Extend(z.Field{Name: "radius", Schema: cornerRadiusSchema()}),
+	"rect":    nodeSchema("rect").Extend(z.Field{Name: "radius", Schema: cornerRadiusSchema()}),
 	"ellipse": nodeSchema("ellipse"),
 	"text": nodeSchema("text",
 		z.Field{Name: "text", Schema: z.Default(z.String().Max(20_000), "")},
@@ -303,7 +308,7 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		})},
 		z.Field{Name: "fit", Schema: z.Default(z.Enum("cover", "contain", "fill"), "cover")},
 		z.Field{Name: "alt", Schema: z.Default(z.String().Max(1000), "")},
-	),
+	).Extend(z.Field{Name: "radius", Schema: cornerRadiusSchema()}),
 	"path": nodeSchema("path",
 		z.Field{Name: "d", Schema: z.String().Min(1).Max(200_000).Refine(func(v string) string {
 			if msg := PathErrorMessage(v); msg != "" {

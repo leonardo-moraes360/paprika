@@ -614,6 +614,15 @@ Tarefa: desenhar o interruptor "Ignorar layout" do inspector (desligado, ligado,
 - O frame de comportamento é um mock: o servidor vivo ainda não aceita `layoutPositioning`, então o selo é um irmão posicionado por x/y, não um filho absoluto de verdade da linha.
 - `lint_design` nos quatro roots: 0 erros e 0 avisos depois de encurtar a dica do estado ligado e deixar os campos em hug.
 
+## 2026-11-23: raio por canto (PAP-B-070, design first)
+
+Tarefa: desenhar os controles de cantos ligados e soltos, mais um cartão de amostra, na página `Interfaces` do workspace `Paprica · UI` (`workspaceId`, sem `open_workspace`) antes de implementar `radius` como um comprimento ou `[tl, tr, br, bl]`.
+
+| # | Necessidade | O que aconteceu | Proposta | Pri. |
+|---|-------------|----------------|----------|------|
+| 117 | Screenshot de um frame | `render_screenshot` recebe `rootId`. Passar `id` é ignorado e a ferramenta devolve a primeira página (aqui, o frame "clamp dark" do PAP-B-046) sem erro | Recusar nomes de argumento desconhecidos, ou citar `rootId` no erro quando o caller manda `id` | P3 |
+| 118 | Ver quatro cantos diferentes no servidor que está no ar | `create_nodes` com `radius: [1, 2, 3, 4]` falhou: `expected number, received array`. A amostra teve de ser um path até esta mudança entrar | O servidor em execução só passa a aceitar o raio novo depois deste build | — |
+
 ## 2026-11-23: design dos apontamentos (design first, thread na nuvem)
 
 Tarefa: desenhar a proposta de "apontar um elemento ou área e dizer ao agente o que fazer" (5 quadros: canvas, compositor, painel, contrato MCP, fluxo), primeiro num `paprika serve` na nuvem e depois no Paprika local do mantenedor em `Paprica · UI` (página nova, `workspaceId` em toda escrita, workspace ativo intocado). PNGs em `docs/assets/boards/agent-pins/`.
