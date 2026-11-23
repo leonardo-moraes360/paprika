@@ -17,13 +17,17 @@ const client = new Client({ name: "pap-b-084-design", version: "0" });
 await client.connect(new StreamableHTTPClientTransport(new URL(mcpUrl)));
 
 async function call(name, args = {}) {
-  const r = await client.callTool({ name, arguments: args });
-  if (r.isError) throw new Error(`${name}: ${JSON.stringify(r.content)}`);
-  return r;
+  const result = await client.callTool({ name, arguments: args });
+  if (!result.isError) return result;
+  throw new Error(`${name} failed: ${JSON.stringify(result.content)}`);
 }
 
-function textOf(r) {
-  return (r.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+function textOf(result) {
+  const parts = [];
+  for (const block of result.content ?? []) {
+    if (block.type === "text") parts.push(block.text);
+  }
+  return parts.join("\n");
 }
 
 const wsRaw = textOf(await call("list_workspaces"));

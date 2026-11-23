@@ -1767,23 +1767,26 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
   it("constraints no inspector seguem o filho fora do fluxo", async () => {
     const POLL = { timeout: 10_000 };
-    const madePage = await agent.callTool({ name: "create_page", arguments: { id: "p084", name: "Constraints" } });
-    expect(madePage.isError, JSON.stringify(madePage.content)).toBeFalsy();
-    await page.locator('[data-page-id="p084"]').click();
+    const pageId = "p084";
+    const created = await agent.callTool({
+      name: "create_page",
+      arguments: { id: pageId, name: "Constraints" },
+    });
+    expect(created.isError, JSON.stringify(created.content)).toBeFalsy();
+    await page.locator(`[data-page-id="${pageId}"]`).click();
+    const flowChild = { type: "rect", id: "c084-flow", name: "Flow", width: 30, height: 20, fill: "#111111" };
+    const pinChild = {
+      type: "rect", id: "c084-pin", name: "Pin", x: 140, y: 20, width: 40, height: 24, fill: "#c8401f",
+      layoutPositioning: "absolute", constraints: { horizontal: "right", vertical: "top" },
+    };
+    const frame = {
+      type: "frame", id: "c084", name: "Constraints", x: 1680, y: 40, width: 200, height: 80, fill: "#ffffff",
+      layout: { mode: "row", gap: 8, padding: 0 },
+      children: [flowChild, pinChild],
+    };
     const made = await agent.callTool({
       name: "create_nodes",
-      arguments: {
-        parentId: "p084",
-        place: "none",
-        nodes: [{
-          type: "frame", id: "c084", name: "Constraints", x: 1680, y: 40, width: 200, height: 80, fill: "#ffffff",
-          layout: { mode: "row", gap: 8, padding: 0 },
-          children: [
-            { type: "rect", id: "c084-flow", name: "Flow", width: 30, height: 20, fill: "#111111" },
-            { type: "rect", id: "c084-pin", name: "Pin", x: 140, y: 20, width: 40, height: 24, fill: "#c8401f", layoutPositioning: "absolute", constraints: { horizontal: "right", vertical: "top" } },
-          ],
-        }],
-      },
+      arguments: { parentId: pageId, place: "none", nodes: [frame] },
     });
     expect(made.isError, JSON.stringify(made.content)).toBeFalsy();
     await page.locator('[data-layer-id="c084-flow"] .layer-name').click();

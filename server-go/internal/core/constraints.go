@@ -5,18 +5,18 @@ import "math"
 const constraintEps = 1e-3
 const constraintMax = 100_000.0
 
-type snap struct {
+type sizeSnap struct {
 	w, h     float64
 	wOK, hOK bool
 }
 
-func snapOf(n *Node) snap {
+func snapOf(n *Node) sizeSnap {
 	if n.Str("type") == "page" {
-		return snap{}
+		return sizeSnap{}
 	}
 	w, wOK := sizeNum(n, "width")
 	h, hOK := sizeNum(n, "height")
-	return snap{w: w, h: h, wOK: wOK, hOK: hOK}
+	return sizeSnap{w: w, h: h, wOK: wOK, hOK: hOK}
 }
 
 func constraintModes(n *Node) (h, v string) {
@@ -159,7 +159,7 @@ func adjustChild(doc *Document, parent *Node, cid string, oldW, oldH, newW, newH
 }
 
 func applyConstraints(before, draft *Document) {
-	base := map[string]snap{}
+	base := map[string]sizeSnap{}
 	if nodes := Nodes(before); nodes != nil {
 		for _, id := range nodes.Keys() {
 			if n := nodes.Obj(id); n != nil && n.Str("type") != "page" {
