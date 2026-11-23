@@ -345,7 +345,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		var toks []string
 		for _, k := range core.Tokens(d).Keys() {
 			v, _ := core.Tokens(d).Get(k)
-			toks = append(toks, "$"+k+"="+jsString(v))
+			line := "$" + k + "=" + jsString(v)
+			if meta := core.TokenMeta(d); meta != nil {
+				if m := meta.Obj(k); m != nil {
+					if t := m.Str("type"); t != "" {
+						line += " " + t
+					}
+					if c := m.Str("collection"); c != "" {
+						line += " @" + c
+					}
+				}
+			}
+			toks = append(toks, line)
 		}
 		tokens := strings.Join(toks, " ")
 		if tokens == "" {
@@ -868,6 +879,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return writeWith(a, []any{op}, labelOr(a, "detach "+count(len(ids))+" instance(s)"), "detached", a.Arr("ids"))
 		})
 
+	add("detach_tokens", z.Object(
+		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+		z.Field{Name: "fields", Schema: z.Optional(z.Array(z.String()).Min(1).Max(40))},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		op := jsonv.NewObject("op", "detach_tokens", "ids", a.Arr("ids"))
+		if a.Has("fields") {
+			op.Set("fields", a.Arr("fields"))
+		}
+		return writeWith(a, []any{op}, labelOr(a, "detach tokens"), "detached", a.Arr("ids"))
+	})
+
 	add("apply_ops", z.Object(z.Field{Name: "ops", Schema: z.Array(core.OpSchema).Min(1).Max(1000)}, label(), batch(), workspaceID()),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 			ops := a.Arr("ops")
@@ -876,11 +899,21 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 
 	add("set_tokens", z.Object(
 		z.Field{Name: "tokens", Schema: z.Record(z.String(), z.Union(z.String(), z.Number(), z.Null()))},
+		z.Field{Name: "type", Schema: z.Optional(z.Nullable(core.TokenTypeSchema))},
+		z.Field{Name: "collection", Schema: z.Optional(z.Nullable(core.CollectionNameSchema))},
 		optStr("mode"),
 		label(), batch(), workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		tokens, _ := a.Get("tokens")
 		op := jsonv.NewObject("op", "set_tokens", "tokens", tokens)
+		if a.Has("type") {
+			v, _ := a.Get("type")
+			op.Set("type", v)
+		}
+		if a.Has("collection") {
+			v, _ := a.Get("collection")
+			op.Set("collection", v)
+		}
 		if m := a.Str("mode"); m != "" {
 			op.Set("mode", m)
 		}

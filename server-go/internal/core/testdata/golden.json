@@ -21626,7 +21626,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: invalid node: fontWeight: Invalid input: expected int, received number"
+   "error": "op[0]: invalid node: fontWeight: Invalid input"
   },
   {
    "doc": "empty",
@@ -22048,7 +22048,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: invalid operation: op: Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'combine_paths' | 'align' | 'distribute' | 'wrap' | 'reveal'"
+   "error": "op[0]: invalid operation: op: Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'detach_tokens' | 'combine_paths' | 'align' | 'distribute' | 'wrap' | 'reveal'"
   },
   {
    "doc": "empty",
@@ -25945,7 +25945,7 @@
    "input": {
     "op": "x"
    },
-   "error": "[\n  {\n    \"code\": \"invalid_union\",\n    \"errors\": [],\n    \"note\": \"No matching discriminator\",\n    \"discriminator\": \"op\",\n    \"options\": [\n      \"create\",\n      \"update\",\n      \"delete\",\n      \"move\",\n      \"set_tokens\",\n      \"rename_document\",\n      \"restore\",\n      \"group\",\n      \"ungroup\",\n      \"add_page\",\n      \"detach\",\n      \"combine_paths\",\n      \"align\",\n      \"distribute\",\n      \"wrap\",\n      \"reveal\"\n    ],\n    \"path\": [\n      \"op\"\n    ],\n    \"message\": \"Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'combine_paths' | 'align' | 'distribute' | 'wrap' | 'reveal'\"\n  }\n]"
+   "error": "[\n  {\n    \"code\": \"invalid_union\",\n    \"errors\": [],\n    \"note\": \"No matching discriminator\",\n    \"discriminator\": \"op\",\n    \"options\": [\n      \"create\",\n      \"update\",\n      \"delete\",\n      \"move\",\n      \"set_tokens\",\n      \"rename_document\",\n      \"restore\",\n      \"group\",\n      \"ungroup\",\n      \"add_page\",\n      \"detach\",\n      \"detach_tokens\",\n      \"combine_paths\",\n      \"align\",\n      \"distribute\",\n      \"wrap\",\n      \"reveal\"\n    ],\n    \"path\": [\n      \"op\"\n    ],\n    \"message\": \"Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'detach_tokens' | 'combine_paths' | 'align' | 'distribute' | 'wrap' | 'reveal'\"\n  }\n]"
   },
   {
    "input": {

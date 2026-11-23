@@ -354,7 +354,8 @@ func LintDocumentOpts(doc *Document, opts LintOpts) []LintIssue {
 			bg, bgOK := EffectiveBackground(doc, node)
 			if fgOK && bgOK {
 				ratio := ContrastRatio(blend(fg, bg), bg)
-				large := size >= 24 || (size >= 18.66 && node.Num("fontWeight") >= 700)
+				fw, _ := node.Get("fontWeight")
+				large := size >= 24 || (size >= 18.66 && ResolvedFontWeight(doc, fw, themeMode) >= 700)
 				min := 4.5
 				if large {
 					min = 3

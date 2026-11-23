@@ -164,6 +164,9 @@ func cssLen(doc *Document, v any, mode string, vars bool) string {
 }
 
 func cssNum(doc *Document, v any, mode string, vars bool) any {
+	if s, ok := v.(string); ok && vars && strings.HasPrefix(s, "$") && isKnownToken(doc, s[1:]) && TokenTypeOf(doc, s[1:]) == "lineHeight" {
+		return "var(" + CSSVarName(s[1:]) + ")"
+	}
 	if ref, ok := lengthVar(doc, v, vars); ok {
 		return "calc(" + ref + " / 1px)"
 	}
@@ -212,7 +215,17 @@ func tokenDecls(doc *Document, tokens *jsonv.Object) string {
 		var value string
 		switch t := v.(type) {
 		case float64:
-			value = px(t)
+			kind := ""
+			if meta := TokenMeta(doc); meta != nil {
+				if m := meta.Obj(k); m != nil {
+					kind = m.Str("type")
+				}
+			}
+			if kind == "fontWeight" || kind == "lineHeight" {
+				value = jsonv.FormatNumber(round2(t))
+			} else {
+				value = px(t)
+			}
 		case string:
 			if strings.HasPrefix(t, "$") && isKnownToken(doc, t[1:]) {
 				value = "var(" + CSSVarName(t[1:]) + ")"
@@ -694,10 +707,12 @@ func applyShapeEffects(css *CSS, doc *Document, node *Node, mode string, vars bo
 func textCSS(css *CSS, doc *Document, node *Node, mode string, vars bool, paint func(any) any) {
 	color, _ := node.Get("color")
 	css.Set("color", jsString(paint(color)))
-	css.Set("fontFamily", node.Str("fontFamily"))
+	fam, _ := node.Get("fontFamily")
+	css.Set("fontFamily", fontFamilyCSS(doc, fam, mode, vars))
 	fsv, _ := node.Get("fontSize")
 	css.Set("fontSize", cssLen(doc, fsv, mode, vars))
-	css.Set("fontWeight", node.Num("fontWeight"))
+	fw, _ := node.Get("fontWeight")
+	css.Set("fontWeight", fontWeightCSS(doc, fw, mode, vars))
 	lh, _ := node.Get("lineHeight")
 	css.Set("lineHeight", cssNum(doc, lh, mode, vars))
 	if ls, ok := node.Get("letterSpacing"); ok {
@@ -960,7 +975,91 @@ func jsonNum(n float64) string {
 	return string(b)
 }
 
-func lengthProblem(doc *Document, id, field string, value any, min, max *float64, mode string) string {
+func TokenTypeOf(doc *Document, name string) string {
+	return tokenTypeOf(doc, name, 0)
+}
+
+func tokenTypeOf(doc *Document, name string, depth int) string {
+	if depth > 8 {
+		return ""
+	}
+	if meta := TokenMeta(doc); meta != nil {
+		if m := meta.Obj(name); m != nil {
+			if t := m.Str("type"); t != "" {
+				return t
+			}
+		}
+	}
+	if v, ok := Tokens(doc).Get(name); ok {
+		if s, ok := v.(string); ok && strings.HasPrefix(s, "$") {
+			return tokenTypeOf(doc, s[1:], depth+1)
+		}
+	}
+	return ""
+}
+
+func ResolvedFontFamily(doc *Document, v any, mode string) string {
+	r := ResolveValue(doc, v, mode)
+	if s, ok := r.(string); ok {
+		return s
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
+}
+
+func ResolvedFontWeight(doc *Document, v any, mode string) float64 {
+	if n, ok := v.(float64); ok {
+		return n
+	}
+	r := ResolveValue(doc, v, mode)
+	if n, ok := r.(float64); ok {
+		return n
+	}
+	return 400
+}
+
+func fontFamilyCSS(doc *Document, v any, mode string, vars bool) string {
+	s, _ := v.(string)
+	if vars && strings.HasPrefix(s, "$") && isKnownToken(doc, s[1:]) {
+		kind := TokenTypeOf(doc, s[1:])
+		raw, _ := TokenValue(doc, s[1:], mode)
+		if kind == "fontFamily" || (kind == "" && isString(raw)) {
+			return "var(" + CSSVarName(s[1:]) + ")"
+		}
+	}
+	return ResolvedFontFamily(doc, v, mode)
+}
+
+func fontWeightCSS(doc *Document, v any, mode string, vars bool) any {
+	if s, ok := v.(string); ok && vars && strings.HasPrefix(s, "$") && isKnownToken(doc, s[1:]) && TokenTypeOf(doc, s[1:]) == "fontWeight" {
+		return "var(" + CSSVarName(s[1:]) + ")"
+	}
+	return ResolvedFontWeight(doc, v, mode)
+}
+
+func isString(v any) bool {
+	_, ok := v.(string)
+	return ok
+}
+
+func typeMismatch(doc *Document, id, field string, value any, expected string) string {
+	s, ok := value.(string)
+	if !ok || !strings.HasPrefix(s, "$") || expected == "" {
+		return ""
+	}
+	declared := TokenTypeOf(doc, s[1:])
+	if declared == "" || declared == expected {
+		return ""
+	}
+	return fmt.Sprintf("node %q %s: token %q has type %s, expected %s", id, field, s, declared, expected)
+}
+
+func lengthProblem(doc *Document, id, field string, value any, min, max *float64, mode, expected string) string {
+	if msg := typeMismatch(doc, id, field, value, expected); msg != "" {
+		return msg
+	}
 	s, ok := value.(string)
 	if !ok || !strings.HasPrefix(s, "$") {
 		return ""
@@ -987,6 +1086,50 @@ func lengthProblem(doc *Document, id, field string, value any, min, max *float64
 	return ""
 }
 
+func colorTokenProblem(doc *Document, id, field string, value any) string {
+	return typeMismatch(doc, id, field, value, "color")
+}
+
+func fontFamilyProblem(doc *Document, id string, value any, mode string) string {
+	if msg := typeMismatch(doc, id, "fontFamily", value, "fontFamily"); msg != "" {
+		return msg
+	}
+	s, ok := value.(string)
+	if !ok || !strings.HasPrefix(s, "$") {
+		return ""
+	}
+	resolved := ResolveValue(doc, s, mode)
+	if t, ok := resolved.(string); ok && strings.HasPrefix(t, "$") {
+		return ""
+	}
+	text, isStr := resolved.(string)
+	if !isStr || text == "" || len(text) > 200 || reFontForbidden.MatchString(text) {
+		shown, _ := json.Marshal(resolved)
+		return fmt.Sprintf("node %q fontFamily: token %q resolved to %s, expected a font family", id, s, shown)
+	}
+	return ""
+}
+
+func fontWeightProblem(doc *Document, id string, value any, mode string) string {
+	if msg := typeMismatch(doc, id, "fontWeight", value, "fontWeight"); msg != "" {
+		return msg
+	}
+	s, ok := value.(string)
+	if !ok || !strings.HasPrefix(s, "$") {
+		return ""
+	}
+	resolved := ResolveValue(doc, s, mode)
+	if t, ok := resolved.(string); ok && strings.HasPrefix(t, "$") {
+		return ""
+	}
+	n, isNum := resolved.(float64)
+	shown, _ := json.Marshal(resolved)
+	if !isNum || n != math.Trunc(n) || n < 100 || n > 900 {
+		return fmt.Sprintf("node %q fontWeight: token %q is %s, expected an integer >= 100 and <= 900", id, s, shown)
+	}
+	return ""
+}
+
 func LengthTokenError(doc *Document) string {
 	seen := map[string]bool{}
 	var walk func(id string) string
@@ -1000,7 +1143,20 @@ func LengthTokenError(doc *Document) string {
 			return ""
 		}
 		typ := n.Str("type")
-		if typ == "page" || typ == "group" {
+		if typ == "group" {
+			for _, c := range n.Strings("children") {
+				if m := walk(c); m != "" {
+					return m
+				}
+			}
+			return ""
+		}
+		if typ == "page" {
+			if fill, ok := n.Get("fill"); ok {
+				if msg := colorTokenProblem(doc, n.Str("id"), "fill", fill); msg != "" {
+					return msg
+				}
+			}
 			for _, c := range n.Strings("children") {
 				if m := walk(c); m != "" {
 					return m
@@ -1009,30 +1165,38 @@ func LengthTokenError(doc *Document) string {
 			return ""
 		}
 		mode := ModeOf(doc, n)
-		check := func(field string, value any, min, max *float64) string {
-			return lengthProblem(doc, n.Str("id"), field, value, min, max, mode)
+		check := func(field string, value any, min, max *float64, expected string) string {
+			return lengthProblem(doc, n.Str("id"), field, value, min, max, mode, expected)
 		}
 		var msg string
 		if typ == "connector" {
 			if st := n.Obj("stroke"); st != nil {
 				w, _ := st.Get("width")
-				msg = check("stroke.width", w, new(float64(0)), new(float64(1000)))
+				msg = check("stroke.width", w, new(float64(0)), new(float64(1000)), "length")
+				c, _ := st.Get("color")
+				if msg == "" {
+					msg = colorTokenProblem(doc, n.Str("id"), "stroke.color", c)
+				}
 			}
 		} else {
 			if v, ok := n.Get("radius"); ok {
 				if arr, isArr := v.([]any); isArr {
 					for i, item := range arr {
 						if msg == "" {
-							msg = check(fmt.Sprintf("radius.%d", i), item, new(float64(0)), nil)
+							msg = check(fmt.Sprintf("radius.%d", i), item, new(float64(0)), nil, "length")
 						}
 					}
 				} else {
-					msg = check("radius", v, new(float64(0)), nil)
+					msg = check("radius", v, new(float64(0)), nil, "length")
 				}
 			}
 			if st := n.Obj("stroke"); st != nil && msg == "" {
 				w, _ := st.Get("width")
-				msg = check("stroke.width", w, new(float64(0)), new(float64(1000)))
+				msg = check("stroke.width", w, new(float64(0)), new(float64(1000)), "length")
+				c, _ := st.Get("color")
+				if msg == "" {
+					msg = colorTokenProblem(doc, n.Str("id"), "stroke.color", c)
+				}
 			}
 			if msg == "" {
 				list := shadowNodes(n)
@@ -1046,15 +1210,19 @@ func LengthTokenError(doc *Document) string {
 					y, _ := sh.Get("y")
 					b, _ := sh.Get("blur")
 					sp, _ := sh.Get("spread")
-					msg = check(p+".x", x, nil, nil)
+					msg = check(p+".x", x, nil, nil, "length")
 					if msg == "" {
-						msg = check(p+".y", y, nil, nil)
+						msg = check(p+".y", y, nil, nil, "length")
 					}
 					if msg == "" {
-						msg = check(p+".blur", b, new(float64(0)), nil)
+						msg = check(p+".blur", b, new(float64(0)), nil, "length")
 					}
 					if msg == "" {
-						msg = check(p+".spread", sp, nil, nil)
+						msg = check(p+".spread", sp, nil, nil, "length")
+					}
+					c, _ := sh.Get("color")
+					if msg == "" {
+						msg = colorTokenProblem(doc, n.Str("id"), p+".color", c)
 					}
 					if msg != "" {
 						break
@@ -1063,52 +1231,73 @@ func LengthTokenError(doc *Document) string {
 			}
 			if o := n.Obj("outline"); o != nil && msg == "" {
 				w, _ := o.Get("width")
-				msg = check("outline.width", w, new(float64(0)), new(float64(1000)))
+				msg = check("outline.width", w, new(float64(0)), new(float64(1000)), "length")
 				if msg == "" {
 					if off, ok := o.Get("offset"); ok {
-						msg = check("outline.offset", off, new(float64(-1000)), new(float64(1000)))
+						msg = check("outline.offset", off, new(float64(-1000)), new(float64(1000)), "length")
 					}
+				}
+				if msg == "" {
+					c, _ := o.Get("color")
+					msg = colorTokenProblem(doc, n.Str("id"), "outline.color", c)
 				}
 			}
 			if f := n.Obj("filter"); f != nil && msg == "" {
 				if b, ok := f.Get("blur"); ok {
-					msg = check("filter.blur", b, new(float64(0)), new(float64(1000)))
+					msg = check("filter.blur", b, new(float64(0)), new(float64(1000)), "length")
 				}
 			}
 			if f := n.Obj("backdropFilter"); f != nil && msg == "" {
 				if b, ok := f.Get("blur"); ok {
-					msg = check("backdropFilter.blur", b, new(float64(0)), new(float64(1000)))
+					msg = check("backdropFilter.blur", b, new(float64(0)), new(float64(1000)), "length")
+				}
+			}
+			if msg == "" {
+				if fill, ok := n.Get("fill"); ok {
+					msg = colorTokenProblem(doc, n.Str("id"), "fill", fill)
 				}
 			}
 			if typ == "frame" && msg == "" {
 				if l := n.Obj("layout"); l != nil {
 					g, _ := l.Get("gap")
-					msg = check("layout.gap", g, new(float64(0)), nil)
+					msg = check("layout.gap", g, new(float64(0)), nil, "length")
 					if msg == "" {
 						p, _ := l.Get("padding")
 						if arr, ok := p.([]any); ok {
 							for i, v := range arr {
-								if msg = check(fmt.Sprintf("layout.padding.%d", i), v, new(float64(0)), nil); msg != "" {
+								if msg = check(fmt.Sprintf("layout.padding.%d", i), v, new(float64(0)), nil, "length"); msg != "" {
 									break
 								}
 							}
 						} else {
-							msg = check("layout.padding", p, new(float64(0)), nil)
+							msg = check("layout.padding", p, new(float64(0)), nil, "length")
 						}
 					}
 				}
 			}
 			if (typ == "text" || typ == "shape") && msg == "" {
 				fs, _ := n.Get("fontSize")
-				msg = check("fontSize", fs, new(float64(1)), new(float64(1000)))
+				msg = check("fontSize", fs, new(float64(1)), new(float64(1000)), "fontSize")
 				if msg == "" {
 					lh, _ := n.Get("lineHeight")
-					msg = check("lineHeight", lh, new(float64(0)), new(float64(10)))
+					msg = check("lineHeight", lh, new(float64(0)), new(float64(10)), "lineHeight")
+				}
+				if msg == "" {
+					color, _ := n.Get("color")
+					msg = colorTokenProblem(doc, n.Str("id"), "color", color)
+				}
+				if msg == "" {
+					fam, _ := n.Get("fontFamily")
+					msg = fontFamilyProblem(doc, n.Str("id"), fam, mode)
+				}
+				if msg == "" {
+					fw, _ := n.Get("fontWeight")
+					msg = fontWeightProblem(doc, n.Str("id"), fw, mode)
 				}
 			}
 			if typ == "text" && msg == "" {
 				ls, _ := n.Get("letterSpacing")
-				msg = check("letterSpacing", ls, nil, nil)
+				msg = check("letterSpacing", ls, nil, nil, "letterSpacing")
 			}
 		}
 		if msg != "" {

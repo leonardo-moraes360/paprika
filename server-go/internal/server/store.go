@@ -66,6 +66,13 @@ CREATE TABLE IF NOT EXISTS modes (
   tokens TEXT NOT NULL,               -- JSON object: the tokens this mode overrides
   PRIMARY KEY (doc_id, name)
 );
+CREATE TABLE IF NOT EXISTS token_meta (
+  doc_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  name   TEXT NOT NULL,
+  ord    INTEGER NOT NULL,            -- insertion order of document.tokenMeta
+  meta   TEXT NOT NULL,               -- JSON object: type and collection
+  PRIMARY KEY (doc_id, name)
+);
 CREATE TABLE IF NOT EXISTS nodes (
   doc_id    TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   id        TEXT NOT NULL,
@@ -223,6 +230,10 @@ func LoadDocument(q querier, id string) (*core.Document, int64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	meta, err := loadTokenMeta(q, id)
+	if err != nil {
+		return nil, 0, err
+	}
 	nodes := jsonv.NewObject()
 	rows, err = q.Query(`SELECT id, data FROM nodes WHERE doc_id = ? ORDER BY ord`, id)
 	if err != nil {
@@ -245,6 +256,9 @@ func LoadDocument(q querier, id string) (*core.Document, int64, error) {
 	raw := jsonv.NewObject("format", format, "id", id, "name", name, "tokens", tokens)
 	if modes != nil {
 		raw.Set("modes", modes)
+	}
+	if meta != nil {
+		raw.Set("tokenMeta", meta)
 	}
 	raw.Set("rootIds", rootIDs)
 	raw.Set("nodes", nodes)
@@ -280,6 +294,30 @@ func loadModes(q querier, id string) (*jsonv.Object, error) {
 	return modes, rows.Err()
 }
 
+func loadTokenMeta(q querier, id string) (*jsonv.Object, error) {
+	rows, err := q.Query(`SELECT name, meta FROM token_meta WHERE doc_id = ? ORDER BY ord`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var meta *jsonv.Object
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, err
+		}
+		val, err := jsonv.Parse([]byte(v))
+		if err != nil {
+			return nil, err
+		}
+		if meta == nil {
+			meta = jsonv.NewObject()
+		}
+		meta.Set(k, val)
+	}
+	return meta, rows.Err()
+}
+
 type querier interface {
 	QueryRow(query string, args ...any) *sql.Row
 	Query(query string, args ...any) (*sql.Rows, error)
@@ -308,6 +346,13 @@ func writeDocument(tx querier, doc, prev *core.Document, version int64, now int6
 			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, tokens = excluded.tokens`, id, k, ord, jsonv.Stringify(v, ""))
 		return err
 	}, `DELETE FROM modes WHERE doc_id = ? AND name = ?`); err != nil {
+		return err
+	}
+	if err := syncRows(tx, `token_meta`, id, core.TokenMeta(doc), prevObj(prev, core.TokenMeta), func(k string, v any, ord int) error {
+		_, err := tx.Exec(`INSERT INTO token_meta(doc_id, name, ord, meta) VALUES (?, ?, ?, ?)
+			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, meta = excluded.meta`, id, k, ord, jsonv.Stringify(v, ""))
+		return err
+	}, `DELETE FROM token_meta WHERE doc_id = ? AND name = ?`); err != nil {
 		return err
 	}
 	return syncRows(tx, `nodes`, id, core.Nodes(doc), prevObj(prev, core.Nodes), func(k string, v any, ord int) error {
@@ -433,6 +478,7 @@ func ImportDocument(db *sql.DB, raw []byte, replace bool) (*core.Document, error
 			`DELETE FROM nodes WHERE doc_id = ?`,
 			`DELETE FROM tokens WHERE doc_id = ?`,
 			`DELETE FROM modes WHERE doc_id = ?`,
+			`DELETE FROM token_meta WHERE doc_id = ?`,
 			`DELETE FROM history WHERE doc_id = ?`,
 		} {
 			if _, err := tx.Exec(q, id); err != nil {
@@ -631,6 +677,20 @@ func ExportFrame(db *sql.DB, docID, rootID string) (string, []string, error) {
 	}
 	if modesOut != nil {
 		out.Set("modes", modesOut)
+	}
+	if srcMeta := core.TokenMeta(doc); srcMeta != nil {
+		var metaOut *jsonv.Object
+		for _, name := range tokens.Keys() {
+			if m := srcMeta.Obj(name); m != nil {
+				if metaOut == nil {
+					metaOut = jsonv.NewObject()
+				}
+				metaOut.Set(name, jsonv.Clone(m))
+			}
+		}
+		if metaOut != nil {
+			out.Set("tokenMeta", metaOut)
+		}
 	}
 	if _, err := core.ParseDocument(out); err != nil {
 		return "", warnings, fmt.Errorf("documento exportado inválido (bug?): %w", err)

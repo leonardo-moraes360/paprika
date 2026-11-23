@@ -3,7 +3,7 @@ import { layout } from "./layout.js";
 import { round4 } from "./num.js";
 import { placeNum, placementLint } from "./placement.js";
 import { isContainer, listShadows, type Document, type Node } from "./schema.js";
-import { modeOf, resolveLength, resolveValue, tokenValue } from "./style.js";
+import { modeOf, resolveLength, resolveValue, resolvedFontWeight, tokenValue } from "./style.js";
 
 export interface RGBA {
   r: number;
@@ -201,7 +201,7 @@ export function lintDocument(doc: Document, opts: LintOptions = {}): LintIssue[]
       const bg = effectiveBackground(doc, node);
       if (fg && bg) {
         const ratio = contrastRatio(blend(fg, bg), bg);
-        const large = size >= 24 || (size >= 18.66 && node.fontWeight >= 700);
+        const large = size >= 24 || (size >= 18.66 && resolvedFontWeight(doc, node.fontWeight, modeOf(doc, node)) >= 700);
         const min = large ? 3 : 4.5;
         if (ratio < min)
           issues.push({

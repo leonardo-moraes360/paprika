@@ -745,3 +745,17 @@ Task: draw the fill inspector, the on-canvas handles and the OKLCH picker, light
 - Same as #128: two pages named Interfaces. Used `interfaces` (the one with children), not the empty page.
 - Same as #129: `render_screenshot` wrote under the server's `/data/screenshots`. The PNGs were copied from the returned URL.
 - Eight 11px labels warned as small-text. The boards were not redrawn at 12px.
+
+## 2026-11-23: typed tokens and detach (PAP-B-082, design first)
+
+Task: draw token collections (light and dark) and detach (light and dark) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before typed tokens, named collections and `detach_tokens`. Frames `b082tokl`, `b082tokd`, `b082detl`, `b082detd` at y=6680. PNGs in `docs/assets/boards/PAP-B-082/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 140 | The screenshot file on the host | `render_screenshot` `path` wrote inside the server filesystem (`/data/screenshots/PAP-B-082/*.png`). The host copies were downloaded from `url` (`/api/screenshot/<id>`) | Same as #129: document that `path` is inside the server, and that `url` is the way out | P2 |
+| 141 | A kickoff color on a dark frame | `$ui.primary` on the dark background was 3.54:1. `lint_design` reported contrast on the kickers | Keep the known swatch (`#ffd2c9`) in the guide for text on the dark canvas | P3 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #128, still open: `find_nodes` returns two pages named `Interfaces`. The frames went on `page#interfaces`.
+- Same as #123, still open: `get_document_outline` of that page reported `content` 0×0 and `next` 0,0, so y=6680 came from a depth-1 scan under the frames already on the page.
+- `lint_design` on the four frames was clean after the kickers moved to `#ffd2c9`.

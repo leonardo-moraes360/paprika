@@ -128,8 +128,9 @@ function intrinsicText(doc: Document, n: Extract<Node, { type: "text" }>, maxW?:
   const mode = modeOf(doc, n);
   const fs = resolveValue(doc, n.fontSize, mode);
   const fontSize = typeof fs === "number" ? fs : Number.parseFloat(String(fs)) || 16;
+  const weight = resolveValue(doc, n.fontWeight, mode);
   const m = measureText(n.text, fontSize, {
-    fontWeight: n.fontWeight,
+    fontWeight: typeof weight === "number" ? weight : 400,
     lineHeight: lengthOr(doc, n.lineHeight, mode, 1.4),
     letterSpacing: lengthOr(doc, n.letterSpacing, mode, 0),
     maxWidth: maxW,

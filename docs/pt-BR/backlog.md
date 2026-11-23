@@ -74,7 +74,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 |---|---|---|---|
 | Família, tamanho, peso, altura de linha, espaçamento, alinhamento | Nó `text` | ✅ | — |
 | Rich text (estilo por caractere/palavra, editável por agentes) | Um estilo por nó | ⬜ | P2 |
-| Tokens de fonte (família, peso, tamanho, altura de linha, espaçamento) | Só tokens de tamanho | 🟡 | P2 |
+| Tokens de fonte (família, peso, tamanho, altura de linha, espaçamento) | Tipados no `set_tokens` (`fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`). Números sem tipo continuam válidos. O inspector aceita `$` nesses campos. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Eixos de fontes variáveis e recursos OpenType | — | ⬜ | P3 |
 | Atalhos de texto (negrito, itálico, passos de tamanho/peso), altura de linha automática | — | ⬜ | P3 |
 | CJK sem quebra de palavra, diacríticos combinados, emoji com vários codepoints | Padrão do navegador | 🟡 | P3 |
@@ -86,11 +86,11 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | Tokens globais (`$nome`) para cores e tamanhos, definidos por agentes | `set_tokens` | ✅ | — |
-| Modos de tema (claro/escuro/compacto) e coleções de tokens | `document.modes` + `set_tokens` com `mode`, inspector (2026-11-21), persistidos no SQLite (2026-11-22); ainda sem coleções nomeadas | 🟡 | P2 |
+| Modos de tema (claro/escuro/compacto) e coleções de tokens | `document.modes` + `set_tokens` com `mode`, inspector, SQLite. Uma coleção é um nome em `tokenMeta` (`set_tokens` `collection`), agrupada no inspector, não um segundo mapa de valores. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Override de tokens por frame | `mode` num frame ou página aplica um modo ao subtree (2026-11-21) | ✅ | — |
 | Tokens exportados como variáveis CSS no export HTML/React | `export_code` com `cssVariables` (2026-11-21): `:root` mais regras `[data-paprika-mode]`; o React exporta `tokensCss` | ✅ | — |
-| Tokens tipados (cor, raio, espaçamento, fonte…) com validação | String/número sem tipo | 🟡 | P2 |
-| Desvincular um token de um nó | Edição manual | 🟡 | P2 |
+| Tokens tipados (cor, raio, espaçamento, fonte…) com validação | `set_tokens` `type` (`color`, `length`, `fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`), conferido ao gravar e ao usar. Sem tipo, string/número continua válido. Persistido no SQLite `token_meta`. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
+| Desvincular um token de um nó | `detach_tokens` no MCP e no inspector troca `$nome` pelo literal resolvido no modo do nó. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Gerar tokens a partir de uma codebase via MCP | — | ⬜ | P2 |
 | Tokens com `calc()` / `color-mix()` | Só cadeias de tokens | ⬜ | P3 |
 | Copiar tokens entre arquivos | — | ⬜ | P3 |
