@@ -621,6 +621,9 @@ function styleFrom(n: Extract<NodeT, { type: "rect" | "ellipse" | "path" | "shap
   if (n.stroke !== undefined) props.stroke = n.stroke;
   if (n.opacity !== 1) props.opacity = n.opacity;
   if (n.shadow !== undefined) props.shadow = n.shadow;
+  if (n.outline !== undefined) props.outline = n.outline;
+  if (n.filter !== undefined) props.filter = n.filter;
+  if (n.backdropFilter !== undefined) props.backdropFilter = n.backdropFilter;
   if (n.name) props.name = n.name;
   if (n.type === "path") {
     props.fillRule = n.fillRule;

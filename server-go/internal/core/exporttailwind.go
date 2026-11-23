@@ -15,7 +15,7 @@ var (
 	reUnsafe     = regexp.MustCompile(`[\[\]{};]`)
 	reBorder     = regexp.MustCompile(`^(\d+(?:\.\d+)?px)[` + jsWS + `]+(solid|dashed|dotted|none)[` + jsWS + `]+(.+)$`)
 	reRotate     = regexp.MustCompile(`^rotate\((-?[\d.]+)deg\)$`)
-	reDropShadow = regexp.MustCompile(`^drop-shadow\((.+)\)$`)
+	reDropShadow = regexp.MustCompile(`^drop-shadow\(((?:[^()]|\([^()]*\))*)\)$`)
 )
 
 var (
@@ -32,6 +32,8 @@ var (
 	twSizeValue  = map[string]string{"auto": "auto", "max-content": "max", "min-content": "min", "fit-content": "fit", "100%": "full"}
 	twBorderLine = map[string]string{"solid": "border-solid", "dashed": "border-dashed", "dotted": "border-dotted", "none": "border-none"}
 )
+
+func twUnsafe(v string) bool { return reUnsafe.MatchString(v) }
 
 func twArb(v string) string {
 	return reWS.ReplaceAllString(strings.ReplaceAll(v, "_", `\_`), "_")
@@ -172,7 +174,22 @@ func tailwindClassesFor(key string, value any) ([]string, bool) {
 		if m := reDropShadow.FindStringSubmatch(v); m != nil {
 			return []string{"drop-shadow-[" + twArb(m[1]) + "]"}, true
 		}
-		return nil, false
+		if twUnsafe(v) {
+			return nil, false
+		}
+		return []string{"filter-[" + twArb(v) + "]"}, true
+	case "backdropFilter":
+		if twUnsafe(v) {
+			return nil, false
+		}
+		return []string{"backdrop-filter-[" + twArb(v) + "]"}, true
+	case "outline":
+		if twUnsafe(v) {
+			return nil, false
+		}
+		return []string{"outline-[" + twArb(v) + "]"}, true
+	case "outlineOffset":
+		return []string{"outline-offset-[" + twArb(v) + "]"}, true
 	case "overflow":
 		return twLookup(twOverflow, v)
 	case "color":

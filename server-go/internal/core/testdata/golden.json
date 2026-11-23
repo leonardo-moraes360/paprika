@@ -21380,7 +21380,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: invalid node: shadow.y: Invalid input: expected number, received undefined; shadow.blur: Invalid input: expected number, received undefined; shadow.color: Invalid input: expected string, received undefined"
+   "error": "op[0]: invalid node: shadow: Invalid input"
   },
   {
    "doc": "empty",
@@ -25262,6 +25262,144 @@
     "card",
     "label",
     "modal"
+   ]
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
+      "id": "r",
+      "shadow": [
+       {
+        "x": 0,
+        "y": 8,
+        "blur": 16,
+        "spread": 0,
+        "color": "#00000055"
+       },
+       {
+        "x": 0,
+        "y": 2,
+        "blur": 6,
+        "color": "#4cc7d8",
+        "inner": true
+       }
+      ],
+      "outline": {
+       "color": "#4cc7d8",
+       "width": 2,
+       "style": "dashed",
+       "offset": 2
+      },
+      "filter": {
+       "blur": 1,
+       "saturate": 1.2,
+       "grayscale": 0,
+       "hueRotate": 15
+      },
+      "backdropFilter": {
+       "blur": 8
+      }
+     }
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"r\"\n  ],\n  \"nodes\": {\n    \"r\": {\n      \"id\": \"r\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": [\n        {\n          \"x\": 0,\n          \"y\": 8,\n          \"blur\": 16,\n          \"spread\": 0,\n          \"color\": \"#00000055\"\n        },\n        {\n          \"x\": 0,\n          \"y\": 2,\n          \"blur\": 6,\n          \"spread\": 0,\n          \"color\": \"#4cc7d8\",\n          \"inner\": true\n        }\n      ],\n      \"outline\": {\n        \"color\": \"#4cc7d8\",\n        \"width\": 2,\n        \"style\": \"dashed\",\n        \"offset\": 2\n      },\n      \"filter\": {\n        \"blur\": 1,\n        \"saturate\": 1.2,\n        \"grayscale\": 0,\n        \"hueRotate\": 15\n      },\n      \"backdropFilter\": {\n        \"blur\": 8\n      },\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"delete\",\"id\":\"r\"}]",
+   "created": [
+    "r"
+   ]
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "path",
+      "id": "p",
+      "d": "M0 0 L10 10",
+      "shadow": [
+       {
+        "x": 1,
+        "y": 2,
+        "blur": 3,
+        "color": "#000"
+       },
+       {
+        "x": 0,
+        "y": 0,
+        "blur": 4,
+        "color": "#fff",
+        "inner": true
+       }
+      ]
+     }
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"p\"\n  ],\n  \"nodes\": {\n    \"p\": {\n      \"id\": \"p\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 10,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": [\n        {\n          \"x\": 1,\n          \"y\": 2,\n          \"blur\": 3,\n          \"spread\": 0,\n          \"color\": \"#000\"\n        },\n        {\n          \"x\": 0,\n          \"y\": 0,\n          \"blur\": 4,\n          \"spread\": 0,\n          \"color\": \"#fff\",\n          \"inner\": true\n        }\n      ],\n      \"type\": \"path\",\n      \"d\": \"M0 0 L10 10\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"delete\",\"id\":\"p\"}]",
+   "created": [
+    "p"
+   ]
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
+      "id": "r",
+      "filter": {}
+     }
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: invalid node: filter: filter needs at least one of blur, saturate, grayscale, brightness, sepia, invert, hueRotate"
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
+      "id": "r",
+      "shadow": []
+     }
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: invalid node: shadow: Too small: expected array to have >=1 items"
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
+      "id": "r",
+      "shadow": {
+       "x": 0,
+       "y": 1,
+       "blur": 2,
+       "color": "#000",
+       "inner": true
+      }
+     }
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"r\"\n  ],\n  \"nodes\": {\n    \"r\": {\n      \"id\": \"r\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": {\n        \"x\": 0,\n        \"y\": 1,\n        \"blur\": 2,\n        \"spread\": 0,\n        \"color\": \"#000\",\n        \"inner\": true\n      },\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"delete\",\"id\":\"r\"}]",
+   "created": [
+    "r"
    ]
   }
  ],
@@ -43731,6 +43869,219 @@
      "modal"
     ]
    }
+  },
+  {
+   "name": "op238",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"r\"\n  ],\n  \"nodes\": {\n    \"r\": {\n      \"id\": \"r\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": [\n        {\n          \"x\": 0,\n          \"y\": 8,\n          \"blur\": 16,\n          \"spread\": 0,\n          \"color\": \"#00000055\"\n        },\n        {\n          \"x\": 0,\n          \"y\": 2,\n          \"blur\": 6,\n          \"spread\": 0,\n          \"color\": \"#4cc7d8\",\n          \"inner\": true\n        }\n      ],\n      \"outline\": {\n        \"color\": \"#4cc7d8\",\n        \"width\": 2,\n        \"style\": \"dashed\",\n        \"offset\": 2\n      },\n      \"filter\": {\n        \"blur\": 1,\n        \"saturate\": 1.2,\n        \"grayscale\": 0,\n        \"hueRotate\": 15\n      },\n      \"backdropFilter\": {\n        \"blur\": 8\n      },\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "outline": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "outlineDepth0": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "outlineDepth1": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "lint": "[]",
+   "lintRoots": {
+    "r": "[]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)\"></div></body></html>",
+   "htmlRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)\"></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "r": "export function R() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", boxShadow: \"0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8\", outline: \"2px dashed #4cc7d8\", outlineOffset: \"2px\", filter: \"blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg)\", backdropFilter: \"blur(8px)\" }} />\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)\"></div></body></html>",
+   "htmlVarsRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)\"></div></body></html>"
+   },
+   "reactVars": {
+    "r": "export const tokensCss = \":root{}\";\n\nexport function R() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", boxShadow: \"0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8\", outline: \"2px dashed #4cc7d8\", outlineOffset: \"2px\", filter: \"blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg)\", backdropFilter: \"blur(8px)\" }} />\n  );\n}\n"
+   },
+   "tailwind": {
+    "r": "export function R() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[0px_8px_16px_0px_#00000055,_inset_0px_2px_6px_0px_#4cc7d8] outline-[2px_dashed_#4cc7d8] outline-offset-[2px] filter-[blur(1px)_saturate(1.2)_grayscale(0)_hue-rotate(15deg)] backdrop-filter-[blur(8px)]\" />\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "r": "export const tokensCss = \":root{}\";\n\nexport function R() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[0px_8px_16px_0px_#00000055,_inset_0px_2px_6px_0px_#4cc7d8] outline-[2px_dashed_#4cc7d8] outline-offset-[2px] filter-[blur(1px)_saturate(1.2)_grayscale(0)_hue-rotate(15deg)] backdrop-filter-[blur(8px)]\" />\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[0px_8px_16px_0px_#00000055,_inset_0px_2px_6px_0px_#4cc7d8] outline-[2px_dashed_#4cc7d8] outline-offset-[2px] filter-[blur(1px)_saturate(1.2)_grayscale(0)_hue-rotate(15deg)] backdrop-filter-[blur(8px)]\"></div></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[0px_8px_16px_0px_#00000055,_inset_0px_2px_6px_0px_#4cc7d8] outline-[2px_dashed_#4cc7d8] outline-offset-[2px] filter-[blur(1px)_saturate(1.2)_grayscale(0)_hue-rotate(15deg)] backdrop-filter-[blur(8px)]\"></div></body></html>",
+   "tailwindHtmlRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[0px_8px_16px_0px_#00000055,_inset_0px_2px_6px_0px_#4cc7d8] outline-[2px_dashed_#4cc7d8] outline-offset-[2px] filter-[blur(1px)_saturate(1.2)_grayscale(0)_hue-rotate(15deg)] backdrop-filter-[blur(8px)]\"></div></body></html>"
+   },
+   "cssModules": {
+    "r": "{\"component\":\"import styles from \\\"./R.module.css\\\";\\n\\nexport function R() {\\n  return (\\n    <div className={styles.r} />\\n  );\\n}\\n\",\"css\":\".r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n\",\"fileName\":\"R.module.css\"}"
+   },
+   "cssModulesVars": {
+    "r": "{\"component\":\"import styles from \\\"./R.module.css\\\";\\n\\nexport function R() {\\n  return (\\n    <div className={styles.r} />\\n  );\\n}\\n\",\"css\":\":root{}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n\",\"fileName\":\"R.module.css\"}"
+   },
+   "angular": {
+    "r": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-r\\\",\\n  standalone: true,\\n  templateUrl: \\\"./R.component.html\\\",\\n  styleUrl: \\\"./R.component.css\\\",\\n})\\nexport class R {}\\n\",\"template\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\",\"styles\":\".r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n\",\"className\":\"R\",\"selector\":\"app-r\",\"fileBase\":\"R\"}"
+   },
+   "angularVars": {
+    "r": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-r\\\",\\n  standalone: true,\\n  templateUrl: \\\"./R.component.html\\\",\\n  styleUrl: \\\"./R.component.css\\\",\\n})\\nexport class R {}\\n\",\"template\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\",\"styles\":\":root{}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n\",\"className\":\"R\",\"selector\":\"app-r\",\"fileBase\":\"R\"}"
+   },
+   "svelte": {
+    "r": "{\"source\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\\n<style>\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n</style>\\n\",\"fileName\":\"R.svelte\"}"
+   },
+   "svelteVars": {
+    "r": "{\"source\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\\n<style>\\n:global(:root){}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}\\n</style>\\n\",\"fileName\":\"R.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"r\"></div></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"r\"></div></body></html>",
+   "describe": {
+    "r": "rect#r 100×100 @0,0"
+   },
+   "style": {
+    "r": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 6px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) grayscale(0) hue-rotate(15deg);backdrop-filter:blur(8px)"
+   },
+   "find": {
+    "text": [],
+    "nameA": [],
+    "textE": [],
+    "within": [
+     "r"
+    ]
+   }
+  },
+  {
+   "name": "op239",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"p\"\n  ],\n  \"nodes\": {\n    \"p\": {\n      \"id\": \"p\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 10,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": [\n        {\n          \"x\": 1,\n          \"y\": 2,\n          \"blur\": 3,\n          \"spread\": 0,\n          \"color\": \"#000\"\n        },\n        {\n          \"x\": 0,\n          \"y\": 0,\n          \"blur\": 4,\n          \"spread\": 0,\n          \"color\": \"#fff\",\n          \"inner\": true\n        }\n      ],\n      \"type\": \"path\",\n      \"d\": \"M0 0 L10 10\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    }\n  }\n}",
+   "outline": "path#p 10×10 @0,0 d=\"M0 0 L10 10\"\ncontent: x=0 y=0 w=10 h=10\nnext: x=90 y=0",
+   "outlineDepth0": "path#p 10×10 @0,0 d=\"M0 0 L10 10\"\ncontent: x=0 y=0 w=10 h=10\nnext: x=90 y=0",
+   "outlineDepth1": "path#p 10×10 @0,0 d=\"M0 0 L10 10\"\ncontent: x=0 y=0 w=10 h=10\nnext: x=90 y=0",
+   "lint": "[{\"rule\":\"invisible-path\",\"severity\":\"warning\",\"nodeId\":\"p\",\"message\":\"a path without fill or stroke is invisible; set fill or stroke {color,width}\"}]",
+   "lintRoots": {
+    "p": "[{\"rule\":\"invisible-path\",\"severity\":\"warning\",\"nodeId\":\"p\",\"message\":\"a path without fill or stroke is invisible; set fill or stroke {color,width}\"}]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "htmlRoots": {
+    "p": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "p": "export function P() {\n  return (\n    <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"10px\", flexShrink: 0, height: \"10px\", overflow: \"visible\", display: \"block\", filter: \"drop-shadow(1px 2px 3px #000)\", boxShadow: \"inset 0px 0px 4px 0px #fff\" }}>\n      <path d=\"M0 0 L10 10\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "htmlVarsRoots": {
+    "p": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>"
+   },
+   "reactVars": {
+    "p": "export const tokensCss = \":root{}\";\n\nexport function P() {\n  return (\n    <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"10px\", flexShrink: 0, height: \"10px\", overflow: \"visible\", display: \"block\", filter: \"drop-shadow(1px 2px 3px #000)\", boxShadow: \"inset 0px 0px 4px 0px #fff\" }}>\n      <path d=\"M0 0 L10 10\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n"
+   },
+   "tailwind": {
+    "p": "export function P() {\n  return (\n    <svg className=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px] overflow-visible block drop-shadow-[1px_2px_3px_#000] shadow-[inset_0px_0px_4px_0px_#fff]\">\n      <path d=\"M0 0 L10 10\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "p": "export const tokensCss = \":root{}\";\n\nexport function P() {\n  return (\n    <svg className=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px] overflow-visible block drop-shadow-[1px_2px_3px_#000] shadow-[inset_0px_0px_4px_0px_#fff]\">\n      <path d=\"M0 0 L10 10\" fill=\"none\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[10px] h-[10px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><svg data-paprika-id=\"p\" data-paprika-type=\"path\" class=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px] overflow-visible block drop-shadow-[1px_2px_3px_#000] shadow-[inset_0px_0px_4px_0px_#fff]\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[10px] h-[10px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><svg data-paprika-id=\"p\" data-paprika-type=\"path\" class=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px] overflow-visible block drop-shadow-[1px_2px_3px_#000] shadow-[inset_0px_0px_4px_0px_#fff]\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "tailwindHtmlRoots": {
+    "p": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[10px] h-[10px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><svg data-paprika-id=\"p\" data-paprika-type=\"path\" class=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px] overflow-visible block drop-shadow-[1px_2px_3px_#000] shadow-[inset_0px_0px_4px_0px_#fff]\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>"
+   },
+   "cssModules": {
+    "p": "{\"component\":\"import styles from \\\"./P.module.css\\\";\\n\\nexport function P() {\\n  return (\\n    <svg className={styles.p}>\\n      <path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fillRule=\\\"nonzero\\\" strokeLinecap=\\\"round\\\" strokeLinejoin=\\\"round\\\" />\\n    </svg>\\n  );\\n}\\n\",\"css\":\".p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n\",\"fileName\":\"P.module.css\"}"
+   },
+   "cssModulesVars": {
+    "p": "{\"component\":\"import styles from \\\"./P.module.css\\\";\\n\\nexport function P() {\\n  return (\\n    <svg className={styles.p}>\\n      <path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fillRule=\\\"nonzero\\\" strokeLinecap=\\\"round\\\" strokeLinejoin=\\\"round\\\" />\\n    </svg>\\n  );\\n}\\n\",\"css\":\":root{}\\n.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n\",\"fileName\":\"P.module.css\"}"
+   },
+   "angular": {
+    "p": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-p\\\",\\n  standalone: true,\\n  templateUrl: \\\"./P.component.html\\\",\\n  styleUrl: \\\"./P.component.css\\\",\\n})\\nexport class P {}\\n\",\"template\":\"<svg data-paprika-id=\\\"p\\\" data-paprika-type=\\\"path\\\" class=\\\"p\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\",\"styles\":\".p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n\",\"className\":\"P\",\"selector\":\"app-p\",\"fileBase\":\"P\"}"
+   },
+   "angularVars": {
+    "p": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-p\\\",\\n  standalone: true,\\n  templateUrl: \\\"./P.component.html\\\",\\n  styleUrl: \\\"./P.component.css\\\",\\n})\\nexport class P {}\\n\",\"template\":\"<svg data-paprika-id=\\\"p\\\" data-paprika-type=\\\"path\\\" class=\\\"p\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\",\"styles\":\":root{}\\n.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n\",\"className\":\"P\",\"selector\":\"app-p\",\"fileBase\":\"P\"}"
+   },
+   "svelte": {
+    "p": "{\"source\":\"<svg data-paprika-id=\\\"p\\\" data-paprika-type=\\\"path\\\" class=\\\"p\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\\n<style>\\n.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n</style>\\n\",\"fileName\":\"P.svelte\"}"
+   },
+   "svelteVars": {
+    "p": "{\"source\":\"<svg data-paprika-id=\\\"p\\\" data-paprika-type=\\\"path\\\" class=\\\"p\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M0 0 L10 10\\\" fill=\\\"none\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\\n<style>\\n:global(:root){}\\n.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}\\n</style>\\n\",\"fileName\":\"P.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" class=\"p\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}\n.p{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff}</style>\n</head><body><svg data-paprika-id=\"p\" data-paprika-type=\"path\" class=\"p\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L10 10\" fill=\"none\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+   "describe": {
+    "p": "path#p 10×10 @0,0 d=\"M0 0 L10 10\""
+   },
+   "style": {
+    "p": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px;overflow:visible;display:block;filter:drop-shadow(1px 2px 3px #000);box-shadow:inset 0px 0px 4px 0px #fff"
+   },
+   "find": {
+    "text": [],
+    "nameA": [],
+    "textE": [],
+    "within": [
+     "p"
+    ]
+   }
+  },
+  {
+   "name": "op242",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"r\"\n  ],\n  \"nodes\": {\n    \"r\": {\n      \"id\": \"r\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 100,\n      \"height\": 100,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"shadow\": {\n        \"x\": 0,\n        \"y\": 1,\n        \"blur\": 2,\n        \"spread\": 0,\n        \"color\": \"#000\",\n        \"inner\": true\n      },\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "outline": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "outlineDepth0": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "outlineDepth1": "rect#r 100×100 @0,0\ncontent: x=0 y=0 w=100 h=100\nnext: x=180 y=0",
+   "lint": "[]",
+   "lintRoots": {
+    "r": "[]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000\"></div></body></html>",
+   "htmlRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000\"></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "r": "export function R() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", boxShadow: \"inset 0px 1px 2px 0px #000\" }} />\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000\"></div></body></html>",
+   "htmlVarsRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000\"></div></body></html>"
+   },
+   "reactVars": {
+    "r": "export const tokensCss = \":root{}\";\n\nexport function R() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"100px\", flexShrink: 0, height: \"100px\", boxShadow: \"inset 0px 1px 2px 0px #000\" }} />\n  );\n}\n"
+   },
+   "tailwind": {
+    "r": "export function R() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[inset_0px_1px_2px_0px_#000]\" />\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "r": "export const tokensCss = \":root{}\";\n\nexport function R() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[inset_0px_1px_2px_0px_#000]\" />\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[inset_0px_1px_2px_0px_#000]\"></div></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[inset_0px_1px_2px_0px_#000]\"></div></body></html>",
+   "tailwindHtmlRoots": {
+    "r": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[100px] h-[100px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[100px] shrink-0 h-[100px] shadow-[inset_0px_1px_2px_0px_#000]\"></div></body></html>"
+   },
+   "cssModules": {
+    "r": "{\"component\":\"import styles from \\\"./R.module.css\\\";\\n\\nexport function R() {\\n  return (\\n    <div className={styles.r} />\\n  );\\n}\\n\",\"css\":\".r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n\",\"fileName\":\"R.module.css\"}"
+   },
+   "cssModulesVars": {
+    "r": "{\"component\":\"import styles from \\\"./R.module.css\\\";\\n\\nexport function R() {\\n  return (\\n    <div className={styles.r} />\\n  );\\n}\\n\",\"css\":\":root{}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n\",\"fileName\":\"R.module.css\"}"
+   },
+   "angular": {
+    "r": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-r\\\",\\n  standalone: true,\\n  templateUrl: \\\"./R.component.html\\\",\\n  styleUrl: \\\"./R.component.css\\\",\\n})\\nexport class R {}\\n\",\"template\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\",\"styles\":\".r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n\",\"className\":\"R\",\"selector\":\"app-r\",\"fileBase\":\"R\"}"
+   },
+   "angularVars": {
+    "r": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-r\\\",\\n  standalone: true,\\n  templateUrl: \\\"./R.component.html\\\",\\n  styleUrl: \\\"./R.component.css\\\",\\n})\\nexport class R {}\\n\",\"template\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\",\"styles\":\":root{}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n\",\"className\":\"R\",\"selector\":\"app-r\",\"fileBase\":\"R\"}"
+   },
+   "svelte": {
+    "r": "{\"source\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\\n<style>\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n</style>\\n\",\"fileName\":\"R.svelte\"}"
+   },
+   "svelteVars": {
+    "r": "{\"source\":\"<div data-paprika-id=\\\"r\\\" data-paprika-type=\\\"rect\\\" class=\\\"r\\\"></div>\\n\\n<style>\\n:global(:root){}\\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}\\n</style>\\n\",\"fileName\":\"R.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"r\"></div></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:100px;height:100px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}\n.r{box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000}</style>\n</head><body><div data-paprika-id=\"r\" data-paprika-type=\"rect\" class=\"r\"></div></body></html>",
+   "describe": {
+    "r": "rect#r 100×100 @0,0"
+   },
+   "style": {
+    "r": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:100px;flex-shrink:0;height:100px;box-shadow:inset 0px 1px 2px 0px #000"
+   },
+   "find": {
+    "text": [],
+    "nameA": [],
+    "textE": [],
+    "within": [
+     "r"
+    ]
+   }
   }
  ],
  "paths": [
@@ -44236,6 +44587,13 @@
     "result": {
      "ok": true,
      "value": "{\"nodes\":[],\"warnings\":[\"the HTML has no elements to import\"]}"
+    }
+   },
+   {
+    "src": "<div data-paprika-type=\"rect\" style=\"position:absolute;left:0px;top:0px;width:100px;height:80px;background:#fff;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 4px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) hue-rotate(15deg);backdrop-filter:blur(8px)\"></div>",
+    "result": {
+     "ok": true,
+     "value": "{\"nodes\":[{\"type\":\"rect\",\"x\":0,\"y\":0,\"width\":100,\"height\":80,\"fill\":\"#fff\",\"shadow\":{\"x\":0,\"y\":8,\"blur\":16,\"spread\":0,\"color\":\"#00000055, inset 0px 2px 4px 0px #4cc7d8\"},\"filter\":{\"blur\":1,\"saturate\":1.2,\"hueRotate\":15},\"backdropFilter\":{\"blur\":8},\"outline\":{\"color\":\"#4cc7d8\",\"width\":2,\"style\":\"dashed\",\"offset\":2}}],\"warnings\":[]}"
     }
    },
    {
@@ -46378,7 +46736,9 @@
   {
    "key": "filter",
    "value": "blur(2px)",
-   "classes": null
+   "classes": [
+    "filter-[blur(2px)]"
+   ]
   },
   {
    "key": "overflow",

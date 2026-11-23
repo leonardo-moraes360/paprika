@@ -20,7 +20,7 @@ import (
 var CopyOverrides = []string{"fill", "color", "text", "src", "alt", "visible", "opacity"}
 
 // RootDerived are the fields of an instance root that come from the component.
-var RootDerived = []string{"fill", "stroke", "radius", "shadow", "layout", "clip", "width", "height"}
+var RootDerived = []string{"fill", "stroke", "radius", "shadow", "outline", "filter", "backdropFilter", "layout", "clip", "width", "height"}
 
 func inList(list []string, k string) bool {
 	return slices.Contains(list, k)
@@ -183,6 +183,44 @@ func scaleGeometry(n *jsonv.Object, s float64, withPosition bool) {
 			sh.Set(k, sc(v))
 		}
 		n.Set("shadow", sh)
+	} else if arr := n.Arr("shadow"); len(arr) > 0 {
+		out := make([]any, len(arr))
+		for i, item := range arr {
+			o, ok := item.(*jsonv.Object)
+			if !ok {
+				out[i] = item
+				continue
+			}
+			o = o.Spread()
+			for _, k := range []string{"x", "y", "blur", "spread"} {
+				v, _ := o.Get(k)
+				o.Set(k, sc(v))
+			}
+			out[i] = o
+		}
+		n.Set("shadow", out)
+	}
+	if ol := n.Obj("outline"); ol != nil {
+		ol = ol.Spread()
+		w, _ := ol.Get("width")
+		ol.Set("width", sc(w))
+		if off, ok := ol.Get("offset"); ok {
+			ol.Set("offset", sc(off))
+		}
+		n.Set("outline", ol)
+	}
+	for _, key := range []string{"filter", "backdropFilter"} {
+		fx := n.Obj(key)
+		if fx == nil {
+			continue
+		}
+		if _, ok := fx.Get("blur"); !ok {
+			continue
+		}
+		fx = fx.Spread()
+		b, _ := fx.Get("blur")
+		fx.Set("blur", sc(b))
+		n.Set(key, fx)
 	}
 	if l := n.Obj("layout"); l != nil {
 		l = l.Spread()

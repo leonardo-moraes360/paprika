@@ -449,6 +449,19 @@ const opCases = [
     { op: "create", node: { type: "frame", id: "modal", name: "Delete", x: 8, y: 8, width: 200, height: 100, fill: "#ffffff" } },
     { op: "update", id: "modal", props: { index: "back" } },
   ]],
+  ["empty", [R({
+    shadow: [
+      { x: 0, y: 8, blur: 16, spread: 0, color: "#00000055" },
+      { x: 0, y: 2, blur: 6, color: "#4cc7d8", inner: true },
+    ],
+    outline: { color: "#4cc7d8", width: 2, style: "dashed", offset: 2 },
+    filter: { blur: 1, saturate: 1.2, grayscale: 0, hueRotate: 15 },
+    backdropFilter: { blur: 8 },
+  })]],
+  ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M0 0 L10 10", shadow: [{ x: 1, y: 2, blur: 3, color: "#000" }, { x: 0, y: 0, blur: 4, color: "#fff", inner: true }] } }]],
+  ["empty", [R({ filter: {} })]],
+  ["empty", [R({ shadow: [] })]],
+  ["empty", [R({ shadow: { x: 0, y: 1, blur: 2, color: "#000", inner: true } })]],
 ];
 
 // ---- composite operations (groups, pages): the generated primitive ops ----
@@ -808,6 +821,7 @@ const htmlCases = [
   '<div style="display:flex; gap:8px"><span>Olá</span><span>mundo</span></div>',
   'texto solto',
   '',
+  '<div data-paprika-type="rect" style="position:absolute;left:0px;top:0px;width:100px;height:80px;background:#fff;box-shadow:0px 8px 16px 0px #00000055, inset 0px 2px 4px 0px #4cc7d8;outline:2px dashed #4cc7d8;outline-offset:2px;filter:blur(1px) saturate(1.2) hue-rotate(15deg);backdrop-filter:blur(8px)"></div>',
 ];
 for (const [name, doc] of Object.entries(docs)) {
   htmlCases.push(renderHTML(doc).html);

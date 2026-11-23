@@ -40,6 +40,7 @@ import {
 import { Activity } from "./Activity";
 import type { Activity as ActivityEntry } from "./useDocument";
 import { FontPicker } from "./FontPicker";
+import { EffectsSection } from "./inspector/EffectsSection";
 import { ColorField, Field, ModeField, SelectField, num, size } from "./inspector/fields";
 import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
@@ -431,6 +432,7 @@ export function Inspector(props: Props) {
           )}
         </div>
       </InspectorSection>
+      <EffectsSection doc={doc} node={node} mode={themeMode} set={set} />
 
       {node.type === "text" && (
         <InspectorSection id="text" title="Texto">

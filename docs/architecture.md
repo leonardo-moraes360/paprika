@@ -52,7 +52,7 @@
 - Instances can't be nested inside components yet, and only appearance fields can be overridden (no component props or slots). `scale` doesn't scale a `fontSize` that is a token.
 - The contrast lint ignores gradients and background images.
 - Agent presence reaches only canvases of the same process: a `paprika mcp` (stdio) whose port was taken runs without a canvas, so its cursor does not show in the `paprika serve` canvas. Use MCP over HTTP to be seen.
-- SVG import skips text, images, gradients/patterns (filled gray), masks, clip paths and `<style>` CSS; HTML import only reads inline `style=""` (no classes or stylesheets). SVG export leaves out gradients and background images, draws shadows without spread, and uses `layout(doc)` (no headless Chromium); text glyph wrap is approximate.
+- SVG import skips text, images, gradients/patterns (filled gray), masks, clip paths and `<style>` CSS; HTML import only reads inline `style=""` (no classes or stylesheets). SVG export leaves out gradients and background images, draws shadows without spread, skips an inner shadow with a warning, and uses `layout(doc)` (no headless Chromium); text glyph wrap is approximate.
 - Dragging on the canvas only moves nodes whose parent has no auto layout (in row/column, order comes from the layout).
 - The agent-facing guide and error messages are in Brazilian Portuguese.
 

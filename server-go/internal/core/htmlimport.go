@@ -31,19 +31,27 @@ var (
 	htmlAlign    = map[string]string{"flex-start": "start", "start": "start", "center": "center", "flex-end": "end", "end": "end", "stretch": "stretch", "normal": "stretch"}
 	htmlJustify  = map[string]string{"flex-start": "start", "start": "start", "center": "center", "flex-end": "end", "end": "end", "space-between": "between", "normal": "start"}
 
-	pxRe        = regexp.MustCompile(`^(-?(?:\d+\.?\d*|\.\d+))(px)?$`)
-	wsRunRe     = regexp.MustCompile(`[` + jsWS + `]+`)
-	wsCommaRe   = regexp.MustCompile(`[` + jsWS + `,]+`)
-	collapseRe  = regexp.MustCompile(`[ \t\r\n\f]+`)
-	edgeSpaceRe = regexp.MustCompile(`^ +| +$`)
-	edgeNLRe    = regexp.MustCompile(`^\n+|\n+$`)
-	fontBadRe   = regexp.MustCompile(`[;{}<>()]`)
-	flexFillRe  = regexp.MustCompile(`^1(?:[` + jsWS + `]+1[` + jsWS + `]+0(?:px|%)?)?$`)
-	rotateRe    = regexp.MustCompile(`rotate\((-?[\d.]+)deg\)`)
-	borderRe    = regexp.MustCompile(`^(\d+(?:\.\d+)?)px[` + jsWS + `]+(solid|dashed|dotted|double)[` + jsWS + `]+(.+)$`)
-	shadowRe    = regexp.MustCompile(`^(-?[\d.]+)px[` + jsWS + `]+(-?[\d.]+)px[` + jsWS + `]+([\d.]+)px(?:[` + jsWS + `]+(-?[\d.]+)px)?[` + jsWS + `]+(.+)$`)
-	dropShRe    = regexp.MustCompile(`drop-shadow\((-?[\d.]+)px[` + jsWS + `]+(-?[\d.]+)px[` + jsWS + `]+([\d.]+)px[` + jsWS + `]+(.+)\)$`)
-	imgSrcRe    = regexp.MustCompile(`^(?:https?:|data:image/)`)
+	pxRe          = regexp.MustCompile(`^(-?(?:\d+\.?\d*|\.\d+))(px)?$`)
+	wsRunRe       = regexp.MustCompile(`[` + jsWS + `]+`)
+	wsCommaRe     = regexp.MustCompile(`[` + jsWS + `,]+`)
+	collapseRe    = regexp.MustCompile(`[ \t\r\n\f]+`)
+	edgeSpaceRe   = regexp.MustCompile(`^ +| +$`)
+	edgeNLRe      = regexp.MustCompile(`^\n+|\n+$`)
+	fontBadRe     = regexp.MustCompile(`[;{}<>()]`)
+	flexFillRe    = regexp.MustCompile(`^1(?:[` + jsWS + `]+1[` + jsWS + `]+0(?:px|%)?)?$`)
+	rotateRe      = regexp.MustCompile(`rotate\((-?[\d.]+)deg\)`)
+	borderRe      = regexp.MustCompile(`^(\d+(?:\.\d+)?)px[` + jsWS + `]+(solid|dashed|dotted|double)[` + jsWS + `]+(.+)$`)
+	shadowRe      = regexp.MustCompile(`^(-?[\d.]+)px[` + jsWS + `]+(-?[\d.]+)px[` + jsWS + `]+([\d.]+)px(?:[` + jsWS + `]+(-?[\d.]+)px)?[` + jsWS + `]+(.+)$`)
+	shadowLayerRe = regexp.MustCompile(`^(inset[` + jsWS + `]+)?(-?[\d.]+)px[` + jsWS + `]+(-?[\d.]+)px[` + jsWS + `]+([\d.]+)px(?:[` + jsWS + `]+(-?[\d.]+)px)?[` + jsWS + `]+(.+)$`)
+	insetStartRe  = regexp.MustCompile(`^inset\b`)
+	dropShRe      = regexp.MustCompile(`drop-shadow\((-?[\d.]+)px[` + jsWS + `]+(-?[\d.]+)px[` + jsWS + `]+([\d.]+)px[` + jsWS + `]+(.+)\)$`)
+	filterFnRe    = regexp.MustCompile(`(blur|saturate|grayscale|brightness|sepia|invert|hue-rotate)\(([^)]+)\)`)
+	filterBlurRe  = regexp.MustCompile(`^([\d.]+)px$`)
+	filterHueRe   = regexp.MustCompile(`^(-?[\d.]+)deg$`)
+	filterPctRe   = regexp.MustCompile(`^(-?[\d.]+)%$`)
+	outlineRe     = regexp.MustCompile(`^([\d.]+)px[` + jsWS + `]+(solid|dashed|dotted)[` + jsWS + `]+(.+)$`)
+	outlineOffRe  = regexp.MustCompile(`^(-?[\d.]+)px$`)
+	imgSrcRe      = regexp.MustCompile(`^(?:https?:|data:image/)`)
 )
 
 // px is "12px" or "0" → 12/0; anything else → nil.
@@ -356,6 +364,145 @@ func boxProps(node *jsonv.Object, css map[string]string, ctx *htmlCtx, foreign b
 			node.Set("shadow", jsonv.NewObject("x", jsonv.ToNumber(m[1]), "y", jsonv.ToNumber(m[2]), "blur", jsonv.ToNumber(m[3]), "spread", spread, "color", c))
 		}
 	}
+	if _, ok := node.Get("shadow"); !ok {
+		if layers := parseShadowLayers(jsonv.Trim(css["box-shadow"]), ctx); layers != nil {
+			node.Set("shadow", layers)
+		}
+	}
+	if fx := parseFilterFns(css["filter"]); fx != nil {
+		node.Set("filter", fx)
+	}
+	if bd := parseFilterFns(css["backdrop-filter"]); bd != nil {
+		node.Set("backdropFilter", bd)
+	}
+	if outline := parseOutlineCss(css, ctx); outline != nil {
+		node.Set("outline", outline)
+	}
+}
+
+func splitTop(s string) []string {
+	var out []string
+	depth := 0
+	start := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '(':
+			depth++
+		case ')':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				if p := strings.TrimSpace(s[start:i]); p != "" {
+					out = append(out, p)
+				}
+				start = i + 1
+			}
+		}
+	}
+	if p := strings.TrimSpace(s[start:]); p != "" {
+		out = append(out, p)
+	}
+	return out
+}
+
+func parseShadowLayers(raw string, ctx *htmlCtx) any {
+	if raw == "" {
+		return nil
+	}
+	parts := splitTop(raw)
+	if len(parts) < 2 && !insetStartRe.MatchString(raw) {
+		return nil
+	}
+	var parsed []any
+	for _, part := range parts {
+		m := shadowLayerRe.FindStringSubmatch(part)
+		if m == nil {
+			return nil
+		}
+		c := htmlColor(m[6], ctx)
+		if c == "" {
+			return nil
+		}
+		spread := 0.0
+		if m[5] != "" {
+			spread = jsonv.ToNumber(m[5])
+		}
+		layer := jsonv.NewObject("x", jsonv.ToNumber(m[2]), "y", jsonv.ToNumber(m[3]), "blur", jsonv.ToNumber(m[4]), "spread", spread, "color", c)
+		if m[1] != "" {
+			layer.Set("inner", true)
+		}
+		parsed = append(parsed, layer)
+	}
+	if len(parsed) == 0 {
+		return nil
+	}
+	if len(parsed) == 1 {
+		return parsed[0]
+	}
+	return parsed
+}
+
+func parseFilterArg(name, raw string) (float64, bool) {
+	t := jsonv.Trim(raw)
+	if name == "blur" {
+		m := filterBlurRe.FindStringSubmatch(t)
+		if m == nil {
+			return 0, false
+		}
+		return jsonv.ToNumber(m[1]), true
+	}
+	if name == "hue-rotate" {
+		m := filterHueRe.FindStringSubmatch(t)
+		if m == nil {
+			return 0, false
+		}
+		return jsonv.ToNumber(m[1]), true
+	}
+	if m := filterPctRe.FindStringSubmatch(t); m != nil {
+		return jsonv.ToNumber(m[1]) / 100, true
+	}
+	n := jsonv.ToNumber(t)
+	if math.IsNaN(n) || math.IsInf(n, 0) {
+		return 0, false
+	}
+	return n, true
+}
+
+func parseFilterFns(raw string) *jsonv.Object {
+	out := jsonv.NewObject()
+	for _, m := range filterFnRe.FindAllStringSubmatch(raw, -1) {
+		n, ok := parseFilterArg(m[1], m[2])
+		if !ok {
+			continue
+		}
+		key := m[1]
+		if key == "hue-rotate" {
+			key = "hueRotate"
+		}
+		out.Set(key, n)
+	}
+	if len(out.Keys()) == 0 {
+		return nil
+	}
+	return out
+}
+
+func parseOutlineCss(css map[string]string, ctx *htmlCtx) *jsonv.Object {
+	m := outlineRe.FindStringSubmatch(jsonv.Trim(css["outline"]))
+	if m == nil {
+		return nil
+	}
+	c := htmlColor(m[3], ctx)
+	if c == "" {
+		return nil
+	}
+	outline := jsonv.NewObject("color", c, "width", jsonv.ToNumber(m[1]), "style", m[2])
+	if off := outlineOffRe.FindStringSubmatch(jsonv.Trim(css["outline-offset"])); off != nil {
+		outline.Set("offset", jsonv.ToNumber(off[1]))
+	}
+	return outline
 }
 
 func layoutOf(css map[string]string, foreignFlow bool) *jsonv.Object {
