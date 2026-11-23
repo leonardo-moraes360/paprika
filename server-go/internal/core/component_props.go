@@ -499,10 +499,7 @@ func overrideAllowed(doc *Document, comp *Node, srcID, key string) bool {
 		return key == "fill"
 	}
 	if key == "propValues" || key == "slots" {
-		head := srcID
-		if i := strings.Index(srcID, "/"); i >= 0 {
-			head = srcID[:i]
-		}
+		head, _, _ := strings.Cut(srcID, "/")
 		return IsInstance(GetNode(doc, head))
 	}
 	return inList(CopyOverrides, key)
