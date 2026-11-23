@@ -564,7 +564,7 @@ func TestActiveRenderer(t *testing.T) {
 		if isErr {
 			t.Fatalf("outline: %q", out)
 		}
-		for _, l := range strings.Split(out, "\n") {
+		for l := range strings.SplitSeq(out, "\n") {
 			if strings.HasPrefix(l, "renderer:") {
 				return l
 			}
