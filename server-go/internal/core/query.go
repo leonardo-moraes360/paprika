@@ -45,6 +45,9 @@ func DescribeNode(n *Node) string {
 	w, _ := n.Get("width")
 	h, _ := n.Get("height")
 	parts = append(parts, jsString(w)+"×"+jsString(h), "@"+jsString(n.Num("x"))+","+jsString(n.Num("y")))
+	if g := nodeGradient(n); g != nil {
+		parts = append(parts, "gradient="+g.Str("type"))
+	}
 	if fill, ok := n.Get("fill"); ok {
 		parts = append(parts, "fill="+jsString(fill))
 	}

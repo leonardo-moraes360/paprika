@@ -6,11 +6,14 @@ import {
   Node,
   NodeType,
   ModeName,
+  CollectionName,
   TokenName,
+  TokenTypeName,
   TokenValue,
   type Document as DocumentT,
   type GroupNode,
   type Node as NodeT,
+  type ShadowSpec,
   isContainer,
   isScene,
   knownKeys,
@@ -23,7 +26,8 @@ import { combinePathsOps } from "./boolean.js";
 import { round4 } from "./num.js";
 import { PlaceSpecSchema, resolvePlace } from "./placement.js";
 import { ConnectorError, connectorsAttachedTo, routeConnectors, shapeDefaults } from "./diagram.js";
-import { lengthTokenError } from "./style.js";
+import { parseColor } from "./lint.js";
+import { lengthTokenError, modeOf, resolveValue } from "./style.js";
 import { applyConstraints } from "./constraints.js";
 import {
   COPY_OVERRIDES,
@@ -111,6 +115,10 @@ export const SetTokensOp = z.object({
   tokens: z.record(TokenName, TokenValue.nullable()),
   /** Grava os valores do modo de tema `mode` em vez dos tokens base; um modo sem tokens some. */
   mode: ModeName.optional(),
+  /** Tipo dos tokens desta chamada. `null` tira o tipo (o valor volta a ser livre). */
+  type: TokenTypeName.nullable().optional(),
+  /** Coleção nomeada dos tokens desta chamada. `null` tira a coleção. */
+  collection: CollectionName.nullable().optional(),
 });
 
 export const RenameDocumentOp = z.object({ op: z.literal("rename_document"), name: z.string().min(1).max(200) });
@@ -137,6 +145,15 @@ export const AddPageOp = z.object({
 
 /** Desanexa instâncias: viram frames comuns com cópias normais (expandida em updates). */
 export const DetachOp = z.object({ op: z.literal("detach"), ids: z.array(z.string()).min(1).max(500) });
+
+const TokenField = z.string().regex(/^[a-zA-Z][a-zA-Z.]{0,39}$/, "field must be a token field name");
+
+/** Troca referências `$token` de um nó pelo valor resolvido. */
+export const DetachTokensOp = z.object({
+  op: z.literal("detach_tokens"),
+  ids: z.array(z.string()).min(1).max(500),
+  fields: z.array(TokenField).max(20).optional(),
+});
 
 /** Alinha irmãos pela caixa da seleção (um passo de desfazer). */
 export const AlignOp = z.object({
@@ -197,6 +214,7 @@ export const Op = z.discriminatedUnion("op", [
   UngroupOp,
   AddPageOp,
   DetachOp,
+  DetachTokensOp,
   CombinePathsOp,
   AlignOp,
   DistributeOp,
@@ -527,18 +545,62 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       // ever writing a prototype key into the plain objects of the document.
       if (op.mode === "__proto__") throw new Error("mode name cannot be __proto__");
       const prev: Record<string, string | number | null> = {};
+      const prevMeta: Record<string, NonNullable<DocumentT["tokenMeta"]>[string] | undefined> = {};
       const target = op.mode ? ((doc.modes ??= {})[op.mode] ??= {}) : doc.tokens;
-      for (const [k, v] of Object.entries(op.tokens)) {
-        if (k === "__proto__") continue;
+      const entries = Object.entries(op.tokens).filter(([k]) => k !== "__proto__");
+      for (const [k, v] of entries) {
+        prevMeta[k] = doc.tokenMeta?.[k] ? { ...doc.tokenMeta[k] } : undefined;
         prev[k] = Object.hasOwn(target, k) ? (target[k] ?? null) : null;
         if (v === null) delete target[k];
         else target[k] = v;
+      }
+      const metaTouched = op.type !== undefined || op.collection !== undefined;
+      if (metaTouched) {
+        for (const [k, v] of entries) {
+          if (v === null) continue;
+          writeTokenMeta(doc, k, op.type, op.collection);
+        }
+      }
+      for (const [k] of entries) {
+        if (!tokenAlive(doc, k)) clearTokenMeta(doc, k);
+      }
+      for (const [k, v] of entries) {
+        if (v === null) continue;
+        const type = doc.tokenMeta?.[k]?.type;
+        if (!type) continue;
+        const problem = tokenAssignProblem(doc, k, v, type, op.mode);
+        if (problem) throw new OpError(problem, i);
       }
       if (op.mode && doc.modes) {
         if (Object.keys(target).length === 0) delete doc.modes[op.mode];
         if (Object.keys(doc.modes).length === 0) delete doc.modes;
       }
-      return [op.mode ? { op: "set_tokens", tokens: prev, mode: op.mode } : { op: "set_tokens", tokens: prev }];
+      const split = metaTouched || entries.some(([k]) => prevMeta[k]);
+      if (!split) return [op.mode ? { op: "set_tokens", tokens: prev, mode: op.mode } : { op: "set_tokens", tokens: prev }];
+      return entries.map(([k]) => {
+        const was = prevMeta[k];
+        const died = !tokenAlive(doc, k);
+        const extra: { type?: NonNullable<DocumentT["tokenMeta"]>[string]["type"] | null; collection?: string | null } = {};
+        if (op.type !== undefined || (died && was?.type)) extra.type = was?.type ?? null;
+        if (op.collection !== undefined || (died && was?.collection)) extra.collection = was?.collection ?? null;
+        return { op: "set_tokens" as const, tokens: { [k]: prev[k] ?? null }, ...(op.mode ? { mode: op.mode } : {}), ...extra };
+      });
+    }
+    case "detach_tokens": {
+      const inverse: Op[] = [];
+      let changed = 0;
+      for (const id of op.ids) {
+        const node = doc.nodes[id];
+        if (!node) throw new OpError(`node "${id}" does not exist`, i);
+        const owner = copyOwner(doc, node);
+        if (owner) throw new OpError(copyRule(id, owner.id), i);
+        const props = detachTokenProps(doc, node, op.fields, i);
+        if (!props) continue;
+        changed++;
+        inverse.unshift(...applyOne(doc, Op.parse({ op: "update", id, props }), i, created));
+      }
+      if (!changed) throw new OpError(`no token to detach on ${op.ids.map((id) => `"${id}"`).join(", ")}`, i);
+      return inverse;
     }
     case "rename_document": {
       const prev = doc.name;
@@ -583,6 +645,296 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       return inverse;
     }
   }
+}
+
+function tokenAlive(doc: DocumentT, name: string): boolean {
+  if (Object.hasOwn(doc.tokens, name)) return true;
+  return Object.values(doc.modes ?? {}).some((m) => Object.hasOwn(m, name));
+}
+
+function clearTokenMeta(doc: DocumentT, name: string) {
+  if (!doc.tokenMeta || !Object.hasOwn(doc.tokenMeta, name)) return;
+  delete doc.tokenMeta[name];
+  if (Object.keys(doc.tokenMeta).length === 0) delete doc.tokenMeta;
+}
+
+function writeTokenMeta(doc: DocumentT, name: string, type: string | null | undefined, collection: string | null | undefined) {
+  const next: { type?: string; collection?: string } = { ...(doc.tokenMeta?.[name] ?? {}) };
+  if (type !== undefined) {
+    if (type === null) delete next.type;
+    else next.type = type;
+  }
+  if (collection !== undefined) {
+    if (collection === null) delete next.collection;
+    else next.collection = collection;
+  }
+  if (!next.type && !next.collection) clearTokenMeta(doc, name);
+  else (doc.tokenMeta ??= {})[name] = next as NonNullable<DocumentT["tokenMeta"]>[string];
+}
+
+function tokenAssignProblem(doc: DocumentT, name: string, value: string | number, type: string, mode?: string): string | undefined {
+  let literal: string | number = value;
+  if (typeof value === "string" && value.startsWith("$")) {
+    const resolved = resolveValue(doc, value, mode);
+    if ((typeof resolved === "string" && resolved.startsWith("$")) || (typeof resolved !== "string" && typeof resolved !== "number"))
+      return `token "${name}": "${value}" does not resolve to a ${type}`;
+    literal = resolved;
+  }
+  const shown = JSON.stringify(literal);
+  switch (type) {
+    case "color":
+      if (typeof literal !== "string" || !parseColor(literal)) return `token "${name}": type color expects a color, got ${shown}`;
+      return;
+    case "length":
+      if (typeof literal !== "number" || !Number.isFinite(literal)) return `token "${name}": type length expects a number, got ${shown}`;
+      return;
+    case "fontFamily":
+      if (typeof literal !== "string" || literal.length === 0 || literal.length > 200 || /[;{}<>()]/.test(literal))
+        return `token "${name}": type fontFamily expects a font family, got ${shown}`;
+      return;
+    case "fontWeight":
+      if (typeof literal !== "number" || !Number.isInteger(literal) || literal < 100 || literal > 900)
+        return `token "${name}": type fontWeight expects an integer from 100 to 900, got ${shown}`;
+      return;
+    case "fontSize":
+      if (typeof literal !== "number" || !Number.isFinite(literal) || literal < 1 || literal > 1000)
+        return `token "${name}": type fontSize expects a number from 1 to 1000, got ${shown}`;
+      return;
+    case "lineHeight":
+      if (typeof literal !== "number" || !Number.isFinite(literal) || literal < 0 || literal > 10)
+        return `token "${name}": type lineHeight expects a number from 0 to 10, got ${shown}`;
+      return;
+    case "letterSpacing":
+      if (typeof literal !== "number" || !Number.isFinite(literal)) return `token "${name}": type letterSpacing expects a number, got ${shown}`;
+      return;
+    default:
+      return `token "${name}": unknown type ${type}`;
+  }
+}
+
+const TOKEN_FIELDS = new Set([
+  "fill",
+  "radius",
+  "stroke",
+  "stroke.color",
+  "stroke.width",
+  "shadow",
+  "shadow.x",
+  "shadow.y",
+  "shadow.blur",
+  "shadow.spread",
+  "shadow.color",
+  "outline",
+  "outline.color",
+  "outline.width",
+  "outline.offset",
+  "filter",
+  "filter.blur",
+  "backdropFilter",
+  "backdropFilter.blur",
+  "layout",
+  "layout.gap",
+  "layout.padding",
+  "color",
+  "fontFamily",
+  "fontSize",
+  "fontWeight",
+  "lineHeight",
+  "letterSpacing",
+]);
+
+function fieldOn(fields: ReadonlySet<string> | null, name: string): boolean {
+  if (!fields) return true;
+  if (fields.has(name)) return true;
+  const head = name.split(".")[0] ?? name;
+  return fields.has(head);
+}
+
+function detachScalar(doc: DocumentT, id: string, field: string, value: unknown, mode: string | undefined, kind: "number" | "string", opIndex: number): { value: string | number; changed: boolean } {
+  if (typeof value !== "string" || !value.startsWith("$")) return { value: value as string | number, changed: false };
+  const resolved = resolveValue(doc, value, mode);
+  if (typeof resolved === "string" && resolved.startsWith("$")) throw new OpError(`node "${id}" ${field}: token "${value}" does not resolve`, opIndex);
+  if (kind === "number" && typeof resolved !== "number")
+    throw new OpError(`node "${id}" ${field}: token "${value}" resolved to ${JSON.stringify(resolved)}, expected a length`, opIndex);
+  if (kind === "string" && typeof resolved !== "string")
+    throw new OpError(`node "${id}" ${field}: token "${value}" resolved to ${JSON.stringify(resolved)}, expected text`, opIndex);
+  return { value: resolved, changed: true };
+}
+
+function detachTokenProps(doc: DocumentT, node: NodeT, fields: readonly string[] | undefined, opIndex: number): Record<string, unknown> | undefined {
+  if (fields) {
+    for (const f of fields) {
+      if (!TOKEN_FIELDS.has(f)) throw new OpError(`field "${f}" cannot hold a token`, opIndex);
+    }
+  }
+  const picked = fields ? new Set(fields) : null;
+  const mode = modeOf(doc, node);
+  const props: Record<string, unknown> = {};
+  const on = (name: string) => fieldOn(picked, name);
+  if ("fill" in node && on("fill") && node.fill) {
+    const got = detachScalar(doc, node.id, "fill", node.fill, mode, "string", opIndex);
+    if (got.changed) props.fill = got.value;
+  }
+  if ("color" in node && on("color")) {
+    const got = detachScalar(doc, node.id, "color", node.color, mode, "string", opIndex);
+    if (got.changed) props.color = got.value;
+  }
+  if ("fontFamily" in node && on("fontFamily")) {
+    const got = detachScalar(doc, node.id, "fontFamily", node.fontFamily, mode, "string", opIndex);
+    if (got.changed) props.fontFamily = got.value;
+  }
+  if ("fontSize" in node && on("fontSize")) {
+    const got = detachScalar(doc, node.id, "fontSize", node.fontSize, mode, "number", opIndex);
+    if (got.changed) props.fontSize = got.value;
+  }
+  if ("fontWeight" in node && on("fontWeight")) {
+    const got = detachScalar(doc, node.id, "fontWeight", node.fontWeight, mode, "number", opIndex);
+    if (got.changed) props.fontWeight = got.value;
+  }
+  if ("lineHeight" in node && on("lineHeight")) {
+    const got = detachScalar(doc, node.id, "lineHeight", node.lineHeight, mode, "number", opIndex);
+    if (got.changed) props.lineHeight = got.value;
+  }
+  if ("letterSpacing" in node && on("letterSpacing")) {
+    const got = detachScalar(doc, node.id, "letterSpacing", node.letterSpacing, mode, "number", opIndex);
+    if (got.changed) props.letterSpacing = got.value;
+  }
+  if ("radius" in node && on("radius")) {
+    const radius = node.radius;
+    if (Array.isArray(radius)) {
+      let changed = false;
+      const next = radius.map((item, idx) => {
+        const got = detachScalar(doc, node.id, `radius.${idx}`, item, mode, "number", opIndex);
+        changed = changed || got.changed;
+        return got.value;
+      });
+      if (changed) props.radius = next;
+    } else {
+      const got = detachScalar(doc, node.id, "radius", radius, mode, "number", opIndex);
+      if (got.changed) props.radius = got.value;
+    }
+  }
+  if ("stroke" in node && node.stroke && (on("stroke") || on("stroke.color") || on("stroke.width"))) {
+    const stroke = { ...node.stroke };
+    let changed = false;
+    if (on("stroke") || on("stroke.color")) {
+      const got = detachScalar(doc, node.id, "stroke.color", stroke.color, mode, "string", opIndex);
+      if (got.changed) {
+        stroke.color = String(got.value);
+        changed = true;
+      }
+    }
+    if (on("stroke") || on("stroke.width")) {
+      const got = detachScalar(doc, node.id, "stroke.width", stroke.width, mode, "number", opIndex);
+      if (got.changed) {
+        stroke.width = got.value as number;
+        changed = true;
+      }
+    }
+    if (changed) props.stroke = stroke;
+  }
+  if ("shadow" in node && node.shadow && (on("shadow") || [...TOKEN_FIELDS].some((f) => f.startsWith("shadow.") && on(f)))) {
+    const one = (shadow: ShadowSpec, prefix: string) => {
+      const next = { ...shadow };
+      let changed = false;
+      for (const key of ["x", "y", "blur", "spread"] as const) {
+        if (!(on("shadow") || on(`shadow.${key}`))) continue;
+        const got = detachScalar(doc, node.id, `${prefix}.${key}`, shadow[key], mode, "number", opIndex);
+        if (got.changed) {
+          next[key] = got.value as number;
+          changed = true;
+        }
+      }
+      if (on("shadow") || on("shadow.color")) {
+        const got = detachScalar(doc, node.id, `${prefix}.color`, shadow.color, mode, "string", opIndex);
+        if (got.changed) {
+          next.color = String(got.value);
+          changed = true;
+        }
+      }
+      return { next, changed };
+    };
+    if (Array.isArray(node.shadow)) {
+      let changed = false;
+      const next = node.shadow.map((shadow, i) => {
+        const got = one(shadow, `shadow.${i}`);
+        changed = changed || got.changed;
+        return got.next;
+      });
+      if (changed) props.shadow = next;
+    } else {
+      const got = one(node.shadow, "shadow");
+      if (got.changed) props.shadow = got.next;
+    }
+  }
+  if ("outline" in node && node.outline && (on("outline") || on("outline.color") || on("outline.width") || on("outline.offset"))) {
+    const outline = { ...node.outline };
+    let changed = false;
+    if (on("outline") || on("outline.color")) {
+      const got = detachScalar(doc, node.id, "outline.color", outline.color, mode, "string", opIndex);
+      if (got.changed) {
+        outline.color = String(got.value);
+        changed = true;
+      }
+    }
+    if (on("outline") || on("outline.width")) {
+      const got = detachScalar(doc, node.id, "outline.width", outline.width, mode, "number", opIndex);
+      if (got.changed) {
+        outline.width = got.value as number;
+        changed = true;
+      }
+    }
+    if ((on("outline") || on("outline.offset")) && outline.offset !== undefined) {
+      const got = detachScalar(doc, node.id, "outline.offset", outline.offset, mode, "number", opIndex);
+      if (got.changed) {
+        outline.offset = got.value as number;
+        changed = true;
+      }
+    }
+    if (changed) props.outline = outline;
+  }
+  if ("filter" in node && node.filter?.blur !== undefined && (on("filter") || on("filter.blur"))) {
+    const got = detachScalar(doc, node.id, "filter.blur", node.filter.blur, mode, "number", opIndex);
+    if (got.changed) props.filter = { ...node.filter, blur: got.value as number };
+  }
+  if ("backdropFilter" in node && node.backdropFilter?.blur !== undefined && (on("backdropFilter") || on("backdropFilter.blur"))) {
+    const got = detachScalar(doc, node.id, "backdropFilter.blur", node.backdropFilter.blur, mode, "number", opIndex);
+    if (got.changed) props.backdropFilter = { ...node.backdropFilter, blur: got.value as number };
+  }
+  if (node.type === "frame" && node.layout && (on("layout") || on("layout.gap") || on("layout.padding"))) {
+    const layout = { ...node.layout };
+    let changed = false;
+    if (on("layout") || on("layout.gap")) {
+      const got = detachScalar(doc, node.id, "layout.gap", layout.gap, mode, "number", opIndex);
+      if (got.changed) {
+        layout.gap = got.value as number;
+        changed = true;
+      }
+    }
+    if (on("layout") || on("layout.padding")) {
+      const padding = layout.padding;
+      if (Array.isArray(padding)) {
+        let padChanged = false;
+        const next = padding.map((item, idx) => {
+          const got = detachScalar(doc, node.id, `layout.padding.${idx}`, item, mode, "number", opIndex);
+          padChanged = padChanged || got.changed;
+          return got.value as number;
+        });
+        if (padChanged) {
+          layout.padding = next as typeof layout.padding;
+          changed = true;
+        }
+      } else {
+        const got = detachScalar(doc, node.id, "layout.padding", padding, mode, "number", opIndex);
+        if (got.changed) {
+          layout.padding = got.value as number;
+          changed = true;
+        }
+      }
+    }
+    if (changed) props.layout = layout;
+  }
+  return Object.keys(props).length ? props : undefined;
 }
 
 /**

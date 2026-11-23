@@ -143,12 +143,12 @@ describe("API: MCP", () => {
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
         "apply_ops", "archive_workspace", "combine_paths", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
-        "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
+        "delete_nodes", "delete_workspace", "detach_instance", "detach_tokens", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "align_nodes", "distribute_nodes", "wrap_nodes", "show_all", "unlock_all",
         "get_bounds",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
-        "rename_workspace", "render_screenshot", "resize_image", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
+        "rename_workspace", "render_screenshot", "resize_image", "propose_tokens", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
         "claim_pin", "list_pins", "resolve_pin", "wait_for_pins",
       ].sort(),
@@ -1036,6 +1036,71 @@ describe("API: MCP", () => {
     expect(react).toContain('background: "#14161f"');
     const lint = JSON.parse(textOf(await call(c, "lint_design", { rootId: "escuro" })));
     expect(lint.issues.filter((i: { rule: string }) => i.rule === "unknown-token")).toEqual([]);
+  });
+
+  it("propose_tokens: CSS, Tailwind e JSON viram set_tokens sem gravar e sem ler caminho (PAP-B-083)", async () => {
+    const c = client;
+    const before = textOf(await call(c, "get_document_outline", {}));
+    const css = `:root { --color-bg: #ffffff; --space-md: 16px; --font-sans: Inter, sans-serif; --color-ink: var(--color-bg); }
+.dark { --color-bg: #111111; }`;
+    const proposed = await call(c, "propose_tokens", { content: css });
+    expect(proposed.isError, textOf(proposed)).toBeFalsy();
+    const out = jsonOf(proposed);
+    assertOutput("propose_tokens", out);
+    expect(out.format).toBe("css");
+    expect(out.proposals[0]).toEqual({ op: "set_tokens", tokens: { "color-bg": "#ffffff", "space-md": 16, "color-ink": "$color-bg" } });
+    expect(out.proposals[1]).toEqual({ op: "set_tokens", mode: "dark", tokens: { "color-bg": "#111111" } });
+    expect(out.skipped).toEqual([{ name: "font-sans", reason: "not a color or a length" }]);
+    expect(textOf(await call(c, "get_document_outline", {}))).toBe(before);
+    for (const content of ["/etc/passwd", "../secrets.css", "tokens.json"]) {
+      const refused = await call(c, "propose_tokens", { content });
+      expect(refused.isError, content).toBe(true);
+      expect(textOf(refused)).toContain("not a path");
+    }
+    const tailwind = await call(c, "propose_tokens", {
+      format: "tailwind",
+      content: `module.exports = { theme: { extend: { colors: { brand: '#c43d27' }, borderRadius: { md: '12px' } } } }`,
+    });
+    expect(tailwind.isError, textOf(tailwind)).toBeFalsy();
+    const tw = jsonOf(tailwind);
+    assertOutput("propose_tokens", tw);
+    expect(tw).toMatchObject({ format: "tailwind", proposals: [{ op: "set_tokens", tokens: { "color.brand": "#c43d27", "radius.md": 12 } }] });
+    const json = await call(c, "propose_tokens", {
+      content: JSON.stringify({ color: { bg: { $value: "#000000" } }, size: 16 }),
+    });
+    expect(json.isError, textOf(json)).toBeFalsy();
+    expect(jsonOf(json).proposals[0].tokens).toEqual({ "color.bg": "#000000", size: 16 });
+    const applied = await call(c, "apply_ops", { ops: out.proposals, label: "tokens from css" });
+    expect(applied.isError, textOf(applied)).toBeFalsy();
+    const outline = textOf(await call(c, "get_document_outline", {}));
+    expect(outline).toContain("$color-bg=#ffffff");
+    expect(outline).toContain("$space-md=16");
+    expect(outline).toContain("$color-ink=$color-bg");
+    expect(outline).toContain("modes: dark($color-bg=#111111)");
+  });
+
+  it("tokens tipados, coleção e detach_tokens", async () => {
+    const c = client;
+    const typed = await call(c, "set_tokens", { tokens: { ink: "#111111" }, type: "color", collection: "brand" });
+    expect(typed.isError, textOf(typed)).toBeFalsy();
+    const weight = await call(c, "set_tokens", { tokens: { peso: 600 }, type: "fontWeight" });
+    expect(weight.isError, textOf(weight)).toBeFalsy();
+    const bad = await call(c, "set_tokens", { tokens: { ink: 12 }, type: "color" });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toContain("type color expects a color");
+    const created = await call(c, "create_nodes", {
+      nodes: [{ type: "text", id: "tok", text: "Aa", color: "$ink", fontWeight: "$peso" }],
+    });
+    expect(created.isError, textOf(created)).toBeFalsy();
+    const outline = textOf(await call(c, "get_document_outline", {}));
+    expect(outline).toContain("$ink=#111111 color @brand");
+    expect(outline).toContain("$peso=600 fontWeight");
+    const one = await call(c, "detach_tokens", { ids: ["tok"], fields: ["fontWeight"] });
+    expect(one.isError, textOf(one)).toBeFalsy();
+    expect((await srv.doc()).nodes.tok).toMatchObject({ fontWeight: 600, color: "$ink" });
+    const all = await call(c, "detach_tokens", { ids: ["tok"] });
+    expect(all.isError, textOf(all)).toBeFalsy();
+    expect((await srv.doc()).nodes.tok).toMatchObject({ color: "#111111" });
   });
 
   it("export_code: tailwind, tailwind-html, css-modules, angular e svelte saem do mesmo estilo do canvas", async () => {

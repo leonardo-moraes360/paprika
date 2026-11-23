@@ -21412,6 +21412,103 @@
      "op": "create",
      "node": {
       "type": "rect",
+      "id": "g",
+      "width": 40,
+      "height": 20,
+      "gradient": {
+       "type": "linear",
+       "angle": 12,
+       "stops": [
+        {
+         "color": "#111111",
+         "offset": 0
+        },
+        {
+         "color": "#eeeeee",
+         "offset": 1
+        }
+       ]
+      }
+     }
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"g\"\n  ],\n  \"nodes\": {\n    \"g\": {\n      \"id\": \"g\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 40,\n      \"height\": 20,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"gradient\": {\n        \"type\": \"linear\",\n        \"angle\": 12,\n        \"cx\": 0.5,\n        \"cy\": 0.5,\n        \"radius\": 0.5,\n        \"stops\": [\n          {\n            \"color\": \"#111111\",\n            \"offset\": 0\n          },\n          {\n            \"color\": \"#eeeeee\",\n            \"offset\": 1\n          }\n        ]\n      },\n      \"radius\": 0,\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"delete\",\"id\":\"g\"}]",
+   "created": [
+    "g"
+   ]
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
+      "id": "g",
+      "gradient": {
+       "type": "linear",
+       "stops": [
+        {
+         "color": "#111111",
+         "offset": 0
+        }
+       ]
+      }
+     }
+    }
+   ],
+   "ok": false,
+   "error": "op[0]: invalid node: gradient.stops: Too small: expected array to have >=2 items"
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
+      "id": "g",
+      "width": 10,
+      "height": 10,
+      "gradient": {
+       "type": "linear",
+       "stops": [
+        {
+         "color": "#111111",
+         "offset": 0
+        },
+        {
+         "color": "#eeeeee",
+         "offset": 1
+        }
+       ]
+      }
+     }
+    },
+    {
+     "op": "update",
+     "id": "g",
+     "props": {
+      "gradient": null
+     }
+    }
+   ],
+   "ok": true,
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"g\"\n  ],\n  \"nodes\": {\n    \"g\": {\n      \"id\": \"g\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 10,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "inverse": "[{\"op\":\"update\",\"id\":\"g\",\"props\":{\"gradient\":{\"type\":\"linear\",\"angle\":180,\"cx\":0.5,\"cy\":0.5,\"radius\":0.5,\"stops\":[{\"color\":\"#111111\",\"offset\":0},{\"color\":\"#eeeeee\",\"offset\":1}]}}},{\"op\":\"delete\",\"id\":\"g\"}]",
+   "created": [
+    "g"
+   ]
+  },
+  {
+   "doc": "empty",
+   "ops": [
+    {
+     "op": "create",
+     "node": {
+      "type": "rect",
       "id": "r",
       "width": "big"
      }
@@ -21684,7 +21781,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: invalid node: fontWeight: Invalid input: expected int, received number"
+   "error": "op[0]: invalid node: fontWeight: Invalid input"
   },
   {
    "doc": "empty",
@@ -22106,7 +22203,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: invalid operation: op: Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'combine_paths' | 'align' | 'distribute' | 'wrap' | 'reveal'"
+   "error": "op[0]: invalid operation: op: Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'detach_tokens' | 'combine_paths' | 'align' | 'distribute' | 'wrap' | 'reveal'"
   },
   {
    "doc": "empty",
@@ -26003,7 +26100,7 @@
    "input": {
     "op": "x"
    },
-   "error": "[\n  {\n    \"code\": \"invalid_union\",\n    \"errors\": [],\n    \"note\": \"No matching discriminator\",\n    \"discriminator\": \"op\",\n    \"options\": [\n      \"create\",\n      \"update\",\n      \"delete\",\n      \"move\",\n      \"set_tokens\",\n      \"rename_document\",\n      \"restore\",\n      \"group\",\n      \"ungroup\",\n      \"add_page\",\n      \"detach\",\n      \"combine_paths\",\n      \"align\",\n      \"distribute\",\n      \"wrap\",\n      \"reveal\"\n    ],\n    \"path\": [\n      \"op\"\n    ],\n    \"message\": \"Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'combine_paths' | 'align' | 'distribute' | 'wrap' | 'reveal'\"\n  }\n]"
+   "error": "[\n  {\n    \"code\": \"invalid_union\",\n    \"errors\": [],\n    \"note\": \"No matching discriminator\",\n    \"discriminator\": \"op\",\n    \"options\": [\n      \"create\",\n      \"update\",\n      \"delete\",\n      \"move\",\n      \"set_tokens\",\n      \"rename_document\",\n      \"restore\",\n      \"group\",\n      \"ungroup\",\n      \"add_page\",\n      \"detach\",\n      \"detach_tokens\",\n      \"combine_paths\",\n      \"align\",\n      \"distribute\",\n      \"wrap\",\n      \"reveal\"\n    ],\n    \"path\": [\n      \"op\"\n    ],\n    \"message\": \"Invalid discriminator value. Expected 'create' | 'update' | 'delete' | 'move' | 'set_tokens' | 'rename_document' | 'restore' | 'group' | 'ungroup' | 'add_page' | 'detach' | 'detach_tokens' | 'combine_paths' | 'align' | 'distribute' | 'wrap' | 'reveal'\"\n  }\n]"
   },
   {
    "input": {
@@ -27987,6 +28084,143 @@
    }
   },
   {
+   "name": "grad",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {\n    \"brand\": \"#4cc7d8\"\n  },\n  \"rootIds\": [\n    \"lin\",\n    \"rad\",\n    \"con\",\n    \"pth\",\n    \"shp\"\n  ],\n  \"nodes\": {\n    \"lin\": {\n      \"id\": \"lin\",\n      \"name\": \"Linear\",\n      \"parentId\": null,\n      \"x\": 10,\n      \"y\": 10,\n      \"width\": 120,\n      \"height\": 48,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"gradient\": {\n        \"type\": \"linear\",\n        \"angle\": 90,\n        \"cx\": 0.5,\n        \"cy\": 0.5,\n        \"radius\": 0.5,\n        \"stops\": [\n          {\n            \"color\": \"#c8401f\",\n            \"offset\": 0\n          },\n          {\n            \"color\": \"$brand\",\n            \"offset\": 1\n          }\n        ]\n      },\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"rad\": {\n      \"id\": \"rad\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 150,\n      \"y\": 10,\n      \"width\": 80,\n      \"height\": 48,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"gradient\": {\n        \"type\": \"radial\",\n        \"angle\": 180,\n        \"cx\": 0.3,\n        \"cy\": 0.4,\n        \"radius\": 0.8,\n        \"stops\": [\n          {\n            \"color\": \"#ffffff\",\n            \"offset\": 0\n          },\n          {\n            \"color\": \"#112233\",\n            \"offset\": 1\n          }\n        ]\n      },\n      \"radius\": 0,\n      \"type\": \"ellipse\"\n    },\n    \"con\": {\n      \"id\": \"con\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 250,\n      \"y\": 10,\n      \"width\": 64,\n      \"height\": 48,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"gradient\": {\n        \"type\": \"conic\",\n        \"angle\": 20,\n        \"cx\": 0.5,\n        \"cy\": 0.5,\n        \"radius\": 0.5,\n        \"stops\": [\n          {\n            \"color\": \"red\",\n            \"offset\": 0\n          },\n          {\n            \"color\": \"blue\",\n            \"offset\": 0.5\n          },\n          {\n            \"color\": \"#ffffff\",\n            \"offset\": 1\n          }\n        ]\n      },\n      \"radius\": 0,\n      \"type\": \"rect\"\n    },\n    \"pth\": {\n      \"id\": \"pth\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 10,\n      \"y\": 80,\n      \"width\": 40,\n      \"height\": 40,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"gradient\": {\n        \"type\": \"linear\",\n        \"angle\": 180,\n        \"cx\": 0.5,\n        \"cy\": 0.5,\n        \"radius\": 0.5,\n        \"stops\": [\n          {\n            \"color\": \"#aabbcc\",\n            \"offset\": 0.25\n          },\n          {\n            \"color\": \"#ddeeff\",\n            \"offset\": 0.75\n          }\n        ]\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 L40 0 L40 40 Z\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    },\n    \"shp\": {\n      \"id\": \"shp\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 70,\n      \"y\": 80,\n      \"width\": 90,\n      \"height\": 48,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"gradient\": {\n        \"type\": \"radial\",\n        \"angle\": 180,\n        \"cx\": 0.5,\n        \"cy\": 0.5,\n        \"radius\": 0.5,\n        \"stops\": [\n          {\n            \"color\": \"#eeeeee\",\n            \"offset\": 0\n          },\n          {\n            \"color\": \"#333333\",\n            \"offset\": 1\n          }\n        ]\n      },\n      \"stroke\": {\n        \"color\": \"#1e2336\",\n        \"width\": 2\n      },\n      \"radius\": 0,\n      \"type\": \"shape\",\n      \"shape\": \"diamond\",\n      \"text\": \"A\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 500,\n      \"lineHeight\": 1.3,\n      \"textAlign\": \"center\"\n    }\n  }\n}",
+   "outline": "rect#lin \"Linear\" 120×48 @10,10 gradient=linear\nellipse#rad 80×48 @150,10 gradient=radial\nrect#con 64×48 @250,10 gradient=conic\npath#pth 40×40 @10,80 gradient=linear d=\"M0 0 L40 0 L40 40 Z\"\nshape#shp 90×48 @70,80 gradient=radial fill=#ffffff diamond \"A\"\ncontent: x=10 y=10 w=304 h=118\nnext: x=394 y=10",
+   "outlineDepth0": "rect#lin \"Linear\" 120×48 @10,10 gradient=linear\nellipse#rad 80×48 @150,10 gradient=radial\nrect#con 64×48 @250,10 gradient=conic\npath#pth 40×40 @10,80 gradient=linear d=\"M0 0 L40 0 L40 40 Z\"\nshape#shp 90×48 @70,80 gradient=radial fill=#ffffff diamond \"A\"\ncontent: x=10 y=10 w=304 h=118\nnext: x=394 y=10",
+   "outlineDepth1": "rect#lin \"Linear\" 120×48 @10,10 gradient=linear\nellipse#rad 80×48 @150,10 gradient=radial\nrect#con 64×48 @250,10 gradient=conic\npath#pth 40×40 @10,80 gradient=linear d=\"M0 0 L40 0 L40 40 Z\"\nshape#shp 90×48 @70,80 gradient=radial fill=#ffffff diamond \"A\"\ncontent: x=10 y=10 w=304 h=118\nnext: x=394 y=10",
+   "lint": "[{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"lin\",\"message\":\"literal gradient stop \\\"#c8401f\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"rad\",\"message\":\"literal gradient stop \\\"#ffffff\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"rad\",\"message\":\"literal gradient stop \\\"#112233\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"con\",\"message\":\"literal gradient stop \\\"red\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"con\",\"message\":\"literal gradient stop \\\"blue\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"con\",\"message\":\"literal gradient stop \\\"#ffffff\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"pth\",\"message\":\"literal gradient stop \\\"#aabbcc\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"pth\",\"message\":\"literal gradient stop \\\"#ddeeff\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"shp\",\"message\":\"literal color \\\"#1e2336\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"shp\",\"message\":\"literal fill \\\"#ffffff\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"shp\",\"message\":\"literal gradient stop \\\"#eeeeee\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"shp\",\"message\":\"literal gradient stop \\\"#333333\\\"; prefer a token\"}]",
+   "lintRoots": {
+    "lin": "[{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"lin\",\"message\":\"literal gradient stop \\\"#c8401f\\\"; prefer a token\"}]",
+    "rad": "[{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"rad\",\"message\":\"literal gradient stop \\\"#ffffff\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"rad\",\"message\":\"literal gradient stop \\\"#112233\\\"; prefer a token\"}]",
+    "con": "[{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"con\",\"message\":\"literal gradient stop \\\"red\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"con\",\"message\":\"literal gradient stop \\\"blue\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"con\",\"message\":\"literal gradient stop \\\"#ffffff\\\"; prefer a token\"}]",
+    "pth": "[{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"pth\",\"message\":\"literal gradient stop \\\"#aabbcc\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"pth\",\"message\":\"literal gradient stop \\\"#ddeeff\\\"; prefer a token\"}]",
+    "shp": "[{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"shp\",\"message\":\"literal color \\\"#1e2336\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"shp\",\"message\":\"literal fill \\\"#ffffff\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"shp\",\"message\":\"literal gradient stop \\\"#eeeeee\\\"; prefer a token\"},{\"rule\":\"raw-color\",\"severity\":\"info\",\"nodeId\":\"shp\",\"message\":\"literal gradient stop \\\"#333333\\\"; prefer a token\"}]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:304px;height:118px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"lin\" data-paprika-type=\"rect\" data-name=\"Linear\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)\"></div><div data-paprika-id=\"rad\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:140px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%\"></div><div data-paprika-id=\"con\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:240px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\"></div><svg data-paprika-id=\"pth\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:70px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><div data-paprika-id=\"shp\" data-paprika-type=\"shape\" style=\"box-sizing:border-box;position:absolute;left:60px;top:70px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"90\" height=\"48\" style=\"position:absolute;left:0;top:0;overflow:visible\"><defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" stroke-linejoin=\"round\" stroke=\"#1e2336\" stroke-width=\"2\"/></svg><div style=\"position:relative;width:100%\">A</div></div></body></html>",
+   "htmlRoots": {
+    "lin": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:120px;height:48px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"lin\" data-paprika-type=\"rect\" data-name=\"Linear\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)\"></div></body></html>",
+    "rad": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:80px;height:48px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"rad\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%\"></div></body></html>",
+    "con": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:64px;height:48px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"con\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\"></div></body></html>",
+    "pth": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:40px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><svg data-paprika-id=\"pth\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+    "shp": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:90px;height:48px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"shp\" data-paprika-type=\"shape\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"90\" height=\"48\" style=\"position:absolute;left:0;top:0;overflow:visible\"><defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" stroke-linejoin=\"round\" stroke=\"#1e2336\" stroke-width=\"2\"/></svg><div style=\"position:relative;width:100%\">A</div></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "lin": "export function Linear() {\n  return (\n    <div data-name=\"Linear\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"120px\", flexShrink: 0, height: \"48px\", background: \"linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)\" }} />\n  );\n}\n",
+    "rad": "export function Rad() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"80px\", flexShrink: 0, height: \"48px\", background: \"radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%)\", borderRadius: \"50%\" }} />\n  );\n}\n",
+    "con": "export function Con() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"64px\", flexShrink: 0, height: \"48px\", background: \"conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\" }} />\n  );\n}\n",
+    "pth": "export function Pth() {\n  return (\n    <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"40px\", flexShrink: 0, height: \"40px\", overflow: \"visible\", display: \"block\" }}>\n      <defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n",
+    "shp": "export function Shp() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"90px\", flexShrink: 0, height: \"48px\", display: \"flex\", alignItems: \"center\", justifyContent: \"center\", padding: \"12px 22.5px\", color: \"#1e2336\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 500, lineHeight: 1.3, textAlign: \"center\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\" }}>\n      <svg width={90} height={48} style={{ position: \"absolute\", left: 0, top: 0, overflow: \"visible\" }}>\n        <defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" strokeLinejoin=\"round\" stroke=\"#1e2336\" strokeWidth={2} />\n      </svg>\n      <div style={{ position: \"relative\", width: \"100%\" }}>A</div>\n    </div>\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:304px;height:118px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--brand:#4cc7d8}</style>\n</head><body><div data-paprika-id=\"lin\" data-paprika-type=\"rect\" data-name=\"Linear\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, var(--brand) 100%)\"></div><div data-paprika-id=\"rad\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:140px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%\"></div><div data-paprika-id=\"con\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:240px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\"></div><svg data-paprika-id=\"pth\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:70px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><div data-paprika-id=\"shp\" data-paprika-type=\"shape\" style=\"box-sizing:border-box;position:absolute;left:60px;top:70px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"90\" height=\"48\" style=\"position:absolute;left:0;top:0;overflow:visible\"><defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" stroke-linejoin=\"round\" stroke=\"#1e2336\" stroke-width=\"2\"/></svg><div style=\"position:relative;width:100%\">A</div></div></body></html>",
+   "htmlVarsRoots": {
+    "lin": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:120px;height:48px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--brand:#4cc7d8}</style>\n</head><body><div data-paprika-id=\"lin\" data-paprika-type=\"rect\" data-name=\"Linear\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, var(--brand) 100%)\"></div></body></html>",
+    "rad": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:80px;height:48px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--brand:#4cc7d8}</style>\n</head><body><div data-paprika-id=\"rad\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%\"></div></body></html>",
+    "con": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:64px;height:48px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--brand:#4cc7d8}</style>\n</head><body><div data-paprika-id=\"con\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\"></div></body></html>",
+    "pth": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:40px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--brand:#4cc7d8}</style>\n</head><body><svg data-paprika-id=\"pth\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+    "shp": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:90px;height:48px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--brand:#4cc7d8}</style>\n</head><body><div data-paprika-id=\"shp\" data-paprika-type=\"shape\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"90\" height=\"48\" style=\"position:absolute;left:0;top:0;overflow:visible\"><defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" stroke-linejoin=\"round\" stroke=\"#1e2336\" stroke-width=\"2\"/></svg><div style=\"position:relative;width:100%\">A</div></div></body></html>"
+   },
+   "reactVars": {
+    "lin": "export const tokensCss = \":root{--brand:#4cc7d8}\";\n\nexport function Linear() {\n  return (\n    <div data-name=\"Linear\" style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"120px\", flexShrink: 0, height: \"48px\", background: \"linear-gradient(90deg, #c8401f 0%, var(--brand) 100%)\" }} />\n  );\n}\n",
+    "rad": "export const tokensCss = \":root{--brand:#4cc7d8}\";\n\nexport function Rad() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"80px\", flexShrink: 0, height: \"48px\", background: \"radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%)\", borderRadius: \"50%\" }} />\n  );\n}\n",
+    "con": "export const tokensCss = \":root{--brand:#4cc7d8}\";\n\nexport function Con() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"64px\", flexShrink: 0, height: \"48px\", background: \"conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\" }} />\n  );\n}\n",
+    "pth": "export const tokensCss = \":root{--brand:#4cc7d8}\";\n\nexport function Pth() {\n  return (\n    <svg style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"40px\", flexShrink: 0, height: \"40px\", overflow: \"visible\", display: \"block\" }}>\n      <defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n",
+    "shp": "export const tokensCss = \":root{--brand:#4cc7d8}\";\n\nexport function Shp() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"90px\", flexShrink: 0, height: \"48px\", display: \"flex\", alignItems: \"center\", justifyContent: \"center\", padding: \"12px 22.5px\", color: \"#1e2336\", fontFamily: \"Inter, system-ui, sans-serif\", fontSize: \"16px\", fontWeight: 500, lineHeight: 1.3, textAlign: \"center\", whiteSpace: \"pre-wrap\", overflowWrap: \"anywhere\" }}>\n      <svg width={90} height={48} style={{ position: \"absolute\", left: 0, top: 0, overflow: \"visible\" }}>\n        <defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" strokeLinejoin=\"round\" stroke=\"#1e2336\" strokeWidth={2} />\n      </svg>\n      <div style={{ position: \"relative\", width: \"100%\" }}>A</div>\n    </div>\n  );\n}\n"
+   },
+   "tailwind": {
+    "lin": "export function Linear() {\n  return (\n    <div data-name=\"Linear\" className=\"box-border absolute left-[0px] top-[0px] w-[120px] shrink-0 h-[48px] bg-[color:linear-gradient(90deg,_#c8401f_0%,_#4cc7d8_100%)]\" />\n  );\n}\n",
+    "rad": "export function Rad() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[80px] shrink-0 h-[48px] bg-[color:radial-gradient(ellipse_80%_80%_at_30%_40%,_#ffffff_0%,_#112233_100%)] rounded-[50%]\" />\n  );\n}\n",
+    "con": "export function Con() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[64px] shrink-0 h-[48px] bg-[color:conic-gradient(from_20deg_at_50%_50%,_red_0%,_blue_50%,_#ffffff_100%)]\" />\n  );\n}\n",
+    "pth": "export function Pth() {\n  return (\n    <svg className=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[40px] overflow-visible block\">\n      <defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n",
+    "shp": "export function Shp() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[90px] shrink-0 h-[48px] flex items-center justify-center py-[12px] px-[22.5px] text-[color:#1e2336] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[500] leading-[1.3] text-center whitespace-pre-wrap [overflow-wrap:anywhere]\">\n      <svg width={90} height={48} className=\"absolute left-[0] top-[0] overflow-visible\">\n        <defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" strokeLinejoin=\"round\" stroke=\"#1e2336\" strokeWidth={2} />\n      </svg>\n      <div className=\"relative w-full\">A</div>\n    </div>\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "lin": "export const tokensCss = \":root{--brand:#4cc7d8}\";\n\nexport function Linear() {\n  return (\n    <div data-name=\"Linear\" className=\"box-border absolute left-[0px] top-[0px] w-[120px] shrink-0 h-[48px] bg-[color:linear-gradient(90deg,_#c8401f_0%,_var(--brand)_100%)]\" />\n  );\n}\n",
+    "rad": "export const tokensCss = \":root{--brand:#4cc7d8}\";\n\nexport function Rad() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[80px] shrink-0 h-[48px] bg-[color:radial-gradient(ellipse_80%_80%_at_30%_40%,_#ffffff_0%,_#112233_100%)] rounded-[50%]\" />\n  );\n}\n",
+    "con": "export const tokensCss = \":root{--brand:#4cc7d8}\";\n\nexport function Con() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[64px] shrink-0 h-[48px] bg-[color:conic-gradient(from_20deg_at_50%_50%,_red_0%,_blue_50%,_#ffffff_100%)]\" />\n  );\n}\n",
+    "pth": "export const tokensCss = \":root{--brand:#4cc7d8}\";\n\nexport function Pth() {\n  return (\n    <svg className=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[40px] overflow-visible block\">\n      <defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fillRule=\"nonzero\" strokeLinecap=\"round\" strokeLinejoin=\"round\" />\n    </svg>\n  );\n}\n",
+    "shp": "export const tokensCss = \":root{--brand:#4cc7d8}\";\n\nexport function Shp() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[90px] shrink-0 h-[48px] flex items-center justify-center py-[12px] px-[22.5px] text-[color:#1e2336] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[500] leading-[1.3] text-center whitespace-pre-wrap [overflow-wrap:anywhere]\">\n      <svg width={90} height={48} className=\"absolute left-[0] top-[0] overflow-visible\">\n        <defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" strokeLinejoin=\"round\" stroke=\"#1e2336\" strokeWidth={2} />\n      </svg>\n      <div className=\"relative w-full\">A</div>\n    </div>\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[304px] h-[118px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"lin\" data-paprika-type=\"rect\" data-name=\"Linear\" class=\"box-border absolute left-[0px] top-[0px] w-[120px] shrink-0 h-[48px] bg-[color:linear-gradient(90deg,_#c8401f_0%,_#4cc7d8_100%)]\"></div><div data-paprika-id=\"rad\" data-paprika-type=\"ellipse\" class=\"box-border absolute left-[140px] top-[0px] w-[80px] shrink-0 h-[48px] bg-[color:radial-gradient(ellipse_80%_80%_at_30%_40%,_#ffffff_0%,_#112233_100%)] rounded-[50%]\"></div><div data-paprika-id=\"con\" data-paprika-type=\"rect\" class=\"box-border absolute left-[240px] top-[0px] w-[64px] shrink-0 h-[48px] bg-[color:conic-gradient(from_20deg_at_50%_50%,_red_0%,_blue_50%,_#ffffff_100%)]\"></div><svg data-paprika-id=\"pth\" data-paprika-type=\"path\" class=\"box-border absolute left-[0px] top-[70px] w-[40px] shrink-0 h-[40px] overflow-visible block\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><div data-paprika-id=\"shp\" data-paprika-type=\"shape\" class=\"box-border absolute left-[60px] top-[70px] w-[90px] shrink-0 h-[48px] flex items-center justify-center py-[12px] px-[22.5px] text-[color:#1e2336] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[500] leading-[1.3] text-center whitespace-pre-wrap [overflow-wrap:anywhere]\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"90\" height=\"48\" class=\"absolute left-[0] top-[0] overflow-visible\"><defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" stroke-linejoin=\"round\" stroke=\"#1e2336\" stroke-width=\"2\"/></svg><div class=\"relative w-full\">A</div></div></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{--brand:#4cc7d8}</style>\n</head><body class=\"relative w-[304px] h-[118px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"lin\" data-paprika-type=\"rect\" data-name=\"Linear\" class=\"box-border absolute left-[0px] top-[0px] w-[120px] shrink-0 h-[48px] bg-[color:linear-gradient(90deg,_#c8401f_0%,_var(--brand)_100%)]\"></div><div data-paprika-id=\"rad\" data-paprika-type=\"ellipse\" class=\"box-border absolute left-[140px] top-[0px] w-[80px] shrink-0 h-[48px] bg-[color:radial-gradient(ellipse_80%_80%_at_30%_40%,_#ffffff_0%,_#112233_100%)] rounded-[50%]\"></div><div data-paprika-id=\"con\" data-paprika-type=\"rect\" class=\"box-border absolute left-[240px] top-[0px] w-[64px] shrink-0 h-[48px] bg-[color:conic-gradient(from_20deg_at_50%_50%,_red_0%,_blue_50%,_#ffffff_100%)]\"></div><svg data-paprika-id=\"pth\" data-paprika-type=\"path\" class=\"box-border absolute left-[0px] top-[70px] w-[40px] shrink-0 h-[40px] overflow-visible block\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><div data-paprika-id=\"shp\" data-paprika-type=\"shape\" class=\"box-border absolute left-[60px] top-[70px] w-[90px] shrink-0 h-[48px] flex items-center justify-center py-[12px] px-[22.5px] text-[color:#1e2336] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[500] leading-[1.3] text-center whitespace-pre-wrap [overflow-wrap:anywhere]\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"90\" height=\"48\" class=\"absolute left-[0] top-[0] overflow-visible\"><defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" stroke-linejoin=\"round\" stroke=\"#1e2336\" stroke-width=\"2\"/></svg><div class=\"relative w-full\">A</div></div></body></html>",
+   "tailwindHtmlRoots": {
+    "lin": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{--brand:#4cc7d8}</style>\n</head><body class=\"relative w-[120px] h-[48px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"lin\" data-paprika-type=\"rect\" data-name=\"Linear\" class=\"box-border absolute left-[0px] top-[0px] w-[120px] shrink-0 h-[48px] bg-[color:linear-gradient(90deg,_#c8401f_0%,_var(--brand)_100%)]\"></div></body></html>",
+    "rad": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{--brand:#4cc7d8}</style>\n</head><body class=\"relative w-[80px] h-[48px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"rad\" data-paprika-type=\"ellipse\" class=\"box-border absolute left-[0px] top-[0px] w-[80px] shrink-0 h-[48px] bg-[color:radial-gradient(ellipse_80%_80%_at_30%_40%,_#ffffff_0%,_#112233_100%)] rounded-[50%]\"></div></body></html>",
+    "con": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{--brand:#4cc7d8}</style>\n</head><body class=\"relative w-[64px] h-[48px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"con\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[64px] shrink-0 h-[48px] bg-[color:conic-gradient(from_20deg_at_50%_50%,_red_0%,_blue_50%,_#ffffff_100%)]\"></div></body></html>",
+    "pth": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{--brand:#4cc7d8}</style>\n</head><body class=\"relative w-[40px] h-[40px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><svg data-paprika-id=\"pth\" data-paprika-type=\"path\" class=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[40px] overflow-visible block\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+    "shp": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{--brand:#4cc7d8}</style>\n</head><body class=\"relative w-[90px] h-[48px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"shp\" data-paprika-type=\"shape\" class=\"box-border absolute left-[0px] top-[0px] w-[90px] shrink-0 h-[48px] flex items-center justify-center py-[12px] px-[22.5px] text-[color:#1e2336] font-[family-name:Inter,_system-ui,_sans-serif] text-[length:16px] font-[500] leading-[1.3] text-center whitespace-pre-wrap [overflow-wrap:anywhere]\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"90\" height=\"48\" class=\"absolute left-[0] top-[0] overflow-visible\"><defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" stroke-linejoin=\"round\" stroke=\"#1e2336\" stroke-width=\"2\"/></svg><div class=\"relative w-full\">A</div></div></body></html>"
+   },
+   "cssModules": {
+    "lin": "{\"component\":\"import styles from \\\"./Linear.module.css\\\";\\n\\nexport function Linear() {\\n  return (\\n    <div data-name=\\\"Linear\\\" className={styles.linear} />\\n  );\\n}\\n\",\"css\":\".linear{box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)}\\n\",\"fileName\":\"Linear.module.css\"}",
+    "rad": "{\"component\":\"import styles from \\\"./Rad.module.css\\\";\\n\\nexport function Rad() {\\n  return (\\n    <div className={styles.rad} />\\n  );\\n}\\n\",\"css\":\".rad{box-sizing:border-box;position:absolute;left:0px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%}\\n\",\"fileName\":\"Rad.module.css\"}",
+    "con": "{\"component\":\"import styles from \\\"./Con.module.css\\\";\\n\\nexport function Con() {\\n  return (\\n    <div className={styles.con} />\\n  );\\n}\\n\",\"css\":\".con{box-sizing:border-box;position:absolute;left:0px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)}\\n\",\"fileName\":\"Con.module.css\"}",
+    "pth": "{\"component\":\"import styles from \\\"./Pth.module.css\\\";\\n\\nexport function Pth() {\\n  return (\\n    <svg className={styles.pth}>\\n      <defs><linearGradient id=\\\"paprika-g-pth\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0.5\\\" y1=\\\"0\\\" x2=\\\"0.5\\\" y2=\\\"1\\\"><stop offset=\\\"25%\\\" stop-color=\\\"#aabbcc\\\"/><stop offset=\\\"75%\\\" stop-color=\\\"#ddeeff\\\"/></linearGradient></defs><path d=\\\"M0 0 L40 0 L40 40 Z\\\" fill=\\\"url(#paprika-g-pth)\\\" fillRule=\\\"nonzero\\\" strokeLinecap=\\\"round\\\" strokeLinejoin=\\\"round\\\" />\\n    </svg>\\n  );\\n}\\n\",\"css\":\".pth{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block}\\n\",\"fileName\":\"Pth.module.css\"}",
+    "shp": "{\"component\":\"import styles from \\\"./Shp.module.css\\\";\\n\\nexport function Shp() {\\n  return (\\n    <div className={styles.shp}>\\n      <svg width={90} height={48} className={styles.shapeSvg}>\\n        <defs><radialGradient id=\\\"paprika-g-shp\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.5\\\" cy=\\\"0.5\\\" r=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#eeeeee\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#333333\\\"/></radialGradient></defs><path d=\\\"M45 1 L89 24 L45 47 L1 24 Z\\\" fill=\\\"url(#paprika-g-shp)\\\" strokeLinejoin=\\\"round\\\" stroke=\\\"#1e2336\\\" strokeWidth={2} />\\n      </svg>\\n      <div className={styles.shapeText}>A</div>\\n    </div>\\n  );\\n}\\n\",\"css\":\".shp{box-sizing:border-box;position:absolute;left:0px;top:0px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}\\n.shapeSvg{position:absolute;left:0;top:0;overflow:visible}\\n.shapeText{position:relative;width:100%}\\n\",\"fileName\":\"Shp.module.css\"}"
+   },
+   "cssModulesVars": {
+    "lin": "{\"component\":\"import styles from \\\"./Linear.module.css\\\";\\n\\nexport function Linear() {\\n  return (\\n    <div data-name=\\\"Linear\\\" className={styles.linear} />\\n  );\\n}\\n\",\"css\":\":root{--brand:#4cc7d8}\\n.linear{box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, var(--brand) 100%)}\\n\",\"fileName\":\"Linear.module.css\"}",
+    "rad": "{\"component\":\"import styles from \\\"./Rad.module.css\\\";\\n\\nexport function Rad() {\\n  return (\\n    <div className={styles.rad} />\\n  );\\n}\\n\",\"css\":\":root{--brand:#4cc7d8}\\n.rad{box-sizing:border-box;position:absolute;left:0px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%}\\n\",\"fileName\":\"Rad.module.css\"}",
+    "con": "{\"component\":\"import styles from \\\"./Con.module.css\\\";\\n\\nexport function Con() {\\n  return (\\n    <div className={styles.con} />\\n  );\\n}\\n\",\"css\":\":root{--brand:#4cc7d8}\\n.con{box-sizing:border-box;position:absolute;left:0px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)}\\n\",\"fileName\":\"Con.module.css\"}",
+    "pth": "{\"component\":\"import styles from \\\"./Pth.module.css\\\";\\n\\nexport function Pth() {\\n  return (\\n    <svg className={styles.pth}>\\n      <defs><linearGradient id=\\\"paprika-g-pth\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0.5\\\" y1=\\\"0\\\" x2=\\\"0.5\\\" y2=\\\"1\\\"><stop offset=\\\"25%\\\" stop-color=\\\"#aabbcc\\\"/><stop offset=\\\"75%\\\" stop-color=\\\"#ddeeff\\\"/></linearGradient></defs><path d=\\\"M0 0 L40 0 L40 40 Z\\\" fill=\\\"url(#paprika-g-pth)\\\" fillRule=\\\"nonzero\\\" strokeLinecap=\\\"round\\\" strokeLinejoin=\\\"round\\\" />\\n    </svg>\\n  );\\n}\\n\",\"css\":\":root{--brand:#4cc7d8}\\n.pth{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block}\\n\",\"fileName\":\"Pth.module.css\"}",
+    "shp": "{\"component\":\"import styles from \\\"./Shp.module.css\\\";\\n\\nexport function Shp() {\\n  return (\\n    <div className={styles.shp}>\\n      <svg width={90} height={48} className={styles.shapeSvg}>\\n        <defs><radialGradient id=\\\"paprika-g-shp\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.5\\\" cy=\\\"0.5\\\" r=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#eeeeee\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#333333\\\"/></radialGradient></defs><path d=\\\"M45 1 L89 24 L45 47 L1 24 Z\\\" fill=\\\"url(#paprika-g-shp)\\\" strokeLinejoin=\\\"round\\\" stroke=\\\"#1e2336\\\" strokeWidth={2} />\\n      </svg>\\n      <div className={styles.shapeText}>A</div>\\n    </div>\\n  );\\n}\\n\",\"css\":\":root{--brand:#4cc7d8}\\n.shp{box-sizing:border-box;position:absolute;left:0px;top:0px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}\\n.shapeSvg{position:absolute;left:0;top:0;overflow:visible}\\n.shapeText{position:relative;width:100%}\\n\",\"fileName\":\"Shp.module.css\"}"
+   },
+   "angular": {
+    "lin": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-linear\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Linear.component.html\\\",\\n  styleUrl: \\\"./Linear.component.css\\\",\\n})\\nexport class Linear {}\\n\",\"template\":\"<div data-paprika-id=\\\"lin\\\" data-paprika-type=\\\"rect\\\" data-name=\\\"Linear\\\" class=\\\"linear\\\"></div>\\n\",\"styles\":\".linear{box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)}\\n\",\"className\":\"Linear\",\"selector\":\"app-linear\",\"fileBase\":\"Linear\"}",
+    "rad": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-rad\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Rad.component.html\\\",\\n  styleUrl: \\\"./Rad.component.css\\\",\\n})\\nexport class Rad {}\\n\",\"template\":\"<div data-paprika-id=\\\"rad\\\" data-paprika-type=\\\"ellipse\\\" class=\\\"rad\\\"></div>\\n\",\"styles\":\".rad{box-sizing:border-box;position:absolute;left:0px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%}\\n\",\"className\":\"Rad\",\"selector\":\"app-rad\",\"fileBase\":\"Rad\"}",
+    "con": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-con\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Con.component.html\\\",\\n  styleUrl: \\\"./Con.component.css\\\",\\n})\\nexport class Con {}\\n\",\"template\":\"<div data-paprika-id=\\\"con\\\" data-paprika-type=\\\"rect\\\" class=\\\"con\\\"></div>\\n\",\"styles\":\".con{box-sizing:border-box;position:absolute;left:0px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)}\\n\",\"className\":\"Con\",\"selector\":\"app-con\",\"fileBase\":\"Con\"}",
+    "pth": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-pth\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Pth.component.html\\\",\\n  styleUrl: \\\"./Pth.component.css\\\",\\n})\\nexport class Pth {}\\n\",\"template\":\"<svg data-paprika-id=\\\"pth\\\" data-paprika-type=\\\"path\\\" class=\\\"pth\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><defs><linearGradient id=\\\"paprika-g-pth\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0.5\\\" y1=\\\"0\\\" x2=\\\"0.5\\\" y2=\\\"1\\\"><stop offset=\\\"25%\\\" stop-color=\\\"#aabbcc\\\"/><stop offset=\\\"75%\\\" stop-color=\\\"#ddeeff\\\"/></linearGradient></defs><path d=\\\"M0 0 L40 0 L40 40 Z\\\" fill=\\\"url(#paprika-g-pth)\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\",\"styles\":\".pth{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block}\\n\",\"className\":\"Pth\",\"selector\":\"app-pth\",\"fileBase\":\"Pth\"}",
+    "shp": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-shp\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Shp.component.html\\\",\\n  styleUrl: \\\"./Shp.component.css\\\",\\n})\\nexport class Shp {}\\n\",\"template\":\"<div data-paprika-id=\\\"shp\\\" data-paprika-type=\\\"shape\\\" class=\\\"shp\\\"><svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"90\\\" height=\\\"48\\\" class=\\\"shapeSvg\\\"><defs><radialGradient id=\\\"paprika-g-shp\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.5\\\" cy=\\\"0.5\\\" r=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#eeeeee\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#333333\\\"/></radialGradient></defs><path d=\\\"M45 1 L89 24 L45 47 L1 24 Z\\\" fill=\\\"url(#paprika-g-shp)\\\" stroke-linejoin=\\\"round\\\" stroke=\\\"#1e2336\\\" stroke-width=\\\"2\\\"/></svg><div class=\\\"shapeText\\\">A</div></div>\\n\",\"styles\":\".shp{box-sizing:border-box;position:absolute;left:0px;top:0px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}\\n.shapeSvg{position:absolute;left:0;top:0;overflow:visible}\\n.shapeText{position:relative;width:100%}\\n\",\"className\":\"Shp\",\"selector\":\"app-shp\",\"fileBase\":\"Shp\"}"
+   },
+   "angularVars": {
+    "lin": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-linear\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Linear.component.html\\\",\\n  styleUrl: \\\"./Linear.component.css\\\",\\n})\\nexport class Linear {}\\n\",\"template\":\"<div data-paprika-id=\\\"lin\\\" data-paprika-type=\\\"rect\\\" data-name=\\\"Linear\\\" class=\\\"linear\\\"></div>\\n\",\"styles\":\":root{--brand:#4cc7d8}\\n.linear{box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, var(--brand) 100%)}\\n\",\"className\":\"Linear\",\"selector\":\"app-linear\",\"fileBase\":\"Linear\"}",
+    "rad": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-rad\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Rad.component.html\\\",\\n  styleUrl: \\\"./Rad.component.css\\\",\\n})\\nexport class Rad {}\\n\",\"template\":\"<div data-paprika-id=\\\"rad\\\" data-paprika-type=\\\"ellipse\\\" class=\\\"rad\\\"></div>\\n\",\"styles\":\":root{--brand:#4cc7d8}\\n.rad{box-sizing:border-box;position:absolute;left:0px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%}\\n\",\"className\":\"Rad\",\"selector\":\"app-rad\",\"fileBase\":\"Rad\"}",
+    "con": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-con\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Con.component.html\\\",\\n  styleUrl: \\\"./Con.component.css\\\",\\n})\\nexport class Con {}\\n\",\"template\":\"<div data-paprika-id=\\\"con\\\" data-paprika-type=\\\"rect\\\" class=\\\"con\\\"></div>\\n\",\"styles\":\":root{--brand:#4cc7d8}\\n.con{box-sizing:border-box;position:absolute;left:0px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)}\\n\",\"className\":\"Con\",\"selector\":\"app-con\",\"fileBase\":\"Con\"}",
+    "pth": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-pth\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Pth.component.html\\\",\\n  styleUrl: \\\"./Pth.component.css\\\",\\n})\\nexport class Pth {}\\n\",\"template\":\"<svg data-paprika-id=\\\"pth\\\" data-paprika-type=\\\"path\\\" class=\\\"pth\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><defs><linearGradient id=\\\"paprika-g-pth\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0.5\\\" y1=\\\"0\\\" x2=\\\"0.5\\\" y2=\\\"1\\\"><stop offset=\\\"25%\\\" stop-color=\\\"#aabbcc\\\"/><stop offset=\\\"75%\\\" stop-color=\\\"#ddeeff\\\"/></linearGradient></defs><path d=\\\"M0 0 L40 0 L40 40 Z\\\" fill=\\\"url(#paprika-g-pth)\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\",\"styles\":\":root{--brand:#4cc7d8}\\n.pth{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block}\\n\",\"className\":\"Pth\",\"selector\":\"app-pth\",\"fileBase\":\"Pth\"}",
+    "shp": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-shp\\\",\\n  standalone: true,\\n  templateUrl: \\\"./Shp.component.html\\\",\\n  styleUrl: \\\"./Shp.component.css\\\",\\n})\\nexport class Shp {}\\n\",\"template\":\"<div data-paprika-id=\\\"shp\\\" data-paprika-type=\\\"shape\\\" class=\\\"shp\\\"><svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"90\\\" height=\\\"48\\\" class=\\\"shapeSvg\\\"><defs><radialGradient id=\\\"paprika-g-shp\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.5\\\" cy=\\\"0.5\\\" r=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#eeeeee\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#333333\\\"/></radialGradient></defs><path d=\\\"M45 1 L89 24 L45 47 L1 24 Z\\\" fill=\\\"url(#paprika-g-shp)\\\" stroke-linejoin=\\\"round\\\" stroke=\\\"#1e2336\\\" stroke-width=\\\"2\\\"/></svg><div class=\\\"shapeText\\\">A</div></div>\\n\",\"styles\":\":root{--brand:#4cc7d8}\\n.shp{box-sizing:border-box;position:absolute;left:0px;top:0px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}\\n.shapeSvg{position:absolute;left:0;top:0;overflow:visible}\\n.shapeText{position:relative;width:100%}\\n\",\"className\":\"Shp\",\"selector\":\"app-shp\",\"fileBase\":\"Shp\"}"
+   },
+   "svelte": {
+    "lin": "{\"source\":\"<div data-paprika-id=\\\"lin\\\" data-paprika-type=\\\"rect\\\" data-name=\\\"Linear\\\" class=\\\"linear\\\"></div>\\n\\n<style>\\n.linear{box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)}\\n</style>\\n\",\"fileName\":\"Linear.svelte\"}",
+    "rad": "{\"source\":\"<div data-paprika-id=\\\"rad\\\" data-paprika-type=\\\"ellipse\\\" class=\\\"rad\\\"></div>\\n\\n<style>\\n.rad{box-sizing:border-box;position:absolute;left:0px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%}\\n</style>\\n\",\"fileName\":\"Rad.svelte\"}",
+    "con": "{\"source\":\"<div data-paprika-id=\\\"con\\\" data-paprika-type=\\\"rect\\\" class=\\\"con\\\"></div>\\n\\n<style>\\n.con{box-sizing:border-box;position:absolute;left:0px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)}\\n</style>\\n\",\"fileName\":\"Con.svelte\"}",
+    "pth": "{\"source\":\"<svg data-paprika-id=\\\"pth\\\" data-paprika-type=\\\"path\\\" class=\\\"pth\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><defs><linearGradient id=\\\"paprika-g-pth\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0.5\\\" y1=\\\"0\\\" x2=\\\"0.5\\\" y2=\\\"1\\\"><stop offset=\\\"25%\\\" stop-color=\\\"#aabbcc\\\"/><stop offset=\\\"75%\\\" stop-color=\\\"#ddeeff\\\"/></linearGradient></defs><path d=\\\"M0 0 L40 0 L40 40 Z\\\" fill=\\\"url(#paprika-g-pth)\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\\n<style>\\n.pth{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block}\\n</style>\\n\",\"fileName\":\"Pth.svelte\"}",
+    "shp": "{\"source\":\"<div data-paprika-id=\\\"shp\\\" data-paprika-type=\\\"shape\\\" class=\\\"shp\\\"><svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"90\\\" height=\\\"48\\\" class=\\\"shapeSvg\\\"><defs><radialGradient id=\\\"paprika-g-shp\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.5\\\" cy=\\\"0.5\\\" r=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#eeeeee\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#333333\\\"/></radialGradient></defs><path d=\\\"M45 1 L89 24 L45 47 L1 24 Z\\\" fill=\\\"url(#paprika-g-shp)\\\" stroke-linejoin=\\\"round\\\" stroke=\\\"#1e2336\\\" stroke-width=\\\"2\\\"/></svg><div class=\\\"shapeText\\\">A</div></div>\\n\\n<style>\\n.shp{box-sizing:border-box;position:absolute;left:0px;top:0px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}\\n.shapeSvg{position:absolute;left:0;top:0;overflow:visible}\\n.shapeText{position:relative;width:100%}\\n</style>\\n\",\"fileName\":\"Shp.svelte\"}"
+   },
+   "svelteVars": {
+    "lin": "{\"source\":\"<div data-paprika-id=\\\"lin\\\" data-paprika-type=\\\"rect\\\" data-name=\\\"Linear\\\" class=\\\"linear\\\"></div>\\n\\n<style>\\n:global(:root){--brand:#4cc7d8}\\n.linear{box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, var(--brand) 100%)}\\n</style>\\n\",\"fileName\":\"Linear.svelte\"}",
+    "rad": "{\"source\":\"<div data-paprika-id=\\\"rad\\\" data-paprika-type=\\\"ellipse\\\" class=\\\"rad\\\"></div>\\n\\n<style>\\n:global(:root){--brand:#4cc7d8}\\n.rad{box-sizing:border-box;position:absolute;left:0px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%}\\n</style>\\n\",\"fileName\":\"Rad.svelte\"}",
+    "con": "{\"source\":\"<div data-paprika-id=\\\"con\\\" data-paprika-type=\\\"rect\\\" class=\\\"con\\\"></div>\\n\\n<style>\\n:global(:root){--brand:#4cc7d8}\\n.con{box-sizing:border-box;position:absolute;left:0px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)}\\n</style>\\n\",\"fileName\":\"Con.svelte\"}",
+    "pth": "{\"source\":\"<svg data-paprika-id=\\\"pth\\\" data-paprika-type=\\\"path\\\" class=\\\"pth\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><defs><linearGradient id=\\\"paprika-g-pth\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0.5\\\" y1=\\\"0\\\" x2=\\\"0.5\\\" y2=\\\"1\\\"><stop offset=\\\"25%\\\" stop-color=\\\"#aabbcc\\\"/><stop offset=\\\"75%\\\" stop-color=\\\"#ddeeff\\\"/></linearGradient></defs><path d=\\\"M0 0 L40 0 L40 40 Z\\\" fill=\\\"url(#paprika-g-pth)\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg>\\n\\n<style>\\n:global(:root){--brand:#4cc7d8}\\n.pth{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block}\\n</style>\\n\",\"fileName\":\"Pth.svelte\"}",
+    "shp": "{\"source\":\"<div data-paprika-id=\\\"shp\\\" data-paprika-type=\\\"shape\\\" class=\\\"shp\\\"><svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"90\\\" height=\\\"48\\\" class=\\\"shapeSvg\\\"><defs><radialGradient id=\\\"paprika-g-shp\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.5\\\" cy=\\\"0.5\\\" r=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#eeeeee\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#333333\\\"/></radialGradient></defs><path d=\\\"M45 1 L89 24 L45 47 L1 24 Z\\\" fill=\\\"url(#paprika-g-shp)\\\" stroke-linejoin=\\\"round\\\" stroke=\\\"#1e2336\\\" stroke-width=\\\"2\\\"/></svg><div class=\\\"shapeText\\\">A</div></div>\\n\\n<style>\\n:global(:root){--brand:#4cc7d8}\\n.shp{box-sizing:border-box;position:absolute;left:0px;top:0px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}\\n.shapeSvg{position:absolute;left:0;top:0;overflow:visible}\\n.shapeText{position:relative;width:100%}\\n</style>\\n\",\"fileName\":\"Shp.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:304px;height:118px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.linear{box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)}\n.rad{box-sizing:border-box;position:absolute;left:140px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%}\n.con{box-sizing:border-box;position:absolute;left:240px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)}\n.pth{box-sizing:border-box;position:absolute;left:0px;top:70px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block}\n.shp{box-sizing:border-box;position:absolute;left:60px;top:70px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}\n.shapeSvg{position:absolute;left:0;top:0;overflow:visible}\n.shapeText{position:relative;width:100%}</style>\n</head><body><div data-paprika-id=\"lin\" data-paprika-type=\"rect\" data-name=\"Linear\" class=\"linear\"></div><div data-paprika-id=\"rad\" data-paprika-type=\"ellipse\" class=\"rad\"></div><div data-paprika-id=\"con\" data-paprika-type=\"rect\" class=\"con\"></div><svg data-paprika-id=\"pth\" data-paprika-type=\"path\" class=\"pth\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><div data-paprika-id=\"shp\" data-paprika-type=\"shape\" class=\"shp\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"90\" height=\"48\" class=\"shapeSvg\"><defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" stroke-linejoin=\"round\" stroke=\"#1e2336\" stroke-width=\"2\"/></svg><div class=\"shapeText\">A</div></div></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:304px;height:118px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{--brand:#4cc7d8}\n.linear{box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, var(--brand) 100%)}\n.rad{box-sizing:border-box;position:absolute;left:140px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%}\n.con{box-sizing:border-box;position:absolute;left:240px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)}\n.pth{box-sizing:border-box;position:absolute;left:0px;top:70px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block}\n.shp{box-sizing:border-box;position:absolute;left:60px;top:70px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}\n.shapeSvg{position:absolute;left:0;top:0;overflow:visible}\n.shapeText{position:relative;width:100%}</style>\n</head><body><div data-paprika-id=\"lin\" data-paprika-type=\"rect\" data-name=\"Linear\" class=\"linear\"></div><div data-paprika-id=\"rad\" data-paprika-type=\"ellipse\" class=\"rad\"></div><div data-paprika-id=\"con\" data-paprika-type=\"rect\" class=\"con\"></div><svg data-paprika-id=\"pth\" data-paprika-type=\"path\" class=\"pth\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><div data-paprika-id=\"shp\" data-paprika-type=\"shape\" class=\"shp\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"90\" height=\"48\" class=\"shapeSvg\"><defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" stroke-linejoin=\"round\" stroke=\"#1e2336\" stroke-width=\"2\"/></svg><div class=\"shapeText\">A</div></div></body></html>",
+   "describe": {
+    "lin": "rect#lin \"Linear\" 120×48 @10,10 gradient=linear",
+    "rad": "ellipse#rad 80×48 @150,10 gradient=radial",
+    "con": "rect#con 64×48 @250,10 gradient=conic",
+    "pth": "path#pth 40×40 @10,80 gradient=linear d=\"M0 0 L40 0 L40 40 Z\"",
+    "shp": "shape#shp 90×48 @70,80 gradient=radial fill=#ffffff diamond \"A\""
+   },
+   "style": {
+    "lin": "box-sizing:border-box;position:absolute;left:10px;top:10px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)",
+    "rad": "box-sizing:border-box;position:absolute;left:150px;top:10px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%",
+    "con": "box-sizing:border-box;position:absolute;left:250px;top:10px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)",
+    "pth": "box-sizing:border-box;position:absolute;left:10px;top:80px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block",
+    "shp": "box-sizing:border-box;position:absolute;left:70px;top:80px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere"
+   },
+   "find": {
+    "text": [],
+    "nameA": [
+     "lin"
+    ],
+    "textE": [],
+    "within": [
+     "lin"
+    ]
+   }
+  },
+  {
    "name": "op0",
    "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {\n    \"10\": \"#000\",\n    \"bg\": \"#ffffff\",\n    \"fg\": \"#1e2336\",\n    \"brand.main\": \"#c43d27\",\n    \"accent\": \"$brand.main\",\n    \"size\": 16\n  },\n  \"modes\": {\n    \"odd\": {\n      \"fg\": \"a;b}<\\\\/style>\"\n    }\n  },\n  \"rootIds\": [\n    \"t-light\",\n    \"t-dark\",\n    \"t-ghost\"\n  ],\n  \"nodes\": {\n    \"t-light\": {\n      \"id\": \"t-light\",\n      \"name\": \"Tema light\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 320,\n      \"height\": 160,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"$bg\",\n      \"stroke\": {\n        \"color\": \"$accent\",\n        \"width\": 1\n      },\n      \"radius\": 0,\n      \"shadow\": {\n        \"x\": 0,\n        \"y\": 2,\n        \"blur\": 4,\n        \"spread\": 0,\n        \"color\": \"$only\"\n      },\n      \"type\": \"frame\",\n      \"children\": [\n        \"t-light-title\",\n        \"t-light-icon\",\n        \"t-light-inner\"\n      ],\n      \"clip\": true,\n      \"layout\": {\n        \"mode\": \"column\",\n        \"gap\": 8,\n        \"padding\": 16,\n        \"align\": \"start\",\n        \"justify\": \"start\",\n        \"wrap\": false\n      }\n    },\n    \"t-light-title\": {\n      \"id\": \"t-light-title\",\n      \"name\": \"\",\n      \"parentId\": \"t-light\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"fill\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Olá\",\n      \"color\": \"$fg\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": \"$size\",\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"t-light-icon\": {\n      \"id\": \"t-light-icon\",\n      \"name\": \"\",\n      \"parentId\": \"t-light\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 10,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"$accent\",\n      \"stroke\": {\n        \"color\": \"$fg\",\n        \"width\": 1\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 L10 10\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    },\n    \"t-light-inner\": {\n      \"id\": \"t-light-inner\",\n      \"name\": \"\",\n      \"parentId\": \"t-light\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 40,\n      \"height\": 20,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"$fg\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [],\n      \"clip\": true,\n      \"mode\": \"odd\"\n    },\n    \"t-dark\": {\n      \"id\": \"t-dark\",\n      \"name\": \"Tema dark\",\n      \"parentId\": null,\n      \"x\": 340,\n      \"y\": 0,\n      \"width\": 320,\n      \"height\": 160,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"$bg\",\n      \"stroke\": {\n        \"color\": \"$accent\",\n        \"width\": 1\n      },\n      \"radius\": 0,\n      \"shadow\": {\n        \"x\": 0,\n        \"y\": 2,\n        \"blur\": 4,\n        \"spread\": 0,\n        \"color\": \"$only\"\n      },\n      \"type\": \"frame\",\n      \"children\": [\n        \"t-dark-title\",\n        \"t-dark-icon\",\n        \"t-dark-inner\"\n      ],\n      \"clip\": true,\n      \"layout\": {\n        \"mode\": \"column\",\n        \"gap\": 8,\n        \"padding\": 16,\n        \"align\": \"start\",\n        \"justify\": \"start\",\n        \"wrap\": false\n      },\n      \"mode\": \"dark\"\n    },\n    \"t-dark-title\": {\n      \"id\": \"t-dark-title\",\n      \"name\": \"\",\n      \"parentId\": \"t-dark\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": \"fill\",\n      \"height\": \"hug\",\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"text\",\n      \"text\": \"Olá\",\n      \"color\": \"$fg\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": \"$size\",\n      \"fontWeight\": 400,\n      \"lineHeight\": 1.4,\n      \"letterSpacing\": 0,\n      \"textAlign\": \"left\"\n    },\n    \"t-dark-icon\": {\n      \"id\": \"t-dark-icon\",\n      \"name\": \"\",\n      \"parentId\": \"t-dark\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 10,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"$accent\",\n      \"stroke\": {\n        \"color\": \"$fg\",\n        \"width\": 1\n      },\n      \"radius\": 0,\n      \"type\": \"path\",\n      \"d\": \"M0 0 L10 10\",\n      \"fillRule\": \"nonzero\",\n      \"strokeCap\": \"round\",\n      \"strokeJoin\": \"round\"\n    },\n    \"t-dark-inner\": {\n      \"id\": \"t-dark-inner\",\n      \"name\": \"\",\n      \"parentId\": \"t-dark\",\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 40,\n      \"height\": 20,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"$fg\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [],\n      \"clip\": true,\n      \"mode\": \"odd\"\n    },\n    \"t-ghost\": {\n      \"id\": \"t-ghost\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 700,\n      \"y\": 0,\n      \"width\": 20,\n      \"height\": 20,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"$bg\",\n      \"radius\": 0,\n      \"type\": \"frame\",\n      \"children\": [],\n      \"clip\": true,\n      \"mode\": \"ghost\"\n    }\n  }\n}",
    "outline": "frame#t-light \"Tema light\" 320×160 @0,0 fill=$bg column gap=8\n  text#t-light-title fill×hug @0,0 \"Olá\" $size/400 color=$fg\n  path#t-light-icon 10×10 @0,0 fill=$accent d=\"M0 0 L10 10\" stroke=$fg/1\n  frame#t-light-inner 40×20 @0,0 fill=$fg mode=odd\nframe#t-dark \"Tema dark\" 320×160 @340,0 fill=$bg column gap=8 mode=dark\n  text#t-dark-title fill×hug @0,0 \"Olá\" $size/400 color=$fg\n  path#t-dark-icon 10×10 @0,0 fill=$accent d=\"M0 0 L10 10\" stroke=$fg/1\n  frame#t-dark-inner 40×20 @0,0 fill=$fg mode=odd\nframe#t-ghost 20×20 @700,0 fill=$bg mode=ghost\ncontent: x=0 y=0 w=720 h=160\nnext: x=800 y=0",
@@ -29154,6 +29388,148 @@
     "textE": [],
     "within": [
      "r"
+    ]
+   }
+  },
+  {
+   "name": "op13",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"g\"\n  ],\n  \"nodes\": {\n    \"g\": {\n      \"id\": \"g\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 40,\n      \"height\": 20,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"gradient\": {\n        \"type\": \"linear\",\n        \"angle\": 12,\n        \"cx\": 0.5,\n        \"cy\": 0.5,\n        \"radius\": 0.5,\n        \"stops\": [\n          {\n            \"color\": \"#111111\",\n            \"offset\": 0\n          },\n          {\n            \"color\": \"#eeeeee\",\n            \"offset\": 1\n          }\n        ]\n      },\n      \"radius\": 0,\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "outline": "rect#g 40×20 @0,0 gradient=linear\ncontent: x=0 y=0 w=40 h=20\nnext: x=120 y=0",
+   "outlineDepth0": "rect#g 40×20 @0,0 gradient=linear\ncontent: x=0 y=0 w=40 h=20\nnext: x=120 y=0",
+   "outlineDepth1": "rect#g 40×20 @0,0 gradient=linear\ncontent: x=0 y=0 w=40 h=20\nnext: x=120 y=0",
+   "lint": "[]",
+   "lintRoots": {
+    "g": "[]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)\"></div></body></html>",
+   "htmlRoots": {
+    "g": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)\"></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "g": "export function G() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"40px\", flexShrink: 0, height: \"20px\", background: \"linear-gradient(12deg, #111111 0%, #eeeeee 100%)\" }} />\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)\"></div></body></html>",
+   "htmlVarsRoots": {
+    "g": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)\"></div></body></html>"
+   },
+   "reactVars": {
+    "g": "export const tokensCss = \":root{}\";\n\nexport function G() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"40px\", flexShrink: 0, height: \"20px\", background: \"linear-gradient(12deg, #111111 0%, #eeeeee 100%)\" }} />\n  );\n}\n"
+   },
+   "tailwind": {
+    "g": "export function G() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[20px] bg-[color:linear-gradient(12deg,_#111111_0%,_#eeeeee_100%)]\" />\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "g": "export const tokensCss = \":root{}\";\n\nexport function G() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[20px] bg-[color:linear-gradient(12deg,_#111111_0%,_#eeeeee_100%)]\" />\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[40px] h-[20px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"g\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[20px] bg-[color:linear-gradient(12deg,_#111111_0%,_#eeeeee_100%)]\"></div></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[40px] h-[20px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"g\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[20px] bg-[color:linear-gradient(12deg,_#111111_0%,_#eeeeee_100%)]\"></div></body></html>",
+   "tailwindHtmlRoots": {
+    "g": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[40px] h-[20px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"g\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[40px] shrink-0 h-[20px] bg-[color:linear-gradient(12deg,_#111111_0%,_#eeeeee_100%)]\"></div></body></html>"
+   },
+   "cssModules": {
+    "g": "{\"component\":\"import styles from \\\"./G.module.css\\\";\\n\\nexport function G() {\\n  return (\\n    <div className={styles.g} />\\n  );\\n}\\n\",\"css\":\".g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)}\\n\",\"fileName\":\"G.module.css\"}"
+   },
+   "cssModulesVars": {
+    "g": "{\"component\":\"import styles from \\\"./G.module.css\\\";\\n\\nexport function G() {\\n  return (\\n    <div className={styles.g} />\\n  );\\n}\\n\",\"css\":\":root{}\\n.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)}\\n\",\"fileName\":\"G.module.css\"}"
+   },
+   "angular": {
+    "g": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-g\\\",\\n  standalone: true,\\n  templateUrl: \\\"./G.component.html\\\",\\n  styleUrl: \\\"./G.component.css\\\",\\n})\\nexport class G {}\\n\",\"template\":\"<div data-paprika-id=\\\"g\\\" data-paprika-type=\\\"rect\\\" class=\\\"g\\\"></div>\\n\",\"styles\":\".g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)}\\n\",\"className\":\"G\",\"selector\":\"app-g\",\"fileBase\":\"G\"}"
+   },
+   "angularVars": {
+    "g": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-g\\\",\\n  standalone: true,\\n  templateUrl: \\\"./G.component.html\\\",\\n  styleUrl: \\\"./G.component.css\\\",\\n})\\nexport class G {}\\n\",\"template\":\"<div data-paprika-id=\\\"g\\\" data-paprika-type=\\\"rect\\\" class=\\\"g\\\"></div>\\n\",\"styles\":\":root{}\\n.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)}\\n\",\"className\":\"G\",\"selector\":\"app-g\",\"fileBase\":\"G\"}"
+   },
+   "svelte": {
+    "g": "{\"source\":\"<div data-paprika-id=\\\"g\\\" data-paprika-type=\\\"rect\\\" class=\\\"g\\\"></div>\\n\\n<style>\\n.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)}\\n</style>\\n\",\"fileName\":\"G.svelte\"}"
+   },
+   "svelteVars": {
+    "g": "{\"source\":\"<div data-paprika-id=\\\"g\\\" data-paprika-type=\\\"rect\\\" class=\\\"g\\\"></div>\\n\\n<style>\\n:global(:root){}\\n.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)}\\n</style>\\n\",\"fileName\":\"G.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" class=\"g\"></div></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:20px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}\n.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" class=\"g\"></div></body></html>",
+   "describe": {
+    "g": "rect#g 40×20 @0,0 gradient=linear"
+   },
+   "style": {
+    "g": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:20px;background:linear-gradient(12deg, #111111 0%, #eeeeee 100%)"
+   },
+   "find": {
+    "text": [],
+    "nameA": [],
+    "textE": [],
+    "within": [
+     "g"
+    ]
+   }
+  },
+  {
+   "name": "op15",
+   "doc": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"g\"\n  ],\n  \"nodes\": {\n    \"g\": {\n      \"id\": \"g\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 10,\n      \"height\": 10,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"radius\": 0,\n      \"type\": \"rect\"\n    }\n  }\n}",
+   "outline": "rect#g 10×10 @0,0\ncontent: x=0 y=0 w=10 h=10\nnext: x=90 y=0",
+   "outlineDepth0": "rect#g 10×10 @0,0\ncontent: x=0 y=0 w=10 h=10\nnext: x=90 y=0",
+   "outlineDepth1": "rect#g 10×10 @0,0\ncontent: x=0 y=0 w=10 h=10\nnext: x=90 y=0",
+   "lint": "[]",
+   "lintRoots": {
+    "g": "[]"
+   },
+   "html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px\"></div></body></html>",
+   "htmlRoots": {
+    "g": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:transparent;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px\"></div></body></html>"
+   },
+   "htmlPages": {},
+   "react": {
+    "g": "export function G() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"10px\", flexShrink: 0, height: \"10px\" }} />\n  );\n}\n"
+   },
+   "htmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px\"></div></body></html>",
+   "htmlVarsRoots": {
+    "g": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px\"></div></body></html>"
+   },
+   "reactVars": {
+    "g": "export const tokensCss = \":root{}\";\n\nexport function G() {\n  return (\n    <div style={{ boxSizing: \"border-box\", position: \"absolute\", left: \"0px\", top: \"0px\", width: \"10px\", flexShrink: 0, height: \"10px\" }} />\n  );\n}\n"
+   },
+   "tailwind": {
+    "g": "export function G() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px]\" />\n  );\n}\n"
+   },
+   "tailwindVars": {
+    "g": "export const tokensCss = \":root{}\";\n\nexport function G() {\n  return (\n    <div className=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px]\" />\n  );\n}\n"
+   },
+   "tailwindHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n</head><body class=\"relative w-[10px] h-[10px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"g\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px]\"></div></body></html>",
+   "tailwindHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[10px] h-[10px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"g\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px]\"></div></body></html>",
+   "tailwindHtmlRoots": {
+    "g": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<script src=\"https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4\"></script>\n<style>:root{}</style>\n</head><body class=\"relative w-[10px] h-[10px] bg-[color:#ffffff] font-[family-name:Inter,system-ui,sans-serif] antialiased\"><div data-paprika-id=\"g\" data-paprika-type=\"rect\" class=\"box-border absolute left-[0px] top-[0px] w-[10px] shrink-0 h-[10px]\"></div></body></html>"
+   },
+   "cssModules": {
+    "g": "{\"component\":\"import styles from \\\"./G.module.css\\\";\\n\\nexport function G() {\\n  return (\\n    <div className={styles.g} />\\n  );\\n}\\n\",\"css\":\".g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px}\\n\",\"fileName\":\"G.module.css\"}"
+   },
+   "cssModulesVars": {
+    "g": "{\"component\":\"import styles from \\\"./G.module.css\\\";\\n\\nexport function G() {\\n  return (\\n    <div className={styles.g} />\\n  );\\n}\\n\",\"css\":\":root{}\\n.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px}\\n\",\"fileName\":\"G.module.css\"}"
+   },
+   "angular": {
+    "g": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-g\\\",\\n  standalone: true,\\n  templateUrl: \\\"./G.component.html\\\",\\n  styleUrl: \\\"./G.component.css\\\",\\n})\\nexport class G {}\\n\",\"template\":\"<div data-paprika-id=\\\"g\\\" data-paprika-type=\\\"rect\\\" class=\\\"g\\\"></div>\\n\",\"styles\":\".g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px}\\n\",\"className\":\"G\",\"selector\":\"app-g\",\"fileBase\":\"G\"}"
+   },
+   "angularVars": {
+    "g": "{\"typescript\":\"import { Component } from \\\"@angular/core\\\";\\n\\n@Component({\\n  selector: \\\"app-g\\\",\\n  standalone: true,\\n  templateUrl: \\\"./G.component.html\\\",\\n  styleUrl: \\\"./G.component.css\\\",\\n})\\nexport class G {}\\n\",\"template\":\"<div data-paprika-id=\\\"g\\\" data-paprika-type=\\\"rect\\\" class=\\\"g\\\"></div>\\n\",\"styles\":\":root{}\\n.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px}\\n\",\"className\":\"G\",\"selector\":\"app-g\",\"fileBase\":\"G\"}"
+   },
+   "svelte": {
+    "g": "{\"source\":\"<div data-paprika-id=\\\"g\\\" data-paprika-type=\\\"rect\\\" class=\\\"g\\\"></div>\\n\\n<style>\\n.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px}\\n</style>\\n\",\"fileName\":\"G.svelte\"}"
+   },
+   "svelteVars": {
+    "g": "{\"source\":\"<div data-paprika-id=\\\"g\\\" data-paprika-type=\\\"rect\\\" class=\\\"g\\\"></div>\\n\\n<style>\\n:global(:root){}\\n.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px}\\n</style>\\n\",\"fileName\":\"G.svelte\"}"
+   },
+   "frameworkHtml": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" class=\"g\"></div></body></html>",
+   "frameworkHtmlVars": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:10px;height:10px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}:root{}\n.g{box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px}</style>\n</head><body><div data-paprika-id=\"g\" data-paprika-type=\"rect\" class=\"g\"></div></body></html>",
+   "describe": {
+    "g": "rect#g 10×10 @0,0"
+   },
+   "style": {
+    "g": "box-sizing:border-box;position:absolute;left:0px;top:0px;width:10px;flex-shrink:0;height:10px"
+   },
+   "find": {
+    "text": [],
+    "nameA": [],
+    "textE": [],
+    "within": [
+     "g"
     ]
    }
   },
@@ -44731,6 +45107,82 @@
   {
    "c": "hsl(1 2 3)",
    "rgba": null
+  },
+  {
+   "c": "red",
+   "rgba": {
+    "r": 255,
+    "g": 0,
+    "b": 0,
+    "a": 1
+   }
+  },
+  {
+   "c": "oklch(0.7 0.15 30)",
+   "rgba": {
+    "r": 237,
+    "g": 118,
+    "b": 101,
+    "a": 1
+   }
+  },
+  {
+   "c": "oklch(62% 50% 40 / 50%)",
+   "rgba": {
+    "r": 227,
+    "g": 75,
+    "b": 0,
+    "a": 0.5
+   }
+  },
+  {
+   "c": "color(srgb 1 0 0)",
+   "rgba": {
+    "r": 255,
+    "g": 0,
+    "b": 0,
+    "a": 1
+   }
+  },
+  {
+   "c": "color(display-p3 1 0 0)",
+   "rgba": {
+    "r": 255,
+    "g": 0,
+    "b": 0,
+    "a": 1
+   }
+  },
+  {
+   "c": "color-mix(in srgb, red 25%, blue)",
+   "rgba": {
+    "r": 64,
+    "g": 0,
+    "b": 191,
+    "a": 1
+   }
+  },
+  {
+   "c": "color-mix(in oklch, white, black)",
+   "rgba": {
+    "r": 99,
+    "g": 99,
+    "b": 99,
+    "a": 1
+   }
+  },
+  {
+   "c": "color-mix(in display-p3, #fff, #000 25%)",
+   "rgba": {
+    "r": 225,
+    "g": 225,
+    "b": 225,
+    "a": 1
+   }
+  },
+  {
+   "c": "oklch(from red l c h)",
+   "rgba": null
   }
  ],
  "contrast": [
@@ -45265,6 +45717,48 @@
     "result": {
      "ok": true,
      "value": "{\"nodes\":[{\"type\":\"frame\",\"x\":1,\"y\":0,\"width\":160,\"height\":64,\"fill\":\"#333333\",\"clip\":true,\"children\":[]}],\"warnings\":[]}"
+    }
+   },
+   {
+    "src": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:304px;height:118px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"lin\" data-paprika-type=\"rect\" data-name=\"Linear\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)\"></div><div data-paprika-id=\"rad\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:140px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%\"></div><div data-paprika-id=\"con\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:240px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\"></div><svg data-paprika-id=\"pth\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:70px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><div data-paprika-id=\"shp\" data-paprika-type=\"shape\" style=\"box-sizing:border-box;position:absolute;left:60px;top:70px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"90\" height=\"48\" style=\"position:absolute;left:0;top:0;overflow:visible\"><defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" stroke-linejoin=\"round\" stroke=\"#1e2336\" stroke-width=\"2\"/></svg><div style=\"position:relative;width:100%\">A</div></div></body></html>",
+    "result": {
+     "ok": true,
+     "value": "{\"nodes\":[{\"type\":\"rect\",\"x\":2,\"y\":0,\"width\":120,\"height\":48,\"fill\":\"linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)\",\"name\":\"Linear\"},{\"type\":\"ellipse\",\"x\":142,\"y\":0,\"width\":80,\"height\":48,\"fill\":\"radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%)\"},{\"type\":\"rect\",\"x\":242,\"y\":0,\"width\":64,\"height\":48,\"fill\":\"conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\"},{\"type\":\"path\",\"d\":\"M0 0 L40 0 L40 40 Z\",\"x\":2,\"y\":70,\"width\":40,\"height\":40,\"fill\":\"url(#paprika-g-pth)\"},{\"type\":\"frame\",\"x\":62,\"y\":70,\"width\":90,\"height\":48,\"clip\":false,\"layout\":{\"mode\":\"row\",\"padding\":[12,22.5,12,22.5],\"align\":\"center\",\"justify\":\"center\"},\"children\":[{\"type\":\"path\",\"x\":1,\"y\":1,\"d\":\"M44 0 L88 23 L44 46 L0 23 Z\",\"fill\":\"#808080\",\"stroke\":{\"color\":\"#1e2336\",\"width\":2},\"strokeCap\":\"butt\",\"name\":\"SVG\"},{\"type\":\"text\",\"text\":\"A\",\"width\":\"fill\",\"height\":\"hug\",\"color\":\"#1e2336\",\"fontFamily\":\"Inter, system-ui, sans-serif\",\"fontSize\":16,\"fontWeight\":500,\"lineHeight\":1.3,\"textAlign\":\"center\"}]}],\"warnings\":[\"gradients and patterns (url(#…)) are not imported; using gray\"]}"
+    }
+   },
+   {
+    "src": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:120px;height:48px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"lin\" data-paprika-type=\"rect\" data-name=\"Linear\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:120px;flex-shrink:0;height:48px;background:linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)\"></div></body></html>",
+    "result": {
+     "ok": true,
+     "value": "{\"nodes\":[{\"type\":\"rect\",\"x\":2,\"y\":0,\"width\":120,\"height\":48,\"fill\":\"linear-gradient(90deg, #c8401f 0%, #4cc7d8 100%)\",\"name\":\"Linear\"}],\"warnings\":[]}"
+    }
+   },
+   {
+    "src": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:80px;height:48px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"rad\" data-paprika-type=\"ellipse\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:80px;flex-shrink:0;height:48px;background:radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%);border-radius:50%\"></div></body></html>",
+    "result": {
+     "ok": true,
+     "value": "{\"nodes\":[{\"type\":\"ellipse\",\"x\":2,\"y\":0,\"width\":80,\"height\":48,\"fill\":\"radial-gradient(ellipse 80% 80% at 30% 40%, #ffffff 0%, #112233 100%)\"}],\"warnings\":[]}"
+    }
+   },
+   {
+    "src": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:64px;height:48px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"con\" data-paprika-type=\"rect\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:64px;flex-shrink:0;height:48px;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\"></div></body></html>",
+    "result": {
+     "ok": true,
+     "value": "{\"nodes\":[{\"type\":\"rect\",\"x\":2,\"y\":0,\"width\":64,\"height\":48,\"fill\":\"conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\"}],\"warnings\":[]}"
+    }
+   },
+   {
+    "src": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:40px;height:40px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><svg data-paprika-id=\"pth\" data-paprika-type=\"path\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:40px;flex-shrink:0;height:40px;overflow:visible;display:block\" xmlns=\"http://www.w3.org/2000/svg\"><defs><linearGradient id=\"paprika-g-pth\" gradientUnits=\"objectBoundingBox\" x1=\"0.5\" y1=\"0\" x2=\"0.5\" y2=\"1\"><stop offset=\"25%\" stop-color=\"#aabbcc\"/><stop offset=\"75%\" stop-color=\"#ddeeff\"/></linearGradient></defs><path d=\"M0 0 L40 0 L40 40 Z\" fill=\"url(#paprika-g-pth)\" fill-rule=\"nonzero\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></body></html>",
+    "result": {
+     "ok": true,
+     "value": "{\"nodes\":[{\"type\":\"path\",\"d\":\"M0 0 L40 0 L40 40 Z\",\"x\":1,\"y\":0,\"width\":40,\"height\":40,\"fill\":\"url(#paprika-g-pth)\"}],\"warnings\":[]}"
+    }
+   },
+   {
+    "src": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Teste</title>\n<style>html,body{margin:0;padding:0}body{position:relative;width:90px;height:48px;background:#ffffff;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style>\n</head><body><div data-paprika-id=\"shp\" data-paprika-type=\"shape\" style=\"box-sizing:border-box;position:absolute;left:0px;top:0px;width:90px;flex-shrink:0;height:48px;display:flex;align-items:center;justify-content:center;padding:12px 22.5px;color:#1e2336;font-family:Inter, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:1.3;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"90\" height=\"48\" style=\"position:absolute;left:0;top:0;overflow:visible\"><defs><radialGradient id=\"paprika-g-shp\" gradientUnits=\"objectBoundingBox\" cx=\"0.5\" cy=\"0.5\" r=\"0.5\"><stop offset=\"0%\" stop-color=\"#eeeeee\"/><stop offset=\"100%\" stop-color=\"#333333\"/></radialGradient></defs><path d=\"M45 1 L89 24 L45 47 L1 24 Z\" fill=\"url(#paprika-g-shp)\" stroke-linejoin=\"round\" stroke=\"#1e2336\" stroke-width=\"2\"/></svg><div style=\"position:relative;width:100%\">A</div></div></body></html>",
+    "result": {
+     "ok": true,
+     "value": "{\"nodes\":[{\"type\":\"frame\",\"x\":0,\"y\":0,\"width\":90,\"height\":48,\"clip\":false,\"layout\":{\"mode\":\"row\",\"padding\":[12,22.5,12,22.5],\"align\":\"center\",\"justify\":\"center\"},\"children\":[{\"type\":\"path\",\"x\":1,\"y\":1,\"d\":\"M44 0 L88 23 L44 46 L0 23 Z\",\"fill\":\"#808080\",\"stroke\":{\"color\":\"#1e2336\",\"width\":2},\"strokeCap\":\"butt\",\"name\":\"SVG\"},{\"type\":\"text\",\"text\":\"A\",\"width\":\"fill\",\"height\":\"hug\",\"color\":\"#1e2336\",\"fontFamily\":\"Inter, system-ui, sans-serif\",\"fontSize\":16,\"fontWeight\":500,\"lineHeight\":1.3,\"textAlign\":\"center\"}]}],\"warnings\":[\"gradients and patterns (url(#…)) are not imported; using gray\"]}"
     }
    }
   ]
@@ -46453,6 +46947,62 @@
     }
    },
    "measure": "{\"boxes\":{\"board\":[0,0,50,20],\"mix\":[10.123,5.5,51,20.333333333333332],\"same\":[20.246,11,52,20.666666666666668],\"img\":[30.369,16.5,53,21],\"btn\":[40.492,22,54,21.333333333333332],\"inst\":[50.614999999999995,27.5,55,21.666666666666668]},\"lines\":{}}"
+  },
+  {
+   "name": "grad",
+   "plain": {
+    "": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"304\\\" height=\\\"118\\\" viewBox=\\\"0 0 304 118\\\"><rect width=\\\"304\\\" height=\\\"118\\\" fill=\\\"#ffffff\\\"/><g data-paprika-id=\\\"lin\\\" data-name=\\\"Linear\\\" transform=\\\"translate(0 0)\\\"><defs><linearGradient id=\\\"paprika-g-lin\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0\\\" y1=\\\"0.5\\\" x2=\\\"1\\\" y2=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#c8401f\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#4cc7d8\\\"/></linearGradient></defs><rect x=\\\"0\\\" y=\\\"0\\\" width=\\\"120\\\" height=\\\"48\\\" fill=\\\"url(#paprika-g-lin)\\\"/></g><g data-paprika-id=\\\"rad\\\" transform=\\\"translate(140 0)\\\"><defs><radialGradient id=\\\"paprika-g-rad\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.3\\\" cy=\\\"0.4\\\" r=\\\"0.8\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#ffffff\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#112233\\\"/></radialGradient></defs><ellipse cx=\\\"40\\\" cy=\\\"24\\\" rx=\\\"40\\\" ry=\\\"24\\\" fill=\\\"url(#paprika-g-rad)\\\"/></g><g data-paprika-id=\\\"con\\\" transform=\\\"translate(240 0)\\\"><foreignObject x=\\\"0\\\" y=\\\"0\\\" width=\\\"100%\\\" height=\\\"100%\\\"><div xmlns=\\\"http://www.w3.org/1999/xhtml\\\" style=\\\"width:100%;height:100%;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\\\"></div></foreignObject></g><g data-paprika-id=\\\"pth\\\" transform=\\\"translate(0 70)\\\"><svg width=\\\"40\\\" height=\\\"40\\\" overflow=\\\"visible\\\"><defs><linearGradient id=\\\"paprika-g-pth\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0.5\\\" y1=\\\"0\\\" x2=\\\"0.5\\\" y2=\\\"1\\\"><stop offset=\\\"25%\\\" stop-color=\\\"#aabbcc\\\"/><stop offset=\\\"75%\\\" stop-color=\\\"#ddeeff\\\"/></linearGradient></defs><path d=\\\"M0 0 L40 0 L40 40 Z\\\" fill=\\\"url(#paprika-g-pth)\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg></g><g data-paprika-id=\\\"shp\\\" transform=\\\"translate(60 70)\\\"><g><defs><radialGradient id=\\\"paprika-g-shp\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.5\\\" cy=\\\"0.5\\\" r=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#eeeeee\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#333333\\\"/></radialGradient></defs><path d=\\\"M45 1 L89 24 L45 47 L1 24 Z\\\" fill=\\\"url(#paprika-g-shp)\\\" stroke-linejoin=\\\"round\\\" stroke=\\\"#1e2336\\\" stroke-width=\\\"2\\\"/></g><text xml:space=\\\"preserve\\\" font-family=\\\"Inter, system-ui, sans-serif\\\" font-size=\\\"16\\\" font-weight=\\\"500\\\" fill=\\\"#1e2336\\\" text-anchor=\\\"middle\\\"><tspan x=\\\"45\\\" y=\\\"28.8\\\">A</tspan></text></g></svg>\",\"width\":304,\"height\":118,\"warnings\":[]}"
+    },
+    "lin": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"120\\\" height=\\\"48\\\" viewBox=\\\"0 0 120 48\\\"><g data-paprika-id=\\\"lin\\\" data-name=\\\"Linear\\\" transform=\\\"translate(0 0)\\\"><defs><linearGradient id=\\\"paprika-g-lin\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0\\\" y1=\\\"0.5\\\" x2=\\\"1\\\" y2=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#c8401f\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#4cc7d8\\\"/></linearGradient></defs><rect x=\\\"0\\\" y=\\\"0\\\" width=\\\"120\\\" height=\\\"48\\\" fill=\\\"url(#paprika-g-lin)\\\"/></g></svg>\",\"width\":120,\"height\":48,\"warnings\":[]}"
+    },
+    "rad": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"80\\\" height=\\\"48\\\" viewBox=\\\"0 0 80 48\\\"><g data-paprika-id=\\\"rad\\\" transform=\\\"translate(0 0)\\\"><defs><radialGradient id=\\\"paprika-g-rad\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.3\\\" cy=\\\"0.4\\\" r=\\\"0.8\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#ffffff\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#112233\\\"/></radialGradient></defs><ellipse cx=\\\"40\\\" cy=\\\"24\\\" rx=\\\"40\\\" ry=\\\"24\\\" fill=\\\"url(#paprika-g-rad)\\\"/></g></svg>\",\"width\":80,\"height\":48,\"warnings\":[]}"
+    },
+    "con": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"64\\\" height=\\\"48\\\" viewBox=\\\"0 0 64 48\\\"><g data-paprika-id=\\\"con\\\" transform=\\\"translate(0 0)\\\"><foreignObject x=\\\"0\\\" y=\\\"0\\\" width=\\\"100%\\\" height=\\\"100%\\\"><div xmlns=\\\"http://www.w3.org/1999/xhtml\\\" style=\\\"width:100%;height:100%;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\\\"></div></foreignObject></g></svg>\",\"width\":64,\"height\":48,\"warnings\":[]}"
+    },
+    "pth": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"40\\\" height=\\\"40\\\" viewBox=\\\"0 0 40 40\\\"><g data-paprika-id=\\\"pth\\\" transform=\\\"translate(0 0)\\\"><svg width=\\\"40\\\" height=\\\"40\\\" overflow=\\\"visible\\\"><defs><linearGradient id=\\\"paprika-g-pth\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0.5\\\" y1=\\\"0\\\" x2=\\\"0.5\\\" y2=\\\"1\\\"><stop offset=\\\"25%\\\" stop-color=\\\"#aabbcc\\\"/><stop offset=\\\"75%\\\" stop-color=\\\"#ddeeff\\\"/></linearGradient></defs><path d=\\\"M0 0 L40 0 L40 40 Z\\\" fill=\\\"url(#paprika-g-pth)\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg></g></svg>\",\"width\":40,\"height\":40,\"warnings\":[]}"
+    },
+    "shp": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"90\\\" height=\\\"48\\\" viewBox=\\\"0 0 90 48\\\"><g data-paprika-id=\\\"shp\\\" transform=\\\"translate(0 0)\\\"><g><defs><radialGradient id=\\\"paprika-g-shp\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.5\\\" cy=\\\"0.5\\\" r=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#eeeeee\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#333333\\\"/></radialGradient></defs><path d=\\\"M45 1 L89 24 L45 47 L1 24 Z\\\" fill=\\\"url(#paprika-g-shp)\\\" stroke-linejoin=\\\"round\\\" stroke=\\\"#1e2336\\\" stroke-width=\\\"2\\\"/></g><text xml:space=\\\"preserve\\\" font-family=\\\"Inter, system-ui, sans-serif\\\" font-size=\\\"16\\\" font-weight=\\\"500\\\" fill=\\\"#1e2336\\\" text-anchor=\\\"middle\\\"><tspan x=\\\"45\\\" y=\\\"28.8\\\">A</tspan></text></g></svg>\",\"width\":90,\"height\":48,\"warnings\":[]}"
+    }
+   },
+   "measured": {
+    "": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"304\\\" height=\\\"118\\\" viewBox=\\\"0 0 304 118\\\"><rect width=\\\"304\\\" height=\\\"118\\\" fill=\\\"#ffffff\\\"/><g data-paprika-id=\\\"lin\\\" data-name=\\\"Linear\\\" transform=\\\"translate(0 0)\\\"><defs><linearGradient id=\\\"paprika-g-lin\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0\\\" y1=\\\"0.5\\\" x2=\\\"1\\\" y2=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#c8401f\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#4cc7d8\\\"/></linearGradient></defs><rect x=\\\"0\\\" y=\\\"0\\\" width=\\\"50\\\" height=\\\"20\\\" fill=\\\"url(#paprika-g-lin)\\\"/></g><g data-paprika-id=\\\"rad\\\" transform=\\\"translate(10.12 5.5)\\\"><defs><radialGradient id=\\\"paprika-g-rad\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.3\\\" cy=\\\"0.4\\\" r=\\\"0.8\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#ffffff\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#112233\\\"/></radialGradient></defs><ellipse cx=\\\"25.5\\\" cy=\\\"10.17\\\" rx=\\\"25.5\\\" ry=\\\"10.17\\\" fill=\\\"url(#paprika-g-rad)\\\"/></g><g data-paprika-id=\\\"con\\\" transform=\\\"translate(20.25 11)\\\"><foreignObject x=\\\"0\\\" y=\\\"0\\\" width=\\\"100%\\\" height=\\\"100%\\\"><div xmlns=\\\"http://www.w3.org/1999/xhtml\\\" style=\\\"width:100%;height:100%;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\\\"></div></foreignObject></g><g data-paprika-id=\\\"pth\\\" transform=\\\"translate(30.37 16.5)\\\"><svg width=\\\"53\\\" height=\\\"21\\\" overflow=\\\"visible\\\"><defs><linearGradient id=\\\"paprika-g-pth\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0.5\\\" y1=\\\"0\\\" x2=\\\"0.5\\\" y2=\\\"1\\\"><stop offset=\\\"25%\\\" stop-color=\\\"#aabbcc\\\"/><stop offset=\\\"75%\\\" stop-color=\\\"#ddeeff\\\"/></linearGradient></defs><path d=\\\"M0 0 L40 0 L40 40 Z\\\" fill=\\\"url(#paprika-g-pth)\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg></g><g data-paprika-id=\\\"shp\\\" transform=\\\"translate(40.49 22)\\\"><g><defs><radialGradient id=\\\"paprika-g-shp\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.5\\\" cy=\\\"0.5\\\" r=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#eeeeee\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#333333\\\"/></radialGradient></defs><path d=\\\"M45 1 L89 24 L45 47 L1 24 Z\\\" fill=\\\"url(#paprika-g-shp)\\\" stroke-linejoin=\\\"round\\\" stroke=\\\"#1e2336\\\" stroke-width=\\\"2\\\"/></g><text xml:space=\\\"preserve\\\" font-family=\\\"Inter, system-ui, sans-serif\\\" font-size=\\\"16\\\" font-weight=\\\"500\\\" fill=\\\"#1e2336\\\" text-anchor=\\\"middle\\\"><tspan x=\\\"27\\\" y=\\\"15.47\\\">A</tspan></text></g></svg>\",\"width\":304,\"height\":118,\"warnings\":[]}"
+    },
+    "lin": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"50\\\" height=\\\"20\\\" viewBox=\\\"0 0 50 20\\\"><g data-paprika-id=\\\"lin\\\" data-name=\\\"Linear\\\" transform=\\\"translate(0 0)\\\"><defs><linearGradient id=\\\"paprika-g-lin\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0\\\" y1=\\\"0.5\\\" x2=\\\"1\\\" y2=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#c8401f\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#4cc7d8\\\"/></linearGradient></defs><rect x=\\\"0\\\" y=\\\"0\\\" width=\\\"50\\\" height=\\\"20\\\" fill=\\\"url(#paprika-g-lin)\\\"/></g></svg>\",\"width\":50,\"height\":20,\"warnings\":[]}"
+    },
+    "rad": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"51\\\" height=\\\"20.33\\\" viewBox=\\\"0 0 51 20.33\\\"><g data-paprika-id=\\\"rad\\\" transform=\\\"translate(10.12 5.5)\\\"><defs><radialGradient id=\\\"paprika-g-rad\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.3\\\" cy=\\\"0.4\\\" r=\\\"0.8\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#ffffff\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#112233\\\"/></radialGradient></defs><ellipse cx=\\\"25.5\\\" cy=\\\"10.17\\\" rx=\\\"25.5\\\" ry=\\\"10.17\\\" fill=\\\"url(#paprika-g-rad)\\\"/></g></svg>\",\"width\":51,\"height\":20.333333333333332,\"warnings\":[]}"
+    },
+    "con": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"52\\\" height=\\\"20.67\\\" viewBox=\\\"0 0 52 20.67\\\"><g data-paprika-id=\\\"con\\\" transform=\\\"translate(20.25 11)\\\"><foreignObject x=\\\"0\\\" y=\\\"0\\\" width=\\\"100%\\\" height=\\\"100%\\\"><div xmlns=\\\"http://www.w3.org/1999/xhtml\\\" style=\\\"width:100%;height:100%;background:conic-gradient(from 20deg at 50% 50%, red 0%, blue 50%, #ffffff 100%)\\\"></div></foreignObject></g></svg>\",\"width\":52,\"height\":20.666666666666668,\"warnings\":[]}"
+    },
+    "pth": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"53\\\" height=\\\"21\\\" viewBox=\\\"0 0 53 21\\\"><g data-paprika-id=\\\"pth\\\" transform=\\\"translate(30.37 16.5)\\\"><svg width=\\\"53\\\" height=\\\"21\\\" overflow=\\\"visible\\\"><defs><linearGradient id=\\\"paprika-g-pth\\\" gradientUnits=\\\"objectBoundingBox\\\" x1=\\\"0.5\\\" y1=\\\"0\\\" x2=\\\"0.5\\\" y2=\\\"1\\\"><stop offset=\\\"25%\\\" stop-color=\\\"#aabbcc\\\"/><stop offset=\\\"75%\\\" stop-color=\\\"#ddeeff\\\"/></linearGradient></defs><path d=\\\"M0 0 L40 0 L40 40 Z\\\" fill=\\\"url(#paprika-g-pth)\\\" fill-rule=\\\"nonzero\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"/></svg></g></svg>\",\"width\":53,\"height\":21,\"warnings\":[]}"
+    },
+    "shp": {
+     "ok": true,
+     "value": "{\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"54\\\" height=\\\"21.33\\\" viewBox=\\\"0 0 54 21.33\\\"><g data-paprika-id=\\\"shp\\\" transform=\\\"translate(40.49 22)\\\"><g><defs><radialGradient id=\\\"paprika-g-shp\\\" gradientUnits=\\\"objectBoundingBox\\\" cx=\\\"0.5\\\" cy=\\\"0.5\\\" r=\\\"0.5\\\"><stop offset=\\\"0%\\\" stop-color=\\\"#eeeeee\\\"/><stop offset=\\\"100%\\\" stop-color=\\\"#333333\\\"/></radialGradient></defs><path d=\\\"M45 1 L89 24 L45 47 L1 24 Z\\\" fill=\\\"url(#paprika-g-shp)\\\" stroke-linejoin=\\\"round\\\" stroke=\\\"#1e2336\\\" stroke-width=\\\"2\\\"/></g><text xml:space=\\\"preserve\\\" font-family=\\\"Inter, system-ui, sans-serif\\\" font-size=\\\"16\\\" font-weight=\\\"500\\\" fill=\\\"#1e2336\\\" text-anchor=\\\"middle\\\"><tspan x=\\\"27\\\" y=\\\"15.47\\\">A</tspan></text></g></svg>\",\"width\":54,\"height\":21.333333333333332,\"warnings\":[]}"
+    }
+   },
+   "measure": "{\"boxes\":{\"lin\":[0,0,50,20],\"rad\":[10.123,5.5,51,20.333333333333332],\"con\":[20.246,11,52,20.666666666666668],\"pth\":[30.369,16.5,53,21],\"shp\":[40.492,22,54,21.333333333333332]},\"lines\":{}}"
   }
  ],
  "layouts": [
@@ -46652,6 +47202,35 @@
     "inst": {
      "ok": true,
      "value": "{\"inst\":{\"x\":260,\"y\":120,\"width\":160,\"height\":64,\"origin\":{\"x\":340,\"y\":152},\"corners\":[{\"x\":260,\"y\":120},{\"x\":420,\"y\":120},{\"x\":420,\"y\":184},{\"x\":260,\"y\":184}]}}"
+    }
+   }
+  },
+  {
+   "name": "grad",
+   "layout": {
+    "ok": true,
+    "value": "{\"con\":{\"x\":250,\"y\":10,\"width\":64,\"height\":48,\"origin\":{\"x\":282,\"y\":34},\"corners\":[{\"x\":250,\"y\":10},{\"x\":314,\"y\":10},{\"x\":314,\"y\":58},{\"x\":250,\"y\":58}]},\"lin\":{\"x\":10,\"y\":10,\"width\":120,\"height\":48,\"origin\":{\"x\":70,\"y\":34},\"corners\":[{\"x\":10,\"y\":10},{\"x\":130,\"y\":10},{\"x\":130,\"y\":58},{\"x\":10,\"y\":58}]},\"pth\":{\"x\":10,\"y\":80,\"width\":40,\"height\":40,\"origin\":{\"x\":30,\"y\":100},\"corners\":[{\"x\":10,\"y\":80},{\"x\":50,\"y\":80},{\"x\":50,\"y\":120},{\"x\":10,\"y\":120}]},\"rad\":{\"x\":150,\"y\":10,\"width\":80,\"height\":48,\"origin\":{\"x\":190,\"y\":34},\"corners\":[{\"x\":150,\"y\":10},{\"x\":230,\"y\":10},{\"x\":230,\"y\":58},{\"x\":150,\"y\":58}]},\"shp\":{\"x\":70,\"y\":80,\"width\":90,\"height\":48,\"origin\":{\"x\":115,\"y\":104},\"corners\":[{\"x\":70,\"y\":80},{\"x\":160,\"y\":80},{\"x\":160,\"y\":128},{\"x\":70,\"y\":128}]}}"
+   },
+   "byRoot": {
+    "lin": {
+     "ok": true,
+     "value": "{\"lin\":{\"x\":10,\"y\":10,\"width\":120,\"height\":48,\"origin\":{\"x\":70,\"y\":34},\"corners\":[{\"x\":10,\"y\":10},{\"x\":130,\"y\":10},{\"x\":130,\"y\":58},{\"x\":10,\"y\":58}]}}"
+    },
+    "rad": {
+     "ok": true,
+     "value": "{\"rad\":{\"x\":150,\"y\":10,\"width\":80,\"height\":48,\"origin\":{\"x\":190,\"y\":34},\"corners\":[{\"x\":150,\"y\":10},{\"x\":230,\"y\":10},{\"x\":230,\"y\":58},{\"x\":150,\"y\":58}]}}"
+    },
+    "con": {
+     "ok": true,
+     "value": "{\"con\":{\"x\":250,\"y\":10,\"width\":64,\"height\":48,\"origin\":{\"x\":282,\"y\":34},\"corners\":[{\"x\":250,\"y\":10},{\"x\":314,\"y\":10},{\"x\":314,\"y\":58},{\"x\":250,\"y\":58}]}}"
+    },
+    "pth": {
+     "ok": true,
+     "value": "{\"pth\":{\"x\":10,\"y\":80,\"width\":40,\"height\":40,\"origin\":{\"x\":30,\"y\":100},\"corners\":[{\"x\":10,\"y\":80},{\"x\":50,\"y\":80},{\"x\":50,\"y\":120},{\"x\":10,\"y\":120}]}}"
+    },
+    "shp": {
+     "ok": true,
+     "value": "{\"shp\":{\"x\":70,\"y\":80,\"width\":90,\"height\":48,\"origin\":{\"x\":115,\"y\":104},\"corners\":[{\"x\":70,\"y\":80},{\"x\":160,\"y\":80},{\"x\":160,\"y\":128},{\"x\":70,\"y\":128}]}}"
     }
    }
   }

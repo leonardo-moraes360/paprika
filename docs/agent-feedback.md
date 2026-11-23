@@ -731,13 +731,42 @@ Task: draw the multi-selection inspector (align, distribute, wrap in a frame) an
 - Same as #123 and #128, still open: `get_bounds` on `page#interfaces` returned an empty content box, and a second empty page is also named `Interfaces` (`h6jut017rv`). Frames were placed by reading depth-1 `x`/`y` (landed at y=4200).
 - `lint_design` on both frames was clean after the locked label switched to `$ui.destructiveText`.
 
+## 2026-11-23: structured gradients and OKLCH (PAP-B-081, design first)
+
+Task: draw the fill inspector, the on-canvas handles and the OKLCH picker, light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before implementing `gradient` and the color parser. Frames at y=5400 and y=5960. PNGs in `docs/assets/boards/PAP-B-081/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 137 | A free spot under the existing boards | `get_bounds` on page `interfaces` returned a 0×0 content box and next spot `0,0`, while the children extend past x 8000 and y 5200 | Return the union of the page's children when the page itself has no box | P2 |
+| 138 | An ellipse knob inside an auto-layout frame | `create_nodes` rejected the whole batch: `unknown fields for ellipse: layoutPositioning` | The error is right; the guide should say the field is only on nodes that flow | P3 |
+| 139 | A dark mode on the mock | `mode: "dark"` linted as unknown-mode. The base tokens are already the dark theme; only `light` exists | Document that the base set is the dark theme in `Paprica · UI` | P3 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #128: two pages named Interfaces. Used `interfaces` (the one with children), not the empty page.
+- Same as #129: `render_screenshot` wrote under the server's `/data/screenshots`. The PNGs were copied from the returned URL.
+- Eight 11px labels warned as small-text. The boards were not redrawn at 12px.
+
+## 2026-11-23: typed tokens and detach (PAP-B-082, design first)
+
+Task: draw token collections (light and dark) and detach (light and dark) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before typed tokens, named collections and `detach_tokens`. Frames `b082tokl`, `b082tokd`, `b082detl`, `b082detd` at y=6680. PNGs in `docs/assets/boards/PAP-B-082/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 140 | The screenshot file on the host | `render_screenshot` `path` wrote inside the server filesystem (`/data/screenshots/PAP-B-082/*.png`). The host copies were downloaded from `url` (`/api/screenshot/<id>`) | Same as #129: document that `path` is inside the server, and that `url` is the way out | P2 |
+| 141 | A kickoff color on a dark frame | `$ui.primary` on the dark background was 3.54:1. `lint_design` reported contrast on the kickers | Keep the known swatch (`#ffd2c9`) in the guide for text on the dark canvas | P3 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #128, still open: `find_nodes` returns two pages named `Interfaces`. The frames went on `page#interfaces`.
+- Same as #123, still open: `get_document_outline` of that page reported `content` 0×0 and `next` 0,0, so y=6680 came from a depth-1 scan under the frames already on the page.
+- `lint_design` on the four frames was clean after the kickers moved to `#ffd2c9`.
+
 ## 2026-11-23: constraints when the parent resizes (PAP-B-084, design first)
 
 Task: draw the inspector constraint axes (dark: right/top, light: scale/center) and a before/after of a parent growing, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before adding `constraints`. Three frames at y=9120 (`papb084-inspector-dark`, `papb084-inspector-light`, `papb084-behavior`). PNGs in `docs/assets/boards/PAP-B-084/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 123 | A free spot on `Interfaces` | Still open: `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0. Depth-1 boxes bottomed near y=8960, so the frames went to y=9120 | Same as the open row: the page content box should include its child frames | P2 |
+| 142 | A free spot on `Interfaces` | Still open: `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0. Depth-1 boxes bottomed near y=8960, so the frames went to y=9120 | Same as the open row: the page content box should include its child frames | P2 |
 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - The behavior frame is a mock: the live server does not accept `constraints` yet, so the before/after rectangles are placed by x/y.

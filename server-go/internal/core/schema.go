@@ -91,8 +91,20 @@ var (
 		}
 		return "filter needs at least one of blur, saturate, grayscale, brightness, sepia, invert, hueRotate"
 	})
-	padLength    = lengthMin(0)
-	cornerOne    = lengthMin(0)
+	padLength          = lengthMin(0)
+	cornerOne          = lengthMin(0)
+	gradientStopSchema = z.Object(
+		z.Field{Name: "color", Schema: colorValue()},
+		z.Field{Name: "offset", Schema: z.Number().Min(0).Max(1)},
+	)
+	gradientSchema = z.Object(
+		z.Field{Name: "type", Schema: z.Enum("linear", "radial", "conic")},
+		z.Field{Name: "angle", Schema: z.Default(z.Number().Min(-3600).Max(3600), 180.0)},
+		z.Field{Name: "cx", Schema: z.Default(z.Number().Min(0).Max(1), 0.5)},
+		z.Field{Name: "cy", Schema: z.Default(z.Number().Min(0).Max(1), 0.5)},
+		z.Field{Name: "radius", Schema: z.Default(z.Number().Min(0).Max(2), 0.5)},
+		z.Field{Name: "stops", Schema: z.Array(gradientStopSchema).Min(2).Max(12)},
+	)
 	layoutSchema = z.Object(
 		z.Field{Name: "mode", Schema: z.Default(z.Enum("none", "row", "column"), "none")},
 		z.Field{Name: "gap", Schema: z.Default(lengthMin(0), 0.0)},
@@ -125,6 +137,7 @@ func baseFields() []z.Field {
 			z.Field{Name: "vertical", Schema: z.Default(z.Enum("top", "bottom", "center", "scale"), "top")},
 		))},
 		{Name: "fill", Schema: z.Optional(colorValue())},
+		{Name: "gradient", Schema: z.Optional(gradientSchema)},
 		{Name: "stroke", Schema: z.Optional(strokeSchema)},
 		{Name: "radius", Schema: z.Default(lengthMin(0), 0.0)},
 		{Name: "shadow", Schema: z.Optional(shadowValue)},
@@ -176,6 +189,7 @@ func pageSchema() *z.ObjectSchema {
 		baseField("id"), baseField("name"), baseField("parentId"),
 		z.Field{Name: "type", Schema: z.Literal("page")},
 		z.Field{Name: "fill", Schema: z.Optional(colorValue())},
+		z.Field{Name: "gradient", Schema: z.Optional(gradientSchema)},
 		z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
 		baseField("notes"), baseField("lintIgnore"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
@@ -196,6 +210,10 @@ func fontSizeSchema() z.Schema {
 		z.Number().Min(1).Max(1000),
 		lengthToken(),
 	), 16.0)
+}
+
+func fontWeightSchema(def float64) z.Schema {
+	return z.Default(z.Union(z.Int().Min(100).Max(900), lengthToken()), def)
 }
 
 // ShapeKinds: the outlines a diagram shape can take.
@@ -219,7 +237,7 @@ func shapeSchema() *z.ObjectSchema {
 		z.Field{Name: "color", Schema: z.Default(colorValue(), "#1e2336")},
 		z.Field{Name: "fontFamily", Schema: fontFamilySchema()},
 		z.Field{Name: "fontSize", Schema: fontSizeSchema()},
-		z.Field{Name: "fontWeight", Schema: z.Default(z.Int().Min(100).Max(900), 500.0)},
+		z.Field{Name: "fontWeight", Schema: fontWeightSchema(500)},
 		z.Field{Name: "lineHeight", Schema: z.Default(lengthMinMax(0, 10), 1.3)},
 		z.Field{Name: "textAlign", Schema: z.Default(z.Enum("left", "center", "right"), "center")},
 	)
@@ -329,7 +347,7 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 			return ""
 		}), "Inter, system-ui, sans-serif")},
 		z.Field{Name: "fontSize", Schema: fontSizeSchema()},
-		z.Field{Name: "fontWeight", Schema: z.Default(z.Int().Min(100).Max(900), 400.0)},
+		z.Field{Name: "fontWeight", Schema: fontWeightSchema(400)},
 		z.Field{Name: "lineHeight", Schema: z.Default(lengthMinMax(0, 10), 1.4)},
 		z.Field{Name: "letterSpacing", Schema: z.Default(lengthAny(), 0.0)},
 		z.Field{Name: "textAlign", Schema: z.Default(z.Enum("left", "center", "right"), "left")},
@@ -390,6 +408,7 @@ var DocumentSchema = z.Object(
 	z.Field{Name: "name", Schema: z.Default(z.String(), "Untitled")},
 	z.Field{Name: "tokens", Schema: z.Default(z.Record(TokenNameSchema, TokenValueSchema), jsonv.NewObject())},
 	z.Field{Name: "modes", Schema: z.Optional(z.Record(ModeNameSchema, z.Record(TokenNameSchema, TokenValueSchema)))},
+	z.Field{Name: "tokenMeta", Schema: z.Optional(z.Record(TokenNameSchema, TokenMetaSchema))},
 	z.Field{Name: "rootIds", Schema: z.Default(z.Array(z.String()), []any{})},
 	z.Field{Name: "nodes", Schema: z.Default(z.Record(z.String(), NodeSchema), jsonv.NewObject())},
 )
@@ -442,6 +461,18 @@ func notProto(v, msg string) string {
 
 // Modes returns doc.modes (nil when the document has none).
 func Modes(doc *Document) *jsonv.Object { return doc.Obj("modes") }
+
+func TokenMeta(doc *Document) *jsonv.Object { return doc.Obj("tokenMeta") }
+
+var TokenTypeSchema = z.Enum("color", "length", "fontFamily", "fontWeight", "fontSize", "lineHeight", "letterSpacing")
+
+var CollectionNameSchema = z.String().Regex(`^[A-Za-z0-9_-]{1,40}$`, `/^[A-Za-z0-9_-]{1,40}$/`, "collection name must be [A-Za-z0-9_-]{1,40}").
+	Refine(func(v string) string { return notProto(v, "collection name cannot be __proto__") })
+
+var TokenMetaSchema = z.Object(
+	z.Field{Name: "type", Schema: z.Optional(TokenTypeSchema)},
+	z.Field{Name: "collection", Schema: z.Optional(CollectionNameSchema)},
+)
 
 // overridesSchema is Overrides in schema.ts: keys shaped like node ids and field names.
 func overridesSchema() z.Schema {

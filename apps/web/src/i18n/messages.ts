@@ -223,6 +223,23 @@ export type Messages = {
   colorSatBri: string;
   colorHue: string;
   colorAlpha: string;
+  colorSpaceSrgb: string;
+  colorSpaceOklch: string;
+  colorLightness: string;
+  colorChroma: string;
+  fillSolid: string;
+  fillLinear: string;
+  fillRadial: string;
+  fillConic: string;
+  gradientAngle: string;
+  gradientStops: string;
+  gradientAddStop: string;
+  gradientRemoveStop: string;
+  gradientHandleEnd: string;
+  gradientHandleCenter: string;
+  gradientHandleRadius: string;
+  gradientHandleAngle: string;
+  gradientHandleStop: string;
   connectorLabel: string;
   confirmCancel: string;
   typeToConfirmBefore: string;
@@ -591,6 +608,23 @@ const en: Messages = {
   colorSatBri: "Saturation and brightness",
   colorHue: "Hue",
   colorAlpha: "Alpha",
+  colorSpaceSrgb: "sRGB",
+  colorSpaceOklch: "OKLCH",
+  colorLightness: "Lightness",
+  colorChroma: "Chroma",
+  fillSolid: "Solid",
+  fillLinear: "Linear",
+  fillRadial: "Radial",
+  fillConic: "Conic",
+  gradientAngle: "Angle",
+  gradientStops: "Stops",
+  gradientAddStop: "Add stop",
+  gradientRemoveStop: "Remove stop",
+  gradientHandleEnd: "Gradient angle",
+  gradientHandleCenter: "Gradient center",
+  gradientHandleRadius: "Gradient radius",
+  gradientHandleAngle: "Gradient angle",
+  gradientHandleStop: "Gradient stop",
   connectorLabel: "Arrow label",
   confirmCancel: "Cancel",
   typeToConfirmBefore: "Type ",
@@ -946,6 +980,24 @@ const pt: Messages = {
   colorTokens: "Tokens do documento",
   colorSatBri: "Saturação e brilho",
   colorHue: "Matiz",
+  colorAlpha: "Alfa",
+  colorSpaceSrgb: "sRGB",
+  colorSpaceOklch: "OKLCH",
+  colorLightness: "Luminosidade",
+  colorChroma: "Croma",
+  fillSolid: "Sólido",
+  fillLinear: "Linear",
+  fillRadial: "Radial",
+  fillConic: "Cônico",
+  gradientAngle: "Ângulo",
+  gradientStops: "Stops",
+  gradientAddStop: "Adicionar stop",
+  gradientRemoveStop: "Remover stop",
+  gradientHandleEnd: "Ângulo do gradiente",
+  gradientHandleCenter: "Centro do gradiente",
+  gradientHandleRadius: "Raio do gradiente",
+  gradientHandleAngle: "Ângulo do gradiente",
+  gradientHandleStop: "Stop do gradiente",
   connectorLabel: "Rótulo da seta",
   confirmCancel: "Cancelar",
   typeToConfirmBefore: "Digite ",

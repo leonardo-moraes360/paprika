@@ -4,10 +4,14 @@ import {
   connectorAttrs,
   connectorLabelAttrs,
   modeOf,
+  nodeGradient,
   pathAttrs,
+  svgGradientInner,
   resolveCorners,
   resolveLength,
   resolveValue,
+  resolvedFontFamily,
+  resolvedFontWeight,
   usedCornerRadii,
   uniformCorner,
   shapeAttrs,
@@ -198,8 +202,8 @@ export function exportSVG(
     const sh = svgShadowFilter(doc, n, id, warn);
     const defs = sh.defs;
     const shadowAttr = sh.attr;
-    const fill = a.path.fill === "none" ? "none" : (paint(doc, n.fill, mode, warn) ?? "none");
-    let body = `<g${shadowAttr}><path${svgAttrs({ ...a.path, fill })}/>`;
+    const fill = a.path.fill === "none" || a.path.fill.startsWith("url(") ? a.path.fill : (paint(doc, n.fill, mode, warn) ?? "none");
+    let body = `<g${shadowAttr}>${a.svgInner}<path${svgAttrs({ ...a.path, fill })}/>`;
     if (a.fold) body += `<path${svgAttrs(a.fold)}/>`;
     body += "</g>";
     const fs = resolveValue(doc, n.fontSize, mode);
@@ -219,7 +223,7 @@ export function exportSVG(
     }
     if (tspans) {
       const color = escapeHtml(String(resolveValue(doc, n.color, mode)));
-      body += `<text xml:space="preserve" font-family="${escapeHtml(n.fontFamily)}" font-size="${f(size)}" font-weight="${n.fontWeight}" fill="${color}"${anchor}>${tspans}</text>`;
+      body += `<text xml:space="preserve" font-family="${escapeHtml(resolvedFontFamily(doc, n.fontFamily, mode))}" font-size="${f(size)}" font-weight="${resolvedFontWeight(doc, n.fontWeight, mode)}" fill="${color}"${anchor}>${tspans}</text>`;
     }
     return `${defs ? `<defs>${defs}</defs>` : ""}${body}`;
   };
@@ -253,7 +257,8 @@ export function exportSVG(
     const sh = n.type === "text" ? { defs: "", attr: "" } : svgShadowFilter(doc, n, id, warn);
     let defs = sh.defs;
     const shadowAttr = sh.attr;
-    const fill = n.type === "path" ? undefined : paint(doc, n.fill, mode, warn);
+    const painted = nodeGradient(n) ? svgGradientInner(doc, n, w, h, false) : undefined;
+    const fill = n.type === "path" ? undefined : painted ? (painted.fill === "none" ? undefined : painted.fill) : paint(doc, n.fill, mode, warn);
     const sw = n.type !== "path" && n.stroke && len(doc, n, n.stroke.width) > 0 ? len(doc, n, n.stroke.width) : 0;
     const pos = sw && n.stroke ? strokePositionOf(n) : "inside";
     const style = sw && n.stroke ? strokeStyleOf(n.stroke) : "solid";
@@ -299,11 +304,12 @@ export function exportSVG(
         break;
       case "path": {
         const a = pathAttrs(doc, n);
-        const pfill = a.path.fill === "none" ? "none" : paint(doc, n.fill, mode, warn) ?? "none";
-        body += `<svg width="${f(w)}" height="${f(h)}"${svgAttrs(a.svg)} overflow="visible"><path${svgAttrs({ ...a.path, fill: pfill })}${shadowAttr}/></svg>`;
+        const pfill = a.path.fill === "none" || a.path.fill.startsWith("url(") ? a.path.fill : paint(doc, n.fill, mode, warn) ?? "none";
+        body += `<svg width="${f(w)}" height="${f(h)}"${svgAttrs(a.svg)} overflow="visible">${a.svgInner}<path${svgAttrs({ ...a.path, fill: pfill })}${shadowAttr}/></svg>`;
         break;
       }
     }
+    if (painted && n.type !== "path") body = painted.inner + body;
     if (n.type === "text") {
       const fs = resolveValue(doc, n.fontSize, mode);
       const size = typeof fs === "number" ? fs : Number.parseFloat(String(fs)) || 16;
@@ -323,7 +329,7 @@ export function exportSVG(
           .join("");
       }
       const ls = n.letterSpacing ? ` letter-spacing="${f(len(doc, n, n.letterSpacing))}"` : "";
-      body += `<text xml:space="preserve" font-family="${escapeHtml(n.fontFamily)}" font-size="${f(size)}" font-weight="${n.fontWeight}" fill="${color}"${ls}${anchor}>${tspans}</text>`;
+      body += `<text xml:space="preserve" font-family="${escapeHtml(resolvedFontFamily(doc, n.fontFamily, mode))}" font-size="${f(size)}" font-weight="${resolvedFontWeight(doc, n.fontWeight, mode)}" fill="${color}"${ls}${anchor}>${tspans}</text>`;
     }
     if (n.type === "image") {
       const fit = n.fit === "cover" ? "xMidYMid slice" : n.fit === "contain" ? "xMidYMid meet" : "none";
@@ -357,7 +363,10 @@ export function exportSVG(
     width = cb!.width;
     height = cb!.height;
   }
-  const bg = single ? "" : `<rect width="${f(width)}" height="${f(height)}" fill="${escapeHtml(page?.fill ? String(resolveValue(doc, page.fill, page.mode)) : "#ffffff")}"/>`;
+  const pagePaint = page && nodeGradient(page) ? svgGradientInner(doc, page, width, height, false) : undefined;
+  const bg = single
+    ? ""
+    : `${pagePaint?.inner ?? ""}<rect width="${f(width)}" height="${f(height)}" fill="${escapeHtml(pagePaint ? pagePaint.fill : page?.fill ? String(resolveValue(doc, page.fill, page.mode)) : "#ffffff")}"/>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${f(width)}" height="${f(height)}" viewBox="0 0 ${f(width)} ${f(height)}">${bg}${content}</svg>`;
   return { svg, width, height, warnings };
 }
