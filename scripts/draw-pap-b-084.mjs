@@ -31,8 +31,9 @@ let workspaces;
 try {
   workspaces = JSON.parse(wsRaw);
 } catch {
-  const m = wsRaw.match(/\{[\s\S]*\}/);
-  workspaces = m ? JSON.parse(m[0]) : { workspaces: [] };
+  const start = wsRaw.indexOf("{");
+  const end = wsRaw.lastIndexOf("}");
+  workspaces = start >= 0 && end > start ? JSON.parse(wsRaw.slice(start, end + 1)) : { workspaces: [] };
 }
 const list = workspaces.workspaces ?? workspaces;
 const ui = list.find((w) => w.name === "Paprica · UI") ?? list.find((w) => /paprica/i.test(w.name ?? "") && /ui/i.test(w.name ?? ""));
@@ -47,7 +48,7 @@ if (!pageId) throw new Error(`Interfaces page not found\n${outline.slice(0, 1500
 console.log("page", pageId, pageLine);
 
 const pageOutline = textOf(await call("get_document_outline", { workspaceId, rootId: pageId, depth: 1 }));
-const bottoms = [...pageOutline.matchAll(/(\d+(?:\.\d+)?)×(\d+(?:\.\d+)?)\s+@-?\d+(?:\.\d+)?,\s*(-?\d+(?:\.\d+)?)/g)].map((m) => Number(m[3]) + Number(m[2]));
+const bottoms = [...pageOutline.matchAll(/(\d{1,8}(?:\.\d{1,8})?)×(\d{1,8}(?:\.\d{1,8})?)\s+@-?\d{1,8}(?:\.\d{1,8})?,\s*(-?\d{1,8}(?:\.\d{1,8})?)/g)].map((m) => Number(m[3]) + Number(m[2]));
 const maxBottom = bottoms.length ? Math.max(...bottoms) : 0;
 const Y = Math.ceil((maxBottom + 160) / 40) * 40;
 console.log("placing at y=", Y, "maxBottom=", maxBottom);
