@@ -57,10 +57,14 @@ func TestLayoutRotatedCorners(t *testing.T) {
 	near(t, r.Y, 30, 0.01)
 	near(t, r.Origin.X, 60, 0.01)
 	near(t, r.Origin.Y, 40, 0.01)
-	near(t, r.Corners[0].X, 50, 1)
-	near(t, r.Corners[0].Y, 60, 1)
-	near(t, r.Corners[1].X, 50, 1)
-	near(t, r.Corners[1].Y, 20, 1)
+	near(t, r.Corners[0].X, 70, 0.01)
+	near(t, r.Corners[0].Y, 20, 0.01)
+	near(t, r.Corners[1].X, 70, 0.01)
+	near(t, r.Corners[1].Y, 60, 0.01)
+	near(t, r.Corners[2].X, 50, 0.01)
+	near(t, r.Corners[2].Y, 60, 0.01)
+	near(t, r.Corners[3].X, 50, 0.01)
+	near(t, r.Corners[3].Y, 20, 0.01)
 }
 
 func TestLayoutNestedAutoLayout(t *testing.T) {

@@ -44,7 +44,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Seleção múltipla (shift-clique, laço), selecionar tudo, selecionar irmãos | Shift/Ctrl-clique, laço, `Ctrl+A` seleciona os irmãos (2026-11-21) | ✅ | — |
 | Descer/subir na hierarquia, seleção profunda, ciclar irmãos | `Esc` seleciona o pai. `Enter` seleciona os filhos diretos dos frames e grupos selecionados (sem filhos, `Enter` continua armando o pan). `Tab` / `Shift+Tab` ciclam os irmãos. `Ctrl`+clique seleciona o nó sob o cursor através de grupos e instâncias; o duplo clique continua fazendo o mesmo. Documentado em `docs/pt-BR/canvas.md` (2026-11-23, PAP-B-090). PR: https://github.com/leonardo-moraes360/paprika/pull/155. | ✅ | — |
 | Árvore de camadas sob o cursor (menu de contexto) | Clique direito no canvas lista as camadas sob o cursor, da frente para o fundo; escolher uma linha seleciona esse nó. Mesma mudança da linha de hierarquia (2026-11-23, PAP-B-090). PR: https://github.com/leonardo-moraes360/paprika/pull/155. | ✅ | — |
-| Hit test e alças que respeitam rotação | Pela caixa | ⬜ | P2 |
+| Hit test e alças que respeitam rotação | Contorno, alças dos cantos e alça de girar seguem os cantos do `get_bounds`; o marquee acerta essa caixa. Arrastar um canto mantém o oposto fixo nos eixos do nó (2026-11-23, PAP-B-091, https://github.com/leonardo-moraes360/paprika/pull/157). | ✅ | — |
 | Passo de nudge configurável | Setas 1px, Shift 10px | 🟡 | P3 |
 | Conta-gotas (amostrar cor do canvas) | — | ⬜ | P2 |
 | Duplicar arrastando com modificador | `Ctrl+D` duplica | 🟡 | P3 |

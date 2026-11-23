@@ -1538,6 +1538,75 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(after.y).toBeLessThan(before.y);
   }, 30_000);
 
+  it("seleção rotacionada: alças nos cantos da caixa e o marquee ignora o canto vazio", async () => {
+    const POLL = { timeout: 10_000 };
+    await page.keyboard.press("Escape");
+    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const id = "spin-hit";
+    const created = await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId,
+        label: "retângulo rotacionado",
+        nodes: [{ type: "rect", id, name: "Spin", x: 700, y: 40, width: 220, height: 48, rotation: 32, fill: "#d9d4cf" }],
+      },
+    });
+    expect(created.isError).toBeFalsy();
+    await expect.poll(async () => (await doc()).nodes[id]?.type, POLL).toBe("rect");
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    const host = page.locator(`[data-paprika-id="${id}"]`);
+    const box = (await host.boundingBox())!;
+    const empty = { x: box.x + Math.max(2, box.width * 0.015), y: box.y + Math.max(2, box.height * 0.015) };
+    await page.mouse.click(empty.x, empty.y);
+    await expect.poll(() => page.locator(`[data-layer-id="${id}"].is-selected`).count(), POLL).toBe(0);
+    await page.mouse.move(empty.x, empty.y);
+    await page.mouse.down();
+    await page.mouse.move(empty.x + Math.max(4, box.width * 0.02), empty.y + Math.max(4, box.height * 0.02), { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(() => page.locator(`[data-layer-id="${id}"].is-selected`).count(), POLL).toBe(0);
+    await host.click();
+    const sel = page.getByTestId("selection");
+    await expect.poll(() => sel.locator("[data-resize]").count(), POLL).toBe(4);
+    await expect.poll(() => sel.getByTestId("rotate-handle").count(), POLL).toBe(1);
+    const nw = (await sel.locator('[data-resize="nw"]').boundingBox())!;
+    const nwCenter = { x: nw.x + nw.width / 2, y: nw.y + nw.height / 2 };
+    const vp = (await page.locator(".viewport").boundingBox())!;
+    const first = (await sel.locator("polygon").getAttribute("points"))!.split(" ")[0]!.split(",").map(Number);
+    const quad = { x: vp.x + first[0]!, y: vp.y + first[1]! };
+    expect(Math.hypot(nwCenter.x - quad.x, nwCenter.y - quad.y)).toBeLessThan(6);
+    expect(Math.hypot(quad.x - box.x, quad.y - box.y)).toBeGreaterThan(4);
+    const before = (await doc()).nodes[id] as { x: number; y: number; width: number; height: number; rotation: number };
+    const corner = (n: typeof before, which: "nw" | "se") => {
+      const w = n.width;
+      const h = n.height;
+      const cx = n.x + w / 2;
+      const cy = n.y + h / 2;
+      const rad = (n.rotation * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const dx = (which === "nw" ? -w : w) / 2;
+      const dy = (which === "nw" ? -h : h) / 2;
+      return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
+    };
+    const nwBefore = corner(before, "nw");
+    const se = (await sel.locator('[data-resize="se"]').boundingBox())!;
+    await page.mouse.move(se.x + se.width / 2, se.y + se.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(se.x + se.width / 2 + 36, se.y + se.height / 2 + 24, { steps: 6 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => {
+        const n = (await doc()).nodes[id] as { width: number; height: number };
+        return n.width !== before.width || n.height !== before.height;
+      }, POLL)
+      .toBe(true);
+    const after = (await doc()).nodes[id] as typeof before;
+    const nwAfter = corner(after, "nw");
+    expect(Math.abs(nwAfter.x - nwBefore.x)).toBeLessThan(2);
+    expect(Math.abs(nwAfter.y - nwBefore.y)).toBeLessThan(2);
+    expect(after.rotation).toBe(before.rotation);
+  }, 30_000);
+
   it("seta: inspector troca rota cotovelo/arredondado/curva e a alça da curva grava control", async () => {
     const POLL = { timeout: 10_000 };
     await page.keyboard.press("Escape");

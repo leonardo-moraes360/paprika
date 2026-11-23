@@ -688,3 +688,17 @@ Task: draw the right-click layer stack (light Portuguese, dark English) on page 
 - Same as #128, still open: `find_nodes` still returns two pages named `Interfaces`.
 - The full-document outline's trailing `content` box belonged to another page. The free spot was the y under the PAP-B-089 frames (4200 + 460), so these landed at y=4800.
 - `lint_design` on both frames was clean at warning and above after the glyphs moved to `color` and the dark card title used `#141827` on the white card.
+
+## 2026-11-23: rotation-aware handles (PAP-B-091, design first)
+
+Task: draw the selection before and after it follows a rotated box, light and dark, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Frames `b091-before-light`, `b091-after-light`, `b091-before-dark`, `b091-after-dark`. PNGs in `docs/assets/boards/PAP-B-091/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 132 | The page named `Interfaces` | The outline lists `page#iutnyc26zo` ("Página 1") before `page#interfaces`. Taking the first `page#` put the four frames on the wrong page; `move_nodes` to `interfaces` fixed it | Put the page name on the same line as the id in a way a depth-1 scan cannot confuse, or reject a parent that is not the named page | P2 |
+| 133 | Corners that match the painted rotation | `get_bounds` rotated a box with the opposite sign of CSS `rotate()` and of the vello renderer, so a handle placed on those corners sat off the pixels | Done in this change: `layout` corners use the CSS matrix in TypeScript and Go | — |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123, still open: the content box of `page#interfaces` is 0×0, so `y` came from a depth-1 scan (11880).
+- Same as #129, still open: `render_screenshot` `path` is inside the server. The PNGs were decoded from the image bytes in the tool result.
+- `lint_design` was clean after `lintIgnore` on the size badge (`contrast`, the badge is a sibling the text does not see) and on the floating handles (`detached-sibling`).
