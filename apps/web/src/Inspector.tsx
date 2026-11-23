@@ -243,6 +243,89 @@ function ArrangeSection({ ids, apply }: { ids: string[]; apply: Props["apply"] }
   );
 }
 
+const TOKEN_TYPE_LABEL: Record<string, string> = {
+  color: "cor",
+  length: "comprimento",
+  fontFamily: "família",
+  fontWeight: "peso",
+  fontSize: "tamanho",
+  lineHeight: "altura",
+  letterSpacing: "espaçamento",
+};
+
+function tokenUses(node: Node): { field: string; label: string; value: string }[] {
+  const out: { field: string; label: string; value: string }[] = [];
+  const push = (field: string, label: string, value: unknown) => {
+    if (typeof value === "string" && value.startsWith("$")) out.push({ field, label, value });
+  };
+  const rec = node as unknown as Record<string, unknown>;
+  push("fill", "Preenchimento", rec.fill);
+  push("color", "Cor", rec.color);
+  push("fontFamily", "Família", rec.fontFamily);
+  push("fontSize", "Tamanho", rec.fontSize);
+  push("fontWeight", "Peso", rec.fontWeight);
+  push("lineHeight", "Altura de linha", rec.lineHeight);
+  push("letterSpacing", "Espaçamento", rec.letterSpacing);
+  if (Array.isArray(rec.radius)) (rec.radius as unknown[]).forEach((item, i) => push("radius", `Raio ${i + 1}`, item));
+  else push("radius", "Raio", rec.radius);
+  const stroke = rec.stroke as { color?: unknown; width?: unknown } | undefined;
+  if (stroke) {
+    push("stroke.color", "Borda", stroke.color);
+    push("stroke.width", "Espessura", stroke.width);
+  }
+  const shadows = Array.isArray(rec.shadow) ? rec.shadow : rec.shadow ? [rec.shadow] : [];
+  for (const shadow of shadows as { x?: unknown; y?: unknown; blur?: unknown; spread?: unknown; color?: unknown }[]) {
+    push("shadow.x", "Sombra X", shadow.x);
+    push("shadow.y", "Sombra Y", shadow.y);
+    push("shadow.blur", "Sombra blur", shadow.blur);
+    push("shadow.spread", "Sombra spread", shadow.spread);
+    push("shadow.color", "Sombra cor", shadow.color);
+  }
+  const outline = rec.outline as { color?: unknown; width?: unknown; offset?: unknown } | undefined;
+  if (outline) {
+    push("outline.color", "Contorno", outline.color);
+    push("outline.width", "Contorno espessura", outline.width);
+    push("outline.offset", "Contorno offset", outline.offset);
+  }
+  const filter = rec.filter as { blur?: unknown } | undefined;
+  const backdrop = rec.backdropFilter as { blur?: unknown } | undefined;
+  if (filter) push("filter.blur", "Filtro blur", filter.blur);
+  if (backdrop) push("backdropFilter.blur", "Fundo blur", backdrop.blur);
+  const layout = rec.layout as { gap?: unknown; padding?: unknown } | undefined;
+  if (layout) {
+    push("layout.gap", "Gap", layout.gap);
+    if (Array.isArray(layout.padding)) (layout.padding as unknown[]).forEach((item) => push("layout.padding", "Padding", item));
+    else push("layout.padding", "Padding", layout.padding);
+  }
+  return out;
+}
+
+function TokenDetach({ id, node, apply }: { id: string; node: Node; apply: Props["apply"] }) {
+  const uses = tokenUses(node);
+  if (uses.length === 0) return null;
+  const detach = (fields?: string[]) => apply([{ op: "detach_tokens", ids: [id], ...(fields ? { fields } : {}) }], "desvincular token");
+  return (
+    <InspectorSection id="node-tokens" title="Tokens" defaultOpen>
+      <div className={ui.grid} data-testid="node-tokens">
+        {uses.map((use, i) => (
+          <div className="flex items-center justify-between gap-2" key={`${use.field}-${i}`}>
+            <span className="min-w-0 truncate text-sm text-ui-foreground">
+              {use.label} <code className={ui.muted}>{use.value}</code>
+            </span>
+            <Button type="button" variant="secondary" size="sm" aria-label={`Desvincular ${use.label}`} onClick={() => detach([use.field])}>
+              <Unlink aria-hidden />
+              Desvincular
+            </Button>
+          </div>
+        ))}
+        <Button type="button" size="sm" data-testid="detach-tokens" onClick={() => detach()}>
+          Desvincular tokens deste nó
+        </Button>
+      </div>
+    </InspectorSection>
+  );
+}
+
 export function Inspector(props: Props) {
   const m = useT();
   const { doc, node, selected, apply, activity, onSelect } = props;
@@ -282,6 +365,11 @@ export function Inspector(props: Props) {
   const setNum = (key: string) => (v: string) => {
     const n = num(v);
     if (n !== undefined) set({ [key]: n });
+  };
+  const setTokenNum = (key: string) => (v: string) => {
+    const t = v.trim();
+    if (t.startsWith("$")) set({ [key]: t });
+    else if (num(t) !== undefined) set({ [key]: num(t) });
   };
 
   return (
@@ -366,9 +454,10 @@ export function Inspector(props: Props) {
             <ColorField doc={doc} mode={themeMode} label="Cor" value={node.color} onCommit={(v) => v && set({ color: v })} />
           </div>
           <div className={ui.grid2}>
-            <Field label="Tamanho" value={node.fontSize} onCommit={(v) => set({ fontSize: v.startsWith("$") ? v : num(v) })} />
-            <Field label="Peso" type="number" value={node.fontWeight} min={100} max={900} integer onCommit={setNum("fontWeight")} />
-            <Field label="Altura linha" type="number" value={node.lineHeight} min={0} onCommit={setNum("lineHeight")} />
+            <Field label="Tamanho" value={node.fontSize} onCommit={setTokenNum("fontSize")} />
+            <Field label="Peso" value={node.fontWeight} title="100–900 ou $token" onCommit={setTokenNum("fontWeight")} />
+            <Field label="Altura linha" value={node.lineHeight} title="número ou $token" onCommit={setTokenNum("lineHeight")} />
+            <Field label="Espaçamento" value={node.letterSpacing} title="número ou $token" onCommit={setTokenNum("letterSpacing")} />
             <SelectField label="Alinhamento" value={node.textAlign} onChange={(v) => set({ textAlign: v })} options={ALIGN_OPTS} />
           </div>
           <FontPicker doc={doc} value={node.fontFamily} onCommit={(v) => set({ fontFamily: v })} />
@@ -395,8 +484,9 @@ export function Inspector(props: Props) {
             <ColorField doc={doc} mode={themeMode} label="Cor do texto" value={node.color} onCommit={(v) => v && set({ color: v })} />
           </div>
           <div className={ui.grid2}>
-            <Field label="Tamanho" value={node.fontSize} onCommit={(v) => set({ fontSize: v.startsWith("$") ? v : num(v) })} />
-            <Field label="Peso" type="number" value={node.fontWeight} min={100} max={900} integer onCommit={setNum("fontWeight")} />
+            <Field label="Tamanho" value={node.fontSize} onCommit={setTokenNum("fontSize")} />
+            <Field label="Peso" value={node.fontWeight} title="100–900 ou $token" onCommit={setTokenNum("fontWeight")} />
+            <Field label="Altura linha" value={node.lineHeight} title="número ou $token" onCommit={setTokenNum("lineHeight")} />
             <SelectField label="Alinhamento" value={node.textAlign} onChange={(v) => set({ textAlign: v })} options={ALIGN_OPTS} />
           </div>
         </InspectorSection>
@@ -516,6 +606,7 @@ export function Inspector(props: Props) {
         </InspectorSection>
       )}
 
+      <TokenDetach id={node.id} node={node} apply={apply} />
       <ArrangeSection ids={[node.id]} apply={apply} />
 
       <InspectorSection id="notes" title="Notas para agentes">
@@ -795,23 +886,52 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
         <Field label="Nome" value={doc.name} onCommit={(v) => v.trim() && apply([{ op: "rename_document", name: v.trim() }], "renomear workspace")} />
       </div>
       <InspectorSection id="tokens" title="Tokens">
-        <div className={ui.grid}>
-          {Object.entries(doc.tokens).map(([k, v]) => (
-            <div className="flex items-center gap-1.5 [&>div]:flex-1" key={k}>
-              {typeof v === "string" && /^#|^rgb/.test(v) && <span className="size-4 flex-none rounded-sm border border-ui-border" style={{ background: v }} />}
-              <Field label={`$${k}`} value={v} onCommit={(nv) => apply([{ op: "set_tokens", tokens: { [k]: nv === "" ? null : tokenValue(nv) } }], "token")} />
-            </div>
-          ))}
+        <div className={ui.grid} data-testid="document-tokens">
+          {[...new Map(Object.keys(doc.tokens).map((name) => [doc.tokenMeta?.[name]?.collection ?? "", name] as const)).keys()]
+            .sort((a, b) => (a === "" ? -1 : b === "" ? 1 : a.localeCompare(b)))
+            .map((collection) => (
+              <div className="grid gap-1.5" key={collection || "base"}>
+                {collection && <p className={cn(ui.muted, "m-0")}>{collection}</p>}
+                {Object.entries(doc.tokens)
+                  .filter(([k]) => (doc.tokenMeta?.[k]?.collection ?? "") === collection)
+                  .map(([k, v]) => (
+                    <div className="flex items-center gap-1.5 [&>div]:flex-1" key={k}>
+                      {typeof v === "string" && /^#|^rgb/.test(v) && <span className="size-4 flex-none rounded-sm border border-ui-border" style={{ background: v }} />}
+                      {doc.tokenMeta?.[k]?.type && (
+                        <span className="rounded-sm bg-ui-muted px-1 text-2xs text-ui-foreground">{TOKEN_TYPE_LABEL[doc.tokenMeta[k].type!] ?? doc.tokenMeta[k].type}</span>
+                      )}
+                      <Field label={`$${k}`} value={v} onCommit={(nv) => apply([{ op: "set_tokens", tokens: { [k]: nv === "" ? null : tokenValue(nv) } }], "token")} />
+                    </div>
+                  ))}
+              </div>
+            ))}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               const token = parseTokenAssignment(newToken);
               if (!token) return;
-              apply([{ op: "set_tokens", tokens: { [token.name]: tokenValue(token.value.trim()) } }], "token");
+              apply(
+                [
+                  {
+                    op: "set_tokens",
+                    tokens: { [token.name]: tokenValue(token.value.trim()) },
+                    ...(token.type ? { type: token.type as "color" } : {}),
+                    ...(token.collection ? { collection: token.collection } : {}),
+                  },
+                ],
+                "token",
+              );
               setNewToken("");
             }}
           >
-            <Input className="h-7 border-dashed" aria-label="Novo token" placeholder="nome = #e8553d" value={newToken} onChange={(e) => setNewToken(e.target.value)} />
+            <Input
+              className="h-7 border-dashed"
+              aria-label="Novo token"
+              title="nome = valor, tipo nome = valor, ou coleção/tipo nome = valor"
+              placeholder="nome = #e8553d"
+              value={newToken}
+              onChange={(e) => setNewToken(e.target.value)}
+            />
           </form>
         </div>
       </InspectorSection>

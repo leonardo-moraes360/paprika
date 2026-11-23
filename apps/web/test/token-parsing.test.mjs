@@ -115,6 +115,19 @@ describe("the token parsers answer what the old patterns answered", () => {
   });
 });
 
+describe("typed and collected assignments", () => {
+  it("keeps a type word that is the name", () => {
+    assert.deepEqual(parseTokenAssignment("color = #fff"), { name: "color", value: "#fff" });
+    assert.equal(parseTokenAssignment("a b = c"), null);
+  });
+
+  it("reads type, collection, or both", () => {
+    assert.deepEqual(parseTokenAssignment("color ink = #111111"), { name: "ink", value: "#111111", type: "color" });
+    assert.deepEqual(parseTokenAssignment("brand/ink = #111111"), { name: "ink", value: "#111111", collection: "brand" });
+    assert.deepEqual(parseTokenAssignment("brand/fontWeight peso = 600"), { name: "peso", value: "600", type: "fontWeight", collection: "brand" });
+  });
+});
+
 describe("long adversarial input stays linear", () => {
   it("a 200 kB line is parsed in one pass, same answer as the old pattern", () => {
     // The old shape (`\s*` runs around a greedy `[\w.-]+` and a trailing `(.+)`) let the engine retry

@@ -17,6 +17,7 @@ export const ColorValue = z
 export const Size = z.union([z.number().min(0).max(100_000), z.enum(["hug", "fill"])]);
 
 const lengthToken = z.string().regex(/^\$[\w.-]+$/);
+const fontWeightValue = z.union([z.number().int().min(100).max(900), lengthToken]);
 
 function lengthNumber(min?: number, max?: number) {
   let n = z.number();
@@ -142,6 +143,20 @@ export const ModeName = z
   .regex(/^[A-Za-z0-9_-]{1,40}$/, "mode name must be [A-Za-z0-9_-]{1,40}")
   .refine((v) => v !== "__proto__", "mode name cannot be __proto__");
 
+export const TokenTypeName = z.enum(["color", "length", "fontFamily", "fontWeight", "fontSize", "lineHeight", "letterSpacing"]);
+
+export const CollectionName = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,40}$/, "collection name must be [A-Za-z0-9_-]{1,40}")
+  .refine((v) => v !== "__proto__", "collection name cannot be __proto__");
+
+export const TokenMeta = z
+  .object({
+    type: TokenTypeName.optional(),
+    collection: CollectionName.optional(),
+  })
+  .refine((m) => m.type !== undefined || m.collection !== undefined, "token meta needs a type or a collection");
+
 const OverrideSource = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}");
 const OverrideField = z.string().regex(/^[A-Za-z]{1,32}$/, "field must be [A-Za-z]{1,32}");
 export const Overrides = z.record(OverrideSource, z.record(OverrideField, z.unknown()));
@@ -183,7 +198,7 @@ export const TextNode = z.object({
   color: ColorValue.default("#111111"),
   fontFamily: TextFontFamily,
   fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
-  fontWeight: z.number().int().min(100).max(900).default(400),
+  fontWeight: fontWeightValue.default(400),
   lineHeight: lengthValue(0, 10).default(1.4),
   letterSpacing: lengthValue().default(0),
   textAlign: z.enum(["left", "center", "right"]).default("left"),
@@ -243,7 +258,7 @@ export const ShapeNode = z.object({
   color: ColorValue.default("#1e2336"),
   fontFamily: TextFontFamily,
   fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
-  fontWeight: z.number().int().min(100).max(900).default(500),
+  fontWeight: fontWeightValue.default(500),
   lineHeight: lengthValue(0, 10).default(1.3),
   textAlign: z.enum(["left", "center", "right"]).default("center"),
 });
@@ -362,6 +377,8 @@ export const Document = z.object({
   tokens: z.record(TokenName, TokenValue).default({}),
   /** Modos de tema: por modo, os tokens que mudam (os demais vêm de `tokens`). */
   modes: z.record(ModeName, z.record(TokenName, TokenValue)).optional(),
+  /** Tipo e coleção de cada token. Ausente: o token continua sem tipo (número vale em qualquer campo de comprimento). */
+  tokenMeta: z.record(TokenName, TokenMeta).optional(),
   /** Ids dos nós de nível superior (normalmente frames/telas), na ordem do canvas. */
   rootIds: z.array(z.string()).default([]),
   nodes: z.record(z.string(), Node).default({}),
@@ -393,6 +410,8 @@ export type Node = z.infer<typeof Node>;
 export type NodeType = z.infer<typeof NodeType>;
 export type Document = z.infer<typeof Document>;
 export type TokenValue = z.infer<typeof TokenValue>;
+export type TokenTypeName = z.infer<typeof TokenTypeName>;
+export type TokenMeta = z.infer<typeof TokenMeta>;
 
 /** Campos que nenhuma operação `update` pode alterar diretamente. */
 export const IMMUTABLE_KEYS = new Set(["id", "type", "parentId", "children"]);

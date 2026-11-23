@@ -721,3 +721,17 @@ Tarefa: desenhar o inspector de efeitos e uma prévia (escuro e claro) na págin
 - Igual ao #123, ainda aberto: o posicionamento varreu o `y` de profundidade 1 (primeiro passe com fundo em 6680, redesenho em 7760 depois de encurtar os rótulos). Com `rootId`, o outline trouxe coordenadas.
 - `render_screenshot` sem `path` devolveu o PNG num bloco de imagem em base64, então os arquivos do host foram gravados direto (#129).
 - Rótulos em 12px com largura 52 cabem (Exp, Tipo, Sat). Os títulos de seção em 11px ainda avisam.
+
+## 2026-11-23: tokens tipados e desvincular (PAP-B-082, design first)
+
+Tarefa: desenhar coleções de tokens (claro e escuro) e desvincular (claro e escuro) na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de tokens tipados, coleções nomeadas e `detach_tokens`. Frames `b082tokl`, `b082tokd`, `b082detl`, `b082detd` em y=6680. PNGs em `docs/assets/boards/PAP-B-082/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 137 | O arquivo do screenshot no host | `render_screenshot` com `path` gravou dentro do filesystem do servidor (`/data/screenshots/PAP-B-082/*.png`). As cópias do host saíram de `url` (`/api/screenshot/<id>`) | Igual ao #129: documentar que `path` fica no servidor e que `url` é a saída | P2 |
+| 138 | Cor de abertura num frame escuro | `$ui.primary` no fundo escuro deu 3.54:1. `lint_design` apontou contraste nos kickers | Manter a amostra conhecida (`#ffd2c9`) no guia para texto no canvas escuro | P3 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #128, ainda aberto: `find_nodes` devolve duas páginas chamadas `Interfaces`. Os frames foram para `page#interfaces`.
+- Igual ao #123, ainda aberto: `get_document_outline` dessa página trouxe `content` 0×0 e `next` 0,0, então y=6680 veio de uma varredura de profundidade 1 abaixo dos frames que já estavam na página.
+- `lint_design` nos quatro frames ficou limpo depois que os kickers foram para `#ffd2c9`.

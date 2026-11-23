@@ -294,8 +294,9 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		if tspans.Len() > 0 {
 			colorV, _ := n.Get("color")
 			fw, _ := n.Get("fontWeight")
+			fam, _ := n.Get("fontFamily")
 			fmt.Fprintf(&body, `<text xml:space="preserve" font-family="%s" font-size="%s" font-weight="%s" fill="%s"%s>%s</text>`,
-				EscapeHTML(n.Str("fontFamily")), f(size), jsString(fw), EscapeHTML(jsString(ResolveValue(doc, colorV, mode))), anchor, tspans.String())
+				EscapeHTML(ResolvedFontFamily(doc, fam, mode)), f(size), jsString(ResolvedFontWeight(doc, fw, mode)), EscapeHTML(jsString(ResolveValue(doc, colorV, mode))), anchor, tspans.String())
 		}
 		if defs != "" {
 			return "<defs>" + defs + "</defs>" + body.String()
@@ -531,8 +532,10 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 				ls = fmt.Sprintf(` letter-spacing="%s"`, f(v))
 			}
 			fw, _ := n.Get("fontWeight")
+			fam, _ := n.Get("fontFamily")
+			textMode := ModeOf(doc, n)
 			fmt.Fprintf(&body, `<text xml:space="preserve" font-family="%s" font-size="%s" font-weight="%s" fill="%s"%s%s>%s</text>`,
-				EscapeHTML(n.Str("fontFamily")), f(size), jsString(fw), color, ls, anchor, tspans.String())
+				EscapeHTML(ResolvedFontFamily(doc, fam, textMode)), f(size), jsString(ResolvedFontWeight(doc, fw, textMode)), color, ls, anchor, tspans.String())
 		}
 		if typ == "image" {
 			fit := "none"

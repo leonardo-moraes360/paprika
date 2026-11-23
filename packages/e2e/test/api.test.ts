@@ -143,7 +143,7 @@ describe("API: MCP", () => {
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
         "apply_ops", "archive_workspace", "combine_paths", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
-        "delete_nodes", "delete_workspace", "detach_instance", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
+        "delete_nodes", "delete_workspace", "detach_instance", "detach_tokens", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "get_bounds",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
@@ -980,6 +980,30 @@ describe("API: MCP", () => {
     expect(react).toContain('background: "#14161f"');
     const lint = JSON.parse(textOf(await call(c, "lint_design", { rootId: "escuro" })));
     expect(lint.issues.filter((i: { rule: string }) => i.rule === "unknown-token")).toEqual([]);
+  });
+
+  it("tokens tipados, coleção e detach_tokens", async () => {
+    const c = client;
+    const typed = await call(c, "set_tokens", { tokens: { ink: "#111111" }, type: "color", collection: "brand" });
+    expect(typed.isError, textOf(typed)).toBeFalsy();
+    const weight = await call(c, "set_tokens", { tokens: { peso: 600 }, type: "fontWeight" });
+    expect(weight.isError, textOf(weight)).toBeFalsy();
+    const bad = await call(c, "set_tokens", { tokens: { ink: 12 }, type: "color" });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toContain("type color expects a color");
+    const created = await call(c, "create_nodes", {
+      nodes: [{ type: "text", id: "tok", text: "Aa", color: "$ink", fontWeight: "$peso" }],
+    });
+    expect(created.isError, textOf(created)).toBeFalsy();
+    const outline = textOf(await call(c, "get_document_outline", {}));
+    expect(outline).toContain("$ink=#111111 color @brand");
+    expect(outline).toContain("$peso=600 fontWeight");
+    const one = await call(c, "detach_tokens", { ids: ["tok"], fields: ["fontWeight"] });
+    expect(one.isError, textOf(one)).toBeFalsy();
+    expect((await srv.doc()).nodes.tok).toMatchObject({ fontWeight: 600, color: "$ink" });
+    const all = await call(c, "detach_tokens", { ids: ["tok"] });
+    expect(all.isError, textOf(all)).toBeFalsy();
+    expect((await srv.doc()).nodes.tok).toMatchObject({ color: "#111111" });
   });
 
   it("export_code: tailwind, tailwind-html, css-modules, angular e svelte saem do mesmo estilo do canvas", async () => {

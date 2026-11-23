@@ -12,6 +12,7 @@ import {
   type Stroke,
   type StrokePosition,
   type StrokeStyle,
+  type TokenTypeName,
 } from "./schema.js";
 import { NOTE_FOLD_FILL, shapeOutline, shapePadding } from "./diagram.js";
 
@@ -52,9 +53,46 @@ export function resolveLength(doc: Document, v: number | string | undefined, mod
   return typeof r === "number" && Number.isFinite(r) ? r : undefined;
 }
 
+export function tokenTypeOf(doc: Document, name: string, depth = 0): TokenTypeName | undefined {
+  if (depth > 8) return;
+  const direct = doc.tokenMeta?.[name]?.type;
+  if (direct) return direct;
+  const base = Object.hasOwn(doc.tokens, name) ? doc.tokens[name] : undefined;
+  if (typeof base === "string" && base.startsWith("$")) return tokenTypeOf(doc, base.slice(1), depth + 1);
+  return;
+}
+
+export function resolvedFontFamily(doc: Document, v: string, mode?: string): string {
+  const r = resolveValue(doc, v, mode);
+  return typeof r === "string" ? r : v;
+}
+
+export function resolvedFontWeight(doc: Document, v: number | string, mode?: string): number {
+  if (typeof v === "number") return v;
+  const r = resolveValue(doc, v, mode);
+  return typeof r === "number" ? r : 400;
+}
+
+function fontFamilyCSS(doc: Document, v: string, mode: string | undefined, vars: boolean | undefined): string {
+  if (vars && v.startsWith("$") && isKnownToken(doc, v.slice(1))) {
+    const type = tokenTypeOf(doc, v.slice(1));
+    const raw = tokenValue(doc, v.slice(1), mode);
+    if (type === "fontFamily" || (type === undefined && typeof raw === "string")) return `var(${cssVarName(v.slice(1))})`;
+  }
+  return resolvedFontFamily(doc, v, mode);
+}
+
+function fontWeightCSS(doc: Document, v: number | string, mode: string | undefined, vars: boolean | undefined): string | number {
+  if (vars && typeof v === "string" && v.startsWith("$") && isKnownToken(doc, v.slice(1)) && tokenTypeOf(doc, v.slice(1)) === "fontWeight") {
+    return `var(${cssVarName(v.slice(1))})`;
+  }
+  return resolvedFontWeight(doc, v, mode);
+}
+
 function lengthCSS(doc: Document, v: number | string, mode: string | undefined, vars: boolean | undefined, unit: "px" | "num"): string | number {
   if (vars && typeof v === "string" && v.startsWith("$") && isKnownToken(doc, v.slice(1))) {
     const ref = `var(${cssVarName(v.slice(1))})`;
+    if (unit === "num" && tokenTypeOf(doc, v.slice(1)) === "lineHeight") return ref;
     return unit === "num" ? `calc(${ref} / 1px)` : ref;
   }
   const n = resolveLength(doc, v, mode);
@@ -87,8 +125,15 @@ function cssValue(v: string): string {
 function tokenDecls(doc: Document, tokens: Record<string, string | number>): string {
   return Object.entries(tokens)
     .map(([k, v]) => {
+      const type = doc.tokenMeta?.[k]?.type;
       const value =
-        typeof v === "number" ? `${round(v)}px` : v.startsWith("$") && isKnownToken(doc, v.slice(1)) ? `var(${cssVarName(v.slice(1))})` : cssValue(v);
+        typeof v === "number"
+          ? type === "fontWeight" || type === "lineHeight"
+            ? String(round(v))
+            : `${round(v)}px`
+          : v.startsWith("$") && isKnownToken(doc, v.slice(1))
+            ? `var(${cssVarName(v.slice(1))})`
+            : cssValue(v);
       return `${cssVarName(k)}:${value}`;
     })
     .join(";");
@@ -389,9 +434,9 @@ function textCss(
 ): CSS {
   const css: CSS = {};
   css.color = String(paint(node.color));
-  css.fontFamily = node.fontFamily;
+  css.fontFamily = fontFamilyCSS(doc, node.fontFamily, mode, vars);
   css.fontSize = lengthCSS(doc, node.fontSize, mode, vars, "px");
-  css.fontWeight = node.fontWeight;
+  css.fontWeight = fontWeightCSS(doc, node.fontWeight, mode, vars);
   css.lineHeight = lengthCSS(doc, node.lineHeight, mode, vars, "num");
   if (node.letterSpacing) css.letterSpacing = lengthCSS(doc, node.letterSpacing, mode, vars, "px");
   css.textAlign = node.textAlign;
@@ -620,7 +665,41 @@ export function cssToString(css: CSS): string {
 
 type LengthBound = { min?: number; max?: number };
 
-function lengthProblem(doc: Document, id: string, field: string, value: unknown, bound: LengthBound, mode?: string): string | undefined {
+function colorTokenProblem(doc: Document, id: string, field: string, value: unknown): string | undefined {
+  return typeMismatch(doc, id, field, value, "color");
+}
+
+function fontFamilyProblem(doc: Document, id: string, value: unknown, mode?: string): string | undefined {
+  const mismatch = typeMismatch(doc, id, "fontFamily", value, "fontFamily");
+  if (mismatch) return mismatch;
+  if (typeof value !== "string" || !value.startsWith("$")) return;
+  const resolved = resolveValue(doc, value, mode);
+  if (typeof resolved === "string" && resolved.startsWith("$")) return;
+  if (typeof resolved !== "string" || resolved.length === 0 || resolved.length > 200 || /[;{}<>()]/.test(resolved))
+    return `node "${id}" fontFamily: token "${value}" resolved to ${JSON.stringify(resolved)}, expected a font family`;
+}
+
+function fontWeightProblem(doc: Document, id: string, value: unknown, mode?: string): string | undefined {
+  const mismatch = typeMismatch(doc, id, "fontWeight", value, "fontWeight");
+  if (mismatch) return mismatch;
+  if (typeof value !== "string" || !value.startsWith("$")) return;
+  const resolved = resolveValue(doc, value, mode);
+  if (typeof resolved === "string" && resolved.startsWith("$")) return;
+  const shown = JSON.stringify(resolved);
+  if (typeof resolved !== "number" || !Number.isInteger(resolved) || resolved < 100 || resolved > 900)
+    return `node "${id}" fontWeight: token "${value}" is ${shown}, expected an integer >= 100 and <= 900`;
+}
+
+function typeMismatch(doc: Document, id: string, field: string, value: unknown, expected: TokenTypeName): string | undefined {
+  if (typeof value !== "string" || !value.startsWith("$")) return;
+  const declared = tokenTypeOf(doc, value.slice(1));
+  if (!declared || declared === expected) return;
+  return `node "${id}" ${field}: token "${value}" has type ${declared}, expected ${expected}`;
+}
+
+function lengthProblem(doc: Document, id: string, field: string, value: unknown, bound: LengthBound, mode: string | undefined, expected: TokenTypeName): string | undefined {
+  const mismatch = typeMismatch(doc, id, field, value, expected);
+  if (mismatch) return mismatch;
   if (typeof value !== "string" || !value.startsWith("$")) return;
   const resolved = resolveValue(doc, value, mode);
   if (typeof resolved === "string" && resolved.startsWith("$")) return;
@@ -642,7 +721,16 @@ export function lengthTokenError(doc: Document): string | undefined {
     seen.add(id);
     const n = doc.nodes[id];
     if (!n) return;
-    if (n.type === "page" || n.type === "group") {
+    if (n.type === "group") {
+      for (const c of n.children) {
+        const m = visit(c);
+        if (m) return m;
+      }
+      return;
+    }
+    if (n.type === "page") {
+      const fill = colorTokenProblem(doc, n.id, "fill", n.fill);
+      if (fill) return fill;
       for (const c of n.children) {
         const m = visit(c);
         if (m) return m;
@@ -650,40 +738,51 @@ export function lengthTokenError(doc: Document): string | undefined {
       return;
     }
     const mode = modeOf(doc, n);
-    const check = (field: string, value: unknown, bound: LengthBound) => lengthProblem(doc, n.id, field, value, bound, mode);
+    const check = (field: string, value: unknown, bound: LengthBound, expected: TokenTypeName) =>
+      lengthProblem(doc, n.id, field, value, bound, mode, expected);
     let msg: string | undefined;
     if (n.type === "connector") {
-      msg = check("stroke.width", n.stroke.width, { min: 0, max: 1000 });
+      msg = check("stroke.width", n.stroke.width, { min: 0, max: 1000 }, "length");
+      msg = msg ?? colorTokenProblem(doc, n.id, "stroke.color", n.stroke.color);
     } else {
       if (Array.isArray(n.radius)) {
-        for (let i = 0; i < n.radius.length && !msg; i++) msg = check(`radius.${i}`, n.radius[i], { min: 0 });
-      } else msg = check("radius", n.radius, { min: 0 });
-      if (n.stroke) msg = msg ?? check("stroke.width", n.stroke.width, { min: 0, max: 1000 });
+        for (let i = 0; i < n.radius.length && !msg; i++) msg = check(`radius.${i}`, n.radius[i], { min: 0 }, "length");
+      } else msg = check("radius", n.radius, { min: 0 }, "length");
+      if (n.stroke) {
+        msg = msg ?? check("stroke.width", n.stroke.width, { min: 0, max: 1000 }, "length");
+        msg = msg ?? colorTokenProblem(doc, n.id, "stroke.color", n.stroke.color);
+      }
       listShadows(n.shadow).forEach((s, i) => {
         const p = Array.isArray(n.shadow) ? `shadow.${i}` : "shadow";
-        msg = msg ?? check(`${p}.x`, s.x, {});
-        msg = msg ?? check(`${p}.y`, s.y, {});
-        msg = msg ?? check(`${p}.blur`, s.blur, { min: 0 });
-        msg = msg ?? check(`${p}.spread`, s.spread, {});
+        msg = msg ?? check(`${p}.x`, s.x, {}, "length");
+        msg = msg ?? check(`${p}.y`, s.y, {}, "length");
+        msg = msg ?? check(`${p}.blur`, s.blur, { min: 0 }, "length");
+        msg = msg ?? check(`${p}.spread`, s.spread, {}, "length");
+        msg = msg ?? colorTokenProblem(doc, n.id, `${p}.color`, s.color);
       });
       if (n.outline) {
-        msg = msg ?? check("outline.width", n.outline.width, { min: 0, max: 1000 });
-        if (n.outline.offset !== undefined) msg = msg ?? check("outline.offset", n.outline.offset, { min: -1000, max: 1000 });
+        msg = msg ?? check("outline.width", n.outline.width, { min: 0, max: 1000 }, "length");
+        if (n.outline.offset !== undefined) msg = msg ?? check("outline.offset", n.outline.offset, { min: -1000, max: 1000 }, "length");
+        msg = msg ?? colorTokenProblem(doc, n.id, "outline.color", n.outline.color);
       }
-      if (n.filter?.blur !== undefined) msg = msg ?? check("filter.blur", n.filter.blur, { min: 0, max: 1000 });
-      if (n.backdropFilter?.blur !== undefined) msg = msg ?? check("backdropFilter.blur", n.backdropFilter.blur, { min: 0, max: 1000 });
+      if (n.filter?.blur !== undefined) msg = msg ?? check("filter.blur", n.filter.blur, { min: 0, max: 1000 }, "length");
+      if (n.backdropFilter?.blur !== undefined) msg = msg ?? check("backdropFilter.blur", n.backdropFilter.blur, { min: 0, max: 1000 }, "length");
+      msg = msg ?? colorTokenProblem(doc, n.id, "fill", n.fill);
       if (n.type === "frame" && n.layout) {
-        msg = msg ?? check("layout.gap", n.layout.gap, { min: 0 });
+        msg = msg ?? check("layout.gap", n.layout.gap, { min: 0 }, "length");
         const p = n.layout.padding;
         if (Array.isArray(p)) {
-          for (let i = 0; i < p.length && !msg; i++) msg = check(`layout.padding.${i}`, p[i], { min: 0 });
-        } else msg = msg ?? check("layout.padding", p, { min: 0 });
+          for (let i = 0; i < p.length && !msg; i++) msg = check(`layout.padding.${i}`, p[i], { min: 0 }, "length");
+        } else msg = msg ?? check("layout.padding", p, { min: 0 }, "length");
       }
       if (n.type === "text" || n.type === "shape") {
-        msg = msg ?? check("fontSize", n.fontSize, { min: 1, max: 1000 });
-        msg = msg ?? check("lineHeight", n.lineHeight, { min: 0, max: 10 });
+        msg = msg ?? check("fontSize", n.fontSize, { min: 1, max: 1000 }, "fontSize");
+        msg = msg ?? check("lineHeight", n.lineHeight, { min: 0, max: 10 }, "lineHeight");
+        msg = msg ?? colorTokenProblem(doc, n.id, "color", n.color);
+        msg = msg ?? fontFamilyProblem(doc, n.id, n.fontFamily, mode);
+        msg = msg ?? fontWeightProblem(doc, n.id, n.fontWeight, mode);
       }
-      if (n.type === "text") msg = msg ?? check("letterSpacing", n.letterSpacing, {});
+      if (n.type === "text") msg = msg ?? check("letterSpacing", n.letterSpacing, {}, "letterSpacing");
     }
     if (msg) return msg;
     if (n.type === "frame") {

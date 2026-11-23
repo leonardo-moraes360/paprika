@@ -69,6 +69,8 @@ func init() {
 			z.Field{Name: "op", Schema: z.Literal("set_tokens")},
 			z.Field{Name: "tokens", Schema: z.Record(TokenNameSchema, z.Nullable(TokenValueSchema))},
 			z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
+			z.Field{Name: "type", Schema: z.Optional(z.Nullable(TokenTypeSchema))},
+			z.Field{Name: "collection", Schema: z.Optional(z.Nullable(CollectionNameSchema))},
 		)),
 		z.Option("rename_document", z.Object(
 			z.Field{Name: "op", Schema: z.Literal("rename_document")},
@@ -101,6 +103,11 @@ func init() {
 		z.Option("detach", z.Object(
 			z.Field{Name: "op", Schema: z.Literal("detach")},
 			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+		)),
+		z.Option("detach_tokens", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("detach_tokens")},
+			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+			z.Field{Name: "fields", Schema: z.Optional(z.Array(z.String().Regex(`^[A-Za-z][A-Za-z.]{0,39}$`, `/^[a-zA-Z][a-zA-Z.]{0,39}$/`, "field must be a token field name")).Max(20))},
 		)),
 		z.Option("combine_paths", z.Object(
 			z.Field{Name: "op", Schema: z.Literal("combine_paths")},
@@ -865,46 +872,9 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		return jsonv.NewObject("op", "move", "id", id, "parentId", oldParent, "index", float64(fromIndex)), nil
 
 	case "set_tokens":
-		prev := jsonv.NewObject()
-		tokens := Tokens(doc)
-		mode := op.Str("mode")
-		if mode != "" {
-			modes := Modes(doc)
-			if modes == nil {
-				modes = jsonv.NewObject()
-				doc.Set("modes", modes)
-			}
-			tokens = modes.Obj(mode)
-			if tokens == nil {
-				tokens = jsonv.NewObject()
-				modes.Set(mode, tokens)
-			}
-		}
-		in := op.Obj("tokens")
-		for _, k := range in.Keys() {
-			v, _ := in.Get(k)
-			if old, has := tokens.Get(k); has && old != nil {
-				prev.Set(k, old)
-			} else {
-				prev.Set(k, nil)
-			}
-			if v == nil {
-				tokens.Delete(k)
-			} else {
-				tokens.Set(k, v)
-			}
-		}
-		if mode != "" {
-			modes := Modes(doc)
-			if tokens.Len() == 0 {
-				modes.Delete(mode)
-			}
-			if modes.Len() == 0 {
-				doc.Delete("modes")
-			}
-			return jsonv.NewObject("op", "set_tokens", "tokens", prev, "mode", mode), nil
-		}
-		return jsonv.NewObject("op", "set_tokens", "tokens", prev), nil
+		return applySetTokens(doc, op, i)
+	case "detach_tokens":
+		return applyDetachTokens(doc, op, i, created)
 
 	case "rename_document":
 		prev := doc.Str("name")

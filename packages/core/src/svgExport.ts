@@ -8,6 +8,8 @@ import {
   resolveCorners,
   resolveLength,
   resolveValue,
+  resolvedFontFamily,
+  resolvedFontWeight,
   usedCornerRadii,
   uniformCorner,
   shapeAttrs,
@@ -219,7 +221,7 @@ export function exportSVG(
     }
     if (tspans) {
       const color = escapeHtml(String(resolveValue(doc, n.color, mode)));
-      body += `<text xml:space="preserve" font-family="${escapeHtml(n.fontFamily)}" font-size="${f(size)}" font-weight="${n.fontWeight}" fill="${color}"${anchor}>${tspans}</text>`;
+      body += `<text xml:space="preserve" font-family="${escapeHtml(resolvedFontFamily(doc, n.fontFamily, mode))}" font-size="${f(size)}" font-weight="${resolvedFontWeight(doc, n.fontWeight, mode)}" fill="${color}"${anchor}>${tspans}</text>`;
     }
     return `${defs ? `<defs>${defs}</defs>` : ""}${body}`;
   };
@@ -323,7 +325,7 @@ export function exportSVG(
           .join("");
       }
       const ls = n.letterSpacing ? ` letter-spacing="${f(len(doc, n, n.letterSpacing))}"` : "";
-      body += `<text xml:space="preserve" font-family="${escapeHtml(n.fontFamily)}" font-size="${f(size)}" font-weight="${n.fontWeight}" fill="${color}"${ls}${anchor}>${tspans}</text>`;
+      body += `<text xml:space="preserve" font-family="${escapeHtml(resolvedFontFamily(doc, n.fontFamily, mode))}" font-size="${f(size)}" font-weight="${resolvedFontWeight(doc, n.fontWeight, mode)}" fill="${color}"${ls}${anchor}>${tspans}</text>`;
     }
     if (n.type === "image") {
       const fit = n.fit === "cover" ? "xMidYMid slice" : n.fit === "contain" ? "xMidYMid meet" : "none";
