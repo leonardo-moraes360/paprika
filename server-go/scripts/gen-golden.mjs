@@ -13,7 +13,7 @@ const core = await import(join(root, "packages/core/dist/index.js"));
 const {
   applyOps, createDocument, parseDocument, copyId, History, outline, describeNode, lintDocument, renderHTML,
   exportReact, exportTailwind, exportCssModules, exportAngular, exportSvelte, renderTailwindHTML, renderFrameworkHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
-  parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, combinePathsOps, importSVG, importHTML, exportSVG,
+  parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, combinePathsOps, alignOps, distributeOps, wrapOps, revealOps, importSVG, importHTML, exportSVG,
   diagramOps, shapeOutline, tailwindClassesFor, layout, measureText, FONT_AVG, normalizePath, pathOrigin,
 } = core;
 
@@ -183,6 +183,46 @@ const absflow = () =>
     },
   ]).doc;
 
+const grad = () =>
+  applyOps(base(), [
+    { op: "set_tokens", tokens: { brand: "#4cc7d8" } },
+    {
+      op: "create",
+      node: {
+        type: "rect", id: "lin", name: "Linear", x: 10, y: 10, width: 120, height: 48,
+        gradient: { type: "linear", angle: 90, stops: [{ color: "#c8401f", offset: 0 }, { color: "$brand", offset: 1 }] },
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "ellipse", id: "rad", x: 150, y: 10, width: 80, height: 48,
+        gradient: { type: "radial", cx: 0.3, cy: 0.4, radius: 0.8, stops: [{ color: "#ffffff", offset: 0 }, { color: "#112233", offset: 1 }] },
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "rect", id: "con", x: 250, y: 10, width: 64, height: 48,
+        gradient: { type: "conic", angle: 20, stops: [{ color: "red", offset: 0 }, { color: "blue", offset: 0.5 }, { color: "#ffffff", offset: 1 }] },
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "path", id: "pth", x: 10, y: 80, width: 40, height: 40, d: "M0 0 L40 0 L40 40 Z",
+        gradient: { type: "linear", stops: [{ color: "#aabbcc", offset: 0.25 }, { color: "#ddeeff", offset: 0.75 }] },
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "shape", id: "shp", x: 70, y: 80, width: 90, height: 48, shape: "diamond", text: "A",
+        gradient: { type: "radial", stops: [{ color: "#eeeeee", offset: 0 }, { color: "#333333", offset: 1 }] },
+      },
+    },
+  ]).doc;
+
 const docs = {
   empty: base(),
   absflow: absflow(),
@@ -196,6 +236,7 @@ const docs = {
   bezier: parseDocument(JSON.parse(readFileSync(join(root, "examples/bezier.paprika.json"), "utf8"))),
   diagram: diagram(),
   corners: corners(),
+  grad: grad(),
 };
 
 // ---- operation cases: [baseDoc, ops] ----
@@ -214,6 +255,9 @@ const opCases = [
   ["empty", [R({ layoutPositioning: "pinned" })]],
   ["empty", [R({ layoutPositioning: "absolute", x: 3, y: 4 })]],
   ["empty", [R({})]],
+  ["empty", [{ op: "create", node: { type: "rect", id: "g", width: 40, height: 20, gradient: { type: "linear", angle: 12, stops: [{ color: "#111111", offset: 0 }, { color: "#eeeeee", offset: 1 }] } } }]],
+  ["empty", [{ op: "create", node: { type: "rect", id: "g", gradient: { type: "linear", stops: [{ color: "#111111", offset: 0 }] } } }]],
+  ["empty", [{ op: "create", node: { type: "rect", id: "g", width: 10, height: 10, gradient: { type: "linear", stops: [{ color: "#111111", offset: 0 }, { color: "#eeeeee", offset: 1 }] } } }, { op: "update", id: "g", props: { gradient: null } }]],
   ["empty", [R({ width: "big" })]],
   ["empty", [R({ width: -1 })]],
   ["empty", [R({ opacity: 2 })]],
@@ -510,6 +554,17 @@ const structureCases = [
   ["card", "duplicate", { ids: ["card"], props: { id: "x", children: [] } }],
   ["card", "duplicate", { ids: ["card"], props: { width: 5 } }],
   ["card", "duplicate", { ids: ["card"], parentId: "nope" }],
+  ["free", "align", { ids: ["r1", "e1"], edge: "left" }],
+  ["free", "align", { ids: ["r1"], edge: "left" }],
+  ["free", "align", { ids: ["r1", "e1"], edge: "sideways" }],
+  ["card", "align", { ids: ["title", "bar"], edge: "top" }],
+  ["free", "distribute", { ids: ["r1", "e1", "t1"], axis: "horizontal" }],
+  ["free", "distribute", { ids: ["r1", "e1"], axis: "vertical" }],
+  ["free", "wrap", { ids: ["e1", "r1"], id: "wf", name: "Quadro" }],
+  ["free", "wrap", { ids: ["p1"], id: "wp" }],
+  ["card", "wrap", { ids: ["title"], id: "wt" }],
+  ["free", "reveal", { kind: "hidden" }],
+  ["free", "reveal", { kind: "locked", pageId: "nope" }],
   ["free", "combine", { ids: ["r1", "e1"], operation: "union", id: "cu" }],
   ["free", "combine", { ids: ["r1", "e1"], operation: "subtract", id: "cs" }],
   ["free", "combine", { ids: ["r1"], operation: "union" }],
@@ -529,6 +584,16 @@ const structure = structureCases.map(([docName, kind, args]) => {
     if (kind === "combine") {
       const p = combinePathsOps(d, args.ids, { operation: args.operation, id: args.id, name: args.name });
       return { ops: p.ops, id: p.id };
+    }
+    if (kind === "align") return alignOps(d, args.ids, args.edge);
+    if (kind === "distribute") return distributeOps(d, args.ids, args.axis);
+    if (kind === "wrap") {
+      const p = wrapOps(d, args.ids, { id: args.id, name: args.name });
+      return { ops: p.ops, id: p.id };
+    }
+    if (kind === "reveal") {
+      const p = revealOps(d, args.kind, args.pageId);
+      return { ops: p.ops, released: p.ids };
     }
     const p = addPageOps(d, { id: args.id, name: args.name, firstId: args.firstId });
     return { ops: p.ops, id: p.id };
@@ -708,7 +773,9 @@ const paths = pathCases.map((d) => {
 
 // ---- colors ----
 const colors = ["#fff", "#ffffff80", "#abcd", "rgb(1, 2, 3)", "rgba(10 20 30 / 50%)", "rgba(1,2,3,0.25)", "white", " Black ", "transparent",
-  "#12345", "linear-gradient(red, blue)", "hsl(1 2 3)"].map((c) => ({ c, rgba: parseColor(c) ?? null }));
+  "#12345", "linear-gradient(red, blue)", "hsl(1 2 3)", "red", "oklch(0.7 0.15 30)", "oklch(62% 50% 40 / 50%)",
+  "color(srgb 1 0 0)", "color(display-p3 1 0 0)", "color-mix(in srgb, red 25%, blue)", "color-mix(in oklch, white, black)",
+  "color-mix(in display-p3, #fff, #000 25%)", "oklch(from red l c h)"].map((c) => ({ c, rgba: parseColor(c) ?? null }));
 const contrast = [["#777777", "#ffffff"], ["#000000", "#ffffff"], ["#c43d27", "#fbf8f4"]].map(([a, b]) => ({ a, b, ratio: contrastRatio(parseColor(a), parseColor(b)), fixed: contrastRatio(parseColor(a), parseColor(b)).toFixed(2) }));
 
 // ---- invalid documents ----

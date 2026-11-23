@@ -26,12 +26,12 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 |---|---|---|---|
 | Frames with flex-like layout (row/column, gap, padding, align, wrap) | `frame.layout` | ✅ | — |
 | Pages inside a file | `page` nodes, page list in the canvas, `create_page` (2026-11-21) | ✅ | — |
-| Group / wrap selection in a frame, unwrap | `group` node, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21); no "wrap in frame" yet | 🟡 | P2 |
+| Group / wrap selection in a frame, unwrap | `group` node, `Ctrl+G`/`Ctrl+Shift+G`, `group_nodes`/`ungroup_nodes` (2026-11-21). Wrap in a frame: `Ctrl+Alt+G`, inspector button, `wrap_nodes` (2026-11-23, PAP-B-089, #152). | ✅ | — |
 | Absolute child inside an auto-layout frame ("ignore layout") | `layoutPositioning: "auto"\|"absolute"` on a child (omit = auto). `"absolute"` keeps x/y relative to the parent and is skipped by flow, gap and hug. Inspector toggle on children of row/column frames (2026-11-23, PAP-B-069). Constraints/pinning stay out. | ✅ | — |
 | Corner radius per corner | `radius` on frame, rect and image is one length or `[tl, tr, br, bl]` (each a number or `$token`). The inspector links or unlinks the corners (2026-11-23, PAP-B-070). | ✅ | — |
 | Z-order (forward, backward, front, back) | `update_nodes`/`move_nodes` take `index`: a number from 0, or `front`/`back`/`forward`/`backward`, one undo step (2026-11-22). Canvas: `Page Up`/`Page Down` step, `Ctrl+Page Up`/`Ctrl+Page Down` front/back; inspector **Ordem** section (2026-11-22, PAP-B-021). | ✅ | — |
-| Hide, lock, unlock all | `visible`, `locked`; no "unlock all" | 🟡 | P2 |
-| Align and distribute selection | — | ⬜ | P2 |
+| Hide, lock, unlock all | Eye and lock on each layer row. **Show all** / **Unlock all** on the current page (`show_all` / `unlock_all`, optional `pageId`; one undo step) (2026-11-23, PAP-B-089, #152). | ✅ | — |
+| Align and distribute selection | Inspector icon row and `align_nodes` / `distribute_nodes`. One undo step. Siblings only; rotated nodes use the axis-aligned box (2026-11-23, PAP-B-089, #152). | ✅ | — |
 | Constraints (behavior when the parent resizes) | — | ⬜ | P2 |
 | Gap and padding handles on the canvas | Inspector only | ⬜ | P2 |
 | Container and breakpoint tokens, responsive frames | — | ⬜ | P3 |
@@ -61,8 +61,8 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Fill, border, shadow, opacity, rotation | Base fields | ✅ | — |
 | Multiple shadows, inner shadow, outline | `shadow` is one object or a list of up to 8 with optional `inner`; `outline` is `{color, width, style, offset}`. A list, an inner shadow or an outline stays on the DOM. On a path or shape an inner shadow paints as an inset box; SVG warns and skips it (PAP-B-080). PR: https://github.com/leonardo-moraes360/paprika/pull/156. | ✅ | — |
 | CSS filters (blur, saturate, grayscale, brightness, sepia, invert, hue-rotate) and backdrop filters | `filter` and `backdropFilter` take those functions. An empty object is refused. WASM falls back to the DOM (PAP-B-080). PR: https://github.com/leonardo-moraes360/paprika/pull/156. | ✅ | — |
-| Structured gradients (linear, radial, conic) with on-canvas handles and angle | Raw CSS string only; lint ignores it | 🟡 | P2 |
-| Modern color: `oklch()`, `color-mix()`, Display P3, OKLCH picker | Strings pass through to CSS, but lint can't parse them and the picker is sRGB hex | 🟡 | P2 |
+| Structured gradients (linear, radial, conic) with on-canvas handles and angle | Optional `gradient` `{type, angle, cx, cy, radius, stops}` on paintable nodes and on a page. It wins over a solid `fill`. Handles move the angle, center, radius and stops while the node is not rotated. Linear and radial export as SVG gradients; conic uses a `foreignObject`. WASM leaves the node on the DOM (PAP-B-081). PR: https://github.com/leonardo-moraes360/paprika/pull/159. | ✅ | — |
+| Modern color: `oklch()`, `color-mix()`, Display P3, OKLCH picker | Lint parses `oklch()`, `color(srgb\|display-p3)` and `color-mix()` in srgb, oklch and display-p3, plus the basic CSS color names. The picker toggles sRGB and OKLCH. Those colors stay on the DOM so the WASM picture matches (PAP-B-081). PR: https://github.com/leonardo-moraes360/paprika/pull/159. | ✅ | — |
 | Blend modes | — | ⬜ | P3 |
 | Selection colors panel (all colors used in the selection) | — | ⬜ | P3 |
 | Several border types for elements | `stroke` has optional `style` (`solid`\|`dashed`\|`dotted`, dash from width) and `position` (`inside`\|`center`\|`outside`) for frame/rect/ellipse/path/shape; inspector Estilo/Posição; WASM falls back to DOM when non-default. Per-side borders still out. (2026-11-22, PAP-B-044). | ✅ | — |
@@ -74,7 +74,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 |---|---|---|---|
 | Font family, size, weight, line height, letter spacing, alignment | `text` node | ✅ | — |
 | Rich text (style per character/word, editable by agents) | One style per node | ⬜ | P2 |
-| Font tokens (family, weight, size, line height, letter spacing) | Size tokens only | 🟡 | P2 |
+| Font tokens (family, weight, size, line height, letter spacing) | Typed on `set_tokens` (`fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`). Untyped numbers still work. The inspector accepts `$` on those fields. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Variable font axes and OpenType features | — | ⬜ | P3 |
 | Text shortcuts (bold, italic, size/weight steps), auto line height | — | ⬜ | P3 |
 | CJK word-keep, combining marks, multi-codepoint emoji checks | Browser default | 🟡 | P3 |
@@ -86,11 +86,11 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Capability | Paprika today | Status | Pri. |
 |---|---|---|---|
 | Global tokens (`$name`) for colors and sizes, set by agents | `set_tokens` | ✅ | — |
-| Theme modes (light/dark/compact) and token collections | `document.modes` + `set_tokens` with `mode`, inspector (2026-11-21), persisted in SQLite (2026-11-22); no named collections yet | 🟡 | P2 |
+| Theme modes (light/dark/compact) and token collections | `document.modes` + `set_tokens` with `mode`, inspector, SQLite. A collection is a name on `tokenMeta` (`set_tokens` `collection`), grouped in the inspector, not a second value map. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Frame-scoped token overrides | `mode` on a frame or page applies a mode to its subtree (2026-11-21) | ✅ | — |
 | Tokens exported as CSS variables in HTML/React export | `export_code` `cssVariables` (2026-11-21): `:root` plus `[data-paprika-mode]` rules; React exports `tokensCss` | ✅ | — |
-| Typed tokens (color, radius, spacing, font…) with validation | Untyped string/number | 🟡 | P2 |
-| Detach a token from a node | Manual edit | 🟡 | P2 |
+| Typed tokens (color, radius, spacing, font…) with validation | `set_tokens` `type` (`color`, `length`, `fontFamily`, `fontWeight`, `fontSize`, `lineHeight`, `letterSpacing`), checked on set and on use. No type leaves the string/number behavior. Persisted in SQLite `token_meta`. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
+| Detach a token from a node | `detach_tokens` in MCP and the inspector replaces `$name` with the literal resolved in the node's mode. PAP-B-082. PR: https://github.com/leonardo-moraes360/paprika/pull/160. | ✅ | — |
 | Generate tokens from an existing codebase via MCP | `propose_tokens` turns CSS variables, a Tailwind theme or JSON tokens (the text the agent passes) into `set_tokens` operations (2026-11-23, PAP-B-083) | ✅ | — |
 | Tokens with `calc()` / `color-mix()` | Token chains only | ⬜ | P3 |
 | Copy tokens between files | — | ⬜ | P3 |

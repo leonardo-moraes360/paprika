@@ -183,7 +183,8 @@ func intrinsicText(doc *Document, n *Node, maxW float64, hasMax bool) wh {
 	if !lsOK {
 		ls = n.Num("letterSpacing")
 	}
-	m := MeasureText(n.Str("text"), fontSize, n.Num("fontWeight"), lh, ls, maxW, hasMax)
+	fw, _ := n.Get("fontWeight")
+	m := MeasureText(n.Str("text"), fontSize, ResolvedFontWeight(doc, fw, mode), lh, ls, maxW, hasMax)
 	return wh{m.Width, m.Height}
 }
 

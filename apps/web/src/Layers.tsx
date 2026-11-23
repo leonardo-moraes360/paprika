@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Circle, Component, Diamond, Eye, EyeOff, File, Frame, Group, Image, MoveUpRight, PenTool, RectangleHorizontal, Square, Type, type LucideIcon } from "lucide-react";
-import { copyOwner, isContainer, isInstance, isScene, pageRoots, type ConnectorEnd, type Document, type Node, type Op } from "@paprika/core";
+import { ChevronDown, ChevronRight, Circle, Component, Diamond, Eye, EyeOff, File, Frame, Group, Image, Lock, LockOpen, MoveUpRight, PenTool, RectangleHorizontal, Square, Type, type LucideIcon } from "lucide-react";
+import { copyOwner, isContainer, isInstance, isScene, pageRoots, revealOps, type ConnectorEnd, type Document, type Node, type Op } from "@paprika/core";
 import { Button } from "./components/ui/button";
 import { Hint } from "./components/ui/tooltip";
 import { InlineName } from "./InlineName";
@@ -222,15 +222,63 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
           >
             {n.visible ? <Eye size={13} aria-hidden /> : <EyeOff size={13} aria-hidden />}
           </Button>
+          {!copyOwner(doc, n) && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "inline-flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border-0 bg-transparent p-0 hover:bg-transparent",
+                n.locked ? "text-ui-destructive opacity-100" : "text-ui-muted-foreground opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:text-ui-foreground",
+              )}
+              aria-label={(n.locked ? m.unlockLayer : m.lockLayer)(n.name || layerFallback(doc, n))}
+              tabIndex={-1}
+              data-testid="layer-lock"
+              onClick={(e) => {
+                e.stopPropagation();
+                apply([{ op: "update", id, props: { locked: !n.locked } }], n.locked ? "destravar" : "travar");
+              }}
+            >
+              {n.locked ? <Lock size={13} aria-hidden /> : <LockOpen size={13} aria-hidden />}
+            </Button>
+          )}
         </div>
         {kids.length > 0 && open && <ul role="group">{kids.map((c) => row(c, depth + 1))}</ul>}
       </li>
     );
   };
 
+  const flags = { hidden: 0, locked: 0 };
+  const tally = (id: string) => {
+    const n = doc.nodes[id];
+    if (!n || n.type === "page") return;
+    if (!n.visible) flags.hidden += 1;
+    if (n.locked && !copyOwner(doc, n)) flags.locked += 1;
+    if (isContainer(n)) n.children.forEach(tally);
+  };
+  roots.forEach(tally);
+  const reveal = (kind: "hidden" | "locked") => {
+    const page = pageId ?? undefined;
+    if (!revealOps(doc, kind, page).ops.length) return;
+    apply([{ op: "reveal", kind, ...(page ? { pageId: page } : {}) }], kind === "hidden" ? "mostrar todos" : "destravar todos");
+  };
+
   return (
     <div className="flex flex-col gap-1 p-2">
-      <h2 className="mx-0 mt-0 mb-1 text-xs font-bold uppercase tracking-[0.06em] text-ui-muted-foreground">{m.layers}</h2>
+      <div className="mb-1 flex items-center justify-between gap-1">
+        <h2 className="mx-0 my-0 text-xs font-bold uppercase tracking-[0.06em] text-ui-muted-foreground">{m.layers}</h2>
+        <div className="flex gap-0.5">
+          <Hint label={m.showAll}>
+            <Button type="button" variant="ghost" size="icon" className="size-6" aria-label={m.showAll} data-testid="show-all" disabled={flags.hidden === 0} onClick={() => reveal("hidden")}>
+              <Eye aria-hidden />
+            </Button>
+          </Hint>
+          <Hint label={m.unlockAll}>
+            <Button type="button" variant="ghost" size="icon" className="size-6" aria-label={m.unlockAll} data-testid="unlock-all" disabled={flags.locked === 0} onClick={() => reveal("locked")}>
+              <LockOpen aria-hidden />
+            </Button>
+          </Hint>
+        </div>
+      </div>
       {roots.length === 0 ? (
         <p className="text-ui-muted-foreground">Vazio. Desenhe um frame (F) ou peça a um agente via MCP.</p>
       ) : (

@@ -55,7 +55,7 @@ func baseDocs(t *testing.T, g *jsonv.Object) map[string]*Document {
 	for _, v := range g.Arr("views") {
 		o := v.(*jsonv.Object)
 		switch name := o.Str("name"); name {
-		case "empty", "card", "demo", "bezier", "free", "grouped", "paged", "comp", "themed", "diagram", "corners", "absflow":
+		case "empty", "card", "demo", "bezier", "free", "grouped", "paged", "comp", "themed", "diagram", "corners", "absflow", "grad":
 			docs[name] = mustDoc(t, o.Str("doc"))
 		}
 	}
@@ -116,6 +116,14 @@ func TestGoldenStructure(t *testing.T) {
 			ops, released, err = UngroupOps(d, args.Strings("ids"))
 		case "combine":
 			ops, id, err = CombinePathsOps(d, args.Strings("ids"), BooleanOperation(args.Str("operation")), args.Str("id"), args.Str("name"))
+		case "align":
+			ops, err = AlignOps(d, args.Strings("ids"), args.Str("edge"))
+		case "distribute":
+			ops, err = DistributeOps(d, args.Strings("ids"), args.Str("axis"))
+		case "wrap":
+			ops, id, err = WrapOps(d, args.Strings("ids"), args.Str("id"), args.Str("name"))
+		case "reveal":
+			ops, released, err = RevealOps(d, args.Str("kind"), args.Str("pageId"))
 		default:
 			ops, id = AddPageOps(d, args.Str("id"), args.Str("name"), args.Str("firstId"), "")
 		}

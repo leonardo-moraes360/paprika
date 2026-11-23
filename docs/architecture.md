@@ -47,12 +47,12 @@
 ## Known limitations (v0.1)
 
 - Two processes on the same database (`serve` + `mcp`) see each other's commits within ~300 ms, but each keeps its own active workspace. To use MCP and the canvas together, prefer `paprika serve` + MCP over HTTP.
-- No boolean operations on paths, point-by-point path editing on the canvas (the pen creates new paths; existing ones are edited through `d`), structured gradients or rotation-aware hit testing.
+- No boolean operations on paths, point-by-point path editing on the canvas (the pen creates new paths; existing ones are edited through `d`), or rotation-aware hit testing.
 - Groups have no rotation of their own (rotate the children), and children sized `hug`/`fill` count as a point when the group box is fitted. Nodes inside a row/column frame can't be grouped (their position comes from the flow).
 - Instances can't be nested inside components yet, and only appearance fields can be overridden (no component props or slots). `scale` doesn't scale a `fontSize` that is a token.
 - The contrast lint ignores gradients and background images.
 - Agent presence reaches only canvases of the same process: a `paprika mcp` (stdio) whose port was taken runs without a canvas, so its cursor does not show in the `paprika serve` canvas. Use MCP over HTTP to be seen.
-- SVG import skips text, images, gradients/patterns (filled gray), masks, clip paths and `<style>` CSS; HTML import only reads inline `style=""` (no classes or stylesheets). SVG export leaves out gradients and background images, draws shadows without spread, skips an inner shadow with a warning, and uses `layout(doc)` (no headless Chromium); text glyph wrap is approximate.
+- SVG import skips text, images, gradients/patterns (filled gray), masks, clip paths and `<style>` CSS; HTML import only reads inline `style=""` (no classes or stylesheets). SVG export leaves out CSS gradient strings and background images, emits a structured `gradient` (linear and radial as SVG gradients, conic as a `foreignObject`), draws shadows without spread, skips an inner shadow with a warning, and uses `layout(doc)` (no headless Chromium); text glyph wrap is approximate.
 - Dragging on the canvas only moves nodes whose parent has no auto layout (in row/column, order comes from the layout).
 - The agent-facing guide and error messages are in Brazilian Portuguese.
 

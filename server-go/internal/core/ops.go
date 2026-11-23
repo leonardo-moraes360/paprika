@@ -69,6 +69,8 @@ func init() {
 			z.Field{Name: "op", Schema: z.Literal("set_tokens")},
 			z.Field{Name: "tokens", Schema: z.Record(TokenNameSchema, z.Nullable(TokenValueSchema))},
 			z.Field{Name: "mode", Schema: z.Optional(ModeNameSchema)},
+			z.Field{Name: "type", Schema: z.Optional(z.Nullable(TokenTypeSchema))},
+			z.Field{Name: "collection", Schema: z.Optional(z.Nullable(CollectionNameSchema))},
 		)),
 		z.Option("rename_document", z.Object(
 			z.Field{Name: "op", Schema: z.Literal("rename_document")},
@@ -102,12 +104,38 @@ func init() {
 			z.Field{Name: "op", Schema: z.Literal("detach")},
 			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
 		)),
+		z.Option("detach_tokens", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("detach_tokens")},
+			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+			z.Field{Name: "fields", Schema: z.Optional(z.Array(z.String().Regex(`^[A-Za-z][A-Za-z.]{0,39}$`, `/^[a-zA-Z][a-zA-Z.]{0,39}$/`, "field must be a token field name")).Max(20))},
+		)),
 		z.Option("combine_paths", z.Object(
 			z.Field{Name: "op", Schema: z.Literal("combine_paths")},
 			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(2).Max(500)},
 			z.Field{Name: "operation", Schema: z.Enum("union", "subtract", "intersect", "exclude")},
 			z.Field{Name: "id", Schema: z.Optional(z.String())},
 			z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+		)),
+		z.Option("align", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("align")},
+			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(2).Max(500)},
+			z.Field{Name: "edge", Schema: z.Enum("left", "center", "right", "top", "middle", "bottom")},
+		)),
+		z.Option("distribute", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("distribute")},
+			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(3).Max(500)},
+			z.Field{Name: "axis", Schema: z.Enum("horizontal", "vertical")},
+		)),
+		z.Option("wrap", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("wrap")},
+			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
+			z.Field{Name: "id", Schema: z.Optional(z.String())},
+			z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
+		)),
+		z.Option("reveal", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("reveal")},
+			z.Field{Name: "kind", Schema: z.Enum("hidden", "locked")},
+			z.Field{Name: "pageId", Schema: z.Optional(z.String())},
 		)),
 	)
 }
@@ -865,53 +893,16 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		return jsonv.NewObject("op", "move", "id", id, "parentId", oldParent, "index", float64(fromIndex)), nil
 
 	case "set_tokens":
-		prev := jsonv.NewObject()
-		tokens := Tokens(doc)
-		mode := op.Str("mode")
-		if mode != "" {
-			modes := Modes(doc)
-			if modes == nil {
-				modes = jsonv.NewObject()
-				doc.Set("modes", modes)
-			}
-			tokens = modes.Obj(mode)
-			if tokens == nil {
-				tokens = jsonv.NewObject()
-				modes.Set(mode, tokens)
-			}
-		}
-		in := op.Obj("tokens")
-		for _, k := range in.Keys() {
-			v, _ := in.Get(k)
-			if old, has := tokens.Get(k); has && old != nil {
-				prev.Set(k, old)
-			} else {
-				prev.Set(k, nil)
-			}
-			if v == nil {
-				tokens.Delete(k)
-			} else {
-				tokens.Set(k, v)
-			}
-		}
-		if mode != "" {
-			modes := Modes(doc)
-			if tokens.Len() == 0 {
-				modes.Delete(mode)
-			}
-			if modes.Len() == 0 {
-				doc.Delete("modes")
-			}
-			return jsonv.NewObject("op", "set_tokens", "tokens", prev, "mode", mode), nil
-		}
-		return jsonv.NewObject("op", "set_tokens", "tokens", prev), nil
+		return applySetTokens(doc, op, i)
+	case "detach_tokens":
+		return applyDetachTokens(doc, op, i, created)
 
 	case "rename_document":
 		prev := doc.Str("name")
 		doc.Set("name", op.Str("name"))
 		return jsonv.NewObject("op", "rename_document", "name", prev), nil
 
-	case "group", "ungroup", "add_page", "detach", "combine_paths":
+	case "group", "ungroup", "add_page", "detach", "combine_paths", "align", "distribute", "wrap", "reveal":
 		// Expanded against the *current* document, inside the same transaction.
 		var plan []any
 		var err error
@@ -926,6 +917,14 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			}
 		case "combine_paths":
 			plan, _, err = CombinePathsOps(doc, op.Strings("ids"), BooleanOperation(op.Str("operation")), op.Str("id"), op.Str("name"))
+		case "align":
+			plan, err = AlignOps(doc, op.Strings("ids"), op.Str("edge"))
+		case "distribute":
+			plan, err = DistributeOps(doc, op.Strings("ids"), op.Str("axis"))
+		case "wrap":
+			plan, _, err = WrapOps(doc, op.Strings("ids"), op.Str("id"), op.Str("name"))
+		case "reveal":
+			plan, _, err = RevealOps(doc, op.Str("kind"), op.Str("pageId"))
 		default:
 			plan, _ = AddPageOps(doc, op.Str("id"), op.Str("name"), op.Str("firstId"), op.Str("firstName"))
 		}
@@ -1109,11 +1108,15 @@ func numOr0(n *Node, key string) float64 {
 
 // LocalBox is a node's box in its parent (its own rotation around the center included).
 func LocalBox(n *Node) Box {
+	return LocalBoxSized(n, numOr0(n, "width"), numOr0(n, "height"))
+}
+
+// LocalBoxSized is LocalBox with an explicit width and height (hug/fill already resolved).
+func LocalBoxSized(n *Node, w, h float64) Box {
 	if n.Str("type") == "page" {
 		return Box{}
 	}
 	x, y := n.Num("x"), n.Num("y")
-	w, h := numOr0(n, "width"), numOr0(n, "height")
 	rotation := 0.0
 	if t := n.Str("type"); t != "group" && t != "connector" {
 		rotation = n.Num("rotation")

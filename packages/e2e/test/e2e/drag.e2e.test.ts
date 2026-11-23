@@ -493,8 +493,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: drag and drop reparent e arquivos (P
     expect(kids).toEqual(["flow-a", "flow-b", "flow-c"]);
     const rowA = page.locator('[data-layer-id="flow-a"]');
     const rowC = page.locator('[data-layer-id="flow-c"]');
-    await rowA.scrollIntoViewIfNeeded();
-    await rowA.dragTo(rowC, { targetPosition: { x: 40, y: 22 } });
+    await rowC.scrollIntoViewIfNeeded();
+    await rowA.dragTo(rowC, { targetPosition: { x: 40, y: 8 } });
     await expect.poll(async () => ((await server.doc()).nodes.flow as { children: string[] }).children.join(",")).not.toBe("flow-a,flow-b,flow-c");
     expect(((await server.doc()).nodes.flow as { children: string[] }).children[0]).not.toBe("flow-a");
     await undoOnce();

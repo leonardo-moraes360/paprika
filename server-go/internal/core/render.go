@@ -126,8 +126,8 @@ func renderNode(doc *Document, node *Node, asRoot, vars bool, emit styleEmitter,
 	case "image":
 		return "<img " + attrs + ` src="` + EscapeHTML(node.Str("src")) + `" alt="` + EscapeHTML(node.Str("alt")) + `">`
 	case "path":
-		svg, path := PathAttrsVars(doc, node, vars)
-		return "<svg " + attrs + ` xmlns="http://www.w3.org/2000/svg"` + svgAttrs(svg) + "><path" + svgAttrs(path) + "/></svg>"
+		svg, path, inner := PathAttrsVars(doc, node, vars)
+		return "<svg " + attrs + ` xmlns="http://www.w3.org/2000/svg"` + svgAttrs(svg) + ">" + inner + "<path" + svgAttrs(path) + "/></svg>"
 	case "connector":
 		text := ""
 		if label := ConnectorLabelAttrs(doc, node, vars); label != nil {
@@ -135,12 +135,12 @@ func renderNode(doc *Document, node *Node, asRoot, vars bool, emit styleEmitter,
 		}
 		return "<svg " + attrs + ` xmlns="http://www.w3.org/2000/svg"><path` + svgAttrs(ConnectorAttrs(doc, node, vars)) + "/>" + text + "</svg>"
 	case "shape":
-		svg, path, fold := ShapeAttrs(doc, node, vars)
+		svg, path, fold, inner := ShapeAttrs(doc, node, vars)
 		f := ""
 		if fold != nil {
 			f = "<path" + svgAttrs(fold) + "/>"
 		}
-		return "<div " + attrs + `><svg xmlns="http://www.w3.org/2000/svg"` + svgAttrs(svg) + emit(ShapeSVGCSS(), nil, "shapeSvg") + `><path` + svgAttrs(path) + "/>" + f +
+		return "<div " + attrs + `><svg xmlns="http://www.w3.org/2000/svg"` + svgAttrs(svg) + emit(ShapeSVGCSS(), nil, "shapeSvg") + ">" + inner + `<path` + svgAttrs(path) + "/>" + f +
 			`</svg><div` + emit(ShapeTextCSS(), nil, "shapeText") + `>` + EscapeHTML(node.Str("text")) + "</div></div>"
 	}
 	return "<div " + attrs + "></div>"
@@ -199,7 +199,9 @@ func buildExportParts(doc *Document, opts RenderOptions, emit styleEmitter) (exp
 	if bg == "" {
 		bg = "#ffffff"
 		if page != nil {
-			if f, ok := page.Get("fill"); ok && f != "" {
+			if g := nodeGradient(page); g != nil {
+				bg = gradientCSS(doc, g, page.Str("mode"), opts.CSSVariables)
+			} else if f, ok := page.Get("fill"); ok && f != "" {
 				bg = jsString(ResolveValue(doc, f, page.Str("mode")))
 			}
 		}
@@ -298,8 +300,8 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, e
 	case "image":
 		return indent + "<img" + name + style + " src=" + jsonv.Quote(node.Str("src")) + " alt=" + jsonv.Quote(node.Str("alt")) + " />"
 	case "path":
-		svg, path := PathAttrsVars(doc, node, vars)
-		return indent + "<svg" + name + style + jsxAttrs(svg) + ">\n" + indent + "  <path" + jsxAttrs(path) + " />\n" + indent + "</svg>"
+		svg, path, inner := PathAttrsVars(doc, node, vars)
+		return indent + "<svg" + name + style + jsxAttrs(svg) + ">\n" + indent + "  " + inner + "<path" + jsxAttrs(path) + " />\n" + indent + "</svg>"
 	case "connector":
 		text := ""
 		if label := ConnectorLabelAttrs(doc, node, vars); label != nil {
@@ -307,13 +309,13 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, e
 		}
 		return indent + "<svg" + name + style + ">\n" + indent + "  <path" + jsxAttrs(ConnectorAttrs(doc, node, vars)) + " />" + text + "\n" + indent + "</svg>"
 	case "shape":
-		svg, path, fold := ShapeAttrs(doc, node, vars)
+		svg, path, fold, inner := ShapeAttrs(doc, node, vars)
 		f := ""
 		if fold != nil {
 			f = "\n" + indent + "    <path" + jsxAttrs(fold) + " />"
 		}
 		return indent + "<div" + name + style + ">\n" + indent + "  <svg" + jsxAttrs(svg) + emit(ShapeSVGCSS(), nil, "shapeSvg") + ">\n" +
-			indent + "    <path" + jsxAttrs(path) + " />" + f + "\n" + indent + "  </svg>\n" + indent + "  <div" + emit(ShapeTextCSS(), nil, "shapeText") + ">" +
+			indent + "    " + inner + "<path" + jsxAttrs(path) + " />" + f + "\n" + indent + "  </svg>\n" + indent + "  <div" + emit(ShapeTextCSS(), nil, "shapeText") + ">" +
 			jsxText(node.Str("text")) + "</div>\n" + indent + "</div>"
 	}
 	return indent + "<div" + name + style + " />"

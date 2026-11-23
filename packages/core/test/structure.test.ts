@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   History,
   addPageOps,
+  alignOps,
   applyOps,
   canvasBounds,
   createDocument,
   displayList,
+  distributeOps,
   duplicateOps,
   exportReact,
   groupOps,
@@ -15,9 +17,12 @@ import {
   pageRoots,
   parseDocument,
   renderHTML,
+  revealOps,
   ungroupOps,
+  wrapOps,
   type Box,
   type Document,
+  type FrameNode,
   type GroupNode,
   type Node as NodeT,
 } from "../src/index.js";
@@ -460,5 +465,70 @@ describe("duplicate_nodes", () => {
     );
     const paged = applyOps(scene(), [{ op: "add_page", id: "p2", firstId: "p1" }]).doc;
     expect(() => duplicateOps(paged, ["p1"])).toThrow(/is a page; duplicate the frames on it instead/);
+  });
+});
+
+describe("align, distribute, wrap and reveal", () => {
+  it("aligns to the selection box in one undo, including rotation", () => {
+    const h = new History(scene());
+    h.apply([{ op: "align", ids: ["b", "a"], edge: "left" }]);
+    expect(h.doc.nodes.a).toMatchObject({ x: 40 });
+    expect(h.doc.nodes.b).toMatchObject({ x: 40, y: 20 });
+    h.undo();
+    expect(h.doc.nodes.b).toMatchObject({ x: 100, y: 20 });
+    const turned = applyOps(scene(), [{ op: "update", id: "a", props: { rotation: 90 } }]).doc;
+    const { doc } = applyOps(turned, alignOps(turned, ["a", "b"], "top").ops);
+    expect(doc.nodes.a).toMatchObject({ y: 25 });
+    expect(doc.nodes.b).toMatchObject({ y: 20 });
+  });
+
+  it("distributes with equal gaps and keeps the outer edges", () => {
+    const doc0 = applyOps(scene(), [{ op: "create", parentId: "f", node: { type: "rect", id: "d", x: 200, y: 10, width: 20, height: 10, fill: "#000" } }]).doc;
+    const { doc } = applyOps(doc0, distributeOps(doc0, ["a", "d", "b"], "horizontal").ops);
+    expect(doc.nodes.a).toMatchObject({ x: 40 });
+    expect(doc.nodes.b).toMatchObject({ x: 115 });
+    expect(doc.nodes.d).toMatchObject({ x: 200 });
+    expect(() => distributeOps(doc0, ["a", "b"], "horizontal")).toThrow("pass at least 3 ids to distribute");
+  });
+
+  it("wraps siblings in a frame without moving the drawing, one undo", () => {
+    const h = new History(scene());
+    h.apply(wrapOps(h.doc, ["b", "a"], { id: "wf", name: "Caixa" }).ops);
+    const frame = h.doc.nodes.wf as FrameNode;
+    expect(frame).toMatchObject({ type: "frame", parentId: "f", x: 40, y: 20, width: 90, height: 40, fill: "transparent", clip: false, name: "Caixa" });
+    expect(frame.children).toEqual(["a", "b"]);
+    expect(h.doc.nodes.a).toMatchObject({ x: 0, y: 30, parentId: "wf" });
+    expect(h.doc.nodes.b).toMatchObject({ x: 60, y: 0, parentId: "wf" });
+    expect((h.doc.nodes.f as FrameNode).children).toEqual(["wf", "c"]);
+    h.undo();
+    expect(h.doc.nodes.a).toMatchObject({ x: 40, y: 50, parentId: "f" });
+    expect(h.doc.nodes.wf).toBeUndefined();
+  });
+
+  it("shows and unlocks the page in one step and leaves the other page", () => {
+    const doc0 = applyOps(scene(), [
+      { op: "add_page", id: "p2", firstId: "p1" },
+      { op: "create", parentId: "p2", node: { type: "rect", id: "h", x: 0, y: 0, width: 10, height: 10, visible: false, locked: true } },
+      { op: "update", id: "a", props: { visible: false, locked: true } },
+    ]).doc;
+    const hidden = revealOps(doc0, "hidden", "p1");
+    expect(hidden.ids).toEqual(["a"]);
+    const shown = applyOps(doc0, [{ op: "reveal", kind: "hidden", pageId: "p1" }]).doc;
+    expect(shown.nodes.a).toMatchObject({ visible: true, locked: true });
+    expect(shown.nodes.h).toMatchObject({ visible: false, locked: true });
+    const unlocked = applyOps(shown, [{ op: "reveal", kind: "locked" }]).doc;
+    expect(unlocked.nodes.a).toMatchObject({ locked: false });
+    expect(unlocked.nodes.h).toMatchObject({ locked: false });
+    expect(revealOps(unlocked, "locked").ids).toEqual([]);
+  });
+
+  it("refuses flow parents, connectors and short selections", () => {
+    const doc0 = applyOps(scene(), [{ op: "update", id: "f", props: { layout: { mode: "row", gap: 0, padding: 0 } } }]).doc;
+    expect(() => alignOps(doc0, ["a", "b"], "left")).toThrow(/cannot be aligned/);
+    expect(() => alignOps(scene(), ["a"], "left")).toThrow("pass at least 2 ids to align");
+    const withArrow = applyOps(scene(), [
+      { op: "create", parentId: "f", node: { type: "connector", id: "k", from: { nodeId: "a" }, to: { nodeId: "b" } } },
+    ]).doc;
+    expect(() => wrapOps(withArrow, ["a", "k"])).toThrow(/connector/);
   });
 });

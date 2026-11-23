@@ -454,3 +454,346 @@ func DuplicateOps(doc *Document, ids []string, args *jsonv.Object) (*DuplicatePl
 	}
 	return plan, nil
 }
+
+const arrangeEps = 1e-3
+
+func arrangeNoun(min int) string {
+	if min == 1 {
+		return "one id"
+	}
+	return fmt.Sprintf("%d ids", min)
+}
+
+func arrangePast(action string) string {
+	switch action {
+	case "align":
+		return "aligned"
+	case "distribute":
+		return "distributed"
+	default:
+		return "wrapped"
+	}
+}
+
+func dimNum(n *Node, key string) (float64, bool) {
+	v, ok := n.Get(key)
+	if !ok {
+		return 0, false
+	}
+	f, ok := v.(float64)
+	return f, ok
+}
+
+func siblingSelection(doc *Document, ids []string, action string, min int) ([]*Node, error) {
+	if len(ids) < min {
+		return nil, fmt.Errorf("pass at least %s to %s", arrangeNoun(min), action)
+	}
+	var unique []string
+	seen := map[string]bool{}
+	for _, v := range ids {
+		if !seen[v] {
+			seen[v] = true
+			unique = append(unique, v)
+		}
+	}
+	if len(unique) < min {
+		return nil, fmt.Errorf("pass at least %s to %s", arrangeNoun(min), action)
+	}
+	var missing []string
+	for _, v := range unique {
+		if GetNode(doc, v) == nil {
+			missing = append(missing, v)
+		}
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("nodes do not exist: %s", strings.Join(missing, ", "))
+	}
+	nodes := make([]*Node, 0, len(unique))
+	for _, id := range unique {
+		n := GetNode(doc, id)
+		if n.Str("type") == "page" {
+			return nil, fmt.Errorf(`"%s" is a page`, id)
+		}
+		if n.Str("type") == "connector" {
+			return nil, fmt.Errorf(`"%s" is a connector; its position follows its ends`, id)
+		}
+		if owner := CopyOwner(doc, n); owner != nil {
+			return nil, fmt.Errorf(`"%s" is a copy inside the instance "%s"; edit the instance instead`, id, owner.Str("id"))
+		}
+		nodes = append(nodes, n)
+	}
+	parentID, _ := nodes[0].Get("parentId")
+	for _, n := range nodes[1:] {
+		if p, _ := n.Get("parentId"); p != parentID {
+			return nil, fmt.Errorf(`only nodes with the same parent can be %s ("%s" is in %s, "%s" in %s)`, arrangePast(action), n.Str("id"), placeName(p), nodes[0].Str("id"), placeName(parentID))
+		}
+	}
+	if pid, ok := parentID.(string); ok {
+		if p := GetNode(doc, pid); p != nil && p.Str("type") == "frame" {
+			if l := p.Obj("layout"); l != nil && l.Str("mode") != "none" {
+				return nil, fmt.Errorf(`"%s" has layout %s: its children follow the flow and cannot be %s; set the layout to none`, pid, l.Str("mode"), arrangePast(action))
+			}
+		}
+	}
+	return nodes, nil
+}
+
+func boxesOf(doc *Document, nodes []*Node) (map[string]Box, error) {
+	var need []string
+	for _, n := range nodes {
+		if _, ok := dimNum(n, "width"); !ok {
+			need = append(need, n.Str("id"))
+			continue
+		}
+		if _, ok := dimNum(n, "height"); !ok {
+			need = append(need, n.Str("id"))
+		}
+	}
+	laid := map[string]LayoutBox{}
+	if len(need) > 0 {
+		var err error
+		laid, err = Layout(doc, LayoutOptions{IDs: need})
+		if err != nil {
+			return nil, err
+		}
+	}
+	out := map[string]Box{}
+	for _, n := range nodes {
+		w, wok := dimNum(n, "width")
+		h, hok := dimNum(n, "height")
+		if !wok || !hok {
+			b, ok := laid[n.Str("id")]
+			if !ok {
+				return nil, fmt.Errorf(`"%s" has no numeric width or height`, n.Str("id"))
+			}
+			if !wok {
+				w = b.Width
+			}
+			if !hok {
+				h = b.Height
+			}
+		}
+		out[n.Str("id")] = LocalBoxSized(n, w, h)
+	}
+	return out, nil
+}
+
+// AlignOps moves sibling nodes so one edge (or the center) lines up with the selection box.
+func AlignOps(doc *Document, ids []string, edge string) ([]any, error) {
+	switch edge {
+	case "left", "center", "right", "top", "middle", "bottom":
+	default:
+		return nil, errors.New("edge must be left, center, right, top, middle or bottom")
+	}
+	nodes, err := siblingSelection(doc, ids, "align", 2)
+	if err != nil {
+		return nil, err
+	}
+	boxes, err := boxesOf(doc, nodes)
+	if err != nil {
+		return nil, err
+	}
+	minX, minY := math.Inf(1), math.Inf(1)
+	maxX, maxY := math.Inf(-1), math.Inf(-1)
+	for _, n := range nodes {
+		b := boxes[n.Str("id")]
+		minX, minY = math.Min(minX, b.MinX), math.Min(minY, b.MinY)
+		maxX, maxY = math.Max(maxX, b.MaxX), math.Max(maxY, b.MaxY)
+	}
+	horizontal := edge == "left" || edge == "center" || edge == "right"
+	ops := []any{}
+	for _, n := range nodes {
+		b := boxes[n.Str("id")]
+		var delta float64
+		switch edge {
+		case "left":
+			delta = minX - b.MinX
+		case "right":
+			delta = maxX - b.MaxX
+		case "center":
+			delta = (minX+maxX)/2 - (b.MinX+b.MaxX)/2
+		case "top":
+			delta = minY - b.MinY
+		case "bottom":
+			delta = maxY - b.MaxY
+		default:
+			delta = (minY+maxY)/2 - (b.MinY+b.MaxY)/2
+		}
+		cur := n.Num("y")
+		if horizontal {
+			cur = n.Num("x")
+		}
+		next := Round4(cur + delta)
+		if math.Abs(next-cur) < arrangeEps {
+			continue
+		}
+		props := jsonv.NewObject()
+		if horizontal {
+			props.Set("x", next)
+		} else {
+			props.Set("y", next)
+		}
+		ops = append(ops, jsonv.NewObject("op", "update", "id", n.Str("id"), "props", props))
+	}
+	return ops, nil
+}
+
+// DistributeOps spaces sibling nodes with equal gaps, keeping the outer edges fixed.
+func DistributeOps(doc *Document, ids []string, axis string) ([]any, error) {
+	if axis != "horizontal" && axis != "vertical" {
+		return nil, errors.New("axis must be horizontal or vertical")
+	}
+	nodes, err := siblingSelection(doc, ids, "distribute", 3)
+	if err != nil {
+		return nil, err
+	}
+	boxes, err := boxesOf(doc, nodes)
+	if err != nil {
+		return nil, err
+	}
+	parentID, _ := nodes[0].Get("parentId")
+	siblings := siblingsOf(doc, parentID)
+	items := append([]*Node(nil), nodes...)
+	sort.SliceStable(items, func(i, j int) bool {
+		a, b := boxes[items[i].Str("id")], boxes[items[j].Str("id")]
+		ka, kb := a.MinY, b.MinY
+		if axis == "horizontal" {
+			ka, kb = a.MinX, b.MinX
+		}
+		if ka != kb {
+			return ka < kb
+		}
+		return indexOf(siblings, items[i].Str("id")) < indexOf(siblings, items[j].Str("id"))
+	})
+	first, last := items[0], items[len(items)-1]
+	fb, lb := boxes[first.Str("id")], boxes[last.Str("id")]
+	start, end := fb.MinY, lb.MaxY
+	if axis == "horizontal" {
+		start, end = fb.MinX, lb.MaxX
+	}
+	sum := 0.0
+	for _, n := range items {
+		b := boxes[n.Str("id")]
+		if axis == "horizontal" {
+			sum += b.MaxX - b.MinX
+		} else {
+			sum += b.MaxY - b.MinY
+		}
+	}
+	gap := (end - start - sum) / float64(len(items)-1)
+	cursor := start
+	ops := []any{}
+	for _, n := range items {
+		b := boxes[n.Str("id")]
+		size, edge := b.MaxY-b.MinY, b.MinY
+		cur := n.Num("y")
+		if axis == "horizontal" {
+			size, edge, cur = b.MaxX-b.MinX, b.MinX, n.Num("x")
+		}
+		next := Round4(cur + (cursor - edge))
+		if math.Abs(next-cur) >= arrangeEps {
+			props := jsonv.NewObject()
+			if axis == "horizontal" {
+				props.Set("x", next)
+			} else {
+				props.Set("y", next)
+			}
+			ops = append(ops, jsonv.NewObject("op", "update", "id", n.Str("id"), "props", props))
+		}
+		cursor += size + gap
+	}
+	return ops, nil
+}
+
+// WrapOps puts sibling nodes in a new frame. The drawing does not move. id/name "" mean generated.
+func WrapOps(doc *Document, ids []string, id, name string) ([]any, string, error) {
+	nodes, err := siblingSelection(doc, ids, "wrap", 1)
+	if err != nil {
+		return nil, "", err
+	}
+	boxes, err := boxesOf(doc, nodes)
+	if err != nil {
+		return nil, "", err
+	}
+	minX, minY := math.Inf(1), math.Inf(1)
+	maxX, maxY := math.Inf(-1), math.Inf(-1)
+	for _, n := range nodes {
+		b := boxes[n.Str("id")]
+		minX, minY = math.Min(minX, b.MinX), math.Min(minY, b.MinY)
+		maxX, maxY = math.Max(maxX, b.MaxX), math.Max(maxY, b.MaxY)
+	}
+	minX, minY = Round4(minX), Round4(minY)
+	w, h := Round4(maxX-minX), Round4(maxY-minY)
+	parentID, _ := nodes[0].Get("parentId")
+	siblings := siblingsOf(doc, parentID)
+	ordered := append([]*Node(nil), nodes...)
+	sort.SliceStable(ordered, func(a, b int) bool {
+		return indexOf(siblings, ordered[a].Str("id")) < indexOf(siblings, ordered[b].Str("id"))
+	})
+	top := indexOf(siblings, ordered[len(ordered)-1].Str("id"))
+	if id == "" {
+		id = NewID()
+	}
+	if name == "" {
+		frames := 0
+		for _, k := range Nodes(doc).Keys() {
+			if GetNode(doc, k).Str("type") == "frame" {
+				frames++
+			}
+		}
+		name = "Frame " + jsonv.FormatNumber(float64(frames+1))
+	}
+	ops := []any{jsonv.NewObject(
+		"op", "create", "parentId", parentID, "index", float64(top+1),
+		"node", jsonv.NewObject("type", "frame", "id", id, "name", name, "x", minX, "y", minY, "width", w, "height", h, "fill", "transparent", "clip", false),
+	)}
+	for _, n := range ordered {
+		ops = append(ops, jsonv.NewObject("op", "move", "id", n.Str("id"), "parentId", id))
+		ops = append(ops, jsonv.NewObject("op", "update", "id", n.Str("id"), "props", jsonv.NewObject("x", Round4(n.Num("x")-minX), "y", Round4(n.Num("y")-minY))))
+	}
+	return ops, id, nil
+}
+
+// RevealOps shows every hidden node, or unlocks every locked node, on a page or in the whole document.
+func RevealOps(doc *Document, kind, pageID string) ([]any, []string, error) {
+	if kind != "hidden" && kind != "locked" {
+		return nil, nil, errors.New("kind must be hidden or locked")
+	}
+	var start []string
+	if pageID != "" {
+		page := GetNode(doc, pageID)
+		if page == nil || page.Str("type") != "page" {
+			return nil, nil, fmt.Errorf(`page "%s" does not exist`, pageID)
+		}
+		start = page.Strings("children")
+	} else {
+		start = doc.Strings("rootIds")
+	}
+	ops := []any{}
+	ids := []string{}
+	var walk func([]string)
+	walk = func(list []string) {
+		for _, id := range list {
+			n := GetNode(doc, id)
+			if n == nil {
+				continue
+			}
+			if n.Str("type") != "page" {
+				if kind == "hidden" {
+					if v, ok := n.Get("visible"); ok && v == false {
+						ops = append(ops, jsonv.NewObject("op", "update", "id", id, "props", jsonv.NewObject("visible", true)))
+						ids = append(ids, id)
+					}
+				} else if n.Bool("locked") && CopyOwner(doc, n) == nil {
+					ops = append(ops, jsonv.NewObject("op", "update", "id", id, "props", jsonv.NewObject("locked", false)))
+					ids = append(ids, id)
+				}
+			}
+			if IsContainer(n.Str("type")) {
+				walk(n.Strings("children"))
+			}
+		}
+	}
+	walk(start)
+	return ops, ids, nil
+}

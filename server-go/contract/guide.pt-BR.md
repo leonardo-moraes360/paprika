@@ -9,11 +9,14 @@ Campos comuns: name, x, y, width, height (número | "hug" | "fill"), rotation, o
 visible, locked, layoutPositioning ("auto"|"absolute", omitir = auto), fill (cor), stroke {color, width: n | "$token"}, radius (n | "$token", ou em frame, rect e image [tl, tr, br, bl]; cada canto n | "$token"), shadow (um objeto ou uma lista de até 8: {x, y, blur, spread: n | "$token", color, inner?}), outline {color, width: n | "$token", style?: solid|dashed|dotted, offset?}, filter e backdropFilter {blur?: n | "$token", saturate? 0..10, grayscale? 0..1, brightness? 0..10, sepia? 0..1, invert? 0..1, hueRotate? -360..360}, notes, lintIgnore (nomes de regras que o lint_design ignora neste nó).
 frame: clip (bool), layout {mode: none|row|column, gap (n | "$token"), padding (um número ou [topo, direita, baixo, esquerda]; cada um n | "$token"; não dois valores), align: start|center|end|stretch,
   justify: start|center|end|between, wrap}, scaledMock (true: mock em escala; o lint_design não avisa small-text dentro dele). Com layout row/column, x/y dos filhos são ignorados, salvo layoutPositioning "absolute" (o filho fica em x/y relativos ao pai e sai do fluxo, do gap e do hug). Omitir ou "auto" permanece no fluxo.
-text: text, color, fontFamily, fontSize (n | "$token"), fontWeight (100..900), lineHeight (n | "$token"), letterSpacing (n | "$token"), textAlign.
+text: text, color, fontFamily (string | "$token"), fontSize (n | "$token"), fontWeight (100..900 | "$token"), lineHeight (n | "$token"), letterSpacing (n | "$token"), textAlign.
   Sem width/height, um texto novo abraça o conteúdo ("hug" nos dois eixos); dê width para quebrar linhas.
 image: src (https:// ou data:image/), fit (cover|contain|fill), alt.
 group: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir
   dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.
+  wrap_nodes põe os mesmos irmãos num frame novo (o desenho não se move, um desfazer). align_nodes (edge: left|center|right|top|middle|bottom)
+  e distribute_nodes (axis: horizontal|vertical, pelo menos 3) movem os irmãos num desfazer. show_all e unlock_all revelam o que está oculto
+  ou travado; pageId limita à página, e omitir cobre o documento inteiro.
 page: name, fill (fundo do canvas), notes, children. Só no topo; com páginas, todo nó de topo é página e os
   frames vão em parentId = id da página (coordenadas do canvas). create_page cria a primeira já levando o
   conteúdo atual para "Page 1" (inglês; a UI passa o nome localizado). create_page {ensure: true, name} devolve a página que já tem esse nome
@@ -30,8 +33,8 @@ path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fil
   o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó
   ganha a caixa do desenho. Curvas: "C c1x c1y c2x c2y x y" (cúbica), "Q cx cy x y" (quadrática), S/T espelham
   o controle anterior (curvas suaves). Use get_bounds (caixas absolutas + cantos rotacionados), path_info para conferir bounds antes de posicionar.
-shape: shape (rect|ellipse|diamond|triangle|note), text (centralizado; numa nota, no topo à esquerda), color, fontFamily, fontSize (n | "$token"),
-  fontWeight, lineHeight (n | "$token"), textAlign. width/height são números (padrão 160×80; nota 160×160). fill/stroke/radius/shadow
+shape: shape (rect|ellipse|diamond|triangle|note), text (centralizado; numa nota, no topo à esquerda), color, fontFamily (string | "$token"), fontSize (n | "$token"),
+  fontWeight (100..900 | "$token"), lineHeight (n | "$token"), textAlign. width/height são números (padrão 160×80; nota 160×160). fill/stroke/radius/shadow
   pintam o contorno; campos omitidos na criação ganham o padrão do tipo (branco com borda escura; note = nota adesiva amarela).
 connector: from/to = {nodeId, side?: auto|top|right|bottom|left} (preso a um nó) ou {x, y} (ponto solto nas coordenadas
   do pai), route (straight|elbow|rounded|curve), radius (cantos arredondados), control {x,y} (alça da curva nas coords do pai), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,
@@ -40,8 +43,8 @@ connector: from/to = {nodeId, side?: auto|top|right|bottom|left} (preso a um nó
   apagar um nó apaga os conectores presos a ele.
 Diagramas: draw_diagram recebe nodes (formas) + edges (conectores) e posiciona sozinho as formas sem x/y.
 
-Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes. Um campo de comprimento (radius, gap, padding, espessura do traço, fontSize, lineHeight, letterSpacing, shadow x/y/blur/spread) aceita um token numérico; um token de cor nesse campo é recusado.
-Modos de tema: set_tokens com mode ("dark", "compact"…) grava só os tokens que mudam; "mode" num frame ou página aplica o modo ao subtree (dá para pôr a mesma tela clara e escura lado a lado). export_code com cssVariables: true sai com var(--token) e uma regra por modo.
+Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes. set_tokens aceita type (color, length, fontFamily, fontWeight, fontSize, lineHeight, letterSpacing) e collection. Um token com tipo é conferido ao gravar e ao usar; sem tipo continua string ou número e ainda entra em qualquer campo de comprimento. fontWeight e lineHeight tipados saem sem unidade nas variáveis CSS; os outros números ficam em px. detach_tokens troca "$nome" pelo literal resolvido no modo do nó.
+Modos de tema: set_tokens com mode ("dark", "compact"…) grava só os tokens que mudam; o valor do modo tem de combinar com o tipo do token. "mode" num frame ou página aplica o modo ao subtree (dá para pôr a mesma tela clara e escura lado a lado). Uma coleção é um nome no token, não um segundo mapa de valores. export_code com cssVariables: true sai com var(--token) e uma regra por modo.
 "fill" em width/height ocupa o espaço restante no eixo principal do pai com layout, ou estica no eixo cruzado.
 
 Posicionamento: um frame novo de topo deixa x e y de fora (ou passa place:"free") e cai no espaço livre, à direita do conteúdo da página, no mesmo topo, respiro 80, quebrando para a linha de baixo depois de 2400px a partir da esquerda do conteúdo. place é "free" | "below" | "right" | {near, side: left|right|above|below} | "none" (x/y exatos). Escritas simultâneas não ocupam o mesmo lugar. get_document_outline e get_bounds sem ids devolvem a caixa do conteúdo da página e o próximo lugar livre. Desenhe overlays (modais, menus, toasts) por último, ou traga-os para a frente com index:"front". Uma escrita avisa quando um nó novo de topo sobrepõe outro e diz o lugar livre mais próximo.
@@ -50,7 +53,7 @@ Apontamentos: o humano pode apontar um nó ou uma área do canvas e escrever o q
 
 Fluxo recomendado:
 1. get_document_outline para se orientar (barato).
-2. set_tokens com a paleta e a escala tipográfica. propose_tokens lê variáveis CSS, um tema Tailwind ou tokens JSON a partir do conteúdo que você passa (o texto do arquivo, nunca um caminho no disco) e devolve operações set_tokens; não grava o documento.
+2. set_tokens com a paleta e a escala tipográfica (passe type e collection quando o token for tipado). propose_tokens lê variáveis CSS, um tema Tailwind ou tokens JSON a partir do conteúdo que você passa (o texto do arquivo, nunca um caminho no disco) e devolve operações set_tokens; não grava o documento.
 3. create_nodes com árvores aninhadas (children) numa só chamada; prefira frames com layout a posicionamento absoluto.
 4. lint_design e corrija o que vier como error/warning. rootIds (ou rootId) limita às subárvores. groups dobra cada regra numa contagem e nos primeiros maxIds ids (padrão 8), em ordem de severidade; issues continua com cada achado. minSeverity (info|warning|error) descarta o que é mais quieto. minFontSize sobe o piso de small-text (padrão 12). Um frame com scaledMock, ou lintIgnore no nó, tira da lista o tipo pequeno e as cores literais de propósito.
 5. render_screenshot para conferir visualmente; export_image para PNG/JPEG/WebP/AVIF/PDF sem Chromium; export_code para levar ao código.

@@ -651,6 +651,9 @@ func opaqueFrame(doc *Document, n *Node) bool {
 	if op, ok := numField(n, "opacity"); ok && op < 0.99 {
 		return false
 	}
+	if nodeGradient(n) != nil {
+		return false
+	}
 	fill, ok := n.Get("fill")
 	if !ok || fill == nil {
 		return false

@@ -5,8 +5,8 @@ import { pathError } from "./path.js";
 export const FORMAT = "paprika/1" as const;
 
 /**
- * Uma cor CSS (`#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, `transparent`) ou uma referência
- * a token no formato `$nome` (resolvida contra `document.tokens`).
+ * Uma cor CSS (`#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, `oklch()`, `color-mix()`,
+ * `color(display-p3 …)`, `transparent`) ou uma referência a token `$nome`.
  */
 export const ColorValue = z
   .string()
@@ -14,9 +14,24 @@ export const ColorValue = z
   .max(200)
   .refine((v) => !/[;{}<>]/.test(v), "a color cannot contain ; { } < >");
 
+export const GradientStop = z.object({
+  color: ColorValue,
+  offset: z.number().min(0).max(1),
+});
+
+export const Gradient = z.object({
+  type: z.enum(["linear", "radial", "conic"]),
+  angle: z.number().min(-3600).max(3600).default(180),
+  cx: z.number().min(0).max(1).default(0.5),
+  cy: z.number().min(0).max(1).default(0.5),
+  radius: z.number().min(0).max(2).default(0.5),
+  stops: z.array(GradientStop).min(2).max(12),
+});
+
 export const Size = z.union([z.number().min(0).max(100_000), z.enum(["hug", "fill"])]);
 
 const lengthToken = z.string().regex(/^\$[\w.-]+$/);
+const fontWeightValue = z.union([z.number().int().min(100).max(900), lengthToken]);
 
 function lengthNumber(min?: number, max?: number) {
   let n = z.number();
@@ -121,6 +136,7 @@ const Base = {
   locked: z.boolean().default(false),
   layoutPositioning: z.enum(["auto", "absolute"]).optional(),
   fill: ColorValue.optional(),
+  gradient: Gradient.optional(),
   stroke: Stroke.optional(),
   radius: lengthValue(0).default(0),
   shadow: ShadowValue.optional(),
@@ -141,6 +157,20 @@ export const ModeName = z
   .string()
   .regex(/^[A-Za-z0-9_-]{1,40}$/, "mode name must be [A-Za-z0-9_-]{1,40}")
   .refine((v) => v !== "__proto__", "mode name cannot be __proto__");
+
+export const TokenTypeName = z.enum(["color", "length", "fontFamily", "fontWeight", "fontSize", "lineHeight", "letterSpacing"]);
+
+export const CollectionName = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,40}$/, "collection name must be [A-Za-z0-9_-]{1,40}")
+  .refine((v) => v !== "__proto__", "collection name cannot be __proto__");
+
+export const TokenMeta = z
+  .object({
+    type: TokenTypeName.optional(),
+    collection: CollectionName.optional(),
+  })
+  .refine((m) => m.type !== undefined || m.collection !== undefined, "token meta needs a type or a collection");
 
 const OverrideSource = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "id must be [A-Za-z0-9_-]{1,64}");
 const OverrideField = z.string().regex(/^[A-Za-z]{1,32}$/, "field must be [A-Za-z]{1,32}");
@@ -183,7 +213,7 @@ export const TextNode = z.object({
   color: ColorValue.default("#111111"),
   fontFamily: TextFontFamily,
   fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
-  fontWeight: z.number().int().min(100).max(900).default(400),
+  fontWeight: fontWeightValue.default(400),
   lineHeight: lengthValue(0, 10).default(1.4),
   letterSpacing: lengthValue().default(0),
   textAlign: z.enum(["left", "center", "right"]).default("left"),
@@ -243,7 +273,7 @@ export const ShapeNode = z.object({
   color: ColorValue.default("#1e2336"),
   fontFamily: TextFontFamily,
   fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
-  fontWeight: z.number().int().min(100).max(900).default(500),
+  fontWeight: fontWeightValue.default(500),
   lineHeight: lengthValue(0, 10).default(1.3),
   textAlign: z.enum(["left", "center", "right"]).default("center"),
 });
@@ -338,6 +368,7 @@ export const PageNode = z.object({
   parentId: Base.parentId,
   type: z.literal("page"),
   fill: ColorValue.optional(),
+  gradient: Gradient.optional(),
   /** Modo de tema da página inteira. */
   mode: ModeName.optional(),
   notes: Base.notes,
@@ -362,12 +393,16 @@ export const Document = z.object({
   tokens: z.record(TokenName, TokenValue).default({}),
   /** Modos de tema: por modo, os tokens que mudam (os demais vêm de `tokens`). */
   modes: z.record(ModeName, z.record(TokenName, TokenValue)).optional(),
+  /** Tipo e coleção de cada token. Ausente: o token continua sem tipo (número vale em qualquer campo de comprimento). */
+  tokenMeta: z.record(TokenName, TokenMeta).optional(),
   /** Ids dos nós de nível superior (normalmente frames/telas), na ordem do canvas. */
   rootIds: z.array(z.string()).default([]),
   nodes: z.record(z.string(), Node).default({}),
 });
 
 export type ColorValue = z.infer<typeof ColorValue>;
+export type Gradient = z.infer<typeof Gradient>;
+export type GradientStop = z.infer<typeof GradientStop>;
 export type Size = z.infer<typeof Size>;
 export type Stroke = z.infer<typeof Stroke>;
 export type StrokeStyle = z.infer<typeof StrokeStyle>;
@@ -393,6 +428,8 @@ export type Node = z.infer<typeof Node>;
 export type NodeType = z.infer<typeof NodeType>;
 export type Document = z.infer<typeof Document>;
 export type TokenValue = z.infer<typeof TokenValue>;
+export type TokenTypeName = z.infer<typeof TokenTypeName>;
+export type TokenMeta = z.infer<typeof TokenMeta>;
 
 /** Campos que nenhuma operação `update` pode alterar diretamente. */
 export const IMMUTABLE_KEYS = new Set(["id", "type", "parentId", "children"]);
