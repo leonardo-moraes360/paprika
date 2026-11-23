@@ -1,14 +1,15 @@
-import type {
-  ConnectorNode,
-  Document,
-  Layout,
-  Node,
-  PathNode,
-  ShapeNode,
-  Size,
-  Stroke,
-  StrokePosition,
-  StrokeStyle,
+import {
+  ignoresLayout,
+  type ConnectorNode,
+  type Document,
+  type Layout,
+  type Node,
+  type PathNode,
+  type ShapeNode,
+  type Size,
+  type Stroke,
+  type StrokePosition,
+  type StrokeStyle,
 } from "./schema.js";
 import { NOTE_FOLD_FILL, shapeOutline, shapePadding } from "./diagram.js";
 
@@ -158,18 +159,20 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
   const paint = (v: string | number) => paintValue(doc, v, mode, opts.vars);
   const parent = node.parentId ? doc.nodes[node.parentId] : undefined;
   const parentMode = parent?.type === "frame" && parent.layout && parent.layout.mode !== "none" ? parent.layout.mode : null;
+  const absoluteChild = !!parentMode && !opts.asRoot && ignoresLayout(node);
   const css: CSS = { boxSizing: "border-box" };
 
   // Conectores nunca entram no fluxo do auto layout: a geometria é calculada a partir das pontas.
-  if (parentMode && !opts.asRoot && node.type !== "connector") {
+  if (parentMode && !opts.asRoot && node.type !== "connector" && !absoluteChild) {
     css.position = "relative";
   } else {
     css.position = "absolute";
     css.left = px(opts.asRoot ? 0 : node.x);
     css.top = px(opts.asRoot ? 0 : node.y);
   }
-  Object.assign(css, sizeProps("width", node.width, opts.asRoot ? null : parentMode));
-  Object.assign(css, sizeProps("height", node.height, opts.asRoot ? null : parentMode));
+  const sizeMode = opts.asRoot || absoluteChild ? null : parentMode;
+  Object.assign(css, sizeProps("width", node.width, sizeMode));
+  Object.assign(css, sizeProps("height", node.height, sizeMode));
 
   if (node.type === "group") {
     // Só agrupa: sem pintura nem recorte (os filhos podem sair da caixa).

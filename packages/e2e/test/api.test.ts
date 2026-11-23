@@ -543,6 +543,39 @@ describe("API: MCP", () => {
     expect(gap.d.startsWith("M0 0") || gap.d.startsWith("M0 0 ")).toBe(true);
   });
 
+  it("layoutPositioning absolute sai do fluxo, do gap e do hug", async () => {
+    const bad = await call(client, "create_nodes", { nodes: [{ type: "rect", id: "nope", layoutPositioning: "pinned" }] });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toMatch(/layoutPositioning/);
+    await call(client, "create_nodes", {
+      place: "none",
+      nodes: [{
+        type: "frame", id: "arow", x: 0, y: 0, width: "hug", height: "hug",
+        layout: { mode: "row", gap: 8, padding: 0 },
+        children: [
+          { type: "rect", id: "aa", width: 40, height: 20, fill: "#111111" },
+          { type: "rect", id: "apin", width: 16, height: 16, x: 100, y: 4, fill: "#c43d27", layoutPositioning: "absolute" },
+          { type: "rect", id: "ab", width: 30, height: 20, fill: "#222222" },
+        ],
+      }],
+    });
+    expect((await srv.doc()).nodes.apin).toMatchObject({ layoutPositioning: "absolute", x: 100, y: 4 });
+    const bounds = JSON.parse(textOf(await call(client, "get_bounds", { ids: ["arow", "aa", "ab", "apin"] })));
+    expect(bounds.boxes.arow.width).toBeCloseTo(78, 0);
+    expect(bounds.boxes.arow.height).toBeCloseTo(20, 0);
+    expect(bounds.boxes.aa).toMatchObject({ x: 0, y: 0 });
+    expect(bounds.boxes.ab.x).toBeCloseTo(48, 0);
+    expect(bounds.boxes.apin).toMatchObject({ x: 100, y: 4, width: 16, height: 16 });
+    const html = textOf(await call(client, "export_code", { rootId: "arow", format: "html" }));
+    expect(html).toContain('data-paprika-id="apin"');
+    expect(html).toContain("left:100px");
+    expect(html).toContain("position:absolute");
+    await call(client, "update_nodes", { updates: [{ id: "apin", props: { layoutPositioning: null } }] });
+    expect((await srv.doc()).nodes.apin).not.toHaveProperty("layoutPositioning");
+    const back = JSON.parse(textOf(await call(client, "get_bounds", { ids: ["arow"] })));
+    expect(back.boxes.arow.width).toBeCloseTo(102, 0);
+  });
+
   it("diagramas: draw_diagram, setas que seguem a forma, export SVG medido e undo", async () => {
     const c = client;
     const r = (await c.callTool({

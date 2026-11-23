@@ -184,8 +184,10 @@ interface Props {
 }
 
 const isAbsolute = (doc: Document, n: Node) => {
+  if (n.type === "page") return false;
+  if ("layoutPositioning" in n && n.layoutPositioning === "absolute") return true;
   const p = n.parentId ? doc.nodes[n.parentId] : undefined;
-  return n.type !== "page" && (!p || p.type !== "frame" || !p.layout || p.layout.mode === "none");
+  return !p || p.type !== "frame" || !p.layout || p.layout.mode === "none";
 };
 
 const isFlowFrame = (n: Node | undefined): boolean => n?.type === "frame" && !!n.layout && n.layout.mode !== "none";
@@ -1317,6 +1319,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     if (!movable.length) return;
     const dragged = new Set(movable.map((n) => n.id));
     const absOnly = movable.every((n) => isAbsolute(doc, n));
+    const ignoreLayoutDrag = movable.every((n) => "layoutPositioning" in n && n.layoutPositioning === "absolute");
     takeOverPreview();
     const start = toWorld(e.clientX, e.clientY);
     let moved = false;
@@ -1330,6 +1333,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       if (!moved) setDragIds([...dragged]);
       moved = true;
       spot = resolveDrop(ev.clientX, ev.clientY, dragged);
+      if (ignoreLayoutDrag) spot = { ...spot, flow: false };
       paintDropUi(spot, dragged);
       if (!absOnly) return;
       if (spot.highlightId && !spot.flow && movable.some((n) => n.parentId !== spot.highlightId)) {
@@ -1355,6 +1359,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       setDragIds(null);
       if (!moved) return;
       spot = resolveDrop(ev.clientX, ev.clientY, dragged);
+      if (ignoreLayoutDrag) spot = { ...spot, flow: false };
       const dest = spot.highlightId;
       const ops: Op[] = [];
       if (dest && spot.flow) {
