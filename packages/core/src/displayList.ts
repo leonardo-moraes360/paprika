@@ -1,5 +1,5 @@
 import { parseColor } from "./lint.js";
-import { pageRoots, type Document, type Node, type SceneNode } from "./schema.js";
+import { listShadows, pageRoots, type Document, type Node, type SceneNode } from "./schema.js";
 import { modeOf, resolveCorners, resolveLength, resolveValue, strokePositionOf, strokeStyleOf, uniformCorner } from "./style.js";
 
 /**
@@ -40,6 +40,10 @@ export interface DisplayList {
 
 type RGBA4 = [number, number, number, number];
 
+function hasEffects(f: { blur?: unknown; saturate?: unknown; grayscale?: unknown; brightness?: unknown; sepia?: unknown; invert?: unknown; hueRotate?: unknown } | undefined): boolean {
+  return !!f && (f.blur !== undefined || f.saturate !== undefined || f.grayscale !== undefined || f.brightness !== undefined || f.sepia !== undefined || f.invert !== undefined || f.hueRotate !== undefined);
+}
+
 /** A CSS color (or `$token`) as straight RGBA 0..1; `null` when it is not a solid color. */
 export function solidColor(doc: Document, value: string | undefined, mode?: string): RGBA4 | null {
   if (value === undefined) return [0, 0, 0, 0];
@@ -78,7 +82,10 @@ export function wasmPaintable(doc: Document, n: Node): boolean {
   if (!isShape(n)) return false;
   if (!solidColor(doc, n.fill, modeOf(doc, n))) return false;
   if (n.stroke && !solidColor(doc, n.stroke.color, modeOf(doc, n))) return false;
-  if (n.shadow && (n.type === "path" || !solidColor(doc, n.shadow.color, modeOf(doc, n)))) return false;
+  const shadows = listShadows(n.shadow);
+  if (n.outline || hasEffects(n.filter) || hasEffects(n.backdropFilter)) return false;
+  if (shadows.length > 1 || shadows.some((s) => s.inner)) return false;
+  if (shadows[0] && (n.type === "path" || !solidColor(doc, shadows[0].color, modeOf(doc, n)))) return false;
   // WASM paints solid centered path strokes and solid inside box borders only.
   if (n.stroke && (resolveLength(doc, n.stroke.width, modeOf(doc, n)) ?? 0) > 0) {
     if (strokeStyleOf(n.stroke) !== "solid") return false;
@@ -104,7 +111,8 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, page
     const f = (paint && solidColor(doc, n.fill, mode)) || [0, 0, 0, 0];
     const sw = n.stroke ? len(n.stroke.width) : 0;
     const s = paint && n.stroke && sw > 0 ? solidColor(doc, n.stroke.color, mode) : null;
-    const sh = paint && n.shadow ? solidColor(doc, n.shadow.color, mode) : null;
+    const one = paint ? listShadows(n.shadow)[0] : undefined;
+    const sh = one && !one.inner ? solidColor(doc, one.color, mode) : null;
     out.push(
       kind,
       b.x,
@@ -117,10 +125,10 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, page
       ...f,
       s ? sw : 0,
       ...(s ?? [0, 0, 0, 0]),
-      sh ? len(n.shadow!.x) : 0,
-      sh ? len(n.shadow!.y) : 0,
-      sh ? len(n.shadow!.blur) : 0,
-      sh ? len(n.shadow!.spread) : 0,
+      sh && one ? len(one.x) : 0,
+      sh && one ? len(one.y) : 0,
+      sh && one ? len(one.blur) : 0,
+      sh && one ? len(one.spread) : 0,
       ...(sh ?? [0, 0, 0, 0]),
     );
   };

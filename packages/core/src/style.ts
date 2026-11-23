@@ -1,10 +1,12 @@
 import {
   ignoresLayout,
+  listShadows,
   type ConnectorNode,
   type Document,
   type Layout,
   type Node,
   type PathNode,
+  type ShadowSpec,
   type ShapeNode,
   type Size,
   type Stroke,
@@ -223,7 +225,7 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
     // fill/stroke vão para o <path> (ver pathAttrs); a sombra segue a forma, não a caixa.
     css.overflow = "visible";
     css.display = node.visible ? "block" : "none";
-    if (node.shadow) css.filter = shadowFilter(doc, node.shadow, mode, opts.vars, paint);
+    applyShapeEffects(css, doc, node, mode, opts.vars, paint);
     return css;
   }
   if (node.type === "shape") {
@@ -232,7 +234,7 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
     css.alignItems = node.shape === "note" ? "flex-start" : "center";
     css.justifyContent = "center";
     css.padding = shapePadding(node).map(px).join(" ");
-    if (node.shadow) css.filter = shadowFilter(doc, node.shadow, mode, opts.vars, paint);
+    applyShapeEffects(css, doc, node, mode, opts.vars, paint);
     Object.assign(css, textCss(doc, node, mode, opts.vars, paint));
     return css;
   }
@@ -256,7 +258,10 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
     const cssR = radiusCSS(doc, node.radius, mode, opts.vars);
     if (cssR) css.borderRadius = cssR;
   }
-  if (node.shadow) css.boxShadow = shadowBox(doc, node.shadow, mode, opts.vars, paint);
+  if (listShadows(node.shadow).length) css.boxShadow = shadowBoxes(doc, node.shadow, mode, opts.vars, paint);
+  applyOutline(css, doc, node, mode, opts.vars, paint);
+  applyLayerFilter(css, doc, node, mode, opts.vars);
+  applyBackdrop(css, doc, node, mode, opts.vars);
 
   switch (node.type) {
     case "frame": {
@@ -293,24 +298,86 @@ function shadowOffsets(doc: Document, s: { x: number | string; y: number | strin
   return `${lengthCSS(doc, s.x, mode, vars, "px")} ${lengthCSS(doc, s.y, mode, vars, "px")} ${lengthCSS(doc, s.blur, mode, vars, "px")}`;
 }
 
+type PaintFn = (v: string | number) => string | number;
+
 function shadowFilter(
   doc: Document,
   s: { x: number | string; y: number | string; blur: number | string; color: string },
   mode: string | undefined,
   vars: boolean | undefined,
-  paint: (v: string | number) => string | number,
+  paint: PaintFn,
 ): string {
   return `drop-shadow(${shadowOffsets(doc, s, mode, vars)} ${paint(s.color)})`;
 }
 
-function shadowBox(
+function shadowBoxOne(doc: Document, s: ShadowSpec, mode: string | undefined, vars: boolean | undefined, paint: PaintFn): string {
+  const inset = s.inner ? "inset " : "";
+  return `${inset}${shadowOffsets(doc, s, mode, vars)} ${lengthCSS(doc, s.spread, mode, vars, "px")} ${paint(s.color)}`;
+}
+
+function shadowBoxes(
   doc: Document,
-  s: { x: number | string; y: number | string; blur: number | string; spread: number | string; color: string },
+  shadow: ShadowSpec | readonly ShadowSpec[] | undefined,
   mode: string | undefined,
   vars: boolean | undefined,
-  paint: (v: string | number) => string | number,
+  paint: PaintFn,
 ): string {
-  return `${shadowOffsets(doc, s, mode, vars)} ${lengthCSS(doc, s.spread, mode, vars, "px")} ${paint(s.color)}`;
+  return listShadows(shadow).map((s) => shadowBoxOne(doc, s, mode, vars, paint)).join(", ");
+}
+
+function effectNum(n: number): string {
+  return String(round(n));
+}
+
+type EffectFilter = NonNullable<Extract<Node, { type: "rect" }>["filter"]>;
+
+function filterCSS(doc: Document, filter: EffectFilter | undefined, mode: string | undefined, vars: boolean | undefined): string {
+  if (!filter) return "";
+  const parts: string[] = [];
+  if (filter.blur !== undefined) parts.push(`blur(${lengthCSS(doc, filter.blur, mode, vars, "px")})`);
+  if (filter.saturate !== undefined) parts.push(`saturate(${effectNum(filter.saturate)})`);
+  if (filter.grayscale !== undefined) parts.push(`grayscale(${effectNum(filter.grayscale)})`);
+  if (filter.brightness !== undefined) parts.push(`brightness(${effectNum(filter.brightness)})`);
+  if (filter.sepia !== undefined) parts.push(`sepia(${effectNum(filter.sepia)})`);
+  if (filter.invert !== undefined) parts.push(`invert(${effectNum(filter.invert)})`);
+  if (filter.hueRotate !== undefined) parts.push(`hue-rotate(${effectNum(filter.hueRotate)}deg)`);
+  return parts.join(" ");
+}
+
+function applyLayerFilter(css: CSS, doc: Document, node: Extract<Node, { filter?: EffectFilter }>, mode: string | undefined, vars: boolean | undefined) {
+  const fx = filterCSS(doc, node.filter, mode, vars);
+  if (!fx) return;
+  css.filter = css.filter ? `${css.filter} ${fx}` : fx;
+}
+
+function applyBackdrop(css: CSS, doc: Document, node: Extract<Node, { backdropFilter?: EffectFilter }>, mode: string | undefined, vars: boolean | undefined) {
+  const fx = filterCSS(doc, node.backdropFilter, mode, vars);
+  if (fx) css.backdropFilter = fx;
+}
+
+function applyOutline(css: CSS, doc: Document, node: Extract<Node, { outline?: { color: string; width: number | string; style?: "solid" | "dashed" | "dotted"; offset?: number | string } }>, mode: string | undefined, vars: boolean | undefined, paint: PaintFn) {
+  const o = node.outline;
+  if (!o) return;
+  const w = String(lengthCSS(doc, o.width, mode, vars, "px"));
+  const decl = `${w} ${o.style ?? "solid"} ${paint(o.color)}`;
+  if (!css.outline) {
+    css.outline = decl;
+    if (o.offset !== undefined) css.outlineOffset = String(lengthCSS(doc, o.offset, mode, vars, "px"));
+    return;
+  }
+  const ring = `0px 0px 0px ${w} ${paint(o.color)}`;
+  css.boxShadow = css.boxShadow ? `${css.boxShadow}, ${ring}` : ring;
+}
+
+function applyShapeEffects(css: CSS, doc: Document, node: Extract<Node, { type: "path" | "shape" }>, mode: string | undefined, vars: boolean | undefined, paint: PaintFn) {
+  const shadows = listShadows(node.shadow);
+  const drop = shadows.filter((s) => !s.inner).map((s) => shadowFilter(doc, s, mode, vars, paint)).join(" ");
+  if (drop) css.filter = drop;
+  const inners = shadows.filter((s) => s.inner);
+  if (inners.length) css.boxShadow = inners.map((s) => shadowBoxOne(doc, s, mode, vars, paint)).join(", ");
+  applyLayerFilter(css, doc, node, mode, vars);
+  applyOutline(css, doc, node, mode, vars, paint);
+  applyBackdrop(css, doc, node, mode, vars);
 }
 
 function textCss(
@@ -592,12 +659,19 @@ export function lengthTokenError(doc: Document): string | undefined {
         for (let i = 0; i < n.radius.length && !msg; i++) msg = check(`radius.${i}`, n.radius[i], { min: 0 });
       } else msg = check("radius", n.radius, { min: 0 });
       if (n.stroke) msg = msg ?? check("stroke.width", n.stroke.width, { min: 0, max: 1000 });
-      if (n.shadow) {
-        msg = msg ?? check("shadow.x", n.shadow.x, {});
-        msg = msg ?? check("shadow.y", n.shadow.y, {});
-        msg = msg ?? check("shadow.blur", n.shadow.blur, { min: 0 });
-        msg = msg ?? check("shadow.spread", n.shadow.spread, {});
+      listShadows(n.shadow).forEach((s, i) => {
+        const p = Array.isArray(n.shadow) ? `shadow.${i}` : "shadow";
+        msg = msg ?? check(`${p}.x`, s.x, {});
+        msg = msg ?? check(`${p}.y`, s.y, {});
+        msg = msg ?? check(`${p}.blur`, s.blur, { min: 0 });
+        msg = msg ?? check(`${p}.spread`, s.spread, {});
+      });
+      if (n.outline) {
+        msg = msg ?? check("outline.width", n.outline.width, { min: 0, max: 1000 });
+        if (n.outline.offset !== undefined) msg = msg ?? check("outline.offset", n.outline.offset, { min: -1000, max: 1000 });
       }
+      if (n.filter?.blur !== undefined) msg = msg ?? check("filter.blur", n.filter.blur, { min: 0, max: 1000 });
+      if (n.backdropFilter?.blur !== undefined) msg = msg ?? check("backdropFilter.blur", n.backdropFilter.blur, { min: 0, max: 1000 });
       if (n.type === "frame" && n.layout) {
         msg = msg ?? check("layout.gap", n.layout.gap, { min: 0 });
         const p = n.layout.padding;

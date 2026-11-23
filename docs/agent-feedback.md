@@ -674,3 +674,19 @@ Task: draw the open, mid-slide, closed and reduced-motion states of an inspector
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123, still open: `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0, so the frames were placed by scanning depth-1 `y` (landed at y=3600).
 - `lint_design` on the four frames was clean after the chevrons moved to 12px. A clipped mid-slide body needed `lintIgnore: ["layout-overflow"]` because the clip is the frame.
+
+## 2026-11-23: multiple shadows, outline and filters (PAP-B-080, design first)
+
+Task: draw the effects inspector and a preview (dark and light) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before adding shadow lists, inner shadow, outline, filter and backdropFilter. Frames `b080-fx-dark`, `b080-pv-dark`, `b080-fx-light`, `b080-pv-light` at y=7760. PNGs in `docs/assets/boards/PAP-B-080/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 130 | A design script in a fresh worktree | `@modelcontextprotocol/sdk` is not installed at the repo root, so the script cannot import the client. Raw JSON-RPC over HTTP worked | Document a zero-dependency MCP snippet, or depend on the SDK at the repo root | P3 |
+| 131 | The MCP handshake | `notifications/initialized` returned method not found. `initialize` alone was enough for `tools/call` | Clients should tolerate a missing `initialized` notification | P3 |
+| 132 | Section titles at 11px | `lint_design` on `b080-fx-dark` reported small-text on the section titles (Sombras, Contorno, Filtro, Filtro de fundo) | Inspector mocks should use at least 12px | P3 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #128: two pages named Interfaces. The script prefers `page#interfaces`.
+- Same as #123, still open: placement scanned depth-1 `y` (first pass max bottom 6680, redraw at 7760 after shortening labels). With `rootId`, the outline did include coordinates.
+- `render_screenshot` without `path` returned the PNG as a base64 image block, so the host files were written directly (#129).
+- Labels at 12px and width 52 fit (Exp, Tipo, Sat). The 11px section titles still warn.

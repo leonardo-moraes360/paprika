@@ -450,9 +450,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		} else {
 			css.Set("display", "none")
 		}
-		if s := node.Obj("shadow"); s != nil {
-			css.Set("filter", shadowFilter(doc, s, themeMode, vars, paint))
-		}
+		applyShapeEffects(css, doc, node, themeMode, vars, paint)
 		return css
 	}
 	if typ == "shape" {
@@ -470,9 +468,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		css.Set("justifyContent", "center")
 		pv, ph := ShapePadding(node)
 		css.Set("padding", px(pv)+" "+px(ph))
-		if s := node.Obj("shadow"); s != nil {
-			css.Set("filter", shadowFilter(doc, s, themeMode, vars, paint))
-		}
+		applyShapeEffects(css, doc, node, themeMode, vars, paint)
 		textCSS(css, doc, node, themeMode, vars, paint)
 		return css
 	}
@@ -508,13 +504,12 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 			css.Set("borderRadius", cssR)
 		}
 	}
-	if s := node.Obj("shadow"); s != nil {
-		sx, _ := s.Get("x")
-		sy, _ := s.Get("y")
-		sb, _ := s.Get("blur")
-		ss, _ := s.Get("spread")
-		css.Set("boxShadow", cssLen(doc, sx, themeMode, vars)+" "+cssLen(doc, sy, themeMode, vars)+" "+cssLen(doc, sb, themeMode, vars)+" "+cssLen(doc, ss, themeMode, vars)+" "+jsString(paint(s.Str("color"))))
+	if boxes := shadowBoxesCSS(doc, node, themeMode, vars, paint); boxes != "" {
+		css.Set("boxShadow", boxes)
 	}
+	applyOutline(css, doc, node, themeMode, vars, paint)
+	applyLayerFilter(css, doc, node, themeMode, vars)
+	applyBackdrop(css, doc, node, themeMode, vars)
 
 	switch typ {
 	case "frame":
@@ -553,11 +548,145 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 }
 
 // textCSS: typography of text and shape nodes (same property order in both).
+func shadowNodes(n *Node) []*jsonv.Object {
+	if n == nil {
+		return nil
+	}
+	if s := n.Obj("shadow"); s != nil {
+		return []*jsonv.Object{s}
+	}
+	arr := n.Arr("shadow")
+	out := make([]*jsonv.Object, 0, len(arr))
+	for _, v := range arr {
+		if o, ok := v.(*jsonv.Object); ok {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
 func shadowFilter(doc *Document, s *Node, mode string, vars bool, paint func(any) any) string {
 	x, _ := s.Get("x")
 	y, _ := s.Get("y")
 	b, _ := s.Get("blur")
 	return "drop-shadow(" + cssLen(doc, x, mode, vars) + " " + cssLen(doc, y, mode, vars) + " " + cssLen(doc, b, mode, vars) + " " + jsString(paint(s.Str("color"))) + ")"
+}
+
+func shadowBoxCSS(doc *Document, s *jsonv.Object, mode string, vars bool, paint func(any) any) string {
+	x, _ := s.Get("x")
+	y, _ := s.Get("y")
+	b, _ := s.Get("blur")
+	sp, _ := s.Get("spread")
+	inset := ""
+	if s.Bool("inner") {
+		inset = "inset "
+	}
+	return inset + cssLen(doc, x, mode, vars) + " " + cssLen(doc, y, mode, vars) + " " + cssLen(doc, b, mode, vars) + " " + cssLen(doc, sp, mode, vars) + " " + jsString(paint(s.Str("color")))
+}
+
+func shadowBoxesCSS(doc *Document, node *Node, mode string, vars bool, paint func(any) any) string {
+	parts := []string{}
+	for _, s := range shadowNodes(node) {
+		parts = append(parts, shadowBoxCSS(doc, s, mode, vars, paint))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func effectNum(n float64) string { return jsonv.FormatNumber(round2(n)) }
+
+func filterCSS(doc *Document, f *jsonv.Object, mode string, vars bool) string {
+	if f == nil {
+		return ""
+	}
+	parts := []string{}
+	if v, ok := f.Get("blur"); ok {
+		parts = append(parts, "blur("+cssLen(doc, v, mode, vars)+")")
+	}
+	add := func(key, name string, deg bool) {
+		v, ok := f.Get(key)
+		if !ok {
+			return
+		}
+		n, _ := v.(float64)
+		num := effectNum(n)
+		if deg {
+			parts = append(parts, name+"("+num+"deg)")
+			return
+		}
+		parts = append(parts, name+"("+num+")")
+	}
+	add("saturate", "saturate", false)
+	add("grayscale", "grayscale", false)
+	add("brightness", "brightness", false)
+	add("sepia", "sepia", false)
+	add("invert", "invert", false)
+	add("hueRotate", "hue-rotate", true)
+	return strings.Join(parts, " ")
+}
+
+func applyLayerFilter(css *CSS, doc *Document, node *Node, mode string, vars bool) {
+	fx := filterCSS(doc, node.Obj("filter"), mode, vars)
+	if fx == "" {
+		return
+	}
+	if cur := css.Str("filter"); cur != "" {
+		css.Set("filter", cur+" "+fx)
+		return
+	}
+	css.Set("filter", fx)
+}
+
+func applyBackdrop(css *CSS, doc *Document, node *Node, mode string, vars bool) {
+	if fx := filterCSS(doc, node.Obj("backdropFilter"), mode, vars); fx != "" {
+		css.Set("backdropFilter", fx)
+	}
+}
+
+func applyOutline(css *CSS, doc *Document, node *Node, mode string, vars bool, paint func(any) any) {
+	o := node.Obj("outline")
+	if o == nil {
+		return
+	}
+	wRaw, _ := o.Get("width")
+	w := cssLen(doc, wRaw, mode, vars)
+	style := "solid"
+	if s := o.Str("style"); s != "" {
+		style = s
+	}
+	decl := w + " " + style + " " + jsString(paint(o.Str("color")))
+	if _, ok := css.Get("outline"); !ok {
+		css.Set("outline", decl)
+		if off, ok := o.Get("offset"); ok {
+			css.Set("outlineOffset", cssLen(doc, off, mode, vars))
+		}
+		return
+	}
+	ring := "0px 0px 0px " + w + " " + jsString(paint(o.Str("color")))
+	if cur, ok := css.Get("boxShadow"); ok {
+		css.Set("boxShadow", fmt.Sprint(cur)+", "+ring)
+		return
+	}
+	css.Set("boxShadow", ring)
+}
+
+func applyShapeEffects(css *CSS, doc *Document, node *Node, mode string, vars bool, paint func(any) any) {
+	var drops, inners []string
+	for _, s := range shadowNodes(node) {
+		if s.Bool("inner") {
+			inners = append(inners, shadowBoxCSS(doc, s, mode, vars, paint))
+			continue
+		}
+		drops = append(drops, shadowFilter(doc, s, mode, vars, paint))
+	}
+	if len(drops) > 0 {
+		css.Set("filter", strings.Join(drops, " "))
+	}
+	if len(inners) > 0 {
+		css.Set("boxShadow", strings.Join(inners, ", "))
+	}
+	applyLayerFilter(css, doc, node, mode, vars)
+	applyOutline(css, doc, node, mode, vars, paint)
+	applyBackdrop(css, doc, node, mode, vars)
 }
 
 func textCSS(css *CSS, doc *Document, node *Node, mode string, vars bool, paint func(any) any) {
@@ -881,20 +1010,50 @@ func LengthTokenError(doc *Document) string {
 				w, _ := st.Get("width")
 				msg = check("stroke.width", w, new(float64(0)), new(float64(1000)))
 			}
-			if sh := n.Obj("shadow"); sh != nil && msg == "" {
-				x, _ := sh.Get("x")
-				y, _ := sh.Get("y")
-				b, _ := sh.Get("blur")
-				sp, _ := sh.Get("spread")
-				msg = check("shadow.x", x, nil, nil)
-				if msg == "" {
-					msg = check("shadow.y", y, nil, nil)
+			if msg == "" {
+				list := shadowNodes(n)
+				indexed := n.Obj("shadow") == nil && n.Arr("shadow") != nil
+				for i, sh := range list {
+					p := "shadow"
+					if indexed {
+						p = fmt.Sprintf("shadow.%d", i)
+					}
+					x, _ := sh.Get("x")
+					y, _ := sh.Get("y")
+					b, _ := sh.Get("blur")
+					sp, _ := sh.Get("spread")
+					msg = check(p+".x", x, nil, nil)
+					if msg == "" {
+						msg = check(p+".y", y, nil, nil)
+					}
+					if msg == "" {
+						msg = check(p+".blur", b, new(float64(0)), nil)
+					}
+					if msg == "" {
+						msg = check(p+".spread", sp, nil, nil)
+					}
+					if msg != "" {
+						break
+					}
 				}
+			}
+			if o := n.Obj("outline"); o != nil && msg == "" {
+				w, _ := o.Get("width")
+				msg = check("outline.width", w, new(float64(0)), new(float64(1000)))
 				if msg == "" {
-					msg = check("shadow.blur", b, new(float64(0)), nil)
+					if off, ok := o.Get("offset"); ok {
+						msg = check("outline.offset", off, new(float64(-1000)), new(float64(1000)))
+					}
 				}
-				if msg == "" {
-					msg = check("shadow.spread", sp, nil, nil)
+			}
+			if f := n.Obj("filter"); f != nil && msg == "" {
+				if b, ok := f.Get("blur"); ok {
+					msg = check("filter.blur", b, new(float64(0)), new(float64(1000)))
+				}
+			}
+			if f := n.Obj("backdropFilter"); f != nil && msg == "" {
+				if b, ok := f.Get("blur"); ok {
+					msg = check("backdropFilter.blur", b, new(float64(0)), new(float64(1000)))
 				}
 			}
 			if typ == "frame" && msg == "" {

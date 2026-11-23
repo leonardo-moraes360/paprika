@@ -677,3 +677,19 @@ Tarefa: desenhar os estados aberto, no meio do deslize, fechado e com movimento 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #123, ainda aberto: `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0, então os frames foram posicionados varrendo o `y` de profundidade 1 (pousaram em y=3600).
 - `lint_design` nos quatro frames ficou limpo depois que os chevrons foram para 12px. O corpo cortado no meio do deslize precisou de `lintIgnore: ["layout-overflow"]` porque o corte é o frame.
+
+## 2026-11-23: várias sombras, outline e filtros (PAP-B-080, design first)
+
+Tarefa: desenhar o inspector de efeitos e uma prévia (escuro e claro) na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de aceitar lista de sombras, sombra interna, outline, filter e backdropFilter. Frames `b080-fx-dark`, `b080-pv-dark`, `b080-fx-light`, `b080-pv-light` em y=7760. PNGs em `docs/assets/boards/PAP-B-080/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 130 | Um script de design num worktree novo | `@modelcontextprotocol/sdk` não está instalado na raiz, então o script não importa o cliente. JSON-RPC cru por HTTP funcionou | Documentar um trecho MCP sem dependência, ou depender do SDK na raiz | P3 |
+| 131 | O handshake MCP | `notifications/initialized` voltou method not found. Só o `initialize` bastou para `tools/call` | Clientes devem tolerar a notificação `initialized` ausente | P3 |
+| 132 | Títulos de seção em 11px | `lint_design` em `b080-fx-dark` apontou small-text nos títulos (Sombras, Contorno, Filtro, Filtro de fundo) | Mocks do inspector devem usar pelo menos 12px | P3 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #128: duas páginas chamadas Interfaces. O script prefere `page#interfaces`.
+- Igual ao #123, ainda aberto: o posicionamento varreu o `y` de profundidade 1 (primeiro passe com fundo em 6680, redesenho em 7760 depois de encurtar os rótulos). Com `rootId`, o outline trouxe coordenadas.
+- `render_screenshot` sem `path` devolveu o PNG num bloco de imagem em base64, então os arquivos do host foram gravados direto (#129).
+- Rótulos em 12px com largura 52 cabem (Exp, Tipo, Sat). Os títulos de seção em 11px ainda avisam.

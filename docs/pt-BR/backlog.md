@@ -59,8 +59,8 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Capacidade | Paprika hoje | Status | Pri. |
 |---|---|---|---|
 | Fill, borda, sombra, opacidade, rotação | Campos base | ✅ | — |
-| Várias sombras, sombra interna, outline | Uma `shadow`, sem outline | 🟡 | P2 |
-| Filtros CSS (blur, saturate, grayscale, brightness, sepia, invert, hue-rotate) e backdrop filters | — | ⬜ | P2 |
+| Várias sombras, sombra interna, outline | `shadow` é um objeto ou uma lista de até 8 com `inner` opcional; `outline` é `{color, width, style, offset}`. Lista, sombra interna ou outline ficam no DOM. Em path ou shape a sombra interna pinta como caixa inset; o SVG avisa e omite (PAP-B-080). | ✅ | — |
+| Filtros CSS (blur, saturate, grayscale, brightness, sepia, invert, hue-rotate) e backdrop filters | `filter` e `backdropFilter` aceitam essas funções. Um objeto vazio é recusado. O WASM cai para o DOM (PAP-B-080). | ✅ | — |
 | Gradientes estruturados (linear, radial, cônico) com alças e ângulo no canvas | Só string CSS; o lint ignora | 🟡 | P2 |
 | Cor moderna: `oklch()`, `color-mix()`, Display P3, seletor OKLCH | As strings passam para o CSS, mas o lint não entende e o seletor é hex sRGB | 🟡 | P2 |
 | Modos de mesclagem (blend modes) | — | ⬜ | P3 |

@@ -194,6 +194,114 @@ function boxProps(node: NodeInput, css: ReadonlyMap<string, string>, ctx: Ctx, f
     const c = color(shadow[5], ctx);
     if (c) node.shadow = { x: Number(shadow[1]), y: Number(shadow[2]), blur: Number(shadow[3]), spread: Number(shadow[4] ?? 0), color: c };
   }
+  if (!node.shadow) {
+    const layers = parseShadowLayers((css.get("box-shadow") ?? "").trim(), ctx);
+    if (layers) node.shadow = layers;
+  }
+  const fx = parseFilterFns(css.get("filter") ?? "");
+  if (fx) node.filter = fx;
+  const bd = parseFilterFns(css.get("backdrop-filter") ?? "");
+  if (bd) node.backdropFilter = bd;
+  const outline = parseOutlineCss(css, ctx);
+  if (outline) node.outline = outline;
+}
+
+function splitTop(s: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    else if (ch === "," && depth === 0) {
+      out.push(s.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  out.push(s.slice(start).trim());
+  return out.filter(Boolean);
+}
+
+function parseShadowLayers(raw: string, ctx: Ctx) {
+  if (!raw) return;
+  const parts = splitTop(raw);
+  if (parts.length < 2 && !/^inset\b/.test(raw)) return;
+  const parsed: { x: number; y: number; blur: number; spread: number; color: string; inner?: boolean }[] = [];
+  for (const part of parts) {
+    const m = /^(inset\s+)?(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px(?:\s+(-?[\d.]+)px)?\s+(.+)$/.exec(part);
+    if (!m) return;
+    const c = color(m[6], ctx);
+    if (!c) return;
+    const layer: { x: number; y: number; blur: number; spread: number; color: string; inner?: boolean } = {
+      x: Number(m[2]),
+      y: Number(m[3]),
+      blur: Number(m[4]),
+      spread: Number(m[5] ?? 0),
+      color: c,
+    };
+    if (m[1]) layer.inner = true;
+    parsed.push(layer);
+  }
+  if (!parsed.length) return;
+  return parsed.length === 1 ? parsed[0] : parsed;
+}
+
+function parseFilterArg(name: string, raw: string): number | undefined {
+  const t = raw.trim();
+  if (name === "blur") {
+    const m = /^([\d.]+)px$/.exec(t);
+    return m ? Number(m[1]) : undefined;
+  }
+  if (name === "hue-rotate") {
+    const m = /^(-?[\d.]+)deg$/.exec(t);
+    return m ? Number(m[1]) : undefined;
+  }
+  const pct = /^(-?[\d.]+)%$/.exec(t);
+  if (pct) return Number(pct[1]) / 100;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+interface FilterIn {
+  blur?: number;
+  saturate?: number;
+  grayscale?: number;
+  brightness?: number;
+  sepia?: number;
+  invert?: number;
+  hueRotate?: number;
+}
+
+function parseFilterFns(raw: string): FilterIn | undefined {
+  const out: FilterIn = {};
+  for (const m of raw.matchAll(/(blur|saturate|grayscale|brightness|sepia|invert|hue-rotate)\(([^)]+)\)/g)) {
+    const n = parseFilterArg(m[1]!, m[2]!);
+    if (n === undefined) continue;
+    if (m[1] === "hue-rotate") out.hueRotate = n;
+    else if (m[1] === "blur") out.blur = n;
+    else if (m[1] === "saturate") out.saturate = n;
+    else if (m[1] === "grayscale") out.grayscale = n;
+    else if (m[1] === "brightness") out.brightness = n;
+    else if (m[1] === "sepia") out.sepia = n;
+    else if (m[1] === "invert") out.invert = n;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function parseOutlineCss(css: ReadonlyMap<string, string>, ctx: Ctx): { color: string; width: number; style: "solid" | "dashed" | "dotted"; offset?: number } | undefined {
+  const m = /^([\d.]+)px\s+(solid|dashed|dotted)\s+(.+)$/.exec((css.get("outline") ?? "").trim());
+  if (!m) return;
+  const c = color(m[3], ctx);
+  if (!c) return;
+  const outline: { color: string; width: number; style: "solid" | "dashed" | "dotted"; offset?: number } = {
+    color: c,
+    width: Number(m[1]),
+    style: m[2] as "solid" | "dashed" | "dotted",
+  };
+  const off = /^(-?[\d.]+)px$/.exec((css.get("outline-offset") ?? "").trim());
+  if (off) outline.offset = Number(off[1]);
+  return outline;
 }
 
 function layoutOf(css: ReadonlyMap<string, string>, foreignFlow: boolean): Record<string, unknown> | undefined {

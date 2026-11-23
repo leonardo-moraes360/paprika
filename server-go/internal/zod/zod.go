@@ -520,9 +520,17 @@ type Field struct {
 type ObjectSchema struct {
 	Fields   []Field
 	catchall Schema
+	check    func(any) string
 }
 
 func Object(fields ...Field) *ObjectSchema { return &ObjectSchema{Fields: fields} }
+
+// Check adds a non-aborting object check. msg empty means the value is valid.
+func (o *ObjectSchema) Check(fn func(any) string) *ObjectSchema {
+	n := *o
+	n.check = fn
+	return &n
+}
 
 // Catchall keeps unknown keys, validated by s (z.object().catchall()).
 func (o *ObjectSchema) Catchall(s Schema) *ObjectSchema {
@@ -582,6 +590,11 @@ func (o *ObjectSchema) parse(v any, present bool, path []any, c *ctx) (any, bool
 			if rok {
 				out.Set(k, r)
 			}
+		}
+	}
+	if o.check != nil {
+		if msg := o.check(out); msg != "" {
+			c.addCheck(path, "custom", msg, "code", "custom")
 		}
 	}
 	return out, true
