@@ -195,35 +195,30 @@ type PinFilter struct {
 	AfterRev    int64
 }
 
+const listPinsSQL = `SELECT ` + pinColumns + ` FROM pins
+	WHERE doc_id = ? AND status IN (?, ?, ?) AND (? = '' OR page_id = ?) AND rev > ?
+	ORDER BY n`
+
 // ListPins reads the pins of a workspace, oldest first.
 func (s *Store) ListPins(f PinFilter) ([]Pin, error) {
 	docID, err := s.resolveWorkspace(f.WorkspaceID)
 	if err != nil {
 		return nil, err
 	}
-	query := `SELECT ` + pinColumns + ` FROM pins WHERE doc_id = ?`
-	args := []any{docID}
+	// One fixed statement: the filters are bound values, never spliced SQL.
+	var statuses [3]string
 	switch f.Status {
 	case "", PinOpen:
-		query += ` AND status IN ('open', 'claimed')`
+		statuses = [3]string{PinOpen, PinClaimed, PinClaimed}
 	case PinClaimed, PinResolved:
-		query += ` AND status = ?`
-		args = append(args, f.Status)
+		statuses = [3]string{f.Status, f.Status, f.Status}
 	case "all":
-		query += ` AND status != 'deleted'`
+		statuses = [3]string{PinOpen, PinClaimed, PinResolved}
 	default:
 		return nil, fmt.Errorf("%w: status must be open, claimed, resolved or all", ErrPinInput)
 	}
-	if f.PageID != "" {
-		query += ` AND page_id = ?`
-		args = append(args, f.PageID)
-	}
-	if f.AfterRev > 0 {
-		query += ` AND rev > ?`
-		args = append(args, f.AfterRev)
-	}
-	query += ` ORDER BY n`
-	rows, err := s.db.Query(query, args...)
+	args := []any{docID, statuses[0], statuses[1], statuses[2], f.PageID, f.PageID, f.AfterRev}
+	rows, err := s.db.Query(listPinsSQL, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -264,8 +259,21 @@ func (s *Store) PinsRev() int64 {
 	return rev
 }
 
-// updatePin applies a status change inside one statement guarded by the expected states.
-func (s *Store) updatePin(id string, set string, args []any, allowed ...string) (Pin, error) {
+// Every pin write is one fixed statement guarded by the states it may start from, so a concurrent change
+// makes it affect no row instead of overwriting.
+const (
+	pinRevNext    = `updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins)`
+	claimPinSQL   = `UPDATE pins SET status = 'claimed', claimed_by = ?, ` + pinRevNext + ` WHERE id = ? AND status = 'open'`
+	resolvePinSQL = `UPDATE pins SET status = 'resolved', reply = ?, resolved_by = ?,
+		claimed_by = CASE WHEN claimed_by = '' THEN ? ELSE claimed_by END, ` + pinRevNext + `
+		WHERE id = ? AND status IN ('open', 'claimed')`
+	reopenPinSQL = `UPDATE pins SET status = 'open', claimed_by = '', ` + pinRevNext + ` WHERE id = ? AND status IN ('claimed', 'resolved')`
+	editPinSQL   = `UPDATE pins SET text = ?, ` + pinRevNext + ` WHERE id = ? AND status IN ('open', 'claimed')`
+	deletePinSQL = `UPDATE pins SET status = 'deleted', ` + pinRevNext + ` WHERE id = ? AND status IN ('open', 'claimed', 'resolved')`
+)
+
+// updatePin runs one of the fixed pin writes above; args are the SET values, then updated_at and id follow.
+func (s *Store) updatePin(id string, stmt string, args ...any) (Pin, error) {
 	cur, err := s.GetPin(id)
 	if err != nil {
 		return Pin{}, err
@@ -273,11 +281,7 @@ func (s *Store) updatePin(id string, set string, args []any, allowed ...string) 
 	if cur.Status == PinDeleted {
 		return Pin{}, ErrNoPin
 	}
-	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(allowed)), ",")
-	q := `UPDATE pins SET ` + set + `, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins)
-		WHERE id = ? AND status IN (` + placeholders + `)`
-	all := append(append(args, time.Now().UnixMilli(), id), anySlice(allowed)...)
-	res, err := s.db.Exec(q, all...)
+	res, err := s.db.Exec(stmt, append(args, time.Now().UnixMilli(), id)...)
 	if err != nil {
 		return Pin{}, err
 	}
@@ -285,14 +289,6 @@ func (s *Store) updatePin(id string, set string, args []any, allowed ...string) 
 		return Pin{}, errors.New("pin changed meanwhile: read it again")
 	}
 	return s.GetPin(id)
-}
-
-func anySlice(ss []string) []any {
-	out := make([]any, len(ss))
-	for i, s := range ss {
-		out[i] = s
-	}
-	return out
 }
 
 // ClaimPin marks a pin as taken by an agent. Claiming one's own claim again is a no-op.
@@ -312,7 +308,7 @@ func (s *Store) ClaimPin(id, actor string) (Pin, error) {
 		}
 		return Pin{}, fmt.Errorf("%w (%s)", ErrPinClaimed, cur.ClaimedBy)
 	}
-	return s.updatePin(id, `status = 'claimed', claimed_by = ?`, []any{actor}, PinOpen)
+	return s.updatePin(id, claimPinSQL, actor)
 }
 
 // ResolvePin closes a pin with a short reply. Another agent's claim blocks it.
@@ -336,13 +332,12 @@ func (s *Store) ResolvePin(id, actor, reply string) (Pin, error) {
 	case cur.Status == PinClaimed && cur.ClaimedBy != actor && strings.HasPrefix(actor, "agent:"):
 		return Pin{}, fmt.Errorf("%w (%s)", ErrPinClaimed, cur.ClaimedBy)
 	}
-	return s.updatePin(id, `status = 'resolved', reply = ?, resolved_by = ?, claimed_by = CASE WHEN claimed_by = '' THEN ? ELSE claimed_by END`,
-		[]any{reply, actor, actor}, PinOpen, PinClaimed)
+	return s.updatePin(id, resolvePinSQL, reply, actor, actor)
 }
 
 // ReopenPin puts a claimed or resolved pin back to open (the human's call; it keeps the last reply).
 func (s *Store) ReopenPin(id string) (Pin, error) {
-	return s.updatePin(id, `status = 'open', claimed_by = ''`, nil, PinClaimed, PinResolved)
+	return s.updatePin(id, reopenPinSQL)
 }
 
 // EditPin changes the text of a pin that no agent resolved yet.
@@ -354,12 +349,12 @@ func (s *Store) EditPin(id, text string) (Pin, error) {
 	if len([]rune(text)) > MaxPinText {
 		return Pin{}, fmt.Errorf("%w: text is longer than %d characters", ErrPinInput, MaxPinText)
 	}
-	return s.updatePin(id, `text = ?`, []any{text}, PinOpen, PinClaimed)
+	return s.updatePin(id, editPinSQL, text)
 }
 
 // DeletePin hides a pin (soft delete, so watchers see the change).
 func (s *Store) DeletePin(id string) (Pin, error) {
-	return s.updatePin(id, `status = 'deleted'`, nil, PinOpen, PinClaimed, PinResolved)
+	return s.updatePin(id, deletePinSQL)
 }
 
 // pinsWaitPoll is how often wait_for_pins and the WebSocket broadcast read the pins table: another process
