@@ -1483,12 +1483,13 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
   it("inspector liga e desliga o raio de cada canto", async () => {
     const POLL = { timeout: 10_000 };
-    const id = "radius-corners";
+    const id = "rc070";
+    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
     const created = await agent.callTool({
       name: "create_nodes",
-      arguments: { nodes: [{ type: "rect", id, x: 48, y: 48, width: 140, height: 80, fill: "#c8401f", radius: 8 }] },
+      arguments: { parentId, nodes: [{ type: "rect", id, x: 48, y: 48, width: 140, height: 80, fill: "#c8401f", radius: 8 }] },
     });
-    expect(created.isError).toBeFalsy();
+    expect(created.isError, JSON.stringify(created.content)).toBeFalsy();
     await page.locator(`[data-paprika-id="${id}"]`).click();
     const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
     if ((await appearance.getAttribute("data-state")) !== "open") await appearance.click();
@@ -1496,7 +1497,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.getByTestId("radius-link").click();
     await expect.poll(async () => (await doc()).nodes[id], POLL).toMatchObject({ radius: [8, 8, 8, 8] });
     await expect.poll(() => page.getByTestId("radius-corners").getAttribute("data-state"), POLL).toBe("unlinked");
-    const tl = page.getByTestId("radius-tl").getByLabel("TL");
+    const tl = page.getByTestId("radius-tl").getByRole("textbox", { name: "TL", exact: true });
     await tl.fill("24");
     await tl.press("Enter");
     await expect.poll(async () => ((await doc()).nodes[id] as { radius: number[] }).radius[0], POLL).toBe(24);
