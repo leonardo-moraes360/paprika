@@ -646,3 +646,10 @@ Task: draw the overview archive action and the Archived filter (dark English, da
 
 - Addressed the board by `workspaceId` and did not call `open_workspace`.
 - `lint_design` flagged a Portuguese action row overflowing a 300px card (`layout-overflow`); widening that card to 360 cleared it.
+
+## 2026-11-23: agent pins implementation
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 125 | Add tools to the contract with a script | `server-go/contract/mcp.json` is hand-formatted (stray `,` lines, mixed layouts), so re-serializing it rewrites thousands of lines; four tools and an `openPins` field on 22 output schemas had to be inserted as text | Normalize the file once (one JSON formatter, checked in CI) so later edits are small diffs | P3 |
+| 126 | Know the human left a request | Before pins, a human's "do this here" only reached an agent through the chat | Done here: `list_pins` and `openPins` on write results | — |

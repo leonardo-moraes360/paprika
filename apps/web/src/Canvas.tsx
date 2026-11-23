@@ -57,6 +57,7 @@ import { Hint } from "./components/ui/tooltip";
 import { InlineName } from "./InlineName";
 import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
 import { AgentCursors, type Box } from "./AgentCursors";
+import { PinLayer } from "./Pins";
 import { useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { cx, ui } from "./ui";
@@ -67,7 +68,7 @@ const CROSSHAIR = new Set<string>(["frame", "rect", "ellipse", "text", "pen"]);
 const zoomButton =
   "inline-flex h-6 w-6.5 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-ui-foreground hover:bg-ui-secondary disabled:cursor-default disabled:opacity-40 [&_svg]:size-3.5";
 
-export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "triangle" | "note" | "connector";
+export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "triangle" | "note" | "connector" | "pin";
 
 /** Ferramentas que criam uma forma de diagrama (nó shape), com o tipo de contorno. */
 const SHAPE_TOOLS = { shape: "rect", diamond: "diamond", triangle: "triangle", note: "note" } as const;
@@ -77,7 +78,7 @@ const isShapeTool = (t: Tool): t is ShapeTool => t in SHAPE_TOOLS;
 /** Tamanho padrão ao soltar com um clique (sem arrastar). */
 const DRAFT_DEFAULTS = { frame: [390, 844], rect: [120, 80], ellipse: [80, 80], text: [200, 32], shape: [160, 80], diamond: [160, 100], triangle: [160, 140], note: [160, 160] } as const;
 
-type DraftTool = Exclude<Tool, "select" | "pen" | "connector">;
+type DraftTool = Exclude<Tool, "select" | "pen" | "connector" | "pin">;
 const isDraftTool = (t: Tool): t is DraftTool => t !== "select" && t !== "pen" && t !== "connector";
 
 const GHOST_ID = "draft-ghost";
@@ -1248,6 +1249,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const target = (e.target as HTMLElement).closest<HTMLElement>("[data-paprika-id]");
 
     if (tool === "connector") return startLink(e);
+    if (tool === "pin") return; // the pin layer captures its own clicks (Pins.tsx)
     if (tool !== "select") {
       const frameEl = (e.target as HTMLElement).closest<HTMLElement>('[data-paprika-type="frame"]');
       const parentId = frameEl?.dataset.paprikaId ?? pageId;
@@ -1808,6 +1810,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
       <AgentCursors doc={doc} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} onFocus={focusBox} />
+      <PinLayer doc={doc} view={view} viewportRef={viewportRef} pageId={pageId} active={tool === "pin"} onToolDone={onToolDone} layoutKey={preview} onFocus={focusBox} onOpenPage={onOpenPage} onError={onError} />
       {frameLabels.map((l) => (
         <Hint key={l.id} label={renaming === l.id ? undefined : "Duplo clique para renomear"}>
           <div

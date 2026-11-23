@@ -1521,6 +1521,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		appendOverlap(r, wrote)
 		return r, nil
 	})
+	m.addPinTools(add)
 	return m
 }
 
@@ -1587,7 +1588,7 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 	if err != nil {
 		return errorResult(err.Error())
 	}
-	return res
+	return m.withOpenPins(name, res)
 }
 
 // Handle processes one JSON-RPC message; it returns nil for notifications and responses.

@@ -649,3 +649,10 @@ Tarefa: desenhar a ação de arquivar na overview e o filtro Arquivados (inglês
 
 - Endereçou o board por `workspaceId` e não chamou `open_workspace`.
 - `lint_design` apontou a fileira de ações em português saindo de um card de 300px (`layout-overflow`); alargar o card para 360 limpou o aviso.
+
+## 2026-11-23: implementação dos apontamentos
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 125 | Adicionar ferramentas ao contrato por script | `server-go/contract/mcp.json` é formatado à mão (linhas com `,` soltas, layouts misturados), então reserializar reescreve milhares de linhas; quatro ferramentas e o campo `openPins` em 22 outputSchemas tiveram de entrar como texto | Normalizar o arquivo uma vez (um formatador JSON, checado na CI) para as próximas edições virarem diffs pequenos | P3 |
+| 126 | Saber que o humano deixou um pedido | Antes dos apontamentos, o "faça isto aqui" do humano só chegava ao agente pelo chat | Feito aqui: `list_pins` e `openPins` nos resultados de escrita | — |

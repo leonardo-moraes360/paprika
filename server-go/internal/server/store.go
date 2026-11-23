@@ -125,6 +125,10 @@ func OpenDB(path string) (*sql.DB, error) {
 		db.Close()
 		return nil, fmt.Errorf("migrando %s: %w", path, err)
 	}
+	if _, err := db.Exec(pinsSQL); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrando %s: %w", path, err)
+	}
 	return db, nil
 }
 

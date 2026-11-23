@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Bot, Circle, Diamond, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Square, StickyNote, Triangle, Type, type LucideIcon } from "lucide-react";
+import { Bot, Circle, Crosshair, Diamond, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Square, StickyNote, Triangle, Type, type LucideIcon } from "lucide-react";
 import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
@@ -20,6 +20,8 @@ import { bar } from "./ui";
 import { openWorkspace } from "./workspaces";
 import { LanguageSwitcher, useT } from "./i18n";
 import { WorkspaceNotice } from "./WorkspaceNotice";
+import { PinsChip } from "./Pins";
+import { setPinsPanel } from "./pins";
 import { readToolbarDock, Toolbar, type ToolbarDock } from "./Toolbar";
 
 const boot = "grid h-full place-content-center justify-items-center gap-3 text-ui-muted-foreground";
@@ -37,6 +39,7 @@ const TOOL_DEFS: { tool: Tool; key: string; labelKey: keyof import("./i18n").Mes
   { tool: "triangle", key: "g", labelKey: "toolTriangle", icon: Triangle },
   { tool: "note", key: "n", labelKey: "toolNote", icon: StickyNote },
   { tool: "connector", key: "a", labelKey: "toolConnector", icon: MoveUpRight },
+  { tool: "pin", key: "i", labelKey: "toolPin", icon: Crosshair },
 ];
 
 /** Converte uma subárvore em NodeInput com ids novos (para duplicar). */
@@ -289,6 +292,10 @@ function Editor() {
         if (ops.length) live.apply(ops, "mover");
         return;
       }
+      if (e.shiftKey && !mod && key === "i") {
+        setPinsPanel((v) => !v);
+        return;
+      }
       const t2 = TOOL_DEFS.find((x) => x.key === e.key.toLowerCase());
       if (t2 && !mod) setTool(t2.tool);
     };
@@ -356,6 +363,7 @@ function Editor() {
           <h1 className="doc-name m-0 truncate text-ui-muted-foreground [font:inherit] max-wide:sr-only">{doc.name}</h1>
         </div>
         <div className={bar.status}>
+          <PinsChip workspaceId={doc.id} />
           <LanguageSwitcher />
           {live.team !== undefined && <TeamChip status={live.team} onClick={() => setRightTab("team")} />}
           {lastAgent && Date.now() - lastAgent.at < 8000 && (
