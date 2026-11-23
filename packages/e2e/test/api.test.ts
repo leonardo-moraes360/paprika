@@ -1247,6 +1247,56 @@ describe("API: MCP", () => {
     expect(lint).toContain("overlapping-boards");
     expect(lint).toContain("covered-by-overlay");
   }, 30_000);
+
+  it("lint_design agrupa, limita por rootIds e aponta estouro, hug e geometria", async () => {
+    const c = client;
+    const created = await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "frame", id: "board", name: "Board", width: 1000, height: 80, fill: "#ffffff",
+          layout: { mode: "row", gap: 16 },
+          children: [
+            { type: "rect", id: "a", name: "A", width: 400, height: 40, fill: "#111111" },
+            { type: "rect", id: "b", name: "B", width: 400, height: 40, fill: "#111111" },
+            { type: "rect", id: "c", name: "C", width: 400, height: 40, fill: "#111111" },
+          ],
+        },
+        {
+          type: "frame", id: "mock", name: "Mock", x: 0, y: 500, width: 160, height: 40, fill: "#ffffff", scaledMock: true,
+          children: [{ type: "text", id: "cap", text: "Cap", fontSize: 9, color: "#111111" }],
+        },
+        {
+          type: "frame", id: "hug", name: "Hug", x: 0, y: 200, layout: { mode: "row", gap: 8 },
+          children: [{ type: "rect", id: "wide", name: "Wide", width: 180, height: 40, fill: "#111111" }],
+        },
+        {
+          type: "frame", id: "pair", name: "Pair", x: 0, y: 700, width: 200, height: 40, fill: "#ffffff",
+          children: [
+            { type: "rect", id: "left", name: "Left", x: 0, y: 0, width: 40, height: 40, fill: "#111111" },
+            { type: "rect", id: "right", name: "Right", x: 42, y: 0, width: 40, height: 40, fill: "#222222" },
+          ],
+        },
+      ],
+    });
+    expect(created.isError, textOf(created)).toBeFalsy();
+    const lint = JSON.parse(textOf(await call(c, "lint_design", { rootIds: ["board"], maxIds: 2 })));
+    assertOutput("lint_design", lint);
+    expect(lint.issues.some((i: { nodeId: string }) => i.nodeId === "cap")).toBe(false);
+    const group = lint.groups.find((g: { rule: string }) => g.rule === "layout-overflow");
+    expect(group).toMatchObject({ severity: "warning", count: 1, nodeIds: ["board"] });
+    expect(group.message).toContain("on width");
+    const quiet = JSON.parse(textOf(await call(c, "lint_design", { rootIds: ["board"], minSeverity: "error" })));
+    expect(quiet.issues).toEqual([]);
+    expect(quiet.groups).toEqual([]);
+    const mock = JSON.parse(textOf(await call(c, "lint_design", { rootIds: ["mock"] })));
+    expect(mock.issues.filter((i: { rule: string }) => i.rule === "small-text")).toEqual([]);
+    const hug = JSON.parse(textOf(await call(c, "lint_design", { rootIds: ["hug"] })));
+    expect(hug.groups.map((g: { rule: string }) => g.rule)).toContain("hug-was-meant");
+    expect(hug.groups.map((g: { rule: string }) => g.rule)).not.toContain("layout-overflow");
+    const pair = JSON.parse(textOf(await call(c, "lint_design", { rootIds: ["pair"] })));
+    expect(pair.issues.some((i: { rule: string; nodeId: string }) => i.rule === "near-gap" && i.nodeId === "right")).toBe(true);
+    expect(textOf(await call(c, "lint_design", { rootIds: ["missing"] }))).toBe('node "missing" does not exist');
+  }, 30_000);
 });
 
 describe("API: HTTP + WebSocket", () => {

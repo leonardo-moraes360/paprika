@@ -221,12 +221,35 @@ func toFixed(x float64, digits int) string {
 	return out
 }
 
+// LintOpts scopes and quiets lintDocument.
+type LintOpts struct {
+	RootID      string
+	RootIDs     []string
+	MinSeverity string
+	MinFontSize float64
+}
+
+// LintGroup is one rule folded to a count and the first N node ids.
+type LintGroup struct {
+	Rule     string   `json:"rule"`
+	Severity string   `json:"severity"`
+	Count    int      `json:"count"`
+	NodeIDs  []string `json:"nodeIds"`
+	Message  string   `json:"message"`
+}
+
 // LintDocument runs the agent-oriented quality rules.
 func LintDocument(doc *Document, rootID string) []LintIssue {
+	return LintDocumentOpts(doc, LintOpts{RootID: rootID})
+}
+
+// LintDocumentOpts is LintDocument with rootIds, minSeverity and minFontSize.
+func LintDocumentOpts(doc *Document, opts LintOpts) []LintIssue {
 	issues := []LintIssue{}
-	ids := Nodes(doc).Keys()
-	if rootID != "" {
-		ids = SubtreeIDs(doc, rootID)
+	ids := lintIDs(doc, opts)
+	minFont := opts.MinFontSize
+	if minFont == 0 {
+		minFont = 12
 	}
 	tokens := Tokens(doc)
 	hasColorTokens := false
@@ -269,8 +292,8 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 			if !isNum {
 				size = jsonv.ParseFloat(jsString(fs))
 			}
-			if size < 12 {
-				add("small-text", "warning", id, "font size "+jsString(size)+"px (< 12px)")
+			if size < minFont && !inScaledMock(doc, node) {
+				add("small-text", "warning", id, "font size "+jsString(size)+"px (< "+jsString(minFont)+"px)")
 			}
 			colorV, _ := node.Get("color")
 			fg, fgOK := ParseColor(jsString(ResolveValue(doc, colorV, themeMode)))
@@ -366,11 +389,432 @@ func LintDocument(doc *Document, rootID string) []LintIssue {
 		}
 	}
 	issues = append(issues, PlacementLint(doc, ids)...)
-	return issues
+	issues = append(issues, layoutLint(doc, ids)...)
+	issues = append(issues, geometryLint(doc, ids)...)
+	return finishLint(doc, issues, opts)
 }
 
 func mustNum(n *Node, k string) (float64, bool) {
 	v, _ := n.Get(k)
 	f, ok := v.(float64)
 	return f, ok
+}
+
+func lintIDs(doc *Document, opts LintOpts) []string {
+	roots := []string{}
+	if opts.RootID != "" {
+		roots = append(roots, opts.RootID)
+	}
+	roots = append(roots, opts.RootIDs...)
+	if len(roots) == 0 {
+		return Nodes(doc).Keys()
+	}
+	seen := map[string]bool{}
+	out := []string{}
+	for _, root := range roots {
+		for _, id := range SubtreeIDs(doc, root) {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+func sevRank(s string) int {
+	switch s {
+	case "error":
+		return 0
+	case "warning":
+		return 1
+	default:
+		return 2
+	}
+}
+
+func finishLint(doc *Document, issues []LintIssue, opts LintOpts) []LintIssue {
+	floor := 2
+	if opts.MinSeverity != "" {
+		floor = sevRank(opts.MinSeverity)
+	}
+	out := make([]LintIssue, 0, len(issues))
+	for _, issue := range issues {
+		if ignoredRule(GetNode(doc, issue.NodeID), issue.Rule) {
+			continue
+		}
+		if sevRank(issue.Severity) > floor {
+			continue
+		}
+		out = append(out, issue)
+	}
+	return out
+}
+
+func ignoredRule(n *Node, rule string) bool {
+	if n == nil {
+		return false
+	}
+	for _, r := range n.Strings("lintIgnore") {
+		if r == rule {
+			return true
+		}
+	}
+	return false
+}
+
+func inScaledMock(doc *Document, node *Node) bool {
+	cur := node
+	for cur != nil {
+		if cur.Str("type") == "frame" && cur.Bool("scaledMock") {
+			return true
+		}
+		pid := cur.Str("parentId")
+		if pid == "" {
+			return false
+		}
+		cur = GetNode(doc, pid)
+	}
+	return false
+}
+
+// GroupLint folds issues by rule: severity order, then rule name, first maxIDs ids.
+func GroupLint(issues []LintIssue, maxIDs int) []LintGroup {
+	if maxIDs < 1 {
+		maxIDs = 8
+	}
+	order := []string{}
+	groups := map[string]*LintGroup{}
+	for _, issue := range issues {
+		g := groups[issue.Rule]
+		if g == nil {
+			g = &LintGroup{Rule: issue.Rule, Severity: issue.Severity, Message: issue.Message, NodeIDs: []string{}}
+			groups[issue.Rule] = g
+			order = append(order, issue.Rule)
+		}
+		g.Count++
+		if len(g.NodeIDs) < maxIDs && !slices.Contains(g.NodeIDs, issue.NodeID) {
+			g.NodeIDs = append(g.NodeIDs, issue.NodeID)
+		}
+	}
+	out := make([]LintGroup, 0, len(order))
+	for _, rule := range order {
+		out = append(out, *groups[rule])
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		ri, rj := sevRank(out[i].Severity), sevRank(out[j].Severity)
+		if ri != rj {
+			return ri < rj
+		}
+		return out[i].Rule < out[j].Rule
+	})
+	return out
+}
+
+type lintBox struct{ x, y, w, h float64 }
+
+const (
+	lintTouch = 0.5
+	lintNear  = 4
+)
+
+func lintGap(a, b lintBox) float64 {
+	sepX := math.Max(0, math.Max(a.x-(b.x+b.w), b.x-(a.x+a.w)))
+	sepY := math.Max(0, math.Max(a.y-(b.y+b.h), b.y-(a.y+a.h)))
+	raw := 0.0
+	switch {
+	case sepX == 0 && sepY == 0:
+		raw = 0
+	case sepX == 0:
+		raw = sepY
+	case sepY == 0:
+		raw = sepX
+	default:
+		raw = math.Hypot(sepX, sepY)
+	}
+	return Round4(raw)
+}
+
+func containsBox(outer, inner lintBox) bool {
+	return inner.w > 0 && inner.h > 0 &&
+		inner.x >= outer.x-lintTouch &&
+		inner.y >= outer.y-lintTouch &&
+		inner.x+inner.w <= outer.x+outer.w+lintTouch &&
+		inner.y+inner.h <= outer.y+outer.h+lintTouch
+}
+
+func laidOut(doc *Document) map[string]lintBox {
+	out := map[string]lintBox{}
+	add := func(boxes map[string]LayoutBox) {
+		for id, b := range boxes {
+			out[id] = lintBox{b.X, b.Y, b.Width, b.Height}
+		}
+	}
+	var pages []string
+	for _, id := range doc.Strings("rootIds") {
+		if n := GetNode(doc, id); n != nil && n.Str("type") == "page" {
+			pages = append(pages, id)
+		}
+	}
+	if len(pages) == 0 {
+		if boxes, err := Layout(doc, LayoutOptions{}); err == nil {
+			add(boxes)
+		}
+		return out
+	}
+	for _, id := range pages {
+		if boxes, err := Layout(doc, LayoutOptions{RootID: id}); err == nil {
+			add(boxes)
+		}
+	}
+	return out
+}
+
+func isFlowFrame(n *Node) bool {
+	if n == nil || n.Str("type") != "frame" {
+		return false
+	}
+	lay := n.Obj("layout")
+	return lay != nil && lay.Str("mode") != "" && lay.Str("mode") != "none"
+}
+
+func isCopy(n *Node) bool {
+	return n != nil && n.Str("sourceId") != ""
+}
+
+func geomType(typ string) bool {
+	switch typ {
+	case "rect", "ellipse", "path", "shape", "image":
+		return true
+	default:
+		return false
+	}
+}
+
+func opaqueNode(doc *Document, n *Node) bool {
+	if n == nil || !n.Bool("visible") {
+		return false
+	}
+	typ := n.Str("type")
+	switch typ {
+	case "frame", "rect", "ellipse", "path", "shape", "image":
+	default:
+		return false
+	}
+	if n.Num("opacity") < 0.99 {
+		return false
+	}
+	fill, ok := n.Get("fill")
+	if !ok {
+		return false
+	}
+	if s, ok := fill.(string); !ok || s == "" {
+		return false
+	}
+	c, ok := ParseColor(jsString(ResolveValue(doc, fill, ModeOf(doc, n))))
+	return ok && c.A >= 0.99
+}
+
+func indexOfStr(list []string, id string) int {
+	for i, s := range list {
+		if s == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func layoutLint(doc *Document, ids []string) []LintIssue {
+	boxes := laidOut(doc)
+	issues := []LintIssue{}
+	for _, id := range ids {
+		node := GetNode(doc, id)
+		if node == nil || node.Str("type") != "frame" {
+			continue
+		}
+		lay := node.Obj("layout")
+		if lay == nil || lay.Str("mode") == "" || lay.Str("mode") == "none" {
+			continue
+		}
+		frame, ok := boxes[id]
+		if !ok {
+			continue
+		}
+		mode := lay.Str("mode")
+		var kids []string
+		width, height := false, false
+		for _, cid := range node.Strings("children") {
+			child := GetNode(doc, cid)
+			box, has := boxes[cid]
+			if child == nil || !has || !child.Bool("visible") || child.Str("type") == "connector" {
+				continue
+			}
+			overW := box.x < frame.x-lintTouch || box.x+box.w > frame.x+frame.w+lintTouch
+			overH := box.y < frame.y-lintTouch || box.y+box.h > frame.y+frame.h+lintTouch
+			if !overW && !overH {
+				continue
+			}
+			kids = append(kids, cid)
+			width = width || overW
+			height = height || overH
+		}
+		if len(kids) == 0 {
+			continue
+		}
+		w, wok := mustNum(node, "width")
+		h, hok := mustNum(node, "height")
+		if wok && hok && w == 100 && h == 100 {
+			issues = append(issues, LintIssue{
+				Rule: "hug-was-meant", Severity: "warning", NodeID: id,
+				Message: "default 100×100 " + mode + " frame; children leave the box, so hug was meant (set width and height to \"hug\")",
+			})
+			continue
+		}
+		axes := "height"
+		if width && height {
+			axes = "width and height"
+		} else if width {
+			axes = "width"
+		}
+		labels := make([]string, len(kids))
+		for i, cid := range kids {
+			labels[i] = nodeLabel(GetNode(doc, cid), "")
+		}
+		n := len(labels)
+		if n > 3 {
+			n = 3
+		}
+		shown := strings.Join(labels[:n], ", ")
+		if len(labels) > 3 {
+			shown += " +" + jsString(float64(len(labels)-3))
+		}
+		issues = append(issues, LintIssue{
+			Rule: "layout-overflow", Severity: "warning", NodeID: id,
+			Message: mode + " children leave \"" + nodeLabel(node, "") + "\" (" + placeNum(frame.w) + "×" + placeNum(frame.h) + ") on " + axes + ": " + shown,
+		})
+	}
+	return issues
+}
+
+func geometryLint(doc *Document, ids []string) []LintIssue {
+	allow := map[string]bool{}
+	for _, id := range ids {
+		allow[id] = true
+	}
+	boxes := laidOut(doc)
+	seen := map[string]bool{}
+	issues := []LintIssue{}
+	for _, id := range ids {
+		node := GetNode(doc, id)
+		if node == nil {
+			continue
+		}
+		key := node.Str("parentId")
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		issues = append(issues, geometryParent(doc, key, allow, boxes)...)
+	}
+	return issues
+}
+
+func geometryParent(doc *Document, parentID string, allow map[string]bool, boxes map[string]lintBox) []LintIssue {
+	if parentID != "" && isFlowFrame(GetNode(doc, parentID)) {
+		return nil
+	}
+	children := siblingIDs(doc, parentID)
+	var prims []string
+	for _, id := range children {
+		n := GetNode(doc, id)
+		if n == nil || !n.Bool("visible") || isCopy(n) || !geomType(n.Str("type")) {
+			continue
+		}
+		if _, ok := boxes[id]; ok {
+			prims = append(prims, id)
+		}
+	}
+	cluster := false
+	for i := 0; i < len(prims) && !cluster; i++ {
+		for j := i + 1; j < len(prims); j++ {
+			if lintGap(boxes[prims[i]], boxes[prims[j]]) <= lintTouch {
+				cluster = true
+				break
+			}
+		}
+	}
+	parentLabel := "the canvas"
+	if parentID != "" {
+		parentLabel = nodeLabel(GetNode(doc, parentID), "")
+	}
+	issues := []LintIssue{}
+	for _, id := range children {
+		if !allow[id] {
+			continue
+		}
+		n := GetNode(doc, id)
+		box, has := boxes[id]
+		if n == nil || !has || !n.Bool("visible") || isCopy(n) || !geomType(n.Str("type")) {
+			continue
+		}
+		var others []string
+		for _, oid := range children {
+			if oid == id {
+				continue
+			}
+			if _, ok := boxes[oid]; !ok {
+				continue
+			}
+			o := GetNode(doc, oid)
+			if o == nil || !o.Bool("visible") || o.Str("type") == "connector" || o.Str("type") == "page" {
+				continue
+			}
+			others = append(others, oid)
+		}
+		nearest := math.Inf(1)
+		for _, oid := range others {
+			if g := lintGap(box, boxes[oid]); g < nearest {
+				nearest = g
+			}
+		}
+		if len(others) > 0 && cluster && nearest >= lintNear {
+			issues = append(issues, LintIssue{
+				Rule: "detached-sibling", Severity: "warning", NodeID: id,
+				Message: "touches no sibling in \"" + parentLabel + "\" (nearest gap " + placeNum(nearest) + "px)",
+			})
+		}
+		index := indexOfStr(children, id)
+		for _, oid := range prims {
+			if indexOfStr(children, oid) >= index {
+				continue
+			}
+			g := lintGap(box, boxes[oid])
+			if g > lintTouch && g < lintNear {
+				issues = append(issues, LintIssue{
+					Rule: "near-gap", Severity: "warning", NodeID: id,
+					Message: placeNum(g) + "px from \"" + nodeLabel(GetNode(doc, oid), "") + "\" (under 4px)",
+				})
+			}
+		}
+		var cover *Node
+		for _, oid := range children {
+			if indexOfStr(children, oid) <= index {
+				continue
+			}
+			o := GetNode(doc, oid)
+			ob, ok := boxes[oid]
+			if o == nil || !ok || !opaqueNode(doc, o) || !containsBox(ob, box) {
+				continue
+			}
+			cover = o
+		}
+		if cover != nil {
+			issues = append(issues, LintIssue{
+				Rule: "fully-hidden", Severity: "warning", NodeID: id,
+				Message: "fully hidden behind opaque \"" + nodeLabel(cover, "") + "\"",
+			})
+		}
+	}
+	return issues
 }

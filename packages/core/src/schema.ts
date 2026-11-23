@@ -84,6 +84,7 @@ const Base = {
   notes: z.string().max(4000).optional(),
   /** Só em cópias dentro de uma instância: id do nó do componente de onde a cópia vem (gerado). */
   sourceId: z.string().optional(),
+  lintIgnore: z.array(z.string().regex(/^[a-z0-9-]{1,40}$/, "lint rule must be [a-z0-9-]{1,40}")).max(20).optional(),
 };
 
 /** Overrides de uma instância: por id de nó do componente, os campos trocados (ver component.ts). */
@@ -115,6 +116,7 @@ export const FrameNode = z.object({
   overrides: Overrides.optional(),
   /** Modo de tema deste frame e dos descendentes (tokens de `document.modes[mode]`). */
   mode: ModeName.optional(),
+  scaledMock: z.boolean().optional(),
 });
 
 export const RectNode = z.object({ ...Base, type: z.literal("rect") });
@@ -229,6 +231,7 @@ export const ConnectorNode = z.object({
   locked: Base.locked,
   notes: Base.notes,
   sourceId: Base.sourceId,
+  lintIgnore: Base.lintIgnore,
   from: ConnectorEnd,
   to: ConnectorEnd,
   route: z.enum(["straight", "elbow", "rounded", "curve"]).default("straight"),
@@ -269,6 +272,7 @@ export const GroupNode = z.object({
   locked: Base.locked,
   notes: Base.notes,
   sourceId: Base.sourceId,
+  lintIgnore: Base.lintIgnore,
   children: z.array(z.string()).default([]),
 });
 
@@ -286,6 +290,7 @@ export const PageNode = z.object({
   /** Modo de tema da página inteira. */
   mode: ModeName.optional(),
   notes: Base.notes,
+  lintIgnore: Base.lintIgnore,
   children: z.array(z.string()).default([]),
 });
 

@@ -1,4 +1,6 @@
-import { placementLint } from "./placement.js";
+import { layout } from "./layout.js";
+import { round4 } from "./num.js";
+import { placeNum, placementLint } from "./placement.js";
 import { isContainer, type Document, type Node } from "./schema.js";
 import { modeOf, resolveLength, resolveValue, tokenValue } from "./style.js";
 
@@ -119,13 +121,31 @@ function tokenRefs(node: Node): string[] {
   return refs;
 }
 
+export interface LintOptions {
+  rootId?: string;
+  rootIds?: string[];
+  minSeverity?: Severity;
+  minFontSize?: number;
+}
+
+export interface LintGroup {
+  rule: string;
+  severity: Severity;
+  count: number;
+  nodeIds: string[];
+  message: string;
+}
+
+const SEV_RANK: Record<Severity, number> = { error: 0, warning: 1, info: 2 };
+
 /**
  * Regras de qualidade pensadas para agentes: cada problema vem com o id do nó e uma mensagem
  * acionável, para o agente corrigir com `update_nodes` sem precisar de screenshot.
  */
-export function lintDocument(doc: Document, opts: { rootId?: string } = {}): LintIssue[] {
+export function lintDocument(doc: Document, opts: LintOptions = {}): LintIssue[] {
   const issues: LintIssue[] = [];
-  const ids = opts.rootId ? collect(doc, opts.rootId) : Object.keys(doc.nodes);
+  const ids = scopeIds(doc, opts);
+  const minFont = opts.minFontSize ?? 12;
   const hasColorTokens = Object.values(doc.tokens).some((v) => typeof v === "string" && !!parseColor(v));
 
   for (const id of ids) {
@@ -144,8 +164,8 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
         issues.push({ rule: "empty-text", severity: "warning", nodeId: id, message: "empty text" });
       const fs = resolveValue(doc, node.fontSize, modeOf(doc, node));
       const size = typeof fs === "number" ? fs : Number.parseFloat(String(fs));
-      if (size < 12)
-        issues.push({ rule: "small-text", severity: "warning", nodeId: id, message: `font size ${size}px (< 12px)` });
+      if (size < minFont && !underScaledMock(doc, node))
+        issues.push({ rule: "small-text", severity: "warning", nodeId: id, message: `font size ${size}px (< ${minFont}px)` });
       const fg = parseColor(String(resolveValue(doc, node.color, modeOf(doc, node))));
       const bg = effectiveBackground(doc, node);
       if (fg && bg) {
@@ -227,7 +247,24 @@ export function lintDocument(doc: Document, opts: { rootId?: string } = {}): Lin
     return !!c && c.a >= 0.99;
   };
   issues.push(...placementLint(doc, ids, opaque));
-  return issues;
+  issues.push(...layoutLint(doc, ids));
+  issues.push(...geometryLint(doc, ids));
+  return finishLint(doc, issues, opts);
+}
+
+export function groupLint(issues: readonly LintIssue[], maxIds = 8): LintGroup[] {
+  const cap = Math.max(1, Math.floor(maxIds));
+  const map = new Map<string, LintGroup>();
+  for (const issue of issues) {
+    let group = map.get(issue.rule);
+    if (!group) {
+      group = { rule: issue.rule, severity: issue.severity, count: 0, nodeIds: [], message: issue.message };
+      map.set(issue.rule, group);
+    }
+    group.count += 1;
+    if (group.nodeIds.length < cap && !group.nodeIds.includes(issue.nodeId)) group.nodeIds.push(issue.nodeId);
+  }
+  return [...map.values()].sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity] || (a.rule < b.rule ? -1 : a.rule > b.rule ? 1 : 0));
 }
 
 function collect(doc: Document, rootId: string): string[] {
@@ -240,4 +277,241 @@ function collect(doc: Document, rootId: string): string[] {
   };
   walk(rootId);
   return out;
+}
+
+function scopeIds(doc: Document, opts: LintOptions): string[] {
+  const roots = [...(opts.rootIds ?? [])];
+  if (opts.rootId) roots.unshift(opts.rootId);
+  if (roots.length === 0) return Object.keys(doc.nodes);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const root of roots) {
+    for (const id of collect(doc, root)) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  return out;
+}
+
+function finishLint(doc: Document, issues: LintIssue[], opts: LintOptions): LintIssue[] {
+  const floor = SEV_RANK[opts.minSeverity ?? "info"];
+  return issues.filter((issue) => {
+    const node = doc.nodes[issue.nodeId];
+    if (node && "lintIgnore" in node && node.lintIgnore?.includes(issue.rule)) return false;
+    return SEV_RANK[issue.severity] <= floor;
+  });
+}
+
+function underScaledMock(doc: Document, node: Node): boolean {
+  let cur: Node | undefined = node;
+  while (cur) {
+    if (cur.type === "frame" && cur.scaledMock) return true;
+    cur = cur.parentId ? doc.nodes[cur.parentId] : undefined;
+  }
+  return false;
+}
+
+type Box = { x: number; y: number; w: number; h: number };
+
+const TOUCH = 0.5;
+const NEAR = 4;
+const GEOM_TYPES = new Set(["rect", "ellipse", "path", "shape", "image"]);
+
+function nodeLabel(n: Node | undefined): string {
+  if (!n) return "";
+  return n.name || n.id;
+}
+
+function shown(n: Node): boolean {
+  return n.type === "page" || n.visible !== false;
+}
+
+function isCopy(n: Node): boolean {
+  return "sourceId" in n && !!n.sourceId;
+}
+
+function gapOf(a: Box, b: Box): number {
+  const sepX = Math.max(0, Math.max(a.x - (b.x + b.w), b.x - (a.x + a.w)));
+  const sepY = Math.max(0, Math.max(a.y - (b.y + b.h), b.y - (a.y + a.h)));
+  const raw = sepX === 0 && sepY === 0 ? 0 : sepX === 0 ? sepY : sepY === 0 ? sepX : Math.hypot(sepX, sepY);
+  return round4(raw);
+}
+
+function containsBox(outer: Box, inner: Box): boolean {
+  return (
+    inner.w > 0 &&
+    inner.h > 0 &&
+    inner.x >= outer.x - TOUCH &&
+    inner.y >= outer.y - TOUCH &&
+    inner.x + inner.w <= outer.x + outer.w + TOUCH &&
+    inner.y + inner.h <= outer.y + outer.h + TOUCH
+  );
+}
+
+function laidOut(doc: Document): Record<string, Box> {
+  const pages = doc.rootIds.filter((id) => doc.nodes[id]?.type === "page");
+  const merged: Record<string, { x: number; y: number; width: number; height: number }> = {};
+  if (pages.length === 0) Object.assign(merged, layout(doc));
+  else for (const id of pages) Object.assign(merged, layout(doc, { rootId: id }));
+  const out: Record<string, Box> = {};
+  for (const [id, b] of Object.entries(merged)) out[id] = { x: b.x, y: b.y, w: b.width, h: b.height };
+  return out;
+}
+
+function siblingIds(doc: Document, parentId: string | null): string[] {
+  if (parentId === null) return doc.rootIds;
+  const parent = doc.nodes[parentId];
+  if (!parent || !isContainer(parent)) return [];
+  return parent.children;
+}
+
+function isFlowFrame(n: Node | undefined): boolean {
+  return !!n && n.type === "frame" && !!n.layout && n.layout.mode !== "none";
+}
+
+function opaqueNode(doc: Document, n: Node): boolean {
+  if (!shown(n) || n.type === "text" || n.type === "group" || n.type === "connector" || n.type === "page") return false;
+  if (n.type !== "frame" && n.type !== "rect" && n.type !== "ellipse" && n.type !== "path" && n.type !== "shape" && n.type !== "image") return false;
+  if (n.opacity < 0.99 || !n.fill) return false;
+  const color = parseColor(String(resolveValue(doc, n.fill, modeOf(doc, n))));
+  return !!color && color.a >= 0.99;
+}
+
+function layoutLint(doc: Document, ids: readonly string[]): LintIssue[] {
+  const boxes = laidOut(doc);
+  const issues: LintIssue[] = [];
+  for (const id of ids) {
+    const node = doc.nodes[id];
+    if (!node || node.type !== "frame" || !node.layout || node.layout.mode === "none") continue;
+    const frame = boxes[id];
+    if (!frame) continue;
+    const mode = node.layout.mode;
+    const kids: string[] = [];
+    let width = false;
+    let height = false;
+    for (const cid of node.children) {
+      const child = doc.nodes[cid];
+      const box = boxes[cid];
+      if (!child || !box || !shown(child) || child.type === "connector") continue;
+      const overW = box.x < frame.x - TOUCH || box.x + box.w > frame.x + frame.w + TOUCH;
+      const overH = box.y < frame.y - TOUCH || box.y + box.h > frame.y + frame.h + TOUCH;
+      if (!overW && !overH) continue;
+      kids.push(cid);
+      width = width || overW;
+      height = height || overH;
+    }
+    if (!kids.length) continue;
+    if (node.width === 100 && node.height === 100) {
+      issues.push({
+        rule: "hug-was-meant",
+        severity: "warning",
+        nodeId: id,
+        message: `default 100×100 ${mode} frame; children leave the box, so hug was meant (set width and height to "hug")`,
+      });
+      continue;
+    }
+    const axes = width && height ? "width and height" : width ? "width" : "height";
+    const labels = kids.map((cid) => nodeLabel(doc.nodes[cid]));
+    const listed = labels.slice(0, 3).join(", ") + (labels.length > 3 ? ` +${labels.length - 3}` : "");
+    issues.push({
+      rule: "layout-overflow",
+      severity: "warning",
+      nodeId: id,
+      message: `${mode} children leave "${nodeLabel(node)}" (${placeNum(frame.w)}×${placeNum(frame.h)}) on ${axes}: ${listed}`,
+    });
+  }
+  return issues;
+}
+
+function geometryLint(doc: Document, ids: readonly string[]): LintIssue[] {
+  const allow = new Set(ids);
+  const boxes = laidOut(doc);
+  const seen = new Set<string>();
+  const issues: LintIssue[] = [];
+  for (const id of ids) {
+    const node = doc.nodes[id];
+    if (!node) continue;
+    const key = node.parentId ?? "";
+    if (seen.has(key)) continue;
+    seen.add(key);
+    issues.push(...geometryParent(doc, node.parentId, allow, boxes));
+  }
+  return issues;
+}
+
+function geometryParent(doc: Document, parentId: string | null, allow: Set<string>, boxes: Record<string, Box>): LintIssue[] {
+  if (parentId && isFlowFrame(doc.nodes[parentId])) return [];
+  const children = siblingIds(doc, parentId);
+  const prims = children.filter((id) => {
+    const n = doc.nodes[id];
+    return !!n && shown(n) && !isCopy(n) && GEOM_TYPES.has(n.type) && !!boxes[id];
+  });
+  let cluster = false;
+  for (let i = 0; i < prims.length && !cluster; i++) {
+    for (let j = i + 1; j < prims.length; j++) {
+      if (gapOf(boxes[prims[i]!]!, boxes[prims[j]!]!) <= TOUCH) {
+        cluster = true;
+        break;
+      }
+    }
+  }
+  const parent = parentId ? doc.nodes[parentId] : undefined;
+  const parentLabel = parent ? nodeLabel(parent) : "the canvas";
+  const issues: LintIssue[] = [];
+  for (const id of children) {
+    if (!allow.has(id)) continue;
+    const n = doc.nodes[id];
+    const box = boxes[id];
+    if (!n || !box || !shown(n) || isCopy(n) || !GEOM_TYPES.has(n.type)) continue;
+    const others = children.filter((oid) => {
+      if (oid === id || !boxes[oid]) return false;
+      const o = doc.nodes[oid];
+      return !!o && shown(o) && o.type !== "connector" && o.type !== "page";
+    });
+    let nearest = Infinity;
+    for (const oid of others) {
+      const g = gapOf(box, boxes[oid]!);
+      if (g < nearest) nearest = g;
+    }
+    if (others.length > 0 && cluster && nearest >= NEAR) {
+      issues.push({
+        rule: "detached-sibling",
+        severity: "warning",
+        nodeId: id,
+        message: `touches no sibling in "${parentLabel}" (nearest gap ${placeNum(nearest)}px)`,
+      });
+    }
+    const index = children.indexOf(id);
+    for (const oid of prims) {
+      if (children.indexOf(oid) >= index) continue;
+      const g = gapOf(box, boxes[oid]!);
+      if (g > TOUCH && g < NEAR) {
+        issues.push({
+          rule: "near-gap",
+          severity: "warning",
+          nodeId: id,
+          message: `${placeNum(g)}px from "${nodeLabel(doc.nodes[oid])}" (under 4px)`,
+        });
+      }
+    }
+    let cover: Node | undefined;
+    for (const oid of children) {
+      if (children.indexOf(oid) <= index) continue;
+      const o = doc.nodes[oid];
+      const ob = boxes[oid];
+      if (!o || !ob || !opaqueNode(doc, o) || !containsBox(ob, box)) continue;
+      cover = o;
+    }
+    if (cover) {
+      issues.push({
+        rule: "fully-hidden",
+        severity: "warning",
+        nodeId: id,
+        message: `fully hidden behind opaque "${nodeLabel(cover)}"`,
+      });
+    }
+  }
+  return issues;
 }
