@@ -1,7 +1,9 @@
 package server
 
 import (
+	"database/sql"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -517,5 +519,143 @@ func TestApplyInKeepsTheCanvasAndHistoryApart(t *testing.T) {
 	choice := s.WorkspaceChoiceError("missing")
 	if !strings.Contains(choice.Error(), active) || !strings.Contains(choice.Error(), `"Board"`) || !strings.Contains(choice.Error(), "Workspaces:") {
 		t.Fatalf("choice error: %v", choice)
+	}
+}
+
+func TestArchiveWorkspace(t *testing.T) {
+	s, _ := openTemp(t)
+	first := s.DocID()
+	if _, err := s.ArchiveWorkspace(first, "user"); !errors.Is(err, ErrArchiveOnly) {
+		t.Fatalf("archive only: %v", err)
+	}
+	other, err := s.CreateWorkspace("Outro", "user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hidden, err := s.ArchiveWorkspace(other.ID, "user")
+	if err != nil || !hidden.Archived || hidden.Active {
+		t.Fatalf("archive = %+v, %v", hidden, err)
+	}
+	listed, err := s.ListWorkspaces()
+	if err != nil || len(listed) != 1 || listed[0].ID != first || listed[0].Archived {
+		t.Fatalf("default list = %+v, %v", listed, err)
+	}
+	all, err := s.ListWorkspacesFiltered(true, false)
+	if err != nil || len(all) != 2 {
+		t.Fatalf("include = %+v, %v", all, err)
+	}
+	only, err := s.ListWorkspacesFiltered(false, true)
+	if err != nil || len(only) != 1 || only[0].ID != other.ID || !only[0].Archived {
+		t.Fatalf("archived only = %+v, %v", only, err)
+	}
+	again, err := s.ArchiveWorkspace(other.ID, "user")
+	if err != nil || !again.Archived {
+		t.Fatalf("archive twice = %+v, %v", again, err)
+	}
+	back, err := s.UnarchiveWorkspace(other.ID, "user")
+	if err != nil || back.Archived {
+		t.Fatalf("unarchive = %+v, %v", back, err)
+	}
+	if _, err := s.UnarchiveWorkspace(other.ID, "user"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ArchiveWorkspace("nope", "user"); !errors.Is(err, ErrNoWorkspace) {
+		t.Fatalf("unknown archive: %v", err)
+	}
+
+	var events []ChangeEvent
+	s.OnChange(func(e ChangeEvent) { events = append(events, e) })
+	if _, err := s.OpenWorkspace(other.ID, "user"); err != nil {
+		t.Fatal(err)
+	}
+	moved, err := s.ArchiveWorkspace(other.ID, "user")
+	if err != nil || !moved.Archived || s.DocID() != first {
+		t.Fatalf("archive active = %+v doc %s err %v", moved, s.DocID(), err)
+	}
+	if len(events) != 2 || events[1].Kind != "open" || events[1].DocID != first {
+		t.Fatalf("events = %+v", events)
+	}
+	if _, err := s.DeleteWorkspace(first, "user"); !errors.Is(err, ErrLastWorkspace) {
+		t.Fatalf("delete last visible while one is archived: %v", err)
+	}
+	opened, err := s.OpenWorkspace(other.ID, "user")
+	if err != nil || opened.Archived || s.DocID() != other.ID {
+		t.Fatalf("open archived = %+v doc %s err %v", opened, s.DocID(), err)
+	}
+	ops, err := s.ListWorkspaceOps(20, other.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]int{}
+	for _, op := range ops {
+		seen[op.Op]++
+	}
+	if seen["archive"] < 1 || seen["unarchive"] < 1 {
+		t.Fatalf("ops = %+v", ops)
+	}
+
+	m := NewMCP(s, "agent:test", nil)
+	text, isErr := callText(t, m, "archive_workspace", obj("id", first))
+	if isErr || !strings.Contains(text, `"archived": true`) || !strings.Contains(text, `"active": "`+other.ID+`"`) {
+		t.Fatalf("mcp archive: %v %q", isErr, text)
+	}
+	text, isErr = callText(t, m, "list_workspaces", obj())
+	if isErr || strings.Contains(text, first) {
+		t.Fatalf("list hid nothing: %v %q", isErr, text)
+	}
+	text, isErr = callText(t, m, "list_workspaces", obj("includeArchived", true))
+	if isErr || !strings.Contains(text, first) || !strings.Contains(text, `"archived": true`) {
+		t.Fatalf("include: %v %q", isErr, text)
+	}
+	text, isErr = callText(t, m, "unarchive_workspace", obj("id", first))
+	if isErr || !strings.Contains(text, `"archived": false`) {
+		t.Fatalf("mcp unarchive: %v %q", isErr, text)
+	}
+	text, isErr = callText(t, m, "archive_workspace", obj("id", "nope"))
+	if !isErr || !strings.Contains(text, "does not exist") {
+		t.Fatalf("mcp missing: %v %q", isErr, text)
+	}
+	if _, err := s.DeleteWorkspace(other.ID, "user"); err != nil {
+		t.Fatal(err)
+	}
+	text, isErr = callText(t, m, "archive_workspace", obj("id", first))
+	if !isErr || !strings.Contains(text, "cannot be archived") {
+		t.Fatalf("mcp only: %v %q", isErr, text)
+	}
+}
+
+func TestArchivedColumnMigration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.db")
+	db, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(1)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		CREATE TABLE documents (
+		  id TEXT PRIMARY KEY, format TEXT NOT NULL, name TEXT NOT NULL, root_ids TEXT NOT NULL,
+		  version INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+		);
+		CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+		INSERT INTO meta(key, value) VALUES ('schema_version', '1');
+		INSERT INTO documents(id, format, name, root_ids, version, created_at, updated_at)
+		  VALUES ('old', 'paprika/1', 'Old', '[]', 0, 1, 1);
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err := OpenStore(path, OpenOptions{Poll: -1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.Close() })
+	ws, err := s.ListWorkspaces()
+	if err != nil || len(ws) != 1 || ws[0].ID != "old" || ws[0].Archived || ws[0].Name != "Old" {
+		t.Fatalf("migrated = %+v, %v", ws, err)
+	}
+	var version string
+	if err := s.DB().QueryRow(`SELECT value FROM meta WHERE key = 'schema_version'`).Scan(&version); err != nil || version != "2" {
+		t.Fatalf("schema_version = %q, %v", version, err)
 	}
 }

@@ -10,6 +10,8 @@ export interface Workspace {
   active: boolean;
   /** URL of the cover image, or null: the card shows the first letter of the name. */
   cover: string | null;
+  /** Hidden from the default list until it is restored. */
+  archived: boolean;
 }
 
 export const workspacesKey = ["workspaces"] as const;
@@ -17,11 +19,12 @@ export const workspacesKey = ["workspaces"] as const;
 const json = (body: unknown): RequestInit => ({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 const one = (id: string) => `/api/workspaces/${encodeURIComponent(id)}`;
 
-/** Workspaces of this server, most recently updated first. */
-export function useWorkspaces() {
+/** Workspaces of this server, most recently updated first. `archived` lists only the hidden ones. */
+export function useWorkspaces(archived = false) {
   return useQuery({
-    queryKey: workspacesKey,
-    queryFn: async ({ signal }) => (await api<{ workspaces: Workspace[] }>("/api/workspaces", { signal })).workspaces,
+    queryKey: [...workspacesKey, archived ? "archived" : "active"],
+    queryFn: async ({ signal }) =>
+      (await api<{ workspaces: Workspace[] }>(archived ? "/api/workspaces?archived=1" : "/api/workspaces", { signal })).workspaces,
   });
 }
 
@@ -51,7 +54,7 @@ export function useWorkspacesFollow(activeId: string | null, version: number) {
   }, [client, activeId, version]);
 }
 
-/** Create, rename, cover and delete; each one refreshes the list when it settles. */
+/** Create, rename, cover, archive and delete; each one refreshes the list when it settles. */
 export function useWorkspaceMutations() {
   const client = useQueryClient();
   const onSettled = () => client.invalidateQueries({ queryKey: workspacesKey });
@@ -83,7 +86,19 @@ export function useWorkspaceMutations() {
     onSettled,
   });
 
-  return { create, rename, cover, remove };
+  const archive = useMutation({
+    mutationFn: async (id: string) =>
+      (await api<{ workspace: Workspace }>(`${one(id)}/archive`, { method: "POST" })).workspace,
+    onSettled,
+  });
+
+  const unarchive = useMutation({
+    mutationFn: async (id: string) =>
+      (await api<{ workspace: Workspace }>(`${one(id)}/unarchive`, { method: "POST" })).workspace,
+    onSettled,
+  });
+
+  return { create, rename, cover, remove, archive, unarchive };
 }
 
 /** Makes a workspace the active one on the server (the canvas follows through the WebSocket). */

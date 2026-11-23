@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Bot } from "lucide-react";
+import { Bot, Link2, Unlink } from "lucide-react";
 import {
   copyOwner,
   groupOps,
+  ignoresLayout,
   isInstance,
   lintDocument,
   newId,
@@ -34,6 +35,72 @@ export { parseModeTokenAssignment, parseTokenAssignment, tokenValue } from "./in
 import { parseModeTokenAssignment, parseTokenAssignment, tokenValue } from "./inspector/tokenParsing";
 
 const list = "m-0 grid list-none gap-1 p-0";
+
+function isCornerList(radius: number | string | readonly (number | string)[]): radius is readonly (number | string)[] {
+  return Array.isArray(radius);
+}
+
+function RadiusCorners({
+  radius,
+  onChange,
+}: {
+  radius: number | string | readonly (number | string)[];
+  onChange(next: number | string | (number | string)[]): void;
+}) {
+  const cornerFields = [
+    ["TL", 0, "Canto superior esquerdo"],
+    ["TR", 1, "Canto superior direito"],
+    ["BL", 3, "Canto inferior esquerdo"],
+    ["BR", 2, "Canto inferior direito"],
+  ] as const;
+  if (isCornerList(radius)) {
+    const corners = [...radius];
+    const commitAt = (i: number, raw: string) => {
+      const n = num(raw);
+      if (n === undefined || n < 0) return;
+      const next = [...corners];
+      next[i] = n;
+      onChange(next);
+    };
+    return (
+      <div className="flex items-start gap-1" data-testid="radius-corners" data-state="unlinked">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1">
+          {cornerFields.map(([label, i, title]) => (
+            <div key={label} data-testid={`radius-${label.toLowerCase()}`}>
+              <Field label={label} title={title} type="number" value={corners[i]} min={0} onCommit={(v) => commitAt(i, v)} />
+            </div>
+          ))}
+        </div>
+        <Hint label="Ligar cantos">
+          <Button type="button" variant="secondary" size="icon" className="size-7 shrink-0" data-testid="radius-link" aria-label="Ligar cantos" aria-pressed onClick={() => onChange(corners[0] ?? 0)}>
+            <Unlink aria-hidden />
+          </Button>
+        </Hint>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-start gap-1" data-testid="radius-corners" data-state="linked">
+      <div className="min-w-0 flex-1">
+        <Field label="Raio" type="number" value={radius} min={0} onCommit={(v) => num(v) !== undefined && onChange(num(v)!)} />
+      </div>
+      <Hint label="Desligar cantos">
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className="size-7 shrink-0"
+          data-testid="radius-link"
+          aria-label="Desligar cantos"
+          aria-pressed={false}
+          onClick={() => onChange([radius, radius, radius, radius])}
+        >
+          <Link2 aria-hidden />
+        </Button>
+      </Hint>
+    </div>
+  );
+}
 const actions = "mx-0 my-2 flex flex-wrap gap-1.5";
 const SEVERITY: Record<string, string> = { error: "border-l-ui-primary", warning: "border-l-warn" };
 const ALIGN_OPTS = [
@@ -99,6 +166,38 @@ function structureActions(doc: Document, ids: string[], props: Pick<Props, "appl
         props.onSelectMany(released);
       }),
   };
+}
+
+function flowParent(doc: Document, node: Node): boolean {
+  const p = node.parentId ? doc.nodes[node.parentId] : undefined;
+  return p?.type === "frame" && !!p.layout && p.layout.mode !== "none";
+}
+
+function IgnoreLayoutToggle({ doc, node, set }: { doc: Document; node: Node; set: (props: Record<string, unknown>, label?: string) => void }) {
+  if (!flowParent(doc, node) || node.type === "page" || node.type === "connector") return null;
+  const on = ignoresLayout(node);
+  return (
+    <>
+      <div className="col-span-2 flex items-center justify-between gap-2 py-0.5">
+        <span className="text-sm text-ui-foreground">Ignorar layout</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label="Ignorar layout"
+          data-testid="ignore-layout"
+          className={cn(
+            "relative h-5 w-9 shrink-0 cursor-pointer rounded-full border-0 p-0.5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ring",
+            on ? "bg-ui-primary" : "bg-ui-muted",
+          )}
+          onClick={() => set({ layoutPositioning: on ? null : "absolute" }, "ignorar layout")}
+        >
+          <span aria-hidden className={cn("block size-4 rounded-full bg-white transition-transform", on && "translate-x-4")} />
+        </button>
+      </div>
+      <p className={cn(ui.muted, "col-span-2 m-0")}>{on ? "Fora do fluxo. x/y relativos ao pai." : "No fluxo: gap e hug contam este filho."}</p>
+    </>
+  );
 }
 
 const Z_LABEL: Record<"front" | "back" | "forward" | "backward", string> = {
@@ -200,12 +299,18 @@ export function Inspector(props: Props) {
           <Field label="A" type="number" value={node.height} title="número, hug ou fill" keywords={["hug", "fill"]} onCommit={(v) => size(v) !== undefined && set({ height: size(v) })} />
           <Field label="Rotação" type="number" value={node.rotation} onCommit={setNum("rotation")} />
           <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={setNum("opacity")} />
+          <IgnoreLayoutToggle doc={doc} node={node} set={set} />
         </div>
       </InspectorSection>
       <InspectorSection id="appearance" title="Preenchimento e traço">
         <div className={ui.grid}>
           <ColorField doc={doc} mode={themeMode} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />
-          {node.type !== "ellipse" && node.type !== "path" && <Field label="Raio" type="number" value={node.radius} min={0} onCommit={setNum("radius")} />}
+          {(node.type === "frame" || node.type === "rect" || node.type === "image") && (
+            <RadiusCorners radius={node.radius} onChange={(radius) => set({ radius })} />
+          )}
+          {node.type !== "ellipse" && node.type !== "path" && node.type !== "frame" && node.type !== "rect" && node.type !== "image" && (
+            <Field label="Raio" type="number" value={node.radius} min={0} onCommit={setNum("radius")} />
+          )}
           <ColorField
             doc={doc}
             mode={themeMode}
@@ -450,6 +555,7 @@ function InstancePanel({ instance: node, ...props }: Props & { instance: FrameNo
           <Field label="Rotação" type="number" value={node.rotation} onCommit={setNum("rotation")} />
           <Field label="Opacidade" type="number" value={node.opacity} min={0} max={1} onCommit={setNum("opacity")} />
           <Field label="Tamanho" value={`${node.width}×${node.height}`} onCommit={() => onError("o tamanho vem do componente; mude a escala")} />
+          <IgnoreLayoutToggle doc={doc} node={node} set={set} />
         </div>
       </InspectorSection>
       <InspectorSection id="instance-fill" title="Preenchimento">
@@ -655,6 +761,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
           <Field label="X" type="number" value={group.x} onCommit={setNum("x")} />
           <Field label="Y" type="number" value={group.y} onCommit={setNum("y")} />
           <Field label="Opacidade" type="number" value={group.opacity} min={0} max={1} onCommit={setNum("opacity")} />
+          <IgnoreLayoutToggle doc={props.doc} node={group} set={set} />
         </div>
         <p className={ui.muted}>
           {group.width} × {group.height}: a caixa segue os {group.children.length} filho(s). Duplo clique no canvas seleciona um filho.

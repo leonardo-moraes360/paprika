@@ -978,6 +978,49 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await doc()).name, POLL).toBe(demoName);
   });
 
+  it("overview: arquivar esconde o card e Arquivados restaura sem apagar", async () => {
+    const POLL = { timeout: 10_000 };
+    const { id: demo } = await doc();
+    const created = await fetch(`${url}/api/workspaces`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Para arquivar" }),
+    });
+    const extra = ((await created.json()) as { workspace: { id: string } }).workspace.id;
+    await page.goto(url);
+    const card = page.locator(`[data-workspace-id="${extra}"]`);
+    await expect.poll(() => card.count(), POLL).toBe(1);
+    await card.hover();
+    await page.getByRole("button", { name: "Arquivar Para arquivar" }).click();
+    await expect.poll(() => card.count(), POLL).toBe(0);
+    const listed = (await (await fetch(`${url}/api/workspaces`)).json()) as { workspaces: { id: string }[] };
+    expect(listed.workspaces.some((w) => w.id === extra)).toBe(false);
+    const kept = (await (await fetch(`${url}/api/workspaces?archived=1`)).json()) as { workspaces: { id: string; name: string }[] };
+    expect(kept.workspaces.find((w) => w.id === extra)?.name).toBe("Para arquivar");
+
+    await page.getByRole("button", { name: "Arquivados" }).click();
+    await expect.poll(() => page.locator(".workspace-archived").textContent(), POLL).toBe("Arquivados");
+    await expect.poll(() => card.count(), POLL).toBe(1);
+    await card.hover();
+    await page.getByRole("button", { name: "Restaurar Para arquivar" }).click();
+    await expect.poll(() => card.count(), POLL).toBe(0);
+    await page.getByRole("button", { name: "Todos" }).click();
+    await expect.poll(() => card.count(), POLL).toBe(1);
+
+    await card.hover();
+    await page.getByRole("button", { name: "Arquivar Para arquivar" }).click();
+    await page.getByRole("button", { name: "Arquivados" }).click();
+    await card.click();
+    await expect.poll(() => new URL(page.url()).pathname, POLL).toBe(`/w/${extra}`);
+    await expect.poll(async () => {
+      const after = (await (await fetch(`${url}/api/workspaces`)).json()) as { active: string; workspaces: { id: string }[] };
+      return after.active === extra && after.workspaces.some((w) => w.id === extra);
+    }, POLL).toBe(true);
+
+    await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
+    await fetch(`${url}/api/workspaces/${extra}`, { method: "DELETE" });
+  });
+
   it("páginas: renomear a Página 1 implícita cria a página com o nome, leva o conteúdo e desfaz num passo", async () => {
     const POLL = { timeout: 10_000 };
     const demo = (await doc()).id;
@@ -1479,5 +1522,76 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       const c = (await doc()).nodes["rt-c"] as { control?: { x: number; y: number }; d: string };
       return !!c.control && c.d.includes("C");
     }, POLL).toBe(true);
+  }, 30_000);
+
+  it("inspector liga e desliga o raio de cada canto", async () => {
+    const POLL = { timeout: 10_000 };
+    const id = "rc070";
+    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const created = await agent.callTool({
+      name: "create_nodes",
+      arguments: { parentId, nodes: [{ type: "rect", id, x: 48, y: 48, width: 140, height: 80, fill: "#c8401f", radius: 8 }] },
+    });
+    expect(created.isError, JSON.stringify(created.content)).toBeFalsy();
+    await page.locator(`[data-paprika-id="${id}"]`).click();
+    const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
+    if ((await appearance.getAttribute("data-state")) !== "open") await appearance.click();
+    await expect.poll(() => page.getByTestId("radius-corners").getAttribute("data-state"), POLL).toBe("linked");
+    await page.getByTestId("radius-link").click();
+    await expect.poll(async () => (await doc()).nodes[id], POLL).toMatchObject({ radius: [8, 8, 8, 8] });
+    await expect.poll(() => page.getByTestId("radius-corners").getAttribute("data-state"), POLL).toBe("unlinked");
+    const tl = page.getByTestId("radius-tl").getByRole("textbox", { name: "TL", exact: true });
+    await tl.fill("24");
+    await tl.press("Enter");
+    await expect.poll(async () => ((await doc()).nodes[id] as { radius: number[] }).radius[0], POLL).toBe(24);
+    await expect.poll(() => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).borderTopLeftRadius), POLL).toBe("24px");
+    await expect.poll(() => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).borderBottomRightRadius), POLL).toBe("8px");
+    await page.getByTestId("radius-link").click();
+    await expect.poll(async () => (await doc()).nodes[id], POLL).toMatchObject({ radius: 24 });
+  });
+
+  it("filho absoluto ignora o fluxo e o inspector alterna", async () => {
+    const POLL = { timeout: 10_000 };
+    const pageId = await page.locator(".page.is-active").getAttribute("data-page-id");
+    const made = await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        ...(pageId ? { parentId: pageId } : {}),
+        place: "none",
+        nodes: [{
+          type: "frame", id: "abs-row", name: "Abs row", x: 1400, y: 40, width: 220, height: 80, fill: "#ffffff",
+          layout: { mode: "row", gap: 8, padding: 0, align: "start" },
+          children: [
+            { type: "rect", id: "abs-a", name: "A", width: 40, height: 20, fill: "#111111" },
+            { type: "rect", id: "abs-pin", name: "Pin", width: 16, height: 16, x: 160, y: 4, fill: "#c43d27", layoutPositioning: "absolute" },
+            { type: "rect", id: "abs-b", name: "B", width: 30, height: 20, fill: "#222222" },
+          ],
+        }],
+      },
+    });
+    expect(made.isError, JSON.stringify(made.content)).toBeFalsy();
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    await page.locator('[data-layer-id="abs-row"] .layer-name').click();
+    expect(await page.getByTestId("ignore-layout").count()).toBe(0);
+    await page.locator('[data-layer-id="abs-a"] .layer-name').click();
+    const flowSwitch = page.getByTestId("ignore-layout");
+    await expect.poll(() => flowSwitch.getAttribute("aria-checked"), POLL).toBe("false");
+    await page.locator('[data-layer-id="abs-pin"] .layer-name').click();
+    const sw = page.getByTestId("ignore-layout");
+    await expect.poll(() => sw.getAttribute("aria-checked"), POLL).toBe("true");
+    const pin = page.locator('[data-paprika-id="abs-pin"]');
+    await expect.poll(() => pin.evaluate((el) => getComputedStyle(el).position), POLL).toBe("absolute");
+    const ax = (await page.locator('[data-paprika-id="abs-a"]').boundingBox())!;
+    const bx = (await page.locator('[data-paprika-id="abs-b"]').boundingBox())!;
+    const px = (await pin.boundingBox())!;
+    expect(bx.x).toBeGreaterThan(ax.x + ax.width - 2);
+    expect(px.x).toBeGreaterThan(bx.x + bx.width - 2);
+    await sw.click();
+    await expect.poll(async () => (await doc()).nodes["abs-pin"], POLL).not.toMatchObject({ layoutPositioning: "absolute" });
+    await expect.poll(() => pin.evaluate((el) => getComputedStyle(el).position), POLL).toBe("relative");
+    await sw.click();
+    await expect.poll(async () => (await doc()).nodes["abs-pin"], POLL).toMatchObject({ layoutPositioning: "absolute" });
+    await expect.poll(() => pin.evaluate((el) => getComputedStyle(el).position), POLL).toBe("absolute");
+    await agent.callTool({ name: "delete_nodes", arguments: { ids: ["abs-row"] } });
   }, 30_000);
 });

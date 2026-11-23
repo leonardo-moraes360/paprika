@@ -4,7 +4,7 @@ import { newId } from "./id.js";
 import { round4 } from "./num.js";
 import { parsePath, serializePath, translatePath, type Point, type Segment } from "./path.js";
 import { shapeOutline } from "./diagram.js";
-import { modeOf, resolveLength } from "./style.js";
+import { modeOf, resolveCorners, resolveLength, usedCornerRadii } from "./style.js";
 import type { Op } from "./ops.js";
 
 export type BooleanOp = "union" | "subtract" | "intersect" | "exclude";
@@ -130,19 +130,19 @@ function mapRing(ring: Ring, x: number, y: number, w: number, h: number, rotatio
   return cleanRing(ring.map((p) => transformLocal(p, x, y, w, h, rotation)));
 }
 
-function rectRing(w: number, h: number, radius: number): Ring {
-  if (!(radius > 0) || w < 1 || h < 1) return [{ x: 0, y: 0 }, { x: w, y: 0 }, { x: w, y: h }, { x: 0, y: h }];
-  const r = Math.min(radius, w / 2, h / 2);
+function rectRing(w: number, h: number, radii: [number, number, number, number]): Ring {
+  const [tl, tr, br, bl] = usedCornerRadii(w, h, radii);
+  if ((tl === 0 && tr === 0 && br === 0 && bl === 0) || w < 1 || h < 1) return [{ x: 0, y: 0 }, { x: w, y: 0 }, { x: w, y: h }, { x: 0, y: h }];
   const segs = flattenSegments([
-    { cmd: "M", to: { x: r, y: 0 } },
-    { cmd: "L", to: { x: w - r, y: 0 } },
-    { cmd: "A", rx: r, ry: r, rotation: 0, largeArc: false, sweep: true, to: { x: w, y: r } },
-    { cmd: "L", to: { x: w, y: h - r } },
-    { cmd: "A", rx: r, ry: r, rotation: 0, largeArc: false, sweep: true, to: { x: w - r, y: h } },
-    { cmd: "L", to: { x: r, y: h } },
-    { cmd: "A", rx: r, ry: r, rotation: 0, largeArc: false, sweep: true, to: { x: 0, y: h - r } },
-    { cmd: "L", to: { x: 0, y: r } },
-    { cmd: "A", rx: r, ry: r, rotation: 0, largeArc: false, sweep: true, to: { x: r, y: 0 } },
+    { cmd: "M", to: { x: tl, y: 0 } },
+    { cmd: "L", to: { x: w - tr, y: 0 } },
+    ...(tr ? [{ cmd: "A" as const, rx: tr, ry: tr, rotation: 0, largeArc: false, sweep: true, to: { x: w, y: tr } }] : []),
+    { cmd: "L", to: { x: w, y: h - br } },
+    ...(br ? [{ cmd: "A" as const, rx: br, ry: br, rotation: 0, largeArc: false, sweep: true, to: { x: w - br, y: h } }] : []),
+    { cmd: "L", to: { x: bl, y: h } },
+    ...(bl ? [{ cmd: "A" as const, rx: bl, ry: bl, rotation: 0, largeArc: false, sweep: true, to: { x: 0, y: h - bl } }] : []),
+    { cmd: "L", to: { x: 0, y: tl } },
+    ...(tl ? [{ cmd: "A" as const, rx: tl, ry: tl, rotation: 0, largeArc: false, sweep: true, to: { x: tl, y: 0 } }] : []),
     { cmd: "Z" },
   ]);
   return segs[0] ?? [];
@@ -341,7 +341,7 @@ function nodeGeometry(doc: Document, n: NodeT): Multi {
   const rot = n.rotation;
   const mode = modeOf(doc, n);
   if (n.type === "rect") {
-    const ring = mapRing(rectRing(w, h, resolveLength(doc, n.radius, mode) ?? 0), n.x, n.y, w, h, rot);
+    const ring = mapRing(rectRing(w, h, resolveCorners(doc, n.radius, mode)), n.x, n.y, w, h, rot);
     return ring.length >= 3 ? [{ outer: ensureCCW(ring), holes: [] }] : [];
   }
   if (n.type === "ellipse") {

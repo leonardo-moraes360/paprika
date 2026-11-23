@@ -339,23 +339,29 @@ func flattenSegments(segs []Segment) []boolRing {
 	return out
 }
 
-func rectRing(w, h, radius float64) boolRing {
-	if !(radius > 0) || w < 1 || h < 1 {
+func rectRing(w, h float64, radii [4]float64) boolRing {
+	radii = UsedCornerRadii(w, h, radii)
+	if (radii[0] == 0 && radii[1] == 0 && radii[2] == 0 && radii[3] == 0) || w < 1 || h < 1 {
 		return boolRing{{0, 0}, {w, 0}, {w, h}, {0, h}}
 	}
-	r := math.Min(radius, math.Min(w/2, h/2))
-	segs := []Segment{
-		{Cmd: 'M', To: Point{r, 0}},
-		{Cmd: 'L', To: Point{w - r, 0}},
-		{Cmd: 'A', Rx: r, Ry: r, Sweep: true, To: Point{w, r}},
-		{Cmd: 'L', To: Point{w, h - r}},
-		{Cmd: 'A', Rx: r, Ry: r, Sweep: true, To: Point{w - r, h}},
-		{Cmd: 'L', To: Point{r, h}},
-		{Cmd: 'A', Rx: r, Ry: r, Sweep: true, To: Point{0, h - r}},
-		{Cmd: 'L', To: Point{0, r}},
-		{Cmd: 'A', Rx: r, Ry: r, Sweep: true, To: Point{r, 0}},
-		{Cmd: 'Z'},
+	tl, tr, br, bl := radii[0], radii[1], radii[2], radii[3]
+	segs := []Segment{{Cmd: 'M', To: Point{tl, 0}}, {Cmd: 'L', To: Point{w - tr, 0}}}
+	if tr > 0 {
+		segs = append(segs, Segment{Cmd: 'A', Rx: tr, Ry: tr, Sweep: true, To: Point{w, tr}})
 	}
+	segs = append(segs, Segment{Cmd: 'L', To: Point{w, h - br}})
+	if br > 0 {
+		segs = append(segs, Segment{Cmd: 'A', Rx: br, Ry: br, Sweep: true, To: Point{w - br, h}})
+	}
+	segs = append(segs, Segment{Cmd: 'L', To: Point{bl, h}})
+	if bl > 0 {
+		segs = append(segs, Segment{Cmd: 'A', Rx: bl, Ry: bl, Sweep: true, To: Point{0, h - bl}})
+	}
+	segs = append(segs, Segment{Cmd: 'L', To: Point{0, tl}})
+	if tl > 0 {
+		segs = append(segs, Segment{Cmd: 'A', Rx: tl, Ry: tl, Sweep: true, To: Point{tl, 0}})
+	}
+	segs = append(segs, Segment{Cmd: 'Z'})
 	rings := flattenSegments(segs)
 	if len(rings) == 0 {
 		return nil
@@ -472,10 +478,10 @@ func nodeGeometry(doc *Document, n *Node) boolMulti {
 	x, y := n.Num("x"), n.Num("y")
 	mode := ModeOf(doc, n)
 	radiusRaw, _ := n.Get("radius")
-	radius, _ := ResolveLength(doc, radiusRaw, mode)
+	radii := ResolveCorners(doc, radiusRaw, mode)
 	switch typ {
 	case "rect":
-		ring := mapRingLocal(rectRing(w, h, radius), x, y, w, h, rot)
+		ring := mapRingLocal(rectRing(w, h, radii), x, y, w, h, rot)
 		if len(ring) >= 3 {
 			return boolMulti{{Outer: ensureCCW(ring)}}
 		}

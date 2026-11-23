@@ -598,6 +598,28 @@ Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states 
 - Drew on active `Paprica · UI` / page `interfaces` without `open_workspace` after querying the maintainer about the name mismatch.
 - Canvas DnD only touches `Canvas.tsx`; Layers HTML5 DnD in `Layers.tsx`; E2E in `drag.e2e.test.ts`.
 
+## 2026-11-23: absolute child in auto-layout (PAP-B-069, design first)
+
+Task: draw the inspector "Ignorar layout" switch (off, on, dark) and a row with a badge sitting on its own x/y, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`), before adding `layoutPositioning`. Four fixed-size frames; PNGs in `docs/assets/boards/PAP-B-069/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 117 | Brand red as text on the night background | `$ui.primary` (`#c8401f`) on `$ui.bg` is 3.54:1, so the dark kickers failed `lint_design` until the ink became `#ffd2c9` | A light ink token for the brand red on night surfaces (the light mode already passes) | P2 |
+| 118 | Screenshot files land in the repo | `render_screenshot` `path` writes under the server volume (`/data/screenshots/...`) and returns that path plus `/api/screenshot/<id>`; the PR still copies the PNG with curl | Document that `path` is relative to the server screenshot directory, or accept a path inside an allowlisted host directory | P3 |
+
+- Addressed the workspace by id from `list_workspaces`. Did not call `open_workspace`. Used the existing page `interfaces` (a second page is also named Interfaces).
+- The behavior frame is a mock: the live server does not accept `layoutPositioning` yet, so the badge is a sibling placed by x/y, not a real absolute child of the row.
+- `lint_design` on the four roots: 0 errors and 0 warnings after shortening the on-state hint and letting the field mocks hug.
+
+## 2026-11-23: corner radius per corner (PAP-B-070, design first)
+
+Task: draw the linked and unlinked corner controls, plus a sample card, on page `Interfaces` of workspace `Paprica · UI` (`workspaceId`, no `open_workspace`) before implementing `radius` as one length or `[tl, tr, br, bl]`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 117 | Screenshot one frame | `render_screenshot` takes `rootId`. Passing `id` is ignored and the tool returns the first page (here, the PAP-B-046 "clamp dark" frame) with no error | Reject unknown argument names, or document `rootId` in the error when the caller sends `id` | P3 |
+| 118 | Preview four different corners on the live server | `create_nodes` with `radius: [1, 2, 3, 4]` failed: `expected number, received array`. The sample had to be a path until this change shipped | The running server only learns the new radius after this build | — |
+
 ## 2026-11-23: agent pins design (design first, cloud thread)
 
 Task: draw the proposal for "point at an element or area and tell the agent what to do" (5 boards: canvas, composer, panel, MCP contract, flow), first on a cloud `paprika serve`, then on the maintainer's local Paprika in `Paprica · UI` (new page, `workspaceId` on every write, active workspace untouched). PNGs in `docs/assets/boards/agent-pins/`.
@@ -611,3 +633,16 @@ Task: draw the proposal for "point at an element or area and tell the agent what
 
 - `workspaceId` on `create_page`/`create_nodes` worked well: the boards went into `Paprica · UI` while the canvas stayed on the maintainer's active workspace.
 - `create_page {ensure: true}` + `place: "free"` placed five boards with no overlap and no manual coordinates.
+
+## 2026-11-23: archive workspaces (PAP-B-071, design first)
+
+Task: draw the overview archive action and the Archived filter (dark English, dark archived, light Portuguese) on `Interfaces` of `Paprica · UI` (`cmio9n368k`, page `interfaces`) before implementing archive/unarchive. Four fixed-height frames at x=6400; PNGs under `docs/assets/boards/PAP-B-071/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 122 | The UI board named in the ticket | The assign payload said `Paprika - UI`. The live workspace is `Paprica · UI`. A supervisor correction arrived after the claim | Pin the workspace id in the assign payload (same as #110) | P3 |
+| 123 | A free spot on `Interfaces` | `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0 even though the page already holds many frames, so `place: "free"` was not usable | The page content box should include its child frames | P2 |
+| 124 | MCP during a server restart | The first calls returned an empty body while `:4777` was restarting; a short retry then listed the workspaces | Keep the restart note on the ticket; clients should retry an empty response | P3 |
+
+- Addressed the board by `workspaceId` and did not call `open_workspace`.
+- `lint_design` flagged a Portuguese action row overflowing a 300px card (`layout-overflow`); widening that card to 360 cleared it.

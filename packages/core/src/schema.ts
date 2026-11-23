@@ -36,6 +36,8 @@ function lengthValue(min?: number, max?: number) {
 }
 
 const padLength = lengthValue(0);
+const cornerLength = lengthValue(0);
+const cornerRadius = z.union([cornerLength, z.tuple([cornerLength, cornerLength, cornerLength, cornerLength])]).default(0);
 
 export const StrokeStyle = z.enum(["solid", "dashed", "dotted"]);
 export const StrokePosition = z.enum(["inside", "center", "outside"]);
@@ -76,6 +78,7 @@ const Base = {
   opacity: z.number().min(0).max(1).default(1),
   visible: z.boolean().default(true),
   locked: z.boolean().default(false),
+  layoutPositioning: z.enum(["auto", "absolute"]).optional(),
   fill: ColorValue.optional(),
   stroke: Stroke.optional(),
   radius: lengthValue(0).default(0),
@@ -101,6 +104,7 @@ export const Overrides = z.record(OverrideSource, z.record(OverrideField, z.unkn
 
 export const FrameNode = z.object({
   ...Base,
+  radius: cornerRadius,
   type: z.literal("frame"),
   children: z.array(z.string()).default([]),
   clip: z.boolean().default(true),
@@ -119,7 +123,7 @@ export const FrameNode = z.object({
   scaledMock: z.boolean().optional(),
 });
 
-export const RectNode = z.object({ ...Base, type: z.literal("rect") });
+export const RectNode = z.object({ ...Base, radius: cornerRadius, type: z.literal("rect") });
 export const EllipseNode = z.object({ ...Base, type: z.literal("ellipse") });
 
 const TextFontFamily = z
@@ -143,6 +147,7 @@ export const TextNode = z.object({
 
 export const ImageNode = z.object({
   ...Base,
+  radius: cornerRadius,
   type: z.literal("image"),
   src: z
     .string()
@@ -232,6 +237,7 @@ export const ConnectorNode = z.object({
   notes: Base.notes,
   sourceId: Base.sourceId,
   lintIgnore: Base.lintIgnore,
+  layoutPositioning: Base.layoutPositioning,
   from: ConnectorEnd,
   to: ConnectorEnd,
   route: z.enum(["straight", "elbow", "rounded", "curve"]).default("straight"),
@@ -273,6 +279,7 @@ export const GroupNode = z.object({
   notes: Base.notes,
   sourceId: Base.sourceId,
   lintIgnore: Base.lintIgnore,
+  layoutPositioning: Base.layoutPositioning,
   children: z.array(z.string()).default([]),
 });
 
@@ -365,6 +372,10 @@ export function isContainer(n: Node | undefined): n is ContainerNode {
 
 export function isScene(n: Node | undefined): n is SceneNode {
   return !!n && n.type !== "page";
+}
+
+export function ignoresLayout(n: Node): boolean {
+  return "layoutPositioning" in n && n.layoutPositioning === "absolute";
 }
 
 /** Primeira página do documento (o documento tem páginas quando o primeiro nó de topo é uma). */

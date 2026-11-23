@@ -19,6 +19,31 @@ func svgLen(doc *Document, n *Node, v any) float64 {
 	return 0
 }
 
+func roundedRectD(x, y, w, h float64, radii [4]float64, f func(float64) string) string {
+	tl, tr, br, bl := radii[0], radii[1], radii[2], radii[3]
+	parts := []string{
+		fmt.Sprintf("M%s %s", f(x+tl), f(y)),
+		fmt.Sprintf("L%s %s", f(x+w-tr), f(y)),
+	}
+	if tr != 0 {
+		parts = append(parts, fmt.Sprintf("A%s %s 0 0 1 %s %s", f(tr), f(tr), f(x+w), f(y+tr)))
+	}
+	parts = append(parts, fmt.Sprintf("L%s %s", f(x+w), f(y+h-br)))
+	if br != 0 {
+		parts = append(parts, fmt.Sprintf("A%s %s 0 0 1 %s %s", f(br), f(br), f(x+w-br), f(y+h)))
+	}
+	parts = append(parts, fmt.Sprintf("L%s %s", f(x+bl), f(y+h)))
+	if bl != 0 {
+		parts = append(parts, fmt.Sprintf("A%s %s 0 0 1 %s %s", f(bl), f(bl), f(x), f(y+h-bl)))
+	}
+	parts = append(parts, fmt.Sprintf("L%s %s", f(x), f(y+tl)))
+	if tl != 0 {
+		parts = append(parts, fmt.Sprintf("A%s %s 0 0 1 %s %s", f(tl), f(tl), f(x+tl), f(y)))
+	}
+	parts = append(parts, "Z")
+	return strings.Join(parts, " ")
+}
+
 // MeasureLine is one laid-out text line, relative to the node box (baseline y).
 type MeasureLine struct {
 	T string  `json:"t"`
@@ -387,20 +412,41 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 			insetBy = -sw / 2
 		}
 		inset := fmt.Sprintf(`x="%s" y="%s" width="%s" height="%s"`, f(insetBy), f(insetBy), f(math.Max(0, w-insetBy*2)), f(math.Max(0, h-insetBy*2)))
-		r := 0.0
-		if typ != "ellipse" && typ != "path" {
+		var boxRadius [4]float64
+		hasBox := typ != "ellipse" && typ != "path"
+		if hasBox {
 			rv, _ := n.Get("radius")
-			r = math.Min(svgLen(doc, n, rv), math.Min(w/2, h/2))
+			boxRadius = UsedCornerRadii(w, h, ResolveCorners(doc, rv, ModeOf(doc, n)))
+		}
+		even := !hasBox || (boxRadius[0] == boxRadius[1] && boxRadius[1] == boxRadius[2] && boxRadius[2] == boxRadius[3])
+		r := 0.0
+		if even {
+			r = boxRadius[0]
 		}
 		radius, clipRadius := "", ""
 		if r != 0 && !math.IsNaN(r) {
 			radius = fmt.Sprintf(` rx="%s"`, f(math.Max(0, r-insetBy)))
 			clipRadius = fmt.Sprintf(` rx="%s"`, f(r))
 		}
+		clipDef := func(clipID string) string {
+			if even {
+				return fmt.Sprintf(`<clipPath id="%s"><rect width="%s" height="%s"%s/></clipPath>`, clipID, f(w), f(h), clipRadius)
+			}
+			return fmt.Sprintf(`<clipPath id="%s"><path d="%s"/></clipPath>`, clipID, roundedRectD(0, 0, w, h, boxRadius, f))
+		}
 		var body strings.Builder
 		switch typ {
 		case "frame", "rect", "text", "image":
-			if (hasFill && fill != "") || sw != 0 {
+			if !even {
+				insetR := boxRadius
+				for i := range insetR {
+					insetR[i] = math.Max(0, boxRadius[i]-insetBy)
+				}
+				d := roundedRectD(insetBy, insetBy, math.Max(0, w-insetBy*2), math.Max(0, h-insetBy*2), insetR, f)
+				if (hasFill && fill != "") || sw != 0 || shadowAttr != "" {
+					fmt.Fprintf(&body, `<path d="%s"%s%s%s/>`, d, fillAttr, strokeAttr, shadowAttr)
+				}
+			} else if (hasFill && fill != "") || sw != 0 {
 				fmt.Fprintf(&body, `<rect %s%s%s%s%s/>`, inset, radius, fillAttr, strokeAttr, shadowAttr)
 			} else if shadowAttr != "" {
 				fmt.Fprintf(&body, `<rect width="%s" height="%s"%s fill="none"%s/>`, f(w), f(h), radius, shadowAttr)
@@ -487,9 +533,8 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 				fit = "xMidYMid meet"
 			}
 			src := EscapeHTML(n.Str("src"))
-			clipR, _ := n.Get("radius")
-			if svgLen(doc, n, clipR) != 0 {
-				defs += fmt.Sprintf(`<clipPath id="clip-%s"><rect width="%s" height="%s"%s/></clipPath>`, id, f(w), f(h), clipRadius)
+			if boxRadius[0] > 0 || boxRadius[1] > 0 || boxRadius[2] > 0 || boxRadius[3] > 0 {
+				defs += clipDef("clip-" + id)
 				fmt.Fprintf(&body, `<image href="%s" width="%s" height="%s" preserveAspectRatio="%s" clip-path="url(#clip-%s)"/>`, src, f(w), f(h), fit, id)
 			} else {
 				fmt.Fprintf(&body, `<image href="%s" width="%s" height="%s" preserveAspectRatio="%s"/>`, src, f(w), f(h), fit)
@@ -501,7 +546,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 				return "", err
 			}
 			if n.Bool("clip") && inner != "" {
-				defs += fmt.Sprintf(`<clipPath id="clip-%s"><rect width="%s" height="%s"%s/></clipPath>`, id, f(w), f(h), clipRadius)
+				defs += clipDef("clip-" + id)
 				fmt.Fprintf(&body, `<g clip-path="url(#clip-%s)">%s</g>`, id, inner)
 			} else {
 				body.WriteString(inner)
