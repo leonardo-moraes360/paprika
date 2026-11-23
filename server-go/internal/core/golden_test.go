@@ -116,6 +116,14 @@ func TestGoldenStructure(t *testing.T) {
 			ops, released, err = UngroupOps(d, args.Strings("ids"))
 		case "combine":
 			ops, id, err = CombinePathsOps(d, args.Strings("ids"), BooleanOperation(args.Str("operation")), args.Str("id"), args.Str("name"))
+		case "align":
+			ops, err = AlignOps(d, args.Strings("ids"), args.Str("edge"))
+		case "distribute":
+			ops, err = DistributeOps(d, args.Strings("ids"), args.Str("axis"))
+		case "wrap":
+			ops, id, err = WrapOps(d, args.Strings("ids"), args.Str("id"), args.Str("name"))
+		case "reveal":
+			ops, released, err = RevealOps(d, args.Str("kind"), args.Str("pageId"))
 		default:
 			ops, id = AddPageOps(d, args.Str("id"), args.Str("name"), args.Str("firstId"), "")
 		}

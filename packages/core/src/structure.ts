@@ -4,7 +4,8 @@ import type { PlaceSpec } from "./placement.js";
 import { newId } from "./id.js";
 import { defaultPageName } from "./names.js";
 import { copyOwner, scaleGeometry } from "./component.js";
-import { firstPage, isContainer, isScene, type Document, type Node as NodeT } from "./schema.js";
+import { layout } from "./layout.js";
+import { firstPage, isContainer, isScene, type Document, type Node as NodeT, type SceneNode } from "./schema.js";
 
 /**
  * Operações compostas (grupos e páginas). Cada função só *gera* operações primitivas
@@ -16,6 +17,207 @@ function siblingsOf(doc: Document, parentId: string | null): string[] {
   if (parentId === null) return doc.rootIds;
   const p = doc.nodes[parentId];
   return isContainer(p) ? p.children : [];
+}
+
+const ARRANGE_EPS = 1e-3;
+
+export type AlignEdge = "left" | "center" | "right" | "top" | "middle" | "bottom";
+export type DistributeAxis = "horizontal" | "vertical";
+export type RevealKind = "hidden" | "locked";
+
+/** Caixa (sem rotação do pai) de um nó dentro do pai: considera a própria rotação em torno do centro. */
+export function localBox(n: NodeT, size?: { width: number; height: number }): { minX: number; minY: number; maxX: number; maxY: number } {
+  if (!isScene(n)) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+  const w = size?.width ?? (typeof n.width === "number" ? n.width : 0);
+  const h = size?.height ?? (typeof n.height === "number" ? n.height : 0);
+  const rotation = n.type === "group" || n.type === "connector" ? 0 : n.rotation;
+  if (!rotation) return { minX: n.x, minY: n.y, maxX: n.x + w, maxY: n.y + h };
+  const rad = (rotation * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
+  const hw = (w * cos + h * sin) / 2;
+  const hh = (w * sin + h * cos) / 2;
+  const cx = n.x + w / 2;
+  const cy = n.y + h / 2;
+  return { minX: cx - hw, minY: cy - hh, maxX: cx + hw, maxY: cy + hh };
+}
+
+type ArrangeAction = "align" | "distribute" | "wrap";
+
+function siblingSelection(doc: Document, ids: readonly string[], action: ArrangeAction, min: number): SceneNode[] {
+  if (ids.length < min) {
+    const noun = min === 1 ? "one id" : `${min} ids`;
+    throw new Error(`pass at least ${noun} to ${action}`);
+  }
+  const unique = [...new Set(ids)];
+  if (unique.length < min) {
+    const noun = min === 1 ? "one id" : `${min} ids`;
+    throw new Error(`pass at least ${noun} to ${action}`);
+  }
+  const missing = unique.filter((id) => !doc.nodes[id]);
+  if (missing.length) throw new Error(`nodes do not exist: ${missing.join(", ")}`);
+  const nodes: SceneNode[] = [];
+  for (const id of unique) {
+    const n = doc.nodes[id]!;
+    if (!isScene(n)) throw new Error(`"${n.id}" is a page`);
+    if (n.type === "connector") throw new Error(`"${n.id}" is a connector; its position follows its ends`);
+    const owner = copyOwner(doc, n);
+    if (owner) throw new Error(`"${n.id}" is a copy inside the instance "${owner.id}"; edit the instance instead`);
+    nodes.push(n);
+  }
+  const parentId = nodes[0]!.parentId;
+  const other = nodes.find((n) => n.parentId !== parentId);
+  if (other)
+    throw new Error(
+      `only nodes with the same parent can be ${action === "align" ? "aligned" : action === "distribute" ? "distributed" : "wrapped"} ("${other.id}" is in ${other.parentId ?? "canvas"}, "${nodes[0]!.id}" in ${parentId ?? "canvas"})`,
+    );
+  const parent = parentId ? doc.nodes[parentId] : undefined;
+  if (parent?.type === "frame" && parent.layout && parent.layout.mode !== "none")
+    throw new Error(
+      `"${parent.id}" has layout ${parent.layout.mode}: its children follow the flow and cannot be ${action === "align" ? "aligned" : action === "distribute" ? "distributed" : "wrapped"}; set the layout to none`,
+    );
+  return nodes;
+}
+
+function boxesOf(doc: Document, nodes: readonly SceneNode[]): Map<string, { minX: number; minY: number; maxX: number; maxY: number }> {
+  const need = nodes.filter((n) => typeof n.width !== "number" || typeof n.height !== "number").map((n) => n.id);
+  const laid = need.length ? layout(doc, { ids: need }) : {};
+  const out = new Map<string, { minX: number; minY: number; maxX: number; maxY: number }>();
+  for (const n of nodes) {
+    const w = typeof n.width === "number" ? n.width : laid[n.id]?.width;
+    const h = typeof n.height === "number" ? n.height : laid[n.id]?.height;
+    if (w === undefined || h === undefined) throw new Error(`"${n.id}" has no numeric width or height`);
+    out.set(n.id, localBox(n, { width: w, height: h }));
+  }
+  return out;
+}
+
+export function alignOps(doc: Document, ids: readonly string[], edge: AlignEdge): { ops: Op[] } {
+  if (!["left", "center", "right", "top", "middle", "bottom"].includes(edge))
+    throw new Error("edge must be left, center, right, top, middle or bottom");
+  const nodes = siblingSelection(doc, ids, "align", 2);
+  const boxes = boxesOf(doc, nodes);
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of nodes) {
+    const b = boxes.get(n.id)!;
+    minX = Math.min(minX, b.minX);
+    minY = Math.min(minY, b.minY);
+    maxX = Math.max(maxX, b.maxX);
+    maxY = Math.max(maxY, b.maxY);
+  }
+  const ops: Op[] = [];
+  const horizontal = edge === "left" || edge === "center" || edge === "right";
+  for (const n of nodes) {
+    const b = boxes.get(n.id)!;
+    const delta =
+      edge === "left" ? minX - b.minX
+      : edge === "right" ? maxX - b.maxX
+      : edge === "center" ? (minX + maxX) / 2 - (b.minX + b.maxX) / 2
+      : edge === "top" ? minY - b.minY
+      : edge === "bottom" ? maxY - b.maxY
+      : (minY + maxY) / 2 - (b.minY + b.maxY) / 2;
+    const next = round4((horizontal ? n.x : n.y) + delta);
+    if (Math.abs(next - (horizontal ? n.x : n.y)) < ARRANGE_EPS) continue;
+    ops.push({ op: "update", id: n.id, props: horizontal ? { x: next } : { y: next } });
+  }
+  return { ops };
+}
+
+export function distributeOps(doc: Document, ids: readonly string[], axis: DistributeAxis): { ops: Op[] } {
+  if (axis !== "horizontal" && axis !== "vertical") throw new Error("axis must be horizontal or vertical");
+  const nodes = siblingSelection(doc, ids, "distribute", 3);
+  const boxes = boxesOf(doc, nodes);
+  const siblings = siblingsOf(doc, nodes[0]!.parentId);
+  const items = nodes
+    .map((n) => ({ n, box: boxes.get(n.id)! }))
+    .sort((a, b) => {
+      const ka = axis === "horizontal" ? a.box.minX : a.box.minY;
+      const kb = axis === "horizontal" ? b.box.minX : b.box.minY;
+      if (ka !== kb) return ka - kb;
+      return siblings.indexOf(a.n.id) - siblings.indexOf(b.n.id);
+    });
+  const first = axis === "horizontal" ? items[0]!.box.minX : items[0]!.box.minY;
+  const last = axis === "horizontal" ? items[items.length - 1]!.box.maxX : items[items.length - 1]!.box.maxY;
+  const sum = items.reduce((s, it) => s + ((axis === "horizontal" ? it.box.maxX - it.box.minX : it.box.maxY - it.box.minY)), 0);
+  const gap = (last - first - sum) / (items.length - 1);
+  let cursor = first;
+  const ops: Op[] = [];
+  for (const it of items) {
+    const size = axis === "horizontal" ? it.box.maxX - it.box.minX : it.box.maxY - it.box.minY;
+    const edge = axis === "horizontal" ? it.box.minX : it.box.minY;
+    const next = round4((axis === "horizontal" ? it.n.x : it.n.y) + (cursor - edge));
+    if (Math.abs(next - (axis === "horizontal" ? it.n.x : it.n.y)) >= ARRANGE_EPS)
+      ops.push({ op: "update", id: it.n.id, props: axis === "horizontal" ? { x: next } : { y: next } });
+    cursor += size + gap;
+  }
+  return { ops };
+}
+
+export function wrapOps(doc: Document, ids: readonly string[], opts: { id?: string; name?: string } = {}): { ops: Op[]; id: string } {
+  const nodes = siblingSelection(doc, ids, "wrap", 1);
+  const boxes = boxesOf(doc, nodes);
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of nodes) {
+    const b = boxes.get(n.id)!;
+    minX = Math.min(minX, b.minX);
+    minY = Math.min(minY, b.minY);
+    maxX = Math.max(maxX, b.maxX);
+    maxY = Math.max(maxY, b.maxY);
+  }
+  minX = round4(minX);
+  minY = round4(minY);
+  const w = round4(maxX - minX);
+  const h = round4(maxY - minY);
+  const parentId = nodes[0]!.parentId;
+  const siblings = siblingsOf(doc, parentId);
+  const ordered = [...nodes].sort((a, b) => siblings.indexOf(a.id) - siblings.indexOf(b.id));
+  const top = siblings.indexOf(ordered[ordered.length - 1]!.id);
+  const id = opts.id ?? newId();
+  const frames = Object.values(doc.nodes).filter((n) => n.type === "frame").length;
+  const name = opts.name || `Frame ${frames + 1}`;
+  const ops: Op[] = [
+    {
+      op: "create",
+      parentId,
+      index: top + 1,
+      node: { type: "frame", id, name, x: minX, y: minY, width: w, height: h, fill: "transparent", clip: false },
+    },
+  ];
+  for (const n of ordered) {
+    ops.push({ op: "move", id: n.id, parentId: id });
+    ops.push({ op: "update", id: n.id, props: { x: round4(n.x - minX), y: round4(n.y - minY) } });
+  }
+  return { ops, id };
+}
+
+export function revealOps(doc: Document, kind: RevealKind, pageId?: string): { ops: Op[]; ids: string[] } {
+  if (kind !== "hidden" && kind !== "locked") throw new Error("kind must be hidden or locked");
+  let start: string[];
+  if (pageId !== undefined) {
+    const page = doc.nodes[pageId];
+    if (page?.type !== "page") throw new Error(`page "${pageId}" does not exist`);
+    start = page.children;
+  } else start = doc.rootIds;
+  const ids: string[] = [];
+  const ops: Op[] = [];
+  const walk = (list: readonly string[]) => {
+    for (const id of list) {
+      const n = doc.nodes[id];
+      if (!n) continue;
+      if (isScene(n)) {
+        if (kind === "hidden" && n.visible === false) {
+          ops.push({ op: "update", id, props: { visible: true } });
+          ids.push(id);
+        } else if (kind === "locked" && n.locked && !copyOwner(doc, n)) {
+          ops.push({ op: "update", id, props: { locked: false } });
+          ids.push(id);
+        }
+      }
+      if (isContainer(n)) walk(n.children);
+    }
+  };
+  walk(start);
+  return { ops, ids };
 }
 
 export interface GroupPlan {

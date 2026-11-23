@@ -1,7 +1,23 @@
 import { useState } from "react";
-import { Bot, Link2, Unlink } from "lucide-react";
 import {
+  AlignHorizontalJustifyCenter,
+  AlignHorizontalJustifyEnd,
+  AlignHorizontalJustifyStart,
+  AlignHorizontalSpaceBetween,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyEnd,
+  AlignVerticalJustifyStart,
+  AlignVerticalSpaceBetween,
+  Bot,
+  Frame,
+  Link2,
+  Unlink,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  alignOps,
   copyOwner,
+  distributeOps,
   groupOps,
   ignoresLayout,
   isInstance,
@@ -9,6 +25,8 @@ import {
   newId,
   modeOf,
   ungroupOps,
+  wrapOps,
+  type AlignEdge,
   type ConnectorEnd,
   type ConnectorNode,
   type Document,
@@ -142,6 +160,49 @@ interface Props {
   onError(message: string): void;
 }
 
+const ALIGN_EDGES: { edge: AlignEdge; labelKey: "alignLeft" | "alignCenter" | "alignRight" | "alignTop" | "alignMiddle" | "alignBottom"; icon: LucideIcon }[] = [
+  { edge: "left", labelKey: "alignLeft", icon: AlignHorizontalJustifyStart },
+  { edge: "center", labelKey: "alignCenter", icon: AlignHorizontalJustifyCenter },
+  { edge: "right", labelKey: "alignRight", icon: AlignHorizontalJustifyEnd },
+  { edge: "top", labelKey: "alignTop", icon: AlignVerticalJustifyStart },
+  { edge: "middle", labelKey: "alignMiddle", icon: AlignVerticalJustifyCenter },
+  { edge: "bottom", labelKey: "alignBottom", icon: AlignVerticalJustifyEnd },
+];
+
+function AlignSection({ ids, doc, apply, onError }: { ids: string[]; doc: Document; apply: Props["apply"]; onError: Props["onError"] }) {
+  const m = useT();
+  const run = (f: () => void) => {
+    try {
+      f();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  return (
+    <InspectorSection id="align" title={m.alignSection} defaultOpen>
+      <div className={actions} data-testid="align-actions">
+        {ALIGN_EDGES.map(({ edge, labelKey, icon: Icon }) => (
+          <Hint key={edge} label={m[labelKey]}>
+            <Button type="button" variant="secondary" size="icon" className="size-7" aria-label={m[labelKey]} data-testid={`align-${edge}`} onClick={() => run(() => { if (alignOps(doc, ids, edge).ops.length) apply([{ op: "align", ids, edge }], m[labelKey]); })}>
+              <Icon aria-hidden />
+            </Button>
+          </Hint>
+        ))}
+        <Hint label={m.distributeHorizontal}>
+          <Button type="button" variant="secondary" size="icon" className="size-7" aria-label={m.distributeHorizontal} data-testid="distribute-horizontal" disabled={ids.length < 3} onClick={() => run(() => { if (distributeOps(doc, ids, "horizontal").ops.length) apply([{ op: "distribute", ids, axis: "horizontal" }], m.distributeHorizontal); })}>
+            <AlignHorizontalSpaceBetween aria-hidden />
+          </Button>
+        </Hint>
+        <Hint label={m.distributeVertical}>
+          <Button type="button" variant="secondary" size="icon" className="size-7" aria-label={m.distributeVertical} data-testid="distribute-vertical" disabled={ids.length < 3} onClick={() => run(() => { if (distributeOps(doc, ids, "vertical").ops.length) apply([{ op: "distribute", ids, axis: "vertical" }], m.distributeVertical); })}>
+            <AlignVerticalSpaceBetween aria-hidden />
+          </Button>
+        </Hint>
+      </div>
+    </InspectorSection>
+  );
+}
+
 function structureActions(doc: Document, ids: string[], props: Pick<Props, "apply" | "onSelectMany" | "onError">) {
   const run = (f: () => void) => {
     try {
@@ -165,6 +226,13 @@ function structureActions(doc: Document, ids: string[], props: Pick<Props, "appl
         const { released } = ungroupOps(doc, groups);
         props.apply([{ op: "ungroup", ids: groups }], "desagrupar");
         props.onSelectMany(released);
+      }),
+    wrap: () =>
+      run(() => {
+        const id = newId();
+        wrapOps(doc, ids);
+        props.apply([{ op: "wrap", ids, id }], "envolver em frame");
+        props.onSelectMany([id]);
       }),
   };
 }
@@ -264,7 +332,14 @@ export function Inspector(props: Props) {
               </Button>
             </Hint>
           )}
+          <Hint label={`${m.wrapInFrame} (Ctrl+Alt+G)`}>
+            <Button type="button" variant="default" size="sm" data-testid="wrap-frame" onClick={a.wrap}>
+              <Frame aria-hidden />
+              {m.wrapInFrame}
+            </Button>
+          </Hint>
         </div>
+        <AlignSection ids={selected} doc={doc} apply={apply} onError={props.onError} />
         <ArrangeSection ids={selected} apply={apply} />
         <p className={ui.muted}>{m.multiSelectionHint}</p>
       </div>
