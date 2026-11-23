@@ -122,7 +122,7 @@ func renderNode(doc *Document, node *Node, asRoot, vars bool, emit styleEmitter,
 		}
 		return "<div " + attrs + ">" + kids.String() + "</div>"
 	case "text":
-		return "<div " + attrs + ">" + EscapeHTML(node.Str("text")) + "</div>"
+		return "<div " + attrs + ">" + richText(doc, node, vars, false) + "</div>"
 	case "image":
 		return "<img " + attrs + ` src="` + EscapeHTML(node.Str("src")) + `" alt="` + EscapeHTML(node.Str("alt")) + `">`
 	case "path":
@@ -258,6 +258,42 @@ func jsxText(s string) string {
 	return strings.ReplaceAll(s, "\n", `{'\n'}`)
 }
 
+func richText(doc *Document, node *Node, vars, jsx bool) string {
+	runs := node.Arr("runs")
+	if len(runs) == 0 {
+		if jsx {
+			return jsxText(node.Str("text"))
+		}
+		return EscapeHTML(node.Str("text"))
+	}
+	var b strings.Builder
+	for _, p := range TextPieces(node.Str("text"), runs) {
+		body := EscapeHTML(p.Text)
+		if jsx {
+			body = jsxText(p.Text)
+		}
+		if p.Run == nil {
+			b.WriteString(body)
+			continue
+		}
+		css := TextRunCSS(doc, node, p.Run, vars)
+		style := ` style="` + EscapeHTML(CSSToString(css)) + `"`
+		if jsx {
+			style = " style=" + jsxStyle(css)
+		}
+		if href, ok := p.Run.Get("href"); ok {
+			if jsx {
+				b.WriteString("<a href=" + jsonv.Quote(jsString(href)) + style + ">" + body + "</a>")
+			} else {
+				b.WriteString(`<a href="` + EscapeHTML(jsString(href)) + `"` + style + ">" + body + "</a>")
+			}
+			continue
+		}
+		b.WriteString("<span" + style + ">" + body + "</span>")
+	}
+	return b.String()
+}
+
 func jsxAttrs(attrs []Attr) string {
 	var b strings.Builder
 	for _, a := range attrs {
@@ -296,7 +332,7 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, e
 		}
 		return indent + "<div" + name + style + " />"
 	case "text":
-		return indent + "<div" + name + style + ">" + jsxText(node.Str("text")) + "</div>"
+		return indent + "<div" + name + style + ">" + richText(doc, node, vars, true) + "</div>"
 	case "image":
 		return indent + "<img" + name + style + " src=" + jsonv.Quote(node.Str("src")) + " alt=" + jsonv.Quote(node.Str("alt")) + " />"
 	case "path":

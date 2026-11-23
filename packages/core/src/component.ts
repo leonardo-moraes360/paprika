@@ -16,7 +16,7 @@ import { round4 } from "./num.js";
  */
 
 /** Campos de uma cópia que podem ser trocados numa instância. */
-export const COPY_OVERRIDES = ["fill", "color", "text", "src", "alt", "visible", "opacity"] as const;
+export const COPY_OVERRIDES = ["fill", "color", "text", "src", "alt", "visible", "opacity", "runs"] as const;
 /** Campos da raiz da instância que vêm do componente (só `fill` aceita override). */
 export const ROOT_DERIVED = ["fill", "stroke", "radius", "shadow", "outline", "filter", "backdropFilter", "layout", "clip", "width", "height"] as const;
 
@@ -108,6 +108,14 @@ export function scaleGeometry(n: Record<string, unknown>, s: number, withPositio
     if (!(k in n)) continue;
     const v = n[k];
     n[k] = k === "radius" && Array.isArray(v) ? v.map(sc) : sc(v);
+  }
+  if (Array.isArray(n.runs)) {
+    n.runs = n.runs.map((item) => {
+      if (!item || typeof item !== "object") return item;
+      const run = { ...(item as Record<string, unknown>) };
+      if ("fontSize" in run) run.fontSize = sc(run.fontSize);
+      return run;
+    });
   }
   const stroke = n.stroke as Record<string, unknown> | undefined;
   if (stroke) n.stroke = { ...stroke, width: sc(stroke.width) };

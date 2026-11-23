@@ -75,6 +75,83 @@ export function measureText(
   return { width: round4(width), height: round4(lines.length * lineH), lines: lines.length };
 }
 
+export interface RichSpan {
+  start: number;
+  end: number;
+  fontSize: number;
+  fontWeight: number;
+}
+
+function advanceOf(fontSize: number, fontWeight: number): number {
+  return FONT_AVG * fontSize * (1 + (fontWeight - 400) / 4000);
+}
+
+/** Same box as `measureText` when every run uses the base size and weight. Indexes are UTF-16. */
+export function measureRichText(
+  text: string,
+  fontSize: number,
+  opts: { fontWeight?: number; lineHeight?: number; letterSpacing?: number; maxWidth?: number; runs?: RichSpan[] } = {},
+): TextMetrics {
+  const runs = opts.runs;
+  if (!runs?.length) return measureText(text, fontSize, opts);
+  const weight = opts.fontWeight ?? 400;
+  const lineHeight = opts.lineHeight ?? 1.4;
+  const letterSpacing = opts.letterSpacing ?? 0;
+  const maxW = opts.maxWidth;
+  const at = (i: number) => {
+    for (const run of runs) {
+      if (i >= run.start && i < run.end) return { fontSize: run.fontSize, fontWeight: run.fontWeight };
+    }
+    return { fontSize, fontWeight: weight };
+  };
+  let width = 0;
+  let height = 0;
+  let lines = 0;
+  let abs = 0;
+  const paras = text.split("\n");
+  for (const para of paras) {
+    let curUnits = 0;
+    let curW = 0;
+    let curMax = fontSize;
+    const flush = () => {
+      width = Math.max(width, curW);
+      height += curMax * lineHeight;
+      lines++;
+      curUnits = 0;
+      curW = 0;
+      curMax = fontSize;
+    };
+    if (para.length === 0) flush();
+    else {
+      for (let i = 0; i < para.length; ) {
+        const cp = para.codePointAt(i)!;
+        const n = cp > 0xffff ? 2 : 1;
+        const st = at(abs + i);
+        const adv = advanceOf(st.fontSize, st.fontWeight);
+        const gap = curUnits > 0 ? n : Math.max(0, n - 1);
+        const add = adv * n + letterSpacing * gap;
+        if (maxW !== undefined && maxW > 0 && curUnits > 0 && curW + add > maxW) {
+          width = Math.max(width, curW);
+          height += curMax * lineHeight;
+          lines++;
+          curUnits = n;
+          curW = adv * n + letterSpacing * Math.max(0, n - 1);
+          curMax = Math.max(fontSize, st.fontSize);
+        } else {
+          curUnits += n;
+          curW += add;
+          curMax = Math.max(curMax, st.fontSize);
+        }
+        i += n;
+      }
+      flush();
+    }
+    abs += para.length + 1;
+  }
+  if (lines === 0) return { width: 0, height: round4(fontSize * lineHeight), lines: 1 };
+  return { width: round4(width), height: round4(height), lines };
+}
+
 function lengthOr(doc: Document, v: number | string | undefined, mode: string | undefined, fallback: number): number {
   return resolveLength(doc, v, mode) ?? fallback;
 }
@@ -129,12 +206,20 @@ function intrinsicText(doc: Document, n: Extract<Node, { type: "text" }>, maxW?:
   const fs = resolveValue(doc, n.fontSize, mode);
   const fontSize = typeof fs === "number" ? fs : Number.parseFloat(String(fs)) || 16;
   const weight = resolveValue(doc, n.fontWeight, mode);
-  const m = measureText(n.text, fontSize, {
-    fontWeight: typeof weight === "number" ? weight : 400,
+  const fontWeight = typeof weight === "number" ? weight : 400;
+  const measureOpts = {
+    fontWeight,
     lineHeight: lengthOr(doc, n.lineHeight, mode, 1.4),
     letterSpacing: lengthOr(doc, n.letterSpacing, mode, 0),
     maxWidth: maxW,
-  });
+  };
+  const spans = (n.runs ?? []).map((run) => ({
+    start: run.start,
+    end: run.end,
+    fontSize: run.fontSize === undefined ? fontSize : lengthOr(doc, run.fontSize, mode, fontSize),
+    fontWeight: run.fontWeight === undefined ? fontWeight : typeof run.fontWeight === "number" ? run.fontWeight : lengthOr(doc, run.fontWeight, mode, fontWeight),
+  }));
+  const m = spans.length ? measureRichText(n.text, fontSize, { ...measureOpts, runs: spans }) : measureText(n.text, fontSize, measureOpts);
   return { w: m.width, h: m.height };
 }
 

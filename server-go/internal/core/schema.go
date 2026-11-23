@@ -6,6 +6,7 @@ package core
 import (
 	"fmt"
 	"regexp"
+	"unicode/utf16"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 	z "github.com/leonardo-moraes360/paprika/server-go/internal/zod"
@@ -18,6 +19,8 @@ var (
 	reColorForbidden = regexp.MustCompile(`[;{}<>]`)
 	reFontForbidden  = regexp.MustCompile(`[;{}<>()]`)
 	reImageSrc       = regexp.MustCompile(`^(https?:|data:image/)`)
+	reHrefOK         = regexp.MustCompile(`^(https?://|mailto:|[#/])`)
+	reHrefBad        = regexp.MustCompile(`[\s<>"']`)
 )
 
 // ColorValue: a CSS color or a `$token` reference.
@@ -216,6 +219,75 @@ func fontWeightSchema(def float64) z.Schema {
 	return z.Default(z.Union(z.Int().Min(100).Max(900), lengthToken()), def)
 }
 
+func runFontWeight() z.Schema {
+	return z.Optional(z.Union(z.Int().Min(100).Max(900), lengthToken()))
+}
+
+func runFontSize() z.Schema {
+	return z.Union(z.Number().Min(1).Max(1000), lengthToken())
+}
+
+func hrefSchema() z.Schema {
+	return z.String().Max(2000).Refine(func(v string) string {
+		if reHrefOK.MatchString(v) && !reHrefBad.MatchString(v) {
+			return ""
+		}
+		return "href must be http(s), mailto, or a path starting with / or #"
+	})
+}
+
+func textRunSchema() z.Schema {
+	return z.Object(
+		z.Field{Name: "start", Schema: z.Int().Min(0)},
+		z.Field{Name: "end", Schema: z.Int().Min(0)},
+		z.Field{Name: "fontWeight", Schema: runFontWeight()},
+		z.Field{Name: "color", Schema: z.Optional(colorValue())},
+		z.Field{Name: "fontSize", Schema: z.Optional(runFontSize())},
+		z.Field{Name: "italic", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "href", Schema: z.Optional(hrefSchema())},
+	)
+}
+
+func checkTextRuns(v *jsonv.Object) []z.ObjectIssue {
+	runs := v.Arr("runs")
+	if len(runs) == 0 {
+		return nil
+	}
+	textLen := len(utf16.Encode([]rune(v.Str("text"))))
+	var issues []z.ObjectIssue
+	prev := 0
+	overlap := false
+	for i, item := range runs {
+		o, ok := item.(*jsonv.Object)
+		if !ok {
+			continue
+		}
+		start := int(o.Num("start"))
+		end := int(o.Num("end"))
+		if start >= end {
+			issues = append(issues, z.ObjectIssue{Path: []any{"runs", i}, Message: "run start must be before end"})
+		}
+		if end > textLen {
+			issues = append(issues, z.ObjectIssue{Path: []any{"runs", i, "end"}, Message: "run ends past the text"})
+		}
+		_, hasW := o.Get("fontWeight")
+		_, hasC := o.Get("color")
+		_, hasS := o.Get("fontSize")
+		_, hasH := o.Get("href")
+		if !hasW && !hasC && !hasS && !o.Bool("italic") && !hasH {
+			issues = append(issues, z.ObjectIssue{Path: []any{"runs", i}, Message: "run has no style"})
+		}
+		if !overlap && start < prev {
+			issues = append(issues, z.ObjectIssue{Path: []any{"runs"}, Message: "runs overlap or are out of order"})
+			overlap = true
+		}
+		if start >= prev && start < end {
+			prev = end
+		}
+	}
+	return issues
+}
+
 // ShapeKinds: the outlines a diagram shape can take.
 var ShapeKinds = []string{"rect", "ellipse", "diamond", "triangle", "note"}
 
@@ -351,7 +423,8 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		z.Field{Name: "lineHeight", Schema: z.Default(lengthMinMax(0, 10), 1.4)},
 		z.Field{Name: "letterSpacing", Schema: z.Default(lengthAny(), 0.0)},
 		z.Field{Name: "textAlign", Schema: z.Default(z.Enum("left", "center", "right"), "left")},
-	),
+		z.Field{Name: "runs", Schema: z.Optional(z.Array(textRunSchema()).Max(200))},
+	).Issues(checkTextRuns),
 	"image": nodeSchema("image",
 		z.Field{Name: "src", Schema: z.String().Max(5_000_000).Refine(func(v string) string {
 			if !reImageSrc.MatchString(v) {

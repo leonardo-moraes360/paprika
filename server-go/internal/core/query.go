@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -79,6 +80,9 @@ func DescribeNode(n *Node) string {
 		fs, _ := n.Get("fontSize")
 		color, _ := n.Get("color")
 		parts = append(parts, jsonv.Quote(truncate(n.Str("text"), 60, 57)), jsString(fs)+"/"+jsString(n.Num("fontWeight")), "color="+jsString(color))
+		if runs := n.Arr("runs"); len(runs) > 0 {
+			parts = append(parts, fmt.Sprintf("runs=%d", len(runs)))
+		}
 	}
 	if typ == "shape" {
 		parts = append(parts, n.Str("shape"), jsonv.Quote(truncate(n.Str("text"), 60, 57)))

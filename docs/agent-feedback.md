@@ -771,3 +771,16 @@ Task: draw the inspector constraint axes (dark: right/top, light: scale/center) 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - The behavior frame is a mock: the live server does not accept `constraints` yet, so the before/after rectangles are placed by x/y.
 - `lint_design` on the three roots: 0 errors and 0 warnings.
+## 2026-11-23: rich text runs (PAP-B-085, design first)
+
+Task: draw painted text, the canvas editor and the inspector hint on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before `runs` on text nodes. Frames `b085-painted`, `b085-editor`, `b085-inspector` at y=10840. PNGs in `docs/assets/boards/PAP-B-085/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 143 | `create_nodes` text as JSON | The tool text is JSON plus one readable line per root, so `JSON.parse` of the whole text throws after the nodes already exist | Return one JSON value, or document that callers must parse the first value | P2 |
+| 144 | Draw `runs` and italic on the live board | The server on `:4777` still rejects `runs` and `italic`, so the board fakes them with separate text nodes, a Georgia face and a 1px underline | Expected until this build is the one serving MCP | — |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123, still open: the content box of `page#interfaces` is 0×0, so `y` came from a depth-1 scan (10840).
+- Same as #129: `render_screenshot` bytes were written to the PNGs from the tool result.
+- The price line wrapped until the frame was 720 wide and the price node was 160×40. The workspace name is `Paprica · UI`.

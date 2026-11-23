@@ -606,7 +606,13 @@ export function Inspector(props: Props) {
       {node.type === "text" && (
         <InspectorSection id="text" title="Texto">
           <div className={ui.grid}>
-            <Field label="Conteúdo" type="textarea" value={node.text} onCommit={(v) => set({ text: v }, "editar texto")} />
+            <Field
+              label="Conteúdo"
+              type="textarea"
+              value={node.text}
+              onCommit={(v) => set({ text: v, ...(v !== node.text && node.runs?.length ? { runs: null } : {}) }, "editar texto")}
+            />
+            {node.runs?.length ? <p className={ui.muted}>{node.runs.length} trechos · duplo clique no canvas</p> : null}
             <ColorField doc={doc} mode={themeMode} label="Cor" value={node.color} onCommit={(v) => v && set({ color: v })} />
           </div>
           <div className={ui.grid2}>
@@ -950,7 +956,14 @@ function CopyPanel({ node, instance, ...props }: Props & { node: SceneNode; inst
       </p>
       <InspectorSection id="copy-appearance" title="Aparência" defaultOpen>
         <div className={ui.grid}>
-          {node.type === "text" && <Field label="Conteúdo" type="textarea" value={node.text} onCommit={(v) => set({ text: v })} />}
+          {node.type === "text" && (
+            <Field
+              label="Conteúdo"
+              type="textarea"
+              value={node.text}
+              onCommit={(v) => set({ text: v, ...(v !== node.text && node.runs?.length ? { runs: null } : {}) })}
+            />
+          )}
           {node.type === "text" && <ColorField doc={doc} label="Cor" value={node.color} onCommit={(v) => set({ color: v })} />}
           {node.type !== "group" && node.type !== "connector" && <ColorField doc={doc} label="Preenchimento" value={node.fill} onCommit={(v) => set({ fill: v })} />}
           {node.type === "image" && <Field label="URL" value={node.src.startsWith("data:") ? "(data URI)" : node.src} onCommit={(v) => set({ src: v })} />}

@@ -17,7 +17,7 @@ import (
 // transaction.
 
 // CopyOverrides are the fields of a copy that an instance can override.
-var CopyOverrides = []string{"fill", "color", "text", "src", "alt", "visible", "opacity"}
+var CopyOverrides = []string{"fill", "color", "text", "src", "alt", "visible", "opacity", "runs"}
 
 // RootDerived are the fields of an instance root that come from the component.
 var RootDerived = []string{"fill", "stroke", "radius", "shadow", "outline", "filter", "backdropFilter", "layout", "clip", "width", "height"}
@@ -169,6 +169,22 @@ func scaleGeometry(n *jsonv.Object, s float64, withPosition bool) {
 			}
 		}
 		n.Set(k, sc(v))
+	}
+	if runs := n.Arr("runs"); len(runs) > 0 {
+		out := make([]any, len(runs))
+		for i, item := range runs {
+			o, ok := item.(*jsonv.Object)
+			if !ok {
+				out[i] = item
+				continue
+			}
+			o = o.Spread()
+			if fs, ok := o.Get("fontSize"); ok {
+				o.Set("fontSize", sc(fs))
+			}
+			out[i] = o
+		}
+		n.Set("runs", out)
 	}
 	if st := n.Obj("stroke"); st != nil {
 		st = st.Spread()

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"unicode/utf16"
 	"unicode/utf8"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -77,6 +78,116 @@ func MeasureText(text string, fontSize float64, fontWeight, lineHeight, letterSp
 		}
 	}
 	return TextMetrics{Round4(width), Round4(float64(len(lines)) * lineH), len(lines)}
+}
+
+// RichSpan is a resolved run used by MeasureRich (UTF-16 indexes, numeric size and weight).
+type RichSpan struct {
+	Start, End           int
+	FontSize, FontWeight float64
+}
+
+// MeasureRich measures text whose runs override size or weight. No runs delegates to MeasureText.
+func MeasureRich(text string, fontSize, fontWeight, lineHeight, letterSpacing, maxW float64, hasMax bool, runs []RichSpan) TextMetrics {
+	if len(runs) == 0 {
+		return MeasureText(text, fontSize, fontWeight, lineHeight, letterSpacing, maxW, hasMax)
+	}
+	if fontWeight == 0 {
+		fontWeight = 400
+	}
+	if lineHeight == 0 {
+		lineHeight = 1.4
+	}
+	at := func(i int) (float64, float64) {
+		for _, r := range runs {
+			if i >= r.Start && i < r.End {
+				return r.FontSize, r.FontWeight
+			}
+		}
+		return fontSize, fontWeight
+	}
+	advOf := func(size, weight float64) float64 {
+		return FontAvg * size * (1 + (weight-400)/4000)
+	}
+	width, height := 0.0, 0.0
+	lines := 0
+	abs := 0
+	for para := range strings.SplitSeq(text, "\n") {
+		units := utf16.Encode([]rune(para))
+		curUnits := 0
+		curW := 0.0
+		curMax := fontSize
+		flush := func() {
+			if curW > width {
+				width = curW
+			}
+			height += curMax * lineHeight
+			lines++
+			curUnits = 0
+			curW = 0
+			curMax = fontSize
+		}
+		if len(units) == 0 {
+			flush()
+		} else {
+			for i := 0; i < len(units); {
+				n := 1
+				if i+1 < len(units) && units[i] >= 0xD800 && units[i] <= 0xDBFF {
+					n = 2
+				}
+				size, weight := at(abs + i)
+				adv := advOf(size, weight)
+				gap := n
+				if curUnits == 0 {
+					gap = max(0, n-1)
+				}
+				add := adv*float64(n) + letterSpacing*float64(gap)
+				if hasMax && maxW > 0 && curUnits > 0 && curW+add > maxW {
+					if curW > width {
+						width = curW
+					}
+					height += curMax * lineHeight
+					lines++
+					curUnits = n
+					curW = adv*float64(n) + letterSpacing*float64(max(0, n-1))
+					curMax = math.Max(fontSize, size)
+				} else {
+					curUnits += n
+					curW += add
+					curMax = math.Max(curMax, size)
+				}
+				i += n
+			}
+			flush()
+		}
+		abs += len(units) + 1
+	}
+	if lines == 0 {
+		return TextMetrics{0, Round4(fontSize * lineHeight), 1}
+	}
+	return TextMetrics{Round4(width), Round4(height), lines}
+}
+
+func richSpans(doc *Document, n *Node, base, nodeWeight float64) []RichSpan {
+	mode := ModeOf(doc, n)
+	var out []RichSpan
+	for _, item := range n.Arr("runs") {
+		o, ok := item.(*jsonv.Object)
+		if !ok {
+			continue
+		}
+		size := base
+		if fs, ok := o.Get("fontSize"); ok {
+			if f, ok := ResolveLength(doc, fs, mode); ok {
+				size = f
+			}
+		}
+		weight := nodeWeight
+		if fw, ok := o.Get("fontWeight"); ok {
+			weight = ResolvedFontWeight(doc, fw, mode)
+		}
+		out = append(out, RichSpan{int(o.Num("start")), int(o.Num("end")), size, weight})
+	}
+	return out
 }
 
 func padOf(doc *Document, n *Node) (t, r, b, l float64) {
@@ -184,7 +295,14 @@ func intrinsicText(doc *Document, n *Node, maxW float64, hasMax bool) wh {
 		ls = n.Num("letterSpacing")
 	}
 	fw, _ := n.Get("fontWeight")
-	m := MeasureText(n.Str("text"), fontSize, ResolvedFontWeight(doc, fw, mode), lh, ls, maxW, hasMax)
+	weight := ResolvedFontWeight(doc, fw, mode)
+	spans := richSpans(doc, n, fontSize, weight)
+	var m TextMetrics
+	if len(spans) > 0 {
+		m = MeasureRich(n.Str("text"), fontSize, weight, lh, ls, maxW, hasMax, spans)
+	} else {
+		m = MeasureText(n.Str("text"), fontSize, weight, lh, ls, maxW, hasMax)
+	}
 	return wh{m.Width, m.Height}
 }
 
