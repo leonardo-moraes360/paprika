@@ -1,9 +1,67 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { Document } from "@paprika/core";
 import { useLive } from "./useDocument";
-import { AGENT_IDLE_MS, AGENT_TTL_MS, ROSTER_HIDE_IDLE_MS, agentActive, agentInk, agentPage, byBusyness, clientGroups, toolActivity, toolVerb, type AgentPresence } from "./agents";
+import { AGENT_IDLE_MS, AGENT_TTL_MS, ROSTER_HIDE_IDLE_MS, agentActive, agentInk, agentPage, byBusyness, clientGroups, toolActivity, toolVerb, topFrameId, type AgentPresence, type BuildReplay } from "./agents";
+import { useT } from "./i18n";
 import { Hint } from "./components/ui/tooltip";
 import { cx } from "./ui";
+
+function worldBox(vp: HTMLElement, id: string, view: View): Box | null {
+  const el = vp.querySelector<HTMLElement>(`.world [data-paprika-id="${CSS.escape(id)}"]`);
+  if (!el) return null;
+  const vpr = vp.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  return { x: (r.left - vpr.left - view.x) / view.zoom, y: (r.top - vpr.top - view.y) / view.zoom, w: r.width / view.zoom, h: r.height / view.zoom };
+}
+
+const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function restorePaint(el: HTMLElement) {
+  if (!el.hasAttribute("data-build-bg")) return;
+  el.style.backgroundColor = el.getAttribute("data-build-bg") ?? "";
+  el.style.color = el.getAttribute("data-build-color") ?? "";
+  el.style.borderColor = el.getAttribute("data-build-border") ?? "";
+  el.removeAttribute("data-build-bg");
+  el.removeAttribute("data-build-color");
+  el.removeAttribute("data-build-border");
+}
+
+function blankPaint(el: HTMLElement) {
+  if (el.hasAttribute("data-build-bg")) return;
+  el.setAttribute("data-build-bg", el.style.backgroundColor);
+  el.setAttribute("data-build-color", el.style.color);
+  el.setAttribute("data-build-border", el.style.borderColor);
+  el.style.backgroundColor = "transparent";
+  el.style.color = "transparent";
+  el.style.borderColor = "transparent";
+}
+
+function paintBuild(vp: HTMLElement, build: BuildReplay | null, color: string) {
+  const reduce = reduceMotion();
+  const next = new Map<HTMLElement, string>();
+  build?.ids.forEach((id, i) => {
+    const el = vp.querySelector<HTMLElement>(`.world [data-paprika-id="${CSS.escape(id)}"]`);
+    if (!el) return;
+    next.set(el, i < build.index ? "shown" : i === build.index ? "current" : "wait");
+  });
+  for (const el of vp.querySelectorAll<HTMLElement>("[data-build]")) {
+    if (next.has(el)) continue;
+    restorePaint(el);
+    el.removeAttribute("data-build");
+    el.style.removeProperty("--build");
+  }
+  for (const [el, phase] of next) {
+    if (el.getAttribute("data-build") !== phase) el.setAttribute("data-build", phase);
+    if (phase === "current") {
+      el.style.setProperty("--build", color);
+      if (reduce) restorePaint(el);
+      else blankPaint(el);
+    } else {
+      el.style.removeProperty("--build");
+      restorePaint(el);
+    }
+  }
+}
 
 /** Caixa que envolve todas as caixas. */
 const union = (bs: Box[]): Box => {
@@ -112,9 +170,12 @@ interface Props {
 export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpenPage, onFocus }: Props) {
   // Presence is read here, not passed down: a presence message re-renders the cursors only.
   const agents = useLive((s) => s.agents);
+  const build = useLive((s) => s.build);
+  const m = useT();
   const viewRef = useRef(view);
   viewRef.current = view;
   const [boxes, setBoxes] = useState<Record<string, Box[]>>({});
+  const [frames, setFrames] = useState<Record<string, Box>>({});
   const [now, setNow] = useState(() => Date.now());
   const [open, setOpen] = useState(false);
   const [showRest, setShowRest] = useState(false);
@@ -135,6 +196,7 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
     const vpr = vp.getBoundingClientRect();
     const v = viewRef.current;
     const next: Record<string, Box[]> = {};
+    const nextFrames: Record<string, Box> = {};
     for (const a of agents) {
       next[a.agent] = a.nodes.flatMap((id) => {
         const el = vp.querySelector<HTMLElement>(`.world [data-paprika-id="${CSS.escape(id)}"]`);
@@ -142,9 +204,15 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
         const r = el.getBoundingClientRect();
         return [{ x: (r.left - vpr.left - v.x) / v.zoom, y: (r.top - vpr.top - v.y) / v.zoom, w: r.width / v.zoom, h: r.height / v.zoom }];
       });
+      const frameId = a.nodes.map((id) => topFrameId(doc, id)).find((id): id is string => !!id);
+      const frame = frameId ? worldBox(vp, frameId, v) : null;
+      if (frame) nextFrames[a.agent] = frame;
     }
     setBoxes(next);
-  }, [doc, agents, viewportRef, layoutKey, pageId]);
+    setFrames(nextFrames);
+    const writer = agents.find((a) => a.actor === build?.actor && toolActivity(a.tool) === "writing") ?? agents.find((a) => a.actor === build?.actor);
+    paintBuild(vp, build, writer?.color ?? "#3b82f6");
+  }, [doc, agents, build, viewportRef, layoutKey, pageId]);
 
   // Clique num agente de outra página: abre a página e enquadra quando as caixas dele forem medidas lá.
   const pending = useRef<string | null>(null);
@@ -262,6 +330,28 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
   return (
     <>
       <div className="pointer-events-none absolute top-0 left-0 z-5 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${z})` }} aria-hidden>
+        {visible.map((a) => {
+          if (!agentActive(a, now) || toolActivity(a.tool) !== "writing") return null;
+          const frame = frames[a.agent];
+          if (!frame) return null;
+          return (
+            <div
+              key={`work-${a.agent}`}
+              className="absolute top-0 left-0 origin-top-left"
+              style={{ ["--agent" as string]: a.color, ["--agent-ink" as string]: agentInk(a.color), translate: `${frame.x}px ${frame.y}px` }}
+              data-testid="agent-working"
+              data-agent={a.agent}
+            >
+              <div className="absolute box-border rounded-xs border-(--agent)" style={{ width: frame.w, height: frame.h, borderWidth: 2 / z }} />
+              <span
+                className={cx("agent-working absolute top-0 left-0 rounded-md bg-(--agent) px-1.5 py-0.5 whitespace-nowrap text-(--agent-ink) shadow-tag", tagFont)}
+                style={{ translate: `${Math.max(0, frame.w / 2)}px ${-22 / z}px`, scale: `${1 / z}` }}
+              >
+                {m.verbGeneric}
+              </span>
+            </div>
+          );
+        })}
         {visible.map((a, i) => {
           const bs = boxes[a.agent] ?? [];
           if (!bs.length) return null;

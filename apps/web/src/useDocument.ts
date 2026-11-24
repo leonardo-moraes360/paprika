@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { Document, Op } from "@paprika/core";
-import { applyPresence, type AgentPresence, type PresenceMsg } from "./agents";
+import { appendBuild, applyPresence, BUILD_STEP_MS, createdInOrder, stepBuild, type AgentPresence, type BuildReplay, type PresenceMsg } from "./agents";
 import { catalogs } from "./i18n/messages";
 import { t } from "./i18n/store";
 import type { TeamStatus } from "./Team";
@@ -41,6 +41,7 @@ export interface DocState {
   agentTouched: Set<string>;
   /** Agentes presentes (cursor e seleção próprios no canvas). */
   agents: AgentPresence[];
+  build: BuildReplay | null;
   /** Sincronização de time (ADR 0004): undefined = servidor sem --team; null = ainda sem status. */
   team: TeamStatus | null | undefined;
   workspaceNotice: WorkspaceNotice | null;
@@ -89,6 +90,7 @@ export class LiveStore {
     activity: [],
     agentTouched: new Set(),
     agents: [],
+    build: null,
     team: undefined,
     workspaceNotice: null,
   };
@@ -120,15 +122,29 @@ export class LiveStore {
     let pendingDoc: string | null = null;
     let docRaf = 0;
     let docTimer: ReturnType<typeof setTimeout> | undefined;
+    let buildTimer: ReturnType<typeof setInterval> | undefined;
+    const kickBuild = () => {
+      if (buildTimer || !this.state.build) return;
+      buildTimer = setInterval(() => {
+        if (closed || !this.state.build) {
+          clearInterval(buildTimer);
+          buildTimer = undefined;
+          return;
+        }
+        this.set((s) => ({ ...s, build: stepBuild(s.build) }));
+      }, BUILD_STEP_MS);
+    };
     const applyDoc = (msg: DocMsg) => {
       this.set((s) => {
         // Another workspace: nothing carries over (its nodes are not "changed", the feed starts over).
         if (s.doc && s.doc.id !== msg.doc.id) {
           clearTimeout(flash);
-          return { ...s, doc: msg.doc, version: msg.version, canUndo: msg.canUndo, canRedo: msg.canRedo, activity: [], agentTouched: new Set() };
+          return { ...s, doc: msg.doc, version: msg.version, canUndo: msg.canUndo, canRedo: msg.canRedo, activity: [], agentTouched: new Set(), build: null };
         }
         const changed = changedIds(s.doc, msg.doc);
         const fromAgent = msg.actor.startsWith("agent");
+        const created = fromAgent && msg.kind !== "reload" ? createdInOrder(s.doc, msg.doc) : [];
+        const build = appendBuild(s.build, msg.actor, created);
         const activity =
           msg.kind === "reload" && msg.actor === "server"
             ? s.activity
@@ -145,8 +161,10 @@ export class LiveStore {
           canRedo: msg.canRedo,
           activity,
           agentTouched: fromAgent ? new Set(changed) : s.agentTouched,
+          build,
         };
       });
+      kickBuild();
     };
     const flushDoc = () => {
       if (docRaf) cancelAnimationFrame(docRaf);
@@ -232,6 +250,8 @@ export class LiveStore {
       docRaf = 0;
       if (docTimer) clearTimeout(docTimer);
       docTimer = undefined;
+      if (buildTimer) clearInterval(buildTimer);
+      buildTimer = undefined;
       pendingDoc = null;
       this.ws?.close();
     };

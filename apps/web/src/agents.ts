@@ -1,6 +1,6 @@
 /** Presença dos agentes no canvas (mensagens `presence` do servidor). Puro: testável sem DOM. */
 
-import type { Document, PageNode } from "@paprika/core";
+import { isRootFrame, type Document, type PageNode } from "@paprika/core";
 
 export interface PresenceMsg {
   type: "presence";
@@ -163,6 +163,58 @@ export function clientGroups(list: AgentPresence[]): { actor: string; label: str
     const grouped = map.get(actor)!;
     return { actor, label: (grouped[0]?.name ?? "agente").replace(/ \d+$/, ""), agents: grouped };
   });
+}
+
+export const BUILD_STEP_MS = 120;
+
+export interface BuildReplay {
+  actor: string;
+  ids: string[];
+  index: number;
+}
+
+export function createdInOrder(prev: Document | null, next: Document): string[] {
+  if (!prev || prev.id !== next.id) return [];
+  const out: string[] = [];
+  const walk = (id: string) => {
+    const node = next.nodes[id];
+    if (!node) return;
+    if (!prev.nodes[id] && node.type !== "page") out.push(id);
+    if ("children" in node) for (const child of node.children) walk(child);
+  };
+  for (const id of next.rootIds) walk(id);
+  return out;
+}
+
+export function topFrameId(doc: Document, nodeId: string): string | undefined {
+  let current = doc.nodes[nodeId];
+  let frame: string | undefined;
+  const seen = new Set<string>();
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    if (current.type === "frame") {
+      frame = current.id;
+      if (isRootFrame(doc, current)) return current.id;
+    }
+    current = current.parentId ? doc.nodes[current.parentId] : undefined;
+  }
+  return frame;
+}
+
+export function appendBuild(prev: BuildReplay | null, actor: string, created: readonly string[]): BuildReplay | null {
+  if (!created.length) return prev;
+  const ids = prev ? [...prev.ids] : [];
+  const have = new Set(ids);
+  for (const id of created) if (!have.has(id)) ids.push(id);
+  if (ids.length === (prev?.ids.length ?? 0)) return prev;
+  return { actor, ids, index: prev ? prev.index : 0 };
+}
+
+export function stepBuild(prev: BuildReplay | null): BuildReplay | null {
+  if (!prev) return null;
+  const index = prev.index + 1;
+  if (index > prev.ids.length) return null;
+  return { ...prev, index };
 }
 
 /** Página dos últimos nós do agente (a do primeiro que ainda existe); undefined num documento sem páginas. */

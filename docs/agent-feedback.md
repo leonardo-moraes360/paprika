@@ -833,3 +833,17 @@ Task: draw the spacing bars on a selected auto-layout frame before coding them, 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123, still open: `get_document_outline` of `page#interfaces` reported a 0×0 content box, so `y` came from a depth-1 scan (max bottom 13440, frames at 13600).
 - Same as #129: `render_screenshot` bytes were written to the PNGs from the tool result.
+
+## 2026-11-24: live build on the canvas (PAP-B-074, design first)
+
+Task: draw the working label, the outline-then-content step and the code toggle (off and on), light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before `BuildCode` and the replay. Frames `b074dark` and `b074light` at y=14440. PNGs in `docs/assets/boards/PAP-B-074/`.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 149 | White ink on the agent blue `#3b82f6` | The label sat inside the blue badge and `lint_design` reported 3.68:1. Nesting did not change it: white on that blue really is below 4.5:1 | Keep using `agentInk` (the night `#141827` wins on `#3b82f6`) for text on an agent color | P3 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123, still open: the content box of `page#interfaces` is 0×0, so `y` came from a depth-1 scan (14440).
+- Same as #129: the PNGs were written from the image bytes in the tool result.
+- `raw-color` stayed info. The mocks were not redrawn onto tokens.
+- After the badge, the cursor tag and the open toggle moved to `#141827`, `lint_design` on both frames reported no errors or warnings.

@@ -70,6 +70,7 @@ import { Hint } from "./components/ui/tooltip";
 import { InlineName } from "./InlineName";
 import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
 import { AgentCursors, type Box } from "./AgentCursors";
+import { BuildCode } from "./BuildCode";
 import { PinLayer } from "./Pins";
 import { useT } from "./i18n";
 import { cn } from "./lib/cn";
@@ -2489,6 +2490,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>
       <AgentCursors doc={doc} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} onFocus={focusBox} />
+      <BuildCode />
       <PinLayer doc={doc} view={view} viewportRef={viewportRef} pageId={pageId} active={tool === "pin"} onToolDone={onToolDone} layoutKey={preview} onFocus={focusBox} onOpenPage={onOpenPage} onError={onError} />
       {frameLabels.map((l) => (
         <Hint key={l.id} label={renaming === l.id ? undefined : "Duplo clique para renomear"}>
