@@ -148,7 +148,7 @@ describe("API: MCP", () => {
         "align_nodes", "distribute_nodes", "wrap_nodes", "show_all", "unlock_all",
         "get_bounds",
         "create_folder", "rename_folder", "move_workspace", "place_reference",
-        "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
+        "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "edit_path", "redo",
         "rename_workspace", "render_screenshot", "resize_image", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
         "claim_pin", "list_pins", "resolve_pin", "wait_for_pins",
@@ -673,6 +673,43 @@ describe("API: MCP", () => {
     expect(tsx).toContain("strokeWidth={4}");
     await call(c, "undo");
     expect((await srv.doc()).nodes.wave).toBeUndefined();
+  });
+
+  it("edit_path move uma âncora e path_info lista os mesmos pontos", async () => {
+    const c = client;
+    await call(c, "create_nodes", { nodes: [{ type: "path", id: "wave2", x: 100, y: 50, d: "M0 0 L10 0 L10 10" }] });
+    const info = JSON.parse(textOf(await call(c, "path_info", { id: "wave2" }))) as {
+      anchors: { index: number; sub: number; at: number; x: number; y: number }[];
+    };
+    expect(info.anchors).toEqual([
+      { index: 0, sub: 0, at: 0, x: 0, y: 0 },
+      { index: 1, sub: 0, at: 1, x: 10, y: 0 },
+      { index: 2, sub: 0, at: 2, x: 10, y: 10 },
+    ]);
+    const bare = JSON.parse(textOf(await call(c, "path_info", { d: "M0 0 C5 0 10 5 10 10" }))) as {
+      anchors: { index: number; in?: { x: number; y: number } }[];
+    };
+    expect(bare.anchors.map((a) => a.index)).toEqual([0, 1]);
+    expect(bare.anchors[1]?.in).toEqual({ x: 10, y: 5 });
+    const edited = (await c.callTool({
+      name: "edit_path",
+      arguments: { id: "wave2", index: 0, position: { x: -5, y: -3 } },
+    })) as ToolResult & { structuredContent?: { props: { d: string; x: number; y: number; width: number; height: number }; anchors: unknown; version: number } };
+    expect(edited.isError).toBeFalsy();
+    assertOutput("edit_path", edited.structuredContent);
+    expect(edited.structuredContent?.props).toEqual({ d: "M0 0 L15 3 L15 13", x: 95, y: 47, width: 15, height: 13 });
+    const again = JSON.parse(textOf(await call(c, "path_info", { id: "wave2" }))) as { anchors: unknown };
+    expect(again.anchors).toEqual(edited.structuredContent?.anchors);
+    const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 1 }))) as { label: string }[];
+    expect(hist[0]?.label).toBe("move point");
+    const missing = await call(c, "edit_path", { id: "wave2", index: 0 });
+    expect(missing.isError).toBe(true);
+    expect(textOf(missing)).toMatch(/pass position or handles/);
+    const range = await call(c, "edit_path", { id: "wave2", index: 9, position: { x: 0, y: 0 } });
+    expect(range.isError).toBe(true);
+    expect(textOf(range)).toMatch(/out of range/);
+    await call(c, "undo");
+    expect(((await srv.doc()).nodes.wave2 as PathNode).d).toBe("M0 0 L10 0 L10 10");
   });
 
   it("get_bounds resolve auto-layout e cantos rotacionados", async () => {
