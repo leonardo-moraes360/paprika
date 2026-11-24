@@ -30,6 +30,7 @@ type Service struct {
 	nextID    int
 	stopPres  func()
 	stopDocs  func()
+	stopPins  func()
 	sync      *syncer
 }
 
@@ -48,6 +49,7 @@ func New(ctx context.Context, store *server.Store, opts Options, log func(string
 	t.sc = sc
 	t.sync.enqueue(t.sync.start)
 	t.stopDocs = store.OnChange(func(ev server.ChangeEvent) { t.sync.enqueue(func() { t.sync.onChange(ev) }) })
+	t.stopPins = store.OnPins(func(docID string) { t.sync.enqueue(func() { t.sync.pushPins(docID) }) })
 	// Local agents' presence goes to the peers; presence that came from peers is not sent back.
 	t.stopPres = store.Presence.OnPresence(func(p server.Presence) {
 		if strings.HasPrefix(p.Agent, "peer:") {
@@ -97,6 +99,9 @@ func (t *Service) Close() {
 	}
 	if t.stopDocs != nil {
 		t.stopDocs()
+	}
+	if t.stopPins != nil {
+		t.stopPins()
 	}
 	t.sync.flush()
 	t.sync.close()
@@ -348,6 +353,9 @@ func (t *Service) Routes(r gin.IRoutes) {
 	})
 	r.DELETE("/api/team/members/:key", func(c *gin.Context) {
 		t.call(c.Writer, c.Request, map[string]any{"t": "member.remove", "key": c.Param("key")})
+	})
+	r.POST("/api/team/leave", func(c *gin.Context) {
+		t.call(c.Writer, c.Request, map[string]any{"t": "member.leave"})
 	})
 	r.POST("/api/team/rotate", func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Second)

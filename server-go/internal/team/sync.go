@@ -26,9 +26,10 @@ type syncer struct {
 	stop  bool
 
 	// Only touched on the worker goroutine.
-	shared map[string]bool
-	lastID string
-	last   *core.Document
+	shared   map[string]bool
+	pinSnaps map[string]*pinSnap
+	lastID   string
+	last     *core.Document
 }
 
 func newSyncer(t *Service) *syncer {
@@ -117,6 +118,10 @@ func (s *syncer) start() {
 	s.lastID = s.t.store.DocID()
 	s.last = s.t.store.Doc()
 	s.reconcile(s.lastID)
+	for id := range s.shared {
+		s.pullPinsFromSidecar(id)
+		s.pushPins(id)
+	}
 }
 
 // reconcile brings a shared workspace and the CRDT together after a start or a switch: when the
@@ -200,6 +205,8 @@ func (s *syncer) onRemote(doc string, rawState json.RawMessage, by []string) {
 		who = "time"
 	}
 	s.applyRemote(doc, state, "peer:"+who, "time: "+who)
+	s.pullPins(doc, rawState)
+	s.pushPins(doc)
 }
 
 func (s *syncer) applyRemote(doc string, state *core.Document, actor, label string) {
@@ -252,10 +259,17 @@ func (s *syncer) share(doc string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := s.call(map[string]any{"t": "share", "doc": doc, "author": "user", "state": stateOf(d)}); err != nil {
+	if _, err := s.call(map[string]any{"t": "share", "doc": doc, "author": "user", "state": withPinState(s.t.store, doc, stateOf(d))}); err != nil {
 		return err
 	}
 	s.shared[doc] = true
+	if exported, err := s.t.store.ExportPins(doc); err == nil {
+		if s.pinSnaps == nil {
+			s.pinSnaps = map[string]*pinSnap{}
+		}
+		s.pinSnaps[doc] = snapFrom(exported)
+	}
+	s.pushPins(doc)
 	if doc == s.lastID {
 		s.last = d
 	}
