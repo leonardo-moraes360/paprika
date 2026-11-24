@@ -1384,7 +1384,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const toHandle = (await page.getByTestId("connector-to-handle").boundingBox())!;
     await page.mouse.move(toHandle.x + toHandle.width / 2, toHandle.y + toHandle.height / 2);
     await page.mouse.down();
-    await page.mouse.move(vp.x + 30, vp.y + 30, { steps: 8 });
+    await page.mouse.move(vp.x + 360, vp.y + 90, { steps: 8 });
     await page.mouse.up();
     await expect.poll(async () => {
       const node = await connector();
