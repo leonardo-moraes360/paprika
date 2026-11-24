@@ -1,55 +1,10 @@
 #!/usr/bin/env node
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
+import { join } from "node:path";
+import { connectBoard, saveShots, textOf } from "./design-board.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = join(root, "docs/assets/boards/PAP-B-074");
-const mcpUrl = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4777/mcp";
 const sdkRoot = process.env.PAPRIKA_SDK ?? "/home/leonardo/workspace/pessoal/paprika/packages/e2e/package.json";
-
-const require = createRequire(sdkRoot);
-const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
-const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
-
-const client = new Client({ name: "pap-b-074-design", version: "0" });
-await client.connect(new StreamableHTTPClientTransport(new URL(mcpUrl)));
-
-async function call(name, args = {}) {
-  const r = await client.callTool({ name, arguments: args });
-  if (r.isError) throw new Error(`${name}: ${JSON.stringify(r.content)}`);
-  return r;
-}
-
-function textOf(r) {
-  return (r.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
-}
-
-const wsRaw = textOf(await call("list_workspaces"));
-let workspaces;
-try {
-  workspaces = JSON.parse(wsRaw);
-} catch {
-  const m = wsRaw.match(/\{[\s\S]*\}/);
-  workspaces = m ? JSON.parse(m[0]) : { workspaces: [] };
-}
-const list = workspaces.workspaces ?? workspaces;
-const ui = list.find((w) => w.name === "Paprica · UI");
-if (!ui?.id) throw new Error(`workspace Paprica · UI not found: ${list.map((w) => w.name).join(", ")}`);
-const workspaceId = ui.id;
-
-const outline = textOf(await call("get_document_outline", { workspaceId, depth: 2 }));
-const pageLine = outline.split("\n").find((line) => /page#interfaces\b/.test(line))
-  ?? outline.split("\n").find((line) => /page#/.test(line) && /interface/i.test(line));
-const pageId = (pageLine?.match(/page#([A-Za-z0-9_-]+)/) ?? [])[1];
-if (!pageId) throw new Error(`Interfaces page not found\n${outline.slice(0, 1500)}`);
-
-const pageOutline = textOf(await call("get_document_outline", { workspaceId, rootId: pageId, depth: 1 }));
-const bottoms = [...pageOutline.matchAll(/(\d+(?:\.\d+)?)×(\d+(?:\.\d+)?)\s+@-?\d+(?:\.\d+)?,\s*(-?\d+(?:\.\d+)?)/g)].map((m) => Number(m[3]) + Number(m[2]));
-const maxBottom = bottoms.length ? Math.max(...bottoms) : 0;
-const Y = Math.ceil((maxBottom + 160) / 40) * 40;
-console.log("workspace", workspaceId, "page", pageId, "y", Y);
+const { root, client, call } = await connectBoard("pap-b-074-design", sdkRoot);
+const outDir = join(root, "docs/assets/boards/PAP-B-074");
 
 const night = { bg: "#1e2336", panel: "#272d45", fg: "#eef0f7", muted: "#c5cadb", line: "#3a4260", canvas: "#141827", card: "#e7e9f0", ink: "#141827" };
 const day = { bg: "#f2f3f8", panel: "#ffffff", fg: "#141827", muted: "#5d6478", line: "#d3d7e3", canvas: "#e7e9f0", card: "#ffffff", ink: "#141827" };
@@ -57,21 +12,31 @@ const blue = "#3b82f6";
 const inkOnBlue = "#141827";
 
 function text(id, value, x, y, color, extra = {}) {
-  return {
-    type: "text",
-    id,
-    text: value,
-    x,
-    y,
-    width: extra.width ?? 200,
-    height: "hug",
-    color,
-    textAlign: extra.align ?? "left",
-    fontSize: extra.fontSize ?? 13,
-    fontWeight: extra.fontWeight ?? 400,
-    fontFamily: extra.fontFamily ?? "Inter, system-ui, sans-serif",
-  };
+  const font = extra.fontFamily ?? "Inter, system-ui, sans-serif";
+  const weight = extra.fontWeight ?? 400;
+  const size = extra.fontSize ?? 13;
+  const align = extra.align ?? "left";
+  const width = extra.width ?? 200;
+  return { type: "text", id, text: value, x, y, width, height: "hug", color, textAlign: align, fontSize: size, fontWeight: weight, fontFamily: font };
 }
+
+function shell(id, title, fill, height, children) {
+  return { clip: true, radius: 16, fill, height, width: 960, name: title, id, type: "frame", children };
+}
+
+const rawList = textOf(await call("list_workspaces"));
+const parsedList = JSON.parse(rawList.slice(rawList.indexOf("{"), rawList.lastIndexOf("}") + 1));
+const workspaces = parsedList.workspaces ?? parsedList;
+const ui = workspaces.find((item) => item.name === "Paprica · UI");
+if (!ui?.id) throw new Error(`workspace Paprica · UI not found: ${workspaces.map((item) => item.name).join(", ")}`);
+const workspaceId = ui.id;
+const outline = textOf(await call("get_document_outline", { workspaceId, depth: 2 }));
+const pageId = (outline.match(/page#(interfaces)\b/) ?? outline.match(/page#([A-Za-z0-9_-]+)[^\n]*interface/i) ?? [])[1];
+if (!pageId) throw new Error(`Interfaces page not found\n${outline.slice(0, 1500)}`);
+const placed = textOf(await call("get_document_outline", { workspaceId, rootId: pageId, depth: 1 }));
+const lowest = [...placed.matchAll(/×(\d+(?:\.\d+)?)[^\n]*?,(-?\d+(?:\.\d+)?)/g)].reduce((max, hit) => Math.max(max, Number(hit[1]) + Number(hit[2])), 0);
+const Y = Math.ceil((lowest + 160) / 40) * 40;
+console.log("workspace", workspaceId, "page", pageId, "y", Y);
 
 function board(id, theme, title, codeOpen) {
   const t = theme === "light" ? day : night;
@@ -97,16 +62,7 @@ function board(id, theme, title, codeOpen) {
         ],
       }
     : null;
-  return {
-    type: "frame",
-    id,
-    name: title,
-    width: 960,
-    height: 560,
-    fill: t.bg,
-    radius: 16,
-    clip: true,
-    children: [
+  return shell(id, title, t.bg, 560, [
       text(`${id}-title`, title, 24, 18, t.fg, { width: 800, fontSize: 18, fontWeight: 700 }),
       text(`${id}-sub`, "O rótulo fica sobre o frame. O contorno passa de um nó ao seguinte. O código nasce desligado.", 24, 46, t.muted, { width: 880, fontSize: 13 }),
       {
@@ -214,8 +170,7 @@ function board(id, theme, title, codeOpen) {
           },
         ],
       },
-    ],
-  };
+    ]);
 }
 
 const dark = board("b074dark", "dark", "Construção ao vivo · escuro", false);
@@ -225,7 +180,6 @@ dark.y = Y;
 light.x = 0;
 light.y = Y + 620;
 
-await mkdir(outDir, { recursive: true });
 const created = await call("create_nodes", {
   workspaceId,
   parentId: pageId,
@@ -236,14 +190,7 @@ const created = await call("create_nodes", {
 });
 console.log(textOf(created).slice(0, 400));
 
-for (const [id, file] of [["b074dark", "escuro.png"], ["b074light", "claro.png"]]) {
-  const shot = await call("render_screenshot", { workspaceId, rootId: id, scale: 2 });
-  const image = (shot.content ?? []).find((c) => c.type === "image");
-  if (!image?.data) throw new Error(`no image for ${id}: ${textOf(shot).slice(0, 300)}`);
-  const dest = join(outDir, file);
-  await writeFile(dest, Buffer.from(image.data, "base64"));
-  console.log("wrote", dest);
-}
+await saveShots(call, workspaceId, outDir, [["b074dark", "escuro.png"], ["b074light", "claro.png"]]);
 
 for (const id of ["b074dark", "b074light"]) {
   const lint = textOf(await call("lint_design", { workspaceId, rootId: id }));

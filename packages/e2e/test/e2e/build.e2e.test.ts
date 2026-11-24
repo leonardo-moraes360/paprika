@@ -1,37 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { chromium, type Browser, type Page } from "playwright";
+import type { Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { pinLocale } from "./locale.js";
-import { startServer, type ExternalServer } from "../harness.js";
+import { callTool, closeSeededCanvas, connectAgent, openSeededCanvas, webDist, type CanvasSession } from "./seededCanvas.js";
 
-const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "apps/web/dist");
-
-describe.skipIf(!existsSync(webRoot))("E2E: construção ao vivo", () => {
-  let dir: string;
-  let external: ExternalServer | undefined;
-  let url: string;
-  let browser: Browser;
+describe.skipIf(!existsSync(webDist))("E2E: construção ao vivo", () => {
+  let session!: CanvasSession;
   let page: Page;
   const clients: Client[] = [];
 
   beforeAll(async () => {
-    dir = await mkdtemp(join(tmpdir(), "paprika-build-"));
-    const file = join(dir, "demo.paprika.json");
-    await copyFile(join(root, "examples/demo.paprika.json"), file);
-    external = await startServer({ seed: file, webRoot });
-    url = external.url;
-    browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
-    page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-    await pinLocale(page, "pt-BR");
-    await page.goto(url);
-    await page.locator(".workspace-card.is-active").click();
-    await page.waitForSelector('[data-paprika-id="login"]');
+    session = await openSeededCanvas("paprika-build-");
+    page = session.page;
     await page.evaluate(() => {
       const world = document.querySelector(".world");
       const log: { id: string | null; phase: string | null; bg: string }[] = [];
@@ -50,28 +30,12 @@ describe.skipIf(!existsSync(webRoot))("E2E: construção ao vivo", () => {
   }, 60_000);
 
   afterAll(async () => {
-    await Promise.all(clients.map((client) => client.close().catch(() => undefined)));
-    await browser?.close();
-    await external?.stop();
-    await rm(dir, { recursive: true, force: true });
+    await closeSeededCanvas(session, clients);
   });
 
-  async function connect(name: string) {
-    const client = new Client({ name, version: "0" });
-    await client.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
-    clients.push(client);
-    return client;
-  }
-
-  async function call(client: Client, name: string, args: Record<string, unknown>) {
-    const result = (await client.callTool({ name, arguments: args })) as { isError?: boolean; content: { text?: string }[] };
-    if (result.isError) throw new Error(result.content.map((part) => part.text ?? "").join("\n"));
-    return result;
-  }
-
   it("mostra o rótulo, o replay e o código sem segurar o documento", async () => {
-    const writer = await connect("e2e-build");
-    await call(writer, "create_nodes", {
+    const writer = await connectAgent(session.url, "e2e-build", clients);
+    await callTool(writer, "create_nodes", {
       nodes: [
         {
           type: "frame",
@@ -117,8 +81,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: construção ao vivo", () => {
       (window as unknown as { __build: unknown[] }).__build.length = 0;
     });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    const writer = await connect("e2e-build-still");
-    await call(writer, "create_nodes", {
+    const writer = await connectAgent(session.url, "e2e-build-still", clients);
+    await callTool(writer, "create_nodes", {
       parentId: "build-screen",
       nodes: [{ type: "rect", id: "build-d", x: 16, y: 140, width: 200, height: 28, fill: "#3b82f6" }],
     });
