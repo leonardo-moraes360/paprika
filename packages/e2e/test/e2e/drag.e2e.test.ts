@@ -530,6 +530,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: drag and drop reparent e arquivos (P
     const nodes = (await server.doc()).nodes;
     const images = Object.values(nodes).filter((n) => (n as { type: string }).type === "image");
     expect(images.length).toBeGreaterThanOrEqual(1);
+    const dropped = images.find((n) => String((n as { src?: string }).src).startsWith("data:image/png"));
+    expect(dropped).toBeTruthy();
+    expect((dropped as { src: string }).src).toContain(png.toString("base64"));
     await undoOnce();
     await undoOnce();
   }, 30_000);

@@ -993,6 +993,44 @@ describe("API: MCP", () => {
     const bad = await call(c, "import_html", { html: "<!-- nada -->" });
     expect(bad.isError).toBe(true);
     expect(textOf(bad)).toBe("the HTML has no elements to import");
+
+    const sprite = await call(c, "import_svg", {
+      svg: `<svg xmlns="http://www.w3.org/2000/svg"><defs><symbol id="box" viewBox="0 0 10 10"><rect width="10" height="10" fill="#c43d27"/></symbol></defs><use href="#box" x="0" y="0" width="10" height="10"/><text x="0" y="20" font-size="14" fill="#112233">Oi</text></svg>`,
+      place: "none",
+    });
+    expect(sprite.isError, textOf(sprite)).toBeFalsy();
+    type Got = { type: string; text?: string; fill?: string; color?: string; children?: string[]; layout?: { mode?: string; gap?: number } };
+    const walk = async (ids: string[]): Promise<Got[]> => {
+      const nodes = JSON.parse(textOf(await call(c, "get_nodes", { ids }))) as Got[];
+      const kids = nodes.flatMap((n) => n.children ?? []);
+      return kids.length ? nodes.concat(await walk(kids)) : nodes;
+    };
+    const drawn = await walk((jsonOf(sprite) as { ids: string[] }).ids);
+    expect(drawn.some((n) => n.type === "text" && n.text === "Oi" && n.color === "#112233")).toBe(true);
+    expect(drawn.some((n) => n.type === "rect" && n.fill === "#c43d27")).toBe(true);
+
+    const computed = await call(c, "import_html", {
+      html: `<style>.card{display:flex;gap:8px;background:#abcdef;width:120px;color:#112233}</style><div class="card"><span>Estilo</span></div>`,
+      computed: true,
+      place: "none",
+    });
+    if (computed.isError && /Chromium/.test(textOf(computed))) {
+      expect(textOf(computed)).toMatch(/playwright install chromium|PAPRIKA_CHROMIUM/);
+    } else {
+      expect(computed.isError, textOf(computed)).toBeFalsy();
+      expect(textOf(computed)).toMatch(/Chromium computed style/);
+      const styled = await walk((jsonOf(computed) as { ids: string[] }).ids);
+      const label = styled.find((n) => n.type === "text" && n.text === "Estilo");
+      expect(label?.color === "#112233" || label?.color === "rgb(17, 34, 51)").toBe(true);
+      expect(styled.some((n) => n.type === "frame" && n.layout?.mode === "row" && n.layout.gap === 8)).toBe(true);
+    }
+
+    const fig = await call(c, "import_image", { src: "nope.fig" });
+    expect(fig.isError).toBe(true);
+    expect(textOf(fig)).toMatch(/\.fig is not imported/);
+    const pdf = await call(c, "import_image", { src: "data:application/pdf;base64,JVBERi0xLjQK" });
+    expect(pdf.isError).toBe(true);
+    expect(textOf(pdf)).toMatch(/PDF is not imported/);
   }, 30_000);
 
   it("export_image: PNG/JPEG/WebP/PDF sem Chromium a partir do SVG do core", async () => {

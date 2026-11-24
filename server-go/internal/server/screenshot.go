@@ -364,6 +364,186 @@ func loadHTML(html string, width, height, scale float64, transparent bool) chrom
 	)
 }
 
+const bakeComputedJS = `(() => {
+  const skip = new Set(["script", "style", "link", "meta", "title", "head"]);
+  let unreadable = 0;
+  function declared(el) {
+    const out = new Map();
+    const visit = (rules) => {
+      for (const rule of rules) {
+        if (rule.type === CSSRule.STYLE_RULE) {
+          try { if (!el.matches(rule.selectorText)) continue; } catch (e) { continue; }
+          for (let i = 0; i < rule.style.length; i++) {
+            const prop = rule.style.item(i);
+            out.set(prop, rule.style.getPropertyValue(prop));
+          }
+        } else if (rule.cssRules) {
+          try { visit(rule.cssRules); } catch (e) { unreadable++; }
+        }
+      }
+    };
+    for (const sheet of document.styleSheets) {
+      let rules;
+      try { rules = sheet.cssRules; } catch (e) { unreadable++; continue; }
+      visit(rules);
+    }
+    for (let i = 0; i < el.style.length; i++) {
+      const prop = el.style.item(i);
+      out.set(prop, el.style.getPropertyValue(prop));
+    }
+    return out;
+  }
+  function rotateOf(t) {
+    const m = /^matrix\(([^)]+)\)$/.exec(t);
+    if (!m) return t === "none" ? "" : t;
+    const p = m[1].split(",").map((s) => Number(s));
+    if (p.length < 4 || p.some((n) => !Number.isFinite(n))) return "";
+    const a = p[0], b = p[1], c = p[2], d = p[3];
+    if (Math.abs(a - d) > 0.02 || Math.abs(b + c) > 0.02) return "";
+    const deg = Math.round(Math.atan2(b, a) * 180 / Math.PI * 1000) / 1000;
+    if (!deg) return "";
+    return "rotate(" + deg + "deg)";
+  }
+  function shadowOf(s) {
+    if (!s || s === "none") return "none";
+    return s.replace(/((?:rgba?|hsla?)\([^)]*\)|#[0-9a-fA-F]{3,8})\s+((?:-?[\d.]+px\s+){2,4})/g, (_, color, offs) => offs.trim() + " " + color);
+  }
+  function resolved(el, prop) {
+    const cs = getComputedStyle(el);
+    switch (prop) {
+      case "background":
+      case "background-color": return "background-color:" + cs.backgroundColor;
+      case "color": return "color:" + cs.color;
+      case "font-weight": return "font-weight:" + cs.fontWeight;
+      case "font-size": return "font-size:" + cs.fontSize;
+      case "font-family": return "font-family:" + cs.fontFamily;
+      case "line-height": return "line-height:" + cs.lineHeight;
+      case "letter-spacing": return "letter-spacing:" + cs.letterSpacing;
+      case "text-align": return "text-align:" + cs.textAlign;
+      case "white-space": return "white-space:" + cs.whiteSpace;
+      case "gap":
+      case "row-gap":
+      case "column-gap": return "gap:" + cs.gap;
+      case "padding":
+      case "padding-top":
+      case "padding-right":
+      case "padding-bottom":
+      case "padding-left": return "padding:" + cs.paddingTop + " " + cs.paddingRight + " " + cs.paddingBottom + " " + cs.paddingLeft;
+      case "display": return "display:" + cs.display;
+      case "flex-direction": return "flex-direction:" + cs.flexDirection;
+      case "align-items": return "align-items:" + cs.alignItems;
+      case "justify-content": return "justify-content:" + cs.justifyContent;
+      case "flex-wrap": return "flex-wrap:" + cs.flexWrap;
+      case "flex":
+      case "flex-grow":
+      case "flex-shrink":
+      case "flex-basis": return "flex:" + cs.flexGrow + " " + cs.flexShrink + " " + cs.flexBasis;
+      case "align-self": return "align-self:" + cs.alignSelf;
+      case "position": return "position:" + cs.position;
+      case "left": return "left:" + cs.left;
+      case "top": return "top:" + cs.top;
+      case "width": return "width:" + cs.width;
+      case "height": return "height:" + cs.height;
+      case "opacity": return "opacity:" + cs.opacity;
+      case "overflow": return "overflow:" + cs.overflow;
+      case "object-fit": return "object-fit:" + cs.objectFit;
+      case "border":
+      case "border-width":
+      case "border-style":
+      case "border-color":
+      case "border-top": return "border:" + cs.borderTopWidth + " " + cs.borderTopStyle + " " + cs.borderTopColor;
+      case "border-radius": return "border-radius:" + cs.borderTopLeftRadius;
+      case "box-shadow": return "box-shadow:" + shadowOf(cs.boxShadow);
+      case "transform": return "transform:" + (rotateOf(cs.transform) || "none");
+      case "filter": return "filter:" + cs.filter;
+      case "backdrop-filter": return "backdrop-filter:" + cs.backdropFilter;
+      case "outline":
+      case "outline-width":
+      case "outline-style":
+      case "outline-color": return "outline:" + cs.outlineWidth + " " + cs.outlineStyle + " " + cs.outlineColor;
+      case "outline-offset": return "outline-offset:" + cs.outlineOffset;
+      default: return "";
+    }
+  }
+  function walk(el) {
+    if (!el || el.nodeType !== 1) return;
+    const tag = el.tagName.toLowerCase();
+    if (skip.has(tag)) return;
+    const props = declared(el);
+    if (props.size) {
+      const parts = [];
+      const seen = new Set();
+      for (const prop of props.keys()) {
+        const line = resolved(el, prop);
+        if (!line) continue;
+        const key = line.slice(0, line.indexOf(":"));
+        if (seen.has(key)) continue;
+        seen.add(key);
+        parts.push(line);
+      }
+      if (parts.length) {
+        el.setAttribute("style", parts.join(";"));
+        el.removeAttribute("class");
+      }
+    }
+    for (const child of [...el.children]) walk(child);
+  }
+  if (document.body) walk(document.body);
+  for (const el of [...document.querySelectorAll("style, script")]) el.remove();
+  return JSON.stringify({ html: document.documentElement.outerHTML, unreadable });
+})()`
+
+// ComputedHTML loads html in Chromium and inlines author styles so importHTML can read them.
+func (c *Chrome) ComputedHTML(ctx context.Context, html string) (string, error) {
+	if msg := chromiumProblem(); msg != "" {
+		return "", fmt.Errorf("computed styles need Chromium. %s", msg)
+	}
+	browser, err := c.ensure()
+	if err != nil {
+		return "", fmt.Errorf("computed styles need Chromium. %w", err)
+	}
+	tab, cancel := chromedp.NewContext(browser)
+	defer cancel()
+	tab, cancelTimeout := context.WithTimeout(tab, 15*time.Second)
+	defer cancelTimeout()
+	go func() {
+		select {
+		case <-ctx.Done():
+			cancelTimeout()
+		case <-tab.Done():
+		}
+	}()
+	err = chromedp.Do(tab,
+		chromedp.Navigate("about:blank"),
+		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
+			tree, err := cdp.Call(ctx, t, page.GetFrameTree, cdp.Empty{})
+			if err != nil {
+				return err
+			}
+			_, err = cdp.Call(ctx, t, page.SetDocumentContent, page.SetDocumentContentParams{FrameID: tree.FrameTree.Frame.ID, HTML: html})
+			return err
+		}),
+	)
+	if err != nil {
+		return "", fmt.Errorf("computed styles failed in Chromium: %w. Install Chromium with '%s' or set PAPRIKA_CHROMIUM", err, chromiumInstallCommand)
+	}
+	raw, err := chromedp.Run(tab, chromedp.Evaluate[string](bakeComputedJS))
+	if err != nil {
+		return "", fmt.Errorf("computed styles failed in Chromium: %w. Install Chromium with '%s' or set PAPRIKA_CHROMIUM", err, chromiumInstallCommand)
+	}
+	var parsed struct {
+		HTML       string `json:"html"`
+		Unreadable int    `json:"unreadable"`
+	}
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil || parsed.HTML == "" {
+		return "", errors.New("computed styles failed in Chromium: the document came back empty. Install Chromium with '" + chromiumInstallCommand + "' or set PAPRIKA_CHROMIUM")
+	}
+	if len(parsed.HTML) > 2_000_000 {
+		return "", fmt.Errorf("computed HTML is too large: %d characters (limit 2000000)", len(parsed.HTML))
+	}
+	return parsed.HTML, nil
+}
+
 // Close stops the browser.
 func (c *Chrome) Close() {
 	c.mu.Lock()

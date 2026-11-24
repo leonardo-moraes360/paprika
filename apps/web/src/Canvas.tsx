@@ -249,6 +249,74 @@ type DropSpot = {
 
 /** IMAGE_MIME for OS file drops (PAP-B-019 path via data URI create). */
 const IMAGE_FILE = /^image\/(png|jpe?g|webp|avif|gif)$/i;
+const RASTER_BYTES = 3_500_000;
+
+function rasterRefusal(name: string): string | null {
+  if (/\.fig$/i.test(name)) return `${name}: .fig não é importado. Exporte SVG dessa ferramenta e cole o SVG.`;
+  if (/\.pdf$/i.test(name)) return `${name}: PDF não é importado.`;
+  return null;
+}
+
+function isRasterFile(file: File): boolean {
+  return IMAGE_FILE.test(file.type) || /\.(png|jpe?g|webp|avif|gif)$/i.test(file.name);
+}
+
+function clipboardRaster(data: DataTransfer): File | null {
+  for (const file of data.files) if (isRasterFile(file)) return file;
+  for (const item of data.items) {
+    if (item.kind === "file" && IMAGE_FILE.test(item.type)) {
+      const file = item.getAsFile();
+      if (file) return file;
+    }
+  }
+  return null;
+}
+
+function readDataURL(file: File): Promise<string> {
+  return new Promise((ok, fail) => {
+    const r = new FileReader();
+    r.onload = () => ok(String(r.result));
+    r.onerror = () => fail(r.error ?? new Error("leitura"));
+    r.readAsDataURL(file);
+  });
+}
+
+function naturalSize(src: string): Promise<{ w: number; h: number }> {
+  return new Promise((ok, fail) => {
+    const img = new Image();
+    img.onload = () => ok({ w: img.naturalWidth || 1, h: img.naturalHeight || 1 });
+    img.onerror = () => fail(new Error("imagem inválida"));
+    img.src = src;
+  });
+}
+
+async function rasterNode(file: File, x: number, y: number) {
+  const refused = rasterRefusal(file.name);
+  if (refused) throw new Error(refused);
+  if (!isRasterFile(file)) throw new Error(`formato não suportado: ${file.name || file.type || "arquivo"}`);
+  if (file.size > RASTER_BYTES) throw new Error(`imagem grande demais: ${file.size} bytes (limite ${RASTER_BYTES})`);
+  const src = await readDataURL(file);
+  if (src.length > 5_000_000) throw new Error("a data URI passa de 5000000 caracteres");
+  const size = await naturalSize(src);
+  const scale = Math.min(1, 480 / Math.max(size.w, size.h));
+  const id = newId();
+  const name = (file.name || "imagem").replace(/\.[^.]+$/, "") || "imagem";
+  return {
+    id,
+    node: {
+      type: "image" as const,
+      id,
+      name,
+      x,
+      y,
+      width: Math.max(1, Math.round(size.w * scale)),
+      height: Math.max(1, Math.round(size.h * scale)),
+      src,
+      fit: "contain" as const,
+      alt: file.name || "",
+    },
+  };
+}
 
 /**
  * Clicar dentro de um grupo seleciona o grupo mais externo (ou mantém o grupo já selecionado, para
@@ -1199,22 +1267,33 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     if (tool !== "pen") setPen(null);
   }, [tool]);
 
-  // Colar SVG ou HTML vira nós editáveis: dentro do frame selecionado ou na página, no centro da tela.
+  // Colar SVG, imagem ou HTML: dentro do frame selecionado ou na página, no centro da tela.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const target = e.target instanceof Element ? e.target : null;
       if (target?.closest("input, textarea, select, [contenteditable]")) return;
-      const plain = e.clipboardData?.getData("text/plain").trim() ?? "";
-      const html = e.clipboardData?.getData("text/html") ?? "";
+      const data = e.clipboardData;
+      const plain = data?.getData("text/plain").trim() ?? "";
+      const html = data?.getData("text/html") ?? "";
       const svg = isSVGText(plain);
-      if (!svg && !html.trim()) return;
+      const image = !svg && data ? clipboardRaster(data) : null;
+      if (!svg && !image && !html.trim()) return;
       e.preventDefault();
+      const sel = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
+      const into = sel?.type === "frame" && !isInstance(sel) && !copyOwner(doc, sel) ? sel.id : null;
+      const vpr = viewportRef.current!.getBoundingClientRect();
+      const c = localFor(into, vpr.left + vpr.width / 2, vpr.top + vpr.height / 2);
+      const at = { x: Math.round(c.x), y: Math.round(c.y) };
+      if (image) {
+        void rasterNode(image, at.x, at.y)
+          .then(({ id, node }) => {
+            apply([{ op: "create", parentId: into ?? pageId, node }], "colar imagem");
+            onSelect([id]);
+          })
+          .catch((err) => onError?.(`Não deu para colar: ${err instanceof Error ? err.message : String(err)}`));
+        return;
+      }
       try {
-        const sel = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
-        const into = sel?.type === "frame" && !isInstance(sel) && !copyOwner(doc, sel) ? sel.id : null;
-        const vpr = viewportRef.current!.getBoundingClientRect();
-        const c = localFor(into, vpr.left + vpr.width / 2, vpr.top + vpr.height / 2);
-        const at = { x: Math.round(c.x), y: Math.round(c.y) };
         const r = svg ? importSVG(plain, at) : importHTML(html, at);
         if (!r.nodes.length) throw new Error(r.warnings.join("; ") || "nada para colar");
         const ids = r.nodes.map((n) => (n.id = newId()));
@@ -2390,40 +2469,13 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     for (const file of list) {
       const name = file.name || "arquivo";
       try {
-        if (IMAGE_FILE.test(file.type) || /\.(png|jpe?g|webp|avif|gif)$/i.test(name)) {
-          const src = await new Promise<string>((ok, fail) => {
-            const r = new FileReader();
-            r.onload = () => ok(String(r.result));
-            r.onerror = () => fail(r.error ?? new Error("leitura"));
-            r.readAsDataURL(file);
-          });
-          const size = await new Promise<{ w: number; h: number }>((ok, fail) => {
-            const img = new Image();
-            img.onload = () => ok({ w: img.naturalWidth || 100, h: img.naturalHeight || 100 });
-            img.onerror = () => fail(new Error("imagem inválida"));
-            img.src = src;
-          });
-          const max = 480;
-          const scale = Math.min(1, max / Math.max(size.w, size.h));
-          const id = newId();
-          ids.push(id);
-          ops.push({
-            op: "create",
-            parentId: into,
-            node: {
-              type: "image",
-              id,
-              name: name.replace(/\.[^.]+$/, "") || "Imagem",
-              x: Math.round(at.x + ox),
-              y: Math.round(at.y),
-              width: Math.max(1, Math.round(size.w * scale)),
-              height: Math.max(1, Math.round(size.h * scale)),
-              src,
-              fit: "contain",
-              alt: name,
-            },
-          });
-          ox += Math.round(size.w * scale) + 16;
+        const refused = rasterRefusal(name);
+        if (refused) throw new Error(refused);
+        if (isRasterFile(file)) {
+          const made = await rasterNode(file, Math.round(at.x + ox), Math.round(at.y));
+          ids.push(made.id);
+          ops.push({ op: "create", parentId: into, node: made.node });
+          ox += made.node.width + 16;
         } else if (file.type === "image/svg+xml" || /\.svg$/i.test(name) || file.type === "text/html" || /\.html?$/i.test(name)) {
           const text = await file.text();
           const svg = file.type === "image/svg+xml" || /\.svg$/i.test(name) || isSVGText(text.trim());

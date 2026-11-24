@@ -106,9 +106,9 @@ Tarefa: `importSVG`, `importHTML` e `exportSVG` no core (TS e Go), as ferramenta
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 40 | Trazer um ícone de um conjunto SVG | Antes o agente traduzia cada `<rect>`/`<circle>`/arco à mão para `d`; agora o `import_svg` faz isso numa chamada e diz o que ficou de fora em `warnings` | Suportar sprites `<use>`/`<symbol>` e `<text>` (como nós `text`), comuns em ícones e logos | P2 |
+| 40 | Trazer um ícone de um conjunto SVG | Antes o agente traduzia cada `<rect>`/`<circle>`/arco à mão para `d`; agora o `import_svg` faz isso numa chamada e diz o que ficou de fora em `warnings` | Feito (2026-11-24, PAP-B-078): sprites `<use>`/`<symbol>` são expandidos e `<text>` vira nó de texto. Imagens, gradientes, máscaras e `<style>` continuam avisos | — |
 | 41 | Exportar SVG de um nó com auto layout sem navegador | O core não coloca sozinho filhos `hug`/`fill`/row/column, então `exportSVG` sem medida falha apontando para `export_code` | Feito (2026-11-22, PAP-A-002): `exportSVG` / `export_code` svg / `GET /api/svg` usam as caixas do `layout(doc)`; o texto quebra em `\n`; gradientes e imagens de fundo ficam de fora | — |
-| 42 | Reaproveitar um componente de uma página web | O `import_html` só lê `style=""` inline; o HTML copiado da maioria dos sites depende de classes, então o resultado sai simples | Uma opção que renderiza o HTML no Chromium do servidor e importa os estilos computados | P2 |
+| 42 | Reaproveitar um componente de uma página web | O `import_html` só lê `style=""` inline; o HTML copiado da maioria dos sites depende de classes, então o resultado sai simples | Feito (2026-11-24, PAP-B-078): `import_html` com `computed: true` renderiza no Chromium do servidor e grava os estilos computados do autor. O importador puro continua só com estilo inline. Chromium ausente é erro, sem fallback silencioso | — |
 
 ## 2026-11-21: edição de path ponto a ponto (leva 1 do backlog, item 4)
 
@@ -862,3 +862,15 @@ Tarefa: desenhar o conta-gotas, as alças das pontas e os três contornos novos 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (fundo máximo 15060, frames em 15240).
 - Os bytes de `render_screenshot` foram gravados nos PNGs a partir do resultado da ferramenta.
+
+## 2026-11-24: colar e soltar uma imagem raster (PAP-B-078, design first)
+
+Tarefa: desenhar colar e soltar uma foto no canvas, claro e escuro, antes de codificar, na página `Interfaces` (`interfaces`) do workspace `Paprica · UI` (`cmio9n368k`). Quatro frames (`b078-paste-light`, `b078-drop-light`, `b078-paste-dark`, `b078-drop-dark`) em y=15720. PNGs em `docs/assets/boards/PAP-B-078/`. Depois de corrigir contraste e texto pequeno (`#fff7f2` nas legendas escuras, alt em 12px), o `lint_design` nessas raízes ficou com 0 erros e 0 avisos.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 151 | Abrir o board de design `Paprica · UI` no servidor em `127.0.0.1:4777` | `list_workspaces` devolveu só `PAP-B-052 i18n` (`imo442j45j`). O board não estava nesse banco | `import_document` de `docs/design/boards.paprika.json` restaurou o workspace `cmio9n368k` sem `open_workspace`. O canvas ativo continuou `imo442j45j`, e as chamadas seguintes endereçaram o board por `workspaceId` | P2 |
+
+- `list_workspaces` mais `workspaceId` funcionou. `open_workspace` não foi chamado.
+- O outline de profundidade 1 de `page#interfaces` devolveu um fundo real (15560), então os frames foram para y=15720. Uma segunda página ainda se chama Interfaces (`h6jut017rv`); os frames estão em `interfaces`.
+- Os bytes de `render_screenshot` foram gravados nos PNGs a partir do resultado da ferramenta. `update_nodes` corrigiu o lint sem redesenhar os frames.

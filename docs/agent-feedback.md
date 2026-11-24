@@ -106,9 +106,9 @@ Task: `importSVG`, `importHTML` and `exportSVG` in the core (TS and Go), the MCP
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 40 | Bring an icon from an SVG set | Before, an agent had to translate each `<rect>`/`<circle>`/arc by hand into `d`; `import_svg` now does it in one call and says what it dropped in `warnings` | Support `<use>`/`<symbol>` sprites and `<text>` (as `text` nodes), which icon sets and logos often use | P2 |
+| 40 | Bring an icon from an SVG set | Before, an agent had to translate each `<rect>`/`<circle>`/arc by hand into `d`; `import_svg` now does it in one call and says what it dropped in `warnings` | Done (2026-11-24, PAP-B-078): `<use>`/`<symbol>` sprites expand and `<text>` becomes a text node. Images, gradients, masks and `<style>` stay warnings | — |
 | 41 | Export SVG of a node with auto layout without a browser | The core can't place `hug`/`fill`/row/column children by itself, so `exportSVG` without a measure fails with a message that points to `export_code` | Done (2026-11-22, PAP-A-002): `exportSVG` / `export_code` svg / `GET /api/svg` use `layout(doc)` boxes; text splits on `\n`; gradients and background images stay out | — |
-| 42 | Reuse a component from a live web page | `import_html` reads inline `style=""` only; HTML copied from most sites relies on classes, so the result is plain | An option that renders the HTML in the server's Chromium and imports computed styles | P2 |
+| 42 | Reuse a component from a live web page | `import_html` reads inline `style=""` only; HTML copied from most sites relies on classes, so the result is plain | Done (2026-11-24, PAP-B-078): `import_html` `computed: true` renders in the server's Chromium and inlines computed author styles. The pure importer stays inline-only. A missing Chromium is an error, not a silent fallback | — |
 
 ## 2026-11-21: point-by-point path editing (backlog slice 1, item 4)
 
@@ -859,3 +859,15 @@ Task: draw the pipette, the connector-end handles and the three new outlines bef
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123, still open: the content box of `page#interfaces` is 0×0, so `y` came from a depth-1 scan (max bottom 15060, frames at 15240).
 - `render_screenshot` bytes were written to the PNGs from the tool result.
+
+## 2026-11-24: paste and drop a raster image (PAP-B-078, design first)
+
+Task: draw paste and drop of a photo onto the canvas, light and dark, before coding them, on page `Interfaces` (`interfaces`) of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b078-paste-light`, `b078-drop-light`, `b078-paste-dark`, `b078-drop-dark`) at y=15720. PNGs in `docs/assets/boards/PAP-B-078/`. After a contrast and small-text fix (`#fff7f2` on the dark captions, alt at 12px), `lint_design` on those roots reported 0 errors and 0 warnings.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 151 | Open the design board `Paprica · UI` on the server at `127.0.0.1:4777` | `list_workspaces` returned only `PAP-B-052 i18n` (`imo442j45j`). The board was missing from that database | `import_document` of `docs/design/boards.paprika.json` restored workspace `cmio9n368k` without `open_workspace`. The active canvas stayed `imo442j45j`, and later calls addressed the board by `workspaceId` | P2 |
+
+- `list_workspaces` plus `workspaceId` worked. `open_workspace` was not called.
+- A depth-1 outline of `page#interfaces` reported a real bottom (15560), so the frames went at y=15720. A second page is still also named Interfaces (`h6jut017rv`); the frames are on `interfaces`.
+- `render_screenshot` bytes were written to the PNGs from the tool result. `update_nodes` fixed the lint without redrawing the frames.

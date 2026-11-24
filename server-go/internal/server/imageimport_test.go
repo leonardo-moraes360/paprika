@@ -231,7 +231,10 @@ func TestImportImageRefusals(t *testing.T) {
 		t.Fatal(err)
 	}
 	for src, want := range map[string]string{
-		"note.txt":                    "unsupported image format",
+		"note.txt": "unsupported image format",
+		"logo.fig": ".fig is not imported",
+		"page.pdf": "PDF is not imported",
+		"data:application/pdf;base64,JVBERi0xLjQK": "PDF is not imported",
 		"missing.png":                 "file not found",
 		".":                           "not a regular file",
 		"https://example.com/a.png":   "not fetched",

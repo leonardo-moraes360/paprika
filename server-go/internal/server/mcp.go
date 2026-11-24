@@ -208,6 +208,11 @@ type Screenshotter interface {
 	ScreenshotMode(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) (png []byte, width, height int, err error)
 }
 
+// HTMLComputer renders HTML in Chromium and returns it with author styles inlined.
+type HTMLComputer interface {
+	ComputedHTML(ctx context.Context, html string) (string, error)
+}
+
 func optStr(name string) z.Field { return z.Field{Name: name, Schema: z.Optional(z.String())} }
 
 func propNameArg() z.Schema {
@@ -1529,10 +1534,26 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	})
 	add("import_html", importFields(
 		z.Field{Name: "html", Schema: z.String().Min(1).Max(2_000_000)},
-	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		r, err := core.ImportHTML(a.Str("html"), importOpts(a))
+		z.Field{Name: "computed", Schema: z.Optional(z.Bool())},
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
+		html := a.Str("html")
+		if a.Bool("computed") {
+			comp, ok := m.shot.(HTMLComputer)
+			if m.shot == nil || !ok {
+				return nil, errors.New("computed styles need Chromium on this server. Install it with '" + chromiumInstallCommand + "' or set PAPRIKA_CHROMIUM")
+			}
+			baked, err := comp.ComputedHTML(ctx, html)
+			if err != nil {
+				return nil, err
+			}
+			html = baked
+		}
+		r, err := core.ImportHTML(html, importOpts(a))
 		if err != nil {
 			return nil, err
+		}
+		if a.Bool("computed") {
+			r.Warnings = append([]string{"styles were read from Chromium computed style and written inline"}, r.Warnings...)
 		}
 		return importWrite(r, a, "import HTML")
 	})

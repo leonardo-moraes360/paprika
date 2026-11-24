@@ -1,5 +1,6 @@
 import { elements, findElement, parseMarkup, parseStyle, textContent, type MarkupElement } from "./markup.js";
 import { parseColor } from "./lint.js";
+import { measureText } from "./layout.js";
 import { round4 } from "./num.js";
 import { parsePath, pathBounds, serializePath, translatePath, type Point, type Segment } from "./path.js";
 import type { NodeInput } from "./ops.js";
@@ -7,10 +8,10 @@ import type { NodeInput } from "./ops.js";
 /**
  * Importa SVG como nós editáveis: `<path>`, `<rect>`, `<circle>`, `<ellipse>`, `<line>`,
  * `<polyline>` e `<polygon>` viram nós `path` (ou `rect`/`ellipse` quando não há rotação nem
- * inclinação), `<g>` vira `group`. Transforms são aplicados à geometria (arcos viram bezier
- * cúbicas quando a transformação não é só translação). Pintura herdada (fill, stroke…) é
- * resolvida em cada nó. O que não tem equivalente (texto, imagens, gradientes, máscaras, CSS em
- * `<style>`) é ignorado e listado em `warnings`.
+ * inclinação), `<g>` vira `group`, `<text>` vira `text`, `<use>` instancia `<symbol>` e outros
+ * ids. Transforms são aplicados à geometria (arcos viram bezier cúbicas quando a transformação
+ * não é só translação). Pintura herdada (fill, stroke…) é resolvida em cada nó. Imagens,
+ * gradientes, máscaras e CSS em `<style>` são ignorados e listados em `warnings`.
  */
 
 export interface ImportResult {
@@ -459,6 +460,229 @@ function shapeNode(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string)
   return node;
 }
 
+interface SvgFont {
+  size: number;
+  family?: string;
+  weight?: number;
+  anchor: "start" | "middle" | "end";
+  spacing?: number;
+}
+
+interface SvgState {
+  ids: Map<string, MarkupElement>;
+  stack: string[];
+  warn: (w: string) => void;
+}
+
+const FONT0: SvgFont = { size: 16, anchor: "start" };
+const TEXT_ASCENT = 0.8;
+
+function indexIds(el: MarkupElement, ids: Map<string, MarkupElement>) {
+  const id = el.attrs.get("id");
+  if (id && !ids.has(id)) ids.set(id, el);
+  for (const c of elements(el)) indexIds(c, ids);
+}
+
+function fontOf(el: MarkupElement, parent: SvgFont): SvgFont {
+  const css = parseStyle(el.attrs.get("style"));
+  const get = (k: string) => css.get(k) ?? el.attrs.get(k);
+  const next: SvgFont = { ...parent };
+  const fs = get("font-size");
+  if (fs !== undefined) {
+    const n = num(fs, parent.size);
+    if (n >= 1) next.size = Math.min(1000, n);
+  }
+  const fam = get("font-family");
+  if (fam) {
+    const f = fam.replace(/[;{}<>()]/g, "").trim().slice(0, 200);
+    if (f) next.family = f;
+  }
+  const fw = get("font-weight");
+  if (fw) {
+    const n = fw === "bold" || fw === "bolder" ? 700 : fw === "normal" || fw === "lighter" ? 400 : Number.parseInt(fw, 10);
+    if (Number.isInteger(n) && n >= 100 && n <= 900) next.weight = n;
+  }
+  const ta = get("text-anchor");
+  if (ta === "start" || ta === "middle" || ta === "end") next.anchor = ta;
+  const ls = get("letter-spacing");
+  if (ls !== undefined) next.spacing = num(ls, 0);
+  return next;
+}
+
+function firstNum(el: MarkupElement, k: string): number {
+  return numbers(el.attrs.get(k) ?? "")[0] ?? 0;
+}
+
+function collapseSVGText(raw: string, preserve: boolean): string {
+  if (preserve) return raw;
+  return raw.replace(/[ \t\r\n\f]+/g, " ").trim();
+}
+
+function textPieces(textEl: MarkupElement): { text: string; el: MarkupElement; x: number; y: number }[] {
+  const baseX = firstNum(textEl, "x");
+  const baseY = firstNum(textEl, "y");
+  const preserve = textEl.attrs.get("xml:space") === "preserve";
+  const positioned = elements(textEl).some(
+    (c) => c.tag === "tspan" && (c.attrs.has("x") || c.attrs.has("y") || c.attrs.has("dx") || c.attrs.has("dy")),
+  );
+  if (!positioned) {
+    const text = collapseSVGText(textContent(textEl), preserve);
+    return text ? [{ text, el: textEl, x: baseX, y: baseY }] : [];
+  }
+  const out: { text: string; el: MarkupElement; x: number; y: number }[] = [];
+  let x = baseX;
+  let y = baseY;
+  const push = (raw: string, el: MarkupElement, px: number, py: number) => {
+    const text = collapseSVGText(raw, preserve || el.attrs.get("xml:space") === "preserve");
+    if (text) out.push({ text, el, x: px, y: py });
+  };
+  for (const c of textEl.children) {
+    if (typeof c === "string") {
+      push(c, textEl, x, y);
+      continue;
+    }
+    if (c.tag !== "tspan") continue;
+    x = c.attrs.has("x") ? firstNum(c, "x") : x + (c.attrs.has("dx") ? num(c.attrs.get("dx")) : 0);
+    y = c.attrs.has("y") ? firstNum(c, "y") : y + (c.attrs.has("dy") ? num(c.attrs.get("dy")) : 0);
+    push(textContent(c), c, x, y);
+  }
+  return out;
+}
+
+function textNode(piece: { text: string; el: MarkupElement; x: number; y: number }, m: Matrix, paint: Paint, local: SvgFont, name: string, opacity: number, warn: (w: string) => void): NodeInput {
+  const weight = local.weight ?? 400;
+  const box = measureText(piece.text, local.size, { fontWeight: weight, letterSpacing: local.spacing });
+  let lx = piece.x;
+  if (local.anchor === "middle") lx -= box.width / 2;
+  else if (local.anchor === "end") lx -= box.width;
+  const ly = piece.y - local.size * TEXT_ASCENT;
+  const p = apply(m, { x: lx, y: ly });
+  const scale = Math.hypot(m[0], m[1]) || 1;
+  const node: NodeInput = { type: "text" };
+  if (name) node.name = name;
+  if (opacity !== 1) node.opacity = round4(opacity);
+  node.x = round4(p.x);
+  node.y = round4(p.y);
+  node.width = "hug";
+  node.height = "hug";
+  node.text = piece.text;
+  node.color = paint.fill ? withAlpha(paint.fill, paint.fillOpacity, warn) : "transparent";
+  if (local.family) node.fontFamily = local.family;
+  const fontSize = round4(Math.min(1000, Math.max(1, local.size * scale)));
+  if (fontSize !== 16) node.fontSize = fontSize;
+  if (local.weight !== undefined && local.weight !== 400) node.fontWeight = local.weight;
+  if (local.anchor === "middle") node.textAlign = "center";
+  else if (local.anchor === "end") node.textAlign = "right";
+  if (local.spacing) node.letterSpacing = round4(local.spacing * scale);
+  if (!(m[1] === 0 && m[2] === 0)) warn("<text> with rotation or skew stays upright; only the origin is transformed");
+  return node;
+}
+
+function textNodes(el: MarkupElement, m: Matrix, paint: Paint, font: SvgFont, warn: (w: string) => void): NodeInput[] {
+  const pieces = textPieces(el);
+  if (!pieces.length) return [];
+  const name = nameOf(el);
+  const opacity = opacityOf(el);
+  const base = fontOf(el, font);
+  const cp = paintOf(el, paint, warn);
+  const nodes = pieces.map((piece) =>
+    textNode(
+      piece,
+      m,
+      piece.el === el ? cp : paintOf(piece.el, cp, warn),
+      piece.el === el ? base : fontOf(piece.el, base),
+      pieces.length === 1 ? name : "",
+      pieces.length === 1 ? opacity : 1,
+      warn,
+    ),
+  );
+  if (pieces.length === 1) return nodes;
+  const g: NodeInput = { type: "group", children: nodes };
+  if (name) g.name = name;
+  if (opacity !== 1) g.opacity = round4(opacity);
+  return [g];
+}
+
+function useTarget(el: MarkupElement, state: SvgState): MarkupElement | undefined {
+  const raw = (el.attrs.get("href") ?? el.attrs.get("xlink:href") ?? "").trim();
+  if (!raw) {
+    state.warn("<use> without href skipped");
+    return undefined;
+  }
+  if (!raw.startsWith("#")) {
+    state.warn(`external <use> (${raw.slice(0, 80)}) is not imported`);
+    return undefined;
+  }
+  let id = raw.slice(1);
+  try {
+    id = decodeURIComponent(id);
+  } catch {
+    /* keep the raw id */
+  }
+  const target = state.ids.get(id);
+  if (!target) {
+    state.warn(`<use> target "#${id}" was not found`);
+    return undefined;
+  }
+  if (state.stack.includes(id)) {
+    state.warn(`<use> cycle on "#${id}" skipped`);
+    return undefined;
+  }
+  state.stack.push(id);
+  return target;
+}
+
+function expandUse(el: MarkupElement, m: Matrix, paint: Paint, font: SvgFont, state: SvgState): NodeInput[] {
+  const target = useTarget(el, state);
+  if (!target) return [];
+  try {
+    const used = paintOf(el, paint, state.warn);
+    const usedFont = fontOf(el, font);
+    const cm = multiply(m, multiply(parseTransform(el.attrs.get("transform"), state.warn), [1, 0, 0, 1, num(el.attrs.get("x")), num(el.attrs.get("y"))]));
+    let kids: NodeInput[];
+    if (target.tag === "symbol" || target.tag === "svg") {
+      let placed = cm;
+      const vb = numbers(target.attrs.get("viewbox") ?? "");
+      const wAttr = el.attrs.get("width");
+      const hAttr = el.attrs.get("height");
+      if (vb.length === 4 && vb[2]! > 0 && vb[3]! > 0) {
+        let sx = 1;
+        let sy = 1;
+        if (wAttr?.includes("%") || hAttr?.includes("%")) state.warn("<use> percentage width or height is not scaled");
+        else if (wAttr && hAttr) {
+          const ww = num(wAttr);
+          const hh = num(hAttr);
+          if (ww > 0 && hh > 0) {
+            sx = ww / vb[2]!;
+            sy = hh / vb[3]!;
+          }
+        }
+        placed = multiply(cm, [sx, 0, 0, sy, -vb[0]! * sx, -vb[1]! * sy]);
+      }
+      if (target.tag === "svg") placed = multiply(placed, [1, 0, 0, 1, num(target.attrs.get("x")), num(target.attrs.get("y"))]);
+      placed = multiply(placed, parseTransform(target.attrs.get("transform"), state.warn));
+      kids = convert(target, placed, paintOf(target, used, state.warn), fontOf(target, usedFont), state);
+    } else {
+      const wrapper: MarkupElement = { tag: "g", attrs: new Map(), children: [target] };
+      kids = convert(wrapper, cm, used, usedFont, state);
+    }
+    if (!kids.length) return [];
+    const opacity = opacityOf(el);
+    const name = nameOf(el);
+    if (kids.length === 1 && opacity === 1 && !name) return kids;
+    if (kids.length === 1 && opacity === 1 && name && !kids[0]!.name) {
+      kids[0]!.name = name;
+      return kids;
+    }
+    const g: NodeInput = { type: "group", children: kids };
+    if (name) g.name = name;
+    if (opacity !== 1) g.opacity = round4(opacity);
+    return [g];
+  } finally {
+    state.stack.pop();
+  }
+}
+
 function rootMatrix(svg: MarkupElement): Matrix {
   const vb = numbers(svg.attrs.get("viewbox") ?? "");
   if (vb.length !== 4 || vb[2]! <= 0 || vb[3]! <= 0) return IDENTITY;
@@ -471,7 +695,8 @@ function rootMatrix(svg: MarkupElement): Matrix {
   return [s, 0, 0, s, (w - vw * s) / 2 - vx * s, (h - vh * s) / 2 - vy * s];
 }
 
-function convert(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string) => void): NodeInput[] {
+function convert(el: MarkupElement, m: Matrix, paint: Paint, font: SvgFont, state: SvgState): NodeInput[] {
+  const warn = state.warn;
   const out: NodeInput[] = [];
   for (const c of elements(el)) {
     if (SKIP.has(c.tag)) {
@@ -482,8 +707,13 @@ function convert(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string) =
     if (c.attrs.get("clip-path") || c.attrs.get("mask")) warn(`clip-path/mask on <${c.tag}> skipped`);
     const cm = multiply(m, parseTransform(c.attrs.get("transform"), warn));
     const cp = paintOf(c, paint, warn);
+    const cf = fontOf(c, font);
+    if (c.tag === "use") {
+      out.push(...expandUse(c, m, paint, font, state));
+      continue;
+    }
     if (CONTAINERS.has(c.tag)) {
-      const kids = convert(c, c.tag === "svg" ? multiply(cm, [1, 0, 0, 1, num(c.attrs.get("x")), num(c.attrs.get("y"))]) : cm, cp, warn);
+      const kids = convert(c, c.tag === "svg" ? multiply(cm, [1, 0, 0, 1, num(c.attrs.get("x")), num(c.attrs.get("y"))]) : cm, cp, cf, state);
       if (!kids.length) continue;
       const opacity = opacityOf(c);
       const name = nameOf(c);
@@ -500,6 +730,10 @@ function convert(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string) =
     if (SHAPES.has(c.tag)) {
       const n = shapeNode(c, cm, cp, warn);
       if (n) out.push(n);
+      continue;
+    }
+    if (c.tag === "text") {
+      out.push(...textNodes(c, cm, paint, font, warn));
       continue;
     }
     warn(`<${c.tag}> is not imported`);
@@ -532,7 +766,10 @@ export function importSVG(src: string | MarkupElement, opts: { x?: number; y?: n
   if (!svg) throw new Error("no <svg> element found");
   const m = multiply(rootMatrix(svg), parseTransform(svg.attrs.get("transform"), warn));
   const paint = paintOf(svg, INHERIT_DEFAULT, warn);
-  let nodes = convert(svg, m, paint, warn);
+  const ids = new Map<string, MarkupElement>();
+  indexIds(svg, ids);
+  const state: SvgState = { ids, stack: [], warn };
+  let nodes = convert(svg, m, paint, fontOf(svg, FONT0), state);
   offset(nodes, opts.x ?? 0, opts.y ?? 0);
   if (!nodes.length) return { nodes: [], warnings: warnings.length ? warnings : ["the SVG has no shapes to import"] };
   const name = (opts.name ?? nameOf(svg)) || "SVG";
