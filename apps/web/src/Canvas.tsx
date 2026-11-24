@@ -7,6 +7,9 @@ import {
   importSVG,
   isContainer,
   isInstance,
+  ignoresLayout,
+  modeOf,
+  resolveLength,
   anchorsToPath,
   canvasBounds,
   isScene,
@@ -52,6 +55,7 @@ import {
   type ShapeNode,
   type Subpath,
   type Document,
+  type Layout,
   type Node,
   type Op,
   type SceneNode,
@@ -71,6 +75,7 @@ import { useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { cx, ui } from "./ui";
 import { boxCorner, knobFromTop, quadHitsRect, resizeBox, type Corner, type Pt } from "./selectionGeom";
+import { gapAfterDrag, paddingAfterDrag, padTuple, sameLayout, spacingHandles, worldDeltaToLocal, type SpacingHandleGeom } from "./spacingHandles";
 
 /** Drawing tools show a crosshair over the canvas. */
 const CROSSHAIR = new Set<string>(["frame", "rect", "ellipse", "text", "pen"]);
@@ -117,7 +122,7 @@ interface View {
 }
 
 /** Posições/tamanhos provisórios durante um arraste (um ou vários nós). */
-type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number; rotation?: number; control?: { x: number; y: number } }>;
+type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number; rotation?: number; control?: { x: number; y: number }; layout?: Layout }>;
 
 /** How long a dropped preview waits for the server before giving way to what the server has. */
 const PENDING_MS = 3000;
@@ -135,6 +140,9 @@ function snapshot(doc: Document, pv: Preview): Preview {
           const c = v as { x: number; y: number };
           cur.control = { x: c.x, y: c.y };
         }
+      } else if (k === "layout") {
+        const layout = n?.layout;
+        if (layout && typeof layout === "object") cur.layout = layout as Layout;
       } else if (typeof v === "number") {
         cur[k] = v;
       }
@@ -152,6 +160,7 @@ function samePreview(a: Preview, b: Preview): boolean {
         const bc = v as { x: number; y: number } | undefined;
         return !!ac && !!bc && ac.x === bc.x && ac.y === bc.y;
       }
+      if (k === "layout") return sameLayout(a[id]?.layout, v as Layout | undefined);
       return a[id]?.[k as "x" | "y" | "width" | "height" | "rotation"] === v;
     }),
   );
@@ -985,16 +994,23 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const [textEditId, setTextEditId] = useState<string | null>(null);
   // Durante um arraste, os conectores seguem as posições provisórias das formas.
   const shown = useMemo(() => {
-    if (!preview || !Object.values(doc.nodes).some((n) => n.type === "connector")) return doc;
+    if (!preview) return doc;
     const nodes = { ...doc.nodes };
-    for (const [id, pv] of Object.entries(preview)) if (nodes[id]) nodes[id] = { ...nodes[id], ...pv } as Node;
+    let changed = false;
+    for (const [id, pv] of Object.entries(preview)) {
+      if (!nodes[id]) continue;
+      nodes[id] = { ...nodes[id], ...pv } as Node;
+      changed = true;
+    }
+    if (!changed) return doc;
+    if (!Object.values(nodes).some((n) => n.type === "connector")) return { ...doc, nodes };
     for (const n of Object.values(nodes)) if (n.type === "connector") nodes[n.id] = { ...n };
     const next = { ...doc, nodes };
     try {
       routeConnectors(next);
       return next;
     } catch {
-      return doc;
+      return { ...doc, nodes };
     }
   }, [doc, preview]);
   const previewDoc = useMemo(() => {
@@ -2175,6 +2191,89 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     window.addEventListener("keyup", onKey);
   };
 
+  const spacingModel = useMemo(() => {
+    if (!single || single.type !== "frame" || !single.layout || single.layout.mode === "none") return null;
+    if (single.locked || isInstance(single) || copyOwner(doc, single)) return null;
+    const live = previewDoc.nodes[single.id];
+    if (!live || live.type !== "frame" || !live.layout || live.layout.mode === "none") return null;
+    const geom = placed[live.id];
+    if (!geom) return null;
+    const theme = modeOf(previewDoc, live);
+    const one = (v: number | string) => resolveLength(previewDoc, v, theme) ?? 0;
+    const raw = live.layout.padding;
+    const padding = Array.isArray(raw) ? padTuple(raw.map((v) => one(v)) as Layout["padding"]) : padTuple(one(raw));
+    const kids = live.children.flatMap((cid) => {
+      const n = previewDoc.nodes[cid];
+      const g = placed[cid];
+      if (!n || !isScene(n) || n.type === "connector" || n.visible === false || ignoresLayout(n) || !g) return [];
+      return [{ x: g.x, y: g.y, w: g.width, h: g.height }];
+    });
+    return {
+      id: live.id,
+      rotation: live.rotation,
+      handles: spacingHandles({ x: geom.x, y: geom.y, w: geom.width, h: geom.height, rotation: live.rotation }, padding, kids, live.layout.mode),
+    };
+  }, [single, doc, previewDoc, placed]);
+  const onSpacingDown = (h: SpacingHandleGeom) => (e: RPointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const id = spacingModel?.id;
+    const node = id ? previewDoc.nodes[id] : undefined;
+    if (!id || !node || node.type !== "frame" || !node.layout || node.layout.mode === "none" || (h.kind === "padding" && !h.side)) return;
+    const theme = modeOf(previewDoc, node);
+    const one = (v: number | string) => resolveLength(previewDoc, v, theme) ?? 0;
+    const raw = node.layout.padding;
+    const startPad = Array.isArray(raw) ? padTuple(raw.map((v) => one(v)) as Layout["padding"]) : padTuple(one(raw));
+    const startGap = one(node.layout.gap);
+    const rot = node.rotation || 0;
+    const baseLayout = node.layout;
+    const sx = e.clientX;
+    const sy = e.clientY;
+    takeOverPreview();
+    let last = baseLayout;
+    let moved = false;
+    const held = { alt: e.altKey };
+    let lastClient = { x: e.clientX, y: e.clientY };
+    const applyAt = (cx: number, cy: number) => {
+      const dx = (cx - sx) / view.zoom;
+      const dy = (cy - sy) / view.zoom;
+      if (Math.hypot(dx, dy) >= 0.5) moved = true;
+      const local = worldDeltaToLocal(dx, dy, rot);
+      const layout: Layout = { ...baseLayout };
+      if (h.kind === "gap") layout.gap = gapAfterDrag(startGap, h.axis, local.x, local.y);
+      else if (h.side) layout.padding = paddingAfterDrag(startPad, h.side, local.x, local.y, held.alt);
+      last = layout;
+      setPreview({ [id]: { layout } });
+    };
+    const move = (ev: PointerEvent) => {
+      held.alt = ev.altKey;
+      lastClient = { x: ev.clientX, y: ev.clientY };
+      applyAt(ev.clientX, ev.clientY);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      held.alt = ev.altKey || ev.getModifierState("Alt");
+      applyAt(lastClient.x, lastClient.y);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      const padNow = Array.isArray(last.padding) ? padTuple(last.padding as Layout["padding"]) : padTuple(typeof last.padding === "number" ? last.padding : 0);
+      const gapNow = typeof last.gap === "number" ? last.gap : startGap;
+      const unchanged = !moved || (h.kind === "gap" ? gapNow === startGap : padNow.every((v, i) => v === startPad[i]));
+      if (unchanged) {
+        setPreview(null);
+        return;
+      }
+      commitPreview({ [id]: { layout: last } }, [{ op: "update", id, props: { layout: last } }], h.kind === "gap" ? "gap" : "padding");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+  };
+
   const editedShape = textEditId ? doc.nodes[textEditId] : undefined;
   const textEdit =
     editedShape?.type === "shape"
@@ -2530,6 +2629,41 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
               {resizeLock === "square" ? m.ratioLockAlt : m.ratioLock}
             </div>
           )}
+        </div>
+      )}
+      {spacingModel && (
+        <div className="pointer-events-none absolute inset-0" data-testid="spacing-handles">
+          {spacingModel.handles.map((h) => {
+            const label =
+              h.kind === "gap"
+                ? m.spacingGap
+                : h.side === "right"
+                  ? m.spacingPadRight
+                  : h.side === "bottom"
+                    ? m.spacingPadBottom
+                    : h.side === "left"
+                      ? m.spacingPadLeft
+                      : m.spacingPadTop;
+            const vertical = h.axis === "x";
+            return (
+              <Hint key={h.id} label={h.kind === "gap" ? m.spacingGapHint : m.spacingPadHint}>
+                <div
+                  className="pointer-events-auto absolute cursor-grab border-[1.5px] border-select bg-white active:cursor-grabbing"
+                  style={{
+                    left: view.x + h.x * view.zoom,
+                    top: view.y + h.y * view.zoom,
+                    width: vertical ? 8 : 22,
+                    height: vertical ? 22 : 8,
+                    borderRadius: 4,
+                    transform: `translate(-50%, -50%) rotate(${spacingModel.rotation || 0}deg)`,
+                  }}
+                  data-spacing={h.id}
+                  aria-label={label}
+                  onPointerDown={onSpacingDown(h)}
+                />
+              </Hint>
+            );
+          })}
         </div>
       )}
       {draft && isDraftTool(tool) && (

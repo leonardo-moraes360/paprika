@@ -33,7 +33,7 @@ A leva 1 (os seis itens abaixo) foi entregue em 2026-11-21 (PRs #16–#32), a le
 | Ocultar, travar, destravar tudo | Olho e cadeado em cada linha de camada. **Mostrar todos** / **Destravar todos** na página atual (`show_all` / `unlock_all`, `pageId` opcional; um desfazer) (2026-11-23, PAP-B-089, #152). | ✅ | — |
 | Alinhar e distribuir a seleção | Ícones no inspector e `align_nodes` / `distribute_nodes`. Um desfazer. Só irmãos; nó rotacionado usa a caixa alinhada aos eixos (2026-11-23, PAP-B-089, #152). | ✅ | — |
 | Constraints (comportamento quando o pai redimensiona) | `constraints: { horizontal: left\|right\|center\|scale, vertical: top\|bottom\|center\|scale }` no filho (omitir = left/top). Vale quando a largura ou a altura numérica do frame pai muda, para filhos fora do fluxo (frame livre, ou `layoutPositioning: "absolute"`). Interruptores no inspector nesses filhos (2026-11-23, PAP-B-084, #158). | ✅ | — |
-| Alças de gap e padding no canvas | Só no inspector | ⬜ | P2 |
+| Alças de gap e padding no canvas | Frame com auto layout selecionado: arrastar uma barra em cada aresta de padding (Alt define os quatro) e uma barra em cada espaço (`layout.gap`). Um desfazer por arraste (2026-11-24, PAP-B-092). | ✅ | — |
 | Tokens de container e breakpoint, frames responsivos | — | ⬜ | P3 |
 | Layout CSS Grid | — | ⬜ | P3 |
 

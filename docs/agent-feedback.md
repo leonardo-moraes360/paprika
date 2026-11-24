@@ -821,3 +821,15 @@ Task: draw the collapsed pill and the expanded active/idle list, light and dark,
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123 and #128, still open: the content box of `page#interfaces` is empty, and a second page is also named Interfaces. Depth-1 bottoms put the frames at y=12760.
 - Nesting the label inside the badge frame cleared the contrast error. `lint_design` on both frames then reported no errors or warnings.
+
+## 2026-11-24: gap and padding handles (PAP-B-092, design first)
+
+Task: draw the spacing bars on a selected auto-layout frame before coding them, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b092-before-light`, `b092-after-light`, `b092-before-dark`, `b092-after-dark`) at y=13600. PNGs in `docs/assets/boards/PAP-B-092/`. `lint_design` on those roots: 0.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 147 | `paprika export --db` of the board the script just drew | The database is the compose volume, not a file on the host. The active workspace was already `Paprica · UI`, so `GET /api/export` is that document and was written to `docs/design/boards.paprika.json` | Same as #100 / #113: an `export_document` tool with `workspaceId`, or a host path for the volume | P2 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123, still open: `get_document_outline` of `page#interfaces` reported a 0×0 content box, so `y` came from a depth-1 scan (max bottom 13440, frames at 13600).
+- Same as #129: `render_screenshot` bytes were written to the PNGs from the tool result.

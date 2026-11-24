@@ -186,6 +186,13 @@ export type Messages = {
   resizeCorner: (corner: string) => string;
   rotate: string;
   rotateHint: string;
+  spacingPadTop: string;
+  spacingPadRight: string;
+  spacingPadBottom: string;
+  spacingPadLeft: string;
+  spacingGap: string;
+  spacingPadHint: string;
+  spacingGapHint: string;
   cornerTl: string;
   cornerTr: string;
   cornerBl: string;
@@ -572,6 +579,13 @@ const en: Messages = {
   resizeCorner: (corner) => `Resize ${corner} corner`,
   rotate: "Rotate",
   rotateHint: "Drag to rotate. Shift snaps to 15°.",
+  spacingPadTop: "Drag top padding",
+  spacingPadRight: "Drag right padding",
+  spacingPadBottom: "Drag bottom padding",
+  spacingPadLeft: "Drag left padding",
+  spacingGap: "Drag the gap",
+  spacingPadHint: "Drag to set this side. Alt sets all four.",
+  spacingGapHint: "Drag to set the gap. One undo.",
   cornerTl: "top-left",
   cornerTr: "top-right",
   cornerBl: "bottom-left",
@@ -949,6 +963,13 @@ const pt: Messages = {
   resizeCorner: (corner) => `Redimensionar canto ${corner}`,
   rotate: "Girar",
   rotateHint: "Arraste para girar. Shift trava em 15°.",
+  spacingPadTop: "Arrastar padding de cima",
+  spacingPadRight: "Arrastar padding da direita",
+  spacingPadBottom: "Arrastar padding de baixo",
+  spacingPadLeft: "Arrastar padding da esquerda",
+  spacingGap: "Arrastar o espaço",
+  spacingPadHint: "Arraste para este lado. Alt define os quatro.",
+  spacingGapHint: "Arraste para definir o espaço. Um desfazer.",
   cornerTl: "superior esquerdo",
   cornerTr: "superior direito",
   cornerBl: "inferior esquerdo",

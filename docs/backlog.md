@@ -33,7 +33,7 @@ Batch 1 (the six items below) shipped on 2026-11-21 (PRs #16–#32), batch 2 on 
 | Hide, lock, unlock all | Eye and lock on each layer row. **Show all** / **Unlock all** on the current page (`show_all` / `unlock_all`, optional `pageId`; one undo step) (2026-11-23, PAP-B-089, #152). | ✅ | — |
 | Align and distribute selection | Inspector icon row and `align_nodes` / `distribute_nodes`. One undo step. Siblings only; rotated nodes use the axis-aligned box (2026-11-23, PAP-B-089, #152). | ✅ | — |
 | Constraints (behavior when the parent resizes) | `constraints: { horizontal: left\|right\|center\|scale, vertical: top\|bottom\|center\|scale }` on a child (omit = left/top). Applied when the parent frame's numeric width or height changes, for children that are not in the flow (free frames, or `layoutPositioning: "absolute"`). Inspector toggles on those children (2026-11-23, PAP-B-084, #158). | ✅ | — |
-| Gap and padding handles on the canvas | Inspector only | ⬜ | P2 |
+| Gap and padding handles on the canvas | Selected auto-layout frame: drag a bar on each padding edge (Alt sets all four) and a bar in each gap (`layout.gap`). One undo per drag (2026-11-24, PAP-B-092). | ✅ | — |
 | Container and breakpoint tokens, responsive frames | — | ⬜ | P3 |
 | CSS Grid layout | — | ⬜ | P3 |
 
