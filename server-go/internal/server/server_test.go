@@ -1076,3 +1076,116 @@ func TestMCPWriteResultsAndEnsurePage(t *testing.T) {
 		t.Fatalf("missing name: %v %q", isErr, out)
 	}
 }
+
+func TestMCPDrawDiagramObstacles(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	box := core.GetNode
+	out, isErr := callText(t, m, "draw_diagram", obj(
+		"nodes", []any{
+			obj("id", "a", "x", 0.0, "y", 0.0, "width", 160.0, "height", 80.0, "text", "A"),
+			obj("id", "b", "x", 0.0, "y", 300.0, "width", 160.0, "height", 80.0, "text", "B"),
+			obj("id", "block", "x", 40.0, "y", 160.0, "width", 80.0, "height", 40.0, "text", "X"),
+		},
+		"edges", []any{
+			obj("from", "a", "to", "b", "id", "ab"),
+			obj("from", "a", "to", "b", "id", "st", "route", "straight"),
+			obj("from", "a", "to", "b", "id", "rd", "route", "rounded", "radius", 8.0),
+			obj("from", "a", "to", "b", "id", "cv", "route", "curve"),
+		},
+	))
+	if isErr {
+		t.Fatal(out)
+	}
+	block := hitBox{40, 160, 80, 40}
+	if routeHitsBox(box(s.Doc(), "ab"), block) {
+		t.Fatalf("elbow crosses block: %s", box(s.Doc(), "ab").Str("d"))
+	}
+	if !routeHitsBox(box(s.Doc(), "st"), block) {
+		t.Fatalf("straight should still cross: %s", box(s.Doc(), "st").Str("d"))
+	}
+	if routeHitsBox(box(s.Doc(), "rd"), block) || !strings.Contains(box(s.Doc(), "rd").Str("d"), "A") {
+		t.Fatalf("rounded: %s", box(s.Doc(), "rd").Str("d"))
+	}
+	if !strings.Contains(box(s.Doc(), "cv").Str("d"), " C") {
+		t.Fatalf("curve: %s", box(s.Doc(), "cv").Str("d"))
+	}
+	before := len(s.RecentHistory(20))
+	out, isErr = callText(t, m, "draw_diagram", obj("relayout", true, "nodes", []any{obj("id", "a", "x", 0.0, "y", 12.0)}))
+	if isErr {
+		t.Fatal(out)
+	}
+	if box(s.Doc(), "a").Num("y") != 12 || routeHitsBox(box(s.Doc(), "ab"), block) {
+		t.Fatalf("relayout y=%v d=%s", box(s.Doc(), "a").Num("y"), box(s.Doc(), "ab").Str("d"))
+	}
+	if len(s.RecentHistory(20)) != before+1 {
+		t.Fatalf("history %d", len(s.RecentHistory(20)))
+	}
+	out, isErr = callText(t, m, "undo", nil)
+	if isErr || box(s.Doc(), "a").Num("y") != 0 {
+		t.Fatalf("undo: %v %q y=%v", isErr, out, box(s.Doc(), "a").Num("y"))
+	}
+	out, isErr = callText(t, m, "draw_diagram", obj("relayout", true, "nodes", []any{obj("id", "ab")}))
+	if !isErr || !strings.Contains(out, `id "ab" is a connector; relayout only updates existing shapes`) {
+		t.Fatalf("relayout connector: %v %q", isErr, out)
+	}
+}
+
+type hitBox struct{ x, y, w, h float64 }
+
+func routeHitsBox(c *core.Node, box hitBox) bool {
+	body := c.Str("d")
+	if i := strings.Index(body, " M"); i >= 0 {
+		body = body[:i]
+	}
+	var pts [][2]float64
+	for _, part := range strings.FieldsFunc(body, func(r rune) bool { return r == 'M' || r == 'L' }) {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		var x, y float64
+		if _, err := fmt.Sscanf(part, "%f %f", &x, &y); err != nil {
+			continue
+		}
+		pts = append(pts, [2]float64{c.Num("x") + x, c.Num("y") + y})
+	}
+	x0, y0 := box.x, box.y
+	x1, y1 := box.x+box.w, box.y+box.h
+	for i := 0; i < len(pts)-1; i++ {
+		a, b := pts[i], pts[i+1]
+		if abs(a[1]-b[1]) < 1e-6 {
+			y := a[1]
+			if y <= y0 || y >= y1 {
+				continue
+			}
+			lo, hi := a[0], b[0]
+			if lo > hi {
+				lo, hi = hi, lo
+			}
+			if hi > x0 && lo < x1 {
+				return true
+			}
+		} else if abs(a[0]-b[0]) < 1e-6 {
+			x := a[0]
+			if x <= x0 || x >= x1 {
+				continue
+			}
+			lo, hi := a[1], b[1]
+			if lo > hi {
+				lo, hi = hi, lo
+			}
+			if hi > y0 && lo < y1 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func abs(v float64) float64 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}

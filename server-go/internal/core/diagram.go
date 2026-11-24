@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -330,6 +331,7 @@ var sideDir = map[string]Pt{"top": {0, -1}, "right": {1, 0}, "bottom": {0, 1}, "
 func isHorizontal(s string) bool { return s == "left" || s == "right" }
 
 const elbowStub = 16.0
+const elbowClear = 8.0
 
 func autoSide(from, to Pt) string {
 	dx := to.X - from.X
@@ -372,7 +374,7 @@ func straightPoints(a, b dend) []Pt {
 	return []Pt{start, end}
 }
 
-func elbowPoints(a, b dend) []Pt {
+func elbowPoints(a, b dend, obstacles []dbox) []Pt {
 	sa, sb := a.side, b.side
 	if sa == "" {
 		sa = autoSide(a.p, b.p)
@@ -406,7 +408,283 @@ func elbowPoints(a, b dend) []Pt {
 		mid = []Pt{{s1.X, e1.Y}}
 	}
 	pts := append([]Pt{start, s1}, mid...)
-	return simplifyPts(append(pts, e1, end))
+	return avoidObstacles(simplifyPts(append(pts, e1, end)), obstacles)
+}
+
+func inflateBox(b dbox, m float64) dbox {
+	return dbox{b.x - m, b.y - m, b.w + 2*m, b.h + 2*m}
+}
+
+func insideBox(p Pt, box dbox) bool {
+	return p.X > box.x && p.X < box.x+box.w && p.Y > box.y && p.Y < box.y+box.h
+}
+
+func entryDistance(a, b Pt, box dbox) (float64, bool) {
+	x0, y0 := box.x, box.y
+	x1, y1 := box.x+box.w, box.y+box.h
+	if math.Abs(a.Y-b.Y) <= 1e-6 {
+		y := a.Y
+		if y <= y0 || y >= y1 {
+			return 0, false
+		}
+		lo := math.Max(math.Min(a.X, b.X), x0)
+		hi := math.Min(math.Max(a.X, b.X), x1)
+		if hi-lo <= 1e-6 {
+			return 0, false
+		}
+		if insideBox(a, box) {
+			return 0, true
+		}
+		entry := math.Min(a.X, x1)
+		if a.X <= b.X {
+			entry = math.Max(a.X, x0)
+		}
+		return math.Abs(entry - a.X), true
+	}
+	if math.Abs(a.X-b.X) <= 1e-6 {
+		x := a.X
+		if x <= x0 || x >= x1 {
+			return 0, false
+		}
+		lo := math.Max(math.Min(a.Y, b.Y), y0)
+		hi := math.Min(math.Max(a.Y, b.Y), y1)
+		if hi-lo <= 1e-6 {
+			return 0, false
+		}
+		if insideBox(a, box) {
+			return 0, true
+		}
+		entry := math.Min(a.Y, y1)
+		if a.Y <= b.Y {
+			entry = math.Max(a.Y, y0)
+		}
+		return math.Abs(entry - a.Y), true
+	}
+	return 0, false
+}
+
+func firstHit(a, b Pt, obstacles []dbox) (dbox, bool) {
+	var best dbox
+	bestD := math.Inf(1)
+	found := false
+	for _, raw := range obstacles {
+		d, ok := entryDistance(a, b, inflateBox(raw, elbowClear))
+		if !ok || d >= bestD-1e-9 {
+			continue
+		}
+		bestD = d
+		best = raw
+		found = true
+	}
+	return best, found
+}
+
+func detourSides(a, b Pt, box dbox) (float64, float64) {
+	x0, y0 := box.x, box.y
+	x1, y1 := box.x+box.w, box.y+box.h
+	if math.Abs(a.Y-b.Y) <= 1e-6 {
+		near := y1
+		if a.Y-y0 <= y1-a.Y {
+			near = y0
+		}
+		far := y0
+		if near == y0 {
+			far = y1
+		}
+		return near, far
+	}
+	near := x1
+	if a.X-x0 <= x1-a.X {
+		near = x0
+	}
+	far := x0
+	if near == x0 {
+		far = x1
+	}
+	return near, far
+}
+
+func buildDetour(a, b Pt, box dbox, side float64) []Pt {
+	x0, y0 := box.x, box.y
+	x1, y1 := box.x+box.w, box.y+box.h
+	if math.Abs(a.Y-b.Y) <= 1e-6 {
+		y := a.Y
+		if insideBox(b, box) {
+			exit := Pt{b.X, side}
+			if insideBox(a, box) {
+				return []Pt{{a.X, side}, exit}
+			}
+			entryX := math.Min(a.X, x1)
+			if a.X <= b.X {
+				entryX = math.Max(a.X, x0)
+			}
+			return []Pt{{entryX, y}, {entryX, side}, exit}
+		}
+		lo := math.Max(math.Min(a.X, b.X), x0)
+		hi := math.Min(math.Max(a.X, b.X), x1)
+		pLo := Pt{lo, y}
+		pHi := Pt{hi, y}
+		dLo := Pt{lo, side}
+		dHi := Pt{hi, side}
+		if a.X <= b.X {
+			return []Pt{pLo, dLo, dHi, pHi, b}
+		}
+		return []Pt{pHi, dHi, dLo, pLo, b}
+	}
+	x := a.X
+	if insideBox(b, box) {
+		exit := Pt{side, b.Y}
+		if insideBox(a, box) {
+			return []Pt{{side, a.Y}, exit}
+		}
+		entryY := math.Min(a.Y, y1)
+		if a.Y <= b.Y {
+			entryY = math.Max(a.Y, y0)
+		}
+		return []Pt{{x, entryY}, {side, entryY}, exit}
+	}
+	lo := math.Max(math.Min(a.Y, b.Y), y0)
+	hi := math.Min(math.Max(a.Y, b.Y), y1)
+	pLo := Pt{x, lo}
+	pHi := Pt{x, hi}
+	dLo := Pt{side, lo}
+	dHi := Pt{side, hi}
+	if a.Y <= b.Y {
+		return []Pt{pLo, dLo, dHi, pHi, b}
+	}
+	return []Pt{pHi, dHi, dLo, pLo, b}
+}
+
+func sideCrosses(a, b Pt, box dbox, side float64, obstacles []dbox) bool {
+	x0, y0 := box.x, box.y
+	x1, y1 := box.x+box.w, box.y+box.h
+	var p, q Pt
+	if math.Abs(a.Y-b.Y) <= 1e-6 {
+		if insideBox(b, box) {
+			entryX := a.X
+			if !insideBox(a, box) {
+				entryX = math.Min(a.X, x1)
+				if a.X <= b.X {
+					entryX = math.Max(a.X, x0)
+				}
+			}
+			p = Pt{entryX, side}
+			q = Pt{b.X, side}
+		} else {
+			lo := math.Max(math.Min(a.X, b.X), x0)
+			hi := math.Min(math.Max(a.X, b.X), x1)
+			p = Pt{lo, side}
+			q = Pt{hi, side}
+		}
+	} else if insideBox(b, box) {
+		entryY := a.Y
+		if !insideBox(a, box) {
+			entryY = math.Min(a.Y, y1)
+			if a.Y <= b.Y {
+				entryY = math.Max(a.Y, y0)
+			}
+		}
+		p = Pt{side, entryY}
+		q = Pt{side, b.Y}
+	} else {
+		lo := math.Max(math.Min(a.Y, b.Y), y0)
+		hi := math.Min(math.Max(a.Y, b.Y), y1)
+		p = Pt{side, lo}
+		q = Pt{side, hi}
+	}
+	for _, raw := range obstacles {
+		if _, ok := entryDistance(p, q, inflateBox(raw, elbowClear)); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func detourAround(a, b Pt, raw dbox, obstacles []dbox) []Pt {
+	box := inflateBox(raw, elbowClear)
+	if insideBox(a, box) || insideBox(b, box) {
+		if _, crosses := entryDistance(a, b, raw); !crosses {
+			return []Pt{b}
+		}
+	}
+	near, far := detourSides(a, b, box)
+	if !sideCrosses(a, b, box, near, obstacles) {
+		return buildDetour(a, b, box, near)
+	}
+	return buildDetour(a, b, box, far)
+}
+
+func avoidObstacles(pts []Pt, obstacles []dbox) []Pt {
+	if len(obstacles) == 0 || len(pts) < 2 {
+		return pts
+	}
+	cur := pts
+	for range 8 {
+		next := []Pt{cur[0]}
+		changed := false
+		for i := 0; i < len(cur)-1; i++ {
+			a := next[len(next)-1]
+			b := cur[i+1]
+			hit, ok := firstHit(a, b, obstacles)
+			if !ok {
+				next = append(next, b)
+				continue
+			}
+			changed = true
+			next = append(next, detourAround(a, b, hit, obstacles)...)
+		}
+		cur = simplifyPts(next)
+		if !changed {
+			break
+		}
+	}
+	return cur
+}
+
+func sameParent(a, b *Node) bool {
+	av, aok := a.Get("parentId")
+	bv, bok := b.Get("parentId")
+	if !aok || !bok {
+		return !aok && !bok
+	}
+	if av == nil || bv == nil {
+		return av == nil && bv == nil
+	}
+	as, aok := av.(string)
+	bs, bok := bv.(string)
+	return aok && bok && as == bs
+}
+
+func elbowObstacles(doc *Document, c *Node) []dbox {
+	skip := map[string]bool{c.Str("id"): true}
+	for _, key := range []string{"from", "to"} {
+		if e := c.Obj(key); e != nil {
+			if v, ok := e.Get("nodeId"); ok {
+				if s, isStr := v.(string); isStr {
+					skip[s] = true
+				}
+			}
+		}
+	}
+	var ids []string
+	nodes := Nodes(doc)
+	for _, id := range nodes.Keys() {
+		n := nodes.Obj(id)
+		if n == nil || n.Str("type") != "shape" || skip[id] || !sameParent(n, c) {
+			continue
+		}
+		box := canvasBox(doc, n)
+		if box.w <= 0 || box.h <= 0 {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	out := make([]dbox, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, canvasBox(doc, nodes.Obj(id)))
+	}
+	return out
 }
 
 func simplifyPts(pts []Pt) []Pt {
@@ -614,7 +892,7 @@ func RouteConnector(doc *Document, c *Node) error {
 
 	var line []Pt
 	if route == "elbow" || route == "rounded" {
-		line = elbowPoints(a, b)
+		line = elbowPoints(a, b, elbowObstacles(doc, c))
 	} else {
 		line = straightPoints(a, b)
 	}
@@ -776,6 +1054,8 @@ func DiagramOps(doc *Document, input *jsonv.Object) (*DiagramPlan, error) {
 	}
 	nodes := make([]*jsonv.Object, len(nodesIn))
 	ids := map[string]bool{}
+	existing := map[string]*Node{}
+	relayout := input.Bool("relayout")
 	for k, v := range nodesIn {
 		n := v.(*jsonv.Object)
 		nodes[k] = n
@@ -784,11 +1064,18 @@ func DiagramOps(doc *Document, input *jsonv.Object) (*DiagramPlan, error) {
 		if !isStr || id == "" {
 			return nil, errors.New("every diagram node needs an id (edges refer to it)")
 		}
-		if ids[id] {
+		if ids[id] || existing[id] != nil {
 			return nil, fmt.Errorf(`diagram node id "%s" is repeated`, id)
 		}
-		if GetNode(doc, id) != nil {
-			return nil, fmt.Errorf(`id "%s" already exists; pick another id or refer to the existing node only in edges`, id)
+		if prev := GetNode(doc, id); prev != nil {
+			if !relayout {
+				return nil, fmt.Errorf(`id "%s" already exists; pick another id or refer to the existing node only in edges`, id)
+			}
+			if prev.Str("type") != "shape" {
+				return nil, fmt.Errorf(`id "%s" is a %s; relayout only updates existing shapes`, id, prev.Str("type"))
+			}
+			existing[id] = prev
+			continue
 		}
 		ids[id] = true
 	}
@@ -809,6 +1096,9 @@ func DiagramOps(doc *Document, input *jsonv.Object) (*DiagramPlan, error) {
 	rank := map[string]int{}
 	out := map[string][]int{}
 	for _, n := range nodes {
+		if existing[n.Str("id")] != nil {
+			continue
+		}
 		if !isNumField(n, "x") || !isNumField(n, "y") {
 			auto = append(auto, n)
 			rank[n.Str("id")] = 0
@@ -957,17 +1247,36 @@ func DiagramOps(doc *Document, input *jsonv.Object) (*DiagramPlan, error) {
 
 	plan := &DiagramPlan{Ops: []any{}, Nodes: []string{}, Edges: []string{}}
 	for _, n := range nodes {
+		id := n.Str("id")
+		if prev := existing[id]; prev != nil {
+			props := jsonv.NewObject()
+			if isNumField(n, "x") {
+				props.Set("x", n.Num("x"))
+			}
+			if isNumField(n, "y") {
+				props.Set("y", n.Num("y"))
+			}
+			if props.Len() == 0 {
+				props.Set("x", prev.Num("x"))
+			}
+			plan.Ops = append(plan.Ops, jsonv.NewObject("op", "update", "id", id, "props", props))
+			plan.Nodes = append(plan.Nodes, id)
+			continue
+		}
 		node := n.Spread()
 		node.Set("type", "shape")
-		if p, ok := pos[n.Str("id")]; ok {
+		if p, ok := pos[id]; ok {
 			node.Set("x", p.X)
 			node.Set("y", p.Y)
 		}
 		plan.Ops = append(plan.Ops, jsonv.NewObject("op", "create", "parentId", parentID, "node", node))
-		plan.Nodes = append(plan.Nodes, n.Str("id"))
+		plan.Nodes = append(plan.Nodes, id)
 	}
 	used := map[string]bool{}
 	for id := range ids {
+		used[id] = true
+	}
+	for id := range existing {
 		used[id] = true
 	}
 	for _, e := range edges {

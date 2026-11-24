@@ -1581,6 +1581,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "gap", Schema: z.Default(z.Number().Min(0).Max(2000), 64.0)},
 		z.Field{Name: "x", Schema: z.Optional(z.Number())},
 		z.Field{Name: "y", Schema: z.Optional(z.Number())},
+		z.Field{Name: "relayout", Schema: z.Default(z.Bool(), false)},
 		z.Field{Name: "nodes", Schema: z.Default(z.Array(z.Object(
 			z.Field{Name: "id", Schema: z.String().Regex(`^[A-Za-z0-9_-]{1,64}$`, `/^[A-Za-z0-9_-]{1,64}$/`, "id must be [A-Za-z0-9_-]{1,64}")},
 		).Catchall(z.Unknown())).Max(500), []any{})},

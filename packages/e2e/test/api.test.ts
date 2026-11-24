@@ -41,6 +41,30 @@ const withWorkspace = async (body: Record<string, unknown>) => {
   return { ...body, workspaceId: doc.id, workspaceName: doc.name };
 };
 const jsonOf = (r: ToolResult) => JSON.parse(r.content.find((c) => (c.text ?? "").trimStart().startsWith("{"))?.text ?? "null");
+const routeHitsBox = (c: { x: number; y: number; d: string }, box: { x: number; y: number; w: number; h: number }) => {
+  const body = c.d.split(" M")[0] ?? "";
+  const pts = [...body.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => ({ x: c.x + Number(m[1]), y: c.y + Number(m[2]) }));
+  const x0 = box.x;
+  const y0 = box.y;
+  const x1 = box.x + box.w;
+  const y1 = box.y + box.h;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]!;
+    const b = pts[i + 1]!;
+    if (Math.abs(a.y - b.y) < 1e-6) {
+      if (a.y <= y0 || a.y >= y1) continue;
+      const lo = Math.min(a.x, b.x);
+      const hi = Math.max(a.x, b.x);
+      if (hi > x0 && lo < x1) return true;
+    } else if (Math.abs(a.x - b.x) < 1e-6) {
+      if (a.x <= x0 || a.x >= x1) continue;
+      const lo = Math.min(a.y, b.y);
+      const hi = Math.max(a.y, b.y);
+      if (hi > y0 && lo < y1) return true;
+    }
+  }
+  return false;
+};
 
 const outputSchema = (name: string) => {
   const contract = JSON.parse(readFileSync(join(repoRoot, "server-go/contract/mcp.json"), "utf8"));
@@ -869,6 +893,40 @@ describe("API: MCP", () => {
     expect((doc.nodes.round as { d: string }).d).toContain("A");
     expect(doc.nodes.bend).toMatchObject({ route: "curve", control: { x: 120, y: -40 } });
     expect((doc.nodes.bend as { d: string }).d).toMatch(/ C/);
+  });
+
+  it("diagramas: cotovelo desvia de uma forma e relayout recalcula ids existentes (PAP-B-077)", async () => {
+    const c = client;
+    const drawn = await call(c, "draw_diagram", {
+      nodes: [
+        { id: "a", text: "A", x: 0, y: 0, width: 160, height: 80 },
+        { id: "b", text: "B", x: 0, y: 300, width: 160, height: 80 },
+        { id: "block", text: "X", x: 40, y: 160, width: 80, height: 40 },
+      ],
+      edges: [
+        { from: "a", to: "b", id: "ab" },
+        { from: "a", to: "b", id: "st", route: "straight" },
+      ],
+    });
+    expect(drawn.isError).toBeFalsy();
+    const box = { x: 40, y: 160, w: 80, h: 40 };
+    const doc = await srv.doc();
+    const elbow = doc.nodes.ab as { x: number; y: number; d: string; route: string };
+    const straight = doc.nodes.st as { x: number; y: number; d: string };
+    expect(elbow.route).toBe("elbow");
+    expect(routeHitsBox(elbow, box)).toBe(false);
+    expect(routeHitsBox(straight, box)).toBe(true);
+    const before = (JSON.parse(textOf(await call(c, "get_history", { limit: 10 }))) as unknown[]).length;
+    const again = await call(c, "draw_diagram", { relayout: true, nodes: [{ id: "a", x: 0, y: 12 }] });
+    expect(again.isError).toBeFalsy();
+    expect(jsonOf(again).nodes).toEqual(["a"]);
+    expect((await srv.doc()).nodes.a).toMatchObject({ x: 0, y: 12 });
+    expect(routeHitsBox((await srv.doc()).nodes.ab as { x: number; y: number; d: string }, box)).toBe(false);
+    expect((JSON.parse(textOf(await call(c, "get_history", { limit: 10 }))) as unknown[]).length).toBe(before + 1);
+    await call(c, "undo");
+    expect((await srv.doc()).nodes.a).toMatchObject({ x: 0, y: 0 });
+    const bad = await call(c, "draw_diagram", { relayout: true, nodes: [{ id: "ab" }] });
+    expect(textOf(bad)).toContain('id "ab" is a connector; relayout only updates existing shapes');
   });
 
   it("Z-order numa chamada: update/move com index, um passo de desfazer, frente/fundo no pai (PAP-B-014)", async () => {
