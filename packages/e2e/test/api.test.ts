@@ -822,6 +822,26 @@ describe("API: MCP", () => {
     expect((await srv.doc()).nodes.cpin).not.toHaveProperty("constraints");
   });
 
+  it("constraints alcançam filhos de frames fill aninhados quando o ancestral numérico muda", async () => {
+    await call(client, "create_nodes", {
+      place: "none",
+      nodes: [{
+        type: "frame", id: "nroot", x: 0, y: 0, width: 1440, height: 200,
+        layout: { mode: "column", gap: 0, padding: 0 },
+        children: [
+          { type: "rect", id: "npin-root", x: 1380, y: 0, width: 40, height: 10, layoutPositioning: "absolute", constraints: { horizontal: "right" } },
+          { type: "frame", id: "nheader", width: "fill", height: 60, children: [
+            { type: "rect", id: "npin-header", x: 1380, y: 10, width: 40, height: 20, constraints: { horizontal: "right" } },
+          ] },
+        ],
+      }],
+    });
+    await call(client, "update_nodes", { updates: [{ id: "nroot", props: { width: 1640 } }] });
+    const nodes = (await srv.doc()).nodes;
+    expect(nodes["npin-root"]).toMatchObject({ x: 1580 });
+    expect(nodes["npin-header"]).toMatchObject({ x: 1580, y: 10 });
+  });
+
   it("diagramas: draw_diagram, setas que seguem a forma, export SVG medido e undo", async () => {
     const c = client;
     const r = (await c.callTool({

@@ -289,6 +289,19 @@ const opCases = [
     { op: "create", parentId: "card", node: { type: "rect", id: "abs", x: 280, y: 8, width: 16, height: 16, layoutPositioning: "absolute", constraints: { horizontal: "right", vertical: "top" } } },
     { op: "update", id: "card", props: { width: 400, height: 240 } },
   ]],
+  ["empty", [
+    { op: "create", node: { type: "frame", id: "nroot", x: 0, y: 0, width: 400, height: 200, layout: { mode: "column", gap: 0, padding: 0 }, children: [
+      { type: "frame", id: "nhead", width: "fill", height: 50, children: [
+        { type: "rect", id: "npin", x: 340, y: 10, width: 40, height: 20, constraints: { horizontal: "right" } },
+        { type: "rect", id: "nmid", x: 180, y: 10, width: 40, height: 20, constraints: { horizontal: "center" } },
+      ] },
+      { type: "frame", id: "nrow", width: "fill", height: 50, layout: { mode: "row", gap: 0, padding: 0 }, children: [
+        { type: "frame", id: "ncell", width: "fill", height: 50, children: [{ type: "rect", id: "ncpin", x: 150, y: 5, width: 40, height: 20, constraints: { horizontal: "right" } }] },
+        { type: "frame", id: "ncell2", width: "fill", height: 50 },
+      ] },
+    ] } },
+    { op: "update", id: "nroot", props: { width: 600 } },
+  ]],
   ["empty", [R({})]],
   ["empty", [{ op: "create", node: { type: "rect", id: "g", width: 40, height: 20, gradient: { type: "linear", angle: 12, stops: [{ color: "#111111", offset: 0 }, { color: "#eeeeee", offset: 1 }] } } }]],
   ["empty", [{ op: "create", node: { type: "rect", id: "g", gradient: { type: "linear", stops: [{ color: "#111111", offset: 0 }] } } }]],
