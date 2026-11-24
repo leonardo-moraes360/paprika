@@ -3,8 +3,10 @@ package core
 import (
 	"fmt"
 	"math"
+	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -563,7 +565,393 @@ func rootMatrix(svg *MarkupElement) Matrix {
 	return Matrix{s, 0, 0, s, (w-vw*s)/2 - vx*s, (h-vh*s)/2 - vy*s}
 }
 
-func convertSVG(e *MarkupElement, m Matrix, p paint, warn func(string)) []*jsonv.Object {
+type svgFont struct {
+	size       float64
+	family     string
+	weight     int
+	hasWeight  bool
+	anchor     string
+	spacing    float64
+	hasSpacing bool
+}
+
+type svgPiece struct {
+	text string
+	el   *MarkupElement
+	x, y float64
+}
+
+type svgState struct {
+	ids   map[string]*MarkupElement
+	stack []string
+	warn  func(string)
+}
+
+func indexSVG(e *MarkupElement, ids map[string]*MarkupElement) {
+	if id := e.Attrs["id"]; id != "" {
+		if _, ok := ids[id]; !ok {
+			ids[id] = e
+		}
+	}
+	for _, c := range e.Elements() {
+		indexSVG(c, ids)
+	}
+}
+
+func cleanFamily(s string) string {
+	s = strings.TrimSpace(strings.Map(func(r rune) rune {
+		if strings.ContainsRune(";{}<>()", r) {
+			return -1
+		}
+		return r
+	}, s))
+	r := []rune(s)
+	if len(r) > 200 {
+		s = string(r[:200])
+	}
+	return s
+}
+
+func leadingInt(s string) (int, bool) {
+	i := 0
+	if i < len(s) && (s[i] == '+' || s[i] == '-') {
+		i++
+	}
+	start := i
+	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		i++
+	}
+	if i == start {
+		return 0, false
+	}
+	n, err := strconv.Atoi(s[:i])
+	return n, err == nil
+}
+
+func fontOfSVG(e *MarkupElement, parent svgFont) svgFont {
+	css := ParseStyle(e.Attrs["style"])
+	next := parent
+	if fs, ok := styleOrAttr(css, e, "font-size"); ok {
+		n := svgNum(fs, true, parent.size)
+		if n >= 1 {
+			next.size = math.Min(1000, n)
+		}
+	}
+	if fam, ok := styleOrAttr(css, e, "font-family"); ok {
+		if f := cleanFamily(fam); f != "" {
+			next.family = f
+		}
+	}
+	if fw, ok := styleOrAttr(css, e, "font-weight"); ok {
+		n := 0
+		switch fw {
+		case "bold", "bolder":
+			n = 700
+		case "normal", "lighter":
+			n = 400
+		default:
+			if v, ok := leadingInt(fw); ok {
+				n = v
+			}
+		}
+		if n >= 100 && n <= 900 {
+			next.weight = n
+			next.hasWeight = true
+		}
+	}
+	if ta, ok := styleOrAttr(css, e, "text-anchor"); ok && (ta == "start" || ta == "middle" || ta == "end") {
+		next.anchor = ta
+	}
+	if ls, ok := styleOrAttr(css, e, "letter-spacing"); ok {
+		next.spacing = svgNum(ls, true, 0)
+		next.hasSpacing = true
+	}
+	return next
+}
+
+func firstSVGNum(e *MarkupElement, k string) float64 {
+	v, ok := e.Attrs[k]
+	if !ok {
+		return 0
+	}
+	nums := svgNumbers(v)
+	if len(nums) == 0 {
+		return 0
+	}
+	return nums[0]
+}
+
+func collapseSVGText(raw string, preserve bool) string {
+	if preserve {
+		return raw
+	}
+	var b strings.Builder
+	space := false
+	started := false
+	for _, r := range raw {
+		if r == ' ' || r == '\t' || r == '\r' || r == '\n' || r == '\f' {
+			space = started
+			continue
+		}
+		if space {
+			b.WriteByte(' ')
+			space = false
+		}
+		started = true
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+func textPieces(textEl *MarkupElement) []svgPiece {
+	baseX, baseY := firstSVGNum(textEl, "x"), firstSVGNum(textEl, "y")
+	preserve := textEl.Attrs["xml:space"] == "preserve"
+	positioned := false
+	for _, c := range textEl.Elements() {
+		if c.Tag != "tspan" {
+			continue
+		}
+		if _, ok := c.Attrs["x"]; ok {
+			positioned = true
+		}
+		if _, ok := c.Attrs["y"]; ok {
+			positioned = true
+		}
+		if _, ok := c.Attrs["dx"]; ok {
+			positioned = true
+		}
+		if _, ok := c.Attrs["dy"]; ok {
+			positioned = true
+		}
+	}
+	if !positioned {
+		text := collapseSVGText(TextContent(textEl), preserve)
+		if text == "" {
+			return nil
+		}
+		return []svgPiece{{text, textEl, baseX, baseY}}
+	}
+	var out []svgPiece
+	x, y := baseX, baseY
+	push := func(raw string, el *MarkupElement, px, py float64) {
+		text := collapseSVGText(raw, preserve || el.Attrs["xml:space"] == "preserve")
+		if text != "" {
+			out = append(out, svgPiece{text, el, px, py})
+		}
+	}
+	for _, c := range textEl.Children {
+		switch v := c.(type) {
+		case string:
+			push(v, textEl, x, y)
+		case *MarkupElement:
+			if v.Tag != "tspan" {
+				continue
+			}
+			if _, ok := v.Attrs["x"]; ok {
+				x = firstSVGNum(v, "x")
+			} else if _, ok := v.Attrs["dx"]; ok {
+				x += attrNum(v, "dx")
+			}
+			if _, ok := v.Attrs["y"]; ok {
+				y = firstSVGNum(v, "y")
+			} else if _, ok := v.Attrs["dy"]; ok {
+				y += attrNum(v, "dy")
+			}
+			push(TextContent(v), v, x, y)
+		}
+	}
+	return out
+}
+
+func textNodeSVG(piece svgPiece, m Matrix, p paint, local svgFont, name string, opacity float64, warn func(string)) *jsonv.Object {
+	weight := 400.0
+	if local.hasWeight {
+		weight = float64(local.weight)
+	}
+	spacing := 0.0
+	if local.hasSpacing {
+		spacing = local.spacing
+	}
+	box := MeasureText(piece.text, local.size, weight, 1.4, spacing, 0, false)
+	lx := piece.x
+	if local.anchor == "middle" {
+		lx -= box.Width / 2
+	} else if local.anchor == "end" {
+		lx -= box.Width
+	}
+	pt := applyM(m, Point{lx, piece.y - local.size*0.8})
+	scale := math.Hypot(m[0], m[1])
+	if scale == 0 {
+		scale = 1
+	}
+	node := jsonv.NewObject("type", "text")
+	if name != "" {
+		node.Set("name", name)
+	}
+	if opacity != 1 {
+		node.Set("opacity", Round4(opacity))
+	}
+	node.Set("x", Round4(pt.X))
+	node.Set("y", Round4(pt.Y))
+	node.Set("width", "hug")
+	node.Set("height", "hug")
+	node.Set("text", piece.text)
+	color := "transparent"
+	if p.fill != nil && *p.fill != "" {
+		color = withAlpha(*p.fill, p.fillOpacity, warn)
+	}
+	node.Set("color", color)
+	if local.family != "" {
+		node.Set("fontFamily", local.family)
+	}
+	fontSize := Round4(math.Min(1000, math.Max(1, local.size*scale)))
+	if fontSize != 16 {
+		node.Set("fontSize", fontSize)
+	}
+	if local.hasWeight && local.weight != 400 {
+		node.Set("fontWeight", float64(local.weight))
+	}
+	if local.anchor == "middle" {
+		node.Set("textAlign", "center")
+	} else if local.anchor == "end" {
+		node.Set("textAlign", "right")
+	}
+	if local.hasSpacing && local.spacing != 0 {
+		node.Set("letterSpacing", Round4(local.spacing*scale))
+	}
+	if !(m[1] == 0 && m[2] == 0) {
+		warn("<text> with rotation or skew stays upright; only the origin is transformed")
+	}
+	return node
+}
+
+func textNodesSVG(el *MarkupElement, m Matrix, p paint, font svgFont, state *svgState) []*jsonv.Object {
+	pieces := textPieces(el)
+	if len(pieces) == 0 {
+		return nil
+	}
+	name := nameOf(el)
+	opacity := opacityOf(el)
+	base := fontOfSVG(el, font)
+	cp := paintOf(el, p, state.warn)
+	nodes := make([]*jsonv.Object, len(pieces))
+	for i, piece := range pieces {
+		localPaint := cp
+		localFont := base
+		if piece.el != el {
+			localPaint = paintOf(piece.el, cp, state.warn)
+			localFont = fontOfSVG(piece.el, base)
+		}
+		pieceName := ""
+		pieceOpacity := 1.0
+		if len(pieces) == 1 {
+			pieceName = name
+			pieceOpacity = opacity
+		}
+		nodes[i] = textNodeSVG(piece, m, localPaint, localFont, pieceName, pieceOpacity, state.warn)
+	}
+	if len(pieces) == 1 {
+		return nodes
+	}
+	g := jsonv.NewObject("type", "group", "children", nodesAny(nodes))
+	if name != "" {
+		g.Set("name", name)
+	}
+	if opacity != 1 {
+		g.Set("opacity", Round4(opacity))
+	}
+	return []*jsonv.Object{g}
+}
+
+func useTargetSVG(el *MarkupElement, state *svgState) *MarkupElement {
+	raw := strings.TrimSpace(el.Attrs["href"])
+	if raw == "" {
+		raw = strings.TrimSpace(el.Attrs["xlink:href"])
+	}
+	if raw == "" {
+		state.warn("<use> without href skipped")
+		return nil
+	}
+	if !strings.HasPrefix(raw, "#") {
+		state.warn(fmt.Sprintf("external <use> (%s) is not imported", jsonv.Slice16(raw, 80)))
+		return nil
+	}
+	id := raw[1:]
+	if decoded, err := url.PathUnescape(id); err == nil {
+		id = decoded
+	}
+	target := state.ids[id]
+	if target == nil {
+		state.warn(fmt.Sprintf("<use> target \"#%s\" was not found", id))
+		return nil
+	}
+	if slices.Contains(state.stack, id) {
+		state.warn(fmt.Sprintf("<use> cycle on \"#%s\" skipped", id))
+		return nil
+	}
+	state.stack = append(state.stack, id)
+	return target
+}
+
+func expandUseSVG(el *MarkupElement, m Matrix, p paint, font svgFont, state *svgState) []*jsonv.Object {
+	target := useTargetSVG(el, state)
+	if target == nil {
+		return nil
+	}
+	defer func() { state.stack = state.stack[:len(state.stack)-1] }()
+	used := paintOf(el, p, state.warn)
+	usedFont := fontOfSVG(el, font)
+	cm := Multiply(m, Multiply(ParseTransform(el.Attrs["transform"], state.warn), Matrix{1, 0, 0, 1, attrNum(el, "x"), attrNum(el, "y")}))
+	var kids []*jsonv.Object
+	if target.Tag == "symbol" || target.Tag == "svg" {
+		placed := cm
+		vb := svgNumbers(target.Attrs["viewbox"])
+		wAttr, hAttr := el.Attrs["width"], el.Attrs["height"]
+		if len(vb) == 4 && vb[2] > 0 && vb[3] > 0 {
+			sx, sy := 1.0, 1.0
+			if strings.Contains(wAttr, "%") || strings.Contains(hAttr, "%") {
+				state.warn("<use> percentage width or height is not scaled")
+			} else if wAttr != "" && hAttr != "" {
+				ww, hh := svgNum(wAttr, true, 0), svgNum(hAttr, true, 0)
+				if ww > 0 && hh > 0 {
+					sx, sy = ww/vb[2], hh/vb[3]
+				}
+			}
+			placed = Multiply(cm, Matrix{sx, 0, 0, sy, -vb[0] * sx, -vb[1] * sy})
+		}
+		if target.Tag == "svg" {
+			placed = Multiply(placed, Matrix{1, 0, 0, 1, attrNum(target, "x"), attrNum(target, "y")})
+		}
+		placed = Multiply(placed, ParseTransform(target.Attrs["transform"], state.warn))
+		kids = convertSVG(target, placed, paintOf(target, used, state.warn), fontOfSVG(target, usedFont), state)
+	} else {
+		wrapper := &MarkupElement{Tag: "g", Attrs: map[string]string{}, Children: []any{target}}
+		kids = convertSVG(wrapper, cm, used, usedFont, state)
+	}
+	if len(kids) == 0 {
+		return nil
+	}
+	opacity := opacityOf(el)
+	name := nameOf(el)
+	if len(kids) == 1 && opacity == 1 && name == "" {
+		return kids
+	}
+	if len(kids) == 1 && opacity == 1 && name != "" && kids[0].Str("name") == "" {
+		kids[0].Set("name", name)
+		return kids
+	}
+	g := jsonv.NewObject("type", "group", "children", nodesAny(kids))
+	if name != "" {
+		g.Set("name", name)
+	}
+	if opacity != 1 {
+		g.Set("opacity", Round4(opacity))
+	}
+	return []*jsonv.Object{g}
+}
+
+func convertSVG(e *MarkupElement, m Matrix, p paint, font svgFont, state *svgState) []*jsonv.Object {
+	warn := state.warn
 	var out []*jsonv.Object
 	for _, c := range e.Elements() {
 		if svgSkip[c.Tag] {
@@ -580,12 +968,17 @@ func convertSVG(e *MarkupElement, m Matrix, p paint, warn func(string)) []*jsonv
 		}
 		cm := Multiply(m, ParseTransform(c.Attrs["transform"], warn))
 		cp := paintOf(c, p, warn)
+		cf := fontOfSVG(c, font)
+		if c.Tag == "use" {
+			out = append(out, expandUseSVG(c, m, p, font, state)...)
+			continue
+		}
 		if svgContainers[c.Tag] {
 			km := cm
 			if c.Tag == "svg" {
 				km = Multiply(cm, Matrix{1, 0, 0, 1, attrNum(c, "x"), attrNum(c, "y")})
 			}
-			kids := convertSVG(c, km, cp, warn)
+			kids := convertSVG(c, km, cp, cf, state)
 			if len(kids) == 0 {
 				continue
 			}
@@ -609,6 +1002,10 @@ func convertSVG(e *MarkupElement, m Matrix, p paint, warn func(string)) []*jsonv
 			if n := shapeNode(c, cm, cp, warn); n != nil {
 				out = append(out, n)
 			}
+			continue
+		}
+		if c.Tag == "text" {
+			out = append(out, textNodesSVG(c, cm, p, font, state)...)
 			continue
 		}
 		warn(fmt.Sprintf("<%s> is not imported", c.Tag))
@@ -676,7 +1073,10 @@ func ImportSVG(src any, opts ImportOptions) (ImportResult, error) {
 	}
 	m := Multiply(rootMatrix(svg), ParseTransform(svg.Attrs["transform"], warn))
 	p := paintOf(svg, inheritDefault, warn)
-	nodes := convertSVG(svg, m, p, warn)
+	ids := map[string]*MarkupElement{}
+	indexSVG(svg, ids)
+	state := &svgState{ids: ids, warn: warn}
+	nodes := convertSVG(svg, m, p, fontOfSVG(svg, svgFont{size: 16, anchor: "start"}), state)
 	offsetNodes(nodesAny(nodes), opts.X, opts.Y)
 	if len(nodes) == 0 {
 		if len(*warnings) == 0 {

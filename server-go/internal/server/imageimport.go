@@ -70,6 +70,18 @@ func within(dir, path string) bool {
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
+func refuseVector(name, meta string, data []byte) error {
+	ext := strings.ToLower(filepath.Ext(name))
+	meta = strings.ToLower(meta)
+	if ext == ".fig" || strings.Contains(meta, "image/x-fig") || strings.Contains(meta, "application/x-fig") {
+		return errors.New(".fig is not imported: it is a proprietary format. Export SVG from that tool and use import_svg")
+	}
+	if ext == ".pdf" || strings.Contains(meta, "application/pdf") || bytes.HasPrefix(data, []byte("%PDF")) {
+		return errors.New("PDF is not imported. Export SVG and use import_svg, or place a PNG, JPEG, WebP, AVIF or GIF with import_image")
+	}
+	return nil
+}
+
 func tooLarge(n int64) error {
 	return fmt.Errorf("image is too large: %d bytes (limit %d bytes)", n, MaxImportImageBytes)
 }
@@ -156,15 +168,28 @@ func loadImportImage(src string) (rasterInfo, string, error) {
 	var data []byte
 	var name string
 	var err error
+	var meta string
 	switch {
 	case strings.HasPrefix(src, "data:"):
+		if comma := strings.IndexByte(src, ','); comma > 0 {
+			meta = src[:comma]
+		}
+		if err := refuseVector("", meta, nil); err != nil {
+			return rasterInfo{}, "", err
+		}
 		data, err = decodeDataURL(src)
 	case strings.HasPrefix(src, "http://") || strings.HasPrefix(src, "https://"):
 		return rasterInfo{}, "", errors.New("src must be a data URL or a local file path: http(s) URLs are not fetched")
 	default:
+		if err := refuseVector(src, "", nil); err != nil {
+			return rasterInfo{}, "", err
+		}
 		data, name, err = readImageFile(src)
 	}
 	if err != nil {
+		return rasterInfo{}, "", err
+	}
+	if err := refuseVector("", meta, data); err != nil {
 		return rasterInfo{}, "", err
 	}
 	info, err := sniffRaster(data)

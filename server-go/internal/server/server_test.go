@@ -828,16 +828,24 @@ func TestMCPImportExportSVG(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)
 	out, isErr := callText(t, m, "import_svg", obj("svg", `<svg viewBox="0 0 10 10" width="20" height="20"><path d="M0 0 L10 0 L5 8 Z" fill="#c43d27"/><text>x</text></svg>`, "x", 5.0, "y", 5.0, "name", "Seta"))
-	if isErr || !strings.Contains(out, `"warnings": [`+"\n"+`    "<text> is not imported"`) {
+	if isErr || strings.Contains(out, "<text> is not imported") {
 		t.Fatalf("import_svg: %q", out)
 	}
 	var created string
+	var path, text *jsonv.Object
 	for _, id := range core.Nodes(s.Doc()).Keys() {
-		created = id
+		n := core.GetNode(s.Doc(), id)
+		switch {
+		case n.Str("type") == "group" && n.Str("name") == "Seta":
+			created = id
+		case n.Str("type") == "path":
+			path = n
+		case n.Str("type") == "text" && n.Str("text") == "x":
+			text = n
+		}
 	}
-	n := core.GetNode(s.Doc(), created)
-	if n.Str("d") != "M0 0 L20 0 L10 16 Z" || n.Str("name") != "Seta" || n.Num("x") != 5 {
-		t.Fatalf("imported path: %s", jsonv.Stringify(n, ""))
+	if created == "" || path == nil || text == nil || path.Str("d") != "M0 0 L20 0 L10 16 Z" {
+		t.Fatalf("imported svg: group %q path %s text %v", created, jsonv.Stringify(path, ""), text != nil)
 	}
 	if out, isErr := callText(t, m, "import_svg", obj("svg", "<svg></svg>")); !isErr || out != "the SVG has no shapes to import" {
 		t.Fatalf("empty svg: %q", out)

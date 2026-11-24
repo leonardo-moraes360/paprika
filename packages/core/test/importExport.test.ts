@@ -89,13 +89,39 @@ describe("importSVG", () => {
   it("lista o que não é importado", () => {
     const r = importSVG(`<svg><style>.a{}</style><text>oi</text><rect width="4" height="4" fill="url(#g)"/></svg>`);
     expect(r.nodes).toHaveLength(1);
+    expect(r.nodes[0]).toMatchObject({ type: "group" });
+    const kids = (r.nodes[0] as { children: Record<string, unknown>[] }).children;
+    expect(kids.find((n) => n.type === "text")).toMatchObject({ type: "text", text: "oi", x: 0, y: -12.8, color: "#000000", width: "hug", height: "hug" });
     expect(r.warnings).toEqual([
       'CSS in <style> is not applied; use attributes or style="" on the elements',
-      "<text> is not imported",
       "gradients and patterns (url(#…)) are not imported; using gray",
     ]);
     expect(() => importSVG("<div></div>")).toThrow(/no <svg> element/);
     expect(importSVG("<svg></svg>")).toEqual({ nodes: [], warnings: ["the SVG has no shapes to import"] });
+  });
+
+  it("vira texto e expande sprite use/symbol", () => {
+    const text = importSVG(`<svg><text x="10" y="20" font-size="16" fill="#112233" text-anchor="middle" font-family="Inter">Hi</text></svg>`);
+    expect(text.warnings).toEqual([]);
+    expect(text.nodes).toEqual([
+      { type: "text", name: "SVG", x: 1.168, y: 7.2, width: "hug", height: "hug", text: "Hi", color: "#112233", fontFamily: "Inter", textAlign: "center" },
+    ]);
+    const lines = importSVG(`<svg><text x="0" y="10" fill="#111"><tspan>A</tspan><tspan dy="12">B</tspan></text></svg>`);
+    expect(lines.nodes[0]).toMatchObject({ type: "group" });
+    expect((lines.nodes[0] as { children: { text: string; y: number }[] }).children.map((n) => [n.text, n.y])).toEqual([
+      ["A", -2.8],
+      ["B", 9.2],
+    ]);
+    const sprite = importSVG(`<svg><defs><symbol id="box" viewBox="0 0 10 10"><rect width="10" height="10" fill="#c43d27"/></symbol></defs><use href="#box" x="2" y="4" width="20" height="20"/></svg>`);
+    expect(sprite.warnings).toEqual([]);
+    expect(sprite.nodes).toEqual([{ type: "rect", name: "SVG", x: 2, y: 4, width: 20, height: 20, fill: "#c43d27" }]);
+    const linked = importSVG(`<svg><defs><symbol id="s" viewBox="0 0 10 10"><rect id="r" width="10" height="10" fill="#00ff00"/></symbol></defs><use xlink:href="#s" width="10" height="10"/></svg>`);
+    expect(linked.nodes[0]).toMatchObject({ type: "rect", x: 0, y: 0, width: 10, height: 10, fill: "#00ff00", name: "r" });
+    const cycle = importSVG(`<svg><defs><g id="a"><use href="#a"/></g></defs><use href="#a"/></svg>`);
+    expect(cycle.nodes).toEqual([]);
+    expect(cycle.warnings).toContain('<use> cycle on "#a" skipped');
+    const ext = importSVG(`<svg><use href="https://example.com/a.svg#b"/></svg>`);
+    expect(ext.warnings[0]).toMatch(/external <use>/);
   });
 
   it("parseTransform e arcos", () => {
