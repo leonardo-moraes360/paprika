@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  anchorByFlatIndex,
   insertAnchor,
   moveAnchor,
   moveHandle,
@@ -43,6 +44,20 @@ describe("pathToSubpaths / subpathsToPath", () => {
     const s = subs("M5 5 L10 5 L10 10 Z L0 0");
     expect(s).toHaveLength(2);
     expect(s[1]!.anchors.map((a) => [a.x, a.y])).toEqual([[5, 5], [0, 0]]);
+  });
+});
+
+describe("anchorByFlatIndex", () => {
+  const s = subs("M0 0 L4 0 Z M10 10 L14 10 L14 14 Z");
+
+  it("anda subcaminho a subcaminho", () => {
+    expect(anchorByFlatIndex(s, 0)).toEqual({ sub: 0, index: 0 });
+    expect(anchorByFlatIndex(s, 1)).toEqual({ sub: 0, index: 1 });
+    expect(anchorByFlatIndex(s, 2)).toEqual({ sub: 1, index: 0 });
+    expect(anchorByFlatIndex(s, 4)).toEqual({ sub: 1, index: 2 });
+    expect(anchorByFlatIndex(s, 5)).toBeNull();
+    expect(anchorByFlatIndex(s, -1)).toBeNull();
+    expect(anchorByFlatIndex(s, 1.5)).toBeNull();
   });
 });
 

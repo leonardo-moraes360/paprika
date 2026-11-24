@@ -135,6 +135,21 @@ function subOf(subs: Subpath[], ref: AnchorRef): Subpath | undefined {
   return Number.isInteger(ref.sub) && Number.isInteger(ref.index) && ref.sub >= 0 && ref.index >= 0 ? subs.at(ref.sub) : undefined;
 }
 
+/**
+ * Âncora no índice plano (subcaminho 0, depois o 1, …). `null` fora do intervalo
+ * ou quando `index` não é um inteiro ≥ 0.
+ */
+export function anchorByFlatIndex(subs: Subpath[], index: number): AnchorRef | null {
+  if (!Number.isInteger(index) || index < 0) return null;
+  let base = 0;
+  for (let sub = 0; sub < subs.length; sub++) {
+    const n = subs[sub]!.anchors.length;
+    if (index < base + n) return { sub, index: index - base };
+    base += n;
+  }
+  return null;
+}
+
 /** Move uma âncora e as alças dela juntas. */
 export function moveAnchor(subs: Subpath[], ref: AnchorRef, to: Point): Subpath[] {
   const out = clone(subs);
