@@ -2522,6 +2522,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         className={cx("world absolute top-0 left-0 origin-top-left [&_[data-paprika-id]]:select-none", dragIds && "is-node-dragging")}
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}
         data-dragging={dragIds?.join(",") || undefined}
+        data-wasm-active={wasmLayer.active ? "1" : "0"}
       >
         {rootNodes.map((n) => (
           <RenderNode

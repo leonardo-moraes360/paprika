@@ -198,6 +198,98 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     await expect.poll(() => page.getByTestId("renderer-toggle").getAttribute("data-backend")).toBe("dom");
     expect(await page.getByTestId("wasm-layer").count()).toBe(0);
   });
+
+  it("trocar DOM e WASM não deixa quadro com a pintura desligada e o canvas vazio", async () => {
+    await open("dom");
+    await page.evaluate(() => {
+      const world = document.querySelector<HTMLElement>(".world");
+      const board = document.querySelector<HTMLElement>('[data-paprika-id="board"]');
+      if (!world || !board) throw new Error("missing world");
+      const frames: { domOff: boolean; canvasEmpty: boolean }[] = [];
+      const sample = () => {
+        const domOff = world.dataset.wasmActive === "1";
+        const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="wasm-layer"]');
+        let canvasEmpty = true;
+        if (domOff && canvas && canvas.width > 0 && canvas.height > 0) {
+          const ctx = canvas.getContext("2d");
+          if (!ctx) canvasEmpty = false;
+          else {
+            const br = board.getBoundingClientRect();
+            const cr = canvas.getBoundingClientRect();
+            const x0 = Math.max(br.left, cr.left);
+            const y0 = Math.max(br.top, cr.top);
+            const x1 = Math.min(br.right, cr.right);
+            const y1 = Math.min(br.bottom, cr.bottom);
+            if (x1 > x0 && y1 > y0 && cr.width > 0) {
+              const dpr = canvas.width / cr.width;
+              const x = Math.min(canvas.width - 1, Math.max(0, Math.round((x0 + 4 - cr.left) * dpr)));
+              const y = Math.min(canvas.height - 1, Math.max(0, Math.round((y1 - 4 - cr.top) * dpr)));
+              canvasEmpty = ctx.getImageData(x, y, 1, 1).data[3] === 0;
+            }
+          }
+        }
+        frames.push({ domOff, canvasEmpty });
+      };
+      let stop = false;
+      const tick = () => {
+        sample();
+        if (!stop) requestAnimationFrame(tick);
+      };
+      const obs = new MutationObserver(sample);
+      obs.observe(world, { attributes: true, attributeFilter: ["data-wasm-active"] });
+      requestAnimationFrame(tick);
+      (window as unknown as { __handoff: { stop(): typeof frames } }).__handoff = {
+        stop: () => {
+          stop = true;
+          obs.disconnect();
+          return frames;
+        },
+      };
+    });
+    for (let round = 0; round < 2; round++) {
+      await page.getByTestId("renderer-toggle").click();
+      await expect.poll(() => page.getByTestId("renderer-toggle").getAttribute("data-backend")).toMatch(/^(cpu|webgpu)$/);
+      await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
+      await page.getByTestId("renderer-toggle").click();
+      await expect.poll(() => page.getByTestId("renderer-toggle").getAttribute("data-backend")).toBe("dom");
+      await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
+    }
+    const frames = await page.evaluate(() => (window as unknown as { __handoff: { stop(): { domOff: boolean; canvasEmpty: boolean }[] } }).__handoff.stop());
+    expect(frames.length).toBeGreaterThan(4);
+    expect(frames.some((f) => f.domOff && !f.canvasEmpty)).toBe(true);
+    expect(frames.some((f) => !f.domOff)).toBe(true);
+    expect(frames.filter((f) => f.domOff && f.canvasEmpty)).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  it("erro de render devolve as formas ao DOM", async () => {
+    await open("wasm");
+    const board = page.locator('[data-paprika-id="board"]');
+    const shape = page.locator('[data-paprika-id="1j39qe3gt7"] path');
+    await expect.poll(() => board.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+    expect(await shape.count()).toBe(0);
+    await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="wasm-layer"]');
+      const ctx = canvas?.getContext("2d");
+      if (!ctx) throw new Error("cpu context missing");
+      const orig = ctx.putImageData.bind(ctx);
+      (window as unknown as { __origPut: typeof orig }).__origPut = orig;
+      ctx.putImageData = (() => {
+        throw new Error("injected render error");
+      }) as typeof ctx.putImageData;
+    });
+    await page.getByRole("button", { name: "Aumentar zoom" }).click();
+    await expect.poll(() => page.getByTestId("renderer-toggle").getAttribute("data-backend")).toBe("error");
+    expect(await board.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
+    expect(await shape.count()).toBeGreaterThan(0);
+    expect(await page.locator(".world").getAttribute("data-wasm-active")).toBe("0");
+    await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="wasm-layer"]')!;
+      const ctx = canvas.getContext("2d")!;
+      ctx.putImageData = (window as unknown as { __origPut: typeof ctx.putImageData }).__origPut;
+    });
+    expect(errors).toEqual([]);
+  });
 });
 
 describe.skipIf(!wasmBuilt)("E2E: WASM respeita a ordem de pintura", () => {
