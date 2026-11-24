@@ -909,6 +909,22 @@ Task: draw the toggle label before keeping the WASM renderer alive, on page `int
 - Same as #129: `render_screenshot` bytes were taken from the tool result. `path` would write inside the server.
 - Same as #150: `docs/design/boards.paprika.json` was not refreshed. The database is the compose volume, and that file is outside this task's paths.
 
+## 2026-11-24: marketing landing traced from a wireframe (PAP-B-101)
+
+Task: draw a 1280 desktop landing and a 390 mobile variant for a fictional product (Nimbo, an indoor-air monitor) in a new workspace, trace a self-drawn wireframe with the reference layer, and compare the screenshot to that wireframe. Workspace `Estabilização · Média (cursor-2)` (`3o3plhdq15`), page `nimbo`, frames `desk` and `mob`. `open_workspace` was not called. Undo then redo of the last batch both returned true (`version` 14 then 15).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 153 | A text line-height in pixels | Same as #118, still open. `create_nodes` with `lineHeight: 22` on a 16px text failed the whole batch: `lineHeight: Too big: expected number to be <=10`. The guide only says `lineHeight (n \| "$token")`. A ratio of 1.1 was accepted | Say in the error and the guide that line-height is a unitless ratio capped at 10 | P2 |
+| 154 | `place: "none"` to pin the hero photo and an imported chip | `import_image` `{parentId:"desk-hero", place:"none", x:720, y:48}` and `import_html` `{parentId:"desk-hero", place:"none", x:48, y:36, html:"<div style=\"display:flex\">…</div>"}` both joined the column. The photo sits under the paragraph and the chip under the photo. Export uses `position:relative` for both | `place: "none"` with x/y should set `layoutPositioning: "absolute"` inside an auto-layout frame | P1 |
+| 155 | Look at my own workspace on the canvas without stealing the maintainer's file | Opening `http://127.0.0.1:4777/w/3o3plhdq15` POSTed `/api/workspaces/3o3plhdq15/open`. `list_workspaces` then showed that workspace `active: true` (it had been false). The page stayed on "Abrindo workspace…" and never painted the 90 nodes. Restored `cmio9n368k` with the same POST | `/w/<id>` should view a workspace without `OpenWorkspace`, and the shell should leave the loading state | P0 |
+| 156 | Padding of two numbers, and an error that says so | `layout.padding: [24, 28]` failed the batch with `layout.padding: Invalid input`. The guide already says not two values | The error should say one number or `[top, right, bottom, left]` | P2 |
+| 157 | Exported HTML as tall as the frame | `export_code` `{rootId:"desk", format:"html"}` writes `body{…;width:1280px;height:1px}`. The frame screenshot is 1280×1492. Opened in Chromium at 1280 and the mobile export at 390: nothing is clipped, because overflow stays visible | Size the body to the frame's box | P2 |
+
+- `render_screenshot` of `desk` is 1280×1492, of `mob` is 390×1682, and `compare` with the wireframe PNG returns a side-by-side image. Rich-text runs (bold, italic, link) and footer `href`s survived the export.
+- A two-value padding is rejected as documented; only the error text is the finding.
+- The mobile frame has the same sections stacked, without a second copy of the hero raster.
+
 ## 2026-11-24: Feira, end to end (PAP-B-099)
 
 Task: design a fictional farmers-market app, Feira, across brand, tokens, components, a user flow, mobile and desktop screens, pins, export and a handoff page. Own workspace `Estabilização · Ponta a ponta (cursor-4)` (`alfobm5s83`). No product code was changed. `lint_design` on the whole document: 0 errors, 0 warnings, 0 infos. PNGs in `docs/assets/boards/PAP-B-099/`.

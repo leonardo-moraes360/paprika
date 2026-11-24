@@ -912,6 +912,22 @@ Tarefa: desenhar o rótulo do botão antes de manter o renderizador WASM vivo, n
 - Igual ao #129: os bytes de `render_screenshot` vieram do resultado da ferramenta. `path` gravaria dentro do servidor.
 - Igual ao #150: `docs/design/boards.paprika.json` não foi atualizado. O banco está no volume do compose, e esse arquivo está fora dos paths desta tarefa.
 
+## 2026-11-24: landing de marketing traçada de um wireframe (PAP-B-101)
+
+Tarefa: desenhar uma landing de 1280 e a variante de 390 para um produto fictício (Nimbo, um monitor de ar interno) num workspace novo, traçar um wireframe desenhado aqui com a camada de referência e comparar o screenshot com esse wireframe. Workspace `Estabilização · Média (cursor-2)` (`3o3plhdq15`), página `nimbo`, frames `desk` e `mob`. `open_workspace` não foi chamado. Undo e redo do último lote voltaram verdadeiros (`version` 14 e depois 15).
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 153 | Entrelinha em pixels | Igual ao #118, ainda aberto. `create_nodes` com `lineHeight: 22` num texto de 16px derrubou o lote: `lineHeight: Too big: expected number to be <=10`. O guia só diz `lineHeight (n \| "$token")`. A razão 1.1 foi aceita | Dizer no erro e no guia que a entrelinha é uma razão sem unidade, com teto 10 | P2 |
+| 154 | `place: "none"` para cravar a foto do herói e um chip importado | `import_image` `{parentId:"desk-hero", place:"none", x:720, y:48}` e `import_html` `{parentId:"desk-hero", place:"none", x:48, y:36, html:"<div style=\"display:flex\">…</div>"}` entraram na coluna. A foto ficou sob o parágrafo e o chip sob a foto. O export usa `position:relative` nos dois | `place: "none"` com x/y deveria gravar `layoutPositioning: "absolute"` dentro de um frame com layout | P1 |
+| 155 | Ver o próprio workspace no canvas sem tomar o arquivo do mantenedor | Abrir `http://127.0.0.1:4777/w/3o3plhdq15` fez POST em `/api/workspaces/3o3plhdq15/open`. `list_workspaces` passou a mostrar esse workspace `active: true` (estava false). A página ficou em "Abrindo workspace…" e não pintou os 90 nós. Restaurei `cmio9n368k` com o mesmo POST | `/w/<id>` deveria mostrar o workspace sem `OpenWorkspace`, e o shell deveria sair do estado de carregamento | P0 |
+| 156 | Padding de dois números, e um erro que diga isso | `layout.padding: [24, 28]` derrubou o lote com `layout.padding: Invalid input`. O guia já diz que dois valores não servem | O erro deveria dizer um número ou `[top, right, bottom, left]` | P2 |
+| 157 | HTML exportado com a altura do frame | `export_code` `{rootId:"desk", format:"html"}` grava `body{…;width:1280px;height:1px}`. O screenshot do frame é 1280×1492. Aberto no Chromium a 1280 e o export mobile a 390: nada é cortado, porque o overflow continua visível | Dimensionar o body pela caixa do frame | P2 |
+
+- `render_screenshot` de `desk` é 1280×1492, de `mob` é 390×1682, e `compare` com o PNG do wireframe devolve a imagem lado a lado. Os runs (negrito, itálico, link) e os `href` do rodapé sobreviveram ao export.
+- Padding de dois valores é recusado como o guia diz; o achado é só o texto do erro.
+- O frame mobile tem as mesmas seções empilhadas, sem uma segunda cópia da foto do herói.
+
 ## 2026-11-24: Feira, ponta a ponta (PAP-B-099)
 
 Tarefa: desenhar um aplicativo fictício de feira, Feira, com marca, tokens, componentes, fluxo, telas de celular e de mesa, apontamentos, exportação e uma página de entrega. Workspace próprio `Estabilização · Ponta a ponta (cursor-4)` (`alfobm5s83`). Nenhum código de produto foi alterado. `lint_design` no documento inteiro: 0 erros, 0 avisos, 0 infos. PNGs em `docs/assets/boards/PAP-B-099/`.
