@@ -392,6 +392,9 @@ export type Messages = {
   verbTokens: string;
   verbPath: string;
   verbGeneric: string;
+  buildCode: string;
+  buildCodeHide: string;
+  buildCodeEmpty: string;
 };
 
 const en: Messages = {
@@ -786,6 +789,9 @@ const en: Messages = {
   verbTokens: "updating tokens",
   verbPath: "measuring a path",
   verbGeneric: "working",
+  buildCode: "Code",
+  buildCodeHide: "Hide code",
+  buildCodeEmpty: "No frame is being written.",
 };
 
 const pt: Messages = {
@@ -1164,6 +1170,9 @@ const pt: Messages = {
   verbTokens: "ajustando tokens",
   verbPath: "medindo caminho",
   verbGeneric: "trabalhando",
+  buildCode: "Código",
+  buildCodeHide: "Ocultar código",
+  buildCodeEmpty: "Nenhum frame está sendo escrito.",
 };
 
 export const catalogs: Record<Locale, Messages> = { en, "pt-BR": pt };

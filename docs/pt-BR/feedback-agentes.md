@@ -836,3 +836,17 @@ Tarefa: desenhar as barras de espaço num frame com auto layout selecionado ante
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #123, ainda aberto: `get_document_outline` de `page#interfaces` devolveu caixa de conteúdo 0×0, então o `y` veio de uma varredura de profundidade 1 (fundo máximo 13440, frames em 13600).
 - Igual ao #129: os bytes de `render_screenshot` foram gravados nos PNGs a partir do resultado da ferramenta.
+
+## 2026-11-24: construção ao vivo no canvas (PAP-B-074, design first)
+
+Tarefa: desenhar o rótulo "trabalhando", o passo de contorno e depois conteúdo, e o botão de código (fechado e aberto), claro e escuro, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes de `BuildCode` e do replay. Frames `b074dark` e `b074light` em y=14440. PNGs em `docs/assets/boards/PAP-B-074/`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 149 | Tinta branca no azul de agente `#3b82f6` | O rótulo estava dentro do selo azul e o `lint_design` acusou 3,68:1. Aninhar não mudou: branco nesse azul fica mesmo abaixo de 4,5:1 | Continuar usando `agentInk` (o noturno `#141827` ganha no `#3b82f6`) para texto sobre a cor de um agente | P3 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (14440).
+- Igual ao #129: os PNGs foram gravados a partir dos bytes de imagem do resultado da ferramenta.
+- `raw-color` ficou em info. Os mocks não foram redesenhados em tokens.
+- Depois do selo, a etiqueta do cursor e o botão aberto passaram para `#141827`. O `lint_design` nos dois frames ficou sem erros nem avisos.

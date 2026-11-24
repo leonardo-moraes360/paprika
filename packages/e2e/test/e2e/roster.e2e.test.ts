@@ -1,73 +1,37 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { chromium, type Browser, type Page } from "playwright";
+import type { Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { pinLocale } from "./locale.js";
-import { startServer, type ExternalServer } from "../harness.js";
-
-const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "apps/web/dist");
+import { callTool, closeSeededCanvas, connectAgent, openSeededCanvas, webDist, type CanvasSession } from "./seededCanvas.js";
 
 type Box = { x: number; y: number; width: number; height: number };
 
 const overlaps = (a: Box, b: Box) =>
   a.x < b.x + b.width - 1 && b.x < a.x + a.width - 1 && a.y < b.y + b.height - 1 && b.y < a.y + a.height - 1;
 
-describe.skipIf(!existsSync(webRoot))("E2E: roster condensado", () => {
-  let dir: string;
-  let external: ExternalServer | undefined;
-  let url: string;
-  let browser: Browser;
+describe.skipIf(!existsSync(webDist))("E2E: roster condensado", () => {
+  let session!: CanvasSession;
   let page: Page;
   const clients: Client[] = [];
 
   beforeAll(async () => {
-    dir = await mkdtemp(join(tmpdir(), "paprika-roster-"));
-    const file = join(dir, "demo.paprika.json");
-    await copyFile(join(root, "examples/demo.paprika.json"), file);
-    external = await startServer({ seed: file, webRoot });
-    url = external.url;
-    browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
-    page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-    await pinLocale(page, "pt-BR");
-    await page.goto(url);
-    await page.locator(".workspace-card.is-active").click();
-    await page.waitForSelector('[data-paprika-id="login"]');
+    session = await openSeededCanvas("paprika-roster-");
+    page = session.page;
   }, 60_000);
 
   afterAll(async () => {
-    await Promise.all(clients.map((client) => client.close().catch(() => undefined)));
-    await browser?.close();
-    await external?.stop();
-    await rm(dir, { recursive: true, force: true });
+    await closeSeededCanvas(session, clients);
   });
 
-  async function connect(name: string) {
-    const client = new Client({ name, version: "0" });
-    await client.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
-    clients.push(client);
-    return client;
-  }
-
-  async function call(client: Client, name: string, args: Record<string, unknown>) {
-    const result = (await client.callTool({ name, arguments: args })) as { isError?: boolean; content: { text?: string }[] };
-    if (result.isError) throw new Error(result.content.map((part) => part.text ?? "").join("\n"));
-    return result;
-  }
-
   it("agrupa sessões numa pílula, separa ativos e não cobre toolbar nem painéis", async () => {
-    const writer = await connect("e2e-agent");
-    const reader = await connect("e2e-agent");
-    const outline = await connect("e2e-agent");
-    const other = await connect("outro");
-    await call(writer, "create_nodes", { parentId: "plano", nodes: [{ type: "rect", id: "roster-a", x: 8, y: 8, width: 24, height: 16, fill: "#3b82f6" }] });
-    await call(reader, "get_nodes", { ids: ["login"] });
-    await call(outline, "get_document_outline", {});
-    await call(other, "update_nodes", { updates: [{ id: "login", props: { notes: "roster" } }] });
+    const writer = await connectAgent(session.url, "e2e-agent", clients);
+    const reader = await connectAgent(session.url, "e2e-agent", clients);
+    const outline = await connectAgent(session.url, "e2e-agent", clients);
+    const other = await connectAgent(session.url, "outro", clients);
+    await callTool(writer, "create_nodes", { parentId: "plano", nodes: [{ type: "rect", id: "roster-a", x: 8, y: 8, width: 24, height: 16, fill: "#3b82f6" }] });
+    await callTool(reader, "get_nodes", { ids: ["login"] });
+    await callTool(outline, "get_document_outline", {});
+    await callTool(other, "update_nodes", { updates: [{ id: "login", props: { notes: "roster" } }] });
 
     const toggle = page.getByTestId("agent-roster-toggle");
     await expect.poll(() => toggle.innerText()).toMatch(/^4 ativos$/);
@@ -115,7 +79,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: roster condensado", () => {
     });
     await page.reload();
     await page.waitForSelector('[data-paprika-id="login"]');
-    await call(writer, "get_nodes", { ids: ["login"] });
+    await callTool(writer, "get_nodes", { ids: ["login"] });
     await expect.poll(() => page.getByRole("navigation", { name: "Ferramentas" }).getAttribute("data-toolbar-dock")).toBe("right");
     await expect.poll(() => page.getByTestId("agent-roster-toggle").innerText()).toMatch(/ativo/);
     const docked = await box(page.getByRole("navigation", { name: "Ferramentas" }));
@@ -126,10 +90,10 @@ describe.skipIf(!existsSync(webRoot))("E2E: roster condensado", () => {
     expect(again.x + again.width).toBeLessThanOrEqual(docked.x + 1);
 
     await page.getByTestId("add-page").click();
-    await expect.poll(async () => (await external!.doc()).rootIds.length).toBe(2);
-    const doc = await external!.doc();
+    await expect.poll(async () => (await session.external.doc()).rootIds.length).toBe(2);
+    const doc = await session.external.doc();
     const [p1, p2] = doc.rootIds as [string, string];
-    await call(writer, "create_nodes", { parentId: p2, nodes: [{ type: "frame", id: "roster-p2", name: "Na página 2", width: 120, height: 80, fill: "#ffffff" }] });
+    await callTool(writer, "create_nodes", { parentId: p2, nodes: [{ type: "frame", id: "roster-p2", name: "Na página 2", width: 120, height: 80, fill: "#ffffff" }] });
     await page.locator(`[data-page-id="${p1}"]`).click();
     await expect.poll(() => page.locator(`[data-page-id="${p2}"]`).getByTestId("agent-page-dot").count()).toBe(1);
   }, 60_000);
