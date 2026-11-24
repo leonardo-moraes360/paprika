@@ -287,7 +287,12 @@ impl TeamFile {
         // 2. Removals: the earliest valid one per key.
         let mut removed: HashMap<String, &Removal> = HashMap::new();
         for x in &self.removals {
-            if !chain.contains(&x.by) || chain.contains(&x.key) || !x.verifies(&self.id) {
+            if chain.contains(&x.key) || !x.verifies(&self.id) {
+                continue;
+            }
+            let founder_remove = chain.contains(&x.by);
+            let self_leave = x.by == x.key;
+            if !founder_remove && !self_leave {
                 continue;
             }
             match removed.get(&x.key) {
@@ -473,6 +478,36 @@ impl TeamFile {
             sig,
         };
         self.removals.push(x.clone());
+        Ok(x)
+    }
+
+    /// The member signs their own removal. The founder chain cannot leave this way.
+    pub fn leave(&mut self, me: &SecretKey, upto: Upto) -> Result<Removal> {
+        let r = self.roster();
+        let key = me.public();
+        if r.founders.contains(&key) {
+            bail!("the founder cannot leave the team");
+        }
+        if !r.members.contains_key(&key) {
+            bail!("this instance is not a member of the team");
+        }
+        let (k, at) = (key.to_string(), now());
+        let sig = hex::encode(
+            me.sign(&removal_bytes(&self.id, &k, &k, at, &upto))
+                .to_bytes(),
+        );
+        let x = Removal {
+            key: k.clone(),
+            by: k,
+            at,
+            upto,
+            sig,
+        };
+        self.removals.push(x.clone());
+        if self.is_member(&key) {
+            self.removals.pop();
+            bail!("the leave did not validate");
+        }
         Ok(x)
     }
 
@@ -752,6 +787,20 @@ mod tests {
         other.merge(&forged).unwrap();
         assert!(other.is_member(&carla.public()));
         assert_eq!(other.removals.len(), 1);
+    }
+
+    #[test]
+    fn a_member_leaves_on_their_own() {
+        let (ana, bruno) = (key(1), key(2));
+        let mut t = TeamFile::create(&ana, "Estúdio", "Ana");
+        t.add(&ana, &bruno.public(), "Bruno").unwrap();
+        assert!(t.leave(&ana, Upto::new()).unwrap_err().to_string().contains("founder"));
+        let mut other = t.clone();
+        t.leave(&bruno, upto("d", &bruno, 2)).unwrap();
+        assert!(!t.is_member(&bruno.public()));
+        assert!(t.is_member(&ana.public()));
+        other.merge(&t).unwrap();
+        assert!(!other.is_member(&bruno.public()));
     }
 
     #[test]

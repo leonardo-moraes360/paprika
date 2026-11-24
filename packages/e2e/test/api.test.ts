@@ -150,7 +150,7 @@ describe("API: MCP", () => {
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "redo",
         "rename_workspace", "render_screenshot", "resize_image", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
-        "claim_pin", "list_pins", "resolve_pin", "wait_for_pins",
+        "claim_pin", "list_pins", "reply_pin", "resolve_pin", "wait_for_pins",
       ].sort(),
     );
     for (const t of tools) expect(t.inputSchema.type).toBe("object");
@@ -1507,6 +1507,15 @@ describe("API: MCP", () => {
     expect((claimed.structuredContent.pin as { status: string }).status).toBe("claimed");
     const resolved = (await call(client, "resolve_pin", { id: pin.id, reply: "Título em 32px" })) as WithStruct;
     expect(resolved.structuredContent.pin).toMatchObject({ status: "resolved", reply: "Título em 32px" });
+    expect((resolved.structuredContent.pin as { replies: { author: string; text: string }[] }).replies).toEqual([
+      expect.objectContaining({ author: expect.stringMatching(/^agent:/), text: "Título em 32px" }),
+    ]);
+    const replied = (await call(client, "reply_pin", { id: pin.id, text: "Pode ser semibold?" })) as WithStruct;
+    expect((replied.structuredContent.pin as { status: string; replies: { text: string }[] }).status).toBe("resolved");
+    expect((replied.structuredContent.pin as { replies: { text: string }[] }).replies.map((r) => r.text)).toEqual([
+      "Título em 32px",
+      "Pode ser semibold?",
+    ]);
 
     const waited = (await call(client, "wait_for_pins", { timeoutMs: 0, since: listed.structuredContent.rev as number })) as WithStruct;
     expect(waited.structuredContent.timedOut).toBe(true);

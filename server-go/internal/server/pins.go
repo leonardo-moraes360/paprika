@@ -14,9 +14,10 @@ import (
 
 // Pins ("Apontar para a IA"): a human points at a node or an area of the canvas and writes what an agent
 // should do there. A pin is not a node: it lives in its own table, outside the document, so it is not
-// exported, not in the design's undo history and not synced as part of the document. Agents read pins over
-// MCP (list_pins, claim_pin, resolve_pin, wait_for_pins); the canvas over /api/pins and a {type:"pins"}
-// WebSocket message.
+// exported and not in the design's undo history. Team sync carries pins beside the document, in the same
+// Loro workspace (a map of pins and a map of replies), not as doc.nodes. Agents read pins over MCP
+// (list_pins, claim_pin, reply_pin, resolve_pin, wait_for_pins); the canvas over /api/pins and a
+// {type:"pins"} WebSocket message.
 
 const pinsSQL = `
 CREATE TABLE IF NOT EXISTS pins (
@@ -38,6 +39,14 @@ CREATE TABLE IF NOT EXISTS pins (
 );
 CREATE INDEX IF NOT EXISTS pins_doc ON pins(doc_id, status);
 CREATE INDEX IF NOT EXISTS pins_rev ON pins(rev);
+CREATE TABLE IF NOT EXISTS pin_replies (
+  id         TEXT PRIMARY KEY,
+  pin_id     TEXT NOT NULL REFERENCES pins(id) ON DELETE CASCADE,
+  author     TEXT NOT NULL,
+  text       TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS pin_replies_pin ON pin_replies(pin_id, created_at);
 `
 
 // Pin statuses.
@@ -54,6 +63,14 @@ const (
 	MaxPinReply = 2000
 )
 
+// PinReply is one message on a pin's thread (human or agent).
+type PinReply struct {
+	ID        string `json:"id"`
+	Author    string `json:"author"`
+	Text      string `json:"text"`
+	CreatedAt int64  `json:"createdAt"`
+}
+
 // PinRegion is a box in canvas coordinates.
 type PinRegion struct {
 	X      float64 `json:"x"`
@@ -64,23 +81,24 @@ type PinRegion struct {
 
 // Pin is one request from a human to the agents, anchored to a node or an area.
 type Pin struct {
-	ID          string    `json:"id"`
-	N           int       `json:"n"`
-	WorkspaceID string    `json:"workspaceId"`
-	PageID      string    `json:"pageId,omitempty"`
-	NodeID      string    `json:"nodeId,omitempty"`
-	NodeName    string    `json:"nodeName,omitempty"`
-	NodeMissing bool      `json:"nodeMissing,omitempty"`
-	Region      PinRegion `json:"region"`
-	Text        string    `json:"text"`
-	Author      string    `json:"author"`
-	Status      string    `json:"status"`
-	ClaimedBy   string    `json:"claimedBy,omitempty"`
-	Reply       string    `json:"reply,omitempty"`
-	ResolvedBy  string    `json:"resolvedBy,omitempty"`
-	CreatedAt   int64     `json:"createdAt"`
-	UpdatedAt   int64     `json:"updatedAt"`
-	Rev         int64     `json:"rev"`
+	ID          string     `json:"id"`
+	N           int        `json:"n"`
+	WorkspaceID string     `json:"workspaceId"`
+	PageID      string     `json:"pageId,omitempty"`
+	NodeID      string     `json:"nodeId,omitempty"`
+	NodeName    string     `json:"nodeName,omitempty"`
+	NodeMissing bool       `json:"nodeMissing,omitempty"`
+	Region      PinRegion  `json:"region"`
+	Text        string     `json:"text"`
+	Author      string     `json:"author"`
+	Status      string     `json:"status"`
+	ClaimedBy   string     `json:"claimedBy,omitempty"`
+	Reply       string     `json:"reply,omitempty"`
+	Replies     []PinReply `json:"replies,omitempty"`
+	ResolvedBy  string     `json:"resolvedBy,omitempty"`
+	CreatedAt   int64      `json:"createdAt"`
+	UpdatedAt   int64      `json:"updatedAt"`
+	Rev         int64      `json:"rev"`
 }
 
 // Pin errors.
@@ -167,7 +185,11 @@ func (s *Store) CreatePin(workspaceID string, in NewPin, author string) (Pin, er
 	if err != nil {
 		return Pin{}, err
 	}
-	return s.GetPin(id)
+	p, err := s.GetPin(id)
+	if err == nil {
+		s.notifyPins(docID)
+	}
+	return p, err
 }
 
 // GetPin reads one pin (deleted ones too).
@@ -181,6 +203,7 @@ func (s *Store) GetPin(id string) (Pin, error) {
 	}
 	pins := []Pin{p}
 	s.decoratePins(p.WorkspaceID, pins)
+	s.attachReplies(pins)
 	return pins[0], nil
 }
 
@@ -233,6 +256,7 @@ func (s *Store) ListPins(f PinFilter) ([]Pin, error) {
 		return nil, err
 	}
 	s.decoratePins(docID, out)
+	s.attachReplies(out)
 	return out, nil
 }
 
@@ -265,6 +289,7 @@ const (
 		claimed_by = CASE WHEN claimed_by = '' THEN ? ELSE claimed_by END, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins)
 		WHERE id = ? AND status IN ('open', 'claimed')`
 	reopenPinSQL = `UPDATE pins SET status = 'open', claimed_by = '', updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status IN ('claimed', 'resolved')`
+	replyPinSQL  = `UPDATE pins SET reply = ?, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status != 'deleted'`
 	editPinSQL   = `UPDATE pins SET text = ?, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status IN ('open', 'claimed')`
 	deletePinSQL = `UPDATE pins SET status = 'deleted', updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status IN ('open', 'claimed', 'resolved')`
 )
@@ -285,7 +310,11 @@ func (s *Store) updatePin(id string, stmt string, args ...any) (Pin, error) {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return Pin{}, errors.New("pin changed meanwhile: read it again")
 	}
-	return s.GetPin(id)
+	p, err := s.GetPin(id)
+	if err == nil {
+		s.notifyPins(p.WorkspaceID)
+	}
+	return p, err
 }
 
 // ClaimPin marks a pin as taken by an agent. Claiming one's own claim again is a no-op.
@@ -329,7 +358,38 @@ func (s *Store) ResolvePin(id, actor, reply string) (Pin, error) {
 	case cur.Status == PinClaimed && cur.ClaimedBy != actor && strings.HasPrefix(actor, "agent:"):
 		return Pin{}, fmt.Errorf("%w (%s)", ErrPinClaimed, cur.ClaimedBy)
 	}
-	return s.updatePin(id, resolvePinSQL, reply, actor, actor)
+	row, err := s.insertReply(id, actor, reply, time.Now().UnixMilli())
+	if err != nil {
+		return Pin{}, err
+	}
+	p, err := s.updatePin(id, resolvePinSQL, reply, actor, actor)
+	if err != nil {
+		_, _ = s.db.Exec(`DELETE FROM pin_replies WHERE id = ?`, row.ID)
+		return Pin{}, err
+	}
+	return p, nil
+}
+
+// ReplyPin appends a message to a pin's thread. It does not change the pin's status.
+func (s *Store) ReplyPin(id, actor, text string) (Pin, error) {
+	text = cleanText(text)
+	if text == "" {
+		return Pin{}, fmt.Errorf("%w: reply cannot be blank", ErrPinInput)
+	}
+	if len([]rune(text)) > MaxPinReply {
+		return Pin{}, fmt.Errorf("%w: reply is longer than %d characters", ErrPinInput, MaxPinReply)
+	}
+	cur, err := s.GetPin(id)
+	if err != nil {
+		return Pin{}, err
+	}
+	if cur.Status == PinDeleted {
+		return Pin{}, ErrNoPin
+	}
+	if _, err := s.insertReply(id, actor, text, time.Now().UnixMilli()); err != nil {
+		return Pin{}, err
+	}
+	return s.updatePin(id, replyPinSQL, text)
 }
 
 // ReopenPin puts a claimed or resolved pin back to open (the human's call; it keeps the last reply).
@@ -352,6 +412,179 @@ func (s *Store) EditPin(id, text string) (Pin, error) {
 // DeletePin hides a pin (soft delete, so watchers see the change).
 func (s *Store) DeletePin(id string) (Pin, error) {
 	return s.updatePin(id, deletePinSQL)
+}
+
+func (s *Store) insertReply(pinID, author, text string, at int64) (PinReply, error) {
+	row := PinReply{ID: core.NewID(), Author: author, Text: text, CreatedAt: at}
+	_, err := s.db.Exec(`INSERT INTO pin_replies(id, pin_id, author, text, created_at) VALUES(?, ?, ?, ?, ?)`,
+		row.ID, pinID, row.Author, row.Text, row.CreatedAt)
+	if err != nil {
+		return PinReply{}, err
+	}
+	return row, nil
+}
+
+func (s *Store) attachReplies(pins []Pin) {
+	if len(pins) == 0 {
+		return
+	}
+	ph := make([]string, len(pins))
+	args := make([]any, len(pins))
+	for i, p := range pins {
+		ph[i] = "?"
+		args[i] = p.ID
+	}
+	rows, err := s.db.Query(`SELECT id, pin_id, author, text, created_at FROM pin_replies WHERE pin_id IN (`+strings.Join(ph, ",")+`) ORDER BY created_at, id`, args...)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	by := map[string][]PinReply{}
+	for rows.Next() {
+		var r PinReply
+		var pinID string
+		if err := rows.Scan(&r.ID, &pinID, &r.Author, &r.Text, &r.CreatedAt); err != nil {
+			return
+		}
+		by[pinID] = append(by[pinID], r)
+	}
+	for i := range pins {
+		rs := by[pins[i].ID]
+		if len(rs) == 0 && pins[i].Reply != "" {
+			author := pins[i].ResolvedBy
+			if author == "" {
+				author = "user"
+			}
+			rs = []PinReply{{ID: "legacy-" + pins[i].ID, Author: author, Text: pins[i].Reply, CreatedAt: pins[i].UpdatedAt}}
+		}
+		if len(rs) > 0 {
+			pins[i].Replies = rs
+		}
+	}
+}
+
+type pinSyncHeader struct {
+	N          int       `json:"n"`
+	PageID     string    `json:"pageId"`
+	NodeID     string    `json:"nodeId"`
+	Region     PinRegion `json:"region"`
+	Text       string    `json:"text"`
+	Author     string    `json:"author"`
+	Status     string    `json:"status"`
+	ClaimedBy  string    `json:"claimedBy"`
+	Reply      string    `json:"reply"`
+	ResolvedBy string    `json:"resolvedBy"`
+	CreatedAt  int64     `json:"createdAt"`
+	UpdatedAt  int64     `json:"updatedAt"`
+}
+
+func (p Pin) syncHeader() pinSyncHeader {
+	return pinSyncHeader{p.N, p.PageID, p.NodeID, p.Region, p.Text, p.Author, p.Status, p.ClaimedBy, p.Reply, p.ResolvedBy, p.CreatedAt, p.UpdatedAt}
+}
+
+// HeaderJSON is the pin record that team sync stores, without derived fields or the thread.
+func (p Pin) HeaderJSON() string {
+	b, _ := json.Marshal(p.syncHeader())
+	return string(b)
+}
+
+// SyncJSON is one reply as team sync stores it.
+func (r PinReply) SyncJSON(pinID string) string {
+	b, _ := json.Marshal(struct {
+		PinID     string `json:"pinId"`
+		Author    string `json:"author"`
+		Text      string `json:"text"`
+		CreatedAt int64  `json:"createdAt"`
+	}{pinID, r.Author, r.Text, r.CreatedAt})
+	return string(b)
+}
+
+// ExportPins reads every pin of a workspace, including deleted ones, for team sync.
+func (s *Store) ExportPins(docID string) ([]Pin, error) {
+	rows, err := s.db.Query(`SELECT id, doc_id, n, page_id, node_id, region, text, author, status, claimed_by, reply, resolved_by, created_at, updated_at, rev FROM pins WHERE doc_id = ? ORDER BY n`, docID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Pin{}
+	for rows.Next() {
+		p, err := scanPin(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	s.attachReplies(out)
+	return out, nil
+}
+
+// PinSyncMaps is the pin and reply records of a workspace, keyed by id, for the first share.
+func (s *Store) PinSyncMaps(docID string) (pins, replies map[string]json.RawMessage) {
+	pins = map[string]json.RawMessage{}
+	replies = map[string]json.RawMessage{}
+	list, err := s.ExportPins(docID)
+	if err != nil {
+		return pins, replies
+	}
+	for _, p := range list {
+		pins[p.ID] = json.RawMessage(p.HeaderJSON())
+		for _, r := range p.Replies {
+			replies[r.ID] = json.RawMessage(r.SyncJSON(p.ID))
+		}
+	}
+	return pins, replies
+}
+
+// ApplySyncedPin upserts a pin that arrived from the team. It does not notify local listeners.
+func (s *Store) ApplySyncedPin(docID string, p Pin) error {
+	if p.ID == "" || docID == "" {
+		return fmt.Errorf("%w: missing id", ErrPinInput)
+	}
+	cur, err := scanPin(s.db.QueryRow(`SELECT id, doc_id, n, page_id, node_id, region, text, author, status, claimed_by, reply, resolved_by, created_at, updated_at, rev FROM pins WHERE id = ?`, p.ID))
+	missing := errors.Is(err, sql.ErrNoRows)
+	if err != nil && !missing {
+		return err
+	}
+	if !missing && cur.WorkspaceID != docID {
+		return nil
+	}
+	region, _ := json.Marshal(p.Region)
+	changed := missing || cur.HeaderJSON() != p.HeaderJSON()
+	if missing {
+		_, err = s.db.Exec(`INSERT INTO pins(id, doc_id, n, page_id, node_id, region, text, author, status, claimed_by, reply, resolved_by, created_at, updated_at, rev)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins))`,
+			p.ID, docID, p.N, p.PageID, p.NodeID, string(region), p.Text, p.Author, p.Status, p.ClaimedBy, p.Reply, p.ResolvedBy, p.CreatedAt, p.UpdatedAt)
+		if err != nil {
+			return err
+		}
+	} else if changed {
+		_, err = s.db.Exec(`UPDATE pins SET n=?, page_id=?, node_id=?, region=?, text=?, author=?, status=?, claimed_by=?, reply=?, resolved_by=?, created_at=?, updated_at=?, rev=(SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id=? AND doc_id=?`,
+			p.N, p.PageID, p.NodeID, string(region), p.Text, p.Author, p.Status, p.ClaimedBy, p.Reply, p.ResolvedBy, p.CreatedAt, p.UpdatedAt, p.ID, docID)
+		if err != nil {
+			return err
+		}
+	}
+	added := false
+	for _, r := range p.Replies {
+		if r.ID == "" {
+			continue
+		}
+		res, err := s.db.Exec(`INSERT INTO pin_replies(id, pin_id, author, text, created_at) VALUES(?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`,
+			r.ID, p.ID, r.Author, r.Text, r.CreatedAt)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			added = true
+		}
+	}
+	if !changed && added {
+		_, err = s.db.Exec(`UPDATE pins SET rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ?`, p.ID)
+	}
+	return err
 }
 
 // pinsWaitPoll is how often wait_for_pins and the WebSocket broadcast read the pins table: another process

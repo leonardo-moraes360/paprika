@@ -128,6 +128,26 @@ pub fn state_changes(state: &Value) -> Vec<Change> {
             value: name.to_string(),
         });
     }
+    if let Some(pins) = state["pins"].as_object() {
+        for (id, v) in pins {
+            if !v.is_null() {
+                out.push(Change::Pin {
+                    id: id.clone(),
+                    value: v.clone(),
+                });
+            }
+        }
+    }
+    if let Some(replies) = state["replies"].as_object() {
+        for (id, v) in replies {
+            if !v.is_null() {
+                out.push(Change::Reply {
+                    id: id.clone(),
+                    value: v.clone(),
+                });
+            }
+        }
+    }
     out
 }
 

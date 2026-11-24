@@ -6,6 +6,8 @@
 //! - `doc` (`LoroMap`): `name`.
 //! - `tokens` (`LoroMap`): token → JSON value. `modes` (`LoroMap`): `"<mode>\u{0}<token>"` → JSON
 //!   value, flat so two peers adding the same mode at once never race on a nested container.
+//! - `pins` (`LoroMap`): pin id → JSON header (last writer wins). `replies` (`LoroMap`): reply id →
+//!   JSON. Pins are not canvas nodes.
 
 use std::collections::{HashMap, HashSet};
 
@@ -45,6 +47,16 @@ pub enum Change {
     },
     Name {
         value: String,
+    },
+    /// Pin header. A null `value` removes the pin from the shared map.
+    Pin {
+        id: String,
+        value: Value,
+    },
+    /// One reply. A null `value` removes it. Replies are their own keys so two peers can both add one.
+    Reply {
+        id: String,
+        value: Value,
     },
 }
 
@@ -192,6 +204,10 @@ impl Crdt {
                         .insert("name", value.as_str())
                         .map_err(|e| anyhow!("{e}"))?;
                 }
+                Change::Pin { id, value } => write_json_map(&self.doc.get_map("pins"), &id, &value)?,
+                Change::Reply { id, value } => {
+                    write_json_map(&self.doc.get_map("replies"), &id, &value)?
+                }
             }
         }
         self.doc.commit();
@@ -231,7 +247,9 @@ impl Crdt {
             }
         }
         let name = map_raw_str(&self.doc.get_map("doc"), "name").unwrap_or_default();
-        json!({"name": name, "rootIds": roots, "nodes": nodes, "tokens": tokens, "modes": modes})
+        let pins = json_map(&self.doc.get_map("pins"));
+        let replies = json_map(&self.doc.get_map("replies"));
+        json!({"name": name, "rootIds": roots, "nodes": nodes, "tokens": tokens, "modes": modes, "pins": pins, "replies": replies})
     }
 
     fn walk(
@@ -278,6 +296,24 @@ impl Crdt {
     pub fn snapshot(&self) -> Result<Vec<u8>> {
         self.doc.export(ExportMode::Snapshot).context("snapshot")
     }
+}
+
+fn write_json_map(map: &LoroMap, key: &str, value: &Value) -> Result<()> {
+    if value.is_null() {
+        map.delete(key).ok();
+        return Ok(());
+    }
+    map.insert(key, value.to_string())
+        .map_err(|e| anyhow!("{e}"))?;
+    Ok(())
+}
+
+fn json_map(map: &LoroMap) -> Map<String, Value> {
+    let mut out = Map::new();
+    for (k, v) in map_entries(map) {
+        out.insert(k, v);
+    }
+    out
 }
 
 fn map_string(map: &LoroMap, key: &str) -> Option<String> {
@@ -443,5 +479,36 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(blob_peers(&blob).unwrap(), vec![42]);
+    }
+
+    #[test]
+    fn pin_replies_from_two_peers_both_survive() {
+        let a = Crdt::new();
+        a.apply_local(
+            1,
+            &ch(json!([
+                {"k": "name", "value": "D"},
+                {"k": "pin", "id": "p1", "value": {"text": "maior", "status": "open"}}
+            ])),
+        )
+        .unwrap();
+        let b = Crdt::new();
+        sync(&a, &b);
+        a.apply_local(
+            1,
+            &ch(json!([{"k": "reply", "id": "r1", "value": {"pinId": "p1", "text": "feito"}}])),
+        )
+        .unwrap();
+        b.apply_local(
+            2,
+            &ch(json!([{"k": "reply", "id": "r2", "value": {"pinId": "p1", "text": "e o peso?"}}])),
+        )
+        .unwrap();
+        sync(&a, &b);
+        let s = a.materialize();
+        assert_eq!(s, b.materialize());
+        assert_eq!(s["pins"]["p1"]["text"], json!("maior"));
+        assert_eq!(s["replies"]["r1"]["text"], json!("feito"));
+        assert_eq!(s["replies"]["r2"]["text"], json!("e o peso?"));
     }
 }

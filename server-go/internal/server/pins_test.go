@@ -61,6 +61,14 @@ func TestPinsLifecycleOverMCP(t *testing.T) {
 	if resolved.Str("status") != PinResolved || resolved.Str("reply") != "Altura 44, cor de destaque" || resolved.Str("resolvedBy") != "agent:a" {
 		t.Fatalf("resolve: %s", jsonv.Stringify(resolved, ""))
 	}
+	replies := resolved.Arr("replies")
+	if len(replies) != 1 || replies[0].(*jsonv.Object).Str("text") != "Altura 44, cor de destaque" || replies[0].(*jsonv.Object).Str("author") != "agent:a" {
+		t.Fatalf("resolve reply thread: %s", jsonv.Stringify(resolved, ""))
+	}
+	followed := structuredOf(t, b.CallTool(ctx, "reply_pin", jsonv.NewObject("id", human.ID, "text", "E o peso da fonte?"), true)).Obj("pin")
+	if followed.Str("status") != PinResolved || len(followed.Arr("replies")) != 2 {
+		t.Fatalf("reply_pin: %s", jsonv.Stringify(followed, ""))
+	}
 	if txt, isErr := callText(t, a, "resolve_pin", jsonv.NewObject("id", human.ID, "reply", "de novo")); !isErr || !strings.Contains(txt, "already resolved") {
 		t.Fatalf("resolve twice: %v %s", isErr, txt)
 	}
@@ -218,6 +226,9 @@ func TestPinsHTTP(t *testing.T) {
 	}
 	if code, body, _ := httpDo(t, srv, "PATCH", "/api/pins/"+created.Pin.ID, nil, `{"text":"bem maior"}`); code != 200 || !strings.Contains(body, "bem maior") {
 		t.Fatalf("edit: %d %s", code, body)
+	}
+	if code, body, _ := httpDo(t, srv, "POST", "/api/pins/"+created.Pin.ID+"/replies", nil, `{"text":"pode ser 18"}`); code != 201 || !strings.Contains(body, "pode ser 18") {
+		t.Fatalf("reply: %d %s", code, body)
 	}
 	if code, body, _ := httpDo(t, srv, "PATCH", "/api/pins/"+created.Pin.ID, nil, `{"status":"resolved"}`); code != 200 || !strings.Contains(body, `"resolved"`) {
 		t.Fatalf("resolve: %d %s", code, body)

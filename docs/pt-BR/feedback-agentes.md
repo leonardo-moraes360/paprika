@@ -862,3 +862,16 @@ Tarefa: desenhar o conta-gotas, as alças das pontas e os três contornos novos 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (fundo máximo 15060, frames em 15240).
 - Os bytes de `render_screenshot` foram gravados nos PNGs a partir do resultado da ferramenta.
+
+## 2026-11-24: fio do apontamento e sair do time (PAP-B-075, design first)
+
+Tarefa: desenhar o fio do apontamento (respostas de pessoas e agentes, compositor) e a linha de sair do time, claro e escuro, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`) antes da mudança no canvas. Frames `b075-light` e `b075-dark`. PNGs em `docs/assets/boards/PAP-B-075/`. Depois de aninhar os rótulos, `lint_design` nos dois frames: 0 erros, 0 avisos, só info de `raw-color`.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 151 | `scaledMock` dispensar contraste num mock | `scaledMock: true` na raiz não dispensou o contraste. Nove erros a 1,00:1: texto branco e de destaque era irmão do selo colorido, então a checagem mediu contra o card | O contraste deve usar o preenchimento pintado por cima sob os glifos (igual ao #148). O `scaledMock` deveria dizer quando não se aplica | P3 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (primeira passada, fundo máximo 15760, frames em 15920; o redesenho do contraste caiu em 16240 porque os frames antigos ainda estavam nessa varredura).
+- Igual ao #129: os PNGs foram gravados a partir dos bytes de imagem do resultado da ferramenta.
+- Aninhar o número, as iniciais e "Responder" dentro de um frame com preenchimento `#141827` limpou os erros de contraste. O board não foi exportado.

@@ -363,9 +363,16 @@ function targetLabel(pin: Pin, m: ReturnType<typeof useT>) {
 /** The pin's text, status and actions (bubble on the canvas and row of the panel). */
 function PinCard({ pin, color, onClose, onError, onShow }: { pin: Pin; color: string; onClose?(): void; onError?(msg: string): void; onShow?(): void }) {
   const m = useT();
-  const { patch, remove } = usePinActions(pin.workspaceId);
+  const { patch, remove, reply } = usePinActions(pin.workspaceId);
+  const [draft, setDraft] = useState("");
   const fail = (err: unknown) => onError?.(m.pinSaveFail(errorText(err)));
   const now = Date.now();
+  const thread = pin.replies ?? [];
+  const sendReply = () => {
+    const text = draft.trim();
+    if (!text) return;
+    reply.mutate({ id: pin.id, text }, { onSuccess: () => setDraft(""), onError: fail });
+  };
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-line bg-panel p-3 text-fg shadow-float" data-testid="pin-card">
       <div className="flex items-center gap-1.5 text-xs">
@@ -385,13 +392,43 @@ function PinCard({ pin, color, onClose, onError, onShow }: { pin: Pin; color: st
         <span>{targetLabel(pin, m)}</span>
       </div>
       {pin.status === "claimed" && <p className="m-0 text-xs" style={{ color }}>{m.pinWorking(actorLabel(pin.claimedBy))}</p>}
-      {pin.reply && (
-        <div className="rounded-lg border border-line bg-night p-2 text-xs">
-          <div className="mb-1 font-semibold text-muted">{m.pinReplied(actorLabel(pin.resolvedBy || pin.claimedBy))}</div>
-          <p className="m-0 whitespace-pre-wrap">{pin.reply}</p>
+      {thread.length > 0 ? (
+        <div className="grid gap-1.5">
+          {thread.map((r) => (
+            <div key={r.id} className="rounded-lg border border-line bg-night p-2 text-xs" data-testid="pin-reply">
+              <div className="mb-1 font-semibold text-muted">{r.author === "user" ? m.you : actorLabel(r.author)}</div>
+              <p className="m-0 whitespace-pre-wrap">{r.text}</p>
+            </div>
+          ))}
         </div>
+      ) : (
+        pin.reply && (
+          <div className="rounded-lg border border-line bg-night p-2 text-xs">
+            <div className="mb-1 font-semibold text-muted">{m.pinReplied(actorLabel(pin.resolvedBy || pin.claimedBy))}</div>
+            <p className="m-0 whitespace-pre-wrap">{pin.reply}</p>
+          </div>
+        )
       )}
+      <textarea
+        rows={2}
+        maxLength={2000}
+        value={draft}
+        placeholder={m.pinReplyPlaceholder}
+        aria-label={m.pinReplyPlaceholder}
+        data-testid="pin-reply-input"
+        className="min-h-14 resize-y rounded-lg border border-select bg-night p-2 text-xs text-fg outline-none"
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            sendReply();
+          }
+        }}
+      />
       <div className="flex flex-wrap gap-1.5">
+        <Button size="xs" disabled={!draft.trim() || reply.isPending} onClick={sendReply} data-testid="pin-reply-send">
+          {m.pinReplySend}
+        </Button>
         {onShow && (
           <Button variant="secondary" size="xs" onClick={onShow}>
             <Crosshair aria-hidden />
