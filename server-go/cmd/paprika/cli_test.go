@@ -333,3 +333,19 @@ func TestImportListExportWithRealHandlers(t *testing.T) {
 		t.Fatalf("export did not write %s: %v", exported, err)
 	}
 }
+
+// pflag v1.1.0 prints bool flags as "--name[=true|false]"; the help keeps
+// "--name" while "--name=false" still parses.
+func TestBoolFlagHelpAndExplicitValue(t *testing.T) {
+	fs := pflag.NewFlagSet("t", pflag.ContinueOnError)
+	on := fs.Bool("team", false, "modo time")
+	if got := flagUsages(fs); strings.Contains(got, "[=true|false]") || !strings.Contains(got, "--team ") {
+		t.Fatalf("usage = %q", got)
+	}
+	if err := fs.Parse([]string{"--team"}); err != nil || !*on {
+		t.Fatalf("--team: on=%v err=%v", *on, err)
+	}
+	if err := fs.Parse([]string{"--team=false"}); err != nil || *on {
+		t.Fatalf("--team=false: on=%v err=%v", *on, err)
+	}
+}
