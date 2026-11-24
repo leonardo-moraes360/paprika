@@ -159,7 +159,7 @@ Task: `shape` and `connector` nodes, canvas tools, and `draw_diagram` for agents
 | 55 | Delete a shape and its arrow in one call | `delete_nodes` with the shape first and then its connector failed: the shape's delete had already taken the connector. Fixed: a connector removed that way earlier in the same transaction is skipped (deleting it twice is still an error) | — | — |
 | 56 | Know the ids of the arrows `draw_diagram` made | They default to `<from>-to-<to>` (with `-2`, `-3` for repeats) and come back in `edges`, in input order | — | — |
 | 57 | Say what an arrow means ("yes", "no") | Connectors have no label yet; agents put a small text node next to the arrow, which does not follow it | Done (2026-11-22): `label` on connectors and on `draw_diagram` edges, drawn halfway along the route in the stroke color with a halo of the background | — |
-| 58 | Move one shape of a drawn diagram without crossing others | Elbow routes ignore obstacles, so a moved shape can make an arrow cross another shape | Done (2026-11-24, PAP-B-077): elbow and rounded routes leave an 8px gap around other shapes that share the connector's parent; `draw_diagram` `relayout: true` updates existing shape ids and routes those connectors again in one undo step | — |
+| 58 | Move one shape of a drawn diagram without crossing others | Elbow routes ignore obstacles, so a moved shape can make an arrow cross another shape | Done (2026-11-24, PAP-B-077): elbow and rounded routes leave an 8px gap around other shapes that share the connector's parent; `draw_diagram` `relayout: true` updates existing shape ids and routes those connectors again in one undo step. PR: https://github.com/leonardo-moraes360/paprika/pull/174. | — |
 
 ## 2026-11-21: rename and delete workspaces
 
