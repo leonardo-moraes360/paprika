@@ -1363,7 +1363,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.mouse.click(vp.x + 520, vp.y + 420);
     await page.getByTestId("shape-text-editor").waitFor();
     await page.keyboard.press("Escape");
-    await expect.poll(async () => (await shapes()).some((n) => n.shape === "cylinder"), POLL).toBe(true);
+    await expect.poll(async () => (await shapes()).some((n) => n.type === "shape" && n.shape === "cylinder"), POLL).toBe(true);
 
     // Seta: arrastar de uma forma até a outra; as duas pontas ficam presas.
     const box = async (id: string) => (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
@@ -1387,8 +1387,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.mouse.move(vp.x + 30, vp.y + 30, { steps: 8 });
     await page.mouse.up();
     await expect.poll(async () => {
-      const end = (await connector())?.to as { nodeId?: string; x?: number } | undefined;
-      return end?.nodeId === undefined && typeof end?.x === "number";
+      const node = await connector();
+      const end = node && node.type === "connector" ? node.to : undefined;
+      return !!end && !("nodeId" in end) && typeof end.x === "number";
     }, POLL).toBe(true);
     const loose = (await page.getByTestId("connector-to-handle").boundingBox())!;
     const back = await box(second);
@@ -1396,7 +1397,10 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.mouse.down();
     await page.mouse.move(back.x + back.width / 2, back.y + back.height / 2, { steps: 8 });
     await page.mouse.up();
-    await expect.poll(async () => (await connector())?.to, POLL).toMatchObject({ nodeId: second });
+    await expect.poll(async () => {
+      const node = await connector();
+      return node && node.type === "connector" ? node.to : undefined;
+    }, POLL).toMatchObject({ nodeId: second });
 
     // Arrastar a forma: a seta acompanha ainda durante o arraste e depois no documento.
     await page.mouse.move(b.x + b.width / 2, b.y + 10);
