@@ -100,6 +100,22 @@ func registerPinRoutes(engine *gin.Engine, store *Store) {
 			send(c.Writer, 405, errBody("method not allowed"), "")
 		}
 	})
+	engine.Any("/api/pins/:id/replies", func(c *gin.Context) {
+		if c.Request.Method != http.MethodPost {
+			send(c.Writer, 405, errBody("method not allowed"), "")
+			return
+		}
+		b, ok := parseBody(c, z.Object(z.Field{Name: "text", Schema: z.String().Min(1).Max(MaxPinReply)}))
+		if !ok {
+			return
+		}
+		pin, err := store.ReplyPin(c.Param("id"), "user", b.Str("text"))
+		if err != nil {
+			pinError(c.Writer, err)
+			return
+		}
+		send(c.Writer, 201, jsonv.NewObject("pin", jsonv.FromGo(pin)), "")
+	})
 	engine.Any("/api/pins/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		switch c.Request.Method {

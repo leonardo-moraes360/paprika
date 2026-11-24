@@ -41,7 +41,7 @@ The Docker image ships `paprika-sync` next to `paprika`; with Compose, add `comp
 | Layer | Where | What it does |
 | --- | --- | --- |
 | Transport | `crates/sync/src/node.rs`, `proto.rs` | One Iroh endpoint per instance (its key is the member key). One QUIC connection per peer, one bidirectional stream of length-prefixed JSON frames on ALPN `paprika/sync/1`. Connections from keys outside the team are closed before anything is read. |
-| CRDT | `crates/sync/src/crdt.rs` | One Loro document per shared workspace: a `LoroTree` for the nodes (fields in each tree node's metadata, one last-writer-wins key per field) and maps for the name, tokens and modes. |
+| CRDT | `crates/sync/src/crdt.rs` | One Loro document per shared workspace: a `LoroTree` for the nodes (fields in each tree node's metadata, one last-writer-wins key per field) and maps for the name, tokens, modes, pins and pin replies. Pins are not canvas nodes. |
 | Security | `crates/sync/src/team.rs`, `envelope.rs`, `keys.rs` | Team file (allowlist), signed envelopes, agent delegation, invites. |
 | Go bridge | `server-go/internal/team` | Starts and supervises the sidecar, turns local commits into change sets and remote states into `applyOps` transactions, serves `/api/team/*` and pushes `{type: "team"}` on `/ws`. |
 
@@ -65,6 +65,7 @@ Everything else on stdout is an event. The sidecar exits when its stdin closes.
 | `share` | `doc`, `state`, `author` | Starts sharing a workspace: its current state becomes the first envelope. |
 | `local` | `doc`, `author`, `changes` | One committed local transaction as a change set (below). |
 | `member.remove` | `key` | Founder only: signs a removal of that member (see below) and spreads it. `{removed}` |
+| `member.leave` | | This member signs their own removal and spreads it. `{left}`. The founder cannot leave. |
 | `key.rotate` | | Replaces this instance's key (below). `{old, new, fingerprint, restart: true}`: the Go server restarts the sidecar. |
 
 | Event `t` | Fields |
@@ -98,6 +99,8 @@ Go diffs the document before and after a commit and sends, in order (moves come 
 `null` removes a field or token. `order` is sent for every container whose (non-derived) children changed;
 the sidecar moves tree nodes until the order matches. Derived data never travels: instance copies, a
 connector's `x`/`y`/`width`/`height`/`d` and a group's `width`/`height`.
+
+Pins travel in the same change set, not as nodes: `{"k":"pin","id","value"}` (the pin header; `null` removes it) and `{"k":"reply","id","value"}` (one message). Each reply is its own key, so two peers can add one at the same time. The pin header is last-writer-wins. The Go server writes them into the pins table; it does not call `applyOps`.
 
 ### Materialized state (`remote`)
 
@@ -209,6 +212,7 @@ as they are):
 | `POST /api/team/join` `{link}` | Join a team. |
 | `POST /api/team/share` `{doc}` | Share a workspace with the team. |
 | `DELETE /api/team/members/{key}` | Remove a member (founder only). |
+| `POST /api/team/leave` | This member leaves the team. The founder cannot leave. |
 | `POST /api/team/rotate` | Rotate this instance's key and restart the sidecar. |
 
 `/ws` sends `{type: "team", status}` whenever the status changes. Remote agents arrive as ordinary
@@ -225,10 +229,11 @@ With `--team`, the top bar shows one chip with the worst state across peers (onl
 - **Entrar**: paste a link, preview (team, fingerprint, your key) before joining, clear errors for expired or used links;
 - **Chaves do time**: members' keys, who added them, the agents each one runs, removed members, rejected operations; **Gerar nova chave** on your own row and **Remover** on the others (founder only), each with a confirmation;
 - **Remover** also sits next to each person in the Time tab for the founder; a removed instance shows a notice and no longer offers invites.
+- **Sair do time** sits on your own row when you are not the founder. It signs your removal. The founder does not get that button.
 
 ## Limits (v1)
 
-- One team per instance. Leaving on your own is not implemented yet (the founder removes).
+- One team per instance. A member who is not the founder leaves on their own (`POST /api/team/leave`, a self-signed removal). The founder cannot leave: the founder chain cannot be removed. Approval roles are not implemented.
 - Removal and rotation order by the `at` of the signer's clock; a removed member could backdate an entry it
   signs. Roles (approval by reviewer/editor) are not implemented.
 - Undo reverts local transactions only; it can fail in part when a peer deleted what it touches.

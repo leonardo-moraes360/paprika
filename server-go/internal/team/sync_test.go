@@ -5,6 +5,7 @@ import (
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
+	"github.com/leonardo-moraes360/paprika/server-go/internal/server"
 )
 
 func ops(t *testing.T, s string) []any {
@@ -83,6 +84,45 @@ func TestWorkspaceSyncsBetweenTwoInstances(t *testing.T) {
 	}
 	eventually(t, "structure converges", func() bool {
 		return sameSynced(a, b) && core.GetNode(a.store.Doc(), "f2") == nil && core.GetNode(a.store.Doc(), "e1") != nil
+	})
+}
+
+func TestPinsReplicateBetweenTwoInstances(t *testing.T) {
+	a, b := linked(t)
+	if err := a.team.Share(""); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "B shares the workspace", func() bool {
+		_, err := b.store.WorkspaceDocument(a.store.DocID())
+		return err == nil
+	})
+	pin, err := a.store.CreatePin("", server.NewPin{Region: server.PinRegion{X: 1, Y: 2, Width: 30, Height: 10}, Text: "Aumente o título"}, "user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "B receives the pin", func() bool {
+		pins, err := b.store.ListPins(server.PinFilter{Status: "all"})
+		return err == nil && len(pins) == 1 && pins[0].Text == "Aumente o título" && pins[0].ID == pin.ID
+	})
+	if _, err := b.store.ReplyPin(pin.ID, "user", "Pode ser semibold?"); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "A receives the reply", func() bool {
+		got, err := a.store.GetPin(pin.ID)
+		return err == nil && len(got.Replies) == 1 && got.Replies[0].Text == "Pode ser semibold?"
+	})
+	if _, err := a.store.ResolvePin(pin.ID, "agent:claude-code", "Título em 32px"); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "B receives the resolve as a reply", func() bool {
+		pins, err := b.store.ListPins(server.PinFilter{Status: "resolved"})
+		if err != nil || len(pins) != 1 || pins[0].Status != "resolved" {
+			return false
+		}
+		if len(pins[0].Replies) != 2 {
+			return false
+		}
+		return pins[0].Replies[1].Author == "agent:claude-code" && pins[0].Replies[1].Text == "Título em 32px"
 	})
 }
 

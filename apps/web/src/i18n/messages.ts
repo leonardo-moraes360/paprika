@@ -139,6 +139,8 @@ export type Messages = {
   pinStatusResolved: string;
   pinWorking: (agent: string) => string;
   pinReplied: (agent: string) => string;
+  pinReplyPlaceholder: string;
+  pinReplySend: string;
   pinResolvedBy: (agent: string) => string;
   pinReopen: string;
   pinResolve: string;
@@ -554,6 +556,8 @@ const en: Messages = {
   pinStatusResolved: "Resolved",
   pinWorking: (agent) => `${agent} is working on this`,
   pinReplied: (agent) => `${agent} replied`,
+  pinReplyPlaceholder: "Reply in the thread…",
+  pinReplySend: "Reply",
   pinResolvedBy: (agent) => `resolved by ${agent}`,
   pinReopen: "Reopen",
   pinResolve: "Mark resolved",
@@ -963,6 +967,8 @@ const pt: Messages = {
   pinStatusResolved: "Resolvido",
   pinWorking: (agent) => `${agent} está trabalhando nisto`,
   pinReplied: (agent) => `${agent} respondeu`,
+  pinReplyPlaceholder: "Responder no fio…",
+  pinReplySend: "Responder",
   pinResolvedBy: (agent) => `resolvido por ${agent}`,
   pinReopen: "Reabrir",
   pinResolve: "Marcar resolvido",

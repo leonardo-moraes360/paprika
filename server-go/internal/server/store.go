@@ -718,19 +718,20 @@ func ExportFrame(db *sql.DB, docID, rootID string) (string, []string, error) {
 // core.History (applyOps), is committed to the database before it is acknowledged, and is
 // broadcast as a ChangeEvent.
 type Store struct {
-	mu          sync.Mutex
-	db          *sql.DB
-	path        string
-	docID       string
-	history     *core.History
-	version     int64
-	aside       map[string]*wsLive
-	dataVersion int64
-	listeners   map[int]func(ChangeEvent)
-	nextID      int
-	errHandler  func(error)
-	stop        chan struct{}
-	stopOnce    sync.Once
+	mu           sync.Mutex
+	db           *sql.DB
+	path         string
+	docID        string
+	history      *core.History
+	version      int64
+	aside        map[string]*wsLive
+	dataVersion  int64
+	listeners    map[int]func(ChangeEvent)
+	pinListeners map[int]func(string)
+	nextID       int
+	errHandler   func(error)
+	stop         chan struct{}
+	stopOnce     sync.Once
 	// Presence holds the agents' cursors for the canvas. Ephemeral: never written to SQLite.
 	Presence *PresenceHub
 	// deleteGrants are the short-lived tokens a second delete_workspace call must carry. Ephemeral on
@@ -752,7 +753,7 @@ func OpenStore(path string, opts OpenOptions) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Store{db: db, path: path, listeners: map[int]func(ChangeEvent){}, stop: make(chan struct{}), Presence: NewPresenceHub(nil)}
+	s := &Store{db: db, path: path, listeners: map[int]func(ChangeEvent){}, pinListeners: map[int]func(string){}, stop: make(chan struct{}), Presence: NewPresenceHub(nil)}
 	id := opts.DocID
 	if id == "" {
 		docs, err := ListDocuments(db)
@@ -857,6 +858,35 @@ func (s *Store) CanRedo() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.history.CanRedo()
+}
+
+// OnPins subscribes to pin mutations in this process. The id is the workspace that changed.
+func (s *Store) OnPins(fn func(docID string)) func() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.pinListeners == nil {
+		s.pinListeners = map[int]func(string){}
+	}
+	id := s.nextID
+	s.nextID++
+	s.pinListeners[id] = fn
+	return func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		delete(s.pinListeners, id)
+	}
+}
+
+func (s *Store) notifyPins(docID string) {
+	s.mu.Lock()
+	ls := make([]func(string), 0, len(s.pinListeners))
+	for _, fn := range s.pinListeners {
+		ls = append(ls, fn)
+	}
+	s.mu.Unlock()
+	for _, fn := range ls {
+		fn(docID)
+	}
 }
 
 // OnChange subscribes to change events; the returned function unsubscribes.
