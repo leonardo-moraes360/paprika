@@ -519,7 +519,7 @@ func avoidObstacles(pts []Pt, obstacles []dbox) []Pt {
 		return pts
 	}
 	cur := pts
-	for pass := 0; pass < 8; pass++ {
+	for range 8 {
 		next := []Pt{cur[0]}
 		changed := false
 		for i := 0; i < len(cur)-1; i++ {
