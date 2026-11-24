@@ -190,13 +190,106 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
 
   it("o botão alterna o renderizador e a escolha fica salva", async () => {
     await open("dom");
-    await page.getByTestId("renderer-toggle").click();
-    await expect.poll(() => page.getByTestId("renderer-toggle").getAttribute("data-backend")).toMatch(/^(cpu|webgpu)$/);
-    await page.goto(await canvasUrl()); // no ?renderer: the saved choice applies
-    await page.waitForSelector('[data-testid="wasm-layer"]');
-    await page.getByTestId("renderer-toggle").click();
-    await expect.poll(() => page.getByTestId("renderer-toggle").getAttribute("data-backend")).toBe("dom");
-    expect(await page.getByTestId("wasm-layer").count()).toBe(0);
+    await page.evaluate(() => {
+      const w = window as unknown as {
+        __adapters: number;
+        __devices: number;
+        __labels: { text: string; busy: string | null }[];
+      };
+      w.__adapters = 0;
+      w.__devices = 0;
+      w.__labels = [];
+      const gpu = navigator.gpu;
+      if (gpu) {
+        const origAdapter = gpu.requestAdapter.bind(gpu);
+        gpu.requestAdapter = async (opts) => {
+          w.__adapters += 1;
+          const adapter = await origAdapter(opts);
+          if (adapter) {
+            const origDevice = adapter.requestDevice.bind(adapter);
+            adapter.requestDevice = async (desc) => {
+              w.__devices += 1;
+              return origDevice(desc);
+            };
+          }
+          return adapter;
+        };
+      }
+      const btn = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
+      const snap = () => w.__labels.push({ text: (btn.textContent ?? "").trim(), busy: btn.getAttribute("aria-busy") });
+      snap();
+      new MutationObserver(snap).observe(btn, { attributes: true, childList: true, subtree: true, characterData: true });
+    });
+    const toggle = page.getByTestId("renderer-toggle");
+    const coldMs = await page.evaluate(async () => {
+      const btn = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
+      const t0 = performance.now();
+      btn.click();
+      await new Promise<void>((ok) => {
+        const tick = () => {
+          const b = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
+          if (b.dataset.backend === "cpu" || b.dataset.backend === "webgpu") ok();
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      return Math.round(performance.now() - t0);
+    });
+    await expect.poll(() => toggle.getAttribute("data-backend")).toMatch(/^(cpu|webgpu)$/);
+    const cold = await page.evaluate(() => {
+      const w = window as unknown as {
+        __adapters: number;
+        __devices: number;
+        __labels: { text: string; busy: string | null }[];
+      };
+      const btn = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
+      return {
+        adapters: w.__adapters,
+        devices: w.__devices,
+        labels: w.__labels,
+        creates: btn.dataset.creates ?? "",
+        text: (btn.textContent ?? "").trim(),
+        busy: btn.getAttribute("aria-busy"),
+      };
+    });
+    expect(cold.creates).toBe("1");
+    expect(cold.text).toMatch(/^(CPU|GPU)$/);
+    expect(cold.busy).toBeNull();
+    expect(cold.labels.some((s) => s.text === "WASM")).toBe(false);
+    expect(cold.labels.some((s) => s.busy === "true" && s.text === "DOM")).toBe(true);
+    await toggle.click();
+    await expect.poll(() => toggle.getAttribute("data-backend")).toBe("dom");
+    expect((await toggle.textContent())?.trim()).toBe("DOM");
+    const warmMs = await page.evaluate(async () => {
+      const btn = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
+      const t0 = performance.now();
+      btn.click();
+      await new Promise<void>((ok) => {
+        const tick = () => {
+          const b = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
+          if (b.dataset.backend === "cpu" || b.dataset.backend === "webgpu") ok();
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      return Math.round(performance.now() - t0);
+    });
+    const warm = await page.evaluate(() => {
+      const w = window as unknown as { __adapters: number; __devices: number };
+      const btn = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
+      return { adapters: w.__adapters, devices: w.__devices, creates: btn.dataset.creates ?? "", busy: btn.getAttribute("aria-busy") };
+    });
+    expect(warm.creates, `cold ${coldMs}ms warm ${warmMs}ms adapters ${cold.adapters}->${warm.adapters}`).toBe("1");
+    expect(warm.adapters).toBe(cold.adapters);
+    expect(warm.devices).toBe(cold.devices);
+    expect(warm.busy).toBeNull();
+    expect(warmMs).toBeLessThan(100);
+    await page.goto(await canvasUrl());
+    await expect.poll(() => toggle.getAttribute("data-backend")).toMatch(/^(cpu|webgpu)$/);
+    await toggle.click();
+    await expect.poll(() => toggle.getAttribute("data-backend")).toBe("dom");
+    expect(await page.getByTestId("wasm-layer").getAttribute("aria-hidden")).toBe("true");
+    expect(await toggle.getAttribute("data-creates")).toBe("1");
   });
 
   it("trocar DOM e WASM não deixa quadro com a pintura desligada e o canvas vazio", async () => {
