@@ -391,6 +391,32 @@ export function JoinDialog({ status, onClose }: { status: TeamStatus | null; onC
   );
 }
 
+function LeaveTeamDialog({ onClose }: { onClose(): void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <ConfirmDialog
+      open
+      onOpenChange={(o) => !o && !busy && onClose()}
+      title="Sair do time?"
+      description="Esta instância deixa de sincronizar. O que já foi mudado continua nos workspaces dos outros; mudanças novas daqui não entram mais. Para voltar, peça um convite novo."
+      confirmLabel="Sair do time"
+      pendingLabel="Saindo…"
+      pending={busy}
+      confirmClassName="team-leave-confirm"
+      onConfirm={() => {
+        setBusy(true);
+        api("/api/team/leave", "POST")
+          .then(onClose)
+          .catch((e) => setError(String(e.message ?? e)))
+          .finally(() => setBusy(false));
+      }}
+    >
+      {error && <ErrorNote text={error} className="team-leave-error" />}
+    </ConfirmDialog>
+  );
+}
+
 /** Confirms taking a member out of the team (founder only). */
 export function RemoveMemberDialog({ member, onClose }: { member: TeamMember; onClose(): void }) {
   const [error, setError] = useState<string | null>(null);
@@ -475,8 +501,10 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
   const canRemove = !!status.team?.canRemove;
   const inside = status.team?.member !== false;
   const [removing, setRemoving] = useState<TeamMember | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const [rotating, setRotating] = useState(false);
   if (removing) return <RemoveMemberDialog member={removing} onClose={() => setRemoving(null)} />;
+  if (leaving) return <LeaveTeamDialog onClose={() => setLeaving(false)} />;
   if (rotating) return <RotateKeyDialog status={status} onClose={() => setRotating(false)} />;
   const peerState = (key: string) => status.peers.find((p) => p.id === key)?.state ?? "offline";
   const date = (unix: number) => new Date(unix * 1000).toLocaleDateString([], { day: "2-digit", month: "short" });
@@ -510,9 +538,16 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
                 <td className="border-b border-line px-2 py-2"><Chip label={st} tone={st === "ativa" ? "ok" : "off"} /></td>
                 <td className="border-b border-line px-2 py-2 text-right">
                   {m.you && inside && (
-                    <button className={cx(btn(), "team-rotate whitespace-nowrap")} onClick={() => setRotating(true)}>
-                      Gerar nova chave
-                    </button>
+                    <span className="inline-flex flex-wrap justify-end gap-1.5">
+                      {!m.founder && (
+                        <button className={cn(btn(), ui.dangerBtn, "team-leave whitespace-nowrap")} onClick={() => setLeaving(true)}>
+                          Sair do time
+                        </button>
+                      )}
+                      <button className={cx(btn(), "team-rotate whitespace-nowrap")} onClick={() => setRotating(true)}>
+                        Gerar nova chave
+                      </button>
+                    </span>
                   )}
                   {!m.you && !m.founder && canRemove && (
                     <button className={cn(btn(), ui.dangerBtn, "team-remove")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
@@ -574,6 +609,7 @@ export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<TeamMember | null>(null);
+  const [leaving, setLeaving] = useState(false);
   if (!status) return <section className={ui.section}><p className={ui.muted}>Conectando ao sidecar do time…</p></section>;
   if (!status.team) {
     return (
@@ -660,6 +696,11 @@ export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: {
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Chip label={label} tone={tone} />
+                  {m.you && !m.founder && team.member !== false && (
+                    <button className={cn(btn(), ui.dangerBtn, "team-leave px-2")} onClick={() => setLeaving(true)}>
+                      Sair do time
+                    </button>
+                  )}
                   {team.canRemove && !m.you && !m.founder && (
                     <button className={cn(btn(), ui.dangerBtn, "team-remove px-2")} onClick={() => setRemoving(m)} aria-label={`Remover ${m.name}`}>
                       Remover
@@ -679,6 +720,7 @@ export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: {
         )}
       </div>
       {removing && <RemoveMemberDialog member={removing} onClose={() => setRemoving(null)} />}
+      {leaving && <LeaveTeamDialog onClose={() => setLeaving(false)} />}
       <div className="flex flex-wrap gap-2">
         {team.member !== false && (
           <button className={cx(btn(true), "team-invite")} onClick={onInvite}>

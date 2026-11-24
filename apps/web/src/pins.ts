@@ -5,7 +5,7 @@ import { api } from "./api";
 /**
  * Pins ("Apontar para a IA"): requests the human leaves on the canvas for the agents, anchored to a node
  * or an area. They are not nodes: the server keeps them in their own table and the agents read them
- * over MCP (`list_pins`, `claim_pin`, `resolve_pin`). The WebSocket only says when they changed
+ * over MCP (`list_pins`, `claim_pin`, `reply_pin`, `resolve_pin`). The WebSocket only says when they changed
  * (`{type:"pins"}`), and the list is read again here.
  */
 export interface PinRegion {
@@ -31,6 +31,7 @@ export interface Pin {
   status: PinStatus;
   claimedBy?: string;
   reply?: string;
+  replies?: { id: string; author: string; text: string; createdAt: number }[];
   resolvedBy?: string;
   createdAt: number;
   updatedAt: number;
@@ -81,7 +82,11 @@ export function usePinActions(workspaceId: string) {
     mutationFn: (id: string) => api<{ deleted: string }>(`/api/pins/${encodeURIComponent(id)}`, send("DELETE")),
     onSettled,
   });
-  return { create, patch, remove };
+  const reply = useMutation({
+    mutationFn: ({ id, text }: { id: string; text: string }) => api<{ pin: Pin }>(`/api/pins/${encodeURIComponent(id)}/replies`, send("POST", { text })),
+    onSettled,
+  });
+  return { create, patch, remove, reply };
 }
 
 /** Whether the Pins panel is open (shared by the top bar chip, Shift+I and the canvas). */

@@ -11,7 +11,7 @@ import (
 )
 
 // pinTools are the MCP tools that read or change pins: their results do not carry the openPins hint.
-var pinTools = map[string]bool{"list_pins": true, "claim_pin": true, "resolve_pin": true, "wait_for_pins": true}
+var pinTools = map[string]bool{"list_pins": true, "claim_pin": true, "reply_pin": true, "resolve_pin": true, "wait_for_pins": true}
 
 // MaxPinWait bounds one wait_for_pins call.
 const MaxPinWait = 60 * time.Second
@@ -56,6 +56,16 @@ func (m *MCP) addPinTools(add func(name string, schema *z.ObjectSchema, h func(c
 		z.Field{Name: "id", Schema: z.String().Min(1)},
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		pin, err := store.ClaimPin(a.Str("id"), m.actorName())
+		if err != nil {
+			return nil, pinMCPError(a.Str("id"), err)
+		}
+		return jsonResult(jsonv.NewObject("pin", jsonv.FromGo(pin))), nil
+	})
+	add("reply_pin", z.Object(
+		z.Field{Name: "id", Schema: z.String().Min(1)},
+		z.Field{Name: "text", Schema: z.String().Min(1).Max(MaxPinReply)},
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		pin, err := store.ReplyPin(a.Str("id"), m.actorName(), a.Str("text"))
 		if err != nil {
 			return nil, pinMCPError(a.Str("id"), err)
 		}

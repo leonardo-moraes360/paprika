@@ -1135,6 +1135,29 @@ impl Node {
                 self.event(json!({"t": "removed", "peer": key.to_string()}));
                 Ok(json!({"removed": key.to_string()}))
             }
+            "member.leave" => {
+                let me = self.id();
+                let team = {
+                    let mut st = self.0.state.lock().unwrap();
+                    let Some(mut team) = st.team.clone() else {
+                        bail!("create or join a team first")
+                    };
+                    let upto = st.docs().cut_for(&me.to_string());
+                    team.leave(&self.0.key, upto)?;
+                    team.save(&self.0.cfg.data)?;
+                    st.team = Some(team.clone());
+                    st.refresh_allowed(&me);
+                    team
+                };
+                self.broadcast(PeerMsg::Team { team }, None);
+                let node = self.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    node.0.state.lock().unwrap().drop_strangers();
+                });
+                self.event(json!({"t": "removed", "peer": me.to_string()}));
+                Ok(json!({"left": me.to_string()}))
+            }
             "key.rotate" => {
                 let me = self.id();
                 let (team, new, addrs) = {
