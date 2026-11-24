@@ -156,10 +156,14 @@ from step 4, behind a switch, with the DOM still the default:
   CPU path can draw on a transparent canvas (the dotted canvas background shows through).
 - Nodes it cannot draw exactly (non-solid colors, a shadow on a path) stay painted by the DOM.
 - `render_screenshot` and the exports stay HTML/CSS, so the agent-facing output is unchanged.
-- Parity is tested: `packages/e2e/test/e2e/wasm.e2e.test.ts` renders the bezier example in both
-  modes and requires fewer than 0.5% differing pixels, checks that an MCP edit reaches the WASM
-  pixels, that `.wasm` is served as `application/wasm` (TypeScript and Go servers), and that the
-  switch persists.
+- Parity is tested: `packages/e2e/test/e2e/wasm.e2e.test.ts` renders the bezier example and
+  `examples/wasm-layers.paprika.json` in both modes and requires fewer than 0.5% differing pixels.
+  Parity covers overlap: the WASM canvas sits under the DOM, so a shape stays on WASM only when no
+  DOM-painted node earlier in paint order overlaps its painted bounds (ancestors with their own paint,
+  stroke, shadow, rotation and clip). Everything else goes back to the DOM, cascading.
+- It also checks that an MCP edit reaches the WASM pixels, that `.wasm` is served as `application/wasm`
+  (TypeScript and Go servers), and that the switch persists.
 
-Known differences: text and images are always above WASM-drawn shapes; nested opacity is
-multiplied per node instead of composited per group. Still open: measuring on a hardware GPU.
+Known differences: nested opacity is multiplied per node instead of composited per group. A DOM-painted
+node no longer floats above every WASM shape; overlap sends the covered shapes back to the DOM. Still
+open: measuring on a hardware GPU.

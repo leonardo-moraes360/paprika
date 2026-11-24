@@ -49061,6 +49061,166 @@
    }
   }
  ],
+ "pathEdits": [
+  {
+   "name": "quadratic-to-cubic",
+   "op": "subpaths",
+   "d": "M0 0 Q10 0 10 10",
+   "result": "M0 0 C6.67 0 10 3.33 10 10"
+  },
+  {
+   "name": "arc-to-cubics",
+   "op": "subpaths",
+   "d": "M0 10 A10 10 0 0 1 20 10",
+   "result": "M0 10 C0 4.48 4.48 0 10 0 C15.52 0 20 4.48 20 10"
+  },
+  {
+   "name": "move-anchor",
+   "op": "moveAnchor",
+   "d": "M0 0 C5 0 10 5 10 10",
+   "sub": 0,
+   "index": 1,
+   "x": 20,
+   "y": 20,
+   "result": "M0 0 C5 0 20 15 20 20"
+  },
+  {
+   "name": "move-handle-mirror",
+   "op": "moveHandle",
+   "d": "M0 0 C0 0 5 10 10 10 C15 10 20 0 20 0",
+   "sub": 0,
+   "index": 1,
+   "side": "out",
+   "x": 10,
+   "y": 0,
+   "mirror": true,
+   "result": {
+    "x": 10,
+    "y": 10,
+    "in": {
+     "x": 10,
+     "y": 15
+    },
+    "out": {
+     "x": 10,
+     "y": 0
+    }
+   }
+  },
+  {
+   "name": "move-handle",
+   "op": "moveHandle",
+   "d": "M0 0 C0 0 5 10 10 10 C15 10 20 0 20 0",
+   "sub": 0,
+   "index": 1,
+   "side": "out",
+   "x": 10,
+   "y": 0,
+   "mirror": false,
+   "result": {
+    "x": 10,
+    "y": 10,
+    "in": {
+     "x": 5,
+     "y": 10
+    },
+    "out": {
+     "x": 10,
+     "y": 0
+    }
+   }
+  },
+  {
+   "name": "props-move-box",
+   "op": "props",
+   "d": "M0 0 L10 0 L10 10",
+   "sub": 0,
+   "index": 0,
+   "to": {
+    "x": -5,
+    "y": -3
+   },
+   "node": {
+    "x": 100,
+    "y": 50
+   },
+   "moveBox": true,
+   "result": {
+    "d": "M0 0 L15 3 L15 13",
+    "width": 15,
+    "height": 13,
+    "x": 95,
+    "y": 47
+   }
+  },
+  {
+   "name": "props-keep-origin",
+   "op": "props",
+   "d": "M0 0 L10 0 L10 10",
+   "sub": 0,
+   "index": 0,
+   "to": {
+    "x": -5,
+    "y": -3
+   },
+   "node": {
+    "x": 100,
+    "y": 50
+   },
+   "moveBox": false,
+   "result": {
+    "d": "M0 0 L15 3 L15 13",
+    "width": 15,
+    "height": 13
+   }
+  },
+  {
+   "name": "props-viewbox",
+   "op": "props",
+   "d": "M-2 0 L30 0",
+   "node": {
+    "x": 0,
+    "y": 0,
+    "viewBox": [
+     0,
+     0,
+     24,
+     24
+    ]
+   },
+   "moveBox": true,
+   "result": {
+    "d": "M-2 0 L30 0"
+   }
+  },
+  {
+   "name": "flat-0",
+   "op": "flat",
+   "d": "M0 0 L4 0 Z M10 10 L14 10 L14 14 Z",
+   "index": 0,
+   "result": {
+    "sub": 0,
+    "index": 0
+   }
+  },
+  {
+   "name": "flat-3",
+   "op": "flat",
+   "d": "M0 0 L4 0 Z M10 10 L14 10 L14 14 Z",
+   "index": 3,
+   "result": {
+    "sub": 1,
+    "index": 1
+   }
+  },
+  {
+   "name": "flat-out",
+   "op": "flat",
+   "d": "M0 0 L4 0 Z M10 10 L14 10 L14 14 Z",
+   "index": 9,
+   "result": null
+  }
+ ],
  "created": {
   "format": "paprika/1",
   "id": "abc",

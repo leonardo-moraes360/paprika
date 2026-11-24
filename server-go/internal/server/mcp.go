@@ -557,7 +557,107 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			}
 		}
 		out.Set("normalized", core.SerializePath(segs))
+		out.Set("anchors", pathAnchors(segs))
 		return jsonResult(out), nil
+	})
+
+	pointArg := z.Object(
+		z.Field{Name: "x", Schema: z.Number()},
+		z.Field{Name: "y", Schema: z.Number()},
+	)
+	add("edit_path", z.Object(
+		z.Field{Name: "id", Schema: z.String()},
+		z.Field{Name: "index", Schema: z.Int().Min(0)},
+		z.Field{Name: "position", Schema: z.Optional(pointArg)},
+		z.Field{Name: "handles", Schema: z.Optional(z.Object(
+			z.Field{Name: "in", Schema: z.Optional(pointArg)},
+			z.Field{Name: "out", Schema: z.Optional(pointArg)},
+			z.Field{Name: "mirror", Schema: z.Optional(z.Bool())},
+		))},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		id := a.Str("id")
+		doc, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		n := core.GetNode(doc, id)
+		if n == nil {
+			return nil, fmt.Errorf(`node "%s" does not exist`, id)
+		}
+		if t := n.Str("type"); t != "path" {
+			return nil, fmt.Errorf(`node "%s" is %s, not a path`, id, t)
+		}
+		if n.Bool("locked") {
+			return nil, fmt.Errorf(`node "%s" is locked; unlock it before editing its points`, id)
+		}
+		if owner := core.CopyOwner(doc, n); owner != nil {
+			return nil, fmt.Errorf(`%q is a copy inside the instance %q; edit the component or detach it`, id, owner.Str("id"))
+		}
+		if !a.Has("position") && !a.Has("handles") {
+			return nil, errors.New("pass position or handles")
+		}
+		var handleIn, handleOut *jsonv.Object
+		mirror := false
+		if a.Has("handles") {
+			h := a.Obj("handles")
+			if h.Has("in") {
+				handleIn = h.Obj("in")
+			}
+			if h.Has("out") {
+				handleOut = h.Obj("out")
+			}
+			if handleIn == nil && handleOut == nil {
+				return nil, errors.New("handles needs in or out")
+			}
+			mirror = h.Bool("mirror")
+		}
+		segs, err := core.ParsePath(n.Str("d"))
+		if err != nil {
+			return nil, fmt.Errorf("invalid d: %s", err.Error())
+		}
+		subs := core.PathToSubpaths(segs)
+		ref, ok := core.AnchorByFlatIndex(subs, int(a.Num("index")))
+		if !ok {
+			nAnchors := 0
+			for _, s := range subs {
+				nAnchors += len(s.Anchors)
+			}
+			return nil, fmt.Errorf(`path "%s" has %d anchors; index %d is out of range (see path_info.anchors)`, id, nAnchors, int(a.Num("index")))
+		}
+		if a.Has("position") {
+			p := a.Obj("position")
+			subs = core.MoveAnchor(subs, ref, core.Point{X: p.Num("x"), Y: p.Num("y")})
+		}
+		if handleIn != nil {
+			subs = core.MoveHandle(subs, ref, "in", core.Point{X: handleIn.Num("x"), Y: handleIn.Num("y")}, mirror && handleOut == nil)
+		}
+		if handleOut != nil {
+			subs = core.MoveHandle(subs, ref, "out", core.Point{X: handleOut.Num("x"), Y: handleOut.Num("y")}, mirror && handleIn == nil)
+		}
+		edited := core.PathEditProps(core.PathEditNode{X: n.Num("x"), Y: n.Num("y"), ViewBox: n.Has("viewBox")}, subs, pathMoveBox(doc, n))
+		if edited == nil {
+			return nil, fmt.Errorf(`path "%s" has no points to edit`, id)
+		}
+		props := jsonv.NewObject("d", edited.D)
+		if edited.HasXY {
+			props.Set("x", edited.X)
+			props.Set("y", edited.Y)
+		}
+		if edited.HasSize {
+			props.Set("width", edited.Width)
+			props.Set("height", edited.Height)
+		}
+		next, err := core.ParsePath(edited.D)
+		if err != nil {
+			return nil, fmt.Errorf("invalid d: %s", err.Error())
+		}
+		def := "move handle"
+		if a.Has("position") {
+			def = "move point"
+		}
+		op := jsonv.NewObject("op", "update", "id", id, "props", props)
+		return writeWith(a, []any{op}, labelOr(a, def), "props", props, "anchors", pathAnchors(next))
 	})
 
 	placeSchema := z.Optional(z.Union(
@@ -1729,6 +1829,51 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	})
 	m.addPinTools(add)
 	return m
+}
+
+func pathMoveBox(doc *core.Document, n *core.Node) bool {
+	if n.Str("type") == "page" {
+		return false
+	}
+	if n.Str("layoutPositioning") == "absolute" {
+		return true
+	}
+	pid, ok := core.ParentID(n)
+	if !ok || pid == "" {
+		return true
+	}
+	p := core.GetNode(doc, pid)
+	if p == nil || p.Str("type") != "frame" {
+		return true
+	}
+	layout := p.Obj("layout")
+	if layout == nil {
+		return true
+	}
+	mode := layout.Str("mode")
+	return mode == "" || mode == "none"
+}
+
+func pathAnchors(segs []core.Segment) []any {
+	subs := core.PathToSubpaths(segs)
+	r := func(v float64) float64 { return jsonv.Round(v*100) / 100 }
+	pt := func(p core.Point) *jsonv.Object { return jsonv.NewObject("x", r(p.X), "y", r(p.Y)) }
+	out := []any{}
+	index := 0
+	for si, s := range subs {
+		for ai, a := range s.Anchors {
+			o := jsonv.NewObject("index", float64(index), "sub", float64(si), "at", float64(ai), "x", r(a.X), "y", r(a.Y))
+			if a.In != nil {
+				o.Set("in", pt(*a.In))
+			}
+			if a.Out != nil {
+				o.Set("out", pt(*a.Out))
+			}
+			out = append(out, o)
+			index++
+		}
+	}
+	return out
 }
 
 func jsString(v any) string {
