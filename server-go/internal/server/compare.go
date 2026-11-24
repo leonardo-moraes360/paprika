@@ -35,10 +35,7 @@ func composeSideBySide(leftPNG, right []byte) ([]byte, int, int, error) {
 	if lw < 1 || lh < 1 || cw < 1 || ch < 1 {
 		return nil, 0, 0, fmt.Errorf("compare image has no pixels")
 	}
-	scaledW := int(math.Round(float64(cw) * float64(lh) / float64(ch)))
-	if scaledW < 1 {
-		scaledW = 1
-	}
+	scaledW := max(1, int(math.Round(float64(cw)*float64(lh)/float64(ch))))
 	totalW := lw + compareGap + scaledW
 	dst := image.NewNRGBA(image.Rect(0, 0, totalW, lh))
 	xdraw.Draw(dst, dst.Bounds(), image.NewUniform(comparePaper), image.Point{}, xdraw.Src)

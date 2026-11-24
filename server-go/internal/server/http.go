@@ -111,6 +111,35 @@ func readBody(r *http.Request) (any, bool, error) {
 	return v, true, nil
 }
 
+func readJSON(c *gin.Context) (any, bool, bool) {
+	body, present, err := readBody(c.Request)
+	if err == nil {
+		return body, present, true
+	}
+	if he, ok := errors.AsType[*httpError](err); ok {
+		send(c.Writer, he.status, errBody(he.msg), "")
+		return nil, false, false
+	}
+	send(c.Writer, 500, errBody(err.Error()), "")
+	return nil, false, false
+}
+
+func parseJSON(c *gin.Context, schema z.Schema) (*jsonv.Object, bool) {
+	body, present, ok := readJSON(c)
+	if !ok {
+		return nil, false
+	}
+	if !present {
+		body = jsonv.NewObject()
+	}
+	parsed, err := z.Parse(schema, body)
+	if err != nil {
+		send(c.Writer, 400, errBody(err.Error()), "")
+		return nil, false
+	}
+	return parsed.(*jsonv.Object), true
+}
+
 func send(w http.ResponseWriter, status int, body any, contentType string) {
 	if contentType == "" {
 		contentType = "application/json"
@@ -361,16 +390,12 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
-		body, present, err := readBody(c.Request)
-		if err != nil {
-			if he, ok := errors.AsType[*httpError](err); ok {
-				send(c.Writer, he.status, errBody(he.msg), "")
-				return
-			}
-			send(c.Writer, 500, errBody(err.Error()), "")
+		body, present, ok := readJSON(c)
+		if !ok {
 			return
 		}
 		var parsed any
+		var err error
 		if present {
 			parsed, err = z.Parse(apiOpsBody, body)
 		} else {
@@ -419,24 +444,11 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			}
 			send(c.Writer, 200, jsonv.NewObject("active", store.DocID(), "workspaces", jsonv.FromGo(ws), "folders", jsonv.FromGo(folders)), "")
 		case http.MethodPost:
-			body, present, err := readBody(c.Request)
-			if err != nil {
-				if he, ok := errors.AsType[*httpError](err); ok {
-					send(c.Writer, he.status, errBody(he.msg), "")
-					return
-				}
-				send(c.Writer, 500, errBody(err.Error()), "")
+			parsed, ok := parseJSON(c, workspaceBody)
+			if !ok {
 				return
 			}
-			if !present {
-				body = jsonv.NewObject()
-			}
-			parsed, err := z.Parse(workspaceBody, body)
-			if err != nil {
-				send(c.Writer, 400, errBody(err.Error()), "")
-				return
-			}
-			info, err := store.CreateWorkspace(parsed.(*jsonv.Object).Str("name"), "user")
+			info, err := store.CreateWorkspace(parsed.Str("name"), "user")
 			if err != nil {
 				send(c.Writer, 500, errBody(err.Error()), "")
 				return
@@ -450,24 +462,11 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		id := c.Param("id")
 		switch c.Request.Method {
 		case http.MethodPatch:
-			body, present, err := readBody(c.Request)
-			if err != nil {
-				if he, ok := errors.AsType[*httpError](err); ok {
-					send(c.Writer, he.status, errBody(he.msg), "")
-					return
-				}
-				send(c.Writer, 500, errBody(err.Error()), "")
+			parsed, ok := parseJSON(c, renameWorkspaceBody)
+			if !ok {
 				return
 			}
-			if !present {
-				body = jsonv.NewObject()
-			}
-			parsed, err := z.Parse(renameWorkspaceBody, body)
-			if err != nil {
-				send(c.Writer, 400, errBody(err.Error()), "")
-				return
-			}
-			name := strings.TrimSpace(parsed.(*jsonv.Object).Str("name"))
+			name := strings.TrimSpace(parsed.Str("name"))
 			if name == "" {
 				send(c.Writer, 400, errBody("name cannot be blank"), "")
 				return
@@ -551,25 +550,12 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			return
 		}
 		id := c.Param("id")
-		body, present, err := readBody(c.Request)
-		if err != nil {
-			if he, ok := errors.AsType[*httpError](err); ok {
-				send(c.Writer, he.status, errBody(he.msg), "")
-				return
-			}
-			send(c.Writer, 500, errBody(err.Error()), "")
-			return
-		}
-		if !present {
-			body = jsonv.NewObject()
-		}
-		parsed, err := z.Parse(moveFolderBody, body)
-		if err != nil {
-			send(c.Writer, 400, errBody(err.Error()), "")
+		parsed, ok := parseJSON(c, moveFolderBody)
+		if !ok {
 			return
 		}
 		folderID := ""
-		if v, ok := parsed.(*jsonv.Object).Get("folderId"); ok && v != nil {
+		if v, ok := parsed.Get("folderId"); ok && v != nil {
 			s, ok := v.(string)
 			if !ok {
 				send(c.Writer, 400, errBody("folderId must be a string or null"), "")
@@ -594,24 +580,11 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(c.Writer, 405, errBody("method not allowed"), "")
 			return
 		}
-		body, present, err := readBody(c.Request)
-		if err != nil {
-			if he, ok := errors.AsType[*httpError](err); ok {
-				send(c.Writer, he.status, errBody(he.msg), "")
-				return
-			}
-			send(c.Writer, 500, errBody(err.Error()), "")
+		parsed, ok := parseJSON(c, folderBody)
+		if !ok {
 			return
 		}
-		if !present {
-			body = jsonv.NewObject()
-		}
-		parsed, err := z.Parse(folderBody, body)
-		if err != nil {
-			send(c.Writer, 400, errBody(err.Error()), "")
-			return
-		}
-		folder, err := store.CreateFolder(parsed.(*jsonv.Object).Str("name"))
+		folder, err := store.CreateFolder(parsed.Str("name"))
 		if errors.Is(err, ErrBlankName) {
 			send(c.Writer, 400, errBody(err.Error()), "")
 			return
@@ -628,24 +601,11 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			return
 		}
 		id := c.Param("id")
-		body, present, err := readBody(c.Request)
-		if err != nil {
-			if he, ok := errors.AsType[*httpError](err); ok {
-				send(c.Writer, he.status, errBody(he.msg), "")
-				return
-			}
-			send(c.Writer, 500, errBody(err.Error()), "")
+		parsed, ok := parseJSON(c, folderBody)
+		if !ok {
 			return
 		}
-		if !present {
-			body = jsonv.NewObject()
-		}
-		parsed, err := z.Parse(folderBody, body)
-		if err != nil {
-			send(c.Writer, 400, errBody(err.Error()), "")
-			return
-		}
-		folder, err := store.RenameFolder(id, parsed.(*jsonv.Object).Str("name"))
+		folder, err := store.RenameFolder(id, parsed.Str("name"))
 		switch {
 		case errors.Is(err, ErrNoFolder):
 			send(c.Writer, 404, errBody(`folder "`+id+`" does not exist`), "")
