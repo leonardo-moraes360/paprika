@@ -2,16 +2,39 @@ import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 
+export interface PreviewShape {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  fill: string;
+}
+
+export interface WorkspaceFolder {
+  id: string;
+  name: string;
+  updatedAt: number;
+}
+
 export interface Workspace {
   id: string;
   name: string;
   nodes: number;
   updatedAt: number;
   active: boolean;
-  /** URL of the cover image, or null: the card shows the first letter of the name. */
+  /** URL of the cover image, or null: the card shows a live thumbnail, or the first letter when the page has no shapes. */
   cover: string | null;
   /** Hidden from the default list until it is restored. */
   archived: boolean;
+  /** Empty when the workspace sits at the root of the overview. */
+  folderId: string;
+  /** Shapes of the live thumbnail, in document coordinates. */
+  preview: PreviewShape[];
+}
+
+interface OverviewList {
+  workspaces: Workspace[];
+  folders: WorkspaceFolder[];
 }
 
 export const workspacesKey = ["workspaces"] as const;
@@ -23,8 +46,13 @@ const one = (id: string) => `/api/workspaces/${encodeURIComponent(id)}`;
 export function useWorkspaces(archived = false) {
   return useQuery({
     queryKey: [...workspacesKey, archived ? "archived" : "active"],
-    queryFn: async ({ signal }) =>
-      (await api<{ workspaces: Workspace[] }>(archived ? "/api/workspaces?archived=1" : "/api/workspaces", { signal })).workspaces,
+    queryFn: async ({ signal }) => {
+      const data = await api<{ workspaces: Workspace[]; folders?: WorkspaceFolder[] }>(
+        archived ? "/api/workspaces?archived=1" : "/api/workspaces",
+        { signal },
+      );
+      return { workspaces: data.workspaces, folders: data.folders ?? [] };
+    },
   });
 }
 
@@ -70,7 +98,9 @@ export function useWorkspaceMutations() {
     // The card shows the new name right away; a refused rename comes back with the refetch.
     onMutate: async ({ id, name }) => {
       await client.cancelQueries({ queryKey: workspacesKey });
-      client.setQueryData<Workspace[]>(workspacesKey, (list) => list?.map((w) => (w.id === id ? { ...w, name } : w)));
+      client.setQueriesData<OverviewList>({ queryKey: workspacesKey }, (data) =>
+        data ? { ...data, workspaces: data.workspaces.map((w) => (w.id === id ? { ...w, name } : w)) } : data,
+      );
     },
     onSettled,
   });
@@ -98,7 +128,25 @@ export function useWorkspaceMutations() {
     onSettled,
   });
 
-  return { create, rename, cover, remove, archive, unarchive };
+  const createFolder = useMutation({
+    mutationFn: async (name: string) =>
+      (await api<{ folder: WorkspaceFolder }>("/api/folders", json({ name }))).folder,
+    onSettled,
+  });
+
+  const renameFolder = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) =>
+      (await api<{ folder: WorkspaceFolder }>(`/api/folders/${encodeURIComponent(id)}`, { ...json({ name }), method: "PATCH" })).folder,
+    onSettled,
+  });
+
+  const move = useMutation({
+    mutationFn: async ({ id, folderId }: { id: string; folderId: string }) =>
+      (await api<{ workspace: Workspace }>(`${one(id)}/folder`, json({ folderId }))).workspace,
+    onSettled,
+  });
+
+  return { create, rename, cover, remove, archive, unarchive, createFolder, renameFolder, move };
 }
 
 /** Makes a workspace the active one on the server (the canvas follows through the WebSocket). */

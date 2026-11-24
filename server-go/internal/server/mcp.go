@@ -1158,7 +1158,11 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if err != nil {
 			return nil, err
 		}
-		return jsonResult(jsonv.NewObject("active", store.DocID(), "workspaces", jsonv.FromGo(ws))), nil
+		folders, err := store.ListFolders()
+		if err != nil {
+			return nil, err
+		}
+		return jsonResult(jsonv.NewObject("active", store.DocID(), "workspaces", jsonv.FromGo(ws), "folders", jsonv.FromGo(folders))), nil
 	})
 	add("open_workspace", z.Object(z.Field{Name: "id", Schema: z.String().Min(1)}),
 		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
@@ -1180,6 +1184,52 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			}
 			return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info))), nil
 		})
+	add("create_folder", z.Object(z.Field{Name: "name", Schema: z.String().Min(1).Max(120)}),
+		func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+			folder, err := store.CreateFolder(a.Str("name"))
+			if err != nil {
+				return nil, err
+			}
+			return jsonResult(jsonv.NewObject("folder", jsonv.FromGo(folder))), nil
+		})
+	add("rename_folder", z.Object(
+		z.Field{Name: "id", Schema: z.String().Min(1)},
+		z.Field{Name: "name", Schema: z.String().Min(1).Max(120)},
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		id := a.Str("id")
+		folder, err := store.RenameFolder(id, a.Str("name"))
+		if errors.Is(err, ErrNoFolder) {
+			return nil, fmt.Errorf(`folder "%s" does not exist (see list_workspaces)`, id)
+		}
+		if err != nil {
+			return nil, err
+		}
+		return jsonResult(jsonv.NewObject("folder", jsonv.FromGo(folder))), nil
+	})
+	add("move_workspace", z.Object(
+		z.Field{Name: "id", Schema: z.String().Min(1)},
+		z.Field{Name: "folderId", Schema: z.Nullable(z.String().Max(64))},
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		id := a.Str("id")
+		folderID := ""
+		if v, ok := a.Get("folderId"); ok && v != nil {
+			s, ok := v.(string)
+			if !ok {
+				return nil, errors.New("folderId must be a string or null")
+			}
+			folderID = s
+		}
+		info, err := store.MoveWorkspace(id, folderID, m.actorName())
+		switch {
+		case errors.Is(err, ErrNoWorkspace):
+			return nil, fmt.Errorf(`workspace "%s" does not exist (see list_workspaces)`, id)
+		case errors.Is(err, ErrNoFolder):
+			return nil, fmt.Errorf(`folder "%s" does not exist (see list_workspaces)`, strings.TrimSpace(folderID))
+		case err != nil:
+			return nil, err
+		}
+		return jsonResult(jsonv.NewObject("workspace", jsonv.FromGo(info))), nil
+	})
 
 	add("import_document", z.Object(
 		z.Field{Name: "document", Schema: z.Object(z.Field{Name: "format", Schema: z.Optional(z.String())}).Catchall(z.Unknown())},
@@ -1391,6 +1441,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
 		optStr("path"),
 		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
+		optStr("compare"),
 		workspaceID(),
 	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		if m.shot == nil {
@@ -1404,6 +1455,22 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if err != nil {
 			return nil, err
 		}
+		compared := false
+		if src := strings.TrimSpace(a.Str("compare")); src != "" {
+			img, _, lerr := loadImportImage(src)
+			if lerr != nil {
+				return nil, lerr
+			}
+			png, w, h, err = composeSideBySide(png, img.data)
+			if err != nil {
+				return nil, err
+			}
+			compared = true
+		}
+		shotText := fmt.Sprintf("%d×%dpx", w, h)
+		if compared {
+			shotText += " side by side"
+		}
 		if rel := a.Str("path"); rel != "" {
 			abs, werr := writeScreenshot(store.Path(), rel, png)
 			if werr != nil {
@@ -1413,15 +1480,21 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if url := screenshotURL(m.shot, png); url != "" {
 				out.Set("url", url)
 			}
+			if compared {
+				out.Set("compare", true)
+			}
 			return jsonResult(out), nil
 		}
 		structured := jsonv.NewObject("width", float64(w), "height", float64(h))
 		if url := screenshotURL(m.shot, png); url != "" {
 			structured.Set("url", url)
 		}
+		if compared {
+			structured.Set("compare", true)
+		}
 		return jsonv.NewObject("content", []any{
 			jsonv.NewObject("type", "image", "data", base64.StdEncoding.EncodeToString(png), "mimeType", "image/png"),
-			jsonv.NewObject("type", "text", "text", fmt.Sprintf("%d×%dpx", w, h)),
+			jsonv.NewObject("type", "text", "text", shotText),
 		}, "structuredContent", structured), nil
 	})
 
@@ -1682,6 +1755,64 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		)
 		stamp(out, head)
 		return resultWithRoots(out, head.Doc, res.Created), nil
+	})
+
+	add("place_reference", z.Object(
+		z.Field{Name: "src", Schema: z.String().Min(1).Max(5_000_000)},
+		z.Field{Name: "frameId", Schema: z.String().Min(1)},
+		z.Field{Name: "opacity", Schema: z.Default(z.Number().Min(0.05).Max(1), 0.5)},
+		optStr("name"),
+		workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		img, _, err := loadImportImage(a.Str("src"))
+		if err != nil {
+			return nil, err
+		}
+		here, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		frameID := a.Str("frameId")
+		frame := core.GetNode(here, frameID)
+		if frame == nil {
+			return nil, fmt.Errorf(`node "%s" does not exist`, frameID)
+		}
+		if frame.Str("type") != "frame" {
+			return nil, fmt.Errorf(`node "%s" is a %s, not a frame`, frameID, frame.Str("type"))
+		}
+		x, y, w, h := referencePlacement(frame, float64(img.width), float64(img.height))
+		name := strings.TrimSpace(a.Str("name"))
+		if name == "" {
+			name = "Reference"
+		}
+		node := jsonv.NewObject(
+			"type", "image", "name", name, "src", img.dataURL(),
+			"x", x, "y", y, "width", w, "height", h,
+			"opacity", a.Num("opacity"), "locked", true, "layoutPositioning", "absolute",
+		)
+		op := jsonv.NewObject("op", "create", "parentId", frameID, "index", float64(0), "node", node)
+		res, head, err := applyHere(a, []any{op}, labelOr(a, "place reference"))
+		if err != nil {
+			return nil, err
+		}
+		if len(res.Created) == 0 {
+			return nil, errors.New("place reference created no node")
+		}
+		warnings := []any{}
+		if img.animated {
+			warnings = append(warnings, "animated "+strings.ToUpper(img.format())+": kept animated (the original bytes are embedded unchanged); render_screenshot shows a single frame")
+		}
+		out := jsonv.NewObject(
+			"id", res.Created[0],
+			"frameId", frameID,
+			"locked", true,
+			"opacity", a.Num("opacity"),
+			"x", x, "y", y, "width", w, "height", h,
+			"warnings", warnings,
+			"version", float64(head.Version),
+		)
+		stamp(out, head)
+		return jsonResult(out), nil
 	})
 
 	add("resize_image", z.Object(

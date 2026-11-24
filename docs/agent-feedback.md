@@ -238,7 +238,7 @@ Task: draw a flat red bell pepper (three lobes, thin white curved gaps, olive st
 |---|--------|---------------|----------|------|
 | 76 | Cut thin gaps out of a shape | No boolean ops or masks, so the gaps are white strokes painted over the red body; that only reads right on a light background and the export has no real holes | `combine_paths` (`subtract`/`union`/…) in MCP/`apply_ops` done (PAP-A-003); canvas command and optional `mask` on `group` / stroke `knockout` still open | P2 |
 | 77 | Restyle a node and keep it on top | Turning two filled lobes into gap strokes left them under the body; needed a separate `move_nodes` (no `index` = end) to fix the z-order | Accept `index` (or `"front"`/`"back"`) in `update_nodes` props | P3 |
-| 78 | Trace a reference image | The user's picture reached the agent only as an image; there was no easy way to place it under the drawing, so every bezier point was estimated by eye and mapped with a hand-computed scale, which took three screenshot rounds | A `reference` option on `create_nodes`/`import_svg` (or an `image` node from a local file path) placed locked at 50% opacity, plus `render_screenshot` with a `compare` image shown side by side | P2 |
+| 78 | Trace a reference image | The user's picture reached the agent only as an image; there was no easy way to place it under the drawing, so every bezier point was estimated by eye and mapped with a hand-computed scale, which took three screenshot rounds | Done (2026-11-24, PAP-B-094): `place_reference` puts a locked image at 50% opacity at the back of a frame, and `render_screenshot` `compare` draws that image to the right | — |
 | 79 | Save the screenshot as a file | `render_screenshot` only returns the image to the agent; writing the PNG to the repo meant copying the client's cached blob | Done (2026-11-22, PAP-B-062): optional `path` under the screenshot directory, and `url` `/api/screenshot/<id>` | — |
 
 - One shared `viewBox` on every path made iteration trivial: each layer is in the same 400×400 coordinates, so redrawing the silhouette was a single `update_nodes`.
@@ -858,6 +858,17 @@ Task: draw the pipette, the connector-end handles and the three new outlines bef
 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123, still open: the content box of `page#interfaces` is 0×0, so `y` came from a depth-1 scan (max bottom 15060, frames at 15240).
+- `render_screenshot` bytes were written to the PNGs from the tool result.
+
+## 2026-11-24: folders, live thumbnails and a reference layer (PAP-B-094, design first)
+
+Task: draw the overview with folders and live thumbnails, and a locked reference under a frame next to a side-by-side compare, before coding them, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b094-overview-light`, `b094-overview-dark`, `b094-reference-light`, `b094-reference-dark`) at y=16400. PNGs in `docs/assets/boards/PAP-B-094/`. `lint_design` on those roots: 0 after the fix below.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 151 | A dark "Novo workspace" label that passes contrast, and a card that stays inside the frame | The first pass used `#fffaf7` on `#e07a5f` (2.85:1) and placed the loose card at y=368 in a 520-tall frame, so it clipped | Ink `#141827` on that accent, and a 560-tall frame. Same as #123: the page content box is 0×0, so y came from a depth-1 scan (max bottom 16240, frames at 16400) | — |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - `render_screenshot` bytes were written to the PNGs from the tool result.
 
 ## 2026-11-24: pin thread and leaving a team (PAP-B-075, design first)

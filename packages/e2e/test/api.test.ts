@@ -171,6 +171,7 @@ describe("API: MCP", () => {
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "align_nodes", "distribute_nodes", "wrap_nodes", "show_all", "unlock_all",
         "get_bounds",
+        "create_folder", "rename_folder", "move_workspace", "place_reference",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "edit_path", "redo",
         "rename_workspace", "render_screenshot", "resize_image", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
@@ -979,6 +980,65 @@ describe("API: MCP", () => {
     expect(png.readUInt32BE(16)).toBe(100);
     expect(png.readUInt32BE(20)).toBe(80);
     expect(textOf(r)).toContain("100×80px");
+  }, 30_000);
+
+  it("pastas, referência travada e render_screenshot compare lado a lado", async () => {
+    const folder = (await call(client, "create_folder", { name: "Produto" })) as ToolResult & { structuredContent: { folder: { id: string; name: string } } };
+    expect(folder.isError, textOf(folder)).toBeFalsy();
+    assertOutput("create_folder", folder.structuredContent);
+    const folderId = folder.structuredContent.folder.id;
+    const renamed = (await call(client, "rename_folder", { id: folderId, name: "Marca" })) as ToolResult & { structuredContent: { folder: { name: string } } };
+    assertOutput("rename_folder", renamed.structuredContent);
+    expect(renamed.structuredContent.folder.name).toBe("Marca");
+    const made = (await call(client, "create_workspace", { name: "Na pasta" })) as ToolResult & { structuredContent: { workspace: { id: string } } };
+    const moved = (await call(client, "move_workspace", { id: made.structuredContent.workspace.id, folderId })) as ToolResult & {
+      structuredContent: { workspace: { folderId: string; preview: unknown[] } };
+    };
+    assertOutput("move_workspace", moved.structuredContent);
+    expect(moved.structuredContent.workspace.folderId).toBe(folderId);
+    const listed = (await call(client, "list_workspaces")) as ToolResult & {
+      structuredContent: { folders: { id: string; name: string }[]; workspaces: { id: string; folderId: string }[] };
+    };
+    assertOutput("list_workspaces", listed.structuredContent);
+    expect(listed.structuredContent.folders.some((f) => f.id === folderId && f.name === "Marca")).toBe(true);
+    expect(listed.structuredContent.workspaces.find((w) => w.id === made.structuredContent.workspace.id)?.folderId).toBe(folderId);
+    const back = (await call(client, "move_workspace", { id: made.structuredContent.workspace.id, folderId: null })) as ToolResult & {
+      structuredContent: { workspace: { folderId: string } };
+    };
+    expect(back.structuredContent.workspace.folderId).toBe("");
+    expect((await call(client, "move_workspace", { id: made.structuredContent.workspace.id, folderId: "nope" })).isError).toBe(true);
+    expect((await call(client, "rename_folder", { id: "nope", name: "x" })).isError).toBe(true);
+
+    await call(client, "create_nodes", {
+      nodes: [{
+        type: "frame", id: "screen", width: 80, height: 40, fill: "#ffffff",
+        children: [{ type: "rect", id: "dot", x: 8, y: 8, width: 12, height: 12, fill: "#111111" }],
+      }],
+    });
+    const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const ref = (await call(client, "place_reference", { src: pixel, frameId: "screen" })) as ToolResult & {
+      structuredContent: { locked: boolean; opacity: number; frameId: string; id: string };
+    };
+    expect(ref.isError, textOf(ref)).toBeFalsy();
+    assertOutput("place_reference", ref.structuredContent);
+    expect(ref.structuredContent).toMatchObject({ locked: true, opacity: 0.5, frameId: "screen" });
+    const nodes = JSON.parse(textOf(await call(client, "get_nodes", { ids: ["screen"] }))) as { children?: string[] }[];
+    expect(nodes[0]?.children?.[0]).toBe(ref.structuredContent.id);
+
+    const plain = await call(client, "render_screenshot", { rootId: "screen" });
+    const side = (await call(client, "render_screenshot", { rootId: "screen", compare: pixel })) as ToolResult & {
+      structuredContent: { width: number; height: number; compare: boolean };
+    };
+    expect(side.isError, textOf(side)).toBeFalsy();
+    assertOutput("render_screenshot", side.structuredContent);
+    const size = (r: ToolResult) => {
+      const buf = Buffer.from(r.content.find((c) => c.type === "image")!.data!, "base64");
+      return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+    };
+    expect(size(side).w).toBeGreaterThan(size(plain).w);
+    expect(size(side).h).toBe(size(plain).h);
+    expect(side.structuredContent.compare).toBe(true);
+    expect(textOf(side)).toContain("side by side");
   }, 30_000);
 
   it("render_screenshot grava path, recusa travessia, baixa por url e pinta o modo herdado", async () => {
@@ -1955,7 +2015,7 @@ describe("API: HTTP + WebSocket", () => {
     type Info = { id: string; name: string; nodes: number; updatedAt: number; active: boolean };
     const created = (await call(client, "create_workspace", { name: "  Landing  " })) as ToolResult & { structuredContent: { workspace: Info } };
     const landing = created.structuredContent.workspace;
-    expect(Object.keys(landing)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover", "archived"]);
+    expect(Object.keys(landing)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover", "archived", "folderId", "preview"]);
     expect(landing).toMatchObject({ archived: false });
     expect(landing).toMatchObject({ name: "Landing", nodes: 0, active: false });
 
@@ -2055,7 +2115,7 @@ describe("API: HTTP + WebSocket", () => {
     const renamed = await req("PATCH", `/api/workspaces/${a.id}`, { name: "  A2  " });
     expect(renamed.status).toBe(200);
     const info = ((await renamed.json()) as { workspace: Info }).workspace;
-    expect(Object.keys(info)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover", "archived"]);
+    expect(Object.keys(info)).toEqual(["id", "name", "nodes", "updatedAt", "active", "cover", "archived", "folderId", "preview"]);
     expect(info).toMatchObject({ id: a.id, name: "A2", active: false });
     expect((await list()).workspaces.find((w) => w.id === a.id)?.name).toBe("A2");
     expect((await req("PATCH", `/api/workspaces/${a.id}`, { name: "  " })).status).toBe(400);
