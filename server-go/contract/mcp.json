@@ -123,7 +123,7 @@
     {
       "name": "get_bounds",
       "title": "Resolved geometry",
-      "description": "Absolute boxes for nodes after auto-layout (row/column, hug/fill), with transform origin and the four corners after rotation. Optional `ids` filters the result; optional `rootId` limits to that subtree (still resolves ancestors for flex). Without both, returns every node on the current page. With no ids, also returns the page content box and the next free spot.",
+      "description": "Absolute boxes for nodes after auto-layout (row/column, hug/fill, wrap), with transform origin and the four corners after rotation. Optional `ids` filters the result and lays out the page of every id, so ids on different pages all get a box; an id that exists but has no box (a page, or a node hidden inside an auto-layout frame) comes back in `unplaced`. Optional `rootId` limits to that subtree (still resolves ancestors for flex). Without both, returns every node on the first page (pass a page id as `rootId` for another page). With no ids, also returns the page content box and the next free spot.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -219,6 +219,19 @@
             }
           }
         ,
+          "unplaced": {
+            "description": "Ids that exist but have no box: a page (no geometry) or a node hidden inside an auto-layout frame. Present only when ids is given and some of them have no box.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "reason": { "type": "string" }
+              },
+              "required": ["id", "reason"],
+              "additionalProperties": false
+            }
+          },
           "content": {
             "description": "Page content box. Present when ids is omitted.",
             "type": "object",

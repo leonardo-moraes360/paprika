@@ -476,6 +476,26 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			boxesObj.Set(id, core.LayoutBoxJSON(b))
 		}
 		out.Set("boxes", boxesObj)
+		// An id that exists but has no box is named, never dropped: a page has no geometry, and a node hidden
+		// inside an auto-layout frame is not laid out.
+		if a.Has("ids") {
+			var unplaced []any
+			seen := map[string]bool{}
+			for _, id := range a.Strings("ids") {
+				if _, ok := boxes[id]; ok || seen[id] {
+					continue
+				}
+				seen[id] = true
+				reason := "not laid out (hidden inside an auto-layout frame, or outside rootId)"
+				if n := core.GetNode(d, id); n != nil && n.Str("type") == "page" {
+					reason = "a page has no box; its frames sit in canvas coordinates"
+				}
+				unplaced = append(unplaced, jsonv.NewObject("id", id, "reason", reason))
+			}
+			if len(unplaced) > 0 {
+				out.Set("unplaced", unplaced)
+			}
+		}
 		if !a.Has("ids") {
 			sum := core.SummarizePlacement(d, a.Str("rootId"))
 			content := jsonv.NewObject()

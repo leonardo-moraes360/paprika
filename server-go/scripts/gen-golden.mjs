@@ -224,6 +224,50 @@ const grad = () =>
     },
   ]).doc;
 
+// Wrapping flex layouts (layout.wrap): row and column, hug and fixed cross size, align/justify per line, fill items.
+const chips = (prefix, n, w, h, extra = {}) =>
+  Array.from({ length: n }, (_, i) => ({ type: "rect", id: `${prefix}${i}`, width: w, height: typeof h === "function" ? h(i) : h, fill: "#c43d27", ...extra }));
+const wrapped = () =>
+  applyOps(base(), [
+    { op: "create", node: { type: "frame", id: "wrow", x: 0, y: 0, width: 300, height: "hug", layout: { mode: "row", gap: 12, padding: 10, wrap: true }, children: chips("wr", 7, 88, 40) } },
+    { op: "create", node: { type: "frame", id: "wspread", x: 400, y: 0, width: 400, height: 200, layout: { mode: "row", gap: 8, wrap: true, align: "center", justify: "between" }, children: chips("ws", 9, 90, (i) => 20 + (i % 3) * 10) } },
+    { op: "create", node: { type: "frame", id: "wcol", x: 0, y: 400, width: "hug", height: 120, layout: { mode: "column", gap: 8, wrap: true, padding: [4, 6, 4, 6] }, children: [...chips("wc", 6, 50, 40), { type: "rect", id: "wcw", width: 70, height: 30, fill: "#112233" }] } },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "wpage", x: 0, y: 700, width: 360, height: "hug", layout: { mode: "column", gap: 16, padding: 8 },
+        children: [
+          { type: "frame", id: "wgrid", width: "fill", height: "hug", layout: { mode: "row", gap: 12, wrap: true }, children: chips("wg", 5, 100, 30) },
+          { type: "rect", id: "wtail", width: "fill", height: 10, fill: "#445566" },
+        ],
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "wside", x: 500, y: 700, width: 500, height: "hug", layout: { mode: "row", gap: 10, align: "start" },
+        children: [
+          { type: "frame", id: "wsg", width: "fill", height: "hug", layout: { mode: "row", gap: 6, wrap: true }, children: chips("wq", 6, 90, 20) },
+          { type: "rect", id: "wsr", width: 100, height: 50, fill: "#778899" },
+        ],
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "wfill", x: 0, y: 1000, width: 320, height: "hug", layout: { mode: "row", gap: 8, wrap: true, align: "stretch" },
+        children: [
+          { type: "rect", id: "wf0", width: 200, height: 30, fill: "#111111" },
+          { type: "rect", id: "wf1", width: "fill", height: "hug", fill: "#222222" },
+          { type: "text", id: "wf2", text: "wrapped label", width: "hug", height: "hug", fontSize: 14 },
+          { type: "rect", id: "wf3", width: 150, height: "fill", fill: "#333333" },
+          { type: "rect", id: "wf4", width: 140, height: 44, fill: "#444444" },
+        ],
+      },
+    },
+    { op: "create", node: { type: "frame", id: "wend", x: 400, y: 1000, width: 200, height: 150, layout: { mode: "row", gap: 4, wrap: true, justify: "end", align: "end" }, children: chips("we", 5, 70, 24) } },
+  ]).doc;
+
 const rich = () =>
   applyOps(base(), [
     { op: "set_tokens", tokens: { brand: "#c43d27", "text.lg": 28 } },
@@ -259,6 +303,7 @@ const docs = {
   diagram: diagram(),
   corners: corners(),
   grad: grad(),
+  wrapped: wrapped(),
 };
 
 // ---- operation cases: [baseDoc, ops] ----
