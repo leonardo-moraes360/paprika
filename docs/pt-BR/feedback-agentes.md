@@ -862,3 +862,17 @@ Tarefa: desenhar o conta-gotas, as alças das pontas e os três contornos novos 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (fundo máximo 15060, frames em 15240).
 - Os bytes de `render_screenshot` foram gravados nos PNGs a partir do resultado da ferramenta.
+
+## 2026-11-24: rótulo estável do renderizador (PAP-B-098, design first)
+
+Tarefa: desenhar o rótulo do botão antes de manter o renderizador WASM vivo, na página `interfaces` do workspace `Paprica · UI` (`cmio9n368k`). Dois frames (`b098-light`, `b098-dark`) em y=17600: `DOM` em repouso, `DOM` carregando com um ponto e `aria-busy`, `GPU` ou `CPU` quando pronto. `lint_design` nessas raízes: 0 depois que a palavra GPU no escuro saiu de `#c8401f`. Os frames ficam nesse board; os paths da tarefa não incluem `docs/assets`, então os PNGs vão no PR.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 151 | Lint só dos frames novos | `lint_design` foi chamado com `ids`. Essa chave não está no schema, então a chamada revisou o documento inteiro (24 erros de contraste e centenas de avisos de outros tickets) | Chave desconhecida deveria falhar a chamada. O campo que limita o lint é `rootIds` | P2 |
+| 152 | `GPU` no chip escuro | `#c8401f` sobre `#1e2336` dá 3,12:1. O rótulo escuro passou para `#ffb4a6` | O controle no app continua em `text-accent` sobre o chip claro do zoom | — |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual a #123 e #146, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, e uma segunda página também se chama Interfaces (`h6jut017rv`, vazia). O `y` veio de uma varredura de profundidade 1 (fundo máximo 17380, frames em 17600).
+- Igual ao #129: os bytes de `render_screenshot` vieram do resultado da ferramenta. `path` gravaria dentro do servidor.
+- Igual ao #150: `docs/design/boards.paprika.json` não foi atualizado. O banco está no volume do compose, e esse arquivo está fora dos paths desta tarefa.
