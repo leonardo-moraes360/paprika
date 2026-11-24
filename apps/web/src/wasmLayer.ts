@@ -123,6 +123,7 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
   viewRef.current = view;
   const [status, setStatus] = useState<WasmStatus>({ backend: wasmAvailable ? "loading" : "unavailable", detail: "" });
   const [ready, setReady] = useState(false);
+  const [shown, setShown] = useState(false);
   const [painted, setPainted] = useState<ReadonlySet<string>>(() => new Set());
   const frame = useRef(0);
 
@@ -130,13 +131,16 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
   const drawNow = useCallback(() => {
     cancelAnimationFrame(frame.current);
     const r = rendererRef.current;
-    if (!r) return;
+    if (!r) return false;
     const v = viewRef.current;
     const dpr = window.devicePixelRatio || 1;
     try {
       r.render(v.x * dpr, v.y * dpr, v.zoom * dpr);
+      return true;
     } catch (e) {
+      setShown(false);
       setStatus({ backend: "error", detail: String(e) });
+      return false;
     }
   }, []);
 
@@ -178,6 +182,7 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
     return () => {
       cancelled = true;
       setReady(false);
+      setShown(false);
       rendererRef.current?.free();
       rendererRef.current = null;
     };
@@ -216,8 +221,8 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
     const list = displayList(doc, measureBoxes(world), pageId ?? undefined);
     r.setScene(list.data, list.paths);
     setPainted((prev) => (sameIds(prev, list.painted) ? prev : list.painted));
-    draw();
-  }, [ready, doc, layoutKey, worldRef, draw, pageId, painted]);
+    if (drawNow()) setShown(true);
+  }, [ready, doc, layoutKey, worldRef, drawNow, pageId, painted]);
 
   useEffect(() => {
     if (ready) draw();
@@ -225,6 +230,6 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
 
   useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
-  /** The DOM stops painting shapes only once the WASM layer is actually drawing them. */
-  return { canvasRef, status, active: mode === "wasm" && ready, painted };
+  /** The DOM stops painting shapes only once a render has succeeded, and takes them back on any error. */
+  return { canvasRef, status, active: mode === "wasm" && shown && status.backend !== "error", painted };
 }
