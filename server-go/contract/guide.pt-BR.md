@@ -40,7 +40,7 @@ path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fil
   viewBox [x,y,w,h] opcional. Sem viewBox, as coordenadas de d são px a partir do canto (x,y) do nó; com viewBox,
   o desenho é escalado para caber em width×height (bom para ícones num grid 24×24). Sem width/height, o nó
   ganha a caixa do desenho. Curvas: "C c1x c1y c2x c2y x y" (cúbica), "Q cx cy x y" (quadrática), S/T espelham
-  o controle anterior (curvas suaves). Use get_bounds (caixas absolutas + cantos rotacionados), path_info para conferir bounds antes de posicionar.
+  o controle anterior (curvas suaves). Use get_bounds (caixas absolutas + cantos rotacionados) e path_info (caixa e âncoras) antes de posicionar. edit_path move uma âncora ou as alças; o índice é o index de path_info.anchors, nas mesmas coordenadas de d.
 shape: shape (rect|ellipse|diamond|triangle|cylinder|parallelogram|cloud|note), text (centralizado; numa nota, no topo à esquerda), color, fontFamily (string | "$token"), fontSize (n | "$token"),
   fontWeight (100..900 | "$token"), lineHeight (n | "$token"), textAlign. width/height são números (padrão 160×80; nota 160×160). fill/stroke/radius/shadow
   pintam o contorno; campos omitidos na criação ganham o padrão do tipo (branco com borda escura; note = nota adesiva amarela).

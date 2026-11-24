@@ -34,7 +34,7 @@ Tarefa: adicionar curvas bezier para agentes e humanos desenharem formas orgâni
 |---|-----------|-----------------|----------|------|
 | 15 | Caixa do nó igual ao desenho | Sem `width`/`height`, a caixa vai da origem do nó até a borda da curva; um `d` que começa em (40,30) deixa espaço vazio no canto e o lint de overflow mede essa caixa | Feito (2026-11-22, PAP-A-001): `normalize: true` no create; `path_info.origin` informa a folga | — |
 | 16 | Camadas de vários paths como uma forma (corpo, sombra, brilho, cálice) | Cada parte repete o mesmo `x`/`y`; mover a pimenta é mover 5 nós | Nó `group` (ver #8) ou lista `paths: []` num nó só | P2 |
-| 17 | Editar um ponto de controle | Mudar uma curva exige reescrever a string `d` inteira | Parte do canvas feita (2026-11-21, ver #43); `update_path_points` (mover âncora/alça por índice) para agentes continua em aberto | P3 |
+| 17 | Editar um ponto de controle | Mudar uma curva exige reescrever a string `d` inteira | Feito (2026-11-24, PAP-B-076): `edit_path` move uma âncora ou as alças; `path_info.anchors` lista os mesmos pontos | — |
 | 18 | Saber o tamanho desenhado antes de posicionar uma parte | `path_info` com `canvasBounds` respondeu numa chamada só; também pegou um erro de digitação (`d inválido: número esperado na posição 12`) | Manter: erros de parse com posição em todo campo string | — |
 
 ## 2026-11-21: servidor em Go com SQLite (`server-go/`)
@@ -116,7 +116,7 @@ Tarefa: funções no core que transformam `d` em âncoras com alças e de volta 
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
-| 43 | Ajustar um ponto de um vetor que o agente desenhou | O humano agora arrasta no canvas; o agente ainda reescreve `d`, e depois de uma edição humana o `d` que ele lê vem com outros números (quadráticas e arcos viram cúbicas, a caixa é renormalizada) | Uma ferramenta MCP sobre as mesmas funções (`edit_path` com índice da âncora e posição nova), e as âncoras no `path_info`, para agente e humano endereçarem pontos do mesmo jeito | P2 |
+| 43 | Ajustar um ponto de um vetor que o agente desenhou | O humano agora arrasta no canvas; o agente ainda reescreve `d`, e depois de uma edição humana o `d` que ele lê vem com outros números (quadráticas e arcos viram cúbicas, a caixa é renormalizada) | Feito (2026-11-24, PAP-B-076): `edit_path` usa os helpers do canvas, e `path_info.anchors` lista os mesmos pontos | — |
 | 44 | Editar um vetor dentro de um frame com layout automático | A posição do nó vem do layout, então quando a edição move o canto superior esquerdo do desenho a caixa cresce no lugar e a forma se desloca nessa medida | Manter, ou adotar filhos que "ignoram o layout" (backlog A) e posicionar vetores editados em absoluto | P3 |
 
 ## 2026-11-21: modos de tema e tokens como variáveis CSS (leva 1 do backlog, item 5)

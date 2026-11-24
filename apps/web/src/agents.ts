@@ -99,6 +99,7 @@ const VERBS: Record<string, string> = {
   get_document_outline: "lendo o documento",
   get_design_guide: "lendo o guia",
   path_info: "medindo caminho",
+  edit_path: "editando ponto",
   render_screenshot: "olhando",
   lint_design: "revisando",
   export_code: "exportando",
