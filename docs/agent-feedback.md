@@ -872,6 +872,19 @@ Task: draw paste and drop of a photo onto the canvas, light and dark, before cod
 - A depth-1 outline of `page#interfaces` reported a real bottom (15560), so the frames went at y=15720. A second page is still also named Interfaces (`h6jut017rv`); the frames are on `interfaces`.
 - `render_screenshot` bytes were written to the PNGs from the tool result. `update_nodes` fixed the lint without redrawing the frames.
 
+## 2026-11-24: pin thread and leaving a team (PAP-B-075, design first)
+
+Task: draw the pin thread (human and agent replies, composer) and the leave-team row, light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before the canvas change. Frames `b075-light` and `b075-dark`. PNGs in `docs/assets/boards/PAP-B-075/`. After nesting the labels, `lint_design` on both frames: 0 errors, 0 warnings, `raw-color` info only.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 151 | `scaledMock` to drop contrast on a mock | `scaledMock: true` on the root did not drop contrast. Nine errors at 1.00:1: white and accent text sat as siblings of the colored badge, so the checker measured them against the card | Contrast should use the topmost painted fill under the glyphs (same as #148). `scaledMock` should say so when it does not apply | P3 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123, still open: the content box of `page#interfaces` is 0×0, so `y` came from a depth-1 scan (first pass max bottom 15760, frames at 15920; the contrast redraw landed at 16240 because the old frames were still in that scan).
+- Same as #129: the PNGs were written from the image bytes in the tool result.
+- Nesting the number, initials and "Responder" inside a frame filled `#141827` cleared the contrast errors. The board was not exported.
+
 ## 2026-11-24: stable renderer label (PAP-B-098, design first)
 
 Task: draw the toggle label before keeping the WASM renderer alive, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Two frames (`b098-light`, `b098-dark`) at y=17600: idle `DOM`, loading `DOM` with a busy dot and `aria-busy`, ready `GPU` or `CPU`. `lint_design` on those roots: 0 after the dark GPU word moved off `#c8401f`. The frames stay on that board; the task paths do not include `docs/assets`, so the PNGs go on the PR.

@@ -41,7 +41,7 @@ A imagem Docker leva o `paprika-sync` ao lado do `paprika`; no Compose, acrescen
 | Camada | Onde | O que faz |
 | --- | --- | --- |
 | Transporte | `crates/sync/src/node.rs`, `proto.rs` | Um endpoint Iroh por instância (a chave dele é a chave de membro). Uma conexão QUIC por peer, um stream bidirecional de frames JSON com prefixo de tamanho no ALPN `paprika/sync/1`. Conexões de chaves fora do time são fechadas antes de qualquer leitura. |
-| CRDT | `crates/sync/src/crdt.rs` | Um documento Loro por workspace compartilhado: um `LoroTree` para os nós (campos nos metadados de cada nó da árvore, uma chave em que o último a escrever vence por campo) e mapas para nome, tokens e modos. |
+| CRDT | `crates/sync/src/crdt.rs` | Um documento Loro por workspace compartilhado: um `LoroTree` para os nós (campos nos metadados de cada nó da árvore, uma chave em que o último a escrever vence por campo) e mapas para nome, tokens, modos, apontamentos e respostas. Apontamentos não são nós do canvas. |
 | Segurança | `crates/sync/src/team.rs`, `envelope.rs`, `keys.rs` | Arquivo de time (allowlist), envelopes assinados, delegação a agentes, convites. |
 | Ponte Go | `server-go/internal/team` | Sobe e supervisiona o sidecar, transforma commits locais em conjuntos de mudanças e estados remotos em transações `applyOps`, serve `/api/team/*` e manda `{type: "team"}` em `/ws`. |
 
@@ -65,6 +65,7 @@ O resto no stdout é evento. O sidecar termina quando o stdin fecha.
 | `share` | `doc`, `state`, `author` | Começa a compartilhar um workspace: o estado atual vira o primeiro envelope. |
 | `local` | `doc`, `author`, `changes` | Uma transação local gravada, como conjunto de mudanças (abaixo). |
 | `member.remove` | `key` | Só quem fundou: assina a remoção desse membro (abaixo) e espalha. `{removed}` |
+| `member.leave` | | Este membro assina a própria saída e espalha. `{left}`. Quem fundou não sai. |
 | `key.rotate` | | Troca a chave desta instância (abaixo). `{old, new, fingerprint, restart: true}`: o servidor Go reinicia o sidecar. |
 
 | Evento `t` | Campos |
@@ -98,6 +99,8 @@ O Go compara o documento antes e depois de um commit e manda, nesta ordem (movim
 `null` remove um campo ou token. `order` vai para cada contêiner cujos filhos (não derivados) mudaram; o
 sidecar move nós da árvore até a ordem bater. Dados derivados nunca viajam: cópias de instância,
 `x`/`y`/`width`/`height`/`d` de conectores e `width`/`height` de grupos.
+
+Apontamentos viajam no mesmo conjunto de mudanças, e não como nós: `{"k":"pin","id","value"}` (o cabeçalho; `null` remove) e `{"k":"reply","id","value"}` (uma mensagem). Cada resposta é uma chave própria, então dois peers podem acrescentar uma ao mesmo tempo. O cabeçalho do apontamento fica com o último a escrever. O servidor Go grava isso na tabela de apontamentos; não chama `applyOps`.
 
 ### Estado materializado (`remote`)
 
@@ -211,6 +214,7 @@ carregam como estão):
 | `POST /api/team/join` `{link}` | Entra num time. |
 | `POST /api/team/share` `{doc}` | Compartilha um workspace com o time. |
 | `DELETE /api/team/members/{key}` | Remove um membro (só quem fundou). |
+| `POST /api/team/leave` | Este membro sai do time. Quem fundou não sai. |
 | `POST /api/team/rotate` | Troca a chave desta instância e reinicia o sidecar. |
 
 O `/ws` manda `{type: "team", status}` sempre que o status muda. Agentes remotos chegam como mensagens
@@ -227,10 +231,11 @@ Com `--team`, a barra superior mostra um chip com o pior estado entre os peers (
 - **Entrar**: colar um link, prévia (time, impressão digital, sua chave) antes de entrar, erros claros para link vencido ou usado;
 - **Chaves do time**: chaves dos membros, quem adicionou cada uma, os agentes de cada um, membros removidos, operações rejeitadas; **Gerar nova chave** na sua linha e **Remover** nas outras (só quem fundou), cada um com confirmação;
 - **Remover** também aparece ao lado de cada pessoa na aba Time para quem fundou; uma instância removida mostra um aviso e deixa de oferecer convites.
+- **Sair do time** fica na sua própria linha quando você não fundou o time. Assina a sua saída. Quem fundou não vê esse botão.
 
 ## Limites (v1)
 
-- Um time por instância. Sair por conta própria ainda não está implementado (quem fundou remove).
+- Um time por instância. Quem não fundou sai por conta própria (`POST /api/team/leave`, uma remoção assinada por si). Quem fundou não sai: a cadeia de fundador não pode ser removida. Papéis de aprovação não estão implementados.
 - Remoção e troca se ordenam pelo `at` do relógio de quem assina; um membro removido poderia antedatar uma
   entrada que ele assina. Papéis (aprovação por revisor/editor) não estão implementados.
 - O undo reverte só transações locais; pode falhar em parte quando um peer apagou o que ele toca.
