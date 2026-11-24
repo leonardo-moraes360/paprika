@@ -847,3 +847,15 @@ Task: draw the working label, the outline-then-content step and the code toggle 
 - Same as #129: the PNGs were written from the image bytes in the tool result.
 - `raw-color` stayed info. The mocks were not redrawn onto tokens.
 - After the badge, the cursor tag and the open toggle moved to `#141827`, `lint_design` on both frames reported no errors or warnings.
+
+## 2026-11-24: eyedropper, connector ends, new shapes (PAP-B-093, design first)
+
+Task: draw the pipette, the connector-end handles and the three new outlines before coding them, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b093-shapes-light`, `b093-shapes-dark`, `b093-interact-light`, `b093-interact-dark`) at y=15240. PNGs in `docs/assets/boards/PAP-B-093/`. `lint_design` on those roots: 0. The cylinder, parallelogram and cloud were drawn with rect/ellipse/path because those `ShapeKind`s did not exist yet.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 150 | `paprika export --db` of the board the script just drew | Same as #147: the database is the compose volume. The active workspace was already `Paprica · UI`, so `GET /api/export` was written to `docs/design/boards.paprika.json` | Same as #100: an `export_document` tool with `workspaceId` | P2 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123, still open: the content box of `page#interfaces` is 0×0, so `y` came from a depth-1 scan (max bottom 15060, frames at 15240).
+- `render_screenshot` bytes were written to the PNGs from the tool result.

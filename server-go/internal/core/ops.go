@@ -561,7 +561,7 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 				kind = ks
 			}
 		}
-		if kind == "rect" || kind == "ellipse" || kind == "diamond" || kind == "triangle" || kind == "note" {
+		if kind == "rect" || kind == "ellipse" || kind == "diamond" || kind == "triangle" || kind == "cylinder" || kind == "parallelogram" || kind == "cloud" || kind == "note" {
 			defaults := ShapeDefaults(kind)
 			for _, k := range defaults.Keys() {
 				if !props.Has(k) {

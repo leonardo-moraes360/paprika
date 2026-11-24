@@ -1,19 +1,10 @@
 #!/usr/bin/env node
 // Design boards for PAP-B-091. Talks to the local Paprika MCP. Does not call open_workspace.
-import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { createRequire } from "node:module";
-import { openClient, repoRoot, saveShots, textOf } from "./design-board.mjs";
+import { openDesignPage, saveShots, textOf } from "./design-board.mjs";
 
-const root = repoRoot();
+const { root, client, call, workspaceId, pageId, Y } = await openDesignPage("pap-b-091-design");
 const outDir = join(root, "docs/assets/boards/PAP-B-091");
-
-const sdkPkg = [
-  join(root, "packages/e2e/node_modules/@modelcontextprotocol/sdk/package.json"),
-  join(root, "../paprika/packages/e2e/node_modules/@modelcontextprotocol/sdk/package.json"),
-].find((p) => existsSync(p));
-if (!sdkPkg) throw new Error("MCP SDK not installed (packages/e2e)");
-const { client, call } = await openClient(createRequire(sdkPkg), "pap-b-091-design");
 
 function corners(x, y, w, h, rot) {
   const cx = x + w / 2;
@@ -32,25 +23,6 @@ function corners(x, y, w, h, rot) {
     return { x: +(cx + dx * cos - dy * sin).toFixed(2), y: +(cy + dx * sin + dy * cos).toFixed(2) };
   });
 }
-
-const wsRaw = textOf(await call("list_workspaces"));
-const parsed = JSON.parse(wsRaw);
-const list = parsed.workspaces ?? parsed;
-const ui = list.find((w) => w.name === "Paprica · UI");
-if (!ui) throw new Error(`workspace Paprica · UI not found: ${list.map((w) => w.name).join(" | ")}`);
-const workspaceId = ui.id;
-console.log("workspace", workspaceId, ui.name);
-
-const outline = textOf(await call("get_document_outline", { workspaceId, depth: 1 }));
-const blocks = outline.split(/\n(?=page#)/);
-const pageBlock = blocks.find((b) => /^page#[^\s]+ "Interfaces"/.test(b));
-if (!pageBlock) throw new Error(`Interfaces page not in outline:\n${outline.slice(0, 500)}`);
-const pageId = (pageBlock.match(/^page#([A-Za-z0-9]+)/) ?? [])[1];
-const ys = [...pageBlock.matchAll(/@-?\d+(?:\.\d+)?,\s*(-?\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]));
-const heights = [...pageBlock.matchAll(/(\d+(?:\.\d+)?)×(\d+(?:\.\d+)?)\s+@/g)].map((m) => Number(m[2]));
-const maxBottom = ys.reduce((m, y, i) => Math.max(m, y + (heights[i] ?? 0)), 0);
-const Y = Math.ceil((maxBottom + 160) / 40) * 40;
-console.log("page", pageId, "y", Y, "maxBottom", maxBottom);
 
 const themes = {
   light: {

@@ -339,7 +339,7 @@ func checkTextRuns(v *jsonv.Object) []z.ObjectIssue {
 }
 
 // ShapeKinds: the outlines a diagram shape can take.
-var ShapeKinds = []string{"rect", "ellipse", "diamond", "triangle", "note"}
+var ShapeKinds = []string{"rect", "ellipse", "diamond", "triangle", "cylinder", "parallelogram", "cloud", "note"}
 
 // shapeSchema: a diagram shape with text inside (see diagram.go).
 func shapeSchema() *z.ObjectSchema {

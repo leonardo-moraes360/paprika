@@ -319,7 +319,26 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "").length, POLL).toBeGreaterThan(0);
     await page.keyboard.press("Escape");
     await expect.poll(() => picker.count(), POLL).toBe(0);
-  }, 15_000);
+
+    await page.evaluate(() => {
+      class Stub {
+        open() {
+          return Promise.resolve({ sRGBHex: "#abcdef" });
+        }
+      }
+      Object.defineProperty(window, "EyeDropper", { value: Stub, configurable: true });
+    });
+    await fillTrigger.click();
+    await page.getByTestId("color-eyedropper").click();
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill, POLL).toBe("#abcdef");
+    await page.evaluate(() => {
+      Object.defineProperty(window, "EyeDropper", { value: undefined, configurable: true });
+    });
+    await page.getByTestId("color-eyedropper").click();
+    await expect.poll(() => page.locator('[data-testid="viewport"][data-eyedropper="1"]').count(), POLL).toBe(1);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => page.locator('[data-testid="viewport"][data-eyedropper="1"]').count(), POLL).toBe(0);
+  }, 25_000);
 
   it("inspector: FontPicker troca a família e aceita fonte digitada", async () => {
     const POLL = { timeout: 10_000 };
@@ -1340,6 +1359,12 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle" });
     await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
 
+    await page.keyboard.press("c");
+    await page.mouse.click(vp.x + 520, vp.y + 420);
+    await page.getByTestId("shape-text-editor").waitFor();
+    await page.keyboard.press("Escape");
+    await expect.poll(async () => (await shapes()).some((n) => n.type === "shape" && n.shape === "cylinder"), POLL).toBe(true);
+
     // Seta: arrastar de uma forma até a outra; as duas pontas ficam presas.
     const box = async (id: string) => (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
     const a = await box(first);
@@ -1355,6 +1380,27 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(connector, POLL).toMatchObject({ from: { nodeId: first }, to: { nodeId: second }, route: "elbow" });
     const arrow = (await connector())!;
     const d0 = (arrow as { d: string }).d;
+    await expect.poll(() => page.getByTestId("connector-to-handle").count(), POLL).toBe(1);
+    const toHandle = (await page.getByTestId("connector-to-handle").boundingBox())!;
+    await page.mouse.move(toHandle.x + toHandle.width / 2, toHandle.y + toHandle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(vp.x + 360, vp.y + 90, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(async () => {
+      const node = await connector();
+      const end = node && node.type === "connector" ? node.to : undefined;
+      return !!end && !("nodeId" in end) && typeof end.x === "number";
+    }, POLL).toBe(true);
+    const loose = (await page.getByTestId("connector-to-handle").boundingBox())!;
+    const back = await box(second);
+    await page.mouse.move(loose.x + loose.width / 2, loose.y + loose.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(back.x + back.width / 2, back.y + back.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(async () => {
+      const node = await connector();
+      return node && node.type === "connector" ? node.to : undefined;
+    }, POLL).toMatchObject({ nodeId: second });
 
     // Arrastar a forma: a seta acompanha ainda durante o arraste e depois no documento.
     await page.mouse.move(b.x + b.width / 2, b.y + 10);

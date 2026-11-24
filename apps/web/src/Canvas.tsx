@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent } from "react";
 import { Bold, Italic, Link2, Maximize, Minus, Plus } from "lucide-react";
 import {
   copyOwner,
@@ -27,6 +27,7 @@ import {
   pathBounds,
   connectorAttrs,
   connectorCurveHandle,
+  connectorEndPoints,
   connectorLabelAttrs,
   originOf,
   round4,
@@ -62,6 +63,7 @@ import {
 } from "@paprika/core";
 import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState } from "./PathEdit";
 import { childrenSelection, cycleSibling, layersUnderPoint } from "./hierarchy";
+import { eyedropperListening, finishCanvasSample, sampleCanvasColor, subscribeEyedropper } from "./eyedropper";
 import { LayerMenu } from "./LayerMenu";
 import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { Button } from "./components/ui/button";
@@ -84,15 +86,15 @@ const CROSSHAIR = new Set<string>(["frame", "rect", "ellipse", "text", "pen"]);
 const zoomButton =
   "inline-flex h-6 w-6.5 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-ui-foreground hover:bg-ui-secondary disabled:cursor-default disabled:opacity-40 [&_svg]:size-3.5";
 
-export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "triangle" | "note" | "connector" | "pin";
+export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "triangle" | "cylinder" | "parallelogram" | "cloud" | "note" | "connector" | "pin";
 
 /** Ferramentas que criam uma forma de diagrama (nó shape), com o tipo de contorno. */
-const SHAPE_TOOLS = { shape: "rect", diamond: "diamond", triangle: "triangle", note: "note" } as const;
+const SHAPE_TOOLS = { shape: "rect", diamond: "diamond", triangle: "triangle", cylinder: "cylinder", parallelogram: "parallelogram", cloud: "cloud", note: "note" } as const;
 type ShapeTool = keyof typeof SHAPE_TOOLS;
 const isShapeTool = (t: Tool): t is ShapeTool => t in SHAPE_TOOLS;
 
 /** Tamanho padrão ao soltar com um clique (sem arrastar). */
-const DRAFT_DEFAULTS = { frame: [390, 844], rect: [120, 80], ellipse: [80, 80], text: [200, 32], shape: [160, 80], diamond: [160, 100], triangle: [160, 140], note: [160, 160] } as const;
+const DRAFT_DEFAULTS = { frame: [390, 844], rect: [120, 80], ellipse: [80, 80], text: [200, 32], shape: [160, 80], diamond: [160, 100], triangle: [160, 140], cylinder: [160, 120], parallelogram: [160, 100], cloud: [180, 110], note: [160, 160] } as const;
 
 type DraftTool = Exclude<Tool, "select" | "pen" | "connector" | "pin">;
 const isDraftTool = (t: Tool): t is DraftTool => t !== "select" && t !== "pen" && t !== "connector";
@@ -123,7 +125,7 @@ interface View {
 }
 
 /** Posições/tamanhos provisórios durante um arraste (um ou vários nós). */
-type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number; rotation?: number; control?: { x: number; y: number }; layout?: Layout }>;
+type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number; rotation?: number; control?: { x: number; y: number }; layout?: Layout; from?: ConnectorEnd; to?: ConnectorEnd }>;
 
 /** How long a dropped preview waits for the server before giving way to what the server has. */
 const PENDING_MS = 3000;
@@ -144,6 +146,8 @@ function snapshot(doc: Document, pv: Preview): Preview {
       } else if (k === "layout") {
         const layout = n?.layout;
         if (layout && typeof layout === "object") cur.layout = layout as Layout;
+      } else if (k === "from" || k === "to") {
+        if (v && typeof v === "object") cur[k] = v as ConnectorEnd;
       } else if (typeof v === "number") {
         cur[k] = v;
       }
@@ -151,6 +155,13 @@ function snapshot(doc: Document, pv: Preview): Preview {
     out[id] = cur;
   }
   return out;
+}
+
+function sameEnd(a: ConnectorEnd | undefined, b: unknown): boolean {
+  if (!a || !b || typeof b !== "object") return false;
+  const e = b as ConnectorEnd;
+  if ("nodeId" in a || "nodeId" in e) return "nodeId" in a && "nodeId" in e && a.nodeId === e.nodeId && (a.side ?? "auto") === (e.side ?? "auto");
+  return "x" in a && "x" in e && a.x === e.x && a.y === e.y;
 }
 
 function samePreview(a: Preview, b: Preview): boolean {
@@ -162,6 +173,7 @@ function samePreview(a: Preview, b: Preview): boolean {
         return !!ac && !!bc && ac.x === bc.x && ac.y === bc.y;
       }
       if (k === "layout") return sameLayout(a[id]?.layout, v as Layout | undefined);
+      if (k === "from" || k === "to") return sameEnd(a[id]?.[k], v);
       return a[id]?.[k as "x" | "y" | "width" | "height" | "rotation"] === v;
     }),
   );
@@ -1706,6 +1718,14 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     window.addEventListener("pointerup", up);
   };
 
+  const sampling = useSyncExternalStore(subscribeEyedropper, eyedropperListening, () => false);
+  const onEyedropperDown = (e: RPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    finishCanvasSample(sampleCanvasColor(doc, e.clientX, e.clientY, viewportRef.current));
+  };
+
   const onPointerDown = (e: RPointerEvent<HTMLDivElement>) => {
     if (e.button === 1 || spaceDown.current) return startPan(e);
     if (e.button !== 0) return;
@@ -1753,7 +1773,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         const clicked = w < 4 && h < 4;
         const kind = tool as DraftTool;
         if (clicked) [w, h] = DRAFT_DEFAULTS[kind];
-        const names = { frame: "Frame", rect: "Retângulo", ellipse: "Elipse", text: "Texto", shape: "Caixa", diamond: "Decisão", triangle: "Triângulo", note: "Nota" } as const;
+        const names = { frame: "Frame", rect: "Retângulo", ellipse: "Elipse", text: "Texto", shape: "Caixa", diamond: "Decisão", triangle: "Triângulo", cylinder: "Cilindro", parallelogram: "Paralelogramo", cloud: "Nuvem", note: "Nota" } as const;
         const count = isShapeTool(kind)
           ? Object.values(doc.nodes).filter((n) => n.type === "shape" && n.shape === SHAPE_TOOLS[kind]).length + 1
           : Object.values(doc.nodes).filter((n) => n.type === tool).length + 1;
@@ -1996,6 +2016,43 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const sole = quads.length === 1 && selected.length === 1 ? quads[0] : undefined;
   const curveConn = single?.type === "connector" && single.route === "curve" && !single.locked && !copyOwner(doc, single) ? (shown.nodes[single.id] as ConnectorNode) : null;
   const curveHandle = curveConn ? connectorCurveHandle(shown, curveConn) : null;
+  const endConn = single?.type === "connector" && !single.locked && !copyOwner(doc, single) ? (shown.nodes[single.id] as ConnectorNode) : null;
+  const endPts = endConn ? connectorEndPoints(shown, endConn) : null;
+  const onEndHandleDown = (key: "from" | "to") => (e: RPointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!endConn || !viewportRef.current) return;
+    const id = endConn.id;
+    const origin = originOf(doc, endConn.parentId);
+    const start = { x: e.clientX, y: e.clientY };
+    let moved = false;
+    const endAt = (cx: number, cy: number): ConnectorEnd => {
+      const hit = attachableAt(cx, cy);
+      if (hit && hit !== id) return { nodeId: hit };
+      const p = toWorld(cx, cy);
+      return { x: Math.round(p.x - origin.x), y: Math.round(p.y - origin.y) };
+    };
+    takeOverPreview();
+    const patch = (cx: number, cy: number): Preview[string] => (key === "from" ? { from: endAt(cx, cy) } : { to: endAt(cx, cy) });
+    let last = patch(e.clientX, e.clientY);
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 3) return;
+      moved = true;
+      last = patch(ev.clientX, ev.clientY);
+      setPreview({ [id]: last });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (!moved) {
+        setPreview(null);
+        return;
+      }
+      commitPreview({ [id]: last }, [{ op: "update", id, props: last }], key === "from" ? "prender início" : "prender fim");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
   const onCurveHandleDown = (e: RPointerEvent) => {
     e.stopPropagation();
     if (!curveConn || !viewportRef.current) return;
@@ -2403,8 +2460,11 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         // Pan: open hand while the key is held, closed hand while dragging; wins over nodes and tools.
         pan === "ready" && "is-pan-ready cursor-grab! **:cursor-grab!",
         pan === "panning" && "is-panning cursor-grabbing! **:cursor-grabbing!",
+        sampling && "cursor-crosshair! **:cursor-crosshair!",
         fileOver && "outline outline-2 outline-select outline-offset-[-2px]",
       )}
+      data-eyedropper={sampling ? "1" : undefined}
+      onPointerDownCapture={sampling ? onEyedropperDown : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={pen ? onPenHover : undefined}
       onDoubleClick={pen ? onPenDouble : onDeepSelect}
@@ -2486,6 +2546,25 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             title="Arrastar para curvar"
             onPointerDown={onCurveHandleDown}
           />
+        )}
+        {endPts && (
+          <>
+            {(["from", "to"] as const).map((key) => {
+              const p = endPts[key];
+              const label = key === "from" ? m.connectorFromHandle : m.connectorToHandle;
+              return (
+                <div
+                  key={key}
+                  className="pointer-events-auto absolute size-2.5 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-[1.5px] border-select bg-white active:cursor-grabbing"
+                  style={{ left: p.x, top: p.y }}
+                  data-testid={`connector-${key}-handle`}
+                  aria-label={label}
+                  title={label}
+                  onPointerDown={onEndHandleDown(key)}
+                />
+              );
+            })}
+          </>
         )}
         {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
       </div>

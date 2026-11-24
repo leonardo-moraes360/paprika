@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Bot, Circle, Crosshair, Diamond, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Square, StickyNote, Triangle, Type, type LucideIcon } from "lucide-react";
+import { Bot, Circle, Cloud, Crosshair, Cylinder, Diamond, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Square, StickyNote, Triangle, Type, type LucideIcon } from "lucide-react";
 import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, wrapOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
@@ -27,6 +27,10 @@ import { readToolbarDock, Toolbar, type ToolbarDock } from "./Toolbar";
 const boot = "grid h-full place-content-center justify-items-center gap-3 text-ui-muted-foreground";
 const toast = "absolute bottom-4 left-1/2 max-w-[70%] -translate-x-1/2 cursor-pointer rounded-lg border border-accent bg-toast px-3 py-2 text-accent-pale";
 
+const ParallelogramIcon = ((props: { className?: string }) => (
+  <Square {...props} className={cn("-skew-x-12", props.className)} />
+)) as LucideIcon;
+
 const TOOL_DEFS: { tool: Tool; key: string; labelKey: keyof import("./i18n").Messages; icon: LucideIcon }[] = [
   { tool: "select", key: "v", labelKey: "toolSelect", icon: MousePointer2 },
   { tool: "frame", key: "f", labelKey: "toolFrame", icon: Frame },
@@ -37,6 +41,9 @@ const TOOL_DEFS: { tool: Tool; key: string; labelKey: keyof import("./i18n").Mes
   { tool: "shape", key: "s", labelKey: "toolShape", icon: Square },
   { tool: "diamond", key: "d", labelKey: "toolDiamond", icon: Diamond },
   { tool: "triangle", key: "g", labelKey: "toolTriangle", icon: Triangle },
+  { tool: "cylinder", key: "c", labelKey: "toolCylinder", icon: Cylinder },
+  { tool: "parallelogram", key: "b", labelKey: "toolParallelogram", icon: ParallelogramIcon },
+  { tool: "cloud", key: "u", labelKey: "toolCloud", icon: Cloud },
   { tool: "note", key: "n", labelKey: "toolNote", icon: StickyNote },
   { tool: "connector", key: "a", labelKey: "toolConnector", icon: MoveUpRight },
   { tool: "pin", key: "i", labelKey: "toolPin", icon: Crosshair },

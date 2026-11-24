@@ -679,6 +679,7 @@ const zodCases = [{ op: "x" }, { op: "update", id: 1, props: {} }, 5, { op: "cre
 // ---- draw_diagram plans ----
 const diagramCases = [
   ["empty", { nodes: [{ id: "a", text: "A" }, { id: "b", shape: "note" }, { id: "c", shape: "diamond", width: 100, height: 100 }], edges: [{ from: "a", to: "b" }, { from: "a", to: "c" }, { from: "a", to: "c" }, { from: "c", to: "a", id: "back" }] }],
+  ["empty", { nodes: [{ id: "p", shape: "parallelogram", x: 0, y: 0, width: 160, height: 80 }, { id: "e", shape: "ellipse", x: 300, y: 0, width: 160, height: 80 }, { id: "cy", shape: "cylinder", x: 0, y: 200 }, { id: "cl", shape: "cloud", x: 300, y: 200 }], edges: [{ from: "p", to: "e", route: "straight" }] }],
   ["empty", { direction: "right", gap: 30, x: 10, y: 20, nodes: [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d", x: 5, y: 6 }], edges: [{ from: "a", to: "b" }, { from: "b", to: "c" }, { from: "c", to: "a" }, { from: "a", to: "a" }] }],
   ["free", { nodes: [{ id: "a", text: "x" }], edges: [{ from: "a", to: "r1", fromSide: "left", toSide: "bottom", route: "straight", dashed: true }] }],
   ["free", { parentId: "board", nodes: [{ id: "a" }] }],
@@ -699,7 +700,7 @@ const diagrams = diagramCases.map(([docName, input]) => {
   return { doc: docName, input, ok: true, plan: JSON.stringify(r.value), result: applied.ok ? json(applied.value.doc) : undefined, applyError: applied.ok ? undefined : applied.error };
 });
 const outlines = [
-  ...["rect", "ellipse", "diamond", "note"].flatMap((shape) => [
+  ...["rect", "ellipse", "diamond", "triangle", "cylinder", "parallelogram", "cloud", "note"].flatMap((shape) => [
     { shape, width: 160, height: 80, radius: 8, stroke: { color: "#000", width: 2 } },
     { shape, width: 30.5, height: 10, radius: 40 },
     { shape, width: 1, height: 1, radius: 0, stroke: { color: "#000", width: 5 } },

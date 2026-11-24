@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -48,4 +49,37 @@ export async function saveShots(call, workspaceId, outDir, shots, onMissing) {
     await writeFile(join(outDir, file), Buffer.from(b64, "base64"));
     console.log("wrote", file);
   }
+}
+
+/**
+ * Connects to the local Paprika MCP and finds where to draw: the "Paprica · UI"
+ * workspace (by id, never open_workspace), its "Interfaces" page, and a free Y
+ * below the frames already there. Shared by the scripts/draw-pap-b-*.mjs boards.
+ */
+export async function openDesignPage(name, { workspaceName = "Paprica · UI", pageName = "Interfaces", gap = 160 } = {}) {
+  const root = repoRoot();
+  const sdkPkg = [
+    join(root, "packages/e2e/node_modules/@modelcontextprotocol/sdk/package.json"),
+    join(root, "../paprika/packages/e2e/node_modules/@modelcontextprotocol/sdk/package.json"),
+  ].find((p) => existsSync(p));
+  if (!sdkPkg) throw new Error("MCP SDK not installed (packages/e2e)");
+  const { client, call } = await openClient(createRequire(sdkPkg), name);
+
+  const parsed = JSON.parse(textOf(await call("list_workspaces")));
+  const list = parsed.workspaces ?? parsed;
+  const ws = list.find((w) => w.name === workspaceName);
+  if (!ws) throw new Error(`workspace ${workspaceName} not found: ${list.map((w) => w.name).join(" | ")}`);
+  const workspaceId = ws.id;
+  console.log("workspace", workspaceId, ws.name);
+
+  const outline = textOf(await call("get_document_outline", { workspaceId, depth: 1 }));
+  const pageBlock = outline.split(/\n(?=page#)/).find((b) => new RegExp(`^page#\\S+ "${pageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`).test(b));
+  if (!pageBlock) throw new Error(`${pageName} page not in outline:\n${outline.slice(0, 500)}`);
+  const pageId = (pageBlock.match(/^page#([A-Za-z0-9]+)/) ?? [])[1];
+  const ys = [...pageBlock.matchAll(/@-?\d+(?:\.\d+)?,\s*(-?\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]));
+  const heights = [...pageBlock.matchAll(/(\d+(?:\.\d+)?)×(\d+(?:\.\d+)?)\s+@/g)].map((m) => Number(m[2]));
+  const maxBottom = ys.reduce((m, y, i) => Math.max(m, y + (heights[i] ?? 0)), 0);
+  const Y = Math.ceil((maxBottom + gap) / 40) * 40;
+  console.log("page", pageId, "y", Y, "maxBottom", maxBottom);
+  return { root, client, call, workspaceId, pageId, Y };
 }

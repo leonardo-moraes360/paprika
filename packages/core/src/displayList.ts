@@ -83,7 +83,7 @@ function underUnevenFrame(doc: Document, n: Node): boolean {
 }
 
 /** True when the WASM layer can draw this node's own paint exactly as `nodeStyle` would.
- * Diagram `shape` nodes (rect/ellipse/diamond/triangle/note) stay on the DOM. */
+ * Diagram `shape` nodes stay on the DOM, including cylinder, parallelogram and cloud. */
 export function wasmPaintable(doc: Document, n: Node): boolean {
   if (underUnevenFrame(doc, n) || unevenCorners(doc, n)) return false;
   if (!isShape(n)) return false;

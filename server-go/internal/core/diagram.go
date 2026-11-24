@@ -21,6 +21,26 @@ type dbox struct{ x, y, w, h float64 }
 // NoteFoldFill darkens the sticky note's folded corner.
 const NoteFoldFill = "rgba(0,0,0,0.12)"
 
+const (
+	cloudOX = 10.0
+	cloudOY = 8.0
+	cloudW  = 162.0
+	cloudH  = 90.0
+)
+
+var cloudCubics = [][6]float64{
+	{18, 72, 10, 54, 26, 46},
+	{16, 28, 40, 14, 62, 28},
+	{74, 8, 112, 8, 122, 28},
+	{148, 16, 168, 38, 152, 56},
+	{172, 76, 146, 96, 114, 84},
+	{100, 98, 54, 96, 40, 72},
+}
+
+func cloudMap(x, y, left, top, bw, bh float64) Pt {
+	return Pt{left + ((x-cloudOX)/cloudW)*bw, top + ((y-cloudOY)/cloudH)*bh}
+}
+
 func dnum(v float64) string { return jsonv.FormatNumber(Round4(v)) }
 func dpt(p Pt) string       { return dnum(p.X) + " " + dnum(p.Y) }
 
@@ -72,6 +92,52 @@ func ShapeOutline(n *Node) (d, fold string) {
 		return "M" + dpt(Pt{w / 2, i}) + " L" + dpt(Pt{w - i, h / 2}) + " L" + dpt(Pt{w / 2, h - i}) + " L" + dpt(Pt{i, h / 2}) + " Z", ""
 	case "triangle":
 		return "M" + dpt(Pt{w / 2, i}) + " L" + dpt(Pt{w - i, h - i}) + " L" + dpt(Pt{i, h - i}) + " Z", ""
+	case "parallelogram":
+		bw := math.Max(0, w-2*i)
+		skew := math.Min(bw*0.22, bw/2)
+		return "M" + dpt(Pt{i + skew, i}) + " L" + dpt(Pt{w - i, i}) + " L" + dpt(Pt{w - i - skew, h - i}) + " L" + dpt(Pt{i, h - i}) + " Z", ""
+	case "cylinder":
+		left, right := i, w-i
+		bw := math.Max(0, right-left)
+		bh := math.Max(0, h-2*i)
+		rx := bw / 2
+		ry := math.Min(bh*0.18, rx)
+		topCy := i + ry
+		botCy := h - i - ry
+		if rx <= 0 || ry <= 0 || botCy < topCy {
+			return "M" + dpt(Pt{left, i}) + " L" + dpt(Pt{right, i}) + " L" + dpt(Pt{right, h - i}) + " L" + dpt(Pt{left, h - i}) + " Z", ""
+		}
+		arc := func(sweep int, p Pt) string {
+			return "A" + dnum(rx) + " " + dnum(ry) + " 0 0 " + fmt.Sprint(sweep) + " " + dpt(p)
+		}
+		body := strings.Join([]string{
+			"M" + dpt(Pt{left, topCy}),
+			"L" + dpt(Pt{left, botCy}),
+			arc(1, Pt{right, botCy}),
+			"L" + dpt(Pt{right, topCy}),
+			arc(0, Pt{left, topCy}),
+			"Z",
+		}, " ")
+		cap := strings.Join([]string{
+			"M" + dpt(Pt{left, topCy}),
+			arc(1, Pt{right, topCy}),
+			arc(0, Pt{left, topCy}),
+		}, " ")
+		return body + " " + cap, ""
+	case "cloud":
+		left, top := i, i
+		bw := math.Max(0, w-2*i)
+		bh := math.Max(0, h-2*i)
+		start := cloudMap(40, 72, left, top, bw, bh)
+		parts := []string{"M" + dpt(start)}
+		for _, c := range cloudCubics {
+			c1 := cloudMap(c[0], c[1], left, top, bw, bh)
+			c2 := cloudMap(c[2], c[3], left, top, bw, bh)
+			end := cloudMap(c[4], c[5], left, top, bw, bh)
+			parts = append(parts, "C"+dpt(c1)+" "+dpt(c2)+" "+dpt(end))
+		}
+		parts = append(parts, "Z")
+		return strings.Join(parts, " "), ""
 	case "note":
 		f := math.Min(24, math.Min(w/4, h/4))
 		return "M" + dpt(Pt{i, i}) + " L" + dpt(Pt{w - i - f, i}) + " L" + dpt(Pt{w - i, i + f}) + " L" + dpt(Pt{w - i, h - i}) + " L" + dpt(Pt{i, h - i}) + " Z",
@@ -108,6 +174,12 @@ func ShapePadding(n *Node) (float64, float64) {
 		return math.Max(8, h/3), math.Max(8, w/4)
 	case "ellipse":
 		return math.Max(8, h*0.15), math.Max(8, w*0.15)
+	case "cylinder":
+		return math.Max(12, h*0.28), 12
+	case "parallelogram":
+		return 12, math.Max(12, w*0.18)
+	case "cloud":
+		return math.Max(12, h*0.25), math.Max(12, w*0.16)
 	}
 	return 12, 12
 }
@@ -161,7 +233,7 @@ func resolveEnd(doc *Document, c *Node, key string, origin Pt) (dend, error) {
 		outline := "rect"
 		if n.Str("type") == "ellipse" {
 			outline = "ellipse"
-		} else if n.Str("type") == "shape" && (n.Str("shape") == "ellipse" || n.Str("shape") == "diamond" || n.Str("shape") == "triangle") {
+		} else if n.Str("type") == "shape" && (n.Str("shape") == "ellipse" || n.Str("shape") == "diamond" || n.Str("shape") == "triangle" || n.Str("shape") == "parallelogram") {
 			outline = n.Str("shape")
 		}
 		side := e.Str("side")
@@ -206,6 +278,8 @@ func clipToOutline(e dend, toward Pt) Pt {
 		t = 1 / (math.Abs(dx)/hw + math.Abs(dy)/hh)
 	case "triangle":
 		t = clipRayToTriangle(hw, hh, dx, dy)
+	case "parallelogram":
+		t = clipRayToParallelogram(hw, hh, dx, dy)
 	default:
 		tx, ty := math.Inf(1), math.Inf(1)
 		if dx != 0 {
@@ -219,13 +293,11 @@ func clipToOutline(e dend, toward Pt) Pt {
 	return Pt{c.X + dx*t, c.Y + dy*t}
 }
 
-// clipRayToTriangle is the ray-from-centre hit distance for the isosceles triangle of the box.
-func clipRayToTriangle(hw, hh, dx, dy float64) float64 {
-	verts := [3]Pt{{0, -hh}, {hw, hh}, {-hw, hh}}
+func clipRayToPolygon(verts []Pt, dx, dy float64) float64 {
 	best := math.Inf(1)
-	for k := range 3 {
+	for k := range verts {
 		a := verts[k]
-		b := verts[(k+1)%3]
+		b := verts[(k+1)%len(verts)]
 		ex, ey := b.X-a.X, b.Y-a.Y
 		det := dx*ey - dy*ex
 		if math.Abs(det) < 1e-12 {
@@ -241,6 +313,16 @@ func clipRayToTriangle(hw, hh, dx, dy float64) float64 {
 		return 1
 	}
 	return best
+}
+
+// clipRayToTriangle is the ray-from-centre hit distance for the isosceles triangle of the box.
+func clipRayToTriangle(hw, hh, dx, dy float64) float64 {
+	return clipRayToPolygon([]Pt{{0, -hh}, {hw, hh}, {-hw, hh}}, dx, dy)
+}
+
+func clipRayToParallelogram(hw, hh, dx, dy float64) float64 {
+	skew := math.Min(hw*0.44, hw)
+	return clipRayToPolygon([]Pt{{skew - hw, -hh}, {hw, -hh}, {hw - skew, hh}, {-hw, hh}}, dx, dy)
 }
 
 var sideDir = map[string]Pt{"top": {0, -1}, "right": {1, 0}, "bottom": {0, 1}, "left": {-1, 0}}
