@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { firstPage, newId, type Document, type Op } from "@paprika/core";
+import { AGENT_IDLE_MS, agentPage } from "./agents";
 import { Button } from "./components/ui/button";
 import { Hint } from "./components/ui/tooltip";
 import { InlineName } from "./InlineName";
 import { pageNameFor, useT } from "./i18n";
 import { cn } from "./lib/cn";
+import { useLive } from "./useDocument";
 
 interface Props {
   doc: Document;
@@ -20,7 +22,16 @@ const placeholder = "placeholder";
 
 export function Pages({ doc, pageId, onOpen, apply }: Props) {
   const m = useT();
+  const agents = useLive((s) => s.agents);
+  const [now, setNow] = useState(() => Date.now());
   const [editing, setEditing] = useState<string | null>(null);
+  useEffect(() => {
+    if (!agents.length) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 2000);
+    return () => clearInterval(timer);
+  }, [agents]);
+  const dotsFor = (id: string) => agents.filter((agent) => now - agent.at <= AGENT_IDLE_MS && agentPage(doc, agent.nodes)?.id === id);
   const pages = firstPage(doc) ? doc.rootIds.map((id) => doc.nodes[id]!).filter((n) => n.type === "page") : [];
   const firstLabel = pageNameFor(1);
 
@@ -119,6 +130,13 @@ export function Pages({ doc, pageId, onOpen, apply }: Props) {
                   {p.name || p.id}
                 </button>
               </Hint>
+            )}
+            {editing !== p.id && dotsFor(p.id).length > 0 && (
+              <span className="mr-1 flex shrink-0 gap-0.5" data-testid="agent-page-dot" aria-hidden>
+                {dotsFor(p.id).slice(0, 4).map((agent) => (
+                  <span key={agent.agent} className="size-1.5 rounded-full" style={{ background: agent.color }} />
+                ))}
+              </span>
             )}
             {pages.length > 1 && editing !== p.id && (
               <Hint label={m.deletePageHint}>
