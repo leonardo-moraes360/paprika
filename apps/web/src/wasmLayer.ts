@@ -79,12 +79,29 @@ export function measureBoxes(world: HTMLElement): Map<string, Box> {
     origin.set(el, v);
     return v;
   };
-  for (const el of world.querySelectorAll<HTMLElement>("[data-paprika-id]")) {
-    if (!(el instanceof HTMLElement)) continue; // <svg> (DOM-painted path) has no offset box
-    const p = pos(el);
-    if (p) boxes.set(el.dataset.paprikaId!, { x: p.x, y: p.y, w: el.offsetWidth, h: el.offsetHeight });
+  for (const el of world.querySelectorAll<Element>("[data-paprika-id]")) {
+    if (el instanceof HTMLElement) {
+      const p = pos(el);
+      if (p) boxes.set(el.dataset.paprikaId!, { x: p.x, y: p.y, w: el.offsetWidth, h: el.offsetHeight });
+      continue;
+    }
+    if (el instanceof SVGElement && el.parentElement instanceof HTMLElement) {
+      const p = pos(el.parentElement);
+      const left = Number.parseFloat(el.style.left);
+      const top = Number.parseFloat(el.style.top);
+      const w = Number.parseFloat(el.style.width);
+      const h = Number.parseFloat(el.style.height);
+      if (!p || [left, top, w, h].some((n) => Number.isNaN(n))) continue;
+      boxes.set(el.dataset.paprikaId!, { x: p.x + left, y: p.y + top, w, h });
+    }
   }
   return boxes;
+}
+
+function sameIds(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const id of a) if (!b.has(id)) return false;
+  return true;
 }
 
 interface Options {
@@ -106,6 +123,7 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
   viewRef.current = view;
   const [status, setStatus] = useState<WasmStatus>({ backend: wasmAvailable ? "loading" : "unavailable", detail: "" });
   const [ready, setReady] = useState(false);
+  const [painted, setPainted] = useState<ReadonlySet<string>>(() => new Set());
   const frame = useRef(0);
 
   /** Renders the current scene right away (same task, so before the next paint). */
@@ -197,8 +215,9 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
     if (!ready || !r || !world) return;
     const list = displayList(doc, measureBoxes(world), pageId ?? undefined);
     r.setScene(list.data, list.paths);
+    setPainted((prev) => (sameIds(prev, list.painted) ? prev : list.painted));
     draw();
-  }, [ready, doc, layoutKey, worldRef, draw, pageId]);
+  }, [ready, doc, layoutKey, worldRef, draw, pageId, painted]);
 
   useEffect(() => {
     if (ready) draw();
@@ -207,5 +226,5 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
   useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
   /** The DOM stops painting shapes only once the WASM layer is actually drawing them. */
-  return { canvasRef, status, active: mode === "wasm" && ready };
+  return { canvasRef, status, active: mode === "wasm" && ready, painted };
 }
