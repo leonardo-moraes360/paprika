@@ -428,25 +428,21 @@ func (s *Store) attachReplies(pins []Pin) {
 	if len(pins) == 0 {
 		return
 	}
-	ph := make([]string, len(pins))
-	args := make([]any, len(pins))
-	for i, p := range pins {
-		ph[i] = "?"
-		args[i] = p.ID
-	}
-	rows, err := s.db.Query(`SELECT id, pin_id, author, text, created_at FROM pin_replies WHERE pin_id IN (`+strings.Join(ph, ",")+`) ORDER BY created_at, id`, args...)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
 	by := map[string][]PinReply{}
-	for rows.Next() {
-		var r PinReply
-		var pinID string
-		if err := rows.Scan(&r.ID, &pinID, &r.Author, &r.Text, &r.CreatedAt); err != nil {
+	for _, p := range pins {
+		rows, err := s.db.Query(`SELECT id, author, text, created_at FROM pin_replies WHERE pin_id = ? ORDER BY created_at, id`, p.ID)
+		if err != nil {
 			return
 		}
-		by[pinID] = append(by[pinID], r)
+		for rows.Next() {
+			var r PinReply
+			if err := rows.Scan(&r.ID, &r.Author, &r.Text, &r.CreatedAt); err != nil {
+				rows.Close()
+				return
+			}
+			by[p.ID] = append(by[p.ID], r)
+		}
+		rows.Close()
 	}
 	for i := range pins {
 		rs := by[pins[i].ID]

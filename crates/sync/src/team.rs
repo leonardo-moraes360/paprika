@@ -794,7 +794,12 @@ mod tests {
         let (ana, bruno) = (key(1), key(2));
         let mut t = TeamFile::create(&ana, "Estúdio", "Ana");
         t.add(&ana, &bruno.public(), "Bruno").unwrap();
-        assert!(t.leave(&ana, Upto::new()).unwrap_err().to_string().contains("founder"));
+        assert!(
+            t.leave(&ana, Upto::new())
+                .unwrap_err()
+                .to_string()
+                .contains("founder")
+        );
         let mut other = t.clone();
         t.leave(&bruno, upto("d", &bruno, 2)).unwrap();
         assert!(!t.is_member(&bruno.public()));
