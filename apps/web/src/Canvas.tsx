@@ -39,7 +39,6 @@ import {
   SHAPE_TEXT_CSS,
   serializePath,
   translatePath,
-  wasmPaintable,
   isSVGText,
   insertAnchor,
   moveAnchor,
@@ -417,6 +416,7 @@ interface RenderProps {
   zoom: number;
   /** The WASM layer is drawing shapes: keep their boxes (layout, hit testing) but not their paint. */
   wasm: boolean;
+  wasmIds: ReadonlySet<string>;
   /** Path em edição ponto a ponto, com os subcaminhos a desenhar. */
   edit: { id: string; subs: Subpath[]; sel: AnchorRef | null } | null;
   /** Forma, conector ou texto em edição no próprio canvas. */
@@ -426,9 +426,9 @@ interface RenderProps {
   dragIds?: ReadonlySet<string>;
 }
 
-function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEdit, dragging, dragIds }: RenderProps) {
+function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edit, textEdit, dragging, dragIds }: RenderProps) {
   const css = nodeStyle(doc, node) as CSSProperties;
-  const wasmPaints = wasm && wasmPaintable(doc, node);
+  const wasmPaints = wasm && wasmIds.has(node.id);
   if (wasmPaints) {
     // Same box (border width stays, so auto layout does not move), no visible paint.
     if (css.background) css.background = "transparent";
@@ -469,6 +469,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, edit, textEd
                 pen={pen}
                 zoom={zoom}
                 wasm={wasm}
+                wasmIds={wasmIds}
                 edit={edit}
                 textEdit={textEdit}
                 dragging={!!dragIds?.has(c)}
@@ -2532,6 +2533,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             pen={pen}
             zoom={view.zoom}
             wasm={wasmLayer.active}
+            wasmIds={wasmLayer.painted}
             edit={editView}
             textEdit={textEdit}
             dragging={!!dragIds?.includes(n.id)}
