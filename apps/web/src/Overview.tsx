@@ -1,5 +1,5 @@
 import { useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
-import { Archive, ArchiveRestore, ImageOff, ImagePlus, Pencil, Plus, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, FolderPlus, ImageOff, ImagePlus, Pencil, Plus, Trash2 } from "lucide-react";
 import { errorText } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ConnectionStatus } from "./ConnectionStatus";
@@ -11,7 +11,7 @@ import { Hint } from "./components/ui/tooltip";
 import { LanguageSwitcher, untitledFor, useLocale, useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { bar, cx, ui } from "./ui";
-import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type Workspace } from "./workspaces";
+import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type PreviewShape, type Workspace, type WorkspaceFolder } from "./workspaces";
 
 /** Same limit as the server; bigger images are scaled down in the browser first. */
 const MAX_COVER_BYTES = 2 * 1024 * 1024;
@@ -59,6 +59,29 @@ const tile = (h: number): CSSProperties => ({
 
 const iconAction = "h-auto px-1.5 py-1";
 
+function LiveThumb({ shapes }: { shapes: PreviewShape[] }) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const s of shapes) {
+    minX = Math.min(minX, s.x);
+    minY = Math.min(minY, s.y);
+    maxX = Math.max(maxX, s.x + s.w);
+    maxY = Math.max(maxY, s.y + s.h);
+  }
+  const span = Math.max(maxX - minX, maxY - minY, 1);
+  const pad = span * 0.08;
+  const viewBox = `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`;
+  return (
+    <svg className="workspace-thumb size-full" viewBox={viewBox} preserveAspectRatio="xMidYMid meet" aria-hidden>
+      {shapes.map((s, i) => (
+        <rect key={i} x={s.x} y={s.y} width={s.w} height={s.h} fill={s.fill} rx={Math.min(s.w, s.h) * 0.08} />
+      ))}
+    </svg>
+  );
+}
+
 interface Props {
   connected: boolean;
   /** Id of the active workspace (from the live connection); a change refreshes the list. */
@@ -75,11 +98,13 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   const list = useWorkspaces(filter === "archived");
   useWorkspacesFollow(activeId, version);
   const mutations = useWorkspaceMutations();
-  const workspaces = list.data ?? null;
+  const workspaces = list.data?.workspaces ?? null;
+  const folders = list.data?.folders ?? [];
   /** Error of the last mutation; a later success clears it. */
   const [failure, setFailure] = useState<string | null>(null);
   const error = failure ?? (list.error ? m.listWorkspacesFail(errorText(list.error)) : null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<"workspace" | "folder" | null>(null);
+  const [renamingFolder, setRenamingFolder] = useState<string | null>(null);
   const [name, setName] = useState("");
   /** One click opens a card; the pencil button or F2 renames it. */
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -107,9 +132,22 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
     const w = await attempt(m.whatCreateWorkspace, () => mutations.create.mutateAsync(trimmed));
     if (!w) return;
     setName("");
-    setCreating(false);
+    setCreating(null);
     onOpen(w.id);
   };
+
+  const createFolder = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const folder = await attempt(m.whatCreateFolder, () => mutations.createFolder.mutateAsync(trimmed));
+    if (!folder) return;
+    setName("");
+    setCreating(null);
+  };
+
+  const renameFolder = (folder: WorkspaceFolder, next: string) =>
+    attempt(m.whatRenameFolder, () => mutations.renameFolder.mutateAsync({ id: folder.id, name: next }));
 
   const count = workspaces?.length ?? 0;
   const showingArchived = filter === "archived";
@@ -151,6 +189,23 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   /** Where the canvas and the agents go when the active workspace is deleted (the list is most recent first). */
   const successor = deleting?.active ? workspaces?.find((w) => w.id !== deleting.id) : undefined;
   const countLabel = workspaces ? (showingArchived ? m.overviewArchivedCount(count) : m.overviewCount(count)) : m.loading;
+  const rows = (): Array<{ kind: "card"; w: Workspace } | { kind: "head" | "empty"; folder: WorkspaceFolder }> => {
+    if (!workspaces) return [];
+    if (showingArchived || folders.length === 0) return workspaces.map((w) => ({ kind: "card" as const, w }));
+    const out: Array<{ kind: "card"; w: Workspace } | { kind: "head" | "empty"; folder: WorkspaceFolder }> = [];
+    const unfiled = workspaces.filter((w) => !w.folderId);
+    if (unfiled.length > 0) {
+      out.push({ kind: "head", folder: { id: "", name: m.overviewNoFolder, updatedAt: 0 } });
+      for (const w of unfiled) out.push({ kind: "card", w });
+    }
+    for (const folder of folders) {
+      const items = workspaces.filter((w) => w.folderId === folder.id);
+      out.push({ kind: "head", folder });
+      if (items.length === 0) out.push({ kind: "empty", folder });
+      for (const w of items) out.push({ kind: "card", w });
+    }
+    return out;
+  };
   return (
     <div className="grid h-full grid-rows-[44px_1fr]">
       <header className={bar.topbar}>
@@ -171,7 +226,7 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
             <h1 className="mx-0 mt-0 mb-1.5 text-xl font-[650]">{m.overviewHeading}</h1>
             <p className="m-0 text-muted">{m.overviewLead(countLabel)}</p>
           </div>
-          {creating ? (
+          {creating === "workspace" ? (
             <form className="flex items-center gap-2" onSubmit={create}>
               <Input
                 className="w-60 max-w-[50vw]"
@@ -181,19 +236,43 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                 value={name}
                 maxLength={120}
                 onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === "Escape" && setCreating(false)}
+                onKeyDown={(e) => e.key === "Escape" && setCreating(null)}
               />
               <Button type="submit" disabled={mutations.create.isPending}>
                 {m.createWorkspace}
               </Button>
-              <Button type="button" variant="secondary" onClick={() => setCreating(false)}>
+              <Button type="button" variant="secondary" onClick={() => setCreating(null)}>
+                {m.cancel}
+              </Button>
+            </form>
+          ) : creating === "folder" ? (
+            <form className="flex items-center gap-2" onSubmit={createFolder}>
+              <Input
+                className="w-60 max-w-[50vw]"
+                autoFocus
+                aria-label={m.folderName}
+                placeholder={m.folderName}
+                value={name}
+                maxLength={120}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Escape" && setCreating(null)}
+              />
+              <Button type="submit" disabled={mutations.createFolder.isPending}>
+                {m.createFolder}
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setCreating(null)}>
                 {m.cancel}
               </Button>
             </form>
           ) : (
-            <Button onClick={() => setCreating(true)}>
-              <Plus className="-ml-0.5" size={15} aria-hidden /> {m.newWorkspace}
-            </Button>
+            <span className="flex items-center gap-2">
+              <Button type="button" variant="secondary" onClick={() => { setName(""); setCreating("folder"); }}>
+                <FolderPlus className="-ml-0.5" size={15} aria-hidden /> {m.newFolder}
+              </Button>
+              <Button onClick={() => { setName(""); setCreating("workspace"); }}>
+                <Plus className="-ml-0.5" size={15} aria-hidden /> {m.newWorkspace}
+              </Button>
+            </span>
           )}
         </div>
         <div className="mb-4 flex gap-2" role="group" aria-label={m.overviewFilterArchived}>
@@ -224,7 +303,40 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
         )}
         {showingArchived && workspaces?.length === 0 && <p className="m-0 text-muted">{m.overviewArchivedEmpty}</p>}
         <ul className="grid list-none grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 p-0" aria-label={m.overviewHeading}>
-          {workspaces?.map((w) => (
+          {rows().map((row) => {
+            if (row.kind !== "card") {
+              return (
+            <li
+              key={`${row.kind}-${row.folder.id || "root"}`}
+              className={cn("col-span-full", row.kind === "head" && row.folder.id && "workspace-folder")}
+              data-folder-id={row.kind === "head" && row.folder.id ? row.folder.id : undefined}
+            >
+              {row.kind === "empty" ? (
+                <p className="m-0 text-muted">{m.overviewFolderEmpty}</p>
+              ) : renamingFolder === row.folder.id && row.folder.id ? (
+                <InlineName
+                  className={cx(ui.renameInput, "px-1.5 py-0.5 text-md font-semibold")}
+                  label={m.folderName}
+                  value={row.folder.name}
+                  maxLength={120}
+                  onCommit={(next) => void renameFolder(row.folder, next)}
+                  onDone={() => setRenamingFolder(null)}
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h2 className="folder-name m-0 text-md font-[650]">{row.folder.name}</h2>
+                  {row.folder.id && (
+                    <Button type="button" variant="ghost" className={iconAction} aria-label={m.overviewRenameFolderAria(row.folder.name)} onClick={() => setRenamingFolder(row.folder.id)}>
+                      <Pencil size={16} />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </li>
+              );
+            }
+            const w = row.w;
+            return (
             <li key={w.id} className="group relative">
               <Card
                 role="button"
@@ -247,10 +359,13 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                   void setCover(w.id, file);
                 }}
                 data-workspace-id={w.id}
+                data-folder-id={w.folderId || undefined}
               >
                 <span className="workspace-tile grid h-32 place-items-center overflow-hidden border-b border-ui-border text-tile font-bold" style={tile(hue(w.id))} aria-hidden>
                   {w.cover ? (
                     <img className="workspace-cover size-full object-cover object-top" src={w.cover} alt="" draggable={false} />
+                  ) : w.preview?.length ? (
+                    <LiveThumb shapes={w.preview} />
                   ) : (
                     (w.name.trim()[0] ?? "?").toUpperCase()
                   )}
@@ -292,6 +407,19 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                       <Pencil size={16} />
                     </Button>
                   </Hint>
+                  {folders.length > 0 && (
+                    <select
+                      className="workspace-move h-7 max-w-28 truncate rounded-md bg-transparent px-1 text-xs"
+                      aria-label={m.overviewMoveAria(w.name)}
+                      value={w.folderId}
+                      onChange={(e) => void attempt(m.whatMoveWorkspace, () => mutations.move.mutateAsync({ id: w.id, folderId: e.target.value }))}
+                    >
+                      <option value="">{m.overviewNoFolder}</option>
+                      {folders.map((folder) => (
+                        <option key={folder.id} value={folder.id}>{folder.name}</option>
+                      ))}
+                    </select>
+                  )}
                   <Hint label={m.overviewCoverHint(!!w.cover)}>
                     <Button
                       type="button"
@@ -384,7 +512,8 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                 </span>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
         <input
           ref={coverInput}

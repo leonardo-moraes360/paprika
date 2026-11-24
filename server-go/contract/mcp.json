@@ -5036,7 +5036,7 @@
     {
       "name": "list_workspaces",
       "title": "List workspaces",
-      "description": "Workspaces this server can open (each one is a document), most recently updated first, and which one is active. Archived workspaces are hidden unless includeArchived is true; each workspace reports archived. Every other tool reads and writes the active workspace, the same one the human sees on the canvas. An archived workspace can still be read or written by id.",
+      "description": "Workspaces this server can open (each one is a document), most recently updated first, and which one is active. Archived workspaces are hidden unless includeArchived is true; each workspace reports archived. Every other tool reads and writes the active workspace, the same one the human sees on the canvas. An archived workspace can still be read or written by id. Each workspace has folderId (empty at the root) and preview (shapes for the live thumbnail). folders lists the overview folders.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -5082,11 +5082,31 @@
                     "string",
                     "null"
                   ],
-                  "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                  "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
                 },
                 "archived": {
                   "type": "boolean",
                   "description": "True when the workspace is archived and hidden from the default list"
+                },
+                "folderId": {
+                  "type": "string",
+                  "description": "Folder id, or empty when the workspace sits at the root of the overview"
+                },
+                "preview": {
+                  "type": "array",
+                  "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": { "type": "number" },
+                      "y": { "type": "number" },
+                      "w": { "type": "number" },
+                      "h": { "type": "number" },
+                      "fill": { "type": "string" }
+                    },
+                    "required": ["x", "y", "w", "h", "fill"],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": [
@@ -5096,15 +5116,31 @@
                 "updatedAt",
                 "active",
                 "cover",
-                "archived"
+                "archived",
+                "folderId",
+                "preview"
               ],
+              "additionalProperties": false
+            }
+          },
+          "folders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "updatedAt": { "type": "number", "description": "Unix ms of the last rename or create" }
+              },
+              "required": ["id", "name", "updatedAt"],
               "additionalProperties": false
             }
           }
         },
         "required": [
           "active",
-          "workspaces"
+          "workspaces",
+          "folders"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
@@ -5119,7 +5155,7 @@
     {
       "name": "list_workspace_ops",
       "title": "Workspace operations log",
-      "description": "Workspace operations in this server: create, rename, open, archive, unarchive and delete, each with who acted (\"user\" for the canvas and its HTTP API, or the agent's name over MCP), when, and which workspace. Newest first, optionally narrowed to one workspace. A delete entry carries the same summary delete_workspace returns, which is what a canvas notice shows. Entries outlive the workspace they name. This is not the document's undo history: that is get_history.",
+      "description": "Workspace operations in this server: create, rename, open, archive, unarchive, delete and move, each with who acted (\"user\" for the canvas and its HTTP API, or the agent's name over MCP), when, and which workspace. Newest first, optionally narrowed to one workspace. A delete entry carries the same summary delete_workspace returns, which is what a canvas notice shows. Entries outlive the workspace they name. This is not the document's undo history: that is get_history.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -5248,11 +5284,31 @@
                   "string",
                   "null"
                 ],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
               "archived": {
                 "type": "boolean",
                 "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -5262,7 +5318,9 @@
               "updatedAt",
               "active",
               "cover",
-              "archived"
+              "archived",
+              "folderId",
+              "preview"
             ],
             "additionalProperties": false
           },
@@ -5330,11 +5388,31 @@
                   "string",
                   "null"
                 ],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
               "archived": {
                 "type": "boolean",
                 "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -5344,7 +5422,9 @@
               "updatedAt",
               "active",
               "cover",
-              "archived"
+              "archived",
+              "folderId",
+              "preview"
             ],
             "additionalProperties": false
           }
@@ -5352,6 +5432,188 @@
         "required": [
           "workspace"
         ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_folder",
+      "title": "Create folder",
+      "description": "Creates an overview folder. It holds no workspace until move_workspace. It does not switch the canvas.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Folder name shown on the overview"
+          }
+        },
+        "required": ["name"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "folder": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "updatedAt": { "type": "number", "description": "Unix ms of the last rename or create" }
+              },
+              "required": ["id", "name", "updatedAt"],
+              "additionalProperties": false
+            }
+        },
+        "required": ["folder"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "rename_folder",
+      "title": "Rename folder",
+      "description": "Renames an overview folder. Workspaces inside it stay put.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Folder id (from list_workspaces)"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "New name (trimmed, must not be blank)"
+          }
+        },
+        "required": ["id", "name"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "folder": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "updatedAt": { "type": "number", "description": "Unix ms of the last rename or create" }
+              },
+              "required": ["id", "name", "updatedAt"],
+              "additionalProperties": false
+            }
+        },
+        "required": ["folder"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "move_workspace",
+      "title": "Move workspace",
+      "description": "Moves a workspace into an overview folder, or back to the root when folderId is null or empty. Does not switch the canvas or change the document.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Workspace id (from list_workspaces)"
+          },
+          "folderId": {
+            "type": ["string", "null"],
+            "maxLength": 64,
+            "description": "Folder id, or null or empty to leave it at the root"
+          }
+        },
+        "required": ["id", "folderId"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "workspace": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "nodes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updatedAt": {
+                "type": "number",
+                "description": "Unix ms of the last write"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "cover": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
+              },
+              "archived": {
+                "type": "boolean",
+                "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "nodes",
+              "updatedAt",
+              "active",
+              "cover",
+              "archived",
+              "folderId",
+              "preview"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": ["workspace"],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
       },
@@ -5429,11 +5691,31 @@
                   "string",
                   "null"
                 ],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
               "archived": {
                 "type": "boolean",
                 "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -5443,7 +5725,9 @@
               "updatedAt",
               "active",
               "cover",
-              "archived"
+              "archived",
+              "folderId",
+              "preview"
             ],
             "additionalProperties": false
           },
@@ -5524,11 +5808,31 @@
                   "string",
                   "null"
                 ],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
               "archived": {
                 "type": "boolean",
                 "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -5538,7 +5842,9 @@
               "updatedAt",
               "active",
               "cover",
-              "archived"
+              "archived",
+              "folderId",
+              "preview"
             ],
             "additionalProperties": false
           }
@@ -5584,11 +5890,28 @@
               "active": { "type": "boolean" },
               "cover": {
                 "type": ["string", "null"],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
-              "archived": { "type": "boolean", "description": "True when the workspace is archived and hidden from the default list" }
+              "archived": { "type": "boolean", "description": "True when the workspace is archived and hidden from the default list" },
+              "folderId": { "type": "string", "description": "Folder id, or empty when the workspace sits at the root of the overview" },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
+              }
             },
-            "required": ["id", "name", "nodes", "updatedAt", "active", "cover", "archived"],
+            "required": ["id", "name", "nodes", "updatedAt", "active", "cover", "archived", "folderId", "preview"],
             "additionalProperties": false
           },
           "active": { "type": "string", "description": "Id of the workspace that is active afterwards" }
@@ -5630,11 +5953,28 @@
               "active": { "type": "boolean" },
               "cover": {
                 "type": ["string", "null"],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
-              "archived": { "type": "boolean", "description": "True when the workspace is archived and hidden from the default list" }
+              "archived": { "type": "boolean", "description": "True when the workspace is archived and hidden from the default list" },
+              "folderId": { "type": "string", "description": "Folder id, or empty when the workspace sits at the root of the overview" },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
+              }
             },
-            "required": ["id", "name", "nodes", "updatedAt", "active", "cover", "archived"],
+            "required": ["id", "name", "nodes", "updatedAt", "active", "cover", "archived", "folderId", "preview"],
             "additionalProperties": false
           },
           "active": { "type": "string", "description": "Id of the workspace that is active afterwards" }
@@ -5851,11 +6191,31 @@
                   "string",
                   "null"
                 ],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
               "archived": {
                 "type": "boolean",
                 "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -5865,7 +6225,9 @@
               "updatedAt",
               "active",
               "cover",
-              "archived"
+              "archived",
+              "folderId",
+              "preview"
             ],
             "additionalProperties": false
           }
@@ -6055,7 +6417,7 @@
     {
       "name": "render_screenshot",
       "title": "Screenshot",
-      "description": "PNG of a node (a page: its canvas; without rootId: the canvas, or the first page), rendered by the same engine as the canvas and the export. path writes the PNG under the screenshot directory (the database directory's screenshots/, or PAPRIKA_SCREENSHOTS); a path that leaves that directory is refused. With path the result is {path, width, height, url} and no image bytes; url is /api/screenshot/<id>. Without path the image is returned as before, plus url. mode paints the subtree in that theme mode (light, dark, …); omitted, a subtree keeps the mode it inherits from its frame or page. A missing or mismatched Chromium returns the command: pnpm --filter @paprika/e2e exec playwright install chromium.",
+      "description": "PNG of a node (a page: its canvas; without rootId: the canvas, or the first page), rendered by the same engine as the canvas and the export. path writes the PNG under the screenshot directory (the database directory's screenshots/, or PAPRIKA_SCREENSHOTS); a path that leaves that directory is refused. With path the result is {path, width, height, url} and no image bytes; url is /api/screenshot/<id>. Without path the image is returned as before, plus url. mode paints the subtree in that theme mode (light, dark, …); omitted, a subtree keeps the mode it inherits from its frame or page. A missing or mismatched Chromium returns the command: pnpm --filter @paprika/e2e exec playwright install chromium. compare is a PNG, JPEG, GIF or WebP (data URL, raw base64 or a path under PAPRIKA_IMPORT_DIRS) drawn to the right of the screenshot, scaled to the same height, with a gap. The returned width and height are the combined image, and compare is true.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6073,6 +6435,10 @@
           },
           "mode": {
             "type": "string"
+          },
+          "compare": {
+            "type": "string",
+            "description": "PNG, JPEG, GIF or WebP (data URL, raw base64 or a path under PAPRIKA_IMPORT_DIRS) drawn to the right of the screenshot, scaled to the same height"
           },
           "workspaceId": {
             "description": "Workspace to read or write. Omit it to use the active workspace (the human's canvas). Does not switch the canvas.",
@@ -6100,6 +6466,10 @@
           },
           "url": {
             "type": "string"
+          },
+          "compare": {
+            "type": "boolean",
+            "description": "True when a compare image was placed on the right"
           }
         },
         "required": [
@@ -7091,6 +7461,68 @@
           "workspaceId",
           "workspaceName"
         ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "place_reference",
+      "title": "Place reference image",
+      "description": "Places an image (data URL or a local path under PAPRIKA_IMPORT_DIRS) as a locked image node at the back of a frame, at 50% opacity unless opacity is set. The image is fitted inside the frame and does not join auto layout. Files over 3500000 bytes are refused.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "src": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000000,
+            "description": "Data URL or a local file path under PAPRIKA_IMPORT_DIRS"
+          },
+          "frameId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Frame the reference sits under (it becomes the back-most child)"
+          },
+          "opacity": {
+            "type": "number",
+            "minimum": 0.05,
+            "maximum": 1,
+            "default": 0.5,
+            "description": "Opacity of the reference. Default 0.5"
+          },
+          "name": {
+            "type": "string",
+            "description": "Layer name. Default Reference"
+          },
+          "workspaceId": {
+            "description": "Workspace to read or write. Omit it to use the active workspace (the human's canvas). Does not switch the canvas.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["src", "frameId"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "frameId": { "type": "string" },
+          "locked": { "type": "boolean" },
+          "opacity": { "type": "number" },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "width": { "type": "number" },
+          "height": { "type": "number" },
+          "warnings": { "type": "array", "items": { "type": "string" } },
+          "version": { "type": "number" },
+          "workspaceId": { "type": "string" },
+          "workspaceName": { "type": "string" }
+        },
+        "required": ["id", "frameId", "locked", "opacity", "x", "y", "width", "height", "warnings", "version", "workspaceId", "workspaceName"],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
       },

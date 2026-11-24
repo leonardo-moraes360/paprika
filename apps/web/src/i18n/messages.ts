@@ -73,6 +73,16 @@ export type Messages = {
   whatRestoreWorkspace: string;
   whatChangeCover: string;
   whatRemoveCover: string;
+  newFolder: string;
+  folderName: string;
+  createFolder: string;
+  overviewFolderEmpty: string;
+  overviewRenameFolderAria: (name: string) => string;
+  overviewMoveAria: (name: string) => string;
+  overviewNoFolder: string;
+  whatCreateFolder: string;
+  whatRenameFolder: string;
+  whatMoveWorkspace: string;
   mcpOn: string;
   disconnectedShort: string;
   openingWorkspace: string;
@@ -475,6 +485,16 @@ const en: Messages = {
   whatRestoreWorkspace: "restore the workspace",
   whatChangeCover: "change the cover",
   whatRemoveCover: "remove the cover",
+  newFolder: "New folder",
+  folderName: "Folder name",
+  createFolder: "Create",
+  overviewFolderEmpty: "No workspaces in this folder.",
+  overviewRenameFolderAria: (name) => `Rename folder ${name}`,
+  overviewMoveAria: (name) => `Move ${name} to a folder`,
+  overviewNoFolder: "No folder",
+  whatCreateFolder: "create the folder",
+  whatRenameFolder: "rename the folder",
+  whatMoveWorkspace: "move the workspace",
   mcpOn: "MCP at /mcp",
   disconnectedShort: "disconnected",
   openingWorkspace: "Opening workspace…",
@@ -873,6 +893,16 @@ const pt: Messages = {
   whatRestoreWorkspace: "restaurar o workspace",
   whatChangeCover: "trocar a capa",
   whatRemoveCover: "remover a capa",
+  newFolder: "Nova pasta",
+  folderName: "Nome da pasta",
+  createFolder: "Criar",
+  overviewFolderEmpty: "Nenhum workspace nesta pasta.",
+  overviewRenameFolderAria: (name) => `Renomear pasta ${name}`,
+  overviewMoveAria: (name) => `Mover ${name} para uma pasta`,
+  overviewNoFolder: "Sem pasta",
+  whatCreateFolder: "criar a pasta",
+  whatRenameFolder: "renomear a pasta",
+  whatMoveWorkspace: "mover o workspace",
   mcpOn: "MCP em /mcp",
   disconnectedShort: "desconectado",
   openingWorkspace: "Abrindo workspace…",

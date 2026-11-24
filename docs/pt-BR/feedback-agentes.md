@@ -238,7 +238,7 @@ Tarefa: desenhar um pimentão vermelho plano (três lóbulos, vãos brancos fino
 |---|-------------|-----------------|----------|------|
 | 76 | Recortar vãos finos de uma forma | Sem operações booleanas nem máscaras, os vãos são traços brancos pintados sobre o corpo vermelho; só funciona em fundo claro e o export não tem furos de verdade | `combine_paths` (`subtract`/`union`/…) no MCP/`apply_ops` feito (PAP-A-003); comando no canvas e `mask` em group / `knockout` no traço ainda abertos | P2 |
 | 77 | Mudar o estilo de um nó e mantê-lo por cima | Ao transformar dois lóbulos preenchidos em traços de vão, eles ficaram sob o corpo; foi preciso um `move_nodes` separado (sem `index` = fim) para corrigir a ordem | Aceitar `index` (ou `"front"`/`"back"`) nas props do `update_nodes` | P3 |
-| 78 | Decalcar uma imagem de referência | A imagem do usuário chegou ao agente só como imagem; não havia jeito fácil de colocá-la sob o desenho, então cada ponto bezier foi estimado no olho e mapeado com uma escala calculada à mão, em três rodadas de screenshot | Opção `reference` no `create_nodes`/`import_svg` (ou nó `image` a partir de arquivo local) travada a 50% de opacidade, e `render_screenshot` com uma imagem `compare` lado a lado | P2 |
+| 78 | Decalcar uma imagem de referência | A imagem do usuário chegou ao agente só como imagem; não havia jeito fácil de colocá-la sob o desenho, então cada ponto bezier foi estimado no olho e mapeado com uma escala calculada à mão, em três rodadas de screenshot | Feito (2026-11-24, PAP-B-094): `place_reference` põe uma imagem travada a 50% de opacidade no fundo de um frame, e `render_screenshot` com `compare` desenha essa imagem à direita | — |
 | 79 | Salvar o screenshot em arquivo | `render_screenshot` só devolve a imagem ao agente; gravar o PNG no repo exigiu copiar o blob em cache do cliente | Feito (2026-11-22, PAP-B-062): `path` opcional no diretório de screenshots, e `url` `/api/screenshot/<id>` | — |
 
 - Um `viewBox` comum em todos os paths deixou a iteração trivial: cada camada usa as mesmas coordenadas 400×400, e redesenhar a silhueta foi um único `update_nodes`.
@@ -861,4 +861,15 @@ Tarefa: desenhar o conta-gotas, as alças das pontas e os três contornos novos 
 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (fundo máximo 15060, frames em 15240).
+- Os bytes de `render_screenshot` foram gravados nos PNGs a partir do resultado da ferramenta.
+
+## 2026-11-24: pastas, miniaturas ao vivo e camada de referência (PAP-B-094, design first)
+
+Tarefa: desenhar a visão geral com pastas e miniaturas ao vivo, e uma referência travada sob um frame ao lado da comparação, antes de codificar, na página `Interfaces` do workspace `Paprica · UI` (`cmio9n368k`). Quatro frames (`b094-overview-light`, `b094-overview-dark`, `b094-reference-light`, `b094-reference-dark`) em y=16400. PNGs em `docs/assets/boards/PAP-B-094/`. `lint_design` nessas raízes: 0 depois do ajuste abaixo.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 151 | Rótulo escuro de "Novo workspace" com contraste, e um card que caiba no frame | A primeira passada usou `#fffaf7` sobre `#e07a5f` (2.85:1) e pôs o card solto em y=368 num frame de 520, então ele cortava | Tinta `#141827` nesse acento, e frame de 560. Igual ao #123: a caixa de conteúdo da página é 0×0, então o `y` veio de uma varredura de profundidade 1 (fundo máximo 16240, frames em 16400) | — |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Os bytes de `render_screenshot` foram gravados nos PNGs a partir do resultado da ferramenta.

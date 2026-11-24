@@ -177,6 +177,8 @@ var apiOpsBody = z.Object(
 
 // POST /api/workspaces: name of the new workspace (blank: "Untitled").
 var workspaceBody = z.Object(z.Field{Name: "name", Schema: z.Optional(z.String().Max(120))})
+var folderBody = z.Object(z.Field{Name: "name", Schema: z.String().Min(1).Max(120)})
+var moveFolderBody = z.Object(z.Field{Name: "folderId", Schema: z.Nullable(z.String().Max(64))})
 
 // PATCH /api/workspaces/{id}: new name (trimmed, not blank).
 var renameWorkspaceBody = z.Object(z.Field{Name: "name", Schema: z.String().Max(120)})
@@ -410,7 +412,12 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 				send(c.Writer, 500, errBody(err.Error()), "")
 				return
 			}
-			send(c.Writer, 200, jsonv.NewObject("active", store.DocID(), "workspaces", jsonv.FromGo(ws)), "")
+			folders, err := store.ListFolders()
+			if err != nil {
+				send(c.Writer, 500, errBody(err.Error()), "")
+				return
+			}
+			send(c.Writer, 200, jsonv.NewObject("active", store.DocID(), "workspaces", jsonv.FromGo(ws), "folders", jsonv.FromGo(folders)), "")
 		case http.MethodPost:
 			body, present, err := readBody(c.Request)
 			if err != nil {
@@ -536,6 +543,118 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(c.Writer, 500, errBody(err.Error()), "")
 		default:
 			send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+		}
+	})
+	engine.Any("/api/workspaces/:id/folder", func(c *gin.Context) {
+		if c.Request.Method != http.MethodPost {
+			send(c.Writer, 405, errBody("method not allowed"), "")
+			return
+		}
+		id := c.Param("id")
+		body, present, err := readBody(c.Request)
+		if err != nil {
+			if he, ok := errors.AsType[*httpError](err); ok {
+				send(c.Writer, he.status, errBody(he.msg), "")
+				return
+			}
+			send(c.Writer, 500, errBody(err.Error()), "")
+			return
+		}
+		if !present {
+			body = jsonv.NewObject()
+		}
+		parsed, err := z.Parse(moveFolderBody, body)
+		if err != nil {
+			send(c.Writer, 400, errBody(err.Error()), "")
+			return
+		}
+		folderID := ""
+		if v, ok := parsed.(*jsonv.Object).Get("folderId"); ok && v != nil {
+			s, ok := v.(string)
+			if !ok {
+				send(c.Writer, 400, errBody("folderId must be a string or null"), "")
+				return
+			}
+			folderID = s
+		}
+		info, err := store.MoveWorkspace(id, folderID, "user")
+		switch {
+		case errors.Is(err, ErrNoWorkspace):
+			send(c.Writer, 404, errBody(`workspace "`+id+`" does not exist`), "")
+		case errors.Is(err, ErrNoFolder):
+			send(c.Writer, 404, errBody(`folder "`+strings.TrimSpace(folderID)+`" does not exist`), "")
+		case err != nil:
+			send(c.Writer, 500, errBody(err.Error()), "")
+		default:
+			send(c.Writer, 200, jsonv.NewObject("workspace", jsonv.FromGo(info)), "")
+		}
+	})
+	engine.Any("/api/folders", func(c *gin.Context) {
+		if c.Request.Method != http.MethodPost {
+			send(c.Writer, 405, errBody("method not allowed"), "")
+			return
+		}
+		body, present, err := readBody(c.Request)
+		if err != nil {
+			if he, ok := errors.AsType[*httpError](err); ok {
+				send(c.Writer, he.status, errBody(he.msg), "")
+				return
+			}
+			send(c.Writer, 500, errBody(err.Error()), "")
+			return
+		}
+		if !present {
+			body = jsonv.NewObject()
+		}
+		parsed, err := z.Parse(folderBody, body)
+		if err != nil {
+			send(c.Writer, 400, errBody(err.Error()), "")
+			return
+		}
+		folder, err := store.CreateFolder(parsed.(*jsonv.Object).Str("name"))
+		if errors.Is(err, ErrBlankName) {
+			send(c.Writer, 400, errBody(err.Error()), "")
+			return
+		}
+		if err != nil {
+			send(c.Writer, 500, errBody(err.Error()), "")
+			return
+		}
+		send(c.Writer, 201, jsonv.NewObject("folder", jsonv.FromGo(folder)), "")
+	})
+	engine.Any("/api/folders/:id", func(c *gin.Context) {
+		if c.Request.Method != http.MethodPatch {
+			send(c.Writer, 405, errBody("method not allowed"), "")
+			return
+		}
+		id := c.Param("id")
+		body, present, err := readBody(c.Request)
+		if err != nil {
+			if he, ok := errors.AsType[*httpError](err); ok {
+				send(c.Writer, he.status, errBody(he.msg), "")
+				return
+			}
+			send(c.Writer, 500, errBody(err.Error()), "")
+			return
+		}
+		if !present {
+			body = jsonv.NewObject()
+		}
+		parsed, err := z.Parse(folderBody, body)
+		if err != nil {
+			send(c.Writer, 400, errBody(err.Error()), "")
+			return
+		}
+		folder, err := store.RenameFolder(id, parsed.(*jsonv.Object).Str("name"))
+		switch {
+		case errors.Is(err, ErrNoFolder):
+			send(c.Writer, 404, errBody(`folder "`+id+`" does not exist`), "")
+		case errors.Is(err, ErrBlankName):
+			send(c.Writer, 400, errBody(err.Error()), "")
+		case err != nil:
+			send(c.Writer, 500, errBody(err.Error()), "")
+		default:
+			send(c.Writer, 200, jsonv.NewObject("folder", jsonv.FromGo(folder)), "")
 		}
 	})
 	engine.Any("/api/workspaces/:id/archive", func(c *gin.Context) { postWorkspace(c, store, store.ArchiveWorkspace) })
