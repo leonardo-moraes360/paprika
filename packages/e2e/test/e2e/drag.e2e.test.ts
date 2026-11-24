@@ -506,33 +506,39 @@ describe.skipIf(!existsSync(webRoot))("E2E: drag and drop reparent e arquivos (P
       "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR42mP8z8BQz0AEYBxVSF+FAP5FDvcfRYWgAAAAAElFTkSuQmCC",
       "base64",
     );
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="#c43d27"/></svg>`;
     const before = Object.keys((await server.doc()).nodes).length;
-    const vp = (await page.getByTestId("viewport").boundingBox())!;
-    await page.evaluate(
-      async ({ pngB64, svgText, x, y }) => {
-        const dt = new DataTransfer();
-        const pngFile = new File([Uint8Array.from(atob(pngB64), (c) => c.charCodeAt(0))], "pixel.png", { type: "image/png" });
-        const svgFile = new File([svgText], "box.svg", { type: "image/svg+xml" });
-        dt.items.add(pngFile);
-        const target = document.querySelector('[data-testid="viewport"]')!;
-        target.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt }));
-        target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
-        const drop = new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt });
-        target.dispatchEvent(drop);
-        const dt2 = new DataTransfer();
-        dt2.items.add(svgFile);
-        target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x + 40, clientY: y + 40, dataTransfer: dt2 }));
-      },
-      { pngB64: png.toString("base64"), svgText: svg, x: vp.x + 200, y: vp.y + 120 },
-    );
+    const at = await page.evaluate(async (pngB64) => {
+      const frame = document.querySelector('[data-paprika-id="login"]')!.getBoundingClientRect();
+      const zoom = new DOMMatrix(getComputedStyle(document.querySelector(".world")!).transform).a || 1;
+      const dt = new DataTransfer();
+      dt.items.add(new File([Uint8Array.from(atob(pngB64), (c) => c.charCodeAt(0))], "pixel.png", { type: "image/png" }));
+      const target = document.querySelector('[data-testid="viewport"]')!;
+      const clientX = frame.left + 16;
+      const clientY = frame.top + 16;
+      target.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt }));
+      target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX, clientY, dataTransfer: dt }));
+      const drop = new DragEvent("drop", { bubbles: true, cancelable: true, clientX, clientY, dataTransfer: dt });
+      target.dispatchEvent(drop);
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="#c43d27"/></svg>`;
+      const dt2 = new DataTransfer();
+      dt2.items.add(new File([svg], "box.svg", { type: "image/svg+xml" }));
+      target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: drop.clientX + 40, clientY: drop.clientY + 40, dataTransfer: dt2 }));
+      const box = document.querySelector('[data-paprika-id="login"]')!.getBoundingClientRect();
+      return { x: Math.round((drop.clientX - box.left) / zoom), y: Math.round((drop.clientY - box.top) / zoom) };
+    }, png.toString("base64"));
     await expect.poll(async () => Object.keys((await server.doc()).nodes).length).toBeGreaterThan(before + 1);
     const nodes = (await server.doc()).nodes;
     const images = Object.values(nodes).filter((n) => (n as { type: string }).type === "image");
     expect(images.length).toBeGreaterThanOrEqual(1);
-    const dropped = images.find((n) => String((n as { src?: string }).src).startsWith("data:image/png"));
+    const dropped = images.find((n) => String((n as { src?: string }).src).startsWith("data:image/png")) as
+      | { src: string; parentId?: string; x: number; y: number; layoutPositioning?: string }
+      | undefined;
     expect(dropped).toBeTruthy();
-    expect((dropped as { src: string }).src).toContain(png.toString("base64"));
+    expect(dropped!.src).toContain(png.toString("base64"));
+    expect(dropped!.parentId).toBe("login");
+    expect(dropped!.layoutPositioning).toBe("absolute");
+    expect(dropped!.x).toBe(at.x);
+    expect(dropped!.y).toBe(at.y);
     await undoOnce();
     await undoOnce();
   }, 30_000);

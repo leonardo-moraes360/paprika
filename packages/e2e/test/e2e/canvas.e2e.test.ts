@@ -801,6 +801,14 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Selecionar" }).click();
     await page.locator('[data-layer-id="login"]').click();
+    const at = await page.evaluate(() => {
+      const vp = document.querySelector('[data-testid="viewport"]')!.getBoundingClientRect();
+      const frame = document.querySelector('[data-paprika-id="login"]')!.getBoundingClientRect();
+      const zoom = new DOMMatrix(getComputedStyle(document.querySelector(".world")!).transform).a || 1;
+      const cx = vp.left + vp.width / 2;
+      const cy = vp.top + vp.height / 2;
+      return { x: Math.round((cx - frame.left) / zoom), y: Math.round((cy - frame.top) / zoom) };
+    });
     const png = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR42mP8z8BQz0AEYBxVSF+FAP5FDvcfRYWgAAAAAElFTkSuQmCC";
     await page.evaluate((b64) => {
       const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -810,10 +818,14 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     }, png);
     const image = async () =>
       Object.values((await doc()).nodes).find((n) => n.type === "image" && typeof n.src === "string" && n.src.startsWith("data:image/png")) as
-        | { src: string; parentId?: string }
+        | { src: string; parentId?: string; x: number; y: number; layoutPositioning?: string }
         | undefined;
     await expect.poll(async () => (await image())?.parentId).toBe("login");
-    expect((await image())!.src).toContain(png);
+    const pasted = (await image())!;
+    expect(pasted.src).toContain(png);
+    expect(pasted.layoutPositioning).toBe("absolute");
+    expect(pasted.x).toBe(at.x);
+    expect(pasted.y).toBe(at.y);
   }, 30_000);
   it("edição ponto a ponto: duplo clique entra, arrasta âncora, insere, remove, alterna suave, Esc sai", async () => {
     await page.keyboard.press("Escape");

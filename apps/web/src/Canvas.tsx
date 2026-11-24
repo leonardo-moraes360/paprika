@@ -58,6 +58,7 @@ import {
   type Document,
   type Layout,
   type Node,
+  type NodeInput,
   type Op,
   type SceneNode,
 } from "@paprika/core";
@@ -224,6 +225,10 @@ const isAbsolute = (doc: Document, n: Node) => {
 };
 
 const isFlowFrame = (n: Node | undefined): boolean => n?.type === "frame" && !!n.layout && n.layout.mode !== "none";
+
+function pinInFlow(parent: Node | undefined, node: NodeInput) {
+  if (isFlowFrame(parent)) node.layoutPositioning = "absolute";
+}
 
 const isUnder = (doc: Document, id: string, ancestor: string): boolean => {
   for (let p = doc.nodes[id]?.parentId; p; p = doc.nodes[p]?.parentId ?? null) if (p === ancestor) return true;
@@ -1285,9 +1290,11 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       const c = localFor(into, vpr.left + vpr.width / 2, vpr.top + vpr.height / 2);
       const at = { x: Math.round(c.x), y: Math.round(c.y) };
       if (image) {
+        const parentId = into ?? pageId;
         void rasterNode(image, at.x, at.y)
           .then(({ id, node }) => {
-            apply([{ op: "create", parentId: into ?? pageId, node }], "colar imagem");
+            pinInFlow(parentId ? doc.nodes[parentId] : undefined, node);
+            apply([{ op: "create", parentId, node }], "colar imagem");
             onSelect([id]);
           })
           .catch((err) => onError?.(`Não deu para colar: ${err instanceof Error ? err.message : String(err)}`));
@@ -1297,7 +1304,10 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         const r = svg ? importSVG(plain, at) : importHTML(html, at);
         if (!r.nodes.length) throw new Error(r.warnings.join("; ") || "nada para colar");
         const ids = r.nodes.map((n) => (n.id = newId()));
-        apply(r.nodes.map((node) => ({ op: "create", parentId: into ?? pageId, node })), svg ? "colar SVG" : "colar HTML");
+        const parentId = into ?? pageId;
+        const parent = parentId ? doc.nodes[parentId] : undefined;
+        for (const node of r.nodes) pinInFlow(parent, node);
+        apply(r.nodes.map((node) => ({ op: "create", parentId, node })), svg ? "colar SVG" : "colar HTML");
         onSelect(ids);
         if (r.warnings.length) onError?.(`Colado com avisos: ${r.warnings.join("; ")}`);
       } catch (err) {
@@ -2473,6 +2483,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         if (refused) throw new Error(refused);
         if (isRasterFile(file)) {
           const made = await rasterNode(file, Math.round(at.x + ox), Math.round(at.y));
+          pinInFlow(into ? doc.nodes[into] : undefined, made.node);
           ids.push(made.id);
           ops.push({ op: "create", parentId: into, node: made.node });
           ox += made.node.width + 16;
@@ -2485,6 +2496,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           for (const node of r.nodes) {
             const id = newId();
             node.id = id;
+            pinInFlow(into ? doc.nodes[into] : undefined, node);
             ids.push(id);
             ops.push({ op: "create", parentId: into, node });
           }
