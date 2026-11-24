@@ -20,6 +20,24 @@ async function workspaceCanvasUrl(base: string): Promise<string> {
   return `${base}/w/${encodeURIComponent(active)}`;
 }
 
+async function toggleUntilReady(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const sel = '[data-testid="renderer-toggle"]';
+    const btn = document.querySelector<HTMLElement>(sel)!;
+    const t0 = performance.now();
+    btn.click();
+    await new Promise<void>((ok) => {
+      const tick = () => {
+        const backend = document.querySelector<HTMLElement>(sel)?.dataset.backend;
+        if (backend === "cpu" || backend === "webgpu") ok();
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    return Math.round(performance.now() - t0);
+  });
+}
+
 async function openCanvas(page: Page, base: string, renderer: "dom" | "wasm") {
   await page.goto(`${await workspaceCanvasUrl(base)}?renderer=${renderer}`);
   await page.waitForSelector('[data-paprika-id="board"]');
@@ -221,20 +239,7 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
       new MutationObserver(snap).observe(btn, { attributes: true, childList: true, subtree: true, characterData: true });
     });
     const toggle = page.getByTestId("renderer-toggle");
-    const coldMs = await page.evaluate(async () => {
-      const btn = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
-      const t0 = performance.now();
-      btn.click();
-      await new Promise<void>((ok) => {
-        const tick = () => {
-          const b = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
-          if (b.dataset.backend === "cpu" || b.dataset.backend === "webgpu") ok();
-          else requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      });
-      return Math.round(performance.now() - t0);
-    });
+    const coldMs = await toggleUntilReady(page);
     await expect.poll(() => toggle.getAttribute("data-backend")).toMatch(/^(cpu|webgpu)$/);
     const cold = await page.evaluate(() => {
       const w = window as unknown as {
@@ -260,20 +265,7 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     await toggle.click();
     await expect.poll(() => toggle.getAttribute("data-backend")).toBe("dom");
     expect((await toggle.textContent())?.trim()).toBe("DOM");
-    const warmMs = await page.evaluate(async () => {
-      const btn = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
-      const t0 = performance.now();
-      btn.click();
-      await new Promise<void>((ok) => {
-        const tick = () => {
-          const b = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
-          if (b.dataset.backend === "cpu" || b.dataset.backend === "webgpu") ok();
-          else requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      });
-      return Math.round(performance.now() - t0);
-    });
+    const warmMs = await toggleUntilReady(page);
     const warm = await page.evaluate(() => {
       const w = window as unknown as { __adapters: number; __devices: number };
       const btn = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
