@@ -809,3 +809,15 @@ Task: draw props, a slot, an instance with values and a nested button inside a c
 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123, still open: `get_document_outline` of `page#interfaces` reported `content` 0×0 and `next` 0,0. The frames went to y=9800, below the content that a depth-1 scan already showed.
+
+## 2026-11-24: gap and padding handles (PAP-B-092, design first)
+
+Task: draw the spacing bars on a selected auto-layout frame before coding them, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b092-before-light`, `b092-after-light`, `b092-before-dark`, `b092-after-dark`) at y=13600. PNGs in `docs/assets/boards/PAP-B-092/`. `lint_design` on those roots: 0.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 147 | `paprika export --db` of the board the script just drew | The database is the compose volume, not a file on the host. The active workspace was already `Paprica · UI`, so `GET /api/export` is that document and was written to `docs/design/boards.paprika.json` | Same as #100 / #113: an `export_document` tool with `workspaceId`, or a host path for the volume | P2 |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123, still open: `get_document_outline` of `page#interfaces` reported a 0×0 content box, so `y` came from a depth-1 scan (max bottom 13440, frames at 13600).
+- Same as #129: `render_screenshot` bytes were written to the PNGs from the tool result.

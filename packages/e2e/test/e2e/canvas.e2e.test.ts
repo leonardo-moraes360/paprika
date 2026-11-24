@@ -1539,6 +1539,107 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(after.y).toBeLessThan(before.y);
   }, 30_000);
 
+  it("auto layout: alças de gap e padding, um desfazer por arraste", async () => {
+    const POLL = { timeout: 10_000 };
+    await page.keyboard.press("Escape");
+    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const created = await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId,
+        label: "frame com espaço",
+        nodes: [
+          {
+            type: "frame",
+            id: "space-frame",
+            name: "Space",
+            x: 40,
+            y: 720,
+            width: 280,
+            height: 140,
+            fill: "#ffffff",
+            layout: { mode: "row", gap: 8, padding: 12, align: "start", justify: "start" },
+          },
+          { type: "rect", id: "space-free", name: "Free", x: 360, y: 720, width: 80, height: 50, fill: "#d9d4cf" },
+        ],
+      },
+    });
+    expect(created.isError).toBeFalsy();
+    const kids = await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        parentId: "space-frame",
+        label: "filhos do frame",
+        nodes: [
+          { type: "rect", id: "space-a", width: 80, height: 60, fill: "#d9d4cf" },
+          { type: "rect", id: "space-b", width: 80, height: 60, fill: "#c43d27" },
+        ],
+      },
+    });
+    expect(kids.isError).toBeFalsy();
+    await expect.poll(async () => (await doc()).nodes["space-b"]?.type, POLL).toBe("rect");
+    await page.getByRole("button", { name: "Enquadrar" }).click();
+    await page.locator('[data-layer-id="space-free"]').click();
+    await expect.poll(() => page.locator("[data-spacing]").count(), POLL).toBe(0);
+    await page.locator('[data-layer-id="space-frame"]').click();
+    await expect.poll(() => page.locator("[data-spacing]").count(), POLL).toBe(5);
+
+    const layoutOf = async () => ((await doc()).nodes["space-frame"] as FrameNode).layout!;
+    expect((await layoutOf()).gap).toBe(8);
+    const gap = page.locator('[data-spacing="gap-0"]');
+    const box = (await gap.boundingBox())!;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(cx + 48, cy, { steps: 6 });
+    expect((await layoutOf()).gap).toBe(8);
+    await page.mouse.up();
+    await expect.poll(async () => (await layoutOf()).gap as number, POLL).toBeGreaterThan(8);
+    const dragged = (await layoutOf()).gap;
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect.poll(async () => (await layoutOf()).gap, POLL).toBe(8);
+    await page.keyboard.press("ControlOrMeta+Shift+z");
+    await expect.poll(async () => (await layoutOf()).gap, POLL).toBe(dragged);
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect.poll(async () => (await layoutOf()).gap, POLL).toBe(8);
+
+    const top = page.locator('[data-spacing="padding-top"]');
+    const tb = (await top.boundingBox())!;
+    const tx = tb.x + tb.width / 2;
+    const ty = tb.y + tb.height / 2;
+    await page.mouse.move(tx, ty);
+    await page.mouse.down();
+    await page.mouse.move(tx, ty + 30, { steps: 5 });
+    expect((await layoutOf()).padding).toBe(12);
+    await page.mouse.up();
+    await expect
+      .poll(async () => {
+        const p = (await layoutOf()).padding;
+        return Array.isArray(p) && (p[0] as number) > 12 && p[1] === 12 && p[2] === 12 && p[3] === 12;
+      }, POLL)
+      .toBe(true);
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect.poll(async () => (await layoutOf()).padding, POLL).toBe(12);
+
+    await page.keyboard.down("Alt");
+    const left = page.locator('[data-spacing="padding-left"]');
+    const lb = (await left.boundingBox())!;
+    const lx = lb.x + lb.width / 2;
+    const ly = lb.y + lb.height / 2;
+    await page.mouse.move(lx, ly);
+    await page.mouse.down();
+    await page.mouse.move(lx + 24, ly, { steps: 5 });
+    await page.mouse.up();
+    await page.keyboard.up("Alt");
+    await expect
+      .poll(async () => {
+        const p = (await layoutOf()).padding;
+        return typeof p === "number" && p > 12;
+      }, POLL)
+      .toBe(true);
+  }, 40_000);
+
   it("seleção rotacionada: alças nos cantos da caixa e o marquee ignora o canto vazio", async () => {
     const POLL = { timeout: 10_000 };
     await page.keyboard.press("Escape");

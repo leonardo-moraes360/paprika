@@ -812,3 +812,15 @@ Tarefa: desenhar props, um slot, uma instância com valores e um botão aninhado
 
 - Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
 - Igual ao #123, ainda aberto: `get_document_outline` de `page#interfaces` devolveu `content` 0×0 e `next` 0,0. Os frames foram para y=9800, abaixo do conteúdo que uma varredura de profundidade 1 já mostrava.
+
+## 2026-11-24: alças de gap e padding (PAP-B-092, design first)
+
+Tarefa: desenhar as barras de espaço num frame com auto layout selecionado antes de codificá-las, na página `Interfaces` do workspace `Paprica · UI` (`cmio9n368k`). Quatro frames (`b092-before-light`, `b092-after-light`, `b092-before-dark`, `b092-after-dark`) em y=13600. PNGs em `docs/assets/boards/PAP-B-092/`. `lint_design` nessas raízes: 0.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 147 | `paprika export --db` do board que o script acabou de desenhar | O banco está no volume do compose, não num arquivo no host. O workspace ativo já era `Paprica · UI`, então `GET /api/export` é esse documento e foi gravado em `docs/design/boards.paprika.json` | Igual ao #100 / #113: uma ferramenta `export_document` com `workspaceId`, ou um caminho no host para o volume | P2 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #123, ainda aberto: `get_document_outline` de `page#interfaces` devolveu caixa de conteúdo 0×0, então o `y` veio de uma varredura de profundidade 1 (fundo máximo 13440, frames em 13600).
+- Igual ao #129: os bytes de `render_screenshot` foram gravados nos PNGs a partir do resultado da ferramenta.
