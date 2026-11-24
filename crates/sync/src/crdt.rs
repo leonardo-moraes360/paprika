@@ -204,11 +204,9 @@ impl Crdt {
                         .insert("name", value.as_str())
                         .map_err(|e| anyhow!("{e}"))?;
                 }
-                Change::Pin { id, value } => {
-                    write_json_map(&self.doc.get_map("pins"), &id, &value)?
-                }
+                Change::Pin { id, value } => write_json_map(&self.doc.get_map("pins"), id, value)?,
                 Change::Reply { id, value } => {
-                    write_json_map(&self.doc.get_map("replies"), &id, &value)?
+                    write_json_map(&self.doc.get_map("replies"), id, value)?
                 }
             }
         }
