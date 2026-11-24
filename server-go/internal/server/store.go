@@ -50,7 +50,14 @@ CREATE TABLE IF NOT EXISTS documents (
   version    INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
-  archived   INTEGER NOT NULL DEFAULT 0  -- 1: hidden from the overview and list_workspaces
+  archived   INTEGER NOT NULL DEFAULT 0, -- 1: hidden from the overview and list_workspaces
+  folder_id  TEXT NOT NULL DEFAULT ''    -- overview folder, empty = root
+);
+CREATE TABLE IF NOT EXISTS folders (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS tokens (
   doc_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
@@ -154,6 +161,14 @@ func migrateDB(db *sql.DB) error {
 			return err
 		}
 	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('documents') WHERE name = 'folder_id'`).Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		if _, err := db.Exec(`ALTER TABLE documents ADD COLUMN folder_id TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
 	_, err := db.Exec(`INSERT INTO meta(key, value) VALUES ('schema_version', '2')
 		ON CONFLICT(key) DO UPDATE SET value = '2'`)
 	return err
@@ -168,12 +183,13 @@ type DocInfo struct {
 	UpdatedAt int64  `json:"updatedAt"`
 	CoverAt   int64  `json:"-"` // updated_at of its cover image, 0 = no cover
 	Archived  bool   `json:"archived"`
+	FolderID  string `json:"-"`
 }
 
 // ListDocuments lists the documents in a database (most recently updated first).
 func ListDocuments(db *sql.DB) ([]DocInfo, error) {
 	rows, err := db.Query(`SELECT d.id, d.name, d.version, d.updated_at, (SELECT COUNT(*) FROM nodes n WHERE n.doc_id = d.id),
-		COALESCE((SELECT c.updated_at FROM covers c WHERE c.doc_id = d.id), 0), d.archived
+		COALESCE((SELECT c.updated_at FROM covers c WHERE c.doc_id = d.id), 0), d.archived, d.folder_id
 		FROM documents d ORDER BY d.updated_at DESC, d.id`)
 	if err != nil {
 		return nil, err
@@ -183,7 +199,7 @@ func ListDocuments(db *sql.DB) ([]DocInfo, error) {
 	for rows.Next() {
 		var d DocInfo
 		var archived int
-		if err := rows.Scan(&d.ID, &d.Name, &d.Version, &d.UpdatedAt, &d.Nodes, &d.CoverAt, &archived); err != nil {
+		if err := rows.Scan(&d.ID, &d.Name, &d.Version, &d.UpdatedAt, &d.Nodes, &d.CoverAt, &archived, &d.FolderID); err != nil {
 			return nil, err
 		}
 		d.Archived = archived != 0
@@ -1426,13 +1442,15 @@ func (s *Store) Close() error {
 // WorkspaceInfo describes a workspace: one document of the database. Same keys and order as the
 // former TypeScript server, where the workspaces were the *.paprika.json files next to --file.
 type WorkspaceInfo struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Nodes     int    `json:"nodes"`
-	UpdatedAt int64  `json:"updatedAt"`
-	Active    bool   `json:"active"` // the document the canvas and the MCP tools read and write
-	Cover     any    `json:"cover"`  // URL of the cover image (with a cache-busting ?v=), or nil: the card shows the first letter
-	Archived  bool   `json:"archived"`
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
+	Nodes     int            `json:"nodes"`
+	UpdatedAt int64          `json:"updatedAt"`
+	Active    bool           `json:"active"` // the document the canvas and the MCP tools read and write
+	Cover     any            `json:"cover"`  // URL of the cover image (with a cache-busting ?v=), or nil
+	Archived  bool           `json:"archived"`
+	FolderID  string         `json:"folderId"`
+	Preview   []PreviewShape `json:"preview"`
 }
 
 func coverURL(id string, at int64) any {
@@ -1471,7 +1489,15 @@ func (s *Store) listWorkspaces(includeArchived, archivedOnly bool) ([]WorkspaceI
 		if !includeArchived && !archivedOnly && d.Archived {
 			continue
 		}
-		out = append(out, WorkspaceInfo{d.ID, d.Name, d.Nodes, d.UpdatedAt, d.ID == active, coverURL(d.ID, d.CoverAt), d.Archived})
+		preview, err := previewShapes(s.db, d.ID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, WorkspaceInfo{
+			ID: d.ID, Name: d.Name, Nodes: d.Nodes, UpdatedAt: d.UpdatedAt,
+			Active: d.ID == active, Cover: coverURL(d.ID, d.CoverAt), Archived: d.Archived,
+			FolderID: d.FolderID, Preview: preview,
+		})
 	}
 	return out, nil
 }
@@ -1632,7 +1658,7 @@ func (s *Store) CreateWorkspace(name, actor string) (WorkspaceInfo, error) {
 		return WorkspaceInfo{}, err
 	}
 	s.logWorkspaceOp(actor, "create", doc.Str("id"), name, nil)
-	return WorkspaceInfo{doc.Str("id"), name, 0, now, false, nil, false}, nil
+	return s.workspaceInfo(doc.Str("id"))
 }
 
 // ImportWorkspace stores a .paprika.json document as a new workspace without touching the

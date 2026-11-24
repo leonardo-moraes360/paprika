@@ -49,7 +49,7 @@ connector: from/to = {nodeId, side?: auto|top|right|bottom|left} (preso a um nó
   label (texto no meio da rota, na cor do traço: "sim", "não"). x, y, width, height e
   d são calculados a partir das pontas a cada escrita (só leitura): mover uma forma redesenha os conectores dela, e
   apagar um nó apaga os conectores presos a ele.
-Diagramas: draw_diagram recebe nodes (formas) + edges (conectores) e posiciona sozinho as formas sem x/y.
+Diagramas: draw_diagram recebe nodes (formas) + edges (conectores) e posiciona sozinho as formas sem x/y. Setas em cotovelo e arredondadas desviam de outras formas no mesmo pai; retas e curvas não. relayout: true com ids de formas que já existem recalcula essas rotas (e aplica x/y quando vierem) num passo de desfazer.
 
 Cores: #hex, rgb(), rgba() ou "$token" (ver set_tokens). Prefira tokens para cores e tamanhos recorrentes. set_tokens aceita type (color, length, fontFamily, fontWeight, fontSize, lineHeight, letterSpacing) e collection. Um token com tipo é conferido ao gravar e ao usar; sem tipo continua string ou número e ainda entra em qualquer campo de comprimento. fontWeight e lineHeight tipados saem sem unidade nas variáveis CSS; os outros números ficam em px. detach_tokens troca "$nome" pelo literal resolvido no modo do nó.
 Modos de tema: set_tokens com mode ("dark", "compact"…) grava só os tokens que mudam; o valor do modo tem de combinar com o tipo do token. "mode" num frame ou página aplica o modo ao subtree (dá para pôr a mesma tela clara e escura lado a lado). Uma coleção é um nome no token, não um segundo mapa de valores. export_code com cssVariables: true sai com var(--token) e uma regra por modo.

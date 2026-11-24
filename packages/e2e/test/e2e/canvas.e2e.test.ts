@@ -1175,7 +1175,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const list = async () => (await (await fetch(`${url}/api/workspaces`)).json()) as { workspaces: { id: string; name: string; cover: string | null }[] };
     await page.goto(url);
     const demoCard = page.locator(`[data-workspace-id="${demo}"]`);
-    await expect.poll(() => demoCard.locator(".workspace-tile").textContent(), POLL).toBe(demoName.trim()[0]!.toUpperCase());
+    await expect.poll(() => demoCard.locator(".workspace-thumb").count(), POLL).toBe(1);
 
     // The human picks an image file for the card.
     const png = Buffer.from(await (await fetch(`${url}/api/screenshot?root=login`)).arrayBuffer());
@@ -1203,9 +1203,31 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await demoCard.hover();
     await page.getByRole("button", { name: `Remover capa de ${demoName}` }).click();
     await expect.poll(() => img.count(), POLL).toBe(0);
-    await expect.poll(() => demoCard.locator(".workspace-tile").textContent(), POLL).toBe(demoName.trim()[0]!.toUpperCase());
+    await expect.poll(() => demoCard.locator(".workspace-thumb").count(), POLL).toBe(1);
     await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, clear: true } });
   }, 30_000);
+
+  it("overview: cria uma pasta, renomeia e move o card para ela", async () => {
+    const POLL = { timeout: 10_000 };
+    const { id: demo } = await doc();
+    await page.goto(url);
+    await page.getByRole("button", { name: "Nova pasta" }).click();
+    await page.getByRole("textbox", { name: "Nome da pasta" }).fill("Produto");
+    await page.getByRole("button", { name: "Criar" }).click();
+    const folder = page.locator(".workspace-folder");
+    await expect.poll(() => folder.locator(".folder-name").textContent(), POLL).toBe("Produto");
+    await expect.poll(() => page.getByText("Nenhum workspace nesta pasta.").count(), POLL).toBe(1);
+    await folder.getByRole("button", { name: "Renomear pasta Produto" }).click();
+    const name = page.getByRole("textbox", { name: "Nome da pasta" });
+    await name.fill("Marca");
+    await name.press("Enter");
+    await expect.poll(() => folder.locator(".folder-name").textContent(), POLL).toBe("Marca");
+    const card = page.locator(`[data-workspace-id="${demo}"]`);
+    await card.hover();
+    await page.locator("li").filter({ has: card }).locator(".workspace-move").selectOption({ label: "Marca" });
+    await expect.poll(async () => (await card.getAttribute("data-folder-id")) || "", POLL).not.toBe("");
+    await expect.poll(() => page.getByText("Nenhum workspace nesta pasta.").count(), POLL).toBe(0);
+  });
 
   it("aviso: quando um agente apaga o workspace ativo ou troca de workspace, o canvas diz quem fez, o que foi perdido e leva à overview", async () => {
     const POLL = { timeout: 10_000 };

@@ -8,7 +8,8 @@
       "listChanged": true
     }
   },
-  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, layoutPositioning (\"auto\"|\"absolute\", omit = auto), constraints {horizontal: left|right|center|scale, vertical: top|bottom|center|scale} (omit = left/top; applied to non-flow children when the parent frame's numeric width or height changes), fill (color), stroke {color, width: n | \"$token\"}, radius (n | \"$token\", or on frame, rect and image [tl, tr, br, bl] with each corner n | \"$token\"), shadow (one object or a list of up to 8: {x, y, blur, spread: n | \"$token\", color, inner?}), outline {color, width: n | \"$token\", style?: solid|dashed|dotted, offset?}, filter and backdropFilter {blur?: n | \"$token\", saturate? 0..10, grayscale? 0..1, brightness? 0..10, sepia? 0..1, invert? 0..1, hueRotate? -360..360}, notes, lintIgnore (rule names lint_design skips on this node).\nframe: clip (bool), layout {mode: none|row|column, gap (n | \"$token\"), padding (one number or [top, right, bottom, left]; each n | \"$token\"; not two values), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, scaledMock (true: a scaled mock, lint_design skips small-text inside it), mode (theme mode, see below). With row/column layout, children's x/y are ignored unless layoutPositioning is \"absolute\" (the child keeps x/y relative to the parent and is skipped by flow, gap and hug). Omit it or set \"auto\" to stay in the flow.\ntext: text, color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"), lineHeight (n | \"$token\"), letterSpacing (n | \"$token\"), textAlign.\n  runs (optional, up to 200): ranges {start, end} in UTF-16 indexes, sorted, not overlapping; each needs one of fontWeight (100..900 | \"$token\"), color, fontSize (n | \"$token\"), italic: true, href (http(s), mailto, or a path starting with / or #). create_nodes and update_nodes carry runs; null clears them.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https://, data:image/ or $asset), fit (cover|contain|fill), alt, decorative (true skips the missing-alt lint and exports alt=\"\" aria-hidden). $asset names live on the document via set_assets.\nframe and text may set href (relative, #hash, http(s), mailto, tel), exported as <a>. A root frame may set minWidth and maxWidth; export then uses width 100% between those bounds. The canvas keeps the design width.\nconvert_to_path turns rect and ellipse into a path with the same id (radius baked into d).\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes. wrap_nodes puts the same siblings in a new frame (the drawing stays put, one undo). align_nodes (edge: left|center|right|top|middle|bottom) and distribute_nodes (axis: horizontal|vertical, at least 3) move them in one undo. show_all and unlock_all reveal hidden or locked nodes; pageId limits that to one page, and omitting it covers the whole document.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". create_page {ensure: true, name} returns the existing page of that name instead of creating another. Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). It may declare props (text, boolean,\n  variant) and frames or groups inside it may name a slot. An instance is a frame with instanceOf = the component id,\n  an optional scale, propValues and slots (create_instance). Instances may sit inside a component; a cycle is rejected.\n  Children are generated copies, with derived ids and sourceId = the source id or the path slot/id or instance/copy.\n  Changing the component changes every instance. On a copy, update only changes fill, color, text, src, alt, visible,\n  opacity and runs (stored as an override; null goes back to the component). A nested copy is addressed by the path\n  instance/copy, and that path may also carry propValues and slots. On the root, fill becomes an override and\n  width/height/layout/stroke/radius/shadow/clip come from the component (use scale). A text prop drives text and\n  shape text through bind.text; a boolean drives bind.visible; bind.variant omits the node unless every pair matches.\n  Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use get_bounds (absolute boxes + rotated corners) and path_info (bounds plus anchors) before positioning. edit_path moves one anchor or its handles; the index is path_info.anchors index, in the same d coordinates.\nshape: shape (rect|ellipse|diamond|triangle|cylinder|parallelogram|cloud|note), text (centered; top-left on a note), color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"),\n  lineHeight (n | \"$token\"), textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow|rounded|curve), radius (rounded corners), control {x,y} (curve handle in parent coords), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes. set_tokens takes an optional type (color, length, fontFamily, fontWeight, fontSize, lineHeight, letterSpacing) and a collection name. A typed token is checked when it is set and when a node uses it; a token with no type stays a string or number and still fits any length field. A typed fontWeight or lineHeight is unitless in CSS variables; other numeric tokens stay px. detach_tokens replaces \"$name\" on a node with the literal resolved in that node's theme mode.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; a mode value must match the token's type. \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). A collection is a name on the token, not a second value map. export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nPlacement: a new top-level frame leaves x and y unset (or passes place:\"free\") and lands in free space, to the right of the page content, same top, gap 80, wrapping to a new row past 2400px from the content's left. place is \"free\" | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y). Concurrent writers never share a spot. get_document_outline and get_bounds with no ids report the page content box and the next free spot. Draw overlays (modals, menus, toasts) last, or bring them to the front with index:\"front\". A write warns when a new top-level node overlaps another and names the nearest free spot.\n\nPins: the human can point at a node or an area of the canvas and write what to do there (\"Point for the AI\"). Call list_pins first when the human mentions pins, and whenever a write result carries openPins; claim_pin before working on one, reply_pin to add to the thread, resolve_pin with a short reply when done (that reply is stored as an agent message on replies). wait_for_pins waits for new ones.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale (pass type and collection when the token is typed). propose_tokens reads CSS variables, a Tailwind theme or JSON tokens from content you pass (the file text, never a filesystem path) and returns set_tokens operations; it does not write.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning. rootIds (or rootId) lints only those subtrees. groups folds each rule to a count and the first maxIds node ids (default 8), ordered by severity; issues still lists every finding. minSeverity (info|warning|error) drops quieter findings. minFontSize raises the small-text floor (default 12). A frame with scaledMock, or lintIgnore on a node, keeps intentional small type and literal colors out of the list.\n5. render_screenshot to check visually; export_image for PNG/JPEG/WebP/AVIF/PDF without Chromium; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg (paths, text and <use>/<symbol> sprites become editable nodes) or import_html (inline styles, or computed:true so the server renders the HTML in Chromium and inlines computed styles), import_image for a PNG, JPEG, WebP, AVIF or GIF file (.fig and PDF are refused); export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces). Document tools take an optional workspaceId and read or write that workspace without open_workspace and without moving the human's canvas; omit workspaceId to use the active workspace. The outline's first line and every write result include that workspace's id and name. Undo and redo take the same workspaceId and revert only that workspace; each workspace keeps its own history for the life of the process. Edits to the workspace the canvas is showing arrive live; edits to another workspace do not switch the canvas. open_workspace still switches the active workspace for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; archive_workspace hides one from list_workspaces without deleting it (the active one hands over to the most recently updated other workspace that is not archived; the only one cannot be archived) and unarchive_workspace brings it back; opening an archived workspace unarchives it; list_workspaces omits archived workspaces unless includeArchived is true, and each workspace reports archived; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened, archived, unarchived or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",  "tools": [
+  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, layoutPositioning (\"auto\"|\"absolute\", omit = auto), constraints {horizontal: left|right|center|scale, vertical: top|bottom|center|scale} (omit = left/top; applied to non-flow children when the parent frame's numeric width or height changes), fill (color), stroke {color, width: n | \"$token\"}, radius (n | \"$token\", or on frame, rect and image [tl, tr, br, bl] with each corner n | \"$token\"), shadow (one object or a list of up to 8: {x, y, blur, spread: n | \"$token\", color, inner?}), outline {color, width: n | \"$token\", style?: solid|dashed|dotted, offset?}, filter and backdropFilter {blur?: n | \"$token\", saturate? 0..10, grayscale? 0..1, brightness? 0..10, sepia? 0..1, invert? 0..1, hueRotate? -360..360}, notes, lintIgnore (rule names lint_design skips on this node).\nframe: clip (bool), layout {mode: none|row|column, gap (n | \"$token\"), padding (one number or [top, right, bottom, left]; each n | \"$token\"; not two values), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, scaledMock (true: a scaled mock, lint_design skips small-text inside it), mode (theme mode, see below). With row/column layout, children's x/y are ignored unless layoutPositioning is \"absolute\" (the child keeps x/y relative to the parent and is skipped by flow, gap and hug). Omit it or set \"auto\" to stay in the flow.\ntext: text, color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"), lineHeight (n | \"$token\"), letterSpacing (n | \"$token\"), textAlign.\n  runs (optional, up to 200): ranges {start, end} in UTF-16 indexes, sorted, not overlapping; each needs one of fontWeight (100..900 | \"$token\"), color, fontSize (n | \"$token\"), italic: true, href (http(s), mailto, or a path starting with / or #). create_nodes and update_nodes carry runs; null clears them.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https://, data:image/ or $asset), fit (cover|contain|fill), alt, decorative (true skips the missing-alt lint and exports alt=\"\" aria-hidden). $asset names live on the document via set_assets.\nframe and text may set href (relative, #hash, http(s), mailto, tel), exported as <a>. A root frame may set minWidth and maxWidth; export then uses width 100% between those bounds. The canvas keeps the design width.\nconvert_to_path turns rect and ellipse into a path with the same id (radius baked into d).\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes. wrap_nodes puts the same siblings in a new frame (the drawing stays put, one undo). align_nodes (edge: left|center|right|top|middle|bottom) and distribute_nodes (axis: horizontal|vertical, at least 3) move them in one undo. show_all and unlock_all reveal hidden or locked nodes; pageId limits that to one page, and omitting it covers the whole document.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". create_page {ensure: true, name} returns the existing page of that name instead of creating another. Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). It may declare props (text, boolean,\n  variant) and frames or groups inside it may name a slot. An instance is a frame with instanceOf = the component id,\n  an optional scale, propValues and slots (create_instance). Instances may sit inside a component; a cycle is rejected.\n  Children are generated copies, with derived ids and sourceId = the source id or the path slot/id or instance/copy.\n  Changing the component changes every instance. On a copy, update only changes fill, color, text, src, alt, visible,\n  opacity and runs (stored as an override; null goes back to the component). A nested copy is addressed by the path\n  instance/copy, and that path may also carry propValues and slots. On the root, fill becomes an override and\n  width/height/layout/stroke/radius/shadow/clip come from the component (use scale). A text prop drives text and\n  shape text through bind.text; a boolean drives bind.visible; bind.variant omits the node unless every pair matches.\n  Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use get_bounds (absolute boxes + rotated corners) and path_info (bounds plus anchors) before positioning. edit_path moves one anchor or its handles; the index is path_info.anchors index, in the same d coordinates.\nshape: shape (rect|ellipse|diamond|triangle|cylinder|parallelogram|cloud|note), text (centered; top-left on a note), color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"),\n  lineHeight (n | \"$token\"), textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow|rounded|curve), radius (rounded corners), control {x,y} (curve handle in parent coords), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you. Elbow and rounded arrows route around other shapes with the same parent; straight and curve do not. relayout: true with existing shape ids recomputes those routes (and applies x/y when given) in one undo step.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes. set_tokens takes an optional type (color, length, fontFamily, fontWeight, fontSize, lineHeight, letterSpacing) and a collection name. A typed token is checked when it is set and when a node uses it; a token with no type stays a string or number and still fits any length field. A typed fontWeight or lineHeight is unitless in CSS variables; other numeric tokens stay px. detach_tokens replaces \"$name\" on a node with the literal resolved in that node's theme mode.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; a mode value must match the token's type. \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). A collection is a name on the token, not a second value map. export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nPlacement: a new top-level frame leaves x and y unset (or passes place:\"free\") and lands in free space, to the right of the page content, same top, gap 80, wrapping to a new row past 2400px from the content's left. place is \"free\" | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y). Concurrent writers never share a spot. get_document_outline and get_bounds with no ids report the page content box and the next free spot. Draw overlays (modals, menus, toasts) last, or bring them to the front with index:\"front\". A write warns when a new top-level node overlaps another and names the nearest free spot.\n\nPins: the human can point at a node or an area of the canvas and write what to do there (\"Point for the AI\"). Call list_pins first when the human mentions pins, and whenever a write result carries openPins; claim_pin before working on one, reply_pin to add to the thread, resolve_pin with a short reply when done (that reply is stored as an agent message on replies). wait_for_pins waits for new ones.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale (pass type and collection when the token is typed). propose_tokens reads CSS variables, a Tailwind theme or JSON tokens from content you pass (the file text, never a filesystem path) and returns set_tokens operations; it does not write.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning. rootIds (or rootId) lints only those subtrees. groups folds each rule to a count and the first maxIds node ids (default 8), ordered by severity; issues still lists every finding. minSeverity (info|warning|error) drops quieter findings. minFontSize raises the small-text floor (default 12). A frame with scaledMock, or lintIgnore on a node, keeps intentional small type and literal colors out of the list.\n5. render_screenshot to check visually; export_image for PNG/JPEG/WebP/AVIF/PDF without Chromium; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg (paths, text and <use>/<symbol> sprites become editable nodes) or import_html (inline styles, or computed:true so the server renders the HTML in Chromium and inlines computed styles), import_image for a PNG, JPEG, WebP, AVIF or GIF file (.fig and PDF are refused); export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces). Document tools take an optional workspaceId and read or write that workspace without open_workspace and without moving the human's canvas; omit workspaceId to use the active workspace. The outline's first line and every write result include that workspace's id and name. Undo and redo take the same workspaceId and revert only that workspace; each workspace keeps its own history for the life of the process. Edits to the workspace the canvas is showing arrive live; edits to another workspace do not switch the canvas. open_workspace still switches the active workspace for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; archive_workspace hides one from list_workspaces without deleting it (the active one hands over to the most recently updated other workspace that is not archived; the only one cannot be archived) and unarchive_workspace brings it back; opening an archived workspace unarchives it; list_workspaces omits archived workspaces unless includeArchived is true, and each workspace reports archived; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened, archived, unarchived or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
+  "tools": [
     {
       "name": "get_design_guide",
       "title": "Format guide",
@@ -5229,7 +5230,7 @@
     {
       "name": "list_workspaces",
       "title": "List workspaces",
-      "description": "Workspaces this server can open (each one is a document), most recently updated first, and which one is active. Archived workspaces are hidden unless includeArchived is true; each workspace reports archived. Every other tool reads and writes the active workspace, the same one the human sees on the canvas. An archived workspace can still be read or written by id.",
+      "description": "Workspaces this server can open (each one is a document), most recently updated first, and which one is active. Archived workspaces are hidden unless includeArchived is true; each workspace reports archived. Every other tool reads and writes the active workspace, the same one the human sees on the canvas. An archived workspace can still be read or written by id. Each workspace has folderId (empty at the root) and preview (shapes for the live thumbnail). folders lists the overview folders.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -5275,11 +5276,31 @@
                     "string",
                     "null"
                   ],
-                  "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                  "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
                 },
                 "archived": {
                   "type": "boolean",
                   "description": "True when the workspace is archived and hidden from the default list"
+                },
+                "folderId": {
+                  "type": "string",
+                  "description": "Folder id, or empty when the workspace sits at the root of the overview"
+                },
+                "preview": {
+                  "type": "array",
+                  "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": { "type": "number" },
+                      "y": { "type": "number" },
+                      "w": { "type": "number" },
+                      "h": { "type": "number" },
+                      "fill": { "type": "string" }
+                    },
+                    "required": ["x", "y", "w", "h", "fill"],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": [
@@ -5289,15 +5310,31 @@
                 "updatedAt",
                 "active",
                 "cover",
-                "archived"
+                "archived",
+                "folderId",
+                "preview"
               ],
+              "additionalProperties": false
+            }
+          },
+          "folders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "updatedAt": { "type": "number", "description": "Unix ms of the last rename or create" }
+              },
+              "required": ["id", "name", "updatedAt"],
               "additionalProperties": false
             }
           }
         },
         "required": [
           "active",
-          "workspaces"
+          "workspaces",
+          "folders"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
@@ -5312,7 +5349,7 @@
     {
       "name": "list_workspace_ops",
       "title": "Workspace operations log",
-      "description": "Workspace operations in this server: create, rename, open, archive, unarchive and delete, each with who acted (\"user\" for the canvas and its HTTP API, or the agent's name over MCP), when, and which workspace. Newest first, optionally narrowed to one workspace. A delete entry carries the same summary delete_workspace returns, which is what a canvas notice shows. Entries outlive the workspace they name. This is not the document's undo history: that is get_history.",
+      "description": "Workspace operations in this server: create, rename, open, archive, unarchive, delete and move, each with who acted (\"user\" for the canvas and its HTTP API, or the agent's name over MCP), when, and which workspace. Newest first, optionally narrowed to one workspace. A delete entry carries the same summary delete_workspace returns, which is what a canvas notice shows. Entries outlive the workspace they name. This is not the document's undo history: that is get_history.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -5441,11 +5478,31 @@
                   "string",
                   "null"
                 ],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
               "archived": {
                 "type": "boolean",
                 "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -5455,7 +5512,9 @@
               "updatedAt",
               "active",
               "cover",
-              "archived"
+              "archived",
+              "folderId",
+              "preview"
             ],
             "additionalProperties": false
           },
@@ -5523,11 +5582,31 @@
                   "string",
                   "null"
                 ],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
               "archived": {
                 "type": "boolean",
                 "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -5537,7 +5616,9 @@
               "updatedAt",
               "active",
               "cover",
-              "archived"
+              "archived",
+              "folderId",
+              "preview"
             ],
             "additionalProperties": false
           }
@@ -5545,6 +5626,188 @@
         "required": [
           "workspace"
         ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_folder",
+      "title": "Create folder",
+      "description": "Creates an overview folder. It holds no workspace until move_workspace. It does not switch the canvas.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Folder name shown on the overview"
+          }
+        },
+        "required": ["name"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "folder": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "updatedAt": { "type": "number", "description": "Unix ms of the last rename or create" }
+              },
+              "required": ["id", "name", "updatedAt"],
+              "additionalProperties": false
+            }
+        },
+        "required": ["folder"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "rename_folder",
+      "title": "Rename folder",
+      "description": "Renames an overview folder. Workspaces inside it stay put.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Folder id (from list_workspaces)"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "New name (trimmed, must not be blank)"
+          }
+        },
+        "required": ["id", "name"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "folder": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "updatedAt": { "type": "number", "description": "Unix ms of the last rename or create" }
+              },
+              "required": ["id", "name", "updatedAt"],
+              "additionalProperties": false
+            }
+        },
+        "required": ["folder"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "move_workspace",
+      "title": "Move workspace",
+      "description": "Moves a workspace into an overview folder, or back to the root when folderId is null or empty. Does not switch the canvas or change the document.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Workspace id (from list_workspaces)"
+          },
+          "folderId": {
+            "type": ["string", "null"],
+            "maxLength": 64,
+            "description": "Folder id, or null or empty to leave it at the root"
+          }
+        },
+        "required": ["id", "folderId"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "workspace": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "nodes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updatedAt": {
+                "type": "number",
+                "description": "Unix ms of the last write"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "cover": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
+              },
+              "archived": {
+                "type": "boolean",
+                "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "nodes",
+              "updatedAt",
+              "active",
+              "cover",
+              "archived",
+              "folderId",
+              "preview"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": ["workspace"],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
       },
@@ -5622,11 +5885,31 @@
                   "string",
                   "null"
                 ],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
               "archived": {
                 "type": "boolean",
                 "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -5636,7 +5919,9 @@
               "updatedAt",
               "active",
               "cover",
-              "archived"
+              "archived",
+              "folderId",
+              "preview"
             ],
             "additionalProperties": false
           },
@@ -5717,11 +6002,31 @@
                   "string",
                   "null"
                 ],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
               "archived": {
                 "type": "boolean",
                 "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -5731,7 +6036,9 @@
               "updatedAt",
               "active",
               "cover",
-              "archived"
+              "archived",
+              "folderId",
+              "preview"
             ],
             "additionalProperties": false
           }
@@ -5777,11 +6084,28 @@
               "active": { "type": "boolean" },
               "cover": {
                 "type": ["string", "null"],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
-              "archived": { "type": "boolean", "description": "True when the workspace is archived and hidden from the default list" }
+              "archived": { "type": "boolean", "description": "True when the workspace is archived and hidden from the default list" },
+              "folderId": { "type": "string", "description": "Folder id, or empty when the workspace sits at the root of the overview" },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
+              }
             },
-            "required": ["id", "name", "nodes", "updatedAt", "active", "cover", "archived"],
+            "required": ["id", "name", "nodes", "updatedAt", "active", "cover", "archived", "folderId", "preview"],
             "additionalProperties": false
           },
           "active": { "type": "string", "description": "Id of the workspace that is active afterwards" }
@@ -5823,11 +6147,28 @@
               "active": { "type": "boolean" },
               "cover": {
                 "type": ["string", "null"],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
-              "archived": { "type": "boolean", "description": "True when the workspace is archived and hidden from the default list" }
+              "archived": { "type": "boolean", "description": "True when the workspace is archived and hidden from the default list" },
+              "folderId": { "type": "string", "description": "Folder id, or empty when the workspace sits at the root of the overview" },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
+              }
             },
-            "required": ["id", "name", "nodes", "updatedAt", "active", "cover", "archived"],
+            "required": ["id", "name", "nodes", "updatedAt", "active", "cover", "archived", "folderId", "preview"],
             "additionalProperties": false
           },
           "active": { "type": "string", "description": "Id of the workspace that is active afterwards" }
@@ -6044,11 +6385,31 @@
                   "string",
                   "null"
                 ],
-                "description": "URL of the cover image (served by this server), or null: the overview card shows the first letter of the name"
+                "description": "URL of the cover image (served by this server), or null. Without a cover the overview card shows a live thumbnail of the page, or the first letter of the name when the page has no shapes"
               },
               "archived": {
                 "type": "boolean",
                 "description": "True when the workspace is archived and hidden from the default list"
+              },
+              "folderId": {
+                "type": "string",
+                "description": "Folder id, or empty when the workspace sits at the root of the overview"
+              },
+              "preview": {
+                "type": "array",
+                "description": "Live thumbnail: up to 8 shapes on the first page (or the root), in document coordinates",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number" },
+                    "y": { "type": "number" },
+                    "w": { "type": "number" },
+                    "h": { "type": "number" },
+                    "fill": { "type": "string" }
+                  },
+                  "required": ["x", "y", "w", "h", "fill"],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -6058,7 +6419,9 @@
               "updatedAt",
               "active",
               "cover",
-              "archived"
+              "archived",
+              "folderId",
+              "preview"
             ],
             "additionalProperties": false
           }
@@ -6248,7 +6611,7 @@
     {
       "name": "render_screenshot",
       "title": "Screenshot",
-      "description": "PNG of a node (a page: its canvas; without rootId: the canvas, or the first page), rendered by the same engine as the canvas and the export. path writes the PNG under the screenshot directory (the database directory's screenshots/, or PAPRIKA_SCREENSHOTS); a path that leaves that directory is refused. With path the result is {path, width, height, url} and no image bytes; url is /api/screenshot/<id>. Without path the image is returned as before, plus url. mode paints the subtree in that theme mode (light, dark, …); omitted, a subtree keeps the mode it inherits from its frame or page. A missing or mismatched Chromium returns the command: pnpm --filter @paprika/e2e exec playwright install chromium.",
+      "description": "PNG of a node (a page: its canvas; without rootId: the canvas, or the first page), rendered by the same engine as the canvas and the export. path writes the PNG under the screenshot directory (the database directory's screenshots/, or PAPRIKA_SCREENSHOTS); a path that leaves that directory is refused. With path the result is {path, width, height, url} and no image bytes; url is /api/screenshot/<id>. Without path the image is returned as before, plus url. mode paints the subtree in that theme mode (light, dark, …); omitted, a subtree keeps the mode it inherits from its frame or page. A missing or mismatched Chromium returns the command: pnpm --filter @paprika/e2e exec playwright install chromium. compare is a PNG, JPEG, GIF or WebP (data URL, raw base64 or a path under PAPRIKA_IMPORT_DIRS) drawn to the right of the screenshot, scaled to the same height, with a gap. The returned width and height are the combined image, and compare is true.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6266,6 +6629,10 @@
           },
           "mode": {
             "type": "string"
+          },
+          "compare": {
+            "type": "string",
+            "description": "PNG, JPEG, GIF or WebP (data URL, raw base64 or a path under PAPRIKA_IMPORT_DIRS) drawn to the right of the screenshot, scaled to the same height"
           },
           "workspaceId": {
             "description": "Workspace to read or write. Omit it to use the active workspace (the human's canvas). Does not switch the canvas.",
@@ -6293,6 +6660,10 @@
           },
           "url": {
             "type": "string"
+          },
+          "compare": {
+            "type": "boolean",
+            "description": "True when a compare image was placed on the right"
           }
         },
         "required": [
@@ -6437,7 +6808,7 @@
     {
       "name": "draw_diagram",
       "title": "Draw a diagram",
-      "description": "Draws a flowchart-style diagram in one atomic write: each node becomes a shape (rect, ellipse, diamond, triangle, cylinder, parallelogram, cloud or note, with text inside) and each edge a connector that stays attached when shapes move. Nodes without x and y are laid out in layers following the edges (direction down or right), to the right of the parent's existing content. Edges default to elbow routing (also straight, rounded, curve) with an arrow at the end; they may also point at existing nodes by id, and carry a label (\"yes\", \"no\") drawn halfway along the route.",
+      "description": "Draws a flowchart-style diagram in one atomic write: each node becomes a shape (rect, ellipse, diamond, triangle, cylinder, parallelogram, cloud or note, with text inside) and each edge a connector that stays attached when shapes move. Nodes without x and y are laid out in layers following the edges (direction down or right), to the right of the parent's existing content. Edges default to elbow routing (also straight, rounded, curve) with an arrow at the end; elbow and rounded routes bend around other shapes in the same parent. Edges may also point at existing nodes by id, and carry a label (\"yes\", \"no\") drawn halfway along the route. relayout: true updates existing shape ids (x and y when given) and routes their elbow connectors again, in one undo step.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6472,6 +6843,11 @@
             "description": "Top of the auto layout (default: top of the existing content)",
             "type": "number"
           },
+          "relayout": {
+            "default": false,
+            "description": "Existing shape ids in nodes are updated (x and y when given) instead of rejected, and elbow/rounded connectors on their parent are routed again around the current shapes. One undo step.",
+            "type": "boolean"
+          },
           "nodes": {
             "default": [],
             "maxItems": 500,
@@ -6482,7 +6858,7 @@
                 "id": {
                   "type": "string",
                   "pattern": "^[A-Za-z0-9_-]{1,64}$",
-                  "description": "New shape id (edges refer to it)"
+                  "description": "Shape id (new, or an existing shape when relayout is true)"
                 }
               },
               "required": [
@@ -7288,6 +7664,68 @@
           "workspaceId",
           "workspaceName"
         ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "place_reference",
+      "title": "Place reference image",
+      "description": "Places an image (data URL or a local path under PAPRIKA_IMPORT_DIRS) as a locked image node at the back of a frame, at 50% opacity unless opacity is set. The image is fitted inside the frame and does not join auto layout. Files over 3500000 bytes are refused.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "src": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000000,
+            "description": "Data URL or a local file path under PAPRIKA_IMPORT_DIRS"
+          },
+          "frameId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Frame the reference sits under (it becomes the back-most child)"
+          },
+          "opacity": {
+            "type": "number",
+            "minimum": 0.05,
+            "maximum": 1,
+            "default": 0.5,
+            "description": "Opacity of the reference. Default 0.5"
+          },
+          "name": {
+            "type": "string",
+            "description": "Layer name. Default Reference"
+          },
+          "workspaceId": {
+            "description": "Workspace to read or write. Omit it to use the active workspace (the human's canvas). Does not switch the canvas.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["src", "frameId"],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "frameId": { "type": "string" },
+          "locked": { "type": "boolean" },
+          "opacity": { "type": "number" },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "width": { "type": "number" },
+          "height": { "type": "number" },
+          "warnings": { "type": "array", "items": { "type": "string" } },
+          "version": { "type": "number" },
+          "workspaceId": { "type": "string" },
+          "workspaceName": { "type": "string" }
+        },
+        "required": ["id", "frameId", "locked", "opacity", "x", "y", "width", "height", "warnings", "version", "workspaceId", "workspaceName"],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
       },
