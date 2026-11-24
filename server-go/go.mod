@@ -3,7 +3,7 @@ module github.com/leonardo-moraes360/paprika/server-go
 go 1.26.0
 
 require (
-	github.com/chromedp/cdproto v0.160.5
+	github.com/chromedp/cdproto v0.160.7
 	github.com/chromedp/chromedp v0.24.0
 	github.com/coder/websocket v1.8.15
 	github.com/gen2brain/avif v0.6.0
@@ -11,7 +11,7 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/phpdave11/gofpdf v1.4.3
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.9
+	github.com/spf13/pflag v1.1.0
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	golang.org/x/image v0.48.0

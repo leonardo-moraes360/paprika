@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/server"
 )
@@ -18,10 +19,34 @@ Comandos:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
   {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
 
 Opções:
-{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableSubCommands}}
+{{flagUsages .LocalFlags | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableSubCommands}}
 
 Use "{{.CommandPath}} [comando] --help" para saber mais sobre um comando.{{end}}
 `
+
+func init() {
+	cobra.AddTemplateFunc("flagUsages", flagUsages)
+}
+
+// plainBool hides IsBoolFlag from pflag's help printer. Since pflag v1.1.0,
+// FlagUsages prints every bool flag as "--name[=true|false]"; the help keeps
+// the shorter "--name" form (the flag still parses "--name=false"). Only the
+// copy used for printing is wrapped, never the flag that gets parsed.
+type plainBool struct{ pflag.Value }
+
+// flagUsages is FlagSet.FlagUsages with bool flags printed as "--name".
+func flagUsages(fs *pflag.FlagSet) string {
+	out := pflag.NewFlagSet(fs.Name(), pflag.ContinueOnError)
+	out.SortFlags = fs.SortFlags
+	fs.VisitAll(func(f *pflag.Flag) {
+		c := *f
+		if c.Value.Type() == "bool" {
+			c.Value = plainBool{f.Value}
+		}
+		out.AddFlag(&c)
+	})
+	return out.FlagUsages()
+}
 
 type handlers struct {
 	serve      func(serveOptions) error
