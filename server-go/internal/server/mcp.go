@@ -1508,12 +1508,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "format", Schema: z.Default(z.Enum("png", "jpeg", "webp", "avif", "pdf"), "png")},
 		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
 		workspaceID(),
-	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		d, err := docOf(a)
 		if err != nil {
 			return nil, err
 		}
-		out, err := export.Export(d, a.Str("rootId"), a.Str("format"), a.Num("scale"))
+		out, err := m.exportImage(ctx, d, a.Str("rootId"), a.Str("format"), a.Num("scale"))
 		if err != nil {
 			return nil, err
 		}
@@ -2251,4 +2251,31 @@ func workspaceActionError(id string, err error) error {
 		return fmt.Errorf(`workspace "%s" is the only one and cannot be archived`, id)
 	}
 	return err
+}
+
+// exportImage renders raster formats with the same Chromium path as render_screenshot, so an
+// export matches what the canvas and the screenshot show. Without Chromium (or if it fails) it
+// falls back to the built-in rasterizer and says so in the warnings. PDF always uses the built-in writer.
+func (m *MCP) exportImage(ctx context.Context, d *core.Document, rootID, format string, scale float64) (export.Result, error) {
+	format = strings.ToLower(strings.TrimSpace(format))
+	if scale <= 0 {
+		scale = 1
+	}
+	if m.shot == nil || format == export.FormatPDF || scale < 0.1 || scale > 4 {
+		return export.Export(d, rootID, format, scale)
+	}
+	png, _, _, err := m.shot.ScreenshotMode(ctx, d, rootID, scale, "")
+	if err == nil {
+		var out export.Result
+		if out, err = export.FromPNG(png, format); err == nil {
+			out.Warnings = []string{}
+			return out, nil
+		}
+	}
+	out, ferr := export.Export(d, rootID, format, scale)
+	if ferr != nil {
+		return out, ferr
+	}
+	out.Warnings = append([]string{"Chromium unavailable (" + err.Error() + "): rendered with the built-in rasterizer, which can differ from render_screenshot in glyphs and strokes"}, out.Warnings...)
+	return out, nil
 }

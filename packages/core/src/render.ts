@@ -100,9 +100,11 @@ function aggregateFluid(nodes: Node[]): { min: number; max: number } | null {
   return { min: Math.min(...fluids.map((f) => f.min)), max: Math.max(...fluids.map((f) => f.max)) };
 }
 
-export function bodySizeCSS(bounds: Bounds, fluid: { min: number; max: number } | null): string {
-  if (!fluid) return `width:${bounds.width}px;height:${bounds.height}px`;
-  return `width:100%;min-width:${fluid.min}px;max-width:${fluid.max}px;margin-left:auto;margin-right:auto;height:${bounds.height}px`;
+/** `auto`: the root is sized "hug"/"fill" on that axis (its box is 1px in `bounds`): the body follows the root, which stays in the flow. */
+export function bodySizeCSS(bounds: Bounds, fluid: { min: number; max: number } | null, auto?: { w: boolean; h: boolean }): string {
+  const height = auto?.h ? "min-height:1px" : `height:${bounds.height}px`;
+  if (!fluid) return `${auto?.w ? "" : `width:${bounds.width}px;`}${height}`;
+  return `width:100%;min-width:${fluid.min}px;max-width:${fluid.max}px;margin-left:auto;margin-right:auto;${height}`;
 }
 
 function richText(doc: Document, node: Extract<Node, { type: "text" }>, vars: boolean, jsx: boolean): string {
@@ -201,6 +203,8 @@ export interface ExportParts {
   bodyMode: string;
   vars: boolean;
   fluid: { min: number; max: number } | null;
+  /** The single root is sized "hug"/"fill" on that axis. */
+  auto: { w: boolean; h: boolean };
 }
 
 export function exportParts(doc: Document, opts: RenderOptions, emit: StyleEmitter): ExportParts {
@@ -211,7 +215,9 @@ export function exportParts(doc: Document, opts: RenderOptions, emit: StyleEmitt
   if (opts.rootId && !node) throw new Error(`node "${opts.rootId}" does not exist`);
   const page = node ? (node.type === "page" ? node : undefined) : firstPage(doc);
   let fluidNodes: Node[];
+  let auto = { w: false, h: false };
   if (node && node.type !== "page") {
+    if (node.type !== "connector") auto = { w: typeof node.width !== "number", h: typeof node.height !== "number" };
     bounds = rootBounds(doc, node.id);
     body = renderNode(doc, node, true, vars, emit);
     fluidNodes = [node];
@@ -227,7 +233,7 @@ export function exportParts(doc: Document, opts: RenderOptions, emit: StyleEmitt
   // Um nó solto herda o modo dos ancestrais: no export ele vai no <body>, que é o novo topo.
   const inherited = node && node.type !== "page" && !modeAttr(node) ? modeOf(doc, node) : page?.mode;
   const bodyMode = vars && inherited ? ` data-paprika-mode="${escapeHtml(inherited)}"` : "";
-  return { body, bounds, background, bodyMode, vars, fluid };
+  return { body, bounds, background, bodyMode, vars, fluid, auto };
 }
 
 /** Gera um documento HTML autocontido. Usado pelo export de código e pelo screenshot. */
@@ -235,7 +241,7 @@ export function renderHTML(doc: Document, opts: RenderOptions = {}): { html: str
   const p = exportParts(doc, opts, htmlStyleAttr);
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(doc.name)}</title>
-<style>html,body{margin:0;padding:0}body{position:relative;${bodySizeCSS(p.bounds, p.fluid)};background:${escapeHtml(p.background)};font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}${p.vars ? tokenStylesheet(doc) : ""}</style>
+<style>html,body{margin:0;padding:0}body{position:relative;${bodySizeCSS(p.bounds, p.fluid, p.auto)};background:${escapeHtml(p.background)};font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}${p.vars ? tokenStylesheet(doc) : ""}</style>
 </head><body${p.bodyMode}>${p.body}</body></html>`;
   return { html, bounds: p.bounds };
 }

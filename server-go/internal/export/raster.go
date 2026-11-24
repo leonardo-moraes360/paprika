@@ -5,6 +5,7 @@ import (
 	"image"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
@@ -25,7 +26,61 @@ var (
 	filterAttr    = regexp.MustCompile(`\sfilter="[^"]*"`)
 )
 
+var (
+	svgTag       = regexp.MustCompile(`<[a-zA-Z][^<>]*>`)
+	hexAlphaAttr = regexp.MustCompile(`\s(fill|stroke|stop-color|flood-color)="#([0-9a-fA-F]{8}|[0-9a-fA-F]{4})"`)
+)
+
+// normalizeAlphaColors rewrites #RRGGBBAA / #RGBA colors, which oksvg rejects ("color string
+// 00000000 is not length 3 or 6"), into #RRGGBB plus an opacity attribute (multiplied into one
+// already there). Alpha 0 on a fill or stroke becomes "none".
+func normalizeAlphaColors(s string) string {
+	return svgTag.ReplaceAllStringFunc(s, func(tag string) string {
+		if !hexAlphaAttr.MatchString(tag) {
+			return tag
+		}
+		attrs := map[string]string{}
+		for _, a := range attrRe.FindAllStringSubmatch(tag, -1) {
+			attrs[a[1]] = a[2]
+		}
+		for _, m := range hexAlphaAttr.FindAllStringSubmatch(tag, -1) {
+			name, raw := m[1], m[2]
+			hex := raw
+			if len(hex) == 4 {
+				hex = string([]byte{hex[0], hex[0], hex[1], hex[1], hex[2], hex[2], hex[3], hex[3]})
+			}
+			var alpha int
+			fmt.Sscanf(hex[6:], "%x", &alpha)
+			opacity := float64(alpha) / 255
+			opName := name + "-opacity"
+			switch name {
+			case "stop-color":
+				opName = "stop-opacity"
+			case "flood-color":
+				opName = "flood-opacity"
+			}
+			old := fmt.Sprintf(` %s="#%s"`, name, raw)
+			if opacity == 0 && (name == "fill" || name == "stroke") {
+				tag = strings.Replace(tag, old, fmt.Sprintf(` %s="none"`, name), 1)
+				continue
+			}
+			if prev, ok := attrs[opName]; ok {
+				opacity *= parseFloatAttr(prev)
+				tag = regexp.MustCompile(`\s`+opName+`="[^"]*"`).ReplaceAllString(tag, "")
+			}
+			repl := fmt.Sprintf(` %s="#%s" %s="%s"`, name, hex[:6], opName, formatOpacity(opacity))
+			tag = strings.Replace(tag, old, repl, 1)
+		}
+		return tag
+	})
+}
+
+func formatOpacity(v float64) string {
+	return strconv.FormatFloat(math.Round(v*1000)/1000, 'f', -1, 64)
+}
+
 func prepareSVG(s string) string {
+	s = normalizeAlphaColors(s)
 	s = flattenNestedSVG(s)
 	s = strings.ReplaceAll(s, `fill="transparent"`, `fill="none"`)
 	s = filterTag.ReplaceAllString(s, "")
@@ -174,17 +229,8 @@ func rasterizeAt(doc *core.Document, rootID string, scale float64) (*image.RGBA,
 		fillPageBackground(doc, rgba)
 	} else if n := core.GetNode(doc, rootID); n != nil && n.Str("type") == "page" {
 		fillPageBackground(doc, rgba)
-	} else {
-		// Chromium's CaptureScreenshot keeps corner pixels outside a rounded root as opaque
-		// black even when the page background is cleared; match that so visualdiff does not
-		// treat our transparent holes as magenta padding.
-		for i := 0; i < len(rgba.Pix); i += 4 {
-			rgba.Pix[i] = 0
-			rgba.Pix[i+1] = 0
-			rgba.Pix[i+2] = 0
-			rgba.Pix[i+3] = 255
-		}
 	}
+	// Any other root keeps a transparent background, like render_screenshot.
 	scanner := rasterx.NewScannerGV(w, h, rgba, rgba.Bounds())
 	raster := rasterx.NewDasher(w, h, scanner)
 	icon.Draw(raster, 1)

@@ -24,6 +24,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
+	"github.com/leonardo-moraes360/paprika/server-go/internal/export"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 	z "github.com/leonardo-moraes360/paprika/server-go/internal/zod"
 )
@@ -703,6 +704,24 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			ws[i] = x
 		}
 		send(c.Writer, 200, jsonv.NewObject("svg", res.SVG, "width", res.Width, "height", res.Height, "warnings", ws), "")
+	})
+	// The Inter faces embedded for export, served to the canvas so "Inter" looks the same in the
+	// canvas, the screenshot and the export (the browser may not have it installed).
+	engine.GET("/fonts/inter.css", func(c *gin.Context) {
+		css, err := export.InterFontFaceCSS(func(file string) (string, error) { return "/fonts/" + file, nil })
+		if err != nil {
+			send(c.Writer, 500, errBody(err.Error()), "")
+			return
+		}
+		send(c.Writer, 200, css, "text/css; charset=utf-8")
+	})
+	engine.GET("/fonts/:file", func(c *gin.Context) {
+		raw, ok := export.InterFile(c.Param("file"))
+		if !ok {
+			send(c.Writer, 404, errBody("font not found"), "")
+			return
+		}
+		send(c.Writer, 200, raw, "font/ttf")
 	})
 	engine.GET("/ws", func(c *gin.Context) {
 		conn, err := websocket.Accept(c.Writer, c.Request, &websocket.AcceptOptions{InsecureSkipVerify: true})

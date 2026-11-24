@@ -102,10 +102,10 @@ export function exportSvelte(doc: Document, rootId: string, opts: { cssVariables
   };
 }
 
-function previewPage(doc: Document, p: { bounds: Bounds; background: string; bodyMode: string; fluid: { min: number; max: number } | null }, body: string, css: string): { html: string; bounds: Bounds } {
+function previewPage(doc: Document, p: { bounds: Bounds; background: string; bodyMode: string; fluid: { min: number; max: number } | null; auto?: { w: boolean; h: boolean } }, body: string, css: string): { html: string; bounds: Bounds } {
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(doc.name)}</title>
-<style>html,body{margin:0;padding:0}body{position:relative;${bodySizeCSS(p.bounds, p.fluid)};background:${escapeHtml(p.background)};font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}${css.trimEnd()}</style>
+<style>html,body{margin:0;padding:0}body{position:relative;${bodySizeCSS(p.bounds, p.fluid, p.auto)};background:${escapeHtml(p.background)};font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}${css.trimEnd()}</style>
 </head><body${p.bodyMode}>${body}</body></html>`;
   return { html, bounds: p.bounds };
 }
