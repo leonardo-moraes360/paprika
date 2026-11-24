@@ -2516,7 +2516,15 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           onClose={() => setLayerMenu(null)}
         />
       )}
-      {renderer === "wasm" && <canvas ref={wasmLayer.canvasRef} className="pointer-events-none absolute inset-0 size-full" data-testid="wasm-layer" data-backend={wasmLayer.status.backend} />}
+      {(renderer === "wasm" || wasmLayer.retain) && (
+        <canvas
+          ref={wasmLayer.canvasRef}
+          className={cn("pointer-events-none absolute inset-0 size-full", renderer !== "wasm" && "invisible")}
+          aria-hidden={renderer === "wasm" ? undefined : true}
+          data-testid="wasm-layer"
+          data-backend={wasmLayer.status.backend}
+        />
+      )}
       <div
         ref={worldRef}
         className={cx("world absolute top-0 left-0 origin-top-left [&_[data-paprika-id]]:select-none", dragIds && "is-node-dragging")}
@@ -2790,30 +2798,41 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         </Hint>
         <Hint
           label={
-            renderer === "wasm"
-              ? `Renderizador WASM (${wasmLayer.status.backend})${wasmLayer.status.detail ? `: ${wasmLayer.status.detail}` : ""}. Clique para voltar ao DOM.`
-              : wasmAvailable
-                ? "Renderizador DOM. Clique para desenhar formas com WASM (WebGPU, ou CPU sem GPU)."
-                : "Renderizador WASM não compilado (pnpm build com Rust instalado)."
+            !wasmAvailable
+              ? m.rendererWasmUnavailable
+              : renderer === "wasm" && wasmLayer.status.backend === "loading"
+                ? m.rendererLoadingHint
+                : renderer === "wasm"
+                  ? m.rendererWasmHint(wasmLayer.status.detail ? `${wasmLayer.status.backend}: ${wasmLayer.status.detail}` : wasmLayer.status.backend)
+                  : m.rendererDomHint
           }
         >
           <Button
             variant="ghost"
             className={cn(
               "h-6 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-xs font-semibold tracking-[0.02em] hover:bg-ui-secondary disabled:cursor-not-allowed disabled:opacity-40",
-              renderer === "wasm" ? "text-accent" : "text-ui-muted-foreground",
+              renderer === "wasm" && (wasmLayer.status.backend === "webgpu" || wasmLayer.status.backend === "cpu") ? "text-accent" : "text-ui-muted-foreground",
             )}
             data-testid="renderer-toggle"
             data-backend={renderer === "wasm" ? wasmLayer.status.backend : "dom"}
+            data-creates={wasmLayer.creates}
             disabled={!wasmAvailable && renderer === "dom"}
             aria-pressed={renderer === "wasm"}
+            aria-busy={renderer === "wasm" && wasmLayer.status.backend === "loading" ? true : undefined}
             onClick={() => {
               const next = renderer === "wasm" ? "dom" : "wasm";
               saveRendererMode(next);
               setRenderer(next);
             }}
           >
-            {renderer === "dom" ? "DOM" : wasmLayer.status.backend === "webgpu" ? "GPU" : wasmLayer.status.backend === "cpu" ? "CPU" : "WASM"}
+            {renderer === "wasm" && wasmLayer.status.backend === "loading" && (
+              <span className="size-2 shrink-0 animate-spin rounded-full border border-accent border-t-transparent motion-reduce:animate-none" aria-hidden />
+            )}
+            {renderer === "wasm" && wasmLayer.status.backend === "webgpu"
+              ? m.rendererGpu
+              : renderer === "wasm" && wasmLayer.status.backend === "cpu"
+                ? m.rendererCpu
+                : m.rendererDom}
           </Button>
         </Hint>
       </div>

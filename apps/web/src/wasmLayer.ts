@@ -35,6 +35,23 @@ const loaders = import.meta.glob<WasmModule>("./wasm/paprika_render.js");
 const loadModule = Object.values(loaders)[0];
 export const wasmAvailable = !!loadModule;
 
+let modulePromise: Promise<WasmModule> | null = null;
+
+function loadWasm(): Promise<WasmModule> {
+  if (!loadModule) return Promise.reject(new Error("WASM renderer not built"));
+  if (!modulePromise) {
+    const pending = loadModule().then(async (mod) => {
+      await mod.default();
+      return mod;
+    });
+    modulePromise = pending;
+    void pending.catch(() => {
+      if (modulePromise === pending) modulePromise = null;
+    });
+  }
+  return modulePromise;
+}
+
 const STORAGE_KEY = "paprika.renderer";
 
 /** `?renderer=wasm|dom` wins over the saved choice; the default is the DOM. */
@@ -125,7 +142,12 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
   const [ready, setReady] = useState(false);
   const [shown, setShown] = useState(false);
   const [painted, setPainted] = useState<ReadonlySet<string>>(() => new Set());
+  const [creates, setCreates] = useState(0);
+  const [retain, setRetain] = useState(mode === "wasm");
+  if (mode === "wasm" && !retain) setRetain(true);
   const frame = useRef(0);
+  const booting = useRef(false);
+  const unmounted = useRef(false);
 
   /** Renders the current scene right away (same task, so before the next paint). */
   const drawNow = useCallback(() => {
@@ -150,42 +172,51 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
     frame.current = requestAnimationFrame(drawNow);
   }, [drawNow]);
 
-  // Create the renderer when the WASM mode is on; free it when it is turned off.
+  // One renderer per mount. Toggling back to the DOM hides the canvas and keeps the device.
   useEffect(() => {
     if (mode !== "wasm") return;
     if (!loadModule) {
       setStatus({ backend: "unavailable", detail: "WASM renderer not built (run pnpm build with Rust installed)" });
       return;
     }
-    let cancelled = false;
-    setStatus({ backend: "loading", detail: "" });
-    (async () => {
-      const canvas = canvasRef.current!;
-      const vp = viewportRef.current!.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, Math.round(vp.width * dpr));
-      canvas.height = Math.max(1, Math.round(vp.height * dpr));
-      const mod = await loadModule();
-      await mod.default();
-      const r = await mod.createRenderer(canvas, "auto");
-      if (cancelled) return r.free();
-      r.setBackground(0, 0, 0, 0);
-      rendererRef.current = r;
-      setStatus({
-        backend: r.backend === "webgpu" ? "webgpu" : "cpu",
-        detail: r.adapterInfo + (r.fallbackReason ? ` · ${r.fallbackReason}` : ""),
-      });
+    if (rendererRef.current) {
       setReady(true);
-    })().catch((e) => {
-      if (!cancelled) setStatus({ backend: "error", detail: String(e?.message ?? e) });
-    });
-    return () => {
-      cancelled = true;
-      setReady(false);
-      setShown(false);
-      rendererRef.current?.free();
-      rendererRef.current = null;
-    };
+      return;
+    }
+    if (booting.current) return;
+    const canvas = canvasRef.current;
+    const vp = viewportRef.current;
+    if (!canvas || !vp) {
+      setStatus({ backend: "error", detail: "canvas missing" });
+      return;
+    }
+    booting.current = true;
+    setStatus({ backend: "loading", detail: "" });
+    const dpr = window.devicePixelRatio || 1;
+    const rect = vp.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    loadWasm()
+      .then((mod) => mod.createRenderer(canvas, "auto"))
+      .then((r) => {
+        if (unmounted.current) {
+          r.free();
+          return;
+        }
+        r.setBackground(0, 0, 0, 0);
+        rendererRef.current = r;
+        booting.current = false;
+        setCreates((n) => n + 1);
+        setStatus({
+          backend: r.backend === "webgpu" ? "webgpu" : "cpu",
+          detail: r.adapterInfo + (r.fallbackReason ? ` · ${r.fallbackReason}` : ""),
+        });
+        setReady(true);
+      })
+      .catch((e: unknown) => {
+        booting.current = false;
+        if (!unmounted.current) setStatus({ backend: "error", detail: String(e instanceof Error ? e.message : e) });
+      });
   }, [mode, viewportRef]);
 
   // Keep the backing store at device resolution. Setting canvas.width/height clears the bitmap,
@@ -215,21 +246,41 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
 
   // Rebuild the display list after React commits the DOM (layout is final here).
   useLayoutEffect(() => {
+    if (mode !== "wasm") {
+      setShown((prev) => (prev ? false : prev));
+      return;
+    }
     const r = rendererRef.current;
     const world = worldRef.current;
     if (!ready || !r || !world) return;
     const list = displayList(doc, measureBoxes(world), pageId ?? undefined);
     r.setScene(list.data, list.paths);
     setPainted((prev) => (sameIds(prev, list.painted) ? prev : list.painted));
-    if (drawNow()) setShown(true);
-  }, [ready, doc, layoutKey, worldRef, drawNow, pageId, painted]);
+    if (!drawNow()) return;
+    setShown(true);
+    setStatus((prev) => {
+      if (prev.backend !== "error" && prev.backend !== "loading") return prev;
+      return {
+        backend: r.backend === "webgpu" ? "webgpu" : "cpu",
+        detail: r.adapterInfo + (r.fallbackReason ? ` · ${r.fallbackReason}` : ""),
+      };
+    });
+  }, [mode, ready, doc, layoutKey, worldRef, drawNow, pageId, painted]);
 
   useEffect(() => {
-    if (ready) draw();
-  }, [ready, view, draw]);
+    if (ready && mode === "wasm") draw();
+  }, [ready, mode, view, draw]);
 
-  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  useEffect(
+    () => () => {
+      unmounted.current = true;
+      cancelAnimationFrame(frame.current);
+      rendererRef.current?.free();
+      rendererRef.current = null;
+    },
+    [],
+  );
 
   /** The DOM stops painting shapes only once a render has succeeded, and takes them back on any error. */
-  return { canvasRef, status, active: mode === "wasm" && shown && status.backend !== "error", painted };
+  return { canvasRef, status, active: mode === "wasm" && shown && status.backend !== "error", painted, retain, creates };
 }
