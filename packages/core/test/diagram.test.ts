@@ -179,6 +179,40 @@ describe("connector", () => {
     expect(conn(framed).d.split(" M")[0]).toBe(conn(open).d.split(" M")[0]);
   });
 
+  it("detours when a corner sits inside a sibling or the nearer side would re-enter one", () => {
+    const cornerBox = { x: 120, y: 0, w: 40, h: 40 };
+    const corner = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "shape", id: "a", x: 100, y: -120, width: 80, height: 40, text: "A" } },
+      { op: "create", node: { type: "shape", id: "b", x: 220, y: 0, width: 80, height: 40, text: "B" } },
+      { op: "create", node: { type: "shape", id: "block", x: cornerBox.x, y: cornerBox.y, width: cornerBox.w, height: cornerBox.h, text: "X" } },
+      { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a", side: "bottom" }, to: { nodeId: "b", side: "left" }, route: "elbow" } },
+    ]).doc;
+    expect(routeHitsBox(conn(corner), cornerBox)).toBe(false);
+    const cornerStraight = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "shape", id: "a", x: 100, y: -120, width: 80, height: 40, text: "A" } },
+      { op: "create", node: { type: "shape", id: "b", x: 220, y: 0, width: 80, height: 40, text: "B" } },
+      { op: "create", node: { type: "shape", id: "block", x: cornerBox.x, y: cornerBox.y, width: cornerBox.w, height: cornerBox.h, text: "X" } },
+      { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a", side: "bottom" }, to: { nodeId: "b", side: "left" }, route: "straight" } },
+    ]).doc;
+    const cornerStraightOpen = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "shape", id: "a", x: 100, y: -120, width: 80, height: 40, text: "A" } },
+      { op: "create", node: { type: "shape", id: "b", x: 220, y: 0, width: 80, height: 40, text: "B" } },
+      { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a", side: "bottom" }, to: { nodeId: "b", side: "left" }, route: "straight" } },
+    ]).doc;
+    expect(conn(cornerStraight).d).toBe(conn(cornerStraightOpen).d);
+    const second = { x: 20, y: 170, w: 20, h: 20 };
+    const first = { x: 46, y: 160, w: 20, h: 50 };
+    const reentry = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "shape", id: "a", x: 0, y: 0, width: 72, height: 80, text: "A" } },
+      { op: "create", node: { type: "shape", id: "b", x: 0, y: 300, width: 72, height: 80, text: "B" } },
+      { op: "create", node: { type: "shape", id: "second", x: second.x, y: second.y, width: second.w, height: second.h, text: "S" } },
+      { op: "create", node: { type: "shape", id: "first", x: first.x, y: first.y, width: first.w, height: first.h, text: "F" } },
+      { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "elbow" } },
+    ]).doc;
+    expect(routeHitsBox(conn(reentry), second)).toBe(false);
+    expect(routeHitsBox(conn(reentry), first)).toBe(false);
+  });
+
   it("rounded elbows use arcs at corners; curve is a cubic with an optional control", () => {
     const rounded = two([
       { op: "update", id: "c", props: { route: "rounded", radius: 12 } },

@@ -541,6 +541,19 @@ const opCases = [
     { op: "create", node: { type: "shape", id: "block", x: 40, y: 160, width: 80, height: 40, text: "X" } },
     { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "rounded", radius: 8 } },
   ]],
+  ["empty", [
+    { op: "create", node: { type: "shape", id: "a", x: 100, y: -120, width: 80, height: 40, text: "A" } },
+    { op: "create", node: { type: "shape", id: "b", x: 220, y: 0, width: 80, height: 40, text: "B" } },
+    { op: "create", node: { type: "shape", id: "block", x: 120, y: 0, width: 40, height: 40, text: "X" } },
+    { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a", side: "bottom" }, to: { nodeId: "b", side: "left" }, route: "elbow" } },
+  ]],
+  ["empty", [
+    { op: "create", node: { type: "shape", id: "a", x: 0, y: 0, width: 72, height: 80, text: "A" } },
+    { op: "create", node: { type: "shape", id: "b", x: 0, y: 300, width: 72, height: 80, text: "B" } },
+    { op: "create", node: { type: "shape", id: "second", x: 20, y: 170, width: 20, height: 20, text: "S" } },
+    { op: "create", node: { type: "shape", id: "first", x: 46, y: 160, width: 20, height: 50, text: "F" } },
+    { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "elbow" } },
+  ]],
   ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { index: "front" } }]], // cópia: recusa com copyRule
   ["comp", [{ op: "move", id: copyId("i1", "lbl"), parentId: "i1", index: "front" }]],
   ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { index: "sideways" } }]], // inválido: direto, não copyRule

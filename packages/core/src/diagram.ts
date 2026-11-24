@@ -368,7 +368,6 @@ function insideBox(p: Pt, box: Box): boolean {
 }
 
 function entryDistance(a: Pt, b: Pt, box: Box): number | null {
-  if (insideBox(a, box) || insideBox(b, box)) return null;
   const x0 = box.x;
   const y0 = box.y;
   const x1 = box.x + box.w;
@@ -379,6 +378,7 @@ function entryDistance(a: Pt, b: Pt, box: Box): number | null {
     const lo = Math.max(Math.min(a.x, b.x), x0);
     const hi = Math.min(Math.max(a.x, b.x), x1);
     if (hi - lo <= 1e-6) return null;
+    if (insideBox(a, box)) return 0;
     const entry = a.x <= b.x ? Math.max(a.x, x0) : Math.min(a.x, x1);
     return Math.abs(entry - a.x);
   }
@@ -388,6 +388,7 @@ function entryDistance(a: Pt, b: Pt, box: Box): number | null {
     const lo = Math.max(Math.min(a.y, b.y), y0);
     const hi = Math.min(Math.max(a.y, b.y), y1);
     if (hi - lo <= 1e-6) return null;
+    if (insideBox(a, box)) return 0;
     const entry = a.y <= b.y ? Math.max(a.y, y0) : Math.min(a.y, y1);
     return Math.abs(entry - a.y);
   }
@@ -406,34 +407,98 @@ function firstHit(a: Pt, b: Pt, obstacles: Box[]): Box | null {
   return best;
 }
 
-function detourAround(a: Pt, b: Pt, raw: Box): Pt[] {
-  const box = inflate(raw, ELBOW_CLEAR);
+function detourSides(a: Pt, b: Pt, box: Box): [number, number] {
+  const x0 = box.x;
+  const y0 = box.y;
+  const x1 = box.x + box.w;
+  const y1 = box.y + box.h;
+  if (Math.abs(a.y - b.y) <= 1e-6) {
+    const nearer = a.y - y0 <= y1 - a.y ? y0 : y1;
+    return [nearer, nearer === y0 ? y1 : y0];
+  }
+  const nearer = a.x - x0 <= x1 - a.x ? x0 : x1;
+  return [nearer, nearer === x0 ? x1 : x0];
+}
+
+function buildDetour(a: Pt, b: Pt, box: Box, side: number): Pt[] {
   const x0 = box.x;
   const y0 = box.y;
   const x1 = box.x + box.w;
   const y1 = box.y + box.h;
   if (Math.abs(a.y - b.y) <= 1e-6) {
     const y = a.y;
+    if (insideBox(b, box)) {
+      const exit = { x: b.x, y: side };
+      if (insideBox(a, box)) return [{ x: a.x, y: side }, exit];
+      const entryX = a.x <= b.x ? Math.max(a.x, x0) : Math.min(a.x, x1);
+      return [{ x: entryX, y }, { x: entryX, y: side }, exit];
+    }
     const lo = Math.max(Math.min(a.x, b.x), x0);
     const hi = Math.min(Math.max(a.x, b.x), x1);
-    const detourY = y - y0 <= y1 - y ? y0 : y1;
     const pLo = { x: lo, y };
     const pHi = { x: hi, y };
-    const dLo = { x: lo, y: detourY };
-    const dHi = { x: hi, y: detourY };
+    const dLo = { x: lo, y: side };
+    const dHi = { x: hi, y: side };
     if (a.x <= b.x) return [pLo, dLo, dHi, pHi, b];
     return [pHi, dHi, dLo, pLo, b];
   }
   const x = a.x;
+  if (insideBox(b, box)) {
+    const exit = { x: side, y: b.y };
+    if (insideBox(a, box)) return [{ x: side, y: a.y }, exit];
+    const entryY = a.y <= b.y ? Math.max(a.y, y0) : Math.min(a.y, y1);
+    return [{ x, y: entryY }, { x: side, y: entryY }, exit];
+  }
   const lo = Math.max(Math.min(a.y, b.y), y0);
   const hi = Math.min(Math.max(a.y, b.y), y1);
-  const detourX = x - x0 <= x1 - x ? x0 : x1;
   const pLo = { x, y: lo };
   const pHi = { x, y: hi };
-  const dLo = { x: detourX, y: lo };
-  const dHi = { x: detourX, y: hi };
+  const dLo = { x: side, y: lo };
+  const dHi = { x: side, y: hi };
   if (a.y <= b.y) return [pLo, dLo, dHi, pHi, b];
   return [pHi, dHi, dLo, pLo, b];
+}
+
+function sideCrosses(a: Pt, b: Pt, box: Box, side: number, obstacles: Box[]): boolean {
+  const horizontalSeg = Math.abs(a.y - b.y) <= 1e-6;
+  const x0 = box.x;
+  const y0 = box.y;
+  const x1 = box.x + box.w;
+  const y1 = box.y + box.h;
+  let p: Pt;
+  let q: Pt;
+  if (horizontalSeg) {
+    const y = a.y;
+    if (insideBox(b, box)) {
+      const entryX = insideBox(a, box) ? a.x : a.x <= b.x ? Math.max(a.x, x0) : Math.min(a.x, x1);
+      p = { x: entryX, y: side };
+      q = { x: b.x, y: side };
+    } else {
+      const lo = Math.max(Math.min(a.x, b.x), x0);
+      const hi = Math.min(Math.max(a.x, b.x), x1);
+      p = { x: lo, y: side };
+      q = { x: hi, y: side };
+    }
+  } else if (insideBox(b, box)) {
+    const entryY = insideBox(a, box) ? a.y : a.y <= b.y ? Math.max(a.y, y0) : Math.min(a.y, y1);
+    p = { x: side, y: entryY };
+    q = { x: side, y: b.y };
+  } else {
+    const lo = Math.max(Math.min(a.y, b.y), y0);
+    const hi = Math.min(Math.max(a.y, b.y), y1);
+    p = { x: side, y: lo };
+    q = { x: side, y: hi };
+  }
+  for (const raw of obstacles) if (entryDistance(p, q, inflate(raw, ELBOW_CLEAR)) !== null) return true;
+  return false;
+}
+
+function detourAround(a: Pt, b: Pt, raw: Box, obstacles: Box[]): Pt[] {
+  const box = inflate(raw, ELBOW_CLEAR);
+  if ((insideBox(a, box) || insideBox(b, box)) && entryDistance(a, b, raw) === null) return [b];
+  const [near, far] = detourSides(a, b, box);
+  if (!sideCrosses(a, b, box, near, obstacles)) return buildDetour(a, b, box, near);
+  return buildDetour(a, b, box, far);
 }
 
 function avoidObstacles(pts: Pt[], obstacles: Box[]): Pt[] {
@@ -443,7 +508,7 @@ function avoidObstacles(pts: Pt[], obstacles: Box[]): Pt[] {
     const next: Pt[] = [cur[0]!];
     let changed = false;
     for (let i = 0; i < cur.length - 1; i++) {
-      const a = cur[i]!;
+      const a = next[next.length - 1]!;
       const b = cur[i + 1]!;
       const hit = firstHit(a, b, obstacles);
       if (!hit) {
@@ -451,7 +516,7 @@ function avoidObstacles(pts: Pt[], obstacles: Box[]): Pt[] {
         continue;
       }
       changed = true;
-      next.push(...detourAround(a, b, hit));
+      next.push(...detourAround(a, b, hit, obstacles));
     }
     cur = simplify(next);
     if (!changed) break;

@@ -420,9 +420,6 @@ func insideBox(p Pt, box dbox) bool {
 }
 
 func entryDistance(a, b Pt, box dbox) (float64, bool) {
-	if insideBox(a, box) || insideBox(b, box) {
-		return 0, false
-	}
 	x0, y0 := box.x, box.y
 	x1, y1 := box.x+box.w, box.y+box.h
 	if math.Abs(a.Y-b.Y) <= 1e-6 {
@@ -434,6 +431,9 @@ func entryDistance(a, b Pt, box dbox) (float64, bool) {
 		hi := math.Min(math.Max(a.X, b.X), x1)
 		if hi-lo <= 1e-6 {
 			return 0, false
+		}
+		if insideBox(a, box) {
+			return 0, true
 		}
 		entry := math.Min(a.X, x1)
 		if a.X <= b.X {
@@ -450,6 +450,9 @@ func entryDistance(a, b Pt, box dbox) (float64, bool) {
 		hi := math.Min(math.Max(a.Y, b.Y), y1)
 		if hi-lo <= 1e-6 {
 			return 0, false
+		}
+		if insideBox(a, box) {
+			return 0, true
 		}
 		entry := math.Min(a.Y, y1)
 		if a.Y <= b.Y {
@@ -476,42 +479,139 @@ func firstHit(a, b Pt, obstacles []dbox) (dbox, bool) {
 	return best, found
 }
 
-func detourAround(a, b Pt, raw dbox) []Pt {
-	box := inflateBox(raw, elbowClear)
+func detourSides(a, b Pt, box dbox) (float64, float64) {
+	x0, y0 := box.x, box.y
+	x1, y1 := box.x+box.w, box.y+box.h
+	if math.Abs(a.Y-b.Y) <= 1e-6 {
+		near := y1
+		if a.Y-y0 <= y1-a.Y {
+			near = y0
+		}
+		far := y0
+		if near == y0 {
+			far = y1
+		}
+		return near, far
+	}
+	near := x1
+	if a.X-x0 <= x1-a.X {
+		near = x0
+	}
+	far := x0
+	if near == x0 {
+		far = x1
+	}
+	return near, far
+}
+
+func buildDetour(a, b Pt, box dbox, side float64) []Pt {
 	x0, y0 := box.x, box.y
 	x1, y1 := box.x+box.w, box.y+box.h
 	if math.Abs(a.Y-b.Y) <= 1e-6 {
 		y := a.Y
+		if insideBox(b, box) {
+			exit := Pt{b.X, side}
+			if insideBox(a, box) {
+				return []Pt{{a.X, side}, exit}
+			}
+			entryX := math.Min(a.X, x1)
+			if a.X <= b.X {
+				entryX = math.Max(a.X, x0)
+			}
+			return []Pt{{entryX, y}, {entryX, side}, exit}
+		}
 		lo := math.Max(math.Min(a.X, b.X), x0)
 		hi := math.Min(math.Max(a.X, b.X), x1)
-		detourY := y1
-		if y-y0 <= y1-y {
-			detourY = y0
-		}
 		pLo := Pt{lo, y}
 		pHi := Pt{hi, y}
-		dLo := Pt{lo, detourY}
-		dHi := Pt{hi, detourY}
+		dLo := Pt{lo, side}
+		dHi := Pt{hi, side}
 		if a.X <= b.X {
 			return []Pt{pLo, dLo, dHi, pHi, b}
 		}
 		return []Pt{pHi, dHi, dLo, pLo, b}
 	}
 	x := a.X
+	if insideBox(b, box) {
+		exit := Pt{side, b.Y}
+		if insideBox(a, box) {
+			return []Pt{{side, a.Y}, exit}
+		}
+		entryY := math.Min(a.Y, y1)
+		if a.Y <= b.Y {
+			entryY = math.Max(a.Y, y0)
+		}
+		return []Pt{{x, entryY}, {side, entryY}, exit}
+	}
 	lo := math.Max(math.Min(a.Y, b.Y), y0)
 	hi := math.Min(math.Max(a.Y, b.Y), y1)
-	detourX := x1
-	if x-x0 <= x1-x {
-		detourX = x0
-	}
 	pLo := Pt{x, lo}
 	pHi := Pt{x, hi}
-	dLo := Pt{detourX, lo}
-	dHi := Pt{detourX, hi}
+	dLo := Pt{side, lo}
+	dHi := Pt{side, hi}
 	if a.Y <= b.Y {
 		return []Pt{pLo, dLo, dHi, pHi, b}
 	}
 	return []Pt{pHi, dHi, dLo, pLo, b}
+}
+
+func sideCrosses(a, b Pt, box dbox, side float64, obstacles []dbox) bool {
+	x0, y0 := box.x, box.y
+	x1, y1 := box.x+box.w, box.y+box.h
+	var p, q Pt
+	if math.Abs(a.Y-b.Y) <= 1e-6 {
+		if insideBox(b, box) {
+			entryX := a.X
+			if !insideBox(a, box) {
+				entryX = math.Min(a.X, x1)
+				if a.X <= b.X {
+					entryX = math.Max(a.X, x0)
+				}
+			}
+			p = Pt{entryX, side}
+			q = Pt{b.X, side}
+		} else {
+			lo := math.Max(math.Min(a.X, b.X), x0)
+			hi := math.Min(math.Max(a.X, b.X), x1)
+			p = Pt{lo, side}
+			q = Pt{hi, side}
+		}
+	} else if insideBox(b, box) {
+		entryY := a.Y
+		if !insideBox(a, box) {
+			entryY = math.Min(a.Y, y1)
+			if a.Y <= b.Y {
+				entryY = math.Max(a.Y, y0)
+			}
+		}
+		p = Pt{side, entryY}
+		q = Pt{side, b.Y}
+	} else {
+		lo := math.Max(math.Min(a.Y, b.Y), y0)
+		hi := math.Min(math.Max(a.Y, b.Y), y1)
+		p = Pt{side, lo}
+		q = Pt{side, hi}
+	}
+	for _, raw := range obstacles {
+		if _, ok := entryDistance(p, q, inflateBox(raw, elbowClear)); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func detourAround(a, b Pt, raw dbox, obstacles []dbox) []Pt {
+	box := inflateBox(raw, elbowClear)
+	if insideBox(a, box) || insideBox(b, box) {
+		if _, crosses := entryDistance(a, b, raw); !crosses {
+			return []Pt{b}
+		}
+	}
+	near, far := detourSides(a, b, box)
+	if !sideCrosses(a, b, box, near, obstacles) {
+		return buildDetour(a, b, box, near)
+	}
+	return buildDetour(a, b, box, far)
 }
 
 func avoidObstacles(pts []Pt, obstacles []dbox) []Pt {
@@ -523,14 +623,15 @@ func avoidObstacles(pts []Pt, obstacles []dbox) []Pt {
 		next := []Pt{cur[0]}
 		changed := false
 		for i := 0; i < len(cur)-1; i++ {
-			a, b := cur[i], cur[i+1]
+			a := next[len(next)-1]
+			b := cur[i+1]
 			hit, ok := firstHit(a, b, obstacles)
 			if !ok {
 				next = append(next, b)
 				continue
 			}
 			changed = true
-			next = append(next, detourAround(a, b, hit)...)
+			next = append(next, detourAround(a, b, hit, obstacles)...)
 		}
 		cur = simplifyPts(next)
 		if !changed {
