@@ -138,6 +138,47 @@ describe("connector", () => {
     expect(conn(sided).d.split(" M")[0]).toBe("M2 2 L2 62 L302 62 L302 122");
   });
 
+  it("elbow and rounded routes detour around a shape on the naive elbow; straight and curve do not", () => {
+    const box = { x: 40, y: 160, w: 80, h: 40 };
+    const blocked = (route: "elbow" | "rounded" | "straight" | "curve", extra: Op[] = []) =>
+      applyOps(createDocument("T", "d"), [
+        { op: "create", node: { type: "shape", id: "a", x: 0, y: 0, width: 160, height: 80, text: "A" } },
+        { op: "create", node: { type: "shape", id: "b", x: 0, y: 300, width: 160, height: 80, text: "B" } },
+        { op: "create", node: { type: "shape", id: "block", x: box.x, y: box.y, width: box.w, height: box.h, text: "X" } },
+        { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route, ...(route === "rounded" ? { radius: 8 } : {}) } },
+        ...extra,
+      ]).doc;
+    const open = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "shape", id: "a", x: 0, y: 0, width: 160, height: 80, text: "A" } },
+      { op: "create", node: { type: "shape", id: "b", x: 0, y: 300, width: 160, height: 80, text: "B" } },
+      { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "elbow" } },
+    ]).doc;
+    expect(routeHitsBox(conn(open), box)).toBe(true);
+    const elbow = conn(blocked("elbow"));
+    expect(elbow.d.split(" M")[0]).toBe("M50 2 L50 74 L2 74 L2 130 L50 130 L50 222");
+    expect(routeHitsBox(elbow, box)).toBe(false);
+    const side = blocked("elbow", [{ op: "update", id: "b", props: { x: 400, y: 0 } }, { op: "update", id: "block", props: { x: 240, y: 10, width: 80, height: 60 } }]);
+    expect(routeHitsBox(conn(side), { x: 240, y: 10, w: 80, h: 60 })).toBe(false);
+    expect(routeHitsBox(conn(blocked("rounded")), box)).toBe(false);
+    expect(conn(blocked("rounded")).d).toContain("A");
+    expect(routeHitsBox(conn(blocked("straight")), box)).toBe(true);
+    const curved = blocked("curve");
+    const curvedOpen = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "shape", id: "a", x: 0, y: 0, width: 160, height: 80, text: "A" } },
+      { op: "create", node: { type: "shape", id: "b", x: 0, y: 300, width: 160, height: 80, text: "B" } },
+      { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "curve" } },
+    ]).doc;
+    expect(conn(curved).d).toBe(conn(curvedOpen).d);
+    const framed = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "frame", id: "f", x: 0, y: 0, width: 400, height: 500 } },
+      { op: "create", parentId: "f", node: { type: "shape", id: "a", x: 0, y: 0, width: 160, height: 80, text: "A" } },
+      { op: "create", parentId: "f", node: { type: "shape", id: "b", x: 0, y: 300, width: 160, height: 80, text: "B" } },
+      { op: "create", node: { type: "shape", id: "out", x: box.x, y: box.y, width: box.w, height: box.h, text: "X" } },
+      { op: "create", parentId: "f", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "elbow" } },
+    ]).doc;
+    expect(conn(framed).d.split(" M")[0]).toBe(conn(open).d.split(" M")[0]);
+  });
+
   it("rounded elbows use arcs at corners; curve is a cubic with an optional control", () => {
     const rounded = two([
       { op: "update", id: "c", props: { route: "rounded", radius: 12 } },
@@ -240,6 +281,22 @@ describe("diagramOps", () => {
     expect(lintDocument(d)).toEqual([]);
   });
 
+  it("keeps a short elbow when a sibling overlaps an endpoint", () => {
+    const doc = createDocument();
+    const plan = diagramOps(doc, {
+      direction: "right",
+      gap: 30,
+      x: 10,
+      y: 20,
+      nodes: [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d", x: 5, y: 6 }],
+      edges: [{ from: "a", to: "b" }, { from: "b", to: "c" }, { from: "c", to: "a" }, { from: "a", to: "a" }],
+    });
+    const d = applyOps(doc, plan.ops).doc;
+    for (const id of ["a-to-b", "b-to-c", "c-to-a", "a-to-a"]) {
+      expect(conn(d, id).d.split(" M")[0]!.split(" L").length).toBeLessThan(12);
+    }
+  });
+
   it("goes to the right of existing content, into the first page", () => {
     let d = applyOps(createDocument(), [{ op: "add_page", id: "p" }]).doc;
     d = applyOps(d, [{ op: "create", parentId: "p", node: { type: "rect", id: "r", x: 10, y: 20, width: 100, height: 50 } }]).doc;
@@ -258,8 +315,59 @@ describe("diagramOps", () => {
     expect(() => diagramOps(d, { nodes: [{ id: "x" }, { id: "x" }] })).toThrow("repeated");
     expect(() => diagramOps(d, { nodes: [{ id: "x" }], edges: [{ from: "x", to: "zz" }] })).toThrow('edges[0]: "zz"');
     expect(() => diagramOps(d, { parentId: "a", nodes: [{ id: "x" }] })).toThrow("only frame, group and page");
+    expect(() => diagramOps(d, { relayout: true, nodes: [{ id: "c" }] })).toThrow('id "c" is a connector; relayout only updates existing shapes');
+  });
+
+  it("relayout updates existing shapes and reroutes in one undo step", () => {
+    const d = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "shape", id: "a", x: 0, y: 0, width: 160, height: 80, text: "A" } },
+      { op: "create", node: { type: "shape", id: "b", x: 0, y: 300, width: 160, height: 80, text: "B" } },
+      { op: "create", node: { type: "shape", id: "block", x: 40, y: 160, width: 80, height: 40, text: "X" } },
+      { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "elbow" } },
+    ]).doc;
+    const plan = diagramOps(d, { relayout: true, nodes: [{ id: "block" }, { id: "n", text: "N" }], edges: [{ from: "n", to: "a" }] });
+    expect(plan.ops[0]).toEqual({ op: "update", id: "block", props: { x: 40 } });
+    expect(plan.nodes).toEqual(["block", "n"]);
+    expect(plan.edges).toEqual(["n-to-a"]);
+    const h = new History(d);
+    const before = conn(h.doc).d;
+    h.apply(diagramOps(h.doc, { relayout: true, nodes: [{ id: "a", x: 0, y: 12 }] }).ops, "agent", "relayout");
+    expect(h.doc.nodes.a).toMatchObject({ x: 0, y: 12 });
+    expect(conn(h.doc).d).not.toBe(before);
+    expect(routeHitsBox(conn(h.doc), { x: 40, y: 160, w: 80, h: 40 })).toBe(false);
+    h.undo();
+    expect(h.canUndo).toBe(false);
+    expect(h.doc.nodes.a).toMatchObject({ x: 0, y: 0 });
+    expect(conn(h.doc).d).toBe(before);
   });
 });
+
+function routeHitsBox(c: ConnectorNode, box: { x: number; y: number; w: number; h: number }): boolean {
+  const body = c.d.split(" M")[0] ?? "";
+  const pts = [...body.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((m) => ({ x: c.x + Number(m[1]), y: c.y + Number(m[2]) }));
+  const x0 = box.x;
+  const y0 = box.y;
+  const x1 = box.x + box.w;
+  const y1 = box.y + box.h;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]!;
+    const b = pts[i + 1]!;
+    if (Math.abs(a.y - b.y) < 1e-6) {
+      const y = a.y;
+      if (y <= y0 || y >= y1) continue;
+      const lo = Math.min(a.x, b.x);
+      const hi = Math.max(a.x, b.x);
+      if (hi > x0 && lo < x1) return true;
+    } else if (Math.abs(a.x - b.x) < 1e-6) {
+      const x = a.x;
+      if (x <= x0 || x >= x1) continue;
+      const lo = Math.min(a.y, b.y);
+      const hi = Math.max(a.y, b.y);
+      if (hi > y0 && lo < y1) return true;
+    }
+  }
+  return false;
+}
 
 describe("connector labels (fb#57)", () => {
   it("connectorMidpoint walks the line by length and ignores the arrowheads", async () => {

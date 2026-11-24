@@ -517,6 +517,30 @@ const opCases = [
   ["paged", [{ op: "update", id: "pg1", props: { index: "front" } }]], // páginas reordenam no topo
   ["paged", [{ op: "update", id: "r2", props: { index: "forward" } }]], // dentro do group da página 2
   ["diagram", [{ op: "update", id: "k1", props: { index: "front" } }]], // conector reordenado, pontas seguem
+  ["empty", [
+    { op: "create", node: { type: "shape", id: "a", x: 0, y: 0, width: 160, height: 80, text: "A" } },
+    { op: "create", node: { type: "shape", id: "b", x: 0, y: 300, width: 160, height: 80, text: "B" } },
+    { op: "create", node: { type: "shape", id: "block", x: 40, y: 160, width: 80, height: 40, text: "X" } },
+    { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "elbow" } },
+  ]],
+  ["empty", [
+    { op: "create", node: { type: "shape", id: "a", x: 0, y: 0, width: 160, height: 80, text: "A" } },
+    { op: "create", node: { type: "shape", id: "b", x: 400, y: 0, width: 160, height: 80, text: "B" } },
+    { op: "create", node: { type: "shape", id: "block", x: 240, y: 10, width: 80, height: 60, text: "X" } },
+    { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "elbow" } },
+  ]],
+  ["empty", [
+    { op: "create", node: { type: "shape", id: "a", x: 0, y: 0, width: 160, height: 80, text: "A" } },
+    { op: "create", node: { type: "shape", id: "b", x: 0, y: 300, width: 160, height: 80, text: "B" } },
+    { op: "create", node: { type: "shape", id: "block", x: 40, y: 160, width: 80, height: 40, text: "X" } },
+    { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "straight" } },
+  ]],
+  ["empty", [
+    { op: "create", node: { type: "shape", id: "a", x: 0, y: 0, width: 160, height: 80, text: "A" } },
+    { op: "create", node: { type: "shape", id: "b", x: 0, y: 300, width: 160, height: 80, text: "B" } },
+    { op: "create", node: { type: "shape", id: "block", x: 40, y: 160, width: 80, height: 40, text: "X" } },
+    { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "rounded", radius: 8 } },
+  ]],
   ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { index: "front" } }]], // cópia: recusa com copyRule
   ["comp", [{ op: "move", id: copyId("i1", "lbl"), parentId: "i1", index: "front" }]],
   ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { index: "sideways" } }]], // inválido: direto, não copyRule
@@ -692,6 +716,11 @@ const diagramCases = [
   ["free", { parentId: "r1", nodes: [{ id: "a" }] }],
   ["free", { parentId: "nope", nodes: [{ id: "a" }] }],
   ["empty", { nodes: [{ id: "" }] }],
+  ["diagram", { relayout: true, nodes: [{ id: "yes", x: 10, y: 420 }] }],
+  ["diagram", { relayout: true, nodes: [{ id: "start" }] }],
+  ["diagram", { relayout: true, nodes: [{ id: "memo", y: 40 }, { id: "fresh", text: "N" }], edges: [{ from: "fresh", to: "memo" }] }],
+  ["diagram", { relayout: true, nodes: [{ id: "ask-to-yes" }] }],
+  ["free", { relayout: true, nodes: [{ id: "r1", x: 4, y: 8 }] }],
 ];
 const diagrams = diagramCases.map(([docName, input]) => {
   const r = err(() => diagramOps(docs[docName], input));

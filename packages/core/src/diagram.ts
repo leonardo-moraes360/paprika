@@ -319,6 +319,8 @@ const DIR: Record<Side, Pt> = { top: { x: 0, y: -1 }, right: { x: 1, y: 0 }, bot
 const horizontal = (s: Side) => s === "left" || s === "right";
 /** Distância que a rota em cotovelo anda para fora da forma antes de virar. */
 const ELBOW_STUB = 16;
+/** Folga entre a rota em cotovelo e a caixa de uma outra forma. */
+const ELBOW_CLEAR = 8;
 
 /** Lado de saída automático: pelo eixo de maior distância entre os centros. */
 function autoSide(from: Pt, to: Pt): Side {
@@ -336,7 +338,7 @@ function straightPoints(a: End, b: End): Pt[] {
   return [start, end];
 }
 
-function elbowPoints(a: End, b: End): Pt[] {
+function elbowPoints(a: End, b: End, obstacles: Box[] = []): Pt[] {
   const sa = a.side ?? autoSide(a.p, b.p);
   const sb = b.side ?? autoSide(b.p, a.p);
   const start = a.box ? sidePoint(a.box, sa) : a.p;
@@ -354,7 +356,122 @@ function elbowPoints(a: End, b: End): Pt[] {
     mid = [{ x: s1.x, y: my }, { x: e1.x, y: my }];
   } else if (horizontal(sa)) mid = [{ x: e1.x, y: s1.y }];
   else mid = [{ x: s1.x, y: e1.y }];
-  return simplify([start, s1, ...mid, e1, end]);
+  return avoidObstacles(simplify([start, s1, ...mid, e1, end]), obstacles);
+}
+
+function inflate(b: Box, m: number): Box {
+  return { x: b.x - m, y: b.y - m, w: b.w + 2 * m, h: b.h + 2 * m };
+}
+
+function insideBox(p: Pt, box: Box): boolean {
+  return p.x > box.x && p.x < box.x + box.w && p.y > box.y && p.y < box.y + box.h;
+}
+
+function entryDistance(a: Pt, b: Pt, box: Box): number | null {
+  if (insideBox(a, box) || insideBox(b, box)) return null;
+  const x0 = box.x;
+  const y0 = box.y;
+  const x1 = box.x + box.w;
+  const y1 = box.y + box.h;
+  if (Math.abs(a.y - b.y) <= 1e-6) {
+    const y = a.y;
+    if (y <= y0 || y >= y1) return null;
+    const lo = Math.max(Math.min(a.x, b.x), x0);
+    const hi = Math.min(Math.max(a.x, b.x), x1);
+    if (hi - lo <= 1e-6) return null;
+    const entry = a.x <= b.x ? Math.max(a.x, x0) : Math.min(a.x, x1);
+    return Math.abs(entry - a.x);
+  }
+  if (Math.abs(a.x - b.x) <= 1e-6) {
+    const x = a.x;
+    if (x <= x0 || x >= x1) return null;
+    const lo = Math.max(Math.min(a.y, b.y), y0);
+    const hi = Math.min(Math.max(a.y, b.y), y1);
+    if (hi - lo <= 1e-6) return null;
+    const entry = a.y <= b.y ? Math.max(a.y, y0) : Math.min(a.y, y1);
+    return Math.abs(entry - a.y);
+  }
+  return null;
+}
+
+function firstHit(a: Pt, b: Pt, obstacles: Box[]): Box | null {
+  let best: Box | null = null;
+  let bestD = Infinity;
+  for (const raw of obstacles) {
+    const d = entryDistance(a, b, inflate(raw, ELBOW_CLEAR));
+    if (d === null || d >= bestD - 1e-9) continue;
+    bestD = d;
+    best = raw;
+  }
+  return best;
+}
+
+function detourAround(a: Pt, b: Pt, raw: Box): Pt[] {
+  const box = inflate(raw, ELBOW_CLEAR);
+  const x0 = box.x;
+  const y0 = box.y;
+  const x1 = box.x + box.w;
+  const y1 = box.y + box.h;
+  if (Math.abs(a.y - b.y) <= 1e-6) {
+    const y = a.y;
+    const lo = Math.max(Math.min(a.x, b.x), x0);
+    const hi = Math.min(Math.max(a.x, b.x), x1);
+    const detourY = y - y0 <= y1 - y ? y0 : y1;
+    const pLo = { x: lo, y };
+    const pHi = { x: hi, y };
+    const dLo = { x: lo, y: detourY };
+    const dHi = { x: hi, y: detourY };
+    if (a.x <= b.x) return [pLo, dLo, dHi, pHi, b];
+    return [pHi, dHi, dLo, pLo, b];
+  }
+  const x = a.x;
+  const lo = Math.max(Math.min(a.y, b.y), y0);
+  const hi = Math.min(Math.max(a.y, b.y), y1);
+  const detourX = x - x0 <= x1 - x ? x0 : x1;
+  const pLo = { x, y: lo };
+  const pHi = { x, y: hi };
+  const dLo = { x: detourX, y: lo };
+  const dHi = { x: detourX, y: hi };
+  if (a.y <= b.y) return [pLo, dLo, dHi, pHi, b];
+  return [pHi, dHi, dLo, pLo, b];
+}
+
+function avoidObstacles(pts: Pt[], obstacles: Box[]): Pt[] {
+  if (!obstacles.length || pts.length < 2) return pts;
+  let cur = pts;
+  for (let pass = 0; pass < 8; pass++) {
+    const next: Pt[] = [cur[0]!];
+    let changed = false;
+    for (let i = 0; i < cur.length - 1; i++) {
+      const a = cur[i]!;
+      const b = cur[i + 1]!;
+      const hit = firstHit(a, b, obstacles);
+      if (!hit) {
+        next.push(b);
+        continue;
+      }
+      changed = true;
+      next.push(...detourAround(a, b, hit));
+    }
+    cur = simplify(next);
+    if (!changed) break;
+  }
+  return cur;
+}
+
+function elbowObstacles(doc: Document, c: ConnectorNode): Box[] {
+  const skip = new Set<string>([c.id]);
+  if (c.from.nodeId) skip.add(c.from.nodeId);
+  if (c.to.nodeId) skip.add(c.to.nodeId);
+  const found: { id: string; box: Box }[] = [];
+  for (const n of Object.values(doc.nodes)) {
+    if (n.type !== "shape" || skip.has(n.id) || n.parentId !== c.parentId) continue;
+    const box = canvasBox(doc, n);
+    if (box.w <= 0 || box.h <= 0) continue;
+    found.push({ id: n.id, box });
+  }
+  found.sort((p, q) => (p.id < q.id ? -1 : p.id > q.id ? 1 : 0));
+  return found.map((f) => f.box);
 }
 
 /** Remove pontos repetidos e pontos do meio de trechos retos. */
@@ -601,7 +718,7 @@ export function routeConnector(doc: Document, c: ConnectorNode): void {
     return;
   }
 
-  const line = c.route === "elbow" || c.route === "rounded" ? elbowPoints(a, b) : straightPoints(a, b);
+  const line = c.route === "elbow" || c.route === "rounded" ? elbowPoints(a, b, elbowObstacles(doc, c)) : straightPoints(a, b);
   if (c.endArrow === "arrow" && line.length >= 2) {
     const h = arrowHead(line[line.length - 1]!, line[line.length - 2]!, sw);
     if (h) heads.push(h);
@@ -677,12 +794,17 @@ export interface DiagramInput {
   /** Canto do layout automático no espaço do pai. Ausente: à direita do que já existe no pai. */
   x?: number;
   y?: number;
+  /** Ids que já existem são formas: atualiza x/y quando vierem e recalcula as rotas em cotovelo. */
+  relayout?: boolean;
   nodes: DiagramNode[];
   edges?: DiagramEdge[];
 }
 
 export interface DiagramPlan {
-  ops: { op: "create"; parentId: string | null; node: Record<string, unknown> & { type: "shape" | "connector" } }[];
+  ops: (
+    | { op: "create"; parentId: string | null; node: Record<string, unknown> & { type: "shape" | "connector" } }
+    | { op: "update"; id: string; props: Record<string, number> }
+  )[];
   nodes: string[];
   edges: string[];
 }
@@ -696,6 +818,7 @@ const sizeOf = (n: DiagramNode): [number, number] => {
 /**
  * Planeja um diagrama: cria as formas (as que não têm x e y vão para um layout em camadas, na
  * ordem das arestas) e um conector por aresta. As arestas usam rota em cotovelo por padrão.
+ * Com `relayout`, ids que já existem viram `update` (x/y) em vez de formas novas.
  */
 export function diagramOps(doc: Document, input: DiagramInput): DiagramPlan {
   if (!input.nodes.length && !(input.edges ?? []).length) throw new Error("pass at least one node or edge");
@@ -708,10 +831,17 @@ export function diagramOps(doc: Document, input: DiagramInput): DiagramPlan {
       throw new Error(`parent "${parentId}" is ${p.type}; only frame, group and page have children`);
   }
   const ids = new Set<string>();
+  const existing = new Map<string, ShapeNode>();
   for (const n of input.nodes) {
     if (typeof n.id !== "string" || !n.id) throw new Error("every diagram node needs an id (edges refer to it)");
-    if (ids.has(n.id)) throw new Error(`diagram node id "${n.id}" is repeated`);
-    if (doc.nodes[n.id]) throw new Error(`id "${n.id}" already exists; pick another id or refer to the existing node only in edges`);
+    if (ids.has(n.id) || existing.has(n.id)) throw new Error(`diagram node id "${n.id}" is repeated`);
+    const prev = doc.nodes[n.id];
+    if (prev) {
+      if (!input.relayout) throw new Error(`id "${n.id}" already exists; pick another id or refer to the existing node only in edges`);
+      if (prev.type !== "shape") throw new Error(`id "${n.id}" is a ${prev.type}; relayout only updates existing shapes`);
+      existing.set(n.id, prev);
+      continue;
+    }
     ids.add(n.id);
   }
   const edges = input.edges ?? [];
@@ -721,7 +851,7 @@ export function diagramOps(doc: Document, input: DiagramInput): DiagramPlan {
 
   // Camadas: caminho mais longo a partir das fontes, só entre formas novas. Arestas que fecham um
   // ciclo (achadas por busca em profundidade, na ordem da entrada) não contam.
-  const auto = input.nodes.filter((n) => typeof n.x !== "number" || typeof n.y !== "number");
+  const auto = input.nodes.filter((n) => !existing.has(n.id) && (typeof n.x !== "number" || typeof n.y !== "number"));
   const rank = new Map(auto.map((n) => [n.id, 0]));
   const out = new Map<string, number[]>(auto.map((n) => [n.id, []]));
   edges.forEach((e, k) => {
@@ -796,6 +926,16 @@ export function diagramOps(doc: Document, input: DiagramInput): DiagramPlan {
 
   const plan: DiagramPlan = { ops: [], nodes: [], edges: [] };
   for (const n of input.nodes) {
+    const prev = existing.get(n.id);
+    if (prev) {
+      const props: Record<string, number> = {};
+      if (typeof n.x === "number") props.x = n.x;
+      if (typeof n.y === "number") props.y = n.y;
+      if (!Object.keys(props).length) props.x = prev.x;
+      plan.ops.push({ op: "update", id: n.id, props });
+      plan.nodes.push(n.id);
+      continue;
+    }
     const p = pos.get(n.id);
     const node: Record<string, unknown> & { type: "shape" } = { ...n, type: "shape" };
     if (p) {
@@ -805,7 +945,7 @@ export function diagramOps(doc: Document, input: DiagramInput): DiagramPlan {
     plan.ops.push({ op: "create", parentId, node });
     plan.nodes.push(n.id);
   }
-  const used = new Set(ids);
+  const used = new Set<string>([...ids, ...existing.keys()]);
   for (const e of edges) {
     const base = e.id ?? `${e.from}-to-${e.to}`;
     let id = base;
