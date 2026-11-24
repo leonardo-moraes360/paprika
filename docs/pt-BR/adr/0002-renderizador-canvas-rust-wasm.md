@@ -156,10 +156,14 @@ com o DOM ainda como padrão:
   stroke, e o caminho de CPU desenha num canvas transparente (o fundo pontilhado aparece).
 - Nós que ele não desenha com exatidão (cores não sólidas, sombra em path) continuam pintados pelo DOM.
 - `render_screenshot` e os exports continuam em HTML/CSS, então a saída para agentes não muda.
-- A paridade é testada: `packages/e2e/test/e2e/wasm.e2e.test.ts` renderiza o exemplo bezier nos
-  dois modos e exige menos de 0,5% de pixels diferentes, confere que uma edição via MCP chega aos
-  pixels do WASM, que o `.wasm` sai como `application/wasm` (servidores TypeScript e Go) e que a
-  chave fica salva.
+- A paridade é testada: `packages/e2e/test/e2e/wasm.e2e.test.ts` renderiza o exemplo bezier e
+  `examples/wasm-layers.paprika.json` nos dois modos e exige menos de 0,5% de pixels diferentes.
+  A paridade cobre overlap: o canvas WASM fica embaixo do DOM, então uma forma só fica no WASM quando
+  nenhum nó pintado pelo DOM antes dela na ordem de pintura sobrepõe os bounds pintados (ancestrais
+  com pintura própria, stroke, shadow, rotação e clip). O resto volta para o DOM, em cascata.
+- O teste também confere que uma edição via MCP chega aos pixels do WASM, que o `.wasm` sai como
+  `application/wasm` (servidores TypeScript e Go) e que a chave fica salva.
 
-Diferenças conhecidas: texto e imagens ficam sempre acima das formas desenhadas pelo WASM; opacidade
-aninhada é multiplicada por nó em vez de composta por grupo. Ainda em aberto: medir numa GPU de hardware.
+Diferenças conhecidas: a opacidade aninhada é multiplicada por nó em vez de composta por grupo. Um nó
+pintado pelo DOM não fica mais acima de toda forma WASM; o overlap devolve essas formas ao DOM. Ainda
+em aberto: medir numa GPU de hardware.

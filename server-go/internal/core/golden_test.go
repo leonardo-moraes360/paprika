@@ -408,6 +408,80 @@ func TestGoldenTailwindMap(t *testing.T) {
 	}
 }
 
+func TestGoldenPathEdits(t *testing.T) {
+	g := loadGolden(t)
+	cases := g.Arr("pathEdits")
+	if len(cases) == 0 {
+		t.Fatal("pathEdits fixture missing — run pnpm go:golden")
+	}
+	for _, v := range cases {
+		c := v.(*jsonv.Object)
+		got := runPathEdit(t, c)
+		want, _ := c.Get("result")
+		eq(t, "path edit "+c.Str("name"), jsonv.Stringify(got, ""), jsonv.Stringify(want, ""))
+	}
+}
+
+func runPathEdit(t *testing.T, c *jsonv.Object) any {
+	t.Helper()
+	segs, err := ParsePath(c.Str("d"))
+	if err != nil {
+		t.Fatalf("path edit %s: %v", c.Str("name"), err)
+	}
+	subs := PathToSubpaths(segs)
+	ref := AnchorRef{Sub: int(c.Num("sub")), Index: int(c.Num("index"))}
+	switch c.Str("op") {
+	case "subpaths":
+		return SerializePath(SubpathsToPath(subs))
+	case "moveAnchor":
+		return SerializePath(SubpathsToPath(MoveAnchor(subs, ref, Point{c.Num("x"), c.Num("y")})))
+	case "moveHandle":
+		moved := MoveHandle(subs, ref, c.Str("side"), Point{c.Num("x"), c.Num("y")}, c.Bool("mirror"))
+		a := moved[ref.Sub].Anchors[ref.Index]
+		o := jsonv.NewObject("x", a.X, "y", a.Y)
+		if a.In != nil {
+			o.Set("in", jsonv.NewObject("x", a.In.X, "y", a.In.Y))
+		} else {
+			o.Set("in", nil)
+		}
+		if a.Out != nil {
+			o.Set("out", jsonv.NewObject("x", a.Out.X, "y", a.Out.Y))
+		} else {
+			o.Set("out", nil)
+		}
+		return o
+	case "props":
+		node := c.Obj("node")
+		edited := subs
+		if c.Has("to") {
+			to := c.Obj("to")
+			edited = MoveAnchor(subs, ref, Point{to.Num("x"), to.Num("y")})
+		}
+		p := PathEditProps(PathEditNode{X: node.Num("x"), Y: node.Num("y"), ViewBox: node.Has("viewBox")}, edited, c.Bool("moveBox"))
+		if p == nil {
+			return nil
+		}
+		if !p.HasSize {
+			return jsonv.NewObject("d", p.D)
+		}
+		o := jsonv.NewObject("d", p.D, "width", p.Width, "height", p.Height)
+		if p.HasXY {
+			o.Set("x", p.X)
+			o.Set("y", p.Y)
+		}
+		return o
+	case "flat":
+		at, ok := AnchorByFlatIndex(subs, int(c.Num("index")))
+		if !ok {
+			return nil
+		}
+		return jsonv.NewObject("sub", float64(at.Sub), "index", float64(at.Index))
+	default:
+		t.Fatalf("path edit %s: unknown op %q", c.Str("name"), c.Str("op"))
+		return nil
+	}
+}
+
 func TestGoldenPaths(t *testing.T) {
 	g := loadGolden(t)
 	for _, v := range g.Arr("paths") {

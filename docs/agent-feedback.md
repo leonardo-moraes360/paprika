@@ -34,7 +34,7 @@ Task: add bezier curves so agents and humans can draw organic shapes, then redra
 |---|--------|---------------|----------|------|
 | 15 | A node box that matches the drawing | Without `width`/`height` the box runs from the node origin to the far edge of the curve, so a `d` that starts at (40,30) leaves empty space at the top left, and overflow lint measures that box | Done (2026-11-22, PAP-A-001): `normalize: true` on create_nodes / create; `path_info.origin` reports the gap | — |
 | 16 | Layer several paths as one shape (body, shadow, highlight, calyx) | Each part repeats the same `x`/`y`; moving the pepper means moving 5 nodes | `group` node (see #8) or a `paths: []` list on one node | P2 |
-| 17 | Edit one control point | Changing a curve means rewriting the whole `d` string | Canvas part done (2026-11-21, see #43); `update_path_points` (move anchor/handle by index) for agents is still open | P3 |
+| 17 | Edit one control point | Changing a curve means rewriting the whole `d` string | Done (2026-11-24, PAP-B-076, https://github.com/leonardo-moraes360/paprika/pull/170): `edit_path` moves one anchor or its handles; `path_info.anchors` lists the same points | — |
 | 18 | Know the drawn size before placing a part | `path_info` with `canvasBounds` answered it in one call; it also caught a typo (`d inválido: número esperado na posição 12`) | Keep: return position-accurate parse errors for every string field | — |
 
 ## 2026-11-21: Go server with SQLite (`server-go/`)
@@ -116,7 +116,7 @@ Task: core helpers that turn `d` into anchors with handles and back (`pathToSubp
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 43 | Nudge one point of a path an agent drew | The human can now drag it on the canvas; an agent still rewrites `d`, and after a human edit the `d` it reads back has new numbers (quadratics and arcs become cubics, the box is renormalized) | An MCP tool over the same helpers (`edit_path` with anchor index and new position), plus anchors in `path_info`, so agent and human address points the same way | P2 |
+| 43 | Nudge one point of a path an agent drew | The human can now drag it on the canvas; an agent still rewrites `d`, and after a human edit the `d` it reads back has new numbers (quadratics and arcs become cubics, the box is renormalized) | Done (2026-11-24, PAP-B-076, https://github.com/leonardo-moraes360/paprika/pull/170): `edit_path` uses the canvas helpers, and `path_info.anchors` lists the same points | — |
 | 44 | Edit a path inside an auto-layout frame | The node's position comes from the layout, so when an edit moves the top-left of the drawing the box grows in place and the shape shifts by that amount | Keep, or adopt "ignore layout" children (backlog A) and place edited paths absolutely | P3 |
 
 ## 2026-11-21: theme modes and tokens as CSS variables (backlog slice 1, item 5)
