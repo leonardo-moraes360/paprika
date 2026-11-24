@@ -48,12 +48,20 @@ export function initialRendererMode(): RendererMode {
   }
 }
 
+const rendererListeners = new Set<(mode: RendererMode) => void>();
+
+export function onRendererMode(fn: (mode: RendererMode) => void): () => void {
+  rendererListeners.add(fn);
+  return () => rendererListeners.delete(fn);
+}
+
 export function saveRendererMode(mode: RendererMode) {
   try {
     localStorage.setItem(STORAGE_KEY, mode);
   } catch {
     /* private mode: the choice lasts for this page only */
   }
+  for (const fn of rendererListeners) fn(mode);
 }
 
 /** Canvas-space boxes (before rotation) of every rendered node, read from the DOM layout. */

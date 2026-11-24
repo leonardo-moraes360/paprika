@@ -53,6 +53,11 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
+  it("a aba aberta informa o renderizador DOM no outline", async () => {
+    const outline = (await agent.callTool({ name: "get_document_outline", arguments: { depth: 0 } })) as { content: { text: string }[] };
+    expect(outline.content[0]!.text.split("\n").find((l) => l.startsWith("renderer:"))).toBe("renderer: dom");
+  });
+
   it("renderiza o documento com camadas e frames", async () => {
     await expect(page.locator('[data-layer-id="login"]').textContent()).resolves.toContain("Login · mobile");
     await expect(page.locator('[data-paprika-id="login"]').innerText()).resolves.toContain("Bem-vindo de volta");

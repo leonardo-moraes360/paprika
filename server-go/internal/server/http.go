@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -161,6 +162,11 @@ var clientMessage = z.DiscriminatedUnion("type",
 	)),
 	z.Option("undo", z.Object(z.Field{Name: "type", Schema: z.Literal("undo")}, z.Field{Name: "reqId", Schema: z.Optional(z.String())})),
 	z.Option("redo", z.Object(z.Field{Name: "type", Schema: z.Literal("redo")}, z.Field{Name: "reqId", Schema: z.Optional(z.String())})),
+	z.Option("hello", z.Object(
+		z.Field{Name: "type", Schema: z.Literal("hello")},
+		z.Field{Name: "renderer", Schema: z.Enum("dom", "wasm")},
+		z.Field{Name: "reqId", Schema: z.Optional(z.String())},
+	)),
 )
 
 var apiOpsBody = z.Object(
@@ -191,8 +197,39 @@ func (s *RunningServer) Close() error {
 }
 
 type wsHub struct {
-	mu    sync.Mutex
-	conns map[*websocket.Conn]chan string
+	mu       sync.Mutex
+	conns    map[*websocket.Conn]chan string
+	order    []*websocket.Conn
+	renderer map[*websocket.Conn]string
+}
+
+func (h *wsHub) rendererLine() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	parts := make([]string, 0, len(h.order))
+	for _, c := range h.order {
+		if mode := h.renderer[c]; mode != "" {
+			parts = append(parts, mode)
+		}
+	}
+	if len(parts) == 0 {
+		return "none"
+	}
+	return strings.Join(parts, ", ")
+}
+
+type rendererSource struct {
+	line func() string
+}
+
+var canvasRenderers atomic.Pointer[rendererSource]
+
+func activeRendererLine() string {
+	src := canvasRenderers.Load()
+	if src == nil || src.line == nil {
+		return "none"
+	}
+	return src.line()
 }
 
 // StartHTTP serves the canvas, the API, MCP over Streamable HTTP (/mcp) and live sync (/ws).
@@ -213,7 +250,9 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 
-	hub := &wsHub{conns: map[*websocket.Conn]chan string{}}
+	hub := &wsHub{conns: map[*websocket.Conn]chan string{}, renderer: map[*websocket.Conn]string{}}
+	renderers := &rendererSource{line: hub.rendererLine}
+	canvasRenderers.Store(renderers)
 	docMessage := func(doc *core.Document, version int64, actor, label, kind string, canUndo, canRedo bool) string {
 		return jsonv.Stringify(jsonv.NewObject("type", "doc", "doc", doc, "version", float64(version), "actor", actor, "label", label,
 			"kind", kind, "canUndo", canUndo, "canRedo", canRedo), "")
@@ -621,6 +660,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		server: srv,
 		ln:     ln,
 		close: func() {
+			canvasRenderers.CompareAndSwap(renderers, nil)
 			stopOps()
 			stopPins()
 			unsubscribe()
@@ -760,10 +800,13 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 	}
 	hub.mu.Lock()
 	hub.conns[conn] = out
+	hub.order = append(hub.order, conn)
 	hub.mu.Unlock()
 	defer func() {
 		hub.mu.Lock()
 		delete(hub.conns, conn)
+		delete(hub.renderer, conn)
+		hub.order = slices.DeleteFunc(hub.order, func(c *websocket.Conn) bool { return c == conn })
 		hub.mu.Unlock()
 		conn.CloseNow()
 	}()
@@ -814,6 +857,19 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 		msg := parsed.(*jsonv.Object)
 		reqID, hasReq = msg.Get("reqId")
 		switch msg.Str("type") {
+		case "hello":
+			mode := msg.Str("renderer")
+			hub.mu.Lock()
+			if _, ok := hub.conns[conn]; ok {
+				hub.renderer[conn] = mode
+			}
+			hub.mu.Unlock()
+			hello := jsonv.NewObject("type", "hello", "renderer", mode)
+			if hasReq {
+				hello.Set("reqId", reqID)
+			}
+			reply(hello)
+			continue
 		case "ops":
 			_, err = store.Apply(msg.Arr("ops"), "user", msg.Str("label"))
 		case "undo":
