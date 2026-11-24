@@ -356,7 +356,7 @@ export const PathNode = z.object({
 });
 
 /** Formas de diagrama: o contorno desenhado por `shape`. `note` é a nota adesiva (canto dobrado). */
-export const ShapeKind = z.enum(["rect", "ellipse", "diamond", "triangle", "note"]);
+export const ShapeKind = z.enum(["rect", "ellipse", "diamond", "triangle", "cylinder", "parallelogram", "cloud", "note"]);
 
 /**
  * Forma de diagrama com texto dentro (centralizado; numa nota, no topo). O contorno segue `shape`;

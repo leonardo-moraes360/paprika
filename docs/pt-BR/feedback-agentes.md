@@ -850,3 +850,15 @@ Tarefa: desenhar o rótulo "trabalhando", o passo de contorno e depois conteúdo
 - Igual ao #129: os PNGs foram gravados a partir dos bytes de imagem do resultado da ferramenta.
 - `raw-color` ficou em info. Os mocks não foram redesenhados em tokens.
 - Depois do selo, a etiqueta do cursor e o botão aberto passaram para `#141827`. O `lint_design` nos dois frames ficou sem erros nem avisos.
+
+## 2026-11-24: conta-gotas, pontas de seta e formas novas (PAP-B-093, design first)
+
+Tarefa: desenhar o conta-gotas, as alças das pontas e os três contornos novos antes de codificá-los, na página `Interfaces` do workspace `Paprica · UI` (`cmio9n368k`). Quatro frames (`b093-shapes-light`, `b093-shapes-dark`, `b093-interact-light`, `b093-interact-dark`) em y=15240. PNGs em `docs/assets/boards/PAP-B-093/`. `lint_design` nessas raízes: 0. Cilindro, paralelogramo e nuvem foram desenhados com rect/ellipse/path porque esses `ShapeKind` ainda não existiam.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 150 | `paprika export --db` do board que o script acabou de desenhar | Igual ao #147: o banco está no volume do compose. O workspace ativo já era `Paprica · UI`, então `GET /api/export` foi gravado em `docs/design/boards.paprika.json` | Igual ao #100: uma ferramenta `export_document` com `workspaceId` | P2 |
+
+- Endereçou o board por `workspaceId` `cmio9n368k` e não chamou `open_workspace`.
+- Igual ao #123, ainda aberto: a caixa de conteúdo de `page#interfaces` é 0×0, então o `y` veio de uma varredura de profundidade 1 (fundo máximo 15060, frames em 15240).
+- Os bytes de `render_screenshot` foram gravados nos PNGs a partir do resultado da ferramenta.

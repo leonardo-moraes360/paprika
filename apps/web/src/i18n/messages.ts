@@ -99,8 +99,13 @@ export type Messages = {
   toolShape: string;
   toolDiamond: string;
   toolTriangle: string;
+  toolCylinder: string;
+  toolParallelogram: string;
+  toolCloud: string;
   toolNote: string;
   toolConnector: string;
+  connectorFromHandle: string;
+  connectorToHandle: string;
   toolPin: string;
   pinsTitle: string;
   pinsOpenCount: (n: number) => string;
@@ -230,6 +235,7 @@ export type Messages = {
   colorTokens: string;
   colorSatBri: string;
   colorHue: string;
+  colorEyedropper: string;
   colorAlpha: string;
   colorSpaceSrgb: string;
   colorSpaceOklch: string;
@@ -495,8 +501,13 @@ const en: Messages = {
   toolShape: "Diagram box",
   toolDiamond: "Decision (diamond)",
   toolTriangle: "Triangle",
+  toolCylinder: "Cylinder",
+  toolParallelogram: "Parallelogram",
+  toolCloud: "Cloud",
   toolNote: "Sticky note",
   toolConnector: "Arrow (snaps to shapes)",
+  connectorFromHandle: "Drag the arrow start",
+  connectorToHandle: "Drag the arrow end",
   toolPin: "Point for the AI (click an element or drag an area)",
   pinsTitle: "Pins",
   pinsOpenCount: (n) => (n === 1 ? "1 open pin" : `${n} open pins`),
@@ -626,6 +637,7 @@ const en: Messages = {
   colorTokens: "Document tokens",
   colorSatBri: "Saturation and brightness",
   colorHue: "Hue",
+  colorEyedropper: "Sample a color from the screen or the canvas",
   colorAlpha: "Alpha",
   colorSpaceSrgb: "sRGB",
   colorSpaceOklch: "OKLCH",
@@ -885,8 +897,13 @@ const pt: Messages = {
   toolShape: "Caixa de diagrama",
   toolDiamond: "Decisão (losango)",
   toolTriangle: "Triângulo",
+  toolCylinder: "Cilindro",
+  toolParallelogram: "Paralelogramo",
+  toolCloud: "Nuvem",
   toolNote: "Nota adesiva",
   toolConnector: "Seta (prende nas formas)",
+  connectorFromHandle: "Arrastar o início da seta",
+  connectorToHandle: "Arrastar o fim da seta",
   toolPin: "Apontar para a IA (clique num elemento ou arraste uma área)",
   pinsTitle: "Apontamentos",
   pinsOpenCount: (n) => (n === 1 ? "1 apontamento aberto" : `${n} apontamentos abertos`),
@@ -1010,6 +1027,7 @@ const pt: Messages = {
   colorTokens: "Tokens do documento",
   colorSatBri: "Saturação e brilho",
   colorHue: "Matiz",
+  colorEyedropper: "Amostrar uma cor da tela ou do canvas",
   colorAlpha: "Alfa",
   colorSpaceSrgb: "sRGB",
   colorSpaceOklch: "OKLCH",

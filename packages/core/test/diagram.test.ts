@@ -48,6 +48,15 @@ describe("shape", () => {
     expect(shapeOutline({ shape: "triangle", width: 100, height: 60, radius: 0, stroke: { color: "#000", width: 2 } }).d).toBe("M50 1 L99 59 L1 59 Z");
     const note = shapeOutline({ shape: "note", width: 100, height: 100, radius: 0 });
     expect(note.fold).toBe("M76 0 L76 24 L100 24 Z");
+    const para = shapeOutline({ shape: "parallelogram", width: 100, height: 60, radius: 0, stroke: { color: "#000", width: 2 } });
+    expect(para.d).toBe("M22.56 1 L99 1 L77.44 59 L1 59 Z");
+    const cyl = shapeOutline({ shape: "cylinder", width: 100, height: 60, radius: 0, stroke: { color: "#000", width: 2 } });
+    expect(cyl.d.startsWith("M1 ")).toBe(true);
+    expect(cyl.d).toContain(" A");
+    const cloud = shapeOutline({ shape: "cloud", width: 100, height: 60, radius: 0, stroke: { color: "#000", width: 2 } });
+    expect(cloud.d.startsWith("M")).toBe(true);
+    expect(cloud.d).toContain(" C");
+    expect(cloud.d.endsWith(" Z")).toBe(true);
   });
 
   it("outlines honor stroke position center and outside", () => {
@@ -57,6 +66,20 @@ describe("shape", () => {
     expect(shapeOutline({ shape: "diamond", width: 100, height: 60, radius: 0, stroke: { color: "#000", width: 2, position: "outside" } }).d).toBe(
       "M50 -1 L101 30 L50 61 L-1 30 Z",
     );
+  });
+
+  it("clips a straight connector to a parallelogram, not the bounding box", () => {
+    const d = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "shape", id: "p", x: 0, y: 0, width: 160, height: 80, shape: "parallelogram" } },
+      { op: "create", node: { type: "shape", id: "b", x: 300, y: 0, shape: "ellipse" } },
+      { op: "create", node: { type: "connector", id: "c", from: { nodeId: "p" }, to: { nodeId: "b" }, route: "straight" } },
+    ]).doc;
+    const c = d.nodes.c as ConnectorNode;
+    expect(c.x).toBeLessThan(160);
+    const free = applyOps(d, [{ op: "update", id: "c", props: { to: { x: 40, y: 220 } } }]).doc;
+    expect((free.nodes.c as ConnectorNode).to).toEqual({ x: 40, y: 220 });
+    const back = applyOps(free, [{ op: "update", id: "c", props: { to: { nodeId: "b" } } }]).doc;
+    expect((back.nodes.c as ConnectorNode).to).toEqual({ nodeId: "b" });
   });
 
   it("clips connectors to a triangle outline like a diamond", () => {

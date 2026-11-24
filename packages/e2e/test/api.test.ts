@@ -799,6 +799,17 @@ describe("API: MCP", () => {
     expect(tri.structuredContent?.nodes).toEqual(["tip", "box"]);
     const after = await srv.doc();
     expect(after.nodes.tip).toMatchObject({ type: "shape", shape: "triangle" });
+    await call(c, "create_nodes", {
+      nodes: [
+        { type: "shape", id: "cyl", shape: "cylinder", x: 0, y: 400 },
+        { type: "shape", id: "para", shape: "parallelogram", x: 220, y: 400 },
+        { type: "shape", id: "cld", shape: "cloud", x: 440, y: 400 },
+      ],
+    });
+    const more = await srv.doc();
+    expect(more.nodes.cyl).toMatchObject({ type: "shape", shape: "cylinder", fill: "#ffffff" });
+    expect(more.nodes.para).toMatchObject({ shape: "parallelogram" });
+    expect(more.nodes.cld).toMatchObject({ shape: "cloud" });
     expect(after.nodes["tip-to-box"]).toMatchObject({ type: "connector", from: { nodeId: "tip" }, to: { nodeId: "box" } });
     expect((after.nodes["tip-to-box"] as { d: string }).d.startsWith("M")).toBe(true);
   });

@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { Pipette } from "lucide-react";
 import type { Document } from "@paprika/core";
 import { oklchToRgb, readOklch, resolveValue, rgbToOklch } from "@paprika/core";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
@@ -6,6 +7,7 @@ import { Hint } from "./components/ui/tooltip";
 import { useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { cx, ui } from "./ui";
+import { beginCanvasSample, eyeDropperAvailable, eyedropperListening, openEyeDropper, subscribeEyedropper } from "./eyedropper";
 
 type Rgba = { r: number; g: number; b: number; a: number };
 type Hsva = { h: number; s: number; v: number; a: number };
@@ -252,6 +254,21 @@ export function ColorPicker({
     setRecent(readRecent());
     onCommit(next);
   };
+  const sampling = useSyncExternalStore(subscribeEyedropper, eyedropperListening, () => false);
+  const cancelSample = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelSample.current?.(), []);
+  useEffect(() => {
+    if (!sampling) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      cancelSample.current?.();
+      cancelSample.current = null;
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [sampling]);
 
   const hsvaRef = useRef(hsva);
   hsvaRef.current = hsva;
@@ -261,6 +278,31 @@ export function ColorPicker({
     hsvaRef.current = next;
     const { r, g, b } = hsvToRgb(next.h, next.s, next.v);
     if (commit) commitColor(toCommit(r, g, b, next.a));
+  };
+  const applySample = (raw: string) => {
+    const parsed = parseCssColor(raw.trim());
+    if (!parsed) {
+      commitColor(raw.trim());
+      return;
+    }
+    const { h, s, v } = rgbToHsv(parsed.r, parsed.g, parsed.b);
+    applyHsva({ h, s, v, a: parsed.a });
+  };
+  const pickColor = async () => {
+    if (cancelSample.current) {
+      cancelSample.current();
+      cancelSample.current = null;
+      return;
+    }
+    if (eyeDropperAvailable()) {
+      const hex = await openEyeDropper();
+      if (hex) applySample(hex);
+      return;
+    }
+    cancelSample.current = beginCanvasSample((color) => {
+      cancelSample.current = null;
+      applySample(color);
+    });
   };
 
   const commitHsva = () => {
@@ -521,7 +563,8 @@ export function ColorPicker({
           >
             <span className={ui.colorThumb} style={{ left: `${hsva.a * 100}%`, background: preview }} />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="flex items-start gap-2">
+          <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
             {space === "oklch" ? (
               <label className={cn(ui.colorChannel, "col-span-2")}>
                 <span>OKLCH</span>
@@ -579,6 +622,17 @@ export function ColorPicker({
                 }}
               />
             </label>
+          </div>
+          <button
+            type="button"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-select bg-ui-card text-select"
+            aria-label={m.colorEyedropper}
+            aria-pressed={sampling}
+            data-testid="color-eyedropper"
+            onClick={() => void pickColor()}
+          >
+            <Pipette className="size-3.5" aria-hidden />
+          </button>
           </div>
           {tokens.length > 0 && (
             <div className="grid gap-1.5">

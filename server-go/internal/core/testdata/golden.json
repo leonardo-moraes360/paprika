@@ -24448,7 +24448,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: invalid node: shape: Invalid option: expected one of \"rect\"|\"ellipse\"|\"diamond\"|\"triangle\"|\"note\""
+   "error": "op[0]: invalid node: shape: Invalid option: expected one of \"rect\"|\"ellipse\"|\"diamond\"|\"triangle\"|\"cylinder\"|\"parallelogram\"|\"cloud\"|\"note\""
   },
   {
    "doc": "empty",
@@ -24464,7 +24464,7 @@
     }
    ],
    "ok": false,
-   "error": "op[0]: invalid node: shape: Invalid option: expected one of \"rect\"|\"ellipse\"|\"diamond\"|\"triangle\"|\"note\"; text: Invalid input: expected string, received number"
+   "error": "op[0]: invalid node: shape: Invalid option: expected one of \"rect\"|\"ellipse\"|\"diamond\"|\"triangle\"|\"cylinder\"|\"parallelogram\"|\"cloud\"|\"note\"; text: Invalid input: expected string, received number"
   },
   {
    "doc": "empty",
@@ -26041,6 +26041,51 @@
   {
    "doc": "empty",
    "input": {
+    "nodes": [
+     {
+      "id": "p",
+      "shape": "parallelogram",
+      "x": 0,
+      "y": 0,
+      "width": 160,
+      "height": 80
+     },
+     {
+      "id": "e",
+      "shape": "ellipse",
+      "x": 300,
+      "y": 0,
+      "width": 160,
+      "height": 80
+     },
+     {
+      "id": "cy",
+      "shape": "cylinder",
+      "x": 0,
+      "y": 200
+     },
+     {
+      "id": "cl",
+      "shape": "cloud",
+      "x": 300,
+      "y": 200
+     }
+    ],
+    "edges": [
+     {
+      "from": "p",
+      "to": "e",
+      "route": "straight"
+     }
+    ]
+   },
+   "ok": true,
+   "plan": "{\"ops\":[{\"op\":\"create\",\"parentId\":null,\"node\":{\"id\":\"p\",\"shape\":\"parallelogram\",\"x\":0,\"y\":0,\"width\":160,\"height\":80,\"type\":\"shape\"}},{\"op\":\"create\",\"parentId\":null,\"node\":{\"id\":\"e\",\"shape\":\"ellipse\",\"x\":300,\"y\":0,\"width\":160,\"height\":80,\"type\":\"shape\"}},{\"op\":\"create\",\"parentId\":null,\"node\":{\"id\":\"cy\",\"shape\":\"cylinder\",\"x\":0,\"y\":200,\"type\":\"shape\"}},{\"op\":\"create\",\"parentId\":null,\"node\":{\"id\":\"cl\",\"shape\":\"cloud\",\"x\":300,\"y\":200,\"type\":\"shape\"}},{\"op\":\"create\",\"parentId\":null,\"node\":{\"type\":\"connector\",\"id\":\"p-to-e\",\"from\":{\"nodeId\":\"p\"},\"to\":{\"nodeId\":\"e\"},\"route\":\"straight\"}}],\"nodes\":[\"p\",\"e\",\"cy\",\"cl\"],\"edges\":[\"p-to-e\"]}",
+   "result": "{\n  \"format\": \"paprika/1\",\n  \"id\": \"doc1\",\n  \"name\": \"Teste\",\n  \"tokens\": {},\n  \"rootIds\": [\n    \"p\",\n    \"e\",\n    \"cy\",\n    \"cl\",\n    \"p-to-e\"\n  ],\n  \"nodes\": {\n    \"p\": {\n      \"id\": \"p\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 0,\n      \"width\": 160,\n      \"height\": 80,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"stroke\": {\n        \"color\": \"#1e2336\",\n        \"width\": 2\n      },\n      \"radius\": 0,\n      \"type\": \"shape\",\n      \"shape\": \"parallelogram\",\n      \"text\": \"\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 500,\n      \"lineHeight\": 1.3,\n      \"textAlign\": \"center\"\n    },\n    \"e\": {\n      \"id\": \"e\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 300,\n      \"y\": 0,\n      \"width\": 160,\n      \"height\": 80,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"stroke\": {\n        \"color\": \"#1e2336\",\n        \"width\": 2\n      },\n      \"radius\": 0,\n      \"type\": \"shape\",\n      \"shape\": \"ellipse\",\n      \"text\": \"\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 500,\n      \"lineHeight\": 1.3,\n      \"textAlign\": \"center\"\n    },\n    \"cy\": {\n      \"id\": \"cy\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 0,\n      \"y\": 200,\n      \"width\": 160,\n      \"height\": 80,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"stroke\": {\n        \"color\": \"#1e2336\",\n        \"width\": 2\n      },\n      \"radius\": 0,\n      \"type\": \"shape\",\n      \"shape\": \"cylinder\",\n      \"text\": \"\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 500,\n      \"lineHeight\": 1.3,\n      \"textAlign\": \"center\"\n    },\n    \"cl\": {\n      \"id\": \"cl\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"x\": 300,\n      \"y\": 200,\n      \"width\": 160,\n      \"height\": 80,\n      \"rotation\": 0,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"fill\": \"#ffffff\",\n      \"stroke\": {\n        \"color\": \"#1e2336\",\n        \"width\": 2\n      },\n      \"radius\": 0,\n      \"type\": \"shape\",\n      \"shape\": \"cloud\",\n      \"text\": \"\",\n      \"color\": \"#1e2336\",\n      \"fontFamily\": \"Inter, system-ui, sans-serif\",\n      \"fontSize\": 16,\n      \"fontWeight\": 500,\n      \"lineHeight\": 1.3,\n      \"textAlign\": \"center\"\n    },\n    \"p-to-e\": {\n      \"id\": \"p-to-e\",\n      \"name\": \"\",\n      \"parentId\": null,\n      \"type\": \"connector\",\n      \"x\": 140.4,\n      \"y\": 32,\n      \"width\": 161.6,\n      \"height\": 16,\n      \"opacity\": 1,\n      \"visible\": true,\n      \"locked\": false,\n      \"from\": {\n        \"nodeId\": \"p\"\n      },\n      \"to\": {\n        \"nodeId\": \"e\"\n      },\n      \"route\": \"straight\",\n      \"radius\": 0,\n      \"startArrow\": \"none\",\n      \"endArrow\": \"arrow\",\n      \"stroke\": {\n        \"color\": \"#1e2336\",\n        \"width\": 2\n      },\n      \"dashed\": false,\n      \"d\": \"M2 8 L159.6 8 M147.6 14 L159.6 8 L147.6 2\"\n    }\n  }\n}"
+  },
+  {
+   "doc": "empty",
+   "input": {
     "direction": "right",
     "gap": 30,
     "x": 10,
@@ -26387,6 +26432,170 @@
    },
    "out": {
     "d": "M0.5 0.5 L0.5 0.5 L0.5 0.5 L0.5 0.5 Z"
+   }
+  },
+  {
+   "n": {
+    "shape": "triangle",
+    "width": 160,
+    "height": 80,
+    "radius": 8,
+    "stroke": {
+     "color": "#000",
+     "width": 2
+    }
+   },
+   "out": {
+    "d": "M80 1 L159 79 L1 79 Z"
+   }
+  },
+  {
+   "n": {
+    "shape": "triangle",
+    "width": 30.5,
+    "height": 10,
+    "radius": 40
+   },
+   "out": {
+    "d": "M15.25 0 L30.5 10 L0 10 Z"
+   }
+  },
+  {
+   "n": {
+    "shape": "triangle",
+    "width": 1,
+    "height": 1,
+    "radius": 0,
+    "stroke": {
+     "color": "#000",
+     "width": 5
+    }
+   },
+   "out": {
+    "d": "M0.5 0.5 L0.5 0.5 L0.5 0.5 Z"
+   }
+  },
+  {
+   "n": {
+    "shape": "cylinder",
+    "width": 160,
+    "height": 80,
+    "radius": 8,
+    "stroke": {
+     "color": "#000",
+     "width": 2
+    }
+   },
+   "out": {
+    "d": "M1 15.04 L1 64.96 A79 14.04 0 0 1 159 64.96 L159 15.04 A79 14.04 0 0 0 1 15.04 Z M1 15.04 A79 14.04 0 0 1 159 15.04 A79 14.04 0 0 0 1 15.04"
+   }
+  },
+  {
+   "n": {
+    "shape": "cylinder",
+    "width": 30.5,
+    "height": 10,
+    "radius": 40
+   },
+   "out": {
+    "d": "M0 1.8 L0 8.2 A15.25 1.8 0 0 1 30.5 8.2 L30.5 1.8 A15.25 1.8 0 0 0 0 1.8 Z M0 1.8 A15.25 1.8 0 0 1 30.5 1.8 A15.25 1.8 0 0 0 0 1.8"
+   }
+  },
+  {
+   "n": {
+    "shape": "cylinder",
+    "width": 1,
+    "height": 1,
+    "radius": 0,
+    "stroke": {
+     "color": "#000",
+     "width": 5
+    }
+   },
+   "out": {
+    "d": "M0.5 0.5 L0.5 0.5 L0.5 0.5 L0.5 0.5 Z"
+   }
+  },
+  {
+   "n": {
+    "shape": "parallelogram",
+    "width": 160,
+    "height": 80,
+    "radius": 8,
+    "stroke": {
+     "color": "#000",
+     "width": 2
+    }
+   },
+   "out": {
+    "d": "M35.76 1 L159 1 L124.24 79 L1 79 Z"
+   }
+  },
+  {
+   "n": {
+    "shape": "parallelogram",
+    "width": 30.5,
+    "height": 10,
+    "radius": 40
+   },
+   "out": {
+    "d": "M6.71 0 L30.5 0 L23.79 10 L0 10 Z"
+   }
+  },
+  {
+   "n": {
+    "shape": "parallelogram",
+    "width": 1,
+    "height": 1,
+    "radius": 0,
+    "stroke": {
+     "color": "#000",
+     "width": 5
+    }
+   },
+   "out": {
+    "d": "M0.5 0.5 L0.5 0.5 L0.5 0.5 L0.5 0.5 Z"
+   }
+  },
+  {
+   "n": {
+    "shape": "cloud",
+    "width": 160,
+    "height": 80,
+    "radius": 8,
+    "stroke": {
+     "color": "#000",
+     "width": 2
+    }
+   },
+   "out": {
+    "d": "M30.2593 56.4667 C8.8025 56.4667 1 40.8667 16.6049 33.9333 C6.8519 18.3333 30.2593 6.2 51.716 18.3333 C63.4198 1 100.4815 1 110.2346 18.3333 C135.5926 7.9333 155.0988 27 139.4938 42.6 C159 59.9333 133.642 77.2667 102.4321 66.8667 C88.7778 79 43.9136 77.2667 30.2593 56.4667 Z"
+   }
+  },
+  {
+   "n": {
+    "shape": "cloud",
+    "width": 30.5,
+    "height": 10,
+    "radius": 40
+   },
+   "out": {
+    "d": "M5.6481 7.1111 C1.5062 7.1111 0 5.1111 3.0123 4.2222 C1.1296 2.2222 5.6481 0.6667 9.7901 2.2222 C12.0494 0 19.2037 0 21.0864 2.2222 C25.9815 0.8889 29.7469 3.3333 26.7346 5.3333 C30.5 7.5556 25.6049 9.7778 19.5802 8.4444 C16.9444 10 8.284 9.7778 5.6481 7.1111 Z"
+   }
+  },
+  {
+   "n": {
+    "shape": "cloud",
+    "width": 1,
+    "height": 1,
+    "radius": 0,
+    "stroke": {
+     "color": "#000",
+     "width": 5
+    }
+   },
+   "out": {
+    "d": "M0.5 0.5 C0.5 0.5 0.5 0.5 0.5 0.5 C0.5 0.5 0.5 0.5 0.5 0.5 C0.5 0.5 0.5 0.5 0.5 0.5 C0.5 0.5 0.5 0.5 0.5 0.5 C0.5 0.5 0.5 0.5 0.5 0.5 C0.5 0.5 0.5 0.5 0.5 0.5 Z"
    }
   },
   {

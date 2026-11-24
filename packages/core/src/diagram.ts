@@ -43,6 +43,30 @@ function foldSize(w: number, h: number): number {
   return Math.min(24, w / 4, h / 4);
 }
 
+/** Inclinação do paralelogramo, em px, dentro da largura útil. */
+function paraSkew(bw: number): number {
+  return Math.min(bw * 0.22, bw / 2);
+}
+
+/** Nuvem de referência (o desenho do quadro PAP-B-093), mapeada para a caixa útil. */
+const CLOUD_OX = 10;
+const CLOUD_OY = 8;
+const CLOUD_W = 162;
+const CLOUD_H = 90;
+const CLOUD_START: [number, number] = [40, 72];
+const CLOUD_CUBICS: [number, number, number, number, number, number][] = [
+  [18, 72, 10, 54, 26, 46],
+  [16, 28, 40, 14, 62, 28],
+  [74, 8, 112, 8, 122, 28],
+  [148, 16, 168, 38, 152, 56],
+  [172, 76, 146, 96, 114, 84],
+  [100, 98, 54, 96, 40, 72],
+];
+
+function cloudMap(x: number, y: number, left: number, top: number, bw: number, bh: number): Pt {
+  return { x: left + ((x - CLOUD_OX) / CLOUD_W) * bw, y: top + ((y - CLOUD_OY) / CLOUD_H) * bh };
+}
+
 /** Contorno de uma forma em coordenadas locais; o recuo segue `stroke.position` (padrão: dentro). */
 export function shapeOutline(n: Pick<ShapeNode, "shape" | "width" | "height" | "radius" | "stroke">): { d: string; fold?: string } {
   const w = n.width;
@@ -64,6 +88,53 @@ export function shapeOutline(n: Pick<ShapeNode, "shape" | "width" | "height" | "
       return { d: `M${pt({ x: w / 2, y: i })} L${pt({ x: w - i, y: h / 2 })} L${pt({ x: w / 2, y: h - i })} L${pt({ x: i, y: h / 2 })} Z` };
     case "triangle":
       return { d: `M${pt({ x: w / 2, y: i })} L${pt({ x: w - i, y: h - i })} L${pt({ x: i, y: h - i })} Z` };
+    case "parallelogram": {
+      const bw = Math.max(0, w - 2 * i);
+      const skew = paraSkew(bw);
+      const x0 = i;
+      const y0 = i;
+      const x1 = w - i;
+      const y1 = h - i;
+      return { d: `M${pt({ x: x0 + skew, y: y0 })} L${pt({ x: x1, y: y0 })} L${pt({ x: x1 - skew, y: y1 })} L${pt({ x: x0, y: y1 })} Z` };
+    }
+    case "cylinder": {
+      const left = i;
+      const right = w - i;
+      const bw = Math.max(0, right - left);
+      const bh = Math.max(0, h - 2 * i);
+      const rx = bw / 2;
+      const ry = Math.min(bh * 0.18, rx);
+      const topCy = i + ry;
+      const botCy = h - i - ry;
+      if (rx <= 0 || ry <= 0 || botCy < topCy) {
+        return { d: `M${pt({ x: left, y: i })} L${pt({ x: right, y: i })} L${pt({ x: right, y: h - i })} L${pt({ x: left, y: h - i })} Z` };
+      }
+      const arc = (sweep: number, p: Pt) => `A${num(rx)} ${num(ry)} 0 0 ${sweep} ${pt(p)}`;
+      const body = [
+        `M${pt({ x: left, y: topCy })}`,
+        `L${pt({ x: left, y: botCy })}`,
+        arc(1, { x: right, y: botCy }),
+        `L${pt({ x: right, y: topCy })}`,
+        arc(0, { x: left, y: topCy }),
+        "Z",
+      ].join(" ");
+      const cap = [`M${pt({ x: left, y: topCy })}`, arc(1, { x: right, y: topCy }), arc(0, { x: left, y: topCy })].join(" ");
+      return { d: `${body} ${cap}` };
+    }
+    case "cloud": {
+      const left = i;
+      const top = i;
+      const bw = Math.max(0, w - 2 * i);
+      const bh = Math.max(0, h - 2 * i);
+      const start = cloudMap(CLOUD_START[0], CLOUD_START[1], left, top, bw, bh);
+      const curves = CLOUD_CUBICS.map(([x1, y1, x2, y2, x, y]) => {
+        const c1 = cloudMap(x1, y1, left, top, bw, bh);
+        const c2 = cloudMap(x2, y2, left, top, bw, bh);
+        const end = cloudMap(x, y, left, top, bw, bh);
+        return `C${pt(c1)} ${pt(c2)} ${pt(end)}`;
+      });
+      return { d: [`M${pt(start)}`, ...curves, "Z"].join(" ") };
+    }
     case "note": {
       const f = foldSize(w, h);
       return {
@@ -99,6 +170,9 @@ export function shapePadding(n: Pick<ShapeNode, "shape" | "width" | "height">): 
   if (n.shape === "diamond") return [Math.max(8, n.height / 4), Math.max(8, n.width / 4)];
   if (n.shape === "triangle") return [Math.max(8, n.height / 3), Math.max(8, n.width / 4)];
   if (n.shape === "ellipse") return [Math.max(8, n.height * 0.15), Math.max(8, n.width * 0.15)];
+  if (n.shape === "cylinder") return [Math.max(12, n.height * 0.28), 12];
+  if (n.shape === "parallelogram") return [12, Math.max(12, n.width * 0.18)];
+  if (n.shape === "cloud") return [Math.max(12, n.height * 0.25), Math.max(12, n.width * 0.16)];
   return [12, 12];
 }
 
@@ -133,7 +207,7 @@ function canvasBox(doc: Document, n: Exclude<Node, { type: "page" }>): Box {
 interface End {
   /** Caixa do nó (ponta presa) ou null (ponta solta em `p`). */
   box: Box | null;
-  outline: "rect" | "ellipse" | "diamond" | "triangle";
+  outline: "rect" | "ellipse" | "diamond" | "triangle" | "parallelogram";
   side: Side | null;
   p: Pt;
 }
@@ -150,7 +224,7 @@ function resolveEnd(doc: Document, c: ConnectorNode, key: "from" | "to", origin:
     const outline =
       n.type === "ellipse"
         ? "ellipse"
-        : n.type === "shape" && (n.shape === "ellipse" || n.shape === "diamond" || n.shape === "triangle")
+        : n.type === "shape" && (n.shape === "ellipse" || n.shape === "diamond" || n.shape === "triangle" || n.shape === "parallelogram")
           ? n.shape
           : "rect";
     const side = e.side && e.side !== "auto" ? e.side : null;
@@ -187,6 +261,7 @@ function clipToOutline(e: End, toward: Pt): Pt {
   if (e.outline === "ellipse") t = 1 / Math.sqrt((dx / hw) * (dx / hw) + (dy / hh) * (dy / hh));
   else if (e.outline === "diamond") t = 1 / (Math.abs(dx) / hw + Math.abs(dy) / hh);
   else if (e.outline === "triangle") t = clipRayToTriangle(hw, hh, dx, dy);
+  else if (e.outline === "parallelogram") t = clipRayToParallelogram(hw, hh, dx, dy);
   else {
     const tx = dx === 0 ? Infinity : hw / Math.abs(dx);
     const ty = dy === 0 ? Infinity : hh / Math.abs(dy);
@@ -195,17 +270,12 @@ function clipToOutline(e: End, toward: Pt): Pt {
   return { x: c.x + dx * t, y: c.y + dy * t };
 }
 
-/** Interseção do raio do centro na direção (dx,dy) com o triângulo isósceles da caixa (topo / BL / BR). */
-function clipRayToTriangle(hw: number, hh: number, dx: number, dy: number): number {
-  const verts: Pt[] = [
-    { x: 0, y: -hh },
-    { x: hw, y: hh },
-    { x: -hw, y: hh },
-  ];
+/** Interseção do raio do centro na direção (dx,dy) com um polígono em coordenadas do centro. */
+function clipRayToPolygon(verts: Pt[], dx: number, dy: number): number {
   let best = Infinity;
-  for (let k = 0; k < 3; k++) {
+  for (let k = 0; k < verts.length; k++) {
     const a = verts[k]!;
-    const b = verts[(k + 1) % 3]!;
+    const b = verts[(k + 1) % verts.length]!;
     const ex = b.x - a.x;
     const ey = b.y - a.y;
     const det = dx * ey - dy * ex;
@@ -215,6 +285,34 @@ function clipRayToTriangle(hw: number, hh: number, dx: number, dy: number): numb
     if (t > 1e-12 && s >= -1e-9 && s <= 1 + 1e-9) best = Math.min(best, t);
   }
   return best === Infinity ? 1 : best;
+}
+
+/** Interseção do raio do centro na direção (dx,dy) com o triângulo isósceles da caixa (topo / BL / BR). */
+function clipRayToTriangle(hw: number, hh: number, dx: number, dy: number): number {
+  return clipRayToPolygon(
+    [
+      { x: 0, y: -hh },
+      { x: hw, y: hh },
+      { x: -hw, y: hh },
+    ],
+    dx,
+    dy,
+  );
+}
+
+/** Mesma inclinação de `shapeOutline` (0,22 da largura), sem recuo de traço. */
+function clipRayToParallelogram(hw: number, hh: number, dx: number, dy: number): number {
+  const skew = Math.min(hw * 0.44, hw);
+  return clipRayToPolygon(
+    [
+      { x: skew - hw, y: -hh },
+      { x: hw, y: -hh },
+      { x: hw - skew, y: hh },
+      { x: -hw, y: hh },
+    ],
+    dx,
+    dy,
+  );
 }
 
 const DIR: Record<Side, Pt> = { top: { x: 0, y: -1 }, right: { x: 1, y: 0 }, bottom: { x: 0, y: 1 }, left: { x: -1, y: 0 } };
@@ -431,6 +529,25 @@ function roundedElbowPath(pts: Pt[], radius: number): { dParts: string[]; sample
   dParts.push(`L${pt(last)}`);
   samples.push(last);
   return { dParts, samples };
+}
+
+/**
+ * Pontas da rota no canvas (absolutas). Null se as pontas não resolvem. A curva usa as mesmas
+ * pontas da reta; cotovelo e arredondado usam o meio de cada lado.
+ */
+export function connectorEndPoints(doc: Document, c: ConnectorNode): { from: Pt; to: Pt } | null {
+  const origin = originOf(doc, c.parentId);
+  let a: End;
+  let b: End;
+  try {
+    a = resolveEnd(doc, c, "from", origin);
+    b = resolveEnd(doc, c, "to", origin);
+  } catch {
+    return null;
+  }
+  const line = c.route === "elbow" || c.route === "rounded" ? elbowPoints(a, b) : straightPoints(a, b);
+  if (line.length < 2) return null;
+  return { from: line[0]!, to: line[line.length - 1]! };
 }
 
 /**

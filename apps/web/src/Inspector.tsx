@@ -642,6 +642,9 @@ export function Inspector(props: Props) {
                 { value: "ellipse", label: "oval" },
                 { value: "diamond", label: "losango (decisão)" },
                 { value: "triangle", label: "triângulo" },
+                { value: "cylinder", label: "cilindro" },
+                { value: "parallelogram", label: "paralelogramo" },
+                { value: "cloud", label: "nuvem" },
                 { value: "note", label: "nota adesiva" },
               ]}
             />

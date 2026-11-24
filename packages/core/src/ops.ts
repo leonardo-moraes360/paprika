@@ -440,7 +440,7 @@ function createNode(
   // Campos ausentes de uma forma nova ganham o padrão do tipo (a nota adesiva: amarela, sem borda, com sombra).
   if (input.type === "shape") {
     const kind = typeof props.shape === "string" ? props.shape : "rect";
-    if (kind === "rect" || kind === "ellipse" || kind === "diamond" || kind === "triangle" || kind === "note") {
+    if (kind === "rect" || kind === "ellipse" || kind === "diamond" || kind === "triangle" || kind === "cylinder" || kind === "parallelogram" || kind === "cloud" || kind === "note") {
       for (const [k, v] of Object.entries(shapeDefaults(kind))) if (props[k] === undefined) props[k] = v;
     }
   }
