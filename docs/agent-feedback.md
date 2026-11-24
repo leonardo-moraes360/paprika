@@ -870,3 +870,17 @@ Task: draw the overview with folders and live thumbnails, and a locked reference
 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - `render_screenshot` bytes were written to the PNGs from the tool result.
+
+## 2026-11-24: stable renderer label (PAP-B-098, design first)
+
+Task: draw the toggle label before keeping the WASM renderer alive, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Two frames (`b098-light`, `b098-dark`) at y=17600: idle `DOM`, loading `DOM` with a busy dot and `aria-busy`, ready `GPU` or `CPU`. `lint_design` on those roots: 0 after the dark GPU word moved off `#c8401f`. The frames stay on that board; the task paths do not include `docs/assets`, so the PNGs go on the PR.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 151 | Lint only the new frames | `lint_design` was called with `ids`. That key is not in the schema, so the call reviewed the whole document (24 contrast errors and hundreds of warnings from other tickets) | Unknown keys should fail the call. The field that scopes the lint is `rootIds` | P2 |
+| 152 | `GPU` on the dark chip | `#c8401f` on `#1e2336` is 3.12:1. The dark label is now `#ffb4a6` | The live control stays on `text-accent` over the light zoom chip | — |
+
+- Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
+- Same as #123 and #146, still open: the content box of `page#interfaces` is 0×0, and a second page is also named Interfaces (`h6jut017rv`, empty). `y` came from a depth-1 scan (max bottom 17380, frames at 17600).
+- Same as #129: `render_screenshot` bytes were taken from the tool result. `path` would write inside the server.
+- Same as #150: `docs/design/boards.paprika.json` was not refreshed. The database is the compose volume, and that file is outside this task's paths.

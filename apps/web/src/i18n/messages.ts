@@ -190,9 +190,12 @@ export type Messages = {
   zoomFitHint: string;
   rendererDom: string;
   rendererWasm: string;
+  rendererGpu: string;
+  rendererCpu: string;
   rendererWasmUnavailable: string;
   rendererWasmHint: (backend: string) => string;
   rendererDomHint: string;
+  rendererLoadingHint: string;
   pasteFail: (err: string) => string;
   nothingToPaste: string;
   ratioLock: string;
@@ -602,9 +605,12 @@ const en: Messages = {
   zoomFitHint: "Fit (Shift+1)",
   rendererDom: "DOM",
   rendererWasm: "WASM",
+  rendererGpu: "GPU",
+  rendererCpu: "CPU",
   rendererWasmUnavailable: "WASM renderer not built (pnpm build with Rust installed).",
   rendererWasmHint: (backend) => `WASM renderer (${backend}). Click to switch back to DOM.`,
   rendererDomHint: "DOM renderer. Click to try WASM.",
+  rendererLoadingHint: "Switching renderer. The label stays until the GPU or CPU is ready.",
   pasteFail: (err) => `Could not paste: ${err}`,
   nothingToPaste: "nothing to paste",
   ratioLock: "Aspect · Shift",
@@ -1009,6 +1015,7 @@ const pt: Messages = {
   rendererWasmUnavailable: "Renderizador WASM não compilado (pnpm build com Rust instalado).",
   rendererWasmHint: (backend) => `Renderizador WASM (${backend}). Clique para voltar ao DOM.`,
   rendererDomHint: "Renderizador DOM. Clique para tentar WASM.",
+  rendererLoadingHint: "Trocando o renderizador. O rótulo fica até a GPU ou a CPU ficar pronta.",
   pasteFail: (err) => `Não deu para colar: ${err}`,
   nothingToPaste: "nada para colar",
   ratioLock: "Proporção · Shift",
