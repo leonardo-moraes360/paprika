@@ -193,34 +193,22 @@ describe("displayList paint order", () => {
   });
 
   it("ignores DOM paint that an ancestor clip cuts away from a later shape", () => {
-    const clipped = scene(
-      {
-        frame: { id: "frame", type: "frame", x: 0, y: 0, width: 100, height: 100, clip: true, children: ["dash"] },
-        dash: { id: "dash", type: "rect", parentId: "frame", x: 70, y: 10, width: 50, height: 20, fill: "#f00", stroke: { color: "#000", width: 2, style: "dashed" } },
-        front: { id: "front", type: "rect", x: 110, y: 10, width: 30, height: 30, fill: "#0f0" },
-      },
-      ["frame", "front"],
-      {
-        frame: { x: 0, y: 0, w: 100, h: 100 },
-        dash: { x: 70, y: 10, w: 50, h: 20 },
-        front: { x: 110, y: 10, w: 30, h: 30 },
-      },
-    );
-    expect(clipped.painted.has("front")).toBe(true);
-    const open = scene(
-      {
-        frame: { id: "frame", type: "frame", x: 0, y: 0, width: 100, height: 100, clip: false, children: ["dash"] },
-        dash: { id: "dash", type: "rect", parentId: "frame", x: 70, y: 10, width: 50, height: 20, fill: "#f00", stroke: { color: "#000", width: 2, style: "dashed" } },
-        front: { id: "front", type: "rect", x: 110, y: 10, width: 30, height: 30, fill: "#0f0" },
-      },
-      ["frame", "front"],
-      {
-        frame: { x: 0, y: 0, w: 100, h: 100 },
-        dash: { x: 70, y: 10, w: 50, h: 20 },
-        front: { x: 110, y: 10, w: 30, h: 30 },
-      },
-    );
-    expect(open.painted.has("front")).toBe(false);
+    const clipCase = (clip: boolean) =>
+      scene(
+        {
+          frame: { id: "frame", type: "frame", x: 0, y: 0, width: 100, height: 100, clip, children: ["dash"] },
+          dash: { id: "dash", type: "rect", parentId: "frame", x: 70, y: 10, width: 50, height: 20, fill: "#f00", stroke: { color: "#000", width: 2, style: "dashed" } },
+          front: { id: "front", type: "rect", x: 110, y: 10, width: 30, height: 30, fill: "#0f0" },
+        },
+        ["frame", "front"],
+        {
+          frame: { x: 0, y: 0, w: 100, h: 100 },
+          dash: { x: 70, y: 10, w: 50, h: 20 },
+          front: { x: 110, y: 10, w: 30, h: 30 },
+        },
+      );
+    expect(clipCase(true).painted.has("front")).toBe(true);
+    expect(clipCase(false).painted.has("front")).toBe(false);
   });
 
   it("matches the three overlap cases in examples/wasm-layers.paprika.json", () => {

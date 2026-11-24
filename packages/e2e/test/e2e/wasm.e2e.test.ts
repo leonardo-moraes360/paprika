@@ -15,6 +15,23 @@ const webRoot = join(root, "apps/web/dist");
 const wasmBuilt = existsSync(join(root, "apps/web/src/wasm/paprika_render.js")) && existsSync(webRoot);
 const shots = process.env.PAPRIKA_E2E_SHOTS;
 
+async function workspaceCanvasUrl(base: string): Promise<string> {
+  const active = ((await (await fetch(`${base}/api/workspaces`)).json()) as { active: string }).active;
+  return `${base}/w/${encodeURIComponent(active)}`;
+}
+
+async function openCanvas(page: Page, base: string, renderer: "dom" | "wasm") {
+  await page.goto(`${await workspaceCanvasUrl(base)}?renderer=${renderer}`);
+  await page.waitForSelector('[data-paprika-id="board"]');
+  if (renderer === "wasm") {
+    await page.waitForFunction(() => {
+      const b = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')?.dataset.backend;
+      return b === "cpu" || b === "webgpu" || b === "error" || b === "unavailable";
+    });
+  }
+  await page.waitForTimeout(300);
+}
+
 /** Fraction of pixels whose channels differ by more than `tol` (decoded in the page). */
 async function diffRatio(page: Page, a: Buffer, b: Buffer, tol = 40): Promise<number> {
   return page.evaluate(
@@ -50,19 +67,8 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   let agent: Client;
   const errors: string[] = [];
 
-  /** Canvas of the active workspace (`/` is the workspace overview). */
-  const canvasUrl = async () => `${url}/w/${encodeURIComponent(((await (await fetch(`${url}/api/workspaces`)).json()) as { active: string }).active)}`;
-  const open = async (renderer: "dom" | "wasm") => {
-    await page.goto(`${await canvasUrl()}?renderer=${renderer}`);
-    await page.waitForSelector('[data-paprika-id="board"]');
-    if (renderer === "wasm") {
-      await page.waitForFunction(() => {
-        const b = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')?.dataset.backend;
-        return b === "cpu" || b === "webgpu" || b === "error" || b === "unavailable";
-      });
-    }
-    await page.waitForTimeout(300); // one animation frame for the WASM draw
-  };
+  const canvasUrl = () => workspaceCanvasUrl(url);
+  const open = (renderer: "dom" | "wasm") => openCanvas(page, url, renderer);
   const shot = () => page.getByTestId("viewport").screenshot();
 
   beforeAll(async () => {
@@ -201,19 +207,7 @@ describe.skipIf(!wasmBuilt)("E2E: WASM respeita a ordem de pintura", () => {
   let browser: Browser;
   let page: Page;
   const errors: string[] = [];
-
-  const canvasUrl = async () => `${url}/w/${encodeURIComponent(((await (await fetch(`${url}/api/workspaces`)).json()) as { active: string }).active)}`;
-  const open = async (renderer: "dom" | "wasm") => {
-    await page.goto(`${await canvasUrl()}?renderer=${renderer}`);
-    await page.waitForSelector('[data-paprika-id="board"]');
-    if (renderer === "wasm") {
-      await page.waitForFunction(() => {
-        const b = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')?.dataset.backend;
-        return b === "cpu" || b === "webgpu" || b === "error" || b === "unavailable";
-      });
-    }
-    await page.waitForTimeout(300);
-  };
+  const open = (renderer: "dom" | "wasm") => openCanvas(page, url, renderer);
   const bg = (id: string) => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).backgroundColor);
 
   beforeAll(async () => {
