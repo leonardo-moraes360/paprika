@@ -388,8 +388,8 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			}
 			modes = "modes: " + strings.Join(parts, " ") + "\n"
 		}
-		return textResult(fmt.Sprintf("workspace %s \"%s\" v%d · %s nodes\ntokens: %s\n%s\n%s", head.ID, d.Str("name"), version,
-			count(core.Nodes(d).Len()), tokens, modes, core.Outline(d, rootID, depth))), nil
+		return textResult(fmt.Sprintf("workspace %s \"%s\" v%d · %s nodes\ntokens: %s\nrenderer: %s\n%s\n%s", head.ID, d.Str("name"), version,
+			count(core.Nodes(d).Len()), tokens, activeRendererLine(), modes, core.Outline(d, rootID, depth))), nil
 	})
 
 	add("get_nodes", z.Object(z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(200)}, workspaceID()),

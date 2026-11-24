@@ -38,7 +38,7 @@
     {
       "name": "get_document_outline",
       "title": "Document outline",
-      "description": "Compact tree (one line per node: type#id, name, size, position, key style), tokens, theme modes and version. The first line names the workspace id and name. The last lines are the page content box and the next free spot. Cheap in tokens.",
+      "description": "Compact tree (one line per node: type#id, name, size, position, key style), tokens, theme modes, version and the active canvas renderer (wasm, dom, or none when no tab is connected; one value per connected tab). The first line names the workspace id and name. The last lines are the page content box and the next free spot. Cheap in tokens.",
       "inputSchema": {
         "type": "object",
         "properties": {

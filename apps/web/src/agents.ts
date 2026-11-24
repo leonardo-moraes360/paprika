@@ -110,6 +110,61 @@ const VERBS: Record<string, string> = {
 /** Rótulo curto do que o agente está fazendo. */
 export const toolVerb = (tool: string) => VERBS[tool] ?? tool;
 
+/** Ocioso some da lista antes do cursor (o cursor fica até o TTL). */
+export const ROSTER_HIDE_IDLE_MS = 60_000;
+
+const READ_TOOLS = new Set([
+  "get_nodes",
+  "find_nodes",
+  "get_document_outline",
+  "get_design_guide",
+  "path_info",
+  "render_screenshot",
+  "lint_design",
+  "export_code",
+  "get_history",
+  "list_workspaces",
+  "get_selection",
+  "export_image",
+]);
+
+/** Escrita ou leitura pela última ferramenta. Desconhecido que não parece leitura conta como escrita. */
+export function toolActivity(tool: string): "writing" | "reading" {
+  if (READ_TOOLS.has(tool) || /^(get_|find_|list_|lint_|export_|render_)/.test(tool)) return "reading";
+  return "writing";
+}
+
+export function agentActive(agent: AgentPresence, now: number): boolean {
+  return now - agent.at <= AGENT_IDLE_MS;
+}
+
+/** Escrevendo primeiro, e entre eles quem chamou por último. */
+export function byBusyness(list: AgentPresence[]): AgentPresence[] {
+  return [...list].sort((a, b) => {
+    const rank = (agent: AgentPresence) => (toolActivity(agent.tool) === "writing" ? 0 : 1);
+    const delta = rank(a) - rank(b);
+    return delta || b.at - a.at;
+  });
+}
+
+/** Sessões do mesmo cliente (o mesmo ator), na ordem em que o grupo apareceu. */
+export function clientGroups(list: AgentPresence[]): { actor: string; label: string; agents: AgentPresence[] }[] {
+  const order: string[] = [];
+  const map = new Map<string, AgentPresence[]>();
+  for (const agent of list) {
+    const hit = map.get(agent.actor);
+    if (hit) hit.push(agent);
+    else {
+      order.push(agent.actor);
+      map.set(agent.actor, [agent]);
+    }
+  }
+  return order.map((actor) => {
+    const grouped = map.get(actor)!;
+    return { actor, label: (grouped[0]?.name ?? "agente").replace(/ \d+$/, ""), agents: grouped };
+  });
+}
+
 /** Página dos últimos nós do agente (a do primeiro que ainda existe); undefined num documento sem páginas. */
 export function agentPage(doc: Document, nodes: string[]): PageNode | undefined {
   for (const id of nodes) {
