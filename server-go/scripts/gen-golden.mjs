@@ -15,6 +15,7 @@ const {
   exportReact, exportTailwind, exportCssModules, exportAngular, exportSvelte, renderTailwindHTML, renderFrameworkHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
   parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, combinePathsOps, alignOps, distributeOps, wrapOps, revealOps, importSVG, importHTML, exportSVG,
   diagramOps, shapeOutline, tailwindClassesFor, layout, measureText, FONT_AVG, normalizePath, pathOrigin,
+  pathToSubpaths, subpathsToPath, moveAnchor, moveHandle, pathEditProps, anchorByFlatIndex,
 } = core;
 
 const json = (v) => JSON.stringify(v, null, 2);
@@ -1038,13 +1039,43 @@ const textMetrics = [
     maxWidth: c.maxWidth,
   }),
 }));
+function pathEditResult(c) {
+  const subs = pathToSubpaths(parsePath(c.d));
+  if (c.op === "subpaths") return serializePath(subpathsToPath(subs));
+  if (c.op === "moveAnchor") return serializePath(subpathsToPath(moveAnchor(subs, { sub: c.sub, index: c.index }, { x: c.x, y: c.y })));
+  if (c.op === "moveHandle") {
+    const m = moveHandle(subs, { sub: c.sub, index: c.index }, c.side, { x: c.x, y: c.y }, c.mirror);
+    const a = m[c.sub].anchors[c.index];
+    return { x: a.x, y: a.y, in: a.in ?? null, out: a.out ?? null };
+  }
+  if (c.op === "props") {
+    const moved = c.to ? moveAnchor(subs, { sub: c.sub, index: c.index }, c.to) : subs;
+    return pathEditProps({ x: c.node.x, y: c.node.y, ...(c.node.viewBox ? { viewBox: c.node.viewBox } : {}) }, moved, c.moveBox);
+  }
+  if (c.op === "flat") return anchorByFlatIndex(subs, c.index);
+  throw new Error(c.op);
+}
+const pathEditInputs = [
+  { name: "quadratic-to-cubic", op: "subpaths", d: "M0 0 Q10 0 10 10" },
+  { name: "arc-to-cubics", op: "subpaths", d: "M0 10 A10 10 0 0 1 20 10" },
+  { name: "move-anchor", op: "moveAnchor", d: "M0 0 C5 0 10 5 10 10", sub: 0, index: 1, x: 20, y: 20 },
+  { name: "move-handle-mirror", op: "moveHandle", d: "M0 0 C0 0 5 10 10 10 C15 10 20 0 20 0", sub: 0, index: 1, side: "out", x: 10, y: 0, mirror: true },
+  { name: "move-handle", op: "moveHandle", d: "M0 0 C0 0 5 10 10 10 C15 10 20 0 20 0", sub: 0, index: 1, side: "out", x: 10, y: 0, mirror: false },
+  { name: "props-move-box", op: "props", d: "M0 0 L10 0 L10 10", sub: 0, index: 0, to: { x: -5, y: -3 }, node: { x: 100, y: 50 }, moveBox: true },
+  { name: "props-keep-origin", op: "props", d: "M0 0 L10 0 L10 10", sub: 0, index: 0, to: { x: -5, y: -3 }, node: { x: 100, y: 50 }, moveBox: false },
+  { name: "props-viewbox", op: "props", d: "M-2 0 L30 0", node: { x: 0, y: 0, viewBox: [0, 0, 24, 24] }, moveBox: true },
+  { name: "flat-0", op: "flat", d: "M0 0 L4 0 Z M10 10 L14 10 L14 14 Z", index: 0 },
+  { name: "flat-3", op: "flat", d: "M0 0 L4 0 Z M10 10 L14 10 L14 14 Z", index: 3 },
+  { name: "flat-out", op: "flat", d: "M0 0 L4 0 Z M10 10 L14 10 L14 14 Z", index: 9 },
+];
+const pathEdits = pathEditInputs.map((c) => ({ ...c, result: pathEditResult(c) }));
 const pathNorm = ["M40 30 L80 30 L60 70 Z", "M0 0 L10 10", "M10 10 C 20 0 30 0 40 10"].map((d) => {
   const segs = parsePath(d);
   const n = normalizePath(segs);
   return { d, origin: pathOrigin(segs), normalized: serializePath(n.segs), bounds: n.bounds };
 });
 
-const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, created: createDocument("Untitled", "abc"), tailwindMapCases };
+const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, pathEdits, created: createDocument("Untitled", "abc"), tailwindMapCases };
 const dest = join(here, "../internal/core/testdata/golden.json");
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");
