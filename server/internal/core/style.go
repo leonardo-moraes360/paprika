@@ -516,7 +516,12 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	switch typ {
 	case "frame":
 		if node.Bool("clip") {
-			css.Set("overflow", "hidden")
+			if bleed := outlineBleed(doc, node, themeMode); bleed > 0 {
+				css.Set("overflow", "clip")
+				css.Set("overflowClipMargin", jsString(bleed)+"px")
+			} else {
+				css.Set("overflow", "hidden")
+			}
 		}
 		if l := node.Obj("layout"); l != nil && l.Str("mode") != "none" {
 			if visible {
@@ -641,6 +646,38 @@ func applyBackdrop(css *CSS, doc *Document, node *Node, mode string, vars bool) 
 	if fx := filterCSS(doc, node.Obj("backdropFilter"), mode, vars); fx != "" {
 		css.Set("backdropFilter", fx)
 	}
+}
+
+func outlineBleed(doc *Document, frame *Node, mode string) float64 {
+	bleed := 0.0
+	seen := map[string]bool{}
+	var visit func(ids []string)
+	visit = func(ids []string) {
+		for _, id := range ids {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			n := GetNode(doc, id)
+			if n == nil {
+				continue
+			}
+			if o := n.Obj("outline"); o != nil {
+				wRaw, _ := o.Get("width")
+				w, _ := ResolveLength(doc, wRaw, mode)
+				off := 0.0
+				if offRaw, ok := o.Get("offset"); ok {
+					off, _ = ResolveLength(doc, offRaw, mode)
+				}
+				bleed = math.Max(bleed, math.Ceil(w+off))
+			}
+			if t := n.Str("type"); t == "group" || (t == "frame" && !n.Bool("clip")) {
+				visit(n.Strings("children"))
+			}
+		}
+	}
+	visit(frame.Strings("children"))
+	return bleed
 }
 
 func applyOutline(css *CSS, doc *Document, node *Node, mode string, vars bool, paint func(any) any) {

@@ -443,7 +443,20 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 			radius = fmt.Sprintf(` rx="%s"`, f(math.Max(0, r-insetBy)))
 			clipRadius = fmt.Sprintf(` rx="%s"`, f(r))
 		}
+		bleed := 0.0
+		if typ == "frame" && n.Bool("clip") {
+			bleed = outlineBleed(doc, n, ModeOf(doc, n))
+		}
 		clipDef := func(clipID string) string {
+			if bleed > 0 {
+				grown := boxRadius
+				for i := range grown {
+					if grown[i] > 0 {
+						grown[i] += bleed
+					}
+				}
+				return fmt.Sprintf(`<clipPath id="%s"><path d="%s"/></clipPath>`, clipID, roundedRectD(-bleed, -bleed, w+bleed*2, h+bleed*2, grown, f))
+			}
 			if even {
 				return fmt.Sprintf(`<clipPath id="%s"><rect width="%s" height="%s"%s/></clipPath>`, clipID, f(w), f(h), clipRadius)
 			}
@@ -598,7 +611,11 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		if defs != "" {
 			out += "<defs>" + defs + "</defs>"
 		}
-		return out + body.String() + "</g>", nil
+		ring := ""
+		if typ != "text" {
+			ring = outlineRing(doc, n, w, h, boxRadius, hasBox, f)
+		}
+		return out + body.String() + ring + "</g>", nil
 	}
 
 	var content strings.Builder
@@ -636,6 +653,52 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 	}
 	svg := fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="%s" height="%s" viewBox="0 0 %s %s">%s%s</svg>`, f(width), f(height), f(width), f(height), bg, content.String())
 	return SVGResult{SVG: svg, Width: width, Height: height, Warnings: *warnings}, nil
+}
+
+func outlineRing(doc *Document, n *Node, w, h float64, radii [4]float64, hasBox bool, f func(float64) string) string {
+	o := n.Obj("outline")
+	if o == nil {
+		return ""
+	}
+	mode := ModeOf(doc, n)
+	wRaw, _ := o.Get("width")
+	ow, _ := ResolveLength(doc, wRaw, mode)
+	if ow <= 0 {
+		return ""
+	}
+	off := 0.0
+	if offRaw, ok := o.Get("offset"); ok {
+		off, _ = ResolveLength(doc, offRaw, mode)
+	}
+	out := off + ow/2
+	style := o.Str("style")
+	if style == "" {
+		style = "solid"
+	}
+	colRaw, _ := o.Get("color")
+	attrs := fmt.Sprintf(` fill="none" stroke="%s" stroke-width="%s"`, EscapeHTML(jsString(ResolveValue(doc, colRaw, mode))), f(ow))
+	if dash := StrokeDasharray(ow, style); dash != "" {
+		attrs += fmt.Sprintf(` stroke-dasharray="%s"`, EscapeHTML(dash))
+	}
+	rw := math.Max(0, w+out*2)
+	rh := math.Max(0, h+out*2)
+	if n.Str("type") == "ellipse" {
+		return fmt.Sprintf(`<ellipse cx="%s" cy="%s" rx="%s" ry="%s"%s/>`, f(w/2), f(h/2), f(rw/2), f(rh/2), attrs)
+	}
+	if hasBox && !(radii[0] == radii[1] && radii[1] == radii[2] && radii[2] == radii[3]) {
+		grown := radii
+		for i := range grown {
+			if grown[i] > 0 {
+				grown[i] = math.Max(0, grown[i]+out)
+			}
+		}
+		return fmt.Sprintf(`<path d="%s"%s/>`, roundedRectD(-out, -out, rw, rh, grown, f), attrs)
+	}
+	rx := ""
+	if hasBox && radii[0] > 0 {
+		rx = fmt.Sprintf(` rx="%s"`, f(math.Max(0, radii[0]+out)))
+	}
+	return fmt.Sprintf(`<rect x="%s" y="%s" width="%s" height="%s"%s%s/>`, f(-out), f(-out), f(rw), f(rh), rx, attrs)
 }
 
 func resolvedSize(doc *Document, n *Node, v any, fallback float64) float64 {
