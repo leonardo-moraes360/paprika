@@ -466,6 +466,15 @@ function createNode(
       for (const [k, v] of Object.entries(shapeDefaults(kind))) if (props[k] === undefined) props[k] = v;
     }
   }
+  if (input.type === "frame" && typeof props.instanceOf === "string" && "fill" in props) {
+    const fill = props.fill;
+    delete props.fill;
+    const base = doc.nodes[props.instanceOf] as Record<string, unknown> | undefined;
+    if (fill !== null && !(base && JSON.stringify(fill) === JSON.stringify(base.fill))) {
+      const ov = (props.overrides ?? {}) as Record<string, Record<string, unknown>>;
+      props.overrides = { ...ov, [props.instanceOf]: { ...(ov[props.instanceOf] ?? {}), fill } };
+    }
+  }
   const parsed = Node.safeParse({ ...props, id, parentId, children: CONTAINER_TYPES.has(input.type) ? [] : undefined });
   if (!parsed.success) throw new OpError(`invalid node: ${formatZod(parsed.error)}`, i);
   doc.nodes[id] = parsed.data;

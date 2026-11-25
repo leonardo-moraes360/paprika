@@ -367,6 +367,7 @@ func NodeStyle(doc *Document, node *Node, asRoot bool) *CSS {
 }
 
 func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
+	vis := node.Bool("visible") && !variantHidden(doc, node)
 	if node.Str("type") == "page" {
 		return jsonv.NewObject()
 	}
@@ -413,7 +414,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		if o := node.Num("opacity"); o != 1 {
 			css.Set("opacity", o)
 		}
-		if !node.Bool("visible") {
+		if !vis {
 			css.Set("display", "none")
 		}
 		return css
@@ -423,7 +424,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 			css.Set("opacity", o)
 		}
 		css.Set("overflow", "visible")
-		if node.Bool("visible") {
+		if vis {
 			css.Set("display", "block")
 		} else {
 			css.Set("display", "none")
@@ -439,7 +440,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	if t := node.Str("type"); (t == "frame" || t == "text") && node.Str("href") != "" {
 		css.Set("cursor", "pointer")
 	}
-	visible := node.Bool("visible")
+	visible := vis
 	if !visible {
 		css.Set("display", "none")
 	}

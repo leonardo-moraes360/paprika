@@ -423,7 +423,7 @@ func LintDocumentOpts(doc *Document, opts LintOpts) []LintIssue {
 
 		parent := parentOf(doc, node)
 		absolute := parent != nil && parent.Str("type") == "frame" && (parent.Obj("layout") == nil || parent.Obj("layout").Str("mode") == "none")
-		if absolute && node.Bool("visible") {
+		if absolute && node.Bool("visible") && !variantHidden(doc, node) {
 			pw, pwOK := mustNum(parent, "width")
 			ph, phOK := mustNum(parent, "height")
 			nw, nwOK := mustNum(node, "width")
@@ -647,7 +647,7 @@ func geomType(typ string) bool {
 }
 
 func opaqueNode(doc *Document, n *Node) bool {
-	if n == nil || !n.Bool("visible") {
+	if n == nil || !n.Bool("visible") || variantHidden(doc, n) {
 		return false
 	}
 	typ := n.Str("type")
@@ -708,7 +708,7 @@ func layoutLint(doc *Document, ids []string) []LintIssue {
 		for _, cid := range node.Strings("children") {
 			child := GetNode(doc, cid)
 			box, has := boxes[cid]
-			if child == nil || !has || !child.Bool("visible") || child.Str("type") == "connector" {
+			if child == nil || !has || !child.Bool("visible") || variantHidden(doc, child) || child.Str("type") == "connector" {
 				continue
 			}
 			overW := box.x < frame.x-lintTouch || box.x+box.w > frame.x+frame.w+lintTouch
@@ -785,7 +785,7 @@ func geometryParent(doc *Document, parentID string, allow map[string]bool, boxes
 	var prims []string
 	for _, id := range children {
 		n := GetNode(doc, id)
-		if n == nil || !n.Bool("visible") || isCopy(n) || !geomType(n.Str("type")) {
+		if n == nil || !n.Bool("visible") || variantHidden(doc, n) || isCopy(n) || !geomType(n.Str("type")) {
 			continue
 		}
 		if _, ok := boxes[id]; ok {
@@ -812,7 +812,7 @@ func geometryParent(doc *Document, parentID string, allow map[string]bool, boxes
 		}
 		n := GetNode(doc, id)
 		box, has := boxes[id]
-		if n == nil || !has || !n.Bool("visible") || isCopy(n) || !geomType(n.Str("type")) {
+		if n == nil || !has || !n.Bool("visible") || variantHidden(doc, n) || isCopy(n) || !geomType(n.Str("type")) {
 			continue
 		}
 		var others []string
@@ -824,7 +824,7 @@ func geometryParent(doc *Document, parentID string, allow map[string]bool, boxes
 				continue
 			}
 			o := GetNode(doc, oid)
-			if o == nil || !o.Bool("visible") || o.Str("type") == "connector" || o.Str("type") == "page" {
+			if o == nil || !o.Bool("visible") || variantHidden(doc, o) || o.Str("type") == "connector" || o.Str("type") == "page" {
 				continue
 			}
 			others = append(others, oid)

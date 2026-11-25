@@ -1,3 +1,4 @@
+import { variantHidden } from "./component.js";
 import { parseModernColor } from "./color.js";
 import { layout } from "./layout.js";
 import { round4 } from "./num.js";
@@ -258,7 +259,8 @@ export function lintDocument(doc: Document, opts: LintOptions = {}): LintIssue[]
       typeof parent.height === "number" &&
       typeof node.width === "number" &&
       typeof node.height === "number" &&
-      node.visible
+      node.visible &&
+      !variantHidden(doc, node)
     ) {
       const out = node.x < 0 || node.y < 0 || node.x + node.width > parent.width || node.y + node.height > parent.height;
       if (out)
@@ -276,7 +278,7 @@ export function lintDocument(doc: Document, opts: LintOptions = {}): LintIssue[]
       issues.push({ rule: "unnamed-frame", severity: "info", nodeId: id, message: "top-level frame without a name" });
   }
   const opaque = (n: Node) => {
-    if (n.type !== "frame" || n.visible === false) return false;
+    if (n.type !== "frame" || n.visible === false || variantHidden(doc, n)) return false;
     if (n.opacity < 0.99) return false;
     if (n.gradient) return false;
     if (!n.fill) return false;
@@ -361,8 +363,8 @@ function nodeLabel(n: Node | undefined): string {
   return n.name || n.id;
 }
 
-function shown(n: Node): boolean {
-  return n.type === "page" || n.visible !== false;
+function shown(doc: Document, n: Node): boolean {
+  return n.type === "page" || (n.visible !== false && !variantHidden(doc, n));
 }
 
 function isCopy(n: Node): boolean {
@@ -409,7 +411,7 @@ function isFlowFrame(n: Node | undefined): boolean {
 }
 
 function opaqueNode(doc: Document, n: Node): boolean {
-  if (!shown(n) || n.type === "text" || n.type === "group" || n.type === "connector" || n.type === "page") return false;
+  if (!shown(doc, n) || n.type === "text" || n.type === "group" || n.type === "connector" || n.type === "page") return false;
   if (n.type === "shape") {
     if (n.shape !== "rect" && n.shape !== "note") return false;
   } else if (n.type !== "frame" && n.type !== "rect" && n.type !== "image") return false;
@@ -434,7 +436,7 @@ function layoutLint(doc: Document, ids: readonly string[]): LintIssue[] {
     for (const cid of node.children) {
       const child = doc.nodes[cid];
       const box = boxes[cid];
-      if (!child || !box || !shown(child) || child.type === "connector") continue;
+      if (!child || !box || !shown(doc, child) || child.type === "connector") continue;
       const overW = box.x < frame.x - TOUCH || box.x + box.w > frame.x + frame.w + TOUCH;
       const overH = box.y < frame.y - TOUCH || box.y + box.h > frame.y + frame.h + TOUCH;
       if (!overW && !overH) continue;
@@ -486,7 +488,7 @@ function geometryParent(doc: Document, parentId: string | null, allow: Set<strin
   const children = siblingIds(doc, parentId);
   const prims = children.filter((id) => {
     const n = doc.nodes[id];
-    return !!n && shown(n) && !isCopy(n) && GEOM_TYPES.has(n.type) && !!boxes[id];
+    return !!n && shown(doc, n) && !isCopy(n) && GEOM_TYPES.has(n.type) && !!boxes[id];
   });
   let cluster = false;
   for (let i = 0; i < prims.length && !cluster; i++) {
@@ -504,11 +506,11 @@ function geometryParent(doc: Document, parentId: string | null, allow: Set<strin
     if (!allow.has(id)) continue;
     const n = doc.nodes[id];
     const box = boxes[id];
-    if (!n || !box || !shown(n) || isCopy(n) || !GEOM_TYPES.has(n.type)) continue;
+    if (!n || !box || !shown(doc, n) || isCopy(n) || !GEOM_TYPES.has(n.type)) continue;
     const others = children.filter((oid) => {
       if (oid === id || !boxes[oid]) return false;
       const o = doc.nodes[oid];
-      return !!o && shown(o) && o.type !== "connector" && o.type !== "page";
+      return !!o && shown(doc, o) && o.type !== "connector" && o.type !== "page";
     });
     let nearest = Infinity;
     for (const oid of others) {
