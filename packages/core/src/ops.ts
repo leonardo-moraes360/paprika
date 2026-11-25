@@ -1,11 +1,18 @@
 import { z } from "zod";
 import {
+  ColorValue,
   Document,
+  FilterEffects,
+  Gradient,
   IMMUTABLE_KEYS,
+  Outline,
+  ShadowValue,
+  Stroke,
   type FrameNode,
   Node,
   NodeType,
   AssetName,
+  GRADIENT_COLOR_MSG,
   AssetSrc,
   ModeName,
   CollectionName,
@@ -189,11 +196,38 @@ export const RevealOp = z.object({
   pageId: z.string().optional(),
 });
 
+const BooleanOperation = z.enum(["union", "subtract", "intersect", "exclude"]);
+
+/** Um passo de `combine_paths` em lote: `as` nomeia o resultado para os passos seguintes. */
+const CombineStepSchema = z.object({
+  op: BooleanOperation,
+  ids: z.array(z.string()).min(2).max(500),
+  as: z.string().min(1).max(100).optional(),
+});
+
+/** Estilo do resultado: de qual nó copiar ("first"|"last"|"bottom"|"top"|{from}) e o que sobrescrever. */
+const CombineStyleSchema = z.union([
+  z.enum(["first", "last", "bottom", "top"]),
+  z.object({
+    from: z.string().optional(),
+    fill: ColorValue.optional(),
+    gradient: Gradient.optional(),
+    stroke: Stroke.optional(),
+    opacity: z.number().min(0).max(1).optional(),
+    shadow: ShadowValue.optional(),
+    outline: Outline.optional(),
+    filter: FilterEffects.optional(),
+    backdropFilter: FilterEffects.optional(),
+  }),
+]);
+
 /** Combina path/rect/ellipse/shape numa path via união, subtração, interseção ou exclusão. */
 export const CombinePathsOp = z.object({
   op: z.literal("combine_paths"),
-  ids: z.array(z.string()).min(2).max(500),
-  operation: z.enum(["union", "subtract", "intersect", "exclude"]),
+  ids: z.array(z.string()).min(2).max(500).optional(),
+  operation: BooleanOperation.optional(),
+  operations: z.array(CombineStepSchema).min(1).max(50).optional(),
+  style: CombineStyleSchema.optional(),
   id: z.string().optional(),
   name: z.string().max(200).optional(),
 });
@@ -453,7 +487,31 @@ function createNode(
   return id;
 }
 
+/**
+ * A CSS gradient or url() in a color field of an op input paints black on some nodes: refuse it with
+ * the structured `gradient` field as the way out. Only op input is checked, so stored documents still load.
+ */
+function gradientColorProblem(input: unknown, path: string[] = []): string | undefined {
+  if (Array.isArray(input)) {
+    for (let k = 0; k < input.length; k++) {
+      const found = gradientColorProblem(input[k], [...path, String(k)]);
+      if (found) return found;
+    }
+    return;
+  }
+  if (!input || typeof input !== "object") return;
+  for (const [key, value] of Object.entries(input)) {
+    if ((key === "fill" || key === "color") && typeof value === "string" && /(gradient|url)\s*\(/i.test(value)) return `${[...path, key].join(".")}: ${GRADIENT_COLOR_MSG}`;
+    const found = gradientColorProblem(value, [...path, key]);
+    if (found) return found;
+  }
+}
+
 function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): Op[] {
+  if (op.op === "create" || op.op === "update") {
+    const bad = gradientColorProblem(op.op === "create" ? op.node : op.props);
+    if (bad) throw new OpError(`invalid ${op.op === "create" ? "node" : "props"}: ${bad}`, i);
+  }
   switch (op.op) {
     case "create": {
       let parentId = op.parentId;
@@ -608,17 +666,17 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
     case "detach_tokens": {
       const inverse: Op[] = [];
       let changed = 0;
+      let skippedAny = false;
       for (const id of op.ids) {
         const node = doc.nodes[id];
         if (!node) throw new OpError(`node "${id}" does not exist`, i);
-        const owner = copyOwner(doc, node);
-        if (owner) throw new OpError(copyRule(id, owner.id), i);
-        const props = detachTokenProps(doc, node, op.fields, i);
-        if (!props) continue;
+        const plan = detachTokenPlan(doc, node, op.fields, i);
+        if (plan.skipped.length) skippedAny = true;
+        if (!plan.props) continue;
         changed++;
-        inverse.unshift(...applyOne(doc, Op.parse({ op: "update", id, props }), i, created));
+        inverse.unshift(...applyOne(doc, Op.parse({ op: "update", id, props: plan.props }), i, created));
       }
-      if (!changed) throw new OpError(`no token to detach on ${op.ids.map((id) => `"${id}"`).join(", ")}`, i);
+      if (!changed && !skippedAny) throw new OpError(`no token to detach on ${op.ids.map((id) => `"${id}"`).join(", ")}`, i);
       return inverse;
     }
     case "rename_document": {
@@ -659,7 +717,7 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
               : op.op === "detach"
                 ? (syncInstances(doc), detachOps(doc, op.ids))
                 : op.op === "combine_paths"
-                  ? combinePathsOps(doc, op.ids, { operation: op.operation, id: op.id, name: op.name }).ops
+                  ? combinePathsOps(doc, op).ops
                   : op.op === "align"
                     ? alignOps(doc, op.ids, op.edge).ops
                     : op.op === "distribute"
@@ -793,6 +851,52 @@ function detachScalar(doc: DocumentT, id: string, field: string, value: unknown,
   if (kind === "string" && typeof resolved !== "string")
     throw new OpError(`node "${id}" ${field}: token "${value}" resolved to ${JSON.stringify(resolved)}, expected text`, opIndex);
   return { value: resolved, changed: true };
+}
+
+/**
+ * What detach_tokens writes on a node and what it leaves alone. A plain node (or one inside a
+ * component definition) detaches everything. An instance or a copy only owns its overrides: the
+ * fields that come from the component are skipped (reported, not an error).
+ */
+function detachTokenPlan(
+  doc: DocumentT,
+  node: NodeT,
+  fields: readonly string[] | undefined,
+  opIndex: number,
+): { props?: Record<string, unknown>; skipped: string[] } {
+  const all = detachTokenProps(doc, node, fields, opIndex);
+  const owner = copyOwner(doc, node);
+  if (!all || (!owner && !isInstance(node))) return all ? { props: all, skipped: [] } : { skipped: [] };
+  let overrides: Record<string, unknown> | undefined;
+  let allowed: readonly string[];
+  if (owner) {
+    const target = copyOverrideTarget(doc, node);
+    overrides = target ? (target.inst.overrides?.[target.key] as Record<string, unknown> | undefined) : undefined;
+    allowed = overrideFields(node);
+  } else {
+    const inst = node as NodeT & { instanceOf: string; overrides?: Record<string, Record<string, unknown>> };
+    overrides = inst.overrides?.[inst.instanceOf];
+    allowed = ["fill"];
+  }
+  const props: Record<string, unknown> = {};
+  const skipped: string[] = [];
+  for (const [k, v] of Object.entries(all)) {
+    if (allowed.includes(k) && overrides && k in overrides) props[k] = v;
+    else skipped.push(k);
+  }
+  return { ...(Object.keys(props).length ? { props } : {}), skipped };
+}
+
+/** The fields detach_tokens would leave alone on each node (derived from a component), by id. */
+export function detachTokensSkipped(doc: DocumentT, ids: readonly string[], fields?: readonly string[]): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const id of ids) {
+    const node = doc.nodes[id];
+    if (!node) continue;
+    const { skipped } = detachTokenPlan(doc, node, fields, 0);
+    if (skipped.length) out[id] = skipped;
+  }
+  return out;
 }
 
 function detachTokenProps(doc: DocumentT, node: NodeT, fields: readonly string[] | undefined, opIndex: number): Record<string, unknown> | undefined {

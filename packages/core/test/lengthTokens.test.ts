@@ -136,8 +136,17 @@ describe("length tokens", () => {
     const doc = docWith([{ op: "create", node: { type: "text", id: "t", text: "a", fontSize: "$text.md" } }]);
     expect(doc.nodes.t).toMatchObject({ fontSize: "$text.md" });
     expect(() =>
-      docWith([{ op: "create", node: { type: "frame", id: "f", layout: { padding: [0, 8] } } }]),
-    ).toThrow(/Invalid input/);
+      docWith([{ op: "create", node: { type: "frame", id: "f", layout: { padding: [0, 8, 1] } } }]),
+    ).toThrow(/\[vertical, horizontal\] or \[top, right, bottom, left\]/);
+    expect(docWith([{ op: "create", node: { type: "frame", id: "f", layout: { padding: [4, "$text.md"] } } }]).nodes.f).toMatchObject({
+      layout: { padding: [4, "$text.md", 4, "$text.md"] },
+    });
+    expect(() => docWith([{ op: "create", node: { type: "rect", id: "r", width: "$space.8" } }])).toThrow(/number \(0\.\.100000\), "hug" or "fill"/);
+    expect(() => docWith([{ op: "create", node: { type: "text", id: "t", text: "a", lineHeight: 22 } }])).toThrow(/multiplier.*1\.375/);
+    expect(() => docWith([{ op: "create", node: { type: "path", id: "p", d: "M0 0 L1 1", fill: "linear-gradient(red, blue)" } }])).toThrow(/structured gradient field/);
+    expect(() =>
+      docWith([{ op: "create", node: { type: "rect", id: "r" } }, { op: "update", id: "r", props: { fill: "url(#x)" } }]),
+    ).toThrow(/op\[1\].*fill/);
   });
 
   it("packs resolved lengths into the display list", () => {

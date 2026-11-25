@@ -148,3 +148,109 @@ func TestCombinePathsRejects(t *testing.T) {
 		t.Fatalf("expected type error, got %v", err)
 	}
 }
+
+func combineScene(t *testing.T) *Document {
+	t.Helper()
+	r, err := ApplyOps(CreateDocument("T", "doc"), []any{
+		jsonv.NewObject("op", "create", "node", jsonv.NewObject(
+			"type", "frame", "id", "f", "width", 400.0, "height", 300.0,
+			"children", []any{
+				jsonv.NewObject("type", "ellipse", "id", "disc", "x", 0.0, "y", 0.0, "width", 100.0, "height", 100.0, "fill", "#c43d27"),
+				jsonv.NewObject("type", "rect", "id", "dome", "x", 20.0, "y", 0.0, "width", 60.0, "height", 40.0, "fill", "#1e2336",
+					"gradient", jsonv.NewObject("type", "linear", "angle", 90.0, "stops", []any{
+						jsonv.NewObject("color", "#ffffff", "offset", 0.0), jsonv.NewObject("color", "#000000", "offset", 1.0)})),
+				jsonv.NewObject("type", "ellipse", "id", "hole", "x", 30.0, "y", 30.0, "width", 40.0, "height", 40.0, "fill", "#000000"),
+			},
+		)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r.Doc
+}
+
+func TestCombinePathsBatchRing(t *testing.T) {
+	doc := combineScene(t)
+	out, err := ApplyOps(doc, []any{jsonv.NewObject("op", "combine_paths", "id", "ring", "name", "Ring", "operations", []any{
+		jsonv.NewObject("op", "union", "ids", []any{"disc", "dome"}, "as", "body"),
+		jsonv.NewObject("op", "subtract", "ids", []any{"body", "hole"}),
+	})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := GetNode(out.Doc, "ring")
+	if n == nil || n.Str("type") != "path" || n.Str("fill") != "#c43d27" || n.Str("name") != "Ring" || n.Str("fillRule") != "evenodd" {
+		t.Fatalf("unexpected ring %v", n)
+	}
+	if strings.Count(n.Str("d"), "Z") < 2 {
+		t.Fatalf("expected outer + hole, d=%s", n.Str("d"))
+	}
+	for _, id := range []string{"disc", "dome", "hole"} {
+		if GetNode(out.Doc, id) != nil {
+			t.Fatalf("%s should be deleted", id)
+		}
+	}
+}
+
+func TestCombinePathsStyleChoices(t *testing.T) {
+	doc := combineScene(t)
+	run := func(style any) *Node {
+		t.Helper()
+		op := jsonv.NewObject("op", "combine_paths", "ids", []any{"hole", "disc", "dome"}, "operation", "union", "id", "o")
+		if style != nil {
+			op.Set("style", style)
+		}
+		out, err := ApplyOps(doc, []any{op})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return GetNode(out.Doc, "o")
+	}
+	if got := run(nil).Str("fill"); got != "#c43d27" {
+		t.Fatalf("default should be bottom, got %s", got)
+	}
+	if got := run("top").Str("fill"); got != "#000000" {
+		t.Fatalf("top: %s", got)
+	}
+	if got := run("first").Str("fill"); got != "#000000" { // ids[0] is hole
+		t.Fatalf("first: %s", got)
+	}
+	if got := run("last"); got.Str("fill") != "#1e2336" || !got.Has("gradient") {
+		t.Fatalf("last: %v", got)
+	}
+	if got := run(jsonv.NewObject("from", "dome", "opacity", 0.25)); got.Num("opacity") != 0.25 || !got.Has("gradient") {
+		t.Fatalf("from+opacity: %v", got)
+	}
+	if got := run(jsonv.NewObject("from", "dome", "fill", "#abcdef")); got.Str("fill") != "#abcdef" || got.Has("gradient") {
+		t.Fatalf("fill override should drop the copied gradient: %v", got)
+	}
+}
+
+func TestCombinePathsBatchErrors(t *testing.T) {
+	doc := combineScene(t)
+	cases := []struct {
+		op   *jsonv.Object
+		want string
+	}{
+		{jsonv.NewObject("op", "combine_paths"), "ids + operation, or operations"},
+		{jsonv.NewObject("op", "combine_paths", "ids", []any{"disc", "dome"}, "operation", "union", "operations", []any{jsonv.NewObject("op", "union", "ids", []any{"disc", "dome"})}), "not both"},
+		{jsonv.NewObject("op", "combine_paths", "operations", []any{
+			jsonv.NewObject("op", "union", "ids", []any{"disc", "dome"}, "as", "u"),
+			jsonv.NewObject("op", "subtract", "ids", []any{"u", "nope"}),
+		}), "operations[1] (subtract): nodes do not exist: nope"},
+		{jsonv.NewObject("op", "combine_paths", "operations", []any{
+			jsonv.NewObject("op", "union", "ids", []any{"disc", "dome"}, "as", "disc"),
+		}), `operations[0] (union): "as" name "disc" is already a node id`},
+		{jsonv.NewObject("op", "combine_paths", "operations", []any{
+			jsonv.NewObject("op", "union", "ids", []any{"disc", "dome"}, "as", "u"),
+			jsonv.NewObject("op", "subtract", "ids", []any{"hole", "u"}),
+		}), "operations[1] (subtract): boolean subtract produced an empty path"},
+		{jsonv.NewObject("op", "combine_paths", "ids", []any{"disc", "dome"}, "operation", "union", "style", jsonv.NewObject("from", "zz")), `style.from "zz" does not exist`},
+	}
+	for _, c := range cases {
+		_, err := ApplyOps(doc, []any{c.op})
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("want error containing %q, got %v", c.want, err)
+		}
+	}
+}

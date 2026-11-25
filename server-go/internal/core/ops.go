@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -111,8 +113,10 @@ func init() {
 		)),
 		z.Option("combine_paths", z.Object(
 			z.Field{Name: "op", Schema: z.Literal("combine_paths")},
-			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(2).Max(500)},
-			z.Field{Name: "operation", Schema: z.Enum("union", "subtract", "intersect", "exclude")},
+			z.Field{Name: "ids", Schema: z.Optional(z.Array(z.String()).Min(2).Max(500))},
+			z.Field{Name: "operation", Schema: z.Optional(combineOperationSchema)},
+			z.Field{Name: "operations", Schema: z.Optional(z.Array(combineStepSchema).Min(1).Max(50))},
+			z.Field{Name: "style", Schema: z.Optional(combineStyleSchema)},
 			z.Field{Name: "id", Schema: z.Optional(z.String())},
 			z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		)),
@@ -147,6 +151,37 @@ func init() {
 		)),
 	)
 }
+
+// combine_paths schemas: one step of an `operations` batch, and the `style` choice.
+var (
+	combineOperationSchema = z.Enum("union", "subtract", "intersect", "exclude")
+	combineStepSchema      = z.Object(
+		z.Field{Name: "op", Schema: combineOperationSchema},
+		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(2).Max(500)},
+		z.Field{Name: "as", Schema: z.Optional(z.String().Min(1).Max(100))},
+	)
+	combineStyleSchema = z.Union(
+		z.Enum("first", "last", "bottom", "top"),
+		z.Object(
+			z.Field{Name: "from", Schema: z.Optional(z.String())},
+			z.Field{Name: "fill", Schema: z.Optional(colorValue())},
+			z.Field{Name: "gradient", Schema: z.Optional(gradientSchema)},
+			z.Field{Name: "stroke", Schema: z.Optional(strokeSchema)},
+			z.Field{Name: "opacity", Schema: z.Optional(z.Number().Min(0).Max(1))},
+			z.Field{Name: "shadow", Schema: z.Optional(shadowValue)},
+			z.Field{Name: "outline", Schema: z.Optional(outlineSchema)},
+			z.Field{Name: "filter", Schema: z.Optional(filterSchema)},
+			z.Field{Name: "backdropFilter", Schema: z.Optional(filterSchema)},
+		),
+	)
+)
+
+// CombineOperationSchema, CombineStepSchema and CombineStyleSchema are the combine_paths pieces the MCP tool reuses.
+var (
+	CombineOperationSchema = combineOperationSchema
+	CombineStepSchema      = combineStepSchema
+	CombineStyleSchema     = combineStyleSchema
+)
 
 var connectorDerived = map[string]bool{"x": true, "y": true, "width": true, "height": true, "d": true}
 
@@ -682,7 +717,41 @@ func withReorder(inv any, reorder []any) any {
 	return append(flatten(inv), reorder...)
 }
 
+// gradientColorProblem finds a CSS gradient or url() in a `fill` or `color` field of an op input
+// (a color field like that paints black on some nodes) and names the structured `gradient` field.
+func gradientColorProblem(input any, path []string) string {
+	switch t := input.(type) {
+	case []any:
+		for k, v := range t {
+			if m := gradientColorProblem(v, append(slices.Clip(path), strconv.Itoa(k))); m != "" {
+				return m
+			}
+		}
+	case *jsonv.Object:
+		for _, key := range t.Keys() {
+			v, _ := t.Get(key)
+			if s, ok := v.(string); ok && (key == "fill" || key == "color") && reColorGradient.MatchString(s) {
+				return strings.Join(append(slices.Clip(path), key), ".") + ": " + gradientColorMsg
+			}
+			if m := gradientColorProblem(v, append(slices.Clip(path), key)); m != "" {
+				return m
+			}
+		}
+	}
+	return ""
+}
+
 func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, error) {
+	switch op.Str("op") {
+	case "create":
+		if m := gradientColorProblem(op.Obj("node"), nil); m != "" {
+			return nil, opErr(i, "invalid node: %s", m)
+		}
+	case "update":
+		if m := gradientColorProblem(op.Obj("props"), nil); m != "" {
+			return nil, opErr(i, "invalid props: %s", m)
+		}
+	}
 	switch op.Str("op") {
 	case "create":
 		parentID, _ := op.Get("parentId")
@@ -957,7 +1026,7 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 				plan, err = DetachOps(doc, op.Strings("ids"))
 			}
 		case "combine_paths":
-			plan, _, err = CombinePathsOps(doc, op.Strings("ids"), BooleanOperation(op.Str("operation")), op.Str("id"), op.Str("name"))
+			plan, _, err = CombinePathsOps(doc, op)
 		case "align":
 			plan, err = AlignOps(doc, op.Strings("ids"), op.Str("edge"))
 		case "distribute":

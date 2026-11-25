@@ -217,3 +217,63 @@ describe("constraints when the parent resizes", () => {
     expect(copy).toMatchObject({ x: 130, width: 16 });
   });
 });
+
+describe("constraints reach fill frames nested in a resized ancestor", () => {
+  const base = () =>
+    applyOps(createDocument("t", "d"), [
+      {
+        op: "create",
+        node: {
+          type: "frame",
+          id: "root",
+          width: 1440,
+          height: 200,
+          layout: { mode: "column", gap: 0, padding: 0 },
+          children: [
+            { type: "rect", id: "pin-root", x: 1380, y: 0, width: 40, height: 10, layoutPositioning: "absolute", constraints: { horizontal: "right" } },
+            {
+              type: "frame",
+              id: "header",
+              width: "fill",
+              height: 60,
+              children: [
+                { type: "rect", id: "pin-header", x: 1380, y: 10, width: 40, height: 20, constraints: { horizontal: "right" } },
+                { type: "rect", id: "mid-header", x: 700, y: 10, width: 40, height: 20, constraints: { horizontal: "center" } },
+                { type: "rect", id: "left-header", x: 20, y: 10, width: 40, height: 20 },
+              ],
+            },
+            {
+              type: "frame",
+              id: "row",
+              width: "fill",
+              height: 60,
+              layout: { mode: "row", gap: 0, padding: 0 },
+              children: [
+                { type: "frame", id: "a", width: "fill", height: 60, children: [{ type: "rect", id: "pin-a", x: 700, y: 0, width: 10, height: 10, constraints: { horizontal: "right" } }] },
+                { type: "frame", id: "b", width: "fill", height: 60 },
+              ],
+            },
+          ],
+        },
+      },
+    ]).doc;
+
+  it("moves a right-pinned child of a fill frame in a column by the full width delta", () => {
+    const next = resize(base(), "root", 1640, 200);
+    expect(next.nodes["pin-root"]).toMatchObject({ x: 1580 });
+    expect(next.nodes["pin-header"]).toMatchObject({ x: 1580, y: 10 });
+    expect(next.nodes["mid-header"]).toMatchObject({ x: 800 });
+    expect(next.nodes["left-header"]).toMatchObject({ x: 20 });
+  });
+
+  it("gives a fill frame in a row only its share of the free space", () => {
+    const next = resize(base(), "root", 1640, 200);
+    expect(next.nodes["pin-a"]).toMatchObject({ x: 800 });
+    expect(layout(next).a?.width).toBe(820);
+  });
+
+  it("leaves everything alone when the layout size does not change", () => {
+    const next = applyOps(base(), [{ op: "update", id: "left-header", props: { x: 30 } }]).doc;
+    expect(next.nodes["pin-header"]).toMatchObject({ x: 1380 });
+  });
+});

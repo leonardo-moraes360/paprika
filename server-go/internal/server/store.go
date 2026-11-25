@@ -33,6 +33,13 @@ type ChangeEvent struct {
 	DocID   string // the workspace that changed
 }
 
+// AsideEvent is a committed change to a workspace that is not the active one. Only canvases that
+// view that workspace (a tab on /w/<id>) listen: the active-workspace listeners never see it.
+type AsideEvent struct {
+	ChangeEvent
+	CanUndo, CanRedo bool
+}
+
 // HistorySummary is one row of get_history.
 type HistorySummary struct {
 	Actor string `json:"actor"`
@@ -727,6 +734,7 @@ type Store struct {
 	aside        map[string]*wsLive
 	dataVersion  int64
 	listeners    map[int]func(ChangeEvent)
+	asideLis     map[int]func(AsideEvent)
 	pinListeners map[int]func(string)
 	nextID       int
 	errHandler   func(error)
@@ -903,6 +911,31 @@ func (s *Store) OnChange(fn func(ChangeEvent)) func() {
 		defer s.mu.Unlock()
 		delete(s.listeners, id)
 	}
+}
+
+// OnAside subscribes to the changes made to workspaces other than the active one; returns the unsubscribe.
+func (s *Store) OnAside(fn func(AsideEvent)) func() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.asideLis == nil {
+		s.asideLis = map[int]func(AsideEvent){}
+	}
+	id := s.nextID
+	s.nextID++
+	s.asideLis[id] = fn
+	return func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		delete(s.asideLis, id)
+	}
+}
+
+func (s *Store) asideListenersLocked() []func(AsideEvent) {
+	ls := make([]func(AsideEvent), 0, len(s.asideLis))
+	for _, fn := range s.asideLis {
+		ls = append(ls, fn)
+	}
+	return ls
 }
 
 // OnError sets the handler for background errors (reload failures).
@@ -1109,14 +1142,20 @@ func (s *Store) ApplyIn(id string, ops []any, actor, label, batch string) (*core
 	removedIDs(prevDoc, r)
 	head := headOf(target, live)
 	var ls []func(ChangeEvent)
+	var als []func(AsideEvent)
 	var ev ChangeEvent
 	if !aside {
 		ls = s.listenersLocked()
+		ev = ChangeEvent{head.Doc, version, actor, label, "apply", target}
+	} else {
+		als = s.asideListenersLocked()
 		ev = ChangeEvent{head.Doc, version, actor, label, "apply", target}
 	}
 	s.mu.Unlock()
 	if !aside {
 		emit(ls, ev)
+	} else {
+		emitAside(als, AsideEvent{ev, head.CanUndo, head.CanRedo})
 	}
 	return r, head, nil
 }
@@ -1172,14 +1211,18 @@ func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error)
 	}
 	head := headOf(target, live)
 	var ls []func(ChangeEvent)
-	var ev ChangeEvent
+	var als []func(AsideEvent)
+	ev := ChangeEvent{head.Doc, version, actor, prefix + ": " + what, kind, target}
 	if !aside {
 		ls = s.listenersLocked()
-		ev = ChangeEvent{head.Doc, version, actor, prefix + ": " + what, kind, target}
+	} else {
+		als = s.asideListenersLocked()
 	}
 	s.mu.Unlock()
 	if !aside {
 		emit(ls, ev)
+	} else {
+		emitAside(als, AsideEvent{ev, head.CanUndo, head.CanRedo})
 	}
 	return true, head, nil
 }
@@ -1201,6 +1244,12 @@ func (s *Store) RecentHistoryIn(id string, limit int) ([]HistorySummary, error) 
 		out[i] = HistorySummary{e.Actor, e.Label, e.At, len(e.Ops)}
 	}
 	return out, nil
+}
+
+func emitAside(ls []func(AsideEvent), e AsideEvent) {
+	for _, fn := range ls {
+		fn(e)
+	}
 }
 
 func emit(ls []func(ChangeEvent), e ChangeEvent) {

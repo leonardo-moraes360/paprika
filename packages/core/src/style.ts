@@ -76,13 +76,53 @@ export function resolvedFontWeight(doc: Document, v: number | string, mode?: str
   return typeof r === "number" ? r : 400;
 }
 
+const GENERIC_FAMILIES = new Set(["serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace", "ui-rounded", "math", "emoji", "fangsong"]);
+const SERIF_NAME = /(^|[\s-])(serif|georgia|times|garamond|palatino|merriweather|playfair|lora|cambria|baskerville|didot|bodoni|caslon|charter)/i;
+const MONO_NAME = /mono|code|courier|consolas|menlo|monaco/i;
+
+// Splits a CSS font-family list on top-level commas (quotes and parentheses respected).
+function splitFamilies(list: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let quote = "";
+  let cur = "";
+  for (const ch of list) {
+    if (quote) {
+      if (ch === quote) quote = "";
+    } else if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    else if (ch === "," && depth === 0) {
+      out.push(cur.trim());
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+/** Appends a generic family when the list has none, so a missing face never falls back to the browser's default serif. */
+export function withGenericFamily(list: string): string {
+  const parts = splitFamilies(list);
+  if (parts.some((p) => GENERIC_FAMILIES.has(p.toLowerCase()))) return list;
+  const names = parts.filter((p) => !p.startsWith("var(")).join(" ");
+  const generic = MONO_NAME.test(names) ? "monospace" : SERIF_NAME.test(names) && !/sans/i.test(names) ? "serif" : "sans-serif";
+  return list.trim() ? `${list}, ${generic}` : generic;
+}
+
 function fontFamilyCSS(doc: Document, v: string, mode: string | undefined, vars: boolean | undefined): string {
   if (vars && v.startsWith("$") && isKnownToken(doc, v.slice(1))) {
     const type = tokenTypeOf(doc, v.slice(1));
     const raw = tokenValue(doc, v.slice(1), mode);
-    if (type === "fontFamily" || (type === undefined && typeof raw === "string")) return `var(${cssVarName(v.slice(1))})`;
+    if (type === "fontFamily" || (type === undefined && typeof raw === "string")) {
+      // The generic is judged on the token's value (for the current mode), so a token that already ends in one stays a bare var().
+      const resolved = resolvedFontFamily(doc, v, mode);
+      return `var(${cssVarName(v.slice(1))})${withGenericFamily(resolved).slice(resolved.length)}`;
+    }
   }
-  return resolvedFontFamily(doc, v, mode);
+  return withGenericFamily(resolvedFontFamily(doc, v, mode));
 }
 
 function fontWeightCSS(doc: Document, v: number | string, mode: string | undefined, vars: boolean | undefined): string | number {
@@ -326,7 +366,9 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
   const css: CSS = { boxSizing: "border-box" };
 
   // Conectores nunca entram no fluxo do auto layout: a geometria é calculada a partir das pontas.
-  if (parentMode && !opts.asRoot && node.type !== "connector" && !absoluteChild) {
+  // A root sized "hug"/"fill" has no known box: it stays in the flow so the exported <body> takes its height.
+  const autoRoot = !!opts.asRoot && node.type !== "connector" && (typeof node.width !== "number" || typeof node.height !== "number");
+  if ((parentMode && !opts.asRoot && node.type !== "connector" && !absoluteChild) || autoRoot) {
     css.position = "relative";
   } else {
     css.position = "absolute";

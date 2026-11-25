@@ -215,8 +215,136 @@ describe("combine_paths op", () => {
 
   it("rejects bad inputs", () => {
     const doc = scene();
-    expect(() => combinePathsOps(doc, ["a"], { operation: "union" })).toThrow(/at least two/);
-    expect(() => combinePathsOps(doc, ["a", "zz"], { operation: "union" })).toThrow(/do not exist/);
+    expect(() => combinePathsOps(doc, { ids: ["a"], operation: "union" })).toThrow(/at least two/);
+    expect(() => combinePathsOps(doc, { ids: ["a", "zz"], operation: "union" })).toThrow(/do not exist/);
     expect(() => applyOps(doc, [{ op: "combine_paths", ids: ["a", "f"], operation: "union" }])).toThrow(/path, rect, ellipse or shape/);
+  });
+
+  it("rejects bad batch forms", () => {
+    const doc = scene();
+    expect(() => combinePathsOps(doc, {})).toThrow(/ids \+ operation, or operations/);
+    expect(() => combinePathsOps(doc, { ids: ["a", "b"], operation: "union", operations: [{ op: "union", ids: ["a", "b"] }] })).toThrow(/not both/);
+    expect(() => combinePathsOps(doc, { operations: [{ op: "union", ids: ["a", "b"], as: "x" }, { op: "subtract", ids: ["x", "nope"] }] })).toThrow(
+      /operations\[1\] \(subtract\): nodes do not exist: nope/,
+    );
+    expect(() => combinePathsOps(doc, { operations: [{ op: "union", ids: ["a", "b"], as: "a" }, { op: "union", ids: ["a", "b"] }] })).toThrow(
+      /operations\[0\] \(union\): "as" name "a" is already a node id/,
+    );
+    expect(() => combinePathsOps(doc, { operations: [{ op: "union", ids: ["a", "f"] }] })).toThrow(/operations\[0\] \(union\): "f" is frame/);
+    expect(() => combinePathsOps(doc, { operations: [{ op: "intersect", ids: ["a", "b"], as: "x" }, { op: "subtract", ids: ["a", "x"] }, { op: "union", ids: ["b", "x"] }] }).ops.length).not.toThrow();
+    expect(() => combinePathsOps(doc, { ids: ["a", "b"], operation: "union", style: { from: "zz" } })).toThrow(/style.from "zz" does not exist/);
+  });
+});
+
+describe("combine_paths batch", () => {
+  const ringScene = () =>
+    applyOps(createDocument("T", "doc"), [
+      {
+        op: "create",
+        node: {
+          type: "frame",
+          id: "f",
+          width: 400,
+          height: 300,
+          children: [
+            { type: "ellipse", id: "disc", x: 0, y: 0, width: 100, height: 100, fill: "#c43d27" },
+            {
+              type: "path",
+              id: "dome",
+              x: 20,
+              y: 0,
+              width: 60,
+              height: 40,
+              d: "M0 40 L0 0 L60 0 L60 40 Z",
+              fill: "#1e2336",
+              gradient: { type: "linear", angle: 90, stops: [{ color: "#fff", offset: 0 }, { color: "#000", offset: 1 }] },
+            },
+            { type: "ellipse", id: "hole", x: 30, y: 30, width: 40, height: 40, fill: "#000000" },
+            { type: "rect", id: "clip", x: -10, y: -10, width: 60, height: 120, fill: "#00ff00", opacity: 0.5 },
+          ],
+        },
+      },
+    ]).doc;
+
+  it("ring with a hole in one call, one undo step, bottom style", () => {
+    const h = new History(ringScene());
+    h.apply(
+      [
+        {
+          op: "combine_paths",
+          operations: [
+            { op: "union", ids: ["disc", "dome"], as: "body" },
+            { op: "subtract", ids: ["body", "hole"] },
+          ],
+          id: "ring",
+          name: "Ring",
+        },
+      ],
+      "agent",
+      "ring",
+    );
+    const ring = h.doc.nodes["ring"]!;
+    expect(ring.type).toBe("path");
+    if (ring.type !== "path") return;
+    expect(ring.name).toBe("Ring");
+    expect(ring.fill).toBe("#c43d27");
+    expect(ring.fillRule).toBe("evenodd");
+    expect(pathInside(ring.d, 50, 50, "evenodd")).toBe(false);
+    expect(pathInside(ring.d, 50, 10, "evenodd")).toBe(true);
+    for (const id of ["disc", "dome", "hole"]) expect(h.doc.nodes[id]).toBeUndefined();
+    expect(h.doc.nodes["clip"]).toBeDefined();
+    h.undo();
+    for (const id of ["disc", "dome", "hole"]) expect(h.doc.nodes[id]).toBeDefined();
+    expect(h.doc.nodes["ring"]).toBeUndefined();
+  });
+
+  it("chain with intersect and a clip, intermediate reused", () => {
+    const doc = ringScene();
+    const plan = combinePathsOps(doc, {
+      operations: [
+        { op: "subtract", ids: ["disc", "hole"], as: "ring" },
+        { op: "intersect", ids: ["ring", "clip"], as: "half" },
+        { op: "union", ids: ["half", "dome"] },
+      ],
+      id: "out",
+    });
+    const { doc: out } = applyOps(doc, plan.ops);
+    expect(out.nodes["out"]?.type).toBe("path");
+    for (const id of ["disc", "dome", "hole", "clip"]) expect(out.nodes[id]).toBeUndefined();
+  });
+
+  it("an empty step names the failing step", () => {
+    const doc = ringScene();
+    expect(() =>
+      combinePathsOps(doc, {
+        operations: [
+          { op: "union", ids: ["disc", "dome"], as: "body" },
+          { op: "subtract", ids: ["hole", "body"] },
+        ],
+      }),
+    ).toThrow(/operations\[1\] \(subtract\): boolean subtract produced an empty path/);
+  });
+
+  it("style choices", () => {
+    const doc = ringScene();
+    const run = (style: Parameters<typeof combinePathsOps>[1]["style"], ids = ["clip", "disc", "dome"]) => {
+      const { doc: out } = applyOps(doc, combinePathsOps(doc, { ids, operation: "union", style, id: "o" }).ops);
+      return out.nodes["o"]! as { fill?: string; gradient?: unknown; opacity: number };
+    };
+    expect(run(undefined).fill).toBe("#c43d27"); // bottom = disc (z order)
+    expect(run("bottom").fill).toBe("#c43d27");
+    expect(run("top").fill).toBe("#00ff00"); // top = clip
+    expect(run("top").opacity).toBe(0.5);
+    expect(run("first").fill).toBe("#00ff00"); // first of ids
+    expect(run("last").fill).toBe("#1e2336"); // last of ids = dome
+    expect(run("last").gradient).toBeDefined();
+    expect(run({ from: "dome" }).fill).toBe("#1e2336");
+    expect(run({ from: "hole" }, ["disc", "dome"]).fill).toBe("#000000");
+    const o = run({ fill: "#abcdef" }, ["disc", "dome"]);
+    expect(o.fill).toBe("#abcdef");
+    expect(o.gradient).toBeUndefined();
+    const g = run({ from: "dome", opacity: 0.25 }, ["disc", "hole"]);
+    expect(g.opacity).toBe(0.25);
+    expect(g.gradient).toBeDefined();
   });
 });
