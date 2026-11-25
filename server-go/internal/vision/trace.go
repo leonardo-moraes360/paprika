@@ -306,6 +306,16 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 		numbered = append(numbered, c)
 	}
 	sort.SliceStable(numbered, func(i, j int) bool { return numbered[i].area > numbered[j].area })
+	// blobs analyze_image leaves out (specks inside a photo region) are not numbered
+	{
+		raws := classifyRegions(px, numbered)
+		pick := listedBlobs(raws, assignRegions(raws, numbered), len(numbered))
+		listedNum := make([]comp, len(pick))
+		for n, i := range pick {
+			listedNum[n] = numbered[i]
+		}
+		numbered = listedNum
+	}
 	blobID := make(map[int32]string, len(numbered))
 	byID := make(map[string]comp, len(numbered))
 	for i, c := range numbered {

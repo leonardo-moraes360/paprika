@@ -1,9 +1,11 @@
 package vision
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -117,5 +119,51 @@ func TestTraceDropsByImportanceNotArea(t *testing.T) {
 	both := traceOf(t, img, TraceOptions{})
 	if len(both.Paths) != 2 || both.Dropped != 0 || both.Paths[0].BlobID != "b1" {
 		t.Fatalf("both: %+v", both.Paths)
+	}
+}
+
+// With a photo region present analyze_image does not list the specks of its texture; trace_image
+// has to number the blobs the same way, or blobIds would trace the wrong shapes.
+func TestTraceBlobIDsMatchAnalyzeWithPhoto(t *testing.T) {
+	img := mixedSheet()
+	opt := Options{MinArea: 0.0002, MaxBlobs: 200}
+	an, err := Analyze(img, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(regionOf(an, KindPhoto)) == 0 {
+		t.Fatal("no photo region in the sheet")
+	}
+	dropped := false
+	for _, w := range an.Warnings {
+		if strings.Contains(w, "not listed") {
+			dropped = true
+		}
+	}
+	if !dropped {
+		t.Fatalf("expected photo specks to be left out of the list: %v", an.Warnings)
+	}
+	ids := map[string]bool{}
+	for _, b := range an.Blobs {
+		ids[b.ID] = true
+		r := traceOf(t, img, TraceOptions{MinArea: 0.0002, BlobIDs: []string{b.ID}})
+		if len(r.Paths) != 1 || r.Paths[0].BlobID != b.ID || r.Paths[0].Color != b.Color {
+			t.Fatalf("%s: %+v (analyze says %s)", b.ID, r.Paths, b.Color)
+		}
+		bb := r.Paths[0].BBox
+		if math.Abs(bb.X-b.BBox.X) > 2 || math.Abs(bb.Y-b.BBox.Y) > 2 || math.Abs(bb.Width-b.BBox.Width) > 3 || math.Abs(bb.Height-b.BBox.Height) > 3 {
+			t.Fatalf("%s: trace box %+v, analyze box %+v", b.ID, bb, b.BBox)
+		}
+	}
+	// every id a traced path carries is one analyze listed, and an id past the list matches nothing
+	all := traceOf(t, img, TraceOptions{MinArea: 0.0002, MaxPaths: 500})
+	for _, p := range all.Paths {
+		if p.BlobID != "" && !ids[p.BlobID] {
+			t.Fatalf("trace id %s is not an analyze id", p.BlobID)
+		}
+	}
+	r := traceOf(t, img, TraceOptions{MinArea: 0.0002, BlobIDs: []string{fmt.Sprintf("b%d", len(an.Blobs)+1)}})
+	if len(r.Paths) != 0 {
+		t.Fatalf("an id past the listed blobs traced %d paths", len(r.Paths))
 	}
 }

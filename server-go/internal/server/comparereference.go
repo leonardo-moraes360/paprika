@@ -11,6 +11,7 @@ import (
 	"image"
 	"image/png"
 	"math"
+	"sort"
 	"strings"
 	"sync"
 
@@ -92,6 +93,10 @@ type compareOutput struct {
 	Previous      *compareScores `json:"previous,omitempty"`
 	SameReference *bool          `json:"sameReference,omitempty"`
 	Delta         *compareDelta  `json:"delta,omitempty"`
+	// simplicity of the drawing: the nodes painting under rootId (the frame itself and groups
+	// excluded) and how many of each type; fewer, simpler nodes at the same iou is better
+	NodeCount int            `json:"nodeCount"`
+	ByKind    map[string]int `json:"byKind"`
 }
 
 // loadedReference is a reference image resolved for comparison, with the document to render
@@ -212,7 +217,12 @@ func (m *MCP) compareReference(ctx context.Context, a *jsonv.Object, head Worksp
 		WorkspaceID: head.ID, WorkspaceName: head.Name, RootID: rootID, Comparison: res,
 		Frame:     compareFrame{Width: round2(fw), Height: round2(fh)},
 		Reference: compareRefInfo{Source: source, NodeID: refNode, Width: info.width, Height: info.height, Placed: vision.Rect{X: x, Y: y, Width: w, Height: h}},
+		ByKind:    map[string]int{},
 	}
+	for _, n := range nodes {
+		out.ByKind[n.Type]++
+	}
+	out.NodeCount = len(nodes)
 
 	// history: the last round of this root, to tell whether the round improved
 	sum := sha1.Sum(info.data)
@@ -287,6 +297,28 @@ func compareNodes(d *core.Document, rootID string) []vision.NodeBox {
 	return out
 }
 
+// byKindText is " (rect 5, path 3, text 2)": the commonest type first.
+func byKindText(m map[string]int) string {
+	if len(m) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if m[keys[i]] != m[keys[j]] {
+			return m[keys[i]] > m[keys[j]]
+		}
+		return keys[i] < keys[j]
+	})
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		parts[i] = fmt.Sprintf("%s %d", k, m[k])
+	}
+	return " (" + strings.Join(parts, ", ") + ")"
+}
+
 func compareSummary(o *compareOutput) string {
 	var b strings.Builder
 	pass := "FAIL"
@@ -302,6 +334,7 @@ func compareSummary(o *compareOutput) string {
 	for _, c := range o.Color.Unmatched {
 		fmt.Fprintf(&b, " | drawn %s %.0f%% has no match (nearest %s dE %.1f)", c.Color, c.Share*100, c.Nearest, c.DeltaE)
 	}
+	fmt.Fprintf(&b, "\nnodes: %d%s (fewer, simpler nodes at the same iou is better)", o.NodeCount, byKindText(o.ByKind))
 	fmt.Fprintf(&b, "\nraw pixel match %.0f%% (misleading: the background dominates; act on iou)\n", o.RawMatch.Value*100)
 	if o.Previous != nil {
 		fmt.Fprintf(&b, "previous round: iou %.2f -> %.2f (%+.3f), missing %+.3f, extra %+.3f", o.Previous.IoU, o.IoU, o.Delta.IoU, o.Delta.Missing, o.Delta.Extra)

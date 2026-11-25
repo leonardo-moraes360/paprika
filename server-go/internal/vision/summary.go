@@ -25,6 +25,23 @@ func (r *Result) Summary() string {
 		fmt.Fprintf(&b, " transparent %.1f%%", r.TransparentShare*100)
 	}
 	b.WriteString("\n")
+	if len(r.Regions) > 0 {
+		fmt.Fprintf(&b, "regions: %d (choose the tool per region: photo -> import_image, gradient -> a shape with gradient, flat geometric -> rect/ellipse/path, flat organic -> trace_image, text -> text nodes)\n", len(r.Regions))
+		for _, rg := range r.Regions {
+			fmt.Fprintf(&b, "  %s %s %.1f%% box %g,%g %gx%g -> %s", rg.ID, rg.Kind, rg.Share*100, rg.Box.X, rg.Box.Y, rg.Box.Width, rg.Box.Height, rg.Suggest)
+			if rg.Gradient != nil {
+				g, _ := json.Marshal(rg.Gradient)
+				fmt.Fprintf(&b, " %s", g)
+			}
+			if rg.FontSize > 0 {
+				fmt.Fprintf(&b, " fontSize ~%g, %d line(s)", rg.FontSize, rg.Lines)
+			}
+			if len(rg.BlobIDs) > 0 {
+				fmt.Fprintf(&b, " blobs %d", len(rg.BlobIDs))
+			}
+			fmt.Fprintf(&b, ": %s\n", rg.Why)
+		}
+	}
 	shown := len(r.Blobs)
 	fmt.Fprintf(&b, "blobs: %d", shown)
 	if r.Truncated {
@@ -33,7 +50,7 @@ func (r *Result) Summary() string {
 	b.WriteString(" (largest first: draw in this order, nested shapes land on top)\n")
 	for _, bl := range r.Blobs {
 		node, _ := json.Marshal(bl.Fit.Node)
-		fmt.Fprintf(&b, "  %s %s %.1f%% %s iou %.2f", bl.ID, bl.Color, bl.Share*100, bl.Fit.Kind, bl.Fit.IoU)
+		fmt.Fprintf(&b, "  %s %s %.1f%% %s iou %.2f -> %s (%s)", bl.ID, bl.Color, bl.Share*100, bl.Fit.Kind, bl.Fit.IoU, bl.Suggest, bl.Region)
 		if bl.Holes > 0 {
 			fmt.Fprintf(&b, " holes %d", bl.Holes)
 		}
