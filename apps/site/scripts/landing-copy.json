@@ -1,0 +1,234 @@
+{
+  "en": {
+    "lang": "en",
+    "home": "link:./",
+    "other": {
+      "label": "Português",
+      "href": "link:pt-BR/"
+    },
+    "docs": "link:docs/",
+    "team": "link:docs/team-sync.html",
+    "nav": [
+      "Docs",
+      "GitHub"
+    ],
+    "tagline": "Throw in a little spice",
+    "title": "A design tool where you and your AI agent draw together.",
+    "lead": "Open a canvas in your browser. Your agent, Claude Code or any other that speaks MCP, creates screens, components and diagrams on it while you watch, fix things by hand and undo anything.",
+    "cta": [
+      "Get started",
+      "Read the docs"
+    ],
+    "trust": [
+      "Open source, MIT",
+      "Runs on your computer",
+      "No account, no usage limits"
+    ],
+    "window": {
+      "file": "Coffee app · Sign up",
+      "screen": "Create your account",
+      "fields": [
+        "Email",
+        "Password"
+      ],
+      "button": "Sign up",
+      "agent": "Claude"
+    },
+    "flow": [
+      "Start",
+      "Agent",
+      "Done"
+    ],
+    "makeTitle": "What your agent can make",
+    "makeLead": "Ask in plain words and watch it appear on the canvas.",
+    "make": [
+      [
+        "Screens and components",
+        "Build a screen once, turn its parts into components and reuse them as instances."
+      ],
+      [
+        "Diagrams",
+        "Boxes, decisions, sticky notes and arrows that follow the shapes when you move them."
+      ],
+      [
+        "Light and dark themes",
+        "Design tokens switch a whole design between themes in one go."
+      ],
+      [
+        "Code from the design",
+        "Export any frame as HTML, a React component or SVG."
+      ]
+    ],
+    "controlTitle": "You stay in control",
+    "control": [
+      [
+        "See every agent",
+        "Each connected agent has its own cursor, name and color on the canvas."
+      ],
+      [
+        "One undo for both",
+        "You and the agent share one history, so nothing either of you did is lost."
+      ],
+      [
+        "Point at what to fix",
+        "Press I, click a spot and leave a note. The agent picks it up and answers there."
+      ]
+    ],
+    "checkTitle": "It checks its own work",
+    "checkLead": "Before it tells you it is done, the agent takes a screenshot and runs the same checks a careful designer would.",
+    "checks": [
+      [
+        "green",
+        "Contrast 4.8:1 passes WCAG AA"
+      ],
+      [
+        "green",
+        "Every text fits its box"
+      ],
+      [
+        "yellow",
+        "1 color was not a token, now fixed"
+      ]
+    ],
+    "checkCard": "Design check",
+    "startTitle": "Get started in three steps",
+    "startLead": "You need Docker. Everything else runs inside it.",
+    "steps": [
+      [
+        "Start Paprika",
+        "git clone https://github.com/leonardo-moraes360/paprika.git\ncd paprika && docker compose up -d --build"
+      ],
+      [
+        "Open the canvas",
+        "http://localhost:4777"
+      ],
+      [
+        "Connect your agent",
+        "claude mcp add --transport http paprika http://localhost:4777/mcp"
+      ]
+    ],
+    "promptTitle": "Or let your agent set it up",
+    "promptLead": "Paste this prompt into an agent that can run terminal commands.",
+    "promptCta": "Copy the prompt",
+    "teamTitle": "Work as a team, without a server",
+    "teamLead": "paprika serve --team connects each person's Paprika and agents peer to peer. Invite by link or QR code; only your team's keys get in.",
+    "teamCta": "How team sync works",
+    "footer": "MIT License · This page was designed in Paprika over MCP."
+  },
+  "pt": {
+    "lang": "pt-BR",
+    "home": "link:./",
+    "other": {
+      "label": "English",
+      "href": "link:../"
+    },
+    "docs": "link:../docs/pt-BR/",
+    "team": "link:../docs/pt-BR/sincronizacao-time.html",
+    "nav": [
+      "Docs",
+      "GitHub"
+    ],
+    "tagline": "Jogue um pouco de tempero",
+    "title": "Uma ferramenta de design em que você e o seu agente de IA desenham juntos.",
+    "lead": "Abra um canvas no navegador. O seu agente, o Claude Code ou qualquer outro que fale MCP, cria telas, componentes e diagramas nele enquanto você acompanha, ajusta com as próprias mãos e desfaz o que quiser.",
+    "cta": [
+      "Começar",
+      "Ler a documentação"
+    ],
+    "trust": [
+      "Código aberto, MIT",
+      "Roda no seu computador",
+      "Sem conta, sem limite de uso"
+    ],
+    "window": {
+      "file": "App de café · Cadastro",
+      "screen": "Crie sua conta",
+      "fields": [
+        "E-mail",
+        "Senha"
+      ],
+      "button": "Cadastrar",
+      "agent": "Claude"
+    },
+    "flow": [
+      "Início",
+      "Agente",
+      "Pronto"
+    ],
+    "makeTitle": "O que o seu agente consegue fazer",
+    "makeLead": "Peça com palavras simples e veja aparecer no canvas.",
+    "make": [
+      [
+        "Telas e componentes",
+        "Monte uma tela uma vez, transforme partes dela em componentes e reuse como instâncias."
+      ],
+      [
+        "Diagramas",
+        "Caixas, decisões, notas adesivas e setas que acompanham as formas quando você as move."
+      ],
+      [
+        "Temas claro e escuro",
+        "Tokens de design trocam o design inteiro de tema de uma vez."
+      ],
+      [
+        "Código a partir do design",
+        "Exporte qualquer frame como HTML, componente React ou SVG."
+      ]
+    ],
+    "controlTitle": "Você continua no controle",
+    "control": [
+      [
+        "Veja cada agente",
+        "Cada agente conectado tem cursor, nome e cor próprios no canvas."
+      ],
+      [
+        "Um desfazer para os dois",
+        "Você e o agente dividem o mesmo histórico, então nada se perde."
+      ],
+      [
+        "Aponte o que corrigir",
+        "Aperte I, clique num ponto e deixe um recado. O agente pega e responde ali mesmo."
+      ]
+    ],
+    "checkTitle": "Ele confere o próprio trabalho",
+    "checkLead": "Antes de dizer que terminou, o agente tira um screenshot e roda as mesmas checagens que um designer cuidadoso faria.",
+    "checks": [
+      [
+        "green",
+        "Contraste 4,8:1 passa no WCAG AA"
+      ],
+      [
+        "green",
+        "Todo texto cabe na caixa"
+      ],
+      [
+        "yellow",
+        "1 cor não era token, já corrigida"
+      ]
+    ],
+    "checkCard": "Checagem do design",
+    "startTitle": "Comece em três passos",
+    "startLead": "Você precisa do Docker. Todo o resto roda dentro dele.",
+    "steps": [
+      [
+        "Suba o Paprika",
+        "git clone https://github.com/leonardo-moraes360/paprika.git\ncd paprika && docker compose up -d --build"
+      ],
+      [
+        "Abra o canvas",
+        "http://localhost:4777"
+      ],
+      [
+        "Conecte o seu agente",
+        "claude mcp add --transport http paprika http://localhost:4777/mcp"
+      ]
+    ],
+    "promptTitle": "Ou deixe o agente configurar",
+    "promptLead": "Cole este prompt num agente que consiga rodar comandos no terminal.",
+    "promptCta": "Copiar o prompt",
+    "teamTitle": "Trabalhe em time, sem servidor",
+    "teamLead": "paprika serve --team conecta o Paprika e os agentes de cada pessoa direto entre si. Convide por link ou QR code; só as chaves do time entram.",
+    "teamCta": "Como funciona o time",
+    "footer": "Licença MIT · Esta página foi desenhada no Paprika, pelo MCP."
+  }
+}
