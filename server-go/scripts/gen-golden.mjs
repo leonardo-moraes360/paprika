@@ -15,7 +15,7 @@ const {
   exportReact, exportTailwind, exportCssModules, exportAngular, exportSvelte, renderTailwindHTML, renderFrameworkHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
   parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, combinePathsOps, alignOps, distributeOps, wrapOps, revealOps, importSVG, importHTML, exportSVG,
   diagramOps, shapeOutline, tailwindClassesFor, layout, measureText, FONT_AVG, normalizePath, pathOrigin,
-  pathToSubpaths, subpathsToPath, moveAnchor, moveHandle, pathEditProps, anchorByFlatIndex,
+  pathToSubpaths, subpathsToPath, moveAnchor, moveHandle, pathEditProps, anchorByFlatIndex, roundPathCorners, shapePath,
 } = core;
 
 const json = (v) => JSON.stringify(v, null, 2);
@@ -78,6 +78,51 @@ const free = () =>
           { type: "ellipse", id: "e1", x: 100.5, y: 20.25, width: 30, height: 30, fill: "#1e2336", rotation: 30 },
           { type: "text", id: "t1", x: 10, y: 200, width: "hug", height: "hug", text: "Livre", color: "#1e2336" },
           { type: "path", id: "p1", x: 200, y: 100, d: "M0 0 C 20 -30 60 30 80 0", stroke: { color: "#c43d27", width: 3 } },
+        ],
+      },
+    },
+  ]).doc;
+// combine_paths batch: a disc, a gradient dome, a hole and a clip rect stacked in one frame.
+const combo = () =>
+  applyOps(base(), [
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "cb", name: "Combo", width: 400, height: 300, fill: "#fbf8f4",
+        children: [
+          { type: "ellipse", id: "disc", x: 0, y: 0, width: 100, height: 100, fill: "#c43d27", stroke: { color: "#1e2336", width: 2 } },
+          {
+            type: "path", id: "dome", x: 20, y: 0, width: 60, height: 40, d: "M0 40 L0 0 L60 0 L60 40 Z", fill: "#1e2336",
+            gradient: { type: "linear", angle: 90, stops: [{ color: "#ffffff", offset: 0 }, { color: "#000000", offset: 1 }] },
+          },
+          { type: "ellipse", id: "hole", x: 30, y: 30, width: 40, height: 40, fill: "#000000" },
+          { type: "rect", id: "clip", x: -10, y: -10, width: 60, height: 120, fill: "#00ff00", opacity: 0.5 },
+        ],
+      },
+    },
+  ]).doc;
+// Coincident-edge geometry for the boolean ops: shared edges, touching sides, tangent circles.
+const coin = () =>
+  applyOps(base(), [
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "co", name: "Coincident", width: 800, height: 600, fill: "#fbf8f4",
+        children: [
+          { type: "ellipse", id: "disc", x: 0, y: 0, width: 100, height: 100, fill: "#c43d27", stroke: { color: "#1e2336", width: 2 } },
+          { type: "path", id: "dome", x: 20, y: 0, width: 60, height: 40, d: "M0 40 L0 0 L60 0 L60 40 Z", fill: "#1e2336" },
+          { type: "rect", id: "clip", x: 0, y: 0, width: 50, height: 100, fill: "#00ff00", opacity: 0.5 },
+          { type: "rect", id: "sa", x: 200, y: 0, width: 50, height: 50, fill: "#c43d27" },
+          { type: "rect", id: "sb", x: 250, y: 0, width: 50, height: 50, fill: "#1e2336" },
+          { type: "rect", id: "ro", x: 400, y: 0, width: 100, height: 100, fill: "#c43d27" },
+          { type: "rect", id: "ri", x: 400, y: 0, width: 50, height: 50, fill: "#1e2336" },
+          { type: "rect", id: "ri2", x: 450, y: 50, width: 50, height: 50, fill: "#1e2336" },
+          { type: "ellipse", id: "ca", x: 0, y: 200, width: 100, height: 100, fill: "#c43d27" },
+          { type: "ellipse", id: "cb", x: 100, y: 200, width: 100, height: 100, fill: "#1e2336" },
+          { type: "ellipse", id: "ro2", x: 400, y: 200, width: 100, height: 100, fill: "#c43d27" },
+          { type: "ellipse", id: "rh", x: 400, y: 225, width: 50, height: 50, fill: "#000000" },
+          { type: "rect", id: "rcut", x: 400, y: 250, width: 100, height: 50, fill: "#000000" },
+          { type: "rect", id: "same", x: 400, y: 0, width: 100, height: 100, fill: "#000000" },
         ],
       },
     },
@@ -295,6 +340,8 @@ const docs = {
   comp: comp(),
   card: card(),
   free: free(),
+  combo: combo(),
+  coin: coin(),
   grouped: grouped(),
   paged: paged(),
   themed: parseDocument(themed()),
@@ -334,6 +381,19 @@ const opCases = [
     { op: "create", parentId: "card", node: { type: "rect", id: "abs", x: 280, y: 8, width: 16, height: 16, layoutPositioning: "absolute", constraints: { horizontal: "right", vertical: "top" } } },
     { op: "update", id: "card", props: { width: 400, height: 240 } },
   ]],
+  ["empty", [
+    { op: "create", node: { type: "frame", id: "nroot", x: 0, y: 0, width: 400, height: 200, layout: { mode: "column", gap: 0, padding: 0 }, children: [
+      { type: "frame", id: "nhead", width: "fill", height: 50, children: [
+        { type: "rect", id: "npin", x: 340, y: 10, width: 40, height: 20, constraints: { horizontal: "right" } },
+        { type: "rect", id: "nmid", x: 180, y: 10, width: 40, height: 20, constraints: { horizontal: "center" } },
+      ] },
+      { type: "frame", id: "nrow", width: "fill", height: 50, layout: { mode: "row", gap: 0, padding: 0 }, children: [
+        { type: "frame", id: "ncell", width: "fill", height: 50, children: [{ type: "rect", id: "ncpin", x: 150, y: 5, width: 40, height: 20, constraints: { horizontal: "right" } }] },
+        { type: "frame", id: "ncell2", width: "fill", height: 50 },
+      ] },
+    ] } },
+    { op: "update", id: "nroot", props: { width: 600 } },
+  ]],
   ["empty", [R({})]],
   ["empty", [{ op: "create", node: { type: "rect", id: "g", width: 40, height: 20, gradient: { type: "linear", angle: 12, stops: [{ color: "#111111", offset: 0 }, { color: "#eeeeee", offset: 1 }] } } }]],
   ["empty", [{ op: "create", node: { type: "rect", id: "g", gradient: { type: "linear", stops: [{ color: "#111111", offset: 0 }] } } }]],
@@ -368,6 +428,15 @@ const opCases = [
   ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { mode: "grid" } } }]],
   ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { padding: [1, 2] } } }]],
   ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { mode: "row", padding: [1, 2, 3, 4], wrap: true, justify: "between", align: "center" } } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { padding: [1, 2, 3] } } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { padding: ["$p", -1] } } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { padding: { top: 1 } } } }]],
+  ["empty", [{ op: "create", node: { type: "text", id: "t", text: "a", lineHeight: 22 } }]],
+  ["empty", [{ op: "create", node: { type: "rect", id: "r", width: "$space.8" } }]],
+  ["empty", [{ op: "create", node: { type: "rect", id: "r", height: 200000 } }]],
+  ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M0 0 L10 10", fill: "linear-gradient(90deg, #fff, #000)" } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "f", children: [{ type: "text", id: "t", text: "a", runs: [{ start: 0, end: 1, color: "url(#x)" }] }] } }]],
+  ["empty", [{ op: "create", node: { type: "rect", id: "r" } }, { op: "update", id: "r", props: { stroke: { color: "radial-gradient(red, blue)", width: 1 } } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "p" } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "p", d: "" } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M0 0 C 10 10 20" } }]],
@@ -450,6 +519,47 @@ const opCases = [
   ["free", [{ op: "add_page", id: "p2", firstId: "p1", firstName: "Início", name: "Dois" }]],
   ["paged", [{ op: "add_page", id: "p3" }, { op: "create", parentId: "p3", node: { type: "rect", id: "r3" } }]],
   ["paged", [{ op: "add_page", id: "pg1" }]],
+  ["coin", [{ op: "combine_paths", ids: ["clip", "disc", "dome"], operation: "union", id: "k1" }]],
+  ["coin", [{ op: "combine_paths", ids: ["disc", "dome", "clip"], operation: "union", id: "k2" }]],
+  ["coin", [{ op: "combine_paths", ids: ["dome", "clip", "disc"], operation: "union", id: "k3" }]],
+  ["coin", [{ op: "combine_paths", ids: ["disc", "clip"], operation: "subtract", id: "k4" }]],
+  ["coin", [{ op: "combine_paths", ids: ["disc", "clip"], operation: "intersect", id: "k5" }]],
+  ["coin", [{ op: "combine_paths", ids: ["sa", "sb"], operation: "union", id: "u1" }]],
+  ["coin", [{ op: "combine_paths", ids: ["sb", "sa"], operation: "union", id: "u2" }]],
+  ["coin", [{ op: "combine_paths", ids: ["sa", "sb"], operation: "subtract", id: "u3" }]],
+  ["coin", [{ op: "combine_paths", ids: ["sa", "sb"], operation: "intersect", id: "u4" }]],
+  ["coin", [{ op: "combine_paths", ids: ["sa", "sb"], operation: "exclude", id: "u5" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ro", "ri"], operation: "union", id: "t1" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ro", "ri"], operation: "subtract", id: "t2" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ro", "ri"], operation: "intersect", id: "t3" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ro", "ri"], operation: "exclude", id: "t4" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ri", "ro"], operation: "subtract", id: "t5" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ro", "ri", "ri2"], operation: "subtract", id: "t6" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ro", "same"], operation: "union", id: "t7" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ro", "same"], operation: "subtract", id: "t8" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ro", "same"], operation: "intersect", id: "t9" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ca", "cb"], operation: "union", id: "c1" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ca", "cb"], operation: "subtract", id: "c2" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ca", "cb"], operation: "intersect", id: "c3" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ca", "cb"], operation: "exclude", id: "c4" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ro2", "rh"], operation: "subtract", id: "h1" }]],
+  ["coin", [{ op: "combine_paths", ids: ["ro2", "rh"], operation: "union", id: "h2" }]],
+  ["coin", [{ op: "combine_paths", operations: [{ op: "subtract", ids: ["ro2", "rh"], as: "ring" }, { op: "subtract", ids: ["ring", "rcut"] }], id: "h3" }]],
+  ["coin", [{ op: "combine_paths", operations: [{ op: "subtract", ids: ["ro2", "rh"], as: "ring" }, { op: "union", ids: ["ring", "rcut"] }], id: "h4" }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "union", ids: ["disc", "dome"], as: "body" }, { op: "subtract", ids: ["body", "hole"] }], id: "ring", name: "Ring" }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "subtract", ids: ["disc", "hole"], as: "ring" }, { op: "intersect", ids: ["ring", "clip"], as: "half" }, { op: "union", ids: ["half", "dome"] }], id: "mix", style: "top" }]],
+  ["combo", [{ op: "combine_paths", ids: ["clip", "disc", "dome"], operation: "union", id: "s1", style: "first" }]],
+  ["combo", [{ op: "combine_paths", ids: ["clip", "disc", "dome"], operation: "union", id: "s2", style: "last" }]],
+  ["combo", [{ op: "combine_paths", ids: ["clip", "disc", "dome"], operation: "union", id: "s3", style: { from: "dome", opacity: 0.25 } }]],
+  ["combo", [{ op: "combine_paths", ids: ["disc", "dome"], operation: "union", id: "s4", style: { fill: "#abcdef" } }]],
+  ["combo", [{ op: "combine_paths", ids: ["disc", "dome"], operation: "union", id: "s5", style: { gradient: { type: "radial", stops: [{ color: "#fff", offset: 0 }, { color: "#000", offset: 1 }] } } }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "union", ids: ["disc", "dome"], as: "u" }, { op: "subtract", ids: ["hole", "u"] }] }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "union", ids: ["disc", "dome"], as: "u" }, { op: "subtract", ids: ["u", "nope"] }] }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "union", ids: ["disc", "dome"], as: "disc" }] }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "union", ids: ["disc", "dome"], as: "u" }, { op: "union", ids: ["u", "hole"], as: "u" }] }]],
+  ["combo", [{ op: "combine_paths", ids: ["disc", "dome"], operation: "union", style: { from: "cb" } }]],
+  ["combo", [{ op: "combine_paths", ids: ["disc", "dome"], operation: "union", operations: [{ op: "union", ids: ["disc", "dome"] }] }]],
+  ["combo", [{ op: "combine_paths" }]],
   ["free", [{ op: "combine_paths", ids: ["r1", "e1"], operation: "union", id: "cu" }]],
   ["free", [{ op: "combine_paths", ids: ["r1", "e1"], operation: "subtract", id: "cs" }]],
   ["free", [{ op: "combine_paths", ids: ["r1", "e1"], operation: "intersect", id: "ci" }]],
@@ -647,6 +757,8 @@ const opCases = [
   ["free", [{ op: "create", place: { near: "board", side: "right" }, node: { type: "frame", id: "by", width: 50, height: 40 } }]],
   ["free", [{ op: "create", place: { near: "missing", side: "left" }, node: { type: "frame", id: "no", width: 10, height: 10 } }]],
   ["paged", [{ op: "create", place: "free", node: { type: "frame", id: "onpage", name: "On page", width: 80, height: 40 } }]],
+  ["paged", [{ op: "create", parentId: "pg2", place: "free", node: { type: "frame", id: "onpg2", name: "On page 2", width: 80, height: 40 } }]],
+  ["paged", [{ op: "create", parentId: "pg2", place: { near: "f2", side: "right" }, node: { type: "frame", id: "besidef2", width: 80, height: 40 } }]],
   ["empty", [
     { op: "create", node: { type: "frame", id: "card", name: "Card", x: 0, y: 0, width: 220, height: 140, fill: "#f4f1ea", children: [{ type: "text", id: "label", x: 16, y: 16, width: 120, height: 24, text: "Landing page", color: "#111111" }] } },
     { op: "create", node: { type: "frame", id: "modal", name: "Delete", x: 8, y: 8, width: 200, height: 100, fill: "#ffffff" } },
@@ -690,6 +802,9 @@ const structureCases = [
   ["empty", "page", { id: "pn" }],
   ["paged", "page", { id: "pn" }],
   ["card", "duplicate", { ids: ["card"] }],
+  ["card", "duplicate", { ids: ["card"], place: "right" }],
+  ["card", "duplicate", { ids: ["card"], place: "below" }],
+  ["paged", "duplicate", { ids: ["f2"], place: "right" }],
   ["card", "duplicate", { ids: ["card"], offset: 0, scale: 2, props: { fill: "#101010" } }],
   ["card", "duplicate", { ids: ["card"], parentId: null, offset: -12.5 }],
   ["card", "duplicate", { ids: ["card", "title", "card"] }],
@@ -729,6 +844,11 @@ const structureCases = [
   ["card", "wrap", { ids: ["title"], id: "wt" }],
   ["free", "reveal", { kind: "hidden" }],
   ["free", "reveal", { kind: "locked", pageId: "nope" }],
+  ["combo", "combine", { operations: [{ op: "union", ids: ["disc", "dome"], as: "body" }, { op: "subtract", ids: ["body", "hole"] }], id: "ring", name: "Ring" }],
+  ["combo", "combine", { operations: [{ op: "subtract", ids: ["disc", "hole"], as: "ring" }, { op: "union", ids: ["ring", "clip"] }], id: "m", style: "last" }],
+  ["combo", "combine", { ids: ["disc", "dome"], operation: "union", style: { from: "dome", fill: "#112233" }, id: "st" }],
+  ["combo", "combine", { ids: ["disc", "dome"], operation: "union", style: "sideways" }],
+  ["combo", "combine", { operations: [{ op: "union", ids: ["disc", "dome"], as: "u" }, { op: "subtract", ids: ["hole", "u"] }] }],
   ["free", "combine", { ids: ["r1", "e1"], operation: "union", id: "cu" }],
   ["free", "combine", { ids: ["r1", "e1"], operation: "subtract", id: "cs" }],
   ["free", "combine", { ids: ["r1"], operation: "union" }],
@@ -746,7 +866,7 @@ const structure = structureCases.map(([docName, kind, args]) => {
       return { ops: p.ops, map: p.map };
     }
     if (kind === "combine") {
-      const p = combinePathsOps(d, args.ids, { operation: args.operation, id: args.id, name: args.name });
+      const p = combinePathsOps(d, args);
       return { ops: p.ops, id: p.id };
     }
     if (kind === "align") return alignOps(d, args.ids, args.edge);
@@ -1150,7 +1270,39 @@ const pathNorm = ["M40 30 L80 30 L60 70 Z", "M0 0 L10 10", "M10 10 C 20 0 30 0 4
   return { d, origin: pathOrigin(segs), normalized: serializePath(n.segs), bounds: n.bounds };
 });
 
-const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, pathEdits, created: createDocument("Untitled", "abc"), tailwindMapCases };
+// Corner rounding and parametric path shapes (errors are part of the contract).
+const shapeInputs = [
+  { name: "round-square", op: "round", d: "M0 0 L100 0 L100 100 L0 100 Z", radius: 10 },
+  { name: "round-clamped", op: "round", d: "M0 0 L20 0 L20 100 L0 100 Z", radius: 50 },
+  { name: "round-radii", op: "round", d: "M0 0 L100 0 L100 100 L0 100 Z", radius: 10, radii: [0, 20, null, 0] },
+  { name: "round-open", op: "round", d: "M0 0 L50 0 L50 50", radius: 10 },
+  { name: "round-triangle-multi", op: "round", d: "M40 30 L80 30 L60 70 Z M100 0 H140 V40 H100 Z", radius: 6 },
+  { name: "round-collinear", op: "round", d: "M0 0 L10 0 L20 0 L20 20 L0 0 Z", radius: 4 },
+  { name: "round-curve", op: "round", d: "M0 0 C10 0 10 10 0 10", radius: 5 },
+  { name: "star-5", op: "shape", kind: "star", params: { points: 5, radius: 50 } },
+  { name: "star-rounded", op: "shape", kind: "star", params: { points: 7, radius: 60, innerRadius: 30, angle: 15, cornerRadius: 4 } },
+  { name: "polygon-6", op: "shape", kind: "polygon", params: { sides: 6, radius: 40 } },
+  { name: "polygon-rounded", op: "shape", kind: "polygon", params: { sides: 3, radius: 40, cornerRadius: 8, angle: 180 } },
+  { name: "ring", op: "shape", kind: "ring", params: { radius: 50, thickness: 10 } },
+  { name: "ring-inner", op: "shape", kind: "ring", params: { radius: 50, innerRadius: 20 } },
+  { name: "arc", op: "shape", kind: "arc", params: { radius: 50, thickness: 10, startAngle: 0, endAngle: 90 } },
+  { name: "arc-big-caps", op: "shape", kind: "arc", params: { radius: 50, thickness: 10, startAngle: 200, endAngle: 120, roundCaps: true } },
+  { name: "arc-full", op: "shape", kind: "arc", params: { radius: 50, thickness: 10, startAngle: 0, endAngle: 360 } },
+  { name: "sector", op: "shape", kind: "sector", params: { radius: 50, startAngle: 270, endAngle: 90 } },
+  { name: "sector-full", op: "shape", kind: "sector", params: { radius: 50, startAngle: 10, endAngle: 370 } },
+  { name: "err-points", op: "shape", kind: "star", params: { radius: 10 } },
+  { name: "err-hole", op: "shape", kind: "ring", params: { radius: 10, thickness: 10 } },
+  { name: "err-both", op: "shape", kind: "ring", params: { radius: 10, thickness: 2, innerRadius: 5 } },
+  { name: "err-corner", op: "shape", kind: "sector", params: { radius: 10, cornerRadius: 2, startAngle: 0, endAngle: 90 } },
+  { name: "err-empty", op: "shape", kind: "arc", params: { radius: 10, thickness: 2, startAngle: 5, endAngle: 5 } },
+  { name: "err-kind", op: "shape", kind: "blob", params: { radius: 10 } },
+];
+const shapeCases = shapeInputs.map((c) => ({
+  ...c,
+  result: err(() => (c.op === "round" ? roundPathCorners(c.d, { radius: c.radius, radii: c.radii }) : shapePath(c.kind, c.params))),
+}));
+
+const out = { shapeCases, randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, pathEdits, created: createDocument("Untitled", "abc"), tailwindMapCases };
 const dest = join(here, "../internal/core/testdata/golden.json");
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");

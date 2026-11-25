@@ -231,6 +231,51 @@ mod tests {
         );
     }
 
+    /// PAP-A-012: near-black shapes inside a clipped, flat-colored frame (rects with a radius, two
+    /// paths, an ellipse) must stay visible over the frame's own fill, at a fractional zoom.
+    #[test]
+    fn dark_shapes_over_clipped_frame_fill() {
+        let near_black = [11.0 / 255.0, 11.0 / 255.0, 11.0 / 255.0, 1.0];
+        let frame_fill = [0x62 as f32 / 255.0, 0x71 as f32 / 255.0, 1.0, 1.0];
+        let mut data = Vec::new();
+        data.extend(item(2.0, 0.0, 0.0, 1200.0, 900.0, frame_fill));
+        for k in 0..9 {
+            let (x, y) = (277.0 + (k % 3) as f32 * 34.0, 391.0 + (k / 3) as f32 * 24.0);
+            let mut r = item(0.0, x, y, 13.0, 13.0, near_black);
+            r[5] = 2.0;
+            data.extend(r);
+        }
+        for index in 0..2 {
+            let mut p = item(4.0, 0.0, 0.0, 460.0, 520.0, near_black);
+            p[5] = index as f32;
+            data.extend(p);
+        }
+        data.extend(item(1.0, 408.0, 405.0, 14.0, 14.0, frame_fill));
+        data.extend(item(3.0, 0.0, 0.0, 0.0, 0.0, [0.0; 4]));
+        let table = "0 0 0 0 nonzero round round|M278 437 L390 437 C400 437 403 430 405 421 C408 409 416 402 428 399 C427 411 422 419 415 423 C414 470 394 505 358 505 L280 505 Q268 505 268 493 L268 449 Q268 437 278 437 Z\n0 0 0 0 nonzero round round|M405 419 C401 407 405 399 412 395 C415 404 413 412 405 419 Z";
+        let scene = Scene::parse(&data, table);
+        assert_eq!(scene.paths.len(), 2);
+        let zoom = 1.04;
+        let mut r = CpuRenderer::new(1280, 960);
+        let buf = r
+            .render(&scene, vello::kurbo::Affine::scale(zoom), [0.0; 4])
+            .to_vec();
+        let at = |x: f64, y: f64| px(&buf, 1280, (x * zoom) as usize, (y * zoom) as usize);
+        let dark = [11, 11, 11, 255];
+        assert_eq!(at(100.0, 100.0), [0x62, 0x71, 0xff, 255], "frame fill");
+        for k in 0..9 {
+            let (x, y) = (277.0 + (k % 3) as f64 * 34.0, 391.0 + (k / 3) as f64 * 24.0);
+            assert_eq!(at(x + 6.5, y + 6.5), dark, "rect {k}");
+        }
+        assert_eq!(at(330.0, 480.0), dark, "path body");
+        assert_eq!(at(412.0, 400.0), dark, "second path (fluke)");
+        assert_eq!(
+            at(415.0, 412.0),
+            [0x62, 0x71, 0xff, 255],
+            "ellipse in the frame color"
+        );
+    }
+
     #[test]
     fn rotation_pivots_on_center() {
         let mut d = item(0.0, 0.0, 0.0, 20.0, 4.0, [1.0, 0.0, 0.0, 1.0]);

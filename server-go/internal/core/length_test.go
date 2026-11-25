@@ -83,7 +83,10 @@ func TestLengthTokensRefuseWrongKind(t *testing.T) {
 			`op[1]: node "t" fontSize: token "$text.huge" is 2000, expected a number >= 1 and <= 1000`},
 		{`[{"op":"set_tokens","tokens":{"neg":-2}},{"op":"create","node":{"type":"rect","id":"r","shadow":{"x":0,"y":0,"blur":"$neg","color":"#000"}}}]`,
 			`op[1]: node "r" shadow.blur: token "$neg" is -2, expected a number >= 0`},
-		{`[{"op":"create","node":{"type":"frame","id":"f","layout":{"padding":[0,8]}}}]`, `Invalid input`},
+		{`[{"op":"create","node":{"type":"frame","id":"f","layout":{"padding":[0,8,1]}}}]`, `layout.padding takes one value (all sides), [vertical, horizontal] or [top, right, bottom, left]`},
+		{`[{"op":"create","node":{"type":"rect","id":"r","width":"$space.8"}}]`, `width and height take a number (0..100000), "hug" or "fill"`},
+		{`[{"op":"create","node":{"type":"text","id":"t","text":"a","lineHeight":22}}]`, `lineHeight is a unitless multiplier of fontSize between 0 and 10 (e.g. 1.4), not pixels; for a 22px line on 16px text use 1.375`},
+		{`[{"op":"create","node":{"type":"path","id":"p","d":"M0 0 L10 10","fill":"linear-gradient(90deg, #fff, #000)"}}]`, `use the structured gradient field`},
 	}
 	for _, c := range cases {
 		_, err := applyRaw(t, c.ops)

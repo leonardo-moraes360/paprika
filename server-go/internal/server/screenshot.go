@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
+	"github.com/leonardo-moraes360/paprika/server-go/internal/export"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 )
 
@@ -252,6 +254,7 @@ func (c *Chrome) ScreenshotMode(ctx context.Context, doc *core.Document, rootID 
 	if err != nil {
 		return nil, 0, 0, err
 	}
+	html = withInterFaces(html)
 	// A loose root sized "hug"/"fill" has no box in the core (RootBounds gives 1px), so it is
 	// measured in the browser after loading and the viewport is resized to it.
 	measureW, measureH := false, false
@@ -347,8 +350,9 @@ func loadHTML(html string, width, height, scale float64, transparent bool) chrom
 			if !transparent {
 				return nil
 			}
-			_, err := cdp.Call(ctx, t, emulation.SetDefaultBackgroundColorOverride, emulation.SetDefaultBackgroundColorOverrideParams{Color: &cdp.RGBA{R: 0, G: 0, B: 0, A: 0}})
-			return err
+			// cdp.RGBA omits A when it is 0, and the protocol default is 1 (opaque black), so the
+			// fully transparent color is sent as raw params.
+			return t.Call(ctx, emulation.SetDefaultBackgroundColorOverride.Method, map[string]any{"color": map[string]any{"r": 0, "g": 0, "b": 0, "a": 0}}, nil)
 		}),
 		chromedp.Navigate("about:blank"),
 		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
@@ -705,4 +709,31 @@ func screenshotURL(shot Screenshotter, png []byte) string {
 		return ""
 	}
 	return "/api/screenshot/" + arc.StorePNG(png)
+}
+
+var (
+	interFacesOnce sync.Once
+	interFacesCSS  string
+)
+
+// withInterFaces puts the embedded Inter in the page (data: URIs, so no request is needed), the
+// same faces the canvas gets from /fonts/inter.css and the exporter draws with. Without it the
+// screenshot would use whatever "Inter" the machine running Chromium happens to have.
+func withInterFaces(html string) string {
+	interFacesOnce.Do(func() {
+		css, err := export.InterFontFaceCSS(func(file string) (string, error) {
+			raw, ok := export.InterFile(file)
+			if !ok {
+				return "", fmt.Errorf("missing %s", file)
+			}
+			return "data:font/ttf;base64," + base64.StdEncoding.EncodeToString(raw), nil
+		})
+		if err == nil {
+			interFacesCSS = "<style>" + css + "</style>"
+		}
+	})
+	if interFacesCSS == "" {
+		return html
+	}
+	return strings.Replace(html, "</head>", interFacesCSS+"</head>", 1)
 }

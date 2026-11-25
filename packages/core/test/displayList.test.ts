@@ -217,4 +217,30 @@ describe("displayList paint order", () => {
     expect([...list.painted].sort()).toEqual(["back", "board", "card"]);
     expect([...list.domPainted].sort()).toEqual(["child", "cover", "dash", "front", "nest"]);
   });
+
+  it("paints every shape of the flat-board logo (PAP-A-012) on WASM, in paint order", () => {
+    const doc = parseDocument(JSON.parse(readFileSync(resolve(import.meta.dirname, "../../../examples/wasm-gpu-blank.paprika.json"), "utf8")));
+    const list = displayList(doc, absBoxes(doc));
+    // Frame (clip), 9 rects, 2 paths, ellipse, pop clip. Only the text stays on the DOM.
+    expect(list.count).toBe(14);
+    expect([...list.painted].sort()).toEqual(["board", "cell0", "cell1", "cell2", "cell3", "cell4", "cell5", "cell6", "cell7", "cell8", "eye", "fluke", "hull"].sort());
+    expect([...list.domPainted]).toEqual([]);
+    const at = (i: number) => Array.from(list.data.slice(i * DISPLAY_STRIDE, (i + 1) * DISPLAY_STRIDE));
+    expect(at(0).slice(0, 5)).toEqual([2, 0, 0, 1200, 900]);
+    expect(at(0).slice(8, 12).map((v) => Math.round(v * 255))).toEqual([0x62, 0x71, 0xff, 255]);
+    for (let i = 1; i <= 9; i++) {
+      const e = at(i);
+      expect(e[0]).toBe(0);
+      expect(e.slice(3, 6)).toEqual([13, 13, 2]); // size and radius slot
+      expect(e.slice(8, 12).map((v) => Math.round(v * 255))).toEqual([0x0b, 0x0b, 0x0b, 255]);
+    }
+    // Path entries carry their index in the radius slot, never a corner radius.
+    expect(at(10)[0]).toBe(4);
+    expect(at(10)[5]).toBe(0);
+    expect(at(11)[0]).toBe(4);
+    expect(at(11)[5]).toBe(1);
+    expect(list.paths.split("\n")).toHaveLength(2);
+    expect(at(12)[0]).toBe(1);
+    expect(at(13)[0]).toBe(3);
+  });
 });
