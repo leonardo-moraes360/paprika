@@ -719,6 +719,10 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if o, ok := n.(*jsonv.Object); ok {
 				if p, use := createPlace(doc, parentID, o, a); use {
 					op.Set("place", p)
+				} else if a.Has("place") && a.Str("place") == "none" {
+					if w := pinAbsolute(doc, parentID, o); w != "" {
+						warnings = append(warnings, w)
+					}
 				}
 			}
 			ops[i] = op
@@ -906,6 +910,128 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		ids := a.Strings("ids")
 		op := jsonv.NewObject("op", "convert_to_path", "ids", a.Arr("ids"))
 		return write(a, []any{op}, labelOr(a, "convert "+count(len(ids))+" node(s) to path"))
+	})
+
+	add("round_path_corners", z.Object(
+		z.Field{Name: "id", Schema: z.Optional(z.String())},
+		z.Field{Name: "d", Schema: z.Optional(z.String().Max(200_000))},
+		z.Field{Name: "radius", Schema: z.Optional(z.Number().Min(0).Max(1e6))},
+		z.Field{Name: "radii", Schema: z.Optional(z.Array(z.Nullable(z.Number().Min(0).Max(1e6))).Max(10_000))},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		src := a.Str("d")
+		id := a.Str("id")
+		if id != "" {
+			doc, err := docOf(a)
+			if err != nil {
+				return nil, err
+			}
+			n := core.GetNode(doc, id)
+			if n == nil {
+				return nil, fmt.Errorf(`node "%s" does not exist`, id)
+			}
+			if t := n.Str("type"); t != "path" {
+				return nil, fmt.Errorf(`node "%s" is %s, not a path`, id, t)
+			}
+			if a.Has("d") {
+				return nil, errors.New("pass d or id, not both")
+			}
+			src = n.Str("d")
+		}
+		if src == "" {
+			return nil, errors.New("pass d or id")
+		}
+		if !a.Has("radius") && !a.Has("radii") {
+			return nil, errors.New("pass radius (all corners) or radii (one per vertex)")
+		}
+		var radii []*float64
+		for _, v := range a.Arr("radii") {
+			if f, ok := v.(float64); ok {
+				radii = append(radii, &f)
+			} else {
+				radii = append(radii, nil)
+			}
+		}
+		d, err := core.RoundPathCorners(src, a.Num("radius"), radii)
+		if err != nil {
+			return nil, err
+		}
+		segs, _ := core.ParsePath(d)
+		b := core.PathBounds(segs)
+		r := func(v float64) float64 { return jsonv.Round(v*100) / 100 }
+		bounds := jsonv.NewObject("x", r(b.X), "y", r(b.Y), "width", r(b.Width), "height", r(b.Height))
+		if id == "" {
+			return jsonResult(jsonv.NewObject("d", d, "bounds", bounds)), nil
+		}
+		op := jsonv.NewObject("op", "update", "id", id, "props", jsonv.NewObject("d", d))
+		return writeWith(a, []any{op}, labelOr(a, "round corners"), "id", id, "d", d, "bounds", bounds)
+	})
+
+	shapeNum := func(name string, min, max float64) z.Field {
+		return z.Field{Name: name, Schema: z.Optional(z.Number().Min(min).Max(max))}
+	}
+	add("create_shape_path", z.Object(
+		z.Field{Name: "kind", Schema: z.Enum(core.PathShapeKinds...)},
+		z.Field{Name: "x", Schema: z.Optional(z.Number())},
+		z.Field{Name: "y", Schema: z.Optional(z.Number())},
+		shapeNum("radius", 0.01, 1e6), shapeNum("points", 3, 100), shapeNum("sides", 3, 100),
+		shapeNum("innerRadius", 0.01, 1e6), shapeNum("thickness", 0.01, 1e6), shapeNum("angle", -3600, 3600),
+		shapeNum("startAngle", -3600, 3600), shapeNum("endAngle", -3600, 3600), shapeNum("cornerRadius", 0, 1e6),
+		z.Field{Name: "roundCaps", Schema: z.Optional(z.Bool())},
+		optStr("id"), optStr("name"),
+		z.Field{Name: "props", Schema: z.Optional(z.Record(z.String(), z.Unknown()))},
+		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
+		z.Field{Name: "index", Schema: z.Optional(z.Int().Min(0))},
+		z.Field{Name: "place", Schema: placeSchema},
+		label(), batch(), workspaceID(),
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
+		shape, err := core.BuildPathShape(a.Str("kind"), core.ShapeParamsFromJSON(a))
+		if err != nil {
+			return nil, err
+		}
+		node := jsonv.NewObject("type", "path")
+		if a.Has("id") {
+			node.Set("id", a.Str("id"))
+		}
+		if a.Has("name") {
+			node.Set("name", a.Str("name"))
+		}
+		props := a.Obj("props")
+		if props != nil {
+			for _, k := range props.Keys() {
+				switch k {
+				case "type", "d", "x", "y", "width", "height", "viewBox", "children":
+					return nil, fmt.Errorf(`props.%s is computed from the shape (x and y are the center: pass them at the top level)`, k)
+				}
+				v, _ := props.Get(k)
+				node.Set(k, v)
+			}
+		}
+		if a.Has("x") {
+			node.Set("x", jsonv.Round((a.Num("x")-shape.Center.X)*100)/100)
+		}
+		if a.Has("y") {
+			node.Set("y", jsonv.Round((a.Num("y")-shape.Center.Y)*100)/100)
+		}
+		node.Set("width", shape.Width)
+		node.Set("height", shape.Height)
+		node.Set("d", shape.D)
+		if shape.EvenOdd && !node.Has("fillRule") {
+			node.Set("fillRule", "evenodd")
+		}
+		if !node.Has("fill") && !node.Has("gradient") && !node.Has("stroke") {
+			node.Set("fill", "#000000")
+		}
+		args := jsonv.NewObject("nodes", []any{node})
+		for _, k := range []string{"parentId", "index", "place", "label", "batch", "workspaceId"} {
+			if v, ok := a.Get(k); ok {
+				args.Set(k, v)
+			}
+		}
+		if !a.Has("label") {
+			args.Set("label", "create "+a.Str("kind")+" shape")
+		}
+		return m.tools["create_nodes"].handler(ctx, args)
 	})
 
 	add("create_page", z.Object(
@@ -1487,6 +1613,17 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		optStr("path"),
 		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
 		optStr("compare"),
+		z.Field{Name: "grid", Schema: z.Optional(z.Union(z.Bool(), z.Object(
+			z.Field{Name: "step", Schema: z.Optional(z.Number().Positive())},
+			z.Field{Name: "labels", Schema: z.Optional(z.Bool())},
+			optStr("color"),
+		)))},
+		z.Field{Name: "region", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number()},
+			z.Field{Name: "y", Schema: z.Number()},
+			z.Field{Name: "width", Schema: z.Number().Positive()},
+			z.Field{Name: "height", Schema: z.Number().Positive()},
+		))},
 		workspaceID(),
 	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		if m.shot == nil {
@@ -1499,6 +1636,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		png, w, h, err := m.shot.ScreenshotMode(ctx, d, a.Str("rootId"), a.Num("scale"), a.Str("mode"))
 		if err != nil {
 			return nil, err
+		}
+		grid, err := parseGridArg(a)
+		if err != nil {
+			return nil, err
+		}
+		region := parseRegionArg(a)
+		var gridStep float64
+		var usedRegion *Region
+		if grid != nil || region != nil {
+			fw, fh := frameSize(d, a.Str("rootId"), w, h, a.Num("scale"))
+			png, w, h, gridStep, usedRegion, err = annotateShot(png, fw, fh, float64(w)/fw, region, grid)
+			if err != nil {
+				return nil, err
+			}
 		}
 		compared := false
 		if src := strings.TrimSpace(a.Str("compare")); src != "" {
@@ -1516,6 +1667,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if compared {
 			shotText += " side by side"
 		}
+		if gridStep > 0 {
+			shotText += ", grid step " + formatGridValue(gridStep)
+		}
+		if usedRegion != nil {
+			shotText += fmt.Sprintf(", region x=%s y=%s %s×%s", formatGridValue(usedRegion.X), formatGridValue(usedRegion.Y), formatGridValue(usedRegion.W), formatGridValue(usedRegion.H))
+		}
+		extras := func(o *jsonv.Object) {
+			if gridStep > 0 {
+				o.Set("grid", jsonv.NewObject("step", gridStep))
+			}
+			if usedRegion != nil {
+				o.Set("region", jsonv.NewObject("x", usedRegion.X, "y", usedRegion.Y, "width", usedRegion.W, "height", usedRegion.H))
+			}
+		}
 		if rel := a.Str("path"); rel != "" {
 			abs, werr := writeScreenshot(store.Path(), rel, png)
 			if werr != nil {
@@ -1528,6 +1693,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if compared {
 				out.Set("compare", true)
 			}
+			extras(out)
 			return jsonResult(out), nil
 		}
 		structured := jsonv.NewObject("width", float64(w), "height", float64(h))
@@ -1537,6 +1703,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if compared {
 			structured.Set("compare", true)
 		}
+		extras(structured)
 		return jsonv.NewObject("content", []any{
 			jsonv.NewObject("type", "image", "data", base64.StdEncoding.EncodeToString(png), "mimeType", "image/png"),
 			jsonv.NewObject("type", "text", "text", shotText),
@@ -1548,7 +1715,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "format", Schema: z.Default(z.Enum("png", "jpeg", "webp", "avif", "pdf", "svg"), "png")},
 		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
 		workspaceID(),
-	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		d, err := docOf(a)
 		if err != nil {
 			return nil, err
@@ -1572,7 +1739,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			)
 			return jsonv.NewObject("content", content, "structuredContent", sc), nil
 		}
-		out, err := export.Export(d, a.Str("rootId"), a.Str("format"), a.Num("scale"))
+		out, err := m.exportImage(ctx, d, a.Str("rootId"), a.Str("format"), a.Num("scale"))
 		if err != nil {
 			return nil, err
 		}
@@ -1680,7 +1847,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return nil, errors.New(msg)
 		}
 		parent, _ := a.Get("parentId")
-		p, usePlace := importPlace(store.Doc(), a)
+		here, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		p, usePlace := importPlace(here, a)
+		if !usePlace && a.Str("place") == "none" && (a.Has("x") || a.Has("y")) {
+			for _, n := range r.Nodes {
+				if w := pinAbsolute(here, parent, n); w != "" {
+					r.Warnings = append(r.Warnings, w)
+				}
+			}
+		}
 		ops := make([]any, len(r.Nodes))
 		for i, n := range r.Nodes {
 			op := jsonv.NewObject("op", "create", "parentId", parent, "node", n)
@@ -1814,14 +1992,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return nil, err
 		}
 		op := jsonv.NewObject("op", "create", "parentId", parent, "node", node)
+		warnings := []any{}
 		if p, use := importPlace(here, a); use {
 			op.Set("place", p)
+		} else if a.Str("place") == "none" && (a.Has("x") || a.Has("y")) {
+			if w := pinAbsolute(here, parent, node); w != "" {
+				warnings = append(warnings, w)
+			}
 		}
 		res, head, err := applyHere(a, []any{op}, labelOr(a, "import image"))
 		if err != nil {
 			return nil, err
 		}
-		warnings := []any{}
 		if img.animated {
 			warnings = append(warnings, "animated "+strings.ToUpper(img.format())+": kept animated (the original bytes are embedded unchanged); render_screenshot shows a single frame")
 		}
@@ -2281,6 +2463,36 @@ func createPlace(doc *core.Document, parent any, node *jsonv.Object, args *jsonv
 	return "free", true
 }
 
+// pinAbsolute implements "place:none with x/y means exactly there": inside a row/column frame a
+// flow child ignores x/y, so the root gets layoutPositioning:"absolute" (unless the agent chose
+// one) and the caller reports the returned warning. The caller checks place:"none".
+func pinAbsolute(doc *core.Document, parent any, node *jsonv.Object) string {
+	if !node.Has("x") && !node.Has("y") || node.Has("layoutPositioning") {
+		return ""
+	}
+	if t := node.Str("type"); t == "connector" || t == "page" {
+		return ""
+	}
+	s, ok := parent.(string)
+	if !ok || s == "" {
+		return ""
+	}
+	pn := core.GetNode(doc, s)
+	if pn == nil {
+		return ""
+	}
+	mode := pn.Obj("layout").Str("mode")
+	if mode != "row" && mode != "column" {
+		return ""
+	}
+	node.Set("layoutPositioning", "absolute")
+	name := node.Str("name")
+	if name == "" {
+		name = node.Str("type")
+	}
+	return fmt.Sprintf("%q: parent %q has %s layout, so layoutPositioning was set to \"absolute\" to keep x/y (pass layoutPositioning:\"auto\" to join the flow)", name, s, mode)
+}
+
 func importPlace(doc *core.Document, args *jsonv.Object) (any, bool) {
 	parent, _ := args.Get("parentId")
 	if args.Has("place") {
@@ -2371,4 +2583,31 @@ func workspaceActionError(id string, err error) error {
 		return fmt.Errorf(`workspace "%s" is the only one and cannot be archived`, id)
 	}
 	return err
+}
+
+// exportImage renders raster formats with the same Chromium path as render_screenshot, so an
+// export matches what the canvas and the screenshot show. Without Chromium (or if it fails) it
+// falls back to the built-in rasterizer and says so in the warnings. PDF always uses the built-in writer.
+func (m *MCP) exportImage(ctx context.Context, d *core.Document, rootID, format string, scale float64) (export.Result, error) {
+	format = strings.ToLower(strings.TrimSpace(format))
+	if scale <= 0 {
+		scale = 1
+	}
+	if m.shot == nil || format == export.FormatPDF || scale < 0.1 || scale > 4 {
+		return export.Export(d, rootID, format, scale)
+	}
+	png, _, _, err := m.shot.ScreenshotMode(ctx, d, rootID, scale, "")
+	if err == nil {
+		var out export.Result
+		if out, err = export.FromPNG(png, format); err == nil {
+			out.Warnings = []string{}
+			return out, nil
+		}
+	}
+	out, ferr := export.Export(d, rootID, format, scale)
+	if ferr != nil {
+		return out, ferr
+	}
+	out.Warnings = append([]string{"Chromium unavailable (" + err.Error() + "): rendered with the built-in rasterizer, which can differ from render_screenshot in glyphs and strokes"}, out.Warnings...)
+	return out, nil
 }
