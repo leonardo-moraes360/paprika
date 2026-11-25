@@ -1,4 +1,4 @@
-🇺🇸 English | [🇧🇷 Português](pt-BR/feedback-agentes.md)
+🇺🇸 English | [🇧🇷 Português](../pt-BR/feedback-agentes.md)
 
 # Agent feedback log
 
@@ -284,11 +284,11 @@ Task: draw before/after selection handles and an NW-drag demo on the `Interfaces
 |---|--------|---------------|----------|------|
 | 88 | Token lengths in create_nodes without a second pass | `radius: "$radius.md"` and `fontSize: "$text.2xs"` were refused (`expected number`); the measure label started at 10px/`$select` on `$canvas` and failed contrast until a follow-up `update_nodes` | Done (2026-11-22, PAP-B-065): same as #83; `radius` and `fontSize` take `$token` on create | — |
 
-- Three root frames, one `create_nodes` call; `lint_design` 0 after fixing measure/note sizes; screenshots in `docs/assets/boards/PAP-B-029`.
+- Three root frames, one `create_nodes` call; `lint_design` 0 after fixing measure/note sizes; screenshots in `docs/en-US/assets/boards/PAP-B-029`.
 
 ## 2026-11-22: numeric inspector fields (PAP-B-027, design first)
 
-Task: draw the Opacidade field states (normal, focused, invalid with message) in light and dark on the `Interfaces` page of the Paprika workspace before fixing `Field`/`setNum`; six fixed-height root frames, one `create_nodes` call, then screenshots under `docs/assets/boards/PAP-B-027/`.
+Task: draw the Opacidade field states (normal, focused, invalid with message) in light and dark on the `Interfaces` page of the Paprika workspace before fixing `Field`/`setNum`; six fixed-height root frames, one `create_nodes` call, then screenshots under `docs/en-US/assets/boards/PAP-B-027/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -323,7 +323,7 @@ operations. No design sheet: the change is server-side; the UI half (the canvas 
 | 96 | Contract and handler stay in step | Adding `list_workspace_ops` failed only `TestToolsMatchContract` at first, which is the right forcing function; but the tool-name list in `packages/e2e/test/api.test.ts` is a third copy that fails separately, with a diff that does not say which side moved | Keep both checks, and print in the api failure whether the server, the contract or the test list is the one that changed | P3 |
 
 - The store's `mu` is not reentrant, and `DeleteWorkspace` already calls `OpenWorkspace`: the successor's `open` entry is logged before the `delete` entry, so reading the log newest-first gives the delete first and the takeover below it. Worth knowing for whoever writes the notice that is still missing.
-- The design document at `127.0.0.1:4777` disappeared once that endpoint moved to the compose stack with a fresh volume: the `Interfaces` page with the PAP-B-030 and PAP-B-034 sheets is gone, and only the PNGs committed under `docs/assets/boards/` survived. PAP-B-026's sheet was redrawn on a local server. Whatever lands of the "keep the boards in the repository" proposal, a server reset should not cost a redraw.
+- The design document at `127.0.0.1:4777` disappeared once that endpoint moved to the compose stack with a fresh volume: the `Interfaces` page with the PAP-B-030 and PAP-B-034 sheets is gone, and only the PNGs committed under `docs/en-US/assets/boards/` survived. PAP-B-026's sheet was redrawn on a local server. Whatever lands of the "keep the boards in the repository" proposal, a server reset should not cost a redraw.
 ## 2026-11-22: destructive language and the confirmation pattern (PAP-B-026, design first)
 
 Task: draw the danger button (before and after, both theme scopes) and the confirmation pattern before
@@ -332,7 +332,7 @@ captured before and after.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 97 | The design boards to survive a server change | `127.0.0.1:4777` went from the host-run server to the compose stack with a fresh volume: the `Paprika` document that holds the `Interfaces` page — the PAP-B-030 sheet, the PAP-B-034 sheet, and the PAP-B-026 frames I had drawn minutes earlier — was no longer listed by `list_workspaces`. Only the PNGs committed under `docs/assets/boards/` survived, and the sheet had to be drawn a second time from the script on a `paprika serve` I started myself | Export the board document into the repository (`design/boards.paprika.json`, the way `design/landing.paprika.json` carries the landing page) and refresh it as sheets land; a server reset would then cost a reload, not a redraw | P1 |
+| 97 | The design boards to survive a server change | `127.0.0.1:4777` went from the host-run server to the compose stack with a fresh volume: the `Paprika` document that holds the `Interfaces` page — the PAP-B-030 sheet, the PAP-B-034 sheet, and the PAP-B-026 frames I had drawn minutes earlier — was no longer listed by `list_workspaces`. Only the PNGs committed under `docs/en-US/assets/boards/` survived, and the sheet had to be drawn a second time from the script on a `paprika serve` I started myself | Export the board document into the repository (`design/boards.paprika.json`, the way `design/landing.paprika.json` carries the landing page) and refresh it as sheets land; a server reset would then cost a reload, not a redraw | P1 |
 | 98 | A contrast check that does not lie | The first hover measurement returned the resting color because `transition-colors` had not landed, so the assertion passed without ever testing the hover state; a manual probe with a 300 ms wait showed the hover wash was darker and the light text had fallen to 4,39:1 | Nothing for the tool to change. Recorded because it is easy to repeat: wait for the transition, then read, and assert both states — which the suite now does | P3 |
 
 - `lint_design` reported the light destructive text at 4,05:1 on the first sheet, before a line of code was written — the same class of mistake it caught on the PAP-B-030 sheet, and the token alphas are what they are now because of it.
@@ -345,7 +345,7 @@ dark, before the inline editor on the canvas. Six root frames, ~40 nodes.
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 99 | A text field state with a dashed focus outline | The editor draws a dashed `select` outline, but `stroke` on rect and frame has only `color` and `width`, so the sheet shows it solid; the caret is a 1.5 px rect on top of a text node | A `dash` field on `stroke` for rect, ellipse and frame (connectors already have `dashed`) would let a sheet match what `nodeStyle` paints | P3 |
-| 100 | Exporting the board document from a containerised server | `paprika export --db <db>` needs the database file, which lives in the compose volume; the doc is reachable only through `GET /api/export` | Mention `curl http://127.0.0.1:4777/api/export` in `docs/design-boards.md` next to the CLI form | P3 |
+| 100 | Exporting the board document from a containerised server | `paprika export --db <db>` needs the database file, which lives in the compose volume; the doc is reachable only through `GET /api/export` | Mention `curl http://127.0.0.1:4777/api/export` in `docs/en-US/design-boards.md` next to the CLI form | P3 |
 ## 2026-11-22: renaming the only page (PAP-B-020, design first)
 
 Task: draw the pages panel before, while and after renaming the placeholder "Página 1" of a workspace with no
@@ -353,8 +353,8 @@ pages, then wire the rename in `apps/web`. Six root frames (three states, light 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 99 | A page to draw on in an empty document | The active workspace had no nodes, so the `Interfaces` page did not exist and `create_page` had to be the first call; the board document in the repository (`docs/design/boards.paprika.json`) holds a different page, so nothing to import without `--replace` wiping the sheets other tickets draw in parallel | Done (2026-11-22, PAP-B-064): `create_page` with `ensure: true` returns the existing page of that name instead of creating a second one | — |
-| 100 | A screenshot as a file | `render_screenshot` returns the PNG only as base64 inside the JSON-RPC result, so saving it under `docs/assets/boards/` takes a decoding script on every ticket | Done (2026-11-22, PAP-B-062): optional `path` inside the screenshot directory writes the file and returns its location | — |
+| 99 | A page to draw on in an empty document | The active workspace had no nodes, so the `Interfaces` page did not exist and `create_page` had to be the first call; the board document in the repository (`docs/en-US/design/boards.paprika.json`) holds a different page, so nothing to import without `--replace` wiping the sheets other tickets draw in parallel | Done (2026-11-22, PAP-B-064): `create_page` with `ensure: true` returns the existing page of that name instead of creating a second one | — |
+| 100 | A screenshot as a file | `render_screenshot` returns the PNG only as base64 inside the JSON-RPC result, so saving it under `docs/en-US/assets/boards/` takes a decoding script on every ticket | Done (2026-11-22, PAP-B-062): optional `path` inside the screenshot directory writes the file and returns its location | — |
 
 - `lint_design` flagged the 11 px caption (`small-text`) on all six frames; 12 px fixed it, so captions stay at the app's smallest legible size.
 - Mode `light` on the frame plus the same `pg.*` tokens overridden under `set_tokens {mode: "light"}` rendered both themes from one set of nodes with no per-frame color edits.
@@ -368,7 +368,7 @@ Task: draw the non-blocking notice (delete with counts, open, rename; light and 
 |---|--------|---------------|----------|------|
 | 101 | Hearing workspace ops on the canvas without polling HTTP | `list_workspace_ops` exists, but the live canvas only saw document patches; a delete of the active workspace left the human on a dead editor until a refresh | Broadcast each new op log entry as `{type:workspaceOp, op}` over the existing WebSocket hub (poll the log; skip entries that predate the subscriber) | P2 |
 
-- Fixed-height roots; PNGs under `docs/assets/boards/PAP-B-037/`.
+- Fixed-height roots; PNGs under `docs/en-US/assets/boards/PAP-B-037/`.
 - Notice uses `role=status` and never steals focus; overview mount shows delete notices after the canvas route is gone.
 
 ## 2026-11-22: side panels collapse into a floating button (PAP-B-024, design first)
@@ -379,7 +379,7 @@ the floating buttons clear the toolbar and the agent roster, before writing the 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 101 | Screenshots as files | `render_screenshot` only returns base64 inside the JSON result, so each PNG had to be decoded by hand in a script before it could land in `docs/assets/boards/` | Done (2026-11-22, PAP-B-062): optional `path` writes the PNG under the screenshot directory and returns its location | — |
+| 101 | Screenshots as files | `render_screenshot` only returns base64 inside the JSON result, so each PNG had to be decoded by hand in a script before it could land in `docs/en-US/assets/boards/` | Done (2026-11-22, PAP-B-062): optional `path` writes the PNG under the screenshot directory and returns its location | — |
 | 102 | A mock at a smaller scale lints as tiny text | The boards are the real layout at two thirds of its size, so every label is 8–9px and `lint_design` returns a `small-text` warning per label, which buries the findings that matter | Done (2026-11-22, PAP-B-066): `scaledMock` on a frame, or `minFontSize` on `lint_design` | — |
 | 103 | Free space for a new frame | Nothing says where the next top-level frame can go without overlapping a parallel ticket's: the outline had to be scanned for coordinates and the boards went to `x=2000` by hand | Done (2026-11-22, PAP-B-061): `get_document_outline` and `get_bounds` (no ids) return the page content box and the next free spot; `create_nodes` defaults to `place: "free"` when x and y are omitted | — |
 | 104 | Icons by name | The floating buttons use `PanelLeftOpen` and `PanelRightOpen` from lucide, and the board had to carry their path data typed in by hand, which is how an icon on the sheet can drift from the one in the app | `import_svg` already exists; a way to import a lucide icon by name would close the loop | P3 |
@@ -390,7 +390,7 @@ the floating buttons clear the toolbar and the agent roster, before writing the 
 
 Task: draw the workspace overview (grid, new-workspace form, delete confirmation) in both theme scopes on
 `127.0.0.1:4777`, then migrate `Overview.tsx` onto `Card`, `Button` and `Input`, and add `card.tsx`. Six frames
-are in `docs/assets/boards/PAP-B-031/`; the board export in `docs/design/boards.paprika.json` already carries
+are in `docs/en-US/assets/boards/PAP-B-031/`; the board export in `docs/en-US/design/boards.paprika.json` already carries
 the PAP-B-031 sheets from an earlier draw (`/tmp/b031/draw.mjs`).
 
 | # | Needed | What happened | Proposal | Pri. |
@@ -404,8 +404,8 @@ the PAP-B-031 sheets from an earlier draw (`/tmp/b031/draw.mjs`).
 
 Task: draw the editor shell (expanded, left collapsed, both collapsed) in both theme scopes on
 `127.0.0.1:4777`, then migrate `App` / toolbar / `Layers` / `Pages` / `InlineName` / `PanelResizer` onto the
-primitives. Six frames are in `docs/assets/boards/PAP-B-033/`; the board export in
-`docs/design/boards.paprika.json` carries them.
+primitives. Six frames are in `docs/en-US/assets/boards/PAP-B-033/`; the board export in
+`docs/en-US/design/boards.paprika.json` carries them.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -417,7 +417,7 @@ primitives. Six frames are in `docs/assets/boards/PAP-B-033/`; the board export 
 
 ## 2026-11-22: compact inspector (PAP-B-022, design partial)
 
-Task: redesign the scene inspector into collapsible sections before implementing `apps/web/src/inspector/**`. Two design frames (`PAP-B-022 texto escuro` / `claro`) already live in `docs/design/boards.paprika.json`; a full MCP redraw on `:4777` was skipped when the shared server was slow, and the app before/after PNGs under `docs/assets/boards/PAP-B-022/` carry the measurement case instead.
+Task: redesign the scene inspector into collapsible sections before implementing `apps/web/src/inspector/**`. Two design frames (`PAP-B-022 texto escuro` / `claro`) already live in `docs/en-US/design/boards.paprika.json`; a full MCP redraw on `:4777` was skipped when the shared server was slow, and the app before/after PNGs under `docs/en-US/assets/boards/PAP-B-022/` carry the measurement case instead.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -428,11 +428,11 @@ Task: redesign the scene inspector into collapsible sections before implementing
 
 Task: draw the ghost of the real node (fill/outline/defaults) inside the draft area while dragging a
 creation tool, light and dark, then paint it from `nodeStyle` in `Canvas.tsx` with no document write
-until release. Eight fixed-height frames on `Interfaces` (`docs/assets/boards/PAP-B-043/`).
+until release. Eight fixed-height frames on `Interfaces` (`docs/en-US/assets/boards/PAP-B-043/`).
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 108 | Screenshots as files | Same as #100/#101: `render_screenshot` returns PNG only as base64 in the JSON-RPC content, so a small client script had to decode each shot into `docs/assets/boards/PAP-B-043/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` writes the file | — |
+| 108 | Screenshots as files | Same as #100/#101: `render_screenshot` returns PNG only as base64 in the JSON-RPC content, so a small client script had to decode each shot into `docs/en-US/assets/boards/PAP-B-043/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` writes the file | — |
 | 109 | Free space for new boards | Top-level frames already fill y≈0…8320 and x≈0…3000; the outline depth-1 listing was enough to pick `y=9000`, but parallel tickets still race for the same band | Done (2026-11-22, PAP-B-061): same as #103 — content box, next free spot, and `place: "free"` | — |
 
 - Active workspace was already `Paprika - UI` / page `Interfaces`; no `open_workspace`.
@@ -442,11 +442,11 @@ until release. Eight fixed-height frames on `Interfaces` (`docs/assets/boards/PA
 
 Task: draw the inspector (compact fields, collapsible sections, selects, secondary actions) in both theme
 scopes on `127.0.0.1:4777`, then migrate `Inspector.tsx` + `inspector/*` onto `Input`, `Textarea`, `Label`,
-`Select`, `Button` and `Collapsible`. Four frames in `docs/assets/boards/PAP-B-032/`; boards export refreshed.
+`Select`, `Button` and `Collapsible`. Four frames in `docs/en-US/assets/boards/PAP-B-032/`; boards export refreshed.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | Screenshots as files | Same as #108: `render_screenshot` returns PNG only as base64; a client script decoded into `docs/assets/boards/PAP-B-032/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
+| 110 | Screenshots as files | Same as #108: `render_screenshot` returns PNG only as base64; a client script decoded into `docs/en-US/assets/boards/PAP-B-032/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
 | 111 | Free band without racing parallel tickets | Outline depth 1 listed frames through y≈11820 (B-023/B-033/B-043); this ticket picked y=12400 / 13160 | Done (2026-11-22, PAP-B-061): `place: "free"` on `create_nodes` (same as #103/#109) | — |
 
 - `lint_design` with `rootIds` still walks the whole document for counts; our four frames had 0 errors of their own.
@@ -461,31 +461,31 @@ Task: draw toolbar / inspector / canvas states for `ShapeKind` `triangle` on `In
 | 110 | Toolbar tool lives in `App.tsx` | Ticket paths listed only `Canvas.tsx` for the toolbar+shortcut, but `TOOLS[]` and the keydown handler are in `App.tsx`; edited that file for the `G` / Triangle entry and queried `agent:leonardo` | Keep toolbar registry next to the buttons, or move `TOOLS` into `Canvas.tsx` so lane paths match | P3 |
 | 111 | `shapeDefaults` gate in `ops` | `ops.ts` / `ops.go` only apply defaults for a hard-coded kind list; `triangle` needed the same one-line branch (not in the ticket `paths`) | Drive the gate from `ShapeKind` / `shapeDefaults` so new kinds do not touch `ops` | P3 |
 
-- Six frames at `docs/assets/boards/PAP-A-004/`; boards re-exported via `GET /api/export` into `docs/design/boards.paprika.json` (no `open_workspace`).
+- Six frames at `docs/en-US/assets/boards/PAP-A-004/`; boards re-exported via `GET /api/export` into `docs/en-US/design/boards.paprika.json` (no `open_workspace`).
 - `wasmPaintable` stays false for `shape` nodes (DOM paints the triangle outline).
 ## 2026-11-22: custom color picker (PAP-B-023, design first)
 
 Task: draw the closed, open and alpha states of the inspector color field (light and dark) on `Interfaces`
 before replacing the native `input type=color` with a popover. Six fixed-height root frames; PNGs under
-`docs/assets/boards/PAP-B-023/`; board export refreshed via `GET /api/export`.
+`docs/en-US/assets/boards/PAP-B-023/`; board export refreshed via `GET /api/export`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | Done (2026-11-22, PAP-B-061): page content box and `place: "free"`, same as #103 | — || 111 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/assets/boards/PAP-B-023/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` (same as #100 / #101) | — || 112 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
+| 110 | Free Y for parallel board frames | Several tickets share `Interfaces`; the outline is prose, so placing PAP-B-023 required exporting the document and scanning top-level `y` values by hand (landed at `y=11000`) | Done (2026-11-22, PAP-B-061): page content box and `place: "free"`, same as #103 | — || 111 | Screenshots as files | `render_screenshot` still returns base64 in the JSON result; a small Node script had to decode each PNG into `docs/en-US/assets/boards/PAP-B-023/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` (same as #100 / #101) | — || 112 | Escape that closes a popover without clearing the selection | `App.tsx` listens for Escape on `window` and reparents the selection; the first color-picker Esc also unmounted the inspector field before focus could return to the swatch | Ignore Escape when the event target sits inside `[data-slot="popover-content"]` / dialog (done in this ticket); popovers should `stopPropagation` too | P2 |
 - Active workspace was already `Paprika - UI`; no `open_workspace`.
 - `lint_design` on the page still reports one unrelated contrast error from an older sheet; the new frames added no errors.
 ## 2026-11-22: aspect-ratio lock shortcuts while resizing (PAP-B-042, design first)
 
-Task: draw free / keep-ratio / square selection states (light and dark) on the `Interfaces` page of `Paprika - UI`, then wire `Shift` and `Shift+Alt` locks plus a canvas hint in `apps/web/src/Canvas.tsx`. Six fixed-height root frames; screenshots in `docs/assets/boards/PAP-B-042/`.
+Task: draw free / keep-ratio / square selection states (light and dark) on the `Interfaces` page of `Paprika - UI`, then wire `Shift` and `Shift+Alt` locks plus a canvas hint in `apps/web/src/Canvas.tsx`. Six fixed-height root frames; screenshots in `docs/en-US/assets/boards/PAP-B-042/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 110 | `lint_design` scoped to the ticket's roots | Calling `lint_design` with `rootIds` for the six PAP-B-042 frames still returned hundreds of warnings and one contrast error from older sheets on the same page (`nodeId` outside the requested roots) | Done (2026-11-22, PAP-B-066): `rootIds` is a hard subtree filter (a missing id is an error) | — || 111 | Screenshots as files | Same as #100 / #101: `render_screenshot` returns base64 only; a short local script had to decode into `docs/assets/boards/PAP-B-042/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
+| 110 | `lint_design` scoped to the ticket's roots | Calling `lint_design` with `rootIds` for the six PAP-B-042 frames still returned hundreds of warnings and one contrast error from older sheets on the same page (`nodeId` outside the requested roots) | Done (2026-11-22, PAP-B-066): `rootIds` is a hard subtree filter (a missing id is an error) | — || 111 | Screenshots as files | Same as #100 / #101: `render_screenshot` returns base64 only; a short local script had to decode into `docs/en-US/assets/boards/PAP-B-042/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
 - Active workspace was already `Paprika - UI`; `Interfaces` existed (`interfaces-pap020`); no `open_workspace`.
 - Fixed 360 px frame heights avoided the hug screenshot pitfall; `render_screenshot` with `scale: 2` was enough to judge the hint badges.
 ## 2026-11-22: better activity history (PAP-B-025, design first)
 
-Task: draw the activity feed (actor color+name, action, relative time, batch grouping, undo/redo marker) light and dark before extracting `Activity.tsx` from the Inspector. Four root frames on `Interfaces` (`PAP-B-025 feed|undo` × light/dark), fixed height 320; PNGs under `docs/assets/boards/PAP-B-025/`.
+Task: draw the activity feed (actor color+name, action, relative time, batch grouping, undo/redo marker) light and dark before extracting `Activity.tsx` from the Inspector. Four root frames on `Interfaces` (`PAP-B-025 feed|undo` × light/dark), fixed height 320; PNGs under `docs/en-US/assets/boards/PAP-B-025/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -495,12 +495,12 @@ Task: draw the activity feed (actor color+name, action, relative time, batch gro
 
 ## 2026-11-22: title attributes → accessible tooltips (PAP-B-051, design first)
 
-Task: replace every HTML `title` in `apps/web` with the shadcn Tooltip (`Hint` helper: hover + focus, Esc dismisses) while icon buttons keep `aria-label`. Three frames on `Interfaces` (`Paprika - UI`): before/after dark, before/after light, focus/Esc states. PNGs in `docs/assets/boards/PAP-B-051/`.
+Task: replace every HTML `title` in `apps/web` with the shadcn Tooltip (`Hint` helper: hover + focus, Esc dismisses) while icon buttons keep `aria-label`. Three frames on `Interfaces` (`Paprika - UI`): before/after dark, before/after light, focus/Esc states. PNGs in `docs/en-US/assets/boards/PAP-B-051/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 112 | Text paint vs `fill` on boards | Setting `fill` on a text node left `color` at the default `#111111`; lint compared `color` to the node's own `fill` and reported ~1:1 contrast on the light sheet | Document that text ink is `color` (not `fill`) in the design-guide / create_nodes examples agents copy | P2 |
-| 113 | Export of the live boards DB | The maintainer's `:4777` store is a Docker volume; this agent had no approved path to `paprika export` from the container, so only the PNGs were committed | Keep refreshing `docs/design/boards.paprika.json` from a host-mounted DB, or add an MCP `export_document` | P2 |
+| 113 | Export of the live boards DB | The maintainer's `:4777` store is a Docker volume; this agent had no approved path to `paprika export` from the container, so only the PNGs were committed | Keep refreshing `docs/en-US/design/boards.paprika.json` from a host-mounted DB, or add an MCP `export_document` | P2 |
 | 114 | Disabled controls and Tooltip | Radix does not open a tooltip on a `disabled` button (no pointer/focus events); the overview delete-when-alone and idle agent pills need a focusable wrapper `span` | Note the span-wrapper pattern next to `Hint` in ADR 0005 or the gallery | P3 |
 
 - `TooltipProvider` moved to `main.tsx` so Overview, Editor and `/ui` share one delay; the floating toolbar dropped its local provider.
@@ -509,11 +509,11 @@ Task: replace every HTML `title` in `apps/web` with the shadcn Tooltip (`Hint` h
 
 ## 2026-11-22: Internationalization en + pt-BR (PAP-B-052, design first)
 
-Task: web UI + default names follow the chosen language; detect from the browser, switch in the app, remember; HTTP API errors → English like MCP. Six frames (overview and language switch × en/pt-BR × dark/light) drawn over MCP; PNGs in `docs/assets/boards/PAP-B-052/`.
+Task: web UI + default names follow the chosen language; detect from the browser, switch in the app, remember; HTTP API errors → English like MCP. Six frames (overview and language switch × en/pt-BR × dark/light) drawn over MCP; PNGs in `docs/en-US/assets/boards/PAP-B-052/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 115 | Boards export from Docker volume | Same as #113: `:4777` holds the drawn sheets; this agent committed PNGs from `render_screenshot` and left `docs/design/boards.paprika.json` for a host-mounted export | MCP `export_document` or a host-mounted DB path for agents | P2 |
+| 115 | Boards export from Docker volume | Same as #113: `:4777` holds the drawn sheets; this agent committed PNGs from `render_screenshot` and left `docs/en-US/design/boards.paprika.json` for a host-mounted export | MCP `export_document` or a host-mounted DB path for agents | P2 |
 | 116 | Wire every remaining Inspector/Team string | Shell, overview, pages, layers, zoom, arrange and multi-select are on the dict; many Inspector field labels and Team copy are still Portuguese literals while keys already exist in `apps/web/src/i18n/messages.ts` | Finish the field-by-field pass (or generate labels from the catalog) in a follow-up | P2 |
 | 117 | MCP create_page default name in the pt-BR guide | Core/MCP empty-name fallback is now English (`Page 1`); `guide.pt-BR.md` still describes `"Página 1"` | Align the Portuguese guide with the English default (or say the UI localizes when it passes `name`) | P3 |
 
@@ -523,17 +523,17 @@ Task: web UI + default names follow the chosen language; detect from the browser
 
 ## 2026-11-22: layer order shortcuts and Ordem section (PAP-B-021, design first)
 
-Task: draw the inspector **Ordem** section and the Z-order shortcut map (light and dark, fixed height) on the `Interfaces` page of `Paprika - UI` before wiring `Page Up`/`Page Down` (+ Ctrl/Cmd for front/back) in `Canvas.tsx` and the four arrange actions in `Inspector.tsx`. Four root frames, one `create_nodes` call; PNGs under `docs/assets/boards/PAP-B-021/`; boards export refreshed in `docs/design/boards.paprika.json`.
+Task: draw the inspector **Ordem** section and the Z-order shortcut map (light and dark, fixed height) on the `Interfaces` page of `Paprika - UI` before wiring `Page Up`/`Page Down` (+ Ctrl/Cmd for front/back) in `Canvas.tsx` and the four arrange actions in `Inspector.tsx`. Four root frames, one `create_nodes` call; PNGs under `docs/en-US/assets/boards/PAP-B-021/`; boards export refreshed in `docs/en-US/design/boards.paprika.json`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 110 | Draw on `Paprika - UI` without `open_workspace` | The workspace was already active (`list_workspaces`), so the sheet landed without switching; if another ticket had left a different active doc, the only options would still be asking the human or a second server (same as #92) | Done (2026-11-22, PAP-B-063): optional `workspaceId` on document tools | — |
 - `lint_design` on the four frames: 0 errors; `small-text` warnings are the 11 px section/chip labels matching the app.
-- Shortcut map chosen and documented in `docs/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.
+- Shortcut map chosen and documented in `docs/en-US/canvas.md`: `Page Up`/`Page Down` = forward/backward, `Ctrl+Page Up`/`Ctrl+Page Down` (Cmd on macOS) = front/back.
 
 ## 2026-11-22: three arrow line styles (PAP-B-045, design first)
 
-Task: draw elbow / rounded / curve connector states and the inspector Traço picker on `Interfaces` before coding `route: "rounded"|"curve"`. Four frames on a new Interfaces page; PNGs under `docs/assets/boards/PAP-B-045/`.
+Task: draw elbow / rounded / curve connector states and the inspector Traço picker on `Interfaces` before coding `route: "rounded"|"curve"`. Four frames on a new Interfaces page; PNGs under `docs/en-US/assets/boards/PAP-B-045/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -541,7 +541,7 @@ Task: draw elbow / rounded / curve connector states and the inspector Traço pic
 - Active workspace was `Paprika - UI`; a second `Interfaces` page (`interfaces-pap045`) was created because the outline was large — prefer reusing `interfaces-pap020` when present.
 ## 2026-11-22: several border types (PAP-B-044, design first)
 
-Task: extend `stroke` with `style` (`solid`|`dashed`|`dotted`) and `position` (`inside`|`center`|`outside`) for frame/rect/ellipse/path/shape, then inspector Estilo/Posição. Four fixed-height frames on `Interfaces` (`docs/assets/boards/PAP-B-044/`); boards export refreshed.
+Task: extend `stroke` with `style` (`solid`|`dashed`|`dotted`) and `position` (`inside`|`center`|`outside`) for frame/rect/ellipse/path/shape, then inspector Estilo/Posição. Four fixed-height frames on `Interfaces` (`docs/en-US/assets/boards/PAP-B-044/`); boards export refreshed.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -551,7 +551,7 @@ Task: extend `stroke` with `style` (`solid`|`dashed`|`dotted`) and `position` (`
 - WASM cannot dash or reposition strokes: `wasmPaintable` returns false and the DOM paints them (crates/render untouched).
 - Closes the friction in #99 (dashed stroke on boxes) via `stroke.style`.## 2026-11-22: numeric inspector steppers (PAP-B-046, design first)
 
-Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill and `$token` without steppers, focus ring and clamp-at-min states in light and dark before wiring `Field` steppers; six fixed-height root frames; screenshots under `docs/assets/boards/PAP-B-046/`; local `paprika serve` on `:4799` because the shared `:4777` workspace was crowded by parallel tickets.
+Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill and `$token` without steppers, focus ring and clamp-at-min states in light and dark before wiring `Field` steppers; six fixed-height root frames; screenshots under `docs/en-US/assets/boards/PAP-B-046/`; local `paprika serve` on `:4799` because the shared `:4777` workspace was crowded by parallel tickets.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -563,36 +563,36 @@ Task: draw pure-numeric fields with `±` (opacity / weight / stroke), hug/fill a
 
 ## 2026-11-22: dockable toolbar (PAP-B-048, design first)
 
-Task: draw toolbar docked top/left/right/bottom (light and dark) on `Interfaces` of the active `Paprica · UI` workspace, then implement grip-drag docking, localStorage, keyboard menu, and clearance for PAP-B-024 collapsed-panel buttons. Eight fixed-height (720×420) root frames; PNGs under `docs/assets/boards/PAP-B-048/`.
+Task: draw toolbar docked top/left/right/bottom (light and dark) on `Interfaces` of the active `Paprica · UI` workspace, then implement grip-drag docking, localStorage, keyboard menu, and clearance for PAP-B-024 collapsed-panel buttons. Eight fixed-height (720×420) root frames; PNGs under `docs/en-US/assets/boards/PAP-B-048/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 112 | `render_screenshot` argument name | Passing `id` is silently ignored (schema only has `rootId`); the tool screenshots something else (here a 280×220 unrelated frame) and every PNG comes back identical | Reject unknown args, or accept `id` as an alias of `rootId`, and say so in the tool description | P2 |
 | 113 | Light `mode` with `$pg.*` tokens | Frames with `mode: "light"` still rendered the dark `$pg.*` palette because `modes.light` on this server only carried `$ui.*`; had to redraw the light boards with literal colors | Document which token prefixes participate in theme modes, or seed `$pg.*` into `light` when the boards workspace is created | P2 |
-| 114 | Screenshots as files | Same as #101: base64 only; a local script wrote `docs/assets/boards/PAP-B-048/` | Optional `path` on `render_screenshot` | P3 |
+| 114 | Screenshots as files | Same as #101: base64 only; a local script wrote `docs/en-US/assets/boards/PAP-B-048/` | Optional `path` on `render_screenshot` | P3 |
 
 - Active workspace was already `Paprica · UI` (empty of prior boards until recovered); used existing `page#interfaces` without `open_workspace`.
 - Collapsed-panel buttons shift with `[&_[data-panel-toggle=left]]:left-14` from `App.tsx` when the toolbar shares that edge — no change to `PanelResizer.tsx` (outside the ticket paths).
 ## 2026-11-22: system fonts combobox (PAP-B-047, design first)
 
-Task: draw the closed and open FontPicker states (light and dark) on `Interfaces`, then replace the free-text `fontFamily` field on text nodes with a shadcn combobox. Four fixed-height frames; PNGs under `docs/assets/boards/PAP-B-047/`; boards export refreshed.
+Task: draw the closed and open FontPicker states (light and dark) on `Interfaces`, then replace the free-text `fontFamily` field on text nodes with a shadcn combobox. Four fixed-height frames; PNGs under `docs/en-US/assets/boards/PAP-B-047/`; boards export refreshed.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 115 | Screenshots as files | Same as #108: `render_screenshot` returns base64 only; `scripts/draw-pap-b-047.mjs` decoded into `docs/assets/boards/PAP-B-047/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
+| 115 | Screenshots as files | Same as #108: `render_screenshot` returns base64 only; `scripts/draw-pap-b-047.mjs` decoded into `docs/en-US/assets/boards/PAP-B-047/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
 | 116 | Free band on a crowded Interfaces page | Outline depth 1 bottoms out near y≈13580 (A-004 / B-032); this ticket used y=13800 | `place: "free"` on `create_nodes` (same as #103/#109/#111) | P3 |
 - Local Font Access is gated behind an explicit button — opening the popover never calls `queryLocalFonts`.
 - `cmdk` 1.1.1 pinned for the Command primitive (ADR 0005 dependency list).
 ## 2026-11-22: drag and drop reparent + file drop (PAP-B-049, design first)
 
-Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states (light and dark) on `Interfaces`, then wire canvas DnD + Layers row DnD + OS file import in `apps/web`. Eight fixed-height root frames; PNGs under `docs/assets/boards/PAP-B-049/`; boards export refreshed via `GET /api/export`.
+Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states (light and dark) on `Interfaces`, then wire canvas DnD + Layers row DnD + OS file import in `apps/web`. Eight fixed-height root frames; PNGs under `docs/en-US/assets/boards/PAP-B-049/`; boards export refreshed via `GET /api/export`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 110 | Active workspace name match | Ticket said `Paprika - UI`; the live server had `Paprica · UI` (typo/rename) with parallel tickets already drawing on page `interfaces` | Treat close names as the UI board workspace, or pin the id in the assign payload | P3 |
 | 111 | `create_page` race on Interfaces | Calling `create_page` while another agent also ensured `Interfaces` produced empty duplicate pages (`38ktwolyd1`, `qhf8mcdwke`) alongside `page#interfaces` | Idempotent `create_page` by name (same as #99) | P2 |
 | 112 | Free Y among parallel boards | PAP-B-051 frames already sat at y≈40; PAP-B-049 had to be moved after create to y=1100+ | Outline bbox / `place: "free"` (same as #103 / #110) | P3 |
-| 113 | Screenshots as files | `render_screenshot` still returns base64 in MCP content; local decode into `docs/assets/boards/PAP-B-049/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
+| 113 | Screenshots as files | `render_screenshot` still returns base64 in MCP content; local decode into `docs/en-US/assets/boards/PAP-B-049/` | Done (2026-11-22, PAP-B-062): optional `path` on `render_screenshot` | — |
 | 114 | Broken main typecheck | `ui.ts` lost `activity*`/`actions` in merge `3f0bda1`; Inspector still referenced `ActivityEntry`/`Bot`; ColorField had undefined `hex` | Guard merge of `ui.ts` / restore Activity wiring; this PR restored the missing pieces so `pnpm check` can run | P1 |
 
 - Drew on active `Paprica · UI` / page `interfaces` without `open_workspace` after querying the maintainer about the name mismatch.
@@ -600,7 +600,7 @@ Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states 
 
 ## 2026-11-23: absolute child in auto-layout (PAP-B-069, design first)
 
-Task: draw the inspector "Ignorar layout" switch (off, on, dark) and a row with a badge sitting on its own x/y, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`), before adding `layoutPositioning`. Four fixed-size frames; PNGs in `docs/assets/boards/PAP-B-069/`.
+Task: draw the inspector "Ignorar layout" switch (off, on, dark) and a row with a badge sitting on its own x/y, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`), before adding `layoutPositioning`. Four fixed-size frames; PNGs in `docs/en-US/assets/boards/PAP-B-069/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -622,7 +622,7 @@ Task: draw the linked and unlinked corner controls, plus a sample card, on page 
 
 ## 2026-11-23: agent pins design (design first, cloud thread)
 
-Task: draw the proposal for "point at an element or area and tell the agent what to do" (5 boards: canvas, composer, panel, MCP contract, flow), first on a cloud `paprika serve`, then on the maintainer's local Paprika in `Paprica · UI` (new page, `workspaceId` on every write, active workspace untouched). PNGs in `docs/assets/boards/agent-pins/`.
+Task: draw the proposal for "point at an element or area and tell the agent what to do" (5 boards: canvas, composer, panel, MCP contract, flow), first on a cloud `paprika serve`, then on the maintainer's local Paprika in `Paprica · UI` (new page, `workspaceId` on every write, active workspace untouched). PNGs in `docs/en-US/assets/boards/agent-pins/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -636,7 +636,7 @@ Task: draw the proposal for "point at an element or area and tell the agent what
 
 ## 2026-11-23: archive workspaces (PAP-B-071, design first)
 
-Task: draw the overview archive action and the Archived filter (dark English, dark archived, light Portuguese) on `Interfaces` of `Paprica · UI` (`cmio9n368k`, page `interfaces`) before implementing archive/unarchive. Four fixed-height frames at x=6400; PNGs under `docs/assets/boards/PAP-B-071/`.
+Task: draw the overview archive action and the Archived filter (dark English, dark archived, light Portuguese) on `Interfaces` of `Paprica · UI` (`cmio9n368k`, page `interfaces`) before implementing archive/unarchive. Four fixed-height frames at x=6400; PNGs under `docs/en-US/assets/boards/PAP-B-071/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -664,7 +664,7 @@ Task: draw the error-boundary shell (dark and light) on page `interfaces` of wor
 
 ## 2026-11-23: inspector section collapse (PAP-B-088, design first)
 
-Task: draw the open, mid-slide, closed and reduced-motion states of an inspector section on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before fixing the flicker. Four fixed-height frames at y=3600 (`b088-open`, `b088-mid`, `b088-closed`, `b088-reduce`). PNGs in `docs/assets/boards/PAP-B-088/`.
+Task: draw the open, mid-slide, closed and reduced-motion states of an inspector section on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before fixing the flicker. Four fixed-height frames at y=3600 (`b088-open`, `b088-mid`, `b088-closed`, `b088-reduce`). PNGs in `docs/en-US/assets/boards/PAP-B-088/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -677,7 +677,7 @@ Task: draw the open, mid-slide, closed and reduced-motion states of an inspector
 
 ## 2026-11-23: hierarchy and the layer menu (PAP-B-090, design first)
 
-Task: draw the right-click layer stack (light Portuguese, dark English) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before Enter / Tab / Ctrl+click and the menu. Frames `b090light` and `b090dark` at y=4800. PNGs in `docs/assets/boards/PAP-B-090/`.
+Task: draw the right-click layer stack (light Portuguese, dark English) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before Enter / Tab / Ctrl+click and the menu. Frames `b090light` and `b090dark` at y=4800. PNGs in `docs/en-US/assets/boards/PAP-B-090/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -691,7 +691,7 @@ Task: draw the right-click layer stack (light Portuguese, dark English) on page 
 
 ## 2026-11-23: rotation-aware handles (PAP-B-091, design first)
 
-Task: draw the selection before and after it follows a rotated box, light and dark, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Frames `b091-before-light`, `b091-after-light`, `b091-before-dark`, `b091-after-dark`. PNGs in `docs/assets/boards/PAP-B-091/`.
+Task: draw the selection before and after it follows a rotated box, light and dark, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Frames `b091-before-light`, `b091-after-light`, `b091-before-dark`, `b091-after-dark`. PNGs in `docs/en-US/assets/boards/PAP-B-091/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -705,7 +705,7 @@ Task: draw the selection before and after it follows a rotated box, light and da
 
 ## 2026-11-23: multiple shadows, outline and filters (PAP-B-080, design first)
 
-Task: draw the effects inspector and a preview (dark and light) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before adding shadow lists, inner shadow, outline, filter and backdropFilter. Frames `b080-fx-dark`, `b080-pv-dark`, `b080-fx-light`, `b080-pv-light` at y=7760. PNGs in `docs/assets/boards/PAP-B-080/`.
+Task: draw the effects inspector and a preview (dark and light) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before adding shadow lists, inner shadow, outline, filter and backdropFilter. Frames `b080-fx-dark`, `b080-pv-dark`, `b080-fx-light`, `b080-pv-light` at y=7760. PNGs in `docs/en-US/assets/boards/PAP-B-080/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -721,7 +721,7 @@ Task: draw the effects inspector and a preview (dark and light) on page `interfa
 
 ## 2026-11-23: align, wrap and reveal (PAP-B-089, design first)
 
-Task: draw the multi-selection inspector (align, distribute, wrap in a frame) and the layers reveal actions (show all, unlock all, per-row lock) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before implementing them. Two frames at y=4200 (`pap089lroot`, `pap089droot`). PNGs in `docs/assets/boards/PAP-B-089/`.
+Task: draw the multi-selection inspector (align, distribute, wrap in a frame) and the layers reveal actions (show all, unlock all, per-row lock) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before implementing them. Two frames at y=4200 (`pap089lroot`, `pap089droot`). PNGs in `docs/en-US/assets/boards/PAP-B-089/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -733,7 +733,7 @@ Task: draw the multi-selection inspector (align, distribute, wrap in a frame) an
 
 ## 2026-11-23: structured gradients and OKLCH (PAP-B-081, design first)
 
-Task: draw the fill inspector, the on-canvas handles and the OKLCH picker, light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before implementing `gradient` and the color parser. Frames at y=5400 and y=5960. PNGs in `docs/assets/boards/PAP-B-081/`.
+Task: draw the fill inspector, the on-canvas handles and the OKLCH picker, light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before implementing `gradient` and the color parser. Frames at y=5400 and y=5960. PNGs in `docs/en-US/assets/boards/PAP-B-081/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -748,7 +748,7 @@ Task: draw the fill inspector, the on-canvas handles and the OKLCH picker, light
 
 ## 2026-11-23: typed tokens and detach (PAP-B-082, design first)
 
-Task: draw token collections (light and dark) and detach (light and dark) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before typed tokens, named collections and `detach_tokens`. Frames `b082tokl`, `b082tokd`, `b082detl`, `b082detd` at y=6680. PNGs in `docs/assets/boards/PAP-B-082/`.
+Task: draw token collections (light and dark) and detach (light and dark) on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before typed tokens, named collections and `detach_tokens`. Frames `b082tokl`, `b082tokd`, `b082detl`, `b082detd` at y=6680. PNGs in `docs/en-US/assets/boards/PAP-B-082/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -762,7 +762,7 @@ Task: draw token collections (light and dark) and detach (light and dark) on pag
 
 ## 2026-11-23: constraints when the parent resizes (PAP-B-084, design first)
 
-Task: draw the inspector constraint axes (dark: right/top, light: scale/center) and a before/after of a parent growing, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before adding `constraints`. Three frames at y=9120 (`papb084-inspector-dark`, `papb084-inspector-light`, `papb084-behavior`). PNGs in `docs/assets/boards/PAP-B-084/`.
+Task: draw the inspector constraint axes (dark: right/top, light: scale/center) and a before/after of a parent growing, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before adding `constraints`. Three frames at y=9120 (`papb084-inspector-dark`, `papb084-inspector-light`, `papb084-behavior`). PNGs in `docs/en-US/assets/boards/PAP-B-084/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -773,7 +773,7 @@ Task: draw the inspector constraint axes (dark: right/top, light: scale/center) 
 - `lint_design` on the three roots: 0 errors and 0 warnings.
 ## 2026-11-23: web semantics and convert to path (PAP-B-087, design first)
 
-Task: draw the root inspector (link, min width, max width), a decorative image with a `$asset`, and the context menu item "Converter em caminho" on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before implementing. Frames at y=11360. PNGs in `docs/assets/boards/PAP-B-087/`.
+Task: draw the root inspector (link, min width, max width), a decorative image with a `$asset`, and the context menu item "Converter em caminho" on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before implementing. Frames at y=11360. PNGs in `docs/en-US/assets/boards/PAP-B-087/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -786,7 +786,7 @@ Task: draw the root inspector (link, min width, max width), a decorative image w
 
 ## 2026-11-23: rich text runs (PAP-B-085, design first)
 
-Task: draw painted text, the canvas editor and the inspector hint on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before `runs` on text nodes. Frames `b085-painted`, `b085-editor`, `b085-inspector` at y=10840. PNGs in `docs/assets/boards/PAP-B-085/`.
+Task: draw painted text, the canvas editor and the inspector hint on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before `runs` on text nodes. Frames `b085-painted`, `b085-editor`, `b085-inspector` at y=10840. PNGs in `docs/en-US/assets/boards/PAP-B-085/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -800,7 +800,7 @@ Task: draw painted text, the canvas editor and the inspector hint on page `inter
 
 ## 2026-11-23: component props, slots and nested instances (PAP-B-086, design first)
 
-Task: draw props, a slot, an instance with values and a nested button inside a card, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before the model change. Four frames (`papb086-props-dark`, `papb086-props-light`, `papb086-instance`, `papb086-nested`). PNGs in `docs/assets/boards/PAP-B-086/`.
+Task: draw props, a slot, an instance with values and a nested button inside a card, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before the model change. Four frames (`papb086-props-dark`, `papb086-props-light`, `papb086-instance`, `papb086-nested`). PNGs in `docs/en-US/assets/boards/PAP-B-086/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -812,7 +812,7 @@ Task: draw props, a slot, an instance with values and a nested button inside a c
 
 ## 2026-11-23: condensed agent roster (PAP-B-073, design first)
 
-Task: draw the collapsed pill and the expanded active/idle list, light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before changing `AgentCursors.tsx`. Frames `b073dark` and `b073light` at y=12760. PNGs in `docs/assets/boards/PAP-B-073/`.
+Task: draw the collapsed pill and the expanded active/idle list, light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before changing `AgentCursors.tsx`. Frames `b073dark` and `b073light` at y=12760. PNGs in `docs/en-US/assets/boards/PAP-B-073/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -824,11 +824,11 @@ Task: draw the collapsed pill and the expanded active/idle list, light and dark,
 
 ## 2026-11-24: gap and padding handles (PAP-B-092, design first)
 
-Task: draw the spacing bars on a selected auto-layout frame before coding them, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b092-before-light`, `b092-after-light`, `b092-before-dark`, `b092-after-dark`) at y=13600. PNGs in `docs/assets/boards/PAP-B-092/`. `lint_design` on those roots: 0.
+Task: draw the spacing bars on a selected auto-layout frame before coding them, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b092-before-light`, `b092-after-light`, `b092-before-dark`, `b092-after-dark`) at y=13600. PNGs in `docs/en-US/assets/boards/PAP-B-092/`. `lint_design` on those roots: 0.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 147 | `paprika export --db` of the board the script just drew | The database is the compose volume, not a file on the host. The active workspace was already `Paprica · UI`, so `GET /api/export` is that document and was written to `docs/design/boards.paprika.json` | Same as #100 / #113: an `export_document` tool with `workspaceId`, or a host path for the volume | P2 |
+| 147 | `paprika export --db` of the board the script just drew | The database is the compose volume, not a file on the host. The active workspace was already `Paprica · UI`, so `GET /api/export` is that document and was written to `docs/en-US/design/boards.paprika.json` | Same as #100 / #113: an `export_document` tool with `workspaceId`, or a host path for the volume | P2 |
 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123, still open: `get_document_outline` of `page#interfaces` reported a 0×0 content box, so `y` came from a depth-1 scan (max bottom 13440, frames at 13600).
@@ -836,7 +836,7 @@ Task: draw the spacing bars on a selected auto-layout frame before coding them, 
 
 ## 2026-11-24: live build on the canvas (PAP-B-074, design first)
 
-Task: draw the working label, the outline-then-content step and the code toggle (off and on), light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before `BuildCode` and the replay. Frames `b074dark` and `b074light` at y=14440. PNGs in `docs/assets/boards/PAP-B-074/`.
+Task: draw the working label, the outline-then-content step and the code toggle (off and on), light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before `BuildCode` and the replay. Frames `b074dark` and `b074light` at y=14440. PNGs in `docs/en-US/assets/boards/PAP-B-074/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -850,11 +850,11 @@ Task: draw the working label, the outline-then-content step and the code toggle 
 
 ## 2026-11-24: eyedropper, connector ends, new shapes (PAP-B-093, design first)
 
-Task: draw the pipette, the connector-end handles and the three new outlines before coding them, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b093-shapes-light`, `b093-shapes-dark`, `b093-interact-light`, `b093-interact-dark`) at y=15240. PNGs in `docs/assets/boards/PAP-B-093/`. `lint_design` on those roots: 0. The cylinder, parallelogram and cloud were drawn with rect/ellipse/path because those `ShapeKind`s did not exist yet.
+Task: draw the pipette, the connector-end handles and the three new outlines before coding them, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b093-shapes-light`, `b093-shapes-dark`, `b093-interact-light`, `b093-interact-dark`) at y=15240. PNGs in `docs/en-US/assets/boards/PAP-B-093/`. `lint_design` on those roots: 0. The cylinder, parallelogram and cloud were drawn with rect/ellipse/path because those `ShapeKind`s did not exist yet.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 150 | `paprika export --db` of the board the script just drew | Same as #147: the database is the compose volume. The active workspace was already `Paprica · UI`, so `GET /api/export` was written to `docs/design/boards.paprika.json` | Same as #100: an `export_document` tool with `workspaceId` | P2 |
+| 150 | `paprika export --db` of the board the script just drew | Same as #147: the database is the compose volume. The active workspace was already `Paprica · UI`, so `GET /api/export` was written to `docs/en-US/design/boards.paprika.json` | Same as #100: an `export_document` tool with `workspaceId` | P2 |
 
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123, still open: the content box of `page#interfaces` is 0×0, so `y` came from a depth-1 scan (max bottom 15060, frames at 15240).
@@ -862,11 +862,11 @@ Task: draw the pipette, the connector-end handles and the three new outlines bef
 
 ## 2026-11-24: paste and drop a raster image (PAP-B-078, design first)
 
-Task: draw paste and drop of a photo onto the canvas, light and dark, before coding them, on page `Interfaces` (`interfaces`) of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b078-paste-light`, `b078-drop-light`, `b078-paste-dark`, `b078-drop-dark`) at y=15720. PNGs in `docs/assets/boards/PAP-B-078/`. After a contrast and small-text fix (`#fff7f2` on the dark captions, alt at 12px), `lint_design` on those roots reported 0 errors and 0 warnings.
+Task: draw paste and drop of a photo onto the canvas, light and dark, before coding them, on page `Interfaces` (`interfaces`) of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b078-paste-light`, `b078-drop-light`, `b078-paste-dark`, `b078-drop-dark`) at y=15720. PNGs in `docs/en-US/assets/boards/PAP-B-078/`. After a contrast and small-text fix (`#fff7f2` on the dark captions, alt at 12px), `lint_design` on those roots reported 0 errors and 0 warnings.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 151 | Open the design board `Paprica · UI` on the server at `127.0.0.1:4777` | `list_workspaces` returned only `PAP-B-052 i18n` (`imo442j45j`). The board was missing from that database | `import_document` of `docs/design/boards.paprika.json` restored workspace `cmio9n368k` without `open_workspace`. The active canvas stayed `imo442j45j`, and later calls addressed the board by `workspaceId` | P2 |
+| 151 | Open the design board `Paprica · UI` on the server at `127.0.0.1:4777` | `list_workspaces` returned only `PAP-B-052 i18n` (`imo442j45j`). The board was missing from that database | `import_document` of `docs/en-US/design/boards.paprika.json` restored workspace `cmio9n368k` without `open_workspace`. The active canvas stayed `imo442j45j`, and later calls addressed the board by `workspaceId` | P2 |
 
 - `list_workspaces` plus `workspaceId` worked. `open_workspace` was not called.
 - A depth-1 outline of `page#interfaces` reported a real bottom (15560), so the frames went at y=15720. A second page is still also named Interfaces (`h6jut017rv`); the frames are on `interfaces`.
@@ -874,7 +874,7 @@ Task: draw paste and drop of a photo onto the canvas, light and dark, before cod
 
 ## 2026-11-24: folders, live thumbnails and a reference layer (PAP-B-094, design first)
 
-Task: draw the overview with folders and live thumbnails, and a locked reference under a frame next to a side-by-side compare, before coding them, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b094-overview-light`, `b094-overview-dark`, `b094-reference-light`, `b094-reference-dark`) at y=16400. PNGs in `docs/assets/boards/PAP-B-094/`. `lint_design` on those roots: 0 after the fix below.
+Task: draw the overview with folders and live thumbnails, and a locked reference under a frame next to a side-by-side compare, before coding them, on page `Interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Four frames (`b094-overview-light`, `b094-overview-dark`, `b094-reference-light`, `b094-reference-dark`) at y=16400. PNGs in `docs/en-US/assets/boards/PAP-B-094/`. `lint_design` on those roots: 0 after the fix below.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -884,7 +884,7 @@ Task: draw the overview with folders and live thumbnails, and a locked reference
 - `render_screenshot` bytes were written to the PNGs from the tool result.
 ## 2026-11-24: pin thread and leaving a team (PAP-B-075, design first)
 
-Task: draw the pin thread (human and agent replies, composer) and the leave-team row, light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before the canvas change. Frames `b075-light` and `b075-dark`. PNGs in `docs/assets/boards/PAP-B-075/`. After nesting the labels, `lint_design` on both frames: 0 errors, 0 warnings, `raw-color` info only.
+Task: draw the pin thread (human and agent replies, composer) and the leave-team row, light and dark, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`) before the canvas change. Frames `b075-light` and `b075-dark`. PNGs in `docs/en-US/assets/boards/PAP-B-075/`. After nesting the labels, `lint_design` on both frames: 0 errors, 0 warnings, `raw-color` info only.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -897,7 +897,7 @@ Task: draw the pin thread (human and agent replies, composer) and the leave-team
 
 ## 2026-11-24: stable renderer label (PAP-B-098, design first)
 
-Task: draw the toggle label before keeping the WASM renderer alive, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Two frames (`b098-light`, `b098-dark`) at y=17600: idle `DOM`, loading `DOM` with a busy dot and `aria-busy`, ready `GPU` or `CPU`. `lint_design` on those roots: 0 after the dark GPU word moved off `#c8401f`. The frames stay on that board; the task paths do not include `docs/assets`, so the PNGs go on the PR.
+Task: draw the toggle label before keeping the WASM renderer alive, on page `interfaces` of workspace `Paprica · UI` (`cmio9n368k`). Two frames (`b098-light`, `b098-dark`) at y=17600: idle `DOM`, loading `DOM` with a busy dot and `aria-busy`, ready `GPU` or `CPU`. `lint_design` on those roots: 0 after the dark GPU word moved off `#c8401f`. The frames stay on that board; the task paths do not include `docs/en-US/assets`, so the PNGs go on the PR.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -907,7 +907,7 @@ Task: draw the toggle label before keeping the WASM renderer alive, on page `int
 - Addressed the board by `workspaceId` `cmio9n368k` and did not call `open_workspace`.
 - Same as #123 and #146, still open: the content box of `page#interfaces` is 0×0, and a second page is also named Interfaces (`h6jut017rv`, empty). `y` came from a depth-1 scan (max bottom 17380, frames at 17600).
 - Same as #129: `render_screenshot` bytes were taken from the tool result. `path` would write inside the server.
-- Same as #150: `docs/design/boards.paprika.json` was not refreshed. The database is the compose volume, and that file is outside this task's paths.
+- Same as #150: `docs/en-US/design/boards.paprika.json` was not refreshed. The database is the compose volume, and that file is outside this task's paths.
 
 ## 2026-11-24: marketing landing traced from a wireframe (PAP-B-101)
 
@@ -927,7 +927,7 @@ Task: draw a 1280 desktop landing and a 390 mobile variant for a fictional produ
 
 ## 2026-11-24: Feira, end to end (PAP-B-099)
 
-Task: design a fictional farmers-market app, Feira, across brand, tokens, components, a user flow, mobile and desktop screens, pins, export and a handoff page. Own workspace `Estabilização · Ponta a ponta (cursor-4)` (`alfobm5s83`). No product code was changed. `lint_design` on the whole document: 0 errors, 0 warnings, 0 infos. PNGs in `docs/assets/boards/PAP-B-099/`.
+Task: design a fictional farmers-market app, Feira, across brand, tokens, components, a user flow, mobile and desktop screens, pins, export and a handoff page. Own workspace `Estabilização · Ponta a ponta (cursor-4)` (`alfobm5s83`). No product code was changed. `lint_design` on the whole document: 0 errors, 0 warnings, 0 infos. PNGs in `docs/en-US/assets/boards/PAP-B-099/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|

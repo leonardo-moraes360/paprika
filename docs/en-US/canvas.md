@@ -1,8 +1,8 @@
 # Using the canvas
 
-Everything you can do by hand in the browser: workspaces, tools, shortcuts, diagrams and how agents show up. Back to the [README](../README.md).
+Everything you can do by hand in the browser: workspaces, tools, shortcuts, diagrams and how agents show up. Back to the [README](../../README.md).
 
-Português: [pt-BR/canvas.md](pt-BR/canvas.md).
+Português: [pt-BR/canvas.md](../pt-BR/canvas.md).
 
 ## Workspaces and tools
 

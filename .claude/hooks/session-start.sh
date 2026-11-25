@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SessionStart hook (Claude Code). Makes the toolbelt CLI (`tb`) available so `tb mem list`,
-# `tb verify` and `tb guard` run in every session. See docs/agent-sessions.md.
+# `tb verify` and `tb guard` run in every session. See docs/en-US/agent-sessions.md.
 #
 # - Cloud sessions (CLAUDE_CODE_REMOTE=true): installs the pinned tb with `go install` when the
 #   binary on PATH is missing or is not exactly the pinned module, then installs the pnpm

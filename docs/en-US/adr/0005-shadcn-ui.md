@@ -1,12 +1,12 @@
-🇺🇸 English | [🇧🇷 Português](../pt-BR/adr/0005-shadcn-ui.md)
+🇺🇸 English | [🇧🇷 Português](../../pt-BR/adr/0005-shadcn-ui.md)
 
 # ADR 0005: shadcn components on Paprika's closed theme
 
 - **Status:** Accepted
 - **Date:** 2026-11-22
 - **Amends:** [ADR 0003: Tailwind CSS for the canvas app UI](0003-tailwind-css.md) (the constraints stay; this ADR adds how a component library lives under them)
-- **Code:** [`apps/web/src/components/ui/`](../../apps/web/src/components/ui) (primitives), [`apps/web/src/styles.css`](../../apps/web/src/styles.css) (semantic aliases), [`apps/web/src/lib/cn.ts`](../../apps/web/src/lib/cn.ts), [`apps/web/components.json`](../../apps/web/components.json), gallery on `/ui` ([`apps/web/src/UiGallery.tsx`](../../apps/web/src/UiGallery.tsx))
-- **Board:** [`docs/assets/boards/PAP-B-030`](../assets/boards/PAP-B-030) (drawn in Paprika before any dependency was installed)
+- **Code:** [`apps/web/src/components/ui/`](../../../apps/web/src/components/ui) (primitives), [`apps/web/src/styles.css`](../../../apps/web/src/styles.css) (semantic aliases), [`apps/web/src/lib/cn.ts`](../../../apps/web/src/lib/cn.ts), [`apps/web/components.json`](../../../apps/web/components.json), gallery on `/ui` ([`apps/web/src/UiGallery.tsx`](../../../apps/web/src/UiGallery.tsx))
+- **Board:** [`docs/en-US/assets/boards/PAP-B-030`](../assets/boards/PAP-B-030) (drawn in Paprika before any dependency was installed)
 
 ## Context
 
@@ -106,7 +106,7 @@ itself has no ticket yet.
 - `packages/e2e/test/e2e/a11y.e2e.test.ts`, new block "galeria de primitivas (/ui)": the dialog traps focus and eight Tab presses stay inside, Esc returns focus to the trigger; the alert dialog opens with focus inside and its `ui-light` scope travels with the portal; the tooltip opens from the keyboard, not only on hover; the menu opens with Enter, names its items (`menuitem`, including the destructive one), moves with arrows and closes with Esc; the primary button passes 4.5:1 in both theme scopes; and under `prefers-reduced-motion: reduce` the chrome animations are neutralized while a node inside `.world` keeps `transition-duration: 0s` and the `.world` container keeps `line-height: normal`.
 - Isolation of the canvas: the canvas E2E suite and the WASM suite (which compares the DOM renderer with the Rust one, pixel by pixel) are unchanged and pass. On top of that, the same canvas page (`/w/<id>` over the Go server, 1440×900, Chromium) was screenshotted on `origin/main` and on this branch: **0 of 1.296.000 pixels differ**. Nothing in this ticket touches the DOM under `.world` — every new rule is either a utility class on a primitive or a `:not(.world, .world *)` scope.
 - Bundle, `vite build` on `origin/main` and on this branch: CSS 29.02 kB → 45.94 kB (6.59 kB → 9.12 kB gzip); the app entry JS 554.31 kB → 585.85 kB (170.30 kB → 181.03 kB gzip), which is `cn()` plus the migrated `ConnectionStatus`; the primitives and Radix sit in the lazy gallery chunk, 179.69 kB (52.46 kB gzip), loaded only on `/ui`. They move into the app chunk as PAP-B-031…034 migrate each screen.
-- Board before code: five frames on the `Interfaces` page of the Paprika workspace (controls and overlays, light and dark, plus the token map), drawn over MCP at `127.0.0.1:4777` before `pnpm add` ran, with `lint_design` at 0 errors, exported to [`docs/assets/boards/PAP-B-030`](../assets/boards/PAP-B-030).
+- Board before code: five frames on the `Interfaces` page of the Paprika workspace (controls and overlays, light and dark, plus the token map), drawn over MCP at `127.0.0.1:4777` before `pnpm add` ran, with `lint_design` at 0 errors, exported to [`docs/en-US/assets/boards/PAP-B-030`](../assets/boards/PAP-B-030).
 
 ## Consequences
 

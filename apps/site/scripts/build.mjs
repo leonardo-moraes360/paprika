@@ -65,7 +65,7 @@ ${FONTS}
 <style>${css}</style>
 </head>`;
 
-copy("docs/brand/favicon.svg", "icon.svg"); // small-size variant of the brand icon
+copy("docs/en-US/brand/favicon.svg", "icon.svg"); // small-size variant of the brand icon
 
 // ---------------------------------------------------------------- landing page
 
@@ -150,23 +150,23 @@ for (const l of landing) {
 const DOCS = {
   en: [
     ["README.md", "docs/index.html", "Overview"],
-    ["docs/canvas.md", "docs/canvas.html", "Using the canvas"],
-    ["docs/mcp.md", "docs/mcp.html", "Agents and MCP"],
-    ["docs/docker.md", "docs/docker.html", "Docker"],
-    ["docs/development.md", "docs/development.html", "Development"],
-    ["docs/architecture.md", "docs/architecture.html", "Architecture"],
+    ["docs/en-US/canvas.md", "docs/canvas.html", "Using the canvas"],
+    ["docs/en-US/mcp.md", "docs/mcp.html", "Agents and MCP"],
+    ["docs/en-US/docker.md", "docs/docker.html", "Docker"],
+    ["docs/en-US/development.md", "docs/development.html", "Development"],
+    ["docs/en-US/architecture.md", "docs/architecture.html", "Architecture"],
     ["server/README.md", "docs/go-server.html", "Go server (SQLite)"],
-    ["docs/ci.md", "docs/ci.html", "CI"],
-    ["docs/backlog.md", "docs/backlog.html", "Backlog"],
-    ["docs/agent-feedback.md", "docs/agent-feedback.html", "Agent feedback"],
-    ["docs/adr/0001-go-server-sqlite.md", "docs/adr/0001-go-server-sqlite.html", "ADR 0001: Go server + SQLite"],
-    ["docs/adr/0002-canvas-renderer-rust-wasm.md", "docs/adr/0002-canvas-renderer-rust-wasm.html", "ADR 0002: Rust/WASM renderer"],
+    ["docs/en-US/ci.md", "docs/ci.html", "CI"],
+    ["docs/en-US/backlog.md", "docs/backlog.html", "Backlog"],
+    ["docs/en-US/agent-feedback.md", "docs/agent-feedback.html", "Agent feedback"],
+    ["docs/en-US/adr/0001-go-server-sqlite.md", "docs/adr/0001-go-server-sqlite.html", "ADR 0001: Go server + SQLite"],
+    ["docs/en-US/adr/0002-canvas-renderer-rust-wasm.md", "docs/adr/0002-canvas-renderer-rust-wasm.html", "ADR 0002: Rust/WASM renderer"],
     ["CONTRIBUTING.md", "docs/contributing.html", "Contributing"],
     ["SECURITY.md", "docs/security.html", "Security"],
     ["CODE_OF_CONDUCT.md", "docs/code-of-conduct.html", "Code of Conduct"],
   ],
   "pt-BR": [
-    ["README.pt-BR.md", "docs/pt-BR/index.html", "Visão geral"],
+    ["docs/pt-BR/README.md", "docs/pt-BR/index.html", "Visão geral"],
     ["docs/pt-BR/canvas.md", "docs/pt-BR/canvas.html", "Usando o canvas"],
     ["docs/pt-BR/mcp.md", "docs/pt-BR/mcp.html", "Agentes e MCP"],
     ["docs/pt-BR/docker.md", "docs/pt-BR/docker.html", "Docker"],
@@ -178,9 +178,9 @@ const DOCS = {
     ["docs/pt-BR/feedback-agentes.md", "docs/pt-BR/feedback-agentes.html", "Feedback de agentes"],
     ["docs/pt-BR/adr/0001-servidor-go-sqlite.md", "docs/pt-BR/adr/0001-servidor-go-sqlite.html", "ADR 0001: servidor Go + SQLite"],
     ["docs/pt-BR/adr/0002-renderizador-canvas-rust-wasm.md", "docs/pt-BR/adr/0002-renderizador-canvas-rust-wasm.html", "ADR 0002: renderizador Rust/WASM"],
-    ["CONTRIBUTING.pt-BR.md", "docs/pt-BR/contribuindo.html", "Como contribuir"],
-    ["SECURITY.pt-BR.md", "docs/pt-BR/seguranca.html", "Segurança"],
-    ["CODE_OF_CONDUCT.pt-BR.md", "docs/pt-BR/codigo-de-conduta.html", "Código de Conduta"],
+    ["docs/pt-BR/CONTRIBUTING.md", "docs/pt-BR/contribuindo.html", "Como contribuir"],
+    ["docs/pt-BR/SECURITY.md", "docs/pt-BR/seguranca.html", "Segurança"],
+    ["docs/pt-BR/CODE_OF_CONDUCT.md", "docs/pt-BR/codigo-de-conduta.html", "Código de Conduta"],
   ],
 };
 /** Name of a heading's "#" link, in the page's language: the bare "#" says nothing to a screen reader. */

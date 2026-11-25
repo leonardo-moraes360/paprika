@@ -1,9 +1,9 @@
 /*
- * Tailwind CSS v4, without Preflight (docs/adr/0003-tailwind-css.md): the canvas paints user documents with
+ * Tailwind CSS v4, without Preflight (docs/en-US/adr/0003-tailwind-css.md): the canvas paints user documents with
  * nodeStyle's inline styles, and they must look the same as in the HTML export and the screenshot, which
  * run on the browser defaults. Components style themselves with utilities; this file only holds the theme
- * (brand "Estúdio noturno", docs/brand), the semantic aliases of the shadcn primitives
- * (docs/adr/0005-shadcn-ui.md) and the few base rules the app always had.
+ * (brand "Estúdio noturno", docs/en-US/brand), the semantic aliases of the shadcn primitives
+ * (docs/en-US/adr/0005-shadcn-ui.md) and the few base rules the app always had.
  */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
@@ -48,7 +48,7 @@
   --color-danger-ink: #ff9fb2;
 
   /*
-   * Semantic names of the shadcn primitives (docs/adr/0005-shadcn-ui.md), namespaced `ui-` so the brand
+   * Semantic names of the shadcn primitives (docs/en-US/adr/0005-shadcn-ui.md), namespaced `ui-` so the brand
    * names of ADR 0003 keep their meaning: `text-muted` is a text color and shadcn's `muted` is a surface.
    * These are aliases, not new colors — each one points at a brand token above. The only exception is the
    * light mirror in `.ui-light` at the end of this file. Contrast numbers are in ADR 0005.
@@ -202,7 +202,7 @@
 }
 
 /*
- * Light mirror of the semantic tokens (docs/adr/0005-shadcn-ui.md). The app still ships one theme — the
+ * Light mirror of the semantic tokens (docs/en-US/adr/0005-shadcn-ui.md). The app still ships one theme — the
  * night brand of ADR 0003 — and these values exist so the primitives can be drawn and checked in light as
  * well, on the board and on `/ui`, and so the "Theme modes (light/dark/compact)" row of the backlog has a
  * single place to grow from. `.ui-light` only redefines variables, so a light panel can sit next to a dark

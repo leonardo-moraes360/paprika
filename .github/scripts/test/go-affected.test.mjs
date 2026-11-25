@@ -189,7 +189,7 @@ describe("go-affected.sh", { skip: skipWithoutGo }, () => {
   it("a change outside server selects nothing", () => {
     const f = fixture();
     try {
-      f.commit({ "docs/architecture.md": "# architecture\n" }, "docs: elsewhere in the repository");
+      f.commit({ "docs/en-US/architecture.md": "# architecture\n" }, "docs: elsewhere in the repository");
       const { lines, status } = f.run({ allowFailure: true });
       assert.equal(status, 0);
       assert.deepEqual(lines, []);

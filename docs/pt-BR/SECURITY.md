@@ -1,4 +1,4 @@
-[🇺🇸 English](SECURITY.md) | 🇧🇷 Português
+[🇺🇸 English](../../SECURITY.md) | 🇧🇷 Português
 
 # Política de segurança
 

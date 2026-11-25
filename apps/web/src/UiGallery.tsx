@@ -1,7 +1,7 @@
 /**
  * Galeria de primitivas do shadcn (PAP-B-030). Uma página em `/ui`, sem link nenhum no app, que mostra
  * cada primitiva nos dois temas para comparar com a folha desenhada no board
- * (docs/assets/boards/PAP-B-030). Não chama a API nem abre WebSocket: é só markup dos componentes.
+ * (docs/en-US/assets/boards/PAP-B-030). Não chama a API nem abre WebSocket: é só markup dos componentes.
  *
  * O painel claro não duplica estilo nenhum: a classe `ui-light` só redefine as variáveis `--color-ui-*`
  * para o espelho claro do tema (ADR 0005). Conteúdo em portal (diálogo, menu, popover, tooltip, select)

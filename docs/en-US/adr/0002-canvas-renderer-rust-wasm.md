@@ -1,10 +1,10 @@
-🇺🇸 English | [🇧🇷 Português](../pt-BR/adr/0002-renderizador-canvas-rust-wasm.md)
+🇺🇸 English | [🇧🇷 Português](../../pt-BR/adr/0002-renderizador-canvas-rust-wasm.md)
 
 # ADR 0002: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)
 
 - **Status:** Accepted as an **opt-in hybrid renderer** (update below). The DOM stays the default.
 - **Date:** 2026-11-21
-- **Code:** [`crates/render`](../../crates/render), [`packages/core/src/displayList.ts`](../../packages/core/src/displayList.ts), [`apps/web/src/wasmLayer.ts`](../../apps/web/src/wasmLayer.ts). Benchmark harness: [`experiments/canvas-wasm/`](https://github.com/leonardo-moraes360/paprika/tree/040b843/experiments/canvas-wasm/README.md)
+- **Code:** [`crates/render`](../../../crates/render), [`packages/core/src/displayList.ts`](../../../packages/core/src/displayList.ts), [`apps/web/src/wasmLayer.ts`](../../../apps/web/src/wasmLayer.ts). Benchmark harness: [`experiments/canvas-wasm/`](https://github.com/leonardo-moraes360/paprika/tree/040b843/experiments/canvas-wasm/README.md)
 - **Note (2026-11-25):** the `experiments/canvas-wasm` prototype was removed from the tree; its links below point to commit `040b843`, the last one that has it.
 
 ## Context

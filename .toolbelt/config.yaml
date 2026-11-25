@@ -73,9 +73,9 @@ egm:
     tools_check: auto
     doc_globs:
         - docs/specs/**
-        - docs/adr/**
+        - docs/en-US/adr/**
     doc_types:
-        docs/adr/**: adr
+        docs/en-US/adr/**: adr
     detail_headings:
         - '## Detailed Implementation Plan'
         - '## Plano de Implementação Detalhado'

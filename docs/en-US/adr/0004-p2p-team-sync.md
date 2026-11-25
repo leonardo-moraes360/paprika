@@ -1,4 +1,4 @@
-🇺🇸 English | [🇧🇷 Português](../pt-BR/adr/0004-sincronizacao-p2p-de-time.md)
+🇺🇸 English | [🇧🇷 Português](../../pt-BR/adr/0004-sincronizacao-p2p-de-time.md)
 
 # ADR 0004: Peer-to-peer team sync (Iroh transport, Loro CRDT, Rust sidecar)
 
@@ -114,6 +114,6 @@ authority. A team can point to its own relay. Tests run with relays and lookup d
 - Undo semantics change only in a team: it reverts local transactions, and a revert may partly fail if a
   peer deleted the nodes it touched (reported, not silent).
 - Removing a member and rotating keys came later (2026-11-22) as signed `removals`/`rotations` in the team file
-  with a per-author cut (`upto`), see docs/team-sync.md. Approval roles are not covered yet.
+  with a per-author cut (`upto`), see docs/en-US/team-sync.md. Approval roles are not covered yet.
 - Presence (agents' cursors, people online) travels as ephemeral messages on the same connections and is
   never stored.

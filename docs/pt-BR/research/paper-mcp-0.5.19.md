@@ -50,7 +50,7 @@ A mesma sessão esbarrou em limites que o Paprika não tem:
    `AGENTS.md`: um grupo visual por `create_nodes`, screenshot por tela, seis critérios nomeados, leitura
    estreita primeiro.
 3. Devolver um token de mudança por domínio (`tokens`, `nodes`, `pages`) junto da versão do documento.
-4. Escrever em `docs/mcp.md` a escada de leitura estreita (`get_document_outline` → `find_nodes` →
+4. Escrever em `docs/en-US/mcp.md` a escada de leitura estreita (`get_document_outline` → `find_nodes` →
    `get_nodes` dos ids que interessam → `get_bounds`).
 
 ## Limites deste estudo

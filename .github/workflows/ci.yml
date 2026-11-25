@@ -1,4 +1,4 @@
-# CI for pull requests only (never on push/merge). See docs/ci.md for the design.
+# CI for pull requests only (never on push/merge). See docs/en-US/ci.md for the design.
 name: CI
 
 on:
@@ -55,7 +55,7 @@ jobs:
       - name: Test the CI scripts
         run: node --test .github/scripts/test/*.mjs
       # Every third-party action must be pinned to a full commit SHA with its version in a comment
-      # (docs/ci.md): a tag or branch is a moving reference, and a force-push on it silently changes
+      # (docs/en-US/ci.md): a tag or branch is a moving reference, and a force-push on it silently changes
       # what every later run executes.
       - name: Check pinned actions
         run: node .github/scripts/check-actions-pinned.mjs

@@ -1,4 +1,4 @@
-# Allowlist: the build context is only what the Dockerfile copies (see docs/docker.md).
+# Allowlist: the build context is only what the Dockerfile copies (see docs/en-US/docker.md).
 # Everything else (node_modules, target/, *.db, .git, local designs) stays out of the context.
 *
 !package.json

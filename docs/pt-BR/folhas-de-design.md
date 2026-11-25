@@ -1,4 +1,4 @@
-[🇺🇸 English](../design-boards.md) | 🇧🇷 Português
+[🇺🇸 English](../en-US/design-boards.md) | 🇧🇷 Português
 
 # Folhas de design
 
@@ -6,7 +6,7 @@ Toda mudança que encosta em interface é desenhada antes de ser codada (regra 6
 um frame por estado num documento Paprika pelo MCP, confere com `lint_design` e anexa os PNGs do
 `render_screenshot` ao PR. Disso saem dois artefatos, com papéis diferentes:
 
-- **Os PNGs** em `docs/assets/boards/<TICKET>/` são o artefato de revisão: o que o revisor e o maintenedor
+- **Os PNGs** em `docs/en-US/assets/boards/<TICKET>/` são o artefato de revisão: o que o revisor e o maintenedor
   leem no PR. Vão commitados com a change.
 - **O documento** é a fonte editável: frames, tokens, overrides de modo. Ele mora no servidor Paprika, que é
   um banco — e banco se muda.
@@ -27,22 +27,22 @@ ela é construída:
 5. Reuse em vez de refazer: `duplicate_nodes` para repetições, componentes e instâncias para estados,
    `align_nodes`/`distribute_nodes` em vez de coordenadas na mão.
 6. Feche o trabalho: nomeie os frames, exporte o documento (abaixo) e, quando a mudança mexer em uma
-   interface que o usuário vai julgar, deixe os PNGs em `docs/assets/boards/<TICKET>/`.
+   interface que o usuário vai julgar, deixe os PNGs em `docs/en-US/assets/boards/<TICKET>/`.
 
 Esses passos vêm de operar de ponta a ponta o MCP de agente de um concorrente; a comparação e o que o
 Paprika deveria adotar estão no [estudo de MCP de agente](research/paper-mcp-0.5.19.md).
 
 ## Guardar o documento no repositório
 
-O documento das folhas é exportado para `docs/design/boards.paprika.json` do mesmo jeito que a landing page
+O documento das folhas é exportado para `docs/en-US/design/boards.paprika.json` do mesmo jeito que a landing page
 guarda `apps/site/design/landing.paprika.json`:
 
 ```bash
 # depois de desenhar as folhas (o servidor as tem em <db>)
-server/bin/paprika export --db <db> -o docs/design/boards.paprika.json
+server/bin/paprika export --db <db> -o docs/en-US/design/boards.paprika.json
 
 # depois de um reset: traz de volta para um servidor limpo e refaz os screenshots a partir dele
-server/bin/paprika import docs/design/boards.paprika.json --db <db> --replace
+server/bin/paprika import docs/en-US/design/boards.paprika.json --db <db> --replace
 ```
 
 Commite a exportação na própria change que desenhou as folhas, ou num `chore:` logo depois — de qualquer

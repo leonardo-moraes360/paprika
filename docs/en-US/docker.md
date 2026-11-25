@@ -2,7 +2,7 @@
 
 The `Dockerfile` at the root builds everything Paprika needs into one image: the Go server (MCP over HTTP and stdio, HTTP/WS API, SQLite), the canvas (`apps/web`, with Tailwind) and the Rust/WASM renderer (`crates/render`). Nothing else has to be installed on the host.
 
-Português: [docs/pt-BR/docker.md](pt-BR/docker.md).
+Português: [docs/pt-BR/docker.md](../pt-BR/docker.md).
 
 ## Run
 

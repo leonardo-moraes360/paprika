@@ -1,4 +1,4 @@
-[🇺🇸 English](../../adr/0001-go-server-sqlite.md) | 🇧🇷 Português
+[🇺🇸 English](../../en-US/adr/0001-go-server-sqlite.md) | 🇧🇷 Português
 
 # ADR 0001: servidor em Go com armazenamento em SQLite
 

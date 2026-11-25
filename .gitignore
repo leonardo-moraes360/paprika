@@ -15,7 +15,7 @@ apps/web/src/wasm/
 crates/*/target/
 # Local working designs (e.g. design/marca.paprika.json served by `paprika serve`)
 design/
-# except the design boards the agents version in git (docs/design-boards.md)
-!docs/design/
-!docs/design/**
+# except the design boards the agents version in git (docs/en-US/design-boards.md)
+!docs/en-US/design/
+!docs/en-US/design/**
 .claude/settings.local.json

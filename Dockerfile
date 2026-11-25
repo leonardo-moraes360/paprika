@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 #
 # Paprika in one image: the Go server (MCP + HTTP/WS + SQLite), the canvas (apps/web), the
-# Rust/WASM renderer (crates/render) and the team sync sidecar (crates/sync). See docs/docker.md.
+# Rust/WASM renderer (crates/render) and the team sync sidecar (crates/sync). See docs/en-US/docker.md.
 #
 #   docker build -t paprika .
 #   docker run --rm -p 127.0.0.1:4777:4777 -v paprika-data:/data paprika

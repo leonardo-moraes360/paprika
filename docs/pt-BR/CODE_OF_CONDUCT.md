@@ -1,8 +1,8 @@
-[🇺🇸 English](CODE_OF_CONDUCT.md) | 🇧🇷 Português
+[🇺🇸 English](../../CODE_OF_CONDUCT.md) | 🇧🇷 Português
 
 # Código de Conduta do Contributor Covenant
 
-> Tradução do texto em inglês, que é a versão de referência ([CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)).
+> Tradução do texto em inglês, que é a versão de referência ([CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md)).
 
 ## Nosso compromisso
 

@@ -2,7 +2,7 @@
 
 Notes from studying a closed design tool's agent surface, kept as input for Paprika's own MCP and for
 the drawing loop in [design boards](../design-boards.md). Prose in English here; the Brazilian Portuguese
-mirror is [here](../pt-BR/research/paper-mcp-0.5.19.md). The maintainer keeps a 61 KB operator runbook
+mirror is [here](../../pt-BR/research/paper-mcp-0.5.19.md). The maintainer keeps a 61 KB operator runbook
 for that product (`paper-mcp-runbook-guia.md`, Brazilian Portuguese) with the full call-by-call detail.
 
 **What was studied.** `paper-desktop-0.5.19x86_64.AppImage` (sha256 `60a65462…`, Electron 44.9.3,
@@ -31,7 +31,7 @@ The same session ran into limits Paper has and Paprika does not:
 - **No component or instance concept in Paper's MCP** (41 tools, none of them a symbol, variant or
   library tool): reuse is token plus clone (`duplicate_nodes`, `<x-paper-clone>`), and states such as
   hover are separate frames. Paprika has `create_component`, `create_instance`, `detach_instance` and
-  `detach_tokens` with per-instance overrides, held to by `docs/mcp.md`.
+  `detach_tokens` with per-instance overrides, held to by `docs/en-US/mcp.md`.
 - **No undo/redo surface in Paper's MCP.** Paprika exposes `undo`, `redo`, `get_history`, and every
   mutating tool is one undo step.
 - **No document import in Paper's MCP** (HTML is the only inbound dialect). Paprika has
@@ -54,7 +54,7 @@ The same session ran into limits Paper has and Paprika does not:
    after each screen, six named review criteria, narrowest read first.
 3. Return a per-domain change token (`tokens`, `nodes`, `pages`) next to the document version so an
    agent can tell what actually moved since its last call.
-4. Add the "narrow read first" ladder to `docs/mcp.md` (`get_document_outline` → `find_nodes` →
+4. Add the "narrow read first" ladder to `docs/en-US/mcp.md` (`get_document_outline` → `find_nodes` →
    `get_nodes` of the ids you need → `get_bounds`), which is what kept Paper sessions inside context.
 
 ## Limits of this study

@@ -1,8 +1,8 @@
 # Development
 
-Running Paprika from source, the repository layout and the checks to run before a pull request. Back to the [README](../README.md).
+Running Paprika from source, the repository layout and the checks to run before a pull request. Back to the [README](../../README.md).
 
-Português: [pt-BR/desenvolvimento.md](pt-BR/desenvolvimento.md).
+Português: [pt-BR/desenvolvimento.md](../pt-BR/desenvolvimento.md).
 
 ## Run from source
 
@@ -36,7 +36,7 @@ The canvas UI follows the browser language on first visit (`en` or `pt-BR`), can
 
 ## Server (Go + SQLite)
 
-The server lives in `server/` and stores documents, tokens and the undo/redo history in SQLite; `.paprika.json` files go in and out with `paprika import` / `paprika export` (to commit a design, for example). Commands, storage layout and tests: [server/README.md](../server/README.md); decision record: [ADR 0001](adr/0001-go-server-sqlite.md). Lint (`cd server && golangci-lint run`) includes the `modernize` analyzer so CI keeps gopls-style rewrites (`errors.AsType`, `slices.Contains`, …) clean.
+The server lives in `server/` and stores documents, tokens and the undo/redo history in SQLite; `.paprika.json` files go in and out with `paprika import` / `paprika export` (to commit a design, for example). Commands, storage layout and tests: [server/README.md](../../server/README.md); decision record: [ADR 0001](adr/0001-go-server-sqlite.md). Lint (`cd server && golangci-lint run`) includes the `modernize` analyzer so CI keeps gopls-style rewrites (`errors.AsType`, `slices.Contains`, …) clean.
 
 ## Commands
 
@@ -48,9 +48,9 @@ pnpm test:e2e     # canvas E2E (Playwright) against server/bin/paprika
 pnpm test:render  # Rust renderer (crates/render): native tests with vello_cpu
 ```
 
-CI runs on pull requests only and picks the jobs from the files the PR changes: see [docs/ci.md](ci.md).
+CI runs on pull requests only and picks the jobs from the files the PR changes: see [docs/en-US/ci.md](ci.md).
 
-This repository uses [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) as its agent harness: invariants live in `.toolbelt/invariants.yaml` (`tb mem list`), and `tb verify run` / `tb stack verify guard` run before work is called done. Claude Code cloud sessions install the pinned `tb` on start ([docs/agent-sessions.md](agent-sessions.md)).
+This repository uses [toolbelt](https://github.com/leonardo-moraes360/toolbelt) (`tb`) as its agent harness: invariants live in `.toolbelt/invariants.yaml` (`tb mem list`), and `tb verify run` / `tb stack verify guard` run before work is called done. Claude Code cloud sessions install the pinned `tb` on start ([docs/en-US/agent-sessions.md](agent-sessions.md)).
 
 ## CLI
 
@@ -71,4 +71,4 @@ source <(server/bin/paprika completion bash)    # also zsh and fish
 - The Docker image binds `0.0.0.0` inside the container; publish it on the host's loopback (`-p 127.0.0.1:4777:4777`, as `compose.yaml` does) ([docker.md](docker.md)).
 - `https://` images are fetched by Chromium when taking screenshots.
 
-To report a vulnerability, see [SECURITY.md](../SECURITY.md).
+To report a vulnerability, see [SECURITY.md](../../SECURITY.md).

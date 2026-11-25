@@ -4,7 +4,7 @@
 // No dependencies beyond node:test: the plan is a pure function of the changed file list, so the
 // fixtures are plain path arrays.
 //
-// If one of these cases starts failing, the plan of a real PR changes: update docs/ci.md and
+// If one of these cases starts failing, the plan of a real PR changes: update docs/en-US/ci.md and
 // docs/pt-BR/ci.md in the same pull request.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -88,7 +88,7 @@ describe("infra files run everything", () => {
   });
 
   it("one infra file in a large change forces the full run", () => {
-    assertEverythingOn(plan(["docs/ci.md", "packages/core/src/ops.ts", "pnpm-lock.yaml"]), "mixed + lockfile");
+    assertEverythingOn(plan(["docs/en-US/ci.md", "packages/core/src/ops.ts", "pnpm-lock.yaml"]), "mixed + lockfile");
   });
 });
 
@@ -102,18 +102,18 @@ describe("ci:full and empty diffs", () => {
   });
 
   it("a falsy ciFull does not force the full run", () => {
-    assert.deepEqual(planFor(["docs/ci.md"], { ciFull: "" }), NOTHING);
-    assert.deepEqual(planFor(["docs/ci.md"], { ciFull: false }), NOTHING);
+    assert.deepEqual(planFor(["docs/en-US/ci.md"], { ciFull: "" }), NOTHING);
+    assert.deepEqual(planFor(["docs/en-US/ci.md"], { ciFull: false }), NOTHING);
   });
 });
 
 describe("docs-only changes run only Plan and CI OK", () => {
   it("a docs and README change selects no job", () => {
-    assert.deepEqual(plan(["README.md", "README.pt-BR.md", "docs/ci.md", "docs/pt-BR/ci.md"]), NOTHING);
+    assert.deepEqual(plan(["README.md", "docs/pt-BR/README.md", "docs/en-US/ci.md", "docs/pt-BR/ci.md"]), NOTHING);
   });
 
   it("a design or notes change selects no job", () => {
-    assert.deepEqual(plan(["docs/adr/0001-go-server-sqlite.md", "AGENTS.md", "design/marca.paprika.json"]), NOTHING);
+    assert.deepEqual(plan(["docs/en-US/adr/0001-go-server-sqlite.md", "AGENTS.md", "design/marca.paprika.json"]), NOTHING);
   });
 });
 
@@ -226,7 +226,7 @@ describe("each area selects its jobs", () => {
   });
 
   it("what the image does not package skips the image", () => {
-    for (const file of ["packages/e2e/test/api.test.ts", "packages/e2e/fixtures/demo.paprika.json", "docs/docker.md", "apps/site/scripts/build.mjs", "server.md", "nested/Dockerfile"]) {
+    for (const file of ["packages/e2e/test/api.test.ts", "packages/e2e/fixtures/demo.paprika.json", "docs/en-US/docker.md", "apps/site/scripts/build.mjs", "server.md", "nested/Dockerfile"]) {
       assert.equal(plan([file]).docker, false, file);
     }
   });
@@ -238,7 +238,7 @@ describe("each area selects its jobs", () => {
 
 describe("a mixed change unions every touched area", () => {
   it("core + server + docs keeps the full flags of both areas", () => {
-    const p = plan(["packages/core/src/style.ts", "docs/adr/0002.md", "server/internal/server/routes.go"]);
+    const p = plan(["packages/core/src/style.ts", "docs/en-US/adr/0002.md", "server/internal/server/routes.go"]);
     assert.equal(p.full, false);
     assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/core", mode: "changed" }]);
     assert.equal(JSON.parse(p.suites_matrix).length, 2);
@@ -280,7 +280,7 @@ describe("the published interface", () => {
   });
 
   it("the lines are the booleans and JSON strings GitHub expects", () => {
-    const lines = planLines(plan(["docs/ci.md"]));
+    const lines = planLines(plan(["docs/en-US/ci.md"]));
     assert.equal(
       lines,
       "full=false\nbuild=false\nts=false\nunit=false\nunit_matrix=[]\nsuites=false\nsuites_matrix=[]\ngolden=false\ngo=false\nrust=false\nsync=false\ncodeql=false\ncodeql_matrix=[]\ndocker=false\n",
@@ -288,11 +288,11 @@ describe("the published interface", () => {
   });
 
   it("the step summary lists the plan and every changed file", () => {
-    const summary = planSummary(plan(["docs/ci.md", "README.md"]), ["docs/ci.md", "README.md"]);
+    const summary = planSummary(plan(["docs/en-US/ci.md", "README.md"]), ["docs/en-US/ci.md", "README.md"]);
     assert.match(summary, /^### CI plan\n\n\| output \| value \|\n\| --- \| --- \|\n/);
     assert.match(summary, /\| `full` \| `false` \|/);
     assert.match(summary, /<details><summary>2 changed files<\/summary>/);
-    assert.ok(summary.includes("- `docs/ci.md`"));
+    assert.ok(summary.includes("- `docs/en-US/ci.md`"));
     assert.ok(planSummary(plan([]), []).includes("_none_"));
   });
 });

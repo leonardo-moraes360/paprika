@@ -1,4 +1,4 @@
-// Writes the Trio Pixel brand SVGs into docs/brand/ (and the app favicon).
+// Writes the Trio Pixel brand SVGs into docs/en-US/brand/ (and the app favicon).
 // Usage: node scripts/brand/trio-pixel-svg.mjs
 import { copyFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -52,7 +52,7 @@ function lockupSvg(c) {
   ].join("");
 }
 
-const out = (name, svg) => writeFileSync(`${root}docs/brand/${name}`, svg);
+const out = (name, svg) => writeFileSync(`${root}docs/en-US/brand/${name}`, svg);
 out("icon.svg", icon(THEMES.dark));
 out("icon-light.svg", icon(THEMES.light));
 out("wordmark.svg", wordmarkSvg(THEMES.dark));
@@ -61,5 +61,5 @@ out("lockup.svg", lockupSvg(THEMES.dark));
 out("lockup-light.svg", lockupSvg(THEMES.light));
 // Small sizes (favicon, 22px header logo): no selection frame, which turns to noise under 32px.
 out("favicon.svg", icon(THEMES.dark, { selection: false }));
-copyFileSync(`${root}docs/brand/favicon.svg`, `${root}apps/web/public/icon.svg`);
-console.log("docs/brand: icon, icon-light, wordmark, wordmark-light, lockup, lockup-light, favicon; apps/web/public/icon.svg");
+copyFileSync(`${root}docs/en-US/brand/favicon.svg`, `${root}apps/web/public/icon.svg`);
+console.log("docs/en-US/brand: icon, icon-light, wordmark, wordmark-light, lockup, lockup-light, favicon; apps/web/public/icon.svg");

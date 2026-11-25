@@ -4,7 +4,7 @@ Every change that touches an interface is drawn before it is coded (rule 6 of `A
 frame per state in a Paprika document over MCP, checks it with `lint_design`, and attaches the
 `render_screenshot` PNGs to the PR. Two artifacts come out of that, and they serve different purposes:
 
-- **The PNGs** under `docs/assets/boards/<TICKET>/` are the review artifact: what the reviewer and the
+- **The PNGs** under `docs/en-US/assets/boards/<TICKET>/` are the review artifact: what the reviewer and the
   maintainer read in the PR. They are committed with the change.
 - **The document** is the editable source: frames, tokens, mode overrides. It lives in the Paprika server,
   which is a database — and databases move.
@@ -24,22 +24,22 @@ reviewable while it is being built:
 5. Reuse rather than remake: `duplicate_nodes` for repeats, components and instances for states,
    `align_nodes`/`distribute_nodes` instead of hand-placed coordinates.
 6. Close the work: name the frames, export the document (below) and, when a change touches an interface
-   the user will judge, leave the PNGs under `docs/assets/boards/<TICKET>/`.
+   the user will judge, leave the PNGs under `docs/en-US/assets/boards/<TICKET>/`.
 
 Those steps come from operating a competing agent MCP end to end; the comparison and what Paprika should
 adopt are in [the agent MCP study](research/paper-mcp-0.5.19.md).
 
 ## Keep the document in the repository
 
-The board document is exported to `docs/design/boards.paprika.json` the same way the landing page keeps
+The board document is exported to `docs/en-US/design/boards.paprika.json` the same way the landing page keeps
 `apps/site/design/landing.paprika.json`:
 
 ```bash
 # after drawing the sheets (the server holds them in <db>)
-server/bin/paprika export --db <db> -o docs/design/boards.paprika.json
+server/bin/paprika export --db <db> -o docs/en-US/design/boards.paprika.json
 
 # after a reset: bring them back into a fresh server, then screenshot again from it
-server/bin/paprika import docs/design/boards.paprika.json --db <db> --replace
+server/bin/paprika import docs/en-US/design/boards.paprika.json --db <db> --replace
 ```
 
 Commit the export in the change that drew the sheets, or as a follow-up `chore:` commit — either way, one

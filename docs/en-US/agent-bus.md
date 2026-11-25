@@ -1,4 +1,4 @@
-🇺🇸 English | [🇧🇷 Português](pt-BR/barramento-agentes.md)
+🇺🇸 English | [🇧🇷 Português](../pt-BR/barramento-agentes.md)
 
 # Agent bus (multi-vendor)
 

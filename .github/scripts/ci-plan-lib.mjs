@@ -3,7 +3,7 @@
 // This module is pure — no git, no `process.env`, no file system — so
 // `.github/scripts/test/ci-plan.test.mjs` can describe every rule it encodes.
 // `ci-plan.mjs` is the thin CLI around it (git diff, `$GITHUB_OUTPUT`, `$GITHUB_STEP_SUMMARY`).
-// The rules themselves are documented in docs/ci.md; change both together.
+// The rules themselves are documented in docs/en-US/ci.md; change both together.
 
 // Files that can change how everything builds or runs: any change here runs the whole CI.
 export const INFRA = [

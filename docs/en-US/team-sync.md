@@ -1,4 +1,4 @@
-🇺🇸 English | [🇧🇷 Português](pt-BR/sincronizacao-time.md)
+🇺🇸 English | [🇧🇷 Português](../pt-BR/sincronizacao-time.md)
 
 # Team sync (peer to peer)
 

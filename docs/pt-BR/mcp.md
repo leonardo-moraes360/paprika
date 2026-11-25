@@ -1,8 +1,8 @@
 # Agentes e MCP
 
-Como um agente de IA conversa com o Paprika: como conectar, as ferramentas que ele recebe e o formato do arquivo por trás de um design. Voltar ao [README](../../README.pt-BR.md).
+Como um agente de IA conversa com o Paprika: como conectar, as ferramentas que ele recebe e o formato do arquivo por trás de um design. Voltar ao [README](README.md).
 
-English: [../mcp.md](../mcp.md).
+English: [../mcp.md](../en-US/mcp.md).
 
 ## Conectar um agente
 

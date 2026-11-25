@@ -1,4 +1,4 @@
-🇺🇸 English | [🇧🇷 Português](SECURITY.pt-BR.md)
+🇺🇸 English | [🇧🇷 Português](docs/pt-BR/SECURITY.md)
 
 # Security policy
 

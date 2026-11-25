@@ -1,8 +1,8 @@
 # Paprika brand · Trio Pixel
 
-[Português](../pt-BR/marca.md)
+[Português](../../pt-BR/marca.md)
 
-Chosen on 2026-11-25 from six concept directions (boards in [`docs/assets/boards/brand-trio-pixel`](../assets/boards/brand-trio-pixel)). It mixes **Trio** (the red, yellow and green peppers) with **Pixel** (the pepper as the canvas sees it: a grid, already selected).
+Chosen on 2026-11-25 from six concept directions (boards in [`docs/en-US/assets/boards/brand-trio-pixel`](../assets/boards/brand-trio-pixel)). It mixes **Trio** (the red, yellow and green peppers) with **Pixel** (the pepper as the canvas sees it: a grid, already selected).
 
 | Light | Dark |
 |---|---|
@@ -40,4 +40,4 @@ The dark selection cyan and background are the app's current "Estúdio noturno" 
 | `wordmark.svg` / `wordmark-light.svg` | Wordmark alone |
 | `lockup.svg` / `lockup-light.svg` | Symbol + wordmark |
 
-All of them come from one geometry, [`scripts/brand/trio-pixel.mjs`](../../scripts/brand/trio-pixel.mjs). Regenerate with `node scripts/brand/trio-pixel-svg.mjs` (it also copies `favicon.svg` to `apps/web/public/icon.svg`). The boards are drawn in Paprika by [`scripts/brand/draw-concepts.mjs`](../../scripts/brand/draw-concepts.mjs). `proposta-*.png` are the earlier proposals.
+All of them come from one geometry, [`scripts/brand/trio-pixel.mjs`](../../../scripts/brand/trio-pixel.mjs). Regenerate with `node scripts/brand/trio-pixel-svg.mjs` (it also copies `favicon.svg` to `apps/web/public/icon.svg`). The boards are drawn in Paprika by [`scripts/brand/draw-concepts.mjs`](../../../scripts/brand/draw-concepts.mjs). `proposta-*.png` are the earlier proposals.

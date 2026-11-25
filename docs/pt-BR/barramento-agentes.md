@@ -1,4 +1,4 @@
-[🇺🇸 English](../agent-bus.md) | 🇧🇷 Português
+[🇺🇸 English](../en-US/agent-bus.md) | 🇧🇷 Português
 
 # Barramento de agentes (multi-vendor)
 

@@ -11,7 +11,7 @@ import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { Hint } from "./components/ui/tooltip";
 
-/** Team sync status from the server (`/api/team`, `{type: "team"}` on /ws). See docs/team-sync.md. */
+/** Team sync status from the server (`/api/team`, `{type: "team"}` on /ws). See docs/en-US/team-sync.md. */
 export interface TeamMember {
   key: string;
   name: string;

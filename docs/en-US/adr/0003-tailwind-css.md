@@ -1,11 +1,11 @@
-🇺🇸 English | [🇧🇷 Português](../pt-BR/adr/0003-tailwind-css.md)
+🇺🇸 English | [🇧🇷 Português](../../pt-BR/adr/0003-tailwind-css.md)
 
 # ADR 0003: Tailwind CSS for the canvas app UI
 
 - **Status:** Accepted, amended by ADR 0005
 - **Date:** 2026-11-21 (amended 2026-11-22)
 - **Amended by:** [ADR 0005: shadcn components on Paprika's closed theme](0005-shadcn-ui.md) — the constraints below stay; that ADR adds how a component library lives under them.
-- **Code:** [`apps/web/src/styles.css`](../../apps/web/src/styles.css) (theme), [`apps/web/src/ui.ts`](../../apps/web/src/ui.ts) (shared class lists), [`apps/web/vite.config.ts`](../../apps/web/vite.config.ts)
+- **Code:** [`apps/web/src/styles.css`](../../../apps/web/src/styles.css) (theme), [`apps/web/src/ui.ts`](../../../apps/web/src/ui.ts) (shared class lists), [`apps/web/vite.config.ts`](../../../apps/web/vite.config.ts)
 
 ## Context
 
@@ -29,7 +29,7 @@ defaults (architecture decision 4). The app's CSS must not leak into the nodes u
    document would render differently in the canvas than in the export and the screenshot. Without it, the
    utilities sit on the same defaults the old stylesheet was written against.
 3. **A closed theme.** `--color-*`, `--text-*`, `--radius-*` and `--breakpoint-*` are reset and redefined from
-   the "Estúdio noturno" brand (docs/brand): `bg-panel`, `text-muted`, `border-line`, `bg-accent-soft`,
+   the "Estúdio noturno" brand (docs/en-US/brand): `bg-panel`, `text-muted`, `border-line`, `bg-accent-soft`,
    `text-select`… Tailwind's default palette is not available, so a stray `bg-blue-500` does not compile. The
    root font size stays 13px, so `--spacing` is `4px` instead of `0.25rem` (the usual scale: `p-3` = 12px).
    The breakpoint `wide` (901px) replaces the old `max-width: 900px` query (`max-wide:hidden`). The theme is

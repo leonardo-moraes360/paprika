@@ -1,4 +1,4 @@
-[🇺🇸 English](../visual-verification.md) | 🇧🇷 Português
+[🇺🇸 English](../en-US/visual-verification.md) | 🇧🇷 Português
 
 # Verificação visual
 

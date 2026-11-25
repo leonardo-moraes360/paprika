@@ -1,12 +1,12 @@
 // Package visualdiff compares two screenshots and says, in numbers, whether they are the
 // same picture. It is the first piece of the assisted adversarial verification loop
-// (docs/visual-verification.md): the generator changes the app, the discriminator re-renders
+// (docs/en-US/visual-verification.md): the generator changes the app, the discriminator re-renders
 // the reference and re-runs this comparison, and a score below the bar fails the round.
 //
 // The metric is a perceptual colour difference in YIQ with an anti-aliasing filter, so that a
 // sub-pixel difference on a diagonal edge does not fail a board. The approach is the one
 // popularised by pixelmatch (ISC); this is our own implementation — no code was copied — and
-// the choices that matter are written down in docs/visual-verification.md so that a change
+// the choices that matter are written down in docs/en-US/visual-verification.md so that a change
 // here is visible to the discriminator.
 //
 // Every exception is explicit: a mask that skips pixels must carry a reason, and the diff

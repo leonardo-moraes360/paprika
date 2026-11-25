@@ -1,8 +1,8 @@
-🇺🇸 English | [🇧🇷 Português](README.pt-BR.md)
+🇺🇸 English | [🇧🇷 Português](docs/pt-BR/README.md)
 
-<p align="center"><img src="docs/brand/icon.svg" alt="Paprika icon" width="128"></p>
+<p align="center"><img src="docs/en-US/brand/icon.svg" alt="Paprika icon" width="128"></p>
 
-<p align="center"><img src="docs/assets/paprika-window.png" alt="Paprika canvas open on the brand proposals: layers on the left, canvas in the middle, document tokens on the right" width="900"></p>
+<p align="center"><img src="docs/en-US/assets/paprika-window.png" alt="Paprika canvas open on the brand proposals: layers on the left, canvas in the middle, document tokens on the right" width="900"></p>
 
 # Paprika
 
@@ -44,7 +44,7 @@ The first build takes a few minutes. When it finishes:
 
 Your designs are kept in a Docker volume, so they survive restarts. `docker compose down` stops Paprika; `docker compose up -d` starts it again.
 
-Prefer not to use Docker? See [running from source](docs/development.md#run-from-source).
+Prefer not to use Docker? See [running from source](docs/en-US/development.md#run-from-source).
 
 ### Or let your agent set it up
 
@@ -81,22 +81,22 @@ If something fails, show me the error and what you'd suggest. Keep host port
 - Make **diagrams**: boxes, decisions, sticky notes and arrows that follow the shapes.
 - Paste SVG or HTML from anywhere and get editable layers; download the result as SVG.
 - See **every connected agent** on the canvas with its own cursor, name and color.
-- Work as a **team without a server**: `paprika serve --team` connects each person's Paprika and agents peer to peer (Iroh + a Loro CRDT), with invites by link or QR and only the team's keys accepted ([Team sync](docs/team-sync.md)).
+- Work as a **team without a server**: `paprika serve --team` connects each person's Paprika and agents peer to peer (Iroh + a Loro CRDT), with invites by link or QR and only the team's keys accepted ([Team sync](docs/en-US/team-sync.md)).
 
-The full list of tools and shortcuts is in [Using the canvas](docs/canvas.md).
+The full list of tools and shortcuts is in [Using the canvas](docs/en-US/canvas.md).
 
 ## Learn more
 
 | If you want to… | Read |
 |---|---|
-| Learn the canvas, shortcuts and diagrams | [Using the canvas](docs/canvas.md) |
-| Connect an agent, see every MCP tool and the file format | [Agents and MCP](docs/mcp.md) |
-| Run with Docker: import, export, backups, ports | [Docker](docs/docker.md) |
-| Build from source, run the tests, contribute code | [Development](docs/development.md) · [CI](docs/ci.md) |
-| Understand how it is built | [Architecture](docs/architecture.md) · [Go server](server/README.md) · [Decisions (ADRs)](docs/adr/) |
-| Check a screen against its approved board | [Visual verification](docs/visual-verification.md) |
-| See what another agent MCP taught us about ours | [Agent MCP study: Paper 0.5.19](docs/research/paper-mcp-0.5.19.md) |
-| See what's planned | [Backlog](docs/backlog.md) |
+| Learn the canvas, shortcuts and diagrams | [Using the canvas](docs/en-US/canvas.md) |
+| Connect an agent, see every MCP tool and the file format | [Agents and MCP](docs/en-US/mcp.md) |
+| Run with Docker: import, export, backups, ports | [Docker](docs/en-US/docker.md) |
+| Build from source, run the tests, contribute code | [Development](docs/en-US/development.md) · [CI](docs/en-US/ci.md) |
+| Understand how it is built | [Architecture](docs/en-US/architecture.md) · [Go server](server/README.md) · [Decisions (ADRs)](docs/en-US/adr/) |
+| Check a screen against its approved board | [Visual verification](docs/en-US/visual-verification.md) |
+| See what another agent MCP taught us about ours | [Agent MCP study: Paper 0.5.19](docs/en-US/research/paper-mcp-0.5.19.md) |
+| See what's planned | [Backlog](docs/en-US/backlog.md) |
 
 ## Good to know
 

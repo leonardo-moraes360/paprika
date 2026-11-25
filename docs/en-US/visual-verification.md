@@ -1,6 +1,6 @@
 # Visual verification
 
-🇺🇸 English | [🇧🇷 Português](pt-BR/verificacao-visual.md)
+🇺🇸 English | [🇧🇷 Português](../pt-BR/verificacao-visual.md)
 
 How Paprika proves, with numbers, that a screen of the app matches the board that was approved.
 The idea is adversarial on purpose: whoever built the screen is not the one who certifies it.

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { openDesignPage, saveShots, textOf } from "./design-board.mjs";
 
 const { root, client, call, workspaceId, pageId, Y } = await openDesignPage("pap-b-094-design");
-const outDir = join(root, "docs/assets/boards/PAP-B-094");
+const outDir = join(root, "docs/en-US/assets/boards/PAP-B-094");
 
 const themes = {
   light: {

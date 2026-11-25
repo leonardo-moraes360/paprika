@@ -1,8 +1,8 @@
 # Desenvolvimento
 
-Como rodar o Paprika a partir do código, a estrutura do repositório e as verificações antes de um pull request. Voltar ao [README](../../README.pt-BR.md).
+Como rodar o Paprika a partir do código, a estrutura do repositório e as verificações antes de um pull request. Voltar ao [README](README.md).
 
-English: [../development.md](../development.md).
+English: [../development.md](../en-US/development.md).
 
 ## Rodar sem Docker
 
@@ -71,4 +71,4 @@ source <(server/bin/paprika completion bash)    # também zsh e fish
 - A imagem Docker escuta em `0.0.0.0` dentro do contêiner; publique no loopback do host (`-p 127.0.0.1:4777:4777`, como faz o `compose.yaml`) ([docker.md](docker.md)).
 - Imagens `https://` são baixadas pelo Chromium ao tirar screenshots.
 
-Para reportar uma vulnerabilidade, veja o [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md).
+Para reportar uma vulnerabilidade, veja o [docs/pt-BR/SECURITY.md](SECURITY.md).

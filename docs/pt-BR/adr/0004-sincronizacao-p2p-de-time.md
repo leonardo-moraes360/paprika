@@ -1,4 +1,4 @@
-[🇺🇸 English](../../adr/0004-p2p-team-sync.md) | 🇧🇷 Português
+[🇺🇸 English](../../en-US/adr/0004-p2p-team-sync.md) | 🇧🇷 Português
 
 # ADR 0004: Sincronização P2P de time (transporte Iroh, CRDT Loro, sidecar em Rust)
 

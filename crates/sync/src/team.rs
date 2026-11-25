@@ -1,4 +1,4 @@
-//! The team file (allowlist of member keys) and invites (ADR 0004, docs/team-sync.md).
+//! The team file (allowlist of member keys) and invites (ADR 0004, docs/en-US/team-sync.md).
 
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -247,7 +247,7 @@ impl TeamFile {
         self.roster().members
     }
 
-    /// Who the team file vouches for (docs/team-sync.md, "Removing a member, rotating a key"):
+    /// Who the team file vouches for (docs/en-US/team-sync.md, "Removing a member, rotating a key"):
     /// 1. the founder chain: the founder key, then each key it rotated to;
     /// 2. removals signed by a founder-chain key, of a key outside that chain;
     /// 3. rotations signed by both keys, the first one per old key winning, unless the old key

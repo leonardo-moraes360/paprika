@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { connectBoard, textOf } from "./design-board.mjs";
 
 const { root, client, call } = await connectBoard("pap-b-047-design");
-const outDir = join(root, "docs/assets/boards/PAP-B-047");
+const outDir = join(root, "docs/en-US/assets/boards/PAP-B-047");
 
 const wsRaw = textOf(await call("list_workspaces"));
 let workspaces;

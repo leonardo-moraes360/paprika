@@ -4,7 +4,7 @@ import { connectBoard, saveShots } from "./design-board.mjs";
 
 const sdkRoot = process.env.PAPRIKA_SDK ?? "/home/leonardo/workspace/pessoal/paprika/packages/e2e/package.json";
 const { root, call } = await connectBoard("pap-b-084-design", sdkRoot);
-const outDir = join(root, "docs/assets/boards/PAP-B-084");
+const outDir = join(root, "docs/en-US/assets/boards/PAP-B-084");
 
 function textOf(result) {
   const parts = [];

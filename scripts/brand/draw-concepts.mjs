@@ -1,7 +1,7 @@
 // Draws the brand concept boards (A–D, and E/F = the chosen "Trio Pixel" light/dark) over MCP HTTP, in a NEW workspace.
 // Never calls open_workspace (the active workspace is left alone): every call carries workspaceId.
 // Usage: PAPRIKA_MCP=http://127.0.0.1:4777/mcp node scripts/brand/draw-concepts.mjs [--shots DIR]  (APPEND_WS=<id> ONLY=E,F to add boards)
-// Screenshots use render_screenshot: export_image took 6–23 s per board here (docs/agent-feedback.md #181).
+// Screenshots use render_screenshot: export_image took 6–23 s per board here (docs/en-US/agent-feedback.md #181).
 import { connectBoard, saveShots, textOf } from "../design-board.mjs";
 import { circle, gridSymbol, rrect, symbolLayers, wordmarkPath } from "./trio-pixel.mjs";
 

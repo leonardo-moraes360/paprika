@@ -1,6 +1,6 @@
 # CI
 
-> English: [docs/ci.md](../ci.md)
+> English: [docs/en-US/ci.md](../en-US/ci.md)
 
 O CI do Paprika roda **apenas em pull requests** (`opened`, `synchronize`, `reopened`, `ready_for_review`). Nada roda em push nem depois do merge: a execução da PR é o gate. Um novo push na mesma PR cancela a execução que ainda está em andamento.
 

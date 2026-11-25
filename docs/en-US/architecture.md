@@ -1,4 +1,4 @@
-🇺🇸 English | [🇧🇷 Português](pt-BR/arquitetura.md)
+🇺🇸 English | [🇧🇷 Português](../pt-BR/arquitetura.md)
 
 # Architecture
 

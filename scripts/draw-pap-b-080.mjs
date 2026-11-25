@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { saveShots, textOf, unwrapTool } from "./design-board.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = join(root, "docs/assets/boards/PAP-B-080");
+const outDir = join(root, "docs/en-US/assets/boards/PAP-B-080");
 const mcpUrl = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4777/mcp";
 
 let session = "";

@@ -11,7 +11,7 @@ import (
 
 // view is the part of a document that the team syncs: stored fields only. Derived data (instance
 // copies, a connector's geometry, a group's size, an instance root's component fields) is left
-// out, because applyOps recomputes it on every peer (ADR 0004, docs/team-sync.md).
+// out, because applyOps recomputes it on every peer (ADR 0004, docs/en-US/team-sync.md).
 type view struct {
 	name     string
 	nodes    map[string]*jsonv.Object // id → synced fields (no id, parentId, children)
@@ -136,7 +136,7 @@ func equalIDs(a, b []string) bool {
 	return true
 }
 
-// Change is one entry of a change set for the sidecar (docs/team-sync.md).
+// Change is one entry of a change set for the sidecar (docs/en-US/team-sync.md).
 type Change map[string]any
 
 // Diff is the change set that turns prev into next (both full documents or state documents).

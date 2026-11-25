@@ -1,4 +1,4 @@
-🇺🇸 English | [🇧🇷 Português](../pt-BR/adr/0001-servidor-go-sqlite.md)
+🇺🇸 English | [🇧🇷 Português](../../pt-BR/adr/0001-servidor-go-sqlite.md)
 
 # ADR 0001: Go server with SQLite storage
 

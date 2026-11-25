@@ -44,7 +44,7 @@ updates:
       - dependency-name: wasm-bindgen
 
   # Base images of the Dockerfile (tags such as rust:1.100-slim-trixie). The checksum-pinned
-  # downloads in it (wasm-bindgen, Chrome headless shell) are bumped by hand: see docs/docker.md.
+  # downloads in it (wasm-bindgen, Chrome headless shell) are bumped by hand: see docs/en-US/docker.md.
   - package-ecosystem: docker
     directory: /
     schedule:

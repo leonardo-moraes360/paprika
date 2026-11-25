@@ -1,12 +1,12 @@
 # Marca do Paprika · Trio Pixel
 
-[English](../brand/README.md)
+[English](../en-US/brand/README.md)
 
-Escolhida em 2026-11-25 entre seis direções de conceito (boards em [`docs/assets/boards/brand-trio-pixel`](../assets/boards/brand-trio-pixel)). Mistura o **Trio** (os pimentões vermelho, amarelo e verde) com o **Pixel** (o pimentão como o canvas vê: uma grade, já selecionada).
+Escolhida em 2026-11-25 entre seis direções de conceito (boards em [`docs/en-US/assets/boards/brand-trio-pixel`](../en-US/assets/boards/brand-trio-pixel)). Mistura o **Trio** (os pimentões vermelho, amarelo e verde) com o **Pixel** (o pimentão como o canvas vê: uma grade, já selecionada).
 
 | Claro | Escuro |
 |---|---|
-| ![Board claro](../assets/boards/brand-trio-pixel/01-light.png) | ![Board escuro](../assets/boards/brand-trio-pixel/02-dark.png) |
+| ![Board claro](../en-US/assets/boards/brand-trio-pixel/01-light.png) | ![Board escuro](../en-US/assets/boards/brand-trio-pixel/02-dark.png) |
 
 ## Símbolo
 

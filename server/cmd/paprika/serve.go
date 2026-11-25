@@ -43,7 +43,7 @@ func newServeCmd(h handlers) *cobra.Command {
 		Use:   "serve",
 		Short: "Sobe o canvas, a API HTTP, o MCP via HTTP e o sync ao vivo",
 		Long: "Canvas em http://host:port, MCP Streamable HTTP em /mcp, sync ao vivo em /ws.\n" +
-			"Com --team, sobe o sidecar paprika-sync e sincroniza com o time P2P (docs/team-sync.md).",
+			"Com --team, sobe o sidecar paprika-sync e sincroniza com o time P2P (docs/en-US/team-sync.md).",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validPort(o.Port); err != nil {
 				return err
