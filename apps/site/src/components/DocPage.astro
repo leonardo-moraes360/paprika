@@ -1,0 +1,50 @@
+---
+import Docs from "../layouts/Docs.astro";
+import { GROUPS, HOME, type DocEntry, type Lang } from "../docs.config";
+import { renderDoc } from "../lib/markdown";
+import { href } from "../lib/paths";
+import { UI } from "../lib/ui";
+
+interface Props {
+  entry: DocEntry;
+  lang: Lang;
+}
+const { entry, lang } = Astro.props;
+const ui = UI[lang];
+const page = entry.out[lang];
+const isHome = entry === HOME;
+const doc = isHome ? null : renderDoc(entry.src[lang], page, lang);
+const pathTargets = [GROUPS[0].items[1], GROUPS[0].items[2], GROUPS[4].items[0]];
+const colors = ["var(--yellow)", "var(--red)", "var(--green)"];
+---
+<Docs lang={lang} entry={entry} title={doc?.title || entry.title[lang]} headings={doc?.headings} src={isHome ? undefined : entry.src[lang]}>
+  {isHome ? (
+    <>
+      <h1>{ui.homeTitle}</h1>
+      <p class="home-lead">{ui.homeLead}</p>
+      <div class="paths">
+        {ui.paths.map(([title, body, cta], i) => (
+          <a class="path" href={href(page, pathTargets[i].out[lang])}>
+            <i style={`background:${colors[i]}`} aria-hidden="true"></i>
+            <strong>{title}</strong>
+            <span>{body}</span>
+            <em>{cta} →</em>
+          </a>
+        ))}
+      </div>
+      <section class="everything">
+        <h2>{ui.everything}</h2>
+        <div class="groups">
+          {GROUPS.map((g) => (
+            <section>
+              <h3>{g.title[lang]}</h3>
+              <ul>{g.items.map((e) => <li><a href={href(page, e.out[lang])}>{e.title[lang]}</a></li>)}</ul>
+            </section>
+          ))}
+        </div>
+      </section>
+    </>
+  ) : (
+    <Fragment set:html={doc!.html} />
+  )}
+</Docs>

@@ -22,6 +22,7 @@ export const PLAN_KEYS = [
   "codeql",
   "codeql_matrix",
   "docker",
+  "site",
 ];
 
 export function isFullRun(files, ciFull = false) {
@@ -59,6 +60,8 @@ export function planFor(files, { ciFull = false } = {}) {
   if (go) codeql.push("go");
   if (rust || area(/^crates\/sync\//)) codeql.push("rust");
 
+  const site = core || area(/^(apps\/site|scripts\/brand)\//);
+
   const docker = dockerfiles || core || web || go || area(/^crates\/sync\//);
 
   return {
@@ -76,6 +79,7 @@ export function planFor(files, { ciFull = false } = {}) {
     codeql: codeql.length > 0,
     codeql_matrix: JSON.stringify(codeql),
     docker,
+    site,
   };
 }
 

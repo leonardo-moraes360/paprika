@@ -44,6 +44,7 @@ jobs:
       codeql: ${{ steps.plan.outputs.codeql }}
       codeql_matrix: ${{ steps.plan.outputs.codeql_matrix }}
       docker: ${{ steps.plan.outputs.docker }}
+      site: ${{ steps.plan.outputs.site }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -483,13 +484,31 @@ jobs:
           retention-days: 7
           path: ${{ runner.temp }}/gitleaks.sarif
 
+  # ---------------------------------------------------------------- Site
+
+  site:
+    name: Site build (Astro + Pagefind)
+    needs: plan
+    if: needs.plan.outputs.site == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node-pnpm
+      - name: Build core
+        run: pnpm --filter @paprika/core build
+      - name: Build site
+        run: pnpm --filter @paprika/site site:build
+
   # ---------------------------------------------------------------- Gate
 
   ci-ok:
     name: CI OK
     # The one check to require in branch protection: green when every job that ran passed and
     # the skipped ones were skipped on purpose by the plan.
-    needs: [plan, build, unit, suites, golden, go-lint, govulncheck, go-test, rust, sync, codeql, docker, secrets]
+    needs: [plan, build, unit, suites, golden, go-lint, govulncheck, go-test, rust, sync, codeql, docker, secrets, site]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2

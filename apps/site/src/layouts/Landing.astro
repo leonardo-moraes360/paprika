@@ -1,0 +1,39 @@
+---
+import Head from "../components/Head.astro";
+import { landingFrames } from "../lib/landing";
+import { rel } from "../lib/paths";
+
+interface Props {
+  lang: "en" | "pt-BR";
+  page: string;
+  title: string;
+  description: string;
+}
+const { lang, page, title, description } = Astro.props;
+const { desktop, mobile } = landingFrames(lang);
+const pages: [string, string][] = [["en", "index.html"], ["pt-BR", "pt-BR/index.html"]];
+---
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <Head lang={lang} title={title} description={description} page={page} alternates={pages} icon={rel(page, "icon.svg")} />
+    <style is:global>
+      html, body { margin: 0; padding: 0; background: #141827; }
+      body { font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; color-scheme: dark; }
+      a { text-decoration: none; color: inherit; cursor: pointer; }
+      a:hover, button[data-copy]:hover { filter: brightness(1.15); }
+      button[data-copy] { font: inherit; cursor: pointer; background: none; }
+      a:focus-visible, button:focus-visible { outline: 2px solid #4cc7d8; outline-offset: 3px; border-radius: 6px; }
+      h1, h2, h3 { margin: 0; font-size: inherit; font-weight: inherit; }
+      .lp-mobile { display: none; }
+      @media (max-width: 760px) { .lp-desktop { display: none; } .lp-mobile { display: block; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="lp-desktop" set:html={desktop} />
+      <div class="lp-mobile" set:html={mobile} />
+    </main>
+    <slot />
+  </body>
+</html>
