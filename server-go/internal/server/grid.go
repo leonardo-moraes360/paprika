@@ -279,7 +279,7 @@ func drawGrid(img *image.NRGBA, start Region, scale, step float64, g *GridSpec) 
 	ys := gridValues(start.Y, start.H, step)
 	for _, v := range xs {
 		px := gridPixel(v, start.X, scale)
-		for y := 0; y < h; y++ {
+		for y := range h {
 			blend(img, px-1, y, white, 0.25)
 			blend(img, px+1, y, dark, 0.25)
 			blend(img, px, y, g.Color, 0.7)
@@ -287,7 +287,7 @@ func drawGrid(img *image.NRGBA, start Region, scale, step float64, g *GridSpec) 
 	}
 	for _, v := range ys {
 		py := gridPixel(v, start.Y, scale)
-		for x := 0; x < w; x++ {
+		for x := range w {
 			blend(img, x, py-1, white, 0.25)
 			blend(img, x, py+1, dark, 0.25)
 			blend(img, x, py, g.Color, 0.7)

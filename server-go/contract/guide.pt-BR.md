@@ -33,7 +33,8 @@ Componentes: um frame com component: true é um componente (create_component). E
   cópia aninhada se endereça pelo caminho instancia/copia, e esse caminho também aceita propValues e slots. Na
   raiz, fill vira override e width/height/layout/stroke/radius/shadow/clip vêm do componente (use scale). Uma prop
   text dirige o texto de text e shape via bind.text; uma boolean dirige bind.visible; bind.variant omite o nó
-  salvo quando cada par combina. Cópias não podem ser movidas, apagadas nem receber filhos: edite o componente
+  salvo quando cada par combina. O bind é checado no fim da transação: um só create_nodes pode levar os filhos com bind
+  e component: true no frame deles. Cópias não podem ser movidas, apagadas nem receber filhos: edite o componente
   ou detach_instance.
 path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),
   stroke {color,width} (traço), fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),

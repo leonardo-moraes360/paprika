@@ -383,6 +383,40 @@ describe("API: MCP", () => {
     expect(outlineText(await call(c, "get_document_outline", { rootId: "c1" }))).toContain("Salvar");
   });
 
+  it("bind na mesma transação do componente e detach de instância com bind", async () => {
+    const c = client;
+    const bad = await call(c, "create_nodes", {
+      nodes: [{ type: "frame", id: "plain", width: 80, height: 30, children: [{ type: "rect", id: "fe-btn-press", width: 4, height: 4, bind: { visible: "pressed" } }] }],
+    });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toContain('"fe-btn-press" has a bind outside a component: none of its ancestors is a component');
+    const made = await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "frame", id: "btn", component: true, width: 120, height: 40,
+          componentProps: [
+            { name: "label", type: "text", default: "OK" },
+            { name: "pressed", type: "boolean", default: false },
+          ],
+          children: [
+            { type: "text", id: "lbl", text: "OK", width: 40, height: 20, bind: { text: "label" } },
+            { type: "rect", id: "fe-btn-press", width: 8, height: 8, bind: { visible: "pressed" } },
+          ],
+        },
+      ],
+    });
+    expect(made.isError).toBeFalsy();
+    await call(c, "create_instance", { componentId: "btn", id: "i1", propValues: { label: "Salvar", pressed: true } });
+    const detached = await call(c, "detach_instance", { ids: ["i1"] });
+    expect(detached.isError).toBeFalsy();
+    const dumpDoc = await srv.doc();
+    const dump = JSON.stringify(Object.values(dumpDoc.nodes).filter((n) => n.id.startsWith("i1")));
+    expect(dump).toContain("Salvar");
+    expect(dump).not.toContain("instanceOf");
+    expect(dump).not.toContain('"bind"');
+    expect(dump).not.toContain("sourceId");
+  });
+
   it("grupos e páginas", async () => {
     const c = client;
     await call(c, "create_nodes", {
@@ -764,6 +798,39 @@ describe("API: MCP", () => {
     const gap = (await srv.doc()).nodes.gap as PathNode;
     expect(gap).toMatchObject({ x: 40, y: 30, width: 40, height: 40 });
     expect(gap.d.startsWith("M0 0") || gap.d.startsWith("M0 0 ")).toBe(true);
+  });
+
+  it("get_bounds segue layout.wrap: linhas quebradas, altura hug e ids de outra página", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      place: "none",
+      nodes: [{
+        type: "frame", id: "wchips", x: 0, y: 0, width: 400, height: "hug",
+        layout: { mode: "row", gap: 12, wrap: true },
+        children: Array.from({ length: 11 }, (_, i) => ({ type: "rect", id: `wchip${i}`, width: 88, height: 40, fill: "#c43d27" })),
+      }],
+    });
+    // 400 holds four 88px chips and three gaps (388): lines of 4, 4 and 3
+    const wrapped = JSON.parse(textOf(await call(c, "get_bounds", { ids: ["wchips", "wchip3", "wchip4", "wchip10"] })));
+    expect(wrapped.boxes.wchips).toMatchObject({ width: 400, height: 3 * 40 + 2 * 12 });
+    expect(wrapped.boxes.wchip3).toMatchObject({ x: 3 * 100, y: 0 });
+    expect(wrapped.boxes.wchip4).toMatchObject({ x: 0, y: 52 });
+    expect(wrapped.boxes.wchip10).toMatchObject({ x: 200, y: 104 });
+    const lint = textOf(await call(c, "lint_design", {}));
+    expect(lint).not.toContain("layout-overflow");
+
+    await call(c, "create_page", { name: "Segunda" });
+    const doc = await srv.doc();
+    const second = Object.values(doc.nodes).find((n) => n.type === "page" && n.name === "Segunda")!;
+    await call(c, "create_nodes", {
+      parentId: second.id,
+      place: "none",
+      nodes: [{ type: "frame", id: "other", x: 700, y: 20, width: 100, height: 60, children: [{ type: "rect", id: "otherkid", x: 5, y: 6, width: 10, height: 10 }] }],
+    });
+    const both = JSON.parse(textOf(await call(c, "get_bounds", { ids: ["wchips", "otherkid", second.id] })));
+    expect(both.boxes.wchips).toBeDefined();
+    expect(both.boxes.otherkid).toMatchObject({ x: 705, y: 26 });
+    expect(both.unplaced).toEqual([{ id: second.id, reason: expect.stringContaining("page") }]);
   });
 
   it("layoutPositioning absolute sai do fluxo, do gap e do hug", async () => {
