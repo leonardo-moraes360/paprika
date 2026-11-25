@@ -26,3 +26,4 @@ export * from "./boolean.js";
 export * from "./convert.js";
 export * from "./placement.js";
 export * from "./shapes.js";
+export * from "./strokeOutline.js";
