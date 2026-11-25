@@ -162,6 +162,21 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript", "rust"]);
   });
 
+  it("every file the WASM parity depends on runs the e2e suite that compares DOM and WASM", () => {
+    for (const file of [
+      "crates/render/src/scene.rs",
+      "packages/core/src/displayList.ts",
+      "packages/core/src/style.ts",
+      "apps/web/src/wasmLayer.ts",
+      "packages/e2e/test/e2e/wasm.e2e.test.ts",
+      "packages/e2e/fixtures/wasm-path-stroke.paprika.json",
+    ]) {
+      const p = plan([file]);
+      assert.equal(p.build, true, file);
+      assert.ok(JSON.parse(p.suites_matrix).some((s) => s.suite === "e2e"), file);
+    }
+  });
+
   it("crates/sync runs the team sync job, Rust CodeQL and the image, not the canvas", () => {
     const p = plan(["crates/sync/src/node.rs"]);
     assert.equal(p.sync, true);

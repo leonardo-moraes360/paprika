@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +35,7 @@ type Chrome struct {
 	stop       context.CancelFunc
 	saved      map[string][]byte
 	savedOrder []string
+	canvas     string
 }
 
 const maxSide = 4096.0
@@ -235,6 +237,11 @@ func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID stri
 }
 
 func (c *Chrome) ScreenshotMode(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) ([]byte, int, int, error) {
+	png, w, h, _, err := c.ScreenshotScaled(ctx, doc, rootID, scale, mode)
+	return png, w, h, err
+}
+
+func (c *Chrome) ScreenshotScaled(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) ([]byte, int, int, float64, error) {
 	doc = docForMode(doc, rootID, mode)
 	bg := ""
 	if rootID != "" {
@@ -244,7 +251,7 @@ func (c *Chrome) ScreenshotMode(ctx context.Context, doc *core.Document, rootID 
 	}
 	html, bounds, err := core.RenderHTML(doc, core.RenderOptions{RootID: rootID, Background: bg})
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, 0, 0, err
 	}
 	html = withInterFaces(html)
 	measureW, measureH := false, false
@@ -270,7 +277,7 @@ func (c *Chrome) ScreenshotMode(ctx context.Context, doc *core.Document, rootID 
 	scale = math.Max(0.1, math.Min(scale, math.Min(maxSide/width, maxSide/height)))
 	browser, err := c.ensure()
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, 0, 0, err
 	}
 	tab, cancel := chromedp.NewContext(browser)
 	defer cancel()
@@ -284,18 +291,17 @@ func (c *Chrome) ScreenshotMode(ctx context.Context, doc *core.Document, rootID 
 		}
 	}()
 	var png []byte
-	err = chromedp.Do(tab, loadHTML(html, width, height, scale, rootID != ""))
+	err = chromedp.Do(tab, loadHTML(html, width, height, rootID != ""))
 	if err == nil && (measureW || measureH) {
 		var size []float64
 		size, err = chromedp.Run(tab, chromedp.Evaluate[[]float64](fmt.Sprintf(measureRoot, measureW, measureH)))
 		if err == nil && len(size) == 2 {
 			width, height = size[0], size[1]
 			scale = math.Max(0.1, math.Min(want, math.Min(maxSide/width, maxSide/height)))
-			err = chromedp.Do(tab, chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
-				_, err := cdp.Call(ctx, t, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{Width: int64(width), Height: int64(height), DeviceScaleFactor: scale})
-				return err
-			}))
 		}
+	}
+	if err == nil {
+		err = chromedp.Do(tab, applyScale(width, height, scale))
 	}
 	if err == nil {
 		err = chromedp.Do(tab, chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
@@ -306,9 +312,9 @@ func (c *Chrome) ScreenshotMode(ctx context.Context, doc *core.Document, rootID 
 		}))
 	}
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf("screenshot falhou: %w", err)
+		return nil, 0, 0, 0, fmt.Errorf("screenshot falhou: %w", err)
 	}
-	return png, int(math.Round(width * scale)), int(math.Round(height * scale)), nil
+	return png, int(math.Round(width * scale)), int(math.Round(height * scale)), scale, nil
 }
 
 const viewportGuess = 1280
@@ -326,10 +332,20 @@ const measureRoot = `((mw, mh) => {
   return [w, h];
 })(%t, %t)`
 
-func loadHTML(html string, width, height, scale float64, transparent bool) chromedp.Action[chromedp.Void] {
+func applyScale(width, height, scale float64) chromedp.Action[chromedp.Void] {
 	return chromedp.Steps(
 		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
-			_, err := cdp.Call(ctx, t, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{Width: int64(width), Height: int64(height), DeviceScaleFactor: scale})
+			_, err := cdp.Call(ctx, t, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{Width: int64(math.Round(width * scale)), Height: int64(math.Round(height * scale)), DeviceScaleFactor: 1})
+			return err
+		}),
+		chromedp.Evaluate[chromedp.Void](fmt.Sprintf(`document.documentElement.style.zoom = "%s"`, strconv.FormatFloat(scale, 'f', -1, 64))),
+	)
+}
+
+func loadHTML(html string, width, height float64, transparent bool) chromedp.Action[chromedp.Void] {
+	return chromedp.Steps(
+		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
+			_, err := cdp.Call(ctx, t, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{Width: int64(width), Height: int64(height), DeviceScaleFactor: 1})
 			return err
 		}),
 		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {

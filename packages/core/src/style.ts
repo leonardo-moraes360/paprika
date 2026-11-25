@@ -17,6 +17,7 @@ import {
   type StrokeStyle,
   type TokenTypeName,
 } from "./schema.js";
+import { variantHidden } from "./component.js";
 import { NOTE_FOLD_FILL, shapeOutline, shapePadding } from "./diagram.js";
 
 export type CSS = Record<string, string | number>;
@@ -336,6 +337,7 @@ const ALIGN = { start: "flex-start", center: "center", end: "flex-end", stretch:
 export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; vars?: boolean } = {}): CSS {
   if (node.type === "page") return {};
   const mode = modeOf(doc, node);
+  const vis = node.visible && !variantHidden(doc, node);
   const paint = (v: string | number) => paintValue(doc, v, mode, opts.vars);
   const parent = node.parentId ? doc.nodes[node.parentId] : undefined;
   const parentMode = parent?.type === "frame" && parent.layout && parent.layout.mode !== "none" ? parent.layout.mode : null;
@@ -353,30 +355,34 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
   const sizeMode = opts.asRoot || absoluteChild ? null : parentMode;
   Object.assign(css, sizeProps("width", node.width, sizeMode));
   Object.assign(css, sizeProps("height", node.height, sizeMode));
+  if (sizeMode && "layoutGrow" in node && node.layoutGrow) {
+    const mainSize = sizeMode === "row" ? node.width : node.height;
+    if (mainSize !== "fill") css.flexGrow = node.layoutGrow;
+  }
 
   if (node.type === "group") {
     if (node.opacity !== 1) css.opacity = node.opacity;
-    if (!node.visible) css.display = "none";
+    if (!vis) css.display = "none";
     return css;
   }
   if (node.type === "connector") {
     if (node.opacity !== 1) css.opacity = node.opacity;
     css.overflow = "visible";
-    css.display = node.visible ? "block" : "none";
+    css.display = vis ? "block" : "none";
     return css;
   }
   if (node.rotation) css.transform = `rotate(${round(node.rotation)}deg)`;
   if (node.opacity !== 1) css.opacity = node.opacity;
   if ((node.type === "frame" || node.type === "text") && node.href) css.cursor = "pointer";
-  if (!node.visible) css.display = "none";
+  if (!vis) css.display = "none";
   if (node.type === "path") {
     css.overflow = "visible";
-    css.display = node.visible ? "block" : "none";
+    css.display = vis ? "block" : "none";
     applyShapeEffects(css, doc, node, mode, opts.vars, paint);
     return css;
   }
   if (node.type === "shape") {
-    css.display = node.visible ? "flex" : "none";
+    css.display = vis ? "flex" : "none";
     css.alignItems = node.shape === "note" ? "flex-start" : "center";
     css.justifyContent = "center";
     css.padding = shapePadding(node).map(px).join(" ");
@@ -413,10 +419,16 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
 
   switch (node.type) {
     case "frame": {
-      if (node.clip) css.overflow = "hidden";
+      if (node.clip) {
+        const bleed = outlineBleed(doc, node, mode);
+        if (bleed > 0) {
+          css.overflow = "clip";
+          css.overflowClipMargin = `${bleed}px`;
+        } else css.overflow = "hidden";
+      }
       const l = node.layout;
       if (l && l.mode !== "none") {
-        css.display = node.visible ? "flex" : "none";
+        css.display = vis ? "flex" : "none";
         css.flexDirection = l.mode;
         css.gap = lengthCSS(doc, l.gap, mode, opts.vars, "px");
         css.padding = paddingCSS(doc, l.padding, mode, opts.vars);
@@ -433,7 +445,7 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
     }
     case "image":
       css.objectFit = node.fit;
-      css.display = node.visible ? "block" : "none";
+      css.display = vis ? "block" : "none";
       break;
     default:
       break;
@@ -500,6 +512,27 @@ function applyLayerFilter(css: CSS, doc: Document, node: Extract<Node, { filter?
 function applyBackdrop(css: CSS, doc: Document, node: Extract<Node, { backdropFilter?: EffectFilter }>, mode: string | undefined, vars: boolean | undefined) {
   const fx = filterCSS(doc, node.backdropFilter, mode, vars);
   if (fx) css.backdropFilter = fx;
+}
+
+export function outlineBleed(doc: Document, frame: Extract<Node, { type: "frame" }>, mode: string | undefined): number {
+  let bleed = 0;
+  const seen = new Set<string>();
+  const visit = (ids: readonly string[]) => {
+    for (const id of ids) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const n = doc.nodes[id];
+      if (!n) continue;
+      if ("outline" in n && n.outline) {
+        const w = resolveLength(doc, n.outline.width, mode) ?? 0;
+        const off = n.outline.offset === undefined ? 0 : (resolveLength(doc, n.outline.offset, mode) ?? 0);
+        bleed = Math.max(bleed, Math.ceil(w + off));
+      }
+      if (n.type === "group" || (n.type === "frame" && !n.clip)) visit(n.children);
+    }
+  };
+  visit(frame.children);
+  return bleed;
 }
 
 function applyOutline(css: CSS, doc: Document, node: Extract<Node, { outline?: { color: string; width: number | string; style?: "solid" | "dashed" | "dotted"; offset?: number | string } }>, mode: string | undefined, vars: boolean | undefined, paint: PaintFn) {
@@ -755,7 +788,7 @@ export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean 
   return { svg, path, svgInner: painted?.inner ?? "" };
 }
 
-const UNITLESS = new Set(["opacity", "fontWeight", "lineHeight", "flexShrink", "zIndex"]);
+const UNITLESS = new Set(["opacity", "fontWeight", "lineHeight", "flexShrink", "flexGrow", "zIndex"]);
 
 export function cssToString(css: CSS): string {
   return Object.entries(css)

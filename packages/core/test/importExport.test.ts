@@ -202,6 +202,20 @@ describe("exportSVG", () => {
     expect(exportSVG(doc, { rootId: "a" }).svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" width="40" height="20" viewBox="0 0 40 20">/);
   });
 
+  it("outline vira um anel fora da caixa e o clip do frame cresce para não cortá-lo", () => {
+    const doc = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "frame", id: "row", width: 80, height: 30, layout: { mode: "row", gap: 8, padding: 0 }, children: [
+        { type: "rect", id: "a", width: 24, height: 24, radius: 4, outline: { color: "#0000ff", width: 2 } },
+        { type: "ellipse", id: "b", width: 24, height: 24, outline: { color: "#0000ff", width: 2, style: "dashed", offset: 1 } },
+      ] } },
+    ]).doc;
+    const svg = exportSVG(doc).svg;
+    expect(svg).toContain('<rect x="-1" y="-1" width="26" height="26" rx="5" fill="none" stroke="#0000ff" stroke-width="2"/>');
+    expect(svg).toContain('<ellipse cx="12" cy="12" rx="14" ry="14" fill="none" stroke="#0000ff" stroke-width="2" stroke-dasharray="6 5"/>');
+    expect(svg).toContain('<clipPath id="clip-row"><path d="M-3 -3');
+    expect(nodeStyle(doc, doc.nodes.row as never, true)).toMatchObject({ overflow: "clip", overflowClipMargin: "3px" });
+  });
+
   it("layout automático usa layout(doc), sem navegador", () => {
     const doc = example("demo.paprika.json");
     const r = exportSVG(doc);

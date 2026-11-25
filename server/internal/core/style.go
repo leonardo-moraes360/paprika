@@ -367,6 +367,7 @@ func NodeStyle(doc *Document, node *Node, asRoot bool) *CSS {
 }
 
 func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
+	vis := node.Bool("visible") && !variantHidden(doc, node)
 	if node.Str("type") == "page" {
 		return jsonv.NewObject()
 	}
@@ -408,12 +409,21 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	h, _ := node.Get("height")
 	sizeProps(css, "width", w, mode)
 	sizeProps(css, "height", h, mode)
+	if g := node.Num("layoutGrow"); mode != "" && g != 0 {
+		mainSize := h
+		if mode == "row" {
+			mainSize = w
+		}
+		if mainSize != "fill" {
+			css.Set("flexGrow", g)
+		}
+	}
 
 	if node.Str("type") == "group" {
 		if o := node.Num("opacity"); o != 1 {
 			css.Set("opacity", o)
 		}
-		if !node.Bool("visible") {
+		if !vis {
 			css.Set("display", "none")
 		}
 		return css
@@ -423,7 +433,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 			css.Set("opacity", o)
 		}
 		css.Set("overflow", "visible")
-		if node.Bool("visible") {
+		if vis {
 			css.Set("display", "block")
 		} else {
 			css.Set("display", "none")
@@ -439,7 +449,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	if t := node.Str("type"); (t == "frame" || t == "text") && node.Str("href") != "" {
 		css.Set("cursor", "pointer")
 	}
-	visible := node.Bool("visible")
+	visible := vis
 	if !visible {
 		css.Set("display", "none")
 	}
@@ -516,7 +526,12 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	switch typ {
 	case "frame":
 		if node.Bool("clip") {
-			css.Set("overflow", "hidden")
+			if bleed := outlineBleed(doc, node, themeMode); bleed > 0 {
+				css.Set("overflow", "clip")
+				css.Set("overflowClipMargin", jsString(bleed)+"px")
+			} else {
+				css.Set("overflow", "hidden")
+			}
 		}
 		if l := node.Obj("layout"); l != nil && l.Str("mode") != "none" {
 			if visible {
@@ -641,6 +656,38 @@ func applyBackdrop(css *CSS, doc *Document, node *Node, mode string, vars bool) 
 	if fx := filterCSS(doc, node.Obj("backdropFilter"), mode, vars); fx != "" {
 		css.Set("backdropFilter", fx)
 	}
+}
+
+func outlineBleed(doc *Document, frame *Node, mode string) float64 {
+	bleed := 0.0
+	seen := map[string]bool{}
+	var visit func(ids []string)
+	visit = func(ids []string) {
+		for _, id := range ids {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			n := GetNode(doc, id)
+			if n == nil {
+				continue
+			}
+			if o := n.Obj("outline"); o != nil {
+				wRaw, _ := o.Get("width")
+				w, _ := ResolveLength(doc, wRaw, mode)
+				off := 0.0
+				if offRaw, ok := o.Get("offset"); ok {
+					off, _ = ResolveLength(doc, offRaw, mode)
+				}
+				bleed = math.Max(bleed, math.Ceil(w+off))
+			}
+			if t := n.Str("type"); t == "group" || (t == "frame" && !n.Bool("clip")) {
+				visit(n.Strings("children"))
+			}
+		}
+	}
+	visit(frame.Strings("children"))
+	return bleed
 }
 
 func applyOutline(css *CSS, doc *Document, node *Node, mode string, vars bool, paint func(any) any) {
@@ -926,7 +973,7 @@ func PathAttrsVars(doc *Document, node *Node, vars bool) (svg, path []Attr, inne
 	return svg, path, inner
 }
 
-var unitless = map[string]bool{"opacity": true, "fontWeight": true, "lineHeight": true, "flexShrink": true, "zIndex": true}
+var unitless = map[string]bool{"opacity": true, "fontWeight": true, "lineHeight": true, "flexShrink": true, "flexGrow": true, "zIndex": true}
 
 var upperRe = regexp.MustCompile(`[A-Z]`)
 

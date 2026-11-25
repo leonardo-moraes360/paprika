@@ -65,7 +65,8 @@ import { clientToPath, PathEditOverlay, pathHit, pathScale, type PathEditState }
 import { childrenSelection, cycleSibling, layersUnderPoint } from "./hierarchy";
 import { eyedropperListening, finishCanvasSample, sampleCanvasColor, subscribeEyedropper } from "./eyedropper";
 import { LayerMenu } from "./LayerMenu";
-import { initialRendererMode, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
+import { captureParams } from "./capture";
+import { initialRendererMode, measureBoxes, saveRendererMode, useWasmLayer, wasmAvailable, type RendererMode } from "./wasmLayer";
 import { Button } from "./components/ui/button";
 import { GradientHandles } from "./GradientHandles";
 import { Hint } from "./components/ui/tooltip";
@@ -1038,6 +1039,18 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   }, [doc, settle]);
   useEffect(() => () => clearTimeout(pending.current?.timer), []);
   const wasmLayer = useWasmLayer({ mode: renderer, doc, view, viewportRef, worldRef, layoutKey: preview, pageId });
+  const capture = useMemo(captureParams, []);
+  const [captureBox, setCaptureBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!capture || !wasmLayer.active || !worldRef.current) return;
+    const node = doc.nodes[capture.id];
+    if (!node) return;
+    const b = node.type === "page" ? canvasBounds(doc, node.id) : measureBoxes(worldRef.current).get(capture.id);
+    if (!b) return;
+    const box = "w" in b ? b : { x: b.x, y: b.y, w: b.width, h: b.height };
+    setView((v) => (v.zoom === 1 && v.x === -box.x && v.y === -box.y ? v : { zoom: 1, x: -box.x, y: -box.y }));
+    setCaptureBox((prev) => (prev && prev.x === box.x && prev.y === box.y && prev.w === box.w && prev.h === box.h ? prev : box));
+  }, [capture, wasmLayer.active, wasmLayer.painted, doc, preview]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [link, setLink] = useState<LinkDraft | null>(null);
   const [textEditId, setTextEditId] = useState<string | null>(null);
@@ -2450,7 +2463,9 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         pan === "panning" && "is-panning cursor-grabbing! **:cursor-grabbing!",
         sampling && "cursor-crosshair! **:cursor-crosshair!",
         fileOver && "outline outline-2 outline-select outline-offset-[-2px]",
+        capture && "fixed! z-[100000] bg-transparent! bg-none! [&>*:not(.world,[data-testid=wasm-layer])]:hidden",
       )}
+      data-capture-box={captureBox ? `${captureBox.x},${captureBox.y},${captureBox.w},${captureBox.h}` : undefined}
       data-eyedropper={sampling ? "1" : undefined}
       onPointerDownCapture={sampling ? onEyedropperDown : undefined}
       onPointerDown={onPointerDown}
@@ -2510,6 +2525,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           aria-hidden={renderer === "wasm" ? undefined : true}
           data-testid="wasm-layer"
           data-backend={wasmLayer.status.backend}
+          data-detail={wasmLayer.status.detail}
         />
       )}
       <div

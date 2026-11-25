@@ -293,3 +293,100 @@ func callTextJoin(r *jsonv.Object) string {
 	}
 	return b.String()
 }
+
+func shotOf(t *testing.T, opsJSON, root string, scale float64) (*core.Document, []byte, int, int) {
+	t.Helper()
+	ops, err := jsonv.Parse([]byte(opsJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := core.ApplyOps(core.CreateDocument("T", "d"), ops.([]any))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &Chrome{}
+	defer c.Close()
+	data, w, h, err := c.Screenshot(context.Background(), res.Doc, root, scale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res.Doc, data, w, h
+}
+
+func TestChromeScreenshotOutlineInClippingRow(t *testing.T) {
+	if FindChromium() == "" || chromiumProblem() != "" {
+		t.Skip("Chromium not found")
+	}
+	_, data, _, _ := shotOf(t, `[{"op":"create","node":{"type":"frame","id":"outer","width":"hug","height":"hug","fill":"#ffffff","layout":{"mode":"column","padding":10},"children":[
+		{"type":"frame","id":"row","width":"hug","height":"hug","layout":{"mode":"row","gap":12,"padding":0},"children":[
+			{"type":"rect","id":"a","width":24,"height":24,"fill":"#ff0000","outline":{"color":"#0000ff","width":2}},
+			{"type":"rect","id":"b","width":24,"height":24,"fill":"#00ff00","outline":{"color":"#0000ff","width":2}},
+			{"type":"rect","id":"c","width":24,"height":24,"outline":{"color":"#0000ff","width":2,"style":"solid"}}]}]}}]`, "outer", 1)
+	blue := func(x, y int) bool {
+		r, g, b := pngPixel(t, data, x, y)
+		return r < 40 && g < 40 && b > 200
+	}
+	if !blue(9, 22) {
+		t.Fatal("left side of the first outline is clipped by the row")
+	}
+	if !blue(22, 9) {
+		t.Fatal("top side of the first outline is clipped by the row")
+	}
+	if !blue(22, 35) {
+		t.Fatal("bottom side of the first outline is clipped by the row")
+	}
+	if !blue(107, 22) {
+		t.Fatal("right side of the last outline is clipped by the row")
+	}
+}
+
+func TestChromeScreenshotHalfPixelAtScale(t *testing.T) {
+	if FindChromium() == "" || chromiumProblem() != "" {
+		t.Skip("Chromium not found")
+	}
+	_, data, w, h := shotOf(t, `[{"op":"create","node":{"type":"frame","id":"root","width":200,"height":60,"fill":"#ffffff","children":[
+		{"type":"group","id":"g","x":113,"y":12.5,"children":[{"type":"rect","id":"a","x":0,"y":0,"width":24,"height":24,"fill":"#ff0000"}]}]}}]`, "root", 2.56)
+	if w != 512 || h != 154 {
+		t.Fatalf("size %dx%d", w, h)
+	}
+	x := 307
+	if r, g, b := pngPixel(t, data, x, 31); g < 250 || b < 250 || r < 250 {
+		t.Fatalf("row 31 above the rect is not white: %d,%d,%d", r, g, b)
+	}
+	if r, g, _ := pngPixel(t, data, x, 32); r < 250 || g > 5 {
+		t.Fatalf("rect does not start at device row 32 (12.5 * 2.56): %d,%d", r, g)
+	}
+}
+
+func TestExportImageReportsScaleCap(t *testing.T) {
+	if FindChromium() == "" || chromiumProblem() != "" {
+		t.Skip("Chromium not found")
+	}
+	s, _ := openTemp(t)
+	if _, err := s.Apply([]any{obj("op", "create", "node", obj("type", "rect", "id", "wide", "width", 3000.0, "height", 100.0, "fill", "#ff0000"))}, "test", "wide"); err != nil {
+		t.Fatal(err)
+	}
+	chrome := &Chrome{}
+	defer chrome.Close()
+	m := NewMCP(s, "agent:test", chrome)
+	r := m.CallTool(context.Background(), "export_image", obj("rootId", "wide", "format", "png", "scale", 4.0), true)
+	if r.Bool("isError") {
+		t.Fatalf("%v", r)
+	}
+	sc := r.Obj("structuredContent")
+	if sc.Num("width") != 4096 || sc.Num("height") != 137 {
+		t.Fatalf("size %vx%v", sc.Num("width"), sc.Num("height"))
+	}
+	if got := sc.Num("scale"); got < 1.36 || got > 1.37 {
+		t.Fatalf("scale %v", got)
+	}
+	w := sc.Arr("warnings")
+	if len(w) != 1 || !strings.Contains(w[0].(string), "4096") {
+		t.Fatalf("warnings %v", w)
+	}
+	r = m.CallTool(context.Background(), "export_image", obj("rootId", "wide", "format", "png", "scale", 1.0), true)
+	sc = r.Obj("structuredContent")
+	if sc.Num("scale") != 1 || len(sc.Arr("warnings")) != 0 {
+		t.Fatalf("uncapped: %v", sc)
+	}
+}

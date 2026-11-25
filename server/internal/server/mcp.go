@@ -1444,12 +1444,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "limit", Schema: z.Default(z.Int().Min(1).Max(200), 20.0)},
 		workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		entries, err := store.RecentHistoryIn(a.Str("workspaceId"), int(a.Num("limit")))
+		v, err := store.HistoryViewIn(a.Str("workspaceId"), int(a.Num("limit")))
 		if err != nil {
 			return nil, wsErr(a.Str("workspaceId"), err)
 		}
-		shown := jsonv.FromGo(entries)
-		return jsonShown(jsonv.NewObject("entries", shown), shown), nil
+		shown := jsonv.FromGo(v.Entries)
+		return jsonShown(jsonv.NewObject("entries", shown, "redo", jsonv.FromGo(v.Redo), "steps", jsonv.FromGo(v.Steps), "canUndo", v.CanUndo, "canRedo", v.CanRedo), shown), nil
 	})
 
 	add("list_workspaces", z.Object(
@@ -1754,6 +1754,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
 		optStr("path"),
 		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
+		z.Field{Name: "renderer", Schema: z.Optional(z.Enum("dom", "wasm"))},
 		optStr("compare"),
 		z.Field{Name: "grid", Schema: z.Optional(z.Union(z.Bool(), z.Object(
 			z.Field{Name: "step", Schema: z.Optional(z.Number().Positive())},
@@ -1775,7 +1776,24 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if err != nil {
 			return nil, err
 		}
-		png, w, h, err := m.shot.ScreenshotMode(ctx, d, a.Str("rootId"), a.Num("scale"), a.Str("mode"))
+		var png []byte
+		var w, h int
+		if a.Str("renderer") == "wasm" {
+			ws, ok := m.shot.(WASMScreenshotter)
+			if !ok {
+				return nil, errors.New(`renderer "wasm" is not available on this server`)
+			}
+			if a.Str("mode") != "" {
+				return nil, errors.New(`renderer "wasm" paints the canvas as the app shows it and does not take "mode"; omit mode or use renderer "dom"`)
+			}
+			head, herr := store.ReadWorkspace(a.Str("workspaceId"))
+			if herr != nil {
+				return nil, wsErr(a.Str("workspaceId"), herr)
+			}
+			png, w, h, err = ws.ScreenshotWASM(ctx, head.ID, d, a.Str("rootId"), a.Num("scale"))
+		} else {
+			png, w, h, err = m.shot.ScreenshotMode(ctx, d, a.Str("rootId"), a.Num("scale"), a.Str("mode"))
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -1893,6 +1911,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			"height", float64(out.Height),
 			"format", out.Format,
 			"mimeType", out.Mime,
+			"scale", out.Scale,
 			"warnings", jsonv.FromGo(out.Warnings),
 		)
 		return jsonv.NewObject("content", content, "structuredContent", sc), nil
@@ -2837,19 +2856,36 @@ func workspaceActionError(id string, err error) error {
 	return err
 }
 
+type scaledShooter interface {
+	ScreenshotScaled(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) (png []byte, width, height int, used float64, err error)
+}
+
 func (m *MCP) exportImage(ctx context.Context, d *core.Document, rootID, format string, scale float64) (export.Result, error) {
 	format = strings.ToLower(strings.TrimSpace(format))
 	if scale <= 0 {
 		scale = 1
 	}
 	if m.shot == nil || format == export.FormatPDF || scale < 0.1 || scale > 4 {
-		return export.Export(d, rootID, format, scale)
+		out, err := export.Export(d, rootID, format, scale)
+		out.Scale = scale
+		return out, err
 	}
-	png, _, _, err := m.shot.ScreenshotMode(ctx, d, rootID, scale, "")
+	var png []byte
+	used := scale
+	var err error
+	if sc, ok := m.shot.(scaledShooter); ok {
+		png, _, _, used, err = sc.ScreenshotScaled(ctx, d, rootID, scale, "")
+	} else {
+		png, _, _, err = m.shot.ScreenshotMode(ctx, d, rootID, scale, "")
+	}
 	if err == nil {
 		var out export.Result
 		if out, err = export.FromPNG(png, format); err == nil {
+			out.Scale = used
 			out.Warnings = []string{}
+			if used < scale-1e-9 {
+				out.Warnings = append(out.Warnings, fmt.Sprintf("scale lowered from %s to %s: a side would exceed %d px (the cap); output is %d×%d", jsonv.FormatNumber(scale), jsonv.FormatNumber(math.Round(used*10000)/10000), int(maxSide), out.Width, out.Height))
+			}
 			return out, nil
 		}
 	}
@@ -2857,6 +2893,7 @@ func (m *MCP) exportImage(ctx context.Context, d *core.Document, rootID, format 
 	if ferr != nil {
 		return out, ferr
 	}
+	out.Scale = scale
 	out.Warnings = append([]string{"Chromium unavailable (" + err.Error() + "): rendered with the built-in rasterizer, which can differ from render_screenshot in glyphs and strokes"}, out.Warnings...)
 	return out, nil
 }

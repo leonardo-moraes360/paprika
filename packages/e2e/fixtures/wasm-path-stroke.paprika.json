@@ -1,0 +1,182 @@
+{
+  "format": "paprika/1",
+  "id": "wasm-path-stroke",
+  "name": "WASM path stroke in viewBox units",
+  "tokens": {},
+  "rootIds": [
+    "board"
+  ],
+  "nodes": {
+    "board": {
+      "id": "board",
+      "name": "Board",
+      "parentId": null,
+      "type": "frame",
+      "x": 0,
+      "y": 0,
+      "width": 400,
+      "height": 260,
+      "fill": "#141827",
+      "clip": false,
+      "children": [
+        "small",
+        "wordmark",
+        "large",
+        "thin",
+        "wide",
+        "origin"
+      ]
+    },
+    "small": {
+      "id": "small",
+      "name": "small",
+      "parentId": "board",
+      "type": "path",
+      "x": 20,
+      "y": 20,
+      "width": 20,
+      "height": 20,
+      "viewBox": [
+        0,
+        0,
+        100,
+        100
+      ],
+      "d": "M0 50 H100",
+      "stroke": {
+        "color": "#ffffff",
+        "width": 10
+      },
+      "strokeCap": "butt",
+      "strokeJoin": "round",
+      "fillRule": "nonzero",
+      "radius": 0
+    },
+    "wordmark": {
+      "id": "wordmark",
+      "name": "wordmark",
+      "parentId": "board",
+      "type": "path",
+      "x": 70,
+      "y": 20,
+      "width": 180.4,
+      "height": 48,
+      "viewBox": [
+        0,
+        0,
+        872.2,
+        232
+      ],
+      "d": "M20 200 L200 30 L380 200 L560 30 L740 200 L852 60",
+      "stroke": {
+        "color": "#ffd166",
+        "width": 24
+      },
+      "strokeCap": "round",
+      "strokeJoin": "round",
+      "fillRule": "nonzero",
+      "radius": 0
+    },
+    "large": {
+      "id": "large",
+      "name": "large",
+      "parentId": "board",
+      "type": "path",
+      "x": 20,
+      "y": 80,
+      "width": 160,
+      "height": 160,
+      "viewBox": [
+        0,
+        0,
+        40,
+        40
+      ],
+      "d": "M4 36 L20 4 L36 36 Z",
+      "stroke": {
+        "color": "#06d6a0",
+        "width": 4
+      },
+      "strokeCap": "butt",
+      "strokeJoin": "round",
+      "fillRule": "nonzero",
+      "radius": 0
+    },
+    "thin": {
+      "id": "thin",
+      "name": "thin",
+      "parentId": "board",
+      "type": "path",
+      "x": 210,
+      "y": 90,
+      "width": 40,
+      "height": 40,
+      "viewBox": [
+        0,
+        0,
+        400,
+        400
+      ],
+      "d": "M20 380 L380 20",
+      "stroke": {
+        "color": "#ffffff",
+        "width": 8
+      },
+      "strokeCap": "butt",
+      "strokeJoin": "round",
+      "fillRule": "nonzero",
+      "radius": 0
+    },
+    "wide": {
+      "id": "wide",
+      "name": "wide",
+      "parentId": "board",
+      "type": "path",
+      "x": 210,
+      "y": 150,
+      "width": 160,
+      "height": 32,
+      "viewBox": [
+        10,
+        10,
+        100,
+        100
+      ],
+      "d": "M20 20 H100 V100 H20 Z",
+      "stroke": {
+        "color": "#ef476f",
+        "width": 10
+      },
+      "strokeCap": "butt",
+      "strokeJoin": "round",
+      "fillRule": "nonzero",
+      "radius": 0,
+      "fill": "#118ab2"
+    },
+    "origin": {
+      "id": "origin",
+      "name": "origin",
+      "parentId": "board",
+      "type": "path",
+      "x": 270,
+      "y": 90,
+      "width": 40,
+      "height": 40,
+      "viewBox": [
+        50,
+        50,
+        100,
+        100
+      ],
+      "d": "M50 100 H150",
+      "stroke": {
+        "color": "#f4a261",
+        "width": 20
+      },
+      "strokeCap": "square",
+      "strokeJoin": "round",
+      "fillRule": "nonzero",
+      "radius": 0
+    }
+  }
+}

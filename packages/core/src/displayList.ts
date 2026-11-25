@@ -1,3 +1,4 @@
+import { variantHidden } from "./component.js";
 import { parseColor } from "./lint.js";
 import { listShadows, pageRoots, type Document, type Node, type SceneNode } from "./schema.js";
 import { modeOf, nodeGradient, resolveCorners, resolveLength, resolveValue, strokePositionOf, strokeStyleOf, uniformCorner } from "./style.js";
@@ -152,9 +153,16 @@ function overlaps(a: AABB, b: AABB): boolean {
   return a.minX < b.maxX && b.minX < a.maxX && a.minY < b.maxY && b.minY < a.maxY;
 }
 
-function strokeOutset(doc: Document, n: Node): number {
+export function pathScale(n: Node, b: { w: number; h: number }): number {
+  if (n.type !== "path" || !n.viewBox) return 1;
+  const [, , vw, vh] = n.viewBox;
+  if (!(vw > 0 && vh > 0)) return 1;
+  return Math.min(b.w / vw, b.h / vh);
+}
+
+function strokeOutset(doc: Document, n: Node, b: Box): number {
   if (!("stroke" in n) || !n.stroke) return 0;
-  const w = resolveLength(doc, n.stroke.width, modeOf(doc, n)) ?? 0;
+  const w = (resolveLength(doc, n.stroke.width, modeOf(doc, n)) ?? 0) * pathScale(n, b);
   if (w <= 0) return 0;
   if (n.type === "connector") return w / 2;
   const pos = strokePositionOf(n);
@@ -182,7 +190,7 @@ function covers(doc: Document, n: Node): boolean {
 function coverage(doc: Document, n: Node, b: Box): AABB {
   const mode = modeOf(doc, n);
   const len = (v: number | string | undefined) => resolveLength(doc, v, mode) ?? 0;
-  let pad = Math.max(strokeOutset(doc, n), 0);
+  let pad = Math.max(strokeOutset(doc, n, b), 0);
   if ("outline" in n && n.outline) {
     const w = len(n.outline.width);
     const off = n.outline.offset !== undefined ? len(n.outline.offset) : 0;
@@ -247,7 +255,7 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, page
   const walk = (id: string, parentOpacity: number, pivots: readonly Pivot[]) => {
     const n = doc.nodes[id];
     const b = boxes.get(id);
-    if (!n || n.type === "page" || !b || !n.visible) return;
+    if (!n || n.type === "page" || !b || !n.visible || variantHidden(doc, n)) return;
     const o = parentOpacity * n.opacity;
     if (n.type === "group") {
       for (const c of n.children) walk(c, o, pivots);

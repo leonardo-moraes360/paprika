@@ -194,7 +194,7 @@ export const ComponentProp = z.object({
 export const Bind = z.object({
   text: PropName.optional(),
   visible: PropName.optional(),
-  variant: z.record(PropName, VariantOption).optional(),
+  variant: z.record(PropName, z.union([VariantOption, z.array(VariantOption).min(1).max(24)])).optional(),
 });
 
 export const PropValues = z.record(PropName, z.union([z.string().max(2000), z.boolean()]));
@@ -224,6 +224,7 @@ const Base = {
   visible: z.boolean().default(true),
   locked: z.boolean().default(false),
   layoutPositioning: z.enum(["auto", "absolute"]).optional(),
+  layoutGrow: z.number().min(0).max(1000).optional(),
   constraints: z
     .object({
       horizontal: z.enum(["left", "right", "center", "scale"]).default("left"),
@@ -459,6 +460,7 @@ export const GroupNode = z.object({
   sourceId: Base.sourceId,
   lintIgnore: Base.lintIgnore,
   layoutPositioning: Base.layoutPositioning,
+  layoutGrow: Base.layoutGrow,
   constraints: Base.constraints,
   children: z.array(z.string()).default([]),
   bind: Bind.optional(),
