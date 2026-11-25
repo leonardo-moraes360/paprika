@@ -40,7 +40,7 @@ pnpm build
 pnpm test:perf
 ```
 
-It needs the web build (`apps/web/dist`) and Playwright Chromium for the browser scenarios (see [development](development.md); `PAPRIKA_CHROMIUM` points at another Chrome). Without the web build only the server scenarios run. It prints a `scenario | budget | measured | limit | status` table and writes the same data as JSON to `$PAPRIKA_PERF_REPORT` (default `paprika-perf-report.json` in the OS temp directory). It is not part of `pnpm check`.
+It needs the web build (`apps/web/dist`) and Playwright Chromium for the browser scenarios (see [development](development.md); `PAPRIKA_CHROMIUM` points at another Chrome). Without the web build only the server scenarios run. It prints a `scenario | budget | measured | limit | status` table and writes the same data as JSON to `$PAPRIKA_PERF_REPORT` (default `report.json` in a fresh `paprika-perf-report-*` directory under the OS temp directory; the path is printed). It is not part of `pnpm check`.
 
 ## How to profile
 

@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Budget } from "./budgets.js";
@@ -62,7 +62,7 @@ export function table(results: Result[]): string {
 }
 
 export function reportPath(): string {
-  return process.env.PAPRIKA_PERF_REPORT || join(tmpdir(), "paprika-perf-report.json");
+  return process.env.PAPRIKA_PERF_REPORT || join(mkdtempSync(join(tmpdir(), "paprika-perf-report-")), "report.json");
 }
 
 export function writeReport(results: Result[], extra: Record<string, unknown> = {}): string {
