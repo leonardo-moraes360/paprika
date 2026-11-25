@@ -1423,12 +1423,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "limit", Schema: z.Default(z.Int().Min(1).Max(200), 20.0)},
 		workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		entries, err := store.RecentHistoryIn(a.Str("workspaceId"), int(a.Num("limit")))
+		v, err := store.HistoryViewIn(a.Str("workspaceId"), int(a.Num("limit")))
 		if err != nil {
 			return nil, wsErr(a.Str("workspaceId"), err)
 		}
-		shown := jsonv.FromGo(entries)
-		return jsonShown(jsonv.NewObject("entries", shown), shown), nil
+		shown := jsonv.FromGo(v.Entries)
+		return jsonShown(jsonv.NewObject("entries", shown, "redo", jsonv.FromGo(v.Redo), "steps", jsonv.FromGo(v.Steps), "canUndo", v.CanUndo, "canRedo", v.CanRedo), shown), nil
 	})
 
 	add("list_workspaces", z.Object(

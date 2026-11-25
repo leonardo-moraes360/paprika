@@ -2202,6 +2202,11 @@ describe("API: MCP", () => {
     expect(path.structuredContent).toEqual(JSON.parse(textOf(path)));
     const undo = (await c.callTool({ name: "undo", arguments: {} })) as ToolResult & { structuredContent?: unknown };
     expect(undo.structuredContent).toEqual(await withWorkspace({ undone: true, version: 4, canUndo: false, canRedo: true }));
+    const after = (await c.callTool({ name: "get_history", arguments: {} })) as ToolResult & { structuredContent?: { entries: unknown[]; redo: { actor: string; label: string; ops: number }[]; steps: { kind: string; actor: string; at: number; label: string }[]; canUndo: boolean; canRedo: boolean } };
+    assertOutput("get_history", after.structuredContent);
+    expect(after.structuredContent).toMatchObject({ entries: [], canUndo: false, canRedo: true });
+    expect(after.structuredContent?.redo.map(({ actor, label, ops }) => ({ actor, label, ops }))).toEqual([{ actor: "agent:parity", label: "draw 3", ops: 3 }]);
+    expect(after.structuredContent?.steps).toEqual([{ kind: "undo", actor: "agent:parity", at: expect.any(Number), label: "draw 3" }]);
     expect(textOf(await call(c, "get_document_outline", {}))).toContain("tokens: (none)");
     expect(textOf(await call(c, "get_design_guide", { language: "pt-BR" }))).toMatch(/^# Paprika: guia para agentes/);
     const bad = await call(c, "delete_nodes", { ids: ["nope"] });
