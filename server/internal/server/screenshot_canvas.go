@@ -31,7 +31,7 @@ func canvasBase(host string, port int) string {
 	case "", "0.0.0.0", "::", "[::]":
 		host = "127.0.0.1"
 	}
-	return "http://" + net.JoinHostPort(host, strconv.Itoa(port))
+	return (&url.URL{Scheme: "http", Host: net.JoinHostPort(host, strconv.Itoa(port))}).String()
 }
 
 func (c *Chrome) SetCanvas(base string) {
