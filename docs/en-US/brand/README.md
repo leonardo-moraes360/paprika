@@ -20,6 +20,15 @@ A 5×6 grid of rounded cells: yellow column on the left, red in the middle, gree
 
 Symbol and wordmark side by side, the lockup as tall as the symbol and the wordmark's x-height centered on it. The space between the symbol's box and the wordmark is one grid cell (13 of the symbol's 100 units), so the selection handles never crowd the `p`.
 
+## Tagline
+
+**Throw in a little spice** in English, **Jogue um pouco de tempero** in Portuguese. Sentence case, no final period.
+
+- Use the English line in the main communication: site, README, cover, social posts.
+- In material written entirely in Portuguese, use the Portuguese line instead of the English one.
+- Show both together only in reference material, such as the guide cover.
+- Never rephrase it or translate it freely. Next to the lockup, the tagline sits below the wordmark, aligned with its start and outside the clear space.
+
 ## Palette
 
 | Role | Light | Dark |

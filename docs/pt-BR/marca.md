@@ -20,6 +20,15 @@ Grade 5×6 de células arredondadas: coluna amarela à esquerda, vermelha no mei
 
 Símbolo e letreiro lado a lado, com o lockup da altura do símbolo e a altura-x do letreiro centralizada nele. O vão entre a caixa do símbolo e o letreiro é de uma célula da grade (13 das 100 unidades do símbolo), para as alças da seleção não encostarem no `p`.
 
+## Frase de marca
+
+**Throw in a little spice** em inglês, **Jogue um pouco de tempero** em português. Em caixa de frase, sem ponto final.
+
+- Use a versão em inglês na comunicação principal: site, README, capa, redes.
+- Em material todo em português, use a versão em português no lugar da inglesa.
+- Mostre as duas juntas só em material de referência, como a capa do guia.
+- Nunca reescreva nem traduza livremente. Junto do lockup, a frase fica abaixo do letreiro, alinhada ao início dele e fora da área de respiro.
+
 ## Paleta
 
 | Papel | Claro | Escuro |
