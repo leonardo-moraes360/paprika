@@ -1,6 +1,13 @@
 [🇺🇸 English](../../README.md) | 🇧🇷 Português
 
-<p align="center"><img src="../en-US/brand/icon.svg" alt="Ícone do Paprika" width="128"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="../en-US/brand/lockup-light.svg">
+    <img src="../en-US/brand/lockup.svg" alt="Paprika" width="360">
+  </picture>
+</p>
+
+<p align="center"><em>Jogue um pouco de tempero</em> · <a href="https://paprika.js.org/pt-BR/">paprika.js.org</a></p>
 
 <p align="center"><img src="../en-US/assets/paprika-window.png" alt="Canvas do Paprika aberto nas propostas de marca: camadas à esquerda, canvas ao centro, tokens do documento à direita" width="900"></p>
 
@@ -43,6 +50,8 @@ O primeiro build leva alguns minutos. Quando terminar:
 3. Peça alguma coisa ao agente, como *"Use o Paprika para desenhar uma tela de cadastro para o app de uma cafeteria."*
 
 Os designs ficam guardados num volume do Docker e sobrevivem a reinícios. `docker compose down` para o Paprika; `docker compose up -d` sobe de novo.
+
+A documentação completa também está em [paprika.js.org/docs/pt-BR](https://paprika.js.org/docs/pt-BR/).
 
 Prefere não usar Docker? Veja [como rodar sem Docker](desenvolvimento.md#rodar-sem-docker).
 
@@ -91,6 +100,7 @@ A lista completa de ferramentas e atalhos está em [Usando o canvas](canvas.md).
 
 | Se você quer… | Leia |
 |---|---|
+| Instalar passo a passo, ou conectar outro agente | [Instalar com Docker](instalar.md) · [Conectar o seu agente](conectar-agente.md) |
 | Aprender o canvas, os atalhos e os diagramas | [Usando o canvas](canvas.md) |
 | Conectar um agente, ver todas as ferramentas MCP e o formato do arquivo | [Agentes e MCP](mcp.md) |
 | Rodar com Docker: importar, exportar, backup, portas | [Docker](docker.md) |

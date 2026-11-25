@@ -1,6 +1,13 @@
 🇺🇸 English | [🇧🇷 Português](docs/pt-BR/README.md)
 
-<p align="center"><img src="docs/en-US/brand/icon.svg" alt="Paprika icon" width="128"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/en-US/brand/lockup-light.svg">
+    <img src="docs/en-US/brand/lockup.svg" alt="Paprika" width="360">
+  </picture>
+</p>
+
+<p align="center"><em>Throw in a little spice</em> · <a href="https://paprika.js.org">paprika.js.org</a></p>
 
 <p align="center"><img src="docs/en-US/assets/paprika-window.png" alt="Paprika canvas open on the brand proposals: layers on the left, canvas in the middle, document tokens on the right" width="900"></p>
 
@@ -43,6 +50,8 @@ The first build takes a few minutes. When it finishes:
 3. Ask your agent for something, like *"Use Paprika to design a sign-up screen for a coffee shop app."*
 
 Your designs are kept in a Docker volume, so they survive restarts. `docker compose down` stops Paprika; `docker compose up -d` starts it again.
+
+The full documentation is also at [paprika.js.org/docs](https://paprika.js.org/docs/).
 
 Prefer not to use Docker? See [running from source](docs/en-US/development.md#run-from-source).
 
@@ -89,6 +98,7 @@ The full list of tools and shortcuts is in [Using the canvas](docs/en-US/canvas.
 
 | If you want to… | Read |
 |---|---|
+| Install step by step, or connect a different agent | [Install with Docker](docs/en-US/install.md) · [Connect your agent](docs/en-US/connect-agent.md) |
 | Learn the canvas, shortcuts and diagrams | [Using the canvas](docs/en-US/canvas.md) |
 | Connect an agent, see every MCP tool and the file format | [Agents and MCP](docs/en-US/mcp.md) |
 | Run with Docker: import, export, backups, ports | [Docker](docs/en-US/docker.md) |
