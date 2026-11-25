@@ -231,8 +231,16 @@ type placedSibling struct {
 	box SpotBox
 }
 
+// boxesUnder places the page that holds id: Layout without a RootID only places the first page.
+func boxesUnder(doc *Document, id string) (map[string]LayoutBox, error) {
+	if id != "" && GetNode(doc, id) == nil {
+		id = ""
+	}
+	return Layout(doc, LayoutOptions{RootID: id})
+}
+
 func placedSiblings(doc *Document, parent string) []placedSibling {
-	boxes, err := Layout(doc, LayoutOptions{})
+	boxes, err := boxesUnder(doc, parent)
 	if err != nil {
 		return nil
 	}
@@ -262,7 +270,7 @@ func boxInParent(doc *Document, id, parent string) (SpotBox, bool) {
 	if n == nil || n.Str("type") == "page" || n.Str("type") == "connector" {
 		return SpotBox{}, false
 	}
-	boxes, err := Layout(doc, LayoutOptions{})
+	boxes, err := boxesUnder(doc, id)
 	if err != nil {
 		return SpotBox{}, false
 	}
@@ -272,7 +280,8 @@ func boxInParent(doc *Document, id, parent string) (SpotBox, bool) {
 	}
 	ox, oy := 0.0, 0.0
 	if parent != "" {
-		if p, ok := boxes[parent]; ok {
+		pb, _ := boxesUnder(doc, parent)
+		if p, ok := pb[parent]; ok {
 			ox, oy = p.X, p.Y
 		}
 	}
