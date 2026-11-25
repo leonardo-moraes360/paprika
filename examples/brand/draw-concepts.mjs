@@ -1,54 +1,24 @@
 // Draws the brand concept boards (A–D, and E/F = the chosen "Trio Pixel" light/dark) over MCP HTTP, in a NEW workspace.
 // Never calls open_workspace (the active workspace is left alone): every call carries workspaceId.
 // Usage: PAPRIKA_MCP=http://127.0.0.1:4777/mcp node examples/brand/draw-concepts.mjs [--shots DIR]  (APPEND_WS=<id> ONLY=E,F to add boards)
-// Screenshots via render_screenshot (export_image travou >5 min neste documento: ver docs/agent-feedback.md).
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+// Screenshots use render_screenshot: export_image took 6–23 s per board here (docs/agent-feedback.md #181).
+import { connectBoard, saveShots, textOf } from "../../scripts/design-board.mjs";
 import { circle, gridSymbol, rrect, symbolLayers, wordmarkPath } from "./trio-pixel.mjs";
 
-const URL_ = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4777/mcp";
 const WS_NAME = process.env.WS_NAME ?? "Marca · conceitos (nov/2026)";
 const shotsIdx = process.argv.indexOf("--shots");
 const SHOTS = shotsIdx > 0 ? process.argv[shotsIdx + 1] : null;
-let rpcId = 0;
-let sessionId = "";
 
-async function rpc(method, params) {
-  const headers = {
-    "content-type": "application/json",
-    accept: "application/json, text/event-stream",
-    "user-agent": "paprika-brand-concepts/1",
-  };
-  if (sessionId) headers["mcp-session-id"] = sessionId;
-  const res = await fetch(URL_, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }),
-  });
-  const sid = res.headers.get("mcp-session-id");
-  if (sid) sessionId = sid;
-  const raw = await res.text();
-  const line = raw.split("\n").find((l) => l.startsWith("data: ")) ?? raw;
-  const json = JSON.parse(line.replace(/^data: /, ""));
-  if (json.error) throw new Error(JSON.stringify(json.error));
-  return json.result;
-}
+// MCP client shared with the scripts/draw-pap-b-*.mjs boards (SDK from packages/e2e).
+const { call: callTool } = await connectBoard("paprika-brand-concepts");
 async function call(name, args) {
-  const r = await rpc("tools/call", { name, arguments: args });
-  if (r?.isError) throw new Error(`${name}: ${JSON.stringify(r.content).slice(0, 2000)}`);
-  const img = (r.content ?? []).find((c) => c.type === "image");
-  if (img) return { image: img.data };
+  const r = await callTool(name, args);
   if (r.structuredContent) return r.structuredContent;
-  const text = (r.content ?? []).map((c) => c.text ?? "").join("\n");
+  const text = textOf(r);
   try {
     return JSON.parse(text);
   } catch {
-    const first = text.split("\n")[0];
-    try {
-      return JSON.parse(first);
-    } catch {
-      return text;
-    }
+    return text;
   }
 }
 
@@ -367,7 +337,6 @@ function clean(o) {
 }
 
 // ---------- execução ----------
-await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "paprika-brand-concepts", version: "1" } });
 const before = await call("list_workspaces", {});
 const activeBefore = before.active ?? before?.workspaces?.find?.((w) => w.active)?.id;
 // APPEND_WS=<id> desenha no workspace existente; ONLY=E,F filtra as direções.
@@ -392,19 +361,7 @@ for (const [dir, id] of ids) {
   console.log("lint", dir.num, JSON.stringify(lint).slice(0, 600));
 }
 
-if (SHOTS) {
-  mkdirSync(SHOTS, { recursive: true });
-  for (const [dir, id] of ids) {
-    const r = await call("render_screenshot", { workspaceId: wsId, rootId: id, scale: 2 });
-    // Only a real PNG reaches the disk (the MCP server's answer is treated as untrusted input).
-    const png = Buffer.from(String(r.image ?? ""), "base64");
-    const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-    if (png.length < 8 || !png.subarray(0, 8).equals(PNG_MAGIC) || png.length > 32 * 1024 * 1024)
-      throw new Error(`render_screenshot ${dir.num}: not a PNG`);
-    writeFileSync(join(SHOTS, `direcao-${dir.num}-${dir.key}.png`), png);
-  }
-  console.log("screenshots em", SHOTS);
-}
+if (SHOTS) await saveShots(callTool, wsId, SHOTS, ids.map(([dir, id]) => [id, `direcao-${dir.num}-${dir.key}.png`]));
 
 const after = await call("list_workspaces", {});
 const activeAfter = after.active ?? after?.workspaces?.find?.((w) => w.active)?.id;
