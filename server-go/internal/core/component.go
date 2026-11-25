@@ -317,8 +317,13 @@ func DetachOps(doc *Document, ids []string) ([]any, error) {
 			return nil, fmt.Errorf(`node "%s" is not an instance (a frame with instanceOf)`, id)
 		}
 		ops = append(ops, jsonv.NewObject("op", "update", "id", id, "props", jsonv.NewObject("instanceOf", nil, "scale", nil, "overrides", nil, "propValues", nil, "slots", nil)))
+		// The resolved prop values are already on the copies, so a bind has nothing left to follow.
 		for _, d := range descendants(doc, id) {
-			ops = append(ops, jsonv.NewObject("op", "update", "id", d, "props", jsonv.NewObject("sourceId", nil)))
+			props := jsonv.NewObject("sourceId", nil)
+			if dn := GetNode(doc, d); dn != nil && dn.Has("bind") {
+				props.Set("bind", nil)
+			}
+			ops = append(ops, jsonv.NewObject("op", "update", "id", d, "props", props))
 		}
 	}
 	return ops, nil
