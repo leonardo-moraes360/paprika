@@ -496,7 +496,10 @@ func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH 
 			rowLines = splitLines(mainsOf(), availW, wrap && hasBaseW, gap)
 		}
 		for i, c := range kids {
-			if !hasFlow(c) || sizeKind(c, "height") != "hug" || sizeKind(c, "width") != "fill" || !hasBaseW || !hasWrap(doc, c) {
+			if sizeKind(c, "height") != "hug" || sizeKind(c, "width") != "fill" || !hasBaseW {
+				continue
+			}
+			if c.Str("type") != "text" && !(hasFlow(c) && hasWrap(doc, c)) {
 				continue
 			}
 			w := availW
@@ -639,6 +642,7 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 		prefW, prefH        float64
 		baseW, baseH        float64
 		fillMain, fillCross bool
+		grow                float64
 		reflow              bool
 	}
 	bases := make([]base, len(kids))
@@ -664,6 +668,7 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 			n: c, prefW: p.w, prefH: p.h, baseW: bw, baseH: bh,
 			fillMain:  (row && sizeKind(c, "width") == "fill") || (!row && sizeKind(c, "height") == "fill"),
 			fillCross: (row && sizeKind(c, "height") == "fill") || (!row && sizeKind(c, "width") == "fill"),
+			grow:      growOf(c, row),
 			reflow:    hasFlow(c) && hasWrap(doc, c),
 		}
 	}
@@ -692,11 +697,18 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 	}
 	sizeItem := func(b base, fillEach, crossAvail float64, hasCross bool) item {
 		w, h := b.baseW, b.baseH
+		extra := b.grow * fillEach
 		if b.fillMain {
 			if row {
 				w = fillEach
 			} else {
 				h = fillEach
+			}
+		} else if extra != 0 {
+			if row {
+				w += extra
+			} else {
+				h += extra
 			}
 		}
 		if b.fillCross {
@@ -728,17 +740,29 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 			t := intrinsicText(doc, b.n, tw, has)
 			if sizeKind(b.n, "width") == "hug" {
 				w = t.w
+				if row {
+					w += extra
+				}
 			}
 			if sizeKind(b.n, "height") == "hug" || !sizeNumOk(b.n, "height") {
 				h = t.h
+				if !row {
+					h += extra
+				}
 			}
 		}
 		if b.reflow {
 			if sizeKind(b.n, "height") == "hug" {
 				h = preferred(doc, b.n, w, 0, true, false, pforce{w: w, hasW: true}).h
+				if !row {
+					h += extra
+				}
 			}
 			if sizeKind(b.n, "width") == "hug" && hasFlow(b.n) && b.n.Obj("layout").Str("mode") == "column" {
 				w = preferred(doc, b.n, 0, h, false, true, pforce{h: h, hasH: true}).w
+				if row {
+					w += extra
+				}
 			}
 		}
 		return item{b.n, math.Max(0, w), math.Max(0, h)}
@@ -752,7 +776,7 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 	for li, idx := range lines {
 		members := make([]base, len(idx))
 		fixed := 0.0
-		fills := 0
+		weight := 0.0
 		for j, i := range idx {
 			members[j] = bases[i]
 			fixed += mainOf(bases[i])
@@ -760,12 +784,14 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 				fixed += gap
 			}
 			if bases[i].fillMain {
-				fills++
+				weight++
+			} else {
+				weight += bases[i].grow
 			}
 		}
 		fillEach := 0.0
-		if fills > 0 {
-			fillEach = math.Max(0, mainInner-fixed) / float64(fills)
+		if weight > 0 {
+			fillEach = math.Max(0, mainInner-fixed) * math.Min(1, weight) / weight
 		}
 		lineItems[li] = lineT{members, fillEach}
 	}
@@ -871,6 +897,17 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 			placeTree(doc, c, absX, absY, out, 0, 0, false)
 		}
 	}
+}
+
+func growOf(c *Node, row bool) float64 {
+	key := "height"
+	if row {
+		key = "width"
+	}
+	if sizeKind(c, key) == "fill" {
+		return 0
+	}
+	return c.Num("layoutGrow")
 }
 
 func sizeNumOk(n *Node, key string) bool {

@@ -224,6 +224,7 @@ const Base = {
   visible: z.boolean().default(true),
   locked: z.boolean().default(false),
   layoutPositioning: z.enum(["auto", "absolute"]).optional(),
+  layoutGrow: z.number().min(0).max(1000).optional(),
   constraints: z
     .object({
       horizontal: z.enum(["left", "right", "center", "scale"]).default("left"),
@@ -459,6 +460,7 @@ export const GroupNode = z.object({
   sourceId: Base.sourceId,
   lintIgnore: Base.lintIgnore,
   layoutPositioning: Base.layoutPositioning,
+  layoutGrow: Base.layoutGrow,
   constraints: Base.constraints,
   children: z.array(z.string()).default([]),
   bind: Bind.optional(),

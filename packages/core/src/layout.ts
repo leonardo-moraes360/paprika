@@ -252,6 +252,11 @@ function hasWrap(doc: Document, n: Node): boolean {
   return false;
 }
 
+function growOf(c: SceneNode, row: boolean): number {
+  if ((row ? c.width : c.height) === "fill") return 0;
+  return "layoutGrow" in c ? (c.layoutGrow ?? 0) : 0;
+}
+
 function preferred(doc: Document, n: Node, hint?: { maxW?: number; maxH?: number } | WH, force?: { w?: number; h?: number }): WH {
   if (n.type === "page") return { w: 0, h: 0 };
   const maxW = hint && "maxW" in hint ? hint.maxW : hint && "w" in hint ? hint.w : undefined;
@@ -296,7 +301,8 @@ function preferred(doc: Document, n: Node, hint?: { maxW?: number; maxH?: number
     const mainsOf = () => kids.map((c, i) => ((row ? c.width : c.height) === "fill" ? 0 : row ? sizes[i]!.w : sizes[i]!.h));
     const rowLines = row ? splitLines(mainsOf(), wrap ? availW : undefined, gap) : [];
     kids.forEach((c, i) => {
-      if (!hasFlow(c) || c.height !== "hug" || c.width !== "fill" || !hasWrap(doc, c) || availW === undefined) return;
+      if (c.height !== "hug" || c.width !== "fill" || availW === undefined) return;
+      if (c.type !== "text" && !(hasFlow(c) && hasWrap(doc, c))) return;
       let w = availW;
       if (row) {
         const mains = mainsOf();
@@ -390,6 +396,7 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
       baseH: sizeNum(c.height) ?? (c.height === "fill" ? 0 : p.h),
       fillMain: row ? c.width === "fill" : c.height === "fill",
       fillCross: row ? c.height === "fill" : c.width === "fill",
+      grow: growOf(c, row),
       reflow: hasFlow(c) && hasWrap(doc, c),
     };
   });
@@ -403,9 +410,13 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
   const sizeItem = (b: Base, fillEach: number, crossAvail: number | null): { n: Node; w: number; h: number } => {
     let w = b.baseW;
     let h = b.baseH;
+    const extra = b.grow * fillEach;
     if (b.fillMain) {
       if (row) w = fillEach;
       else h = fillEach;
+    } else if (extra) {
+      if (row) w += extra;
+      else h += extra;
     }
     if (b.fillCross) {
       if (crossAvail === null) {
@@ -422,12 +433,12 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
     if (b.n.type === "text") {
       const tw = b.n.width === "fill" || typeof b.n.width === "number" ? w : undefined;
       const t = intrinsicText(doc, b.n, tw);
-      if (b.n.width === "hug") w = t.w;
-      if (b.n.height === "hug" || typeof b.n.height !== "number") h = t.h;
+      if (b.n.width === "hug") w = t.w + (row ? extra : 0);
+      if (b.n.height === "hug" || typeof b.n.height !== "number") h = t.h + (row ? 0 : extra);
     }
     if (b.reflow) {
-      if (b.n.height === "hug") h = preferred(doc, b.n, { maxW: w }, { w }).h;
-      if (b.n.width === "hug" && hasFlow(b.n) && b.n.layout.mode === "column") w = preferred(doc, b.n, { maxH: h }, { h }).w;
+      if (b.n.height === "hug") h = preferred(doc, b.n, { maxW: w }, { w }).h + (row ? 0 : extra);
+      if (b.n.width === "hug" && hasFlow(b.n) && b.n.layout.mode === "column") w = preferred(doc, b.n, { maxH: h }, { h }).w + (row ? extra : 0);
     }
     return { n: b.n, w: Math.max(0, w), h: Math.max(0, h) };
   };
@@ -435,8 +446,9 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
   const lineItems = lines.map((idx) => {
     const members = idx.map((i) => bases[i]!);
     const fixedMain = members.reduce((sum, b, i) => sum + mainOf(b) + (i > 0 ? gap : 0), 0);
-    const fillCount = members.filter((b) => b.fillMain).length;
-    const fillEach = fillCount ? Math.max(0, mainInner - fixedMain) / fillCount : 0;
+    const weight = members.reduce((s, b) => s + (b.fillMain ? 1 : b.grow), 0);
+    const free = Math.max(0, mainInner - fixedMain) * Math.min(1, weight);
+    const fillEach = weight ? free / weight : 0;
     return { members, fillEach };
   });
 
