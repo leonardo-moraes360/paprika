@@ -4,6 +4,10 @@ import { pathError } from "./path.js";
 /** Formato do arquivo `.paprika.json`. Mudanças incompatíveis incrementam a versão. */
 export const FORMAT = "paprika/1" as const;
 
+/** Where CSS gradients and url() are refused in a color (op input only, so stored documents still load). */
+export const GRADIENT_COLOR_MSG =
+  'a color cannot be a CSS gradient or url(); use the structured gradient field, e.g. gradient: {type: "linear", angle: 90, stops: [{color: "#fff", offset: 0}, {color: "#000", offset: 1}]}';
+
 /**
  * Uma cor CSS (`#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, `oklch()`, `color-mix()`,
  * `color(display-p3 …)`, `transparent`) ou uma referência a token `$nome`.
@@ -38,7 +42,26 @@ export function safeHref(v: string): boolean {
 
 const Href = z.string().min(1).max(2000).refine(safeHref, HREF_MSG);
 
-export const Size = z.union([z.number().min(0).max(100_000), z.enum(["hug", "fill"])]);
+/** Hands the issues of a nested safeParse to the transform that called it. */
+function forward(ctx: { issues: unknown[] }, issues: unknown[]): void {
+  ctx.issues.push(...issues);
+}
+
+const SIZE_MSG =
+  'width and height take a number (0..100000), "hug" or "fill"; "$token" values are not accepted here (tokens work for padding, gap, radius, stroke width...)';
+const sizeNumber = z.number().min(0).max(100_000);
+
+export const Size = z.unknown().transform((v, ctx): number | "hug" | "fill" => {
+  if (v === "hug" || v === "fill") return v;
+  if (typeof v === "number") {
+    const parsed = sizeNumber.safeParse(v);
+    if (parsed.success) return parsed.data;
+    forward(ctx, parsed.error.issues);
+    return z.NEVER;
+  }
+  ctx.issues.push({ code: "custom", message: SIZE_MSG, input: v });
+  return z.NEVER;
+});
 
 const lengthToken = z.string().regex(/^\$[\w.-]+$/);
 const fontWeightValue = z.union([z.number().int().min(100).max(900), lengthToken]);
@@ -50,17 +73,55 @@ function lengthNumber(min?: number, max?: number) {
   return n;
 }
 
-function lengthValue(min?: number, max?: number) {
+function lengthValue(min?: number, max?: number, rangeMsg?: string) {
   const num = lengthNumber(min, max);
   return z.unknown().check((ctx) => {
     const v = ctx.value;
     if (typeof v === "string" && /^\$[\w.-]+$/.test(v)) return;
     const parsed = num.safeParse(v);
-    if (!parsed.success) (ctx.issues as typeof parsed.error.issues).push(...parsed.error.issues);
+    if (!parsed.success) {
+      const issues = rangeMsg
+        ? parsed.error.issues.map((i) => (i.code === "too_big" || i.code === "too_small" ? { ...i, message: rangeMsg } : i))
+        : parsed.error.issues;
+      (ctx.issues as typeof parsed.error.issues).push(...issues);
+    }
   }).transform((v): number | string => v as number | string);
 }
 
+const LINE_HEIGHT_MSG =
+  "lineHeight is a unitless multiplier of fontSize between 0 and 10 (e.g. 1.4), not pixels; for a 22px line on 16px text use 1.375";
+
 const padLength = lengthValue(0);
+
+const PADDING_MSG =
+  'layout.padding takes one value (all sides), [vertical, horizontal] or [top, right, bottom, left]; each a number or "$token"';
+
+type Pad = number | string;
+
+/** CSS padding: 1, 2 ([vertical, horizontal]) or 4 values; 2 is normalized to 4 like CSS does. */
+const paddingValue = z.unknown().transform((v, ctx): Pad | [Pad, Pad, Pad, Pad] => {
+  const fail = (): never => {
+    ctx.issues.push({ code: "custom", message: PADDING_MSG, input: v });
+    return z.NEVER;
+  };
+  if (Array.isArray(v)) {
+    if (v.length !== 2 && v.length !== 4) return fail();
+    const parsed = z.tuple(v.map(() => padLength) as [typeof padLength, typeof padLength]).safeParse(v);
+    if (!parsed.success) {
+      forward(ctx, parsed.error.issues);
+      return z.NEVER;
+    }
+    const d = parsed.data as [Pad, Pad, Pad, Pad] | [Pad, Pad];
+    return d.length === 2 ? [d[0], d[1], d[0], d[1]] : d;
+  }
+  if (typeof v !== "number" && !(typeof v === "string" && /^\$[\w.-]+$/.test(v))) return fail();
+  const parsed = padLength.safeParse(v);
+  if (!parsed.success) {
+    forward(ctx, parsed.error.issues);
+    return z.NEVER;
+  }
+  return parsed.data;
+});
 const cornerLength = lengthValue(0);
 const cornerRadius = z.union([cornerLength, z.tuple([cornerLength, cornerLength, cornerLength, cornerLength])]).default(0);
 
@@ -152,7 +213,7 @@ export const SlotFills = z.record(PropName, z.array(NodeId).max(40));
 export const Layout = z.object({
   mode: z.enum(["none", "row", "column"]).default("none"),
   gap: lengthValue(0).default(0),
-  padding: z.union([padLength, z.tuple([padLength, padLength, padLength, padLength])]).default(0),
+  padding: paddingValue.default(0),
   align: z.enum(["start", "center", "end", "stretch"]).default("start"),
   justify: z.enum(["start", "center", "end", "between"]).default("start"),
   wrap: z.boolean().default(false),
@@ -308,7 +369,7 @@ export const TextNode = z
     fontFamily: TextFontFamily,
     fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
     fontWeight: fontWeightValue.default(400),
-    lineHeight: lengthValue(0, 10).default(1.4),
+    lineHeight: lengthValue(0, 10, LINE_HEIGHT_MSG).default(1.4),
     letterSpacing: lengthValue().default(0),
     textAlign: z.enum(["left", "center", "right"]).default("left"),
     href: Href.optional(),
@@ -374,7 +435,7 @@ export const ShapeNode = z.object({
   fontFamily: TextFontFamily,
   fontSize: z.union([z.number().min(1).max(1000), lengthToken]).default(16),
   fontWeight: fontWeightValue.default(500),
-  lineHeight: lengthValue(0, 10).default(1.3),
+  lineHeight: lengthValue(0, 10, LINE_HEIGHT_MSG).default(1.3),
   textAlign: z.enum(["left", "center", "right"]).default("center"),
 });
 

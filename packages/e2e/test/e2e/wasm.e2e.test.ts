@@ -418,3 +418,61 @@ describe.skipIf(!wasmBuilt)("E2E: WASM respeita a ordem de pintura", () => {
     expect(errors).toEqual([]);
   });
 });
+
+describe.skipIf(!wasmBuilt)("E2E: WASM desenha formas escuras sobre o fundo do quadro (PAP-A-012)", () => {
+  let external: ExternalServer | undefined;
+  let browser: Browser;
+  let page: Page;
+  const errors: string[] = [];
+
+  beforeAll(async () => {
+    external = await startServer({ seed: join(root, "examples/wasm-gpu-blank.paprika.json"), webRoot });
+    browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
+    page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await pinLocale(page, "pt-BR");
+    page.on("pageerror", (e) => errors.push(e.message));
+  }, 60_000);
+
+  afterAll(async () => {
+    await browser?.close();
+    await external?.stop();
+  });
+
+  /** Near-black pixels in a PNG (the logo is #0b0b0b on a #6271ff board). */
+  async function darkPixels(png: Buffer): Promise<number> {
+    return page.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const c = document.createElement("canvas");
+      c.width = img.width;
+      c.height = img.height;
+      const g = c.getContext("2d")!;
+      g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, c.width, c.height).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i]! < 40 && d[i + 1]! < 40 && d[i + 2]! < 40) n++;
+      return n;
+    }, png.toString("base64"));
+  }
+
+  it.each([0, 1, 2])("o logo escuro continua visível no WASM depois de %i aumentos de zoom", async (zoomIns) => {
+    const open = async (renderer: "dom" | "wasm") => {
+      await openCanvas(page, external!.url, renderer);
+      for (let i = 0; i < zoomIns; i++) await page.getByRole("button", { name: "Aumentar zoom" }).click();
+      await page.waitForTimeout(300);
+      return page.getByTestId("viewport").screenshot();
+    };
+    const dom = await open("dom");
+    const domDark = await darkPixels(dom);
+    expect(domDark).toBeGreaterThan(1000);
+    const wasm = await open("wasm");
+    expect(["cpu", "webgpu"]).toContain(await page.getByTestId("renderer-toggle").getAttribute("data-backend"));
+    // The board and every logo shape are painted by the WASM layer, none by the DOM.
+    expect(await page.locator('[data-paprika-id="board"]').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+    expect(await page.locator('[data-paprika-id="hull"] path').count()).toBe(0);
+    expect(Math.abs((await darkPixels(wasm)) - domDark) / domDark).toBeLessThan(0.1);
+    expect(await diffRatio(page, dom, wasm)).toBeLessThan(0.005);
+    expect(errors).toEqual([]);
+  });
+});

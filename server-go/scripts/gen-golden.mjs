@@ -15,7 +15,7 @@ const {
   exportReact, exportTailwind, exportCssModules, exportAngular, exportSvelte, renderTailwindHTML, renderFrameworkHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
   parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, combinePathsOps, alignOps, distributeOps, wrapOps, revealOps, importSVG, importHTML, exportSVG,
   diagramOps, shapeOutline, tailwindClassesFor, layout, measureText, FONT_AVG, normalizePath, pathOrigin,
-  pathToSubpaths, subpathsToPath, moveAnchor, moveHandle, pathEditProps, anchorByFlatIndex,
+  pathToSubpaths, subpathsToPath, moveAnchor, moveHandle, pathEditProps, anchorByFlatIndex, roundPathCorners, shapePath,
 } = core;
 
 const json = (v) => JSON.stringify(v, null, 2);
@@ -269,6 +269,50 @@ const grad = () =>
     },
   ]).doc;
 
+// Wrapping flex layouts (layout.wrap): row and column, hug and fixed cross size, align/justify per line, fill items.
+const chips = (prefix, n, w, h, extra = {}) =>
+  Array.from({ length: n }, (_, i) => ({ type: "rect", id: `${prefix}${i}`, width: w, height: typeof h === "function" ? h(i) : h, fill: "#c43d27", ...extra }));
+const wrapped = () =>
+  applyOps(base(), [
+    { op: "create", node: { type: "frame", id: "wrow", x: 0, y: 0, width: 300, height: "hug", layout: { mode: "row", gap: 12, padding: 10, wrap: true }, children: chips("wr", 7, 88, 40) } },
+    { op: "create", node: { type: "frame", id: "wspread", x: 400, y: 0, width: 400, height: 200, layout: { mode: "row", gap: 8, wrap: true, align: "center", justify: "between" }, children: chips("ws", 9, 90, (i) => 20 + (i % 3) * 10) } },
+    { op: "create", node: { type: "frame", id: "wcol", x: 0, y: 400, width: "hug", height: 120, layout: { mode: "column", gap: 8, wrap: true, padding: [4, 6, 4, 6] }, children: [...chips("wc", 6, 50, 40), { type: "rect", id: "wcw", width: 70, height: 30, fill: "#112233" }] } },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "wpage", x: 0, y: 700, width: 360, height: "hug", layout: { mode: "column", gap: 16, padding: 8 },
+        children: [
+          { type: "frame", id: "wgrid", width: "fill", height: "hug", layout: { mode: "row", gap: 12, wrap: true }, children: chips("wg", 5, 100, 30) },
+          { type: "rect", id: "wtail", width: "fill", height: 10, fill: "#445566" },
+        ],
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "wside", x: 500, y: 700, width: 500, height: "hug", layout: { mode: "row", gap: 10, align: "start" },
+        children: [
+          { type: "frame", id: "wsg", width: "fill", height: "hug", layout: { mode: "row", gap: 6, wrap: true }, children: chips("wq", 6, 90, 20) },
+          { type: "rect", id: "wsr", width: 100, height: 50, fill: "#778899" },
+        ],
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "wfill", x: 0, y: 1000, width: 320, height: "hug", layout: { mode: "row", gap: 8, wrap: true, align: "stretch" },
+        children: [
+          { type: "rect", id: "wf0", width: 200, height: 30, fill: "#111111" },
+          { type: "rect", id: "wf1", width: "fill", height: "hug", fill: "#222222" },
+          { type: "text", id: "wf2", text: "wrapped label", width: "hug", height: "hug", fontSize: 14 },
+          { type: "rect", id: "wf3", width: 150, height: "fill", fill: "#333333" },
+          { type: "rect", id: "wf4", width: 140, height: 44, fill: "#444444" },
+        ],
+      },
+    },
+    { op: "create", node: { type: "frame", id: "wend", x: 400, y: 1000, width: 200, height: 150, layout: { mode: "row", gap: 4, wrap: true, justify: "end", align: "end" }, children: chips("we", 5, 70, 24) } },
+  ]).doc;
+
 const rich = () =>
   applyOps(base(), [
     { op: "set_tokens", tokens: { brand: "#c43d27", "text.lg": 28 } },
@@ -306,6 +350,7 @@ const docs = {
   diagram: diagram(),
   corners: corners(),
   grad: grad(),
+  wrapped: wrapped(),
 };
 
 // ---- operation cases: [baseDoc, ops] ----
@@ -335,6 +380,19 @@ const opCases = [
     { op: "create", parentId: "card", node: { type: "rect", id: "flow", x: 5, y: 5, width: 40, height: 10, constraints: { horizontal: "right" } } },
     { op: "create", parentId: "card", node: { type: "rect", id: "abs", x: 280, y: 8, width: 16, height: 16, layoutPositioning: "absolute", constraints: { horizontal: "right", vertical: "top" } } },
     { op: "update", id: "card", props: { width: 400, height: 240 } },
+  ]],
+  ["empty", [
+    { op: "create", node: { type: "frame", id: "nroot", x: 0, y: 0, width: 400, height: 200, layout: { mode: "column", gap: 0, padding: 0 }, children: [
+      { type: "frame", id: "nhead", width: "fill", height: 50, children: [
+        { type: "rect", id: "npin", x: 340, y: 10, width: 40, height: 20, constraints: { horizontal: "right" } },
+        { type: "rect", id: "nmid", x: 180, y: 10, width: 40, height: 20, constraints: { horizontal: "center" } },
+      ] },
+      { type: "frame", id: "nrow", width: "fill", height: 50, layout: { mode: "row", gap: 0, padding: 0 }, children: [
+        { type: "frame", id: "ncell", width: "fill", height: 50, children: [{ type: "rect", id: "ncpin", x: 150, y: 5, width: 40, height: 20, constraints: { horizontal: "right" } }] },
+        { type: "frame", id: "ncell2", width: "fill", height: 50 },
+      ] },
+    ] } },
+    { op: "update", id: "nroot", props: { width: 600 } },
   ]],
   ["empty", [R({})]],
   ["empty", [{ op: "create", node: { type: "rect", id: "g", width: 40, height: 20, gradient: { type: "linear", angle: 12, stops: [{ color: "#111111", offset: 0 }, { color: "#eeeeee", offset: 1 }] } } }]],
@@ -370,6 +428,15 @@ const opCases = [
   ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { mode: "grid" } } }]],
   ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { padding: [1, 2] } } }]],
   ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { mode: "row", padding: [1, 2, 3, 4], wrap: true, justify: "between", align: "center" } } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { padding: [1, 2, 3] } } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { padding: ["$p", -1] } } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "f", layout: { padding: { top: 1 } } } }]],
+  ["empty", [{ op: "create", node: { type: "text", id: "t", text: "a", lineHeight: 22 } }]],
+  ["empty", [{ op: "create", node: { type: "rect", id: "r", width: "$space.8" } }]],
+  ["empty", [{ op: "create", node: { type: "rect", id: "r", height: 200000 } }]],
+  ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M0 0 L10 10", fill: "linear-gradient(90deg, #fff, #000)" } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "f", children: [{ type: "text", id: "t", text: "a", runs: [{ start: 0, end: 1, color: "url(#x)" }] }] } }]],
+  ["empty", [{ op: "create", node: { type: "rect", id: "r" } }, { op: "update", id: "r", props: { stroke: { color: "radial-gradient(red, blue)", width: 1 } } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "p" } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "p", d: "" } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M0 0 C 10 10 20" } }]],
@@ -556,6 +623,36 @@ const opCases = [
   ["comp", [{ op: "detach", ids: ["btn"] }]],
   ["comp", [{ op: "detach", ids: ["zz"] }]],
   ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { text: "Novo" } }, { op: "detach", ids: ["i1"] }, { op: "update", id: copyId("i1", "lbl"), props: { x: 1 } }]],
+  // bind is checked against the final state of the transaction (PAP-A-009)
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", component: true, width: 100, height: 40,
+    componentProps: [{ name: "label", type: "text", default: "OK" }, { name: "pressed", type: "boolean", default: false }, { name: "size", type: "variant", options: ["sm", "md"], default: "md" }],
+    children: [{ type: "frame", id: "pw", width: 50, height: 20, children: [
+      { type: "text", id: "pt", text: "x", bind: { text: "label" } },
+      { type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } },
+      { type: "rect", id: "ps", width: 5, height: 5, bind: { variant: { size: "sm" } } }] }] } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", width: 100, height: 40, children: [{ type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } }] } },
+    { op: "update", id: "pb", props: { component: true, componentProps: [{ name: "pressed", type: "boolean", default: false }] } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", width: 100, height: 40, children: [{ type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } }] } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } } }]],
+  ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { bind: { visible: "x" } } }]],
+  ["comp", [{ op: "create", parentId: "i1", node: { type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", component: true, width: 100, height: 40, children: [{ type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "nope" } }] } }]],
+  // detach drops bind from the copies
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", component: true, width: 100, height: 40,
+    componentProps: [{ name: "label", type: "text", default: "OK" }, { name: "pressed", type: "boolean", default: true }],
+    children: [{ type: "text", id: "pt", text: "x", bind: { text: "label" } }, { type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } }] } },
+    { op: "create", parentId: "board", node: { type: "frame", id: "pi", instanceOf: "pb", propValues: { label: "Salvar" } } },
+    { op: "detach", ids: ["pi"] }]],
+  // detach_tokens on instances and copies: only owned overrides, derived fields are skipped
+  ["comp", [{ op: "detach_tokens", ids: ["i1"] }]],
+  ["comp", [{ op: "set_tokens", tokens: { alt: "#112233" } }, { op: "update", id: "i1", props: { fill: "$alt" } }, { op: "detach_tokens", ids: ["i1"] }]],
+  ["comp", [{ op: "set_tokens", tokens: { alt: "#112233" } }, { op: "update", id: "i1", props: { fill: "$alt" } }, { op: "detach_tokens", ids: ["i1"], fields: ["fill"] }]],
+  ["comp", [{ op: "set_tokens", tokens: { alt: "#112233" } }, { op: "update", id: "i1", props: { fill: "$alt" } }, { op: "detach_tokens", ids: ["i1"], fields: ["radius"] }]],
+  ["comp", [{ op: "update", id: "lbl", props: { color: "$brand" } }, { op: "detach_tokens", ids: [copyId("i1", "lbl")] }]],
+  ["comp", [{ op: "set_tokens", tokens: { alt: "#112233" } }, { op: "update", id: "lbl", props: { color: "$brand" } }, { op: "update", id: copyId("i1", "lbl"), props: { color: "$alt" } }, { op: "detach_tokens", ids: [copyId("i1", "lbl")] }]],
+  ["comp", [{ op: "update", id: "btn", props: { gap: 1 } }]],
+  ["comp", [{ op: "detach_tokens", ids: ["btn", "i1", "i2"] }]],
+  ["comp", [{ op: "detach_tokens", ids: ["btn"] }]],
   // diagrams
   ["empty", [{ op: "create", node: { type: "shape", id: "s" } }, { op: "create", node: { type: "shape", id: "n", shape: "note", stroke: { color: "#000", width: 1 } } }]],
   ["empty", [{ op: "create", node: { type: "shape", id: "s", width: "hug" } }]],
@@ -660,6 +757,8 @@ const opCases = [
   ["free", [{ op: "create", place: { near: "board", side: "right" }, node: { type: "frame", id: "by", width: 50, height: 40 } }]],
   ["free", [{ op: "create", place: { near: "missing", side: "left" }, node: { type: "frame", id: "no", width: 10, height: 10 } }]],
   ["paged", [{ op: "create", place: "free", node: { type: "frame", id: "onpage", name: "On page", width: 80, height: 40 } }]],
+  ["paged", [{ op: "create", parentId: "pg2", place: "free", node: { type: "frame", id: "onpg2", name: "On page 2", width: 80, height: 40 } }]],
+  ["paged", [{ op: "create", parentId: "pg2", place: { near: "f2", side: "right" }, node: { type: "frame", id: "besidef2", width: 80, height: 40 } }]],
   ["empty", [
     { op: "create", node: { type: "frame", id: "card", name: "Card", x: 0, y: 0, width: 220, height: 140, fill: "#f4f1ea", children: [{ type: "text", id: "label", x: 16, y: 16, width: 120, height: 24, text: "Landing page", color: "#111111" }] } },
     { op: "create", node: { type: "frame", id: "modal", name: "Delete", x: 8, y: 8, width: 200, height: 100, fill: "#ffffff" } },
@@ -703,6 +802,9 @@ const structureCases = [
   ["empty", "page", { id: "pn" }],
   ["paged", "page", { id: "pn" }],
   ["card", "duplicate", { ids: ["card"] }],
+  ["card", "duplicate", { ids: ["card"], place: "right" }],
+  ["card", "duplicate", { ids: ["card"], place: "below" }],
+  ["paged", "duplicate", { ids: ["f2"], place: "right" }],
   ["card", "duplicate", { ids: ["card"], offset: 0, scale: 2, props: { fill: "#101010" } }],
   ["card", "duplicate", { ids: ["card"], parentId: null, offset: -12.5 }],
   ["card", "duplicate", { ids: ["card", "title", "card"] }],
@@ -1168,7 +1270,39 @@ const pathNorm = ["M40 30 L80 30 L60 70 Z", "M0 0 L10 10", "M10 10 C 20 0 30 0 4
   return { d, origin: pathOrigin(segs), normalized: serializePath(n.segs), bounds: n.bounds };
 });
 
-const out = { randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, pathEdits, created: createDocument("Untitled", "abc"), tailwindMapCases };
+// Corner rounding and parametric path shapes (errors are part of the contract).
+const shapeInputs = [
+  { name: "round-square", op: "round", d: "M0 0 L100 0 L100 100 L0 100 Z", radius: 10 },
+  { name: "round-clamped", op: "round", d: "M0 0 L20 0 L20 100 L0 100 Z", radius: 50 },
+  { name: "round-radii", op: "round", d: "M0 0 L100 0 L100 100 L0 100 Z", radius: 10, radii: [0, 20, null, 0] },
+  { name: "round-open", op: "round", d: "M0 0 L50 0 L50 50", radius: 10 },
+  { name: "round-triangle-multi", op: "round", d: "M40 30 L80 30 L60 70 Z M100 0 H140 V40 H100 Z", radius: 6 },
+  { name: "round-collinear", op: "round", d: "M0 0 L10 0 L20 0 L20 20 L0 0 Z", radius: 4 },
+  { name: "round-curve", op: "round", d: "M0 0 C10 0 10 10 0 10", radius: 5 },
+  { name: "star-5", op: "shape", kind: "star", params: { points: 5, radius: 50 } },
+  { name: "star-rounded", op: "shape", kind: "star", params: { points: 7, radius: 60, innerRadius: 30, angle: 15, cornerRadius: 4 } },
+  { name: "polygon-6", op: "shape", kind: "polygon", params: { sides: 6, radius: 40 } },
+  { name: "polygon-rounded", op: "shape", kind: "polygon", params: { sides: 3, radius: 40, cornerRadius: 8, angle: 180 } },
+  { name: "ring", op: "shape", kind: "ring", params: { radius: 50, thickness: 10 } },
+  { name: "ring-inner", op: "shape", kind: "ring", params: { radius: 50, innerRadius: 20 } },
+  { name: "arc", op: "shape", kind: "arc", params: { radius: 50, thickness: 10, startAngle: 0, endAngle: 90 } },
+  { name: "arc-big-caps", op: "shape", kind: "arc", params: { radius: 50, thickness: 10, startAngle: 200, endAngle: 120, roundCaps: true } },
+  { name: "arc-full", op: "shape", kind: "arc", params: { radius: 50, thickness: 10, startAngle: 0, endAngle: 360 } },
+  { name: "sector", op: "shape", kind: "sector", params: { radius: 50, startAngle: 270, endAngle: 90 } },
+  { name: "sector-full", op: "shape", kind: "sector", params: { radius: 50, startAngle: 10, endAngle: 370 } },
+  { name: "err-points", op: "shape", kind: "star", params: { radius: 10 } },
+  { name: "err-hole", op: "shape", kind: "ring", params: { radius: 10, thickness: 10 } },
+  { name: "err-both", op: "shape", kind: "ring", params: { radius: 10, thickness: 2, innerRadius: 5 } },
+  { name: "err-corner", op: "shape", kind: "sector", params: { radius: 10, cornerRadius: 2, startAngle: 0, endAngle: 90 } },
+  { name: "err-empty", op: "shape", kind: "arc", params: { radius: 10, thickness: 2, startAngle: 5, endAngle: 5 } },
+  { name: "err-kind", op: "shape", kind: "blob", params: { radius: 10 } },
+];
+const shapeCases = shapeInputs.map((c) => ({
+  ...c,
+  result: err(() => (c.op === "round" ? roundPathCorners(c.d, { radius: c.radius, radii: c.radii }) : shapePath(c.kind, c.params))),
+}));
+
+const out = { shapeCases, randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, pathEdits, created: createDocument("Untitled", "abc"), tailwindMapCases };
 const dest = join(here, "../internal/core/testdata/golden.json");
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");

@@ -166,7 +166,7 @@ describe("API: MCP", () => {
     expect(tools).toEqual(contract.tools);
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
-        "apply_ops", "archive_workspace", "combine_paths", "convert_to_path", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
+        "apply_ops", "archive_workspace", "create_shape_path", "round_path_corners", "combine_paths", "convert_to_path", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "detach_tokens", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "align_nodes", "distribute_nodes", "wrap_nodes", "show_all", "unlock_all",
@@ -383,6 +383,40 @@ describe("API: MCP", () => {
     expect(outlineText(await call(c, "get_document_outline", { rootId: "c1" }))).toContain("Salvar");
   });
 
+  it("bind na mesma transação do componente e detach de instância com bind", async () => {
+    const c = client;
+    const bad = await call(c, "create_nodes", {
+      nodes: [{ type: "frame", id: "plain", width: 80, height: 30, children: [{ type: "rect", id: "fe-btn-press", width: 4, height: 4, bind: { visible: "pressed" } }] }],
+    });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toContain('"fe-btn-press" has a bind outside a component: none of its ancestors is a component');
+    const made = await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "frame", id: "btn", component: true, width: 120, height: 40,
+          componentProps: [
+            { name: "label", type: "text", default: "OK" },
+            { name: "pressed", type: "boolean", default: false },
+          ],
+          children: [
+            { type: "text", id: "lbl", text: "OK", width: 40, height: 20, bind: { text: "label" } },
+            { type: "rect", id: "fe-btn-press", width: 8, height: 8, bind: { visible: "pressed" } },
+          ],
+        },
+      ],
+    });
+    expect(made.isError).toBeFalsy();
+    await call(c, "create_instance", { componentId: "btn", id: "i1", propValues: { label: "Salvar", pressed: true } });
+    const detached = await call(c, "detach_instance", { ids: ["i1"] });
+    expect(detached.isError).toBeFalsy();
+    const dumpDoc = await srv.doc();
+    const dump = JSON.stringify(Object.values(dumpDoc.nodes).filter((n) => n.id.startsWith("i1")));
+    expect(dump).toContain("Salvar");
+    expect(dump).not.toContain("instanceOf");
+    expect(dump).not.toContain('"bind"');
+    expect(dump).not.toContain("sourceId");
+  });
+
   it("grupos e páginas", async () => {
     const c = client;
     await call(c, "create_nodes", {
@@ -509,6 +543,35 @@ describe("API: MCP", () => {
     expect(bad).toMatch(/operations\[0\] \(union\): nodes do not exist: nope/);
     await call(c, "undo");
     expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["bd", "bm", "bh"] }))).map((n: { id: string }) => n.id)).toEqual(["bd", "bm", "bh"]);
+  });
+
+  it("create_shape_path e round_path_corners geram caminhos comuns", async () => {
+    const c = client;
+    const made = (await call(c, "create_shape_path", {
+      kind: "star", id: "st", x: 300, y: 200, points: 5, radius: 50, cornerRadius: 4, props: { fill: "#c43d27" },
+    })) as ToolResult & { structuredContent?: { ids: string[]; roots: { id: string; type: string; x: number; y: number; width: number; height: number }[] } };
+    assertOutput("create_shape_path", made.structuredContent);
+    expect(made.structuredContent?.ids).toEqual(["st"]);
+    const star = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["st"] })))[0];
+    expect(star).toMatchObject({ type: "path", fill: "#c43d27" });
+    expect(star.d).toContain("A");
+    // x and y are the center: the box straddles it.
+    expect(star.x + star.width / 2).toBeGreaterThan(290);
+    expect(star.x + star.width / 2).toBeLessThan(310);
+    const ring = (await call(c, "create_shape_path", { kind: "ring", id: "rg", x: 0, y: 0, radius: 20, thickness: 5, place: "none" })) as ToolResult & { structuredContent?: { ids: string[] } };
+    expect(ring.structuredContent?.ids).toEqual(["rg"]);
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["rg"] })))[0]).toMatchObject({ x: -20, y: -20, width: 40, height: 40, fillRule: "evenodd" });
+    const bad = await call(c, "create_shape_path", { kind: "ring", radius: 10, thickness: 10 });
+    expect(textOf(bad)).toMatch(/hole radius/);
+
+    const pure = (await call(c, "round_path_corners", { d: "M0 0 L100 0 L100 100 L0 100 Z", radius: 10 })) as ToolResult & { structuredContent?: { d: string } };
+    assertOutput("round_path_corners", pure.structuredContent);
+    expect(pure.structuredContent?.d).toBe("M10 0 L90 0 A10 10 0 0 1 100 10 L100 90 A10 10 0 0 1 90 100 L10 100 A10 10 0 0 1 0 90 L0 10 A10 10 0 0 1 10 0 Z");
+    await call(c, "create_nodes", { nodes: [{ type: "path", id: "sq", x: 500, y: 0, d: "M0 0 L40 0 L40 40 L0 40 Z", fill: "#000000" }] });
+    const rounded = (await call(c, "round_path_corners", { id: "sq", radius: 8 })) as ToolResult & { structuredContent?: unknown };
+    assertOutput("round_path_corners", rounded.structuredContent);
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["sq"] })))[0].d).toContain("A8 8 0 0 1");
+    expect(textOf(await call(c, "round_path_corners", { d: "M0 0 C1 1 2 2 3 3", radius: 2 }))).toMatch(/straight edges/);
   });
 
   it("semântica web e converter em caminho", async () => {
@@ -795,6 +858,39 @@ describe("API: MCP", () => {
     expect(gap.d.startsWith("M0 0") || gap.d.startsWith("M0 0 ")).toBe(true);
   });
 
+  it("get_bounds segue layout.wrap: linhas quebradas, altura hug e ids de outra página", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      place: "none",
+      nodes: [{
+        type: "frame", id: "wchips", x: 0, y: 0, width: 400, height: "hug",
+        layout: { mode: "row", gap: 12, wrap: true },
+        children: Array.from({ length: 11 }, (_, i) => ({ type: "rect", id: `wchip${i}`, width: 88, height: 40, fill: "#c43d27" })),
+      }],
+    });
+    // 400 holds four 88px chips and three gaps (388): lines of 4, 4 and 3
+    const wrapped = JSON.parse(textOf(await call(c, "get_bounds", { ids: ["wchips", "wchip3", "wchip4", "wchip10"] })));
+    expect(wrapped.boxes.wchips).toMatchObject({ width: 400, height: 3 * 40 + 2 * 12 });
+    expect(wrapped.boxes.wchip3).toMatchObject({ x: 3 * 100, y: 0 });
+    expect(wrapped.boxes.wchip4).toMatchObject({ x: 0, y: 52 });
+    expect(wrapped.boxes.wchip10).toMatchObject({ x: 200, y: 104 });
+    const lint = textOf(await call(c, "lint_design", {}));
+    expect(lint).not.toContain("layout-overflow");
+
+    await call(c, "create_page", { name: "Segunda" });
+    const doc = await srv.doc();
+    const second = Object.values(doc.nodes).find((n) => n.type === "page" && n.name === "Segunda")!;
+    await call(c, "create_nodes", {
+      parentId: second.id,
+      place: "none",
+      nodes: [{ type: "frame", id: "other", x: 700, y: 20, width: 100, height: 60, children: [{ type: "rect", id: "otherkid", x: 5, y: 6, width: 10, height: 10 }] }],
+    });
+    const both = JSON.parse(textOf(await call(c, "get_bounds", { ids: ["wchips", "otherkid", second.id] })));
+    expect(both.boxes.wchips).toBeDefined();
+    expect(both.boxes.otherkid).toMatchObject({ x: 705, y: 26 });
+    expect(both.unplaced).toEqual([{ id: second.id, reason: expect.stringContaining("page") }]);
+  });
+
   it("layoutPositioning absolute sai do fluxo, do gap e do hug", async () => {
     const bad = await call(client, "create_nodes", { nodes: [{ type: "rect", id: "nope", layoutPositioning: "pinned" }] });
     expect(bad.isError).toBe(true);
@@ -849,6 +945,26 @@ describe("API: MCP", () => {
     expect(nodes.cflow).toMatchObject({ x: 4, y: 4, width: 20 });
     await call(client, "update_nodes", { updates: [{ id: "cpin", props: { constraints: null } }] });
     expect((await srv.doc()).nodes.cpin).not.toHaveProperty("constraints");
+  });
+
+  it("constraints alcançam filhos de frames fill aninhados quando o ancestral numérico muda", async () => {
+    await call(client, "create_nodes", {
+      place: "none",
+      nodes: [{
+        type: "frame", id: "nroot", x: 0, y: 0, width: 1440, height: 200,
+        layout: { mode: "column", gap: 0, padding: 0 },
+        children: [
+          { type: "rect", id: "npin-root", x: 1380, y: 0, width: 40, height: 10, layoutPositioning: "absolute", constraints: { horizontal: "right" } },
+          { type: "frame", id: "nheader", width: "fill", height: 60, children: [
+            { type: "rect", id: "npin-header", x: 1380, y: 10, width: 40, height: 20, constraints: { horizontal: "right" } },
+          ] },
+        ],
+      }],
+    });
+    await call(client, "update_nodes", { updates: [{ id: "nroot", props: { width: 1640 } }] });
+    const nodes = (await srv.doc()).nodes;
+    expect(nodes["npin-root"]).toMatchObject({ x: 1580 });
+    expect(nodes["npin-header"]).toMatchObject({ x: 1580, y: 10 });
   });
 
   it("diagramas: draw_diagram, setas que seguem a forma, export SVG medido e undo", async () => {
@@ -1070,6 +1186,37 @@ describe("API: MCP", () => {
     expect(textOf(side)).toContain("side by side");
   }, 30_000);
 
+  it("render_screenshot recorta uma região e desenha a grade em coordenadas do frame", async () => {
+    await call(client, "create_nodes", {
+      nodes: [{ type: "frame", id: "gridscreen", width: 400, height: 200, fill: "#ffffff", children: [{ type: "rect", id: "gridrect", x: 100, y: 50, width: 80, height: 40, fill: "#111111" }] }],
+    });
+    const pngSize = (r: ToolResult) => {
+      const buf = Buffer.from(r.content.find((c) => c.type === "image")!.data!, "base64");
+      return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+    };
+    const plain = await call(client, "render_screenshot", { rootId: "gridscreen" });
+    expect(pngSize(plain)).toEqual({ w: 400, h: 200 });
+    const zoom = (await call(client, "render_screenshot", {
+      rootId: "gridscreen", scale: 2, grid: true, region: { x: 100, y: 50, width: 80, height: 40 },
+    })) as ToolResult & { structuredContent: { width: number; height: number; grid: { step: number }; region: { x: number; y: number; width: number; height: number } } };
+    expect(zoom.isError, textOf(zoom)).toBeFalsy();
+    assertOutput("render_screenshot", zoom.structuredContent);
+    expect(pngSize(zoom)).toEqual({ w: 160, h: 80 });
+    expect(zoom.structuredContent.grid.step).toBe(5);
+    expect(zoom.structuredContent.region).toEqual({ x: 100, y: 50, width: 80, height: 40 });
+    expect(textOf(zoom)).toContain("grid step 5");
+    // grid alone keeps the size; an explicit step is reported back
+    const gridded = (await call(client, "render_screenshot", { rootId: "gridscreen", grid: { step: 40, labels: false, color: "#00ff00" } })) as ToolResult & {
+      structuredContent: { grid: { step: number }; region?: unknown };
+    };
+    assertOutput("render_screenshot", gridded.structuredContent);
+    expect(pngSize(gridded)).toEqual({ w: 400, h: 200 });
+    expect(gridded.structuredContent.grid.step).toBe(40);
+    expect(gridded.structuredContent.region).toBeUndefined();
+    // a region outside the frame is an error
+    expect((await call(client, "render_screenshot", { rootId: "gridscreen", region: { x: 900, y: 0, width: 10, height: 10 } })).isError).toBe(true);
+  }, 30_000);
+
   it("render_screenshot grava path, recusa travessia, baixa por url e pinta o modo herdado", async () => {
     await call(client, "set_tokens", { tokens: { bg: "#111111" } });
     await call(client, "set_tokens", { mode: "light", tokens: { bg: "#ffffff" } });
@@ -1248,6 +1395,67 @@ describe("API: MCP", () => {
       await own.stop();
     }
   }, 60_000);
+
+  it("entradas estritas: padding de 2 valores, argumentos desconhecidos, get_nodes parcial, export_image svg", async () => {
+    const c = client;
+    // padding [vertical, horizontal] normalizes like CSS; other lengths name the accepted shapes.
+    const ok = await call(c, "create_nodes", {
+      nodes: [{ type: "frame", id: "strict-pad", width: 100, height: 60, layout: { mode: "row", padding: [8, 16] } }],
+    });
+    expect(ok.isError, textOf(ok)).toBeFalsy();
+    const got = (await call(c, "get_nodes", { ids: ["strict-pad"] })) as ToolResult & {
+      structuredContent?: { nodes: { layout: { padding: unknown } }[]; missing?: string[] };
+    };
+    expect(got.structuredContent!.nodes[0]!.layout.padding).toEqual([8, 16, 8, 16]);
+    expect(got.structuredContent!.missing).toBeUndefined();
+    const three = await call(c, "create_nodes", { nodes: [{ type: "frame", id: "strict-pad3", layout: { padding: [1, 2, 3] } }] });
+    expect(three.isError).toBe(true);
+    expect(textOf(three)).toMatch(/\[vertical, horizontal\] or \[top, right, bottom, left\]/);
+
+    // Gradient strings in a color point at the structured gradient field; width tokens name the accepted shapes.
+    const grad = await call(c, "create_nodes", { nodes: [{ type: "path", id: "strict-g", d: "M0 0 L10 10", fill: "linear-gradient(90deg, #fff, #000)" }] });
+    expect(grad.isError).toBe(true);
+    expect(textOf(grad)).toMatch(/structured gradient field/);
+    const tok = await call(c, "create_nodes", { nodes: [{ type: "rect", id: "strict-w", width: "$space.8" }] });
+    expect(tok.isError).toBe(true);
+    expect(textOf(tok)).toMatch(/number \(0\.\.100000\), "hug" or "fill"/);
+    const lh = await call(c, "create_nodes", { nodes: [{ type: "text", id: "strict-t", text: "a", lineHeight: 22 }] });
+    expect(lh.isError).toBe(true);
+    expect(textOf(lh)).toMatch(/multiplier.*1\.375/);
+
+    // Unknown top-level arguments are rejected with the valid keys and a hint.
+    for (const [tool, args, hint] of [
+      ["render_screenshot", { id: "strict-pad" }, "rootId"],
+      ["render_screenshot", { nodeId: "strict-pad" }, "rootId"],
+      ["export_image", { id: "strict-pad" }, "rootId"],
+      ["export_code", { nodeId: "strict-pad", format: "html" }, "rootId"],
+      ["lint_design", { ids: ["strict-pad"] }, "rootIds"],
+    ] as const) {
+      const bad = await call(c, tool, args);
+      expect(bad.isError, tool).toBe(true);
+      expect(textOf(bad)).toContain(`did you mean "${hint}"`);
+      expect(textOf(bad)).toMatch(/valid arguments: /);
+    }
+
+    // get_nodes returns the nodes that exist plus `missing`; it fails only when none exist.
+    const part = (await call(c, "get_nodes", { ids: ["strict-pad", "strict-gone"] })) as ToolResult & {
+      structuredContent?: { nodes: { id: string }[]; missing?: string[] };
+    };
+    expect(part.isError, textOf(part)).toBeFalsy();
+    expect(part.structuredContent!.nodes.map((n) => n.id)).toEqual(["strict-pad"]);
+    expect(part.structuredContent!.missing).toEqual(["strict-gone"]);
+    expect(textOf(part)).toContain("strict-gone");
+    const none = await call(c, "get_nodes", { ids: ["strict-gone"] });
+    expect(none.isError).toBe(true);
+
+    // export_image accepts svg (same vector SVG as export_code).
+    const svg = (await call(c, "export_image", { rootId: "strict-pad", format: "svg" })) as ToolResult & {
+      structuredContent?: { format: string; mimeType: string };
+    };
+    expect(svg.isError, textOf(svg)).toBeFalsy();
+    expect(textOf(svg)).toMatch(/^<svg/);
+    expect(svg.structuredContent).toMatchObject({ format: "svg", mimeType: "image/svg+xml" });
+  }, 30_000);
 
   it("resize_image: presets, fit, upscale/downscale, GIF primeiro frame, sem Chromium", async () => {
     const previousChromium = process.env.PAPRIKA_CHROMIUM;
@@ -1666,7 +1874,7 @@ describe("API: MCP", () => {
   it("tokens de comprimento: create, reflow, recusa de cor e var() no export", async () => {
     const c = client;
     const guide = textOf(await call(c, "get_design_guide", {}));
-    expect(guide).toMatch(/not two values/);
+    expect(guide).toMatch(/\[vertical, horizontal\]/);
     expect(guide).toMatch(/\[top, right, bottom, left\]/);
     await call(c, "set_tokens", { tokens: { "space.md": 8, "radius.md": 12, brand: "#ff0000" } });
     await call(c, "create_nodes", {
@@ -1829,6 +2037,71 @@ describe("API: MCP", () => {
     const lint = textOf(await call(client, "lint_design", {}));
     expect(lint).toContain("overlapping-boards");
     expect(lint).toContain("covered-by-overlay");
+  }, 30_000);
+
+  it("posicionamento segue a intenção do agente (PAP-A-008)", async () => {
+    const made = (await call(client, "create_workspace", { name: "Placement intent" })) as ToolResult & { structuredContent: { workspace: { id: string } } };
+    const workspaceId = made.structuredContent.workspace.id;
+    const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const nodeOf = async (id: string) => (JSON.parse(textOf(await call(client, "get_nodes", { workspaceId, ids: [id] }))) as Record<string, unknown>[])[0]!;
+
+    // 1. place:"none" with x/y inside a row/column parent pins the root and says so
+    await call(client, "create_nodes", {
+      workspaceId,
+      nodes: [{ type: "frame", id: "col", x: 0, y: 0, width: 400, height: 400, layout: { mode: "column", gap: 8 } }],
+    });
+    const pinned = await call(client, "create_nodes", {
+      workspaceId, parentId: "col", place: "none",
+      nodes: [
+        { type: "ellipse", id: "dot", x: 30, y: 40, width: 20, height: 20 },
+        { type: "rect", id: "flow", width: 20, height: 20 },
+        { type: "rect", id: "stay", x: 5, y: 5, width: 20, height: 20, layoutPositioning: "auto" },
+      ],
+    });
+    expect(pinned.isError, textOf(pinned)).toBeFalsy();
+    expect(textOf(pinned)).toContain("layoutPositioning was set to");
+    expect(await nodeOf("dot")).toMatchObject({ layoutPositioning: "absolute", x: 30, y: 40 });
+    expect((await nodeOf("flow")).layoutPositioning).toBeUndefined();
+    expect((await nodeOf("stay")).layoutPositioning).toBe("auto");
+    const img = await call(client, "import_image", { workspaceId, parentId: "col", place: "none", x: 720, y: 48, src: pixel });
+    expect(img.isError, textOf(img)).toBeFalsy();
+    expect(textOf(img)).toContain("layoutPositioning was set to");
+    const html = (await call(client, "import_html", {
+      workspaceId, parentId: "col", place: "none", x: 48, y: 36, html: '<div style="width:30px;height:10px;background:#f00"></div>',
+    })) as ToolResult;
+    expect(html.isError, textOf(html)).toBeFalsy();
+    expect(textOf(html)).toContain("layoutPositioning was set to");
+    const kids = ((await nodeOf("col")).children as string[]).slice(-2);
+    const imported = await Promise.all(kids.map(nodeOf));
+    expect(imported).toMatchObject([{ layoutPositioning: "absolute", x: 720, y: 48 }, { layoutPositioning: "absolute", x: 48, y: 36 }]);
+
+    // 2. duplicate_nodes place right/below follows the source
+    await call(client, "create_nodes", {
+      workspaceId, place: "none",
+      nodes: [
+        { type: "frame", id: "far", x: 3000, y: 3000, width: 100, height: 100 },
+        { type: "frame", id: "src", x: 10, y: 520, width: 100, height: 50 },
+      ],
+    });
+    for (const [place, x, y] of [["right", 190, 520], ["below", 10, 650]] as const) {
+      const dup = await call(client, "duplicate_nodes", { workspaceId, ids: ["src"], place });
+      expect(dup.isError, textOf(dup)).toBeFalsy();
+      expect(await nodeOf((jsonOf(dup) as { copies: string[] }).copies[0]!)).toMatchObject({ x, y });
+    }
+
+    // 3. the content box of a page whose children are frames, on a page that is not the first
+    await call(client, "create_page", { workspaceId, id: "pg1", name: "One" });
+    await call(client, "create_page", { workspaceId, id: "pg2", name: "Two" });
+    await call(client, "create_nodes", {
+      workspaceId, parentId: "pg2", place: "none",
+      nodes: [
+        { type: "frame", id: "wide", x: 8000, y: 5000, width: 300, height: 200 },
+        { type: "frame", id: "tiny", x: 100, y: 40, width: 50, height: 60 },
+      ],
+    });
+    const bounds = jsonOf(await call(client, "get_bounds", { workspaceId, rootId: "pg2" })) as { content: { page: string; x: number; y: number; width: number; height: number } };
+    expect(bounds.content).toMatchObject({ page: "pg2", x: 100, y: 40, width: 8200, height: 5160 });
+    expect(textOf(await call(client, "get_document_outline", { workspaceId, rootId: "pg2" }))).toContain("w=8200 h=5160");
   }, 30_000);
 
   it("lint_design agrupa, limita por rootIds e aponta estouro, hug e geometria", async () => {

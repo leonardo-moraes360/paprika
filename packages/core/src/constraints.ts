@@ -1,6 +1,7 @@
 import { round4 } from "./num.js";
 import { isContainer, isScene, ignoresLayout, type Document, type FrameNode, type GroupNode, type Node, type SceneNode, type Size } from "./schema.js";
 import { isInstance } from "./component.js";
+import { layout, type LayoutBox } from "./layout.js";
 
 const EPS = 1e-3;
 const MAX = 100_000;
@@ -119,6 +120,68 @@ export function applyConstraints(before: Document, draft: Document): void {
         const oldH = heightChanged ? old!.h! : (nh ?? 0);
         const newH = heightChanged ? nh! : oldH;
         for (const cid of n.children) adjust(draft, n, cid, oldW, oldH, newW, newH);
+      }
+    }
+    if (isContainer(n)) for (const c of n.children) visit(c);
+  };
+  for (const id of draft.rootIds) visit(id);
+  followLayout(before, draft);
+}
+
+function layoutAll(doc: Document): Record<string, LayoutBox> {
+  const pages = doc.rootIds.filter((id) => doc.nodes[id]?.type === "page");
+  if (!pages.length) return layout(doc);
+  const out: Record<string, LayoutBox> = {};
+  for (const id of pages) Object.assign(out, layout(doc, { rootId: id }));
+  return out;
+}
+
+function pinned(doc: Document, f: FrameNode): boolean {
+  return f.children.some((cid) => {
+    const c = doc.nodes[cid];
+    if (!adjustable(c) || inFlow(f, c)) return false;
+    const { h, v } = modes(c);
+    return h !== "left" || v !== "top";
+  });
+}
+
+/**
+ * Frames whose own size is not numeric (fill, hug) still change size when an ancestor is resized or
+ * their content changes. Their pinned non-flow children follow the delta of the laid-out size.
+ */
+function followLayout(before: Document, draft: Document): void {
+  const candidates: FrameNode[] = [];
+  for (const n of Object.values(draft.nodes)) {
+    if (n.type !== "frame" || isInstance(n) || n.sourceId !== undefined) continue;
+    const prev = before.nodes[n.id];
+    if (!prev || !isScene(prev)) continue;
+    if ((numSize(n.width) == null && numSize(prev.width) == null) || (numSize(n.height) == null && numSize(prev.height) == null)) {
+      if (pinned(draft, n)) candidates.push(n);
+    }
+  }
+  if (!candidates.length) return;
+  const was = layoutAll(before);
+  const now = layoutAll(draft);
+  const done = new Set<string>();
+  const visit = (id: string) => {
+    const n = draft.nodes[id];
+    if (!n) return;
+    if (candidates.includes(n as FrameNode) && !done.has(id)) {
+      done.add(id);
+      const fr = n as FrameNode;
+      const prev = before.nodes[id] as SceneNode;
+      const a = was[id];
+      const b = now[id];
+      if (a && b) {
+        const dynW = numSize(fr.width) == null && numSize(prev.width) == null;
+        const dynH = numSize(fr.height) == null && numSize(prev.height) == null;
+        const wc = dynW && Math.abs(b.width - a.width) > EPS;
+        const hc = dynH && Math.abs(b.height - a.height) > EPS;
+        if (wc || hc) {
+          const oldW = wc ? a.width : b.width;
+          const oldH = hc ? a.height : b.height;
+          for (const cid of fr.children) adjust(draft, fr, cid, oldW, oldH, b.width, b.height);
+        }
       }
     }
     if (isContainer(n)) for (const c of n.children) visit(c);

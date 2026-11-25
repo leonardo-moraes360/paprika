@@ -25,3 +25,4 @@ export * from "./diagram.js";
 export * from "./boolean.js";
 export * from "./convert.js";
 export * from "./placement.js";
+export * from "./shapes.js";
