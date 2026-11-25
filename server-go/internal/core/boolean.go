@@ -917,6 +917,10 @@ func styleFromNode(n *Node) *jsonv.Object {
 		v, _ := n.Get("fill")
 		out.Set("fill", jsonv.Clone(v))
 	}
+	if n.Has("gradient") {
+		v, _ := n.Get("gradient")
+		out.Set("gradient", jsonv.Clone(v))
+	}
 	if n.Has("stroke") {
 		v, _ := n.Get("stroke")
 		out.Set("stroke", jsonv.Clone(v))
@@ -959,60 +963,174 @@ func styleFromNode(n *Node) *jsonv.Object {
 	return out
 }
 
-// CombinePathsOps plans create+delete ops for a boolean combine of 2+ shape nodes.
-func CombinePathsOps(doc *Document, ids []string, operation BooleanOperation, id, name string) ([]any, string, error) {
-	if len(ids) < 2 {
-		return nil, "", errors.New("combine_paths needs at least two ids")
+// combineStyleOverrides are the keys of the explicit `style` object that overwrite the base node's style.
+var combineStyleOverrides = []string{"fill", "gradient", "stroke", "opacity", "shadow", "outline", "filter", "backdropFilter"}
+
+// CombinePathsOps plans create+delete ops for a boolean combine of shape nodes. op is the
+// combine_paths operation: either ids + operation, or operations (a sequence of steps whose `as`
+// names feed the next ones), plus optional style, id and name.
+func CombinePathsOps(doc *Document, op *jsonv.Object) ([]any, string, error) {
+	batch := op.Has("operations")
+	if batch && (op.Has("ids") || op.Has("operation")) {
+		return nil, "", errors.New("combine_paths takes either ids + operation or operations, not both")
 	}
-	var unique []string
-	seen := map[string]bool{}
-	for _, v := range ids {
-		if !seen[v] {
-			seen[v] = true
-			unique = append(unique, v)
+	if !batch && (!op.Has("ids") || !op.Has("operation")) {
+		return nil, "", errors.New("combine_paths needs ids + operation, or operations")
+	}
+	type step struct {
+		op    BooleanOperation
+		ids   []string
+		as    string
+		hasAs bool
+	}
+	var steps []step
+	if batch {
+		for _, raw := range op.Arr("operations") {
+			so, _ := raw.(*jsonv.Object)
+			if so == nil {
+				return nil, "", errors.New("combine_paths: operations must be objects")
+			}
+			steps = append(steps, step{op: BooleanOperation(so.Str("op")), ids: so.Strings("ids"), as: so.Str("as"), hasAs: so.Has("as")})
 		}
+	} else {
+		steps = []step{{op: BooleanOperation(op.Str("operation")), ids: op.Strings("ids")}}
 	}
-	if len(unique) < 2 {
-		return nil, "", errors.New("combine_paths needs at least two distinct ids")
+	if len(steps) == 0 {
+		return nil, "", errors.New("combine_paths: operations is empty")
 	}
-	var missing []string
-	for _, v := range unique {
-		if GetNode(doc, v) == nil {
-			missing = append(missing, v)
+
+	named := map[string]boolMulti{}
+	var reals []string
+	var parentID any
+	haveParent := false
+	anchor := ""
+	var result boolMulti
+	for si, st := range steps {
+		where := ""
+		if batch {
+			where = fmt.Sprintf("operations[%d] (%s): ", si, st.op)
 		}
-	}
-	if len(missing) > 0 {
-		return nil, "", fmt.Errorf("nodes do not exist: %s", strings.Join(missing, ", "))
-	}
-	for _, v := range unique {
-		n := GetNode(doc, v)
-		if !combineTypes[n.Str("type")] {
-			return nil, "", fmt.Errorf("%q is %s; combine_paths only accepts path, rect, ellipse or shape", v, n.Str("type"))
+		fail := func(format string, args ...any) ([]any, string, error) {
+			return nil, "", errors.New(where + fmt.Sprintf(format, args...))
 		}
-	}
-	first := GetNode(doc, unique[0])
-	parentID, _ := first.Get("parentId")
-	for _, v := range unique {
-		if p, _ := GetNode(doc, v).Get("parentId"); p != parentID {
-			return nil, "", fmt.Errorf("only nodes with the same parent can be combined (%q is in %s, %q in %s)", v, placeName(p), unique[0], placeName(parentID))
+		if len(st.ids) < 2 {
+			return fail("combine_paths needs at least two ids")
 		}
+		if st.op != BoolUnion && st.op != BoolSubtract && st.op != BoolIntersect && st.op != BoolExclude {
+			return fail("unknown boolean operation %q; use union, subtract, intersect or exclude", string(st.op))
+		}
+		var unique []string
+		seen := map[string]bool{}
+		for _, v := range st.ids {
+			if !seen[v] {
+				seen[v] = true
+				unique = append(unique, v)
+			}
+		}
+		if len(unique) < 2 {
+			return fail("combine_paths needs at least two distinct ids")
+		}
+		var missing, real []string
+		for _, v := range unique {
+			if _, ok := named[v]; ok {
+				continue
+			}
+			if GetNode(doc, v) == nil {
+				missing = append(missing, v)
+			} else {
+				real = append(real, v)
+			}
+		}
+		if len(missing) > 0 {
+			return fail("nodes do not exist: %s", strings.Join(missing, ", "))
+		}
+		for _, v := range real {
+			n := GetNode(doc, v)
+			if !combineTypes[n.Str("type")] {
+				return fail("%q is %s; combine_paths only accepts path, rect, ellipse or shape", v, n.Str("type"))
+			}
+		}
+		for _, v := range real {
+			p, _ := GetNode(doc, v).Get("parentId")
+			if !haveParent {
+				haveParent, parentID, anchor = true, p, v
+			} else if p != parentID {
+				return fail("only nodes with the same parent can be combined (%q is in %s, %q in %s)", v, placeName(p), anchor, placeName(parentID))
+			}
+		}
+		for _, v := range real {
+			if indexOf(reals, v) < 0 {
+				reals = append(reals, v)
+			}
+		}
+		ordered := unique
+		if st.op != BoolSubtract && len(real) == len(unique) {
+			sib := siblingsOf(doc, parentID)
+			ordered = append([]string(nil), unique...)
+			sort.SliceStable(ordered, func(a, b int) bool { return indexOf(sib, ordered[a]) < indexOf(sib, ordered[b]) })
+		}
+		geom := func(id string) boolMulti {
+			if m, ok := named[id]; ok {
+				return m
+			}
+			return nodeGeometry(doc, GetNode(doc, id))
+		}
+		acc := geom(ordered[0])
+		for i := 1; i < len(ordered); i++ {
+			acc = BooleanMulti(acc, geom(ordered[i]), st.op)
+		}
+		if len(acc) == 0 {
+			return fail("boolean %s produced an empty path", st.op)
+		}
+		if st.hasAs {
+			if GetNode(doc, st.as) != nil {
+				return fail("\"as\" name %q is already a node id; pick another name", st.as)
+			}
+			if _, ok := named[st.as]; ok {
+				return fail("\"as\" name %q was already used by an earlier step", st.as)
+			}
+			named[st.as] = acc
+		}
+		result = acc
 	}
+
 	siblings := siblingsOf(doc, parentID)
-	byZ := append([]string(nil), unique...)
+	byZ := append([]string(nil), reals...)
 	sort.SliceStable(byZ, func(a, b int) bool { return indexOf(siblings, byZ[a]) < indexOf(siblings, byZ[b]) })
-	bottom := GetNode(doc, byZ[0])
-	ordered := byZ
-	if operation == BoolSubtract {
-		ordered = unique
+	baseID := byZ[0]
+	var overrides *jsonv.Object
+	if cv, ok := op.Get("style"); ok {
+		switch c := cv.(type) {
+		case string:
+			switch c {
+			case "first":
+				baseID = reals[0]
+			case "last":
+				baseID = reals[len(reals)-1]
+			case "top":
+				baseID = byZ[len(byZ)-1]
+			case "bottom":
+			default:
+				return nil, "", fmt.Errorf("style %q is unknown; use first, last, bottom, top or {from, fill, ...}", c)
+			}
+		case *jsonv.Object:
+			overrides = c
+			if overrides.Has("from") {
+				from := overrides.Str("from")
+				f := GetNode(doc, from)
+				if f == nil {
+					return nil, "", fmt.Errorf("style.from %q does not exist", from)
+				}
+				if !combineTypes[f.Str("type")] {
+					return nil, "", fmt.Errorf("style.from %q is %s; use a path, rect, ellipse or shape", from, f.Str("type"))
+				}
+				baseID = from
+			}
+		}
 	}
-	result := nodeGeometry(doc, GetNode(doc, ordered[0]))
-	for i := 1; i < len(ordered); i++ {
-		result = BooleanMulti(result, nodeGeometry(doc, GetNode(doc, ordered[i])), operation)
-	}
-	if len(result) == 0 {
-		return nil, "", fmt.Errorf("boolean %s produced an empty path", operation)
-	}
+	base := GetNode(doc, baseID)
 	d, gx, gy, gw, gh := multiToPath(result)
+	id := op.Str("id")
 	if id == "" {
 		id = NewID()
 	}
@@ -1020,9 +1138,19 @@ func CombinePathsOps(doc *Document, ids []string, operation BooleanOperation, id
 		return nil, "", fmt.Errorf("id %q already exists", id)
 	}
 	index := indexOf(siblings, byZ[0])
-	style := styleFromNode(bottom)
-	if name != "" {
-		style.Set("name", name)
+	style := styleFromNode(base)
+	if overrides != nil {
+		for _, k := range combineStyleOverrides {
+			if v, ok := overrides.Get(k); ok {
+				style.Set(k, jsonv.Clone(v))
+			}
+		}
+		if overrides.Has("fill") && !overrides.Has("gradient") {
+			style.Delete("gradient")
+		}
+	}
+	if op.Str("name") != "" {
+		style.Set("name", op.Str("name"))
 	}
 	hasHole := false
 	for _, p := range result {
@@ -1032,8 +1160,8 @@ func CombinePathsOps(doc *Document, ids []string, operation BooleanOperation, id
 		}
 	}
 	if hasHole {
-		if bottom.Str("type") == "path" && bottom.Str("fillRule") != "" {
-			style.Set("fillRule", bottom.Str("fillRule"))
+		if base.Str("type") == "path" && base.Str("fillRule") != "" {
+			style.Set("fillRule", base.Str("fillRule"))
 		} else {
 			style.Set("fillRule", "evenodd")
 		}

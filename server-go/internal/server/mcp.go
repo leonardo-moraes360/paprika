@@ -863,12 +863,34 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("unlock_all", z.Object(optStr("pageId"), label(), batch(), workspaceID()), reveal("locked", "unlock all"))
 
 	add("combine_paths", z.Object(
-		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(2).Max(500)},
-		z.Field{Name: "operation", Schema: z.Enum("union", "subtract", "intersect", "exclude")},
+		z.Field{Name: "ids", Schema: z.Optional(z.Array(z.String()).Min(2).Max(500))},
+		z.Field{Name: "operation", Schema: z.Optional(core.CombineOperationSchema)},
+		z.Field{Name: "operations", Schema: z.Optional(z.Array(core.CombineStepSchema).Min(1).Max(50))},
+		z.Field{Name: "style", Schema: z.Optional(core.CombineStyleSchema)},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
 		label(), batch(), workspaceID(),
-	), writeSelection("combine_paths", "path", "combine", "path(s)", "operation"))
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		id := a.Str("id")
+		if !a.Has("id") {
+			id = core.NewID()
+		}
+		op := jsonv.NewObject("op", "combine_paths")
+		for _, k := range []string{"ids", "operation", "operations", "style"} {
+			if v, ok := a.Get(k); ok {
+				op.Set(k, v)
+			}
+		}
+		op.Set("id", id)
+		if a.Has("name") {
+			op.Set("name", a.Str("name"))
+		}
+		lbl := "combine " + count(len(a.Strings("ids"))) + " path(s)"
+		if a.Has("operations") {
+			lbl = "combine " + count(len(a.Arr("operations"))) + " step(s)"
+		}
+		return writeWith(a, []any{op}, labelOr(a, lbl), "path", id)
+	})
 
 	add("convert_to_path", z.Object(
 		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
