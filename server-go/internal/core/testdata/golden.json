@@ -1,4 +1,411 @@
 {
+ "shapeCases": [
+  {
+   "name": "round-square",
+   "op": "round",
+   "d": "M0 0 L100 0 L100 100 L0 100 Z",
+   "radius": 10,
+   "result": {
+    "ok": true,
+    "value": "M10 0 L90 0 A10 10 0 0 1 100 10 L100 90 A10 10 0 0 1 90 100 L10 100 A10 10 0 0 1 0 90 L0 10 A10 10 0 0 1 10 0 Z"
+   }
+  },
+  {
+   "name": "round-clamped",
+   "op": "round",
+   "d": "M0 0 L20 0 L20 100 L0 100 Z",
+   "radius": 50,
+   "result": {
+    "ok": true,
+    "value": "M10 0 A10 10 0 0 1 20 10 L20 90 A10 10 0 0 1 10 100 A10 10 0 0 1 0 90 L0 10 A10 10 0 0 1 10 0 Z"
+   }
+  },
+  {
+   "name": "round-radii",
+   "op": "round",
+   "d": "M0 0 L100 0 L100 100 L0 100 Z",
+   "radius": 10,
+   "radii": [
+    0,
+    20,
+    null,
+    0
+   ],
+   "result": {
+    "ok": true,
+    "value": "M0 0 L80 0 A20 20 0 0 1 100 20 L100 90 A10 10 0 0 1 90 100 L0 100 Z"
+   }
+  },
+  {
+   "name": "round-open",
+   "op": "round",
+   "d": "M0 0 L50 0 L50 50",
+   "radius": 10,
+   "result": {
+    "ok": true,
+    "value": "M0 0 L40 0 A10 10 0 0 1 50 10 L50 50"
+   }
+  },
+  {
+   "name": "round-triangle-multi",
+   "op": "round",
+   "d": "M40 30 L80 30 L60 70 Z M100 0 H140 V40 H100 Z",
+   "radius": 6,
+   "result": {
+    "ok": true,
+    "value": "M49.71 30 L70.29 30 A6 6 0 0 1 75.66 38.68 L65.37 59.27 A6 6 0 0 1 54.63 59.27 L44.34 38.68 A6 6 0 0 1 49.71 30 Z M106 0 L134 0 A6 6 0 0 1 140 6 L140 34 A6 6 0 0 1 134 40 L106 40 A6 6 0 0 1 100 34 L100 6 A6 6 0 0 1 106 0 Z"
+   }
+  },
+  {
+   "name": "round-collinear",
+   "op": "round",
+   "d": "M0 0 L10 0 L20 0 L20 20 L0 0 Z",
+   "radius": 4,
+   "result": {
+    "ok": true,
+    "value": "M5 0 L10 0 L16 0 A4 4 0 0 1 20 4 L20 10.34 A4 4 0 0 1 13.17 13.17 L3.54 3.54 A2.07 2.07 0 0 1 5 0 Z"
+   }
+  },
+  {
+   "name": "round-curve",
+   "op": "round",
+   "d": "M0 0 C10 0 10 10 0 10",
+   "radius": 5,
+   "result": {
+    "ok": false,
+    "error": "round_path_corners only rounds straight edges (M L H V Z); segment 2 is C"
+   }
+  },
+  {
+   "name": "star-5",
+   "op": "shape",
+   "kind": "star",
+   "params": {
+    "points": 5,
+    "radius": 50
+   },
+   "result": {
+    "ok": true,
+    "value": {
+     "d": "M47.55 0 L62.25 29.77 L95.11 34.55 L71.33 57.73 L76.94 90.45 L47.55 75 L18.16 90.45 L23.78 57.73 L0 34.55 L32.86 29.77 Z",
+     "width": 95.11,
+     "height": 90.45,
+     "center": {
+      "x": 47.55,
+      "y": 50
+     }
+    }
+   }
+  },
+  {
+   "name": "star-rounded",
+   "op": "shape",
+   "kind": "star",
+   "params": {
+    "points": 7,
+    "radius": 60,
+    "innerRadius": 30,
+    "angle": 15,
+    "cornerRadius": 4
+   },
+   "result": {
+    "ok": true,
+    "value": {
+     "d": "M69.76 3.54 L72.22 25.02 A4 4 0 0 0 76.34 28.56 L97.94 27.8 A4 4 0 0 1 100.92 34.62 L85.66 49.94 A4 4 0 0 0 85.46 55.36 L99.53 71.78 A4 4 0 0 1 96.05 78.35 L74.56 75.98 A4 4 0 0 0 70.19 79.2 L66.13 100.44 A4 4 0 0 1 58.82 101.82 L47.28 83.54 A4 4 0 0 0 42.04 82.13 L22.9 92.19 A4 4 0 0 1 17.26 87.34 L24.36 66.92 A4 4 0 0 0 22.19 61.94 L2.39 53.26 A4 4 0 0 1 2.67 45.82 L23.06 38.64 A4 4 0 0 0 25.6 33.84 L20.05 12.95 A4 4 0 0 1 26.03 8.53 L44.36 20 A4 4 0 0 0 49.7 18.99 L62.57 1.62 A4 4 0 0 1 69.76 3.54 Z",
+     "width": 102.08,
+     "height": 103.68,
+     "center": {
+      "x": 53.07,
+      "y": 51.43
+     }
+    }
+   }
+  },
+  {
+   "name": "polygon-6",
+   "op": "shape",
+   "kind": "polygon",
+   "params": {
+    "sides": 6,
+    "radius": 40
+   },
+   "result": {
+    "ok": true,
+    "value": {
+     "d": "M34.64 0 L69.28 20 L69.28 60 L34.64 80 L0 60 L0 20 Z",
+     "width": 69.28,
+     "height": 80,
+     "center": {
+      "x": 34.64,
+      "y": 40
+     }
+    }
+   }
+  },
+  {
+   "name": "polygon-rounded",
+   "op": "shape",
+   "kind": "polygon",
+   "params": {
+    "sides": 3,
+    "radius": 40,
+    "cornerRadius": 8,
+    "angle": 180
+   },
+   "result": {
+    "ok": true,
+    "value": {
+     "d": "M21.85 48 L1.06 12 A8 8 0 0 1 7.99 0 L49.56 0 A8 8 0 0 1 56.49 12 L35.7 48 A8 8 0 0 1 21.85 48 Z",
+     "width": 57.55,
+     "height": 52,
+     "center": {
+      "x": 28.78,
+      "y": 20
+     }
+    }
+   }
+  },
+  {
+   "name": "ring",
+   "op": "shape",
+   "kind": "ring",
+   "params": {
+    "radius": 50,
+    "thickness": 10
+   },
+   "result": {
+    "ok": true,
+    "value": {
+     "d": "M50 0 A50 50 0 1 1 50 100 A50 50 0 1 1 50 0 Z M50 10 A40 40 0 1 1 50 90 A40 40 0 1 1 50 10 Z",
+     "width": 100,
+     "height": 100,
+     "center": {
+      "x": 50,
+      "y": 50
+     },
+     "fillRule": "evenodd"
+    }
+   }
+  },
+  {
+   "name": "ring-inner",
+   "op": "shape",
+   "kind": "ring",
+   "params": {
+    "radius": 50,
+    "innerRadius": 20
+   },
+   "result": {
+    "ok": true,
+    "value": {
+     "d": "M50 0 A50 50 0 1 1 50 100 A50 50 0 1 1 50 0 Z M50 30 A20 20 0 1 1 50 70 A20 20 0 1 1 50 30 Z",
+     "width": 100,
+     "height": 100,
+     "center": {
+      "x": 50,
+      "y": 50
+     },
+     "fillRule": "evenodd"
+    }
+   }
+  },
+  {
+   "name": "arc",
+   "op": "shape",
+   "kind": "arc",
+   "params": {
+    "radius": 50,
+    "thickness": 10,
+    "startAngle": 0,
+    "endAngle": 90
+   },
+   "result": {
+    "ok": true,
+    "value": {
+     "d": "M0 0 A50 50 0 0 1 50 50 L40 50 A40 40 0 0 0 0 10 Z",
+     "width": 50,
+     "height": 50,
+     "center": {
+      "x": 0,
+      "y": 50
+     }
+    }
+   }
+  },
+  {
+   "name": "arc-big-caps",
+   "op": "shape",
+   "kind": "arc",
+   "params": {
+    "radius": 50,
+    "thickness": 10,
+    "startAngle": 200,
+    "endAngle": 120,
+    "roundCaps": true
+   },
+   "result": {
+    "ok": true,
+    "value": {
+     "d": "M32.84 96.94 A50 50 0 1 1 93.24 74.96 A5 5 0 0 1 84.58 69.96 A40 40 0 1 0 36.26 87.54 A5 5 0 0 1 32.84 96.94 Z",
+     "width": 99.91,
+     "height": 97.24,
+     "center": {
+      "x": 49.94,
+      "y": 49.96
+     }
+    }
+   }
+  },
+  {
+   "name": "arc-full",
+   "op": "shape",
+   "kind": "arc",
+   "params": {
+    "radius": 50,
+    "thickness": 10,
+    "startAngle": 0,
+    "endAngle": 360
+   },
+   "result": {
+    "ok": true,
+    "value": {
+     "d": "M50 0 A50 50 0 1 1 50 100 A50 50 0 1 1 50 0 Z M50 10 A40 40 0 1 1 50 90 A40 40 0 1 1 50 10 Z",
+     "width": 100,
+     "height": 100,
+     "center": {
+      "x": 50,
+      "y": 50
+     },
+     "fillRule": "evenodd"
+    }
+   }
+  },
+  {
+   "name": "sector",
+   "op": "shape",
+   "kind": "sector",
+   "params": {
+    "radius": 50,
+    "startAngle": 270,
+    "endAngle": 90
+   },
+   "result": {
+    "ok": true,
+    "value": {
+     "d": "M50 50 L0 50 A50 50 0 0 1 100 50 Z",
+     "width": 100,
+     "height": 50,
+     "center": {
+      "x": 50,
+      "y": 50
+     }
+    }
+   }
+  },
+  {
+   "name": "sector-full",
+   "op": "shape",
+   "kind": "sector",
+   "params": {
+    "radius": 50,
+    "startAngle": 10,
+    "endAngle": 370
+   },
+   "result": {
+    "ok": true,
+    "value": {
+     "d": "M50 0 A50 50 0 1 1 50 100 A50 50 0 1 1 50 0 Z",
+     "width": 100,
+     "height": 100,
+     "center": {
+      "x": 50,
+      "y": 50
+     }
+    }
+   }
+  },
+  {
+   "name": "err-points",
+   "op": "shape",
+   "kind": "star",
+   "params": {
+    "radius": 10
+   },
+   "result": {
+    "ok": false,
+    "error": "points is required"
+   }
+  },
+  {
+   "name": "err-hole",
+   "op": "shape",
+   "kind": "ring",
+   "params": {
+    "radius": 10,
+    "thickness": 10
+   },
+   "result": {
+    "ok": false,
+    "error": "the hole radius (0) must be between 0 and the radius (10); use kind \"sector\" for a solid wedge"
+   }
+  },
+  {
+   "name": "err-both",
+   "op": "shape",
+   "kind": "ring",
+   "params": {
+    "radius": 10,
+    "thickness": 2,
+    "innerRadius": 5
+   },
+   "result": {
+    "ok": false,
+    "error": "pass innerRadius or thickness, not both"
+   }
+  },
+  {
+   "name": "err-corner",
+   "op": "shape",
+   "kind": "sector",
+   "params": {
+    "radius": 10,
+    "cornerRadius": 2,
+    "startAngle": 0,
+    "endAngle": 90
+   },
+   "result": {
+    "ok": false,
+    "error": "cornerRadius only applies to star and polygon"
+   }
+  },
+  {
+   "name": "err-empty",
+   "op": "shape",
+   "kind": "arc",
+   "params": {
+    "radius": 10,
+    "thickness": 2,
+    "startAngle": 5,
+    "endAngle": 5
+   },
+   "result": {
+    "ok": false,
+    "error": "startAngle and endAngle are the same: the sweep is empty"
+   }
+  },
+  {
+   "name": "err-kind",
+   "op": "shape",
+   "kind": "blob",
+   "params": {
+    "radius": 10
+   },
+   "result": {
+    "ok": false,
+    "error": "unknown shape kind \"blob\" (star, polygon, ring, arc, sector)"
+   }
+  }
+ ],
  "randomRuns": [
   {
    "base": "bezier",

@@ -166,7 +166,7 @@ describe("API: MCP", () => {
     expect(tools).toEqual(contract.tools);
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
-        "apply_ops", "archive_workspace", "combine_paths", "convert_to_path", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
+        "apply_ops", "archive_workspace", "create_shape_path", "round_path_corners", "combine_paths", "convert_to_path", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "detach_tokens", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "align_nodes", "distribute_nodes", "wrap_nodes", "show_all", "unlock_all",
@@ -514,6 +514,35 @@ describe("API: MCP", () => {
     `);
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
     expect(hist.map((h: { label: string }) => h.label)).toEqual(["create 2 node(s)", "combine 2 path(s)", "create page", "create 1 node(s)"]);
+  });
+
+  it("create_shape_path e round_path_corners geram caminhos comuns", async () => {
+    const c = client;
+    const made = (await call(c, "create_shape_path", {
+      kind: "star", id: "st", x: 300, y: 200, points: 5, radius: 50, cornerRadius: 4, props: { fill: "#c43d27" },
+    })) as ToolResult & { structuredContent?: { ids: string[]; roots: { id: string; type: string; x: number; y: number; width: number; height: number }[] } };
+    assertOutput("create_shape_path", made.structuredContent);
+    expect(made.structuredContent?.ids).toEqual(["st"]);
+    const star = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["st"] })))[0];
+    expect(star).toMatchObject({ type: "path", fill: "#c43d27" });
+    expect(star.d).toContain("A");
+    // x and y are the center: the box straddles it.
+    expect(star.x + star.width / 2).toBeGreaterThan(290);
+    expect(star.x + star.width / 2).toBeLessThan(310);
+    const ring = (await call(c, "create_shape_path", { kind: "ring", id: "rg", x: 0, y: 0, radius: 20, thickness: 5, place: "none" })) as ToolResult & { structuredContent?: { ids: string[] } };
+    expect(ring.structuredContent?.ids).toEqual(["rg"]);
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["rg"] })))[0]).toMatchObject({ x: -20, y: -20, width: 40, height: 40, fillRule: "evenodd" });
+    const bad = await call(c, "create_shape_path", { kind: "ring", radius: 10, thickness: 10 });
+    expect(textOf(bad)).toMatch(/hole radius/);
+
+    const pure = (await call(c, "round_path_corners", { d: "M0 0 L100 0 L100 100 L0 100 Z", radius: 10 })) as ToolResult & { structuredContent?: { d: string } };
+    assertOutput("round_path_corners", pure.structuredContent);
+    expect(pure.structuredContent?.d).toBe("M10 0 L90 0 A10 10 0 0 1 100 10 L100 90 A10 10 0 0 1 90 100 L10 100 A10 10 0 0 1 0 90 L0 10 A10 10 0 0 1 10 0 Z");
+    await call(c, "create_nodes", { nodes: [{ type: "path", id: "sq", x: 500, y: 0, d: "M0 0 L40 0 L40 40 L0 40 Z", fill: "#000000" }] });
+    const rounded = (await call(c, "round_path_corners", { id: "sq", radius: 8 })) as ToolResult & { structuredContent?: unknown };
+    assertOutput("round_path_corners", rounded.structuredContent);
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["sq"] })))[0].d).toContain("A8 8 0 0 1");
+    expect(textOf(await call(c, "round_path_corners", { d: "M0 0 C1 1 2 2 3 3", radius: 2 }))).toMatch(/straight edges/);
   });
 
   it("semântica web e converter em caminho", async () => {
