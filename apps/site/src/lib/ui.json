@@ -1,0 +1,78 @@
+{
+  "en": {
+    "other": "pt-BR",
+    "otherLabel": "Português",
+    "docs": "Docs",
+    "home": "Home",
+    "search": "Search docs",
+    "searchLabel": "Search the docs",
+    "noResults": "No results for",
+    "menu": "Menu",
+    "theme": "Switch between light and dark theme",
+    "onThisPage": "On this page",
+    "previous": "Previous",
+    "next": "Next",
+    "edit": "Edit this page on GitHub",
+    "skip": "Skip to content",
+    "nav": "Documentation",
+    "description": "Paprika documentation: a design tool where you and your AI agent draw together, on your own computer.",
+    "homeTitle": "Paprika docs",
+    "homeLead": "Paprika is a design tool where you and your AI agent draw together, on your own computer. Pick where to start.",
+    "everything": "Everything in the docs",
+    "paths": [
+      [
+        "Install with Docker",
+        "One command starts the canvas and the MCP server on your computer.",
+        "Install"
+      ],
+      [
+        "Connect your agent",
+        "Add Paprika to Claude Code or any MCP client and ask for a first screen.",
+        "Connect"
+      ],
+      [
+        "Contribute",
+        "Build from source, run the tests and follow the design-first rule.",
+        "Start contributing"
+      ]
+    ]
+  },
+  "pt-BR": {
+    "other": "en",
+    "otherLabel": "English",
+    "docs": "Docs",
+    "home": "Início",
+    "search": "Buscar nas docs",
+    "searchLabel": "Buscar na documentação",
+    "noResults": "Nada encontrado para",
+    "menu": "Menu",
+    "theme": "Alternar entre tema claro e escuro",
+    "onThisPage": "Nesta página",
+    "previous": "Anterior",
+    "next": "Próxima",
+    "edit": "Editar esta página no GitHub",
+    "skip": "Pular para o conteúdo",
+    "nav": "Documentação",
+    "description": "Documentação do Paprika: uma ferramenta de design em que você e o seu agente de IA desenham juntos, no seu computador.",
+    "homeTitle": "Documentação do Paprika",
+    "homeLead": "O Paprika é uma ferramenta de design em que você e o seu agente de IA desenham juntos, no seu computador. Escolha por onde começar.",
+    "everything": "Tudo o que há na documentação",
+    "paths": [
+      [
+        "Instalar com Docker",
+        "Um comando sobe o canvas e o servidor MCP no seu computador.",
+        "Instalar"
+      ],
+      [
+        "Conectar o seu agente",
+        "Adicione o Paprika ao Claude Code ou a qualquer cliente MCP e peça uma primeira tela.",
+        "Conectar"
+      ],
+      [
+        "Contribuir",
+        "Compile do código-fonte, rode os testes e siga a regra de desenhar antes.",
+        "Começar a contribuir"
+      ]
+    ]
+  }
+}

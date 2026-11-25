@@ -1,0 +1,429 @@
+[
+  {
+    "title": [
+      "Get started",
+      "Comece aqui"
+    ],
+    "items": [
+      "home",
+      {
+        "title": [
+          "Install with Docker",
+          "Instalar com Docker"
+        ],
+        "src": [
+          "docs/en-US/install.md",
+          "docs/pt-BR/instalar.md"
+        ],
+        "out": [
+          "install.html",
+          "instalar.html"
+        ]
+      },
+      {
+        "title": [
+          "Connect your agent",
+          "Conectar o seu agente"
+        ],
+        "src": [
+          "docs/en-US/connect-agent.md",
+          "docs/pt-BR/conectar-agente.md"
+        ],
+        "out": [
+          "connect-agent.html",
+          "conectar-agente.html"
+        ]
+      }
+    ]
+  },
+  {
+    "title": [
+      "Use Paprika",
+      "Usar o Paprika"
+    ],
+    "items": [
+      {
+        "title": [
+          "Using the canvas",
+          "Usando o canvas"
+        ],
+        "src": [
+          "docs/en-US/canvas.md",
+          "docs/pt-BR/canvas.md"
+        ],
+        "out": [
+          "canvas.html",
+          "canvas.html"
+        ]
+      },
+      {
+        "title": [
+          "Docker",
+          "Docker"
+        ],
+        "src": [
+          "docs/en-US/docker.md",
+          "docs/pt-BR/docker.md"
+        ],
+        "out": [
+          "docker.html",
+          "docker.html"
+        ]
+      },
+      {
+        "title": [
+          "Team sync",
+          "Sincronização do time"
+        ],
+        "src": [
+          "docs/en-US/team-sync.md",
+          "docs/pt-BR/sincronizacao-time.md"
+        ],
+        "out": [
+          "team-sync.html",
+          "sincronizacao-time.html"
+        ]
+      },
+      {
+        "title": [
+          "Visual verification",
+          "Verificação visual"
+        ],
+        "src": [
+          "docs/en-US/visual-verification.md",
+          "docs/pt-BR/verificacao-visual.md"
+        ],
+        "out": [
+          "visual-verification.html",
+          "verificacao-visual.html"
+        ]
+      }
+    ]
+  },
+  {
+    "title": [
+      "Agents and MCP",
+      "Agentes e MCP"
+    ],
+    "items": [
+      {
+        "title": [
+          "MCP tools and file format",
+          "Ferramentas MCP e formato"
+        ],
+        "src": [
+          "docs/en-US/mcp.md",
+          "docs/pt-BR/mcp.md"
+        ],
+        "out": [
+          "mcp.html",
+          "mcp.html"
+        ]
+      },
+      {
+        "title": [
+          "Agent sessions",
+          "Sessões de agentes"
+        ],
+        "src": [
+          "docs/en-US/agent-sessions.md",
+          "docs/pt-BR/sessoes-agentes.md"
+        ],
+        "out": [
+          "agent-sessions.html",
+          "sessoes-agentes.html"
+        ]
+      },
+      {
+        "title": [
+          "Agent feedback",
+          "Feedback de agentes"
+        ],
+        "src": [
+          "docs/en-US/agent-feedback.md",
+          "docs/pt-BR/feedback-agentes.md"
+        ],
+        "out": [
+          "agent-feedback.html",
+          "feedback-agentes.html"
+        ]
+      }
+    ]
+  },
+  {
+    "title": [
+      "Brand",
+      "Marca"
+    ],
+    "items": [
+      {
+        "title": [
+          "Brand guide",
+          "Guia da marca"
+        ],
+        "src": [
+          "docs/en-US/brand/README.md",
+          "docs/pt-BR/marca.md"
+        ],
+        "out": [
+          "brand.html",
+          "marca.html"
+        ]
+      }
+    ]
+  },
+  {
+    "title": [
+      "Contribute",
+      "Contribuir"
+    ],
+    "items": [
+      {
+        "title": [
+          "Development",
+          "Desenvolvimento"
+        ],
+        "src": [
+          "docs/en-US/development.md",
+          "docs/pt-BR/desenvolvimento.md"
+        ],
+        "out": [
+          "development.html",
+          "desenvolvimento.html"
+        ]
+      },
+      {
+        "title": [
+          "CI",
+          "CI"
+        ],
+        "src": [
+          "docs/en-US/ci.md",
+          "docs/pt-BR/ci.md"
+        ],
+        "out": [
+          "ci.html",
+          "ci.html"
+        ]
+      },
+      {
+        "title": [
+          "Design boards",
+          "Folhas de design"
+        ],
+        "src": [
+          "docs/en-US/design-boards.md",
+          "docs/pt-BR/folhas-de-design.md"
+        ],
+        "out": [
+          "design-boards.html",
+          "folhas-de-design.html"
+        ]
+      },
+      {
+        "title": [
+          "Agent bus",
+          "Barramento de agentes"
+        ],
+        "src": [
+          "docs/en-US/agent-bus.md",
+          "docs/pt-BR/barramento-agentes.md"
+        ],
+        "out": [
+          "agent-bus.html",
+          "barramento-agentes.html"
+        ]
+      },
+      {
+        "title": [
+          "Backlog",
+          "Backlog"
+        ],
+        "src": [
+          "docs/en-US/backlog.md",
+          "docs/pt-BR/backlog.md"
+        ],
+        "out": [
+          "backlog.html",
+          "backlog.html"
+        ]
+      },
+      {
+        "title": [
+          "Contributing",
+          "Como contribuir"
+        ],
+        "src": [
+          "CONTRIBUTING.md",
+          "docs/pt-BR/CONTRIBUTING.md"
+        ],
+        "out": [
+          "contributing.html",
+          "contribuindo.html"
+        ]
+      },
+      {
+        "title": [
+          "Security",
+          "Segurança"
+        ],
+        "src": [
+          "SECURITY.md",
+          "docs/pt-BR/SECURITY.md"
+        ],
+        "out": [
+          "security.html",
+          "seguranca.html"
+        ]
+      },
+      {
+        "title": [
+          "Code of Conduct",
+          "Código de Conduta"
+        ],
+        "src": [
+          "CODE_OF_CONDUCT.md",
+          "docs/pt-BR/CODE_OF_CONDUCT.md"
+        ],
+        "out": [
+          "code-of-conduct.html",
+          "codigo-de-conduta.html"
+        ]
+      }
+    ]
+  },
+  {
+    "title": [
+      "Reference",
+      "Referência"
+    ],
+    "items": [
+      {
+        "title": [
+          "Architecture",
+          "Arquitetura"
+        ],
+        "src": [
+          "docs/en-US/architecture.md",
+          "docs/pt-BR/arquitetura.md"
+        ],
+        "out": [
+          "architecture.html",
+          "arquitetura.html"
+        ]
+      },
+      {
+        "title": [
+          "Go server",
+          "Servidor Go"
+        ],
+        "src": [
+          "server/README.md",
+          "server/README.pt-BR.md"
+        ],
+        "out": [
+          "go-server.html",
+          "servidor-go.html"
+        ]
+      },
+      {
+        "title": [
+          "ADR 0001: Go server + SQLite",
+          "ADR 0001: servidor Go + SQLite"
+        ],
+        "src": [
+          "docs/en-US/adr/0001-go-server-sqlite.md",
+          "docs/pt-BR/adr/0001-servidor-go-sqlite.md"
+        ],
+        "out": [
+          "adr/0001-go-server-sqlite.html",
+          "adr/0001-servidor-go-sqlite.html"
+        ]
+      },
+      {
+        "title": [
+          "ADR 0002: Rust/WASM renderer",
+          "ADR 0002: renderizador Rust/WASM"
+        ],
+        "src": [
+          "docs/en-US/adr/0002-canvas-renderer-rust-wasm.md",
+          "docs/pt-BR/adr/0002-renderizador-canvas-rust-wasm.md"
+        ],
+        "out": [
+          "adr/0002-canvas-renderer-rust-wasm.html",
+          "adr/0002-renderizador-canvas-rust-wasm.html"
+        ]
+      },
+      {
+        "title": [
+          "ADR 0003: Tailwind CSS",
+          "ADR 0003: Tailwind CSS"
+        ],
+        "src": [
+          "docs/en-US/adr/0003-tailwind-css.md",
+          "docs/pt-BR/adr/0003-tailwind-css.md"
+        ],
+        "out": [
+          "adr/0003-tailwind-css.html",
+          "adr/0003-tailwind-css.html"
+        ]
+      },
+      {
+        "title": [
+          "ADR 0004: P2P team sync",
+          "ADR 0004: sincronização P2P"
+        ],
+        "src": [
+          "docs/en-US/adr/0004-p2p-team-sync.md",
+          "docs/pt-BR/adr/0004-sincronizacao-p2p-de-time.md"
+        ],
+        "out": [
+          "adr/0004-p2p-team-sync.html",
+          "adr/0004-sincronizacao-p2p-de-time.html"
+        ]
+      },
+      {
+        "title": [
+          "ADR 0005: shadcn/ui",
+          "ADR 0005: shadcn/ui"
+        ],
+        "src": [
+          "docs/en-US/adr/0005-shadcn-ui.md",
+          "docs/pt-BR/adr/0005-shadcn-ui.md"
+        ],
+        "out": [
+          "adr/0005-shadcn-ui.html",
+          "adr/0005-shadcn-ui.html"
+        ]
+      },
+      {
+        "title": [
+          "ADR 0006: Astro site",
+          "ADR 0006: site em Astro"
+        ],
+        "src": [
+          "docs/en-US/adr/0006-astro-site.md",
+          "docs/pt-BR/adr/0006-site-astro.md"
+        ],
+        "out": [
+          "adr/0006-astro-site.html",
+          "adr/0006-site-astro.html"
+        ]
+      },
+      {
+        "title": [
+          "Research: Paper MCP 0.5.19",
+          "Pesquisa: MCP do Paper 0.5.19"
+        ],
+        "src": [
+          "docs/en-US/research/paper-mcp-0.5.19.md",
+          "docs/pt-BR/research/paper-mcp-0.5.19.md"
+        ],
+        "out": [
+          "research/paper-mcp-0.5.19.html",
+          "research/paper-mcp-0.5.19.html"
+        ]
+      }
+    ]
+  }
+]
