@@ -14,7 +14,7 @@ A 5×6 grid of rounded cells: yellow column on the left, red in the middle, gree
 
 ## Wordmark
 
-`paprika` in monoline geometric lowercase drawn as paths (no font dependency): round caps, x-height 100, stroke 28. The dot of the i is a yellow square, the same shape as a selection handle.
+`paprika` in monoline geometric lowercase drawn as paths (no font dependency): round caps, x-height 100, stroke 24. The dot of the i is a yellow rounded square (corner radius a third of its side), the same shape as a selection handle, raised clear of the stem.
 
 ## Palette
 

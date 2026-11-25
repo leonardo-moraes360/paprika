@@ -63,10 +63,11 @@ export function wordmarkPath({ sw = 28, tracking = 26 } = {}) {
   return { d: p.join(" "), dot, w: x };
 }
 
-export function wordmark({ sw = 28, tracking = 26 } = {}) {
-  const { d, dot: [dx, dy], w } = wordmarkPath({ sw, tracking });
-  const ds = sw * 1.25;
-  const dot = rrect(dx - ds * 0.6, dy - ds * 0.6, ds * 1.2, ds * 1.2, ds * 0.18);
-  const pad = sw / 2 + 2;
+export function wordmark({ sw = 24, tracking = 30, dotLift = 8 } = {}) {
+  const { d, dot: [dx, dy0], w } = wordmarkPath({ sw, tracking });
+  const dy = dy0 - dotLift;
+  const ds = sw * 1.25 * 1.2;
+  const dot = rrect(dx - ds / 2, dy - ds / 2, ds, ds, ds / 3);
+  const pad = sw / 2 + 4;
   return { stroke: d, dot, viewBox: [-pad, -50 - pad, w + 2 * pad, 200 + 2 * pad], sw };
 }

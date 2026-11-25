@@ -14,7 +14,7 @@ Grade 5×6 de células arredondadas: coluna amarela à esquerda, vermelha no mei
 
 ## Letreiro
 
-`paprika` em minúsculas geométricas monolineares desenhadas como paths (sem depender de fonte): pontas redondas, altura-x 100, traço 28. O pingo do i é um quadrado amarelo, no formato de uma alça de seleção.
+`paprika` em minúsculas geométricas monolineares desenhadas como paths (sem depender de fonte): pontas redondas, altura-x 100, traço 24. O pingo do i é um quadrado amarelo arredondado (raio de um terço do lado), no formato de uma alça de seleção, afastado da haste.
 
 ## Paleta
 
