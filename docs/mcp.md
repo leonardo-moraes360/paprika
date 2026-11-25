@@ -20,7 +20,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 {
   "mcpServers": {
     "paprika": {
-      "command": "<PATH>/paprika/server-go/bin/paprika",
+      "command": "<PATH>/paprika/server/bin/paprika",
       "args": ["mcp", "--db", "<PATH>/design.db"]
     }
   }
@@ -29,7 +29,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 
 ## Tool annotations and safe calls
 
-Every tool in `server-go/contract/mcp.json` is served verbatim to the agent, including its MCP
+Every tool in `server/contract/mcp.json` is served verbatim to the agent, including its MCP
 annotations. Clients use them to decide what needs a confirmation before running. Today the contract
 carries 63 tools: **16 `readOnlyHint`** (all getters), **2 `destructiveHint`** (`delete_nodes`,
 `delete_workspace`) and **1 `idempotentHint`**; 42 mutating tools carry no annotation, so a client cannot

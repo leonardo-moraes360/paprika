@@ -7,7 +7,7 @@ The landing page and the docs, published to GitHub Pages by [`.github/workflows/
 | Path | Source |
 |---|---|
 | `/` and `/pt-BR/` | `design/landing.paprika.json`, a Paprika document drawn over MCP by `scripts/draw-landing.mjs` |
-| `/docs/` and `/docs/pt-BR/` | `README*.md`, `docs/`, `server-go/README*.md`, `CONTRIBUTING*`, `SECURITY*`, `CODE_OF_CONDUCT*` |
+| `/docs/` and `/docs/pt-BR/` | `README*.md`, `docs/`, `server/README*.md`, `CONTRIBUTING*`, `SECURITY*`, `CODE_OF_CONDUCT*` |
 
 ## The landing page is a Paprika document
 
@@ -20,12 +20,12 @@ To change the page, edit it on the canvas or rerun the drawing script, then rebu
 
 ```bash
 pnpm --filter @paprika/core build && pnpm go:build
-server-go/bin/paprika import apps/site/design/landing.paprika.json --db /tmp/landing.db --replace
-server-go/bin/paprika serve --db /tmp/landing.db --port 4790
+server/bin/paprika import apps/site/design/landing.paprika.json --db /tmp/landing.db --replace
+server/bin/paprika serve --db /tmp/landing.db --port 4790
 # in another terminal
 PAPRIKA_MCP=http://127.0.0.1:4790/mcp pnpm --filter @paprika/site site:draw
 # when done, back to the versioned file
-server-go/bin/paprika export --db /tmp/landing.db -o apps/site/design/landing.paprika.json
+server/bin/paprika export --db /tmp/landing.db -o apps/site/design/landing.paprika.json
 pnpm --filter @paprika/site site:build   # writes apps/site/dist
 ```
 

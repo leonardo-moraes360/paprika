@@ -184,12 +184,12 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["rust"]);
   });
 
-  it("server-go also runs the team sync job (internal/team runs against the sidecar)", () => {
-    assert.equal(plan(["server-go/internal/team/team.go"]).sync, true);
+  it("server also runs the team sync job (internal/team runs against the sidecar)", () => {
+    assert.equal(plan(["server/internal/team/team.go"]).sync, true);
   });
 
-  it("server-go runs the Go jobs and never the TS-only ones", () => {
-    const p = plan(["server-go/internal/core/ops.go"]);
+  it("server runs the Go jobs and never the TS-only ones", () => {
+    const p = plan(["server/internal/core/ops.go"]);
     assert.equal(p.go, true);
     assert.equal(p.ts, false);
     assert.equal(p.unit, false);
@@ -220,13 +220,13 @@ describe("each area selects its jobs", () => {
   });
 
   it("everything the image packages also builds the image", () => {
-    for (const file of ["packages/core/src/ops.ts", "apps/web/src/Canvas.tsx", "crates/render/src/lib.rs", "server-go/internal/core/ops.go"]) {
+    for (const file of ["packages/core/src/ops.ts", "apps/web/src/Canvas.tsx", "crates/render/src/lib.rs", "server/internal/core/ops.go"]) {
       assert.equal(plan([file]).docker, true, file);
     }
   });
 
   it("what the image does not package skips the image", () => {
-    for (const file of ["packages/e2e/test/api.test.ts", "packages/e2e/fixtures/demo.paprika.json", "docs/docker.md", "apps/site/scripts/build.mjs", "server-go.md", "nested/Dockerfile"]) {
+    for (const file of ["packages/e2e/test/api.test.ts", "packages/e2e/fixtures/demo.paprika.json", "docs/docker.md", "apps/site/scripts/build.mjs", "server.md", "nested/Dockerfile"]) {
       assert.equal(plan([file]).docker, false, file);
     }
   });
@@ -237,8 +237,8 @@ describe("each area selects its jobs", () => {
 });
 
 describe("a mixed change unions every touched area", () => {
-  it("core + server-go + docs keeps the full flags of both areas", () => {
-    const p = plan(["packages/core/src/style.ts", "docs/adr/0002.md", "server-go/internal/server/routes.go"]);
+  it("core + server + docs keeps the full flags of both areas", () => {
+    const p = plan(["packages/core/src/style.ts", "docs/adr/0002.md", "server/internal/server/routes.go"]);
     assert.equal(p.full, false);
     assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/core", mode: "changed" }]);
     assert.equal(JSON.parse(p.suites_matrix).length, 2);
@@ -248,8 +248,8 @@ describe("a mixed change unions every touched area", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript", "go"]);
   });
 
-  it("web + server-go selects both stacks without being a full run", () => {
-    const p = plan(["apps/web/src/useDocument.ts", "server-go/go.mod"]);
+  it("web + server selects both stacks without being a full run", () => {
+    const p = plan(["apps/web/src/useDocument.ts", "server/go.mod"]);
     assert.equal(p.full, false);
     assert.equal(p.ts, true);
     assert.equal(p.go, true);

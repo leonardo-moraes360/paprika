@@ -20,7 +20,7 @@ Paprika is an **original** project. Do not submit code, assets, icons, fonts, sh
 |---|---|---|
 | Node.js | 22+ | `packages/core`, the canvas (`apps/web`), the E2E suites (`packages/e2e`) |
 | pnpm | 10+ | workspace and scripts |
-| Go | 1.26+ | the server (`server-go/`) |
+| Go | 1.26+ | the server (`server/`) |
 | Rust + `wasm32-unknown-unknown` | stable | the WASM canvas renderer (`crates/render`) and the team sync sidecar (`crates/sync`) |
 
 ```bash
@@ -43,9 +43,9 @@ The map and the hard rules live in [AGENTS.md](AGENTS.md); they apply to humans 
 
 - `packages/core` has no I/O. Every document mutation goes through `applyOps`.
 - New visual styling goes into `nodeStyle`, so the canvas, screenshots and exported code stay identical.
-- The server is `server-go/`; `server-go/internal/core` ports `packages/core`, which the canvas runs. A change to `packages/core` needs the same change in Go, regenerated fixtures (`pnpm go:golden`) and passing `pnpm go:test`.
+- The server is `server/`; `server/internal/core` ports `packages/core`, which the canvas runs. A change to `packages/core` needs the same change in Go, regenerated fixtures (`pnpm go:golden`) and passing `pnpm go:test`.
 - Interface changes (`apps/web`, `apps/site`, new screens, visual tweaks) are designed first in a local Paprika over MCP; the PR carries screenshots of the frames, and MCP friction goes to `docs/agent-feedback.md`.
-- A new MCP tool needs its definition in `server-go/contract/mcp.json`, its handler and a Go test, a scenario in `packages/e2e/test/api.test.ts`, and a row in both MCP tool tables (`docs/mcp.md` and `docs/pt-BR/mcp.md`).
+- A new MCP tool needs its definition in `server/contract/mcp.json`, its handler and a Go test, a scenario in `packages/e2e/test/api.test.ts`, and a row in both MCP tool tables (`docs/mcp.md` and `docs/pt-BR/mcp.md`).
 
 ## Documentation
 
@@ -53,7 +53,7 @@ English is the primary language (`README.md`, `docs/`, root `*.md`). The Brazili
 
 ## Commits and pull requests
 
-- Use [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`, e.g. `feat(server-go): …`, `fix(web): …`, `docs: …`. Summaries in English or Portuguese are both fine.
+- Use [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`, e.g. `feat(server): …`, `fix(web): …`, `docs: …`. Summaries in English or Portuguese are both fine.
 - Keep each pull request focused on one change; don't mix refactors or formatting of unrelated files.
 - Before opening it, run the checks for what you touched: `pnpm check` runs everything; `pnpm go:test`, `pnpm test:api` and `pnpm test:e2e` are the faster subsets.
 - In the description, say what changed, why, how you tested it, and link the issue.

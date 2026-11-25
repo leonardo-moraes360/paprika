@@ -14,7 +14,7 @@ on:
       - CONTRIBUTING*.md
       - SECURITY*.md
       - CODE_OF_CONDUCT*.md
-      - server-go/README*.md
+      - server/README*.md
       - packages/core/src/**
       - .github/workflows/pages.yml
   workflow_dispatch:

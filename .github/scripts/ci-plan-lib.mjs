@@ -63,13 +63,13 @@ export function planFor(files, { ciFull = false } = {}) {
   // crates/render is built into apps/web (the canvas's WASM mode), so it also counts as web.
   const rust = area(/^crates\/render\//);
   const web = area(/^apps\/web\//) || rust;
-  const go = area(/^server-go\//);
+  const go = area(/^server\//);
   // The team sync sidecar (crates/sync) and the Go package that drives it: built and tested
-  // together, since server-go/internal/team runs against the real binary.
+  // together, since server/internal/team runs against the real binary.
   const sync = area(/^crates\/sync\//) || go;
   const actions = area(/^\.github\//);
   // The image's own files. Everything else that goes into the image (core, web, crates/render,
-  // crates/sync, server-go) is one of the areas above.
+  // crates/sync, server) is one of the areas above.
   const dockerfiles = area(/^(Dockerfile|\.dockerignore|compose(\.team)?\.yaml)$/);
 
   // Unit tests per workspace package. A package runs every test when one of its dependencies

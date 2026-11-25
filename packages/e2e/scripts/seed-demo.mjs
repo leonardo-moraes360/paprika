@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
-const bin = process.env.PAPRIKA_SERVER_BIN || join(root, "server-go/bin/paprika");
+const bin = process.env.PAPRIKA_SERVER_BIN || join(root, "server/bin/paprika");
 const file = join(root, "packages/e2e/fixtures/demo.paprika.json");
 const dir = mkdtempSync(join(tmpdir(), "paprika-seed-"));
 const db = join(dir, "seed.db");

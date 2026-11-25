@@ -4,7 +4,7 @@
 
 - **Status:** Aceito
 - **Data:** 2026-11-21
-- **Código:** `crates/sync` (sidecar `paprika-sync`), `server-go/internal/team` (supervisor, diff e aplicação)
+- **Código:** `crates/sync` (sidecar `paprika-sync`), `server/internal/team` (supervisor, diff e aplicação)
 - **Especificação:** [protocolo de sincronização de time](../sincronizacao-time.md)
 
 ## Contexto

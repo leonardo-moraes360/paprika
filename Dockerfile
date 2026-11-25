@@ -74,12 +74,12 @@ RUN pnpm --filter @paprika/core build \
  && pnpm --filter @paprika/web exec vite build \
  && test -n "$(find apps/web/dist -name '*.wasm' -print -quit)"
 
-# ------------------------------------------------------------------ server (server-go)
+# ------------------------------------------------------------------ server (Go)
 FROM golang:1.27-trixie AS server
-WORKDIR /src/server-go
-COPY server-go/go.mod server-go/go.sum ./
+WORKDIR /src/server
+COPY server/go.mod server/go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
-COPY server-go/ ./
+COPY server/ ./
 # modernc.org/sqlite is pure Go; nodynamic keeps gen2brain webp/avif on WASM so purego
 # does not pull libc (distroless/static has no dynamic linker).
 RUN --mount=type=cache,target=/go/pkg/mod \

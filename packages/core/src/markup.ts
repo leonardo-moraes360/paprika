@@ -2,7 +2,7 @@
  * Leitor tolerante de marcação (HTML e SVG) para importar conteúdo colado. Não é um parser
  * HTML5 completo: lê tags, atributos, texto e entidades comuns, ignora comentários, doctype,
  * `<script>` e `<style>`, e fecha tags esquecidas. Nomes de tags e atributos ficam em minúsculas
- * (ASCII). Roda igual no servidor, no navegador e no Go (`server-go/internal/core/markup.go`).
+ * (ASCII). Roda igual no servidor, no navegador e no Go (`server/internal/core/markup.go`).
  */
 
 export interface MarkupElement {

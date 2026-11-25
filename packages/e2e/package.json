@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Black-box suites for the Go server (server-go): MCP, HTTP/WS API and canvas E2E.",
+  "description": "Black-box suites for the Go server (server): MCP, HTTP/WS API and canvas E2E.",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:api": "vitest run test/api.test.ts",

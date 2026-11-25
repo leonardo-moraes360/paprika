@@ -22,8 +22,8 @@ Não há servidor central. Por que é assim: [ADR 0004](adr/0004-sincronizacao-p
 
 ```bash
 cargo build --release --manifest-path crates/sync/Cargo.toml
-cp crates/sync/target/release/paprika-sync server-go/bin/      # ao lado do paprika, ou defina PAPRIKA_SYNC
-server-go/bin/paprika serve --team --team-name Ana
+cp crates/sync/target/release/paprika-sync server/bin/      # ao lado do paprika, ou defina PAPRIKA_SYNC
+server/bin/paprika serve --team --team-name Ana
 ```
 
 | Flag | Padrão | Significado |
@@ -43,7 +43,7 @@ A imagem Docker leva o `paprika-sync` ao lado do `paprika`; no Compose, acrescen
 | Transporte | `crates/sync/src/node.rs`, `proto.rs` | Um endpoint Iroh por instância (a chave dele é a chave de membro). Uma conexão QUIC por peer, um stream bidirecional de frames JSON com prefixo de tamanho no ALPN `paprika/sync/1`. Conexões de chaves fora do time são fechadas antes de qualquer leitura. |
 | CRDT | `crates/sync/src/crdt.rs` | Um documento Loro por workspace compartilhado: um `LoroTree` para os nós (campos nos metadados de cada nó da árvore, uma chave em que o último a escrever vence por campo) e mapas para nome, tokens, modos, apontamentos e respostas. Apontamentos não são nós do canvas. |
 | Segurança | `crates/sync/src/team.rs`, `envelope.rs`, `keys.rs` | Arquivo de time (allowlist), envelopes assinados, delegação a agentes, convites. |
-| Ponte Go | `server-go/internal/team` | Sobe e supervisiona o sidecar, transforma commits locais em conjuntos de mudanças e estados remotos em transações `applyOps`, serve `/api/team/*` e manda `{type: "team"}` em `/ws`. |
+| Ponte Go | `server/internal/team` | Sobe e supervisiona o sidecar, transforma commits locais em conjuntos de mudanças e estados remotos em transações `applyOps`, serve `/api/team/*` e manda `{type: "team"}` em `/ws`. |
 
 ## Protocolo do sidecar (stdio)
 
@@ -108,7 +108,7 @@ Apontamentos viajam no mesmo conjunto de mudanças, e não como nós: `{"k":"pin
 na ordem da árvore. O Go transforma a diferença com o próprio documento em ops e as aplica numa transação fora
 da pilha local de undo: nós cujo pai mudou se movem primeiro, depois os que sumiram são apagados, um passeio na
 ordem da árvore cria os que faltam e põe o resto no lugar, e por fim atualizações de campos, `set_tokens` e
-`rename_document` (`server-go/internal/team/diff.go`). A transação fica com ator `peer:<quem>` e tipo `remote`.
+`rename_document` (`server/internal/team/diff.go`). A transação fica com ator `peer:<quem>` e tipo `remote`.
 Um workspace que a instância ainda não tem é criado.
 
 ## Protocolo entre peers

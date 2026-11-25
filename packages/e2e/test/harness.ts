@@ -11,7 +11,7 @@ import type { Document } from "@paprika/core";
 export const repoRoot = resolve(import.meta.dirname, "../../..");
 
 /** Path of the server binary under test. */
-export const serverBin = resolve(process.env.PAPRIKA_SERVER_BIN || join(repoRoot, "server-go/bin/paprika"));
+export const serverBin = resolve(process.env.PAPRIKA_SERVER_BIN || join(repoRoot, "server/bin/paprika"));
 if (!existsSync(serverBin)) throw new Error(`servidor Go não encontrado em ${serverBin}: rode \`pnpm go:build\``);
 
 export interface ExternalServer {

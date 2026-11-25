@@ -36,10 +36,10 @@ The board document is exported to `docs/design/boards.paprika.json` the same way
 
 ```bash
 # after drawing the sheets (the server holds them in <db>)
-server-go/bin/paprika export --db <db> -o docs/design/boards.paprika.json
+server/bin/paprika export --db <db> -o docs/design/boards.paprika.json
 
 # after a reset: bring them back into a fresh server, then screenshot again from it
-server-go/bin/paprika import docs/design/boards.paprika.json --db <db> --replace
+server/bin/paprika import docs/design/boards.paprika.json --db <db> --replace
 ```
 
 Commit the export in the change that drew the sheets, or as a follow-up `chore:` commit — either way, one

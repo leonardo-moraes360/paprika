@@ -99,7 +99,7 @@ When bumping versions, keep these in step:
 
 ## CI
 
-The `docker` job of `.github/workflows/ci.yml` builds the default target and runs `.github/scripts/docker-smoke.sh` against it: canvas and WASM asset served, foreign `Host` refused, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` over `/mcp`, and the database surviving a container restart on the same volume. It runs when the PR touches the `Dockerfile`, `.dockerignore`, `compose.yaml`, or anything that goes into the image (`server-go/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), plus on full runs. See [ci.md](ci.md).
+The `docker` job of `.github/workflows/ci.yml` builds the default target and runs `.github/scripts/docker-smoke.sh` against it: canvas and WASM asset served, foreign `Host` refused, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` over `/mcp`, and the database surviving a container restart on the same volume. It runs when the PR touches the `Dockerfile`, `.dockerignore`, `compose.yaml`, or anything that goes into the image (`server/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), plus on full runs. See [ci.md](ci.md).
 
 Run the same check locally:
 

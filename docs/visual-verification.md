@@ -27,7 +27,7 @@ over, so they have to be written down and reviewable.
 
 ## What exists now
 
-`server-go/internal/visualdiff` — the comparator and the contrast check, in Go:
+`server/internal/visualdiff` — the comparator and the contrast check, in Go:
 
 | Call | What it gives |
 | --- | --- |

@@ -20,7 +20,7 @@ O Paprika é um projeto **original**. Não envie código, assets, ícones, fonte
 |---|---|---|
 | Node.js | 22+ | `packages/core`, o canvas (`apps/web`), as suítes E2E (`packages/e2e`) |
 | pnpm | 10+ | workspace e scripts |
-| Go | 1.26+ | o servidor (`server-go/`) |
+| Go | 1.26+ | o servidor (`server/`) |
 | Rust + `wasm32-unknown-unknown` | stable | o renderizador WASM do canvas (`crates/render`) e o sidecar de sincronização do time (`crates/sync`) |
 
 ```bash
@@ -43,9 +43,9 @@ O mapa e as regras obrigatórias estão no [AGENTS.md](AGENTS.md); valem para hu
 
 - `packages/core` não faz I/O. Toda mutação do documento passa por `applyOps`.
 - Estilo visual novo entra no `nodeStyle`, para que canvas, screenshot e código exportado continuem idênticos.
-- O servidor é o `server-go/`; o `server-go/internal/core` é um port do `packages/core`, que o canvas roda. Mudar o `packages/core` exige a mesma mudança em Go, fixtures regeneradas (`pnpm go:golden`) e `pnpm go:test` passando.
+- O servidor é o `server/`; o `server/internal/core` é um port do `packages/core`, que o canvas roda. Mudar o `packages/core` exige a mesma mudança em Go, fixtures regeneradas (`pnpm go:golden`) e `pnpm go:test` passando.
 - Mudanças de interface (`apps/web`, `apps/site`, telas novas, ajustes visuais) são desenhadas primeiro num Paprika local via MCP; o PR leva screenshots dos frames, e os atritos com o MCP vão para `docs/pt-BR/feedback-agentes.md` (e `docs/agent-feedback.md`).
-- Ferramenta MCP nova exige a definição em `server-go/contract/mcp.json`, o handler e um teste Go, um cenário em `packages/e2e/test/api.test.ts` e uma linha nas duas tabelas de ferramentas MCP (`docs/mcp.md` e `docs/pt-BR/mcp.md`).
+- Ferramenta MCP nova exige a definição em `server/contract/mcp.json`, o handler e um teste Go, um cenário em `packages/e2e/test/api.test.ts` e uma linha nas duas tabelas de ferramentas MCP (`docs/mcp.md` e `docs/pt-BR/mcp.md`).
 
 ## Documentação
 
@@ -53,7 +53,7 @@ Inglês é o idioma principal (`README.md`, `docs/`, `*.md` da raiz). O espelho 
 
 ## Commits e pull requests
 
-- Use [Conventional Commits](https://www.conventionalcommits.org/pt-br/): `tipo(escopo): resumo`, por exemplo `feat(server-go): …`, `fix(web): …`, `docs: …`. O resumo pode ser em português ou inglês.
+- Use [Conventional Commits](https://www.conventionalcommits.org/pt-br/): `tipo(escopo): resumo`, por exemplo `feat(server): …`, `fix(web): …`, `docs: …`. O resumo pode ser em português ou inglês.
 - Mantenha cada pull request focado em uma mudança; não misture refatorações ou formatação de arquivos sem relação.
 - Antes de abrir, rode as verificações do que você mexeu: `pnpm check` roda tudo; `pnpm go:test`, `pnpm test:api` e `pnpm test:e2e` são os subconjuntos mais rápidos.
 - Na descrição, diga o que mudou, por quê, como você testou e linke a issue.

@@ -15,21 +15,21 @@ Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workfl
 | **Plan** | Runs the tests of the CI scripts ([`.github/scripts/test/`](../.github/scripts/test/)), checks that every third-party action is pinned to a commit SHA ([`check-actions-pinned.mjs`](../.github/scripts/check-actions-pinned.mjs)), lists the changed files and decides which jobs below run ([`ci-plan.mjs`](../.github/scripts/ci-plan.mjs)). | always |
 | **TS build + tscheck** | `pnpm build` (core, web, the WASM canvas renderer from `crates/render` with `PAPRIKA_REQUIRE_WASM=1`, and the Go server binary), `pnpm typecheck` (including the `packages/e2e` suites). Uploads `dist/`, `apps/web/src/wasm` and the Go binary as the `build` artifact for the jobs below, so the e2e suite also runs the WASM renderer tests. | TS, Go or Rust code |
 | **Unit** `<pkg>` (shard n/2) | Vitest for `@paprika/core`, split in 2 shards. | `packages/core` |
-| **e2e / api vs Go server** | The black-box suites of `packages/e2e` against the Go binary: `test:e2e` (canvas in Playwright) and `test:api` (MCP over HTTP and stdio, HTTP API, WebSocket), 2 jobs in parallel. | e2e: core, `packages/e2e`, web, `crates/render`, `server-go`; api: core, `packages/e2e`, `server-go` |
-| **Go fixtures up to date** | `pnpm go:golden` then `git diff --exit-code` on `server-go/internal/core/testdata` and `server-go/contract` (the measure script). | core, `server-go` |
-| **golangci-lint** | golangci-lint v2 ([`server-go/.golangci.yml`](../server-go/.golangci.yml)) and `go vet`. | `server-go` |
-| **govulncheck** | Known vulnerabilities reachable from the Go code. | `server-go` |
-| **Go test** (shard n/2) | `go test -shuffle=on` on the affected packages, split in 2 shards. | `server-go` |
+| **e2e / api vs Go server** | The black-box suites of `packages/e2e` against the Go binary: `test:e2e` (canvas in Playwright) and `test:api` (MCP over HTTP and stdio, HTTP API, WebSocket), 2 jobs in parallel. | e2e: core, `packages/e2e`, web, `crates/render`, `server`; api: core, `packages/e2e`, `server` |
+| **Go fixtures up to date** | `pnpm go:golden` then `git diff --exit-code` on `server/internal/core/testdata` and `server/contract` (the measure script). | core, `server` |
+| **golangci-lint** | golangci-lint v2 ([`server/.golangci.yml`](../server/.golangci.yml)) and `go vet`. | `server` |
+| **govulncheck** | Known vulnerabilities reachable from the Go code. | `server` |
+| **Go test** (shard n/2) | `go test -shuffle=on` on the affected packages, split in 2 shards. | `server` |
 | **Rust lint / test** | `cargo fmt --check`, clippy (native and `wasm32-unknown-unknown`, `-D warnings`), `cargo test`. | `crates/render` |
-| **Team sync** | `cargo fmt --check`, clippy (`-D warnings`) and `cargo test` in `crates/sync` (two sidecars over loopback), then `go test ./internal/team` with `PAPRIKA_SYNC` pointing at the built sidecar: two real instances (store + sidecar) connect and share presence. See [team-sync.md](team-sync.md). | `crates/sync`, `server-go` |
+| **Team sync** | `cargo fmt --check`, clippy (`-D warnings`) and `cargo test` in `crates/sync` (two sidecars over loopback), then `go test ./internal/team` with `PAPRIKA_SYNC` pointing at the built sidecar: two real instances (store + sidecar) connect and share presence. See [team-sync.md](team-sync.md). | `crates/sync`, `server` |
 | **CodeQL** `<language>` | `security-and-quality` queries for `actions`, `javascript-typescript`, `go`, `rust`; results go to the PR's code scanning. | the language's files |
-| **Docker image** | Builds the `Dockerfile` (default `runtime` target, then `slim`) with Buildx and a layer cache in the GitHub Actions cache, and runs [`docker-smoke.sh`](../.github/scripts/docker-smoke.sh) against each: canvas and WASM asset, foreign `Host` refused, MCP over `/mcp` (with `render_screenshot` on `runtime`), database kept across a restart, team mode (sidecar up, key kept on the volume); both Compose files are checked with `docker compose config`. See [docker.md](docker.md). | `Dockerfile`, `.dockerignore`, `compose.yaml`, `compose.team.yaml`, core, web, `crates/render`, `crates/sync`, `server-go` |
+| **Docker image** | Builds the `Dockerfile` (default `runtime` target, then `slim`) with Buildx and a layer cache in the GitHub Actions cache, and runs [`docker-smoke.sh`](../.github/scripts/docker-smoke.sh) against each: canvas and WASM asset, foreign `Host` refused, MCP over `/mcp` (with `render_screenshot` on `runtime`), database kept across a restart, team mode (sidecar up, key kept on the volume); both Compose files are checked with `docker compose config`. See [docker.md](docker.md). | `Dockerfile`, `.dockerignore`, `compose.yaml`, `compose.team.yaml`, core, web, `crates/render`, `crates/sync`, `server` |
 | **Secret leak scan** | [gitleaks](https://github.com/gitleaks/gitleaks) over the whole git history (checksum-pinned release, findings redacted in the log, SARIF report as an artifact on failure). | always |
 | **CI OK** | Fails if any job failed or was cancelled. **This is the one check to require** in branch protection: it is green when the jobs that ran passed and the ones skipped were skipped by the plan. | always |
 
 A change to `.github/workflows/`, `.github/scripts/`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` or `tsconfig.base.json` runs **everything**. So does the `ci:full` label (applied on the next push to the PR). Docs-only PRs run only Plan and CI OK.
 
-Go jobs install the latest patch of the minor in `GO_VERSION` (top of `ci.yml`), not the exact `go` line of `server-go/go.mod`: that line is the minimum the modules need (for example `go 1.26.0`), and its standard library would fail govulncheck. Bump `GO_VERSION` when `go.mod` moves to a new minor.
+Go jobs install the latest patch of the minor in `GO_VERSION` (top of `ci.yml`), not the exact `go` line of `server/go.mod`: that line is the minimum the modules need (for example `go 1.26.0`), and its standard library would fail govulncheck. Bump `GO_VERSION` when `go.mod` moves to a new minor.
 
 ## Running only what changed
 
@@ -77,7 +77,7 @@ To add shards, change `shard: [1, 2]` in the matrix and the `/2` (vitest) or the
 | What | How | Key |
 | --- | --- | --- |
 | pnpm store | `actions/setup-node` with `cache: pnpm` (composite action [`setup-node-pnpm`](../.github/actions/setup-node-pnpm/action.yml)) | `pnpm-lock.yaml` |
-| Go modules + build/test cache | `actions/setup-go` | `server-go/go.sum` |
+| Go modules + build/test cache | `actions/setup-go` | `server/go.sum` |
 | golangci-lint | `golangci-lint-action` | its own key |
 | Rust `target/` and registry | `Swatinem/rust-cache`, one per task, plus one for the release WASM build (composite action [`setup-rust-wasm`](../.github/actions/setup-rust-wasm/action.yml), which also installs the checksum-pinned `wasm-bindgen` CLI) | `Cargo.lock` + toolchain |
 | Playwright Chromium (e2e and api suites) | `actions/cache` on `~/.cache/ms-playwright` (composite action [`setup-playwright`](../.github/actions/setup-playwright/action.yml)) | Playwright version |
@@ -111,7 +111,7 @@ GitHub's own **secret scanning** and **push protection** (free on public reposit
 
 ## Dependabot
 
-Weekly (Monday) version updates for npm (pnpm workspace), Go modules (`server-go`), Cargo (`crates/render`), the `Dockerfile` base images and GitHub Actions, with minor and patch bumps grouped per ecosystem. `wasm-bindgen` is excluded because it is pinned with `=` to match `wasm-bindgen-cli` in `crates/render/build.mjs` and `setup-rust-wasm`. Dependabot PRs go through the same CI.
+Weekly (Monday) version updates for npm (pnpm workspace), Go modules (`server`), Cargo (`crates/render`), the `Dockerfile` base images and GitHub Actions, with minor and patch bumps grouped per ecosystem. `wasm-bindgen` is excluded because it is pinned with `=` to match `wasm-bindgen-cli` in `crates/render/build.mjs` and `setup-rust-wasm`. Dependabot PRs go through the same CI.
 
 Security updates (PRs for vulnerable dependencies outside the schedule) are a repository setting: **Settings → Code security → Dependabot security updates**.
 

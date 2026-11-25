@@ -14,7 +14,7 @@ const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
 const shots = process.env.PAPRIKA_E2E_SHOTS;
 
-// Roda contra o servidor Go como processo externo (server-go/bin/paprika ou PAPRIKA_SERVER_BIN).
+// Roda contra o servidor Go como processo externo (server/bin/paprika ou PAPRIKA_SERVER_BIN).
 describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   let dir: string;
   let external: ExternalServer | undefined;

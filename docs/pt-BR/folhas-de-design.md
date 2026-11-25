@@ -39,10 +39,10 @@ guarda `apps/site/design/landing.paprika.json`:
 
 ```bash
 # depois de desenhar as folhas (o servidor as tem em <db>)
-server-go/bin/paprika export --db <db> -o docs/design/boards.paprika.json
+server/bin/paprika export --db <db> -o docs/design/boards.paprika.json
 
 # depois de um reset: traz de volta para um servidor limpo e refaz os screenshots a partir dele
-server-go/bin/paprika import docs/design/boards.paprika.json --db <db> --replace
+server/bin/paprika import docs/design/boards.paprika.json --db <db> --replace
 ```
 
 Commite a exportação na própria change que desenhou as folhas, ou num `chore:` logo depois — de qualquer

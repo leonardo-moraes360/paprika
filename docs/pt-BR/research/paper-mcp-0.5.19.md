@@ -43,7 +43,7 @@ A mesma sessão esbarrou em limites que o Paprika não tem:
 
 ## Propostas para o backlog
 
-1. Anotar as 42 ferramentas que faltam em `server-go/contract/mcp.json` (`destructiveHint` em
+1. Anotar as 42 ferramentas que faltam em `server/contract/mcp.json` (`destructiveHint` em
    `delete_*`, `archive_workspace`, `move_workspace`, `import_document`; `idempotentHint` em `show_all`,
    `unlock_all`, `open_workspace`) e levar a coluna de anotações para as duas tabelas de ferramentas.
 2. Colocar o ciclo de desenho nas instruções do `initialize` (ou no `get_design_guide`) em vez de só no

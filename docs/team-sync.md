@@ -22,8 +22,8 @@ There is no central server. Why it is built this way: [ADR 0004](adr/0004-p2p-te
 
 ```bash
 cargo build --release --manifest-path crates/sync/Cargo.toml
-cp crates/sync/target/release/paprika-sync server-go/bin/      # next to paprika, or set PAPRIKA_SYNC
-server-go/bin/paprika serve --team --team-name Ana
+cp crates/sync/target/release/paprika-sync server/bin/      # next to paprika, or set PAPRIKA_SYNC
+server/bin/paprika serve --team --team-name Ana
 ```
 
 | Flag | Default | Meaning |
@@ -43,7 +43,7 @@ The Docker image ships `paprika-sync` next to `paprika`; with Compose, add `comp
 | Transport | `crates/sync/src/node.rs`, `proto.rs` | One Iroh endpoint per instance (its key is the member key). One QUIC connection per peer, one bidirectional stream of length-prefixed JSON frames on ALPN `paprika/sync/1`. Connections from keys outside the team are closed before anything is read. |
 | CRDT | `crates/sync/src/crdt.rs` | One Loro document per shared workspace: a `LoroTree` for the nodes (fields in each tree node's metadata, one last-writer-wins key per field) and maps for the name, tokens, modes, pins and pin replies. Pins are not canvas nodes. |
 | Security | `crates/sync/src/team.rs`, `envelope.rs`, `keys.rs` | Team file (allowlist), signed envelopes, agent delegation, invites. |
-| Go bridge | `server-go/internal/team` | Starts and supervises the sidecar, turns local commits into change sets and remote states into `applyOps` transactions, serves `/api/team/*` and pushes `{type: "team"}` on `/ws`. |
+| Go bridge | `server/internal/team` | Starts and supervises the sidecar, turns local commits into change sets and remote states into `applyOps` transactions, serves `/api/team/*` and pushes `{type: "team"}` on `/ws`. |
 
 ## Sidecar protocol (stdio)
 
@@ -108,7 +108,7 @@ Pins travel in the same change set, not as nodes: `{"k":"pin","id","value"}` (th
 in tree order. Go turns the difference with its document into ops and applies them in one transaction outside
 the local undo stack: nodes whose parent changed move first, then gone nodes are deleted, a walk in tree order
 creates the missing ones and puts the rest in place, then field updates, `set_tokens` and `rename_document`
-(`server-go/internal/team/diff.go`). The transaction is recorded with actor `peer:<who>` and kind `remote`.
+(`server/internal/team/diff.go`). The transaction is recorded with actor `peer:<who>` and kind `remote`.
 A workspace the instance does not have yet is created.
 
 ## Peer protocol

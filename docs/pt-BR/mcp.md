@@ -20,7 +20,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 {
   "mcpServers": {
     "paprika": {
-      "command": "<CAMINHO>/paprika/server-go/bin/paprika",
+      "command": "<CAMINHO>/paprika/server/bin/paprika",
       "args": ["mcp", "--db", "<CAMINHO>/design.db"]
     }
   }
@@ -29,7 +29,7 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 
 ## Anotações das ferramentas e chamadas seguras
 
-Toda ferramenta em `server-go/contract/mcp.json` é entregue verbatim ao agente, com suas anotações MCP.
+Toda ferramenta em `server/contract/mcp.json` é entregue verbatim ao agente, com suas anotações MCP.
 Os clientes usam essas anotações para decidir o que precisa de confirmação antes de rodar. Hoje o
 contract tem 63 ferramentas: **16 com `readOnlyHint`** (todos os getters), **2 com `destructiveHint`**
 (`delete_nodes`, `delete_workspace`) e **1 com `idempotentHint`**; 42 ferramentas que alteram o documento

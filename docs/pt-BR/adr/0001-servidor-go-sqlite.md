@@ -3,7 +3,7 @@
 # ADR 0001: servidor em Go com armazenamento em SQLite
 
 - Status: aceita (2026-11-21); emendada em 2026-11-21 (veja [Desdobramento](#desdobramento-servidor-typescript-removido))
-- Escopo: `server-go/` (novo). O servidor TypeScript (`packages/server`) e o core (`packages/core`) continuam como estão.
+- Escopo: `server/` (novo). O servidor TypeScript (`packages/server`) e o core (`packages/core`) continuam como estão.
 
 ## Contexto
 
@@ -11,14 +11,14 @@ O dono do projeto pediu para reimplementar o servidor do Paprika em Go, mantendo
 
 ## Decisão
 
-1. **Um binário Go** (`server-go/cmd/paprika`) com `serve`, `mcp` (stdio), `import`, `export` e `list`.
+1. **Um binário Go** (`server/cmd/paprika`) com `serve`, `mcp` (stdio), `import`, `export` e `list`.
 2. **O SQLite é o único armazenamento** do servidor Go (driver em Go puro, `modernc.org/sqlite`, sem cgo). Tabelas: `documents`, `tokens`, `nodes` (uma linha por nó, com o JSON validado e as colunas `type`/`name`/`parent_id` para consultas SQL simples), `history` (pilhas de desfazer e refazer) e `meta`. Um banco guarda vários documentos; cada processo serve um deles (`--doc`; padrão: o atualizado mais recentemente).
 3. **O `.paprika.json` só entra e sai por `paprika import` / `paprika export`** (e `GET /api/export`). Não há espelho automático nem observação de arquivo. A saída do `export` é idêntica byte a byte ao arquivo do servidor TypeScript (`JSON.stringify(doc, null, 2)` + quebra de linha), então continua versionável no git.
 4. **Undo/redo sobrevive a reinícios**: as duas pilhas são gravadas na mesma transação SQLite da mudança no documento.
 5. **Toda escrita é gravada antes de ser confirmada** (ferramentas MCP, `POST /api/ops`, `ack` do WebSocket). Se a gravação falha, o estado em memória volta ao anterior.
 6. **Dois processos no mesmo banco** (por exemplo `paprika serve` e `paprika mcp` via stdio) enxergam as gravações um do outro: cada processo consulta `PRAGMA data_version` e recarrega documento e histórico quando outra conexão gravou. Isso substitui o watcher de arquivo do servidor TypeScript.
-7. **O core TypeScript continua sendo a referência.** `server-go/internal/core` é um port de `@paprika/core` (schema, `applyOps`, `History`, `nodeStyle`, render/export, lint, outline, path). A paridade é travada por fixtures geradas a partir do core TypeScript (`server-go/scripts/gen-golden.mjs`): 72 casos de operações, 23 documentos (outline, lint, HTML, React e CSS por nó), 21 paths, cores e 25 execuções aleatórias com semente (500 passos de transações, undo e redo). Os testes Go precisam reproduzir cada saída byte a byte. As mensagens de validação vêm de um port pequeno do zod v4 (`internal/zod`), para o agente receber exatamente os mesmos erros.
-8. **O contrato MCP é compartilhado, não redescrito.** `server-go/scripts/gen-contract.mjs` extrai `tools/list`, as instruções e o server info do servidor TypeScript para `server-go/contract/mcp.json`, que o binário Go embute e serve sem alterações.
+7. **O core TypeScript continua sendo a referência.** `server/internal/core` é um port de `@paprika/core` (schema, `applyOps`, `History`, `nodeStyle`, render/export, lint, outline, path). A paridade é travada por fixtures geradas a partir do core TypeScript (`server/scripts/gen-golden.mjs`): 72 casos de operações, 23 documentos (outline, lint, HTML, React e CSS por nó), 21 paths, cores e 25 execuções aleatórias com semente (500 passos de transações, undo e redo). Os testes Go precisam reproduzir cada saída byte a byte. As mensagens de validação vêm de um port pequeno do zod v4 (`internal/zod`), para o agente receber exatamente os mesmos erros.
+8. **O contrato MCP é compartilhado, não redescrito.** `server/scripts/gen-contract.mjs` extrai `tools/list`, as instruções e o server info do servidor TypeScript para `server/contract/mcp.json`, que o binário Go embute e serve sem alterações.
 
 ## Consequências
 
@@ -38,5 +38,5 @@ O dono do projeto pediu para reimplementar o servidor do Paprika em Go, mantendo
 
 - Data: 2026-11-21. Decisão do dono: manter só o servidor Go.
 - O `packages/server` foi apagado. As suítes black-box foram para `packages/e2e` e rodam só contra o binário Go (`test:api`, a antiga suíte de paridade, e `test:e2e`); a CI roda cada uma uma vez em vez de uma vez por servidor.
-- A decisão 8 muda: não há mais servidor TypeScript de onde extrair o contrato, então `server-go/contract/mcp.json` e `guide.pt-BR.md` passam a ser o próprio contrato, editados à mão e conferidos por `packages/e2e/test/api.test.ts`. O `scripts/gen-contract.mjs` virou `scripts/gen-measure.mjs`, que só copia o script de medida do `@paprika/core`.
+- A decisão 8 muda: não há mais servidor TypeScript de onde extrair o contrato, então `server/contract/mcp.json` e `guide.pt-BR.md` passam a ser o próprio contrato, editados à mão e conferidos por `packages/e2e/test/api.test.ts`. O `scripts/gen-contract.mjs` virou `scripts/gen-measure.mjs`, que só copia o script de medida do `@paprika/core`.
 - A decisão 7 continua: o `packages/core` segue como referência (o canvas roda ele) e as fixtures golden continuam travando o port Go nele.

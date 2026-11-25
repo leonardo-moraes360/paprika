@@ -1,5 +1,5 @@
 // Black-box API suite for the Go server: it runs as a separate process and is reached only
-// through MCP (HTTP and stdio), the WebSocket and the HTTP API (see server-go/README.md).
+// through MCP (HTTP and stdio), the WebSocket and the HTTP API (see server/README.md).
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -67,7 +67,7 @@ const routeHitsBox = (c: { x: number; y: number; d: string }, box: { x: number; 
 };
 
 const outputSchema = (name: string) => {
-  const contract = JSON.parse(readFileSync(join(repoRoot, "server-go/contract/mcp.json"), "utf8"));
+  const contract = JSON.parse(readFileSync(join(repoRoot, "server/contract/mcp.json"), "utf8"));
   return contract.tools.find((t: { name: string }) => t.name === name).outputSchema;
 };
 
@@ -193,9 +193,9 @@ function pngPixel(png: Buffer, x: number, y: number): number[] {
 }
 
 describe("API: MCP", () => {
-  it("serve o contrato MCP (server-go/contract/mcp.json) com JSON Schema de objeto", async () => {
+  it("serve o contrato MCP (server/contract/mcp.json) com JSON Schema de objeto", async () => {
     const { tools } = await client.listTools();
-    const contract = JSON.parse(readFileSync(join(repoRoot, "server-go/contract/mcp.json"), "utf8"));
+    const contract = JSON.parse(readFileSync(join(repoRoot, "server/contract/mcp.json"), "utf8"));
     expect(tools).toEqual(contract.tools);
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
@@ -1524,7 +1524,7 @@ describe("API: MCP", () => {
   it("resize_image: presets, fit, upscale/downscale, GIF primeiro frame, sem Chromium", async () => {
     const previousChromium = process.env.PAPRIKA_CHROMIUM;
     delete process.env.PAPRIKA_CHROMIUM;
-    const fixtures = join(repoRoot, "server-go/internal/server/testdata/images");
+    const fixtures = join(repoRoot, "server/internal/server/testdata/images");
     const previous = process.env.PAPRIKA_IMPORT_DIRS;
     process.env.PAPRIKA_IMPORT_DIRS = fixtures;
     const own = await startServer();
@@ -1920,7 +1920,7 @@ describe("API: MCP", () => {
   }, 60_000);
 
   it("importar imagem raster: formatos, GIF animado, path traversal e arquivo grande demais", async () => {
-    const fixtures = join(repoRoot, "server-go/internal/server/testdata/images");
+    const fixtures = join(repoRoot, "server/internal/server/testdata/images");
     const base = mkdtempSync(join(tmpdir(), "paprika-img-"));
     const allowed = join(base, "allowed");
     const outside = join(base, "outside");

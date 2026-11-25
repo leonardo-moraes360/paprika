@@ -45,7 +45,7 @@ The same session ran into limits Paper has and Paprika does not:
 
 ## Backlog-worthy proposals
 
-1. Annotate the remaining 42 tools in `server-go/contract/mcp.json` (`destructiveHint` for
+1. Annotate the remaining 42 tools in `server/contract/mcp.json` (`destructiveHint` for
    `delete_*`, `archive_workspace`, `move_workspace`, `import_document`; `readOnlyHint` is already
    correct on the getters; `idempotentHint` for `show_all`, `unlock_all`, `open_workspace`), and add the
    annotation column to both MCP tool tables.

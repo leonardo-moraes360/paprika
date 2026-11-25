@@ -99,7 +99,7 @@ Ao subir versões, mantenha juntos:
 
 ## CI
 
-O job `docker` de `.github/workflows/ci.yml` faz o build do alvo padrão e roda `.github/scripts/docker-smoke.sh` contra ele: canvas e asset WASM servidos, `Host` estranho recusado, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` em `/mcp`, e o banco sobrevivendo a um restart do container no mesmo volume. Roda quando o PR mexe no `Dockerfile`, `.dockerignore`, `compose.yaml` ou em algo que entra na imagem (`server-go/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), e nas execuções completas. Veja [ci.md](ci.md).
+O job `docker` de `.github/workflows/ci.yml` faz o build do alvo padrão e roda `.github/scripts/docker-smoke.sh` contra ele: canvas e asset WASM servidos, `Host` estranho recusado, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` em `/mcp`, e o banco sobrevivendo a um restart do container no mesmo volume. Roda quando o PR mexe no `Dockerfile`, `.dockerignore`, `compose.yaml` ou em algo que entra na imagem (`server/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), e nas execuções completas. Veja [ci.md](ci.md).
 
 Para rodar a mesma checagem localmente:
 

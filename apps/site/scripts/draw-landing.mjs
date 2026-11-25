@@ -4,10 +4,10 @@
 //
 // Usage:
 //   pnpm go:build
-//   server-go/bin/paprika import apps/site/design/landing.paprika.json --db /tmp/landing.db --replace
-//   server-go/bin/paprika serve --db /tmp/landing.db --port 4790
+//   server/bin/paprika import apps/site/design/landing.paprika.json --db /tmp/landing.db --replace
+//   server/bin/paprika serve --db /tmp/landing.db --port 4790
 //   PAPRIKA_MCP=http://127.0.0.1:4790/mcp node apps/site/scripts/draw-landing.mjs
-//   server-go/bin/paprika export --db /tmp/landing.db -o apps/site/design/landing.paprika.json
+//   server/bin/paprika export --db /tmp/landing.db -o apps/site/design/landing.paprika.json
 //
 // Links: a node named `link:<href>` becomes an <a href> in the published page.
 import { readFileSync } from "node:fs";
@@ -98,7 +98,7 @@ const copy = {
 const QUICKSTART = [
   "git clone https://github.com/leonardo-moraes360/paprika",
   "cd paprika && pnpm install && pnpm build",
-  "server-go/bin/paprika serve --db design.db",
+  "server/bin/paprika serve --db design.db",
   "",
   "# canvas: http://127.0.0.1:4777 · MCP: http://127.0.0.1:4777/mcp",
   "claude mcp add --transport http paprika http://127.0.0.1:4777/mcp",

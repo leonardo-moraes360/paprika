@@ -93,7 +93,7 @@ The full list of tools and shortcuts is in [Using the canvas](docs/canvas.md).
 | Connect an agent, see every MCP tool and the file format | [Agents and MCP](docs/mcp.md) |
 | Run with Docker: import, export, backups, ports | [Docker](docs/docker.md) |
 | Build from source, run the tests, contribute code | [Development](docs/development.md) · [CI](docs/ci.md) |
-| Understand how it is built | [Architecture](docs/architecture.md) · [Go server](server-go/README.md) · [Decisions (ADRs)](docs/adr/) |
+| Understand how it is built | [Architecture](docs/architecture.md) · [Go server](server/README.md) · [Decisions (ADRs)](docs/adr/) |
 | Check a screen against its approved board | [Visual verification](docs/visual-verification.md) |
 | See what another agent MCP taught us about ours | [Agent MCP study: Paper 0.5.19](docs/research/paper-mcp-0.5.19.md) |
 | See what's planned | [Backlog](docs/backlog.md) |

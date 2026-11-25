@@ -37,13 +37,13 @@ Task: add bezier curves so agents and humans can draw organic shapes, then redra
 | 17 | Edit one control point | Changing a curve means rewriting the whole `d` string | Done (2026-11-24, PAP-B-076, https://github.com/leonardo-moraes360/paprika/pull/170): `edit_path` moves one anchor or its handles; `path_info.anchors` lists the same points | — |
 | 18 | Know the drawn size before placing a part | `path_info` with `canvasBounds` answered it in one call; it also caught a typo (`d inválido: número esperado na posição 12`) | Keep: return position-accurate parse errors for every string field | — |
 
-## 2026-11-21: Go server with SQLite (`server-go/`)
+## 2026-11-21: Go server with SQLite (`server/`)
 
 Task: reimplement the server in Go with the same contract, storing data in SQLite.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 19 | Know what the server promises to agents | The tool list and instructions only existed as TypeScript code; a second implementation would drift | Done: `server-go/scripts/gen-contract.mjs` dumps `tools/list` and the instructions into `server-go/contract/mcp.json`, and the parity suite checks both servers return the same contract. Since the TypeScript server was removed, `mcp.json` is the contract itself, edited by hand and checked by `packages/e2e` | — |
+| 19 | Know what the server promises to agents | The tool list and instructions only existed as TypeScript code; a second implementation would drift | Done: `server/scripts/gen-contract.mjs` dumps `tools/list` and the instructions into `server/contract/mcp.json`, and the parity suite checks both servers return the same contract. Since the TypeScript server was removed, `mcp.json` is the contract itself, edited by hand and checked by `packages/e2e` | — |
 | 20 | Undo after a restart | With the file server, the history lived in memory and was lost on restart | Done in the Go server: both stacks are committed to SQLite with each change | — |
 | 21 | Query the design without loading it all | Agents had to call `get_document`/`query_nodes` | The Go server's `nodes` table can be read with plain SQL (`type`, `name`, `parent_id`); an MCP `sql_query` tool (read-only) could expose it | P3 |
 | 22 | Same actor name everywhere | Still taken from the HTTP User-Agent (see #10); kept identical in Go for parity | Switch both servers to `clientInfo.name` together | P3 |
@@ -319,7 +319,7 @@ operations. No design sheet: the change is server-side; the UI half (the canvas 
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 95 | One place for the agent guide | The guide lives twice — `instructions` in `server-go/contract/mcp.json` (en) and `server-go/contract/guide.pt-BR.md` — and a sentence about a tool has to be edited in both by hand. Nothing checks that the two agree, so a tool can be described in one language and not the other | A test that every tool name in the contract appears in both guide texts (the same way `TestToolsMatchContract` pins tool names to the handlers) would catch it; the sentence for `delete_workspace` was edited twice here on purpose | P2 |
+| 95 | One place for the agent guide | The guide lives twice — `instructions` in `server/contract/mcp.json` (en) and `server/contract/guide.pt-BR.md` — and a sentence about a tool has to be edited in both by hand. Nothing checks that the two agree, so a tool can be described in one language and not the other | A test that every tool name in the contract appears in both guide texts (the same way `TestToolsMatchContract` pins tool names to the handlers) would catch it; the sentence for `delete_workspace` was edited twice here on purpose | P2 |
 | 96 | Contract and handler stay in step | Adding `list_workspace_ops` failed only `TestToolsMatchContract` at first, which is the right forcing function; but the tool-name list in `packages/e2e/test/api.test.ts` is a third copy that fails separately, with a diff that does not say which side moved | Keep both checks, and print in the api failure whether the server, the contract or the test list is the one that changed | P3 |
 
 - The store's `mu` is not reentrant, and `DeleteWorkspace` already calls `OpenWorkspace`: the successor's `open` entry is logged before the `delete` entry, so reading the log newest-first gives the delete first and the takeover below it. Worth knowing for whoever writes the notice that is still missing.
@@ -651,7 +651,7 @@ Task: draw the overview archive action and the Archived filter (dark English, da
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 125 | Add tools to the contract with a script | `server-go/contract/mcp.json` is hand-formatted (stray `,` lines, mixed layouts), so re-serializing it rewrites thousands of lines; four tools and an `openPins` field on 22 output schemas had to be inserted as text | Normalize the file once (one JSON formatter, checked in CI) so later edits are small diffs | P3 |
+| 125 | Add tools to the contract with a script | `server/contract/mcp.json` is hand-formatted (stray `,` lines, mixed layouts), so re-serializing it rewrites thousands of lines; four tools and an `openPins` field on 22 output schemas had to be inserted as text | Normalize the file once (one JSON formatter, checked in CI) so later edits are small diffs | P3 |
 | 126 | Know the human left a request | Before pins, a human's "do this here" only reached an agent through the chat | Done here: `list_pins` and `openPins` on write results | — |
 
 ## 2026-11-23: blank canvas under parallel writes (PAP-B-067, design first)

@@ -4,7 +4,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-21
-- **Code:** `crates/sync` (sidecar `paprika-sync`), `server-go/internal/team` (supervisor, diff and apply)
+- **Code:** `crates/sync` (sidecar `paprika-sync`), `server/internal/team` (supervisor, diff and apply)
 - **Spec:** [team sync protocol](../team-sync.md)
 
 ## Context
