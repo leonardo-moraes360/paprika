@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 #
 # Paprika in one image: the Go server (MCP + HTTP/WS + SQLite), the canvas (apps/web), the
-# Rust/WASM renderer (crates/render) and the team sync sidecar (crates/sync). See docs/docker.md.
+# Rust/WASM renderer (crates/render) and the team sync sidecar (crates/sync). See docs/en-US/docker.md.
 #
 #   docker build -t paprika .
 #   docker run --rm -p 127.0.0.1:4777:4777 -v paprika-data:/data paprika
@@ -74,12 +74,12 @@ RUN pnpm --filter @paprika/core build \
  && pnpm --filter @paprika/web exec vite build \
  && test -n "$(find apps/web/dist -name '*.wasm' -print -quit)"
 
-# ------------------------------------------------------------------ server (server-go)
+# ------------------------------------------------------------------ server (Go)
 FROM golang:1.27-trixie AS server
-WORKDIR /src/server-go
-COPY server-go/go.mod server-go/go.sum ./
+WORKDIR /src/server
+COPY server/go.mod server/go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
-COPY server-go/ ./
+COPY server/ ./
 # modernc.org/sqlite is pure Go; nodynamic keeps gen2brain webp/avif on WASM so purego
 # does not pull libc (distroless/static has no dynamic linker).
 RUN --mount=type=cache,target=/go/pkg/mod \

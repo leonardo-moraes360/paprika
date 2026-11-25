@@ -113,7 +113,6 @@ describe("shape", () => {
 describe("connector", () => {
   it("is routed from outline to outline when created", () => {
     const c = conn(two());
-    // a: rect 0..160 × 0..80, centre (80,40); b: ellipse 300..460, centre (380,40)
     expect(c.d.startsWith("M")).toBe(true);
     expect(c.x).toBe(158);
     expect(c.width).toBe(144);
@@ -429,7 +428,6 @@ describe("connector labels (fb#57)", () => {
     expect(exportReact(doc, "f")).toContain('{"sim <ok>"}</text>');
     const { svg } = exportSVG(doc, "f");
     expect(svg).toContain(">sim &lt;ok&gt;</text>");
-    // Without a label nothing changes.
     const plain = applyOps(doc, [{ op: "update", id: "a-to-b", props: { label: null } }]).doc;
     expect(renderHTML(plain, { rootId: "f" }).html).not.toContain("<text");
   });

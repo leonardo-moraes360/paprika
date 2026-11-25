@@ -1,18 +1,13 @@
 import { serializePath, subpathsToPath, type AnchorRef, type PathNode, type Subpath } from "@paprika/core";
 
-/** Edição ponto a ponto de um nó path: qual nó, a âncora selecionada e a prévia durante um arraste. */
 export interface PathEditState {
   id: string;
   sel: AnchorRef | null;
-  /** Subcaminhos provisórios enquanto arrasta; sem arraste, vêm do `d` do nó. */
   draft: Subpath[] | null;
-  /** Último gesto enviado ao servidor, mostrado até o documento novo chegar. */
   sent: Subpath[] | null;
-  /** `d` de cada gesto enviado e ainda não devolvido pelo servidor, em ordem. */
   pending: string[];
 }
 
-/** Alvo de um clique no overlay, lido dos atributos data-path-*. */
 export type PathHit = { kind: "anchor"; ref: AnchorRef } | { kind: "handle"; ref: AnchorRef; side: "in" | "out" } | { kind: "outline" };
 
 export function pathHit(target: EventTarget | null): PathHit | null {
@@ -25,7 +20,6 @@ export function pathHit(target: EventTarget | null): PathHit | null {
   return el.dataset.pathHandle !== undefined ? { kind: "handle", ref, side: side === "in" ? "in" : "out" } : { kind: "anchor", ref };
 }
 
-/** Coordenadas da tela no espaço do desenho (viewBox, rotação e zoom incluídos). */
 export function clientToPath(svg: SVGGraphicsElement, clientX: number, clientY: number) {
   const m = svg.getScreenCTM();
   if (!m) return { x: clientX, y: clientY };
@@ -33,17 +27,11 @@ export function clientToPath(svg: SVGGraphicsElement, clientX: number, clientY: 
   return { x: p.x, y: p.y };
 }
 
-/** Quantos px de tela vale uma unidade do desenho: o zoom vezes a escala do viewBox. */
 export function pathScale(node: PathNode, zoom: number): number {
   if (!node.viewBox || typeof node.width !== "number" || typeof node.height !== "number") return zoom;
   return zoom * Math.min(node.width / node.viewBox[2], node.height / node.viewBox[3]);
 }
 
-/**
- * Âncoras (quadrados), alças (círculos) e o contorno, desenhados dentro do próprio svg do nó,
- * então seguem viewBox e rotação. O contorno largo e transparente recebe o duplo clique que
- * insere um ponto.
- */
 export function PathEditOverlay({ subs, sel, scale }: { subs: Subpath[]; sel: AnchorRef | null; scale: number }) {
   const r = 4 / scale;
   const d = serializePath(subpathsToPath(subs));

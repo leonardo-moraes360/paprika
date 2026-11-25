@@ -1,4 +1,3 @@
-/** Botão ligado/desligado (ferramenta). Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005. */
 import type { ComponentProps } from "react";
 import { Toggle as TogglePrimitive } from "radix-ui";
 import { cva, type VariantProps } from "class-variance-authority";

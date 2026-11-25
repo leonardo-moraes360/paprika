@@ -11,7 +11,6 @@ const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
 const POLL = { timeout: 10_000 };
 
-// PAP-A-005: loading /w/<id> only views that workspace; it never makes it the server's active one.
 describe.skipIf(!existsSync(webRoot))("E2E: abrir /w/<id> não troca o workspace ativo", () => {
   let external: ExternalServer;
   let browser: Browser;
@@ -81,7 +80,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: abrir /w/<id> não troca o workspace
     expect(await pageA.locator('[data-paprika-id="b-one"]').count()).toBe(0);
     expect(await active()).toBe(a);
 
-    // Delete a node in the B tab: it lands in B, A is untouched and A's tab does not move.
     await pageB.locator('[data-paprika-id="b-one"]').click();
     await pageB.keyboard.press("Delete");
     await expect.poll(async () => await outlineText(b), POLL).not.toContain("b-one");
@@ -91,18 +89,15 @@ describe.skipIf(!existsSync(webRoot))("E2E: abrir /w/<id> não troca o workspace
     expect(await active()).toBe(a);
     expect(await pageA.locator('[data-paprika-id="a-frame"]').count()).toBe(1);
 
-    // Undo from the B tab is B's own history.
     await pageB.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
     await pageB.keyboard.press("Control+z");
     await expect.poll(async () => await outlineText(b), POLL).toContain("b-one");
     expect(await outlineText(a)).not.toContain("b-one");
 
-    // An agent writing to B (not active) shows up live in the B tab only.
     await agent.callTool({ name: "create_nodes", arguments: { workspaceId: b, nodes: [{ type: "frame", id: "b-three", name: "B três", y: 300, width: 100, height: 80 }] } });
     await pageB.waitForSelector('[data-paprika-id="b-three"]');
     expect(await pageA.locator('[data-paprika-id="b-three"]').count()).toBe(0);
 
-    // The agent switching the active workspace to B does not move the A tab either.
     await agent.callTool({ name: "open_workspace", arguments: { id: b } });
     await expect.poll(active, POLL).toBe(b);
     expect(new URL(pageA.url()).pathname).toBe(`/w/${a}`);

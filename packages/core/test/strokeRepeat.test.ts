@@ -14,7 +14,6 @@ import {
 
 type Pt = { x: number; y: number };
 
-/** Nonzero winding of a point against closed rings. */
 function winding(p: Pt, rings: Pt[][]): number {
   let w = 0;
   for (const r of rings) {
@@ -49,7 +48,6 @@ function inConvex(p: Pt, poly: Pt[]): boolean {
   return true;
 }
 
-/** Intersection over union of the outline against a reference predicate, sampled every 0.5 px. */
 function iou(rings: Pt[][], ref: (p: Pt) => boolean): number {
   let minX = Infinity;
   let minY = Infinity;
@@ -77,7 +75,6 @@ function iou(rings: Pt[][], ref: (p: Pt) => boolean): number {
 const segsOf = (d: string): Segment[] => parsePath(d);
 const stroke = (d: string, p: StrokeOutlineParams) => outlineStrokeRings(segsOf(d), p);
 
-/** Dense sample of a path's centerline (small steps, so the distance to it is exact enough). */
 function sampleCurve(d: string): Pt[] {
   const out: Pt[] = [];
   let cur: Pt = { x: 0, y: 0 };
@@ -175,12 +172,10 @@ describe("outline_stroke geometry", () => {
       }
     }
     expect(iou(rings, (p) => pieces.some((q) => inConvex(p, q)))).toBeGreaterThanOrEqual(0.98);
-    // The 90 degree tips are real miters: 5 * sqrt(2) past the vertex.
     expect(winding({ x: 40, y: 0 - 6.5 }, rings)).not.toBe(0);
   });
 
   it("falls back to a bevel past the miter limit", () => {
-    // A 10 degree spike: ratio ~ 11 > 4, so no long tip.
     const rings = stroke("M0 0 L100 0 L0 17.6", { width: 10, cap: "butt", join: "miter" });
     const maxX = Math.max(...rings.flat().map((p) => p.x));
     expect(maxX).toBeLessThan(110);
@@ -231,7 +226,6 @@ describe("outlineStrokeOps", () => {
   it("bakes a rotation into the points", () => {
     const doc = pathDoc({ rotation: 90 });
     const plan = outlineStrokeOps(doc, "p");
-    // The 100 x 10 bar rotated a quarter turn about its box center (150, 50) is 10 wide, 100 tall.
     expect(plan.bounds.width).toBeCloseTo(10, 3);
     expect(plan.bounds.height).toBeCloseTo(100, 3);
     expect(plan.bounds.x).toBeCloseTo(145, 3);
@@ -243,7 +237,7 @@ describe("outlineStrokeOps", () => {
   it("scales the stroke width with a viewBox", () => {
     const doc = pathDoc({ viewBox: [0, 0, 50, 10], width: 100, height: 20, d: "M0 5 L50 5" });
     const plan = outlineStrokeOps(doc, "p");
-    expect(plan.bounds.height).toBeCloseTo(20, 3); // width 10 in viewBox units, scale 2
+    expect(plan.bounds.height).toBeCloseTo(20, 3);
   });
 
   it("refuses what it cannot turn into one paint", () => {

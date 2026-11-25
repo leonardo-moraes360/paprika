@@ -1,4 +1,4 @@
-# Allowlist: the build context is only what the Dockerfile copies (see docs/docker.md).
+# Allowlist: the build context is only what the Dockerfile copies (see docs/en-US/docker.md).
 # Everything else (node_modules, target/, *.db, .git, local designs) stays out of the context.
 *
 !package.json
@@ -9,7 +9,7 @@
 !apps/web/
 !crates/render/
 !crates/sync/
-!server-go/
+!server/
 
 # Build outputs and local state that may exist inside the allowed folders.
 **/node_modules/
@@ -19,10 +19,10 @@ apps/web/src/wasm/
 crates/render/target/
 crates/sync/target/
 crates/sync/tests/
-server-go/bin/
+server/bin/
 **/*.db
 **/*.db-wal
 **/*.db-shm
 packages/core/test/
-server-go/**/*_test.go
-server-go/**/testdata/
+server/**/*_test.go
+server/**/testdata/

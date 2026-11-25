@@ -1,4 +1,4 @@
-[🇺🇸 English](../agent-bus.md) | 🇧🇷 Português
+[🇺🇸 English](../en-US/agent-bus.md) | 🇧🇷 Português
 
 # Barramento de agentes (multi-vendor)
 
@@ -76,7 +76,7 @@ Depois de um join pela CLI, um cliente MCP pode reaproveitar a sessão sem novo 
 A primeira leva do backlog ([backlog.md](backlog.md)) foi toda mergeada, então nenhum caminho está reservado para uma thread na nuvem agora. A divisão passa a ser por tarefa:
 
 - **Raia A** (threads do Claude na nuvem) são os caminhos que um pull request aberto da nuvem toca. Antes de atribuir, o supervisor confere os PRs abertos (`gh pr list`) e deixa esses arquivos fora das tarefas do barramento.
-- **Raia B** (agentes do barramento) pega qualquer tarefa cujo `paths` não se sobreponha à raia A nem a outro claim aberto, em qualquer lugar do repositório (`apps/**`, `packages/**`, `server-go/**`, `crates/**`, `bench/**`, `.github/**`, docs).
+- **Raia B** (agentes do barramento) pega qualquer tarefa cujo `paths` não se sobreponha à raia A nem a outro claim aberto, em qualquer lugar do repositório (`apps/**`, `packages/**`, `server/**`, `crates/**`, `.github/**`, docs).
 
 Quando uma nova leva na nuvem começar, o mantenedor lista os caminhos dela aqui como raia A até ela entrar.
 

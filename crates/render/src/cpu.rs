@@ -1,5 +1,3 @@
-//! Software fallback: vello_cpu rasterizes the same display list into an RGBA8 buffer.
-
 use crate::scene::{Item, Kind, Scene};
 use vello_cpu::{
     Pixmap, RenderContext, Resources,
@@ -18,7 +16,6 @@ fn affine(a: vello::kurbo::Affine) -> CAffine {
 }
 
 fn path(p: &vello::kurbo::BezPath) -> vello_cpu::kurbo::BezPath {
-    // vello and vello_cpu may pin different kurbo versions; go through SVG path data to stay decoupled.
     vello_cpu::kurbo::BezPath::from_svg(&p.to_svg()).unwrap_or_default()
 }
 
@@ -36,8 +33,6 @@ impl CpuRenderer {
         self.pixmap = Pixmap::new(width, height);
     }
 
-    /// Renders and returns straight-alpha RGBA8, ready for `putImageData`. A background with
-    /// alpha 0 leaves the canvas transparent (the page shows through).
     pub fn render(
         &mut self,
         scene: &Scene,
@@ -99,8 +94,6 @@ impl CpuRenderer {
         }
         self.ctx.flush();
         self.ctx.render(&mut self.pixmap, &mut self.resources);
-        // The pixmap is premultiplied; `putImageData` wants straight alpha. Opaque
-        // backgrounds make both identical, so only convert when the canvas is transparent.
         if background[3] < 1.0 {
             vello_common::pixmap::unpremultiply_rgba8(self.pixmap.data_as_u8_slice_mut());
         }
@@ -147,10 +140,10 @@ mod tests {
     #[test]
     fn draws_rect_ellipse_and_clip() {
         let mut data = Vec::new();
-        data.extend(item(0.0, 10.0, 10.0, 20.0, 20.0, [1.0, 0.0, 0.0, 1.0])); // red rect
-        data.extend(item(1.0, 40.0, 0.0, 20.0, 20.0, [0.0, 0.0, 1.0, 1.0])); // blue circle
-        data.extend(item(2.0, 0.0, 40.0, 20.0, 20.0, [0.0, 0.0, 0.0, 0.0])); // clip frame
-        data.extend(item(0.0, 0.0, 40.0, 60.0, 20.0, [0.0, 1.0, 0.0, 1.0])); // green, wider than clip
+        data.extend(item(0.0, 10.0, 10.0, 20.0, 20.0, [1.0, 0.0, 0.0, 1.0]));
+        data.extend(item(1.0, 40.0, 0.0, 20.0, 20.0, [0.0, 0.0, 1.0, 1.0]));
+        data.extend(item(2.0, 0.0, 40.0, 20.0, 20.0, [0.0, 0.0, 0.0, 0.0]));
+        data.extend(item(0.0, 0.0, 40.0, 60.0, 20.0, [0.0, 1.0, 0.0, 1.0]));
         data.extend(item(3.0, 0.0, 0.0, 0.0, 0.0, [0.0; 4]));
         let items = Scene::parse(&data, "");
         let mut r = CpuRenderer::new(64, 64);
@@ -182,7 +175,6 @@ mod tests {
 
     #[test]
     fn path_with_viewbox_and_evenodd() {
-        // 10x10 viewBox square with a hole, drawn into a 40x20 box: meet -> 20x20 centered at x=10..30.
         let mut d = item(4.0, 0.0, 0.0, 40.0, 20.0, [0.0, 0.0, 1.0, 1.0]);
         d[5] = 0.0;
         let table = "0 0 10 10 evenodd round round|M0 0H10V10H0Z M3 3H7V7H3Z";
@@ -206,10 +198,10 @@ mod tests {
     #[test]
     fn shadow_and_translucent_stroke() {
         let mut d = item(0.0, 4.0, 4.0, 10.0, 10.0, [1.0, 1.0, 1.0, 1.0]);
-        d[12] = 2.0; // stroke width
-        d[13..17].copy_from_slice(&[0.0, 0.0, 0.0, 0.5]); // 50% black border
-        d[17..21].copy_from_slice(&[12.0, 0.0, 0.0, 0.0]); // shadow 12px to the right, no blur
-        d[21..25].copy_from_slice(&[0.0, 0.0, 1.0, 1.0]); // blue shadow
+        d[12] = 2.0;
+        d[13..17].copy_from_slice(&[0.0, 0.0, 0.0, 0.5]);
+        d[17..21].copy_from_slice(&[12.0, 0.0, 0.0, 0.0]);
+        d[21..25].copy_from_slice(&[0.0, 0.0, 1.0, 1.0]);
         let mut r = CpuRenderer::new(32, 20);
         let buf = r
             .render(
@@ -231,8 +223,6 @@ mod tests {
         );
     }
 
-    /// PAP-A-012: near-black shapes inside a clipped, flat-colored frame (rects with a radius, two
-    /// paths, an ellipse) must stay visible over the frame's own fill, at a fractional zoom.
     #[test]
     fn dark_shapes_over_clipped_frame_fill() {
         let near_black = [11.0 / 255.0, 11.0 / 255.0, 11.0 / 255.0, 1.0];
@@ -281,7 +271,7 @@ mod tests {
         let mut d = item(0.0, 0.0, 0.0, 20.0, 4.0, [1.0, 0.0, 0.0, 1.0]);
         d[1] = 6.0;
         d[2] = 14.0;
-        d[6] = 90.0; // 20x4 bar at (6,14) rotated 90° -> vertical bar centered at (16,16)
+        d[6] = 90.0;
         let mut r = CpuRenderer::new(32, 32);
         let buf = r
             .render(

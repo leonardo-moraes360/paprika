@@ -1,15 +1,6 @@
 import { round4 } from "./num.js";
 import type { ConnectorEnd, ConnectorNode, Document, Node, ShapeKind, ShapeNode } from "./schema.js";
 
-/**
- * Diagramas: contorno das formas (`shape`) e roteamento dos conectores (`connector`).
- *
- * A geometria de um conector (x, y, width, height, d) é derivada de `from`/`to` ao fim de cada
- * transação (`routeConnectors`, chamado por `applyOps`), então mover uma forma redesenha as setas
- * presas a ela sem op extra, e o desfazer não precisa registrar a geometria. Só usa + − × ÷ e raiz
- * quadrada (sem trigonometria), e arredonda com `round4`: o resultado é idêntico no port Go.
- */
-
 export interface Pt {
   x: number;
   y: number;
@@ -22,33 +13,27 @@ interface Box {
 }
 type Side = "top" | "right" | "bottom" | "left";
 
-/** Erro de conector, sem índice de op (quem chama adiciona). */
 export class ConnectorError extends Error {}
 
 const num = (v: number) => String(round4(v));
 const pt = (p: Pt) => `${num(p.x)} ${num(p.y)}`;
 
-/** Cor da dobra da nota adesiva (escurece o fill, qualquer que seja). */
 export const NOTE_FOLD_FILL = "rgba(0,0,0,0.12)";
 
-/** Padrões de uma forma nova sem fill/stroke, por tipo (aplicados no create). */
 export function shapeDefaults(kind: ShapeKind): Record<string, unknown> {
   if (kind === "note")
     return { fill: "#ffe8a3", shadow: { x: 0, y: 2, blur: 6, spread: 0, color: "rgba(30,35,54,0.18)" }, textAlign: "left", width: 160, height: 160 };
   return { fill: "#ffffff", stroke: { color: "#1e2336", width: 2 }, ...(kind === "rect" ? { radius: 8 } : {}) };
 }
 
-/** Lado da dobra da nota (px), limitado ao tamanho. */
 function foldSize(w: number, h: number): number {
   return Math.min(24, w / 4, h / 4);
 }
 
-/** Inclinação do paralelogramo, em px, dentro da largura útil. */
 function paraSkew(bw: number): number {
   return Math.min(bw * 0.22, bw / 2);
 }
 
-/** Nuvem de referência (o desenho do quadro PAP-B-093), mapeada para a caixa útil. */
 const CLOUD_OX = 10;
 const CLOUD_OY = 8;
 const CLOUD_W = 162;
@@ -67,7 +52,6 @@ function cloudMap(x: number, y: number, left: number, top: number, bw: number, b
   return { x: left + ((x - CLOUD_OX) / CLOUD_W) * bw, y: top + ((y - CLOUD_OY) / CLOUD_H) * bh };
 }
 
-/** Contorno de uma forma em coordenadas locais; o recuo segue `stroke.position` (padrão: dentro). */
 export function shapeOutline(n: Pick<ShapeNode, "shape" | "width" | "height" | "radius" | "stroke">): { d: string; fold?: string } {
   const w = n.width;
   const h = n.height;
@@ -165,7 +149,6 @@ export function shapeOutline(n: Pick<ShapeNode, "shape" | "width" | "height" | "
   }
 }
 
-/** Recuo do texto dentro da forma: [vertical, horizontal] em px (losango e elipse guardam o miolo). */
 export function shapePadding(n: Pick<ShapeNode, "shape" | "width" | "height">): [number, number] {
   if (n.shape === "diamond") return [Math.max(8, n.height / 4), Math.max(8, n.width / 4)];
   if (n.shape === "triangle") return [Math.max(8, n.height / 3), Math.max(8, n.width / 4)];
@@ -176,10 +159,6 @@ export function shapePadding(n: Pick<ShapeNode, "shape" | "width" | "height">): 
   return [12, 12];
 }
 
-// ---------------------------------------------------------------------------------------------
-// Conectores
-
-/** Origem, no canvas, do espaço de coordenadas de um contêiner (a soma de x/y dos ancestrais). */
 export function originOf(doc: Document, parentId: string | null): Pt {
   let x = 0;
   let y = 0;
@@ -193,7 +172,6 @@ export function originOf(doc: Document, parentId: string | null): Pt {
   return { x, y };
 }
 
-/** Caixa de um nó no canvas (sem rotação; tamanhos hug/fill contam como 0). */
 function canvasBox(doc: Document, n: Exclude<Node, { type: "page" }>): Box {
   const o = originOf(doc, n.parentId);
   return {
@@ -205,7 +183,6 @@ function canvasBox(doc: Document, n: Exclude<Node, { type: "page" }>): Box {
 }
 
 interface End {
-  /** Caixa do nó (ponta presa) ou null (ponta solta em `p`). */
   box: Box | null;
   outline: "rect" | "ellipse" | "diamond" | "triangle" | "parallelogram";
   side: Side | null;
@@ -248,7 +225,6 @@ function sidePoint(b: Box, s: Side): Pt {
   }
 }
 
-/** Ponto do contorno na direção de `toward`, saindo do centro da caixa. */
 function clipToOutline(e: End, toward: Pt): Pt {
   const b = e.box!;
   const c = e.p;
@@ -270,7 +246,6 @@ function clipToOutline(e: End, toward: Pt): Pt {
   return { x: c.x + dx * t, y: c.y + dy * t };
 }
 
-/** Interseção do raio do centro na direção (dx,dy) com um polígono em coordenadas do centro. */
 function clipRayToPolygon(verts: Pt[], dx: number, dy: number): number {
   let best = Infinity;
   for (let k = 0; k < verts.length; k++) {
@@ -287,7 +262,6 @@ function clipRayToPolygon(verts: Pt[], dx: number, dy: number): number {
   return best === Infinity ? 1 : best;
 }
 
-/** Interseção do raio do centro na direção (dx,dy) com o triângulo isósceles da caixa (topo / BL / BR). */
 function clipRayToTriangle(hw: number, hh: number, dx: number, dy: number): number {
   return clipRayToPolygon(
     [
@@ -300,7 +274,6 @@ function clipRayToTriangle(hw: number, hh: number, dx: number, dy: number): numb
   );
 }
 
-/** Mesma inclinação de `shapeOutline` (0,22 da largura), sem recuo de traço. */
 function clipRayToParallelogram(hw: number, hh: number, dx: number, dy: number): number {
   const skew = Math.min(hw * 0.44, hw);
   return clipRayToPolygon(
@@ -317,12 +290,9 @@ function clipRayToParallelogram(hw: number, hh: number, dx: number, dy: number):
 
 const DIR: Record<Side, Pt> = { top: { x: 0, y: -1 }, right: { x: 1, y: 0 }, bottom: { x: 0, y: 1 }, left: { x: -1, y: 0 } };
 const horizontal = (s: Side) => s === "left" || s === "right";
-/** Distância que a rota em cotovelo anda para fora da forma antes de virar. */
 const ELBOW_STUB = 16;
-/** Folga entre a rota em cotovelo e a caixa de uma outra forma. */
 const ELBOW_CLEAR = 8;
 
-/** Lado de saída automático: pelo eixo de maior distância entre os centros. */
 function autoSide(from: Pt, to: Pt): Side {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
@@ -539,7 +509,6 @@ function elbowObstacles(doc: Document, c: ConnectorNode): Box[] {
   return found.map((f) => f.box);
 }
 
-/** Remove pontos repetidos e pontos do meio de trechos retos. */
 function simplify(pts: Pt[]): Pt[] {
   const same = (p: Pt, q: Pt) => Math.abs(p.x - q.x) < 1e-6 && Math.abs(p.y - q.y) < 1e-6;
   const uniq: Pt[] = [];
@@ -559,7 +528,6 @@ function simplify(pts: Pt[]): Pt[] {
   return out;
 }
 
-/** Pontas de seta abertas: [asa, ponta, asa], ou null quando o trecho final tem comprimento 0. */
 function arrowHead(tip: Pt, from: Pt, sw: number): [Pt, Pt, Pt] | null {
   const dx = tip.x - from.x;
   const dy = tip.y - from.y;
@@ -594,10 +562,8 @@ function connectorWidth(doc: Document, c: ConnectorNode): number {
   return typeof cur === "number" && Number.isFinite(cur) ? cur : 0;
 }
 
-/** Deslocamento perpendicular padrão da alça quando `control` não está gravado. */
 const CURVE_OFFSET = 40;
 
-/** Alça implícita: meio do segmento, 40px perpendiculares (só + − × ÷ e raiz). */
 export function defaultCurveControl(start: Pt, end: Pt): Pt {
   const mx = (start.x + end.x) / 2;
   const my = (start.y + end.y) / 2;
@@ -608,7 +574,6 @@ export function defaultCurveControl(start: Pt, end: Pt): Pt {
   return { x: mx - (dy / len) * CURVE_OFFSET, y: my + (dx / len) * CURVE_OFFSET };
 }
 
-/** Converte a alça quadrática P1 numa cúbica (c1, c2) equivalente. */
 function quadraticToCubic(start: Pt, handle: Pt, end: Pt): { c1: Pt; c2: Pt } {
   return {
     c1: { x: start.x + (2 / 3) * (handle.x - start.x), y: start.y + (2 / 3) * (handle.y - start.y) },
@@ -661,7 +626,6 @@ function applyConnectorPath(
   c.d = d;
 }
 
-/** Cotovelo com cantos em arco SVG; `samples` cobre a caixa (inclui aproximações dos arcos). */
 function roundedElbowPath(pts: Pt[], radius: number): { dParts: string[]; samples: Pt[] } {
   if (pts.length < 2) return { dParts: [], samples: [] };
   if (pts.length < 3 || radius <= 0) {
@@ -697,7 +661,6 @@ function roundedElbowPath(pts: Pt[], radius: number): { dParts: string[]; sample
     const cross = ux0 * uy1 - uy0 * ux1;
     const sweep = cross > 0 ? 1 : 0;
     dParts.push(`A${num(r)} ${num(r)} 0 0 ${sweep} ${pt(pLeave)}`);
-    // Aproximação do meio do arco (bissetriz unitária) para a caixa.
     const bx = ux1 - ux0;
     const by = uy1 - uy0;
     const bl = Math.sqrt(bx * bx + by * by);
@@ -713,10 +676,6 @@ function roundedElbowPath(pts: Pt[], radius: number): { dParts: string[]; sample
   return { dParts, samples };
 }
 
-/**
- * Pontas da rota no canvas (absolutas). Null se as pontas não resolvem. A curva usa as mesmas
- * pontas da reta; cotovelo e arredondado usam o meio de cada lado.
- */
 export function connectorEndPoints(doc: Document, c: ConnectorNode): { from: Pt; to: Pt } | null {
   const origin = originOf(doc, c.parentId);
   let a: End;
@@ -732,10 +691,6 @@ export function connectorEndPoints(doc: Document, c: ConnectorNode): { from: Pt;
   return { from: line[0]!, to: line[line.length - 1]! };
 }
 
-/**
- * Posição da alça da curva no canvas (absoluta). Null se a rota não for `curve` ou as pontas
- * não resolvem. Usa `control` gravado ou o deslocamento padrão.
- */
 export function connectorCurveHandle(doc: Document, c: ConnectorNode): Pt | null {
   if (c.route !== "curve") return null;
   const origin = originOf(doc, c.parentId);
@@ -752,7 +707,6 @@ export function connectorCurveHandle(doc: Document, c: ConnectorNode): Pt | null
   return defaultCurveControl(start!, end!);
 }
 
-/** Calcula x, y, width, height e d de um conector. Muta o nó. */
 export function routeConnector(doc: Document, c: ConnectorNode): void {
   const origin = originOf(doc, c.parentId);
   const a = resolveEnd(doc, c, "from", origin);
@@ -808,12 +762,10 @@ export function routeConnector(doc: Document, c: ConnectorNode): void {
   applyConnectorPath(c, origin, frame, dBody, heads);
 }
 
-/** Recalcula todos os conectores do documento. Muta `doc`; lança ConnectorError numa ponta inválida. */
 export function routeConnectors(doc: Document): void {
   for (const n of Object.values(doc.nodes)) if (n.type === "connector") routeConnector(doc, n);
 }
 
-/** Conectores presos a algum dos ids (para apagar junto com a forma). */
 export function connectorsAttachedTo(doc: Document, ids: ReadonlySet<string>): string[] {
   return Object.values(doc.nodes)
     .filter(
@@ -825,13 +777,8 @@ export function connectorsAttachedTo(doc: Document, ids: ReadonlySet<string>): s
     .map((n) => n.id);
 }
 
-// ---------------------------------------------------------------------------------------------
-// draw_diagram: formas + conectores numa transação, com layout em camadas opcional
-
-/** Uma forma do diagrama: `id` (usado pelas arestas) e qualquer campo de `shape`. */
 export type DiagramNode = { id: string; x?: number; y?: number; width?: number; height?: number; shape?: string } & Record<string, unknown>;
 
-/** Uma aresta: `from`/`to` são ids de formas do diagrama ou de nós que já existem. */
 export interface DiagramEdge {
   from: string;
   to: string;
@@ -850,16 +797,11 @@ export interface DiagramEdge {
 }
 
 export interface DiagramInput {
-  /** Contêiner das formas (frame ou página). Ausente/null: a primeira página, ou o canvas sem páginas. */
   parentId?: string | null;
-  /** Direção do layout automático: camadas de cima para baixo (`down`) ou da esquerda para a direita (`right`). */
   direction?: "down" | "right";
-  /** Espaço entre formas no layout automático (px). */
   gap?: number;
-  /** Canto do layout automático no espaço do pai. Ausente: à direita do que já existe no pai. */
   x?: number;
   y?: number;
-  /** Ids que já existem são formas: atualiza x/y quando vierem e recalcula as rotas em cotovelo. */
   relayout?: boolean;
   nodes: DiagramNode[];
   edges?: DiagramEdge[];
@@ -880,11 +822,6 @@ const sizeOf = (n: DiagramNode): [number, number] => {
   return [typeof n.width === "number" ? n.width : dw, typeof n.height === "number" ? n.height : dh];
 };
 
-/**
- * Planeja um diagrama: cria as formas (as que não têm x e y vão para um layout em camadas, na
- * ordem das arestas) e um conector por aresta. As arestas usam rota em cotovelo por padrão.
- * Com `relayout`, ids que já existem viram `update` (x/y) em vez de formas novas.
- */
 export function diagramOps(doc: Document, input: DiagramInput): DiagramPlan {
   if (!input.nodes.length && !(input.edges ?? []).length) throw new Error("pass at least one node or edge");
   const first = doc.rootIds.length && doc.nodes[doc.rootIds[0]!]?.type === "page" ? doc.rootIds[0]! : null;
@@ -914,8 +851,6 @@ export function diagramOps(doc: Document, input: DiagramInput): DiagramPlan {
     for (const end of [e.from, e.to])
       if (!ids.has(end) && !doc.nodes[end]) throw new Error(`edges[${k}]: "${end}" is neither a diagram node nor an existing node`);
 
-  // Camadas: caminho mais longo a partir das fontes, só entre formas novas. Arestas que fecham um
-  // ciclo (achadas por busca em profundidade, na ordem da entrada) não contam.
   const auto = input.nodes.filter((n) => !existing.has(n.id) && (typeof n.x !== "number" || typeof n.y !== "number"));
   const rank = new Map(auto.map((n) => [n.id, 0]));
   const out = new Map<string, number[]>(auto.map((n) => [n.id, []]));
@@ -929,7 +864,7 @@ export function diagramOps(doc: Document, input: DiagramInput): DiagramPlan {
     for (const k of out.get(id)!) {
       const to = edges[k]!.to;
       const st = state.get(to) ?? 0;
-      if (st === 1) continue; // fecha um ciclo
+      if (st === 1) continue;
       forward.push(edges[k]!);
       if (st === 0) visit(to);
     }
@@ -961,7 +896,6 @@ export function diagramOps(doc: Document, input: DiagramInput): DiagramPlan {
   let ox = input.x;
   let oy = input.y;
   if (ox === undefined || oy === undefined) {
-    // À direita do conteúdo do pai, alinhado ao topo; sem conteúdo, no canto.
     const siblings = parentId === null ? doc.rootIds : ((doc.nodes[parentId] as { children?: string[] }).children ?? []);
     let right = -Infinity;
     let top = Infinity;

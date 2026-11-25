@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { openDesignPage, saveShots, textOf } from "./design-board.mjs";
 
 const { root, call, workspaceId, pageId, Y } = await openDesignPage("pap-b-078-design");
-const outDir = join(root, "docs/assets/boards/PAP-B-078");
+const outDir = join(root, "docs/en-US/assets/boards/PAP-B-078");
 const select = "#4cc7d8";
 const day = { bg: "#f2f3f8", canvas: "#e7e9f0", card: "#ffffff", fg: "#141827", muted: "#5d6478", line: "#d3d7e3", photo: "#e7b89a", ink: "#141827" };
 const night = { bg: "#1e2336", canvas: "#141827", card: "#272d45", fg: "#eef0f7", muted: "#c5cadb", line: "#3a4260", photo: "#c43d27", ink: "#fff7f2" };

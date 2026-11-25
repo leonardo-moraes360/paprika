@@ -1,4 +1,4 @@
-🇺🇸 English | [🇧🇷 Português](CONTRIBUTING.pt-BR.md)
+🇺🇸 English | [🇧🇷 Português](docs/pt-BR/CONTRIBUTING.md)
 
 # Contributing to Paprika
 
@@ -9,7 +9,7 @@ By participating you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md). 
 ## Before you start
 
 - **Bugs**: open an issue with the steps to reproduce, what you expected, what happened, and your OS, Node/Go versions and how you started the server.
-- **Features**: open an issue first so we can agree on the approach before you write code. Check [docs/backlog.md](docs/backlog.md): it lists the planned capabilities and their priority.
+- **Features**: open an issue first so we can agree on the approach before you write code. Check [docs/en-US/backlog.md](docs/en-US/backlog.md): it lists the planned capabilities and their priority.
 - **Small fixes** (typos, docs, obvious bugs): a pull request is enough.
 
 Paprika is an **original** project. Do not submit code, assets, icons, fonts, shortcuts or behavior copied or reverse-engineered from proprietary design tools.
@@ -20,8 +20,8 @@ Paprika is an **original** project. Do not submit code, assets, icons, fonts, sh
 |---|---|---|
 | Node.js | 22+ | `packages/core`, the canvas (`apps/web`), the E2E suites (`packages/e2e`) |
 | pnpm | 10+ | workspace and scripts |
-| Go | 1.26+ | the server (`server-go/`) |
-| Rust + `wasm32-unknown-unknown` | stable | only `experiments/canvas-wasm` (see its README) |
+| Go | 1.26+ | the server (`server/`) |
+| Rust + `wasm32-unknown-unknown` | stable | the WASM canvas renderer (`crates/render`) and the team sync sidecar (`crates/sync`) |
 
 ```bash
 pnpm install
@@ -43,17 +43,17 @@ The map and the hard rules live in [AGENTS.md](AGENTS.md); they apply to humans 
 
 - `packages/core` has no I/O. Every document mutation goes through `applyOps`.
 - New visual styling goes into `nodeStyle`, so the canvas, screenshots and exported code stay identical.
-- The server is `server-go/`; `server-go/internal/core` ports `packages/core`, which the canvas runs. A change to `packages/core` needs the same change in Go, regenerated fixtures (`pnpm go:golden`) and passing `pnpm go:test`.
-- Interface changes (`apps/web`, `apps/site`, new screens, visual tweaks) are designed first in a local Paprika over MCP; the PR carries screenshots of the frames, and MCP friction goes to `docs/agent-feedback.md`.
-- A new MCP tool needs its definition in `server-go/contract/mcp.json`, its handler and a Go test, a scenario in `packages/e2e/test/api.test.ts`, and a row in both MCP tool tables (`docs/mcp.md` and `docs/pt-BR/mcp.md`).
+- The server is `server/`; `server/internal/core` ports `packages/core`, which the canvas runs. A change to `packages/core` needs the same change in Go, regenerated fixtures (`pnpm go:golden`) and passing `pnpm go:test`.
+- Interface changes (`apps/web`, `apps/site`, new screens, visual tweaks) are designed first in a local Paprika over MCP; the PR carries screenshots of the frames, and MCP friction goes to `docs/en-US/agent-feedback.md`.
+- A new MCP tool needs its definition in `server/contract/mcp.json`, its handler and a Go test, a scenario in `packages/e2e/test/api.test.ts`, and a row in both MCP tool tables (`docs/en-US/mcp.md` and `docs/pt-BR/mcp.md`).
 
 ## Documentation
 
-English is the primary language (`README.md`, `docs/`, root `*.md`). The Brazilian Portuguese mirror (`README.pt-BR.md`, `docs/pt-BR/`, `*.pt-BR.md`) is updated **in the same pull request**. If you can't write one of the two languages, say so in the PR and the maintainer will fill it in.
+English is the primary language (`README.md` and the other root `*.md`, `docs/en-US/`). The Brazilian Portuguese mirror (`docs/pt-BR/`, which also holds the translations of the root files) is updated **in the same pull request**. If you can't write one of the two languages, say so in the PR and the maintainer will fill it in.
 
 ## Commits and pull requests
 
-- Use [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`, e.g. `feat(server-go): …`, `fix(web): …`, `docs: …`. Summaries in English or Portuguese are both fine.
+- Use [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`, e.g. `feat(server): …`, `fix(web): …`, `docs: …`. Summaries in English or Portuguese are both fine.
 - Keep each pull request focused on one change; don't mix refactors or formatting of unrelated files.
 - Before opening it, run the checks for what you touched: `pnpm check` runs everything; `pnpm go:test`, `pnpm test:api` and `pnpm test:e2e` are the faster subsets.
 - In the description, say what changed, why, how you tested it, and link the issue.

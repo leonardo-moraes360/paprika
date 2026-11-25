@@ -9,11 +9,6 @@ import { LocaleProvider, t } from "./i18n";
 import { parseRoute } from "./route";
 import "./styles.css";
 
-/**
- * `/ui` monta a galeria de primitivas (superfície interna de QA, ADR 0005); o resto é o app. A galeria é
- * carregada sob demanda: sem isso, os primitivos Radix entrariam no chunk inicial do canvas antes de
- * PAP-B-031…034 migrarem cada tela.
- */
 const UiGallery = lazy(() => import("./UiGallery").then((m) => ({ default: m.UiGallery })));
 
 const route = parseRoute(location.pathname);

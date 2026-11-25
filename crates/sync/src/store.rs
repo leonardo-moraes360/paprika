@@ -1,6 +1,3 @@
-//! Shared workspaces on disk: one append-only log of signed envelopes per workspace
-//! (`<data>/docs/<id>.log`, JSON lines). The Loro document is rebuilt from the log at start.
-
 use std::{
     collections::{BTreeSet, HashMap},
     fs,
@@ -21,7 +18,6 @@ use crate::{
 pub struct SharedDoc {
     pub crdt: Crdt,
     pub envs: Vec<Envelope>,
-    /// author → sequence numbers held.
     pub have: HashMap<String, BTreeSet<u64>>,
 }
 
@@ -34,7 +30,6 @@ impl SharedDoc {
         }
     }
 
-    /// author → highest sequence number held (what a peer announces in `hello`).
     pub fn summary(&self) -> HashMap<String, u64> {
         self.have
             .iter()
@@ -55,7 +50,6 @@ pub struct DocStore {
     pub docs: HashMap<String, SharedDoc>,
 }
 
-/// Workspace ids become file names: keep them boring.
 pub fn check_doc_id(id: &str) -> Result<()> {
     if id.is_empty()
         || id.len() > 128
@@ -68,7 +62,6 @@ pub fn check_doc_id(id: &str) -> Result<()> {
     Ok(())
 }
 
-/// Turns a materialized state (the Go document's stored fields) into the changes that create it.
 pub fn state_changes(state: &Value) -> Vec<Change> {
     let mut out = Vec::new();
     let nodes = state["nodes"].as_object().cloned().unwrap_or_default();
@@ -151,7 +144,6 @@ pub fn state_changes(state: &Value) -> Vec<Change> {
     out
 }
 
-/// Outcome of accepting an envelope from a peer.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Accepted {
     New,
@@ -180,7 +172,6 @@ impl DocStore {
             let text =
                 fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
             for line in text.lines().filter(|l| !l.trim().is_empty()) {
-                // A torn last line (crash while appending) is skipped; peers resend it.
                 let Ok(env) = serde_json::from_str::<Envelope>(line) else {
                     continue;
                 };
@@ -214,7 +205,6 @@ impl DocStore {
         self.docs.contains_key(doc)
     }
 
-    /// Commits a local change set by `author` (with the delegation when it is an agent).
     pub fn local(
         &mut self,
         doc: &str,
@@ -243,7 +233,6 @@ impl DocStore {
         Ok(Some(env))
     }
 
-    /// Starts sharing a workspace from its current state.
     pub fn share(
         &mut self,
         doc: &str,
@@ -269,8 +258,6 @@ impl DocStore {
         }
     }
 
-    /// Accepts an envelope from a peer after `allowed(member, env)` approved the member behind it
-    /// (a member that left is still allowed for the envelopes up to its cut, see team.rs).
     pub fn accept(
         &mut self,
         env: &Envelope,
@@ -304,7 +291,6 @@ impl DocStore {
         Ok(Accepted::New)
     }
 
-    /// Envelopes a peer lacks, given what it announced (`doc → author → max seq`).
     pub fn missing_for(&self, have: &HashMap<String, HashMap<String, u64>>) -> Vec<Envelope> {
         let mut out = Vec::new();
         for (id, doc) in &self.docs {
@@ -322,8 +308,6 @@ impl DocStore {
         out
     }
 
-    /// Highest sequence number per workspace and author of the envelopes that `member` is
-    /// responsible for (its own and its agents'): the cut when that member leaves the team.
     pub fn cut_for(&self, member: &str) -> crate::team::Upto {
         let mut out = crate::team::Upto::new();
         for (id, doc) in &self.docs {
@@ -380,11 +364,9 @@ mod tests {
         assert_eq!(m["nodes"]["f"]["children"], json!(["r"]));
         assert_eq!(m["nodes"]["r"]["fill"], json!("#fff"));
 
-        // Reopening rebuilds the same state from the log.
         let s2 = DocStore::open(dir.path()).unwrap();
         assert_eq!(s2.docs["d1"].crdt.materialize(), m);
 
-        // A peer that has nothing gets both envelopes, in order; one that has seq 1 gets only 2.
         let mut have = HashMap::new();
         assert_eq!(s2.missing_for(&have).len(), 2);
         have.insert(
@@ -399,7 +381,6 @@ mod tests {
             vec![2]
         );
 
-        // Another store accepts them and converges; a second delivery is a no-op.
         let dir2 = tempfile::tempdir().unwrap();
         let mut other = DocStore::open(dir2.path()).unwrap();
         for env in s2.missing_for(&HashMap::new()) {

@@ -1,11 +1,3 @@
-// Tests for the token parsers in apps/web/src/Inspector.tsx (Sonar S8786, S7773).
-//
-// apps/web has no runner of its own — `pnpm test` there prints that the web app is covered by the
-// Playwright suites in packages/e2e/test/e2e. These tests do not need a browser: they load the
-// real .tsx through the app's own bundler (vite is already a devDependency of @paprika/web) and call
-// the exported helpers, so there is no copy of the logic to drift.
-//
-// Run: node --test apps/web/test/*.test.mjs
 import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -21,12 +13,8 @@ const server = await createServer({
 const { parseModeTokenAssignment, parseTokenAssignment, tokenValue } = await server.ssrLoadModule("/src/Inspector.tsx");
 after(() => server.close());
 
-// The patterns this replaced, kept here on purpose: the new parsers have to answer exactly what
-// these answered on every input below, so the rewrite is a performance change and not a behaviour one.
 const OLD_TOKEN = /^\s*\$?([\w.-]+)\s*[=:]\s*(.+)$/;
 const OLD_MODE = /^\s*([A-Za-z0-9_-]{1,40})\s*:\s*\$?([\w.-]+)\s*[=:]\s*(.+)$/;
-// Compared trimmed: the Inspector trims the capture before storing it, so an untrimmed difference
-// between the two parsers would never reach a document.
 const oldToken = (text) => {
   const m = OLD_TOKEN.exec(text);
   return m ? { name: m[1], value: m[2].trim() } : null;
@@ -89,7 +77,6 @@ describe("the token parsers answer what the old patterns answered", () => {
     assert.deepEqual(parseTokenAssignment("brand = #e8553d"), { name: "brand", value: "#e8553d" });
     assert.deepEqual(parseTokenAssignment("$text.sm: 14"), { name: "text.sm", value: "14" });
     assert.deepEqual(parseModeTokenAssignment("dark: bg = #14161f"), { mode: "dark", name: "bg", value: "#14161f" });
-    // A value that is only whitespace still matches, and both parsers end up storing 0 for it.
     assert.deepEqual(parseTokenAssignment("brand =  "), oldToken("brand =  "));
   });
 
@@ -130,9 +117,6 @@ describe("typed and collected assignments", () => {
 
 describe("long adversarial input stays linear", () => {
   it("a 200 kB line is parsed in one pass, same answer as the old pattern", () => {
-    // The old shape (`\s*` runs around a greedy `[\w.-]+` and a trailing `(.+)`) let the engine retry
-    // many splits of the same whitespace. Some of these lines match, some do not; what matters is
-    // that the new parsers agree with the old answer and never retry.
     const inputs = [
       "a".repeat(200_000),
       `${"a".repeat(200_000)} =`,

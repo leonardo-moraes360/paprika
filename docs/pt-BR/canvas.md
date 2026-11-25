@@ -1,8 +1,8 @@
 # Usando o canvas
 
-Tudo o que dá para fazer à mão no navegador: workspaces, ferramentas, atalhos, diagramas e como os agentes aparecem. Voltar ao [README](../../README.pt-BR.md).
+Tudo o que dá para fazer à mão no navegador: workspaces, ferramentas, atalhos, diagramas e como os agentes aparecem. Voltar ao [README](README.md).
 
-English: [../canvas.md](../canvas.md).
+English: [../canvas.md](../en-US/canvas.md).
 
 ## Workspaces e ferramentas
 

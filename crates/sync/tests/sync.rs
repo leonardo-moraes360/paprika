@@ -1,6 +1,3 @@
-//! Workspaces converge between sidecars on loopback, and envelopes keep their author's signature
-//! when a third peer relays them.
-
 mod common;
 
 use common::{start, wait_for};
@@ -37,7 +34,6 @@ async fn shared_workspace_converges_both_ways() {
     assert_eq!(r["state"]["nodes"]["f"]["children"], json!(["t"]));
     assert_eq!(r["by"], json!(["ana"]));
 
-    // An agent on B edits; A gets it, labelled with the agent and its person.
     let (_a2, mut ea) = (a.clone(), _ea);
     b.command(&json!({"t": "local", "doc": "w1", "author": "agent:codex", "changes": [{"k": "set", "id": "t", "fields": {"text": "Olá"}}]})).await.unwrap();
     let r = wait_for(&mut ea, |v| v["t"] == "remote").await;
@@ -78,7 +74,6 @@ async fn a_peer_that_was_away_catches_up_through_another() {
         .unwrap();
     a.shutdown().await;
 
-    // C knows A's key (a member) but only reaches B; B relays A's envelopes as A signed them.
     let (c, mut ec) = start(dc.path(), "carla").await;
     c.command(&json!({"t": "peer.add", "addr": {"id": a.id(), "addrs": []}}))
         .await

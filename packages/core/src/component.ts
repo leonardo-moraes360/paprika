@@ -8,28 +8,7 @@ import {
 } from "./schema.js";
 import { round4 } from "./num.js";
 
-/**
- * Componentes e instâncias.
- *
- * Um componente é um frame com `component: true`. Uma instância é um frame com
- * `instanceOf: <id do componente>`: os filhos dela são cópias do desenho do componente, geradas
- * de novo ao fim de cada transação (`syncInstances`), escaladas por `scale` e com `overrides`
- * aplicados. As cópias têm ids derivados (instância + nó de origem) e `sourceId` apontando para o
- * nó do componente. Como são derivadas, não entram no desfazer: desfazer a mudança no componente
- * (ou na instância) e sincronizar de novo basta.
- *
- * Numa cópia, `update` só troca campos de aparência (`COPY_OVERRIDES`) e grava o valor em
- * `overrides` da instância; geometria e estrutura vêm do componente.
- *
- * Um componente declara `componentProps` (text, boolean, variant). Nós dentro dele usam `bind`
- * para ligar `text`, `visible` ou uma variante. `slot` num frame ou grupo marca um buraco que a
- * instância preenche com `slots` (ids de nós clonados). Instâncias dentro de componentes são
- * permitidas; um override nelas usa o caminho `instancia/copia` na instância de fora.
- */
-
-/** Campos de uma cópia que podem ser trocados numa instância. */
 export const COPY_OVERRIDES = ["fill", "color", "text", "src", "alt", "visible", "opacity", "runs"] as const;
-/** Campos da raiz da instância que vêm do componente (só `fill` aceita override). */
 export const ROOT_DERIVED = ["fill", "stroke", "radius", "shadow", "outline", "filter", "backdropFilter", "layout", "clip", "width", "height"] as const;
 
 const COPY_SET = new Set<string>(COPY_OVERRIDES);
@@ -39,7 +18,6 @@ export function isInstance(n: NodeT | undefined): n is FrameNode & { instanceOf:
   return n?.type === "frame" && typeof n.instanceOf === "string";
 }
 
-/** Instância que contém `id` (o próprio nó, se for instância, ou o ancestral mais próximo). */
 export function instanceOwner(doc: Document, id: string | null): (FrameNode & { instanceOf: string }) | undefined {
   for (let cur = id; cur; cur = doc.nodes[cur]?.parentId ?? null) {
     const n = doc.nodes[cur];
@@ -48,7 +26,6 @@ export function instanceOwner(doc: Document, id: string | null): (FrameNode & { 
   return undefined;
 }
 
-/** Se `n` é uma cópia gerada dentro de uma instância, devolve a instância. */
 export function copyOwner(doc: Document, n: NodeT): (FrameNode & { instanceOf: string }) | undefined {
   if (n.type === "page" || n.sourceId === undefined) return undefined;
   return instanceOwner(doc, n.parentId);
@@ -72,7 +49,6 @@ function fnv(s: string): number {
   return h;
 }
 
-/** Id determinístico da cópia de `srcId` dentro da instância `instId` (igual em TS e Go). */
 export function copyId(instId: string, srcId: string): string {
   const a = fnv(`${instId}/${srcId}`).toString(36).padStart(7, "0");
   const b = fnv(`${srcId}/${instId}`).toString(36).padStart(7, "0");
@@ -83,20 +59,13 @@ function jsonEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** Valor atual de um campo no nó do componente (undefined vira null). */
 export function sourceValue(n: NodeT | undefined, key: string): unknown {
   const v = n ? (n as Record<string, unknown>)[key] : undefined;
   return v === undefined ? null : v;
 }
 
-/**
- * Grava um override: `v` null (ou igual ao componente) remove; senão substitui. Muta a instância.
- */
 export function setOverride(inst: FrameNode, srcId: string, key: string, v: unknown, src: NodeT | undefined) {
-  // Nunca grava chaves que mexem no protótipo (o schema já as recusa; isto protege chamadas internas).
   if (srcId === "__proto__" || key === "__proto__") return;
-  // Work on Maps and build plain objects with Object.fromEntries: no key from the caller is ever
-  // assigned with obj[key] = …, so nothing can reach Object.prototype.
   const all = new Map(Object.entries(inst.overrides ?? {}));
   const ov = new Map(Object.entries(all.get(srcId) ?? {}));
   if (v === null || jsonEqual(v, sourceValue(src, key))) ov.delete(key);
@@ -147,7 +116,6 @@ export function scaleGeometry(n: Record<string, unknown>, s: number, withPositio
     n.layout = { ...layout, gap: sc(layout.gap), padding: Array.isArray(layout.padding) ? layout.padding.map(sc) : sc(layout.padding) };
 }
 
-/** Ponta de um conector copiado: nó do componente vira a cópia; ponto solto escala com a instância. */
 function copyEnd(e: ConnectorEnd, instId: string, inComp: ReadonlySet<string>, s: number): ConnectorEnd {
   const out = { ...e };
   if (out.nodeId !== undefined && inComp.has(out.nodeId)) out.nodeId = copyId(instId, out.nodeId);
@@ -172,7 +140,6 @@ function descendants(doc: Document, id: string): string[] {
   return out;
 }
 
-/** Erro de regra de componentes, sem índice de op (quem chama adiciona). */
 export class InstanceError extends Error {}
 
 type PropDecl = { name: string; type: "text" | "boolean" | "variant"; default?: string | boolean; options?: string[] };
@@ -195,7 +162,6 @@ function nodeSource(n: NodeT | undefined): string | undefined {
   return n.sourceId;
 }
 
-/** Componente cuja definição inclui `id` (para antes de uma instância no caminho). */
 export function owningComponent(doc: Document, id: string): FrameNode | undefined {
   let cur = doc.nodes[id]?.parentId ?? null;
   while (cur) {
@@ -360,10 +326,6 @@ function subtreeHas(doc: Document, root: string, target: string): boolean {
   return n.children.some((c) => subtreeHas(doc, c, target));
 }
 
-/**
- * Instância onde um override de cópia é gravado, e a chave (id ou caminho `instancia/copia`).
- * Cópias dentro de uma instância aninhada sobem até a instância que não é cópia.
- */
 export function copyOverrideTarget(
   doc: Document,
   node: NodeT,
@@ -390,10 +352,6 @@ function overrideSource(doc: Document, srcId: string): NodeT | undefined {
   return doc.nodes[leaf];
 }
 
-/**
- * Checa as regras e gera de novo as cópias de todas as instâncias. Chamado no fim de cada
- * transação; muta `doc`.
- */
 function propMap(comp: FrameNode): Map<string, PropDecl> {
   const byName = new Map<string, PropDecl>();
   for (const p of propDecls(comp)) {
@@ -450,10 +408,6 @@ function ownedBy(doc: Document, nodeId: string | null, instId: string): boolean 
   return false;
 }
 
-/**
- * Checa as regras e gera de novo as cópias de todas as instâncias. Chamado no fim de cada
- * transação; muta `doc`.
- */
 export function syncInstances(doc: Document): void {
   const all = Object.values(doc.nodes);
   for (const n of all) {
@@ -690,7 +644,6 @@ export function detachOps(doc: Document, ids: readonly string[]): { op: "update"
     if (!n) throw new Error(`node "${id}" does not exist`);
     if (!isInstance(n)) throw new Error(`node "${id}" is not an instance (a frame with instanceOf)`);
     ops.push({ op: "update", id, props: { instanceOf: null, scale: null, overrides: null, propValues: null, slots: null } });
-    // The resolved prop values are already on the copies, so a bind has nothing left to follow.
     for (const d of descendants(doc, id)) {
       const dn = doc.nodes[d];
       ops.push({ op: "update", id: d, props: { sourceId: null, ...(dn && nodeBind(dn) ? { bind: null } : {}) } });

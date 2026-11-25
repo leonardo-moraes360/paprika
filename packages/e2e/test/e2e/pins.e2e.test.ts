@@ -10,10 +10,6 @@ const NODE = '[data-paprika-id="plano"]';
 
 type Pin = { id: string; n: number; nodeId?: string; region: { x: number; y: number; width: number; height: number }; text: string; status: string; reply?: string };
 
-/**
- * "Apontar para a IA": the human points at a node or an area with the pin tool (I) and writes what an
- * agent should do; the agent reads the pin over MCP, claims it and resolves it, and the canvas follows.
- */
 describe.skipIf(!existsSync(webRoot))("E2E: apontamentos para a IA", () => {
   let server: ExternalServer;
   let browser: Browser;
@@ -33,7 +29,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: apontamentos para a IA", () => {
   const tool = async (name: string, args: Record<string, unknown>) => (await mcp("tools/call", { name, arguments: args })).result;
 
   beforeAll(async () => {
-    server = await startServer({ seed: join(repoRoot, "examples/demo.paprika.json"), webRoot });
+    server = await startServer({ seed: join(repoRoot, "packages/e2e/fixtures/demo.paprika.json"), webRoot });
     await mcp("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "pin-agent", version: "1" } });
     browser = await chromium.launch({ executablePath: process.env.PAPRIKA_CHROMIUM || undefined });
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -61,7 +57,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: apontamentos para a IA", () => {
     await page.getByTestId("pin-badge").waitFor();
     const [pin] = await pins();
     expect(pin).toMatchObject({ n: 1, nodeId: "plano", text: "Deixe este plano com cantos de 16px", status: "open" });
-    // The tool goes back to select after sending.
     await expect(page.getByTestId("pin-capture").count()).resolves.toBe(0);
   }, 20_000);
 
@@ -104,7 +99,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: apontamentos para a IA", () => {
 
     const done = await tool("resolve_pin", { id: first!.id, reply: "Cantos em 16px" });
     expect(done.isError).toBeFalsy();
-    // A resolved pin leaves the canvas, and stays in the panel.
     await page.locator('[data-pin="1"]').waitFor({ state: "detached" });
     await page.keyboard.press("Shift+I");
     const panel = page.getByTestId("pins-panel");
@@ -112,7 +106,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: apontamentos para a IA", () => {
     await panel.getByRole("button", { name: /Resolvidos 1/ }).click();
     await expect(panel.textContent()).resolves.toContain("Cantos em 16px");
 
-    // The human reopens it: back on the canvas, open again.
     await panel.getByRole("button", { name: "Reabrir" }).click();
     await page.locator('[data-pin="1"][data-pin-status="open"]').waitFor({ state: "attached" });
     expect((await pins()).find((p) => p.n === 1)?.status).toBe("open");

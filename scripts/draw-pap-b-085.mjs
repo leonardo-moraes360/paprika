@@ -1,5 +1,3 @@
-// Design-first boards for PAP-B-085 (rich text runs). Local Paprika MCP.
-// Addresses the workspace by id. Does not call open_workspace.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

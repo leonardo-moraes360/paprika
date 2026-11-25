@@ -24,7 +24,6 @@ describe("modos de tema", () => {
     expect(nodeStyle(doc, doc.nodes.lt!)).toMatchObject({ color: "#111", fontSize: "16px" });
     expect(nodeStyle(doc, doc.nodes.box!).background).toBe("#c43d27");
     expect(resolveValue(doc, "$accent", "dark")).toBe("#c43d27");
-    // Nomes herdados de Object não são tokens.
     expect(resolveValue(doc, "$constructor", "dark")).toBe("$constructor");
   });
 
@@ -45,9 +44,7 @@ describe("modos de tema", () => {
     expect(html).toContain('[data-paprika-mode="dark"]{--bg:#000;--fg:#eee;--size:18px}');
     expect(html).toContain('data-paprika-id="dark" data-paprika-type="frame" data-paprika-mode="dark" style="');
     expect(html).toContain("color:var(--fg);font-family");
-    // Um nó solto leva o modo herdado para o <body>.
     expect(renderHTML(doc, { rootId: "dt", cssVariables: true }).html).toContain('<body data-paprika-mode="dark">');
-    // Sem a opção, nada muda além do atributo do modo.
     expect(renderHTML(doc).html).not.toContain("var(");
     const react = exportReact(doc, "dark", { cssVariables: true });
     expect(react).toMatch(/^export const tokensCss = ":root\{/);

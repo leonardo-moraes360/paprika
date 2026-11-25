@@ -1,11 +1,3 @@
-// Tests for the CI job selector (.github/scripts/ci-plan-lib.mjs and its CLI ci-plan.mjs).
-//
-// Run them with: node --test .github/scripts/test/   (the Plan job of ci.yml does exactly that)
-// No dependencies beyond node:test: the plan is a pure function of the changed file list, so the
-// fixtures are plain path arrays.
-//
-// If one of these cases starts failing, the plan of a real PR changes: update docs/ci.md and
-// docs/pt-BR/ci.md in the same pull request.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -18,7 +10,6 @@ import { INFRA, PLAN_KEYS, isFullRun, planFor, planLines, planSummary } from "..
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
-/** Nothing but the always-on Plan and CI OK jobs. */
 const NOTHING = {
   full: false,
   build: false,
@@ -38,7 +29,6 @@ const NOTHING = {
 
 const plan = (files) => planFor(files);
 
-/** Every optional job on, with the core unit tests in "all" mode and both suites. */
 function assertEverythingOn(p, why) {
   assert.equal(p.full, true, `${why}: full`);
   for (const key of ["build", "ts", "unit", "suites", "golden", "go", "rust", "sync", "codeql", "docker"]) {
@@ -80,15 +70,13 @@ describe("infra files run everything", () => {
   });
 
   it("only the workspace-root files are infra", () => {
-    // A package.json in a workspace package is an ordinary change, and so is anything that merely
-    // ends with an infra name or sits under .github but outside workflows/ and scripts/.
     for (const file of ["apps/web/package.json", "packages/core/package.json", "my-pnpm-lock.yaml", ".github/dependabot.yml", ".github/CODEOWNERS"]) {
       assert.equal(isFullRun([file]), false, file);
     }
   });
 
   it("one infra file in a large change forces the full run", () => {
-    assertEverythingOn(plan(["docs/ci.md", "packages/core/src/ops.ts", "pnpm-lock.yaml"]), "mixed + lockfile");
+    assertEverythingOn(plan(["docs/en-US/ci.md", "packages/core/src/ops.ts", "pnpm-lock.yaml"]), "mixed + lockfile");
   });
 });
 
@@ -102,18 +90,18 @@ describe("ci:full and empty diffs", () => {
   });
 
   it("a falsy ciFull does not force the full run", () => {
-    assert.deepEqual(planFor(["docs/ci.md"], { ciFull: "" }), NOTHING);
-    assert.deepEqual(planFor(["docs/ci.md"], { ciFull: false }), NOTHING);
+    assert.deepEqual(planFor(["docs/en-US/ci.md"], { ciFull: "" }), NOTHING);
+    assert.deepEqual(planFor(["docs/en-US/ci.md"], { ciFull: false }), NOTHING);
   });
 });
 
 describe("docs-only changes run only Plan and CI OK", () => {
   it("a docs and README change selects no job", () => {
-    assert.deepEqual(plan(["README.md", "README.pt-BR.md", "docs/ci.md", "docs/pt-BR/ci.md"]), NOTHING);
+    assert.deepEqual(plan(["README.md", "docs/pt-BR/README.md", "docs/en-US/ci.md", "docs/pt-BR/ci.md"]), NOTHING);
   });
 
   it("a design or notes change selects no job", () => {
-    assert.deepEqual(plan(["docs/adr/0001-go-server-sqlite.md", "AGENTS.md", "design/marca.paprika.json"]), NOTHING);
+    assert.deepEqual(plan(["docs/en-US/adr/0001-go-server-sqlite.md", "AGENTS.md", "design/marca.paprika.json"]), NOTHING);
   });
 });
 
@@ -158,9 +146,9 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
   });
 
-  it("examples run the e2e suite only", () => {
-    const p = plan(["examples/demo.paprika.json"]);
-    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }]);
+  it("the e2e fixtures run the black-box suites", () => {
+    const p = plan(["packages/e2e/fixtures/demo.paprika.json"]);
+    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }, { suite: "api" }]);
     assert.equal(p.unit, false);
     assert.equal(p.golden, false);
   });
@@ -184,12 +172,12 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["rust"]);
   });
 
-  it("server-go also runs the team sync job (internal/team runs against the sidecar)", () => {
-    assert.equal(plan(["server-go/internal/team/team.go"]).sync, true);
+  it("server also runs the team sync job (internal/team runs against the sidecar)", () => {
+    assert.equal(plan(["server/internal/team/team.go"]).sync, true);
   });
 
-  it("server-go runs the Go jobs and never the TS-only ones", () => {
-    const p = plan(["server-go/internal/core/ops.go"]);
+  it("server runs the Go jobs and never the TS-only ones", () => {
+    const p = plan(["server/internal/core/ops.go"]);
     assert.equal(p.go, true);
     assert.equal(p.ts, false);
     assert.equal(p.unit, false);
@@ -198,15 +186,6 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["go"]);
   });
 
-  it("the old bench prototype is scanned by CodeQL but runs no test", () => {
-    const p = plan(["experiments/canvas-wasm/bench/displayList.ts"]);
-    assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
-    assert.equal(p.codeql, true);
-    assert.equal(p.build, false);
-    assert.equal(p.ts, false);
-    assert.equal(p.unit, false);
-    assert.equal(p.suites, false);
-  });
 
   it("workflow and action files add the actions CodeQL language", () => {
     const p = plan([".github/actions/setup-rust-wasm/action.yml"]);
@@ -229,13 +208,13 @@ describe("each area selects its jobs", () => {
   });
 
   it("everything the image packages also builds the image", () => {
-    for (const file of ["packages/core/src/ops.ts", "apps/web/src/Canvas.tsx", "crates/render/src/lib.rs", "server-go/internal/core/ops.go"]) {
+    for (const file of ["packages/core/src/ops.ts", "apps/web/src/Canvas.tsx", "crates/render/src/lib.rs", "server/internal/core/ops.go"]) {
       assert.equal(plan([file]).docker, true, file);
     }
   });
 
   it("what the image does not package skips the image", () => {
-    for (const file of ["packages/e2e/test/api.test.ts", "examples/demo.paprika.json", "docs/docker.md", "apps/site/scripts/build.mjs", "server-go.md", "nested/Dockerfile"]) {
+    for (const file of ["packages/e2e/test/api.test.ts", "packages/e2e/fixtures/demo.paprika.json", "docs/en-US/docker.md", "apps/site/scripts/build.mjs", "server.md", "nested/Dockerfile"]) {
       assert.equal(plan([file]).docker, false, file);
     }
   });
@@ -246,8 +225,8 @@ describe("each area selects its jobs", () => {
 });
 
 describe("a mixed change unions every touched area", () => {
-  it("core + server-go + docs keeps the full flags of both areas", () => {
-    const p = plan(["packages/core/src/style.ts", "docs/adr/0002.md", "server-go/internal/server/routes.go"]);
+  it("core + server + docs keeps the full flags of both areas", () => {
+    const p = plan(["packages/core/src/style.ts", "docs/en-US/adr/0002.md", "server/internal/server/routes.go"]);
     assert.equal(p.full, false);
     assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/core", mode: "changed" }]);
     assert.equal(JSON.parse(p.suites_matrix).length, 2);
@@ -257,8 +236,8 @@ describe("a mixed change unions every touched area", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript", "go"]);
   });
 
-  it("web + server-go selects both stacks without being a full run", () => {
-    const p = plan(["apps/web/src/useDocument.ts", "server-go/go.mod"]);
+  it("web + server selects both stacks without being a full run", () => {
+    const p = plan(["apps/web/src/useDocument.ts", "server/go.mod"]);
     assert.equal(p.full, false);
     assert.equal(p.ts, true);
     assert.equal(p.go, true);
@@ -268,8 +247,6 @@ describe("a mixed change unions every touched area", () => {
   });
 
   it("deleted and renamed files still select their area", () => {
-    // `git diff --name-only` reports one path per rename, never the old one, and a deletion looks
-    // like any other change to that path.
     const p = plan(["packages/core/src/old-query.ts", "apps/web/src/Canvas.tsx"]);
     assert.equal(p.unit, true);
     assert.equal(p.ts, true);
@@ -289,7 +266,7 @@ describe("the published interface", () => {
   });
 
   it("the lines are the booleans and JSON strings GitHub expects", () => {
-    const lines = planLines(plan(["docs/ci.md"]));
+    const lines = planLines(plan(["docs/en-US/ci.md"]));
     assert.equal(
       lines,
       "full=false\nbuild=false\nts=false\nunit=false\nunit_matrix=[]\nsuites=false\nsuites_matrix=[]\ngolden=false\ngo=false\nrust=false\nsync=false\ncodeql=false\ncodeql_matrix=[]\ndocker=false\n",
@@ -297,11 +274,11 @@ describe("the published interface", () => {
   });
 
   it("the step summary lists the plan and every changed file", () => {
-    const summary = planSummary(plan(["docs/ci.md", "README.md"]), ["docs/ci.md", "README.md"]);
+    const summary = planSummary(plan(["docs/en-US/ci.md", "README.md"]), ["docs/en-US/ci.md", "README.md"]);
     assert.match(summary, /^### CI plan\n\n\| output \| value \|\n\| --- \| --- \|\n/);
     assert.match(summary, /\| `full` \| `false` \|/);
     assert.match(summary, /<details><summary>2 changed files<\/summary>/);
-    assert.ok(summary.includes("- `docs/ci.md`"));
+    assert.ok(summary.includes("- `docs/en-US/ci.md`"));
     assert.ok(planSummary(plan([]), []).includes("_none_"));
   });
 });
@@ -328,8 +305,6 @@ describe("the CLI wrapper", () => {
   });
 
   it("reports a missing git instead of spawning one from PATH", () => {
-    // The script resolves `git` to an absolute path before calling it, so an empty PATH is a clear
-    // failure (exit 3) rather than an ENOENT stack from the spawn.
     assert.throws(
       () => run(["HEAD", "HEAD"], { PATH: "" }),
       (err) => {
@@ -341,7 +316,6 @@ describe("the CLI wrapper", () => {
   });
 
   it("writes the plan to stdout when GITHUB_OUTPUT is unset", () => {
-    // HEAD..HEAD is an empty diff: what comes out is the "nothing selected" plan.
     assert.equal(run(["HEAD", "HEAD"], {}), planLines(plan([])));
   });
 

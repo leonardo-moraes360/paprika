@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-// Design boards for PAP-B-092. Talks to the local Paprika MCP. Does not call open_workspace.
 import { join } from "node:path";
 import { openDesignPage, saveShots, textOf } from "./design-board.mjs";
 
 const { root, client, call, workspaceId, pageId, Y } = await openDesignPage("pap-b-092-design");
-const outDir = join(root, "docs/assets/boards/PAP-B-092");
+const outDir = join(root, "docs/en-US/assets/boards/PAP-B-092");
 
 const themes = {
   light: {

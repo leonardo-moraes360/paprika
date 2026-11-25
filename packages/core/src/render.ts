@@ -36,7 +36,6 @@ export interface Bounds {
   height: number;
 }
 
-/** Caixa aproximada de um nó raiz (números; "hug"/"fill" caem no mínimo de 1px). Página: a caixa do conteúdo. */
 export function rootBounds(doc: Document, id: string): Bounds {
   const n = doc.nodes[id];
   if (!n) throw new Error(`node "${id}" does not exist`);
@@ -46,7 +45,6 @@ export function rootBounds(doc: Document, id: string): Bounds {
   return { x: n.x, y: n.y, width: Math.max(1, w), height: Math.max(1, h) };
 }
 
-/** Caixa que contém todos os nós de nível superior (de uma página; sem `pageId`, da primeira ou do documento sem páginas). */
 export function canvasBounds(doc: Document, pageId?: string): Bounds {
   const roots = pageRoots(doc, pageId);
   if (roots.length === 0) return { x: 0, y: 0, width: 800, height: 600 };
@@ -64,7 +62,6 @@ export function canvasBounds(doc: Document, pageId?: string): Bounds {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-/** `data-paprika-mode` num frame/página com modo de tema: o seletor das variáveis CSS daquele modo. */
 function modeAttr(node: Node): string {
   return (node.type === "frame" || node.type === "page") && node.mode ? ` data-paprika-mode="${escapeHtml(node.mode)}"` : "";
 }
@@ -100,7 +97,6 @@ function aggregateFluid(nodes: Node[]): { min: number; max: number } | null {
   return { min: Math.min(...fluids.map((f) => f.min)), max: Math.max(...fluids.map((f) => f.max)) };
 }
 
-/** `auto`: the root is sized "hug"/"fill" on that axis (its box is 1px in `bounds`): the body follows the root, which stays in the flow. */
 export function bodySizeCSS(bounds: Bounds, fluid: { min: number; max: number } | null, auto?: { w: boolean; h: boolean }): string {
   const height = auto?.h ? "min-height:1px" : `height:${bounds.height}px`;
   if (!fluid) return `${auto?.w ? "" : `width:${bounds.width}px;`}${height}`;
@@ -178,11 +174,8 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, e
 }
 
 export interface RenderOptions {
-  /** Renderiza só este nó (em 0,0); uma página renderiza o canvas dela. Sem ele, o canvas (da primeira página, se houver). */
   rootId?: string;
-  /** Cor de fundo da página HTML (padrão: o fill da página do Paprika, ou branco). */
   background?: string;
-  /** Tokens como variáveis CSS (`var(--nome)`), com uma folha de estilos por modo de tema. */
   cssVariables?: boolean;
 }
 
@@ -203,7 +196,6 @@ export interface ExportParts {
   bodyMode: string;
   vars: boolean;
   fluid: { min: number; max: number } | null;
-  /** The single root is sized "hug"/"fill" on that axis. */
   auto: { w: boolean; h: boolean };
 }
 
@@ -230,13 +222,11 @@ export function exportParts(doc: Document, opts: RenderOptions, emit: StyleEmitt
   const fluid = aggregateFluid(fluidNodes);
   const pageGradient = page ? nodeGradient(page) : undefined;
   const background = opts.background ?? (pageGradient ? gradientCSS(doc, pageGradient, page?.mode, vars) : page?.fill ? String(resolveValue(doc, page.fill, page.mode)) : "#ffffff");
-  // Um nó solto herda o modo dos ancestrais: no export ele vai no <body>, que é o novo topo.
   const inherited = node && node.type !== "page" && !modeAttr(node) ? modeOf(doc, node) : page?.mode;
   const bodyMode = vars && inherited ? ` data-paprika-mode="${escapeHtml(inherited)}"` : "";
   return { body, bounds, background, bodyMode, vars, fluid, auto };
 }
 
-/** Gera um documento HTML autocontido. Usado pelo export de código e pelo screenshot. */
 export function renderHTML(doc: Document, opts: RenderOptions = {}): { html: string; bounds: Bounds } {
   const p = exportParts(doc, opts, htmlStyleAttr);
   const html = `<!doctype html>
@@ -338,11 +328,6 @@ export function componentName(s: string): string {
   return base ? base[0]!.toUpperCase() + base.slice(1) : "Design";
 }
 
-/**
- * Exporta um nó como componente React (TSX) com estilos inline. Com `cssVariables`, as cores e
- * tamanhos de token saem como `var(--nome)` e o módulo exporta `tokensCss` (a folha com os
- * valores de cada modo) para incluir uma vez na aplicação.
- */
 export function exportReact(doc: Document, rootId: string, opts: { cssVariables?: boolean } = {}): string {
   const node = doc.nodes[rootId];
   if (!node) throw new Error(`node "${rootId}" does not exist`);

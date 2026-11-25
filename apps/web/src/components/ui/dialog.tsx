@@ -1,8 +1,3 @@
-/**
- * Janela modal. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005: sem os pontos de
- * quebra `sm:`/`md:` do upstream (o tema fechado só tem `wide`), margens zeradas nos títulos porque
- * não há Preflight, `ui-overlay` no fundo atrasio e `shadow-float` do tema.
- */
 import type { ComponentProps } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { X } from "lucide-react";

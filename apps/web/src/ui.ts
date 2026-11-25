@@ -1,9 +1,3 @@
-/**
- * Tailwind class lists still shared by panels that have not fully migrated (Layers, Pages, Team).
- * Inspector fields/sections/actions (PAP-B-032) use `components/ui/` + `cn` instead. ADR 0005.
- */
-
-/** Joins class names, skipping falsy ones: `cx("a", on && "b")`. */
 export const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
 
 export const ui = {
@@ -13,9 +7,7 @@ export const ui = {
   muted: "text-muted",
   grid: "grid gap-1",
   grid2: "grid grid-cols-2 gap-1",
-  /** Small icon button (Lucide icons: plus, x…). */
   iconBtn: "inline-flex cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent px-1 py-0.5 text-md leading-none text-muted hover:bg-panel-2 hover:text-fg",
-  /** Merge over `iconBtn` or a secondary button (with `cn`) for the ones that delete or remove: the danger ink at rest and on hover. */
   dangerBtn: "text-ui-destructive-text hover:text-ui-destructive-text",
   actions:
     "mx-0 my-2 flex gap-1.5 [&_button]:cursor-pointer [&_button]:rounded-sm [&_button]:border [&_button]:border-line [&_button]:bg-panel-2 [&_button]:px-2.5 [&_button]:py-1 [&_button]:text-fg [&_button:hover]:border-select",
@@ -51,7 +43,6 @@ export const ui = {
   link: "cursor-pointer border-0 bg-transparent p-0 text-select underline",
 };
 
-/** Top bar shared by the overview (canvas shell uses the same tokens inline — PAP-B-033). */
 export const bar = {
   topbar: "flex items-center justify-between gap-4 border-b border-line bg-panel px-3",
   brand: "flex min-w-0 items-center gap-2",

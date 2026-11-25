@@ -1,13 +1,9 @@
-//! Instance identity: one ed25519 key per instance (Iroh endpoint id and team member key),
-//! plus keys derived from it for each local agent.
-
 use std::{fs, io::Write, path::Path};
 
 use anyhow::{Context, Result, bail};
 use iroh::{PublicKey, SecretKey};
 use sha2::{Digest, Sha256};
 
-/// Loads `<dir>/key` (32 raw bytes) or creates it with mode 0600.
 pub fn load_or_create(dir: &Path) -> Result<SecretKey> {
     let path = dir.join("key");
     if path.exists() {
@@ -41,13 +37,10 @@ fn write_private(path: &Path, key: &SecretKey) -> Result<()> {
     Ok(())
 }
 
-/// Stages a rotated key as `<dir>/key.next`; [`adopt_next`] swaps it in at the next start.
 pub fn stage_next(dir: &Path, key: &SecretKey) -> Result<()> {
     write_private(&dir.join("key.next"), key)
 }
 
-/// At start: when `key.next` exists and `accept(its public key)` says the team file already has
-/// the rotation to it, it becomes `key`; otherwise it is dropped (the rotation never happened).
 pub fn adopt_next(dir: &Path, accept: impl Fn(&PublicKey) -> bool) -> Result<bool> {
     let next = dir.join("key.next");
     if !next.exists() {
@@ -80,8 +73,6 @@ pub fn sha256(parts: &[&[u8]]) -> [u8; 32] {
     h.finalize().into()
 }
 
-/// The key a local agent signs with: derived from the member key and the agent's name, so it is
-/// stable across restarts and never stored.
 pub fn agent_key(member: &SecretKey, name: &str) -> SecretKey {
     SecretKey::from_bytes(&sha256(&[
         b"paprika-agent/1",
@@ -90,11 +81,8 @@ pub fn agent_key(member: &SecretKey, name: &str) -> SecretKey {
     ]))
 }
 
-/// Loro peer id of an author: the first 8 bytes of the public key. Each author writes from one
-/// place only (agents' keys are derived per instance), so counters never collide.
 pub fn peer_id(author: &PublicKey) -> u64 {
     let b = author.as_bytes();
-    // u64::MAX is reserved by Loro.
     u64::from_be_bytes(b[..8].try_into().unwrap()).min(u64::MAX - 1)
 }
 
@@ -120,7 +108,6 @@ pub fn verify(key: &PublicKey, msg: &[u8], sig_hex: &str) -> Result<()> {
     Ok(())
 }
 
-/// Short human fingerprint: 4 groups of 4 hex digits.
 pub fn fingerprint(key: &PublicKey) -> String {
     let h = hex::encode_upper(&key.as_bytes()[..8]);
     format!("{}·{}·{}·{}", &h[0..4], &h[4..8], &h[8..12], &h[12..16])

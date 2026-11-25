@@ -80,7 +80,6 @@ import { cx, ui } from "./ui";
 import { boxCorner, knobFromTop, quadHitsRect, resizeBox, type Corner, type Pt } from "./selectionGeom";
 import { gapAfterDrag, paddingAfterDrag, padTuple, sameLayout, spacingHandles, worldDeltaToLocal, type SpacingHandleGeom } from "./spacingHandles";
 
-/** Drawing tools show a crosshair over the canvas. */
 const CROSSHAIR = new Set<string>(["frame", "rect", "ellipse", "text", "pen"]);
 
 const zoomButton =
@@ -88,12 +87,10 @@ const zoomButton =
 
 export type Tool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "triangle" | "cylinder" | "parallelogram" | "cloud" | "note" | "connector" | "pin";
 
-/** Ferramentas que criam uma forma de diagrama (nó shape), com o tipo de contorno. */
 const SHAPE_TOOLS = { shape: "rect", diamond: "diamond", triangle: "triangle", cylinder: "cylinder", parallelogram: "parallelogram", cloud: "cloud", note: "note" } as const;
 type ShapeTool = keyof typeof SHAPE_TOOLS;
 const isShapeTool = (t: Tool): t is ShapeTool => t in SHAPE_TOOLS;
 
-/** Tamanho padrão ao soltar com um clique (sem arrastar). */
 const DRAFT_DEFAULTS = { frame: [390, 844], rect: [120, 80], ellipse: [80, 80], text: [200, 32], shape: [160, 80], diamond: [160, 100], triangle: [160, 140], cylinder: [160, 120], parallelogram: [160, 100], cloud: [180, 110], note: [160, 160] } as const;
 
 type DraftTool = Exclude<Tool, "select" | "pen" | "connector" | "pin">;
@@ -102,7 +99,6 @@ const isDraftTool = (t: Tool): t is DraftTool => t !== "select" && t !== "pen" &
 const GHOST_ID = "draft-ghost";
 const GHOST_OPACITY = 0.45;
 
-/** Seta em construção: ponta inicial e cursor, em coordenadas do viewport. */
 interface LinkDraft {
   from: ConnectorEnd;
   x0: number;
@@ -111,7 +107,6 @@ interface LinkDraft {
   y1: number;
 }
 
-/** Caminho em construção com a caneta, em coordenadas locais do frame pai. */
 interface PenDraft {
   parentId: string | null;
   anchors: Anchor[];
@@ -124,13 +119,10 @@ interface View {
   zoom: number;
 }
 
-/** Posições/tamanhos provisórios durante um arraste (um ou vários nós). */
 type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number; rotation?: number; control?: { x: number; y: number }; layout?: Layout; from?: ConnectorEnd; to?: ConnectorEnd }>;
 
-/** How long a dropped preview waits for the server before giving way to what the server has. */
 const PENDING_MS = 3000;
 
-/** The document's current value of each prop the preview sets (`undefined` when the node is gone). */
 function snapshot(doc: Document, pv: Preview): Preview {
   const out: Preview = {};
   for (const [id, props] of Object.entries(pv)) {
@@ -179,7 +171,6 @@ function samePreview(a: Preview, b: Preview): boolean {
   );
 }
 
-/** Retângulo de seleção (marquee), em coordenadas do viewport. */
 interface Marquee {
   x0: number;
   y0: number;
@@ -196,7 +187,6 @@ interface Draft {
   y0: number;
   x1: number;
   y1: number;
-  /** Retângulo do pai em coordenadas do viewport, para desenhar o rascunho. */
   originLeft: number;
   originTop: number;
 }
@@ -205,13 +195,11 @@ interface Props {
   doc: Document;
   selected: string[];
   onSelect(ids: string[]): void;
-  /** Página mostrada no canvas (null: documento sem páginas). */
   pageId: string | null;
   tool: Tool;
   onToolDone(): void;
   apply(ops: Op[], label?: string): void;
   agentTouched: Set<string>;
-  /** Abre outra página (ex.: a de um agente na lista de presença). */
   onOpenPage?(id: string): void;
   onError?(message: string): void;
 }
@@ -251,7 +239,6 @@ type DropSpot = {
   flow: boolean;
 };
 
-/** IMAGE_MIME for OS file drops (PAP-B-019 path via data URI create). */
 const IMAGE_FILE = /^image\/(png|jpe?g|webp|avif|gif)$/i;
 const RASTER_BYTES = 3_500_000;
 
@@ -322,13 +309,8 @@ async function rasterNode(file: File, x: number, y: number) {
   };
 }
 
-/**
- * Clicar dentro de um grupo seleciona o grupo mais externo (ou mantém o grupo já selecionado, para
- * poder arrastá-lo). Quando a seleção já está dentro do grupo (um filho selecionado), o clique vai
- * para o próximo nível. O duplo clique entra direto no nó sob o cursor.
- */
 export function pickTarget(doc: Document, id: string, selected: readonly string[]): string {
-  const groups: string[] = []; // do mais interno ao mais externo
+  const groups: string[] = [];
   for (let p = doc.nodes[id]?.parentId; p; p = doc.nodes[p]?.parentId ?? null) if (doc.nodes[p]?.type === "group" || isInstance(doc.nodes[p])) groups.push(p);
   const within = (g: string) =>
     selected.some((s) => {
@@ -342,7 +324,6 @@ export function pickTarget(doc: Document, id: string, selected: readonly string[
   return id;
 }
 
-/** Prévia da caneta: o caminho até aqui, a reta até o cursor, âncoras e alças. Desenhada no espaço do pai. */
 function PenOverlay({ pen, zoom }: { pen: PenDraft; zoom: number }) {
   const segs = anchorsToPath(pen.anchors, false);
   const last = pen.anchors[pen.anchors.length - 1];
@@ -366,7 +347,6 @@ function PenOverlay({ pen, zoom }: { pen: PenDraft; zoom: number }) {
   );
 }
 
-/** Nó provisório com os mesmos padrões do create ao soltar a ferramenta. */
 function draftGhostNode(tool: DraftTool, w: number, h: number): Node {
   const base = {
     id: GHOST_ID,
@@ -419,7 +399,6 @@ function draftGhostNode(tool: DraftTool, w: number, h: number): Node {
   } as ShapeNode;
 }
 
-/** Fantasma semi-transparente do nó real enquanto a ferramenta de criação arrasta (ou no clique). */
 function DraftGhost({
   tool,
   draft,
@@ -487,14 +466,10 @@ interface RenderProps {
   touched: Set<string>;
   pen: PenDraft | null;
   zoom: number;
-  /** The WASM layer is drawing shapes: keep their boxes (layout, hit testing) but not their paint. */
   wasm: boolean;
   wasmIds: ReadonlySet<string>;
-  /** Path em edição ponto a ponto, com os subcaminhos a desenhar. */
   edit: { id: string; subs: Subpath[]; sel: AnchorRef | null } | null;
-  /** Forma, conector ou texto em edição no próprio canvas. */
   textEdit?: { id: string; onCommit(text: string): void; onCommitRich?(text: string, runs: TextRun[] | null): void; onDone(): void } | null;
-  /** Nó em arraste: sem hit-test, para o alvo sob o cursor aparecer. */
   dragging?: boolean;
   dragIds?: ReadonlySet<string>;
 }
@@ -503,7 +478,6 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edi
   const css = nodeStyle(doc, node) as CSSProperties;
   const wasmPaints = wasm && wasmIds.has(node.id);
   if (wasmPaints) {
-    // Same box (border width stays, so auto layout does not move), no visible paint.
     if (css.background) css.background = "transparent";
     if (css.border) css.borderColor = "transparent";
     delete css.boxShadow;
@@ -521,7 +495,6 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edi
   const props = {
     "data-paprika-id": node.id,
     "data-paprika-type": node.type,
-    // "agent-flash" stays as a hook for the E2E suite.
     className: touched.has(node.id) ? "agent-flash outline-2! outline-solid! outline-accent! outline-offset-1 animate-flash" : undefined,
     style: css,
   };
@@ -577,7 +550,6 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edi
       const editing = edit?.id === node.id ? edit : null;
       if (wasmPaints && !editing) return <div {...props} />;
       const a = pathAttrs(doc, node);
-      // Em edição, as alças podem sair da caixa do nó.
       if (editing) props.style = { ...css, overflow: "visible" };
       return (
         <svg {...props} {...a.svg}>
@@ -617,7 +589,6 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edi
     case "connector": {
       const a = connectorAttrs(doc, node);
       const label = connectorLabelAttrs(doc, node);
-      // O <svg> não pega clique: só o traço (e uma faixa invisível mais larga em volta dele).
       const editing = textEdit?.id === node.id ? textEdit : null;
       return (
         <svg {...props} style={{ ...css, pointerEvents: "none", ...(editing && { overflow: "visible" }) }} xmlns="http://www.w3.org/2000/svg" width={node.width} height={node.height}>
@@ -988,7 +959,6 @@ function TextRunEditor({
   );
 }
 
-/** Texto de uma forma editado no lugar: Enter quebra linha, Esc ou Ctrl+Enter (ou sair do campo) confirma. */
 function ShapeTextEditor({ text, onCommit, onDone }: { text: string; onCommit(text: string): void; onDone(): void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const done = useRef(false);
@@ -1008,7 +978,6 @@ function ShapeTextEditor({ text, onCommit, onDone }: { text: string; onCommit(te
   return (
     <textarea
       ref={ref}
-      // Edited in place: inherits the shape's typography.
       className="relative m-0 field-sizing-content w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-inherit outline-1 outline-select outline-dashed [font:inherit] [letter-spacing:inherit] [line-height:inherit] [text-align:inherit]"
       data-testid="shape-text-editor"
       aria-label="Texto da forma"
@@ -1037,14 +1006,9 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const [preview, setPreview] = useState<Preview | null>(null);
   const previewRef = useRef<Preview | null>(null);
   previewRef.current = preview;
-  /**
-   * After a drop the preview stays on screen until the server echoes the change (or gives up):
-   * clearing it right away showed the old position/size for a frame or two (the "flick").
-   */
   const pending = useRef<{ base: Preview; timer: ReturnType<typeof setTimeout> } | null>(null);
   const docRef = useRef(doc);
   docRef.current = doc;
-  /** A new drag takes over: its own preview starts from where the pending one left the nodes. */
   const takeOverPreview = useCallback(() => {
     if (pending.current) clearTimeout(pending.current.timer);
     pending.current = null;
@@ -1054,7 +1018,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     pending.current = null;
     setPreview(null);
   }, []);
-  /** Ends a drag: keeps `last` on screen and sends the ops; the next document that touches those props clears it. */
   const commitPreview = useCallback(
     (last: Preview, ops: Op[], label: string) => {
       if (pending.current) clearTimeout(pending.current.timer);
@@ -1077,9 +1040,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const wasmLayer = useWasmLayer({ mode: renderer, doc, view, viewportRef, worldRef, layoutKey: preview, pageId });
   const [draft, setDraft] = useState<Draft | null>(null);
   const [link, setLink] = useState<LinkDraft | null>(null);
-  /** Forma com o texto em edição (duplo clique, ou logo depois de criada). */
   const [textEditId, setTextEditId] = useState<string | null>(null);
-  // Durante um arraste, os conectores seguem as posições provisórias das formas.
   const shown = useMemo(() => {
     if (!preview) return doc;
     const nodes = { ...doc.nodes };
@@ -1120,11 +1081,9 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     }
   }, [previewDoc, pageId]);
   const [marquee, setMarquee] = useState<Marquee | null>(null);
-  /** Caixa que envolve a seleção, e a de cada nó quando há mais de um. */
   const [box, setBox] = useState<Rect | null>(null);
   const [boxes, setBoxes] = useState<(Rect & { id: string })[]>([]);
   const [quads, setQuads] = useState<{ id: string; width: number; height: number; corners: Pt[] }[]>([]);
-  /** Alvo de reparent/reordenação durante o arraste (anel + marcador de inserção). */
   const [dropUi, setDropUi] = useState<{ highlight: Rect | null; marker: Rect | null } | null>(null);
   const [dragIds, setDragIds] = useState<string[] | null>(null);
   const [fileOver, setFileOver] = useState(false);
@@ -1143,7 +1102,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     setView({ zoom: z, x: (vp.width - b.width * z) / 2 - b.x * z, y: (vp.height - b.height * z) / 2 - b.y * z });
   }, [doc, pageId]);
 
-  // Centraliza uma caixa do mundo (ex.: o cursor de um agente), afastando o zoom só se ela não couber.
   const focusBox = useCallback((b: Box) => {
     const vp = viewportRef.current?.getBoundingClientRect();
     if (!vp) return;
@@ -1153,7 +1111,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     });
   }, []);
 
-  // Enquadra o conteúdo na primeira carga, quando o servidor passa a servir outro documento e ao trocar de página.
   const fittedDocId = useRef<string | null>(null);
   useLayoutEffect(() => {
     const key = `${doc.id}/${pageId ?? ""}`;
@@ -1163,7 +1120,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     fit();
   }, [fit, doc.id, pageId]);
 
-  // Caixa de seleção e rótulos dos frames: medidos do DOM real, então seguem layout flex e hug.
   useLayoutEffect(() => {
     const vp = viewportRef.current;
     if (!vp) return;
@@ -1208,8 +1164,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     );
   }, [doc, selected, view, preview, roots, placed, previewDoc]);
 
-  // Caneta (P): clique cria um vértice reto; clicar e arrastar puxa alças bezier simétricas.
-  // Clicar no primeiro vértice fecha a forma; Enter, Esc ou duplo clique terminam aberta; Backspace desfaz o último vértice.
   const [pen, setPen] = useState<PenDraft | null>(null);
   const penRef = useRef(pen);
   const [layerMenu, setLayerMenu] = useState<{ x: number; y: number; ids: string[] } | null>(null);
@@ -1217,7 +1171,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   layerMenuRef.current = layerMenu;
   penRef.current = pen;
 
-  /** Converte coordenadas da tela para o espaço local de um frame (ou do canvas, se null). */
   const localFor = useCallback(
     (parentId: string | null, clientX: number, clientY: number) => {
       const vp = viewportRef.current!;
@@ -1261,7 +1214,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         stroke: { color: "#1e2336", width: 2 },
       };
       if (closed) node.fill = "#d9d4cf";
-      parsePath(d); // falha aqui antes de mandar algo inválido ao servidor
+      parsePath(d);
       apply([{ op: "create", node: node as never, parentId: p.parentId }], "desenhar vetor");
       onSelect([id]);
       onToolDone();
@@ -1273,7 +1226,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     if (tool !== "pen") setPen(null);
   }, [tool]);
 
-  // Colar SVG, imagem ou HTML: dentro do frame selecionado ou na página, no centro da tela.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const target = e.target instanceof Element ? e.target : null;
@@ -1319,7 +1271,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     return () => window.removeEventListener("paste", onPaste);
   }, [apply, doc, localFor, onError, onSelect, pageId, selected]);
 
-  // Teclas da caneta têm prioridade (captura) sobre atalhos globais e o pan com Enter.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!penRef.current) return;
@@ -1384,8 +1335,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const onPenDown = (e: RPointerEvent<HTMLDivElement>) => {
     let draft = penRef.current;
     if (!draft) {
-      // O vetor fica onde foi desenhado: sobe até o frame de layout livre mais próximo (ou o canvas),
-      // porque dentro de um frame row/column o x/y do filho seria ignorado pelo fluxo.
       let frameEl = (e.target as HTMLElement).closest<HTMLElement>('[data-paprika-type="frame"]');
       while (frameEl) {
         const f = doc.nodes[frameEl.dataset.paprikaId!];
@@ -1432,14 +1381,12 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const onPenDouble = () => {
     const p = penRef.current;
     if (!p) return;
-    // O duplo clique já adicionou um vértice repetido no segundo clique: descarta antes de terminar.
     const a = p.anchors;
     const [x, y] = [a[a.length - 1], a[a.length - 2]];
     if (x && y && Math.hypot(x.x - y.x, x.y - y.y) * view.zoom < 4) penRef.current = { ...p, anchors: a.slice(0, -1) };
     finishPen(false);
   };
 
-  // Segurar Espaço (ou Enter) arma o pan: cursor vira mão aberta; arrastando, mão fechada.
   const [pan, setPan] = useState<"off" | "ready" | "panning">("off");
   const panRef = useRef(pan);
   panRef.current = pan;
@@ -1447,12 +1394,10 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const isPanKey = (e: KeyboardEvent) => e.code === "Space" || e.key === "Enter";
     const typing = (t: EventTarget | null) =>
       t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || (t instanceof HTMLElement && t.isContentEditable);
-    // A control reached by keyboard (Tab shows its focus ring) keeps Enter/Space to activate it (WCAG 2.1.1).
-    // After a mouse click the control has focus without :focus-visible, so the keys still pan.
     const keyboardFocus = (t: EventTarget | null) => t instanceof HTMLElement && t !== document.body && t.matches(":focus-visible");
     const down = (e: KeyboardEvent) => {
       if (!isPanKey(e) || typing(e.target) || keyboardFocus(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
-      e.preventDefault(); // evita rolar a página ou "clicar" o botão focado
+      e.preventDefault();
       spaceDown.current = true;
       if (panRef.current === "off") setPan("ready");
     };
@@ -1473,7 +1418,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     };
   }, []);
 
-  // Wheel precisa ser não-passivo para bloquear o zoom da página.
   useEffect(() => {
     const vp = viewportRef.current;
     if (!vp) return;
@@ -1493,9 +1437,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     return () => vp.removeEventListener("wheel", onWheel);
   }, []);
 
-  // Edição ponto a ponto (duplo clique num path): arrastar âncoras e alças, duplo clique numa
-  // âncora alterna canto/suave, duplo clique no contorno insere um ponto, Delete remove o
-  // selecionado, Esc ou Enter saem. Cada gesto é uma entrada no histórico.
   const [pathEdit, setPathEdit] = useState<PathEditState | null>(null);
   const pathEditRef = useRef(pathEdit);
   pathEditRef.current = pathEdit;
@@ -1509,14 +1450,10 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       return null;
     }
   }, [editPath]);
-  // O que está na tela: o arraste em curso, senão o último gesto enviado (até o servidor devolver o
-  // documento novo), senão o `d` do nó. Gestos rápidos em sequência partem sempre desse estado.
   const shownSubs = pathEdit && editSubs ? (pathEdit.draft ?? pathEdit.sent ?? editSubs) : null;
   const editView = pathEdit && editPath && shownSubs ? { id: pathEdit.id, subs: shownSubs, sel: pathEdit.sel } : null;
   const editSubsRef = useRef(shownSubs);
   editSubsRef.current = shownSubs;
-  // O servidor devolve cada gesto na ordem: o `d` do último enviado encerra a espera; um `d`
-  // intermediário mantém a prévia; qualquer outro (agente, undo) vale e descarta a prévia.
   const editD = editPath?.d;
   useEffect(() => {
     setPathEdit((cur) => {
@@ -1526,7 +1463,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     });
   }, [editD]);
 
-  // Sai da edição quando o nó some (undo, agente), a seleção muda ou outra ferramenta entra.
   useEffect(() => {
     if (!pathEdit) return;
     if (!editPath || !editSubs || tool !== "select" || selected.length !== 1 || selected[0] !== pathEdit.id) setPathEdit(null);
@@ -1606,7 +1542,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     return () => window.removeEventListener("keydown", onKey);
   }, [apply, doc, selected]);
 
-  /** Arraste de âncora ou alça. Alt solta a alça oposta (canto); sem Alt ela espelha (suave). */
   const startPathDrag = (e: RPointerEvent, hit: Extract<ReturnType<typeof pathHit>, { ref: AnchorRef }>) => {
     const st = pathEditRef.current;
     const subs0 = editSubsRef.current;
@@ -1641,7 +1576,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     window.addEventListener("pointerup", up);
   };
 
-  /** Duplo clique durante a edição: âncora alterna canto/suave; contorno insere um ponto. */
   const onPathDouble = (e: React.MouseEvent) => {
     const st = pathEditRef.current;
     const subs = editSubsRef.current;
@@ -1823,14 +1757,13 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     if (pathEditRef.current) {
       const hit = pathHit(e.target);
       if (hit && hit.kind !== "outline") return startPathDrag(e, hit);
-      // Clique no próprio vetor mantém a edição (o duplo clique no contorno insere ponto).
       if (hit || (e.target as Element).closest(`[data-paprika-id="${CSS.escape(pathEditRef.current.id)}"]`)) return;
       setPathEdit(null);
     }
     const target = (e.target as HTMLElement).closest<HTMLElement>("[data-paprika-id]");
 
     if (tool === "connector") return startLink(e);
-    if (tool === "pin") return; // the pin layer captures its own clicks (Pins.tsx)
+    if (tool === "pin") return;
     if (tool !== "select") {
       const frameEl = (e.target as HTMLElement).closest<HTMLElement>('[data-paprika-type="frame"]');
       const parentId = frameEl?.dataset.paprikaId ?? pageId;
@@ -1871,7 +1804,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         if (tool === "frame") node.fill = "#ffffff";
         if (tool === "rect" || tool === "ellipse") node.fill = "#d9d4cf";
         if (tool === "text") Object.assign(node, { text: "Texto", height: "hug" });
-        // Formas de diagrama: o resto (preenchimento, borda, fonte) vem dos padrões de cada tipo.
         if (isShapeTool(kind)) Object.assign(node, { type: "shape", shape: SHAPE_TOOLS[kind] });
         const id = newId();
         apply([{ op: "create", node: { ...node, id } as never, parentId: d.parentId }], `criar ${names[kind].toLowerCase()}`);
@@ -1892,7 +1824,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       onSelect(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]);
       return;
     }
-    // Arrastar um nó já selecionado move a seleção inteira; senão, seleciona só ele.
     const group = selected.includes(id) ? selected : [id];
     if (!selected.includes(id)) onSelect([id]);
     const shownAt = previewRef.current ?? {};
@@ -1985,7 +1916,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     window.addEventListener("pointerup", up);
   };
 
-  /** Nó sob o ponto em que uma seta pode se prender (não conectores, não páginas). */
   const attachableAt = (clientX: number, clientY: number): string | null => {
     for (const el of document.elementsFromPoint(clientX, clientY)) {
       const host = el.closest<HTMLElement | SVGElement>("[data-paprika-id]");
@@ -1996,7 +1926,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     return null;
   };
 
-  /** Ferramenta seta: arrastar de um nó (ou de um ponto livre) até outro; a seta fica presa às formas. */
   const startLink = (e: RPointerEvent) => {
     const vpr = viewportRef.current!.getBoundingClientRect();
     const end = (cx: number, cy: number): ConnectorEnd => {
@@ -2016,7 +1945,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       setLink(null);
-      if (Math.hypot(l.x1 - l.x0, l.y1 - l.y0) < 6) return; // clique sem arrastar: nada a ligar
+      if (Math.hypot(l.x1 - l.x0, l.y1 - l.y0) < 6) return;
       const to = end(ev.clientX, ev.clientY);
       if (to.nodeId && to.nodeId === l.from.nodeId) return;
       const id = newId();
@@ -2029,7 +1958,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     window.addEventListener("pointerup", up);
   };
 
-  /** Marquee: arrastar no vazio seleciona os nós de topo da página que o retângulo toca. */
   const startMarquee = (e: RPointerEvent, additive: boolean) => {
     const vpr = viewportRef.current!.getBoundingClientRect();
     const m: Marquee = { x0: e.clientX - vpr.left, y0: e.clientY - vpr.top, x1: e.clientX - vpr.left, y1: e.clientY - vpr.top, additive };
@@ -2073,16 +2001,13 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     window.addEventListener("pointerup", up);
   };
 
-  /** Duplo clique (fora da caneta) entra no grupo: seleciona o nó exato sob o cursor. */
   const onDeepSelect = (e: React.MouseEvent<HTMLDivElement>) => {
     if (tool !== "select") return;
     if (pathEditRef.current && onPathDouble(e)) return;
     const target = (e.target as Element).closest<HTMLElement | SVGElement>("[data-paprika-id]");
     if (!target) return;
     const node = doc.nodes[target.dataset.paprikaId!];
-    // Duplo clique num path já selecionado (ou fora de grupo) entra na edição ponto a ponto.
     if (node?.type === "path" && (selected.includes(node.id) || pickTarget(doc, node.id, selected) === node.id) && startPathEdit(node)) return;
-    // Duplo clique numa forma de diagrama edita o texto dela.
     if (node?.type === "text" && !node.locked && (selected.includes(node.id) || pickTarget(doc, node.id, selected) === node.id)) {
       onSelect([node.id]);
       setTextEditId(node.id);
@@ -2519,10 +2444,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     <div
       ref={viewportRef}
       className={cx(
-        // "viewport" and "is-pan-*" stay as hooks for the E2E suite.
         "viewport absolute inset-0 touch-none overflow-hidden bg-canvas bg-[radial-gradient(rgba(0,0,0,0.09)_1px,transparent_1px)] bg-size-[20px_20px] scheme-light",
         CROSSHAIR.has(tool) && "cursor-crosshair",
-        // Pan: open hand while the key is held, closed hand while dragging; wins over nodes and tools.
         pan === "ready" && "is-pan-ready cursor-grab! **:cursor-grab!",
         pan === "panning" && "is-panning cursor-grabbing! **:cursor-grabbing!",
         sampling && "cursor-crosshair! **:cursor-crosshair!",

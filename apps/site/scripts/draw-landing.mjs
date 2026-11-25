@@ -1,15 +1,3 @@
-// Draws the Paprika landing page in Paprika itself, over MCP (JSON-RPC over HTTP).
-// Four root frames: desktop and mobile, in English and Brazilian Portuguese.
-// The site build (build.mjs) turns these frames into the published HTML.
-//
-// Usage:
-//   pnpm go:build
-//   server-go/bin/paprika import apps/site/design/landing.paprika.json --db /tmp/landing.db --replace
-//   server-go/bin/paprika serve --db /tmp/landing.db --port 4790
-//   PAPRIKA_MCP=http://127.0.0.1:4790/mcp node apps/site/scripts/draw-landing.mjs
-//   server-go/bin/paprika export --db /tmp/landing.db -o apps/site/design/landing.paprika.json
-//
-// Links: a node named `link:<href>` becomes an <a href> in the published page.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -31,8 +19,6 @@ async function call(name, args) {
 
 const iconPath = fileURLToPath(new URL("../../../docs/brand/icon.svg", import.meta.url));
 const ICON = `data:image/svg+xml;base64,${readFileSync(iconPath).toString("base64")}`;
-
-// ---------------------------------------------------------------- copy
 
 const copy = {
   en: {
@@ -98,15 +84,13 @@ const copy = {
 const QUICKSTART = [
   "git clone https://github.com/leonardo-moraes360/paprika",
   "cd paprika && pnpm install && pnpm build",
-  "server-go/bin/paprika serve --db design.db",
+  "server/bin/paprika serve --db design.db",
   "",
   "# canvas: http://127.0.0.1:4777 · MCP: http://127.0.0.1:4777/mcp",
   "claude mcp add --transport http paprika http://127.0.0.1:4777/mcp",
 ].join("\n");
 
 const MONO = "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace";
-
-// ---------------------------------------------------------------- primitives
 
 const T = (text, size, extra = {}) => ({
   type: "text",
@@ -148,8 +132,6 @@ const code = (text, size, pad) =>
     stroke: { color: "$line", width: 1 },
   });
 
-// ---------------------------------------------------------------- page
-
 function page(c, mobile) {
   const W = mobile ? 390 : 1280;
   const px = mobile ? 20 : 80;
@@ -163,7 +145,6 @@ function page(c, mobile) {
       row(
         "link:./",
         [
-          // alt="": the word "Paprika" sits right next to it, so the link already has its name.
           { type: "image", name: "Ícone", src: ICON, alt: "", width: 36, height: 36, radius: 9 },
           T("Paprika", mobile ? 19 : 21, { width: "hug", fontWeight: 700, lineHeight: 1.2 }),
         ],
@@ -288,8 +269,6 @@ function page(c, mobile) {
     children: [nav, hero, why, how, start, footer],
   };
 }
-
-// ---------------------------------------------------------------- draw
 
 await call("apply_ops", {
   ops: [{ op: "rename_document", name: "Paprika landing page" }],

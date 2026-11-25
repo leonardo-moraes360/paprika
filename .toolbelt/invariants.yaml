@@ -42,12 +42,12 @@ invariants:
       immutable: false
     - id: inv-1795271716809371457
       category: mandate
-      rule: 'server-go is the only server; server-go/internal/core is a port of @paprika/core (the TypeScript core stays the reference for the canvas): after any change to packages/core run pnpm build && pnpm go:golden and keep pnpm go:test passing; server-go/contract/mcp.json is the MCP contract, checked by packages/e2e'
-      ref: docs/adr/0001-go-server-sqlite.md
+      rule: 'server is the only server; server/internal/core is a port of @paprika/core (the TypeScript core stays the reference for the canvas): after any change to packages/core run pnpm build && pnpm go:golden and keep pnpm go:test passing; server/contract/mcp.json is the MCP contract, checked by packages/e2e'
+      ref: docs/en-US/adr/0001-go-server-sqlite.md
       added_at: 2026-11-21T14:35:16.809373794Z
       immutable: false
     - id: inv-1795303730670197987
       category: mandate
-      rule: 'Design first: any change to an interface (apps/web, apps/site, new screens, visual tweaks) is drawn in a local Paprika over MCP (http://127.0.0.1:4777/mcp) before implementation; the PR carries frame screenshots and MCP friction is logged in docs/agent-feedback.md'
+      rule: 'Design first: any change to an interface (apps/web, apps/site, new screens, visual tweaks) is drawn in a local Paprika over MCP (http://127.0.0.1:4777/mcp) before implementation; the PR carries frame screenshots and MCP friction is logged in docs/en-US/agent-feedback.md'
       added_at: 2026-11-21T23:28:50.67020048Z
       immutable: false

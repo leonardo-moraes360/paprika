@@ -1,15 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { displayList, type Box, type Document } from "@paprika/core";
 
-/**
- * WASM canvas layer (ADR 0002): shapes and paths are drawn by `crates/render` (vello on
- * WebGPU, vello_cpu when there is no hardware GPU) on a <canvas> under the DOM. The DOM keeps
- * layout, text, images, hit testing and selection; nodes drawn here lose their DOM paint.
- */
 export type RendererMode = "dom" | "wasm";
 
 export interface WasmStatus {
-  /** `webgpu` or `cpu` once ready; `loading` while the module and the GPU start. */
   backend: "loading" | "webgpu" | "cpu" | "unavailable" | "error";
   detail: string;
 }
@@ -18,7 +12,6 @@ interface WasmRenderer {
   readonly backend: string;
   readonly adapterInfo: string;
   readonly fallbackReason: string;
-  /** First asynchronous GPU failure (device lost, validation error); empty when healthy. */
   readonly deviceError: string;
   finish(): Promise<void>;
   setBackground(r: number, g: number, b: number, a: number): void;
@@ -32,8 +25,6 @@ interface WasmModule {
   createRenderer(canvas: HTMLCanvasElement, mode: string): Promise<WasmRenderer>;
 }
 
-// Built by `crates/render/build.mjs` into ./wasm (gitignored). The glob is empty when the Rust
-// toolchain was missing at build time: the layer then reports "unavailable" and the DOM paints.
 const loaders = import.meta.glob<WasmModule>("./wasm/paprika_render.js");
 const loadModule = Object.values(loaders)[0];
 export const wasmAvailable = !!loadModule;
@@ -57,7 +48,6 @@ function loadWasm(): Promise<WasmModule> {
 
 const STORAGE_KEY = "paprika.renderer";
 
-/** `?renderer=wasm|dom` wins over the saved choice; the default is the DOM. */
 export function initialRendererMode(): RendererMode {
   const q = new URLSearchParams(location.search).get("renderer");
   if (q === "wasm" || q === "dom") return q;
@@ -79,12 +69,10 @@ export function saveRendererMode(mode: RendererMode) {
   try {
     localStorage.setItem(STORAGE_KEY, mode);
   } catch {
-    /* private mode: the choice lasts for this page only */
   }
   for (const fn of rendererListeners) fn(mode);
 }
 
-/** Canvas-space boxes (before rotation) of every rendered node, read from the DOM layout. */
 export function measureBoxes(world: HTMLElement): Map<string, Box> {
   const boxes = new Map<string, Box>();
   const origin = new Map<Element, { x: number; y: number }>([[world, { x: 0, y: 0 }]]);
@@ -92,7 +80,7 @@ export function measureBoxes(world: HTMLElement): Map<string, Box> {
     const hit = origin.get(el);
     if (hit) return hit;
     const parent = el.offsetParent as HTMLElement | null;
-    if (!parent) return null; // display: none
+    if (!parent) return null;
     const p = pos(parent);
     if (!p) return null;
     const v = { x: p.x + el.offsetLeft, y: p.y + el.offsetTop };
@@ -130,9 +118,7 @@ interface Options {
   view: { x: number; y: number; zoom: number };
   viewportRef: RefObject<HTMLDivElement | null>;
   worldRef: RefObject<HTMLDivElement | null>;
-  /** Changes whenever the DOM layout may have moved (drag/resize preview). */
   layoutKey: unknown;
-  /** Page shown on the canvas (null: the document has no pages). */
   pageId: string | null;
 }
 
@@ -152,7 +138,6 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
   const booting = useRef(false);
   const unmounted = useRef(false);
 
-  /** Renders the current scene right away (same task, so before the next paint). */
   const drawNow = useCallback(() => {
     cancelAnimationFrame(frame.current);
     const r = rendererRef.current;
@@ -161,8 +146,6 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
     const dpr = window.devicePixelRatio || 1;
     try {
       r.render(v.x * dpr, v.y * dpr, v.zoom * dpr);
-      // WebGPU reports device loss and validation errors after `render` returned. Without this
-      // check the DOM would stay unpainted over a canvas that never received the frame.
       if (r.backend === "webgpu") {
         void r.finish().then(() => {
           if (rendererRef.current !== r || !r.deviceError) return;
@@ -178,13 +161,11 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
     }
   }, []);
 
-  /** Coalesces several changes in one frame into a single render on the next animation frame. */
   const draw = useCallback(() => {
     cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(drawNow);
   }, [drawNow]);
 
-  // One renderer per mount. Toggling back to the DOM hides the canvas and keeps the device.
   useEffect(() => {
     if (mode !== "wasm") return;
     if (!loadModule) {
@@ -231,10 +212,6 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
       });
   }, [mode, viewportRef]);
 
-  // Keep the backing store at device resolution. Setting canvas.width/height clears the bitmap,
-  // and ResizeObserver callbacks run after this frame's animation callbacks but before its paint:
-  // deferring the render to the next rAF would paint a blank layer for one frame on every resize
-  // step (dragging a side panel resizes the viewport on every pointermove), so render right here.
   useEffect(() => {
     if (!ready) return;
     const vp = viewportRef.current!;
@@ -249,14 +226,13 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
       if (w === canvas.width && h === canvas.height) return;
       canvas.width = w;
       canvas.height = h;
-      r.resize(w, h); // reconfigures the WebGPU surface or the CPU pixmap
+      r.resize(w, h);
       drawNow();
     });
     ro.observe(vp);
     return () => ro.disconnect();
   }, [ready, viewportRef, drawNow]);
 
-  // Rebuild the display list after React commits the DOM (layout is final here).
   useLayoutEffect(() => {
     if (mode !== "wasm") {
       setShown((prev) => (prev ? false : prev));
@@ -293,6 +269,5 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
     [],
   );
 
-  /** The DOM stops painting shapes only once a render has succeeded, and takes them back on any error. */
   return { canvasRef, status, active: mode === "wasm" && shown && status.backend !== "error", painted, retain, creates };
 }

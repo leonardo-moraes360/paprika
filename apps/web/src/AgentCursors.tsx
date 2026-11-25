@@ -63,14 +63,12 @@ function paintBuild(vp: HTMLElement, build: BuildReplay | null, color: string) {
   }
 }
 
-/** Caixa que envolve todas as caixas. */
 const union = (bs: Box[]): Box => {
   const x = Math.min(...bs.map((b) => b.x));
   const y = Math.min(...bs.map((b) => b.y));
   return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
 };
 
-/** Name tags use the system font, like a native cursor label. */
 const tagFont = "[font:600_11px/16px_system-ui,sans-serif]";
 const FEW = 5;
 
@@ -146,29 +144,19 @@ interface View {
   zoom: number;
 }
 
-/** Caixa em coordenadas do canvas (mundo), medida do DOM real (segue layout flex e hug). */
 export type Box = { x: number; y: number; w: number; h: number };
 
 interface Props {
   doc: Document;
   view: View;
   viewportRef: RefObject<HTMLDivElement | null>;
-  /** Muda quando o layout muda sem o documento mudar (arraste em andamento). */
   layoutKey?: unknown;
   pageId?: string | null;
-  /** Abre a página onde um agente está (clique no item da lista de presença). */
   onOpenPage?(id: string): void;
-  /** Leva a câmera até uma caixa em coordenadas do canvas (clique no item da lista de presença). */
   onFocus?(box: Box): void;
 }
 
-/**
- * Cursor e seleção de cada agente presente, como num multiplayer: o cursor desliza até os nós em
- * que o agente agiu por último, com o nome dele e o que está fazendo. Só desenha: nada aqui é
- * clicável (pointer-events: none) e nada vai para o documento.
- */
 export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpenPage, onFocus }: Props) {
-  // Presence is read here, not passed down: a presence message re-renders the cursors only.
   const agents = useLive((s) => s.agents);
   const build = useLive((s) => s.build);
   const m = useT();
@@ -182,7 +170,6 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
   const [inset, setInset] = useState({ top: 64, right: 12 });
   const rosterRef = useRef<HTMLDivElement>(null);
 
-  // Relógio para esmaecer e esconder agentes ociosos.
   useEffect(() => {
     if (!agents.length) return;
     setNow(Date.now());
@@ -214,7 +201,6 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
     paintBuild(vp, build, writer?.color ?? "#3b82f6");
   }, [doc, agents, build, viewportRef, layoutKey, pageId]);
 
-  // Clique num agente de outra página: abre a página e enquadra quando as caixas dele forem medidas lá.
   const pending = useRef<string | null>(null);
   useEffect(() => {
     const bs = pending.current ? boxes[pending.current] : undefined;
@@ -269,7 +255,6 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
   const tipKey = (bs: Box[]) => (bs.length ? bs.map((b) => `${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.w)},${Math.round(b.h)}`).join(";") : "");
   const tips = visible.map((a) => tipKey(boxes[a.agent] ?? []));
 
-  // Fora da página aberta: o nome da página onde o agente está.
   const label = "font-normal not-italic text-muted";
   const where = (a: AgentPresence) => {
     if ((boxes[a.agent]?.length ?? 0) || !a.nodes.length) return <em className={label}>{toolVerb(a.tool)}</em>;
@@ -277,7 +262,6 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
     if (!p || p.id === pageId) return <em className={label}>em outra página</em>;
     return <em className={label} data-testid="agent-page">em {p.name || "outra página"}</em>;
   };
-  /** Clique no item: centraliza o cursor do agente (abrindo a página dele antes, se preciso). */
   const target = (a: AgentPresence): (() => void) | undefined => {
     const bs = boxes[a.agent] ?? [];
     if (bs.length) return onFocus && (() => onFocus(union(bs)));
@@ -359,8 +343,6 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
           const top = Math.min(...bs.map((b) => b.y));
           const right = Math.max(...bs.map((b) => b.x + b.w));
           const bottom = Math.max(...bs.map((b) => b.y + b.h));
-          // Ponta do cursor perto do canto inferior direito da seleção: aponta para o nó sem cobri-lo.
-          // Dois agentes no mesmo nó: os cursores se escalonam para os nomes não se cobrirem.
           const stack = tips.slice(0, i).filter((t) => t === tipKey(bs)).length;
           const tipX = right - Math.min(12 / z, (right - left) / 4) + (stack * 10) / z;
           const tipY = bottom - Math.min(12 / z, (bottom - top) / 4) + (stack * 24) / z;
@@ -386,11 +368,9 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
                   </span>
                 </div>
               )}
-              {/* "agent-cursor" stays as a hook for the E2E suite. */}
               <div
                 className="agent-cursor absolute top-0 left-0 flex origin-top-left items-start transition-[translate] duration-550 ease-glide motion-reduce:transition-none"
                 style={{ translate: `${tipX}px ${tipY}px`, scale: `${1 / z}` }}>
-                {/* The tip of the arrow is at (1.5, 1.5) of the icon. */}
                 <svg className="-mt-[1.5px] -ml-[1.5px] drop-shadow-cursor" width="18" height="20" viewBox="0 0 18 20" aria-hidden>
                   <path className="fill-(--agent) stroke-white stroke-[1.2] [stroke-linejoin:round]" d="M1.5 1.5 L1.5 16.5 L5.6 12.6 L8.4 18.6 L11.1 17.4 L8.4 11.5 L14.2 11.5 Z" />
                 </svg>

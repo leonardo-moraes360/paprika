@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { connectBoard, saveShots, textOf } from "./design-board.mjs";
 
 const { root, client, call } = await connectBoard("pap-b-087-design");
-const outDir = join(root, "docs/assets/boards/PAP-B-087");
+const outDir = join(root, "docs/en-US/assets/boards/PAP-B-087");
 
 const wsRaw = textOf(await call("list_workspaces"));
 let parsed;

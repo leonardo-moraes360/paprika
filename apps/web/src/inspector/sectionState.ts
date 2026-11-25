@@ -15,7 +15,6 @@ function writeMap(map: Record<string, boolean>) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
-    /* quota or private mode */
   }
 }
 

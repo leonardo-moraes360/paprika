@@ -2,7 +2,7 @@
 # tests and gates nothing. It exists because GitHub keeps a cache entry for the ref that wrote it
 # (and lets PRs read their base branch's), and ci.yml never runs on main: without this, every PR's
 # first run built every stage from scratch and then paid ~210 s to export the cache.
-# See docs/ci.md ("Caches").
+# See docs/en-US/ci.md ("Caches").
 name: Docker cache
 
 on:
@@ -16,7 +16,7 @@ on:
       - apps/web/**
       - crates/render/**
       - crates/sync/**
-      - server-go/**
+      - server/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml

@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
 
-/**
- * `/` = overview of the workspaces; `/w/<id>` = the canvas of that workspace;
- * `/ui` = the primitive gallery, an internal QA surface that the app never links to (ADR 0005).
- */
 export type Route = { view: "overview" } | { view: "canvas"; id: string } | { view: "gallery" };
 
 export function parseRoute(pathname: string): Route {
@@ -21,7 +17,6 @@ export const workspacePath = (id: string) => `/w/${encodeURIComponent(id)}`;
 
 const EVENT = "paprika:navigate";
 
-/** Changes the URL without reloading (keeps ?renderer and other query flags). */
 export function navigate(path: string, opts: { replace?: boolean } = {}): void {
   const url = path + location.search;
   if (url === location.pathname + location.search) return;

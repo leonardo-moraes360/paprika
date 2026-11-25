@@ -95,7 +95,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: colapso das seções do inspector", 
   let page: Page;
 
   beforeAll(async () => {
-    external = await startServer({ seed: join(root, "examples/demo.paprika.json"), webRoot });
+    external = await startServer({ seed: join(root, "packages/e2e/fixtures/demo.paprika.json"), webRoot });
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await pinLocale(page, "pt-BR");

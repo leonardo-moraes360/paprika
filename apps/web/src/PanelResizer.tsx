@@ -33,7 +33,6 @@ function saveWidth(key: string, w: number) {
   try {
     localStorage.setItem(key, String(w));
   } catch {
-    /* sem storage: a largura vale só nesta aba */
   }
 }
 
@@ -50,7 +49,6 @@ function saveCollapsed(key: string, collapsed: boolean) {
     if (collapsed) localStorage.setItem(key, "1");
     else localStorage.removeItem(key);
   } catch {
-    /* sem storage: o estado vale só nesta aba */
   }
 }
 

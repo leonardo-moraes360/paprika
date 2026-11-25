@@ -1,0 +1,51 @@
+# golangci-lint v2 configuration for the Go server (run from server/).
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - unconvert
+    - modernize
+  settings:
+    errcheck:
+      # Best-effort cleanup and response writes: there is nothing useful to do with the error.
+      exclude-functions:
+        - (io.Closer).Close
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.Tx).Rollback
+        - (*github.com/coder/websocket.Conn).Close
+        - (*github.com/coder/websocket.Conn).CloseNow
+        - (net/http.ResponseWriter).Write
+        - io.WriteString
+        - fmt.Fprintf
+        - fmt.Fprintln
+    staticcheck:
+      checks:
+        - all
+        # Defaults of golangci-lint v2 (style checks that do not fit this codebase).
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        # Quick-fix suggestions: rewriting math (e.g. math.Pow -> v*v*v) could break the
+        # bit-for-bit parity with the TypeScript core that the golden fixtures lock.
+        - -QF*
+  exclusions:
+    generated: lax
+    presets:
+      - std-error-handling
+    rules:
+      # Tests may ignore errors from setup/teardown helpers.
+      - path: _test\.go
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt
