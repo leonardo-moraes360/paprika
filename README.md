@@ -7,7 +7,7 @@
   </picture>
 </p>
 
-<p align="center"><em>Throw in a little spice</em> · <a href="https://paprika.js.org">paprika.js.org</a></p>
+<p align="center"><em>Throw in a little spice</em>
 
 <p align="center"><img src="docs/en-US/assets/paprika-window.png" alt="Paprika canvas open on the brand proposals: layers on the left, canvas in the middle, document tokens on the right" width="900"></p>
 
