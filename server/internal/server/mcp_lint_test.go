@@ -28,6 +28,12 @@ func TestLintDesignPoints(t *testing.T) {
 			"children", []any{obj("type", "text", "id", "cap", "text", "Cap", "fontSize", 9.0, "color", "#111111")}),
 		obj("type", "frame", "id", "real", "name", "Real", "x", 0.0, "y", 700.0, "width", 200.0, "height", 80.0, "fill", "#ffffff",
 			"children", []any{obj("type", "text", "id", "label", "text", "Label", "fontSize", 9.0, "color", "#111111")}),
+		obj("type", "frame", "id", "glyph", "name", "Glyph", "x", 300.0, "y", 900.0, "width", 100.0, "height", 100.0, "fill", "#ffffff",
+			"children", []any{
+				obj("type", "path", "id", "lobe", "name", "Lobe", "x", 10.0, "y", 10.0, "width", 80.0, "height", 80.0, "d", "M0 0 L20 0 L20 20 Z", "fill", "#c43d27"),
+				obj("type", "ellipse", "id", "seed", "name", "Seed", "x", 10.0, "y", 10.0, "width", 80.0, "height", 80.0, "fill", "#3d7a4a"),
+				obj("type", "path", "id", "stem", "name", "Stem", "x", 10.0, "y", 10.0, "width", 80.0, "height", 80.0, "d", "M60 60 L80 60 L80 80 Z", "fill", "#1f5e33"),
+			}),
 		obj("type", "frame", "id", "icon", "name", "Icon", "x", 0.0, "y", 900.0, "width", 200.0, "height", 200.0, "fill", "#ffffff",
 			"children", []any{
 				obj("type", "ellipse", "id", "pod", "name", "Pod", "x", 0.0, "y", 0.0, "width", 40.0, "height", 40.0, "fill", "#c43d27"),
@@ -84,6 +90,10 @@ func TestLintDesignPoints(t *testing.T) {
 	}
 	if !strings.Contains(icon, "calyx") || !strings.Contains(icon, "under 4px") || !strings.Contains(icon, "Cover") {
 		t.Fatalf("geometry text: %s", icon)
+	}
+	glyph, isErr := callText(t, m, "lint_design", obj("rootId", "glyph"))
+	if isErr || strings.Contains(glyph, "fully-hidden") {
+		t.Fatalf("stacked paths share a box but do not hide each other: %s", glyph)
 	}
 	missing, isErr := callText(t, m, "lint_design", obj("rootIds", []any{"nope"}))
 	if !isErr || !strings.Contains(missing, `node "nope" does not exist`) {

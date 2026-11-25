@@ -185,4 +185,24 @@ describe("lint that points at what matters", () => {
     const groups = groupLint(issues.filter((i) => i.rule === "detached-sibling" || i.rule === "near-gap" || i.rule === "fully-hidden"));
     expect(groups.map((g) => g.rule)).toEqual(["detached-sibling", "fully-hidden", "near-gap"]);
   });
+
+  it("does not treat a path or ellipse as covering its whole box", () => {
+    const doc = draw([
+      {
+        type: "frame",
+        id: "glyph",
+        name: "Glyph",
+        width: 100,
+        height: 100,
+        fill: "#ffffff",
+        children: [
+          { type: "path", id: "lobe", name: "Lobe", x: 10, y: 10, width: 80, height: 80, d: "M0 0 L20 0 L20 20 Z", fill: "#c43d27" },
+          { type: "ellipse", id: "seed", name: "Seed", x: 10, y: 10, width: 80, height: 80, fill: "#3d7a4a" },
+          { type: "path", id: "stem", name: "Stem", x: 10, y: 10, width: 80, height: 80, d: "M60 60 L80 60 L80 80 Z", fill: "#1f5e33" },
+          { type: "shape", id: "dot", name: "Dot", shape: "diamond", x: 10, y: 10, width: 80, height: 80, fill: "#f4b41a" },
+        ],
+      },
+    ]);
+    expect(lintDocument(doc, { rootIds: ["glyph"] }).filter((i) => i.rule === "fully-hidden")).toEqual([]);
+  });
 });

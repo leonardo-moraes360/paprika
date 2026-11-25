@@ -410,7 +410,9 @@ function isFlowFrame(n: Node | undefined): boolean {
 
 function opaqueNode(doc: Document, n: Node): boolean {
   if (!shown(n) || n.type === "text" || n.type === "group" || n.type === "connector" || n.type === "page") return false;
-  if (n.type !== "frame" && n.type !== "rect" && n.type !== "ellipse" && n.type !== "path" && n.type !== "shape" && n.type !== "image") return false;
+  if (n.type === "shape") {
+    if (n.shape !== "rect" && n.shape !== "note") return false;
+  } else if (n.type !== "frame" && n.type !== "rect" && n.type !== "image") return false;
   if ("gradient" in n && n.gradient) return false;
   if (n.opacity < 0.99 || !n.fill) return false;
   const color = parseColor(String(resolveValue(doc, n.fill, modeOf(doc, n))));
