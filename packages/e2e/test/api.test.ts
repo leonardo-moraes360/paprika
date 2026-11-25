@@ -496,7 +496,7 @@ describe("API: MCP", () => {
             { op: "union", ids: ["bd", "bm"], as: "body" },
             { op: "subtract", ids: ["body", "bh"] },
           ],
-          style: "top",
+          style: { from: "bm" },
           id: "ring",
           name: "Anel",
         }),
