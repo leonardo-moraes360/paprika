@@ -3,7 +3,7 @@ module github.com/leonardo-moraes360/paprika/server
 go 1.26.0
 
 require (
-	github.com/chromedp/cdproto v0.160.7
+	github.com/chromedp/cdproto v0.160.8
 	github.com/chromedp/chromedp v0.24.0
 	github.com/coder/websocket v1.8.15
 	github.com/gen2brain/avif v0.6.0
@@ -16,7 +16,7 @@ require (
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	golang.org/x/image v0.48.0
 	golang.org/x/text v0.44.0
-	modernc.org/sqlite v1.62.0
+	modernc.org/sqlite v1.63.0
 )
 
 require (
