@@ -23,8 +23,8 @@ func paint(w, h int, bg color.NRGBA, shapes ...shape) *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
 	fillNRGBA(img, bg)
 	for _, s := range shapes {
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
+		for y := range h {
+			for x := range w {
 				px, py := float64(x)+0.5, float64(y)+0.5
 				in := px >= s.x && px < s.x+s.w && py >= s.y && py < s.y+s.h
 				if s.ellipse {
@@ -125,8 +125,8 @@ func TestCompareRotation(t *testing.T) {
 		fillNRGBA(out, white)
 		th := deg * math.Pi / 180
 		cs, sn := math.Cos(th), math.Sin(th)
-		for y := 0; y < 200; y++ {
-			for x := 0; x < 300; x++ {
+		for y := range 200 {
+			for x := range 300 {
 				qx, qy := float64(x)+0.5-150, float64(y)+0.5-100
 				px, py := qx*cs+qy*sn+150, -qx*sn+qy*cs+100
 				if px >= 0 && py >= 0 && px < 300 && py < 200 {
@@ -266,7 +266,7 @@ func TestCompareFitsReferenceIntoFrame(t *testing.T) {
 
 func TestCompareDeterministicAndFast(t *testing.T) {
 	shapes := []shape{}
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		shapes = append(shapes, shape{x: 60 + float64(i%4)*270, y: 80 + float64(i/4)*250, w: 200, h: 160, ellipse: i%2 == 0, c: []color.NRGBA{red, navy, grn}[i%3]})
 	}
 	ref := paint(1200, 900, white, shapes...)
