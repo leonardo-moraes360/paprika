@@ -223,19 +223,7 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 	}
 
 	px := prepare(nrgba)
-	hi := px
-	if s < 1 {
-		// grain is measured near source resolution
-		gs := math.Min(1, float64(maxGrainSide)/float64(max(rw, rh)))
-		gw, gh := max(1, int(math.Round(float64(rw)*gs))), max(1, int(math.Round(float64(rh)*gs)))
-		big := image.NewNRGBA(image.Rect(0, 0, gw, gh))
-		if gw == rw && gh == rh {
-			draw.Draw(big, big.Bounds(), img, src.Min, draw.Src)
-		} else {
-			xdraw.BiLinear.Scale(big, big.Bounds(), img, src, xdraw.Src, nil)
-		}
-		hi = prepareLite(big)
-	}
+	hi := grainRaster(img, src, px)
 	pal := quantize(px, opt.MaxColors, opt.MinArea)
 	total := float64(aw * ah)
 	if len(pal) == 0 {
@@ -312,17 +300,7 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 	// regions: what each part of the image is best drawn with
 	raws := classifyRegions(px, hi, kept)
 	owner := assignRegions(raws, kept)
-	// blobs inside a photo are specks of its texture: only its largest few are worth listing
-	var pick []int
-	inPhoto := map[int]int{}
-	for i := range kept {
-		if raws[owner[i]].kind == KindPhoto {
-			if inPhoto[owner[i]]++; inPhoto[owner[i]] > maxPhotoBlobs {
-				continue
-			}
-		}
-		pick = append(pick, i)
-	}
+	pick := listedBlobs(raws, owner, len(kept))
 	if dropped := len(kept) - len(pick); dropped > 0 {
 		res.Warnings = append(res.Warnings, fmt.Sprintf("%d small blobs inside photo regions are not listed (only the %d largest of each)", dropped, maxPhotoBlobs))
 	}
@@ -351,6 +329,25 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 	return res, nil
 }
 
+// grainRaster is the region of img (src, in its coordinates) at up to maxGrainSide pixels:
+// grain is measured there, because the analysis raster has blurred it away. When the analysis
+// raster is already as large as the source it is the same raster.
+func grainRaster(img image.Image, src image.Rectangle, px *pixels) *pixels {
+	rw, rh := src.Dx(), src.Dy()
+	if px.w == rw && px.h == rh {
+		return px
+	}
+	gs := math.Min(1, float64(maxGrainSide)/float64(max(rw, rh)))
+	gw, gh := max(1, int(math.Round(float64(rw)*gs))), max(1, int(math.Round(float64(rh)*gs)))
+	big := image.NewNRGBA(image.Rect(0, 0, gw, gh))
+	if gw == rw && gh == rh {
+		draw.Draw(big, big.Bounds(), img, src.Min, draw.Src)
+	} else {
+		xdraw.BiLinear.Scale(big, big.Bounds(), img, src, xdraw.Src, nil)
+	}
+	return prepareLite(big)
+}
+
 // assignRegions gives each comp the region it sits in (by the center of its box); blobs that
 // merely overlap a text block without being letters belong to the area behind the text.
 func assignRegions(raws []rawRegion, comps []comp) []int {
@@ -374,6 +371,23 @@ func assignRegions(raws []rawRegion, comps []comp) []int {
 		owner[i] = best
 	}
 	return owner
+}
+
+// listedBlobs picks the comps (indexes into the size-sorted kept list) that analyze_image lists:
+// blobs inside a photo are specks of its texture, only its largest few are worth listing.
+// trace_image numbers its blobs through the same function, so the ids agree.
+func listedBlobs(raws []rawRegion, owner []int, n int) []int {
+	var pick []int
+	inPhoto := map[int]int{}
+	for i := range n {
+		if raws[owner[i]].kind == KindPhoto {
+			if inPhoto[owner[i]]++; inPhoto[owner[i]] > maxPhotoBlobs {
+				continue
+			}
+		}
+		pick = append(pick, i)
+	}
+	return pick
 }
 
 // onRamp is true when most of the blob's pixels lie in the smooth tiles of the ramp.

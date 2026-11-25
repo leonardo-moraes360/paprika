@@ -1725,6 +1725,65 @@ describe("API: MCP", () => {
     expect(noParent.isError).toBe(true);
     expect(textOf(noParent)).toMatch(/parentId/);
   }, 30_000);
+  it("crop em import_image/place_reference e blobIds/exclude em trace_image: misturar ferramentas por região de uma referência", async () => {
+    const c = client;
+    // 160x100: a red disc (center 40,50 r 30) and a navy rectangle (x 100..150, y 30..70) on white
+    const source = (x: number, y: number): [number, number, number] => {
+      if ((x - 40) ** 2 + (y - 50) ** 2 <= 900) return [220, 30, 40];
+      if (x >= 100 && x < 150 && y >= 30 && y < 70) return [20, 40, 110];
+      return [255, 255, 255];
+    };
+    const src = `data:image/png;base64,${encodePng(160, 100, source).toString("base64")}`;
+    await call(c, "create_nodes", { nodes: [{ type: "frame", id: "mix", name: "Mix", width: 320, height: 200, fill: "#ffffff" }] });
+
+    // crop: the photo region becomes its own image (PNG stays PNG); a crop past the edge is clamped with a warning
+    const crop = (await c.callTool({ name: "import_image", arguments: { src, parentId: "mix", place: "none", x: 10, y: 10, crop: { x: 90, y: 20, width: 100, height: 60 } } })) as ToolResult & { structuredContent?: any };
+    expect(crop.isError, textOf(crop)).toBeFalsy();
+    assertOutput("import_image", crop.structuredContent);
+    expect(crop.structuredContent).toMatchObject({ naturalWidth: 70, naturalHeight: 60, width: 70, height: 60, format: "png" });
+    expect(crop.structuredContent.warnings.join(" ")).toMatch(/clamped/);
+    const cropped = JSON.parse(textOf(await call(c, "get_nodes", { ids: [crop.structuredContent.roots[0].id] }))) as { src: string; width: number; height: number }[];
+    expect(cropped[0]).toMatchObject({ width: 70, height: 60 });
+    expect(cropped[0]!.src).not.toBe(src);
+    const out = await call(c, "import_image", { src, crop: { x: 400, y: 0, width: 10, height: 10 } });
+    expect(out.isError).toBe(true);
+    expect(textOf(out)).toMatch(/outside the image/);
+
+    const ref = (await c.callTool({ name: "place_reference", arguments: { src, frameId: "mix", crop: { x: 100, y: 30, width: 50, height: 40 } } })) as ToolResult & { structuredContent?: any };
+    expect(ref.isError, textOf(ref)).toBeFalsy();
+    assertOutput("place_reference", ref.structuredContent);
+    expect(ref.structuredContent).toMatchObject({ width: 250, height: 200 });
+
+    // blobIds: ids from analyze_image trace the same blobs; skipped and the unlisted count come back
+    const an = (await c.callTool({ name: "analyze_image", arguments: { src } })) as ToolResult & { structuredContent?: any };
+    expect(an.isError, textOf(an)).toBeFalsy();
+    const blobs = an.structuredContent.blobs as { id: string; color: string }[];
+    const navy = blobs.find((b) => b.color === "#14286e")!;
+    const only = (await c.callTool({ name: "trace_image", arguments: { src, dryRun: true, blobIds: [navy.id] } })) as ToolResult & { structuredContent?: any };
+    expect(only.isError, textOf(only)).toBeFalsy();
+    assertOutput("trace_image", only.structuredContent);
+    expect(only.structuredContent.paths).toHaveLength(1);
+    expect(only.structuredContent.paths[0]).toMatchObject({ blobId: navy.id, color: "#14286e" });
+    expect(only.structuredContent.skipped).toEqual({ excluded: 0, notListed: blobs.length - 1 });
+
+    // exclude: blobs inside the rectangle (the part placed as an image) are not traced
+    const ex = (await c.callTool({ name: "trace_image", arguments: { src, dryRun: true, exclude: [{ x: 95, y: 25, width: 60, height: 50 }] } })) as ToolResult & { structuredContent?: any };
+    expect(ex.isError, textOf(ex)).toBeFalsy();
+    expect(ex.structuredContent.paths.map((p: any) => p.color)).toEqual(["#dc1e28"]);
+    expect(ex.structuredContent.skipped.excluded).toBe(1);
+
+    // the cut reports drawn/dropped/droppedIds apart from pathCount
+    const cut = (await c.callTool({ name: "trace_image", arguments: { src, dryRun: true, maxPaths: 1 } })) as ToolResult & { structuredContent?: any };
+    assertOutput("trace_image", cut.structuredContent);
+    expect(cut.structuredContent).toMatchObject({ truncated: true, pathCount: 2, drawn: 1, dropped: 1 });
+    expect(cut.structuredContent.droppedIds).toHaveLength(1);
+    expect(cut.structuredContent.droppedIds[0]).not.toBe(cut.structuredContent.paths[0].blobId);
+
+    // blobIds + parentId: only the listed blob is created
+    const made = (await c.callTool({ name: "trace_image", arguments: { src, parentId: "mix", blobIds: [navy.id], group: false } })) as ToolResult & { structuredContent?: any };
+    expect(made.isError, textOf(made)).toBeFalsy();
+    expect(made.structuredContent).toMatchObject({ nodeCount: 1, drawn: 1, dropped: 0 });
+  }, 30_000);
   it("compare_reference: mede o desenho contra a referência, acha o deslocamento global e lembra a rodada anterior", async () => {
     const c = client;
     // 200x120: white, a red disc (center 45,60, r 30) and a navy bar (x 100..180, y 40..80); the reference is the same picture moved by (dx, dy)

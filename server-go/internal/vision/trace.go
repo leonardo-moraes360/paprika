@@ -17,7 +17,7 @@ const (
 	DefaultCorner    = 50.0 // degrees of turning that make a corner
 	DefaultTolerance = 1.0  // px, largest distance between a curve and the contour it follows
 	DefaultMaxPaths  = 60
-	traceMaxSide     = 1000
+	traceMaxSide     = 640
 )
 
 // TraceOptions tunes Trace. Zero values pick the defaults.
@@ -30,6 +30,12 @@ type TraceOptions struct {
 	Colors            []string // palette subset to trace (hex); empty = all
 	IncludeBackground bool
 	MaxPaths          int // default 60
+	// BlobIDs traces only these blobs, named as analyze_image names them (b1, b2...: the same
+	// segmentation, so the same ids for the same image, region, MaxColors and MinArea). Colors and
+	// IncludeBackground are ignored then.
+	BlobIDs []string
+	// Exclude skips the blobs whose box lies inside any of these rectangles, in the output space.
+	Exclude []Rect
 	// Scale and Offset place the image in the output space, as in Options.
 	Scale, OffsetX, OffsetY float64
 }
@@ -37,6 +43,7 @@ type TraceOptions struct {
 // TracedPath is one blob as a single path: the outer contour plus the holes, to be filled with
 // the even-odd rule. D is in the output space.
 type TracedPath struct {
+	BlobID   string  `json:"blobId,omitempty"` // as analyze_image numbers it (the background that touches the border has none)
 	Color    string  `json:"color"`
 	D        string  `json:"d,omitempty"`
 	BBox     Rect    `json:"bbox"`
@@ -51,6 +58,12 @@ type TracedPath struct {
 	Error    float64 `json:"error"` // largest distance from the contour to the fit, output px
 }
 
+// Skipped counts the blobs that blobIds or exclude left out (they are not in pathCount).
+type Skipped struct {
+	Excluded  int `json:"excluded"`  // box inside an exclude rectangle
+	NotListed int `json:"notListed"` // not in blobIds
+}
+
 type TraceResult struct {
 	Size       Size           `json:"size"`
 	Region     Rect           `json:"region"`
@@ -61,6 +74,9 @@ type TraceResult struct {
 	Paths      []TracedPath   `json:"paths"`
 	PathCount  int            `json:"pathCount"` // found, before the maxPaths cut
 	Truncated  bool           `json:"truncated"`
+	Dropped    int            `json:"dropped"`    // found but not drawn (maxPaths)
+	DroppedIDs []string       `json:"droppedIds"` // their blob ids, most important first
+	Skipped    Skipped        `json:"skipped"`
 	Points     int            `json:"points"`   // anchors over all paths
 	Segments   int            `json:"segments"` // segments over all paths
 	MaxError   float64        `json:"maxError"`
@@ -280,19 +296,91 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 
 	ids, comps := components(labels, aw, ah)
 	minPx := max(4, int(math.Round(opt.MinArea*total)))
-	var sel []comp
+	// analyze_image's numbering: blobs that pass minArea and are not the background touching the
+	// border, largest first, b1, b2... (the analysis side is the same, so the segmentation is too).
+	var numbered []comp
 	for _, c := range comps {
-		if c.area < minPx || !want[c.label] {
+		if c.area < minPx || (bgSolid && bgLabel < len(pal) && int(c.label) == bgLabel && c.touches) {
 			continue
 		}
-		if !opt.IncludeBackground && bgSolid && bgLabel < len(pal) && int(c.label) == bgLabel {
+		numbered = append(numbered, c)
+	}
+	sort.SliceStable(numbered, func(i, j int) bool { return numbered[i].area > numbered[j].area })
+	// blobs analyze_image leaves out (specks inside a photo region) are not numbered
+	{
+		raws := classifyRegions(px, grainRaster(img, src, px), numbered)
+		pick := listedBlobs(raws, assignRegions(raws, numbered), len(numbered))
+		listedNum := make([]comp, len(pick))
+		for n, i := range pick {
+			listedNum[n] = numbered[i]
+		}
+		numbered = listedNum
+	}
+	blobID := make(map[int32]string, len(numbered))
+	byID := make(map[string]comp, len(numbered))
+	for i, c := range numbered {
+		id := fmt.Sprintf("b%d", i+1)
+		blobID[c.id] = id
+		byID[id] = c
+	}
+	listed := map[int32]bool{}
+	for _, id := range opt.BlobIDs {
+		c, ok := byID[id]
+		if !ok {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("blobIds: %q matches no blob (analyze_image with the same src, region, maxColors and minArea gives the ids)", id))
+			continue
+		}
+		listed[c.id] = true
+	}
+	// contrast against the background decides what to keep when there are too many
+	var bgLab *lab
+	if bgLabel < len(pal) {
+		bgLab = &pal[bgLabel].lab
+	}
+	importance := func(c comp) float64 {
+		k := 1.0
+		if bgLab != nil {
+			k = math.Max(0.02, math.Sqrt(pal[c.label].lab.dist2(*bgLab)))
+		}
+		return float64(c.area) * k
+	}
+	inExclude := func(c comp) bool {
+		x0, y0 := ox+float64(c.minX)*kx, oy+float64(c.minY)*ky
+		x1, y1 := ox+float64(c.maxX+1)*kx, oy+float64(c.maxY+1)*ky
+		for _, e := range opt.Exclude {
+			if x0 >= e.X-1 && y0 >= e.Y-1 && x1 <= e.X+e.Width+1 && y1 <= e.Y+e.Height+1 {
+				return true
+			}
+		}
+		return false
+	}
+	var sel []comp
+	for _, c := range comps {
+		if c.area < minPx {
+			continue
+		}
+		if len(opt.BlobIDs) > 0 {
+			if blobID[c.id] == "" {
+				continue
+			}
+			if !listed[c.id] {
+				res.Skipped.NotListed++
+				continue
+			}
+		} else if !want[c.label] || (!opt.IncludeBackground && bgSolid && bgLabel < len(pal) && int(c.label) == bgLabel) {
+			continue
+		}
+		if inExclude(c) {
+			res.Skipped.Excluded++
 			continue
 		}
 		sel = append(sel, c)
 	}
-	sort.SliceStable(sel, func(i, j int) bool { return sel[i].area > sel[j].area })
+	sort.SliceStable(sel, func(i, j int) bool { return importance(sel[i]) > importance(sel[j]) })
 	res.PathCount = len(sel)
-	if len(sel) > 2*opt.MaxPaths { // the silhouette order only matters among the biggest
+	var rest []comp
+	if len(sel) > 2*opt.MaxPaths { // the silhouette order only matters among the most important
+		rest = sel[2*opt.MaxPaths:]
 		sel = sel[:2*opt.MaxPaths]
 	}
 	traced := make(map[int32]bool, len(sel))
@@ -314,11 +402,27 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 		}
 		blobs[i] = tb
 	}
-	sort.SliceStable(blobs, func(i, j int) bool { return blobs[i].areaF > blobs[j].areaF })
+	filledImp := func(tb *traceBlob) float64 { return importance(tb.c) * float64(tb.areaF) / float64(tb.c.area) }
+	sort.SliceStable(blobs, func(i, j int) bool { return filledImp(blobs[i]) > filledImp(blobs[j]) })
+	var cut []*traceBlob
 	if len(blobs) > opt.MaxPaths {
-		blobs = blobs[:opt.MaxPaths]
+		blobs, cut = blobs[:opt.MaxPaths], blobs[opt.MaxPaths:]
 	}
 	res.Truncated = res.PathCount > len(blobs)
+	res.DroppedIDs = []string{}
+	res.Dropped = len(cut) + len(rest)
+	for _, tb := range cut {
+		if id := blobID[tb.c.id]; id != "" {
+			res.DroppedIDs = append(res.DroppedIDs, id)
+		}
+	}
+	for _, c := range rest {
+		if id := blobID[c.id]; id != "" {
+			res.DroppedIDs = append(res.DroppedIDs, id)
+		}
+	}
+	// drawn largest silhouette first, so nested shapes land on top
+	sort.SliceStable(blobs, func(i, j int) bool { return blobs[i].areaF > blobs[j].areaF })
 	for _, tb := range blobs {
 		traced[tb.c.id] = true
 	}
@@ -355,7 +459,7 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 		if len(rings) == 0 {
 			continue
 		}
-		tp := TracedPath{Color: pal[c.label].hex, Rings: len(rings), Holes: len(rings) - 1, Share: r3(float64(tb.areaF) / total)}
+		tp := TracedPath{BlobID: blobID[c.id], Color: pal[c.label].hex, Rings: len(rings), Holes: len(rings) - 1, Share: r3(float64(tb.areaF) / total)}
 		var d strings.Builder
 		minX, minY, maxX, maxY := math.MaxFloat64, math.MaxFloat64, -math.MaxFloat64, -math.MaxFloat64
 		grow := func(p pt) {

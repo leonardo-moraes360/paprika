@@ -69,6 +69,12 @@ func traceImage(a *jsonv.Object, doc func() (*core.Document, error), apply trace
 		MaxPaths:          int(a.Num("maxPaths")),
 		Scale:             1,
 	}
+	opts.BlobIDs = a.Strings("blobIds")
+	for _, e := range a.Arr("exclude") {
+		if o, ok := e.(*jsonv.Object); ok {
+			opts.Exclude = append(opts.Exclude, vision.Rect{X: o.Num("x"), Y: o.Num("y"), Width: o.Num("width"), Height: o.Num("height")})
+		}
+	}
 	if r := a.Obj("region"); r != nil {
 		opts.Region = &vision.Rect{X: r.Num("x"), Y: r.Num("y"), Width: r.Num("width"), Height: r.Num("height")}
 	}
@@ -105,7 +111,7 @@ func traceImage(a *jsonv.Object, doc func() (*core.Document, error), apply trace
 		res.Warnings = append(res.Warnings, "nothing to trace: no blob passes minArea (is the image one flat color, or fully background?)")
 	}
 	if res.Truncated {
-		res.Warnings = append(res.Warnings, fmt.Sprintf("found %d paths, drew the %d largest (raise maxPaths or minArea, or pass colors)", res.PathCount, len(res.Paths)))
+		res.Warnings = append(res.Warnings, fmt.Sprintf("found %d paths, drew the %d most important, dropped %d (droppedIds; raise maxPaths or minArea, or pass colors or blobIds)", res.PathCount, len(res.Paths), res.Dropped))
 	}
 
 	paths := make([]tracedOut, len(res.Paths))
@@ -118,6 +124,10 @@ func traceImage(a *jsonv.Object, doc func() (*core.Document, error), apply trace
 			"paths", jsonv.FromGo(paths),
 			"pathCount", float64(res.PathCount),
 			"truncated", res.Truncated,
+			"drawn", float64(len(res.Paths)),
+			"dropped", float64(res.Dropped),
+			"droppedIds", jsonv.FromGo(res.DroppedIDs),
+			"skipped", jsonv.FromGo(res.Skipped),
 			"points", float64(res.Points),
 			"segments", float64(res.Segments),
 			"maxError", res.MaxError,
