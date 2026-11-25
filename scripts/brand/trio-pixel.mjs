@@ -18,8 +18,8 @@ export const THEMES = {
 
 const GRID = { cell: 13, gap: 2.5, ox: (100 - (5 * 13 + 4 * 2.5)) / 2, oy: 9 };
 
-export function gridSymbol({ map, fills, radius, selection, selectionColor, handleFill = "#FFFFFF" }) {
-  const { cell, gap, ox, oy } = GRID;
+export function gridSymbol({ map, fills, radius, selection, selectionColor, handleFill = "#FFFFFF", oy = GRID.oy }) {
+  const { cell, gap, ox } = GRID;
   const byFill = new Map();
   map.forEach((row, ry) =>
     [...row].forEach((ch, rx) => {
@@ -38,9 +38,17 @@ export function gridSymbol({ map, fills, radius, selection, selectionColor, hand
   return out;
 }
 
+export function symbolOffsetY(rows, { selection = true } = {}) {
+  const { cell, gap } = GRID;
+  const bottom = selection ? cell + gap - 4 + 5 * cell + 4 * gap + 8 + 3 + 0.7 : rows * cell + (rows - 1) * gap;
+  return (100 - bottom) / 2;
+}
+
 export function symbolLayers(c, { selection = true } = {}) {
+  const map = ["..g..", "yrrrv", "yhrrv", "yrrrv", "yrrrv", "y.r.v"];
   return gridSymbol({
-    map: ["..g..", "yrrrv", "yhrrv", "yrrrv", "yrrrv", "y.r.v"],
+    oy: symbolOffsetY(map.length, { selection }),
+    map,
     fills: { g: c.verdeEscuro, y: c.amarelo, r: c.vermelho, h: c.brilho, v: c.verde },
     radius: (rx, ry) => ((ry === 1 && (rx === 0 || rx === 4)) || ry === 5 ? 6.5 : 3.5),
     selection,
