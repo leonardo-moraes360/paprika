@@ -16,6 +16,7 @@ export default defineConfig({
     proxy: {
       "/api": { target, changeOrigin: true, configure: sameOrigin },
       "/mcp": { target, changeOrigin: true, configure: sameOrigin },
+      "/fonts": { target, changeOrigin: true, configure: sameOrigin },
       "/ws": { target: target.replace(/^http/, "ws"), ws: true, changeOrigin: true, configure: sameOrigin },
     },
   },

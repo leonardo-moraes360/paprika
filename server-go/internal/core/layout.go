@@ -349,7 +349,56 @@ func hasFlow(n *Node) bool {
 	return lay != nil && lay.Str("mode") != "" && lay.Str("mode") != "none"
 }
 
-func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH bool) wh {
+const lineEps = 1e-9
+
+// splitLines is CSS flex-wrap line breaking: mains are the items' hypothetical main sizes (fill counts as 0,
+// like `flex: 1 1 0`). An item starts a new line when it (plus the gap) no longer fits avail; without
+// hasAvail everything stays on one line.
+func splitLines(mains []float64, avail float64, hasAvail bool, gap float64) [][]int {
+	var lines [][]int
+	var cur []int
+	sum := 0.0
+	for i, m := range mains {
+		add := m
+		if len(cur) > 0 {
+			add += gap
+		}
+		if hasAvail && len(cur) > 0 && sum+add > avail+lineEps {
+			lines = append(lines, cur)
+			cur, sum, add = nil, 0, m
+		}
+		sum += add
+		cur = append(cur, i)
+	}
+	if len(cur) > 0 {
+		lines = append(lines, cur)
+	}
+	return lines
+}
+
+// hasWrap reports whether the node, or a flow frame below it, wraps: its height can depend on the width it is given.
+func hasWrap(doc *Document, n *Node) bool {
+	if hasFlow(n) && n.Obj("layout").Bool("wrap") {
+		return true
+	}
+	if !IsContainer(n.Str("type")) {
+		return false
+	}
+	for _, id := range n.Strings("children") {
+		if c := GetNode(doc, id); c != nil && hasWrap(doc, c) {
+			return true
+		}
+	}
+	return false
+}
+
+// pforce pins a frame's own outer size on an axis (already decided by its parent).
+type pforce struct {
+	w, h       float64
+	hasW, hasH bool
+}
+
+func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH bool, fo pforce) wh {
 	if n.Str("type") == "page" {
 		return wh{}
 	}
@@ -392,7 +441,7 @@ func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH 
 			kids := flowChildren(doc, n)
 			maxX, maxY := 0.0, 0.0
 			for _, c := range kids {
-				s := preferred(doc, c, 0, 0, false, false)
+				s := preferred(doc, c, 0, 0, false, false, pforce{})
 				maxX = math.Max(maxX, c.Num("x")+s.w)
 				maxY = math.Max(maxY, c.Num("y")+s.h)
 			}
@@ -408,10 +457,93 @@ func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH 
 		pt, pr, pb, pl := padOf(doc, n)
 		gap := gapOf(doc, n)
 		kids := flowItems(doc, n)
-		row := n.Obj("layout").Str("mode") == "row"
-		main, cross := 0.0, 0.0
+		lay := n.Obj("layout")
+		row := lay.Str("mode") == "row"
+		wrap := lay.Bool("wrap")
+		sizes := make([]wh, len(kids))
 		for i, c := range kids {
-			s := preferred(doc, c, 0, 0, false, false)
+			if row {
+				sizes[i] = preferred(doc, c, 0, hintH, false, hasHintH, pforce{})
+			} else {
+				sizes[i] = preferred(doc, c, hintW, 0, hasHintW, false, pforce{})
+			}
+		}
+		// The width and height the frame is going to have, when they are known before its content is measured.
+		var baseW, baseH float64
+		hasBaseW, hasBaseH := true, true
+		switch {
+		case fo.hasW:
+			baseW = fo.w
+		case hasFW:
+			baseW = fw
+		case sizeKind(n, "width") == "fill" && hasHintW:
+			baseW = hintW
+		default:
+			hasBaseW = false
+		}
+		switch {
+		case fo.hasH:
+			baseH = fo.h
+		case hasFH:
+			baseH = fh
+		case sizeKind(n, "height") == "fill" && hasHintH:
+			baseH = hintH
+		default:
+			hasBaseH = false
+		}
+		availW, availH := math.Max(0, baseW-pl-pr), math.Max(0, baseH-pt-pb)
+		mainsOf := func() []float64 {
+			out := make([]float64, len(kids))
+			for i, c := range kids {
+				switch {
+				case row && sizeKind(c, "width") == "fill", !row && sizeKind(c, "height") == "fill":
+					out[i] = 0
+				case row:
+					out[i] = sizes[i].w
+				default:
+					out[i] = sizes[i].h
+				}
+			}
+			return out
+		}
+		// A wrapping frame below with hug height is as tall as the width it ends up with (fill takes the free width of its line).
+		var rowLines [][]int
+		if row {
+			rowLines = splitLines(mainsOf(), availW, wrap && hasBaseW, gap)
+		}
+		for i, c := range kids {
+			if !hasFlow(c) || sizeKind(c, "height") != "hug" || sizeKind(c, "width") != "fill" || !hasBaseW || !hasWrap(doc, c) {
+				continue
+			}
+			w := availW
+			if row {
+				mains := mainsOf()
+				var line []int
+				for _, l := range rowLines {
+					for _, k := range l {
+						if k == i {
+							line = l
+						}
+					}
+				}
+				fixed, fills := 0.0, 0
+				for j, k := range line {
+					fixed += mains[k]
+					if j > 0 {
+						fixed += gap
+					}
+					if sizeKind(kids[k], "width") == "fill" {
+						fills++
+					}
+				}
+				w = math.Max(0, availW-fixed) / float64(fills)
+			} else if wrap {
+				continue
+			}
+			sizes[i] = wh{sizes[i].w, preferred(doc, c, w, 0, true, false, pforce{w: w, hasW: true}).h}
+		}
+		main, cross := 0.0, 0.0
+		for i, s := range sizes {
 			if row {
 				main += s.w
 				cross = math.Max(cross, s.h)
@@ -421,6 +553,27 @@ func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH 
 			}
 			if i > 0 {
 				main += gap
+			}
+		}
+		if wrap && ((row && hasBaseW) || (!row && hasBaseH)) {
+			avail := availH
+			if row {
+				avail = availW
+			}
+			cross = 0
+			for li, line := range splitLines(mainsOf(), avail, true, gap) {
+				m := 0.0
+				for _, k := range line {
+					if row {
+						m = math.Max(m, sizes[k].h)
+					} else {
+						m = math.Max(m, sizes[k].w)
+					}
+				}
+				cross += m
+				if li > 0 {
+					cross += gap
+				}
 			}
 		}
 		contentW, contentH := cross, main
@@ -433,6 +586,12 @@ func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH 
 		}
 		if hasFH {
 			h = fh
+		}
+		if fo.hasW {
+			w = fo.w
+		}
+		if fo.hasH {
+			h = fo.h
 		}
 		return wh{w, h}
 	}
@@ -493,12 +652,19 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 
 	type base struct {
 		n                   *Node
+		prefW, prefH        float64
 		baseW, baseH        float64
 		fillMain, fillCross bool
+		reflow              bool
 	}
 	bases := make([]base, len(kids))
 	for i, c := range kids {
-		p := preferred(doc, c, 0, 0, false, false)
+		var p wh
+		if row {
+			p = preferred(doc, c, 0, innerH, false, true, pforce{})
+		} else {
+			p = preferred(doc, c, innerW, 0, true, false, pforce{})
+		}
 		bw, bh := p.w, p.h
 		if f, ok := sizeNum(c, "width"); ok {
 			bw = f
@@ -511,38 +677,37 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 			bh = 0
 		}
 		bases[i] = base{
-			n: c, baseW: bw, baseH: bh,
+			n: c, prefW: p.w, prefH: p.h, baseW: bw, baseH: bh,
 			fillMain:  (row && sizeKind(c, "width") == "fill") || (!row && sizeKind(c, "height") == "fill"),
 			fillCross: (row && sizeKind(c, "height") == "fill") || (!row && sizeKind(c, "width") == "fill"),
+			reflow:    hasFlow(c) && hasWrap(doc, c),
 		}
 	}
-	fixedMain := 0.0
-	fillCount := 0
-	for i, b := range bases {
+	mainOf := func(b base) float64 {
 		if row {
-			fixedMain += b.baseW
-		} else {
-			fixedMain += b.baseH
+			return b.baseW
 		}
-		if i > 0 {
-			fixedMain += gap
-		}
-		if b.fillMain {
-			fillCount++
-		}
+		return b.baseH
 	}
-	free := math.Max(0, map[bool]float64{true: innerW, false: innerH}[row]-fixedMain)
-	fillEach := 0.0
-	if fillCount > 0 {
-		fillEach = free / float64(fillCount)
+	mainInner, crossInner := innerH, innerW
+	if row {
+		mainInner, crossInner = innerW, innerH
 	}
+	wrap := lay.Bool("wrap")
+	mains := make([]float64, len(bases))
+	for i, b := range bases {
+		mains[i] = mainOf(b)
+	}
+	lines := splitLines(mains, mainInner, wrap, gap)
+	align := lay.Str("align")
+	justify := lay.Str("justify")
 
 	type item struct {
 		n    *Node
 		w, h float64
 	}
-	placed := make([]item, len(bases))
-	for i, b := range bases {
+	// Final outer size of one flex item. hasCross is false while the line's cross size is not known yet (no stretching).
+	sizeItem := func(b base, fillEach, crossAvail float64, hasCross bool) item {
 		w, h := b.baseW, b.baseH
 		if b.fillMain {
 			if row {
@@ -551,11 +716,25 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 				h = fillEach
 			}
 		}
-		if b.fillCross || lay.Str("align") == "stretch" {
-			if row {
-				h = innerH
-			} else {
-				w = innerW
+		if b.fillCross {
+			switch {
+			case !hasCross && row:
+				h = b.prefH
+			case !hasCross:
+				w = b.prefW
+			case row:
+				h = crossAvail
+			default:
+				w = crossAvail
+			}
+		} else if align == "stretch" && hasCross {
+			crossHug := (row && sizeKind(b.n, "height") == "hug") || (!row && sizeKind(b.n, "width") == "hug")
+			if crossHug {
+				// hug stays content-sized; CSS max-content wins over stretch
+			} else if row && !sizeNumOk(b.n, "height") {
+				h = crossAvail
+			} else if !row && !sizeNumOk(b.n, "width") {
+				w = crossAvail
 			}
 		}
 		if b.n.Str("type") == "text" {
@@ -572,55 +751,128 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 				h = t.h
 			}
 		}
-		placed[i] = item{b.n, math.Max(0, w), math.Max(0, h)}
+		if b.reflow {
+			// a wrapping frame: its hug height (or, for a wrapping column, hug width) follows the size it was just given
+			if sizeKind(b.n, "height") == "hug" {
+				h = preferred(doc, b.n, w, 0, true, false, pforce{w: w, hasW: true}).h
+			}
+			if sizeKind(b.n, "width") == "hug" && hasFlow(b.n) && b.n.Obj("layout").Str("mode") == "column" {
+				w = preferred(doc, b.n, 0, h, false, true, pforce{h: h, hasH: true}).w
+			}
+		}
+		return item{b.n, math.Max(0, w), math.Max(0, h)}
 	}
 
-	totalMain := 0.0
-	for i, p := range placed {
-		if row {
-			totalMain += p.w
-		} else {
-			totalMain += p.h
+	type lineT struct {
+		members  []base
+		fillEach float64
+	}
+	lineItems := make([]lineT, len(lines))
+	for li, idx := range lines {
+		members := make([]base, len(idx))
+		fixed := 0.0
+		fills := 0
+		for j, i := range idx {
+			members[j] = bases[i]
+			fixed += mainOf(bases[i])
+			if j > 0 {
+				fixed += gap
+			}
+			if bases[i].fillMain {
+				fills++
+			}
 		}
-		if i > 0 {
-			totalMain += gap
+		fillEach := 0.0
+		if fills > 0 {
+			fillEach = math.Max(0, mainInner-fixed) / float64(fills)
+		}
+		lineItems[li] = lineT{members, fillEach}
+	}
+
+	// Cross size of each line: a single line fills the frame; wrapped lines are as tall as their tallest item and
+	// share the leftover space equally (align-content: stretch, the CSS default).
+	lineCross := make([]float64, len(lineItems))
+	for li := range lineCross {
+		lineCross[li] = crossInner
+	}
+	if wrap {
+		sum := 0.0
+		for li, l := range lineItems {
+			m := 0.0
+			for _, b := range l.members {
+				it := sizeItem(b, l.fillEach, 0, false)
+				if row {
+					m = math.Max(m, it.h)
+				} else {
+					m = math.Max(m, it.w)
+				}
+			}
+			lineCross[li] = m
+			sum += m
+		}
+		if len(lineCross) > 0 {
+			extra := crossInner - (sum + gap*float64(len(lineCross)-1))
+			if extra > 0 {
+				for li := range lineCross {
+					lineCross[li] += extra / float64(len(lineCross))
+				}
+			}
 		}
 	}
-	spare := map[bool]float64{true: innerW, false: innerH}[row] - totalMain
-	main0 := 0.0
-	justify := lay.Str("justify")
-	if justify == "center" {
-		main0 = spare / 2
-	} else if justify == "end" {
-		main0 = spare
-	}
-	betweenGap := gap
-	if justify == "between" && len(placed) > 1 {
-		betweenGap = math.Max(0, spare) / float64(len(placed)-1)
-	}
-	cursor := main0
-	align := lay.Str("align")
-	for i, p := range placed {
-		cross := 0.0
-		crossSpare := map[bool]float64{true: innerH, false: innerW}[row] - map[bool]float64{true: p.h, false: p.w}[row]
-		if align == "center" {
-			cross = crossSpare / 2
-		} else if align == "end" {
-			cross = crossSpare
+
+	crossCursor := 0.0
+	for li, l := range lineItems {
+		placed := make([]item, len(l.members))
+		totalMain := 0.0
+		for i, b := range l.members {
+			placed[i] = sizeItem(b, l.fillEach, lineCross[li], true)
+			if row {
+				totalMain += placed[i].w
+			} else {
+				totalMain += placed[i].h
+			}
+			if i > 0 {
+				totalMain += gap
+			}
 		}
-		var lx, ly float64
-		if row {
-			lx, ly = pl+cursor, pt+cross
-		} else {
-			lx, ly = pl+cross, pt+cursor
+		spare := mainInner - totalMain
+		main0 := 0.0
+		if justify == "center" {
+			main0 = spare / 2
+		} else if justify == "end" {
+			main0 = spare
 		}
-		placeSized(doc, p.n, absX+lx, absY+ly, p.w, p.h, out)
-		step := p.h
-		if row {
-			step = p.w
+		betweenGap := gap
+		if justify == "between" && len(placed) > 1 {
+			betweenGap = gap + math.Max(0, spare)/float64(len(placed)-1)
 		}
-		cursor += step + betweenGap
-		_ = i
+		cursor := main0
+		for _, p := range placed {
+			cross := 0.0
+			crossSpare := lineCross[li] - p.w
+			if row {
+				crossSpare = lineCross[li] - p.h
+			}
+			if align == "center" {
+				cross = crossSpare / 2
+			} else if align == "end" {
+				cross = crossSpare
+			}
+			cross += crossCursor
+			var lx, ly float64
+			if row {
+				lx, ly = pl+cursor, pt+cross
+			} else {
+				lx, ly = pl+cross, pt+cursor
+			}
+			placeSized(doc, p.n, absX+lx, absY+ly, p.w, p.h, out)
+			step := p.h
+			if row {
+				step = p.w
+			}
+			cursor += step + betweenGap
+		}
+		crossCursor += lineCross[li] + gap
 	}
 	for _, c := range n.Strings("children") {
 		child := GetNode(doc, c)
@@ -663,7 +915,7 @@ func placeTree(doc *Document, id string, absX, absY float64, out *[]place, paren
 		return
 	}
 	if hasFlow(n) {
-		pref := preferred(doc, n, parentW, parentH, hasParent, hasParent)
+		pref := preferred(doc, n, parentW, parentH, hasParent, hasParent, pforce{})
 		frameW, frameH := pref.w, pref.h
 		if f, ok := sizeNum(n, "width"); ok {
 			frameW = f
@@ -678,7 +930,7 @@ func placeTree(doc *Document, id string, absX, absY float64, out *[]place, paren
 		placeFlowFrame(doc, n, absX, absY, frameW, frameH, out)
 		return
 	}
-	pref := preferred(doc, n, parentW, parentH, hasParent, hasParent)
+	pref := preferred(doc, n, parentW, parentH, hasParent, hasParent, pforce{})
 	w, h := pref.w, pref.h
 	if f, ok := sizeNum(n, "width"); ok {
 		w = f
@@ -773,29 +1025,50 @@ func Layout(doc *Document, opts LayoutOptions) (map[string]LayoutBox, error) {
 		return nil, fmt.Errorf(`node "%s" does not exist`, opts.RootID)
 	}
 	var placed []place
-	pageID := ""
+	// Which pages to lay out: the one that holds RootID; else the page of every requested id (an id on another
+	// page used to vanish from the result); else the first page.
+	var pageIDs []string
+	seen := map[string]bool{}
+	addPage := func(id string) {
+		if !seen[id] {
+			seen[id] = true
+			pageIDs = append(pageIDs, id)
+		}
+	}
+	pageOf := func(id string) string {
+		if n := GetNode(doc, id); n != nil && n.Str("type") == "page" {
+			return id
+		}
+		return pageIdOf(doc, id)
+	}
 	if opts.RootID != "" {
-		if n := GetNode(doc, opts.RootID); n != nil && n.Str("type") == "page" {
-			pageID = opts.RootID
-		} else {
-			pageID = pageIdOf(doc, opts.RootID)
+		addPage(pageOf(opts.RootID))
+	} else {
+		for _, id := range opts.IDs {
+			if GetNode(doc, id) != nil {
+				addPage(pageOf(id))
+			}
 		}
 	}
-	if pageID == "" {
+	if len(pageIDs) == 0 {
+		first := ""
 		if p := FirstPage(doc); p != nil {
-			pageID = p.Str("id")
+			first = p.Str("id")
 		}
+		addPage(first)
 	}
-	roots, err := PageRoots(doc, pageID)
-	if err != nil {
-		return nil, err
-	}
-	for _, id := range roots {
-		n := GetNode(doc, id)
-		if n == nil || n.Str("type") == "page" {
-			continue
+	for _, pageID := range pageIDs {
+		roots, err := PageRoots(doc, pageID)
+		if err != nil {
+			return nil, err
 		}
-		placeTree(doc, id, n.Num("x"), n.Num("y"), &placed, 0, 0, false)
+		for _, id := range roots {
+			n := GetNode(doc, id)
+			if n == nil || n.Str("type") == "page" {
+				continue
+			}
+			placeTree(doc, id, n.Num("x"), n.Num("y"), &placed, 0, 0, false)
+		}
 	}
 
 	var keep map[string]bool

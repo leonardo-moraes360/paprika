@@ -184,6 +184,8 @@ type exportParts struct {
 	bodyMode   string
 	vars       bool
 	fluid      *fluidBox
+	autoW      bool
+	autoH      bool
 }
 
 func buildExportParts(doc *Document, opts RenderOptions, emit styleEmitter) (exportParts, error) {
@@ -242,7 +244,15 @@ func buildExportParts(doc *Document, opts RenderOptions, emit styleEmitter) (exp
 	if opts.CSSVariables && inherited != "" {
 		bodyMode = ` data-paprika-mode="` + EscapeHTML(inherited) + `"`
 	}
-	return exportParts{body, bounds, bg, bodyMode, opts.CSSVariables, exportFluid(doc, node, page)}, nil
+	autoW, autoH := false, false
+	if node != nil && page == nil && node.Str("type") != "connector" {
+		w, _ := node.Get("width")
+		h, _ := node.Get("height")
+		_, wNum := w.(float64)
+		_, hNum := h.(float64)
+		autoW, autoH = !wNum, !hNum
+	}
+	return exportParts{body, bounds, bg, bodyMode, opts.CSSVariables, exportFluid(doc, node, page), autoW, autoH}, nil
 }
 
 func useFluid(doc *Document, n *Node, asRoot bool) bool {
@@ -329,11 +339,21 @@ func exportFluid(doc *Document, node, page *Node) *fluidBox {
 	return aggregateFluid(nodes)
 }
 
-func BodySizeCSS(b Bounds, fluid *fluidBox) string {
-	if fluid == nil {
-		return "width:" + jsonv.FormatNumber(b.Width) + "px;height:" + jsonv.FormatNumber(b.Height) + "px"
+// BodySizeCSS sizes the exported <body>. autoW/autoH: the root is sized "hug"/"fill" on that axis (its
+// box is 1px in b): the body follows the root, which stays in the flow.
+func BodySizeCSS(b Bounds, fluid *fluidBox, autoW, autoH bool) string {
+	height := "height:" + jsonv.FormatNumber(b.Height) + "px"
+	if autoH {
+		height = "min-height:1px"
 	}
-	return "width:100%;min-width:" + jsonv.FormatNumber(fluid.Min) + "px;max-width:" + jsonv.FormatNumber(fluid.Max) + "px;margin-left:auto;margin-right:auto;height:" + jsonv.FormatNumber(b.Height) + "px"
+	if fluid == nil {
+		width := "width:" + jsonv.FormatNumber(b.Width) + "px;"
+		if autoW {
+			width = ""
+		}
+		return width + height
+	}
+	return "width:100%;min-width:" + jsonv.FormatNumber(fluid.Min) + "px;max-width:" + jsonv.FormatNumber(fluid.Max) + "px;margin-left:auto;margin-right:auto;" + height
 }
 
 // RenderHTML builds a self-contained HTML document (export and screenshot).
@@ -347,7 +367,7 @@ func RenderHTML(doc *Document, opts RenderOptions) (string, Bounds, error) {
 		sheet = TokenStylesheet(doc)
 	}
 	html := "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>" + EscapeHTML(doc.Str("name")) + "</title>\n" +
-		"<style>html,body{margin:0;padding:0}body{position:relative;" + BodySizeCSS(p.bounds, p.fluid) +
+		"<style>html,body{margin:0;padding:0}body{position:relative;" + BodySizeCSS(p.bounds, p.fluid, p.autoW, p.autoH) +
 		";background:" + EscapeHTML(p.background) + ";font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}" + sheet + "</style>\n" +
 		"</head><body" + p.bodyMode + ">" + p.body + "</body></html>"
 	return html, p.bounds, nil

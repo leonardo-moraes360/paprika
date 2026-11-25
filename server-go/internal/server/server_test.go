@@ -303,6 +303,42 @@ func TestMCPCombinePaths(t *testing.T) {
 	}
 }
 
+func TestMCPCombinePathsBatch(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "frame", "id", "f", "width", 300.0, "height", 200.0, "children", []any{
+		obj("type", "ellipse", "id", "disc", "x", 0.0, "y", 0.0, "width", 100.0, "height", 100.0, "fill", "#c43d27"),
+		obj("type", "rect", "id", "dome", "x", 20.0, "y", 0.0, "width", 60.0, "height", 40.0, "fill", "#1e2336"),
+		obj("type", "ellipse", "id", "hole", "x", 30.0, "y", 30.0, "width", 40.0, "height", 40.0, "fill", "#000000"),
+	})}))
+	out, isErr := callText(t, m, "combine_paths", obj(
+		"operations", []any{
+			obj("op", "union", "ids", []any{"disc", "dome"}, "as", "body"),
+			obj("op", "subtract", "ids", []any{"body", "hole"}),
+		},
+		"style", obj("from", "dome", "opacity", 0.5), "id", "ring", "name", "Ring"))
+	if isErr {
+		t.Fatalf("combine_paths batch: %s", out)
+	}
+	n := core.GetNode(s.Doc(), "ring")
+	if n == nil || n.Str("type") != "path" || n.Str("fill") != "#1e2336" || n.Num("opacity") != 0.5 || n.Str("name") != "Ring" || strings.Count(n.Str("d"), "Z") < 2 {
+		t.Fatalf("unexpected batch result: %v", n)
+	}
+	for _, id := range []string{"disc", "dome", "hole"} {
+		if core.GetNode(s.Doc(), id) != nil {
+			t.Fatalf("%s should be deleted", id)
+		}
+	}
+	out, isErr = callText(t, m, "combine_paths", obj("operations", []any{obj("op", "union", "ids", []any{"ring", "nope"})}))
+	if !isErr || !strings.Contains(out, "operations[0] (union): nodes do not exist: nope") {
+		t.Fatalf("expected a step-named error, got %q", out)
+	}
+	out, isErr = callText(t, m, "combine_paths", obj("ids", []any{"ring"}))
+	if !isErr {
+		t.Fatalf("expected an error for one id, got %q", out)
+	}
+}
+
 func TestMCPConvertToPath(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)
