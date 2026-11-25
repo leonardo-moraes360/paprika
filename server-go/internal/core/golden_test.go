@@ -110,6 +110,11 @@ func TestGoldenStructure(t *testing.T) {
 			if dup != nil {
 				ops = dup.Ops
 			}
+		case "repeat":
+			dup, err = RepeatOps(d, args.Str("id"), args)
+			if dup != nil {
+				ops = dup.Ops
+			}
 		case "group":
 			ops, id, err = GroupOps(d, args.Strings("ids"), args.Str("id"), args.Str("name"))
 		case "ungroup":

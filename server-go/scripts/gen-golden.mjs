@@ -15,7 +15,7 @@ const {
   exportReact, exportTailwind, exportCssModules, exportAngular, exportSvelte, renderTailwindHTML, renderFrameworkHTML, nodeStyle, cssToString, queryNodes, parsePath, pathBounds, serializePath, pathError,
   parseColor, contrastRatio, Op, Document, groupOps, ungroupOps, addPageOps, duplicateOps, combinePathsOps, alignOps, distributeOps, wrapOps, revealOps, importSVG, importHTML, exportSVG,
   diagramOps, shapeOutline, tailwindClassesFor, layout, measureText, FONT_AVG, normalizePath, pathOrigin,
-  pathToSubpaths, subpathsToPath, moveAnchor, moveHandle, pathEditProps, anchorByFlatIndex, roundPathCorners, shapePath,
+  pathToSubpaths, subpathsToPath, moveAnchor, moveHandle, pathEditProps, anchorByFlatIndex, roundPathCorners, shapePath, repeatOps, outlineStrokeOps,
 } = core;
 
 const json = (v) => JSON.stringify(v, null, 2);
@@ -833,6 +833,30 @@ const structureCases = [
   ["card", "duplicate", { ids: ["card"], props: { id: "x", children: [] } }],
   ["card", "duplicate", { ids: ["card"], props: { width: 5 } }],
   ["card", "duplicate", { ids: ["card"], parentId: "nope" }],
+  ["free", "repeat", { id: "r1", count: 6, mode: "radial", rotate: true }],
+  ["free", "repeat", { id: "e1", count: 4, mode: "radial", angle: 90, rotate: true, center: { x: 200, y: 150 } }],
+  ["free", "repeat", { id: "r1", count: 3, mode: "radial", angle: -180, center: { x: 100.5, y: 75.25 } }],
+  ["grouped", "repeat", { id: "g1", count: 3, mode: "radial", angle: 270 }],
+  ["free", "repeat", { id: "p1", count: 3, mode: "linear", step: { x: 30, y: 12.5 } }],
+  ["free", "repeat", { id: "r1", count: 2, mode: "linear", step: { y: 40 } }],
+  ["free", "repeat", { id: "r1", count: 5, mode: "grid", columns: 2, gap: 6 }],
+  ["free", "repeat", { id: "e1", count: 4, mode: "grid", columns: 2, rows: 2 }],
+  ["free", "repeat", { id: "board", count: 2, mode: "linear", step: { x: 500, y: 0 } }],
+  ["free", "repeat", { id: "r1", count: 1, mode: "radial" }],
+  ["free", "repeat", { id: "r1", count: 2.5, mode: "linear", step: { x: 1, y: 1 } }],
+  ["free", "repeat", { id: "r1", count: 3, mode: "spiral" }],
+  ["free", "repeat", { id: "zz", count: 3, mode: "radial" }],
+  ["free", "repeat", { id: "board", count: 3, mode: "radial" }],
+  ["free", "repeat", { id: "t1", count: 3, mode: "radial" }],
+  ["free", "repeat", { id: "r1", count: 3, mode: "radial", center: { x: 50, y: 55 } }],
+  ["free", "repeat", { id: "r1", count: 3, mode: "radial", angle: 0 }],
+  ["free", "repeat", { id: "r1", count: 3, mode: "linear" }],
+  ["free", "repeat", { id: "r1", count: 3, mode: "linear", step: { x: 0, y: 0 } }],
+  ["free", "repeat", { id: "r1", count: 3, mode: "linear", step: { x: 1 }, angle: 90 }],
+  ["free", "repeat", { id: "r1", count: 3, mode: "grid" }],
+  ["free", "repeat", { id: "r1", count: 5, mode: "grid", columns: 2, rows: 2 }],
+  ["free", "repeat", { id: "r1", count: 3, mode: "grid", columns: 2, rows: 0 }],
+  ["free", "repeat", { id: "t1", count: 3, mode: "grid", columns: 2 }],
   ["free", "align", { ids: ["r1", "e1"], edge: "left" }],
   ["free", "align", { ids: ["r1"], edge: "left" }],
   ["free", "align", { ids: ["r1", "e1"], edge: "sideways" }],
@@ -863,6 +887,10 @@ const structure = structureCases.map(([docName, kind, args]) => {
     if (kind === "ungroup") return ungroupOps(d, args.ids);
     if (kind === "duplicate") {
       const p = duplicateOps(d, args.ids, args);
+      return { ops: p.ops, map: p.map };
+    }
+    if (kind === "repeat") {
+      const p = repeatOps(d, args.id, args);
       return { ops: p.ops, map: p.map };
     }
     if (kind === "combine") {
@@ -1302,7 +1330,46 @@ const shapeCases = shapeInputs.map((c) => ({
   result: err(() => (c.op === "round" ? roundPathCorners(c.d, { radius: c.radius, radii: c.radii }) : shapePath(c.kind, c.params))),
 }));
 
-const out = { shapeCases, randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, pathEdits, created: createDocument("Untitled", "abc"), tailwindMapCases };
+// Stroke to fill: the node, the options and the update op (or the error) it produces.
+const strokePath = (extra) => ({ type: "path", id: "p", x: 10, y: 20, width: 100, height: 60, d: "M0 0 L100 0", stroke: { color: "#112233", width: 10 }, ...extra });
+const strokeInputs = [
+  { name: "line-butt", node: strokePath({ strokeCap: "butt" }) },
+  { name: "line-round", node: strokePath({}) },
+  { name: "line-square", node: strokePath({ strokeCap: "square" }) },
+  { name: "zigzag-miter", node: strokePath({ d: "M0 40 L40 0 L80 40 L120 0 L160 40", strokeCap: "butt", strokeJoin: "miter" }) },
+  { name: "zigzag-bevel", node: strokePath({ d: "M0 40 L40 0 L80 40", strokeCap: "square", strokeJoin: "bevel" }) },
+  { name: "spike-miter-limit", node: strokePath({ d: "M0 0 L100 0 L0 17.6", strokeCap: "butt", strokeJoin: "miter" }) },
+  { name: "turn-round", node: strokePath({ d: "M0 0 L60 0 L60 50 L10 50", strokeJoin: "round" }) },
+  { name: "reversal", node: strokePath({ d: "M0 0 L50 0 L0 0", strokeCap: "butt", strokeJoin: "round" }) },
+  { name: "cubic", node: strokePath({ d: "M10 50 C 40 -20, 80 -20, 110 50", stroke: { color: "$brand", width: 6 } }) },
+  { name: "quad", node: strokePath({ d: "M0 0 Q50 60 100 0", stroke: { color: "#000000", width: 3 } }) },
+  { name: "circle", node: strokePath({ d: "M50 0 A50 50 0 1 1 50 100 A50 50 0 1 1 50 0 Z", width: 100, height: 100, strokeCap: "butt" }) },
+  { name: "wide-circle", node: strokePath({ d: "M50 45 A5 5 0 1 1 50 55 A5 5 0 1 1 50 45 Z", stroke: { color: "#abcdef", width: 30 } }) },
+  { name: "square-closed-miter", node: strokePath({ d: "M0 0 L50 0 L50 50 L0 50 Z", strokeJoin: "miter" }) },
+  { name: "two-subpaths", node: strokePath({ d: "M0 0 L40 0 M0 20 L40 40", strokeCap: "round" }) },
+  { name: "dot-round", node: strokePath({ d: "M30 30 L30 30", stroke: { color: "#ff0000", width: 8 } }) },
+  { name: "dot-butt", node: strokePath({ d: "M30 30 L30 30", strokeCap: "butt" }) },
+  { name: "rotated", node: strokePath({ rotation: 30, d: "M0 30 L100 30", strokeCap: "square" }) },
+  { name: "viewbox", node: strokePath({ viewBox: [0, 0, 50, 10], width: 100, height: 20, d: "M0 5 L50 5", strokeCap: "butt" }) },
+  { name: "keep-stroke", keep: true, node: strokePath({ strokeCap: "butt" }) },
+  { name: "err-fill", node: strokePath({ fill: "#ff0000" }) },
+  { name: "err-gradient", node: strokePath({ gradient: { type: "linear", angle: 0, cx: 0.5, cy: 0.5, radius: 1, stops: [{ offset: 0, color: "#000000" }, { offset: 1, color: "#ffffff" }] } }) },
+  { name: "err-dashed", node: strokePath({ stroke: { color: "#000000", width: 4, style: "dashed" } }) },
+  { name: "err-no-stroke", node: strokePath({ stroke: undefined }) },
+  { name: "err-width-0", node: strokePath({ stroke: { color: "#000000", width: 0 } }) },
+  { name: "err-rect", node: { type: "rect", id: "p", width: 10, height: 10, stroke: { color: "#000000", width: 2 } } },
+  { name: "err-missing", id: "zz", node: strokePath({}) },
+];
+const strokeCases = strokeInputs.map((c) => {
+  const doc = applyOps(applyOps(createDocument("Untitled", "abc"), [{ op: "set_tokens", tokens: { brand: "#c43d27" } }]).doc, [{ op: "create", node: c.node }]).doc;
+  const r = err(() => {
+    const p = outlineStrokeOps(doc, c.id ?? "p", { keepStroke: c.keep });
+    return { ops: p.ops, id: p.id, d: p.d, bounds: p.bounds };
+  });
+  return { name: c.name, id: c.id ?? "p", keep: !!c.keep, node: c.node, result: r };
+});
+
+const out = { strokeCases, shapeCases, randomRuns, structure, opResults, diagrams, outlines, zodResults, history, views, paths, colors, contrast, badDocs, imports, svgExports, layouts, textMetrics, pathNorm, pathEdits, created: createDocument("Untitled", "abc"), tailwindMapCases };
 const dest = join(here, "../internal/core/testdata/golden.json");
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");

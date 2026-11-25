@@ -1056,6 +1056,58 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return m.tools["create_nodes"].handler(ctx, args)
 	})
 
+	add("outline_stroke", z.Object(
+		z.Field{Name: "id", Schema: z.String().Min(1)},
+		z.Field{Name: "keepStroke", Schema: z.Optional(z.Bool())},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		doc, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		plan, err := core.OutlineStrokeOps(doc, a.Str("id"), a.Bool("keepStroke"))
+		if err != nil {
+			return nil, err
+		}
+		b := plan.Bounds
+		bounds := jsonv.NewObject("x", b.X, "y", b.Y, "width", b.Width, "height", b.Height)
+		return writeWith(a, plan.Ops, labelOr(a, "outline stroke"), "id", plan.ID, "bounds", bounds)
+	})
+
+	repeatNum := func(name string, min, max float64) z.Field {
+		return z.Field{Name: name, Schema: z.Optional(z.Number().Min(min).Max(max))}
+	}
+	add("repeat_nodes", z.Object(
+		z.Field{Name: "id", Schema: z.String().Min(1)},
+		z.Field{Name: "count", Schema: z.Int().Min(2).Max(500)},
+		z.Field{Name: "mode", Schema: z.Enum(core.RepeatModes...)},
+		z.Field{Name: "center", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number()},
+			z.Field{Name: "y", Schema: z.Number()},
+		))},
+		repeatNum("angle", -3600, 3600),
+		z.Field{Name: "rotate", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "step", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Optional(z.Number())},
+			z.Field{Name: "y", Schema: z.Optional(z.Number())},
+		))},
+		z.Field{Name: "columns", Schema: z.Optional(z.Int().Min(1).Max(500))},
+		z.Field{Name: "rows", Schema: z.Optional(z.Int().Min(1).Max(500))},
+		repeatNum("gap", -1e6, 1e6),
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		d, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		plan, err := core.RepeatOps(d, a.Str("id"), a)
+		if err != nil {
+			return nil, err
+		}
+		r, _, err := shapedWrite(a, plan.Ops, labelOr(a, "repeat "+a.Str("id")+" x"+count(len(plan.Copies)+1)), "copies", jsonv.FromGo(plan.Copies))
+		return r, err
+	})
+
 	add("create_page", z.Object(
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
