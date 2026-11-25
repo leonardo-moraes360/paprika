@@ -1858,6 +1858,39 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return analyzeImage(a, func() (*core.Document, error) { return docOf(a) })
 	})
 
+	add("trace_image", z.Object(
+		optStr("src"),
+		optStr("nodeId"),
+		optStr("parentId"),
+		z.Field{Name: "frame", Schema: z.Optional(z.Object(
+			z.Field{Name: "width", Schema: z.Number().Min(1).Max(100000)},
+			z.Field{Name: "height", Schema: z.Number().Min(1).Max(100000)},
+		))},
+		z.Field{Name: "region", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number().Min(0)},
+			z.Field{Name: "y", Schema: z.Number().Min(0)},
+			z.Field{Name: "width", Schema: z.Number().Min(1)},
+			z.Field{Name: "height", Schema: z.Number().Min(1)},
+		))},
+		z.Field{Name: "maxColors", Schema: z.Optional(z.Int().Min(1).Max(16))},
+		z.Field{Name: "minArea", Schema: z.Optional(z.Number().Min(0.00001).Max(0.5))},
+		z.Field{Name: "smoothness", Schema: z.Optional(z.Number().Min(10).Max(170))},
+		z.Field{Name: "tolerance", Schema: z.Optional(z.Number().Min(0.1).Max(50))},
+		z.Field{Name: "colors", Schema: z.Optional(z.Array(z.String().Min(1).Max(20)).Min(1).Max(16))},
+		z.Field{Name: "includeBackground", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "maxPaths", Schema: z.Optional(z.Int().Min(1).Max(200))},
+		z.Field{Name: "group", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "dryRun", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "place", Schema: placeSchema},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		return traceImage(a, func() (*core.Document, error) { return docOf(a) },
+			func(ops []any, lbl string, extra ...any) (ToolResult, error) {
+				r, _, err := shapedWrite(a, ops, lbl, extra...)
+				return r, err
+			})
+	})
+
 	add("resize_image", z.Object(
 		z.Field{Name: "nodeId", Schema: z.Optional(z.String().Min(1))},
 		z.Field{Name: "src", Schema: z.Optional(z.String().Min(1).Max(5_000_000))},

@@ -206,7 +206,7 @@ describe("API: MCP", () => {
         "get_bounds",
         "create_folder", "rename_folder", "move_workspace", "place_reference",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "edit_path", "redo",
-        "rename_workspace", "render_screenshot", "resize_image", "analyze_image", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
+        "rename_workspace", "render_screenshot", "resize_image", "analyze_image", "trace_image", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
         "claim_pin", "list_pins", "reply_pin", "resolve_pin", "wait_for_pins",
       ].sort(),
@@ -1368,6 +1368,74 @@ describe("API: MCP", () => {
     const none = await call(c, "analyze_image", {});
     expect(none.isError).toBe(true);
   });
+
+  it("trace_image: vira paths com curvas e buracos evenodd dentro do frame, um passo de undo, e o render fica perto da fonte", async () => {
+    const c = client;
+    // 160x100: a red disc (center 40,50 r 30) and a navy ring (center 115,50, radii 35 and 15) on white
+    const source = (x: number, y: number): [number, number, number] => {
+      if ((x - 40) ** 2 + (y - 50) ** 2 <= 900) return [220, 30, 40];
+      const d2 = (x - 115) ** 2 + (y - 50) ** 2;
+      if (d2 <= 1225 && d2 >= 225) return [20, 40, 110];
+      return [255, 255, 255];
+    };
+    const src = `data:image/png;base64,${encodePng(160, 100, source).toString("base64")}`;
+    await call(c, "create_nodes", { nodes: [{ type: "frame", id: "trace", name: "Trace", width: 400, height: 400, fill: "#ffffff" }] });
+    const r = (await c.callTool({ name: "trace_image", arguments: { src, parentId: "trace", batch: "trace-test" } })) as ToolResult & { structuredContent?: any };
+    expect(r.isError, textOf(r)).toBeFalsy();
+    const sc = r.structuredContent!;
+    assertOutput("trace_image", sc);
+    expect(sc).toMatchObject({ dryRun: false, nodeCount: 3, pathCount: 2, truncated: false });
+    expect(sc.background.color).toBe("#ffffff");
+    expect(sc.paths).toHaveLength(2);
+    const disc = sc.paths.find((p: any) => p.color === "#dc1e28");
+    const ring = sc.paths.find((p: any) => p.color === "#14286e");
+    expect(disc).toMatchObject({ holes: 0, corners: 0, lines: 0 });
+    expect(disc.curves).toBeGreaterThanOrEqual(2);
+    expect(disc.curves).toBeLessThanOrEqual(8);
+    expect(ring).toMatchObject({ holes: 1, rings: 2 });
+    expect(sc.paths.every((p: any) => p.error <= 2.5 && p.id)).toBe(true);
+    const nodes = JSON.parse(textOf(await call(c, "get_nodes", { ids: [ring.id, disc.id] }))) as { type: string; fill: string; fillRule?: string; d: string }[];
+    expect(nodes[0]).toMatchObject({ type: "path", fill: "#14286e", fillRule: "evenodd" });
+    expect(nodes[0]!.d.match(/M/g)).toHaveLength(2);
+    expect(nodes[1]!.fillRule ?? "nonzero").toBe("nonzero");
+    expect(nodes[1]!.d).toMatch(/C/);
+
+    // the render of the frame is close to the source (fitted: scale 2.5, y offset 75)
+    const shot = await call(c, "render_screenshot", { rootId: "trace" });
+    expect(shot.isError, textOf(shot)).toBeFalsy();
+    const png = Buffer.from(shot.content.find((x) => x.type === "image")!.data!, "base64");
+    const sw = png.readUInt32BE(16);
+    const k = sw / 400;
+    let agree = 0;
+    let total = 0;
+    for (let gy = 8; gy < 400; gy += 16) {
+      for (let gx = 8; gx < 400; gx += 16) {
+        const sy = (gy - 75) / 2.5;
+        const want = sy < 0 || sy >= 100 ? [255, 255, 255] : source(gx / 2.5, sy);
+        const got = pngPixel(png, Math.round(gx * k), Math.round(gy * k));
+        total++;
+        if (Math.hypot(got[0]! - want[0]!, got[1]! - want[1]!, got[2]! - want[2]!) < 80) agree++;
+      }
+    }
+    expect(agree / total).toBeGreaterThanOrEqual(0.95);
+
+    // one undo step: the batch reverts everything
+    expect((await call(c, "undo", {})).isError).toBeFalsy();
+    expect((JSON.parse(textOf(await call(c, "get_nodes", { ids: ["trace"] }))) as { children?: string[] }[])[0]!.children ?? []).toHaveLength(0);
+
+    // dry run returns the path data and writes nothing; maxPaths cuts with a flag
+    const dry = (await c.callTool({ name: "trace_image", arguments: { src, parentId: "trace", dryRun: true, maxPaths: 1 } })) as ToolResult & { structuredContent?: any };
+    expect(dry.isError, textOf(dry)).toBeFalsy();
+    assertOutput("trace_image", dry.structuredContent);
+    expect(dry.structuredContent).toMatchObject({ dryRun: true, nodeCount: 0, truncated: true, pathCount: 2 });
+    expect(dry.structuredContent.paths).toHaveLength(1);
+    expect(dry.structuredContent.paths[0].d).toMatch(/^M.*Z$/);
+    expect((JSON.parse(textOf(await call(c, "get_nodes", { ids: ["trace"] }))) as { children?: string[] }[])[0]!.children ?? []).toHaveLength(0);
+
+    const noParent = await call(c, "trace_image", { src });
+    expect(noParent.isError).toBe(true);
+    expect(textOf(noParent)).toMatch(/parentId/);
+  }, 30_000);
 
   it("importar imagem raster: formatos, GIF animado, path traversal e arquivo grande demais", async () => {
     const fixtures = join(repoRoot, "server-go/internal/server/testdata/images");
