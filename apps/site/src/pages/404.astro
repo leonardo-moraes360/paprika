@@ -1,0 +1,12 @@
+---
+import Docs from "../layouts/Docs.astro";
+import { COPY } from "../i18n.ts";
+import { docsHome, home } from "../docs.ts";
+const d = COPY.en.docs;
+---
+
+<Docs lang="en" title={`${d.notFound} · Paprika`}>
+  <h1>{d.notFound}</h1>
+  <p class="home-lead">{d.notFoundLead}</p>
+  <p class="home-lead"><a href={home("en")}>Paprika</a> · <a href={docsHome("en")}>{d.title}</a></p>
+</Docs>

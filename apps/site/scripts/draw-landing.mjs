@@ -468,7 +468,7 @@ function page(c, mobile) {
     type: "frame",
     id: `lp-${mobile ? "mobile" : "desktop"}-${c.lang}`,
     name: `Landing ${mobile ? "mobile" : "desktop"} (${c.lang})`,
-    notes: "Published by apps/site/scripts/build.mjs. Nodes named link:<href> become links, anchor:<id> sets an id, copy:<id> copies the text of the code block before it.",
+    notes: "Design for apps/site/src/components/Landing.astro (Astro). Nodes named link:<href> are links, anchor:<id> is the section id, copy:<id> is a button that copies the code block before it.",
     width: W,
     height: "hug",
     fill: "$bg",

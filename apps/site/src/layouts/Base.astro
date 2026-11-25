@@ -1,0 +1,50 @@
+---
+import "../styles/base.css";
+import { favicon } from "../lib/brand.ts";
+import type { Lang } from "../docs.ts";
+
+interface Props {
+  lang: Lang;
+  title: string;
+  description: string;
+  /** Path of the same page in each language, for hreflang. */
+  alternates?: Partial<Record<Lang, string>>;
+  /** Docs follow the reader's theme; the landing page is always dark. */
+  themed?: boolean;
+  bodyClass?: string;
+}
+const { lang, title, description, alternates = {}, themed = false, bodyClass } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang={lang} data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta name="theme-color" content="#141827" />
+    <link rel="canonical" href={canonical} />
+    {Object.entries(alternates).map(([l, p]) => <link rel="alternate" hreflang={l} href={new URL(p, Astro.site)} />)}
+    <link rel="icon" href={favicon} type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" />
+    {
+      themed && (
+        <script
+          is:inline
+          set:html={`(()=>{try{const t=localStorage.getItem("paprika-theme");document.documentElement.dataset.theme=t==="light"||t==="dark"?t:matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}catch{}})()`}
+        />
+      )
+    }
+  </head>
+  <body class={bodyClass}>
+    <slot />
+  </body>
+</html>

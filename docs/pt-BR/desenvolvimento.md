@@ -29,7 +29,7 @@ packages/core     modelo (zod), applyOps atômico, History, nodeStyle, render/ex
 server/        o servidor (Go + SQLite): MCP (stdio e HTTP), WebSocket, API HTTP, screenshot, CLI
 packages/e2e      suítes black-box contra o binário do servidor: API MCP/HTTP/WS e E2E do canvas (Playwright); fixtures/ guarda os documentos de exemplo (demo gerada via MCP por scripts/seed-demo.mjs)
 apps/web          canvas React + Vite (`src/i18n/`: strings en + pt-BR, detecção/troca de idioma)
-apps/site         landing page (desenhada no Paprika) + site de docs, publicados em paprika.js.org
+apps/site         landing page + site de docs (Astro, desenhados antes no Paprika), publicados em paprika.js.org
 ```
 
 A UI do canvas segue o idioma do navegador na primeira visita (`en` ou `pt-BR`), pode ser trocada na barra superior e lembra a escolha no `localStorage` (`paprika.locale`). Nomes padrão de página ("Page 1" / "Página 1") e workspace em branco seguem esse idioma quando criados pela UI; MCP/HTTP caem no inglês. Mensagens de erro da API HTTP ficam em inglês (como o MCP). As suítes E2E fixam `pt-BR` via `packages/e2e/test/e2e/locale.ts`, salvo quando o teste cobre o inglês.

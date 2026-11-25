@@ -14,7 +14,7 @@ on:
       - SECURITY.md
       - CODE_OF_CONDUCT.md
       - server/README*.md
-      - packages/core/src/**
+      - scripts/brand/**
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -36,8 +36,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-node-pnpm
-      - name: Build core
-        run: pnpm --filter @paprika/core build
       - name: Build site
         run: pnpm --filter @paprika/site site:build
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

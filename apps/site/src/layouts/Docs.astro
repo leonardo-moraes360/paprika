@@ -1,0 +1,184 @@
+---
+// Docs chrome: top bar (brand, search, links, theme), sidebar, content and "on this page".
+import Base from "./Base.astro";
+import "../styles/docs.css";
+import { COPY } from "../i18n.ts";
+import { NAV, REPO, docHref, docsHome, home, type Lang } from "../docs.ts";
+import { lockupDark, lockupLight } from "../lib/brand.ts";
+
+interface Props {
+  lang: Lang;
+  title: string;
+  /** Slug of the open page; none on the docs home. */
+  slug?: string;
+  toc?: { depth: number; slug: string; text: string }[];
+  description?: string;
+}
+const { lang, title, slug, toc = [], description } = Astro.props;
+const c = COPY[lang];
+const other: Lang = lang === "en" ? "pt-BR" : "en";
+const otherHref = slug ? docHref(other, slug) : docsHome(other);
+const alternates = slug ? { en: docHref("en", slug), "pt-BR": docHref("pt-BR", slug) } : { en: docsHome("en"), "pt-BR": docsHome("pt-BR") };
+const items = toc.filter((h) => h.depth === 2);
+---
+
+<Base lang={lang} title={title} description={description ?? c.docs.description} alternates={alternates} themed bodyClass="docs">
+  <a class="skip" href="#content">{c.nav.skip}</a>
+  <header class="top">
+    <div class="top-left">
+      <a class="lockup" href={docsHome(lang)} aria-label={c.docs.title}>
+        <img class="on-dark" src={lockupDark} alt="" width="110" height="28" />
+        <img class="on-light" src={lockupLight} alt="" width="110" height="28" />
+      </a>
+      <span class="badge">{c.docs.badge}</span>
+      <button class="search" type="button" data-search-open aria-haspopup="dialog">
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5.2" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
+        <span>{c.docs.search}</span>
+        <kbd>/</kbd>
+      </button>
+    </div>
+    <nav class="top-right" aria-label="Paprika">
+      <a href={home(lang)}>{c.docs.home}</a>
+      <a href={REPO} rel="noopener">GitHub</a>
+      <a href={otherHref} hreflang={other} lang={other}>{c.nav.other}</a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label={c.docs.theme}>
+        <span class="moon" aria-hidden="true"></span>
+        <span class="sun" aria-hidden="true"></span>
+      </button>
+      <button class="icon-btn menu-btn" type="button" data-menu-toggle aria-expanded="false" aria-controls="sidebar" aria-label={c.docs.menu}>
+        <span class="bars" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside id="sidebar" class="sidebar">
+      <nav aria-label={c.nav.docs}>
+        {
+          NAV.map((g) => (
+            <div class="group">
+              <p class="group-title">{g[lang]}</p>
+              <ul role="list">
+                {g.pages.map((p) => (
+                  <li>
+                    <a href={docHref(lang, p.slug)} aria-current={p.slug === slug ? "page" : undefined}>
+                      {p[lang].label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        }
+        <div class="group sidebar-extra">
+          <a href={home(lang)}>{c.docs.home}</a>
+          <a href={REPO} rel="noopener">GitHub</a>
+          <a href={otherHref} hreflang={other} lang={other}>{c.nav.other}</a>
+        </div>
+      </nav>
+    </aside>
+
+    <main id="content" class:list={["main", { home: !slug }]}>
+      <slot />
+    </main>
+
+    {
+      items.length > 1 && (
+        <aside class="toc" aria-labelledby="toc-title">
+          <p id="toc-title" class="group-title">{c.docs.onThisPage}</p>
+          <ul role="list">
+            {items.map((h) => (
+              <li>
+                <a href={`#${h.slug}`}>{h.text}</a>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )
+    }
+  </div>
+
+  <dialog class="search-dialog" aria-label={c.docs.search}>
+    <div id="search" data-lang={lang} data-placeholder={c.docs.search}></div>
+  </dialog>
+</Base>
+
+<script>
+  const root = document.documentElement;
+
+  document.querySelector("[data-theme-toggle]")?.addEventListener("click", () => {
+    const next = root.dataset.theme === "light" ? "dark" : "light";
+    root.dataset.theme = next;
+    try {
+      localStorage.setItem("paprika-theme", next);
+    } catch {}
+  });
+
+  const menu = document.querySelector<HTMLButtonElement>("[data-menu-toggle]");
+  menu?.addEventListener("click", () => {
+    const open = menu.getAttribute("aria-expanded") !== "true";
+    menu.setAttribute("aria-expanded", String(open));
+    document.body.classList.toggle("menu-open", open);
+  });
+
+  const copyLabel = root.lang === "pt-BR" ? ["Copiar", "Copiado"] : ["Copy", "Copied"];
+  for (const button of document.querySelectorAll<HTMLButtonElement>(".code-copy")) {
+    button.textContent = copyLabel[0]!;
+    button.addEventListener("click", async () => {
+      const code = button.closest(".code-frame")?.querySelector("pre")?.textContent ?? "";
+      await navigator.clipboard.writeText(code);
+      button.textContent = copyLabel[1]!;
+      setTimeout(() => (button.textContent = copyLabel[0]!), 1600);
+    });
+  }
+
+  // "On this page": highlight the section being read.
+  const tocLinks = [...document.querySelectorAll<HTMLAnchorElement>(".toc a")];
+  const targets = tocLinks.map((a) => document.getElementById(decodeURIComponent(a.hash.slice(1)))).filter((el): el is HTMLElement => !!el);
+  if (targets.length) {
+    const mark = () => {
+      let current = targets[0]!;
+      for (const t of targets) if (t.getBoundingClientRect().top < 120) current = t;
+      for (const a of tocLinks) a.toggleAttribute("data-active", a.hash === `#${current.id}`);
+    };
+    addEventListener("scroll", mark, { passive: true });
+    mark();
+  }
+
+  // Search: Pagefind, indexed after `astro build`, loaded on first open.
+  const dialog = document.querySelector<HTMLDialogElement>(".search-dialog")!;
+  let loaded = false;
+  async function openSearch() {
+    dialog.showModal();
+    if (!loaded) {
+      loaded = true;
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "/pagefind/pagefind-ui.css";
+      document.head.append(link);
+      const script = document.createElement("script");
+      script.src = "/pagefind/pagefind-ui.js";
+      script.onload = () => {
+        const el = document.getElementById("search")!;
+        // @ts-expect-error PagefindUI is a global from pagefind-ui.js
+        new PagefindUI({ element: "#search", showSubResults: true, showImages: false, autofocus: true, translations: { placeholder: el.dataset.placeholder } });
+        el.querySelector("input")?.focus();
+      };
+      script.onerror = () => {
+        document.getElementById("search")!.textContent = "Search is built with the site (pnpm --filter @paprika/site site:build).";
+      };
+      document.head.append(script);
+    } else dialog.querySelector("input")?.focus();
+  }
+  document.querySelectorAll("[data-search-open]").forEach((b) => b.addEventListener("click", openSearch));
+  dialog.addEventListener("click", (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+  addEventListener("keydown", (e) => {
+    const t = e.target as HTMLElement;
+    if (e.key === "/" && !dialog.open && !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && !t.isContentEditable) {
+      e.preventDefault();
+      openSearch();
+    }
+  });
+</script>

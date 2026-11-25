@@ -2,38 +2,46 @@
 
 # Site (paprika.js.org)
 
-A landing page e a documentação, publicadas no GitHub Pages por [`.github/workflows/pages.yml`](../../.github/workflows/pages.yml) quando as mudanças chegam na `main`.
+A landing page e a documentação, um site estático feito com [Astro](https://astro.build) e publicado no GitHub Pages por [`.github/workflows/pages.yml`](../../.github/workflows/pages.yml) quando as mudanças chegam na `main`.
 
 | Caminho | Origem |
 |---|---|
-| `/` e `/pt-BR/` | `design/landing.paprika.json`, um documento do Paprika desenhado pelo MCP com `scripts/draw-landing.mjs` |
-| `/docs/` e `/docs/pt-BR/` | `README*.md`, `docs/`, `server/README*.md`, `CONTRIBUTING*`, `SECURITY*`, `CODE_OF_CONDUCT*` |
-
-## A landing page é um documento do Paprika
-
-A página é desenhada no próprio Paprika: quatro frames raiz (desktop e mobile, em inglês e português). O `scripts/build.mjs` renderiza esses frames com o `nodeStyle` do `@paprika/core`, o mesmo motor do canvas, do screenshot e do export, com duas mudanças só para a web:
-
-- os frames raiz ocupam a largura da janela (o frame desktop aparece acima de 760 px e o mobile abaixo);
-- um nó chamado `link:<href>` vira um `<a href>`.
-
-Para mudar a página, edite no canvas ou rode de novo o script de desenho e depois gere o site:
+| `/` e `/pt-BR/` | `src/components/Landing.astro`, textos em `src/i18n.ts` |
+| `/docs/` e `/pt-BR/docs/` | o Markdown do repositório: `README*.md`, `docs/`, `server/README*.md`, `CONTRIBUTING*`, `SECURITY*`, `CODE_OF_CONDUCT*` |
 
 ```bash
-pnpm --filter @paprika/core build && pnpm go:build
-server/bin/paprika import apps/site/design/landing.paprika.json --db /tmp/landing.db --replace
-server/bin/paprika serve --db /tmp/landing.db --port 4790
-# em outro terminal
-PAPRIKA_MCP=http://127.0.0.1:4790/mcp pnpm --filter @paprika/site site:draw
-# no fim, de volta ao arquivo versionado
-server/bin/paprika export --db /tmp/landing.db -o apps/site/design/landing.paprika.json
-pnpm --filter @paprika/site site:build   # gera apps/site/dist
+pnpm --filter @paprika/site dev          # http://localhost:4321, recarrega ao salvar (a busca precisa de build)
+pnpm --filter @paprika/site site:build   # gera apps/site/dist e o índice de busca do Pagefind
+pnpm --filter @paprika/site preview      # serve o dist
 ```
 
-Abra `apps/site/dist/index.html` no navegador para conferir.
+## Desenho primeiro
+
+As páginas são desenhadas no Paprika antes de virarem código. O `scripts/draw-landing.mjs` (landing page, desktop e mobile, nas duas línguas) e o `scripts/draw-docs.mjs` (home e página da documentação, claro e escuro, desktop e mobile) desenham os frames pelo MCP; `design/site.paprika.json` é o documento exportado. Para mudar o visual, mude primeiro o desenho, confira com `render_screenshot`, e depois o código Astro:
+
+```bash
+pnpm go:build
+server/bin/paprika import apps/site/design/site.paprika.json --db /tmp/site.db --replace
+server/bin/paprika serve --db /tmp/site.db --port 4790
+# em outro terminal; PAPRIKA_PAGE é o id da página "Landing" ou "Docs" (get_document_outline)
+PAPRIKA_MCP=http://127.0.0.1:4790/mcp PAPRIKA_PAGE=<id da página> node apps/site/scripts/draw-landing.mjs
+PAPRIKA_MCP=http://127.0.0.1:4790/mcp PAPRIKA_PAGE=<id da página> node apps/site/scripts/draw-docs.mjs
+# ao terminar, de volta para o arquivo versionado
+server/bin/paprika export --db /tmp/site.db -o apps/site/design/site.paprika.json
+```
+
+O texto da landing page fica em `src/i18n.ts` e em `scripts/draw-landing.mjs`; mude os dois juntos. O prompt de configuração é lido do bloco `text` do `README.md` e do `docs/pt-BR/README.md`, então nunca se afasta do README.
 
 ## Documentação
 
-Cada arquivo da tabela acima vira uma página HTML com menu lateral e troca de idioma. Links entre esses arquivos apontam para as páginas geradas; links para qualquer outro arquivo do repositório abrem no GitHub. Para incluir uma página, adicione-a em `DOCS` no `scripts/build.mjs` nas duas línguas, na mesma posição.
+O `src/docs.ts` é o menu lateral: grupos e, para cada página, o slug e o arquivo e o rótulo em cada língua. As duas línguas usam o mesmo slug, então `/docs/mcp/` e `/pt-BR/docs/mcp/` são a mesma página. Para incluir uma página, adicione a entrada ali com os dois arquivos. O Markdown é renderizado como está no repositório (`src/markdown.ts`):
+
+- tudo acima do primeiro título `# ` (faixa de idioma, arte do README) e as linhas `Português: …` / `English: …` são descartados;
+- links para outro arquivo da documentação apontam para a página dele; links para qualquer outro arquivo do repositório abrem no GitHub;
+- imagens são servidas em `/doc-assets/<caminho no repositório>` e copiadas para o build;
+- blocos de código ganham uma moldura com a linguagem e um botão Copiar.
+
+A busca é o [Pagefind](https://pagefind.app), indexado depois do `astro build` (só as páginas da documentação, `data-pagefind-body`). A documentação segue a preferência de tema claro ou escuro de quem lê, com um botão na barra do topo; a landing page é sempre escura.
 
 ## Domínio customizado
 

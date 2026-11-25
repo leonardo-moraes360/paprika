@@ -1,0 +1,10 @@
+---
+import Base from "../../layouts/Base.astro";
+import Landing from "../../components/Landing.astro";
+import { COPY } from "../../i18n.ts";
+const c = COPY["pt-BR"];
+---
+
+<Base lang="pt-BR" title={c.meta.title} description={c.meta.description} alternates={{ en: "/", "pt-BR": "/pt-BR/" }}>
+  <Landing lang="pt-BR" />
+</Base>

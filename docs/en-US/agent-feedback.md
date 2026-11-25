@@ -1165,3 +1165,17 @@ Task: screenshots from the GPU renderer showed the small wordmarks as blobs whil
 | 237 | Size a frame to its content without auto-layout | `height: "hug"` on a frame with no layout gives 0 px, so the script measures with `get_bounds` in a second pass and writes a fixed height that goes stale when the content changes | Make hug on a no-layout frame wrap the children's bounds, or refuse it with an error that says so | P2 |
 | 238 | Reveal hidden nodes without moving the layout | `show_all` reveals hidden main components inside auto-layout stacks and pushes the siblings down, with no warning; on the brand guide captions ended up over content | Warn in the result when a revealed node is in an auto-layout flow (or offer `show_all {skipLayoutFlow}`); drawing scripts keep hidden mains `layoutPositioning: "absolute"` | P2 |
 | 239 | Check where a hidden node would land | `get_bounds` returns hidden nodes as `unplaced`, so there is no way to see their box before revealing them | Return the box a hidden node would take, flagged `hidden: true` | P3 |
+
+## 2026-11-25: site redesign drawn before the Astro rewrite (`apps/site`)
+
+Task: draw the new landing page (desktop and mobile, English and Portuguese) and six docs mockups (home and page, light and dark, mobile) into a new workspace of a running server, with plain JSON-RPC over HTTP and without switching the active workspace, then screenshot every root. 1612 nodes, 0 lint errors (105 warnings: 11 px text in the hero mock, column overflow in hugging frames, 4 `covered-by-overlay` in the drawn phone).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 240 | Set the cover of a workspace other than the active one | Every tool takes `workspaceId`, but `set_workspace_cover` refused it: `unknown argument "workspaceId"; valid arguments: clear, id, image, rootId` | Accept `workspaceId` as an alias of `id` (or rename `id`), like the other tools | P2 |
+| 241 | A PNG of a 390 × 4800 mobile page at scale 1 | `render_screenshot` capped the height at 4096 px and scaled the whole image down (331 × 4096) without saying so | Say it in the result (`scaledTo`, `requestedScale`) or render in tiles; let the caller raise the cap | P2 |
+| 242 | Save the screenshot next to the work | The result is a relative URL (`/api/screenshot/<hash>`): the agent has to know the server's host to download it | Return an absolute URL, and an optional `path` to write the PNG on the server's disk | P3 |
+| 243 | Run `paprika export` inside the Docker container | The binary is `/app/paprika`, not on `PATH`, so `docker exec <c> paprika export` fails with `executable file not found in $PATH` | Put `/app` on `PATH` in the image (or link `/usr/local/bin/paprika`) | P3 |
+| 244 | Read the CLI help in the docs' language | `paprika export --help` and `paprika help` are only in Portuguese, while English is the primary docs language | English help text (Portuguese in the docs mirror) | P3 |
+
+- Fine: `create_workspace` + `create_page {ensure}` + `workspaceId` on every call drew a whole site in a background workspace without touching the active one; `lint_design {workspaceId, minSeverity}` gave counts in one call; `paprika export --doc <id>` exported one workspace by id.

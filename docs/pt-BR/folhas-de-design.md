@@ -34,8 +34,8 @@ Paprika deveria adotar estão no [estudo de MCP de agente](research/paper-mcp-0.
 
 ## Guardar o documento no repositório
 
-O documento das folhas é exportado para `docs/en-US/design/boards.paprika.json` do mesmo jeito que a landing page
-guarda `apps/site/design/landing.paprika.json`:
+O documento das folhas é exportado para `docs/en-US/design/boards.paprika.json` do mesmo jeito que o site
+guarda `apps/site/design/site.paprika.json`:
 
 ```bash
 # depois de desenhar as folhas (o servidor as tem em <db>)

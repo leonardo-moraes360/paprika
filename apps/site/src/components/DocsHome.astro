@@ -1,0 +1,49 @@
+---
+import Docs from "../layouts/Docs.astro";
+import { COPY } from "../i18n.ts";
+import { NAV, docHref, type Lang } from "../docs.ts";
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = COPY[lang].docs;
+---
+
+<Docs lang={lang} title={d.title}>
+  <div data-pagefind-body data-pagefind-weight="0.5">
+    <h1>{d.title}</h1>
+    <p class="home-lead">{d.intro}</p>
+  </div>
+  <div class="paths">
+    {
+      d.paths.map(([color, slug, title, body, cta]) => (
+        <a class="path" href={docHref(lang, slug!)}>
+          <span class="mark" style={`--color:var(--${color})`} aria-hidden="true" />
+          <h2>{title}</h2>
+          <p>{body}</p>
+          <span class="cta" aria-hidden="true">{cta} →</span>
+        </a>
+      ))
+    }
+  </div>
+  <section class="everything" aria-labelledby="everything">
+    <h2 id="everything">{d.everything}</h2>
+    <div class="all-groups">
+      {
+        NAV.map((g) => (
+          <section>
+            <h3>{g[lang]}</h3>
+            <ul role="list">
+              {g.pages.map((p) => (
+                <li>
+                  <a href={docHref(lang, p.slug)}>{p[lang].label}</a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      }
+    </div>
+  </section>
+</Docs>

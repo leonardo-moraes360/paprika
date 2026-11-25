@@ -31,8 +31,8 @@ adopt are in [the agent MCP study](research/paper-mcp-0.5.19.md).
 
 ## Keep the document in the repository
 
-The board document is exported to `docs/en-US/design/boards.paprika.json` the same way the landing page keeps
-`apps/site/design/landing.paprika.json`:
+The board document is exported to `docs/en-US/design/boards.paprika.json` the same way the site keeps
+`apps/site/design/site.paprika.json`:
 
 ```bash
 # after drawing the sheets (the server holds them in <db>)

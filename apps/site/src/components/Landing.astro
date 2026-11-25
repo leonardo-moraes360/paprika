@@ -1,0 +1,846 @@
+---
+import { COPY } from "../i18n.ts";
+import { REPO, docHref, docsHome, home, type Lang } from "../docs.ts";
+import { lockupDark, symbolColor, symbolMono } from "../lib/brand.ts";
+import { setupPrompt } from "../lib/prompt.ts";
+import CanvasWindow from "./CanvasWindow.astro";
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const c = COPY[lang];
+const other: Lang = lang === "en" ? "pt-BR" : "en";
+const docs = docsHome(lang);
+const TRIO = ["var(--yellow)", "var(--red)", "var(--green)"];
+const prompt = setupPrompt(lang);
+---
+
+<a class="skip" href="#content">{c.nav.skip}</a>
+<header class="nav wrap">
+  <a href={home(lang)} class="brand"><img src={lockupDark} alt="Paprika" width="126" height="32" /></a>
+  <nav aria-label="Paprika">
+    <a href={docs}>{c.nav.docs}</a>
+    <a href={REPO} rel="noopener">{c.nav.github}</a>
+    <a href={home(other)} hreflang={other} lang={other} class="lang">{c.nav.other}</a>
+  </nav>
+</header>
+
+<main id="content">
+  <section class="hero wrap">
+    <div class="hero-text">
+      <p class="tagline">
+        <span class="trio" aria-hidden="true">{TRIO.map((color) => <span class="dot" style={`--color:${color}`} />)}</span>
+        {c.tagline}
+      </p>
+      <h1>{c.title}</h1>
+      <p class="lead">{c.lead}</p>
+      <div class="ctas">
+        <a class="btn primary" href="#start">{c.cta[0]}</a>
+        <a class="btn" href={docs}>{c.cta[1]}</a>
+      </div>
+    </div>
+    <div class="hero-art">
+      <CanvasWindow lang={lang} />
+    </div>
+  </section>
+
+  <ul class="trust" role="list">
+    {
+      c.trust.map((t, i) => (
+        <li>
+          <span class="dot" style={`--color:${TRIO[i]}`} aria-hidden="true" />
+          {t}
+        </li>
+      ))
+    }
+  </ul>
+
+  <section class="section wrap" aria-labelledby="make">
+    <div class="heading">
+      <h2 id="make">{c.makeTitle}</h2>
+      <p>{c.makeLead}</p>
+    </div>
+    <div class="grid">
+      {
+        c.make.map(([title, body], i) => (
+          <article class="card">
+            <div class={`thumb thumb-${i}`} aria-hidden="true">
+              {i === 0 && (
+                <>
+                  {[0, 1].map(() => (
+                    <div class="mini">
+                      <span class="bar title" />
+                      <span class="bar" />
+                      <span class="bar short" />
+                      <span class="bar btn-bar" />
+                    </div>
+                  ))}
+                  <div class="component">
+                    <span class="bar btn-bar" />
+                  </div>
+                </>
+              )}
+              {i === 1 &&
+                c.flow.map((label, j) => (
+                  <>
+                    {j > 0 && <span class="arrow" />}
+                    <span class={`flow-node${j === 2 ? " done" : ""}`}>{label}</span>
+                  </>
+                ))}
+              {i === 2 && (
+                <>
+                  <div class="theme dark">
+                    <span class="bar title" />
+                    <span class="bar" />
+                    <span class="bar btn-bar" />
+                  </div>
+                  <div class="theme light">
+                    <span class="bar title" />
+                    <span class="bar" />
+                    <span class="bar btn-bar" />
+                  </div>
+                </>
+              )}
+              {i === 3 && <pre>{'<Button tone="spice">\n  Sign up\n</Button>'}</pre>}
+            </div>
+            <h3>{title}</h3>
+            <p>{body}</p>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <div class="band">
+    <section class="section wrap" aria-labelledby="control">
+      <div class="heading"><h2 id="control">{c.controlTitle}</h2></div>
+      <div class="control">
+        {
+          c.control.map(([title, body], i) => (
+            <div>
+              <span class="mark" style={`--color:${TRIO[i]}`} aria-hidden="true" />
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+  </div>
+
+  <section class="section wrap check" aria-labelledby="check">
+    <div class="heading">
+      <h2 id="check">{c.checkTitle}</h2>
+      <p>{c.checkLead}</p>
+    </div>
+    <div class="report">
+      <p class="report-top"><span class="dot" style="--color:var(--select);--size:10px" aria-hidden="true" />{c.checkCard}</p>
+      <ul role="list">
+        {
+          c.checks.map(([tone, text]) => (
+            <li>
+              <span class="dot" style={`--color:var(--${tone});--size:14px`} aria-hidden="true" />
+              {text}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <div class="band" id="start">
+    <section class="section wrap" aria-labelledby="start-title">
+      <div class="heading">
+        <h2 id="start-title">{c.startTitle}</h2>
+        <p>{c.startLead}</p>
+      </div>
+      <div class="start">
+        <ol class="steps" role="list">
+          {
+            c.steps.map(([title, cmd], i) => (
+              <li>
+                <h3>
+                  <span class="num" aria-hidden="true">{i + 1}</span>
+                  {title}
+                </h3>
+                <pre class="code"><code>{cmd}</code></pre>
+              </li>
+            ))
+          }
+        </ol>
+        <div class="prompt">
+          <h3>{c.promptTitle}</h3>
+          <p>{c.promptLead}</p>
+          <pre class="code prompt-code" tabindex="0"><code id={`setup-prompt-${lang}`}>{prompt}</code></pre>
+          <button class="btn" type="button" data-copy-target={`setup-prompt-${lang}`} data-copied={c.copied}>{c.promptCta}</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="section wrap team" aria-labelledby="team">
+    <div class="pattern" aria-hidden="true">
+      {Array.from({ length: 12 }, (_, i) => <span class:list={["symbol", { mid: i >= 8, far: i >= 5 }]} set:html={i % 2 ? symbolMono : symbolColor} />)}
+    </div>
+    <h2 id="team">{c.teamTitle}</h2>
+    <p>{c.teamLead}</p>
+    <a class="btn" href={docHref(lang, "team-sync")}>{c.teamCta}</a>
+  </section>
+</main>
+
+<footer class="footer-band">
+  <div class="footer wrap">
+  <div>
+    <img src={lockupDark} alt="Paprika" width="104" height="26" />
+    <p>{c.footer}</p>
+  </div>
+  <nav aria-label="Footer">
+    <a href={REPO} rel="noopener">GitHub</a>
+    <a href={docs}>{c.nav.docs}</a>
+    <a href={home(other)} hreflang={other} lang={other}>{c.nav.other}</a>
+  </nav>
+  </div>
+</footer>
+
+<script>
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-copy-target]")) {
+    button.addEventListener("click", async () => {
+      const text = document.getElementById(button.dataset.copyTarget!)?.textContent ?? "";
+      await navigator.clipboard.writeText(text);
+      const label = button.textContent;
+      button.textContent = button.dataset.copied!;
+      setTimeout(() => (button.textContent = label), 1600);
+    });
+  }
+</script>
+
+<style>
+  .wrap {
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+    padding-inline: 80px;
+  }
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: 24px;
+  }
+  .brand img {
+    display: block;
+    height: 32px;
+    width: auto;
+  }
+  .nav nav,
+  .footer nav {
+    display: flex;
+    gap: 28px;
+  }
+  .nav nav a,
+  .footer nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .nav nav a:hover,
+  .footer nav a:hover {
+    color: var(--ink);
+  }
+
+  .hero {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    padding-block: 56px 72px;
+  }
+  .hero-text {
+    flex: 0 0 560px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 26px;
+  }
+  .hero-art {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .tagline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--red-ink);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .trio {
+    display: flex;
+    gap: 4px;
+  }
+  h1 {
+    font-size: 60px;
+    line-height: 1.06;
+    letter-spacing: -1.6px;
+    font-weight: 800;
+  }
+  .lead {
+    font-size: 20px;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 22px;
+    border-radius: 10px;
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+  }
+  .btn:hover {
+    background: var(--surface);
+  }
+  .btn.primary {
+    background: var(--red-strong);
+    border-color: var(--red-strong);
+    color: var(--on-red);
+  }
+  .btn.primary:hover {
+    filter: brightness(1.1);
+  }
+
+  .trust {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin: 0;
+    padding: 22px 80px;
+    list-style: none;
+    background: var(--bg-2);
+    border-block: 1px solid var(--line);
+  }
+  .trust li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    padding-block: 88px;
+  }
+  .band {
+    background: var(--bg-2);
+  }
+  .heading {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  h2 {
+    font-size: 40px;
+    line-height: 1.15;
+    letter-spacing: -1px;
+    font-weight: 800;
+  }
+  .heading p,
+  .team > p {
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  h3 {
+    font-size: 20px;
+    line-height: 1.25;
+    font-weight: 700;
+  }
+  .card p,
+  .control p,
+  .prompt > p {
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+  .card h3 {
+    margin-top: 10px;
+  }
+  .thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 132px;
+    padding: 16px;
+    overflow: hidden;
+    background: var(--canvas);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .bar {
+    display: block;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--line-strong);
+  }
+  .bar.title {
+    width: 40px;
+    height: 6px;
+    background: var(--ink);
+  }
+  .bar.short {
+    width: 34px;
+  }
+  .bar.btn-bar {
+    height: 12px;
+    border-radius: 4px;
+    background: var(--red-strong);
+  }
+  .mini {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    width: 70px;
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  .component {
+    padding: 8px;
+    border: 1.5px solid var(--select);
+    border-radius: 4px;
+  }
+  .component .btn-bar {
+    width: 54px;
+    height: 14px;
+  }
+  .flow-node {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  .flow-node.done {
+    background: rgba(63, 167, 91, 0.22);
+  }
+  .arrow {
+    width: 22px;
+    height: 2px;
+    background: var(--muted);
+  }
+  .thumb-1 {
+    gap: 6px;
+  }
+  .thumb-2 {
+    align-items: stretch;
+    gap: 10px;
+  }
+  .theme {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px;
+    border-radius: 8px;
+  }
+  .theme.dark {
+    background: var(--surface);
+  }
+  .theme.light {
+    background: var(--paper);
+  }
+  .theme .title {
+    width: 44px;
+    height: 7px;
+  }
+  .theme.light .title {
+    background: var(--paper-ink);
+  }
+  .theme .bar:not(.title, .btn-bar) {
+    background: var(--ink);
+    opacity: 0.35;
+  }
+  .theme.light .bar:not(.title, .btn-bar) {
+    background: var(--paper-ink);
+  }
+  .theme .btn-bar {
+    width: 50px;
+    height: 14px;
+  }
+  .thumb pre {
+    margin: 0;
+    font: 13px/1.6 var(--mono);
+    color: var(--code-ink);
+  }
+
+  .control {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+  }
+  .control > div {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .mark {
+    width: 28px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--color);
+  }
+
+  .check {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 80px;
+  }
+  .check .heading {
+    max-width: 560px;
+  }
+  .report {
+    flex: 0 0 460px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 22px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+  .report-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .report ul {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .report li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--code);
+    line-height: 1.35;
+  }
+
+  .start {
+    display: flex;
+    align-items: flex-start;
+    gap: 48px;
+  }
+  .steps {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .steps li {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .steps h3 {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .num {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--red-strong);
+    color: var(--on-red);
+    font-size: 16px;
+    font-weight: 800;
+  }
+  .code {
+    margin: 0;
+    padding: 18px;
+    overflow-x: auto;
+    background: var(--code);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font: 14px/1.7 var(--mono);
+    color: var(--code-ink);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .prompt {
+    flex: 0 0 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+    padding: 24px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+  .prompt h3 {
+    margin-bottom: -10px;
+  }
+  .prompt-code {
+    align-self: stretch;
+    max-height: 220px;
+    overflow: auto;
+    white-space: pre;
+    overflow-wrap: normal;
+    font-size: 13px;
+  }
+
+  .team {
+    align-items: center;
+    text-align: center;
+    gap: 18px;
+  }
+  .team > p {
+    max-width: 760px;
+  }
+  .team h2 {
+    max-width: 760px;
+    margin-top: 22px;
+  }
+  .pattern {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    opacity: 0.9;
+  }
+  .symbol {
+    display: block;
+    width: 56px;
+    height: 56px;
+  }
+  .symbol :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    padding-block: 36px 44px;
+  }
+  .footer-band {
+    border-top: 1px solid var(--line);
+  }
+  .footer > div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .footer img {
+    display: block;
+    height: 26px;
+    width: auto;
+  }
+  .footer p,
+  .footer nav a {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .footer nav {
+    gap: 20px;
+  }
+
+  @media (max-width: 1100px) {
+    .hero {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .hero-text {
+      flex-basis: auto;
+      max-width: 640px;
+    }
+    .hero-art {
+      align-self: stretch;
+      justify-content: center;
+    }
+    .check,
+    .start {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 32px;
+    }
+    .report,
+    .prompt {
+      flex-basis: auto;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .symbol.mid {
+      display: none;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .wrap {
+      padding-inline: 20px;
+    }
+    .nav {
+      padding-block: 18px;
+    }
+    .brand img {
+      height: 26px;
+    }
+    .nav nav {
+      gap: 18px;
+    }
+    .nav nav a {
+      font-size: 15px;
+    }
+    .nav .lang {
+      display: none;
+    }
+    .hero {
+      gap: 36px;
+      padding-block: 24px 40px;
+    }
+    .hero-text {
+      gap: 20px;
+    }
+    .tagline {
+      font-size: 13px;
+    }
+    h1 {
+      font-size: 36px;
+      letter-spacing: -0.8px;
+    }
+    .lead {
+      font-size: 17px;
+    }
+    .btn {
+      font-size: 15px;
+    }
+    .hero-art {
+      zoom: 0.66;
+    }
+    .trust {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 20px;
+    }
+    .trust li {
+      font-size: 13px;
+    }
+    .section {
+      gap: 24px;
+      padding-block: 48px;
+    }
+    h2 {
+      font-size: 28px;
+      letter-spacing: -0.5px;
+    }
+    .heading p,
+    .team > p {
+      font-size: 15px;
+    }
+    h3 {
+      font-size: 18px;
+    }
+    .card p,
+    .control p,
+    .prompt > p,
+    .report li {
+      font-size: 15px;
+    }
+    .grid {
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    .card {
+      padding: 16px;
+    }
+    .control {
+      grid-template-columns: 1fr;
+      gap: 28px;
+    }
+    .report {
+      padding: 16px;
+    }
+    .report-top {
+      font-size: 13px;
+    }
+    .code {
+      padding: 14px;
+      font-size: 12px;
+    }
+    .prompt {
+      padding: 16px;
+    }
+    .team {
+      align-items: flex-start;
+      text-align: left;
+    }
+    .pattern {
+      gap: 16px;
+      align-self: center;
+    }
+    .symbol.far {
+      display: none;
+    }
+    .footer {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>

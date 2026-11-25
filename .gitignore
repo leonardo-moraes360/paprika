@@ -18,4 +18,7 @@ design/
 # except the design boards the agents version in git (docs/en-US/design-boards.md)
 !docs/en-US/design/
 !docs/en-US/design/**
+# and the site design (apps/site/README.md)
+!apps/site/design/
+!apps/site/design/**
 .claude/settings.local.json

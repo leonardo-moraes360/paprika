@@ -1168,3 +1168,17 @@ Tarefa: screenshots do renderer GPU mostraram os wordmarks pequenos como borrõe
 | 237 | Ajustar um frame ao conteúdo sem auto-layout | `height: "hug"` num frame sem layout dá 0 px, então o script mede com `get_bounds` numa segunda passada e grava uma altura fixa que fica velha quando o conteúdo muda | Fazer o hug num frame sem layout envolver a caixa dos filhos, ou recusar com um erro que diga isso | P2 |
 | 238 | Revelar nós ocultos sem mexer no layout | `show_all` revela componentes principais ocultos dentro de pilhas de auto-layout e empurra os irmãos, sem aviso; no guia da marca as legendas foram parar em cima do conteúdo | Avisar no resultado quando um nó revelado está num fluxo de auto-layout (ou oferecer `show_all {skipLayoutFlow}`); scripts de desenho mantêm os principais ocultos com `layoutPositioning: "absolute"` | P2 |
 | 239 | Ver onde um nó oculto cairia | `get_bounds` devolve nós ocultos como `unplaced`, então não dá para ver a caixa deles antes de revelar | Devolver a caixa que o nó oculto ocuparia, marcada com `hidden: true` | P3 |
+
+## 2026-11-25: redesenho do site desenhado antes da reescrita em Astro (`apps/site`)
+
+Tarefa: desenhar a nova landing page (desktop e mobile, inglês e português) e seis mockups da documentação (home e página, claro e escuro, mobile) num workspace novo de um servidor rodando, com JSON-RPC puro por HTTP e sem trocar o workspace ativo, e tirar screenshot de cada raiz. 1612 nós, 0 erros de lint (105 avisos: texto de 11 px no mock do herói, overflow de coluna em frames hug, 4 `covered-by-overlay` no celular desenhado).
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 240 | Definir a capa de um workspace que não é o ativo | Toda ferramenta aceita `workspaceId`, mas `set_workspace_cover` recusou: `unknown argument "workspaceId"; valid arguments: clear, id, image, rootId` | Aceitar `workspaceId` como alias de `id` (ou renomear `id`), como nas outras ferramentas | P2 |
+| 241 | Um PNG de uma página mobile de 390 × 4800 em escala 1 | `render_screenshot` limitou a altura a 4096 px e reduziu a imagem toda (331 × 4096) sem avisar | Dizer no resultado (`scaledTo`, `requestedScale`) ou renderizar em blocos; deixar quem chama subir o limite | P2 |
+| 242 | Salvar o screenshot junto do trabalho | O resultado é uma URL relativa (`/api/screenshot/<hash>`): o agente precisa saber o host do servidor para baixar | Devolver URL absoluta e um `path` opcional para gravar o PNG no disco do servidor | P3 |
+| 243 | Rodar `paprika export` dentro do container Docker | O binário é `/app/paprika`, fora do `PATH`, então `docker exec <c> paprika export` falha com `executable file not found in $PATH` | Pôr `/app` no `PATH` da imagem (ou um link em `/usr/local/bin/paprika`) | P3 |
+| 244 | Ler a ajuda da CLI na língua da documentação | `paprika export --help` e `paprika help` estão só em português, enquanto o inglês é a língua principal da documentação | Ajuda em inglês (português no espelho da documentação) | P3 |
+
+- Funcionou: `create_workspace` + `create_page {ensure}` + `workspaceId` em toda chamada desenharam um site inteiro num workspace de fundo sem mexer no ativo; `lint_design {workspaceId, minSeverity}` deu as contagens numa chamada; `paprika export --doc <id>` exportou um workspace pelo id.
