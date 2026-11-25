@@ -7623,6 +7623,14 @@
           "mode": {
             "type": "string"
           },
+          "renderer": {
+            "description": "dom (default) renders with the DOM/SVG engine; wasm loads the real canvas in headless Chromium with the WASM renderer and captures the node as that layer paints it (what a person with the WASM renderer sees; not for mode). Needs the web app and the WASM bundle on this server; otherwise the call errors instead of falling back to dom",
+            "type": "string",
+            "enum": [
+              "dom",
+              "wasm"
+            ]
+          },
           "compare": {
             "type": "string",
             "description": "PNG, JPEG, GIF or WebP (data URL, raw base64 or a path under PAPRIKA_IMPORT_DIRS) drawn to the right of the screenshot, scaled to the same height"

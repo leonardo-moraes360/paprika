@@ -135,6 +135,25 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     expect(errors).toEqual([]);
   });
 
+  it("render_screenshot renderer wasm captura o que a camada WASM pinta", async () => {
+    await open("dom");
+    const dom = await page.locator('[data-paprika-id="board"]').screenshot();
+    const r = (await agent.callTool({ name: "render_screenshot", arguments: { rootId: "board", renderer: "wasm" } })) as {
+      isError?: boolean;
+      content: { type: string; data?: string; text?: string }[];
+    };
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy();
+    const png = Buffer.from(r.content.find((c) => c.type === "image")!.data!, "base64");
+    expect(png.readUInt32BE(16)).toBe(480);
+    expect(png.readUInt32BE(20)).toBe(360);
+    expect(await diffRatio(page, dom, png)).toBeLessThan(0.01);
+    const side = (await agent.callTool({ name: "render_screenshot", arguments: { rootId: "board", renderer: "wasm", scale: 2 } })) as typeof r;
+    const big = Buffer.from(side.content.find((c) => c.type === "image")!.data!, "base64");
+    expect(big.readUInt32BE(16)).toBe(960);
+    const withMode = (await agent.callTool({ name: "render_screenshot", arguments: { rootId: "board", renderer: "wasm", mode: "dark" } })) as typeof r;
+    expect(withMode.isError).toBe(true);
+  }, 90_000);
+
   it("edição do agente via MCP aparece nos pixels do WASM", async () => {
     await open("wasm");
     const before = await shot();
