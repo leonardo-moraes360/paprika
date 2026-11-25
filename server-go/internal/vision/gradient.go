@@ -238,7 +238,7 @@ func fitRadial(px *pixels, tiles []tileStat, members []int, tx int, ss []sample,
 
 // rampGradient reads the stops of a ramp off the pixels of one rectangle, along the group's
 // direction (linear) or around its center (radial).
-func rampGradient(px *pixels, r image.Rectangle, f *rampFit) *Gradient {
+func rampGradient(px *pixels, r image.Rectangle, f *rampFit, on func(x, y int) bool) *Gradient {
 	rw, rh := float64(r.Dx()), float64(r.Dy())
 	if rw < 2 || rh < 2 {
 		return nil
@@ -282,7 +282,7 @@ func rampGradient(px *pixels, r image.Rectangle, f *rampFit) *Gradient {
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		for x := r.Min.X; x < r.Max.X; x++ {
 			i := y*px.w + x
-			if !px.opaque[i] {
+			if !px.opaque[i] || (on != nil && !on(x, y)) {
 				continue
 			}
 			t := tOf(float64(x)+0.5, float64(y)+0.5)

@@ -9324,6 +9324,10 @@
                   ],
                   "description": "gradient regions: the node's gradient field, ready to paste"
                 },
+                "fitError": {
+                  "type": "number",
+                  "description": "gradient regions: how far the fitted ramp is from the pixels, in color levels (0..255); the gradient is only suggested when this is small (at most 5 and 15% of the ramp's span), otherwise suggest says trace_image"
+                },
                 "fontSize": {
                   "type": "number",
                   "description": "text regions: estimated size of the type"
