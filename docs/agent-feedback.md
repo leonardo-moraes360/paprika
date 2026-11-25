@@ -1022,3 +1022,17 @@ Task: redo the six replicas of the previous section with `analyze_image` → `tr
 | 193 | Photo or sketch panels | The crane reference has a pencil sketch on paper; it traced as beige/grey noise blobs | Expected; `colors` or `region` already limit it. Worth one guide sentence | P3 |
 
 - Fine: `compare_reference` scored the old hand-drawn boards close to the manual numbers (ring 0.77, whale 0.42); `analyze_image` background and `trace_image` placement put every board in the right place first try; no errors, no hangs, every board one undo step.
+
+## 2026-11-25: 20 Dribbble references traced and scored (workspace "Estudo Dribbble · Claude (20 referências)")
+
+Task: 20 public Dribbble shots (11 logo marks and mark sheets, 6 app icons, a branding board, an illustration, a web hero) traced with `analyze_image` → frame filled with the detected background → `trace_image` (default, then `maxColors: 12, minArea: 0.00005`, best kept) → `compare_reference`. Under 0.5 s per image end to end. Shape IoU: mean 0.87, median 0.94; 13 of 20 at ≥ 0.90 (flat marks and icons 0.98–0.995), 4 below 0.80. Reference images are not committed.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 194 | A score that holds on gradient backgrounds | The "ranker" wordmark on a soft orange gradient traced well by eye but scored IoU 0.26 (extra 0.69): ink is "differs from the border colour", so most of the gradient background counted as ink on both sides | Model the background (per-pixel estimate, e.g. low-frequency fit of border-connected pixels) before building the ink masks; report a warning when the border is not uniform | P1 |
+| 195 | Sheets with many marks | Mark sheets (40–140 blobs) hit `maxPaths`: whole marks and every wordmark went missing (IoU 0.58–0.68); `truncated: true` was reported but the dropped ones are the small ones, which are the text | Raise or remove the default cap for `dryRun: false` with a per-call budget, drop by visual importance instead of area, and say which blob ids were dropped | P1 |
+| 196 | Small text | Wordmarks and UI copy under ~14 px traced as blobs that read as broken glyphs ("Ma imze Your Socia") | Detect text-like rows of small blobs and either keep them as one path group or hand them to `import_html`/text with a `text` hint | P2 |
+| 197 | Gradients and photos | App icons with soft gradients came out banded (same as #190); a photo became a posterized silhouette | Same as #190 for gradients; for photo regions, offer `asImage: true` to place the region as an image node instead of tracing | P2 |
+| 198 | `pathCount` vs `maxPaths` | `pathCount` reported 96–660 while `maxPaths` defaults to 60 and `truncated` was true; unclear how many nodes were really created | Report `created` and `dropped` counts separately | P3 |
+
+- Fine: every call succeeded, no hangs; flat logos and icons (fitness, B mark, rhino, task icon, Acquit) at IoU 0.98–0.995 with 2–12 paths; illustration (0.94) and branding board (0.94) usable as a starting point.

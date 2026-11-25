@@ -1025,3 +1025,17 @@ Tarefa: refazer as seis réplicas da seção anterior com `analyze_image` → `t
 | 193 | Painéis de foto ou croqui | A referência do grou tem um croqui a lápis em papel; virou ruído bege/cinza | Esperado; `colors` ou `region` já limitam. Vale uma frase no guia | P3 |
 
 - Funcionou: `compare_reference` deu às pranchas antigas notas perto das medidas à mão (anel 0,77, baleia 0,42); o fundo do `analyze_image` e o posicionamento do `trace_image` acertaram cada prancha de primeira; nenhum erro, nenhum travamento, cada prancha num passo de undo.
+
+## 2026-11-25: 20 referências do Dribbble vetorizadas e pontuadas (workspace "Estudo Dribbble · Claude (20 referências)")
+
+Tarefa: 20 shots públicos do Dribbble (11 logos e folhas de marcas, 6 ícones de app, um board de branding, uma ilustração, um hero de site) passados por `analyze_image` → frame com o fundo detectado → `trace_image` (padrão, depois `maxColors: 12, minArea: 0.00005`, mantendo o melhor) → `compare_reference`. Menos de 0,5 s por imagem de ponta a ponta. IoU da forma: média 0,87, mediana 0,94; 13 de 20 com ≥ 0,90 (marcas e ícones chapados 0,98–0,995), 4 abaixo de 0,80. As imagens de referência não vão para o repositório.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 194 | Uma nota que valha em fundo com degradê | O wordmark "ranker" sobre um degradê laranja suave ficou bom no olho, mas deu IoU 0,26 (sobra 0,69): tinta é "difere da cor da borda", então boa parte do fundo em degradê contou como tinta dos dois lados | Modelar o fundo (estimativa por pixel, por exemplo um ajuste de baixa frequência dos pixels ligados à borda) antes das máscaras de tinta; avisar quando a borda não é uniforme | P1 |
+| 195 | Folhas com muitas marcas | Folhas de marcas (40–140 manchas) bateram no `maxPaths`: marcas inteiras e todos os wordmarks sumiram (IoU 0,58–0,68); veio `truncated: true`, mas as descartadas são as pequenas, que são o texto | Subir ou tirar o limite padrão com um orçamento por chamada, descartar por importância visual e não por área, e dizer quais ids caíram | P1 |
+| 196 | Texto pequeno | Wordmarks e textos de UI abaixo de ~14 px viraram manchas que parecem glifos quebrados ("Ma imze Your Socia") | Detectar linhas de manchas pequenas com cara de texto e mantê-las como um grupo, ou passar para `import_html`/texto com uma dica `text` | P2 |
+| 197 | Degradês e fotos | Ícones com degradê suave saíram em faixas (igual ao #190); uma foto virou uma silhueta posterizada | Igual ao #190 para degradês; para regiões de foto, oferecer `asImage: true` para colocar a região como imagem em vez de vetorizar | P2 |
+| 198 | `pathCount` vs `maxPaths` | `pathCount` deu 96–660 com `maxPaths` padrão 60 e `truncated` true; não fica claro quantos nós foram criados | Informar `created` e `dropped` separados | P3 |
+
+- Funcionou: todas as chamadas deram certo, sem travar; logos e ícones chapados (fitness, B, rinoceronte, ícone de tarefas, Acquit) com IoU 0,98–0,995 em 2–12 paths; ilustração (0,94) e board de branding (0,94) servem como ponto de partida.
