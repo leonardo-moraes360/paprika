@@ -572,6 +572,8 @@ const opCases = [
   ["free", [{ op: "create", place: { near: "board", side: "right" }, node: { type: "frame", id: "by", width: 50, height: 40 } }]],
   ["free", [{ op: "create", place: { near: "missing", side: "left" }, node: { type: "frame", id: "no", width: 10, height: 10 } }]],
   ["paged", [{ op: "create", place: "free", node: { type: "frame", id: "onpage", name: "On page", width: 80, height: 40 } }]],
+  ["paged", [{ op: "create", parentId: "pg2", place: "free", node: { type: "frame", id: "onpg2", name: "On page 2", width: 80, height: 40 } }]],
+  ["paged", [{ op: "create", parentId: "pg2", place: { near: "f2", side: "right" }, node: { type: "frame", id: "besidef2", width: 80, height: 40 } }]],
   ["empty", [
     { op: "create", node: { type: "frame", id: "card", name: "Card", x: 0, y: 0, width: 220, height: 140, fill: "#f4f1ea", children: [{ type: "text", id: "label", x: 16, y: 16, width: 120, height: 24, text: "Landing page", color: "#111111" }] } },
     { op: "create", node: { type: "frame", id: "modal", name: "Delete", x: 8, y: 8, width: 200, height: 100, fill: "#ffffff" } },
@@ -615,6 +617,9 @@ const structureCases = [
   ["empty", "page", { id: "pn" }],
   ["paged", "page", { id: "pn" }],
   ["card", "duplicate", { ids: ["card"] }],
+  ["card", "duplicate", { ids: ["card"], place: "right" }],
+  ["card", "duplicate", { ids: ["card"], place: "below" }],
+  ["paged", "duplicate", { ids: ["f2"], place: "right" }],
   ["card", "duplicate", { ids: ["card"], offset: 0, scale: 2, props: { fill: "#101010" } }],
   ["card", "duplicate", { ids: ["card"], parentId: null, offset: -12.5 }],
   ["card", "duplicate", { ids: ["card", "title", "card"] }],

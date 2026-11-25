@@ -1802,6 +1802,71 @@ describe("API: MCP", () => {
     expect(lint).toContain("covered-by-overlay");
   }, 30_000);
 
+  it("posicionamento segue a intenção do agente (PAP-A-008)", async () => {
+    const made = (await call(client, "create_workspace", { name: "Placement intent" })) as ToolResult & { structuredContent: { workspace: { id: string } } };
+    const workspaceId = made.structuredContent.workspace.id;
+    const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const nodeOf = async (id: string) => (JSON.parse(textOf(await call(client, "get_nodes", { workspaceId, ids: [id] }))) as Record<string, unknown>[])[0]!;
+
+    // 1. place:"none" with x/y inside a row/column parent pins the root and says so
+    await call(client, "create_nodes", {
+      workspaceId,
+      nodes: [{ type: "frame", id: "col", x: 0, y: 0, width: 400, height: 400, layout: { mode: "column", gap: 8 } }],
+    });
+    const pinned = await call(client, "create_nodes", {
+      workspaceId, parentId: "col", place: "none",
+      nodes: [
+        { type: "ellipse", id: "dot", x: 30, y: 40, width: 20, height: 20 },
+        { type: "rect", id: "flow", width: 20, height: 20 },
+        { type: "rect", id: "stay", x: 5, y: 5, width: 20, height: 20, layoutPositioning: "auto" },
+      ],
+    });
+    expect(pinned.isError, textOf(pinned)).toBeFalsy();
+    expect(textOf(pinned)).toContain("layoutPositioning was set to");
+    expect(await nodeOf("dot")).toMatchObject({ layoutPositioning: "absolute", x: 30, y: 40 });
+    expect((await nodeOf("flow")).layoutPositioning).toBeUndefined();
+    expect((await nodeOf("stay")).layoutPositioning).toBe("auto");
+    const img = await call(client, "import_image", { workspaceId, parentId: "col", place: "none", x: 720, y: 48, src: pixel });
+    expect(img.isError, textOf(img)).toBeFalsy();
+    expect(textOf(img)).toContain("layoutPositioning was set to");
+    const html = (await call(client, "import_html", {
+      workspaceId, parentId: "col", place: "none", x: 48, y: 36, html: '<div style="width:30px;height:10px;background:#f00"></div>',
+    })) as ToolResult;
+    expect(html.isError, textOf(html)).toBeFalsy();
+    expect(textOf(html)).toContain("layoutPositioning was set to");
+    const kids = ((await nodeOf("col")).children as string[]).slice(-2);
+    const imported = await Promise.all(kids.map(nodeOf));
+    expect(imported).toMatchObject([{ layoutPositioning: "absolute", x: 720, y: 48 }, { layoutPositioning: "absolute", x: 48, y: 36 }]);
+
+    // 2. duplicate_nodes place right/below follows the source
+    await call(client, "create_nodes", {
+      workspaceId, place: "none",
+      nodes: [
+        { type: "frame", id: "far", x: 3000, y: 3000, width: 100, height: 100 },
+        { type: "frame", id: "src", x: 10, y: 520, width: 100, height: 50 },
+      ],
+    });
+    for (const [place, x, y] of [["right", 190, 520], ["below", 10, 650]] as const) {
+      const dup = await call(client, "duplicate_nodes", { workspaceId, ids: ["src"], place });
+      expect(dup.isError, textOf(dup)).toBeFalsy();
+      expect(await nodeOf((jsonOf(dup) as { copies: string[] }).copies[0]!)).toMatchObject({ x, y });
+    }
+
+    // 3. the content box of a page whose children are frames, on a page that is not the first
+    await call(client, "create_page", { workspaceId, id: "pg1", name: "One" });
+    await call(client, "create_page", { workspaceId, id: "pg2", name: "Two" });
+    await call(client, "create_nodes", {
+      workspaceId, parentId: "pg2", place: "none",
+      nodes: [
+        { type: "frame", id: "wide", x: 8000, y: 5000, width: 300, height: 200 },
+        { type: "frame", id: "tiny", x: 100, y: 40, width: 50, height: 60 },
+      ],
+    });
+    const bounds = jsonOf(await call(client, "get_bounds", { workspaceId, rootId: "pg2" })) as { content: { page: string; x: number; y: number; width: number; height: number } };
+    expect(bounds.content).toMatchObject({ page: "pg2", x: 100, y: 40, width: 8200, height: 5160 });
+    expect(textOf(await call(client, "get_document_outline", { workspaceId, rootId: "pg2" }))).toContain("w=8200 h=5160");
+  }, 30_000);
+
   it("lint_design agrupa, limita por rootIds e aponta estouro, hug e geometria", async () => {
     const c = client;
     const created = await call(c, "create_nodes", {

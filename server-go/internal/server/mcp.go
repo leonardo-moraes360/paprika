@@ -690,6 +690,10 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if o, ok := n.(*jsonv.Object); ok {
 				if p, use := createPlace(doc, parentID, o, a); use {
 					op.Set("place", p)
+				} else if a.Has("place") && a.Str("place") == "none" {
+					if w := pinAbsolute(doc, parentID, o); w != "" {
+						warnings = append(warnings, w)
+					}
 				}
 			}
 			ops[i] = op
@@ -1621,7 +1625,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return nil, errors.New(msg)
 		}
 		parent, _ := a.Get("parentId")
-		p, usePlace := importPlace(store.Doc(), a)
+		here, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		p, usePlace := importPlace(here, a)
+		if !usePlace && a.Str("place") == "none" && (a.Has("x") || a.Has("y")) {
+			for _, n := range r.Nodes {
+				if w := pinAbsolute(here, parent, n); w != "" {
+					r.Warnings = append(r.Warnings, w)
+				}
+			}
+		}
 		ops := make([]any, len(r.Nodes))
 		for i, n := range r.Nodes {
 			op := jsonv.NewObject("op", "create", "parentId", parent, "node", n)
@@ -1755,14 +1770,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return nil, err
 		}
 		op := jsonv.NewObject("op", "create", "parentId", parent, "node", node)
+		warnings := []any{}
 		if p, use := importPlace(here, a); use {
 			op.Set("place", p)
+		} else if a.Str("place") == "none" && (a.Has("x") || a.Has("y")) {
+			if w := pinAbsolute(here, parent, node); w != "" {
+				warnings = append(warnings, w)
+			}
 		}
 		res, head, err := applyHere(a, []any{op}, labelOr(a, "import image"))
 		if err != nil {
 			return nil, err
 		}
-		warnings := []any{}
 		if img.animated {
 			warnings = append(warnings, "animated "+strings.ToUpper(img.format())+": kept animated (the original bytes are embedded unchanged); render_screenshot shows a single frame")
 		}
@@ -2159,6 +2178,36 @@ func createPlace(doc *core.Document, parent any, node *jsonv.Object, args *jsonv
 		return nil, false
 	}
 	return "free", true
+}
+
+// pinAbsolute implements "place:none with x/y means exactly there": inside a row/column frame a
+// flow child ignores x/y, so the root gets layoutPositioning:"absolute" (unless the agent chose
+// one) and the caller reports the returned warning. The caller checks place:"none".
+func pinAbsolute(doc *core.Document, parent any, node *jsonv.Object) string {
+	if !node.Has("x") && !node.Has("y") || node.Has("layoutPositioning") {
+		return ""
+	}
+	if t := node.Str("type"); t == "connector" || t == "page" {
+		return ""
+	}
+	s, ok := parent.(string)
+	if !ok || s == "" {
+		return ""
+	}
+	pn := core.GetNode(doc, s)
+	if pn == nil {
+		return ""
+	}
+	mode := pn.Obj("layout").Str("mode")
+	if mode != "row" && mode != "column" {
+		return ""
+	}
+	node.Set("layoutPositioning", "absolute")
+	name := node.Str("name")
+	if name == "" {
+		name = node.Str("type")
+	}
+	return fmt.Sprintf("%q: parent %q has %s layout, so layoutPositioning was set to \"absolute\" to keep x/y (pass layoutPositioning:\"auto\" to join the flow)", name, s, mode)
 }
 
 func importPlace(doc *core.Document, args *jsonv.Object) (any, bool) {
