@@ -10,15 +10,65 @@ type prim struct {
 	cx, cy float64
 	rx, ry float64 // half sizes along the primitive's own axes (polygon: rx = circumradius)
 	rot    float64 // radians, y down (clockwise on screen)
-	r      float64 // corner radius (roundRect)
+	r      float64 // corner radius (roundRect, uniform) or polygon corner rounding
 	n      int     // polygon sides
 	iou    float64
+	// roundRect with one radius per corner, in the primitive's own axes: tl, tr, br, bl
+	perCorner bool
+	radii     [4]float64
+	verts     []pt // rounded polygon: vertices of the inner polygon, relative to the center
+	inner     float64
+}
+
+// meanRadius is the corner radius of a roundRect, averaged over its corners when they differ.
+func (p prim) meanRadius() float64 {
+	if !p.perCorner {
+		return p.r
+	}
+	return (p.radii[0] + p.radii[1] + p.radii[2] + p.radii[3]) / 4
+}
+
+// cornerRadius is the radius of the corner the local point (u, v) falls in.
+func (p prim) cornerRadius(u, v float64) float64 {
+	if !p.perCorner {
+		return p.r
+	}
+	i := 0
+	switch {
+	case u >= 0 && v < 0:
+		i = 1
+	case u >= 0 && v >= 0:
+		i = 2
+	case u < 0 && v >= 0:
+		i = 3
+	}
+	return p.radii[i]
+}
+
+// roundedPolygon fills in the inner polygon of a regular polygon whose corners are rounded with
+// radius p.r: the shape is that polygon (apothem reduced by r) grown by r.
+func (p prim) roundedPolygon() prim {
+	if p.kind != "polygon" || p.r <= 0 {
+		return p
+	}
+	a := p.rx * math.Cos(math.Pi/float64(p.n))
+	p.inner = math.Max(a-p.r, 0)
+	R := p.inner / math.Cos(math.Pi/float64(p.n))
+	p.verts = make([]pt, p.n)
+	for i := range p.verts {
+		ang := p.rot + 2*math.Pi*float64(i)/float64(p.n)
+		p.verts[i] = pt{R * math.Cos(ang), R * math.Sin(ang)}
+	}
+	return p
 }
 
 func (p prim) contains(x, y float64) bool {
 	dx, dy := x-p.cx, y-p.cy
 	switch p.kind {
 	case "polygon":
+		if p.r > 0 && p.verts != nil {
+			return p.inRounded(dx, dy)
+		}
 		rho := math.Hypot(dx, dy)
 		if rho == 0 {
 			return true
@@ -38,11 +88,34 @@ func (p prim) contains(x, y float64) bool {
 	case "rect":
 		return math.Abs(u) <= p.rx && math.Abs(v) <= p.ry
 	case "roundRect":
-		qx, qy := math.Abs(u)-(p.rx-p.r), math.Abs(v)-(p.ry-p.r)
-		return math.Hypot(math.Max(qx, 0), math.Max(qy, 0))+math.Min(math.Max(qx, qy), 0)-p.r <= 0
+		r := p.cornerRadius(u, v)
+		qx, qy := math.Abs(u)-(p.rx-r), math.Abs(v)-(p.ry-r)
+		return math.Hypot(math.Max(qx, 0), math.Max(qy, 0))+math.Min(math.Max(qx, qy), 0)-r <= 0
 	default:
 		return (u/p.rx)*(u/p.rx)+(v/p.ry)*(v/p.ry) <= 1
 	}
+}
+
+func (p prim) inRounded(dx, dy float64) bool {
+	n := len(p.verts)
+	inside := true
+	for i := range n {
+		phi := p.rot + (2*float64(i)+1)*math.Pi/float64(p.n)
+		if dx*math.Cos(phi)+dy*math.Sin(phi) > p.inner {
+			inside = false
+			break
+		}
+	}
+	if inside {
+		return true
+	}
+	q := pt{dx, dy}
+	for i := range n {
+		if segDist(q, p.verts[i], p.verts[(i+1)%n]) <= p.r {
+			return true
+		}
+	}
+	return false
 }
 
 // iou rasterizes the primitive at sampled pixel centers over the blob's padded box and compares
@@ -150,11 +223,49 @@ func (g *geom) fitRect() (prim, prim) {
 	rect := prim{kind: "rect", cx: cx, cy: cy, rx: rx, ry: ry, rot: rot}
 	rr := rect
 	rr.kind = "roundRect"
-	deficit := 4*rx*ry - float64(g.areaF)
-	if deficit > 0 {
-		rr.r = math.Min(math.Sqrt(deficit/(4-math.Pi)), math.Min(rx, ry))
+	rad := g.cornerRadii(rect)
+	mean := (rad[0] + rad[1] + rad[2] + rad[3]) / 4
+	spread := 0.0
+	for _, r := range rad {
+		spread = math.Max(spread, math.Abs(r-mean))
+	}
+	rr.r = mean
+	if spread > math.Max(1, 0.15*mean) {
+		rr.perCorner, rr.radii = true, rad
 	}
 	return rect, rr
+}
+
+// cornerRadii measures the rounding of each corner of the rectangle (tl, tr, br, bl in its own
+// axes) from the area missing in a square window at that corner: a quarter-circle fillet of
+// radius r leaves (1 - pi/4) r² of the window empty.
+func (g *geom) cornerRadii(p prim) [4]float64 {
+	var out [4]float64
+	m := math.Min(p.rx, p.ry)
+	if m < 1 {
+		return out
+	}
+	step := math.Max(0.5, m/48)
+	c, s := math.Cos(p.rot), math.Sin(p.rot)
+	for i, sg := range [4][2]float64{{-1, -1}, {1, -1}, {1, 1}, {-1, 1}} {
+		empty, total := 0.0, 0.0
+		for a := step / 2; a < m; a += step {
+			for b := step / 2; b < m; b += step {
+				u, v := sg[0]*(p.rx-a), sg[1]*(p.ry-b)
+				x, y := p.cx+u*c-v*s, p.cy+u*s+v*c
+				total++
+				if !g.inFill(int(math.Floor(x)), int(math.Floor(y))) {
+					empty++
+				}
+			}
+		}
+		r := math.Sqrt(empty / total * m * m / (1 - math.Pi/4))
+		if r < 0.8 {
+			r = 0
+		}
+		out[i] = math.Min(r, m)
+	}
+	return out
 }
 
 // polygonPhase finds the direction of a vertex of a regular n-gon from the radial profile of
@@ -194,17 +305,38 @@ func (g *geom) fitPolygon(n int) prim {
 			best = c
 		}
 	}
+	if best.iou >= 0.997 || best.iou < 0.9 {
+		return best
+	}
+	// corners rounded by q times the apothem; the apothem is the one whose rounded area matches
+	T := math.Tan(math.Pi / float64(n))
+	sharp := best
+	for _, q := range []float64{0.12, 0.25, 0.4, 0.55} {
+		a := math.Sqrt(area / (float64(n) * (T - q*q*(T-math.Pi/float64(n)))))
+		c := prim{kind: "polygon", cx: g.cx, cy: g.cy, rx: a / math.Cos(math.Pi/float64(n)), n: n, rot: sharp.rot, r: q * a}
+		c.ry = c.rx
+		c = c.roundedPolygon()
+		if c.iou = g.iou(c); c.iou > best.iou+0.003 {
+			best = c
+		}
+	}
 	return best
 }
 
 // penalty is how much IoU a more complex primitive has to win by.
-func penalty(kind string) float64 {
-	switch kind {
+func penalty(p prim) float64 {
+	switch p.kind {
 	case "ellipse":
 		return 0.004
 	case "roundRect":
+		if p.perCorner {
+			return 0.008
+		}
 		return 0.004
 	case "polygon":
+		if p.r > 0 {
+			return 0.016
+		}
 		return 0.012
 	}
 	return 0
@@ -227,7 +359,7 @@ func (g *geom) bestFit() prim {
 	}
 	rect, rr := g.fitRect()
 	add(rect)
-	if rr.r >= 0.02*2*math.Min(rr.rx, rr.ry) {
+	if rr.meanRadius() >= 0.02*2*math.Min(rr.rx, rr.ry) {
 		add(rr)
 	}
 	top := 0.0
@@ -240,9 +372,9 @@ func (g *geom) bestFit() prim {
 		}
 	}
 	best := cands[0]
-	bs := best.iou - penalty(best.kind)
+	bs := best.iou - penalty(best)
 	for _, c := range cands[1:] {
-		if s := c.iou - penalty(c.kind); s > bs+1e-9 {
+		if s := c.iou - penalty(c); s > bs+1e-9 {
 			best, bs = c, s
 		}
 	}

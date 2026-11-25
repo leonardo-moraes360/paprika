@@ -32,6 +32,25 @@ type pixels struct {
 	rgb    []uint8 // r,g,b triples
 }
 
+// prepareLite reads only the colors and the opacity (no Lab, no edges): enough for grain.
+func prepareLite(img *image.NRGBA) *pixels {
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	p := &pixels{w: w, h: h, opaque: make([]bool, w*h), rgb: make([]uint8, w*h*3)}
+	for y := range h {
+		row := img.Pix[y*img.Stride : y*img.Stride+w*4]
+		for x := range w {
+			if row[x*4+3] < 128 {
+				continue
+			}
+			i := y*w + x
+			p.opaque[i] = true
+			p.rgb[i*3], p.rgb[i*3+1], p.rgb[i*3+2] = row[x*4], row[x*4+1], row[x*4+2]
+		}
+	}
+	return p
+}
+
 func prepare(img *image.NRGBA) *pixels {
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()

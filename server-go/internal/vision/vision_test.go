@@ -166,7 +166,7 @@ func TestRoundedRect(t *testing.T) {
 	}
 	near(t, "width", *n.Width, 160, 2)
 	near(t, "height", *n.Height, 90, 2)
-	near(t, "radius", n.Radius, 20, 3)
+	near(t, "radius", n.Radius.(float64), 20, 3)
 	if n.Rotation != 0 {
 		t.Errorf("rotation %v", n.Rotation)
 	}
