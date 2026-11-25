@@ -405,7 +405,7 @@ func ringsToMulti(rings []boolRing, fillRule string) boolMulti {
 	for i, r := range cleaned {
 		areas[i] = item{r, math.Abs(ringArea(r))}
 	}
-	sort.Slice(areas, func(i, j int) bool { return areas[i].a > areas[j].a })
+	sort.SliceStable(areas, func(i, j int) bool { return areas[i].a > areas[j].a })
 	used := map[int]bool{}
 	multi := boolMulti{}
 	for i := range areas {
@@ -612,7 +612,7 @@ func splitEdges(edges []boolEdge) []boolEdge {
 			}
 			cuts = append(cuts, cut{t, p})
 		}
-		sort.Slice(cuts, func(a, b int) bool { return cuts[a].t < cuts[b].t })
+		sort.SliceStable(cuts, func(a, b int) bool { return cuts[a].t < cuts[b].t })
 		prev := e.A
 		for _, c := range cuts {
 			if samePt(prev, c.p) {
@@ -663,7 +663,7 @@ func selectFragment(inA, inB bool, src int, op BooleanOperation) string {
 }
 
 func ptKey(p Point) string {
-	return fmt.Sprintf("%g,%g", p.X, p.Y)
+	return fmt.Sprintf("%g,%g", p.X+0, p.Y+0) // +0 folds -0 into 0, as JS template strings do
 }
 
 func linkRings(fragments []boolEdge) []boolRing {
@@ -677,11 +677,15 @@ func linkRings(fragments []boolEdge) []boolRing {
 		adj[k] = append(adj[k], link{to: e.B})
 	}
 	rings := []boolRing{}
+	// Same start order as the TS Map: first insertion, not sorted keys.
 	keys := make([]string, 0, len(adj))
-	for k := range adj {
-		keys = append(keys, k)
+	seen := map[string]bool{}
+	for _, e := range fragments {
+		if k := ptKey(e.A); !seen[k] {
+			seen[k] = true
+			keys = append(keys, k)
+		}
 	}
-	sort.Strings(keys)
 	for _, sk := range keys {
 		list := adj[sk]
 		for si := range list {
@@ -763,7 +767,7 @@ func nestRings(rings []boolRing) boolMulti {
 	for i, r := range cleaned {
 		items[i] = item{r, math.Abs(ringArea(r))}
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].a > items[j].a })
+	sort.SliceStable(items, func(i, j int) bool { return items[i].a > items[j].a })
 	parent := make([]int, len(items))
 	for i := range parent {
 		parent[i] = -1
