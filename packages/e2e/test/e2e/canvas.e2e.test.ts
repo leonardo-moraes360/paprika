@@ -405,6 +405,26 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(rects.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("roda do mouse: Shift+roda move só o X do mundo, roda simples só o Y", async () => {
+    await page.keyboard.press("Escape");
+    const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
+    const translate = async () => {
+      const t = (await page.locator(".world").getAttribute("style"))!.match(/translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px/)!;
+      return { x: Number(t[1]), y: Number(t[2]) };
+    };
+    await page.mouse.move(vp.x + vp.width / 2, vp.y + vp.height / 2);
+    const a = await translate();
+    await page.keyboard.down("Shift");
+    await page.mouse.wheel(0, 120);
+    await page.keyboard.up("Shift");
+    await expect.poll(async () => (await translate()).x).toBeCloseTo(a.x - 120, 0);
+    expect((await translate()).y).toBeCloseTo(a.y, 0);
+    const b = await translate();
+    await page.mouse.wheel(0, 90);
+    await expect.poll(async () => (await translate()).y).toBeCloseTo(b.y - 90, 0);
+    expect((await translate()).x).toBeCloseTo(b.x, 0);
+  });
+
   for (const key of ["Space", "Enter"]) {
     it(`segurar ${key} sobre o board vira mão aberta; arrastando, mão fechada que move o board`, async () => {
       await page.keyboard.press("Escape");
