@@ -1057,16 +1057,108 @@ Task: new workspace, a page "Capa", a 1600×900 dark cover and a light one below
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 204 | Know who undid an agent's write | 6 s after the script wrote the cover, an undo on the shared history removed it (likely Ctrl+Z on the canvas). `get_history` shows only the undo stack, so the vanished create (now on redo) and the undo were invisible over MCP; the SQLite file had to be read | `get_history` returns the redo stack and one entry per undo/redo with actor and time; persist the actor in `Store.step` | P1 |
+| 204 | Know who undid an agent's write | 6 s after the script wrote the cover, an undo on the shared history removed it (likely Ctrl+Z on the canvas). `get_history` shows only the undo stack, so the vanished create (now on redo) and the undo were invisible over MCP; the SQLite file had to be read | Done (2026-11-25, PR #226): `get_history` returns the redo stack and one entry per undo/redo with actor and time; `Store.step` persists the actor | — |
 | 205 | A human Ctrl+Z must not eat an agent's work silently | The canvas undo pops the shared history regardless of author | Per-actor undo on the canvas, or a toast "Undone: <label> (agent)" with Redo | P2 |
-| 206 | Find a frame by name to replace it on a re-run | `find_nodes` answers text lines, not JSON; the script found nothing and drew a duplicate cover | `structuredContent` on `find_nodes` (`{nodes: [{id, type, name, x, y, width, height}]}`) | P2 |
-| 207 | Match one exact name | `find_nodes {name}` matches a substring; the dark cover's name is a prefix of the light one's | `find_nodes {name, exact: true}` | P2 |
+| 206 | Find a frame by name to replace it on a re-run | `find_nodes` answers text lines, not JSON; the script found nothing and drew a duplicate cover | Done (2026-11-25, PR #229): `structuredContent` on `find_nodes` (`{nodes: [{id, type, name, x, y, width, height}]}`) | — |
+| 207 | Match one exact name | `find_nodes {name}` matches a substring; the dark cover's name is a prefix of the light one's | Done (2026-11-25, PR #229): `find_nodes {name, exact: true}` | — |
 | 208 | Measure contrast, including non-text | `lint_design` reports only failures, with no ratio, and only for text: a marker border at 1.21:1 passed silently | `lint_design {report: "contrast"}` with each pair's ratio, and a `non-text-contrast` rule (WCAG 1.4.11, 3:1) | P2 |
-| 209 | Name the first page of a new workspace | `create_workspace` makes a document with no page, so there was no "page 1" to rename | Say so in the description, or `create_workspace {firstPage}` | P3 |
-| 210 | `groups` in `lint_design` | The description reads like `groups` is an argument; passing it fails with `unknown argument "groups"` | Reword: the result already has `groups` | P3 |
+| 209 | Name the first page of a new workspace | `create_workspace` makes a document with no page, so there was no "page 1" to rename | Done (2026-11-25, PR #229): the `create_workspace` description says a new workspace has no page and how to make the first one | — |
+| 210 | `groups` in `lint_design` | The description reads like `groups` is an argument; passing it fails with `unknown argument "groups"` | Done (2026-11-25, PR #229): the description now says the result carries `groups` | — |
 | 211 | Predict the overview card crop | The card is about 2:1 and center-crops a 16:9 cover; the footer is cut | Document the aspect in `set_workspace_cover`, or `fit: "contain"` | P3 |
-| 212 | Re-anchor a pin after its node is replaced | The script recreates the frame, so the pin points at a deleted node (`nodeMissing: true`) | `resolve_pin {reply, nodeId?}` to move the pin to the replacement | P3 |
-| 213 | Screenshot of the editor at fit | `render_screenshot` renders nodes, not the editor; Playwright plus Shift+1 was needed, and the toolbar covers the top frame's label at fit | `render_screenshot {page, fit: true, chrome: true}`, and fit padding below the floating toolbar | P3 |
+| 212 | Re-anchor a pin after its node is replaced | The script recreates the frame, so the pin points at a deleted node (`nodeMissing: true`) | Done (2026-11-25, PR #227): `update_pin` and `resolve_pin` take a `nodeId` to move the pin to the replacement | — |
+| 213 | Screenshot of the editor at fit | `render_screenshot` renders nodes, not the editor; Playwright plus Shift+1 was needed, and the toolbar covers the top frame's label at fit | `render_screenshot {page, fit: true, chrome: true}`, and fit padding below the floating toolbar. Done (2026-11-25, PRs #233 + #234): the renderer option only; `fit` and `chrome` stay open | P3 |
 
 - Fine: one `create_nodes` call built each 35-node cover; `set_workspace_cover`, `export_image {scale: 2}`, `list_pins`, `claim_pin` and `resolve_pin` worked first try.
 
+## 2026-11-25: brand guide, pages 2–9 (workspace "Interface · marca")
+
+Task: 8 pages of the brand guide, each with a dark and a light 1600×900 frame, drawn by one re-runnable script (`create_page {ensure}` plus replace by exact frame name). 16 frames, no undo used.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 214 | Scale a path's stroke with its viewBox, knowingly | On a path with `viewBox` the stroke width is in viewBox units; the agent passed px and drew a selection frame about 4× too thick and a wordmark too thin. Nothing in the guide or the result says which | Done (2026-11-25, PR #229): the guide and the `create_nodes` description say the stroke width is in viewBox units. A `strokeScaling` option stays open | — |
+| 215 | Stretch a path non-uniformly (a "do not stretch" example) | A path with `viewBox` 100×110 in a 184×99 box keeps its aspect ratio (meet); the `d` coordinates had to be rewritten by hand | `preserveAspectRatio: "none"` on paths (as in SVG), or `scale_path {sx, sy}` | P3 |
+| 216 | Contrast lint for text on a chip drawn as a sibling rect | `contrast` looks only at ancestors' fills, so a label over a sibling rect is measured against the panel behind it; every chip, button and badge had to be a frame with the text inside | Document it in the rule message ("background = ancestor fills; siblings below are ignored"), or count painted siblings that fully contain the text | P2 |
+| 217 | Text `width: "fill"` inside a `height: "hug"` column or a fixed-height row | The frame's hug measured the text as 1 line, the text itself as 2, so `lint_design` reported a false `layout-overflow` (also on five component texts); numeric widths fixed it | Done (2026-11-25, PR #228): hug measures `fill` text at the resolved inner width | — |
+| 218 | Show failing pairs on purpose (contrast table) | `lintIgnore: ["contrast"]` on each failing sample worked and kept the rest checked, but the lint result never suggests it | Mention `lintIgnore` per rule in the `lint_design` result when a rule fires | P3 |
+| 219 | Contact sheet of all pages | No tool composes several frames into one image; done with an image library from the exported PNGs | `export_image {rootIds: [...], layout: "grid", columns}` | P3 |
+
+- Fine: `create_page {ensure: true}` made the script re-runnable; whole nested trees in one `create_nodes` per frame; `export_image {scale: 2}` gave 3200×1800 PNGs; `runs` gave coloured prefixes without extra nodes.
+
+## 2026-11-25: brand guide, page 10 "Padrão" (a repeated pattern)
+
+Task: a dark and a light frame with a checkerboard of the colored and monochrome symbol, merged into one path per color (about 130 symbols).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 220 | Draw a repeated pattern and know the `d` limits | The merged monochrome `d` had 17 760 segments and 276 439 chars, and `create_nodes` refused the whole call (`<=200000 characters`, `more than 10000 segments`) only after the payload was built; the script now splits each color into paths of ≤9000 segments / ≤180 000 chars | Done for the limits (2026-11-25, PR #229): both limits are in the `d` schema and the guide. A `pattern`/`repeat` fill (tile, step, offset) stays open | P2 |
+
+- Fine: a sheet-only run rebuilt the contact PNG without touching the document.
+
+## 2026-11-25: pins on "Cores" and "Componentes" (components with variants)
+
+Task: two pins. Contrast of the light theme (new "for text" column, -ink tones, borders at 3:1) and 8 missing controls built as 11 components with props, variants and instances.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 221 | Show a component's default state on the canvas | A `bind.variant` node is filtered only in instances: the main component draws every variant at once (checkbox with 3 boxes, a field group per format), which also makes `layout-overflow` fire on its row; each main was hidden and replaced by an instance with the default props | Done (2026-11-25, PR #230): the main component applies the default variants | — |
+| 222 | A highlighted instance (different fill) | `fill` on an instance root in `create_nodes` was dropped silently on sync; it works as `overrides: {[componentId]: {fill}}` | Done (2026-11-25, PR #230): `fill` on an instance root becomes that override | — |
+| 223 | Glyph coverage | `⋯` (U+22EF) in a caption rendered as a box in Inter; nothing warned | `lint_design` rule `missing-glyph` (the font lacks a code point) | P3 |
+
+- Fine: component and instances in one `create_nodes` with explicit ids; props, booleans and variants through `propValues`; `bind.visible` with a boolean prop; `layoutPositioning: "absolute"` children for state borders; `claim_pin`/`resolve_pin`.
+
+## 2026-11-25: pins on "Componentes" (stepper, shortcuts, color picker, import and export)
+
+Task: 4 pins claimed and resolved (number field with plus/minus icons, keycap shortcuts, color picker with a `formato` variant, agent work on the canvas).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 224 | A ring around the current swatch, a dashed "add" button in a row | `outline` on a rect or frame that is a child of a row layout rendered on one side only in the PNG; the same `outline` on absolutely placed nodes rendered whole | Done (2026-11-25, PR #232): whole outline for layout children in export and screenshot | — |
+| 225 | A 2x PNG of a tall frame | `export_image {scale: 2}` on a 1600×2460 frame returned 2664×4096 (scale ≈ 1.67) with no warning | Done (2026-11-25, PR #232): the result reports the scale used and a warning when the 4096 cap applies | — |
+
+- Fine: a variant with five bound groups switched cleanly; `bind.visible` on a nested frame from a boolean prop; `overrides` with the root id for a highlighted row; 4 pins claimed and resolved in parallel.
+
+## 2026-11-25: pins 8–12 and a redraw of every page (alignment, lint output)
+
+Task: the app icon sat 15 of 240 units off centre (the guide copied the SVG's offset), a stepper column was misaligned, and pages 3, 7 and 8 were redrawn; later every page was redrawn after the symbol was centred in its 100×100 box and 20 frames were linted to confirm.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 226 | A short lint result for many frames | `groups` was folded as promised, but `issues` still listed all 276 `fully-hidden` findings (372 over 20 frames, 49 KB, spilled to a file) even with `minSeverity: "warning"` and `maxIds: 3` | Done (2026-11-25, PR #229): `issues: false` and `ignoreRules` on `lint_design` | — |
+| 227 | A pin that refers to an earlier one | "Aqui também está desalinhado" pointed at a remark that is not in the pin thread; six pins with the same text carried only a node and a region, so the cause had to be guessed from other lockups | Let a pin link to another pin (`relatedPinId`), and keep a small render of its region at creation (`snapshot`) | P3 |
+| 228 | Keep a trailing child at the end of a row when a sibling text is shorter | "°" is narrower than "px", so the hug text moved the stepper left; fixed with a numeric width. No "push to end" in row layout | Done (2026-11-25, PR #228): `layoutGrow` (flex-grow) on a child | — |
+| 229 | Check that a vector symbol is centred in its tile | `get_bounds` of the symbol group returns the path boxes (the 100×100 viewBox frame), not the painted ink; the gaps were measured on the PNG by eye | `get_bounds {painted: true}`: bounds of the painted geometry (fill + half stroke) | P2 |
+
+- Fine: re-runnable scripts replaced frames by exact name without touching the other variant; `claim_pin`/`resolve_pin`/`reply_pin` on 12 pins.
+
+## 2026-11-25: pins 13–19 (import and export components, lockups below 32 px)
+
+Task: a new "Importar e exportar" section with four components, and the small lockups redrawn without the cyan selection.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 230 | Show a node in three of four variant options | `bind.variant` takes one option per prop (an array is refused), so the choice was one node per option or no bind | Done (2026-11-25, PR #230): `bind: { variant: { estado: ["importando", "pronto"] } }` | — |
+
+- Fine: components with instances referencing ids fixed per theme; text `runs` with colours for a code preview; the official lockup gap (`LOCKUP_GAP`) imported by the guide script, so guide and SVG cannot drift.
+
+## 2026-11-25: wordmark "paprika" audit (a single source of geometry)
+
+Task: "the wordmarks regressed". Both scripts rebuilt the wordmark by hand and its viewBox differed from the official one (876.2 × 236 instead of 872.2 × 232), so every board was 1.7 % smaller; now one helper takes everything from `wordmark()`. Covers and five pages redrawn, lint clean.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 231 | Read the SVG of a node to compare it with the official file | Over the MCP client `export_image {format: "svg"}` shows only `{width, height, format}`; the SVG sits in the text block and a custom client was needed | Put the SVG in `structuredContent.svg` too | P3 |
+| 232 | Pixel-compare a node with a reference SVG at the same height | No tool for it: the official SVG was rasterised in a browser, the node exported with `export_image {scale}` and the two diffed with an image library; `compare_reference` needs a placed reference image | `compare_reference {svg \| file, rootId, height}`: renders both at one size and returns diff stats and a diff image | P2 |
+| 233 | Keep a half-pixel position (`y: 12.5`) in the raster | SVG export keeps `translate(113 12.5)`, but the PNG of the same group puts the wordmark about 0.5 unit lower: the raster snaps the child to whole pixels before scaling | Done (2026-11-25, PR #232): position at the scaled value, no rounding before the scale | — |
+| 234 | Know that two boards use the same brand geometry | Nothing in the document says a path came from `wordmark()`; drift shows only by reading the scripts | The wordmark as a component (`create_component` plus instances) in the guide | P3 |
+
+- Fine: replacing frames by exact name with `--page N`; `set_workspace_cover` kept the dark cover; `lint_design {minSeverity: "warning"}` over 12 roots in one call returned an empty result.
+
+## 2026-11-25: small "paprika" wordmarks turn into blobs on the WASM renderer
+
+Task: screenshots from the GPU renderer showed the small wordmarks as blobs while the big ones were fine; the nodes were coherent, `?renderer=dom` and `export_image` drew them correctly and `?renderer=wasm` (backend `cpu`) did not. Cause: `parse_paths` bakes the viewBox-to-box scale into the points, but `encode_gpu` and `cpu.rs` stroke with the raw `stroke.width` in px, while DOM and SVG scale the stroke with the viewBox (repro: `d: "M0 50 H100"`, `viewBox [0, 0, 100, 100]`, box 20 × 20, stroke 10 gives 2 px in DOM, 10 px in WASM). The big letreiros looked right only because they fall back to the DOM. Workaround in the brand helper: the `d` is scaled to px of the node, so the scale is 1 on every renderer.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 235 | The same stroke on every renderer when a path's box is smaller than its viewBox | The pixel parity test never hit it because its paths have box = viewBox | Done (2026-11-25, PR #235): scale `stroke_width` by the path's scale in `encode_gpu`, `cpu.rs` and the stroke outset of `displayList`; a parity case with box ≠ viewBox, small strokes and outline, run on every PR that touches the renderer | — |
+| 236 | Tell which renderer an agent sees when checking a board | `get_document_outline` says `renderer: wasm`, but `render_screenshot` and `export_image` always use the DOM/SVG path, so an agent cannot see a WASM-only bug | Done (2026-11-25, PRs #233 + #234): `render_screenshot` with the WASM renderer | — |
