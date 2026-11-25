@@ -1876,6 +1876,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			"height", float64(out.Height),
 			"format", out.Format,
 			"mimeType", out.Mime,
+			"scale", out.Scale,
 			"warnings", jsonv.FromGo(out.Warnings),
 		)
 		return jsonv.NewObject("content", content, "structuredContent", sc), nil
@@ -2820,19 +2821,36 @@ func workspaceActionError(id string, err error) error {
 	return err
 }
 
+type scaledShooter interface {
+	ScreenshotScaled(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) (png []byte, width, height int, used float64, err error)
+}
+
 func (m *MCP) exportImage(ctx context.Context, d *core.Document, rootID, format string, scale float64) (export.Result, error) {
 	format = strings.ToLower(strings.TrimSpace(format))
 	if scale <= 0 {
 		scale = 1
 	}
 	if m.shot == nil || format == export.FormatPDF || scale < 0.1 || scale > 4 {
-		return export.Export(d, rootID, format, scale)
+		out, err := export.Export(d, rootID, format, scale)
+		out.Scale = scale
+		return out, err
 	}
-	png, _, _, err := m.shot.ScreenshotMode(ctx, d, rootID, scale, "")
+	var png []byte
+	used := scale
+	var err error
+	if sc, ok := m.shot.(scaledShooter); ok {
+		png, _, _, used, err = sc.ScreenshotScaled(ctx, d, rootID, scale, "")
+	} else {
+		png, _, _, err = m.shot.ScreenshotMode(ctx, d, rootID, scale, "")
+	}
 	if err == nil {
 		var out export.Result
 		if out, err = export.FromPNG(png, format); err == nil {
+			out.Scale = used
 			out.Warnings = []string{}
+			if used < scale-1e-9 {
+				out.Warnings = append(out.Warnings, fmt.Sprintf("scale lowered from %s to %s: a side would exceed %d px (the cap); output is %d×%d", jsonv.FormatNumber(scale), jsonv.FormatNumber(math.Round(used*10000)/10000), int(maxSide), out.Width, out.Height))
+			}
 			return out, nil
 		}
 	}
@@ -2840,6 +2858,7 @@ func (m *MCP) exportImage(ctx context.Context, d *core.Document, rootID, format 
 	if ferr != nil {
 		return out, ferr
 	}
+	out.Scale = scale
 	out.Warnings = append([]string{"Chromium unavailable (" + err.Error() + "): rendered with the built-in rasterizer, which can differ from render_screenshot in glyphs and strokes"}, out.Warnings...)
 	return out, nil
 }

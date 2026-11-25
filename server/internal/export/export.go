@@ -21,6 +21,7 @@ type Result struct {
 	Width    int
 	Height   int
 	Format   string
+	Scale    float64
 	Warnings []string
 }
 

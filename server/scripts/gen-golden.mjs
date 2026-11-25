@@ -26,6 +26,24 @@ const err = (f) => {
 };
 
 const base = () => createDocument("Teste", "doc1");
+const outlined = () =>
+  applyOps(base(), [
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "ring", width: 200, height: 80, fill: "#ffffff", radius: [8, 4, 8, 0],
+        layout: { mode: "row", gap: 12, padding: 0 },
+        children: [
+          { type: "ellipse", id: "dot", width: 24, height: 24, fill: "#ff0000", outline: { color: "#0000ff", width: 2 } },
+          { type: "rect", id: "sq", width: 24, height: 24, radius: 6, fill: "#00ff00", outline: { color: "#0000ff", width: 2, style: "dashed", offset: 1 } },
+          { type: "rect", id: "uneven", width: 24, height: 24, radius: [8, 0, 8, 0], outline: { color: "#0000ff", width: 3, style: "dotted" } },
+          { type: "group", id: "grp", children: [{ type: "rect", id: "inner", x: 0, y: 0, width: 20, height: 20, outline: { color: "#ff00ff", width: 4, offset: 2 } }] },
+          { type: "frame", id: "wrap", clip: false, width: 24, height: 24, children: [{ type: "rect", id: "deep", width: 10, height: 10, outline: { color: "#00ffff", width: 5 } }] },
+        ],
+      },
+    },
+  ]).doc;
+
 const card = () =>
   applyOps(base(), [
     {
@@ -356,6 +374,7 @@ const docs = {
   absflow: absflow(),
   comp: comp(),
   card: card(),
+  outlined: outlined(),
   free: free(),
   combo: combo(),
   coin: coin(),

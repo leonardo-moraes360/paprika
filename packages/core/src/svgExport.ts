@@ -6,6 +6,7 @@ import {
   connectorLabelAttrs,
   modeOf,
   nodeGradient,
+  outlineBleed,
   pathAttrs,
   svgGradientInner,
   resolveCorners,
@@ -254,10 +255,16 @@ export function exportSVG(
       const insetR = boxRadius!.map((c) => Math.max(0, c - insetBy)) as [number, number, number, number];
       return roundedRectD(insetBy, insetBy, Math.max(0, w - insetBy * 2), Math.max(0, h - insetBy * 2), insetR);
     };
-    const clipDef = (clipId: string) =>
-      even
-        ? `<clipPath id="${clipId}"><rect width="${f(w)}" height="${f(h)}"${clipRadius}/></clipPath>`
-        : `<clipPath id="${clipId}"><path d="${roundedRectD(0, 0, w, h, boxRadius!)}"/></clipPath>`;
+    const bleed = n.type === "frame" && n.clip ? outlineBleed(doc, n, mode) : 0;
+    const clipDef = (clipId: string) => {
+      if (!bleed) {
+        return even
+          ? `<clipPath id="${clipId}"><rect width="${f(w)}" height="${f(h)}"${clipRadius}/></clipPath>`
+          : `<clipPath id="${clipId}"><path d="${roundedRectD(0, 0, w, h, boxRadius!)}"/></clipPath>`;
+      }
+      const grown = (boxRadius ?? [0, 0, 0, 0]).map((c) => (c > 0 ? c + bleed : 0)) as [number, number, number, number];
+      return `<clipPath id="${clipId}"><path d="${roundedRectD(-bleed, -bleed, w + bleed * 2, h + bleed * 2, grown)}"/></clipPath>`;
+    };
     let body = "";
     switch (n.type) {
       case "frame":
@@ -334,7 +341,8 @@ export function exportSVG(
         body += `<g clip-path="url(#clip-${id})">${inner}</g>`;
       } else body += inner;
     }
-    return `${open}${defs ? `<defs>${defs}</defs>` : ""}${body}</g>`;
+    const ring = n.type === "text" ? "" : outlineRing(doc, n, w, h, boxRadius, mode);
+    return `${open}${defs ? `<defs>${defs}</defs>` : ""}${body}${ring}</g>`;
   };
 
   const origin: Box = [0, 0, 0, 0];
@@ -358,6 +366,29 @@ export function exportSVG(
     : `${pagePaint?.inner ?? ""}<rect width="${f(width)}" height="${f(height)}" fill="${escapeHtml(pagePaint ? pagePaint.fill : page?.fill ? String(resolveValue(doc, page.fill, page.mode)) : "#ffffff")}"/>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${f(width)}" height="${f(height)}" viewBox="0 0 ${f(width)} ${f(height)}">${bg}${content}</svg>`;
   return { svg, width, height, warnings };
+}
+
+function outlineRing(doc: Document, n: Node, w: number, h: number, radii: [number, number, number, number] | undefined, mode: string | undefined): string {
+  if (!("outline" in n) || !n.outline) return "";
+  const o = n.outline;
+  const ow = resolveLength(doc, o.width, mode) ?? 0;
+  if (ow <= 0) return "";
+  const off = o.offset === undefined ? 0 : (resolveLength(doc, o.offset, mode) ?? 0);
+  const out = off + ow / 2;
+  const style = o.style ?? "solid";
+  const dash = strokeDasharray(ow, style);
+  const attrs = ` fill="none" stroke="${escapeHtml(String(resolveValue(doc, o.color, mode)))}" stroke-width="${f(ow)}"${dash ? ` stroke-dasharray="${escapeHtml(dash)}"` : ""}`;
+  const x = -out;
+  const y = -out;
+  const rw = Math.max(0, w + out * 2);
+  const rh = Math.max(0, h + out * 2);
+  if (n.type === "ellipse") return `<ellipse cx="${f(w / 2)}" cy="${f(h / 2)}" rx="${f(rw / 2)}" ry="${f(rh / 2)}"${attrs}/>`;
+  if (radii && uniformCorner(radii) === undefined) {
+    const grown = radii.map((c) => (c > 0 ? Math.max(0, c + out) : 0)) as [number, number, number, number];
+    return `<path d="${roundedRectD(x, y, rw, rh, grown)}"${attrs}/>`;
+  }
+  const r = radii && radii[0] > 0 ? ` rx="${f(Math.max(0, radii[0] + out))}"` : "";
+  return `<rect x="${f(x)}" y="${f(y)}" width="${f(rw)}" height="${f(rh)}"${r}${attrs}/>`;
 }
 
 function numSize(doc: Document, value: TextNode["fontSize"], fallback: number, mode: string | undefined): number {

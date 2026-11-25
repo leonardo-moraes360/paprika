@@ -7843,7 +7843,7 @@
     {
       "name": "export_image",
       "title": "Export image / PDF",
-      "description": "Exports a node, a page or the canvas as PNG, JPEG, WebP, AVIF, vector PDF or SVG (format \"svg\" is the same vector SVG as export_code with format \"svg\", returned as a text block; scale does not apply). Raster formats are rendered by the same Chromium path as render_screenshot, so they match the screenshot and the canvas; without a usable Chromium they fall back to a pure-Go SVG rasterizer (core ExportSVG plus embedded Inter) and warnings says so. PDF always draws the ExportSVG geometry as vectors. Like render_screenshot, a root that is not a page is on a transparent background (PNG, WebP and AVIF keep the alpha; JPEG is flattened onto white). scale is applied to the raster (and to PDF page size). Returns one image (or PDF) content block as base64 plus width/height.",
+      "description": "Exports a node, a page or the canvas as PNG, JPEG, WebP, AVIF, vector PDF or SVG (format \"svg\" is the same vector SVG as export_code with format \"svg\", returned as a text block; scale does not apply). Raster formats are rendered by the same Chromium path as render_screenshot, so they match the screenshot and the canvas; without a usable Chromium they fall back to a pure-Go SVG rasterizer (core ExportSVG plus embedded Inter) and warnings says so. PDF always draws the ExportSVG geometry as vectors. Like render_screenshot, a root that is not a page is on a transparent background (PNG, WebP and AVIF keep the alpha; JPEG is flattened onto white). scale is applied to the raster (and to PDF page size). The Chromium raster path caps each output side at 4096 px: when width or height times scale would exceed it, the scale is lowered to fit and a warnings entry says so. Returns one image (or PDF) content block as base64 plus structuredContent with width/height (output pixels), format, mimeType, scale (the scale actually used, which equals the requested scale unless the cap applied) and warnings.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -7896,6 +7896,9 @@
           },
           "mimeType": {
             "type": "string"
+          },
+          "scale": {
+            "type": "number"
           },
           "warnings": {
             "type": "array",

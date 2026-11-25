@@ -419,7 +419,13 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
 
   switch (node.type) {
     case "frame": {
-      if (node.clip) css.overflow = "hidden";
+      if (node.clip) {
+        const bleed = outlineBleed(doc, node, mode);
+        if (bleed > 0) {
+          css.overflow = "clip";
+          css.overflowClipMargin = `${bleed}px`;
+        } else css.overflow = "hidden";
+      }
       const l = node.layout;
       if (l && l.mode !== "none") {
         css.display = vis ? "flex" : "none";
@@ -506,6 +512,27 @@ function applyLayerFilter(css: CSS, doc: Document, node: Extract<Node, { filter?
 function applyBackdrop(css: CSS, doc: Document, node: Extract<Node, { backdropFilter?: EffectFilter }>, mode: string | undefined, vars: boolean | undefined) {
   const fx = filterCSS(doc, node.backdropFilter, mode, vars);
   if (fx) css.backdropFilter = fx;
+}
+
+export function outlineBleed(doc: Document, frame: Extract<Node, { type: "frame" }>, mode: string | undefined): number {
+  let bleed = 0;
+  const seen = new Set<string>();
+  const visit = (ids: readonly string[]) => {
+    for (const id of ids) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const n = doc.nodes[id];
+      if (!n) continue;
+      if ("outline" in n && n.outline) {
+        const w = resolveLength(doc, n.outline.width, mode) ?? 0;
+        const off = n.outline.offset === undefined ? 0 : (resolveLength(doc, n.outline.offset, mode) ?? 0);
+        bleed = Math.max(bleed, Math.ceil(w + off));
+      }
+      if (n.type === "group" || (n.type === "frame" && !n.clip)) visit(n.children);
+    }
+  };
+  visit(frame.children);
+  return bleed;
 }
 
 function applyOutline(css: CSS, doc: Document, node: Extract<Node, { outline?: { color: string; width: number | string; style?: "solid" | "dashed" | "dotted"; offset?: number | string } }>, mode: string | undefined, vars: boolean | undefined, paint: PaintFn) {
