@@ -65,6 +65,9 @@ async fn main() -> Result<()> {
     let writer = tokio::spawn(async move {
         let mut stdout = tokio::io::stdout();
         while let Some(v) = out_rx.recv().await {
+            if v.is_null() {
+                break; // end marker sent by main after shutdown: everything before it is written
+            }
             let mut line = serde_json::to_vec(&v).unwrap_or_default();
             line.push(b'\n');
             if stdout.write_all(&line).await.is_err() || stdout.flush().await.is_err() {
@@ -98,7 +101,9 @@ async fn main() -> Result<()> {
         });
     }
     node.shutdown().await;
-    drop(out_tx);
+    // The node and its tasks still hold senders, so the channel never closes on its own:
+    // queue an end marker behind the last event instead of waiting for every sender to drop.
+    let _ = out_tx.send(Value::Null);
     let _ = writer.await;
     Ok(())
 }
