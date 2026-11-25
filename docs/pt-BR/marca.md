@@ -16,6 +16,10 @@ Grade 5×6 de células arredondadas: coluna amarela à esquerda, vermelha no mei
 
 `paprika` em minúsculas geométricas monolineares desenhadas como paths (sem depender de fonte): pontas redondas, altura-x 100, traço 24. O pingo do i é um quadrado amarelo arredondado (raio de um terço do lado), no formato de uma alça de seleção, afastado da haste.
 
+## Lockup
+
+Símbolo e letreiro lado a lado, com o lockup da altura do símbolo e a altura-x do letreiro centralizada nele. O vão entre a caixa do símbolo e o letreiro é de uma célula da grade (13 das 100 unidades do símbolo), para as alças da seleção não encostarem no `p`.
+
 ## Paleta
 
 | Papel | Claro | Escuro |

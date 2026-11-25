@@ -16,6 +16,10 @@ A 5×6 grid of rounded cells: yellow column on the left, red in the middle, gree
 
 `paprika` in monoline geometric lowercase drawn as paths (no font dependency): round caps, x-height 100, stroke 24. The dot of the i is a yellow rounded square (corner radius a third of its side), the same shape as a selection handle, raised clear of the stem.
 
+## Lockup
+
+Symbol and wordmark side by side, the lockup as tall as the symbol and the wordmark's x-height centered on it. The space between the symbol's box and the wordmark is one grid cell (13 of the symbol's 100 units), so the selection handles never crowd the `p`.
+
 ## Palette
 
 | Role | Light | Dark |

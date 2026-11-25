@@ -16,6 +16,8 @@ export const THEMES = {
   },
 };
 
+export const LOCKUP_GAP = 13;
+
 const GRID = { cell: 13, gap: 2.5, ox: (100 - (5 * 13 + 4 * 2.5)) / 2, oy: 9 };
 
 export function gridSymbol({ map, fills, radius, selection, selectionColor, handleFill = "#FFFFFF", oy = GRID.oy }) {
