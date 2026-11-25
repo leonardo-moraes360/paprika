@@ -199,7 +199,7 @@ describe("API: MCP", () => {
     expect(tools).toEqual(contract.tools);
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
-        "apply_ops", "archive_workspace", "create_shape_path", "round_path_corners", "outline_stroke", "repeat_nodes", "combine_paths", "convert_to_path", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
+        "apply_ops", "archive_workspace", "create_shape_path", "normalize_paths", "round_path_corners", "outline_stroke", "repeat_nodes", "combine_paths", "convert_to_path", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "detach_tokens", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "align_nodes", "distribute_nodes", "wrap_nodes", "show_all", "unlock_all",
@@ -920,6 +920,36 @@ describe("API: MCP", () => {
     const gap = (await srv.doc()).nodes.gap as PathNode;
     expect(gap).toMatchObject({ x: 40, y: 30, width: 40, height: 40 });
     expect(gap.d.startsWith("M0 0") || gap.d.startsWith("M0 0 ")).toBe(true);
+  });
+
+  it("path box hugs the ink: create and update by default, normalize_paths repairs old boxes (PAP-A-034)", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      place: "none",
+      nodes: [{
+        type: "frame", id: "pbox", x: 0, y: 0, width: 600, height: 400, clip: true,
+        children: [
+          // A d in frame coordinates under x: 0, y: 0: the old default made a box from (0,0) to the far edge.
+          { type: "path", id: "pb-new", x: 0, y: 0, d: "M200 120 L260 120 L230 180 Z", fill: "#c43d27" },
+          { type: "path", id: "pb-old", x: 0, y: 0, d: "M300 120 L360 120 L330 180 Z", normalize: false, fill: "#c43d27" },
+        ],
+      }],
+    });
+    let doc = await srv.doc();
+    expect(doc.nodes["pb-new"]).toMatchObject({ x: 200, y: 120, width: 60, height: 60 });
+    expect(doc.nodes["pb-old"]).toMatchObject({ x: 0, y: 0, width: 360, height: 180 });
+    const fixed = JSON.parse(textOf(await call(c, "normalize_paths", { rootId: "pbox" })));
+    expect(fixed.normalized).toEqual([
+      { id: "pb-old", before: { x: 0, y: 0, width: 360, height: 180 }, after: { x: 300, y: 120, width: 60, height: 60 } },
+    ]);
+    expect(fixed.unchanged).toBe(1);
+    doc = await srv.doc();
+    expect(doc.nodes["pb-old"]).toMatchObject({ x: 300, y: 120, width: 60, height: 60 });
+    await call(c, "update_nodes", { updates: [{ id: "pb-new", props: { d: "M10 300 L70 300 L40 350 Z" } }] });
+    doc = await srv.doc();
+    expect(doc.nodes["pb-new"]).toMatchObject({ x: 210, y: 420, width: 60, height: 50 });
+    const again = JSON.parse(textOf(await call(c, "normalize_paths", {})));
+    expect(again.normalized).toEqual([]);
   });
 
   it("get_bounds segue layout.wrap: linhas quebradas, altura hug e ids de outra página", async () => {

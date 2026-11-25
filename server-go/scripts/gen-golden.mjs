@@ -446,6 +446,27 @@ const opCases = [
   ["empty", [{ op: "create", node: { type: "path", id: "wave", d: "M0 40 C 30 -10 70 90 100 40", stroke: { color: "#c43d27", width: 4 } } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M40 30 L80 30 L60 70 Z", normalize: true, fill: "#c43d27" } }]],
   ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M0 0 L10 10", width: null, height: 5 } }]],
+  // PAP-A-034: the box hugs the ink by default; normalize: false, a size or a viewBox keep d as written.
+  ["empty", [{ op: "create", node: { type: "path", id: "p", x: 5, y: 7, d: "M40.123 30.456 C 60 -10 90 80 120 55.5 Z", fill: "#c43d27" } }]],
+  ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M40 30 L80 30 L60 70 Z", normalize: false, fill: "#c43d27" } }]],
+  ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M40 30 L80 30 L60 70 Z", width: 100, height: 100 } }]],
+  ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M40 30 L80 30 L60 70 Z", normalize: "yes" } }]],
+  ["empty", [
+    { op: "create", node: { type: "path", id: "p", d: "M40 30 L80 30 L60 70 Z", normalize: false } },
+    { op: "update", id: "p", props: { d: "M10.5 10 L50 10 L50 30.25 Z" } },
+  ]],
+  ["empty", [
+    { op: "create", node: { type: "path", id: "p", x: 3, d: "M40 30 L80 30 L60 70 Z", normalize: false } },
+    { op: "update", id: "p", props: { d: "M10 10 L50 10 L50 30 Z", x: 20, normalize: false } },
+  ]],
+  ["empty", [
+    { op: "create", node: { type: "path", id: "p", d: "M40 30 L80 30 L60 70 Z", normalize: false } },
+    { op: "update", id: "p", props: { d: "M10 10 L50 10 L50 30 Z", width: 60 } },
+  ]],
+  ["empty", [
+    { op: "create", node: { type: "path", id: "p", d: "M40 30 L80 30 L60 70 Z", normalize: false } },
+    { op: "update", id: "p", props: { d: "M10 10 L50 10 L50 30 Z", normalize: 1 } },
+  ]],
   ["empty", [{ op: "create", node: { type: "path", id: "p", d: "M0 0 L10 10", shadow: { x: 1, y: 2, blur: 3, color: "#0008" } } }]],
   ["empty", [{ op: "x" }]],
   ["empty", [{ op: "update" }]],
