@@ -1,0 +1,656 @@
+{
+  "format": "paprika/1",
+  "id": "wasm-nested-borders",
+  "name": "WASM nested borders",
+  "tokens": {},
+  "rootIds": [
+    "board"
+  ],
+  "nodes": {
+    "board": {
+      "id": "board",
+      "name": "board",
+      "parentId": null,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "l1"
+      ],
+      "width": 640,
+      "height": 520,
+      "fill": "#101826",
+      "stroke": {
+        "color": "#ffffff",
+        "width": 3,
+        "style": "solid",
+        "position": "inside"
+      },
+      "layout": {
+        "mode": "column",
+        "gap": 5.3,
+        "padding": 11.5,
+        "align": "start",
+        "justify": "start",
+        "wrap": false
+      }
+    },
+    "l1": {
+      "id": "l1",
+      "name": "l1",
+      "parentId": "board",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 6,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "l2",
+        "l2b",
+        "l2c"
+      ],
+      "width": "fill",
+      "height": "hug",
+      "fill": "#1c2740",
+      "stroke": {
+        "color": "#5a6a9a",
+        "width": 1,
+        "style": "solid",
+        "position": "inside"
+      },
+      "layout": {
+        "mode": "column",
+        "gap": 3.3,
+        "padding": 7.5,
+        "align": "start",
+        "justify": "start",
+        "wrap": false
+      }
+    },
+    "l2": {
+      "id": "l2",
+      "name": "l2",
+      "parentId": "l1",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 5,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "l3"
+      ],
+      "width": "fill",
+      "height": "hug",
+      "fill": "#26355a",
+      "stroke": {
+        "color": "#8a9acb",
+        "width": 2,
+        "style": "solid",
+        "position": "inside"
+      },
+      "layout": {
+        "mode": "row",
+        "gap": 3.3,
+        "padding": 7.5,
+        "align": "center",
+        "justify": "start",
+        "wrap": false
+      }
+    },
+    "l3": {
+      "id": "l3",
+      "name": "l3",
+      "parentId": "l2",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 4,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "label",
+        "button",
+        "dot"
+      ],
+      "width": "hug",
+      "height": "hug",
+      "fill": "#34477a",
+      "stroke": {
+        "color": "#c0cdf0",
+        "width": 3,
+        "style": "solid",
+        "position": "inside"
+      },
+      "layout": {
+        "mode": "row",
+        "gap": 3.3,
+        "padding": 7.5,
+        "align": "center",
+        "justify": "start",
+        "wrap": false
+      }
+    },
+    "label": {
+      "id": "label",
+      "name": "label",
+      "parentId": "l3",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 0,
+      "y": 0,
+      "type": "text",
+      "text": "Fractional text",
+      "color": "#ffffff",
+      "fontFamily": "Inter, system-ui, sans-serif",
+      "fontSize": 13.7,
+      "fontWeight": 600,
+      "lineHeight": 1.3,
+      "letterSpacing": 0,
+      "textAlign": "left",
+      "width": "hug",
+      "height": "hug"
+    },
+    "button": {
+      "id": "button",
+      "name": "button",
+      "parentId": "l3",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 9,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "buttonLabel"
+      ],
+      "width": "hug",
+      "height": "hug",
+      "fill": "#e63946",
+      "stroke": {
+        "color": "#ffd6d9",
+        "width": 1,
+        "style": "solid",
+        "position": "inside"
+      },
+      "layout": {
+        "mode": "row",
+        "gap": 0,
+        "padding": [
+          5.5,
+          13.5
+        ],
+        "align": "center",
+        "justify": "center",
+        "wrap": false
+      }
+    },
+    "buttonLabel": {
+      "id": "buttonLabel",
+      "name": "buttonLabel",
+      "parentId": "button",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 0,
+      "y": 0,
+      "type": "text",
+      "text": "Buy now",
+      "color": "#ffffff",
+      "fontFamily": "Inter, system-ui, sans-serif",
+      "fontSize": 14.3,
+      "fontWeight": 600,
+      "lineHeight": 1.3,
+      "letterSpacing": 0,
+      "textAlign": "left",
+      "width": "hug",
+      "height": "hug"
+    },
+    "dot": {
+      "id": "dot",
+      "name": "dot",
+      "parentId": "l3",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "circle",
+        "icon"
+      ],
+      "width": 41.7,
+      "height": 41.7,
+      "layout": {
+        "mode": "none",
+        "gap": 0,
+        "padding": 0,
+        "align": "start",
+        "justify": "start",
+        "wrap": false
+      }
+    },
+    "circle": {
+      "id": "circle",
+      "name": "circle",
+      "parentId": "dot",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 0,
+      "y": 0,
+      "type": "ellipse",
+      "width": 41.7,
+      "height": 41.7,
+      "fill": "#2a9d8f"
+    },
+    "icon": {
+      "id": "icon",
+      "name": "icon",
+      "parentId": "dot",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 10.35,
+      "y": 10.35,
+      "type": "path",
+      "width": 21,
+      "height": 21,
+      "fill": "#ffffff",
+      "d": "M0 10 L10 0 L20 10 L10 20 Z",
+      "viewBox": [
+        0,
+        0,
+        20,
+        20
+      ],
+      "fillRule": "nonzero",
+      "strokeCap": "round",
+      "strokeJoin": "round"
+    },
+    "l2b": {
+      "id": "l2b",
+      "name": "l2b",
+      "parentId": "l1",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 5,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "spinBox",
+        "spinFrame",
+        "clipper"
+      ],
+      "width": "fill",
+      "height": "hug",
+      "fill": "#26355a",
+      "stroke": {
+        "color": "#8a9acb",
+        "width": 2,
+        "style": "solid",
+        "position": "inside"
+      },
+      "layout": {
+        "mode": "row",
+        "gap": 3.3,
+        "padding": 7.5,
+        "align": "center",
+        "justify": "start",
+        "wrap": false
+      }
+    },
+    "spinBox": {
+      "id": "spinBox",
+      "name": "spinBox",
+      "parentId": "l2b",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "square"
+      ],
+      "width": 70.5,
+      "height": 70.5,
+      "layout": {
+        "mode": "none",
+        "gap": 0,
+        "padding": 0,
+        "align": "start",
+        "justify": "start",
+        "wrap": false
+      }
+    },
+    "square": {
+      "id": "square",
+      "name": "square",
+      "parentId": "spinBox",
+      "rotation": 17,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 4,
+      "x": 15,
+      "y": 15,
+      "type": "rect",
+      "width": 40.5,
+      "height": 40.5,
+      "fill": "#e9c46a"
+    },
+    "spinFrame": {
+      "id": "spinFrame",
+      "name": "spinFrame",
+      "parentId": "l2b",
+      "rotation": 12,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "spinChild"
+      ],
+      "width": 60.3,
+      "height": 60.3,
+      "fill": "#3a6b5c",
+      "stroke": {
+        "color": "#bfe8d8",
+        "width": 2,
+        "style": "solid",
+        "position": "inside"
+      },
+      "layout": {
+        "mode": "none",
+        "gap": 0,
+        "padding": 0,
+        "align": "start",
+        "justify": "start",
+        "wrap": false
+      }
+    },
+    "spinChild": {
+      "id": "spinChild",
+      "name": "spinChild",
+      "parentId": "spinFrame",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 3,
+      "x": 7.5,
+      "y": 7.5,
+      "type": "rect",
+      "width": 30.3,
+      "height": 30.3,
+      "fill": "#f4a261"
+    },
+    "clipper": {
+      "id": "clipper",
+      "name": "clipper",
+      "parentId": "l2b",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 8,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": true,
+      "children": [
+        "clipRect",
+        "clipDot"
+      ],
+      "width": 90.5,
+      "height": 40.3,
+      "fill": "#2a9d8f",
+      "stroke": {
+        "color": "#ffffff",
+        "width": 1,
+        "style": "solid",
+        "position": "inside"
+      },
+      "layout": {
+        "mode": "none",
+        "gap": 0,
+        "padding": 0,
+        "align": "start",
+        "justify": "start",
+        "wrap": false
+      }
+    },
+    "clipRect": {
+      "id": "clipRect",
+      "name": "clipRect",
+      "parentId": "clipper",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": -10,
+      "y": 10.5,
+      "type": "rect",
+      "width": 60,
+      "height": 50,
+      "fill": "#e9c46a"
+    },
+    "clipDot": {
+      "id": "clipDot",
+      "name": "clipDot",
+      "parentId": "clipper",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 60.2,
+      "y": -6.3,
+      "type": "ellipse",
+      "width": 40,
+      "height": 40,
+      "fill": "#e63946"
+    },
+    "l2c": {
+      "id": "l2c",
+      "name": "l2c",
+      "parentId": "l1",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 5,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "deepA"
+      ],
+      "width": "fill",
+      "height": "hug",
+      "fill": "#26355a",
+      "stroke": {
+        "color": "#8a9acb",
+        "width": 3,
+        "style": "solid",
+        "position": "inside"
+      },
+      "layout": {
+        "mode": "column",
+        "gap": 3.3,
+        "padding": 7.5,
+        "align": "start",
+        "justify": "start",
+        "wrap": false
+      }
+    },
+    "deepA": {
+      "id": "deepA",
+      "name": "deepA",
+      "parentId": "l2c",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "deepB"
+      ],
+      "width": "fill",
+      "height": "hug",
+      "fill": "#34477a",
+      "stroke": {
+        "color": "#c0cdf0",
+        "width": 2,
+        "style": "solid",
+        "position": "inside"
+      },
+      "layout": {
+        "mode": "column",
+        "gap": 3.3,
+        "padding": 7.5,
+        "align": "start",
+        "justify": "start",
+        "wrap": false
+      }
+    },
+    "deepB": {
+      "id": "deepB",
+      "name": "deepB",
+      "parentId": "deepA",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "pill"
+      ],
+      "width": "fill",
+      "height": "hug",
+      "fill": "#455a93",
+      "stroke": {
+        "color": "#e0e8ff",
+        "width": 1,
+        "style": "solid",
+        "position": "inside"
+      },
+      "layout": {
+        "mode": "row",
+        "gap": 3.3,
+        "padding": 7.5,
+        "align": "center",
+        "justify": "center",
+        "wrap": false
+      }
+    },
+    "pill": {
+      "id": "pill",
+      "name": "pill",
+      "parentId": "deepB",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 999,
+      "x": 0,
+      "y": 0,
+      "type": "frame",
+      "clip": false,
+      "children": [
+        "pillLabel"
+      ],
+      "width": "hug",
+      "height": "hug",
+      "fill": "#2a9d8f",
+      "layout": {
+        "mode": "row",
+        "gap": 0,
+        "padding": [
+          4.5,
+          11.5
+        ],
+        "align": "center",
+        "justify": "center",
+        "wrap": false
+      }
+    },
+    "pillLabel": {
+      "id": "pillLabel",
+      "name": "pillLabel",
+      "parentId": "pill",
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "radius": 0,
+      "x": 0,
+      "y": 0,
+      "type": "text",
+      "text": "OK",
+      "color": "#ffffff",
+      "fontFamily": "Inter, system-ui, sans-serif",
+      "fontSize": 12.3,
+      "fontWeight": 600,
+      "lineHeight": 1.3,
+      "letterSpacing": 0,
+      "textAlign": "left",
+      "width": "hug",
+      "height": "hug"
+    }
+  }
+}

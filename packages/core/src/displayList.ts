@@ -51,35 +51,59 @@ function unevenCorners(doc: Document, n: Node): boolean {
   return uniformCorner(resolveCorners(doc, n.radius, modeOf(doc, n))) === undefined;
 }
 
-function underUnevenFrame(doc: Document, n: Node): boolean {
+function underAncestor(doc: Document, n: Node, test: (p: Node) => boolean): boolean {
   const seen = new Set<string>();
   let id = n.parentId;
   while (id && !seen.has(id)) {
     seen.add(id);
     const p = doc.nodes[id];
     if (!p) return false;
-    if (p.type === "frame" && unevenCorners(doc, p)) return true;
+    if (test(p)) return true;
     id = p.parentId;
   }
   return false;
 }
 
+const underUnevenFrame = (doc: Document, n: Node) => underAncestor(doc, n, (p) => p.type === "frame" && unevenCorners(doc, p));
+const underRotated = (doc: Document, n: Node) => underAncestor(doc, n, (p) => rotationOf(p) !== 0);
+
+export interface WasmRule {
+  id: string;
+  reason: string;
+  blocks: (doc: Document, n: Node) => boolean;
+}
+
+const strokeWidthOf = (doc: Document, n: Node): number => ("stroke" in n && n.stroke ? (resolveLength(doc, n.stroke.width, modeOf(doc, n)) ?? 0) : 0);
+
+export const WASM_FALLBACK_RULES: readonly WasmRule[] = [
+  { id: "non-shape", reason: "only frame, rect, ellipse and path are drawn by the WASM layer; text, image, group, connector and shape stay on the DOM", blocks: (_doc, n) => !isShape(n) },
+  { id: "uneven-corners", reason: "per-corner radii differ: the Rust renderer takes a single radius", blocks: (doc, n) => unevenCorners(doc, n) },
+  { id: "under-uneven-frame", reason: "an ancestor frame has uneven corners and clips its content with a rounded mask the WASM layer cannot draw", blocks: underUnevenFrame },
+  { id: "under-rotated-ancestor", reason: "an ancestor is rotated: the display list rotates a box about its own centre only, so a descendant would be drawn unrotated", blocks: underRotated },
+  { id: "gradient", reason: "structured gradients (linear, radial, conic) are CSS only", blocks: (_doc, n) => !!nodeGradient(n) },
+  { id: "non-solid-fill", reason: "fill is not a classic solid color (oklch, color-mix, Display P3, named colors outside the basic set)", blocks: (doc, n) => "fill" in n && !solidColor(doc, n.fill, modeOf(doc, n)) },
+  { id: "non-solid-stroke-color", reason: "stroke color is not a classic solid color", blocks: (doc, n) => "stroke" in n && !!n.stroke && !solidColor(doc, n.stroke.color, modeOf(doc, n)) },
+  { id: "outline", reason: "outline (width, style, offset) is drawn by CSS", blocks: (_doc, n) => "outline" in n && !!n.outline },
+  { id: "filter", reason: "CSS filter functions (blur, saturate, grayscale, brightness, sepia, invert, hue-rotate)", blocks: (_doc, n) => "filter" in n && hasEffects(n.filter) },
+  { id: "backdrop-filter", reason: "backdrop filters sample the DOM behind the node", blocks: (_doc, n) => "backdropFilter" in n && hasEffects(n.backdropFilter) },
+  { id: "several-shadows", reason: "the display list carries one outer shadow", blocks: (_doc, n) => "shadow" in n && listShadows(n.shadow).length > 1 },
+  { id: "inner-shadow", reason: "inset shadows are CSS only", blocks: (_doc, n) => "shadow" in n && listShadows(n.shadow).some((s) => s.inner) },
+  { id: "path-shadow", reason: "a path shadow follows the glyph outline in CSS, not the box", blocks: (_doc, n) => n.type === "path" && "shadow" in n && listShadows(n.shadow).length > 0 },
+  { id: "non-solid-shadow-color", reason: "shadow color is not a classic solid color", blocks: (doc, n) => "shadow" in n && !!listShadows(n.shadow)[0] && !solidColor(doc, listShadows(n.shadow)[0]!.color, modeOf(doc, n)) },
+  { id: "non-solid-stroke-style", reason: "dashed and dotted strokes are CSS only", blocks: (doc, n) => "stroke" in n && !!n.stroke && strokeWidthOf(doc, n) > 0 && strokeStyleOf(n.stroke) !== "solid" },
+  {
+    id: "stroke-position",
+    reason: "WASM strokes frames, rects and ellipses inside and paths on the centre line; any other position is drawn by CSS",
+    blocks: (doc, n) => "stroke" in n && !!n.stroke && strokeWidthOf(doc, n) > 0 && strokePositionOf(n) !== (n.type === "path" ? "center" : "inside"),
+  },
+];
+
+export function wasmFallbackRule(doc: Document, n: Node): WasmRule | null {
+  return WASM_FALLBACK_RULES.find((r) => r.blocks(doc, n)) ?? null;
+}
+
 export function wasmPaintable(doc: Document, n: Node): boolean {
-  if (underUnevenFrame(doc, n) || unevenCorners(doc, n)) return false;
-  if (!isShape(n)) return false;
-  if (nodeGradient(n)) return false;
-  if (!solidColor(doc, n.fill, modeOf(doc, n))) return false;
-  if (n.stroke && !solidColor(doc, n.stroke.color, modeOf(doc, n))) return false;
-  const shadows = listShadows(n.shadow);
-  if (n.outline || hasEffects(n.filter) || hasEffects(n.backdropFilter)) return false;
-  if (shadows.length > 1 || shadows.some((s) => s.inner)) return false;
-  if (shadows[0] && (n.type === "path" || !solidColor(doc, shadows[0].color, modeOf(doc, n)))) return false;
-  if (n.stroke && (resolveLength(doc, n.stroke.width, modeOf(doc, n)) ?? 0) > 0) {
-    if (strokeStyleOf(n.stroke) !== "solid") return false;
-    const wasmPos = n.type === "path" ? "center" : "inside";
-    if (strokePositionOf(n) !== wasmPos) return false;
-  }
-  return true;
+  return wasmFallbackRule(doc, n) === null;
 }
 
 interface AABB {

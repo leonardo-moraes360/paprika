@@ -49,9 +49,9 @@ async function openCanvas(page: Page, base: string, renderer: "dom" | "wasm") {
   await page.waitForTimeout(300);
 }
 
-async function diffRatio(page: Page, a: Buffer, b: Buffer, tol = 40): Promise<number> {
+async function diffRatio(page: Page, a: Buffer, b: Buffer, tol = 40, slack = 0): Promise<number> {
   return page.evaluate(
-    async ([a64, b64, t]) => {
+    async ([a64, b64, t, sl]) => {
       const load = async (s: string) => {
         const img = new Image();
         img.src = `data:image/png;base64,${s}`;
@@ -64,13 +64,41 @@ async function diffRatio(page: Page, a: Buffer, b: Buffer, tol = 40): Promise<nu
         return x.getImageData(0, 0, c.width, c.height).data;
       };
       const [pa, pb] = await Promise.all([load(a64 as string), load(b64 as string)]);
+      const w = (await new Promise<number>((ok) => {
+        const img = new Image();
+        img.onload = () => ok(img.width);
+        img.src = `data:image/png;base64,${a64}`;
+      })) as number;
+      const h = pa.length / 4 / w;
+      const r = sl as number;
+      const soften = (src: Uint8ClampedArray) => {
+        if (!r) return src;
+        const out = new Uint8ClampedArray(src.length);
+        for (let y = 0; y < h; y++)
+          for (let x = 0; x < w; x++)
+            for (let c = 0; c < 3; c++) {
+              let sum = 0;
+              let n = 0;
+              for (let dy = -r; dy <= r; dy++)
+                for (let dx = -r; dx <= r; dx++) {
+                  const x2 = x + dx;
+                  const y2 = y + dy;
+                  if (x2 < 0 || y2 < 0 || x2 >= w || y2 >= h) continue;
+                  sum += src[(y2 * w + x2) * 4 + c]!;
+                  n++;
+                }
+              out[(y * w + x) * 4 + c] = sum / n;
+            }
+        return out;
+      };
+      const [qa, qb] = [soften(pa), soften(pb)];
       let bad = 0;
       for (let i = 0; i < pa.length; i += 4) {
-        if (Math.max(Math.abs(pa[i]! - pb[i]!), Math.abs(pa[i + 1]! - pb[i + 1]!), Math.abs(pa[i + 2]! - pb[i + 2]!)) > (t as number)) bad++;
+        if (Math.max(Math.abs(qa[i]! - qb[i]!), Math.abs(qa[i + 1]! - qb[i + 1]!), Math.abs(qa[i + 2]! - qb[i + 2]!)) > (t as number)) bad++;
       }
       return bad / (pa.length / 4);
     },
-    [a.toString("base64"), b.toString("base64"), tol] as const,
+    [a.toString("base64"), b.toString("base64"), tol, slack] as const,
   );
 }
 
@@ -520,4 +548,189 @@ describe.skipIf(!wasmBuilt)("E2E: traço de path em unidades do viewBox fica igu
     expect(await diffRatio(fx.page, dom, wasm, 60)).toBeLessThan(0.005);
     expect(fx.errors.filter((e) => !/WebSocket|adapters/i.test(e))).toEqual([]);
   });
+});
+
+describe.skipIf(!wasmBuilt)("E2E: caixas do WASM são exatas com bordas e auto-layout fracionário (PAP-A-065)", () => {
+  const fx = useFixtureServer("wasm-nested-borders.paprika.json", { consoleErrors: true });
+
+  interface Geometry {
+    checked: number;
+    worst: number;
+    worstId: string;
+    ids: string[];
+    exact: Record<string, { x: number; y: number; w: number; h: number }>;
+    boxes: Record<string, { x: number; y: number; w: number; h: number }>;
+  }
+
+  async function geometry(): Promise<Geometry> {
+    return fx.page.evaluate(() => {
+      const world = document.querySelector<HTMLElement>(".world")!;
+      const boxes = (world as unknown as { __paprikaBoxes: Map<string, { x: number; y: number; w: number; h: number }> }).__paprikaBoxes;
+      const wr = world.getBoundingClientRect();
+      const zoom = Number(world.style.transform.match(/scale\(([^)]+)\)/)![1]);
+      const turned = (el: Element | null): boolean => {
+        for (; el && el !== world; el = el.parentElement) {
+          const t = (el as HTMLElement).style.transform;
+          if (t && t !== "none") return true;
+        }
+        return false;
+      };
+      let worst = 0;
+      let worstId = "";
+      let checked = 0;
+      const exact: Geometry["exact"] = {};
+      for (const [id, b] of boxes) {
+        const el = world.querySelector<HTMLElement>(`[data-paprika-id="${id}"]`)!;
+        if (turned(el) || el.dataset.paprikaType === "path") continue;
+        const r = el.getBoundingClientRect();
+        const e = { x: (r.left - wr.left) / zoom, y: (r.top - wr.top) / zoom, w: r.width / zoom, h: r.height / zoom };
+        exact[id] = e;
+        const err = Math.max(Math.abs(b.x - e.x), Math.abs(b.y - e.y), Math.abs(b.w - e.w), Math.abs(b.h - e.h));
+        checked++;
+        if (err > worst) {
+          worst = err;
+          worstId = id;
+        }
+      }
+      return { checked, worst, worstId, ids: [...boxes.keys()], exact, boxes: Object.fromEntries(boxes) };
+    });
+  }
+
+  it("a caixa entregue ao displayList bate com o layout do DOM a 0,1 px, em zoom 1 e ampliado", async () => {
+    await openCanvas(fx.page, fx.url, "wasm");
+    expect(["cpu", "webgpu"]).toContain(await fx.page.getByTestId("renderer-toggle").getAttribute("data-backend"));
+    for (let zoomIns = 0; zoomIns < 3; zoomIns++) {
+      if (zoomIns) {
+        await fx.page.getByRole("button", { name: "Aumentar zoom" }).click();
+        const toggle = fx.page.getByTestId("renderer-toggle");
+        await toggle.click();
+        await expect.poll(() => toggle.getAttribute("data-backend")).toBe("dom");
+        await toggle.click();
+        await expect.poll(() => toggle.getAttribute("data-backend")).toMatch(/^(cpu|webgpu)$/);
+        await fx.page.waitForTimeout(200);
+      }
+      const g = await geometry();
+      expect(g.checked).toBeGreaterThan(15);
+      expect(g.worst, `${g.worstId} zoom step ${zoomIns}`).toBeLessThan(0.1);
+    }
+    expect(fx.errors.filter((e) => !/WebSocket|adapters/i.test(e))).toEqual([]);
+  });
+
+  it("os valores batem com a conta feita à mão: borda de 1+2+3 px e preenchimento de 7,5 px acumulam", async () => {
+    await openCanvas(fx.page, fx.url, "wasm");
+    const g = await geometry();
+    expect(g.boxes.board!.x).toBeCloseTo(0, 1);
+    expect(g.boxes.l1!.x).toBeCloseTo(3 + 11.5, 1);
+    expect(g.boxes.l2!.x).toBeCloseTo(3 + 11.5 + 1 + 7.5, 1);
+    expect(g.boxes.l3!.x).toBeCloseTo(3 + 11.5 + 1 + 7.5 + 2 + 7.5, 1);
+    expect(g.boxes.label!.x).toBeCloseTo(3 + 11.5 + 1 + 7.5 + 2 + 7.5 + 3 + 7.5, 1);
+    expect(g.boxes.board!.y + 3 + 11.5).toBeCloseTo(g.boxes.l1!.y, 1);
+    expect(g.boxes.spinFrame!.w).toBeCloseTo(60.3, 1);
+    expect(g.boxes.square!.w).toBeCloseTo(40.5, 1);
+  });
+
+  it("DOM e WASM ficam iguais pixel a pixel e o rótulo do botão fica centrado", async () => {
+    await openCanvas(fx.page, fx.url, "dom");
+    const dom = await fx.page.getByTestId("viewport").screenshot();
+    await openCanvas(fx.page, fx.url, "wasm");
+    for (const id of ["l1", "l2", "l3", "button", "circle", "clipper", "square"]) expect((await geometry()).ids, id).toContain(id);
+    const wasm = await fx.page.getByTestId("viewport").screenshot();
+    const shotDir = process.env.PAPRIKA_E2E_SHOTS;
+    if (shotDir) {
+      const { writeFile } = await import("node:fs/promises");
+      await writeFile(join(shotDir, "nested-dom.png"), dom);
+      await writeFile(join(shotDir, "nested-wasm.png"), wasm);
+    }
+    expect(await diffRatio(fx.page, dom, wasm, 40, 1)).toBeLessThan(0.005);
+    const off = await fx.page.evaluate(() => {
+      const world = document.querySelector<HTMLElement>(".world")!;
+      const boxes = (world as unknown as { __paprikaBoxes: Map<string, { x: number; y: number; w: number; h: number }> }).__paprikaBoxes;
+      const wr = world.getBoundingClientRect();
+      const lbl = document.querySelector<HTMLElement>('[data-paprika-id="buttonLabel"]')!.getBoundingClientRect();
+      const b = boxes.get("button")!;
+      return { dx: lbl.left - wr.left + lbl.width / 2 - (b.x + b.w / 2), dy: lbl.top - wr.top + lbl.height / 2 - (b.y + b.h / 2) };
+    });
+    expect(Math.abs(off.dx)).toBeLessThan(0.1);
+    expect(Math.abs(off.dy)).toBeLessThan(0.1);
+    expect(fx.errors.filter((e) => !/WebSocket|adapters/i.test(e))).toEqual([]);
+  });
+});
+
+function synthetic(rows: number): string {
+  const nodes: Record<string, Record<string, unknown>> = {};
+  const base = { rotation: 0, opacity: 1, visible: true, locked: false, radius: 0, x: 0, y: 0 };
+  const put = (id: string, parentId: string | null, o: Record<string, unknown>) => {
+    nodes[id] = { id, name: id, parentId, ...base, ...o };
+    if (parentId) (nodes[parentId]!.children as string[]).push(id);
+  };
+  const stroke = (w: number) => ({ color: "#5a6a9a", width: w, style: "solid", position: "inside" });
+  const lay = (mode: string, gap: number, padding: number) => ({ mode, gap, padding, align: "center", justify: "start", wrap: false });
+  put("board", null, { type: "frame", width: 800, height: "hug", fill: "#101826", clip: false, children: [], layout: lay("column", 3.3, 7.5), stroke: stroke(2) });
+  for (let i = 0; i < rows; i++) {
+    put(`r${i}`, "board", { type: "frame", width: "fill", height: "hug", fill: "#1c2740", clip: false, children: [], layout: lay("row", 3.3, 7.5), stroke: stroke(1 + (i % 3)) });
+    put(`b${i}`, `r${i}`, { type: "frame", width: "hug", height: "hug", fill: "#e63946", radius: 6, clip: false, children: [], layout: lay("row", 0, 5.5) });
+    put(`t${i}`, `b${i}`, { type: "text", text: `Row ${i}`, color: "#fff", fontFamily: "Inter, system-ui, sans-serif", fontSize: 13.7, fontWeight: 600, lineHeight: 1.3, letterSpacing: 0, textAlign: "left", width: "hug", height: "hug" });
+    put(`c${i}`, `r${i}`, { type: "ellipse", width: 20.5, height: 20.5, fill: "#2a9d8f" });
+    put(`s${i}`, `r${i}`, { type: "rect", width: 30.3, height: 20.5, fill: "#e9c46a", radius: 3 });
+  }
+  return JSON.stringify({ format: "paprika/1", id: "wasm-measure-perf", name: "measure perf", tokens: {}, rootIds: ["board"], nodes });
+}
+
+describe.skipIf(!wasmBuilt)("E2E: measureBoxes escala linear e não força layout (perf)", () => {
+  let dir: string;
+  const servers: ExternalServer[] = [];
+  let browser: Browser;
+
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), "paprika-wasm-perf-"));
+    browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
+  }, 60_000);
+
+  afterAll(async () => {
+    await browser?.close();
+    for (const s of servers) await s.stop();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  async function measure(rows: number) {
+    const { writeFile } = await import("node:fs/promises");
+    const file = join(dir, `perf-${rows}.paprika.json`);
+    await writeFile(file, synthetic(rows));
+    const server = await startServer({ seed: file, webRoot });
+    servers.push(server);
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Performance.enable");
+    await openCanvas(page, server.url, "wasm");
+    await page.waitForFunction(() => !!(document.querySelector(".world") as unknown as { __paprikaMeasure?: unknown })?.__paprikaMeasure, undefined, { timeout: 60_000 });
+    await page.waitForTimeout(800);
+    const layouts = async () => ((await cdp.send("Performance.getMetrics")).metrics.find((m) => m.name === "LayoutCount")?.value ?? 0);
+    const before = await layouts();
+    const r = await page.evaluate(() => {
+      const world = document.querySelector<HTMLElement>(".world")! as unknown as { __paprikaMeasure: () => Map<string, unknown> };
+      const times: number[] = [];
+      let size = 0;
+      for (let i = 0; i < 7; i++) {
+        const t = performance.now();
+        size = world.__paprikaMeasure().size;
+        times.push(performance.now() - t);
+      }
+      return { size, ms: Math.min(...times) };
+    });
+    const after = await layouts();
+    await page.close();
+    return { ...r, layouts: after - before };
+  }
+
+  it("custo por nó não cresce com o documento e leituras seguidas não geram layout", async () => {
+    const small = await measure(20);
+    const big = await measure(700);
+    expect(big.size).toBeGreaterThan(3400);
+    console.log(`measureBoxes: ${small.size} nodes ${small.ms.toFixed(2)} ms, ${big.size} nodes ${big.ms.toFixed(2)} ms`);
+    expect(small.layouts).toBeLessThanOrEqual(1);
+    expect(big.layouts).toBeLessThanOrEqual(1);
+    const perSmall = small.ms / small.size;
+    const perBig = big.ms / big.size;
+    expect(perBig).toBeLessThan(perSmall * 4 + 0.005);
+  }, 120_000);
 });

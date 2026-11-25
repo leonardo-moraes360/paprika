@@ -43,6 +43,21 @@ Um nó selecionado com `gradient` estruturado mostra alças de ângulo, centro, 
 
 A escolha fica salva no navegador; `?renderer=wasm` ou `?renderer=dom` na URL têm prioridade. Nós que a camada WASM não consegue desenhar com exatidão (gradientes estruturados, `oklch()` / `color-mix()` / Display P3 e outras cores não sólidas, sombra em path, mais de uma sombra, sombra interna, outline ou filter / backdrop filter) continuam pintados pelo DOM. Uma sombra externa em frame, retângulo ou elipse continua no WASM. Diferença conhecida: texto e imagens ficam sempre acima das formas desenhadas pelo WASM, mesmo quando a forma vem depois na ordem das camadas. Screenshots e exports não mudam (HTML).
 
+Um nó continua no DOM quando qualquer uma destas regras vale (`WASM_FALLBACK_RULES` em `packages/core/src/displayList.ts`, um caso de cada em `packages/core/test/wasmPaintable.test.ts`):
+
+| Regra | Por quê |
+| --- | --- |
+| Não é frame, retângulo, elipse nem path | Texto, imagens, grupos, conectores e nós `shape` são DOM |
+| Raios de canto desiguais, ou dentro de um frame com eles | O renderizador aceita um raio só |
+| Dentro de um ancestral rotacionado | O display list gira uma caixa só em torno do próprio centro |
+| Gradiente, ou cor de preenchimento / borda / sombra que não é sólida clássica | Gradientes, `oklch()`, `color-mix()`, Display P3 |
+| Outline, filter ou backdrop filter | Só em CSS |
+| Mais de uma sombra, sombra interna, ou qualquer sombra em path | Uma sombra externa em frame, retângulo ou elipse é desenhada pelo WASM |
+| Borda tracejada ou pontilhada | Só em CSS |
+| Posição da borda diferente de dentro (centro para paths) | O WASM traça por dentro, e paths pela linha central |
+
+As posições vêm do layout do DOM, não do documento: `measureBoxes` lê a caixa fracionária exata de cada nó (`getBoundingClientRect` relativo ao mundo, dividido pelo zoom, em unidades de 1/64 px como o motor de layout), então as bordas dos ancestrais e os tamanhos fracionários do auto-layout entram na conta; nós rotacionados usam o centro e o tamanho próprio, e seus descendentes encadeiam pelos offsets. O `wasm.e2e` afirma que cada caixa fica a 0,1 px do layout do DOM num fixture com bordas internas aninhadas, preenchimento e espaçamento fracionários, rotação e um frame com clip, e o compara pixel a pixel com o DOM.
+
 A espessura da borda em paths é em unidades do viewBox em todos os renderizadores (DOM, WASM, screenshot e export): quando a caixa do path difere do `viewBox`, a borda escala junto com a geometria, então `stroke.width: 10` numa caixa 20×20 sobre um `viewBox` `0 0 100 100` vale 2 px. O renderizador WASM multiplica a espessura pelo mesmo `min(w/vw, h/vh)` aplicado aos pontos, e a checagem de sobreposição na ordem de pintura usa a espessura escalada. O `wasm.e2e` cobre caixa ≠ viewBox (bordas finas, grossas e pequenas) pixel a pixel contra o DOM; roda no CI em qualquer mudança em `crates/render`, `packages/core`, `apps/web` ou `packages/e2e`.
 
 O renderizador WASM é compilado pelo `pnpm build` quando o Rust está instalado (`rustup target add wasm32-unknown-unknown` e `cargo install wasm-bindgen-cli --version 0.2.130`); sem ele o build mostra um aviso e o botão fica desabilitado. `PAPRIKA_REQUIRE_WASM=1` transforma o aviso em erro.

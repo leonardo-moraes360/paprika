@@ -44,6 +44,21 @@ A selected node with a structured `gradient` shows handles for the angle, the ce
 
 The choice is saved in the browser; `?renderer=wasm` or `?renderer=dom` in the URL overrides it. Nodes the WASM layer cannot draw exactly (structured gradients, `oklch()` / `color-mix()` / Display P3 and other non-solid colors, a shadow on a path, more than one shadow, an inner shadow, an outline, or a filter / backdrop filter) keep their DOM paint. One outer shadow on a frame, rectangle or ellipse is still drawn by WASM. Known difference: text and images always sit above WASM-drawn shapes, even when a shape comes later in the layer order. Screenshots and exports are unchanged (HTML).
 
+A node stays on the DOM when any of these rules holds (`WASM_FALLBACK_RULES` in `packages/core/src/displayList.ts`, one case each in `packages/core/test/wasmPaintable.test.ts`):
+
+| Rule | Why |
+| --- | --- |
+| Not a frame, rectangle, ellipse or path | Text, images, groups, connectors and `shape` nodes are DOM |
+| Uneven corner radii, or under a frame with them | The renderer takes one radius |
+| Under a rotated ancestor | The display list rotates a box about its own centre only |
+| Gradient, or a fill / stroke / shadow color that is not a classic solid | Gradients, `oklch()`, `color-mix()`, Display P3 |
+| Outline, filter or backdrop filter | CSS only |
+| More than one shadow, an inner shadow, or any shadow on a path | One outer shadow on a frame, rectangle or ellipse is drawn by WASM |
+| Dashed or dotted stroke | CSS only |
+| Stroke position other than inside (center for paths) | WASM strokes inside, and paths on the centre line |
+
+Positions come from the DOM layout, not from the document: `measureBoxes` reads each node's exact fractional box (`getBoundingClientRect` relative to the world, divided by the zoom, in 1/64 px units like the layout engine), so ancestor borders and fractional auto-layout sizes are included; rotated nodes use their centre and own size, and their descendants chain through the offsets. `wasm.e2e` asserts that every box is within 0.1 px of the DOM layout on a fixture with nested inside strokes, fractional padding and gaps, rotation and a clipped frame, and compares it pixel by pixel with the DOM.
+
 Stroke widths on paths are in viewBox units in every renderer (DOM, WASM, screenshot and export): when a path's box differs from its `viewBox`, the stroke scales with the geometry, so `stroke.width: 10` on a 20×20 box over a `0 0 100 100` viewBox is 2 px. The WASM renderer multiplies the width by the same `min(w/vw, h/vh)` it applies to the points, and the paint-order overlap check uses the scaled width. `wasm.e2e` covers box ≠ viewBox (small, large and thin strokes) pixel by pixel against the DOM; it runs in CI on any change to `crates/render`, `packages/core`, `apps/web` or `packages/e2e`.
 
 The WASM renderer is built by `pnpm build` when Rust is installed (`rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version 0.2.130`); without it the build prints a warning and the button stays disabled. `PAPRIKA_REQUIRE_WASM=1` turns that warning into an error.

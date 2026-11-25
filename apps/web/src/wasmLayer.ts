@@ -73,40 +73,78 @@ export function saveRendererMode(mode: RendererMode) {
   for (const fn of rendererListeners) fn(mode);
 }
 
+const LAYOUT_UNIT = 64;
+const snap = (v: number) => Math.round(v * LAYOUT_UNIT) / LAYOUT_UNIT;
+
+function pixels(value: string, fallback: number): number {
+  return value.endsWith("px") ? Number.parseFloat(value) : fallback;
+}
+
 export function measureBoxes(world: HTMLElement): Map<string, Box> {
   const boxes = new Map<string, Box>();
-  const origin = new Map<Element, { x: number; y: number }>([[world, { x: 0, y: 0 }]]);
-  const pos = (el: HTMLElement): { x: number; y: number } | null => {
-    const hit = origin.get(el);
-    if (hit) return hit;
-    const parent = el.offsetParent as HTMLElement | null;
-    if (!parent) return null;
-    const p = pos(parent);
-    if (!p) return null;
-    const v = { x: p.x + el.offsetLeft, y: p.y + el.offsetTop };
-    origin.set(el, v);
+  const wr = world.getBoundingClientRect();
+  const scale = new DOMMatrixReadOnly(getComputedStyle(world).transform).a;
+  const k = scale > 0 ? 1 / scale : 1;
+  const turned = new Map<Element, boolean>([[world, false]]);
+  const isTurned = (el: Element | null): boolean => {
+    if (!el) return false;
+    const hit = turned.get(el);
+    if (hit !== undefined) return hit;
+    const t = (el as HTMLElement).style?.transform;
+    const v = (!!t && t !== "none") || isTurned(el.parentElement);
+    turned.set(el, v);
     return v;
   };
-  // Paths use their exact inline style whoever paints them: offset geometry rounds, and the box decides the painter.
+  const layout = new Map<Element, Box | null>([[world, { x: 0, y: 0, w: 0, h: 0 }]]);
+  // A turned element has an AABB rect, so its layout box comes from its centre and its own size; its descendants chain through offsets.
+  const place = (el: HTMLElement): Box | null => {
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0 && el.offsetParent === null) return null;
+    if (!isTurned(el)) return { x: snap((r.left - wr.left) * k), y: snap((r.top - wr.top) * k), w: snap(r.width * k), h: snap(r.height * k) };
+    const w = pixels(el.style.width, el.offsetWidth);
+    const h = pixels(el.style.height, el.offsetHeight);
+    if (!isTurned(el.parentElement)) {
+      return { x: snap(((r.left + r.right) / 2 - wr.left) * k - w / 2), y: snap(((r.top + r.bottom) / 2 - wr.top) * k - h / 2), w, h };
+    }
+    const parent = el.offsetParent as HTMLElement | null;
+    const p = parent && box(parent);
+    if (!parent || !p) return null;
+    return { x: p.x + parent.clientLeft + el.offsetLeft, y: p.y + parent.clientTop + el.offsetTop, w, h };
+  };
+  const box = (el: HTMLElement): Box | null => {
+    const hit = layout.get(el);
+    if (hit !== undefined) return hit;
+    const v = place(el);
+    layout.set(el, v);
+    return v;
+  };
+  // Paths use their exact inline style whoever paints them: the box decides the painter and must not flip-flop.
   for (const el of world.querySelectorAll<Element>("[data-paprika-id]")) {
     const isPath = (el as HTMLElement | SVGElement).dataset.paprikaType === "path";
     if (el instanceof HTMLElement && !isPath) {
-      const p = pos(el);
-      if (p) boxes.set(el.dataset.paprikaId!, { x: p.x, y: p.y, w: el.offsetWidth, h: el.offsetHeight });
+      const b = box(el);
+      if (b) boxes.set(el.dataset.paprikaId!, b);
       continue;
     }
     if ((el instanceof SVGElement || el instanceof HTMLElement) && el.parentElement instanceof HTMLElement) {
-      const p = pos(el.parentElement);
+      const parent = el.parentElement;
+      const p = box(parent);
       const left = Number.parseFloat(el.style.left);
       const top = Number.parseFloat(el.style.top);
       const w = Number.parseFloat(el.style.width);
       const h = Number.parseFloat(el.style.height);
       if (!p || [left, top, w, h].some((n) => Number.isNaN(n))) continue;
-      boxes.set(el.dataset.paprikaId!, { x: p.x + left, y: p.y + top, w, h });
+      boxes.set(el.dataset.paprikaId!, { x: p.x + parent.clientLeft + left, y: p.y + parent.clientTop + top, w, h });
     }
   }
   return boxes;
 }
+
+type WorldHook = HTMLElement & {
+  __paprikaBoxes?: ReadonlyMap<string, Box>;
+  __paprikaMeasureMs?: number;
+  __paprikaMeasure?: () => Map<string, Box>;
+};
 
 function sameIds(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
   if (a.size !== b.size) return false;
@@ -243,7 +281,13 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
     const r = rendererRef.current;
     const world = worldRef.current;
     if (!ready || !r || !world) return;
-    const list = displayList(doc, measureBoxes(world), pageId ?? undefined);
+    const t0 = performance.now();
+    const boxes = measureBoxes(world);
+    const hook = world as WorldHook;
+    hook.__paprikaBoxes = boxes;
+    hook.__paprikaMeasureMs = performance.now() - t0;
+    hook.__paprikaMeasure = () => measureBoxes(world);
+    const list = displayList(doc, boxes, pageId ?? undefined);
     r.setScene(list.data, list.paths);
     setPainted((prev) => (sameIds(prev, list.painted) ? prev : list.painted));
     if (!drawNow()) return;
