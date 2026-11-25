@@ -273,6 +273,8 @@ describe("consulta", () => {
     expect(queryNodes(doc, { type: "text" }).map((n) => n.id)).toEqual(["title"]);
     expect(queryNodes(doc, { text: "olá" }).map((n) => n.id)).toEqual(["title"]);
     expect(queryNodes(doc, { name: "car" }).map((n) => n.id)).toEqual(["card"]);
+    expect(queryNodes(doc, { name: "car", exact: true })).toEqual([]);
+    expect(queryNodes(doc, { name: doc.nodes.card.name, exact: true }).map((n) => n.id)).toEqual(["card"]);
   });
 });
 

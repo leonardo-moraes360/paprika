@@ -2523,6 +2523,31 @@ describe("API: MCP", () => {
     expect(textOf(await call(client, "get_document_outline", { workspaceId, rootId: "pg2" }))).toContain("w=8200 h=5160");
   }, 30_000);
 
+  it("find_nodes devolve structuredContent e casa o nome inteiro com exact", async () => {
+    const c = client;
+    const made = await call(c, "create_nodes", {
+      nodes: [
+        { type: "frame", id: "capaX", name: "Capa · X", x: 0, y: 3000, width: 200, height: 100 },
+        { type: "frame", id: "capaXClaro", name: "Capa · X · claro", x: 300, y: 3000, width: 200, height: 100 },
+      ],
+    });
+    expect(made.isError, textOf(made)).toBeFalsy();
+    const both = (await c.callTool({ name: "find_nodes", arguments: { name: "capa · x" } })) as ToolResult & { structuredContent: { nodes: { id: string }[]; truncated: boolean } };
+    assertOutput("find_nodes", both.structuredContent);
+    expect(both.structuredContent.nodes.map((n) => n.id).sort()).toEqual(["capaX", "capaXClaro"]);
+    const exact = (await c.callTool({ name: "find_nodes", arguments: { name: "Capa · X", exact: true } })) as ToolResult & { structuredContent: { nodes: unknown[]; truncated: boolean } };
+    assertOutput("find_nodes", exact.structuredContent);
+    expect(exact.structuredContent.nodes).toEqual([
+      expect.objectContaining({ id: "capaX", type: "frame", name: "Capa · X", x: 0, y: 3000, width: 200, height: 100 }),
+    ]);
+    expect(exact.structuredContent.truncated).toBe(false);
+    expect(textOf(exact)).toContain("frame#capaX");
+    expect(textOf(exact)).not.toContain("claro");
+    const cut = (await c.callTool({ name: "find_nodes", arguments: { name: "Capa", limit: 1 } })) as ToolResult & { structuredContent: { nodes: unknown[]; truncated: boolean } };
+    expect(cut.structuredContent.nodes).toHaveLength(1);
+    expect(cut.structuredContent.truncated).toBe(true);
+  });
+
   it("lint_design agrupa, limita por rootIds e aponta estouro, hug e geometria", async () => {
     const c = client;
     const created = await call(c, "create_nodes", {
@@ -2560,6 +2585,14 @@ describe("API: MCP", () => {
     const group = lint.groups.find((g: { rule: string }) => g.rule === "layout-overflow");
     expect(group).toMatchObject({ severity: "warning", count: 1, nodeIds: ["board"] });
     expect(group.message).toContain("on width");
+    const groupsOnly = JSON.parse(textOf(await call(c, "lint_design", { rootIds: ["board"], issues: false })));
+    assertOutput("lint_design", groupsOnly);
+    expect(groupsOnly).not.toHaveProperty("issues");
+    expect(groupsOnly.groups.map((g: { rule: string }) => g.rule)).toContain("layout-overflow");
+    const skipped = JSON.parse(textOf(await call(c, "lint_design", { rootIds: ["board"], ignoreRules: ["layout-overflow"] })));
+    assertOutput("lint_design", skipped);
+    expect(skipped.groups.map((g: { rule: string }) => g.rule)).not.toContain("layout-overflow");
+    expect(skipped.issues.some((i: { rule: string }) => i.rule === "layout-overflow")).toBe(false);
     const quiet = JSON.parse(textOf(await call(c, "lint_design", { rootIds: ["board"], minSeverity: "error" })));
     expect(quiet.issues).toEqual([]);
     expect(quiet.groups).toEqual([]);

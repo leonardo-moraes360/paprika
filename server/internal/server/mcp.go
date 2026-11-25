@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -412,6 +413,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("find_nodes", z.Object(
 		z.Field{Name: "type", Schema: z.Optional(core.NodeTypeSchema)},
 		optStr("name"), optStr("text"), optStr("within"),
+		z.Field{Name: "exact", Schema: z.Optional(z.Bool())},
 		z.Field{Name: "limit", Schema: z.Default(z.Int().Min(1).Max(500), 50.0)},
 		workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
@@ -419,15 +421,34 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if err != nil {
 			return nil, err
 		}
-		found := core.QueryNodes(d, core.NodeQuery{Type: a.Str("type"), Name: a.Str("name"), Text: a.Str("text"), Within: a.Str("within"), Limit: int(a.Num("limit"))})
+		exact, _ := a.Get("exact")
+		if exact == true && a.Str("name") == "" {
+			return nil, errors.New("exact needs name")
+		}
+		limit := int(a.Num("limit"))
+		found := core.QueryNodes(d, core.NodeQuery{Type: a.Str("type"), Name: a.Str("name"), Text: a.Str("text"), Within: a.Str("within"), Exact: exact == true, Limit: limit + 1})
+		truncated := len(found) > limit
+		if truncated {
+			found = found[:limit]
+		}
 		lines := make([]string, len(found))
+		nodes := make([]any, len(found))
 		for i, n := range found {
 			lines[i] = core.DescribeNode(n)
+			var parent any
+			if v, ok := n.Get("parentId"); ok {
+				parent = v
+			}
+			nodes[i] = jsonv.NewObject("id", n.Str("id"), "type", n.Str("type"), "name", n.Str("name"), "parentId", parent,
+				"x", n.Num("x"), "y", n.Num("y"), "width", nodeDim(n, "width"), "height", nodeDim(n, "height"))
 		}
-		if len(lines) == 0 {
-			return textResult("(nothing found)"), nil
+		text := "(nothing found)"
+		if len(lines) > 0 {
+			text = strings.Join(lines, "\n")
 		}
-		return textResult(strings.Join(lines, "\n")), nil
+		res := textResult(text)
+		res.Set("structuredContent", jsonv.NewObject("nodes", nodes, "truncated", truncated))
+		return res, nil
 	})
 
 	add("get_bounds", z.Object(
@@ -1669,6 +1690,8 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "minSeverity", Schema: z.Optional(z.Enum("info", "warning", "error"))},
 		z.Field{Name: "minFontSize", Schema: z.Optional(z.Number().Min(1).Max(1000))},
 		z.Field{Name: "maxIds", Schema: z.Default(z.Int().Min(1).Max(50), 8.0)},
+		z.Field{Name: "issues", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "ignoreRules", Schema: z.Optional(z.Array(z.String()).Max(100))},
 		workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		d, err := docOf(a)
@@ -1700,18 +1723,30 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			opts.MinFontSize = a.Num("minFontSize")
 		}
 		issues := core.LintDocumentOpts(d, opts)
+		if skip := a.Strings("ignoreRules"); len(skip) > 0 {
+			kept := issues[:0:0]
+			for _, i := range issues {
+				if !slices.Contains(skip, i.Rule) {
+					kept = append(kept, i)
+				}
+			}
+			issues = kept
+		}
 		maxIDs := int(a.Num("maxIds"))
 		groups := core.GroupLint(issues, maxIDs)
 		counts := map[string]int{"error": 0, "warning": 0, "info": 0}
 		for _, i := range issues {
 			counts[i.Severity]++
 		}
-		return jsonResult(jsonv.NewObject(
+		out := jsonv.NewObject(
 			"ok", counts["error"] == 0,
 			"counts", jsonv.NewObject("error", float64(counts["error"]), "warning", float64(counts["warning"]), "info", float64(counts["info"])),
 			"groups", jsonv.FromGo(groups),
-			"issues", jsonv.FromGo(issues),
-		)), nil
+		)
+		if show, has := a.Get("issues"); !has || show != false {
+			out.Set("issues", jsonv.FromGo(issues))
+		}
+		return jsonResult(out), nil
 	})
 
 	add("render_screenshot", z.Object(
