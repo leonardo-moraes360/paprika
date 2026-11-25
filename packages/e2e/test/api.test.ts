@@ -495,8 +495,8 @@ describe("API: MCP", () => {
     // x and y are the center: the box straddles it.
     expect(star.x + star.width / 2).toBeGreaterThan(290);
     expect(star.x + star.width / 2).toBeLessThan(310);
-    const ring = JSON.parse(textOf(await call(c, "create_shape_path", { kind: "ring", id: "rg", x: 0, y: 0, radius: 20, thickness: 5, place: "none" })));
-    expect(ring.ids).toEqual(["rg"]);
+    const ring = (await call(c, "create_shape_path", { kind: "ring", id: "rg", x: 0, y: 0, radius: 20, thickness: 5, place: "none" })) as ToolResult & { structuredContent?: { ids: string[] } };
+    expect(ring.structuredContent?.ids).toEqual(["rg"]);
     expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["rg"] })))[0]).toMatchObject({ x: -20, y: -20, width: 40, height: 40, fillRule: "evenodd" });
     const bad = await call(c, "create_shape_path", { kind: "ring", radius: 10, thickness: 10 });
     expect(textOf(bad)).toMatch(/hole radius/);
