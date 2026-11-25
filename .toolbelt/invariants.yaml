@@ -51,3 +51,8 @@ invariants:
       rule: 'Design first: any change to an interface (apps/web, apps/site, new screens, visual tweaks) is drawn in a local Paprika over MCP (http://127.0.0.1:4777/mcp) before implementation; the PR carries frame screenshots and MCP friction is logged in docs/en-US/agent-feedback.md'
       added_at: 2026-11-21T23:28:50.67020048Z
       immutable: false
+    - id: inv-1795649119126152520
+      category: mandate
+      rule: 'Performance: changes to apps/web, packages/core, server or crates/render carry before/after profiling on the worst case and keep the perf suite within budget (ref: docs/en-US/performance.md)'
+      added_at: 2026-11-25T23:25:19.12615507Z
+      immutable: false
