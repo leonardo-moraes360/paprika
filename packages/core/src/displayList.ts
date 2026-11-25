@@ -1,3 +1,4 @@
+import { variantHidden } from "./component.js";
 import { parseColor } from "./lint.js";
 import { listShadows, pageRoots, type Document, type Node, type SceneNode } from "./schema.js";
 import { modeOf, nodeGradient, resolveCorners, resolveLength, resolveValue, strokePositionOf, strokeStyleOf, uniformCorner } from "./style.js";
@@ -247,7 +248,7 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, page
   const walk = (id: string, parentOpacity: number, pivots: readonly Pivot[]) => {
     const n = doc.nodes[id];
     const b = boxes.get(id);
-    if (!n || n.type === "page" || !b || !n.visible) return;
+    if (!n || n.type === "page" || !b || !n.visible || variantHidden(doc, n)) return;
     const o = parentOpacity * n.opacity;
     if (n.type === "group") {
       for (const c of n.children) walk(c, o, pivots);

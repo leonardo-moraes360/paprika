@@ -319,7 +319,7 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 		if err != nil {
 			return "", err
 		}
-		if bp == nil || !n.Bool("visible") {
+		if bp == nil || !n.Bool("visible") || variantHidden(doc, n) {
 			return "", nil
 		}
 		b := *bp

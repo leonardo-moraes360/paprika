@@ -6,6 +6,9 @@ import {
   createDocument,
   parseDocument,
   renderHTML,
+  layout,
+  lintDocument,
+  nodeStyle,
   type Document,
   type FrameNode,
   type PathNode,
@@ -239,5 +242,70 @@ describe("componentes e instâncias", () => {
     const { html } = renderHTML(base(), { rootId: "i1" });
     expect(html).toContain(`data-paprika-id="${copyId("i1", "lbl")}"`);
     expect(html).toContain("OK");
+  });
+
+  it("fill dado na raiz da instância na criação vira override do componente", () => {
+    const doc = applyOps(base(), [
+      { op: "create", node: { type: "frame", id: "i2", instanceOf: "btn", x: 400, fill: "#ff0000" } },
+      { op: "create", node: { type: "frame", id: "i3", instanceOf: "btn", x: 600, fill: "#3355ff" } },
+    ]).doc;
+    expect(doc.nodes.i2).toMatchObject({ fill: "#ff0000", overrides: { btn: { fill: "#ff0000" } } });
+    expect(doc.nodes.i3).toMatchObject({ fill: "#3355ff" });
+    expect((doc.nodes.i3 as FrameNode).overrides).toBeUndefined();
+    const moved = applyOps(doc, [{ op: "update", id: "btn", props: { fill: "#00ff00" } }]).doc;
+    expect(moved.nodes.i2).toMatchObject({ fill: "#ff0000" });
+    expect(moved.nodes.i3).toMatchObject({ fill: "#00ff00" });
+  });
+
+  function variants(extra: Record<string, unknown> = {}): Document {
+    return applyOps(createDocument("T", "d"), [
+      {
+        op: "create",
+        node: {
+          type: "frame",
+          id: "card",
+          component: true,
+          width: 200,
+          height: 100,
+          layout: { mode: "column", gap: 0, padding: 0 },
+          componentProps: [{ name: "estado", type: "variant", options: ["vazio", "importando", "pronto"], default: "vazio" }],
+          children: [
+            { type: "rect", id: "v0", width: 200, height: 40, bind: { variant: { estado: "vazio" } } },
+            { type: "rect", id: "v1", width: 200, height: 40, bind: { variant: { estado: ["importando", "pronto"] } } },
+            { type: "rect", id: "v2", width: 200, height: 40, bind: { variant: { estado: "pronto" } } },
+          ],
+          ...extra,
+        },
+      },
+      { op: "create", node: { type: "frame", id: "inst", instanceOf: "card", x: 300, propValues: { estado: "pronto" } } },
+    ]).doc;
+  }
+
+  it("bind.variant aceita lista de opções", () => {
+    const doc = variants();
+    expect(doc.nodes[copyId("inst", "v0")]).toBeUndefined();
+    expect(doc.nodes[copyId("inst", "v1")]).toBeDefined();
+    expect(doc.nodes[copyId("inst", "v2")]).toBeDefined();
+    const other = applyOps(doc, [{ op: "update", id: "inst", props: { propValues: { estado: "importando" } } }]).doc;
+    expect(other.nodes[copyId("inst", "v1")]).toBeDefined();
+    expect(other.nodes[copyId("inst", "v2")]).toBeUndefined();
+    expect(() =>
+      applyOps(doc, [{ op: "update", id: "v1", props: { bind: { variant: { estado: ["pronto", "nada"] } } } }]),
+    ).toThrow(/variant bind/);
+  });
+
+  it("o componente principal mostra só a variante padrão sem mexer na árvore", () => {
+    const doc = variants();
+    expect(Object.keys(doc.nodes).filter((k) => ["v0", "v1", "v2"].includes(k))).toEqual(["v0", "v1", "v2"]);
+    expect(nodeStyle(doc, doc.nodes.v0!).display).not.toBe("none");
+    expect(nodeStyle(doc, doc.nodes.v1!).display).toBe("none");
+    expect(nodeStyle(doc, doc.nodes.v2!).display).toBe("none");
+    const { html } = renderHTML(doc, { rootId: "card" });
+    expect(html).toMatch(/data-paprika-id="v1"[^>]*display:\s*none/);
+    const boxes = layout(doc);
+    expect(boxes.v0).toMatchObject({ y: 0, height: 40 });
+    expect(boxes.v1).toBeUndefined();
+    expect(lintDocument(doc).filter((x) => x.rule === "layout-overflow")).toEqual([]);
+    expect(nodeStyle(doc, doc.nodes[copyId("inst", "v1")]!).display).not.toBe("none");
   });
 });

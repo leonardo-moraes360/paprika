@@ -17,6 +17,7 @@ import {
   type StrokeStyle,
   type TokenTypeName,
 } from "./schema.js";
+import { variantHidden } from "./component.js";
 import { NOTE_FOLD_FILL, shapeOutline, shapePadding } from "./diagram.js";
 
 export type CSS = Record<string, string | number>;
@@ -336,6 +337,7 @@ const ALIGN = { start: "flex-start", center: "center", end: "flex-end", stretch:
 export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; vars?: boolean } = {}): CSS {
   if (node.type === "page") return {};
   const mode = modeOf(doc, node);
+  const vis = node.visible && !variantHidden(doc, node);
   const paint = (v: string | number) => paintValue(doc, v, mode, opts.vars);
   const parent = node.parentId ? doc.nodes[node.parentId] : undefined;
   const parentMode = parent?.type === "frame" && parent.layout && parent.layout.mode !== "none" ? parent.layout.mode : null;
@@ -356,27 +358,27 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
 
   if (node.type === "group") {
     if (node.opacity !== 1) css.opacity = node.opacity;
-    if (!node.visible) css.display = "none";
+    if (!vis) css.display = "none";
     return css;
   }
   if (node.type === "connector") {
     if (node.opacity !== 1) css.opacity = node.opacity;
     css.overflow = "visible";
-    css.display = node.visible ? "block" : "none";
+    css.display = vis ? "block" : "none";
     return css;
   }
   if (node.rotation) css.transform = `rotate(${round(node.rotation)}deg)`;
   if (node.opacity !== 1) css.opacity = node.opacity;
   if ((node.type === "frame" || node.type === "text") && node.href) css.cursor = "pointer";
-  if (!node.visible) css.display = "none";
+  if (!vis) css.display = "none";
   if (node.type === "path") {
     css.overflow = "visible";
-    css.display = node.visible ? "block" : "none";
+    css.display = vis ? "block" : "none";
     applyShapeEffects(css, doc, node, mode, opts.vars, paint);
     return css;
   }
   if (node.type === "shape") {
-    css.display = node.visible ? "flex" : "none";
+    css.display = vis ? "flex" : "none";
     css.alignItems = node.shape === "note" ? "flex-start" : "center";
     css.justifyContent = "center";
     css.padding = shapePadding(node).map(px).join(" ");
@@ -416,7 +418,7 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
       if (node.clip) css.overflow = "hidden";
       const l = node.layout;
       if (l && l.mode !== "none") {
-        css.display = node.visible ? "flex" : "none";
+        css.display = vis ? "flex" : "none";
         css.flexDirection = l.mode;
         css.gap = lengthCSS(doc, l.gap, mode, opts.vars, "px");
         css.padding = paddingCSS(doc, l.padding, mode, opts.vars);
@@ -433,7 +435,7 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
     }
     case "image":
       css.objectFit = node.fit;
-      css.display = node.visible ? "block" : "none";
+      css.display = vis ? "block" : "none";
       break;
     default:
       break;

@@ -642,6 +642,32 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 			}
 		}
 	}
+	if typ == "frame" {
+		if compID, isStr := props.Get("instanceOf"); isStr && props.Has("fill") {
+			if cid, ok := compID.(string); ok {
+				fill, _ := props.Get("fill")
+				props.Delete("fill")
+				base := GetNode(doc, cid)
+				if fill != nil && !(base != nil && jsonEqual(fill, sourceValue(base, "fill"))) {
+					ovs := props.Obj("overrides")
+					if ovs == nil {
+						ovs = jsonv.NewObject()
+					} else {
+						ovs = ovs.Spread()
+					}
+					own := ovs.Obj(cid)
+					if own == nil {
+						own = jsonv.NewObject()
+					} else {
+						own = own.Spread()
+					}
+					own.Set("fill", fill)
+					ovs.Set(cid, own)
+					props.Set("overrides", ovs)
+				}
+			}
+		}
+	}
 	props.Set("id", idStr)
 	props.Set("parentId", parentID)
 	if IsContainer(typ) {
