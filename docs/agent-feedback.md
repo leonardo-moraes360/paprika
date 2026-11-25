@@ -1036,3 +1036,17 @@ Task: 20 public Dribbble shots (11 logo marks and mark sheets, 6 app icons, a br
 | 198 | `pathCount` vs `maxPaths` | `pathCount` reported 96–660 while `maxPaths` defaults to 60 and `truncated` was true; unclear how many nodes were really created | Report `created` and `dropped` counts separately | P3 |
 
 - Fine: every call succeeded, no hangs; flat logos and icons (fitness, B mark, rhino, task icon, Acquit) at IoU 0.98–0.995 with 2–12 paths; illustration (0.94) and branding board (0.94) usable as a starting point.
+
+## 2026-11-25: the same 20 references with a mix of tools (workspace "Estudo Dribbble · mix de ferramentas v4 (Claude)")
+
+Task: same 20 Dribbble shots, but choosing a tool per region instead of tracing everything: photo regions placed as images (`import_image` of a local crop), shapes that `analyze_image` fits as a circle, ellipse, rect or polygon with IoU ≥ 0.93 created as primitives, everything else from `trace_image` (`dryRun`, then `create_nodes`). Mean IoU 0.907 (trace only: 0.871), median 0.964. 36 primitives, 1498 traced paths, 14 images. Photos now read as photos (the eye behind glasses, the watch strap, the poster) instead of posterized blobs, and the 140-icon sheet went from 0.68 to 0.91.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 199 | Know which tool fits which region | Nothing in Paprika says "this region is a photo, this one a gradient, this one flat shapes, this one text". The agent had to write its own classifier in Python (per-tile grain: share of pixels that differ from a 1.2 px blur; edge strength and colour count alone mistook gradients and icon sheets for photos) | `analyze_image` returns `regions: [{kind: photo|gradient|flat|text, box, suggest: import_image|gradient|primitive|trace_image|text}]` so the agent mixes tools without guessing | P1 |
+| 200 | Place a crop of the reference as an image | `import_image` takes a whole file; the agent cropped locally and sent a data URL | `import_image {src, crop: {x, y, width, height}}` (in source or frame units) | P2 |
+| 201 | Trace only some blobs | To mix, the agent ran `trace_image` with `dryRun`, matched paths to `analyze_image` blobs by colour and box overlap, and created the subset itself | `trace_image {blobIds}` (ids from `analyze_image`) and `exclude: [boxes]` to skip photo regions | P2 |
+| 202 | Primitives where they fit | Only 36 of ~1500 shapes fit a primitive at IoU ≥ 0.93 on real artwork (anti-aliased edges, rounded corners with uneven radii); a traced path of the same shape scores as well, so IoU alone never rewards the simpler node | Add `nodeCount` and an "editability" hint to `compare_reference`, and fit rounded rects with per-corner radius and polygons with rounded corners before falling back to freeform | P2 |
+| 203 | Guidance against using one tool for everything | The guide lists each tool on its own; nothing says when to prefer a primitive over a path, an image over a trace, or a gradient over bands | One decision table in the guide: flat geometric → primitives (`create_shape_path`, rect, ellipse); organic flat → `trace_image`; smooth ramp → `gradient`; photo → `import_image`/`place_reference`; text → text nodes | P1 |
+
+- Still open from the previous studies: gradient backgrounds break the score (#194, the "ranker" board stays at 0.26), gradients traced as bands (#190), `maxPaths` 200 cap on mark sheets (#195).
