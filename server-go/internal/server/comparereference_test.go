@@ -185,6 +185,12 @@ func TestCompareReferenceRegionsAndNodes(t *testing.T) {
 	if shot.doc == nil {
 		t.Fatal("the screenshotter got no document")
 	}
+	if sc.Num("nodeCount") < 1 || sc.Obj("byKind") == nil || sc.Obj("byKind").Num("rect") < 1 {
+		t.Fatalf("nodeCount %v byKind %v", sc.Num("nodeCount"), sc.Obj("byKind"))
+	}
+	if !strings.Contains(text, "nodes: ") {
+		t.Fatalf("the summary lacks the node count: %s", text)
+	}
 	if !strings.Contains(text, "missing regions") || !strings.Contains(text, "extra regions") || !strings.Contains(text, "bar") {
 		t.Fatalf("summary: %s", text)
 	}

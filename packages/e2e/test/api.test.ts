@@ -1605,6 +1605,11 @@ describe("API: MCP", () => {
     assertOutput("analyze_image", sc);
     expect(textOf(r)).toMatch(/^image 160x100/);
     expect(sc.size).toEqual({ width: 160, height: 100 });
+    // regions cover the image: here one flat region, and every blob says which region and which tool
+    expect(sc.regions).toHaveLength(1);
+    expect(sc.regions[0]).toMatchObject({ kind: "flat", suggest: "primitive", box: { x: 0, y: 0, width: 160, height: 100 } });
+    expect(sc.regions[0].blobIds).toEqual(sc.blobs.map((b: any) => b.id));
+    expect(sc.blobs.every((b: any) => b.suggest === "primitive" && b.region === sc.regions[0].id && b.fit.simplicity.nodes === 1)).toBe(true);
     expect(sc.background.color).toBe("#ffffff");
     expect(sc.palette.map((p: { color: string }) => p.color)).toEqual(["#ffffff", "#14286e", "#dc1e28"]);
     const disc = sc.blobs.find((b: any) => b.fit.kind === "circle");
@@ -1620,6 +1625,22 @@ describe("API: MCP", () => {
     const bigDisc = framed.structuredContent.blobs.find((b: any) => b.fit.kind === "circle");
     expect(Math.abs(bigDisc.fit.node.width - 160)).toBeLessThan(4);
     expect(Math.abs(bigDisc.fit.node.y - (120 + 120))).toBeLessThan(4);
+
+    // left half flat white, right half noise: a photo region next to a flat one, validated against the outputSchema
+    const mixedPng = encodePng(192, 128, (x, y) => {
+      if (x < 96) return [255, 255, 255];
+      const h = (Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0;
+      return [60 + (h % 140), 60 + ((h >>> 8) % 140), 60 + ((h >>> 16) % 140)];
+    });
+    const mixed = (await c.callTool({ name: "analyze_image", arguments: { src: `data:image/png;base64,${mixedPng.toString("base64")}` } })) as ToolResult & { structuredContent?: any };
+    expect(mixed.isError, textOf(mixed)).toBeFalsy();
+    assertOutput("analyze_image", mixed.structuredContent);
+    const photo = mixed.structuredContent.regions.find((r: any) => r.kind === "photo");
+    expect(photo).toMatchObject({ suggest: "import_image" });
+    expect(Math.abs(photo.box.x - 96)).toBeLessThan(13);
+    expect(Math.abs(photo.box.width - 96)).toBeLessThan(13);
+    expect(mixed.structuredContent.regions.some((r: any) => r.kind === "flat")).toBe(true);
+    expect(textOf(mixed)).toMatch(/regions: \d+/);
 
     const placed = await call(c, "import_image", { src });
     expect(placed.isError, textOf(placed)).toBeFalsy();
@@ -1742,6 +1763,9 @@ describe("API: MCP", () => {
     expect(Math.abs(sc.alignment.dy - 6)).toBeLessThan(1.6);
     expect(sc.alignment.iouAfter).toBeGreaterThan(0.9);
     expect(sc.regions.some((x: any) => x.kind === "missing")).toBe(true);
+    expect(sc.nodeCount).toBe(2);
+    expect(sc.byKind).toEqual({ ellipse: 1, rect: 1 });
+    expect(textOf(r)).toMatch(/nodes: 2 \(ellipse 1, rect 1\)/);
     expect(sc.diff.url).toMatch(/^\/api\/screenshot\//);
     expect(sc.diff.path).toMatch(/compare[\\/]offset\.png$/);
     expect(sc.previous).toBeUndefined();

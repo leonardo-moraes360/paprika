@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
+
 	xdraw "golang.org/x/image/draw"
 )
 
@@ -73,23 +75,32 @@ type NodeSpec struct {
 	Width    *float64 `json:"width,omitempty"`
 	Height   *float64 `json:"height,omitempty"`
 	Rotation float64  `json:"rotation,omitempty"`
-	Radius   float64  `json:"radius,omitempty"`
+	Radius   any      `json:"radius,omitempty"` // number, or [tl, tr, br, bl] when the corners differ
 	D        string   `json:"d,omitempty"`
 	Fill     string   `json:"fill"`
 }
 
 type Fit struct {
-	Kind        string    `json:"kind"` // circle, ellipse, rect, roundRect, polygon, freeform
-	IoU         float64   `json:"iou"`
-	Node        *NodeSpec `json:"node"`
-	Center      *Point    `json:"center,omitempty"`
-	Sides       int       `json:"sides,omitempty"`
-	Radius      float64   `json:"radius,omitempty"`   // polygon: circumradius
-	Rotation    float64   `json:"rotation,omitempty"` // polygon: direction of the first vertex, degrees
-	Nearest     string    `json:"nearest,omitempty"`  // freeform: the primitive that came closest
-	NearestIoU  float64   `json:"nearestIou,omitempty"`
-	Outline     []Point   `json:"outline,omitempty"` // freeform: simplified polygon
-	HolesFilled bool      `json:"holesFilled,omitempty"`
+	Kind         string     `json:"kind"` // circle, ellipse, rect, roundRect, polygon, freeform
+	IoU          float64    `json:"iou"`
+	Node         *NodeSpec  `json:"node"`
+	Center       *Point     `json:"center,omitempty"`
+	Sides        int        `json:"sides,omitempty"`
+	Radius       float64    `json:"radius,omitempty"`       // polygon: circumradius
+	CornerRadius float64    `json:"cornerRadius,omitempty"` // polygon: rounding of the corners (0 = sharp)
+	Radii        []float64  `json:"radii,omitempty"`        // roundRect with different corners: tl, tr, br, bl
+	Simplicity   Simplicity `json:"simplicity"`
+	Rotation     float64    `json:"rotation,omitempty"` // polygon: direction of the first vertex, degrees
+	Nearest      string     `json:"nearest,omitempty"`  // freeform: the primitive that came closest
+	NearestIoU   float64    `json:"nearestIou,omitempty"`
+	Outline      []Point    `json:"outline,omitempty"` // freeform: simplified polygon
+	HolesFilled  bool       `json:"holesFilled,omitempty"`
+}
+
+// Simplicity is what the fit costs to draw: one node, and how many numbers describe it.
+type Simplicity struct {
+	Nodes  int `json:"nodes"`
+	Params int `json:"params"`
 }
 
 type Symmetry struct {
@@ -110,6 +121,8 @@ type Blob struct {
 	Elongation  float64  `json:"elongation"`  // major/minor axis, 1 = round
 	Symmetry    Symmetry `json:"symmetry"`
 	Fit         Fit      `json:"fit"`
+	Suggest     string   `json:"suggest"` // primitive, trace_image, skip-in-photo, skip-in-gradient, text
+	Region      string   `json:"region"`  // id of the region the blob sits in
 
 	pal      int
 	dimA     float64 // fit dimensions, long then short (output units)
@@ -131,6 +144,7 @@ type Result struct {
 	BlobCount        int            `json:"blobCount"`
 	Truncated        bool           `json:"truncated"`
 	Layout           Layout         `json:"layout"`
+	Regions          []ImageRegion  `json:"regions"`
 	Warnings         []string       `json:"warnings"`
 }
 
@@ -204,6 +218,7 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 		Blobs:         []Blob{},
 		Warnings:      []string{},
 		Layout:        Layout{Grids: []Grid{}, Repeats: []Repeat{}, Radials: []Radial{}},
+		Regions:       []ImageRegion{},
 	}
 
 	px := prepare(nrgba)
@@ -280,10 +295,34 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 		kept = append(kept, c)
 	}
 	sort.SliceStable(kept, func(i, j int) bool { return kept[i].area > kept[j].area })
-	res.BlobCount = len(kept)
-	if len(kept) > opt.MaxBlobs {
-		kept = kept[:opt.MaxBlobs]
+	// regions: what each part of the image is best drawn with
+	raws := classifyRegions(px, kept)
+	owner := assignRegions(raws, kept)
+	// blobs inside a photo are specks of its texture: only its largest few are worth listing
+	var pick []int
+	inPhoto := map[int]int{}
+	for i := range kept {
+		if raws[owner[i]].kind == KindPhoto {
+			if inPhoto[owner[i]]++; inPhoto[owner[i]] > maxPhotoBlobs {
+				continue
+			}
+		}
+		pick = append(pick, i)
+	}
+	if dropped := len(kept) - len(pick); dropped > 0 {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%d small blobs inside photo regions are not listed (only the %d largest of each)", dropped, maxPhotoBlobs))
+	}
+	res.BlobCount = len(pick)
+	if len(pick) > opt.MaxBlobs {
+		pick = pick[:opt.MaxBlobs]
 		res.Truncated = true
+	}
+	if len(pick) < len(kept) {
+		nk, no := make([]comp, len(pick)), make([]int, len(pick))
+		for n, i := range pick {
+			nk[n], no[n] = kept[i], owner[i]
+		}
+		kept, owner = nk, no
 	}
 	holeFloor := max(3, minPx/4)
 	for i, c := range kept {
@@ -293,8 +332,117 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 		blob.pal = int(c.label)
 		res.Blobs = append(res.Blobs, blob)
 	}
+	res.Regions = buildRegions(raws, owner, kept, res.Blobs, t, total)
 	res.Layout = findLayout(res.Blobs)
 	return res, nil
+}
+
+// assignRegions gives each comp the region it sits in (by the center of its box); blobs that
+// merely overlap a text block without being letters belong to the area behind the text.
+func assignRegions(raws []rawRegion, comps []comp) []int {
+	owner := make([]int, len(comps))
+	for i, c := range comps {
+		ctr := image.Pt((c.minX+c.maxX)/2, (c.minY+c.maxY)/2)
+		cb := image.Rect(c.minX, c.minY, c.maxX+1, c.maxY+1)
+		best, bestA := 0, -1
+		for ri, r := range raws {
+			if r.kind == KindText && !r.members[i] {
+				continue
+			}
+			if ctr.In(r.rect) {
+				best = ri
+				break
+			}
+			if a := cb.Intersect(r.rect); a.Dx()*a.Dy() > bestA {
+				best, bestA = ri, a.Dx()*a.Dy()
+			}
+		}
+		owner[i] = best
+	}
+	return owner
+}
+
+const maxPhotoBlobs = 8 // blobs listed per photo region
+
+const primitiveIoU = 0.93 // a fit this good is worth drawing as a primitive
+
+// buildRegions turns the raw regions into the output ones, with the blobs each holds and the
+// tool suggested for them.
+func buildRegions(raws []rawRegion, owner []int, comps []comp, blobs []Blob, t transform, total float64) []ImageRegion {
+	out := make([]ImageRegion, len(raws))
+	for ri, r := range raws {
+		p0 := t.pt(float64(r.rect.Min.X), float64(r.rect.Min.Y))
+		p1 := t.pt(float64(r.rect.Max.X), float64(r.rect.Max.Y))
+		out[ri] = ImageRegion{
+			ID: fmt.Sprintf("r%d", ri+1), Kind: r.kind, Box: Rect{p0.X, p0.Y, r1(p1.X - p0.X), r1(p1.Y - p0.Y)},
+			Share: r3(float64(r.rect.Dx()*r.rect.Dy()) / total), BlobIDs: []string{}, Gradient: r.grad, Why: r.why,
+			Lines: r.lines, FontSize: r1(r.fontSize * t.size()),
+		}
+	}
+	primArea := make([]float64, len(raws))
+	allArea := make([]float64, len(raws))
+	nPrim := make([]int, len(raws))
+	for i := range blobs {
+		b := &blobs[i]
+		ri := owner[i]
+		r, reg := raws[ri], &out[ri]
+		reg.BlobIDs = append(reg.BlobIDs, b.ID)
+		b.Region = reg.ID
+		prim := b.Fit.Kind != "freeform" && b.Fit.IoU >= primitiveIoU
+		switch r.kind {
+		case KindPhoto:
+			b.Suggest = "skip-in-photo"
+		case KindText:
+			b.Suggest = "text"
+		case KindGradient:
+			c := comps[i]
+			band := float64(c.maxX-c.minX+1) >= 0.6*float64(r.rect.Dx()) || float64(c.maxY-c.minY+1) >= 0.6*float64(r.rect.Dy())
+			if band && r.gband {
+				b.Suggest = "skip-in-gradient"
+			}
+		}
+		if b.Suggest == "" {
+			b.Suggest = "trace_image"
+			if prim {
+				b.Suggest = "primitive"
+				primArea[ri] += b.AreaPx
+				nPrim[ri]++
+			}
+			allArea[ri] += b.AreaPx
+		}
+	}
+	for ri, r := range raws {
+		reg := &out[ri]
+		switch r.kind {
+		case KindPhoto:
+			reg.Suggest = "import_image"
+		case KindText:
+			reg.Suggest = "text"
+		case KindGradient:
+			reg.Suggest = "gradient"
+			if r.grad == nil {
+				reg.Suggest = "trace_image"
+			}
+		default:
+			reg.Suggest = "primitive"
+			n := 0
+			for i := range blobs {
+				if owner[i] == ri {
+					n++
+				}
+			}
+			switch {
+			case n == 0:
+				reg.Why = "flat color without shapes of its own: a rect (or the frame's fill)"
+			case allArea[ri] > 0 && primArea[ri] < 0.5*allArea[ri]:
+				reg.Suggest = "trace_image"
+				reg.Why = fmt.Sprintf("flat color with organic shapes: %d of %d blobs fit a primitive at iou >= %.2f; trace the rest", nPrim[ri], n, primitiveIoU)
+			default:
+				reg.Why = fmt.Sprintf("flat color with geometric shapes: %d of %d blobs fit a primitive at iou >= %.2f", nPrim[ri], n, primitiveIoU)
+			}
+		}
+	}
+	return out
 }
 
 type transform struct {
@@ -349,6 +497,7 @@ func describe(g *geom, c comp, color string, t transform, total float64, maxPts 
 			fit.Center = &center
 			fit.Sides = best.n
 			fit.Radius = r1(best.rx * k)
+			fit.CornerRadius = r1(best.r * k)
 			deg := math.Mod(best.rot*180/math.Pi, 360)
 			if deg < 0 {
 				deg += 360
@@ -357,6 +506,12 @@ func describe(g *geom, c comp, color string, t transform, total float64, maxPts 
 			bl.dimA, bl.dimB = 2*best.rx*k, 2*best.rx*k
 		default:
 			bl.dimA, bl.dimB = 2*math.Max(best.rx, best.ry)*k, 2*math.Min(best.rx, best.ry)*k
+		}
+		fit.Simplicity = Simplicity{Nodes: 1, Params: primParams(best)}
+		if best.kind == "roundRect" && best.perCorner {
+			for _, r := range best.radii {
+				fit.Radii = append(fit.Radii, r1(r*k))
+			}
 		}
 	} else {
 		fit.Kind = "freeform"
@@ -374,6 +529,7 @@ func describe(g *geom, c comp, color string, t transform, total float64, maxPts 
 		}
 		// how well the simplified outline covers the blob
 		fit.IoU = r3(g.outlineIoU(out))
+		fit.Simplicity = Simplicity{Nodes: 1, Params: 2 * len(out)}
 	}
 	bl.Fit = fit
 	return bl
@@ -387,7 +543,24 @@ func primNode(p prim, center Point, k float64, color string, loc func(x, y float
 		return &NodeSpec{Type: "ellipse", X: r1(center.X - w/2), Y: r1(center.Y - h/2), Width: fp(w), Height: fp(h), Rotation: deg, Fill: color}
 	case "rect", "roundRect":
 		w, h := 2*p.rx*k, 2*p.ry*k
-		return &NodeSpec{Type: "rect", X: r1(center.X - w/2), Y: r1(center.Y - h/2), Width: fp(w), Height: fp(h), Rotation: deg, Radius: r1(p.r * k), Fill: color}
+		n := &NodeSpec{Type: "rect", X: r1(center.X - w/2), Y: r1(center.Y - h/2), Width: fp(w), Height: fp(h), Rotation: deg, Fill: color}
+		switch {
+		case p.perCorner:
+			n.Radius = []float64{r1(p.radii[0] * k), r1(p.radii[1] * k), r1(p.radii[2] * k), r1(p.radii[3] * k)}
+		case p.r > 0:
+			n.Radius = r1(p.r * k)
+		}
+		return n
+	}
+	if p.r > 0 {
+		// rounded regular polygon: the same path builder create_shape_path uses
+		cr := p.r * k
+		R := p.rx * k
+		angle := p.rot*180/math.Pi + 90 // clockwise from 12 o'clock
+		shape, err := core.BuildPathShape("polygon", core.ShapeParams{Sides: new(float64(p.n)), Radius: new(R), Angle: new(angle), CornerRadius: new(cr)})
+		if err == nil {
+			return &NodeSpec{Type: "path", X: r1(center.X - shape.Center.X), Y: r1(center.Y - shape.Center.Y), D: shape.D, Fill: color}
+		}
 	}
 	pts := make([]Point, p.n)
 	for i := range pts {
@@ -395,6 +568,27 @@ func primNode(p prim, center Point, k float64, color string, loc func(x, y float
 		pts[i] = loc(p.cx+p.rx*math.Cos(a), p.cy+p.rx*math.Sin(a))
 	}
 	return pathNode(pts, color)
+}
+
+// primParams counts the numbers that describe a primitive (center, size, angle, radii...).
+func primParams(p prim) int {
+	switch p.kind {
+	case "circle":
+		return 3
+	case "ellipse":
+		return 5
+	case "rect":
+		return 5
+	case "roundRect":
+		if p.perCorner {
+			return 9
+		}
+		return 6
+	}
+	if p.r > 0 {
+		return 6
+	}
+	return 5
 }
 
 func pathNode(pts []Point, color string) *NodeSpec {
