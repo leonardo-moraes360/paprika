@@ -22,6 +22,9 @@ struct Gpu {
     blitter: wgpu::util::TextureBlitter,
     scene: vello::Scene,
     adapter_info: String,
+    /// First asynchronous device problem (uncaptured validation error or device loss). WebGPU
+    /// reports these after `render` already returned, so the frame may never reach the canvas.
+    failure: std::sync::Arc<std::sync::Mutex<String>>,
 }
 
 struct Cpu {
@@ -47,6 +50,14 @@ pub struct Renderer {
 
 fn err(e: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
+}
+
+fn record_failure(slot: &std::sync::Mutex<String>, msg: String) {
+    if let Ok(mut f) = slot.lock()
+        && f.is_empty()
+    {
+        *f = msg;
+    }
 }
 
 fn target_view(device: &wgpu::Device, w: u32, h: u32) -> (wgpu::Texture, wgpu::TextureView) {
@@ -115,13 +126,18 @@ async fn init_gpu(canvas: &HtmlCanvasElement, allow_software: bool) -> Result<Gp
         .await
         .map_err(|e| format!("request_device failed: {e}"))?;
     // Validation errors are async on the web; surface them in the console instead of dropping them.
-    device.on_uncaptured_error(std::sync::Arc::new(|e: wgpu::Error| {
+    let failure = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    let on_error = failure.clone();
+    device.on_uncaptured_error(std::sync::Arc::new(move |e: wgpu::Error| {
         web_sys::console::error_1(&format!("[paprika-render] wgpu: {e}").into());
+        record_failure(&on_error, format!("wgpu: {e}"));
     }));
-    device.set_device_lost_callback(|reason, msg| {
+    let on_lost = failure.clone();
+    device.set_device_lost_callback(move |reason, msg| {
         web_sys::console::error_1(
             &format!("[paprika-render] device lost ({reason:?}): {msg}").into(),
         );
+        record_failure(&on_lost, format!("device lost ({reason:?}): {msg}"));
     });
     let renderer = vello::Renderer::new(
         &device,
@@ -184,6 +200,7 @@ async fn init_gpu(canvas: &HtmlCanvasElement, allow_software: bool) -> Result<Gp
         blitter,
         scene: vello::Scene::new(),
         adapter_info: format!("{} ({:?}, {})", info.name, info.device_type, info.driver),
+        failure,
     })
 }
 
@@ -246,6 +263,16 @@ impl Renderer {
         }
     }
 
+    /// First asynchronous GPU failure (device lost, uncaptured validation error), or empty. After
+    /// one, frames can silently stop reaching the canvas, so the page must take the paint back.
+    #[wasm_bindgen(getter, js_name = deviceError)]
+    pub fn device_error(&self) -> String {
+        match &self.backend {
+            Backend::Gpu(g) => g.failure.lock().map(|f| f.clone()).unwrap_or_default(),
+            Backend::Cpu(_) => String::new(),
+        }
+    }
+
     #[wasm_bindgen(getter, js_name = fallbackReason)]
     pub fn fallback_reason(&self) -> String {
         self.fallback_reason.clone()
@@ -295,6 +322,9 @@ impl Renderer {
         let (w, h) = (self.width, self.height);
         match &mut self.backend {
             Backend::Gpu(g) => {
+                if let Some(f) = g.failure.lock().ok().filter(|f| !f.is_empty()) {
+                    return Err(err(&*f));
+                }
                 g.scene.reset();
                 scene::encode_gpu(&mut g.scene, &self.scene, view);
                 let params = RenderParams {

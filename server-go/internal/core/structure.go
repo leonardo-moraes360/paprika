@@ -445,7 +445,12 @@ func DuplicateOps(doc *Document, ids []string, args *jsonv.Object) (*DuplicatePl
 		}
 		op := jsonv.NewObject("op", "create", "parentId", pid, "node", node)
 		if placed {
-			op.Set("place", place)
+			// "right" and "below" mean beside the source, not past the page content.
+			if sp, _ := place.(string); (sp == "right" || sp == "below") && src.Str("type") != "connector" {
+				op.Set("place", jsonv.NewObject("near", id, "side", sp))
+			} else {
+				op.Set("place", place)
+			}
 		} else if placeBeside && src.Str("type") != "connector" {
 			op.Set("place", jsonv.NewObject("near", id, "side", "right"))
 		}

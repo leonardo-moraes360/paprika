@@ -11,13 +11,13 @@ import { api, errorText } from "./api";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { Overview } from "./Overview";
 import { navigate, parseRoute, useRoute, workspacePath } from "./route";
-import { useLive, useLiveActions, useLiveConnection } from "./useDocument";
+import { openWorkspace } from "./workspaces";
+import { liveStore, useLive, useLiveActions, useLiveConnection } from "./useDocument";
 import { statusDotVariants } from "./components/ui/status";
 import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Hint } from "./components/ui/tooltip";
 import { cn } from "./lib/cn";
 import { bar } from "./ui";
-import { openWorkspace } from "./workspaces";
 import { LanguageSwitcher, useT } from "./i18n";
 import { WorkspaceNotice } from "./WorkspaceNotice";
 import { PinsChip } from "./Pins";
@@ -73,8 +73,8 @@ const siblingsOf = (doc: Document, parentId: string | null) => {
 
 /**
  * `/` lists the workspaces; `/w/<id>` opens one on the canvas. The server has one active
- * workspace, shared with the MCP agents: opening a URL makes it active, and when someone else
- * (an agent) switches, the canvas follows and the URL is updated.
+ * workspace, shared with the MCP agents; a tab on `/w/<id>` only views that workspace over its own
+ * WebSocket (`liveStore.view`) and never changes the active one. The overview follows the active one.
  */
 export function App() {
   useLiveConnection();
@@ -87,25 +87,27 @@ export function App() {
   const { showError } = useLiveActions();
   const route = useRoute();
   const routeId = route.view === "canvas" ? route.id : null;
-  // The workspace this tab asked the server to open and is still waiting for.
-  const pending = useRef<string | null>(null);
-
+  // Point this tab's connection at the URL's workspace (or back at the active one on the overview).
+  // The server's active workspace is not touched, and this tab's edits go to its own workspace.
   useEffect(() => {
-    if (!routeId) return;
-    pending.current = routeId;
-    openWorkspace(routeId).catch((e: unknown) => {
-      // pending stays set: a doc that arrives meanwhile must not send the URL to the active workspace.
+    let current = true;
+    liveStore.view(routeId).catch((e: unknown) => {
+      if (!current || !routeId) return;
       navigate("/", { replace: true });
       showError(m.openWorkspaceFail(errorText(e)));
     });
+    return () => {
+      current = false;
+    };
   }, [routeId, showError, m]);
 
+  // The viewed workspace was deleted: go back to the overview.
   useEffect(() => {
-    // The URL is checked too: this effect can run after a navigation it has not rendered yet.
-    if (!routeId || !activeId || parseRoute(location.pathname).view !== "canvas") return;
-    if (activeId === routeId) pending.current = null;
-    else if (pending.current !== routeId) navigate(workspacePath(activeId), { replace: true });
-  }, [routeId, activeId]);
+    liveStore.onViewDeleted = () => navigate("/", { replace: true });
+    return () => {
+      liveStore.onViewDeleted = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!routeId) document.title = m.workspacesTitle;
@@ -135,7 +137,15 @@ export function App() {
 /** The overview refreshes on every committed version, so the version is read here, not in App. */
 function OverviewRoute({ activeId, connected }: { activeId: string | null; connected: boolean }) {
   const version = useLive((s) => s.version);
-  return <Overview connected={connected} activeId={activeId} version={version} onOpen={(id) => navigate(workspacePath(id))} />;
+  const { showError } = useLiveActions();
+  const m = useT();
+  // Picking a card is the explicit "open": it also makes that workspace the active one (agents and the
+  // overview follow it). Loading /w/<id> from a URL does not: it only views.
+  const onOpen = (id: string) => {
+    navigate(workspacePath(id));
+    openWorkspace(id).catch((e: unknown) => showError(m.openWorkspaceFail(errorText(e))));
+  };
+  return <Overview connected={connected} activeId={activeId} version={version} onOpen={onOpen} />;
 }
 
 function ErrorToast() {

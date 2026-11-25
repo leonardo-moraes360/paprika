@@ -544,8 +544,11 @@ export function duplicateOps(doc: Document, ids: readonly string[], opts: Duplic
     const node = build(src, true);
     if (opts.props) Object.assign(node, opts.props);
     const op: Op = { op: "create", parentId: opts.parentId !== undefined ? opts.parentId : src.parentId, node };
-    if (placed && opts.place) op.place = opts.place;
-    else if (placeBeside && src.type !== "connector") op.place = { near: id, side: "right" };
+    if (placed && opts.place) {
+      // "right" and "below" mean beside the source, not past the page content.
+      const beside = (opts.place === "right" || opts.place === "below") && src.type !== "connector";
+      op.place = beside ? { near: id, side: opts.place as "right" | "below" } : opts.place;
+    } else if (placeBeside && src.type !== "connector") op.place = { near: id, side: "right" };
     ops.push(op);
     copies.push(node.id!);
   }

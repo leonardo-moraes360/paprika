@@ -618,6 +618,7 @@ function siblingsOf(doc: Document, parentId: string | null): string[] {
 function styleFrom(n: Extract<NodeT, { type: "rect" | "ellipse" | "path" | "shape" }>): Record<string, unknown> {
   const props: Record<string, unknown> = {};
   if (n.fill !== undefined) props.fill = n.fill;
+  if (n.gradient !== undefined) props.gradient = n.gradient;
   if (n.stroke !== undefined) props.stroke = n.stroke;
   if (n.opacity !== 1) props.opacity = n.opacity;
   if (n.shadow !== undefined) props.shadow = n.shadow;
@@ -672,52 +673,133 @@ export function booleanPathD(da: string, db: string, operation: BooleanOp): stri
   return serializePath(segs);
 }
 
+export type CombineStyleChoice = "first" | "last" | "bottom" | "top";
+
+/** Estilo explícito do resultado: `from` escolhe o nó-base (padrão: o mais ao fundo); o resto sobrescreve. */
+export interface CombineStyleSpec {
+  from?: string;
+  fill?: unknown;
+  gradient?: unknown;
+  stroke?: unknown;
+  opacity?: number;
+  shadow?: unknown;
+  outline?: unknown;
+  filter?: unknown;
+  backdropFilter?: unknown;
+}
+
+export interface CombineStep {
+  op: BooleanOp;
+  ids: readonly string[];
+  as?: string;
+}
+
+export interface CombineSpec {
+  ids?: readonly string[];
+  operation?: BooleanOp;
+  operations?: readonly CombineStep[];
+  style?: CombineStyleChoice | CombineStyleSpec;
+  id?: string;
+  name?: string;
+}
+
+const STYLE_CHOICES = ["first", "last", "bottom", "top"];
+const STYLE_OVERRIDES = ["fill", "gradient", "stroke", "opacity", "shadow", "outline", "filter", "backdropFilter"] as const;
+
+type Combinable = Extract<NodeT, { type: "rect" | "ellipse" | "path" | "shape" }>;
+
 /**
- * Combina 2+ nós `rect`/`ellipse`/`path`/`shape` irmãos numa operação booleana e gera um
- * único `path` novo (estilo do nó mais ao fundo). As fontes são removidas; um desfazer restaura.
+ * Combina nós `rect`/`ellipse`/`path`/`shape` irmãos e gera um único `path` novo. Forma simples:
+ * `ids` + `operation`. Forma em lote: `operations` (passos em ordem; `as` nomeia o resultado
+ * intermediário para os passos seguintes; o resultado final é o do último passo). O estilo vem do
+ * nó mais ao fundo, ou do que `style` indicar. As fontes são removidas; um desfazer restaura.
  */
-export function combinePathsOps(
-  doc: Document,
-  ids: readonly string[],
-  opts: { operation: BooleanOp; id?: string; name?: string },
-): CombinePathsPlan {
-  if (ids.length < 2) throw new Error("combine_paths needs at least two ids");
-  const operation = opts.operation;
-  if (!(BOOLEAN_OPS as readonly string[]).includes(operation))
-    throw new Error(`unknown boolean operation "${operation}"; use union, subtract, intersect or exclude`);
-  const unique = [...new Set(ids)];
-  if (unique.length < 2) throw new Error("combine_paths needs at least two distinct ids");
-  const missing = unique.filter((id) => !doc.nodes[id]);
-  if (missing.length) throw new Error(`nodes do not exist: ${missing.join(", ")}`);
-  const nodes = unique.map((id) => doc.nodes[id]!);
-  for (const n of nodes) {
-    if (!COMBINE_TYPES.has(n.type))
-      throw new Error(`"${n.id}" is ${n.type}; combine_paths only accepts path, rect, ellipse or shape`);
+export function combinePathsOps(doc: Document, spec: CombineSpec): CombinePathsPlan {
+  const batch = spec.operations !== undefined;
+  if (batch && (spec.ids !== undefined || spec.operation !== undefined))
+    throw new Error("combine_paths takes either ids + operation or operations, not both");
+  if (!batch && (spec.ids === undefined || spec.operation === undefined))
+    throw new Error("combine_paths needs ids + operation, or operations");
+  const steps: readonly CombineStep[] = batch ? spec.operations! : [{ op: spec.operation!, ids: spec.ids! }];
+  if (!steps.length) throw new Error("combine_paths: operations is empty");
+
+  const named = new Map<string, Multi>();
+  const reals: string[] = []; // nós reais, na ordem em que aparecem
+  let parentId: string | null | undefined;
+  let anchor = "";
+  let result: Multi = [];
+  steps.forEach((step, si) => {
+    const where = batch ? `operations[${si}] (${step.op}): ` : "";
+    const fail = (msg: string): never => {
+      throw new Error(where + msg);
+    };
+    if (step.ids.length < 2) fail("combine_paths needs at least two ids");
+    if (!(BOOLEAN_OPS as readonly string[]).includes(step.op))
+      fail(`unknown boolean operation "${step.op}"; use union, subtract, intersect or exclude`);
+    const unique = [...new Set(step.ids)];
+    if (unique.length < 2) fail("combine_paths needs at least two distinct ids");
+    const missing = unique.filter((id) => !named.has(id) && !doc.nodes[id]);
+    if (missing.length) fail(`nodes do not exist: ${missing.join(", ")}`);
+    const real = unique.filter((id) => !named.has(id));
+    for (const id of real) {
+      const n = doc.nodes[id]!;
+      if (!COMBINE_TYPES.has(n.type))
+        fail(`"${n.id}" is ${n.type}; combine_paths only accepts path, rect, ellipse or shape`);
+    }
+    for (const id of real) {
+      const n = doc.nodes[id]!;
+      if (parentId === undefined) {
+        parentId = n.parentId;
+        anchor = id;
+      } else if (n.parentId !== parentId)
+        fail(
+          `only nodes with the same parent can be combined ("${n.id}" is in ${n.parentId ?? "canvas"}, "${anchor}" in ${parentId ?? "canvas"})`,
+        );
+    }
+    for (const id of real) if (!reals.includes(id)) reals.push(id);
+    let ordered = unique;
+    if (step.op !== "subtract" && real.length === unique.length) {
+      const sib = siblingsOf(doc, parentId!);
+      ordered = [...unique].sort((a, b) => sib.indexOf(a) - sib.indexOf(b));
+    }
+    const geom = (id: string): Multi => named.get(id) ?? nodeGeometry(doc, doc.nodes[id]!);
+    let acc = geom(ordered[0]!);
+    for (let i = 1; i < ordered.length; i++) acc = booleanMulti(acc, geom(ordered[i]!), step.op);
+    if (!acc.length) fail(`boolean ${step.op} produced an empty path`);
+    if (step.as !== undefined) {
+      if (doc.nodes[step.as]) fail(`"as" name "${step.as}" is already a node id; pick another name`);
+      if (named.has(step.as)) fail(`"as" name "${step.as}" was already used by an earlier step`);
+      named.set(step.as, acc);
+    }
+    result = acc;
+  });
+
+  const siblings = siblingsOf(doc, parentId!);
+  const byZ = [...reals].sort((a, b) => siblings.indexOf(a) - siblings.indexOf(b));
+  const choice = spec.style;
+  const overrides: CombineStyleSpec = typeof choice === "object" && choice !== null ? choice : {};
+  let baseId = byZ[0]!;
+  if (typeof choice === "string") {
+    if (!STYLE_CHOICES.includes(choice)) throw new Error(`style "${choice}" is unknown; use first, last, bottom, top or {from, fill, ...}`);
+    baseId = choice === "first" ? reals[0]! : choice === "last" ? reals[reals.length - 1]! : choice === "top" ? byZ[byZ.length - 1]! : byZ[0]!;
+  } else if (overrides.from !== undefined) {
+    const f = doc.nodes[overrides.from];
+    if (!f) throw new Error(`style.from "${overrides.from}" does not exist`);
+    if (!COMBINE_TYPES.has(f.type))
+      throw new Error(`style.from "${f.id}" is ${f.type}; use a path, rect, ellipse or shape`);
+    baseId = f.id;
   }
-  const parentId = nodes[0]!.parentId;
-  const other = nodes.find((n) => n.parentId !== parentId);
-  if (other)
-    throw new Error(
-      `only nodes with the same parent can be combined ("${other.id}" is in ${other.parentId ?? "canvas"}, "${nodes[0]!.id}" in ${parentId ?? "canvas"})`,
-    );
-  const siblings = siblingsOf(doc, parentId);
-  const byZ = [...unique].sort((a, b) => siblings.indexOf(a) - siblings.indexOf(b));
-  const bottom = doc.nodes[byZ[0]!]! as Extract<NodeT, { type: "rect" | "ellipse" | "path" | "shape" }>;
-  const ordered = operation === "subtract" ? unique : byZ;
-  let result = nodeGeometry(doc, doc.nodes[ordered[0]!]!);
-  for (let i = 1; i < ordered.length; i++) {
-    const next = nodeGeometry(doc, doc.nodes[ordered[i]!]!);
-    result = booleanMulti(result, next, operation);
-  }
-  if (!result.length) throw new Error(`boolean ${operation} produced an empty path`);
+  const base = doc.nodes[baseId]! as Combinable;
   const path = multiToPath(result);
-  const id = opts.id ?? newId();
+  const id = spec.id ?? newId();
   if (doc.nodes[id]) throw new Error(`id "${id}" already exists`);
   const index = siblings.indexOf(byZ[0]!);
-  const style = styleFrom(bottom);
-  if (opts.name !== undefined) style.name = opts.name;
+  const style = styleFrom(base);
+  for (const k of STYLE_OVERRIDES) if (overrides[k] !== undefined) style[k] = overrides[k];
+  if (overrides.fill !== undefined && overrides.gradient === undefined) delete style.gradient;
+  if (spec.name !== undefined) style.name = spec.name;
   if (result.some((p) => p.holes.length > 0)) {
-    style.fillRule = bottom.type === "path" ? (bottom as PathNode).fillRule : "evenodd";
+    style.fillRule = base.type === "path" ? (base as PathNode).fillRule : "evenodd";
   }
   const node = {
     type: "path" as const,
@@ -729,7 +811,7 @@ export function combinePathsOps(
     d: path.d,
     ...style,
   };
-  const ops: Op[] = [{ op: "create", parentId, index, node }];
+  const ops: Op[] = [{ op: "create", parentId: parentId!, index, node }];
   for (const sid of byZ) ops.push({ op: "delete", id: sid });
   return { ops, id };
 }

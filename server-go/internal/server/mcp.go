@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"math"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -404,19 +406,26 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 				return nil, err
 			}
 			ids := a.Strings("ids")
-			var missing []string
+			missing := []any{}
 			out := make([]any, 0, len(ids))
 			for _, id := range ids {
 				n := core.GetNode(d, id)
 				if n == nil {
 					missing = append(missing, id)
+					continue
 				}
 				out = append(out, n)
 			}
-			if len(missing) > 0 {
-				return nil, fmt.Errorf("nodes do not exist: %s", strings.Join(missing, ", "))
+			if len(out) == 0 {
+				return nil, fmt.Errorf("nodes do not exist: %s", strings.Join(a.Strings("ids"), ", "))
 			}
-			return jsonShown(jsonv.NewObject("nodes", out), out), nil
+			structured := jsonv.NewObject("nodes", out)
+			if len(missing) > 0 {
+				// The nodes that exist still come back (an undo may have removed some of them).
+				structured.Set("missing", missing)
+				return jsonShown(structured, jsonv.NewObject("nodes", out, "missing", missing)), nil
+			}
+			return jsonShown(structured, out), nil
 		})
 
 	add("find_nodes", z.Object(
@@ -476,6 +485,26 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			boxesObj.Set(id, core.LayoutBoxJSON(b))
 		}
 		out.Set("boxes", boxesObj)
+		// An id that exists but has no box is named, never dropped: a page has no geometry, and a node hidden
+		// inside an auto-layout frame is not laid out.
+		if a.Has("ids") {
+			var unplaced []any
+			seen := map[string]bool{}
+			for _, id := range a.Strings("ids") {
+				if _, ok := boxes[id]; ok || seen[id] {
+					continue
+				}
+				seen[id] = true
+				reason := "not laid out (hidden inside an auto-layout frame, or outside rootId)"
+				if n := core.GetNode(d, id); n != nil && n.Str("type") == "page" {
+					reason = "a page has no box; its frames sit in canvas coordinates"
+				}
+				unplaced = append(unplaced, jsonv.NewObject("id", id, "reason", reason))
+			}
+			if len(unplaced) > 0 {
+				out.Set("unplaced", unplaced)
+			}
+		}
 		if !a.Has("ids") {
 			sum := core.SummarizePlacement(d, a.Str("rootId"))
 			content := jsonv.NewObject()
@@ -690,6 +719,10 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if o, ok := n.(*jsonv.Object); ok {
 				if p, use := createPlace(doc, parentID, o, a); use {
 					op.Set("place", p)
+				} else if a.Has("place") && a.Str("place") == "none" {
+					if w := pinAbsolute(doc, parentID, o); w != "" {
+						warnings = append(warnings, w)
+					}
 				}
 			}
 			ops[i] = op
@@ -863,12 +896,34 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	add("unlock_all", z.Object(optStr("pageId"), label(), batch(), workspaceID()), reveal("locked", "unlock all"))
 
 	add("combine_paths", z.Object(
-		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(2).Max(500)},
-		z.Field{Name: "operation", Schema: z.Enum("union", "subtract", "intersect", "exclude")},
+		z.Field{Name: "ids", Schema: z.Optional(z.Array(z.String()).Min(2).Max(500))},
+		z.Field{Name: "operation", Schema: z.Optional(core.CombineOperationSchema)},
+		z.Field{Name: "operations", Schema: z.Optional(z.Array(core.CombineStepSchema).Min(1).Max(50))},
+		z.Field{Name: "style", Schema: z.Optional(core.CombineStyleSchema)},
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
 		label(), batch(), workspaceID(),
-	), writeSelection("combine_paths", "path", "combine", "path(s)", "operation"))
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		id := a.Str("id")
+		if !a.Has("id") {
+			id = core.NewID()
+		}
+		op := jsonv.NewObject("op", "combine_paths")
+		for _, k := range []string{"ids", "operation", "operations", "style"} {
+			if v, ok := a.Get(k); ok {
+				op.Set(k, v)
+			}
+		}
+		op.Set("id", id)
+		if a.Has("name") {
+			op.Set("name", a.Str("name"))
+		}
+		lbl := "combine " + count(len(a.Strings("ids"))) + " path(s)"
+		if a.Has("operations") {
+			lbl = "combine " + count(len(a.Arr("operations"))) + " step(s)"
+		}
+		return writeWith(a, []any{op}, labelOr(a, lbl), "path", id)
+	})
 
 	add("convert_to_path", z.Object(
 		z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
@@ -1086,7 +1141,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if a.Has("name") {
 			op.Set("name", a.Str("name"))
 		}
-		// `page` names the new page: `created` also lists the first page made the first time ("Page 1").
+		// `page` names the new page: `created` also lists the first page ("Page 1") made when the document already had content.
 		return writeWith(a, []any{op}, labelOr(a, "create page"), "page", id)
 	})
 
@@ -1246,7 +1301,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if a.Has("fields") {
 			op.Set("fields", a.Arr("fields"))
 		}
-		return writeWith(a, []any{op}, labelOr(a, "detach tokens"), "detached", a.Arr("ids"))
+		// Fields that come from a component (on an instance or its copies) are skipped, not an error.
+		extra := []any{"detached", a.Arr("ids")}
+		if d, err := docOf(a); err == nil {
+			if skipped := core.DetachTokensSkipped(d, a.Strings("ids"), a.Strings("fields")); len(skipped) > 0 {
+				sk := jsonv.NewObject()
+				for id, f := range skipped {
+					sk.Set(id, jsonv.FromGo(f))
+				}
+				extra = append(extra, "skipped", sk)
+			}
+		}
+		return writeWith(a, []any{op}, labelOr(a, "detach tokens"), extra...)
 	})
 
 	add("apply_ops", z.Object(z.Field{Name: "ops", Schema: z.Array(core.OpSchema).Min(1).Max(1000)}, label(), batch(), workspaceID()),
@@ -1621,6 +1687,17 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		optStr("path"),
 		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
 		optStr("compare"),
+		z.Field{Name: "grid", Schema: z.Optional(z.Union(z.Bool(), z.Object(
+			z.Field{Name: "step", Schema: z.Optional(z.Number().Positive())},
+			z.Field{Name: "labels", Schema: z.Optional(z.Bool())},
+			optStr("color"),
+		)))},
+		z.Field{Name: "region", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number()},
+			z.Field{Name: "y", Schema: z.Number()},
+			z.Field{Name: "width", Schema: z.Number().Positive()},
+			z.Field{Name: "height", Schema: z.Number().Positive()},
+		))},
 		workspaceID(),
 	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		if m.shot == nil {
@@ -1633,6 +1710,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		png, w, h, err := m.shot.ScreenshotMode(ctx, d, a.Str("rootId"), a.Num("scale"), a.Str("mode"))
 		if err != nil {
 			return nil, err
+		}
+		grid, err := parseGridArg(a)
+		if err != nil {
+			return nil, err
+		}
+		region := parseRegionArg(a)
+		var gridStep float64
+		var usedRegion *Region
+		if grid != nil || region != nil {
+			fw, fh := frameSize(d, a.Str("rootId"), w, h, a.Num("scale"))
+			png, w, h, gridStep, usedRegion, err = annotateShot(png, fw, fh, float64(w)/fw, region, grid)
+			if err != nil {
+				return nil, err
+			}
 		}
 		compared := false
 		if src := strings.TrimSpace(a.Str("compare")); src != "" {
@@ -1650,6 +1741,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if compared {
 			shotText += " side by side"
 		}
+		if gridStep > 0 {
+			shotText += ", grid step " + formatGridValue(gridStep)
+		}
+		if usedRegion != nil {
+			shotText += fmt.Sprintf(", region x=%s y=%s %s×%s", formatGridValue(usedRegion.X), formatGridValue(usedRegion.Y), formatGridValue(usedRegion.W), formatGridValue(usedRegion.H))
+		}
+		extras := func(o *jsonv.Object) {
+			if gridStep > 0 {
+				o.Set("grid", jsonv.NewObject("step", gridStep))
+			}
+			if usedRegion != nil {
+				o.Set("region", jsonv.NewObject("x", usedRegion.X, "y", usedRegion.Y, "width", usedRegion.W, "height", usedRegion.H))
+			}
+		}
 		if rel := a.Str("path"); rel != "" {
 			abs, werr := writeScreenshot(store.Path(), rel, png)
 			if werr != nil {
@@ -1662,6 +1767,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if compared {
 				out.Set("compare", true)
 			}
+			extras(out)
 			return jsonResult(out), nil
 		}
 		structured := jsonv.NewObject("width", float64(w), "height", float64(h))
@@ -1671,6 +1777,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if compared {
 			structured.Set("compare", true)
 		}
+		extras(structured)
 		return jsonv.NewObject("content", []any{
 			jsonv.NewObject("type", "image", "data", base64.StdEncoding.EncodeToString(png), "mimeType", "image/png"),
 			jsonv.NewObject("type", "text", "text", shotText),
@@ -1679,15 +1786,34 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 
 	add("export_image", z.Object(
 		optStr("rootId"),
-		z.Field{Name: "format", Schema: z.Default(z.Enum("png", "jpeg", "webp", "avif", "pdf"), "png")},
+		z.Field{Name: "format", Schema: z.Default(z.Enum("png", "jpeg", "webp", "avif", "pdf", "svg"), "png")},
 		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
 		workspaceID(),
-	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		d, err := docOf(a)
 		if err != nil {
 			return nil, err
 		}
-		out, err := export.Export(d, a.Str("rootId"), a.Str("format"), a.Num("scale"))
+		if a.Str("format") == "svg" {
+			// Same vector SVG as export_code {format: "svg"}; scale does not apply.
+			r, err := core.ExportSVG(d, a.Str("rootId"), nil)
+			if err != nil {
+				return nil, err
+			}
+			content := []any{jsonv.NewObject("type", "text", "text", r.SVG)}
+			if len(r.Warnings) > 0 {
+				content = append(content, jsonv.NewObject("type", "text", "text", "warnings: "+strings.Join(r.Warnings, "; ")))
+			}
+			sc := jsonv.NewObject(
+				"width", math.Ceil(r.Width),
+				"height", math.Ceil(r.Height),
+				"format", "svg",
+				"mimeType", "image/svg+xml",
+				"warnings", jsonv.FromGo(r.Warnings),
+			)
+			return jsonv.NewObject("content", content, "structuredContent", sc), nil
+		}
+		out, err := m.exportImage(ctx, d, a.Str("rootId"), a.Str("format"), a.Num("scale"))
 		if err != nil {
 			return nil, err
 		}
@@ -1795,7 +1921,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return nil, errors.New(msg)
 		}
 		parent, _ := a.Get("parentId")
-		p, usePlace := importPlace(store.Doc(), a)
+		here, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		p, usePlace := importPlace(here, a)
+		if !usePlace && a.Str("place") == "none" && (a.Has("x") || a.Has("y")) {
+			for _, n := range r.Nodes {
+				if w := pinAbsolute(here, parent, n); w != "" {
+					r.Warnings = append(r.Warnings, w)
+				}
+			}
+		}
 		ops := make([]any, len(r.Nodes))
 		for i, n := range r.Nodes {
 			op := jsonv.NewObject("op", "create", "parentId", parent, "node", n)
@@ -1929,14 +2066,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return nil, err
 		}
 		op := jsonv.NewObject("op", "create", "parentId", parent, "node", node)
+		warnings := []any{}
 		if p, use := importPlace(here, a); use {
 			op.Set("place", p)
+		} else if a.Str("place") == "none" && (a.Has("x") || a.Has("y")) {
+			if w := pinAbsolute(here, parent, node); w != "" {
+				warnings = append(warnings, w)
+			}
 		}
 		res, head, err := applyHere(a, []any{op}, labelOr(a, "import image"))
 		if err != nil {
 			return nil, err
 		}
-		warnings := []any{}
 		if img.animated {
 			warnings = append(warnings, "animated "+strings.ToUpper(img.format())+": kept animated (the original bytes are embedded unchanged); render_screenshot shows a single frame")
 		}
@@ -2008,6 +2149,99 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		)
 		stamp(out, head)
 		return jsonResult(out), nil
+	})
+
+	add("analyze_image", z.Object(
+		optStr("src"),
+		optStr("nodeId"),
+		z.Field{Name: "frame", Schema: z.Optional(z.Object(
+			z.Field{Name: "width", Schema: z.Number().Min(1).Max(100000)},
+			z.Field{Name: "height", Schema: z.Number().Min(1).Max(100000)},
+		))},
+		z.Field{Name: "maxColors", Schema: z.Optional(z.Int().Min(1).Max(16))},
+		z.Field{Name: "minArea", Schema: z.Optional(z.Number().Min(0.00001).Max(0.5))},
+		z.Field{Name: "region", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number().Min(0)},
+			z.Field{Name: "y", Schema: z.Number().Min(0)},
+			z.Field{Name: "width", Schema: z.Number().Min(1)},
+			z.Field{Name: "height", Schema: z.Number().Min(1)},
+		))},
+		z.Field{Name: "maxBlobs", Schema: z.Optional(z.Int().Min(1).Max(200))},
+		z.Field{Name: "maxPoints", Schema: z.Optional(z.Int().Min(3).Max(200))},
+		workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		return analyzeImage(a, func() (*core.Document, error) { return docOf(a) })
+	})
+
+	add("trace_image", z.Object(
+		optStr("src"),
+		optStr("nodeId"),
+		optStr("parentId"),
+		z.Field{Name: "frame", Schema: z.Optional(z.Object(
+			z.Field{Name: "width", Schema: z.Number().Min(1).Max(100000)},
+			z.Field{Name: "height", Schema: z.Number().Min(1).Max(100000)},
+		))},
+		z.Field{Name: "region", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number().Min(0)},
+			z.Field{Name: "y", Schema: z.Number().Min(0)},
+			z.Field{Name: "width", Schema: z.Number().Min(1)},
+			z.Field{Name: "height", Schema: z.Number().Min(1)},
+		))},
+		z.Field{Name: "maxColors", Schema: z.Optional(z.Int().Min(1).Max(16))},
+		z.Field{Name: "minArea", Schema: z.Optional(z.Number().Min(0.00001).Max(0.5))},
+		z.Field{Name: "smoothness", Schema: z.Optional(z.Number().Min(10).Max(170))},
+		z.Field{Name: "tolerance", Schema: z.Optional(z.Number().Min(0.1).Max(50))},
+		z.Field{Name: "colors", Schema: z.Optional(z.Array(z.String().Min(1).Max(20)).Min(1).Max(16))},
+		z.Field{Name: "includeBackground", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "maxPaths", Schema: z.Optional(z.Int().Min(1).Max(200))},
+		z.Field{Name: "group", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "dryRun", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "place", Schema: placeSchema},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		return traceImage(a, func() (*core.Document, error) { return docOf(a) },
+			func(ops []any, lbl string, extra ...any) (ToolResult, error) {
+				r, _, err := shapedWrite(a, ops, lbl, extra...)
+				return r, err
+			})
+	})
+
+	add("compare_reference", z.Object(
+		z.Field{Name: "reference", Schema: z.String().Min(1).Max(5_000_000)},
+		z.Field{Name: "rootId", Schema: z.String().Min(1)},
+		z.Field{Name: "target", Schema: z.Optional(z.Number().Min(0.01).Max(1))},
+		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
+		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.25).Max(2))},
+		z.Field{Name: "top", Schema: z.Optional(z.Int().Min(1).Max(50))},
+		z.Field{Name: "rotation", Schema: z.Optional(z.Bool())},
+		optStr("path"),
+		z.Field{Name: "includeDiff", Schema: z.Optional(z.Bool())},
+		workspaceID(),
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
+		head, err := store.ReadWorkspace(a.Str("workspaceId"))
+		if err != nil {
+			return nil, wsErr(a.Str("workspaceId"), err)
+		}
+		return m.compareReference(ctx, a, head)
+	})
+
+	add("fit_to_reference", z.Object(
+		z.Field{Name: "rootId", Schema: z.String().Min(1)},
+		z.Field{Name: "ids", Schema: z.Array(z.String().Min(1)).Min(1).Max(200)},
+		z.Field{Name: "reference", Schema: z.String().Min(1).Max(5_000_000)},
+		z.Field{Name: "params", Schema: z.Optional(z.Array(z.Enum("position", "size", "rotation", "radius", "pathPoints")).Min(1).Max(5))},
+		z.Field{Name: "maxIterations", Schema: z.Optional(z.Int().Min(1).Max(400))},
+		z.Field{Name: "target", Schema: z.Optional(z.Number().Min(0.01).Max(1))},
+		z.Field{Name: "maxAnchors", Schema: z.Optional(z.Int().Min(1).Max(50))},
+		z.Field{Name: "dryRun", Schema: z.Optional(z.Bool())},
+		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
+		label(), batch(), workspaceID(),
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
+		head, err := store.ReadWorkspace(a.Str("workspaceId"))
+		if err != nil {
+			return nil, wsErr(a.Str("workspaceId"), err)
+		}
+		return m.fitToReference(ctx, a, head)
 	})
 
 	add("resize_image", z.Object(
@@ -2220,6 +2454,11 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 		if !present || rawArgs == nil {
 			rawArgs = jsonv.NewObject()
 		}
+		if o, ok := rawArgs.(*jsonv.Object); ok {
+			if msg := unknownArgs(name, o, t.schema.Keys()); msg != "" {
+				return errorResult((&mcpError{codeInvalidParams, "Input validation error: Invalid arguments for tool " + name + ": " + msg}).Error())
+			}
+		}
 		parsed, err := z.Parse(t.schema, rawArgs)
 		if err != nil {
 			ze, _ := errors.AsType[*z.Error](err)
@@ -2246,6 +2485,62 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 		return errorResult(err.Error())
 	}
 	return m.withOpenPins(name, res)
+}
+
+// argAliases maps a key agents guess to the keys the tools really take, in order of preference.
+var argAliases = map[string][]string{
+	"id":        {"rootId", "ids"},
+	"nodeId":    {"rootId", "id"},
+	"node":      {"rootId", "id"},
+	"frameId":   {"rootId"},
+	"frame":     {"rootId"},
+	"root":      {"rootId"},
+	"page":      {"pageId", "rootId"},
+	"ids":       {"rootIds"},
+	"nodeIds":   {"rootIds", "ids"},
+	"rootIds":   {"rootId", "ids"},
+	"workspace": {"workspaceId"},
+}
+
+// unknownArgs names the top-level arguments a tool does not take (they used to be dropped
+// silently, so a render_screenshot {id} shot the whole canvas). "" when there are none.
+func unknownArgs(tool string, args *jsonv.Object, valid []string) string {
+	has := map[string]bool{}
+	for _, k := range valid {
+		has[k] = true
+	}
+	var msgs []string
+	for _, k := range args.Keys() {
+		if has[k] {
+			continue
+		}
+		msg := fmt.Sprintf("unknown argument %q", k)
+		hint := ""
+		for _, c := range argAliases[k] {
+			if has[c] {
+				hint = c
+				break
+			}
+		}
+		if hint == "" {
+			for _, c := range []string{k + "s", strings.TrimSuffix(k, "s")} {
+				if c != k && has[c] {
+					hint = c
+					break
+				}
+			}
+		}
+		if hint != "" {
+			msg += fmt.Sprintf(" (did you mean %q?)", hint)
+		}
+		msgs = append(msgs, msg)
+	}
+	if len(msgs) == 0 {
+		return ""
+	}
+	sorted := append([]string(nil), valid...)
+	sort.Strings(sorted)
+	return strings.Join(msgs, "; ") + "; valid arguments: " + strings.Join(sorted, ", ")
 }
 
 // Handle processes one JSON-RPC message; it returns nil for notifications and responses.
@@ -2333,6 +2628,36 @@ func createPlace(doc *core.Document, parent any, node *jsonv.Object, args *jsonv
 		return nil, false
 	}
 	return "free", true
+}
+
+// pinAbsolute implements "place:none with x/y means exactly there": inside a row/column frame a
+// flow child ignores x/y, so the root gets layoutPositioning:"absolute" (unless the agent chose
+// one) and the caller reports the returned warning. The caller checks place:"none".
+func pinAbsolute(doc *core.Document, parent any, node *jsonv.Object) string {
+	if !node.Has("x") && !node.Has("y") || node.Has("layoutPositioning") {
+		return ""
+	}
+	if t := node.Str("type"); t == "connector" || t == "page" {
+		return ""
+	}
+	s, ok := parent.(string)
+	if !ok || s == "" {
+		return ""
+	}
+	pn := core.GetNode(doc, s)
+	if pn == nil {
+		return ""
+	}
+	mode := pn.Obj("layout").Str("mode")
+	if mode != "row" && mode != "column" {
+		return ""
+	}
+	node.Set("layoutPositioning", "absolute")
+	name := node.Str("name")
+	if name == "" {
+		name = node.Str("type")
+	}
+	return fmt.Sprintf("%q: parent %q has %s layout, so layoutPositioning was set to \"absolute\" to keep x/y (pass layoutPositioning:\"auto\" to join the flow)", name, s, mode)
 }
 
 func importPlace(doc *core.Document, args *jsonv.Object) (any, bool) {
@@ -2425,4 +2750,31 @@ func workspaceActionError(id string, err error) error {
 		return fmt.Errorf(`workspace "%s" is the only one and cannot be archived`, id)
 	}
 	return err
+}
+
+// exportImage renders raster formats with the same Chromium path as render_screenshot, so an
+// export matches what the canvas and the screenshot show. Without Chromium (or if it fails) it
+// falls back to the built-in rasterizer and says so in the warnings. PDF always uses the built-in writer.
+func (m *MCP) exportImage(ctx context.Context, d *core.Document, rootID, format string, scale float64) (export.Result, error) {
+	format = strings.ToLower(strings.TrimSpace(format))
+	if scale <= 0 {
+		scale = 1
+	}
+	if m.shot == nil || format == export.FormatPDF || scale < 0.1 || scale > 4 {
+		return export.Export(d, rootID, format, scale)
+	}
+	png, _, _, err := m.shot.ScreenshotMode(ctx, d, rootID, scale, "")
+	if err == nil {
+		var out export.Result
+		if out, err = export.FromPNG(png, format); err == nil {
+			out.Warnings = []string{}
+			return out, nil
+		}
+	}
+	out, ferr := export.Export(d, rootID, format, scale)
+	if ferr != nil {
+		return out, ferr
+	}
+	out.Warnings = append([]string{"Chromium unavailable (" + err.Error() + "): rendered with the built-in rasterizer, which can differ from render_screenshot in glyphs and strokes"}, out.Warnings...)
+	return out, nil
 }

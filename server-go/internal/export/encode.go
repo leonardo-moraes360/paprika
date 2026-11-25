@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"image/color"
+	"image/draw"
 	"image/jpeg"
 	"image/png"
 
@@ -20,12 +22,10 @@ func EncodeImage(img image.Image, format string) ([]byte, string, error) {
 		}
 		return buf.Bytes(), "image/png", nil
 	case FormatJPEG:
+		// JPEG has no alpha: flatten onto white (not black) so transparent areas stay light.
 		opaque := image.NewRGBA(img.Bounds())
-		for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
-			for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
-				opaque.Set(x, y, img.At(x, y))
-			}
-		}
+		draw.Draw(opaque, opaque.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
+		draw.Draw(opaque, opaque.Bounds(), img, img.Bounds().Min, draw.Over)
 		if err := jpeg.Encode(&buf, opaque, &jpeg.Options{Quality: 92}); err != nil {
 			return nil, "", err
 		}
@@ -43,4 +43,25 @@ func EncodeImage(img image.Image, format string) ([]byte, string, error) {
 	default:
 		return nil, "", fmt.Errorf("encode: unsupported format %q", format)
 	}
+}
+
+// FromPNG converts a PNG (a Chromium screenshot) to a raster export format.
+func FromPNG(data []byte, format string) (Result, error) {
+	if format == FormatPNG {
+		cfg, err := png.DecodeConfig(bytes.NewReader(data))
+		if err != nil {
+			return Result{}, err
+		}
+		return Result{Data: data, Mime: "image/png", Width: cfg.Width, Height: cfg.Height, Format: format}, nil
+	}
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		return Result{}, err
+	}
+	out, mime, err := EncodeImage(img, format)
+	if err != nil {
+		return Result{}, err
+	}
+	b := img.Bounds()
+	return Result{Data: out, Mime: mime, Width: b.Dx(), Height: b.Dy(), Format: format}, nil
 }

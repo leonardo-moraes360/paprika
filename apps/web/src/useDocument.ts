@@ -98,6 +98,9 @@ export class LiveStore {
   private ws: WebSocket | null = null;
   private seq = 0;
   private noticeSeq = 0;
+  /** The workspace this tab shows (null: follows the server's active one), re-sent on every (re)connect. */
+  private viewId: string | null = null;
+  private viewWaiters = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
 
   getState = (): DocState => this.state;
 
@@ -113,6 +116,27 @@ export class LiveStore {
     this.state = next;
     for (const l of this.listeners) l();
   };
+
+  /**
+   * Points this tab at one workspace (null: follow the active one). The server answers with that
+   * workspace's document and routes this tab's edits to it, without changing the active workspace.
+   * Resolves when the server acknowledged, rejects with the server's error (e.g. unknown id).
+   */
+  view = (id: string | null): Promise<void> => {
+    this.viewId = id;
+    return new Promise<void>((resolve, reject) => {
+      const ws = this.ws;
+      // Not connected yet: onopen sends the view; the waiter below is settled by that ack.
+      const reqId = String(++this.seq);
+      this.viewWaiters.set(reqId, { resolve, reject });
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(this.viewMessage(reqId)));
+      else this.pendingView = reqId;
+    });
+  };
+  private pendingView: string | null = null;
+  /** Set by the App: leaves the canvas when the viewed workspace is deleted. */
+  onViewDeleted: (() => void) | null = null;
+  private viewMessage = (reqId: string) => (this.viewId ? { type: "view", workspaceId: this.viewId, reqId } : { type: "view", reqId });
 
   /** Abre o WebSocket (reconecta a cada 1 s) e devolve a função que fecha. */
   connect = (): (() => void) => {
@@ -204,6 +228,12 @@ export class LiveStore {
         if (this.ws !== ws) return;
         this.set((s) => ({ ...s, connected: true, error: s.error && offlineMessages.has(s.error) ? null : s.error }));
         reportRenderer(initialRendererMode());
+        // A reconnect re-points the new socket at this tab's workspace (and settles a view() made while offline).
+        if (this.viewId || this.pendingView) {
+          const reqId = this.pendingView ?? String(++this.seq);
+          this.pendingView = null;
+          ws.send(JSON.stringify(this.viewMessage(reqId)));
+        }
       };
       ws.onmessage = (ev) => {
         if (this.ws !== ws) return;
@@ -220,6 +250,8 @@ export class LiveStore {
         } else if (msg.type === "workspaceOp") {
           const { op } = msg;
           const kind = op.op;
+          // The workspace this tab shows is gone: nothing left to draw or edit.
+          if (kind === "delete" && op.workspaceId === this.state.doc?.id) this.onViewDeleted?.();
           if (kind === "create" || !op.actor.startsWith("agent")) return;
           this.set((s) =>
             kind === "rename" && s.doc?.id !== op.workspaceId
@@ -230,8 +262,15 @@ export class LiveStore {
           void queryClient.invalidateQueries({ queryKey: ["pins"] });
         } else if (msg.type === "presence") {
           this.set((s) => ({ ...s, agents: applyPresence(s.agents, msg) }));
+        } else if (msg.type === "ack" && this.viewWaiters.has(msg.reqId)) {
+          this.viewWaiters.get(msg.reqId)?.resolve();
+          this.viewWaiters.delete(msg.reqId);
         } else if (msg.type === "error") {
-          this.set((s) => ({ ...s, error: msg.message }));
+          const waiter = msg.reqId ? this.viewWaiters.get(msg.reqId) : undefined;
+          if (waiter && msg.reqId) {
+            this.viewWaiters.delete(msg.reqId);
+            waiter.reject(new Error(msg.message));
+          } else this.set((s) => ({ ...s, error: msg.message }));
         }
       };
     };

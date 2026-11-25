@@ -947,7 +947,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => name("login")).toBe("Login · mobile");
   });
 
-  it("overview: volta aos workspaces, cria um, abre no canvas e segue o agente quando ele troca", async () => {
+  it("overview: volta aos workspaces, cria um, abre no canvas e não segue o agente quando ele troca", async () => {
     const demo = (await doc()).id;
     await page.getByRole("link", { name: "Paprika" }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe("/");
@@ -965,14 +965,16 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(new URL(page.url()).pathname).toBe(`/w/${draft}`);
     expect(await page.locator("[data-layer-id]").count()).toBe(0);
 
-    // The agent draws in the open workspace, then switches back to the demo: the canvas follows.
+    // The agent draws in the open workspace, then switches back to the demo: this tab keeps its own workspace.
     await agent.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "frame", id: "rasc", name: "Rascunho", width: 200, height: 120, fill: "#ffffff" }] } });
     await page.waitForSelector('[data-paprika-id="rasc"]');
     await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
-    await page.waitForSelector('[data-paprika-id="login"]');
-    await expect.poll(() => new URL(page.url()).pathname).toBe(`/w/${demo}`);
+    await expect.poll(async () => (await doc()).id).toBe(demo);
+    await expect.poll(() => new URL(page.url()).pathname).toBe(`/w/${draft}`);
+    expect(await page.locator('[data-paprika-id="rasc"]').count()).toBe(1);
+    expect(await page.locator('[data-paprika-id="login"]').count()).toBe(0);
 
-    // Following the agent replaced the URL, so Back goes to the overview; the draft is listed there.
+    // Back goes to the overview; the draft is listed there.
     await page.goBack();
     await expect.poll(() => new URL(page.url()).pathname).toBe("/");
     await expect.poll(() => page.locator(`[data-workspace-id="${draft}"]`).textContent()).toMatch(/Rascunho do agente1 nó/);
@@ -1241,7 +1243,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const tmp = structured(await agent.callTool({ name: "create_workspace", arguments: { name: "Aviso temporário" } })).workspace.id as string;
     await agent.callTool({ name: "open_workspace", arguments: { id: tmp } });
     await expect.poll(() => notice.textContent(), POLL).toContain("e2e-agent abriu o workspace “Aviso temporário”");
-    await expect.poll(() => new URL(page.url()).pathname, POLL).toBe(`/w/${tmp}`);
+    // The agent's switch does not move this tab: it keeps showing the demo.
+    expect(new URL(page.url()).pathname).toBe(`/w/${demo}`);
     expect(await notice.locator(".workspace-notice-summary").count()).toBe(0);
 
     // The notice is a polite live region and never takes focus.
@@ -1252,6 +1255,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       name: "create_nodes",
       arguments: { nodes: [{ type: "frame", id: "a1", width: 100, height: 60 }, { type: "frame", id: "a2", width: 100, height: 60 }] },
     });
+    await page.goto(`${url}/w/${tmp}`);
     await page.waitForSelector('[data-paprika-id="a2"]');
 
     // Two steps: the summary and the token, then the delete.

@@ -239,6 +239,28 @@ func checkPropDecls(comp *Node) error {
 	return nil
 }
 
+func bindOutsideMessage(doc *Document, id string) string {
+	inInstance := ""
+	if n := GetNode(doc, id); n != nil {
+		for cur := n.Str("parentId"); cur != ""; {
+			a := GetNode(doc, cur)
+			if a == nil {
+				break
+			}
+			if IsInstance(a) {
+				inInstance = a.Str("id")
+				break
+			}
+			cur = a.Str("parentId")
+		}
+	}
+	why := "none of its ancestors is a component"
+	if inInstance != "" {
+		why = fmt.Sprintf(`it sits inside the instance "%s", and a bind belongs on the component's own nodes`, inInstance)
+	}
+	return fmt.Sprintf(`"%s" has a bind outside a component: %s; the frame that contains it must be a component (component: true, or create_component) when the transaction ends`, id, why)
+}
+
 func validateBind(comp, n *Node) error {
 	b := n.Obj("bind")
 	if b == nil {
@@ -894,7 +916,7 @@ func SyncInstances(doc *Document) error {
 		if n.Has("bind") && !n.Has("sourceId") && !isComp {
 			owner := owningComponent(doc, id)
 			if owner == nil {
-				return instErr(`"%s" has a bind outside a component`, id)
+				return instErr("%s", bindOutsideMessage(doc, id))
 			}
 			if err := validateBind(owner, n); err != nil {
 				return err

@@ -24,6 +24,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
+	"github.com/leonardo-moraes360/paprika/server-go/internal/export"
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
 	z "github.com/leonardo-moraes360/paprika/server-go/internal/zod"
 )
@@ -191,6 +192,12 @@ var clientMessage = z.DiscriminatedUnion("type",
 	)),
 	z.Option("undo", z.Object(z.Field{Name: "type", Schema: z.Literal("undo")}, z.Field{Name: "reqId", Schema: z.Optional(z.String())})),
 	z.Option("redo", z.Object(z.Field{Name: "type", Schema: z.Literal("redo")}, z.Field{Name: "reqId", Schema: z.Optional(z.String())})),
+	// view: which workspace this canvas shows. Without workspaceId the canvas follows the active workspace.
+	z.Option("view", z.Object(
+		z.Field{Name: "type", Schema: z.Literal("view")},
+		z.Field{Name: "workspaceId", Schema: z.Optional(z.String().Max(64))},
+		z.Field{Name: "reqId", Schema: z.Optional(z.String())},
+	)),
 	z.Option("hello", z.Object(
 		z.Field{Name: "type", Schema: z.Literal("hello")},
 		z.Field{Name: "renderer", Schema: z.Enum("dom", "wasm")},
@@ -232,6 +239,8 @@ type wsHub struct {
 	conns    map[*websocket.Conn]chan string
 	order    []*websocket.Conn
 	renderer map[*websocket.Conn]string
+	// view is the workspace a connection was pointed at (a tab on /w/<id>); absent: it follows the active one.
+	view map[*websocket.Conn]string
 }
 
 func (h *wsHub) rendererLine() string {
@@ -281,7 +290,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 
-	hub := &wsHub{conns: map[*websocket.Conn]chan string{}, renderer: map[*websocket.Conn]string{}}
+	hub := &wsHub{conns: map[*websocket.Conn]chan string{}, renderer: map[*websocket.Conn]string{}, view: map[*websocket.Conn]string{}}
 	renderers := &rendererSource{line: hub.rendererLine}
 	canvasRenderers.Store(renderers)
 	docMessage := func(doc *core.Document, version int64, actor, label, kind string, canUndo, canRedo bool) string {
@@ -291,10 +300,28 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	unsubscribe := store.OnChange(func(e ChangeEvent) {
 		msg := docMessage(e.Doc, e.Version, e.Actor, e.Label, e.Kind, store.CanUndo(), store.CanRedo())
 		hub.mu.Lock()
-		for _, ch := range hub.conns {
+		for c, ch := range hub.conns {
+			// A canvas pointed at another workspace keeps its own document.
+			if v := hub.view[c]; v != "" && v != e.DocID {
+				continue
+			}
 			select {
 			case ch <- msg:
 			default: // slow client: drop; it gets the full document on the next change
+			}
+		}
+		hub.mu.Unlock()
+	})
+	unsubscribeAside := store.OnAside(func(e AsideEvent) {
+		msg := docMessage(e.Doc, e.Version, e.Actor, e.Label, e.Kind, e.CanUndo, e.CanRedo)
+		hub.mu.Lock()
+		for c, ch := range hub.conns {
+			if hub.view[c] != e.DocID {
+				continue
+			}
+			select {
+			case ch <- msg:
+			default:
 			}
 		}
 		hub.mu.Unlock()
@@ -704,6 +731,24 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		}
 		send(c.Writer, 200, jsonv.NewObject("svg", res.SVG, "width", res.Width, "height", res.Height, "warnings", ws), "")
 	})
+	// The Inter faces embedded for export, served to the canvas so "Inter" looks the same in the
+	// canvas, the screenshot and the export (the browser may not have it installed).
+	engine.GET("/fonts/inter.css", func(c *gin.Context) {
+		css, err := export.InterFontFaceCSS(func(file string) (string, error) { return "/fonts/" + file, nil })
+		if err != nil {
+			send(c.Writer, 500, errBody(err.Error()), "")
+			return
+		}
+		send(c.Writer, 200, css, "text/css; charset=utf-8")
+	})
+	engine.GET("/fonts/:file", func(c *gin.Context) {
+		raw, ok := export.InterFile(c.Param("file"))
+		if !ok {
+			send(c.Writer, 404, errBody("font not found"), "")
+			return
+		}
+		send(c.Writer, 200, raw, "font/ttf")
+	})
 	engine.GET("/ws", func(c *gin.Context) {
 		conn, err := websocket.Accept(c.Writer, c.Request, &websocket.AcceptOptions{InsecureSkipVerify: true})
 		if err != nil {
@@ -743,6 +788,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			stopOps()
 			stopPins()
 			unsubscribe()
+			unsubscribeAside()
 			unsubscribePresence()
 			unsubscribeTeam()
 			hub.mu.Lock()
@@ -885,6 +931,7 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 		hub.mu.Lock()
 		delete(hub.conns, conn)
 		delete(hub.renderer, conn)
+		delete(hub.view, conn)
 		hub.order = slices.DeleteFunc(hub.order, func(c *websocket.Conn) bool { return c == conn })
 		hub.mu.Unlock()
 		conn.CloseNow()
@@ -949,19 +996,77 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 			}
 			reply(hello)
 			continue
-		case "ops":
-			_, err = store.Apply(msg.Arr("ops"), "user", msg.Str("label"))
-		case "undo":
-			_, err = store.Undo("user")
-		default:
-			_, err = store.Redo("user")
-		}
-		if err != nil {
-			fail(err.Error())
+		case "view":
+			id := msg.Str("workspaceId")
+			var head WorkspaceHead
+			if id != "" {
+				if head, err = store.ReadWorkspace(id); err != nil {
+					if errors.Is(err, ErrNoWorkspace) {
+						err = store.WorkspaceChoiceError(id)
+					}
+					fail(err.Error())
+					continue
+				}
+			}
+			// Register before reading the document so a commit in between reaches this canvas.
+			hub.mu.Lock()
+			if _, ok := hub.conns[conn]; ok {
+				if id == "" {
+					delete(hub.view, conn)
+				} else {
+					hub.view[conn] = id
+				}
+			}
+			hub.mu.Unlock()
+			var d *core.Document
+			var cu, cr bool
+			if id == "" {
+				d, head.Version, cu, cr = store.Snapshot()
+			} else if head, err = store.ReadWorkspace(id); err != nil {
+				fail(err.Error())
+				continue
+			} else {
+				d, cu, cr = head.Doc, head.CanUndo, head.CanRedo
+			}
+			select {
+			case out <- docMessage(d, head.Version, "server", "", "reload", cu, cr):
+			case <-ctx.Done():
+			}
+			if hasReq {
+				reply(jsonv.NewObject("type", "ack", "reqId", reqID, "version", float64(head.Version)))
+			}
 			continue
-		}
-		if hasReq {
-			reply(jsonv.NewObject("type", "ack", "reqId", reqID, "version", float64(store.Version())))
+		case "ops", "undo", "redo":
+			hub.mu.Lock()
+			view := hub.view[conn]
+			hub.mu.Unlock()
+			var version int64
+			switch {
+			case view == "" && msg.Str("type") == "ops":
+				_, err = store.Apply(msg.Arr("ops"), "user", msg.Str("label"))
+				version = store.Version()
+			case view == "" && msg.Str("type") == "undo":
+				_, err = store.Undo("user")
+				version = store.Version()
+			case view == "":
+				_, err = store.Redo("user")
+				version = store.Version()
+			case msg.Str("type") == "ops":
+				var head WorkspaceHead
+				_, head, err = store.ApplyIn(view, msg.Arr("ops"), "user", msg.Str("label"), "")
+				version = head.Version
+			default:
+				var head WorkspaceHead
+				_, head, err = store.StepIn(view, "user", msg.Str("type") == "redo")
+				version = head.Version
+			}
+			if err != nil {
+				fail(err.Error())
+				continue
+			}
+			if hasReq {
+				reply(jsonv.NewObject("type", "ack", "reqId", reqID, "version", float64(version)))
+			}
 		}
 	}
 }

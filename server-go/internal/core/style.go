@@ -402,7 +402,16 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	absoluteChild := parentMode != "" && !asRoot && node.Str("layoutPositioning") == "absolute"
 	css := jsonv.NewObject("boxSizing", "border-box")
 	// Connectors never join the auto layout flow: their geometry comes from their ends.
-	if parentMode != "" && !asRoot && node.Str("type") != "connector" && !absoluteChild {
+	// A root sized "hug"/"fill" has no known box: it stays in the flow so the exported <body> takes its height.
+	autoRoot := false
+	if asRoot && node.Str("type") != "connector" {
+		rw, _ := node.Get("width")
+		rh, _ := node.Get("height")
+		_, wNum := rw.(float64)
+		_, hNum := rh.(float64)
+		autoRoot = !wNum || !hNum
+	}
+	if (parentMode != "" && !asRoot && node.Str("type") != "connector" && !absoluteChild) || autoRoot {
 		css.Set("position", "relative")
 	} else {
 		css.Set("position", "absolute")
@@ -1045,16 +1054,84 @@ func ResolvedFontWeight(doc *Document, v any, mode string) float64 {
 	return 400
 }
 
+var genericFamilies = map[string]bool{"serif": true, "sans-serif": true, "monospace": true, "cursive": true, "fantasy": true, "system-ui": true, "ui-serif": true, "ui-sans-serif": true, "ui-monospace": true, "ui-rounded": true, "math": true, "emoji": true, "fangsong": true}
+
+var (
+	serifNameRe = regexp.MustCompile(`(?i)(^|[\s-])(serif|georgia|times|garamond|palatino|merriweather|playfair|lora|cambria|baskerville|didot|bodoni|caslon|charter)`)
+	monoNameRe  = regexp.MustCompile(`(?i)mono|code|courier|consolas|menlo|monaco`)
+	sansNameRe  = regexp.MustCompile(`(?i)sans`)
+)
+
+// splitFamilies splits a CSS font-family list on top-level commas (quotes and parentheses respected).
+func splitFamilies(list string) []string {
+	var out []string
+	depth := 0
+	var quote rune
+	var cur strings.Builder
+	for _, ch := range list {
+		switch {
+		case quote != 0:
+			if ch == quote {
+				quote = 0
+			}
+		case ch == '"' || ch == '\'':
+			quote = ch
+		case ch == '(':
+			depth++
+		case ch == ')':
+			if depth > 0 {
+				depth--
+			}
+		case ch == ',' && depth == 0:
+			out = append(out, strings.TrimSpace(cur.String()))
+			cur.Reset()
+			continue
+		}
+		cur.WriteRune(ch)
+	}
+	if t := strings.TrimSpace(cur.String()); t != "" {
+		out = append(out, t)
+	}
+	return out
+}
+
+// WithGenericFamily appends a generic family when the list has none (port of withGenericFamily).
+func WithGenericFamily(list string) string {
+	parts := splitFamilies(list)
+	var names []string
+	for _, p := range parts {
+		if genericFamilies[strings.ToLower(p)] {
+			return list
+		}
+		if !strings.HasPrefix(p, "var(") {
+			names = append(names, p)
+		}
+	}
+	joined := strings.Join(names, " ")
+	generic := "sans-serif"
+	if monoNameRe.MatchString(joined) {
+		generic = "monospace"
+	} else if serifNameRe.MatchString(joined) && !sansNameRe.MatchString(joined) {
+		generic = "serif"
+	}
+	if strings.TrimSpace(list) == "" {
+		return generic
+	}
+	return list + ", " + generic
+}
+
 func fontFamilyCSS(doc *Document, v any, mode string, vars bool) string {
 	s, _ := v.(string)
 	if vars && strings.HasPrefix(s, "$") && isKnownToken(doc, s[1:]) {
 		kind := TokenTypeOf(doc, s[1:])
 		raw, _ := TokenValue(doc, s[1:], mode)
 		if kind == "fontFamily" || (kind == "" && isString(raw)) {
-			return "var(" + CSSVarName(s[1:]) + ")"
+			// The generic is judged on the token's value (for the current mode), so a token that already ends in one stays a bare var().
+			resolved := ResolvedFontFamily(doc, v, mode)
+			return "var(" + CSSVarName(s[1:]) + ")" + WithGenericFamily(resolved)[len(resolved):]
 		}
 	}
-	return ResolvedFontFamily(doc, v, mode)
+	return WithGenericFamily(ResolvedFontFamily(doc, v, mode))
 }
 
 func fontWeightCSS(doc *Document, v any, mode string, vars bool) any {
