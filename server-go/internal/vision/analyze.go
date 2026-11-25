@@ -25,6 +25,7 @@ const (
 	DefaultMaxBlobs  = 40
 	DefaultMaxPoints = 24
 	maxAnalysisSide  = 640
+	maxGrainSide     = 1600 // grain (photo detection) is measured at up to this size
 )
 
 // Options tunes Analyze. Zero values pick the defaults.
@@ -222,6 +223,7 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 	}
 
 	px := prepare(nrgba)
+	hi := grainRaster(img, src, px)
 	pal := quantize(px, opt.MaxColors, opt.MinArea)
 	total := float64(aw * ah)
 	if len(pal) == 0 {
@@ -296,7 +298,7 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 	}
 	sort.SliceStable(kept, func(i, j int) bool { return kept[i].area > kept[j].area })
 	// regions: what each part of the image is best drawn with
-	raws := classifyRegions(px, kept)
+	raws := classifyRegions(px, hi, kept)
 	owner := assignRegions(raws, kept)
 	pick := listedBlobs(raws, owner, len(kept))
 	if dropped := len(kept) - len(pick); dropped > 0 {
@@ -322,9 +324,28 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 		blob.pal = int(c.label)
 		res.Blobs = append(res.Blobs, blob)
 	}
-	res.Regions = buildRegions(raws, owner, kept, res.Blobs, t, total)
+	res.Regions = buildRegions(raws, owner, kept, res.Blobs, ids, aw, t, total)
 	res.Layout = findLayout(res.Blobs)
 	return res, nil
+}
+
+// grainRaster is the region of img (src, in its coordinates) at up to maxGrainSide pixels:
+// grain is measured there, because the analysis raster has blurred it away. When the analysis
+// raster is already as large as the source it is the same raster.
+func grainRaster(img image.Image, src image.Rectangle, px *pixels) *pixels {
+	rw, rh := src.Dx(), src.Dy()
+	if px.w == rw && px.h == rh {
+		return px
+	}
+	gs := math.Min(1, float64(maxGrainSide)/float64(max(rw, rh)))
+	gw, gh := max(1, int(math.Round(float64(rw)*gs))), max(1, int(math.Round(float64(rh)*gs)))
+	big := image.NewNRGBA(image.Rect(0, 0, gw, gh))
+	if gw == rw && gh == rh {
+		draw.Draw(big, big.Bounds(), img, src.Min, draw.Src)
+	} else {
+		xdraw.BiLinear.Scale(big, big.Bounds(), img, src, xdraw.Src, nil)
+	}
+	return prepareLite(big)
 }
 
 // assignRegions gives each comp the region it sits in (by the center of its box); blobs that
@@ -369,13 +390,26 @@ func listedBlobs(raws []rawRegion, owner []int, n int) []int {
 	return pick
 }
 
+// onRamp is true when most of the blob's pixels lie in the smooth tiles of the ramp.
+func onRamp(ids []int32, aw int, c comp, smooth func(x, y int) bool) bool {
+	in := 0
+	for y := c.minY; y <= c.maxY; y++ {
+		for x := c.minX; x <= c.maxX; x++ {
+			if ids[y*aw+x] == c.id && smooth(x, y) {
+				in++
+			}
+		}
+	}
+	return float64(in) >= 0.6*float64(c.area)
+}
+
 const maxPhotoBlobs = 8 // blobs listed per photo region
 
 const primitiveIoU = 0.93 // a fit this good is worth drawing as a primitive
 
 // buildRegions turns the raw regions into the output ones, with the blobs each holds and the
 // tool suggested for them.
-func buildRegions(raws []rawRegion, owner []int, comps []comp, blobs []Blob, t transform, total float64) []ImageRegion {
+func buildRegions(raws []rawRegion, owner []int, comps []comp, blobs []Blob, ids []int32, aw int, t transform, total float64) []ImageRegion {
 	out := make([]ImageRegion, len(raws))
 	for ri, r := range raws {
 		p0 := t.pt(float64(r.rect.Min.X), float64(r.rect.Min.Y))
@@ -383,7 +417,7 @@ func buildRegions(raws []rawRegion, owner []int, comps []comp, blobs []Blob, t t
 		out[ri] = ImageRegion{
 			ID: fmt.Sprintf("r%d", ri+1), Kind: r.kind, Box: Rect{p0.X, p0.Y, r1(p1.X - p0.X), r1(p1.Y - p0.Y)},
 			Share: r3(float64(r.rect.Dx()*r.rect.Dy()) / total), BlobIDs: []string{}, Gradient: r.grad, Why: r.why,
-			Lines: r.lines, FontSize: r1(r.fontSize * t.size()),
+			Lines: r.lines, FontSize: r1(r.fontSize * t.size()), FitError: r.fitError,
 		}
 	}
 	primArea := make([]float64, len(raws))
@@ -403,8 +437,8 @@ func buildRegions(raws []rawRegion, owner []int, comps []comp, blobs []Blob, t t
 			b.Suggest = "text"
 		case KindGradient:
 			c := comps[i]
-			band := float64(c.maxX-c.minX+1) >= 0.6*float64(r.rect.Dx()) || float64(c.maxY-c.minY+1) >= 0.6*float64(r.rect.Dy())
-			if band && r.gband {
+			// a band of the ramp lies in its smooth tiles; a shape drawn on the ramp does not
+			if r.gband && onRamp(ids, aw, c, r.smooth) {
 				b.Suggest = "skip-in-gradient"
 			}
 		}
