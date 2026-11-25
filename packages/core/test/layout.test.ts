@@ -8,6 +8,7 @@ import {
   nodeStyle,
   normalizePath,
   parsePath,
+  pathBounds,
   pathOrigin,
   serializePath,
 } from "../src/index.js";
@@ -174,6 +175,43 @@ describe("path origin / normalize", () => {
     const p = doc.nodes.p!;
     expect(p).toMatchObject({ type: "path", x: 140, y: 80, width: 40, height: 40 });
     expect(serializePath(parsePath((p as { d: string }).d)).startsWith("M0 0")).toBe(true);
+  });
+});
+
+describe("path box hugs the ink (PAP-A-034)", () => {
+  const node = (props: Record<string, unknown>) => ({ type: "path", id: "p", d: "M40 30 L80 30 L60 70 Z", ...props }) as never;
+  const ink = (doc: ReturnType<typeof createDocument>) => {
+    const p = doc.nodes.p as { x: number; y: number; d: string };
+    const b = pathBounds(parsePath(p.d));
+    return { x: p.x + b.x, y: p.y + b.y, width: b.width, height: b.height };
+  };
+
+  it("a path created without width/height is normalized by default", () => {
+    const { doc } = applyOps(createDocument("t", "d"), [{ op: "create", node: node({ x: 0, y: 0 }) }]);
+    expect(doc.nodes.p).toMatchObject({ x: 40, y: 30, width: 40, height: 40 });
+    expect(ink(doc)).toEqual({ x: 40, y: 30, width: 40, height: 40 });
+  });
+
+  it("normalize: false keeps d as written; explicit width/height and viewBox are left alone", () => {
+    const off = applyOps(createDocument("t", "d"), [{ op: "create", node: node({ normalize: false }) }]).doc;
+    expect(off.nodes.p).toMatchObject({ x: 0, y: 0, width: 80, height: 70 });
+    const sized = applyOps(createDocument("t", "d"), [{ op: "create", node: node({ width: 100, height: 100 }) }]).doc;
+    expect(sized.nodes.p).toMatchObject({ x: 0, y: 0, width: 100, height: 100 });
+    const vb = applyOps(createDocument("t", "d"), [{ op: "create", node: node({ viewBox: [0, 0, 100, 100] }) }]).doc;
+    expect(vb.nodes.p).toMatchObject({ x: 0, y: 0, viewBox: [0, 0, 100, 100] });
+  });
+
+  it("update with a new d renormalizes; normalize: false and explicit size opt out; undo restores", () => {
+    const start = applyOps(createDocument("t", "d"), [{ op: "create", node: node({ normalize: false }) }]);
+    const up = applyOps(start.doc, [{ op: "update", id: "p", props: { d: "M10 10 L50 10 L50 30 Z" } }]);
+    expect(up.doc.nodes.p).toMatchObject({ x: 10, y: 10, width: 40, height: 20 });
+    expect(ink(up.doc)).toEqual({ x: 10, y: 10, width: 40, height: 20 });
+    const back = applyOps(up.doc, up.inverse);
+    expect(back.doc.nodes.p).toMatchObject({ x: 0, y: 0, width: 80, height: 70, d: "M40 30 L80 30 L60 70 Z" });
+    const off = applyOps(start.doc, [{ op: "update", id: "p", props: { d: "M10 10 L50 10 L50 30 Z", normalize: false } }]);
+    expect(off.doc.nodes.p).toMatchObject({ x: 0, y: 0, width: 80, height: 70, d: "M10 10 L50 10 L50 30 Z" });
+    const sized = applyOps(start.doc, [{ op: "update", id: "p", props: { d: "M10 10 L50 10 L50 30 Z", width: 60, height: 60 } }]);
+    expect(sized.doc.nodes.p).toMatchObject({ x: 0, y: 0, width: 60, height: 60 });
   });
 });
 

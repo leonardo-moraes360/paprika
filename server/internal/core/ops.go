@@ -193,6 +193,58 @@ func copyRule(id, inst string) string {
 	return fmt.Sprintf(`"%s" is a copy inside the instance "%s": only %s can change (they become overrides); edit the component or detach it`, id, inst, strings.Join(CopyOverrides, ", "))
 }
 
+func renormalizeUpdate(node *Node, props *jsonv.Object, i int) (*jsonv.Object, error) {
+	if node.Str("type") != "path" {
+		return props, nil
+	}
+	on := !props.Has("width") && !props.Has("height") && !props.Has("viewBox")
+	if props.Has("normalize") {
+		v, _ := props.Get("normalize")
+		flag, isBool := v.(bool)
+		if !isBool {
+			return nil, opErr(i, "normalize must be true or false")
+		}
+		props = props.Spread()
+		props.Delete("normalize")
+		on = flag
+	}
+	dv, _ := props.Get("d")
+	ds, isStr := dv.(string)
+	if !on || !isStr {
+		return props, nil
+	}
+	if node.Has("viewBox") {
+		if vb, has := props.Get("viewBox"); !has || vb != nil {
+			return props, nil
+		}
+	}
+	segs, perr := ParsePath(ds)
+	if perr != nil {
+		return props, nil
+	}
+	moved, origin, b := NormalizePath(segs)
+	out := props.Spread()
+	out.Set("d", SerializePath(moved))
+	out.Set("width", jsMax1(math.Ceil(b.X+b.Width)))
+	out.Set("height", jsMax1(math.Ceil(b.Y+b.Height)))
+	if origin.X != 0 || origin.Y != 0 {
+		x, y := node.Num("x"), node.Num("y")
+		if f, ok := props.Get("x"); ok {
+			if n, isNum := f.(float64); isNum {
+				x = n
+			}
+		}
+		if f, ok := props.Get("y"); ok {
+			if n, isNum := f.(float64); isNum {
+				y = n
+			}
+		}
+		out.Set("x", Round4(x+origin.X))
+		out.Set("y", Round4(y+origin.Y))
+	}
+	return out, nil
+}
+
 func updatePlain(doc *Document, node *Node, props *jsonv.Object, i int) (any, error) {
 	id := node.Str("id")
 	allowed := KnownKeys(node.Str("type"))
@@ -463,7 +515,7 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 	if hasChildren && !IsContainer(typ) {
 		return opErr(i, "only frame, group and page take children (got %s)", typ)
 	}
-	doNormalize := false
+	doNormalize := typ == "path" && !rest.Has("width") && !rest.Has("height") && !rest.Has("viewBox")
 	if rest.Has("normalize") {
 		if typ != "path" {
 		} else {
@@ -534,8 +586,8 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 						if v, has := props.Get("y"); has {
 							y = jsToNumber(v, true)
 						}
-						props.Set("x", x+origin.X)
-						props.Set("y", y+origin.Y)
+						props.Set("x", Round4(x+origin.X))
+						props.Set("y", Round4(y+origin.Y))
 					}
 				}
 			}
@@ -788,7 +840,11 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			return nil, opErr(i, sourceIDRule)
 		}
 		if !IsInstance(node) {
-			inv, err := updatePlain(doc, node, props, i)
+			np, err := renormalizeUpdate(node, props, i)
+			if err != nil {
+				return nil, err
+			}
+			inv, err := updatePlain(doc, node, np, i)
 			if err != nil {
 				return nil, err
 			}

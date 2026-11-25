@@ -333,6 +333,36 @@ function updatePlain(doc: DocumentT, node: NodeT, props: Record<string, unknown>
   return { op: "update", id: node.id, props: prev };
 }
 
+function renormalizeUpdate(node: NodeT, props: Record<string, unknown>, i: number): Record<string, unknown> {
+  if (node.type !== "path") return props;
+  let on = !("width" in props || "height" in props || "viewBox" in props);
+  if ("normalize" in props) {
+    const flag = props.normalize;
+    if (flag !== true && flag !== false) throw new OpError(`normalize must be true or false`, i);
+    props = { ...props };
+    delete props.normalize;
+    on = flag;
+  }
+  if (!on || typeof props.d !== "string") return props;
+  if ((node as Record<string, unknown>).viewBox !== undefined && props.viewBox !== null) return props;
+  try {
+    const n = shiftPathToOrigin(parsePath(props.d));
+    const out: Record<string, unknown> = {
+      ...props,
+      d: serializePath(n.segs),
+      width: Math.max(1, Math.ceil(n.bounds.x + n.bounds.width)),
+      height: Math.max(1, Math.ceil(n.bounds.y + n.bounds.height)),
+    };
+    if (n.origin.x || n.origin.y) {
+      out.x = round4((typeof props.x === "number" ? props.x : node.x) + n.origin.x);
+      out.y = round4((typeof props.y === "number" ? props.y : node.y) + n.origin.y);
+    }
+    return out;
+  } catch {
+    return props;
+  }
+}
+
 function updateOverride(doc: DocumentT, inst: FrameNode, node: NodeT, srcId: string, props: Record<string, unknown>, i: number): Op {
   const leaf = srcId.includes("/") ? srcId.slice(srcId.lastIndexOf("/") + 1) : srcId;
   const src = doc.nodes[leaf];
@@ -371,7 +401,7 @@ function createNode(
 ): string {
   const { children, ...restIn } = input;
   const rest: Record<string, unknown> = { ...restIn };
-  let doNormalize = false;
+  let doNormalize = input.type === "path" && rest.width === undefined && rest.height === undefined && rest.viewBox === undefined;
   if ("normalize" in rest) {
     if (input.type !== "path") {
     } else if (rest.normalize !== true && rest.normalize !== false) {
@@ -404,8 +434,8 @@ function createNode(
       const n = shiftPathToOrigin(parsePath(props.d));
       props.d = serializePath(n.segs);
       if (n.origin.x || n.origin.y) {
-        props.x = (typeof props.x === "number" ? props.x : 0) + n.origin.x;
-        props.y = (typeof props.y === "number" ? props.y : 0) + n.origin.y;
+        props.x = round4((typeof props.x === "number" ? props.x : 0) + n.origin.x);
+        props.y = round4((typeof props.y === "number" ? props.y : 0) + n.origin.y);
       }
     } catch {
     }
@@ -505,7 +535,7 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
         return [...[updateOverride(doc, target.inst, node, target.key, props, i)], ...reorder];
       }
       if ("sourceId" in props && instanceOwner(doc, node.parentId)) throw new OpError(SOURCE_ID, i);
-      if (!isInstance(node)) return [updatePlain(doc, node, props, i), ...reorder];
+      if (!isInstance(node)) return [updatePlain(doc, node, renormalizeUpdate(node, props, i), i), ...reorder];
       const derived = Object.keys(props).filter((k) => isRootDerived(k) && k !== "fill");
       if (derived.length)
         throw new OpError(`${derived.join(", ")} of "${op.id}" come from the component "${node.instanceOf}"; edit the component, change scale or detach it`, i);

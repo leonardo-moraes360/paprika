@@ -1,7 +1,9 @@
 package vision
 
 import (
+	"maps"
 	"math"
+	"sort"
 )
 
 const cornerWindow = 5
@@ -35,60 +37,6 @@ func (a pt) unit() pt {
 	return pt{a.x / l, a.y / l}
 }
 
-func traceLoops(mask []bool, w, h int) [][]pt {
-	W := w + 1
-	out := make([]uint8, W*(h+1))
-	in := func(x, y int) bool { return x >= 0 && y >= 0 && x < w && y < h && mask[y*w+x] }
-	for y := range h {
-		for x := range w {
-			if !mask[y*w+x] {
-				continue
-			}
-			if !in(x, y-1) {
-				out[y*W+x] |= 1 << 0
-			}
-			if !in(x+1, y) {
-				out[y*W+x+1] |= 1 << 1
-			}
-			if !in(x, y+1) {
-				out[(y+1)*W+x+1] |= 1 << 2
-			}
-			if !in(x-1, y) {
-				out[(y+1)*W+x] |= 1 << 3
-			}
-		}
-	}
-	dv := [4][2]int{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
-	var loops [][]pt
-	for v0 := range out {
-		for d0 := range 4 {
-			if out[v0]&(1<<d0) == 0 {
-				continue
-			}
-			var loop []pt
-			v, d := v0, d0
-			for {
-				out[v] &^= 1 << d
-				loop = append(loop, pt{float64(v % W), float64(v / W)})
-				v += dv[d][0] + dv[d][1]*W
-				next := -1
-				for _, nd := range [3]int{(d + 3) % 4, d, (d + 1) % 4} {
-					if out[v]&(1<<nd) != 0 {
-						next = nd
-						break
-					}
-				}
-				if next < 0 {
-					break
-				}
-				d = next
-			}
-			loops = append(loops, loop)
-		}
-	}
-	return loops
-}
-
 func ringArea(p []pt) float64 {
 	a := 0.0
 	for i := range p {
@@ -100,33 +48,74 @@ func ringArea(p []pt) float64 {
 
 func mod(i, n int) int { return ((i % n) + n) % n }
 
-func findCorners(p []pt, thr float64) ([]int, map[int]pt) {
+func findCorners(p []pt, thr float64, k int) ([]int, map[int]pt) {
 	n := len(p)
-	k := cornerWindow
 	if n < 4*k {
 		return nil, nil
 	}
-	ang := make([]float64, n)
-	for i := range p {
+	turn := func(i, k int) float64 {
 		a := p[i].sub(p[mod(i-k, n)])
 		b := p[mod(i+k, n)].sub(p[i])
-		ang[i] = math.Atan2(math.Abs(a.cross(b)), a.dot(b))
+		return math.Atan2(math.Abs(a.cross(b)), a.dot(b))
 	}
-	var idx []int
-	for i := range p {
-		if ang[i] < thr {
-			continue
+	scale := func(kk int, thr float64) map[int]float64 {
+		ang := make([]float64, n)
+		for i := range p {
+			ang[i] = turn(i, kk)
 		}
-		best := true
-		for j := 1; j <= k && best; j++ {
-			if ang[mod(i-j, n)] >= ang[i] || ang[mod(i+j, n)] > ang[i] {
-				best = false
+		out := map[int]float64{}
+		for i := range p {
+			if ang[i] < thr {
+				continue
+			}
+			best := true
+			for j := 1; j <= kk && best; j++ {
+				if ang[mod(i-j, n)] >= ang[i] || ang[mod(i+j, n)] > ang[i] {
+					best = false
+				}
+			}
+			if best {
+				out[i] = ang[i]
 			}
 		}
-		if best {
-			idx = append(idx, i)
-		}
+		return out
 	}
+	cand := scale(k, thr)
+	if ks := min(k, 3); ks < k {
+		small := scale(ks, math.Max(thr, 60*math.Pi/180))
+		for i := range cand {
+			for j := range small {
+				if d := mod(i-j, n); min(d, n-d) <= k {
+					delete(cand, i)
+					break
+				}
+			}
+		}
+		maps.Copy(cand, small)
+	}
+	var idx []int
+	for i := range cand {
+		idx = append(idx, i)
+	}
+	sort.Ints(idx)
+	var kept []int
+	for _, i := range idx {
+		if m := len(kept); m > 0 && i-kept[m-1] <= 3 {
+			if cand[i] > cand[kept[m-1]] {
+				kept[m-1] = i
+			}
+			continue
+		}
+		kept = append(kept, i)
+	}
+	if m := len(kept); m > 1 && mod(kept[0]-kept[m-1], n) <= 3 {
+		if cand[kept[0]] > cand[kept[m-1]] {
+			kept[m-1] = kept[0]
+		}
+		kept = kept[1:]
+		sort.Ints(kept)
+	}
+	idx = kept
 	pos := make(map[int]pt, len(idx))
 	for ci, c := range idx {
 		pos[c] = p[c]
@@ -219,7 +208,7 @@ func smoothRing(p []pt, corners []int) []pt {
 	return cur
 }
 
-func fitRing(p []pt, thr, tol float64) fitted {
+func fitRing(p []pt, thr, tol float64, k int) fitted {
 	n := len(p)
 	if n < 12 {
 		poly := simplify(p, 0.7, 12)
@@ -229,14 +218,11 @@ func fitRing(p []pt, thr, tol float64) fitted {
 		}
 		return f
 	}
-	idx, pos := findCorners(p, thr)
+	idx, pos := findCorners(p, thr, k)
 	sm := smoothRing(p, idx)
 	f := fitted{corners: len(idx)}
 	lineTol := math.Max(tol, 0.6)
-	emit := func(s []pt) {
-		if len(s) < 2 {
-			return
-		}
+	deviation := func(s []pt) float64 {
 		devMax := 0.0
 		chord := s[len(s)-1].sub(s[0])
 		cl := chord.len()
@@ -251,13 +237,25 @@ func fitRing(p []pt, thr, tol float64) fitted {
 				devMax = math.Max(devMax, math.Abs(q.sub(s[0]).cross(chord))/cl)
 			}
 		}
+		return devMax
+	}
+	piece := func(s []pt, tIn, tOut pt) {
+		if len(s) < 2 {
+			return
+		}
+		devMax := deviation(s)
 		if len(s) < 6 || devMax <= lineTol {
 			f.segs = append(f.segs, seg{line: true, b: bez{3: s[len(s)-1]}})
 			f.err = math.Max(f.err, devMax)
 			return
 		}
-		t1 := s[min(4, len(s)-1)].sub(s[0]).unit()
-		t2 := s[max(len(s)-5, 0)].sub(s[len(s)-1]).unit()
+		t1, t2 := tIn, tOut
+		if t1 == (pt{}) {
+			t1 = s[min(4, len(s)-1)].sub(s[0]).unit()
+		}
+		if t2 == (pt{}) {
+			t2 = s[max(len(s)-5, 0)].sub(s[len(s)-1]).unit()
+		}
 		var out []bez
 		e := fitCubic(s, t1, t2, tol*tol, 0, &out)
 		for _, b := range out {
@@ -265,12 +263,44 @@ func fitRing(p []pt, thr, tol float64) fitted {
 		}
 		f.err = math.Max(f.err, math.Sqrt(e))
 	}
+	emit := func(s []pt) {
+		var runs [][2]int
+		if len(s) >= 6 && deviation(s) > lineTol {
+			runs = straightRuns(s, straightMin, straightTol)
+		}
+		if len(runs) == 0 {
+			piece(s, pt{}, pt{})
+			return
+		}
+		at := 0
+		var dirIn pt
+		for _, r := range runs {
+			dir := s[r[1]].sub(s[r[0]]).unit()
+			if r[0] > at {
+				piece(s[at:r[0]+1], dirIn, dir.mul(-1))
+			}
+			f.segs = append(f.segs, seg{line: true, b: bez{3: s[r[1]]}})
+			f.err = math.Max(f.err, straightTol)
+			at, dirIn = r[1], dir
+		}
+		if at < len(s)-1 {
+			piece(s[at:], dirIn, pt{})
+		}
+	}
 	if len(idx) == 0 {
-		t := sm[mod(4, n)].sub(sm[mod(-4, n)]).unit()
-		s := append(append([]pt(nil), sm...), sm[0])
+		start := mostCurved(sm)
+		s := make([]pt, 0, n+1)
+		for i := 0; i <= n; i++ {
+			s = append(s, sm[(start+i)%n])
+		}
+		f.start = s[0]
+		if len(straightRuns(s, straightMin, straightTol)) > 0 {
+			emit(s)
+			return f
+		}
+		t := s[4].sub(s[n-4]).unit()
 		var out []bez
 		e := fitCubic(s, t, t.mul(-1), tol*tol, 0, &out)
-		f.start = sm[0]
 		for _, b := range out {
 			f.segs = append(f.segs, seg{b: b})
 		}
@@ -411,4 +441,65 @@ func bezError(d []pt, b bez, u []float64) (float64, int) {
 	}
 	split = max(1, min(split, len(d)-2))
 	return worst, split
+}
+
+const (
+	straightMin = 28.0
+	straightTol = 0.25
+)
+
+func straightRuns(s []pt, minLen, tol float64) [][2]int {
+	var runs [][2]int
+	n := len(s)
+	i := 0
+	for i < n-2 {
+		j := i + 1
+		best := -1
+		for j < n {
+			chord := s[j].sub(s[i])
+			cl := chord.len()
+			if cl == 0 {
+				j++
+				continue
+			}
+			ok := true
+			for q := i + 1; q < j; q++ {
+				if math.Abs(s[q].sub(s[i]).cross(chord))/cl > tol {
+					ok = false
+					break
+				}
+			}
+			if !ok {
+				break
+			}
+			if cl >= minLen {
+				best = j
+			}
+			j++
+		}
+		if best > 0 {
+			runs = append(runs, [2]int{i, best})
+			i = best
+		} else {
+			i += max(1, (j-i)/3)
+		}
+	}
+	return runs
+}
+
+func mostCurved(p []pt) int {
+	n := len(p)
+	k := min(cornerWindow, n/4)
+	if k < 1 {
+		return 0
+	}
+	best, bi := -1.0, 0
+	for i := range p {
+		a := p[i].sub(p[mod(i-k, n)])
+		b := p[mod(i+k, n)].sub(p[i])
+		if v := math.Atan2(math.Abs(a.cross(b)), a.dot(b)); v > best {
+			best, bi = v, i
+		}
+	}
+	return bi
 }

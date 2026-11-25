@@ -913,6 +913,64 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return write(a, []any{op}, labelOr(a, "convert "+count(len(ids))+" node(s) to path"))
 	})
 
+	add("normalize_paths", z.Object(
+		z.Field{Name: "ids", Schema: z.Optional(z.Array(z.String().Min(1)).Min(1).Max(5000))},
+		z.Field{Name: "rootId", Schema: z.Optional(z.String().Min(1))},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		if a.Has("ids") && a.Has("rootId") {
+			return nil, errors.New("pass ids or rootId, not both")
+		}
+		doc, err := docOf(a)
+		if err != nil {
+			return nil, err
+		}
+		var ids []string
+		switch {
+		case a.Has("ids"):
+			ids = a.Strings("ids")
+			for _, id := range ids {
+				if core.GetNode(doc, id) == nil {
+					return nil, fmt.Errorf(`node "%s" does not exist`, id)
+				}
+			}
+		case a.Has("rootId"):
+			if core.GetNode(doc, a.Str("rootId")) == nil {
+				return nil, fmt.Errorf(`node "%s" does not exist`, a.Str("rootId"))
+			}
+			ids = core.SubtreeIDs(doc, a.Str("rootId"))
+		default:
+			ids = append(ids, core.Nodes(doc).Keys()...)
+		}
+		fixes, unchanged, skipped := planPathBoxes(doc, ids)
+		box := func(x, y, w, h float64) *jsonv.Object {
+			return jsonv.NewObject("x", x, "y", y, "width", w, "height", h)
+		}
+		changed := make([]any, 0, len(fixes))
+		ops := make([]any, 0, len(fixes))
+		for _, f := range fixes {
+			changed = append(changed, jsonv.NewObject("id", f.id, "before", box(f.bx, f.by, f.bw, f.bh), "after", box(f.x, f.y, f.w, f.h)))
+			ops = append(ops, jsonv.NewObject("op", "update", "id", f.id, "props",
+				jsonv.NewObject("d", f.d, "x", f.x, "y", f.y, "width", f.w, "height", f.h)))
+		}
+		extra := []any{"normalized", changed, "unchanged", float64(unchanged), "skipped", skipped}
+		if skipped == nil {
+			extra[5] = []any{}
+		}
+		if len(ops) == 0 {
+			head, err := store.ReadWorkspace(a.Str("workspaceId"))
+			if err != nil {
+				return nil, wsErr(a.Str("workspaceId"), err)
+			}
+			out := jsonv.NewObject(extra...)
+			out.Set("created", []any{})
+			out.Set("version", float64(head.Version))
+			stamp(out, head)
+			return jsonResult(out), nil
+		}
+		return writeWith(a, ops, labelOr(a, "normalize "+count(len(ops))+" path box(es)"), extra...)
+	})
+
 	add("round_path_corners", z.Object(
 		z.Field{Name: "id", Schema: z.Optional(z.String())},
 		z.Field{Name: "d", Schema: z.Optional(z.String().Max(200_000))},
@@ -2217,6 +2275,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "reference", Schema: z.String().Min(1).Max(5_000_000)},
 		z.Field{Name: "rootId", Schema: z.String().Min(1)},
 		z.Field{Name: "target", Schema: z.Optional(z.Number().Min(0.01).Max(1))},
+		z.Field{Name: "edgeTarget", Schema: z.Optional(z.Number().Min(0.01).Max(1))},
 		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
 		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.25).Max(2))},
 		z.Field{Name: "top", Schema: z.Optional(z.Int().Min(1).Max(50))},

@@ -32,6 +32,7 @@ type CompareInput struct {
 	Placed         Rect
 	Nodes          []NodeBox
 	Target         float64
+	EdgeTarget     float64
 	Top            int
 	Rotate         bool
 }
@@ -103,6 +104,7 @@ type Comparison struct {
 	Extra      float64        `json:"extra"`
 	Target     float64        `json:"target"`
 	Pass       bool           `json:"pass"`
+	Edge       *Edge          `json:"edge,omitempty"`
 	InkShare   InkShare       `json:"ink"`
 	Color      ColorScore     `json:"color"`
 	RawMatch   RawMatch       `json:"rawPixelMatch"`
@@ -407,6 +409,12 @@ func Compare(in CompareInput) (*Comparison, error) {
 		res.Extra = r3(float64(nDrawn-inter) / float64(nDrawn))
 	}
 	res.Pass = res.IoU >= in.Target
+	if nRef > 0 && nDrawn > 0 {
+		res.Edge = edgeOf(in, cv)
+		if res.Edge != nil && in.EdgeTarget > 0 {
+			res.Pass = res.Pass && res.Edge.Pass
+		}
+	}
 
 	res.Color = compareColors(rp, dp, nRef, nDrawn)
 	res.Regions = findRegions(rp, dp, fx, fy, in.Top)
@@ -818,4 +826,13 @@ func diffPNG(ref, drawn []bool, w, h int) []byte {
 		img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3] = c.R, c.G, c.B, c.A
 	}
 	return encodePNG(img)
+}
+
+func edgeOf(in CompareInput, cv canvasPlanes) *Edge {
+	db := in.Drawn.Bounds()
+	side := math.Min(edgeMaxSide, math.Max(float64(db.Dx()), float64(db.Dy())))
+	if side > float64(max(cv.w, cv.h)) && side > compareMaxSide {
+		cv = buildPlanes(in.Drawn, in.Ref, in.FrameW, in.FrameH, in.Placed, side)
+	}
+	return edgeMetrics(cv.rp.ink, cv.dp.ink, cv.w, cv.h, (cv.fx+cv.fy)/2, in.EdgeTarget)
 }
