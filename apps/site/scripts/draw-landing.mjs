@@ -1,15 +1,19 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { THEMES, symbolLayers } from "../../../scripts/brand/trio-pixel.mjs";
 
 const URL_ = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4790/mcp";
+const PAGE = process.env.PAPRIKA_PAGE ?? null;
+const WORKSPACE = process.env.PAPRIKA_WORKSPACE ?? null;
+const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
 const REPO = "https://github.com/leonardo-moraes360/paprika";
 let rpcId = 0;
 
 async function call(name, args) {
   const res = await fetch(URL_, {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "user-agent": "landing-agent/1" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method: "tools/call", params: { name, arguments: args } }),
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "user-agent": "landing-agent/2" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method: "tools/call", params: { name, arguments: WORKSPACE ? { ...args, workspaceId: WORKSPACE } : args } }),
   });
   const json = await res.json();
   const r = json.result;
@@ -17,92 +21,173 @@ async function call(name, args) {
   return r.content.map((c) => c.text ?? "").join("\n");
 }
 
-const iconPath = fileURLToPath(new URL("../../../docs/brand/icon.svg", import.meta.url));
-const ICON = `data:image/svg+xml;base64,${readFileSync(iconPath).toString("base64")}`;
+const brand = (file) => readFileSync(fileURLToPath(new URL(`../../../docs/en-US/brand/${file}`, import.meta.url)));
+const dataUri = (svg) => `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+const layerSvg = (l) =>
+  `<path d="${l.d}" fill="${l.fill ?? "none"}"${l.stroke ? ` stroke="${l.stroke}" stroke-width="${l.sw}" stroke-linejoin="round"` : ""}/>`;
+const symbolSvg = (c, selection) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">${symbolLayers(c, { selection }).map(layerSvg).join("")}</svg>`;
+const MONO = { ...THEMES.dark, vermelho: "#3A4263", amarelo: "#3A4263", verde: "#3A4263", verdeEscuro: "#3A4263", brilho: "#4A5378", selecao: "#4A5378", alca: "#141827" };
+
+const ASSETS = {
+  lockup: dataUri(brand("lockup.svg")),
+  symbol: dataUri(symbolSvg(THEMES.dark, true)),
+  symbolMono: dataUri(symbolSvg(MONO, true)),
+};
+
+const TOKENS = {
+  bg: "#141827",
+  "bg.2": "#181D2E",
+  canvas: "#161A2A",
+  surface: "#1E2336",
+  "surface.2": "#10131F",
+  ink: "#EEF0F7",
+  muted: "#A6ACC4",
+  line: "#2C3350",
+  "line.strong": "#3D4566",
+  red: "#EE4A35",
+  "red.strong": "#CC3A27",
+  "red.ink": "#FF8A75",
+  yellow: "#FFC233",
+  green: "#3FA75B",
+  "green.ink": "#6FCB85",
+  stem: "#4F9A5A",
+  select: "#4CC7D8",
+  "on.red": "#FFFFFF",
+  code: "#D6DBEC",
+  "paper": "#FBF4E6",
+  "paper.ink": "#2A1A14",
+  "paper.muted": "#7A5F52",
+  "paper.line": "#EADFC9",
+};
+
+const SETUP_PROMPT = [
+  "Please set up Paprika for me, a local design tool for AI agents",
+  "(https://github.com/leonardo-moraes360/paprika).",
+  "",
+  "1. Check that Docker and Docker Compose are installed and running…",
+  "2. Clone the repository and run `docker compose up -d --build`…",
+];
+const SETUP_PROMPT_PT = [
+  "Configure o Paprika para mim, uma ferramenta de design local para",
+  "agentes de IA (https://github.com/leonardo-moraes360/paprika).",
+  "",
+  "1. Confira se o Docker e o Docker Compose estão instalados…",
+  "2. Clone o repositório e rode `docker compose up -d --build`…",
+];
 
 const copy = {
   en: {
     lang: "en",
+    home: "link:./",
     other: { label: "Português", href: "link:pt-BR/" },
     docs: "link:docs/",
+    team: "link:docs/team-sync.html",
     nav: ["Docs", "GitHub"],
-    pill: "Open source · MIT · 100% local",
-    title: "The design canvas your AI agent can actually use.",
-    lead: "Paprika is a local design tool with a built-in MCP server. You and your agent edit the same document at the same time: the agent through MCP, you on a canvas in the browser.",
-    cta: ["Read the docs", "View on GitHub"],
-    whyTitle: "Built for agents, not bolted on",
-    whyLead: "Every edit from either side goes through the same validated, atomic operations and lands in the same undo history.",
-    features: [
-      ["Cheap to read", "get_document_outline returns one line per node, with configurable depth, so agents don't burn tokens on huge trees."],
-      ["All or nothing", "Every write is a transaction. A partial edit never leaves the file broken."],
-      ["Loud errors", "Unknown or misspelled fields are rejected with an actionable message instead of silently disappearing."],
-      ["Checks its own work", "lint_design flags WCAG contrast, overflow and missing tokens; render_screenshot shows the result."],
-      ["One style engine", "Canvas, screenshot and code export share nodeStyle, so what the agent sees is what you see."],
-      ["Local, no account", "No SaaS, no call limits. The document is a .paprika.json file you can version with git."],
+    tagline: "Throw in a little spice",
+    title: "A design tool where you and your AI agent draw together.",
+    lead: "Open a canvas in your browser. Your agent, Claude Code or any other that speaks MCP, creates screens, components and diagrams on it while you watch, fix things by hand and undo anything.",
+    cta: ["Get started", "Read the docs"],
+    trust: ["Open source, MIT", "Runs on your computer", "No account, no usage limits"],
+    window: { file: "Coffee app · Sign up", screen: "Create your account", fields: ["Email", "Password"], button: "Sign up", agent: "Claude" },
+    flow: ["Start", "Agent", "Done"],
+    makeTitle: "What your agent can make",
+    makeLead: "Ask in plain words and watch it appear on the canvas.",
+    make: [
+      ["Screens and components", "Build a screen once, turn its parts into components and reuse them as instances."],
+      ["Diagrams", "Boxes, decisions, sticky notes and arrows that follow the shapes when you move them."],
+      ["Light and dark themes", "Design tokens switch a whole design between themes in one go."],
+      ["Code from the design", "Export any frame as HTML, a React component or SVG."],
     ],
-    howTitle: "How it works",
+    controlTitle: "You stay in control",
+    control: [
+      ["See every agent", "Each connected agent has its own cursor, name and color on the canvas."],
+      ["One undo for both", "You and the agent share one history, so nothing either of you did is lost."],
+      ["Point at what to fix", "Press I, click a spot and leave a note. The agent picks it up and answers there."],
+    ],
+    checkTitle: "It checks its own work",
+    checkLead: "Before it tells you it is done, the agent takes a screenshot and runs the same checks a careful designer would.",
+    checks: [
+      ["green", "Contrast 4.8:1 passes WCAG AA"],
+      ["green", "Every text fits its box"],
+      ["yellow", "1 color was not a token, now fixed"],
+    ],
+    checkCard: "Design check",
+    startTitle: "Get started in three steps",
+    startLead: "You need Docker. Everything else runs inside it.",
     steps: [
-      ["1", "Run the server", "paprika serve opens the canvas and the MCP endpoint on 127.0.0.1."],
-      ["2", "Connect your agent", "Point any MCP client at /mcp over HTTP, or use stdio."],
-      ["3", "Design together", "Agent edits flash on the canvas live. Undo works for both of you."],
+      ["Start Paprika", "git clone https://github.com/leonardo-moraes360/paprika.git\ncd paprika && docker compose up -d --build"],
+      ["Open the canvas", "http://localhost:4777"],
+      ["Connect your agent", "claude mcp add --transport http paprika http://localhost:4777/mcp"],
     ],
-    startTitle: "Quick start",
-    startLead: "Requirements: Node 22+ and pnpm 10+.",
+    promptTitle: "Or let your agent set it up",
+    promptLead: "Paste this prompt into an agent that can run terminal commands.",
+    prompt: SETUP_PROMPT,
+    promptCta: "Copy the prompt",
+    teamTitle: "Work as a team, without a server",
+    teamLead: "paprika serve --team connects each person's Paprika and agents peer to peer. Invite by link or QR code; only your team's keys get in.",
+    teamCta: "How team sync works",
     footer: "MIT License · This page was designed in Paprika over MCP.",
   },
   pt: {
     lang: "pt-BR",
+    home: "link:./",
     other: { label: "English", href: "link:../" },
     docs: "link:../docs/pt-BR/",
+    team: "link:../docs/pt-BR/sincronizacao-time.html",
     nav: ["Docs", "GitHub"],
-    pill: "Código aberto · MIT · 100% local",
-    title: "O canvas de design que o seu agente de IA consegue usar de verdade.",
-    lead: "O Paprika é uma ferramenta de design local com servidor MCP embutido. Você e o seu agente editam o mesmo documento ao mesmo tempo: o agente pelo MCP, você num canvas no navegador.",
-    cta: ["Ler a documentação", "Ver no GitHub"],
-    whyTitle: "Feito para agentes desde o início",
-    whyLead: "Toda edição, de qualquer lado, passa pelas mesmas operações validadas e atômicas e entra no mesmo histórico de desfazer.",
-    features: [
-      ["Leitura barata", "get_document_outline devolve uma linha por nó, com profundidade configurável, e o agente não gasta tokens com árvores enormes."],
-      ["Tudo ou nada", "Toda escrita é uma transação. Uma edição pela metade nunca deixa o arquivo quebrado."],
-      ["Erros claros", "Campos desconhecidos ou com erro de digitação são recusados com uma mensagem acionável, em vez de sumirem."],
-      ["Confere o próprio trabalho", "lint_design aponta contraste WCAG, overflow e tokens faltando; render_screenshot mostra o resultado."],
-      ["Um só motor de estilo", "Canvas, screenshot e export de código usam o mesmo nodeStyle: o que o agente vê é o que você vê."],
-      ["Local, sem conta", "Sem SaaS e sem limite de chamadas. O documento é um arquivo .paprika.json que você versiona com git."],
+    tagline: "Jogue um pouco de tempero",
+    title: "Uma ferramenta de design em que você e o seu agente de IA desenham juntos.",
+    lead: "Abra um canvas no navegador. O seu agente, o Claude Code ou qualquer outro que fale MCP, cria telas, componentes e diagramas nele enquanto você acompanha, ajusta com as próprias mãos e desfaz o que quiser.",
+    cta: ["Começar", "Ler a documentação"],
+    trust: ["Código aberto, MIT", "Roda no seu computador", "Sem conta, sem limite de uso"],
+    window: { file: "App de café · Cadastro", screen: "Crie sua conta", fields: ["E-mail", "Senha"], button: "Cadastrar", agent: "Claude" },
+    flow: ["Início", "Agente", "Pronto"],
+    makeTitle: "O que o seu agente consegue fazer",
+    makeLead: "Peça com palavras simples e veja aparecer no canvas.",
+    make: [
+      ["Telas e componentes", "Monte uma tela uma vez, transforme partes dela em componentes e reuse como instâncias."],
+      ["Diagramas", "Caixas, decisões, notas adesivas e setas que acompanham as formas quando você as move."],
+      ["Temas claro e escuro", "Tokens de design trocam o design inteiro de tema de uma vez."],
+      ["Código a partir do design", "Exporte qualquer frame como HTML, componente React ou SVG."],
     ],
-    howTitle: "Como funciona",
+    controlTitle: "Você continua no controle",
+    control: [
+      ["Veja cada agente", "Cada agente conectado tem cursor, nome e cor próprios no canvas."],
+      ["Um desfazer para os dois", "Você e o agente dividem o mesmo histórico, então nada se perde."],
+      ["Aponte o que corrigir", "Aperte I, clique num ponto e deixe um recado. O agente pega e responde ali mesmo."],
+    ],
+    checkTitle: "Ele confere o próprio trabalho",
+    checkLead: "Antes de dizer que terminou, o agente tira um screenshot e roda as mesmas checagens que um designer cuidadoso faria.",
+    checks: [
+      ["green", "Contraste 4,8:1 passa no WCAG AA"],
+      ["green", "Todo texto cabe na caixa"],
+      ["yellow", "1 cor não era token, já corrigida"],
+    ],
+    checkCard: "Checagem do design",
+    startTitle: "Comece em três passos",
+    startLead: "Você precisa do Docker. Todo o resto roda dentro dele.",
     steps: [
-      ["1", "Suba o servidor", "paprika serve abre o canvas e o endpoint MCP em 127.0.0.1."],
-      ["2", "Conecte o agente", "Aponte qualquer cliente MCP para /mcp via HTTP, ou use stdio."],
-      ["3", "Desenhem juntos", "As edições do agente piscam no canvas ao vivo. O desfazer vale para os dois."],
+      ["Suba o Paprika", "git clone https://github.com/leonardo-moraes360/paprika.git\ncd paprika && docker compose up -d --build"],
+      ["Abra o canvas", "http://localhost:4777"],
+      ["Conecte o seu agente", "claude mcp add --transport http paprika http://localhost:4777/mcp"],
     ],
-    startTitle: "Começo rápido",
-    startLead: "Requisitos: Node 22+ e pnpm 10+.",
+    promptTitle: "Ou deixe o agente configurar",
+    promptLead: "Cole este prompt num agente que consiga rodar comandos no terminal.",
+    prompt: SETUP_PROMPT_PT,
+    promptCta: "Copiar o prompt",
+    teamTitle: "Trabalhe em time, sem servidor",
+    teamLead: "paprika serve --team conecta o Paprika e os agentes de cada pessoa direto entre si. Convide por link ou QR code; só as chaves do time entram.",
+    teamCta: "Como funciona o time",
     footer: "Licença MIT · Esta página foi desenhada no Paprika, pelo MCP.",
   },
 };
 
-const QUICKSTART = [
-  "git clone https://github.com/leonardo-moraes360/paprika",
-  "cd paprika && pnpm install && pnpm build",
-  "server/bin/paprika serve --db design.db",
-  "",
-  "# canvas: http://127.0.0.1:4777 · MCP: http://127.0.0.1:4777/mcp",
-  "claude mcp add --transport http paprika http://127.0.0.1:4777/mcp",
-].join("\n");
+const FONT_MONO = "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace";
+const CURSOR = "M0 0 L0 17 L4.6 12.6 L7.6 19.4 L10.4 18.2 L7.4 11.6 L13 11.6 Z";
 
-const MONO = "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace";
-
-const T = (text, size, extra = {}) => ({
-  type: "text",
-  text,
-  fontSize: size,
-  color: "$ink",
-  width: "fill",
-  height: "hug",
-  lineHeight: 1.5,
-  ...extra,
-});
-const col = (name, children, layout = {}, extra = {}) => ({
+const T = (text, size, extra = {}) => ({ type: "text", text, fontSize: size, color: "$ink", width: "fill", height: "hug", lineHeight: 1.5, ...extra });
+const frame = (name, children, layout = {}, extra = {}) => ({
   type: "frame",
   name,
   width: "fill",
@@ -112,52 +197,150 @@ const col = (name, children, layout = {}, extra = {}) => ({
   children,
   ...extra,
 });
-const row = (name, children, layout = {}, extra = {}) => col(name, children, { mode: "row", align: "center", ...layout }, extra);
-const navLink = (label, href, size) => T(label, size, { name: href, width: "hug", color: "$muted", fontWeight: 500 });
+const col = frame;
+const row = (name, children, layout = {}, extra = {}) => frame(name, children, { mode: "row", align: "center", ...layout }, extra);
+const box = (name, w, h, extra = {}) => ({ type: "rect", name, width: w, height: h, ...extra });
+const dot = (color, size = 10) => box("Ponto", size, size, { fill: color, radius: size * 0.3 });
+const navLink = (label, href, size) => T(label, size, { name: href, width: "hug", color: "$muted", fontWeight: 500, lineHeight: 1.2 });
 const button = (label, href, primary, size) =>
   row(
     href,
-    [T(label, size, { width: "hug", fontWeight: 600, color: primary ? "$on.brand" : "$ink", lineHeight: 1.2 })],
+    [T(label, size, { width: "hug", fontWeight: 600, color: primary ? "$on.red" : "$ink", lineHeight: 1.2 })],
     { padding: [14, 22, 14, 22], justify: "center" },
-    {
-      width: "hug",
-      radius: 10,
-      ...(primary ? { fill: "$brand.dark" } : { stroke: { color: "$line.strong", width: 1 } }),
-    },
+    { width: "hug", radius: 10, ...(primary ? { fill: "$red.strong" } : { stroke: { color: "$line.strong", width: 1 } }) },
   );
-const code = (text, size, pad) =>
-  col("Código", [T(text, size, { fontFamily: MONO, color: "$code", lineHeight: 1.7 })], { padding: pad }, {
+const code = (text, size, pad, name = "Código") =>
+  col(name, [T(text, size, { fontFamily: FONT_MONO, color: "$code", lineHeight: 1.7 })], { padding: pad }, {
     fill: "$surface.2",
-    radius: 14,
+    radius: 12,
     stroke: { color: "$line", width: 1 },
   });
+
+function canvasWindow(c, k) {
+  const w = c.window;
+  const handle = (x, y) => box("Alça", 8 * k, 8 * k, { x, y, fill: "$surface", stroke: { color: "$select", width: 1.5 * k }, radius: 1.5 * k, layoutPositioning: "absolute" });
+  const phoneW = 190 * k, phoneH = 250 * k;
+  const btnY = 168 * k, btnX = 18 * k, btnW = phoneW - 36 * k, btnH = 34 * k;
+  const input = (label) =>
+    col("Campo", [T(label, 9.5 * k, { color: "$paper.muted", lineHeight: 1.2 }), box("Caixa", "fill", 24 * k, { fill: "#FFFFFF", radius: 6 * k, stroke: { color: "$paper.line", width: 1 } })], { gap: 4 * k });
+  const phone = {
+    type: "frame",
+    name: "Tela desenhada",
+    x: 150 * k,
+    y: 34 * k,
+    width: phoneW,
+    height: phoneH,
+    fill: "$paper",
+    radius: 16 * k,
+    clip: false,
+    layout: { mode: "none" },
+    children: [
+      col(
+        "Conteúdo",
+        [
+          row("Marca do app", [dot("$red", 12 * k), T("Bean & Co.", 10 * k, { width: "hug", fontWeight: 700, color: "$paper.ink", lineHeight: 1.2 })], { gap: 6 * k }),
+          T(w.screen, 16 * k, { fontWeight: 800, color: "$paper.ink", lineHeight: 1.15 }),
+          input(w.fields[0]),
+          input(w.fields[1]),
+        ],
+        { gap: 10 * k, padding: [18 * k, 18 * k, 0, 18 * k] },
+        { x: 0, y: 0, width: phoneW, layoutPositioning: "absolute" },
+      ),
+      row("Botão", [T(w.button, 11 * k, { width: "hug", fontWeight: 700, color: "$on.red", lineHeight: 1.2 })], { justify: "center" }, {
+        x: btnX, y: btnY, width: btnW, height: btnH, radius: 8 * k, fill: "$red.strong", layoutPositioning: "absolute",
+      }),
+      box("Seleção", btnW + 8 * k, btnH + 8 * k, { x: btnX - 4 * k, y: btnY - 4 * k, stroke: { color: "$select", width: 1.5 * k }, layoutPositioning: "absolute" }),
+      handle(btnX - 8 * k, btnY - 8 * k),
+      handle(btnX + btnW - 0 * k, btnY - 8 * k),
+      handle(btnX - 8 * k, btnY + btnH),
+      handle(btnX + btnW, btnY + btnH),
+    ],
+  };
+  const cursor = {
+    type: "frame",
+    name: "Cursor do agente",
+    x: 150 * k + btnX + btnW - 30 * k,
+    y: 34 * k + btnY + btnH - 6 * k,
+    width: "hug",
+    height: "hug",
+    clip: false,
+    layout: { mode: "column", gap: 2 * k, align: "start" },
+    children: [
+      { type: "path", name: "Ponteiro", d: CURSOR, width: 13 * k, height: 19.4 * k, fill: "$yellow", stroke: { color: "$bg", width: 1.2 * k } },
+      row("Rótulo", [T(w.agent, 10 * k, { width: "hug", fontWeight: 700, color: "$bg", lineHeight: 1.2 })], { padding: [3 * k, 7 * k, 3 * k, 7 * k] }, {
+        width: "hug", radius: 6 * k, fill: "$yellow",
+      }),
+    ],
+    layoutPositioning: "absolute",
+  };
+  const layerLine = (wid, ind, active) =>
+    row("Camada", [box("Ícone", 7 * k, 7 * k, { fill: active ? "$select" : "$line.strong", radius: 1.5 * k }), box("Nome", wid * k, 6 * k, { fill: active ? "$ink" : "$line.strong", radius: 3 * k })], { gap: 6 * k, padding: [5 * k, 8 * k, 5 * k, (8 + ind) * k] }, active ? { fill: "rgba(76, 199, 216, 0.14)", radius: 5 * k } : {});
+  const layers = col(
+    "Camadas",
+    [layerLine(58, 0, false), layerLine(46, 10, false), layerLine(40, 10, false), layerLine(50, 10, false), layerLine(36, 10, true), layerLine(52, 0, false)],
+    { gap: 2 * k, padding: [12 * k, 6 * k, 12 * k, 6 * k] },
+    { width: 110 * k, height: "fill", fill: "$surface", stroke: { color: "$line", width: 1 } },
+  );
+  const stage = {
+    type: "frame",
+    name: "Canvas",
+    width: "fill",
+    height: "fill",
+    fill: "$canvas",
+    clip: true,
+    layout: { mode: "none" },
+    children: [{ ...phone, x: 40 * k }, { ...cursor, x: 40 * k + btnX + btnW - 30 * k }],
+  };
+  const bar = row(
+    "Barra de título",
+    [row("Pontos", [dot("$red", 10 * k), dot("$yellow", 10 * k), dot("$green", 10 * k)], { gap: 6 * k }, { width: "hug" }), T(w.file, 11 * k, { color: "$muted", lineHeight: 1.2 })],
+    { gap: 14 * k, padding: [10 * k, 14 * k, 10 * k, 14 * k] },
+    { fill: "$surface", stroke: { color: "$line", width: 1 } },
+  );
+  return col("Janela do canvas", [bar, row("Corpo", [layers, stage], { align: "stretch" }, { height: 320 * k })], {}, {
+    width: 520 * k,
+    radius: 14 * k,
+    clip: true,
+    fill: "$surface",
+    stroke: { color: "$line.strong", width: 1 },
+    shadow: [{ x: 0, y: 30 * k, blur: 80 * k, spread: 0, color: "rgba(0, 0, 0, 0.45)" }, { x: 0, y: 0, blur: 120 * k, spread: 0, color: "rgba(238, 74, 53, 0.12)" }],
+  });
+}
+
+function thumb(i, c) {
+  const tile = (children, layout = {}) => frame("Miniatura", children, { padding: 16, ...layout }, { height: 132, fill: "$canvas", radius: 12, stroke: { color: "$line", width: 1 }, clip: true });
+  const mini = (fill, accent) =>
+    col("Mini tela", [box("Título", 40, 6, { fill: accent, radius: 3 }), box("Linha", "fill", 5, { fill: "$line.strong", radius: 3 }), box("Linha", 34, 5, { fill: "$line.strong", radius: 3 }), box("Botão", "fill", 12, { fill: "$red.strong", radius: 4 })], { gap: 7, padding: 10 }, { width: 70, fill, radius: 8 });
+  switch (i) {
+    case 0:
+      return tile([row("Telas", [mini("$surface", "$ink"), mini("$surface", "$ink"), col("Componente", [box("Botão", 54, 14, { fill: "$red.strong", radius: 4 })], { padding: 8 }, { width: "hug", stroke: { color: "$select", width: 1.5 }, radius: 4 })], { gap: 12 })], { justify: "center" });
+    case 1: {
+      const node = (label, fill) => row("Caixa", [T(label, 11, { width: "hug", fontWeight: 600, color: "$ink", lineHeight: 1.2 })], { padding: [8, 12, 8, 12] }, { width: "hug", fill, radius: 6, stroke: { color: "$line.strong", width: 1 } });
+      return tile([row("Fluxo", [node(c.flow[0], "$surface"), box("Seta", 22, 2, { fill: "$muted" }), node(c.flow[1], "$surface"), box("Seta", 22, 2, { fill: "$muted" }), node(c.flow[2], "rgba(63, 167, 91, 0.22)")], { gap: 6 })], { justify: "center" });
+    }
+    case 2: {
+      const half = (fill, ink) => col("Tema", [box("Título", 44, 7, { fill: ink, radius: 3 }), box("Linha", "fill", 5, { fill: ink, radius: 3, opacity: 0.35 }), box("Botão", 50, 14, { fill: "$red.strong", radius: 4 })], { gap: 8, padding: 14 }, { fill, radius: 8 });
+      return tile([row("Temas", [half("$surface", "$ink"), half("$paper", "$paper.ink")], { gap: 10, align: "stretch" })], { justify: "center" });
+    }
+    default:
+      return tile([T(`<Button tone="spice">\n  ${c.window.button}\n</Button>`, 13, { fontFamily: FONT_MONO, color: "$code", lineHeight: 1.6 })], { justify: "center" });
+  }
+}
 
 function page(c, mobile) {
   const W = mobile ? 390 : 1280;
   const px = mobile ? 20 : 80;
   const s = mobile
-    ? { h1: 38, lead: 17, h2: 28, body: 15, small: 13, nav: 15, code: 12, card: 18 }
-    : { h1: 64, lead: 21, h2: 40, body: 16, small: 14, nav: 16, code: 15, card: 20 };
+    ? { h1: 36, lead: 17, h2: 28, body: 15, small: 13, nav: 15, code: 12, card: 18, tag: 13 }
+    : { h1: 60, lead: 20, h2: 40, body: 16, small: 14, nav: 16, code: 14, card: 20, tag: 14 };
 
   const nav = row(
     "Navegação",
     [
-      row(
-        "link:./",
-        [
-          { type: "image", name: "Ícone", src: ICON, alt: "", width: 36, height: 36, radius: 9 },
-          T("Paprika", mobile ? 19 : 21, { width: "hug", fontWeight: 700, lineHeight: 1.2 }),
-        ],
-        { gap: 12 },
-        { width: "hug" },
-      ),
+      { type: "image", name: c.home, src: ASSETS.lockup, alt: "Paprika", width: mobile ? 104 : 126, height: mobile ? 26 : 32, fit: "contain" },
       row(
         "Links",
-        [
-          navLink(c.nav[0], c.docs, s.nav),
-          navLink(c.nav[1], `link:${REPO}`, s.nav),
-          ...(mobile ? [] : [navLink(c.other.label, c.other.href, s.nav)]),
-        ],
+        [navLink(c.nav[0], c.docs, s.nav), navLink(c.nav[1], `link:${REPO}`, s.nav), ...(mobile ? [] : [navLink(c.other.label, c.other.href, s.nav)])],
         { gap: mobile ? 18 : 28 },
         { width: "hug" },
       ),
@@ -165,146 +348,152 @@ function page(c, mobile) {
     { padding: [mobile ? 18 : 24, px, mobile ? 18 : 24, px], justify: "between" },
   );
 
+  const tagline = row(
+    "Frase de marca",
+    [row("Trio", [dot("$yellow", 8), dot("$red", 8), dot("$green", 8)], { gap: 4 }, { width: "hug" }), T(c.tagline, s.tag, { width: "hug", color: "$red.ink", fontWeight: 600, lineHeight: 1.2 })],
+    { gap: 10 },
+    { width: "hug" },
+  );
   const heroText = col(
     "Texto do herói",
     [
-      row("Selo", [T(c.pill, s.small, { width: "hug", color: "$brand.soft.ink", fontWeight: 600, lineHeight: 1.2 })], { padding: [7, 14, 7, 14] }, {
-        width: "hug",
-        radius: 999,
-        fill: "$brand.soft",
-      }),
+      tagline,
       T(c.title, s.h1, { name: "h1", fontWeight: 800, lineHeight: 1.06, letterSpacing: mobile ? -0.8 : -1.6 }),
       T(c.lead, s.lead, { color: "$muted", lineHeight: 1.55 }),
-      row(
-        "Chamadas",
-        [button(c.cta[0], c.docs, true, s.body), button(c.cta[1], `link:${REPO}`, false, s.body)],
-        { gap: 14, wrap: true },
-      ),
+      row("Chamadas", [button(c.cta[0], "link:#start", true, s.body), button(c.cta[1], c.docs, false, s.body)], { gap: 14, wrap: true }),
     ],
     { gap: mobile ? 20 : 26, align: "start" },
+    mobile ? {} : { width: 560 },
   );
-  const heroArt = {
-    type: "image",
-    name: "Ilustração",
-    src: ICON,
-    alt: "Paprika pepper icon",
-    width: mobile ? 120 : 340,
-    height: mobile ? 120 : 340,
-    radius: mobile ? 28 : 78,
-    shadow: { x: 0, y: 30, blur: 80, spread: 0, color: "rgba(224, 74, 43, 0.25)" },
-  };
   const hero = mobile
-    ? col("Herói", [heroArt, heroText], { gap: 28, padding: [28, px, 48, px], align: "start" })
-    : row("Herói", [heroText, heroArt], { gap: 64, padding: [64, px, 96, px] });
+    ? col("Herói", [heroText, row("Arte", [canvasWindow(c, 0.66)], { justify: "center" })], { gap: 36, padding: [24, px, 40, px], align: "start" })
+    : row("Herói", [heroText, row("Arte", [canvasWindow(c, 1)], { justify: "end" })], { gap: 40, padding: [56, px, 72, px] });
 
-  const card = ([title, body]) =>
-    col(
-      "Card",
-      [T(title, s.card, { fontWeight: 700, lineHeight: 1.25 }), T(body, s.body, { color: "$muted" })],
-      { gap: 10, padding: mobile ? 20 : 26 },
-      { fill: "$surface", radius: 16, stroke: { color: "$line", width: 1 }, height: mobile ? "hug" : "fill" },
-    );
-  const grid = mobile
-    ? c.features.map(card)
-    : [0, 3].map((i) => row("Linha", c.features.slice(i, i + 3).map(card), { gap: 20, align: "stretch" }));
+  const trust = (mobile ? col : row)(
+    "Confiança",
+    c.trust.map((t, i) => row("Item", [dot(["$yellow", "$red", "$green"][i], 8), T(t, s.small, { width: "hug", color: "$muted", fontWeight: 500, lineHeight: 1.2 })], { gap: 10 }, { width: "hug" })),
+    { gap: mobile ? 12 : 40, padding: [mobile ? 20 : 22, px, mobile ? 20 : 22, px], align: mobile ? "start" : "center", justify: "center" },
+    { stroke: { color: "$line", width: 1 }, fill: "$bg.2" },
+  );
 
-  const section = (name, title, lead, body, extra = {}) =>
-    col(
-      name,
-      [
-        col("Cabeçalho", [T(title, s.h2, { name: "h2", fontWeight: 800, lineHeight: 1.15, letterSpacing: mobile ? -0.5 : -1 }), ...(lead ? [T(lead, s.lead - 2, { color: "$muted" })] : [])], { gap: 12 }),
-        ...body,
-      ],
-      { gap: mobile ? 24 : 36, padding: [mobile ? 48 : 80, px, mobile ? 48 : 80, px] },
-      extra,
-    );
+  const heading = (title, lead) =>
+    col("Cabeçalho", [T(title, s.h2, { name: "h2", fontWeight: 800, lineHeight: 1.15, letterSpacing: mobile ? -0.5 : -1 }), ...(lead ? [T(lead, s.lead - 2, { color: "$muted" })] : [])], { gap: 12 });
+  const section = (name, body, extra = {}, pad = mobile ? 48 : 88) => col(name, body, { gap: mobile ? 24 : 40, padding: [pad, px, pad, px] }, extra);
 
-  const why = section("Por quê", c.whyTitle, c.whyLead, [col("Grade", grid, { gap: mobile ? 14 : 20 })], { fill: "$bg.2" });
+  const makeCard = ([title, body], i) =>
+    col("Card", [thumb(i, c), col("Texto", [T(title, s.card, { name: "h3", fontWeight: 700, lineHeight: 1.25 }), T(body, s.body, { color: "$muted" })], { gap: 8 })], { gap: 18, padding: mobile ? 16 : 18 }, {
+      fill: "$surface",
+      radius: 16,
+      stroke: { color: "$line", width: 1 },
+      height: mobile ? "hug" : "fill",
+    });
+  const makeGrid = mobile ? c.make.map(makeCard) : [0, 2].map((i) => row("Linha", c.make.slice(i, i + 2).map((m, j) => makeCard(m, i + j)), { gap: 20, align: "stretch" }));
+  const make = section("O que faz", [heading(c.makeTitle, c.makeLead), col("Grade", makeGrid, { gap: mobile ? 14 : 20 })]);
 
-  const step = ([n, title, body]) =>
+  const control = section(
+    "Controle",
+    [
+      heading(c.controlTitle),
+      (mobile ? col : row)(
+        "Itens",
+        c.control.map(([title, body], i) =>
+          col("Item", [box("Marca", 28, 6, { fill: ["$yellow", "$red", "$green"][i], radius: 3 }), T(title, s.card, { name: "h3", fontWeight: 700, lineHeight: 1.25 }), T(body, s.body, { color: "$muted" })], { gap: 12, align: "start" }),
+        ),
+        { gap: mobile ? 28 : 40, align: "start" },
+      ),
+    ],
+    { fill: "$bg.2" },
+  );
+
+  const checkCard = col(
+    "Relatório",
+    [
+      row("Topo", [dot("$select", 10), T(c.checkCard, s.small, { color: "$muted", fontWeight: 600, lineHeight: 1.2 })], { gap: 10 }),
+      ...c.checks.map(([tone, text]) =>
+        row("Linha", [box("Estado", 14, 14, { fill: tone === "green" ? "$green" : "$yellow", radius: 4 }), T(text, s.body, { lineHeight: 1.35 })], { gap: 12, padding: [12, 14, 12, 14] }, { fill: "$surface.2", radius: 10 }),
+      ),
+    ],
+    { gap: 10, padding: mobile ? 16 : 22 },
+    { width: mobile ? "fill" : 460, fill: "$surface", radius: 16, stroke: { color: "$line", width: 1 } },
+  );
+  const check = section("Confere", [(mobile ? col : row)("Conteúdo", [col("Texto", [heading(c.checkTitle, c.checkLead)], {}, mobile ? {} : { width: 560 }), checkCard], { gap: mobile ? 24 : 80, justify: "between" })]);
+
+  const step = ([title, cmd], i) =>
     col(
       "Passo",
       [
-        row("Número", [T(n, s.body, { width: "hug", fontWeight: 800, color: "$on.brand", lineHeight: 1 })], { justify: "center" }, {
-          width: 40,
-          height: 40,
-          radius: 20,
-          fill: "$brand.dark",
-        }),
-        T(title, s.card, { fontWeight: 700, lineHeight: 1.25 }),
-        T(body, s.body, { color: "$muted" }),
+        row("Topo", [row("Número", [T(String(i + 1), s.body, { width: "hug", fontWeight: 800, color: "$on.red", lineHeight: 1 })], { justify: "center" }, { width: 32, height: 32, radius: 8, fill: "$red.strong" }), T(title, s.card, { name: "h3", fontWeight: 700, lineHeight: 1.25 })], { gap: 14 }),
+        code(cmd, s.code, mobile ? 14 : 18),
       ],
-      { gap: 12, align: "start" },
+      { gap: 14 },
     );
-  const how = section("Como funciona", c.howTitle, null, [
-    (mobile ? col : row)("Passos", c.steps.map(step), { gap: mobile ? 28 : 32, align: "start" }),
-  ]);
+  const prompt = col(
+    "Prompt",
+    [
+      col("Texto", [T(c.promptTitle, s.card, { name: "h3", fontWeight: 700, lineHeight: 1.25 }), T(c.promptLead, s.body, { color: "$muted" })], { gap: 8 }),
+      code(c.prompt.join("\n"), s.code, mobile ? 14 : 18, "Prompt de setup"),
+      button(c.promptCta, "copy:setup-prompt", false, s.body),
+    ],
+    { gap: 18, padding: mobile ? 16 : 24, align: "start" },
+    { fill: "$surface", radius: 16, stroke: { color: "$line", width: 1 }, ...(mobile ? {} : { width: 500 }) },
+  );
+  const start = section(
+    "anchor:start",
+    [heading(c.startTitle, c.startLead), (mobile ? col : row)("Conteúdo", [col("Passos", c.steps.map(step), { gap: 28 }), prompt], { gap: mobile ? 32 : 48, align: "start" })],
+    { fill: "$bg.2" },
+  );
 
-  const start = section("Começo rápido", c.startTitle, c.startLead, [code(QUICKSTART, s.code, mobile ? 18 : 28)], { fill: "$bg.2" });
+  const pattern = row(
+    "Padrão",
+    Array.from({ length: mobile ? 5 : 12 }, (_, i) => ({ type: "image", name: "Símbolo", src: i % 2 ? ASSETS.symbolMono : ASSETS.symbol, alt: "", decorative: true, width: 56, height: 56 })),
+    { gap: mobile ? 16 : 30, justify: "center" },
+    { opacity: 0.9 },
+  );
+  const team = section(
+    "Time",
+    [pattern, col("Texto", [T(c.teamTitle, s.h2, { name: "h2", fontWeight: 800, lineHeight: 1.15, letterSpacing: mobile ? -0.5 : -1, textAlign: mobile ? "left" : "center" }), T(c.teamLead, s.lead - 2, { color: "$muted", textAlign: mobile ? "left" : "center" }), button(c.teamCta, c.team, false, s.body)], { gap: 18, align: mobile ? "start" : "center" }, mobile ? {} : { width: 760 })],
+    {},
+  );
+  team.layout.align = mobile ? "stretch" : "center";
 
   const footer = (mobile ? col : row)(
     "Rodapé",
     [
-      T(c.footer, s.small, { color: "$muted", width: mobile ? "fill" : "hug" }),
-      row(
-        "Links do rodapé",
-        [navLink("GitHub", `link:${REPO}`, s.small), navLink(c.nav[0], c.docs, s.small), navLink(c.other.label, c.other.href, s.small)],
-        { gap: 20 },
-        { width: "hug" },
-      ),
+      col("Assinatura", [{ type: "image", name: c.home, src: ASSETS.lockup, alt: "Paprika", width: 104, height: 26, fit: "contain" }, T(c.footer, s.small, { color: "$muted", width: mobile ? "fill" : "hug" })], { gap: 12, align: "start" }, { width: mobile ? "fill" : "hug" }),
+      row("Links do rodapé", [navLink("GitHub", `link:${REPO}`, s.small), navLink(c.nav[0], c.docs, s.small), navLink(c.other.label, c.other.href, s.small)], { gap: 20 }, { width: "hug" }),
     ],
-    { padding: [32, px, 40, px], justify: "between", gap: 16, align: mobile ? "start" : "center" },
+    { padding: [36, px, 44, px], justify: "between", gap: 20, align: mobile ? "start" : "end" },
+    { stroke: { color: "$line", width: 1 } },
   );
 
   return {
     type: "frame",
     id: `lp-${mobile ? "mobile" : "desktop"}-${c.lang}`,
     name: `Landing ${mobile ? "mobile" : "desktop"} (${c.lang})`,
-    notes: "Published by apps/site/scripts/build.mjs. Nodes named link:<href> become links.",
+    notes: "Published by apps/site/src/lib/landing.ts. Nodes named link:<href> become links, anchor:<id> sets an id, copy:<id> copies the text of the code block before it.",
     width: W,
     height: "hug",
     fill: "$bg",
     clip: true,
     layout: { mode: "column", gap: 0, padding: 0, align: "stretch" },
-    children: [nav, hero, why, how, start, footer],
+    children: [nav, hero, trust, make, control, check, start, team, footer],
   };
 }
 
-await call("apply_ops", {
-  ops: [{ op: "rename_document", name: "Paprika landing page" }],
-  label: "Nome do documento",
-}).catch(() => {});
-
-await call("set_tokens", {
-  tokens: {
-    bg: "#141827",
-    "bg.2": "#181d2e",
-    surface: "#1e2336",
-    "surface.2": "#10131f",
-    ink: "#eef0f7",
-    muted: "#a6acc4",
-    line: "#2c3350",
-    "line.strong": "#3d4566",
-    brand: "#e04a2b",
-    "brand.dark": "#b8341b",
-    "brand.soft": "rgba(224, 74, 43, 0.16)",
-    "brand.soft.ink": "#ff9a7c",
-    code: "#d6dbec",
-    "on.brand": "#ffffff",
-  },
-});
+if (!PAGE) await call("apply_ops", { ops: [{ op: "rename_document", name: "Paprika landing page" }], label: "Nome do documento" }).catch(() => {});
+await call("set_tokens", { tokens: TOKENS });
 
 const roots = [
   [copy.en, false, 0, 0],
   [copy.en, true, 1400, 0],
-  [copy.pt, false, 0, 4200],
-  [copy.pt, true, 1400, 4200],
+  [copy.pt, false, 0, 4600],
+  [copy.pt, true, 1400, 4600],
 ];
 for (const [c, mobile, x, y] of roots) {
   const node = { ...page(c, mobile), x, y };
+  if (ONLY && !ONLY.includes(node.id)) continue;
   await call("delete_nodes", { ids: [node.id] }).catch(() => {});
-  await call("create_nodes", { nodes: [node], label: `Landing ${c.lang} ${mobile ? "mobile" : "desktop"}` });
+  await call("create_nodes", { nodes: [node], parentId: PAGE, label: `Landing ${c.lang} ${mobile ? "mobile" : "desktop"}` });
 }
 
-console.log(await call("lint_design", {}));
-console.log(await call("get_document_outline", { depth: 1 }));
+console.log(await call("lint_design", PAGE ? { rootId: PAGE } : {}));
