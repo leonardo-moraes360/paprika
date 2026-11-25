@@ -11,6 +11,27 @@ um frame por estado num documento Paprika pelo MCP, confere com `lint_design` e 
 - **O documento** é a fonte editável: frames, tokens, overrides de modo. Ele mora no servidor Paprika, que é
   um banco — e banco se muda.
 
+## O ciclo de desenho
+
+
+A sessão que desenha uma folha segue sempre o mesmo formato, e é ele que mantém a folha revisável enquanto
+ela é construída:
+
+1. Leia o estado primeiro: `get_document_outline`, depois `find_nodes` do que existe, então os ids que
+   importam com `get_nodes`. Nunca despeje a árvore.
+2. Feche o sistema antes de desenhar: tokens do tema, escala de espaçamento e a escada tipográfica (`set_tokens`).
+3. Escreva um grupo visual por chamada de `create_nodes` — um cabeçalho, uma linha, um card — para que o
+   humano veja a tela chegar e um erro custe um grupo, não a folha inteira.
+4. Depois de cada grupo: `render_screenshot`, depois `lint_design`, e uma linha de veredito contra
+   espaçamento, tipografia, contraste, alinhamento, ajuste ao frame e repetição. Corrija antes de seguir.
+5. Reuse em vez de refazer: `duplicate_nodes` para repetições, componentes e instâncias para estados,
+   `align_nodes`/`distribute_nodes` em vez de coordenadas na mão.
+6. Feche o trabalho: nomeie os frames, exporte o documento (abaixo) e, quando a mudança mexer em uma
+   interface que o usuário vai julgar, deixe os PNGs em `docs/assets/boards/<TICKET>/`.
+
+Esses passos vêm de operar de ponta a ponta o MCP de agente de um concorrente; a comparação e o que o
+Paprika deveria adotar estão no [estudo de MCP de agente](research/paper-mcp-0.5.19.md).
+
 ## Guardar o documento no repositório
 
 O documento das folhas é exportado para `docs/design/boards.paprika.json` do mesmo jeito que a landing page

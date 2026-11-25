@@ -27,6 +27,21 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 }
 ```
 
+## Tool annotations and safe calls
+
+Every tool in `server-go/contract/mcp.json` is served verbatim to the agent, including its MCP
+annotations. Clients use them to decide what needs a confirmation before running. Today the contract
+carries 63 tools: **16 `readOnlyHint`** (all getters), **2 `destructiveHint`** (`delete_nodes`,
+`delete_workspace`) and **1 `idempotentHint`**; 42 mutating tools carry no annotation, so a client cannot
+tell `import_document` from `get_nodes`. Annotating them is tracked in
+[the agent MCP study](research/paper-mcp-0.5.19.md).
+
+Until then, treat any tool not marked `readOnlyHint` as a change to the user's document, and read with
+the narrowest ladder that answers the question:
+
+`get_document_outline` → `find_nodes` (one filter) → `get_nodes` for the ids you need → `get_bounds`.
+Wide dumps of the tree are the usual way a design session runs out of context.
+
 ## MCP tools
 
 | Tool | What it does |
