@@ -450,7 +450,12 @@ if (SHOTS) {
   mkdirSync(SHOTS, { recursive: true });
   for (const [dir, id] of ids) {
     const r = await call("render_screenshot", { workspaceId: wsId, rootId: id, scale: 2 });
-    writeFileSync(join(SHOTS, `direcao-${dir.num}-${dir.key}.png`), Buffer.from(r.image, "base64"));
+    // Only a real PNG reaches the disk (the MCP server's answer is treated as untrusted input).
+    const png = Buffer.from(String(r.image ?? ""), "base64");
+    const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    if (png.length < 8 || !png.subarray(0, 8).equals(PNG_MAGIC) || png.length > 32 * 1024 * 1024)
+      throw new Error(`render_screenshot ${dir.num}: not a PNG`);
+    writeFileSync(join(SHOTS, `direcao-${dir.num}-${dir.key}.png`), png);
   }
   console.log("screenshots em", SHOTS);
 }
@@ -458,4 +463,4 @@ if (SHOTS) {
 const after = await call("list_workspaces", {});
 const activeAfter = after.active ?? after?.workspaces?.find?.((w) => w.active)?.id;
 console.log("ativo depois:", activeAfter, activeAfter === activeBefore ? "(inalterado)" : "(MUDOU!)");
-writeFileSync(join(process.cwd(), ".brand-ws-id"), wsId);
+console.log("workspace:", wsId);
