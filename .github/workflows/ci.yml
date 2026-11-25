@@ -422,8 +422,9 @@ jobs:
       # reuses those stages. The `gha` backend needs the Actions runtime token, which only an
       # action gets (not a `run:` step), hence these two official docker/* actions. The Dockerfile
       # still pins its own inputs (base image tags, checksums, lockfiles).
-      # Cache scope: GitHub keeps a PR's cache entries for that PR (and its base branch), so the
-      # first run of a PR starts cold and later pushes to it hit.
+      # Read-only here: .github/workflows/docker-cache.yml writes the cache from main, which every
+      # PR can read. Writing from the PR too cost ~210 s per run (mode=max, ~90 layers) for entries
+      # only that same PR could ever read.
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build (runtime target)
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -432,7 +433,6 @@ jobs:
           load: true
           tags: paprika:ci
           cache-from: type=gha,scope=docker
-          cache-to: type=gha,scope=docker,mode=max
       - name: Smoke test (runtime target)
         run: .github/scripts/docker-smoke.sh paprika:ci
       # Reuses every stage built above (same builder); only the final distroless layer is new.

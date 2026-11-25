@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pngFromBase64, shotPath } from "../../scripts/design-board.mjs";
 
 const URL_ = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4777/mcp";
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "../assets/boards/PAP-B-052");
@@ -254,7 +255,7 @@ for (const [file, rootId] of shots) {
     console.warn("no image for", file, r);
     continue;
   }
-  writeFileSync(join(OUT, file), Buffer.from(img.data, "base64"));
+  writeFileSync(shotPath(OUT, file), pngFromBase64(img.data));
   console.log("wrote", file);
 }
 

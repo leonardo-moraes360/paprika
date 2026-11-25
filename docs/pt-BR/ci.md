@@ -4,7 +4,7 @@
 
 O CI do Paprika roda **apenas em pull requests** (`opened`, `synchronize`, `reopened`, `ready_for_review`). Nada roda em push nem depois do merge: a execução da PR é o gate. Um novo push na mesma PR cancela a execução que ainda está em andamento.
 
-O único workflow que roda em push é o [`pages.yml`](../../.github/workflows/pages.yml): é um deploy, não uma verificação. Quando uma mudança no site ou nas docs chega na `main`, ele gera o `apps/site` e publica no GitHub Pages ([apps/site/README.pt-BR.md](../../apps/site/README.pt-BR.md)).
+O único workflow que roda em push é o [`pages.yml`](../../.github/workflows/pages.yml): é um deploy, não uma verificação. Quando uma mudança no site ou nas docs chega na `main`, ele gera o `apps/site` e publica no GitHub Pages ([apps/site/README.pt-BR.md](../../apps/site/README.pt-BR.md)). O [`docker-cache.yml`](../../.github/workflows/docker-cache.yml) também roda em push, só quando muda algo que a imagem Docker empacota: também não é verificação, só grava o cache de camadas do Docker que o job do PR lê (veja [Caches](#caches)).
 
 Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), mais o [`.github/dependabot.yml`](../../.github/dependabot.yml).
 
@@ -83,9 +83,9 @@ Para aumentar os shards, troque `shard: [1, 2]` na matrix e o `/2` (vitest) ou o
 | `target/` e registry do Rust | `Swatinem/rust-cache`, um por tarefa, mais um para o build WASM de release (action composta [`setup-rust-wasm`](../../.github/actions/setup-rust-wasm/action.yml), que também instala o CLI `wasm-bindgen` fixado por checksum) | `Cargo.lock` + toolchain |
 | Chromium do Playwright (suítes e2e e api) | `actions/cache` em `~/.cache/ms-playwright` (action composta [`setup-playwright`](../../.github/actions/setup-playwright/action.yml)) | versão do Playwright |
 | Saída do build | artefato `build` (`dist/` + binário Go), gerado uma vez e reutilizado por 7+ jobs | por execução |
-| Camadas do Docker | `docker/build-push-action` com `cache-from`/`cache-to: type=gha,scope=docker,mode=max`: um estágio só é refeito quando as entradas dele mudam (o build release do `paprika-sync` sozinho leva ~340 s a frio) | entradas de cada camada |
+| Camadas do Docker | Gravado na `main` pelo [`docker-cache.yml`](../../.github/workflows/docker-cache.yml) (`cache-to: type=gha,scope=docker,mode=max`, `outputs: type=cacheonly`); o job do PR só lê (`cache-from`). Um estágio só é refeito quando as entradas dele mudam (o build release do `paprika-sync` sozinho leva ~340 s a frio) | entradas de cada camada |
 
-O GitHub guarda a entrada de cache criada por um PR para aquele PR (mais os caches da branch base), e nada roda na `main`, então o **primeiro run de cada PR começa frio** e os pushes seguintes acertam o cache.
+O GitHub deixa um PR ler os caches da própria ref e da branch base, nunca os de outro PR. Por isso o cache do Docker é gravado a partir da `main`, onde todo PR consegue ler; gravá-lo no PR custava ~210 s por run para entradas que nenhum outro PR usaria.
 
 ## Segurança do workflow
 

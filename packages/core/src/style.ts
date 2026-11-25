@@ -198,7 +198,7 @@ export function svgGradientInner(doc: Document, node: Node, w: number, h: number
   const g = nodeGradient(node);
   if (!g) return undefined;
   const mode = modeOf(doc, node);
-  const id = `paprika-g-${node.id}`;
+  const id = xmlEscape(`paprika-g-${node.id}`);
   const stops = gradientStopXML(doc, g, mode, vars);
   if (g.type === "linear" || g.type === "radial") {
     const bw = w > 0 ? w : 1;
@@ -211,20 +211,21 @@ export function svgGradientInner(doc: Document, node: Node, w: number, h: number
     return { fill: `url(#${id})`, inner: `<defs>${el}</defs>` };
   }
   const css = xmlEscape(gradientCSS(doc, g, mode, vars));
+  const maskId = xmlEscape(`paprika-gm-${node.id}`);
   let mask = "";
   let maskAttr = "";
   if (node.type === "path") {
-    mask = `<mask id="paprika-gm-${node.id}"><path d="${xmlEscape(node.d)}" fill="white" fill-rule="${node.fillRule}"/></mask>`;
-    maskAttr = ` mask="url(#paprika-gm-${node.id})"`;
+    mask = `<mask id="${maskId}"><path d="${xmlEscape(node.d)}" fill="white" fill-rule="${node.fillRule}"/></mask>`;
+    maskAttr = ` mask="url(#${maskId})"`;
   } else if (node.type === "shape") {
     const radius = resolveLength(doc, node.radius, mode) ?? 0;
     const sw = node.stroke ? (resolveLength(doc, node.stroke.width, mode) ?? 0) : 0;
     const o = shapeOutline({ ...node, radius, stroke: node.stroke ? { ...node.stroke, width: sw } : undefined });
-    mask = `<mask id="paprika-gm-${node.id}"><path d="${xmlEscape(o.d)}" fill="white"/></mask>`;
-    maskAttr = ` mask="url(#paprika-gm-${node.id})"`;
+    mask = `<mask id="${maskId}"><path d="${xmlEscape(o.d)}" fill="white"/></mask>`;
+    maskAttr = ` mask="url(#${maskId})"`;
   } else if (node.type === "ellipse") {
-    mask = `<mask id="paprika-gm-${node.id}"><ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill="white"/></mask>`;
-    maskAttr = ` mask="url(#paprika-gm-${node.id})"`;
+    mask = `<mask id="${maskId}"><ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill="white"/></mask>`;
+    maskAttr = ` mask="url(#${maskId})"`;
   }
   const under = `<foreignObject x="0" y="0" width="100%" height="100%"${maskAttr}><div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;background:${css}"></div></foreignObject>`;
   return { fill: "none", inner: `${mask ? `<defs>${mask}</defs>` : ""}${under}` };

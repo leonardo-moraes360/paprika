@@ -509,6 +509,9 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 	if !hasID {
 		idStr = NewID()
 	}
+	if idStr == "__proto__" {
+		return opErr(i, `id "__proto__" is reserved`)
+	}
 	if GetNode(doc, idStr) != nil {
 		return opErr(i, `id "%s" already exists`, idStr)
 	}
@@ -939,6 +942,9 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		nodes := op.Arr("nodes")
 		for _, n := range nodes {
 			nid := n.(*jsonv.Object).Str("id")
+			if nid == "__proto__" {
+				return nil, opErr(i, `id "__proto__" is reserved`)
+			}
 			if GetNode(doc, nid) != nil {
 				return nil, opErr(i, `id "%s" already exists`, nid)
 			}
