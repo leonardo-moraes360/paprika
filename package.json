@@ -21,6 +21,7 @@
     "go:golden": "node server/scripts/gen-golden.mjs && node server/scripts/gen-measure.mjs",
     "test:api": "pnpm go:build && pnpm --filter @paprika/e2e test:api",
     "test:e2e": "pnpm go:build && pnpm --filter @paprika/e2e test:e2e",
+    "test:perf": "pnpm go:build && pnpm --filter @paprika/e2e test:perf",
     "check": "pnpm build && pnpm typecheck && pnpm go:golden && git diff --exit-code -- server/internal/core/testdata server/contract && pnpm test && pnpm go:test && pnpm test:api && pnpm test:e2e"
   },
   "devDependencies": {

@@ -104,7 +104,7 @@ A lista completa de ferramentas e atalhos está em [Usando o canvas](canvas.md).
 | Aprender o canvas, os atalhos e os diagramas | [Usando o canvas](canvas.md) |
 | Conectar um agente, ver todas as ferramentas MCP e o formato do arquivo | [Agentes e MCP](mcp.md) |
 | Rodar com Docker: importar, exportar, backup, portas | [Docker](docker.md) |
-| Compilar a partir do código, rodar os testes, contribuir com código | [Desenvolvimento](desenvolvimento.md) · [CI](ci.md) |
+| Compilar a partir do código, rodar os testes, contribuir com código | [Desenvolvimento](desenvolvimento.md) · [CI](ci.md) · [Desempenho](desempenho.md) |
 | Entender como ele é construído | [Arquitetura](arquitetura.md) · [Servidor Go](../../server/README.pt-BR.md) · [Decisões (ADRs)](adr/) |
 | Conferir uma tela contra o board aprovado | [Verificação visual](verificacao-visual.md) |
 | Ver o que o MCP de outro agente ensinou sobre o nosso | [Estudo de MCP: Paper 0.5.19](research/paper-mcp-0.5.19.md) |
