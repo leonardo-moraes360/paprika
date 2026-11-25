@@ -184,14 +184,7 @@ func broadcastPins(store *Store, hub *wsHub) func() {
 			}
 			last = rev
 			msg := jsonv.Stringify(jsonv.NewObject("type", "pins", "rev", float64(rev)), "")
-			hub.mu.Lock()
-			for _, ch := range hub.conns {
-				select {
-				case ch <- msg:
-				default:
-				}
-			}
-			hub.mu.Unlock()
+			hub.broadcast(msg)
 		}
 	}()
 	var once sync.Once

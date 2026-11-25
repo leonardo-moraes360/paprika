@@ -221,7 +221,7 @@ func (s *RunningServer) Close() error {
 
 type wsHub struct {
 	mu       sync.Mutex
-	conns    map[*websocket.Conn]chan string
+	conns    map[*websocket.Conn]*outbox
 	order    []*websocket.Conn
 	renderer map[*websocket.Conn]string
 	view     map[*websocket.Conn]string
@@ -280,7 +280,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		}
 	}
 
-	hub := &wsHub{conns: map[*websocket.Conn]chan string{}, renderer: map[*websocket.Conn]string{}, view: map[*websocket.Conn]string{}}
+	hub := &wsHub{conns: map[*websocket.Conn]*outbox{}, renderer: map[*websocket.Conn]string{}, view: map[*websocket.Conn]string{}}
 	renderers := &rendererSource{line: hub.rendererLine}
 	canvasRenderers.Store(renderers)
 	docMessage := func(doc *core.Document, version int64, actor, label, kind string, canUndo, canRedo bool) string {
@@ -288,61 +288,26 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			"kind", kind, "canUndo", canUndo, "canRedo", canRedo), "")
 	}
 	unsubscribe := store.OnChange(func(e ChangeEvent) {
-		msg := docMessage(e.Doc, e.Version, e.Actor, e.Label, e.Kind, store.CanUndo(), store.CanRedo())
-		hub.mu.Lock()
-		for c, ch := range hub.conns {
-			if v := hub.view[c]; v != "" && v != e.DocID {
-				continue
-			}
-			select {
-			case ch <- msg:
-			default:
-			}
-		}
-		hub.mu.Unlock()
+		hub.broadcastDoc(func(v string) bool { return v == "" || v == e.DocID }, func() (string, string, int64) {
+			return docMessage(e.Doc, e.Version, e.Actor, e.Label, e.Kind, store.CanUndo(), store.CanRedo()), e.DocID, e.Version
+		})
 	})
 	unsubscribeAside := store.OnAside(func(e AsideEvent) {
-		msg := docMessage(e.Doc, e.Version, e.Actor, e.Label, e.Kind, e.CanUndo, e.CanRedo)
-		hub.mu.Lock()
-		for c, ch := range hub.conns {
-			if hub.view[c] != e.DocID {
-				continue
-			}
-			select {
-			case ch <- msg:
-			default:
-			}
-		}
-		hub.mu.Unlock()
+		hub.broadcastDoc(func(v string) bool { return v == e.DocID }, func() (string, string, int64) {
+			return docMessage(e.Doc, e.Version, e.Actor, e.Label, e.Kind, e.CanUndo, e.CanRedo), e.DocID, e.Version
+		})
 	})
 
 	stopOps := broadcastWorkspaceOps(store, hub)
 	stopPins := broadcastPins(store, hub)
 
 	unsubscribePresence := store.Presence.OnPresence(func(p Presence) {
-		msg := p.Message()
-		hub.mu.Lock()
-		for _, ch := range hub.conns {
-			select {
-			case ch <- msg:
-			default:
-			}
-		}
-		hub.mu.Unlock()
+		hub.broadcast(p.Message())
 	})
 
 	unsubscribeTeam := func() {}
 	if opts.Team != nil {
-		unsubscribeTeam = opts.Team.OnMessage(func(msg string) {
-			hub.mu.Lock()
-			for _, ch := range hub.conns {
-				select {
-				case ch <- msg:
-				default:
-				}
-			}
-			hub.mu.Unlock()
-		})
+		unsubscribeTeam = opts.Team.OnMessage(hub.broadcast)
 	}
 
 	gin.SetMode(gin.ReleaseMode)
@@ -826,14 +791,7 @@ func broadcastWorkspaceOps(store *Store, hub *wsHub) func() {
 					continue
 				}
 				msg := jsonv.Stringify(jsonv.NewObject("type", "workspaceOp", "op", jsonv.FromGo(op)), "")
-				hub.mu.Lock()
-				for _, ch := range hub.conns {
-					select {
-					case ch <- msg:
-					default:
-					}
-				}
-				hub.mu.Unlock()
+				hub.broadcast(msg)
 			}
 			seen = current
 		}
@@ -897,25 +855,10 @@ func serveStatic(w http.ResponseWriter, r *http.Request, webRoot string) {
 
 func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub,
 	docMessage func(*core.Document, int64, string, string, string, bool, bool) string, team TeamRoutes) {
-	out := make(chan string, 64)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	doc, version, cu, cr := store.Snapshot()
-	out <- docMessage(doc, version, "server", "", "reload", cu, cr)
-	for _, p := range store.Presence.Recent() {
-		select {
-		case out <- p.Message():
-		default:
-		}
-	}
-	if team != nil {
-		for _, m := range team.Recent() {
-			select {
-			case out <- m:
-			default:
-			}
-		}
-	}
+	out := newOutbox(cancel)
+	out.reserveDoc()
 	hub.mu.Lock()
 	hub.conns[conn] = out
 	hub.order = append(hub.order, conn)
@@ -929,25 +872,36 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 		hub.mu.Unlock()
 		conn.CloseNow()
 	}()
+	for _, p := range store.Presence.Recent() {
+		out.push(p.Message())
+	}
+	if team != nil {
+		for _, m := range team.Recent() {
+			out.push(m)
+		}
+	}
+	initial := time.AfterFunc(wsInitialWait, func() {
+		if out.docEmpty() {
+			doc, version, cu, cr := store.Snapshot()
+			out.pushDoc(docMessage(doc, version, "server", "", "reload", cu, cr), doc.Str("id"), version)
+		}
+		out.release()
+	})
+	defer initial.Stop()
 	go func() {
 		for {
-			select {
-			case <-ctx.Done():
+			m, ok := out.next(ctx)
+			if !ok {
+				cancel()
 				return
-			case m := <-out:
-				if err := conn.Write(ctx, websocket.MessageText, []byte(m)); err != nil {
-					cancel()
-					return
-				}
+			}
+			if err := conn.Write(ctx, websocket.MessageText, []byte(m)); err != nil {
+				cancel()
+				return
 			}
 		}
 	}()
-	reply := func(o *jsonv.Object) {
-		select {
-		case out <- jsonv.Stringify(o, ""):
-		case <-ctx.Done():
-		}
-	}
+	reply := func(o *jsonv.Object) { out.push(jsonv.Stringify(o, "")) }
 	for {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
@@ -1020,10 +974,8 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 			} else {
 				d, cu, cr = head.Doc, head.CanUndo, head.CanRedo
 			}
-			select {
-			case out <- docMessage(d, head.Version, "server", "", "reload", cu, cr):
-			case <-ctx.Done():
-			}
+			out.pushDoc(docMessage(d, head.Version, "server", "", "reload", cu, cr), d.Str("id"), head.Version)
+			out.release()
 			if hasReq {
 				reply(jsonv.NewObject("type", "ack", "reqId", reqID, "version", float64(head.Version)))
 			}

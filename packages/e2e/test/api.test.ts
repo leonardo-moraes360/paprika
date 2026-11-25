@@ -2725,6 +2725,55 @@ describe("API: HTTP + WebSocket", () => {
     ws.close();
   });
 
+  it("WebSocket: abrir com view recebe um único snapshot; sem view, o snapshot inicial continua chegando", async () => {
+    const other = (await (await fetch(`${srv.url}/api/workspaces`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Outro" }) })).json()) as { workspace: { id: string } };
+    const open = async (view?: string) => {
+      const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
+      const msgs: { type: string; doc?: { id: string }; reqId?: string }[] = [];
+      ws.on("message", (m) => msgs.push(JSON.parse(String(m))));
+      await new Promise((ok) => ws.once("open", ok));
+      if (view) ws.send(JSON.stringify({ type: "view", workspaceId: view, reqId: "v" }));
+      return { ws, msgs, docs: () => msgs.filter((m) => m.type === "doc") };
+    };
+    const viewed = await open(other.workspace.id);
+    await waitFor(() => viewed.msgs.some((m) => m.type === "ack"));
+    await new Promise((r) => setTimeout(r, 400));
+    expect(viewed.docs().map((d) => d.doc?.id)).toEqual([other.workspace.id]);
+    const plain = await open();
+    await waitFor(() => plain.docs().length > 0);
+    await new Promise((r) => setTimeout(r, 400));
+    expect(plain.docs()).toHaveLength(1);
+    viewed.ws.close();
+    plain.ws.close();
+  });
+
+  it("WebSocket: aba lenta recebe o documento mais recente depois que as escritas param", async () => {
+    const pad = "x".repeat(150);
+    const nodes = Array.from({ length: 2500 }, (_, i) => ({ type: "rect", id: `s${i}`, name: pad }));
+    const post = (ops: unknown[]) =>
+      fetch(`${srv.url}/api/ops`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ops, actor: "script" }) });
+    expect((await post(nodes.map((node) => ({ op: "create", node })))).status).toBe(200);
+    const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
+    let lastVersion = 0;
+    let frames = 0;
+    ws.on("message", (m) => {
+      const raw = String(m);
+      if (!raw.startsWith('{"type":"doc"')) return;
+      frames++;
+      lastVersion = JSON.parse(raw).version;
+    });
+    await new Promise((ok) => ws.once("open", ok));
+    await waitFor(() => frames > 0);
+    ws.pause();
+    const writes = 120;
+    for (let i = 0; i < writes; i++) await post([{ op: "update", id: "s0", props: { opacity: 0.1 + (i % 8) / 10 } }]);
+    const expected = ((await (await fetch(`${srv.url}/api/health`)).json()) as { version?: number }).version;
+    ws.resume();
+    await waitFor(() => lastVersion === (expected ?? lastVersion) && lastVersion > 0, 20_000);
+    expect(frames).toBeLessThan(writes);
+    ws.close();
+  }, 60_000);
+
   it("presença do agente: cada chamada MCP vira cursor no canvas, com replay para quem conecta depois", async () => {
     type Msg = { type: string; agent?: string; actor?: string; tool?: string; nodes?: string[]; idle?: number };
     const open = async () => {

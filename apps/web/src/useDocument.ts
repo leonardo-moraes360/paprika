@@ -116,6 +116,7 @@ export class LiveStore {
     });
   };
   private pendingView: string | null = null;
+  staleResyncMs = 1500;
   onViewDeleted: (() => void) | null = null;
   private viewMessage = (reqId: string) => (this.viewId ? { type: "view", workspaceId: this.viewId, reqId } : { type: "view", reqId });
 
@@ -127,6 +128,22 @@ export class LiveStore {
     let docRaf = 0;
     let docTimer: ReturnType<typeof setTimeout> | undefined;
     let buildTimer: ReturnType<typeof setInterval> | undefined;
+    let staleTimer: ReturnType<typeof setTimeout> | undefined;
+    let staleVersion = 0;
+    const checkStale = (version: number) => {
+      if (version <= this.state.version || version <= staleVersion) return;
+      staleVersion = version;
+      clearTimeout(staleTimer);
+      staleTimer = setTimeout(() => {
+        staleTimer = undefined;
+        const want = staleVersion;
+        staleVersion = 0;
+        const sock = this.ws;
+        if (closed || !sock || sock.readyState !== WebSocket.OPEN) return;
+        if (pendingDoc !== null || this.state.version >= want) return;
+        sock.send(JSON.stringify(this.viewMessage(String(++this.seq))));
+      }, this.staleResyncMs);
+    };
     const kickBuild = () => {
       if (buildTimer || !this.state.build) return;
       buildTimer = setInterval(() => {
@@ -204,11 +221,9 @@ export class LiveStore {
         if (this.ws !== ws) return;
         this.set((s) => ({ ...s, connected: true, error: s.error && offlineMessages.has(s.error) ? null : s.error }));
         reportRenderer(initialRendererMode());
-        if (this.viewId || this.pendingView) {
-          const reqId = this.pendingView ?? String(++this.seq);
-          this.pendingView = null;
-          ws.send(JSON.stringify(this.viewMessage(reqId)));
-        }
+        const reqId = this.pendingView ?? String(++this.seq);
+        this.pendingView = null;
+        ws.send(JSON.stringify(this.viewMessage(reqId)));
       };
       ws.onmessage = (ev) => {
         if (this.ws !== ws) return;
@@ -236,7 +251,8 @@ export class LiveStore {
           void queryClient.invalidateQueries({ queryKey: ["pins"] });
         } else if (msg.type === "presence") {
           this.set((s) => ({ ...s, agents: applyPresence(s.agents, msg) }));
-        } else if (msg.type === "ack" && this.viewWaiters.has(msg.reqId)) {
+        } else if (msg.type === "ack") {
+          checkStale(msg.version);
           this.viewWaiters.get(msg.reqId)?.resolve();
           this.viewWaiters.delete(msg.reqId);
         } else if (msg.type === "error") {
@@ -258,6 +274,7 @@ export class LiveStore {
       stopRenderer();
       clearTimeout(retry);
       clearTimeout(flash);
+      clearTimeout(staleTimer);
       if (docRaf) cancelAnimationFrame(docRaf);
       docRaf = 0;
       if (docTimer) clearTimeout(docTimer);
