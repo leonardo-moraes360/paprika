@@ -13,7 +13,6 @@ um frame por estado num documento Paprika pelo MCP, confere com `lint_design` e 
 
 ## O ciclo de desenho
 
-
 A sessão que desenha uma folha segue sempre o mesmo formato, e é ele que mantém a folha revisável enquanto
 ela é construída:
 
