@@ -380,7 +380,7 @@ What stayed open after the batch of fixes for the friction logged in the agent f
 | PAP-A-049 | `compare_reference` with an SVG or file reference | It needs a reference image placed on the canvas; comparing a node with an official SVG took a browser and an image library (fb#232) | ⬜ | P2 |
 | PAP-A-050 | `lint_design` suggests `lintIgnore` per rule | An intended failure is silenced with `lintIgnore`, but the result never says so (fb#218) | ⬜ | P3 |
 | PAP-A-051 | The overview card and `set_workspace_cover` report the node count | A card that said "1 nó" after an undo was read as a count bug; a node count in the result would show the document had changed (fb#204) | ⬜ | P3 |
-| PAP-A-052 | An explicit `wasmPaintable` rule list, with a test | What the WASM renderer does not paint like the DOM falls back to the DOM by an explicit rule, covered by a test. Follow-up of R1(d); drop it if the parity PR (PR-BATCH-1) already covers it | ⬜ | P1 |
+| PAP-A-052 | An explicit `wasmPaintable` rule list, with a test | What the WASM renderer does not paint like the DOM falls back to the DOM by an explicit rule, covered by a test. Follow-up of R1(d); PR #235 covers the stroke scaling and the parity E2E but not an explicit rule list | ⬜ | P1 |
 | PAP-A-053 | `htmlImport` maps flex-grow to `layoutGrow` | `layoutGrow` exists on nodes, but pasted or imported HTML drops `flex-grow` | ⬜ | P3 |
 | PAP-A-054 | Inspector control for `layoutGrow` (UI) | Only settable over MCP; the inspector has no control. Design-first | ⬜ | P3 |
 | PAP-A-055 | `apply_ops` node schema lists `layoutPositioning`, `constraints` and `layoutGrow` | The node schema in the `apply_ops` contract omits these fields, so agents cannot discover them | ⬜ | P2 |

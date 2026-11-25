@@ -417,7 +417,7 @@ O que ficou em aberto depois da leva de correções dos atritos registrados no f
 | PAP-A-049 | `compare_reference` com SVG ou arquivo de referência | Exige uma imagem de referência posta no canvas; comparar um nó com um SVG oficial pediu um navegador e uma biblioteca de imagens (fb#232) | ⬜ | P2 |
 | PAP-A-050 | `lint_design` sugere `lintIgnore` por regra | Uma falha proposital se silencia com `lintIgnore`, mas o resultado nunca diz isso (fb#218) | ⬜ | P3 |
 | PAP-A-051 | O card do overview e `set_workspace_cover` informam o número de nós | Um card que dizia "1 nó" depois de um undo foi lido como bug de contagem; o número de nós no resultado mostraria que o documento mudou (fb#204) | ⬜ | P3 |
-| PAP-A-052 | Lista explícita `wasmPaintable`, com teste | O que o renderer WASM não pinta igual ao DOM cai no DOM por uma regra explícita, coberta por teste. Continuação de R1(d); descartar se o PR de paridade (PR-BATCH-1) já cobrir | ⬜ | P1 |
+| PAP-A-052 | Lista explícita `wasmPaintable`, com teste | O que o renderer WASM não pinta igual ao DOM cai no DOM por uma regra explícita, coberta por teste. Continuação de R1(d); o PR #235 cobre a escala do traço e o E2E de paridade, mas não uma lista explícita de regras | ⬜ | P1 |
 | PAP-A-053 | `htmlImport` mapeia flex-grow para `layoutGrow` | `layoutGrow` existe nos nós, mas HTML colado ou importado perde o `flex-grow` | ⬜ | P3 |
 | PAP-A-054 | Controle de `layoutGrow` no inspetor (UI) | Só dá para definir pelo MCP; o inspetor não tem controle. Design-first | ⬜ | P3 |
 | PAP-A-055 | O schema de nó do `apply_ops` lista `layoutPositioning`, `constraints` e `layoutGrow` | O schema de nó no contrato do `apply_ops` omite esses campos, então os agentes não os descobrem | ⬜ | P2 |

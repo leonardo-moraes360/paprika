@@ -1069,7 +1069,7 @@ Tarefa: workspace novo, página "Capa", capa escura 1600×900 e uma clara embaix
 | 210 | `groups` no `lint_design` | A descrição dá a entender que `groups` é argumento; passar dá `unknown argument "groups"` | Feito (2026-11-25, PR #229): a descrição agora diz que o resultado traz `groups` | — |
 | 211 | Prever o corte do card do overview | O card tem cerca de 2:1 e corta ao centro uma capa 16:9; o rodapé some | Documentar a proporção em `set_workspace_cover`, ou `fit: "contain"` | P3 |
 | 212 | Reapontar um apontamento depois de o nó ser substituído | O script recria o frame, então o pino aponta para um nó apagado (`nodeMissing: true`) | Feito (2026-11-25, PR #227): `update_pin` e `resolve_pin` aceitam `nodeId` para mover o pino para o substituto | — |
-| 213 | Screenshot do editor ajustado à tela | `render_screenshot` renderiza nós, não o editor; foi preciso Playwright com Shift+1, e a barra de ferramentas cobre o rótulo do frame de cima | `render_screenshot {page, fit: true, chrome: true}`, e margem do ajuste abaixo da barra flutuante. Em andamento (PR-BATCH-2 da leva de 2026-11-25): só a opção de renderer; `fit` e `chrome` continuam em aberto | P3 |
+| 213 | Screenshot do editor ajustado à tela | `render_screenshot` renderiza nós, não o editor; foi preciso Playwright com Shift+1, e a barra de ferramentas cobre o rótulo do frame de cima | `render_screenshot {page, fit: true, chrome: true}`, e margem do ajuste abaixo da barra flutuante. Feito (2026-11-25, PRs #233 + #234): só a opção de renderer; `fit` e `chrome` continuam em aberto | P3 |
 
 - Funcionou bem: um `create_nodes` montou cada capa de 35 nós; `set_workspace_cover`, `export_image {scale: 2}`, `list_pins`, `claim_pin` e `resolve_pin` funcionaram de primeira.
 
@@ -1116,8 +1116,8 @@ Tarefa: 4 apontamentos assumidos e resolvidos (campo numérico com ícones de ma
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 224 | Um anel em volta da amostra atual, um botão "adicionar" tracejado numa linha | `outline` num retângulo ou frame filho de um layout de linha saiu só de um lado no PNG; o mesmo `outline` em nós posicionados de forma absoluta saiu inteiro | Em andamento (PR-BATCH-7 da leva de 2026-11-25): outline inteiro para filhos de layout no export e no screenshot | P1 |
-| 225 | Um PNG 2x de um frame alto | `export_image {scale: 2}` num frame 1600×2460 devolveu 2664×4096 (escala ≈ 1,67) sem aviso | Em andamento (PR-BATCH-7 da leva de 2026-11-25): o resultado informa a escala usada e avisa quando o teto de 4096 se aplica | P2 |
+| 224 | Um anel em volta da amostra atual, um botão "adicionar" tracejado numa linha | `outline` num retângulo ou frame filho de um layout de linha saiu só de um lado no PNG; o mesmo `outline` em nós posicionados de forma absoluta saiu inteiro | Feito (2026-11-25, PR #232): outline inteiro para filhos de layout no export e no screenshot | — |
+| 225 | Um PNG 2x de um frame alto | `export_image {scale: 2}` num frame 1600×2460 devolveu 2664×4096 (escala ≈ 1,67) sem aviso | Feito (2026-11-25, PR #232): o resultado informa a escala usada e avisa quando o teto de 4096 se aplica | — |
 
 - Funcionou bem: uma variante com cinco grupos ligados trocou sem problema; `bind.visible` num frame aninhado a partir de uma prop booleana; `overrides` com o id da raiz para uma linha destacada; 4 apontamentos assumidos e resolvidos em paralelo.
 
@@ -1152,7 +1152,7 @@ Tarefa: "os wordmarks regrediram". Os dois scripts remontavam o wordmark à mão
 |---|-----------|-----------------|----------|------|
 | 231 | Ler o SVG de um nó para comparar com o arquivo oficial | Pelo cliente MCP, `export_image {format: "svg"}` mostra só `{width, height, format}`; o SVG está no bloco de texto e foi preciso um cliente próprio | Pôr o SVG também em `structuredContent.svg` | P3 |
 | 232 | Comparar pixel a pixel um nó com um SVG de referência na mesma altura | Nenhuma ferramenta faz isso: o SVG oficial foi rasterizado num navegador, o nó exportado com `export_image {scale}` e os dois comparados com uma biblioteca de imagens; `compare_reference` exige uma imagem de referência posta no canvas | `compare_reference {svg \| file, rootId, height}`: renderiza os dois no mesmo tamanho e devolve estatísticas de diferença e uma imagem de diff | P2 |
-| 233 | Manter uma posição de meio pixel (`y: 12.5`) no raster | O SVG exportado mantém `translate(113 12.5)`, mas o PNG do mesmo grupo põe o wordmark cerca de 0,5 unidade mais baixo: o raster arredonda o filho para pixels inteiros antes de escalar | Em andamento (PR-BATCH-7 da leva de 2026-11-25): posição no valor escalado, sem arredondar antes da escala | P2 |
+| 233 | Manter uma posição de meio pixel (`y: 12.5`) no raster | O SVG exportado mantém `translate(113 12.5)`, mas o PNG do mesmo grupo põe o wordmark cerca de 0,5 unidade mais baixo: o raster arredonda o filho para pixels inteiros antes de escalar | Feito (2026-11-25, PR #232): posição no valor escalado, sem arredondar antes da escala | — |
 | 234 | Saber que dois quadros usam a mesma geometria da marca | Nada no documento diz que um path veio de `wordmark()`; a divergência só aparece lendo os scripts | O wordmark como componente (`create_component` e instâncias) no guia | P3 |
 
 - Funcionou bem: troca de frames pelo nome exato com `--page N`; `set_workspace_cover` manteve a capa escura; `lint_design {minSeverity: "warning"}` em 12 raízes numa chamada devolveu resultado vazio.
@@ -1163,5 +1163,5 @@ Tarefa: screenshots do renderer GPU mostraram os wordmarks pequenos como borrõe
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 235 | O mesmo traço em todo renderer quando a caixa do path é menor que o viewBox | O teste de paridade pixel a pixel nunca pegou isso porque seus paths têm caixa = viewBox | Em andamento (PR-BATCH-1 da leva de 2026-11-25): escalar `stroke_width` pela escala do path em `encode_gpu`, `cpu.rs` e no outset do traço do `displayList`; um caso de paridade com caixa ≠ viewBox, traços pequenos e outline, rodando em todo PR que toque o renderer | P1 |
-| 236 | Saber qual renderer o agente enxerga ao conferir um quadro | `get_document_outline` diz `renderer: wasm`, mas `render_screenshot` e `export_image` sempre usam o caminho DOM/SVG, então o agente não vê um bug só do WASM | Em andamento (PR-BATCH-2 da leva de 2026-11-25): `render_screenshot` com o renderer WASM | P2 |
+| 235 | O mesmo traço em todo renderer quando a caixa do path é menor que o viewBox | O teste de paridade pixel a pixel nunca pegou isso porque seus paths têm caixa = viewBox | Feito (2026-11-25, PR #235): escalar `stroke_width` pela escala do path em `encode_gpu`, `cpu.rs` e no outset do traço do `displayList`; um caso de paridade com caixa ≠ viewBox, traços pequenos e outline, rodando em todo PR que toque o renderer | — |
+| 236 | Saber qual renderer o agente enxerga ao conferir um quadro | `get_document_outline` diz `renderer: wasm`, mas `render_screenshot` e `export_image` sempre usam o caminho DOM/SVG, então o agente não vê um bug só do WASM | Feito (2026-11-25, PRs #233 + #234): `render_screenshot` com o renderer WASM | — |

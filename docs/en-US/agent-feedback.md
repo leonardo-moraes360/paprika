@@ -1066,7 +1066,7 @@ Task: new workspace, a page "Capa", a 1600×900 dark cover and a light one below
 | 210 | `groups` in `lint_design` | The description reads like `groups` is an argument; passing it fails with `unknown argument "groups"` | Done (2026-11-25, PR #229): the description now says the result carries `groups` | — |
 | 211 | Predict the overview card crop | The card is about 2:1 and center-crops a 16:9 cover; the footer is cut | Document the aspect in `set_workspace_cover`, or `fit: "contain"` | P3 |
 | 212 | Re-anchor a pin after its node is replaced | The script recreates the frame, so the pin points at a deleted node (`nodeMissing: true`) | Done (2026-11-25, PR #227): `update_pin` and `resolve_pin` take a `nodeId` to move the pin to the replacement | — |
-| 213 | Screenshot of the editor at fit | `render_screenshot` renders nodes, not the editor; Playwright plus Shift+1 was needed, and the toolbar covers the top frame's label at fit | `render_screenshot {page, fit: true, chrome: true}`, and fit padding below the floating toolbar. In progress (PR-BATCH-2 of the 2026-11-25 batch): the renderer option only; `fit` and `chrome` stay open | P3 |
+| 213 | Screenshot of the editor at fit | `render_screenshot` renders nodes, not the editor; Playwright plus Shift+1 was needed, and the toolbar covers the top frame's label at fit | `render_screenshot {page, fit: true, chrome: true}`, and fit padding below the floating toolbar. Done (2026-11-25, PRs #233 + #234): the renderer option only; `fit` and `chrome` stay open | P3 |
 
 - Fine: one `create_nodes` call built each 35-node cover; `set_workspace_cover`, `export_image {scale: 2}`, `list_pins`, `claim_pin` and `resolve_pin` worked first try.
 
@@ -1113,8 +1113,8 @@ Task: 4 pins claimed and resolved (number field with plus/minus icons, keycap sh
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 224 | A ring around the current swatch, a dashed "add" button in a row | `outline` on a rect or frame that is a child of a row layout rendered on one side only in the PNG; the same `outline` on absolutely placed nodes rendered whole | In progress (PR-BATCH-7 of the 2026-11-25 batch): whole outline for layout children in export and screenshot | P1 |
-| 225 | A 2x PNG of a tall frame | `export_image {scale: 2}` on a 1600×2460 frame returned 2664×4096 (scale ≈ 1.67) with no warning | In progress (PR-BATCH-7 of the 2026-11-25 batch): the result reports the scale used and a warning when the 4096 cap applies | P2 |
+| 224 | A ring around the current swatch, a dashed "add" button in a row | `outline` on a rect or frame that is a child of a row layout rendered on one side only in the PNG; the same `outline` on absolutely placed nodes rendered whole | Done (2026-11-25, PR #232): whole outline for layout children in export and screenshot | — |
+| 225 | A 2x PNG of a tall frame | `export_image {scale: 2}` on a 1600×2460 frame returned 2664×4096 (scale ≈ 1.67) with no warning | Done (2026-11-25, PR #232): the result reports the scale used and a warning when the 4096 cap applies | — |
 
 - Fine: a variant with five bound groups switched cleanly; `bind.visible` on a nested frame from a boolean prop; `overrides` with the root id for a highlighted row; 4 pins claimed and resolved in parallel.
 
@@ -1149,7 +1149,7 @@ Task: "the wordmarks regressed". Both scripts rebuilt the wordmark by hand and i
 |---|--------|---------------|----------|------|
 | 231 | Read the SVG of a node to compare it with the official file | Over the MCP client `export_image {format: "svg"}` shows only `{width, height, format}`; the SVG sits in the text block and a custom client was needed | Put the SVG in `structuredContent.svg` too | P3 |
 | 232 | Pixel-compare a node with a reference SVG at the same height | No tool for it: the official SVG was rasterised in a browser, the node exported with `export_image {scale}` and the two diffed with an image library; `compare_reference` needs a placed reference image | `compare_reference {svg \| file, rootId, height}`: renders both at one size and returns diff stats and a diff image | P2 |
-| 233 | Keep a half-pixel position (`y: 12.5`) in the raster | SVG export keeps `translate(113 12.5)`, but the PNG of the same group puts the wordmark about 0.5 unit lower: the raster snaps the child to whole pixels before scaling | In progress (PR-BATCH-7 of the 2026-11-25 batch): position at the scaled value, no rounding before the scale | P2 |
+| 233 | Keep a half-pixel position (`y: 12.5`) in the raster | SVG export keeps `translate(113 12.5)`, but the PNG of the same group puts the wordmark about 0.5 unit lower: the raster snaps the child to whole pixels before scaling | Done (2026-11-25, PR #232): position at the scaled value, no rounding before the scale | — |
 | 234 | Know that two boards use the same brand geometry | Nothing in the document says a path came from `wordmark()`; drift shows only by reading the scripts | The wordmark as a component (`create_component` plus instances) in the guide | P3 |
 
 - Fine: replacing frames by exact name with `--page N`; `set_workspace_cover` kept the dark cover; `lint_design {minSeverity: "warning"}` over 12 roots in one call returned an empty result.
@@ -1160,5 +1160,5 @@ Task: screenshots from the GPU renderer showed the small wordmarks as blobs whil
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 235 | The same stroke on every renderer when a path's box is smaller than its viewBox | The pixel parity test never hit it because its paths have box = viewBox | In progress (PR-BATCH-1 of the 2026-11-25 batch): scale `stroke_width` by the path's scale in `encode_gpu`, `cpu.rs` and the stroke outset of `displayList`; a parity case with box ≠ viewBox, small strokes and outline, run on every PR that touches the renderer | P1 |
-| 236 | Tell which renderer an agent sees when checking a board | `get_document_outline` says `renderer: wasm`, but `render_screenshot` and `export_image` always use the DOM/SVG path, so an agent cannot see a WASM-only bug | In progress (PR-BATCH-2 of the 2026-11-25 batch): `render_screenshot` with the WASM renderer | P2 |
+| 235 | The same stroke on every renderer when a path's box is smaller than its viewBox | The pixel parity test never hit it because its paths have box = viewBox | Done (2026-11-25, PR #235): scale `stroke_width` by the path's scale in `encode_gpu`, `cpu.rs` and the stroke outset of `displayList`; a parity case with box ≠ viewBox, small strokes and outline, run on every PR that touches the renderer | — |
+| 236 | Tell which renderer an agent sees when checking a board | `get_document_outline` says `renderer: wasm`, but `render_screenshot` and `export_image` always use the DOM/SVG path, so an agent cannot see a WASM-only bug | Done (2026-11-25, PRs #233 + #234): `render_screenshot` with the WASM renderer | — |
