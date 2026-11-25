@@ -36,13 +36,6 @@ vault:
         - context
         - log
     graph: true
-bench:
-    tasks_dir: bench/tasks
-    fixtures_dir: bench/fixtures
-    output_dir: bench/results
-    default_agent: ""
-    repetitions: 5
-    timeout: 10m
 verify:
     test_cmd: pnpm test && pnpm go:test && pnpm test:api && pnpm test:e2e
     hidden_test_cmd: ""

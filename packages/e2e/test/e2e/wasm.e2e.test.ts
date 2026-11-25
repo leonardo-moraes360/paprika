@@ -92,7 +92,7 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "paprika-wasm-e2e-"));
     const file = join(dir, "bezier.paprika.json");
-    await copyFile(join(root, "examples/bezier.paprika.json"), file);
+    await copyFile(join(root, "packages/e2e/fixtures/bezier.paprika.json"), file);
     external = await startServer({ seed: file, webRoot });
     url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
@@ -389,7 +389,7 @@ describe.skipIf(!wasmBuilt)("E2E: WASM respeita a ordem de pintura", () => {
 
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "paprika-wasm-layers-"));
-    external = await startServer({ seed: join(root, "examples/wasm-layers.paprika.json"), webRoot });
+    external = await startServer({ seed: join(root, "packages/e2e/fixtures/wasm-layers.paprika.json"), webRoot });
     url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -426,7 +426,7 @@ describe.skipIf(!wasmBuilt)("E2E: WASM desenha formas escuras sobre o fundo do q
   const errors: string[] = [];
 
   beforeAll(async () => {
-    external = await startServer({ seed: join(root, "examples/wasm-gpu-blank.paprika.json"), webRoot });
+    external = await startServer({ seed: join(root, "packages/e2e/fixtures/wasm-gpu-blank.paprika.json"), webRoot });
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await pinLocale(page, "pt-BR");

@@ -159,8 +159,8 @@ func TestExistingInvocationsParseToTheSameOptions(t *testing.T) {
 		},
 		{
 			name: "package.json dev import",
-			args: []string{"import", "examples/demo.paprika.json", "--db", "dev.db", "--replace"},
-			want: recorded{"import", importOptions{DB: "dev.db", Replace: true, File: "examples/demo.paprika.json"}},
+			args: []string{"import", "packages/e2e/fixtures/demo.paprika.json", "--db", "dev.db", "--replace"},
+			want: recorded{"import", importOptions{DB: "dev.db", Replace: true, File: "packages/e2e/fixtures/demo.paprika.json"}},
 		},
 		{
 			name: "package.json dev serve",
@@ -319,7 +319,7 @@ func TestImportListExportWithRealHandlers(t *testing.T) {
 	db := filepath.Join(dir, "x.db")
 	exported := filepath.Join(dir, "out.paprika.json")
 	steps := [][]string{
-		{"import", "../../../examples/demo.paprika.json", "--db", db},
+		{"import", "../../../packages/e2e/fixtures/demo.paprika.json", "--db", db},
 		{"list", "--db", db},
 		{"export", "--db", db, "-o", exported},
 	}

@@ -12,10 +12,10 @@ Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/c
 
 | Job | O que verifica | Roda quando a PR mexe em |
 | --- | --- | --- |
-| **Plan** | Roda os testes dos scripts do CI ([[`.github/scripts/test/`](../../.github/scripts/test/)]), confere que toda action de terceiros está fixada por SHA de commit ([`check-actions-pinned.mjs`](../../.github/scripts/check-actions-pinned.mjs)), pontua os fixtures dos benchmarks ([`bench/tasks/`](../../bench/tasks/)), lista os arquivos alterados e decide quais jobs abaixo rodam ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)). | sempre |
+| **Plan** | Roda os testes dos scripts do CI ([`.github/scripts/test/`](../../.github/scripts/test/)), confere que toda action de terceiros está fixada por SHA de commit ([`check-actions-pinned.mjs`](../../.github/scripts/check-actions-pinned.mjs)), lista os arquivos alterados e decide quais jobs abaixo rodam ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)). | sempre |
 | **TS build + tscheck** | `pnpm build` (core, web, o renderizador WASM do canvas, de `crates/render`, com `PAPRIKA_REQUIRE_WASM=1`, e o binário do servidor Go), `pnpm typecheck` (incluindo as suítes de `packages/e2e`). Publica `dist/`, `apps/web/src/wasm` e o binário Go como o artefato `build` para os jobs abaixo, então a suíte e2e também roda os testes do renderizador WASM. | código TS, Go ou Rust |
 | **Unit** `<pkg>` (shard n/2) | Vitest de `@paprika/core`, dividido em 2 shards. | `packages/core` |
-| **e2e / api vs Go server** | As suítes black-box de `packages/e2e` contra o binário Go: `test:e2e` (canvas no Playwright) e `test:api` (MCP via HTTP e stdio, API HTTP, WebSocket), 2 jobs em paralelo. | e2e: core, `packages/e2e`, web, examples, `crates/render`, `server-go`; api: core, `packages/e2e`, `server-go` |
+| **e2e / api vs Go server** | As suítes black-box de `packages/e2e` contra o binário Go: `test:e2e` (canvas no Playwright) e `test:api` (MCP via HTTP e stdio, API HTTP, WebSocket), 2 jobs em paralelo. | e2e: core, `packages/e2e`, web, `crates/render`, `server-go`; api: core, `packages/e2e`, `server-go` |
 | **Go fixtures up to date** | `pnpm go:golden` e depois `git diff --exit-code` em `server-go/internal/core/testdata` e `server-go/contract` (o script de medida). | core, `server-go` |
 | **golangci-lint** | golangci-lint v2 ([`server-go/.golangci.yml`](../../server-go/.golangci.yml)) e `go vet`. | `server-go` |
 | **govulncheck** | Vulnerabilidades conhecidas alcançáveis pelo código Go. | `server-go` |
@@ -63,15 +63,6 @@ node --test .github/scripts/test/*.mjs
 ```
 
 O glob, não o diretório: o `node --test` parou de aceitar um diretório como argumento no Node 24.
-
-### Mantendo os benchmarks honestos
-
-Um benchmark só vale o seu verificador, então o job Plan também pontua os fixtures de cada tarefa de
-[`bench/tasks/`](../../bench/tasks/): cada verificador precisa sair com 0 na solução de
-`bench/fixtures/<task>-reference/` e **não** pode sair com 0 no documento inicial de
-`bench/fixtures/<task>/`. Uma tarefa cujo fixture inicial já passa é uma tarefa que não pede nada, e
-isso reprova a PR. Nada é compilado e nenhum servidor sobe, então a checagem inteira leva menos de um
-segundo. As tarefas em si estão em [bench/README.md](../../bench/README.md).
 
 ## Paralelismo e sharding
 

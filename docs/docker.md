@@ -43,7 +43,7 @@ The image's entrypoint is the `paprika` CLI, so every command works with the sam
 
 ```bash
 # import a .paprika.json into the volume's database
-docker run --rm -i -v paprika-data:/data paprika import /dev/stdin < examples/demo.paprika.json
+docker run --rm -i -v paprika-data:/data paprika import /dev/stdin < packages/e2e/fixtures/demo.paprika.json
 # export the active workspace (stdout)
 docker run --rm -v paprika-data:/data paprika export > design.paprika.json
 # list workspaces

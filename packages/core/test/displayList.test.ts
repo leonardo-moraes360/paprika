@@ -211,15 +211,15 @@ describe("displayList paint order", () => {
     expect(clipCase(false).painted.has("front")).toBe(false);
   });
 
-  it("matches the three overlap cases in examples/wasm-layers.paprika.json", () => {
-    const doc = parseDocument(JSON.parse(readFileSync(resolve(import.meta.dirname, "../../../examples/wasm-layers.paprika.json"), "utf8")));
+  it("matches the three overlap cases in packages/e2e/fixtures/wasm-layers.paprika.json", () => {
+    const doc = parseDocument(JSON.parse(readFileSync(resolve(import.meta.dirname, "../../../packages/e2e/fixtures/wasm-layers.paprika.json"), "utf8")));
     const list = displayList(doc, absBoxes(doc));
     expect([...list.painted].sort()).toEqual(["back", "board", "card"]);
     expect([...list.domPainted].sort()).toEqual(["child", "cover", "dash", "front", "nest"]);
   });
 
   it("paints every shape of the flat-board logo (PAP-A-012) on WASM, in paint order", () => {
-    const doc = parseDocument(JSON.parse(readFileSync(resolve(import.meta.dirname, "../../../examples/wasm-gpu-blank.paprika.json"), "utf8")));
+    const doc = parseDocument(JSON.parse(readFileSync(resolve(import.meta.dirname, "../../../packages/e2e/fixtures/wasm-gpu-blank.paprika.json"), "utf8")));
     const list = displayList(doc, absBoxes(doc));
     // Frame (clip), 9 rects, 2 paths, ellipse, pop clip. Only the text stays on the DOM.
     expect(list.count).toBe(14);

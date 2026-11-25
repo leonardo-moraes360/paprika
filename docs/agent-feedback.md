@@ -5,7 +5,7 @@
 Friction found while AI agents used Paprika through MCP, recorded during real work.
 Format: date · task · what the agent needed vs. what happened · proposal · priority.
 
-## 2026-11-21: drawing 5 icon + theme proposals (`examples/brand/draw-brand.mjs`)
+## 2026-11-21: drawing 5 icon + theme proposals (`scripts/brand/draw-brand.mjs`)
 
 Task: an agent drew 5 flat paprika icons with increasing complexity (3 → ~20 shapes), each shown at 240/96/48/24 px next to a palette and a UI sample, using only MCP tools.
 
@@ -54,7 +54,7 @@ Task: prototype the canvas in Rust/WASM (vello on WebGPU, vello_cpu fallback) an
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
-| 23 | Load an example document outside the server | `examples/bezier.paprika.json` omits defaults (`visible`, `opacity`…); a renderer that read it without `parseDocument` drew nothing in every mode, and only a screenshot showed it | Write examples normalized, or say in AGENTS.md that every reader must go through `parseDocument` | P3 |
+| 23 | Load an example document outside the server | `packages/e2e/fixtures/bezier.paprika.json` omits defaults (`visible`, `opacity`…); a renderer that read it without `parseDocument` drew nothing in every mode, and only a screenshot showed it | Write examples normalized, or say in AGENTS.md that every reader must go through `parseDocument` | P3 |
 | 24 | Check a GPU-rendered canvas from an agent's headless browser | Headless Chromium without a GPU loses the WebGPU device when a canvas is presented (plain JS too), so pixels come back empty | If the canvas ever moves to WebGPU, keep `render_screenshot` on the HTML path, or render offscreen and read pixels back (as `gpu-readback-check.cjs` does) | P2 |
 | 25 | Pick the fast path automatically | Headless Chromium offers a *software* WebGPU adapter (SwiftShader) that is 45–220× slower than vello_cpu; a naive "WebGPU if available" picks it | Treat `DeviceType::Cpu` adapters as no GPU (done in the prototype) | — |
 | 26 | One geometry source for agents and renderers | The prototype re-derives boxes (and measures a hidden DOM for auto layout) because core exposes no resolved geometry | Done (2026-11-22, PAP-A-001): core `layout(doc)` (+ Go port / goldens); MCP `get_bounds` | — |

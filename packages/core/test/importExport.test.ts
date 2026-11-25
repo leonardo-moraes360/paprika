@@ -32,7 +32,7 @@ import {
   type Op,
 } from "../src/index.js";
 
-const example = (name: string) => parseDocument(JSON.parse(readFileSync(join(__dirname, "../../../examples", name), "utf8")));
+const example = (name: string) => parseDocument(JSON.parse(readFileSync(join(__dirname, "../../e2e/fixtures", name), "utf8")));
 const noWarn = () => {};
 
 /** Importa o HTML de renderHTML de volta num documento vazio. */

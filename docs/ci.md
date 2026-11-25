@@ -12,10 +12,10 @@ Everything lives in one workflow, [`.github/workflows/ci.yml`](../.github/workfl
 
 | Job | What it checks | Runs when the PR touches |
 | --- | --- | --- |
-| **Plan** | Runs the tests of the CI scripts ([`.github/scripts/test/`](../.github/scripts/test/)), checks that every third-party action is pinned to a commit SHA ([`check-actions-pinned.mjs`](../.github/scripts/check-actions-pinned.mjs)), scores the benchmark fixtures ([`bench/tasks/`](../bench/tasks/)), lists the changed files and decides which jobs below run ([`ci-plan.mjs`](../.github/scripts/ci-plan.mjs)). | always |
+| **Plan** | Runs the tests of the CI scripts ([`.github/scripts/test/`](../.github/scripts/test/)), checks that every third-party action is pinned to a commit SHA ([`check-actions-pinned.mjs`](../.github/scripts/check-actions-pinned.mjs)), lists the changed files and decides which jobs below run ([`ci-plan.mjs`](../.github/scripts/ci-plan.mjs)). | always |
 | **TS build + tscheck** | `pnpm build` (core, web, the WASM canvas renderer from `crates/render` with `PAPRIKA_REQUIRE_WASM=1`, and the Go server binary), `pnpm typecheck` (including the `packages/e2e` suites). Uploads `dist/`, `apps/web/src/wasm` and the Go binary as the `build` artifact for the jobs below, so the e2e suite also runs the WASM renderer tests. | TS, Go or Rust code |
 | **Unit** `<pkg>` (shard n/2) | Vitest for `@paprika/core`, split in 2 shards. | `packages/core` |
-| **e2e / api vs Go server** | The black-box suites of `packages/e2e` against the Go binary: `test:e2e` (canvas in Playwright) and `test:api` (MCP over HTTP and stdio, HTTP API, WebSocket), 2 jobs in parallel. | e2e: core, `packages/e2e`, web, examples, `crates/render`, `server-go`; api: core, `packages/e2e`, `server-go` |
+| **e2e / api vs Go server** | The black-box suites of `packages/e2e` against the Go binary: `test:e2e` (canvas in Playwright) and `test:api` (MCP over HTTP and stdio, HTTP API, WebSocket), 2 jobs in parallel. | e2e: core, `packages/e2e`, web, `crates/render`, `server-go`; api: core, `packages/e2e`, `server-go` |
 | **Go fixtures up to date** | `pnpm go:golden` then `git diff --exit-code` on `server-go/internal/core/testdata` and `server-go/contract` (the measure script). | core, `server-go` |
 | **golangci-lint** | golangci-lint v2 ([`server-go/.golangci.yml`](../server-go/.golangci.yml)) and `go vet`. | `server-go` |
 | **govulncheck** | Known vulnerabilities reachable from the Go code. | `server-go` |
@@ -62,15 +62,6 @@ node --test .github/scripts/test/*.mjs
 ```
 
 The glob, not the directory: `node --test` stopped accepting a bare directory argument in Node 24.
-
-### Keeping the benchmarks honest
-
-A benchmark is only worth its checker, so the Plan job also scores the fixtures of every task in
-[`bench/tasks/`](../bench/tasks/): each checker must exit 0 on its `bench/fixtures/<task>-reference/`
-solution and must **not** exit 0 on the starting `bench/fixtures/<task>/` document. A task whose
-starting fixture already passes is a task that asks for nothing, and that fails the PR. Nothing is
-built and no server is started, so the whole check costs under a second. See
-[bench/README.md](../bench/README.md) for the tasks themselves.
 
 ## Parallelism and sharding
 

@@ -12,7 +12,7 @@
     "build": "pnpm -r --workspace-concurrency=1 run build && pnpm go:build",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
-    "dev": "pnpm go:build && server-go/bin/paprika import examples/demo.paprika.json --db dev.db --replace && server-go/bin/paprika serve --db dev.db",
+    "dev": "pnpm go:build && server-go/bin/paprika import packages/e2e/fixtures/demo.paprika.json --db dev.db --replace && server-go/bin/paprika serve --db dev.db",
     "start": "server-go/bin/paprika serve",
     "test:render": "cd crates/render && cargo test && cargo clippy --all-targets -- -D warnings && cargo fmt --check",
     "go:build": "cd server-go && CGO_ENABLED=0 go build -tags nodynamic -buildvcs=false -o bin/paprika ./cmd/paprika",

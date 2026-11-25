@@ -28,7 +28,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "paprika-e2e-"));
     const file = join(dir, "demo.paprika.json");
-    await copyFile(join(root, "examples/demo.paprika.json"), file);
+    await copyFile(join(root, "packages/e2e/fixtures/demo.paprika.json"), file);
     external = await startServer({ seed: file, webRoot });
     url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});

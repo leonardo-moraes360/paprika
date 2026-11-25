@@ -17,7 +17,7 @@ import (
 
 func loadExample(t *testing.T, name string) *core.Document {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", name))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "packages", "e2e", "fixtures", name))
 	if err != nil {
 		t.Fatal(err)
 	}

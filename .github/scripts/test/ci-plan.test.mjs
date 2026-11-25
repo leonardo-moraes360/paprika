@@ -158,9 +158,9 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
   });
 
-  it("examples run the e2e suite only", () => {
-    const p = plan(["examples/demo.paprika.json"]);
-    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }]);
+  it("the e2e fixtures run the black-box suites", () => {
+    const p = plan(["packages/e2e/fixtures/demo.paprika.json"]);
+    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }, { suite: "api" }]);
     assert.equal(p.unit, false);
     assert.equal(p.golden, false);
   });
@@ -198,15 +198,6 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["go"]);
   });
 
-  it("the old bench prototype is scanned by CodeQL but runs no test", () => {
-    const p = plan(["experiments/canvas-wasm/bench/displayList.ts"]);
-    assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
-    assert.equal(p.codeql, true);
-    assert.equal(p.build, false);
-    assert.equal(p.ts, false);
-    assert.equal(p.unit, false);
-    assert.equal(p.suites, false);
-  });
 
   it("workflow and action files add the actions CodeQL language", () => {
     const p = plan([".github/actions/setup-rust-wasm/action.yml"]);
@@ -235,7 +226,7 @@ describe("each area selects its jobs", () => {
   });
 
   it("what the image does not package skips the image", () => {
-    for (const file of ["packages/e2e/test/api.test.ts", "examples/demo.paprika.json", "docs/docker.md", "apps/site/scripts/build.mjs", "server-go.md", "nested/Dockerfile"]) {
+    for (const file of ["packages/e2e/test/api.test.ts", "packages/e2e/fixtures/demo.paprika.json", "docs/docker.md", "apps/site/scripts/build.mjs", "server-go.md", "nested/Dockerfile"]) {
       assert.equal(plan([file]).docker, false, file);
     }
   });

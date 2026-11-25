@@ -36,7 +36,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "paprika-a11y-"));
     const file = join(dir, "demo.paprika.json");
-    await copyFile(join(root, "examples/demo.paprika.json"), file);
+    await copyFile(join(root, "packages/e2e/fixtures/demo.paprika.json"), file);
     external = await startServer({ seed: file, webRoot });
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });

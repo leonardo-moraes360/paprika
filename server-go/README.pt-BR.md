@@ -13,7 +13,7 @@ pnpm install && pnpm build            # compila o canvas (apps/web/dist) e o ser
                                       # → server-go/bin/paprika
 
 B=server-go/bin/paprika
-$B import examples/demo.paprika.json --db design.db   # imprime o id do documento
+$B import packages/e2e/fixtures/demo.paprika.json --db design.db   # imprime o id do documento
 $B serve --db design.db
 # canvas: http://127.0.0.1:4777   ·   MCP: http://127.0.0.1:4777/mcp
 $B export --db design.db -o design.paprika.json       # de volta para um arquivo, por exemplo para commitar

@@ -23,7 +23,7 @@ Reporte de forma privada pelo **Private Vulnerability Reporting** do GitHub:
 
 Um bom relato traz:
 
-- o componente afetado (`server-go`, `packages/e2e`, `packages/core`, `apps/web`, `experiments/…`) e o commit;
+- o componente afetado (`server-go`, `packages/e2e`, `packages/core`, `apps/web`, `crates/…`) e o commit;
 - como o Paprika foi iniciado (comando, flags como `--host`, MCP por stdio ou HTTP);
 - passos para reproduzir ou uma prova de conceito;
 - o impacto esperado (o que o atacante ganha e de onde: mesma máquina, rede local, uma página aberta no navegador, um documento malicioso, um cliente MCP).
@@ -60,7 +60,6 @@ O Paprika é uma ferramenta **local**. As premissas do design são:
 - qualquer coisa que exija rodar com `--host 0.0.0.0` (ou outro endereço fora do loopback) em rede não confiável: isso está documentado como inseguro;
 - um atacante que já controla sua conta de usuário, a configuração do cliente MCP ou os arquivos em disco;
 - negação de serviço por documentos enormes enviados por um cliente local confiável;
-- código em `experiments/`, que não é distribuído nem ligado ao app (relatos são bem-vindos, tratados no melhor esforço);
 - vulnerabilidades em dependências de terceiros sem impacto demonstrado no Paprika: reporte essas no projeto de origem.
 
 ## Porto seguro

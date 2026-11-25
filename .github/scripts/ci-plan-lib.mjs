@@ -63,12 +63,10 @@ export function planFor(files, { ciFull = false } = {}) {
   // crates/render is built into apps/web (the canvas's WASM mode), so it also counts as web.
   const rust = area(/^crates\/render\//);
   const web = area(/^apps\/web\//) || rust;
-  const examples = area(/^examples\//);
   const go = area(/^server-go\//);
   // The team sync sidecar (crates/sync) and the Go package that drives it: built and tested
   // together, since server-go/internal/team runs against the real binary.
   const sync = area(/^crates\/sync\//) || go;
-  const benchTs = area(/^experiments\/canvas-wasm\/bench\//);
   const actions = area(/^\.github\//);
   // The image's own files. Everything else that goes into the image (core, web, crates/render,
   // crates/sync, server-go) is one of the areas above.
@@ -81,18 +79,18 @@ export function planFor(files, { ciFull = false } = {}) {
   if (core) unit.push({ pkg: "@paprika/core", mode: full ? "all" : "changed" });
 
   // Black-box suites of packages/e2e, against the Go server binary. The canvas E2E needs the web
-  // build and the examples it opens; the API suite only talks MCP, HTTP and WebSocket.
+  // build and the fixtures in packages/e2e; the API suite only talks MCP, HTTP and WebSocket.
   const suites = [];
-  if (core || e2e || web || examples || go) suites.push({ suite: "e2e" });
+  if (core || e2e || web || go) suites.push({ suite: "e2e" });
   if (core || e2e || go) suites.push({ suite: "api" });
 
-  const ts = core || e2e || web || examples;
+  const ts = core || e2e || web;
   const golden = core || go; // Go fixtures are generated from the TS core.
   const build = ts || go || unit.length > 0 || suites.length > 0;
 
   const codeql = [];
   if (actions) codeql.push("actions");
-  if (ts || benchTs) codeql.push("javascript-typescript");
+  if (ts) codeql.push("javascript-typescript");
   if (go) codeql.push("go");
   if (rust || area(/^crates\/sync\//)) codeql.push("rust");
 

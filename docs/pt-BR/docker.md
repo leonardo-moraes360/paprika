@@ -43,7 +43,7 @@ O entrypoint da imagem é a CLI `paprika`, então todo comando funciona com o me
 
 ```bash
 # importa um .paprika.json para o banco do volume
-docker run --rm -i -v paprika-data:/data paprika import /dev/stdin < examples/demo.paprika.json
+docker run --rm -i -v paprika-data:/data paprika import /dev/stdin < packages/e2e/fixtures/demo.paprika.json
 # exporta o workspace ativo (stdout)
 docker run --rm -v paprika-data:/data paprika export > design.paprika.json
 # lista os workspaces

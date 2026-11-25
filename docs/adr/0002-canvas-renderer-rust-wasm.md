@@ -4,7 +4,8 @@
 
 - **Status:** Accepted as an **opt-in hybrid renderer** (update below). The DOM stays the default.
 - **Date:** 2026-11-21
-- **Code:** [`crates/render`](../../crates/render), [`packages/core/src/displayList.ts`](../../packages/core/src/displayList.ts), [`apps/web/src/wasmLayer.ts`](../../apps/web/src/wasmLayer.ts). Benchmark harness: [`experiments/canvas-wasm/`](../../experiments/canvas-wasm/README.md)
+- **Code:** [`crates/render`](../../crates/render), [`packages/core/src/displayList.ts`](../../packages/core/src/displayList.ts), [`apps/web/src/wasmLayer.ts`](../../apps/web/src/wasmLayer.ts). Benchmark harness: [`experiments/canvas-wasm/`](https://github.com/leonardo-moraes360/paprika/tree/040b843/experiments/canvas-wasm/README.md)
+- **Note (2026-11-25):** the `experiments/canvas-wasm` prototype was removed from the tree; its links below point to commit `040b843`, the last one that has it.
 
 ## Context
 
@@ -58,7 +59,7 @@ WebGPU when there is a GPU and falling back to the CPU when there is not?
 | `bench/tsconfig.json` (`tsc --strict`) | clean |
 
 The bezier example renders the same in all four paths
-([comparison](../../experiments/canvas-wasm/bench/results/compare-bezier.png)).
+([comparison](https://github.com/leonardo-moraes360/paprika/blob/040b843/experiments/canvas-wasm/bench/results/compare-bezier.png)).
 
 **Not verified:** presenting a WebGPU canvas. In this container (headless Chromium, no GPU) even a
 plain-JS WebGPU canvas loses its device when presented (`bench/webgpu-canvas-probe.cjs`), so the GPU
@@ -70,7 +71,7 @@ Chromium 1243 headless, 4 vCPU Xeon 2.1 GHz, **no GPU**, 1280×800 at DPR 1. Syn
 100 shapes (rects, ellipses, bezier blobs, strokes, rotation, translucency). "Zoom" animates zoom and
 pan for 120 frames (a full re-raster every frame). "Edit" changes one node's fill per frame. Times in
 ms, mean of main-thread work per frame; fps is the `requestAnimationFrame` cadence.
-Raw data: [`bench-nogpu.jsonl`](../../experiments/canvas-wasm/bench/results/bench-nogpu.jsonl).
+Raw data: [`bench-nogpu.jsonl`](https://github.com/leonardo-moraes360/paprika/blob/040b843/experiments/canvas-wasm/bench/results/bench-nogpu.jsonl).
 
 | Nodes | Mode | First frame | Zoom work | Zoom fps | Edit work |
 |---:|---|---:|---:|---:|---:|
@@ -157,7 +158,7 @@ from step 4, behind a switch, with the DOM still the default:
 - Nodes it cannot draw exactly (non-solid colors, a shadow on a path) stay painted by the DOM.
 - `render_screenshot` and the exports stay HTML/CSS, so the agent-facing output is unchanged.
 - Parity is tested: `packages/e2e/test/e2e/wasm.e2e.test.ts` renders the bezier example and
-  `examples/wasm-layers.paprika.json` in both modes and requires fewer than 0.5% differing pixels.
+  `packages/e2e/fixtures/wasm-layers.paprika.json` in both modes and requires fewer than 0.5% differing pixels.
   Parity covers overlap: the WASM canvas sits under the DOM, so a shape stays on WASM only when no
   DOM-painted node earlier in paint order overlaps its painted bounds (ancestors with their own paint,
   stroke, shadow, rotation and clip). Everything else goes back to the DOM, cascading.

@@ -21,7 +21,7 @@ O Paprika é um projeto **original**. Não envie código, assets, ícones, fonte
 | Node.js | 22+ | `packages/core`, o canvas (`apps/web`), as suítes E2E (`packages/e2e`) |
 | pnpm | 10+ | workspace e scripts |
 | Go | 1.26+ | o servidor (`server-go/`) |
-| Rust + `wasm32-unknown-unknown` | stable | só `experiments/canvas-wasm` (veja o README dele) |
+| Rust + `wasm32-unknown-unknown` | stable | o renderizador WASM do canvas (`crates/render`) e o sidecar de sincronização do time (`crates/sync`) |
 
 ```bash
 pnpm install

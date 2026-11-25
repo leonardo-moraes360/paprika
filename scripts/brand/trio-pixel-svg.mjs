@@ -1,5 +1,5 @@
 // Writes the Trio Pixel brand SVGs into docs/brand/ (and the app favicon).
-// Usage: node examples/brand/trio-pixel-svg.mjs
+// Usage: node scripts/brand/trio-pixel-svg.mjs
 import { copyFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { THEMES, symbolLayers, wordmark } from "./trio-pixel.mjs";

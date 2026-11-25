@@ -151,7 +151,7 @@ func TestStoreFailedTransactionChangesNothing(t *testing.T) {
 
 func TestImportExportRoundTrip(t *testing.T) {
 	for _, f := range []string{"demo.paprika.json", "bezier.paprika.json"} {
-		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", f))
+		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "packages", "e2e", "fixtures", f))
 		if err != nil {
 			t.Fatal(err)
 		}

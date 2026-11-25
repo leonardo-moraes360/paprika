@@ -1,8 +1,8 @@
 // Draws the brand concept boards (A–D, and E/F = the chosen "Trio Pixel" light/dark) over MCP HTTP, in a NEW workspace.
 // Never calls open_workspace (the active workspace is left alone): every call carries workspaceId.
-// Usage: PAPRIKA_MCP=http://127.0.0.1:4777/mcp node examples/brand/draw-concepts.mjs [--shots DIR]  (APPEND_WS=<id> ONLY=E,F to add boards)
+// Usage: PAPRIKA_MCP=http://127.0.0.1:4777/mcp node scripts/brand/draw-concepts.mjs [--shots DIR]  (APPEND_WS=<id> ONLY=E,F to add boards)
 // Screenshots use render_screenshot: export_image took 6–23 s per board here (docs/agent-feedback.md #181).
-import { connectBoard, saveShots, textOf } from "../../scripts/design-board.mjs";
+import { connectBoard, saveShots, textOf } from "../design-board.mjs";
 import { circle, gridSymbol, rrect, symbolLayers, wordmarkPath } from "./trio-pixel.mjs";
 
 const WS_NAME = process.env.WS_NAME ?? "Marca · conceitos (nov/2026)";
@@ -104,7 +104,7 @@ function symbolNodes(kind, c, x, y, size, name, extra = {}) {
   };
 }
 
-// ---------- letreiro: traços de examples/brand/trio-pixel.mjs ----------
+// ---------- letreiro: traços de scripts/brand/trio-pixel.mjs ----------
 function wordmark(sw, tracking) {
   const { d, dot, w } = wordmarkPath({ sw, tracking });
   return { d, dots: [dot], w, top: -50, bottom: 150 };

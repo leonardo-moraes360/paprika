@@ -1,5 +1,5 @@
 // Converts a Paprika frame made of rect/ellipse children (absolute layout) into a standalone SVG.
-// Usage: node examples/brand/to-svg.mjs <file.paprika.json> <frameId|frameName> [size] > icon.svg
+// Usage: node scripts/brand/to-svg.mjs <file.paprika.json> <frameId|frameName> [size] > icon.svg
 import { readFileSync } from "node:fs";
 
 const [file, target, sizeArg] = process.argv.slice(2);

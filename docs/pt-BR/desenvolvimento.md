@@ -11,7 +11,7 @@ Requisitos: Node 22+, pnpm 10+ e Go 1.26+.
 ```bash
 pnpm install
 pnpm build                                   # canvas + binário do servidor (server-go/bin/paprika)
-server-go/bin/paprika import examples/demo.paprika.json --db design.db
+server-go/bin/paprika import packages/e2e/fixtures/demo.paprika.json --db design.db
 server-go/bin/paprika serve --db design.db
 # canvas: http://127.0.0.1:4777   ·   MCP: http://127.0.0.1:4777/mcp
 ```
@@ -27,10 +27,9 @@ pnpm --filter @paprika/e2e exec playwright install chromium
 ```
 packages/core     modelo (zod), applyOps atômico, History, nodeStyle, render/export, lint, outline
 server-go/        o servidor (Go + SQLite): MCP (stdio e HTTP), WebSocket, API HTTP, screenshot, CLI
-packages/e2e      suítes black-box contra o binário do servidor: API MCP/HTTP/WS e E2E do canvas (Playwright)
+packages/e2e      suítes black-box contra o binário do servidor: API MCP/HTTP/WS e E2E do canvas (Playwright); fixtures/ guarda os documentos de exemplo (demo gerada via MCP por scripts/seed-demo.mjs)
 apps/web          canvas React + Vite (`src/i18n/`: strings en + pt-BR, detecção/troca de idioma)
 apps/site         landing page (desenhada no Paprika) + site de docs, publicados em paprika.js.org
-examples/         demo gerada por um agente via MCP (packages/e2e/scripts/seed-demo.mjs)
 ```
 
 A UI do canvas segue o idioma do navegador na primeira visita (`en` ou `pt-BR`), pode ser trocada na barra superior e lembra a escolha no `localStorage` (`paprika.locale`). Nomes padrão de página ("Page 1" / "Página 1") e workspace em branco seguem esse idioma quando criados pela UI; MCP/HTTP caem no inglês. Mensagens de erro da API HTTP ficam em inglês (como o MCP). As suítes E2E fixam `pt-BR` via `packages/e2e/test/e2e/locale.ts`, salvo quando o teste cobre o inglês.

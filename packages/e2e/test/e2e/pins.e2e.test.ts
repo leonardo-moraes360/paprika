@@ -33,7 +33,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: apontamentos para a IA", () => {
   const tool = async (name: string, args: Record<string, unknown>) => (await mcp("tools/call", { name, arguments: args })).result;
 
   beforeAll(async () => {
-    server = await startServer({ seed: join(repoRoot, "examples/demo.paprika.json"), webRoot });
+    server = await startServer({ seed: join(repoRoot, "packages/e2e/fixtures/demo.paprika.json"), webRoot });
     await mcp("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "pin-agent", version: "1" } });
     browser = await chromium.launch({ executablePath: process.env.PAPRIKA_CHROMIUM || undefined });
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });

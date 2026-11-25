@@ -1,5 +1,5 @@
 // Draws 5 Paprika icon + theme proposals over MCP (JSON-RPC over HTTP), with increasing icon complexity.
-// Usage: PAPRIKA_MCP=http://127.0.0.1:4777/mcp node examples/brand/draw-brand.mjs
+// Usage: PAPRIKA_MCP=http://127.0.0.1:4777/mcp node scripts/brand/draw-brand.mjs
 const URL_ = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4777/mcp";
 let rpcId = 0;
 async function call(name, args) {

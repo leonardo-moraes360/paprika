@@ -41,7 +41,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
   };
 
   beforeAll(async () => {
-    server = await startServer({ seed: join(repoRoot, "examples/demo.paprika.json"), webRoot });
+    server = await startServer({ seed: join(repoRoot, "packages/e2e/fixtures/demo.paprika.json"), webRoot });
     browser = await chromium.launch({ executablePath: process.env.PAPRIKA_CHROMIUM || undefined });
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await pinLocale(page, "pt-BR");
@@ -387,7 +387,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: drag and drop reparent e arquivos (P
   let page: Page;
 
   beforeAll(async () => {
-    server = await startServer({ seed: join(repoRoot, "examples/demo.paprika.json"), webRoot });
+    server = await startServer({ seed: join(repoRoot, "packages/e2e/fixtures/demo.paprika.json"), webRoot });
     browser = await chromium.launch({ executablePath: process.env.PAPRIKA_CHROMIUM || undefined });
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await pinLocale(page, "pt-BR");

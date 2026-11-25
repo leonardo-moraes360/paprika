@@ -1,4 +1,4 @@
-// Gera examples/demo.paprika.json dirigindo o Paprika como um agente faria: via MCP stdio do
+// Gera packages/e2e/fixtures/demo.paprika.json dirigindo o Paprika como um agente faria: via MCP stdio do
 // servidor Go (`pnpm go:build` antes), num banco SQLite temporário exportado no fim.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const bin = process.env.PAPRIKA_SERVER_BIN || join(root, "server-go/bin/paprika");
-const file = join(root, "examples/demo.paprika.json");
+const file = join(root, "packages/e2e/fixtures/demo.paprika.json");
 const dir = mkdtempSync(join(tmpdir(), "paprika-seed-"));
 const db = join(dir, "seed.db");
 const client = new Client({ name: "seed-demo", version: "0" });
@@ -79,5 +79,5 @@ const lint = await client.callTool({ name: "lint_design", arguments: {} });
 const findings = Number(lint.structuredContent?.findings?.length ?? 0);
 await client.close();
 execFileSync(bin, ["export", "--db", db, "-o", file], { stdio: "inherit" });
-console.log(`seed-demo: ${findings} lint finding(s); wrote examples/demo.paprika.json`);
+console.log(`seed-demo: ${findings} lint finding(s); wrote packages/e2e/fixtures/demo.paprika.json`);
 rmSync(dir, { recursive: true, force: true });
