@@ -355,6 +355,10 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
   const sizeMode = opts.asRoot || absoluteChild ? null : parentMode;
   Object.assign(css, sizeProps("width", node.width, sizeMode));
   Object.assign(css, sizeProps("height", node.height, sizeMode));
+  if (sizeMode && "layoutGrow" in node && node.layoutGrow) {
+    const mainSize = sizeMode === "row" ? node.width : node.height;
+    if (mainSize !== "fill") css.flexGrow = node.layoutGrow;
+  }
 
   if (node.type === "group") {
     if (node.opacity !== 1) css.opacity = node.opacity;
@@ -757,7 +761,7 @@ export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean 
   return { svg, path, svgInner: painted?.inner ?? "" };
 }
 
-const UNITLESS = new Set(["opacity", "fontWeight", "lineHeight", "flexShrink", "zIndex"]);
+const UNITLESS = new Set(["opacity", "fontWeight", "lineHeight", "flexShrink", "flexGrow", "zIndex"]);
 
 export function cssToString(css: CSS): string {
   return Object.entries(css)

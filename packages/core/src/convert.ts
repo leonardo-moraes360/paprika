@@ -60,6 +60,7 @@ export function convertToPathOps(doc: Document, ids: string[]): { ops: Op[] } {
     if (!n.visible) node.visible = n.visible;
     if (n.locked) node.locked = n.locked;
     if (n.layoutPositioning) node.layoutPositioning = n.layoutPositioning;
+    if (n.layoutGrow) node.layoutGrow = n.layoutGrow;
     if (n.constraints) node.constraints = n.constraints;
     if (n.fill) node.fill = n.fill;
     if (n.gradient) node.gradient = n.gradient;

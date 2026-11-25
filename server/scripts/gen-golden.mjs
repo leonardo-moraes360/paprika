@@ -301,6 +301,33 @@ const wrapped = () =>
       },
     },
     { op: "create", node: { type: "frame", id: "wend", x: 400, y: 1000, width: 200, height: 150, layout: { mode: "row", gap: 4, wrap: true, justify: "end", align: "end" }, children: chips("we", 5, 70, 24) } },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "grow", x: 0, y: 1300, width: 400, height: 60, layout: { mode: "row", gap: 10, padding: 20 },
+        children: [
+          { type: "rect", id: "ga", width: 50, height: 20, fill: "#112233" },
+          { type: "rect", id: "gs", width: 0, height: 0, layoutGrow: 1 },
+          { type: "text", id: "gt", text: "Title", width: "hug", height: "hug", fontSize: 16, layoutGrow: 2 },
+          { type: "rect", id: "gz", width: 50, height: 20, fill: "#445566", layoutGrow: 0.5 },
+          { type: "rect", id: "gf", width: "fill", height: 20, layoutGrow: 3 },
+        ],
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "gcol", x: 500, y: 1300, width: 200, height: 300, layout: { mode: "column" },
+        children: [{ type: "rect", id: "gca", width: 50, height: 100, layoutGrow: 1 }, { type: "rect", id: "gcb", width: 50, height: 40 }],
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "hugfill", x: 800, y: 1300, width: 420, height: "hug", layout: { mode: "column", padding: 24 },
+        children: [{ type: "text", id: "hft", text: "The quick brown fox jumps over the lazy dog again and again", width: "fill", height: "hug", fontSize: 16 }],
+      },
+    },
   ]).doc;
 
 const rich = () =>

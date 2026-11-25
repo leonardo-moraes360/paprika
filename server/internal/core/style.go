@@ -409,6 +409,15 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	h, _ := node.Get("height")
 	sizeProps(css, "width", w, mode)
 	sizeProps(css, "height", h, mode)
+	if g := node.Num("layoutGrow"); mode != "" && g != 0 {
+		mainSize := h
+		if mode == "row" {
+			mainSize = w
+		}
+		if mainSize != "fill" {
+			css.Set("flexGrow", g)
+		}
+	}
 
 	if node.Str("type") == "group" {
 		if o := node.Num("opacity"); o != 1 {
@@ -927,7 +936,7 @@ func PathAttrsVars(doc *Document, node *Node, vars bool) (svg, path []Attr, inne
 	return svg, path, inner
 }
 
-var unitless = map[string]bool{"opacity": true, "fontWeight": true, "lineHeight": true, "flexShrink": true, "zIndex": true}
+var unitless = map[string]bool{"opacity": true, "fontWeight": true, "lineHeight": true, "flexShrink": true, "flexGrow": true, "zIndex": true}
 
 var upperRe = regexp.MustCompile(`[A-Z]`)
 
