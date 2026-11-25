@@ -261,6 +261,10 @@ const (
 	resolvePinSQL = `UPDATE pins SET status = 'resolved', reply = ?, resolved_by = ?,
 		claimed_by = CASE WHEN claimed_by = '' THEN ? ELSE claimed_by END, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins)
 		WHERE id = ? AND status IN ('open', 'claimed')`
+	resolveAnchorPinSQL = `UPDATE pins SET node_id = ?, page_id = ?, region = ?, status = 'resolved', reply = ?, resolved_by = ?,
+		claimed_by = CASE WHEN claimed_by = '' THEN ? ELSE claimed_by END, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins)
+		WHERE id = ? AND status IN ('open', 'claimed')`
+	anchorPinSQL = `UPDATE pins SET node_id = ?, page_id = ?, region = ?, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status IN ('open', 'claimed')`
 	reopenPinSQL = `UPDATE pins SET status = 'open', claimed_by = '', updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status IN ('claimed', 'resolved')`
 	replyPinSQL  = `UPDATE pins SET reply = ?, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status != 'deleted'`
 	editPinSQL   = `UPDATE pins SET text = ?, updated_at = ?, rev = (SELECT COALESCE(MAX(rev), 0) + 1 FROM pins) WHERE id = ? AND status IN ('open', 'claimed')`
@@ -308,7 +312,47 @@ func (s *Store) ClaimPin(id, actor string) (Pin, error) {
 	return s.updatePin(id, claimPinSQL, actor)
 }
 
+func (s *Store) anchorArgs(workspaceID, nodeID string) ([]any, error) {
+	head, err := s.ReadWorkspace(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	a, ok := core.AnchorOf(head.Doc, nodeID)
+	if !ok {
+		return nil, fmt.Errorf("%w: node %q does not exist in this workspace or is a page: call find_nodes for the current ids", ErrPinInput, nodeID)
+	}
+	region, _ := json.Marshal(PinRegion{X: a.X, Y: a.Y, Width: a.Width, Height: a.Height})
+	return []any{nodeID, a.PageID, string(region)}, nil
+}
+
+func (s *Store) ReanchorPin(id, actor, nodeID string) (Pin, error) {
+	if nodeID == "" {
+		return Pin{}, fmt.Errorf("%w: nodeId cannot be blank", ErrPinInput)
+	}
+	cur, err := s.GetPin(id)
+	if err != nil {
+		return Pin{}, err
+	}
+	switch {
+	case cur.Status == PinDeleted:
+		return Pin{}, ErrNoPin
+	case cur.Status == PinResolved:
+		return Pin{}, ErrPinResolved
+	case cur.Status == PinClaimed && cur.ClaimedBy != actor && strings.HasPrefix(actor, "agent:"):
+		return Pin{}, fmt.Errorf("%w (%s)", ErrPinClaimed, cur.ClaimedBy)
+	}
+	args, err := s.anchorArgs(cur.WorkspaceID, nodeID)
+	if err != nil {
+		return Pin{}, err
+	}
+	return s.updatePin(id, anchorPinSQL, args...)
+}
+
 func (s *Store) ResolvePin(id, actor, reply string) (Pin, error) {
+	return s.ResolvePinAt(id, actor, reply, "")
+}
+
+func (s *Store) ResolvePinAt(id, actor, reply, nodeID string) (Pin, error) {
 	reply = cleanText(reply)
 	if reply == "" {
 		return Pin{}, fmt.Errorf("%w: reply cannot be blank: say what was done", ErrPinInput)
@@ -328,11 +372,19 @@ func (s *Store) ResolvePin(id, actor, reply string) (Pin, error) {
 	case cur.Status == PinClaimed && cur.ClaimedBy != actor && strings.HasPrefix(actor, "agent:"):
 		return Pin{}, fmt.Errorf("%w (%s)", ErrPinClaimed, cur.ClaimedBy)
 	}
+	stmt, args := resolvePinSQL, []any{reply, actor, actor}
+	if nodeID != "" {
+		anchor, err := s.anchorArgs(cur.WorkspaceID, nodeID)
+		if err != nil {
+			return Pin{}, err
+		}
+		stmt, args = resolveAnchorPinSQL, append(anchor, reply, actor, actor)
+	}
 	row, err := s.insertReply(id, actor, reply, time.Now().UnixMilli())
 	if err != nil {
 		return Pin{}, err
 	}
-	p, err := s.updatePin(id, resolvePinSQL, reply, actor, actor)
+	p, err := s.updatePin(id, stmt, args...)
 	if err != nil {
 		_, _ = s.db.Exec(`DELETE FROM pin_replies WHERE id = ?`, row.ID)
 		return Pin{}, err

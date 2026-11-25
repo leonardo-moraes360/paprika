@@ -205,7 +205,7 @@ describe("API: MCP", () => {
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "edit_path", "redo",
         "rename_workspace", "render_screenshot", "resize_image", "analyze_image", "compare_reference", "fit_to_reference", "trace_image", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
-        "claim_pin", "list_pins", "reply_pin", "resolve_pin", "wait_for_pins",
+        "claim_pin", "list_pins", "reply_pin", "resolve_pin", "update_pin", "wait_for_pins",
       ].sort(),
     );
     for (const t of tools) expect(t.inputSchema.type).toBe("object");
@@ -2330,6 +2330,12 @@ describe("API: MCP", () => {
 
     const claimed = (await call(client, "claim_pin", { id: pin.id })) as WithStruct;
     expect((claimed.structuredContent.pin as { status: string }).status).toBe("claimed");
+    await call(client, "create_nodes", { nodes: [{ type: "rect", id: "pin-target", name: "pin-target", x: 300, y: 50, width: 80, height: 30 }] });
+    const bad = await client.callTool({ name: "update_pin", arguments: { id: pin.id, nodeId: "pin-ghost" } });
+    expect(bad.isError).toBe(true);
+    const moved = (await call(client, "update_pin", { id: pin.id, nodeId: "pin-target" })) as WithStruct;
+    expect(moved.structuredContent.pin).toMatchObject({ status: "claimed", nodeId: "pin-target", region: { x: 300, y: 50, width: 80, height: 30 } });
+    expect((moved.structuredContent.pin as { nodeMissing?: boolean }).nodeMissing).toBeFalsy();
     const resolved = (await call(client, "resolve_pin", { id: pin.id, reply: "Título em 32px" })) as WithStruct;
     expect(resolved.structuredContent.pin).toMatchObject({ status: "resolved", reply: "Título em 32px" });
     expect((resolved.structuredContent.pin as { replies: { author: string; text: string }[] }).replies).toEqual([

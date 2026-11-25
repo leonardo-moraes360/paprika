@@ -10,7 +10,7 @@ import (
 	z "github.com/leonardo-moraes360/paprika/server/internal/zod"
 )
 
-var pinTools = map[string]bool{"list_pins": true, "claim_pin": true, "reply_pin": true, "resolve_pin": true, "wait_for_pins": true}
+var pinTools = map[string]bool{"list_pins": true, "claim_pin": true, "reply_pin": true, "resolve_pin": true, "update_pin": true, "wait_for_pins": true}
 
 const MaxPinWait = 60 * time.Second
 
@@ -72,8 +72,19 @@ func (m *MCP) addPinTools(add func(name string, schema *z.ObjectSchema, h func(c
 	add("resolve_pin", z.Object(
 		z.Field{Name: "id", Schema: z.String().Min(1)},
 		z.Field{Name: "reply", Schema: z.String().Min(1).Max(MaxPinReply)},
+		z.Field{Name: "nodeId", Schema: z.Optional(z.String().Min(1))},
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
-		pin, err := store.ResolvePin(a.Str("id"), m.actorName(), a.Str("reply"))
+		pin, err := store.ResolvePinAt(a.Str("id"), m.actorName(), a.Str("reply"), a.Str("nodeId"))
+		if err != nil {
+			return nil, pinMCPError(a.Str("id"), err)
+		}
+		return jsonResult(jsonv.NewObject("pin", jsonv.FromGo(pin))), nil
+	})
+	add("update_pin", z.Object(
+		z.Field{Name: "id", Schema: z.String().Min(1)},
+		z.Field{Name: "nodeId", Schema: z.String().Min(1)},
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		pin, err := store.ReanchorPin(a.Str("id"), m.actorName(), a.Str("nodeId"))
 		if err != nil {
 			return nil, pinMCPError(a.Str("id"), err)
 		}

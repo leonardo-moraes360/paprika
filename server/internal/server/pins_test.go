@@ -245,3 +245,55 @@ func TestPinsHTTP(t *testing.T) {
 		t.Fatalf("unknown workspace: %d", code)
 	}
 }
+
+func TestPinsReanchor(t *testing.T) {
+	s, _ := openTemp(t)
+	a := NewMCP(s, "agent:a", nil)
+	b := NewMCP(s, "agent:b", nil)
+	ctx := context.Background()
+	draw := func(id string, x float64) {
+		structuredOf(t, a.CallTool(ctx, "create_nodes", jsonv.NewObject("nodes", []any{
+			jsonv.NewObject("type", "frame", "id", id, "x", x, "y", 30.0, "width", 200.0, "height", 120.0),
+		}, "place", "none"), true))
+	}
+	draw("hero", 0)
+	pin, err := s.CreatePin("", NewPin{NodeID: "hero", Region: PinRegion{X: 0, Y: 30, Width: 200, Height: 120}, Text: "Refaça"}, "user")
+	if err != nil || pin.NodeMissing {
+		t.Fatalf("pin: %+v %v", pin, err)
+	}
+	structuredOf(t, a.CallTool(ctx, "delete_nodes", jsonv.NewObject("ids", []any{"hero"}), true))
+	draw("hero2", 400)
+	got, err := s.GetPin(pin.ID)
+	if err != nil || !got.NodeMissing {
+		t.Fatalf("expected nodeMissing: %+v %v", got, err)
+	}
+	if txt, isErr := callText(t, a, "update_pin", jsonv.NewObject("id", pin.ID, "nodeId", "ghost")); !isErr || !strings.Contains(txt, "does not exist") {
+		t.Fatalf("unknown node: %v %s", isErr, txt)
+	}
+	fixed := structuredOf(t, a.CallTool(ctx, "update_pin", jsonv.NewObject("id", pin.ID, "nodeId", "hero2"), true)).Obj("pin")
+	region := fixed.Obj("region")
+	if fixed.Str("nodeId") != "hero2" || fixed.Bool("nodeMissing") || fixed.Str("status") != PinOpen || region.Num("x") != 400 || region.Num("y") != 30 || region.Num("width") != 200 || region.Num("height") != 120 {
+		t.Fatalf("reanchored: %s", jsonv.Stringify(fixed, ""))
+	}
+	if after, _ := s.GetPin(pin.ID); after.Rev <= got.Rev {
+		t.Fatalf("rev did not advance: %d <= %d", after.Rev, got.Rev)
+	}
+	structuredOf(t, a.CallTool(ctx, "claim_pin", jsonv.NewObject("id", pin.ID), true))
+	if txt, isErr := callText(t, b, "update_pin", jsonv.NewObject("id", pin.ID, "nodeId", "hero2")); !isErr || !strings.Contains(txt, "claimed by another agent") {
+		t.Fatalf("other agent: %v %s", isErr, txt)
+	}
+	draw("hero3", 800)
+	if txt, isErr := callText(t, a, "resolve_pin", jsonv.NewObject("id", pin.ID, "reply", "feito", "nodeId", "ghost")); !isErr || !strings.Contains(txt, "does not exist") {
+		t.Fatalf("resolve unknown node: %v %s", isErr, txt)
+	}
+	if cur, _ := s.GetPin(pin.ID); cur.Status != PinClaimed || len(cur.Replies) != 0 {
+		t.Fatalf("failed resolve changed the pin: %+v", cur)
+	}
+	done := structuredOf(t, a.CallTool(ctx, "resolve_pin", jsonv.NewObject("id", pin.ID, "reply", "refeito", "nodeId", "hero3"), true)).Obj("pin")
+	if done.Str("status") != PinResolved || done.Str("nodeId") != "hero3" || done.Obj("region").Num("x") != 800 || done.Bool("nodeMissing") {
+		t.Fatalf("resolved with nodeId: %s", jsonv.Stringify(done, ""))
+	}
+	if txt, isErr := callText(t, a, "update_pin", jsonv.NewObject("id", pin.ID, "nodeId", "hero2")); !isErr || !strings.Contains(txt, "already resolved") {
+		t.Fatalf("resolved pin: %v %s", isErr, txt)
+	}
+}
