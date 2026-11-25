@@ -4,6 +4,7 @@
 // Screenshots via render_screenshot (export_image travou >5 min neste documento: ver docs/agent-feedback.md).
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { circle, gridSymbol, rrect, symbolLayers, wordmarkPath } from "./trio-pixel.mjs";
 
 const URL_ = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4777/mcp";
 const WS_NAME = process.env.WS_NAME ?? "Marca · conceitos (nov/2026)";
@@ -52,11 +53,8 @@ async function call(name, args) {
 }
 
 // ---------- geometria ----------
-const circle = (cx, cy, r) => `M${cx - r} ${cy} A${r} ${r} 0 1 0 ${cx + r} ${cy} A${r} ${r} 0 1 0 ${cx - r} ${cy} Z`;
 const ellipse = (cx, cy, rx, ry) =>
   `M${cx - rx} ${cy} A${rx} ${ry} 0 1 0 ${cx + rx} ${cy} A${rx} ${ry} 0 1 0 ${cx - rx} ${cy} Z`;
-const rrect = (x, y, w, h, r) =>
-  `M${x + r} ${y} H${x + w - r} Q${x + w} ${y} ${x + w} ${y + r} V${y + h - r} Q${x + w} ${y + h} ${x + w - r} ${y + h} H${x + r} Q${x} ${y + h} ${x} ${y + h - r} V${y + r} Q${x} ${y} ${x + r} ${y} Z`;
 
 // Cada símbolo: lista de camadas num quadro 100×100.
 // {d, fill?, stroke?, sw?, cap?, op?}
@@ -71,48 +69,16 @@ const SYMBOLS = {
     { d: "M50 30 L50 15 Q51 8 59 7", stroke: c.verdeEscuro, sw: 6, cap: "round" },
   ],
   // B · Pixel: pimentão em grade 5×6 (canvas = pixels) com a seleção do editor.
-  pixel: (c) => {
-    const map = ["..g..", "rrrrr", "rhrrd", "rrrrd", "rrrrd", ".r.d."];
-    const cell = 13, gap = 2.5, ox = (100 - (5 * cell + 4 * gap)) / 2, oy = 9;
-    const out = [];
-    map.forEach((row, ry) =>
-      [...row].forEach((ch, rx) => {
-        if (ch === ".") return;
-        const fill = { g: c.verde, r: c.vermelho, h: c.brilho, d: c.vermelhoEscuro }[ch];
-        const x = ox + rx * (cell + gap), y = oy + ry * (cell + gap);
-        const r = (ry === 1 && (rx === 0 || rx === 4)) || ry === 5 || (ry === 4 && (rx === 0 || rx === 4)) ? 6 : 3;
-        out.push({ d: rrect(x, y, cell, cell, r), fill });
-      }),
-    );
-    if (c.semSelecao) return out;
-    // moldura de seleção + alças
-    out.push({ d: rrect(ox - 4, oy + cell + gap - 4, 5 * cell + 4 * gap + 8, 5 * cell + 4 * gap + 8, 0), stroke: c.selecao, sw: 1.6 });
-    for (const [hx, hy] of [[ox - 4, oy + cell + gap - 4], [ox + 5 * cell + 4 * gap + 4, oy + cell + gap - 4], [ox - 4, oy + 6 * cell + 5 * gap + 4], [ox + 5 * cell + 4 * gap + 4, oy + 6 * cell + 5 * gap + 4]])
-      out.push({ d: rrect(hx - 3, hy - 3, 6, 6, 1), fill: "#FFFFFF", stroke: c.selecao, sw: 1.4 });
-    return out;
-  },
-  // E/F · Trio em pixel (A + B): a grade do canvas com as três cores; embaixo, três lobos.
-  trixel: (c) => {
-    const map = ["..g..", "yrrrv", "yhrrv", "yrrrv", "yrrrv", "y.r.v"];
-    const cell = 13, gap = 2.5, ox = (100 - (5 * cell + 4 * gap)) / 2, oy = 9;
-    const out = [];
-    map.forEach((row, ry) =>
-      [...row].forEach((ch, rx) => {
-        if (ch === ".") return;
-        const fill = { g: c.verdeEscuro, y: c.amarelo, r: c.vermelho, h: c.brilho, v: c.verde }[ch];
-        const x = ox + rx * (cell + gap), y = oy + ry * (cell + gap);
-        const r = (ry === 1 && (rx === 0 || rx === 4)) || ry === 5 ? 6.5 : 3.5;
-        out.push({ d: rrect(x, y, cell, cell, r), fill });
-      }),
-    );
-    out.sort((a, b) => (a.fill > b.fill ? 1 : -1)); // mesma cor junta = um path só
-    if (c.semSelecao) return out;
-    const fx = ox - 4, fy = oy + cell + gap - 4, fw = 5 * cell + 4 * gap + 8, fh = 5 * cell + 4 * gap + 8;
-    out.push({ d: rrect(fx, fy, fw, fh, 0), stroke: c.selecao, sw: 1.6 });
-    for (const [hx, hy] of [[fx, fy], [fx + fw, fy], [fx, fy + fh], [fx + fw, fy + fh]])
-      out.push({ d: rrect(hx - 3, hy - 3, 6, 6, 1), fill: c.alca ?? "#FFFFFF", stroke: c.selecao, sw: 1.4 });
-    return out;
-  },
+  pixel: (c) =>
+    gridSymbol({
+      map: ["..g..", "rrrrr", "rhrrd", "rrrrd", "rrrrd", ".r.d."],
+      fills: { g: c.verde, r: c.vermelho, h: c.brilho, d: c.vermelhoEscuro },
+      radius: (rx, ry) => ((ry === 1 || ry === 4) && (rx === 0 || rx === 4)) || ry === 5 ? 6 : 3,
+      selection: !c.semSelecao,
+      selectionColor: c.selecao,
+    }),
+  // E/F · Trio Pixel (A + B), the chosen brand: geometry shared with the SVG files.
+  trixel: (c) => symbolLayers(c, { selection: !c.semSelecao }),
   // C · Cursor: a vagem da páprica vira o ponteiro do agente; a ponta é o clique.
   cursor: (c) => [
     { d: "M14 12 C20 40 30 66 46 80 C56 88 72 87 80 77 C88 67 85 53 74 44 C56 30 36 18 14 12 Z", fill: c.vermelho },
@@ -168,30 +134,10 @@ function symbolNodes(kind, c, x, y, size, name, extra = {}) {
   };
 }
 
-// ---------- letreiro monolinear (minúsculas geométricas, desenho próprio) ----------
-// x-height = 100; ascendente/descendente = 50. Retorna {d, dots, w, top, bottom}.
+// ---------- letreiro: traços de examples/brand/trio-pixel.mjs ----------
 function wordmark(sw, tracking) {
-  const r = 50;
-  let x = 0;
-  const parts = [];
-  const dots = [];
-  const gap = tracking + sw;
-  const add = (s) => parts.push(s);
-  // p
-  add(`M${x} 0 L${x} 150`); add(circle(x + r, r, r)); x += 2 * r + gap;
-  // a
-  add(circle(x + r, r, r)); add(`M${x + 2 * r} 0 L${x + 2 * r} 100`); x += 2 * r + gap;
-  // p
-  add(`M${x} 0 L${x} 150`); add(circle(x + r, r, r)); x += 2 * r + gap;
-  // r
-  add(`M${x} 100 L${x} 0 M${x} 55 Q${x} 0 ${x + 55} 0`); x += 55 + gap * 0.8;
-  // i
-  add(`M${x} 0 L${x} 100`); dots.push([x, -38]); x += gap;
-  // k
-  add(`M${x} -50 L${x} 100 M${x + 70} 0 L${x} 62 M${x + 22} 42 L${x + 72} 100`); x += 72 + gap;
-  // a
-  add(circle(x + r, r, r)); add(`M${x + 2 * r} 0 L${x + 2 * r} 100`); x += 2 * r;
-  return { d: parts.join(" "), dots, w: x, top: -50, bottom: 150 };
+  const { d, dot, w } = wordmarkPath({ sw, tracking });
+  return { d, dots: [dot], w, top: -50, bottom: 150 };
 }
 
 // Letreiro como nós: um path com o traço + pingo do i (variante por direção).
