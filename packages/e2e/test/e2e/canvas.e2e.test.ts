@@ -423,6 +423,12 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.mouse.wheel(0, 90);
     await expect.poll(async () => (await translate()).y).toBeCloseTo(b.y - 90, 0);
     expect((await translate()).x).toBeCloseTo(b.x, 0);
+    await page.mouse.wheel(0, -90);
+    await page.keyboard.down("Shift");
+    await page.mouse.wheel(0, -120);
+    await page.keyboard.up("Shift");
+    await expect.poll(async () => (await translate()).x).toBeCloseTo(a.x, 0);
+    await expect.poll(async () => (await translate()).y).toBeCloseTo(a.y, 0);
   });
 
   for (const key of ["Space", "Enter"]) {

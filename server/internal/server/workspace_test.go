@@ -640,7 +640,7 @@ func TestArchivedColumnMigration(t *testing.T) {
 		t.Fatalf("migrated = %+v, %v", ws, err)
 	}
 	var version string
-	if err := s.DB().QueryRow(`SELECT value FROM meta WHERE key = 'schema_version'`).Scan(&version); err != nil || version != "2" {
+	if err := s.DB().QueryRow(`SELECT value FROM meta WHERE key = 'schema_version'`).Scan(&version); err != nil || version != "3" {
 		t.Fatalf("schema_version = %q, %v", version, err)
 	}
 }

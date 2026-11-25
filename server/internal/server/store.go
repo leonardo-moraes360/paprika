@@ -98,6 +98,13 @@ CREATE TABLE IF NOT EXISTS token_meta (
   meta   TEXT NOT NULL,               -- JSON object: type and collection
   PRIMARY KEY (doc_id, name)
 );
+CREATE TABLE IF NOT EXISTS assets (
+  doc_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  name   TEXT NOT NULL,
+  ord    INTEGER NOT NULL,            -- insertion order of document.assets
+  src    TEXT NOT NULL,               -- the asset data URI
+  PRIMARY KEY (doc_id, name)
+);
 CREATE TABLE IF NOT EXISTS nodes (
   doc_id    TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   id        TEXT NOT NULL,
@@ -146,7 +153,7 @@ CREATE TABLE IF NOT EXISTS history_steps (
 );
 CREATE INDEX IF NOT EXISTS history_steps_doc ON history_steps(doc_id, seq DESC);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '2');
+INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '3');
 `
 
 func OpenDB(path string) (*sql.DB, error) {
@@ -193,8 +200,8 @@ func migrateDB(db *sql.DB) error {
 			return err
 		}
 	}
-	_, err := db.Exec(`INSERT INTO meta(key, value) VALUES ('schema_version', '2')
-		ON CONFLICT(key) DO UPDATE SET value = '2'`)
+	_, err := db.Exec(`INSERT INTO meta(key, value) VALUES ('schema_version', '3')
+		ON CONFLICT(key) DO UPDATE SET value = '3'`)
 	return err
 }
 
@@ -271,6 +278,10 @@ func LoadDocument(q querier, id string) (*core.Document, int64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	assets, err := loadAssets(q, id)
+	if err != nil {
+		return nil, 0, err
+	}
 	nodes := jsonv.NewObject()
 	rows, err = q.Query(`SELECT id, data FROM nodes WHERE doc_id = ? ORDER BY ord`, id)
 	if err != nil {
@@ -299,11 +310,48 @@ func LoadDocument(q querier, id string) (*core.Document, int64, error) {
 	}
 	raw.Set("rootIds", rootIDs)
 	raw.Set("nodes", nodes)
+	if assets != nil {
+		raw.Set("assets", assets)
+	}
 	doc, err := core.ParseDocument(raw)
 	if err != nil {
-		return nil, 0, fmt.Errorf("documento %s inválido no banco: %w", id, err)
+		return nil, 0, &InvalidDocumentError{ID: id, Err: err}
 	}
 	return doc, version, nil
+}
+
+type InvalidDocumentError struct {
+	ID  string
+	Err error
+}
+
+func (e *InvalidDocumentError) Error() string {
+	return fmt.Sprintf("workspace %q is invalid in the database and cannot be opened: %v", e.ID, e.Err)
+}
+
+func (e *InvalidDocumentError) Unwrap() error { return e.Err }
+
+func (s *Store) loadDoc(id string) (*core.Document, int64, error) {
+	doc, version, err := LoadDocument(s.db, id)
+	s.invalidMu.Lock()
+	defer s.invalidMu.Unlock()
+	var inv *InvalidDocumentError
+	switch {
+	case err == nil:
+		delete(s.invalid, id)
+	case errors.As(err, &inv):
+		if s.invalid == nil {
+			s.invalid = map[string]string{}
+		}
+		s.invalid[id] = inv.Err.Error()
+	}
+	return doc, version, err
+}
+
+func (s *Store) invalidReason(id string) string {
+	s.invalidMu.Lock()
+	defer s.invalidMu.Unlock()
+	return s.invalid[id]
 }
 
 func loadModes(q querier, id string) (*jsonv.Object, error) {
@@ -328,6 +376,26 @@ func loadModes(q querier, id string) (*jsonv.Object, error) {
 		modes.Set(k, val)
 	}
 	return modes, rows.Err()
+}
+
+func loadAssets(q querier, id string) (*jsonv.Object, error) {
+	rows, err := q.Query(`SELECT name, src FROM assets WHERE doc_id = ? ORDER BY ord`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var assets *jsonv.Object
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, err
+		}
+		if assets == nil {
+			assets = jsonv.NewObject()
+		}
+		assets.Set(k, v)
+	}
+	return assets, rows.Err()
 }
 
 func loadTokenMeta(q querier, id string) (*jsonv.Object, error) {
@@ -388,6 +456,13 @@ func writeDocument(tx querier, doc, prev *core.Document, version int64, now int6
 			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, meta = excluded.meta`, id, k, ord, jsonv.Stringify(v, ""))
 		return err
 	}, `DELETE FROM token_meta WHERE doc_id = ? AND name = ?`); err != nil {
+		return err
+	}
+	if err := syncRows(tx, `assets`, id, core.Assets(doc), prevObj(prev, core.Assets), func(k string, v any, ord int) error {
+		_, err := tx.Exec(`INSERT INTO assets(doc_id, name, ord, src) VALUES (?, ?, ?, ?)
+			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, src = excluded.src`, id, k, ord, v)
+		return err
+	}, `DELETE FROM assets WHERE doc_id = ? AND name = ?`); err != nil {
 		return err
 	}
 	return syncRows(tx, `nodes`, id, core.Nodes(doc), prevObj(prev, core.Nodes), func(k string, v any, ord int) error {
@@ -511,6 +586,7 @@ func ImportDocument(db *sql.DB, raw []byte, replace bool) (*core.Document, error
 			`DELETE FROM tokens WHERE doc_id = ?`,
 			`DELETE FROM modes WHERE doc_id = ?`,
 			`DELETE FROM token_meta WHERE doc_id = ?`,
+			`DELETE FROM assets WHERE doc_id = ?`,
 			`DELETE FROM history WHERE doc_id = ?`,
 		} {
 			if _, err := tx.Exec(q, id); err != nil {
@@ -738,12 +814,15 @@ type Store struct {
 	Presence     *PresenceHub
 	deleteGrants map[string]deleteGrant
 	compare      compareMemory
+	invalidMu    sync.Mutex
+	invalid      map[string]string
 }
 
 type OpenOptions struct {
 	DocID string
 	Name  string
 	Poll  time.Duration
+	Log   func(string)
 }
 
 func OpenStore(path string, opts OpenOptions) (*Store, error) {
@@ -753,14 +832,31 @@ func OpenStore(path string, opts OpenOptions) (*Store, error) {
 	}
 	s := &Store{db: db, path: path, listeners: map[int]func(ChangeEvent){}, pinListeners: map[int]func(string){}, stop: make(chan struct{}), Presence: NewPresenceHub(nil)}
 	id := opts.DocID
-	if id == "" {
+	if id != "" {
+		if err := s.load(id); err != nil {
+			db.Close()
+			return nil, err
+		}
+	} else {
 		docs, err := ListDocuments(db)
 		if err != nil {
 			db.Close()
 			return nil, err
 		}
-		if len(docs) > 0 {
-			id = docs[0].ID
+		for _, d := range docs {
+			err := s.load(d.ID)
+			if err == nil {
+				id = d.ID
+				break
+			}
+			var inv *InvalidDocumentError
+			if !errors.As(err, &inv) {
+				db.Close()
+				return nil, err
+			}
+			if opts.Log != nil {
+				opts.Log(fmt.Sprintf("workspace %q (%s) ignorado: documento inválido no banco: %v", d.Name, d.ID, inv.Err))
+			}
 		}
 	}
 	if id == "" {
@@ -776,11 +872,10 @@ func OpenStore(path string, opts OpenOptions) (*Store, error) {
 			db.Close()
 			return nil, err
 		}
-		id = doc.Str("id")
-	}
-	if err := s.load(id); err != nil {
-		db.Close()
-		return nil, err
+		if err := s.load(doc.Str("id")); err != nil {
+			db.Close()
+			return nil, err
+		}
 	}
 	poll := opts.Poll
 	if poll == 0 {
@@ -793,7 +888,7 @@ func OpenStore(path string, opts OpenOptions) (*Store, error) {
 }
 
 func (s *Store) load(id string) error {
-	doc, version, err := LoadDocument(s.db, id)
+	doc, version, err := s.loadDoc(id)
 	if err != nil {
 		return err
 	}
@@ -1029,7 +1124,7 @@ func (s *Store) ensureAsideLocked(id string) (*wsLive, error) {
 	if live, ok := s.aside[id]; ok && live.version == dbVersion {
 		return live, nil
 	}
-	doc, version, err := LoadDocument(s.db, id)
+	doc, version, err := s.loadDoc(id)
 	if err != nil {
 		return nil, err
 	}
@@ -1354,7 +1449,7 @@ func (s *Store) ApplyRemote(docID, name, actor, label string, opsFor func(cur *c
 	}
 	defer s.mu.Unlock()
 	res := RemoteResult{}
-	doc, version, err := LoadDocument(s.db, docID)
+	doc, version, err := s.loadDoc(docID)
 	var prev *core.Document
 	if err != nil {
 		var exists int
@@ -1499,6 +1594,7 @@ type WorkspaceInfo struct {
 	Archived  bool           `json:"archived"`
 	FolderID  string         `json:"folderId"`
 	Preview   []PreviewShape `json:"preview"`
+	Error     string         `json:"error,omitempty"`
 }
 
 func coverURL(id string, at int64) any {
@@ -1539,7 +1635,7 @@ func (s *Store) listWorkspaces(includeArchived, archivedOnly bool) ([]WorkspaceI
 		out = append(out, WorkspaceInfo{
 			ID: d.ID, Name: d.Name, Nodes: d.Nodes, UpdatedAt: d.UpdatedAt,
 			Active: d.ID == active, Cover: coverURL(d.ID, d.CoverAt), Archived: d.Archived,
-			FolderID: d.FolderID, Preview: preview,
+			FolderID: d.FolderID, Preview: preview, Error: s.invalidReason(d.ID),
 		})
 	}
 	return out, nil
@@ -2068,6 +2164,6 @@ func (s *Store) WorkspaceDocument(id string) (*core.Document, error) {
 	if _, err := s.workspaceInfo(id); err != nil {
 		return nil, err
 	}
-	doc, _, err := LoadDocument(s.db, id)
+	doc, _, err := s.loadDoc(id)
 	return doc, err
 }
