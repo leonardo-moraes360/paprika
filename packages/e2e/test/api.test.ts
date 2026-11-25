@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { request } from "node:http";
-import { inflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -110,6 +110,39 @@ const assertOutput = (name: string, value: unknown) => {
   expect(schemaErrors(outputSchema(name), value), JSON.stringify(value)).toEqual([]);
 };
 
+function crc32(buf: Buffer): number {
+  let c = ~0;
+  for (const byte of buf) {
+    c ^= byte;
+    for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1;
+  }
+  return ~c >>> 0;
+}
+
+/** Encodes an RGB PNG from a per-pixel color function (tests only). */
+function encodePng(w: number, h: number, pixel: (x: number, y: number) => [number, number, number]): Buffer {
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const [r, g, b] = pixel(x, y);
+      raw.set([r, g, b], y * (w * 3 + 1) + 1 + x * 3);
+    }
+  }
+  const chunk = (type: string, data: Buffer) => {
+    const head = Buffer.alloc(8);
+    head.writeUInt32BE(data.length, 0);
+    head.write(type, 4, "latin1");
+    const tail = Buffer.alloc(4);
+    tail.writeUInt32BE(crc32(Buffer.concat([head.subarray(4), data])), 0);
+    return Buffer.concat([head, data, tail]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8);
+  return Buffer.concat([Buffer.from("\x89PNG\r\n\x1a\n", "latin1"), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
+
 function pngPixel(png: Buffer, x: number, y: number): number[] {
   const idat: Buffer[] = [];
   let w = 0;
@@ -173,7 +206,7 @@ describe("API: MCP", () => {
         "get_bounds",
         "create_folder", "rename_folder", "move_workspace", "place_reference",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "edit_path", "redo",
-        "rename_workspace", "render_screenshot", "resize_image", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
+        "rename_workspace", "render_screenshot", "resize_image", "analyze_image", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
         "claim_pin", "list_pins", "reply_pin", "resolve_pin", "wait_for_pins",
       ].sort(),
@@ -1282,6 +1315,59 @@ describe("API: MCP", () => {
       await own.stop();
     }
   }, 60_000);
+
+  it("analyze_image: paleta, blobs com primitiva ajustada, frame, nodeId e layout", async () => {
+    const c = client;
+    // 160x100: white background, a red disc (center 30,50, r 20), a 3x2 grid of navy squares
+    const png = encodePng(160, 100, (x, y) => {
+      if ((x - 30) ** 2 + (y - 50) ** 2 <= 400) return [220, 30, 40];
+      for (let col = 0; col < 3; col++) {
+        for (let row = 0; row < 2; row++) {
+          const sx = 70 + col * 30;
+          const sy = 20 + row * 40;
+          if (x >= sx && x < sx + 20 && y >= sy && y < sy + 20) return [20, 40, 110];
+        }
+      }
+      return [255, 255, 255];
+    });
+    const src = `data:image/png;base64,${png.toString("base64")}`;
+    const r = (await c.callTool({ name: "analyze_image", arguments: { src } })) as ToolResult & { structuredContent?: any };
+    expect(r.isError, textOf(r)).toBeFalsy();
+    const sc = r.structuredContent!;
+    assertOutput("analyze_image", sc);
+    expect(textOf(r)).toMatch(/^image 160x100/);
+    expect(sc.size).toEqual({ width: 160, height: 100 });
+    expect(sc.background.color).toBe("#ffffff");
+    expect(sc.palette.map((p: { color: string }) => p.color)).toEqual(["#ffffff", "#14286e", "#dc1e28"]);
+    const disc = sc.blobs.find((b: any) => b.fit.kind === "circle");
+    expect(disc.fit.node).toMatchObject({ type: "ellipse", width: 40, height: 40, fill: "#dc1e28" });
+    expect(Math.abs(disc.fit.node.x - 10)).toBeLessThan(1.5);
+    expect(sc.layout.grids).toHaveLength(1);
+    expect(sc.layout.grids[0]).toMatchObject({ rows: 2, cols: 3, pitchX: 30, pitchY: 40, filled: 6 });
+    expect(sc.layout.repeats[0]).toMatchObject({ count: 6, kind: "rect", color: "#14286e" });
+
+    const framed = (await c.callTool({ name: "analyze_image", arguments: { src, frame: { width: 640, height: 640 } } })) as ToolResult & { structuredContent?: any };
+    assertOutput("analyze_image", framed.structuredContent);
+    expect(framed.structuredContent.placed).toEqual({ x: 0, y: 120, width: 640, height: 400 });
+    const bigDisc = framed.structuredContent.blobs.find((b: any) => b.fit.kind === "circle");
+    expect(Math.abs(bigDisc.fit.node.width - 160)).toBeLessThan(4);
+    expect(Math.abs(bigDisc.fit.node.y - (120 + 120))).toBeLessThan(4);
+
+    const placed = await call(c, "import_image", { src });
+    expect(placed.isError, textOf(placed)).toBeFalsy();
+    const nodeId = (await srv.doc()).rootIds.at(-1)!;
+    const byNode = (await c.callTool({ name: "analyze_image", arguments: { nodeId, maxBlobs: 2 } })) as ToolResult & { structuredContent?: any };
+    expect(byNode.isError, textOf(byNode)).toBeFalsy();
+    assertOutput("analyze_image", byNode.structuredContent);
+    expect(byNode.structuredContent).toMatchObject({ truncated: true, blobCount: 7 });
+    expect(byNode.structuredContent.blobs).toHaveLength(2);
+
+    const both = await call(c, "analyze_image", { src, nodeId });
+    expect(both.isError).toBe(true);
+    expect(textOf(both)).toMatch(/not both/);
+    const none = await call(c, "analyze_image", {});
+    expect(none.isError).toBe(true);
+  });
 
   it("importar imagem raster: formatos, GIF animado, path traversal e arquivo grande demais", async () => {
     const fixtures = join(repoRoot, "server-go/internal/server/testdata/images");

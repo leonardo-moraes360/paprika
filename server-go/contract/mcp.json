@@ -8,7 +8,7 @@
       "listChanged": true
     }
   },
-  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, layoutPositioning (\"auto\"|\"absolute\", omit = auto), constraints {horizontal: left|right|center|scale, vertical: top|bottom|center|scale} (omit = left/top; applied to non-flow children when the parent frame's numeric width or height changes), fill (color), stroke {color, width: n | \"$token\"}, radius (n | \"$token\", or on frame, rect and image [tl, tr, br, bl] with each corner n | \"$token\"), shadow (one object or a list of up to 8: {x, y, blur, spread: n | \"$token\", color, inner?}), outline {color, width: n | \"$token\", style?: solid|dashed|dotted, offset?}, filter and backdropFilter {blur?: n | \"$token\", saturate? 0..10, grayscale? 0..1, brightness? 0..10, sepia? 0..1, invert? 0..1, hueRotate? -360..360}, notes, lintIgnore (rule names lint_design skips on this node).\nframe: clip (bool), layout {mode: none|row|column, gap (n | \"$token\"), padding (one number or [top, right, bottom, left]; each n | \"$token\"; not two values), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, scaledMock (true: a scaled mock, lint_design skips small-text inside it), mode (theme mode, see below). With row/column layout, children's x/y are ignored unless layoutPositioning is \"absolute\" (the child keeps x/y relative to the parent and is skipped by flow, gap and hug). Omit it or set \"auto\" to stay in the flow.\ntext: text, color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"), lineHeight (n | \"$token\"), letterSpacing (n | \"$token\"), textAlign.\n  runs (optional, up to 200): ranges {start, end} in UTF-16 indexes, sorted, not overlapping; each needs one of fontWeight (100..900 | \"$token\"), color, fontSize (n | \"$token\"), italic: true, href (http(s), mailto, or a path starting with / or #). create_nodes and update_nodes carry runs; null clears them.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https://, data:image/ or $asset), fit (cover|contain|fill), alt, decorative (true skips the missing-alt lint and exports alt=\"\" aria-hidden). $asset names live on the document via set_assets.\nframe and text may set href (relative, #hash, http(s), mailto, tel), exported as <a>. A root frame may set minWidth and maxWidth; export then uses width 100% between those bounds. The canvas keeps the design width.\nconvert_to_path turns rect and ellipse into a path with the same id (radius baked into d).\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes. wrap_nodes puts the same siblings in a new frame (the drawing stays put, one undo). align_nodes (edge: left|center|right|top|middle|bottom) and distribute_nodes (axis: horizontal|vertical, at least 3) move them in one undo. show_all and unlock_all reveal hidden or locked nodes; pageId limits that to one page, and omitting it covers the whole document.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". create_page {ensure: true, name} returns the existing page of that name instead of creating another. Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). It may declare props (text, boolean,\n  variant) and frames or groups inside it may name a slot. An instance is a frame with instanceOf = the component id,\n  an optional scale, propValues and slots (create_instance). Instances may sit inside a component; a cycle is rejected.\n  Children are generated copies, with derived ids and sourceId = the source id or the path slot/id or instance/copy.\n  Changing the component changes every instance. On a copy, update only changes fill, color, text, src, alt, visible,\n  opacity and runs (stored as an override; null goes back to the component). A nested copy is addressed by the path\n  instance/copy, and that path may also carry propValues and slots. On the root, fill becomes an override and\n  width/height/layout/stroke/radius/shadow/clip come from the component (use scale). A text prop drives text and\n  shape text through bind.text; a boolean drives bind.visible; bind.variant omits the node unless every pair matches.\n  Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use get_bounds (absolute boxes + rotated corners) and path_info (bounds plus anchors) before positioning. edit_path moves one anchor or its handles; the index is path_info.anchors index, in the same d coordinates.\nshape: shape (rect|ellipse|diamond|triangle|cylinder|parallelogram|cloud|note), text (centered; top-left on a note), color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"),\n  lineHeight (n | \"$token\"), textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow|rounded|curve), radius (rounded corners), control {x,y} (curve handle in parent coords), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you. Elbow and rounded arrows route around other shapes with the same parent; straight and curve do not. relayout: true with existing shape ids recomputes those routes (and applies x/y when given) in one undo step.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes. set_tokens takes an optional type (color, length, fontFamily, fontWeight, fontSize, lineHeight, letterSpacing) and a collection name. A typed token is checked when it is set and when a node uses it; a token with no type stays a string or number and still fits any length field. A typed fontWeight or lineHeight is unitless in CSS variables; other numeric tokens stay px. detach_tokens replaces \"$name\" on a node with the literal resolved in that node's theme mode.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; a mode value must match the token's type. \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). A collection is a name on the token, not a second value map. export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nPlacement: a new top-level frame leaves x and y unset (or passes place:\"free\") and lands in free space, to the right of the page content, same top, gap 80, wrapping to a new row past 2400px from the content's left. place is \"free\" | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y). Concurrent writers never share a spot. get_document_outline and get_bounds with no ids report the page content box and the next free spot. Draw overlays (modals, menus, toasts) last, or bring them to the front with index:\"front\". A write warns when a new top-level node overlaps another and names the nearest free spot.\n\nPins: the human can point at a node or an area of the canvas and write what to do there (\"Point for the AI\"). Call list_pins first when the human mentions pins, and whenever a write result carries openPins; claim_pin before working on one, reply_pin to add to the thread, resolve_pin with a short reply when done (that reply is stored as an agent message on replies). wait_for_pins waits for new ones.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale (pass type and collection when the token is typed). propose_tokens reads CSS variables, a Tailwind theme or JSON tokens from content you pass (the file text, never a filesystem path) and returns set_tokens operations; it does not write.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning. rootIds (or rootId) lints only those subtrees. groups folds each rule to a count and the first maxIds node ids (default 8), ordered by severity; issues still lists every finding. minSeverity (info|warning|error) drops quieter findings. minFontSize raises the small-text floor (default 12). A frame with scaledMock, or lintIgnore on a node, keeps intentional small type and literal colors out of the list.\n5. render_screenshot to check visually; export_image for PNG/JPEG/WebP/AVIF/PDF without Chromium; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg (paths, text and <use>/<symbol> sprites become editable nodes) or import_html (inline styles, or computed:true so the server renders the HTML in Chromium and inlines computed styles), import_image for a PNG, JPEG, WebP, AVIF or GIF file (.fig and PDF are refused); export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces). Document tools take an optional workspaceId and read or write that workspace without open_workspace and without moving the human's canvas; omit workspaceId to use the active workspace. The outline's first line and every write result include that workspace's id and name. Undo and redo take the same workspaceId and revert only that workspace; each workspace keeps its own history for the life of the process. Edits to the workspace the canvas is showing arrive live; edits to another workspace do not switch the canvas. open_workspace still switches the active workspace for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; archive_workspace hides one from list_workspaces without deleting it (the active one hands over to the most recently updated other workspace that is not archived; the only one cannot be archived) and unarchive_workspace brings it back; opening an archived workspace unarchives it; list_workspaces omits archived workspaces unless includeArchived is true, and each workspace reports archived; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened, archived, unarchived or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
+  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, layoutPositioning (\"auto\"|\"absolute\", omit = auto), constraints {horizontal: left|right|center|scale, vertical: top|bottom|center|scale} (omit = left/top; applied to non-flow children when the parent frame's numeric width or height changes), fill (color), stroke {color, width: n | \"$token\"}, radius (n | \"$token\", or on frame, rect and image [tl, tr, br, bl] with each corner n | \"$token\"), shadow (one object or a list of up to 8: {x, y, blur, spread: n | \"$token\", color, inner?}), outline {color, width: n | \"$token\", style?: solid|dashed|dotted, offset?}, filter and backdropFilter {blur?: n | \"$token\", saturate? 0..10, grayscale? 0..1, brightness? 0..10, sepia? 0..1, invert? 0..1, hueRotate? -360..360}, notes, lintIgnore (rule names lint_design skips on this node).\nframe: clip (bool), layout {mode: none|row|column, gap (n | \"$token\"), padding (one number or [top, right, bottom, left]; each n | \"$token\"; not two values), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, scaledMock (true: a scaled mock, lint_design skips small-text inside it), mode (theme mode, see below). With row/column layout, children's x/y are ignored unless layoutPositioning is \"absolute\" (the child keeps x/y relative to the parent and is skipped by flow, gap and hug). Omit it or set \"auto\" to stay in the flow.\ntext: text, color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"), lineHeight (n | \"$token\"), letterSpacing (n | \"$token\"), textAlign.\n  runs (optional, up to 200): ranges {start, end} in UTF-16 indexes, sorted, not overlapping; each needs one of fontWeight (100..900 | \"$token\"), color, fontSize (n | \"$token\"), italic: true, href (http(s), mailto, or a path starting with / or #). create_nodes and update_nodes carry runs; null clears them.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https://, data:image/ or $asset), fit (cover|contain|fill), alt, decorative (true skips the missing-alt lint and exports alt=\"\" aria-hidden). $asset names live on the document via set_assets.\nframe and text may set href (relative, #hash, http(s), mailto, tel), exported as <a>. A root frame may set minWidth and maxWidth; export then uses width 100% between those bounds. The canvas keeps the design width.\nconvert_to_path turns rect and ellipse into a path with the same id (radius baked into d).\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes. wrap_nodes puts the same siblings in a new frame (the drawing stays put, one undo). align_nodes (edge: left|center|right|top|middle|bottom) and distribute_nodes (axis: horizontal|vertical, at least 3) move them in one undo. show_all and unlock_all reveal hidden or locked nodes; pageId limits that to one page, and omitting it covers the whole document.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". create_page {ensure: true, name} returns the existing page of that name instead of creating another. Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). It may declare props (text, boolean,\n  variant) and frames or groups inside it may name a slot. An instance is a frame with instanceOf = the component id,\n  an optional scale, propValues and slots (create_instance). Instances may sit inside a component; a cycle is rejected.\n  Children are generated copies, with derived ids and sourceId = the source id or the path slot/id or instance/copy.\n  Changing the component changes every instance. On a copy, update only changes fill, color, text, src, alt, visible,\n  opacity and runs (stored as an override; null goes back to the component). A nested copy is addressed by the path\n  instance/copy, and that path may also carry propValues and slots. On the root, fill becomes an override and\n  width/height/layout/stroke/radius/shadow/clip come from the component (use scale). A text prop drives text and\n  shape text through bind.text; a boolean drives bind.visible; bind.variant omits the node unless every pair matches.\n  Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use get_bounds (absolute boxes + rotated corners) and path_info (bounds plus anchors) before positioning. edit_path moves one anchor or its handles; the index is path_info.anchors index, in the same d coordinates.\nshape: shape (rect|ellipse|diamond|triangle|cylinder|parallelogram|cloud|note), text (centered; top-left on a note), color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"),\n  lineHeight (n | \"$token\"), textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow|rounded|curve), radius (rounded corners), control {x,y} (curve handle in parent coords), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you. Elbow and rounded arrows route around other shapes with the same parent; straight and curve do not. relayout: true with existing shape ids recomputes those routes (and applies x/y when given) in one undo step.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes. set_tokens takes an optional type (color, length, fontFamily, fontWeight, fontSize, lineHeight, letterSpacing) and a collection name. A typed token is checked when it is set and when a node uses it; a token with no type stays a string or number and still fits any length field. A typed fontWeight or lineHeight is unitless in CSS variables; other numeric tokens stay px. detach_tokens replaces \"$name\" on a node with the literal resolved in that node's theme mode.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; a mode value must match the token's type. \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). A collection is a name on the token, not a second value map. export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nPlacement: a new top-level frame leaves x and y unset (or passes place:\"free\") and lands in free space, to the right of the page content, same top, gap 80, wrapping to a new row past 2400px from the content's left. place is \"free\" | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y). Concurrent writers never share a spot. get_document_outline and get_bounds with no ids report the page content box and the next free spot. Draw overlays (modals, menus, toasts) last, or bring them to the front with index:\"front\". A write warns when a new top-level node overlaps another and names the nearest free spot.\n\nPins: the human can point at a node or an area of the canvas and write what to do there (\"Point for the AI\"). Call list_pins first when the human mentions pins, and whenever a write result carries openPins; claim_pin before working on one, reply_pin to add to the thread, resolve_pin with a short reply when done (that reply is stored as an agent message on replies). wait_for_pins waits for new ones.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale (pass type and collection when the token is typed). propose_tokens reads CSS variables, a Tailwind theme or JSON tokens from content you pass (the file text, never a filesystem path) and returns set_tokens operations; it does not write.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning. rootIds (or rootId) lints only those subtrees. groups folds each rule to a count and the first maxIds node ids (default 8), ordered by severity; issues still lists every finding. minSeverity (info|warning|error) drops quieter findings. minFontSize raises the small-text floor (default 12). A frame with scaledMock, or lintIgnore on a node, keeps intentional small type and literal colors out of the list.\n5. render_screenshot to check visually; export_image for PNG/JPEG/WebP/AVIF/PDF without Chromium; export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg (paths, text and <use>/<symbol> sprites become editable nodes) or import_html (inline styles, or computed:true so the server renders the HTML in Chromium and inlines computed styles), import_image for a PNG, JPEG, WebP, AVIF or GIF file (.fig and PDF are refused); export_code with format \"svg\" returns vector SVG.\nWhen you redraw a reference image (logo, icon, UI), call analyze_image first instead of guessing coordinates by eye: it returns the palette, the background, the blobs largest first with the best-fitting primitive as a node ready for create_nodes (circle, ellipse with rotation, rect with radius, regular polygon, or a freeform outline), and layout hints (grids, repeated shapes, radial repeats). Pass frame {width,height} to get coordinates in the target frame; after drawing, compare with render_screenshot compare.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces). Document tools take an optional workspaceId and read or write that workspace without open_workspace and without moving the human's canvas; omit workspaceId to use the active workspace. The outline's first line and every write result include that workspace's id and name. Undo and redo take the same workspaceId and revert only that workspace; each workspace keeps its own history for the life of the process. Edits to the workspace the canvas is showing arrive live; edits to another workspace do not switch the canvas. open_workspace still switches the active workspace for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; archive_workspace hides one from list_workspaces without deleting it (the active one hands over to the most recently updated other workspace that is not archived; the only one cannot be archived) and unarchive_workspace brings it back; opening an archived workspace unarchives it; list_workspaces omits archived workspaces unless includeArchived is true, and each workspace reports archived; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened, archived, unarchived or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
   "tools": [
     {
       "name": "get_design_guide",
@@ -7726,6 +7726,666 @@
           "workspaceName": { "type": "string" }
         },
         "required": ["id", "frameId", "locked", "opacity", "x", "y", "width", "height", "warnings", "version", "workspaceId", "workspaceName"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "analyze_image",
+      "title": "Analyze reference image",
+      "description": "Measures a reference image so you do not have to eyeball it: call it BEFORE redrawing a logo, icon or UI from a picture, then build from the numbers. Returns the size, the background color (from the borders), a palette of dominant colors (perceptual k-means in OKLab, anti-aliasing removed) and the blobs: connected regions of one palette color, largest first (draw them in that order; nested shapes land on top). Each blob has its bbox, centroid, area, number of holes, orientation, elongation, mirror symmetry (mirrorX is left-right, mirrorY top-bottom, 1 = identical) and fit: the best primitive among circle, ellipse (with rotation), rect and roundRect (with corner radius), regular polygon (sides, rotation) or freeform, with its IoU against the blob and a node ready for create_nodes (ellipse, rect or path with fill). A blob that no primitive reaches 0.9 IoU on is freeform: it carries a Douglas-Peucker outline (up to maxPoints) and a path node; nearest names the closest primitive. A blob with holes is fitted on its silhouette (holesFilled): the holes appear as their own blobs when they have another color. layout lists repeated shapes (same color and fit within tolerance), grids (rows, cols, pitch, gap: use align_nodes/distribute_nodes or compute positions) and radial repeats (center, radius, step angle: duplicate_nodes around it). Pass frame {width,height} to get coordinates in the target frame's space (the image is fitted and centered like place_reference); without it, coordinates are source pixels. region zooms into a rectangle. Results are deterministic and the text content is a compact summary of the same data. Pure Go, no Chromium; about 50 ms for 1200x900. Reads only; the image comes from src or from an image node (nodeId). Check the result with render_screenshot compare after drawing.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "src": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000000,
+            "description": "The image: a data URL, raw base64 or a local path under PAPRIKA_IMPORT_DIRS. PNG, JPEG, GIF and WebP are decoded (AVIF is refused: no pure-Go decoder). Give src or nodeId"
+          },
+          "nodeId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "An image node of workspaceId to analyze instead of src"
+          },
+          "frame": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 100000
+              },
+              "height": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 100000
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "description": "Express every coordinate in this frame's space: the image is fitted inside width x height and centered, exactly like place_reference. Omit it to get source pixels"
+          },
+          "maxColors": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16,
+            "description": "Palette size cap. Default 8"
+          },
+          "minArea": {
+            "type": "number",
+            "minimum": 1e-05,
+            "maximum": 0.5,
+            "description": "Smallest blob as a fraction of the analyzed area. Default 0.0005 (0.05%)"
+          },
+          "region": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 0
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0
+              },
+              "width": {
+                "type": "number",
+                "minimum": 1
+              },
+              "height": {
+                "type": "number",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ],
+            "description": "Analyze only this rectangle, in source pixels (zoom into a detail); coordinates stay in the full image's space"
+          },
+          "maxBlobs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "description": "Blobs returned, largest first. Default 40; truncated says when more were found"
+          },
+          "maxPoints": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 200,
+            "description": "Most outline points for a freeform blob. Default 24"
+          },
+          "workspaceId": {
+            "description": "Workspace to read or write. Omit it to use the active workspace (the human's canvas). Does not switch the canvas.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "openPins": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "open pins the human left in this workspace (only when there are some): call list_pins, then claim_pin and resolve_pin"
+          },
+          "size": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": "integer"
+              },
+              "height": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ]
+          },
+          "region": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ]
+          },
+          "placed": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ]
+          },
+          "scale": {
+            "type": "number"
+          },
+          "analysisScale": {
+            "type": "number"
+          },
+          "background": {
+            "type": "object",
+            "properties": {
+              "color": {
+                "type": "string"
+              },
+              "transparent": {
+                "type": "boolean"
+              },
+              "borderShare": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "borderShare"
+            ]
+          },
+          "palette": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "color": {
+                  "type": "string"
+                },
+                "share": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "color",
+                "share"
+              ]
+            }
+          },
+          "transparentShare": {
+            "type": "number"
+          },
+          "blobs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "color": {
+                  "type": "string"
+                },
+                "areaPx": {
+                  "type": "number"
+                },
+                "share": {
+                  "type": "number"
+                },
+                "bbox": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    },
+                    "width": {
+                      "type": "number"
+                    },
+                    "height": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "width",
+                    "height"
+                  ]
+                },
+                "centroid": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ]
+                },
+                "holes": {
+                  "type": "integer"
+                },
+                "holeBoxes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      },
+                      "width": {
+                        "type": "number"
+                      },
+                      "height": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "width",
+                      "height"
+                    ]
+                  }
+                },
+                "orientation": {
+                  "type": "number"
+                },
+                "elongation": {
+                  "type": "number"
+                },
+                "symmetry": {
+                  "type": "object",
+                  "properties": {
+                    "mirrorX": {
+                      "type": "number"
+                    },
+                    "mirrorY": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "mirrorX",
+                    "mirrorY"
+                  ]
+                },
+                "fit": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "circle",
+                        "ellipse",
+                        "rect",
+                        "roundRect",
+                        "polygon",
+                        "freeform"
+                      ]
+                    },
+                    "iou": {
+                      "type": "number",
+                      "description": "Intersection over union of the primitive (or, for freeform, of the simplified outline) with the blob's silhouette, 0..1"
+                    },
+                    "node": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "ellipse",
+                            "rect",
+                            "path"
+                          ]
+                        },
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        },
+                        "width": {
+                          "type": "number"
+                        },
+                        "height": {
+                          "type": "number"
+                        },
+                        "rotation": {
+                          "type": "number"
+                        },
+                        "radius": {
+                          "type": "number"
+                        },
+                        "d": {
+                          "type": "string"
+                        },
+                        "fill": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "x",
+                        "y",
+                        "fill"
+                      ],
+                      "description": "A node ready for create_nodes, in the output coordinate space"
+                    },
+                    "center": {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y"
+                      ]
+                    },
+                    "sides": {
+                      "type": "integer"
+                    },
+                    "radius": {
+                      "type": "number"
+                    },
+                    "rotation": {
+                      "type": "number"
+                    },
+                    "nearest": {
+                      "type": "string"
+                    },
+                    "nearestIou": {
+                      "type": "number"
+                    },
+                    "outline": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number"
+                          },
+                          "y": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ]
+                      }
+                    },
+                    "holesFilled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "iou",
+                    "node"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "color",
+                "areaPx",
+                "share",
+                "bbox",
+                "centroid",
+                "holes",
+                "orientation",
+                "elongation",
+                "symmetry",
+                "fit"
+              ]
+            }
+          },
+          "blobCount": {
+            "type": "integer"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "layout": {
+            "type": "object",
+            "properties": {
+              "repeats": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "color": {
+                      "type": "string"
+                    },
+                    "width": {
+                      "type": "number"
+                    },
+                    "height": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "ids",
+                    "count",
+                    "kind",
+                    "color",
+                    "width",
+                    "height"
+                  ]
+                }
+              },
+              "grids": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rows": {
+                      "type": "integer"
+                    },
+                    "cols": {
+                      "type": "integer"
+                    },
+                    "origin": {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y"
+                      ]
+                    },
+                    "pitchX": {
+                      "type": "number"
+                    },
+                    "pitchY": {
+                      "type": "number"
+                    },
+                    "cellWidth": {
+                      "type": "number"
+                    },
+                    "cellHeight": {
+                      "type": "number"
+                    },
+                    "gapX": {
+                      "type": "number"
+                    },
+                    "gapY": {
+                      "type": "number"
+                    },
+                    "filled": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "ids",
+                    "rows",
+                    "cols",
+                    "origin",
+                    "pitchX",
+                    "pitchY",
+                    "cellWidth",
+                    "cellHeight",
+                    "gapX",
+                    "gapY",
+                    "filled"
+                  ]
+                }
+              },
+              "radials": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "center": {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y"
+                      ]
+                    },
+                    "radius": {
+                      "type": "number"
+                    },
+                    "startAngle": {
+                      "type": "number"
+                    },
+                    "stepAngle": {
+                      "type": "number"
+                    },
+                    "alignment": {
+                      "type": "string"
+                    },
+                    "memberOffset": {
+                      "type": "number"
+                    },
+                    "centerBlob": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ids",
+                    "count",
+                    "center",
+                    "radius",
+                    "startAngle",
+                    "stepAngle"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "repeats",
+              "grids",
+              "radials"
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "size",
+          "region",
+          "scale",
+          "analysisScale",
+          "background",
+          "palette",
+          "transparentShare",
+          "blobs",
+          "blobCount",
+          "truncated",
+          "layout",
+          "warnings"
+        ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
       },
