@@ -49,8 +49,10 @@ func normalizeAlphaColors(s string) string {
 			if len(hex) == 4 {
 				hex = string([]byte{hex[0], hex[0], hex[1], hex[1], hex[2], hex[2], hex[3], hex[3]})
 			}
-			var alpha int
-			fmt.Sscanf(hex[6:], "%x", &alpha)
+			alpha, err := strconv.ParseUint(hex[6:8], 16, 8)
+			if err != nil {
+				continue
+			}
 			opacity := float64(alpha) / 255
 			opName := name + "-opacity"
 			switch name {
