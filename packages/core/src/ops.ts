@@ -300,7 +300,7 @@ function formatZod(err: z.ZodError): string {
 
 function container(doc: DocumentT, parentId: string | null, i: number): string[] {
   if (parentId === null) return doc.rootIds;
-  const parent = doc.nodes[parentId];
+  const parent = nodeAt(doc, parentId);
   if (!parent) throw new OpError(`parent "${parentId}" does not exist`, i);
   if (!isContainer(parent)) throw new OpError(`parent "${parentId}" is ${parent.type}; only frame, group and page have children`, i);
   return parent.children;
@@ -455,7 +455,8 @@ function createNode(
     }
   }
   const id = input.id ?? newId();
-  if (doc.nodes[id]) throw new OpError(`id "${id}" already exists`, i);
+  if (id === "__proto__") throw new OpError(`id "__proto__" is reserved`, i);
+  if (nodeAt(doc, id)) throw new OpError(`id "${id}" already exists`, i);
   if (children && !CONTAINER_TYPES.has(input.type))
     throw new OpError(`only frame, group and page take children (got ${input.type})`, i);
   const allowed = knownKeys(input.type);
@@ -563,7 +564,7 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       return [{ op: "delete", id }];
     }
     case "update": {
-      const node = doc.nodes[op.id];
+      const node = nodeAt(doc, op.id);
       if (!node) throw new OpError(`node "${op.id}" does not exist`, i);
       // `index` nos props é a diretiva de ordem Z: reordena no pai atual antes de aplicar os campos.
       let props = op.props;
@@ -598,13 +599,13 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       const inverse: Op[] = [];
       if (Object.keys(rest).length) inverse.push(updatePlain(doc, node, rest, i));
       if ("fill" in props) {
-        const cur = doc.nodes[op.id]!;
+        const cur = nodeAt(doc, op.id)!;
         inverse.unshift(isInstance(cur) ? updateOverride(doc, cur, cur, cur.instanceOf, { fill }, i) : updatePlain(doc, cur, { fill }, i));
       }
       return [...inverse, ...reorder];
     }
     case "delete": {
-      const node = doc.nodes[op.id];
+      const node = nodeAt(doc, op.id);
       if (!node) throw new OpError(`node "${op.id}" does not exist`, i);
       const owner = copyOwner(doc, node);
       if (owner) throw new OpError(`${copyRule(op.id, owner.id)}; to hide it, use visible: false`, i);
@@ -624,7 +625,8 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
     }
     case "restore": {
       for (const n of op.nodes) {
-        if (doc.nodes[n.id]) throw new OpError(`id "${n.id}" already exists`, i);
+        if (n.id === "__proto__") throw new OpError(`id "__proto__" is reserved`, i);
+        if (nodeAt(doc, n.id)) throw new OpError(`id "${n.id}" already exists`, i);
       }
       const list = container(doc, op.parentId, i);
       const root = op.nodes.find((n) => n.id === op.rootId);
@@ -634,7 +636,7 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       return [{ op: "delete", id: op.rootId }];
     }
     case "move": {
-      const node = doc.nodes[op.id];
+      const node = nodeAt(doc, op.id);
       if (!node) throw new OpError(`node "${op.id}" does not exist`, i);
       if (op.parentId === op.id || (op.parentId && isDescendant(doc, op.parentId, op.id))) {
         throw new OpError(`moving "${op.id}" into itself would create a cycle`, i);
@@ -704,7 +706,7 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       let changed = 0;
       let skippedAny = false;
       for (const id of op.ids) {
-        const node = doc.nodes[id];
+        const node = nodeAt(doc, id);
         if (!node) throw new OpError(`node "${id}" does not exist`, i);
         const plan = detachTokenPlan(doc, node, op.fields, i);
         if (plan.skipped.length) skippedAny = true;
@@ -1115,6 +1117,11 @@ function detachTokenProps(doc: DocumentT, node: NodeT, fields: readonly string[]
  * Aplica uma transação de operações de forma atômica: ou todas são aplicadas, ou nenhuma
  * (o documento de entrada nunca é mutado). Retorna o novo documento e as operações inversas.
  */
+function nodeAt(doc: DocumentT, id: string | null | undefined): NodeT | undefined {
+  if (id == null || id === "__proto__" || !Object.hasOwn(doc.nodes, id)) return undefined;
+  return doc.nodes[id];
+}
+
 export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
   const draft = structuredClone(doc);
   const inverse: Op[] = [];
