@@ -3,15 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Landing page and docs published to GitHub Pages (paprika.js.org).",
+  "description": "Landing page and docs (Astro, static) published to GitHub Pages (paprika.js.org).",
   "scripts": {
-    "site:build": "node scripts/build.mjs",
-    "site:draw": "node scripts/draw-landing.mjs"
+    "dev": "astro dev",
+    "site:build": "astro build && pagefind --site dist",
+    "site:preview": "astro preview",
+    "site:draw": "node scripts/draw-landing.mjs",
+    "site:draw-docs": "node scripts/draw-docs.mjs"
   },
   "dependencies": {
     "@paprika/core": "workspace:*"
   },
   "devDependencies": {
-    "marked": "^18.2.1"
+    "astro": "7.4.13",
+    "marked": "^18.2.1",
+    "pagefind": "1.6.0",
+    "shiki": "4.6.0"
   }
 }

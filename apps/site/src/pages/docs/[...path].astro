@@ -1,0 +1,19 @@
+---
+import DocPage from "../../components/DocPage.astro";
+import { ENTRIES, HOME, type DocEntry, type Lang } from "../../docs.config";
+
+export function getStaticPaths() {
+  return ENTRIES.filter((e) => e !== HOME).flatMap((entry) =>
+    (["en", "pt-BR"] as Lang[]).map((lang) => ({
+      params: { path: entry.out[lang].replace(/^docs\//, "").replace(/\.html$/, "") },
+      props: { entry, lang },
+    })),
+  );
+}
+
+interface Props {
+  entry: DocEntry;
+  lang: Lang;
+}
+---
+<DocPage {...Astro.props} />

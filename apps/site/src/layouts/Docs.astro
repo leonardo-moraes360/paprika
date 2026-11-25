@@ -1,0 +1,108 @@
+---
+import Head from "../components/Head.astro";
+import "../styles/docs.css";
+import { ENTRIES, GROUPS, type DocEntry, type Lang } from "../docs.config";
+import type { Heading } from "../lib/markdown";
+import { REPO, href, rel } from "../lib/paths";
+import { UI } from "../lib/ui";
+
+interface Props {
+  lang: Lang;
+  entry: DocEntry;
+  title: string;
+  headings?: Heading[];
+  src?: string;
+}
+const { lang, entry, title, headings = [], src } = Astro.props;
+const ui = UI[lang];
+const page = entry.out[lang];
+const root = rel(page, "index.html").replace(/index\.html$/, "") || "./";
+const group = GROUPS.find((g) => g.items.includes(entry));
+const i = ENTRIES.indexOf(entry);
+const prev = ENTRIES[i - 1];
+const next = ENTRIES[i + 1];
+const landing = lang === "en" ? "index.html" : "pt-BR/index.html";
+const counterpart = entry.out[ui.other];
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+const isHome = entry.slug === "index";
+const pageTitle = isHome ? ui.homeTitle : `${title} · Paprika docs`;
+---
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <script is:inline>
+      try {
+        const t = localStorage.getItem("paprika-theme");
+        document.documentElement.dataset.theme = t || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      } catch {
+        document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      }
+    </script>
+    <Head lang={lang} title={pageTitle} description={ui.description} page={page} alternates={[[lang, page], [ui.other, counterpart]]} icon={rel(page, "icon.svg")} />
+  </head>
+  <body data-root={root} data-no-results={ui.noResults}>
+    <a class="skip" href="#content">{ui.skip}</a>
+    <header class="top">
+      <div class="top-left">
+        <a class="brand" href={href(page, landing)} aria-label="Paprika">
+          <img class="lockup-dark" src={rel(page, "brand/lockup.svg")} alt="Paprika" width="110" height="28" />
+          <img class="lockup-light" src={rel(page, "brand/lockup-light.svg")} alt="Paprika" width="110" height="28" />
+        </a>
+        <span class="badge">{ui.docs}</span>
+        <div class="search" role="search">
+          <label>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <input id="search" type="search" placeholder={ui.search} aria-label={ui.searchLabel} autocomplete="off" aria-controls="search-results" aria-expanded="false" />
+            <kbd aria-hidden="true">/</kbd>
+          </label>
+          <ul id="search-results" class="results" role="listbox" hidden></ul>
+        </div>
+      </div>
+      <div class="top-right">
+        <a href={href(page, landing)}>{ui.home}</a>
+        <a href={REPO} rel="noopener">GitHub</a>
+        <a href={href(page, counterpart)} hreflang={ui.other}>{ui.otherLabel}</a>
+        <button class="icon-btn theme-btn" type="button" aria-label={ui.theme} title={ui.theme}>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+        </button>
+        <button class="icon-btn menu-btn" type="button" aria-label={ui.menu} aria-controls="sidebar" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
+      </div>
+    </header>
+    <div class:list={["wrap", { "no-toc": toc.length === 0 }]}>
+      <nav id="sidebar" class="sidebar" aria-label={ui.nav}>
+        {GROUPS.map((g) => (
+          <>
+            <h2>{g.title[lang]}</h2>
+            <ul>
+              {g.items.map((e) => (
+                <li><a href={href(page, e.out[lang])} aria-current={e === entry ? "page" : undefined}>{e.title[lang]}</a></li>
+              ))}
+            </ul>
+          </>
+        ))}
+        <ul><li><a href={href(page, counterpart)} hreflang={ui.other}>{ui.otherLabel}</a></li></ul>
+      </nav>
+      <main id="content" data-pagefind-body>
+        {!isHome && group && <p class="eyebrow" data-pagefind-ignore>{group.title[lang]}</p>}
+        <slot />
+        {!isHome && (
+          <nav class="pager" aria-label={`${ui.previous} / ${ui.next}`} data-pagefind-ignore>
+            {prev && <a class="prev" href={href(page, prev.out[lang])}><small>{ui.previous}</small><strong>{prev.title[lang]}</strong></a>}
+            {next && <a class="next" href={href(page, next.out[lang])}><small>{ui.next}</small><strong>{next.title[lang]}</strong></a>}
+          </nav>
+        )}
+        {src && <p class="edit" data-pagefind-ignore><a href={`${REPO}/edit/main/${src}`} rel="noopener">{ui.edit}</a></p>}
+      </main>
+      {toc.length > 0 && (
+        <aside class="toc" aria-labelledby="toc-title">
+          <h2 id="toc-title">{ui.onThisPage}</h2>
+          <ul>{toc.map((h) => <li><a class={`depth-${h.depth}`} href={`#${h.id}`}>{h.text}</a></li>)}</ul>
+        </aside>
+      )}
+    </div>
+    <script src="../scripts/docs.ts"></script>
+  </body>
+</html>

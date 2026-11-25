@@ -25,13 +25,14 @@ const NOTHING = {
   codeql: false,
   codeql_matrix: "[]",
   docker: false,
+  site: false,
 };
 
 const plan = (files) => planFor(files);
 
 function assertEverythingOn(p, why) {
   assert.equal(p.full, true, `${why}: full`);
-  for (const key of ["build", "ts", "unit", "suites", "golden", "go", "rust", "sync", "codeql", "docker"]) {
+  for (const key of ["build", "ts", "unit", "suites", "golden", "go", "rust", "sync", "codeql", "docker", "site"]) {
     assert.equal(p[key], true, `${why}: ${key}`);
   }
   assert.deepEqual(
@@ -234,6 +235,18 @@ describe("each area selects its jobs", () => {
     }
   });
 
+  it("the site, the brand geometry and core build the site", () => {
+    for (const file of ["apps/site/src/docs.config.ts", "apps/site/design/landing.paprika.json", "scripts/brand/trio-pixel.mjs", "packages/core/src/style.ts"]) {
+      assert.equal(plan([file]).site, true, file);
+    }
+  });
+
+  it("what the site does not read skips the site build", () => {
+    for (const file of ["apps/web/src/Canvas.tsx", "server/internal/server/mcp.go", "crates/render/src/lib.rs", "packages/e2e/test/api.test.ts", "docs/en-US/mcp.md"]) {
+      assert.equal(plan([file]).site, false, file);
+    }
+  });
+
   it("a path no area owns runs nothing", () => {
     assert.deepEqual(plan(["notes/todo.md", "design/marca.paprika.json", "tools/scratch.sh"]), NOTHING);
   });
@@ -284,7 +297,7 @@ describe("the published interface", () => {
     const lines = planLines(plan(["docs/en-US/ci.md"]));
     assert.equal(
       lines,
-      "full=false\nbuild=false\nts=false\nunit=false\nunit_matrix=[]\nsuites=false\nsuites_matrix=[]\ngolden=false\ngo=false\nrust=false\nsync=false\ncodeql=false\ncodeql_matrix=[]\ndocker=false\n",
+      "full=false\nbuild=false\nts=false\nunit=false\nunit_matrix=[]\nsuites=false\nsuites_matrix=[]\ngolden=false\ngo=false\nrust=false\nsync=false\ncodeql=false\ncodeql_matrix=[]\ndocker=false\nsite=false\n",
     );
   });
 
