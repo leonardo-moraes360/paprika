@@ -1447,6 +1447,17 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		optStr("path"),
 		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
 		optStr("compare"),
+		z.Field{Name: "grid", Schema: z.Optional(z.Union(z.Bool(), z.Object(
+			z.Field{Name: "step", Schema: z.Optional(z.Number().Positive())},
+			z.Field{Name: "labels", Schema: z.Optional(z.Bool())},
+			optStr("color"),
+		)))},
+		z.Field{Name: "region", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number()},
+			z.Field{Name: "y", Schema: z.Number()},
+			z.Field{Name: "width", Schema: z.Number().Positive()},
+			z.Field{Name: "height", Schema: z.Number().Positive()},
+		))},
 		workspaceID(),
 	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		if m.shot == nil {
@@ -1459,6 +1470,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		png, w, h, err := m.shot.ScreenshotMode(ctx, d, a.Str("rootId"), a.Num("scale"), a.Str("mode"))
 		if err != nil {
 			return nil, err
+		}
+		grid, err := parseGridArg(a)
+		if err != nil {
+			return nil, err
+		}
+		region := parseRegionArg(a)
+		var gridStep float64
+		var usedRegion *Region
+		if grid != nil || region != nil {
+			fw, fh := frameSize(d, a.Str("rootId"), w, h, a.Num("scale"))
+			png, w, h, gridStep, usedRegion, err = annotateShot(png, fw, fh, float64(w)/fw, region, grid)
+			if err != nil {
+				return nil, err
+			}
 		}
 		compared := false
 		if src := strings.TrimSpace(a.Str("compare")); src != "" {
@@ -1476,6 +1501,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if compared {
 			shotText += " side by side"
 		}
+		if gridStep > 0 {
+			shotText += ", grid step " + formatGridValue(gridStep)
+		}
+		if usedRegion != nil {
+			shotText += fmt.Sprintf(", region x=%s y=%s %s×%s", formatGridValue(usedRegion.X), formatGridValue(usedRegion.Y), formatGridValue(usedRegion.W), formatGridValue(usedRegion.H))
+		}
+		extras := func(o *jsonv.Object) {
+			if gridStep > 0 {
+				o.Set("grid", jsonv.NewObject("step", gridStep))
+			}
+			if usedRegion != nil {
+				o.Set("region", jsonv.NewObject("x", usedRegion.X, "y", usedRegion.Y, "width", usedRegion.W, "height", usedRegion.H))
+			}
+		}
 		if rel := a.Str("path"); rel != "" {
 			abs, werr := writeScreenshot(store.Path(), rel, png)
 			if werr != nil {
@@ -1488,6 +1527,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if compared {
 				out.Set("compare", true)
 			}
+			extras(out)
 			return jsonResult(out), nil
 		}
 		structured := jsonv.NewObject("width", float64(w), "height", float64(h))
@@ -1497,6 +1537,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if compared {
 			structured.Set("compare", true)
 		}
+		extras(structured)
 		return jsonv.NewObject("content", []any{
 			jsonv.NewObject("type", "image", "data", base64.StdEncoding.EncodeToString(png), "mimeType", "image/png"),
 			jsonv.NewObject("type", "text", "text", shotText),
