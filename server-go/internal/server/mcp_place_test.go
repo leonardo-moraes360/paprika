@@ -169,3 +169,108 @@ func TestPlaceLintOverlapAndOverlay(t *testing.T) {
 		t.Fatalf("lint: %s", out)
 	}
 }
+
+func TestPlaceNonePinsAbsoluteInAutoLayout(t *testing.T) {
+	m, s, _ := importImageSetup(t)
+	if out, isErr := callText(t, m, "create_nodes", obj("nodes", []any{
+		obj("type", "frame", "id", "col", "width", 400.0, "height", 400.0, "layout", obj("mode", "column", "gap", 8.0)),
+		obj("type", "frame", "id", "free", "width", 100.0, "height", 100.0),
+	})); isErr {
+		t.Fatal(out)
+	}
+	out, isErr := callText(t, m, "create_nodes", obj("parentId", "col", "place", "none", "nodes", []any{
+		obj("type", "ellipse", "id", "dot", "x", 30.0, "y", 40.0, "width", 20.0, "height", 20.0),
+		obj("type", "rect", "id", "flow", "width", 20.0, "height", 20.0),
+		obj("type", "rect", "id", "kept", "x", 5.0, "y", 5.0, "width", 20.0, "height", 20.0, "layoutPositioning", "auto"),
+	}))
+	if isErr {
+		t.Fatal(out)
+	}
+	if strings.Count(out, "layoutPositioning was set to") != 1 {
+		t.Fatalf("want one warning: %s", out)
+	}
+	if got := core.GetNode(s.Doc(), "dot").Str("layoutPositioning"); got != "absolute" {
+		t.Fatalf("dot layoutPositioning = %q", got)
+	}
+	if core.GetNode(s.Doc(), "flow").Has("layoutPositioning") {
+		t.Fatal("a node without x/y must stay in the flow")
+	}
+	if got := core.GetNode(s.Doc(), "kept").Str("layoutPositioning"); got != "auto" {
+		t.Fatalf("explicit layoutPositioning overridden: %q", got)
+	}
+	// a parent without row/column layout is untouched
+	if out, isErr := callText(t, m, "create_nodes", obj("parentId", "free", "place", "none", "nodes", []any{
+		obj("type", "rect", "id", "plain", "x", 3.0, "y", 4.0, "width", 10.0, "height", 10.0),
+	})); isErr || strings.Contains(out, "layoutPositioning was set") || core.GetNode(s.Doc(), "plain").Has("layoutPositioning") {
+		t.Fatalf("plain parent: %s", out)
+	}
+	out, isErr = callText(t, m, "import_html", obj("parentId", "col", "place", "none", "x", 48.0, "y", 36.0, "html", `<div style="width:30px;height:10px;background:#f00"></div>`))
+	if isErr || !strings.Contains(out, "layoutPositioning was set to") {
+		t.Fatalf("import_html: %s", out)
+	}
+	if got := lastNode(t, s); got.Str("layoutPositioning") != "absolute" || got.Num("x") != 48 {
+		t.Fatalf("import_html root = %s", jsonv.Stringify(got, ""))
+	}
+	out, isErr = callText(t, m, "import_image", obj("parentId", "col", "place", "none", "x", 720.0, "y", 48.0, "src", "pixel.png"))
+	if isErr || !strings.Contains(out, "layoutPositioning was set to") {
+		t.Fatalf("import_image: %s", out)
+	}
+	if got := lastNode(t, s); got.Str("layoutPositioning") != "absolute" || got.Num("x") != 720 {
+		t.Fatalf("import_image node = %s", jsonv.Stringify(got, ""))
+	}
+}
+
+func TestPlaceDuplicateRightBelowFollowSource(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	if out, isErr := callText(t, m, "create_nodes", obj("place", "none", "nodes", []any{
+		obj("type", "frame", "id", "far", "x", 3000.0, "y", 3000.0, "width", 100.0, "height", 100.0),
+		obj("type", "frame", "id", "src", "x", 10.0, "y", 20.0, "width", 100.0, "height", 50.0),
+	})); isErr {
+		t.Fatal(out)
+	}
+	for _, c := range []struct {
+		place string
+		x, y  float64
+	}{{"right", 190, 20}, {"below", 10, 150}} {
+		out, isErr := callText(t, m, "duplicate_nodes", obj("ids", []any{"src"}, "place", c.place))
+		if isErr {
+			t.Fatal(out)
+		}
+		keys := core.Nodes(s.Doc()).Keys()
+		cp := core.GetNode(s.Doc(), keys[len(keys)-1])
+		if cp.Num("x") != c.x || cp.Num("y") != c.y {
+			t.Fatalf("place %s: copy at %v,%v want %v,%v", c.place, cp.Num("x"), cp.Num("y"), c.x, c.y)
+		}
+	}
+}
+
+func TestPlaceContentBoxOnLaterPage(t *testing.T) {
+	s, _ := openTemp(t)
+	m := NewMCP(s, "agent:test", nil)
+	for _, name := range []string{"p1", "p2"} {
+		if out, isErr := callText(t, m, "create_page", obj("name", name)); isErr {
+			t.Fatal(out)
+		}
+	}
+	pages := s.Doc().Strings("rootIds")
+	if len(pages) != 2 {
+		t.Fatalf("pages = %v", pages)
+	}
+	if out, isErr := callText(t, m, "create_nodes", obj("parentId", pages[1], "place", "none", "nodes", []any{
+		obj("type", "frame", "id", "b", "x", 8000.0, "y", 5000.0, "width", 300.0, "height", 200.0),
+		obj("type", "frame", "id", "c", "x", 100.0, "y", 40.0, "width", 50.0, "height", 60.0),
+	})); isErr {
+		t.Fatal(out)
+	}
+	out, isErr := callText(t, m, "get_bounds", obj("rootId", pages[1]))
+	if isErr {
+		t.Fatal(out)
+	}
+	if !strings.Contains(out, `"width": 8200`) || !strings.Contains(out, `"height": 5160`) {
+		t.Fatalf("content box: %s", out)
+	}
+	if out, _ = callText(t, m, "get_document_outline", obj("rootId", pages[1])); !strings.Contains(out, "w=8200 h=5160") {
+		t.Fatalf("outline: %s", out)
+	}
+}
