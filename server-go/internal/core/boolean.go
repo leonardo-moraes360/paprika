@@ -188,11 +188,15 @@ func mapRingLocal(ring boolRing, x, y, w, h, rotation float64) boolRing {
 }
 
 func flattenCubic(p0, p1, p2, p3 Point, out *[]Point) {
+	flattenCubicTol(p0, p1, p2, p3, out, boolFlat)
+}
+
+func flattenCubicTol(p0, p1, p2, p3 Point, out *[]Point, flat float64) {
 	var step func(a, b, c, d Point)
 	step = func(a, b, c, d Point) {
 		dx, dy := d.X-a.X, d.Y-a.Y
 		d2 := math.Abs((b.X-d.X)*dy-(b.Y-d.Y)*dx) + math.Abs((c.X-d.X)*dy-(c.Y-d.Y)*dx)
-		if d2*d2 <= boolFlat*boolFlat*(dx*dx+dy*dy) || dist2(a, d) < boolFlat*boolFlat {
+		if d2*d2 <= flat*flat*(dx*dx+dy*dy) || dist2(a, d) < flat*flat {
 			*out = append(*out, d)
 			return
 		}
@@ -209,13 +213,21 @@ func flattenCubic(p0, p1, p2, p3 Point, out *[]Point) {
 }
 
 func flattenQuad(p0, p1, p2 Point, out *[]Point) {
-	flattenCubic(p0,
+	flattenQuadTol(p0, p1, p2, out, boolFlat)
+}
+
+func flattenQuadTol(p0, p1, p2 Point, out *[]Point, flat float64) {
+	flattenCubicTol(p0,
 		Point{p0.X + (2.0/3.0)*(p1.X-p0.X), p0.Y + (2.0/3.0)*(p1.Y-p0.Y)},
 		Point{p2.X + (2.0/3.0)*(p1.X-p2.X), p2.Y + (2.0/3.0)*(p1.Y-p2.Y)},
-		p2, out)
+		p2, out, flat)
 }
 
 func arcToCubicPts(from Point, s Segment) []Point {
+	return arcToCubicTol(from, s, boolFlat)
+}
+
+func arcToCubicTol(from Point, s Segment, flat float64) []Point {
 	rx, ry := s.Rx, s.Ry
 	if rx == 0 || ry == 0 || (from.X == s.To.X && from.Y == s.To.Y) {
 		return []Point{s.To}
@@ -270,7 +282,7 @@ func arcToCubicPts(from Point, s Segment) []Point {
 			start = out[len(out)-1]
 		}
 		pts := []Point{}
-		flattenCubic(start, c1, c2, e2, &pts)
+		flattenCubicTol(start, c1, c2, e2, &pts, flat)
 		out = append(out, pts...)
 	}
 	return out

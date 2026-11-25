@@ -166,7 +166,7 @@ describe("API: MCP", () => {
     expect(tools).toEqual(contract.tools);
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
-        "apply_ops", "archive_workspace", "create_shape_path", "round_path_corners", "combine_paths", "convert_to_path", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
+        "apply_ops", "archive_workspace", "create_shape_path", "round_path_corners", "outline_stroke", "repeat_nodes", "combine_paths", "convert_to_path", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "detach_tokens", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "align_nodes", "distribute_nodes", "wrap_nodes", "show_all", "unlock_all",
@@ -509,6 +509,37 @@ describe("API: MCP", () => {
     assertOutput("round_path_corners", rounded.structuredContent);
     expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["sq"] })))[0].d).toContain("A8 8 0 0 1");
     expect(textOf(await call(c, "round_path_corners", { d: "M0 0 C1 1 2 2 3 3", radius: 2 }))).toMatch(/straight edges/);
+  });
+
+  it("outline_stroke troca o traço por um preenchimento e repeat_nodes cria cópias numa órbita", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      nodes: [
+        {
+          type: "frame", id: "ring", x: 0, y: 0, width: 400, height: 400,
+          children: [
+            { type: "rect", id: "tick", x: 190, y: 20, width: 20, height: 40, fill: "#c43d27" },
+            { type: "path", id: "ln", x: 100, y: 200, width: 100, height: 0, d: "M0 0 L100 0", stroke: { color: "#112233", width: 10 }, strokeCap: "butt" },
+          ],
+        },
+      ],
+    });
+    const rep = (await call(c, "repeat_nodes", { id: "tick", count: 12, mode: "radial", rotate: true })) as ToolResult & {
+      structuredContent?: { copies: string[]; ids: string[] };
+    };
+    assertOutput("repeat_nodes", rep.structuredContent);
+    expect(rep.structuredContent?.copies).toHaveLength(11);
+    const third = JSON.parse(textOf(await call(c, "get_nodes", { ids: [rep.structuredContent!.copies[2]!] })))[0];
+    expect(third).toMatchObject({ type: "rect", x: 340, y: 190, rotation: 90, parentId: "ring" });
+    expect(textOf(await call(c, "repeat_nodes", { id: "ring", count: 3, mode: "radial" }))).toMatch(/sized frame/);
+
+    const out = (await call(c, "outline_stroke", { id: "ln" })) as ToolResult & { structuredContent?: { id: string; bounds: { width: number; height: number } } };
+    assertOutput("outline_stroke", out.structuredContent);
+    expect(out.structuredContent).toMatchObject({ id: "ln", bounds: { x: 100, y: 195, width: 100, height: 10 } });
+    const ln = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["ln"] })))[0];
+    expect(ln).toMatchObject({ type: "path", fill: "#112233", d: "M0 10 L100 10 L100 0 L0 0 Z" });
+    expect(ln.stroke).toBeUndefined();
+    expect(textOf(await call(c, "outline_stroke", { id: "ln" }))).toMatch(/no stroke/);
   });
 
   it("semântica web e converter em caminho", async () => {

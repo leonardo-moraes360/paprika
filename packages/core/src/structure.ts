@@ -19,6 +19,127 @@ function siblingsOf(doc: Document, parentId: string | null): string[] {
   return isContainer(p) ? p.children : [];
 }
 
+export const REPEAT_MODES = ["radial", "linear", "grid"] as const;
+export type RepeatMode = (typeof REPEAT_MODES)[number];
+
+export interface RepeatOptions {
+  /** Total number of nodes including the source: count - 1 copies are made. */
+  count: number;
+  mode: RepeatMode;
+  /** Radial: orbit center in the parent's coordinates (default: the parent's center). */
+  center?: { x: number; y: number };
+  /** Radial: total sweep in degrees, clockwise (default 360 = a full ring). */
+  angle?: number;
+  /** Radial: copies rotate with the orbit (default false: they keep the source's rotation). */
+  rotate?: boolean;
+  /** Linear: offset between consecutive copies. */
+  step?: { x?: number; y?: number };
+  /** Grid: columns, optional rows and the gap between cells. */
+  columns?: number;
+  rows?: number;
+  gap?: number;
+}
+
+const REPEAT_ONLY: Record<RepeatMode, readonly (keyof RepeatOptions)[]> = {
+  radial: ["center", "angle", "rotate"],
+  linear: ["step"],
+  grid: ["columns", "rows", "gap"],
+};
+
+/**
+ * Repeats one node `count` times (count - 1 copies, one undo step) along a circle, a line or a grid.
+ * Copying is `duplicateOps`; each copy only gets a new position (and rotation). Radial copies orbit
+ * the center by their box center (the pivot of `rotation`), so a rotated ring of petals just works.
+ * The plan's `map` keys are "<source id>#<copy number>".
+ */
+export function repeatOps(doc: Document, id: string, opts: RepeatOptions): DuplicatePlan {
+  const src = doc.nodes[id];
+  if (!src) throw new Error(`node "${id}" does not exist`);
+  const { count, mode } = opts;
+  if (!(REPEAT_MODES as readonly string[]).includes(mode)) throw new Error(`unknown mode "${mode}"; use radial, linear or grid`);
+  if (!Number.isInteger(count) || count < 2 || count > 500) throw new Error("count must be a whole number from 2 to 500 (the source counts as one)");
+  for (const m of REPEAT_MODES) {
+    if (m === mode) continue;
+    const bad = REPEAT_ONLY[m].filter((k) => opts[k] !== undefined);
+    if (bad.length) throw new Error(`${bad.join(", ")} only work with mode "${m}", not "${mode}"`);
+  }
+  const num = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
+  const rec = src as Record<string, unknown>;
+  const x0 = num(rec.x) ?? 0;
+  const y0 = num(rec.y) ?? 0;
+  const size = (): { w: number; h: number } => {
+    const w = num(rec.width);
+    const h = num(rec.height);
+    if (w === undefined || h === undefined) throw new Error(`mode "${mode}" needs "${id}" to have a numeric width and height`);
+    return { w, h };
+  };
+
+  let place: (k: number) => { x: number; y: number; rotation?: number };
+  if (mode === "radial") {
+    const { w, h } = size();
+    const parent = src.parentId ? doc.nodes[src.parentId] : undefined;
+    let cx: number;
+    let cy: number;
+    if (opts.center) {
+      cx = opts.center.x;
+      cy = opts.center.y;
+    } else {
+      const pw = num((parent as Record<string, unknown> | undefined)?.width);
+      const ph = num((parent as Record<string, unknown> | undefined)?.height);
+      if (!parent || parent.type === "page" || pw === undefined || ph === undefined)
+        throw new Error(`"${id}" is not inside a sized frame: pass center {x, y} for the orbit`);
+      cx = pw / 2;
+      cy = ph / 2;
+    }
+    if (!Number.isFinite(cx + cy)) throw new Error("center must be finite numbers");
+    const angle = opts.angle ?? 360;
+    if (!Number.isFinite(angle) || angle === 0) throw new Error("angle must be a non-zero number of degrees");
+    const stepAngle = Math.abs(angle) >= 360 ? angle / count : angle / (count - 1);
+    const dx = x0 + w / 2 - cx;
+    const dy = y0 + h / 2 - cy;
+    if (Math.hypot(dx, dy) < 1e-6) throw new Error(`"${id}" is centered on the orbit center, so every copy would land on it: move it away or pass another center`);
+    const rot0 = num(rec.rotation) ?? 0;
+    place = (k) => {
+      const a = (stepAngle * k * Math.PI) / 180;
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      const r: { x: number; y: number; rotation?: number } = { x: round4(cx + dx * cos - dy * sin - w / 2), y: round4(cy + dx * sin + dy * cos - h / 2) };
+      if (opts.rotate) r.rotation = round4(rot0 + stepAngle * k);
+      return r;
+    };
+  } else if (mode === "linear") {
+    if (!opts.step) throw new Error("mode linear needs step {x, y}");
+    const sx = opts.step.x ?? 0;
+    const sy = opts.step.y ?? 0;
+    if (!Number.isFinite(sx + sy)) throw new Error("step must be finite numbers");
+    if (sx === 0 && sy === 0) throw new Error("step is 0, 0: every copy would land on the source");
+    place = (k) => ({ x: round4(x0 + sx * k), y: round4(y0 + sy * k) });
+  } else {
+    const { w, h } = size();
+    const columns = opts.columns;
+    if (columns === undefined || !Number.isInteger(columns) || columns < 1 || columns > 500) throw new Error("mode grid needs columns (a whole number from 1 to 500)");
+    if (opts.rows !== undefined && (!Number.isInteger(opts.rows) || opts.rows < 1)) throw new Error("rows must be a whole number from 1");
+    if (opts.rows !== undefined && opts.rows * columns < count) throw new Error(`${columns} columns x ${opts.rows} rows hold ${opts.rows * columns} nodes, count is ${count}`);
+    const gap = opts.gap ?? 0;
+    if (!Number.isFinite(gap)) throw new Error("gap must be a finite number");
+    place = (k) => ({ x: round4(x0 + (k % columns) * (w + gap)), y: round4(y0 + Math.floor(k / columns) * (h + gap)) });
+  }
+
+  const plan: DuplicatePlan = { ops: [], copies: [], map: {} };
+  for (let k = 1; k < count; k++) {
+    const one = duplicateOps(doc, [id], { offset: 0 });
+    const op = one.ops[0] as { node: Record<string, unknown> };
+    const at = place(k);
+    op.node.x = at.x;
+    op.node.y = at.y;
+    if (at.rotation !== undefined) op.node.rotation = at.rotation;
+    plan.ops.push(...one.ops);
+    plan.copies.push(...one.copies);
+    for (const [from, to] of Object.entries(one.map)) plan.map[`${from}#${k}`] = to;
+  }
+  return plan;
+}
+
 const ARRANGE_EPS = 1e-3;
 
 export type AlignEdge = "left" | "center" | "right" | "top" | "middle" | "bottom";

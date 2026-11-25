@@ -113,7 +113,7 @@ function windingAt(p: Pt, ring: Ring): number {
   return w;
 }
 
-function transformLocal(pt: Pt, x: number, y: number, w: number, h: number, rotation: number): Pt {
+export function transformLocal(pt: Pt, x: number, y: number, w: number, h: number, rotation: number): Pt {
   if (!rotation) return { x: round4(x + pt.x), y: round4(y + pt.y) };
   const rad = (rotation * Math.PI) / 180;
   const cos = Math.cos(rad);
@@ -159,12 +159,12 @@ function ellipseRing(w: number, h: number): Ring {
   return out;
 }
 
-function flattenCubic(p0: Pt, p1: Pt, p2: Pt, p3: Pt, out: Pt[]): void {
+export function flattenCubic(p0: Pt, p1: Pt, p2: Pt, p3: Pt, out: Pt[], flat = FLAT): void {
   const step = (a: Pt, b: Pt, c: Pt, d: Pt): void => {
     const dx = d.x - a.x;
     const dy = d.y - a.y;
     const d2 = Math.abs((b.x - d.x) * dy - (b.y - d.y) * dx) + Math.abs((c.x - d.x) * dy - (c.y - d.y) * dx);
-    if (d2 * d2 <= FLAT * FLAT * (dx * dx + dy * dy) || dist2(a, d) < FLAT * FLAT) {
+    if (d2 * d2 <= flat * flat * (dx * dx + dy * dy) || dist2(a, d) < flat * flat) {
       out.push(d);
       return;
     }
@@ -180,11 +180,11 @@ function flattenCubic(p0: Pt, p1: Pt, p2: Pt, p3: Pt, out: Pt[]): void {
   step(p0, p1, p2, p3);
 }
 
-function flattenQuad(p0: Pt, p1: Pt, p2: Pt, out: Pt[]): void {
-  flattenCubic(p0, { x: p0.x + (2 / 3) * (p1.x - p0.x), y: p0.y + (2 / 3) * (p1.y - p0.y) }, { x: p2.x + (2 / 3) * (p1.x - p2.x), y: p2.y + (2 / 3) * (p1.y - p2.y) }, p2, out);
+export function flattenQuad(p0: Pt, p1: Pt, p2: Pt, out: Pt[], flat = FLAT): void {
+  flattenCubic(p0, { x: p0.x + (2 / 3) * (p1.x - p0.x), y: p0.y + (2 / 3) * (p1.y - p0.y) }, { x: p2.x + (2 / 3) * (p1.x - p2.x), y: p2.y + (2 / 3) * (p1.y - p2.y) }, p2, out, flat);
 }
 
-function arcToCubic(from: Pt, s: Extract<Segment, { cmd: "A" }>): Pt[] {
+export function arcToCubic(from: Pt, s: Extract<Segment, { cmd: "A" }>, flat = FLAT): Pt[] {
   let { rx, ry } = s;
   if (rx === 0 || ry === 0 || (from.x === s.to.x && from.y === s.to.y)) return [s.to];
   const phi = (s.rotation * Math.PI) / 180;
@@ -226,7 +226,7 @@ function arcToCubic(from: Pt, s: Extract<Segment, { cmd: "A" }>): Pt[] {
     const c1 = { x: e1.x + alpha * d1.x, y: e1.y + alpha * d1.y };
     const c2 = { x: e2.x - alpha * d2.x, y: e2.y - alpha * d2.y };
     const pts: Pt[] = [];
-    flattenCubic(i === 0 ? from : out[out.length - 1]!, c1, c2, e2, pts);
+    flattenCubic(i === 0 ? from : out[out.length - 1]!, c1, c2, e2, pts, flat);
     out.push(...pts);
   }
   return out;
@@ -284,7 +284,7 @@ function flattenSegments(segs: Segment[]): Ring[] {
   return rings.map(cleanRing).filter((r) => r.length >= 3);
 }
 
-function applyViewBox(pt: Pt, vb: [number, number, number, number], w: number, h: number): Pt {
+export function applyViewBox(pt: Pt, vb: [number, number, number, number], w: number, h: number): Pt {
   const [vx, vy, vw, vh] = vb;
   const s = Math.min(w / vw, h / vh);
   const ox = (w - vw * s) / 2;

@@ -16,6 +16,7 @@ image: src (https://, data:image/ ou $asset), fit (cover|contain|fill), alt, dec
 frame e text podem ter href (relativo, #hash, http(s), mailto, tel), exportado como <a>. Um frame raiz pode ter minWidth e maxWidth; o export usa width 100% entre esses limites. O canvas mantém a largura de desenho.
 convert_to_path transforma rect e ellipse em path com o mesmo id (o raio entra no d).
 create_shape_path desenha estrela, polígono, anel, arco ou setor a partir de parâmetros (x, y = centro; ângulos em graus, no sentido horário a partir das 12h; cornerRadius arredonda os cantos) como um path comum; round_path_corners arredonda os cantos de um d poligonal (ou de um nó path). Prefira-os a calcular vértices, arcos ou filetes à mão.
+outline_stroke transforma o traço de um path numa forma preenchida de mesmo visual (mesmo id; é uma tinta só, então sem fill); repeat_nodes cria count - 1 cópias de um nó em volta de um centro (radial, com rotate para pétalas e marcas), ao longo de uma reta ou numa grade, num desfazer só. Prefira-os a calcular deslocamentos e ângulos à mão.
 group: name, x, y, opacity, visible, locked, notes, children. A caixa (x, y, width, height) é calculada a partir
   dos filhos ao fim de cada escrita; coordenadas dos filhos são relativas ao grupo. Use group_nodes/ungroup_nodes.
   wrap_nodes põe os mesmos irmãos num frame novo (o desenho não se move, um desfazer). align_nodes (edge: left|center|right|top|middle|bottom)
