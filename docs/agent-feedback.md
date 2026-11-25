@@ -1009,3 +1009,16 @@ Task: redraw six reference images (a gradient ring, an orange burst, a whale wor
 
 - Fine: every board took one or two `create_nodes` calls from a script talking to `/mcp` over HTTP (initialize, `notifications/initialized`, `tools/call`), with no errors or hangs; `combine_paths` union/subtract/intersect on rect, ellipse and path; the structured `gradient` with alpha stops on paths.
 - Simpler for the next agent: start from `analyze_image` or `trace_image`, draw the structure, run `fit_to_reference`, then `compare_reference` until `pass`.
+
+## 2026-11-25: the same six references again, with the new tools (workspace "Veredito 2 · Claude (ferramentas)")
+
+Task: redo the six replicas of the previous section with `analyze_image` → `trace_image` into a frame filled with the detected background → `compare_reference`, one script, about 0.4 s per board. Shape IoU from `compare_reference`, first round (hand-drawn) → this round: ring 0.77 → 0.92, burst 0.63 → 0.97, whale 0.42 → 0.96, crane 0.31 → 0.85, 12-mark gradient grid 0.52 → 0.74, 20-monogram grid 0.41 → 0.87.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 190 | Gradients traced as gradients | `trace_image` quantizes a smooth ramp into flat bands: the ring became 19 flat patches, the gradient monograms became striped and lost their dark ends (IoU 0.65, 0.74 with `maxColors: 16`, 165 paths) | Detect a blob whose colour varies smoothly and emit one path with a `gradient` (linear/radial fitted to the pixels) instead of one path per band | P1 |
+| 191 | Neighbouring traced shapes that touch | Adjacent paths of the ring leave hairline seams where the background shows through (anti-aliased edges on both sides) | Overlap shared edges by half a pixel, or trace touching blobs of one silhouette as one path with the bands as a gradient (#190) | P2 |
+| 192 | Small features kept | With the default `minArea` the whale's container boxes (13 px squares) were dropped as noise; `minArea: 0.00005` kept them and IoU went 0.92 → 0.96 | Keep small compact blobs with strong contrast against their surroundings even below `minArea`, or lower the default | P2 |
+| 193 | Photo or sketch panels | The crane reference has a pencil sketch on paper; it traced as beige/grey noise blobs | Expected; `colors` or `region` already limit it. Worth one guide sentence | P3 |
+
+- Fine: `compare_reference` scored the old hand-drawn boards close to the manual numbers (ring 0.77, whale 0.42); `analyze_image` background and `trace_image` placement put every board in the right place first try; no errors, no hangs, every board one undo step.

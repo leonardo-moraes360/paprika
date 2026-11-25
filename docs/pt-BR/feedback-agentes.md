@@ -1012,3 +1012,16 @@ Tarefa: redesenhar seis imagens de referência (um anel em degradê, uma explos�
 
 - Funcionou: cada prancha levou uma ou duas chamadas `create_nodes` de um script falando com `/mcp` por HTTP (initialize, `notifications/initialized`, `tools/call`), sem erro nem travamento; `combine_paths` union/subtract/intersect em rect, elipse e path; o `gradient` estruturado com paradas com alfa em paths.
 - Mais simples para o próximo agente: comece por `analyze_image` ou `trace_image`, desenhe a estrutura, rode `fit_to_reference` e depois `compare_reference` até `pass`.
+
+## 2026-11-25: as mesmas seis referências de novo, com as ferramentas novas (workspace "Veredito 2 · Claude (ferramentas)")
+
+Tarefa: refazer as seis réplicas da seção anterior com `analyze_image` → `trace_image` num frame pintado com o fundo detectado → `compare_reference`, num script só, cerca de 0,4 s por prancha. IoU da forma pelo `compare_reference`, primeira rodada (à mão) → esta rodada: anel 0,77 → 0,92, explosão 0,63 → 0,97, baleia 0,42 → 0,96, grou 0,31 → 0,85, grade de 12 em degradê 0,52 → 0,74, grade de 20 monogramas 0,41 → 0,87.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 190 | Degradês vetorizados como degradês | `trace_image` quantiza uma rampa suave em faixas chapadas: o anel virou 19 manchas lisas, os monogramas em degradê saíram listrados e perderam as pontas escuras (IoU 0,65; 0,74 com `maxColors: 16`, 165 paths) | Detectar uma mancha cuja cor varia suavemente e emitir um path com `gradient` (linear/radial ajustado aos pixels) em vez de um path por faixa | P1 |
+| 191 | Formas vetorizadas que se encostam | Paths vizinhos do anel deixam frestas finas onde o fundo aparece (bordas com anti-aliasing dos dois lados) | Sobrepor as bordas compartilhadas em meio pixel, ou vetorizar manchas encostadas de uma mesma silhueta como um path só, com as faixas como degradê (#190) | P2 |
+| 192 | Detalhes pequenos preservados | Com o `minArea` padrão, as caixinhas da baleia (quadrados de 13 px) sumiram como ruído; `minArea: 0.00005` manteve e o IoU foi de 0,92 → 0,96 | Manter manchas pequenas e compactas com contraste forte mesmo abaixo do `minArea`, ou baixar o padrão | P2 |
+| 193 | Painéis de foto ou croqui | A referência do grou tem um croqui a lápis em papel; virou ruído bege/cinza | Esperado; `colors` ou `region` já limitam. Vale uma frase no guia | P3 |
+
+- Funcionou: `compare_reference` deu às pranchas antigas notas perto das medidas à mão (anel 0,77, baleia 0,42); o fundo do `analyze_image` e o posicionamento do `trace_image` acertaram cada prancha de primeira; nenhum erro, nenhum travamento, cada prancha num passo de undo.
