@@ -51,6 +51,7 @@
 - Two processes on the same database (`serve` + `mcp`) see each other's commits within ~300 ms, but each keeps its own active workspace. To use MCP and the canvas together, prefer `paprika serve` + MCP over HTTP.
 - No boolean operations on paths, point-by-point path editing on the canvas (the pen creates new paths; existing ones are edited through `d`), or rotation-aware hit testing.
 - Groups have no rotation of their own (rotate the children), and children sized `hug`/`fill` count as a point when the group box is fitted. Nodes inside a row/column frame can't be grouped (their position comes from the flow).
+- `layout()` follows `flex-wrap` the way `nodeStyle` emits it: items go on a line while they fit (fill counts as 0 wide), lines are as tall as their tallest item and share leftover cross space equally (`align-content` stays at its CSS default), `justify` and `align` apply per line, and one `gap` is both the column and the row gap. A row that hugs its width never wraps (CSS `max-content`); a wrapping frame needs a fixed width, or `fill` inside a parent that has one, to break lines. Flex shrink and baseline alignment are not modelled.
 - `scale` doesn't scale a `fontSize` that is a token.
 - The contrast lint ignores gradients and background images.
 - Agent presence reaches only canvases of the same process: a `paprika mcp` (stdio) whose port was taken runs without a canvas, so its cursor does not show in the `paprika serve` canvas. Use MCP over HTTP to be seen.

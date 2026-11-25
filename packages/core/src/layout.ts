@@ -241,8 +241,44 @@ function hasFlow(n: Node): n is Extract<Node, { type: "frame" }> & { layout: Lay
   return n.type === "frame" && !!n.layout && n.layout.mode !== "none";
 }
 
-/** Bottom-up preferred size when the node hugs or needs a content size. */
-function preferred(doc: Document, n: Node, hint?: { maxW?: number; maxH?: number } | WH): WH {
+const LINE_EPS = 1e-9;
+
+/**
+ * CSS flex-wrap line breaking: `mains` are the items' hypothetical main sizes (fill counts as 0, like
+ * `flex: 1 1 0`). An item starts a new line when it (plus the gap) no longer fits `avail`; without
+ * `avail` (or without wrap) everything stays on one line.
+ */
+function splitLines(mains: readonly number[], avail: number | undefined, gap: number): number[][] {
+  const lines: number[][] = [];
+  let cur: number[] = [];
+  let sum = 0;
+  for (let i = 0; i < mains.length; i++) {
+    const add = mains[i]! + (cur.length ? gap : 0);
+    if (avail !== undefined && cur.length && sum + add > avail + LINE_EPS) {
+      lines.push(cur);
+      cur = [];
+      sum = 0;
+    }
+    sum += mains[i]! + (cur.length ? gap : 0);
+    cur.push(i);
+  }
+  if (cur.length) lines.push(cur);
+  return lines;
+}
+
+/** True when the node, or a flow frame below it, wraps: its height can depend on the width it is given. */
+function hasWrap(doc: Document, n: Node): boolean {
+  if (hasFlow(n) && n.layout.wrap) return true;
+  if (!isContainer(n)) return false;
+  for (const id of n.children) {
+    const c = doc.nodes[id];
+    if (c && hasWrap(doc, c)) return true;
+  }
+  return false;
+}
+
+/** Bottom-up preferred size when the node hugs or needs a content size. `force` pins the frame's own outer size on an axis (already decided by its parent). */
+function preferred(doc: Document, n: Node, hint?: { maxW?: number; maxH?: number } | WH, force?: { w?: number; h?: number }): WH {
   if (n.type === "page") return { w: 0, h: 0 };
   const maxW = hint && "maxW" in hint ? hint.maxW : hint && "w" in hint ? hint.w : undefined;
   const maxH = hint && "maxH" in hint ? hint.maxH : hint && "h" in hint ? hint.h : undefined;
@@ -278,6 +314,26 @@ function preferred(doc: Document, n: Node, hint?: { maxW?: number; maxH?: number
     const kids = flowItems(doc, n);
     const row = n.layout.mode === "row";
     const sizes = kids.map((c) => preferred(doc, c, row ? { maxH: sizedHint.maxH } : { maxW: sizedHint.maxW }));
+    const wrap = !!n.layout.wrap;
+    const baseW = force?.w ?? fw ?? (n.width === "fill" ? sizedHint.maxW : undefined);
+    const baseH = force?.h ?? fh ?? (n.height === "fill" ? sizedHint.maxH : undefined);
+    const availW = baseW === undefined ? undefined : Math.max(0, baseW - pl - pr);
+    const availH = baseH === undefined ? undefined : Math.max(0, baseH - pt - pb);
+    const mainsOf = () => kids.map((c, i) => ((row ? c.width : c.height) === "fill" ? 0 : row ? sizes[i]!.w : sizes[i]!.h));
+    // A wrapping frame below with hug height is as tall as the width it ends up with (fill takes the free width of its line).
+    const rowLines = row ? splitLines(mainsOf(), wrap ? availW : undefined, gap) : [];
+    kids.forEach((c, i) => {
+      if (!hasFlow(c) || c.height !== "hug" || c.width !== "fill" || !hasWrap(doc, c) || availW === undefined) return;
+      let w = availW;
+      if (row) {
+        const mains = mainsOf();
+        const line = rowLines.find((l) => l.includes(i))!;
+        const fixed = line.reduce((s, k, j) => s + mains[k]! + (j > 0 ? gap : 0), 0);
+        const fills = line.filter((k) => kids[k]!.width === "fill").length;
+        w = Math.max(0, availW - fixed) / fills;
+      } else if (wrap) return;
+      sizes[i] = { w: sizes[i]!.w, h: preferred(doc, c, { maxW: w }, { w }).h };
+    });
     let main = 0;
     let cross = 0;
     for (let i = 0; i < sizes.length; i++) {
@@ -291,11 +347,18 @@ function preferred(doc: Document, n: Node, hint?: { maxW?: number; maxH?: number
       }
       if (i > 0) main += gap;
     }
+    if (wrap && (row ? availW : availH) !== undefined) {
+      const lines = splitLines(mainsOf(), row ? availW : availH, gap);
+      cross = 0;
+      lines.forEach((line, li) => {
+        cross += Math.max(0, ...line.map((i) => (row ? sizes[i]!.h : sizes[i]!.w))) + (li > 0 ? gap : 0);
+      });
+    }
     const contentW = row ? main : cross;
     const contentH = row ? cross : main;
     return {
-      w: fw ?? contentW + pl + pr,
-      h: fh ?? contentH + pt + pb,
+      w: force?.w ?? fw ?? contentW + pl + pr,
+      h: force?.h ?? fh ?? contentH + pt + pb,
     };
   }
   return { w: fw ?? 0, h: fh ?? 0 };
@@ -349,64 +412,107 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
     const p = preferred(doc, c, row ? { maxH: innerH } : { maxW: innerW });
     return {
       n: c,
+      prefW: p.w,
+      prefH: p.h,
       baseW: sizeNum(c.width) ?? (c.width === "fill" ? 0 : p.w),
       baseH: sizeNum(c.height) ?? (c.height === "fill" ? 0 : p.h),
       fillMain: row ? c.width === "fill" : c.height === "fill",
       fillCross: row ? c.height === "fill" : c.width === "fill",
+      reflow: hasFlow(c) && hasWrap(doc, c),
     };
   });
-  const fixedMain = bases.reduce((s, b, i) => s + (row ? b.baseW : b.baseH) + (i > 0 ? gap : 0), 0);
-  const fillCount = bases.filter((b) => b.fillMain).length;
-  const free = Math.max(0, (row ? innerW : innerH) - fixedMain);
-  const fillEach = fillCount ? free / fillCount : 0;
+  type Base = (typeof bases)[number];
+  const mainOf = (b: Base) => (row ? b.baseW : b.baseH);
+  const mainInner = row ? innerW : innerH;
+  const crossInner = row ? innerH : innerW;
+  const wrap = !!n.layout.wrap;
+  const lines = splitLines(bases.map(mainOf), wrap ? mainInner : undefined, gap);
 
-  const placed: { n: Node; w: number; h: number }[] = bases.map((b) => {
+  /** Final outer size of one flex item. `crossAvail` is the line's cross size (null: not known yet, no stretching). */
+  const sizeItem = (b: Base, fillEach: number, crossAvail: number | null): { n: Node; w: number; h: number } => {
     let w = b.baseW;
     let h = b.baseH;
     if (b.fillMain) {
       if (row) w = fillEach;
       else h = fillEach;
     }
-      if (b.fillCross) {
-        if (row) h = innerH;
-        else w = innerW;
-      } else if (n.layout.align === "stretch") {
-        const crossHug = row ? b.n.height === "hug" : b.n.width === "hug";
-        if (crossHug) {
-          /* hug stays content-sized; CSS max-content wins over stretch */
-        } else if (row && sizeNum(b.n.height) === null) h = innerH;
-        else if (!row && sizeNum(b.n.width) === null) w = innerW;
-      }
+    if (b.fillCross) {
+      if (crossAvail === null) {
+        if (row) h = b.prefH;
+        else w = b.prefW;
+      } else if (row) h = crossAvail;
+      else w = crossAvail;
+    } else if (n.layout.align === "stretch" && crossAvail !== null) {
+      const crossHug = row ? b.n.height === "hug" : b.n.width === "hug";
+      if (crossHug) {
+        /* hug stays content-sized; CSS max-content wins over stretch */
+      } else if (row && sizeNum(b.n.height) === null) h = crossAvail;
+      else if (!row && sizeNum(b.n.width) === null) w = crossAvail;
+    }
     if (b.n.type === "text") {
       const tw = b.n.width === "fill" || typeof b.n.width === "number" ? w : undefined;
       const t = intrinsicText(doc, b.n, tw);
       if (b.n.width === "hug") w = t.w;
       if (b.n.height === "hug" || typeof b.n.height !== "number") h = t.h;
     }
+    if (b.reflow) {
+      /* a wrapping frame: its hug height (or, for a wrapping column, hug width) follows the size it was just given */
+      if (b.n.height === "hug") h = preferred(doc, b.n, { maxW: w }, { w }).h;
+      if (b.n.width === "hug" && hasFlow(b.n) && b.n.layout.mode === "column") w = preferred(doc, b.n, { maxH: h }, { h }).w;
+    }
     return { n: b.n, w: Math.max(0, w), h: Math.max(0, h) };
+  };
+
+  const lineItems = lines.map((idx) => {
+    const members = idx.map((i) => bases[i]!);
+    const fixedMain = members.reduce((sum, b, i) => sum + mainOf(b) + (i > 0 ? gap : 0), 0);
+    const fillCount = members.filter((b) => b.fillMain).length;
+    const fillEach = fillCount ? Math.max(0, mainInner - fixedMain) / fillCount : 0;
+    return { members, fillEach };
   });
 
-  const totalMain = placed.reduce((s, p, i) => s + (row ? p.w : p.h) + (i > 0 ? gap : 0), 0);
-  const spare = (row ? innerW : innerH) - totalMain;
-  let main0 = 0;
-  const justify = n.layout.justify;
-  if (justify === "center") main0 = spare / 2;
-  else if (justify === "end") main0 = spare;
-
-  const betweenGap = justify === "between" && placed.length > 1 ? Math.max(0, spare) / (placed.length - 1) : gap;
-  let cursor = main0;
-  for (let i = 0; i < placed.length; i++) {
-    const p = placed[i]!;
-    let cross = 0;
-    const align = n.layout.align;
-    const crossSpare = (row ? innerH : innerW) - (row ? p.h : p.w);
-    if (align === "center") cross = crossSpare / 2;
-    else if (align === "end") cross = crossSpare;
-    const lx = row ? pl + cursor : pl + cross;
-    const ly = row ? pt + cross : pt + cursor;
-    placeSized(doc, p.n, absX + lx, absY + ly, p.w, p.h, out);
-    cursor += (row ? p.w : p.h) + (justify === "between" && placed.length > 1 ? betweenGap : gap);
+  // Cross size of each line: a single line fills the frame; wrapped lines are as tall as their tallest item and
+  // share the leftover space equally (align-content: stretch, the CSS default).
+  const lineCross: number[] = lineItems.map(() => crossInner);
+  if (wrap) {
+    lineItems.forEach((l, li) => {
+      lineCross[li] = Math.max(
+        0,
+        ...l.members.map((b) => {
+          const it = sizeItem(b, l.fillEach, null);
+          return row ? it.h : it.w;
+        }),
+      );
+    });
+    const extra = crossInner - (lineCross.reduce((s, v) => s + v, 0) + gap * (lineCross.length - 1));
+    if (extra > 0 && lineCross.length) for (let li = 0; li < lineCross.length; li++) lineCross[li]! += extra / lineCross.length;
   }
+
+  const justify = n.layout.justify;
+  const align = n.layout.align;
+  let crossCursor = 0;
+  lineItems.forEach((l, li) => {
+    const placed = l.members.map((b) => sizeItem(b, l.fillEach, lineCross[li]!));
+    const totalMain = placed.reduce((s, p, i) => s + (row ? p.w : p.h) + (i > 0 ? gap : 0), 0);
+    const spare = mainInner - totalMain;
+    let main0 = 0;
+    if (justify === "center") main0 = spare / 2;
+    else if (justify === "end") main0 = spare;
+    const betweenGap = justify === "between" && placed.length > 1 ? gap + Math.max(0, spare) / (placed.length - 1) : gap;
+    let cursor = main0;
+    for (const p of placed) {
+      let cross = 0;
+      const crossSpare = lineCross[li]! - (row ? p.h : p.w);
+      if (align === "center") cross = crossSpare / 2;
+      else if (align === "end") cross = crossSpare;
+      cross += crossCursor;
+      const lx = row ? pl + cursor : pl + cross;
+      const ly = row ? pt + cross : pt + cursor;
+      placeSized(doc, p.n, absX + lx, absY + ly, p.w, p.h, out);
+      cursor += (row ? p.w : p.h) + betweenGap;
+    }
+    crossCursor += lineCross[li]! + gap;
+  });
 
   for (const id of n.children) {
     const child = doc.nodes[id];
@@ -503,17 +609,19 @@ function pageIdOf(doc: Document, id: string): string | undefined {
 export function layout(doc: Document, opts: LayoutOptions = {}): Record<string, LayoutBox> {
   if (opts.rootId && !doc.nodes[opts.rootId]) throw new Error(`node "${opts.rootId}" does not exist`);
   const placed: Place[] = [];
-  const pageId =
-    opts.rootId && doc.nodes[opts.rootId]?.type === "page"
-      ? opts.rootId
-      : opts.rootId
-        ? pageIdOf(doc, opts.rootId)
-        : firstPage(doc)?.id;
-  const roots = pageRoots(doc, pageId);
-  for (const id of roots) {
-    const n = doc.nodes[id];
-    if (!n || n.type === "page" || !isScene(n)) continue;
-    placeTree(doc, id, n.x, n.y, placed);
+  // Which pages to lay out: the one that holds rootId; else the page of every requested id (an id on another
+  // page used to vanish from the result); else the first page.
+  const pageIds = new Set<string | undefined>();
+  if (opts.rootId) pageIds.add(doc.nodes[opts.rootId]?.type === "page" ? opts.rootId : pageIdOf(doc, opts.rootId));
+  else if (opts.ids?.some((id) => doc.nodes[id])) {
+    for (const id of opts.ids) if (doc.nodes[id]) pageIds.add(doc.nodes[id]!.type === "page" ? id : pageIdOf(doc, id));
+  } else pageIds.add(firstPage(doc)?.id);
+  for (const pageId of pageIds) {
+    for (const id of pageRoots(doc, pageId)) {
+      const n = doc.nodes[id];
+      if (!n || n.type === "page" || !isScene(n)) continue;
+      placeTree(doc, id, n.x, n.y, placed);
+    }
   }
 
   let keep: Set<string> | null = null;
