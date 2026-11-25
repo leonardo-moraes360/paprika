@@ -8,7 +8,7 @@
       "listChanged": true
     }
   },
-  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, layoutPositioning (\"auto\"|\"absolute\", omit = auto), constraints {horizontal: left|right|center|scale, vertical: top|bottom|center|scale} (omit = left/top; applied to non-flow children when the parent frame's numeric width or height changes), fill (color), stroke {color, width: n | \"$token\"}, radius (n | \"$token\", or on frame, rect and image [tl, tr, br, bl] with each corner n | \"$token\"), shadow (one object or a list of up to 8: {x, y, blur, spread: n | \"$token\", color, inner?}), outline {color, width: n | \"$token\", style?: solid|dashed|dotted, offset?}, filter and backdropFilter {blur?: n | \"$token\", saturate? 0..10, grayscale? 0..1, brightness? 0..10, sepia? 0..1, invert? 0..1, hueRotate? -360..360}, notes, lintIgnore (rule names lint_design skips on this node).\nframe: clip (bool), layout {mode: none|row|column, gap (n | \"$token\"), padding (one number or [top, right, bottom, left]; each n | \"$token\"; not two values), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, scaledMock (true: a scaled mock, lint_design skips small-text inside it), mode (theme mode, see below). With row/column layout, children's x/y are ignored unless layoutPositioning is \"absolute\" (the child keeps x/y relative to the parent and is skipped by flow, gap and hug). Omit it or set \"auto\" to stay in the flow.\ntext: text, color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"), lineHeight (n | \"$token\"), letterSpacing (n | \"$token\"), textAlign.\n  runs (optional, up to 200): ranges {start, end} in UTF-16 indexes, sorted, not overlapping; each needs one of fontWeight (100..900 | \"$token\"), color, fontSize (n | \"$token\"), italic: true, href (http(s), mailto, or a path starting with / or #). create_nodes and update_nodes carry runs; null clears them.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https://, data:image/ or $asset), fit (cover|contain|fill), alt, decorative (true skips the missing-alt lint and exports alt=\"\" aria-hidden). $asset names live on the document via set_assets.\nframe and text may set href (relative, #hash, http(s), mailto, tel), exported as <a>. A root frame may set minWidth and maxWidth; export then uses width 100% between those bounds. The canvas keeps the design width.\nconvert_to_path turns rect and ellipse into a path with the same id (radius baked into d).\ncreate_shape_path draws a star, polygon, ring, arc or sector from parameters (x, y = center; angles in degrees, clockwise from 12 o'clock; cornerRadius rounds the corners) as an ordinary path; round_path_corners rounds the corners of a polygonal d (or a path node). Prefer them to computing vertices, arcs or fillets by hand.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes. wrap_nodes puts the same siblings in a new frame (the drawing stays put, one undo). align_nodes (edge: left|center|right|top|middle|bottom) and distribute_nodes (axis: horizontal|vertical, at least 3) move them in one undo. show_all and unlock_all reveal hidden or locked nodes; pageId limits that to one page, and omitting it covers the whole document.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and moves\n  the current content to \"Página 1\". create_page {ensure: true, name} returns the existing page of that name instead of creating another. Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). It may declare props (text, boolean,\n  variant) and frames or groups inside it may name a slot. An instance is a frame with instanceOf = the component id,\n  an optional scale, propValues and slots (create_instance). Instances may sit inside a component; a cycle is rejected.\n  Children are generated copies, with derived ids and sourceId = the source id or the path slot/id or instance/copy.\n  Changing the component changes every instance. On a copy, update only changes fill, color, text, src, alt, visible,\n  opacity and runs (stored as an override; null goes back to the component). A nested copy is addressed by the path\n  instance/copy, and that path may also carry propValues and slots. On the root, fill becomes an override and\n  width/height/layout/stroke/radius/shadow/clip come from the component (use scale). A text prop drives text and\n  shape text through bind.text; a boolean drives bind.visible; bind.variant omits the node unless every pair matches.\n  A bind is checked when the transaction ends, so one create_nodes can carry the bound children and component: true on their frame together (or one update_nodes can set component and the binds).\n  Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use get_bounds (absolute boxes + rotated corners) and path_info (bounds plus anchors) before positioning. edit_path moves one anchor or its handles; the index is path_info.anchors index, in the same d coordinates.\nshape: shape (rect|ellipse|diamond|triangle|cylinder|parallelogram|cloud|note), text (centered; top-left on a note), color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"),\n  lineHeight (n | \"$token\"), textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow|rounded|curve), radius (rounded corners), control {x,y} (curve handle in parent coords), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you. Elbow and rounded arrows route around other shapes with the same parent; straight and curve do not. relayout: true with existing shape ids recomputes those routes (and applies x/y when given) in one undo step.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens). Prefer tokens for recurring colors and sizes. set_tokens takes an optional type (color, length, fontFamily, fontWeight, fontSize, lineHeight, letterSpacing) and a collection name. A typed token is checked when it is set and when a node uses it; a token with no type stays a string or number and still fits any length field. A typed fontWeight or lineHeight is unitless in CSS variables; other numeric tokens stay px. detach_tokens replaces \"$name\" on a node with the literal resolved in that node's theme mode.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; a mode value must match the token's type. \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). A collection is a name on the token, not a second value map. export_code with cssVariables: true writes var(--token) and one rule per mode.\n\"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nPlacement: a new top-level frame leaves x and y unset (or passes place:\"free\") and lands in free space, to the right of the page content, same top, gap 80, wrapping to a new row past 2400px from the content's left. place is \"free\" | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y). Inside a row/column frame, place:\"none\" with x and/or y on create_nodes, import_html or import_image sets layoutPositioning:\"absolute\" on each new root (unless you pass layoutPositioning) and warns, so x/y are kept instead of joining the flow. Concurrent writers never share a spot. get_document_outline and get_bounds with no ids report the content box (the union of the page's children, on any page) and the next free spot. Draw overlays (modals, menus, toasts) last, or bring them to the front with index:\"front\". A write warns when a new top-level node overlaps another and names the nearest free spot.\n\nPins: the human can point at a node or an area of the canvas and write what to do there (\"Point for the AI\"). Call list_pins first when the human mentions pins, and whenever a write result carries openPins; claim_pin before working on one, reply_pin to add to the thread, resolve_pin with a short reply when done (that reply is stored as an agent message on replies). wait_for_pins waits for new ones.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale (pass type and collection when the token is typed). propose_tokens reads CSS variables, a Tailwind theme or JSON tokens from content you pass (the file text, never a filesystem path) and returns set_tokens operations; it does not write.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning. rootIds (or rootId) lints only those subtrees. groups folds each rule to a count and the first maxIds node ids (default 8), ordered by severity; issues still lists every finding. minSeverity (info|warning|error) drops quieter findings. minFontSize raises the small-text floor (default 12). A frame with scaledMock, or lintIgnore on a node, keeps intentional small type and literal colors out of the list.\n5. render_screenshot to check visually (to read a position or size, pass region + grid for a zoomed crop with coordinates in frame units instead of guessing from the image); export_image for PNG/JPEG/WebP/AVIF/PDF (raster formats use the same renderer as the screenshot); export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg (paths, text and <use>/<symbol> sprites become editable nodes) or import_html (inline styles, or computed:true so the server renders the HTML in Chromium and inlines computed styles), import_image for a PNG, JPEG, WebP, AVIF or GIF file (.fig and PDF are refused); export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces). Document tools take an optional workspaceId and read or write that workspace without open_workspace and without moving the human's canvas; omit workspaceId to use the active workspace. The outline's first line and every write result include that workspace's id and name. Undo and redo take the same workspaceId and revert only that workspace; each workspace keeps its own history for the life of the process. Edits to the workspace the canvas is showing arrive live; edits to another workspace do not switch the canvas. open_workspace still switches the active workspace for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; archive_workspace hides one from list_workspaces without deleting it (the active one hands over to the most recently updated other workspace that is not archived; the only one cannot be archived) and unarchive_workspace brings it back; opening an archived workspace unarchives it; list_workspaces omits archived workspaces unless includeArchived is true, and each workspace reports archived; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened, archived, unarchived or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
+  "instructions": "# Paprika: guide for agents\n\nDocument = flat map of nodes + rootIds (top-level screens/frames, in canvas coordinates).\nTypes: frame (container with style and layout), group (groups without painting), page (separate canvas), rect, ellipse,\ntext, image, path (vector with bezier curves), shape (diagram shape with text inside), connector (line/arrow between\nnodes). Only frame, group and page have children.\n\nCommon fields: name, x, y, width, height (number | \"hug\" | \"fill\"), rotation, opacity (0..1),\nvisible, locked, layoutPositioning (\"auto\"|\"absolute\", omit = auto), constraints {horizontal: left|right|center|scale, vertical: top|bottom|center|scale} (omit = left/top; applied to non-flow children when the parent frame's numeric width or height changes), fill (color), stroke {color, width: n | \"$token\"}, radius (n | \"$token\", or on frame, rect and image [tl, tr, br, bl] with each corner n | \"$token\"), shadow (one object or a list of up to 8: {x, y, blur, spread: n | \"$token\", color, inner?}), outline {color, width: n | \"$token\", style?: solid|dashed|dotted, offset?}, filter and backdropFilter {blur?: n | \"$token\", saturate? 0..10, grayscale? 0..1, brightness? 0..10, sepia? 0..1, invert? 0..1, hueRotate? -360..360}, notes, lintIgnore (rule names lint_design skips on this node).\nframe: clip (bool), layout {mode: none|row|column, gap (n | \"$token\"), padding (one number, [vertical, horizontal] or [top, right, bottom, left], as in CSS; each n | \"$token\"), align: start|center|end|stretch,\n  justify: start|center|end|between, wrap}, scaledMock (true: a scaled mock, lint_design skips small-text inside it), mode (theme mode, see below). With row/column layout, children's x/y are ignored unless layoutPositioning is \"absolute\" (the child keeps x/y relative to the parent and is skipped by flow, gap and hug). Omit it or set \"auto\" to stay in the flow.\ntext: text, color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"), lineHeight (n | \"$token\"; a unitless multiplier of fontSize, e.g. 1.4, never pixels: a 22px line on 16px text is 1.375), letterSpacing (n | \"$token\"), textAlign.\n  runs (optional, up to 200): ranges {start, end} in UTF-16 indexes, sorted, not overlapping; each needs one of fontWeight (100..900 | \"$token\"), color, fontSize (n | \"$token\"), italic: true, href (http(s), mailto, or a path starting with / or #). create_nodes and update_nodes carry runs; null clears them.\n  Without width/height a new text hugs its content (\"hug\" on both axes); give width to wrap lines.\nimage: src (https://, data:image/ or $asset), fit (cover|contain|fill), alt, decorative (true skips the missing-alt lint and exports alt=\"\" aria-hidden). $asset names live on the document via set_assets.\nframe and text may set href (relative, #hash, http(s), mailto, tel), exported as <a>. A root frame may set minWidth and maxWidth; export then uses width 100% between those bounds. The canvas keeps the design width.\nconvert_to_path turns rect and ellipse into a path with the same id (radius baked into d).\ncreate_shape_path draws a star, polygon, ring, arc or sector from parameters (x, y = center; angles in degrees, clockwise from 12 o'clock; cornerRadius rounds the corners) as an ordinary path; round_path_corners rounds the corners of a polygonal d (or a path node). Prefer them to computing vertices, arcs or fillets by hand.\ngroup: name, x, y, opacity, visible, locked, notes, children. The box (x, y, width, height) is computed from the\n  children at the end of each write; children's coordinates are relative to the group. Use group_nodes/ungroup_nodes. wrap_nodes puts the same siblings in a new frame (the drawing stays put, one undo). align_nodes (edge: left|center|right|top|middle|bottom) and distribute_nodes (axis: horizontal|vertical, at least 3) move them in one undo. show_all and unlock_all reveal hidden or locked nodes; pageId limits that to one page, and omitting it covers the whole document.\npage: name, fill (canvas background), mode, notes, children. Top level only; once there are pages, every top-level node\n  is a page and frames go in parentId = the page id (canvas coordinates). create_page creates the first one and, when the document already has content, moves\n  that content to \"Page 1\" (on an empty document only the new page is created). create_page {ensure: true, name} returns the existing page of that name instead of creating another. Screens of another page: get_document_outline {rootId: page id}.\nComponents: a frame with component: true is a component (create_component). It may declare props (text, boolean,\n  variant) and frames or groups inside it may name a slot. An instance is a frame with instanceOf = the component id,\n  an optional scale, propValues and slots (create_instance). Instances may sit inside a component; a cycle is rejected.\n  Children are generated copies, with derived ids and sourceId = the source id or the path slot/id or instance/copy.\n  Changing the component changes every instance. On a copy, update only changes fill, color, text, src, alt, visible,\n  opacity and runs (stored as an override; null goes back to the component). A nested copy is addressed by the path\n  instance/copy, and that path may also carry propValues and slots. On the root, fill becomes an override and\n  width/height/layout/stroke/radius/shadow/clip come from the component (use scale). A text prop drives text and\n  shape text through bind.text; a boolean drives bind.visible; bind.variant omits the node unless every pair matches.\n  A bind is checked when the transaction ends, so one create_nodes can carry the bound children and component: true on their frame together (or one update_nodes can set component and the binds).\n  Copies cannot be moved, deleted or given children: edit the component or detach_instance.\npath: d (SVG path data: M L H V C S Q T A Z, absolute or relative), fill (no fill = outline only),\n  stroke {color,width}, fillRule (nonzero|evenodd), strokeCap (butt|round|square), strokeJoin (miter|round|bevel),\n  optional viewBox [x,y,w,h]. Without viewBox, d's coordinates are px from the node's (x,y) corner; with viewBox,\n  the drawing is scaled to fit width×height (good for icons on a 24×24 grid). Without width/height, the node\n  gets the drawing's box. Curves: \"C c1x c1y c2x c2y x y\" (cubic), \"Q cx cy x y\" (quadratic), S/T mirror the\n  previous control point (smooth curves). Use get_bounds (absolute boxes + rotated corners) and path_info (bounds plus anchors) before positioning. edit_path moves one anchor or its handles; the index is path_info.anchors index, in the same d coordinates.\nshape: shape (rect|ellipse|diamond|triangle|cylinder|parallelogram|cloud|note), text (centered; top-left on a note), color, fontFamily (string | \"$token\"), fontSize (n | \"$token\"), fontWeight (100..900 | \"$token\"),\n  lineHeight (n | \"$token\"), textAlign. width/height are numbers (default 160×80; note 160×160). fill/stroke/radius/shadow paint the\n  outline; fields left out on create get the kind's defaults (white with a dark border; note = yellow sticky note).\nconnector: from/to = {nodeId, side?: auto|top|right|bottom|left} (attached to a node) or {x, y} (free point in the\n  parent's coordinates), route (straight|elbow|rounded|curve), radius (rounded corners), control {x,y} (curve handle in parent coords), startArrow/endArrow (none|arrow), stroke {color,width}, dashed,\n  label (text halfway along the route, in the stroke color: \"yes\", \"no\").\n  x, y, width, height and d are computed from the ends at every write (read-only): moving a shape redraws its\n  connectors, and deleting a node deletes the connectors attached to it.\nDiagrams: draw_diagram takes nodes (shapes) + edges (connectors) and lays out the shapes without x/y for you. Elbow and rounded arrows route around other shapes with the same parent; straight and curve do not. relayout: true with existing shape ids recomputes those routes (and applies x/y when given) in one undo step.\n\nColors: #hex, rgb(), rgba() or \"$token\" (see set_tokens); a CSS gradient or url() in fill/color is refused: use gradient {type: linear|radial|conic, angle, stops: [{color, offset}]}. Prefer tokens for recurring colors and sizes. set_tokens takes an optional type (color, length, fontFamily, fontWeight, fontSize, lineHeight, letterSpacing) and a collection name. A typed token is checked when it is set and when a node uses it; a token with no type stays a string or number and still fits any length field. A typed fontWeight or lineHeight is unitless in CSS variables; other numeric tokens stay px. detach_tokens replaces \"$name\" on a node with the literal resolved in that node's theme mode.\nTheme modes: set_tokens with mode (\"dark\", \"compact\"…) writes only the tokens that change; a mode value must match the token's type. \"mode\" on a frame or page applies the mode to its subtree (the same screen can sit light and dark side by side). A collection is a name on the token, not a second value map. export_code with cssVariables: true writes var(--token) and one rule per mode.\nwidth/height take a number, \"hug\" or \"fill\" (never a \"$token\"). \"fill\" in width/height takes the remaining space on the main axis of a parent with layout, or stretches on the cross axis.\n\nPlacement: a new top-level frame leaves x and y unset (or passes place:\"free\") and lands in free space, to the right of the page content, same top, gap 80, wrapping to a new row past 2400px from the content's left. place is \"free\" | \"below\" | \"right\" | {near, side: left|right|above|below} | \"none\" (exact x/y). Inside a row/column frame, place:\"none\" with x and/or y on create_nodes, import_html or import_image sets layoutPositioning:\"absolute\" on each new root (unless you pass layoutPositioning) and warns, so x/y are kept instead of joining the flow. Concurrent writers never share a spot. get_document_outline and get_bounds with no ids report the content box (the union of the page's children, on any page) and the next free spot. Draw overlays (modals, menus, toasts) last, or bring them to the front with index:\"front\". A write warns when a new top-level node overlaps another and names the nearest free spot.\n\nPins: the human can point at a node or an area of the canvas and write what to do there (\"Point for the AI\"). Call list_pins first when the human mentions pins, and whenever a write result carries openPins; claim_pin before working on one, reply_pin to add to the thread, resolve_pin with a short reply when done (that reply is stored as an agent message on replies). wait_for_pins waits for new ones.\n\nRecommended flow:\n1. get_document_outline to get your bearings (cheap).\n2. set_tokens with the palette and the type scale (pass type and collection when the token is typed). propose_tokens reads CSS variables, a Tailwind theme or JSON tokens from content you pass (the file text, never a filesystem path) and returns set_tokens operations; it does not write.\n3. create_nodes with nested trees (children) in one call; prefer frames with layout over absolute positioning.\n4. lint_design and fix whatever comes back as error/warning. rootIds (or rootId) lints only those subtrees. groups folds each rule to a count and the first maxIds node ids (default 8), ordered by severity; issues still lists every finding. minSeverity (info|warning|error) drops quieter findings. minFontSize raises the small-text floor (default 12). A frame with scaledMock, or lintIgnore on a node, keeps intentional small type and literal colors out of the list.\n5. render_screenshot to check visually (to read a position or size, pass region + grid for a zoomed crop with coordinates in frame units instead of guessing from the image); export_image for PNG/JPEG/WebP/AVIF/PDF (and SVG) (raster formats use the same renderer as the screenshot); export_code to take it to code.\nTo bring in a ready icon or a piece of a page, use import_svg (paths, text and <use>/<symbol> sprites become editable nodes) or import_html (inline styles, or computed:true so the server renders the HTML in Chromium and inlines computed styles), import_image for a PNG, JPEG, WebP, AVIF or GIF file (.fig and PDF are refused); export_code with format \"svg\" returns vector SVG.\nEvery write is atomic (all or nothing) and can be undone with undo. To make several calls one undo step (e.g. \"draw proposal 3\"), pass the same batch to each of them; the batch closes when anyone else writes or undoes in between.\nResults: JSON tools also return structuredContent that matches their outputSchema; read it instead of parsing the text.\nWorkspaces: the server holds several documents (list_workspaces). Document tools take an optional workspaceId and read or write that workspace without open_workspace and without moving the human's canvas; omit workspaceId to use the active workspace. The outline's first line and every write result include that workspace's id and name. Undo and redo take the same workspaceId and revert only that workspace; each workspace keeps its own history for the life of the process. Edits to the workspace the canvas is showing arrive live; edits to another workspace do not switch the canvas. open_workspace still switches the active workspace for everyone, so ask the human first; create_workspace makes an empty one, rename_workspace renames one, set_workspace_cover puts an image (or a screenshot of a frame) on its card; archive_workspace hides one from list_workspaces without deleting it (the active one hands over to the most recently updated other workspace that is not archived; the only one cannot be archived) and unarchive_workspace brings it back; opening an archived workspace unarchives it; list_workspaces omits archived workspaces unless includeArchived is true, and each workspace reports archived; delete_workspace cannot be undone and takes two calls: the first, without confirmToken, returns a summary of what would be lost and a short-lived token; show that summary to the human and only call again with the token after they agree. list_workspace_ops reads who created, renamed, opened, archived, unarchived or deleted a workspace, and a delete entry keeps its summary.\nThe human sees your edits live on the canvas. Unknown fields are rejected with an error: read the message and adjust.\nThis guide in Brazilian Portuguese: get_design_guide {language: \"pt-BR\"}.",
   "tools": [
     {
       "name": "get_design_guide",
@@ -16,6 +16,7 @@
       "description": "Explains the node model, the accepted fields and the recommended flow. Read it before the first edit. language: \"pt-BR\" returns the Brazilian Portuguese version.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "language": {
             "default": "en",
@@ -41,6 +42,7 @@
       "description": "Compact tree (one line per node: type#id, name, size, position, key style), tokens, theme modes, version and the active canvas renderer (wasm, dom, or none when no tab is connected; one value per connected tab). The first line names the workspace id and name. The last lines are the page content box and the next free spot. Cheap in tokens.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "rootId": {
             "description": "Only this node's subtree",
@@ -70,9 +72,10 @@
     {
       "name": "get_nodes",
       "title": "Read nodes",
-      "description": "Full JSON of the requested nodes (every field, with defaults). The text result is the array; structuredContent is { nodes }.",
+      "description": "Full JSON of the requested nodes (every field, with defaults). The text result is the array; structuredContent is { nodes } plus, when some ids do not exist (e.g. after an undo), `missing: [ids]` with the nodes that do exist still returned. It fails only when none of the ids exist.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 1,
@@ -105,6 +108,12 @@
               },
               "additionalProperties": {}
             }
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -126,6 +135,7 @@
       "description": "Absolute boxes for nodes after auto-layout (row/column, hug/fill, wrap), with transform origin and the four corners after rotation. Optional `ids` filters the result and lays out the page of every id, so ids on different pages all get a box; an id that exists but has no box (a page, or a node hidden inside an auto-layout frame) comes back in `unplaced`. Optional `rootId` limits to that subtree (still resolves ancestors for flex). Without both, returns every node on the first page (pass a page id as `rootId` for another page). With no ids, also returns the page content box and the next free spot.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "type": "array",
@@ -275,6 +285,7 @@
       "description": "Search by type, or by a substring of the name or the text, optionally inside a subtree.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "type": {
             "type": "string",
@@ -327,6 +338,7 @@
       "description": "Validates SVG path data (d) and returns the exact box of the drawing (including the extremes of bezier curves and arcs), the drawing `origin` (offset from the node origin to the path bounds), the number of segments, d normalized to absolute commands, and `anchors` (each point in path order: flat index, subpath, index within the subpath, x/y, and in/out handles when the point is curved). Pass `d` or the `id` of a path node; with `id` also returns canvasBounds, transformOrigin and rotated corners. The anchor index is what edit_path takes, in the same d coordinates.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "d": {
             "type": "string",
@@ -543,6 +555,7 @@
       "description": "Moves one anchor of a path node, or its bezier handles, with the same geometry the canvas uses. index is the flat 0-based anchor from path_info.anchors (subpath 0, then subpath 1). position is in the current d coordinate space (the same numbers path_info.anchors report). If both are set, the anchor moves first (its handles translate with it) and then the handle overrides apply in that new space. handles.mirror reflects the opposite handle when only one side is set. At least one of position or handles is required. One undo step. Refuses an unknown id, a node that is not a path, a locked node, a copy inside an instance, an index past the last anchor, and an invalid d. Without viewBox the drawing shifts back to the node origin; x/y move with the box only when the node is positioned like the canvas (absolute, or not in a row/column frame). Inside a row or column frame only d, width and height change. With viewBox only d changes.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string"
@@ -686,6 +699,7 @@
       "description": "Creates one or more nodes (with nested children in frames) under parentId (null/omitted = canvas). Atomic. Returns {ids, roots, created, version}: ids is every new id (the previous created list); roots is each new node whose parent was not created in this call, as {id, name, type, x, y, width, height}; created is every new node as {id, name, type, parentId}. The text is that JSON plus one readable line per root. On a connector, x, y, width, height and d follow from/to: if a copied node carries them, create_nodes ignores those fields and says so in warnings. On a path, `normalize: true` moves the drawing to (0,0) and adds the previous offset to x/y so the node box matches the ink. place puts each root: \"free\" (default for a top-level node with no x/y, to the right of the page content, same top, gap 80, wrapping past 2400px), \"below\", \"right\", {near, side}, or \"none\" for the exact x/y (inside a row/column frame the root also gets layoutPositioning \"absolute\", with a warning, unless you set layoutPositioning).",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "parentId": {
             "type": [
@@ -910,6 +924,7 @@
       "description": "Changes fields of several nodes in one atomic transaction. null removes a field. Objects (layout, stroke, shadow, outline, filter, backdropFilter) are replaced whole. shadow is one object or a list of up to 8. The pseudo-field index (a number, 0 = the back, or \"front\", \"back\", \"forward\", \"backward\") reorders the node in its current parent — same call, same undo step.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "updates": {
             "minItems": 1,
@@ -999,6 +1014,7 @@
       "description": "Deletes nodes and their subtrees. Atomic, and undo brings them back. Returns {deleted, version}: every id removed, including subtrees and the connectors attached to them.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 1,
@@ -1075,6 +1091,7 @@
       "description": "Changes the parent and/or the order of nodes (parentId null = canvas). Does not change x/y. index is the position in the new parent (0 = the back) or a step: \"front\", \"back\", \"forward\", \"backward\".",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "moves": {
             "minItems": 1,
@@ -1179,6 +1196,7 @@
       "description": "Puts sibling nodes (same parent, no row/column layout) in a new group, in the place of the topmost one. The drawing does not move: the group's box follows its children. Returns the group id.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 1,
@@ -1264,6 +1282,7 @@
       "description": "Combines 2+ path, rect, ellipse or shape siblings into one path via union, subtract, intersect or exclude. Keeps the bottom-most node's style, deletes the sources, one undo step. Returns the new path id. Canvas UI for this is separate.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 2,
@@ -1400,7 +1419,8 @@
             "minLength": 1
           }
         },
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -1632,7 +1652,8 @@
         "required": [
           "kind"
         ],
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -1764,6 +1785,7 @@
       "description": "Turns rect or ellipse nodes into path nodes with the same id. The outline (including corner radius) is baked into d. One undo step restores the original nodes. Refuses text, frames, copies inside an instance, and non-numeric sizes.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 1,
@@ -1837,6 +1859,7 @@
       "description": "Removes groups: their children go back to the group's parent, in its place, keeping position, opacity and visibility.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 1,
@@ -1917,6 +1940,7 @@
       "description": "Aligns 2+ sibling nodes (same parent, no row/column layout) to the selection box in one undo step. edge: left, center, right, top, middle or bottom. Rotated nodes use their axis-aligned box. Connectors and copies inside an instance are refused.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 2,
@@ -1970,6 +1994,7 @@
       "description": "Spaces 3+ sibling nodes (same parent, no row/column layout) with equal gaps in one undo step, keeping the outer edges fixed. axis: horizontal or vertical. Rotated nodes use their axis-aligned box.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 3,
@@ -2015,6 +2040,7 @@
       "description": "Puts sibling nodes (same parent, no row/column layout) in a new frame. The drawing does not move: the frame's box is the selection's axis-aligned bounds and children become relative to it. clip is false and fill is transparent. One undo step. Returns the frame id.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 1,
@@ -2062,6 +2088,7 @@
       "description": "Sets visible: true on every hidden node, in one undo step. pageId limits the walk to that page; omit it for the whole document. Returns the ids that changed. An empty result does not write history.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "pageId": {"description": "Page to reveal. Omit it to cover the whole document.", "type": "string"},
           "label": {"type": "string", "maxLength": 200},
@@ -2101,6 +2128,7 @@
       "description": "Clears locked on every locked node, in one undo step. pageId limits the walk to that page; omit it for the whole document. Copies inside an instance are skipped. Returns the ids that changed. An empty result does not write history.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "pageId": {"description": "Page to unlock. Omit it to cover the whole document.", "type": "string"},
           "label": {"type": "string", "maxLength": 200},
@@ -2137,9 +2165,10 @@
     {
       "name": "create_page",
       "title": "Create page",
-      "description": "Creates a page (a separate canvas in the same file). The first time, the current content first moves to a page named \"Page 1\". Create screens on it with create_nodes {parentId: page id}. Returns {page, created, version}: `page` is the new page's id; `created` lists every page made, in order (the first call also makes \"Page 1\"). With ensure: true and a name, returns the existing page of that name instead of creating a second one (`ensured`: true, `created` empty, version unchanged).",
+      "description": "Creates a page (a separate canvas in the same file). The first time, if the document has content, that content first moves to a page named \"Page 1\"; on an empty document only the new page is created. Create screens on it with create_nodes {parentId: page id}. Returns {page, created, version}: `page` is the new page's id; `created` lists every page made, in order (the first call on a document with content also makes \"Page 1\"). With ensure: true and a name, returns the existing page of that name instead of creating a second one (`ensured`: true, `created` empty, version unchanged).",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
@@ -2222,6 +2251,7 @@
       "description": "Marks a frame as a component (component: true) and, optionally, declares its props (text, boolean, variant). Then create_instance makes copies that follow the component.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string"
@@ -2309,6 +2339,7 @@
       "description": "Creates an instance of a component (a frame with instanceOf). By default it goes in the component's parent, 40px to its right. propValues set text, boolean and variant props; slots map a slot name to node ids cloned into it. Returns the instance id and, in copies, the id of each component-node copy (and slot/id for slot fills) so update_nodes can override them. A nested copy is overridden by the path instance/copy.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "componentId": {
             "type": "string"
@@ -2445,6 +2476,7 @@
       "description": "Turns instances into plain frames: the copies become normal nodes (same ids) and stop following the component. A bind on a copy is dropped (its resolved value is already on the node).",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 1,
@@ -2525,6 +2557,7 @@
       "description": "Replaces token references on the given nodes with the literal value resolved in each node's theme mode. fields limits the replacement to those fields (fill, radius, stroke, shadow, outline, filter, backdropFilter, layout, color, fontFamily, fontSize, fontWeight, lineHeight, letterSpacing, and their dotted parts). With no fields, every token on the node is detached. On an instance or one of its copies only the overrides it owns are detached (the root fill, or a copy's fill or color); the fields that come from the component are skipped and listed in skipped, not an error.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 1,
@@ -2627,6 +2660,7 @@
       "description": "Applies a mixed list of operations (create, update, delete, move, set_tokens, set_assets, rename_document, group, ungroup, add_page, detach, detach_tokens, combine_paths, align, distribute, wrap, reveal, convert_to_path) in one atomic transaction.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ops": {
             "minItems": 1,
@@ -5237,6 +5271,7 @@
       "description": "Proposes set_tokens operations from CSS variables, a Tailwind theme (JS theme object, or v4 @theme) or JSON tokens. Pass the file text in content; a filesystem path is refused, and the document is left unchanged. CSS names drop the leading -- (--color-bg becomes color-bg; var(--color-bg) becomes $color-bg). Tailwind groups are dotted (colors.brand becomes color.brand, borderRadius.md becomes radius.md). JSON uses dotted paths; a DTCG $value or value is the token, and a top-level modes object is one set_tokens per mode. Lengths in px become numbers. A selector or prefers-color-scheme that names a mode (dark, light, compact, or data-paprika-mode) sets mode on that proposal. Apply the proposals with set_tokens or apply_ops.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "content": {
             "description": "File text: CSS variables, a Tailwind theme, or JSON tokens. Not a filesystem path.",
@@ -5306,6 +5341,7 @@
       "description": "Creates or updates design tokens. Use them in nodes as \"$name\". null removes one. Optional type (color, length, fontFamily, fontWeight, fontSize, lineHeight, letterSpacing) is checked when the token is set and when a node uses it; null clears the type. Omit type to leave it. A token with no type stays a string or number. Optional collection names the group ([A-Za-z0-9_-]{1,40}); null clears it. With `mode`, writes the values of that theme mode (e.g. \"dark\"), which apply in frames/pages with the same `mode` and their descendants; a mode value must match the token's type. Tokens the mode does not define use the base value.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "tokens": {
             "type": "object",
@@ -5408,6 +5444,7 @@
       "description": "Creates or updates document-level image assets. Reference one from an image src as \"$name\" (http(s) or data:image/). null removes one. An image whose src is \"$name\" must match an asset.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "assets": {
             "type": "object",
@@ -5485,6 +5522,7 @@
       "description": "Undoes the last transaction (from any author: agent or human) in the workspace given by workspaceId, or in the active one when it is omitted. Does not switch the canvas. A batch is undone whole.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "workspaceId": {
             "description": "Workspace to read or write. Omit it to use the active workspace (the human's canvas). Does not switch the canvas.",
@@ -5541,6 +5579,7 @@
       "description": "Redoes the last undone transaction in the workspace given by workspaceId, or in the active one when it is omitted. Does not switch the canvas.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "workspaceId": {
             "description": "Workspace to read or write. Omit it to use the active workspace (the human's canvas). Does not switch the canvas.",
@@ -5597,6 +5636,7 @@
       "description": "Latest transactions (author, label, time, number of ops). Shows what the human changed on the canvas. The text result is the array; structuredContent is { entries }.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "limit": {
             "default": 20,
@@ -5664,6 +5704,7 @@
       "description": "Workspaces this server can open (each one is a document), most recently updated first, and which one is active. Archived workspaces are hidden unless includeArchived is true; each workspace reports archived. Every other tool reads and writes the active workspace, the same one the human sees on the canvas. An archived workspace can still be read or written by id. Each workspace has folderId (empty at the root) and preview (shapes for the live thumbnail). folders lists the overview folders.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "includeArchived": {
             "description": "When true, include archived workspaces. Omitted or false, they are hidden.",
@@ -5783,6 +5824,7 @@
       "description": "Workspace operations in this server: create, rename, open, archive, unarchive, delete and move, each with who acted (\"user\" for the canvas and its HTTP API, or the agent's name over MCP), when, and which workspace. Newest first, optionally narrowed to one workspace. A delete entry carries the same summary delete_workspace returns, which is what a canvas notice shows. Entries outlive the workspace they name. This is not the document's undo history: that is get_history.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "limit": {
             "default": 20,
@@ -5867,6 +5909,7 @@
       "description": "Makes another workspace the active one: every tool and the human's canvas switch to it, and undo history starts from that workspace. Tell the human before switching away from what they are looking at.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -5972,6 +6015,7 @@
       "description": "Creates an empty workspace. It does not become active: call open_workspace to work in it.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
@@ -6070,6 +6114,7 @@
       "description": "Creates an overview folder. It holds no workspace until move_workspace. It does not switch the canvas.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
@@ -6109,6 +6154,7 @@
       "description": "Renames an overview folder. Workspaces inside it stay put.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -6153,6 +6199,7 @@
       "description": "Moves a workspace into an overview folder, or back to the root when folderId is null or empty. Does not switch the canvas or change the document.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -6252,6 +6299,7 @@
       "description": "Stores a .paprika.json document (written by paprika export or paprika export --root) as a new workspace on this server. It does not become active: the human's canvas and every other tool keep working in the current workspace until open_workspace. A document whose id already exists here is stored as a copy with a new document id (node ids are kept). place is \"none\": the file is its own workspace and keeps its coordinates. To place artwork on the current page, use import_svg, import_html or import_image.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "document": {
             "description": "the .paprika.json document object (format paprika/1), read from the file",
@@ -6385,6 +6433,7 @@
       "description": "Renames a workspace (the name shown on the overview). Renaming the active one is an undoable write (rename_document); any other is renamed in place.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -6490,6 +6539,7 @@
       "description": "Hides a workspace from list_workspaces without deleting it. The document, history and cover stay. Archiving the active workspace first opens the most recently updated other workspace that is not archived. The only visible workspace cannot be archived. Archiving one that is already archived changes nothing.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -6553,6 +6603,7 @@
       "description": "Puts an archived workspace back on list_workspaces. Does not make it active. Unarchiving one that is not archived changes nothing. Opening an archived workspace also unarchives it.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -6616,6 +6667,7 @@
       "description": "Deletes a workspace for good, in two calls. Without confirmToken nothing is deleted: the result is a summary of what would be lost (name, node/page/frame/image/connector counts, stored undo entries, the last edit, whether it has a cover, and which workspace would become active) plus a short-lived confirmToken tied to that workspace id. Show that summary to the human, and call again with the token only after they agree. The token is single-use and expires in about two minutes; reusing it or sending one for another workspace is refused with an actionable error. Deleting the active workspace first opens the most recently updated other one for everyone, and the only workspace cannot be deleted.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -6763,6 +6815,7 @@
       "description": "Sets the image on a workspace's overview card. Without image or clear, it takes a screenshot of that workspace (rootId: one frame or page; default: the canvas or the first page). image: a PNG, JPEG, WebP or GIF as base64 or a data: URL, at most 2 MiB. clear: back to the first letter of the name. The cover is not part of the document (no undo, not exported).",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -6873,6 +6926,7 @@
       "description": "Checks WCAG AA contrast, missing tokens and theme modes, overflow, small or empty text, images without alt, colors outside the tokens, row/column children that leave their frame, a default 100×100 layout frame (hug-was-meant), geometry (siblings that do not touch, gaps under 4px, fully hidden shapes), overlapping boards and text covered by an overlay. rootIds (or rootId) lints only those subtrees. groups folds each rule to a count and the first maxIds node ids (default 8), ordered by severity. minSeverity drops quieter findings. minFontSize raises the small-text floor (default 12).",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "rootId": {
             "type": "string",
@@ -7045,6 +7099,7 @@
       "description": "PNG of a node (a page: its canvas; without rootId: the canvas, or the first page), rendered by the same engine as the canvas and the export. A page (or the whole canvas) is painted on the page fill, white when there is none; any other root, a frame included, is on a transparent background and the PNG has an alpha channel. path writes the PNG under the screenshot directory (the database directory's screenshots/, or PAPRIKA_SCREENSHOTS); a path that leaves that directory is refused. With path the result is {path, width, height, url} and no image bytes; url is /api/screenshot/<id>. Without path the image is returned as before, plus url. mode paints the subtree in that theme mode (light, dark, …); omitted, a subtree keeps the mode it inherits from its frame or page. A missing or mismatched Chromium returns the command: pnpm --filter @paprika/e2e exec playwright install chromium. compare is a PNG, JPEG, GIF or WebP (data URL, raw base64 or a path under PAPRIKA_IMPORT_DIRS) drawn to the right of the screenshot, scaled to the same height, with a gap. The returned width and height are the combined image, and compare is true. grid (true, or {step?, labels?, color?}) draws thin lines every step frame units (default: 50, 100, 200 and so on, so the longer side has about 8 to 16 lines) with coordinate labels and a ruler band on the top and left edges; labels are in the root's own coordinates (0..width), not canvas coordinates, and the lines are drawn on the PNG, not in the document. region {x, y, width, height} (frame units) crops to that part, and scale applies to the region, so a small region with a large scale zooms in (a render is capped at 4096px per side before the crop). Both work with compare (the grid and the crop apply to the screenshot only) and with path; the result reports grid.step and region (clamped to the frame). To read positions, use region and grid instead of guessing from the image.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "rootId": {
             "type": "string"
@@ -7203,9 +7258,10 @@
     {
       "name": "export_image",
       "title": "Export image / PDF",
-      "description": "Exports a node, a page or the canvas as PNG, JPEG, WebP, AVIF or vector PDF. Raster formats are rendered by the same Chromium path as render_screenshot, so they match the screenshot and the canvas; without a usable Chromium they fall back to a pure-Go SVG rasterizer (core ExportSVG plus embedded Inter) and warnings says so. PDF always draws the ExportSVG geometry as vectors. Like render_screenshot, a root that is not a page is on a transparent background (PNG, WebP and AVIF keep the alpha; JPEG is flattened onto white). scale is applied to the raster (and to PDF page size). Returns one image (or PDF) content block as base64 plus width/height.",
+      "description": "Exports a node, a page or the canvas as PNG, JPEG, WebP, AVIF, vector PDF or SVG (format \"svg\" is the same vector SVG as export_code with format \"svg\", returned as a text block; scale does not apply). Raster formats are rendered by the same Chromium path as render_screenshot, so they match the screenshot and the canvas; without a usable Chromium they fall back to a pure-Go SVG rasterizer (core ExportSVG plus embedded Inter) and warnings says so. PDF always draws the ExportSVG geometry as vectors. Like render_screenshot, a root that is not a page is on a transparent background (PNG, WebP and AVIF keep the alpha; JPEG is flattened onto white). scale is applied to the raster (and to PDF page size). Returns one image (or PDF) content block as base64 plus width/height.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "rootId": {
             "type": "string",
@@ -7218,7 +7274,8 @@
               "jpeg",
               "webp",
               "avif",
-              "pdf"
+              "pdf",
+              "svg"
             ],
             "default": "png"
           },
@@ -7284,6 +7341,7 @@
       "description": "Exports a node as standalone HTML, a React (TSX) component with inline styles, vector SVG (svg: boxes from core layout(doc), no headless Chromium; a page rootId exports the page), a React (TSX) component with Tailwind utility classes (tailwind), standalone HTML with Tailwind utility classes and the Tailwind browser script (tailwind-html), a React component plus its .module.css (css-modules: two text blocks, the .tsx first and the stylesheet second), an Angular standalone component (angular: three text blocks — .ts, template .html, then .css), or a Svelte single-file component (svelte). Tailwind, CSS Modules, Angular and Svelte output come from the same styles as the canvas, so the exported screen matches it; declarations Tailwind has no utility for stay inline.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "rootId": {
             "type": "string"
@@ -7331,6 +7389,7 @@
       "description": "Draws a flowchart-style diagram in one atomic write: each node becomes a shape (rect, ellipse, diamond, triangle, cylinder, parallelogram, cloud or note, with text inside) and each edge a connector that stays attached when shapes move. Nodes without x and y are laid out in layers following the edges (direction down or right), to the right of the parent's existing content. Edges default to elbow routing (also straight, rounded, curve) with an arrow at the end; elbow and rounded routes bend around other shapes in the same parent. Edges may also point at existing nodes by id, and carry a label (\"yes\", \"no\") drawn halfway along the route. relayout: true updates existing shape ids (x and y when given) and routes their elbow connectors again, in one undo step.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "parentId": {
             "description": "Frame, group or page for the diagram (default: the first page, or the canvas)",
@@ -7583,6 +7642,7 @@
       "description": "Turns SVG into editable nodes: path/rect/circle/ellipse/line/polyline/polygon become path (or rect/ellipse without rotation), <g> becomes group, <text> becomes text, and <use> expands a <symbol> or another element (including ones in <defs>). Transforms and inherited paint are applied. Images, gradients, masks and CSS in <style> are skipped and listed in warnings. x/y offset the SVG's origin. Returns ids, roots and created in the same shape as create_nodes, plus warnings. The text is that JSON plus one readable line per root. Roots honor place: \"free\" when x and y are omitted (right of the page content, gap 80), \"below\", \"right\", {near, side}, or \"none\" for the given x/y (inside a row/column frame the root also gets layoutPositioning \"absolute\", with a warning, so x/y are kept).",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "svg": {
             "type": "string",
@@ -7773,6 +7833,7 @@
       "description": "Turns HTML with inline styles into nodes (the inverse of the export: Paprika's own HTML comes back the same). From other sources: display:flex becomes row/column layout, blocks become column, text becomes text, <img> becomes image, <svg> goes through import_svg. Classes and <style> are not applied (warnings) unless computed is true: then the server renders the HTML in Chromium, writes the computed author styles inline, and imports that. computed is server-side only; if Chromium is missing the call fails with how to install it and does not fall back. Returns ids, roots and created in the same shape as create_nodes, plus warnings. The text is that JSON plus one readable line per root. Roots honor place: \"free\" when x and y are omitted (right of the page content, gap 80), \"below\", \"right\", {near, side}, or \"none\" for the given x/y (inside a row/column frame the root also gets layoutPositioning \"absolute\", with a warning, so x/y are kept).",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "html": {
             "type": "string",
@@ -7963,6 +8024,7 @@
       "description": "Places a raster image (PNG, JPEG, WebP, AVIF or GIF) as an image node sized from the file's natural size (JPEG EXIF rotation applied). src is a data URL or a local file path: a path must resolve, symlinks included, inside an allowed directory (PAPRIKA_IMPORT_DIRS, default: the server's working directory; a relative path is taken from the first one). Files over 3500000 bytes are refused. The format comes from the bytes, not the extension. A .fig file and a PDF are refused: export SVG and use import_svg, or place a PNG, JPEG, WebP, AVIF or GIF. The original bytes are embedded unchanged, so an animated GIF, WebP or AVIF stays animated on the canvas and in HTML exports (render_screenshot captures one frame; warnings says so). width is a maximum: a larger image is scaled down keeping its ratio, a smaller one is never enlarged. Returns ids, roots and created in the same shape as create_nodes. The text is that JSON plus one readable line per root. The image honors place: \"free\" when x and y are omitted (right of the page content, gap 80), \"below\", \"right\", {near, side}, or \"none\" for the given x/y (inside a row/column frame the root also gets layoutPositioning \"absolute\", with a warning, so x/y are kept).",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "src": {
             "description": "Data URL (data:image/...;base64,...) or a local file path inside an allowed directory",
@@ -8197,6 +8259,7 @@
       "description": "Places an image (data URL or a local path under PAPRIKA_IMPORT_DIRS) as a locked image node at the back of a frame, at 50% opacity unless opacity is set. The image is fitted inside the frame and does not join auto layout. Files over 3500000 bytes are refused.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "src": {
             "type": "string",
@@ -8259,6 +8322,7 @@
       "description": "Resamples an image node's pixels (or creates a node from src) to a named preset or a custom size, without Chromium. Presets: qhd 960×540, hd 1280×720 (720p, not Full HD 1920×1080), 2k 2560×1440, 4k 3840×2160. fit contain keeps the aspect ratio inside the box (output may be smaller on one side), cover fills the box and center-crops, fill stretches. Decodes PNG/JPEG/GIF/WebP with pure Go (golang.org/x/image); AVIF is refused; animated GIF keeps the first frame only; animated WebP is refused. Encodes back as the same format when a pure-Go encoder exists (PNG, JPEG, GIF), otherwise PNG. Same size limits as import_image (3500000 bytes). One undo step.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "nodeId": {
             "description": "Existing image node to update (replaces src, width and height)",
@@ -8454,6 +8518,7 @@
       "description": "Duplicates nodes with their whole subtree in one undo step (new ids; instances stay instances of the same component, scale multiplies their scale; connectors between duplicated nodes point at the copies, the others keep their ends). Each copy goes in its source's parent. With no offset, place defaults to the right of the source (gap 80) so the copy does not land on it; place is \"free\" | \"below\" | \"right\" | {near, side} | \"none\" (\"below\" and \"right\" sit beside the source, gap 80, like {near: source, side}; \"free\" goes past the page content), and an explicit offset nudges x and y. scale grows or shrinks the copy from its own top-left corner: sizes, children positions, text size, strokes, radius, shadow, gap and padding; hug/fill stay. props is written on each copy's root (for example {mode: \"dark\"} for a light/dark pair). Returns copies (one id per source) and map (every source node to its copy), plus ids, roots and created in the same shape as create_nodes. The text is that JSON plus one readable line per root.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "ids": {
             "minItems": 1,
@@ -8672,6 +8737,7 @@
       "description": "Pins are requests the human left on the canvas with the \"Point for the AI\" tool: a node or an area plus a text saying what to do there. Read them first when the human says \"do the pins\", and whenever a result carries openPins. Each pin has nodeId (or only region, for an area), region in canvas coordinates, pageId and text. status: open (default: open and claimed), claimed, resolved or all. Flow: claim_pin, do the work with the usual tools, reply_pin to talk on the thread, then resolve_pin with a short reply (stored as the agent's message on replies, and also in reply). Pins are not nodes: they are not in the document, the export or the undo history. In a team they sync through the Loro sidecar, not as canvas nodes.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "status": {
             "default": "open",
@@ -8847,6 +8913,7 @@
       "description": "Tells the human (and other agents) that you are working on a pin: the canvas shows it in your color with your name. Refused when another agent holds it or it is resolved. Claiming your own claim again is a no-op.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -9004,6 +9071,7 @@
       "description": "Closes a pin with a short reply for the human: what you changed (and the history label if useful). The reply is appended to replies (the thread) and also stored in reply. The pin turns into a check mark and leaves the canvas; the human can reopen it and the thread can still grow through reply_pin. Refused when another agent holds it.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -9167,6 +9235,7 @@
       "description": "Appends a message to a pin's thread (replies) without changing its status. Humans reply from the canvas; agents use this. Works while the pin is open, claimed or resolved. Refused when the pin does not exist.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -9345,6 +9414,7 @@
       "description": "Blocks until the human leaves an open pin changed after since (a rev from list_pins or an earlier wait), or timeoutMs passes (max 60000). since 0 returns the open pins at once when there are any. Returns the open pins and the rev to pass next time; timedOut is true when nothing came.",
       "inputSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "timeoutMs": {
             "default": 30000,
