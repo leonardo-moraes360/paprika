@@ -208,6 +208,20 @@
       },
       {
         "title": [
+          "Performance",
+          "Desempenho"
+        ],
+        "src": [
+          "docs/en-US/performance.md",
+          "docs/pt-BR/desempenho.md"
+        ],
+        "out": [
+          "performance.html",
+          "desempenho.html"
+        ]
+      },
+      {
+        "title": [
           "Design boards",
           "Folhas de design"
         ],
