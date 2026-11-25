@@ -1060,16 +1060,108 @@ Tarefa: workspace novo, página "Capa", capa escura 1600×900 e uma clara embaix
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
-| 204 | Saber quem desfez o que um agente gravou | 6 s depois de o script gravar a capa, um undo no histórico compartilhado a removeu (provavelmente Ctrl+Z no canvas). `get_history` só mostra a pilha de undo, então a criação sumida (agora no redo) e o próprio undo ficaram invisíveis pelo MCP; foi preciso ler o SQLite | `get_history` devolver a pilha de redo e uma entrada por undo/redo com autor e hora; gravar o autor em `Store.step` | P1 |
+| 204 | Saber quem desfez o que um agente gravou | 6 s depois de o script gravar a capa, um undo no histórico compartilhado a removeu (provavelmente Ctrl+Z no canvas). `get_history` só mostra a pilha de undo, então a criação sumida (agora no redo) e o próprio undo ficaram invisíveis pelo MCP; foi preciso ler o SQLite | Feito (2026-11-25, PR #226): `get_history` devolve a pilha de redo e uma entrada por undo/redo com autor e hora; `Store.step` grava o autor | — |
 | 205 | Ctrl+Z humano não apagar trabalho de agente sem aviso | O undo do canvas desfaz o histórico compartilhado, de qualquer autor | Undo por autor no canvas, ou um aviso "Desfeito: <rótulo> (agente)" com Refazer | P2 |
-| 206 | Achar um frame pelo nome para substituir numa nova execução | `find_nodes` responde linhas de texto, não JSON; o script não achou nada e desenhou uma capa duplicada | `structuredContent` em `find_nodes` (`{nodes: [{id, type, name, x, y, width, height}]}`) | P2 |
-| 207 | Casar um nome exato | `find_nodes {name}` casa por substring; o nome da capa escura é prefixo do da clara | `find_nodes {name, exact: true}` | P2 |
+| 206 | Achar um frame pelo nome para substituir numa nova execução | `find_nodes` responde linhas de texto, não JSON; o script não achou nada e desenhou uma capa duplicada | Feito (2026-11-25, PR #229): `structuredContent` em `find_nodes` (`{nodes: [{id, type, name, x, y, width, height}]}`) | — |
+| 207 | Casar um nome exato | `find_nodes {name}` casa por substring; o nome da capa escura é prefixo do da clara | Feito (2026-11-25, PR #229): `find_nodes {name, exact: true}` | — |
 | 208 | Medir contraste, inclusive fora de texto | `lint_design` só aponta falhas, sem a razão, e só em texto: a borda de um marcador com 1,21:1 passou sem aviso | `lint_design {report: "contrast"}` com a razão de cada par, e uma regra `non-text-contrast` (WCAG 1.4.11, 3:1) | P2 |
-| 209 | Dar nome à primeira página de um workspace novo | `create_workspace` cria um documento sem página, então não havia "página 1" para renomear | Dizer isso na descrição, ou `create_workspace {firstPage}` | P3 |
-| 210 | `groups` no `lint_design` | A descrição dá a entender que `groups` é argumento; passar dá `unknown argument "groups"` | Reescrever: o resultado já traz `groups` | P3 |
+| 209 | Dar nome à primeira página de um workspace novo | `create_workspace` cria um documento sem página, então não havia "página 1" para renomear | Feito (2026-11-25, PR #229): a descrição de `create_workspace` diz que um workspace novo não tem página e como criar a primeira | — |
+| 210 | `groups` no `lint_design` | A descrição dá a entender que `groups` é argumento; passar dá `unknown argument "groups"` | Feito (2026-11-25, PR #229): a descrição agora diz que o resultado traz `groups` | — |
 | 211 | Prever o corte do card do overview | O card tem cerca de 2:1 e corta ao centro uma capa 16:9; o rodapé some | Documentar a proporção em `set_workspace_cover`, ou `fit: "contain"` | P3 |
-| 212 | Reapontar um apontamento depois de o nó ser substituído | O script recria o frame, então o pino aponta para um nó apagado (`nodeMissing: true`) | `resolve_pin {reply, nodeId?}` para mover o pino para o substituto | P3 |
-| 213 | Screenshot do editor ajustado à tela | `render_screenshot` renderiza nós, não o editor; foi preciso Playwright com Shift+1, e a barra de ferramentas cobre o rótulo do frame de cima | `render_screenshot {page, fit: true, chrome: true}`, e margem do ajuste abaixo da barra flutuante | P3 |
+| 212 | Reapontar um apontamento depois de o nó ser substituído | O script recria o frame, então o pino aponta para um nó apagado (`nodeMissing: true`) | Feito (2026-11-25, PR #227): `update_pin` e `resolve_pin` aceitam `nodeId` para mover o pino para o substituto | — |
+| 213 | Screenshot do editor ajustado à tela | `render_screenshot` renderiza nós, não o editor; foi preciso Playwright com Shift+1, e a barra de ferramentas cobre o rótulo do frame de cima | `render_screenshot {page, fit: true, chrome: true}`, e margem do ajuste abaixo da barra flutuante. Em andamento (PR-BATCH-2 da leva de 2026-11-25): só a opção de renderer; `fit` e `chrome` continuam em aberto | P3 |
 
 - Funcionou bem: um `create_nodes` montou cada capa de 35 nós; `set_workspace_cover`, `export_image {scale: 2}`, `list_pins`, `claim_pin` e `resolve_pin` funcionaram de primeira.
 
+## 2026-11-25: guia da marca, páginas 2–9 (workspace "Interface · marca")
+
+Tarefa: 8 páginas do guia da marca, cada uma com um frame escuro e um claro de 1600×900, desenhadas por um script que pode ser rodado de novo (`create_page {ensure}` e troca pelo nome exato do frame). 16 frames, sem undo.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 214 | Escalar o traço de um path junto com o viewBox, sabendo disso | Num path com `viewBox` a largura do traço é em unidades do viewBox; o agente passou px e desenhou o quadro de seleção cerca de 4× grosso demais e o wordmark fino demais. Nada no guia nem no resultado diz qual é | Feito (2026-11-25, PR #229): o guia e a descrição de `create_nodes` dizem que a largura do traço é em unidades do viewBox. Uma opção `strokeScaling` continua em aberto | — |
+| 215 | Esticar um path sem manter a proporção (exemplo de "não estique") | Um path com `viewBox` 100×110 numa caixa 184×99 mantém a proporção (meet); foi preciso reescrever as coordenadas de `d` à mão | `preserveAspectRatio: "none"` em paths (como no SVG), ou `scale_path {sx, sy}` | P3 |
+| 216 | Lint de contraste para texto sobre um chip desenhado como retângulo irmão | `contrast` olha só o preenchimento dos ancestrais, então um rótulo sobre um retângulo irmão é medido contra o painel de trás; todo chip, botão e selo teve de ser um frame com o texto dentro | Documentar na mensagem da regra ("fundo = preenchimento dos ancestrais; irmãos por baixo são ignorados"), ou considerar irmãos pintados que contêm o texto por inteiro | P2 |
+| 217 | Texto `width: "fill"` num frame de coluna `height: "hug"` ou numa linha de altura fixa | O hug do frame mediu o texto com 1 linha, o texto mediu 2, então o `lint_design` deu um `layout-overflow` falso (também em cinco textos de componentes); larguras numéricas resolveram | Feito (2026-11-25, PR #228): o hug mede o texto `fill` na largura interna resolvida | — |
+| 218 | Mostrar pares que falham de propósito (tabela de contraste) | `lintIgnore: ["contrast"]` em cada amostra que falha funcionou e manteve o resto checado, mas o resultado do lint nunca sugere isso | Mencionar `lintIgnore` por regra no resultado do `lint_design` quando uma regra dispara | P3 |
+| 219 | Folha de contato de todas as páginas | Nenhuma ferramenta junta vários frames numa imagem; foi feito com uma biblioteca de imagens a partir dos PNGs exportados | `export_image {rootIds: [...], layout: "grid", columns}` | P3 |
+
+- Funcionou bem: `create_page {ensure: true}` deixou o script repetível; árvores aninhadas inteiras num `create_nodes` por frame; `export_image {scale: 2}` deu PNGs de 3200×1800; `runs` deu prefixos coloridos sem nós extras.
+
+## 2026-11-25: guia da marca, página 10 "Padrão" (um padrão repetido)
+
+Tarefa: um frame escuro e um claro com um tabuleiro do símbolo colorido e monocromático, unidos em um path por cor (cerca de 130 símbolos).
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 220 | Desenhar um padrão repetido e saber os limites de `d` | O `d` monocromático unido tinha 17 760 segmentos e 276 439 caracteres, e o `create_nodes` recusou a chamada inteira (`<=200000 characters`, `more than 10000 segments`) só depois de o payload montado; o script agora divide cada cor em paths de ≤9000 segmentos / ≤180 000 caracteres | Feito nos limites (2026-11-25, PR #229): os dois limites estão no schema de `d` e no guia. Um preenchimento `pattern`/`repeat` (tile, passo, deslocamento) continua em aberto | P2 |
+
+- Funcionou bem: uma execução só da folha refez o PNG de contato sem tocar no documento.
+
+## 2026-11-25: apontamentos em "Cores" e "Componentes" (componentes com variantes)
+
+Tarefa: dois apontamentos. Contraste do tema claro (coluna "para texto", tons -ink, bordas a 3:1) e 8 controles que faltavam, montados como 11 componentes com props, variantes e instâncias.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 221 | Mostrar o estado padrão de um componente no canvas | Um nó com `bind.variant` só é filtrado nas instâncias: o componente principal desenha todas as variantes de uma vez (checkbox com 3 caixas, um grupo de campos por formato), o que também dispara `layout-overflow` na linha dele; cada principal foi escondido e trocado por uma instância com as props padrão | Feito (2026-11-25, PR #230): o componente principal aplica as variantes padrão | — |
+| 222 | Uma instância destacada (outro preenchimento) | `fill` na raiz de uma instância em `create_nodes` sumia sem aviso na sincronização; funciona como `overrides: {[componentId]: {fill}}` | Feito (2026-11-25, PR #230): `fill` na raiz da instância vira esse override | — |
+| 223 | Cobertura de glifos | `⋯` (U+22EF) numa legenda saiu como um quadrado no Inter; nada avisou | Regra `missing-glyph` no `lint_design` (a fonte não tem o ponto de código) | P3 |
+
+- Funcionou bem: componente e instâncias num só `create_nodes` com ids explícitos; props, booleanos e variantes por `propValues`; `bind.visible` com prop booleana; filhos `layoutPositioning: "absolute"` para bordas de estado; `claim_pin`/`resolve_pin`.
+
+## 2026-11-25: apontamentos em "Componentes" (stepper, atalhos, seletor de cor, importar e exportar)
+
+Tarefa: 4 apontamentos assumidos e resolvidos (campo numérico com ícones de mais/menos, atalhos como teclas, seletor de cor com variante `formato`, trabalho do agente no canvas).
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 224 | Um anel em volta da amostra atual, um botão "adicionar" tracejado numa linha | `outline` num retângulo ou frame filho de um layout de linha saiu só de um lado no PNG; o mesmo `outline` em nós posicionados de forma absoluta saiu inteiro | Em andamento (PR-BATCH-7 da leva de 2026-11-25): outline inteiro para filhos de layout no export e no screenshot | P1 |
+| 225 | Um PNG 2x de um frame alto | `export_image {scale: 2}` num frame 1600×2460 devolveu 2664×4096 (escala ≈ 1,67) sem aviso | Em andamento (PR-BATCH-7 da leva de 2026-11-25): o resultado informa a escala usada e avisa quando o teto de 4096 se aplica | P2 |
+
+- Funcionou bem: uma variante com cinco grupos ligados trocou sem problema; `bind.visible` num frame aninhado a partir de uma prop booleana; `overrides` com o id da raiz para uma linha destacada; 4 apontamentos assumidos e resolvidos em paralelo.
+
+## 2026-11-25: apontamentos 8–12 e redesenho de todas as páginas (alinhamento, saída do lint)
+
+Tarefa: o ícone do app estava 15 de 240 unidades fora do centro (o guia copiou o deslocamento do SVG), uma coluna do stepper estava desalinhada, e as páginas 3, 7 e 8 foram redesenhadas; depois todas as páginas foram redesenhadas com o símbolo centrado na caixa 100×100 e 20 frames foram checados no lint.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 226 | Um resultado curto do lint para muitos frames | `groups` veio dobrado como prometido, mas `issues` ainda listava os 276 achados de `fully-hidden` (372 em 20 frames, 49 KB, despejados num arquivo) mesmo com `minSeverity: "warning"` e `maxIds: 3` | Feito (2026-11-25, PR #229): `issues: false` e `ignoreRules` no `lint_design` | — |
+| 227 | Um apontamento que se refere a outro anterior | "Aqui também está desalinhado" apontava para uma observação que não está na conversa do apontamento; seis apontamentos com o mesmo texto traziam só nó e região, então a causa teve de ser adivinhada comparando com outros lockups | Deixar um apontamento ligar a outro (`relatedPinId`), e guardar um render pequeno da região na criação (`snapshot`) | P3 |
+| 228 | Manter um filho final no fim de uma linha quando um texto irmão é mais curto | "°" é mais estreito que "px", então o texto hug empurrou o stepper para a esquerda; resolvido com largura numérica. Não há "empurrar para o fim" no layout de linha | Feito (2026-11-25, PR #228): `layoutGrow` (flex-grow) num filho | — |
+| 229 | Conferir que um símbolo vetorial está centrado no tile | `get_bounds` do grupo do símbolo devolve as caixas dos paths (o quadro do viewBox 100×100), não a tinta pintada; as folgas foram medidas no PNG a olho | `get_bounds {painted: true}`: limites da geometria pintada (fill + meio traço) | P2 |
+
+- Funcionou bem: scripts repetíveis trocaram frames pelo nome exato sem tocar na outra variante; `claim_pin`/`resolve_pin`/`reply_pin` em 12 apontamentos.
+
+## 2026-11-25: apontamentos 13–19 (componentes de importar e exportar, lockups abaixo de 32 px)
+
+Tarefa: uma nova seção "Importar e exportar" com quatro componentes, e os lockups pequenos redesenhados sem a seleção ciano.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 230 | Mostrar um nó em três de quatro opções de variante | `bind.variant` aceita uma opção por prop (uma lista é recusada), então era um nó por opção ou nenhum bind | Feito (2026-11-25, PR #230): `bind: { variant: { estado: ["importando", "pronto"] } }` | — |
+
+- Funcionou bem: componentes com instâncias referenciando ids fixos por tema; `runs` de texto com cores para uma prévia de código; o vão oficial do lockup (`LOCKUP_GAP`) importado pelo script do guia, então guia e SVG não divergem mais.
+
+## 2026-11-25: auditoria do wordmark "paprika" (uma só fonte de geometria)
+
+Tarefa: "os wordmarks regrediram". Os dois scripts remontavam o wordmark à mão e o viewBox diferia do oficial (876,2 × 236 em vez de 872,2 × 232), então todo quadro ficava 1,7 % menor; agora um helper pega tudo de `wordmark()`. Capas e cinco páginas redesenhadas, lint limpo.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 231 | Ler o SVG de um nó para comparar com o arquivo oficial | Pelo cliente MCP, `export_image {format: "svg"}` mostra só `{width, height, format}`; o SVG está no bloco de texto e foi preciso um cliente próprio | Pôr o SVG também em `structuredContent.svg` | P3 |
+| 232 | Comparar pixel a pixel um nó com um SVG de referência na mesma altura | Nenhuma ferramenta faz isso: o SVG oficial foi rasterizado num navegador, o nó exportado com `export_image {scale}` e os dois comparados com uma biblioteca de imagens; `compare_reference` exige uma imagem de referência posta no canvas | `compare_reference {svg \| file, rootId, height}`: renderiza os dois no mesmo tamanho e devolve estatísticas de diferença e uma imagem de diff | P2 |
+| 233 | Manter uma posição de meio pixel (`y: 12.5`) no raster | O SVG exportado mantém `translate(113 12.5)`, mas o PNG do mesmo grupo põe o wordmark cerca de 0,5 unidade mais baixo: o raster arredonda o filho para pixels inteiros antes de escalar | Em andamento (PR-BATCH-7 da leva de 2026-11-25): posição no valor escalado, sem arredondar antes da escala | P2 |
+| 234 | Saber que dois quadros usam a mesma geometria da marca | Nada no documento diz que um path veio de `wordmark()`; a divergência só aparece lendo os scripts | O wordmark como componente (`create_component` e instâncias) no guia | P3 |
+
+- Funcionou bem: troca de frames pelo nome exato com `--page N`; `set_workspace_cover` manteve a capa escura; `lint_design {minSeverity: "warning"}` em 12 raízes numa chamada devolveu resultado vazio.
+
+## 2026-11-25: wordmarks "paprika" pequenos viram borrões no renderer WASM
+
+Tarefa: screenshots do renderer GPU mostraram os wordmarks pequenos como borrões e os grandes certos; os nós estavam coerentes, `?renderer=dom` e `export_image` desenhavam certo e `?renderer=wasm` (backend `cpu`) não. Causa: `parse_paths` embute a escala viewBox→caixa nos pontos, mas `encode_gpu` e `cpu.rs` traçam com o `stroke.width` cru em px, enquanto DOM e SVG escalam o traço com o viewBox (repro: `d: "M0 50 H100"`, `viewBox [0, 0, 100, 100]`, caixa 20 × 20, traço 10 dá 2 px no DOM e 10 px no WASM). Os letreiros grandes só pareciam certos porque caem no DOM. Contorno no helper da marca: o `d` é escalado para px do nó, então a escala é 1 em todo renderer.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 235 | O mesmo traço em todo renderer quando a caixa do path é menor que o viewBox | O teste de paridade pixel a pixel nunca pegou isso porque seus paths têm caixa = viewBox | Em andamento (PR-BATCH-1 da leva de 2026-11-25): escalar `stroke_width` pela escala do path em `encode_gpu`, `cpu.rs` e no outset do traço do `displayList`; um caso de paridade com caixa ≠ viewBox, traços pequenos e outline, rodando em todo PR que toque o renderer | P1 |
+| 236 | Saber qual renderer o agente enxerga ao conferir um quadro | `get_document_outline` diz `renderer: wasm`, mas `render_screenshot` e `export_image` sempre usam o caminho DOM/SVG, então o agente não vê um bug só do WASM | Em andamento (PR-BATCH-2 da leva de 2026-11-25): `render_screenshot` com o renderer WASM | P2 |

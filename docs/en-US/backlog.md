@@ -357,3 +357,31 @@ From the Paper 0.5.19 study ([research](research/paper-mcp-0.5.19.md), proposals
 | PAP-A-033 | Traced edges hold up when zoomed | Contours from the source (≤ 2000 px) as a sub-pixel level of a soft coverage field, anti-aliasing slivers absorbed, neighbours overlap 1–4 px so no seams, straight sides stay straight; `compare_reference` adds an `edge` metric (chamfer mean/p95) and optional `edgeTarget`. Runners: edge mean 10.5 → 0.39 px, seam pixels 2445 → 30 | ✅ #215 | P1 |
 | PAP-A-034 | A path's box follows its ink | Paths created or updated without a size are normalized by default (selection box hugs the drawing); `normalize_paths` repairs old documents without moving the ink | ✅ #214 | P1 |
 | PAP-A-035 | Canvas crash with fractional path boxes in WASM mode | React #185: WASM-painted paths were measured with rounded offsets and DOM-painted ones exactly, so the paint-order overlap test flipped the painter on every commit; paths are now measured from their style | ✅ #218 | P0 |
+
+## V. From the brand work friction batch (2026-11-25)
+
+What stayed open after the batch of fixes for the friction logged in the agent feedback (rows 214–236 and the cover rows 204–213). Rows marked UI are interface changes: draw them in a local Paprika over MCP first (AGENTS rule 6, design-first). Not started.
+
+| Ticket | Capability | Paprika today | Status | Pri. |
+|---|---|---|---|---|
+| PAP-A-036 | Insert or alter in a drawing without recreating the frame | Re-runnable scripts delete and recreate the whole frame, which also orphans pins and grows the history. Proposed: upsert by a stable key, update by path, insert into an existing frame | ⬜ | P2 |
+| PAP-A-037 | Measure distances with Alt (UI) | With an element selected, holding Alt and hovering another shows the distances between them, as in other design editors. Design-first | ⬜ | P3 |
+| PAP-A-038 | The brand wordmark as a component in the guide | Both guide scripts place the wordmark path by hand, so a change has to be redrawn on every board (fb#234) | ⬜ | P3 |
+| PAP-A-039 | Canvas Ctrl+Z per actor (UI) | The canvas undo pops the shared history of any author; `get_history` now shows who undid what (fb#204, #205). Proposed: undo only the human's own steps, or a toast with Redo. Design-first | ⬜ | P2 |
+| PAP-A-040 | Warn about a glyph missing from the font | `⋯` rendered as a box in Inter and nothing warned (fb#223). Proposed: a `missing-glyph` lint rule | ⬜ | P3 |
+| PAP-A-041 | Contrast report and a non-text contrast rule | `lint_design` reports only failing text, with no ratio; a marker border at 1.21:1 passes (fb#208). Proposed: `report: "contrast"` with each pair's ratio, and a `non-text-contrast` rule (WCAG 1.4.11, 3:1) | ⬜ | P2 |
+| PAP-A-042 | Contrast sees painted siblings below | `contrast` uses ancestors' fills only; a label over a sibling rect is measured against the panel behind (fb#216). Document it, or count painted siblings that contain the text | ⬜ | P2 |
+| PAP-A-043 | Cover crop aspect on the overview card | The card is about 2:1 and center-crops a 16:9 cover (fb#211). Document the aspect in `set_workspace_cover`, or add `fit: "contain"` | ⬜ | P3 |
+| PAP-A-044 | A pin linked to another pin, and a region snapshot | A pin that says "here too" has no link to the earlier one, and a redraw leaves only a node and a region (fb#227). `relatedPinId` and a small `snapshot` of the region | ⬜ | P3 |
+| PAP-A-045 | `preserveAspectRatio: "none"` on paths | A path in a box of another aspect keeps its ratio; stretching needs rewriting `d` by hand (fb#215) | ⬜ | P3 |
+| PAP-A-046 | Export a grid or contact sheet | `export_image` takes one root; a contact sheet needs an image library (fb#219). `rootIds`, `layout: "grid"`, `columns` | ⬜ | P3 |
+| PAP-A-047 | `get_bounds {painted: true}` | `get_bounds` returns path boxes, not the painted ink, so "centred in its parent" cannot be checked in one call (fb#229) | ⬜ | P2 |
+| PAP-A-048 | `export_image` svg in `structuredContent` | The SVG is only in the text block; MCP clients show just `{width, height, format}` (fb#231) | ⬜ | P3 |
+| PAP-A-049 | `compare_reference` with an SVG or file reference | It needs a reference image placed on the canvas; comparing a node with an official SVG took a browser and an image library (fb#232) | ⬜ | P2 |
+| PAP-A-050 | `lint_design` suggests `lintIgnore` per rule | An intended failure is silenced with `lintIgnore`, but the result never says so (fb#218) | ⬜ | P3 |
+| PAP-A-051 | The overview card and `set_workspace_cover` report the node count | A card that said "1 nó" after an undo was read as a count bug; a node count in the result would show the document had changed (fb#204) | ⬜ | P3 |
+| PAP-A-052 | An explicit `wasmPaintable` rule list, with a test | What the WASM renderer does not paint like the DOM falls back to the DOM by an explicit rule, covered by a test. Follow-up of R1(d); drop it if the parity PR (PR-BATCH-1) already covers it | ⬜ | P1 |
+| PAP-A-053 | `htmlImport` maps flex-grow to `layoutGrow` | `layoutGrow` exists on nodes, but pasted or imported HTML drops `flex-grow` | ⬜ | P3 |
+| PAP-A-054 | Inspector control for `layoutGrow` (UI) | Only settable over MCP; the inspector has no control. Design-first | ⬜ | P3 |
+| PAP-A-055 | `apply_ops` node schema lists `layoutPositioning`, `constraints` and `layoutGrow` | The node schema in the `apply_ops` contract omits these fields, so agents cannot discover them | ⬜ | P2 |
+| PAP-A-056 | History steps cleared on re-import | Re-importing a document leaves the recorded steps (actor, redo) of the old one | ⬜ | P3 |
