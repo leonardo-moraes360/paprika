@@ -224,6 +224,50 @@ const grad = () =>
     },
   ]).doc;
 
+// Wrapping flex layouts (layout.wrap): row and column, hug and fixed cross size, align/justify per line, fill items.
+const chips = (prefix, n, w, h, extra = {}) =>
+  Array.from({ length: n }, (_, i) => ({ type: "rect", id: `${prefix}${i}`, width: w, height: typeof h === "function" ? h(i) : h, fill: "#c43d27", ...extra }));
+const wrapped = () =>
+  applyOps(base(), [
+    { op: "create", node: { type: "frame", id: "wrow", x: 0, y: 0, width: 300, height: "hug", layout: { mode: "row", gap: 12, padding: 10, wrap: true }, children: chips("wr", 7, 88, 40) } },
+    { op: "create", node: { type: "frame", id: "wspread", x: 400, y: 0, width: 400, height: 200, layout: { mode: "row", gap: 8, wrap: true, align: "center", justify: "between" }, children: chips("ws", 9, 90, (i) => 20 + (i % 3) * 10) } },
+    { op: "create", node: { type: "frame", id: "wcol", x: 0, y: 400, width: "hug", height: 120, layout: { mode: "column", gap: 8, wrap: true, padding: [4, 6, 4, 6] }, children: [...chips("wc", 6, 50, 40), { type: "rect", id: "wcw", width: 70, height: 30, fill: "#112233" }] } },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "wpage", x: 0, y: 700, width: 360, height: "hug", layout: { mode: "column", gap: 16, padding: 8 },
+        children: [
+          { type: "frame", id: "wgrid", width: "fill", height: "hug", layout: { mode: "row", gap: 12, wrap: true }, children: chips("wg", 5, 100, 30) },
+          { type: "rect", id: "wtail", width: "fill", height: 10, fill: "#445566" },
+        ],
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "wside", x: 500, y: 700, width: 500, height: "hug", layout: { mode: "row", gap: 10, align: "start" },
+        children: [
+          { type: "frame", id: "wsg", width: "fill", height: "hug", layout: { mode: "row", gap: 6, wrap: true }, children: chips("wq", 6, 90, 20) },
+          { type: "rect", id: "wsr", width: 100, height: 50, fill: "#778899" },
+        ],
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "wfill", x: 0, y: 1000, width: 320, height: "hug", layout: { mode: "row", gap: 8, wrap: true, align: "stretch" },
+        children: [
+          { type: "rect", id: "wf0", width: 200, height: 30, fill: "#111111" },
+          { type: "rect", id: "wf1", width: "fill", height: "hug", fill: "#222222" },
+          { type: "text", id: "wf2", text: "wrapped label", width: "hug", height: "hug", fontSize: 14 },
+          { type: "rect", id: "wf3", width: 150, height: "fill", fill: "#333333" },
+          { type: "rect", id: "wf4", width: 140, height: 44, fill: "#444444" },
+        ],
+      },
+    },
+    { op: "create", node: { type: "frame", id: "wend", x: 400, y: 1000, width: 200, height: 150, layout: { mode: "row", gap: 4, wrap: true, justify: "end", align: "end" }, children: chips("we", 5, 70, 24) } },
+  ]).doc;
+
 const rich = () =>
   applyOps(base(), [
     { op: "set_tokens", tokens: { brand: "#c43d27", "text.lg": 28 } },
@@ -259,6 +303,7 @@ const docs = {
   diagram: diagram(),
   corners: corners(),
   grad: grad(),
+  wrapped: wrapped(),
 };
 
 // ---- operation cases: [baseDoc, ops] ----
@@ -477,6 +522,36 @@ const opCases = [
   ["comp", [{ op: "detach", ids: ["btn"] }]],
   ["comp", [{ op: "detach", ids: ["zz"] }]],
   ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { text: "Novo" } }, { op: "detach", ids: ["i1"] }, { op: "update", id: copyId("i1", "lbl"), props: { x: 1 } }]],
+  // bind is checked against the final state of the transaction (PAP-A-009)
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", component: true, width: 100, height: 40,
+    componentProps: [{ name: "label", type: "text", default: "OK" }, { name: "pressed", type: "boolean", default: false }, { name: "size", type: "variant", options: ["sm", "md"], default: "md" }],
+    children: [{ type: "frame", id: "pw", width: 50, height: 20, children: [
+      { type: "text", id: "pt", text: "x", bind: { text: "label" } },
+      { type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } },
+      { type: "rect", id: "ps", width: 5, height: 5, bind: { variant: { size: "sm" } } }] }] } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", width: 100, height: 40, children: [{ type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } }] } },
+    { op: "update", id: "pb", props: { component: true, componentProps: [{ name: "pressed", type: "boolean", default: false }] } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", width: 100, height: 40, children: [{ type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } }] } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } } }]],
+  ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { bind: { visible: "x" } } }]],
+  ["comp", [{ op: "create", parentId: "i1", node: { type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", component: true, width: 100, height: 40, children: [{ type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "nope" } }] } }]],
+  // detach drops bind from the copies
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", component: true, width: 100, height: 40,
+    componentProps: [{ name: "label", type: "text", default: "OK" }, { name: "pressed", type: "boolean", default: true }],
+    children: [{ type: "text", id: "pt", text: "x", bind: { text: "label" } }, { type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } }] } },
+    { op: "create", parentId: "board", node: { type: "frame", id: "pi", instanceOf: "pb", propValues: { label: "Salvar" } } },
+    { op: "detach", ids: ["pi"] }]],
+  // detach_tokens on instances and copies: only owned overrides, derived fields are skipped
+  ["comp", [{ op: "detach_tokens", ids: ["i1"] }]],
+  ["comp", [{ op: "set_tokens", tokens: { alt: "#112233" } }, { op: "update", id: "i1", props: { fill: "$alt" } }, { op: "detach_tokens", ids: ["i1"] }]],
+  ["comp", [{ op: "set_tokens", tokens: { alt: "#112233" } }, { op: "update", id: "i1", props: { fill: "$alt" } }, { op: "detach_tokens", ids: ["i1"], fields: ["fill"] }]],
+  ["comp", [{ op: "set_tokens", tokens: { alt: "#112233" } }, { op: "update", id: "i1", props: { fill: "$alt" } }, { op: "detach_tokens", ids: ["i1"], fields: ["radius"] }]],
+  ["comp", [{ op: "update", id: "lbl", props: { color: "$brand" } }, { op: "detach_tokens", ids: [copyId("i1", "lbl")] }]],
+  ["comp", [{ op: "set_tokens", tokens: { alt: "#112233" } }, { op: "update", id: "lbl", props: { color: "$brand" } }, { op: "update", id: copyId("i1", "lbl"), props: { color: "$alt" } }, { op: "detach_tokens", ids: [copyId("i1", "lbl")] }]],
+  ["comp", [{ op: "update", id: "btn", props: { gap: 1 } }]],
+  ["comp", [{ op: "detach_tokens", ids: ["btn", "i1", "i2"] }]],
+  ["comp", [{ op: "detach_tokens", ids: ["btn"] }]],
   // diagrams
   ["empty", [{ op: "create", node: { type: "shape", id: "s" } }, { op: "create", node: { type: "shape", id: "n", shape: "note", stroke: { color: "#000", width: 1 } } }]],
   ["empty", [{ op: "create", node: { type: "shape", id: "s", width: "hug" } }]],

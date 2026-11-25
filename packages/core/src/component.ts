@@ -312,6 +312,21 @@ function validatePropDecl(comp: FrameNode, p: PropDecl) {
   }
 }
 
+function bindOutsideMessage(doc: Document, id: string): string {
+  let inInstance: string | undefined;
+  for (let cur = doc.nodes[id]?.parentId ?? null; cur; cur = doc.nodes[cur]?.parentId ?? null) {
+    const a = doc.nodes[cur];
+    if (a && isInstance(a)) {
+      inInstance = a.id;
+      break;
+    }
+  }
+  const why = inInstance
+    ? `it sits inside the instance "${inInstance}", and a bind belongs on the component's own nodes`
+    : `none of its ancestors is a component`;
+  return `"${id}" has a bind outside a component: ${why}; the frame that contains it must be a component (component: true, or create_component) when the transaction ends`;
+}
+
 function validateBind(comp: FrameNode, n: NodeT, byName: Map<string, PropDecl>) {
   const bind = nodeBind(n);
   if (!bind) return;
@@ -461,7 +476,7 @@ export function syncInstances(doc: Document): void {
     }
     if (nodeBind(n) && nodeSource(n) === undefined && !(n.type === "frame" && n.component)) {
       const owner = owningComponent(doc, n.id);
-      if (!owner) throw new InstanceError(`"${n.id}" has a bind outside a component`);
+      if (!owner) throw new InstanceError(bindOutsideMessage(doc, n.id));
       validateBind(owner, n, propMap(owner));
     }
     if (nodeSource(n) !== undefined && !copyOwner(doc, n))
@@ -675,7 +690,11 @@ export function detachOps(doc: Document, ids: readonly string[]): { op: "update"
     if (!n) throw new Error(`node "${id}" does not exist`);
     if (!isInstance(n)) throw new Error(`node "${id}" is not an instance (a frame with instanceOf)`);
     ops.push({ op: "update", id, props: { instanceOf: null, scale: null, overrides: null, propValues: null, slots: null } });
-    for (const d of descendants(doc, id)) ops.push({ op: "update", id: d, props: { sourceId: null } });
+    // The resolved prop values are already on the copies, so a bind has nothing left to follow.
+    for (const d of descendants(doc, id)) {
+      const dn = doc.nodes[d];
+      ops.push({ op: "update", id: d, props: { sourceId: null, ...(dn && nodeBind(dn) ? { bind: null } : {}) } });
+    }
   }
   return ops;
 }

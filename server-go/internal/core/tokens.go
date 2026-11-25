@@ -329,17 +329,18 @@ func applyDetachTokens(doc *Document, op *jsonv.Object, i int, created *[]string
 	}
 	var inverse []any
 	changed := 0
+	skippedAny := false
 	for _, id := range op.Strings("ids") {
 		node := GetNode(doc, id)
 		if node == nil {
 			return nil, opErr(i, "node %q does not exist", id)
 		}
-		if owner := CopyOwner(doc, node); owner != nil {
-			return nil, opErr(i, "%s", copyRule(id, owner.Str("id")))
-		}
-		props, err := detachTokenProps(doc, node, picked, i)
+		props, skipped, err := detachTokenPlan(doc, node, picked, i)
 		if err != nil {
 			return nil, err
+		}
+		if len(skipped) > 0 {
+			skippedAny = true
 		}
 		if props == nil || props.Len() == 0 {
 			continue
@@ -355,7 +356,7 @@ func applyDetachTokens(doc *Document, op *jsonv.Object, i int, created *[]string
 		}
 		inverse = append(flatten(inv), inverse...)
 	}
-	if changed == 0 {
+	if changed == 0 && !skippedAny {
 		ids := op.Strings("ids")
 		quoted := make([]string, len(ids))
 		for n, id := range ids {
@@ -364,6 +365,65 @@ func applyDetachTokens(doc *Document, op *jsonv.Object, i int, created *[]string
 		return nil, opErr(i, "no token to detach on %s", strings.Join(quoted, ", "))
 	}
 	return inverse, nil
+}
+
+// detachTokenPlan is what detach_tokens writes on a node and what it leaves alone. A plain node (or
+// one inside a component definition) detaches everything. An instance or a copy only owns its
+// overrides: the fields that come from the component are skipped (reported, not an error).
+func detachTokenPlan(doc *Document, node *Node, fields map[string]bool, opIndex int) (*jsonv.Object, []string, error) {
+	all, err := detachTokenProps(doc, node, fields, opIndex)
+	if err != nil {
+		return nil, nil, err
+	}
+	owner := CopyOwner(doc, node)
+	if all == nil || all.Len() == 0 || (owner == nil && !IsInstance(node)) {
+		return all, nil, nil
+	}
+	var overrides *jsonv.Object
+	var allowed []string
+	if owner != nil {
+		if inst, key, ok := CopyOverrideTarget(doc, node); ok {
+			overrides = inst.Obj("overrides").Obj(key)
+		}
+		allowed = OverrideFields(node)
+	} else {
+		overrides = node.Obj("overrides").Obj(node.Str("instanceOf"))
+		allowed = []string{"fill"}
+	}
+	props := jsonv.NewObject()
+	var skipped []string
+	for _, k := range all.Keys() {
+		if inList(allowed, k) && overrides != nil && overrides.Has(k) {
+			v, _ := all.Get(k)
+			props.Set(k, v)
+		} else {
+			skipped = append(skipped, k)
+		}
+	}
+	return props, skipped, nil
+}
+
+// DetachTokensSkipped lists, by node id, the fields detach_tokens leaves alone because they come
+// from a component (an instance or a copy only owns its overrides).
+func DetachTokensSkipped(doc *Document, ids []string, fields []string) map[string][]string {
+	var picked map[string]bool
+	if len(fields) > 0 {
+		picked = map[string]bool{}
+		for _, f := range fields {
+			picked[f] = true
+		}
+	}
+	out := map[string][]string{}
+	for _, id := range ids {
+		node := GetNode(doc, id)
+		if node == nil {
+			continue
+		}
+		if _, skipped, err := detachTokenPlan(doc, node, picked, 0); err == nil && len(skipped) > 0 {
+			out[id] = skipped
+		}
+	}
+	return out
 }
 
 func detachTokenProps(doc *Document, node *Node, fields map[string]bool, opIndex int) (*jsonv.Object, error) {

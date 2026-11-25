@@ -485,6 +485,26 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			boxesObj.Set(id, core.LayoutBoxJSON(b))
 		}
 		out.Set("boxes", boxesObj)
+		// An id that exists but has no box is named, never dropped: a page has no geometry, and a node hidden
+		// inside an auto-layout frame is not laid out.
+		if a.Has("ids") {
+			var unplaced []any
+			seen := map[string]bool{}
+			for _, id := range a.Strings("ids") {
+				if _, ok := boxes[id]; ok || seen[id] {
+					continue
+				}
+				seen[id] = true
+				reason := "not laid out (hidden inside an auto-layout frame, or outside rootId)"
+				if n := core.GetNode(d, id); n != nil && n.Str("type") == "page" {
+					reason = "a page has no box; its frames sit in canvas coordinates"
+				}
+				unplaced = append(unplaced, jsonv.NewObject("id", id, "reason", reason))
+			}
+			if len(unplaced) > 0 {
+				out.Set("unplaced", unplaced)
+			}
+		}
 		if !a.Has("ids") {
 			sum := core.SummarizePlacement(d, a.Str("rootId"))
 			content := jsonv.NewObject()
@@ -1081,7 +1101,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if a.Has("fields") {
 			op.Set("fields", a.Arr("fields"))
 		}
-		return writeWith(a, []any{op}, labelOr(a, "detach tokens"), "detached", a.Arr("ids"))
+		// Fields that come from a component (on an instance or its copies) are skipped, not an error.
+		extra := []any{"detached", a.Arr("ids")}
+		if d, err := docOf(a); err == nil {
+			if skipped := core.DetachTokensSkipped(d, a.Strings("ids"), a.Strings("fields")); len(skipped) > 0 {
+				sk := jsonv.NewObject()
+				for id, f := range skipped {
+					sk.Set(id, jsonv.FromGo(f))
+				}
+				extra = append(extra, "skipped", sk)
+			}
+		}
+		return writeWith(a, []any{op}, labelOr(a, "detach tokens"), extra...)
 	})
 
 	add("apply_ops", z.Object(z.Field{Name: "ops", Schema: z.Array(core.OpSchema).Min(1).Max(1000)}, label(), batch(), workspaceID()),

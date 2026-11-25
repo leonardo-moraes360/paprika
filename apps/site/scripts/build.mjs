@@ -65,7 +65,7 @@ ${FONTS}
 <style>${css}</style>
 </head>`;
 
-copy("docs/brand/icon.svg", "icon.svg");
+copy("docs/brand/favicon.svg", "icon.svg"); // small-size variant of the brand icon
 
 // ---------------------------------------------------------------- landing page
 
