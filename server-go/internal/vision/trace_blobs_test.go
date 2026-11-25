@@ -42,19 +42,24 @@ func TestTraceBlobIDsMatchAnalyze(t *testing.T) {
 		t.Fatalf("blobs: %d", len(an.Blobs))
 	}
 	all := traceOf(t, img, TraceOptions{MinArea: 0.0001})
-	if len(all.Paths) != len(an.Blobs) {
-		t.Fatalf("trace drew %d paths, analyze found %d blobs", len(all.Paths), len(an.Blobs))
+	// analyze_image lists the anti-aliasing rims between colors as blobs too (they keep their
+	// ids); trace_image does not draw them, the shapes on both sides take their pixels
+	if len(all.Paths)+all.Skipped.Slivers != len(an.Blobs) || len(all.Paths) < 4 {
+		t.Fatalf("trace drew %d paths and absorbed %d rims, analyze found %d blobs", len(all.Paths), all.Skipped.Slivers, len(an.Blobs))
 	}
 	for _, b := range an.Blobs {
 		r := traceOf(t, img, TraceOptions{MinArea: 0.0001, BlobIDs: []string{b.ID}})
+		if len(r.Paths) == 0 && r.Skipped.Slivers == 1 {
+			continue // a rim: nothing to draw
+		}
 		if len(r.Paths) != 1 || r.Paths[0].BlobID != b.ID || r.Paths[0].Color != b.Color {
 			t.Fatalf("%s: %+v (analyze says %s)", b.ID, r.Paths, b.Color)
 		}
 		bb := r.Paths[0].BBox
-		if math.Abs(bb.X-b.BBox.X) > 3 || math.Abs(bb.Y-b.BBox.Y) > 3 || math.Abs(bb.Width-b.BBox.Width) > 4 || math.Abs(bb.Height-b.BBox.Height) > 4 {
+		if math.Abs(bb.X-b.BBox.X) > 4 || math.Abs(bb.Y-b.BBox.Y) > 4 || math.Abs(bb.Width-b.BBox.Width) > 6 || math.Abs(bb.Height-b.BBox.Height) > 6 {
 			t.Fatalf("%s: trace box %+v, analyze box %+v", b.ID, bb, b.BBox)
 		}
-		if r.Skipped.NotListed != len(an.Blobs)-1 || r.PathCount != 1 {
+		if r.Skipped.NotListed+r.Skipped.Slivers != len(an.Blobs)-1 || r.PathCount != 1 {
 			t.Fatalf("%s: skipped %+v, pathCount %d", b.ID, r.Skipped, r.PathCount)
 		}
 	}
@@ -151,7 +156,7 @@ func TestTraceBlobIDsMatchAnalyzeWithPhoto(t *testing.T) {
 			t.Fatalf("%s: %+v (analyze says %s)", b.ID, r.Paths, b.Color)
 		}
 		bb := r.Paths[0].BBox
-		if math.Abs(bb.X-b.BBox.X) > 2 || math.Abs(bb.Y-b.BBox.Y) > 2 || math.Abs(bb.Width-b.BBox.Width) > 3 || math.Abs(bb.Height-b.BBox.Height) > 3 {
+		if math.Abs(bb.X-b.BBox.X) > 4 || math.Abs(bb.Y-b.BBox.Y) > 4 || math.Abs(bb.Width-b.BBox.Width) > 6 || math.Abs(bb.Height-b.BBox.Height) > 6 {
 			t.Fatalf("%s: trace box %+v, analyze box %+v", b.ID, bb, b.BBox)
 		}
 	}

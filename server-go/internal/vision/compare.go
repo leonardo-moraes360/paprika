@@ -38,6 +38,7 @@ type CompareInput struct {
 	Placed         Rect // where the reference sits in the frame (fitted and centered)
 	Nodes          []NodeBox
 	Target         float64
+	EdgeTarget     float64 // edge score the drawing must reach to pass (0 = the edge metric is reported but does not decide pass)
 	Top            int
 	Rotate         bool // also search a small rotation in the global alignment
 }
@@ -109,6 +110,7 @@ type Comparison struct {
 	Extra      float64        `json:"extra"`   // share of the drawn ink that is not in the reference
 	Target     float64        `json:"target"`
 	Pass       bool           `json:"pass"`
+	Edge       *Edge          `json:"edge,omitempty"` // contour distance between the reference ink and the drawn ink
 	InkShare   InkShare       `json:"ink"`
 	Color      ColorScore     `json:"color"`
 	RawMatch   RawMatch       `json:"rawPixelMatch"`
@@ -425,6 +427,12 @@ func Compare(in CompareInput) (*Comparison, error) {
 		res.Extra = r3(float64(nDrawn-inter) / float64(nDrawn))
 	}
 	res.Pass = res.IoU >= in.Target
+	if nRef > 0 && nDrawn > 0 {
+		res.Edge = edgeOf(in, cv)
+		if res.Edge != nil && in.EdgeTarget > 0 {
+			res.Pass = res.Pass && res.Edge.Pass
+		}
+	}
 
 	res.Color = compareColors(rp, dp, nRef, nDrawn)
 	res.Regions = findRegions(rp, dp, fx, fy, in.Top)
@@ -843,4 +851,15 @@ func diffPNG(ref, drawn []bool, w, h int) []byte {
 		img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3] = c.R, c.G, c.B, c.A
 	}
 	return encodePNG(img)
+}
+
+// edgeOf measures the contour distance on a canvas at least as sharp as the drawing (up to
+// edgeMaxSide px), so an error of a pixel or two at the frame's size is not rounded away.
+func edgeOf(in CompareInput, cv canvasPlanes) *Edge {
+	db := in.Drawn.Bounds()
+	side := math.Min(edgeMaxSide, math.Max(float64(db.Dx()), float64(db.Dy())))
+	if side > float64(max(cv.w, cv.h)) && side > compareMaxSide {
+		cv = buildPlanes(in.Drawn, in.Ref, in.FrameW, in.FrameH, in.Placed, side)
+	}
+	return edgeMetrics(cv.rp.ink, cv.dp.ink, cv.w, cv.h, (cv.fx+cv.fy)/2, in.EdgeTarget)
 }

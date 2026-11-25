@@ -1764,7 +1764,7 @@ describe("API: MCP", () => {
     assertOutput("trace_image", only.structuredContent);
     expect(only.structuredContent.paths).toHaveLength(1);
     expect(only.structuredContent.paths[0]).toMatchObject({ blobId: navy.id, color: "#14286e" });
-    expect(only.structuredContent.skipped).toEqual({ excluded: 0, notListed: blobs.length - 1 });
+    expect(only.structuredContent.skipped).toEqual({ excluded: 0, notListed: blobs.length - 1, slivers: 0 });
 
     // exclude: blobs inside the rectangle (the part placed as an image) are not traced
     const ex = (await c.callTool({ name: "trace_image", arguments: { src, dryRun: true, exclude: [{ x: 95, y: 25, width: 60, height: 50 }] } })) as ToolResult & { structuredContent?: any };
@@ -1844,6 +1844,14 @@ describe("API: MCP", () => {
     assertOutput("compare_reference", byNode.structuredContent);
     expect(byNode.structuredContent).toMatchObject({ pass: true, reference: { source: "node", nodeId: layer.structuredContent.id } });
     expect(byNode.structuredContent.delta.iou).toBeGreaterThan(0.2);
+    // the edge metric: identical outlines score 1, a shifted reference scores lower and edgeTarget decides pass only when given
+    expect(byNode.structuredContent.edge.score).toBeGreaterThan(0.75);
+    expect(textOf(byNode)).toMatch(/\nedge: mean [\d.]+ px, p95 [\d.]+ px, score [\d.]+/);
+    expect(sc.edge.mean).toBeGreaterThan(1);
+    expect(sc.edge.score).toBeLessThan(byNode.structuredContent.edge.score);
+    const strict = (await c.callTool({ name: "compare_reference", arguments: { reference: layer.structuredContent.id, rootId: "cmpf", target: 0.95, edgeTarget: 0.999 } })) as ToolResult & { structuredContent?: any };
+    assertOutput("compare_reference", strict.structuredContent);
+    expect(strict.structuredContent.edge.target).toBe(0.999);
 
     const bad = await call(c, "compare_reference", { reference: "no-such-node", rootId: "cmpf" });
     expect(bad.isError).toBe(true);

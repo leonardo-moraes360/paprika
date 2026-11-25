@@ -281,3 +281,32 @@ func TestCompareReferenceErrors(t *testing.T) {
 		t.Fatalf("no screenshotter: %q", text)
 	}
 }
+
+func TestCompareReferenceEdgeMetric(t *testing.T) {
+	m, _, _ := compareSetup(t)
+	// the same picture: the outlines coincide, the edge metric is 0 and the line is in the summary
+	sc, text, _ := compareCall(t, m, obj("reference", dataURL(compareScene(t, 0, 0)), "rootId", "f"))
+	e := sc.Obj("edge")
+	if e == nil || e.Num("mean") != 0 || e.Num("p95") != 0 || e.Num("score") != 1 || !sc.Bool("pass") {
+		t.Fatalf("edge of an identical picture: %s\n%s", jsonv.Stringify(sc, ""), text)
+	}
+	if !strings.Contains(text, "edge: mean 0.0 px, p95 0.0 px, score 1.00") {
+		t.Fatalf("summary lacks the edge line:\n%s", text)
+	}
+	// 3 px to the side: the outline is about 3 px off and the score drops, but without edgeTarget
+	// pass still follows iou only
+	ref := dataURL(compareScene(t, 3, 0))
+	sc, text, _ = compareCall(t, m, obj("reference", ref, "rootId", "f", "target", 0.5))
+	e = sc.Obj("edge")
+	if e == nil || e.Num("mean") < 0.5 || e.Num("mean") > 4 || e.Num("score") >= 0.9 || e.Obj("referenceToDrawn") == nil {
+		t.Fatalf("edge of a shifted picture: %s\n%s", jsonv.Stringify(e, ""), text)
+	}
+	if !sc.Bool("pass") || strings.Contains(text, "edgeTarget") {
+		t.Fatalf("without edgeTarget pass follows iou only:\n%s", text)
+	}
+	// with edgeTarget the same drawing fails
+	sc, text, _ = compareCall(t, m, obj("reference", ref, "rootId", "f", "target", 0.5, "edgeTarget", 0.95))
+	if sc.Bool("pass") || sc.Obj("edge").Bool("pass") || !strings.Contains(text, "(edgeTarget 0.95) FAIL") {
+		t.Fatalf("edgeTarget 0.95 must fail a 3 px shift:\n%s", text)
+	}
+}
