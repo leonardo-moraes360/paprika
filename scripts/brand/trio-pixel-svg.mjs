@@ -34,8 +34,9 @@ function lockupSvg(c) {
   const wm = wordmark();
   const [vx, vy, vw, vh] = wm.viewBox;
   const wmH = 96, wmW = (vw / vh) * wmH, k = wmH / vh;
-  const symbol = 128, gapX = 6, wmY = 22;
-  const W = r2(symbol + gapX + wmW), H = r2(symbol * 1.08);
+  const symbol = 128, gapX = 6;
+  const wmY = r2(symbol / 2 - (50 - vy) * k);
+  const W = r2(symbol + gapX + wmW), H = symbol;
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
     `<g transform="scale(${symbol / 100})">${symbolLayers(c).map(layerSvg).join("")}</g>`,
