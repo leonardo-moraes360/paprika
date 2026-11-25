@@ -992,3 +992,61 @@ Task: draw 3–4 brand directions (symbol, wordmark, palette, pattern) from six 
 | 182 | Re-running a drawing script not to leave empty twins | Two runs that failed after `create_workspace` left two `Marca · conceitos (nov/2026)` workspaces (one empty). `create_page` has `ensure: true`; `create_workspace` does not | `ensure: true` on `create_workspace` (return the existing one by name) | P3 |
 
 - Fine: `place: "none"` with exact x/y on four 1440×960 boards; `strokeCap`/`strokeJoin` on stroked paths; `viewBox` scaling stroke width with the drawing; `render_screenshot` `scale: 2` (2880×1920) on both servers; the active workspace never changed.
+
+## 2026-11-24: redrawing six reference logos and scoring them (maintainer's replica pass, workspace "Veredito · Claude")
+
+Task: redraw six reference images (a gradient ring, an orange burst, a whale wordmark, a crane, a 12-mark gradient grid and a 20-monogram grid) over MCP, partly by hand and partly from a Python script calling `/mcp` over HTTP, then score each replica against its reference. The findings drove section T of the backlog (PAP-A-005..021).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 183 | A number for "how close is my replica" | Scored by hand: raw pixel equality read 88–97 % for every replica (the background dominates), while IoU of the drawn shapes read 41–74 % (ring 74 %, burst 63 %, whale 43 %, crane 41 %). The whale looked the most faithful by eye and scored 43 % | Done (2026-11-25, PAP-A-015, #198): `compare_reference` scores ink IoU, missing/extra regions, per-node coverage and a global offset | — |
+| 184 | Rounded corners on polygonal petals | Wrote a Python helper that rounds polygon corners with quadratic curves before every `create_nodes` | Done (2026-11-25, PAP-A-017, #194): `round_path_corners`, `create_shape_path` | — |
+| 185 | Gradient on a path | `fill: "linear-gradient(...)"` was accepted and painted black; the structured `gradient` field worked but the guide did not mention it | Done (2026-11-25, PAP-A-007, #191; guide line in this change) | — |
+| 186 | A hole in a gradient shape | `combine_paths` subtract worked, but took one call per pair and dropped the gradient each time (7 calls for one ring) | Done (2026-11-25, PAP-A-018, #192): `operations` chain and `style` | — |
+| 187 | Organic contours (crane wing, monograms) | Every feather written as coordinates; no way to start from the reference's own contours | Done (2026-11-25, PAP-A-016, #197 and PAP-A-014, #195): `trace_image`, `analyze_image` | — |
+| 188 | The same picture in the canvas as in the screenshot | The whale board was blank in the maintainer's GPU mode and complete in DOM/CPU; "estaleiro" set in `fontFamily: "Inter"` painted serif on the canvas | Fonts done (PAP-A-011, #190); GPU: hardening in #193, cause not reproduced | P1 |
+| 189 | Open a workspace link without moving everyone | Opening `/w/<id>` to check the drawing made it the server's active workspace | Done (2026-11-24, PAP-A-005, #185) | — |
+
+- Fine: every board took one or two `create_nodes` calls from a script talking to `/mcp` over HTTP (initialize, `notifications/initialized`, `tools/call`), with no errors or hangs; `combine_paths` union/subtract/intersect on rect, ellipse and path; the structured `gradient` with alpha stops on paths.
+- Simpler for the next agent: start from `analyze_image` or `trace_image`, draw the structure, run `fit_to_reference`, then `compare_reference` until `pass`.
+
+## 2026-11-25: the same six references again, with the new tools (workspace "Veredito 2 · Claude (ferramentas)")
+
+Task: redo the six replicas of the previous section with `analyze_image` → `trace_image` into a frame filled with the detected background → `compare_reference`, one script, about 0.4 s per board. Shape IoU from `compare_reference`, first round (hand-drawn) → this round: ring 0.77 → 0.92, burst 0.63 → 0.97, whale 0.42 → 0.96, crane 0.31 → 0.85, 12-mark gradient grid 0.52 → 0.74, 20-monogram grid 0.41 → 0.87.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 190 | Gradients traced as gradients | `trace_image` quantizes a smooth ramp into flat bands: the ring became 19 flat patches, the gradient monograms became striped and lost their dark ends (IoU 0.65, 0.74 with `maxColors: 16`, 165 paths) | Detect a blob whose colour varies smoothly and emit one path with a `gradient` (linear/radial fitted to the pixels) instead of one path per band | P1 |
+| 191 | Neighbouring traced shapes that touch | Adjacent paths of the ring leave hairline seams where the background shows through (anti-aliased edges on both sides) | Overlap shared edges by half a pixel, or trace touching blobs of one silhouette as one path with the bands as a gradient (#190) | P2 |
+| 192 | Small features kept | With the default `minArea` the whale's container boxes (13 px squares) were dropped as noise; `minArea: 0.00005` kept them and IoU went 0.92 → 0.96 | Keep small compact blobs with strong contrast against their surroundings even below `minArea`, or lower the default | P2 |
+| 193 | Photo or sketch panels | The crane reference has a pencil sketch on paper; it traced as beige/grey noise blobs | Expected; `colors` or `region` already limit it. Worth one guide sentence | P3 |
+
+- Fine: `compare_reference` scored the old hand-drawn boards close to the manual numbers (ring 0.77, whale 0.42); `analyze_image` background and `trace_image` placement put every board in the right place first try; no errors, no hangs, every board one undo step.
+
+## 2026-11-25: 20 Dribbble references traced and scored (workspace "Estudo Dribbble · Claude (20 referências)")
+
+Task: 20 public Dribbble shots (11 logo marks and mark sheets, 6 app icons, a branding board, an illustration, a web hero) traced with `analyze_image` → frame filled with the detected background → `trace_image` (default, then `maxColors: 12, minArea: 0.00005`, best kept) → `compare_reference`. Under 0.5 s per image end to end. Shape IoU: mean 0.87, median 0.94; 13 of 20 at ≥ 0.90 (flat marks and icons 0.98–0.995), 4 below 0.80. Reference images are not committed.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 194 | A score that holds on gradient backgrounds | The "ranker" wordmark on a soft orange gradient traced well by eye but scored IoU 0.26 (extra 0.69): ink is "differs from the border colour", so most of the gradient background counted as ink on both sides | Model the background (per-pixel estimate, e.g. low-frequency fit of border-connected pixels) before building the ink masks; report a warning when the border is not uniform | P1 |
+| 195 | Sheets with many marks | Mark sheets (40–140 blobs) hit `maxPaths`: whole marks and every wordmark went missing (IoU 0.58–0.68); `truncated: true` was reported but the dropped ones are the small ones, which are the text | Raise or remove the default cap for `dryRun: false` with a per-call budget, drop by visual importance instead of area, and say which blob ids were dropped | P1 |
+| 196 | Small text | Wordmarks and UI copy under ~14 px traced as blobs that read as broken glyphs ("Ma imze Your Socia") | Detect text-like rows of small blobs and either keep them as one path group or hand them to `import_html`/text with a `text` hint | P2 |
+| 197 | Gradients and photos | App icons with soft gradients came out banded (same as #190); a photo became a posterized silhouette | Same as #190 for gradients; for photo regions, offer `asImage: true` to place the region as an image node instead of tracing | P2 |
+| 198 | `pathCount` vs `maxPaths` | `pathCount` reported 96–660 while `maxPaths` defaults to 60 and `truncated` was true; unclear how many nodes were really created | Report `created` and `dropped` counts separately | P3 |
+
+- Fine: every call succeeded, no hangs; flat logos and icons (fitness, B mark, rhino, task icon, Acquit) at IoU 0.98–0.995 with 2–12 paths; illustration (0.94) and branding board (0.94) usable as a starting point.
+
+## 2026-11-25: the same 20 references with a mix of tools (workspace "Estudo Dribbble · mix de ferramentas v4 (Claude)")
+
+Task: same 20 Dribbble shots, but choosing a tool per region instead of tracing everything: photo regions placed as images (`import_image` of a local crop), shapes that `analyze_image` fits as a circle, ellipse, rect or polygon with IoU ≥ 0.93 created as primitives, everything else from `trace_image` (`dryRun`, then `create_nodes`). Mean IoU 0.907 (trace only: 0.871), median 0.964. 36 primitives, 1498 traced paths, 14 images. Photos now read as photos (the eye behind glasses, the watch strap, the poster) instead of posterized blobs, and the 140-icon sheet went from 0.68 to 0.91.
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 199 | Know which tool fits which region | Nothing in Paprika says "this region is a photo, this one a gradient, this one flat shapes, this one text". The agent had to write its own classifier in Python (per-tile grain: share of pixels that differ from a 1.2 px blur; edge strength and colour count alone mistook gradients and icon sheets for photos) | `analyze_image` returns `regions: [{kind: photo|gradient|flat|text, box, suggest: import_image|gradient|primitive|trace_image|text}]` so the agent mixes tools without guessing | P1 |
+| 200 | Place a crop of the reference as an image | `import_image` takes a whole file; the agent cropped locally and sent a data URL | `import_image {src, crop: {x, y, width, height}}` (in source or frame units) | P2 |
+| 201 | Trace only some blobs | To mix, the agent ran `trace_image` with `dryRun`, matched paths to `analyze_image` blobs by colour and box overlap, and created the subset itself | `trace_image {blobIds}` (ids from `analyze_image`) and `exclude: [boxes]` to skip photo regions | P2 |
+| 202 | Primitives where they fit | Only 36 of ~1500 shapes fit a primitive at IoU ≥ 0.93 on real artwork (anti-aliased edges, rounded corners with uneven radii); a traced path of the same shape scores as well, so IoU alone never rewards the simpler node | Add `nodeCount` and an "editability" hint to `compare_reference`, and fit rounded rects with per-corner radius and polygons with rounded corners before falling back to freeform | P2 |
+| 203 | Guidance against using one tool for everything | The guide lists each tool on its own; nothing says when to prefer a primitive over a path, an image over a trace, or a gradient over bands | One decision table in the guide: flat geometric → primitives (`create_shape_path`, rect, ellipse); organic flat → `trace_image`; smooth ramp → `gradient`; photo → `import_image`/`place_reference`; text → text nodes | P1 |
+
+- Still open from the previous studies: gradient backgrounds break the score (#194, the "ranker" board stays at 0.26), gradients traced as bands (#190), `maxPaths` 200 cap on mark sheets (#195).
