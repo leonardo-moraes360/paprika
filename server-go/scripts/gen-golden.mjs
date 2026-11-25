@@ -82,6 +82,25 @@ const free = () =>
       },
     },
   ]).doc;
+// combine_paths batch: a disc, a gradient dome, a hole and a clip rect stacked in one frame.
+const combo = () =>
+  applyOps(base(), [
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "cb", name: "Combo", width: 400, height: 300, fill: "#fbf8f4",
+        children: [
+          { type: "ellipse", id: "disc", x: 0, y: 0, width: 100, height: 100, fill: "#c43d27", stroke: { color: "#1e2336", width: 2 } },
+          {
+            type: "path", id: "dome", x: 20, y: 0, width: 60, height: 40, d: "M0 40 L0 0 L60 0 L60 40 Z", fill: "#1e2336",
+            gradient: { type: "linear", angle: 90, stops: [{ color: "#ffffff", offset: 0 }, { color: "#000000", offset: 1 }] },
+          },
+          { type: "ellipse", id: "hole", x: 30, y: 30, width: 40, height: 40, fill: "#000000" },
+          { type: "rect", id: "clip", x: -10, y: -10, width: 60, height: 120, fill: "#00ff00", opacity: 0.5 },
+        ],
+      },
+    },
+  ]).doc;
 const grouped = () => {
   const d = free();
   return applyOps(d, groupOps(d, ["e1", "r1"], { id: "g1", name: "Par" }).ops).doc;
@@ -295,6 +314,7 @@ const docs = {
   comp: comp(),
   card: card(),
   free: free(),
+  combo: combo(),
   grouped: grouped(),
   paged: paged(),
   themed: parseDocument(themed()),
@@ -472,6 +492,20 @@ const opCases = [
   ["free", [{ op: "add_page", id: "p2", firstId: "p1", firstName: "Início", name: "Dois" }]],
   ["paged", [{ op: "add_page", id: "p3" }, { op: "create", parentId: "p3", node: { type: "rect", id: "r3" } }]],
   ["paged", [{ op: "add_page", id: "pg1" }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "union", ids: ["disc", "dome"], as: "body" }, { op: "subtract", ids: ["body", "hole"] }], id: "ring", name: "Ring" }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "subtract", ids: ["disc", "hole"], as: "ring" }, { op: "intersect", ids: ["ring", "clip"], as: "half" }, { op: "union", ids: ["half", "dome"] }], id: "mix", style: "top" }]],
+  ["combo", [{ op: "combine_paths", ids: ["clip", "disc", "dome"], operation: "union", id: "s1", style: "first" }]],
+  ["combo", [{ op: "combine_paths", ids: ["clip", "disc", "dome"], operation: "union", id: "s2", style: "last" }]],
+  ["combo", [{ op: "combine_paths", ids: ["clip", "disc", "dome"], operation: "union", id: "s3", style: { from: "dome", opacity: 0.25 } }]],
+  ["combo", [{ op: "combine_paths", ids: ["disc", "dome"], operation: "union", id: "s4", style: { fill: "#abcdef" } }]],
+  ["combo", [{ op: "combine_paths", ids: ["disc", "dome"], operation: "union", id: "s5", style: { gradient: { type: "radial", stops: [{ color: "#fff", offset: 0 }, { color: "#000", offset: 1 }] } } }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "union", ids: ["disc", "dome"], as: "u" }, { op: "subtract", ids: ["hole", "u"] }] }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "union", ids: ["disc", "dome"], as: "u" }, { op: "subtract", ids: ["u", "nope"] }] }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "union", ids: ["disc", "dome"], as: "disc" }] }]],
+  ["combo", [{ op: "combine_paths", operations: [{ op: "union", ids: ["disc", "dome"], as: "u" }, { op: "union", ids: ["u", "hole"], as: "u" }] }]],
+  ["combo", [{ op: "combine_paths", ids: ["disc", "dome"], operation: "union", style: { from: "cb" } }]],
+  ["combo", [{ op: "combine_paths", ids: ["disc", "dome"], operation: "union", operations: [{ op: "union", ids: ["disc", "dome"] }] }]],
+  ["combo", [{ op: "combine_paths" }]],
   ["free", [{ op: "combine_paths", ids: ["r1", "e1"], operation: "union", id: "cu" }]],
   ["free", [{ op: "combine_paths", ids: ["r1", "e1"], operation: "subtract", id: "cs" }]],
   ["free", [{ op: "combine_paths", ids: ["r1", "e1"], operation: "intersect", id: "ci" }]],
@@ -756,6 +790,11 @@ const structureCases = [
   ["card", "wrap", { ids: ["title"], id: "wt" }],
   ["free", "reveal", { kind: "hidden" }],
   ["free", "reveal", { kind: "locked", pageId: "nope" }],
+  ["combo", "combine", { operations: [{ op: "union", ids: ["disc", "dome"], as: "body" }, { op: "subtract", ids: ["body", "hole"] }], id: "ring", name: "Ring" }],
+  ["combo", "combine", { operations: [{ op: "subtract", ids: ["disc", "hole"], as: "ring" }, { op: "union", ids: ["ring", "clip"] }], id: "m", style: "last" }],
+  ["combo", "combine", { ids: ["disc", "dome"], operation: "union", style: { from: "dome", fill: "#112233" }, id: "st" }],
+  ["combo", "combine", { ids: ["disc", "dome"], operation: "union", style: "sideways" }],
+  ["combo", "combine", { operations: [{ op: "union", ids: ["disc", "dome"], as: "u" }, { op: "subtract", ids: ["hole", "u"] }] }],
   ["free", "combine", { ids: ["r1", "e1"], operation: "union", id: "cu" }],
   ["free", "combine", { ids: ["r1", "e1"], operation: "subtract", id: "cs" }],
   ["free", "combine", { ids: ["r1"], operation: "union" }],
@@ -773,7 +812,7 @@ const structure = structureCases.map(([docName, kind, args]) => {
       return { ops: p.ops, map: p.map };
     }
     if (kind === "combine") {
-      const p = combinePathsOps(d, args.ids, { operation: args.operation, id: args.id, name: args.name });
+      const p = combinePathsOps(d, args);
       return { ops: p.ops, id: p.id };
     }
     if (kind === "align") return alignOps(d, args.ids, args.edge);

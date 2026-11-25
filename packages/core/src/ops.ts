@@ -1,7 +1,13 @@
 import { z } from "zod";
 import {
+  ColorValue,
   Document,
+  FilterEffects,
+  Gradient,
   IMMUTABLE_KEYS,
+  Outline,
+  ShadowValue,
+  Stroke,
   type FrameNode,
   Node,
   NodeType,
@@ -190,11 +196,38 @@ export const RevealOp = z.object({
   pageId: z.string().optional(),
 });
 
+const BooleanOperation = z.enum(["union", "subtract", "intersect", "exclude"]);
+
+/** Um passo de `combine_paths` em lote: `as` nomeia o resultado para os passos seguintes. */
+const CombineStepSchema = z.object({
+  op: BooleanOperation,
+  ids: z.array(z.string()).min(2).max(500),
+  as: z.string().min(1).max(100).optional(),
+});
+
+/** Estilo do resultado: de qual nó copiar ("first"|"last"|"bottom"|"top"|{from}) e o que sobrescrever. */
+const CombineStyleSchema = z.union([
+  z.enum(["first", "last", "bottom", "top"]),
+  z.object({
+    from: z.string().optional(),
+    fill: ColorValue.optional(),
+    gradient: Gradient.optional(),
+    stroke: Stroke.optional(),
+    opacity: z.number().min(0).max(1).optional(),
+    shadow: ShadowValue.optional(),
+    outline: Outline.optional(),
+    filter: FilterEffects.optional(),
+    backdropFilter: FilterEffects.optional(),
+  }),
+]);
+
 /** Combina path/rect/ellipse/shape numa path via união, subtração, interseção ou exclusão. */
 export const CombinePathsOp = z.object({
   op: z.literal("combine_paths"),
-  ids: z.array(z.string()).min(2).max(500),
-  operation: z.enum(["union", "subtract", "intersect", "exclude"]),
+  ids: z.array(z.string()).min(2).max(500).optional(),
+  operation: BooleanOperation.optional(),
+  operations: z.array(CombineStepSchema).min(1).max(50).optional(),
+  style: CombineStyleSchema.optional(),
   id: z.string().optional(),
   name: z.string().max(200).optional(),
 });
@@ -684,7 +717,7 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
               : op.op === "detach"
                 ? (syncInstances(doc), detachOps(doc, op.ids))
                 : op.op === "combine_paths"
-                  ? combinePathsOps(doc, op.ids, { operation: op.operation, id: op.id, name: op.name }).ops
+                  ? combinePathsOps(doc, op).ops
                   : op.op === "align"
                     ? alignOps(doc, op.ids, op.edge).ops
                     : op.op === "distribute"

@@ -514,6 +514,35 @@ describe("API: MCP", () => {
     `);
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
     expect(hist.map((h: { label: string }) => h.label)).toEqual(["create 2 node(s)", "combine 2 path(s)", "create page", "create 1 node(s)"]);
+    // combine_paths em lote: anel com furo numa chamada só, estilo escolhido, um passo de desfazer.
+    await call(c, "create_nodes", {
+      parentId: "p2",
+      nodes: [
+        { type: "ellipse", id: "bd", x: 0, y: 0, width: 100, height: 100, fill: "#c43d27" },
+        { type: "rect", id: "bm", x: 20, y: 0, width: 60, height: 40, fill: "#1e2336", gradient: { type: "linear", angle: 90, stops: [{ color: "#ffffff", offset: 0 }, { color: "#000000", offset: 1 }] } },
+        { type: "ellipse", id: "bh", x: 30, y: 30, width: 40, height: 40, fill: "#000000" },
+      ],
+    });
+    const ring = JSON.parse(
+      textOf(
+        await call(c, "combine_paths", {
+          operations: [
+            { op: "union", ids: ["bd", "bm"], as: "body" },
+            { op: "subtract", ids: ["body", "bh"] },
+          ],
+          style: { from: "bm" },
+          id: "ring",
+          name: "Anel",
+        }),
+      ),
+    );
+    expect(ring.path).toBe("ring");
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["ring"] })))[0]).toMatchObject({ type: "path", name: "Anel", fill: "#1e2336", fillRule: "evenodd", gradient: { type: "linear" } });
+    for (const gone of ["bd", "bm", "bh"]) expect(textOf(await call(c, "get_nodes", { ids: [gone] }))).toMatch(/do not exist/);
+    const bad = textOf(await call(c, "combine_paths", { operations: [{ op: "union", ids: ["ring", "nope"] }] }));
+    expect(bad).toMatch(/operations\[0\] \(union\): nodes do not exist: nope/);
+    await call(c, "undo");
+    expect(JSON.parse(textOf(await call(c, "get_nodes", { ids: ["bd", "bm", "bh"] }))).map((n: { id: string }) => n.id)).toEqual(["bd", "bm", "bh"]);
   });
 
   it("create_shape_path e round_path_corners geram caminhos comuns", async () => {
