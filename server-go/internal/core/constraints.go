@@ -1,6 +1,9 @@
 package core
 
-import "math"
+import (
+	"maps"
+	"math"
+)
 
 const constraintEps = 1e-3
 const constraintMax = 100_000.0
@@ -246,9 +249,7 @@ func layoutAll(doc *Document) map[string]LayoutBox {
 		if err != nil {
 			continue
 		}
-		for k, v := range boxes {
-			out[k] = v
-		}
+		maps.Copy(out, boxes)
 	}
 	return out
 }
