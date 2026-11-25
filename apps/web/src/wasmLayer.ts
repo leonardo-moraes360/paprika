@@ -18,6 +18,9 @@ interface WasmRenderer {
   readonly backend: string;
   readonly adapterInfo: string;
   readonly fallbackReason: string;
+  /** First asynchronous GPU failure (device lost, validation error); empty when healthy. */
+  readonly deviceError: string;
+  finish(): Promise<void>;
   setBackground(r: number, g: number, b: number, a: number): void;
   setScene(data: Float32Array, paths: string): void;
   resize(width: number, height: number): void;
@@ -158,6 +161,15 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
     const dpr = window.devicePixelRatio || 1;
     try {
       r.render(v.x * dpr, v.y * dpr, v.zoom * dpr);
+      // WebGPU reports device loss and validation errors after `render` returned. Without this
+      // check the DOM would stay unpainted over a canvas that never received the frame.
+      if (r.backend === "webgpu") {
+        void r.finish().then(() => {
+          if (rendererRef.current !== r || !r.deviceError) return;
+          setShown(false);
+          setStatus({ backend: "error", detail: r.deviceError });
+        });
+      }
       return true;
     } catch (e) {
       setShown(false);
