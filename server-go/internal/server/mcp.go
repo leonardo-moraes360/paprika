@@ -2099,6 +2099,28 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return jsonResult(out), nil
 	})
 
+	add("analyze_image", z.Object(
+		optStr("src"),
+		optStr("nodeId"),
+		z.Field{Name: "frame", Schema: z.Optional(z.Object(
+			z.Field{Name: "width", Schema: z.Number().Min(1).Max(100000)},
+			z.Field{Name: "height", Schema: z.Number().Min(1).Max(100000)},
+		))},
+		z.Field{Name: "maxColors", Schema: z.Optional(z.Int().Min(1).Max(16))},
+		z.Field{Name: "minArea", Schema: z.Optional(z.Number().Min(0.00001).Max(0.5))},
+		z.Field{Name: "region", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number().Min(0)},
+			z.Field{Name: "y", Schema: z.Number().Min(0)},
+			z.Field{Name: "width", Schema: z.Number().Min(1)},
+			z.Field{Name: "height", Schema: z.Number().Min(1)},
+		))},
+		z.Field{Name: "maxBlobs", Schema: z.Optional(z.Int().Min(1).Max(200))},
+		z.Field{Name: "maxPoints", Schema: z.Optional(z.Int().Min(3).Max(200))},
+		workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		return analyzeImage(a, func() (*core.Document, error) { return docOf(a) })
+	})
+
 	add("resize_image", z.Object(
 		z.Field{Name: "nodeId", Schema: z.Optional(z.String().Min(1))},
 		z.Field{Name: "src", Schema: z.Optional(z.String().Min(1).Max(5_000_000))},
