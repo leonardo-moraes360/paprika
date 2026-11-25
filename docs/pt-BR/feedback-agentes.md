@@ -995,3 +995,20 @@ Tarefa: desenhar 3–4 direções de marca (símbolo, letreiro, paleta, padrão)
 | 182 | Rodar de novo um script de desenho sem deixar gêmeos vazios | Duas rodadas que falharam depois de `create_workspace` deixaram dois `Marca · conceitos (nov/2026)` (um vazio). `create_page` tem `ensure: true`; `create_workspace` não | `ensure: true` em `create_workspace` (devolve o existente pelo nome) | P3 |
 
 - Funcionou: `place: "none"` com x/y exatos em quatro boards de 1440×960; `strokeCap`/`strokeJoin` em paths com traço; `viewBox` escalando a espessura do traço junto do desenho; `render_screenshot` `scale: 2` (2880×1920) nos dois servidores; o workspace ativo nunca mudou.
+
+## 2026-11-24: redesenhar seis logos de referência e pontuar (rodada de réplicas do mantenedor, workspace "Veredito · Claude")
+
+Tarefa: redesenhar seis imagens de referência (um anel em degradê, uma explosão laranja, uma baleia com wordmark, um grou, uma grade de 12 marcas em degradê e uma grade de 20 monogramas) pelo MCP, parte à mão e parte por um script Python chamando `/mcp` por HTTP, e depois pontuar cada réplica contra a referência. Os achados viraram a seção T do backlog (PAP-A-005..021).
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 183 | Um número para "quão perto está a réplica" | Medido à mão: igualdade de pixels crus deu 88–97 % para todas (o fundo domina), enquanto o IoU das formas desenhadas deu 41–74 % (anel 74 %, explosão 63 %, baleia 43 %, grou 41 %). A baleia parecia a mais fiel no olho e deu 43 % | Feito (2026-11-25, PAP-A-015, #198): `compare_reference` mede IoU da forma, regiões que faltam/sobram, cobertura por nó e desalinhamento global | — |
+| 184 | Cantos arredondados em pétalas poligonais | Escrevi um helper em Python que arredonda os cantos com curvas quadráticas antes de cada `create_nodes` | Feito (2026-11-25, PAP-A-017, #194): `round_path_corners`, `create_shape_path` | — |
+| 185 | Degradê num path | `fill: "linear-gradient(...)"` era aceito e pintava preto; o campo estruturado `gradient` funcionava, mas o guia não falava dele | Feito (2026-11-25, PAP-A-007, #191; linha no guia nesta mudança) | — |
+| 186 | Furo numa forma com degradê | `combine_paths` subtract funcionava, mas era uma chamada por par e perdia o degradê a cada vez (7 chamadas para um anel) | Feito (2026-11-25, PAP-A-018, #192): cadeia `operations` e `style` | — |
+| 187 | Contornos orgânicos (asa do grou, monogramas) | Cada pena escrita em coordenadas; nada para começar dos contornos da própria referência | Feito (2026-11-25, PAP-A-016, #197 e PAP-A-014, #195): `trace_image`, `analyze_image` | — |
+| 188 | A mesma imagem no canvas e no screenshot | A prancha da baleia ficou vazia no modo GPU do mantenedor e completa em DOM/CPU; "estaleiro" com `fontFamily: "Inter"` saiu serifado no canvas | Fontes feitas (PAP-A-011, #190); GPU: endurecimento no #193, causa não reproduzida | P1 |
+| 189 | Abrir o link de um workspace sem mudar todo mundo | Abrir `/w/<id>` para conferir o desenho tornou esse workspace o ativo do servidor | Feito (2026-11-24, PAP-A-005, #185) | — |
+
+- Funcionou: cada prancha levou uma ou duas chamadas `create_nodes` de um script falando com `/mcp` por HTTP (initialize, `notifications/initialized`, `tools/call`), sem erro nem travamento; `combine_paths` union/subtract/intersect em rect, elipse e path; o `gradient` estruturado com paradas com alfa em paths.
+- Mais simples para o próximo agente: comece por `analyze_image` ou `trace_image`, desenhe a estrutura, rode `fit_to_reference` e depois `compare_reference` até `pass`.

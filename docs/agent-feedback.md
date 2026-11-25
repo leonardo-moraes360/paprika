@@ -992,3 +992,20 @@ Task: draw 3–4 brand directions (symbol, wordmark, palette, pattern) from six 
 | 182 | Re-running a drawing script not to leave empty twins | Two runs that failed after `create_workspace` left two `Marca · conceitos (nov/2026)` workspaces (one empty). `create_page` has `ensure: true`; `create_workspace` does not | `ensure: true` on `create_workspace` (return the existing one by name) | P3 |
 
 - Fine: `place: "none"` with exact x/y on four 1440×960 boards; `strokeCap`/`strokeJoin` on stroked paths; `viewBox` scaling stroke width with the drawing; `render_screenshot` `scale: 2` (2880×1920) on both servers; the active workspace never changed.
+
+## 2026-11-24: redrawing six reference logos and scoring them (maintainer's replica pass, workspace "Veredito · Claude")
+
+Task: redraw six reference images (a gradient ring, an orange burst, a whale wordmark, a crane, a 12-mark gradient grid and a 20-monogram grid) over MCP, partly by hand and partly from a Python script calling `/mcp` over HTTP, then score each replica against its reference. The findings drove section T of the backlog (PAP-A-005..021).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 183 | A number for "how close is my replica" | Scored by hand: raw pixel equality read 88–97 % for every replica (the background dominates), while IoU of the drawn shapes read 41–74 % (ring 74 %, burst 63 %, whale 43 %, crane 41 %). The whale looked the most faithful by eye and scored 43 % | Done (2026-11-25, PAP-A-015, #198): `compare_reference` scores ink IoU, missing/extra regions, per-node coverage and a global offset | — |
+| 184 | Rounded corners on polygonal petals | Wrote a Python helper that rounds polygon corners with quadratic curves before every `create_nodes` | Done (2026-11-25, PAP-A-017, #194): `round_path_corners`, `create_shape_path` | — |
+| 185 | Gradient on a path | `fill: "linear-gradient(...)"` was accepted and painted black; the structured `gradient` field worked but the guide did not mention it | Done (2026-11-25, PAP-A-007, #191; guide line in this change) | — |
+| 186 | A hole in a gradient shape | `combine_paths` subtract worked, but took one call per pair and dropped the gradient each time (7 calls for one ring) | Done (2026-11-25, PAP-A-018, #192): `operations` chain and `style` | — |
+| 187 | Organic contours (crane wing, monograms) | Every feather written as coordinates; no way to start from the reference's own contours | Done (2026-11-25, PAP-A-016, #197 and PAP-A-014, #195): `trace_image`, `analyze_image` | — |
+| 188 | The same picture in the canvas as in the screenshot | The whale board was blank in the maintainer's GPU mode and complete in DOM/CPU; "estaleiro" set in `fontFamily: "Inter"` painted serif on the canvas | Fonts done (PAP-A-011, #190); GPU: hardening in #193, cause not reproduced | P1 |
+| 189 | Open a workspace link without moving everyone | Opening `/w/<id>` to check the drawing made it the server's active workspace | Done (2026-11-24, PAP-A-005, #185) | — |
+
+- Fine: every board took one or two `create_nodes` calls from a script talking to `/mcp` over HTTP (initialize, `notifications/initialized`, `tools/call`), with no errors or hangs; `combine_paths` union/subtract/intersect on rect, ellipse and path; the structured `gradient` with alpha stops on paths.
+- Simpler for the next agent: start from `analyze_image` or `trace_image`, draw the structure, run `fit_to_reference`, then `compare_reference` until `pass`.
