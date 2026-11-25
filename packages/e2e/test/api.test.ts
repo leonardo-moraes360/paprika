@@ -206,7 +206,7 @@ describe("API: MCP", () => {
         "get_bounds",
         "create_folder", "rename_folder", "move_workspace", "place_reference",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "edit_path", "redo",
-        "rename_workspace", "render_screenshot", "resize_image", "analyze_image", "compare_reference", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
+        "rename_workspace", "render_screenshot", "resize_image", "analyze_image", "compare_reference", "fit_to_reference", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
         "claim_pin", "list_pins", "reply_pin", "resolve_pin", "wait_for_pins",
       ].sort(),
@@ -1431,6 +1431,74 @@ describe("API: MCP", () => {
     expect(bad.isError).toBe(true);
     const noRoot = await call(c, "compare_reference", { reference, rootId: "nope" });
     expect(noRoot.isError).toBe(true);
+  }, 60_000);
+
+  it("fit_to_reference: ajusta posição e tamanho de formas desencontradas até o IoU passar de 0.95, em um passo de undo", async () => {
+    const c = client;
+    // the reference: white, a red disc (center 45,60, r 30) and a navy bar (x 100..180, y 40..80)
+    const scene = encodePng(200, 120, (x, y) => {
+      if ((x - 45) ** 2 + (y - 60) ** 2 <= 900) return [220, 30, 40];
+      if (x >= 100 && x < 180 && y >= 40 && y < 80) return [20, 40, 110];
+      return [255, 255, 255];
+    });
+    const reference = `data:image/png;base64,${scene.toString("base64")}`;
+    // the structure is right, the numbers are not: shifted and the wrong size
+    const created = await call(c, "create_nodes", {
+      nodes: [{
+        type: "frame", id: "fitf", x: 0, y: 0, width: 200, height: 120, fill: "#ffffff",
+        children: [
+          { type: "ellipse", id: "fit-disc", x: 25, y: 38, width: 52, height: 52, fill: "#dc1e28" },
+          { type: "rect", id: "fit-bar", x: 112, y: 48, width: 70, height: 34, fill: "#14286e" },
+        ],
+      }],
+      place: "none",
+    });
+    expect(created.isError, textOf(created)).toBeFalsy();
+    const nodeOf = async (id: string) => (await srv.doc()).nodes[id] as any;
+
+    const dry = (await c.callTool({ name: "fit_to_reference", arguments: { rootId: "fitf", ids: ["fit-disc", "fit-bar"], reference, dryRun: true } })) as ToolResult & { structuredContent?: any };
+    if (dry.isError && /Chromium/.test(textOf(dry))) {
+      expect(textOf(dry)).toMatch(/playwright install chromium|PAPRIKA_CHROMIUM/);
+      return;
+    }
+    expect(dry.isError, textOf(dry)).toBeFalsy();
+    assertOutput("fit_to_reference", dry.structuredContent);
+    expect(dry.structuredContent).toMatchObject({ applied: false, dryRun: true });
+    expect(dry.structuredContent.iou.chromium.before).toBeLessThan(0.7);
+    expect(dry.structuredContent.iou.chromium.after).toBeGreaterThan(0.95);
+    expect((await nodeOf("fit-bar")).x).toBe(112);
+    expect((await nodeOf("fit-disc")).width).toBe(52);
+
+    const r = (await c.callTool({ name: "fit_to_reference", arguments: { rootId: "fitf", ids: ["fit-disc", "fit-bar"], reference, label: "fit the drawing" } })) as ToolResult & { structuredContent?: any };
+    expect(r.isError, textOf(r)).toBeFalsy();
+    const sc = r.structuredContent!;
+    assertOutput("fit_to_reference", sc);
+    expect(textOf(r)).toMatch(/^fit_to_reference fitf \(applied\)/);
+    expect(sc.applied).toBe(true);
+    expect(sc.iou.chromium.after).toBeGreaterThan(0.95);
+    expect(sc.iou.mask.after).toBeGreaterThan(0.95);
+    expect(sc.pass).toBe(sc.iou.chromium.after >= sc.target);
+    expect(sc.nodes.map((n: any) => n.id).sort()).toEqual(["fit-bar", "fit-disc"]);
+    const bar = await nodeOf("fit-bar");
+    expect(Math.abs(bar.x - 100)).toBeLessThan(2);
+    expect(Math.abs(bar.y - 40)).toBeLessThan(2);
+    expect(Math.abs(bar.width - 80)).toBeLessThan(3);
+    expect(Math.abs(bar.height - 40)).toBeLessThan(3);
+    const disc = await nodeOf("fit-disc");
+    expect(Math.abs(disc.x - 15)).toBeLessThan(2);
+    expect(Math.abs(disc.width - 60)).toBeLessThan(3);
+
+    // one undo step brings the first numbers back
+    const undone = await call(c, "undo", {});
+    expect(undone.isError, textOf(undone)).toBeFalsy();
+    expect((await nodeOf("fit-bar")).x).toBe(112);
+    expect((await nodeOf("fit-disc")).width).toBe(52);
+
+    const outside = await call(c, "fit_to_reference", { rootId: "fitf", ids: ["nope"], reference });
+    expect(outside.isError).toBe(true);
+    const root = await call(c, "fit_to_reference", { rootId: "fitf", ids: ["fitf"], reference });
+    expect(root.isError).toBe(true);
+    expect(textOf(root)).toMatch(/frame being fitted/);
   }, 60_000);
 
   it("importar imagem raster: formatos, GIF animado, path traversal e arquivo grande demais", async () => {

@@ -269,6 +269,52 @@ func countTrue(m []bool) int {
 	return n
 }
 
+// canvasPlanes is the drawing and the reference on one working canvas, reduced to ink masks.
+type canvasPlanes struct {
+	w, h           int
+	fx, fy         float64 // frame units per working pixel
+	refBG, drawnBG bgInfo
+	rp, dp         *plane
+}
+
+// buildPlanes rasterizes both images on a canvas of the frame's proportions (at most maxSide px
+// on the long side) and builds their ink masks.
+func buildPlanes(drawnSrc, refSrc image.Image, frameW, frameH float64, placed Rect, maxSide float64) canvasPlanes {
+	k := math.Min(1, maxSide/math.Max(frameW, frameH))
+	w, h := max(1, int(math.Round(frameW*k))), max(1, int(math.Round(frameH*k)))
+	fx, fy := frameW/float64(w), frameH/float64(h)
+
+	rb := refSrc.Bounds()
+	refBG := estimateBG(nrgbaAt(refSrc, rb), rb.Dx(), rb.Dy())
+	refImg := image.NewNRGBA(image.Rect(0, 0, w, h))
+	if !refBG.transparent {
+		fillNRGBA(refImg, color.NRGBA{refBG.r, refBG.g, refBG.b, 255})
+	}
+	dst := image.Rect(
+		int(math.Round(placed.X/fx)), int(math.Round(placed.Y/fy)),
+		int(math.Round((placed.X+placed.Width)/fx)), int(math.Round((placed.Y+placed.Height)/fy)),
+	)
+	if dst.Empty() {
+		dst = image.Rect(0, 0, w, h)
+	}
+	xdraw.CatmullRom.Scale(refImg, dst, refSrc, rb, xdraw.Over, nil)
+
+	drawn := image.NewNRGBA(image.Rect(0, 0, w, h))
+	db := drawnSrc.Bounds()
+	xdraw.CatmullRom.Scale(drawn, drawn.Bounds(), drawnSrc, db, xdraw.Src, nil)
+	drawnBG := estimateBG(func(x, y int) color.NRGBA { return drawn.NRGBAAt(x, y) }, w, h)
+	if drawnBG.transparent && !refBG.transparent {
+		// a drawing on a transparent frame sits on the reference's background
+		base := image.NewNRGBA(image.Rect(0, 0, w, h))
+		fillNRGBA(base, color.NRGBA{refBG.r, refBG.g, refBG.b, 255})
+		xdraw.Draw(base, base.Bounds(), drawn, image.Point{}, xdraw.Over)
+		drawn = base
+		drawnBG = refBG
+	}
+
+	return canvasPlanes{w: w, h: h, fx: fx, fy: fy, refBG: refBG, drawnBG: drawnBG, rp: buildPlane(refImg, refBG), dp: buildPlane(drawn, drawnBG)}
+}
+
 // Compare runs the whole comparison.
 func Compare(in CompareInput) (*Comparison, error) {
 	if in.Drawn == nil || in.Ref == nil {
@@ -283,41 +329,10 @@ func Compare(in CompareInput) (*Comparison, error) {
 	if in.Top <= 0 {
 		in.Top = DefaultTop
 	}
-	k := math.Min(1, compareMaxSide/math.Max(in.FrameW, in.FrameH))
-	w, h := max(1, int(math.Round(in.FrameW*k))), max(1, int(math.Round(in.FrameH*k)))
-	fx, fy := in.FrameW/float64(w), in.FrameH/float64(h)
+	cv := buildPlanes(in.Drawn, in.Ref, in.FrameW, in.FrameH, in.Placed, compareMaxSide)
+	w, h, fx, fy := cv.w, cv.h, cv.fx, cv.fy
 	total := float64(w * h)
-
-	rb := in.Ref.Bounds()
-	refBG := estimateBG(nrgbaAt(in.Ref, rb), rb.Dx(), rb.Dy())
-	refImg := image.NewNRGBA(image.Rect(0, 0, w, h))
-	if !refBG.transparent {
-		fillNRGBA(refImg, color.NRGBA{refBG.r, refBG.g, refBG.b, 255})
-	}
-	dst := image.Rect(
-		int(math.Round(in.Placed.X/fx)), int(math.Round(in.Placed.Y/fy)),
-		int(math.Round((in.Placed.X+in.Placed.Width)/fx)), int(math.Round((in.Placed.Y+in.Placed.Height)/fy)),
-	)
-	if dst.Empty() {
-		dst = image.Rect(0, 0, w, h)
-	}
-	xdraw.CatmullRom.Scale(refImg, dst, in.Ref, rb, xdraw.Over, nil)
-
-	drawn := image.NewNRGBA(image.Rect(0, 0, w, h))
-	db := in.Drawn.Bounds()
-	xdraw.CatmullRom.Scale(drawn, drawn.Bounds(), in.Drawn, db, xdraw.Src, nil)
-	drawnBG := estimateBG(func(x, y int) color.NRGBA { return drawn.NRGBAAt(x, y) }, w, h)
-	if drawnBG.transparent && !refBG.transparent {
-		// a drawing on a transparent frame sits on the reference's background
-		base := image.NewNRGBA(image.Rect(0, 0, w, h))
-		fillNRGBA(base, color.NRGBA{refBG.r, refBG.g, refBG.b, 255})
-		xdraw.Draw(base, base.Bounds(), drawn, image.Point{}, xdraw.Over)
-		drawn = base
-		drawnBG = refBG
-	}
-
-	rp := buildPlane(refImg, refBG)
-	dp := buildPlane(drawn, drawnBG)
+	refBG, drawnBG, rp, dp := cv.refBG, cv.drawnBG, cv.rp, cv.dp
 	res := &Comparison{
 		Target: in.Target, Regions: []Region{}, Nodes: []NodeCoverage{}, Warnings: []string{},
 		Canvas:     Size{Width: w, Height: h},
