@@ -1719,6 +1719,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
 		optStr("path"),
 		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
+		z.Field{Name: "renderer", Schema: z.Optional(z.Enum("dom", "wasm"))},
 		optStr("compare"),
 		z.Field{Name: "grid", Schema: z.Optional(z.Union(z.Bool(), z.Object(
 			z.Field{Name: "step", Schema: z.Optional(z.Number().Positive())},
@@ -1740,7 +1741,24 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if err != nil {
 			return nil, err
 		}
-		png, w, h, err := m.shot.ScreenshotMode(ctx, d, a.Str("rootId"), a.Num("scale"), a.Str("mode"))
+		var png []byte
+		var w, h int
+		if a.Str("renderer") == "wasm" {
+			ws, ok := m.shot.(WASMScreenshotter)
+			if !ok {
+				return nil, errors.New(`renderer "wasm" is not available on this server`)
+			}
+			if a.Str("mode") != "" {
+				return nil, errors.New(`renderer "wasm" paints the canvas as the app shows it and does not take "mode"; omit mode or use renderer "dom"`)
+			}
+			head, herr := store.ReadWorkspace(a.Str("workspaceId"))
+			if herr != nil {
+				return nil, wsErr(a.Str("workspaceId"), herr)
+			}
+			png, w, h, err = ws.ScreenshotWASM(ctx, head.ID, d, a.Str("rootId"), a.Num("scale"))
+		} else {
+			png, w, h, err = m.shot.ScreenshotMode(ctx, d, a.Str("rootId"), a.Num("scale"), a.Str("mode"))
+		}
 		if err != nil {
 			return nil, err
 		}

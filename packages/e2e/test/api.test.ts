@@ -1211,6 +1211,16 @@ describe("API: MCP", () => {
     expect(textOf(r)).toContain("100×80px");
   }, 30_000);
 
+  it("render_screenshot renderer wasm responde com erro claro sem o canvas WASM, nunca cai para o DOM", async () => {
+    await call(client, "create_nodes", { nodes: [{ type: "rect", id: "rw", width: 20, height: 20, fill: "#ff278c" }] });
+    const r = await call(client, "render_screenshot", { rootId: "rw", renderer: "wasm" });
+    expect(r.isError).toBe(true);
+    expect(textOf(r)).toMatch(/renderer "wasm"/);
+    expect(r.content.find((x) => x.type === "image")).toBeUndefined();
+    const bad = await call(client, "render_screenshot", { rootId: "rw", renderer: "gpu" });
+    expect(bad.isError).toBe(true);
+  }, 30_000);
+
   it("pastas, referência travada e render_screenshot compare lado a lado", async () => {
     const folder = (await call(client, "create_folder", { name: "Produto" })) as ToolResult & { structuredContent: { folder: { id: string; name: string } } };
     expect(folder.isError, textOf(folder)).toBeFalsy();
