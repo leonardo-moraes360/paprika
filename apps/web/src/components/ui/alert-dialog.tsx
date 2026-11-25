@@ -1,7 +1,3 @@
-/**
- * Janela de confirmação. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005.
- * Sem botão X: a decisão fica nos dois botões (o focus trap do Radix começa no botão de ação).
- */
 import type { ComponentProps } from "react";
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 import { cn } from "../../lib/cn";

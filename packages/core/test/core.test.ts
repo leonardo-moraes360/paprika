@@ -147,17 +147,17 @@ describe("History (undo/redo)", () => {
     expect(h.entries()).toHaveLength(1);
     expect(h.entries()[0]).toMatchObject({ actor: "agent:a", label: "draw", batch: "draw" });
     expect(h.entries()[0]!.ops).toHaveLength(3);
-    h.apply(ops[3]!, "agent:b", "", "draw"); // other actor: new entry
-    h.apply(ops[4]!, "agent:a", "", "draw"); // a's batch was closed by b's write
+    h.apply(ops[3]!, "agent:b", "", "draw");
+    h.apply(ops[4]!, "agent:a", "", "draw");
     expect(h.entries()).toHaveLength(3);
     h.undo();
     h.undo();
     expect(h.doc).toEqual(JSON.parse(merged));
-    h.undo(); // the whole batch
+    h.undo();
     expect(h.doc).toEqual(JSON.parse(start));
     h.redo();
     expect(h.doc).toEqual(JSON.parse(merged));
-    h.apply(ops[3]!, "agent:a", "", "draw"); // after a redo the batch stays closed
+    h.apply(ops[3]!, "agent:a", "", "draw");
     expect(h.entries()).toHaveLength(2);
   });
 

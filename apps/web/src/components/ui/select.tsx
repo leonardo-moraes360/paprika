@@ -1,7 +1,3 @@
-/**
- * Caixa de seleção. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005
- * (nomes `ui-*`, sem `sm:`/`md:`, margens e `cursor-pointer` explícitos porque não há Preflight).
- */
 import type { ComponentProps } from "react";
 import { Select as SelectPrimitive } from "radix-ui";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";

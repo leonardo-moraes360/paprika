@@ -46,9 +46,9 @@ const themed = (): Document => {
 };
 
 const boards: [string, () => Document][] = [
-  ["demo", () => board("examples/demo.paprika.json")],
-  ["bezier", () => board("examples/bezier.paprika.json")],
-  ["brand", () => board("examples/brand/brand.paprika.json")],
+  ["demo", () => board("packages/e2e/fixtures/demo.paprika.json")],
+  ["bezier", () => board("packages/e2e/fixtures/bezier.paprika.json")],
+  ["brand", () => board("packages/e2e/fixtures/brand.paprika.json")],
   ["themed", themed],
 ];
 

@@ -1,8 +1,3 @@
-/**
- * Dica de ferramenta. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005: no upstream o
- * balão é preenchido com `primary`; no Paprika ele é uma superfície `ui-popover` com borda, como no board.
- * O Radix abre no hover e também no foco do gatilho (WCAG 1.4.13); Esc fecha.
- */
 import type { ComponentProps, ReactElement } from "react";
 import { Tooltip as TooltipPrimitive } from "radix-ui";
 import { cn } from "../../lib/cn";
@@ -39,7 +34,6 @@ export function TooltipContent({
   );
 }
 
-/** Substitui o atributo HTML `title`: hover e foco abrem o balão; Esc fecha. Sem `label`, devolve o filho. */
 export function Hint({
   label,
   children,

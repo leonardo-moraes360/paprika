@@ -24,13 +24,6 @@ import { layout } from "./layout.js";
 import { formatSvgNumber as f, roundedRectD } from "./pathOutline.js";
 import { piecesInRange } from "./textRuns.js";
 
-/**
- * Exporta um nó, uma página ou o canvas como SVG vetorial. As caixas vêm de `layout(doc)`
- * (auto layout row/column, hug e fill sem navegador). `measure` opcional sobrescreve as caixas
- * e as linhas de texto (usado nos goldens e em caminhos legados). Sem `measure.lines`, o texto
- * quebra só em `\n` (a medição de glifos do navegador não entra no SVG).
- */
-
 function len(doc: Document, n: Node, v: number | string | undefined): number {
   return resolveLength(doc, v, modeOf(doc, n)) ?? 0;
 }
@@ -64,13 +57,10 @@ function svgShadowFilter(
 }
 
 export interface Measure {
-  /** Caixa de cada nó: [x, y, largura, altura], sem rotação, relativa à origem do export. */
   boxes: Record<string, [number, number, number, number]>;
-  /** Linhas de cada texto, relativas à caixa do nó: texto, x e y da linha de base. */
   lines?: Record<string, { t: string; x: number; y: number }[]>;
 }
 
-/** Script legado para `page.evaluate` no HTML de `renderHTML`; devolve um `Measure`. */
 export const MEASURE_SCRIPT = `(() => {
   const r2 = (v) => Math.round(v * 100) / 100;
   const els = Array.from(document.querySelectorAll("[data-paprika-id]"));
@@ -115,7 +105,6 @@ export const MEASURE_SCRIPT = `(() => {
   return { boxes, lines };
 })()`;
 
-/** Absolute layout boxes remapped so the export origin is (0, 0). */
 export function measureFromLayout(doc: Document, rootId?: string): Measure {
   const laid = layout(doc, rootId ? { rootId } : {});
   const node = rootId ? doc.nodes[rootId] : undefined;
@@ -177,7 +166,6 @@ export function exportSVG(
     return measured[n.id];
   };
 
-  /** Forma de diagrama: contorno (e dobra), depois o texto em linhas (medidas ou quebradas em \n). */
   const shapeSVG = (n: Extract<Node, { type: "shape" }>, w: number, h: number): string => {
     const mode = modeOf(doc, n);
     const id = escapeHtml(n.id);
@@ -251,7 +239,6 @@ export function exportSVG(
       ? ` stroke="${escapeHtml(String(resolveValue(doc, n.stroke!.color, mode)))}" stroke-width="${f(sw)}"${dashAttr}`
       : "";
     const fillAttr = ` fill="${escapeHtml(fill ?? "none")}"`;
-    // SVG stroke is centered: shift the path so the painted band matches CSS position.
     const insetBy = pos === "inside" ? sw / 2 : pos === "outside" ? -sw / 2 : 0;
     const inset = `x="${f(insetBy)}" y="${f(insetBy)}" width="${f(Math.max(0, w - insetBy * 2))}" height="${f(Math.max(0, h - insetBy * 2))}"`;
     const boxRadius =

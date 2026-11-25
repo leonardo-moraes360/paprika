@@ -4,8 +4,6 @@ import type { Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { callTool, closeSeededCanvas, connectAgent, openSeededCanvas, webDist, type CanvasSession } from "./seededCanvas.js";
 
-// PAP-A-034: a path written with a d in frame coordinates under x: 0, y: 0 (what agents copy from
-// trace_image {dryRun}) used to select as a big box from the origin; the box now hugs the ink.
 describe.skipIf(!existsSync(webDist))("E2E: a selected path's box matches its ink", () => {
   let session!: CanvasSession;
   let page: Page;
@@ -28,7 +26,6 @@ describe.skipIf(!existsSync(webDist))("E2E: a selected path's box matches its in
     await expect.poll(() => page.getByTestId("selection").count()).toBe(1);
   };
 
-  /** The selection box the canvas draws (its style is the box, in viewport coordinates), in client coordinates. */
   const selectionBox = () =>
     page.evaluate(() => {
       const el = document.querySelector<HTMLElement>('[data-testid="selection"]')!;
@@ -74,7 +71,6 @@ describe.skipIf(!existsSync(webDist))("E2E: a selected path's box matches its in
     });
     await expect.poll(() => page.locator('[data-paprika-id="pb-traced"]').count()).toBe(1);
     const box = await expectBoxMatchesInk("pb-traced");
-    // Not the old 520x420 box from the frame's corner: the drawing is about 200 x 220.
     expect(box.width).toBeLessThan(260);
     expect(box.height).toBeLessThan(260);
   });
@@ -104,7 +100,6 @@ describe.skipIf(!existsSync(webDist))("E2E: a selected path's box matches its in
       .poll(async () => (await selectionBox()).width)
       .toBeLessThan(before.width - 20);
     await expectBoxMatchesInk("pb-old");
-    // The drawing did not move.
     const inkAfter = await rectOf('svg[data-paprika-id="pb-old"] path');
     expect(inkAfter.x).toBeCloseTo(inkBefore.x, 0);
     expect(inkAfter.y).toBeCloseTo(inkBefore.y, 0);

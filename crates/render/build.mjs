@@ -1,7 +1,3 @@
-// Builds the WASM renderer into apps/web/src/wasm (gitignored), used by the canvas's "WASM" mode.
-// Needs Rust with the wasm32-unknown-unknown target and wasm-bindgen-cli matching Cargo.toml.
-// Without that toolchain the build is skipped with a warning and the canvas keeps the DOM
-// renderer only; set PAPRIKA_REQUIRE_WASM=1 (CI) to make a missing toolchain an error.
 import { execFileSync } from "node:child_process";
 import { readFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";

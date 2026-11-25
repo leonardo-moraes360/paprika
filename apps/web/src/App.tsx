@@ -49,19 +49,16 @@ const TOOL_DEFS: { tool: Tool; key: string; labelKey: keyof import("./i18n").Mes
   { tool: "pin", key: "i", labelKey: "toolPin", icon: Crosshair },
 ];
 
-/** Converte uma subárvore em NodeInput com ids novos (para duplicar). */
 function toInput(doc: Document, id: string): NodeInput {
   const n = doc.nodes[id]!;
   const { id: _id, parentId: _p, ...rest } = n as Record<string, unknown> & { id: string; parentId: string | null };
   const input: NodeInput = { ...(rest as Omit<NodeInput, "id">), type: n.type, id: newId() };
   if (isContainer(n)) input.children = n.children.map((c) => toInput(doc, c));
   else delete input.children;
-  // A caixa de um grupo segue os filhos: não vai na criação.
   if (n.type === "group") {
     delete input.width;
     delete input.height;
   }
-  // A geometria de um conector é derivada das pontas.
   if (n.type === "connector") for (const k of ["x", "y", "width", "height", "d"]) delete (input as Record<string, unknown>)[k];
   return input;
 }
@@ -71,24 +68,14 @@ const siblingsOf = (doc: Document, parentId: string | null) => {
   return isContainer(p) ? p.children : doc.rootIds;
 };
 
-/**
- * `/` lists the workspaces; `/w/<id>` opens one on the canvas. The server has one active
- * workspace, shared with the MCP agents; a tab on `/w/<id>` only views that workspace over its own
- * WebSocket (`liveStore.view`) and never changes the active one. The overview follows the active one.
- */
 export function App() {
   useLiveConnection();
   const m = useT();
-  // App subscribes to the active workspace id and the connection only: the document, presence and
-  // activity are read by the components that draw them (useLive), so an agent's presence message
-  // does not re-render the editor.
   const activeId = useLive((s) => s.doc?.id ?? null);
   const connected = useLive((s) => s.connected);
   const { showError } = useLiveActions();
   const route = useRoute();
   const routeId = route.view === "canvas" ? route.id : null;
-  // Point this tab's connection at the URL's workspace (or back at the active one on the overview).
-  // The server's active workspace is not touched, and this tab's edits go to its own workspace.
   useEffect(() => {
     let current = true;
     liveStore.view(routeId).catch((e: unknown) => {
@@ -101,7 +88,6 @@ export function App() {
     };
   }, [routeId, showError, m]);
 
-  // The viewed workspace was deleted: go back to the overview.
   useEffect(() => {
     liveStore.onViewDeleted = () => navigate("/", { replace: true });
     return () => {
@@ -130,17 +116,13 @@ export function App() {
       </div>
     );
   }
-  // key: another workspace starts with a clean selection, page and tool.
   return <Editor key={activeId} />;
 }
 
-/** The overview refreshes on every committed version, so the version is read here, not in App. */
 function OverviewRoute({ activeId, connected }: { activeId: string | null; connected: boolean }) {
   const version = useLive((s) => s.version);
   const { showError } = useLiveActions();
   const m = useT();
-  // Picking a card is the explicit "open": it also makes that workspace the active one (agents and the
-  // overview follow it). Loading /w/<id> from a URL does not: it only views.
   const onOpen = (id: string) => {
     navigate(workspacePath(id));
     openWorkspace(id).catch((e: unknown) => showError(m.openWorkspaceFail(errorText(e))));
@@ -159,7 +141,6 @@ function ErrorToast() {
   );
 }
 
-/** The team panel is the other reader of agent presence (besides the cursors on the canvas). */
 function LiveTeamPanel(props: Omit<Parameters<typeof TeamPanel>[0], "agents">) {
   const agents = useLive((s) => s.agents);
   return <TeamPanel {...props} agents={agents} />;
@@ -185,10 +166,8 @@ function Editor() {
   const leftPanel = usePanel("paprika.panel.left", LEFT_PANEL);
   const rightPanel = usePanel("paprika.panel.right", RIGHT_PANEL);
   const [toolbarDock, setToolbarDock] = useState<ToolbarDock>(() => readToolbarDock());
-  // Página ativa: a escolhida, se ainda existe; senão a primeira (null num documento sem páginas).
   const pageId = doc ? (pageChoice && doc.nodes[pageChoice]?.type === "page" ? pageChoice : (firstPage(doc)?.id ?? null)) : null;
 
-  // Tira da seleção só os nós que deixaram de existir (não os que ainda estão a caminho do servidor).
   const prevDoc = useRef(doc);
   useEffect(() => {
     const gone = selected.filter((id) => doc && prevDoc.current?.nodes[id] && !doc.nodes[id]);
@@ -226,7 +205,6 @@ function Editor() {
       const key = e.key.toLowerCase();
       if (mod && key === "a") {
         e.preventDefault();
-        // Todos os irmãos da seleção atual, ou os nós de topo da página.
         const parent = nodes[0]?.parentId ?? pageId;
         setSelected([...siblingsOf(doc, parent)]);
         return;
@@ -243,12 +221,12 @@ function Editor() {
           } else if (e.shiftKey && !e.altKey) {
             const groups = nodes.filter((n) => n.type === "group").map((n) => n.id);
             if (!groups.length) return;
-            const { released } = ungroupOps(doc, groups); // valida antes de enviar
+            const { released } = ungroupOps(doc, groups);
             live.apply([{ op: "ungroup", ids: groups }], "desagrupar");
             setSelected(released);
           } else if (!e.altKey) {
             const ids = nodes.map((n) => n.id);
-            groupOps(doc, ids); // valida antes de enviar; o servidor expande contra o documento atual
+            groupOps(doc, ids);
             const id = newId();
             live.apply([{ op: "group", ids, id }], "agrupar");
             setSelected([id]);
@@ -262,11 +240,9 @@ function Editor() {
         e.preventDefault();
         const ops: Op[] = [];
         const ids: string[] = [];
-        // Do último para o primeiro, para os índices de inserção continuarem válidos.
         for (const node of [...nodes].reverse()) {
           const input = toInput(doc, node.id);
           if (node.type === "connector") {
-            // Pontas livres andam 20; pontas presas continuam nas mesmas formas.
             const shift = (end: ConnectorEnd): ConnectorEnd => (end.nodeId ? end : { ...end, x: (end.x ?? 0) + 20, y: (end.y ?? 0) + 20 });
             Object.assign(input, { from: shift(node.from), to: shift(node.to) });
           } else {
@@ -282,7 +258,6 @@ function Editor() {
       }
       if ((e.key === "Delete" || e.key === "Backspace") && nodes.length) {
         e.preventDefault();
-        // Um nó cujo ancestral também será apagado já sai junto com ele.
         const set = new Set(nodes.map((n) => n.id));
         const under = (id: string) => {
           for (let p = doc.nodes[id]?.parentId; p; p = doc.nodes[p]?.parentId ?? null) if (set.has(p)) return true;
@@ -337,7 +312,6 @@ function Editor() {
 
   const tools = TOOL_DEFS.map((t) => ({ tool: t.tool, key: t.key, label: m[t.labelKey] as string, icon: t.icon }));
 
-  // O servidor mede o layout num navegador e devolve o SVG em JSON; o download é feito aqui.
   const exportSvg = async () => {
     const root = selected.length === 1 ? selected[0]! : (pageId ?? "");
     try {

@@ -43,14 +43,14 @@ A mesma sessão esbarrou em limites que o Paprika não tem:
 
 ## Propostas para o backlog
 
-1. Anotar as 42 ferramentas que faltam em `server-go/contract/mcp.json` (`destructiveHint` em
+1. Anotar as 42 ferramentas que faltam em `server/contract/mcp.json` (`destructiveHint` em
    `delete_*`, `archive_workspace`, `move_workspace`, `import_document`; `idempotentHint` em `show_all`,
    `unlock_all`, `open_workspace`) e levar a coluna de anotações para as duas tabelas de ferramentas.
 2. Colocar o ciclo de desenho nas instruções do `initialize` (ou no `get_design_guide`) em vez de só no
    `AGENTS.md`: um grupo visual por `create_nodes`, screenshot por tela, seis critérios nomeados, leitura
    estreita primeiro.
 3. Devolver um token de mudança por domínio (`tokens`, `nodes`, `pages`) junto da versão do documento.
-4. Escrever em `docs/mcp.md` a escada de leitura estreita (`get_document_outline` → `find_nodes` →
+4. Escrever em `docs/en-US/mcp.md` a escada de leitura estreita (`get_document_outline` → `find_nodes` →
    `get_nodes` dos ids que interessam → `get_bounds`).
 
 ## Limites deste estudo

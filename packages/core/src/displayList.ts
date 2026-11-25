@@ -2,22 +2,6 @@ import { parseColor } from "./lint.js";
 import { listShadows, pageRoots, type Document, type Node, type SceneNode } from "./schema.js";
 import { modeOf, nodeGradient, resolveCorners, resolveLength, resolveValue, strokePositionOf, strokeStyleOf, uniformCorner } from "./style.js";
 
-/**
- * Display list for the WASM canvas renderer (`crates/render`, ADR 0002).
- *
- * It is derived from the same node fields `nodeStyle` reads, so the WASM layer paints what the
- * DOM would paint. Layout is not computed here: the caller passes the boxes the browser already
- * resolved (auto layout, `hug`, `fill`), in canvas coordinates and before rotation.
- *
- * The WASM canvas sits under every DOM-painted node. A shape stays on WASM only when no DOM-painted
- * node earlier in paint order overlaps its painted bounds (own paint, stroke, shadow, rotation and
- * ancestor clips). The rest go back to the DOM, and each one can demote the nodes after it.
- *
- * Entry layout (25 `f32`): `[kind, x, y, w, h, radius|pathIndex, rotation°, opacity,
- * fill r g b a, strokeWidth, stroke r g b a, shadow dx dy blur spread, shadow r g b a]`,
- * colors in 0..1. `kind`: 0 rect, 1 ellipse, 2 push clip, 3 pop clip, 4 path.
- * Path table: one line per path, `vx vy vw vh fillRule cap join|d`.
- */
 export const DISPLAY_STRIDE = 25;
 const KIND = { rect: 0, ellipse: 1, pushClip: 2, popClip: 3, path: 4 } as const;
 
@@ -31,14 +15,8 @@ export interface Box {
 export interface DisplayList {
   data: Float32Array;
   paths: string;
-  /** Entries in `data`. */
   count: number;
-  /** Node ids whose own paint the WASM layer draws; the DOM must not paint them again. */
   painted: Set<string>;
-  /**
-   * Shape nodes the DOM paints: the renderer cannot draw them, or a DOM-painted node earlier in
-   * paint order overlaps their painted bounds.
-   */
   domPainted: Set<string>;
 }
 
@@ -54,7 +32,6 @@ function classicSolid(css: string): boolean {
   return /^rgba?\(/.test(css);
 }
 
-/** A classic sRGB color (or `$token`) as straight RGBA 0..1. Modern colors and gradients stay on the DOM. */
 export function solidColor(doc: Document, value: string | undefined, mode?: string): RGBA4 | null {
   if (value === undefined) return [0, 0, 0, 0];
   const css = String(resolveValue(doc, value, mode)).trim().toLowerCase();
@@ -86,8 +63,6 @@ function underUnevenFrame(doc: Document, n: Node): boolean {
   return false;
 }
 
-/** True when the WASM layer can draw this node's own paint exactly as `nodeStyle` would.
- * Diagram `shape` nodes stay on the DOM, including cylinder, parallelogram and cloud. */
 export function wasmPaintable(doc: Document, n: Node): boolean {
   if (underUnevenFrame(doc, n) || unevenCorners(doc, n)) return false;
   if (!isShape(n)) return false;
@@ -98,7 +73,6 @@ export function wasmPaintable(doc: Document, n: Node): boolean {
   if (n.outline || hasEffects(n.filter) || hasEffects(n.backdropFilter)) return false;
   if (shadows.length > 1 || shadows.some((s) => s.inner)) return false;
   if (shadows[0] && (n.type === "path" || !solidColor(doc, shadows[0].color, modeOf(doc, n)))) return false;
-  // WASM paints solid centered path strokes and solid inside box borders only.
   if (n.stroke && (resolveLength(doc, n.stroke.width, modeOf(doc, n)) ?? 0) > 0) {
     if (strokeStyleOf(n.stroke) !== "solid") return false;
     const wasmPos = n.type === "path" ? "center" : "inside";
@@ -234,10 +208,6 @@ function coverage(doc: Document, n: Node, b: Box): AABB {
   return { minX, minY, maxX, maxY };
 }
 
-/**
- * `pageId` picks the page the canvas shows (default: the first page, or the whole document when
- * it has no pages). Groups paint nothing: their children are drawn with the group's opacity.
- */
 export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, pageId?: string): DisplayList {
   const out: number[] = [];
   const paths: string[] = [];
@@ -277,7 +247,6 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, page
   const walk = (id: string, parentOpacity: number, pivots: readonly Pivot[]) => {
     const n = doc.nodes[id];
     const b = boxes.get(id);
-    // No box means the DOM did not lay it out (hidden, or not rendered): skip the subtree.
     if (!n || n.type === "page" || !b || !n.visible) return;
     const o = parentOpacity * n.opacity;
     if (n.type === "group") {
@@ -320,7 +289,7 @@ export function displayList(doc: Document, boxes: ReadonlyMap<string, Box>, page
         }
         break;
       default:
-        break; // text and images stay in the DOM layer
+        break;
     }
   };
   for (const id of pageRoots(doc, pageId)) walk(id, 1, []);

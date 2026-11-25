@@ -17,7 +17,6 @@ export function getMessages(): Messages {
   return catalogs[currentLocale];
 }
 
-/** Module-level translator for non-React helpers (numeric input, API errors). */
 export function t(): Messages {
   return catalogs[currentLocale];
 }

@@ -73,7 +73,7 @@ describe("edição", () => {
     expect(m[0]!.anchors[1]!.in!.x).toBeCloseTo(10, 9);
     expect(m[0]!.anchors[1]!.in!.y).toBeCloseTo(15, 9);
     expect(moveHandle(s, { sub: 0, index: 1 }, "out", { x: 10, y: 0 })[0]!.anchors[1]!.in).toEqual({ x: 5, y: 10 });
-    expect(s[0]!.anchors[1]!.out).toEqual({ x: 15, y: 10 }); // original intacto
+    expect(s[0]!.anchors[1]!.out).toEqual({ x: 15, y: 10 });
   });
 
   it("remover âncora; subcaminho vazio some", () => {

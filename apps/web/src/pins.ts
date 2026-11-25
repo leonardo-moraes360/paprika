@@ -2,12 +2,6 @@ import { useSyncExternalStore } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 
-/**
- * Pins ("Apontar para a IA"): requests the human leaves on the canvas for the agents, anchored to a node
- * or an area. They are not nodes: the server keeps them in their own table and the agents read them
- * over MCP (`list_pins`, `claim_pin`, `reply_pin`, `resolve_pin`). The WebSocket only says when they changed
- * (`{type:"pins"}`), and the list is read again here.
- */
 export interface PinRegion {
   x: number;
   y: number;
@@ -39,7 +33,6 @@ export interface Pin {
 
 export const pinsKey = (workspaceId: string) => ["pins", workspaceId] as const;
 
-/** Every pin of a workspace (open, claimed and resolved), by number. */
 export function usePins(workspaceId: string) {
   return useQuery({
     queryKey: pinsKey(workspaceId),
@@ -61,7 +54,6 @@ export interface NewPin {
   text: string;
 }
 
-/** Creates, changes and deletes pins; each refreshes the list (the WebSocket does too, for the others). */
 export function usePinActions(workspaceId: string) {
   const client = useQueryClient();
   const onSettled = () => client.invalidateQueries({ queryKey: pinsKey(workspaceId) });
@@ -89,7 +81,6 @@ export function usePinActions(workspaceId: string) {
   return { create, patch, remove, reply };
 }
 
-/** Whether the Pins panel is open (shared by the top bar chip, Shift+I and the canvas). */
 let panelOpen = false;
 const listeners = new Set<() => void>();
 export function setPinsPanel(open: boolean | ((was: boolean) => boolean)) {
@@ -108,8 +99,6 @@ export function usePinsPanel(): boolean {
   );
 }
 
-/** "agent:claude-code" → "claude-code"; "user" stays. */
 export const actorLabel = (actor: string | undefined) => (actor ?? "").replace(/^agent:/, "") || "agente";
 
-/** Pins that show on the canvas of a page: open and claimed ones (resolved ones only in the panel). */
 export const onPage = (pins: Pin[], pageId: string | null) => pins.filter((p) => p.status !== "resolved" && (p.pageId ?? "") === (pageId ?? ""));

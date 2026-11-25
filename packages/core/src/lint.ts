@@ -36,7 +36,6 @@ const NAMED: Record<string, RGBA> = {
   orange: { r: 255, g: 165, b: 0, a: 1 },
 };
 
-/** Converte hex/rgb()/oklch()/color-mix()/color() e nomes básicos. Gradientes ficam de fora. */
 export function parseColor(input: string): RGBA | undefined {
   const s = input.trim().toLowerCase();
   if (NAMED[s]) return NAMED[s];
@@ -69,13 +68,11 @@ function luminance(c: RGBA): number {
   return 0.2126 * ch(c.r) + 0.7152 * ch(c.g) + 0.0722 * ch(c.b);
 }
 
-/** Razão de contraste WCAG 2.x entre duas cores opacas. */
 export function contrastRatio(a: RGBA, b: RGBA): number {
   const [l1, l2] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
   return (l1 + 0.05) / (l2 + 0.05);
 }
 
-/** Cor de fundo efetiva atrás de um nó: compõe os fills dos ancestrais sobre branco. */
 export function effectiveBackground(doc: Document, node: Node): RGBA | undefined {
   const layers: RGBA[] = [];
   let cur: Node | undefined = node.type === "text" || node.type === "shape" ? node : node.parentId ? doc.nodes[node.parentId] : undefined;
@@ -175,10 +172,6 @@ export interface LintGroup {
 
 const SEV_RANK: Record<Severity, number> = { error: 0, warning: 1, info: 2 };
 
-/**
- * Regras de qualidade pensadas para agentes: cada problema vem com o id do nó e uma mensagem
- * acionável, para o agente corrigir com `update_nodes` sem precisar de screenshot.
- */
 export function lintDocument(doc: Document, opts: LintOptions = {}): LintIssue[] {
   const issues: LintIssue[] = [];
   const ids = scopeIds(doc, opts);

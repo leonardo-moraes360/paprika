@@ -1238,5 +1238,4 @@ const pt: Messages = {
 
 export const catalogs: Record<Locale, Messages> = { en, "pt-BR": pt };
 
-/** Unused helper type kept so Plural stays available for future message shapes. */
 export type _Plural = Plural;

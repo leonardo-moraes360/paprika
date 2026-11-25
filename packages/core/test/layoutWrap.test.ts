@@ -10,7 +10,6 @@ describe("layout: wrap", () => {
   it("breaks a fixed-width row into lines and hugs the sum of the lines", () => {
     const doc = make({ type: "frame", id: "f", width: 300, height: "hug", layout: { mode: "row", gap: 12, padding: 10, wrap: true }, children: chips("c", 7, 88, 40) });
     const b = layout(doc);
-    // 280 inner: two 88px chips and a gap fit (188), three do not (288)
     expect(b.f).toMatchObject({ width: 300, height: 10 + 4 * 40 + 3 * 12 + 10 });
     expect(b.c0).toMatchObject({ x: 10, y: 10 });
     expect(b.c1).toMatchObject({ x: 110, y: 10 });
@@ -42,7 +41,6 @@ describe("layout: wrap", () => {
       ],
     });
     const b = layout(doc);
-    // lines [a b] (40) [c d] (30) [e] (30), gaps 20, extra 200 - 120 = 80 -> +26.667 each
     const l1 = 40 + 80 / 3;
     const l2 = 30 + 80 / 3;
     near(b.a!.y, (l1 - 20) / 2);
@@ -50,13 +48,12 @@ describe("layout: wrap", () => {
     near(b.c!.y, l1 + 10 + (l2 - 30) / 2);
     near(b.e!.y, l1 + 10 + l2 + 10 + (l2 - 30) / 2);
     expect(b.a!.x).toBe(0);
-    expect(b.b!.x).toBe(110); // between: the two items of a line sit at the edges
-    expect(b.e!.x).toBe(0); // a lone item stays at the start
+    expect(b.b!.x).toBe(110);
+    expect(b.e!.x).toBe(0);
   });
 
   it("wraps a column when its fixed height is exceeded and hugs the width of the columns", () => {
     const b = layout(make({ type: "frame", id: "f", width: "hug", height: 120, layout: { mode: "column", gap: 8, wrap: true }, children: chips("c", 5, 50, 40) }));
-    // 120 holds two 40px items and a gap (88), not three (136): columns of 2, 2, 1
     expect(b.f).toMatchObject({ width: 50 * 3 + 8 * 2, height: 120 });
     expect(b.c1).toMatchObject({ x: 0, y: 48 });
     expect(b.c2).toMatchObject({ x: 58, y: 0 });
@@ -95,7 +92,7 @@ describe("layout: wrap", () => {
       ],
     });
     const b = layout(doc);
-    expect(b.g).toMatchObject({ width: 390, height: 46 }); // 4 per line, 2 lines
+    expect(b.g).toMatchObject({ width: 390, height: 46 });
     expect(b.side!.height).toBe(46);
   });
 

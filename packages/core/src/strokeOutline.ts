@@ -1,15 +1,3 @@
-/**
- * Stroke to fill: turns a path's stroke into a filled outline with the same visual result.
- *
- * The centerline is flattened to polylines (tolerance `OUTLINE_FLAT`), each polyline is offset to
- * both sides, and caps and joins are added the way an SVG renderer paints them (round arcs, miter
- * joins up to `MITER_LIMIT`, then bevel). Open polylines become one ring (left side, end cap,
- * right side, start cap); closed ones an outer and an inner ring running in opposite directions.
- *
- * The result is a dense polyline (`M L Z` only; curves are not refitted) meant to be filled with
- * the `nonzero` rule: where an inner join overlaps itself the rings wind the same way, so the
- * overlap is painted once, like the stroke it replaces. It is not boolean-cleaned.
- */
 import { applyViewBox, arcToCubic, flattenCubic, flattenQuad, transformLocal } from "./boolean.js";
 import { round4 } from "./num.js";
 import { parsePath, serializePath, type Point, type Segment } from "./path.js";
@@ -17,16 +5,13 @@ import type { Document, PathNode } from "./schema.js";
 import { modeOf, resolveLength, strokeStyleOf } from "./style.js";
 import type { Op } from "./ops.js";
 
-/** Flatness of the centerline and of round joins and caps, in px. */
 export const OUTLINE_FLAT = 0.05;
-/** SVG's default `stroke-miterlimit`, which every renderer here uses. */
 export const MITER_LIMIT = 4;
 
 export type StrokeCap = "butt" | "round" | "square";
 export type StrokeJoin = "miter" | "round" | "bevel";
 
 export interface StrokeOutlineParams {
-  /** Full stroke width in px. */
   width: number;
   cap: StrokeCap;
   join: StrokeJoin;
@@ -43,7 +28,6 @@ const TINY = 1e-9;
 
 const near = (a: Pt, b: Pt) => Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6;
 
-/** Flattens segments into polylines, keeping open and closed subpaths apart. */
 function flattenPolys(segs: Segment[]): Poly[] {
   const out: Poly[] = [];
   let cur: Poly | null = null;
@@ -104,13 +88,11 @@ function flattenPolys(segs: Segment[]): Poly[] {
   return out;
 }
 
-/** Angle step of a round join or cap so the chord stays within OUTLINE_FLAT of the arc. */
 function arcStep(hw: number): number {
   if (hw <= OUTLINE_FLAT) return Math.PI / 2;
   return Math.min(Math.PI / 2, 2 * Math.acos(1 - OUTLINE_FLAT / hw));
 }
 
-/** Points strictly between the two ends of an arc around `c` (start angle a0, signed sweep delta). */
 function arcPoints(c: Pt, hw: number, a0: number, delta: number, out: Pt[]): void {
   const steps = Math.max(1, Math.ceil(Math.abs(delta) / arcStep(hw)));
   for (let k = 1; k < steps; k++) {
@@ -126,7 +108,6 @@ function unit(a: Pt, b: Pt): Pt {
   return { x: dx / len, y: dy / len };
 }
 
-/** Left-side points around the vertex `p` where direction d0 turns into d1. */
 function joinPoints(p: Pt, d0: Pt, d1: Pt, hw: number, join: StrokeJoin, out: Pt[]): void {
   const n0 = { x: -d0.y, y: d0.x };
   const n1 = { x: -d1.y, y: d1.x };
@@ -139,11 +120,9 @@ function joinPoints(p: Pt, d0: Pt, d1: Pt, hw: number, join: StrokeJoin, out: Pt
     return;
   }
   if (cr > TINY) {
-    // Inner side: go through the pivot so the two offsets overlap with the same winding.
     out.push(a, { x: p.x, y: p.y }, b);
     return;
   }
-  // Outer side (a full reversal counts as outer; the cap-like bulge goes ahead of d0).
   const turn = Math.abs(cr) <= TINY ? Math.PI : Math.abs(Math.atan2(cr, dt));
   if (join === "round") {
     out.push(a);
@@ -155,7 +134,6 @@ function joinPoints(p: Pt, d0: Pt, d1: Pt, hw: number, join: StrokeJoin, out: Pt
   } else out.push(a, b);
 }
 
-/** Cap points (without the two offset ends, which the sides already hold) at `p`, where the stroke ends heading in direction `v`. */
 function capPoints(p: Pt, v: Pt, hw: number, cap: StrokeCap, out: Pt[]): void {
   const n = { x: -v.y, y: v.x };
   if (cap === "square") {
@@ -165,7 +143,6 @@ function capPoints(p: Pt, v: Pt, hw: number, cap: StrokeCap, out: Pt[]): void {
   }
 }
 
-/** The left offset of a polyline walked forward (a closed one wraps around). */
 function leftSide(pts: Pt[], closed: boolean, hw: number, join: StrokeJoin): Pt[] {
   const n = pts.length;
   const out: Pt[] = [];
@@ -192,7 +169,6 @@ function dot(p: Pt, hw: number, cap: StrokeCap): Pt[] {
   return out;
 }
 
-/** Rings (closed polygons, fill with nonzero) covering the stroke of `segs` (already in px). */
 export function outlineStrokeRings(segs: Segment[], params: StrokeOutlineParams): Pt[][] {
   const hw = params.width / 2;
   if (!(hw > 0)) return [];
@@ -219,7 +195,6 @@ export function outlineStrokeRings(segs: Segment[], params: StrokeOutlineParams)
   return rings;
 }
 
-/** Same ring set as path data (`M L Z` per ring). */
 export function outlineStrokeD(segs: Segment[], params: StrokeOutlineParams): string {
   const out: Segment[] = [];
   for (const r of outlineStrokeRings(segs, params)) {
@@ -257,12 +232,6 @@ export interface OutlineStrokePlan {
   bounds: { x: number; y: number; width: number; height: number };
 }
 
-/**
- * Replaces a path node's stroke with a filled outline (same id, one update op): `d` is the outline,
- * `fill` takes the stroke color, `stroke` goes away (unless `keepStroke`), a viewBox and a rotation
- * are baked into the points, and the box is the outline's. A node that is also filled, or has a
- * dashed or dotted stroke, is refused: the outline is a single paint.
- */
 export function outlineStrokeOps(doc: Document, id: string, opts: { keepStroke?: boolean } = {}): OutlineStrokePlan {
   const n = doc.nodes[id];
   if (!n) throw new Error(`node "${id}" does not exist`);

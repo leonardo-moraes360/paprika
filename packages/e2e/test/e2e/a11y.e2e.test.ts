@@ -12,11 +12,6 @@ import { pinLocale } from "./locale.js";
 const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
 
-/** Keyboard and ARIA checks of the editor (WCAG 2.1: 2.1.1 keyboard, 2.4.3 focus order, 4.1.2 name/role/value). */
-/**
- * WCAG 1.4.3 ratio between two computed color strings. The page only reports the colors (`fg`, `bg`); the
- * math lives here, so the three contrast checks share one implementation.
- */
 function contrastRatio(fg: string, bg: string) {
   const channel = (v: number) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
   const lum = (s: string) => {
@@ -36,7 +31,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "paprika-a11y-"));
     const file = join(dir, "demo.paprika.json");
-    await copyFile(join(root, "examples/demo.paprika.json"), file);
+    await copyFile(join(root, "packages/e2e/fixtures/demo.paprika.json"), file);
     external = await startServer({ seed: file, webRoot });
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -52,7 +47,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     await rm(dir, { recursive: true, force: true });
   });
 
-  /** Presses Tab until `match` has focus (at most `max` times). */
   const tabTo = async (match: (el: Element) => boolean, max = 200) => {
     for (let i = 0; i < max; i++) {
       await page.keyboard.press("Tab");
@@ -76,12 +70,11 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
   it("o botão de ocultar camada fica visível quando a linha tem o foco", async () => {
     const row = page.locator('[data-layer-id="login"]');
     await row.focus();
-    await page.keyboard.press("Tab"); // expand/collapse
-    await page.keyboard.press("Tab"); // hide
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Tab");
     const eye = row.getByRole("button", { name: /^Ocultar / });
     await expect.poll(() => eye.evaluate((el) => el === document.activeElement)).toBe(true);
     await expect.poll(() => eye.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
-    // The row is named by the layer name alone, not by its buttons' labels.
     await expect(page.getByRole("treeitem", { name: "Login · mobile", exact: true }).count()).resolves.toBe(1);
   });
 
@@ -103,7 +96,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     await page.keyboard.press("Enter");
     await expect.poll(() => page.locator(".page.is-active").first().evaluate((el) => el === document.querySelector(".page"))).toBe(true);
     await expect(first.getAttribute("aria-current")).resolves.toBe("page");
-    // The delete button is reachable (it was `invisible`, which also took it out of the Tab order).
     await page.keyboard.press("Tab");
     const del = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "");
     expect(del).toMatch(/^Apagar página /);
@@ -118,7 +110,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     await expect(page.getByRole("status").textContent()).resolves.toBe("Conectado ao servidor");
   });
 
-  /** PAP-B-051: native `title` → accessible Tooltip (hover+focus, Esc dismisses); icon buttons keep aria-label. */
   it("tooltips do chrome abrem no foco, fecham no Esc e os ícones mantêm aria-label (1.4.13, 4.1.2)", async () => {
     await page.keyboard.press("Escape");
     const zoomIn = page.getByRole("button", { name: "Aumentar zoom" });
@@ -144,7 +135,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
   });
 
   it("texto sobre o acento e sobre as cores de agente passa de 4,5:1 (1.4.3)", async () => {
-    // Several agents, so the check covers more than the first color.
     const agents: Client[] = [];
     for (let i = 0; i < 8; i++) {
       const c = new Client({ name: `a11y-agent-${i}`, version: "0" });
@@ -164,11 +154,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     expect(contrastRatio(swatch.tool[0], swatch.tool[1])).toBeGreaterThanOrEqual(4.5);
   });
 
-  /**
-   * The agent roster of PAP-B-034: the pills moved onto the theme's semantic tokens, so the same checks that
-   * covered them before still hold — the pill is reachable and focusable, it names itself, and its text stays
-   * readable on its own background for every agent color.
-   */
   it("o roster de agentes é focável, tem nome e passa de 4,5:1 (2.4.7, 1.4.3)", async () => {
     const agents: Client[] = [];
     for (let i = 0; i < 4; i++) {
@@ -178,7 +163,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       agents.push(c);
     }
     const pill = page.getByTestId("agent-focus");
-    // Presence from earlier tests fades out on its own, so the count is a floor, not an exact number.
     await expect.poll(() => pill.count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(4);
     const rows = await pill.evaluateAll((els) =>
       els.map((el) => {
@@ -201,15 +185,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       expect(r.focused).toBe(true);
       expect(contrastRatio(r.fg, r.bg)).toBeGreaterThanOrEqual(4.5);
     }
-    // Several agent colors are covered: the pill text does not depend on one lucky pairing.
     expect(new Set(rows.map((r) => r.agentColor)).size).toBeGreaterThanOrEqual(4);
   });
 
-  /**
-   * The shadcn primitives of PAP-B-030, checked on the internal gallery (`/ui`): keyboard behavior, name
-   * and role, contrast in both theme scopes, and the isolation rule of ADR 0003 — the app's base rules
-   * still stop at the edge of `.world`.
-   */
   describe("galeria de primitivas (/ui)", () => {
     let gal: Page;
 
@@ -224,7 +202,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       await gal?.close();
     });
 
-    /** Contrast of a primitive's text over its own background, as the browser paints it. */
     const contrastIn = (panel: "dark" | "light", slot: string) =>
       gal.evaluate(
         ({ panel, slot }) => {
@@ -266,7 +243,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       const trigger = triggerIn("light", "Excluir workspace");
       await trigger.click();
       await gal.waitForSelector("[data-slot=alert-dialog-content]");
-      // The portal is a child of <body>, so the panel's theme scope has to travel on the content itself.
       await expect(gal.locator("[data-slot=alert-dialog-content].ui-light").count()).resolves.toBe(1);
       await expect(
         gal.evaluate(() => {
@@ -290,8 +266,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       await gal.waitForSelector("[data-slot=menu-content]");
       await expect(gal.getByRole("menuitem", { name: /^Excluir/ }).count()).resolves.toBe(1);
       await gal.keyboard.press("ArrowDown");
-      // Which item Radix focuses first depends on whether the open already focused one, so what is
-      // asserted is the kind of thing: the arrow keeps the focus on an item inside the menu.
       const nav = await gal.evaluate(() => {
         const el = document.activeElement;
         return { slot: el?.getAttribute("data-slot") ?? "", inMenu: el?.closest("[data-slot=menu-content]") !== null };
@@ -320,9 +294,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       });
       await rm.close();
       expect(probe).not.toBeNull();
-      // The guard neutralizes the primitives' animations in the app chrome…
       expect(probe!.chrome).not.toBe("0s");
-      // …but the document under .world keeps the browser defaults the export and the screenshot use.
       expect(probe!.world).toBe("0s");
       expect(probe!.worldLineHeight).toBe("normal");
     });
@@ -334,7 +306,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
         for (const state of ["rest", "hover"] as const) {
           if (state === "hover") await danger.hover();
           else await gal.mouse.move(5, 5);
-          // transition-colors: the hover color only lands a beat later, so measure after it settles.
           await gal.waitForTimeout(300);
           const [fg, bg] = await danger.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor] as [string, string]);
           expect(contrastRatio(fg, bg), `${panel} ${state}`).toBeGreaterThanOrEqual(4.5);

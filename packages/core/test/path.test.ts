@@ -46,7 +46,7 @@ describe("path: bounds", () => {
     const b = pathBounds(parsePath("M0 0 C 0 -40 100 -40 100 0"));
     near(b.x, 0);
     near(b.width, 100);
-    near(b.y, -30); // pico da cúbica = 3/4 da altura dos controles
+    near(b.y, -30);
     near(b.height, 30);
   });
 

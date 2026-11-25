@@ -1,5 +1,3 @@
-//! Two sidecars on loopback, no relay: they connect over QUIC and relay presence.
-
 mod common;
 
 use std::time::Duration;

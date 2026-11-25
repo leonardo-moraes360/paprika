@@ -57,11 +57,10 @@ describe("groups", () => {
     const { doc } = applyOps(doc0, plan.ops);
     const g = group(doc);
     expect(g).toMatchObject({ type: "group", parentId: "f", x: 40, y: 20, width: 90, height: 40 });
-    expect(g.children).toEqual(["a", "b"]); // sibling order, not argument order
+    expect(g.children).toEqual(["a", "b"]);
     expect((doc.nodes.f as { children: string[] }).children).toEqual(["g", "c"]);
     expect(doc.nodes.a).toMatchObject({ x: 0, y: 30 });
     expect(doc.nodes.b).toMatchObject({ x: 60, y: 0 });
-    // Same pixels: the HTML of the frame has the children at the same absolute spot.
     expect(nodeStyle(doc, g)).toMatchObject({ position: "absolute", left: "40px", top: "20px", width: "90px" });
   });
 
@@ -82,7 +81,6 @@ describe("groups", () => {
   it("counts child rotation in the box", () => {
     const doc0 = applyOps(scene(), [{ op: "update", id: "a", props: { rotation: 90 } }]).doc;
     const { doc } = applyOps(doc0, groupOps(doc0, ["a"], { id: "g" }).ops);
-    // 20×10 rotated 90° around its center (50,55) covers 45..55 × 45..65.
     expect(group(doc)).toMatchObject({ x: 45, y: 45, width: 10, height: 20 });
     expect(doc.nodes.a).toMatchObject({ x: -5, y: 5, rotation: 90 });
   });
@@ -139,7 +137,6 @@ describe("groups", () => {
     const dl = displayList(doc, boxes);
     expect(dl.painted.has("a")).toBe(true);
     expect(dl.painted.has("g")).toBe(false);
-    // rect "a" inherits the group opacity (entry 1 after the frame clip push).
     expect(dl.data[25 + 7]).toBeCloseTo(0.5);
   });
 });
@@ -167,12 +164,10 @@ describe("pages", () => {
     expect(() => applyOps(paged, [{ op: "create", parentId: "f", node: { type: "page", id: "px" } }])).toThrow(/canvas level/);
     expect(() => applyOps(paged, [{ op: "move", id: "p2", parentId: "p1" }])).toThrow(/canvas level/);
     expect(() => applyOps(paged, [{ op: "create", node: { type: "page", id: "px", x: 1 } }])).toThrow(/unknown fields for page: x/);
-    // Mixed top level created in one transaction is caught at the end.
     expect(() => applyOps(scene(), [{ op: "create", node: { type: "page", id: "px" } }])).toThrow(/"f" is at the canvas level/);
     expect(() => parseDocument({ ...paged, rootIds: ["p1", "p2", "f"], nodes: { ...paged.nodes, f: { ...paged.nodes.f, parentId: null }, p1: { ...paged.nodes.p1, children: [] } } })).toThrow(
       /every top-level node must be a page/,
     );
-    // Creating on a page works and the page is a valid parent.
     const ok = applyOps(paged, [{ op: "create", parentId: "p2", node: { type: "rect", id: "r", x: 500, y: 600, width: 10, height: 10 } }]).doc;
     expect(canvasBounds(ok, "p2")).toEqual({ x: 500, y: 600, width: 10, height: 10 });
     expect(canvasBounds(ok)).toEqual({ x: 0, y: 0, width: 400, height: 300 });
@@ -188,7 +183,6 @@ describe("pages", () => {
     expect(page.bounds).toEqual({ x: 500, y: 600, width: 10, height: 10 });
     expect(page.html).toContain("background:#101010");
     expect(page.html).toContain("left:0px;top:0px");
-    // Without a root: the first page, white.
     const first = renderHTML(doc);
     expect(first.html).toContain('data-paprika-id="f"');
     expect(first.html).not.toContain('data-paprika-id="r"');
@@ -200,7 +194,6 @@ describe("pages", () => {
 describe("composite ops inside applyOps", () => {
   it("group/ungroup/add_page expand against the current document, in one undo step", () => {
     const h = new History(scene());
-    // A move in the same transaction, before the group: the plan sees the moved node.
     h.apply([
       { op: "update", id: "a", props: { x: 0 } },
       { op: "group", ids: ["a", "b"], id: "g", name: "Par" },
@@ -227,13 +220,13 @@ describe("z-order in one call (update/move with index)", () => {
     expect(kids(applyOps(scene(), [{ op: "update", id: "c", props: { index: "back" } }]).doc)).toEqual(["c", "a", "b"]);
     expect(kids(applyOps(scene(), [{ op: "update", id: "c", props: { index: 0 } }]).doc)).toEqual(["c", "a", "b"]);
     expect(kids(applyOps(scene(), [{ op: "update", id: "a", props: { index: 1 } }]).doc)).toEqual(["b", "a", "c"]);
-    expect(kids(applyOps(scene(), [{ op: "update", id: "a", props: { index: 9 } }]).doc)).toEqual(["b", "c", "a"]); // clampa no fim
+    expect(kids(applyOps(scene(), [{ op: "update", id: "a", props: { index: 9 } }]).doc)).toEqual(["b", "c", "a"]);
   });
 
   it("forward/backward take one step and stop at the ends", () => {
     expect(kids(applyOps(scene(), [{ op: "update", id: "a", props: { index: "forward" } }]).doc)).toEqual(["b", "a", "c"]);
-    expect(kids(applyOps(scene(), [{ op: "update", id: "c", props: { index: "forward" } }]).doc)).toEqual(["a", "b", "c"]); // já no topo
-    expect(kids(applyOps(scene(), [{ op: "update", id: "a", props: { index: "backward" } }]).doc)).toEqual(["a", "b", "c"]); // já no fundo
+    expect(kids(applyOps(scene(), [{ op: "update", id: "c", props: { index: "forward" } }]).doc)).toEqual(["a", "b", "c"]);
+    expect(kids(applyOps(scene(), [{ op: "update", id: "a", props: { index: "backward" } }]).doc)).toEqual(["a", "b", "c"]);
     expect(kids(applyOps(scene(), [{ op: "update", id: "c", props: { index: "backward" } }]).doc)).toEqual(["a", "c", "b"]);
   });
 
@@ -251,7 +244,7 @@ describe("z-order in one call (update/move with index)", () => {
     expect(kids(applyOps(scene(), [{ op: "move", id: "a", parentId: "f", index: "front" }]).doc)).toEqual(["b", "c", "a"]);
     expect(kids(applyOps(scene(), [{ op: "move", id: "c", parentId: "f", index: "backward" }]).doc)).toEqual(["a", "c", "b"]);
     const h = new History(scene());
-    h.apply([{ op: "move", id: "a", parentId: "f", index: "back" }]); // já estava no fundo: no-op
+    h.apply([{ op: "move", id: "a", parentId: "f", index: "back" }]);
     expect(kids(h.doc)).toEqual(["a", "b", "c"]);
     h.apply([{ op: "move", id: "c", parentId: "f", index: "front" }]);
     h.undo();

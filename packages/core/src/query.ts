@@ -5,7 +5,6 @@ function sizeStr(n: SceneNode): string {
   return `${n.width}×${n.height}`;
 }
 
-/** Uma linha compacta por nó: barato em tokens e suficiente para o agente se orientar. */
 export function describeNode(n: Node): string {
   const parts = [`${n.type}#${n.id}`];
   if (n.name) parts.push(JSON.stringify(n.name));
@@ -61,7 +60,6 @@ export function describeNode(n: Node): string {
   return parts.join(" ");
 }
 
-/** Árvore indentada do documento (ou de um nó), limitada por profundidade. */
 export function outline(doc: Document, opts: { rootId?: string; depth?: number } = {}): string {
   const maxDepth = opts.depth ?? Infinity;
   const lines: string[] = [];
@@ -85,11 +83,8 @@ export function outline(doc: Document, opts: { rootId?: string; depth?: number }
 
 export interface NodeQuery {
   type?: NodeType;
-  /** Substring (case-insensitive) do nome. */
   name?: string;
-  /** Substring (case-insensitive) do conteúdo de texto. */
   text?: string;
-  /** Restringe à subárvore deste nó. */
   within?: string;
   limit?: number;
 }
@@ -123,7 +118,6 @@ export function subtreeIds(doc: Document, rootId: string): string[] {
   return out;
 }
 
-/** Caminho de nomes do topo até o nó, útil em mensagens. */
 export function nodePath(doc: Document, id: string): string {
   const names: string[] = [];
   let cur: Node | undefined = doc.nodes[id];

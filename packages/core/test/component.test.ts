@@ -50,7 +50,6 @@ describe("componentes e instâncias", () => {
     expect(lbl).toMatchObject({ type: "text", text: "OK", sourceId: "lbl", parentId: "i1" });
     expect(copyId("i1", "lbl")).toMatch(/^i1-[0-9a-z]{14}$/);
     expect(copyId("i1", "lbl")).toBe(copyId("i1", "lbl"));
-    // documento continua válido ao reler
     expect(() => parseDocument(JSON.parse(JSON.stringify(doc)))).not.toThrow();
   });
 
@@ -78,7 +77,6 @@ describe("componentes e instâncias", () => {
     expect((h.current.nodes.i1 as FrameNode).overrides).toEqual({ lbl: { text: "Cancelar", color: "#ff0000" } });
     h.apply([{ op: "update", id: "lbl", props: { fontSize: 20, text: "Outro" } }], "a", "comp");
     expect(kid(h.current, "i1", "lbl")).toMatchObject({ text: "Cancelar", fontSize: 20 });
-    // null volta ao valor do componente
     h.apply([{ op: "update", id: l, props: { text: null } }], "a", "reset");
     expect((h.current.nodes.i1 as FrameNode).overrides).toEqual({ lbl: { color: "#ff0000" } });
     expect((kid(h.current, "i1", "lbl") as TextNode).text).toBe("Outro");
@@ -115,7 +113,6 @@ describe("componentes e instâncias", () => {
     expect(() => applyOps(doc, [{ op: "update", id: "btn", props: { component: null } }])).toThrow(/is not a component/);
     expect(() => applyOps(doc, [{ op: "move", id: "i1", parentId: "btn" }])).toThrow(/component cycle: "btn" → "btn"/);
     expect(() => applyOps(doc, [{ op: "update", id: "i1", props: { component: true } }])).toThrow(/cannot be a component/);
-    // apagar componente e instâncias juntos funciona
     expect(() => applyOps(doc, [{ op: "delete", id: "i1" }, { op: "delete", id: "btn" }])).not.toThrow();
   });
 
@@ -128,7 +125,6 @@ describe("componentes e instâncias", () => {
     const l = kid(h.current, "i1", "lbl") as TextNode;
     expect(l.text).toBe("X");
     expect(l.sourceId).toBeUndefined();
-    // agora é um nó comum
     h.apply([{ op: "update", id: l.id, props: { x: 3 } }], "a", "mover");
     h.undo();
     h.undo();

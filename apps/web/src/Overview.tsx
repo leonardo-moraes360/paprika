@@ -13,11 +13,9 @@ import { cn } from "./lib/cn";
 import { bar, cx, ui } from "./ui";
 import { useWorkspaceMutations, useWorkspaces, useWorkspacesFollow, type PreviewShape, type Workspace, type WorkspaceFolder } from "./workspaces";
 
-/** Same limit as the server; bigger images are scaled down in the browser first. */
 const MAX_COVER_BYTES = 2 * 1024 * 1024;
 const COVER_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
-/** The image as the server takes it: as is when small enough, else scaled to 960px wide as WebP. */
 async function coverBody(file: File, failMsg: string): Promise<Blob> {
   if (file.size <= MAX_COVER_BYTES && COVER_TYPES.includes(file.type)) return file;
   const bitmap = await createImageBitmap(file);
@@ -32,7 +30,6 @@ async function coverBody(file: File, failMsg: string): Promise<Blob> {
   return blob;
 }
 
-/** "now", "5 minutes ago", "yesterday"… */
 export function relativeTime(at: number, locale: string, nowLabel: string, now = Date.now()): string {
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   const s = Math.round((at - now) / 1000);
@@ -44,14 +41,12 @@ export function relativeTime(at: number, locale: string, nowLabel: string, now =
   return new Date(at).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 }
 
-/** Hue of the card's tile, stable per workspace (around the brand's warm and cool accents). */
 function hue(id: string): number {
   let h = 0;
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return [12, 24, 188, 200, 130, 340][h % 6]!;
 }
 
-/** The tile's letter and glow follow the workspace hue. */
 const tile = (h: number): CSSProperties => ({
   color: `hsl(${h} 70% 78%)`,
   background: `radial-gradient(circle at 30% 20%, hsl(${h} 60% 40% / 0.55), transparent 60%), linear-gradient(160deg, var(--color-panel-2), var(--color-night))`,
@@ -84,13 +79,11 @@ function LiveThumb({ shapes }: { shapes: PreviewShape[] }) {
 
 interface Props {
   connected: boolean;
-  /** Id of the active workspace (from the live connection); a change refreshes the list. */
   activeId: string | null;
   version: number;
   onOpen: (id: string) => void;
 }
 
-/** Home page: the workspaces of this server; opening one goes to its canvas. */
 export function Overview({ connected, activeId, version, onOpen }: Props) {
   const m = useT();
   const { locale } = useLocale();
@@ -100,21 +93,17 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
   const mutations = useWorkspaceMutations();
   const workspaces = list.data?.workspaces ?? null;
   const folders = list.data?.folders ?? [];
-  /** Error of the last mutation; a later success clears it. */
   const [failure, setFailure] = useState<string | null>(null);
   const error = failure ?? (list.error ? m.listWorkspacesFail(errorText(list.error)) : null);
   const [creating, setCreating] = useState<"workspace" | "folder" | null>(null);
   const [renamingFolder, setRenamingFolder] = useState<string | null>(null);
   const [name, setName] = useState("");
-  /** One click opens a card; the pencil button or F2 renames it. */
   const [renaming, setRenaming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Workspace | null>(null);
   const [confirming, setConfirming] = useState(false);
   const coverInput = useRef<HTMLInputElement>(null);
-  /** Workspace whose cover the file picker is choosing. */
   const coverFor = useRef<string | null>(null);
 
-  /** Runs a mutation; its error goes to the banner with what was being done. */
   const attempt = async <T,>(what: string, run: () => Promise<T>): Promise<T | undefined> => {
     try {
       const out = await run();
@@ -186,7 +175,6 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
     e.preventDefault();
   };
 
-  /** Where the canvas and the agents go when the active workspace is deleted (the list is most recent first). */
   const successor = deleting?.active ? workspaces?.find((w) => w.id !== deleting.id) : undefined;
   const countLabel = workspaces ? (showingArchived ? m.overviewArchivedCount(count) : m.overviewCount(count)) : m.loading;
   const rows = (): Array<{ kind: "card"; w: Workspace } | { kind: "head" | "empty"; folder: WorkspaceFolder }> => {
@@ -343,7 +331,6 @@ export function Overview({ connected, activeId, version, onOpen }: Props) {
                 tabIndex={0}
                 aria-label={m.overviewOpenAria(w.name)}
                 className={cn(
-                  // "workspace-card" and "is-active" stay as hooks for the E2E suite.
                   "workspace-card relative w-full cursor-pointer gap-0 overflow-hidden border-0 p-0 text-left",
                   "outline-1 -outline-offset-1 outline-solid transition-[outline-color] duration-120",
                   "focus-visible:shadow-[0_0_0_2px_var(--color-night),0_0_0_4px_var(--color-select)]",

@@ -42,7 +42,6 @@ describe.skipIf(!built)("canvas fonts", () => {
     expect(family).toMatch(/Inter/);
     expect(family).toMatch(/(^|,\s*)(sans-serif|serif|monospace)\s*$/);
 
-    // The Inter faces come from the Go server (/fonts/inter.css), not from the machine.
     const loaded = await page.evaluate(async () => {
       await Promise.all([document.fonts.load("400 16px Inter"), document.fonts.load("600 16px Inter")]);
       return [...document.fonts].filter((f) => f.family.replace(/"/g, "") === "Inter" && f.status === "loaded").map((f) => f.weight);

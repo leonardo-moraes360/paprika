@@ -1,5 +1,3 @@
-//! Signed envelopes: one local transaction (a Loro update) signed by its author (ADR 0004).
-
 use anyhow::{Context, Result, bail};
 use base64::{Engine, engine::general_purpose::STANDARD as B64};
 use iroh::{PublicKey, SecretKey};
@@ -7,7 +5,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{crdt, keys};
 
-/// Delegation from a member to one of the agents it runs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cert {
     pub member: String,
@@ -38,7 +35,6 @@ impl Cert {
         }
     }
 
-    /// Checks the member's signature over the delegation; returns the member key.
     pub fn verify(&self) -> Result<PublicKey> {
         let member = keys::parse_public(&self.member)?;
         keys::verify(
@@ -92,9 +88,6 @@ impl Envelope {
         keys::parse_public(&self.author)
     }
 
-    /// Checks the author's signature, the agent certificate if any, and that the update only
-    /// carries changes under the author's own Loro peer id. Returns the update bytes and the
-    /// member responsible for it (the author itself, or the member that delegated the agent).
     pub fn verify(&self) -> Result<(Vec<u8>, PublicKey)> {
         let author = self.author_key()?;
         let blob = B64.decode(&self.blob).context("blob is not base64")?;
@@ -158,7 +151,6 @@ mod tests {
             SecretKey::from_bytes(&[9; 32]),
             SecretKey::from_bytes(&[1; 32]),
         );
-        // Mallory signs a valid envelope, but the update was made under Ana's peer id.
         let env = Envelope::sign("d", &mallory, 1, &blob_by(&ana), None);
         assert!(
             env.verify()
@@ -175,7 +167,6 @@ mod tests {
         let cert = Cert::issue(&member, &agent.public(), "codex");
         let env = Envelope::sign("d", &agent, 1, &blob_by(&agent), Some(cert.clone()));
         assert_eq!(env.verify().unwrap().1, member.public());
-        // A certificate for another agent does not cover this author.
         let other = keys::agent_key(&member, "gemini");
         let env = Envelope::sign("d", &other, 1, &blob_by(&other), Some(cert));
         assert!(env.verify().is_err());

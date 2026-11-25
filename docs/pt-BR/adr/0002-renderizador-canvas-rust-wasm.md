@@ -1,10 +1,11 @@
-[🇺🇸 English](../../adr/0002-canvas-renderer-rust-wasm.md) | 🇧🇷 Português
+[🇺🇸 English](../../en-US/adr/0002-canvas-renderer-rust-wasm.md) | 🇧🇷 Português
 
 # ADR 0002: Renderizador do canvas em Rust/WASM (WebGPU com fallback para CPU)
 
 - **Status:** Aceito como **renderizador híbrido opcional** (atualização abaixo). O DOM continua sendo o padrão.
 - **Data:** 2026-11-21
-- **Código:** [`crates/render`](../../../crates/render), [`packages/core/src/displayList.ts`](../../../packages/core/src/displayList.ts), [`apps/web/src/wasmLayer.ts`](../../../apps/web/src/wasmLayer.ts). Harness de benchmark: [`experiments/canvas-wasm/`](../../../experiments/canvas-wasm/README.pt-BR.md)
+- **Código:** [`crates/render`](../../../crates/render), [`packages/core/src/displayList.ts`](../../../packages/core/src/displayList.ts), [`apps/web/src/wasmLayer.ts`](../../../apps/web/src/wasmLayer.ts). Harness de benchmark: [`experiments/canvas-wasm/`](https://github.com/leonardo-moraes360/paprika/tree/040b843/experiments/canvas-wasm/README.pt-BR.md)
+- **Nota (2026-11-25):** o protótipo `experiments/canvas-wasm` saiu da árvore; os links abaixo apontam para o commit `040b843`, o último que o contém.
 
 ## Contexto
 
@@ -58,7 +59,7 @@ usando WebGPU quando houver GPU e caindo para a CPU quando não houver?
 | `bench/tsconfig.json` (`tsc --strict`) | limpo |
 
 O exemplo bezier sai igual nos quatro caminhos
-([comparação](../../../experiments/canvas-wasm/bench/results/compare-bezier.png)).
+([comparação](https://github.com/leonardo-moraes360/paprika/blob/040b843/experiments/canvas-wasm/bench/results/compare-bezier.png)).
 
 **Não verificado:** apresentar um canvas WebGPU na tela. Neste container (Chromium headless, sem GPU)
 até um canvas WebGPU em JS puro perde o device ao apresentar (`bench/webgpu-canvas-probe.cjs`), então o
@@ -70,7 +71,7 @@ Chromium 1243 headless, Xeon 2,1 GHz com 4 vCPUs, **sem GPU**, 1280×800 com DPR
 de 100 formas (retângulos, elipses, blobs bezier, strokes, rotação, transparência). "Zoom" anima zoom
 e pan por 120 frames (re-raster completo a cada frame). "Edição" troca o fill de um nó por frame.
 Tempos em ms, média do trabalho na main thread por frame; fps é a cadência do `requestAnimationFrame`.
-Dados brutos: [`bench-nogpu.jsonl`](../../../experiments/canvas-wasm/bench/results/bench-nogpu.jsonl).
+Dados brutos: [`bench-nogpu.jsonl`](https://github.com/leonardo-moraes360/paprika/blob/040b843/experiments/canvas-wasm/bench/results/bench-nogpu.jsonl).
 
 | Nós | Modo | Primeiro frame | Zoom (trabalho) | Zoom fps | Edição (trabalho) |
 |---:|---|---:|---:|---:|---:|
@@ -157,7 +158,7 @@ com o DOM ainda como padrão:
 - Nós que ele não desenha com exatidão (cores não sólidas, sombra em path) continuam pintados pelo DOM.
 - `render_screenshot` e os exports continuam em HTML/CSS, então a saída para agentes não muda.
 - A paridade é testada: `packages/e2e/test/e2e/wasm.e2e.test.ts` renderiza o exemplo bezier e
-  `examples/wasm-layers.paprika.json` nos dois modos e exige menos de 0,5% de pixels diferentes.
+  `packages/e2e/fixtures/wasm-layers.paprika.json` nos dois modos e exige menos de 0,5% de pixels diferentes.
   A paridade cobre overlap: o canvas WASM fica embaixo do DOM, então uma forma só fica no WASM quando
   nenhum nó pintado pelo DOM antes dela na ordem de pintura sobrepõe os bounds pintados (ancestrais
   com pintura própria, stroke, shadow, rotação e clip). O resto volta para o DOM, em cascata.

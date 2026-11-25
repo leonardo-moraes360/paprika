@@ -1,8 +1,3 @@
-/**
- * Botão. Copiado do shadcn/ui (new-york, MIT) e adaptado ao tema fechado do Paprika — ver ADR 0005:
- * nomes de token `ui-*`, foco com outline (como o resto do app), `cursor-pointer` (não há Preflight)
- * e alturas da densidade do app (raiz 13px, `--spacing: 4px`), que são as da folha do board.
- */
 import type { ComponentProps } from "react";
 import { Slot as SlotPrimitive } from "radix-ui";
 import { cva, type VariantProps } from "class-variance-authority";

@@ -12,16 +12,16 @@
     "build": "pnpm -r --workspace-concurrency=1 run build && pnpm go:build",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
-    "dev": "pnpm go:build && server-go/bin/paprika import examples/demo.paprika.json --db dev.db --replace && server-go/bin/paprika serve --db dev.db",
-    "start": "server-go/bin/paprika serve",
+    "dev": "pnpm go:build && server/bin/paprika import packages/e2e/fixtures/demo.paprika.json --db dev.db --replace && server/bin/paprika serve --db dev.db",
+    "start": "server/bin/paprika serve",
     "test:render": "cd crates/render && cargo test && cargo clippy --all-targets -- -D warnings && cargo fmt --check",
-    "go:build": "cd server-go && CGO_ENABLED=0 go build -tags nodynamic -buildvcs=false -o bin/paprika ./cmd/paprika",
-    "go:vet": "cd server-go && CGO_ENABLED=0 go vet -tags nodynamic ./...",
-    "go:test": "pnpm go:vet && cd server-go && CGO_ENABLED=0 go test -tags nodynamic ./...",
-    "go:golden": "node server-go/scripts/gen-golden.mjs && node server-go/scripts/gen-measure.mjs",
+    "go:build": "cd server && CGO_ENABLED=0 go build -tags nodynamic -buildvcs=false -o bin/paprika ./cmd/paprika",
+    "go:vet": "cd server && CGO_ENABLED=0 go vet -tags nodynamic ./...",
+    "go:test": "pnpm go:vet && cd server && CGO_ENABLED=0 go test -tags nodynamic ./...",
+    "go:golden": "node server/scripts/gen-golden.mjs && node server/scripts/gen-measure.mjs",
     "test:api": "pnpm go:build && pnpm --filter @paprika/e2e test:api",
     "test:e2e": "pnpm go:build && pnpm --filter @paprika/e2e test:e2e",
-    "check": "pnpm build && pnpm typecheck && pnpm go:golden && git diff --exit-code -- server-go/internal/core/testdata server-go/contract && pnpm test && pnpm go:test && pnpm test:api && pnpm test:e2e"
+    "check": "pnpm build && pnpm typecheck && pnpm go:golden && git diff --exit-code -- server/internal/core/testdata server/contract && pnpm test && pnpm go:test && pnpm test:api && pnpm test:e2e"
   },
   "devDependencies": {
     "typescript": "~7.0.2",

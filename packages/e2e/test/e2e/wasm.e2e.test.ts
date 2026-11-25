@@ -11,7 +11,6 @@ import { pinLocale } from "./locale.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
 const webRoot = join(root, "apps/web/dist");
-// The WASM renderer is built by crates/render/build.mjs during `pnpm build` when Rust is installed.
 const wasmBuilt = existsSync(join(root, "apps/web/src/wasm/paprika_render.js")) && existsSync(webRoot);
 const shots = process.env.PAPRIKA_E2E_SHOTS;
 
@@ -50,7 +49,6 @@ async function openCanvas(page: Page, base: string, renderer: "dom" | "wasm") {
   await page.waitForTimeout(300);
 }
 
-/** Fraction of pixels whose channels differ by more than `tol` (decoded in the page). */
 async function diffRatio(page: Page, a: Buffer, b: Buffer, tol = 40): Promise<number> {
   return page.evaluate(
     async ([a64, b64, t]) => {
@@ -92,7 +90,7 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "paprika-wasm-e2e-"));
     const file = join(dir, "bezier.paprika.json");
-    await copyFile(join(root, "examples/bezier.paprika.json"), file);
+    await copyFile(join(root, "packages/e2e/fixtures/bezier.paprika.json"), file);
     external = await startServer({ seed: file, webRoot });
     url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
@@ -115,7 +113,6 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     expect(wasm).toBeDefined();
     const res = await fetch(`${url}/assets/${wasm}`);
     expect(res.status).toBe(200);
-    // WebAssembly.instantiateStreaming only accepts application/wasm.
     expect(res.headers.get("content-type")).toBe("application/wasm");
   });
 
@@ -124,10 +121,8 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     const dom = await shot();
     await open("wasm");
     const backend = await page.getByTestId("renderer-toggle").getAttribute("data-backend");
-    // Headless Chromium has no hardware adapter: the renderer must fall back to vello_cpu.
     expect(["cpu", "webgpu"]).toContain(backend);
     expect(await page.getByTestId("wasm-layer").count()).toBe(1);
-    // The DOM keeps the board's box but no longer paints it.
     const bg = await page.locator('[data-paprika-id="board"]').evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(bg).toBe("rgba(0, 0, 0, 0)");
     const wasm = await shot();
@@ -144,8 +139,6 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     await open("wasm");
     const before = await shot();
     await agent.callTool({ name: "update_nodes", arguments: { updates: [{ id: "board", props: { fill: "#2a9d8f" } }] } });
-    // The DOM layer stays transparent in WASM mode. Read the computed color: the serialized `style`
-    // differs between Chromium versions (`background: transparent` became `background: none`).
     await expect
       .poll(() => page.locator('[data-paprika-id="board"]').evaluate((el) => getComputedStyle(el).backgroundColor))
       .toBe("rgba(0, 0, 0, 0)");
@@ -175,11 +168,9 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     ["propriedades", "Largura do painel de propriedades", -1],
   ] as const)("redimensionar o painel de %s não pisca a camada WASM", async (_name, label, dir) => {
     await open("wasm");
-    // A ResizeObserver created after the canvas's runs right after it, still before the frame is
-    // painted: if the layer is blank here, that frame reaches the screen without the shapes.
     await page.evaluate(() => {
       const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="wasm-layer"]')!;
-      const ctx = canvas.getContext("2d")!; // CPU backend: the same 2d context the renderer uses
+      const ctx = canvas.getContext("2d")!;
       const frames: boolean[] = [];
       (window as unknown as { __frames: boolean[] }).__frames = frames;
       new ResizeObserver(() => {
@@ -199,9 +190,9 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
       await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
     }
     await page.mouse.up();
-    await page.getByRole("separator", { name: label }).dblclick(); // back to the default width
+    await page.getByRole("separator", { name: label }).dblclick();
     const frames = await page.evaluate(() => (window as unknown as { __frames: boolean[] }).__frames);
-    expect(frames.length).toBeGreaterThan(4); // the first call is the observe() itself
+    expect(frames.length).toBeGreaterThan(4);
     expect(frames.filter((p) => !p)).toEqual([]);
     expect(errors).toEqual([]);
   });
@@ -377,13 +368,12 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   });
 });
 
-/** Starts a server seeded with one example, a browser and a page; tears them down after the suite. */
 function useFixtureServer(example: string, opts: { consoleErrors?: boolean } = {}) {
   const ctx = { url: "", page: undefined as unknown as Page, errors: [] as string[] };
   let external: ExternalServer | undefined;
   let browser: Browser | undefined;
   beforeAll(async () => {
-    external = await startServer({ seed: join(root, "examples", example), webRoot });
+    external = await startServer({ seed: join(root, "packages/e2e/fixtures", example), webRoot });
     ctx.url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     ctx.page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -413,7 +403,7 @@ describe.skipIf(!wasmBuilt)("E2E: WASM respeita a ordem de pintura", () => {
 
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "paprika-wasm-layers-"));
-    external = await startServer({ seed: join(root, "examples/wasm-layers.paprika.json"), webRoot });
+    external = await startServer({ seed: join(root, "packages/e2e/fixtures/wasm-layers.paprika.json"), webRoot });
     url = external.url;
     browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
     page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -446,7 +436,6 @@ describe.skipIf(!wasmBuilt)("E2E: WASM respeita a ordem de pintura", () => {
 describe.skipIf(!wasmBuilt)("E2E: WASM desenha formas escuras sobre o fundo do quadro (PAP-A-012)", () => {
   const fx = useFixtureServer("wasm-gpu-blank.paprika.json");
 
-  /** Near-black pixels in a PNG (the logo is #0b0b0b on a #6271ff board). */
   async function darkPixels(png: Buffer): Promise<number> {
     return fx.page.evaluate(async (b64) => {
       const img = new Image();
@@ -476,7 +465,6 @@ describe.skipIf(!wasmBuilt)("E2E: WASM desenha formas escuras sobre o fundo do q
     expect(domDark).toBeGreaterThan(1000);
     const wasm = await open("wasm");
     expect(["cpu", "webgpu"]).toContain(await fx.page.getByTestId("renderer-toggle").getAttribute("data-backend"));
-    // The board and every logo shape are painted by the WASM layer, none by the DOM.
     expect(await fx.page.locator('[data-paprika-id="board"]').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
     expect(await fx.page.locator('[data-paprika-id="hull"] path').count()).toBe(0);
     expect(Math.abs((await darkPixels(wasm)) - domDark) / domDark).toBeLessThan(0.1);
@@ -485,9 +473,6 @@ describe.skipIf(!wasmBuilt)("E2E: WASM desenha formas escuras sobre o fundo do q
   });
 });
 
-// PAP-A-035: a path with a fractional box next to a DOM-painted node used to flip between the WASM
-// layer and the DOM on every commit (the box was measured exact under an <svg> and rounded under the
-// <div> that replaces it), so the layout effect set `painted` forever and React threw error #185.
 describe.skipIf(!wasmBuilt)("E2E: WASM estabiliza um path de caixa fracionária (PAP-A-035)", () => {
   const fx = useFixtureServer("wasm-fractional-path.paprika.json", { consoleErrors: true });
 

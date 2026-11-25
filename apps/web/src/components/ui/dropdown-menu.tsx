@@ -1,8 +1,3 @@
-/**
- * Menu suspenso. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005: superfícies `ui-*`,
- * atalho alinhado à direita, item destrutivo com `text-ui-destructive-text` (o vermelho de preenchimento
- * não passa em 4,5:1 como texto sobre o tema noturno).
- */
 import type { ComponentProps } from "react";
 import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import { Check, ChevronRight, Circle } from "lucide-react";

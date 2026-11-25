@@ -1,4 +1,4 @@
-🇺🇸 English | [🇧🇷 Português](CODE_OF_CONDUCT.pt-BR.md)
+🇺🇸 English | [🇧🇷 Português](docs/pt-BR/CODE_OF_CONDUCT.md)
 
 # Contributor Covenant Code of Conduct
 

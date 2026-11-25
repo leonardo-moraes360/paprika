@@ -3,15 +3,6 @@ import { round4 } from "./num.js";
 import type { NodeInput } from "./ops.js";
 import { importSVG, type ImportResult } from "./svgImport.js";
 
-/**
- * Importa HTML com estilos inline como nós (o inverso de `nodeStyle`). O HTML exportado pelo
- * próprio Paprika (`renderHTML`, que marca cada elemento com `data-paprika-type`) volta com os
- * mesmos tipos e propriedades. HTML de outras fontes é aproximado: `display: flex` vira layout
- * row/column, blocos em fluxo viram layout column, elementos só com texto viram `text`, `<img>`
- * vira `image` e `<svg>` passa por `importSVG`. Folhas de estilo (`<style>`, classes) não são
- * aplicadas: só `style=""`.
- */
-
 type Mode = "row" | "column" | null;
 
 interface TextStyle {
@@ -38,7 +29,6 @@ const HEADING: Record<string, number> = { h1: 32, h2: 24, h3: 18.72, h4: 16, h5:
 
 const PX = /^(-?(?:\d+\.?\d*|\.\d+))(px)?$/;
 
-/** "12px" ou "0" → 12/0; outros formatos → undefined. */
 function px(v: string | undefined): number | undefined {
   if (v === undefined) return undefined;
   const m = PX.exec(v.trim());
@@ -77,7 +67,6 @@ function isTextual(el: MarkupElement): boolean {
   return true;
 }
 
-/** Texto como o navegador mostraria (espaços colapsados, `<br>` vira quebra), ou cru se `pre`. */
 function visibleText(el: MarkupElement, pre: boolean): string {
   let out = "";
   const walk = (e: MarkupElement) => {
@@ -142,7 +131,6 @@ function applyText(node: NodeInput, t: TextStyle) {
   if (t.textAlign) node.textAlign = t.textAlign;
 }
 
-/** Posição, tamanho e pintura comuns (o inverso de nodeStyle). */
 function boxProps(node: NodeInput, css: ReadonlyMap<string, string>, ctx: Ctx, foreign: boolean) {
   const absolute = css.get("position") === "absolute" || css.get("position") === "fixed" || !ctx.mode;
   if (css.get("position") === "fixed" || css.get("position") === "sticky") ctx.warn(`position: ${css.get("position")} tratado como absolute`);
@@ -163,7 +151,6 @@ function boxProps(node: NodeInput, css: ReadonlyMap<string, string>, ctx: Ctx, f
     if (ctx.mode && main && /^1(\s+1\s+0(px|%)?)?$/.test(css.get("flex") ?? "")) return "fill";
     if (ctx.mode && !main && css.get("align-self") === "stretch") return "fill";
     if (v) return "hug";
-    // Sem tamanho: em HTML de fora, um bloco numa coluna ocupa a largura toda.
     if (foreign && ctx.mode === "column" && axis === "width") return "fill";
     return "hug";
   };
@@ -408,7 +395,6 @@ function convertElement(el: MarkupElement, ctx: Ctx): NodeInput[] | undefined {
     boxProps(n, css, ctx, false);
     return [named(n)];
   }
-  // Um contêiner flex dispõe cada filho como item, mesmo que só tenha texto.
   const flex = css.get("display") === "flex" || css.get("display") === "inline-flex";
   if (ptype === "text" || (!ptype && !flex && isTextual(el) && visibleText(el, !!text.pre))) {
     const pre = ptype === "text" || !!text.pre;
@@ -416,7 +402,6 @@ function convertElement(el: MarkupElement, ctx: Ctx): NodeInput[] | undefined {
     boxProps(n, css, ctx, !ptype);
     applyText(n, text);
     if (!ptype && (n.fill !== undefined || n.stroke !== undefined || css.get("padding"))) {
-      // Um botão ou etiqueta: o fundo vira um frame em volta do texto.
       const box: NodeInput = { type: "frame", children: [] };
       boxProps(box, css, ctx, true);
       box.clip = css.get("overflow") === "hidden";
@@ -450,7 +435,6 @@ function convertElement(el: MarkupElement, ctx: Ctx): NodeInput[] | undefined {
   return [named(n)];
 }
 
-/** Converte HTML em nós. `x`/`y` deslocam os nós de topo (posicionados em absoluto). */
 export function importHTML(src: string, opts: { x?: number; y?: number } = {}): ImportResult {
   const warnings: string[] = [];
   const warn = (w: string) => {

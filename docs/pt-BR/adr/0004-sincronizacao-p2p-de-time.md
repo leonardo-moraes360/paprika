@@ -1,10 +1,10 @@
-[🇺🇸 English](../../adr/0004-p2p-team-sync.md) | 🇧🇷 Português
+[🇺🇸 English](../../en-US/adr/0004-p2p-team-sync.md) | 🇧🇷 Português
 
 # ADR 0004: Sincronização P2P de time (transporte Iroh, CRDT Loro, sidecar em Rust)
 
 - **Status:** Aceito
 - **Data:** 2026-11-21
-- **Código:** `crates/sync` (sidecar `paprika-sync`), `server-go/internal/team` (supervisor, diff e aplicação)
+- **Código:** `crates/sync` (sidecar `paprika-sync`), `server/internal/team` (supervisor, diff e aplicação)
 - **Especificação:** [protocolo de sincronização de time](../sincronizacao-time.md)
 
 ## Contexto

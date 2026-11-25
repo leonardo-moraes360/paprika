@@ -161,7 +161,6 @@ function siblingIds(doc: Document, parentId: string | null): string[] {
   return p.children;
 }
 
-// layout() without a rootId only places the first page; scope it to the page that holds `id`.
 function boxesUnder(doc: Document, id: string | null): ReturnType<typeof layout> {
   return layout(doc, id && doc.nodes[id] ? { rootId: id } : {});
 }
@@ -243,7 +242,6 @@ export function inputFootprint(node: LooseNode): { w: number; h: number } {
       const h = typeof node.height === "number" ? node.height : Math.max(1, Math.ceil(b.y + b.height));
       return { w, h };
     } catch {
-      /* invalid d keeps the default box; create reports the path error */
     }
   }
   const w = typeof node.width === "number" ? node.width : 100;

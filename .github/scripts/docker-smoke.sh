@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# Smoke test of a built Paprika image (Dockerfile): starts a container on a fresh volume and checks,
-# over plain HTTP, the canvas, the WASM renderer asset, MCP over /mcp (initialize, tools/list, a
-# write, render_screenshot) and that the SQLite database survives a container restart.
-#
-#   .github/scripts/docker-smoke.sh paprika:dev            # default (runtime) target
-#   SCREENSHOT=0 .github/scripts/docker-smoke.sh paprika:slim  # slim target: no Chromium
-#
-# Needs docker, curl and node (for JSON). Used by the `docker` job of .github/workflows/ci.yml.
 set -euo pipefail
 
 image="${1:?usage: docker-smoke.sh IMAGE}"
@@ -28,7 +20,6 @@ fail() {
   exit 1
 }
 
-# start [ARGS...]: (re)creates the container on the volume; ARGS replace the image's CMD.
 start() {
   docker rm -f "$name" >/dev/null 2>&1 || true
   docker run -d --name "$name" -p "127.0.0.1:${port}:4777" -v "${volume}:/data" "$image" "$@" >/dev/null
@@ -39,7 +30,6 @@ start() {
   fail "server did not answer on $base"
 }
 
-# json EXPR: evaluates a JS expression over the JSON on stdin (bound to `r`) and prints it.
 json() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);const v=('"$1"');process.stdout.write(typeof v==="string"?v:JSON.stringify(v))})'; }
 
 session=""
@@ -67,13 +57,11 @@ init() {
 
 start
 
-# Canvas: index.html, and the WASM renderer built into it (served as application/wasm).
 html=$(curl -fsS "$base/") || fail "GET /"
 grep -q '<title>Paprika</title>' <<<"$html" || fail "GET / is not the canvas"
 echo "ok   GET / (canvas)"
 js=$(grep -o '/assets/index-[^"]*\.js' <<<"$html" | head -1)
 [[ -n "$js" ]] || fail "no script in index.html"
-# The renderer's JS chunk names the .wasm file (hashed by Vite); works on distroless too.
 chunk=$(curl -fsS "$base$js" | grep -o 'paprika_render-[A-Za-z0-9_-]*\.js' | head -1)
 [[ -n "$chunk" ]] || fail "WASM renderer chunk not in the canvas build"
 wasm=$(curl -fsS "$base/assets/$chunk" | grep -o 'paprika_render_bg-[A-Za-z0-9_-]*\.wasm' | head -1)
@@ -82,12 +70,10 @@ wasm_type=$(curl -fsS -o /dev/null -w '%{content_type}' "$base/assets/$wasm") ||
 [[ "$wasm_type" = "application/wasm" ]] || fail "WASM served as $wasm_type"
 echo "ok   GET /assets/$wasm ($wasm_type)"
 
-# Host check survives the container: a foreign Host is refused.
 code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example:4777' "$base/")
 [[ "$code" = "403" ]] || fail "foreign Host answered $code, expected 403"
 echo "ok   foreign Host -> 403"
 
-# MCP over HTTP.
 init
 tools=$(mcp '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | json 'r.result.tools.length')
 [[ "$tools" -ge 17 ]] || fail "tools/list returned $tools tools"
@@ -106,14 +92,12 @@ if [[ "$screenshot" = "1" ]]; then
   echo "ok   /mcp render_screenshot (PNG, $bytes bytes)"
 fi
 
-# Persistence: the node is still there after the container is recreated on the same volume.
 start
 init
 outline=$(tool 5 get_document_outline '{}')
 grep -q 'Docker smoke' <<<"$outline" || fail "node lost after restart: $(head -c 400 <<<"$outline")"
 echo "ok   SQLite on the volume survives a restart"
 
-# Team mode (compose.team.yaml): the sidecar ships in the image, starts, and keeps its key on the volume.
 team_args=(serve --host 0.0.0.0 --port 4777 --team --team-name smoke --team-no-relay --team-bind 0.0.0.0:4778)
 team_id() {
   for _ in $(seq 1 50); do

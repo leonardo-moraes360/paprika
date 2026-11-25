@@ -1,4 +1,4 @@
-# Team mode (P2P sync, docs/team-sync.md) on top of compose.yaml:
+# Team mode (P2P sync, docs/en-US/team-sync.md) on top of compose.yaml:
 #   PAPRIKA_TEAM_NAME=Ana docker compose -f compose.yaml -f compose.team.yaml up -d --build
 # The key, team file, invites and operation log live in the same volume (/data/paprika.team), so
 # they survive upgrades like the database. Back the volume up: losing the key means joining again.

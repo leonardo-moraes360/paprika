@@ -2,7 +2,7 @@
 
 O `Dockerfile` na raiz monta numa imagem só tudo de que o Paprika precisa: o servidor Go (MCP por HTTP e stdio, API HTTP/WS, SQLite), o canvas (`apps/web`, com Tailwind) e o renderizador Rust/WASM (`crates/render`). Nada mais precisa estar instalado no host.
 
-English: [docs/docker.md](../docker.md).
+English: [docs/en-US/docker.md](../en-US/docker.md).
 
 ## Rodar
 
@@ -43,7 +43,7 @@ O entrypoint da imagem é a CLI `paprika`, então todo comando funciona com o me
 
 ```bash
 # importa um .paprika.json para o banco do volume
-docker run --rm -i -v paprika-data:/data paprika import /dev/stdin < examples/demo.paprika.json
+docker run --rm -i -v paprika-data:/data paprika import /dev/stdin < packages/e2e/fixtures/demo.paprika.json
 # exporta o workspace ativo (stdout)
 docker run --rm -v paprika-data:/data paprika export > design.paprika.json
 # lista os workspaces
@@ -99,7 +99,7 @@ Ao subir versões, mantenha juntos:
 
 ## CI
 
-O job `docker` de `.github/workflows/ci.yml` faz o build do alvo padrão e roda `.github/scripts/docker-smoke.sh` contra ele: canvas e asset WASM servidos, `Host` estranho recusado, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` em `/mcp`, e o banco sobrevivendo a um restart do container no mesmo volume. Roda quando o PR mexe no `Dockerfile`, `.dockerignore`, `compose.yaml` ou em algo que entra na imagem (`server-go/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), e nas execuções completas. Veja [ci.md](ci.md).
+O job `docker` de `.github/workflows/ci.yml` faz o build do alvo padrão e roda `.github/scripts/docker-smoke.sh` contra ele: canvas e asset WASM servidos, `Host` estranho recusado, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` em `/mcp`, e o banco sobrevivendo a um restart do container no mesmo volume. Roda quando o PR mexe no `Dockerfile`, `.dockerignore`, `compose.yaml` ou em algo que entra na imagem (`server/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), e nas execuções completas. Veja [ci.md](ci.md).
 
 Para rodar a mesma checagem localmente:
 

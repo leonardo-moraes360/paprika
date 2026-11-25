@@ -1,12 +1,12 @@
 # Marca do Paprika · Trio Pixel
 
-[English](../brand/README.md)
+[English](../en-US/brand/README.md)
 
-Escolhida em 2026-11-25 entre seis direções de conceito (boards em [`docs/assets/boards/brand-trio-pixel`](../assets/boards/brand-trio-pixel)). Mistura o **Trio** (os pimentões vermelho, amarelo e verde) com o **Pixel** (o pimentão como o canvas vê: uma grade, já selecionada).
+Escolhida em 2026-11-25 entre seis direções de conceito (boards em [`docs/en-US/assets/boards/brand-trio-pixel`](../en-US/assets/boards/brand-trio-pixel)). Mistura o **Trio** (os pimentões vermelho, amarelo e verde) com o **Pixel** (o pimentão como o canvas vê: uma grade, já selecionada).
 
 | Claro | Escuro |
 |---|---|
-| ![Board claro](../assets/boards/brand-trio-pixel/01-light.png) | ![Board escuro](../assets/boards/brand-trio-pixel/02-dark.png) |
+| ![Board claro](../en-US/assets/boards/brand-trio-pixel/01-light.png) | ![Board escuro](../en-US/assets/boards/brand-trio-pixel/02-dark.png) |
 
 ## Símbolo
 
@@ -40,4 +40,4 @@ O ciano de seleção e o fundo do escuro são os tokens atuais do app ("Estúdio
 | `wordmark.svg` / `wordmark-light.svg` | Só o letreiro |
 | `lockup.svg` / `lockup-light.svg` | Símbolo + letreiro |
 
-Todos saem de uma geometria só, [`examples/brand/trio-pixel.mjs`](../../examples/brand/trio-pixel.mjs). Para regerar: `node examples/brand/trio-pixel-svg.mjs` (também copia `favicon.svg` para `apps/web/public/icon.svg`). Os boards são desenhados no Paprika por [`examples/brand/draw-concepts.mjs`](../../examples/brand/draw-concepts.mjs). `proposta-*.png` são as propostas anteriores.
+Todos saem de uma geometria só, [`scripts/brand/trio-pixel.mjs`](../../scripts/brand/trio-pixel.mjs). Para regerar: `node scripts/brand/trio-pixel-svg.mjs` (também copia `favicon.svg` para `apps/web/public/icon.svg`). Os boards são desenhados no Paprika por [`scripts/brand/draw-concepts.mjs`](../../scripts/brand/draw-concepts.mjs). `proposta-*.png` são as propostas anteriores.

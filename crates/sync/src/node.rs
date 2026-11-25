@@ -1,6 +1,3 @@
-//! The sidecar's hub: one Iroh endpoint, one connection per team peer, and the commands the Go
-//! server sends over stdio.
-
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -27,7 +24,6 @@ use crate::{
     team::{InviteLink, Invites, Left, Roster, TeamFile},
 };
 
-/// Messages between peers on the sync stream.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum PeerMsg {
@@ -35,27 +31,26 @@ pub enum PeerMsg {
         name: String,
         addr: EndpointAddr,
         peers: Vec<EndpointAddr>,
-        /// workspace → author → highest sequence number held.
         #[serde(default)]
         have: HashMap<String, HashMap<String, u64>>,
         #[serde(default)]
         team: Option<TeamFile>,
-        /// paprika-sync / app semver; missing treated as unknown.
         #[serde(default)]
         app: String,
-        /// Document format (`paprika/N`); must match or sync is refused.
         #[serde(default)]
         format: String,
     },
-    /// Signed envelopes the other side lacks, or a new one live.
-    Envs { envs: Vec<Envelope> },
-    /// Ephemeral presence (agents' cursors, the person online); never stored.
-    Presence { data: Value },
-    /// The team file changed (someone joined, was removed or rotated a key).
-    Team { team: TeamFile },
+    Envs {
+        envs: Vec<Envelope>,
+    },
+    Presence {
+        data: Value,
+    },
+    Team {
+        team: TeamFile,
+    },
 }
 
-/// Invite redemption on ALPN `paprika/join/1`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum JoinMsg {
@@ -81,24 +76,19 @@ pub enum JoinMsg {
     },
 }
 
-/// Events for the Go server (stdout).
 pub type Out = mpsc::UnboundedSender<Value>;
 
 #[derive(Debug, Clone)]
 pub struct Config {
     pub data: PathBuf,
     pub name: String,
-    /// Use Iroh's public relays and DNS address lookup (off in tests: loopback only).
     pub relay: bool,
     pub bind: Option<std::net::SocketAddr>,
-    /// App semver advertised in handshakes; defaults to [`APP_VERSION`].
     pub app: String,
-    /// Document format advertised in handshakes; defaults to [`FORMAT_VERSION`].
     pub format: String,
 }
 
 impl Config {
-    /// Loopback test config with the crate's default versions.
     pub fn test(data: PathBuf, name: impl Into<String>) -> Self {
         Self {
             data,
@@ -115,7 +105,6 @@ struct Peer {
     name: String,
     conn: Connection,
     tx: mpsc::UnboundedSender<PeerMsg>,
-    /// Who dialed: the connection dialed by the smaller id wins when both sides dial at once.
     dialer: EndpointId,
     since: Instant,
     app: String,
@@ -125,20 +114,16 @@ struct Peer {
 #[derive(Default)]
 struct State {
     peers: HashMap<EndpointId, Peer>,
-    /// Keys allowed to sync: the team's members plus peers added by address (`peer.add`).
     allowed: HashSet<EndpointId>,
     static_allowed: HashSet<EndpointId>,
     team: Option<TeamFile>,
-    /// What `team` vouches for, recomputed with `allowed`.
     roster: Roster,
     invites: Option<Invites>,
     addrs: HashMap<EndpointId, EndpointAddr>,
     names: HashMap<EndpointId, String>,
-    /// Last known app/format from a peer's hello (kept while offline).
     versions: HashMap<EndpointId, (String, String)>,
     presence: HashMap<EndpointId, Value>,
     docs: Option<DocStore>,
-    /// Envelopes or connections refused (not a member, bad signature…), newest last.
     rejected: Vec<Value>,
 }
 
@@ -153,7 +138,6 @@ impl State {
         for (k, (e, _)) in &self.roster.left {
             self.names.entry(*k).or_insert(e.name.clone());
         }
-        // An instance that was removed (or whose key was retired) stops syncing with the team.
         let inside = self.team.is_none() || self.roster.members.contains_key(me);
         for (k, e) in &self.roster.members {
             self.names.entry(*k).or_insert(e.name.clone());
@@ -165,7 +149,6 @@ impl State {
         self.allowed = allowed;
     }
 
-    /// Closes the connections of peers that are no longer allowed (removed, key retired).
     fn drop_strangers(&mut self) -> Vec<EndpointId> {
         let gone: Vec<EndpointId> = self
             .peers
@@ -192,7 +175,6 @@ impl std::fmt::Debug for JoinHandler {
 }
 
 impl ProtocolHandler for JoinHandler {
-    /// Anyone may knock with an invite; only this protocol, never sync, is open to strangers.
     async fn accept(&self, conn: Connection) -> Result<(), AcceptError> {
         let Some(inner) = self.0.upgrade() else {
             return Ok(());
@@ -261,7 +243,6 @@ impl ProtocolHandler for SyncHandler {
         let node = Node(inner);
         let remote = conn.remote_id();
         if !node.is_allowed(&remote) {
-            // Not on the team: close before reading anything.
             conn.close(1u32.into(), b"not a team member");
             node.event(
                 json!({"t": "rejected", "peer": remote.to_string(), "reason": "not a team member"}),
@@ -276,7 +257,6 @@ impl ProtocolHandler for SyncHandler {
 
 impl Node {
     pub async fn start(cfg: Config, out: Out) -> Result<Self> {
-        // Disk work off the async runtime.
         let data = cfg.data.clone();
         type Loaded = (
             SecretKey,
@@ -290,9 +270,7 @@ impl Node {
                 std::fs::create_dir_all(&data)
                     .with_context(|| format!("creating {}", data.display()))?;
                 let team = TeamFile::load(&data)?;
-                // A key rotation that was saved in the team file but not swapped in yet.
                 crate::keys::adopt_next(&data, |k| team.as_ref().is_some_and(|t| t.is_member(k)))?;
-                // Addresses saved by a key rotation, a hint for the first dials.
                 let hint_path = data.join("addrs.json");
                 let hint: Vec<EndpointAddr> = std::fs::read(&hint_path)
                     .ok()
@@ -397,7 +375,6 @@ impl Node {
         let _ = self.0.router.shutdown().await;
     }
 
-    /// Dials a peer on the sync ALPN (no-op when already connected).
     pub async fn connect(&self, id: EndpointId) -> Result<()> {
         if id == self.id() || self.0.state.lock().unwrap().peers.contains_key(&id) {
             return Ok(());
@@ -434,7 +411,6 @@ impl Node {
     ) {
         let remote = conn.remote_id();
         let (tx, mut rx) = mpsc::unbounded_channel::<PeerMsg>();
-        // Keep exactly one connection per peer: the one dialed by the smaller id.
         {
             let mut st = self.0.state.lock().unwrap();
             if let Some(old) = st.peers.get(&remote) {
@@ -530,7 +506,6 @@ impl Node {
         }
     }
 
-    /// Format mismatch → `Err` (rejected event). App mismatch → warn event, still `Ok`.
     fn gate_versions(
         &self,
         peer: &EndpointId,
@@ -565,7 +540,6 @@ impl Node {
         Ok(())
     }
 
-    /// Merges a team file from a peer of the same team; saves and spreads it when it grew.
     fn merge_team(&self, from: Option<EndpointId>, other: TeamFile) {
         let me = self.id();
         let grew = {
@@ -589,7 +563,6 @@ impl Node {
         }
     }
 
-    /// Inviter side: spends the invite and signs the joiner's member entry.
     fn redeem(
         &self,
         joiner: EndpointId,
@@ -640,7 +613,6 @@ impl Node {
         })
     }
 
-    /// Joiner side: dials the inviter on the join ALPN with the link's secret.
     async fn join(&self, link: &str) -> Result<Value> {
         use base64::Engine;
         let l = InviteLink::parse(link)?;
@@ -718,17 +690,14 @@ impl Node {
         Ok(json!({"team": team.id, "name": team.name}))
     }
 
-    /// Extra messages right after the hello (extended by the sync layer).
     fn on_connect(&self, _remote: EndpointId) -> Vec<PeerMsg> {
         let st = self.0.state.lock().unwrap();
-        // Last presence of each local agent, so a peer that just connected sees them at once.
         st.presence
             .get(&self.id())
             .map(|p| vec![PeerMsg::Presence { data: p.clone() }])
             .unwrap_or_default()
     }
 
-    /// Handles one peer message. `Ok(false)` means the connection must close (incompatible format).
     fn on_msg(&self, from: EndpointId, msg: PeerMsg) -> Result<bool> {
         match msg {
             PeerMsg::Hello {
@@ -754,7 +723,6 @@ impl Node {
                 }
                 let mut st = self.0.state.lock().unwrap();
                 st.versions.insert(from, (app.clone(), format.clone()));
-                // Catch the peer up: every envelope it does not have yet, as signed by its author.
                 let missing = st.docs().missing_for(&have);
                 if !missing.is_empty()
                     && let Some(p) = st.peers.get(&from)
@@ -772,7 +740,6 @@ impl Node {
                     .or_insert_with(|| EndpointAddr::new(from))
                     .addrs
                     .extend(addr.addrs);
-                // Learn addresses of other members (only members: the allowlist decides who counts).
                 for a in peers {
                     if st.allowed.contains(&a.id) && a.id != self.id() {
                         st.addrs
@@ -799,8 +766,6 @@ impl Node {
         Ok(true)
     }
 
-    /// Accepts envelopes from a peer, forwards the new ones to the other peers and tells the Go
-    /// server the new state of each workspace that changed.
     fn on_envs(&self, from: EndpointId, envs: Vec<Envelope>) {
         let me = self.id();
         let mut fresh = Vec::new();
@@ -876,8 +841,6 @@ impl Node {
         self.event(json!({"t": "remote", "doc": doc, "state": state, "by": by}));
     }
 
-    /// The key that signs for a local actor: the member key, or a derived agent key with its
-    /// delegation certificate for MCP agents ("agent:<client name>").
     fn signer(&self, actor: &str) -> (SecretKey, Option<Cert>) {
         match actor.strip_prefix("agent:") {
             Some(name) if !name.is_empty() => {
@@ -942,7 +905,6 @@ impl Node {
         });
     }
 
-    /// Who is on the team and how each one is reached right now.
     pub fn status(&self) -> Value {
         let st = self.0.state.lock().unwrap();
         let mut peers: Vec<Value> = st
@@ -1008,7 +970,6 @@ impl Node {
                            "rotated": st.roster.left.values().any(|(_, l)| matches!(l, Left::Rotated(r) if r.new == e.key))})
                 })
                 .collect();
-            // Founder first, then by arrival (several can share a second).
             members.sort_by_key(|m| (m["founder"] != true, m["at"].as_u64(), m["name"].as_str().map(str::to_string)));
             let mut removed: Vec<Value> = st
                 .roster
@@ -1031,7 +992,6 @@ impl Node {
                "team": team, "peers": peers, "docs": docs, "rejected": st.rejected.len(), "lastRejected": st.rejected.last()})
     }
 
-    /// Handles one command from the Go server.
     pub async fn command(&self, cmd: &Value) -> Result<Value> {
         let t = cmd["t"].as_str().unwrap_or_default();
         match t {
@@ -1106,7 +1066,6 @@ impl Node {
                     let Some(mut team) = st.team.clone() else {
                         bail!("create or join a team first")
                     };
-                    // Keep what this instance already holds from the member; later envelopes are refused.
                     let upto = st.docs().cut_for(&key.to_string());
                     team.remove(&self.0.key, &key, upto)?;
                     team.save(&self.0.cfg.data)?;
@@ -1114,7 +1073,6 @@ impl Node {
                     st.refresh_allowed(&me);
                     team
                 };
-                // The removed instance gets the file too (so it knows), then its connection closes.
                 let removed = self
                     .0
                     .state
@@ -1168,7 +1126,6 @@ impl Node {
                     if !st.roster.members.contains_key(&me) {
                         bail!("this instance is not a member of the team");
                     }
-                    // The new key only reaches the team through a peer that is online now.
                     if st.roster.members.len() > 1 && st.peers.is_empty() {
                         bail!(
                             "no team member is online: connect to someone first, so the new key reaches the team"
@@ -1180,16 +1137,13 @@ impl Node {
                     keys::stage_next(&self.0.cfg.data, &new)?;
                     team.save(&self.0.cfg.data)?;
                     st.team = Some(team.clone());
-                    // Invite links carry the old address: they stop working.
                     st.invites.as_mut().unwrap().revoke_all();
                     st.invites.as_ref().unwrap().save(&self.0.cfg.data)?;
-                    // The restarted process dials the peers it knew without waiting for discovery.
                     let addrs: Vec<&EndpointAddr> = st.addrs.values().collect();
                     (team, new.public(), serde_json::to_vec(&addrs)?)
                 };
                 let _ = tokio::fs::write(self.0.cfg.data.join("addrs.json"), addrs).await;
                 self.broadcast(PeerMsg::Team { team }, None);
-                // Give the frames time to leave before the Go server restarts this process.
                 tokio::time::sleep(Duration::from_millis(1500)).await;
                 Ok(
                     json!({"old": me.to_string(), "new": new.to_string(), "fingerprint": keys::fingerprint(&new), "restart": true}),
@@ -1264,7 +1218,6 @@ impl Node {
     }
 }
 
-/// Short form of a team id to read aloud ("7F3A · 91C2 · E04A · 2B9E").
 pub fn team_fingerprint(id: &str) -> String {
     let up = id.to_uppercase();
     up.as_bytes()
@@ -1275,7 +1228,6 @@ pub fn team_fingerprint(id: &str) -> String {
         .join(" · ")
 }
 
-/// "direct" or "relay" by the selected path, and its round trip in ms.
 fn path_of(conn: &Connection) -> (&'static str, Option<u64>) {
     let paths = conn.paths();
     for p in paths.iter() {

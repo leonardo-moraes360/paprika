@@ -1,4 +1,3 @@
-/** Controle deslizante. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005. */
 import type { ComponentProps } from "react";
 import { Slider as SliderPrimitive } from "radix-ui";
 import { cn } from "../../lib/cn";

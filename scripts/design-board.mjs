@@ -1,8 +1,20 @@
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+
+export function pngFromBase64(b64) {
+  const buf = Buffer.from(String(b64), "base64");
+  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (buf.length < sig.length || sig.some((b, i) => buf[i] !== b)) throw new Error("the server did not return a PNG");
+  return buf;
+}
+
+export function shotPath(outDir, file) {
+  if (basename(file) !== file || !file.endsWith(".png")) throw new Error(`bad screenshot file name: ${file}`);
+  return join(outDir, file);
+}
 
 export function repoRoot() {
   return join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -46,16 +58,11 @@ export async function saveShots(call, workspaceId, outDir, shots, onMissing) {
       }
       throw new Error(`no image for ${rootId}: ${textOf(r).slice(0, 400)}`);
     }
-    await writeFile(join(outDir, file), Buffer.from(b64, "base64"));
+    await writeFile(shotPath(outDir, file), pngFromBase64(b64));
     console.log("wrote", file);
   }
 }
 
-/**
- * Connects to the local Paprika MCP and finds where to draw: the "Paprica · UI"
- * workspace (by id, never open_workspace), its "Interfaces" page, and a free Y
- * below the frames already there. Shared by the scripts/draw-pap-b-*.mjs boards.
- */
 export async function openDesignPage(name, { workspaceName = "Paprica · UI", pageName = "Interfaces", gap = 160 } = {}) {
   const root = repoRoot();
   const sdkPkg = [

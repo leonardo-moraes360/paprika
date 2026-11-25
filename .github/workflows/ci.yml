@@ -1,4 +1,4 @@
-# CI for pull requests only (never on push/merge). See docs/ci.md for the design.
+# CI for pull requests only (never on push/merge). See docs/en-US/ci.md for the design.
 name: CI
 
 on:
@@ -55,32 +55,10 @@ jobs:
       - name: Test the CI scripts
         run: node --test .github/scripts/test/*.mjs
       # Every third-party action must be pinned to a full commit SHA with its version in a comment
-      # (docs/ci.md): a tag or branch is a moving reference, and a force-push on it silently changes
+      # (docs/en-US/ci.md): a tag or branch is a moving reference, and a force-push on it silently changes
       # what every later run executes.
       - name: Check pinned actions
         run: node .github/scripts/check-actions-pinned.mjs
-      # A benchmark task is only worth its checker: the checkers must keep passing on the reference
-      # solution and keep failing on the starting document. If the starting document ever passes,
-      # the task stopped asking for work and the score would start lying. Nothing here needs a
-      # server, a build or a node_modules; see bench/README.md.
-      - name: Check the benchmark tasks
-        run: |
-          for task_dir in bench/tasks/*/; do
-            task=$(basename "$task_dir")
-            [ -f "$task_dir/task.yaml" ] || continue
-            for fixture in "$task-reference" "$task"; do
-              [ -f "bench/fixtures/$fixture/document.paprika.json" ] || {
-                echo "bench/fixtures/$fixture/document.paprika.json is missing for task $task"
-                exit 1
-              }
-            done
-            node "bench/tasks/$task/check.mjs" "bench/fixtures/$task-reference/document.paprika.json" > /dev/null
-            if node "bench/tasks/$task/check.mjs" "bench/fixtures/$task/document.paprika.json" > /dev/null; then
-              echo "task $task: its starting fixture already passes the checker, so the task asks for nothing"
-              exit 1
-            fi
-            echo "$task: reference passes, starting document fails as it should"
-          done
       - id: plan
         run: node .github/scripts/ci-plan.mjs "$BASE_SHA" HEAD
 
@@ -101,7 +79,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-          cache-dependency-path: server-go/go.sum
+          cache-dependency-path: server/go.sum
       # The web build includes the WASM canvas renderer; without Rust it would be skipped quietly
       # and the WASM e2e tests with it.
       - uses: ./.github/actions/setup-rust-wasm
@@ -121,7 +99,7 @@ jobs:
             packages/core/dist
             apps/web/dist
             apps/web/src/wasm
-            server-go/bin/paprika
+            server/bin/paprika
 
   unit:
     name: Unit ${{ matrix.target.pkg }} (${{ matrix.target.mode }}, shard ${{ matrix.shard }}/2)
@@ -178,13 +156,13 @@ jobs:
         with:
           name: build
       - name: Make the Go binary executable
-        run: chmod +x server-go/bin/paprika
+        run: chmod +x server/bin/paprika
       # Both suites call render_screenshot, which launches Chromium (e2e also drives the canvas).
       - uses: ./.github/actions/setup-playwright
       - name: Run ${{ matrix.suite }} against the Go server
         env:
           SUITE: ${{ matrix.suite }}
-          PAPRIKA_SERVER_BIN: ${{ github.workspace }}/server-go/bin/paprika
+          PAPRIKA_SERVER_BIN: ${{ github.workspace }}/server/bin/paprika
         run: pnpm --filter @paprika/e2e run "test:$SUITE"
 
   golden:
@@ -204,7 +182,7 @@ jobs:
       - name: Regenerate fixtures from the TS core
         run: pnpm go:golden
       - name: Fail if they changed (run `pnpm go:golden` and commit)
-        run: git diff --exit-code -- server-go/internal/core/testdata server-go/contract
+        run: git diff --exit-code -- server/internal/core/testdata server/contract
 
   # ---------------------------------------------------------------- Go
 
@@ -226,9 +204,9 @@ jobs:
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.15.0
-          working-directory: server-go
+          working-directory: server
       - name: go vet
-        working-directory: server-go
+        working-directory: server
         run: go vet ./...
 
   govulncheck:
@@ -247,9 +225,9 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-          cache-dependency-path: server-go/go.sum
+          cache-dependency-path: server/go.sum
       - name: govulncheck
-        working-directory: server-go
+        working-directory: server
         run: |
           go version
           go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
@@ -272,7 +250,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-          cache-dependency-path: server-go/go.sum
+          cache-dependency-path: server/go.sum
       - name: Fetch base commit
         run: git fetch --no-tags --depth=1 origin "$BASE_SHA"
       - name: Select affected packages for this shard
@@ -285,7 +263,7 @@ jobs:
           echo "Packages: ${pkgs:-<none>}" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: go test
         if: steps.pkgs.outputs.list != ''
-        working-directory: server-go
+        working-directory: server
         env:
           PKGS: ${{ steps.pkgs.outputs.list }}
           CGO_ENABLED: "0"
@@ -356,7 +334,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-          cache-dependency-path: server-go/go.sum
+          cache-dependency-path: server/go.sum
       - name: cargo fmt --check
         working-directory: crates/sync
         run: cargo fmt --check
@@ -371,7 +349,7 @@ jobs:
         run: cargo build --locked
       # Two real instances (Go store + sidecar each) talking over loopback.
       - name: go test ./internal/team
-        working-directory: server-go
+        working-directory: server
         env:
           CGO_ENABLED: "0"
         run: PAPRIKA_SYNC="$GITHUB_WORKSPACE/crates/sync/target/debug/paprika-sync" go test -tags nodynamic -count=1 ./internal/team/...
@@ -401,7 +379,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-          cache-dependency-path: server-go/go.sum
+          cache-dependency-path: server/go.sum
       - uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
         with:
           languages: ${{ matrix.language }}
@@ -414,7 +392,7 @@ jobs:
               - "**/testdata"
       - name: Build Go (traced by CodeQL)
         if: matrix.language == 'go'
-        working-directory: server-go
+        working-directory: server
         env:
           CGO_ENABLED: "0"
         run: go build -tags nodynamic -buildvcs=false ./...

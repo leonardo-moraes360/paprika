@@ -21,7 +21,7 @@ export type CanvasSession = {
 export async function openSeededCanvas(prefix: string): Promise<CanvasSession> {
   const dir = await mkdtemp(join(tmpdir(), prefix));
   const file = join(dir, "demo.paprika.json");
-  await copyFile(join(repoRoot, "examples/demo.paprika.json"), file);
+  await copyFile(join(repoRoot, "packages/e2e/fixtures/demo.paprika.json"), file);
   const external = await startServer({ seed: file, webRoot: webDist });
   const browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });

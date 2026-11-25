@@ -10,11 +10,10 @@ on:
       - apps/site/**
       - docs/**
       - README.md
-      - README.pt-BR.md
-      - CONTRIBUTING*.md
-      - SECURITY*.md
-      - CODE_OF_CONDUCT*.md
-      - server-go/README*.md
+      - CONTRIBUTING.md
+      - SECURITY.md
+      - CODE_OF_CONDUCT.md
+      - server/README*.md
       - packages/core/src/**
       - .github/workflows/pages.yml
   workflow_dispatch:

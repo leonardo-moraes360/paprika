@@ -1,6 +1,6 @@
 # CI
 
-> English: [docs/ci.md](../ci.md)
+> English: [docs/en-US/ci.md](../en-US/ci.md)
 
 O CI do Paprika roda **apenas em pull requests** (`opened`, `synchronize`, `reopened`, `ready_for_review`). Nada roda em push nem depois do merge: a execução da PR é o gate. Um novo push na mesma PR cancela a execução que ainda está em andamento.
 
@@ -12,24 +12,24 @@ Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/c
 
 | Job | O que verifica | Roda quando a PR mexe em |
 | --- | --- | --- |
-| **Plan** | Roda os testes dos scripts do CI ([[`.github/scripts/test/`](../../.github/scripts/test/)]), confere que toda action de terceiros está fixada por SHA de commit ([`check-actions-pinned.mjs`](../../.github/scripts/check-actions-pinned.mjs)), pontua os fixtures dos benchmarks ([`bench/tasks/`](../../bench/tasks/)), lista os arquivos alterados e decide quais jobs abaixo rodam ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)). | sempre |
+| **Plan** | Roda os testes dos scripts do CI ([`.github/scripts/test/`](../../.github/scripts/test/)), confere que toda action de terceiros está fixada por SHA de commit ([`check-actions-pinned.mjs`](../../.github/scripts/check-actions-pinned.mjs)), lista os arquivos alterados e decide quais jobs abaixo rodam ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)). | sempre |
 | **TS build + tscheck** | `pnpm build` (core, web, o renderizador WASM do canvas, de `crates/render`, com `PAPRIKA_REQUIRE_WASM=1`, e o binário do servidor Go), `pnpm typecheck` (incluindo as suítes de `packages/e2e`). Publica `dist/`, `apps/web/src/wasm` e o binário Go como o artefato `build` para os jobs abaixo, então a suíte e2e também roda os testes do renderizador WASM. | código TS, Go ou Rust |
 | **Unit** `<pkg>` (shard n/2) | Vitest de `@paprika/core`, dividido em 2 shards. | `packages/core` |
-| **e2e / api vs Go server** | As suítes black-box de `packages/e2e` contra o binário Go: `test:e2e` (canvas no Playwright) e `test:api` (MCP via HTTP e stdio, API HTTP, WebSocket), 2 jobs em paralelo. | e2e: core, `packages/e2e`, web, examples, `crates/render`, `server-go`; api: core, `packages/e2e`, `server-go` |
-| **Go fixtures up to date** | `pnpm go:golden` e depois `git diff --exit-code` em `server-go/internal/core/testdata` e `server-go/contract` (o script de medida). | core, `server-go` |
-| **golangci-lint** | golangci-lint v2 ([`server-go/.golangci.yml`](../../server-go/.golangci.yml)) e `go vet`. | `server-go` |
-| **govulncheck** | Vulnerabilidades conhecidas alcançáveis pelo código Go. | `server-go` |
-| **Go test** (shard n/2) | `go test -shuffle=on` nos pacotes afetados, dividido em 2 shards. | `server-go` |
+| **e2e / api vs Go server** | As suítes black-box de `packages/e2e` contra o binário Go: `test:e2e` (canvas no Playwright) e `test:api` (MCP via HTTP e stdio, API HTTP, WebSocket), 2 jobs em paralelo. | e2e: core, `packages/e2e`, web, `crates/render`, `server`; api: core, `packages/e2e`, `server` |
+| **Go fixtures up to date** | `pnpm go:golden` e depois `git diff --exit-code` em `server/internal/core/testdata` e `server/contract` (o script de medida). | core, `server` |
+| **golangci-lint** | golangci-lint v2 ([`server/.golangci.yml`](../../server/.golangci.yml)) e `go vet`. | `server` |
+| **govulncheck** | Vulnerabilidades conhecidas alcançáveis pelo código Go. | `server` |
+| **Go test** (shard n/2) | `go test -shuffle=on` nos pacotes afetados, dividido em 2 shards. | `server` |
 | **Rust lint / test** | `cargo fmt --check`, clippy (nativo e `wasm32-unknown-unknown`, `-D warnings`), `cargo test`. | `crates/render` |
-| **Team sync** | `cargo fmt --check`, clippy (`-D warnings`) e `cargo test` em `crates/sync` (dois sidecars pelo loopback), depois `go test ./internal/team` com `PAPRIKA_SYNC` apontando para o sidecar compilado: duas instâncias reais (store + sidecar) se conectam e compartilham presença. Veja [sincronizacao-time.md](sincronizacao-time.md). | `crates/sync`, `server-go` |
+| **Team sync** | `cargo fmt --check`, clippy (`-D warnings`) e `cargo test` em `crates/sync` (dois sidecars pelo loopback), depois `go test ./internal/team` com `PAPRIKA_SYNC` apontando para o sidecar compilado: duas instâncias reais (store + sidecar) se conectam e compartilham presença. Veja [sincronizacao-time.md](sincronizacao-time.md). | `crates/sync`, `server` |
 | **CodeQL** `<linguagem>` | Consultas `security-and-quality` para `actions`, `javascript-typescript`, `go`, `rust`; os resultados vão para o code scanning da PR. | arquivos da linguagem |
-| **Docker image** | Faz o build do `Dockerfile` (alvo padrão `runtime`, depois `slim`) com Buildx e cache de camadas no cache do GitHub Actions e roda o [`docker-smoke.sh`](../../.github/scripts/docker-smoke.sh) contra cada um: canvas e asset WASM, `Host` estranho recusado, MCP em `/mcp` (com `render_screenshot` no `runtime`), banco mantido após restart, modo time (sidecar no ar, chave mantida no volume); os dois arquivos do Compose passam pelo `docker compose config`. Veja [docker.md](docker.md). | `Dockerfile`, `.dockerignore`, `compose.yaml`, `compose.team.yaml`, core, web, `crates/render`, `crates/sync`, `server-go` |
+| **Docker image** | Faz o build do `Dockerfile` (alvo padrão `runtime`, depois `slim`) com Buildx e cache de camadas no cache do GitHub Actions e roda o [`docker-smoke.sh`](../../.github/scripts/docker-smoke.sh) contra cada um: canvas e asset WASM, `Host` estranho recusado, MCP em `/mcp` (com `render_screenshot` no `runtime`), banco mantido após restart, modo time (sidecar no ar, chave mantida no volume); os dois arquivos do Compose passam pelo `docker compose config`. Veja [docker.md](docker.md). | `Dockerfile`, `.dockerignore`, `compose.yaml`, `compose.team.yaml`, core, web, `crates/render`, `crates/sync`, `server` |
 | **Secret leak scan** | [gitleaks](https://github.com/gitleaks/gitleaks) em todo o histórico do git (release com checksum fixado, achados mascarados no log, relatório SARIF como artefato em caso de falha). | sempre |
 | **CI OK** | Falha se algum job falhou ou foi cancelado. **É o único check a exigir** na proteção de branch: fica verde quando os jobs que rodaram passaram e os pulados foram pulados pelo plano. | sempre |
 
 Uma mudança em `.github/workflows/`, `.github/scripts/`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` ou `tsconfig.base.json` roda **tudo**. O label `ci:full` também (vale a partir do próximo push na PR). PRs só de documentação rodam apenas Plan e CI OK.
 
-Os jobs Go instalam o patch mais recente da minor em `GO_VERSION` (no topo do `ci.yml`), e não a linha `go` exata do `server-go/go.mod`: essa linha é o mínimo que os módulos exigem (por exemplo `go 1.26.0`), e a biblioteca padrão dessa versão reprovaria no govulncheck. Atualize `GO_VERSION` quando o `go.mod` passar para uma nova minor.
+Os jobs Go instalam o patch mais recente da minor em `GO_VERSION` (no topo do `ci.yml`), e não a linha `go` exata do `server/go.mod`: essa linha é o mínimo que os módulos exigem (por exemplo `go 1.26.0`), e a biblioteca padrão dessa versão reprovaria no govulncheck. Atualize `GO_VERSION` quando o `go.mod` passar para uma nova minor.
 
 ## Rodar só o que mudou
 
@@ -64,15 +64,6 @@ node --test .github/scripts/test/*.mjs
 
 O glob, não o diretório: o `node --test` parou de aceitar um diretório como argumento no Node 24.
 
-### Mantendo os benchmarks honestos
-
-Um benchmark só vale o seu verificador, então o job Plan também pontua os fixtures de cada tarefa de
-[`bench/tasks/`](../../bench/tasks/): cada verificador precisa sair com 0 na solução de
-`bench/fixtures/<task>-reference/` e **não** pode sair com 0 no documento inicial de
-`bench/fixtures/<task>/`. Uma tarefa cujo fixture inicial já passa é uma tarefa que não pede nada, e
-isso reprova a PR. Nada é compilado e nenhum servidor sobe, então a checagem inteira leva menos de um
-segundo. As tarefas em si estão em [bench/README.md](../../bench/README.md).
-
 ## Paralelismo e sharding
 
 - Jobs sem dependência entre si rodam ao mesmo tempo: depois do Plan, o build TS, o lint Go, o govulncheck, os testes Go, o Rust e o CodeQL começam juntos; unit, suítes black-box e a verificação de fixtures começam quando o artefato do build existe.
@@ -87,7 +78,7 @@ Para aumentar os shards, troque `shard: [1, 2]` na matrix e o `/2` (vitest) ou o
 | O quê | Como | Chave |
 | --- | --- | --- |
 | Store do pnpm | `actions/setup-node` com `cache: pnpm` (action composta [`setup-node-pnpm`](../../.github/actions/setup-node-pnpm/action.yml)) | `pnpm-lock.yaml` |
-| Módulos Go + cache de build/teste | `actions/setup-go` | `server-go/go.sum` |
+| Módulos Go + cache de build/teste | `actions/setup-go` | `server/go.sum` |
 | golangci-lint | `golangci-lint-action` | chave própria |
 | `target/` e registry do Rust | `Swatinem/rust-cache`, um por tarefa, mais um para o build WASM de release (action composta [`setup-rust-wasm`](../../.github/actions/setup-rust-wasm/action.yml), que também instala o CLI `wasm-bindgen` fixado por checksum) | `Cargo.lock` + toolchain |
 | Chromium do Playwright (suítes e2e e api) | `actions/cache` em `~/.cache/ms-playwright` (action composta [`setup-playwright`](../../.github/actions/setup-playwright/action.yml)) | versão do Playwright |
@@ -121,7 +112,7 @@ O **secret scanning** e o **push protection** do próprio GitHub (gratuitos em r
 
 ## Dependabot
 
-Atualizações de versão semanais (segunda-feira) para npm (workspace pnpm), módulos Go (`server-go`), Cargo (`crates/render`), as imagens base do `Dockerfile` e GitHub Actions, com bumps minor e patch agrupados por ecossistema. `wasm-bindgen` fica de fora porque está fixado com `=` para casar com o `wasm-bindgen-cli` do `crates/render/build.mjs` e do `setup-rust-wasm`. As PRs do Dependabot passam pelo mesmo CI.
+Atualizações de versão semanais (segunda-feira) para npm (workspace pnpm), módulos Go (`server`), Cargo (`crates/render`), as imagens base do `Dockerfile` e GitHub Actions, com bumps minor e patch agrupados por ecossistema. `wasm-bindgen` fica de fora porque está fixado com `=` para casar com o `wasm-bindgen-cli` do `crates/render/build.mjs` e do `setup-rust-wasm`. As PRs do Dependabot passam pelo mesmo CI.
 
 Atualizações de segurança (PRs para dependências vulneráveis fora do calendário) são uma configuração do repositório: **Settings → Code security → Dependabot security updates**.
 

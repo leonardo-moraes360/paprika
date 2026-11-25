@@ -1,4 +1,4 @@
-[🇺🇸 English](../../adr/0003-tailwind-css.md) | 🇧🇷 Português
+[🇺🇸 English](../../en-US/adr/0003-tailwind-css.md) | 🇧🇷 Português
 
 # ADR 0003: Tailwind CSS na interface do app do canvas
 
@@ -29,7 +29,7 @@ navegador (decisão 4 da arquitetura). O CSS do app não pode vazar para os nós
    títulos e listas), e um documento ficaria diferente no canvas e no export ou no screenshot. Sem ele, os
    utilitários partem dos mesmos padrões em que a folha antiga foi escrita.
 3. **Tema fechado.** `--color-*`, `--text-*`, `--radius-*` e `--breakpoint-*` são zerados e redefinidos a partir
-   da marca "Estúdio noturno" (docs/brand): `bg-panel`, `text-muted`, `border-line`, `bg-accent-soft`,
+   da marca "Estúdio noturno" (docs/en-US/brand): `bg-panel`, `text-muted`, `border-line`, `bg-accent-soft`,
    `text-select`… A paleta padrão do Tailwind não existe, então um `bg-blue-500` perdido não compila. A fonte da
    raiz continua 13px, por isso `--spacing` é `4px` em vez de `0.25rem` (a escala de sempre: `p-3` = 12px). O
    breakpoint `wide` (901px) substitui a antiga query `max-width: 900px` (`max-wide:hidden`). O tema é `static`,

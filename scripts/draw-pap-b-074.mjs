@@ -4,7 +4,7 @@ import { connectBoard, saveShots, textOf } from "./design-board.mjs";
 
 const sdkRoot = process.env.PAPRIKA_SDK ?? "/home/leonardo/workspace/pessoal/paprika/packages/e2e/package.json";
 const { root, client, call } = await connectBoard("pap-b-074-design", sdkRoot);
-const outDir = join(root, "docs/assets/boards/PAP-B-074");
+const outDir = join(root, "docs/en-US/assets/boards/PAP-B-074");
 
 const night = { bg: "#1e2336", panel: "#272d45", fg: "#eef0f7", muted: "#c5cadb", line: "#3a4260", canvas: "#141827", card: "#e7e9f0", ink: "#141827" };
 const day = { bg: "#f2f3f8", panel: "#ffffff", fg: "#141827", muted: "#5d6478", line: "#d3d7e3", canvas: "#e7e9f0", card: "#ffffff", ink: "#141827" };
