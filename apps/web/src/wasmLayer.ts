@@ -87,13 +87,15 @@ export function measureBoxes(world: HTMLElement): Map<string, Box> {
     origin.set(el, v);
     return v;
   };
+  // Paths use their exact inline style whoever paints them: offset geometry rounds, and the box decides the painter.
   for (const el of world.querySelectorAll<Element>("[data-paprika-id]")) {
-    if (el instanceof HTMLElement) {
+    const isPath = (el as HTMLElement | SVGElement).dataset.paprikaType === "path";
+    if (el instanceof HTMLElement && !isPath) {
       const p = pos(el);
       if (p) boxes.set(el.dataset.paprikaId!, { x: p.x, y: p.y, w: el.offsetWidth, h: el.offsetHeight });
       continue;
     }
-    if (el instanceof SVGElement && el.parentElement instanceof HTMLElement) {
+    if ((el instanceof SVGElement || el instanceof HTMLElement) && el.parentElement instanceof HTMLElement) {
       const p = pos(el.parentElement);
       const left = Number.parseFloat(el.style.left);
       const top = Number.parseFloat(el.style.top);

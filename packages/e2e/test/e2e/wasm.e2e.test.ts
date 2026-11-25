@@ -368,6 +368,29 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   });
 });
 
+function useFixtureServer(example: string, opts: { consoleErrors?: boolean } = {}) {
+  const ctx = { url: "", page: undefined as unknown as Page, errors: [] as string[] };
+  let external: ExternalServer | undefined;
+  let browser: Browser | undefined;
+  beforeAll(async () => {
+    external = await startServer({ seed: join(root, "packages/e2e/fixtures", example), webRoot });
+    ctx.url = external.url;
+    browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
+    ctx.page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await pinLocale(ctx.page, "pt-BR");
+    ctx.page.on("pageerror", (e) => ctx.errors.push(e.message));
+    if (opts.consoleErrors)
+      ctx.page.on("console", (m) => {
+        if (m.type() === "error") ctx.errors.push(m.text());
+      });
+  }, 60_000);
+  afterAll(async () => {
+    await browser?.close();
+    await external?.stop();
+  });
+  return ctx;
+}
+
 describe.skipIf(!wasmBuilt)("E2E: WASM respeita a ordem de pintura", () => {
   let dir: string;
   let external: ExternalServer | undefined;
@@ -411,26 +434,10 @@ describe.skipIf(!wasmBuilt)("E2E: WASM respeita a ordem de pintura", () => {
 });
 
 describe.skipIf(!wasmBuilt)("E2E: WASM desenha formas escuras sobre o fundo do quadro (PAP-A-012)", () => {
-  let external: ExternalServer | undefined;
-  let browser: Browser;
-  let page: Page;
-  const errors: string[] = [];
-
-  beforeAll(async () => {
-    external = await startServer({ seed: join(root, "packages/e2e/fixtures/wasm-gpu-blank.paprika.json"), webRoot });
-    browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
-    page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    await pinLocale(page, "pt-BR");
-    page.on("pageerror", (e) => errors.push(e.message));
-  }, 60_000);
-
-  afterAll(async () => {
-    await browser?.close();
-    await external?.stop();
-  });
+  const fx = useFixtureServer("wasm-gpu-blank.paprika.json");
 
   async function darkPixels(png: Buffer): Promise<number> {
-    return page.evaluate(async (b64) => {
+    return fx.page.evaluate(async (b64) => {
       const img = new Image();
       img.src = `data:image/png;base64,${b64}`;
       await img.decode();
@@ -448,20 +455,34 @@ describe.skipIf(!wasmBuilt)("E2E: WASM desenha formas escuras sobre o fundo do q
 
   it.each([0, 1, 2])("o logo escuro continua visível no WASM depois de %i aumentos de zoom", async (zoomIns) => {
     const open = async (renderer: "dom" | "wasm") => {
-      await openCanvas(page, external!.url, renderer);
-      for (let i = 0; i < zoomIns; i++) await page.getByRole("button", { name: "Aumentar zoom" }).click();
-      await page.waitForTimeout(300);
-      return page.getByTestId("viewport").screenshot();
+      await openCanvas(fx.page, fx.url, renderer);
+      for (let i = 0; i < zoomIns; i++) await fx.page.getByRole("button", { name: "Aumentar zoom" }).click();
+      await fx.page.waitForTimeout(300);
+      return fx.page.getByTestId("viewport").screenshot();
     };
     const dom = await open("dom");
     const domDark = await darkPixels(dom);
     expect(domDark).toBeGreaterThan(1000);
     const wasm = await open("wasm");
-    expect(["cpu", "webgpu"]).toContain(await page.getByTestId("renderer-toggle").getAttribute("data-backend"));
-    expect(await page.locator('[data-paprika-id="board"]').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
-    expect(await page.locator('[data-paprika-id="hull"] path').count()).toBe(0);
+    expect(["cpu", "webgpu"]).toContain(await fx.page.getByTestId("renderer-toggle").getAttribute("data-backend"));
+    expect(await fx.page.locator('[data-paprika-id="board"]').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+    expect(await fx.page.locator('[data-paprika-id="hull"] path').count()).toBe(0);
     expect(Math.abs((await darkPixels(wasm)) - domDark) / domDark).toBeLessThan(0.1);
-    expect(await diffRatio(page, dom, wasm)).toBeLessThan(0.005);
-    expect(errors).toEqual([]);
+    expect(await diffRatio(fx.page, dom, wasm)).toBeLessThan(0.005);
+    expect(fx.errors).toEqual([]);
+  });
+});
+
+describe.skipIf(!wasmBuilt)("E2E: WASM estabiliza um path de caixa fracionária (PAP-A-035)", () => {
+  const fx = useFixtureServer("wasm-fractional-path.paprika.json", { consoleErrors: true });
+
+  it("abre sem estourar a profundidade de atualização e mantém o path no WASM", async () => {
+    await openCanvas(fx.page, fx.url, "wasm");
+    expect(["cpu", "webgpu"]).toContain(await fx.page.getByTestId("renderer-toggle").getAttribute("data-backend"));
+    expect(await fx.page.getByText("O canvas parou").count()).toBe(0);
+    await fx.page.waitForTimeout(500);
+    // The same answer after settling: no flip-flop between the layers.
+    expect(await fx.page.locator('[data-paprika-id="ink"]').evaluate((el) => el.tagName.toLowerCase())).toBe("div");
+    expect(fx.errors.filter((e) => !/WebSocket|adapters/i.test(e))).toEqual([]);
   });
 });
