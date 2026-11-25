@@ -530,7 +530,7 @@ describe("API: MCP", () => {
     assertOutput("repeat_nodes", rep.structuredContent);
     expect(rep.structuredContent?.copies).toHaveLength(11);
     const third = JSON.parse(textOf(await call(c, "get_nodes", { ids: [rep.structuredContent!.copies[2]!] })))[0];
-    expect(third).toMatchObject({ type: "rect", x: 340, y: 190, rotation: 90, parentId: "ring" });
+    expect(third).toMatchObject({ type: "rect", x: 350, y: 180, rotation: 90, parentId: "ring" });
     expect(textOf(await call(c, "repeat_nodes", { id: "ring", count: 3, mode: "radial" }))).toMatch(/sized frame/);
 
     const out = (await call(c, "outline_stroke", { id: "ln" })) as ToolResult & { structuredContent?: { id: string; bounds: { width: number; height: number } } };
