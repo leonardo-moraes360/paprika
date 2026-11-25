@@ -199,7 +199,7 @@ describe("API: MCP", () => {
     expect(tools).toEqual(contract.tools);
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
-        "apply_ops", "archive_workspace", "create_shape_path", "round_path_corners", "outline_stroke", "repeat_nodes", "combine_paths", "convert_to_path", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
+        "apply_ops", "archive_workspace", "create_shape_path", "normalize_paths", "round_path_corners", "outline_stroke", "repeat_nodes", "combine_paths", "convert_to_path", "create_component", "create_instance", "create_nodes", "create_page", "create_workspace",
         "delete_nodes", "delete_workspace", "detach_instance", "detach_tokens", "draw_diagram", "export_code", "export_image", "find_nodes", "get_design_guide",
         "get_document_outline", "get_history", "get_nodes", "group_nodes", "import_document", "import_html", "import_image", "import_svg",
         "align_nodes", "distribute_nodes", "wrap_nodes", "show_all", "unlock_all",
@@ -837,19 +837,22 @@ describe("API: MCP", () => {
     expect(created.roots).toHaveLength(1);
     expect(created.created[0]).toMatchObject({ id: "wave", type: "path", parentId: null });
     const node = (await srv.doc()).nodes.wave as PathNode;
+    // The box hugs the ink (PAP-A-034): d starts at (0,0), y absorbs the 12px of empty space above the curve.
     expect(node.width).toBe(100);
-    expect(node.height).toBe(55);
+    expect(node.height).toBe(29);
+    expect(node.y).toBeGreaterThan(10);
     const info = JSON.parse(textOf(await call(c, "path_info", { id: "wave" })));
     expect(info).toMatchObject({ segments: 2, curves: 1, closed: false });
-    expect(info.bounds.y).toBeGreaterThan(10);
-    expect(info.origin).toEqual({ x: info.bounds.x, y: info.bounds.y });
-    expect(info.transformOrigin).toEqual({ x: 50, y: (node.height as number) / 2 });
+    expect(info.bounds).toMatchObject({ x: 0, y: 0 });
+    expect(info.origin).toEqual({ x: 0, y: 0 });
+    expect(info.transformOrigin.x).toBe(50);
+    expect(info.transformOrigin.y).toBeCloseTo(node.y + (node.height as number) / 2, 1);
     const bad = await call(c, "create_nodes", { nodes: [{ type: "path", d: "M0 0 C 10 10 20" }] });
     expect(bad.isError).toBe(true);
     expect(textOf(bad)).toMatch(/invalid d: number expected at position \d+/);
     expect(textOf(await call(c, "lint_design", {}))).not.toMatch(/invisible-path/);
     const tsx = textOf(await call(c, "export_code", { rootId: "wave", format: "react" }));
-    expect(tsx).toContain('<path d="M0 40 C 30 -10 70 90 100 40" fill="none"');
+    expect(tsx).toMatch(/<path d="M0 [\d.]+ C ?[\d. -]+" fill="none"/);
     expect(tsx).toContain("strokeWidth={4}");
     await call(c, "undo");
     expect((await srv.doc()).nodes.wave).toBeUndefined();
@@ -920,6 +923,36 @@ describe("API: MCP", () => {
     const gap = (await srv.doc()).nodes.gap as PathNode;
     expect(gap).toMatchObject({ x: 40, y: 30, width: 40, height: 40 });
     expect(gap.d.startsWith("M0 0") || gap.d.startsWith("M0 0 ")).toBe(true);
+  });
+
+  it("path box hugs the ink: create and update by default, normalize_paths repairs old boxes (PAP-A-034)", async () => {
+    const c = client;
+    await call(c, "create_nodes", {
+      place: "none",
+      nodes: [{
+        type: "frame", id: "pbox", x: 0, y: 0, width: 600, height: 400, clip: true,
+        children: [
+          // A d in frame coordinates under x: 0, y: 0: the old default made a box from (0,0) to the far edge.
+          { type: "path", id: "pb-new", x: 0, y: 0, d: "M200 120 L260 120 L230 180 Z", fill: "#c43d27" },
+          { type: "path", id: "pb-old", x: 0, y: 0, d: "M300 120 L360 120 L330 180 Z", normalize: false, fill: "#c43d27" },
+        ],
+      }],
+    });
+    let doc = await srv.doc();
+    expect(doc.nodes["pb-new"]).toMatchObject({ x: 200, y: 120, width: 60, height: 60 });
+    expect(doc.nodes["pb-old"]).toMatchObject({ x: 0, y: 0, width: 360, height: 180 });
+    const fixed = JSON.parse(textOf(await call(c, "normalize_paths", { rootId: "pbox" })));
+    expect(fixed.normalized).toEqual([
+      { id: "pb-old", before: { x: 0, y: 0, width: 360, height: 180 }, after: { x: 300, y: 120, width: 60, height: 60 } },
+    ]);
+    expect(fixed.unchanged).toBe(1);
+    doc = await srv.doc();
+    expect(doc.nodes["pb-old"]).toMatchObject({ x: 300, y: 120, width: 60, height: 60 });
+    await call(c, "update_nodes", { updates: [{ id: "pb-new", props: { d: "M10 300 L70 300 L40 350 Z" } }] });
+    doc = await srv.doc();
+    expect(doc.nodes["pb-new"]).toMatchObject({ x: 210, y: 420, width: 60, height: 50 });
+    const again = JSON.parse(textOf(await call(c, "normalize_paths", {})));
+    expect(again.normalized).toEqual([]);
   });
 
   it("get_bounds segue layout.wrap: linhas quebradas, altura hug e ids de outra página", async () => {
@@ -1353,11 +1386,11 @@ describe("API: MCP", () => {
       tokens: (none)
       renderer: none
 
-      group#… "Ícone" 44×44 @12.0972,12.0972
+      group#… "Ícone" 44×44 @12.0962,12.0962
         path#… 44×44 @0,0 fill=#c43d27 d="M13.56 0.12 L37.19 4.29 C41.54 5.06 44.45 9.2..."
         path#… 17×17 @13.9015,13.9015 fill=#fff d="M15.88 9.39 C15.11 13.74 10.96 16.65 6.61 15...."
-      content: x=12.0972 y=12.0972 w=44 h=44
-      next: x=136.0972 y=12.0972"
+      content: x=12.0962 y=12.0962 w=44 h=44
+      next: x=136.0962 y=12.0962"
     `);
     const html = await call(c, "import_html", {
       html: '<div style="display:flex; gap:8px; padding:12px; background:#fbf8f4; width:200px"><div style="width:40px; height:40px; background:#c43d27; border-radius:8px"></div><div style="flex:1; height:40px; border:2px solid #1d1a1f"></div></div>',
@@ -1377,8 +1410,8 @@ describe("API: MCP", () => {
       frame#… 200×hug @0,100 fill=#fbf8f4 row gap=8
         frame#… 40×40 @0,0 fill=#c43d27
         frame#… fill×40 @0,0
-      content: x=0 y=12.0972 w=200 h=151.9028
-      next: x=280 y=12.0972"
+      content: x=0 y=12.0962 w=200 h=151.9038
+      next: x=280 y=12.0962"
     `);
     const out = await call(c, "export_code", { rootId: root, format: "svg" });
     expect(out.isError, textOf(out)).toBeFalsy();

@@ -368,6 +368,40 @@ function updatePlain(doc: DocumentT, node: NodeT, props: Record<string, unknown>
   return { op: "update", id: node.id, props: prev };
 }
 
+/**
+ * Um `d` novo num path sem width/height na mesma escrita: a caixa passa a abraçar a tinta (x/y somam a origem do
+ * desenho, o `d` vai para (0,0)); a tinta fica onde o `d` novo a põe. `normalize: false` desliga (PAP-A-034).
+ */
+function renormalizeUpdate(node: NodeT, props: Record<string, unknown>, i: number): Record<string, unknown> {
+  if (node.type !== "path") return props;
+  let on = !("width" in props || "height" in props || "viewBox" in props);
+  if ("normalize" in props) {
+    const flag = props.normalize;
+    if (flag !== true && flag !== false) throw new OpError(`normalize must be true or false`, i);
+    props = { ...props };
+    delete props.normalize;
+    on = flag;
+  }
+  if (!on || typeof props.d !== "string") return props;
+  if ((node as Record<string, unknown>).viewBox !== undefined && props.viewBox !== null) return props;
+  try {
+    const n = shiftPathToOrigin(parsePath(props.d));
+    const out: Record<string, unknown> = {
+      ...props,
+      d: serializePath(n.segs),
+      width: Math.max(1, Math.ceil(n.bounds.x + n.bounds.width)),
+      height: Math.max(1, Math.ceil(n.bounds.y + n.bounds.height)),
+    };
+    if (n.origin.x || n.origin.y) {
+      out.x = round4((typeof props.x === "number" ? props.x : node.x) + n.origin.x);
+      out.y = round4((typeof props.y === "number" ? props.y : node.y) + n.origin.y);
+    }
+    return out;
+  } catch {
+    return props; // o erro de `d` sai da validação
+  }
+}
+
 /** `update` numa cópia (ou no fill da raiz de uma instância): grava em `overrides` da instância. */
 function updateOverride(doc: DocumentT, inst: FrameNode, node: NodeT, srcId: string, props: Record<string, unknown>, i: number): Op {
   const leaf = srcId.includes("/") ? srcId.slice(srcId.lastIndexOf("/") + 1) : srcId;
@@ -407,7 +441,9 @@ function createNode(
 ): string {
   const { children, ...restIn } = input;
   const rest: Record<string, unknown> = { ...restIn };
-  let doNormalize = false;
+  // normalize: true move o desenho para (0,0) (fb#15). Sem width/height nem viewBox ele é o padrão (PAP-A-034):
+  // a caixa abraça a tinta, como um texto novo abraça o conteúdo; `normalize: false` mantém o `d` no lugar.
+  let doNormalize = input.type === "path" && rest.width === undefined && rest.height === undefined && rest.viewBox === undefined;
   if ("normalize" in rest) {
     if (input.type !== "path") {
       /* leave it: knownKeys rejects unknown fields */
@@ -442,8 +478,8 @@ function createNode(
       const n = shiftPathToOrigin(parsePath(props.d));
       props.d = serializePath(n.segs);
       if (n.origin.x || n.origin.y) {
-        props.x = (typeof props.x === "number" ? props.x : 0) + n.origin.x;
-        props.y = (typeof props.y === "number" ? props.y : 0) + n.origin.y;
+        props.x = round4((typeof props.x === "number" ? props.x : 0) + n.origin.x);
+        props.y = round4((typeof props.y === "number" ? props.y : 0) + n.origin.y);
       }
     } catch {
       /* o erro de `d` sai da validação abaixo */
@@ -553,7 +589,7 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
         return [...[updateOverride(doc, target.inst, node, target.key, props, i)], ...reorder];
       }
       if ("sourceId" in props && instanceOwner(doc, node.parentId)) throw new OpError(SOURCE_ID, i);
-      if (!isInstance(node)) return [updatePlain(doc, node, props, i), ...reorder];
+      if (!isInstance(node)) return [updatePlain(doc, node, renormalizeUpdate(node, props, i), i), ...reorder];
       const derived = Object.keys(props).filter((k) => isRootDerived(k) && k !== "fill");
       if (derived.length)
         throw new OpError(`${derived.join(", ")} of "${op.id}" come from the component "${node.instanceOf}"; edit the component, change scale or detach it`, i);
