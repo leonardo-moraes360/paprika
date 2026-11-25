@@ -23,7 +23,7 @@ Tudo fica em um workflow, [`.github/workflows/ci.yml`](../../.github/workflows/c
 | **Rust lint / test** | `cargo fmt --check`, clippy (nativo e `wasm32-unknown-unknown`, `-D warnings`), `cargo test`. | `crates/render` |
 | **Team sync** | `cargo fmt --check`, clippy (`-D warnings`) e `cargo test` em `crates/sync` (dois sidecars pelo loopback), depois `go test ./internal/team` com `PAPRIKA_SYNC` apontando para o sidecar compilado: duas instâncias reais (store + sidecar) se conectam e compartilham presença. Veja [sincronizacao-time.md](sincronizacao-time.md). | `crates/sync`, `server-go` |
 | **CodeQL** `<linguagem>` | Consultas `security-and-quality` para `actions`, `javascript-typescript`, `go`, `rust`; os resultados vão para o code scanning da PR. | arquivos da linguagem |
-| **Docker image** | Faz o build do `Dockerfile` (alvo padrão `runtime`, depois `slim`) com o Docker do próprio runner e roda o [`docker-smoke.sh`](../../.github/scripts/docker-smoke.sh) contra cada um: canvas e asset WASM, `Host` estranho recusado, MCP em `/mcp` (com `render_screenshot` no `runtime`), banco mantido após restart, modo time (sidecar no ar, chave mantida no volume); os dois arquivos do Compose passam pelo `docker compose config`. Ainda sem cache de camadas. Veja [docker.md](docker.md). | `Dockerfile`, `.dockerignore`, `compose.yaml`, `compose.team.yaml`, core, web, `crates/render`, `crates/sync`, `server-go` |
+| **Docker image** | Faz o build do `Dockerfile` (alvo padrão `runtime`, depois `slim`) com Buildx e cache de camadas no cache do GitHub Actions e roda o [`docker-smoke.sh`](../../.github/scripts/docker-smoke.sh) contra cada um: canvas e asset WASM, `Host` estranho recusado, MCP em `/mcp` (com `render_screenshot` no `runtime`), banco mantido após restart, modo time (sidecar no ar, chave mantida no volume); os dois arquivos do Compose passam pelo `docker compose config`. Veja [docker.md](docker.md). | `Dockerfile`, `.dockerignore`, `compose.yaml`, `compose.team.yaml`, core, web, `crates/render`, `crates/sync`, `server-go` |
 | **Secret leak scan** | [gitleaks](https://github.com/gitleaks/gitleaks) em todo o histórico do git (release com checksum fixado, achados mascarados no log, relatório SARIF como artefato em caso de falha). | sempre |
 | **CI OK** | Falha se algum job falhou ou foi cancelado. **É o único check a exigir** na proteção de branch: fica verde quando os jobs que rodaram passaram e os pulados foram pulados pelo plano. | sempre |
 
@@ -92,6 +92,9 @@ Para aumentar os shards, troque `shard: [1, 2]` na matrix e o `/2` (vitest) ou o
 | `target/` e registry do Rust | `Swatinem/rust-cache`, um por tarefa, mais um para o build WASM de release (action composta [`setup-rust-wasm`](../../.github/actions/setup-rust-wasm/action.yml), que também instala o CLI `wasm-bindgen` fixado por checksum) | `Cargo.lock` + toolchain |
 | Chromium do Playwright (suítes e2e e api) | `actions/cache` em `~/.cache/ms-playwright` (action composta [`setup-playwright`](../../.github/actions/setup-playwright/action.yml)) | versão do Playwright |
 | Saída do build | artefato `build` (`dist/` + binário Go), gerado uma vez e reutilizado por 7+ jobs | por execução |
+| Camadas do Docker | `docker/build-push-action` com `cache-from`/`cache-to: type=gha,scope=docker,mode=max`: um estágio só é refeito quando as entradas dele mudam (o build release do `paprika-sync` sozinho leva ~340 s a frio) | entradas de cada camada |
+
+O GitHub guarda a entrada de cache criada por um PR para aquele PR (mais os caches da branch base), e nada roda na `main`, então o **primeiro run de cada PR começa frio** e os pushes seguintes acertam o cache.
 
 ## Segurança do workflow
 
