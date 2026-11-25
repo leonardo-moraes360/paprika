@@ -149,5 +149,5 @@ export function useWorkspaceMutations() {
   return { create, rename, cover, remove, archive, unarchive, createFolder, renameFolder, move };
 }
 
-/** Makes a workspace the active one on the server (the canvas follows through the WebSocket). */
+/** Makes a workspace the active one on the server. Only the overview's explicit open uses it: a URL load just views. */
 export const openWorkspace = (id: string) => api<unknown>(`${one(id)}/open`, { method: "POST" });
