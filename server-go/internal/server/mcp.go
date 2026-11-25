@@ -879,6 +879,128 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return write(a, []any{op}, labelOr(a, "convert "+count(len(ids))+" node(s) to path"))
 	})
 
+	add("round_path_corners", z.Object(
+		z.Field{Name: "id", Schema: z.Optional(z.String())},
+		z.Field{Name: "d", Schema: z.Optional(z.String().Max(200_000))},
+		z.Field{Name: "radius", Schema: z.Optional(z.Number().Min(0).Max(1e6))},
+		z.Field{Name: "radii", Schema: z.Optional(z.Array(z.Nullable(z.Number().Min(0).Max(1e6))).Max(10_000))},
+		label(), batch(), workspaceID(),
+	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+		src := a.Str("d")
+		id := a.Str("id")
+		if id != "" {
+			doc, err := docOf(a)
+			if err != nil {
+				return nil, err
+			}
+			n := core.GetNode(doc, id)
+			if n == nil {
+				return nil, fmt.Errorf(`node "%s" does not exist`, id)
+			}
+			if t := n.Str("type"); t != "path" {
+				return nil, fmt.Errorf(`node "%s" is %s, not a path`, id, t)
+			}
+			if a.Has("d") {
+				return nil, errors.New("pass d or id, not both")
+			}
+			src = n.Str("d")
+		}
+		if src == "" {
+			return nil, errors.New("pass d or id")
+		}
+		if !a.Has("radius") && !a.Has("radii") {
+			return nil, errors.New("pass radius (all corners) or radii (one per vertex)")
+		}
+		var radii []*float64
+		for _, v := range a.Arr("radii") {
+			if f, ok := v.(float64); ok {
+				radii = append(radii, &f)
+			} else {
+				radii = append(radii, nil)
+			}
+		}
+		d, err := core.RoundPathCorners(src, a.Num("radius"), radii)
+		if err != nil {
+			return nil, err
+		}
+		segs, _ := core.ParsePath(d)
+		b := core.PathBounds(segs)
+		r := func(v float64) float64 { return jsonv.Round(v*100) / 100 }
+		bounds := jsonv.NewObject("x", r(b.X), "y", r(b.Y), "width", r(b.Width), "height", r(b.Height))
+		if id == "" {
+			return jsonResult(jsonv.NewObject("d", d, "bounds", bounds)), nil
+		}
+		op := jsonv.NewObject("op", "update", "id", id, "props", jsonv.NewObject("d", d))
+		return writeWith(a, []any{op}, labelOr(a, "round corners"), "id", id, "d", d, "bounds", bounds)
+	})
+
+	shapeNum := func(name string, min, max float64) z.Field {
+		return z.Field{Name: name, Schema: z.Optional(z.Number().Min(min).Max(max))}
+	}
+	add("create_shape_path", z.Object(
+		z.Field{Name: "kind", Schema: z.Enum(core.PathShapeKinds...)},
+		z.Field{Name: "x", Schema: z.Optional(z.Number())},
+		z.Field{Name: "y", Schema: z.Optional(z.Number())},
+		shapeNum("radius", 0.01, 1e6), shapeNum("points", 3, 100), shapeNum("sides", 3, 100),
+		shapeNum("innerRadius", 0.01, 1e6), shapeNum("thickness", 0.01, 1e6), shapeNum("angle", -3600, 3600),
+		shapeNum("startAngle", -3600, 3600), shapeNum("endAngle", -3600, 3600), shapeNum("cornerRadius", 0, 1e6),
+		z.Field{Name: "roundCaps", Schema: z.Optional(z.Bool())},
+		optStr("id"), optStr("name"),
+		z.Field{Name: "props", Schema: z.Optional(z.Record(z.String(), z.Unknown()))},
+		z.Field{Name: "parentId", Schema: z.Optional(z.Nullable(z.String()))},
+		z.Field{Name: "index", Schema: z.Optional(z.Int().Min(0))},
+		z.Field{Name: "place", Schema: placeSchema},
+		label(), batch(), workspaceID(),
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
+		shape, err := core.BuildPathShape(a.Str("kind"), core.ShapeParamsFromJSON(a))
+		if err != nil {
+			return nil, err
+		}
+		node := jsonv.NewObject("type", "path")
+		if a.Has("id") {
+			node.Set("id", a.Str("id"))
+		}
+		if a.Has("name") {
+			node.Set("name", a.Str("name"))
+		}
+		props := a.Obj("props")
+		if props != nil {
+			for _, k := range props.Keys() {
+				switch k {
+				case "type", "d", "x", "y", "width", "height", "viewBox", "children":
+					return nil, fmt.Errorf(`props.%s is computed from the shape (x and y are the center: pass them at the top level)`, k)
+				}
+				v, _ := props.Get(k)
+				node.Set(k, v)
+			}
+		}
+		if a.Has("x") {
+			node.Set("x", jsonv.Round((a.Num("x")-shape.Center.X)*100)/100)
+		}
+		if a.Has("y") {
+			node.Set("y", jsonv.Round((a.Num("y")-shape.Center.Y)*100)/100)
+		}
+		node.Set("width", shape.Width)
+		node.Set("height", shape.Height)
+		node.Set("d", shape.D)
+		if shape.EvenOdd && !node.Has("fillRule") {
+			node.Set("fillRule", "evenodd")
+		}
+		if !node.Has("fill") && !node.Has("gradient") && !node.Has("stroke") {
+			node.Set("fill", "#000000")
+		}
+		args := jsonv.NewObject("nodes", []any{node})
+		for _, k := range []string{"parentId", "index", "place", "label", "batch", "workspaceId"} {
+			if v, ok := a.Get(k); ok {
+				args.Set(k, v)
+			}
+		}
+		if !a.Has("label") {
+			args.Set("label", "create "+a.Str("kind")+" shape")
+		}
+		return m.tools["create_nodes"].handler(ctx, args)
+	})
+
 	add("create_page", z.Object(
 		z.Field{Name: "name", Schema: z.Optional(z.String().Max(200))},
 		optStr("id"),
