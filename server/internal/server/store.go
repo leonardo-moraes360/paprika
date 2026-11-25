@@ -42,6 +42,23 @@ type HistorySummary struct {
 	Ops   int    `json:"ops"`
 }
 
+type HistoryStep struct {
+	Kind  string `json:"kind"`
+	Actor string `json:"actor"`
+	At    int64  `json:"at"`
+	Label string `json:"label"`
+}
+
+type HistoryView struct {
+	Entries []HistorySummary
+	Redo    []HistorySummary
+	Steps   []HistoryStep
+	CanUndo bool
+	CanRedo bool
+}
+
+const maxHistorySteps = 500
+
 const schemaSQL = `
 CREATE TABLE IF NOT EXISTS documents (
   id         TEXT PRIMARY KEY,
@@ -119,6 +136,15 @@ CREATE TABLE IF NOT EXISTS workspace_ops (
   detail     TEXT NOT NULL DEFAULT '{}'  -- JSON: for a delete, what went with it
 );
 CREATE INDEX IF NOT EXISTS workspace_ops_recent ON workspace_ops(seq DESC);
+CREATE TABLE IF NOT EXISTS history_steps (
+  seq    INTEGER PRIMARY KEY AUTOINCREMENT,
+  doc_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  kind   TEXT NOT NULL CHECK (kind IN ('undo', 'redo')),
+  actor  TEXT NOT NULL,              -- "user" (canvas) or the MCP agent name
+  label  TEXT NOT NULL,              -- label of the transaction that was moved
+  at     INTEGER NOT NULL            -- Unix ms
+);
+CREATE INDEX IF NOT EXISTS history_steps_doc ON history_steps(doc_id, seq DESC);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '2');
 `
@@ -923,7 +949,7 @@ type WorkspaceHead struct {
 	CanRedo bool
 }
 
-func (s *Store) persistLocked(docID string, doc, prev *core.Document, version int64, undo, redo []core.HistoryEntry) error {
+func (s *Store) persistLocked(docID string, doc, prev *core.Document, version int64, undo, redo []core.HistoryEntry, step *HistoryStep) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -935,11 +961,25 @@ func (s *Store) persistLocked(docID string, doc, prev *core.Document, version in
 	if err := writeHistory(tx, docID, undo, redo); err != nil {
 		return err
 	}
+	if step != nil {
+		if err := writeHistoryStep(tx, docID, *step); err != nil {
+			return err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return err
 	}
 	s.dataVersion = s.readDataVersion()
 	return nil
+}
+
+func writeHistoryStep(tx *sql.Tx, docID string, st HistoryStep) error {
+	_, err := tx.Exec(`INSERT INTO history_steps(doc_id, kind, actor, label, at) VALUES (?, ?, ?, ?, ?)`, docID, st.Kind, st.Actor, st.Label, st.At)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(`DELETE FROM history_steps WHERE doc_id = ? AND seq NOT IN (SELECT seq FROM history_steps WHERE doc_id = ? ORDER BY seq DESC LIMIT ?)`, docID, docID, maxHistorySteps)
+	return err
 }
 
 func (s *Store) listenersLocked() []func(ChangeEvent) {
@@ -964,10 +1004,10 @@ func removedIDs(prev *core.Document, r *core.ApplyResult) {
 	}
 }
 
-func (s *Store) commitLocked(prev *core.Document, actor, label, kind string) ([]func(ChangeEvent), ChangeEvent, error) {
+func (s *Store) commitLocked(prev *core.Document, actor, label, kind string, step *HistoryStep) ([]func(ChangeEvent), ChangeEvent, error) {
 	version := s.version + 1
 	doc := s.history.Doc()
-	if err := s.persistLocked(s.docID, doc, prev, version, s.history.Entries(), s.history.RedoEntries()); err != nil {
+	if err := s.persistLocked(s.docID, doc, prev, version, s.history.Entries(), s.history.RedoEntries(), step); err != nil {
 		return nil, ChangeEvent{}, err
 	}
 	s.version = version
@@ -1068,7 +1108,7 @@ func (s *Store) ApplyIn(id string, ops []any, actor, label, batch string) (*core
 		return nil, WorkspaceHead{}, err
 	}
 	version := live.version + 1
-	if err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries()); err != nil {
+	if err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), nil); err != nil {
 		restored := core.Restore(prevDoc, prevUndo, prevRedo)
 		if aside {
 			live.history = restored
@@ -1137,7 +1177,7 @@ func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error)
 	if what == "" {
 		what = e.Actor
 	}
-	if err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries()); err != nil {
+	if err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), &HistoryStep{kind, actor, time.Now().UnixMilli(), e.Label}); err != nil {
 		restored := core.Restore(prevDoc, prevUndo, prevRedo)
 		if aside {
 			live.history = restored
@@ -1170,14 +1210,7 @@ func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error)
 	return true, head, nil
 }
 
-func (s *Store) RecentHistoryIn(id string, limit int) ([]HistorySummary, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	live, _, err := s.liveLocked(id)
-	if err != nil {
-		return nil, err
-	}
-	entries := live.history.Entries()
+func summaries(entries []core.HistoryEntry, limit int) []HistorySummary {
 	if limit < len(entries) {
 		entries = entries[len(entries)-limit:]
 	}
@@ -1185,7 +1218,46 @@ func (s *Store) RecentHistoryIn(id string, limit int) ([]HistorySummary, error) 
 	for i, e := range entries {
 		out[i] = HistorySummary{e.Actor, e.Label, e.At, len(e.Ops)}
 	}
-	return out, nil
+	return out
+}
+
+func (s *Store) HistoryViewIn(id string, limit int) (HistoryView, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	live, aside, err := s.liveLocked(id)
+	if err != nil {
+		return HistoryView{}, err
+	}
+	target := s.docID
+	if aside {
+		target = id
+	}
+	rows, err := s.db.Query(`SELECT kind, actor, at, label FROM history_steps WHERE doc_id = ? ORDER BY seq DESC LIMIT ?`, target, limit)
+	if err != nil {
+		return HistoryView{}, err
+	}
+	defer rows.Close()
+	steps := []HistoryStep{}
+	for rows.Next() {
+		var st HistoryStep
+		if err := rows.Scan(&st.Kind, &st.Actor, &st.At, &st.Label); err != nil {
+			return HistoryView{}, err
+		}
+		steps = append(steps, st)
+	}
+	if err := rows.Err(); err != nil {
+		return HistoryView{}, err
+	}
+	for i, j := 0, len(steps)-1; i < j; i, j = i+1, j-1 {
+		steps[i], steps[j] = steps[j], steps[i]
+	}
+	return HistoryView{
+		Entries: summaries(live.history.Entries(), limit),
+		Redo:    summaries(live.history.RedoEntries(), limit),
+		Steps:   steps,
+		CanUndo: live.history.CanUndo(),
+		CanRedo: live.history.CanRedo(),
+	}, nil
 }
 
 func emitAside(ls []func(AsideEvent), e AsideEvent) {
@@ -1213,7 +1285,7 @@ func (s *Store) ApplyBatch(ops []any, actor, label, batch string) (*core.ApplyRe
 		s.mu.Unlock()
 		return nil, err
 	}
-	ls, ev, err := s.commitLocked(prevDoc, actor, label, "apply")
+	ls, ev, err := s.commitLocked(prevDoc, actor, label, "apply", nil)
 	if err != nil {
 		s.history = core.Restore(prevDoc, prevUndo, prevRedo)
 		s.mu.Unlock()
@@ -1270,7 +1342,7 @@ func (s *Store) ApplyRemote(docID, name, actor, label string, opsFor func(cur *c
 		}
 		undo, redo := s.history.Entries(), s.history.RedoEntries()
 		s.history = core.Restore(next, undo, redo)
-		ls, ev, err := s.commitLocked(prev, actor, label, "remote")
+		ls, ev, err := s.commitLocked(prev, actor, label, "remote", nil)
 		if err != nil {
 			s.history = core.Restore(prev, undo, redo)
 			s.mu.Unlock()
@@ -1353,7 +1425,7 @@ func (s *Store) step(actor string, redo bool) (bool, error) {
 	if what == "" {
 		what = e.Actor
 	}
-	ls, ev, err := s.commitLocked(prevDoc, actor, prefix+": "+what, kind)
+	ls, ev, err := s.commitLocked(prevDoc, actor, prefix+": "+what, kind, &HistoryStep{kind, actor, time.Now().UnixMilli(), e.Label})
 	if err != nil {
 		s.history = core.Restore(prevDoc, prevUndo, prevRedo)
 		s.mu.Unlock()

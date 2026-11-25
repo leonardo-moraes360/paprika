@@ -1211,6 +1211,22 @@ describe("API: MCP", () => {
     expect(textOf(r)).toContain("100×80px");
   }, 30_000);
 
+  it("render_screenshot renderer wasm captura pelo canvas WASM ou responde com erro claro, nunca cai para o DOM", async () => {
+    await call(client, "create_nodes", { nodes: [{ type: "rect", id: "rw", width: 20, height: 20, fill: "#ff278c" }] });
+    const r = await call(client, "render_screenshot", { rootId: "rw", renderer: "wasm" });
+    const img = r.content.find((x) => x.type === "image");
+    if (r.isError) {
+      expect(textOf(r)).toMatch(/renderer "wasm"/);
+      expect(img).toBeUndefined();
+    } else {
+      const png = Buffer.from(img!.data!, "base64");
+      expect(png.readUInt32BE(16)).toBe(20);
+      expect(png.readUInt32BE(20)).toBe(20);
+    }
+    const bad = await call(client, "render_screenshot", { rootId: "rw", renderer: "gpu" });
+    expect(bad.isError).toBe(true);
+  }, 30_000);
+
   it("pastas, referência travada e render_screenshot compare lado a lado", async () => {
     const folder = (await call(client, "create_folder", { name: "Produto" })) as ToolResult & { structuredContent: { folder: { id: string; name: string } } };
     expect(folder.isError, textOf(folder)).toBeFalsy();
@@ -2186,6 +2202,11 @@ describe("API: MCP", () => {
     expect(path.structuredContent).toEqual(JSON.parse(textOf(path)));
     const undo = (await c.callTool({ name: "undo", arguments: {} })) as ToolResult & { structuredContent?: unknown };
     expect(undo.structuredContent).toEqual(await withWorkspace({ undone: true, version: 4, canUndo: false, canRedo: true }));
+    const after = (await c.callTool({ name: "get_history", arguments: {} })) as ToolResult & { structuredContent?: { entries: unknown[]; redo: { actor: string; label: string; ops: number }[]; steps: { kind: string; actor: string; at: number; label: string }[]; canUndo: boolean; canRedo: boolean } };
+    assertOutput("get_history", after.structuredContent);
+    expect(after.structuredContent).toMatchObject({ entries: [], canUndo: false, canRedo: true });
+    expect(after.structuredContent?.redo.map(({ actor, label, ops }) => ({ actor, label, ops }))).toEqual([{ actor: "agent:parity", label: "draw 3", ops: 3 }]);
+    expect(after.structuredContent?.steps).toEqual([{ kind: "undo", actor: "agent:parity", at: expect.any(Number), label: "draw 3" }]);
     expect(textOf(await call(c, "get_document_outline", {}))).toContain("tokens: (none)");
     expect(textOf(await call(c, "get_design_guide", { language: "pt-BR" }))).toMatch(/^# Paprika: guia para agentes/);
     const bad = await call(c, "delete_nodes", { ids: ["nope"] });

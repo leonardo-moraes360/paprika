@@ -272,6 +272,13 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		return nil, err
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
+	if ep, ok := opts.Shot.(canvasEndpoint); ok {
+		if webRoot != "" {
+			ep.SetCanvas(canvasBase(opts.Host, port))
+		} else {
+			ep.SetCanvas("")
+		}
+	}
 
 	hub := &wsHub{conns: map[*websocket.Conn]chan string{}, renderer: map[*websocket.Conn]string{}, view: map[*websocket.Conn]string{}}
 	renderers := &rendererSource{line: hub.rendererLine}

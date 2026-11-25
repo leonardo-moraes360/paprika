@@ -231,7 +231,7 @@ func bindSchema() z.Schema {
 	return z.Object(
 		z.Field{Name: "text", Schema: z.Optional(propNameSchema())},
 		z.Field{Name: "visible", Schema: z.Optional(propNameSchema())},
-		z.Field{Name: "variant", Schema: z.Optional(z.Record(propNameSchema(), variantOptionSchema()))},
+		z.Field{Name: "variant", Schema: z.Optional(z.Record(propNameSchema(), z.Union(variantOptionSchema(), z.Array(variantOptionSchema()).Min(1).Max(24))))},
 	)
 }
 

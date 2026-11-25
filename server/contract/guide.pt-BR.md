@@ -34,9 +34,11 @@ Componentes: um frame com component: true é um componente (create_component). E
   de origem ou o caminho slot/id ou instancia/copia. Mudar o componente muda todas as instâncias. Numa cópia,
   update só troca fill, color, text, src, alt, visible, opacity e runs (vira override; null volta ao componente). Uma
   cópia aninhada se endereça pelo caminho instancia/copia, e esse caminho também aceita propValues e slots. Na
-  raiz, fill vira override e width/height/layout/stroke/radius/shadow/clip vêm do componente (use scale). Uma prop
+  raiz, fill (também ao criar) vira override e width/height/layout/stroke/radius/shadow/clip vêm do componente (use scale). Uma prop
   text dirige o texto de text e shape via bind.text; uma boolean dirige bind.visible; bind.variant omite o nó
-  salvo quando cada par combina. O bind é checado no fim da transação: um só create_nodes pode levar os filhos com bind
+  salvo quando cada par combina (o valor de um par pode ser uma lista de opções, e qualquer uma combina; no próprio
+  componente o nó só aparece com as props padrão, então o componente principal desenha a variante padrão e as outras
+  ficam no documento, ocultas). O bind é checado no fim da transação: um só create_nodes pode levar os filhos com bind
   e component: true no frame deles. Cópias não podem ser movidas, apagadas nem receber filhos: edite o componente
   ou detach_instance.
 path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),
