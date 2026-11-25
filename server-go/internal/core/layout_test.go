@@ -148,3 +148,29 @@ func TestNormalizePathOrigin(t *testing.T) {
 		t.Fatalf("normalized %q", SerializePath(moved))
 	}
 }
+
+func TestConstraintsFollowFillFrames(t *testing.T) {
+	d := mustOps(t, `[
+	{"op":"create","node":{"type":"frame","id":"root","width":1440,"height":200,"layout":{"mode":"column","gap":0,"padding":0},"children":[
+		{"type":"rect","id":"pin-root","x":1380,"y":0,"width":40,"height":10,"layoutPositioning":"absolute","constraints":{"horizontal":"right"}},
+		{"type":"frame","id":"header","width":"fill","height":60,"children":[
+			{"type":"rect","id":"pin-header","x":1380,"y":10,"width":40,"height":20,"constraints":{"horizontal":"right"}},
+			{"type":"rect","id":"left-header","x":20,"y":10,"width":40,"height":20}]},
+		{"type":"frame","id":"row","width":"fill","height":60,"layout":{"mode":"row","gap":0,"padding":0},"children":[
+			{"type":"frame","id":"a","width":"fill","height":60,"children":[{"type":"rect","id":"pin-a","x":700,"y":0,"width":10,"height":10,"constraints":{"horizontal":"right"}}]},
+			{"type":"frame","id":"b","width":"fill","height":60}]}
+	]}}]`)
+	v, err := jsonv.Parse([]byte(`[{"op":"update","id":"root","props":{"width":1640}}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := ApplyOps(d, v.([]any))
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := func(id string) float64 { return GetNode(r.Doc, id).Num("x") }
+	near(t, x("pin-root"), 1580, 1e-6)
+	near(t, x("pin-header"), 1580, 1e-6)
+	near(t, x("left-header"), 20, 1e-6)
+	near(t, x("pin-a"), 800, 1e-6)
+}
