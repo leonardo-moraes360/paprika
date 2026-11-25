@@ -86,6 +86,7 @@ export interface NodeQuery {
   name?: string;
   text?: string;
   within?: string;
+  exact?: boolean;
   limit?: number;
 }
 
@@ -98,7 +99,9 @@ export function queryNodes(doc: Document, q: NodeQuery): Node[] {
     const n = doc.nodes[id];
     if (!n) continue;
     if (q.type && n.type !== q.type) continue;
-    if (name && !n.name.toLowerCase().includes(name)) continue;
+    if (q.exact && q.name) {
+      if (n.name !== q.name) continue;
+    } else if (name && !n.name.toLowerCase().includes(name)) continue;
     if (text && !((n.type === "text" || n.type === "shape") && n.text.toLowerCase().includes(text))) continue;
     out.push(n);
     if (q.limit && out.length >= q.limit) break;

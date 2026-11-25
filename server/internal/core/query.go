@@ -188,6 +188,7 @@ func Outline(doc *Document, rootID string, depth int) string {
 
 type NodeQuery struct {
 	Type, Name, Text, Within string
+	Exact                    bool
 	Limit                    int
 }
 
@@ -207,7 +208,11 @@ func QueryNodes(doc *Document, q NodeQuery) []*Node {
 		if q.Type != "" && n.Str("type") != q.Type {
 			continue
 		}
-		if name != "" && !strings.Contains(strings.ToLower(n.Str("name")), name) {
+		if q.Exact && q.Name != "" {
+			if n.Str("name") != q.Name {
+				continue
+			}
+		} else if name != "" && !strings.Contains(strings.ToLower(n.Str("name")), name) {
 			continue
 		}
 		if text != "" && !((n.Str("type") == "text" || n.Str("type") == "shape") && strings.Contains(strings.ToLower(n.Str("text")), text)) {
