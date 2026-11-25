@@ -486,3 +486,19 @@ describe.skipIf(!wasmBuilt)("E2E: WASM estabiliza um path de caixa fracionária 
     expect(fx.errors.filter((e) => !/WebSocket|adapters/i.test(e))).toEqual([]);
   });
 });
+
+describe.skipIf(!wasmBuilt)("E2E: traço de path em unidades do viewBox fica igual ao DOM", () => {
+  const fx = useFixtureServer("wasm-path-stroke.paprika.json", { consoleErrors: true });
+
+  it("paths com caixa diferente do viewBox, traço fino e grosso, ficam iguais nos dois renderizadores", async () => {
+    await openCanvas(fx.page, fx.url, "dom");
+    const dom = await fx.page.getByTestId("viewport").screenshot();
+    await openCanvas(fx.page, fx.url, "wasm");
+    expect(["cpu", "webgpu"]).toContain(await fx.page.getByTestId("renderer-toggle").getAttribute("data-backend"));
+    for (const id of ["small", "wordmark", "large", "thin", "wide", "origin"])
+      expect(await fx.page.locator(`[data-paprika-id="${id}"] path`).count(), id).toBe(0);
+    const wasm = await fx.page.getByTestId("viewport").screenshot();
+    expect(await diffRatio(fx.page, dom, wasm, 60)).toBeLessThan(0.005);
+    expect(fx.errors.filter((e) => !/WebSocket|adapters/i.test(e))).toEqual([]);
+  });
+});
