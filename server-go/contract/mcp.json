@@ -8422,7 +8422,7 @@
     {
       "name": "import_image",
       "title": "Import image",
-      "description": "Places a raster image (PNG, JPEG, WebP, AVIF or GIF) as an image node sized from the file's natural size (JPEG EXIF rotation applied). src is a data URL or a local file path: a path must resolve, symlinks included, inside an allowed directory (PAPRIKA_IMPORT_DIRS, default: the server's working directory; a relative path is taken from the first one). Files over 3500000 bytes are refused. The format comes from the bytes, not the extension. A .fig file and a PDF are refused: export SVG and use import_svg, or place a PNG, JPEG, WebP, AVIF or GIF. The original bytes are embedded unchanged, so an animated GIF, WebP or AVIF stays animated on the canvas and in HTML exports (render_screenshot captures one frame; warnings says so). width is a maximum: a larger image is scaled down keeping its ratio, a smaller one is never enlarged. Returns ids, roots and created in the same shape as create_nodes. The text is that JSON plus one readable line per root. The image honors place: \"free\" when x and y are omitted (right of the page content, gap 80), \"below\", \"right\", {near, side}, or \"none\" for the given x/y (inside a row/column frame the root also gets layoutPositioning \"absolute\", with a warning, so x/y are kept).",
+      "description": "Places a raster image (PNG, JPEG, WebP, AVIF or GIF) as an image node sized from the file's natural size (JPEG EXIF rotation applied). src is a data URL or a local file path: a path must resolve, symlinks included, inside an allowed directory (PAPRIKA_IMPORT_DIRS, default: the server's working directory; a relative path is taken from the first one). Files over 3500000 bytes are refused. The format comes from the bytes, not the extension. A .fig file and a PDF are refused: export SVG and use import_svg, or place a PNG, JPEG, WebP, AVIF or GIF. The original bytes are embedded unchanged, so an animated GIF, WebP or AVIF stays animated on the canvas and in HTML exports (render_screenshot captures one frame; warnings says so). width is a maximum: a larger image is scaled down keeping its ratio, a smaller one is never enlarged. Returns ids, roots and created in the same shape as create_nodes. The text is that JSON plus one readable line per root. The image honors place: \"free\" when x and y are omitted (right of the page content, gap 80), \"below\", \"right\", {near, side}, or \"none\" for the given x/y (inside a row/column frame the root also gets layoutPositioning \"absolute\", with a warning, so x/y are kept). crop {x,y,width,height} (source pixels) keeps only that part of the image before it is stored; naturalWidth/naturalHeight, width and height then describe the cropped image.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -8446,6 +8446,17 @@
               "contain",
               "fill"
             ]
+          },
+          "crop": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "number", "minimum": 0 },
+              "y": { "type": "number", "minimum": 0 },
+              "width": { "type": "number", "minimum": 1 },
+              "height": { "type": "number", "minimum": 1 }
+            },
+            "required": ["x", "y", "width", "height"],
+            "description": "Keep only this rectangle of the image, in SOURCE pixels (JPEG rotation applied): the node holds the cropped pixels, so one photo region can be placed as its own image. The crop is made before encoding: PNG stays PNG, JPEG stays JPEG (quality 95), GIF and WebP become PNG (an animation keeps its first frame); AVIF is refused. A rectangle partly outside the image is clamped (warnings says so), one fully outside is an error; the cropped file still has to fit in 3500000 bytes"
           },
           "parentId": {
             "description": "Parent of the nodes (default: top level; in a document with pages, pass the page id)",
@@ -8657,7 +8668,7 @@
     {
       "name": "place_reference",
       "title": "Place reference image",
-      "description": "Places an image (data URL or a local path under PAPRIKA_IMPORT_DIRS) as a locked image node at the back of a frame, at 50% opacity unless opacity is set. The image is fitted inside the frame and does not join auto layout. Files over 3500000 bytes are refused.",
+      "description": "Places an image (data URL or a local path under PAPRIKA_IMPORT_DIRS) as a locked image node at the back of a frame, at 50% opacity unless opacity is set. The image is fitted inside the frame and does not join auto layout. Files over 3500000 bytes are refused. crop {x,y,width,height} (source pixels) keeps only that part of the image (see import_image); the cropped image is the one fitted inside the frame.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -8683,6 +8694,17 @@
           "name": {
             "type": "string",
             "description": "Layer name. Default Reference"
+          },
+          "crop": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "number", "minimum": 0 },
+              "y": { "type": "number", "minimum": 0 },
+              "width": { "type": "number", "minimum": 1 },
+              "height": { "type": "number", "minimum": 1 }
+            },
+            "required": ["x", "y", "width", "height"],
+            "description": "Keep only this rectangle of the image, in SOURCE pixels (JPEG rotation applied): the node holds the cropped pixels, so one photo region can be placed as its own image. The crop is made before encoding: PNG stays PNG, JPEG stays JPEG (quality 95), GIF and WebP become PNG (an animation keeps its first frame); AVIF is refused. A rectangle partly outside the image is clamped (warnings says so), one fully outside is an error; the cropped file still has to fit in 3500000 bytes"
           },
           "workspaceId": {
             "description": "Workspace to read or write. Omit it to use the active workspace (the human's canvas). Does not switch the canvas.",
@@ -10229,7 +10251,7 @@
     {
       "name": "trace_image",
       "title": "Trace image into paths",
-      "description": "Turns a reference image into editable vector paths, so you do not rebuild every contour by hand (a bird's jagged wing, a monogram, a whale): trace_image first, then refine the paths. Segments the image into palette-color blobs (the same ones analyze_image reports) and creates ONE path node per blob, fill = the blob color, largest silhouette first so nested shapes land on top. The outer contour and the holes are subpaths of the same path with fillRule evenodd; contours are cubic bezier chains: corners (turning angle >= smoothness) stay sharp, the rest is fitted to within tolerance px. A hole that another traced blob fills is closed (the blob on top covers it, no seam); a hole that shows the background stays open. Coordinates are in parentId's space: the image is fitted inside the frame and centered, like place_reference and analyze_image's frame; each node box matches its ink (normalize: true). The background color is not drawn unless includeBackground (set the frame's fill to background.color). Creates the nodes the way create_nodes does (one undo step, batch honoured) and returns ids/roots/created plus per-path stats (points, segments, curves, lines, corners, error), the total node count, and truncated when more than maxPaths blobs were found. dryRun: true returns each path's d and the stats without writing. Deterministic, pure Go, no Chromium. Photos and gradients give many noisy blobs: lower maxColors, raise minArea or pass colors. Check the result with render_screenshot compare.",
+      "description": "Turns a reference image into editable vector paths, so you do not rebuild every contour by hand (a bird's jagged wing, a monogram, a whale): trace_image first, then refine the paths. Segments the image into palette-color blobs (the same ones analyze_image reports) and creates ONE path node per blob, fill = the blob color, largest silhouette first so nested shapes land on top. The outer contour and the holes are subpaths of the same path with fillRule evenodd; contours are cubic bezier chains: corners (turning angle >= smoothness) stay sharp, the rest is fitted to within tolerance px. A hole that another traced blob fills is closed (the blob on top covers it, no seam); a hole that shows the background stays open. Coordinates are in parentId's space: the image is fitted inside the frame and centered, like place_reference and analyze_image's frame; each node box matches its ink (normalize: true). The background color is not drawn unless includeBackground (set the frame's fill to background.color). Creates the nodes the way create_nodes does (one undo step, batch honoured) and returns ids/roots/created plus per-path stats (points, segments, curves, lines, corners, error), the total node count, and truncated when more than maxPaths blobs were found. dryRun: true returns each path's d and the stats without writing. Deterministic, pure Go, no Chromium. Photos and gradients give many noisy blobs: lower maxColors, raise minArea or pass colors. Check the result with render_screenshot compare. blobIds (ids from analyze_image with the same src, region, maxColors and minArea) traces only those blobs and exclude (frame rectangles) skips blobs inside them; skipped counts both. Every path carries its blobId. When more than maxPaths blobs are found, the most important ones (area x contrast against the background, so small high-contrast text outlives a big faint area) are kept and still drawn largest silhouette first; drawn, dropped and droppedIds (their blob ids, to retrace with blobIds or another maxPaths) say what happened.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -10341,6 +10363,29 @@
             "minimum": 1,
             "maximum": 200,
             "description": "Most paths created, largest silhouette first. Default 60; truncated says when more were found"
+          },
+          "blobIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 200,
+            "items": { "type": "string", "minLength": 1, "maxLength": 20 },
+            "description": "Trace only these blobs, by the ids analyze_image returned (b1, b2...) for the SAME src/nodeId, region, maxColors and minArea (the segmentation is shared, so the ids match). colors and includeBackground are ignored then; an unknown id is a warning. Use it to redraw some regions of a reference as paths while placing others as photos"
+          },
+          "exclude": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "width": { "type": "number", "minimum": 0 },
+                "height": { "type": "number", "minimum": 0 }
+              },
+              "required": ["x", "y", "width", "height"]
+            },
+            "description": "Skip the blobs whose box lies inside any of these rectangles, in the same coordinates the paths come out in (parentId or frame space), with 1 px of slack: the regions you already placed as images. skipped.excluded counts them"
           },
           "group": {
             "type": "boolean",
@@ -10532,6 +10577,10 @@
                   "type": "string",
                   "description": "the path node (absent on a dry run)"
                 },
+                "blobId": {
+                  "type": "string",
+                  "description": "the analyze_image blob this path traces"
+                },
                 "color": {
                   "type": "string"
                 },
@@ -10613,6 +10662,27 @@
           },
           "truncated": {
             "type": "boolean"
+          },
+          "drawn": {
+            "type": "integer",
+            "description": "paths drawn (nodeCount minus the group)"
+          },
+          "dropped": {
+            "type": "integer",
+            "description": "paths found but not drawn because of maxPaths"
+          },
+          "droppedIds": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "blob ids of the dropped paths, most important first"
+          },
+          "skipped": {
+            "type": "object",
+            "properties": {
+              "excluded": { "type": "integer", "description": "blobs inside an exclude rectangle" },
+              "notListed": { "type": "integer", "description": "blobs left out because blobIds did not name them" }
+            },
+            "required": ["excluded", "notListed"]
           },
           "points": {
             "type": "integer"
@@ -10728,6 +10798,10 @@
           "nodeCount",
           "paths",
           "pathCount",
+          "drawn",
+          "dropped",
+          "droppedIds",
+          "skipped",
           "truncated",
           "points",
           "segments",

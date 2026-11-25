@@ -2046,8 +2046,18 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "src", Schema: z.String().Min(1).Max(5_000_000)},
 		z.Field{Name: "width", Schema: z.Optional(z.Number().Min(1).Max(100000))},
 		z.Field{Name: "fit", Schema: z.Optional(z.Enum("cover", "contain", "fill"))},
+		z.Field{Name: "crop", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number().Min(0)},
+			z.Field{Name: "y", Schema: z.Number().Min(0)},
+			z.Field{Name: "width", Schema: z.Number().Min(1)},
+			z.Field{Name: "height", Schema: z.Number().Min(1)},
+		))},
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		img, base, err := loadImportImage(a.Str("src"))
+		if err != nil {
+			return nil, err
+		}
+		img, cropWarn, err := applyCrop(a, img)
 		if err != nil {
 			return nil, err
 		}
@@ -2067,6 +2077,9 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		}
 		op := jsonv.NewObject("op", "create", "parentId", parent, "node", node)
 		warnings := []any{}
+		for _, w := range cropWarn {
+			warnings = append(warnings, w)
+		}
 		if p, use := importPlace(here, a); use {
 			op.Set("place", p)
 		} else if a.Str("place") == "none" && (a.Has("x") || a.Has("y")) {
@@ -2098,9 +2111,19 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "frameId", Schema: z.String().Min(1)},
 		z.Field{Name: "opacity", Schema: z.Default(z.Number().Min(0.05).Max(1), 0.5)},
 		optStr("name"),
+		z.Field{Name: "crop", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number().Min(0)},
+			z.Field{Name: "y", Schema: z.Number().Min(0)},
+			z.Field{Name: "width", Schema: z.Number().Min(1)},
+			z.Field{Name: "height", Schema: z.Number().Min(1)},
+		))},
 		workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		img, _, err := loadImportImage(a.Str("src"))
+		if err != nil {
+			return nil, err
+		}
+		img, cropWarn, err := applyCrop(a, img)
 		if err != nil {
 			return nil, err
 		}
@@ -2135,6 +2158,9 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return nil, errors.New("place reference created no node")
 		}
 		warnings := []any{}
+		for _, w := range cropWarn {
+			warnings = append(warnings, w)
+		}
 		if img.animated {
 			warnings = append(warnings, "animated "+strings.ToUpper(img.format())+": kept animated (the original bytes are embedded unchanged); render_screenshot shows a single frame")
 		}
@@ -2194,6 +2220,13 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "colors", Schema: z.Optional(z.Array(z.String().Min(1).Max(20)).Min(1).Max(16))},
 		z.Field{Name: "includeBackground", Schema: z.Optional(z.Bool())},
 		z.Field{Name: "maxPaths", Schema: z.Optional(z.Int().Min(1).Max(200))},
+		z.Field{Name: "blobIds", Schema: z.Optional(z.Array(z.String().Min(1).Max(20)).Min(1).Max(200))},
+		z.Field{Name: "exclude", Schema: z.Optional(z.Array(z.Object(
+			z.Field{Name: "x", Schema: z.Number()},
+			z.Field{Name: "y", Schema: z.Number()},
+			z.Field{Name: "width", Schema: z.Number().Min(0)},
+			z.Field{Name: "height", Schema: z.Number().Min(0)},
+		)).Min(1).Max(50))},
 		z.Field{Name: "group", Schema: z.Optional(z.Bool())},
 		z.Field{Name: "dryRun", Schema: z.Optional(z.Bool())},
 		z.Field{Name: "place", Schema: placeSchema},
