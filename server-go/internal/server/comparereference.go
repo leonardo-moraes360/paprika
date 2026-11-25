@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"image"
 	"image/png"
 	"math"
 	"strings"
@@ -93,6 +94,66 @@ type compareOutput struct {
 	Delta         *compareDelta  `json:"delta,omitempty"`
 }
 
+// loadedReference is a reference image resolved for comparison, with the document to render
+// (the reference layer, when it is a node of the frame, is hidden in it).
+type loadedReference struct {
+	info      rasterInfo
+	img       image.Image
+	warn      string
+	source    string // node, data, path
+	node      string
+	renderDoc *core.Document
+}
+
+// loadReference reads a reference given as a data URL, raw base64, a path under
+// PAPRIKA_IMPORT_DIRS or the id of an image node of the document. The reference layer must not
+// be in the render, or the comparison would see itself.
+func loadReference(d *core.Document, rootID, ref, tool string) (*loadedReference, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return nil, fmt.Errorf("%s requires reference (data URL, raw base64, a path under PAPRIKA_IMPORT_DIRS or the id of an image node)", tool)
+	}
+	out := &loadedReference{source: "data", renderDoc: d}
+	var err error
+	switch {
+	case strings.HasPrefix(ref, "data:") || looksLikeBase64(ref):
+		out.info, _, err = loadImportImage(normalizeImageSrc(ref))
+	case core.GetNode(d, ref) != nil:
+		var src string
+		if src, err = imageNodeSrc(d, ref); err != nil {
+			return nil, err
+		}
+		if ref == rootID {
+			return nil, errors.New("the reference node cannot be the frame being compared")
+		}
+		out.source, out.node = "node", ref
+		out.info, _, err = loadImportImage(normalizeImageSrc(src))
+	default:
+		out.source = "path"
+		out.info, _, err = loadImportImage(ref)
+		if err != nil && !strings.ContainsAny(ref, "/.\\") {
+			return nil, fmt.Errorf("%q is not a node of this workspace (reference takes a data URL, raw base64, a path under PAPRIKA_IMPORT_DIRS or the id of an image node): %w", ref, err)
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if out.img, out.warn, err = decodeForVision(out.info); err != nil {
+		return nil, err
+	}
+	if out.node != "" {
+		clone, ok := jsonv.Clone(d).(*jsonv.Object)
+		if !ok {
+			return nil, errors.New("cannot copy the document")
+		}
+		if n := core.GetNode(clone, out.node); n != nil {
+			n.Set("visible", false)
+		}
+		out.renderDoc = clone
+	}
+	return out, nil
+}
+
 // compareReference renders rootId, measures it against the reference and reports numbers.
 func (m *MCP) compareReference(ctx context.Context, a *jsonv.Object, head WorkspaceHead) (ToolResult, error) {
 	if m.shot == nil {
@@ -104,55 +165,12 @@ func (m *MCP) compareReference(ctx context.Context, a *jsonv.Object, head Worksp
 	if root == nil {
 		return nil, fmt.Errorf("node %q not found", rootID)
 	}
-	ref := strings.TrimSpace(a.Str("reference"))
-	if ref == "" {
-		return nil, errors.New("compare_reference requires reference (data URL, raw base64, a path under PAPRIKA_IMPORT_DIRS or the id of an image node)")
-	}
-
-	// the reference: a data URL, raw base64, a path, or an image node of this workspace
-	source, refNode := "data", ""
-	var info rasterInfo
-	var err error
-	switch {
-	case strings.HasPrefix(ref, "data:") || looksLikeBase64(ref):
-		info, _, err = loadImportImage(normalizeImageSrc(ref))
-	case core.GetNode(d, ref) != nil:
-		var src string
-		if src, err = imageNodeSrc(d, ref); err != nil {
-			return nil, err
-		}
-		if ref == rootID {
-			return nil, errors.New("the reference node cannot be the frame being compared")
-		}
-		source, refNode = "node", ref
-		info, _, err = loadImportImage(normalizeImageSrc(src))
-	default:
-		source = "path"
-		info, _, err = loadImportImage(ref)
-		if err != nil && !strings.ContainsAny(ref, "/.\\") {
-			return nil, fmt.Errorf("%q is not a node of this workspace (reference takes a data URL, raw base64, a path under PAPRIKA_IMPORT_DIRS or the id of an image node): %w", ref, err)
-		}
-	}
+	loaded, err := loadReference(d, rootID, a.Str("reference"), "compare_reference")
 	if err != nil {
 		return nil, err
 	}
-	refImg, warn, err := decodeForVision(info)
-	if err != nil {
-		return nil, err
-	}
-
-	// the reference layer must not be in the render, or the comparison would see itself
-	renderDoc := d
-	if refNode != "" {
-		clone, ok := jsonv.Clone(d).(*jsonv.Object)
-		if !ok {
-			return nil, errors.New("cannot copy the document")
-		}
-		if n := core.GetNode(clone, refNode); n != nil {
-			n.Set("visible", false)
-		}
-		renderDoc = clone
-	}
+	info, refImg, warn, source, refNode := loaded.info, loaded.img, loaded.warn, loaded.source, loaded.node
+	renderDoc := loaded.renderDoc
 	scale := a.Num("scale")
 	if scale <= 0 {
 		scale = 1
