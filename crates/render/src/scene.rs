@@ -14,6 +14,7 @@ pub enum Kind {
 #[derive(Clone, Debug)]
 pub struct PathData {
     pub path: BezPath,
+    pub scale: f64,
     pub even_odd: bool,
     pub cap: vello::kurbo::Cap,
     pub join: vello::kurbo::Join,
@@ -169,14 +170,17 @@ pub fn parse_paths(table: &str, items: &[Item]) -> Vec<PathData> {
             let num = |k: usize| f.get(k).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
             let mut path = BezPath::from_svg(d).unwrap_or_default();
             let (vw, vh) = (num(2), num(3));
+            let mut scale = 1.0;
             if let (true, Some((w, h))) = (vw > 0.0 && vh > 0.0, boxes[i]) {
                 let s = (w / vw).min(h / vh);
+                scale = s;
                 let tx = (w - vw * s) / 2.0 - num(0) * s;
                 let ty = (h - vh * s) / 2.0 - num(1) * s;
                 path.apply_affine(Affine::new([s, 0.0, 0.0, s, tx, ty]));
             }
             PathData {
                 path,
+                scale,
                 even_odd: f.get(4) == Some(&"evenodd"),
                 cap: match f.get(5) {
                     Some(&"butt") => Cap::Butt,
@@ -227,7 +231,7 @@ pub fn encode_gpu(scene: &mut vello::Scene, s: &Scene, view: Affine) {
                     );
                 }
                 if it.stroke_width > 0.0 && it.stroke[3] > 0.0 {
-                    let st = Stroke::new(it.stroke_width)
+                    let st = Stroke::new(it.stroke_width * p.scale)
                         .with_caps(p.cap)
                         .with_join(p.join);
                     scene.stroke(&st, t, Color::new(it.stroke), None, &p.path);

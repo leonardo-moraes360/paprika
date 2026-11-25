@@ -78,7 +78,9 @@ impl CpuRenderer {
                             _ => vello_cpu::kurbo::Join::Round,
                         };
                         self.ctx.set_stroke(
-                            Stroke::new(it.stroke_width).with_caps(cap).with_join(join),
+                            Stroke::new(it.stroke_width * p.scale)
+                                .with_caps(cap)
+                                .with_join(join),
                         );
                         self.ctx.set_paint(AlphaColor::<Srgb>::new(it.stroke));
                         self.ctx.stroke_path(&bp);
@@ -192,6 +194,35 @@ mod tests {
             px(&buf, 40, 5, 10),
             [255, 255, 255, 255],
             "letterboxed by meet"
+        );
+    }
+
+    #[test]
+    fn path_stroke_scales_with_viewbox() {
+        let mut d = item(4.0, 0.0, 0.0, 20.0, 20.0, [0.0, 0.0, 0.0, 0.0]);
+        d[5] = 0.0;
+        d[12] = 10.0;
+        d[13..17].copy_from_slice(&[1.0, 0.0, 0.0, 1.0]);
+        let table = "0 0 100 100 nonzero butt round|M0 50H100";
+        let mut r = CpuRenderer::new(20, 20);
+        let buf = r
+            .render(
+                &Scene::parse(&d, table),
+                vello::kurbo::Affine::IDENTITY,
+                [1.0; 4],
+            )
+            .to_vec();
+        assert_eq!(px(&buf, 20, 10, 9), [255, 0, 0, 255], "inside 2px stroke");
+        assert_eq!(px(&buf, 20, 10, 10), [255, 0, 0, 255], "inside 2px stroke");
+        assert_eq!(
+            px(&buf, 20, 10, 7),
+            [255, 255, 255, 255],
+            "outside 2px stroke"
+        );
+        assert_eq!(
+            px(&buf, 20, 10, 12),
+            [255, 255, 255, 255],
+            "outside 2px stroke"
         );
     }
 
