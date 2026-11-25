@@ -12,14 +12,20 @@ import (
 // (so the subject is left out), interpolated bilinearly. Flat backgrounds keep the old border
 // colour, byte for byte.
 const (
-	bgGrid        = 12   // cells per side
-	bgFitSide     = 128  // longest side of the working copy the model is fitted on
-	bgStep        = 0.02 // largest OKLab step between neighbours still part of the background
-	bgMinCell     = 3    // candidate pixels a cell needs to have its own median
-	bgFlatSpread  = 0.02 // OKLab spread of the cell medians under which the background is flat
-	bgMinCoverage = 0.05 // share of the image the background candidates must cover to trust a model
-	bgBorderOK    = 0.9  // share of the border the model must explain before the border counts as uniform
-	bgRefine      = 2    // refits that drop pixels the previous model did not explain
+	bgGrid         = 12    // cells per side
+	bgFitSide      = 128   // longest side of the working copy the model is fitted on
+	bgStep         = 0.02  // largest OKLab step between neighbours still part of the background
+	bgMinCell      = 3     // candidate pixels a cell needs to have its own median
+	bgFlatSpread   = 0.02  // OKLab spread of the cell medians under which the background is flat
+	bgMinCoverage  = 0.05  // share of the image the background candidates must cover to trust a model
+	bgBorderOK     = 0.9   // share of the border the model must explain before the border counts as uniform
+	bgMinPopulated = 0.5   // share of the cells that must be fitted on pixels of their own
+	bgMinSurface   = 0.35  // share of the image a gradient background must cover (the rest is subject)
+	bgBin          = 0.003 // OKLab bin the background pixels are counted in
+	bgBlockyColors = 10    // the commonest bins that, covering most of the background, make it piecewise constant
+	bgBlockyShare  = 0.8
+	bgFlatShare    = 0.85 // share of the background pixels the flat border color explains: below it, a surface
+	bgRefine       = 2    // refits that drop pixels the previous model did not explain
 )
 
 // BackgroundInfo describes the background found for one side of a comparison.
@@ -34,6 +40,7 @@ type BackgroundInfo struct {
 // bgModel is the fitted surface.
 type bgModel struct {
 	cells [bgGrid * bgGrid]lab
+	pop   [bgGrid * bgGrid]bool // cells fitted on pixels of their own (the others are filled from neighbours)
 	mean  lab
 }
 
@@ -156,9 +163,25 @@ func fitBackground(at func(x, y int) color.NRGBA, w, h int) bgFit {
 		grow(y * sw)
 		grow(y*sw + sw - 1)
 	}
+	// the background is the piece that holds most of the border (ties: the bigger piece)
+	onBorder := make([]int, len(sizes))
+	for x := range sw {
+		for _, i := range []int{x, (sh-1)*sw + x} {
+			if reach[i] {
+				onBorder[comp[i]]++
+			}
+		}
+	}
+	for y := 1; y < sh-1; y++ {
+		for _, i := range []int{y * sw, y*sw + sw - 1} {
+			if reach[i] {
+				onBorder[comp[i]]++
+			}
+		}
+	}
 	biggest, covered := -1, 0
 	for id, n := range sizes {
-		if biggest < 0 || n > sizes[biggest] {
+		if biggest < 0 || onBorder[id] > onBorder[biggest] || (onBorder[id] == onBorder[biggest] && n > sizes[biggest]) {
 			biggest = id
 		}
 		covered += n
@@ -226,6 +249,7 @@ func fitBackground(at func(x, y int) color.NRGBA, w, h int) bgFit {
 			break
 		}
 		model = fitGrid(labs, next, sw, sh)
+		cand = next
 	}
 
 	// flat when every cell is close to the median candidate color
@@ -233,7 +257,38 @@ func fitBackground(at func(x, y int) color.NRGBA, w, h int) bgFit {
 	for _, c := range model.cells {
 		spread = math.Max(spread, math.Sqrt(c.dist2(model.mean)))
 	}
-	if spread <= bgFlatSpread {
+	// a surface is only worth it when it is fitted on most of the image and the flat border color
+	// leaves a good part of the background pixels unexplained: a sheet with tiles of solid colors,
+	// or a border that is mostly subject, has few fitted cells and a flat sheet
+	popN := 0
+	for _, p := range model.pop {
+		if p {
+			popN++
+		}
+	}
+	nCand, nFlat := 0, 0
+	bins := map[[3]int32]int{}
+	for i := range cand {
+		if !cand[i] {
+			continue
+		}
+		nCand++
+		bins[[3]int32{int32(math.Round(labs[i].L / bgBin)), int32(math.Round(labs[i].A / bgBin)), int32(math.Round(labs[i].B / bgBin))}]++
+		if labs[i].dist2(flatLab) <= thr {
+			nFlat++
+		}
+	}
+	counts := make([]int, 0, len(bins))
+	for _, n := range bins {
+		counts = append(counts, n)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(counts)))
+	top := 0
+	for _, n := range counts[:min(bgBlockyColors, len(counts))] {
+		top += n
+	}
+	blocky := nCand > 0 && float64(top) >= bgBlockyShare*float64(nCand) // a few solid colors, not a ramp
+	if blocky || spread <= bgFlatSpread || popN < bgMinPopulated*bgGrid*bgGrid || float64(nCand) < bgMinSurface*float64(sw*sh) || (nCand > 0 && float64(nFlat) >= bgFlatShare*float64(nCand)) {
 		f.desc.Border = r3(borderMatch(nil))
 		return f
 	}
@@ -286,6 +341,7 @@ func fitGrid(labs []lab, cand []bool, sw, sh int) *bgModel {
 		if len(cellPx[c]) >= bgMinCell {
 			m.cells[c] = med(cellPx[c])
 			filled[c] = true
+			m.pop[c] = true
 		}
 	}
 	for {

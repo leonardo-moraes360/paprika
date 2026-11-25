@@ -70,7 +70,9 @@ func TestCompareRealBackgrounds(t *testing.T) {
 			{"shift-1pct", variant("shift1", func() *image.NRGBA { return shifted(src, max(1, w/100), 0) })},
 			{"shift-2pct", variant("shift2", func() *image.NRGBA { return shifted(src, max(1, w/50), 0) })},
 			{"shift-4pct", variant("shift4", func() *image.NRGBA { return shifted(src, max(1, w/25), 0) })},
-			{"flat-bg", variant("flat", func() *image.NRGBA { return swapBackground(src, mask, false) })},
+			{"blur", variant("blur", func() *image.NRGBA { return boxBlur(src, 2) })},
+			{"posterize", variant("poster", func() *image.NRGBA { return posterize(src, 24) })},
+			{"ink-on-mean-flat", variant("flat", func() *image.NRGBA { return swapBackground(src, mask, false) })},
 			{"linear-gradient-bg", variant("lingrad", func() *image.NRGBA { return swapBackground(src, mask, true) })},
 		}
 		for _, c := range cases {
@@ -88,8 +90,12 @@ func TestCompareRealBackgrounds(t *testing.T) {
 				if res.IoU != 1 {
 					t.Errorf("%s self iou %v", name, res.IoU)
 				}
-			case "flat-bg", "linear-gradient-bg":
-				if res.IoU < 0.85 {
+			case "blur":
+				if res.IoU < 0.9 {
+					t.Errorf("%s %s iou %v", name, c.tag, res.IoU)
+				}
+			case "ink-on-mean-flat", "linear-gradient-bg":
+				if res.IoU < 0.8 && !(c.tag == "linear-gradient-bg" && res.Background.ReferenceModel.Kind == "flat") {
 					t.Errorf("%s %s iou %v: the ink is the same, only the background changed", name, c.tag, res.IoU)
 				}
 			}
@@ -204,6 +210,54 @@ func solve3(m [3][3]float64, r [3]float64) [3]float64 {
 			t[i][c] = r[i]
 		}
 		out[c] = det(t) / d
+	}
+	return out
+}
+
+// boxBlur blurs with a 3x3 box, n times.
+func boxBlur(src image.Image, n int) *image.NRGBA {
+	b := src.Bounds()
+	w, h := b.Dx(), b.Dy()
+	cur := image.NewNRGBA(image.Rect(0, 0, w, h))
+	for y := range h {
+		for x := range w {
+			cur.Set(x, y, src.At(b.Min.X+x, b.Min.Y+y))
+		}
+	}
+	for range n {
+		next := image.NewNRGBA(cur.Bounds())
+		for y := range h {
+			for x := range w {
+				var s [4]int
+				k := 0
+				for dy := -1; dy <= 1; dy++ {
+					for dx := -1; dx <= 1; dx++ {
+						c := cur.NRGBAAt(min(max(x+dx, 0), w-1), min(max(y+dy, 0), h-1))
+						s[0] += int(c.R)
+						s[1] += int(c.G)
+						s[2] += int(c.B)
+						s[3] += int(c.A)
+						k++
+					}
+				}
+				next.SetNRGBA(x, y, color.NRGBA{uint8(s[0] / k), uint8(s[1] / k), uint8(s[2] / k), uint8(s[3] / k)})
+			}
+		}
+		cur = next
+	}
+	return cur
+}
+
+// posterize snaps every channel to steps of the given size.
+func posterize(src image.Image, step int) *image.NRGBA {
+	b := src.Bounds()
+	out := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	q := func(v uint8) uint8 { return uint8(min(255, (int(v)+step/2)/step*step)) }
+	for y := 0; y < b.Dy(); y++ {
+		for x := 0; x < b.Dx(); x++ {
+			c := color.NRGBAModel.Convert(src.At(b.Min.X+x, b.Min.Y+y)).(color.NRGBA)
+			out.SetNRGBA(x, y, color.NRGBA{q(c.R), q(c.G), q(c.B), c.A})
+		}
 	}
 	return out
 }

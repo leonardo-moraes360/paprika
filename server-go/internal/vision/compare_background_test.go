@@ -54,7 +54,7 @@ func wordmark(dx float64) []shape {
 
 func TestCompareTextOnLinearGradient(t *testing.T) {
 	const w, h = 400, 240
-	grad := linearBG(w, h, color.NRGBA{250, 215, 140, 255}, color.NRGBA{245, 160, 130, 255})
+	grad := linearBG(w, h, color.NRGBA{252, 228, 150, 255}, color.NRGBA{240, 130, 115, 255})
 	ref := onBackground(w, h, grad, wordmark(0)...)
 
 	// the same wordmark on the same gradient
@@ -70,11 +70,11 @@ func TestCompareTextOnLinearGradient(t *testing.T) {
 	}
 
 	// over a flat color of a similar average, and over a different gradient: the ink is the same
-	flat := onBackground(w, h, func(int, int) color.NRGBA { return color.NRGBA{248, 188, 135, 255} }, wordmark(0)...)
+	flat := onBackground(w, h, func(int, int) color.NRGBA { return color.NRGBA{246, 179, 132, 255} }, wordmark(0)...)
 	if r := cmp(t, flat, ref, nil); r.IoU < 0.98 || r.Background.DrawnModel.Kind != "flat" {
 		t.Fatalf("flat drawing: iou %v %+v", r.IoU, r.Background.DrawnModel)
 	}
-	other := onBackground(w, h, linearBG(w, h, color.NRGBA{252, 205, 150, 255}, color.NRGBA{240, 175, 125, 255}), wordmark(0)...)
+	other := onBackground(w, h, linearBG(w, h, color.NRGBA{252, 215, 145, 255}, color.NRGBA{242, 145, 120, 255}), wordmark(0)...)
 	if r := cmp(t, other, ref, nil); r.IoU < 0.98 {
 		t.Fatalf("another gradient: iou %v", r.IoU)
 	}
@@ -166,6 +166,90 @@ func TestCompareSubjectOnTheBorderStaysInk(t *testing.T) {
 	}
 	if r.Missing < 0.99 {
 		t.Fatalf("an empty drawing should miss all the ink, including the bar on the border: %+v", r)
+	}
+}
+
+// A sheet of solid-color tiles that touch each other (some close to white) is not a gradient:
+// the background is the white sheet, and a blurred copy scores the same.
+func TestCompareGridOfSolidTilesStaysFlat(t *testing.T) {
+	const w, h = 360, 240
+	tiles := []color.NRGBA{
+		{200, 20, 45, 255}, white, {230, 250, 225, 255}, white, {12, 12, 12, 255}, white,
+		white, {160, 180, 255, 255}, white, {238, 238, 238, 255}, white, {40, 205, 210, 255},
+		{232, 232, 232, 255}, white, {216, 216, 216, 255}, white, {214, 214, 214, 255}, white,
+	}
+	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	for y := range h {
+		for x := range w {
+			img.SetNRGBA(x, y, tiles[(y/80)*6+x/60])
+		}
+	}
+	for i := range 6 { // a mark on every tile
+		for j := range 3 {
+			for y := j*80 + 25; y < j*80+55; y++ {
+				for x := i*60 + 18; x < i*60+42; x++ {
+					img.SetNRGBA(x, y, color.NRGBA{20, 20, 24, 255})
+				}
+			}
+		}
+	}
+	r := cmp(t, boxBlurTest(img), img, nil)
+	if r.Background.ReferenceModel.Kind != "flat" || r.Background.DrawnModel.Kind != "flat" {
+		t.Fatalf("tiles are not a gradient: %+v", r.Background)
+	}
+	if r.IoU < 0.9 {
+		t.Fatalf("a blurred copy of the same tiles: iou %v", r.IoU)
+	}
+	if r := cmp(t, img, img, nil); r.IoU != 1 {
+		t.Fatalf("identical: %v", r.IoU)
+	}
+}
+
+func boxBlurTest(src *image.NRGBA) *image.NRGBA {
+	b := src.Bounds()
+	out := image.NewNRGBA(b)
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			var s [3]int
+			for dy := -1; dy <= 1; dy++ {
+				for dx := -1; dx <= 1; dx++ {
+					c := src.NRGBAAt(min(max(x+dx, b.Min.X), b.Max.X-1), min(max(y+dy, b.Min.Y), b.Max.Y-1))
+					s[0] += int(c.R)
+					s[1] += int(c.G)
+					s[2] += int(c.B)
+				}
+			}
+			out.SetNRGBA(x, y, color.NRGBA{uint8(s[0] / 9), uint8(s[1] / 9), uint8(s[2] / 9), 255})
+		}
+	}
+	return out
+}
+
+// A silk-like background (soft diagonal ridges) under a wordmark, against a replica whose frame
+// is one flat color: each side's ink is what differs from its own background, so the replica
+// still matches.
+func TestCompareSilkReferenceAgainstFlatReplica(t *testing.T) {
+	const w, h = 400, 300
+	silk := func(x, y int) color.NRGBA {
+		u := (float64(x)/w + float64(y)/h) * 2 * math.Pi * 1.5
+		k := 0.5 + 0.5*math.Sin(u)*math.Cos(float64(x)/w*3)
+		return lerpC(color.NRGBA{252, 226, 150, 255}, color.NRGBA{246, 160, 130, 255}, k)
+	}
+	word := []shape{
+		{x: 60, y: 120, w: 40, h: 60, c: navy}, {x: 120, y: 120, w: 40, h: 60, c: navy},
+		{x: 180, y: 120, w: 40, h: 60, c: navy}, {x: 240, y: 120, w: 40, h: 60, c: navy},
+	}
+	ref := onBackground(w, h, silk, word...)
+	flat := onBackground(w, h, func(int, int) color.NRGBA { return color.NRGBA{249, 193, 140, 255} }, word...)
+	r := cmp(t, flat, ref, nil)
+	if r.Background.ReferenceModel.Kind != "gradient" || r.Background.DrawnModel.Kind != "flat" {
+		t.Fatalf("kinds: %+v", r.Background)
+	}
+	if r.IoU < 0.9 || r.Extra > 0.05 {
+		t.Fatalf("flat replica of a silk reference: iou %v missing %v extra %v ink %+v", r.IoU, r.Missing, r.Extra, r.InkShare)
+	}
+	if r := cmp(t, onBackground(w, h, silk, word...), ref, nil); r.IoU != 1 {
+		t.Fatalf("identical: %v", r.IoU)
 	}
 }
 
