@@ -43,7 +43,6 @@ function build(mode, kind, mobile) {
   const frame = (name, children, layout = {}, extra = {}) => ({ type: "frame", name, width: "fill", height: "hug", clip: false, layout: { mode: "column", gap: 0, padding: 0, align: "stretch", ...layout }, children, ...extra });
   const row = (name, children, layout = {}, extra = {}) => frame(name, children, { mode: "row", align: "center", ...layout }, extra);
   const box = (name, w, h, extra = {}) => ({ type: "rect", name, width: w, height: h, ...extra });
-  const dot = (c, s = 8) => box("Ponto", s, s, { fill: t(c), radius: s * 0.3 });
   const code = (text, label) =>
     frame("Bloco de código", [
       row("Topo", [T(label, 12, { width: "hug", color: t("code.muted"), fontFamily: FONT_MONO, lineHeight: 1.2 }), row("Copiar", [T("Copy", 12, { width: "hug", color: t("code.ink"), fontWeight: 600, lineHeight: 1.2 })], { padding: [4, 10, 4, 10] }, { width: "hug", radius: 6, stroke: { color: t("line.strong"), width: 1 } })], { justify: "between", padding: [10, 14, 10, 18] }),
