@@ -310,7 +310,7 @@ func flowChildren(doc *Document, n *Node) []*Node {
 		if c == nil || c.Str("type") == "connector" {
 			continue
 		}
-		if c.Has("visible") && !c.Bool("visible") {
+		if (c.Has("visible") && !c.Bool("visible")) || variantHidden(doc, c) {
 			continue
 		}
 		out = append(out, c)
@@ -884,7 +884,7 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 		if child == nil || child.Str("type") == "connector" || child.Str("type") == "page" {
 			continue
 		}
-		if child.Has("visible") && !child.Bool("visible") {
+		if (child.Has("visible") && !child.Bool("visible")) || variantHidden(doc, child) {
 			continue
 		}
 		if !ignoresLayout(child) {

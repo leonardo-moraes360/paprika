@@ -242,3 +242,35 @@ describe("displayList paint order", () => {
     expect(at(13)[0]).toBe(3);
   });
 });
+
+describe("displayList path stroke", () => {
+  const make = (width: number) =>
+    parseDocument({
+      format: "paprika/1",
+      id: "d",
+      rootIds: ["f"],
+      nodes: {
+        f: { id: "f", type: "frame", x: 0, y: 0, width: 200, height: 100, children: ["t", "p"] },
+        t: { id: "t", type: "text", parentId: "f", text: "hi" },
+        p: { id: "p", type: "path", parentId: "f", d: "M0 50 H100", viewBox: [0, 0, 100, 100], stroke: { color: "#fff", width }, width: 20, height: 20 },
+      },
+    });
+  const boxes = new Map<string, Box>([
+    ["f", { x: 0, y: 0, w: 200, h: 100 }],
+    ["t", { x: 22, y: 0, w: 30, h: 20 }],
+    ["p", { x: 0, y: 0, w: 20, h: 20 }],
+  ]);
+
+  it("keeps the stroke width in viewBox units in the entry", () => {
+    const list = displayList(make(10), boxes);
+    const at = Array.from({ length: list.count }, (_, i) => i).find((i) => list.data[i * DISPLAY_STRIDE] === 4)!;
+    expect(list.data[at * DISPLAY_STRIDE + 12]).toBe(10);
+  });
+
+  it("measures the painted bounds with the stroke scaled by the viewBox", () => {
+    const list = displayList(make(10), boxes);
+    expect(list.painted.has("p")).toBe(true);
+    const wide = displayList(make(80), boxes);
+    expect(wide.painted.has("p")).toBe(false);
+  });
+});

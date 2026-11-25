@@ -34,9 +34,11 @@ Componentes: um frame com component: true é um componente (create_component). E
   de origem ou o caminho slot/id ou instancia/copia. Mudar o componente muda todas as instâncias. Numa cópia,
   update só troca fill, color, text, src, alt, visible, opacity e runs (vira override; null volta ao componente). Uma
   cópia aninhada se endereça pelo caminho instancia/copia, e esse caminho também aceita propValues e slots. Na
-  raiz, fill vira override e width/height/layout/stroke/radius/shadow/clip vêm do componente (use scale). Uma prop
+  raiz, fill (também ao criar) vira override e width/height/layout/stroke/radius/shadow/clip vêm do componente (use scale). Uma prop
   text dirige o texto de text e shape via bind.text; uma boolean dirige bind.visible; bind.variant omite o nó
-  salvo quando cada par combina. O bind é checado no fim da transação: um só create_nodes pode levar os filhos com bind
+  salvo quando cada par combina (o valor de um par pode ser uma lista de opções, e qualquer uma combina; no próprio
+  componente o nó só aparece com as props padrão, então o componente principal desenha a variante padrão e as outras
+  ficam no documento, ocultas). O bind é checado no fim da transação: um só create_nodes pode levar os filhos com bind
   e component: true no frame deles. Cópias não podem ser movidas, apagadas nem receber filhos: edite o componente
   ou detach_instance.
 path: d (dados de caminho SVG: M L H V C S Q T A Z, absolutos ou relativos), fill (preenchimento; sem fill = vazado),
@@ -61,7 +63,7 @@ width/height aceitam número, "hug" ou "fill" (nunca "$token"). "fill" em width/
 
 Posicionamento: um frame novo de topo deixa x e y de fora (ou passa place:"free") e cai no espaço livre, à direita do conteúdo da página, no mesmo topo, respiro 80, quebrando para a linha de baixo depois de 2400px a partir da esquerda do conteúdo. place é "free" | "below" | "right" | {near, side: left|right|above|below} | "none" (x/y exatos). Dentro de um frame row/column, place:"none" com x e/ou y em create_nodes, import_html ou import_image põe layoutPositioning:"absolute" em cada raiz nova (a menos que você passe layoutPositioning) e avisa, para x/y valerem em vez de entrar no fluxo. Escritas simultâneas não ocupam o mesmo lugar. get_document_outline e get_bounds sem ids devolvem a caixa do conteúdo (a união dos filhos da página, em qualquer página) e o próximo lugar livre. Desenhe overlays (modais, menus, toasts) por último, ou traga-os para a frente com index:"front". Uma escrita avisa quando um nó novo de topo sobrepõe outro e diz o lugar livre mais próximo.
 
-Apontamentos: o humano pode apontar um nó ou uma área do canvas e escrever o que fazer ali ("Apontar para a IA"). Chame list_pins primeiro quando o humano falar de apontamentos e sempre que um resultado de escrita trouxer openPins; claim_pin antes de trabalhar num deles, reply_pin para escrever no fio, resolve_pin com uma resposta curta ao terminar (essa resposta vira uma mensagem do agente em replies). wait_for_pins espera os novos.
+Apontamentos: o humano pode apontar um nó ou uma área do canvas e escrever o que fazer ali ("Apontar para a IA"). Chame list_pins primeiro quando o humano falar de apontamentos e sempre que um resultado de escrita trouxer openPins; claim_pin antes de trabalhar num deles, reply_pin para escrever no fio, resolve_pin com uma resposta curta ao terminar (essa resposta vira uma mensagem do agente em replies). Se você refez o desenho apagando e recriando o nó, o apontamento fica com nodeMissing: use update_pin {id, nodeId} (ou resolve_pin com nodeId) para apontá-lo ao novo nó. wait_for_pins espera os novos.
 
 Fluxo recomendado:
 1. get_document_outline para se orientar (barato).

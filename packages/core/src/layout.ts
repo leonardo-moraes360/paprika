@@ -1,3 +1,4 @@
+import { variantHidden } from "./component.js";
 import { modeOf, resolveLength, resolveValue } from "./style.js";
 import { firstPage, ignoresLayout, isContainer, isScene, pageRoots, type Document, type Layout, type Node, type SceneNode, type Size } from "./schema.js";
 import { round4 } from "./num.js";
@@ -209,7 +210,7 @@ function flowChildren(doc: Document, n: Node): SceneNode[] {
   const out: SceneNode[] = [];
   for (const id of n.children) {
     const c = doc.nodes[id];
-    if (c && isScene(c) && c.type !== "connector" && c.visible !== false) out.push(c);
+    if (c && isScene(c) && c.type !== "connector" && c.visible !== false && !variantHidden(doc, c)) out.push(c);
   }
   return out;
 }
@@ -495,7 +496,7 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
 
   for (const id of n.children) {
     const child = doc.nodes[id];
-    if (!child || !isScene(child) || child.visible === false || child.type === "connector" || !ignoresLayout(child)) continue;
+    if (!child || !isScene(child) || child.visible === false || variantHidden(doc, child) || child.type === "connector" || !ignoresLayout(child)) continue;
     placeTree(doc, id, absX + child.x, absY + child.y, out, { w: frameW, h: frameH });
   }
 

@@ -1134,7 +1134,7 @@ function ComponentBind({ doc, node, set }: { doc: Document; node: Node; set: (p:
           <SelectField
             key={p.name}
             label={p.name}
-            value={bind.variant?.[p.name] ?? ""}
+            value={typeof bind.variant?.[p.name] === "string" ? (bind.variant[p.name] as string) : ""}
             onChange={(v) => {
               const variant = { ...bind.variant };
               if (v) variant[p.name] = v;

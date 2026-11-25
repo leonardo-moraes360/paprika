@@ -290,18 +290,35 @@ func validateBind(comp, n *Node) error {
 	}
 	if vr := b.Obj("variant"); vr != nil {
 		for _, k := range vr.Keys() {
-			want := vr.Str(k)
+			raw, _ := vr.Get(k)
+			wants, isList := raw.([]any)
+			label := fmt.Sprint(raw)
+			if isList {
+				parts := make([]string, len(wants))
+				for j, w := range wants {
+					parts[j] = fmt.Sprint(w)
+				}
+				label = "[" + strings.Join(parts, ", ") + "]"
+			} else {
+				wants = []any{raw}
+			}
 			p := props[k]
-			okOpt := false
-			if p != nil && p.Str("type") == "variant" {
-				for _, o := range p.Arr("options") {
-					if o == want {
-						okOpt = true
+			okOpt := p != nil && p.Str("type") == "variant"
+			if okOpt {
+				for _, want := range wants {
+					found := false
+					for _, o := range p.Arr("options") {
+						if o == want {
+							found = true
+						}
+					}
+					if !found {
+						okOpt = false
 					}
 				}
 			}
 			if !okOpt {
-				return instErr(`component "%s": "%s" variant bind "%s=%s" does not match a variant prop`, comp.Str("id"), n.Str("id"), k, want)
+				return instErr(`component "%s": "%s" variant bind "%s=%s" does not match a variant prop`, comp.Str("id"), n.Str("id"), k, label)
 			}
 		}
 	}
@@ -417,11 +434,35 @@ func variantShows(bind *jsonv.Object, values map[string]any) bool {
 	}
 	for _, k := range vr.Keys() {
 		want, _ := vr.Get(k)
+		if list, isList := want.([]any); isList {
+			found := false
+			for _, w := range list {
+				if values[k] == w {
+					found = true
+				}
+			}
+			if !found {
+				return false
+			}
+			continue
+		}
 		if values[k] != want {
 			return false
 		}
 	}
 	return true
+}
+
+func variantHidden(doc *Document, n *Node) bool {
+	bind := n.Obj("bind")
+	if bind == nil || bind.Obj("variant") == nil || n.Has("sourceId") {
+		return false
+	}
+	comp := owningComponent(doc, n.Str("id"))
+	if comp == nil {
+		return false
+	}
+	return !variantShows(bind, resolvedProps(comp, jsonv.NewObject()))
 }
 
 func applyBind(n *jsonv.Object, values map[string]any) {

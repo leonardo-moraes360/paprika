@@ -194,7 +194,7 @@ export const ComponentProp = z.object({
 export const Bind = z.object({
   text: PropName.optional(),
   visible: PropName.optional(),
-  variant: z.record(PropName, VariantOption).optional(),
+  variant: z.record(PropName, z.union([VariantOption, z.array(VariantOption).min(1).max(24)])).optional(),
 });
 
 export const PropValues = z.record(PropName, z.union([z.string().max(2000), z.boolean()]));

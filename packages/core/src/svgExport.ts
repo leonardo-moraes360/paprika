@@ -1,3 +1,4 @@
+import { variantHidden } from "./component.js";
 import { firstPage, listShadows, pageRoots, resolveAsset, isContainer, type Document, type Node, type ShadowSpec, type TextNode } from "./schema.js";
 import { canvasBounds, escapeHtml, svgAttrs } from "./render.js";
 import {
@@ -204,7 +205,7 @@ export function exportSVG(
     const pn = n.parentId ? doc.nodes[n.parentId] : undefined;
     const inFlow = !root && pn?.type === "frame" && !!pn.layout && pn.layout.mode !== "none";
     const b = boxOf(n, parent, inFlow, root);
-    if (!b || !n.visible) return "";
+    if (!b || !n.visible || variantHidden(doc, n)) return "";
     boxes.set(n.id, b);
     const [x, y, w, h] = b;
     let tr = `translate(${f(x - parent[0])} ${f(y - parent[1])})`;
