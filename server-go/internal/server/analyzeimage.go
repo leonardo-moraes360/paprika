@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"image"
 	"strings"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/core"
@@ -56,28 +57,47 @@ func analyzeSource(a *jsonv.Object, doc func() (*core.Document, error)) (rasterI
 		if err != nil {
 			return rasterInfo{}, err
 		}
-		id := a.Str("nodeId")
-		n := core.GetNode(d, id)
-		if n == nil {
-			return rasterInfo{}, fmt.Errorf("node %q not found", id)
-		}
-		if n.Str("type") != "image" {
-			return rasterInfo{}, fmt.Errorf("node %q is a %s, not an image", id, n.Str("type"))
-		}
-		src = n.Str("src")
-		if name, ok := strings.CutPrefix(src, "$"); ok {
-			asset := ""
-			if assets := d.Obj("assets"); assets != nil {
-				asset = assets.Str(name)
-			}
-			if asset == "" {
-				return rasterInfo{}, fmt.Errorf("node %q uses the asset $%s, which is not set", id, name)
-			}
-			src = asset
+		if src, err = imageNodeSrc(d, a.Str("nodeId")); err != nil {
+			return rasterInfo{}, err
 		}
 	}
 	info, _, err := loadImportImage(normalizeImageSrc(src))
 	return info, err
+}
+
+// imageNodeSrc is the src of an image node, with a $asset name resolved.
+func imageNodeSrc(d *core.Document, id string) (string, error) {
+	n := core.GetNode(d, id)
+	if n == nil {
+		return "", fmt.Errorf("node %q not found", id)
+	}
+	if n.Str("type") != "image" {
+		return "", fmt.Errorf("node %q is a %s, not an image", id, n.Str("type"))
+	}
+	src := n.Str("src")
+	if name, ok := strings.CutPrefix(src, "$"); ok {
+		asset := ""
+		if assets := d.Obj("assets"); assets != nil {
+			asset = assets.Str(name)
+		}
+		if asset == "" {
+			return "", fmt.Errorf("node %q uses the asset $%s, which is not set", id, name)
+		}
+		src = asset
+	}
+	return src, nil
+}
+
+// decodeForVision decodes the pixels of a loaded image for the vision tools (first frame of an
+// animation) and refuses what has no pure-Go decoder.
+func decodeForVision(info rasterInfo) (image.Image, string, error) {
+	switch {
+	case info.mime == "image/avif":
+		return nil, "", errors.New("AVIF cannot be analyzed: no pure-Go pixel decoder (re-export as PNG or JPEG first)")
+	case info.mime == "image/webp" && info.animated:
+		return nil, "", errors.New("animated WebP cannot be analyzed: use a still frame (PNG or JPEG)")
+	}
+	return decodePixels(info)
 }
 
 func analyzeImage(a *jsonv.Object, doc func() (*core.Document, error)) (ToolResult, error) {
@@ -85,13 +105,7 @@ func analyzeImage(a *jsonv.Object, doc func() (*core.Document, error)) (ToolResu
 	if err != nil {
 		return nil, err
 	}
-	switch {
-	case info.mime == "image/avif":
-		return nil, errors.New("AVIF cannot be analyzed: no pure-Go pixel decoder (re-export as PNG or JPEG first)")
-	case info.mime == "image/webp" && info.animated:
-		return nil, errors.New("animated WebP cannot be analyzed: use a still frame (PNG or JPEG)")
-	}
-	img, warn, err := decodePixels(info)
+	img, warn, err := decodeForVision(info)
 	if err != nil {
 		return nil, err
 	}
