@@ -2,10 +2,12 @@ package vision
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"math"
 	"sort"
+	"strings"
 
 	xdraw "golang.org/x/image/draw"
 )
@@ -127,8 +129,10 @@ type InkShare struct {
 }
 
 type Backgrounds struct {
-	Reference string `json:"reference"` // hex, or "transparent"
-	Drawn     string `json:"drawn"`
+	Reference      string         `json:"reference"` // hex (the mean color of a gradient), or "transparent"
+	Drawn          string         `json:"drawn"`
+	ReferenceModel BackgroundInfo `json:"referenceModel"` // flat, gradient or transparent, with the fit
+	DrawnModel     BackgroundInfo `json:"drawnModel"`
 }
 
 // DiffPNG is the diff image: missing in red, extra in blue, matched in gray, on white.
@@ -139,6 +143,8 @@ type plane struct {
 	w, h int
 	img  *image.NRGBA
 	bg   bgInfo
+	fit  bgFit // the background model; ink is the distance from it
+	at   bgMap
 	ink  []bool
 	lab  []labf
 	op   []bool // opaque pixel (alpha >= 128)
@@ -208,15 +214,6 @@ func estimateBG(at func(x, y int) color.NRGBA, w, h int) bgInfo {
 	return bgInfo{r: uint8(a.r / a.n), g: uint8(a.g / a.n), b: uint8(a.b / a.n)}
 }
 
-func nrgbaAt(img image.Image, b image.Rectangle) func(x, y int) color.NRGBA {
-	if n, ok := img.(*image.NRGBA); ok {
-		return func(x, y int) color.NRGBA { return n.NRGBAAt(b.Min.X+x, b.Min.Y+y) }
-	}
-	return func(x, y int) color.NRGBA {
-		return color.NRGBAModel.Convert(img.At(b.Min.X+x, b.Min.Y+y)).(color.NRGBA)
-	}
-}
-
 func fillNRGBA(img *image.NRGBA, c color.NRGBA) {
 	for i := 0; i < len(img.Pix); i += 4 {
 		img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = c.R, c.G, c.B, c.A
@@ -224,9 +221,10 @@ func fillNRGBA(img *image.NRGBA, c color.NRGBA) {
 }
 
 // buildPlane computes the ink mask of img (already on the canvas) against its own background.
-func buildPlane(img *image.NRGBA, bg bgInfo) *plane {
+func buildPlane(img *image.NRGBA, fit bgFit, at bgMap) *plane {
 	w, h := img.Bounds().Dx(), img.Bounds().Dy()
-	p := &plane{w: w, h: h, img: img, bg: bg, ink: make([]bool, w*h), lab: make([]labf, w*h), op: make([]bool, w*h)}
+	bg := fit.info
+	p := &plane{w: w, h: h, img: img, bg: bg, fit: fit, at: at, ink: make([]bool, w*h), lab: make([]labf, w*h), op: make([]bool, w*h)}
 	bgLab := labFromBytes(bg.r, bg.g, bg.b)
 	thr := inkThreshold * inkThreshold
 	for y := range h {
@@ -245,6 +243,18 @@ func buildPlane(img *image.NRGBA, bg bgInfo) *plane {
 				continue
 			}
 			p.op[i] = true
+			if fit.model != nil {
+				u, v := at.uv(x, y)
+				m := fit.model.at(u, v)
+				c := labFromBytes(r, g, b)
+				if a < 255 {
+					f := float64(a) / 255
+					c = lab{c.L*f + m.L*(1-f), c.A*f + m.A*(1-f), c.B*f + m.B*(1-f)}
+				}
+				p.lab[i] = labf{float32(c.L), float32(c.A), float32(c.B)}
+				p.ink[i] = c.dist2(m) > thr
+				continue
+			}
 			if a < 255 {
 				f := float64(a) / 255
 				r = uint8(math.Round(float64(r)*f + float64(bg.r)*(1-f)))
@@ -273,23 +283,36 @@ func countTrue(m []bool) int {
 type canvasPlanes struct {
 	w, h           int
 	fx, fy         float64 // frame units per working pixel
-	refBG, drawnBG bgInfo
+	refBG, drawnBG bgInfo  // flat color, or the mean color of a gradient
+	refFit, drwFit bgFit
 	rp, dp         *plane
 }
 
+// fillBackground paints the whole canvas with the background: the flat color, or the model.
+func fillBackground(img *image.NRGBA, fit bgFit, at bgMap) {
+	if fit.model == nil {
+		fillNRGBA(img, color.NRGBA{fit.info.r, fit.info.g, fit.info.b, 255})
+		return
+	}
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	for y := range h {
+		for x := range w {
+			u, v := at.uv(x, y)
+			r, g, b := labToRGB(fit.model.at(u, v))
+			o := y*img.Stride + x*4
+			img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3] = uint8(math.Round(r)), uint8(math.Round(g)), uint8(math.Round(b)), 255
+		}
+	}
+}
+
 // buildPlanes rasterizes both images on a canvas of the frame's proportions (at most maxSide px
-// on the long side) and builds their ink masks.
+// on the long side) and builds their ink masks, each against its own background model.
 func buildPlanes(drawnSrc, refSrc image.Image, frameW, frameH float64, placed Rect, maxSide float64) canvasPlanes {
 	k := math.Min(1, maxSide/math.Max(frameW, frameH))
 	w, h := max(1, int(math.Round(frameW*k))), max(1, int(math.Round(frameH*k)))
 	fx, fy := frameW/float64(w), frameH/float64(h)
 
 	rb := refSrc.Bounds()
-	refBG := estimateBG(nrgbaAt(refSrc, rb), rb.Dx(), rb.Dy())
-	refImg := image.NewNRGBA(image.Rect(0, 0, w, h))
-	if !refBG.transparent {
-		fillNRGBA(refImg, color.NRGBA{refBG.r, refBG.g, refBG.b, 255})
-	}
 	dst := image.Rect(
 		int(math.Round(placed.X/fx)), int(math.Round(placed.Y/fy)),
 		int(math.Round((placed.X+placed.Width)/fx)), int(math.Round((placed.Y+placed.Height)/fy)),
@@ -297,22 +320,37 @@ func buildPlanes(drawnSrc, refSrc image.Image, frameW, frameH float64, placed Re
 	if dst.Empty() {
 		dst = image.Rect(0, 0, w, h)
 	}
-	xdraw.CatmullRom.Scale(refImg, dst, refSrc, rb, xdraw.Over, nil)
+	// the reference on the canvas, over nothing: its background is fitted at the same resolution
+	// as the drawing's, so an identical picture gets an identical model
+	scaled := image.NewNRGBA(image.Rect(0, 0, w, h))
+	xdraw.CatmullRom.Scale(scaled, dst, refSrc, rb, xdraw.Src, nil)
+	refFit := fitBackground(func(x, y int) color.NRGBA { return scaled.NRGBAAt(dst.Min.X+x, dst.Min.Y+y) }, dst.Dx(), dst.Dy())
+	refMap := bgMap{ox: float64(dst.Min.X), oy: float64(dst.Min.Y), sx: float64(dst.Dx()), sy: float64(dst.Dy())}
+	refImg := scaled
+	if !refFit.info.transparent {
+		refImg = image.NewNRGBA(image.Rect(0, 0, w, h))
+		fillBackground(refImg, refFit, refMap)
+		xdraw.Draw(refImg, refImg.Bounds(), scaled, image.Point{}, xdraw.Over)
+	}
 
 	drawn := image.NewNRGBA(image.Rect(0, 0, w, h))
 	db := drawnSrc.Bounds()
 	xdraw.CatmullRom.Scale(drawn, drawn.Bounds(), drawnSrc, db, xdraw.Src, nil)
-	drawnBG := estimateBG(func(x, y int) color.NRGBA { return drawn.NRGBAAt(x, y) }, w, h)
-	if drawnBG.transparent && !refBG.transparent {
+	drwFit := fitBackground(func(x, y int) color.NRGBA { return drawn.NRGBAAt(x, y) }, w, h)
+	drwMap := bgMap{sx: float64(w), sy: float64(h)}
+	if drwFit.info.transparent && !refFit.info.transparent {
 		// a drawing on a transparent frame sits on the reference's background
 		base := image.NewNRGBA(image.Rect(0, 0, w, h))
-		fillNRGBA(base, color.NRGBA{refBG.r, refBG.g, refBG.b, 255})
+		fillBackground(base, refFit, refMap)
 		xdraw.Draw(base, base.Bounds(), drawn, image.Point{}, xdraw.Over)
 		drawn = base
-		drawnBG = refBG
+		drwFit, drwMap = refFit, refMap
 	}
 
-	return canvasPlanes{w: w, h: h, fx: fx, fy: fy, refBG: refBG, drawnBG: drawnBG, rp: buildPlane(refImg, refBG), dp: buildPlane(drawn, drawnBG)}
+	return canvasPlanes{
+		w: w, h: h, fx: fx, fy: fy, refBG: refFit.info, drawnBG: drwFit.info, refFit: refFit, drwFit: drwFit,
+		rp: buildPlane(refImg, refFit, refMap), dp: buildPlane(drawn, drwFit, drwMap),
+	}
 }
 
 // Compare runs the whole comparison.
@@ -332,11 +370,14 @@ func Compare(in CompareInput) (*Comparison, error) {
 	cv := buildPlanes(in.Drawn, in.Ref, in.FrameW, in.FrameH, in.Placed, compareMaxSide)
 	w, h, fx, fy := cv.w, cv.h, cv.fx, cv.fy
 	total := float64(w * h)
-	refBG, drawnBG, rp, dp := cv.refBG, cv.drawnBG, cv.rp, cv.dp
+	rp, dp := cv.rp, cv.dp
 	res := &Comparison{
 		Target: in.Target, Regions: []Region{}, Nodes: []NodeCoverage{}, Warnings: []string{},
-		Canvas:     Size{Width: w, Height: h},
-		Background: Backgrounds{Reference: refBG.hex(), Drawn: drawnBG.hex()},
+		Canvas: Size{Width: w, Height: h},
+		Background: Backgrounds{
+			Reference: cv.refBG.hex(), Drawn: cv.drawnBG.hex(),
+			ReferenceModel: cv.refFit.desc, DrawnModel: cv.drwFit.desc,
+		},
 	}
 
 	inter, uni := 0, 0
@@ -366,6 +407,8 @@ func Compare(in CompareInput) (*Comparison, error) {
 	}
 	res.InkShare = InkShare{Reference: r3(float64(nRef) / total), Drawn: r3(float64(nDrawn) / total)}
 	res.RawMatch = RawMatch{Value: r3(float64(rawEq) / total), Note: "context only, not a quality score: the background dominates, so unrelated drawings still read 85-95%; act on iou"}
+	res.Warnings = append(res.Warnings, backgroundWarnings("reference", cv.refFit.desc)...)
+	res.Warnings = append(res.Warnings, backgroundWarnings("drawing", cv.drwFit.desc)...)
 	if nRef == 0 {
 		res.Warnings = append(res.Warnings, "the reference has no ink (it is one flat color): nothing to compare")
 	}
@@ -391,6 +434,17 @@ func Compare(in CompareInput) (*Comparison, error) {
 	}
 	res.diff = diffPNG(rp.ink, dp.ink, w, h)
 	return res, nil
+}
+
+func backgroundWarnings(side string, d BackgroundInfo) []string {
+	var out []string
+	if d.Kind == "gradient" {
+		out = append(out, fmt.Sprintf("the %s background is a gradient (corners %s): ink is measured against the modelled background, not one color", side, strings.Join(d.Corners, " ")))
+	}
+	if d.Kind != "transparent" && d.Border < bgBorderOK {
+		out = append(out, fmt.Sprintf("the %s border is not uniform (%.0f%% of it matches the background): content touching the edge may be counted as ink or as background", side, d.Border*100))
+	}
+	return out
 }
 
 func maskedImage(img *image.NRGBA, ink []bool) *image.NRGBA {
