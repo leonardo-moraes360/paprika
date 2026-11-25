@@ -1,6 +1,9 @@
 package core
 
-import "math"
+import (
+	"maps"
+	"math"
+)
 
 const constraintEps = 1e-3
 const constraintMax = 100_000.0
@@ -211,6 +214,115 @@ func applyConstraints(before, draft *Document) {
 				}
 				for _, cid := range append([]string(nil), n.Strings("children")...) {
 					adjustChild(draft, n, cid, oldW, oldH, newW, newH)
+				}
+			}
+		}
+		if IsContainer(n.Str("type")) {
+			for _, c := range n.Strings("children") {
+				visit(c)
+			}
+		}
+	}
+	for _, id := range draft.Strings("rootIds") {
+		visit(id)
+	}
+	followLayout(before, draft)
+}
+
+func layoutAll(doc *Document) map[string]LayoutBox {
+	out := map[string]LayoutBox{}
+	var pages []string
+	for _, id := range doc.Strings("rootIds") {
+		if n := GetNode(doc, id); n != nil && n.Str("type") == "page" {
+			pages = append(pages, id)
+		}
+	}
+	if len(pages) == 0 {
+		boxes, err := Layout(doc, LayoutOptions{})
+		if err != nil {
+			return out
+		}
+		return boxes
+	}
+	for _, id := range pages {
+		boxes, err := Layout(doc, LayoutOptions{RootID: id})
+		if err != nil {
+			continue
+		}
+		maps.Copy(out, boxes)
+	}
+	return out
+}
+
+func hasPinned(doc *Document, f *Node) bool {
+	for _, cid := range f.Strings("children") {
+		c := GetNode(doc, cid)
+		if !adjustable(c) || inFlow(f, c) {
+			continue
+		}
+		if h, v := constraintModes(c); h != "left" || v != "top" {
+			return true
+		}
+	}
+	return false
+}
+
+// followLayout: frames whose own size is not numeric (fill, hug) still change size when an
+// ancestor is resized or their content changes. Their pinned non-flow children follow the delta of
+// the laid-out size.
+func followLayout(before, draft *Document) {
+	nodes := Nodes(draft)
+	if nodes == nil {
+		return
+	}
+	cands := map[string]bool{}
+	for _, id := range nodes.Keys() {
+		n := nodes.Obj(id)
+		if n == nil || n.Str("type") != "frame" || n.Str("instanceOf") != "" || n.Str("sourceId") != "" {
+			continue
+		}
+		prev := GetNode(before, id)
+		if prev == nil || prev.Str("type") == "page" {
+			continue
+		}
+		dynW := !sizeNumOk(n, "width") && !sizeNumOk(prev, "width")
+		dynH := !sizeNumOk(n, "height") && !sizeNumOk(prev, "height")
+		if (dynW || dynH) && hasPinned(draft, n) {
+			cands[id] = true
+		}
+	}
+	if len(cands) == 0 {
+		return
+	}
+	was := layoutAll(before)
+	now := layoutAll(draft)
+	var visit func(string)
+	visit = func(id string) {
+		n := GetNode(draft, id)
+		if n == nil {
+			return
+		}
+		if cands[id] {
+			delete(cands, id)
+			prev := GetNode(before, id)
+			a, aok := was[id]
+			b, bok := now[id]
+			if aok && bok {
+				dynW := !sizeNumOk(n, "width") && !sizeNumOk(prev, "width")
+				dynH := !sizeNumOk(n, "height") && !sizeNumOk(prev, "height")
+				wc := dynW && math.Abs(b.Width-a.Width) > constraintEps
+				hc := dynH && math.Abs(b.Height-a.Height) > constraintEps
+				if wc || hc {
+					oldW, oldH := b.Width, b.Height
+					if wc {
+						oldW = a.Width
+					}
+					if hc {
+						oldH = a.Height
+					}
+					for _, cid := range append([]string(nil), n.Strings("children")...) {
+						adjustChild(draft, n, cid, oldW, oldH, b.Width, b.Height)
+					}
 				}
 			}
 		}
