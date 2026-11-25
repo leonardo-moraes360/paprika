@@ -42,7 +42,7 @@ export const ui = {
   colorThumb:
     "pointer-events-none absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-tag",
   colorChannel:
-    "grid gap-0.5 text-2xs text-muted [&_input]:h-7 [&_input]:rounded-md [&_input]:border [&_input]:border-line [&_input]:bg-panel [&_input]:px-1.5 [&_input]:text-sm [&_input]:text-fg [&_input]:outline-none [&_input:focus-visible]:border-select",
+    "grid min-w-0 gap-0.5 [&_input]:min-w-0 text-2xs text-muted [&_input]:h-7 [&_input]:rounded-md [&_input]:border [&_input]:border-line [&_input]:bg-panel [&_input]:px-1.5 [&_input]:text-sm [&_input]:text-fg [&_input]:outline-none [&_input:focus-visible]:border-select",
   colorToken:
     "flex w-12 cursor-pointer flex-col items-center gap-1 border-0 bg-transparent p-0 text-2xs text-muted outline-none hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select",
   colorTokenSwatch: "size-[22px] rounded-md border border-line",
