@@ -995,3 +995,61 @@ Tarefa: desenhar 3–4 direções de marca (símbolo, letreiro, paleta, padrão)
 | 182 | Rodar de novo um script de desenho sem deixar gêmeos vazios | Duas rodadas que falharam depois de `create_workspace` deixaram dois `Marca · conceitos (nov/2026)` (um vazio). `create_page` tem `ensure: true`; `create_workspace` não | `ensure: true` em `create_workspace` (devolve o existente pelo nome) | P3 |
 
 - Funcionou: `place: "none"` com x/y exatos em quatro boards de 1440×960; `strokeCap`/`strokeJoin` em paths com traço; `viewBox` escalando a espessura do traço junto do desenho; `render_screenshot` `scale: 2` (2880×1920) nos dois servidores; o workspace ativo nunca mudou.
+
+## 2026-11-24: redesenhar seis logos de referência e pontuar (rodada de réplicas do mantenedor, workspace "Veredito · Claude")
+
+Tarefa: redesenhar seis imagens de referência (um anel em degradê, uma explosão laranja, uma baleia com wordmark, um grou, uma grade de 12 marcas em degradê e uma grade de 20 monogramas) pelo MCP, parte à mão e parte por um script Python chamando `/mcp` por HTTP, e depois pontuar cada réplica contra a referência. Os achados viraram a seção T do backlog (PAP-A-005..021).
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 183 | Um número para "quão perto está a réplica" | Medido à mão: igualdade de pixels crus deu 88–97 % para todas (o fundo domina), enquanto o IoU das formas desenhadas deu 41–74 % (anel 74 %, explosão 63 %, baleia 43 %, grou 41 %). A baleia parecia a mais fiel no olho e deu 43 % | Feito (2026-11-25, PAP-A-015, #198): `compare_reference` mede IoU da forma, regiões que faltam/sobram, cobertura por nó e desalinhamento global | — |
+| 184 | Cantos arredondados em pétalas poligonais | Escrevi um helper em Python que arredonda os cantos com curvas quadráticas antes de cada `create_nodes` | Feito (2026-11-25, PAP-A-017, #194): `round_path_corners`, `create_shape_path` | — |
+| 185 | Degradê num path | `fill: "linear-gradient(...)"` era aceito e pintava preto; o campo estruturado `gradient` funcionava, mas o guia não falava dele | Feito (2026-11-25, PAP-A-007, #191; linha no guia nesta mudança) | — |
+| 186 | Furo numa forma com degradê | `combine_paths` subtract funcionava, mas era uma chamada por par e perdia o degradê a cada vez (7 chamadas para um anel) | Feito (2026-11-25, PAP-A-018, #192): cadeia `operations` e `style` | — |
+| 187 | Contornos orgânicos (asa do grou, monogramas) | Cada pena escrita em coordenadas; nada para começar dos contornos da própria referência | Feito (2026-11-25, PAP-A-016, #197 e PAP-A-014, #195): `trace_image`, `analyze_image` | — |
+| 188 | A mesma imagem no canvas e no screenshot | A prancha da baleia ficou vazia no modo GPU do mantenedor e completa em DOM/CPU; "estaleiro" com `fontFamily: "Inter"` saiu serifado no canvas | Fontes feitas (PAP-A-011, #190); GPU: endurecimento no #193, causa não reproduzida | P1 |
+| 189 | Abrir o link de um workspace sem mudar todo mundo | Abrir `/w/<id>` para conferir o desenho tornou esse workspace o ativo do servidor | Feito (2026-11-24, PAP-A-005, #185) | — |
+
+- Funcionou: cada prancha levou uma ou duas chamadas `create_nodes` de um script falando com `/mcp` por HTTP (initialize, `notifications/initialized`, `tools/call`), sem erro nem travamento; `combine_paths` union/subtract/intersect em rect, elipse e path; o `gradient` estruturado com paradas com alfa em paths.
+- Mais simples para o próximo agente: comece por `analyze_image` ou `trace_image`, desenhe a estrutura, rode `fit_to_reference` e depois `compare_reference` até `pass`.
+
+## 2026-11-25: as mesmas seis referências de novo, com as ferramentas novas (workspace "Veredito 2 · Claude (ferramentas)")
+
+Tarefa: refazer as seis réplicas da seção anterior com `analyze_image` → `trace_image` num frame pintado com o fundo detectado → `compare_reference`, num script só, cerca de 0,4 s por prancha. IoU da forma pelo `compare_reference`, primeira rodada (à mão) → esta rodada: anel 0,77 → 0,92, explosão 0,63 → 0,97, baleia 0,42 → 0,96, grou 0,31 → 0,85, grade de 12 em degradê 0,52 → 0,74, grade de 20 monogramas 0,41 → 0,87.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 190 | Degradês vetorizados como degradês | `trace_image` quantiza uma rampa suave em faixas chapadas: o anel virou 19 manchas lisas, os monogramas em degradê saíram listrados e perderam as pontas escuras (IoU 0,65; 0,74 com `maxColors: 16`, 165 paths) | Detectar uma mancha cuja cor varia suavemente e emitir um path com `gradient` (linear/radial ajustado aos pixels) em vez de um path por faixa | P1 |
+| 191 | Formas vetorizadas que se encostam | Paths vizinhos do anel deixam frestas finas onde o fundo aparece (bordas com anti-aliasing dos dois lados) | Sobrepor as bordas compartilhadas em meio pixel, ou vetorizar manchas encostadas de uma mesma silhueta como um path só, com as faixas como degradê (#190) | P2 |
+| 192 | Detalhes pequenos preservados | Com o `minArea` padrão, as caixinhas da baleia (quadrados de 13 px) sumiram como ruído; `minArea: 0.00005` manteve e o IoU foi de 0,92 → 0,96 | Manter manchas pequenas e compactas com contraste forte mesmo abaixo do `minArea`, ou baixar o padrão | P2 |
+| 193 | Painéis de foto ou croqui | A referência do grou tem um croqui a lápis em papel; virou ruído bege/cinza | Esperado; `colors` ou `region` já limitam. Vale uma frase no guia | P3 |
+
+- Funcionou: `compare_reference` deu às pranchas antigas notas perto das medidas à mão (anel 0,77, baleia 0,42); o fundo do `analyze_image` e o posicionamento do `trace_image` acertaram cada prancha de primeira; nenhum erro, nenhum travamento, cada prancha num passo de undo.
+
+## 2026-11-25: 20 referências do Dribbble vetorizadas e pontuadas (workspace "Estudo Dribbble · Claude (20 referências)")
+
+Tarefa: 20 shots públicos do Dribbble (11 logos e folhas de marcas, 6 ícones de app, um board de branding, uma ilustração, um hero de site) passados por `analyze_image` → frame com o fundo detectado → `trace_image` (padrão, depois `maxColors: 12, minArea: 0.00005`, mantendo o melhor) → `compare_reference`. Menos de 0,5 s por imagem de ponta a ponta. IoU da forma: média 0,87, mediana 0,94; 13 de 20 com ≥ 0,90 (marcas e ícones chapados 0,98–0,995), 4 abaixo de 0,80. As imagens de referência não vão para o repositório.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 194 | Uma nota que valha em fundo com degradê | O wordmark "ranker" sobre um degradê laranja suave ficou bom no olho, mas deu IoU 0,26 (sobra 0,69): tinta é "difere da cor da borda", então boa parte do fundo em degradê contou como tinta dos dois lados | Modelar o fundo (estimativa por pixel, por exemplo um ajuste de baixa frequência dos pixels ligados à borda) antes das máscaras de tinta; avisar quando a borda não é uniforme | P1 |
+| 195 | Folhas com muitas marcas | Folhas de marcas (40–140 manchas) bateram no `maxPaths`: marcas inteiras e todos os wordmarks sumiram (IoU 0,58–0,68); veio `truncated: true`, mas as descartadas são as pequenas, que são o texto | Subir ou tirar o limite padrão com um orçamento por chamada, descartar por importância visual e não por área, e dizer quais ids caíram | P1 |
+| 196 | Texto pequeno | Wordmarks e textos de UI abaixo de ~14 px viraram manchas que parecem glifos quebrados ("Ma imze Your Socia") | Detectar linhas de manchas pequenas com cara de texto e mantê-las como um grupo, ou passar para `import_html`/texto com uma dica `text` | P2 |
+| 197 | Degradês e fotos | Ícones com degradê suave saíram em faixas (igual ao #190); uma foto virou uma silhueta posterizada | Igual ao #190 para degradês; para regiões de foto, oferecer `asImage: true` para colocar a região como imagem em vez de vetorizar | P2 |
+| 198 | `pathCount` vs `maxPaths` | `pathCount` deu 96–660 com `maxPaths` padrão 60 e `truncated` true; não fica claro quantos nós foram criados | Informar `created` e `dropped` separados | P3 |
+
+- Funcionou: todas as chamadas deram certo, sem travar; logos e ícones chapados (fitness, B, rinoceronte, ícone de tarefas, Acquit) com IoU 0,98–0,995 em 2–12 paths; ilustração (0,94) e board de branding (0,94) servem como ponto de partida.
+
+## 2026-11-25: as mesmas 20 referências com um mix de ferramentas (workspace "Estudo Dribbble · mix de ferramentas v4 (Claude)")
+
+Tarefa: os mesmos 20 shots do Dribbble, mas escolhendo a ferramenta por região em vez de vetorizar tudo: regiões de foto colocadas como imagem (`import_image` de um recorte local), formas que o `analyze_image` encaixa como círculo, elipse, retângulo ou polígono com IoU ≥ 0,93 criadas como primitivas, e o resto vindo do `trace_image` (`dryRun`, depois `create_nodes`). IoU médio 0,907 (só trace: 0,871), mediana 0,964. 36 primitivas, 1498 paths vetorizados, 14 imagens. As fotos agora parecem fotos (o olho atrás dos óculos, a pulseira do relógio, o cartaz) em vez de manchas posterizadas, e a folha de 140 ícones foi de 0,68 para 0,91.
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 199 | Saber qual ferramenta serve para cada região | Nada no Paprika diz "esta região é foto, esta é degradê, esta é forma chapada, esta é texto". O agente teve que escrever o próprio classificador em Python (granulação por bloco: fração de pixels que diferem de um blur de 1,2 px; força de borda e número de cores sozinhos confundiam degradês e folhas de ícones com foto) | `analyze_image` devolver `regions: [{kind: photo|gradient|flat|text, box, suggest: import_image|gradient|primitive|trace_image|text}]` para o agente misturar ferramentas sem chutar | P1 |
+| 200 | Colocar um recorte da referência como imagem | `import_image` aceita o arquivo inteiro; o agente recortou localmente e mandou um data URL | `import_image {src, crop: {x, y, width, height}}` (em unidades da origem ou do frame) | P2 |
+| 201 | Vetorizar só algumas manchas | Para misturar, o agente rodou `trace_image` com `dryRun`, casou paths com as manchas do `analyze_image` por cor e sobreposição de caixa, e criou o subconjunto ele mesmo | `trace_image {blobIds}` (ids do `analyze_image`) e `exclude: [caixas]` para pular regiões de foto | P2 |
+| 202 | Primitivas onde elas servem | Só 36 de ~1500 formas encaixaram numa primitiva com IoU ≥ 0,93 em arte real (bordas com anti-aliasing, cantos com raios diferentes); um path vetorizado da mesma forma pontua igual, então o IoU sozinho nunca premia o nó mais simples | Pôr `nodeCount` e uma dica de "editabilidade" no `compare_reference`, e encaixar retângulos com raio por canto e polígonos arredondados antes de cair no freeform | P2 |
+| 203 | Orientação para não usar uma ferramenta para tudo | O guia lista cada ferramenta isolada; nada diz quando preferir primitiva a path, imagem a trace, ou degradê a faixas | Uma tabela de decisão no guia: geométrico chapado → primitivas (`create_shape_path`, rect, elipse); orgânico chapado → `trace_image`; rampa suave → `gradient`; foto → `import_image`/`place_reference`; texto → nós de texto | P1 |
+
+- Continuam abertos dos estudos anteriores: fundo em degradê quebra a nota (#194, o "ranker" segue em 0,26), degradês vetorizados em faixas (#190), limite de 200 em `maxPaths` nas folhas de marcas (#195).
