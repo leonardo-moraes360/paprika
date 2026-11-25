@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/leonardo-moraes360/paprika/server-go/internal/jsonv"
@@ -682,7 +683,41 @@ func withReorder(inv any, reorder []any) any {
 	return append(flatten(inv), reorder...)
 }
 
+// gradientColorProblem finds a CSS gradient or url() in a `fill` or `color` field of an op input
+// (a color field like that paints black on some nodes) and names the structured `gradient` field.
+func gradientColorProblem(input any, path []string) string {
+	switch t := input.(type) {
+	case []any:
+		for k, v := range t {
+			if m := gradientColorProblem(v, append(path[:len(path):len(path)], strconv.Itoa(k))); m != "" {
+				return m
+			}
+		}
+	case *jsonv.Object:
+		for _, key := range t.Keys() {
+			v, _ := t.Get(key)
+			if s, ok := v.(string); ok && (key == "fill" || key == "color") && reColorGradient.MatchString(s) {
+				return strings.Join(append(path[:len(path):len(path)], key), ".") + ": " + gradientColorMsg
+			}
+			if m := gradientColorProblem(v, append(path[:len(path):len(path)], key)); m != "" {
+				return m
+			}
+		}
+	}
+	return ""
+}
+
 func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, error) {
+	switch op.Str("op") {
+	case "create":
+		if m := gradientColorProblem(op.Obj("node"), nil); m != "" {
+			return nil, opErr(i, "invalid node: %s", m)
+		}
+	case "update":
+		if m := gradientColorProblem(op.Obj("props"), nil); m != "" {
+			return nil, opErr(i, "invalid props: %s", m)
+		}
+	}
 	switch op.Str("op") {
 	case "create":
 		parentID, _ := op.Get("parentId")

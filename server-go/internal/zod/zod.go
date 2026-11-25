@@ -225,7 +225,11 @@ type NumberSchema struct {
 	isInt        bool
 	min, max     *float64
 	minExclusive bool
+	rangeMsg     string // replaces the too_small/too_big messages when set
 }
+
+// RangeMsg replaces the messages of the min/max checks (the issues keep their code).
+func (s *NumberSchema) RangeMsg(msg string) *NumberSchema { s.rangeMsg = msg; return s }
 
 func Number() *NumberSchema { return &NumberSchema{} }
 
@@ -270,11 +274,19 @@ func (s *NumberSchema) parse(v any, present bool, path []any, c *ctx) (any, bool
 		if s.minExclusive {
 			op = ">"
 		}
-		c.addCheck(path, "too_small", fmt.Sprintf("Too small: expected number to be %s%s", op, jsonv.FormatNumber(*s.min)),
+		msg := fmt.Sprintf("Too small: expected number to be %s%s", op, jsonv.FormatNumber(*s.min))
+		if s.rangeMsg != "" {
+			msg = s.rangeMsg
+		}
+		c.addCheck(path, "too_small", msg,
 			"origin", "number", "code", "too_small", "minimum", *s.min, "inclusive", !s.minExclusive)
 	}
 	if s.max != nil && f > *s.max {
-		c.addCheck(path, "too_big", fmt.Sprintf("Too big: expected number to be <=%s", jsonv.FormatNumber(*s.max)),
+		msg := fmt.Sprintf("Too big: expected number to be <=%s", jsonv.FormatNumber(*s.max))
+		if s.rangeMsg != "" {
+			msg = s.rangeMsg
+		}
+		c.addCheck(path, "too_big", msg,
 			"origin", "number", "code", "too_big", "maximum", *s.max, "inclusive", true)
 	}
 	return f, true
@@ -294,6 +306,37 @@ func (s numberOrToken) parse(v any, present bool, path []any, c *ctx) (any, bool
 		return str, true
 	}
 	return s.num.parse(v, present, path, c)
+}
+
+// ---- custom ----
+
+// Cx is what a Custom function uses to report issues and parse nested values.
+type Cx struct {
+	c    *ctx
+	path []any
+}
+
+// Fail records an aborting `custom` issue at the value's path.
+func (x *Cx) Fail(msg string) { x.c.add(x.path, "custom", msg, "code", "custom") }
+
+// Sub parses v with s at path+seg (seg nil: the value's own path).
+func (x *Cx) Sub(s Schema, v any, seg any) (any, bool) {
+	p := x.path
+	if seg != nil {
+		p = push(p, seg)
+	}
+	return s.parse(v, true, p, x.c)
+}
+
+type custom struct {
+	fn func(v any, present bool, x *Cx) (any, bool)
+}
+
+// Custom is a schema written by hand (z.unknown().transform(...) in the TypeScript reference).
+func Custom(fn func(v any, present bool, x *Cx) (any, bool)) Schema { return custom{fn} }
+
+func (s custom) parse(v any, present bool, path []any, c *ctx) (any, bool) {
+	return s.fn(v, present, &Cx{c, path})
 }
 
 // ---- boolean, literal, enum, unknown ----

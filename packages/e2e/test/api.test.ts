@@ -1220,6 +1220,67 @@ describe("API: MCP", () => {
     }
   }, 60_000);
 
+  it("entradas estritas: padding de 2 valores, argumentos desconhecidos, get_nodes parcial, export_image svg", async () => {
+    const c = client;
+    // padding [vertical, horizontal] normalizes like CSS; other lengths name the accepted shapes.
+    const ok = await call(c, "create_nodes", {
+      nodes: [{ type: "frame", id: "strict-pad", width: 100, height: 60, layout: { mode: "row", padding: [8, 16] } }],
+    });
+    expect(ok.isError, textOf(ok)).toBeFalsy();
+    const got = (await call(c, "get_nodes", { ids: ["strict-pad"] })) as ToolResult & {
+      structuredContent?: { nodes: { layout: { padding: unknown } }[]; missing?: string[] };
+    };
+    expect(got.structuredContent!.nodes[0]!.layout.padding).toEqual([8, 16, 8, 16]);
+    expect(got.structuredContent!.missing).toBeUndefined();
+    const three = await call(c, "create_nodes", { nodes: [{ type: "frame", id: "strict-pad3", layout: { padding: [1, 2, 3] } }] });
+    expect(three.isError).toBe(true);
+    expect(textOf(three)).toMatch(/\[vertical, horizontal\] or \[top, right, bottom, left\]/);
+
+    // Gradient strings in a color point at the structured gradient field; width tokens name the accepted shapes.
+    const grad = await call(c, "create_nodes", { nodes: [{ type: "path", id: "strict-g", d: "M0 0 L10 10", fill: "linear-gradient(90deg, #fff, #000)" }] });
+    expect(grad.isError).toBe(true);
+    expect(textOf(grad)).toMatch(/structured gradient field/);
+    const tok = await call(c, "create_nodes", { nodes: [{ type: "rect", id: "strict-w", width: "$space.8" }] });
+    expect(tok.isError).toBe(true);
+    expect(textOf(tok)).toMatch(/number \(0\.\.100000\), "hug" or "fill"/);
+    const lh = await call(c, "create_nodes", { nodes: [{ type: "text", id: "strict-t", text: "a", lineHeight: 22 }] });
+    expect(lh.isError).toBe(true);
+    expect(textOf(lh)).toMatch(/multiplier.*1\.375/);
+
+    // Unknown top-level arguments are rejected with the valid keys and a hint.
+    for (const [tool, args, hint] of [
+      ["render_screenshot", { id: "strict-pad" }, "rootId"],
+      ["render_screenshot", { nodeId: "strict-pad" }, "rootId"],
+      ["export_image", { id: "strict-pad" }, "rootId"],
+      ["export_code", { nodeId: "strict-pad", format: "html" }, "rootId"],
+      ["lint_design", { ids: ["strict-pad"] }, "rootIds"],
+    ] as const) {
+      const bad = await call(c, tool, args);
+      expect(bad.isError, tool).toBe(true);
+      expect(textOf(bad)).toContain(`did you mean "${hint}"`);
+      expect(textOf(bad)).toMatch(/valid arguments: /);
+    }
+
+    // get_nodes returns the nodes that exist plus `missing`; it fails only when none exist.
+    const part = (await call(c, "get_nodes", { ids: ["strict-pad", "strict-gone"] })) as ToolResult & {
+      structuredContent?: { nodes: { id: string }[]; missing?: string[] };
+    };
+    expect(part.isError, textOf(part)).toBeFalsy();
+    expect(part.structuredContent!.nodes.map((n) => n.id)).toEqual(["strict-pad"]);
+    expect(part.structuredContent!.missing).toEqual(["strict-gone"]);
+    expect(textOf(part)).toContain("strict-gone");
+    const none = await call(c, "get_nodes", { ids: ["strict-gone"] });
+    expect(none.isError).toBe(true);
+
+    // export_image accepts svg (same vector SVG as export_code).
+    const svg = (await call(c, "export_image", { rootId: "strict-pad", format: "svg" })) as ToolResult & {
+      structuredContent?: { format: string; mimeType: string };
+    };
+    expect(svg.isError, textOf(svg)).toBeFalsy();
+    expect(textOf(svg)).toMatch(/^<svg/);
+    expect(svg.structuredContent).toMatchObject({ format: "svg", mimeType: "image/svg+xml" });
+  }, 30_000);
+
   it("resize_image: presets, fit, upscale/downscale, GIF primeiro frame, sem Chromium", async () => {
     const previousChromium = process.env.PAPRIKA_CHROMIUM;
     delete process.env.PAPRIKA_CHROMIUM;
@@ -1637,7 +1698,7 @@ describe("API: MCP", () => {
   it("tokens de comprimento: create, reflow, recusa de cor e var() no export", async () => {
     const c = client;
     const guide = textOf(await call(c, "get_design_guide", {}));
-    expect(guide).toMatch(/not two values/);
+    expect(guide).toMatch(/\[vertical, horizontal\]/);
     expect(guide).toMatch(/\[top, right, bottom, left\]/);
     await call(c, "set_tokens", { tokens: { "space.md": 8, "radius.md": 12, brand: "#ff0000" } });
     await call(c, "create_nodes", {

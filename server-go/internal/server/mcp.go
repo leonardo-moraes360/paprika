@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"math"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -404,19 +406,26 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 				return nil, err
 			}
 			ids := a.Strings("ids")
-			var missing []string
+			missing := []any{}
 			out := make([]any, 0, len(ids))
 			for _, id := range ids {
 				n := core.GetNode(d, id)
 				if n == nil {
 					missing = append(missing, id)
+					continue
 				}
 				out = append(out, n)
 			}
-			if len(missing) > 0 {
-				return nil, fmt.Errorf("nodes do not exist: %s", strings.Join(missing, ", "))
+			if len(out) == 0 {
+				return nil, fmt.Errorf("nodes do not exist: %s", strings.Join(a.Strings("ids"), ", "))
 			}
-			return jsonShown(jsonv.NewObject("nodes", out), out), nil
+			structured := jsonv.NewObject("nodes", out)
+			if len(missing) > 0 {
+				// The nodes that exist still come back (an undo may have removed some of them).
+				structured.Set("missing", missing)
+				return jsonShown(structured, jsonv.NewObject("nodes", out, "missing", missing)), nil
+			}
+			return jsonShown(structured, out), nil
 		})
 
 	add("find_nodes", z.Object(
@@ -912,7 +921,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if a.Has("name") {
 			op.Set("name", a.Str("name"))
 		}
-		// `page` names the new page: `created` also lists the first page made the first time ("Page 1").
+		// `page` names the new page: `created` also lists the first page ("Page 1") made when the document already had content.
 		return writeWith(a, []any{op}, labelOr(a, "create page"), "page", id)
 	})
 
@@ -1505,13 +1514,32 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 
 	add("export_image", z.Object(
 		optStr("rootId"),
-		z.Field{Name: "format", Schema: z.Default(z.Enum("png", "jpeg", "webp", "avif", "pdf"), "png")},
+		z.Field{Name: "format", Schema: z.Default(z.Enum("png", "jpeg", "webp", "avif", "pdf", "svg"), "png")},
 		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
 		workspaceID(),
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		d, err := docOf(a)
 		if err != nil {
 			return nil, err
+		}
+		if a.Str("format") == "svg" {
+			// Same vector SVG as export_code {format: "svg"}; scale does not apply.
+			r, err := core.ExportSVG(d, a.Str("rootId"), nil)
+			if err != nil {
+				return nil, err
+			}
+			content := []any{jsonv.NewObject("type", "text", "text", r.SVG)}
+			if len(r.Warnings) > 0 {
+				content = append(content, jsonv.NewObject("type", "text", "text", "warnings: "+strings.Join(r.Warnings, "; ")))
+			}
+			sc := jsonv.NewObject(
+				"width", math.Ceil(r.Width),
+				"height", math.Ceil(r.Height),
+				"format", "svg",
+				"mimeType", "image/svg+xml",
+				"warnings", jsonv.FromGo(r.Warnings),
+			)
+			return jsonv.NewObject("content", content, "structuredContent", sc), nil
 		}
 		out, err := export.Export(d, a.Str("rootId"), a.Str("format"), a.Num("scale"))
 		if err != nil {
@@ -2046,6 +2074,11 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 		if !present || rawArgs == nil {
 			rawArgs = jsonv.NewObject()
 		}
+		if o, ok := rawArgs.(*jsonv.Object); ok {
+			if msg := unknownArgs(name, o, t.schema.Keys()); msg != "" {
+				return errorResult((&mcpError{codeInvalidParams, "Input validation error: Invalid arguments for tool " + name + ": " + msg}).Error())
+			}
+		}
 		parsed, err := z.Parse(t.schema, rawArgs)
 		if err != nil {
 			ze, _ := errors.AsType[*z.Error](err)
@@ -2072,6 +2105,62 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 		return errorResult(err.Error())
 	}
 	return m.withOpenPins(name, res)
+}
+
+// argAliases maps a key agents guess to the keys the tools really take, in order of preference.
+var argAliases = map[string][]string{
+	"id":        {"rootId", "ids"},
+	"nodeId":    {"rootId", "id"},
+	"node":      {"rootId", "id"},
+	"frameId":   {"rootId"},
+	"frame":     {"rootId"},
+	"root":      {"rootId"},
+	"page":      {"pageId", "rootId"},
+	"ids":       {"rootIds"},
+	"nodeIds":   {"rootIds", "ids"},
+	"rootIds":   {"rootId", "ids"},
+	"workspace": {"workspaceId"},
+}
+
+// unknownArgs names the top-level arguments a tool does not take (they used to be dropped
+// silently, so a render_screenshot {id} shot the whole canvas). "" when there are none.
+func unknownArgs(tool string, args *jsonv.Object, valid []string) string {
+	has := map[string]bool{}
+	for _, k := range valid {
+		has[k] = true
+	}
+	var msgs []string
+	for _, k := range args.Keys() {
+		if has[k] {
+			continue
+		}
+		msg := fmt.Sprintf("unknown argument %q", k)
+		hint := ""
+		for _, c := range argAliases[k] {
+			if has[c] {
+				hint = c
+				break
+			}
+		}
+		if hint == "" {
+			for _, c := range []string{k + "s", strings.TrimSuffix(k, "s")} {
+				if c != k && has[c] {
+					hint = c
+					break
+				}
+			}
+		}
+		if hint != "" {
+			msg += fmt.Sprintf(" (did you mean %q?)", hint)
+		}
+		msgs = append(msgs, msg)
+	}
+	if len(msgs) == 0 {
+		return ""
+	}
+	sorted := append([]string(nil), valid...)
+	sort.Strings(sorted)
+	return strings.Join(msgs, "; ") + "; valid arguments: " + strings.Join(sorted, ", ")
 }
 
 // Handle processes one JSON-RPC message; it returns nil for notifications and responses.
