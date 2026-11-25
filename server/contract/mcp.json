@@ -6140,7 +6140,7 @@
     {
       "name": "get_history",
       "title": "History",
-      "description": "Latest transactions (author, label, time, number of ops). Shows what the human changed on the canvas. The text result is the array; structuredContent is { entries }.",
+      "description": "Latest transactions (author, label, time, number of ops). Shows what the human changed on the canvas. Also returns the redo stack (redo: same shape as entries, the last item is the one redo would reapply), canUndo and canRedo, and steps: the most recent undo and redo steps (kind \"undo\" or \"redo\", actor who triggered it (\"user\" for the canvas, the agent name over MCP), at, and the label of the transaction it moved), oldest first, kept in the database across restarts. Use steps to find out who undid a write that vanished. The text result is the entries array; structuredContent is { entries, redo, steps, canUndo, canRedo }.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -6190,10 +6190,80 @@
               ],
               "additionalProperties": false
             }
+          },
+          "redo": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "actor": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number"
+                },
+                "ops": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "actor",
+                "label",
+                "at",
+                "ops"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "undo",
+                    "redo"
+                  ]
+                },
+                "actor": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "actor",
+                "at",
+                "label"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "canUndo": {
+            "type": "boolean"
+          },
+          "canRedo": {
+            "type": "boolean"
           }
         },
         "required": [
-          "entries"
+          "entries",
+          "redo",
+          "steps",
+          "canUndo",
+          "canRedo"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
