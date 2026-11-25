@@ -99,13 +99,19 @@ export function measureBoxes(world: HTMLElement): Map<string, Box> {
     origin.set(el, v);
     return v;
   };
+  // Paths are measured from their inline style (exact, fractional), never from offset geometry. An
+  // <svg> has no offset geometry, and a path the WASM layer paints is a <div> instead (RenderNode)
+  // whose offsetLeft/offsetWidth round to whole pixels. Measuring the two differently made the box,
+  // and the overlap test that decides who paints it, depend on that very decision: the path flipped
+  // between the layers on every commit (PAP-A-035).
   for (const el of world.querySelectorAll<Element>("[data-paprika-id]")) {
-    if (el instanceof HTMLElement) {
+    const isPath = (el as HTMLElement | SVGElement).dataset.paprikaType === "path";
+    if (el instanceof HTMLElement && !isPath) {
       const p = pos(el);
       if (p) boxes.set(el.dataset.paprikaId!, { x: p.x, y: p.y, w: el.offsetWidth, h: el.offsetHeight });
       continue;
     }
-    if (el instanceof SVGElement && el.parentElement instanceof HTMLElement) {
+    if ((el instanceof SVGElement || el instanceof HTMLElement) && el.parentElement instanceof HTMLElement) {
       const p = pos(el.parentElement);
       const left = Number.parseFloat(el.style.left);
       const top = Number.parseFloat(el.style.top);

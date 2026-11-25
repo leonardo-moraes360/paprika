@@ -476,3 +476,39 @@ describe.skipIf(!wasmBuilt)("E2E: WASM desenha formas escuras sobre o fundo do q
     expect(errors).toEqual([]);
   });
 });
+
+// PAP-A-035: a path with a fractional box next to a DOM-painted node used to flip between the WASM
+// layer and the DOM on every commit (the box was measured exact under an <svg> and rounded under the
+// <div> that replaces it), so the layout effect set `painted` forever and React threw error #185.
+describe.skipIf(!wasmBuilt)("E2E: WASM estabiliza um path de caixa fracionária (PAP-A-035)", () => {
+  let external: ExternalServer | undefined;
+  let browser: Browser;
+  let page: Page;
+  const errors: string[] = [];
+
+  beforeAll(async () => {
+    external = await startServer({ seed: join(root, "examples/wasm-fractional-path.paprika.json"), webRoot });
+    browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
+    page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await pinLocale(page, "pt-BR");
+    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("console", (m) => {
+      if (m.type() === "error") errors.push(m.text());
+    });
+  }, 60_000);
+
+  afterAll(async () => {
+    await browser?.close();
+    await external?.stop();
+  });
+
+  it("abre sem estourar a profundidade de atualização e mantém o path no WASM", async () => {
+    await openCanvas(page, external!.url, "wasm");
+    expect(["cpu", "webgpu"]).toContain(await page.getByTestId("renderer-toggle").getAttribute("data-backend"));
+    expect(await page.getByText("O canvas parou").count()).toBe(0);
+    await page.waitForTimeout(500);
+    // The same answer after settling: no flip-flop between the layers.
+    expect(await page.locator('[data-paprika-id="ink"]').evaluate((el) => el.tagName.toLowerCase())).toBe("div");
+    expect(errors.filter((e) => !/WebSocket|adapters/i.test(e))).toEqual([]);
+  });
+});
