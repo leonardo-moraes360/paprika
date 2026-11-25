@@ -53,7 +53,7 @@ func TestStorePersistsAssets(t *testing.T) {
 	if s3.Doc().Has("assets") {
 		t.Fatal("undone assets came back after restart")
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if ok, err := s3.Redo("test"); !ok || err != nil {
 			t.Fatalf("redo: %v %v", ok, err)
 		}
