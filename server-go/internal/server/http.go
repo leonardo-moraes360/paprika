@@ -878,16 +878,22 @@ func serveStatic(w http.ResponseWriter, r *http.Request, webRoot string) {
 		send(w, 403, errBody("forbidden path"), "")
 		return
 	}
-	rel = strings.TrimLeft(path.Clean("/"+rel), "/")
-	file := filepath.Join(webRoot, filepath.FromSlash(rel))
-	if file != webRoot && !strings.HasPrefix(file, webRoot+string(filepath.Separator)) {
+	rel = filepath.FromSlash(strings.TrimLeft(path.Clean("/"+rel), "/"))
+	if rel != "" && !filepath.IsLocal(rel) {
 		send(w, 403, errBody("forbidden path"), "")
 		return
 	}
-	if st, err := os.Stat(file); err != nil || st.IsDir() {
-		file = filepath.Join(webRoot, "index.html")
+	root, err := os.OpenRoot(webRoot)
+	if err != nil {
+		send(w, 500, errBody(err.Error()), "")
+		return
 	}
-	data, err := os.ReadFile(file)
+	defer root.Close()
+	file := rel
+	if st, err := root.Stat(file); file == "" || err != nil || st.IsDir() {
+		file = "index.html"
+	}
+	data, err := root.ReadFile(file)
 	if err != nil {
 		send(w, 500, errBody(err.Error()), "")
 		return

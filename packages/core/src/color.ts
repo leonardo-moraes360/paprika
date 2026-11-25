@@ -105,7 +105,7 @@ function splitDepth(s: string, sep: string): [string, string] | undefined {
 }
 
 function num(s: string): number | undefined {
-  if (!/^-?\d*\.?\d+$/.test(s.trim())) return undefined;
+  if (!/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(s.trim())) return undefined;
   const n = Number(s);
   return Number.isFinite(n) ? n : undefined;
 }
@@ -169,7 +169,7 @@ function parseOklch(s: string): RGBA | undefined {
 }
 
 function parseColorFn(s: string): RGBA | undefined {
-  const m = /^color\(\s*(display-p3|srgb)\s+([^)]*)\)$/.exec(s);
+  const m = /^color\(\s*(display-p3|srgb)(\s[^)]*)\)$/.exec(s);
   if (!m) return undefined;
   const body = m[2]!.trim();
   const slash = splitDepth(body, "/");
@@ -255,7 +255,7 @@ function mixP3(a: RGBA, b: RGBA, t: number): RGBA {
 }
 
 function parseColorMix(s: string, parse: (s: string) => RGBA | undefined): RGBA | undefined {
-  const m = /^color-mix\(\s*in\s+([a-z0-9-]+)\s*,\s*([\s\S]*)\)$/.exec(s);
+  const m = /^color-mix\(\s*in\s+([a-z0-9-]+)\s*,([\s\S]*)\)$/.exec(s);
   if (!m) return undefined;
   const space = m[1]!;
   if (space !== "srgb" && space !== "oklch" && space !== "display-p3") return undefined;

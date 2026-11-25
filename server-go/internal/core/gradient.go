@@ -95,7 +95,7 @@ func svgGradientInner(doc *Document, node *Node, w, h float64, vars bool) (fill,
 		return "", "", false
 	}
 	mode := ModeOf(doc, node)
-	id := "paprika-g-" + node.Str("id")
+	id := xmlEscape("paprika-g-" + node.Str("id"))
 	stops := gradientStopXML(doc, g, mode, vars)
 	switch g.Str("type") {
 	case "linear", "radial":
@@ -116,19 +116,20 @@ func svgGradientInner(doc *Document, node *Node, w, h float64, vars bool) (fill,
 		return "url(#" + id + ")", "<defs>" + el + "</defs>", true
 	default:
 		css := xmlEscape(gradientCSS(doc, g, mode, vars))
+		maskID := xmlEscape("paprika-gm-" + node.Str("id"))
 		mask, maskAttr := "", ""
 		switch node.Str("type") {
 		case "path":
-			mask = `<mask id="paprika-gm-` + node.Str("id") + `"><path d="` + xmlEscape(node.Str("d")) + `" fill="white" fill-rule="` + node.Str("fillRule") + `"/></mask>`
-			maskAttr = ` mask="url(#paprika-gm-` + node.Str("id") + `)"`
+			mask = `<mask id="` + maskID + `"><path d="` + xmlEscape(node.Str("d")) + `" fill="white" fill-rule="` + node.Str("fillRule") + `"/></mask>`
+			maskAttr = ` mask="url(#` + maskID + `)"`
 		case "shape":
 			o := lengthsResolved(doc, node)
 			d, _ := ShapeOutline(o)
-			mask = `<mask id="paprika-gm-` + node.Str("id") + `"><path d="` + xmlEscape(d) + `" fill="white"/></mask>`
-			maskAttr = ` mask="url(#paprika-gm-` + node.Str("id") + `)"`
+			mask = `<mask id="` + maskID + `"><path d="` + xmlEscape(d) + `" fill="white"/></mask>`
+			maskAttr = ` mask="url(#` + maskID + `)"`
 		case "ellipse":
-			mask = `<mask id="paprika-gm-` + node.Str("id") + `"><ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill="white"/></mask>`
-			maskAttr = ` mask="url(#paprika-gm-` + node.Str("id") + `)"`
+			mask = `<mask id="` + maskID + `"><ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill="white"/></mask>`
+			maskAttr = ` mask="url(#` + maskID + `)"`
 		}
 		under := `<foreignObject x="0" y="0" width="100%" height="100%"` + maskAttr + `><div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;background:` + css + `"></div></foreignObject>`
 		defs := ""
