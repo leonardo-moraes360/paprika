@@ -56,6 +56,7 @@ O `server-go/` é o único servidor; o servidor TypeScript do qual ele foi porta
 - O lint de contraste ignora gradientes e imagens de fundo.
 - A presença do agente só chega aos canvas do mesmo processo: um `paprika mcp` (stdio) cuja porta estava ocupada roda sem canvas, então o cursor dele não aparece no canvas do `paprika serve`. Use MCP via HTTP para ser visto.
 - O import de SVG ignora texto, imagens, gradientes/padrões (viram cinza), máscaras, clip paths e CSS de `<style>`; o import de HTML só lê `style=""` inline (sem classes nem folhas de estilo). O export SVG deixa de fora strings de gradiente CSS e imagens de fundo, emite um `gradient` estruturado (linear e radial como gradiente SVG, cônico como `foreignObject`), desenha sombras sem spread, omite sombra interna com um aviso e usa `layout(doc)` (sem Chromium headless); a quebra de texto por glifo é aproximada.
+- Fontes: um `fontFamily` sem família genérica (`serif`, `sans-serif`, `monospace`, ...) ganha uma no `nodeStyle` (sans-serif, a não ser que o nome pareça serifado ou mono), então uma fonte ausente nunca cai na serifa padrão do navegador. A Inter que o export embute também é servida pelo servidor Go (`/fonts/inter.css`, `/fonts/Inter-*.ttf`) e injetada nos screenshots, então `Inter` fica igual no canvas, no `render_screenshot` e no `export_image`. As demais famílias ainda dependem da máquina.
 - Arrastar no canvas só move nós em pais sem layout automático (em row/column a ordem vem do layout).
 
 ## Registros de decisão

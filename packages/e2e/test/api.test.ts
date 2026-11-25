@@ -1157,6 +1157,37 @@ describe("API: MCP", () => {
     expect(textOf(side)).toContain("side by side");
   }, 30_000);
 
+  it("render_screenshot recorta uma região e desenha a grade em coordenadas do frame", async () => {
+    await call(client, "create_nodes", {
+      nodes: [{ type: "frame", id: "gridscreen", width: 400, height: 200, fill: "#ffffff", children: [{ type: "rect", id: "gridrect", x: 100, y: 50, width: 80, height: 40, fill: "#111111" }] }],
+    });
+    const pngSize = (r: ToolResult) => {
+      const buf = Buffer.from(r.content.find((c) => c.type === "image")!.data!, "base64");
+      return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+    };
+    const plain = await call(client, "render_screenshot", { rootId: "gridscreen" });
+    expect(pngSize(plain)).toEqual({ w: 400, h: 200 });
+    const zoom = (await call(client, "render_screenshot", {
+      rootId: "gridscreen", scale: 2, grid: true, region: { x: 100, y: 50, width: 80, height: 40 },
+    })) as ToolResult & { structuredContent: { width: number; height: number; grid: { step: number }; region: { x: number; y: number; width: number; height: number } } };
+    expect(zoom.isError, textOf(zoom)).toBeFalsy();
+    assertOutput("render_screenshot", zoom.structuredContent);
+    expect(pngSize(zoom)).toEqual({ w: 160, h: 80 });
+    expect(zoom.structuredContent.grid.step).toBe(5);
+    expect(zoom.structuredContent.region).toEqual({ x: 100, y: 50, width: 80, height: 40 });
+    expect(textOf(zoom)).toContain("grid step 5");
+    // grid alone keeps the size; an explicit step is reported back
+    const gridded = (await call(client, "render_screenshot", { rootId: "gridscreen", grid: { step: 40, labels: false, color: "#00ff00" } })) as ToolResult & {
+      structuredContent: { grid: { step: number }; region?: unknown };
+    };
+    assertOutput("render_screenshot", gridded.structuredContent);
+    expect(pngSize(gridded)).toEqual({ w: 400, h: 200 });
+    expect(gridded.structuredContent.grid.step).toBe(40);
+    expect(gridded.structuredContent.region).toBeUndefined();
+    // a region outside the frame is an error
+    expect((await call(client, "render_screenshot", { rootId: "gridscreen", region: { x: 900, y: 0, width: 10, height: 10 } })).isError).toBe(true);
+  }, 30_000);
+
   it("render_screenshot grava path, recusa travessia, baixa por url e pinta o modo herdado", async () => {
     await call(client, "set_tokens", { tokens: { bg: "#111111" } });
     await call(client, "set_tokens", { mode: "light", tokens: { bg: "#ffffff" } });

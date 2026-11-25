@@ -56,6 +56,7 @@
 - The contrast lint ignores gradients and background images.
 - Agent presence reaches only canvases of the same process: a `paprika mcp` (stdio) whose port was taken runs without a canvas, so its cursor does not show in the `paprika serve` canvas. Use MCP over HTTP to be seen.
 - SVG import skips text, images, gradients/patterns (filled gray), masks, clip paths and `<style>` CSS; HTML import only reads inline `style=""` (no classes or stylesheets). SVG export leaves out CSS gradient strings and background images, emits a structured `gradient` (linear and radial as SVG gradients, conic as a `foreignObject`), draws shadows without spread, skips an inner shadow with a warning, and uses `layout(doc)` (no headless Chromium); text glyph wrap is approximate.
+- Fonts: a `fontFamily` with no generic family (`serif`, `sans-serif`, `monospace`, ...) gets one appended in `nodeStyle` (sans-serif unless the name looks serif or mono), so a missing face never falls back to the browser's default serif. The Inter that export embeds is also served by the Go server (`/fonts/inter.css`, `/fonts/Inter-*.ttf`) and injected into screenshots, so `Inter` looks the same on the canvas, in `render_screenshot` and in `export_image`. Other families still depend on the machine.
 - Dragging on the canvas only moves nodes whose parent has no auto layout (in row/column, order comes from the layout).
 - The agent-facing guide and error messages are in Brazilian Portuguese.
 

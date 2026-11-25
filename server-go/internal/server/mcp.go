@@ -1604,6 +1604,17 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		optStr("path"),
 		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
 		optStr("compare"),
+		z.Field{Name: "grid", Schema: z.Optional(z.Union(z.Bool(), z.Object(
+			z.Field{Name: "step", Schema: z.Optional(z.Number().Positive())},
+			z.Field{Name: "labels", Schema: z.Optional(z.Bool())},
+			optStr("color"),
+		)))},
+		z.Field{Name: "region", Schema: z.Optional(z.Object(
+			z.Field{Name: "x", Schema: z.Number()},
+			z.Field{Name: "y", Schema: z.Number()},
+			z.Field{Name: "width", Schema: z.Number().Positive()},
+			z.Field{Name: "height", Schema: z.Number().Positive()},
+		))},
 		workspaceID(),
 	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		if m.shot == nil {
@@ -1616,6 +1627,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		png, w, h, err := m.shot.ScreenshotMode(ctx, d, a.Str("rootId"), a.Num("scale"), a.Str("mode"))
 		if err != nil {
 			return nil, err
+		}
+		grid, err := parseGridArg(a)
+		if err != nil {
+			return nil, err
+		}
+		region := parseRegionArg(a)
+		var gridStep float64
+		var usedRegion *Region
+		if grid != nil || region != nil {
+			fw, fh := frameSize(d, a.Str("rootId"), w, h, a.Num("scale"))
+			png, w, h, gridStep, usedRegion, err = annotateShot(png, fw, fh, float64(w)/fw, region, grid)
+			if err != nil {
+				return nil, err
+			}
 		}
 		compared := false
 		if src := strings.TrimSpace(a.Str("compare")); src != "" {
@@ -1633,6 +1658,20 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if compared {
 			shotText += " side by side"
 		}
+		if gridStep > 0 {
+			shotText += ", grid step " + formatGridValue(gridStep)
+		}
+		if usedRegion != nil {
+			shotText += fmt.Sprintf(", region x=%s y=%s %s×%s", formatGridValue(usedRegion.X), formatGridValue(usedRegion.Y), formatGridValue(usedRegion.W), formatGridValue(usedRegion.H))
+		}
+		extras := func(o *jsonv.Object) {
+			if gridStep > 0 {
+				o.Set("grid", jsonv.NewObject("step", gridStep))
+			}
+			if usedRegion != nil {
+				o.Set("region", jsonv.NewObject("x", usedRegion.X, "y", usedRegion.Y, "width", usedRegion.W, "height", usedRegion.H))
+			}
+		}
 		if rel := a.Str("path"); rel != "" {
 			abs, werr := writeScreenshot(store.Path(), rel, png)
 			if werr != nil {
@@ -1645,6 +1684,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			if compared {
 				out.Set("compare", true)
 			}
+			extras(out)
 			return jsonResult(out), nil
 		}
 		structured := jsonv.NewObject("width", float64(w), "height", float64(h))
@@ -1654,6 +1694,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if compared {
 			structured.Set("compare", true)
 		}
+		extras(structured)
 		return jsonv.NewObject("content", []any{
 			jsonv.NewObject("type", "image", "data", base64.StdEncoding.EncodeToString(png), "mimeType", "image/png"),
 			jsonv.NewObject("type", "text", "text", shotText),
@@ -1665,12 +1706,12 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "format", Schema: z.Default(z.Enum("png", "jpeg", "webp", "avif", "pdf"), "png")},
 		z.Field{Name: "scale", Schema: z.Default(z.Number().Min(0.1).Max(4), 1.0)},
 		workspaceID(),
-	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
 		d, err := docOf(a)
 		if err != nil {
 			return nil, err
 		}
-		out, err := export.Export(d, a.Str("rootId"), a.Str("format"), a.Num("scale"))
+		out, err := m.exportImage(ctx, d, a.Str("rootId"), a.Str("format"), a.Num("scale"))
 		if err != nil {
 			return nil, err
 		}
@@ -2453,4 +2494,31 @@ func workspaceActionError(id string, err error) error {
 		return fmt.Errorf(`workspace "%s" is the only one and cannot be archived`, id)
 	}
 	return err
+}
+
+// exportImage renders raster formats with the same Chromium path as render_screenshot, so an
+// export matches what the canvas and the screenshot show. Without Chromium (or if it fails) it
+// falls back to the built-in rasterizer and says so in the warnings. PDF always uses the built-in writer.
+func (m *MCP) exportImage(ctx context.Context, d *core.Document, rootID, format string, scale float64) (export.Result, error) {
+	format = strings.ToLower(strings.TrimSpace(format))
+	if scale <= 0 {
+		scale = 1
+	}
+	if m.shot == nil || format == export.FormatPDF || scale < 0.1 || scale > 4 {
+		return export.Export(d, rootID, format, scale)
+	}
+	png, _, _, err := m.shot.ScreenshotMode(ctx, d, rootID, scale, "")
+	if err == nil {
+		var out export.Result
+		if out, err = export.FromPNG(png, format); err == nil {
+			out.Warnings = []string{}
+			return out, nil
+		}
+	}
+	out, ferr := export.Export(d, rootID, format, scale)
+	if ferr != nil {
+		return out, ferr
+	}
+	out.Warnings = append([]string{"Chromium unavailable (" + err.Error() + "): rendered with the built-in rasterizer, which can differ from render_screenshot in glyphs and strokes"}, out.Warnings...)
+	return out, nil
 }
