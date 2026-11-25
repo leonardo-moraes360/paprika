@@ -9576,7 +9576,7 @@
     {
       "name": "compare_reference",
       "title": "Compare with reference",
-      "description": "Scores a drawing against its reference image, with numbers, so you know what to fix next. Call it after drawing from a reference (analyze_image, place_reference, import_image) and repeat until pass is true. It renders rootId with the same Chromium path as render_screenshot and fits the reference to that frame exactly like place_reference (centered, aspect kept). Scores ignore the background: each image is reduced to its ink (the pixels that differ from its own background; a transparent PNG counts by alpha), so a big empty background cannot inflate them. iou is ink intersection over union (the number to act on, compared with target, default 0.9; pass = iou >= target); missing is the share of the reference's ink the drawing does not cover; extra is the share of the drawn ink that is not in the reference. color gives deltaE (OKLab x100) between the dominant colors of both with their shares, pixelDeltaE over the pixels both paint (it catches swapped colors) and the drawn colors with no counterpart. rawPixelMatch is plain pixel equality, context only and misleading: the background dominates, so it reads 85-97% for drawings whose iou is 40-70%. regions lists the biggest missing and extra areas as boxes in frame coordinates with their share of the frame and color (fix the largest missing ones first). nodes lists the painting nodes under rootId whose painted pixels fall off the reference, worst first, with onReference and a suggestedMove {dx,dy} when shifting that node would land it on the reference. alignment is the best global shift (dx,dy in frame units), scale (around origin, the frame center) and with rotation: true also an angle, with iouBefore and iouAfter: when significant is true, move or scale the whole drawing in one step before fixing details. diff is a PNG (missing red, blue extra, gray matched) kept like a screenshot: url is /api/screenshot/<id>; path also writes it under the screenshot directory; includeDiff adds the image bytes inline. The last scores of each (workspace, rootId) are remembered in memory: previous and delta (current minus previous) say whether the round improved, and sameReference is false when the reference changed. Deterministic. The text content is a compact summary. reference may be the id of an image node (for instance the layer place_reference put in the frame): that node is left out of the render. Chromium is needed, as for render_screenshot.",
+      "description": "Scores a drawing against its reference image, with numbers, so you know what to fix next. Call it after drawing from a reference (analyze_image, place_reference, import_image) and repeat until pass is true. It renders rootId with the same Chromium path as render_screenshot and fits the reference to that frame exactly like place_reference (centered, aspect kept). Scores ignore the background: each image is reduced to its ink (the pixels that differ from its own background; a transparent PNG counts by alpha), so a big empty background cannot inflate them. A gradient or vignette background is modelled per image (background.referenceModel and drawnModel: kind flat or gradient), so it does not count as ink; a warning says when one is found or when the border is not uniform. iou is ink intersection over union (the number to act on, compared with target, default 0.9; pass = iou >= target); missing is the share of the reference's ink the drawing does not cover; extra is the share of the drawn ink that is not in the reference. color gives deltaE (OKLab x100) between the dominant colors of both with their shares, pixelDeltaE over the pixels both paint (it catches swapped colors) and the drawn colors with no counterpart. rawPixelMatch is plain pixel equality, context only and misleading: the background dominates, so it reads 85-97% for drawings whose iou is 40-70%. regions lists the biggest missing and extra areas as boxes in frame coordinates with their share of the frame and color (fix the largest missing ones first). nodes lists the painting nodes under rootId whose painted pixels fall off the reference, worst first, with onReference and a suggestedMove {dx,dy} when shifting that node would land it on the reference. alignment is the best global shift (dx,dy in frame units), scale (around origin, the frame center) and with rotation: true also an angle, with iouBefore and iouAfter: when significant is true, move or scale the whole drawing in one step before fixing details. diff is a PNG (missing red, blue extra, gray matched) kept like a screenshot: url is /api/screenshot/<id>; path also writes it under the screenshot directory; includeDiff adds the image bytes inline. The last scores of each (workspace, rootId) are remembered in memory: previous and delta (current minus previous) say whether the round improved, and sameReference is false when the reference changed. Deterministic. The text content is a compact summary. reference may be the id of an image node (for instance the layer place_reference put in the frame): that node is left out of the render. Chromium is needed, as for render_screenshot.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -9963,11 +9963,71 @@
               },
               "drawn": {
                 "type": "string"
+              },
+              "referenceModel": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  },
+                  "corners": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "spread": {
+                    "type": "number"
+                  },
+                  "borderMatch": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "color",
+                  "spread",
+                  "borderMatch"
+                ]
+              },
+              "drawnModel": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  },
+                  "corners": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "spread": {
+                    "type": "number"
+                  },
+                  "borderMatch": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "color",
+                  "spread",
+                  "borderMatch"
+                ]
               }
             },
             "required": [
               "reference",
-              "drawn"
+              "drawn",
+              "referenceModel",
+              "drawnModel"
             ]
           },
           "canvas": {
