@@ -135,6 +135,25 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     expect(errors).toEqual([]);
   });
 
+  it("render_screenshot renderer wasm captura o que a camada WASM pinta", async () => {
+    await open("dom");
+    const dom = await page.locator('[data-paprika-id="board"]').screenshot();
+    const r = (await agent.callTool({ name: "render_screenshot", arguments: { rootId: "board", renderer: "wasm" } })) as {
+      isError?: boolean;
+      content: { type: string; data?: string; text?: string }[];
+    };
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy();
+    const png = Buffer.from(r.content.find((c) => c.type === "image")!.data!, "base64");
+    expect(png.readUInt32BE(16)).toBe(480);
+    expect(png.readUInt32BE(20)).toBe(360);
+    expect(await diffRatio(page, dom, png)).toBeLessThan(0.01);
+    const side = (await agent.callTool({ name: "render_screenshot", arguments: { rootId: "board", renderer: "wasm", scale: 2 } })) as typeof r;
+    const big = Buffer.from(side.content.find((c) => c.type === "image")!.data!, "base64");
+    expect(big.readUInt32BE(16)).toBe(960);
+    const withMode = (await agent.callTool({ name: "render_screenshot", arguments: { rootId: "board", renderer: "wasm", mode: "dark" } })) as typeof r;
+    expect(withMode.isError).toBe(true);
+  }, 90_000);
+
   it("edição do agente via MCP aparece nos pixels do WASM", async () => {
     await open("wasm");
     const before = await shot();
@@ -483,6 +502,22 @@ describe.skipIf(!wasmBuilt)("E2E: WASM estabiliza um path de caixa fracionária 
     await fx.page.waitForTimeout(500);
     // The same answer after settling: no flip-flop between the layers.
     expect(await fx.page.locator('[data-paprika-id="ink"]').evaluate((el) => el.tagName.toLowerCase())).toBe("div");
+    expect(fx.errors.filter((e) => !/WebSocket|adapters/i.test(e))).toEqual([]);
+  });
+});
+
+describe.skipIf(!wasmBuilt)("E2E: traço de path em unidades do viewBox fica igual ao DOM", () => {
+  const fx = useFixtureServer("wasm-path-stroke.paprika.json", { consoleErrors: true });
+
+  it("paths com caixa diferente do viewBox, traço fino e grosso, ficam iguais nos dois renderizadores", async () => {
+    await openCanvas(fx.page, fx.url, "dom");
+    const dom = await fx.page.getByTestId("viewport").screenshot();
+    await openCanvas(fx.page, fx.url, "wasm");
+    expect(["cpu", "webgpu"]).toContain(await fx.page.getByTestId("renderer-toggle").getAttribute("data-backend"));
+    for (const id of ["small", "wordmark", "large", "thin", "wide", "origin"])
+      expect(await fx.page.locator(`[data-paprika-id="${id}"] path`).count(), id).toBe(0);
+    const wasm = await fx.page.getByTestId("viewport").screenshot();
+    expect(await diffRatio(fx.page, dom, wasm, 60)).toBeLessThan(0.005);
     expect(fx.errors.filter((e) => !/WebSocket|adapters/i.test(e))).toEqual([]);
   });
 });

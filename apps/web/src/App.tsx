@@ -22,6 +22,7 @@ import { LanguageSwitcher, useT } from "./i18n";
 import { WorkspaceNotice } from "./WorkspaceNotice";
 import { PinsChip } from "./Pins";
 import { setPinsPanel } from "./pins";
+import { captureParams } from "./capture";
 import { readToolbarDock, Toolbar, type ToolbarDock } from "./Toolbar";
 
 const boot = "grid h-full place-content-center justify-items-center gap-3 text-ui-muted-foreground";
@@ -160,7 +161,7 @@ function Editor() {
   const live = { ...actions, connected, version, canUndo, canRedo, activity, agentTouched, team };
   const [selected, setSelected] = useState<string[]>([]);
   const [tool, setTool] = useState<Tool>("select");
-  const [pageChoice, setPageChoice] = useState<string | null>(null);
+  const [pageChoice, setPageChoice] = useState<string | null>(() => captureParams()?.page ?? null);
   const [rightTab, setRightTab] = useState<"inspector" | "team">("inspector");
   const [teamDialog, setTeamDialog] = useState<"invite" | "join" | "keys" | null>(null);
   const leftPanel = usePanel("paprika.panel.left", LEFT_PANEL);

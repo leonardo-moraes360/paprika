@@ -53,7 +53,7 @@ func TestUnknownArgumentsAreRejected(t *testing.T) {
 		args *jsonv.Object
 		want []string
 	}{
-		{"render_screenshot", obj("id", "a"), []string{`unknown argument "id" (did you mean "rootId"?)`, "valid arguments: compare, grid, mode, path, region, rootId, scale, workspaceId"}},
+		{"render_screenshot", obj("id", "a"), []string{`unknown argument "id" (did you mean "rootId"?)`, "valid arguments: compare, grid, mode, path, region, renderer, rootId, scale, workspaceId"}},
 		{"render_screenshot", obj("nodeId", "a"), []string{`(did you mean "rootId"?)`}},
 		{"export_image", obj("id", "a"), []string{`(did you mean "rootId"?)`}},
 		{"export_code", obj("nodeId", "a", "format", "html"), []string{`(did you mean "rootId"?)`}},

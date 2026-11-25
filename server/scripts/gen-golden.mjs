@@ -319,6 +319,33 @@ const wrapped = () =>
       },
     },
     { op: "create", node: { type: "frame", id: "wend", x: 400, y: 1000, width: 200, height: 150, layout: { mode: "row", gap: 4, wrap: true, justify: "end", align: "end" }, children: chips("we", 5, 70, 24) } },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "grow", x: 0, y: 1300, width: 400, height: 60, layout: { mode: "row", gap: 10, padding: 20 },
+        children: [
+          { type: "rect", id: "ga", width: 50, height: 20, fill: "#112233" },
+          { type: "rect", id: "gs", width: 0, height: 0, layoutGrow: 1 },
+          { type: "text", id: "gt", text: "Title", width: "hug", height: "hug", fontSize: 16, layoutGrow: 2 },
+          { type: "rect", id: "gz", width: 50, height: 20, fill: "#445566", layoutGrow: 0.5 },
+          { type: "rect", id: "gf", width: "fill", height: 20, layoutGrow: 3 },
+        ],
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "gcol", x: 500, y: 1300, width: 200, height: 300, layout: { mode: "column" },
+        children: [{ type: "rect", id: "gca", width: 50, height: 100, layoutGrow: 1 }, { type: "rect", id: "gcb", width: 50, height: 40 }],
+      },
+    },
+    {
+      op: "create",
+      node: {
+        type: "frame", id: "hugfill", x: 800, y: 1300, width: 420, height: "hug", layout: { mode: "column", padding: 24 },
+        children: [{ type: "text", id: "hft", text: "The quick brown fox jumps over the lazy dog again and again", width: "fill", height: "hug", fontSize: 16 }],
+      },
+    },
   ]).doc;
 
 const rich = () =>
@@ -659,6 +686,24 @@ const opCases = [
       { type: "text", id: "pt", text: "x", bind: { text: "label" } },
       { type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } },
       { type: "rect", id: "ps", width: 5, height: 5, bind: { variant: { size: "sm" } } }] }] } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "vc", component: true, x: 20, y: 400, width: 200, height: 100, fill: "#ffffff",
+    layout: { mode: "column", gap: 0, padding: 0 },
+    componentProps: [{ name: "estado", type: "variant", options: ["vazio", "importando", "pronto"], default: "vazio" }],
+    children: [
+      { type: "rect", id: "v0", width: 200, height: 40, fill: "#ff0000", bind: { variant: { estado: "vazio" } } },
+      { type: "rect", id: "v1", width: 200, height: 40, fill: "#00ff00", bind: { variant: { estado: ["importando", "pronto"] } } },
+      { type: "rect", id: "v2", width: 200, height: 40, fill: "#0000ff", bind: { variant: { estado: "pronto" } } }] } },
+    { op: "create", parentId: "board", node: { type: "frame", id: "vi", instanceOf: "vc", x: 300, y: 400, propValues: { estado: "importando" } } },
+    { op: "create", parentId: "board", node: { type: "frame", id: "vj", instanceOf: "vc", x: 560, y: 400 } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "vc", component: true, width: 200, height: 100,
+    componentProps: [{ name: "estado", type: "variant", options: ["a", "b"], default: "a" }],
+    children: [{ type: "rect", id: "v1", width: 5, height: 5, bind: { variant: { estado: ["a", "x"] } } }] } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "vc", component: true, width: 200, height: 100,
+    componentProps: [{ name: "estado", type: "variant", options: ["a", "b"], default: "a" }],
+    children: [{ type: "rect", id: "v1", width: 5, height: 5, bind: { variant: { estado: [] } } }] } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "ifill", instanceOf: "btn", x: 400, y: 300, fill: "#ff0000" } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "ifill", instanceOf: "btn", x: 400, y: 300, fill: "$brand" } }]],
+  ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "ifill", instanceOf: "btn", x: 400, y: 300, fill: "#ff0000", overrides: { lbl: { text: "Oi" } } } }]],
   ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", width: 100, height: 40, children: [{ type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } }] } },
     { op: "update", id: "pb", props: { component: true, componentProps: [{ name: "pressed", type: "boolean", default: false }] } }]],
   ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", width: 100, height: 40, children: [{ type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } }] } }]],

@@ -367,6 +367,7 @@ func NodeStyle(doc *Document, node *Node, asRoot bool) *CSS {
 }
 
 func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
+	vis := node.Bool("visible") && !variantHidden(doc, node)
 	if node.Str("type") == "page" {
 		return jsonv.NewObject()
 	}
@@ -408,12 +409,21 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	h, _ := node.Get("height")
 	sizeProps(css, "width", w, mode)
 	sizeProps(css, "height", h, mode)
+	if g := node.Num("layoutGrow"); mode != "" && g != 0 {
+		mainSize := h
+		if mode == "row" {
+			mainSize = w
+		}
+		if mainSize != "fill" {
+			css.Set("flexGrow", g)
+		}
+	}
 
 	if node.Str("type") == "group" {
 		if o := node.Num("opacity"); o != 1 {
 			css.Set("opacity", o)
 		}
-		if !node.Bool("visible") {
+		if !vis {
 			css.Set("display", "none")
 		}
 		return css
@@ -423,7 +433,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 			css.Set("opacity", o)
 		}
 		css.Set("overflow", "visible")
-		if node.Bool("visible") {
+		if vis {
 			css.Set("display", "block")
 		} else {
 			css.Set("display", "none")
@@ -439,7 +449,7 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	if t := node.Str("type"); (t == "frame" || t == "text") && node.Str("href") != "" {
 		css.Set("cursor", "pointer")
 	}
-	visible := node.Bool("visible")
+	visible := vis
 	if !visible {
 		css.Set("display", "none")
 	}
@@ -963,7 +973,7 @@ func PathAttrsVars(doc *Document, node *Node, vars bool) (svg, path []Attr, inne
 	return svg, path, inner
 }
 
-var unitless = map[string]bool{"opacity": true, "fontWeight": true, "lineHeight": true, "flexShrink": true, "zIndex": true}
+var unitless = map[string]bool{"opacity": true, "fontWeight": true, "lineHeight": true, "flexShrink": true, "flexGrow": true, "zIndex": true}
 
 var upperRe = regexp.MustCompile(`[A-Z]`)
 

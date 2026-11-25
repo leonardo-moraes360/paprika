@@ -191,6 +191,7 @@ func baseFields() []z.Field {
 		{Name: "visible", Schema: z.Default(z.Bool(), true)},
 		{Name: "locked", Schema: z.Default(z.Bool(), false)},
 		{Name: "layoutPositioning", Schema: z.Optional(z.Enum("auto", "absolute"))},
+		{Name: "layoutGrow", Schema: z.Optional(z.Number().Min(0).Max(1000))},
 		{Name: "constraints", Schema: z.Optional(z.Object(
 			z.Field{Name: "horizontal", Schema: z.Default(z.Enum("left", "right", "center", "scale"), "left")},
 			z.Field{Name: "vertical", Schema: z.Default(z.Enum("top", "bottom", "center", "scale"), "top")},
@@ -231,7 +232,7 @@ func bindSchema() z.Schema {
 	return z.Object(
 		z.Field{Name: "text", Schema: z.Optional(propNameSchema())},
 		z.Field{Name: "visible", Schema: z.Optional(propNameSchema())},
-		z.Field{Name: "variant", Schema: z.Optional(z.Record(propNameSchema(), variantOptionSchema()))},
+		z.Field{Name: "variant", Schema: z.Optional(z.Record(propNameSchema(), z.Union(variantOptionSchema(), z.Array(variantOptionSchema()).Min(1).Max(24))))},
 	)
 }
 
@@ -269,6 +270,7 @@ func groupSchema() *z.ObjectSchema {
 		z.Field{Name: "height", Schema: z.Default(z.Number().Min(0), 0.0)},
 		baseField("opacity"), baseField("visible"), baseField("locked"), baseField("notes"), baseField("sourceId"), baseField("lintIgnore"),
 		baseField("layoutPositioning"),
+		baseField("layoutGrow"),
 		baseField("constraints"),
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
 		z.Field{Name: "bind", Schema: z.Optional(bindSchema())},

@@ -773,3 +773,5 @@ func PlacementLint(doc *Document, ids []string) []LintIssue {
 	}
 	return issues
 }
+
+func PageOf(doc *Document, rootID string) string { return pageOf(doc, rootID) }

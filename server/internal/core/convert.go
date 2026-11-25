@@ -106,6 +106,9 @@ func ConvertToPathOps(doc *Document, ids []string) ([]any, error) {
 		if v, ok := n.Get("layoutPositioning"); ok {
 			node.Set("layoutPositioning", v)
 		}
+		if g := n.Num("layoutGrow"); g != 0 {
+			node.Set("layoutGrow", g)
+		}
 		if v, ok := n.Get("constraints"); ok {
 			node.Set("constraints", v)
 		}

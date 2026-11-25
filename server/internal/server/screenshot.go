@@ -35,6 +35,7 @@ type Chrome struct {
 	stop       context.CancelFunc
 	saved      map[string][]byte
 	savedOrder []string
+	canvas     string
 }
 
 const maxSide = 4096.0

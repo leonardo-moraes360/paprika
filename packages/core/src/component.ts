@@ -143,7 +143,7 @@ function descendants(doc: Document, id: string): string[] {
 export class InstanceError extends Error {}
 
 type PropDecl = { name: string; type: "text" | "boolean" | "variant"; default?: string | boolean; options?: string[] };
-type BindSpec = { text?: string; visible?: string; variant?: Record<string, string> };
+type BindSpec = { text?: string; visible?: string; variant?: Record<string, string | string[]> };
 
 function propDecls(comp: FrameNode): PropDecl[] {
   return comp.componentProps ?? [];
@@ -174,8 +174,8 @@ export function owningComponent(doc: Document, id: string): FrameNode | undefine
   return undefined;
 }
 
-function resolvedProps(comp: FrameNode, inst: FrameNode): Record<string, string | boolean> {
-  const given = inst.propValues ?? {};
+function resolvedProps(comp: FrameNode, inst?: FrameNode): Record<string, string | boolean> {
+  const given = inst?.propValues ?? {};
   const out: Record<string, string | boolean> = {};
   for (const p of propDecls(comp)) {
     const v = given[p.name];
@@ -190,8 +190,19 @@ function resolvedProps(comp: FrameNode, inst: FrameNode): Record<string, string 
 
 function variantShows(bind: BindSpec | undefined, values: Record<string, string | boolean>): boolean {
   if (!bind?.variant) return true;
-  for (const [k, want] of Object.entries(bind.variant)) if (values[k] !== want) return false;
+  for (const [k, want] of Object.entries(bind.variant)) {
+    const v = values[k];
+    if (!(Array.isArray(want) ? typeof v === "string" && want.includes(v) : v === want)) return false;
+  }
   return true;
+}
+
+export function variantHidden(doc: Document, n: NodeT): boolean {
+  const bind = nodeBind(n);
+  if (!bind?.variant || nodeSource(n) !== undefined) return false;
+  const comp = owningComponent(doc, n.id);
+  if (!comp) return false;
+  return !variantShows(bind, resolvedProps(comp));
 }
 
 function applyBind(n: Record<string, unknown>, bind: BindSpec | undefined, values: Record<string, string | boolean>) {
@@ -309,8 +320,10 @@ function validateBind(comp: FrameNode, n: NodeT, byName: Map<string, PropDecl>) 
   }
   for (const [k, want] of Object.entries(bind.variant ?? {})) {
     const p = byName.get(k);
-    if (!p || p.type !== "variant" || !p.options?.includes(want))
-      throw new InstanceError(`component "${comp.id}": "${n.id}" variant bind "${k}=${want}" does not match a variant prop`);
+    const list = Array.isArray(want) ? want : [want];
+    const label = Array.isArray(want) ? `[${want.join(", ")}]` : want;
+    if (!p || p.type !== "variant" || !list.every((w) => p.options?.includes(w)))
+      throw new InstanceError(`component "${comp.id}": "${n.id}" variant bind "${k}=${label}" does not match a variant prop`);
   }
 }
 
