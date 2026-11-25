@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -689,7 +690,7 @@ func gradientColorProblem(input any, path []string) string {
 	switch t := input.(type) {
 	case []any:
 		for k, v := range t {
-			if m := gradientColorProblem(v, append(path[:len(path):len(path)], strconv.Itoa(k))); m != "" {
+			if m := gradientColorProblem(v, append(slices.Clip(path), strconv.Itoa(k))); m != "" {
 				return m
 			}
 		}
@@ -697,9 +698,9 @@ func gradientColorProblem(input any, path []string) string {
 		for _, key := range t.Keys() {
 			v, _ := t.Get(key)
 			if s, ok := v.(string); ok && (key == "fill" || key == "color") && reColorGradient.MatchString(s) {
-				return strings.Join(append(path[:len(path):len(path)], key), ".") + ": " + gradientColorMsg
+				return strings.Join(append(slices.Clip(path), key), ".") + ": " + gradientColorMsg
 			}
-			if m := gradientColorProblem(v, append(path[:len(path):len(path)], key)); m != "" {
+			if m := gradientColorProblem(v, append(slices.Clip(path), key)); m != "" {
 				return m
 			}
 		}
