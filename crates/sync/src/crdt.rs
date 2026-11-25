@@ -1,14 +1,3 @@
-//! One shared workspace as a Loro document (ADR 0004).
-//!
-//! - `nodes` (`LoroTree`): one tree node per Paprika node. Parent = `parentId`, sibling order =
-//!   `children` / `rootIds` (fractional index). The tree node's metadata map holds the Paprika
-//!   node's stored fields, each as a JSON string under its own key (last writer wins per field).
-//! - `doc` (`LoroMap`): `name`.
-//! - `tokens` (`LoroMap`): token → JSON value. `modes` (`LoroMap`): `"<mode>\u{0}<token>"` → JSON
-//!   value, flat so two peers adding the same mode at once never race on a nested container.
-//! - `pins` (`LoroMap`): pin id → JSON header (last writer wins). `replies` (`LoroMap`): reply id →
-//!   JSON. Pins are not canvas nodes.
-
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -16,7 +5,6 @@ use loro::{ExportMode, LoroDoc, LoroMap, LoroTree, LoroValue, TreeID, ValueOrCon
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
-/// One entry of a change set sent by the Go server after a local commit.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "k", rename_all = "snake_case")]
 pub enum Change {
@@ -48,12 +36,10 @@ pub enum Change {
     Name {
         value: String,
     },
-    /// Pin header. A null `value` removes the pin from the shared map.
     Pin {
         id: String,
         value: Value,
     },
-    /// One reply. A null `value` removes it. Replies are their own keys so two peers can both add one.
     Reply {
         id: String,
         value: Value,
@@ -83,9 +69,6 @@ impl Crdt {
         self.doc.get_tree("nodes")
     }
 
-    /// Paprika id → tree node, for the live tree (deleted subtrees are not reachable from roots).
-    /// When two peers created the same id concurrently, the first in tree order wins (the same
-    /// rule `materialize` uses, so every peer agrees).
     fn index(&self) -> HashMap<String, TreeID> {
         let tree = self.tree();
         let mut out = HashMap::new();
@@ -109,8 +92,6 @@ impl Crdt {
         serde_json::from_str::<String>(&raw).ok()
     }
 
-    /// Applies one local transaction as one Loro commit made by `peer`, and returns the update
-    /// (only this commit's changes) to put in an envelope. `None` when nothing changed.
     pub fn apply_local(&self, peer: u64, changes: &[Change]) -> Result<Option<Vec<u8>>> {
         let before = self.doc.oplog_vv();
         self.doc
@@ -221,13 +202,11 @@ impl Crdt {
         Ok(Some(blob))
     }
 
-    /// Imports an update from a peer (Loro keeps it pending until its dependencies arrive).
     pub fn import(&self, blob: &[u8]) -> Result<()> {
         self.doc.import(blob).map_err(|e| anyhow!("import: {e}"))?;
         Ok(())
     }
 
-    /// The workspace as the Go server needs it: `{name, rootIds, nodes, tokens, modes}`.
     pub fn materialize(&self) -> Value {
         let tree = self.tree();
         let mut nodes = Map::new();
@@ -271,7 +250,7 @@ impl Crdt {
                 continue;
             };
             if !seen.insert(id.clone()) {
-                continue; // concurrent duplicate id: the first one in tree order wins
+                continue;
             }
             fields.insert(
                 "parentId".into(),
@@ -292,7 +271,6 @@ impl Crdt {
         ids
     }
 
-    /// Full state, to persist next to the envelope log (faster restarts) or seed a test.
     pub fn snapshot(&self) -> Result<Vec<u8>> {
         self.doc.export(ExportMode::Snapshot).context("snapshot")
     }
@@ -327,7 +305,6 @@ fn map_raw_str(map: &LoroMap, key: &str) -> Option<String> {
     map_string(map, key)
 }
 
-/// Entries of a map whose values are JSON strings, decoded; keys sorted for determinism.
 fn map_entries(map: &LoroMap) -> Vec<(String, Value)> {
     let mut out = Vec::new();
     if let LoroValue::Map(m) = map.get_value() {
@@ -343,7 +320,6 @@ fn map_entries(map: &LoroMap) -> Vec<(String, Value)> {
     out
 }
 
-/// Which peers an update carries changes from (checked against the envelope's author).
 pub fn blob_peers(blob: &[u8]) -> Result<Vec<u64>> {
     let meta = LoroDoc::decode_import_blob_meta(blob, true)
         .map_err(|e| anyhow!("not a Loro update: {e}"))?;
@@ -444,7 +420,6 @@ mod tests {
         sync(&a, &b);
         let s = a.materialize();
         assert_eq!(s, b.materialize());
-        // Exactly one of them stays at the top, holding the other.
         assert_eq!(s["rootIds"].as_array().unwrap().len(), 1);
         assert_eq!(s["nodes"].as_object().unwrap().len(), 2);
     }

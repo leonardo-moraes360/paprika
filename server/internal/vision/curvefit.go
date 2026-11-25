@@ -4,28 +4,20 @@ import (
 	"math"
 )
 
-// Vectorizing one boundary: the pixel-edge ring of a mask becomes a closed chain of line and
-// cubic bezier segments. Corners are found by the turning angle over a short chord, the points
-// between corners are smoothed (staircase noise out, corners pinned) and fitted with Schneider's
-// least-squares cubic fit ("An Algorithm for Automatically Fitting Digitized Curves", Graphics
-// Gems), splitting where the error exceeds the tolerance.
-
-const cornerWindow = 5 // steps on each side used to measure the turning angle
+const cornerWindow = 5
 
 type bez [4]pt
 
-// seg is one fitted segment; line segments only use p3 (p0 is the previous end).
 type seg struct {
 	line bool
 	b    bez
 }
 
-// fitted is a closed ring turned into segments. Start is the first anchor.
 type fitted struct {
 	start   pt
 	segs    []seg
 	corners int
-	err     float64 // largest distance from a ring point to its segment, analysis px
+	err     float64
 }
 
 func (a pt) add(b pt) pt        { return pt{a.x + b.x, a.y + b.y} }
@@ -43,9 +35,6 @@ func (a pt) unit() pt {
 	return pt{a.x / l, a.y / l}
 }
 
-// traceLoops walks every boundary of mask (interior on the right of the direction of travel) and
-// returns the loops as one vertex per unit step. Diagonally touching pixels stay connected (the
-// foreground is 8-connected, the holes 4-connected), matching how blobs and holes are found.
 func traceLoops(mask []bool, w, h int) [][]pt {
 	W := w + 1
 	out := make([]uint8, W*(h+1))
@@ -56,16 +45,16 @@ func traceLoops(mask []bool, w, h int) [][]pt {
 				continue
 			}
 			if !in(x, y-1) {
-				out[y*W+x] |= 1 << 0 // east along the top
+				out[y*W+x] |= 1 << 0
 			}
 			if !in(x+1, y) {
-				out[y*W+x+1] |= 1 << 1 // south along the right
+				out[y*W+x+1] |= 1 << 1
 			}
 			if !in(x, y+1) {
-				out[(y+1)*W+x+1] |= 1 << 2 // west along the bottom
+				out[(y+1)*W+x+1] |= 1 << 2
 			}
 			if !in(x-1, y) {
-				out[(y+1)*W+x] |= 1 << 3 // north along the left
+				out[(y+1)*W+x] |= 1 << 3
 			}
 		}
 	}
@@ -83,7 +72,7 @@ func traceLoops(mask []bool, w, h int) [][]pt {
 				loop = append(loop, pt{float64(v % W), float64(v / W)})
 				v += dv[d][0] + dv[d][1]*W
 				next := -1
-				for _, nd := range [3]int{(d + 3) % 4, d, (d + 1) % 4} { // left first: join diagonals
+				for _, nd := range [3]int{(d + 3) % 4, d, (d + 1) % 4} {
 					if out[v]&(1<<nd) != 0 {
 						next = nd
 						break
@@ -111,9 +100,6 @@ func ringArea(p []pt) float64 {
 
 func mod(i, n int) int { return ((i % n) + n) % n }
 
-// findCorners returns the indices of the points where the ring turns by at least thr radians
-// (measured between chords of k steps), refined to the intersection of the lines fitted along
-// both sides when that moves the corner by less than 2k.
 func findCorners(p []pt, thr float64) ([]int, map[int]pt) {
 	n := len(p)
 	k := cornerWindow
@@ -178,8 +164,6 @@ func findCorners(p []pt, thr float64) ([]int, map[int]pt) {
 	return idx, pos
 }
 
-// lineThrough is the total-least-squares line through the points: a point on it and a unit
-// direction. ok is false when the points are not close to collinear.
 func lineThrough(p []pt) (pt, pt, bool) {
 	if len(p) < 3 {
 		return pt{}, pt{}, false
@@ -205,8 +189,6 @@ func lineThrough(p []pt) (pt, pt, bool) {
 	return c, dir, worst < 1.2
 }
 
-// smoothRing averages each point with its neighbours (twice), narrowing the window next to a
-// corner so the corner stays where it is.
 func smoothRing(p []pt, corners []int) []pt {
 	n := len(p)
 	const R = 2
@@ -237,8 +219,6 @@ func smoothRing(p []pt, corners []int) []pt {
 	return cur
 }
 
-// fitRing vectorizes a closed ring. thr is the corner threshold in radians and tol the largest
-// distance, in ring units, a fitted curve may stray from the ring.
 func fitRing(p []pt, thr, tol float64) fitted {
 	n := len(p)
 	if n < 12 {
@@ -260,7 +240,6 @@ func fitRing(p []pt, thr, tol float64) fitted {
 		devMax := 0.0
 		chord := s[len(s)-1].sub(s[0])
 		cl := chord.len()
-		// the points next to a corner are not smoothed: leave them out of the straightness test
 		lo, hi := 1, len(s)-1
 		if len(s) > 14 {
 			lo, hi = 4, len(s)-4
@@ -314,9 +293,6 @@ func fitRing(p []pt, thr, tol float64) fitted {
 	return f
 }
 
-// fitCubic fits cubic beziers to d (open, in order) with the given unit end tangents, pointing
-// into the curve at both ends. errSq is the squared tolerance. It returns the largest squared
-// error left.
 func fitCubic(d []pt, t1, t2 pt, errSq float64, depth int, out *[]bez) float64 {
 	n := len(d)
 	if n == 2 {

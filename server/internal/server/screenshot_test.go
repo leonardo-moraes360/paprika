@@ -14,7 +14,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Exercises the CDP calls end to end; skipped where no Chromium is installed.
 func TestChromeScreenshot(t *testing.T) {
 	if FindChromium() == "" {
 		t.Skip("Chromium not found")
@@ -45,7 +44,6 @@ func TestChromeScreenshot(t *testing.T) {
 	}
 }
 
-// A root whose height (or width) is "hug" is measured in the browser instead of coming out 1px tall.
 func TestChromeScreenshotHugRoot(t *testing.T) {
 	if FindChromium() == "" {
 		t.Skip("Chromium not found")
@@ -71,11 +69,9 @@ func TestChromeScreenshotHugRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 10 + 40 + 10 + 40 + 10 = 110
 	if b := img.Bounds(); w != 200 || h != 110 || b.Dx() != 200 || b.Dy() != 110 {
 		t.Fatalf("hug frame: got %dx%d, image %v", w, h, b)
 	}
-	// A text created without width/height hugs on both axes (fb#65): its box is its line.
 	_, w, h, err = c.Screenshot(context.Background(), res.Doc, "t", 1)
 	if err != nil {
 		t.Fatal(err)

@@ -22,17 +22,14 @@ interface Props {
   view: View;
   viewportRef: RefObject<HTMLDivElement | null>;
   pageId: string | null;
-  /** The pin tool is active: the layer captures clicks and drags. */
   active: boolean;
   onToolDone(): void;
-  /** Changes when the layout changes without the document changing (a drag in progress). */
   layoutKey?: unknown;
   onFocus?(box: Box): void;
   onOpenPage?(id: string): void;
   onError?(msg: string): void;
 }
 
-/** The node a click lands on: the outermost group or instance stays whole, like a selection click. */
 function nodeUnder(doc: Document, clientX: number, clientY: number): string | null {
   for (const el of document.elementsFromPoint(clientX, clientY)) {
     if (el.closest("[data-pin-layer]")) continue;
@@ -66,7 +63,6 @@ const sameBoxes = (a: Record<string, PinRegion>, b: Record<string, PinRegion>) =
   });
 };
 
-/** Agent color for a claim: the presence color when the agent is on the canvas, else a stable one. */
 function useClaimColor() {
   const agents = useLive((s) => s.agents);
   return (actor: string | undefined) => {
@@ -78,11 +74,6 @@ function useClaimColor() {
   };
 }
 
-/**
- * "Apontar para a IA": with the pin tool, a click on an element pins it and a drag marks an area; a
- * composer opens next to the pin. Open and claimed pins of the page show on the canvas (outline + numbered
- * pin); the Pins panel lists every pin of the workspace.
- */
 export function PinLayer({ doc, view, viewportRef, pageId, active, onToolDone, layoutKey, onFocus, onOpenPage, onError }: Props) {
   const m = useT();
   const pins = usePins(doc.id).data ?? NO_PINS;
@@ -109,7 +100,6 @@ export function PinLayer({ doc, view, viewportRef, pageId, active, onToolDone, l
     return { x: Math.round(a.x), y: Math.round(a.y), width: Math.round(r.width / v.zoom), height: Math.round(r.height / v.zoom) };
   };
 
-  // Node pins follow their node: measure the node's box in canvas coordinates from the DOM.
   useLayoutEffect(() => {
     const next: Record<string, PinRegion> = {};
     for (const p of shown) {
@@ -121,7 +111,6 @@ export function PinLayer({ doc, view, viewportRef, pageId, active, onToolDone, l
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown, doc, layoutKey, view.zoom]);
 
-  // Leaving the tool drops an unsent pin.
   useEffect(() => {
     if (!active) {
       setDraft(null);
@@ -360,7 +349,6 @@ function targetLabel(pin: Pin, m: ReturnType<typeof useT>) {
   return m.pinArea(Math.round(pin.region.width), Math.round(pin.region.height));
 }
 
-/** The pin's text, status and actions (bubble on the canvas and row of the panel). */
 function PinCard({ pin, color, onClose, onError, onShow }: { pin: Pin; color: string; onClose?(): void; onError?(msg: string): void; onShow?(): void }) {
   const m = useT();
   const { patch, remove, reply } = usePinActions(pin.workspaceId);
@@ -542,7 +530,6 @@ function PinsPanel(props: {
   );
 }
 
-/** Top bar chip: how many pins are open; it opens the Pins panel. Hidden when there are none. */
 export function PinsChip({ workspaceId }: { workspaceId: string }) {
   const m = useT();
   const pins = usePins(workspaceId).data ?? NO_PINS;

@@ -19,13 +19,11 @@ export interface Activity {
 
 export type WorkspaceOpKind = "rename" | "open" | "delete";
 
-/** A workspace operation by someone other than this canvas's user (an MCP agent), read from the server's operations log. */
 export interface WorkspaceNotice {
   id: number;
   actor: string;
   op: WorkspaceOpKind;
   workspaceName: string;
-  /** For a delete: what went with the workspace (counts from the log entry). */
   detail: Record<string, unknown>;
 }
 
@@ -37,12 +35,9 @@ export interface DocState {
   canRedo: boolean;
   error: string | null;
   activity: Activity[];
-  /** Nós tocados pela última mudança vinda de um agente (para destacar no canvas). */
   agentTouched: Set<string>;
-  /** Agentes presentes (cursor e seleção próprios no canvas). */
   agents: AgentPresence[];
   build: BuildReplay | null;
-  /** Sincronização de time (ADR 0004): undefined = servidor sem --team; null = ainda sem status. */
   team: TeamStatus | null | undefined;
   workspaceNotice: WorkspaceNotice | null;
 }
@@ -74,11 +69,6 @@ function changedIds(prev: Document | null, next: Document): string[] {
 
 type Listener = () => void;
 
-/**
- * Estado ao vivo (documento, presença, atividade, erro) fora do React: o WebSocket escreve aqui e
- * cada componente assina só a fatia que usa (`useLive`), então uma mensagem de presença de agente
- * re-renderiza os cursores, não o editor inteiro.
- */
 export class LiveStore {
   private state: DocState = {
     doc: null,
@@ -98,7 +88,6 @@ export class LiveStore {
   private ws: WebSocket | null = null;
   private seq = 0;
   private noticeSeq = 0;
-  /** The workspace this tab shows (null: follows the server's active one), re-sent on every (re)connect. */
   private viewId: string | null = null;
   private viewWaiters = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
 
@@ -109,7 +98,6 @@ export class LiveStore {
     return () => this.listeners.delete(l);
   };
 
-  /** Troca o estado (mantém as referências das fatias que não mudaram) e avisa os assinantes. */
   set = (update: (s: DocState) => DocState): void => {
     const next = update(this.state);
     if (next === this.state) return;
@@ -117,16 +105,10 @@ export class LiveStore {
     for (const l of this.listeners) l();
   };
 
-  /**
-   * Points this tab at one workspace (null: follow the active one). The server answers with that
-   * workspace's document and routes this tab's edits to it, without changing the active workspace.
-   * Resolves when the server acknowledged, rejects with the server's error (e.g. unknown id).
-   */
   view = (id: string | null): Promise<void> => {
     this.viewId = id;
     return new Promise<void>((resolve, reject) => {
       const ws = this.ws;
-      // Not connected yet: onopen sends the view; the waiter below is settled by that ack.
       const reqId = String(++this.seq);
       this.viewWaiters.set(reqId, { resolve, reject });
       if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(this.viewMessage(reqId)));
@@ -134,11 +116,9 @@ export class LiveStore {
     });
   };
   private pendingView: string | null = null;
-  /** Set by the App: leaves the canvas when the viewed workspace is deleted. */
   onViewDeleted: (() => void) | null = null;
   private viewMessage = (reqId: string) => (this.viewId ? { type: "view", workspaceId: this.viewId, reqId } : { type: "view", reqId });
 
-  /** Abre o WebSocket (reconecta a cada 1 s) e devolve a função que fecha. */
   connect = (): (() => void) => {
     let closed = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
@@ -160,7 +140,6 @@ export class LiveStore {
     };
     const applyDoc = (msg: DocMsg) => {
       this.set((s) => {
-        // Another workspace: nothing carries over (its nodes are not "changed", the feed starts over).
         if (s.doc && s.doc.id !== msg.doc.id) {
           clearTimeout(flash);
           return { ...s, doc: msg.doc, version: msg.version, canUndo: msg.canUndo, canRedo: msg.canRedo, activity: [], agentTouched: new Set(), build: null };
@@ -216,10 +195,7 @@ export class LiveStore {
       const proto = location.protocol === "https:" ? "wss" : "ws";
       const ws = new WebSocket(`${proto}://${location.host}/ws`);
       this.ws = ws;
-      // Reconnecting clears only the "offline" error: an error shown before the socket opened (e.g. a
-      // workspace URL that does not exist) must stay on screen.
       ws.onclose = () => {
-        // A socket replaced by a newer connect() (StrictMode remount) must not mark the new one offline.
         if (this.ws !== ws) return;
         this.set((s) => ({ ...s, connected: false }));
         if (!closed) retry = setTimeout(open, 1000);
@@ -228,7 +204,6 @@ export class LiveStore {
         if (this.ws !== ws) return;
         this.set((s) => ({ ...s, connected: true, error: s.error && offlineMessages.has(s.error) ? null : s.error }));
         reportRenderer(initialRendererMode());
-        // A reconnect re-points the new socket at this tab's workspace (and settles a view() made while offline).
         if (this.viewId || this.pendingView) {
           const reqId = this.pendingView ?? String(++this.seq);
           this.pendingView = null;
@@ -250,7 +225,6 @@ export class LiveStore {
         } else if (msg.type === "workspaceOp") {
           const { op } = msg;
           const kind = op.op;
-          // The workspace this tab shows is gone: nothing left to draw or edit.
           if (kind === "delete" && op.workspaceId === this.state.doc?.id) this.onViewDeleted?.();
           if (kind === "create" || !op.actor.startsWith("agent")) return;
           this.set((s) =>
@@ -275,7 +249,6 @@ export class LiveStore {
       };
     };
     open();
-    // Team mode is on when the server answers /api/team with JSON (without --team the SPA fallback answers HTML).
     fetch("/api/team")
       .then(async (r) => (r.ok && (r.headers.get("content-type") ?? "").includes("json") ? ((await r.json()) as TeamStatus) : undefined))
       .then((team) => team && this.set((s) => ({ ...s, team: s.team ?? team })))
@@ -305,35 +278,26 @@ export class LiveStore {
     ws.send(JSON.stringify({ ...payload, reqId: String(++this.seq) }));
   }
 
-  /** Ações estáveis (mesma referência sempre): podem ir em deps de efeitos sem re-assinar nada. */
   readonly actions = {
     apply: (ops: Op[], label = "") => this.sendRaw({ type: "ops", ops, label }),
     undo: () => this.sendRaw({ type: "undo" }),
     redo: () => this.sendRaw({ type: "redo" }),
     dismissWorkspaceNotice: () => this.set((s) => (s.workspaceNotice === null ? s : { ...s, workspaceNotice: null })),
     clearError: () => this.set((s) => (s.error === null ? s : { ...s, error: null })),
-    /** Mostra um erro local (ex.: agrupar algo que não pode), no mesmo aviso dos erros do servidor. */
     showError: (message: string) => this.set((s) => ({ ...s, error: message })),
   };
 }
 
-/** A conexão da aba (uma por página). */
 export const liveStore = new LiveStore();
 
-/** Liga a conexão ao vivo enquanto o componente estiver montado (o App, uma vez). */
 export function useLiveConnection(store: LiveStore = liveStore): void {
   useEffect(() => store.connect(), [store]);
 }
 
-/**
- * Assina uma fatia do estado ao vivo. O seletor deve devolver um valor estável (um campo do estado
- * ou um primitivo): o componente só re-renderiza quando ele muda (`Object.is`).
- */
 export function useLive<T>(selector: (s: DocState) => T, store: LiveStore = liveStore): T {
   return useSyncExternalStore(store.subscribe, () => selector(store.getState()));
 }
 
-/** apply/undo/redo/showError/clearError do store (referências estáveis). */
 export function useLiveActions(store: LiveStore = liveStore): LiveStore["actions"] {
   return store.actions;
 }

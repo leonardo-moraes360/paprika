@@ -37,7 +37,6 @@ func TestTraceImageBlobIDsMatchAnalyze(t *testing.T) {
 			t.Fatalf("skipped: %s", jsonv.Stringify(sk, ""))
 		}
 	}
-	// an unknown id is a warning, and nothing is drawn
 	sc, _, isErr := traceCall(t, m, obj("src", src, "dryRun", true, "blobIds", []any{"b9"}))
 	if isErr || len(sc.Arr("paths")) != 0 || !strings.Contains(strings.Join(sc.Strings("warnings"), " "), "b9") {
 		t.Fatalf("unknown id: %v", sc)
@@ -47,7 +46,6 @@ func TestTraceImageBlobIDsMatchAnalyze(t *testing.T) {
 func TestTraceImageExcludeAndDropReport(t *testing.T) {
 	m, _, _ := resizeSetup(t)
 	src := "data:image/png;base64," + base64.StdEncoding.EncodeToString(logoPNG(t))
-	// the blue rectangle is x 110..180, y 30..70 (no parent, no frame: image pixels)
 	sc, text, isErr := traceCall(t, m, obj("src", src, "dryRun", true, "exclude", []any{obj("x", 105.0, "y", 25.0, "width", 80.0, "height", 50.0)}))
 	if isErr {
 		t.Fatal(text)
@@ -56,7 +54,6 @@ func TestTraceImageExcludeAndDropReport(t *testing.T) {
 	if len(paths) != 1 || paths[0].(*jsonv.Object).Str("color") != "#dc1e28" || sc.Obj("skipped").Num("excluded") != 1 {
 		t.Fatalf("exclude: %s", text)
 	}
-	// maxPaths 1: drawn/dropped/droppedIds, separate from pathCount
 	sc, text, isErr = traceCall(t, m, obj("src", src, "dryRun", true, "maxPaths", 1.0))
 	if isErr {
 		t.Fatal(text)
@@ -67,7 +64,6 @@ func TestTraceImageExcludeAndDropReport(t *testing.T) {
 	if got := sc.Strings("droppedIds")[0]; got == sc.Arr("paths")[0].(*jsonv.Object).Str("blobId") {
 		t.Fatalf("the dropped blob %s is also drawn", got)
 	}
-	// without a cut: nothing dropped, an empty list (not null)
 	sc, _, _ = traceCall(t, m, obj("src", src, "dryRun", true))
 	if sc.Num("dropped") != 0 || sc.Arr("droppedIds") == nil || len(sc.Arr("droppedIds")) != 0 {
 		t.Fatalf("no cut: dropped %v", sc.Num("dropped"))

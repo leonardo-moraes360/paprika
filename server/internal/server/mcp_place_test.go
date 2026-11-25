@@ -198,7 +198,6 @@ func TestPlaceNonePinsAbsoluteInAutoLayout(t *testing.T) {
 	if got := core.GetNode(s.Doc(), "kept").Str("layoutPositioning"); got != "auto" {
 		t.Fatalf("explicit layoutPositioning overridden: %q", got)
 	}
-	// a parent without row/column layout is untouched
 	if out, isErr := callText(t, m, "create_nodes", obj("parentId", "free", "place", "none", "nodes", []any{
 		obj("type", "rect", "id", "plain", "x", 3.0, "y", 4.0, "width", 10.0, "height", 10.0),
 	})); isErr || strings.Contains(out, "layoutPositioning was set") || core.GetNode(s.Doc(), "plain").Has("layoutPositioning") {

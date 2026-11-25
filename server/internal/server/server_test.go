@@ -56,7 +56,6 @@ func TestStorePersistsDocumentAndHistory(t *testing.T) {
 	version := s.Version()
 	s.Close()
 
-	// Reopen: document, version and both undo/redo stacks survive the restart.
 	s2, err := OpenStore(path, OpenOptions{Poll: -1})
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +73,6 @@ func TestStorePersistsDocumentAndHistory(t *testing.T) {
 	if h := s2.RecentHistory(10); len(h) != 3 || h[0].Label != "criar a" {
 		t.Fatalf("history = %+v", h)
 	}
-	// Normalized tables are queryable with plain SQL.
 	var n int
 	if err := s2.DB().QueryRow(`SELECT COUNT(*) FROM nodes WHERE doc_id = ? AND type = 'rect'`, s2.DocID()).Scan(&n); err != nil || n != 2 {
 		t.Fatalf("nodes table: %d %v", n, err)
@@ -97,8 +95,6 @@ func TestStorePersistsThemeModes(t *testing.T) {
 	if _, err := s.Apply([]any{obj("op", "set_tokens", "mode", "dark", "tokens", obj("bg", nil))}, "test", "sem bg escuro"); err != nil {
 		t.Fatal(err)
 	}
-	// A live document gets `modes` appended after `nodes`; parsing puts it back in schema
-	// order (after `tokens`), which is what a reload must return.
 	live, err := core.ParseDocument(s.Doc())
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +117,6 @@ func TestStorePersistsThemeModes(t *testing.T) {
 	if err := s2.DB().QueryRow(`SELECT COUNT(*) FROM modes WHERE doc_id = ?`, s2.DocID()).Scan(&n); err != nil || n != 2 {
 		t.Fatalf("modes table: %d %v", n, err)
 	}
-	// Undo after the restart brings the dark bg back, and that is stored too.
 	if ok, err := s2.Undo("test"); !ok || err != nil {
 		t.Fatalf("undo: %v %v", ok, err)
 	}
@@ -129,7 +124,6 @@ func TestStorePersistsThemeModes(t *testing.T) {
 	if err := s2.DB().QueryRow(`SELECT tokens FROM modes WHERE doc_id = ? AND name = 'dark'`, s2.DocID()).Scan(&dark); err != nil || !strings.Contains(dark, `"bg":"#101010"`) {
 		t.Fatalf("dark mode row after undo: %q %v", dark, err)
 	}
-	// Export keeps the modes, and import --replace does not leave stale rows behind.
 	out, err := ExportDocument(s2.DB(), s2.DocID())
 	if err != nil || !strings.Contains(out, `"dark"`) {
 		t.Fatalf("export: %v\n%s", err, out)
@@ -505,7 +499,6 @@ func TestMCPGroupsAndPages(t *testing.T) {
 	}
 }
 
-// fb#65, #67, #68: friction an agent hit while drawing a board.
 func TestMCPAgentDefaults(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)
@@ -962,7 +955,6 @@ func TestPresence(t *testing.T) {
 	if err := ServeStdio(context.Background(), NewMCP(s, "agent:stdio", nil), in, &out); err != nil {
 		t.Fatal(err)
 	}
-	// The invalid call never reached its handler: no presence (same as the TS SDK).
 	if len(got) != 3 {
 		t.Fatalf("presences: %+v", got)
 	}
@@ -981,7 +973,7 @@ func TestPresence(t *testing.T) {
 	for i := range 70 {
 		h.Report("k"+strconv.Itoa(i), "agent:x", "get_nodes", nil)
 	}
-	h.Report("k6", "agent:x", "get_nodes", nil) // moves k6 to the end
+	h.Report("k6", "agent:x", "get_nodes", nil)
 	if r := h.Recent(); len(r) != 64 || r[0].Agent != "k7" || r[63].Agent != "k6" {
 		t.Fatalf("recent: %d %s %s", len(r), r[0].Agent, r[len(r)-1].Agent)
 	}

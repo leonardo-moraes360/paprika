@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// canvas draws anti-aliased shapes (3x3 supersampling) onto an opaque background.
 type canvas struct {
 	img *image.NRGBA
 }
@@ -199,7 +198,6 @@ func TestRingWithHole(t *testing.T) {
 	if !ring.Fit.HolesFilled {
 		t.Error("holesFilled should be set")
 	}
-	// the hole is listed as its own white blob (it does not touch the border)
 	inner := hasBlob(t, r, "circle", "#ffffff")
 	near(t, "inner width", *inner.Fit.Node.Width, 100, 3)
 	if r.Blobs[0].ID != "b1" || r.Blobs[0].Color != "#0a0a0a" {
@@ -272,7 +270,6 @@ func TestPetalsAroundCenter(t *testing.T) {
 func TestTwoColorLogo(t *testing.T) {
 	c := newCanvas(400, 400, white)
 	c.roundRect(navy, 200, 200, 150, 150, 40, 0)
-	// five-pointed star in orange
 	var star []pt
 	for i := range 10 {
 		rad := 100.0
@@ -353,25 +350,20 @@ func TestNoiseDoesNotAddColors(t *testing.T) {
 func TestTransformRegionAndTransparency(t *testing.T) {
 	c := newCanvas(400, 300, white)
 	c.ellipse(red, 200, 150, 80, 80, 0)
-	// frame 800x600 scaled 2x: the circle doubles
 	r := analyze(t, c.img, Options{Scale: 2})
 	n := r.Blobs[0].Fit.Node
 	near(t, "scaled width", *n.Width, 320, 4)
 	near(t, "scaled x", n.X, 240, 3)
-	// offset like place_reference centering
 	r = analyze(t, c.img, Options{Scale: 1, OffsetX: 50, OffsetY: 10})
 	near(t, "offset x", r.Blobs[0].Fit.Node.X, 170, 2)
-	// region: only the right half of the circle plus white
 	r = analyze(t, c.img, Options{Region: &Rect{X: 200, Y: 0, Width: 200, Height: 300}})
 	if r.Region.X != 200 || r.Region.Width != 200 {
 		t.Errorf("region %+v", r.Region)
 	}
 	near(t, "region bbox x", r.Blobs[0].BBox.X, 200, 1)
-	// transparent background
 	tr := image.NewNRGBA(image.Rect(0, 0, 100, 100))
 	cc := &canvas{tr}
 	cc.ellipse(navy, 50, 50, 30, 30, 0)
-	// paint() blends with the transparent bg: reset alpha to the coverage-free value
 	for i := 0; i < len(tr.Pix); i += 4 {
 		if tr.Pix[i+3] != 0 {
 			tr.Pix[i+3] = 255

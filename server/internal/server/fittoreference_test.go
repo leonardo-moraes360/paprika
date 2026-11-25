@@ -15,8 +15,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// rasterShot renders documents with the software exporter, so a fit sees real pixels of the
-// document it is given (and of the clones the tool makes), without Chromium.
 type rasterShot struct {
 	memShot
 	calls int
@@ -35,7 +33,6 @@ func (r *rasterShot) ScreenshotMode(_ context.Context, doc *core.Document, rootI
 	return buf.Bytes(), img.Bounds().Dx(), img.Bounds().Dy(), nil
 }
 
-// fitScene is a w x h picture, white with navy where in(x, y) holds.
 func fitScene(t *testing.T, w, h int, in func(x, y float64) bool) string {
 	t.Helper()
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
@@ -142,7 +139,6 @@ func TestFitToReferenceRectConvergesAsOneUndoStep(t *testing.T) {
 		}
 	}
 
-	// one undo step brings the first numbers back
 	if _, isErr := callText(t, m, "undo", obj()); isErr {
 		t.Fatal("undo failed")
 	}
@@ -221,7 +217,7 @@ func TestFitToReferenceRotatedPathKeepsItsPivot(t *testing.T) {
 		obj("type", "path", "id", "p", "x", 100.0, "y", 50.0, "width", 100.0, "height", 100.0, "rotation", 25.0, "d", "M0 0 L100 0 L55 55 L0 100 Z", "fill", "#14286e"))
 	sin, cos := math.Sin(25*math.Pi/180), math.Cos(25*math.Pi/180)
 	ref := fitScene(t, 300, 200, func(x, y float64) bool {
-		dx, dy := x-150, y-100 // the square turned 25 degrees about its center
+		dx, dy := x-150, y-100
 		u, v := dx*cos+dy*sin, -dx*sin+dy*cos
 		return math.Abs(u) <= 50 && math.Abs(v) <= 50
 	})
@@ -256,7 +252,6 @@ func TestFitToReferenceErrors(t *testing.T) {
 			t.Fatalf("%s: %q lacks %q", name, got, tc.want)
 		}
 	}
-	// unknown params are refused by the schema
 	if got := fitErr(t, m, obj("rootId", "f", "ids", []any{"r"}, "reference", ref, "params", []any{"colour"})); got == "" {
 		t.Fatal("expected an error for an unknown param")
 	}

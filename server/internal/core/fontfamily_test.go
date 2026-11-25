@@ -2,7 +2,6 @@ package core
 
 import "testing"
 
-// Same table as packages/core/test/renderParity.test.ts: the port must agree with the reference.
 func TestWithGenericFamily(t *testing.T) {
 	cases := map[string]string{
 		"Inter":                        "Inter, sans-serif",

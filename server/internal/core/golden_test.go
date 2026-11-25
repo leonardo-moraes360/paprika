@@ -14,9 +14,6 @@ import (
 	z "github.com/leonardo-moraes360/paprika/server/internal/zod"
 )
 
-// The fixtures come from the TypeScript reference (server/scripts/gen-golden.mjs).
-// Every output must match byte for byte.
-
 func loadGolden(t *testing.T) *jsonv.Object {
 	t.Helper()
 	raw, err := os.ReadFile("testdata/golden.json")
@@ -563,7 +560,6 @@ func TestGoldenBadDocs(t *testing.T) {
 }
 
 func TestToFixedTies(t *testing.T) {
-	// JavaScript picks the larger n on exact ties (0.125 → "0.13"); Go's strconv would round to even.
 	for in, want := range map[float64]string{0.125: "0.13", 2.375: "2.38", 4.5: "4.50", 21: "21.00", 1.005: "1.00"} {
 		if got := toFixed(in, 2); got != want {
 			t.Errorf("toFixed(%v) = %s, want %s", in, got, want)
@@ -571,7 +567,6 @@ func TestToFixedTies(t *testing.T) {
 	}
 }
 
-// TestGoldenRandomRuns replays seeded random transactions (valid and invalid), undos and redos.
 func TestGoldenRandomRuns(t *testing.T) {
 	g := loadGolden(t)
 	docs := baseDocs(t, g)

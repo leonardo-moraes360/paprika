@@ -6,7 +6,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Same rules as the TS History batch test (packages/core/test/core.test.ts).
 func TestHistoryBatch(t *testing.T) {
 	h := NewHistory(CreateDocument("T", "d"))
 	start := jsonv.Stringify(h.Doc(), "")

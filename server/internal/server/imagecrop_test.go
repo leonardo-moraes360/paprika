@@ -54,7 +54,6 @@ func TestCropRasterPNG(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// the blue rectangle starts at (110,30): local (10,10); (5,5) is still white background
 	if !near(img.At(10, 10), 20, 40, 110, 0) || !near(img.At(5, 5), 255, 255, 255, 0) {
 		t.Fatalf("pixels: %v %v", img.At(10, 10), img.At(5, 5))
 	}
@@ -102,7 +101,6 @@ func TestCropRasterRefusesWhatCannotBeDecoded(t *testing.T) {
 func TestImportImageCrop(t *testing.T) {
 	m, s, _ := importImageSetup(t)
 	src := "data:image/png;base64," + base64.StdEncoding.EncodeToString(logoPNG(t))
-	// out of bounds on the right and bottom: clamped, with a warning
 	r := m.CallTool(t.Context(), "import_image", obj("src", src, "crop", obj("x", 100.0, "y", 20.0, "width", 150.0, "height", 60.0), "x", 7.0, "y", 9.0, "place", "none"), true)
 	if r.Bool("isError") {
 		t.Fatal(callTextJoin(r))
@@ -118,7 +116,6 @@ func TestImportImageCrop(t *testing.T) {
 	if n.Num("x") != 7 || n.Num("y") != 9 || n.Num("width") != 100 || n.Num("height") != 60 || n.Str("src") == src {
 		t.Fatalf("node: %s", jsonv.Stringify(n, ""))
 	}
-	// width still caps the node: a 100x60 crop at width 50 is 50x30
 	r = m.CallTool(t.Context(), "import_image", obj("src", src, "crop", obj("x", 100.0, "y", 20.0, "width", 100.0, "height", 60.0), "width", 50.0), true)
 	if r.Bool("isError") {
 		t.Fatal(callTextJoin(r))
@@ -145,7 +142,6 @@ func TestPlaceReferenceCrop(t *testing.T) {
 		t.Fatal(callTextJoin(r))
 	}
 	sc := r.Obj("structuredContent")
-	// the 100x60 crop is fitted inside 400x400: scale 4 -> 400x240 at y 80
 	if sc.Num("width") != 400 || sc.Num("height") != 240 || sc.Num("y") != 80 {
 		t.Fatalf("placement: %s", jsonv.Stringify(sc, ""))
 	}
@@ -155,7 +151,6 @@ func TestPlaceReferenceCrop(t *testing.T) {
 }
 
 func TestCropTooLargeAfterEncoding(t *testing.T) {
-	// noise does not compress: a big noisy PNG crop overflows the limit
 	img := image.NewNRGBA(image.Rect(0, 0, 1200, 1200))
 	seed := uint32(1)
 	for i := range img.Pix {

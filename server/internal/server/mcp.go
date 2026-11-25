@@ -17,15 +17,12 @@ import (
 	z "github.com/leonardo-moraes360/paprika/server/internal/zod"
 )
 
-// Version of the server (kept equal to the TypeScript reference).
 const Version = "0.1.0"
 
-// Protocol versions accepted by initialize (same list as the TypeScript SDK).
 var supportedProtocolVersions = []string{"2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05", "2024-10-07"}
 
 const latestProtocolVersion = "2025-11-25"
 
-// Contract is the parsed MCP contract (tool definitions are served verbatim).
 type Contract struct {
 	ServerInfo   *jsonv.Object
 	Capabilities *jsonv.Object
@@ -42,17 +39,14 @@ var mcpContract = func() Contract {
 	return Contract{o.Obj("serverInfo"), o.Obj("capabilities"), o.Str("instructions"), o.Arr("tools")}
 }()
 
-// DesignGuide is the agent-facing guide (also sent as MCP instructions).
 var DesignGuide = mcpContract.Instructions
 
-// ToolResult is an MCP CallToolResult.
 type ToolResult = *jsonv.Object
 
 func textResult(s string) ToolResult {
 	return jsonv.NewObject("content", []any{jsonv.NewObject("type", "text", "text", s)})
 }
 
-// jsonResult answers v as JSON text and, for an object, as structuredContent too (outputSchema).
 func jsonResult(v any) ToolResult {
 	j := jsonv.FromGo(v)
 	res := textResult(jsonv.Stringify(j, "  "))
@@ -62,7 +56,6 @@ func jsonResult(v any) ToolResult {
 	return res
 }
 
-// jsonShown answers `shown` as text (an array, kept for older clients) and `structured` as structuredContent.
 func jsonShown(structured *jsonv.Object, shown any) ToolResult {
 	res := textResult(jsonv.Stringify(jsonv.FromGo(shown), "  "))
 	res.Set("structuredContent", structured)
@@ -170,7 +163,6 @@ func errorResult(msg string) ToolResult {
 	return jsonv.NewObject("content", []any{jsonv.NewObject("type", "text", "text", msg)}, "isError", true)
 }
 
-// mcpError mirrors the SDK's McpError message ("MCP error <code>: <message>").
 type mcpError struct {
 	code int
 	msg  string
@@ -188,29 +180,23 @@ const (
 
 type tool struct {
 	name    string
-	schema  *z.ObjectSchema // nil: the tool takes no arguments (they are not validated)
+	schema  *z.ObjectSchema
 	handler func(ctx context.Context, args *jsonv.Object) (ToolResult, error)
 }
 
-// MCP serves the Paprika tools over one Store. One instance per connection (cheap).
 type MCP struct {
-	store *Store
-	actor string // fallback actor (User-Agent, "stdio") when the client sent no clientInfo name
-	// client: clientInfo.name from initialize on this connection (stdio), or remembered for the
-	// HTTP session id. It names the actor ("agent:<name>").
-	client string
-	// session: Mcp-Session-Id of the HTTP request; it tells apart agents with the same name (presence).
+	store   *Store
+	actor   string
+	client  string
 	session string
 	tools   map[string]tool
 	shot    Screenshotter
 }
 
-// Screenshotter renders HTML in a browser for PNG screenshots.
 type Screenshotter interface {
 	ScreenshotMode(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) (png []byte, width, height int, err error)
 }
 
-// HTMLComputer renders HTML in Chromium and returns it with author styles inlined.
 type HTMLComputer interface {
 	ComputedHTML(ctx context.Context, html string) (string, error)
 }
@@ -238,7 +224,6 @@ func label() z.Field { return z.Field{Name: "label", Schema: z.Optional(z.String
 
 func batch() z.Field { return z.Field{Name: "batch", Schema: z.Optional(z.String().Min(1).Max(200))} }
 
-// ActorFromClient turns a clientInfo name into "agent:<name>" (same filter as the former TS server); "" if nothing is left.
 func ActorFromClient(name string) string {
 	var b strings.Builder
 	for _, r := range name {
@@ -256,10 +241,8 @@ func ActorFromClient(name string) string {
 	return "agent:" + clean
 }
 
-// SetClient records the client's name (from an earlier initialize) for the actor.
 func (m *MCP) SetClient(name string) { m.client = name }
 
-// SetSession records the HTTP session id, so presence tells apart two agents with the same name.
 func (m *MCP) SetSession(id string) { m.session = id }
 
 func (m *MCP) actorName() string {
@@ -269,7 +252,6 @@ func (m *MCP) actorName() string {
 	return m.actor
 }
 
-// NewMCP builds the tool set for an actor ("agent:claude", "agent:stdio"…).
 func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	if actor == "" {
 		actor = "agent"
@@ -421,7 +403,6 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			}
 			structured := jsonv.NewObject("nodes", out)
 			if len(missing) > 0 {
-				// The nodes that exist still come back (an undo may have removed some of them).
 				structured.Set("missing", missing)
 				return jsonShown(structured, jsonv.NewObject("nodes", out, "missing", missing)), nil
 			}
@@ -485,8 +466,6 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			boxesObj.Set(id, core.LayoutBoxJSON(b))
 		}
 		out.Set("boxes", boxesObj)
-		// An id that exists but has no box is named, never dropped: a page has no geometry, and a node hidden
-		// inside an auto-layout frame is not laid out.
 		if a.Has("ids") {
 			var unplaced []any
 			seen := map[string]bool{}
@@ -1141,7 +1120,6 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if a.Has("name") {
 			op.Set("name", a.Str("name"))
 		}
-		// `page` names the new page: `created` also lists the first page ("Page 1") made when the document already had content.
 		return writeWith(a, []any{op}, labelOr(a, "create page"), "page", id)
 	})
 
@@ -1301,7 +1279,6 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		if a.Has("fields") {
 			op.Set("fields", a.Arr("fields"))
 		}
-		// Fields that come from a component (on an instance or its copies) are skipped, not an error.
 		extra := []any{"detached", a.Arr("ids")}
 		if d, err := docOf(a); err == nil {
 			if skipped := core.DetachTokensSkipped(d, a.Strings("ids"), a.Strings("fields")); len(skipped) > 0 {
@@ -1531,8 +1508,6 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 	), func(_ context.Context, a *jsonv.Object) (ToolResult, error) {
 		id, token := a.Str("id"), a.Str("confirmToken")
 		if token == "" {
-			// Nothing is deleted here. The call returns what would be lost and a token bound to this
-			// workspace: the agent shows the summary to the human, then repeats the call with the token.
 			summary, err := store.DescribeWorkspaceDeletion(id)
 			if err != nil {
 				return nil, workspaceActionError(id, err)
@@ -1795,7 +1770,6 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 			return nil, err
 		}
 		if a.Str("format") == "svg" {
-			// Same vector SVG as export_code {format: "svg"}; scale does not apply.
 			r, err := core.ExportSVG(d, a.Str("rootId"), nil)
 			if err != nil {
 				return nil, err
@@ -2466,7 +2440,6 @@ func jsString(v any) string {
 	return jsonv.Stringify(v, "")
 }
 
-// ToolNames lists the registered tools.
 func (m *MCP) ToolNames() []string {
 	out := make([]string, 0, len(m.tools))
 	for k := range m.tools {
@@ -2475,8 +2448,6 @@ func (m *MCP) ToolNames() []string {
 	return out
 }
 
-// CallTool runs one tool like the TypeScript SDK's McpServer: validation errors and handler
-// errors both come back as isError results.
 func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bool) ToolResult {
 	t, ok := m.tools[name]
 	if !ok {
@@ -2507,7 +2478,6 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 		}()
 		return t.handler(ctx, args)
 	}()
-	// Every tool call that reached its handler reports the agent's presence (canvas cursor).
 	var structured *jsonv.Object
 	if err == nil && res != nil {
 		structured = res.Obj("structuredContent")
@@ -2520,7 +2490,6 @@ func (m *MCP) CallTool(ctx context.Context, name string, rawArgs any, present bo
 	return m.withOpenPins(name, res)
 }
 
-// argAliases maps a key agents guess to the keys the tools really take, in order of preference.
 var argAliases = map[string][]string{
 	"id":        {"rootId", "ids"},
 	"nodeId":    {"rootId", "id"},
@@ -2535,8 +2504,6 @@ var argAliases = map[string][]string{
 	"workspace": {"workspaceId"},
 }
 
-// unknownArgs names the top-level arguments a tool does not take (they used to be dropped
-// silently, so a render_screenshot {id} shot the whole canvas). "" when there are none.
 func unknownArgs(tool string, args *jsonv.Object, valid []string) string {
 	has := map[string]bool{}
 	for _, k := range valid {
@@ -2576,7 +2543,6 @@ func unknownArgs(tool string, args *jsonv.Object, valid []string) string {
 	return strings.Join(msgs, "; ") + "; valid arguments: " + strings.Join(sorted, ", ")
 }
 
-// Handle processes one JSON-RPC message; it returns nil for notifications and responses.
 func (m *MCP) Handle(ctx context.Context, msg any) *jsonv.Object {
 	o, ok := msg.(*jsonv.Object)
 	if !ok {
@@ -2586,10 +2552,10 @@ func (m *MCP) Handle(ctx context.Context, msg any) *jsonv.Object {
 	method, hasMethod := o.Get("method")
 	ms, _ := method.(string)
 	if !hasMethod {
-		return nil // a response from the client: nothing to do
+		return nil
 	}
 	if !hasID {
-		return nil // notification (notifications/initialized, cancelled…)
+		return nil
 	}
 	params := o.Obj("params")
 	switch ms {
@@ -2631,10 +2597,6 @@ func rpcError(id any, code int, msg string) *jsonv.Object {
 	return jsonv.NewObject("jsonrpc", "2.0", "id", id, "error", jsonv.NewObject("code", float64(code), "message", msg))
 }
 
-// connectorDerivedFields are computed from a connector's from/to; agents that copy node JSON
-// from get_nodes bring them back, and create_nodes tolerates that instead of refusing the whole
-// call: the fields are dropped and reported as warnings. The primitive create op (canvas,
-// apply_ops) keeps refusing them, so nothing derived is ever stored by hand.
 var connectorDerivedFields = []string{"x", "y", "width", "height", "d"}
 
 func parentIsTop(doc *core.Document, parent any) bool {
@@ -2663,9 +2625,6 @@ func createPlace(doc *core.Document, parent any, node *jsonv.Object, args *jsonv
 	return "free", true
 }
 
-// pinAbsolute implements "place:none with x/y means exactly there": inside a row/column frame a
-// flow child ignores x/y, so the root gets layoutPositioning:"absolute" (unless the agent chose
-// one) and the caller reports the returned warning. The caller checks place:"none".
 func pinAbsolute(doc *core.Document, parent any, node *jsonv.Object) string {
 	if !node.Has("x") && !node.Has("y") || node.Has("layoutPositioning") {
 		return ""
@@ -2772,7 +2731,6 @@ func stripConnectorDerived(nodes []any) []string {
 	return warnings
 }
 
-// workspaceActionError is the actionable text an agent reads when a workspace call cannot go through.
 func workspaceActionError(id string, err error) error {
 	switch {
 	case errors.Is(err, ErrNoWorkspace):
@@ -2785,9 +2743,6 @@ func workspaceActionError(id string, err error) error {
 	return err
 }
 
-// exportImage renders raster formats with the same Chromium path as render_screenshot, so an
-// export matches what the canvas and the screenshot show. Without Chromium (or if it fails) it
-// falls back to the built-in rasterizer and says so in the warnings. PDF always uses the built-in writer.
 func (m *MCP) exportImage(ctx context.Context, d *core.Document, rootID, format string, scale float64) (export.Result, error) {
 	format = strings.ToLower(strings.TrimSpace(format))
 	if scale <= 0 {

@@ -1,5 +1,3 @@
-// Black-box API suite for the Go server: it runs as a separate process and is reached only
-// through MCP (HTTP and stdio), the WebSocket and the HTTP API (see server/README.md).
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -119,7 +117,6 @@ function crc32(buf: Buffer): number {
   return ~c >>> 0;
 }
 
-/** Encodes an RGB PNG from a per-pixel color function (tests only). */
 function encodePng(w: number, h: number, pixel: (x: number, y: number) => [number, number, number]): Buffer {
   const raw = Buffer.alloc((w * 3 + 1) * h);
   for (let y = 0; y < h; y++) {
@@ -547,7 +544,6 @@ describe("API: MCP", () => {
     `);
     const hist = JSON.parse(textOf(await call(c, "get_history", { limit: 4 })));
     expect(hist.map((h: { label: string }) => h.label)).toEqual(["create 2 node(s)", "combine 2 path(s)", "create page", "create 1 node(s)"]);
-    // combine_paths em lote: anel com furo numa chamada só, estilo escolhido, um passo de desfazer.
     await call(c, "create_nodes", {
       parentId: "p2",
       nodes: [
@@ -588,7 +584,6 @@ describe("API: MCP", () => {
     const star = JSON.parse(textOf(await call(c, "get_nodes", { ids: ["st"] })))[0];
     expect(star).toMatchObject({ type: "path", fill: "#c43d27" });
     expect(star.d).toContain("A");
-    // x and y are the center: the box straddles it.
     expect(star.x + star.width / 2).toBeGreaterThan(290);
     expect(star.x + star.width / 2).toBeLessThan(310);
     const ring = (await call(c, "create_shape_path", { kind: "ring", id: "rg", x: 0, y: 0, radius: 20, thickness: 5, place: "none" })) as ToolResult & { structuredContent?: { ids: string[] } };
@@ -932,7 +927,6 @@ describe("API: MCP", () => {
         children: Array.from({ length: 11 }, (_, i) => ({ type: "rect", id: `wchip${i}`, width: 88, height: 40, fill: "#c43d27" })),
       }],
     });
-    // 400 holds four 88px chips and three gaps (388): lines of 4, 4 and 3
     const wrapped = JSON.parse(textOf(await call(c, "get_bounds", { ids: ["wchips", "wchip3", "wchip4", "wchip10"] })));
     expect(wrapped.boxes.wchips).toMatchObject({ width: 400, height: 3 * 40 + 2 * 12 });
     expect(wrapped.boxes.wchip3).toMatchObject({ x: 3 * 100, y: 0 });
@@ -1045,7 +1039,6 @@ describe("API: MCP", () => {
     const doc = await srv.doc();
     expect(doc.nodes["start-to-ok"]).toMatchObject({ x: 158, y: 38, d: "M2 2 L22.25 2 L22.25 146 L42.5 146 M30.5 152 L42.5 146 L30.5 140" });
     expect(textOf(await call(c, "get_document_outline"))).toContain("connector#memo-to-ok");
-    // Labels (fb#57): on draw_diagram edges and on any connector, drawn halfway along the route.
     await call(c, "update_nodes", { updates: [{ id: "start-to-ok", props: { label: "sim" } }] });
     expect(textOf(await call(c, "get_document_outline"))).toContain('label="sim"');
     const html = textOf(await call(c, "export_code", { rootId: "start-to-ok", format: "html" }));
@@ -1150,7 +1143,6 @@ describe("API: MCP", () => {
     });
     const box = async () => (await srv.doc()).nodes.box;
     expect(await box()).toMatchObject({ children: ["z1", "z2", "z3"] });
-    // index junto de campos: mesma chamada, um único passo de desfazer que restaura os dois.
     await call(c, "update_nodes", { updates: [{ id: "z1", props: { index: "front", name: "top" } }] });
     expect(await box()).toMatchObject({ children: ["z2", "z3", "z1"] });
     expect((await srv.doc()).nodes.z1).toMatchObject({ name: "top" });
@@ -1160,16 +1152,13 @@ describe("API: MCP", () => {
     expect(await nEntries()).toBe(before - 1);
     expect(await box()).toMatchObject({ children: ["z1", "z2", "z3"] });
     expect((await srv.doc()).nodes.z1).not.toMatchObject({ name: "top" });
-    // move aceita os mesmos nomes; back/forward/backward no pai.
     await call(c, "move_nodes", { moves: [{ id: "z3", parentId: "box", index: "back" }] });
     expect(await box()).toMatchObject({ children: ["z3", "z1", "z2"] });
     await call(c, "move_nodes", { moves: [{ id: "z3", parentId: "box", index: "forward" }] });
     expect(await box()).toMatchObject({ children: ["z1", "z3", "z2"] });
     await call(c, "update_nodes", { updates: [{ id: "z2", props: { index: 0 } }] });
     expect(await box()).toMatchObject({ children: ["z2", "z1", "z3"] });
-    // frente/fundo respeitam o pai: o nível do canvas não muda.
     expect((await srv.doc()).rootIds).toEqual(["box"]);
-    // índice que não é posição: erro acionável, nada é aplicado.
     const bad = await call(c, "update_nodes", { updates: [{ id: "z1", props: { index: "up" } }] });
     expect(bad.isError).toBe(true);
     expect(textOf(bad)).toContain('props.index must be a number (0 is the back) or "front", "back", "forward" or "backward" (got "up")');
@@ -1269,7 +1258,6 @@ describe("API: MCP", () => {
     expect(zoom.structuredContent.grid.step).toBe(5);
     expect(zoom.structuredContent.region).toEqual({ x: 100, y: 50, width: 80, height: 40 });
     expect(textOf(zoom)).toContain("grid step 5");
-    // grid alone keeps the size; an explicit step is reported back
     const gridded = (await call(client, "render_screenshot", { rootId: "gridscreen", grid: { step: 40, labels: false, color: "#00ff00" } })) as ToolResult & {
       structuredContent: { grid: { step: number }; region?: unknown };
     };
@@ -1277,7 +1265,6 @@ describe("API: MCP", () => {
     expect(pngSize(gridded)).toEqual({ w: 400, h: 200 });
     expect(gridded.structuredContent.grid.step).toBe(40);
     expect(gridded.structuredContent.region).toBeUndefined();
-    // a region outside the frame is an error
     expect((await call(client, "render_screenshot", { rootId: "gridscreen", region: { x: 900, y: 0, width: 10, height: 10 } })).isError).toBe(true);
   }, 30_000);
 
@@ -1462,7 +1449,6 @@ describe("API: MCP", () => {
 
   it("entradas estritas: padding de 2 valores, argumentos desconhecidos, get_nodes parcial, export_image svg", async () => {
     const c = client;
-    // padding [vertical, horizontal] normalizes like CSS; other lengths name the accepted shapes.
     const ok = await call(c, "create_nodes", {
       nodes: [{ type: "frame", id: "strict-pad", width: 100, height: 60, layout: { mode: "row", padding: [8, 16] } }],
     });
@@ -1476,7 +1462,6 @@ describe("API: MCP", () => {
     expect(three.isError).toBe(true);
     expect(textOf(three)).toMatch(/\[vertical, horizontal\] or \[top, right, bottom, left\]/);
 
-    // Gradient strings in a color point at the structured gradient field; width tokens name the accepted shapes.
     const grad = await call(c, "create_nodes", { nodes: [{ type: "path", id: "strict-g", d: "M0 0 L10 10", fill: "linear-gradient(90deg, #fff, #000)" }] });
     expect(grad.isError).toBe(true);
     expect(textOf(grad)).toMatch(/structured gradient field/);
@@ -1487,7 +1472,6 @@ describe("API: MCP", () => {
     expect(lh.isError).toBe(true);
     expect(textOf(lh)).toMatch(/multiplier.*1\.375/);
 
-    // Unknown top-level arguments are rejected with the valid keys and a hint.
     for (const [tool, args, hint] of [
       ["render_screenshot", { id: "strict-pad" }, "rootId"],
       ["render_screenshot", { nodeId: "strict-pad" }, "rootId"],
@@ -1501,7 +1485,6 @@ describe("API: MCP", () => {
       expect(textOf(bad)).toMatch(/valid arguments: /);
     }
 
-    // get_nodes returns the nodes that exist plus `missing`; it fails only when none exist.
     const part = (await call(c, "get_nodes", { ids: ["strict-pad", "strict-gone"] })) as ToolResult & {
       structuredContent?: { nodes: { id: string }[]; missing?: string[] };
     };
@@ -1512,7 +1495,6 @@ describe("API: MCP", () => {
     const none = await call(c, "get_nodes", { ids: ["strict-gone"] });
     expect(none.isError).toBe(true);
 
-    // export_image accepts svg (same vector SVG as export_code).
     const svg = (await call(c, "export_image", { rootId: "strict-pad", format: "svg" })) as ToolResult & {
       structuredContent?: { format: string; mimeType: string };
     };
@@ -1586,7 +1568,6 @@ describe("API: MCP", () => {
 
   it("analyze_image: paleta, blobs com primitiva ajustada, frame, nodeId e layout", async () => {
     const c = client;
-    // 160x100: white background, a red disc (center 30,50, r 20), a 3x2 grid of navy squares
     const png = encodePng(160, 100, (x, y) => {
       if ((x - 30) ** 2 + (y - 50) ** 2 <= 400) return [220, 30, 40];
       for (let col = 0; col < 3; col++) {
@@ -1605,7 +1586,6 @@ describe("API: MCP", () => {
     assertOutput("analyze_image", sc);
     expect(textOf(r)).toMatch(/^image 160x100/);
     expect(sc.size).toEqual({ width: 160, height: 100 });
-    // regions cover the image: here one flat region, and every blob says which region and which tool
     expect(sc.regions).toHaveLength(1);
     expect(sc.regions[0]).toMatchObject({ kind: "flat", suggest: "primitive", box: { x: 0, y: 0, width: 160, height: 100 } });
     expect(sc.regions[0].blobIds).toEqual(sc.blobs.map((b: any) => b.id));
@@ -1626,7 +1606,6 @@ describe("API: MCP", () => {
     expect(Math.abs(bigDisc.fit.node.width - 160)).toBeLessThan(4);
     expect(Math.abs(bigDisc.fit.node.y - (120 + 120))).toBeLessThan(4);
 
-    // left half flat white, right half noise: a photo region next to a flat one, validated against the outputSchema
     const mixedPng = encodePng(192, 128, (x, y) => {
       if (x < 96) return [255, 255, 255];
       const h = (Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0;
@@ -1660,7 +1639,6 @@ describe("API: MCP", () => {
 
   it("trace_image: vira paths com curvas e buracos evenodd dentro do frame, um passo de undo, e o render fica perto da fonte", async () => {
     const c = client;
-    // 160x100: a red disc (center 40,50 r 30) and a navy ring (center 115,50, radii 35 and 15) on white
     const source = (x: number, y: number): [number, number, number] => {
       if ((x - 40) ** 2 + (y - 50) ** 2 <= 900) return [220, 30, 40];
       const d2 = (x - 115) ** 2 + (y - 50) ** 2;
@@ -1689,7 +1667,6 @@ describe("API: MCP", () => {
     expect(nodes[1]!.fillRule ?? "nonzero").toBe("nonzero");
     expect(nodes[1]!.d).toMatch(/C/);
 
-    // the render of the frame is close to the source (fitted: scale 2.5, y offset 75)
     const shot = await call(c, "render_screenshot", { rootId: "trace" });
     expect(shot.isError, textOf(shot)).toBeFalsy();
     const png = Buffer.from(shot.content.find((x) => x.type === "image")!.data!, "base64");
@@ -1708,11 +1685,9 @@ describe("API: MCP", () => {
     }
     expect(agree / total).toBeGreaterThanOrEqual(0.95);
 
-    // one undo step: the batch reverts everything
     expect((await call(c, "undo", {})).isError).toBeFalsy();
     expect((JSON.parse(textOf(await call(c, "get_nodes", { ids: ["trace"] }))) as { children?: string[] }[])[0]!.children ?? []).toHaveLength(0);
 
-    // dry run returns the path data and writes nothing; maxPaths cuts with a flag
     const dry = (await c.callTool({ name: "trace_image", arguments: { src, parentId: "trace", dryRun: true, maxPaths: 1 } })) as ToolResult & { structuredContent?: any };
     expect(dry.isError, textOf(dry)).toBeFalsy();
     assertOutput("trace_image", dry.structuredContent);
@@ -1727,7 +1702,6 @@ describe("API: MCP", () => {
   }, 30_000);
   it("crop em import_image/place_reference e blobIds/exclude em trace_image: misturar ferramentas por região de uma referência", async () => {
     const c = client;
-    // 160x100: a red disc (center 40,50 r 30) and a navy rectangle (x 100..150, y 30..70) on white
     const source = (x: number, y: number): [number, number, number] => {
       if ((x - 40) ** 2 + (y - 50) ** 2 <= 900) return [220, 30, 40];
       if (x >= 100 && x < 150 && y >= 30 && y < 70) return [20, 40, 110];
@@ -1736,7 +1710,6 @@ describe("API: MCP", () => {
     const src = `data:image/png;base64,${encodePng(160, 100, source).toString("base64")}`;
     await call(c, "create_nodes", { nodes: [{ type: "frame", id: "mix", name: "Mix", width: 320, height: 200, fill: "#ffffff" }] });
 
-    // crop: the photo region becomes its own image (PNG stays PNG); a crop past the edge is clamped with a warning
     const crop = (await c.callTool({ name: "import_image", arguments: { src, parentId: "mix", place: "none", x: 10, y: 10, crop: { x: 90, y: 20, width: 100, height: 60 } } })) as ToolResult & { structuredContent?: any };
     expect(crop.isError, textOf(crop)).toBeFalsy();
     assertOutput("import_image", crop.structuredContent);
@@ -1754,7 +1727,6 @@ describe("API: MCP", () => {
     assertOutput("place_reference", ref.structuredContent);
     expect(ref.structuredContent).toMatchObject({ width: 250, height: 200 });
 
-    // blobIds: ids from analyze_image trace the same blobs; skipped and the unlisted count come back
     const an = (await c.callTool({ name: "analyze_image", arguments: { src } })) as ToolResult & { structuredContent?: any };
     expect(an.isError, textOf(an)).toBeFalsy();
     const blobs = an.structuredContent.blobs as { id: string; color: string }[];
@@ -1766,27 +1738,23 @@ describe("API: MCP", () => {
     expect(only.structuredContent.paths[0]).toMatchObject({ blobId: navy.id, color: "#14286e" });
     expect(only.structuredContent.skipped).toEqual({ excluded: 0, notListed: blobs.length - 1 });
 
-    // exclude: blobs inside the rectangle (the part placed as an image) are not traced
     const ex = (await c.callTool({ name: "trace_image", arguments: { src, dryRun: true, exclude: [{ x: 95, y: 25, width: 60, height: 50 }] } })) as ToolResult & { structuredContent?: any };
     expect(ex.isError, textOf(ex)).toBeFalsy();
     expect(ex.structuredContent.paths.map((p: any) => p.color)).toEqual(["#dc1e28"]);
     expect(ex.structuredContent.skipped.excluded).toBe(1);
 
-    // the cut reports drawn/dropped/droppedIds apart from pathCount
     const cut = (await c.callTool({ name: "trace_image", arguments: { src, dryRun: true, maxPaths: 1 } })) as ToolResult & { structuredContent?: any };
     assertOutput("trace_image", cut.structuredContent);
     expect(cut.structuredContent).toMatchObject({ truncated: true, pathCount: 2, drawn: 1, dropped: 1 });
     expect(cut.structuredContent.droppedIds).toHaveLength(1);
     expect(cut.structuredContent.droppedIds[0]).not.toBe(cut.structuredContent.paths[0].blobId);
 
-    // blobIds + parentId: only the listed blob is created
     const made = (await c.callTool({ name: "trace_image", arguments: { src, parentId: "mix", blobIds: [navy.id], group: false } })) as ToolResult & { structuredContent?: any };
     expect(made.isError, textOf(made)).toBeFalsy();
     expect(made.structuredContent).toMatchObject({ nodeCount: 1, drawn: 1, dropped: 0 });
   }, 30_000);
   it("compare_reference: mede o desenho contra a referência, acha o deslocamento global e lembra a rodada anterior", async () => {
     const c = client;
-    // 200x120: white, a red disc (center 45,60, r 30) and a navy bar (x 100..180, y 40..80); the reference is the same picture moved by (dx, dy)
     const scene = (dx: number, dy: number) =>
       encodePng(200, 120, (x, y) => {
         if ((x - dx - 45) ** 2 + (y - dy - 60) ** 2 <= 900) return [220, 30, 40];
@@ -1835,7 +1803,6 @@ describe("API: MCP", () => {
     expect(same.structuredContent.sameReference).toBe(true);
     expect(same.structuredContent.delta.iou).toBe(0);
 
-    // the same picture as a node: the reference layer is left out of the render and the drawing passes
     const own = `data:image/png;base64,${scene(0, 0).toString("base64")}`;
     const layer = (await call(c, "place_reference", { src: own, frameId: "cmpf" })) as ToolResult & { structuredContent: { id: string } };
     expect(layer.isError, textOf(layer)).toBeFalsy();
@@ -1853,14 +1820,12 @@ describe("API: MCP", () => {
 
   it("fit_to_reference: ajusta posição e tamanho de formas desencontradas até o IoU passar de 0.95, em um passo de undo", async () => {
     const c = client;
-    // the reference: white, a red disc (center 45,60, r 30) and a navy bar (x 100..180, y 40..80)
     const scene = encodePng(200, 120, (x, y) => {
       if ((x - 45) ** 2 + (y - 60) ** 2 <= 900) return [220, 30, 40];
       if (x >= 100 && x < 180 && y >= 40 && y < 80) return [20, 40, 110];
       return [255, 255, 255];
     });
     const reference = `data:image/png;base64,${scene.toString("base64")}`;
-    // the structure is right, the numbers are not: shifted and the wrong size
     const created = await call(c, "create_nodes", {
       nodes: [{
         type: "frame", id: "fitf", x: 0, y: 0, width: 200, height: 120, fill: "#ffffff",
@@ -1906,7 +1871,6 @@ describe("API: MCP", () => {
     expect(Math.abs(disc.x - 15)).toBeLessThan(2);
     expect(Math.abs(disc.width - 60)).toBeLessThan(3);
 
-    // one undo step brings the first numbers back
     const undone = await call(c, "undo", {});
     expect(undone.isError, textOf(undone)).toBeFalsy();
     expect((await nodeOf("fit-bar")).x).toBe(112);
@@ -2188,7 +2152,6 @@ describe("API: MCP", () => {
     expect(textOf(await call(c, "get_design_guide", { language: "pt-BR" }))).toMatch(/^# Paprika: guia para agentes/);
     const bad = await call(c, "delete_nodes", { ids: ["nope"] });
     expect(textOf(bad)).toBe('op[0]: node "nope" does not exist');
-    // fb#65 + fb#67: a text without a size hugs; delete_nodes says what went away (subtree and arrows).
     await call(c, "create_nodes", {
       nodes: [
         { type: "frame", id: "box", layout: { mode: "column" }, children: [{ type: "text", id: "lbl", text: "Olá" }] },
@@ -2209,7 +2172,6 @@ describe("API: MCP", () => {
     try {
       expect(textOf(await call(stdio, "find_nodes", { name: "do http" }))).toContain("rect#viaHttp");
       await call(stdio, "update_nodes", { updates: [{ id: "viaHttp", props: { name: "do stdio" } }] });
-      // Each process reloads what the other one committed (file watch in TS, SQLite in Go).
       await waitFor(async () => (await srv.doc()).nodes.viaHttp?.name === "do stdio");
     } finally {
       await stdio.close();
@@ -2233,7 +2195,6 @@ describe("API: MCP", () => {
       ] },
     ] });
     const outlineA = textOf(await call(c, "get_document_outline", {}));
-    // CLI on server A: only the board and what it needs; the dangling arrow is dropped with a warning.
     const out = join(srv.dir, "board.json");
     const cli = spawnSync(srv.stdioCommand().command, ["export", "--root", "board", "--db", join(srv.dir, "doc.db"), "-o", out], { encoding: "utf8" });
     expect(cli.status, cli.stderr).toBe(0);
@@ -2241,7 +2202,6 @@ describe("API: MCP", () => {
     const exported = JSON.parse(readFileSync(out, "utf8")) as { nodes: Record<string, unknown>; tokens: Record<string, unknown> };
     expect(exported.nodes.fora).toBeUndefined();
     expect(exported.tokens).toEqual({ paper: "#fbf8f4", ink: "#111111", accent: "$ink" });
-    // MCP into a second server: a new workspace, the active one untouched, ids kept.
     const srvB = await startServer();
     const b = new Client({ name: "parity-b", version: "0" });
     try {
@@ -2253,7 +2213,7 @@ describe("API: MCP", () => {
       expect(sc.workspace).toMatchObject({ name: "Board", active: false, nodes: Object.keys(exported.nodes).length });
       expect(sc.active).toBe(before.active);
       const after = JSON.parse(textOf(await call(b, "list_workspaces", {})));
-      expect(after.active).toBe(before.active); // the human's canvas did not move
+      expect(after.active).toBe(before.active);
       expect(after.workspaces).toHaveLength(2);
       expect(textOf(await call(b, "get_document_outline", {}))).not.toContain("board");
       await call(b, "open_workspace", { id: sc.workspace.id });
@@ -2261,7 +2221,6 @@ describe("API: MCP", () => {
       const body = (s: string) => tree(s).split("\n").filter((l) => !l.startsWith("content:") && !l.startsWith("next:")).join("\n");
       const dropped = (s: string) => body(s).split("\n").filter((l) => !l.includes("#fora") && !l.includes("#k-out")).join("\n");
       expect(body(textOf(await call(b, "get_document_outline", {})))).toBe(dropped(outlineA));
-      // Same document again: a copy with a new workspace id, not an error.
       const again = (await call(b, "import_document", { document: exported })) as ToolResult & { structuredContent?: { workspace: { id: string } } };
       expect(again.structuredContent!.workspace.id).not.toBe(sc.workspace.id);
     } finally {
@@ -2321,7 +2280,6 @@ describe("API: MCP", () => {
     const { pin } = (await post.json()) as { pin: { id: string; n: number; status: string } };
     expect(pin.status).toBe("open");
 
-    // A write result tells the agent there are open pins (outputSchema allows openPins).
     const wrote = await call(client, "create_nodes", { nodes: [{ type: "rect", name: "pin-probe", width: 10, height: 10 }] });
     expect(wrote.isError, textOf(wrote)).toBeFalsy();
     expect((wrote as WithStruct).structuredContent.openPins).toBeGreaterThanOrEqual(1);
@@ -2444,7 +2402,6 @@ describe("API: MCP", () => {
     const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
     const nodeOf = async (id: string) => (JSON.parse(textOf(await call(client, "get_nodes", { workspaceId, ids: [id] }))) as Record<string, unknown>[])[0]!;
 
-    // 1. place:"none" with x/y inside a row/column parent pins the root and says so
     await call(client, "create_nodes", {
       workspaceId,
       nodes: [{ type: "frame", id: "col", x: 0, y: 0, width: 400, height: 400, layout: { mode: "column", gap: 8 } }],
@@ -2474,7 +2431,6 @@ describe("API: MCP", () => {
     const imported = await Promise.all(kids.map(nodeOf));
     expect(imported).toMatchObject([{ layoutPositioning: "absolute", x: 720, y: 48 }, { layoutPositioning: "absolute", x: 48, y: 36 }]);
 
-    // 2. duplicate_nodes place right/below follows the source
     await call(client, "create_nodes", {
       workspaceId, place: "none",
       nodes: [
@@ -2488,7 +2444,6 @@ describe("API: MCP", () => {
       expect(await nodeOf((jsonOf(dup) as { copies: string[] }).copies[0]!)).toMatchObject({ x, y });
     }
 
-    // 3. the content box of a page whose children are frames, on a page that is not the first
     await call(client, "create_page", { workspaceId, id: "pg1", name: "One" });
     await call(client, "create_page", { workspaceId, id: "pg2", name: "Two" });
     await call(client, "create_nodes", {
@@ -2556,10 +2511,6 @@ describe("API: MCP", () => {
 
 describe("API: HTTP + WebSocket", () => {
 
-  /**
-   * PAP-B-015: an agent deleting a workspace goes through a summary and a short-lived token, and every
-   * workspace operation (its own and the human's) stays readable afterwards.
-   */
   it("delete_workspace exige dois passos e o log de operações mostra quem fez o quê", async () => {
     type WithStruct = ToolResult & { structuredContent: Record<string, unknown> };
     const workspaces = async () =>
@@ -2572,7 +2523,6 @@ describe("API: HTTP + WebSocket", () => {
     expect(created.status).toBe(201);
     const spare = ((await created.json()) as { workspace: { id: string } }).workspace.id;
 
-    // First call: nothing is deleted, and what would be lost comes back with the token.
     const ask = (await call(client, "delete_workspace", { id: active })) as WithStruct;
     expect(ask.isError).toBeFalsy();
     expect(ask.structuredContent?.needsConfirmation).toBe(true);
@@ -2582,27 +2532,21 @@ describe("API: HTTP + WebSocket", () => {
     expect(token).toMatch(/^[0-9a-f]{32}$/);
     expect((await workspaces()).length).toBe(2);
 
-    // The token belongs to one workspace: pointing it at the other is refused with an actionable message.
     const wrong = await call(client, "delete_workspace", { id: spare, confirmToken: token });
     expect(wrong.isError).toBe(true);
     expect(textOf(wrong)).toContain("not valid");
     expect((await workspaces()).length).toBe(2);
 
-    // Second call with the right token: it deletes, and the same token cannot be spent twice.
     const gone = await call(client, "delete_workspace", { id: active, confirmToken: token });
     expect(gone.isError, textOf(gone)).toBeFalsy();
     expect((await workspaces()).map((w) => w.id)).toEqual([spare]);
-    // The token was spent: the reuse is refused before the workspace is even looked up, and the message
-    // points back at the first call (which then answers "does not exist").
     const again = await call(client, "delete_workspace", { id: active, confirmToken: token });
     expect(again.isError).toBe(true);
     expect(textOf(again)).toContain("confirmToken is not valid");
     expect(textOf(await call(client, "delete_workspace", { id: active }))).toContain("does not exist");
 
-    // The log: the human's create says "user", the agent's delete keeps the summary of what was lost.
     const ops = (await call(client, "list_workspace_ops", { limit: 20 })) as WithStruct;
     const entries = ops.structuredContent?.entries as { op: string; actor: string; workspaceId: string; detail: Record<string, unknown> }[];
-    // The delete logs the successor opening before the delete itself: newest first is the delete.
     expect(entries[0]).toMatchObject({ op: "delete", workspaceId: active });
     expect(entries.some((e) => e.op === "open" && e.workspaceId === spare)).toBe(true);
     expect(entries.some((e) => e.op === "create" && e.actor === "user" && e.workspaceId === spare)).toBe(true);
@@ -2610,7 +2554,6 @@ describe("API: HTTP + WebSocket", () => {
     expect(deleted).toBeTruthy();
     expect(deleted!.actor).not.toBe("user");
     expect(deleted!.detail).toMatchObject({ undoable: false, successor: spare });
-    // Narrowing to a workspace that no longer exists still reads its entries.
     const narrowed = (await call(client, "list_workspace_ops", { workspaceId: active })) as WithStruct;
     expect((narrowed.structuredContent?.entries as unknown[]).length).toBeGreaterThan(0);
   });
@@ -2803,7 +2746,6 @@ describe("API: HTTP + WebSocket", () => {
     const url = `${srv.url}/api/workspaces/${ws.id}/cover`;
     expect((await fetch(url)).status).toBe(404);
 
-    // 1×1 PNG.
     const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
     const put = await fetch(url, { method: "PUT", body: png });
     expect(put.status).toBe(200);
@@ -2825,7 +2767,6 @@ describe("API: HTTP + WebSocket", () => {
     expect(((await cleared.json()) as { workspace: Info }).workspace.cover).toBeNull();
     expect((await fetch(url)).status).toBe(404);
 
-    // MCP: an image as a data: URL, then a screenshot of the active workspace's frame, then clear.
     const viaImage = (await call(client, "set_workspace_cover", { id: ws.id, image: `data:image/png;base64,${png.toString("base64")}` })) as ToolResult & { structuredContent: { workspace: Info } };
     expect(viaImage.isError, textOf(viaImage)).toBeFalsy();
     expect(viaImage.structuredContent.workspace.cover).not.toBeNull();
@@ -2869,14 +2810,12 @@ describe("API: HTTP + WebSocket", () => {
     expect(mcp.structuredContent.workspace).toMatchObject({ id: a.id, name: "A3" });
     expect(textOf(await call(client, "rename_workspace", { id: "nope", name: "x" }))).toBe('workspace "nope" does not exist (see list_workspaces)');
 
-    // Renaming the active workspace is an undoable document write.
     const activeName = (await srv.doc()).name;
     await call(client, "rename_workspace", { id: start, name: "Ativo" });
     expect((await srv.doc()).name).toBe("Ativo");
     await call(client, "undo");
     expect((await srv.doc()).name).toBe(activeName);
 
-    // Delete the active one: the server opens the most recently updated other workspace.
     await call(client, "open_workspace", { id: a.id });
     const del = await req("DELETE", `/api/workspaces/${a.id}`);
     expect(del.status).toBe(200);
@@ -2889,7 +2828,6 @@ describe("API: HTTP + WebSocket", () => {
     expect((await req("DELETE", `/api/workspaces/${a.id}`)).status).toBe(404);
 
     const b = ((await (await req("POST", "/api/workspaces", { name: "B" })).json()) as { workspace: Info }).workspace;
-    // PAP-B-015: over MCP the delete is two calls; the summary is what the human is shown.
     const ask = (await call(client, "delete_workspace", { id: b.id })) as ToolResult & {
       structuredContent: { needsConfirmation: boolean; confirmToken: string; summary: { name: string; undoable: boolean } };
     };

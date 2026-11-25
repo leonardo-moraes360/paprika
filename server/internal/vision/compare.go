@@ -12,54 +12,48 @@ import (
 	xdraw "golang.org/x/image/draw"
 )
 
-// Compare measures how close a drawing is to a reference. Both are rasterized onto the same
-// canvas (the frame, at most compareMaxSide px on the long side) and reduced to ink masks: the
-// pixels that differ from each image's own background. Shape scores use only those masks, so a
-// large empty background cannot inflate them.
 const (
 	compareMaxSide    = 800
-	inkThreshold      = 0.06 // OKLab distance from the background that counts as ink
-	rawMatchThreshold = 0.04 // OKLab distance under which two pixels count as equal (raw match)
+	inkThreshold      = 0.06
+	rawMatchThreshold = 0.04
 	DefaultTarget     = 0.9
 	DefaultTop        = 8
 )
 
-// NodeBox is a node's painted box in frame coordinates (corners after rotation: TL, TR, BR, BL).
 type NodeBox struct {
 	ID, Name, Type string
 	Corners        [4]Point
 	Ellipse        bool
 }
 
-// CompareInput carries the two images and what is known about the frame.
 type CompareInput struct {
 	Drawn, Ref     image.Image
 	FrameW, FrameH float64
-	Placed         Rect // where the reference sits in the frame (fitted and centered)
+	Placed         Rect
 	Nodes          []NodeBox
 	Target         float64
 	Top            int
-	Rotate         bool // also search a small rotation in the global alignment
+	Rotate         bool
 }
 
 type ColorMatch struct {
 	Reference string  `json:"reference"`
 	Drawn     string  `json:"drawn"`
 	DeltaE    float64 `json:"deltaE"`
-	Share     float64 `json:"share"` // of the reference's ink
+	Share     float64 `json:"share"`
 }
 
 type ColorExtra struct {
 	Color   string  `json:"color"`
-	Share   float64 `json:"share"` // of the drawn ink
+	Share   float64 `json:"share"`
 	Nearest string  `json:"nearestReference"`
 	DeltaE  float64 `json:"deltaE"`
 }
 
 type ColorScore struct {
-	DeltaE      float64      `json:"deltaE"`      // mean OKLab distance x100 between matched dominant colors, weighted by reference share
-	PixelDeltaE float64      `json:"pixelDeltaE"` // mean distance x100 over the pixels both images paint (catches swapped colors)
-	Score       float64      `json:"score"`       // 1 - max(deltaE, pixelDeltaE)/30, floored at 0
+	DeltaE      float64      `json:"deltaE"`
+	PixelDeltaE float64      `json:"pixelDeltaE"`
+	Score       float64      `json:"score"`
 	Matches     []ColorMatch `json:"matches"`
 	Unmatched   []ColorExtra `json:"unmatchedDrawn"`
 }
@@ -70,9 +64,9 @@ type RawMatch struct {
 }
 
 type Region struct {
-	Kind      string  `json:"kind"` // missing or extra
+	Kind      string  `json:"kind"`
 	Box       Rect    `json:"box"`
-	AreaShare float64 `json:"areaShare"` // of the frame
+	AreaShare float64 `json:"areaShare"`
 	Color     string  `json:"color,omitempty"`
 }
 
@@ -86,27 +80,27 @@ type NodeCoverage struct {
 	Name          string  `json:"name,omitempty"`
 	Type          string  `json:"type"`
 	Box           Rect    `json:"box"`
-	OnReference   float64 `json:"onReference"`  // share of the node's painted pixels that sit on reference ink
-	Extra         float64 `json:"extra"`        // 1 - onReference
-	OffAreaShare  float64 `json:"offAreaShare"` // painted pixels off the reference, as a share of the frame
+	OnReference   float64 `json:"onReference"`
+	Extra         float64 `json:"extra"`
+	OffAreaShare  float64 `json:"offAreaShare"`
 	SuggestedMove *Move   `json:"suggestedMove,omitempty"`
 }
 
 type Alignment struct {
-	DX          float64 `json:"dx"` // move the drawing by this, in frame units (right, down)
+	DX          float64 `json:"dx"`
 	DY          float64 `json:"dy"`
-	Scale       float64 `json:"scale"`    // then scale it by this around origin
-	Rotation    float64 `json:"rotation"` // degrees clockwise around origin (0 unless rotation was asked for)
-	Origin      Point   `json:"origin"`   // the frame center
+	Scale       float64 `json:"scale"`
+	Rotation    float64 `json:"rotation"`
+	Origin      Point   `json:"origin"`
 	IoUBefore   float64 `json:"iouBefore"`
 	IoUAfter    float64 `json:"iouAfter"`
-	Significant bool    `json:"significant"` // the move gains at least 0.02 IoU
+	Significant bool    `json:"significant"`
 }
 
 type Comparison struct {
-	IoU        float64        `json:"iou"`     // ink intersection over union
-	Missing    float64        `json:"missing"` // share of the reference's ink the drawing does not cover
-	Extra      float64        `json:"extra"`   // share of the drawn ink that is not in the reference
+	IoU        float64        `json:"iou"`
+	Missing    float64        `json:"missing"`
+	Extra      float64        `json:"extra"`
 	Target     float64        `json:"target"`
 	Pass       bool           `json:"pass"`
 	InkShare   InkShare       `json:"ink"`
@@ -118,36 +112,33 @@ type Comparison struct {
 	Warnings   []string       `json:"warnings"`
 	Background Backgrounds    `json:"background"`
 
-	diff []byte
-	// Canvas is the working size the masks were measured at.
+	diff   []byte
 	Canvas Size `json:"canvas"`
 }
 
 type InkShare struct {
-	Reference float64 `json:"reference"` // share of the frame
+	Reference float64 `json:"reference"`
 	Drawn     float64 `json:"drawn"`
 }
 
 type Backgrounds struct {
-	Reference      string         `json:"reference"` // hex (the mean color of a gradient), or "transparent"
+	Reference      string         `json:"reference"`
 	Drawn          string         `json:"drawn"`
-	ReferenceModel BackgroundInfo `json:"referenceModel"` // flat, gradient or transparent, with the fit
+	ReferenceModel BackgroundInfo `json:"referenceModel"`
 	DrawnModel     BackgroundInfo `json:"drawnModel"`
 }
 
-// DiffPNG is the diff image: missing in red, extra in blue, matched in gray, on white.
 func (c *Comparison) DiffPNG() []byte { return c.diff }
 
-// plane is one image rasterized on the working canvas.
 type plane struct {
 	w, h int
 	img  *image.NRGBA
 	bg   bgInfo
-	fit  bgFit // the background model; ink is the distance from it
+	fit  bgFit
 	at   bgMap
 	ink  []bool
 	lab  []labf
-	op   []bool // opaque pixel (alpha >= 128)
+	op   []bool
 }
 
 type bgInfo struct {
@@ -220,7 +211,6 @@ func fillNRGBA(img *image.NRGBA, c color.NRGBA) {
 	}
 }
 
-// buildPlane computes the ink mask of img (already on the canvas) against its own background.
 func buildPlane(img *image.NRGBA, fit bgFit, at bgMap) *plane {
 	w, h := img.Bounds().Dx(), img.Bounds().Dy()
 	bg := fit.info
@@ -279,16 +269,14 @@ func countTrue(m []bool) int {
 	return n
 }
 
-// canvasPlanes is the drawing and the reference on one working canvas, reduced to ink masks.
 type canvasPlanes struct {
 	w, h           int
-	fx, fy         float64 // frame units per working pixel
-	refBG, drawnBG bgInfo  // flat color, or the mean color of a gradient
+	fx, fy         float64
+	refBG, drawnBG bgInfo
 	refFit, drwFit bgFit
 	rp, dp         *plane
 }
 
-// fillBackground paints the whole canvas with the background: the flat color, or the model.
 func fillBackground(img *image.NRGBA, fit bgFit, at bgMap) {
 	if fit.model == nil {
 		fillNRGBA(img, color.NRGBA{fit.info.r, fit.info.g, fit.info.b, 255})
@@ -305,8 +293,6 @@ func fillBackground(img *image.NRGBA, fit bgFit, at bgMap) {
 	}
 }
 
-// buildPlanes rasterizes both images on a canvas of the frame's proportions (at most maxSide px
-// on the long side) and builds their ink masks, each against its own background model.
 func buildPlanes(drawnSrc, refSrc image.Image, frameW, frameH float64, placed Rect, maxSide float64) canvasPlanes {
 	k := math.Min(1, maxSide/math.Max(frameW, frameH))
 	w, h := max(1, int(math.Round(frameW*k))), max(1, int(math.Round(frameH*k)))
@@ -320,8 +306,6 @@ func buildPlanes(drawnSrc, refSrc image.Image, frameW, frameH float64, placed Re
 	if dst.Empty() {
 		dst = image.Rect(0, 0, w, h)
 	}
-	// the reference on the canvas, over nothing: its background is fitted at the same resolution
-	// as the drawing's, so an identical picture gets an identical model
 	scaled := image.NewNRGBA(image.Rect(0, 0, w, h))
 	xdraw.CatmullRom.Scale(scaled, dst, refSrc, rb, xdraw.Src, nil)
 	refFit := fitBackground(func(x, y int) color.NRGBA { return scaled.NRGBAAt(dst.Min.X+x, dst.Min.Y+y) }, dst.Dx(), dst.Dy())
@@ -339,7 +323,6 @@ func buildPlanes(drawnSrc, refSrc image.Image, frameW, frameH float64, placed Re
 	drwFit := fitBackground(func(x, y int) color.NRGBA { return drawn.NRGBAAt(x, y) }, w, h)
 	drwMap := bgMap{sx: float64(w), sy: float64(h)}
 	if drwFit.info.transparent && !refFit.info.transparent {
-		// a drawing on a transparent frame sits on the reference's background
 		base := image.NewNRGBA(image.Rect(0, 0, w, h))
 		fillBackground(base, refFit, refMap)
 		xdraw.Draw(base, base.Bounds(), drawn, image.Point{}, xdraw.Over)
@@ -353,7 +336,6 @@ func buildPlanes(drawnSrc, refSrc image.Image, frameW, frameH float64, placed Re
 	}
 }
 
-// Compare runs the whole comparison.
 func Compare(in CompareInput) (*Comparison, error) {
 	if in.Drawn == nil || in.Ref == nil {
 		return nil, errors.New("compare needs a drawing and a reference")
@@ -520,7 +502,6 @@ func compareColors(rp, dp *plane, nRef, nDrawn int) ColorScore {
 			}
 		}
 	}
-	// positional: pixels painted by both, away from edges (anti-aliasing)
 	w, h := rp.w, rp.h
 	both := make([]bool, w*h)
 	for i := range both {
@@ -613,7 +594,6 @@ func findRegions(rp, dp *plane, fx, fy float64, top int) []Region {
 		}
 		keep := map[int32]bool{}
 		for _, c := range comps {
-			// slivers thinner than ~2 px are resampling fringes, not missing or extra shapes
 			if c.area >= minPx && core[c.id] > 0 {
 				keep[c.id] = true
 			}
@@ -655,7 +635,6 @@ func findRegions(rp, dp *plane, fx, fy float64, top int) []Region {
 		}
 		return out[i].Box.X < out[j].Box.X
 	})
-	// the top N of each kind, so a long list of extras cannot hide what is missing
 	var res []Region
 	count := map[string]int{}
 	for _, r := range out {
@@ -670,7 +649,6 @@ func findRegions(rp, dp *plane, fx, fy float64, top int) []Region {
 	return res
 }
 
-// quad tests membership in a node's box (or inscribed ellipse) from its corners.
 type quad struct {
 	cx, cy         float64
 	ux, uy, vx, vy float64
@@ -679,7 +657,6 @@ type quad struct {
 }
 
 func newQuad(c [4]Point, ellipse bool, fx, fy float64) (quad, bool) {
-	// corners are in frame units; work in canvas pixels
 	tl, tr, bl := c[0], c[1], c[3]
 	q := quad{ellipse: ellipse}
 	q.cx = (c[0].X + c[2].X) / 2 / fx
@@ -723,7 +700,6 @@ func nodeCoverage(rp, dp *plane, nodes []NodeBox, fx, fy float64, top int) []Nod
 		b.x0, b.x1 = max(0, int(math.Floor(minX/fx))), min(w-1, int(math.Ceil(maxX/fx)))
 		b.y0, b.y1 = max(0, int(math.Floor(minY/fy))), min(h-1, int(math.Ceil(maxY/fy)))
 		boxes[ni] = b
-		// later nodes paint over earlier ones: the owner of a pixel is the topmost
 		for y := b.y0; y <= b.y1; y++ {
 			for x := b.x0; x <= b.x1; x++ {
 				if q.contains(float64(x)+0.5, float64(y)+0.5) {
@@ -790,7 +766,6 @@ func nodeCoverage(rp, dp *plane, nodes []NodeBox, fx, fy float64, top int) []Nod
 	return out
 }
 
-// suggestMove finds the shift of a node's painted pixels that lands the most on reference ink.
 func suggestMove(ref []bool, w, h int, pts []int, box Rect, fx, fy float64) *Move {
 	if len(pts) == 0 {
 		return nil

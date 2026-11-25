@@ -1,4 +1,3 @@
-/** Seção recolhível. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005. */
 import { useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { cn } from "../../lib/cn";

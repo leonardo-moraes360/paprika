@@ -28,13 +28,8 @@ func init() {
 	cobra.AddTemplateFunc("flagUsages", flagUsages)
 }
 
-// plainBool hides IsBoolFlag from pflag's help printer. Since pflag v1.1.0,
-// FlagUsages prints every bool flag as "--name[=true|false]"; the help keeps
-// the shorter "--name" form (the flag still parses "--name=false"). Only the
-// copy used for printing is wrapped, never the flag that gets parsed.
 type plainBool struct{ pflag.Value }
 
-// flagUsages is FlagSet.FlagUsages with bool flags printed as "--name".
 func flagUsages(fs *pflag.FlagSet) string {
 	out := pflag.NewFlagSet(fs.Name(), pflag.ContinueOnError)
 	out.SortFlags = fs.SortFlags

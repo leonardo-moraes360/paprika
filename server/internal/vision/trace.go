@@ -14,54 +14,45 @@ import (
 )
 
 const (
-	DefaultCorner    = 50.0 // degrees of turning that make a corner
-	DefaultTolerance = 1.0  // px, largest distance between a curve and the contour it follows
+	DefaultCorner    = 50.0
+	DefaultTolerance = 1.0
 	DefaultMaxPaths  = 60
 	traceMaxSide     = 640
 )
 
-// TraceOptions tunes Trace. Zero values pick the defaults.
 type TraceOptions struct {
-	MaxColors         int
-	MinArea           float64  // smallest blob, as a fraction of the analyzed area (default 0.0005)
-	Region            *Rect    // sub-rectangle of the image, in source pixels
-	Corner            float64  // turning angle in degrees from which a point is a corner (default 50)
-	Tolerance         float64  // output px (default 1)
-	Colors            []string // palette subset to trace (hex); empty = all
-	IncludeBackground bool
-	MaxPaths          int // default 60
-	// BlobIDs traces only these blobs, named as analyze_image names them (b1, b2...: the same
-	// segmentation, so the same ids for the same image, region, MaxColors and MinArea). Colors and
-	// IncludeBackground are ignored then.
-	BlobIDs []string
-	// Exclude skips the blobs whose box lies inside any of these rectangles, in the output space.
-	Exclude []Rect
-	// Scale and Offset place the image in the output space, as in Options.
+	MaxColors               int
+	MinArea                 float64
+	Region                  *Rect
+	Corner                  float64
+	Tolerance               float64
+	Colors                  []string
+	IncludeBackground       bool
+	MaxPaths                int
+	BlobIDs                 []string
+	Exclude                 []Rect
 	Scale, OffsetX, OffsetY float64
 }
 
-// TracedPath is one blob as a single path: the outer contour plus the holes, to be filled with
-// the even-odd rule. D is in the output space.
 type TracedPath struct {
-	BlobID   string  `json:"blobId,omitempty"` // as analyze_image numbers it (the background that touches the border has none)
+	BlobID   string  `json:"blobId,omitempty"`
 	Color    string  `json:"color"`
 	D        string  `json:"d,omitempty"`
 	BBox     Rect    `json:"bbox"`
-	Share    float64 `json:"share"` // of the analyzed area, holes excluded
-	Rings    int     `json:"rings"` // 1 + holes
+	Share    float64 `json:"share"`
+	Rings    int     `json:"rings"`
 	Holes    int     `json:"holes"`
-	Points   int     `json:"points"`   // anchors
-	Segments int     `json:"segments"` // lines + cubics
+	Points   int     `json:"points"`
+	Segments int     `json:"segments"`
 	Curves   int     `json:"curves"`
 	Lines    int     `json:"lines"`
 	Corners  int     `json:"corners"`
-	Error    float64 `json:"error"` // largest distance from the contour to the fit, output px
+	Error    float64 `json:"error"`
 }
 
-// Skipped counts the blobs that blobIds or exclude left out (they are not in pathCount).
 type Skipped struct {
-	Excluded  int `json:"excluded"`  // box inside an exclude rectangle
-	NotListed int `json:"notListed"` // not in blobIds
+	Excluded  int `json:"excluded"`
+	NotListed int `json:"notListed"`
 }
 
 type TraceResult struct {
@@ -72,13 +63,13 @@ type TraceResult struct {
 	Background Background     `json:"background"`
 	Palette    []PaletteEntry `json:"palette"`
 	Paths      []TracedPath   `json:"paths"`
-	PathCount  int            `json:"pathCount"` // found, before the maxPaths cut
+	PathCount  int            `json:"pathCount"`
 	Truncated  bool           `json:"truncated"`
-	Dropped    int            `json:"dropped"`    // found but not drawn (maxPaths)
-	DroppedIDs []string       `json:"droppedIds"` // their blob ids, most important first
+	Dropped    int            `json:"dropped"`
+	DroppedIDs []string       `json:"droppedIds"`
 	Skipped    Skipped        `json:"skipped"`
-	Points     int            `json:"points"`   // anchors over all paths
-	Segments   int            `json:"segments"` // segments over all paths
+	Points     int            `json:"points"`
+	Segments   int            `json:"segments"`
 	MaxError   float64        `json:"maxError"`
 	Warnings   []string       `json:"warnings"`
 }
@@ -100,15 +91,13 @@ func parseHex(s string) (lab, bool) {
 
 type traceBlob struct {
 	c     comp
-	mask  []bool // local to the box, holes still in
+	mask  []bool
 	fill  []bool
 	w, h  int
 	areaF int
-	holes [][]int // local pixel indexes of every hole
+	holes [][]int
 }
 
-// holesOf floods the background from outside the padded box (4-connected) and returns the
-// enclosed regions.
 func holesOf(mask []bool, w, h int) (filled []bool, holes [][]int) {
 	pw, ph := w+2, h+2
 	seen := make([]bool, pw*ph)
@@ -157,8 +146,6 @@ func holesOf(mask []bool, w, h int) (filled []bool, holes [][]int) {
 	return filled, holes
 }
 
-// Trace vectorizes img: every palette-color blob becomes one path (outer contour and holes as
-// bezier subpaths, to be filled even-odd), largest silhouette first so nested shapes land on top.
 func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 	b := img.Bounds()
 	if b.Dx() < 1 || b.Dy() < 1 {
@@ -272,7 +259,6 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 		res.Background.Color = pal[bgLabel].hex
 	}
 
-	// which palette colors to trace
 	want := make([]bool, len(pal))
 	for i := range want {
 		want[i] = len(opt.Colors) == 0
@@ -288,7 +274,7 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 				bi, bd = i, d
 			}
 		}
-		if bd > 0.02*0.02*4 { // about 0.04 OKLab: further than a rounding of the hex
+		if bd > 0.02*0.02*4 {
 			res.Warnings = append(res.Warnings, fmt.Sprintf("color %s is not in the palette (nearest %s): traced that one", c, pal[bi].hex))
 		}
 		want[bi] = true
@@ -296,8 +282,6 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 
 	ids, comps := components(labels, aw, ah)
 	minPx := max(4, int(math.Round(opt.MinArea*total)))
-	// analyze_image's numbering: blobs that pass minArea and are not the background touching the
-	// border, largest first, b1, b2... (the analysis side is the same, so the segmentation is too).
 	var numbered []comp
 	for _, c := range comps {
 		if c.area < minPx || (bgSolid && bgLabel < len(pal) && int(c.label) == bgLabel && c.touches) {
@@ -306,7 +290,6 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 		numbered = append(numbered, c)
 	}
 	sort.SliceStable(numbered, func(i, j int) bool { return numbered[i].area > numbered[j].area })
-	// blobs analyze_image leaves out (specks inside a photo region) are not numbered
 	{
 		raws := classifyRegions(px, grainRaster(img, src, px), numbered)
 		pick := listedBlobs(raws, assignRegions(raws, numbered), len(numbered))
@@ -332,7 +315,6 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 		}
 		listed[c.id] = true
 	}
-	// contrast against the background decides what to keep when there are too many
 	var bgLab *lab
 	if bgLabel < len(pal) {
 		bgLab = &pal[bgLabel].lab
@@ -379,7 +361,7 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 	sort.SliceStable(sel, func(i, j int) bool { return importance(sel[i]) > importance(sel[j]) })
 	res.PathCount = len(sel)
 	var rest []comp
-	if len(sel) > 2*opt.MaxPaths { // the silhouette order only matters among the most important
+	if len(sel) > 2*opt.MaxPaths {
 		rest = sel[2*opt.MaxPaths:]
 		sel = sel[:2*opt.MaxPaths]
 	}
@@ -421,7 +403,6 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 			res.DroppedIDs = append(res.DroppedIDs, id)
 		}
 	}
-	// drawn largest silhouette first, so nested shapes land on top
 	sort.SliceStable(blobs, func(i, j int) bool { return blobs[i].areaF > blobs[j].areaF })
 	for _, tb := range blobs {
 		traced[tb.c.id] = true
@@ -433,8 +414,6 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 	to := func(p pt, offX, offY float64) pt { return pt{ox + (p.x+offX)*kx, oy + (p.y+offY)*ky} }
 	for _, tb := range blobs {
 		c := tb.c
-		// a hole stays open (a subpath) when it shows the background or an untraced area; one that
-		// another traced blob fills is closed, so the blob drawn on top leaves no seam.
 		final := append([]bool(nil), tb.mask...)
 		for _, cells := range tb.holes {
 			covered := 0

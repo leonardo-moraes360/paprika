@@ -1,5 +1,3 @@
-// Gera packages/e2e/fixtures/demo.paprika.json dirigindo o Paprika como um agente faria: via MCP stdio do
-// servidor Go (`pnpm go:build` antes), num banco SQLite temporário exportado no fim.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { execFileSync } from "node:child_process";
@@ -74,7 +72,6 @@ await call("create_nodes", {
     ],
   }],
 });
-// Only numbers reach the log: the tool output comes from another process (Sonar S5145).
 const lint = await client.callTool({ name: "lint_design", arguments: {} });
 const findings = Number(lint.structuredContent?.findings?.length ?? 0);
 await client.close();

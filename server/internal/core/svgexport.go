@@ -10,9 +10,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/svgExport.ts: a node, a page or the canvas as vector SVG. Boxes come
-// from Layout when measure is nil; an explicit measure overrides boxes and text lines (goldens).
-
 func svgShadow(doc *Document, n *Node, id string, warn func(string)) (defs, attr string) {
 	shadows := shadowNodes(n)
 	if len(shadows) == 0 {
@@ -78,20 +75,17 @@ func roundedRectD(x, y, w, h float64, radii [4]float64, f func(float64) string) 
 	return strings.Join(parts, " ")
 }
 
-// MeasureLine is one laid-out text line, relative to the node box (baseline y).
 type MeasureLine struct {
 	T string  `json:"t"`
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 }
 
-// Measure holds boxes ([x, y, w, h] before rotation, relative to the export origin) and text lines.
 type Measure struct {
 	Boxes map[string][4]float64    `json:"boxes"`
 	Lines map[string][]MeasureLine `json:"lines,omitempty"`
 }
 
-// MeasureFromLayout remaps Layout boxes so the export origin is (0, 0).
 func MeasureFromLayout(doc *Document, rootID string) (Measure, error) {
 	opts := LayoutOptions{}
 	if rootID != "" {
@@ -138,7 +132,6 @@ func MeasureFromLayout(doc *Document, rootID string) (Measure, error) {
 	return Measure{Boxes: boxes}, nil
 }
 
-// SVGResult is the exported SVG and its size.
 type SVGResult struct {
 	SVG      string
 	Width    float64
@@ -163,7 +156,6 @@ func svgPaint(doc *Document, n *Node, k string, warn func(string)) (string, bool
 	return s, true
 }
 
-// ExportSVG renders rootID ("" = the canvas of the first page) as SVG; nil measure uses Layout.
 func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error) {
 	warnings, warn := newWarner()
 	f := r2
@@ -221,7 +213,6 @@ func ExportSVG(doc *Document, rootID string, measure *Measure) (SVGResult, error
 	}
 
 	var emit func(n *Node, parent box, root bool) (string, error)
-	// shapeSVG: outline (and fold), then the text in lines (measured, or split on \n).
 	shapeSVG := func(n *Node, w, h float64) string {
 		mode := ModeOf(doc, n)
 		id := EscapeHTML(n.Str("id"))

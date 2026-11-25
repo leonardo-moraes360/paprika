@@ -212,7 +212,7 @@ func TestCombinePathsStyleChoices(t *testing.T) {
 	if got := run("top").Str("fill"); got != "#000000" {
 		t.Fatalf("top: %s", got)
 	}
-	if got := run("first").Str("fill"); got != "#000000" { // ids[0] is hole
+	if got := run("first").Str("fill"); got != "#000000" {
 		t.Fatalf("first: %s", got)
 	}
 	if got := run("last"); got.Str("fill") != "#1e2336" || !got.Has("gradient") {

@@ -1,11 +1,3 @@
-// Tests for the CI job selector (.github/scripts/ci-plan-lib.mjs and its CLI ci-plan.mjs).
-//
-// Run them with: node --test .github/scripts/test/   (the Plan job of ci.yml does exactly that)
-// No dependencies beyond node:test: the plan is a pure function of the changed file list, so the
-// fixtures are plain path arrays.
-//
-// If one of these cases starts failing, the plan of a real PR changes: update docs/en-US/ci.md and
-// docs/pt-BR/ci.md in the same pull request.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -18,7 +10,6 @@ import { INFRA, PLAN_KEYS, isFullRun, planFor, planLines, planSummary } from "..
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
-/** Nothing but the always-on Plan and CI OK jobs. */
 const NOTHING = {
   full: false,
   build: false,
@@ -38,7 +29,6 @@ const NOTHING = {
 
 const plan = (files) => planFor(files);
 
-/** Every optional job on, with the core unit tests in "all" mode and both suites. */
 function assertEverythingOn(p, why) {
   assert.equal(p.full, true, `${why}: full`);
   for (const key of ["build", "ts", "unit", "suites", "golden", "go", "rust", "sync", "codeql", "docker"]) {
@@ -80,8 +70,6 @@ describe("infra files run everything", () => {
   });
 
   it("only the workspace-root files are infra", () => {
-    // A package.json in a workspace package is an ordinary change, and so is anything that merely
-    // ends with an infra name or sits under .github but outside workflows/ and scripts/.
     for (const file of ["apps/web/package.json", "packages/core/package.json", "my-pnpm-lock.yaml", ".github/dependabot.yml", ".github/CODEOWNERS"]) {
       assert.equal(isFullRun([file]), false, file);
     }
@@ -259,8 +247,6 @@ describe("a mixed change unions every touched area", () => {
   });
 
   it("deleted and renamed files still select their area", () => {
-    // `git diff --name-only` reports one path per rename, never the old one, and a deletion looks
-    // like any other change to that path.
     const p = plan(["packages/core/src/old-query.ts", "apps/web/src/Canvas.tsx"]);
     assert.equal(p.unit, true);
     assert.equal(p.ts, true);
@@ -319,8 +305,6 @@ describe("the CLI wrapper", () => {
   });
 
   it("reports a missing git instead of spawning one from PATH", () => {
-    // The script resolves `git` to an absolute path before calling it, so an empty PATH is a clear
-    // failure (exit 3) rather than an ENOENT stack from the spawn.
     assert.throws(
       () => run(["HEAD", "HEAD"], { PATH: "" }),
       (err) => {
@@ -332,7 +316,6 @@ describe("the CLI wrapper", () => {
   });
 
   it("writes the plan to stdout when GITHUB_OUTPUT is unset", () => {
-    // HEAD..HEAD is an empty diff: what comes out is the "nothing selected" plan.
     assert.equal(run(["HEAD", "HEAD"], {}), planLines(plan([])));
   });
 

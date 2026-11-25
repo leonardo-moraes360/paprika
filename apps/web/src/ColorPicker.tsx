@@ -129,7 +129,6 @@ function pushRecent(value: string) {
     const next = [value, ...readRecent().filter((x) => x !== value)].slice(0, RECENT_MAX);
     localStorage.setItem(RECENT_KEY, JSON.stringify(next));
   } catch {
-    /* quota */
   }
 }
 

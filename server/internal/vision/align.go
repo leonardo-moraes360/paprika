@@ -8,16 +8,8 @@ import (
 	"sort"
 )
 
-// Global alignment: the shift, scale (and optionally rotation) of the drawing that maximizes
-// the ink IoU with the reference. A coarse exhaustive search on tiny masks finds the basin;
-// hill climbing with shrinking steps refines it on the real masks. Everything is deterministic:
-// ties go to the identity and then to the first candidate in a fixed order.
+type xform struct{ dx, dy, s, th float64 }
 
-type xform struct{ dx, dy, s, th float64 } // dx, dy in working px; th in radians
-
-// warpIoU is the exact IoU of the drawn mask moved by t against the reference mask, by inverse
-// mapping every reference pixel. n is the working-px size of one mask pixel (the masks may be
-// downsampled), so t stays in working px.
 func warpIoU(drawn, ref []bool, w, h int, n float64, t xform) float64 {
 	cs, sn := math.Cos(t.th), math.Sin(t.th)
 	ox, oy := float64(w)/2, float64(h)/2
@@ -48,7 +40,6 @@ func warpIoU(drawn, ref []bool, w, h int, n float64, t xform) float64 {
 	return float64(inter) / float64(uni)
 }
 
-// shrink reduces a mask by an integer factor; a cell is ink when at least frac of it is.
 func shrink(m []bool, w, h, n int, frac float64) ([]bool, int, int) {
 	if n <= 1 {
 		return m, w, h
@@ -79,7 +70,6 @@ func align(ref, drawn []bool, w, h int, fx, fy, iouBefore float64, rotate bool) 
 	}
 	cur := coarseSearch(ref, drawn, w, h, rotate)
 
-	// the hill climb runs on reduced masks first, then on the real ones
 	nM := 1
 	if max(w, h) > 400 {
 		nM = (max(w, h) + 399) / 400
@@ -133,8 +123,6 @@ func align(ref, drawn []bool, w, h int, fx, fy, iouBefore float64, rotate bool) 
 	return id
 }
 
-// coarseSearch tries every shift within a quarter of the canvas, a few scales (and rotations)
-// on masks of about 128 px, mapping the drawn ink points forward onto the reference mask.
 func coarseSearch(ref, drawn []bool, w, h int, rotate bool) xform {
 	n := max(1, (max(w, h)+127)/128)
 	dm, cw, ch := shrink(drawn, w, h, n, 0.3)
@@ -158,7 +146,7 @@ func coarseSearch(ref, drawn []bool, w, h int, rotate bool) xform {
 		}
 		pts = sub
 	}
-	weight := float64(nDrawn) / float64(len(pts)) // each sampled point stands for this many ink cells
+	weight := float64(nDrawn) / float64(len(pts))
 	R := max(2, max(cw, ch)/4)
 	scales := []float64{1, 0.9, 1.1, 0.8, 1.25}
 	thetas := []float64{0}
@@ -167,7 +155,6 @@ func coarseSearch(ref, drawn []bool, w, h int, rotate bool) xform {
 		scales = []float64{1, 0.9, 1.1}
 		R = max(2, max(cw, ch)/6)
 	}
-	// shifts nearest to the identity first
 	var offs [][2]int
 	for dy := -R; dy <= R; dy++ {
 		for dx := -R; dx <= R; dx++ {
@@ -203,7 +190,6 @@ func coarseSearch(ref, drawn []bool, w, h int, rotate bool) xform {
 				inter := float64(hits) * weight * area
 				uni := float64(nDrawn)*area + float64(nRef) - inter
 				v := inter / uni
-				// strictly better wins; the identity comes first, so it wins ties
 				if v > bestV+1e-9 {
 					bestV, best = v, xform{dx: float64(dx * n), dy: float64(dy * n), s: s, th: th}
 				}

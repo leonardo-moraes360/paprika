@@ -2,34 +2,28 @@ package core
 
 import "time"
 
-// HistoryEntry is one transaction in the shared undo history.
 type HistoryEntry struct {
 	Actor   string
 	Label   string
 	Ops     []any
 	Inverse []any
-	At      int64  // Unix milliseconds
-	Batch   string // batch name when several calls were merged into this entry (in memory only)
+	At      int64
+	Batch   string
 }
 
-// History holds undo/redo stacks over an immutable document. Agent and human share it.
 type History struct {
 	current *Document
 	undo    []HistoryEntry
 	redo    []HistoryEntry
 	limit   int
-	// open: the last Apply pushed or merged into the top entry; only it takes more writes of its batch.
-	open bool
-	// Now is the clock (tests can freeze it).
-	Now func() int64
+	open    bool
+	Now     func() int64
 }
 
-// NewHistory starts a history at doc (limit 500 entries, like the TypeScript core).
 func NewHistory(doc *Document) *History {
 	return &History{current: doc, limit: 500, Now: func() int64 { return time.Now().UnixMilli() }}
 }
 
-// Restore rebuilds a history from persisted stacks.
 func Restore(doc *Document, undo, redo []HistoryEntry) *History {
 	h := NewHistory(doc)
 	h.undo, h.redo = undo, redo
@@ -42,14 +36,10 @@ func (h *History) CanRedo() bool               { return len(h.redo) > 0 }
 func (h *History) Entries() []HistoryEntry     { return h.undo }
 func (h *History) RedoEntries() []HistoryEntry { return h.redo }
 
-// Apply runs a transaction and records it.
 func (h *History) Apply(ops []any, actor, label string) (*ApplyResult, error) {
 	return h.ApplyBatch(ops, actor, label, "")
 }
 
-// ApplyBatch applies one transaction. With a batch name, a write from the same actor and batch
-// that directly follows the previous one joins its entry, so one undo reverts the whole batch.
-// Any other write, undo or redo in between closes the batch (same rule as the TS History).
 func (h *History) ApplyBatch(ops []any, actor, label, batch string) (*ApplyResult, error) {
 	r, err := ApplyOps(h.current, ops)
 	if err != nil {
@@ -73,7 +63,6 @@ func (h *History) ApplyBatch(ops []any, actor, label, batch string) (*ApplyResul
 	return r, nil
 }
 
-// Undo reverts the last transaction; ok=false when there is nothing to undo.
 func (h *History) Undo() (HistoryEntry, bool, error) {
 	if len(h.undo) == 0 {
 		return HistoryEntry{}, false, nil
@@ -92,7 +81,6 @@ func (h *History) Undo() (HistoryEntry, bool, error) {
 	return e, true, nil
 }
 
-// Redo reapplies the last undone transaction.
 func (h *History) Redo() (HistoryEntry, bool, error) {
 	if len(h.redo) == 0 {
 		return HistoryEntry{}, false, nil
@@ -111,7 +99,6 @@ func (h *History) Redo() (HistoryEntry, bool, error) {
 	return e, true, nil
 }
 
-// Reset replaces the document and clears the history.
 func (h *History) Reset(doc *Document) {
 	h.current = doc
 	h.undo, h.redo = nil, nil

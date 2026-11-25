@@ -7,17 +7,11 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/strokeOutline.ts: a path's stroke as a filled outline (dense polyline,
-// nonzero fill). See the TS file for the construction.
-
 const (
-	// OutlineFlat is the flatness of the centerline and of round joins and caps, in px.
 	OutlineFlat = 0.05
-	// MiterLimit is SVG's default stroke-miterlimit, which every renderer here uses.
-	MiterLimit = 4.0
+	MiterLimit  = 4.0
 )
 
-// StrokeOutlineParams: Width is the full stroke width in px; Cap is butt|round|square; Join is miter|round|bevel.
 type StrokeOutlineParams struct {
 	Width     float64
 	Cap, Join string
@@ -219,7 +213,6 @@ func reversedPoints(pts []Point) []Point {
 	return out
 }
 
-// OutlineStrokeRings returns closed rings (fill them with nonzero) covering the stroke of segs (in px).
 func OutlineStrokeRings(segs []Segment, params StrokeOutlineParams) [][]Point {
 	hw := params.Width / 2
 	if !(hw > 0) {
@@ -249,7 +242,6 @@ func OutlineStrokeRings(segs []Segment, params StrokeOutlineParams) [][]Point {
 	return rings
 }
 
-// OutlineStrokeD is OutlineStrokeRings as path data (M L Z per ring).
 func OutlineStrokeD(segs []Segment, params StrokeOutlineParams) string {
 	var out []Segment
 	for _, r := range OutlineStrokeRings(segs, params) {
@@ -284,7 +276,6 @@ func mapViewBoxSegs(segs []Segment, vb [4]float64, w, h float64) []Segment {
 	return out
 }
 
-// OutlineStrokePlan is the result of OutlineStrokeOps.
 type OutlineStrokePlan struct {
 	Ops    []any
 	ID     string
@@ -292,7 +283,6 @@ type OutlineStrokePlan struct {
 	Bounds Bounds
 }
 
-// OutlineStrokeOps replaces a path node's stroke with a filled outline (same id, one update op).
 func OutlineStrokeOps(doc *Document, id string, keepStroke bool) (*OutlineStrokePlan, error) {
 	n := GetNode(doc, id)
 	if n == nil {

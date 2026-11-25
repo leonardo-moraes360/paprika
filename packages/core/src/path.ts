@@ -1,9 +1,3 @@
-/**
- * Dados de caminho SVG (`d`) para o nó `path`: parser estrito, normalização para comandos
- * absolutos (M, L, C, Q, A, Z), caixa delimitadora exata (incluindo extremos de curvas bezier
- * e arcos) e serialização. Não depende do DOM, então roda no servidor, no canvas e nos testes.
- */
-
 export type Point = { x: number; y: number };
 
 export type Segment =
@@ -26,13 +20,8 @@ export class PathError extends Error {
 const ARITY: Record<string, number> = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7, Z: 0 };
 const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/;
 
-/** Limite de segmentos por caminho: protege o servidor e o canvas de entradas gigantes. */
 export const MAX_SEGMENTS = 10_000;
 
-/**
- * Converte `d` em segmentos absolutos. Erros apontam a posição do caractere, para o agente
- * corrigir sem adivinhar. Aceita a gramática SVG 1.1 completa (inclusive flags de arco coladas).
- */
 export function parsePath(d: string): Segment[] {
   const segs: Segment[] = [];
   let i = 0;
@@ -58,8 +47,8 @@ export function parsePath(d: string): Segment[] {
 
   let cur: Point = { x: 0, y: 0 };
   let start: Point = { x: 0, y: 0 };
-  let lastCubic: Point | null = null; // segundo controle do último C/S (para refletir em S)
-  let lastQuad: Point | null = null; // controle do último Q/T (para refletir em T)
+  let lastCubic: Point | null = null;
+  let lastQuad: Point | null = null;
   let cmd = "";
 
   skip();
@@ -92,7 +81,7 @@ export function parsePath(d: string): Segment[] {
         const to = pt();
         seg = { cmd: "M", to };
         start = to;
-        cmd = abs ? "L" : "l"; // pares extras após M são lineto implícitos
+        cmd = abs ? "L" : "l";
         break;
       }
       case "L":
@@ -144,7 +133,6 @@ export function parsePath(d: string): Segment[] {
   return segs;
 }
 
-/** Valida `d` e devolve a mensagem de erro (ou `null` se estiver ok). */
 export function pathError(d: string): string | null {
   try {
     parsePath(d);
@@ -160,7 +148,6 @@ const r = (n: number) => {
 };
 const p = (pt: Point) => `${r(pt.x)} ${r(pt.y)}`;
 
-/** Serializa segmentos absolutos em `d` (2 casas decimais). */
 export function serializePath(segs: Segment[]): string {
   return segs
     .map((s) => {
@@ -181,26 +168,17 @@ export function serializePath(segs: Segment[]): string {
     .join(" ");
 }
 
-/**
- * Offset from the node origin (0,0) to the drawing's top-left (path bounds). Agents use this to
- * place stems on rotated pods without measuring empty padding in the box (fb#15).
- */
 export function pathOrigin(segs: Segment[]): Point {
   const b = pathBounds(segs);
   return { x: b.x, y: b.y };
 }
 
-/**
- * Moves the drawing to (0,0) and returns the previous origin (to add to the node's x/y). Same
- * geometry as `normalize: true` on create_nodes.
- */
 export function normalizePath(segs: Segment[]): { segs: Segment[]; origin: Point; bounds: PathBounds } {
   const origin = pathOrigin(segs);
   const moved = translatePath(segs, -origin.x, -origin.y);
   return { segs: moved, origin, bounds: pathBounds(moved) };
 }
 
-/** Desloca todos os pontos (útil para normalizar um caminho desenhado para a origem do nó). */
 export function translatePath(segs: Segment[], dx: number, dy: number): Segment[] {
   const t = (pt: Point): Point => ({ x: pt.x + dx, y: pt.y + dy });
   return segs.map((s) => {
@@ -220,7 +198,6 @@ export function translatePath(segs: Segment[], dx: number, dy: number): Segment[
   });
 }
 
-/** Raízes em [0,1] de a·t² + b·t + c = 0. */
 function unitRoots(a: number, b: number, c: number): number[] {
   if (Math.abs(a) < 1e-12) return Math.abs(b) < 1e-12 ? [] : [-c / b].filter((t) => t > 0 && t < 1);
   const disc = b * b - 4 * a * c;
@@ -229,7 +206,6 @@ function unitRoots(a: number, b: number, c: number): number[] {
   return [(-b + s) / (2 * a), (-b - s) / (2 * a)].filter((t) => t > 0 && t < 1);
 }
 
-/** Pontos de um arco SVG convertidos para a forma central (SVG 1.1, apêndice F.6), amostrados nos extremos. */
 function arcPoints(from: Point, s: Extract<Segment, { cmd: "A" }>): Point[] {
   let { rx, ry } = s;
   if (rx === 0 || ry === 0 || (from.x === s.to.x && from.y === s.to.y)) return [s.to];
@@ -264,7 +240,6 @@ function arcPoints(from: Point, s: Extract<Segment, { cmd: "A" }>): Point[] {
     x: cx + rx * Math.cos(t) * cos - ry * Math.sin(t) * sin,
     y: cy + rx * Math.cos(t) * sin + ry * Math.sin(t) * cos,
   });
-  // Amostragem densa: simples e precisa o bastante (< 0,1px) para bounds.
   const n = Math.max(8, Math.ceil((Math.abs(dt) / (Math.PI / 2)) * 16));
   return Array.from({ length: n + 1 }, (_, j) => at(t1 + (dt * j) / n));
 }
@@ -276,7 +251,6 @@ export interface PathBounds {
   height: number;
 }
 
-/** Caixa exata da geometria (não dos pontos de controle). */
 export function pathBounds(segs: Segment[]): PathBounds {
   let minX = Infinity,
     minY = Infinity,
@@ -340,17 +314,13 @@ export function pathBounds(segs: Segment[]): PathBounds {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-/** Âncora editável de um caminho desenhado com a caneta: ponto + alças bezier opcionais. */
 export interface Anchor {
   x: number;
   y: number;
-  /** Alça que chega no ponto (controle do segmento anterior). */
   in?: Point;
-  /** Alça que sai do ponto (controle do próximo segmento). */
   out?: Point;
 }
 
-/** Monta segmentos a partir de âncoras: reta quando não há alças, bezier cúbica quando há. */
 export function anchorsToPath(anchors: Anchor[], closed: boolean): Segment[] {
   if (anchors.length === 0) return [];
   const segs: Segment[] = [{ cmd: "M", to: { x: anchors[0]!.x, y: anchors[0]!.y } }];

@@ -2,24 +2,17 @@ import { applyOps, type ApplyResult, type Op } from "./ops.js";
 import type { Document } from "./schema.js";
 
 export interface HistoryEntry {
-  /** Quem originou a transação (ex.: "user", "agent:claude"). */
   actor: string;
   label: string;
   ops: Op[];
   inverse: Op[];
   at: number;
-  /** Batch name when several calls were merged into this entry (see `apply`). */
   batch?: string;
 }
 
-/**
- * Pilhas de desfazer/refazer sobre um documento imutável. Agente e humano compartilham o mesmo
- * histórico, então um "desfazer" no canvas também desfaz uma edição feita via MCP.
- */
 export class History {
   private undoStack: HistoryEntry[] = [];
   private redoStack: HistoryEntry[] = [];
-  /** The entry the last `apply` pushed or merged into; only it can take more writes of its batch. */
   private open: HistoryEntry | undefined;
 
   constructor(
@@ -43,11 +36,6 @@ export class History {
     return this.undoStack;
   }
 
-  /**
-   * Applies one transaction. With `batch`, a write from the same actor and batch that directly
-   * follows the previous one joins its entry, so one undo reverts the whole batch. Any other write,
-   * undo or redo in between closes the batch.
-   */
   apply(ops: Op[], actor = "user", label = "", batch?: string): ApplyResult {
     const result = applyOps(this.current, ops);
     this.current = result.doc;
@@ -86,7 +74,6 @@ export class History {
     return entry;
   }
 
-  /** Substitui o documento (ex.: arquivo alterado fora do processo) e zera o histórico. */
   reset(doc: Document): void {
     this.current = doc;
     this.undoStack = [];

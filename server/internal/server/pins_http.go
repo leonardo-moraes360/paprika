@@ -19,7 +19,6 @@ var pinRegionSchema = z.Object(
 	z.Field{Name: "height", Schema: z.Number().Min(0)},
 )
 
-// POST /api/pins: a pin made on the canvas.
 var newPinBody = z.Object(
 	z.Field{Name: "workspaceId", Schema: z.Optional(z.String().Min(1))},
 	z.Field{Name: "pageId", Schema: z.Optional(z.String())},
@@ -28,7 +27,6 @@ var newPinBody = z.Object(
 	z.Field{Name: "text", Schema: z.String().Min(1).Max(MaxPinText)},
 )
 
-// PATCH /api/pins/{id}: reopen, resolve (by the human) or edit the text.
 var patchPinBody = z.Object(
 	z.Field{Name: "status", Schema: z.Optional(z.Enum(PinOpen, PinResolved))},
 	z.Field{Name: "text", Schema: z.Optional(z.String().Min(1).Max(MaxPinText))},
@@ -39,7 +37,6 @@ func regionOf(o *jsonv.Object) PinRegion {
 	return PinRegion{X: o.Num("x"), Y: o.Num("y"), Width: o.Num("width"), Height: o.Num("height")}
 }
 
-// pinError maps a store error to an HTTP status.
 func pinError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrNoPin), errors.Is(err, ErrNoWorkspace):
@@ -74,7 +71,6 @@ func parseBody(c *gin.Context, schema *z.ObjectSchema) (*jsonv.Object, bool) {
 	return parsed.(*jsonv.Object), true
 }
 
-// registerPinRoutes serves /api/pins for the canvas. The canvas acts as "user".
 func registerPinRoutes(engine *gin.Engine, store *Store) {
 	engine.Any("/api/pins", func(c *gin.Context) {
 		switch c.Request.Method {
@@ -170,8 +166,6 @@ func registerPinRoutes(engine *gin.Engine, store *Store) {
 	})
 }
 
-// broadcastPins tells the WebSocket clients that pins changed ({type:"pins", rev}); the canvas reads
-// /api/pins again. It polls the table because another process (`paprika mcp`) may write it.
 func broadcastPins(store *Store, hub *wsHub) func() {
 	last := store.PinsRev()
 	stop := make(chan struct{})

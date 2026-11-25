@@ -6,7 +6,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// TextPiece is one slice of a text node, with the run that styles it when there is one.
 type TextPiece struct {
 	Text string
 	Run  *jsonv.Object
@@ -30,7 +29,6 @@ func slice16(s string, start, end int) string {
 	return string(utf16.Decode(u[start:end]))
 }
 
-// TextPieces splits text into plain gaps and styled runs. Indexes are UTF-16, same as JS.
 func TextPieces(text string, runs []any) []TextPiece {
 	var typed []*jsonv.Object
 	for _, item := range runs {
@@ -70,7 +68,6 @@ func TextPieces(text string, runs []any) []TextPiece {
 	return out
 }
 
-// PiecesInRange clips runs onto a substring whose first unit is absStart.
 func PiecesInRange(text string, absStart int, runs []any) []TextPiece {
 	if len(runs) == 0 {
 		if text == "" {

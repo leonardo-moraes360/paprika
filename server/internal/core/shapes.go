@@ -8,13 +8,8 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/shapes.ts: corner rounding for polygonal paths and parametric
-// shapes (star, polygon, ring, arc, sector) as plain path data. Angles are degrees, clockwise
-// from 12 o'clock.
-
 var PathShapeKinds = []string{"star", "polygon", "ring", "arc", "sector"}
 
-// ShapeParams mirrors PathShapeParams; a pointer means "not given".
 type ShapeParams struct {
 	Points, Sides, Radius, InnerRadius, Thickness, Angle, StartAngle, EndAngle, CornerRadius *float64
 	RoundCaps                                                                                bool
@@ -161,8 +156,6 @@ func polylines(segs []Segment) ([]*polyline, error) {
 	return out, nil
 }
 
-// RoundPathCorners rounds the corners of a polygonal path. radii[i] (when non-nil) overrides
-// radius for vertex i, counted in the order written.
 func RoundPathCorners(d string, radius float64, radii []*float64) (string, error) {
 	segs, err := ParsePath(d)
 	if err != nil {
@@ -361,8 +354,6 @@ func pathShapeSegments(kind string, p ShapeParams) ([]Segment, bool, error) {
 	return nil, false, fmt.Errorf(`unknown shape kind "%s" (star, polygon, ring, arc, sector)`, kind)
 }
 
-// BuildPathShape builds a shape as path data whose box starts at (0, 0), plus the center's place
-// inside the box.
 func BuildPathShape(kind string, p ShapeParams) (*PathShape, error) {
 	segs, evenodd, err := pathShapeSegments(kind, p)
 	if err != nil {
@@ -382,7 +373,6 @@ func optNum(o *jsonv.Object, k string) *float64 {
 	return &v
 }
 
-// ShapeParamsFromJSON reads the shared parameter names (golden fixtures and the MCP tool).
 func ShapeParamsFromJSON(o *jsonv.Object) ShapeParams {
 	return ShapeParams{
 		Points: optNum(o, "points"), Sides: optNum(o, "sides"), Radius: optNum(o, "radius"),

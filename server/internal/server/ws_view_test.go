@@ -12,8 +12,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// A canvas pointed at a workspace with {type:"view"} gets that document, its edits and undo go to it, and
-// the active workspace stays where it was. Another canvas keeps following the active one.
 func TestWebSocketViewDoesNotChangeActive(t *testing.T) {
 	s, _ := openTemp(t)
 	activeID := s.DocID()
@@ -90,7 +88,6 @@ func TestWebSocketViewDoesNotChangeActive(t *testing.T) {
 		t.Fatal("edit leaked into the active workspace")
 	}
 
-	// A write to the active workspace reaches the follower, not the viewer.
 	op, _ := jsonv.Parse([]byte(`{"op":"create","node":{"type":"rect","id":"no-ativo"}}`))
 	if _, err := s.Apply([]any{op}, "agent:x", "agente"); err != nil {
 		t.Fatal(err)
@@ -107,7 +104,6 @@ func TestWebSocketViewDoesNotChangeActive(t *testing.T) {
 		t.Fatal("undo did not remove the node from the viewed workspace")
 	}
 
-	// An unknown workspace is an error that names the workspace; the view stays where it was.
 	viewer.Write(ctx, websocket.MessageText, []byte(`{"type":"view","workspaceId":"nope","reqId":"v2"}`))
 	if m := next(viewer, "error"); m.Str("reqId") != "v2" || !strings.Contains(m.Str("message"), "nope") {
 		t.Fatalf("unknown view: %s", jsonv.Stringify(m, ""))

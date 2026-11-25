@@ -15,7 +15,6 @@ import (
 
 const idAlphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
 
-// NewID returns a short random id (10 base36 chars), like newId() in the TypeScript core.
 func NewID() string {
 	b := make([]byte, 10)
 	if _, err := rand.Read(b); err != nil {
@@ -28,7 +27,6 @@ func NewID() string {
 	return string(out)
 }
 
-// NodeInputSchema: a partial node with optional nested children (frames only); extra keys kept.
 var NodeInputSchema z.Schema
 
 func init() {
@@ -152,7 +150,6 @@ func init() {
 	)
 }
 
-// combine_paths schemas: one step of an `operations` batch, and the `style` choice.
 var (
 	combineOperationSchema = z.Enum("union", "subtract", "intersect", "exclude")
 	combineStepSchema      = z.Object(
@@ -176,7 +173,6 @@ var (
 	)
 )
 
-// CombineOperationSchema, CombineStepSchema and CombineStyleSchema are the combine_paths pieces the MCP tool reuses.
 var (
 	CombineOperationSchema = combineOperationSchema
 	CombineStepSchema      = combineStepSchema
@@ -235,7 +231,6 @@ func updatePlain(doc *Document, node *Node, props *jsonv.Object, i int) (any, er
 	return jsonv.NewObject("op", "update", "id", id, "props", prev), nil
 }
 
-// updateOverride: an update on a copy (or on an instance root's fill) is stored in overrides.
 func updateOverride(doc *Document, inst, node *Node, srcID string, props *jsonv.Object, i int) (any, error) {
 	id := node.Str("id")
 	leaf := srcID
@@ -286,10 +281,8 @@ func updateOverride(doc *Document, inst, node *Node, srcID string, props *jsonv.
 
 var nodeInput *z.ObjectSchema
 
-// OpSchema is the discriminated union of operations.
 var OpSchema *z.DiscUnion
 
-// OpError is an operation failure; Index is the op position in the transaction.
 type OpError struct {
 	Msg   string
 	Index int
@@ -299,15 +292,13 @@ func (e *OpError) Error() string { return fmt.Sprintf("op[%d]: %s", e.Index, e.M
 
 func opErr(i int, format string, a ...any) *OpError { return &OpError{fmt.Sprintf(format, a...), i} }
 
-// ApplyResult is the outcome of a transaction.
 type ApplyResult struct {
 	Doc     *Document
-	Inverse []any // ops that undo the transaction, in application order
+	Inverse []any
 	Created []string
-	Removed []string // ids gone after the transaction (filled by server.Store, not by ApplyOps)
+	Removed []string
 }
 
-// listRef addresses a mutable id list (doc.rootIds or a frame's children).
 type listRef struct {
 	owner *jsonv.Object
 	key   string
@@ -336,7 +327,6 @@ func (l listRef) insertAt(id string, index *int) {
 	l.set(list)
 }
 
-// removeAt is Array#splice(index, 1) (index -1 removes the last element, like JavaScript).
 func (l listRef) removeAt(index int) {
 	list := l.get()
 	if index < 0 {
@@ -390,8 +380,6 @@ const (
 	groupSize  = "a group's width/height follow its children; move or resize the children"
 )
 
-// checkPlacement: pages only at the top. That a paged document only has pages at the top is
-// checked at the end of the transaction (checkPages): mid-transaction states may be mixed.
 func checkPlacement(typ string, parentID any, i int) error {
 	if _, inParent := parentID.(string); typ == "page" && inParent {
 		return opErr(i, pageAtRoot)
@@ -418,7 +406,6 @@ func isDescendant(doc *Document, maybeChild, ancestor string) bool {
 	return false
 }
 
-// jsToNumber is Number(v) for JSON values (used by Math.ceil in path sizing).
 func jsToNumber(v any, present bool) float64 {
 	if !present {
 		return math.NaN()
@@ -479,7 +466,6 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 	doNormalize := false
 	if rest.Has("normalize") {
 		if typ != "path" {
-			/* leave it: KnownKeys rejects unknown fields */
 		} else {
 			v, _ := rest.Get("normalize")
 			switch b := v.(type) {
@@ -533,7 +519,6 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 		return err
 	}
 	props := rest.Spread()
-	// normalize: true moves the drawing to (0,0) and adds the offset to x/y (fb#15).
 	if doNormalize && typ == "path" {
 		if d, ok := props.Get("d"); ok {
 			if ds, isStr := d.(string); isStr {
@@ -556,7 +541,6 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 			}
 		}
 	}
-	// Without width/height a path gets the box of its own drawing (or of its viewBox).
 	if d, ok := props.Get("d"); ok && typ == "path" {
 		if ds, isStr := d.(string); isStr && (!props.Has("width") || !props.Has("height")) {
 			var w, h float64
@@ -567,7 +551,7 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 				b := PathBounds(segs)
 				w, h = b.X+b.Width, b.Y+b.Height
 			} else {
-				w, h = 100, 100 // the `d` error comes from validation below, with its position
+				w, h = 100, 100
 			}
 			for _, kv := range []struct {
 				key string
@@ -579,8 +563,6 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 			}
 		}
 	}
-	// Without width/height a new text hugs its content (the 100×100 Base default turned every
-	// row/column label into a square). With width only, the height follows the lines.
 	if typ == "text" {
 		for _, k := range []string{"width", "height"} {
 			if v, has := props.Get(k); !has || v == nil {
@@ -588,7 +570,6 @@ func createNode(doc *Document, input *jsonv.Object, parentID any, index *int, i 
 			}
 		}
 	}
-	// Missing fields of a new shape get the kind's defaults (the sticky note: yellow, no border, shadow).
 	if typ == "shape" {
 		kind := "rect"
 		if k, ok := props.Get("shape"); ok {
@@ -637,7 +618,6 @@ func jsToNumberAt(arr []any, i int) float64 {
 	return jsToNumber(arr[i], true)
 }
 
-// jsMax1 is Math.max(1, v) (NaN propagates).
 func jsMax1(v float64) float64 {
 	if math.IsNaN(v) {
 		return v
@@ -654,9 +634,6 @@ func optIndex(op *jsonv.Object) *int {
 	return &n
 }
 
-// Z-order positions (parity with the TypeScript reference): a number from 0 (the back) or
-// front/back/forward/backward. The primitive `move` takes them in `index`; `update` takes the
-// same in props.index as a directive (it is not a node field). Inverse ops always carry numbers.
 const zIndexHint = `props.index must be a number (0 is the back) or "front", "back", "forward" or "backward"`
 
 func validZIndex(v any) bool {
@@ -672,9 +649,6 @@ func validZIndex(v any) bool {
 	return false
 }
 
-// zStepToIndex resolves a requested position into an insertion index in the parent list
-// without the node (`move` removes before it inserts): nil = end of the list ("front" is the
-// top). forward/backward start from the node's current index.
 func zStepToIndex(v any, fromIndex int) *int {
 	switch t := v.(type) {
 	case nil:
@@ -692,7 +666,7 @@ func zStepToIndex(v any, fromIndex int) *int {
 		case "forward":
 			n := fromIndex + 1
 			return &n
-		default: // backward, guarded at 0
+		default:
 			n := max(fromIndex-1, 0)
 			return &n
 		}
@@ -700,7 +674,6 @@ func zStepToIndex(v any, fromIndex int) *int {
 	return nil
 }
 
-// moveIndex resolves the op's index (present or not) for the same-parent or cross-parent move.
 func moveIndex(op *jsonv.Object, fromIndex int) *int {
 	v, ok := op.Get("index")
 	if !ok {
@@ -709,7 +682,6 @@ func moveIndex(op *jsonv.Object, fromIndex int) *int {
 	return zStepToIndex(v, fromIndex)
 }
 
-// withReorder appends the reorder inverse (always last: undo restores fields, then position).
 func withReorder(inv any, reorder []any) any {
 	if len(reorder) == 0 {
 		return inv
@@ -717,8 +689,6 @@ func withReorder(inv any, reorder []any) any {
 	return append(flatten(inv), reorder...)
 }
 
-// gradientColorProblem finds a CSS gradient or url() in a `fill` or `color` field of an op input
-// (a color field like that paints black on some nodes) and names the structured `gradient` field.
 func gradientColorProblem(input any, path []string) string {
 	switch t := input.(type) {
 	case []any:
@@ -777,7 +747,6 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			return nil, opErr(i, `node "%s" does not exist`, id)
 		}
 		props := op.Obj("props")
-		// `index` in props is the Z-order directive: reorder in the current parent before the fields.
 		var reorder []any
 		if props.Has("index") {
 			v, _ := props.Get("index")
@@ -870,7 +839,6 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		if owner := CopyOwner(doc, node); owner != nil {
 			return nil, opErr(i, "%s; to hide it, use visible: false", copyRule(id, owner.Str("id")))
 		}
-		// Connectors attached to what goes away go with it (copies in instances vanish on sync).
 		gone := map[string]bool{}
 		for _, n := range subtree(doc, id) {
 			gone[n.Str("id")] = true
@@ -1013,7 +981,6 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		return jsonv.NewObject("op", "rename_document", "name", prev), nil
 
 	case "group", "ungroup", "add_page", "detach", "combine_paths", "align", "distribute", "wrap", "reveal", "convert_to_path":
-		// Expanded against the *current* document, inside the same transaction.
 		var plan []any
 		var err error
 		switch op.Str("op") {
@@ -1060,7 +1027,6 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 	return nil, opErr(i, "unknown operation")
 }
 
-// ApplyOps applies a transaction atomically: the input document is never mutated.
 func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 	draft := jsonv.Clone(doc).(*jsonv.Object)
 	var inverse []any
@@ -1074,7 +1040,6 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 		op := parsed.(*jsonv.Object)
 		if op.Str("op") == "delete" {
 			id := op.Str("id")
-			// A connector that already went away with its shape (e.g. delete_nodes with the shape and the arrow) is not an error.
 			if GetNode(draft, id) == nil && !deleted[id] {
 				if orig := GetNode(doc, id); orig != nil && orig.Str("type") == "connector" {
 					deleted[id] = true
@@ -1098,7 +1063,6 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 		if err := SyncInstances(draft); err != nil {
 			return nil, opErr(len(ops)-1, "%s", err.Error())
 		}
-		// A group holding instances only knows their size after the sync.
 		inverse = append(fitGroups(draft), inverse...)
 		if msg := LengthTokenError(draft); msg != "" {
 			return nil, opErr(len(ops)-1, "%s", msg)
@@ -1106,7 +1070,6 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 		if msg := webSemanticsError(draft); msg != "" {
 			return nil, opErr(len(ops)-1, "%s", msg)
 		}
-		// Connectors follow their ends: derived geometry, no inverse (undo recomputes it).
 		if err := RouteConnectors(draft); err != nil {
 			return nil, opErr(len(ops)-1, "%s", err.Error())
 		}
@@ -1117,7 +1080,6 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 	return &ApplyResult{Doc: draft, Inverse: inverse, Created: created}, nil
 }
 
-// CreateDocument returns an empty valid document.
 func CreateDocument(name, id string) *Document {
 	if id == "" {
 		id = NewID()
@@ -1129,7 +1091,6 @@ func CreateDocument(name, id string) *Document {
 	return out.(*Document)
 }
 
-// ParseDocument validates and normalizes a document read from disk.
 func ParseDocument(input any) (*Document, error) {
 	out, err := z.Parse(DocumentSchema, input)
 	if err != nil {
@@ -1220,7 +1181,6 @@ func webSemanticsError(doc *Document) string {
 	return ""
 }
 
-// checkPages: in a document with pages, the top level holds only pages.
 func checkPages(doc *Document, i int) error {
 	var loose []string
 	hasPage := false
@@ -1237,12 +1197,10 @@ func checkPages(doc *Document, i int) error {
 	return opErr(i, "the document has pages, but %s is at the canvas level; move it to a page (parentId = the page id)", strings.Join(loose, ", "))
 }
 
-// Round4 rounds computed coordinates to 4 decimals (and -0 to 0), stable across TS and Go.
 func Round4(v float64) float64 { return jsonv.Round(v*10_000)/10_000 + 0 }
 
 const fitEps = 1e-3
 
-// Box is an axis-aligned box in the parent's coordinates.
 type Box struct{ MinX, MinY, MaxX, MaxY float64 }
 
 func numOr0(n *Node, key string) float64 {
@@ -1254,12 +1212,10 @@ func numOr0(n *Node, key string) float64 {
 	return 0
 }
 
-// LocalBox is a node's box in its parent (its own rotation around the center included).
 func LocalBox(n *Node) Box {
 	return LocalBoxSized(n, numOr0(n, "width"), numOr0(n, "height"))
 }
 
-// LocalBoxSized is LocalBox with an explicit width and height (hug/fill already resolved).
 func LocalBoxSized(n *Node, w, h float64) Box {
 	if n.Str("type") == "page" {
 		return Box{}
@@ -1282,7 +1238,6 @@ func LocalBoxSized(n *Node, w, h float64) Box {
 	return Box{cx - hw, cy - hh, cx + hw, cy + hh}
 }
 
-// fitGroups fits every group's box to its children (deepest first), keeping the drawing still.
 func fitGroups(doc *Document) []any {
 	var inverse []any
 	var visit func(id string)
@@ -1307,7 +1262,6 @@ func fitGroups(doc *Document) []any {
 func fitGroup(doc *Document, g *Node, inverse []any) []any {
 	var kids []*Node
 	for _, c := range g.Strings("children") {
-		// Connectors do not count: their box derives from their ends (and is recomputed afterwards).
 		if k := GetNode(doc, c); k != nil && k.Str("type") != "page" && k.Str("type") != "connector" {
 			kids = append(kids, k)
 		}
@@ -1352,7 +1306,6 @@ func mustGet(n *Node, k string) any {
 	return v
 }
 
-// flatten turns applyOne's inverse (one op, or a list for composite ops) into a list.
 func flatten(inv any) []any {
 	if list, ok := inv.([]any); ok {
 		return list

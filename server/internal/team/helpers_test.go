@@ -12,7 +12,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/server"
 )
 
-// sidecarBin finds a built paprika-sync for tests: $PAPRIKA_SYNC or crates/sync/target.
 func sidecarBin(t *testing.T) string {
 	t.Helper()
 	if p := os.Getenv("PAPRIKA_SYNC"); p != "" {
@@ -64,7 +63,6 @@ func newInstance(t *testing.T, name string) *instance {
 func newInstanceVersions(t *testing.T, name, app, format string) *instance {
 	t.Helper()
 	dir := t.TempDir()
-	// Every test instance starts on the same workspace id, like peers of one team.
 	dbPath := filepath.Join(dir, "p.db")
 	db, err := server.OpenDB(dbPath)
 	if err != nil {

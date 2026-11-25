@@ -7,7 +7,6 @@ import (
 	"sort"
 )
 
-// Region kinds and the tool each one is best drawn with.
 const (
 	KindPhoto    = "photo"
 	KindGradient = "gradient"
@@ -20,8 +19,6 @@ type GradientStop struct {
 	Offset float64 `json:"offset"`
 }
 
-// Gradient is a node's gradient field, ready to paste: linear (angle, CSS degrees) or radial
-// (center and radius as fractions of the box).
 type Gradient struct {
 	Type   string         `json:"type"`
 	Angle  *float64       `json:"angle,omitempty"`
@@ -31,23 +28,20 @@ type Gradient struct {
 	Stops  []GradientStop `json:"stops"`
 }
 
-// ImageRegion is a rectangle of the image of one kind, with the tool that draws it best. Regions
-// cover the analyzed area without overlapping; a flat area may come as several rectangles.
 type ImageRegion struct {
 	ID       string    `json:"id"`
-	Kind     string    `json:"kind"`    // photo, gradient, flat, text
-	Box      Rect      `json:"box"`     // output coordinates (like blobs)
-	Share    float64   `json:"share"`   // of the analyzed area
-	Suggest  string    `json:"suggest"` // import_image, gradient, primitive, trace_image, text
+	Kind     string    `json:"kind"`
+	Box      Rect      `json:"box"`
+	Share    float64   `json:"share"`
+	Suggest  string    `json:"suggest"`
 	Why      string    `json:"why"`
 	BlobIDs  []string  `json:"blobIds"`
-	Gradient *Gradient `json:"gradient,omitempty"` // gradient: the node field
-	FontSize float64   `json:"fontSize,omitempty"` // text: estimated size of the type
-	Lines    int       `json:"lines,omitempty"`    // text: lines in the block
-	FitError float64   `json:"fitError,omitempty"` // gradient: error of the ramp against the pixels, in color levels (0..255)
+	Gradient *Gradient `json:"gradient,omitempty"`
+	FontSize float64   `json:"fontSize,omitempty"`
+	Lines    int       `json:"lines,omitempty"`
+	FitError float64   `json:"fitError,omitempty"`
 }
 
-// rawRegion is a region in analysis pixels, before blobs are assigned to it.
 type rawRegion struct {
 	kind     string
 	rect     image.Rectangle
@@ -55,25 +49,25 @@ type rawRegion struct {
 	fontSize float64
 	lines    int
 	why      string
-	members  map[int]bool        // text: indexes of the glyph comps
-	gband    bool                // gradient: set when the group fitted a ramp
-	fitError float64             // gradient: rms of the ramp against the pixels, in color levels
-	smooth   func(x, y int) bool // gradient: is this analysis pixel part of the ramp itself
+	members  map[int]bool
+	gband    bool
+	fitError float64
+	smooth   func(x, y int) bool
 }
 
 const (
-	grainDelta     = 3.0  // luminance steps from the blurred image that count as grain
-	grainPhoto     = 0.35 // share of grainy pixels of a photo tile
-	coverPhoto     = 0.55 // the 6 commonest colours of a photo tile cover less than this
-	grainWeak      = 0.2  // a tile this grainy joins a photo next to it (hysteresis)
+	grainDelta     = 3.0
+	grainPhoto     = 0.35
+	coverPhoto     = 0.55
+	grainWeak      = 0.2
 	coverWeak      = 0.7
-	minPhotoTile   = 4    // connected photo tiles that make a photo region
-	rampGoodRMS    = 5.0  // a ramp this far off the pixels (levels) is not worth suggesting
-	rampGoodRel    = 0.15 // nor one whose error is more than this share of its span
-	poorRampShare  = 0.25 // image share below which a badly fitting ramp is dropped
-	innerRampShare = 0.03 // image share below which a ramp inside a larger one is absorbed by it
-	gradientClaim  = 0.35 // share of its box a ramp's own tiles cover for it to run under shapes
-	sharpStep      = 14   // channel difference between neighbours that is an edge, not a ramp
+	minPhotoTile   = 4
+	rampGoodRMS    = 5.0
+	rampGoodRel    = 0.15
+	poorRampShare  = 0.25
+	innerRampShare = 0.03
+	gradientClaim  = 0.35
+	sharpStep      = 14
 )
 
 type tileStat struct {
@@ -82,20 +76,16 @@ type tileStat struct {
 	grain, cover   float64
 	edge           float64
 	photo, smooth  bool
-	weak           bool // textured enough to join a photo it touches
-	photoComp      int  // index of the photo component, -1 none
-	group          int  // smooth group, -1 none
+	weak           bool
+	photoComp      int
+	group          int
 	gradient       bool
 }
 
-// classifyRegions classifies the analyzed raster. comps are the connected palette regions that
-// survived the area filter (they carry the glyph candidates for text).
 func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 	w, h := px.w, px.h
 	ts := max(8, int(math.Round(float64(w)/16)))
 	tx, ty := (w+ts-1)/ts, (h+ts-1)/ts
-	// grain is measured on hi, the image at (close to) source resolution: downsampling to the
-	// analysis size blurs the grain of a photo away
 	hlum := make([]float32, hi.w*hi.h)
 	for i := range hlum {
 		if hi.opaque[i] {
@@ -119,11 +109,10 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 		}
 	}
 
-	// photo regions: connected photo tiles, at least minPhotoTile of them
 	type photoComp struct {
 		tiles []int
 		rect  image.Rectangle
-		box   bool // claim the whole bounding box
+		box   bool
 	}
 	var photos []photoComp
 	collect := func() {
@@ -165,8 +154,7 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 			photos = append(photos, photoComp{tiles: members, rect: r})
 		}
 	}
-	collect() // drops the isolated textured tiles
-	// weakly textured tiles that touch a photo tile join it, until none is left
+	collect()
 	for grown := true; grown; {
 		grown = false
 		for k := range tiles {
@@ -185,7 +173,6 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 			}
 		}
 	}
-	// a tile (opaque) with photo on three sides is part of it
 	var fill []int
 	for k := range tiles {
 		t := tiles[k]
@@ -208,7 +195,6 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 		tiles[k].smooth = false
 	}
 	collect()
-	// photo components whose boxes touch become one
 	for merged := true; merged; {
 		merged = false
 		for i := 0; i < len(photos) && !merged; i++ {
@@ -242,7 +228,6 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 		}
 	}
 
-	// text blocks from the glyph-like comps outside the photos
 	inPhoto := func(c comp) bool {
 		cx, cy := (c.minX+c.maxX)/2, (c.minY+c.maxY)/2
 		for _, p := range photos {
@@ -258,8 +243,6 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 	}
 	blocks := findText(comps, w, h, inPhoto)
 
-	// smooth tiles that continue into each other form a group; a group that changes color is a
-	// gradient
 	parent := make([]int, len(tiles))
 	for i := range parent {
 		parent[i] = i
@@ -297,12 +280,11 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 		roots = append(roots, r)
 	}
 	sort.Ints(roots)
-	// candidate groups: smooth tiles that change color along a linear or radial ramp
 	type gradGroup struct {
 		fit   *rampFit
 		tiles []int
-		area  int             // pixels of the group's tiles
-		claim image.Rectangle // what the group draws under whatever sits on it
+		area  int
+		claim image.Rectangle
 		in    map[int]bool
 	}
 	tileArea := func(ms []int) int {
@@ -322,9 +304,6 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 			cands = append(cands, &gradGroup{fit: fit, tiles: ms})
 		}
 	}
-	// groups that follow the same ramp (same direction, or the same center) and touch each other
-	// are one gradient: a background that shapes cut into pieces. They merge when one ramp still
-	// fits the union.
 	compatible := func(a, b *rampFit) bool {
 		if a.radial != b.radial || !a.bbox.Inset(-ts).Overlaps(b.bbox) {
 			return false
@@ -333,7 +312,7 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 			u := a.bbox.Union(b.bbox)
 			return math.Hypot(a.cx-b.cx, a.cy-b.cy) <= 0.1*float64(max(u.Dx(), u.Dy()))
 		}
-		return a.dx*b.dx+a.dy*b.dy >= 0.978 // within 12 degrees
+		return a.dx*b.dx+a.dy*b.dy >= 0.978
 	}
 	for merged := true; merged; {
 		merged = false
@@ -353,7 +332,6 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 			}
 		}
 	}
-	// the largest group claims first
 	sort.SliceStable(cands, func(i, j int) bool { return len(cands[i].tiles) > len(cands[j].tiles) })
 	var groups []*gradGroup
 	for _, g := range cands {
@@ -366,10 +344,8 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 		if float64(g.area) >= 0.9*float64(bb.Dx()*bb.Dy()) {
 			g.claim = growRamp(px, bb, ts)
 		} else if float64(g.area) >= gradientClaim*float64(bb.Dx()*bb.Dy()) {
-			g.claim = bb // shapes sit on this ramp: it runs under them
+			g.claim = bb
 		}
-		// a ramp that explains its tiles poorly is only worth a region when it is large (small
-		// ones are texture); a small ramp inside a larger one is part of it
 		good := g.fit.rms <= rampGoodRMS && g.fit.rms <= rampGoodRel*g.fit.span
 		if !good && float64(g.area) < poorRampShare*float64(w*h) {
 			continue
@@ -392,8 +368,6 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 		}
 	}
 
-	// partition: a grid cut along the tile lines and the text boxes; each cell takes the label
-	// of the strongest claim on it (photo, then text, then gradient, else flat)
 	xs := map[int]bool{0: true, w: true}
 	ys := map[int]bool{0: true, h: true}
 	for i := 0; i <= tx; i++ {
@@ -457,7 +431,6 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 			label[j*nx+i] = l
 		}
 	}
-	// photos whose bounding box claims cells that hold another photo's tiles keep their own
 	for pi, p := range photos {
 		if !p.box {
 			continue
@@ -507,7 +480,7 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 			rr.kind = KindFlat
 		}
 		if rr.kind == KindFlat && (min(r.Dx(), r.Dy()) <= 3 || float64(r.Dx()*r.Dy()) < 0.0005*float64(w*h)) {
-			continue // a sliver left between two other regions
+			continue
 		}
 		out = append(out, rr)
 	}
@@ -518,11 +491,8 @@ func classifyRegions(px, hi *pixels, comps []comp) []rawRegion {
 	return out
 }
 
-// growRamp extends the box of a group of ramp tiles, a pixel at a time, while the next line of
-// pixels continues the ramp (no sharp jump from the line before): tiles cut by the edge of the
-// ramp are not smooth, but the ramp itself reaches it.
 func growRamp(px *pixels, r image.Rectangle, limit int) image.Rectangle {
-	continues := func(a, b image.Rectangle) bool { // line a (outside) against line b (inside)
+	continues := func(a, b image.Rectangle) bool {
 		bad, n := 0, 0
 		for y := a.Min.Y; y < a.Max.Y; y++ {
 			for x := a.Min.X; x < a.Max.X; x++ {
@@ -586,8 +556,6 @@ func sortedKeys(m map[int]bool) []int {
 
 type cellRect struct{ x0, y0, x1, y1, label int }
 
-// decompose cuts the labelled grid into rectangles of one label each, row by row or column by
-// column, whichever gives fewer.
 func decompose(label []int, nx, ny int) []cellRect {
 	a := greedyRects(label, nx, ny)
 	tr := make([]int, len(label))
@@ -675,8 +643,6 @@ func gaussBlur(src []float32, w, h int, sigma float64) []float32 {
 	return out
 }
 
-// tileFeatures fills the counts of a tile at analysis size: opaque pixels and the share of
-// neighbour pairs that are sharp edges.
 func tileFeatures(px *pixels, t *tileStat) {
 	w := px.w
 	pairs, sharp := 0, 0
@@ -706,9 +672,6 @@ func tileFeatures(px *pixels, t *tileStat) {
 	}
 }
 
-// grainFeatures measures a tile on the source-resolution raster hi (r is the tile in its
-// coordinates): the share of grainy pixels, and how much of the tile its 6 commonest colours
-// (of a 64-colour grid fitted to the tile's own range) cover.
 func grainFeatures(hi *pixels, lum, blur []float32, r image.Rectangle, t *tileStat) {
 	w := hi.w
 	r = r.Intersect(image.Rect(0, 0, hi.w, hi.h))
@@ -743,9 +706,6 @@ type cutBin struct {
 	n int
 }
 
-// medianCutCover quantizes the tile's pixels to 64 colours by median cut (on 5-bit bins) and
-// returns the share of the tile held by the 6 commonest: a flat or logo-like tile keeps most of
-// its pixels in a few colours, a photograph spreads them over many.
 func medianCutCover(hi *pixels, r image.Rectangle, n int) float64 {
 	hist := map[[3]uint8]int{}
 	for y := r.Min.Y; y < r.Max.Y; y++ {
@@ -760,7 +720,7 @@ func medianCutCover(hi *pixels, r image.Rectangle, n int) float64 {
 	for c, k := range hist {
 		bins = append(bins, cutBin{c, k})
 	}
-	sort.Slice(bins, func(i, j int) bool { // map order is random: fix it
+	sort.Slice(bins, func(i, j int) bool {
 		a, b := bins[i].c, bins[j].c
 		if a[0] != b[0] {
 			return a[0] < b[0]
@@ -841,8 +801,6 @@ func chanDiff(px *pixels, i, j int) int {
 	return d
 }
 
-// seamOK is true when the pixels along the border between two neighbouring tiles continue into
-// each other (a ramp), instead of jumping (an edge).
 func seamOK(px *pixels, a, b tileStat, horizontal bool) bool {
 	w := px.w
 	bad, n := 0, 0
@@ -869,8 +827,6 @@ func seamOK(px *pixels, a, b tileStat, horizontal bool) bool {
 	}
 	return n > 0 && float64(bad)/float64(n) <= 0.03
 }
-
-// ---- text ----
 
 type textBlock struct {
 	rect     image.Rectangle
@@ -916,9 +872,6 @@ func (l *textLine) add(g glyph) {
 }
 func (l *textLine) mh() float64 { return l.sumH / float64(len(l.g)) }
 
-// findText groups small blobs of similar height that sit on a common baseline into lines (at
-// least 4 glyph-like blobs, with the gaps of words, not of icons), and lines of the same type
-// into blocks.
 func findText(comps []comp, w, h int, skip func(comp) bool) []textBlock {
 	var cands []glyph
 	for i, c := range comps {
@@ -928,7 +881,6 @@ func findText(comps []comp, w, h int, skip func(comp) bool) []textBlock {
 		}
 		cands = append(cands, g)
 	}
-	// holes of letters ('o', 'e') are comps of their own inside another candidate
 	var glyphs []glyph
 	for i, g := range cands {
 		inside := false
@@ -981,7 +933,6 @@ func findText(comps []comp, w, h int, skip func(comp) bool) []textBlock {
 		}
 		good = append(good, l)
 	}
-	// small marks (dots, accents, holes) inside the line's box belong to it
 	for _, l := range good {
 		mh := l.mh()
 		box := image.Rect(l.rect.Min.X, l.rect.Min.Y-int(0.6*mh), l.rect.Max.X, l.rect.Max.Y+int(0.6*mh))
@@ -1051,7 +1002,6 @@ func findText(comps []comp, w, h int, skip func(comp) bool) []textBlock {
 		tb.rect = tb.rect.Inset(-1).Intersect(image.Rect(0, 0, w, h))
 		out = append(out, tb)
 	}
-	// blocks must not overlap: drop the smaller of two that do
 	sort.SliceStable(out, func(i, j int) bool { return len(out[i].members) > len(out[j].members) })
 	var kept []textBlock
 	for _, b := range out {
@@ -1069,7 +1019,6 @@ func findText(comps []comp, w, h int, skip func(comp) bool) []textBlock {
 	return kept
 }
 
-// glyphLike is false for rows of near-identical, widely spaced blobs (dots, icons, buttons).
 func glyphLike(l *textLine) bool {
 	n := float64(len(l.g))
 	var mw, mhh float64
@@ -1087,7 +1036,6 @@ func glyphLike(l *textLine) bool {
 	if cvw < 0.07 && cvh < 0.07 {
 		return false
 	}
-	// word gaps are a fraction of the glyph height, icon gaps are not
 	gaps, ng := 0.0, 0
 	gl := append([]glyph(nil), l.g...)
 	sort.SliceStable(gl, func(i, j int) bool { return gl[i].x0 < gl[j].x0 })

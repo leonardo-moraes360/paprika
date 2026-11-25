@@ -4,23 +4,20 @@ import (
 	"math"
 )
 
-// prim is a primitive in blob-local coordinates.
 type prim struct {
-	kind   string // circle, ellipse, rect, roundRect, polygon
-	cx, cy float64
-	rx, ry float64 // half sizes along the primitive's own axes (polygon: rx = circumradius)
-	rot    float64 // radians, y down (clockwise on screen)
-	r      float64 // corner radius (roundRect, uniform) or polygon corner rounding
-	n      int     // polygon sides
-	iou    float64
-	// roundRect with one radius per corner, in the primitive's own axes: tl, tr, br, bl
+	kind      string
+	cx, cy    float64
+	rx, ry    float64
+	rot       float64
+	r         float64
+	n         int
+	iou       float64
 	perCorner bool
 	radii     [4]float64
-	verts     []pt // rounded polygon: vertices of the inner polygon, relative to the center
+	verts     []pt
 	inner     float64
 }
 
-// meanRadius is the corner radius of a roundRect, averaged over its corners when they differ.
 func (p prim) meanRadius() float64 {
 	if !p.perCorner {
 		return p.r
@@ -28,7 +25,6 @@ func (p prim) meanRadius() float64 {
 	return (p.radii[0] + p.radii[1] + p.radii[2] + p.radii[3]) / 4
 }
 
-// cornerRadius is the radius of the corner the local point (u, v) falls in.
 func (p prim) cornerRadius(u, v float64) float64 {
 	if !p.perCorner {
 		return p.r
@@ -45,8 +41,6 @@ func (p prim) cornerRadius(u, v float64) float64 {
 	return p.radii[i]
 }
 
-// roundedPolygon fills in the inner polygon of a regular polygon whose corners are rounded with
-// radius p.r: the shape is that polygon (apothem reduced by r) grown by r.
 func (p prim) roundedPolygon() prim {
 	if p.kind != "polygon" || p.r <= 0 {
 		return p
@@ -118,8 +112,6 @@ func (p prim) inRounded(dx, dy float64) bool {
 	return false
 }
 
-// iou rasterizes the primitive at sampled pixel centers over the blob's padded box and compares
-// it with the filled mask.
 func (g *geom) iou(p prim) float64 {
 	pad := max(2, max(g.w, g.h)/4)
 	step := max(1, (max(g.w, g.h)+2*pad+159)/160)
@@ -142,8 +134,6 @@ func (g *geom) iou(p prim) float64 {
 	return float64(inter) / float64(uni)
 }
 
-// normAxes keeps rot in (-pi/4, pi/4] by swapping the half sizes, so a shape always reads as
-// "this wide, this tall, rotated by a small angle".
 func normAxes(rx, ry, rot float64) (float64, float64, float64) {
 	for rot > math.Pi/4 {
 		rot -= math.Pi / 2
@@ -173,8 +163,6 @@ func (g *geom) fitCircle() prim {
 	return prim{kind: "circle", cx: g.cx, cy: g.cy, rx: r, ry: r}
 }
 
-// minAreaAngle is the direction (radians) of the hull edge whose bounding box has the least
-// area; ties go to the angle closest to axis-aligned.
 func (g *geom) minAreaAngle() float64 {
 	h := g.hullPts
 	if len(h) < 3 {
@@ -236,9 +224,6 @@ func (g *geom) fitRect() (prim, prim) {
 	return rect, rr
 }
 
-// cornerRadii measures the rounding of each corner of the rectangle (tl, tr, br, bl in its own
-// axes) from the area missing in a square window at that corner: a quarter-circle fillet of
-// radius r leaves (1 - pi/4) r² of the window empty.
 func (g *geom) cornerRadii(p prim) [4]float64 {
 	var out [4]float64
 	m := math.Min(p.rx, p.ry)
@@ -268,8 +253,6 @@ func (g *geom) cornerRadii(p prim) [4]float64 {
 	return out
 }
 
-// polygonPhase finds the direction of a vertex of a regular n-gon from the radial profile of
-// the contour (the n-th angular harmonic of the distance from the center).
 func (g *geom) polygonPhase(n int) float64 {
 	var pts []pt
 	for i := range g.contour {
@@ -308,7 +291,6 @@ func (g *geom) fitPolygon(n int) prim {
 	if best.iou >= 0.997 || best.iou < 0.9 {
 		return best
 	}
-	// corners rounded by q times the apothem; the apothem is the one whose rounded area matches
 	T := math.Tan(math.Pi / float64(n))
 	sharp := best
 	for _, q := range []float64{0.12, 0.25, 0.4, 0.55} {
@@ -323,7 +305,6 @@ func (g *geom) fitPolygon(n int) prim {
 	return best
 }
 
-// penalty is how much IoU a more complex primitive has to win by.
 func penalty(p prim) float64 {
 	switch p.kind {
 	case "ellipse":
@@ -344,8 +325,6 @@ func penalty(p prim) float64 {
 
 const acceptIoU = 0.9
 
-// bestFit evaluates the primitives and returns the winner (by IoU minus a simplicity penalty)
-// and the highest-IoU primitive regardless of the threshold.
 func (g *geom) bestFit() prim {
 	var cands []prim
 	add := func(p prim) {

@@ -96,7 +96,6 @@ func TestCompareShiftedFindsOffset(t *testing.T) {
 	if !al.Significant || al.IoUAfter < 0.95 || al.IoUAfter <= al.IoUBefore {
 		t.Fatalf("alignment gain: %+v", al)
 	}
-	// raw pixel equality still looks fine: that is the trap the tool warns about
 	if r.RawMatch.Value < 0.8 {
 		t.Fatalf("raw match should be flattering: %v", r.RawMatch.Value)
 	}
@@ -205,7 +204,6 @@ func TestCompareNodeSuggestedMove(t *testing.T) {
 
 func TestCompareColorSwapped(t *testing.T) {
 	ref := paint(300, 200, white, logo(0, 0)...)
-	// same geometry, the disc is green instead of red
 	drawn := paint(300, 200, white,
 		shape{x: 40, y: 40, w: 60, h: 60, ellipse: true, c: grn},
 		shape{x: 130, y: 50, w: 80, h: 50, c: navy},
@@ -220,7 +218,6 @@ func TestCompareColorSwapped(t *testing.T) {
 	if len(r.Color.Unmatched) == 0 || r.Color.Unmatched[0].Color != "#1ea046" {
 		t.Fatalf("unmatched: %+v", r.Color.Unmatched)
 	}
-	// both colors exist in both images, in swapped places: only the positional score sees it
 	swapped := paint(300, 200, white,
 		shape{x: 40, y: 40, w: 60, h: 60, ellipse: true, c: navy},
 		shape{x: 130, y: 50, w: 80, h: 50, c: red},
@@ -233,7 +230,6 @@ func TestCompareColorSwapped(t *testing.T) {
 
 func TestCompareTransparentReference(t *testing.T) {
 	ref := paint(300, 200, color.NRGBA{}, logo(0, 0)...)
-	// a PNG with a transparent background and the same two shapes
 	for i := 3; i < len(ref.Pix); i += 4 {
 		if ref.Pix[i] == 0 {
 			ref.Pix[i-3], ref.Pix[i-2], ref.Pix[i-1] = 0, 0, 0
@@ -243,7 +239,6 @@ func TestCompareTransparentReference(t *testing.T) {
 	if r.IoU < 0.97 || r.Background.Reference != "transparent" || r.Background.Drawn != "#ffffff" {
 		t.Fatalf("transparent ref: %+v bg %+v", r.IoU, r.Background)
 	}
-	// and the reverse: a transparent frame render against an opaque reference
 	r = cmp(t, paint(300, 200, color.NRGBA{}, logo(0, 0)...), paint(300, 200, white, logo(0, 0)...), nil)
 	if r.IoU < 0.97 {
 		t.Fatalf("transparent drawing: %v", r.IoU)
@@ -251,8 +246,6 @@ func TestCompareTransparentReference(t *testing.T) {
 }
 
 func TestCompareFitsReferenceIntoFrame(t *testing.T) {
-	// a 100x50 reference fitted into a 300x300 frame (scale 3, centered): the frame render has the
-	// same picture at 300 wide, 150 tall, from y=75
 	small := paint(100, 50, white, shape{x: 10, y: 10, w: 30, h: 30, ellipse: true, c: red})
 	big := paint(300, 300, white, shape{x: 30, y: 75 + 30, w: 90, h: 90, ellipse: true, c: red})
 	res, err := Compare(CompareInput{Drawn: big, Ref: small, FrameW: 300, FrameH: 300, Placed: Rect{X: 0, Y: 75, Width: 300, Height: 150}})

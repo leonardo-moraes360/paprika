@@ -12,20 +12,15 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/svgImport.ts: SVG → editable nodes (*jsonv.Object, ready for create).
-
-// ImportResult is the nodes to create plus what could not be imported.
 type ImportResult struct {
 	Nodes    []*jsonv.Object
 	Warnings []string
 }
 
-// Matrix is an SVG affine matrix [a b c d e f].
 type Matrix [6]float64
 
 var identity = Matrix{1, 0, 0, 1, 0, 0}
 
-// Multiply is m·n.
 func Multiply(m, n Matrix) Matrix {
 	return Matrix{
 		m[0]*n[0] + m[2]*n[1],
@@ -62,7 +57,6 @@ func at0(v []float64, i int, def float64) float64 {
 	return def
 }
 
-// ParseTransform reads the transform attribute (matrix, translate, scale, rotate, skewX, skewY).
 func ParseTransform(s string, warn func(string)) Matrix {
 	m := identity
 	if s == "" {
@@ -102,7 +96,6 @@ func ParseTransform(s string, warn func(string)) Matrix {
 	return m
 }
 
-// ArcToCubics converts an endpoint-form arc into cubic beziers (SVG 1.1, appendix F.6).
 func ArcToCubics(from Point, s Segment) []Segment {
 	rx, ry := math.Abs(s.Rx), math.Abs(s.Ry)
 	if rx == 0 || ry == 0 {
@@ -171,7 +164,6 @@ func ArcToCubics(from Point, s Segment) []Segment {
 	return out
 }
 
-// TranslatePath moves absolute segments by dx, dy.
 func TranslatePath(segs []Segment, dx, dy float64) []Segment {
 	t := func(p Point) Point { return Point{p.X + dx, p.Y + dy} }
 	out := make([]Segment, len(segs))
@@ -189,7 +181,6 @@ func TranslatePath(segs []Segment, dx, dy float64) []Segment {
 	return out
 }
 
-// TransformPath applies m to absolute segments; arcs become cubics unless m is a translation.
 func TransformPath(segs []Segment, m Matrix) []Segment {
 	if m[0] == 1 && m[1] == 0 && m[2] == 0 && m[3] == 1 {
 		return TranslatePath(segs, m[4], m[5])
@@ -242,7 +233,6 @@ var (
 	svgShapes      = map[string]bool{"path": true, "rect": true, "circle": true, "ellipse": true, "line": true, "polyline": true, "polygon": true}
 )
 
-// svgNum is num(): parseFloat with a fallback for absent or non-finite values.
 func svgNum(s string, ok bool, fallback float64) float64 {
 	if !ok {
 		return fallback
@@ -293,7 +283,6 @@ func cleanColor(v string, warn func(string)) *string {
 	return &s
 }
 
-// styleOrAttr is css[k] ?? attrs[k].
 func styleOrAttr(css map[string]string, e *MarkupElement, k string) (string, bool) {
 	if v, ok := css[k]; ok {
 		return v, true
@@ -1021,7 +1010,6 @@ func nodesAny(nodes []*jsonv.Object) []any {
 	return out
 }
 
-// offsetNodes shifts top-level nodes (SVG coordinates) by dx, dy.
 func offsetNodes(nodes []any, dx, dy float64) {
 	for _, v := range nodes {
 		n := v.(*jsonv.Object)
@@ -1034,7 +1022,6 @@ func offsetNodes(nodes []any, dx, dy float64) {
 	}
 }
 
-// ImportOptions shifts the SVG origin and names the result.
 type ImportOptions struct {
 	X, Y float64
 	Name *string
@@ -1050,7 +1037,6 @@ func newWarner() (*[]string, func(string)) {
 	}
 }
 
-// ImportSVG converts SVG markup (a string or a parsed element) into one node ready for create.
 func ImportSVG(src any, opts ImportOptions) (ImportResult, error) {
 	warnings, warn := newWarner()
 	var root *MarkupElement

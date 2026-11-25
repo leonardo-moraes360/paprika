@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// Generates the parity fixtures for the Go port from the TypeScript reference (@paprika/core).
-// Usage (from the repo root, after `pnpm build`): node server/scripts/gen-golden.mjs
-// Output: server/internal/core/testdata/golden.json. The Go tests must reproduce every output.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
@@ -44,8 +41,6 @@ const card = () =>
     },
   ]).doc;
 
-// Theme modes: base tokens, a "dark" mode, the same card light and dark side by side, a chained
-// token, a token defined only in a mode, a numeric (font size) token and a mode without tokens.
 const themed = () =>
   applyOps(base(), [
     { op: "set_tokens", tokens: { bg: "#ffffff", fg: "#1e2336", "brand.main": "#c43d27", accent: "$brand.main", size: 16, "10": "#000" } },
@@ -82,7 +77,6 @@ const free = () =>
       },
     },
   ]).doc;
-// combine_paths batch: a disc, a gradient dome, a hole and a clip rect stacked in one frame.
 const combo = () =>
   applyOps(base(), [
     {
@@ -101,7 +95,6 @@ const combo = () =>
       },
     },
   ]).doc;
-// Coincident-edge geometry for the boolean ops: shared edges, touching sides, tangent circles.
 const coin = () =>
   applyOps(base(), [
     {
@@ -159,8 +152,6 @@ const comp = () => {
   return applyOps(d, [{ op: "update", id: copyId("i2", "lbl"), props: { text: "Cancelar", color: "#c43d27" } }, { op: "update", id: "i2", props: { fill: "#ffffff" } }]).doc;
 };
 
-// Diagrams: shapes of every kind, connectors (straight, elbow, sides, free ends, arrows, dashed),
-// one inside a frame, one inside a group, and a component with a connector and a scaled instance.
 const diagram = () => {
   const d0 = applyOps(base(), [{ op: "set_tokens", tokens: { ink: "#1e2336", note: "#ffe8a3" } }]).doc;
   const plan = diagramOps(d0, {
@@ -269,7 +260,6 @@ const grad = () =>
     },
   ]).doc;
 
-// Wrapping flex layouts (layout.wrap): row and column, hug and fixed cross size, align/justify per line, fill items.
 const chips = (prefix, n, w, h, extra = {}) =>
   Array.from({ length: n }, (_, i) => ({ type: "rect", id: `${prefix}${i}`, width: w, height: typeof h === "function" ? h(i) : h, fill: "#c43d27", ...extra }));
 const wrapped = () =>
@@ -353,7 +343,6 @@ const docs = {
   wrapped: wrapped(),
 };
 
-// ---- operation cases: [baseDoc, ops] ----
 const R = (extra) => ({ op: "create", node: { type: "rect", id: "r", ...extra } });
 const opCases = [
   ["themed", [{ op: "set_tokens", mode: "dark", tokens: { bg: null, fg: null, only: null, size: null } }]],
@@ -479,7 +468,6 @@ const opCases = [
   ["card", [{ op: "set_tokens", tokens: { "10": "#000", b: 2, "2": "x", a: "#fff" } }]],
   ["card", [{ op: "restore", nodes: [{ type: "zz" }], rootId: "a", parentId: null, index: 0 }]],
   ["demo", [{ op: "update", id: "login", props: { x: 10, rotation: 12.345, opacity: 0.5, shadow: { x: 0, y: 4, blur: 12, color: "#0003" } } }]],
-  // groups
   ["free", [{ op: "create", parentId: "board", node: { type: "group", id: "g", children: [{ type: "rect", id: "a", x: 33.3, y: 7.7, width: 10, height: 10, rotation: 45 }] } }]],
   ["free", [{ op: "create", node: { type: "group", id: "g", width: 5 } }]],
   ["free", [{ op: "create", node: { type: "group", id: "g", fill: "#000" } }]],
@@ -495,7 +483,6 @@ const opCases = [
   ["grouped", [{ op: "move", id: "g1", parentId: null }]],
   ["grouped", [{ op: "create", parentId: "g1", node: { type: "frame", id: "inner", x: -20, y: 90, width: "hug", height: 10, children: [{ type: "rect", id: "x1" }] } }]],
   ["grouped", [{ op: "create", parentId: "g1", node: { type: "group", id: "g9", children: [{ type: "ellipse", id: "x2", x: 300, y: 300, width: 5, height: 5 }] } }]],
-  // pages
   ["free", [{ op: "create", node: { type: "page", id: "pg" } }]],
   ["free", [{ op: "create", index: 0, node: { type: "page", id: "pg", name: "P", fill: "$paper" } }, { op: "move", id: "board", parentId: "pg" }]],
   ["free", [{ op: "create", parentId: "board", node: { type: "page", id: "pg" } }]],
@@ -510,7 +497,6 @@ const opCases = [
   ["paged", [{ op: "update", id: "pg1", props: { name: "Home", fill: "#000", notes: "n" } }]],
   ["paged", [{ op: "update", id: "pg1", props: { x: 3 } }]],
   ["paged", [{ op: "restore", nodes: [{ type: "page", id: "pz", children: [] }], rootId: "pz", parentId: "board", index: 0 }]],
-  // composite ops, expanded inside the transaction
   ["free", [{ op: "update", id: "r1", props: { x: 0 } }, { op: "group", ids: ["r1", "t1"], id: "g", name: "G" }]],
   ["free", [{ op: "group", ids: ["r1", "board"] }]],
   ["free", [{ op: "group", ids: [] }]],
@@ -579,7 +565,6 @@ const opCases = [
   ["free", [{ op: "update", id: "board", props: { minWidth: 400, maxWidth: 100 } }]],
   ["free", [{ op: "update", id: "r1", props: { minWidth: 10 } }]],
   ["free", [{ op: "create", parentId: "board", node: { type: "frame", id: "inner", width: 40, height: 40, minWidth: 10 } }]],
-  // components and instances
   ["comp", [{ op: "update", id: "lbl", props: { text: "Salvar", fontSize: 16 } }]],
   ["comp", [{ op: "update", id: "btn", props: { fill: "#000000", radius: 2, layout: { mode: "column", gap: 2 } } }]],
   ["comp", [{ op: "update", id: "i1", props: { scale: 2.5, x: 3 } }]],
@@ -623,7 +608,6 @@ const opCases = [
   ["comp", [{ op: "detach", ids: ["btn"] }]],
   ["comp", [{ op: "detach", ids: ["zz"] }]],
   ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { text: "Novo" } }, { op: "detach", ids: ["i1"] }, { op: "update", id: copyId("i1", "lbl"), props: { x: 1 } }]],
-  // bind is checked against the final state of the transaction (PAP-A-009)
   ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", component: true, width: 100, height: 40,
     componentProps: [{ name: "label", type: "text", default: "OK" }, { name: "pressed", type: "boolean", default: false }, { name: "size", type: "variant", options: ["sm", "md"], default: "md" }],
     children: [{ type: "frame", id: "pw", width: 50, height: 20, children: [
@@ -637,13 +621,11 @@ const opCases = [
   ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { bind: { visible: "x" } } }]],
   ["comp", [{ op: "create", parentId: "i1", node: { type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } } }]],
   ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", component: true, width: 100, height: 40, children: [{ type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "nope" } }] } }]],
-  // detach drops bind from the copies
   ["comp", [{ op: "create", parentId: "board", node: { type: "frame", id: "pb", component: true, width: 100, height: 40,
     componentProps: [{ name: "label", type: "text", default: "OK" }, { name: "pressed", type: "boolean", default: true }],
     children: [{ type: "text", id: "pt", text: "x", bind: { text: "label" } }, { type: "rect", id: "pr", width: 5, height: 5, bind: { visible: "pressed" } }] } },
     { op: "create", parentId: "board", node: { type: "frame", id: "pi", instanceOf: "pb", propValues: { label: "Salvar" } } },
     { op: "detach", ids: ["pi"] }]],
-  // detach_tokens on instances and copies: only owned overrides, derived fields are skipped
   ["comp", [{ op: "detach_tokens", ids: ["i1"] }]],
   ["comp", [{ op: "set_tokens", tokens: { alt: "#112233" } }, { op: "update", id: "i1", props: { fill: "$alt" } }, { op: "detach_tokens", ids: ["i1"] }]],
   ["comp", [{ op: "set_tokens", tokens: { alt: "#112233" } }, { op: "update", id: "i1", props: { fill: "$alt" } }, { op: "detach_tokens", ids: ["i1"], fields: ["fill"] }]],
@@ -653,7 +635,6 @@ const opCases = [
   ["comp", [{ op: "update", id: "btn", props: { gap: 1 } }]],
   ["comp", [{ op: "detach_tokens", ids: ["btn", "i1", "i2"] }]],
   ["comp", [{ op: "detach_tokens", ids: ["btn"] }]],
-  // diagrams
   ["empty", [{ op: "create", node: { type: "shape", id: "s" } }, { op: "create", node: { type: "shape", id: "n", shape: "note", stroke: { color: "#000", width: 1 } } }]],
   ["empty", [{ op: "create", node: { type: "shape", id: "s", width: "hug" } }]],
   ["empty", [{ op: "create", node: { type: "shape", id: "s", shape: "star" } }]],
@@ -685,24 +666,23 @@ const opCases = [
   ["diagram", [{ op: "ungroup", ids: ["gq"] }]],
   ["diagram", [{ op: "detach", ids: ["flowi"] }, { op: "update", id: "flow", props: { x: -100 } }]],
   ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { visible: false } }]],
-  // ---- z-order in one call: `index` in move and in update props (PAP-B-014) ----
   ["free", [{ op: "update", id: "r1", props: { index: "front" } }]],
   ["free", [{ op: "update", id: "p1", props: { index: "back", opacity: 0.5 } }]],
   ["free", [{ op: "update", id: "e1", props: { index: "forward" } }]],
   ["free", [{ op: "update", id: "e1", props: { index: "backward" } }]],
   ["free", [{ op: "update", id: "t1", props: { index: 2 } }]],
-  ["free", [{ op: "update", id: "board", props: { index: "front" } }]], // único nó do topo: no-op
+  ["free", [{ op: "update", id: "board", props: { index: "front" } }]],
   ["free", [{ op: "update", id: "r1", props: { index: "sideways" } }]],
   ["free", [{ op: "update", id: "r1", props: { index: -1 } }]],
   ["free", [{ op: "update", id: "r1", props: { index: 1.5 } }]],
   ["free", [{ op: "update", id: "r1", props: { index: null } }]],
   ["free", [{ op: "move", id: "p1", parentId: "board", index: "forward" }]],
   ["free", [{ op: "move", id: "r1", parentId: "board", index: "backward" }]],
-  ["grouped", [{ op: "update", id: "e1", props: { index: "front" } }]], // reordena dentro do group (fitGroups)
+  ["grouped", [{ op: "update", id: "e1", props: { index: "front" } }]],
   ["grouped", [{ op: "move", id: "r1", parentId: "g1", index: "front" }]],
-  ["paged", [{ op: "update", id: "pg1", props: { index: "front" } }]], // páginas reordenam no topo
-  ["paged", [{ op: "update", id: "r2", props: { index: "forward" } }]], // dentro do group da página 2
-  ["diagram", [{ op: "update", id: "k1", props: { index: "front" } }]], // conector reordenado, pontas seguem
+  ["paged", [{ op: "update", id: "pg1", props: { index: "front" } }]],
+  ["paged", [{ op: "update", id: "r2", props: { index: "forward" } }]],
+  ["diagram", [{ op: "update", id: "k1", props: { index: "front" } }]],
   ["empty", [
     { op: "create", node: { type: "shape", id: "a", x: 0, y: 0, width: 160, height: 80, text: "A" } },
     { op: "create", node: { type: "shape", id: "b", x: 0, y: 300, width: 160, height: 80, text: "B" } },
@@ -740,9 +720,9 @@ const opCases = [
     { op: "create", node: { type: "shape", id: "first", x: 46, y: 160, width: 20, height: 50, text: "F" } },
     { op: "create", node: { type: "connector", id: "c", from: { nodeId: "a" }, to: { nodeId: "b" }, route: "elbow" } },
   ]],
-  ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { index: "front" } }]], // cópia: recusa com copyRule
+  ["comp", [{ op: "update", id: copyId("i1", "lbl"), props: { index: "front" } }]],
   ["comp", [{ op: "move", id: copyId("i1", "lbl"), parentId: "i1", index: "front" }]],
-  ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { index: "sideways" } }]], // inválido: direto, não copyRule
+  ["diagram", [{ op: "update", id: copyId("flowi", "ck"), props: { index: "sideways" } }]],
   ["empty", [{ op: "set_tokens", tokens: { brand: "#ff0000" } }, { op: "create", node: { type: "rect", id: "r", radius: "$brand" } }]],
   ["empty", [R({ radius: [8, 4, 0, 2] })]],
   ["empty", [R({ radius: [1, 2] })]],
@@ -784,7 +764,6 @@ const opCases = [
   ["empty", [{ op: "create", node: { type: "text", id: "t", text: "Hi", width: 40, height: 20, runs: [{ start: 0, end: 2, href: "javascript:alert(1)" }] } }]],
 ];
 
-// ---- composite operations (groups, pages): the generated primitive ops ----
 const structureCases = [
   ["free", "group", { ids: ["e1", "r1"], id: "g", name: "Par" }],
   ["free", "group", { ids: ["t1"], id: "g" }],
@@ -931,13 +910,11 @@ const opResults = opCases.map(([docName, ops]) => {
     : { doc: docName, ops, ok: false, error: r.error };
 });
 
-// ---- Op schema errors (ZodError#message, used by the WebSocket and /api/ops) ----
 const zodCases = [{ op: "x" }, { op: "update", id: 1, props: {} }, 5, { op: "create", node: { type: "rect" }, index: -1 },
   { op: "set_tokens", tokens: { "a b": 1, ok: true } }, { op: "restore", nodes: [{ type: "zz" }], rootId: "a", parentId: null, index: 0 },
   { op: "rename_document", name: "x".repeat(201) }, { op: "move", id: "a", parentId: 3 }, { op: "group", ids: [] }, { op: "ungroup" },
   { op: "add_page", name: 3 }, { op: "move", id: "a", parentId: null, index: "sideways" }, { op: "move", id: "a", parentId: null, index: 1.5 },
   { op: "move", id: "a", parentId: null, index: 0 }, { op: "move", id: "a", parentId: null, index: "front" }];
-// ---- draw_diagram plans ----
 const diagramCases = [
   ["empty", { nodes: [{ id: "a", text: "A" }, { id: "b", shape: "note" }, { id: "c", shape: "diamond", width: 100, height: 100 }], edges: [{ from: "a", to: "b" }, { from: "a", to: "c" }, { from: "a", to: "c" }, { from: "c", to: "a", id: "back" }] }],
   ["empty", { nodes: [{ id: "p", shape: "parallelogram", x: 0, y: 0, width: 160, height: 80 }, { id: "e", shape: "ellipse", x: 300, y: 0, width: 160, height: 80 }, { id: "cy", shape: "cylinder", x: 0, y: 200 }, { id: "cl", shape: "cloud", x: 300, y: 200 }], edges: [{ from: "p", to: "e", route: "straight" }] }],
@@ -975,7 +952,6 @@ const outlines = [
 
 const zodResults = zodCases.map((input) => ({ input, error: Op.safeParse(input).error?.message ?? null }));
 
-// ---- history ----
 const history = (() => {
   const h = new History(docs.card);
   const steps = [];
@@ -997,7 +973,6 @@ const history = (() => {
   return steps;
 })();
 
-// ---- views of every document (base docs + successful op results) ----
 const viewDocs = { ...Object.fromEntries(Object.entries(docs).map(([k, d]) => [k, d])) };
 opResults.forEach((r, i) => {
   if (r.ok) viewDocs[`op${i}`] = JSON.parse(r.result);
@@ -1073,7 +1048,6 @@ const views = Object.entries(viewDocs).map(([name, doc]) => {
   };
 });
 
-// ---- path ----
 const pathCases = [
   "m10 10 20 0 h10 v10 c0 10 10 10 10 0 s10 -10 10 0 q5 5 10 0 t10 0 z",
   "M0,0A5 5 0 1110 0L.5.5-1e1-2",
@@ -1089,14 +1063,12 @@ const paths = pathCases.map((d) => {
   return { d, normalized: serializePath(segs), bounds: pathBounds(segs), cmds: segs.map((s) => s.cmd).join("") };
 });
 
-// ---- colors ----
 const colors = ["#fff", "#ffffff80", "#abcd", "rgb(1, 2, 3)", "rgba(10 20 30 / 50%)", "rgba(1,2,3,0.25)", "white", " Black ", "transparent",
   "#12345", "linear-gradient(red, blue)", "hsl(1 2 3)", "red", "oklch(0.7 0.15 30)", "oklch(62% 50% 40 / 50%)",
   "color(srgb 1 0 0)", "color(display-p3 1 0 0)", "color-mix(in srgb, red 25%, blue)", "color-mix(in oklch, white, black)",
   "color-mix(in display-p3, #fff, #000 25%)", "oklch(from red l c h)"].map((c) => ({ c, rgba: parseColor(c) ?? null }));
 const contrast = [["#777777", "#ffffff"], ["#000000", "#ffffff"], ["#c43d27", "#fbf8f4"]].map(([a, b]) => ({ a, b, ratio: contrastRatio(parseColor(a), parseColor(b)), fixed: contrastRatio(parseColor(a), parseColor(b)).toFixed(2) }));
 
-// ---- invalid documents ----
 const badDocs = [
   {},
   { format: "paprika/2", id: "x" },
@@ -1110,12 +1082,10 @@ const badDocs = [
   return { input, ok: r.ok, error: r.ok ? undefined : r.error, doc: r.ok ? json(r.value) : undefined };
 });
 
-// ---- randomized sequences through History (seeded, so the fixture is stable) ----
 function rng(seed) {
   return () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
 }
 const randomRuns = [];
-// Runs 25+ start from documents with groups and pages and also create groups and pages.
 const runBase = (run) => (run < 25 ? (run % 2 ? "demo" : "bezier") : run >= 45 ? "diagram" : run >= 35 ? "comp" : run % 2 ? "paged" : "grouped");
 for (let run = 0; run < 52; run++) {
   const rand = rng(run + 1);
@@ -1164,7 +1134,6 @@ for (let run = 0; run < 52; run++) {
   randomRuns.push({ base: runBase(run), steps });
 }
 
-// ---- import SVG/HTML and export SVG ----
 const svgCases = [
   ['<svg viewBox="0 0 24 24" width="48" height="48"><path d="M2 2 L22 2 L12 20 Z" fill="#c43d27"/></svg>', {}],
   ['<svg xmlns="http://www.w3.org/2000/svg"><title>Ícone</title><rect x="1" y="2" width="30" height="20" rx="4" fill="#ff0000" stroke="#000" stroke-width="2"/><circle cx="10" cy="10" r="5" fill-opacity="0.5" fill="#00ff00"/></svg>', { x: 100, y: 50 }],
@@ -1200,7 +1169,7 @@ const fakeMeasure = (doc) => {
   const boxes = {};
   const lines = {};
   Object.keys(doc.nodes).forEach((id, i) => {
-    if (i % 7 === 6) return; // some nodes stay unmeasured (hidden)
+    if (i % 7 === 6) return;
     boxes[id] = [i * 10.123, i * 5.5, 50 + i, 20 + i / 3];
     const n = doc.nodes[id];
     if ((n.type === "text" || n.type === "shape") && i % 2) lines[id] = [{ t: n.text.slice(0, 5), x: 1.5, y: 12.25 }, { t: "<&>", x: 0, y: 30 }];
@@ -1298,7 +1267,6 @@ const pathNorm = ["M40 30 L80 30 L60 70 Z", "M0 0 L10 10", "M10 10 C 20 0 30 0 4
   return { d, origin: pathOrigin(segs), normalized: serializePath(n.segs), bounds: n.bounds };
 });
 
-// Corner rounding and parametric path shapes (errors are part of the contract).
 const shapeInputs = [
   { name: "round-square", op: "round", d: "M0 0 L100 0 L100 100 L0 100 Z", radius: 10 },
   { name: "round-clamped", op: "round", d: "M0 0 L20 0 L20 100 L0 100 Z", radius: 50 },
@@ -1330,7 +1298,6 @@ const shapeCases = shapeInputs.map((c) => ({
   result: err(() => (c.op === "round" ? roundPathCorners(c.d, { radius: c.radius, radii: c.radii }) : shapePath(c.kind, c.params))),
 }));
 
-// Stroke to fill: the node, the options and the update op (or the error) it produces.
 const strokePath = (extra) => ({ type: "path", id: "p", x: 10, y: 20, width: 100, height: 60, d: "M0 0 L100 0", stroke: { color: "#112233", width: 10 }, ...extra });
 const strokeInputs = [
   { name: "line-butt", node: strokePath({ strokeCap: "butt" }) },

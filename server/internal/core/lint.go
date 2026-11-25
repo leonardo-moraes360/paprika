@@ -12,9 +12,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/lint.ts.
-
-// RGBA is a color with 0..255 channels and 0..1 alpha.
 type RGBA struct{ R, G, B, A float64 }
 
 var named = map[string]RGBA{
@@ -41,7 +38,6 @@ var named = map[string]RGBA{
 	"orange":      {255, 165, 0, 1},
 }
 
-// jsWS is JavaScript's \s as an RE2 class body.
 const jsWS = `\t\n\v\f\r \x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}`
 
 var (
@@ -49,7 +45,6 @@ var (
 	reRGB = regexp.MustCompile(`^rgba?\([` + jsWS + `]*([\d.]+)[` + jsWS + `,]+([\d.]+)[` + jsWS + `,]+([\d.]+)(?:[` + jsWS + `,/]+([\d.]+%?))?[` + jsWS + `]*\)$`)
 )
 
-// ParseColor converts hex/rgb()/rgba()/basic names; ok=false for unsupported formats.
 func ParseColor(input string) (RGBA, bool) {
 	s := strings.ToLower(jsonv.Trim(input))
 	if c, ok := named[s]; ok {
@@ -111,14 +106,12 @@ func luminance(c RGBA) float64 {
 	return 0.2126*ch(c.R) + 0.7152*ch(c.G) + 0.0722*ch(c.B)
 }
 
-// ContrastRatio is the WCAG 2.x ratio between two opaque colors.
 func ContrastRatio(a, b RGBA) float64 {
 	l := []float64{luminance(a), luminance(b)}
 	sort.Slice(l, func(i, j int) bool { return l[i] > l[j] })
 	return (l[0] + 0.05) / (l[1] + 0.05)
 }
 
-// EffectiveBackground composes the ancestors' fills over white.
 func EffectiveBackground(doc *Document, node *Node) (RGBA, bool) {
 	var layers []RGBA
 	var cur *Node
@@ -150,7 +143,6 @@ func EffectiveBackground(doc *Document, node *Node) (RGBA, bool) {
 	return bg, true
 }
 
-// LintIssue is one lint finding.
 type LintIssue struct {
 	Rule     string `json:"rule"`
 	Severity string `json:"severity"`
@@ -252,7 +244,6 @@ func tokenRefs(n *Node) []string {
 	return refs
 }
 
-// toFixed is Number#toFixed for non-negative finite values (ties round up, on the exact binary value).
 func toFixed(x float64, digits int) string {
 	if math.IsNaN(x) {
 		return "NaN"
@@ -285,7 +276,6 @@ func toFixed(x float64, digits int) string {
 	return out
 }
 
-// LintOpts scopes and quiets lintDocument.
 type LintOpts struct {
 	RootID      string
 	RootIDs     []string
@@ -293,7 +283,6 @@ type LintOpts struct {
 	MinFontSize float64
 }
 
-// LintGroup is one rule folded to a count and the first N node ids.
 type LintGroup struct {
 	Rule     string   `json:"rule"`
 	Severity string   `json:"severity"`
@@ -302,12 +291,10 @@ type LintGroup struct {
 	Message  string   `json:"message"`
 }
 
-// LintDocument runs the agent-oriented quality rules.
 func LintDocument(doc *Document, rootID string) []LintIssue {
 	return LintDocumentOpts(doc, LintOpts{RootID: rootID})
 }
 
-// LintDocumentOpts is LintDocument with rootIds, minSeverity and minFontSize.
 func LintDocumentOpts(doc *Document, opts LintOpts) []LintIssue {
 	issues := []LintIssue{}
 	ids := lintIDs(doc, opts)
@@ -547,7 +534,6 @@ func inScaledMock(doc *Document, node *Node) bool {
 	return false
 }
 
-// GroupLint folds issues by rule: severity order, then rule name, first maxIDs ids.
 func GroupLint(issues []LintIssue, maxIDs int) []LintGroup {
 	if maxIDs < 1 {
 		maxIDs = 8

@@ -1,9 +1,3 @@
-// Tests for .github/scripts/check-actions-pinned.mjs, the guard that keeps every third-party
-// GitHub Action pinned to a full commit SHA with its version in a comment.
-//
-// Run them with: node --test .github/scripts/test/check-actions-pinned.test.mjs
-// The fixtures under ./fixtures/check-actions-pinned/ are deliberately broken; the reasons the
-// checker prints are asserted one by one, and the last cases run against this repository itself.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -155,15 +149,11 @@ describe("the line parser", () => {
   });
 
   it("does not backtrack on a hostile line", () => {
-    // The pattern this replaces had two adjacent whitespace runs (`\s*(?:-\s+)?uses:`), so a long
-    // run of spaces with no `uses:` made the engine try every split before failing. The timing is a
-    // coarse guard rather than a benchmark: the point is that the parse is one pass over the line.
     const hostile = " ".repeat(200_000) + "no-key-here";
     const started = performance.now();
     assert.equal(usesValue(hostile), null);
     const seconds = (performance.now() - started) / 1000;
     assert.ok(seconds < 0.05, `parsing a 200 kB line took ${seconds.toFixed(3)}s`);
-    // A real step behind the same run of spaces is still found.
     assert.equal(usesValue(" ".repeat(200_000) + "uses: actions/checkout@v4"), "actions/checkout@v4");
   });
 });

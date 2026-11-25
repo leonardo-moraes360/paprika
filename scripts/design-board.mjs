@@ -51,11 +51,6 @@ export async function saveShots(call, workspaceId, outDir, shots, onMissing) {
   }
 }
 
-/**
- * Connects to the local Paprika MCP and finds where to draw: the "Paprica · UI"
- * workspace (by id, never open_workspace), its "Interfaces" page, and a free Y
- * below the frames already there. Shared by the scripts/draw-pap-b-*.mjs boards.
- */
 export async function openDesignPage(name, { workspaceName = "Paprica · UI", pageName = "Interfaces", gap = 160 } = {}) {
   const root = repoRoot();
   const sdkPkg = [

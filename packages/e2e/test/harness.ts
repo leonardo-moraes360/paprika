@@ -1,6 +1,3 @@
-// Black-box harness: runs the Go Paprika server as a separate process, reached only through MCP
-// (HTTP and stdio), the WebSocket and the HTTP API. Build it first with `pnpm go:build`;
-// PAPRIKA_SERVER_BIN points at another binary.
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { copyFile, mkdtemp, rm } from "node:fs/promises";
@@ -10,7 +7,6 @@ import type { Document } from "@paprika/core";
 
 export const repoRoot = resolve(import.meta.dirname, "../../..");
 
-/** Path of the server binary under test. */
 export const serverBin = resolve(process.env.PAPRIKA_SERVER_BIN || join(repoRoot, "server/bin/paprika"));
 if (!existsSync(serverBin)) throw new Error(`servidor Go não encontrado em ${serverBin}: rode \`pnpm go:build\``);
 
@@ -18,15 +14,12 @@ export interface ExternalServer {
   url: string;
   dir: string;
   proc: ChildProcess;
-  /** Current document, read over HTTP. */
   doc(): Promise<Document>;
   version(): Promise<number>;
   stop(): Promise<void>;
-  /** Command + args to run the MCP stdio server on the same storage. */
   stdioCommand(): { command: string; args: string[] };
 }
 
-/** Seeds storage from a `.paprika.json` (or starts empty) and runs `serve` on a random port. */
 export async function startServer(opts: { seed?: string; webRoot?: string } = {}): Promise<ExternalServer> {
   const dir = await mkdtemp(join(tmpdir(), "paprika-e2e-"));
   const file = join(dir, "doc.paprika.json");

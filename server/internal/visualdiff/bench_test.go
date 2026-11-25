@@ -9,9 +9,6 @@ import (
 	"testing"
 )
 
-// board paints something that looks like a screen: background, cards, borders and thin text
-// bars, so the benchmark measures a real comparison (edges and anti-aliasing included) and not
-// a flat fill the fast path would swallow.
 func board(w, h int, seed int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	rect(img, 0, 0, w, h, color.RGBA{0xf5, 0xf6, 0xf8, 0xff})
@@ -19,14 +16,12 @@ func board(w, h int, seed int) *image.RGBA {
 		for x := 40; x < w-40; x += 300 {
 			rect(img, x, y, x+260, y+120, color.RGBA{0xff, 0xff, 0xff, 0xff})
 			rect(img, x, y, x+260, y+1, color.RGBA{0x2a, 0x9d, 0x8f, 0xff})
-			for t := range 5 { // thin bars read as text and give the comparator edges
+			for t := range 5 {
 				rect(img, x+12, y+20+t*16, x+12+120+((x+y+t+seed)%100), y+28+t*16, color.RGBA{0x1f, 0x24, 0x28, 0xff})
 			}
 		}
 	}
 	if seed != 0 {
-		// One card filled with the wrong token: the kind of real change the loop must catch,
-		// and the reason the benchmark is not comparing two identical buffers.
 		rect(img, 40, 40, 300, 160, color.RGBA{0xe8, 0xf7, 0xf4, 0xff})
 	}
 	return img
@@ -69,8 +64,6 @@ func BenchmarkCompareEditedWithMasks1440x900(b *testing.B) {
 	}})
 }
 
-// BenchmarkCompareFiles1440x900 is the number the loop actually pays for: two PNG files on
-// disk, decoded and compared.
 func BenchmarkCompareFiles1440x900(b *testing.B) {
 	dir := b.TempDir()
 	reference, capture := filepath.Join(dir, "reference.png"), filepath.Join(dir, "capture.png")
@@ -96,8 +89,6 @@ func runCompare(b *testing.B, a, c image.Image, opts *Options) {
 	}
 }
 
-// TestBoardLooksLikeAScreen keeps the benchmark honest: the two boards must differ, or the
-// benchmark is measuring a comparison of nothing.
 func TestBoardLooksLikeAScreen(t *testing.T) {
 	got, err := Compare(board(benchW, benchH, 0), board(benchW, benchH, 1), nil)
 	if err != nil {

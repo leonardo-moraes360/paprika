@@ -1,10 +1,3 @@
-//! `paprika-sync`: the team sync sidecar of the Paprika server (ADR 0004).
-//!
-//! The Go server starts it and talks to it with newline-delimited JSON:
-//! commands on stdin (`{"id": 1, "t": "status"}`), replies and events on stdout
-//! (`{"t": "reply", "id": 1, "ok": true, "result": …}`, `{"t": "status", …}`).
-//! It exits when stdin closes.
-
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
@@ -66,7 +59,7 @@ async fn main() -> Result<()> {
         let mut stdout = tokio::io::stdout();
         while let Some(v) = out_rx.recv().await {
             if v.is_null() {
-                break; // end marker sent by main after shutdown: everything before it is written
+                break;
             }
             let mut line = serde_json::to_vec(&v).unwrap_or_default();
             line.push(b'\n');
@@ -101,8 +94,6 @@ async fn main() -> Result<()> {
         });
     }
     node.shutdown().await;
-    // The node and its tasks still hold senders, so the channel never closes on its own:
-    // queue an end marker behind the last event instead of waiting for every sender to drop.
     let _ = out_tx.send(Value::Null);
     let _ = writer.await;
     Ok(())

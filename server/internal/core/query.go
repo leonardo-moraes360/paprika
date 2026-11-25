@@ -7,10 +7,8 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/query.ts.
-
 func jsTemplate(v any) string {
-	if arr, ok := v.([]any); ok { // `${array}` joins with commas
+	if arr, ok := v.([]any); ok {
 		parts := make([]string, len(arr))
 		for i, x := range arr {
 			parts[i] = jsString(x)
@@ -27,7 +25,6 @@ func truncate(s string, max, keep int) string {
 	return s
 }
 
-// DescribeNode is one compact line per node.
 func DescribeNode(n *Node) string {
 	typ := n.Str("type")
 	parts := []string{typ + "#" + n.Str("id")}
@@ -153,7 +150,6 @@ func DescribeNode(n *Node) string {
 	return strings.Join(parts, " ")
 }
 
-// Outline is the indented tree of the document (or of a node), limited by depth (-1 = no limit).
 func Outline(doc *Document, rootID string, depth int) string {
 	var lines []string
 	var walk func(id string, d int)
@@ -190,13 +186,11 @@ func Outline(doc *Document, rootID string, depth int) string {
 	return body + "\n" + PlacementFooter(doc, rootID)
 }
 
-// NodeQuery filters nodes; empty strings and Limit 0 mean "not set".
 type NodeQuery struct {
 	Type, Name, Text, Within string
 	Limit                    int
 }
 
-// QueryNodes searches nodes by type, name or text substring (case-insensitive).
 func QueryNodes(doc *Document, q NodeQuery) []*Node {
 	name := strings.ToLower(q.Name)
 	text := strings.ToLower(q.Text)
@@ -227,7 +221,6 @@ func QueryNodes(doc *Document, q NodeQuery) []*Node {
 	return out
 }
 
-// SubtreeIDs lists a node and its descendants (pre-order).
 func SubtreeIDs(doc *Document, rootID string) []string {
 	var out []string
 	var walk func(string)

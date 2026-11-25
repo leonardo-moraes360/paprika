@@ -21,7 +21,7 @@ func TestContrastRatioKnownPairs(t *testing.T) {
 	}{
 		{"#000000", "#ffffff", 21},
 		{"#ffffff", "#ffffff", 1},
-		{"#ffffff", "#000000", 21}, // order does not matter
+		{"#ffffff", "#000000", 21},
 		{"#777777", "#ffffff", 4.48},
 		{"#767676", "#ffffff", 4.54},
 	}
@@ -34,7 +34,6 @@ func TestContrastRatioKnownPairs(t *testing.T) {
 }
 
 func TestMeetsContrastDecidesTheWayWCAGDoes(t *testing.T) {
-	// #777777 on white is the classic near miss: body text fails AA, large text passes.
 	if ratio, need, ok := MeetsContrast(rgba("#777777"), rgba("#ffffff"), false, LevelAA); ok || need != 4.5 {
 		t.Errorf("body AA = ok %v need %v (ratio %.2f), want it refused at 4.5", ok, need, ratio)
 	}
@@ -50,8 +49,6 @@ func TestMeetsContrastDecidesTheWayWCAGDoes(t *testing.T) {
 }
 
 func TestTranslucentForegroundIsCompositedBeforeJudging(t *testing.T) {
-	// 50 % black on white is #7f7f7f on screen (255*127/255 rounds down), so the ratio must sit
-	// there and not at the 21 of pure black.
 	translucent := ContrastRatio(rgba("#00000080"), rgba("#ffffff"))
 	flattened := ContrastRatio(rgba("#7f7f7f"), rgba("#ffffff"))
 	if math.Abs(translucent-flattened) > 0.02 {
@@ -60,8 +57,6 @@ func TestTranslucentForegroundIsCompositedBeforeJudging(t *testing.T) {
 	if full := ContrastRatio(rgba("#000000"), rgba("#ffffff")); math.Abs(translucent-full) < 1 {
 		t.Error("a 50 % black read as full black")
 	}
-	// The other direction, where a wrong blend formula overflows: 50 % white on black paints a
-	// mid grey on screen, never pure white.
 	up := ContrastRatio(rgba("#ffffff80"), rgba("#000000"))
 	greyOnBlack := ContrastRatio(rgba("#808080"), rgba("#000000"))
 	if math.Abs(up-greyOnBlack) > 0.02 {

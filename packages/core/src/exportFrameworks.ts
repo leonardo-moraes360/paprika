@@ -110,7 +110,6 @@ function previewPage(doc: Document, p: { bounds: Bounds; background: string; bod
   return { html, bounds: p.bounds };
 }
 
-/** Static HTML of the class+stylesheet path shared by Angular/Svelte (for visual parity with renderHTML). */
 export function renderFrameworkHTML(doc: Document, opts: RenderOptions = {}): { html: string; bounds: Bounds } {
   const { emit, sheet } = classSheetEmitter();
   const p = exportParts(doc, opts, emit);

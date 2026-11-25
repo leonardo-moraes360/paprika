@@ -12,8 +12,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/vision"
 )
 
-// looksLikeBase64 tells raw base64 from a file path: long, only base64 characters and no dot
-// (a path to an image has an extension).
 func looksLikeBase64(s string) bool {
 	if len(s) < 64 {
 		return false
@@ -29,8 +27,6 @@ func looksLikeBase64(s string) bool {
 	return true
 }
 
-// normalizeImageSrc lets an image come as a data URL, raw base64 or a path under
-// PAPRIKA_IMPORT_DIRS; raw base64 is wrapped into a data URL for the shared loader.
 func normalizeImageSrc(src string) string {
 	src = strings.TrimSpace(src)
 	if looksLikeBase64(src) {
@@ -42,7 +38,6 @@ func normalizeImageSrc(src string) string {
 	return src
 }
 
-// analyzeSource loads the pixels of the image analyze_image was pointed at.
 func analyzeSource(a *jsonv.Object, doc func() (*core.Document, error)) (rasterInfo, error) {
 	hasSrc, hasNode := a.Has("src"), a.Has("nodeId")
 	switch {
@@ -65,7 +60,6 @@ func analyzeSource(a *jsonv.Object, doc func() (*core.Document, error)) (rasterI
 	return info, err
 }
 
-// imageNodeSrc is the src of an image node, with a $asset name resolved.
 func imageNodeSrc(d *core.Document, id string) (string, error) {
 	n := core.GetNode(d, id)
 	if n == nil {
@@ -88,8 +82,6 @@ func imageNodeSrc(d *core.Document, id string) (string, error) {
 	return src, nil
 }
 
-// decodeForVision decodes the pixels of a loaded image for the vision tools (first frame of an
-// animation) and refuses what has no pure-Go decoder.
 func decodeForVision(info rasterInfo) (image.Image, string, error) {
 	switch {
 	case info.mime == "image/avif":
@@ -123,7 +115,7 @@ func analyzeImage(a *jsonv.Object, doc func() (*core.Document, error)) (ToolResu
 	if f := a.Obj("frame"); f != nil {
 		fw, fh := f.Num("width"), f.Num("height")
 		iw, ih := float64(info.width), float64(info.height)
-		x, y, w, _ := fitPlacement(fw, fh, iw, ih) // the same fit place_reference uses
+		x, y, w, _ := fitPlacement(fw, fh, iw, ih)
 		opts.Scale, opts.OffsetX, opts.OffsetY = w/iw, x, y
 		placed = &vision.Rect{X: x, Y: y, Width: w, Height: round2(ih * opts.Scale)}
 	}

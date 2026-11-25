@@ -10,9 +10,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/structure.ts: composite operations (groups and pages) that only
-// generate primitive ops; ApplyOps applies them atomically.
-
 func siblingsOf(doc *Document, parentID any) []string {
 	pid, ok := parentID.(string)
 	if !ok {
@@ -40,8 +37,6 @@ func placeName(parentID any) string {
 	return "canvas"
 }
 
-// GroupOps puts sibling nodes in a new group, above the topmost of them. The order between
-// them is kept and the drawing does not move. id/name "" mean generated.
 func GroupOps(doc *Document, ids []string, id, name string) ([]any, string, error) {
 	if len(ids) == 0 {
 		return nil, "", errors.New("pass at least one id to group")
@@ -105,8 +100,6 @@ func GroupOps(doc *Document, ids []string, id, name string) ([]any, string, erro
 	return ops, id, nil
 }
 
-// UngroupOps dissolves groups: children go back to the group's parent, in its place, with the
-// group's position, opacity and visibility applied. Returns the ops and the released ids.
 func UngroupOps(doc *Document, ids []string) ([]any, []string, error) {
 	if len(ids) == 0 {
 		return nil, nil, errors.New("pass at least one group id")
@@ -149,8 +142,6 @@ func UngroupOps(doc *Document, ids []string) ([]any, []string, error) {
 	return ops, released, nil
 }
 
-// AddPageOps creates a page. When the document has no pages yet but has content, that content
-// first goes into a first page (DefaultPageName(1) in English), since with pages the top level only takes pages.
 func AddPageOps(doc *Document, id, name, firstID, firstName string) ([]any, string) {
 	ops := []any{}
 	count := 0
@@ -445,7 +436,6 @@ func DuplicateOps(doc *Document, ids []string, args *jsonv.Object) (*DuplicatePl
 		}
 		op := jsonv.NewObject("op", "create", "parentId", pid, "node", node)
 		if placed {
-			// "right" and "below" mean beside the source, not past the page content.
 			if sp, _ := place.(string); (sp == "right" || sp == "below") && src.Str("type") != "connector" {
 				op.Set("place", jsonv.NewObject("near", id, "side", sp))
 			} else {
@@ -583,7 +573,6 @@ func boxesOf(doc *Document, nodes []*Node) (map[string]Box, error) {
 	return out, nil
 }
 
-// AlignOps moves sibling nodes so one edge (or the center) lines up with the selection box.
 func AlignOps(doc *Document, ids []string, edge string) ([]any, error) {
 	switch edge {
 	case "left", "center", "right", "top", "middle", "bottom":
@@ -643,7 +632,6 @@ func AlignOps(doc *Document, ids []string, edge string) ([]any, error) {
 	return ops, nil
 }
 
-// DistributeOps spaces sibling nodes with equal gaps, keeping the outer edges fixed.
 func DistributeOps(doc *Document, ids []string, axis string) ([]any, error) {
 	if axis != "horizontal" && axis != "vertical" {
 		return nil, errors.New("axis must be horizontal or vertical")
@@ -710,7 +698,6 @@ func DistributeOps(doc *Document, ids []string, axis string) ([]any, error) {
 	return ops, nil
 }
 
-// WrapOps puts sibling nodes in a new frame. The drawing does not move. id/name "" mean generated.
 func WrapOps(doc *Document, ids []string, id, name string) ([]any, string, error) {
 	nodes, err := siblingSelection(doc, ids, "wrap", 1)
 	if err != nil {
@@ -759,7 +746,6 @@ func WrapOps(doc *Document, ids []string, id, name string) ([]any, string, error
 	return ops, id, nil
 }
 
-// RevealOps shows every hidden node, or unlocks every locked node, on a page or in the whole document.
 func RevealOps(doc *Document, kind, pageID string) ([]any, []string, error) {
 	if kind != "hidden" && kind != "locked" {
 		return nil, nil, errors.New("kind must be hidden or locked")

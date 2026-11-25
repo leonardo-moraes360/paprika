@@ -16,8 +16,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// logoPNG is a 200x100 image: white background, a red disc (center 50,50, r 30) and a blue
-// rectangle (x 110..180, y 30..70).
 func logoPNG(t *testing.T) []byte {
 	t.Helper()
 	img := image.NewNRGBA(image.Rect(0, 0, 200, 100))
@@ -103,7 +101,6 @@ func TestAnalyzeImageSources(t *testing.T) {
 		if isErr {
 			t.Fatal(text)
 		}
-		// 200x100 fitted into 800x800: scale 4, centered vertically (offset y 200)
 		placed := sc.Obj("placed")
 		if placed.Num("width") != 800 || placed.Num("height") != 400 || placed.Num("y") != 200 {
 			t.Fatalf("placed: %s", jsonv.Stringify(placed, ""))
@@ -173,7 +170,6 @@ func TestAnalyzeImageErrors(t *testing.T) {
 			}
 		})
 	}
-	// a real photo-ish fixture decodes and analyzes without error
 	sc, text, isErr := analyzeCall(t, m, obj("src", "pixel.jpg"))
 	if isErr || len(sc.Arr("palette")) == 0 {
 		t.Fatalf("jpeg: %s", text)

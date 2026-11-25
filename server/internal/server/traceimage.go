@@ -9,14 +9,11 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/vision"
 )
 
-// tracedOut is one traced path as the tool reports it: the id of the node it became (empty on a
-// dry run, which carries the path data instead).
 type tracedOut struct {
 	ID string `json:"id,omitempty"`
 	vision.TracedPath
 }
 
-// traceApply writes the nodes of a trace the way create_nodes does (one undo step, batch honoured).
 type traceApply func(ops []any, label string, extra ...any) (ToolResult, error)
 
 func traceImage(a *jsonv.Object, doc func() (*core.Document, error), apply traceApply) (ToolResult, error) {

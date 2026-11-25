@@ -14,9 +14,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/server"
 )
 
-// syncer turns local commits into change sets for the sidecar and remote states into applyOps
-// transactions. Everything runs on one goroutine, in the order it happened, so a change set is
-// always the diff from the document the peers last saw from us.
 type syncer struct {
 	t *Service
 
@@ -25,7 +22,6 @@ type syncer struct {
 	queue []func()
 	stop  bool
 
-	// Only touched on the worker goroutine.
 	shared   map[string]bool
 	pinSnaps map[string]*pinSnap
 	lastID   string
@@ -39,7 +35,6 @@ func newSyncer(t *Service) *syncer {
 	return s
 }
 
-// enqueue never blocks: the store calls it from inside its change notifications.
 func (s *syncer) enqueue(fn func()) {
 	s.mu.Lock()
 	s.queue = append(s.queue, fn)
@@ -71,7 +66,6 @@ func (s *syncer) close() {
 	s.cond.Broadcast()
 }
 
-// flush waits until everything queued so far ran (tests, share).
 func (s *syncer) flush() {
 	done := make(chan struct{})
 	s.enqueue(func() { close(done) })
@@ -106,7 +100,6 @@ func (s *syncer) docVersion(doc string) int64 {
 	return v
 }
 
-// start loads the shared set and reconciles the active workspace. Runs on the worker.
 func (s *syncer) start() {
 	if res, err := s.call(map[string]any{"t": "docs"}); err == nil {
 		var ids []string
@@ -124,10 +117,6 @@ func (s *syncer) start() {
 	}
 }
 
-// reconcile brings a shared workspace and the CRDT together after a start or a switch: when the
-// database did not change since the last sync, the CRDT (which may hold peers' changes) wins;
-// otherwise the database changed while the team was off (e.g. `paprika mcp` over stdio), and
-// that difference is sent to the peers as a local change.
 func (s *syncer) reconcile(doc string) {
 	if !s.shared[doc] {
 		return
@@ -192,7 +181,6 @@ func (s *syncer) onChange(ev server.ChangeEvent) {
 	s.setSynced(ev.DocID, ev.Version)
 }
 
-// onRemote applies a workspace state that came from peers.
 func (s *syncer) onRemote(doc string, rawState json.RawMessage, by []string) {
 	s.shared[doc] = true
 	state, err := stateDoc(rawState)
@@ -225,7 +213,6 @@ func (s *syncer) applyRemote(doc string, state *core.Document, actor, label stri
 	}
 }
 
-// stateOf is the materialized state of a document, as the sidecar's `share` expects.
 func stateOf(doc *core.Document) json.RawMessage {
 	v := viewOf(doc)
 	nodes := jsonv.NewObject()
@@ -250,7 +237,6 @@ func stateOf(doc *core.Document) json.RawMessage {
 	return raw(jsonv.NewObject("name", v.name, "rootIds", roots, "nodes", nodes, "tokens", v.tokens, "modes", v.modes))
 }
 
-// share starts sharing a workspace with the team. Runs on the worker.
 func (s *syncer) share(doc string) error {
 	if s.shared[doc] {
 		return fmt.Errorf("workspace %s is already shared", doc)

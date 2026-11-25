@@ -5,15 +5,12 @@ import (
 	"sort"
 )
 
-// Layout holds the structure found among the blobs: shapes that repeat, grids they sit on and
-// rings they are spread around. Ids refer to Result.Blobs.
 type Layout struct {
 	Repeats []Repeat `json:"repeats"`
 	Grids   []Grid   `json:"grids"`
 	Radials []Radial `json:"radials"`
 }
 
-// Repeat is a set of blobs with the same color and the same fit within tolerance.
 type Repeat struct {
 	IDs    []string `json:"ids"`
 	Count  int      `json:"count"`
@@ -23,13 +20,11 @@ type Repeat struct {
 	Height float64  `json:"height"`
 }
 
-// Grid is a set of repeated blobs on rows and columns (rows or cols may be 1: a line).
-// IDs run row by row. Pitch is the distance between centers; Gap is the space between cells.
 type Grid struct {
 	IDs    []string `json:"ids"`
 	Rows   int      `json:"rows"`
 	Cols   int      `json:"cols"`
-	Origin Point    `json:"origin"` // center of the first cell
+	Origin Point    `json:"origin"`
 	PitchX float64  `json:"pitchX"`
 	PitchY float64  `json:"pitchY"`
 	CellW  float64  `json:"cellWidth"`
@@ -39,8 +34,6 @@ type Grid struct {
 	Filled int      `json:"filled"`
 }
 
-// Radial is a set of repeated blobs spread around a center. Angles are degrees, clockwise from
-// +x (y points down). IDs run by increasing angle.
 type Radial struct {
 	IDs          []string `json:"ids"`
 	Count        int      `json:"count"`
@@ -48,8 +41,8 @@ type Radial struct {
 	Radius       float64  `json:"radius"`
 	StartAngle   float64  `json:"startAngle"`
 	StepAngle    float64  `json:"stepAngle"`
-	Alignment    string   `json:"alignment,omitempty"`    // radial: major axis points at the center; tangential: across
-	MemberOffset *float64 `json:"memberOffset,omitempty"` // major axis angle minus the blob's angle around the center
+	Alignment    string   `json:"alignment,omitempty"`
+	MemberOffset *float64 `json:"memberOffset,omitempty"`
 	CenterBlob   string   `json:"centerBlob,omitempty"`
 }
 
@@ -132,8 +125,6 @@ func findLayout(blobs []Blob) Layout {
 		if len(idx) < 3 {
 			continue
 		}
-		// A ring of five or more is read as radial first: a 3x3 grid with a hole in the middle
-		// has the same occupancy, but its distances to the center are not equal.
 		if len(idx) >= 5 {
 			if rd, ok := detectRadial(blobs, idx); ok {
 				lay.Radials = append(lay.Radials, rd)
@@ -155,8 +146,6 @@ func median(v []float64) float64 {
 	return s[len(s)/2]
 }
 
-// cluster1D groups sorted values: a new group starts when a value is farther than tol from the
-// running mean of the current one. It returns the group index of every input.
 func cluster1D(vals []float64, tol float64) ([]int, []float64) {
 	order := make([]int, len(vals))
 	for i := range order {
@@ -370,7 +359,6 @@ func detectRadial(blobs []Blob, idx []int) (Radial, bool) {
 	}
 	best := -1
 	for i := range blobs {
-		// the smallest blob at the center: a backdrop panel centered there is not "the center"
 		if !inGroup[i] && math.Hypot(blobs[i].Centroid.X-cx, blobs[i].Centroid.Y-cy) <= 0.2*radius && (best < 0 || blobs[i].area < blobs[best].area) {
 			best = i
 		}

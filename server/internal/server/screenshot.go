@@ -27,8 +27,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Chrome renders the same HTML as the export (core.NodeStyle) in headless Chromium over CDP.
-// The browser starts on first use and is reused.
 type Chrome struct {
 	mu         sync.Mutex
 	allocStop  context.CancelFunc
@@ -40,7 +38,6 @@ type Chrome struct {
 
 const maxSide = 4096.0
 
-// FindChromium locates a Chromium binary: $PAPRIKA_CHROMIUM, Playwright's cache, then the system.
 func FindChromium() string {
 	if p := os.Getenv("PAPRIKA_CHROMIUM"); p != "" {
 		return p
@@ -64,7 +61,7 @@ func FindChromium() string {
 	for _, r := range roots {
 		for _, pat := range patterns {
 			m, _ := filepath.Glob(filepath.Join(r, pat))
-			sort.Sort(sort.Reverse(sort.StringSlice(m))) // newest build first
+			sort.Sort(sort.Reverse(sort.StringSlice(m)))
 			for _, p := range m {
 				if st, err := os.Stat(p); err == nil && !st.IsDir() {
 					return p
@@ -220,9 +217,6 @@ func (c *Chrome) ensure() (context.Context, error) {
 		chromedp.Flag("headless", true),
 		chromedp.Flag("hide-scrollbars", true),
 		chromedp.Flag("font-render-hinting", "none"),
-		// Same as Playwright's default (chromiumSandbox: false), which the former TypeScript server used:
-		// it only renders Paprika's own HTML, and the sandbox cannot start where unprivileged user
-		// namespaces are blocked (e.g. Ubuntu 24.04+ with AppArmor, as on GitHub runners).
 		chromedp.NoSandbox,
 	)
 	alloc, allocStop := chromedp.NewExecAllocator(context.Background(), opts...)
@@ -236,14 +230,12 @@ func (c *Chrome) ensure() (context.Context, error) {
 	return browser, nil
 }
 
-// Screenshot renders a node (or the whole canvas) to PNG. The scale is reduced so no side exceeds 4096px.
 func (c *Chrome) Screenshot(ctx context.Context, doc *core.Document, rootID string, scale float64) ([]byte, int, int, error) {
 	return c.ScreenshotMode(ctx, doc, rootID, scale, "")
 }
 
 func (c *Chrome) ScreenshotMode(ctx context.Context, doc *core.Document, rootID string, scale float64, mode string) ([]byte, int, int, error) {
 	doc = docForMode(doc, rootID, mode)
-	// A node comes out transparent; a page (or the canvas) uses its own background, or white.
 	bg := ""
 	if rootID != "" {
 		if n := core.GetNode(doc, rootID); n == nil || n.Str("type") != "page" {
@@ -255,8 +247,6 @@ func (c *Chrome) ScreenshotMode(ctx context.Context, doc *core.Document, rootID 
 		return nil, 0, 0, err
 	}
 	html = withInterFaces(html)
-	// A loose root sized "hug"/"fill" has no box in the core (RootBounds gives 1px), so it is
-	// measured in the browser after loading and the viewport is resized to it.
 	measureW, measureH := false, false
 	if n := core.GetNode(doc, rootID); rootID != "" && n != nil && n.Str("type") != "page" {
 		w, _ := n.Get("width")
@@ -321,11 +311,8 @@ func (c *Chrome) ScreenshotMode(ctx context.Context, doc *core.Document, rootID 
 	return png, int(math.Round(width * scale)), int(math.Round(height * scale)), nil
 }
 
-// viewportGuess is the viewport used to lay out a hug/fill root before it is measured.
 const viewportGuess = 1280
 
-// measureRoot (args: measure width, measure height) lets the body follow the root on the
-// measured axes, then pins the body to the root's rounded box and returns it as [w, h].
 const measureRoot = `((mw, mh) => {
   const b = document.body, el = b.firstElementChild;
   if (!el) return [1, 1];
@@ -339,7 +326,6 @@ const measureRoot = `((mw, mh) => {
   return [w, h];
 })(%t, %t)`
 
-// loadHTML sizes the viewport, puts the HTML in the tab and waits for its images and fonts.
 func loadHTML(html string, width, height, scale float64, transparent bool) chromedp.Action[chromedp.Void] {
 	return chromedp.Steps(
 		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
@@ -350,8 +336,6 @@ func loadHTML(html string, width, height, scale float64, transparent bool) chrom
 			if !transparent {
 				return nil
 			}
-			// cdp.RGBA omits A when it is 0, and the protocol default is 1 (opaque black), so the
-			// fully transparent color is sent as raw params.
 			return t.Call(ctx, emulation.SetDefaultBackgroundColorOverride.Method, map[string]any{"color": map[string]any{"r": 0, "g": 0, "b": 0, "a": 0}}, nil)
 		}),
 		chromedp.Navigate("about:blank"),
@@ -363,7 +347,6 @@ func loadHTML(html string, width, height, scale float64, transparent bool) chrom
 			_, err = cdp.Call(ctx, t, page.SetDocumentContent, page.SetDocumentContentParams{FrameID: tree.FrameTree.Frame.ID, HTML: html})
 			return err
 		}),
-		// Same as Playwright's waitUntil "load": images (http(s) and data:) finish loading.
 		chromedp.Evaluate[chromedp.Void](`Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => document.fonts ? document.fonts.ready.then(() => 1) : 1)`, chromedp.EvalAwaitPromise),
 	)
 }
@@ -497,7 +480,6 @@ const bakeComputedJS = `(() => {
   return JSON.stringify({ html: document.documentElement.outerHTML, unreadable });
 })()`
 
-// ComputedHTML loads html in Chromium and inlines author styles so importHTML can read them.
 func (c *Chrome) ComputedHTML(ctx context.Context, html string) (string, error) {
 	if msg := chromiumProblem(); msg != "" {
 		return "", fmt.Errorf("computed styles need Chromium. %s", msg)
@@ -548,7 +530,6 @@ func (c *Chrome) ComputedHTML(ctx context.Context, html string) (string, error) 
 	return parsed.HTML, nil
 }
 
-// Close stops the browser.
 func (c *Chrome) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -716,9 +697,6 @@ var (
 	interFacesCSS  string
 )
 
-// withInterFaces puts the embedded Inter in the page (data: URIs, so no request is needed), the
-// same faces the canvas gets from /fonts/inter.css and the exporter draws with. Without it the
-// screenshot would use whatever "Inter" the machine running Chromium happens to have.
 func withInterFaces(html string) string {
 	interFacesOnce.Do(func() {
 		css, err := export.InterFontFaceCSS(func(file string) (string, error) {

@@ -12,25 +12,17 @@ const NODE = '[data-paprika-id="plano"]';
 type Gesture = { from: { x: number; y: number }; by: { x: number; y: number } };
 type Trail = { __trail: string[] };
 
-/**
- * Regression: dropping a dragged/resized node must not flash it back to where it was before the
- * server echoes the change. The server's messages are held back so that the window between the
- * drop and the echo is long enough to observe (on localhost it is one or two frames).
- */
 describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
   let server: ExternalServer;
   let browser: Browser;
   let page: Page;
-  /** Server → page messages wait in `queue` while `holding`; page → server ones are dropped while `losing`. */
   const link = { holding: false, losing: false, queue: [] as (() => void)[] };
   const flush = () => {
     link.holding = false;
     for (const deliver of link.queue.splice(0)) deliver();
   };
 
-  /** Opens the canvas with the given renderer (the WASM one paints shapes on a <canvas> under the DOM). */
   const open = async (renderer: "dom" | "wasm") => {
-    // Straight to the active workspace's canvas (`/` is the overview), no clicks to race with the first render.
     const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
     await page.goto(`${server.url}/w/${encodeURIComponent(active)}?renderer=${renderer}`);
     await page.waitForSelector(NODE);
@@ -55,7 +47,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     await open("dom");
   }, 60_000);
 
-  // A failed assertion must not leave the next test with a socket that never delivers.
   afterEach(() => {
     link.losing = false;
     flush();
@@ -69,7 +60,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
   const shown = async () => (await page.locator(NODE).boundingBox())!;
   const stored = async () => (await server.doc()).nodes.plano as unknown as Record<"x" | "y" | "width" | "height", number>;
 
-  /** Presses at `from`, moves by `by` and returns the node's box at the end of the gesture (before release). */
   const press = async ({ from, by }: Gesture) => {
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
@@ -77,10 +67,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     return shown();
   };
 
-  /**
-   * Runs a gesture with the server's echo held back and checks that the node keeps the dropped box
-   * until the echo arrives, and that its inline style never goes back to the value it started with.
-   */
   const dropWithoutFlash = async (gesture: Gesture, prop: "x" | "width") => {
     const before = await stored();
     await page.evaluate((sel) => {
@@ -92,8 +78,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     const end = await press(gesture);
     link.holding = true;
     await page.mouse.up();
-    await expect.poll(async () => (await stored())[prop]).not.toBe(before[prop]); // applied on the server...
-    await page.waitForTimeout(150); // ...but not echoed to the canvas yet
+    await expect.poll(async () => (await stored())[prop]).not.toBe(before[prop]);
+    await page.waitForTimeout(150);
     const held = await shown();
     const gaps = [held.x - end.x, held.y - end.y, held.width - end.width, held.height - end.height].map(Math.abs);
     expect(Math.max(...gaps)).toBeLessThan(1);
@@ -121,17 +107,15 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     await page.keyboard.press("Escape");
     const b = await shown();
     const before = JSON.stringify(await stored());
-    link.losing = true; // the ops are lost on the way: no echo will ever come
+    link.losing = true;
     await press({ from: { x: b.x + 6, y: b.y + 6 }, by: { x: 40, y: 30 } });
     await page.mouse.up();
     await page.waitForTimeout(150);
     expect(Math.abs((await shown()).x - (b.x + 40))).toBeLessThan(2);
-    // Once the wait for the server runs out, the canvas shows the server's position again.
     await expect.poll(async () => (await shown()).x, { timeout: 6000 }).toBeCloseTo(b.x, 0);
     expect(JSON.stringify(await stored())).toBe(before);
   });
 
-  /** Share of pixels whose RGB channels differ by more than 40 between two PNG screenshots. */
   const changedShare = (a: Buffer, b: Buffer) =>
     page.evaluate(async (pngs) => {
       const pixels = await Promise.all(
@@ -365,7 +349,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
       const b = await shown();
       const viewport = page.getByTestId("viewport");
       await press({ from: { x: b.x + 6, y: b.y + 6 }, by: { x: 64, y: 44 } });
-      await page.waitForTimeout(150); // the WASM layer draws on the next animation frame
+      await page.waitForTimeout(150);
       const frames = [await viewport.screenshot()];
       link.holding = true;
       await page.mouse.up();
@@ -374,7 +358,6 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
       flush();
       await page.waitForTimeout(300);
       frames.push(await viewport.screenshot());
-      // Before the fix the card jumped back ~64px on drop: about 5% of the viewport changed.
       expect(await changedShare(frames[0]!, frames[1]!)).toBeLessThan(0.002);
       expect(await changedShare(frames[1]!, frames[2]!)).toBeLessThan(0.002);
     });

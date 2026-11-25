@@ -9,16 +9,6 @@ import (
 	"time"
 )
 
-// Fit tunes the numbers of a drawing against a reference. The structure (which shapes, in what
-// order) comes from the agent; here a few parameters of chosen nodes (position, size, rotation,
-// radius, path anchors) are searched to maximize the ink IoU of the frame against the reference.
-//
-// The frame is not screenshotted per try. The ink of everything that is not being tuned comes
-// from one render with the tuned nodes left out (Fixed); the tuned nodes are rasterized here with
-// a scanline filler (rects, rounded rects, ellipses and paths with rotation and fill rule) onto
-// the same ink mask that Compare measures, and the IoU is updated incrementally for each try.
-// Coordinate descent with a shrinking step, first on a coarse canvas, then on the compare canvas.
-
 const (
 	fitCoarseSide = 400
 	fitMaxNodes   = 200
@@ -27,76 +17,67 @@ const (
 	fitMinIoUGain = 1e-7
 )
 
-// FitAnchor is one anchor of a path in the node's local coordinates, with its handles.
 type FitAnchor struct {
 	X, Y    float64
 	In, Out *Point
 }
 
-// FitSub is one subpath.
 type FitSub struct {
 	Anchors []FitAnchor
 	Closed  bool
 }
 
-// FitFree says which parameters of a node may move.
 type FitFree struct {
 	Position, Size, Rotation, Radius, PathPoints bool
-	MaxAnchors                                   int // anchors of a path that may move (the ones with the largest local error); default 8
+	MaxAnchors                                   int
 }
 
-// FitNode is a node as the rasterizer needs it: its box in frame coordinates (rotation in
-// degrees, clockwise, about the box center) and how it paints.
 type FitNode struct {
-	ID, Kind        string // rect, ellipse or path
+	ID, Kind        string
 	X, Y, W, H, Rot float64
-	Radius          [4]float64 // rect corners: tl, tr, br, bl
+	Radius          [4]float64
 	Path            []FitSub
-	ViewBox         *[4]float64 // path viewBox; when set the geometry scales with the box and anchors stay put
+	ViewBox         *[4]float64
 	EvenOdd         bool
 
 	Fill, Stroke                bool
-	FillRGB, StrokeRGB          *[3]uint8 // nil: a color that cannot be read (token, gradient): counts as ink
-	Alpha                       float64   // node opacity times the paint's own alpha; 0 means 1
+	FillRGB, StrokeRGB          *[3]uint8
+	Alpha                       float64
 	StrokeWidth                 float64
 	StrokeInside, StrokeOutside bool
 	Free                        FitFree
 }
 
-// FitInput is everything Fit needs. Fixed is the frame rendered without the nodes in Nodes.
 type FitInput struct {
 	Ref, Fixed     image.Image
 	FrameW, FrameH float64
 	Placed         Rect
 	Nodes          []FitNode
-	MaxIterations  int     // rounds over all nodes; default 60
-	Target         float64 // stop once the mask IoU reaches it
+	MaxIterations  int
+	Target         float64
 	Deadline       time.Time
 }
 
-// FitMove is an anchor moved by (DX, DY) (handles move with it), indexed like path_info.anchors.
 type FitMove struct {
 	Index  int
 	DX, DY float64
 }
 
-// FitNodeResult is the tuned state of one node.
 type FitNodeResult struct {
 	ID          string
 	X, Y, W, H  float64
 	Rot         float64
 	Radius      [4]float64
 	Moves       []FitMove
-	Path        []FitSub // the whole path after size and anchor moves, in local coordinates (no viewBox)
+	Path        []FitSub
 	Changed     map[string]bool
-	Skipped     string // why the node was not tuned, when it was not
+	Skipped     string
 	Contributes bool
 }
 
-// FitResult is the outcome.
 type FitResult struct {
 	Nodes     []FitNodeResult
-	IoUBefore float64 // on the compare canvas, from the rasterizer
+	IoUBefore float64
 	IoUAfter  float64
 	Rounds    int
 	Canvas    Size
@@ -113,13 +94,13 @@ const (
 	pRad
 	pAX
 	pAY
-	pL // left edge: grows the box to the left, keeping its right edge in the rotated frame
+	pL
 	pT
 )
 
 type fparam struct {
 	kind, i  int
-	base     float64 // first step, frame units (degrees for pRot, a factor for a radius scale)
+	base     float64
 	lo, hi   float64
 	hasRange bool
 }
@@ -135,7 +116,7 @@ type fnode struct {
 	in        FitNode
 	st, init  fstate
 	w0, h0    float64
-	rFactor   bool // R scales the corner radii instead of being the radius
+	rFactor   bool
 	fillInk   bool
 	strokeInk bool
 	anchors   []aref
@@ -152,7 +133,6 @@ type fpoly struct {
 	closed bool
 }
 
-// rmask is a binary mask over a rectangle of the canvas.
 type rmask struct {
 	x0, y0, w, h int
 	bits         []bool
@@ -184,7 +164,6 @@ func (m *rmask) at(x, y int) bool {
 	return m.bits[y*m.w+x]
 }
 
-// scan fills polygons with the nonzero or even-odd rule at pixel centers.
 type scan struct {
 	cross []crossing
 }
@@ -241,8 +220,6 @@ func (s *scan) fill(m *rmask, polys []fpoly, evenOdd bool) {
 	}
 }
 
-// fcanvas is the working canvas of one stage: the reference ink, the ink of the rest of the
-// frame, and how many tuned nodes cover each pixel.
 type fcanvas struct {
 	w, h        int
 	fx, fy      float64
@@ -291,7 +268,6 @@ func unionRect(a, b *rmask) (x0, y0, x1, y1 int) {
 	return min(a.x0, b.x0), min(a.y0, b.y0), max(a.x0+a.w, b.x0+b.w), max(a.y0+a.h, b.y0+b.h)
 }
 
-// delta is the change in drawn ink pixels and in ink intersection if old were replaced by nw.
 func (c *fcanvas) delta(old, nw *rmask) (dInk, dInter int) {
 	x0, y0, x1, y1 := unionRect(old, nw)
 	for y := y0; y < y1; y++ {
@@ -370,7 +346,6 @@ func (c *fcanvas) add(m *rmask) {
 
 func (c *fcanvas) drawnAt(i int) bool { return c.fixed[i] || c.cover[i] > 0 }
 
-// paintInk tells whether a paint shows up as ink against the frame's background.
 func paintInk(rgb *[3]uint8, alpha float64, bg bgInfo) bool {
 	if alpha <= 0 {
 		alpha = 1
@@ -435,7 +410,7 @@ func (n *fnode) set(p fparam, v float64) {
 		}
 		dw := v - n.st.W
 		sin, cos := n.sincos()
-		k := 1.0 // the edge that moves: right (+1) or left (-1)
+		k := 1.0
 		if p.kind == pL {
 			k = -1
 		}
@@ -480,7 +455,6 @@ func (n *fnode) clampRadius() {
 	}
 }
 
-// radii are the corner radii of the current state, kept inside the box.
 func (n *fnode) radii() [4]float64 {
 	var r [4]float64
 	for i := range r {
@@ -494,7 +468,6 @@ func (n *fnode) radii() [4]float64 {
 	return r
 }
 
-// toFrame maps node-local coordinates (box top-left origin, before rotation) to frame coordinates.
 func (n *fnode) toFrame(lx, ly float64) fpt {
 	cx, cy := n.st.W/2, n.st.H/2
 	dx, dy := lx-cx, ly-cy
@@ -506,7 +479,6 @@ func (n *fnode) toFrame(lx, ly float64) fpt {
 	return fpt{n.st.X + cx + dx, n.st.Y + cy + dy}
 }
 
-// local maps a path point (path units) to node-local coordinates.
 func (n *fnode) local(x, y float64, d Point) (float64, float64) {
 	if vb := n.in.ViewBox; vb != nil && vb[2] > 0 && vb[3] > 0 {
 		s := math.Min(n.st.W/vb[2], n.st.H/vb[3])
@@ -515,7 +487,6 @@ func (n *fnode) local(x, y float64, d Point) (float64, float64) {
 	return x*n.st.W/n.w0 + d.X, y*n.st.H/n.h0 + d.Y
 }
 
-// polys builds the outlines of the node in canvas pixels.
 func (n *fnode) polys(fx, fy float64) []fpoly {
 	px := func(lx, ly float64) fpt {
 		p := n.toFrame(lx, ly)
@@ -560,7 +531,7 @@ func (n *fnode) polys(fx, fy float64) []fpoly {
 			continue
 		}
 		type lp struct{ x, y float64 }
-		at := func(i int) (lp, lp, lp) { // position, in-handle, out-handle in local coordinates
+		at := func(i int) (lp, lp, lp) {
 			a := sub.Anchors[i]
 			var d Point
 			for k, r := range n.anchors {
@@ -614,7 +585,6 @@ func (n *fnode) polys(fx, fy float64) []fpoly {
 	return out
 }
 
-// strokePolys turns outlines into quads along the edges plus discs at the vertices (round joins).
 func strokePolys(polys []fpoly, half float64) []fpoly {
 	var out []fpoly
 	orient := func(p []fpt) []fpt {
@@ -664,7 +634,6 @@ func strokePolys(polys []fpoly, half float64) []fpoly {
 	return out
 }
 
-// raster paints the node's ink at the current state into m.
 func (n *fnode) raster(s *scan, c *fcanvas, m *rmask) {
 	polys := n.polys(c.fx, c.fy)
 	var stroke []fpoly
@@ -726,7 +695,6 @@ func (sg *fsearch) rasterAll() {
 	}
 }
 
-// try moves one parameter of n to v and keeps it when the IoU improves. It returns whether it did.
 func (sg *fsearch) try(n *fnode, p fparam, v float64, cur *float64, minGain float64) bool {
 	old, oldR := n.get(p), n.st.R
 	n.set(p, v)
@@ -742,11 +710,10 @@ func (sg *fsearch) try(n *fnode, p fparam, v float64, cur *float64, minGain floa
 		return true
 	}
 	n.set(p, old)
-	n.st.R = oldR // a size change may have clamped the radius
+	n.st.R = oldR
 	return false
 }
 
-// rounds runs up to maxRounds sweeps with the step scale going from sigma down to minSigma.
 func (sg *fsearch) rounds(maxRounds int, sigma, minSigma, target float64) int {
 	cur := sg.c.iou()
 	done := 0
@@ -782,8 +749,6 @@ func (sg *fsearch) rounds(maxRounds int, sigma, minSigma, target float64) int {
 	return done
 }
 
-// snap rounds the tuned numbers to whole (or half) units where that does not lower the IoU, so
-// the agent gets 120 and not 120.15.
 func (sg *fsearch) snap() {
 	cur := sg.c.iou()
 	for _, n := range sg.nodes {
@@ -801,7 +766,6 @@ func (sg *fsearch) snap() {
 	}
 }
 
-// FitReference searches the parameters of in.Nodes.
 func FitReference(in FitInput) (*FitResult, error) {
 	if in.Ref == nil || in.Fixed == nil {
 		return nil, errors.New("fit needs a reference and a render")
@@ -844,12 +808,10 @@ func FitReference(in FitInput) (*FitResult, error) {
 		return finishFit(res, in.Nodes, byID, nil), nil
 	}
 
-	// iou before, on the compare canvas
 	sg := &fsearch{c: newFCanvas(fine), nodes: nodes, deadline: in.Deadline}
 	sg.rasterAll()
 	res.IoUBefore = sg.c.iou()
 
-	// the first canvas: coarse when the compare canvas is big, to make the early rounds cheap
 	first := fine
 	coarseDistinct := math.Max(float64(fine.w), float64(fine.h)) > fitCoarseSide*1.25
 	if coarseDistinct {
@@ -887,7 +849,6 @@ func FitReference(in FitInput) (*FitResult, error) {
 		res.Warnings = append(res.Warnings, "stopped at the time budget before the search converged; call again to keep going")
 	}
 	if res.IoUAfter < res.IoUBefore {
-		// never hand back a worse drawing
 		for _, n := range nodes {
 			n.st = n.init
 			n.st.D = append([]Point(nil), n.init.D...)
@@ -930,7 +891,6 @@ func newFNode(fn FitNode, fw, fh float64, bg bgInfo) *fnode {
 			fparam{kind: pW, base: st, lo: 1, hi: 4 * long, hasRange: true},
 			fparam{kind: pH, base: st, lo: 1, hi: 4 * long, hasRange: true})
 		if free.Position {
-			// moving one edge alone, so that a shifted and too small box does not need two moves at once
 			n.params = append(n.params,
 				fparam{kind: pL, base: st, lo: -4 * long, hi: -1, hasRange: true},
 				fparam{kind: pT, base: st, lo: -4 * long, hi: -1, hasRange: true})
@@ -959,7 +919,6 @@ func newFNode(fn FitNode, fw, fh float64, bg bgInfo) *fnode {
 	return n
 }
 
-// orderAndPlan sorts nodes by how much they are off, then picks the path anchors that may move.
 func orderAndPlan(sg *fsearch, posRef float64) {
 	c := sg.c
 	for _, n := range sg.nodes {
@@ -972,7 +931,6 @@ func orderAndPlan(sg *fsearch, posRef float64) {
 				}
 			}
 		}
-		// reference ink around the node that nothing draws
 		padX, padY := max(2, n.cur.w/4), max(2, n.cur.h/4)
 		for y := max(0, n.cur.y0-padY); y < min(c.h, n.cur.y0+n.cur.h+padY); y++ {
 			for x := max(0, n.cur.x0-padX); x < min(c.w, n.cur.x0+n.cur.w+padX); x++ {
@@ -989,7 +947,6 @@ func orderAndPlan(sg *fsearch, posRef float64) {
 	sort.SliceStable(sg.nodes, func(i, j int) bool { return sg.nodes[i].bad > sg.nodes[j].bad })
 }
 
-// pickAnchors chooses the anchors of a path with the largest mismatch around them.
 func pickAnchors(sg *fsearch, n *fnode) {
 	c := sg.c
 	limit := n.in.Free.MaxAnchors
@@ -1079,7 +1036,6 @@ func finishFit(res *FitResult, all []FitNode, byID map[string]*fnode, tuned []*f
 	return res
 }
 
-// finalPath is the path after scaling to the new size and moving the anchors, in local coordinates.
 func (n *fnode) finalPath() []FitSub {
 	var out []FitSub
 	flat := 0
@@ -1110,8 +1066,6 @@ func (n *fnode) finalPath() []FitSub {
 	return out
 }
 
-// FitIoU is the ink IoU of a rendered frame against the reference on the compare canvas, without
-// the extras of Compare. It is what Fit's mask IoU is checked against.
 func FitIoU(drawn, ref image.Image, frameW, frameH float64, placed Rect) float64 {
 	cv := buildPlanes(drawn, ref, frameW, frameH, placed, compareMaxSide)
 	inter, uni := 0, 0
@@ -1130,7 +1084,6 @@ func FitIoU(drawn, ref image.Image, frameW, frameH float64, placed Rect) float64
 	return float64(inter) / float64(uni)
 }
 
-// ParseCSSColor reads #rgb, #rgba, #rrggbb, #rrggbbaa, rgb() and rgba(); ok is false for anything else.
 func ParseCSSColor(s string) (rgb [3]uint8, alpha float64, ok bool) {
 	var r, g, b, a float64
 	a = 1

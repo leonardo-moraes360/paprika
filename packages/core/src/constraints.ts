@@ -145,10 +145,6 @@ function pinned(doc: Document, f: FrameNode): boolean {
   });
 }
 
-/**
- * Frames whose own size is not numeric (fill, hug) still change size when an ancestor is resized or
- * their content changes. Their pinned non-flow children follow the delta of the laid-out size.
- */
 function followLayout(before: Document, draft: Document): void {
   const candidates: FrameNode[] = [];
   for (const n of Object.values(draft.nodes)) {

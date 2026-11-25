@@ -1,15 +1,3 @@
-// Builds the GitHub Pages site into apps/site/dist:
-//   /            landing page (English), rendered from apps/site/design/landing.paprika.json
-//   /pt-BR/      landing page (Brazilian Portuguese)
-//   /docs/       README + docs/ in English
-//   /docs/pt-BR/ the Brazilian Portuguese mirror
-//
-// The landing page is drawn in Paprika (scripts/draw-landing.mjs) and rendered here with the same
-// style engine as the canvas, screenshot and export (`nodeStyle` from @paprika/core). Two
-// changes for the web: root frames stretch to the viewport width, and nodes named `link:<href>`
-// become links.
-//
-// Usage: pnpm --filter @paprika/core build && pnpm --filter @paprika/site site:build
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,7 +24,6 @@ const copy = (fromRel, toRel) => {
   mkdirSync(dirname(to), { recursive: true });
   copyFileSync(join(ROOT, fromRel), to);
 };
-/** Relative URL from one output page to another output path. */
 const rel = (fromPage, toPath) => {
   const r = posix.relative(posix.dirname(fromPage), toPath);
   if (r === "") return "./";
@@ -65,19 +52,15 @@ ${FONTS}
 <style>${css}</style>
 </head>`;
 
-copy("docs/en-US/brand/favicon.svg", "icon.svg"); // small-size variant of the brand icon
-
-// ---------------------------------------------------------------- landing page
+copy("docs/en-US/brand/favicon.svg", "icon.svg");
 
 const doc = JSON.parse(readFileSync(join(SITE, "design", "landing.paprika.json"), "utf8"));
 const LINK = /^link:(.+)$/;
-/** Text nodes named `h1`…`h3` are the page's headings (WCAG 1.3.1: the outline is in the markup, not only in the font size). */
 const HEADING = /^h[1-3]$/;
 
 function renderNode(node, asRoot) {
   const css = nodeStyle(doc, node, { asRoot });
   if (asRoot) {
-    // The design is drawn at a fixed width; on the web the root follows the viewport.
     css.position = "relative";
     css.width = "100%";
     delete css.height;
@@ -144,9 +127,6 @@ for (const l of landing) {
   write(l.page, html);
 }
 
-// ---------------------------------------------------------------- docs
-
-/** [source file, output page, sidebar title]. Same order and keys in both languages. */
 const DOCS = {
   en: [
     ["README.md", "docs/index.html", "Overview"],
@@ -183,7 +163,6 @@ const DOCS = {
     ["docs/pt-BR/CODE_OF_CONDUCT.md", "docs/pt-BR/codigo-de-conduta.html", "Código de Conduta"],
   ],
 };
-/** Name of a heading's "#" link, in the page's language: the bare "#" says nothing to a screen reader. */
 const anchorLabel = (page, text) => (page.startsWith("docs/pt-BR/") ? `Link para a seção “${text}”` : `Link to the “${text}” section`);
 
 const UI = {
@@ -191,7 +170,6 @@ const UI = {
   "pt-BR": { home: "pt-BR/", other: "en", otherLabel: "English", docs: "Docs", edit: "Editar esta página no GitHub", landing: "pt-BR/index.html", skip: "Pular para o conteúdo" },
 };
 
-/** Source path → output page, for both languages. */
 const pageOf = new Map(Object.values(DOCS).flat().map(([src, out]) => [src, out]));
 
 const slug = (s) =>
@@ -211,7 +189,6 @@ function rewriteHref(href, src, page) {
   const out = pageOf.get(target);
   if (out) return rel(page, pretty(out) || "./") + anchor;
   if (target.startsWith("..")) return href;
-  // Anything else in the repo opens on GitHub.
   const isDir = existsSync(join(ROOT, target)) && statSync(join(ROOT, target)).isDirectory();
   return `${REPO}/${isDir ? "tree" : "blob"}/main/${target}${anchor}`;
 }
@@ -241,7 +218,6 @@ function renderMarkdown(md, src, page) {
     renderer: {
       heading({ tokens, depth }) {
         const html = this.parser.parseInline(tokens);
-        // Slug from the plain text, so markup never reaches the id.
         const text = this.parser.parseInline(tokens, this.parser.textRenderer);
         let id = slug(text) || `section`;
         const n = used.get(id) ?? 0;
@@ -299,7 +275,6 @@ for (const [lang, entries] of Object.entries(DOCS)) {
   const otherEntries = DOCS[ui.other];
   entries.forEach(([src, page, title], i) => {
     const md = readFileSync(join(ROOT, src), "utf8")
-      // The language switch lives in the header.
       .replace(/^.*(?:English|Português)\s*\|.*\n+/m, "");
     const body = renderMarkdown(md, src, page);
     const h1 = /^#[ \t]*([^\n]+?)[ \t]*$/m.exec(md)?.[1] ?? title;
@@ -330,8 +305,6 @@ for (const [lang, entries] of Object.entries(DOCS)) {
     write(page, html);
   });
 }
-
-// ---------------------------------------------------------------- extras
 
 write(
   "404.html",

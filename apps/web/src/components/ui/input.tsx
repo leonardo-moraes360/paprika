@@ -1,4 +1,3 @@
-/** Campo de texto. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005. */
 import type { ComponentProps } from "react";
 import { cn } from "../../lib/cn";
 

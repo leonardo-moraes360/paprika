@@ -16,8 +16,6 @@ type comp struct {
 	touches bool
 }
 
-// components labels the 8-connected regions of equal palette label, in raster order of their
-// first pixel (so the numbering is deterministic). Transparent pixels (255) are skipped.
 func components(labels []uint8, w, h int) ([]int32, []comp) {
 	ids := make([]int32, w*h)
 	var comps []comp
@@ -68,29 +66,24 @@ type pt struct{ x, y float64 }
 
 type hole struct {
 	area                   int
-	minX, minY, maxX, maxY int // local
+	minX, minY, maxX, maxY int
 }
 
-// geom is one blob cut out of the label image: its mask, the mask with holes filled, the
-// outer contour and the second moments of the filled shape. Coordinates are local to the
-// blob's bounding box (pixel centers at +0.5).
 type geom struct {
-	ox, oy int
-	w, h   int
-	mask   []bool
-	fill   []bool
-	areaM  int
-	areaF  int
-	holes  []hole
-	// holes below the noise floor are filled but not counted
-	contour []pt
-	// moments of the filled shape
-	cx, cy       float64 // centroid of the filled shape
-	mcx, mcy     float64 // centroid of the real mask
-	varX, varY   float64 // central second moments per unit area
+	ox, oy       int
+	w, h         int
+	mask         []bool
+	fill         []bool
+	areaM        int
+	areaF        int
+	holes        []hole
+	contour      []pt
+	cx, cy       float64
+	mcx, mcy     float64
+	varX, varY   float64
 	covXY        float64
-	theta        float64 // major axis angle, radians, y down
-	lam1, lam2   float64 // variances along the principal axes
+	theta        float64
+	lam1, lam2   float64
 	hullPts      []pt
 	hullArea     float64
 	perimeterLen float64
@@ -114,12 +107,10 @@ func buildGeom(ids []int32, W int, c comp, holeFloor int) *geom {
 	return g
 }
 
-// fillHoles floods the background from outside the padded box (4-connected, so a blob that
-// touches itself only diagonally still encloses what it surrounds) and collects what is left.
 func (g *geom) fillHoles(holeFloor int) {
 	pw, ph := g.w+2, g.h+2
 	seen := make([]bool, pw*ph)
-	at := func(x, y int) bool { // padded coords -> in mask
+	at := func(x, y int) bool {
 		x, y = x-1, y-1
 		return x >= 0 && y >= 0 && x < g.w && y < g.h && g.mask[y*g.w+x]
 	}
@@ -218,8 +209,6 @@ func (g *geom) inFill(x, y int) bool {
 	return x >= 0 && y >= 0 && x < g.w && y < g.h && g.fill[y*g.w+x]
 }
 
-// trace follows the outer boundary of the filled shape along pixel edges, interior on the
-// right, treating diagonal neighbours as connected. It records the corners.
 func (g *geom) trace() {
 	sx, sy := -1, -1
 	for i, v := range g.fill {
@@ -231,7 +220,6 @@ func (g *geom) trace() {
 	if sx < 0 {
 		return
 	}
-	// directions: 0 east, 1 south, 2 west, 3 north
 	dv := [4][2]int{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
 	ahead := func(vx, vy, d int) (left, right bool) {
 		switch d {
@@ -314,13 +302,10 @@ func convexHull(in []pt) []pt {
 	return h[:len(h)-1]
 }
 
-// simplify is Douglas-Peucker on a closed polygon, with the tolerance raised until at most
-// maxPts points remain.
 func simplify(p []pt, eps float64, maxPts int) []pt {
 	if len(p) <= 3 {
 		return p
 	}
-	// anchors: point 0 and the point farthest from it
 	far, fd := 0, -1.0
 	for i := range p {
 		if d := math.Hypot(p[i].x-p[0].x, p[i].y-p[0].y); d > fd {
@@ -373,7 +358,6 @@ func dp(p []pt, i, j int, eps float64, keep []bool) {
 	dp(p, bi, j, eps, keep)
 }
 
-// dpWrap handles the second half of the ring, from the far anchor back to point 0.
 func dpWrap(p []pt, far int, eps float64, keep []bool) {
 	q := make([]pt, 0, len(p)-far+1)
 	q = append(q, p[far:]...)

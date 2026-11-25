@@ -1,19 +1,10 @@
-/**
- * Leitor tolerante de marcação (HTML e SVG) para importar conteúdo colado. Não é um parser
- * HTML5 completo: lê tags, atributos, texto e entidades comuns, ignora comentários, doctype,
- * `<script>` e `<style>`, e fecha tags esquecidas. Nomes de tags e atributos ficam em minúsculas
- * (ASCII). Roda igual no servidor, no navegador e no Go (`server/internal/core/markup.go`).
- */
-
 export interface MarkupElement {
   tag: string;
-  /** Atributos em minúsculas; um Map, então nomes vindos da entrada nunca viram propriedades de objeto. */
   attrs: Map<string, string>;
   children: MarkupNode[];
 }
 export type MarkupNode = MarkupElement | string;
 
-/** Limites que protegem o servidor de entradas gigantes. */
 export const MARKUP_LIMITS = { chars: 2_000_000, elements: 5_000, depth: 200 } as const;
 
 const VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
@@ -34,7 +25,6 @@ export function decodeEntities(s: string): string {
   });
 }
 
-/** indexOf que ignora maiúsculas ASCII em `src` (`needle` já em minúsculas). */
 function indexOfLower(src: string, needle: string, from: number): number {
   outer: for (let k = from; k + needle.length <= src.length; k++) {
     for (let m = 0; m < needle.length; m++) {
@@ -50,7 +40,6 @@ function indexOfLower(src: string, needle: string, from: number): number {
 const isSpace = (c: string | undefined) => c === " " || c === "\n" || c === "\t" || c === "\r" || c === "\f";
 const isNameChar = (c: string | undefined) => !!c && /[A-Za-z0-9_:.-]/.test(c);
 
-/** Lê a marcação e devolve um elemento raiz `#root` com o conteúdo. */
 export function parseMarkup(src: string): MarkupElement {
   if (src.length > MARKUP_LIMITS.chars) throw new Error(`markup too large (max. ${MARKUP_LIMITS.chars} characters)`);
   const root: MarkupElement = { tag: "#root", attrs: new Map(), children: [] };
@@ -167,12 +156,10 @@ export function parseMarkup(src: string): MarkupElement {
   return root;
 }
 
-/** Elementos filhos (sem texto). */
 export function elements(el: MarkupElement): MarkupElement[] {
   return el.children.filter((c): c is MarkupElement => typeof c !== "string");
 }
 
-/** Primeiro descendente (busca em profundidade) com a tag dada. */
 export function findElement(el: MarkupElement, tag: string): MarkupElement | undefined {
   for (const c of elements(el)) {
     if (c.tag === tag) return c;
@@ -182,7 +169,6 @@ export function findElement(el: MarkupElement, tag: string): MarkupElement | und
   return undefined;
 }
 
-/** Texto de um elemento (concatena descendentes; `<br>` vira quebra de linha). */
 export function textContent(el: MarkupElement): string {
   let out = "";
   for (const c of el.children) {
@@ -193,7 +179,6 @@ export function textContent(el: MarkupElement): string {
   return out;
 }
 
-/** `a: b; c: d` → `Map { a → "b", c → "d" }` (nomes em minúsculas, valores sem espaços nas pontas; a última declaração vence). */
 export function parseStyle(s: string | undefined): Map<string, string> {
   const out = new Map<string, string>();
   if (!s) return out;

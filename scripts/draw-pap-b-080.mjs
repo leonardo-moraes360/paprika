@@ -1,9 +1,4 @@
 #!/usr/bin/env node
-/**
- * Design-first boards for PAP-B-080 (shadow list, outline, filters).
- * Talks to a local Paprika over MCP. Addresses the workspace by id and never calls open_workspace.
- * Usage: node scripts/draw-pap-b-080.mjs
- */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { saveShots, textOf, unwrapTool } from "./design-board.mjs";

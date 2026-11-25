@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	rampMinSpan = 8.0 // color levels a ramp must change over its group to count as a gradient
-	rampMaxRMS  = 5.0 // levels of error a linear or radial model may have
+	rampMinSpan = 8.0
+	rampMaxRMS  = 5.0
 	rampBins    = 10
 )
 
@@ -16,21 +16,16 @@ type sample struct {
 	c    [3]float64
 }
 
-// rampFit is the geometry of a group of smooth tiles that change color: a linear ramp
-// (direction) or a radial one (center), found once for the group so that the rectangles it is
-// cut into stay consistent.
 type rampFit struct {
 	radial bool
-	dx, dy float64 // linear: unit direction, CSS convention (angle 0 = up, clockwise)
-	cx, cy float64 // radial: center in analysis pixels
+	dx, dy float64
+	cx, cy float64
 	rms    float64
 	span   float64
 	bbox   image.Rectangle
 	gw, gh float64
 }
 
-// fitRamp tests the smooth tiles of one group. It returns nil when the colors hardly change or
-// follow neither a linear nor a radial ramp.
 func fitRamp(px *pixels, tiles []tileStat, members []int, tx int) *rampFit {
 	bb := image.Rectangle{Min: image.Pt(px.w, px.h)}
 	total := 0
@@ -114,10 +109,8 @@ func fitRamp(px *pixels, tiles []tileStat, members []int, tx int) *rampFit {
 	for c := range 3 {
 		spanLin = math.Max(spanLin, math.Abs(b[c]*vx+cc[c]*vy)*L)
 	}
-	// the direction is in image space (y down), which is what the CSS angle a means: (sin a, -cos a)
 	lin := &rampFit{dx: vx, dy: vy, rms: rmsLin, span: spanLin, bbox: bb, gw: bw, gh: bh}
 
-	// radial: where do the gradients of the tile means point?
 	var rad *rampFit
 	if len(members) >= 4 {
 		rad = fitRadial(px, tiles, members, tx, ss, bb)
@@ -193,7 +186,6 @@ func fitRadial(px *pixels, tiles []tileStat, members []int, tx int, ss []sample,
 	if cx < float64(bb.Min.X)-0.5*bw || cx > float64(bb.Max.X)+0.5*bw || cy < float64(bb.Min.Y)-0.5*bh || cy > float64(bb.Max.Y)+0.5*bh {
 		return nil
 	}
-	// profile: colors binned by the distance to the center
 	const nb = 16
 	rho := make([]float64, len(ss))
 	rmax := 0.0
@@ -236,8 +228,6 @@ func fitRadial(px *pixels, tiles []tileStat, members []int, tx int, ss []sample,
 	return &rampFit{radial: true, cx: cx, cy: cy, rms: math.Sqrt(math.Max(0, sse) / (3 * n)), span: span, bbox: bb, gw: bw, gh: bh}
 }
 
-// rampGradient reads the stops of a ramp off the pixels of one rectangle, along the group's
-// direction (linear) or around its center (radial).
 func rampGradient(px *pixels, r image.Rectangle, f *rampFit, on func(x, y int) bool) *Gradient {
 	rw, rh := float64(r.Dx()), float64(r.Dy())
 	if rw < 2 || rh < 2 {
@@ -269,7 +259,7 @@ func rampGradient(px *pixels, r image.Rectangle, f *rampFit, on func(x, y int) b
 		L := math.Abs(rw*dx) + math.Abs(rh*dy)
 		mx, my := float64(r.Min.X)+rw/2, float64(r.Min.Y)+rh/2
 		tOf = func(x, y float64) float64 { return ((x-mx)*dx+(y-my)*dy)/L + 0.5 }
-		ang := math.Atan2(dx, -dy) * 180 / math.Pi // CSS: direction (sin a, -cos a)
+		ang := math.Atan2(dx, -dy) * 180 / math.Pi
 		ang = math.Mod(ang+360, 360)
 		for _, s := range []float64{0, 45, 90, 135, 180, 225, 270, 315, 360} {
 			if math.Abs(ang-s) < 2 {
@@ -293,7 +283,6 @@ func rampGradient(px *pixels, r image.Rectangle, f *rampFit, on func(x, y int) b
 			}
 		}
 	}
-	// bin colors at their centers; empty bins are skipped
 	var ts []float64
 	var cols [][3]float64
 	for k, b := range bins {
@@ -306,7 +295,6 @@ func rampGradient(px *pixels, r image.Rectangle, f *rampFit, on func(x, y int) b
 	if len(ts) < 2 {
 		return nil
 	}
-	// stretch the ends to offsets 0 and 1 along the slope of the first and last steps
 	ext := func(t0 float64, c0, c1 [3]float64, t1, to float64) [3]float64 {
 		var o [3]float64
 		for c := range 3 {
@@ -336,8 +324,6 @@ func sortInts(a []int) {
 	}
 }
 
-// stopPolyline is Douglas-Peucker on a color ramp: it keeps the samples that the straight blend
-// between their neighbours misses by more than tol levels.
 func stopPolyline(ts []float64, cols [][3]float64, i, j int, tol float64, keep []int) []int {
 	if j-i < 2 {
 		return keep

@@ -24,14 +24,12 @@ func TestMCPOutlineStroke(t *testing.T) {
 	if n.Str("fill") != "#112233" || n.Has("stroke") || n.Num("y") != 45 || n.Str("d") != "M0 10 L100 10 L100 0 L0 0 Z" {
 		t.Fatalf("node: %s", core.DescribeNode(n))
 	}
-	// One undo step restores the stroke.
 	if out, isErr = callText(t, m, "undo", obj()); isErr {
 		t.Fatal(out)
 	}
 	if n = core.GetNode(s.Doc(), "ln"); !n.Has("stroke") || n.Has("fill") || n.Str("d") != "M0 0 L100 0" {
 		t.Fatalf("undo: %s", core.DescribeNode(n))
 	}
-	// keepStroke leaves the stroke; a filled node is refused.
 	if out, isErr = callText(t, m, "outline_stroke", obj("id", "ln", "keepStroke", true)); isErr {
 		t.Fatal(out)
 	}
@@ -70,7 +68,6 @@ func TestMCPRepeatNodes(t *testing.T) {
 	if last.Num("x") != 40 || last.Num("y") != 190 || last.Num("rotation") != 270 {
 		t.Fatalf("last copy: %s", core.DescribeNode(last))
 	}
-	// One undo step removes every copy.
 	if out, isErr = callText(t, m, "undo", obj()); isErr {
 		t.Fatal(out)
 	}

@@ -1,5 +1,3 @@
-//! wasm-bindgen surface: picks WebGPU (vello) when an adapter exists, otherwise vello_cpu + Canvas2D.
-
 use crate::{cpu::CpuRenderer, scene};
 use vello::{
     AaConfig, AaSupport, RenderParams, RendererOptions, kurbo::Affine, peniko::Color, wgpu,
@@ -7,7 +5,6 @@ use vello::{
 use wasm_bindgen::{Clamped, JsCast, prelude::*};
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
 
-/// Default clear color (the bench's light gray). The app sets a transparent one.
 const BACKGROUND: [f32; 4] = [0.93, 0.93, 0.94, 1.0];
 
 struct Gpu {
@@ -22,8 +19,6 @@ struct Gpu {
     blitter: wgpu::util::TextureBlitter,
     scene: vello::Scene,
     adapter_info: String,
-    /// First asynchronous device problem (uncaptured validation error or device loss). WebGPU
-    /// reports these after `render` already returned, so the frame may never reach the canvas.
     failure: std::sync::Arc<std::sync::Mutex<String>>,
 }
 
@@ -43,7 +38,6 @@ pub struct Renderer {
     scene: scene::Scene,
     width: u32,
     height: u32,
-    /// Why the GPU path was not used (empty when it was).
     fallback_reason: String,
     background: [f32; 4],
 }
@@ -81,8 +75,6 @@ fn target_view(device: &wgpu::Device, w: u32, h: u32) -> (wgpu::Texture, wgpu::T
     (tex, view)
 }
 
-/// Everything that can fail runs *before* the canvas gets a `webgpu` context, so a failure
-/// still leaves the same canvas free for the Canvas2D fallback.
 async fn init_gpu(canvas: &HtmlCanvasElement, allow_software: bool) -> Result<Gpu, String> {
     let has_gpu = js_sys::Reflect::get(
         &web_sys::window().ok_or("no window")?.navigator(),
@@ -105,8 +97,6 @@ async fn init_gpu(canvas: &HtmlCanvasElement, allow_software: bool) -> Result<Gp
         .await
         .map_err(|e| format!("no WebGPU adapter: {e}"))?;
     let info = adapter.get_info();
-    // A software adapter (SwiftShader, WARP) runs vello's compute shaders emulated on the CPU:
-    // measured 45-220x slower than vello_cpu on the same machine (bench/results). Treat it as "no GPU".
     if info.device_type == wgpu::DeviceType::Cpu && !allow_software {
         return Err(format!(
             "software WebGPU adapter ({}), vello_cpu is faster",
@@ -125,7 +115,6 @@ async fn init_gpu(canvas: &HtmlCanvasElement, allow_software: bool) -> Result<Gp
         })
         .await
         .map_err(|e| format!("request_device failed: {e}"))?;
-    // Validation errors are async on the web; surface them in the console instead of dropping them.
     let failure = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
     let on_error = failure.clone();
     device.on_uncaptured_error(std::sync::Arc::new(move |e: wgpu::Error| {
@@ -173,7 +162,6 @@ async fn init_gpu(canvas: &HtmlCanvasElement, allow_software: bool) -> Result<Gp
         height: h,
         present_mode: wgpu::PresentMode::Fifo,
         desired_maximum_frame_latency: 2,
-        // vello writes premultiplied color; a transparent background must composite as such.
         alpha_mode: if caps
             .alpha_modes
             .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
@@ -215,8 +203,6 @@ fn init_cpu(canvas: &HtmlCanvasElement) -> Result<Cpu, JsValue> {
     })
 }
 
-/// `mode`: `"auto"` (hardware WebGPU, else CPU), `"gpu"` (any WebGPU adapter, including a
-/// software one; fails without WebGPU) or `"cpu"`.
 #[wasm_bindgen(js_name = createRenderer)]
 pub async fn create_renderer(canvas: HtmlCanvasElement, mode: String) -> Result<Renderer, JsValue> {
     let (width, height) = (canvas.width().max(1), canvas.height().max(1));
@@ -246,7 +232,6 @@ pub async fn create_renderer(canvas: HtmlCanvasElement, mode: String) -> Result<
 
 #[wasm_bindgen]
 impl Renderer {
-    /// `"webgpu"` or `"cpu"`.
     #[wasm_bindgen(getter)]
     pub fn backend(&self) -> String {
         match self.backend {
@@ -263,8 +248,6 @@ impl Renderer {
         }
     }
 
-    /// First asynchronous GPU failure (device lost, uncaptured validation error), or empty. After
-    /// one, frames can silently stop reaching the canvas, so the page must take the paint back.
     #[wasm_bindgen(getter, js_name = deviceError)]
     pub fn device_error(&self) -> String {
         match &self.backend {
@@ -278,14 +261,11 @@ impl Renderer {
         self.fallback_reason.clone()
     }
 
-    /// Clear color in straight RGBA 0..1; alpha 0 keeps the canvas transparent.
     #[wasm_bindgen(js_name = setBackground)]
     pub fn set_background(&mut self, r: f32, g: f32, b: f32, a: f32) {
         self.background = [r, g, b, a];
     }
 
-    /// Replaces the display list (see `scene::STRIDE` for the layout) and its path table
-    /// (see `scene::parse_paths`).
     #[wasm_bindgen(js_name = setScene)]
     pub fn set_scene(&mut self, data: &[f32], paths: &str) {
         self.scene = scene::Scene::parse(data, paths);
@@ -306,12 +286,10 @@ impl Renderer {
         }
     }
 
-    /// Draws one frame with the view transform `translate(tx, ty) · scale(zoom)` in device pixels.
     pub fn render(&mut self, tx: f64, ty: f64, zoom: f64) -> Result<(), JsValue> {
         self.render_inner(tx, ty, zoom, true)
     }
 
-    /// Like [`Renderer::render`] but leaves the frame in the offscreen target (no blit/present).
     #[wasm_bindgen(js_name = renderOffscreen)]
     pub fn render_offscreen(&mut self, tx: f64, ty: f64, zoom: f64) -> Result<(), JsValue> {
         self.render_inner(tx, ty, zoom, false)
@@ -366,9 +344,6 @@ impl Renderer {
         Ok(())
     }
 
-    /// Copies the last vello frame (the offscreen target, before the blit) into a mappable
-    /// buffer. Resolves once it can be read with [`Renderer::take_pixels`]. Used by tests: a
-    /// headless browser without a real GPU cannot read a WebGPU canvas back.
     #[wasm_bindgen(js_name = readPixels)]
     pub fn read_pixels(&mut self) -> js_sys::Promise {
         let Backend::Gpu(g) = &mut self.backend else {
@@ -415,7 +390,6 @@ impl Renderer {
         promise
     }
 
-    /// Tightly packed RGBA8 of the frame requested by [`Renderer::read_pixels`].
     #[wasm_bindgen(js_name = takePixels)]
     pub fn take_pixels(&mut self) -> Result<Vec<u8>, JsValue> {
         let Backend::Gpu(g) = &mut self.backend else {
@@ -433,8 +407,6 @@ impl Renderer {
         Ok(out)
     }
 
-    /// Resolves when the GPU has finished the submitted work (no-op on CPU). Benchmarks await
-    /// this so they time real GPU work instead of command submission only.
     pub fn finish(&self) -> js_sys::Promise {
         match &self.backend {
             Backend::Gpu(g) => {

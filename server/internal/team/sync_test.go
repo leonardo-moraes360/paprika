@@ -36,7 +36,6 @@ func TestWorkspaceSyncsBetweenTwoInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 	eventually(t, "B receives the shared workspace", func() bool { return sameSynced(a, b) })
-	// Derived data is rebuilt on B by its own applyOps: instance copies and connector geometry.
 	if core.GetNode(b.store.Doc(), core.CopyID("inst", "label")) == nil {
 		t.Fatal("instance copy missing on B")
 	}
@@ -47,7 +46,6 @@ func TestWorkspaceSyncsBetweenTwoInstances(t *testing.T) {
 		t.Fatal("a remote change entered B's undo stack")
 	}
 
-	// A batch on B (two calls, one undo step) reaches A; B's undo reaches A as a forward change.
 	if _, err := b.store.ApplyBatch(ops(t, `[{"op":"update","id":"r1","props":{"fill":"#00ff00"}}]`), "agent:codex", "pintar", "lote"); err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +64,6 @@ func TestWorkspaceSyncsBetweenTwoInstances(t *testing.T) {
 		return d.Obj("r1").Str("fill") == "#f00" && d.Obj("t1").Str("text") == "Oi"
 	})
 
-	// Concurrent edits to different fields of one node: both survive, on both sides.
 	if _, err := a.store.Apply(ops(t, `[{"op":"update","id":"r1","props":{"fill":"#abcdef"}}]`), "user", "a"); err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +75,6 @@ func TestWorkspaceSyncsBetweenTwoInstances(t *testing.T) {
 		return sameSynced(a, b) && r.Str("fill") == "#abcdef" && r.Str("name") == "Card"
 	})
 
-	// Structure: B moves a node out of a frame and deletes the frame.
 	if _, err := b.store.Apply(ops(t, `[{"op":"move","id":"e1","parentId":null},{"op":"delete","id":"f2"}]`), "user", "estrutura"); err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +141,6 @@ func TestSharedWorkspaceIsCreatedOnThePeer(t *testing.T) {
 		doc, err := b.store.WorkspaceDocument(info.ID)
 		return err == nil && doc.Str("name") == "Landing" && core.GetNode(doc, "hero") != nil
 	})
-	// B opens it and edits; A (which has it open) follows.
 	if _, err := b.store.OpenWorkspace(info.ID, "user"); err != nil {
 		t.Fatal(err)
 	}

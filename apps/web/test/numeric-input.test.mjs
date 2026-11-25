@@ -1,4 +1,3 @@
-// Run: node --test apps/web/test/numeric-input.test.mjs
 import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";

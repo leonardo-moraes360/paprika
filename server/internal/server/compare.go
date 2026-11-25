@@ -18,8 +18,6 @@ const compareGap = 16
 
 var comparePaper = color.NRGBA{R: 0xf4, G: 0xf1, B: 0xec, A: 0xff}
 
-// composeSideBySide draws the screenshot on the left and the compare image on the right,
-// scaled to the screenshot's height, with a gap between them.
 func composeSideBySide(leftPNG, right []byte) ([]byte, int, int, error) {
 	left, err := png.Decode(bytes.NewReader(leftPNG))
 	if err != nil {

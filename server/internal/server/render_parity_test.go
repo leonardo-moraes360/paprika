@@ -50,7 +50,6 @@ func imageOf(t *testing.T, r *jsonv.Object) []byte {
 	return nil
 }
 
-// export_image goes through the same Chromium path as render_screenshot, so the two agree.
 func TestExportImageMatchesScreenshot(t *testing.T) {
 	if FindChromium() == "" {
 		t.Skip("Chromium not found")
@@ -89,7 +88,6 @@ func (failShot) ScreenshotMode(context.Context, *core.Document, string, float64,
 	return nil, 0, 0, errors.New("no chromium")
 }
 
-// Without a usable Chromium, export_image falls back to the built-in rasterizer and says so.
 func TestExportImageFallbackWarns(t *testing.T) {
 	m := NewMCP(parityStore(t), "agent:test", failShot{})
 	exp := m.CallTool(context.Background(), "export_image", obj("rootId", "card", "format", "png"), true)
@@ -105,7 +103,6 @@ func TestExportImageFallbackWarns(t *testing.T) {
 	}
 }
 
-// The embedded Inter is served to the canvas, with weight ranges matching the exporter's faces.
 func TestInterFontRoutes(t *testing.T) {
 	s, _ := openTemp(t)
 	srv, err := StartHTTP(s, HTTPOptions{Host: "127.0.0.1", Port: 0})

@@ -16,7 +16,6 @@ func referencePlacement(frame *core.Node, imgW, imgH float64) (x, y, w, h float6
 	return fitPlacement(fw, fh, imgW, imgH)
 }
 
-// fitPlacement fits an image inside a fw x fh box, centered, keeping its aspect ratio.
 func fitPlacement(fw, fh, imgW, imgH float64) (x, y, w, h float64) {
 	w, h = imgW, imgH
 	if imgW <= 0 || imgH <= 0 {

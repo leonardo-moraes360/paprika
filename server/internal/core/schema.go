@@ -1,6 +1,3 @@
-// Package core is the Go port of @paprika/core: document model, atomic operations, undo history,
-// style engine, HTML/React export, lint and outline. The TypeScript package is the reference;
-// parity is locked by fixtures generated from it (see testdata/golden.json).
 package core
 
 import (
@@ -12,7 +9,6 @@ import (
 	z "github.com/leonardo-moraes360/paprika/server/internal/zod"
 )
 
-// Format of the `.paprika.json` file.
 const Format = "paprika/1"
 
 var (
@@ -36,7 +32,6 @@ func hrefSchema() z.Schema {
 	}))
 }
 
-// ColorValue: a CSS color or a `$token` reference.
 func colorValue() *z.StringSchema {
 	return z.String().Min(1).Max(200).Refine(func(v string) string {
 		if reColorForbidden.MatchString(v) {
@@ -46,8 +41,6 @@ func colorValue() *z.StringSchema {
 	})
 }
 
-// gradientColorMsg is what op input gets for a CSS gradient or url() in a fill/color field (see
-// gradientColorProblem); stored documents are not checked, so they still load.
 const gradientColorMsg = `a color cannot be a CSS gradient or url(); use the structured gradient field, e.g. gradient: {type: "linear", angle: 90, stops: [{color: "#fff", offset: 0}, {color: "#000", offset: 1}]}`
 
 var reColorGradient = regexp.MustCompile(`(?i)(gradient|url)\s*\(`)
@@ -152,7 +145,6 @@ var (
 
 const paddingMsg = `layout.padding takes one value (all sides), [vertical, horizontal] or [top, right, bottom, left]; each a number or "$token"`
 
-// paddingValue is CSS padding: 1, 2 ([vertical, horizontal]) or 4 values; 2 is normalized to 4.
 func paddingValue() z.Schema {
 	return z.Custom(func(v any, present bool, x *z.Cx) (any, bool) {
 		if arr, ok := v.([]any); ok {
@@ -257,10 +249,8 @@ func nodeSchema(typ string, extra ...z.Field) *z.ObjectSchema {
 	return z.Object(append(fields, extra...)...)
 }
 
-// NodeTypes in schema order.
 var NodeTypes = []string{"frame", "rect", "ellipse", "text", "image", "path", "group", "page", "shape", "connector"}
 
-// baseField returns one of the base fields by name.
 func baseField(name string) z.Field {
 	for _, f := range baseFields() {
 		if f.Name == name {
@@ -270,7 +260,6 @@ func baseField(name string) z.Field {
 	panic("unknown base field " + name)
 }
 
-// groupSchema: a container that paints nothing; its box follows the children (see fitGroups).
 func groupSchema() *z.ObjectSchema {
 	return z.Object(
 		baseField("id"), baseField("name"), baseField("parentId"),
@@ -287,7 +276,6 @@ func groupSchema() *z.ObjectSchema {
 	)
 }
 
-// pageSchema: a separate canvas in the file, top level only, without geometry.
 func pageSchema() *z.ObjectSchema {
 	return z.Object(
 		baseField("id"), baseField("name"), baseField("parentId"),
@@ -389,10 +377,8 @@ func checkTextRuns(v *jsonv.Object) []z.ObjectIssue {
 	return issues
 }
 
-// ShapeKinds: the outlines a diagram shape can take.
 var ShapeKinds = []string{"rect", "ellipse", "diamond", "triangle", "cylinder", "parallelogram", "cloud", "note"}
 
-// shapeSchema: a diagram shape with text inside (see diagram.go).
 func shapeSchema() *z.ObjectSchema {
 	fields := baseFields()
 	for k, f := range fields {
@@ -426,7 +412,6 @@ func connectorEndSchema() z.Schema {
 	)
 }
 
-// connectorSchema: a line/arrow between two nodes; x, y, width, height and d are derived (see diagram.go).
 func connectorSchema() *z.ObjectSchema {
 	return z.Object(
 		baseField("id"), baseField("name"), baseField("parentId"),
@@ -454,16 +439,12 @@ func connectorSchema() *z.ObjectSchema {
 	)
 }
 
-// StrokeSchema is Stroke in schema.ts ({color, width}).
 var StrokeSchema = strokeSchema
 
-// ConnectorSideSchema is ConnectorSide in schema.ts.
 var ConnectorSideSchema = z.Enum("auto", "top", "right", "bottom", "left")
 
-// IsContainer reports whether a node type takes children.
 func IsContainer(typ string) bool { return typ == "frame" || typ == "group" || typ == "page" }
 
-// FirstPage returns the first top-level node when it is a page (the document has pages), or nil.
 func FirstPage(doc *Document) *Node {
 	roots := doc.Strings("rootIds")
 	if len(roots) == 0 {
@@ -475,7 +456,6 @@ func FirstPage(doc *Document) *Node {
 	return nil
 }
 
-// PageRoots lists the top-level nodes of a page ("" = the first page, or the document without pages).
 func PageRoots(doc *Document, pageID string) ([]string, error) {
 	var page *Node
 	if pageID != "" {
@@ -496,7 +476,6 @@ func cornerRadiusSchema() z.Schema {
 	return z.Default(z.Union(cornerOne, z.Tuple(cornerOne, cornerOne, cornerOne, cornerOne)), 0.0)
 }
 
-// NodeSchemas by type.
 var NodeSchemas = map[string]*z.ObjectSchema{
 	"frame": nodeSchema("frame",
 		z.Field{Name: "children", Schema: z.Default(z.Array(z.String()), []any{})},
@@ -564,7 +543,6 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 	"connector": connectorSchema(),
 }
 
-// NodeSchema is the discriminated union of all node types.
 var NodeSchema = func() *z.DiscUnion {
 	opts := make([]struct {
 		Value  string
@@ -576,7 +554,6 @@ var NodeSchema = func() *z.DiscUnion {
 	return z.DiscriminatedUnion("type", opts...)
 }()
 
-// NodeTypeSchema is z.enum(NodeTypes).
 var NodeTypeSchema = z.Enum(NodeTypes...)
 
 var (
@@ -593,7 +570,6 @@ var (
 	})
 )
 
-// DocumentSchema validates a whole document.
 var DocumentSchema = z.Object(
 	z.Field{Name: "format", Schema: z.Literal(Format)},
 	z.Field{Name: "id", Schema: z.String()},
@@ -606,10 +582,8 @@ var DocumentSchema = z.Object(
 	z.Field{Name: "assets", Schema: z.Optional(z.Record(AssetNameSchema, AssetSrcSchema))},
 )
 
-// ImmutableKeys cannot be changed by an `update` op.
 var ImmutableKeys = map[string]bool{"id": true, "type": true, "parentId": true, "children": true}
 
-// KnownKeys lists the accepted fields of a node type.
 func KnownKeys(typ string) map[string]bool {
 	out := map[string]bool{}
 	for _, k := range NodeSchemas[typ].Keys() {
@@ -618,19 +592,14 @@ func KnownKeys(typ string) map[string]bool {
 	return out
 }
 
-// Document is a validated `.paprika.json` document (an ordered JSON object, as in JavaScript).
 type Document = jsonv.Object
 
-// Node is a validated node.
 type Node = jsonv.Object
 
-// Nodes returns doc.nodes.
 func Nodes(doc *Document) *jsonv.Object { return doc.Obj("nodes") }
 
-// Tokens returns doc.tokens.
 func Tokens(doc *Document) *jsonv.Object { return doc.Obj("tokens") }
 
-// GetNode returns doc.nodes[id] or nil.
 func GetNode(doc *Document, id string) *Node { return Nodes(doc).Obj(id) }
 
 func IsRootFrame(doc *Document, n *Node) bool {
@@ -690,18 +659,15 @@ func frameFluid(n *Node) (min, max float64, ok bool) {
 	return min, max, true
 }
 
-// ParentID returns the node's parentId ("" for top level).
 func ParentID(n *Node) (string, bool) {
 	v, _ := n.Get("parentId")
 	s, ok := v.(string)
 	return s, ok
 }
 
-// ModeNameSchema is ModeName in schema.ts: the name of a theme mode.
 var ModeNameSchema = z.String().Regex(`^[A-Za-z0-9_-]{1,40}$`, `/^[A-Za-z0-9_-]{1,40}$/`, "mode name must be [A-Za-z0-9_-]{1,40}").
 	Refine(func(v string) string { return notProto(v, "mode name cannot be __proto__") })
 
-// notProto rejects "__proto__" as a map key (parity with the TS reference, which writes to plain objects).
 func notProto(v, msg string) string {
 	if v == "__proto__" {
 		return msg
@@ -709,7 +675,6 @@ func notProto(v, msg string) string {
 	return ""
 }
 
-// Modes returns doc.modes (nil when the document has none).
 func Modes(doc *Document) *jsonv.Object { return doc.Obj("modes") }
 
 func TokenMeta(doc *Document) *jsonv.Object { return doc.Obj("tokenMeta") }
@@ -724,7 +689,6 @@ var TokenMetaSchema = z.Object(
 	z.Field{Name: "collection", Schema: z.Optional(CollectionNameSchema)},
 )
 
-// overridesSchema is Overrides in schema.ts: keys shaped like node ids and field names.
 func overridesSchema() z.Schema {
 	source := z.String().Regex(`^[A-Za-z0-9_-]{1,64}(/[A-Za-z0-9_-]{1,64}){0,6}$`, `/^[A-Za-z0-9_-]{1,64}(\/[A-Za-z0-9_-]{1,64}){0,6}$/`, "override path must be an id or id/id (up to 7 ids)")
 	field := z.String().Regex(`^[A-Za-z]{1,32}$`, `/^[A-Za-z]{1,32}$/`, "field must be [A-Za-z]{1,32}")

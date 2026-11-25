@@ -449,7 +449,6 @@ function mid(a: Pt, b: Pt): Pt {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
-/** Seleciona o fragmento e se a direção deve ser invertida (buracos / XOR). */
 function selectFragment(inA: boolean, inB: boolean, src: 0 | 1, op: BooleanOp): "keep" | "rev" | null {
   switch (op) {
     case "union":
@@ -643,7 +642,6 @@ export interface CombinePathsPlan {
 
 export type RingList = Pt[][];
 
-/** Anéis (cada um um contorno fechado) → MultiPoly; opera e devolve anéis do resultado. */
 export function booleanRings(a: RingList, b: RingList, operation: BooleanOp): RingList {
   const toMulti = (rings: RingList): Multi =>
     ringsToMulti(
@@ -659,7 +657,6 @@ export function booleanRings(a: RingList, b: RingList, operation: BooleanOp): Ri
   return rings;
 }
 
-/** Atalho de teste: dois `d` SVG → `d` do resultado booleano (origem em 0,0). */
 export function booleanPathD(da: string, db: string, operation: BooleanOp): string {
   const ringsA = flattenSegments(parsePath(da));
   const ringsB = flattenSegments(parsePath(db));
@@ -675,7 +672,6 @@ export function booleanPathD(da: string, db: string, operation: BooleanOp): stri
 
 export type CombineStyleChoice = "first" | "last" | "bottom" | "top";
 
-/** Estilo explícito do resultado: `from` escolhe o nó-base (padrão: o mais ao fundo); o resto sobrescreve. */
 export interface CombineStyleSpec {
   from?: string;
   fill?: unknown;
@@ -708,12 +704,6 @@ const STYLE_OVERRIDES = ["fill", "gradient", "stroke", "opacity", "shadow", "out
 
 type Combinable = Extract<NodeT, { type: "rect" | "ellipse" | "path" | "shape" }>;
 
-/**
- * Combina nós `rect`/`ellipse`/`path`/`shape` irmãos e gera um único `path` novo. Forma simples:
- * `ids` + `operation`. Forma em lote: `operations` (passos em ordem; `as` nomeia o resultado
- * intermediário para os passos seguintes; o resultado final é o do último passo). O estilo vem do
- * nó mais ao fundo, ou do que `style` indicar. As fontes são removidas; um desfazer restaura.
- */
 export function combinePathsOps(doc: Document, spec: CombineSpec): CombinePathsPlan {
   const batch = spec.operations !== undefined;
   if (batch && (spec.ids !== undefined || spec.operation !== undefined))
@@ -724,7 +714,7 @@ export function combinePathsOps(doc: Document, spec: CombineSpec): CombinePathsP
   if (!steps.length) throw new Error("combine_paths: operations is empty");
 
   const named = new Map<string, Multi>();
-  const reals: string[] = []; // nós reais, na ordem em que aparecem
+  const reals: string[] = [];
   let parentId: string | null | undefined;
   let anchor = "";
   let result: Multi = [];

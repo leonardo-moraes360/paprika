@@ -26,7 +26,6 @@ func TestTraceImageCreatesPathsInFrame(t *testing.T) {
 		t.Fatal(err)
 	}
 	src := "data:image/png;base64," + base64.StdEncoding.EncodeToString(logoPNG(t))
-	// 200x100 into 400x400: scale 2, y offset 100
 	sc, text, isErr := traceCall(t, m, obj("src", src, "parentId", "screen", "batch", "trace"))
 	if isErr {
 		t.Fatal(text)
@@ -52,7 +51,6 @@ func TestTraceImageCreatesPathsInFrame(t *testing.T) {
 	if first.Has("d") {
 		t.Fatal("d is only returned on a dry run")
 	}
-	// the group's box is the ink of both shapes, in frame space: disc center (100,200) r 60
 	gx, gy := group.Num("x"), group.Num("y")
 	dx, dy := disc.Num("x")+gx, disc.Num("y")+gy
 	if math.Abs(dx-40) > 3 || math.Abs(dy-140) > 3 || math.Abs(disc.Num("width")-120) > 4 || math.Abs(disc.Num("height")-120) > 4 {
@@ -62,7 +60,6 @@ func TestTraceImageCreatesPathsInFrame(t *testing.T) {
 		t.Fatalf("summary: %s", text)
 	}
 
-	// one undo step (same batch)
 	if _, isErr := callText(t, m, "undo", obj()); isErr {
 		t.Fatal("undo failed")
 	}
@@ -70,7 +67,6 @@ func TestTraceImageCreatesPathsInFrame(t *testing.T) {
 		t.Fatalf("undo left %v", kids)
 	}
 
-	// group: false, with a dry run first
 	dry, text, isErr := traceCall(t, m, obj("src", src, "parentId", "screen", "dryRun", true))
 	if isErr || !dry.Bool("dryRun") || int(dry.Num("nodeCount")) != 0 || len(core.GetNode(s.Doc(), "screen").Strings("children")) != 0 {
 		t.Fatalf("dry run: %s", text)
@@ -131,14 +127,12 @@ func TestTraceImageErrors(t *testing.T) {
 			}
 		})
 	}
-	// a dry run needs no parent and answers in source pixels
 	sc, text, isErr := traceCall(t, m, obj("src", "pixel.jpg", "dryRun", true))
 	if isErr || !sc.Bool("dryRun") {
 		t.Fatalf("dry run without parent: %s", text)
 	}
 }
 
-// ringPNG is a 160x160 image: a red ring (radii 30 and 70) on white.
 func ringPNG(t *testing.T) []byte {
 	t.Helper()
 	img := image.NewNRGBA(image.Rect(0, 0, 160, 160))

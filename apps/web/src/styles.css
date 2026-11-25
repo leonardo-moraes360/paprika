@@ -1,22 +1,12 @@
-/*
- * Tailwind CSS v4, without Preflight (docs/en-US/adr/0003-tailwind-css.md): the canvas paints user documents with
- * nodeStyle's inline styles, and they must look the same as in the HTML export and the screenshot, which
- * run on the browser defaults. Components style themselves with utilities; this file only holds the theme
- * (brand "Estúdio noturno", docs/en-US/brand), the semantic aliases of the shadcn primitives
- * (docs/en-US/adr/0005-shadcn-ui.md) and the few base rules the app always had.
- */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
-/* enter/exit animations of the primitives (ADR 0005); no Preflight and no base rules in this package. */
 @import "tw-animate-css";
 
 @source "./";
 @source not "./wasm";
 
-/* static: the components also read these variables directly (SVG overlays, agent colors). */
 @theme static {
-  /* The root font size is 13px, so the scale is in px instead of rem. */
   --spacing: 4px;
 
   --color-*: initial;
@@ -28,7 +18,6 @@
   --color-fg: #eef0f7;
   --color-muted: #a6acc4;
   --color-accent: #e04a2b;
-  /* Fill behind white text (buttons, badges): #e04a2b with white is 4.05:1, this is 4.99:1 (WCAG 1.4.3 AA). */
   --color-accent-strong: #c8401f;
   --color-accent-soft: rgb(224 74 43 / 0.18);
   --color-accent-ink: #ffb4a6;
@@ -40,19 +29,11 @@
   --color-select: #4cc7d8;
   --color-select-ink: #0d1220;
   --color-label: #5d5763;
-  /* The darker brand red, used for the hover of a filled control ($accent.dark in the design document). */
   --color-accent-dark: #a93220;
-  /* Danger is its own hue, apart from the brand red: delete and remove must not look like the primary action. White on the fill is 5.13:1, on the hover 7.50:1; the ink as text is 7.01:1 on panel-2. */
   --color-danger: #cc2f50;
   --color-danger-dark: #a31d3d;
   --color-danger-ink: #ff9fb2;
 
-  /*
-   * Semantic names of the shadcn primitives (docs/en-US/adr/0005-shadcn-ui.md), namespaced `ui-` so the brand
-   * names of ADR 0003 keep their meaning: `text-muted` is a text color and shadcn's `muted` is a surface.
-   * These are aliases, not new colors — each one points at a brand token above. The only exception is the
-   * light mirror in `.ui-light` at the end of this file. Contrast numbers are in ADR 0005.
-   */
   --color-ui-background: var(--color-night);
   --color-ui-foreground: var(--color-fg);
   --color-ui-card: var(--color-panel);
@@ -72,7 +53,6 @@
   --color-ui-destructive: var(--color-danger);
   --color-ui-destructive-foreground: var(--color-white);
   --color-ui-destructive-hover: var(--color-danger-dark);
-  /* Red as text needs its own token: #cc2f50 on the night surfaces is 2.42:1 on panel-2, the ink is 7.01:1. */
   --color-ui-destructive-text: var(--color-danger-ink);
   --color-ui-border: var(--color-line);
   --color-ui-input: var(--color-line);
@@ -98,7 +78,6 @@
   --radius-xl: 12px;
 
   --breakpoint-*: initial;
-  /* Below this width the layer panel hides and the inspector moves under the canvas. */
   --breakpoint-wide: 901px;
 
   --shadow-float: 0 8px 24px rgb(0 0 0 / 0.28);
@@ -146,12 +125,6 @@
   }
 }
 
-/*
- * Scrollbars of the app chrome (panels, overview): thin, rounded thumb on a transparent track, no arrow
- * buttons. Chromium and Safari use the ::-webkit-scrollbar pseudo-elements (Chromium ignores them on an
- * element that sets scrollbar-color/scrollbar-width, so the standard properties stay Firefox-only). The
- * canvas world is left on the browser defaults, like the rest of the document rendering (ADR 0003).
- */
 @layer base {
   :root {
     --scrollbar-thumb: rgb(166 172 196 / 0.28);
@@ -201,15 +174,6 @@
   }
 }
 
-/*
- * Light mirror of the semantic tokens (docs/en-US/adr/0005-shadcn-ui.md). The app still ships one theme — the
- * night brand of ADR 0003 — and these values exist so the primitives can be drawn and checked in light as
- * well, on the board and on `/ui`, and so the "Theme modes (light/dark/compact)" row of the backlog has a
- * single place to grow from. `.ui-light` only redefines variables, so a light panel can sit next to a dark
- * one without a second stylesheet, and no selector here reaches the document under `.world`.
- * Checked for WCAG AA: #141827 on #f2f3f8 = 15.9:1; #5d6478 on #e7e9f0 = 4.86:1; #c8401f with white = 4.99:1;
- * #a8173a on #ffffff = 7.37:1, on #f2f3f8 = 6.65:1, on #e7e9f0 = 6.08:1; #cc2f50 with white = 5.13:1; the focus ring #0b7183 on #f2f3f8 = 5.12:1.
- */
 @layer base {
   .ui-light {
     color-scheme: light;
@@ -243,12 +207,6 @@
   }
 }
 
-/*
- * tw-animate-css 1.4.0 ships no reduced-motion guard, so the enter/exit animations stop here. Scoped with
- * :not(.world, .world *), exactly like the scrollbars above: a document painted on the canvas keeps the
- * browser defaults it has in the HTML export and in the screenshot (ADR 0003). The animation still runs
- * (0.01ms), so Radix, which unmounts on animationend, still closes.
- */
 @layer base {
   @media (prefers-reduced-motion: reduce) {
     :not(.world, .world *) {

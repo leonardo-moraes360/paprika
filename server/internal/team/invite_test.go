@@ -55,7 +55,6 @@ func TestJoinByInviteThenSync(t *testing.T) {
 		t.Fatalf("team on B: %+v", st.Team)
 	}
 
-	// The link was single use.
 	c := newInstance(t, "Carla")
 	ctx := t.Context()
 	if _, err := c.team.Sidecar().Call(ctx, map[string]any{"t": "join", "link": inv.Link}); err == nil || !strings.Contains(err.Error(), "already used") {
@@ -134,7 +133,6 @@ func TestRemoveMemberAndRotateKey(t *testing.T) {
 		return core.GetNode(b.store.Doc(), "card") != nil && core.GetNode(c.store.Doc(), "card") != nil
 	})
 
-	// The founder removes Bruno: his later edits reach nobody.
 	call(t, a, map[string]any{"t": "member.remove", "key": b.team.Sidecar().ID})
 	eventually(t, "B knows it left", func() bool {
 		var st struct {
@@ -147,7 +145,6 @@ func TestRemoveMemberAndRotateKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Carla rotates her key: the sidecar restarts with a new id and keeps syncing.
 	old := c.team.Sidecar().ID
 	res, err := c.team.RotateKey(t.Context())
 	if err != nil {

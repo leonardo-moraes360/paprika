@@ -1,5 +1,3 @@
-// Writes the Trio Pixel brand SVGs into docs/en-US/brand/ (and the app favicon).
-// Usage: node scripts/brand/trio-pixel-svg.mjs
 import { copyFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { THEMES, symbolLayers, wordmark } from "./trio-pixel.mjs";
@@ -10,7 +8,6 @@ const r2 = (n) => Math.round(n * 100) / 100;
 const layerSvg = (l) =>
   `<path d="${l.d}" fill="${l.fill ?? "none"}"${l.stroke ? ` stroke="${l.stroke}" stroke-width="${l.sw}" stroke-linejoin="round"` : ""}/>`;
 
-/** App icon: rounded tile (240, rx 56) with the symbol at 184px. */
 function icon(c, { selection = true } = {}) {
   const s = 184 / 100;
   return [
@@ -21,7 +18,6 @@ function icon(c, { selection = true } = {}) {
   ].join("");
 }
 
-/** Wordmark alone, in the theme's ink. */
 function wordmarkSvg(c, height = 96) {
   const wm = wordmark();
   const [vx, vy, vw, vh] = wm.viewBox;
@@ -34,13 +30,11 @@ function wordmarkSvg(c, height = 96) {
   ].join("");
 }
 
-/** Lockup: symbol (no tile) + wordmark, as in the boards (symbol 128, wordmark 96 high). */
 function lockupSvg(c) {
   const wm = wordmark();
   const [vx, vy, vw, vh] = wm.viewBox;
   const wmH = 96, wmW = (vw / vh) * wmH, k = wmH / vh;
   const symbol = 128, gapX = 6, wmY = 22;
-  // the selection frame reaches y≈104 of the 100 box: leave room for it
   const W = r2(symbol + gapX + wmW), H = r2(symbol * 1.08);
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
@@ -59,7 +53,6 @@ out("wordmark.svg", wordmarkSvg(THEMES.dark));
 out("wordmark-light.svg", wordmarkSvg(THEMES.light));
 out("lockup.svg", lockupSvg(THEMES.dark));
 out("lockup-light.svg", lockupSvg(THEMES.light));
-// Small sizes (favicon, 22px header logo): no selection frame, which turns to noise under 32px.
 out("favicon.svg", icon(THEMES.dark, { selection: false }));
 copyFileSync(`${root}docs/en-US/brand/favicon.svg`, `${root}apps/web/public/icon.svg`);
 console.log("docs/en-US/brand: icon, icon-light, wordmark, wordmark-light, lockup, lockup-light, favicon; apps/web/public/icon.svg");

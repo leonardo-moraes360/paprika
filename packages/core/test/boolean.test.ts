@@ -331,12 +331,12 @@ describe("combine_paths batch", () => {
       const { doc: out } = applyOps(doc, combinePathsOps(doc, { ids, operation: "union", style, id: "o" }).ops);
       return out.nodes["o"]! as { fill?: string; gradient?: unknown; opacity: number };
     };
-    expect(run(undefined).fill).toBe("#c43d27"); // bottom = disc (z order)
+    expect(run(undefined).fill).toBe("#c43d27");
     expect(run("bottom").fill).toBe("#c43d27");
-    expect(run("top").fill).toBe("#00ff00"); // top = clip
+    expect(run("top").fill).toBe("#00ff00");
     expect(run("top").opacity).toBe(0.5);
-    expect(run("first").fill).toBe("#00ff00"); // first of ids
-    expect(run("last").fill).toBe("#1e2336"); // last of ids = dome
+    expect(run("first").fill).toBe("#00ff00");
+    expect(run("last").fill).toBe("#1e2336");
     expect(run("last").gradient).toBeDefined();
     expect(run({ from: "dome" }).fill).toBe("#1e2336");
     expect(run({ from: "hole" }, ["disc", "dome"]).fill).toBe("#000000");

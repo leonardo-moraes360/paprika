@@ -12,16 +12,6 @@ import (
 	"testing"
 )
 
-// Real references are not in the repo. Run with
-//
-//	PAPRIKA_REAL_IMAGES=<dir with *.bin PNGs> [PAPRIKA_REAL_OUT=<dir for the variants>] \
-//	  go test -tags realimg -run TestCompareRealBackgrounds -v ./internal/vision
-//
-// Each image is compared against itself, against copies shifted by a few pixels, and against
-// versions whose background was swapped for a flat color or a linear gradient of a similar
-// average (the ink pixels are left alone). With the background modelled the ink is the same in
-// all of them, so the IoU should stay high. The variants are written to PAPRIKA_REAL_OUT (and
-// read back when they are already there, so another build can be scored on the same files).
 func TestCompareRealBackgrounds(t *testing.T) {
 	dir := os.Getenv("PAPRIKA_REAL_IMAGES")
 	if dir == "" {
@@ -60,7 +50,7 @@ func TestCompareRealBackgrounds(t *testing.T) {
 			cv := buildPlanes(src, src, float64(w), float64(h), Rect{Width: float64(w), Height: float64(h)}, compareMaxSide)
 			return cv.rp.ink
 		}
-		mask := ink() // canvas size; only used to pick the pixels to keep when generating
+		mask := ink()
 		cases := []struct {
 			tag string
 			img image.Image
@@ -117,7 +107,6 @@ func readPNG(t *testing.T, p string) image.Image {
 	return img
 }
 
-// shifted moves the picture right by dx and down by dy pixels, repeating the edge.
 func shifted(src image.Image, dx, dy int) *image.NRGBA {
 	b := src.Bounds()
 	out := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
@@ -130,9 +119,6 @@ func shifted(src image.Image, dx, dy int) *image.NRGBA {
 	return out
 }
 
-// swapBackground replaces the pixels that are not ink (mask is on the compare canvas, which has
-// the image's size when it is at most compareMaxSide px; otherwise the mask is resampled) with a
-// flat color, or a plane fitted to them (a linear gradient).
 func swapBackground(src image.Image, mask []bool, gradient bool) *image.NRGBA {
 	b := src.Bounds()
 	w, h := b.Dx(), b.Dy()
@@ -145,7 +131,6 @@ func swapBackground(src image.Image, mask []bool, gradient bool) *image.NRGBA {
 		}
 		return true
 	}
-	// least squares: channel = a + b*u + c*v over the background pixels, u,v in 0..1
 	var n, su, sv, suu, suv, svv float64
 	var sc, scu, scv [3]float64
 	for y := 0; y < h; y += 2 {
@@ -194,7 +179,6 @@ func swapBackground(src image.Image, mask []bool, gradient bool) *image.NRGBA {
 	return out
 }
 
-// solve3 solves a 3x3 system by Cramer's rule.
 func solve3(m [3][3]float64, r [3]float64) [3]float64 {
 	det := func(a [3][3]float64) float64 {
 		return a[0][0]*(a[1][1]*a[2][2]-a[1][2]*a[2][1]) - a[0][1]*(a[1][0]*a[2][2]-a[1][2]*a[2][0]) + a[0][2]*(a[1][0]*a[2][1]-a[1][1]*a[2][0])
@@ -214,7 +198,6 @@ func solve3(m [3][3]float64, r [3]float64) [3]float64 {
 	return out
 }
 
-// boxBlur blurs with a 3x3 box, n times.
 func boxBlur(src image.Image, n int) *image.NRGBA {
 	b := src.Bounds()
 	w, h := b.Dx(), b.Dy()
@@ -248,7 +231,6 @@ func boxBlur(src image.Image, n int) *image.NRGBA {
 	return cur
 }
 
-// posterize snaps every channel to steps of the given size.
 func posterize(src image.Image, step int) *image.NRGBA {
 	b := src.Bounds()
 	out := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))

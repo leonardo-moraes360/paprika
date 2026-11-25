@@ -49,7 +49,6 @@ func TestPinsLifecycleOverMCP(t *testing.T) {
 	if claimed.Str("status") != PinClaimed || claimed.Str("claimedBy") != "agent:a" {
 		t.Fatalf("claim: %s", jsonv.Stringify(claimed, ""))
 	}
-	// Claiming again is a no-op; another agent is refused, on claim and on resolve.
 	structuredOf(t, a.CallTool(ctx, "claim_pin", jsonv.NewObject("id", human.ID), true))
 	if txt, isErr := callText(t, b, "claim_pin", jsonv.NewObject("id", human.ID)); !isErr || !strings.Contains(txt, "agent:a") {
 		t.Fatalf("second claim: %v %s", isErr, txt)
@@ -85,7 +84,6 @@ func TestPinsLifecycleOverMCP(t *testing.T) {
 		t.Fatalf("resolved list: %d", len(done))
 	}
 
-	// The human reopens it; deleting hides it everywhere.
 	if p, err := s.ReopenPin(human.ID); err != nil || p.Status != PinOpen || p.ClaimedBy != "" || p.Reply == "" {
 		t.Fatalf("reopen: %+v %v", p, err)
 	}
@@ -165,7 +163,6 @@ func TestWriteResultsCarryOpenPins(t *testing.T) {
 	if !strings.Contains(callTextJoin(r), "call list_pins") {
 		t.Fatalf("hint text missing: %s", callTextJoin(r))
 	}
-	// Read tools and the pin tools stay as they were; a claimed pin no longer counts.
 	if structuredOf(t, m.CallTool(ctx, "list_pins", jsonv.NewObject(), true)).Has("openPins") {
 		t.Fatal("openPins on list_pins")
 	}
@@ -197,7 +194,6 @@ func TestWaitForPins(t *testing.T) {
 	if out.Bool("timedOut") || len(pins) != 1 || pins[0].(*jsonv.Object).Str("text") != "novo" {
 		t.Fatalf("wait: %s", jsonv.Stringify(out, ""))
 	}
-	// Past the new rev, nothing is new.
 	out = structuredOf(t, m.CallTool(ctx, "wait_for_pins", jsonv.NewObject("timeoutMs", 0.0, "since", out.Num("rev")), true))
 	if !out.Bool("timedOut") {
 		t.Fatalf("stale wait: %s", jsonv.Stringify(out, ""))

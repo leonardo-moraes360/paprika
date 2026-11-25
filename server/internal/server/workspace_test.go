@@ -55,7 +55,6 @@ func TestWorkspacesListOpenCreate(t *testing.T) {
 	if s.CanUndo() {
 		t.Fatal("the new workspace must not inherit the undo history")
 	}
-	// Writes go to the active workspace; the previous one keeps its own history.
 	createRect(t, s, "b")
 	if _, err := s.OpenWorkspace(first, "user"); err != nil {
 		t.Fatal(err)
@@ -63,8 +62,7 @@ func TestWorkspacesListOpenCreate(t *testing.T) {
 	if !s.CanUndo() || s.Doc().Obj("nodes").Has("b") || !s.Doc().Obj("nodes").Has("a") {
 		t.Fatal("switching back must restore that workspace's document and history")
 	}
-	// Opening the active one again is a no-op.
-	if _, err := s.OpenWorkspace(first, "user"); err != nil || len(events) != 3 { // open, apply b, open first
+	if _, err := s.OpenWorkspace(first, "user"); err != nil || len(events) != 3 {
 		t.Fatalf("reopen: %v, %d events", err, len(events))
 	}
 	if _, err := s.OpenWorkspace("nope", "user"); !errors.Is(err, ErrNoWorkspace) {
@@ -155,7 +153,6 @@ func TestWorkspaceCover(t *testing.T) {
 	if _, _, err := s.Cover(id); !errors.Is(err, ErrNoWorkspace) {
 		t.Fatalf("cover after clear: %v", err)
 	}
-	// Deleting the workspace drops its cover (cascade).
 	other, _ := s.CreateWorkspace("Outro", "user")
 	if _, err := s.SetCover(other.ID, png); err != nil {
 		t.Fatal(err)
@@ -191,7 +188,6 @@ func TestImportWorkspaceKeepsActive(t *testing.T) {
 	if s.DocID() != active {
 		t.Fatalf("active switched to %s", s.DocID())
 	}
-	// Same id again: a copy with a new document id, node ids kept.
 	info2, err := s.ImportWorkspace(doc(), "", "user")
 	if err != nil {
 		t.Fatal(err)
@@ -203,7 +199,6 @@ func TestImportWorkspaceKeepsActive(t *testing.T) {
 	if err != nil || !loaded.Obj("nodes").Has("a") || loaded.Str("name") != "Board EN" {
 		t.Fatalf("copy doc: %v, %+v", err, loaded)
 	}
-	// Invalid input: an actionable error, no workspace written.
 	if _, err := s.ImportWorkspace(jsonv.NewObject("format", "paprika/1"), "", "user"); err == nil || !strings.HasPrefix(err.Error(), "document:") {
 		t.Fatalf("invalid doc error: %v", err)
 	}
@@ -296,7 +291,6 @@ func TestExportFrameStandalone(t *testing.T) {
 	if tk.Has("unused") {
 		t.Fatal("an unreferenced token must not be exported")
 	}
-	// Round trip: importing the standalone file creates a workspace without switching.
 	active := s.DocID()
 	info, err := s.ImportWorkspace(mustParse(t, text), "", "user")
 	if err != nil {
@@ -346,7 +340,6 @@ func TestCreateNodesIgnoresDerivedConnectorFields(t *testing.T) {
 	if c1.Num("width") == 77.0 && c1.Num("height") == 9.0 {
 		t.Fatal("the geometry must come from the endpoints, not from the payload")
 	}
-	// apply_ops (the raw op) still refuses derived fields.
 	_, isErr = callText(t, m, "apply_ops", jsonv.NewObject("ops", []any{
 		jsonv.NewObject("op", "create", "node", jsonv.NewObject("type", "connector", "id", "c2", "d", "M0 0 L1 1")),
 	}))
@@ -355,7 +348,6 @@ func TestCreateNodesIgnoresDerivedConnectorFields(t *testing.T) {
 	}
 }
 
-// quotedAfter returns the string value written after "key": in a JSON text.
 func quotedAfter(text, key string) string {
 	i := strings.Index(text, `"`+key+`"`)
 	if i < 0 {
@@ -378,8 +370,6 @@ func quotedAfter(text, key string) string {
 	return rest[:end]
 }
 
-// PAP-B-015: an agent's delete_workspace is two calls — the first only says what would be lost — and every
-// workspace operation leaves a readable entry that outlives the workspace it names.
 func TestWorkspaceDeleteNeedsTokenAndLogsOps(t *testing.T) {
 	s, _ := openTemp(t)
 	first := s.DocID()
@@ -406,16 +396,13 @@ func TestWorkspaceDeleteNeedsTokenAndLogsOps(t *testing.T) {
 	if ws, err := s.ListWorkspaces(); err != nil || len(ws) != 2 {
 		t.Fatalf("the first call deleted something: %+v %v", ws, err)
 	}
-	// The text result is pretty-printed, so read the value between its quotes rather than assume a shape.
 	token := quotedAfter(text, "confirmToken")
 	if token == "" {
 		t.Fatalf("no token in %s", text)
 	}
-	// A token belongs to one workspace: pointing it at another is refused with an actionable message.
 	if text, isErr = callText(t, m, "delete_workspace", jsonv.NewObject("id", other.ID, "confirmToken", token)); !isErr || !strings.Contains(text, "not valid") {
 		t.Fatalf("token reused on another workspace: %s %v", text, isErr)
 	}
-	// An expired token says so, and points at the first call again.
 	s.mu.Lock()
 	grant := s.deleteGrants[token]
 	grant.expiresAt = 1
@@ -424,7 +411,6 @@ func TestWorkspaceDeleteNeedsTokenAndLogsOps(t *testing.T) {
 	if text, isErr = callText(t, m, "delete_workspace", jsonv.NewObject("id", first, "confirmToken", token)); !isErr || !strings.Contains(text, "expired") {
 		t.Fatalf("expired token: %s %v", text, isErr)
 	}
-	// Fresh token, same workspace: the delete goes through and moves the canvas to the successor.
 	issued, ttl, err := s.IssueDeleteConfirm(first)
 	if err != nil || ttl <= 0 {
 		t.Fatalf("issue: %v %d", err, ttl)
@@ -440,7 +426,6 @@ func TestWorkspaceDeleteNeedsTokenAndLogsOps(t *testing.T) {
 		t.Fatalf("the token was not single-use: %v", err)
 	}
 
-	// The log: who created, renamed, opened and deleted, newest first, with the delete summary kept.
 	text, isErr = callText(t, m, "list_workspace_ops", jsonv.NewObject("limit", 20.0))
 	if isErr {
 		t.Fatalf("list_workspace_ops: %s", text)

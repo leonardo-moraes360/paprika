@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Design boards for PAP-B-094. Talks to the local Paprika MCP. Does not call open_workspace.
 import { join } from "node:path";
 import { openDesignPage, saveShots, textOf } from "./design-board.mjs";
 

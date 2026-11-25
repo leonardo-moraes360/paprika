@@ -1,6 +1,3 @@
-/**
- * Popover. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005.
- */
 import type { ComponentProps } from "react";
 import { Popover as PopoverPrimitive } from "radix-ui";
 import { cn } from "../../lib/cn";

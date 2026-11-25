@@ -15,7 +15,6 @@ import (
 
 const cropJPEGQuality = 95
 
-// cropBox reads the optional crop argument: a rectangle in source image pixels.
 func cropBox(a *jsonv.Object) (image.Rectangle, bool) {
 	c := a.Obj("crop")
 	if c == nil {
@@ -26,9 +25,6 @@ func cropBox(a *jsonv.Object) (image.Rectangle, bool) {
 	return image.Rect(x0, y0, x1, y1), true
 }
 
-// cropRaster cuts box (source pixels, JPEG orientation applied) out of info and re-encodes it
-// before it is stored: PNG stays PNG, JPEG stays JPEG (quality 95), GIF and WebP become PNG.
-// A box partly outside the image is clamped (and says so); one fully outside is an error.
 func cropRaster(info rasterInfo, box image.Rectangle) (rasterInfo, []string, error) {
 	switch {
 	case info.mime == "image/avif":
@@ -80,7 +76,6 @@ func cropRaster(info rasterInfo, box image.Rectangle) (rasterInfo, []string, err
 	return next, warnings, nil
 }
 
-// applyCrop crops info when the call has a crop argument.
 func applyCrop(a *jsonv.Object, info rasterInfo) (rasterInfo, []string, error) {
 	box, ok := cropBox(a)
 	if !ok {

@@ -55,7 +55,6 @@ import {
 } from "./component.js";
 export { round4 } from "./num.js";
 
-/** Entrada de criação: um nó parcial, com filhos aninhados opcionais (só para frames). */
 export type NodeInput = { type: z.infer<typeof NodeType>; id?: string; children?: NodeInput[] } & Record<
   string,
   unknown
@@ -82,17 +81,11 @@ export const CreateOp = z.object({
 export const UpdateOp = z.object({
   op: z.literal("update"),
   id: z.string(),
-  /**
-   * Campos a alterar. `null` remove o campo (volta ao padrão). Objetos (layout, stroke...) são substituídos inteiros.
-   * `index` não é campo do nó: é uma diretiva de ordem Z (número a partir de 0, ou "front"/"back"/
-   * "forward"/"backward") que reordena o nó dentro do pai atual, no mesmo passo de desfazer.
-   */
   props: z.record(z.string(), z.unknown()),
 });
 
 export const DeleteOp = z.object({ op: z.literal("delete"), id: z.string() });
 
-/** Posição na pilha dentro do pai: número a partir de 0 (o fundo) ou por nome. */
 const Z_STEPS = ["front", "back", "forward", "backward"] as const;
 type ZStep = (typeof Z_STEPS)[number];
 const ZIndexSchema = z.union([z.number().int().min(0), z.enum(Z_STEPS)]);
@@ -101,11 +94,6 @@ const Z_INDEX_HINT = `props.index must be a number (0 is the back) or "front", "
 const isValidZIndex = (v: unknown): v is number | ZStep =>
   typeof v === "number" ? Number.isInteger(v) && v >= 0 : typeof v === "string" && (Z_STEPS as readonly string[]).includes(v);
 
-/**
- * Resolve a posição pedida para índice de inserção na lista do pai *sem* o nó (o `move` tira antes
- * de inserir): `undefined` = fim da fila, o topo da pilha ("front"). `forward`/`backward` partem do
- * índice atual do nó. A inversa de qualquer dessas é sempre um índice numérico.
- */
 function zStepToIndex(v: number | ZStep | undefined, fromIndex: number): number | undefined {
   if (v === undefined || v === "front") return undefined;
   if (typeof v === "number") return v;
@@ -123,19 +111,14 @@ export const MoveOp = z.object({
 
 export const SetTokensOp = z.object({
   op: z.literal("set_tokens"),
-  /** `null` remove o token. */
   tokens: z.record(TokenName, TokenValue.nullable()),
-  /** Grava os valores do modo de tema `mode` em vez dos tokens base; um modo sem tokens some. */
   mode: ModeName.optional(),
-  /** Tipo dos tokens desta chamada. `null` tira o tipo (o valor volta a ser livre). */
   type: TokenTypeName.nullable().optional(),
-  /** Coleção nomeada dos tokens desta chamada. `null` tira a coleção. */
   collection: CollectionName.nullable().optional(),
 });
 
 export const RenameDocumentOp = z.object({ op: z.literal("rename_document"), name: z.string().min(1).max(200) });
 
-/** Agrupa nós irmãos num `group` novo (expandida em create + move no momento da aplicação). */
 export const GroupOp = z.object({
   op: z.literal("group"),
   ids: z.array(z.string()).min(1).max(500),
@@ -143,10 +126,8 @@ export const GroupOp = z.object({
   name: z.string().max(200).optional(),
 });
 
-/** Desfaz groups (expandida em move + update + delete no momento da aplicação). */
 export const UngroupOp = z.object({ op: z.literal("ungroup"), ids: z.array(z.string()).min(1).max(500) });
 
-/** Cria uma página; a primeira leva o conteúdo atual para o nome padrão (`firstId`/`firstName`). */
 export const AddPageOp = z.object({
   op: z.literal("add_page"),
   id: z.string().optional(),
@@ -155,33 +136,28 @@ export const AddPageOp = z.object({
   firstName: z.string().max(200).optional(),
 });
 
-/** Desanexa instâncias: viram frames comuns com cópias normais (expandida em updates). */
 export const DetachOp = z.object({ op: z.literal("detach"), ids: z.array(z.string()).min(1).max(500) });
 
 const TokenField = z.string().regex(/^[a-zA-Z][a-zA-Z.]{0,39}$/, "field must be a token field name");
 
-/** Troca referências `$token` de um nó pelo valor resolvido. */
 export const DetachTokensOp = z.object({
   op: z.literal("detach_tokens"),
   ids: z.array(z.string()).min(1).max(500),
   fields: z.array(TokenField).max(20).optional(),
 });
 
-/** Alinha irmãos pela caixa da seleção (um passo de desfazer). */
 export const AlignOp = z.object({
   op: z.literal("align"),
   ids: z.array(z.string()).min(2).max(500),
   edge: z.enum(["left", "center", "right", "top", "middle", "bottom"]),
 });
 
-/** Distribui irmãos com o mesmo vão (um passo de desfazer). */
 export const DistributeOp = z.object({
   op: z.literal("distribute"),
   ids: z.array(z.string()).min(3).max(500),
   axis: z.enum(["horizontal", "vertical"]),
 });
 
-/** Envolve irmãos num frame novo (um passo de desfazer). */
 export const WrapOp = z.object({
   op: z.literal("wrap"),
   ids: z.array(z.string()).min(1).max(500),
@@ -189,7 +165,6 @@ export const WrapOp = z.object({
   name: z.string().max(200).optional(),
 });
 
-/** Mostra tudo o que está oculto, ou destrava tudo, na página ou no documento. */
 export const RevealOp = z.object({
   op: z.literal("reveal"),
   kind: z.enum(["hidden", "locked"]),
@@ -198,14 +173,12 @@ export const RevealOp = z.object({
 
 const BooleanOperation = z.enum(["union", "subtract", "intersect", "exclude"]);
 
-/** Um passo de `combine_paths` em lote: `as` nomeia o resultado para os passos seguintes. */
 const CombineStepSchema = z.object({
   op: BooleanOperation,
   ids: z.array(z.string()).min(2).max(500),
   as: z.string().min(1).max(100).optional(),
 });
 
-/** Estilo do resultado: de qual nó copiar ("first"|"last"|"bottom"|"top"|{from}) e o que sobrescrever. */
 const CombineStyleSchema = z.union([
   z.enum(["first", "last", "bottom", "top"]),
   z.object({
@@ -221,7 +194,6 @@ const CombineStyleSchema = z.union([
   }),
 ]);
 
-/** Combina path/rect/ellipse/shape numa path via união, subtração, interseção ou exclusão. */
 export const CombinePathsOp = z.object({
   op: z.literal("combine_paths"),
   ids: z.array(z.string()).min(2).max(500).optional(),
@@ -242,7 +214,6 @@ export const SetAssetsOp = z.object({
   assets: z.record(AssetName, AssetSrc.nullable()),
 });
 
-/** Operação interna usada como inversa de `delete` (desfazer). */
 export const RestoreOp = z.object({
   op: z.literal("restore"),
   nodes: z.array(Node),
@@ -288,9 +259,7 @@ export class OpError extends Error {
 
 export interface ApplyResult {
   doc: DocumentT;
-  /** Operações que desfazem esta transação, já na ordem de aplicação. */
   inverse: Op[];
-  /** Ids criados, na ordem (raízes e filhos aninhados). */
   created: string[];
 }
 
@@ -326,10 +295,6 @@ function subtree(doc: DocumentT, id: string): NodeT[] {
 
 const PAGE_AT_ROOT = "a page can only be at the canvas level (parentId null)";
 
-/**
- * Página só no topo. Que o topo de um documento com páginas só tenha páginas é checado no fim da
- * transação (checkPages), porque no meio dela pode haver estados mistos (ex.: desfazer add_page).
- */
 function checkPlacement(type: string, parentId: string | null, i: number) {
   if (type === "page" && parentId !== null) throw new OpError(PAGE_AT_ROOT, i);
 }
@@ -368,7 +333,6 @@ function updatePlain(doc: DocumentT, node: NodeT, props: Record<string, unknown>
   return { op: "update", id: node.id, props: prev };
 }
 
-/** `update` numa cópia (ou no fill da raiz de uma instância): grava em `overrides` da instância. */
 function updateOverride(doc: DocumentT, inst: FrameNode, node: NodeT, srcId: string, props: Record<string, unknown>, i: number): Op {
   const leaf = srcId.includes("/") ? srcId.slice(srcId.lastIndexOf("/") + 1) : srcId;
   const src = doc.nodes[leaf];
@@ -410,7 +374,6 @@ function createNode(
   let doNormalize = false;
   if ("normalize" in rest) {
     if (input.type !== "path") {
-      /* leave it: knownKeys rejects unknown fields */
     } else if (rest.normalize !== true && rest.normalize !== false) {
       throw new OpError(`normalize must be true or false`, i);
     } else {
@@ -436,7 +399,6 @@ function createNode(
   const list = container(doc, parentId, i);
   checkPlacement(input.type, parentId, i);
   const props: Record<string, unknown> = { ...rest };
-  // normalize: true move o desenho para (0,0) e soma o deslocamento a x/y (fb#15).
   if (input.type === "path" && doNormalize && typeof props.d === "string") {
     try {
       const n = shiftPathToOrigin(parsePath(props.d));
@@ -446,10 +408,8 @@ function createNode(
         props.y = (typeof props.y === "number" ? props.y : 0) + n.origin.y;
       }
     } catch {
-      /* o erro de `d` sai da validação abaixo */
     }
   }
-  // Sem width/height, um path ganha a caixa do próprio desenho (ou do viewBox): o agente só escreve `d`.
   if (input.type === "path" && typeof props.d === "string" && (props.width === undefined || props.height === undefined)) {
     const vb = Array.isArray(props.viewBox) ? (props.viewBox as number[]) : null;
     let w: number, h: number;
@@ -459,19 +419,16 @@ function createNode(
         const b = pathBounds(parsePath(props.d));
         [w, h] = [b.x + b.width, b.y + b.height];
       } catch {
-        [w, h] = [100, 100]; // o erro de `d` sai da validação abaixo, com a posição
+        [w, h] = [100, 100];
       }
     }
     props.width ??= Math.max(1, Math.ceil(w));
     props.height ??= Math.max(1, Math.ceil(h));
   }
-  // Sem width/height, um texto novo abraça o conteúdo (hug): o padrão 100×100 de Base virava um
-  // quadrado em cada rótulo de row/column. Com só width, a altura segue as linhas.
   if (input.type === "text") {
     props.width ??= "hug";
     props.height ??= "hug";
   }
-  // Campos ausentes de uma forma nova ganham o padrão do tipo (a nota adesiva: amarela, sem borda, com sombra).
   if (input.type === "shape") {
     const kind = typeof props.shape === "string" ? props.shape : "rect";
     if (kind === "rect" || kind === "ellipse" || kind === "diamond" || kind === "triangle" || kind === "cylinder" || kind === "parallelogram" || kind === "cloud" || kind === "note") {
@@ -487,10 +444,6 @@ function createNode(
   return id;
 }
 
-/**
- * A CSS gradient or url() in a color field of an op input paints black on some nodes: refuse it with
- * the structured `gradient` field as the way out. Only op input is checked, so stored documents still load.
- */
 function gradientColorProblem(input: unknown, path: string[] = []): string | undefined {
   if (Array.isArray(input)) {
     for (let k = 0; k < input.length; k++) {
@@ -529,7 +482,6 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
     case "update": {
       const node = doc.nodes[op.id];
       if (!node) throw new OpError(`node "${op.id}" does not exist`, i);
-      // `index` nos props é a diretiva de ordem Z: reordena no pai atual antes de aplicar os campos.
       let props = op.props;
       const reorder: Op[] = [];
       if ("index" in props) {
@@ -557,7 +509,6 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       const derived = Object.keys(props).filter((k) => isRootDerived(k) && k !== "fill");
       if (derived.length)
         throw new OpError(`${derived.join(", ")} of "${op.id}" come from the component "${node.instanceOf}"; edit the component, change scale or detach it`, i);
-      // O fill da raiz vira override, aplicado depois do resto (que pode trocar o componente).
       const { fill, ...rest } = props;
       const inverse: Op[] = [];
       if (Object.keys(rest).length) inverse.push(updatePlain(doc, node, rest, i));
@@ -572,7 +523,6 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       if (!node) throw new OpError(`node "${op.id}" does not exist`, i);
       const owner = copyOwner(doc, node);
       if (owner) throw new OpError(`${copyRule(op.id, owner.id)}; to hide it, use visible: false`, i);
-      // Conectores presos ao que sai vão junto (as cópias em instâncias somem na sincronização).
       const attached = connectorsAttachedTo(doc, new Set(subtree(doc, op.id).map((n) => n.id))).filter((id) => !copyOwner(doc, doc.nodes[id]!));
       if (attached.length) {
         const inverse: Op[] = [];
@@ -618,8 +568,6 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       return [{ op: "move", id: op.id, parentId: oldParent, index: fromIndex }];
     }
     case "set_tokens": {
-      // TokenName and ModeName already reject "__proto__"; these checks keep internal callers from
-      // ever writing a prototype key into the plain objects of the document.
       if (op.mode === "__proto__") throw new Error("mode name cannot be __proto__");
       const prev: Record<string, string | number | null> = {};
       const prevMeta: Record<string, NonNullable<DocumentT["tokenMeta"]>[string] | undefined> = {};
@@ -706,7 +654,6 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
     case "wrap":
     case "reveal":
     case "convert_to_path": {
-      // Expandidas contra o documento *atual* (não o que o cliente via), dentro da mesma transação.
       let plan: Op[];
       try {
         plan =
@@ -853,11 +800,6 @@ function detachScalar(doc: DocumentT, id: string, field: string, value: unknown,
   return { value: resolved, changed: true };
 }
 
-/**
- * What detach_tokens writes on a node and what it leaves alone. A plain node (or one inside a
- * component definition) detaches everything. An instance or a copy only owns its overrides: the
- * fields that come from the component are skipped (reported, not an error).
- */
 function detachTokenPlan(
   doc: DocumentT,
   node: NodeT,
@@ -887,7 +829,6 @@ function detachTokenPlan(
   return { ...(Object.keys(props).length ? { props } : {}), skipped };
 }
 
-/** The fields detach_tokens would leave alone on each node (derived from a component), by id. */
 export function detachTokensSkipped(doc: DocumentT, ids: readonly string[], fields?: readonly string[]): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const id of ids) {
@@ -1075,10 +1016,6 @@ function detachTokenProps(doc: DocumentT, node: NodeT, fields: readonly string[]
   return Object.keys(props).length ? props : undefined;
 }
 
-/**
- * Aplica uma transação de operações de forma atômica: ou todas são aplicadas, ou nenhuma
- * (o documento de entrada nunca é mutado). Retorna o novo documento e as operações inversas.
- */
 export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
   const draft = structuredClone(doc);
   const inverse: Op[] = [];
@@ -1089,7 +1026,6 @@ export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
     if (!parsed.success) throw new OpError(`invalid operation: ${formatZod(parsed.error)}`, i);
     const op = parsed.data;
     if (op.op === "delete") {
-      // Um conector que já saiu junto com a forma (ex.: delete_nodes com a forma e a seta) não é erro.
       if (!draft.nodes[op.id] && doc.nodes[op.id]?.type === "connector" && !deleted.has(op.id)) return void deleted.add(op.id);
       deleted.add(op.id);
     }
@@ -1106,9 +1042,7 @@ export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
       if (e instanceof InstanceError) throw new OpError(e.message, last);
       throw e;
     }
-    // Um group que contém instâncias só sabe o tamanho delas depois da sincronização.
     inverse.unshift(...fitGroups(draft));
-    // Conectores seguem as pontas: geometria derivada, sem inversa (o desfazer recalcula).
     const lengthErr = lengthTokenError(draft);
     if (lengthErr) throw new OpError(lengthErr, last);
     const webErr = webSemanticsError(draft);
@@ -1123,12 +1057,10 @@ export function applyOps(doc: DocumentT, ops: readonly Op[]): ApplyResult {
   return { doc: draft, inverse, created };
 }
 
-/** Cria um documento vazio válido. */
 export function createDocument(name = defaultUntitledName(), id = newId()): DocumentT {
   return Document.parse({ format: "paprika/1", id, name });
 }
 
-/** Valida e normaliza um documento lido do disco (preenche defaults; checa integridade da árvore). */
 export function parseDocument(input: unknown): DocumentT {
   const doc = Document.parse(input);
   const seen = new Set<string>();
@@ -1169,7 +1101,6 @@ function webSemanticsError(doc: DocumentT): string | null {
   return null;
 }
 
-/** Num documento com páginas, o nível superior só tem páginas (checado no fim da transação). */
 function checkPages(doc: DocumentT, i: number) {
   if (!doc.rootIds.some((id) => doc.nodes[id]?.type === "page")) return;
   const loose = doc.rootIds.filter((id) => doc.nodes[id]?.type !== "page");
@@ -1183,11 +1114,6 @@ function checkPages(doc: DocumentT, i: number) {
 
 const EPS = 1e-3;
 
-/**
- * Ajusta a caixa de cada group aos filhos (do mais fundo para o mais raso), mantendo o desenho
- * parado: os filhos são deslocados e o grupo muda de origem. width/height do grupo são sempre
- * derivados dos filhos, então a inversa só precisa das posições. Retorna as operações inversas.
- */
 function fitGroups(doc: DocumentT): Op[] {
   const inverse: Op[] = [];
   const visit = (id: string) => {
@@ -1201,7 +1127,6 @@ function fitGroups(doc: DocumentT): Op[] {
 }
 
 function fitGroup(doc: DocumentT, g: GroupNode, inverse: Op[]) {
-  // Conectores não contam: a caixa deles é derivada das pontas (e recalculada depois).
   const kids = g.children.map((c) => doc.nodes[c]).filter(isScene).filter((k) => k.type !== "connector");
   if (!kids.length) return;
   let minX = Infinity,

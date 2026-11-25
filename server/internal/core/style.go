@@ -11,13 +11,8 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/style.ts. The TypeScript nodeStyle stays the single reference
-// (the canvas uses it); this port is locked to it by the golden fixtures.
-
-// CSS is an ordered camelCase style object (values are string or float64).
 type CSS = jsonv.Object
 
-// StrokeStyleOf returns solid|dashed|dotted (default solid).
 func StrokeStyleOf(stroke *jsonv.Object) string {
 	if stroke == nil {
 		return "solid"
@@ -28,7 +23,6 @@ func StrokeStyleOf(stroke *jsonv.Object) string {
 	return "solid"
 }
 
-// StrokePositionOf returns inside|center|outside. Paths default to center; boxes to inside.
 func StrokePositionOf(node *Node) string {
 	if st := node.Obj("stroke"); st != nil {
 		if p := st.Str("position"); p != "" {
@@ -41,7 +35,6 @@ func StrokePositionOf(node *Node) string {
 	return "inside"
 }
 
-// StrokeDasharray is the dash pattern derived from width (same scale as connector dashes).
 func strokeDashValue(doc *Document, raw any, vars bool, width float64, style string) string {
 	if ref, ok := lengthVar(doc, raw, vars); ok {
 		switch style {
@@ -67,7 +60,6 @@ func StrokeDasharray(width float64, style string) string {
 	}
 }
 
-// ModeOf is the theme mode in effect for a node: its own or the nearest frame/page ancestor's.
 func ModeOf(doc *Document, node *Node) string {
 	for n, depth := node, 0; n != nil && depth < 1000; n, depth = parentOf(doc, n), depth+1 {
 		if t := n.Str("type"); (t == "frame" || t == "page") && n.Str("mode") != "" {
@@ -77,7 +69,6 @@ func ModeOf(doc *Document, node *Node) string {
 	return ""
 }
 
-// TokenValue is a token's value in the mode (when the mode defines it) or its base value.
 func TokenValue(doc *Document, name, mode string) (any, bool) {
 	if mode != "" {
 		if modes := Modes(doc); modes != nil {
@@ -91,8 +82,6 @@ func TokenValue(doc *Document, name, mode string) (any, bool) {
 	return Tokens(doc).Get(name)
 }
 
-// ResolveValue resolves `$token` against doc.tokens, or doc.modes[mode] first when a mode is
-// given (tokens may chain, up to 8 levels).
 func ResolveValue(doc *Document, v any, mode string) any {
 	cur := v
 	for range 8 {
@@ -109,7 +98,6 @@ func ResolveValue(doc *Document, v any, mode string) any {
 	return cur
 }
 
-// CSSVarName is the CSS custom property of a token (`brand.dark` → `--brand\.dark`).
 func CSSVarName(token string) string {
 	return "--" + strings.NewReplacer(`\`, `\\`, ".", `\.`).Replace(token)
 }
@@ -128,7 +116,6 @@ func isKnownToken(doc *Document, name string) bool {
 	return false
 }
 
-// ResolveLength resolves a length literal or a numeric `$token`. ok is false when it is missing or not a number.
 func ResolveLength(doc *Document, v any, mode string) (float64, bool) {
 	switch t := v.(type) {
 	case float64:
@@ -186,7 +173,6 @@ func strokeWidthAttr(doc *Document, v any, vars bool, resolved float64) any {
 	return resolved
 }
 
-// paintValue resolves a paint value in the node's mode, or gives `var(--token)` when vars.
 func paintValue(doc *Document, v any, mode string, vars bool) any {
 	if s, ok := v.(string); vars && ok && strings.HasPrefix(s, "$") && isKnownToken(doc, s[1:]) {
 		return "var(" + CSSVarName(s[1:]) + ")"
@@ -194,7 +180,6 @@ func paintValue(doc *Document, v any, mode string, vars bool) any {
 	return ResolveValue(doc, v, mode)
 }
 
-// cssVarValue escapes what would end the value or the rule (`;`, `{`, `}`, `<`…).
 func cssVarValue(v string) string {
 	var b strings.Builder
 	for _, c := range v {
@@ -238,7 +223,6 @@ func tokenDecls(doc *Document, tokens *jsonv.Object) string {
 	return strings.Join(parts, ";")
 }
 
-// TokenStylesheet is the tokens as CSS variables: base values on :root and one rule per mode.
 func TokenStylesheet(doc *Document) string {
 	var out strings.Builder
 	out.WriteString(":root{" + tokenDecls(doc, Tokens(doc)) + "}")
@@ -250,7 +234,6 @@ func TokenStylesheet(doc *Document) string {
 	return out.String()
 }
 
-// jsString is String(v) for JSON scalars.
 func jsString(v any) string {
 	switch t := v.(type) {
 	case nil:
@@ -371,7 +354,6 @@ var (
 	alignMap   = map[string]string{"start": "flex-start", "center": "center", "end": "flex-end", "stretch": "stretch"}
 )
 
-// parentOf returns the node's parent (nil at top level; an empty parentId counts as none, like JavaScript truthiness).
 func parentOf(doc *Document, n *Node) *Node {
 	pid, ok := ParentID(n)
 	if !ok || pid == "" {
@@ -380,15 +362,13 @@ func parentOf(doc *Document, n *Node) *Node {
 	return GetNode(doc, pid)
 }
 
-// NodeStyle is the CSS of a node.
 func NodeStyle(doc *Document, node *Node, asRoot bool) *CSS {
 	return NodeStyleVars(doc, node, asRoot, false)
 }
 
-// NodeStyleVars is NodeStyle with tokens as CSS variables when vars.
 func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	if node.Str("type") == "page" {
-		return jsonv.NewObject() // pages are not drawn: their children use canvas coordinates
+		return jsonv.NewObject()
 	}
 	themeMode := ModeOf(doc, node)
 	paint := func(v any) any { return paintValue(doc, v, themeMode, vars) }
@@ -401,8 +381,6 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	}
 	absoluteChild := parentMode != "" && !asRoot && node.Str("layoutPositioning") == "absolute"
 	css := jsonv.NewObject("boxSizing", "border-box")
-	// Connectors never join the auto layout flow: their geometry comes from their ends.
-	// A root sized "hug"/"fill" has no known box: it stays in the flow so the exported <body> takes its height.
 	autoRoot := false
 	if asRoot && node.Str("type") != "connector" {
 		rw, _ := node.Get("width")
@@ -432,7 +410,6 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	sizeProps(css, "height", h, mode)
 
 	if node.Str("type") == "group" {
-		// A group only groups: no paint, no clipping.
 		if o := node.Num("opacity"); o != 1 {
 			css.Set("opacity", o)
 		}
@@ -442,7 +419,6 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		return css
 	}
 	if node.Str("type") == "connector" {
-		// The stroke goes on the <path> (see ConnectorAttrs); the arrowheads may leave the box.
 		if o := node.Num("opacity"); o != 1 {
 			css.Set("opacity", o)
 		}
@@ -479,7 +455,6 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 		return css
 	}
 	if typ == "shape" {
-		// The outline (fill/stroke) is an <svg> behind the text (see ShapeAttrs); here, box and text.
 		if visible {
 			css.Set("display", "flex")
 		} else {
@@ -574,7 +549,6 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	return css
 }
 
-// textCSS: typography of text and shape nodes (same property order in both).
 func shadowNodes(n *Node) []*jsonv.Object {
 	if n == nil {
 		return nil
@@ -737,7 +711,6 @@ func textCSS(css *CSS, doc *Document, node *Node, mode string, vars bool, paint 
 	css.Set("overflowWrap", "anywhere")
 }
 
-// TextRunCSS is the extra style a run paints on top of the node. Order matches the TS object.
 func TextRunCSS(doc *Document, node *Node, run *jsonv.Object, vars bool) *CSS {
 	css := jsonv.NewObject()
 	mode := ModeOf(doc, node)
@@ -759,14 +732,12 @@ func TextRunCSS(doc *Document, node *Node, run *jsonv.Object, vars bool) *CSS {
 	return css
 }
 
-// ShapeSVGCSS and ShapeTextCSS style a shape's outline <svg> and its text block.
 func ShapeSVGCSS() *CSS {
 	return jsonv.NewObject("position", "absolute", "left", 0.0, "top", 0.0, "overflow", "visible")
 }
 
 func ShapeTextCSS() *CSS { return jsonv.NewObject("position", "relative", "width", "100%") }
 
-// ShapeAttrs: the outline <svg> size, the outline <path> and, on a sticky note, the fold.
 func ShapeAttrs(doc *Document, node *Node, vars bool) (svg, path, fold []Attr, inner string) {
 	themeMode := ModeOf(doc, node)
 	d, f := ShapeOutline(lengthsResolved(doc, node))
@@ -794,7 +765,6 @@ func ShapeAttrs(doc *Document, node *Node, vars bool) (svg, path, fold []Attr, i
 	return svg, path, fold, inner
 }
 
-// ConnectorAttrs: the <path> of a connector (line and arrowheads, no fill).
 func ConnectorAttrs(doc *Document, node *Node, vars bool) []Attr {
 	st := node.Obj("stroke")
 	mode := ModeOf(doc, node)
@@ -818,8 +788,6 @@ func ConnectorAttrs(doc *Document, node *Node, vars bool) []Attr {
 
 var connectorPoint = regexp.MustCompile(`[ML](-?[\d.]+)[ ,](-?[\d.]+)`)
 
-// ConnectorMidpoint is the point halfway (by length) along a connector's line: the first subpath of
-// d (the arrowheads come after it). ok is false when d has no points.
 func ConnectorMidpoint(d string) (x, y float64, ok bool) {
 	line, _, _ := strings.Cut(d, " M")
 	var pts [][2]float64
@@ -853,7 +821,6 @@ func ConnectorMidpoint(d string) (x, y float64, ok bool) {
 
 var connectorHaloSkip = regexp.MustCompile(`(?i)gradient|url\(`)
 
-// connectorHalo is the background behind a connector: the nearest ancestor's fill (no gradient), or white.
 func connectorHalo(doc *Document, node *Node, vars bool) string {
 	cur := parentOf(doc, node)
 	for cur != nil {
@@ -871,8 +838,6 @@ func connectorHalo(doc *Document, node *Node, vars bool) string {
 	return "#ffffff"
 }
 
-// ConnectorLabelAttrs returns the attributes of a connector's label <text> (nil without a label):
-// halfway along the route, in the stroke color, with a halo of the background color.
 func ConnectorLabelAttrs(doc *Document, node *Node, vars bool) []Attr {
 	if node.Str("label") == "" {
 		return nil
@@ -896,18 +861,15 @@ func ConnectorLabelAttrs(doc *Document, node *Node, vars bool) []Attr {
 	}
 }
 
-// Attr is one SVG attribute (value string or float64).
 type Attr struct {
 	Key   string
 	Value any
 }
 
-// PathAttrs returns the attributes of the <svg> and <path> of a path node.
 func PathAttrs(doc *Document, node *Node) (svg, path []Attr, inner string) {
 	return PathAttrsVars(doc, node, false)
 }
 
-// PathAttrsVars is PathAttrs with tokens as CSS variables when vars.
 func PathAttrsVars(doc *Document, node *Node, vars bool) (svg, path []Attr, inner string) {
 	themeMode := ModeOf(doc, node)
 	if vb := node.Arr("viewBox"); node.Has("viewBox") {
@@ -972,7 +934,6 @@ func kebab(k string) string {
 	return upperRe.ReplaceAllStringFunc(k, func(m string) string { return "-" + strings.ToLower(m) })
 }
 
-// CSSToString serializes a camelCase CSS object as an inline declaration.
 func CSSToString(css *CSS) string {
 	parts := make([]string, 0, css.Len())
 	for _, k := range css.Keys() {
@@ -1062,7 +1023,6 @@ var (
 	sansNameRe  = regexp.MustCompile(`(?i)sans`)
 )
 
-// splitFamilies splits a CSS font-family list on top-level commas (quotes and parentheses respected).
 func splitFamilies(list string) []string {
 	var out []string
 	depth := 0
@@ -1095,7 +1055,6 @@ func splitFamilies(list string) []string {
 	return out
 }
 
-// WithGenericFamily appends a generic family when the list has none (port of withGenericFamily).
 func WithGenericFamily(list string) string {
 	parts := splitFamilies(list)
 	var names []string
@@ -1126,7 +1085,6 @@ func fontFamilyCSS(doc *Document, v any, mode string, vars bool) string {
 		kind := TokenTypeOf(doc, s[1:])
 		raw, _ := TokenValue(doc, s[1:], mode)
 		if kind == "fontFamily" || (kind == "" && isString(raw)) {
-			// The generic is judged on the token's value (for the current mode), so a token that already ends in one stays a bare var().
 			resolved := ResolvedFontFamily(doc, v, mode)
 			return "var(" + CSSVarName(s[1:]) + ")" + WithGenericFamily(resolved)[len(resolved):]
 		}

@@ -367,9 +367,6 @@ func applyDetachTokens(doc *Document, op *jsonv.Object, i int, created *[]string
 	return inverse, nil
 }
 
-// detachTokenPlan is what detach_tokens writes on a node and what it leaves alone. A plain node (or
-// one inside a component definition) detaches everything. An instance or a copy only owns its
-// overrides: the fields that come from the component are skipped (reported, not an error).
 func detachTokenPlan(doc *Document, node *Node, fields map[string]bool, opIndex int) (*jsonv.Object, []string, error) {
 	all, err := detachTokenProps(doc, node, fields, opIndex)
 	if err != nil {
@@ -403,8 +400,6 @@ func detachTokenPlan(doc *Document, node *Node, fields map[string]bool, opIndex 
 	return props, skipped, nil
 }
 
-// DetachTokensSkipped lists, by node id, the fields detach_tokens leaves alone because they come
-// from a component (an instance or a copy only owns its overrides).
 func DetachTokensSkipped(doc *Document, ids []string, fields []string) map[string][]string {
 	var picked map[string]bool
 	if len(fields) > 0 {

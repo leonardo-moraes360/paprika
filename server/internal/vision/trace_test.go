@@ -10,7 +10,6 @@ import (
 	"testing"
 )
 
-// shapeImage paints fg wherever in(x+.5, y+.5) holds on a white w x h canvas.
 func shapeImage(w, h int, fg color.NRGBA, in func(x, y float64) bool) *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
 	for y := range h {
@@ -27,7 +26,6 @@ func shapeImage(w, h int, fg color.NRGBA, in func(x, y float64) bool) *image.NRG
 
 var tokRe = regexp.MustCompile(`[MLCZ]|-?\d*\.?\d+(?:e-?\d+)?`)
 
-// flatten parses a traced d (M L C Z only) into polygons, sampling the cubics.
 func flatten(t *testing.T, d string) [][]pt {
 	t.Helper()
 	toks := tokRe.FindAllString(d, -1)
@@ -70,7 +68,6 @@ func flatten(t *testing.T, d string) [][]pt {
 	return rings
 }
 
-// covers is the even-odd test of a point against all rings.
 func covers(rings [][]pt, x, y float64) bool {
 	in := false
 	for _, r := range rings {
@@ -199,7 +196,7 @@ func TestTraceStarKeepsPoints(t *testing.T) {
 
 func TestTraceDropsNoiseAndHonoursOptions(t *testing.T) {
 	disc := func(x, y float64) bool {
-		return math.Hypot(x-100, y-100) <= 60 || (x >= 5 && x < 8 && y >= 5 && y < 8) // a 3x3 speck
+		return math.Hypot(x-100, y-100) <= 60 || (x >= 5 && x < 8 && y >= 5 && y < 8)
 	}
 	img := shapeImage(200, 200, red, disc)
 	r := traceOf(t, img, TraceOptions{})
@@ -247,7 +244,6 @@ func TestTraceNestedOrderAndFrame(t *testing.T) {
 			img.SetNRGBA(x, y, c)
 		}
 	}
-	// 200x100 fitted in 800x800: scale 4, y offset 200
 	r := traceOf(t, img, TraceOptions{Scale: 4, OffsetY: 200})
 	if len(r.Paths) != 2 || r.Paths[0].Color != "#dc1e28" || r.Paths[1].Color != "#1428a0" {
 		t.Fatalf("order: %+v", r.Paths)

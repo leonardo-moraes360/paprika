@@ -34,7 +34,7 @@ func TestGridValuesAndPixels(t *testing.T) {
 	if got := gridValues(0, 200, 50); len(got) != 4 || got[0] != 0 || got[3] != 150 {
 		t.Fatalf("0..200 step 50 = %v", got)
 	}
-	got := gridValues(120, 100, 50) // region starting off-grid
+	got := gridValues(120, 100, 50)
 	if len(got) != 2 || got[0] != 150 || got[1] != 200 {
 		t.Fatalf("120..220 step 50 = %v", got)
 	}
@@ -60,7 +60,6 @@ func TestCropRect(t *testing.T) {
 	if used != (Region{100, 50, 80, 40}) {
 		t.Fatalf("used = %v", used)
 	}
-	// clamped to the frame
 	rect, used, err = cropRect(Region{X: -20, Y: 150, W: 100, H: 100}, 400, 200, 1)
 	if err != nil || rect != image.Rect(0, 150, 80, 200) || used != (Region{0, 150, 80, 50}) {
 		t.Fatalf("clamped: %v %v %v", rect, used, err)
@@ -93,8 +92,7 @@ func TestParseGridArg(t *testing.T) {
 }
 
 func TestAnnotateShotGridAndRegion(t *testing.T) {
-	src := solidPNG(t, 800, 400, color.NRGBA{R: 255, G: 255, B: 255, A: 255}) // 400×200 frame at scale 2
-	// grid only: same size, a line pixel at x=100 (frame 50) differs from white
+	src := solidPNG(t, 800, 400, color.NRGBA{R: 255, G: 255, B: 255, A: 255})
 	out, w, h, step, region, err := annotateShot(src, 400, 200, 2, nil, &GridSpec{Labels: true, Color: defaultGridColor})
 	if err != nil {
 		t.Fatal(err)
@@ -112,12 +110,10 @@ func TestAnnotateShotGridAndRegion(t *testing.T) {
 	if c := color.NRGBAModel.Convert(img.At(130, 330)).(color.NRGBA); c != (color.NRGBA{255, 255, 255, 255}) {
 		t.Fatalf("pixel between lines changed: %v", c)
 	}
-	// the top ruler band is darkened
 	if c := color.NRGBAModel.Convert(img.At(40, 4)).(color.NRGBA); c.R > 100 {
 		t.Fatalf("ruler band not dark: %v", c)
 	}
 
-	// region + grid: crop 100..180 × 50..90 at scale 2 -> 160×80, step chosen on the region
 	out, w, h, step, region, err = annotateShot(src, 400, 200, 2, &Region{100, 50, 80, 40}, &GridSpec{Labels: true, Color: defaultGridColor})
 	if err != nil {
 		t.Fatal(err)
@@ -129,12 +125,10 @@ func TestAnnotateShotGridAndRegion(t *testing.T) {
 	if img.Bounds().Dx() != 160 || img.Bounds().Dy() != 80 {
 		t.Fatalf("decoded %v", img.Bounds())
 	}
-	// frame x=105 is the first line after the region start (100): pixel (105-100)*2 = 10
 	if c := color.NRGBAModel.Convert(img.At(10, 70)).(color.NRGBA); c == (color.NRGBA{255, 255, 255, 255}) {
 		t.Fatal("no line at frame x=105 inside the crop")
 	}
 
-	// region without grid: just the crop, no overlay
 	out, w, h, step, _, err = annotateShot(src, 400, 200, 2, &Region{0, 0, 10, 10}, nil)
 	if err != nil || w != 20 || h != 20 || step != 0 {
 		t.Fatalf("crop only: %d×%d step %v %v", w, h, step, err)
@@ -145,7 +139,6 @@ func TestAnnotateShotGridAndRegion(t *testing.T) {
 	}
 }
 
-// scaledShot answers with a white PNG sized frame×scale, like Chromium does for a frame.
 type scaledShot struct{ fw, fh float64 }
 
 func (s scaledShot) ScreenshotMode(_ context.Context, _ *core.Document, _ string, scale float64, _ string) ([]byte, int, int, error) {
@@ -201,7 +194,6 @@ func TestRenderScreenshotGridRegion(t *testing.T) {
 	if txt := res.Arr("content")[1].(*jsonv.Object).Str("text"); !strings.Contains(txt, "grid step 5") || !strings.Contains(txt, "region x=100 y=50 80×40") {
 		t.Fatalf("text: %q", txt)
 	}
-	// default output is untouched: no grid/region keys
 	res = m.CallTool(context.Background(), "render_screenshot", obj("rootId", "f"), true)
 	if w, h := size(res); w != 400 || h != 200 {
 		t.Fatalf("default size %d×%d", w, h)

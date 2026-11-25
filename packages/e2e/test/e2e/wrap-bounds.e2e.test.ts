@@ -6,7 +6,6 @@ import { callTool, closeSeededCanvas, connectAgent, openSeededCanvas, webDist, t
 
 type Box = { x: number; y: number; width: number; height: number };
 
-// layout() has to agree with the DOM the canvas (and the screenshot) paints for `layout.wrap`.
 describe.skipIf(!existsSync(webDist))("E2E: get_bounds follows the wrapping flex layout", () => {
   let session!: CanvasSession;
   let page: Page;
@@ -31,7 +30,6 @@ describe.skipIf(!existsSync(webDist))("E2E: get_bounds follows the wrapping flex
     return (JSON.parse(res.content.map((c) => c.text ?? "").join("")) as { boxes: Record<string, Box> }).boxes;
   };
 
-  /** DOM boxes relative to `rootId`, divided by the canvas zoom, so they compare with get_bounds. */
   const domBoxes = (ids: string[], rootId: string) =>
     page.evaluate(
       ([list, root]) => {

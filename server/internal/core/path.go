@@ -10,12 +10,8 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/path.ts: strict SVG path parser, normalization to absolute
-// M/L/C/Q/A/Z, exact bounds and serialization. Positions are UTF-16 indexes, like in JavaScript.
-
 type Point struct{ X, Y float64 }
 
-// Segment is one normalized path command. Cmd is M, L, C, Q, A or Z.
 type Segment struct {
 	Cmd             byte
 	To, C1, C2, C   Point
@@ -23,7 +19,6 @@ type Segment struct {
 	LargeArc, Sweep bool
 }
 
-// PathError carries the character position of a parse error.
 type PathError struct {
 	Msg      string
 	Position int
@@ -31,7 +26,6 @@ type PathError struct {
 
 func (e *PathError) Error() string { return e.Msg }
 
-// MaxSegments protects the server and the canvas from huge inputs.
 const MaxSegments = 10_000
 
 var arity = map[byte]int{'M': 2, 'L': 2, 'H': 1, 'V': 1, 'C': 6, 'S': 4, 'Q': 4, 'T': 2, 'A': 7, 'Z': 0}
@@ -51,7 +45,6 @@ func upper(u uint16) byte {
 
 func charAt(d []uint16, i int) string { return string(utf16.Decode(d[i : i+1])) }
 
-// matchNumber returns the length of /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/ at d[i:], or 0.
 func matchNumber(d []uint16, i int) int {
 	j := i
 	if j < len(d) && (d[j] == '+' || d[j] == '-') {
@@ -90,7 +83,6 @@ func matchNumber(d []uint16, i int) int {
 	return j - i
 }
 
-// ParsePath converts `d` into absolute segments.
 func ParsePath(src string) ([]Segment, error) {
 	d := utf16.Encode([]rune(src))
 	var segs []Segment
@@ -301,7 +293,6 @@ func ParsePath(src string) ([]Segment, error) {
 	return segs, nil
 }
 
-// PathErrorMessage validates d and returns the error message, or "".
 func PathErrorMessage(d string) string {
 	if _, err := ParsePath(d); err != nil {
 		return err.Error()
@@ -319,7 +310,6 @@ func r2(n float64) string {
 
 func p2(pt Point) string { return r2(pt.X) + " " + r2(pt.Y) }
 
-// SerializePath writes absolute segments as `d` with 2 decimals.
 func SerializePath(segs []Segment) string {
 	out := make([]string, len(segs))
 	for i, s := range segs {
@@ -419,12 +409,10 @@ func arcPoints(from Point, s Segment) []Point {
 	return out
 }
 
-// Bounds is an axis-aligned box.
 type Bounds struct{ X, Y, Width, Height float64 }
 
 func cube(v float64) float64 { return math.Pow(v, 3) }
 
-// PathBounds is the exact box of the geometry (not of the control points).
 func PathBounds(segs []Segment) Bounds {
 	minX, minY := math.Inf(1), math.Inf(1)
 	maxX, maxY := math.Inf(-1), math.Inf(-1)
@@ -500,13 +488,11 @@ func PathBounds(segs []Segment) Bounds {
 	return Bounds{minX, minY, maxX - minX, maxY - minY}
 }
 
-// PathOrigin is the offset from the node origin (0,0) to the drawing's top-left.
 func PathOrigin(segs []Segment) Point {
 	b := PathBounds(segs)
 	return Point{b.X, b.Y}
 }
 
-// NormalizePath moves the drawing to (0,0) and returns the previous origin (add to the node's x/y).
 func NormalizePath(segs []Segment) (moved []Segment, origin Point, bounds Bounds) {
 	origin = PathOrigin(segs)
 	moved = TranslatePath(segs, -origin.X, -origin.Y)

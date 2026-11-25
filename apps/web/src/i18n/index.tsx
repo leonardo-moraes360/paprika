@@ -36,7 +36,6 @@ export function untitledFor(locale: Locale = getLocale()): string {
   return defaultUntitledName(locale as NameLocale);
 }
 
-/** Compact language control for the top bar (overview + editor). */
 export function LanguageSwitcher({ className }: { className?: string }) {
   const { locale, setLocale: set } = useLocale();
   const m = useT();

@@ -1,5 +1,3 @@
-// Command paprika is the Go Paprika server: a local design tool for AI agents with a built-in
-// MCP server, storing documents in SQLite.
 package main
 
 import (

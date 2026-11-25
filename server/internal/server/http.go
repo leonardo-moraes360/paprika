@@ -29,25 +29,18 @@ import (
 	z "github.com/leonardo-moraes360/paprika/server/internal/zod"
 )
 
-// HTTPOptions configure the HTTP/WS server.
 type HTTPOptions struct {
 	Host    string
 	Port    int
-	WebRoot string // build of the canvas (apps/web/dist); empty serves a placeholder page
+	WebRoot string
 	Log     func(string)
 	Shot    Screenshotter
-	// Team is the team sync service (ADR 0004); nil when the instance is not in a team.
-	Team TeamRoutes
+	Team    TeamRoutes
 }
 
-// TeamRoutes is what the HTTP server needs from the team package (which imports this one).
-// Team status payloads (`GET /api/team`, `{type:"team",status}` on /ws) are opaque JSON from the
-// sidecar and may include `app` / `format` (local and per peer); see docs/en-US/team-sync.md.
 type TeamRoutes interface {
 	Routes(r gin.IRoutes)
-	// Recent returns the WebSocket messages a canvas that just connected needs.
 	Recent() []string
-	// OnMessage subscribes to WebSocket messages for every canvas; returns the unsubscribe.
 	OnMessage(fn func(string)) func()
 }
 
@@ -67,8 +60,6 @@ const maxBody = 8 * 1024 * 1024
 
 func isLoopbackHost(h string) bool { return h == "127.0.0.1" || h == "localhost" || h == "::1" }
 
-// AllowedRequest blocks DNS rebinding and CSRF: on a loopback bind only local Host/Origin pass;
-// when bound elsewhere (--host), the configured host is accepted too.
 func AllowedRequest(r *http.Request, bindHost string, port int) bool {
 	p := strconv.Itoa(port)
 	allowed := map[string]bool{"127.0.0.1:" + p: true, "localhost:" + p: true, "[::1]:" + p: true}
@@ -182,7 +173,6 @@ func postWorkspace(c *gin.Context, store *Store, run func(id, actor string) (Wor
 	send(c.Writer, code, errBody(msg), "")
 }
 
-// Client → server messages over WebSocket.
 var clientMessage = z.DiscriminatedUnion("type",
 	z.Option("ops", z.Object(
 		z.Field{Name: "type", Schema: z.Literal("ops")},
@@ -192,7 +182,6 @@ var clientMessage = z.DiscriminatedUnion("type",
 	)),
 	z.Option("undo", z.Object(z.Field{Name: "type", Schema: z.Literal("undo")}, z.Field{Name: "reqId", Schema: z.Optional(z.String())})),
 	z.Option("redo", z.Object(z.Field{Name: "type", Schema: z.Literal("redo")}, z.Field{Name: "reqId", Schema: z.Optional(z.String())})),
-	// view: which workspace this canvas shows. Without workspaceId the canvas follows the active workspace.
 	z.Option("view", z.Object(
 		z.Field{Name: "type", Schema: z.Literal("view")},
 		z.Field{Name: "workspaceId", Schema: z.Optional(z.String().Max(64))},
@@ -211,15 +200,12 @@ var apiOpsBody = z.Object(
 	z.Field{Name: "actor", Schema: z.Optional(z.String().Max(100))},
 )
 
-// POST /api/workspaces: name of the new workspace (blank: "Untitled").
 var workspaceBody = z.Object(z.Field{Name: "name", Schema: z.Optional(z.String().Max(120))})
 var folderBody = z.Object(z.Field{Name: "name", Schema: z.String().Min(1).Max(120)})
 var moveFolderBody = z.Object(z.Field{Name: "folderId", Schema: z.Nullable(z.String().Max(64))})
 
-// PATCH /api/workspaces/{id}: new name (trimmed, not blank).
 var renameWorkspaceBody = z.Object(z.Field{Name: "name", Schema: z.String().Max(120)})
 
-// RunningServer is a started HTTP server.
 type RunningServer struct {
 	URL    string
 	Port   int
@@ -228,7 +214,6 @@ type RunningServer struct {
 	close  func()
 }
 
-// Close stops the server and its WebSocket connections.
 func (s *RunningServer) Close() error {
 	s.close()
 	return s.server.Close()
@@ -239,8 +224,7 @@ type wsHub struct {
 	conns    map[*websocket.Conn]chan string
 	order    []*websocket.Conn
 	renderer map[*websocket.Conn]string
-	// view is the workspace a connection was pointed at (a tab on /w/<id>); absent: it follows the active one.
-	view map[*websocket.Conn]string
+	view     map[*websocket.Conn]string
 }
 
 func (h *wsHub) rendererLine() string {
@@ -272,7 +256,6 @@ func activeRendererLine() string {
 	return src.line()
 }
 
-// StartHTTP serves the canvas, the API, MCP over Streamable HTTP (/mcp) and live sync (/ws).
 func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	logf := opts.Log
 	if logf == nil {
@@ -301,13 +284,12 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		msg := docMessage(e.Doc, e.Version, e.Actor, e.Label, e.Kind, store.CanUndo(), store.CanRedo())
 		hub.mu.Lock()
 		for c, ch := range hub.conns {
-			// A canvas pointed at another workspace keeps its own document.
 			if v := hub.view[c]; v != "" && v != e.DocID {
 				continue
 			}
 			select {
 			case ch <- msg:
-			default: // slow client: drop; it gets the full document on the next change
+			default:
 			}
 		}
 		hub.mu.Unlock()
@@ -336,7 +318,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		for _, ch := range hub.conns {
 			select {
 			case ch <- msg:
-			default: // slow client: drop; the next tool call moves the cursor again
+			default:
 			}
 		}
 		hub.mu.Unlock()
@@ -731,8 +713,6 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		}
 		send(c.Writer, 200, jsonv.NewObject("svg", res.SVG, "width", res.Width, "height", res.Height, "warnings", ws), "")
 	})
-	// The Inter faces embedded for export, served to the canvas so "Inter" looks the same in the
-	// canvas, the screenshot and the export (the browser may not have it installed).
 	engine.GET("/fonts/inter.css", func(c *gin.Context) {
 		css, err := export.InterFontFaceCSS(func(file string) (string, error) { return "/fonts/" + file, nil })
 		if err != nil {
@@ -800,12 +780,8 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 	}, nil
 }
 
-// workspaceOpsPoll is how often the operations log is read for entries the canvases have not heard about.
 const workspaceOpsPoll = 100 * time.Millisecond
 
-// broadcastWorkspaceOps sends every new entry of the workspace operations log to the WebSocket clients as a
-// workspaceOp message: the canvas shows who deleted, switched or renamed a workspace. Entries that existed
-// when the server started are not replayed. The returned function stops it.
 func broadcastWorkspaceOps(store *Store, hub *wsHub) func() {
 	key := func(op WorkspaceOp) string {
 		return fmt.Sprintf("%d|%s|%s|%s", op.At, op.Actor, op.Op, op.DocID)
@@ -1008,7 +984,6 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 					continue
 				}
 			}
-			// Register before reading the document so a commit in between reaches this canvas.
 			hub.mu.Lock()
 			if _, ok := hub.conns[conn]; ok {
 				if id == "" {
@@ -1071,7 +1046,6 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 	}
 }
 
-// jsParseError approximates JSON.parse's SyntaxError message.
 func jsParseError(data []byte) string {
 	s := string(data)
 	if len(s) > 40 {
@@ -1079,8 +1053,6 @@ func jsParseError(data []byte) string {
 	}
 	return fmt.Sprintf(`Unexpected token in JSON: "%s" is not valid JSON`, s)
 }
-
-// ---- MCP over Streamable HTTP (stateless, JSON responses) ----
 
 func jsonRPCHTTPError(w http.ResponseWriter, status, code int, msg string, extra map[string]string) {
 	for k, v := range extra {
@@ -1091,9 +1063,6 @@ func jsonRPCHTTPError(w http.ResponseWriter, status, code int, msg string, extra
 	io.WriteString(w, jsonv.Stringify(jsonv.NewObject("jsonrpc", "2.0", "error", jsonv.NewObject("code", float64(code), "message", msg), "id", nil), ""))
 }
 
-// clientNames remembers the clientInfo name of each HTTP session id. The MCP endpoint is
-// stateless, so a tools/call carries no clientInfo: initialize hands out an Mcp-Session-Id and
-// later calls are recorded under that client's name (bounded, oldest out; same as the former TS server).
 type clientNames struct {
 	mu    sync.Mutex
 	max   int
@@ -1123,7 +1092,6 @@ func (c *clientNames) get(id string) (string, bool) {
 	return n, ok
 }
 
-// newSessionID returns a random UUID v4 (like crypto.randomUUID in the former TS server).
 func newSessionID() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -1138,7 +1106,6 @@ func serveMCPHTTP(w http.ResponseWriter, r *http.Request, m *MCP, clients *clien
 	switch r.Method {
 	case http.MethodPost:
 	case http.MethodGet, http.MethodDelete:
-		// Stateless server: no standalone SSE stream and no sessions to delete.
 		jsonRPCHTTPError(w, 405, -32000, "Method not allowed.", map[string]string{"Allow": "POST"})
 		return
 	default:
@@ -1229,9 +1196,6 @@ func serveMCPHTTP(w http.ResponseWriter, r *http.Request, m *MCP, clients *clien
 	io.WriteString(w, jsonv.Stringify(responses[0], ""))
 }
 
-// ---- MCP over stdio (newline-delimited JSON-RPC) ----
-
-// ServeStdio reads JSON-RPC messages from in and writes responses to out until in closes.
 func ServeStdio(ctx context.Context, m *MCP, in io.Reader, out io.Writer) error {
 	sc := bufio.NewScanner(in)
 	sc.Buffer(make([]byte, 64*1024), maxBody+1024)

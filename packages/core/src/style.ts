@@ -21,7 +21,6 @@ import { NOTE_FOLD_FILL, shapeOutline, shapePadding } from "./diagram.js";
 
 export type CSS = Record<string, string | number>;
 
-/** Modo de tema em vigor num nó: o dele ou o do frame/página ancestral mais próximo com `mode`. */
 export function modeOf(doc: Document, node: Node | undefined): string | undefined {
   for (let n = node, depth = 0; n && depth < 1000; n = n.parentId ? doc.nodes[n.parentId] : undefined, depth++) {
     if ((n.type === "frame" || n.type === "page") && n.mode) return n.mode;
@@ -29,17 +28,12 @@ export function modeOf(doc: Document, node: Node | undefined): string | undefine
   return undefined;
 }
 
-/** Valor de um token no modo (se o modo o define) ou o valor base. */
 export function tokenValue(doc: Document, name: string, mode?: string): string | number | undefined {
   const m = mode && doc.modes && Object.hasOwn(doc.modes, mode) ? doc.modes[mode]! : undefined;
   if (m && Object.hasOwn(m, name)) return m[name];
   return Object.hasOwn(doc.tokens, name) ? doc.tokens[name] : undefined;
 }
 
-/**
- * Resolve `$token` contra `doc.tokens`, ou contra `doc.modes[mode]` primeiro quando há modo.
- * Tokens podem referenciar outros tokens (até 8 níveis).
- */
 export function resolveValue<T extends string | number | undefined>(doc: Document, v: T, mode?: string): T | string | number {
   let cur: string | number | undefined = v;
   for (let depth = 0; depth < 8 && typeof cur === "string" && cur.startsWith("$"); depth++) {
@@ -80,7 +74,6 @@ const GENERIC_FAMILIES = new Set(["serif", "sans-serif", "monospace", "cursive",
 const SERIF_NAME = /(^|[\s-])(serif|georgia|times|garamond|palatino|merriweather|playfair|lora|cambria|baskerville|didot|bodoni|caslon|charter)/i;
 const MONO_NAME = /mono|code|courier|consolas|menlo|monaco/i;
 
-// Splits a CSS font-family list on top-level commas (quotes and parentheses respected).
 function splitFamilies(list: string): string[] {
   const out: string[] = [];
   let depth = 0;
@@ -103,7 +96,6 @@ function splitFamilies(list: string): string[] {
   return out;
 }
 
-/** Appends a generic family when the list has none, so a missing face never falls back to the browser's default serif. */
 export function withGenericFamily(list: string): string {
   const parts = splitFamilies(list);
   if (parts.some((p) => GENERIC_FAMILIES.has(p.toLowerCase()))) return list;
@@ -117,7 +109,6 @@ function fontFamilyCSS(doc: Document, v: string, mode: string | undefined, vars:
     const type = tokenTypeOf(doc, v.slice(1));
     const raw = tokenValue(doc, v.slice(1), mode);
     if (type === "fontFamily" || (type === undefined && typeof raw === "string")) {
-      // The generic is judged on the token's value (for the current mode), so a token that already ends in one stays a bare var().
       const resolved = resolvedFontFamily(doc, v, mode);
       return `var(${cssVarName(v.slice(1))})${withGenericFamily(resolved).slice(resolved.length)}`;
     }
@@ -143,7 +134,6 @@ function lengthCSS(doc: Document, v: number | string, mode: string | undefined, 
   return unit === "px" ? px(n) : n;
 }
 
-/** Nome da variável CSS de um token (`brand.dark` → `--brand\.dark`; `\` e `.` são escapados). */
 export function cssVarName(token: string): string {
   return `--${token.replace(/[\\.]/g, "\\$&")}`;
 }
@@ -151,10 +141,6 @@ export function cssVarName(token: string): string {
 const isKnownToken = (doc: Document, name: string) =>
   Object.hasOwn(doc.tokens, name) || Object.values(doc.modes ?? {}).some((m) => Object.hasOwn(m, name));
 
-/**
- * Valor de pintura de um nó: resolvido no modo do nó, ou `var(--token)` quando `vars` (export com
- * variáveis CSS; a folha de estilos de `tokenStylesheet` define os valores por modo).
- */
 function paintValue(doc: Document, v: string | number, mode: string | undefined, vars: boolean | undefined): string | number {
   if (vars && typeof v === "string" && v.startsWith("$") && isKnownToken(doc, v.slice(1))) return `var(${cssVarName(v.slice(1))})`;
   return resolveValue(doc, v, mode);
@@ -244,7 +230,6 @@ export function svgGradientInner(doc: Document, node: Node, w: number, h: number
   return { fill: "none", inner: `${mask ? `<defs>${mask}</defs>` : ""}${under}` };
 }
 
-/** Escapa o que fecharia o valor ou a regra (`;`, `{`, `}`, `<`…) num valor de variável CSS. */
 function cssValue(v: string): string {
   return v.replace(/[<>{};\\]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `);
 }
@@ -266,10 +251,6 @@ function tokenDecls(doc: Document, tokens: Record<string, string | number>): str
     .join(";");
 }
 
-/**
- * Folha de estilos dos tokens como variáveis CSS: `:root` com os valores base e uma regra por
- * modo (`[data-paprika-mode="dark"]`). Números viram px (tokens numéricos são tamanhos de fonte).
- */
 export function tokenStylesheet(doc: Document): string {
   let out = `:root{${tokenDecls(doc, doc.tokens)}}`;
   for (const [mode, tokens] of Object.entries(doc.modes ?? {})) out += `[data-paprika-mode="${mode}"]{${tokenDecls(doc, tokens)}}`;
@@ -341,7 +322,6 @@ function radiusCSS(doc: Document, radius: number | string | readonly (number | s
 function sizeProps(axis: "width" | "height", size: Size, parentMode: Layout["mode"] | null): CSS {
   if (typeof size === "number") return { [axis]: px(size), flexShrink: 0 };
   if (size === "hug") return { [axis]: "max-content" };
-  // fill
   if (parentMode === "row" || parentMode === "column") {
     const main = (parentMode === "row" && axis === "width") || (parentMode === "column" && axis === "height");
     return main ? { flex: "1 1 0", [axis === "width" ? "minWidth" : "minHeight"]: 0 } : { alignSelf: "stretch" };
@@ -352,12 +332,8 @@ function sizeProps(axis: "width" | "height", size: Size, parentMode: Layout["mod
 const JUSTIFY = { start: "flex-start", center: "center", end: "flex-end", between: "space-between" } as const;
 const ALIGN = { start: "flex-start", center: "center", end: "flex-end", stretch: "stretch" } as const;
 
-/**
- * Estilo CSS (camelCase) de um nó. É a única fonte de verdade de renderização: o canvas React,
- * o export HTML e o screenshot usam esta função, então o que o agente vê é o que o humano vê.
- */
 export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; vars?: boolean } = {}): CSS {
-  if (node.type === "page") return {}; // páginas não são desenhadas: os filhos usam coordenadas do canvas
+  if (node.type === "page") return {};
   const mode = modeOf(doc, node);
   const paint = (v: string | number) => paintValue(doc, v, mode, opts.vars);
   const parent = node.parentId ? doc.nodes[node.parentId] : undefined;
@@ -365,8 +341,6 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
   const absoluteChild = !!parentMode && !opts.asRoot && ignoresLayout(node);
   const css: CSS = { boxSizing: "border-box" };
 
-  // Conectores nunca entram no fluxo do auto layout: a geometria é calculada a partir das pontas.
-  // A root sized "hug"/"fill" has no known box: it stays in the flow so the exported <body> takes its height.
   const autoRoot = !!opts.asRoot && node.type !== "connector" && (typeof node.width !== "number" || typeof node.height !== "number");
   if ((parentMode && !opts.asRoot && node.type !== "connector" && !absoluteChild) || autoRoot) {
     css.position = "relative";
@@ -380,13 +354,11 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
   Object.assign(css, sizeProps("height", node.height, sizeMode));
 
   if (node.type === "group") {
-    // Só agrupa: sem pintura nem recorte (os filhos podem sair da caixa).
     if (node.opacity !== 1) css.opacity = node.opacity;
     if (!node.visible) css.display = "none";
     return css;
   }
   if (node.type === "connector") {
-    // O traço vai para o <path> (ver connectorAttrs); as pontas podem passar da caixa.
     if (node.opacity !== 1) css.opacity = node.opacity;
     css.overflow = "visible";
     css.display = node.visible ? "block" : "none";
@@ -397,14 +369,12 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
   if ((node.type === "frame" || node.type === "text") && node.href) css.cursor = "pointer";
   if (!node.visible) css.display = "none";
   if (node.type === "path") {
-    // fill/stroke vão para o <path> (ver pathAttrs); a sombra segue a forma, não a caixa.
     css.overflow = "visible";
     css.display = node.visible ? "block" : "none";
     applyShapeEffects(css, doc, node, mode, opts.vars, paint);
     return css;
   }
   if (node.type === "shape") {
-    // O contorno (fill/stroke) é um <svg> atrás do texto (ver shapeAttrs); aqui, caixa e texto.
     css.display = node.visible ? "flex" : "none";
     css.alignItems = node.shape === "note" ? "flex-start" : "center";
     css.justifyContent = "center";
@@ -470,7 +440,6 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
   return css;
 }
 
-/** Tipografia de texto e de forma (mesma ordem de propriedades nos dois). */
 function shadowOffsets(doc: Document, s: { x: number | string; y: number | string; blur: number | string }, mode: string | undefined, vars: boolean | undefined): string {
   return `${lengthCSS(doc, s.x, mode, vars, "px")} ${lengthCSS(doc, s.y, mode, vars, "px")} ${lengthCSS(doc, s.blur, mode, vars, "px")}`;
 }
@@ -593,14 +562,9 @@ function strokeWidthAttr(doc: Document, v: number | string, vars: boolean | unde
   return resolved;
 }
 
-/** Estilo do <svg> do contorno de uma forma (atrás do texto) e do bloco de texto. */
 export const SHAPE_SVG_CSS: CSS = { position: "absolute", left: 0, top: 0, overflow: "visible" };
 export const SHAPE_TEXT_CSS: CSS = { position: "relative", width: "100%" };
 
-/**
- * Contorno de uma forma de diagrama: tamanho do <svg>, o <path> do contorno e, na nota adesiva, a
- * dobra do canto. Fonte única para canvas, HTML/screenshot, React e SVG.
- */
 export function shapeAttrs(doc: Document, node: ShapeNode, opts: { vars?: boolean } = {}): {
   svg: { width: number; height: number };
   path: { d: string; fill: string; stroke?: string; strokeWidth?: number | string; strokeLinejoin: string; strokeDasharray?: string };
@@ -628,7 +592,6 @@ export function shapeAttrs(doc: Document, node: ShapeNode, opts: { vars?: boolea
   return out;
 }
 
-/** Atributos do <path> de um conector (linha e pontas, sem preenchimento). */
 export function connectorAttrs(doc: Document, node: ConnectorNode, opts: { vars?: boolean } = {}): {
   d: string;
   fill: string;
@@ -652,7 +615,6 @@ export function connectorAttrs(doc: Document, node: ConnectorNode, opts: { vars?
   return a;
 }
 
-/** Amostra um cúbico (8 passos) para medir o comprimento do rótulo. */
 function sampleCubic(p0: { x: number; y: number }, p1: { x: number; y: number }, p2: { x: number; y: number }, p3: { x: number; y: number }, out: { x: number; y: number }[]) {
   for (let i = 1; i <= 8; i++) {
     const t = i / 8;
@@ -664,7 +626,6 @@ function sampleCubic(p0: { x: number; y: number }, p1: { x: number; y: number },
   }
 }
 
-/** Ponto no meio (pelo comprimento) da linha de um conector: o primeiro subcaminho de `d` (as pontas vêm depois). */
 export function connectorMidpoint(d: string): { x: number; y: number } | null {
   const line = d.split(" M")[0] ?? "";
   const pts: { x: number; y: number }[] = [];
@@ -690,7 +651,6 @@ export function connectorMidpoint(d: string): { x: number; y: number } | null {
     } else if (cmd === "A" && nums.length >= 7) {
       for (let i = 0; i + 6 < nums.length; i += 7) {
         const end = { x: nums[i + 5]!, y: nums[i + 6]! };
-        // Corda do arco (suficiente para o rótulo no meio do cotovelo).
         pts.push({ x: (cur.x + end.x) / 2, y: (cur.y + end.y) / 2 }, end);
         cur = end;
       }
@@ -712,7 +672,6 @@ export function connectorMidpoint(d: string): { x: number; y: number } | null {
   return pts[0]!;
 }
 
-/** Fundo atrás de um conector: o fill do ancestral mais próximo (sem gradiente), ou branco. */
 function connectorHalo(doc: Document, node: ConnectorNode, vars?: boolean): string {
   let cur = node.parentId ? doc.nodes[node.parentId] : undefined;
   while (cur) {
@@ -727,11 +686,6 @@ function connectorHalo(doc: Document, node: ConnectorNode, vars?: boolean): stri
   return "#ffffff";
 }
 
-/**
- * Atributos do <text> do rótulo de um conector (null sem rótulo): no meio da rota, na cor do traço, com
- * um halo da cor do fundo (paint-order stroke) para a linha não cruzar as letras. Fonte única para
- * canvas, HTML/screenshot, React e SVG.
- */
 export function connectorLabelAttrs(
   doc: Document,
   node: ConnectorNode,
@@ -756,7 +710,6 @@ export function connectorLabelAttrs(
   };
 }
 
-/** Atributos do <svg> e do <path> de um nó path. Fonte única para canvas, HTML/screenshot e React. */
 export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean } = {}): {
   svg: { viewBox?: string; preserveAspectRatio?: string };
   path: {
@@ -803,7 +756,6 @@ export function pathAttrs(doc: Document, node: PathNode, opts: { vars?: boolean 
 
 const UNITLESS = new Set(["opacity", "fontWeight", "lineHeight", "flexShrink", "zIndex"]);
 
-/** Serializa um objeto CSS camelCase em uma declaração inline. */
 export function cssToString(css: CSS): string {
   return Object.entries(css)
     .map(([k, v]) => {

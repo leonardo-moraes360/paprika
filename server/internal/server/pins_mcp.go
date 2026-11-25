@@ -10,10 +10,8 @@ import (
 	z "github.com/leonardo-moraes360/paprika/server/internal/zod"
 )
 
-// pinTools are the MCP tools that read or change pins: their results do not carry the openPins hint.
 var pinTools = map[string]bool{"list_pins": true, "claim_pin": true, "reply_pin": true, "resolve_pin": true, "wait_for_pins": true}
 
-// MaxPinWait bounds one wait_for_pins call.
 const MaxPinWait = 60 * time.Second
 
 func pinMCPError(id string, err error) error {
@@ -97,8 +95,6 @@ func (m *MCP) addPinTools(add func(name string, schema *z.ObjectSchema, h func(c
 	})
 }
 
-// withOpenPins adds the openPins hint to a successful write result (one that reports a version) when the
-// human left open pins in that workspace: agents learn about pins without polling for them.
 func (m *MCP) withOpenPins(name string, res ToolResult) ToolResult {
 	if pinTools[name] || res == nil {
 		return res

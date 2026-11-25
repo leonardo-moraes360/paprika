@@ -10,8 +10,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// A non-frame, non-page root (here a stroke-only path) comes out on a transparent background:
-// the PNG keeps an alpha channel and the corner is fully transparent.
 func TestChromeScreenshotTransparentRoot(t *testing.T) {
 	if FindChromium() == "" {
 		t.Skip("Chromium not found")

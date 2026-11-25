@@ -1,14 +1,10 @@
-//! Wire format between peers: length-prefixed JSON frames on one bidirectional QUIC stream.
-
 use anyhow::{Result, bail};
 use iroh::endpoint::{RecvStream, SendStream};
 use serde::{Serialize, de::DeserializeOwned};
 
 pub const ALPN_SYNC: &[u8] = b"paprika/sync/1";
 pub const ALPN_JOIN: &[u8] = b"paprika/join/1";
-/// Sidecar / app semver (`crates/sync` package version). Different values warn but still sync.
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
-/// Document file format (`packages/core` `FORMAT`). Must match on both peers or sync is refused.
 pub const FORMAT_VERSION: &str = "paprika/1";
 const MAX_FRAME: usize = 64 << 20;
 
@@ -20,10 +16,6 @@ fn peer_label(peer_name: &str, peer_id_short: &str) -> String {
     }
 }
 
-/// Compares local and peer document-format versions.
-///
-/// Format mismatch or missing peer format → `Err` with an actionable message (refuse sync).
-/// Matching formats → `Ok(())` (app differences are warnings via [`app_version_warn`]).
 pub fn check_versions(
     local_app: &str,
     local_format: &str,
@@ -51,7 +43,6 @@ pub fn check_versions(
     Ok(())
 }
 
-/// Warning when document formats match but app versions differ (sync still allowed).
 pub fn app_version_warn(
     local_app: &str,
     peer_name: &str,
@@ -78,13 +69,11 @@ pub async fn write_frame<T: Serialize>(send: &mut SendStream, msg: &T) -> Result
     Ok(())
 }
 
-/// Reads one frame; `None` when the peer finished the stream.
 pub async fn read_frame<T: DeserializeOwned>(recv: &mut RecvStream) -> Result<Option<T>> {
     let mut len = [0u8; 4];
     match recv.read_exact(&mut len).await {
         Ok(()) => {}
         Err(e) => {
-            // A clean finish before a new frame is the end of the conversation.
             if matches!(e, iroh::endpoint::ReadExactError::FinishedEarly(0)) {
                 return Ok(None);
             }

@@ -1,7 +1,3 @@
-// Draws the brand concept boards (A–D, and E/F = the chosen "Trio Pixel" light/dark) over MCP HTTP, in a NEW workspace.
-// Never calls open_workspace (the active workspace is left alone): every call carries workspaceId.
-// Usage: PAPRIKA_MCP=http://127.0.0.1:4777/mcp node scripts/brand/draw-concepts.mjs [--shots DIR]  (APPEND_WS=<id> ONLY=E,F to add boards)
-// Screenshots use render_screenshot: export_image took 6–23 s per board here (docs/en-US/agent-feedback.md #181).
 import { connectBoard, saveShots, textOf } from "../design-board.mjs";
 import { circle, gridSymbol, rrect, symbolLayers, wordmarkPath } from "./trio-pixel.mjs";
 
@@ -9,7 +5,6 @@ const WS_NAME = process.env.WS_NAME ?? "Marca · conceitos (nov/2026)";
 const shotsIdx = process.argv.indexOf("--shots");
 const SHOTS = shotsIdx > 0 ? process.argv[shotsIdx + 1] : null;
 
-// MCP client shared with the scripts/draw-pap-b-*.mjs boards (SDK from packages/e2e).
 const { call: callTool } = await connectBoard("paprika-brand-concepts");
 async function call(name, args) {
   const r = await callTool(name, args);
@@ -22,14 +17,10 @@ async function call(name, args) {
   }
 }
 
-// ---------- geometria ----------
 const ellipse = (cx, cy, rx, ry) =>
   `M${cx - rx} ${cy} A${rx} ${ry} 0 1 0 ${cx + rx} ${cy} A${rx} ${ry} 0 1 0 ${cx - rx} ${cy} Z`;
 
-// Cada símbolo: lista de camadas num quadro 100×100.
-// {d, fill?, stroke?, sw?, cap?, op?}
 const SYMBOLS = {
-  // A · Trio: três lobos (amarelo, verde, vermelho) = as três pimentas da foto.
   trio: (c) => [
     { d: ellipse(33, 61, 19, 29), fill: c.amarelo },
     { d: ellipse(67, 61, 19, 29), fill: c.verde },
@@ -38,7 +29,6 @@ const SYMBOLS = {
     { d: "M32 31 Q50 21 68 31 Q50 38 32 31 Z", fill: c.verdeEscuro },
     { d: "M50 30 L50 15 Q51 8 59 7", stroke: c.verdeEscuro, sw: 6, cap: "round" },
   ],
-  // B · Pixel: pimentão em grade 5×6 (canvas = pixels) com a seleção do editor.
   pixel: (c) =>
     gridSymbol({
       map: ["..g..", "rrrrr", "rhrrd", "rrrrd", "rrrrd", ".r.d."],
@@ -47,9 +37,7 @@ const SYMBOLS = {
       selection: !c.semSelecao,
       selectionColor: c.selecao,
     }),
-  // E/F · Trio Pixel (A + B), the chosen brand: geometry shared with the SVG files.
   trixel: (c) => symbolLayers(c, { selection: !c.semSelecao }),
-  // C · Cursor: a vagem da páprica vira o ponteiro do agente; a ponta é o clique.
   cursor: (c) => [
     { d: "M14 12 C20 40 30 66 46 80 C56 88 72 87 80 77 C88 67 85 53 74 44 C56 30 36 18 14 12 Z", fill: c.vermelho },
     { d: "M24 26 C30 46 38 60 50 70", stroke: c.brilho, sw: 4, cap: "round" },
@@ -57,7 +45,6 @@ const SYMBOLS = {
     { d: "M82 80 Q90 88 96 86", stroke: c.verde, sw: 6, cap: "round" },
     { d: "M74 6 Q76 14 84 16 Q76 18 74 26 Q72 18 64 16 Q72 14 74 6 Z", fill: c.faisca },
   ],
-  // D · Traço: contorno à mão com nervuras e tracejado; o cabo é uma alça de bézier.
   traco: (c) => [
     { d: "M30 32 C18 34 15 52 19 68 C23 84 34 91 42 86 C46 92 54 92 58 86 C66 91 77 84 81 68 C85 52 82 34 70 32 C62 28 56 33 50 30 C44 33 38 28 30 32 Z", fill: c.tile, stroke: c.vermelho, sw: 3.2, cap: "round" },
     { d: "M42 35 C37 54 37 72 42 86 M58 35 C63 54 63 72 58 86", stroke: c.vermelho, sw: 2.4, cap: "round" },
@@ -70,7 +57,6 @@ const SYMBOLS = {
   ],
 };
 
-// Junta camadas consecutivas com a mesma pintura num path só (menos nós no documento).
 function mergeLayers(layers) {
   const out = [];
   for (const l of layers) {
@@ -82,7 +68,6 @@ function mergeLayers(layers) {
   return out;
 }
 
-// group não aceita rotation: a rotação vai para cada camada (todas têm a mesma caixa, então giram juntas).
 function symbolNodes(kind, c, x, y, size, name, extra = {}) {
   const { rotation, ...rest } = extra;
   return {
@@ -104,13 +89,11 @@ function symbolNodes(kind, c, x, y, size, name, extra = {}) {
   };
 }
 
-// ---------- letreiro: traços de scripts/brand/trio-pixel.mjs ----------
 function wordmark(sw, tracking) {
   const { d, dot, w } = wordmarkPath({ sw, tracking });
   return { d, dots: [dot], w, top: -50, bottom: 150 };
 }
 
-// Letreiro como nós: um path com o traço + pingo do i (variante por direção).
 function wordmarkNodes(c, cfg, x, y, height, name) {
   const { sw, tracking, color, dot } = cfg;
   const wm = wordmark(sw, tracking);
@@ -142,7 +125,6 @@ function wordmarkNodes(c, cfg, x, y, height, name) {
   return { node: { type: "group", name, x, y, children }, width };
 }
 
-// ---------- direções ----------
 const DIRECTIONS = [
   {
     key: "trio",
@@ -240,7 +222,6 @@ function patternNodes(dir, w, h) {
         out.push(symbolNodes("pixel", variants[v], col * step - 6, row * step + 6, s, `pixel ${++i}`));
       }
   } else if (dir.pattern === "trixel") {
-    // cores sempre na mesma ordem (identidade); o ritmo vem do vão e da seleção em 1 a cada 7
     const s = 76, step = 116;
     let i = 0;
     for (let row = 0; row * 108 < h + 40; row++)
@@ -250,7 +231,6 @@ function patternNodes(dir, w, h) {
         out.push(symbolNodes("trixel", { ...c, ...sel }, col * step + (row % 2 ? step / 2 : 0) + 20, row * 108 + 14, s, `trixel ${i}`));
       }
   } else if (dir.pattern === "cursor") {
-    // curva de bézier com nós e ponteiros pousados nela
     for (let k = 0; k < 3; k++) {
       const y0 = 70 + k * 100;
       const pts = [];
@@ -289,7 +269,6 @@ function board(dir, x, y) {
   children.push(text("Título", dir.title, P, P + 24, 48, c.ink, 800));
   children.push(text("Conceito", dir.tagline, P, P + 92, 18, c.ink, 400, { width: 620, lineHeight: 1.45 }));
 
-  // ícone de app + tamanhos pequenos
   const iy = 250;
   children.push({ type: "frame", name: "Ícone 256", x: P, y: iy, width: 256, height: 256, radius: 60, fill: c.tile, clip: true, stroke: { color: c.ink, width: 1 }, outline: undefined,
     children: [symbolNodes(dir.key, c, 28, 28, 200, "símbolo")] });
@@ -300,7 +279,6 @@ function board(dir, x, y) {
   });
   children.push(text("Tamanhos", "256 · 96 · 48 · 24 px", P + 290, iy + 2, 14, c.muted, 500));
 
-  // letreiro + lockup
   const lx = 760;
   children.push(text("Rótulo letreiro", "Letreiro + símbolo", lx, P, 14, c.muted, 600, { letterSpacing: 0.5 }));
   children.push(symbolNodes(dir.key, c, lx - 6, P + 34, 128, "lockup · símbolo"));
@@ -308,7 +286,6 @@ function board(dir, x, y) {
   children.push(wm.node);
   children.push(text("Por quê", dir.why, lx, P + 196, 16, c.muted, 400, { width: 600, lineHeight: 1.45 }));
 
-  // paleta
   const py = iy + 34;
   children.push(text("Rótulo paleta", "Paleta", lx, py + 60, 14, c.muted, 600, { letterSpacing: 0.5 }));
   dir.palette.forEach(([nm, hex], i) => {
@@ -318,7 +295,6 @@ function board(dir, x, y) {
     children.push(text(`hex ${nm}`, hex, sx, py + 180, 12, c.muted, 400, { fontFamily: "monospace" }));
   });
 
-  // padrão
   const sy = 560, sh = H - sy - P;
   children.push(text("Rótulo padrão", "Padrão", P, sy - 30, 14, c.muted, 600, { letterSpacing: 0.5 }));
   children.push({ type: "frame", name: "Padrão", x: P, y: sy, width: W - 2 * P, height: sh, radius: 24, fill: c.strip, clip: true, children: patternNodes(dir, W - 2 * P, sh) });
@@ -336,10 +312,8 @@ function clean(o) {
   return o;
 }
 
-// ---------- execução ----------
 const before = await call("list_workspaces", {});
 const activeBefore = before.active ?? before?.workspaces?.find?.((w) => w.active)?.id;
-// APPEND_WS=<id> desenha no workspace existente; ONLY=E,F filtra as direções.
 const ws = process.env.APPEND_WS ? { id: process.env.APPEND_WS } : await call("create_workspace", { name: WS_NAME });
 const wsId = ws.id ?? ws.workspace?.id;
 const only = process.env.ONLY ? process.env.ONLY.split(",") : null;

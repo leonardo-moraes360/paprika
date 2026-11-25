@@ -20,7 +20,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/vision"
 )
 
-// compareScores are the numbers kept per (workspace, root) to tell whether a round improved.
 type compareScores struct {
 	IoU       float64 `json:"iou"`
 	Missing   float64 `json:"missing"`
@@ -68,7 +67,7 @@ type compareFrame struct {
 }
 
 type compareRefInfo struct {
-	Source string      `json:"source"` // node, data, path
+	Source string      `json:"source"`
 	NodeID string      `json:"nodeId,omitempty"`
 	Width  int         `json:"width"`
 	Height int         `json:"height"`
@@ -93,26 +92,19 @@ type compareOutput struct {
 	Previous      *compareScores `json:"previous,omitempty"`
 	SameReference *bool          `json:"sameReference,omitempty"`
 	Delta         *compareDelta  `json:"delta,omitempty"`
-	// simplicity of the drawing: the nodes painting under rootId (the frame itself and groups
-	// excluded) and how many of each type; fewer, simpler nodes at the same iou is better
-	NodeCount int            `json:"nodeCount"`
-	ByKind    map[string]int `json:"byKind"`
+	NodeCount     int            `json:"nodeCount"`
+	ByKind        map[string]int `json:"byKind"`
 }
 
-// loadedReference is a reference image resolved for comparison, with the document to render
-// (the reference layer, when it is a node of the frame, is hidden in it).
 type loadedReference struct {
 	info      rasterInfo
 	img       image.Image
 	warn      string
-	source    string // node, data, path
+	source    string
 	node      string
 	renderDoc *core.Document
 }
 
-// loadReference reads a reference given as a data URL, raw base64, a path under
-// PAPRIKA_IMPORT_DIRS or the id of an image node of the document. The reference layer must not
-// be in the render, or the comparison would see itself.
 func loadReference(d *core.Document, rootID, ref, tool string) (*loadedReference, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
@@ -159,7 +151,6 @@ func loadReference(d *core.Document, rootID, ref, tool string) (*loadedReference
 	return out, nil
 }
 
-// compareReference renders rootId, measures it against the reference and reports numbers.
 func (m *MCP) compareReference(ctx context.Context, a *jsonv.Object, head WorkspaceHead) (ToolResult, error) {
 	if m.shot == nil {
 		return nil, errors.New("screenshot unavailable on this server")
@@ -190,7 +181,6 @@ func (m *MCP) compareReference(ctx context.Context, a *jsonv.Object, head Worksp
 	}
 	fw, fh := float64(pw)/scale, float64(ph)/scale
 
-	// painted boxes of the nodes under rootId, in frame coordinates, in paint order
 	nodes := compareNodes(renderDoc, rootID)
 
 	x, y, w, h := fitPlacement(fw, fh, float64(info.width), float64(info.height))
@@ -224,7 +214,6 @@ func (m *MCP) compareReference(ctx context.Context, a *jsonv.Object, head Worksp
 	}
 	out.NodeCount = len(nodes)
 
-	// history: the last round of this root, to tell whether the round improved
 	sum := sha1.Sum(info.data)
 	now := compareScores{IoU: res.IoU, Missing: res.Missing, Extra: res.Extra, DeltaE: res.Color.DeltaE, Reference: hex.EncodeToString(sum[:6])}
 	if prev, ok := m.store.compare.swap(head.ID+"\x00"+rootID, now); ok {
@@ -236,7 +225,6 @@ func (m *MCP) compareReference(ctx context.Context, a *jsonv.Object, head Worksp
 		}
 	}
 
-	// the diff image: kept like a screenshot (url), written to path when asked, inline when asked
 	diffPNG := res.DiffPNG()
 	diff := &compareDiff{Width: res.Canvas.Width, Height: res.Canvas.Height}
 	if url := screenshotURL(m.shot, diffPNG); url != "" {
@@ -261,8 +249,6 @@ func (m *MCP) compareReference(ctx context.Context, a *jsonv.Object, head Worksp
 
 func round3(v float64) float64 { return math.Round(v*1000) / 1000 }
 
-// compareNodes lists the painting nodes under rootID in paint order (later paints over earlier),
-// with their rotated boxes relative to the root's top-left corner.
 func compareNodes(d *core.Document, rootID string) []vision.NodeBox {
 	boxes, err := core.Layout(d, core.LayoutOptions{RootID: rootID})
 	if err != nil {
@@ -297,7 +283,6 @@ func compareNodes(d *core.Document, rootID string) []vision.NodeBox {
 	return out
 }
 
-// byKindText is " (rect 5, path 3, text 2)": the commonest type first.
 func byKindText(m map[string]int) string {
 	if len(m) == 0 {
 		return ""

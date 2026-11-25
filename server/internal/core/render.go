@@ -11,11 +11,8 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// Port of packages/core/src/render.ts (HTML for export and screenshot, React/TSX export).
-
 var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;", "'", "&#39;")
 
-// EscapeHTML escapes & < > " '.
 func EscapeHTML(s string) string { return htmlEscaper.Replace(s) }
 
 func svgAttrs(attrs []Attr) string {
@@ -30,7 +27,6 @@ func svgAttrs(attrs []Attr) string {
 	return b.String()
 }
 
-// RootBounds is the approximate box of a top-level node ("hug"/"fill" fall back to 1px).
 func RootBounds(doc *Document, id string) (Bounds, error) {
 	n := GetNode(doc, id)
 	if n == nil {
@@ -53,7 +49,6 @@ func RootBounds(doc *Document, id string) (Bounds, error) {
 	return Bounds{n.Num("x"), n.Num("y"), math.Max(1, w), math.Max(1, h)}, nil
 }
 
-// CanvasBounds contains every top-level node of a page ("" = the first page, or the document without pages).
 func CanvasBounds(doc *Document, pageID string) Bounds {
 	roots, _ := PageRoots(doc, pageID)
 	if len(roots) == 0 {
@@ -84,7 +79,6 @@ func childNodes(doc *Document, n *Node) []*Node {
 	return out
 }
 
-// modeAttr is data-paprika-mode on a frame/page with a theme mode: the selector of its CSS variables.
 func modeAttr(node *Node) string {
 	if t := node.Str("type"); (t == "frame" || t == "page") && node.Str("mode") != "" {
 		return ` data-paprika-mode="` + EscapeHTML(node.Str("mode")) + `"`
@@ -167,8 +161,6 @@ func renderNode(doc *Document, node *Node, asRoot, vars bool, emit styleEmitter,
 	return "<div " + attrs + "></div>"
 }
 
-// RenderOptions: RootID renders a single node at 0,0; Background is the page color;
-// CSSVariables writes tokens as var(--name) with a stylesheet per theme mode.
 type RenderOptions struct {
 	RootID       string
 	Background   string
@@ -339,8 +331,6 @@ func exportFluid(doc *Document, node, page *Node) *fluidBox {
 	return aggregateFluid(nodes)
 }
 
-// BodySizeCSS sizes the exported <body>. autoW/autoH: the root is sized "hug"/"fill" on that axis (its
-// box is 1px in b): the body follows the root, which stays in the flow.
 func BodySizeCSS(b Bounds, fluid *fluidBox, autoW, autoH bool) string {
 	height := "height:" + jsonv.FormatNumber(b.Height) + "px"
 	if autoH {
@@ -356,7 +346,6 @@ func BodySizeCSS(b Bounds, fluid *fluidBox, autoW, autoH bool) string {
 	return "width:100%;min-width:" + jsonv.FormatNumber(fluid.Min) + "px;max-width:" + jsonv.FormatNumber(fluid.Max) + "px;margin-left:auto;margin-right:auto;" + height
 }
 
-// RenderHTML builds a self-contained HTML document (export and screenshot).
 func RenderHTML(doc *Document, opts RenderOptions) (string, Bounds, error) {
 	p, err := buildExportParts(doc, opts, htmlStyleAttr)
 	if err != nil {
@@ -522,7 +511,6 @@ func isASCIIAlnum(r rune) bool {
 
 func isASCIIAlpha(r rune) bool { return (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') }
 
-// jsUpper is String#toUpperCase for one UTF-16 unit worth of text.
 func jsUpper(s string) string { return strings.ToUpperSpecial(unicode.SpecialCase{}, s) }
 
 func pascalName(s string) string {
@@ -534,7 +522,6 @@ func pascalName(s string) string {
 		}
 		stripped = append(stripped, r)
 	}
-	// /[^A-Za-z0-9]+(.)?/g → uppercase the char after a run of non-alphanumerics.
 	var out []rune
 	for i := 0; i < len(stripped); {
 		if isASCIIAlnum(stripped[i]) {
@@ -550,7 +537,6 @@ func pascalName(s string) string {
 			i++
 		}
 	}
-	// /^[^A-Za-z]+/
 	k := 0
 	for k < len(out) && !isASCIIAlpha(out[k]) {
 		k++
@@ -566,7 +552,6 @@ func componentName(s string) string {
 	return jsUpper(string(out[0])) + string(out[1:])
 }
 
-// ExportReact exports a node as a React (TSX) component with inline styles.
 func ExportReact(doc *Document, rootID string, cssVariables bool) (string, error) {
 	node := GetNode(doc, rootID)
 	if node == nil {

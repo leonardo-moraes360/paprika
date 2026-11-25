@@ -7,7 +7,6 @@ export function isLocale(value: string): value is Locale {
   return (LOCALES as readonly string[]).includes(value);
 }
 
-/** Browser preference → supported locale (pt* → pt-BR, else en). */
 export function detectLocale(languages: readonly string[] = typeof navigator !== "undefined" ? navigator.languages : ["en"]): Locale {
   for (const raw of languages) {
     const tag = raw.toLowerCase();
@@ -34,7 +33,6 @@ export function writeStoredLocale(locale: Locale, storage: Storage | null = type
   try {
     storage.setItem(LOCALE_STORAGE_KEY, safe);
   } catch {
-    /* ignore quota / private mode */
   }
 }
 

@@ -5,21 +5,11 @@ import { round4 } from "./num.js";
 import { parsePath, pathBounds, serializePath, translatePath, type Point, type Segment } from "./path.js";
 import type { NodeInput } from "./ops.js";
 
-/**
- * Importa SVG como nós editáveis: `<path>`, `<rect>`, `<circle>`, `<ellipse>`, `<line>`,
- * `<polyline>` e `<polygon>` viram nós `path` (ou `rect`/`ellipse` quando não há rotação nem
- * inclinação), `<g>` vira `group`, `<text>` vira `text`, `<use>` instancia `<symbol>` e outros
- * ids. Transforms são aplicados à geometria (arcos viram bezier cúbicas quando a transformação
- * não é só translação). Pintura herdada (fill, stroke…) é resolvida em cada nó. Imagens,
- * gradientes, máscaras e CSS em `<style>` são ignorados e listados em `warnings`.
- */
-
 export interface ImportResult {
   nodes: NodeInput[];
   warnings: string[];
 }
 
-/** Matriz afim SVG [a b c d e f]. */
 export type Matrix = [number, number, number, number, number, number];
 const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0];
 
@@ -43,10 +33,6 @@ const numbers = (s: string): number[] => (s.match(NUM) ?? []).map(Number);
 
 const isLetter = (c: string | undefined) => !!c && ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z"));
 
-/**
- * As chamadas `nome(args)` de um `transform`, como `/([a-zA-Z]+)\s*\(([^)]*)\)/g` acharia, mas numa
- * só passada (a regex volta a tentar a cada letra e fica quadrática em entradas montadas para isso).
- */
 function transformCalls(s: string): [string, string][] {
   const out: [string, string][] = [];
   let i = 0;
@@ -68,11 +54,6 @@ function transformCalls(s: string): [string, string][] {
   return out;
 }
 
-/**
- * Texto que começa como SVG (colado de um editor de código, de um arquivo aberto como texto…): `<svg` no
- * começo, depois de um `<?xml …?>`, comentários e `<!doctype …>` opcionais. Uma passada só, sem
- * regex com repetição aninhada (que fica lenta em textos colados montados para isso).
- */
 export function isSVGText(s: string): boolean {
   let i = 0;
   const skipSpace = () => {
@@ -97,7 +78,6 @@ export function isSVGText(s: string): boolean {
   return startsWith("<svg") && /[\s>]/.test(s[i + 4] ?? "");
 }
 
-/** Lê o atributo `transform` (matrix, translate, scale, rotate, skewX, skewY). */
 export function parseTransform(s: string | undefined, warn: (w: string) => void): Matrix {
   let m = IDENTITY;
   if (!s) return m;
@@ -135,7 +115,6 @@ export function parseTransform(s: string | undefined, warn: (w: string) => void)
   return m;
 }
 
-/** Arco SVG (forma de extremos) em bezier cúbicas (SVG 1.1, apêndice F.6). */
 export function arcToCubics(from: Point, s: Extract<Segment, { cmd: "A" }>): Segment[] {
   let { rx, ry } = s;
   rx = Math.abs(rx);
@@ -195,7 +174,6 @@ export function arcToCubics(from: Point, s: Extract<Segment, { cmd: "A" }>): Seg
   return out;
 }
 
-/** Aplica uma matriz a segmentos absolutos; arcos viram cúbicas se a matriz não for só translação. */
 export function transformPath(segs: Segment[], m: Matrix): Segment[] {
   if (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1) return translatePath(segs, m[4], m[5]);
   const out: Segment[] = [];
@@ -408,7 +386,6 @@ function shapeNode(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string)
   if (opacity !== 1) common.opacity = round4(opacity);
   const axis = m[1] === 0 && m[2] === 0 && m[0] > 0 && m[3] > 0;
   const a = (k: string) => el.attrs.get(k);
-  // rect/ellipse sem rotação viram nós nativos (editáveis no inspector).
   if (axis && (el.tag === "rect" || el.tag === "circle" || el.tag === "ellipse")) {
     const rx = el.tag === "circle" ? num(a("r")) : num(a("rx"));
     const ry = el.tag === "circle" ? num(a("r")) : a("ry") !== undefined ? num(a("ry")) : rx;
@@ -452,7 +429,6 @@ function shapeNode(el: MarkupElement, m: Matrix, paint: Paint, warn: (w: string)
   const stroke = strokeOf(paint, Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])), warn);
   if (stroke) {
     node.stroke = stroke;
-    // Os padrões do Paprika são round/round; os do SVG, butt/miter.
     if (paint.cap !== "round") node.strokeCap = paint.cap;
     if (paint.join !== "round") node.strokeJoin = paint.join;
   }
@@ -617,7 +593,6 @@ function useTarget(el: MarkupElement, state: SvgState): MarkupElement | undefine
   try {
     id = decodeURIComponent(id);
   } catch {
-    /* keep the raw id */
   }
   const target = state.ids.get(id);
   if (!target) {
@@ -741,7 +716,6 @@ function convert(el: MarkupElement, m: Matrix, paint: Paint, font: SvgFont, stat
   return out;
 }
 
-/** Desloca nós de topo (coordenadas do SVG) por dx, dy. */
 function offset(nodes: NodeInput[], dx: number, dy: number): void {
   for (const n of nodes) {
     if (n.type === "group") offset(n.children ?? [], dx, dy);
@@ -752,10 +726,6 @@ function offset(nodes: NodeInput[], dx: number, dy: number): void {
   }
 }
 
-/**
- * Converte um SVG em nós. `x`/`y` deslocam a origem do SVG. Retorna um nó só (o shape, ou um
- * `group` com tudo), pronto para `create`.
- */
 export function importSVG(src: string | MarkupElement, opts: { x?: number; y?: number; name?: string } = {}): ImportResult {
   const warnings: string[] = [];
   const warn = (w: string) => {

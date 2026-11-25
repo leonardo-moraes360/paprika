@@ -20,12 +20,10 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Region is a rectangle in frame coordinates (the root's own space, 0..width).
 type Region struct{ X, Y, W, H float64 }
 
-// GridSpec is the parsed `grid` argument of render_screenshot.
 type GridSpec struct {
-	Step   float64 // 0 = automatic
+	Step   float64
 	Labels bool
 	Color  color.NRGBA
 }
@@ -37,7 +35,6 @@ const (
 
 var defaultGridColor = color.NRGBA{R: 0xff, G: 0x2d, B: 0x95, A: 0xff}
 
-// parseGridArg reads `grid`: absent/false = none, true = defaults, object = options.
 func parseGridArg(a *jsonv.Object) (*GridSpec, error) {
 	v, ok := a.Get("grid")
 	if !ok || v == nil {
@@ -96,8 +93,6 @@ func parseHexColor(s string) (color.NRGBA, bool) {
 	return color.NRGBA{R: uint8(n >> 16), G: uint8(n >> 8), B: uint8(n), A: 0xff}, true
 }
 
-// autoGridStep picks a 1/2/5 x 10^k step (50, 100, 200 for typical frames) so the longer
-// visible side gets about 8 to 16 lines.
 func autoGridStep(extent float64) float64 {
 	if extent <= 0 {
 		return 1
@@ -113,7 +108,6 @@ func autoGridStep(extent float64) float64 {
 	return math.Pow(10, exp+1)
 }
 
-// gridValues lists the multiples of step inside [start, start+size) in frame units.
 func gridValues(start, size, step float64) []float64 {
 	var out []float64
 	first := math.Ceil(start/step-1e-9) * step
@@ -122,13 +116,11 @@ func gridValues(start, size, step float64) []float64 {
 		if v >= start+size-1e-9 {
 			break
 		}
-		// drop float noise such as 0.30000000000000004
 		out = append(out, math.Round(v*1e6)/1e6)
 	}
 	return out
 }
 
-// gridPixel maps a frame coordinate to a pixel offset inside the cropped image.
 func gridPixel(v, start, scale float64) int {
 	return int(math.Round((v - start) * scale))
 }
@@ -137,8 +129,6 @@ func formatGridValue(v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
-// frameSize is the root's size in frame units. A root sized hug/fill has no number in the
-// document, so its size comes from the rendered image and the requested scale.
 func frameSize(d *core.Document, rootID string, pngW, pngH int, scale float64) (float64, float64) {
 	if scale <= 0 {
 		scale = 1
@@ -171,8 +161,6 @@ func frameSize(d *core.Document, rootID string, pngW, pngH int, scale float64) (
 	return fw, fh
 }
 
-// cropRect turns a region (frame units, clamped to the frame) into a pixel rectangle of an
-// image rendered at `scale` pixels per unit. It also returns the clamped region.
 func cropRect(r Region, frameW, frameH, scale float64) (image.Rectangle, Region, error) {
 	x0, y0 := math.Max(0, r.X), math.Max(0, r.Y)
 	x1, y1 := math.Min(frameW, r.X+r.W), math.Min(frameH, r.Y+r.H)
@@ -192,9 +180,6 @@ func cropRect(r Region, frameW, frameH, scale float64) (image.Rectangle, Region,
 	return rect, Region{x0, y0, x1 - x0, y1 - y0}, nil
 }
 
-// annotateShot crops the PNG to region (if any) and draws the grid (if any). pxPerUnit is
-// the rendered pixels per frame unit; frameW/frameH the frame size. It returns the new PNG,
-// its size, the grid step used (0 = no grid) and the region used (nil = whole frame).
 func annotateShot(src []byte, frameW, frameH, pxPerUnit float64, region *Region, grid *GridSpec) ([]byte, int, int, float64, *Region, error) {
 	img, err := png.Decode(bytes.NewReader(src))
 	if err != nil {
@@ -236,7 +221,6 @@ func annotateShot(src []byte, frameW, frameH, pxPerUnit float64, region *Region,
 	return buf.Bytes(), dst.Bounds().Dx(), dst.Bounds().Dy(), step, used, nil
 }
 
-// blend composites c with alpha over the pixel, keeping transparent pixels correct.
 func blend(img *image.NRGBA, x, y int, c color.NRGBA, alpha float64) {
 	if !(image.Point{X: x, Y: y}).In(img.Bounds()) {
 		return
@@ -269,8 +253,6 @@ func drawText(img *image.NRGBA, s string, x, baseline int, c color.NRGBA) {
 
 func textWidth(s string) int { return len(s) * basicfont.Face7x13.Advance }
 
-// drawGrid overlays 1px lines (with a faint light and dark neighbour so they read on light
-// and dark content), a ruler band along the top and left edges, and the labels.
 func drawGrid(img *image.NRGBA, start Region, scale, step float64, g *GridSpec) {
 	w, h := img.Bounds().Dx(), img.Bounds().Dy()
 	dark := color.NRGBA{A: 0xff}
@@ -313,7 +295,7 @@ func drawGrid(img *image.NRGBA, start Region, scale, step float64, g *GridSpec) 
 	for _, v := range ys {
 		py := gridPixel(v, start.Y, scale)
 		if py < rulerBand {
-			continue // collides with the top band
+			continue
 		}
 		fillRect(img, image.Rect(0, py, leftW, py+1), g.Color, 1)
 		drawText(img, formatGridValue(v), 3, py-3, white)

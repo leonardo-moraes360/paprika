@@ -8,20 +8,16 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/core"
 )
 
-// Folder is one overview folder. Workspaces point at it with folderId; an empty id is the root.
 type Folder struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	UpdatedAt int64  `json:"updatedAt"`
 }
 
-// ErrNoFolder is returned when a folder id is not in this database.
 var ErrNoFolder = errors.New("folder not found")
 
-// ErrBlankName is returned when a folder name is empty after trimming.
 var ErrBlankName = errors.New("name must not be blank")
 
-// ListFolders returns the overview folders, most recently updated first.
 func (s *Store) ListFolders() ([]Folder, error) {
 	rows, err := s.db.Query(`SELECT id, name, updated_at FROM folders ORDER BY updated_at DESC, id`)
 	if err != nil {
@@ -39,7 +35,6 @@ func (s *Store) ListFolders() ([]Folder, error) {
 	return out, rows.Err()
 }
 
-// CreateFolder adds an overview folder. It does not contain a workspace until move.
 func (s *Store) CreateFolder(name string) (Folder, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -56,7 +51,6 @@ func (s *Store) CreateFolder(name string) (Folder, error) {
 	return f, nil
 }
 
-// RenameFolder changes a folder's name.
 func (s *Store) RenameFolder(id, name string) (Folder, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -77,7 +71,6 @@ func (s *Store) RenameFolder(id, name string) (Folder, error) {
 	return Folder{ID: id, Name: name, UpdatedAt: now}, nil
 }
 
-// MoveWorkspace puts a workspace in a folder. An empty folderID moves it back to the root.
 func (s *Store) MoveWorkspace(id, folderID, actor string) (WorkspaceInfo, error) {
 	folderID = strings.TrimSpace(folderID)
 	if folderID != "" {

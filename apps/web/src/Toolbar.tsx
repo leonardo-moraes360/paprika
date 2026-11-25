@@ -34,7 +34,6 @@ export function readToolbarDock(): ToolbarDock {
     const safe = DOCKS.find((item) => item === raw);
     if (safe) return safe;
   } catch {
-    /* sem storage: topo */
   }
   return "top";
 }
@@ -45,7 +44,6 @@ function saveToolbarDock(dock: ToolbarDock) {
   try {
     localStorage.setItem(STORAGE_KEY, safe);
   } catch {
-    /* sem storage: vale só nesta aba */
   }
 }
 
@@ -131,7 +129,6 @@ export function Toolbar({
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
-      /* already released */
     }
   };
 

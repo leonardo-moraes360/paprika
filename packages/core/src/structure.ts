@@ -7,12 +7,6 @@ import { copyOwner, scaleGeometry } from "./component.js";
 import { layout } from "./layout.js";
 import { firstPage, isContainer, isScene, type Document, type Node as NodeT, type SceneNode } from "./schema.js";
 
-/**
- * Operações compostas (grupos e páginas). Cada função só *gera* operações primitivas
- * (create/move/update/delete); quem aplica é `applyOps`, então tudo continua atômico, com uma
- * entrada de histórico e desfazer. O canvas e as ferramentas MCP usam as mesmas funções.
- */
-
 function siblingsOf(doc: Document, parentId: string | null): string[] {
   if (parentId === null) return doc.rootIds;
   const p = doc.nodes[parentId];
@@ -23,18 +17,12 @@ export const REPEAT_MODES = ["radial", "linear", "grid"] as const;
 export type RepeatMode = (typeof REPEAT_MODES)[number];
 
 export interface RepeatOptions {
-  /** Total number of nodes including the source: count - 1 copies are made. */
   count: number;
   mode: RepeatMode;
-  /** Radial: orbit center in the parent's coordinates (default: the parent's center). */
   center?: { x: number; y: number };
-  /** Radial: total sweep in degrees, clockwise (default 360 = a full ring). */
   angle?: number;
-  /** Radial: copies rotate with the orbit (default false: they keep the source's rotation). */
   rotate?: boolean;
-  /** Linear: offset between consecutive copies. */
   step?: { x?: number; y?: number };
-  /** Grid: columns, optional rows and the gap between cells. */
   columns?: number;
   rows?: number;
   gap?: number;
@@ -46,12 +34,6 @@ const REPEAT_ONLY: Record<RepeatMode, readonly (keyof RepeatOptions)[]> = {
   grid: ["columns", "rows", "gap"],
 };
 
-/**
- * Repeats one node `count` times (count - 1 copies, one undo step) along a circle, a line or a grid.
- * Copying is `duplicateOps`; each copy only gets a new position (and rotation). Radial copies orbit
- * the center by their box center (the pivot of `rotation`), so a rotated ring of petals just works.
- * The plan's `map` keys are "<source id>#<copy number>".
- */
 export function repeatOps(doc: Document, id: string, opts: RepeatOptions): DuplicatePlan {
   const src = doc.nodes[id];
   if (!src) throw new Error(`node "${id}" does not exist`);
@@ -146,7 +128,6 @@ export type AlignEdge = "left" | "center" | "right" | "top" | "middle" | "bottom
 export type DistributeAxis = "horizontal" | "vertical";
 export type RevealKind = "hidden" | "locked";
 
-/** Caixa (sem rotação do pai) de um nó dentro do pai: considera a própria rotação em torno do centro. */
 export function localBox(n: NodeT, size?: { width: number; height: number }): { minX: number; minY: number; maxX: number; maxY: number } {
   if (!isScene(n)) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
   const w = size?.width ?? (typeof n.width === "number" ? n.width : 0);
@@ -343,14 +324,9 @@ export function revealOps(doc: Document, kind: RevealKind, pageId?: string): { o
 
 export interface GroupPlan {
   ops: Op[];
-  /** Id do grupo criado. */
   id: string;
 }
 
-/**
- * Agrupa nós irmãos num `group` novo, na posição do mais alto deles na pilha. A ordem entre
- * eles é mantida e o desenho não se move (a caixa do grupo é ajustada aos filhos).
- */
 export function groupOps(doc: Document, ids: readonly string[], opts: { id?: string; name?: string } = {}): GroupPlan {
   if (!ids.length) throw new Error("pass at least one id to group");
   const unique = [...new Set(ids)];
@@ -376,11 +352,6 @@ export function groupOps(doc: Document, ids: readonly string[], opts: { id?: str
   return { ops, id };
 }
 
-/**
- * Desfaz grupos: os filhos voltam ao pai do grupo, no lugar dele, com a mesma aparência
- * (posição, opacidade e visibilidade do grupo são aplicadas a cada filho). Retorna os ops e os
- * ids dos filhos liberados (para selecionar).
- */
 export function ungroupOps(doc: Document, ids: readonly string[]): { ops: Op[]; released: string[] } {
   if (!ids.length) throw new Error("pass at least one group id");
   const ops: Op[] = [];
@@ -405,10 +376,6 @@ export function ungroupOps(doc: Document, ids: readonly string[]): { ops: Op[]; 
   return { ops, released };
 }
 
-/**
- * Cria uma página. Se o documento ainda não tem páginas e já tem conteúdo, esse conteúdo vai
- * antes para uma primeira página (`firstName`), porque com páginas o topo só aceita páginas.
- */
 export function addPageOps(
   doc: Document,
   opts: { id?: string; name?: string; firstId?: string; firstName?: string } = {},
@@ -545,7 +512,6 @@ export function duplicateOps(doc: Document, ids: readonly string[], opts: Duplic
     if (opts.props) Object.assign(node, opts.props);
     const op: Op = { op: "create", parentId: opts.parentId !== undefined ? opts.parentId : src.parentId, node };
     if (placed && opts.place) {
-      // "right" and "below" mean beside the source, not past the page content.
       const beside = (opts.place === "right" || opts.place === "below") && src.type !== "connector";
       op.place = beside ? { near: id, side: opts.place as "right" | "below" } : opts.place;
     } else if (placeBeside && src.type !== "connector") op.place = { near: id, side: "right" };

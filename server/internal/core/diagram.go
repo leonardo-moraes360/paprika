@@ -10,16 +10,10 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Diagrams: shape outlines and connector routing (port of diagram.ts). A connector's geometry
-// (x, y, width, height, d) is derived from from/to at the end of every transaction. Only + − × ÷
-// and square roots are used, rounded with Round4, so the output matches the TypeScript reference.
-
-// Pt is a point.
 type Pt struct{ X, Y float64 }
 
 type dbox struct{ x, y, w, h float64 }
 
-// NoteFoldFill darkens the sticky note's folded corner.
 const NoteFoldFill = "rgba(0,0,0,0.12)"
 
 const (
@@ -45,7 +39,6 @@ func cloudMap(x, y, left, top, bw, bh float64) Pt {
 func dnum(v float64) string { return jsonv.FormatNumber(Round4(v)) }
 func dpt(p Pt) string       { return dnum(p.X) + " " + dnum(p.Y) }
 
-// ShapeDefaults are the fields a new shape gets when they are missing, by kind.
 func ShapeDefaults(kind string) *jsonv.Object {
 	if kind == "note" {
 		return jsonv.NewObject(
@@ -61,8 +54,6 @@ func ShapeDefaults(kind string) *jsonv.Object {
 	return o
 }
 
-// ShapeOutline is the outline of a shape in local coordinates; the inset follows stroke.position
-// (default: inside). fold is "" except for the sticky note.
 func ShapeOutline(n *Node) (d, fold string) {
 	w, h := n.Num("width"), n.Num("height")
 	sw := 0.0
@@ -165,7 +156,6 @@ func ShapeOutline(n *Node) (d, fold string) {
 	}
 }
 
-// ShapePadding is the text inset inside a shape: vertical, horizontal (px).
 func ShapePadding(n *Node) (float64, float64) {
 	w, h := n.Num("width"), n.Num("height")
 	switch n.Str("shape") {
@@ -184,9 +174,6 @@ func ShapePadding(n *Node) (float64, float64) {
 	}
 	return 12, 12
 }
-
-// ---------------------------------------------------------------------------------------------
-// Connectors
 
 func originOf(doc *Document, parentID any) Pt {
 	x, y := 0.0, 0.0
@@ -316,7 +303,6 @@ func clipRayToPolygon(verts []Pt, dx, dy float64) float64 {
 	return best
 }
 
-// clipRayToTriangle is the ray-from-centre hit distance for the isosceles triangle of the box.
 func clipRayToTriangle(hw, hh, dx, dy float64) float64 {
 	return clipRayToPolygon([]Pt{{0, -hh}, {hw, hh}, {-hw, hh}}, dx, dy)
 }
@@ -844,7 +830,6 @@ func finishConnector(c *Node, origin Pt, frame connectorFrame, body string, head
 	c.Set("d", d.String())
 }
 
-// RouteConnector computes a connector's x, y, width, height and d. It mutates the node.
 func RouteConnector(doc *Document, c *Node) error {
 	origin := originOf(doc, mustGet(c, "parentId"))
 	a, err := resolveEnd(doc, c, "from", origin)
@@ -942,7 +927,6 @@ func RouteConnector(doc *Document, c *Node) error {
 	return nil
 }
 
-// RouteConnectors recomputes every connector of the document.
 func RouteConnectors(doc *Document) error {
 	nodes := Nodes(doc)
 	for _, id := range nodes.Keys() {
@@ -955,7 +939,6 @@ func RouteConnectors(doc *Document) error {
 	return nil
 }
 
-// ConnectorsAttachedTo lists the connectors attached to any of the ids (deleted with the shape).
 func ConnectorsAttachedTo(doc *Document, ids map[string]bool) []string {
 	var out []string
 	nodes := Nodes(doc)
@@ -977,17 +960,12 @@ func ConnectorsAttachedTo(doc *Document, ids map[string]bool) []string {
 	return out
 }
 
-// ---------------------------------------------------------------------------------------------
-// draw_diagram: shapes + connectors in one transaction, with an optional layered layout
-
-// DiagramPlan is what diagramOps returns.
 type DiagramPlan struct {
 	Ops   []any
 	Nodes []string
 	Edges []string
 }
 
-// JSON returns the plan as the TypeScript reference serializes it.
 func (p *DiagramPlan) JSON() *jsonv.Object {
 	nodes := make([]any, len(p.Nodes))
 	for k, v := range p.Nodes {
@@ -1027,7 +1005,6 @@ func isNumField(o *jsonv.Object, k string) bool {
 	return isNum
 }
 
-// DiagramOps plans a diagram (see diagramOps in diagram.ts). input is the validated tool input.
 func DiagramOps(doc *Document, input *jsonv.Object) (*DiagramPlan, error) {
 	nodesIn := input.Arr("nodes")
 	edgesIn := input.Arr("edges")
@@ -1090,8 +1067,6 @@ func DiagramOps(doc *Document, input *jsonv.Object) (*DiagramPlan, error) {
 		}
 	}
 
-	// Layers: longest path from the sources among new shapes; edges closing a cycle (found by a
-	// depth-first search in input order) do not count.
 	var auto []*jsonv.Object
 	rank := map[string]int{}
 	out := map[string][]int{}

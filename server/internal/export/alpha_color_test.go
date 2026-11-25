@@ -23,7 +23,6 @@ func TestNormalizeAlphaColors(t *testing.T) {
 	}
 }
 
-// oksvg rejects #RRGGBBAA ("color string 00000000 is not length 3 or 6"); prepareSVG now rewrites it.
 func TestPrepareSVGAcceptsAlphaHex(t *testing.T) {
 	svg := `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><rect width="10" height="10" fill="#00000000" stroke="#ff000080"/></svg>`
 	if _, err := oksvg.ReadIconStream(strings.NewReader(svg)); err == nil {

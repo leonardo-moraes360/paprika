@@ -10,11 +10,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Agent presence: what each agent is doing right now (last tool and the nodes it touched), so the
-// canvas can draw the agent's own cursor and selection. Ephemeral: memory only, never in SQLite or
-// in the history. Ported from the former TypeScript server (packages/server/src/presence.ts).
-
-// PresenceTTL is how long a presence is replayed to a canvas that connects later.
 const PresenceTTL = 120 * time.Second
 
 const (
@@ -22,16 +17,14 @@ const (
 	maxPresenceNodes  = 20
 )
 
-// Presence is one agent's last tool call.
 type Presence struct {
-	Agent string   // stable key: hash of the MCP session id over HTTP, or the actor (stdio)
-	Actor string   // history actor ("agent:<clientInfo.name>")
-	Tool  string   // last MCP tool called
-	Nodes []string // nodes it acted on that still exist (created ones first)
+	Agent string
+	Actor string
+	Tool  string
+	Nodes []string
 	Idle  time.Duration
 }
 
-// Message is the WebSocket message ({type: "presence", agent, actor, tool, nodes, idle}).
 func (p Presence) Message() string {
 	nodes := make([]any, len(p.Nodes))
 	for i, n := range p.Nodes {
@@ -41,7 +34,6 @@ func (p Presence) Message() string {
 		"nodes", nodes, "idle", float64(p.Idle.Milliseconds())), "")
 }
 
-// PresenceKey names an agent: its hashed HTTP session id, or the actor when there is none.
 func PresenceKey(sessionID, actor string) string {
 	if sessionID == "" {
 		return actor
@@ -71,8 +63,6 @@ func stringsOf(v any) []string {
 	return nil
 }
 
-// PresenceTargets lists the nodes a tool call acted on: the ids it created (structuredContent.created)
-// or, when it created nothing, the ids named in its arguments. Only existing ids, in order, once.
 func PresenceTargets(args *jsonv.Object, structured *jsonv.Object, doc *core.Document) []string {
 	out := []string{}
 	nodes := core.Nodes(doc)
@@ -124,17 +114,15 @@ type presenceEntry struct {
 	at time.Time
 }
 
-// PresenceHub keeps the last presence of each agent and fans it out to subscribers.
 type PresenceHub struct {
 	mu        sync.Mutex
 	now       func() time.Time
-	order     []string // agents, least recently reported first
+	order     []string
 	last      map[string]presenceEntry
 	listeners map[int]func(Presence)
 	nextID    int
 }
 
-// NewPresenceHub builds a hub; now is the clock (nil = time.Now).
 func NewPresenceHub(now func() time.Time) *PresenceHub {
 	if now == nil {
 		now = time.Now
@@ -142,7 +130,6 @@ func NewPresenceHub(now func() time.Time) *PresenceHub {
 	return &PresenceHub{now: now, last: map[string]presenceEntry{}, listeners: map[int]func(Presence){}}
 }
 
-// Report records an agent's tool call and broadcasts it (idle 0).
 func (h *PresenceHub) Report(agent, actor, tool string, nodes []string) {
 	p := Presence{Agent: agent, Actor: actor, Tool: tool, Nodes: nodes}
 	h.mu.Lock()
@@ -168,7 +155,6 @@ func (h *PresenceHub) Report(agent, actor, tool string, nodes []string) {
 	}
 }
 
-// Recent returns the presences younger than PresenceTTL, oldest first.
 func (h *PresenceHub) Recent() []Presence {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -185,7 +171,6 @@ func (h *PresenceHub) Recent() []Presence {
 	return out
 }
 
-// OnPresence subscribes to live presences; the returned function unsubscribes.
 func (h *PresenceHub) OnPresence(fn func(Presence)) func() {
 	h.mu.Lock()
 	defer h.mu.Unlock()

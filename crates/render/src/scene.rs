@@ -1,13 +1,5 @@
-//! Display list shared by both backends.
-
 use vello::kurbo::{Affine, BezPath, Ellipse, Rect, RoundedRect, Shape};
 
-/// Floats per display-list entry. Layout (all `f32`):
-/// `[kind, x, y, w, h, radius, rotation_deg, opacity, fill_rgba(4), stroke_width, stroke_rgba(4),
-///   shadow_dx, shadow_dy, shadow_blur, shadow_spread, shadow_rgba(4)]`
-/// `kind`: 0 = rect, 1 = ellipse, 2 = push clip (frame with `clip: true`), 3 = pop clip,
-/// 4 = vector path (`radius` holds the index into the path table, see [`parse_paths`]).
-/// Colors are straight (non-premultiplied) RGBA in 0..=1; alpha 0 means "no paint".
 pub const STRIDE: usize = 25;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -19,7 +11,6 @@ pub enum Kind {
     Path,
 }
 
-/// Geometry of a `path` node: SVG `d` already mapped into the node's local box.
 #[derive(Clone, Debug)]
 pub struct PathData {
     pub path: BezPath,
@@ -28,7 +19,6 @@ pub struct PathData {
     pub join: vello::kurbo::Join,
 }
 
-/// A parsed display list: boxes plus the vector paths they reference.
 #[derive(Clone, Debug, Default)]
 pub struct Scene {
     pub items: Vec<Item>,
@@ -37,7 +27,6 @@ pub struct Scene {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Item {
-    /// Index into [`Scene::paths`] for [`Kind::Path`].
     pub path_index: usize,
     pub kind: Kind,
     pub x: f64,
@@ -53,7 +42,6 @@ pub struct Item {
     pub shadow: Option<Shadow>,
 }
 
-/// CSS `box-shadow` (outer), drawn as a blurred rounded rectangle under the box.
 #[derive(Clone, Copy, Debug)]
 pub struct Shadow {
     pub dx: f64,
@@ -64,8 +52,6 @@ pub struct Shadow {
 }
 
 impl Item {
-    /// Blurred rect geometry of the shadow in local coordinates: `(rect, corner radius, std_dev)`.
-    /// CSS blur radius ≈ 2 standard deviations.
     pub fn shadow_geometry(&self) -> Option<(Rect, f64, f64, [f32; 4])> {
         let s = self.shadow?;
         if s.color[3] <= 0.0 || matches!(self.kind, Kind::Path | Kind::PopClip) {
@@ -90,7 +76,6 @@ impl Item {
         ))
     }
 
-    /// Box shape in local coordinates; [`Item::transform`] places it in document space.
     pub fn path(&self) -> BezPath {
         let r = Rect::new(0.0, 0.0, self.w, self.h);
         match self.kind {
@@ -102,7 +87,6 @@ impl Item {
         }
     }
 
-    /// Document-space transform. Rotation pivots on the box center, like CSS `rotate()`.
     pub fn transform(&self) -> Affine {
         let t = Affine::translate((self.x, self.y));
         if self.rotation == 0.0 {
@@ -114,7 +98,6 @@ impl Item {
             * Affine::translate((-c.0, -c.1))
     }
 
-    /// The border is drawn inside the box (CSS `box-sizing: border-box`).
     pub fn stroke_path(&self) -> Option<BezPath> {
         if self.stroke_width <= 0.0 || self.stroke[3] <= 0.0 {
             return None;
@@ -169,10 +152,6 @@ pub fn parse(data: &[f32]) -> Vec<Item> {
         .collect()
 }
 
-/// Path table: one line per path, `vx vy vw vh rule cap join|d` where the viewBox is all
-/// zeros when absent (path coordinates are already local), `rule` is `nonzero|evenodd`,
-/// `cap` is `butt|round|square` and `join` is `miter|round|bevel`. The viewBox is mapped
-/// with `preserveAspectRatio="xMidYMid meet"`, like the SVG the DOM canvas renders.
 pub fn parse_paths(table: &str, items: &[Item]) -> Vec<PathData> {
     use vello::kurbo::{Cap, Join};
     let mut boxes = vec![None; table.lines().count()];
@@ -222,7 +201,6 @@ impl Scene {
     }
 }
 
-/// Encodes a display list into a vello GPU scene under the view transform (pan/zoom/DPR).
 pub fn encode_gpu(scene: &mut vello::Scene, s: &Scene, view: Affine) {
     use vello::{
         kurbo::Stroke,
@@ -249,7 +227,6 @@ pub fn encode_gpu(scene: &mut vello::Scene, s: &Scene, view: Affine) {
                     );
                 }
                 if it.stroke_width > 0.0 && it.stroke[3] > 0.0 {
-                    // SVG strokes are centered on the outline (unlike the inner CSS border of boxes).
                     let st = Stroke::new(it.stroke_width)
                         .with_caps(p.cap)
                         .with_join(p.join);
@@ -258,7 +235,6 @@ pub fn encode_gpu(scene: &mut vello::Scene, s: &Scene, view: Affine) {
             }
             Kind::PopClip => scene.pop_layer(),
             Kind::PushClip => {
-                // Frames paint their own fill/stroke before clipping their children.
                 paint_gpu(scene, it, t, Color::new);
                 scene.push_clip_layer(Fill::NonZero, t, &it.path());
             }

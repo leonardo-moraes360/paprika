@@ -1,5 +1,3 @@
-// Draws 5 Paprika icon + theme proposals over MCP (JSON-RPC over HTTP), with increasing icon complexity.
-// Usage: PAPRIKA_MCP=http://127.0.0.1:4777/mcp node scripts/brand/draw-brand.mjs
 const URL_ = process.env.PAPRIKA_MCP ?? "http://127.0.0.1:4777/mcp";
 let rpcId = 0;
 async function call(name, args) {
@@ -14,7 +12,6 @@ async function call(name, args) {
   return r.content.map((c) => c.text ?? "").join("\n");
 }
 
-// ---------- primitivas (coordenadas na unidade 200 do ícone, multiplicadas por s) ----------
 const k = (s) => (v) => Math.round(v * s * 100) / 100;
 const shape = (type, s, x, y, w, h, fill, extra = {}) => {
   const f = k(s);
@@ -23,20 +20,16 @@ const shape = (type, s, x, y, w, h, fill, extra = {}) => {
 const E = (s, x, y, w, h, fill, extra) => shape("ellipse", s, x, y, w, h, fill, extra);
 const R = (s, x, y, w, h, fill, extra) => shape("rect", s, x, y, w, h, fill, extra);
 
-// ---------- 5 ícones, complexidade crescente ----------
 const icons = {
-  // 1: círculo + cabinho (3 formas)
   dot: (s) => [
     E(s, 44, 46, 112, 136, "$brand", { name: "Fruto" }),
     R(s, 93, 20, 14, 38, "$stem", { radius: 7, name: "Cabo" }),
   ],
-  // 2: vagem alongada inclinada + cálice (5 formas)
   pod: (s) => [
     E(s, 62, 30, 76, 160, "$brand", { rotation: -28, name: "Vagem" }),
     E(s, 58, 30, 40, 26, "$stem", { rotation: -28, name: "Cálice" }),
     R(s, 68, 4, 10, 32, "$stem", { radius: 5, rotation: -28, name: "Cabo" }),
   ],
-  // 3: pimentão de 3 lóbulos + cabo + folha (6 formas)
   bell: (s) => [
     E(s, 28, 50, 78, 124, "$brand", { name: "Lóbulo esq." }),
     E(s, 94, 50, 78, 124, "$brand", { name: "Lóbulo dir." }),
@@ -44,7 +37,6 @@ const icons = {
     R(s, 94, 18, 12, 38, "$stem", { radius: 6, name: "Cabo" }),
     E(s, 102, 20, 46, 20, "$leaf", { rotation: -22, name: "Folha" }),
   ],
-  // 4: lóbulos com volume (sombra/luz), brilho, cálice, folha com nervura (11 formas)
   shaded: (s) => [
     E(s, 26, 52, 80, 126, "$brand.dark", { name: "Lóbulo esq. (sombra)" }),
     E(s, 94, 52, 80, 126, "$brand.dark", { name: "Lóbulo dir. (sombra)" }),
@@ -57,7 +49,6 @@ const icons = {
     E(s, 104, 14, 52, 22, "$leaf", { rotation: -24, name: "Folha" }),
     R(s, 110, 23, 36, 3, "$stem.dark", { rotation: -24, name: "Nervura" }),
   ],
-  // 5: pimentão sombreado + caixa de seleção com alças + cursor + pó de páprica (≈20 formas)
   studio: (s) => [
     ...icons.shaded(s * 0.8).map((n) => ({ ...n, x: n.x + k(s)(18), y: n.y + k(s)(10) })),
     R(s, 26, 18, 148, 156, "transparent", { stroke: { color: "$accent", width: Math.max(1, Math.round(2 * s)) }, name: "Seleção" }),
@@ -71,7 +62,6 @@ const icons = {
   ],
 };
 
-// ---------- temas ----------
 const themes = [
   { key: "dot", title: "1 · Ponto", theme: "Páprica pura", desc: "Mínimo: um fruto e um cabo. Funciona em 16px.",
     tokens: { bg: "#fbf6f0", surface: "#ffffff", ink: "#2a1a14", muted: "#6e5a50", brand: "#d9411e", "brand.dark": "#a8301a", stem: "#3f7d3a", "stem.dark": "#2c5a29", leaf: "#5c9e46", shine: "#f08a6a", accent: "#2a1a14", line: "#ead9cb" } },
@@ -85,7 +75,6 @@ const themes = [
     tokens: { bg: "#141827", surface: "#1e2336", ink: "#eef0f7", muted: "#a6acc4", brand: "#e04a2b", "brand.dark": "#a93220", stem: "#4f9a5a", "stem.dark": "#336b3d", leaf: "#7cc46a", shine: "#ff9a7c", accent: "#4cc7d8", line: "#2c3350" } },
 ];
 
-// Tokens por proposta: prefixados (p1.brand…), e o ícone usa $pN.xxx.
 const prefixed = (n, obj) => Object.fromEntries(Object.entries(obj).map(([key, v]) => [`p${n}.${key}`, v]));
 const retarget = (n, nodes) =>
   nodes.map((node) => {

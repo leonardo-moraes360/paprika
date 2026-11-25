@@ -1,8 +1,3 @@
-// Package vision measures raster images: palette, background, connected color regions
-// ("blobs") with the primitive that best fits each one, and layout hints (grids, repeated
-// shapes, radial repetition). It is pure Go and deterministic: the same pixels and options give
-// the same result. analyze_image is its first user; compare_reference, trace_image and
-// fit_to_reference are meant to reuse the same pieces.
 package vision
 
 import (
@@ -25,18 +20,15 @@ const (
 	DefaultMaxBlobs  = 40
 	DefaultMaxPoints = 24
 	maxAnalysisSide  = 640
-	maxGrainSide     = 1600 // grain (photo detection) is measured at up to this size
+	maxGrainSide     = 1600
 )
 
-// Options tunes Analyze. Zero values pick the defaults.
 type Options struct {
-	MaxColors int     // palette size cap (default 8, max 16)
-	MinArea   float64 // smallest blob, as a fraction of the analyzed area (default 0.0005)
-	MaxBlobs  int     // blobs returned (default 40)
-	MaxPoints int     // outline points for freeform blobs (default 24)
-	Region    *Rect   // sub-rectangle of the image, in source pixels
-	// Scale and Offset place the image in the output space: a source pixel (x, y) is reported
-	// at (OffsetX + x*Scale, OffsetY + y*Scale). Scale defaults to 1.
+	MaxColors               int
+	MinArea                 float64
+	MaxBlobs                int
+	MaxPoints               int
+	Region                  *Rect
 	Scale, OffsetX, OffsetY float64
 }
 
@@ -68,7 +60,6 @@ type Background struct {
 	BorderShare float64 `json:"borderShare"`
 }
 
-// NodeSpec is a node ready for create_nodes (relative to the same parent as the output space).
 type NodeSpec struct {
 	Type     string   `json:"type"`
 	X        float64  `json:"x"`
@@ -76,37 +67,36 @@ type NodeSpec struct {
 	Width    *float64 `json:"width,omitempty"`
 	Height   *float64 `json:"height,omitempty"`
 	Rotation float64  `json:"rotation,omitempty"`
-	Radius   any      `json:"radius,omitempty"` // number, or [tl, tr, br, bl] when the corners differ
+	Radius   any      `json:"radius,omitempty"`
 	D        string   `json:"d,omitempty"`
 	Fill     string   `json:"fill"`
 }
 
 type Fit struct {
-	Kind         string     `json:"kind"` // circle, ellipse, rect, roundRect, polygon, freeform
+	Kind         string     `json:"kind"`
 	IoU          float64    `json:"iou"`
 	Node         *NodeSpec  `json:"node"`
 	Center       *Point     `json:"center,omitempty"`
 	Sides        int        `json:"sides,omitempty"`
-	Radius       float64    `json:"radius,omitempty"`       // polygon: circumradius
-	CornerRadius float64    `json:"cornerRadius,omitempty"` // polygon: rounding of the corners (0 = sharp)
-	Radii        []float64  `json:"radii,omitempty"`        // roundRect with different corners: tl, tr, br, bl
+	Radius       float64    `json:"radius,omitempty"`
+	CornerRadius float64    `json:"cornerRadius,omitempty"`
+	Radii        []float64  `json:"radii,omitempty"`
 	Simplicity   Simplicity `json:"simplicity"`
-	Rotation     float64    `json:"rotation,omitempty"` // polygon: direction of the first vertex, degrees
-	Nearest      string     `json:"nearest,omitempty"`  // freeform: the primitive that came closest
+	Rotation     float64    `json:"rotation,omitempty"`
+	Nearest      string     `json:"nearest,omitempty"`
 	NearestIoU   float64    `json:"nearestIou,omitempty"`
-	Outline      []Point    `json:"outline,omitempty"` // freeform: simplified polygon
+	Outline      []Point    `json:"outline,omitempty"`
 	HolesFilled  bool       `json:"holesFilled,omitempty"`
 }
 
-// Simplicity is what the fit costs to draw: one node, and how many numbers describe it.
 type Simplicity struct {
 	Nodes  int `json:"nodes"`
 	Params int `json:"params"`
 }
 
 type Symmetry struct {
-	MirrorX float64 `json:"mirrorX"` // left-right: 1 = identical to its mirror image
-	MirrorY float64 `json:"mirrorY"` // top-bottom
+	MirrorX float64 `json:"mirrorX"`
+	MirrorY float64 `json:"mirrorY"`
 }
 
 type Blob struct {
@@ -118,24 +108,24 @@ type Blob struct {
 	Centroid    Point    `json:"centroid"`
 	Holes       int      `json:"holes"`
 	HoleBoxes   []Rect   `json:"holeBoxes,omitempty"`
-	Orientation float64  `json:"orientation"` // major axis, degrees, clockwise from +x, in (-90, 90]
-	Elongation  float64  `json:"elongation"`  // major/minor axis, 1 = round
+	Orientation float64  `json:"orientation"`
+	Elongation  float64  `json:"elongation"`
 	Symmetry    Symmetry `json:"symmetry"`
 	Fit         Fit      `json:"fit"`
-	Suggest     string   `json:"suggest"` // primitive, trace_image, skip-in-photo, skip-in-gradient, text
-	Region      string   `json:"region"`  // id of the region the blob sits in
+	Suggest     string   `json:"suggest"`
+	Region      string   `json:"region"`
 
 	pal      int
-	dimA     float64 // fit dimensions, long then short (output units)
+	dimA     float64
 	dimB     float64
 	solidity float64
-	area     float64 // output units²
+	area     float64
 }
 
 type Result struct {
 	Size             Size           `json:"size"`
 	Region           Rect           `json:"region"`
-	Placed           *Rect          `json:"placed,omitempty"` // the whole image's box in the output space when a frame is given
+	Placed           *Rect          `json:"placed,omitempty"`
 	Scale            float64        `json:"scale"`
 	AnalysisScale    float64        `json:"analysisScale"`
 	Background       Background     `json:"background"`
@@ -156,7 +146,6 @@ func fp(v float64) *float64 {
 	return &v
 }
 
-// Analyze measures img. It is safe to call concurrently.
 func Analyze(img image.Image, opt Options) (*Result, error) {
 	b := img.Bounds()
 	if b.Dx() < 1 || b.Dy() < 1 {
@@ -206,7 +195,7 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 	t := transform{
 		kx: opt.Scale * float64(rw) / float64(aw), ky: opt.Scale * float64(rh) / float64(ah),
 		ox: opt.OffsetX + float64(reg.Min.X)*opt.Scale, oy: opt.OffsetY + float64(reg.Min.Y)*opt.Scale,
-		src: float64(rw) / float64(aw), // source px per analysis px along x (area conversion uses the mean)
+		src: float64(rw) / float64(aw),
 	}
 	t.src = (float64(rw)/float64(aw) + float64(rh)/float64(ah)) / 2
 
@@ -233,7 +222,7 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 		return res, nil
 	}
 	labels := assignLabels(px, pal)
-	counts := make([]int, len(pal)+1) // last = transparent
+	counts := make([]int, len(pal)+1)
 	for _, l := range labels {
 		if l == 255 {
 			counts[len(pal)]++
@@ -246,7 +235,6 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 		res.Palette = append(res.Palette, PaletteEntry{Color: p.hex, Share: r3(float64(counts[i]) / total)})
 	}
 
-	// background: the label that owns most of the border
 	border := make([]int, len(pal)+1)
 	nb := 0
 	visit := func(x, y int) {
@@ -297,7 +285,6 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 		kept = append(kept, c)
 	}
 	sort.SliceStable(kept, func(i, j int) bool { return kept[i].area > kept[j].area })
-	// regions: what each part of the image is best drawn with
 	raws := classifyRegions(px, hi, kept)
 	owner := assignRegions(raws, kept)
 	pick := listedBlobs(raws, owner, len(kept))
@@ -329,9 +316,6 @@ func Analyze(img image.Image, opt Options) (*Result, error) {
 	return res, nil
 }
 
-// grainRaster is the region of img (src, in its coordinates) at up to maxGrainSide pixels:
-// grain is measured there, because the analysis raster has blurred it away. When the analysis
-// raster is already as large as the source it is the same raster.
 func grainRaster(img image.Image, src image.Rectangle, px *pixels) *pixels {
 	rw, rh := src.Dx(), src.Dy()
 	if px.w == rw && px.h == rh {
@@ -348,8 +332,6 @@ func grainRaster(img image.Image, src image.Rectangle, px *pixels) *pixels {
 	return prepareLite(big)
 }
 
-// assignRegions gives each comp the region it sits in (by the center of its box); blobs that
-// merely overlap a text block without being letters belong to the area behind the text.
 func assignRegions(raws []rawRegion, comps []comp) []int {
 	owner := make([]int, len(comps))
 	for i, c := range comps {
@@ -373,9 +355,6 @@ func assignRegions(raws []rawRegion, comps []comp) []int {
 	return owner
 }
 
-// listedBlobs picks the comps (indexes into the size-sorted kept list) that analyze_image lists:
-// blobs inside a photo are specks of its texture, only its largest few are worth listing.
-// trace_image numbers its blobs through the same function, so the ids agree.
 func listedBlobs(raws []rawRegion, owner []int, n int) []int {
 	var pick []int
 	inPhoto := map[int]int{}
@@ -390,7 +369,6 @@ func listedBlobs(raws []rawRegion, owner []int, n int) []int {
 	return pick
 }
 
-// onRamp is true when most of the blob's pixels lie in the smooth tiles of the ramp.
 func onRamp(ids []int32, aw int, c comp, smooth func(x, y int) bool) bool {
 	in := 0
 	for y := c.minY; y <= c.maxY; y++ {
@@ -403,12 +381,10 @@ func onRamp(ids []int32, aw int, c comp, smooth func(x, y int) bool) bool {
 	return float64(in) >= 0.6*float64(c.area)
 }
 
-const maxPhotoBlobs = 8 // blobs listed per photo region
+const maxPhotoBlobs = 8
 
-const primitiveIoU = 0.93 // a fit this good is worth drawing as a primitive
+const primitiveIoU = 0.93
 
-// buildRegions turns the raw regions into the output ones, with the blobs each holds and the
-// tool suggested for them.
 func buildRegions(raws []rawRegion, owner []int, comps []comp, blobs []Blob, ids []int32, aw int, t transform, total float64) []ImageRegion {
 	out := make([]ImageRegion, len(raws))
 	for ri, r := range raws {
@@ -437,7 +413,6 @@ func buildRegions(raws []rawRegion, owner []int, comps []comp, blobs []Blob, ids
 			b.Suggest = "text"
 		case KindGradient:
 			c := comps[i]
-			// a band of the ramp lies in its smooth tiles; a shape drawn on the ramp does not
 			if r.gband && onRamp(ids, aw, c, r.smooth) {
 				b.Suggest = "skip-in-gradient"
 			}
@@ -568,7 +543,6 @@ func describe(g *geom, c comp, color string, t transform, total float64, maxPts 
 		if bl.dimB > bl.dimA {
 			bl.dimA, bl.dimB = bl.dimB, bl.dimA
 		}
-		// how well the simplified outline covers the blob
 		fit.IoU = r3(g.outlineIoU(out))
 		fit.Simplicity = Simplicity{Nodes: 1, Params: 2 * len(out)}
 	}
@@ -594,10 +568,9 @@ func primNode(p prim, center Point, k float64, color string, loc func(x, y float
 		return n
 	}
 	if p.r > 0 {
-		// rounded regular polygon: the same path builder create_shape_path uses
 		cr := p.r * k
 		R := p.rx * k
-		angle := p.rot*180/math.Pi + 90 // clockwise from 12 o'clock
+		angle := p.rot*180/math.Pi + 90
 		shape, err := core.BuildPathShape("polygon", core.ShapeParams{Sides: new(float64(p.n)), Radius: new(R), Angle: new(angle), CornerRadius: new(cr)})
 		if err == nil {
 			return &NodeSpec{Type: "path", X: r1(center.X - shape.Center.X), Y: r1(center.Y - shape.Center.Y), D: shape.D, Fill: color}
@@ -611,7 +584,6 @@ func primNode(p prim, center Point, k float64, color string, loc func(x, y float
 	return pathNode(pts, color)
 }
 
-// primParams counts the numbers that describe a primitive (center, size, angle, radii...).
 func primParams(p prim) int {
 	switch p.kind {
 	case "circle":
@@ -656,7 +628,6 @@ func num(v float64) string {
 	return fmt.Sprintf("%g", r1(v))
 }
 
-// mirror is the IoU of the blob's mask with itself flipped across its bounding box center.
 func (g *geom) mirror(horizontal bool) float64 {
 	inter, uni := 0, 0
 	for y := range g.h {
@@ -682,7 +653,6 @@ func (g *geom) mirror(horizontal bool) float64 {
 	return float64(inter) / float64(uni)
 }
 
-// outlineIoU is how well a polygon (local coordinates) covers the filled mask.
 func (g *geom) outlineIoU(poly []pt) float64 {
 	if len(poly) < 3 {
 		return 0

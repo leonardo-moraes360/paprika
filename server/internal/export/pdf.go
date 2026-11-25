@@ -123,7 +123,6 @@ func paintPDF(doc *core.Document, rootID string, pdf *gofpdf.Fpdf, measure core.
 			}
 			drawPDFText(doc, n, pdf, measure, box, scale, fonts)
 		case "image":
-			// Images stay out of the vector PDF in this pass; they appear in raster exports.
 		case "connector":
 			drawPDFPath(doc, n, pdf, box, scale)
 		}

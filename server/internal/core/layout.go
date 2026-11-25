@@ -10,28 +10,21 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/layout.ts: absolute boxes for agents (row/column, hug/fill, rotation).
-
-// LayoutPt is a 2D point.
 type LayoutPt struct{ X, Y float64 }
 
-// LayoutBox is an absolute box with rotated corners and transform origin (centre).
 type LayoutBox struct {
 	X, Y, Width, Height float64
 	Origin              LayoutPt
-	Corners             [4]LayoutPt // TL, TR, BR, BL after CSS clockwise rotation
+	Corners             [4]LayoutPt
 }
 
-// FontAvg is the mean Latin advance / em for Inter-like sans at weight 400.
 const FontAvg = 0.552
 
-// TextMetrics is a deterministic text box shared by TS and Go.
 type TextMetrics struct {
 	Width, Height float64
 	Lines         int
 }
 
-// MeasureText approximates Inter / system-ui; optional maxWidth wraps by character advance.
 func MeasureText(text string, fontSize float64, fontWeight, lineHeight, letterSpacing float64, maxWidth float64, hasMax bool) TextMetrics {
 	if fontWeight == 0 {
 		fontWeight = 400
@@ -80,13 +73,11 @@ func MeasureText(text string, fontSize float64, fontWeight, lineHeight, letterSp
 	return TextMetrics{Round4(width), Round4(float64(len(lines)) * lineH), len(lines)}
 }
 
-// RichSpan is a resolved run used by MeasureRich (UTF-16 indexes, numeric size and weight).
 type RichSpan struct {
 	Start, End           int
 	FontSize, FontWeight float64
 }
 
-// MeasureRich measures text whose runs override size or weight. No runs delegates to MeasureText.
 func MeasureRich(text string, fontSize, fontWeight, lineHeight, letterSpacing, maxW float64, hasMax bool, runs []RichSpan) TextMetrics {
 	if len(runs) == 0 {
 		return MeasureText(text, fontSize, fontWeight, lineHeight, letterSpacing, maxW, hasMax)
@@ -351,9 +342,6 @@ func hasFlow(n *Node) bool {
 
 const lineEps = 1e-9
 
-// splitLines is CSS flex-wrap line breaking: mains are the items' hypothetical main sizes (fill counts as 0,
-// like `flex: 1 1 0`). An item starts a new line when it (plus the gap) no longer fits avail; without
-// hasAvail everything stays on one line.
 func splitLines(mains []float64, avail float64, hasAvail bool, gap float64) [][]int {
 	var lines [][]int
 	var cur []int
@@ -376,7 +364,6 @@ func splitLines(mains []float64, avail float64, hasAvail bool, gap float64) [][]
 	return lines
 }
 
-// hasWrap reports whether the node, or a flow frame below it, wraps: its height can depend on the width it is given.
 func hasWrap(doc *Document, n *Node) bool {
 	if hasFlow(n) && n.Obj("layout").Bool("wrap") {
 		return true
@@ -392,7 +379,6 @@ func hasWrap(doc *Document, n *Node) bool {
 	return false
 }
 
-// pforce pins a frame's own outer size on an axis (already decided by its parent).
 type pforce struct {
 	w, h       float64
 	hasW, hasH bool
@@ -468,7 +454,6 @@ func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH 
 				sizes[i] = preferred(doc, c, hintW, 0, hasHintW, false, pforce{})
 			}
 		}
-		// The width and height the frame is going to have, when they are known before its content is measured.
 		var baseW, baseH float64
 		hasBaseW, hasBaseH := true, true
 		switch {
@@ -506,7 +491,6 @@ func preferred(doc *Document, n *Node, hintW, hintH float64, hasHintW, hasHintH 
 			}
 			return out
 		}
-		// A wrapping frame below with hug height is as tall as the width it ends up with (fill takes the free width of its line).
 		var rowLines [][]int
 		if row {
 			rowLines = splitLines(mainsOf(), availW, wrap && hasBaseW, gap)
@@ -706,7 +690,6 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 		n    *Node
 		w, h float64
 	}
-	// Final outer size of one flex item. hasCross is false while the line's cross size is not known yet (no stretching).
 	sizeItem := func(b base, fillEach, crossAvail float64, hasCross bool) item {
 		w, h := b.baseW, b.baseH
 		if b.fillMain {
@@ -730,7 +713,6 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 		} else if align == "stretch" && hasCross {
 			crossHug := (row && sizeKind(b.n, "height") == "hug") || (!row && sizeKind(b.n, "width") == "hug")
 			if crossHug {
-				// hug stays content-sized; CSS max-content wins over stretch
 			} else if row && !sizeNumOk(b.n, "height") {
 				h = crossAvail
 			} else if !row && !sizeNumOk(b.n, "width") {
@@ -752,7 +734,6 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 			}
 		}
 		if b.reflow {
-			// a wrapping frame: its hug height (or, for a wrapping column, hug width) follows the size it was just given
 			if sizeKind(b.n, "height") == "hug" {
 				h = preferred(doc, b.n, w, 0, true, false, pforce{w: w, hasW: true}).h
 			}
@@ -789,8 +770,6 @@ func placeFlowFrame(doc *Document, n *Node, absX, absY, frameW, frameH float64, 
 		lineItems[li] = lineT{members, fillEach}
 	}
 
-	// Cross size of each line: a single line fills the frame; wrapped lines are as tall as their tallest item and
-	// share the leftover space equally (align-content: stretch, the CSS default).
 	lineCross := make([]float64, len(lineItems))
 	for li := range lineCross {
 		lineCross[li] = crossInner
@@ -1013,20 +992,16 @@ func pageIdOf(doc *Document, id string) string {
 	return ""
 }
 
-// LayoutOptions filters the result of Layout.
 type LayoutOptions struct {
 	RootID string
 	IDs    []string
 }
 
-// Layout resolves absolute boxes for every visible node (or a subtree / id filter).
 func Layout(doc *Document, opts LayoutOptions) (map[string]LayoutBox, error) {
 	if opts.RootID != "" && GetNode(doc, opts.RootID) == nil {
 		return nil, fmt.Errorf(`node "%s" does not exist`, opts.RootID)
 	}
 	var placed []place
-	// Which pages to lay out: the one that holds RootID; else the page of every requested id (an id on another
-	// page used to vanish from the result); else the first page.
 	var pageIDs []string
 	seen := map[string]bool{}
 	addPage := func(id string) {
@@ -1101,7 +1076,6 @@ func Layout(doc *Document, opts LayoutOptions) (map[string]LayoutBox, error) {
 	return out, nil
 }
 
-// LayoutBoxJSON is the MCP / golden JSON shape of a LayoutBox.
 func LayoutBoxJSON(b LayoutBox) *jsonv.Object {
 	corners := make([]any, 4)
 	for i, c := range b.Corners {

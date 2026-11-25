@@ -35,7 +35,6 @@ import {
 const example = (name: string) => parseDocument(JSON.parse(readFileSync(join(__dirname, "../../e2e/fixtures", name), "utf8")));
 const noWarn = () => {};
 
-/** Importa o HTML de renderHTML de volta num documento vazio. */
 function roundtrip(doc: Document, rootId: string): Document {
   const html = renderHTML(doc, { rootId }).html;
   const r = importHTML(html);
@@ -127,7 +126,6 @@ describe("importSVG", () => {
   it("parseTransform e arcos", () => {
     expect(parseTransform("translate(10 20) scale(2)", noWarn)).toEqual([2, 0, 0, 2, 10, 20]);
     expect(parseTransform("x y translate (1e1,.5) scale(2", noWarn)).toEqual([1, 0, 0, 1, 10, 0.5]);
-    // Entradas montadas contra regex com retrocesso terminam em tempo linear.
     const t0 = performance.now();
     parseTransform("a".repeat(200_000) + " " + "a(".repeat(100_000), noWarn);
     expect(parseTransform("1".repeat(100_000) + "x", noWarn)).toEqual([1, 0, 0, 1, 0, 0]);
@@ -160,7 +158,6 @@ describe("importHTML", () => {
       const doc = example(name);
       for (const id of doc.rootIds) {
         const back = roundtrip(doc, id);
-        // Tokens saem resolvidos no HTML; o resto (tipos, nomes, layout, pintura) volta igual.
         const html = (d: Document, root: string) => renderHTML(d, { rootId: root }).html.replace(/data-paprika-id="[^"]*"/g, "").replace(/<title>.*?<\/title>/, "");
         expect(html(back, back.rootIds[0]!)).toBe(html(doc, id));
         expect(back.nodes[back.rootIds[0]!]!.name).toBe(doc.nodes[id]!.name);

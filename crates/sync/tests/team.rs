@@ -1,5 +1,3 @@
-//! Teams: create, invite, join, single use, expiry, and members added by other members.
-
 mod common;
 
 use std::time::Duration;
@@ -53,7 +51,6 @@ async fn invite_join_and_sync() {
     assert_eq!(members(&b), vec!["Ana", "Bruno"]);
     wait_for(&mut eb, |v| v["t"] == "peer" && v["state"] == "connected").await;
 
-    // Single use: Carla cannot reuse Bruno's link.
     let err = c
         .command(&json!({"t": "join", "link": link}))
         .await
@@ -61,7 +58,6 @@ async fn invite_join_and_sync() {
     assert!(err.to_string().contains("already used"), "{err}");
     wait_for(&mut ea, |v| v["t"] == "rejected").await;
 
-    // Bruno (a member, not the founder) invites Carla; Ana learns about her through the team file.
     let link2 = b
         .command(&json!({"t": "invite.create", "ttlSecs": 600}))
         .await
@@ -80,12 +76,10 @@ async fn invite_join_and_sync() {
     }
     assert_eq!(members(&a), vec!["Ana", "Bruno", "Carla"]);
 
-    // Ana shares a workspace; Carla (who never got Ana's invite) receives it.
     a.command(&json!({"t": "share", "doc": "w1", "author": "user", "state": {"name": "W", "rootIds": [], "nodes": {}}})).await.unwrap();
     let r = wait_for(&mut ec, |v| v["t"] == "remote" && v["doc"] == "w1").await;
     assert_eq!(r["state"]["name"], "W");
 
-    // Revoked invites are refused.
     let link3 = a
         .command(&json!({"t": "invite.create", "ttlSecs": 600}))
         .await
@@ -118,7 +112,6 @@ async fn expired_links_are_refused_before_dialing() {
         .as_str()
         .unwrap()
         .to_string();
-    // Same link with a past expiry: the joiner refuses it; tampering would not pass the inviter anyway.
     let (head, _) = link.rsplit_once("&e=").unwrap();
     let err = b
         .command(&json!({"t": "join", "link": format!("{head}&e=1")}))
@@ -164,7 +157,6 @@ async fn until(what: &str, cond: impl Fn() -> bool) {
 }
 
 fn text(n: &Node) -> Value {
-    // `state` never waits on the network; block_in_place keeps the polling closures simple.
     tokio::task::block_in_place(|| {
         tokio::runtime::Handle::current()
             .block_on(n.command(&json!({"t": "state", "doc": "w1"})))
@@ -202,7 +194,6 @@ async fn the_founder_removes_a_member() {
     })
     .await;
 
-    // Only the founder removes; Carla (a member) cannot.
     let err = c
         .command(&json!({"t": "member.remove", "key": b.id().to_string()}))
         .await
@@ -225,13 +216,11 @@ async fn the_founder_removes_a_member() {
     assert_eq!(a.status()["team"]["canRemove"], true);
     assert_eq!(c.status()["team"]["canRemove"], false);
 
-    // Bruno's later edits reach nobody.
     b.command(&set_text("depois")).await.unwrap();
     tokio::time::sleep(Duration::from_secs(2)).await;
     assert_eq!(text(&a), "de Bruno");
     assert_eq!(text(&c), "de Bruno");
 
-    // A newcomer still replays Bruno's history up to the cut.
     let (d, _ed) = start(dirs[3].path(), "Davi").await;
     invite(&a, &d).await;
     until("D replays the history", || text(&d) == "de Bruno").await;
@@ -265,7 +254,6 @@ async fn a_member_rotates_its_key_and_keeps_syncing() {
             .any(|m| m["key"] == r["new"] && m["name"] == "Carla" && m["rotated"] == true)
     })
     .await;
-    // The process restarts with the new key (the Go server does this).
     c.shutdown().await;
     drop(c);
     let (c, _ec) = start(dc.path(), "Carla").await;

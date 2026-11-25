@@ -14,15 +14,13 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/server"
 )
 
-// Service is the team side of a running server: the sidecar, its last status and the HTTP/WS
-// surface the canvas uses.
 type Service struct {
 	store *server.Store
 	opts  Options
 	log   func(string)
 
 	scMu sync.Mutex
-	sc   *Sidecar // swapped by a key rotation: read it through side()
+	sc   *Sidecar
 
 	mu        sync.Mutex
 	status    json.RawMessage
@@ -34,7 +32,6 @@ type Service struct {
 	sync      *syncer
 }
 
-// New starts the sidecar for store. The returned service must be closed.
 func New(ctx context.Context, store *server.Store, opts Options, log func(string)) (*Service, error) {
 	if log == nil {
 		log = func(string) {}
@@ -50,7 +47,6 @@ func New(ctx context.Context, store *server.Store, opts Options, log func(string
 	t.sync.enqueue(t.sync.start)
 	t.stopDocs = store.OnChange(func(ev server.ChangeEvent) { t.sync.enqueue(func() { t.sync.onChange(ev) }) })
 	t.stopPins = store.OnPins(func(docID string) { t.sync.enqueue(func() { t.sync.pushPins(docID) }) })
-	// Local agents' presence goes to the peers; presence that came from peers is not sent back.
 	t.stopPres = store.Presence.OnPresence(func(p server.Presence) {
 		if strings.HasPrefix(p.Agent, "peer:") {
 			return
@@ -63,7 +59,6 @@ func New(ctx context.Context, store *server.Store, opts Options, log func(string
 	return t, nil
 }
 
-// Sidecar exposes the process (tests, CLI).
 func (t *Service) Sidecar() *Sidecar { return t.side() }
 
 func (t *Service) side() *Sidecar {
@@ -72,10 +67,8 @@ func (t *Service) side() *Sidecar {
 	return t.sc
 }
 
-// RotateKey gives this instance a new member key (signed by the old one and spread to the
-// team), then restarts the sidecar with it: Iroh binds the endpoint to the key.
 func (t *Service) RotateKey(ctx context.Context) (json.RawMessage, error) {
-	t.sync.flush() // changes signed by the old key go out first
+	t.sync.flush()
 	res, err := t.side().Call(ctx, map[string]any{"t": "key.rotate"})
 	if err != nil {
 		return nil, err
@@ -92,7 +85,6 @@ func (t *Service) RotateKey(ctx context.Context) (json.RawMessage, error) {
 	return res, nil
 }
 
-// Close stops the sidecar.
 func (t *Service) Close() {
 	if t.stopPres != nil {
 		t.stopPres()
@@ -123,7 +115,7 @@ func (t *Service) onEvent(ev Event) {
 			return
 		}
 		if doc, _ := data["doc"].(string); doc != "" && doc != t.store.DocID() {
-			return // the peer's agent is in another workspace
+			return
 		}
 		agent, _ := data["agent"].(string)
 		actor, _ := data["actor"].(string)
@@ -196,7 +188,6 @@ func (t *Service) broadcast(msg string) {
 	}
 }
 
-// OnMessage subscribes to WebSocket messages ({type: "team", …}); returns the unsubscribe.
 func (t *Service) OnMessage(fn func(string)) func() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -210,7 +201,6 @@ func (t *Service) OnMessage(fn func(string)) func() {
 	}
 }
 
-// Recent is what a canvas that just connected needs: the last status.
 func (t *Service) Recent() []string {
 	t.mu.Lock()
 	raw := t.status
@@ -221,7 +211,6 @@ func (t *Service) Recent() []string {
 	return []string{t.statusMessage(raw)}
 }
 
-// Status asks the sidecar for the current status.
 func (t *Service) Status(ctx context.Context) (json.RawMessage, error) {
 	return t.side().Call(ctx, map[string]any{"t": "status"})
 }
@@ -247,7 +236,6 @@ func readJSON(r *http.Request, v any) error {
 	return json.Unmarshal(body, v)
 }
 
-// call proxies an HTTP request body to a sidecar command and writes its result.
 func (t *Service) call(w http.ResponseWriter, r *http.Request, cmd map[string]any) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -267,7 +255,6 @@ func (t *Service) reply(w http.ResponseWriter, res json.RawMessage, err error) {
 	_, _ = w.Write(res)
 }
 
-// Share starts sharing a workspace with the team (the active one when doc is empty).
 func (t *Service) Share(doc string) error {
 	if doc == "" {
 		doc = t.store.DocID()
@@ -277,10 +264,8 @@ func (t *Service) Share(doc string) error {
 	return <-errc
 }
 
-// Flush waits until every change queued so far reached the sidecar or the store.
 func (t *Service) Flush() { t.sync.flush() }
 
-// Routes registers /api/team/* on the Gin router.
 func (t *Service) Routes(r gin.IRoutes) {
 	r.POST("/api/team/share", func(c *gin.Context) {
 		var body struct {

@@ -9,8 +9,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Every tool's argument schema and its contract inputSchema name the same keys, and the contract
-// says additionalProperties:false (unknown arguments are rejected, not dropped).
 func TestToolSchemasMatchContract(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)

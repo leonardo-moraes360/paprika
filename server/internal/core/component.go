@@ -9,21 +9,14 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/component.ts: components (frames with component: true) and
-// instances (frames with instanceOf), whose children are copies rebuilt at the end of every
-// transaction.
-
-// CopyOverrides are the fields of a copy that an instance can override.
 var CopyOverrides = []string{"fill", "color", "text", "src", "alt", "visible", "opacity", "runs"}
 
-// RootDerived are the fields of an instance root that come from the component.
 var RootDerived = []string{"fill", "stroke", "radius", "shadow", "outline", "filter", "backdropFilter", "layout", "clip", "width", "height"}
 
 func inList(list []string, k string) bool {
 	return slices.Contains(list, k)
 }
 
-// IsInstance reports whether n is a frame with instanceOf.
 func IsInstance(n *Node) bool {
 	if n == nil || n.Str("type") != "frame" {
 		return false
@@ -33,7 +26,6 @@ func IsInstance(n *Node) bool {
 	return ok && isStr
 }
 
-// InstanceOwner returns the instance that contains id (itself or the nearest ancestor).
 func InstanceOwner(doc *Document, id any) *Node {
 	cur, _ := id.(string)
 	for cur != "" {
@@ -50,7 +42,6 @@ func InstanceOwner(doc *Document, id any) *Node {
 	return nil
 }
 
-// CopyOwner returns the instance when n is a generated copy inside it.
 func CopyOwner(doc *Document, n *Node) *Node {
 	if n.Str("type") == "page" || !n.Has("sourceId") {
 		return nil
@@ -74,7 +65,6 @@ func pad7(s string) string {
 	return s
 }
 
-// CopyID is the deterministic id of the copy of srcID inside instance instID.
 func CopyID(instID, srcID string) string {
 	a := pad7(strconv.FormatUint(uint64(fnv32(instID+"/"+srcID)), 36))
 	b := pad7(strconv.FormatUint(uint64(fnv32(srcID+"/"+instID)), 36))
@@ -98,7 +88,6 @@ func sourceValue(n *Node, key string) any {
 	return v
 }
 
-// setOverride records an override on inst (nil, or equal to the component, removes it).
 func setOverride(inst *Node, srcID, key string, v any, src *Node) {
 	all := jsonv.NewObject()
 	if o := inst.Obj("overrides"); o != nil {
@@ -253,7 +242,6 @@ func scaleGeometry(n *jsonv.Object, s float64, withPosition bool) {
 	}
 }
 
-// copyEnd: a component node becomes its copy; a free point scales with the instance.
 func copyEnd(e *jsonv.Object, instID string, inComp map[string]bool, s float64) *jsonv.Object {
 	out := e.Spread()
 	if v, ok := out.Get("nodeId"); ok {
@@ -290,14 +278,12 @@ func descendants(doc *Document, id string) []string {
 	return out
 }
 
-// errInstance is a component rule failure without an op index (the caller adds it).
 type errInstance struct{ msg string }
 
 func (e *errInstance) Error() string { return e.msg }
 
 func instErr(format string, a ...any) error { return &errInstance{fmt.Sprintf(format, a...)} }
 
-// DetachOps turns instances into plain frames (the copies keep their ids), as updates only.
 func DetachOps(doc *Document, ids []string) ([]any, error) {
 	if len(ids) == 0 {
 		return nil, errors.New("pass at least one instance id")
@@ -317,7 +303,6 @@ func DetachOps(doc *Document, ids []string) ([]any, error) {
 			return nil, fmt.Errorf(`node "%s" is not an instance (a frame with instanceOf)`, id)
 		}
 		ops = append(ops, jsonv.NewObject("op", "update", "id", id, "props", jsonv.NewObject("instanceOf", nil, "scale", nil, "overrides", nil, "propValues", nil, "slots", nil)))
-		// The resolved prop values are already on the copies, so a bind has nothing left to follow.
 		for _, d := range descendants(doc, id) {
 			props := jsonv.NewObject("sourceId", nil)
 			if dn := GetNode(doc, d); dn != nil && dn.Has("bind") {

@@ -1,4 +1,3 @@
-// Draws PAP-B-052 i18n boards (3 screens × en + pt-BR) over MCP HTTP.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

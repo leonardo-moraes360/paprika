@@ -10,7 +10,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// RepeatModes lists the modes of repeat_nodes.
 var RepeatModes = []string{"radial", "linear", "grid"}
 
 var repeatOnly = map[string][]string{
@@ -26,8 +25,6 @@ type repeatSpot struct {
 	hasRot    bool
 }
 
-// RepeatOps repeats one node args.count times (count-1 copies) along a circle, a line or a grid.
-// Port of repeatOps in packages/core/src/structure.ts; the plan's Map keys are "<source id>#<copy>".
 func RepeatOps(doc *Document, id string, args *jsonv.Object) (*DuplicatePlan, error) {
 	src := GetNode(doc, id)
 	if src == nil {

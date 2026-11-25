@@ -9,8 +9,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/htmlImport.ts: HTML with inline styles → nodes (the inverse of nodeStyle).
-
 type textStyle struct {
 	color, fontFamily, textAlign                    string
 	fontSize, fontWeight, lineHeight, letterSpacing *float64
@@ -18,7 +16,7 @@ type textStyle struct {
 }
 
 type htmlCtx struct {
-	mode string // "row", "column" or "" (no layout)
+	mode string
 	text textStyle
 	warn func(string)
 }
@@ -54,7 +52,6 @@ var (
 	imgSrcRe      = regexp.MustCompile(`^(?:https?:|data:image/)`)
 )
 
-// px is "12px" or "0" → 12/0; anything else → nil.
 func cssPxValue(v string, ok bool) *float64 {
 	if !ok {
 		return nil
@@ -143,7 +140,6 @@ func isTextual(e *MarkupElement) bool {
 	return true
 }
 
-// visibleText is the text as a browser shows it (collapsed spaces, <br> as a line break), or raw if pre.
 func visibleText(e *MarkupElement, pre bool) string {
 	var b strings.Builder
 	var walk func(*MarkupElement)
@@ -271,7 +267,6 @@ func applyText(node *jsonv.Object, t textStyle) {
 	}
 }
 
-// boxProps sets position, size and paint (the inverse of nodeStyle).
 func boxProps(node *jsonv.Object, css map[string]string, ctx *htmlCtx, foreign bool) {
 	pos := css["position"]
 	absolute := pos == "absolute" || pos == "fixed" || ctx.mode == ""
@@ -701,7 +696,6 @@ func convertElement(e *MarkupElement, ctx *htmlCtx) []*jsonv.Object {
 		boxProps(n, css, ctx, false)
 		return named(n)
 	}
-	// A flex container lays out each child as an item, even when it only holds text.
 	flex := css["display"] == "flex" || css["display"] == "inline-flex"
 	if ptype == "text" || (ptype == "" && !flex && isTextual(e) && visibleText(e, text.isPre()) != "") {
 		pre := ptype == "text" || text.isPre()
@@ -709,7 +703,6 @@ func convertElement(e *MarkupElement, ctx *htmlCtx) []*jsonv.Object {
 		boxProps(n, css, ctx, ptype == "")
 		applyText(n, text)
 		if ptype == "" && (n.Has("fill") || n.Has("stroke") || css["padding"] != "") {
-			// A button or a tag: the background becomes a frame around the text.
 			box := jsonv.NewObject("type", "frame", "children", []any{})
 			boxProps(box, css, ctx, true)
 			box.Set("clip", css["overflow"] == "hidden")
@@ -782,7 +775,6 @@ func isHug(n *jsonv.Object, k string) bool {
 	return ok && s == "hug"
 }
 
-// ImportHTML converts HTML into nodes; X/Y shift the top-level nodes (absolutely positioned).
 func ImportHTML(src string, opts ImportOptions) (ImportResult, error) {
 	warnings, warn := newWarner()
 	root, err := ParseMarkup(src)

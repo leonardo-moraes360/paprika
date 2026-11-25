@@ -9,16 +9,12 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/markup.ts: a tolerant reader for pasted HTML and SVG.
-
-// MarkupElement is an element; Children holds *MarkupElement or string.
 type MarkupElement struct {
 	Tag      string
 	Attrs    map[string]string
 	Children []any
 }
 
-// Attr returns an attribute and whether it is present.
 func (e *MarkupElement) Attr(k string) (string, bool) {
 	v, ok := e.Attrs[k]
 	return v, ok
@@ -47,7 +43,6 @@ func asciiLower(s string) string {
 	return string(b)
 }
 
-// DecodeEntities decodes the common named and numeric character references.
 func DecodeEntities(s string) string {
 	return entityRe.ReplaceAllStringFunc(s, func(m string) string {
 		body := m[1 : len(m)-1]
@@ -104,7 +99,6 @@ func indexFrom(s, sub string, from int) int {
 	return from + i
 }
 
-// ParseMarkup reads markup into a "#root" element.
 func ParseMarkup(src string) (*MarkupElement, error) {
 	if jsonv.Len16(src) > markupMaxChars {
 		return nil, fmt.Errorf("markup too large (max. %d characters)", markupMaxChars)
@@ -290,7 +284,6 @@ func ParseMarkup(src string) (*MarkupElement, error) {
 	return root, nil
 }
 
-// Elements returns the element children (no text).
 func (e *MarkupElement) Elements() []*MarkupElement {
 	var out []*MarkupElement
 	for _, c := range e.Children {
@@ -301,7 +294,6 @@ func (e *MarkupElement) Elements() []*MarkupElement {
 	return out
 }
 
-// FindElement is a depth-first search for the first descendant with the tag.
 func FindElement(e *MarkupElement, tag string) *MarkupElement {
 	for _, c := range e.Elements() {
 		if c.Tag == tag {
@@ -314,7 +306,6 @@ func FindElement(e *MarkupElement, tag string) *MarkupElement {
 	return nil
 }
 
-// TextContent concatenates descendant text; <br> becomes a line break.
 func TextContent(e *MarkupElement) string {
 	var b strings.Builder
 	for _, c := range e.Children {
@@ -332,7 +323,6 @@ func TextContent(e *MarkupElement) string {
 	return b.String()
 }
 
-// ParseStyle reads "a: b; c: d" into an ordered map (lowercase names, trimmed values).
 func ParseStyle(s string) map[string]string {
 	out := map[string]string{}
 	for part := range strings.SplitSeq(s, ";") {

@@ -1,7 +1,3 @@
-// Package zod is a small validator that reproduces the subset of zod v4 behavior the Paprika
-// TypeScript reference relies on: the same defaults, the same stripping of unknown keys, the
-// same issue order and the same messages ("Invalid input: expected number, received string"…).
-// Agents read these messages, so the Go server must say exactly what the TypeScript one says.
 package zod
 
 import (
@@ -14,19 +10,14 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Issue is one validation problem. Fields is the full zod issue (ordered like zod emits it) for
-// JSON output; Path and Message are what the formatter needs.
 type Issue struct {
 	Code    string
 	Path    []any
 	Message string
-	pre     []any // ordered key/value pairs that come before "path" in zod's JSON
-	// cont marks issues from checks (min, max, regex, refine): zod keeps parsing after them and a
-	// union whose only failing option has nothing but such issues reports them instead of "Invalid input".
-	cont bool
+	pre     []any
+	cont    bool
 }
 
-// JSON returns the issue as zod serializes it inside ZodError#message.
 func (i Issue) JSON() *jsonv.Object {
 	o := jsonv.NewObject(i.pre...)
 	path := make([]any, len(i.Path))
@@ -42,10 +33,8 @@ func (i Issue) JSON() *jsonv.Object {
 	return o
 }
 
-// Error carries the issues of a failed parse.
 type Error struct{ Issues []Issue }
 
-// Error is ZodError#message: the issues as pretty JSON.
 func (e *Error) Error() string {
 	arr := make([]any, len(e.Issues))
 	for i, is := range e.Issues {
@@ -54,7 +43,6 @@ func (e *Error) Error() string {
 	return jsonv.Stringify(arr, "  ")
 }
 
-// Format joins issues as `path: message` (the format used by applyOps errors).
 func Format(e *Error) string {
 	parts := make([]string, len(e.Issues))
 	for i, is := range e.Issues {
@@ -67,7 +55,6 @@ func Format(e *Error) string {
 	return strings.Join(parts, "; ")
 }
 
-// DotPath joins a path with sep (numbers rendered as plain indexes).
 func DotPath(path []any, sep string) string {
 	s := make([]string, len(path))
 	for i, p := range path {
@@ -76,7 +63,6 @@ func DotPath(path []any, sep string) string {
 	return strings.Join(s, sep)
 }
 
-// SDKFormat is the MCP TypeScript SDK's getParseErrorMessage: `message at a.b[0]`, one per line.
 func SDKFormat(e *Error) string {
 	lines := make([]string, len(e.Issues))
 	for i, is := range e.Issues {
@@ -112,7 +98,6 @@ func (c *ctx) add(path []any, code, msg string, pre ...any) {
 	c.issues = append(c.issues, Issue{Code: code, Path: p, Message: msg, pre: pre})
 }
 
-// addCheck records a non-aborting issue (zod's `continue: true`).
 func (c *ctx) addCheck(path []any, code, msg string, pre ...any) {
 	c.add(path, code, msg, pre...)
 	c.issues[len(c.issues)-1].cont = true
@@ -125,12 +110,10 @@ func push(path []any, seg any) []any {
 	return p
 }
 
-// Schema validates and transforms a JSON value. present=false means "undefined".
 type Schema interface {
 	parse(v any, present bool, path []any, c *ctx) (out any, outPresent bool)
 }
 
-// Parse validates v and returns the transformed value.
 func Parse(s Schema, v any) (any, error) {
 	c := &ctx{}
 	out, _ := s.parse(v, true, nil, c)
@@ -140,7 +123,6 @@ func Parse(s Schema, v any) (any, error) {
 	return out, nil
 }
 
-// ParseUndefined validates an absent value (`schema.safeParse(undefined)`).
 func ParseUndefined(s Schema) (any, bool, error) {
 	c := &ctx{}
 	out, ok := s.parse(nil, false, nil, c)
@@ -155,11 +137,9 @@ func invalidType(c *ctx, path []any, expected string, v any, present bool) {
 		"expected", expected, "code", "invalid_type")
 }
 
-// ---- string ----
-
 type check struct {
 	regex   *regexp.Regexp
-	pattern string // JavaScript source of the regex, for messages
+	pattern string
 	msg     string
 	refine  func(string) string
 }
@@ -174,13 +154,11 @@ func String() *StringSchema { return &StringSchema{} }
 func (s *StringSchema) Min(n int) *StringSchema { s.min = &n; return s }
 func (s *StringSchema) Max(n int) *StringSchema { s.max = &n; return s }
 
-// Regex adds a pattern check; msg "" uses zod's default message.
 func (s *StringSchema) Regex(goRe, jsPattern, msg string) *StringSchema {
 	s.checks = append(s.checks, check{regex: regexp.MustCompile(goRe), pattern: jsPattern, msg: msg})
 	return s
 }
 
-// Refine adds a custom check; fn returns the error message or "".
 func (s *StringSchema) Refine(fn func(string) string) *StringSchema {
 	s.checks = append(s.checks, check{refine: fn})
 	return s
@@ -219,27 +197,22 @@ func (s *StringSchema) parse(v any, present bool, path []any, c *ctx) (any, bool
 	return str, true
 }
 
-// ---- number ----
-
 type NumberSchema struct {
 	isInt        bool
 	min, max     *float64
 	minExclusive bool
-	rangeMsg     string // replaces the too_small/too_big messages when set
+	rangeMsg     string
 }
 
-// RangeMsg replaces the messages of the min/max checks (the issues keep their code).
 func (s *NumberSchema) RangeMsg(msg string) *NumberSchema { s.rangeMsg = msg; return s }
 
 func Number() *NumberSchema { return &NumberSchema{} }
 
-// Int is z.number().int().
 func Int() *NumberSchema { return &NumberSchema{isInt: true} }
 
 func (s *NumberSchema) Min(n float64) *NumberSchema { s.min = &n; return s }
 func (s *NumberSchema) Max(n float64) *NumberSchema { s.max = &n; return s }
 
-// Positive is .positive() (> 0).
 func (s *NumberSchema) Positive() *NumberSchema {
 	z := 0.0
 	s.min = &z
@@ -308,18 +281,13 @@ func (s numberOrToken) parse(v any, present bool, path []any, c *ctx) (any, bool
 	return s.num.parse(v, present, path, c)
 }
 
-// ---- custom ----
-
-// Cx is what a Custom function uses to report issues and parse nested values.
 type Cx struct {
 	c    *ctx
 	path []any
 }
 
-// Fail records an aborting `custom` issue at the value's path.
 func (x *Cx) Fail(msg string) { x.c.add(x.path, "custom", msg, "code", "custom") }
 
-// Sub parses v with s at path+seg (seg nil: the value's own path).
 func (x *Cx) Sub(s Schema, v any, seg any) (any, bool) {
 	p := x.path
 	if seg != nil {
@@ -332,14 +300,11 @@ type custom struct {
 	fn func(v any, present bool, x *Cx) (any, bool)
 }
 
-// Custom is a schema written by hand (z.unknown().transform(...) in the TypeScript reference).
 func Custom(fn func(v any, present bool, x *Cx) (any, bool)) Schema { return custom{fn} }
 
 func (s custom) parse(v any, present bool, path []any, c *ctx) (any, bool) {
 	return s.fn(v, present, &Cx{c, path})
 }
-
-// ---- boolean, literal, enum, unknown ----
 
 type boolSchema struct{}
 
@@ -394,12 +359,9 @@ func (s *EnumSchema) parse(v any, present bool, path []any, c *ctx) (any, bool) 
 
 type unknownSchema struct{}
 
-// Unknown accepts anything, including undefined.
 func Unknown() Schema { return unknownSchema{} }
 
 func (unknownSchema) parse(v any, present bool, _ []any, _ *ctx) (any, bool) { return v, present }
-
-// ---- wrappers ----
 
 type optional struct{ inner Schema }
 
@@ -428,7 +390,6 @@ type withDefault struct {
 	value func() any
 }
 
-// Default fills undefined with a fresh copy of value (not validated, like zod).
 func Default(s Schema, value any) Schema {
 	return withDefault{s, func() any { return jsonv.Clone(value) }}
 }
@@ -448,8 +409,6 @@ func (l *lazy) parse(v any, present bool, path []any, c *ctx) (any, bool) {
 	return l.fn().parse(v, present, path, c)
 }
 
-// ---- array, tuple ----
-
 type ArraySchema struct {
 	item     Schema
 	min, max *int
@@ -466,7 +425,6 @@ func (s *ArraySchema) parse(v any, present bool, path []any, c *ctx) (any, bool)
 		invalidType(c, path, "array", v, present)
 		return nil, false
 	}
-	// zod checks the maximum before parsing items (and stops there).
 	if s.max != nil && len(arr) > *s.max {
 		c.addCheck(path, "too_big", fmt.Sprintf("Too big: expected array to have <=%d items", *s.max),
 			"origin", "array", "code", "too_big", "maximum", float64(*s.max), "inclusive", true)
@@ -512,8 +470,6 @@ func (t tuple) parse(v any, present bool, path []any, c *ctx) (any, bool) {
 	return out, true
 }
 
-// ---- union ----
-
 type union struct{ options []Schema }
 
 func Union(options ...Schema) Schema { return union{options} }
@@ -552,15 +508,11 @@ func (u union) parse(v any, present bool, path []any, c *ctx) (any, bool) {
 	return nil, false
 }
 
-// ---- object ----
-
-// Field is one entry of an object shape (order matters: it is the output order).
 type Field struct {
 	Name   string
 	Schema Schema
 }
 
-// ObjectIssue is one problem reported by ObjectSchema.Check, with a path relative to the object.
 type ObjectIssue struct {
 	Path    []any
 	Message string
@@ -575,26 +527,22 @@ type ObjectSchema struct {
 
 func Object(fields ...Field) *ObjectSchema { return &ObjectSchema{Fields: fields} }
 
-// Check adds a non-aborting object check. msg empty means the value is valid.
 func (o *ObjectSchema) Check(fn func(any) string) *ObjectSchema {
 	n := *o
 	n.check = fn
 	return &n
 }
 
-// Issues adds path-specific object issues after the fields parse (z.object().superRefine()).
 func (o *ObjectSchema) Issues(fn func(*jsonv.Object) []ObjectIssue) *ObjectSchema {
 	n := *o
 	n.issues = fn
 	return &n
 }
 
-// Catchall keeps unknown keys, validated by s (z.object().catchall()).
 func (o *ObjectSchema) Catchall(s Schema) *ObjectSchema {
 	return &ObjectSchema{Fields: o.Fields, catchall: s, check: o.check, issues: o.issues}
 }
 
-// Extend returns a new shape with extra fields appended (or replaced in place).
 func (o *ObjectSchema) Extend(fields ...Field) *ObjectSchema {
 	out := append([]Field(nil), o.Fields...)
 	for _, f := range fields {
@@ -612,7 +560,6 @@ func (o *ObjectSchema) Extend(fields ...Field) *ObjectSchema {
 	return &ObjectSchema{Fields: out, catchall: o.catchall, check: o.check, issues: o.issues}
 }
 
-// Keys lists the shape's keys.
 func (o *ObjectSchema) Keys() []string {
 	k := make([]string, len(o.Fields))
 	for i, f := range o.Fields {
@@ -662,8 +609,6 @@ func (o *ObjectSchema) parse(v any, present bool, path []any, c *ctx) (any, bool
 	return out, true
 }
 
-// ---- record ----
-
 type record struct{ key, value Schema }
 
 func Record(key, value Schema) Schema { return record{key, value} }
@@ -676,7 +621,6 @@ func (r record) parse(v any, present bool, path []any, c *ctx) (any, bool) {
 	}
 	out := jsonv.NewObject()
 	for _, k := range in.Keys() {
-		// zod skips "__proto__" in records: assigning it in JavaScript would replace the prototype.
 		if k == "__proto__" {
 			continue
 		}
@@ -699,15 +643,12 @@ func (r record) parse(v any, present bool, path []any, c *ctx) (any, bool) {
 	return out, true
 }
 
-// ---- discriminated union ----
-
 type DiscUnion struct {
 	key     string
 	order   []string
 	options map[string]Schema
 }
 
-// DiscriminatedUnion is z.discriminatedUnion(key, options); each option is keyed by its literal.
 func DiscriminatedUnion(key string, options ...struct {
 	Value  string
 	Schema Schema
@@ -720,7 +661,6 @@ func DiscriminatedUnion(key string, options ...struct {
 	return d
 }
 
-// Option builds an entry for DiscriminatedUnion.
 func Option(value string, s Schema) struct {
 	Value  string
 	Schema Schema
@@ -761,7 +701,6 @@ func (d *DiscUnion) parse(v any, present bool, path []any, c *ctx) (any, bool) {
 
 type nullSchema struct{}
 
-// Null is z.null().
 func Null() Schema { return nullSchema{} }
 
 func (nullSchema) parse(v any, present bool, path []any, c *ctx) (any, bool) {

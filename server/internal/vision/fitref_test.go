@@ -13,7 +13,6 @@ var (
 	fitWhite = color.NRGBA{255, 255, 255, 255}
 )
 
-// paintFn paints fitNavy where in(px, py) holds, at pixel centers.
 func paintFn(w, h int, in func(x, y float64) bool) *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
 	fillNRGBA(img, fitWhite)
@@ -88,14 +87,12 @@ func TestFitEllipseRotation(t *testing.T) {
 	if res.IoUAfter < 0.97 || math.Abs(r.Rot-35) > 3 {
 		t.Fatalf("iou %.3f -> %.3f, rotation %.1f", res.IoUBefore, res.IoUAfter, r.Rot)
 	}
-	// the other parameters stay where they were
 	if r.X != 70 || r.W != 160 {
 		t.Fatalf("moved something that was not free: %+v", r)
 	}
 }
 
 func TestFitRotationStaysInRange(t *testing.T) {
-	// the reference is rotated 170 degrees; starting at -170 the short way round crosses 180
 	ref := paintFn(300, 200, rotEllipse(150, 100, 80, 28, 170))
 	n := FitNode{ID: "e", Kind: "ellipse", X: 70, Y: 72, W: 160, H: 56, Rot: -170, Fill: true, FillRGB: navyRGB(), Free: FitFree{Rotation: true}}
 	res, _ := FitReference(fitIn(300, 200, ref, n))
@@ -110,7 +107,6 @@ func TestFitRotationStaysInRange(t *testing.T) {
 func TestFitPathAnchorFixesNotch(t *testing.T) {
 	sq := [][2]float64{{100, 50}, {200, 50}, {200, 150}, {100, 150}}
 	ref := paintFn(300, 200, polyTest(sq))
-	// the same square with its bottom-right corner pulled in: a notch
 	n := FitNode{ID: "p", Kind: "path", X: 100, Y: 50, W: 100, H: 100, Fill: true, FillRGB: navyRGB(),
 		Path: []FitSub{{Closed: true, Anchors: []FitAnchor{{X: 0, Y: 0}, {X: 100, Y: 0}, {X: 55, Y: 55}, {X: 0, Y: 100}}}},
 		Free: FitFree{PathPoints: true}}
@@ -241,7 +237,6 @@ func TestFitDeterministicAndErrors(t *testing.T) {
 }
 
 func TestFitRotatedRectEdges(t *testing.T) {
-	// a 120x60 box rotated 30 degrees, drawn as a polygon
 	cx, cy, hw, hh := 150.0, 100.0, 60.0, 30.0
 	s, c := math.Sin(30*math.Pi/180), math.Cos(30*math.Pi/180)
 	var pts [][2]float64

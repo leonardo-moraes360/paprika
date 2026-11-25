@@ -9,9 +9,6 @@ import (
 	"testing"
 )
 
-// mixedSheet is a 320x240 sheet with one of each kind: a noise patch (photo), a red disc and a
-// rounded navy rectangle (flat shapes), a horizontal ramp (gradient) and a row of glyph-like
-// blobs (text), on white.
 func mixedSheet() *image.NRGBA {
 	c := newCanvas(320, 240, white)
 	rng := rand.New(rand.NewSource(7))
@@ -59,7 +56,6 @@ func TestRegionsKinds(t *testing.T) {
 	js, _ := json.Marshal(res.Regions)
 	t.Logf("regions: %s", js)
 
-	// no overlap, full cover
 	area := 0.0
 	for i, a := range res.Regions {
 		area += a.Box.Width * a.Box.Height
@@ -105,7 +101,7 @@ func TestRegionsKinds(t *testing.T) {
 	if first.Offset != 0 || last.Offset != 1 || first.Color == last.Color {
 		t.Errorf("stops %+v", g.Gradient.Stops)
 	}
-	if first.Color[1:3] > "50" || last.Color[1:3] < "d0" { // red channel climbs from ~30 to ~250
+	if first.Color[1:3] > "50" || last.Color[1:3] < "d0" {
 		t.Errorf("stop colors %s .. %s", first.Color, last.Color)
 	}
 
@@ -170,8 +166,6 @@ func regionByID(res *Result, id string) ImageRegion {
 	return ImageRegion{}
 }
 
-// A smooth ramp has many colors but no grain: it must not be taken for a photo, and it is
-// described as a gradient the node can use.
 func TestGradientIsNotAPhoto(t *testing.T) {
 	cases := map[string]func(x, y int) color.NRGBA{
 		"linear": func(x, y int) color.NRGBA {
@@ -213,7 +207,6 @@ func TestGradientIsNotAPhoto(t *testing.T) {
 	}
 }
 
-// Grain alone is not enough: sharp-edged type is not a photo either.
 func TestTextAndIconsAreNotPhotos(t *testing.T) {
 	c := newCanvas(320, 120, white)
 	x := 10
@@ -255,7 +248,6 @@ func TestRowOfIdenticalBlobsIsNotText(t *testing.T) {
 
 func TestFlatOrganicSuggestsTrace(t *testing.T) {
 	c := newCanvas(240, 240, white)
-	// a leaf-like, asymmetric blob no primitive reaches 0.93 on
 	c.polygon(color.NRGBA{30, 140, 60, 255}, []pt{{30, 200}, {60, 90}, {110, 40}, {190, 30}, {210, 70}, {150, 100}, {170, 150}, {90, 210}})
 	res, err := Analyze(c.img, Options{})
 	if err != nil {
@@ -272,7 +264,6 @@ func TestFlatOrganicSuggestsTrace(t *testing.T) {
 
 func TestPerCornerRoundRect(t *testing.T) {
 	c := newCanvas(240, 200, white)
-	// 160x100, radii tl 30, tr 0, br 14, bl 0 (square corners painted by hand)
 	col := color.NRGBA{20, 40, 110, 255}
 	radii := [4]float64{30, 0, 14, 0}
 	x0, y0, x1, y1 := 40.0, 50.0, 200.0, 150.0

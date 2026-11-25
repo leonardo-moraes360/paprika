@@ -12,7 +12,6 @@ func TestMCPRoundPathCorners(t *testing.T) {
 	s, _ := openTemp(t)
 	m := NewMCP(s, "agent:test", nil)
 
-	// Pure mode: nothing is written.
 	out, isErr := callText(t, m, "round_path_corners", obj("d", "M0 0 L100 0 L100 100 L0 100 Z", "radius", 10.0))
 	if isErr || !strings.Contains(out, `"d": "M10 0 L90 0 A10 10 0 0 1 100 10`) || !strings.Contains(out, `"width": 100`) {
 		t.Fatalf("pure: %v %s", isErr, out)
@@ -21,7 +20,6 @@ func TestMCPRoundPathCorners(t *testing.T) {
 		t.Fatalf("pure mode must not write: %s", out)
 	}
 
-	// With an id: updates d, keeps the box.
 	if out, isErr = callText(t, m, "create_nodes", obj("nodes", []any{obj("type", "path", "id", "sq", "x", 5.0, "y", 6.0, "d", "M0 0 L40 0 L40 40 L0 40 Z", "fill", "#000")})); isErr {
 		t.Fatal(out)
 	}
@@ -75,7 +73,6 @@ func TestMCPCreateShapePath(t *testing.T) {
 		t.Fatalf("star: %s", core.DescribeNode(st))
 	}
 
-	// One undo step per call.
 	if out, isErr = callText(t, m, "undo", obj()); isErr {
 		t.Fatal(out)
 	}

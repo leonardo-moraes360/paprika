@@ -1,4 +1,3 @@
-/** Abas. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005. */
 import type { ComponentProps } from "react";
 import { Tabs as TabsPrimitive } from "radix-ui";
 import { cn } from "../../lib/cn";

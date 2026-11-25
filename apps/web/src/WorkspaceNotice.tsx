@@ -5,7 +5,6 @@ import { useT, type Messages } from "./i18n";
 import { navigate } from "./route";
 import { useLive, useLiveActions, type WorkspaceNotice as Notice } from "./useDocument";
 
-/** Agent color: the one in the presence list when the agent is there, else a stable pick from the same palette. */
 function actorColor(actor: string, agents: { actor: string; color: string }[]): string {
   const present = agents.find((a) => a.actor === actor);
   if (present) return present.color;
@@ -33,11 +32,6 @@ function deletedSummary(detail: Notice["detail"], m: Messages): string {
   return m.noticeSummary(parts);
 }
 
-/**
- * Tells the human that an agent deleted, opened or renamed a workspace (the server's operations log, over the
- * WebSocket). The region is always mounted so screen readers announce what appears in it; the card never takes
- * focus, and stays until it is dismissed or replaced by the next one.
- */
 export function WorkspaceNotice() {
   const m = useT();
   const notice = useLive((s) => s.workspaceNotice);

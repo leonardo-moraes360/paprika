@@ -1,4 +1,3 @@
-/** Área rolável com barra própria. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005. */
 import type { ComponentProps } from "react";
 import { ScrollArea as ScrollAreaPrimitive } from "radix-ui";
 import { cn } from "../../lib/cn";

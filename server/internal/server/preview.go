@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// PreviewShape is one box of a workspace's live thumbnail, in document coordinates.
 type PreviewShape struct {
 	X    float64 `json:"x"`
 	Y    float64 `json:"y"`

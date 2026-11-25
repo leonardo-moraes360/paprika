@@ -10,8 +10,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// Port of packages/core/src/boolean.ts: original polygon boolean (edge split + classify + directed walk).
-
 type BooleanOperation string
 
 const (
@@ -675,7 +673,7 @@ func selectFragment(inA, inB bool, src int, op BooleanOperation) string {
 }
 
 func ptKey(p Point) string {
-	return fmt.Sprintf("%g,%g", p.X+0, p.Y+0) // +0 folds -0 into 0, as JS template strings do
+	return fmt.Sprintf("%g,%g", p.X+0, p.Y+0)
 }
 
 func linkRings(fragments []boolEdge) []boolRing {
@@ -689,7 +687,6 @@ func linkRings(fragments []boolEdge) []boolRing {
 		adj[k] = append(adj[k], link{to: e.B})
 	}
 	rings := []boolRing{}
-	// Same start order as the TS Map: first insertion, not sorted keys.
 	keys := make([]string, 0, len(adj))
 	seen := map[string]bool{}
 	for _, e := range fragments {
@@ -907,7 +904,6 @@ func multiToPath(multi boolMulti) (d string, x, y, w, h float64) {
 	return SerializePath(TranslatePath(segs, -x, -y)), x, y, w, h
 }
 
-// BooleanRings is kept for golden structure helpers that pass raw rings.
 func BooleanRings(ringsA, ringsB []boolRing, op BooleanOperation) []boolRing {
 	toMulti := func(rings []boolRing) boolMulti {
 		cleaned := []boolRing{}
@@ -979,12 +975,8 @@ func styleFromNode(n *Node) *jsonv.Object {
 	return out
 }
 
-// combineStyleOverrides are the keys of the explicit `style` object that overwrite the base node's style.
 var combineStyleOverrides = []string{"fill", "gradient", "stroke", "opacity", "shadow", "outline", "filter", "backdropFilter"}
 
-// CombinePathsOps plans create+delete ops for a boolean combine of shape nodes. op is the
-// combine_paths operation: either ids + operation, or operations (a sequence of steps whose `as`
-// names feed the next ones), plus optional style, id and name.
 func CombinePathsOps(doc *Document, op *jsonv.Object) ([]any, string, error) {
 	batch := op.Has("operations")
 	if batch && (op.Has("ids") || op.Has("operation")) {
@@ -1193,5 +1185,3 @@ func CombinePathsOps(doc *Document, op *jsonv.Object) ([]any, string, error) {
 	}
 	return ops, id, nil
 }
-
-// silence unused import if strings ends unused - used in older code paths

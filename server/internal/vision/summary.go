@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-// Summary is the compact text an agent reads first: palette, background, one line per blob with
-// its paste-ready node, and the layout hints. The full detail is in the structured result.
 func (r *Result) Summary() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "image %dx%d, region %gx%g at (%g,%g), output scale %g\n", r.Size.Width, r.Size.Height, r.Region.Width, r.Region.Height, r.Region.X, r.Region.Y, r.Scale)

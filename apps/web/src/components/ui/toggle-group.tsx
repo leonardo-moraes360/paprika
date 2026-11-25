@@ -1,4 +1,3 @@
-/** Grupo de toggles. Copiado do shadcn/ui (MIT), adaptado ao tema do Paprika — ADR 0005. */
 import { createContext, useContext, type ComponentProps } from "react";
 import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
 import { type VariantProps } from "class-variance-authority";

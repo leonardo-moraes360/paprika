@@ -30,7 +30,6 @@ func applyOps(t *testing.T, doc *core.Document, ops []any) *core.Document {
 	return r.Doc
 }
 
-// synced is the comparable part of a document: what viewOf keeps.
 func synced(doc *core.Document) string {
 	v := viewOf(doc)
 	out := map[string]any{"name": v.name, "children": v.children, "tokens": raw(v.tokens), "modes": raw(v.modes)}
@@ -113,7 +112,6 @@ func TestRemoteOpsReachTheState(t *testing.T) {
 			if synced(got) != synced(want) {
 				t.Fatalf("ops %s\n got  %s\n want %s", jsonv.Stringify(ops, ""), synced(got), synced(want))
 			}
-			// And back: the inverse direction works too.
 			back := applyOps(t, got, RemoteOps(got, start))
 			if synced(back) != synced(start) {
 				t.Fatalf("back:\n got  %s\n want %s", synced(back), synced(start))
@@ -145,7 +143,6 @@ func TestDiffNamesWhatChanged(t *testing.T) {
 			t.Fatalf("%s: got %d, want %d (%v)", k, kinds[k], n, order)
 		}
 	}
-	// Moves before deletes: e1 leaves f2 before f2 is deleted.
 	mi, di := -1, -1
 	for i, k := range order {
 		if k == "move" {

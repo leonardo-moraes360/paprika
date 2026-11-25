@@ -11,7 +11,6 @@ import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { Hint } from "./components/ui/tooltip";
 
-/** Team sync status from the server (`/api/team`, `{type: "team"}` on /ws). See docs/en-US/team-sync.md. */
 export interface TeamMember {
   key: string;
   name: string;
@@ -22,7 +21,6 @@ export interface TeamMember {
   founder: boolean;
   you: boolean;
   agents: string[];
-  /** This key replaced an older key of the same person (key rotation). */
   rotated?: boolean;
 }
 export interface RemovedMember {
@@ -54,9 +52,7 @@ export interface TeamStatus {
     members: TeamMember[];
     removed?: RemovedMember[];
     invites: { expires: number }[];
-    /** False when this instance was removed (or its key retired): it no longer syncs. */
     member?: boolean;
-    /** Only the founder removes members. */
     canRemove?: boolean;
   } | null;
   peers: TeamPeer[];
@@ -72,7 +68,6 @@ async function api<T = unknown>(path: string, method = "GET", body?: object): Pr
   return data as T;
 }
 
-/** "7F3A91C2…" → "7F3A · 91C2 · E04A · 2B9E" (read aloud to check an invite). */
 export function teamFingerprint(id: string) {
   return (id.toUpperCase().match(/.{1,4}/g) ?? []).slice(0, 4).join(" · ");
 }
@@ -80,7 +75,6 @@ export function teamFingerprint(id: string) {
 type Tone = "ok" | "warn" | "busy" | "off" | "bad";
 const TONE_DOT: Record<Tone, string> = { ok: "bg-leaf", warn: "bg-warn", busy: "bg-select", off: "bg-ui-muted-foreground", bad: "bg-accent" };
 
-/** The worst state across peers, as one line for the top bar. */
 export function teamSummary(st: TeamStatus | null): { label: string; tone: Tone } {
   if (!st?.team) return { label: "Só neste dispositivo", tone: "off" };
   const name = st.team.name;
@@ -125,12 +119,6 @@ function Chip({ label, tone }: { label: string; tone: Tone }) {
   );
 }
 
-/**
- * The panel's buttons ride `buttonVariants` from the Button primitive (ADR 0005): `size="sm"` is 28px, the
- * secondary variant is the panel-2 fill the old list had without its border, and the primary is the brand
- * red. The 14px icon is kept on purpose: the primitive paints 16px, which would grow every row of a panel
- * that is 280px wide.
- */
 const btn = (primary = false) =>
   cn(buttonVariants({ size: "sm", variant: primary ? "default" : "secondary" }), "[&_svg]:size-3.5 hover:border-select");
 
@@ -142,7 +130,6 @@ function Avatar({ name, you }: { name: string; you?: boolean }) {
   );
 }
 
-/** QR code of a link, as SVG squares (the same link the text field shows). */
 export function Qr({ text, size = 168 }: { text: string; size?: number }) {
   const data = useMemo(() => encode(text, { ecc: "L", border: 2 }).data, [text]);
   const n = data.length;
@@ -153,16 +140,7 @@ export function Qr({ text, size = 168 }: { text: string; size?: number }) {
   );
 }
 
-/**
- * Dialog of the panel: the Dialog primitive, whose Radix root gives the portal, the scrim, the focus trap
- * and Esc (ADR 0005). The hand-rolled version that was here is what Radix guarantees now. `className`
- * carries the width, because these dialogs are wider than the primitive's 420px, and `description` is
- * required: a Radix dialog without a description warns in the console, and each of these has a lead line.
- */
 function Modal({ title, description, onClose, className, children }: { title: string; description: string; onClose(): void; className?: string; children: ReactNode }) {
-  // These dialogs mount and unmount with the panel's state, and a Radix dialog that is unmounted while open
-  // does not put the focus back. Radix handles the trap and the initial focus; this keeps WCAG 2.4.3 for the
-  // way the panel actually closes them (the state goes away), which is what the old hand-rolled Modal did.
   const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -183,7 +161,6 @@ function Modal({ title, description, onClose, className, children }: { title: st
   );
 }
 
-/** Rótulo acima do campo: o padrão dos primitivos (ADR 0005), usado nos três campos do painel. */
 function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return (
     <div className={ui.grid}>
@@ -193,12 +170,10 @@ function Field({ id, label, children }: { id: string; label: string; children: R
   );
 }
 
-/** The one-line error a dialog shows above its buttons. */
 function ErrorNote({ text, className }: { text: string; className?: string }) {
   return <p className={cn("m-0 rounded-md border border-accent bg-toast p-2 text-sm text-accent-pale", className)}>{text}</p>;
 }
 
-/** A titled warning band: what happened, then what it means. Used by join, keys and the "you were removed" notice. */
 function ToastBand({ title, body, titleClass, bodyClass }: { title: string; body: ReactNode; titleClass?: string; bodyClass?: string }) {
   return (
     <div className="grid gap-1 rounded-lg border border-accent bg-toast p-3">
@@ -417,7 +392,6 @@ function LeaveTeamDialog({ onClose }: { onClose(): void }) {
   );
 }
 
-/** Confirms taking a member out of the team (founder only). */
 export function RemoveMemberDialog({ member, onClose }: { member: TeamMember; onClose(): void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -445,12 +419,10 @@ export function RemoveMemberDialog({ member, onClose }: { member: TeamMember; on
   );
 }
 
-/** Confirms replacing this instance's key (the sidecar restarts with the new one). */
 export function RotateKeyDialog({ status, onClose }: { status: TeamStatus; onClose(): void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
-  // The status refreshes with the new key once the sidecar restarts: keep the one we started from.
   const [before] = useState(status.fingerprint);
   return (
     <Modal
@@ -604,7 +576,6 @@ export function KeysDialog({ status, onClose, onInvite }: { status: TeamStatus; 
   );
 }
 
-/** Right-panel tab: who is on the team, how each one is reached, and the sync state. */
 export function TeamPanel({ status, agents, docId, onInvite, onJoin, onKeys }: { status: TeamStatus | null; agents: AgentPresence[]; docId: string; onInvite(): void; onJoin(): void; onKeys(): void }) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);

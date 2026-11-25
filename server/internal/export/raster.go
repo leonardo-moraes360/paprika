@@ -31,9 +31,6 @@ var (
 	hexAlphaAttr = regexp.MustCompile(`\s(fill|stroke|stop-color|flood-color)="#([0-9a-fA-F]{8}|[0-9a-fA-F]{4})"`)
 )
 
-// normalizeAlphaColors rewrites #RRGGBBAA / #RGBA colors, which oksvg rejects ("color string
-// 00000000 is not length 3 or 6"), into #RRGGBB plus an opacity attribute (multiplied into one
-// already there). Alpha 0 on a fill or stroke becomes "none".
 func normalizeAlphaColors(s string) string {
 	return svgTag.ReplaceAllStringFunc(s, func(tag string) string {
 		if !hexAlphaAttr.MatchString(tag) {
@@ -149,7 +146,6 @@ func parseFloatAttr(s string) float64 {
 }
 
 func roundedRectPath(x, y, w, h, rx, ry float64) string {
-	// Clockwise path with SVG arcs for the four corners.
 	return fmt.Sprintf(
 		"M%.4f %.4f H%.4f A%.4f %.4f 0 0 1 %.4f %.4f V%.4f A%.4f %.4f 0 0 1 %.4f %.4f H%.4f A%.4f %.4f 0 0 1 %.4f %.4f V%.4f A%.4f %.4f 0 0 1 %.4f %.4f Z",
 		x+rx, y,
@@ -232,7 +228,6 @@ func rasterizeAt(doc *core.Document, rootID string, scale float64) (*image.RGBA,
 	} else if n := core.GetNode(doc, rootID); n != nil && n.Str("type") == "page" {
 		fillPageBackground(doc, rgba)
 	}
-	// Any other root keeps a transparent background, like render_screenshot.
 	scanner := rasterx.NewScannerGV(w, h, rgba, rgba.Bounds())
 	raster := rasterx.NewDasher(w, h, scanner)
 	icon.Draw(raster, 1)

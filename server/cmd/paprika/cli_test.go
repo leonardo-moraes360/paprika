@@ -334,8 +334,6 @@ func TestImportListExportWithRealHandlers(t *testing.T) {
 	}
 }
 
-// pflag v1.1.0 prints bool flags as "--name[=true|false]"; the help keeps
-// "--name" while "--name=false" still parses.
 func TestBoolFlagHelpAndExplicitValue(t *testing.T) {
 	fs := pflag.NewFlagSet("t", pflag.ContinueOnError)
 	on := fs.Bool("team", false, "modo time")

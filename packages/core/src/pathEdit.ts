@@ -1,8 +1,3 @@
-/**
- * Edição ponto a ponto de um caminho: `d` vira subcaminhos de âncoras (ponto + alças bezier),
- * o canvas mexe nas âncoras e o resultado volta a `d`. Retas e cúbicas voltam como eram;
- * quadráticas viram cúbicas exatas e arcos viram cúbicas (aproximação de até ~0,03% do raio).
- */
 import { pathBounds, serializePath, translatePath, type Anchor, type Point, type Segment } from "./path.js";
 import { arcToCubics } from "./svgImport.js";
 
@@ -11,7 +6,6 @@ export interface Subpath {
   closed: boolean;
 }
 
-/** Posição de uma âncora: subcaminho e índice dentro dele. */
 export interface AnchorRef {
   sub: number;
   index: number;
@@ -20,7 +14,6 @@ export interface AnchorRef {
 const same = (a: Point, b: Point) => Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.y - b.y) < 1e-9;
 const pt = (a: Anchor): Point => ({ x: a.x, y: a.y });
 
-/** Segmentos absolutos (de `parsePath`) em subcaminhos editáveis. */
 export function pathToSubpaths(segs: Segment[]): Subpath[] {
   const subs: Subpath[] = [];
   let cur = null as Subpath | null;
@@ -32,7 +25,6 @@ export function pathToSubpaths(segs: Segment[]): Subpath[] {
     start = p;
     at = p;
   };
-  // Depois de Z, um comando que não é M começa outro subcaminho no ponto inicial (regra do SVG).
   const open = (): Subpath => {
     if (!cur || cur.closed) begin(start);
     return cur!;
@@ -60,7 +52,6 @@ export function pathToSubpaths(segs: Segment[]): Subpath[] {
         curve(seg.c1, seg.c2, seg.to);
         break;
       case "Q": {
-        // Elevação de grau: a quadrática é exatamente esta cúbica.
         const from = at;
         curve(
           { x: from.x + (2 / 3) * (seg.c.x - from.x), y: from.y + (2 / 3) * (seg.c.y - from.y) },
@@ -84,7 +75,6 @@ export function pathToSubpaths(segs: Segment[]): Subpath[] {
       case "Z": {
         if (!cur || cur.closed) break;
         const s: Subpath = cur;
-        // Um último ponto igual ao primeiro (fechamento explícito) vira a mesma âncora.
         const first = s.anchors[0]!;
         const last = s.anchors[s.anchors.length - 1]!;
         if (s.anchors.length > 1 && same(pt(first), pt(last))) {
@@ -100,7 +90,6 @@ export function pathToSubpaths(segs: Segment[]): Subpath[] {
   return subs;
 }
 
-/** Subcaminhos de volta a segmentos: reta sem alças, cúbica com alguma alça. */
 export function subpathsToPath(subs: Subpath[]): Segment[] {
   const segs: Segment[] = [];
   const link = (a: Anchor, b: Anchor) => {
@@ -127,18 +116,10 @@ const clone = (subs: Subpath[]): Subpath[] =>
     anchors: s.anchors.map((a) => ({ ...a, ...(a.in && { in: { ...a.in } }), ...(a.out && { out: { ...a.out } }) })),
   }));
 
-/**
- * The subpath of `ref`, only for non-negative integer positions. Reads go through `Array.at`, never
- * `obj[key]`, so a caller's "__proto__" (or any non-index key) cannot reach Object.prototype.
- */
 function subOf(subs: Subpath[], ref: AnchorRef): Subpath | undefined {
   return Number.isInteger(ref.sub) && Number.isInteger(ref.index) && ref.sub >= 0 && ref.index >= 0 ? subs.at(ref.sub) : undefined;
 }
 
-/**
- * Âncora no índice plano (subcaminho 0, depois o 1, …). `null` fora do intervalo
- * ou quando `index` não é um inteiro ≥ 0.
- */
 export function anchorByFlatIndex(subs: Subpath[], index: number): AnchorRef | null {
   if (!Number.isInteger(index) || index < 0) return null;
   let base = 0;
@@ -150,7 +131,6 @@ export function anchorByFlatIndex(subs: Subpath[], index: number): AnchorRef | n
   return null;
 }
 
-/** Move uma âncora e as alças dela juntas. */
 export function moveAnchor(subs: Subpath[], ref: AnchorRef, to: Point): Subpath[] {
   const out = clone(subs);
   const a = subOf(out, ref)?.anchors.at(ref.index);
@@ -164,15 +144,10 @@ export function moveAnchor(subs: Subpath[], ref: AnchorRef, to: Point): Subpath[
   return out;
 }
 
-/**
- * Move uma alça. Com `mirror`, a alça oposta acompanha em direção contrária, mantendo o próprio
- * comprimento (ponto suave); sem, as duas ficam independentes (canto).
- */
 export function moveHandle(subs: Subpath[], ref: AnchorRef, side: "in" | "out", to: Point, mirror = false): Subpath[] {
   const out = clone(subs);
   const a = subOf(out, ref)?.anchors.at(ref.index);
   if (!a || (side !== "in" && side !== "out")) return out;
-  // Named fields, not a[side]: no key computed from the caller is ever written.
   const moved = { x: to.x, y: to.y };
   if (side === "in") a.in = moved;
   else a.out = moved;
@@ -191,7 +166,6 @@ export function moveHandle(subs: Subpath[], ref: AnchorRef, side: "in" | "out", 
   return out;
 }
 
-/** Remove uma âncora; um subcaminho sem âncoras some. */
 export function removeAnchor(subs: Subpath[], ref: AnchorRef): Subpath[] {
   const out = clone(subs);
   const s = subOf(out, ref);
@@ -201,10 +175,6 @@ export function removeAnchor(subs: Subpath[], ref: AnchorRef): Subpath[] {
   return out.filter((x) => x.anchors.length > 0);
 }
 
-/**
- * Alterna canto e suave: com alças, tira as duas; sem, cria alças simétricas na direção
- * vizinho anterior → próximo, com um terço da distância até cada vizinho.
- */
 export function toggleSmooth(subs: Subpath[], ref: AnchorRef): Subpath[] {
   const out = clone(subs);
   const s = subOf(out, ref);
@@ -234,12 +204,10 @@ export function toggleSmooth(subs: Subpath[], ref: AnchorRef): Subpath[] {
 
 const lerp = (a: Point, b: Point, t: number): Point => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
 
-/** Os quatro pontos de controle do trecho que sai da âncora `index` (o último fecha, se fechado). */
 function segmentPoints(s: Subpath, index: number): [Point, Point, Point, Point] | null {
   const a = s.anchors[index];
   const b = index + 1 < s.anchors.length ? s.anchors[index + 1] : s.closed && s.anchors.length > 1 ? s.anchors[0] : undefined;
   if (!a || !b) return null;
-  // Reta: controles a 1/3 e 2/3, para t andar uniforme ao longo dela.
   if (!a.out && !b.in) return [pt(a), lerp(pt(a), pt(b), 1 / 3), lerp(pt(a), pt(b), 2 / 3), pt(b)];
   return [pt(a), a.out ?? pt(a), b.in ?? pt(b), pt(b)];
 }
@@ -252,14 +220,12 @@ function bezier([p0, p1, p2, p3]: [Point, Point, Point, Point], t: number): Poin
   };
 }
 
-/** Ponto do caminho mais perto de `p`: trecho (âncora de saída), parâmetro t e distância. */
 export function nearestOnPath(subs: Subpath[], p: Point): { ref: AnchorRef; t: number; point: Point; distance: number } | null {
   let best: { ref: AnchorRef; t: number; point: Point; distance: number } | null = null;
   subs.forEach((s, si) => {
     for (let k = 0; k < s.anchors.length; k++) {
       const seg = segmentPoints(s, k);
       if (!seg) continue;
-      // Amostra grossa e depois refina em volta do melhor t.
       let bt = 0;
       let bd = Infinity;
       const steps = 32;
@@ -284,10 +250,6 @@ export function nearestOnPath(subs: Subpath[], p: Point): { ref: AnchorRef; t: n
   return best;
 }
 
-/**
- * Insere uma âncora no trecho que sai de `ref`, no parâmetro t (de Casteljau): a forma não muda.
- * Devolve os subcaminhos e a posição da âncora nova.
- */
 export function insertAnchor(subs: Subpath[], ref: AnchorRef, t: number): { subs: Subpath[]; ref: AnchorRef } {
   const out = clone(subs);
   const s = subOf(out, ref);
@@ -315,7 +277,6 @@ export function insertAnchor(subs: Subpath[], ref: AnchorRef, t: number): { subs
   return { subs: out, ref: { sub: ref.sub, index: ref.index + 1 } };
 }
 
-/** O que gravar num nó `path` editado (`update`): o desenho e a caixa nova. */
 export interface PathEditProps {
   d: string;
   x?: number;
@@ -324,11 +285,6 @@ export interface PathEditProps {
   height?: number;
 }
 
-/**
- * `d` e caixa de um nó `path` depois da edição. Sem `viewBox`, o desenho volta a começar na
- * origem do nó e a caixa acompanha (x/y só mudam quando o nó tem posição absoluta, `moveBox`);
- * com `viewBox`, as coordenadas estão nesse espaço e só `d` muda. `null` se não sobrou ponto.
- */
 export function pathEditProps(
   node: { x: number; y: number; viewBox?: readonly [number, number, number, number] | undefined },
   subs: Subpath[],

@@ -5,9 +5,6 @@ import (
 	"math"
 )
 
-// OKLab is the perceptual space used for quantization: Euclidean distance there tracks how
-// different two colors look, so merging and nearest-color decisions behave like an eye would.
-
 var srgbLinear [256]float64
 
 func init() {
@@ -38,7 +35,6 @@ func labFromBytes(r, g, b uint8) lab {
 	return oklab(srgbLinear[r], srgbLinear[g], srgbLinear[b])
 }
 
-// labFromRGBf takes fractional 0..255 channels (a mean of several pixels).
 func labFromRGBf(r, g, b float64) lab {
 	lin := func(v float64) float64 {
 		c := v / 255

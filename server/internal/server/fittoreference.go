@@ -19,8 +19,8 @@ import (
 const (
 	fitDefaultIterations = 60
 	fitMaxIterations     = 400
-	fitDivergence        = 0.03  // mask IoU and Chromium IoU further apart than this are reported
-	fitRegression        = 0.005 // a Chromium IoU worse than before by more than this blocks the write
+	fitDivergence        = 0.03
+	fitRegression        = 0.005
 	fitBudget            = 20 * time.Second
 )
 
@@ -74,14 +74,13 @@ type fitOutput struct {
 	Version       *int64       `json:"version,omitempty"`
 }
 
-// fitSource is a node of the frame the way fit_to_reference reads it.
 type fitSource struct {
 	n       *core.Node
 	fit     vision.FitNode
 	skipped string
 	free    vision.FitFree
 	path    bool
-	hasBox  bool // position is the node's own (not decided by a row/column layout)
+	hasBox  bool
 }
 
 func subtreeOf(d *core.Document, rootID string) map[string]bool {
@@ -101,7 +100,6 @@ func subtreeOf(d *core.Document, rootID string) map[string]bool {
 	return seen
 }
 
-// paintOf reads a fill or stroke color: whether it paints, and its rgb and alpha when readable.
 func paintOf(v any) (bool, *[3]uint8, float64) {
 	switch c := v.(type) {
 	case nil:
@@ -116,14 +114,13 @@ func paintOf(v any) (bool, *[3]uint8, float64) {
 		}
 		return true, nil, 1
 	}
-	return true, nil, 1 // a gradient or another object
+	return true, nil, 1
 }
 
 func lengthOf(d *core.Document, n *core.Node, v any) (float64, bool) {
 	return core.ResolveLength(d, v, core.ModeOf(d, n))
 }
 
-// fitNodeFor reads node id as a vision.FitNode. It never errors: what cannot be fitted says why.
 func fitNodeFor(d *core.Document, id string, boxes map[string]core.LayoutBox, ox, oy float64, rootID string, wanted map[string]bool, maxAnchors int) fitSource {
 	n := core.GetNode(d, id)
 	src := fitSource{n: n}
@@ -257,7 +254,6 @@ func fitNodeFor(d *core.Document, id string, boxes map[string]core.LayoutBox, ox
 			src.fit.ViewBox = &box
 		}
 	}
-	// what may move, given what the node is
 	free := vision.FitFree{MaxAnchors: maxAnchors}
 	var dropped []string
 	if wanted["position"] {
@@ -364,7 +360,6 @@ func (m *MCP) fitToReference(ctx context.Context, a *jsonv.Object, head Workspac
 	}
 	renderDoc := loaded.renderDoc
 
-	// boxes of the nodes, relative to the frame's corner
 	boxes, err := core.Layout(d, core.LayoutOptions{RootID: rootID})
 	if err != nil {
 		return nil, err
@@ -387,7 +382,6 @@ func (m *MCP) fitToReference(ctx context.Context, a *jsonv.Object, head Workspac
 		sources = append(sources, s)
 		if s.skipped == "" {
 			tuned = append(tuned, s)
-			// say which of the asked params this node ignores
 			var ignored []string
 			if wanted["position"] && !s.free.Position {
 				ignored = append(ignored, "position")
@@ -414,7 +408,6 @@ func (m *MCP) fitToReference(ctx context.Context, a *jsonv.Object, head Workspac
 		return nil, fmt.Errorf("none of the nodes can be fitted: %s", strings.Join(why, "; "))
 	}
 
-	// the frame as it is, and with the tuned nodes left out (their ink is rasterized here)
 	pngBefore, pw, ph, err := m.shot.ScreenshotMode(ctx, renderDoc, rootID, 1, a.Str("mode"))
 	if err != nil {
 		return nil, err
@@ -479,7 +472,6 @@ func (m *MCP) fitToReference(ctx context.Context, a *jsonv.Object, head Workspac
 	}
 	warnings = append(warnings, res.Warnings...)
 
-	// the document changes, node by node
 	byID := map[string]vision.FitNodeResult{}
 	for _, r := range res.Nodes {
 		byID[r.ID] = r
@@ -505,7 +497,6 @@ func (m *MCP) fitToReference(ctx context.Context, a *jsonv.Object, head Workspac
 		outNodes = append(outNodes, out)
 	}
 
-	// the Chromium numbers: the frame as it is, and as it would be after the changes
 	chromBefore := vision.FitIoU(drawnBefore, loaded.img, fwF, fhF, placed)
 	chromAfter := chromBefore
 	maskBefore, maskAfter := round3(res.IoUBefore), round3(res.IoUAfter)
@@ -576,7 +567,6 @@ func radiusValue(r [4]float64) any {
 	return []any{fitRound(r[0]), fitRound(r[1]), fitRound(r[2]), fitRound(r[3])}
 }
 
-// fitProps turns a tuned state into the props of one update, and records before/after.
 func fitProps(d *core.Document, s fitSource, r vision.FitNodeResult, out *fitNodeOut) (*jsonv.Object, []fitAnchorMove) {
 	n := s.n
 	props := jsonv.NewObject()
@@ -598,7 +588,6 @@ func fitProps(d *core.Document, s fitSource, r vision.FitNodeResult, out *fitNod
 	}
 
 	if r.Path != nil && (r.Changed["pathPoints"] || r.Changed["size"]) {
-		// the path is rewritten: scaled to the new size and with its anchors moved
 		subs := make([]core.Subpath, len(r.Path))
 		for i, sub := range r.Path {
 			cs := core.Subpath{Closed: sub.Closed}
@@ -618,7 +607,6 @@ func fitProps(d *core.Document, s fitSource, r vision.FitNodeResult, out *fitNod
 			if edited.HasXY {
 				ex, ey := edited.X, edited.Y
 				if r.Rot != 0 && edited.HasSize {
-					// the box was renormalized: keep the rotation pivot where it was
 					rad := r.Rot * math.Pi / 180
 					sin, cos := math.Sin(rad), math.Cos(rad)
 					e := core.Point{X: (edited.X + edited.Width/2) - (x1 + w1/2), Y: (edited.Y + edited.Height/2) - (y1 + h1/2)}

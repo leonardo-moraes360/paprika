@@ -6,12 +6,6 @@ import (
 	"math"
 )
 
-// The contrast half of the loop: pixels can match at 95 % and still ship a label nobody can
-// read, because a 1-pixel-wide difference in a thin glyph passes the comparator and fails a
-// person. These helpers are the WCAG 2.1 numbers, kept next to the comparator so the generator
-// and the discriminator use one definition.
-
-// Level is the WCAG conformance level to check.
 type Level string
 
 const (
@@ -19,9 +13,6 @@ const (
 	LevelAAA Level = "AAA"
 )
 
-// ContrastRatio returns the WCAG 2.1 contrast ratio between a foreground and a background,
-// 1 (identical) to 21 (black on white). A translucent foreground is composited over the
-// background first, because that is what the screen shows.
 func ContrastRatio(fg, bg color.Color) float64 {
 	f, b := compositeOver(fg, bg), opaque(bg)
 	l1, l2 := relativeLuminance(f), relativeLuminance(b)
@@ -31,9 +22,6 @@ func ContrastRatio(fg, bg color.Color) float64 {
 	return (l1 + 0.05) / (l2 + 0.05)
 }
 
-// MinContrast is the ratio WCAG 2.1 asks for: 4.5 for body text, 3 for large text (18 px bold
-// or 24 px), and one step higher at AAA. UI parts (icons, borders that carry meaning) sit at
-// the large-text bar, which is why the loop reuses it.
 func MinContrast(large bool, level Level) (float64, error) {
 	switch level {
 	case LevelAA:
@@ -51,8 +39,6 @@ func MinContrast(large bool, level Level) (float64, error) {
 	}
 }
 
-// MeetsContrast answers one thing the generator can act on: does this colour pair pass, and by
-// how much did it miss.
 func MeetsContrast(fg, bg color.Color, large bool, level Level) (ratio float64, required float64, ok bool) {
 	ratio = ContrastRatio(fg, bg)
 	required, err := MinContrast(large, level)
@@ -62,8 +48,6 @@ func MeetsContrast(fg, bg color.Color, large bool, level Level) (ratio float64, 
 	return ratio, required, ratio >= required
 }
 
-// ParseHex reads "#rgb", "#rgba", "#rrggbb" or "#rrggbbaa" (with or without the '#'), the way
-// the board writes its tokens.
 func ParseHex(s string) (color.Color, error) {
 	if trim(s) == "" {
 		return nil, fmt.Errorf("visualdiff: empty colour")
@@ -78,7 +62,7 @@ func ParseHex(s string) (color.Color, error) {
 			return nil, fmt.Errorf("visualdiff: colour %q: %w", s, err)
 		}
 		switch len(s) {
-		case 3, 4: // #rgb / #rgba: each digit stands for itself
+		case 3, 4:
 			out = append(out, d*17)
 		default:
 			if i+1 >= len(s) {
@@ -115,7 +99,6 @@ func hexDigit(b byte) (uint8, error) {
 	}
 }
 
-// relativeLuminance is WCAG 2.1's Y: the sRGB channels linearised and weighted.
 func relativeLuminance(c color.RGBA) float64 {
 	lin := func(v uint8) float64 {
 		s := float64(v) / 255
@@ -132,8 +115,6 @@ func opaque(c color.Color) color.RGBA {
 	return color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)}
 }
 
-// compositeOver flattens a translucent colour onto a background, so a token with alpha is
-// judged on the colour the screen actually paints.
 func compositeOver(fg, bg color.Color) color.RGBA {
 	f, b := toNRGBA(fg), toNRGBA(bg)
 	if f.A == 0 {

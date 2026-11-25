@@ -30,7 +30,7 @@ describe("displayList", () => {
   const entry = (i: number) => Array.from(list.data.slice(i * DISPLAY_STRIDE, (i + 1) * DISPLAY_STRIDE));
 
   it("emits clip and shapes in paint order, sending an overlapped path back to the DOM", () => {
-    expect(list.count).toBe(3); // push clip f, rect r, pop clip — path p overlaps the gradient and the text
+    expect(list.count).toBe(3);
     expect(entry(0)[0]).toBe(2);
     expect(entry(1)[0]).toBe(0);
     expect(entry(2)[0]).toBe(3);
@@ -41,7 +41,7 @@ describe("displayList", () => {
   it("resolves tokens and packs colors, stroke, opacity and shadow", () => {
     const f = entry(0);
     expect(f.slice(1, 9)).toEqual([10, 20, 200, 100, 8, 0, 1, 1]);
-    expect(f.slice(8, 12)).toEqual([1, 0, 0, 1]); // $soft -> $brand -> #ff0000
+    expect(f.slice(8, 12)).toEqual([1, 0, 0, 1]);
     const r = entry(1);
     expect(r[7]).toBe(0.5);
     expect(r.slice(8, 12)).toEqual([0, 0, 1, 0.5]);
@@ -221,7 +221,6 @@ describe("displayList paint order", () => {
   it("paints every shape of the flat-board logo (PAP-A-012) on WASM, in paint order", () => {
     const doc = parseDocument(JSON.parse(readFileSync(resolve(import.meta.dirname, "../../../packages/e2e/fixtures/wasm-gpu-blank.paprika.json"), "utf8")));
     const list = displayList(doc, absBoxes(doc));
-    // Frame (clip), 9 rects, 2 paths, ellipse, pop clip. Only the text stays on the DOM.
     expect(list.count).toBe(14);
     expect([...list.painted].sort()).toEqual(["board", "cell0", "cell1", "cell2", "cell3", "cell4", "cell5", "cell6", "cell7", "cell8", "eye", "fluke", "hull"].sort());
     expect([...list.domPainted]).toEqual([]);
@@ -231,10 +230,9 @@ describe("displayList paint order", () => {
     for (let i = 1; i <= 9; i++) {
       const e = at(i);
       expect(e[0]).toBe(0);
-      expect(e.slice(3, 6)).toEqual([13, 13, 2]); // size and radius slot
+      expect(e.slice(3, 6)).toEqual([13, 13, 2]);
       expect(e.slice(8, 12).map((v) => Math.round(v * 255))).toEqual([0x0b, 0x0b, 0x0b, 255]);
     }
-    // Path entries carry their index in the radius slot, never a corner radius.
     expect(at(10)[0]).toBe(4);
     expect(at(10)[5]).toBe(0);
     expect(at(11)[0]).toBe(4);

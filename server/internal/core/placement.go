@@ -231,7 +231,6 @@ type placedSibling struct {
 	box SpotBox
 }
 
-// boxesUnder places the page that holds id: Layout without a RootID only places the first page.
 func boxesUnder(doc *Document, id string) (map[string]LayoutBox, error) {
 	if id != "" && GetNode(doc, id) == nil {
 		id = ""

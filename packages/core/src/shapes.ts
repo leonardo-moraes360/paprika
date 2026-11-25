@@ -1,41 +1,25 @@
-/**
- * Parametric path generators and corner rounding. Everything returns plain SVG path data (`d`),
- * so canvas, screenshot, export and the WASM renderer paint it with the code paths they already
- * have (no new node field). Angles are in degrees, clockwise from 12 o'clock (like a clock).
- */
 import { parsePath, pathBounds, serializePath, translatePath, type Point, type Segment } from "./path.js";
 
 export const PATH_SHAPE_KINDS = ["star", "polygon", "ring", "arc", "sector"] as const;
 export type PathShapeKind = (typeof PATH_SHAPE_KINDS)[number];
 
 export interface PathShapeParams {
-  /** Star: number of points (3..100). */
   points?: number;
-  /** Polygon: number of sides (3..100). */
   sides?: number;
-  /** Outer radius (all kinds). */
   radius?: number;
-  /** Star: inner radius (default radius / 2). Ring and arc: hole radius (alternative to thickness). */
   innerRadius?: number;
-  /** Ring and arc: band thickness (outer radius minus inner radius). */
   thickness?: number;
-  /** Star and polygon: rotate by this many degrees (0 = first vertex at 12 o'clock). */
   angle?: number;
-  /** Arc and sector: where the sweep starts and ends (degrees, clockwise from 12 o'clock). */
   startAngle?: number;
   endAngle?: number;
-  /** Star and polygon: round every corner with this radius. */
   cornerRadius?: number;
-  /** Arc: finish both ends with a half circle. */
   roundCaps?: boolean;
 }
 
 export interface PathShape {
-  /** Path data with the bounding box's top-left at (0, 0). */
   d: string;
   width: number;
   height: number;
-  /** Where the shape's center sits inside the box: node x = centerX - center.x. */
   center: Point;
   fillRule?: "evenodd";
 }
@@ -63,9 +47,9 @@ function cornerAt(prev: Point, p: Point, next: Point, radius: number): Corner | 
   const u = { x: (prev.x - p.x) / lu, y: (prev.y - p.y) / lu };
   const v = { x: (next.x - p.x) / lv, y: (next.y - p.y) / lv };
   const cos = Math.max(-1, Math.min(1, u.x * v.x + u.y * v.y));
-  if (cos < -1 + EPS) return null; // collinear: nothing to round
-  if (cos > 1 - EPS) return null; // spike folded onto itself
-  const tan = Math.sqrt((1 - cos) / (1 + cos)); // tan(theta / 2)
+  if (cos < -1 + EPS) return null;
+  if (cos > 1 - EPS) return null;
+  const tan = Math.sqrt((1 - cos) / (1 + cos));
   let t = radius / tan;
   const max = Math.min(lu, lv) / 2;
   let r = radius;
@@ -74,15 +58,10 @@ function cornerAt(prev: Point, p: Point, next: Point, radius: number): Corner | 
     r = t * tan;
   }
   if (r < 1e-6) return null;
-  const cross = -u.x * v.y + u.y * v.x; // (-u) x v: positive = clockwise on screen
+  const cross = -u.x * v.y + u.y * v.x;
   return { a: { x: p.x + u.x * t, y: p.y + u.y * t }, b: { x: p.x + v.x * t, y: p.y + v.y * t }, r, sweep: cross > 0 };
 }
 
-/**
- * Rounds the corners of one polyline. `radii[i]` belongs to vertex i. A closed polygon rounds all
- * its vertices; an open polyline leaves both ends sharp. Each radius is clamped so the arc takes at
- * most half of each adjacent edge (two neighbours can then never overlap).
- */
 function roundedSubpath(pts: Point[], closed: boolean, radii: number[]): Segment[] {
   const n = pts.length;
   const corner = (i: number): Corner | null => {
@@ -116,7 +95,6 @@ function roundedSubpath(pts: Point[], closed: boolean, radii: number[]): Segment
   return segs;
 }
 
-/** Splits M/L/Z-only segments into vertex lists (a closing point equal to the start is dropped). */
 function polylines(segs: Segment[]): { pts: Point[]; closed: boolean }[] {
   const out: { pts: Point[]; closed: boolean }[] = [];
   let cur: { pts: Point[]; closed: boolean } | null = null;
@@ -142,11 +120,6 @@ function polylines(segs: Segment[]): { pts: Point[]; closed: boolean }[] {
   return out;
 }
 
-/**
- * Rounds the corners of a polygonal path (M, L, H, V, Z). `radius` applies to every vertex;
- * `radii[i]` overrides vertex i (vertices are counted in the order written, a closing point equal
- * to the start is not counted). Curves are refused: there is no corner to round.
- */
 export function roundPathCorners(d: string, opts: { radius?: number; radii?: (number | null)[] }): string {
   const segs = parsePath(d);
   const subs = polylines(segs);
@@ -193,7 +166,6 @@ function holeRadius(R: number, p: PathShapeParams): number {
   return inner;
 }
 
-/** Segments of a shape centered on (0, 0). */
 function shapeSegments(kind: PathShapeKind, p: PathShapeParams): { segs: Segment[]; evenodd: boolean } {
   const R = num("radius", p.radius, 0.01);
   const angle = p.angle ?? 0;
@@ -241,7 +213,6 @@ function shapeSegments(kind: PathShapeKind, p: PathShapeParams): { segs: Segment
   }
 }
 
-/** Builds a shape as path data whose box starts at (0, 0), plus the center's place inside the box. */
 export function shapePath(kind: PathShapeKind, params: PathShapeParams): PathShape {
   if (!PATH_SHAPE_KINDS.includes(kind)) throw new Error(`unknown shape kind "${kind}" (star, polygon, ring, arc, sector)`);
   const { segs, evenodd } = shapeSegments(kind, params);

@@ -12,7 +12,6 @@ import (
 	"testing"
 )
 
-// solid builds a w x h picture and paints on it through paint, so each case says what it draws.
 func solid(w, h int, c color.RGBA) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	for y := range h {
@@ -75,7 +74,6 @@ func TestOnePixelChangeIsCounted(t *testing.T) {
 
 func TestTinyDifferenceBelowThresholdIsNotCounted(t *testing.T) {
 	a, b := white10(), white10()
-	// One channel by 8: under the 0.1 bar, and it should stay invisible to the loop.
 	b.SetRGBA(4, 4, color.RGBA{247, 255, 255, 255})
 
 	got, err := Compare(a, b, nil)
@@ -91,8 +89,8 @@ func TestTinyDifferenceBelowThresholdIsNotCounted(t *testing.T) {
 }
 
 func TestSizeMismatchPadsWithMagentaAndCounts(t *testing.T) {
-	a := solid(10, 10, white) // 10x10
-	b := solid(10, 8, white)  // same width, two rows shorter
+	a := solid(10, 10, white)
+	b := solid(10, 8, white)
 
 	got, err := Compare(a, b, nil)
 	if err != nil {
@@ -107,7 +105,6 @@ func TestSizeMismatchPadsWithMagentaAndCounts(t *testing.T) {
 	if got.Compared != 100 {
 		t.Errorf("compared = %d, want 100", got.Compared)
 	}
-	// The missing strip is magenta against white: a difference, so it must be counted.
 	if got.DiffPixels != 20 {
 		t.Errorf("diff pixels = %d, want 20: a screen that lost its footer is not identical", got.DiffPixels)
 	}
@@ -121,7 +118,7 @@ func TestSizeMismatchPadsWithMagentaAndCounts(t *testing.T) {
 
 func TestThresholdZeroCountsEveryVisibleDifference(t *testing.T) {
 	a, b := white10(), white10()
-	b.SetRGBA(4, 4, color.RGBA{254, 255, 255, 255}) // one step in one channel
+	b.SetRGBA(4, 4, color.RGBA{254, 255, 255, 255})
 
 	exact, err := Compare(a, b, &Options{Threshold: 0})
 	if err != nil {
@@ -131,7 +128,6 @@ func TestThresholdZeroCountsEveryVisibleDifference(t *testing.T) {
 		t.Errorf("diff pixels = %d at threshold 0, want 1: zero means exact", exact.DiffPixels)
 	}
 
-	// The same pair under the loop's bar: nil options is DefaultOptions, not "no threshold".
 	def, err := Compare(a, b, nil)
 	if err != nil {
 		t.Fatalf("Compare with nil options: %v", err)
@@ -156,7 +152,7 @@ func TestMaskWithoutReasonIsRefused(t *testing.T) {
 
 func TestMaskWithReasonExcludesItsPixels(t *testing.T) {
 	a, b := white10(), white10()
-	rect(b, 2, 2, 6, 6, black) // a 4x4 block differs
+	rect(b, 2, 2, 6, 6, black)
 
 	got, err := Compare(a, b, &Options{Masks: []Mask{{X: 2, Y: 2, Width: 4, Height: 4, Reason: "the live clock is inside this frame"}}})
 	if err != nil {
@@ -174,7 +170,6 @@ func TestMaskWithReasonExcludesItsPixels(t *testing.T) {
 }
 
 func TestMaskCoveringEverythingIsRefused(t *testing.T) {
-	// Everything skipped is not a pass, it is a screenshot nobody looked at.
 	_, err := Compare(white10(), white10(), &Options{
 		Masks: []Mask{{X: 0, Y: 0, Width: 10, Height: 10, Reason: "trust me"}},
 	})
@@ -194,7 +189,7 @@ func TestOverlappingMasksAreCountedOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compare: %v", err)
 	}
-	if got.Masked != 28 { // 16 + 16 - 4 shared
+	if got.Masked != 28 {
 		t.Errorf("masked = %d, want 28: an overlapping area is excused once, not twice", got.Masked)
 	}
 }
@@ -211,9 +206,6 @@ func TestInvalidMaskGeometryIsRefused(t *testing.T) {
 }
 
 func TestAntiAliasedEdgeIsNotCounted(t *testing.T) {
-	// The same edge with its blend one pixel over: white, a grey blend column, then black.
-	// Nothing about the design changed — the edge just landed half a pixel away — so the two
-	// grey positions must be forgiven, not counted.
 	a, b := solid(20, 8, white), solid(20, 8, white)
 	grey := color.RGBA{128, 128, 128, 255}
 	rect(a, 4, 0, 5, 8, grey)
@@ -235,8 +227,6 @@ func TestAntiAliasedEdgeIsNotCounted(t *testing.T) {
 		t.Errorf("similarity = %v, want 1", got.Similarity)
 	}
 
-	// Same pair with the filter off: the pixels are then counted, which is what
-	// IncludeAntiAliasing is for.
 	withAA, err := Compare(a, b, &Options{IncludeAntiAliasing: true})
 	if err != nil {
 		t.Fatalf("Compare with IncludeAntiAliasing: %v", err)
@@ -247,8 +237,6 @@ func TestAntiAliasedEdgeIsNotCounted(t *testing.T) {
 }
 
 func TestInventedEdgeBlendIsStillCounted(t *testing.T) {
-	// A grey column that only one picture has, with a hard black on the other side: one side
-	// is a blend, but the colour is nowhere near in the other picture, so it is a real change.
 	a, b := solid(20, 8, white), solid(20, 8, white)
 	rect(a, 4, 0, 5, 8, color.RGBA{128, 128, 128, 255})
 	rect(a, 5, 0, 10, 8, black)
@@ -401,7 +389,7 @@ func TestTranslucentHoleIsADifference(t *testing.T) {
 			b.SetNRGBA(x, y, color.NRGBA{255, 255, 255, 255})
 		}
 	}
-	b.SetNRGBA(5, 5, color.NRGBA{0, 0, 0, 0}) // a hole
+	b.SetNRGBA(5, 5, color.NRGBA{0, 0, 0, 0})
 
 	got, err := Compare(a, b, nil)
 	if err != nil {

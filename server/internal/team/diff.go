@@ -9,22 +9,18 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// view is the part of a document that the team syncs: stored fields only. Derived data (instance
-// copies, a connector's geometry, a group's size, an instance root's component fields) is left
-// out, because applyOps recomputes it on every peer (ADR 0004, docs/en-US/team-sync.md).
 type view struct {
 	name     string
-	nodes    map[string]*jsonv.Object // id → synced fields (no id, parentId, children)
-	parent   map[string]string        // id → parent id ("" = top level)
-	children map[string][]string      // parent id ("" = top level) → synced children, in order
-	order    []string                 // every synced id, parents before children, in tree order
+	nodes    map[string]*jsonv.Object
+	parent   map[string]string
+	children map[string][]string
+	order    []string
 	tokens   *jsonv.Object
-	modes    *jsonv.Object // mode → tokens
+	modes    *jsonv.Object
 }
 
 var connectorDerived = map[string]bool{"x": true, "y": true, "width": true, "height": true, "d": true}
 
-// syncedFields returns the fields of n that travel, or nil when the whole node is derived.
 func syncedFields(doc *core.Document, n *core.Node) *jsonv.Object {
 	if core.CopyOwner(doc, n) != nil {
 		return nil
@@ -43,7 +39,7 @@ func syncedFields(doc *core.Document, n *core.Node) *jsonv.Object {
 			continue
 		}
 		if instance && inList(core.RootDerived, k) {
-			continue // the instance's fill override lives in overrides
+			continue
 		}
 		v, _ := n.Get(k)
 		out.Set(k, v)
@@ -88,8 +84,6 @@ func viewOf(doc *core.Document) *view {
 	return v
 }
 
-// stateDoc turns the sidecar's materialized state into a document-shaped object for viewOf. It is
-// not a valid Paprika document (derived data is missing), only an input for diffs.
 func stateDoc(raw json.RawMessage) (*core.Document, error) {
 	parsed, err := jsonv.Parse(raw)
 	if err != nil {
@@ -136,12 +130,8 @@ func equalIDs(a, b []string) bool {
 	return true
 }
 
-// Change is one entry of a change set for the sidecar (docs/en-US/team-sync.md).
 type Change map[string]any
 
-// Diff is the change set that turns prev into next (both full documents or state documents).
-// Order: creates (parents first), moves, field sets, sibling orders, deletes, tokens, name. Moves
-// come before deletes so a node moved out of a deleted frame survives on every peer.
 func Diff(prev, next *core.Document) []Change {
 	a, b := viewOf(prev), viewOf(next)
 	var out []Change
@@ -183,7 +173,6 @@ func Diff(prev, next *core.Document) []Change {
 		}
 	}
 	for _, p := range parents {
-		// Removals alone need no order: only additions or a new relative order do.
 		var kept []string
 		for _, id := range a.children[p] {
 			if b.parent[id] == p {
@@ -255,15 +244,8 @@ func tokenChange(mode string, a, b *jsonv.Object) Change {
 	return Change{"k": "tokens", "mode": mode, "set": raw(set)}
 }
 
-// RemoteOps are the applyOps operations that bring doc to the synced state (from the sidecar).
-// Phases: (A) nodes whose parent changed move to their new parent, so nothing that survives sits
-// inside a subtree about to be deleted; (B) nodes gone from the state are deleted (topmost only);
-// (C) a walk of the state in tree order creates missing nodes and moves the rest into place;
-// (D) field updates; (E) tokens, modes and name.
 func RemoteOps(doc, state *core.Document) []any {
 	cur, want := viewOf(doc), viewOf(state)
-	// Simulated child lists of the current document, kept in step with the ops we emit, so the
-	// indexes are right op by op. They include instance copies' owners' real children (not synced).
 	sim := map[string][]string{"": append([]string(nil), doc.Strings("rootIds")...)}
 	for _, id := range core.Nodes(doc).Keys() {
 		n := core.GetNode(doc, id)
@@ -306,20 +288,18 @@ func RemoteOps(doc, state *core.Document) []any {
 	}
 
 	var ops []any
-	// (A)
 	for _, id := range want.order {
 		if _, ok := cur.nodes[id]; !ok || cur.parent[id] == want.parent[id] {
 			continue
 		}
 		to := want.parent[id]
 		if _, exists := cur.nodes[to]; to != "" && !exists {
-			to = "" // its new parent is created in phase C; park it at the top level until then
+			to = ""
 		}
 		ops = append(ops, jsonv.NewObject("op", "move", "id", id, "parentId", nullable(to)))
 		remove(id)
 		insert(id, to, len(sim[to]))
 	}
-	// (B)
 	gone := map[string]bool{}
 	for id := range cur.nodes {
 		if _, ok := want.nodes[id]; !ok {
@@ -332,7 +312,6 @@ func RemoteOps(doc, state *core.Document) []any {
 			remove(id)
 		}
 	}
-	// (C)
 	for _, id := range want.order {
 		p := want.parent[id]
 		at := 0
@@ -355,7 +334,6 @@ func RemoteOps(doc, state *core.Document) []any {
 			insert(id, p, at)
 		}
 	}
-	// (D)
 	for _, id := range want.order {
 		old, ok := cur.nodes[id]
 		if !ok {
@@ -380,7 +358,6 @@ func RemoteOps(doc, state *core.Document) []any {
 			ops = append(ops, jsonv.NewObject("op", "update", "id", id, "props", props))
 		}
 	}
-	// (E)
 	if set := tokenSet(cur.tokens, want.tokens); set != nil {
 		ops = append(ops, jsonv.NewObject("op", "set_tokens", "tokens", set))
 	}

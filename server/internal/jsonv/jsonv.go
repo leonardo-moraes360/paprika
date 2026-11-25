@@ -1,9 +1,3 @@
-// Package jsonv models JSON values the way JavaScript does, so the Go server can reproduce the
-// TypeScript reference byte for byte: objects keep insertion order (with JavaScript's rule that
-// integer-like keys come first), "undefined" (absent key) is distinct from null, and numbers,
-// strings and JSON text are formatted like Number#toString and JSON.stringify.
-//
-// A value is one of: nil (null), bool, float64, string, []any, *Object.
 package jsonv
 
 import (
@@ -19,13 +13,11 @@ import (
 	"unicode/utf16"
 )
 
-// Object is an ordered JSON object.
 type Object struct {
 	keys []string
 	m    map[string]any
 }
 
-// NewObject builds an object from alternating key/value pairs.
 func NewObject(kv ...any) *Object {
 	o := &Object{m: map[string]any{}}
 	for i := 0; i+1 < len(kv); i += 2 {
@@ -34,7 +26,6 @@ func NewObject(kv ...any) *Object {
 	return o
 }
 
-// arrayIndex reports whether k is a canonical array index (JavaScript orders those first).
 func arrayIndex(k string) (uint64, bool) {
 	if k == "" || len(k) > 10 || (len(k) > 1 && k[0] == '0') {
 		return 0, false
@@ -53,7 +44,6 @@ func (o *Object) Len() int {
 	return len(o.keys)
 }
 
-// Keys returns the keys in JavaScript enumeration order. The slice must not be modified.
 func (o *Object) Keys() []string {
 	if o == nil {
 		return nil
@@ -69,7 +59,6 @@ func (o *Object) Get(k string) (any, bool) {
 	return v, ok
 }
 
-// Has is the `k in obj` check.
 func (o *Object) Has(k string) bool {
 	_, ok := o.Get(k)
 	return ok
@@ -113,7 +102,6 @@ func (o *Object) Delete(k string) {
 	}
 }
 
-// Clone is structuredClone for JSON values.
 func Clone(v any) any {
 	switch t := v.(type) {
 	case *Object:
@@ -136,7 +124,6 @@ func Clone(v any) any {
 	}
 }
 
-// Spread is `{ ...o }` (shallow copy).
 func (o *Object) Spread() *Object {
 	c := &Object{keys: append([]string(nil), o.Keys()...), m: make(map[string]any, o.Len())}
 	for _, k := range o.Keys() {
@@ -144,8 +131,6 @@ func (o *Object) Spread() *Object {
 	}
 	return c
 }
-
-// Typed accessors (zero values when absent or of another type).
 
 func (o *Object) Str(k string) string {
 	v, _ := o.Get(k)
@@ -177,7 +162,6 @@ func (o *Object) Arr(k string) []any {
 	return a
 }
 
-// Strings returns o[k] as a []string (non-strings are skipped).
 func (o *Object) Strings(k string) []string {
 	arr := o.Arr(k)
 	out := make([]string, 0, len(arr))
@@ -189,17 +173,12 @@ func (o *Object) Strings(k string) []string {
 	return out
 }
 
-// MarshalJSON lets *Object be embedded in encoding/json payloads (compact form).
 func (o *Object) MarshalJSON() ([]byte, error) {
 	return []byte(Stringify(o, "")), nil
 }
 
-// ---- decoding ----
-
-// ErrSyntax is returned for malformed JSON.
 var ErrSyntax = errors.New("JSON inválido")
 
-// Parse decodes JSON text into ordered values (JSON.parse semantics: duplicate keys keep the last value).
 func Parse(data []byte) (any, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
@@ -273,7 +252,6 @@ func fromToken(dec *json.Decoder, tok json.Token) (any, error) {
 	return nil, ErrSyntax
 }
 
-// FromGo converts plain Go values (maps are sorted by key, structs via encoding/json) into jsonv values.
 func FromGo(v any) any {
 	switch t := v.(type) {
 	case nil, bool, string, float64, *Object:
@@ -306,9 +284,6 @@ func FromGo(v any) any {
 	return r
 }
 
-// ---- encoding ----
-
-// Stringify is JSON.stringify(v, null, indent). Indent "" produces compact output.
 func Stringify(v any, indent string) string {
 	var b strings.Builder
 	writeValue(&b, v, indent, "")
@@ -395,7 +370,6 @@ func writeValue(b *strings.Builder, v any, indent, cur string) {
 	}
 }
 
-// Quote is JSON.stringify for a string.
 func Quote(s string) string {
 	var b strings.Builder
 	b.WriteByte('"')
@@ -427,7 +401,6 @@ func Quote(s string) string {
 	return b.String()
 }
 
-// FormatNumber is Number.prototype.toString() (shortest round-trip, JavaScript exponent rules).
 func FormatNumber(f float64) string {
 	switch {
 	case math.IsNaN(f):
@@ -442,7 +415,6 @@ func FormatNumber(f float64) string {
 	abs := math.Abs(f)
 	if abs >= 1e21 || abs < 1e-6 {
 		s := strconv.FormatFloat(f, 'e', -1, 64)
-		// Go: 1e-07 / 1e+21 → JavaScript: 1e-7 / 1e+21
 		mant, exp, _ := strings.Cut(s, "e")
 		sign := exp[0]
 		digits := strings.TrimLeft(exp[1:], "0")
@@ -454,9 +426,6 @@ func FormatNumber(f float64) string {
 	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
-// ---- JavaScript string helpers (lengths and slices are in UTF-16 code units) ----
-
-// Len16 is String#length.
 func Len16(s string) int {
 	n := 0
 	for _, r := range s {
@@ -469,7 +438,6 @@ func Len16(s string) int {
 	return n
 }
 
-// Slice16 is String#slice(0, n) for n >= 0.
 func Slice16(s string, n int) string {
 	u := utf16.Encode([]rune(s))
 	if n >= len(u) {
@@ -478,7 +446,6 @@ func Slice16(s string, n int) string {
 	return string(utf16.Decode(u[:n]))
 }
 
-// IsSpace matches JavaScript's \s (WhiteSpace + LineTerminator).
 func IsSpace(r rune) bool {
 	switch r {
 	case '\t', '\n', '\v', '\f', '\r', ' ', 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff:
@@ -487,10 +454,8 @@ func IsSpace(r rune) bool {
 	return r >= 0x2000 && r <= 0x200a
 }
 
-// Trim is String#trim.
 func Trim(s string) string { return strings.TrimFunc(s, IsSpace) }
 
-// Round is Math.round (ties toward +Infinity).
 func Round(x float64) float64 {
 	if math.IsNaN(x) || math.IsInf(x, 0) {
 		return x
@@ -505,7 +470,6 @@ func Round(x float64) float64 {
 	return f
 }
 
-// ParseFloat is the global parseFloat (longest numeric prefix, NaN if none).
 func ParseFloat(s string) float64 {
 	s = strings.TrimLeftFunc(s, IsSpace)
 	i := 0
@@ -552,7 +516,6 @@ func ParseFloat(s string) float64 {
 	return f
 }
 
-// ToNumber is Number(string) / unary + on a string.
 func ToNumber(s string) float64 {
 	t := Trim(s)
 	if t == "" {
@@ -565,7 +528,7 @@ func ToNumber(s string) float64 {
 		return math.Inf(-1)
 	}
 	if strings.ContainsAny(t, "xXoObB_iInN") {
-		return math.NaN() // hex/octal/binary literals are not used by Paprika inputs
+		return math.NaN()
 	}
 	f, err := strconv.ParseFloat(t, 64)
 	if err != nil && !errors.Is(err, strconv.ErrRange) {
@@ -574,7 +537,6 @@ func ToNumber(s string) float64 {
 	return f
 }
 
-// TypeName is the "received" name zod uses in invalid_type messages.
 func TypeName(v any, present bool) string {
 	if !present {
 		return "undefined"

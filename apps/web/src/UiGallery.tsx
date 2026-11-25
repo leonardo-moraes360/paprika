@@ -1,12 +1,3 @@
-/**
- * Galeria de primitivas do shadcn (PAP-B-030). Uma página em `/ui`, sem link nenhum no app, que mostra
- * cada primitiva nos dois temas para comparar com a folha desenhada no board
- * (docs/en-US/assets/boards/PAP-B-030). Não chama a API nem abre WebSocket: é só markup dos componentes.
- *
- * O painel claro não duplica estilo nenhum: a classe `ui-light` só redefine as variáveis `--color-ui-*`
- * para o espelho claro do tema (ADR 0005). Conteúdo em portal (diálogo, menu, popover, tooltip, select)
- * recebe a mesma classe `ui-light`, porque o portal nasce fora do painel, direto no `body`.
- */
 import { useState, type ReactNode } from "react";
 import { Check, ChevronDown, Copy, Trash2 } from "lucide-react";
 import { cn } from "./lib/cn";

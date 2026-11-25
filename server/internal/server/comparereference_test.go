@@ -16,7 +16,6 @@ import (
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
 )
 
-// compareScene is a 200x120 picture: white, a red disc and a navy bar, moved by (dx, dy).
 func compareScene(t *testing.T, dx, dy int) []byte {
 	t.Helper()
 	img := image.NewNRGBA(image.Rect(0, 0, 200, 120))
@@ -39,7 +38,6 @@ func compareScene(t *testing.T, dx, dy int) []byte {
 	return buf.Bytes()
 }
 
-// sceneShot answers every screenshot with one fixed picture and remembers the document it got.
 type sceneShot struct {
 	memShot
 	doc *core.Document
@@ -87,7 +85,7 @@ func dataURL(b []byte) string { return "data:image/png;base64," + base64.StdEnco
 
 func TestCompareReferenceOffsetHistoryAndDiff(t *testing.T) {
 	m, s, _ := compareSetup(t)
-	ref := dataURL(compareScene(t, 12, 7)) // the reference sits 12 right and 7 down of the drawing
+	ref := dataURL(compareScene(t, 12, 7))
 	sc, text, _ := compareCall(t, m, obj("reference", ref, "rootId", "f", "path", "diffs/round1.png"))
 	if sc.Num("iou") > 0.7 || sc.Bool("pass") || sc.Num("target") != 0.9 {
 		t.Fatalf("scores: %s", text)
@@ -125,7 +123,6 @@ func TestCompareReferenceOffsetHistoryAndDiff(t *testing.T) {
 		t.Fatalf("diff path: %s", diff.Str("path"))
 	}
 
-	// the same call again: previous and delta are filled in
 	again, text2, _ := compareCall(t, m, obj("reference", ref, "rootId", "f"))
 	if prev := again.Obj("previous"); prev == nil || prev.Num("iou") != sc.Num("iou") || !again.Bool("sameReference") || again.Obj("delta").Num("iou") != 0 {
 		t.Fatalf("history: %s", jsonv.Stringify(again, ""))
@@ -134,7 +131,6 @@ func TestCompareReferenceOffsetHistoryAndDiff(t *testing.T) {
 		t.Fatalf("summary: %s", text2)
 	}
 
-	// a drawing that now matches improves on the previous round; the same root keeps one history
 	shot := NewMCP(s, "agent:test", &sceneShot{memShot: memShot{png: compareScene(t, 12, 7), w: 200, h: 120}})
 	better, _, _ := compareCall(t, shot, obj("reference", ref, "rootId", "f", "target", 0.95))
 	if !better.Bool("pass") || better.Num("iou") < 0.99 || better.Obj("delta").Num("iou") <= 0.3 {
@@ -147,8 +143,6 @@ func TestCompareReferenceOffsetHistoryAndDiff(t *testing.T) {
 
 func TestCompareReferenceRegionsAndNodes(t *testing.T) {
 	m, _, shot := compareSetup(t)
-	// reference with the bar 20 px to the right: the bar is the node to move, and the old and new
-	// places show up as regions
 	ref := dataURL(func() []byte {
 		img := image.NewNRGBA(image.Rect(0, 0, 200, 120))
 		for y := range 120 {

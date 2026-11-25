@@ -2,32 +2,15 @@ import { modeOf, resolveLength, resolveValue } from "./style.js";
 import { firstPage, ignoresLayout, isContainer, isScene, pageRoots, type Document, type Layout, type Node, type SceneNode, type Size } from "./schema.js";
 import { round4 } from "./num.js";
 
-/**
- * Resolved absolute geometry for agents and renderers.
- *
- * `layout(doc)` walks the document and resolves row/column auto-layout, hug/fill, groups, pages
- * and instance scale into absolute boxes (canvas coordinates, before rotation). Rotation is
- * exposed as the four corners around the box centre (CSS `transform-origin: center`,
- * `rotate()` clockwise on screen).
- *
- * Text measuring uses a deterministic advance table so TypeScript and Go agree. It approximates
- * Inter / system-ui (mean Latin advance ≈ 0.552 em at weight 400); it is not glyph-accurate, so
- * hug text may differ from the browser by a few pixels. Fixed-size auto-layout trees match CSS
- * flex to sub-pixel rounding (≤ 1 px).
- */
-
 export interface LayoutBox {
   x: number;
   y: number;
   width: number;
   height: number;
-  /** Transform origin (box centre), where rotation pivots. */
   origin: { x: number; y: number };
-  /** Corners after rotation, clockwise from the unrotated top-left: TL, TR, BR, BL. */
   corners: [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
 }
 
-/** Mean Latin advance / em for Inter-like sans at weight 400 (documented approximation). */
 export const FONT_AVG = 0.552;
 
 export interface TextMetrics {
@@ -36,7 +19,6 @@ export interface TextMetrics {
   lines: number;
 }
 
-/** Deterministic text box shared by TS and Go. Optional `maxWidth` wraps by character advance. */
 export function measureText(
   text: string,
   fontSize: number,
@@ -86,7 +68,6 @@ function advanceOf(fontSize: number, fontWeight: number): number {
   return FONT_AVG * fontSize * (1 + (fontWeight - 400) / 4000);
 }
 
-/** Same box as `measureText` when every run uses the base size and weight. Indexes are UTF-16. */
 export function measureRichText(
   text: string,
   fontSize: number,
@@ -243,11 +224,6 @@ function hasFlow(n: Node): n is Extract<Node, { type: "frame" }> & { layout: Lay
 
 const LINE_EPS = 1e-9;
 
-/**
- * CSS flex-wrap line breaking: `mains` are the items' hypothetical main sizes (fill counts as 0, like
- * `flex: 1 1 0`). An item starts a new line when it (plus the gap) no longer fits `avail`; without
- * `avail` (or without wrap) everything stays on one line.
- */
 function splitLines(mains: readonly number[], avail: number | undefined, gap: number): number[][] {
   const lines: number[][] = [];
   let cur: number[] = [];
@@ -266,7 +242,6 @@ function splitLines(mains: readonly number[], avail: number | undefined, gap: nu
   return lines;
 }
 
-/** True when the node, or a flow frame below it, wraps: its height can depend on the width it is given. */
 function hasWrap(doc: Document, n: Node): boolean {
   if (hasFlow(n) && n.layout.wrap) return true;
   if (!isContainer(n)) return false;
@@ -277,7 +252,6 @@ function hasWrap(doc: Document, n: Node): boolean {
   return false;
 }
 
-/** Bottom-up preferred size when the node hugs or needs a content size. `force` pins the frame's own outer size on an axis (already decided by its parent). */
 function preferred(doc: Document, n: Node, hint?: { maxW?: number; maxH?: number } | WH, force?: { w?: number; h?: number }): WH {
   if (n.type === "page") return { w: 0, h: 0 };
   const maxW = hint && "maxW" in hint ? hint.maxW : hint && "w" in hint ? hint.w : undefined;
@@ -320,7 +294,6 @@ function preferred(doc: Document, n: Node, hint?: { maxW?: number; maxH?: number
     const availW = baseW === undefined ? undefined : Math.max(0, baseW - pl - pr);
     const availH = baseH === undefined ? undefined : Math.max(0, baseH - pt - pb);
     const mainsOf = () => kids.map((c, i) => ((row ? c.width : c.height) === "fill" ? 0 : row ? sizes[i]!.w : sizes[i]!.h));
-    // A wrapping frame below with hug height is as tall as the width it ends up with (fill takes the free width of its line).
     const rowLines = row ? splitLines(mainsOf(), wrap ? availW : undefined, gap) : [];
     kids.forEach((c, i) => {
       if (!hasFlow(c) || c.height !== "hug" || c.width !== "fill" || !hasWrap(doc, c) || availW === undefined) return;
@@ -373,7 +346,6 @@ interface Place {
   rotation: number;
 }
 
-/** Place a node whose outer size is already decided (flex item). */
 function placeSized(doc: Document, n: Node, absX: number, absY: number, w: number, h: number, out: Place[]): void {
   if (n.type === "page" || n.type === "connector") {
     placeTree(doc, n.id, absX, absY, out);
@@ -428,7 +400,6 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
   const wrap = !!n.layout.wrap;
   const lines = splitLines(bases.map(mainOf), wrap ? mainInner : undefined, gap);
 
-  /** Final outer size of one flex item. `crossAvail` is the line's cross size (null: not known yet, no stretching). */
   const sizeItem = (b: Base, fillEach: number, crossAvail: number | null): { n: Node; w: number; h: number } => {
     let w = b.baseW;
     let h = b.baseH;
@@ -445,7 +416,6 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
     } else if (n.layout.align === "stretch" && crossAvail !== null) {
       const crossHug = row ? b.n.height === "hug" : b.n.width === "hug";
       if (crossHug) {
-        /* hug stays content-sized; CSS max-content wins over stretch */
       } else if (row && sizeNum(b.n.height) === null) h = crossAvail;
       else if (!row && sizeNum(b.n.width) === null) w = crossAvail;
     }
@@ -456,7 +426,6 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
       if (b.n.height === "hug" || typeof b.n.height !== "number") h = t.h;
     }
     if (b.reflow) {
-      /* a wrapping frame: its hug height (or, for a wrapping column, hug width) follows the size it was just given */
       if (b.n.height === "hug") h = preferred(doc, b.n, { maxW: w }, { w }).h;
       if (b.n.width === "hug" && hasFlow(b.n) && b.n.layout.mode === "column") w = preferred(doc, b.n, { maxH: h }, { h }).w;
     }
@@ -471,8 +440,6 @@ function placeFlowFrame(doc: Document, n: Extract<Node, { type: "frame" }> & { l
     return { members, fillEach };
   });
 
-  // Cross size of each line: a single line fills the frame; wrapped lines are as tall as their tallest item and
-  // share the leftover space equally (align-content: stretch, the CSS default).
   const lineCross: number[] = lineItems.map(() => crossInner);
   if (wrap) {
     lineItems.forEach((l, li) => {
@@ -573,9 +540,7 @@ function placeTree(doc: Document, id: string, absX: number, absY: number, out: P
 }
 
 export interface LayoutOptions {
-  /** Only this subtree (and the node itself). */
   rootId?: string;
-  /** Restrict the result to these ids (still resolves the whole tree for correct flex). */
   ids?: readonly string[];
 }
 
@@ -602,15 +567,9 @@ function pageIdOf(doc: Document, id: string): string | undefined {
   return firstPage(doc)?.id;
 }
 
-/**
- * Absolute boxes for every visible node (or a subtree / id filter). Keys are node ids.
- * Pages are omitted (they have no geometry); their children use canvas coordinates.
- */
 export function layout(doc: Document, opts: LayoutOptions = {}): Record<string, LayoutBox> {
   if (opts.rootId && !doc.nodes[opts.rootId]) throw new Error(`node "${opts.rootId}" does not exist`);
   const placed: Place[] = [];
-  // Which pages to lay out: the one that holds rootId; else the page of every requested id (an id on another
-  // page used to vanish from the result); else the first page.
   const pageIds = new Set<string | undefined>();
   if (opts.rootId) pageIds.add(doc.nodes[opts.rootId]?.type === "page" ? opts.rootId : pageIdOf(doc, opts.rootId));
   else if (opts.ids?.some((id) => doc.nodes[id])) {

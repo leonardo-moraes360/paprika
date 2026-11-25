@@ -267,9 +267,6 @@ func hasPinned(doc *Document, f *Node) bool {
 	return false
 }
 
-// followLayout: frames whose own size is not numeric (fill, hug) still change size when an
-// ancestor is resized or their content changes. Their pinned non-flow children follow the delta of
-// the laid-out size.
 func followLayout(before, draft *Document) {
 	nodes := Nodes(draft)
 	if nodes == nil {

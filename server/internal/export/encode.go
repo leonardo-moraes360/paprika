@@ -22,7 +22,6 @@ func EncodeImage(img image.Image, format string) ([]byte, string, error) {
 		}
 		return buf.Bytes(), "image/png", nil
 	case FormatJPEG:
-		// JPEG has no alpha: flatten onto white (not black) so transparent areas stay light.
 		opaque := image.NewRGBA(img.Bounds())
 		draw.Draw(opaque, opaque.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
 		draw.Draw(opaque, opaque.Bounds(), img, img.Bounds().Min, draw.Over)
@@ -45,7 +44,6 @@ func EncodeImage(img image.Image, format string) ([]byte, string, error) {
 	}
 }
 
-// FromPNG converts a PNG (a Chromium screenshot) to a raster export format.
 func FromPNG(data []byte, format string) (Result, error) {
 	if format == FormatPNG {
 		cfg, err := png.DecodeConfig(bytes.NewReader(data))

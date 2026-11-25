@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	edgeThreshold  = 0.06 // OKLab distance between neighbours that marks a color transition
-	edgeWeight     = 0.3  // transition pixels count less when looking for the palette
+	edgeThreshold  = 0.06
+	edgeWeight     = 0.3
 	mergeThreshold = 0.045
 	transitionDist = 0.035
 )
@@ -22,17 +22,14 @@ func (p labf) dist2(q lab) float32 {
 	return dl*dl + da*da + db*db
 }
 
-// pixels is the working copy of the analyzed raster: OKLab per pixel plus which pixels are
-// opaque enough to count and which sit on a color transition (anti-aliasing, edges).
 type pixels struct {
 	w, h   int
 	lab    []labf
 	opaque []bool
 	edge   []bool
-	rgb    []uint8 // r,g,b triples
+	rgb    []uint8
 }
 
-// prepareLite reads only the colors and the opacity (no Lab, no edges): enough for grain.
 func prepareLite(img *image.NRGBA) *pixels {
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()
@@ -151,9 +148,6 @@ type paletteColor struct {
 	hex string
 }
 
-// quantize returns the palette (largest first) for the opaque pixels. It clusters a 5-bit
-// histogram with a deterministic weighted k-means in OKLab, throws away clusters that are only
-// anti-aliasing between two other colors, merges near-identical ones and trims to maxColors.
 func quantize(p *pixels, maxColors int, minShare float64) []paletteColor {
 	hist := make([]bucket, 32768)
 	total := 0.0
@@ -298,8 +292,6 @@ func kmeans(bs []bucket, k int) []cluster {
 	return out
 }
 
-// dropTransitions removes clusters made almost only of transition pixels whose color lies on
-// the line between two other clusters: the gray rim between black and white shapes.
 func dropTransitions(cl []cluster) []cluster {
 	order := make([]int, len(cl))
 	for i := range order {
@@ -340,9 +332,6 @@ func dropTransitions(cl []cluster) []cluster {
 	return out
 }
 
-// onBlend reports whether cluster c has the color of a mix of a and b. Anti-aliasing and
-// resampling blend sRGB values, so the test projects c onto the a-b segment in sRGB and compares
-// the blended color with c in OKLab.
 func onBlend(c, a, b *cluster) bool {
 	ca, cb, cc := a.sumAll(), b.sumAll(), c.sumAll()
 	var ab, ac [3]float64
@@ -382,7 +371,6 @@ func mergeClose(cl []cluster) []cluster {
 	}
 }
 
-// assignLabels gives every opaque pixel its nearest palette color (255 = transparent).
 func assignLabels(p *pixels, pal []paletteColor) []uint8 {
 	labels := make([]uint8, p.w*p.h)
 	for i := range labels {

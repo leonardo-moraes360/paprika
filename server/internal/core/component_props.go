@@ -872,7 +872,6 @@ func materialize(doc *Document, inst *Node) (*builtTree, error) {
 	return &builtTree{root: next, nodes: want}, nil
 }
 
-// SyncInstances checks the rules and rebuilds the copies of every instance.
 func SyncInstances(doc *Document) error {
 	for _, id := range Nodes(doc).Keys() {
 		n := GetNode(doc, id)
@@ -970,7 +969,6 @@ func buildInstance(doc *Document, inst *Node) error {
 	return nil
 }
 
-// OverrideFields are the fields an update on this node may turn into overrides.
 func OverrideFields(node *Node) []string {
 	if IsInstance(node) {
 		return append(append([]string{}, CopyOverrides...), "propValues", "slots")
@@ -978,7 +976,6 @@ func OverrideFields(node *Node) []string {
 	return CopyOverrides
 }
 
-// CopyOverrideTarget is the instance that stores a copy override and the path key.
 func CopyOverrideTarget(doc *Document, node *Node) (*Node, string, bool) {
 	owner := CopyOwner(doc, node)
 	if owner == nil || !node.Has("sourceId") {
