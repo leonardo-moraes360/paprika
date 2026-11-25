@@ -737,6 +737,8 @@ type Store struct {
 	// deleteGrants are the short-lived tokens a second delete_workspace call must carry. Ephemeral on
 	// purpose: a restart drops them, so the missing path fails closed (the caller gets a new summary).
 	deleteGrants map[string]deleteGrant
+	// compare keeps the last compare_reference scores per (workspace, root). Ephemeral.
+	compare compareMemory
 }
 
 // OpenOptions select the document of the database to serve.

@@ -206,7 +206,7 @@ describe("API: MCP", () => {
         "get_bounds",
         "create_folder", "rename_folder", "move_workspace", "place_reference",
         "lint_design", "list_workspace_ops", "list_workspaces", "move_nodes", "open_workspace", "path_info", "edit_path", "redo",
-        "rename_workspace", "render_screenshot", "resize_image", "analyze_image", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
+        "rename_workspace", "render_screenshot", "resize_image", "analyze_image", "compare_reference", "propose_tokens", "set_assets", "set_tokens", "set_workspace_cover", "unarchive_workspace", "undo", "ungroup_nodes", "update_nodes",
         "duplicate_nodes",
         "claim_pin", "list_pins", "reply_pin", "resolve_pin", "wait_for_pins",
       ].sort(),
@@ -1368,6 +1368,70 @@ describe("API: MCP", () => {
     const none = await call(c, "analyze_image", {});
     expect(none.isError).toBe(true);
   });
+
+  it("compare_reference: mede o desenho contra a referência, acha o deslocamento global e lembra a rodada anterior", async () => {
+    const c = client;
+    // 200x120: white, a red disc (center 45,60, r 30) and a navy bar (x 100..180, y 40..80); the reference is the same picture moved by (dx, dy)
+    const scene = (dx: number, dy: number) =>
+      encodePng(200, 120, (x, y) => {
+        if ((x - dx - 45) ** 2 + (y - dy - 60) ** 2 <= 900) return [220, 30, 40];
+        if (x - dx >= 100 && x - dx < 180 && y - dy >= 40 && y - dy < 80) return [20, 40, 110];
+        return [255, 255, 255];
+      });
+    const created = await call(c, "create_nodes", {
+      nodes: [{
+        type: "frame", id: "cmpf", x: 0, y: 0, width: 200, height: 120, fill: "#ffffff",
+        children: [
+          { type: "ellipse", id: "cmp-disc", x: 15, y: 30, width: 60, height: 60, fill: "#dc1e28" },
+          { type: "rect", id: "cmp-bar", x: 100, y: 40, width: 80, height: 40, fill: "#14286e" },
+        ],
+      }],
+      place: "none",
+    });
+    expect(created.isError, textOf(created)).toBeFalsy();
+    const reference = `data:image/png;base64,${scene(10, 6).toString("base64")}`;
+    const r = (await c.callTool({ name: "compare_reference", arguments: { reference, rootId: "cmpf", path: "compare/offset.png" } })) as ToolResult & { structuredContent?: any };
+    if (r.isError && /Chromium/.test(textOf(r))) {
+      expect(textOf(r)).toMatch(/playwright install chromium|PAPRIKA_CHROMIUM/);
+      return;
+    }
+    expect(r.isError, textOf(r)).toBeFalsy();
+    const sc = r.structuredContent!;
+    assertOutput("compare_reference", sc);
+    expect(textOf(r)).toMatch(/^compare_reference cmpf 200x120/);
+    expect(sc.pass).toBe(false);
+    expect(sc.iou).toBeLessThan(0.75);
+    expect(sc.rawPixelMatch.value).toBeGreaterThan(0.85);
+    expect(sc.alignment.significant).toBe(true);
+    expect(Math.abs(sc.alignment.dx - 10)).toBeLessThan(1.6);
+    expect(Math.abs(sc.alignment.dy - 6)).toBeLessThan(1.6);
+    expect(sc.alignment.iouAfter).toBeGreaterThan(0.9);
+    expect(sc.regions.some((x: any) => x.kind === "missing")).toBe(true);
+    expect(sc.diff.url).toMatch(/^\/api\/screenshot\//);
+    expect(sc.diff.path).toMatch(/compare[\\/]offset\.png$/);
+    expect(sc.previous).toBeUndefined();
+
+    const same = (await c.callTool({ name: "compare_reference", arguments: { reference, rootId: "cmpf" } })) as ToolResult & { structuredContent?: any };
+    assertOutput("compare_reference", same.structuredContent);
+    expect(same.structuredContent.previous.iou).toBe(sc.iou);
+    expect(same.structuredContent.sameReference).toBe(true);
+    expect(same.structuredContent.delta.iou).toBe(0);
+
+    // the same picture as a node: the reference layer is left out of the render and the drawing passes
+    const own = `data:image/png;base64,${scene(0, 0).toString("base64")}`;
+    const layer = (await call(c, "place_reference", { src: own, frameId: "cmpf" })) as ToolResult & { structuredContent: { id: string } };
+    expect(layer.isError, textOf(layer)).toBeFalsy();
+    const byNode = (await c.callTool({ name: "compare_reference", arguments: { reference: layer.structuredContent.id, rootId: "cmpf", target: 0.95 } })) as ToolResult & { structuredContent?: any };
+    expect(byNode.isError, textOf(byNode)).toBeFalsy();
+    assertOutput("compare_reference", byNode.structuredContent);
+    expect(byNode.structuredContent).toMatchObject({ pass: true, reference: { source: "node", nodeId: layer.structuredContent.id } });
+    expect(byNode.structuredContent.delta.iou).toBeGreaterThan(0.2);
+
+    const bad = await call(c, "compare_reference", { reference: "no-such-node", rootId: "cmpf" });
+    expect(bad.isError).toBe(true);
+    const noRoot = await call(c, "compare_reference", { reference, rootId: "nope" });
+    expect(noRoot.isError).toBe(true);
+  }, 60_000);
 
   it("importar imagem raster: formatos, GIF animado, path traversal e arquivo grande demais", async () => {
     const fixtures = join(repoRoot, "server-go/internal/server/testdata/images");

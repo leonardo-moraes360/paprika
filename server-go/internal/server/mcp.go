@@ -1858,6 +1858,25 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		return analyzeImage(a, func() (*core.Document, error) { return docOf(a) })
 	})
 
+	add("compare_reference", z.Object(
+		z.Field{Name: "reference", Schema: z.String().Min(1).Max(5_000_000)},
+		z.Field{Name: "rootId", Schema: z.String().Min(1)},
+		z.Field{Name: "target", Schema: z.Optional(z.Number().Min(0.01).Max(1))},
+		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
+		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.25).Max(2))},
+		z.Field{Name: "top", Schema: z.Optional(z.Int().Min(1).Max(50))},
+		z.Field{Name: "rotation", Schema: z.Optional(z.Bool())},
+		optStr("path"),
+		z.Field{Name: "includeDiff", Schema: z.Optional(z.Bool())},
+		workspaceID(),
+	), func(ctx context.Context, a *jsonv.Object) (ToolResult, error) {
+		head, err := store.ReadWorkspace(a.Str("workspaceId"))
+		if err != nil {
+			return nil, wsErr(a.Str("workspaceId"), err)
+		}
+		return m.compareReference(ctx, a, head)
+	})
+
 	add("resize_image", z.Object(
 		z.Field{Name: "nodeId", Schema: z.Optional(z.String().Min(1))},
 		z.Field{Name: "src", Schema: z.Optional(z.String().Min(1).Max(5_000_000))},
