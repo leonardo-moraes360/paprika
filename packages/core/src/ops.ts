@@ -12,6 +12,7 @@ import {
   Node,
   NodeType,
   AssetName,
+  GRADIENT_COLOR_MSG,
   AssetSrc,
   ModeName,
   CollectionName,
@@ -486,7 +487,31 @@ function createNode(
   return id;
 }
 
+/**
+ * A CSS gradient or url() in a color field of an op input paints black on some nodes: refuse it with
+ * the structured `gradient` field as the way out. Only op input is checked, so stored documents still load.
+ */
+function gradientColorProblem(input: unknown, path: string[] = []): string | undefined {
+  if (Array.isArray(input)) {
+    for (let k = 0; k < input.length; k++) {
+      const found = gradientColorProblem(input[k], [...path, String(k)]);
+      if (found) return found;
+    }
+    return;
+  }
+  if (!input || typeof input !== "object") return;
+  for (const [key, value] of Object.entries(input)) {
+    if ((key === "fill" || key === "color") && typeof value === "string" && /(gradient|url)\s*\(/i.test(value)) return `${[...path, key].join(".")}: ${GRADIENT_COLOR_MSG}`;
+    const found = gradientColorProblem(value, [...path, key]);
+    if (found) return found;
+  }
+}
+
 function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): Op[] {
+  if (op.op === "create" || op.op === "update") {
+    const bad = gradientColorProblem(op.op === "create" ? op.node : op.props);
+    if (bad) throw new OpError(`invalid ${op.op === "create" ? "node" : "props"}: ${bad}`, i);
+  }
   switch (op.op) {
     case "create": {
       let parentId = op.parentId;

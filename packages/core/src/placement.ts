@@ -161,8 +161,13 @@ function siblingIds(doc: Document, parentId: string | null): string[] {
   return p.children;
 }
 
+// layout() without a rootId only places the first page; scope it to the page that holds `id`.
+function boxesUnder(doc: Document, id: string | null): ReturnType<typeof layout> {
+  return layout(doc, id && doc.nodes[id] ? { rootId: id } : {});
+}
+
 export function placedSiblings(doc: Document, parentId: string | null): { id: string; box: SpotBox }[] {
-  const boxes = layout(doc);
+  const boxes = boxesUnder(doc, parentId);
   let ox = 0;
   let oy = 0;
   if (parentId) {
@@ -186,13 +191,12 @@ export function placedSiblings(doc: Document, parentId: string | null): { id: st
 function boxInParent(doc: Document, id: string, parentId: string | null): SpotBox | null {
   const n = doc.nodes[id];
   if (!n || n.type === "page" || n.type === "connector") return null;
-  const boxes = layout(doc);
-  const b = boxes[id];
+  const b = boxesUnder(doc, id)[id];
   if (!b) return null;
   let ox = 0;
   let oy = 0;
   if (parentId) {
-    const p = boxes[parentId];
+    const p = boxesUnder(doc, parentId)[parentId];
     if (p) {
       ox = p.x;
       oy = p.y;

@@ -89,6 +89,33 @@ describe("placement", () => {
     expect(placementSummary(doc).pageId).toBe("p1");
   });
 
+  it("reports the content box of a page that is not the first one", () => {
+    const base = applyOps(createDocument("T", "d"), [
+      { op: "create", node: { type: "page", id: "p1", name: "One" } },
+      { op: "create", parentId: "p1", node: frame("a", 0, 0, 100, 100) },
+      { op: "create", node: { type: "page", id: "p2", name: "Two" } },
+      { op: "create", parentId: "p2", node: frame("b", 8000, 5000, 300, 200) },
+      { op: "create", parentId: "p2", node: frame("c", 100, 40, 50, 60) },
+    ]).doc;
+    const sum = placementSummary(base, "p2");
+    expect(sum.pageId).toBe("p2");
+    expect(sum.content).toEqual({ x: 100, y: 40, w: 8200, h: 5160 });
+    expect(sum.next).toEqual({ x: 100, y: 5280 });
+    const free = applyOps(base, [{ op: "create", parentId: "p2", place: "free", node: frame("n", undefined, undefined, 100, 80) }]).doc;
+    expect(free.nodes.n).toMatchObject({ parentId: "p2", x: 100, y: 5280 });
+  });
+
+  it("duplicate with place right/below follows the source, not the page content", () => {
+    const base = docWith([frame("far", 3000, 3000, 100, 100), frame("src", 10, 20, 100, 50)]);
+    const right = duplicateOps(base, ["src"], { place: "right" });
+    expect(applyOps(base, right.ops).doc.nodes[right.copies[0]!]).toMatchObject({ x: 190, y: 20 });
+    const below = duplicateOps(base, ["src"], { place: "below" });
+    expect(applyOps(base, below.ops).doc.nodes[below.copies[0]!]).toMatchObject({ x: 10, y: 150 });
+    const empty = docWith([frame("z", 5, 5, 0, 0)]);
+    const zero = duplicateOps(empty, ["z"], { place: "right" });
+    expect(applyOps(empty, zero.ops).doc.nodes[zero.copies[0]!]).toMatchObject({ x: 85, y: 5 });
+  });
+
   it("places below, right and beside a node", () => {
     const base = docWith([frame("board", 10, 20, 100, 50, "Board")]);
     const below = applyOps(base, [{ op: "create", place: "below", node: frame("u", undefined, undefined, 40, 40) }]).doc;

@@ -46,8 +46,26 @@ func colorValue() *z.StringSchema {
 	})
 }
 
+// gradientColorMsg is what op input gets for a CSS gradient or url() in a fill/color field (see
+// gradientColorProblem); stored documents are not checked, so they still load.
+const gradientColorMsg = `a color cannot be a CSS gradient or url(); use the structured gradient field, e.g. gradient: {type: "linear", angle: 90, stops: [{color: "#fff", offset: 0}, {color: "#000", offset: 1}]}`
+
+var reColorGradient = regexp.MustCompile(`(?i)(gradient|url)\s*\(`)
+
+const sizeMsg = `width and height take a number (0..100000), "hug" or "fill"; "$token" values are not accepted here (tokens work for padding, gap, radius, stroke width...)`
+
 func size() z.Schema {
-	return z.Union(z.Number().Min(0).Max(100_000), z.Enum("hug", "fill"))
+	num := z.Number().Min(0).Max(100_000)
+	return z.Custom(func(v any, present bool, x *z.Cx) (any, bool) {
+		if s, ok := v.(string); ok && (s == "hug" || s == "fill") {
+			return s, true
+		}
+		if _, ok := v.(float64); ok {
+			return x.Sub(num, v, nil)
+		}
+		x.Fail(sizeMsg)
+		return nil, false
+	})
 }
 
 var lengthTokenRe = regexp.MustCompile(`^\$[A-Za-z0-9_.-]+$`)
@@ -108,6 +126,7 @@ var (
 		return "filter needs at least one of blur, saturate, grayscale, brightness, sepia, invert, hueRotate"
 	})
 	padLength          = lengthMin(0)
+	paddingSchema      = paddingValue()
 	cornerOne          = lengthMin(0)
 	gradientStopSchema = z.Object(
 		z.Field{Name: "color", Schema: colorValue()},
@@ -124,15 +143,47 @@ var (
 	layoutSchema = z.Object(
 		z.Field{Name: "mode", Schema: z.Default(z.Enum("none", "row", "column"), "none")},
 		z.Field{Name: "gap", Schema: z.Default(lengthMin(0), 0.0)},
-		z.Field{Name: "padding", Schema: z.Default(z.Union(
-			padLength,
-			z.Tuple(padLength, padLength, padLength, padLength),
-		), 0.0)},
+		z.Field{Name: "padding", Schema: z.Default(paddingSchema, 0.0)},
 		z.Field{Name: "align", Schema: z.Default(z.Enum("start", "center", "end", "stretch"), "start")},
 		z.Field{Name: "justify", Schema: z.Default(z.Enum("start", "center", "end", "between"), "start")},
 		z.Field{Name: "wrap", Schema: z.Default(z.Bool(), false)},
 	)
 )
+
+const paddingMsg = `layout.padding takes one value (all sides), [vertical, horizontal] or [top, right, bottom, left]; each a number or "$token"`
+
+// paddingValue is CSS padding: 1, 2 ([vertical, horizontal]) or 4 values; 2 is normalized to 4.
+func paddingValue() z.Schema {
+	return z.Custom(func(v any, present bool, x *z.Cx) (any, bool) {
+		if arr, ok := v.([]any); ok {
+			if len(arr) != 2 && len(arr) != 4 {
+				x.Fail(paddingMsg)
+				return nil, false
+			}
+			out := make([]any, len(arr))
+			for i, item := range arr {
+				out[i], _ = x.Sub(padLength, item, i)
+			}
+			if len(arr) == 2 {
+				return []any{out[0], out[1], out[0], out[1]}, true
+			}
+			return out, true
+		}
+		if _, isNum := v.(float64); !isNum {
+			if str, isStr := v.(string); !isStr || !lengthTokenRe.MatchString(str) {
+				x.Fail(paddingMsg)
+				return nil, false
+			}
+		}
+		return x.Sub(padLength, v, nil)
+	})
+}
+
+const lineHeightMsg = "lineHeight is a unitless multiplier of fontSize between 0 and 10 (e.g. 1.4), not pixels; for a 22px line on 16px text use 1.375"
+
+func lineHeightSchema() z.Schema {
+	return z.NumberOrToken(z.Number().Min(0).Max(10).RangeMsg(lineHeightMsg), lengthTokenRe)
+}
 
 func baseFields() []z.Field {
 	return []z.Field{
@@ -360,7 +411,7 @@ func shapeSchema() *z.ObjectSchema {
 		z.Field{Name: "fontFamily", Schema: fontFamilySchema()},
 		z.Field{Name: "fontSize", Schema: fontSizeSchema()},
 		z.Field{Name: "fontWeight", Schema: fontWeightSchema(500)},
-		z.Field{Name: "lineHeight", Schema: z.Default(lengthMinMax(0, 10), 1.3)},
+		z.Field{Name: "lineHeight", Schema: z.Default(lineHeightSchema(), 1.3)},
 		z.Field{Name: "textAlign", Schema: z.Default(z.Enum("left", "center", "right"), "center")},
 	)
 	return z.Object(fields...)
@@ -478,7 +529,7 @@ var NodeSchemas = map[string]*z.ObjectSchema{
 		}), "Inter, system-ui, sans-serif")},
 		z.Field{Name: "fontSize", Schema: fontSizeSchema()},
 		z.Field{Name: "fontWeight", Schema: fontWeightSchema(400)},
-		z.Field{Name: "lineHeight", Schema: z.Default(lengthMinMax(0, 10), 1.4)},
+		z.Field{Name: "lineHeight", Schema: z.Default(lineHeightSchema(), 1.4)},
 		z.Field{Name: "letterSpacing", Schema: z.Default(lengthAny(), 0.0)},
 		z.Field{Name: "textAlign", Schema: z.Default(z.Enum("left", "center", "right"), "left")},
 		z.Field{Name: "href", Schema: hrefSchema()},

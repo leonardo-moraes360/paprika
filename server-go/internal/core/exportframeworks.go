@@ -156,7 +156,7 @@ func RenderFrameworkHTML(doc *Document, opts RenderOptions) (string, Bounds, err
 		css = TokenStylesheet(doc) + "\n" + css
 	}
 	html := "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>" + EscapeHTML(doc.Str("name")) + "</title>\n" +
-		"<style>html,body{margin:0;padding:0}body{position:relative;" + BodySizeCSS(p.bounds, p.fluid) +
+		"<style>html,body{margin:0;padding:0}body{position:relative;" + BodySizeCSS(p.bounds, p.fluid, p.autoW, p.autoH) +
 		";background:" + EscapeHTML(p.background) +
 		";font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}" + strings.TrimRight(css, "\n") +
 		"</style>\n</head><body" + p.bodyMode + ">" + p.body + "</body></html>"
