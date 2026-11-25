@@ -652,7 +652,11 @@ func opaqueNode(doc *Document, n *Node) bool {
 	}
 	typ := n.Str("type")
 	switch typ {
-	case "frame", "rect", "ellipse", "path", "shape", "image":
+	case "frame", "rect", "image":
+	case "shape":
+		if k := n.Str("shape"); k != "" && k != "rect" && k != "note" {
+			return false
+		}
 	default:
 		return false
 	}
