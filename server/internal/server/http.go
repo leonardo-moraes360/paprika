@@ -646,6 +646,10 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(c.Writer, 404, errBody(`workspace "`+id+`" does not exist`), "")
 			return
 		}
+		if _, ok := errors.AsType[*InvalidDocumentError](err); ok {
+			send(c.Writer, 422, errBody(err.Error()), "")
+			return
+		}
 		if err != nil {
 			send(c.Writer, 500, errBody(err.Error()), "")
 			return

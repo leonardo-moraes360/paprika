@@ -1444,7 +1444,12 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           const zoom = Math.min(8, Math.max(0.1, v.zoom * Math.exp(-e.deltaY * 0.0015)));
           return { zoom, x: px - ((px - v.x) * zoom) / v.zoom, y: py - ((py - v.y) * zoom) / v.zoom };
         });
-      } else setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
+      } else {
+        const swap = e.shiftKey && e.deltaX === 0;
+        const dx = swap ? e.deltaY : e.deltaX;
+        const dy = swap ? 0 : e.deltaY;
+        setView((v) => ({ ...v, x: v.x - dx, y: v.y - dy }));
+      }
     };
     vp.addEventListener("wheel", onWheel, { passive: false });
     return () => vp.removeEventListener("wheel", onWheel);

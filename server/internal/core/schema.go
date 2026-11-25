@@ -679,6 +679,8 @@ func notProto(v, msg string) string {
 
 func Modes(doc *Document) *jsonv.Object { return doc.Obj("modes") }
 
+func Assets(doc *Document) *jsonv.Object { return doc.Obj("assets") }
+
 func TokenMeta(doc *Document) *jsonv.Object { return doc.Obj("tokenMeta") }
 
 var TokenTypeSchema = z.Enum("color", "length", "fontFamily", "fontWeight", "fontSize", "lineHeight", "letterSpacing")

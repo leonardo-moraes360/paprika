@@ -116,7 +116,7 @@ func (r *serverRun) shutdown() {
 
 func openRun(db, doc, host, web string, port int) (*serverRun, string, error) {
 	dbPath, _ := filepath.Abs(db)
-	store, err := server.OpenStore(dbPath, server.OpenOptions{DocID: doc})
+	store, err := server.OpenStore(dbPath, server.OpenOptions{DocID: doc, Log: logf})
 	if err != nil {
 		return nil, dbPath, err
 	}
