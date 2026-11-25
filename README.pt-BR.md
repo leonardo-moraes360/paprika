@@ -97,6 +97,7 @@ A lista completa de ferramentas e atalhos está em [Usando o canvas](docs/pt-BR/
 | Compilar a partir do código, rodar os testes, contribuir com código | [Desenvolvimento](docs/pt-BR/desenvolvimento.md) · [CI](docs/pt-BR/ci.md) |
 | Entender como ele é construído | [Arquitetura](docs/pt-BR/arquitetura.md) · [Servidor Go](server-go/README.pt-BR.md) · [Decisões (ADRs)](docs/pt-BR/adr/) |
 | Conferir uma tela contra o board aprovado | [Verificação visual](docs/pt-BR/verificacao-visual.md) |
+| Ver o que o MCP de outro agente ensinou sobre o nosso | [Estudo de MCP: Paper 0.5.19](docs/pt-BR/research/paper-mcp-0.5.19.md) |
 | Ver o que está planejado | [Backlog](docs/pt-BR/backlog.md) |
 
 ## Bom saber

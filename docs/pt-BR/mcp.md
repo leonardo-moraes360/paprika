@@ -27,6 +27,21 @@ claude mcp add --transport http paprika http://127.0.0.1:4777/mcp
 }
 ```
 
+## Anotações das ferramentas e chamadas seguras
+
+Toda ferramenta em `server-go/contract/mcp.json` é entregue verbatim ao agente, com suas anotações MCP.
+Os clientes usam essas anotações para decidir o que precisa de confirmação antes de rodar. Hoje o
+contract tem 63 ferramentas: **16 com `readOnlyHint`** (todos os getters), **2 com `destructiveHint`**
+(`delete_nodes`, `delete_workspace`) e **1 com `idempotentHint`**; 42 ferramentas que alteram o documento
+não têm anotação alguma, então um cliente não distingue `import_document` de `get_nodes`. Anotá-las está
+no [estudo de MCP de agente](research/paper-mcp-0.5.19.md).
+
+Enquanto isso, trate qualquer ferramenta sem `readOnlyHint` como uma mudança no documento do usuário, e
+leia com a escada mais estreita que responde à pergunta:
+
+`get_document_outline` → `find_nodes` (um filtro) → `get_nodes` dos ids que interessam → `get_bounds`.
+Despejar a árvore inteira é o jeito usual de estourar o contexto numa sessão de design.
+
 ## Ferramentas MCP
 
 | Ferramenta | O que faz |

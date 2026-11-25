@@ -9,6 +9,26 @@ frame per state in a Paprika document over MCP, checks it with `lint_design`, an
 - **The document** is the editable source: frames, tokens, mode overrides. It lives in the Paprika server,
   which is a database — and databases move.
 
+## The drawing loop
+
+The session that draws a board follows the same shape every time, and it is what keeps the board
+reviewable while it is being built:
+
+1. Read the state first: `get_document_outline`, then `find_nodes` for what exists, then the ids you
+   need with `get_nodes`. Never dump the tree.
+2. Fix the system before drawing: theme tokens, spacing scale and the type ramp (`set_tokens`).
+3. Write one visual group per `create_nodes` call — a header, one row, one card — so the human sees the
+   screen arrive and a mistake costs one group, not the board.
+4. After every group: `render_screenshot`, then `lint_design`, and one line of verdict against spacing,
+   typography, contrast, alignment, frame fit and repetition. Fix before moving on.
+5. Reuse rather than remake: `duplicate_nodes` for repeats, components and instances for states,
+   `align_nodes`/`distribute_nodes` instead of hand-placed coordinates.
+6. Close the work: name the frames, export the document (below) and, when a change touches an interface
+   the user will judge, leave the PNGs under `docs/assets/boards/<TICKET>/`.
+
+Those steps come from operating a competing agent MCP end to end; the comparison and what Paprika should
+adopt are in [the agent MCP study](research/paper-mcp-0.5.19.md).
+
 ## Keep the document in the repository
 
 The board document is exported to `docs/design/boards.paprika.json` the same way the landing page keeps
