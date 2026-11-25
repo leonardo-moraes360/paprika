@@ -1,6 +1,6 @@
 import { copyFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { THEMES, symbolLayers, wordmark } from "./trio-pixel.mjs";
+import { LOCKUP_GAP, THEMES, symbolLayers, wordmark } from "./trio-pixel.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const r2 = (n) => Math.round(n * 100) / 100;
@@ -34,7 +34,7 @@ function lockupSvg(c) {
   const wm = wordmark();
   const [vx, vy, vw, vh] = wm.viewBox;
   const wmH = 96, wmW = (vw / vh) * wmH, k = wmH / vh;
-  const symbol = 128, gapX = 6;
+  const symbol = 128, gapX = (LOCKUP_GAP * symbol) / 100;
   const wmY = r2(symbol / 2 - (50 - vy) * k);
   const W = r2(symbol + gapX + wmW), H = symbol;
   return [
