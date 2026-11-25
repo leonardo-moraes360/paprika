@@ -2301,6 +2301,7 @@ func NewMCP(store *Store, actor string, shot Screenshotter) *MCP {
 		z.Field{Name: "reference", Schema: z.String().Min(1).Max(5_000_000)},
 		z.Field{Name: "rootId", Schema: z.String().Min(1)},
 		z.Field{Name: "target", Schema: z.Optional(z.Number().Min(0.01).Max(1))},
+		z.Field{Name: "edgeTarget", Schema: z.Optional(z.Number().Min(0.01).Max(1))},
 		z.Field{Name: "mode", Schema: z.Optional(core.ModeNameSchema)},
 		z.Field{Name: "scale", Schema: z.Optional(z.Number().Min(0.25).Max(2))},
 		z.Field{Name: "top", Schema: z.Optional(z.Int().Min(1).Max(50))},

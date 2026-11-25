@@ -18,6 +18,10 @@ const (
 	DefaultTolerance = 1.0  // px, largest distance between a curve and the contour it follows
 	DefaultMaxPaths  = 60
 	traceMaxSide     = 640
+	// the contours are sub-pixel accurate, so the fit may use only part of the tolerance: a straight
+	// side fitted with the whole of it shows as a gentle wave when zoomed
+	fitTolShare = 0.4
+	cornerSlack = 0.88 // share of the corner angle the sub-pixel contour has to show
 )
 
 // TraceOptions tunes Trace. Zero values pick the defaults.
@@ -62,6 +66,7 @@ type TracedPath struct {
 type Skipped struct {
 	Excluded  int `json:"excluded"`  // box inside an exclude rectangle
 	NotListed int `json:"notListed"` // not in blobIds
+	Slivers   int `json:"slivers"`   // anti-aliasing rims between two colors, absorbed by the shapes on both sides
 }
 
 type TraceResult struct {
@@ -206,7 +211,6 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 	}
 	kx, ky := opt.Scale*float64(rw)/float64(aw), opt.Scale*float64(rh)/float64(ah)
 	ox, oy := opt.OffsetX+float64(reg.Min.X)*opt.Scale, opt.OffsetY+float64(reg.Min.Y)*opt.Scale
-	ks := (kx + ky) / 2
 
 	res := &TraceResult{
 		Size:     Size{Width: b.Dx(), Height: b.Dy()},
@@ -296,6 +300,14 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 
 	ids, comps := components(labels, aw, ah)
 	minPx := max(4, int(math.Round(opt.MinArea*total)))
+	// anti-aliasing rims between two colors are not shapes: they keep their id (the numbering is
+	// analyze_image's) but are not traced, and their pixels go to the shapes on both sides
+	sliver := sliverComps(ids, labels, comps, pal, px, aw, ah, minPx)
+	real := make([]bool, len(comps)+1)
+	for i, c := range comps {
+		real[i+1] = c.area >= minPx && !sliver[i+1]
+	}
+	eids := absorb(ids, real, comps, px, pal, aw, ah)
 	// analyze_image's numbering: blobs that pass minArea and are not the background touching the
 	// border, largest first, b1, b2... (the analysis side is the same, so the segmentation is too).
 	var numbered []comp
@@ -370,6 +382,13 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 		} else if !want[c.label] || (!opt.IncludeBackground && bgSolid && bgLabel < len(pal) && int(c.label) == bgLabel) {
 			continue
 		}
+		if sliver[c.id] {
+			res.Skipped.Slivers++
+			if len(opt.BlobIDs) > 0 {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("blobIds: %s is an anti-aliasing rim between two colors, not a shape: the shapes on both sides take its pixels", blobID[c.id]))
+			}
+			continue
+		}
 		if inExclude(c) {
 			res.Skipped.Excluded++
 			continue
@@ -427,34 +446,76 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 		traced[tb.c.id] = true
 	}
 
-	tolAn := math.Max(opt.Tolerance/ks, 0.5)
-	thr := opt.Corner * math.Pi / 180
+	// the contours come from the source at up to traceHiMax px, read against the blobs
+	hs := math.Min(1, float64(traceHiMax)/float64(max(rw, rh)))
+	hw, hh := max(aw, int(math.Round(float64(rw)*hs))), max(ah, int(math.Round(float64(rh)*hs)))
+	hi := nrgba
+	if hw != aw || hh != ah {
+		hi = image.NewNRGBA(image.Rect(0, 0, hw, hh))
+		if hw == rw && hh == rh {
+			draw.Draw(hi, hi.Bounds(), img, src.Min, draw.Src)
+		} else {
+			xdraw.BiLinear.Scale(hi, hi.Bounds(), img, src, xdraw.Src, nil)
+		}
+	}
+	khx, khy := opt.Scale*float64(rw)/float64(hw), opt.Scale*float64(rh)/float64(hh)
+	khs := (khx + khy) / 2
+	field := buildHiField(hi, eids, real, comps, pal, aw, ah)
+	rank := make(map[int32]int, len(blobs))
+	for i, tb := range blobs {
+		rank[tb.c.id] = i
+	}
+	reach := min(4, max(1, int(math.Ceil(1/khs))))
+	tolHi := math.Max(fitTolShare*opt.Tolerance/khs, 0.3)
+	kc := min(10, max(4, int(math.Round(5/khs))))
+	// marching squares cuts a sharp corner by about a pixel, which lowers the turn measured there
+	thr := cornerSlack * opt.Corner * math.Pi / 180
 	holeFloor := max(3, minPx/4)
-	to := func(p pt, offX, offY float64) pt { return pt{ox + (p.x+offX)*kx, oy + (p.y+offY)*ky} }
+	sx, sy := float64(aw)/float64(hw), float64(ah)/float64(hh)
+	to := func(p pt) pt { return pt{ox + p.x*khx, oy + p.y*khy} }
 	for _, tb := range blobs {
 		c := tb.c
-		// a hole stays open (a subpath) when it shows the background or an untraced area; one that
-		// another traced blob fills is closed, so the blob drawn on top leaves no seam.
-		final := append([]bool(nil), tb.mask...)
-		for _, cells := range tb.holes {
-			covered := 0
-			for _, i := range cells {
-				if traced[ids[(c.minY+i/tb.w)*aw+c.minX+i%tb.w]] {
-					covered++
-				}
+		mx := int(math.Ceil(2*float64(hw)/float64(aw))) + reach
+		x0, y0 := max(0, int(math.Floor(float64(c.minX)/sx))-mx), max(0, int(math.Floor(float64(c.minY)/sy))-mx)
+		x1, y1 := min(hw, int(math.Ceil(float64(c.maxX+1)/sx))+mx), min(hh, int(math.Ceil(float64(c.maxY+1)/sy))+mx)
+		fld, fw, fh := field.fieldOf(c.id, rank, x0, y0, x1, y1, reach)
+		if fld == nil {
+			continue
+		}
+		var loops [][]pt
+		for _, lp := range contourLoops(fld, fw, fh) {
+			for i := range lp {
+				lp[i] = pt{lp[i].x + float64(x0-1), lp[i].y + float64(y0-1)}
 			}
-			if len(cells) >= holeFloor && covered*2 < len(cells) {
-				continue
-			}
-			for _, i := range cells {
-				final[i] = true
+			loops = append(loops, lp)
+		}
+		outer, big := 1.0, 0.0
+		for _, lp := range loops {
+			if a := ringArea(lp); math.Abs(a) > big {
+				big, outer = math.Abs(a), math.Copysign(1, a)
 			}
 		}
 		var rings [][]pt
-		for _, lp := range traceLoops(final, tb.w, tb.h) {
-			if math.Abs(ringArea(lp)) >= float64(holeFloor) {
-				rings = append(rings, lp)
+		for _, lp := range loops {
+			a := ringArea(lp)
+			if math.Abs(a)*sx*sy < float64(holeFloor) {
+				continue
 			}
+			if a*outer < 0 {
+				// a hole stays open when it shows the background or an untraced area; one that
+				// another traced blob fills is closed, so the blob drawn on top leaves no seam.
+				total, covered := 0, 0
+				scanLoop(lp, sx, sy, aw, ah, func(i int) {
+					total++
+					if traced[eids[i]] {
+						covered++
+					}
+				})
+				if total < holeFloor || covered*2 >= total {
+					continue
+				}
+			}
+			rings = append(rings, lp)
 		}
 		if len(rings) == 0 {
 			continue
@@ -466,16 +527,15 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 			minX, minY = math.Min(minX, p.x), math.Min(minY, p.y)
 			maxX, maxY = math.Max(maxX, p.x), math.Max(maxY, p.y)
 		}
-		offX, offY := float64(c.minX), float64(c.minY)
 		for _, lp := range rings {
-			f := fitRing(lp, thr, tolAn)
-			p0 := to(f.start, offX, offY)
+			f := fitRing(lp, thr, tolHi, kc)
+			p0 := to(f.start)
 			fmt.Fprintf(&d, "M%s %s", num2(p0.x), num2(p0.y))
 			grow(p0)
 			cur := f.start
 			for _, sg := range f.segs {
 				if sg.line {
-					e := to(sg.b[3], offX, offY)
+					e := to(sg.b[3])
 					fmt.Fprintf(&d, "L%s %s", num2(e.x), num2(e.y))
 					grow(e)
 					tp.Lines++
@@ -483,7 +543,7 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 					b := bez{cur, sg.b[1], sg.b[2], sg.b[3]}
 					var o bez
 					for i := range b {
-						o[i] = to(b[i], offX, offY)
+						o[i] = to(b[i])
 					}
 					fmt.Fprintf(&d, "C%s %s %s %s %s %s", num2(o[1].x), num2(o[1].y), num2(o[2].x), num2(o[2].y), num2(o[3].x), num2(o[3].y))
 					for i := 0; i <= 32; i++ {
@@ -496,7 +556,7 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 			d.WriteString("Z")
 			tp.Points += len(f.segs)
 			tp.Corners += f.corners
-			tp.Error = math.Max(tp.Error, f.err*ks)
+			tp.Error = math.Max(tp.Error, f.err*khs)
 		}
 		tp.Segments = tp.Lines + tp.Curves
 		tp.D = d.String()
@@ -508,6 +568,33 @@ func Trace(img image.Image, opt TraceOptions) (*TraceResult, error) {
 		res.Paths = append(res.Paths, tp)
 	}
 	return res, nil
+}
+
+// scanLoop calls fn with the index of every analysis pixel whose center lies inside the loop
+// (hi-res coordinates; sx, sy convert them to analysis pixels), even-odd.
+func scanLoop(lp []pt, sx, sy float64, aw, ah int, fn func(i int)) {
+	minY, maxY := math.MaxFloat64, -math.MaxFloat64
+	for _, p := range lp {
+		minY, maxY = math.Min(minY, p.y*sy), math.Max(maxY, p.y*sy)
+	}
+	var xs []float64
+	for y := max(0, int(math.Floor(minY))); y <= min(ah-1, int(math.Ceil(maxY))); y++ {
+		yc := float64(y) + 0.5
+		xs = xs[:0]
+		for i := range lp {
+			a, b := lp[i], lp[(i+1)%len(lp)]
+			ay, by := a.y*sy, b.y*sy
+			if (ay > yc) != (by > yc) {
+				xs = append(xs, (a.x+(yc-ay)/(by-ay)*(b.x-a.x))*sx)
+			}
+		}
+		sort.Float64s(xs)
+		for k := 0; k+1 < len(xs); k += 2 {
+			for x := max(0, int(math.Ceil(xs[k]-0.5))); x <= min(aw-1, int(math.Floor(xs[k+1]-0.5))); x++ {
+				fn(y*aw + x)
+			}
+		}
+	}
 }
 
 func num2(v float64) string {

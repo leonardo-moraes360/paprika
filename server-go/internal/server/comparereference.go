@@ -197,7 +197,7 @@ func (m *MCP) compareReference(ctx context.Context, a *jsonv.Object, head Worksp
 	in := vision.CompareInput{
 		Drawn: drawn, Ref: refImg, FrameW: fw, FrameH: fh,
 		Placed: vision.Rect{X: x, Y: y, Width: w, Height: h},
-		Nodes:  nodes, Target: a.Num("target"), Top: int(a.Num("top")), Rotate: a.Bool("rotation"),
+		Nodes:  nodes, Target: a.Num("target"), EdgeTarget: a.Num("edgeTarget"), Top: int(a.Num("top")), Rotate: a.Bool("rotation"),
 	}
 	res, err := vision.Compare(in)
 	if err != nil {
@@ -330,6 +330,17 @@ func compareSummary(o *compareOutput) string {
 		o.Reference.Placed.Width, o.Reference.Placed.Height, o.Reference.Placed.X, o.Reference.Placed.Y)
 	fmt.Fprintf(&b, "iou %.2f (target %.2f) %s | missing %.0f%% of the reference ink, extra %.0f%% of the drawn ink\n",
 		o.IoU, o.Target, pass, o.Missing*100, o.Extra*100)
+	if e := o.Edge; e != nil {
+		fmt.Fprintf(&b, "edge: mean %.1f px, p95 %.1f px, score %.2f", e.Mean, e.P95, e.Score)
+		if e.Target > 0 {
+			verdict := "FAIL"
+			if e.Pass {
+				verdict = "pass"
+			}
+			fmt.Fprintf(&b, " (edgeTarget %.2f) %s", e.Target, verdict)
+		}
+		fmt.Fprintf(&b, " | reference to drawn %.1f/%.1f, drawn to reference %.1f/%.1f (mean/p95)\n", e.ReferenceToDrawn.Mean, e.ReferenceToDrawn.P95, e.DrawnToReference.Mean, e.DrawnToReference.P95)
+	}
 	fmt.Fprintf(&b, "colour: dE %.1f by palette, %.1f by pixel, score %.2f", o.Color.DeltaE, o.Color.PixelDeltaE, o.Color.Score)
 	for _, c := range o.Color.Unmatched {
 		fmt.Fprintf(&b, " | drawn %s %.0f%% has no match (nearest %s dE %.1f)", c.Color, c.Share*100, c.Nearest, c.DeltaE)
