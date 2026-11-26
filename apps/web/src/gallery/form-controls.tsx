@@ -27,7 +27,7 @@ const themes = [
   { value: "system", label: "System" },
 ];
 
-const announce = (change: { type: string; count?: number }) => (change.type === "results" ? `${change.count ?? 0} results` : null);
+const announce = (change: { type: string; count?: number }) => (change.type === "results" ? `${change.count ?? 0} ${change.count === 1 ? "result" : "results"}` : null);
 
 export default function FormControlsSection() {
   const [rulers, setRulers] = useState<boolean | "indeterminate">("indeterminate");
@@ -36,7 +36,7 @@ export default function FormControlsSection() {
   const [font, setFont] = useState<string | null>("inter");
   return (
     <Grid>
-      <Specimen label="Checkbox" note="18 px box, radius 4; checked and mixed fill with the action color and a 14 px white 3 px stroke; empty is the panel color with a 1.5 px field border; label 14 with a 10 px gap. Space toggles; the third click cycles the controlled mixed state here.">
+      <Specimen label="Checkbox" note="18 px box, radius 4; checked and mixed fill with the action color and a 14 px white 3 px stroke; empty is the panel color with a 1.5 px field border; label 14 with a 10 px gap. Space toggles; from the controlled mixed state the first press checks it, then it alternates between checked and unchecked.">
         <Cell label="checked">
           <Checkbox label="Show rulers" defaultChecked />
         </Cell>
@@ -119,7 +119,7 @@ export default function FormControlsSection() {
       <Specimen label="Select" note="Menu dropdown: 36 px, radius 6, 12 px left and 10 px right padding, 14 px value, 16 px chevron. Open uses the selection border; the list is a popover surface with list items and a check on the chosen one." className="flex-col items-stretch gap-4">
         <Select label="Theme" options={themes} defaultValue="dark" placeholder="Choose a theme" className="max-w-70" />
         <Select label="Theme · placeholder" options={themes} placeholder="Choose a theme" className="max-w-70" />
-        <Select label="Theme · focus" options={themes} defaultValue="dark" placeholder="Choose" className="max-w-70" triggerProps={force} />
+        <Select label="Theme · focus" options={themes} defaultValue="dark" placeholder="Choose" className="max-w-70" boxProps={force} />
         <Select label="Theme · error" options={themes} placeholder="Choose a theme" error="Pick a theme to continue." className="max-w-70" />
         <Select label="Theme · disabled" options={themes} defaultValue="dark" placeholder="Choose" disabled className="max-w-70" />
       </Specimen>
@@ -129,17 +129,17 @@ export default function FormControlsSection() {
         <Combobox label="Font · error" options={fonts} placeholder="Search fonts" announcement={announce} emptyLabel="No fonts found." toggleLabel="Show fonts" error="Pick a font from the list." className="max-w-70" />
         <Combobox label="Font · disabled" options={fonts} defaultValue="inter" announcement={announce} emptyLabel="No fonts found." toggleLabel="Show fonts" disabled className="max-w-70" />
       </Specimen>
-      <Specimen label="Menu" note="Live: Menu, MenuTrigger (rendered as MenuButton), items, separator, group label and radio items with a check. Item: 32 px, radius 4, 8 px padding, 12 px gap, label 14 (destructive 14/600 red ink), shortcut as two Kbd chips on the right, highlighted row on the surface color. Panel: popover surface, 8 px padding, 2 px gap; group label 12/600 uppercase. Arrow keys, typeahead and Escape come from the SDK." className="items-start">
+      <Specimen label="Menu" note="Live: Menu, MenuTrigger (rendered as MenuButton), items, separator, group label and radio items with a check. Item: 32 px, radius 4, 8 px padding, 12 px gap, label 14 (destructive 14/600 red ink), shortcut from the SDK (platform keys and aria-keyshortcuts) as Kbd chips on the right, highlighted row on the surface color. Panel: popover surface, 8 px padding, 2 px gap; group label 12/600 uppercase. Arrow keys, typeahead and Escape come from the SDK." className="items-start">
         <Menu pendingAnnouncement="Working">
           <MenuTrigger render={<MenuButton />}>Actions</MenuTrigger>
           <MenuContent>
-            <MenuItem value="rename" icon={<Pencil />} keys={["F2"]}>
+            <MenuItem value="rename" icon={<Pencil />} shortcut="f2">
               Rename
             </MenuItem>
-            <MenuItem value="duplicate" icon={<Copy />} keys={["Ctrl", "D"]}>
+            <MenuItem value="duplicate" icon={<Copy />} shortcut="mod+d">
               Duplicate
             </MenuItem>
-            <MenuItem value="lock" keys={["Ctrl", "L"]} disabled>
+            <MenuItem value="lock" shortcut="mod+l" disabled>
               Lock
             </MenuItem>
             <MenuSeparator />
@@ -152,7 +152,7 @@ export default function FormControlsSection() {
               </MenuRadioGroup>
             </MenuGroup>
             <MenuSeparator />
-            <MenuItem value="delete" icon={<Trash2 />} destructive keys={["Del"]}>
+            <MenuItem value="delete" icon={<Trash2 />} destructive shortcut="delete">
               Delete
             </MenuItem>
           </MenuContent>

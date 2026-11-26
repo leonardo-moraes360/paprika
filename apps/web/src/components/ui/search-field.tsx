@@ -1,31 +1,29 @@
-import { Input, InputGroup } from "@ui-sdk/react/input";
-import { Search } from "lucide-react";
+import { Input, InputClear, InputGroup } from "@ui-sdk/react/input";
+import { Search, X } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
-import { fieldBoxWrapper, type BoxDataProps } from "./field-box";
+import { bareInput, fieldBoxWrapper, type BoxDataProps } from "./field-box";
 import { Kbd } from "./kbd";
-import { cn } from "@/lib/utils";
+import { cn, focusRing, slot } from "@/lib/utils";
 
-export type SearchFieldProps = Omit<ComponentProps<typeof Input>, "type"> & {
+export type SearchFieldProps = Omit<ComponentProps<typeof Input>, "type" | "className"> & {
   "aria-label": string;
   shortcut?: ReactNode;
-  groupClassName?: string;
-  groupProps?: BoxDataProps;
+  clearLabel?: string;
+  className?: string;
+  inputClassName?: ComponentProps<typeof Input>["className"];
+  boxProps?: BoxDataProps;
 };
 
-export function SearchField({ shortcut, groupClassName, groupProps, className, ...props }: SearchFieldProps) {
+export function SearchField({ shortcut, clearLabel, className, inputClassName, boxProps, ...props }: SearchFieldProps) {
   return (
-    <InputGroup className={cn("flex h-8.5 w-full items-center gap-2 pr-1.5 pl-2.5", fieldBoxWrapper, groupClassName)} {...groupProps}>
+    <InputGroup className={cn("flex h-8.5 w-full items-center gap-2 pr-1.5 pl-2.5", fieldBoxWrapper, className)} {...boxProps}>
       <Search aria-hidden="true" className="size-4 shrink-0 text-muted" />
-      <Input
-        type="search"
-        className={(state) =>
-          cn(
-            "min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-sm text-inherit outline-none placeholder:text-muted data-disabled:cursor-not-allowed [&::-webkit-search-cancel-button]:hidden",
-            typeof className === "function" ? className(state) : className,
-          )
-        }
-        {...props}
-      />
+      <Input type="search" className={slot(cn(bareInput, "text-sm [&::-webkit-search-cancel-button]:hidden"), inputClassName)} {...props} />
+      {clearLabel ? (
+        <InputClear aria-label={clearLabel} className={`flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted hover:bg-surface hover:text-fg [&_svg]:size-3.5 ${focusRing} focus-visible:outline-offset-0`}>
+          <X aria-hidden="true" />
+        </InputClear>
+      ) : null}
       {shortcut ? <Kbd aria-hidden="true">{shortcut}</Kbd> : null}
     </InputGroup>
   );

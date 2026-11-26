@@ -1,25 +1,22 @@
 import { PasswordInput, PasswordInputControl, PasswordInputToggle } from "@ui-sdk/react/password-input";
 import { Copy, Eye, EyeOff } from "lucide-react";
-import { useId, type ComponentProps, type ReactNode } from "react";
-import { fieldBoxWrapper, type BoxDataProps } from "./field-box";
-import { FormField } from "./form-field";
+import type { ComponentProps } from "react";
+import { bareInput, fieldBoxWrapper, type BoxDataProps } from "./field-box";
+import { FormField, type FieldChromeProps } from "./form-field";
 import { IconButton, iconButtonClasses } from "./icon-button";
 import { cn } from "@/lib/utils";
 
-export type SecretFieldProps = Omit<ComponentProps<typeof PasswordInput>, "children" | "className"> & {
-  toggleLabel: string;
-  copyLabel?: string;
-  onCopy?: () => void;
-  label?: ReactNode;
-  description?: ReactNode;
-  error?: ReactNode;
-  invalid?: boolean;
-  placeholder?: string;
-  "aria-label"?: string;
-  className?: string;
-  boxProps?: BoxDataProps;
-  fieldClassName?: string;
-};
+export type SecretFieldProps = Omit<ComponentProps<typeof PasswordInput>, "children" | "className"> &
+  FieldChromeProps & {
+    toggleLabel: string;
+    copyLabel?: string;
+    onCopy?: () => void;
+    placeholder?: string;
+    "aria-label"?: string;
+    className?: string;
+    inputClassName?: string;
+    boxProps?: BoxDataProps;
+  };
 
 export function SecretField({
   toggleLabel,
@@ -29,25 +26,22 @@ export function SecretField({
   description,
   error,
   invalid,
+  validationMessages,
   placeholder,
   "aria-label": ariaLabel,
+  autoComplete = "off",
   className,
+  inputClassName,
   boxProps,
   fieldClassName,
   disabled,
   name,
   ...props
 }: SecretFieldProps) {
-  const labelId = useId();
   return (
-    <FormField label={label} description={description} error={error} invalid={invalid} disabled={disabled} name={name} labelId={labelId} className={fieldClassName}>
-      <PasswordInput disabled={disabled} className={cn("flex h-9 w-full items-center gap-0.5 pr-1 pl-3", fieldBoxWrapper, className)} {...boxProps} {...props}>
-        <PasswordInputControl
-          aria-label={ariaLabel}
-          aria-labelledby={label && !ariaLabel ? labelId : undefined}
-          placeholder={placeholder}
-          className="min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-base text-inherit outline-none placeholder:text-muted data-disabled:cursor-not-allowed"
-        />
+    <FormField label={label} description={description} error={error} invalid={invalid} validationMessages={validationMessages} disabled={disabled} name={name} className={fieldClassName}>
+      <PasswordInput disabled={disabled} autoComplete={autoComplete} className={cn("flex h-9 w-full items-center gap-0.5 pr-1 pl-3", fieldBoxWrapper, className)} {...boxProps} {...props}>
+        <PasswordInputControl aria-label={ariaLabel} placeholder={placeholder} className={cn(bareInput, inputClassName)} />
         <PasswordInputToggle aria-label={toggleLabel} className={cn(iconButtonClasses("sm", false), "rounded-sm text-fg [&_svg]:size-4")}>
           {(state) => (state.visible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />)}
         </PasswordInputToggle>

@@ -1,31 +1,26 @@
 import { Select as SelectPrimitive, SelectContent, SelectItem, SelectItemIndicator, SelectItemText, SelectTrigger, SelectValue, type SelectProps as SelectPrimitiveProps } from "@ui-sdk/react/select";
 import { Check, ChevronDown } from "lucide-react";
-import type { ReactNode } from "react";
 import { fieldBoxSelf, popupItem, popupSurface, type BoxDataProps, type DistributiveOmit } from "./field-box";
-import { FormField } from "./form-field";
+import { FormField, type FieldChromeProps } from "./form-field";
 import { cn } from "@/lib/utils";
 
 export type SelectOption = { value: string; label: string; disabled?: boolean };
 
-export type SelectProps = DistributiveOmit<Extract<SelectPrimitiveProps<string, false>, { multiple?: false }>, "children" | "multiple" | "className"> & {
-  options: SelectOption[];
-  label?: ReactNode;
-  description?: ReactNode;
-  error?: ReactNode;
-  invalid?: boolean;
-  "aria-label"?: string;
-  className?: string;
-  triggerProps?: BoxDataProps;
-  fieldClassName?: string;
-};
+export type SelectProps = DistributiveOmit<Extract<SelectPrimitiveProps<string, false>, { multiple?: false }>, "children" | "multiple" | "className"> &
+  FieldChromeProps & {
+    options: SelectOption[];
+    "aria-label"?: string;
+    className?: string;
+    boxProps?: BoxDataProps;
+  };
 
-export function Select({ options, label, description, error, invalid, "aria-label": ariaLabel, className, triggerProps, fieldClassName, disabled, name, ...props }: SelectProps) {
+export function Select({ options, label, description, error, invalid, validationMessages, "aria-label": ariaLabel, className, boxProps, fieldClassName, disabled, name, ...props }: SelectProps) {
   return (
-    <FormField label={label} description={description} error={error} invalid={invalid} disabled={disabled} name={name} className={fieldClassName}>
+    <FormField label={label} description={description} error={error} invalid={invalid} validationMessages={validationMessages} disabled={disabled} name={name} className={fieldClassName}>
       <SelectPrimitive multiple={false} disabled={disabled} {...props}>
         <SelectTrigger
           aria-label={ariaLabel}
-          {...triggerProps}
+          {...boxProps}
           className={cn(
             "flex h-9 w-full cursor-pointer items-center gap-2 pr-2.5 pl-3 text-left text-base data-open:border-[1.5px] data-open:border-select forced-colors:data-open:border-2 forced-colors:data-open:border-[Highlight]",
             fieldBoxSelf,

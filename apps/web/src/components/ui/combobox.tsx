@@ -11,27 +11,24 @@ import {
 } from "@ui-sdk/react/combobox";
 import { Check, ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
-import { fieldBoxWrapper, type BoxDataProps, popupItem, popupSurface, type DistributiveOmit } from "./field-box";
-import { FormField } from "./form-field";
+import { bareInput, fieldBoxWrapper, type BoxDataProps, popupItem, popupSurface, type DistributiveOmit } from "./field-box";
+import { FormField, type FieldChromeProps } from "./form-field";
 import { cn, focusRing } from "@/lib/utils";
 
 export type ComboboxOption = { value: string; label: string; disabled?: boolean };
 
-export type ComboboxProps = DistributiveOmit<Extract<ComboboxPrimitiveProps<string, false>, { multiple?: false }>, "children" | "multiple" | "className" | "announcement"> & {
-  options: ComboboxOption[];
-  announcement: NonNullable<ComboboxPrimitiveProps<string, false>["announcement"]>;
-  emptyLabel: ReactNode;
-  toggleLabel: string;
-  placeholder?: string;
-  label?: ReactNode;
-  description?: ReactNode;
-  error?: ReactNode;
-  invalid?: boolean;
-  "aria-label"?: string;
-  className?: string;
-  boxProps?: BoxDataProps;
-  fieldClassName?: string;
-};
+export type ComboboxProps = DistributiveOmit<Extract<ComboboxPrimitiveProps<string, false>, { multiple?: false }>, "children" | "multiple" | "className" | "announcement"> &
+  FieldChromeProps & {
+    options: ComboboxOption[];
+    announcement: NonNullable<ComboboxPrimitiveProps<string, false>["announcement"]>;
+    emptyLabel: ReactNode;
+    toggleLabel: string;
+    placeholder?: string;
+    "aria-label"?: string;
+    className?: string;
+    inputClassName?: string;
+    boxProps?: BoxDataProps;
+  };
 
 export function Combobox({
   options,
@@ -42,8 +39,10 @@ export function Combobox({
   description,
   error,
   invalid,
+  validationMessages,
   "aria-label": ariaLabel,
   className,
+  inputClassName,
   boxProps,
   fieldClassName,
   disabled,
@@ -51,17 +50,17 @@ export function Combobox({
   ...props
 }: ComboboxProps) {
   return (
-    <FormField label={label} description={description} error={error} invalid={invalid} disabled={disabled} name={name} className={fieldClassName}>
+    <FormField label={label} description={description} error={error} invalid={invalid} validationMessages={validationMessages} disabled={disabled} name={name} className={fieldClassName}>
       <ComboboxPrimitive multiple={false} disabled={disabled} {...props}>
         <div className={cn("flex h-9 w-full items-center gap-px pr-2.5 pl-3", fieldBoxWrapper, className)} {...boxProps}>
           <ComboboxInput
             aria-label={ariaLabel}
             placeholder={placeholder}
-            className="min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-base text-inherit outline-none placeholder:text-muted data-disabled:cursor-not-allowed"
+            className={cn(bareInput, inputClassName)}
           />
           <ComboboxTrigger
             aria-label={toggleLabel}
-            className={`flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-xs text-fg data-disabled:cursor-not-allowed ${focusRing} focus-visible:outline-offset-0`}
+            className={`-mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-xs text-fg data-disabled:cursor-not-allowed ${focusRing} focus-visible:outline-offset-0`}
           >
             <ChevronsUpDown aria-hidden="true" className="size-4" />
           </ComboboxTrigger>

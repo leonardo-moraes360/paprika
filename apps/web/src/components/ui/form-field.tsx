@@ -1,12 +1,26 @@
-import { Field, FieldDescription, FieldError, FieldLabel } from "@ui-sdk/react/field";
+import { Field, FieldDescription, FieldError, FieldLabel, type ValidityKey } from "@ui-sdk/react/field";
 import type { ReactNode, Ref } from "react";
 import { cn } from "@/lib/utils";
+
+export type ValidationMessages = Partial<Record<ValidityKey, ReactNode>>;
+
+export type FieldChromeProps = {
+  label?: ReactNode;
+  description?: ReactNode;
+  error?: ReactNode;
+  invalid?: boolean;
+  validationMessages?: ValidationMessages;
+  fieldClassName?: string;
+};
+
+export type ChoiceChromeProps = Omit<FieldChromeProps, "label">;
 
 export type FormFieldProps = {
   label?: ReactNode;
   description?: ReactNode;
   error?: ReactNode;
   invalid?: boolean;
+  validationMessages?: ValidationMessages;
   disabled?: boolean;
   name?: string;
   labelId?: string;
@@ -15,7 +29,12 @@ export type FormFieldProps = {
   children: ReactNode;
 };
 
-export function FormField({ label, description, error, invalid, disabled, name, labelId, className, ref, children }: FormFieldProps) {
+export function hasFieldChrome({ description, error, invalid, validationMessages }: FieldChromeProps) {
+  return Boolean(description || error || invalid !== undefined || validationMessages);
+}
+
+export function FormField({ label, description, error, invalid, validationMessages, disabled, name, labelId, className, ref, children }: FormFieldProps) {
+  const messages = validationMessages ? (Object.entries(validationMessages) as [ValidityKey, ReactNode][]).filter(([, message]) => message) : [];
   return (
     <Field
       ref={ref}
@@ -27,8 +46,13 @@ export function FormField({ label, description, error, invalid, disabled, name, 
       {label ? <FieldLabel id={labelId} className="text-xs font-semibold text-label data-disabled:text-muted">{label}</FieldLabel> : null}
       {children}
       {description ? <FieldDescription className="text-xs text-muted">{description}</FieldDescription> : null}
+      {messages.map(([key, message]) => (
+        <FieldError key={key} match={key} className="text-xs font-medium text-red-ink">
+          {message}
+        </FieldError>
+      ))}
       {error ? (
-        <FieldError match className="text-xs font-medium text-red-ink">
+        <FieldError match={invalid !== false} className="text-xs font-medium text-red-ink">
           {error}
         </FieldError>
       ) : null}

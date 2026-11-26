@@ -54,7 +54,7 @@ export default function FormFieldsSection() {
         note="Minimum 96 px, radius 6, 12 px sides and 10 px top padding, 14 px text with 1.45 line height; counter 12 muted at the bottom right, set by prop. Same focus and error treatment as the text field."
         className="flex-col items-stretch gap-4"
       >
-        <TextArea label="Pin note" placeholder="What should the AI do here?" counter="0/500" maxLength={500} />
+        <TextArea label="Pin note" description="Shown to the agent." placeholder="What should the AI do here?" counter="0/500" maxLength={500} />
         <TextArea label="Pin note · filled" value={bio} onValueChange={setBio} counter={`${bio.length}/500`} maxLength={500} />
         <TextArea label="Pin note · focus" defaultValue="Make the button bigger." counter="23/500" boxProps={force} />
         <TextArea label="Pin note · error" defaultValue="" error="Write a note before sending." counter="0/500" />
@@ -65,10 +65,10 @@ export default function FormFieldsSection() {
         note="34 px high, radius 6, 10 px left and 6 px right padding, 8 px gap, 16 px magnifier in muted, 13 px text, shortcut as Kbd. Pressing the icon focuses the input."
         className="flex-col items-stretch gap-4"
       >
-        <SearchField aria-label="Search" placeholder="Search…" shortcut="Ctrl K" value={query} onValueChange={setQuery} />
+        <SearchField aria-label="Search" placeholder="Search…" shortcut="Ctrl K" clearLabel="Clear search" value={query} onValueChange={setQuery} />
         <Cell label="focus">
           <div className="w-full min-w-72">
-            <SearchField aria-label="Search, focus" placeholder="Search…" defaultValue="brand" shortcut="Ctrl K" groupProps={force} />
+            <SearchField aria-label="Search, focus" placeholder="Search…" defaultValue="brand" shortcut="Ctrl K" boxProps={force} />
           </div>
         </Cell>
         <Cell label="no shortcut">

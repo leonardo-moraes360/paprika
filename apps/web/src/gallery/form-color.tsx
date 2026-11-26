@@ -5,11 +5,13 @@ import { Cell, Grid, Specimen, type GalleryMeta } from "./_kit";
 
 export const meta: GalleryMeta = { title: "Color", order: 120 };
 
-const labels: ColorPickerLabels = {
+export const colorLabels: ColorPickerLabels = {
   formats: "Color format",
   format: { hex: "HEX", rgb: "RGB", rgba: "RGBA", hsl: "HSL", oklch: "OKLCH" },
   area: "Saturation and brightness",
+  areaValueText: (saturation, brightness) => `Saturation ${saturation}%, brightness ${brightness}%`,
   hue: "Hue",
+  hueValueText: (degrees) => `${degrees} degrees`,
   alpha: "Opacity",
   eyeDropper: "Pick a color from the screen",
   hex: "Hex value",
@@ -28,7 +30,7 @@ const labels: ColorPickerLabels = {
   brandTitle: "From the brand",
 };
 
-const saved = [
+const initialSaved = [
   { value: "#F7AEA4", label: "Salmon" },
   { value: "#CC3A27", label: "Action red" },
   { value: "#AD872F", label: "Mustard" },
@@ -50,14 +52,16 @@ const brand = [
 export default function FormColorSection() {
   const [value, setValue] = useState("#EE4A35");
   const [format, setFormat] = useState<ColorFormat>("hex");
+  const [saved, setSaved] = useState(initialSaved);
+  const save = (next: string) => setSaved((list) => (list.some((item) => item.value.toLowerCase() === next.toLowerCase()) ? list : [...list, { value: next, label: next }]));
   return (
     <Grid>
       <Specimen
         label="Color picker"
-        note="280 wide column with 12 px gap: format rail, 280 × 128 area (radius 6), 12 px hue and opacity tracks with 16 px thumbs (white, 1.5 px field border), eyedropper 32 px, swatch 32 px, value fields 32 px high (hex 136 + opacity 58, or channel boxes), saved swatches 24 px radius 5 with a 24 px add button, brand swatches with a ring on the current one. The formats rail switches the fields."
+        note="280 wide column with 12 px gap: format rail, 280 × 128 area (radius 6), 12 px hue and opacity tracks with 16 px thumbs (white, 1.5 px field border), eyedropper 32 px, swatch 32 px, value fields 32 px high (hex 136 + opacity 58, or channel boxes), saved swatches 24 px radius 5 with a 24 px add button, brand swatches with a ring on the current one. The formats rail switches the fields. The plus button saves the current color."
         className="items-start"
       >
-        <ColorPicker aria-label="Fill color" labels={labels} value={value} onValueChange={setValue} format={format} onFormatChange={setFormat} saved={saved} brand={brand} onSaveColor={() => setValue("#CC3A27")} />
+        <ColorPicker aria-label="Fill color" labels={colorLabels} value={value} onValueChange={setValue} format={format} onFormatChange={setFormat} saved={saved} brand={brand} onSaveColor={save} />
       </Specimen>
       <Specimen
         label="Color field"
@@ -66,29 +70,29 @@ export default function FormColorSection() {
       >
         <Cell label="filled (live, opens the picker)">
           <div className="w-70">
-            <ColorField value={value} emptyLabel="none" popoverLabel="Fill color picker" aria-label="Fill color">
-              <ColorPicker aria-label="Fill color" labels={labels} value={value} onValueChange={setValue} saved={saved} brand={brand} />
+            <ColorField value={value} label="Fill color" emptyLabel="none" popoverLabel="Fill color picker">
+              <ColorPicker aria-label="Fill color" labels={colorLabels} value={value} onValueChange={setValue} saved={saved} brand={brand} />
             </ColorField>
           </div>
         </Cell>
         <Cell label="empty">
           <div className="w-70">
-            <ColorField value={null} emptyLabel="none" popoverLabel="Stroke color picker" aria-label="Stroke color">
-              <ColorPicker aria-label="Stroke color" labels={labels} defaultValue="#4CC7D8" />
+            <ColorField value={null} label="Stroke color" emptyLabel="none" popoverLabel="Stroke color picker">
+              <ColorPicker aria-label="Stroke color" labels={colorLabels} defaultValue="#4CC7D8" />
             </ColorField>
           </div>
         </Cell>
         <Cell label="focus">
           <div className="w-70">
-            <ColorField value="#1A1F31" emptyLabel="none" popoverLabel="Frame color picker" aria-label="Frame color" data-force-focus="">
-              <ColorPicker aria-label="Frame color" labels={labels} defaultValue="#1A1F31" />
+            <ColorField value="#1A1F31" label="Frame color" emptyLabel="none" popoverLabel="Frame color picker" data-force-focus="">
+              <ColorPicker aria-label="Frame color" labels={colorLabels} defaultValue="#1A1F31" />
             </ColorField>
           </div>
         </Cell>
         <Cell label="disabled">
           <div className="w-70">
-            <ColorField value="#1A1F31" emptyLabel="none" popoverLabel="Frame color picker" aria-label="Frame color, disabled" disabled>
-              <ColorPicker aria-label="Frame color" labels={labels} defaultValue="#1A1F31" />
+            <ColorField value="#1A1F31" label="Frame color, disabled" emptyLabel="none" popoverLabel="Frame color picker" disabled>
+              <ColorPicker aria-label="Frame color" labels={colorLabels} defaultValue="#1A1F31" />
             </ColorField>
           </div>
         </Cell>
