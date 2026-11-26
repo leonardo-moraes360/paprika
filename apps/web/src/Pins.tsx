@@ -10,16 +10,10 @@ import { actorLabel, onPage, setPinsPanel, usePinActions, usePins, usePinsPanel,
 import { errorText } from "./api";
 import { cx } from "./ui";
 import type { Box } from "./AgentCursors";
-
-interface View {
-  x: number;
-  y: number;
-  zoom: number;
-}
+import { useViewSettled, useViewStore, useViewValue } from "./viewStore";
 
 interface Props {
   doc: Document;
-  view: View;
   viewportRef: RefObject<HTMLDivElement | null>;
   pageId: string | null;
   active: boolean;
@@ -74,7 +68,7 @@ function useClaimColor() {
   };
 }
 
-export function PinLayer({ doc, view, viewportRef, pageId, active, onToolDone, layoutKey, onFocus, onOpenPage, onError }: Props) {
+export function PinLayer({ doc, viewportRef, pageId, active, onToolDone, layoutKey, onFocus, onOpenPage, onError }: Props) {
   const m = useT();
   const pins = usePins(doc.id).data ?? NO_PINS;
   const { create } = usePinActions(doc.id);
@@ -84,19 +78,20 @@ export function PinLayer({ doc, view, viewportRef, pageId, active, onToolDone, l
   const [draft, setDraft] = useState<Draft | null>(null);
   const [text, setText] = useState("");
   const [openPin, setOpenPin] = useState<string | null>(null);
-  const viewRef = useRef(view);
-  viewRef.current = view;
+  const viewStore = useViewStore();
+  const view = useViewValue(viewStore);
+  const settled = useViewSettled(viewStore);
   const claimColor = useClaimColor();
 
   const toWorld = (clientX: number, clientY: number) => {
     const r = viewportRef.current!.getBoundingClientRect();
-    const v = viewRef.current;
+    const v = viewStore.get();
     return { x: (clientX - r.left - v.x) / v.zoom, y: (clientY - r.top - v.y) / v.zoom };
   };
   const worldBox = (el: Element): PinRegion => {
     const r = el.getBoundingClientRect();
     const a = toWorld(r.left, r.top);
-    const v = viewRef.current;
+    const v = viewStore.get();
     return { x: Math.round(a.x), y: Math.round(a.y), width: Math.round(r.width / v.zoom), height: Math.round(r.height / v.zoom) };
   };
 
@@ -109,7 +104,7 @@ export function PinLayer({ doc, view, viewportRef, pageId, active, onToolDone, l
     }
     setBoxes((cur) => (sameBoxes(cur, next) ? cur : next));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shown, doc, layoutKey, view.zoom]);
+  }, [shown, doc, layoutKey, settled]);
 
   useEffect(() => {
     if (!active) {

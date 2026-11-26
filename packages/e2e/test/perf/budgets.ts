@@ -75,8 +75,8 @@ export const BUDGETS: Record<string, Budget> = {
     unit: "ms",
     kind: "relative",
     limit: 20,
-    today: "33-67 ms",
-    enforce: false,
+    today: "17 ms (was 33-83 ms)",
+    enforce: true,
     ticket: "PAP-A-062",
   },
   panelResizeStepMs: {

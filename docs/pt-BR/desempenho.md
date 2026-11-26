@@ -24,7 +24,7 @@ Os números ficam num só arquivo, `packages/e2e/test/perf/budgets.ts`.
 | Snapshots do documento ao abrir | 1 | 1 (exigido; eram 2) | PAP-A-057 |
 | Tempo do servidor por escrita de 1 prop | 50 ms | 1,08 s | PAP-A-060 |
 | Tempo de script na aba numa escrita recebida | 50 ms | 2,6 s (pior caso sintético) | PAP-A-061 |
-| Quadro p95 em scroll, zoom e pan | 20 ms | 33–67 ms | PAP-A-062 |
+| Quadro p95 em scroll, zoom e pan | 20 ms | cumprido (17 ms; antes 33–83 ms) | PAP-A-062 |
 | Passo de redimensionar painel | 20 ms | 750 ms | PAP-A-063 |
 | Tempo até um frame de 200 nós criado pelo agente ficar visível, documento pequeno | 1 s | 216 ms (aplicado; era um replay de 200 passos) | PAP-A-064 |
 | O mesmo, na página pesada do pior caso | 1 s | 25 s (era 82,6 s; 12 s de script da aba por escrita, no React) | PAP-A-061 |

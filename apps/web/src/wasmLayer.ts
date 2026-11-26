@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { displayList, type Box, type Document } from "@paprika/core";
+import type { ViewStore } from "./viewStore";
 
 export type RendererMode = "dom" | "wasm";
 
@@ -155,18 +156,16 @@ function sameIds(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
 interface Options {
   mode: RendererMode;
   doc: Document;
-  view: { x: number; y: number; zoom: number };
+  viewStore: ViewStore;
   viewportRef: RefObject<HTMLDivElement | null>;
   worldRef: RefObject<HTMLDivElement | null>;
   layoutKey: unknown;
   pageId: string | null;
 }
 
-export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey, pageId }: Options) {
+export function useWasmLayer({ mode, doc, viewStore, viewportRef, worldRef, layoutKey, pageId }: Options) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<WasmRenderer | null>(null);
-  const viewRef = useRef(view);
-  viewRef.current = view;
   const [status, setStatus] = useState<WasmStatus>({ backend: wasmAvailable ? "loading" : "unavailable", detail: "" });
   const [ready, setReady] = useState(false);
   const [shown, setShown] = useState(false);
@@ -174,15 +173,13 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
   const [creates, setCreates] = useState(0);
   const [retain, setRetain] = useState(mode === "wasm");
   if (mode === "wasm" && !retain) setRetain(true);
-  const frame = useRef(0);
   const booting = useRef(false);
   const unmounted = useRef(false);
 
   const drawNow = useCallback(() => {
-    cancelAnimationFrame(frame.current);
     const r = rendererRef.current;
     if (!r) return false;
-    const v = viewRef.current;
+    const v = viewStore.get();
     const dpr = window.devicePixelRatio || 1;
     try {
       r.render(v.x * dpr, v.y * dpr, v.zoom * dpr);
@@ -199,12 +196,7 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
       setStatus({ backend: "error", detail: String(e) });
       return false;
     }
-  }, []);
-
-  const draw = useCallback(() => {
-    cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(drawNow);
-  }, [drawNow]);
+  }, [viewStore]);
 
   useEffect(() => {
     if (mode !== "wasm") return;
@@ -302,14 +294,16 @@ export function useWasmLayer({ mode, doc, view, viewportRef, worldRef, layoutKey
   }, [mode, ready, doc, layoutKey, worldRef, drawNow, pageId, painted]);
 
   useEffect(() => {
-    if (ready && mode === "wasm") draw();
-  }, [ready, mode, view, draw]);
+    if (!ready || mode !== "wasm") return;
+    return viewStore.onFrame(() => {
+      drawNow();
+    });
+  }, [ready, mode, viewStore, drawNow]);
 
   useEffect(
     () => () => {
       unmounted.current = true;
-      cancelAnimationFrame(frame.current);
-      rendererRef.current?.free();
+        rendererRef.current?.free();
       rendererRef.current = null;
     },
     [],

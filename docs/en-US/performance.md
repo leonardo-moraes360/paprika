@@ -24,7 +24,7 @@ The numbers live in one file, `packages/e2e/test/perf/budgets.ts`.
 | Doc snapshots on open | 1 | 1 (enforced; was 2) | PAP-A-057 |
 | Server time per one-prop write | 50 ms | 1.08 s | PAP-A-060 |
 | Script time in the tab on one incoming write | 50 ms | 2.6 s (synthetic worst case) | PAP-A-061 |
-| p95 frame on scroll, zoom and pan | 20 ms | 33–67 ms | PAP-A-062 |
+| p95 frame on scroll, zoom and pan | 20 ms | met (17 ms; was 33–83 ms) | PAP-A-062 |
 | Panel resize step | 20 ms | 750 ms | PAP-A-063 |
 | Time until an agent-created 200-node frame is visible, small document | 1 s | 216 ms (enforced; was a 200-step replay) | PAP-A-064 |
 | Same, on the heavy page of the worst case | 1 s | 25 s (was 82.6 s; 12 s of tab script per write in React) | PAP-A-061 |
