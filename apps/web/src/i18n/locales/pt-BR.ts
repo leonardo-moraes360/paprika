@@ -1,4 +1,5 @@
 import type { Translation } from "../resources";
+import { toolbarPtBR } from "./frontends/toolbar";
 import { layersPanelPtBR } from "./frontends/layersPanel";
 import { editorHeaderPtBR } from "./frontends/editorHeader";
 
@@ -61,5 +62,6 @@ export const ptBR: Translation = {
     },
     editorHeader: editorHeaderPtBR,
     layersPanel: layersPanelPtBR,
+    toolbar: toolbarPtBR,
   },
 };
