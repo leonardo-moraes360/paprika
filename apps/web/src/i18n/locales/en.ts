@@ -1,3 +1,4 @@
+import { workspaceNoticeEn } from "./frontends/workspaceNotice";
 import { historyPanelEn } from "./frontends/historyPanel";
 import { teamEn } from "./frontends/team";
 import { agentsEn } from "./frontends/agents";
@@ -35,6 +36,7 @@ export const en = {
     pins: pinsEn,
     team: teamEn,
     historyPanel: historyPanelEn,
+    workspaceNotice: workspaceNoticeEn,
     editorLayout: {
       left: {
         region: "Layers panel",

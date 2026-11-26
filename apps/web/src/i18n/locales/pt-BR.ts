@@ -1,3 +1,4 @@
+import { workspaceNoticePtBR } from "./frontends/workspaceNotice";
 import { historyPanelPtBR } from "./frontends/historyPanel";
 import { teamPtBR } from "./frontends/team";
 import { agentsPtBR } from "./frontends/agents";
@@ -37,6 +38,7 @@ export const ptBR: Translation = {
     pins: pinsPtBR,
     team: teamPtBR,
     historyPanel: historyPanelPtBR,
+    workspaceNotice: workspaceNoticePtBR,
     editorLayout: {
       left: {
         region: "Painel de camadas",
