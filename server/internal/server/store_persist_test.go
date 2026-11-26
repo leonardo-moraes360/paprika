@@ -1,10 +1,10 @@
 package server
 
 import (
-	"strings"
 	"fmt"
 	"math/rand"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/leonardo-moraes360/paprika/server/internal/core"
