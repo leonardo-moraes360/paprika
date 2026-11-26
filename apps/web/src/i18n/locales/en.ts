@@ -1,4 +1,5 @@
 import { overviewEn } from "./frontends/overview";
+import { importDialogEn } from "./frontends/importDialog";
 
 export const en = {
   home: {
@@ -57,6 +58,7 @@ export const en = {
       deleteConfirm: "Delete page",
       deleteCancel: "Cancel",
     },
+    importDialog: importDialogEn,
     overview: overviewEn,
   },
 } as const;

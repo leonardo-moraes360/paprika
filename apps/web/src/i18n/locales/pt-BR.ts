@@ -1,5 +1,6 @@
 import type { Translation } from "../resources";
 import { overviewPtBR } from "./frontends/overview";
+import { importDialogPtBR } from "./frontends/importDialog";
 
 export const ptBR: Translation = {
   home: {
@@ -58,6 +59,7 @@ export const ptBR: Translation = {
       deleteConfirm: "Excluir página",
       deleteCancel: "Cancelar",
     },
+    importDialog: importDialogPtBR,
     overview: overviewPtBR,
   },
 };
