@@ -107,7 +107,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     await expect(page.getByRole("complementary", { name: "Páginas e camadas" }).count()).resolves.toBe(1);
     await expect(page.getByRole("complementary", { name: "Propriedades" }).count()).resolves.toBe(1);
     await expect(page.getByRole("heading", { level: 1 }).textContent()).resolves.toBe(await page.locator(".doc-name").textContent());
-    await expect(page.getByRole("status").textContent()).resolves.toBe("Conectado ao servidor");
+    await expect(page.getByRole("status").filter({ hasText: "Conectado ao servidor" }).textContent()).resolves.toBe("Conectado ao servidor");
   });
 
   it("tooltips do chrome abrem no foco, fecham no Esc e os ícones mantêm aria-label (1.4.13, 4.1.2)", async () => {
@@ -187,6 +187,38 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     }
     expect(new Set(rows.map((r) => r.agentColor)).size).toBeGreaterThanOrEqual(4);
   });
+
+  it("o painel Histórico e o toast de desfazer têm nomes, papéis e contraste (4.1.2, 1.4.3)", async () => {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.mouse.move(2, 2);
+    await expect.poll(() => page.locator("[data-slot=tooltip-content]").count(), { timeout: 5_000 }).toBe(0);
+    await page.keyboard.press("Control+h");
+    const panel = page.getByRole("region", { name: "Histórico" });
+    await expect.poll(() => panel.count()).toBe(1);
+    await expect.poll(() => panel.getByRole("radiogroup", { name: "Mostrar passos de" }).count()).toBe(1);
+    await expect.poll(() => panel.getByRole("radio", { name: "Só meus" }).count()).toBe(1);
+    await expect.poll(() => panel.getByRole("button", { name: "Fechar histórico" }).count()).toBe(1);
+    const names = await panel.getByTestId("history-step").evaluateAll((els) => els.map((el) => [el.querySelector("button")?.getAttribute("aria-label"), el.querySelector(".history-step-menu")?.getAttribute("aria-label")]));
+    for (const [row, menu] of names) {
+      expect(row).toBeTruthy();
+      expect(menu).toMatch(/^Ações do passo /);
+    }
+    await panel.focus();
+    await page.keyboard.press("Escape");
+    await expect.poll(() => panel.count()).toBe(0);
+    await page.locator("body").focus();
+    await page.keyboard.press("Control+z");
+    const toast = page.getByTestId("toast");
+    await expect.poll(() => toast.count()).toBe(1);
+    await expect.poll(() => page.getByRole("status").filter({ has: toast }).count()).toBe(1);
+    await expect.poll(() => toast.getByRole("button", { name: "Dispensar" }).count()).toBe(1);
+    const colours = await toast.locator(".toast-message").evaluate((el) => {
+      const box = el.closest("[data-slot=toast]")!;
+      return [getComputedStyle(el).color, getComputedStyle(box).backgroundColor] as const;
+    });
+    expect(contrastRatio(colours[0], colours[1])).toBeGreaterThanOrEqual(4.5);
+    await toast.getByRole("button", { name: "Dispensar" }).click();
+  }, 30_000);
 
   describe("galeria de primitivas (/ui)", () => {
     let gal: Page;

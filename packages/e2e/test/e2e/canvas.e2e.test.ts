@@ -108,9 +108,16 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const indexOf = (el: Element) => [...el.parentElement!.children].indexOf(el);
     const before = await marker.evaluate(indexOf);
     expect(before).toBe(0);
+    await page.locator('[data-layer-id="login"]').click();
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    await page.locator('[data-layer-id="plano"]').click();
+    await page.keyboard.press("ArrowRight");
+    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    await expect.poll(() => list.getByTestId("activity-row").first().innerText()).toMatch(/mover/);
     await page.getByRole("button", { name: "Desfazer" }).click();
     await expect.poll(() => marker.evaluate(indexOf)).toBeGreaterThan(before);
     await expect.poll(() => list.getByTestId("activity-row").first().innerText()).toMatch(/desfazer:/);
+    await agent.callTool({ name: "delete_nodes", arguments: { ids: ["act025"] } });
     await agent.callTool({
       name: "create_nodes",
       arguments: {
