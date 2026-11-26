@@ -1,6 +1,8 @@
 import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
+import { useHydrated } from "@/lib/use-hydrated";
+import appCss from "@/styles.css?url";
 import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
 
 export const Route = createRootRoute({
@@ -10,19 +12,20 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Paprika" },
     ],
-    links: [{ rel: "icon", type: "image/svg+xml", href: "/icon.svg" }],
+    links: [{ rel: "stylesheet", href: appCss }, { rel: "icon", type: "image/svg+xml", href: "/icon.svg" }],
   }),
   component: RootComponent,
 });
 
 function RootComponent() {
   const { i18n } = useTranslation();
+  const hydrated = useHydrated();
   useEffect(() => {
     document.documentElement.lang = i18n.resolvedLanguage ?? "en";
   }, [i18n.resolvedLanguage]);
   return (
     <RootDocument>
-      <Outlet />
+      {hydrated ? <Outlet /> : null}
     </RootDocument>
   );
 }

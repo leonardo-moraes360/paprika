@@ -1,6 +1,7 @@
 import { defineConfig, type ProxyOptions } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 const target = process.env.PAPRIKA_URL ?? "http://127.0.0.1:4777";
 
@@ -11,7 +12,7 @@ const sameOrigin: ProxyOptions["configure"] = (proxy) => {
 
 export default defineConfig({
   resolve: { tsconfigPaths: true },
-  plugins: [tanstackStart({ spa: { enabled: true } }), viteReact()],
+  plugins: [tanstackStart({ spa: { enabled: true } }), viteReact(), tailwindcss()],
   server: {
     proxy: {
       "/api": { target, changeOrigin: true, configure: sameOrigin },
