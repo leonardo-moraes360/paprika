@@ -2,9 +2,10 @@ import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
 import appCss from "@/styles.css?url";
-import { ClientOnly, HeadContent, Link, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
+import type { QueryClient } from "@tanstack/react-query";
+import { ClientOnly, HeadContent, Link, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
