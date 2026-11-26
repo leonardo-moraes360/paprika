@@ -14,7 +14,7 @@ describe.skipIf(!existsSync(webDist))("E2E: construção ao vivo", () => {
     page = session.page;
     await page.evaluate(() => {
       const world = document.querySelector(".world");
-      const log: { id: string | null; phase: string | null; bg: string }[] = [];
+      const log: { id: string | null; phase: string | null; bg: string; opacity: string }[] = [];
       (window as unknown as { __build: typeof log }).__build = log;
       if (!world) return;
       const mo = new MutationObserver((records) => {
@@ -22,7 +22,8 @@ describe.skipIf(!existsSync(webDist))("E2E: construção ao vivo", () => {
           const el = rec.target as HTMLElement;
           const phase = el.getAttribute?.("data-build");
           if (!phase) continue;
-          log.push({ id: el.getAttribute("data-paprika-id"), phase, bg: getComputedStyle(el).backgroundColor });
+          const cs = getComputedStyle(el);
+          log.push({ id: el.getAttribute("data-paprika-id"), phase, bg: cs.backgroundColor, opacity: cs.opacity });
         }
       });
       mo.observe(world, { attributes: true, subtree: true, attributeFilter: ["data-build"] });
@@ -33,7 +34,10 @@ describe.skipIf(!existsSync(webDist))("E2E: construção ao vivo", () => {
     await closeSeededCanvas(session, clients);
   });
 
-  it("mostra o rótulo, o replay e o código sem segurar o documento", async () => {
+  type Row = { id: string | null; phase: string | null; bg: string; opacity: string };
+  const rows = () => page.evaluate(() => (window as unknown as { __build: Row[] }).__build);
+
+  it("mostra o rótulo, o contorno e o código sem esconder nenhum nó", async () => {
     const writer = await connectAgent(session.url, "e2e-build", clients);
     await callTool(writer, "create_nodes", {
       nodes: [
@@ -60,13 +64,19 @@ describe.skipIf(!existsSync(webDist))("E2E: construção ao vivo", () => {
     await expect.poll(() => label.count()).toBeGreaterThan(0);
     await expect.poll(() => label.first().innerText()).toMatch(/trabalhando/);
 
-    await expect.poll(async () => {
-      const log = await page.evaluate(() => (window as unknown as { __build: { id: string | null; phase: string | null; bg: string }[] }).__build);
-      const current = log.filter((row) => row.id === "build-a" && row.phase === "current");
-      const waiting = log.some((row) => row.id === "build-c" && row.phase === "wait");
-      if (!current.length || !waiting) return "pending";
-      return current.some((row) => row.bg === "rgba(0, 0, 0, 0)" || row.bg === "transparent") ? "blank" : "solid";
-    }).toBe("blank");
+    const solid = async (id: string) =>
+      page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return { opacity: cs.opacity, bg: cs.backgroundColor };
+      });
+    expect(await solid("build-c")).toEqual({ opacity: "1", bg: "rgb(16, 185, 129)" });
+    expect(await solid("build-a")).toEqual({ opacity: "1", bg: "rgb(59, 130, 246)" });
+    await expect.poll(async () => (await rows()).some((row) => row.id === "build-a" && row.phase === "current")).toBe(true);
+    await expect.poll(() => page.locator("[data-build]").count()).toBe(0);
+    const seen = await rows();
+    expect(seen.map((row) => row.phase)).not.toContain("wait");
+    expect(seen.map((row) => row.phase)).not.toContain("shown");
+    expect(seen.filter((row) => row.id === "build-a" || row.id === "build-c").every((row) => row.opacity === "1" && row.bg !== "rgba(0, 0, 0, 0)" && row.bg !== "transparent")).toBe(true);
 
     const toggle = page.getByTestId("build-code-toggle");
     await expect.poll(() => toggle.getAttribute("aria-pressed")).toBe("false");
@@ -76,7 +86,7 @@ describe.skipIf(!existsSync(webDist))("E2E: construção ao vivo", () => {
     await expect.poll(() => page.locator('[data-paprika-id="build-screen"]').count()).toBe(1);
   });
 
-  it("com movimento reduzido o contorno não esvazia o preenchimento", async () => {
+  it("com movimento reduzido não há contorno nem passeio, só o estado final", async () => {
     await page.evaluate(() => {
       (window as unknown as { __build: unknown[] }).__build.length = 0;
     });
@@ -86,11 +96,12 @@ describe.skipIf(!existsSync(webDist))("E2E: construção ao vivo", () => {
       parentId: "build-screen",
       nodes: [{ type: "rect", id: "build-d", x: 16, y: 140, width: 200, height: 28, fill: "#3b82f6" }],
     });
-    await expect.poll(async () => {
-      const log = await page.evaluate(() => (window as unknown as { __build: { id: string | null; phase: string | null; bg: string }[] }).__build);
-      const current = log.find((row) => row.id === "build-d" && row.phase === "current");
-      if (!current) return "pending";
-      return current.bg === "rgba(0, 0, 0, 0)" || current.bg === "transparent" ? "blank" : "solid";
-    }).toBe("solid");
+    await expect.poll(() => page.locator('[data-paprika-id="build-d"]').count()).toBe(1);
+    await expect
+      .poll(() => page.locator('[data-paprika-id="build-d"]').evaluate((el) => getComputedStyle(el).backgroundColor))
+      .toBe("rgb(59, 130, 246)");
+    await page.waitForTimeout(600);
+    expect(await rows()).toEqual([]);
+    expect(await page.locator("[data-build]").count()).toBe(0);
   });
 });

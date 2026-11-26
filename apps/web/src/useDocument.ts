@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { Document, Op } from "@paprika/core";
-import { appendBuild, applyPresence, BUILD_STEP_MS, createdInOrder, stepBuild, type AgentPresence, type BuildReplay, type PresenceMsg } from "./agents";
+import { appendBuild, applyPresence, BUILD_TICK_MS, createdInOrder, prefersReducedMotion, stepBuild, type AgentPresence, type BuildReplay, type PresenceMsg } from "./agents";
 import { applyDelta, orderCreated, type DeltaMsg } from "./docDelta";
 import { catalogs } from "./i18n/messages";
 import { t } from "./i18n/store";
@@ -38,7 +38,7 @@ export interface DocState {
   activity: Activity[];
   agentTouched: Set<string>;
   agents: AgentPresence[];
-  build: BuildReplay | null;
+  build: BuildReplay[];
   team: TeamStatus | null | undefined;
   workspaceNotice: WorkspaceNotice | null;
 }
@@ -82,7 +82,7 @@ export class LiveStore {
     activity: [],
     agentTouched: new Set(),
     agents: [],
-    build: null,
+    build: [],
     team: undefined,
     workspaceNotice: null,
   };
@@ -148,15 +148,15 @@ export class LiveStore {
       }, this.staleResyncMs);
     };
     const kickBuild = () => {
-      if (buildTimer || !this.state.build) return;
+      if (buildTimer || !this.state.build.length) return;
       buildTimer = setInterval(() => {
-        if (closed || !this.state.build) {
+        if (closed || !this.state.build.length) {
           clearInterval(buildTimer);
           buildTimer = undefined;
           return;
         }
-        this.set((s) => ({ ...s, build: stepBuild(s.build) }));
-      }, BUILD_STEP_MS);
+        this.set((s) => ({ ...s, build: stepBuild(s.build, Date.now()) }));
+      }, BUILD_TICK_MS);
     };
     const resync = () => {
       if (resyncing) return;
@@ -169,7 +169,7 @@ export class LiveStore {
       const fromAgent = msg.actor.startsWith("agent");
       const quiet = msg.kind === "reload" && msg.actor === "server";
       const ids = quiet ? [] : changed();
-      const build = appendBuild(s.build, msg.actor, fromAgent && msg.kind !== "reload" ? created() : []);
+      const build = appendBuild(s.build, msg.actor, fromAgent && msg.kind !== "reload" && !prefersReducedMotion() ? created() : [], Date.now());
       const activity = quiet ? s.activity : [{ id: msg.version, actor: msg.actor, label: msg.label, at: Date.now(), changed: ids }, ...s.activity].slice(0, 30);
       if (fromAgent) {
         clearTimeout(flash);
@@ -190,7 +190,7 @@ export class LiveStore {
       resyncing = false;
       if (s.doc && s.doc.id !== msg.doc.id) {
         clearTimeout(flash);
-        return { ...s, doc: msg.doc, version: msg.version, canUndo: msg.canUndo, canRedo: msg.canRedo, activity: [], agentTouched: new Set(), build: null };
+        return { ...s, doc: msg.doc, version: msg.version, canUndo: msg.canUndo, canRedo: msg.canRedo, activity: [], agentTouched: new Set(), build: [] };
       }
       return record(s, msg.doc, msg, () => changedIds(s.doc, msg.doc), () => createdInOrder(s.doc, msg.doc));
     };
