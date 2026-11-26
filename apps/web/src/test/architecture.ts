@@ -198,7 +198,7 @@ const frontendPackages = [
 
 const testPackages = [/^@testing-library\/(?:react|user-event|dom|jest-dom)$/, /^vitest$/, /^react-dom(?:\/server|\/test-utils)?$/, /^react\/jsx-runtime$/];
 
-const allowedLib = new Set(["utils", "persist", "use-persisted-state"]);
+const allowedLib = new Set(["utils", "persist", "use-persisted-state", "issue-url"]);
 const libPackages = [/^react$/, /^clsx$/, /^tailwind-merge$/];
 
 const isTest = (path: string) => /\.test\.tsx?$/.test(path);

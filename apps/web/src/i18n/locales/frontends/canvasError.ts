@@ -1,0 +1,31 @@
+export const canvasErrorEn = {
+  title: "The canvas stopped responding",
+  body: "Your work is saved on the server. Reload to continue. If it happens again, tell us: the report comes pre-filled.",
+  reload: "Reload",
+  report: "Report on GitHub",
+  details: "Technical details",
+  copy: "Copy details",
+  copied: "Details copied to the clipboard.",
+  copyFail: "Could not copy the details.",
+  include: "Include in the report",
+  reportTitle: "[canvas] The canvas stopped responding",
+  reportDoing: "What you were doing: (write here)",
+  reportEnvironment: "Environment: {{value}}",
+  reportError: "Error: {{value}}",
+} as const;
+
+export const canvasErrorPtBR = {
+  title: "O canvas parou de responder",
+  body: "Seu trabalho está salvo no servidor. Recarregue para continuar. Se acontecer de novo, conte para a gente: o relato já vai preenchido.",
+  reload: "Recarregar",
+  report: "Relatar no GitHub",
+  details: "Detalhes técnicos",
+  copy: "Copiar detalhes",
+  copied: "Detalhes copiados para a área de transferência.",
+  copyFail: "Não foi possível copiar os detalhes.",
+  include: "Incluir no relato",
+  reportTitle: "[canvas] O canvas parou de responder",
+  reportDoing: "O que você fazia: (escreva aqui)",
+  reportEnvironment: "Ambiente: {{value}}",
+  reportError: "Erro: {{value}}",
+} as const;

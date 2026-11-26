@@ -2,6 +2,7 @@ import type { Translation } from "../resources";
 import { overviewPtBR } from "./frontends/overview";
 import { importDialogPtBR } from "./frontends/importDialog";
 import { exportDialogPtBR } from "./frontends/exportDialog";
+import { canvasErrorPtBR } from "./frontends/canvasError";
 
 export const ptBR: Translation = {
   home: {
@@ -62,6 +63,7 @@ export const ptBR: Translation = {
     },
     importDialog: importDialogPtBR,
     exportDialog: exportDialogPtBR,
+    canvasError: canvasErrorPtBR,
     overview: overviewPtBR,
   },
 };
