@@ -7,12 +7,6 @@ export const fieldBoxWrapper =
 export const bareInput =
   "min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-base text-inherit outline-none placeholder:text-muted data-disabled:cursor-not-allowed";
 
-export const popupSurface =
-  "z-50 flex min-w-(--anchor-width) flex-col gap-0.5 rounded-lg border border-line bg-popover p-2 text-fg shadow-popover outline-none";
-
-export const popupItem =
-  "flex h-8 cursor-pointer items-center gap-2 rounded-sm px-2 text-base text-fg outline-none select-none data-highlighted:bg-surface data-disabled:cursor-not-allowed data-disabled:text-muted forced-colors:data-highlighted:bg-[Highlight] forced-colors:data-highlighted:text-[HighlightText] forced-colors:data-disabled:text-[GrayText]";
-
 export type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
 export type BoxDataProps = { [K in `data-${string}`]?: string };

@@ -1,6 +1,7 @@
 import { Select as SelectPrimitive, SelectContent, SelectItem, SelectItemIndicator, SelectItemText, SelectTrigger, SelectValue, type SelectProps as SelectPrimitiveProps } from "@ui-sdk/react/select";
 import { Check, ChevronDown } from "lucide-react";
-import { fieldBoxSelf, popupItem, popupSurface, type BoxDataProps, type DistributiveOmit } from "./field-box";
+import { fieldBoxSelf, type BoxDataProps, type DistributiveOmit } from "./field-box";
+import { popupItem, popupSurface } from "./overlay-surface";
 import { FormField, type FieldChromeProps } from "./form-field";
 import { cn } from "@/lib/utils";
 

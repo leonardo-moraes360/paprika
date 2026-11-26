@@ -14,7 +14,7 @@ import {
 } from "@ui-sdk/react/menu";
 import { Check } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
-import { popupItem, popupSurface } from "./field-box";
+import { popupItem, popupSurface } from "./overlay-surface";
 import { cn, slot } from "@/lib/utils";
 
 export type MenuProps = Omit<ComponentProps<typeof MenuPrimitive>, "pendingAnnouncement"> & {

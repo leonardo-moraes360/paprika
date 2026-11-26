@@ -1,9 +1,10 @@
 import { Popover as PopoverPrimitive, PopoverClose, PopoverContent, PopoverDescription, PopoverTitle, PopoverTrigger } from "@ui-sdk/react/popover";
 import type { ComponentProps, ReactElement, ReactNode } from "react";
+import { popupBase } from "./overlay-surface";
 import { slot } from "@/lib/utils";
 
 export const popoverSurfaceClasses =
-  "w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-popover p-4 text-fg shadow-popover transition-[opacity,scale] duration-150 motion-reduce:transition-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 forced-colors:border-2";
+  `w-80 max-w-[calc(100vw-2rem)] ${popupBase} p-4 transition-[opacity,scale] duration-150 motion-reduce:transition-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 forced-colors:border-2`;
 
 export type PopoverProps = Omit<ComponentProps<typeof PopoverPrimitive>, "children"> & {
   trigger: ReactElement;

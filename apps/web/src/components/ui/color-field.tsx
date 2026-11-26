@@ -1,6 +1,6 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@ui-sdk/react/popover";
 import type { ComponentProps, ReactNode } from "react";
-import { popupSurface } from "./field-box";
+import { popupSurface } from "./overlay-surface";
 import { cn, focusRing, slot } from "@/lib/utils";
 
 export type ColorFieldProps = Omit<ComponentProps<typeof PopoverTrigger>, "children" | "value" | "aria-label"> & {

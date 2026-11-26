@@ -136,7 +136,7 @@ export default function OverlaysSection() {
             <TextField label="Email" type="email" placeholder="name@studio.com" />
           </Dialog>
         </Specimen>
-        <Specimen label="Popover · surface" note="Radius 12, padding 16, gap 12, popover fill, line border, popover shadow. Opens under the trigger; Escape or a press outside closes it and focus returns to the trigger.">
+        <Specimen label="Popover · surface" note="Radius 10, padding 16, gap 12, popover fill, line border, popover shadow. Opens under the trigger; Escape or a press outside closes it and focus returns to the trigger.">
           <Popover
             trigger={<MenuButton>Agents</MenuButton>}
             title="Active agents"

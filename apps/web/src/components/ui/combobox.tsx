@@ -11,7 +11,8 @@ import {
 } from "@ui-sdk/react/combobox";
 import { Check, ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
-import { bareInput, fieldBoxWrapper, type BoxDataProps, popupItem, popupSurface, type DistributiveOmit } from "./field-box";
+import { bareInput, fieldBoxWrapper, type BoxDataProps, type DistributiveOmit } from "./field-box";
+import { popupItem, popupSurface } from "./overlay-surface";
 import { FormField, type FieldChromeProps } from "./form-field";
 import { cn, focusRing } from "@/lib/utils";
 
