@@ -53,7 +53,7 @@ export function Combobox({
   return (
     <FormField label={label} description={description} error={error} invalid={invalid} validationMessages={validationMessages} disabled={disabled} name={name} className={fieldClassName}>
       <ComboboxPrimitive multiple={false} disabled={disabled} {...props}>
-        <div className={cn("flex h-9 w-full items-center gap-px pr-2.5 pl-3", fieldBoxWrapper, className)} {...boxProps}>
+        <div className={cn("flex h-9 w-full items-center gap-px pe-2.5 ps-3", fieldBoxWrapper, className)} {...boxProps}>
           <ComboboxInput
             aria-label={ariaLabel}
             placeholder={placeholder}
@@ -61,7 +61,7 @@ export function Combobox({
           />
           <ComboboxTrigger
             aria-label={toggleLabel}
-            className={`-mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-xs text-fg data-disabled:cursor-not-allowed ${focusRing} focus-visible:outline-offset-0`}
+            className={`-me-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-xs text-fg data-disabled:cursor-not-allowed ${focusRing} focus-visible:outline-offset-0`}
           >
             <ChevronsUpDown aria-hidden="true" className="size-4" />
           </ComboboxTrigger>

@@ -22,7 +22,7 @@ export function ScrollArea({ className, viewportClassName, viewportRef, label, c
       </ScrollAreaViewport>
       <ScrollAreaScrollbar
         orientation="vertical"
-        className="absolute inset-y-0 right-0 w-1.5 rounded-[3px] bg-line transition-opacity motion-reduce:transition-none not-data-visible:opacity-0 forced-colors:border forced-colors:bg-[Canvas]"
+        className="absolute inset-y-0 end-0 w-1.5 rounded-[3px] bg-line transition-opacity motion-reduce:transition-none not-data-visible:opacity-0 forced-colors:border forced-colors:bg-[Canvas]"
       >
         <ScrollAreaThumb className="w-full rounded-[3px] bg-field forced-colors:bg-[CanvasText]" />
       </ScrollAreaScrollbar>
