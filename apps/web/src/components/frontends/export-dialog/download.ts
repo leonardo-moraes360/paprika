@@ -7,7 +7,7 @@ export function downloadBlob(blob: Blob, name: string): void {
   document.body.append(link);
   link.click();
   link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function asBlob(value: Blob | string, type: string): Blob {

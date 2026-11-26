@@ -5,6 +5,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { ExportCode } from "@/components/ui/export-code";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
+import { copyText } from "@/lib/copy-text";
 import { asBlob, asText, downloadBlob, errorText, imageExtension, imageFileName } from "./download";
 import { currentSize, ImagePanel, type ImageState } from "./image-panel";
 import type { ExportCodeFormat, ExportDialogProps, ExportImageFormat, ExportMode } from "./types";
@@ -18,6 +19,7 @@ const defaultCodeFormats: readonly ExportCodeFormat[] = [
 const defaultScales: readonly number[] = [1, 2, 3, 4];
 
 type Code = { status: "idle" | "loading" | "ready" | "error"; text: string };
+type Failure = { kind: "code" | "export"; reason: string } | { kind: "copy" };
 
 export function ExportDialog({
   open,
@@ -50,18 +52,24 @@ export function ExportDialog({
   const [codeFormat, setCodeFormat] = useState(() => defaultCodeFormat ?? codeFormats[0]?.value ?? "react");
   const [tokens, setTokens] = useState(true);
   const [code, setCode] = useState<Code>({ status: "idle", text: "" });
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useState<Failure | null>(null);
   const [copied, setCopied] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const latest = useRef(0);
   const request = useRef(onRequestExport);
+  const requested = useRef<string | null>(null);
+  const openRef = useRef(open);
 
   useEffect(() => {
     request.current = onRequestExport;
+    openRef.current = open;
   });
 
   useEffect(() => {
     if (!open || mode !== "code") return;
+    const key = `${codeFormat}|${tokens}|${attempt}`;
+    if (requested.current === key) return;
+    requested.current = key;
     const ticket = ++latest.current;
     setCode({ status: "loading", text: "" });
     setCopied(false);
@@ -73,13 +81,14 @@ export function ExportDialog({
       .catch((reason: unknown) => {
         if (ticket !== latest.current) return;
         setCode({ status: "error", text: "" });
-        setFailure(t("frontends.exportDialog.failures.code", { reason: errorText(reason) }));
+        setFailure({ kind: "code", reason: errorText(reason) });
       });
-  }, [open, mode, codeFormat, tokens, attempt, t]);
+  }, [open, mode, codeFormat, tokens, attempt]);
 
   useEffect(() => {
     if (open) return;
     latest.current += 1;
+    requested.current = null;
     setFailure(null);
     setCopied(false);
     setCode({ status: "idle", text: "" });
@@ -107,10 +116,11 @@ export function ExportDialog({
         height: shown?.height ?? null,
         transparent: format?.transparent === true && image.transparent,
       });
+      if (!openRef.current) return;
       downloadBlob(asBlob(out, image.format === "svg" ? "image/svg+xml" : `image/${imageExtension(image.format)}`), imageFileName(fileName, image.format, image.scale, !vector && !image.custom));
       setFailure(null);
     } catch (reason) {
-      setFailure(t("frontends.exportDialog.failures.export", { reason: errorText(reason) }));
+      if (openRef.current) setFailure({ kind: "export", reason: errorText(reason) });
     }
   };
 
@@ -119,13 +129,11 @@ export function ExportDialog({
 
   const copyCode = async () => {
     if (code.status !== "ready") return;
-    try {
-      if (!navigator.clipboard) throw new Error("clipboard");
-      await navigator.clipboard.writeText(code.text);
+    if (await copyText(code.text)) {
       setCopied(true);
       setFailure(null);
-    } catch {
-      setFailure(t("frontends.exportDialog.failures.copy"));
+    } else {
+      setFailure({ kind: "copy" });
     }
   };
 
@@ -199,7 +207,7 @@ export function ExportDialog({
       )}
       {failure ? (
         <ErrorBanner action={mode === "code" && code.status === "error" ? <Button size="sm" variant="secondary" onClick={() => { setFailure(null); setAttempt((n) => n + 1); }}>{t("frontends.exportDialog.code.retry")}</Button> : undefined}>
-          {failure}
+          {failure.kind === "copy" ? t("frontends.exportDialog.failures.copy") : t(`frontends.exportDialog.failures.${failure.kind}`, { reason: failure.reason })}
         </ErrorBanner>
       ) : null}
       {copied ? (
