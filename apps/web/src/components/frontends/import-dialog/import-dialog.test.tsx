@@ -81,6 +81,14 @@ describe("ImportDialog", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Place on canvas" })).toBeEnabled());
   });
 
+  it("blocks the action while any file is still being read even if another is ready", async () => {
+    vi.spyOn(FileReader.prototype, "readAsText").mockImplementation(() => {});
+    setup();
+    pick(new File(["x"], "a.png", { type: "image/png" }), svg("slow.svg"));
+    await screen.findByText("slow.svg");
+    expect(screen.getByRole("button", { name: "Place on canvas" })).toBeDisabled();
+  });
+
   it("marks a file that cannot be read and keeps it out of the delivery", async () => {
     const user = userEvent.setup();
     vi.spyOn(FileReader.prototype, "readAsText").mockImplementation(function (this: FileReader) {
