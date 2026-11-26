@@ -61,8 +61,12 @@ func gzipped(file string, data []byte) []byte {
 	gzipCache.Unlock()
 	var buf bytes.Buffer
 	zw, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
-	zw.Write(data)
-	zw.Close()
+	if _, err := zw.Write(data); err != nil {
+		return nil
+	}
+	if err := zw.Close(); err != nil {
+		return nil
+	}
 	out := buf.Bytes()
 	gzipCache.Lock()
 	if len(gzipCache.m) >= gzipCacheMax {
@@ -84,8 +88,8 @@ func sendStatic(w http.ResponseWriter, r *http.Request, file string, data []byte
 	h.Set("x-content-type-options", "nosniff")
 	if len(data) >= gzipMinBytes && compressible(ct) {
 		h.Add("vary", "Accept-Encoding")
-		if acceptsGzip(r) {
-			data = gzipped(file, data)
+		if z := gzippedIf(acceptsGzip(r), file, data); z != nil {
+			data = z
 			h.Set("content-encoding", "gzip")
 		}
 	}
@@ -93,4 +97,11 @@ func sendStatic(w http.ResponseWriter, r *http.Request, file string, data []byte
 	if r.Method != http.MethodHead {
 		w.Write(data)
 	}
+}
+
+func gzippedIf(ok bool, file string, data []byte) []byte {
+	if !ok {
+		return nil
+	}
+	return gzipped(file, data)
 }
