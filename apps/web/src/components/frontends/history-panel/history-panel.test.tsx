@@ -191,15 +191,18 @@ describe("HistoryPanel", () => {
 
   it("marks the step as busy while its own action runs and clears it when it settles", async () => {
     const user = userEvent.setup();
-    const running = Promise.withResolvers<void>();
-    setup({ onUndoStep: vi.fn(() => running.promise) });
+    let finish!: () => void;
+    const running = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    setup({ onUndoStep: vi.fn(() => running) });
     await user.click(screen.getByRole("button", { name: "Actions for step Move Title" }));
     await user.click(await screen.findByRole("menuitem", { name: "Undo this step" }));
     expect(screen.getByRole("button", { name: /^Move Title/ })).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("button", { name: /^Rename layers/ })).not.toHaveAttribute("aria-busy");
     await act(async () => {
-      running.resolve();
-      await running.promise;
+      finish();
+      await running;
     });
     expect(screen.getByRole("button", { name: /^Move Title/ })).not.toHaveAttribute("aria-busy");
   });
