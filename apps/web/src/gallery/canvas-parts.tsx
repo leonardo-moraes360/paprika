@@ -35,15 +35,15 @@ export default function CanvasPartsSection() {
           <AgentLabel tone="agent-4" status="reading" statusLabel="Reading" name="Gemini" tool="get_nodes" />
         </Cell>
       </Specimen>
-      <Specimen label="Team row" note="36 px high, radius 6, 8 px padding and gap: 10 px colour dot with a 1 px edge, name 13/600 (64 px), tool 12 muted (110 px), page 12 muted (56 px). Idle agents are faded to 60%." className="items-start">
+      <Specimen label="Team row" note="36 px high, radius 6, 8 px padding and gap: 10 px colour dot with a 1 px edge, name 13/600 (64 px), tool 12 muted (110 px), page 12 muted (56 px). Idle agents are faded to 60% as drawn (name 4.43:1 and tool/page 2.69:1 in the light theme, below 4.5; the design owner should decide) and say so to screen readers through idleLabel." className="items-start">
         <div className="flex w-[280px] flex-col gap-0.5 rounded-xl border border-line bg-popover p-3">
           <TeamRow tone="agent-1" name="Claude" tool="update_nodes" page="Cover" />
           <TeamRow tone="agent-2" name="Codex" tool="get_nodes" page="Cover" />
           <TeamRow tone="agent-3" name="Cursor" tool="move_nodes" page="Editor" />
-          <TeamRow tone="agent-4" name="Gemini" tool="2 min ago" page="Cover" idle />
+          <TeamRow tone="agent-4" name="Gemini" tool="2 min ago" page="Cover" idle idleLabel="Idle" />
         </div>
       </Specimen>
-      <Specimen label="Cursor" note="Arrow 18 × 22 with a 1.5 px stroke in the canvas background colour; the label starts at (16, 20), 24 px high, full radius, 10 px padding, 13/600. You are the select colour; each agent has its own. The box is 18 × 44; position it with className." className="items-start">
+      <Specimen label="Cursor" note="Arrow 18 × 22 with a 1.5 px stroke in the canvas background colour; the label starts at (16, 20), 24 px high, full radius, 10 px padding, 13/600. You are the canvas selection cyan (#1FA3B5 in the light theme, dark ink 5.54:1); each agent has its own. The box is 18 × 44; position it with className." className="items-start">
         {(
           [
             ["select", "You", "You"],
@@ -88,7 +88,7 @@ export default function CanvasPartsSection() {
           <Pin number={7} data-force-focus="" aria-label="Pin 7, open, focused" />
         </Cell>
       </Specimen>
-      <Specimen label="Selection size" note="22 px high pill, radius 11, 10 px padding, 12/600 in the on-select ink over the select fill." className="items-start">
+      <Specimen label="Selection size" note="22 px high pill, radius 11, 10 px padding, 12/600 in the on-select ink over the canvas selection cyan." className="items-start">
         <Cell label="default">
           <SelectionSize>240 × 120</SelectionSize>
         </Cell>
@@ -98,7 +98,7 @@ export default function CanvasPartsSection() {
       </Specimen>
       <Specimen
         label="Selection handles"
-        note={`1.5 px select frame centred on the edge, four 8 px handles (radius 2, panel fill, 1.5 px select stroke) centred on the corners, and the size pill 10 px below. The handles report pointer presses by corner; last pressed: ${lastCorner}.`}
+        note={`1.5 px canvas-selection frame centred on the edge, four 8 px handles (radius 2, panel fill, 1.5 px selection stroke) centred on the corners, and the size pill 10 px below. The handles report pointer presses by corner; last pressed: ${lastCorner}.`}
         className="items-start"
       >
         <div className="relative h-[200px] w-[360px] rounded-lg bg-canvas">

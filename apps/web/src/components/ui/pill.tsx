@@ -1,16 +1,17 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { toneSurface } from "./agent-tone";
 
 const tones = {
   neutral: "bg-surface text-fg",
-  select: "bg-select-pill text-on-select-pill",
+  select: toneSurface["select-pill"],
   red: "bg-red-soft text-red-soft-ink",
   yellow: "bg-yellow-soft text-yellow-soft-ink",
   green: "bg-green-soft text-green-soft-ink",
-  "agent-1": "bg-agent-1 text-agent-1-ink",
-  "agent-2": "bg-agent-2 text-agent-2-ink",
-  "agent-3": "bg-agent-3 text-agent-3-ink",
-  "agent-4": "bg-agent-4 text-agent-4-ink",
+  "agent-1": toneSurface["agent-1"],
+  "agent-2": toneSurface["agent-2"],
+  "agent-3": toneSurface["agent-3"],
+  "agent-4": toneSurface["agent-4"],
 };
 
 export type PillProps = ComponentProps<"span"> & {

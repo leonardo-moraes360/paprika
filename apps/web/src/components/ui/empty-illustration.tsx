@@ -40,7 +40,7 @@ function Scene({ kind }: { kind: EmptyIllustrationKind }) {
         <Px x={73} y={67} className="fill-red" />
         <Px x={136} y={10} s={10} className="fill-yellow" />
         <Px x={146} y={28} s={8} className="fill-green" />
-        <Px x={16} y={96} s={8} className="fill-select" />
+        <Px x={16} y={96} s={8} className="fill-select-brand" />
       </>
     );
   }
@@ -48,11 +48,11 @@ function Scene({ kind }: { kind: EmptyIllustrationKind }) {
     return (
       <>
         <circle cx={80} cy={56} r={32} className="fill-green" />
-        <path d="M64 56l11 11 21-22" fill="none" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="stroke-on-select-pill" />
+        <path d="M68 56l7.5 7.5L92 47" fill="none" strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" className="stroke-on-green" />
         <Px x={26} y={26} s={10} rotate={18} className="fill-red" />
         <Px x={126} y={18} s={12} rotate={-14} className="fill-yellow" />
         <Px x={128} y={88} s={8} rotate={30} className="fill-glow" />
-        <Px x={30} y={88} s={8} className="fill-select" />
+        <Px x={30} y={88} s={8} className="fill-select-brand" />
         <Px x={144} y={56} s={6} className="fill-stem" />
       </>
     );

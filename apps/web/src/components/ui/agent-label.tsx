@@ -1,10 +1,10 @@
 import { Eye } from "lucide-react";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
-import { toneSurface, type AgentTone } from "./agent-tone";
+import { toneSurface, type AgentColor } from "./agent-tone";
 
 export type AgentLabelProps = Omit<ComponentProps<"span">, "children"> & {
-  tone: Exclude<AgentTone, "select">;
+  tone: AgentColor;
   status: "writing" | "reading";
   name: string;
   tool: string;

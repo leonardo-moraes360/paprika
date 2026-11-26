@@ -19,7 +19,7 @@ export type SelectionHandlesProps = Omit<ComponentProps<"div">, "children"> & {
 export function SelectionHandles({ className, size, onHandlePointerDown, ...props }: SelectionHandlesProps) {
   return (
     <div className={cn("pointer-events-none absolute", className)} {...props}>
-      <span aria-hidden="true" className="absolute -inset-[0.75px] border-[1.5px] border-select forced-colors:border-[Highlight]" />
+      <span aria-hidden="true" className="absolute -inset-[0.75px] border-[1.5px] border-select-brand forced-colors:border-[Highlight]" />
       {(Object.keys(corners) as SelectionCorner[]).map((corner) => (
         <span
           key={corner}
@@ -27,7 +27,7 @@ export function SelectionHandles({ className, size, onHandlePointerDown, ...prop
           aria-hidden="true"
           onPointerDown={onHandlePointerDown ? (event) => onHandlePointerDown(corner, event) : undefined}
           className={cn(
-            "pointer-events-auto absolute size-[9.5px] rounded-xs border-[1.5px] border-select bg-panel forced-colors:border-[Highlight] forced-colors:bg-[Canvas]",
+            "pointer-events-auto absolute size-[9.5px] rounded-xs border-[1.5px] border-select-brand bg-panel forced-colors:border-[Highlight] forced-colors:bg-[Canvas]",
             corners[corner],
           )}
         />
