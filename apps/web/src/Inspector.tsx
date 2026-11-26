@@ -22,7 +22,6 @@ import {
   ignoresLayout,
   isInstance,
   isRootFrame,
-  lintDocument,
   newId,
   modeOf,
   owningComponent,
@@ -40,6 +39,7 @@ import {
   type SceneNode,
 } from "@paprika/core";
 import { Activity } from "./Activity";
+import { useDocLint } from "./docLint";
 import type { Activity as ActivityEntry } from "./useDocument";
 import { FontPicker } from "./FontPicker";
 import { EffectsSection } from "./inspector/EffectsSection";
@@ -1273,7 +1273,7 @@ function GroupPanel({ group, ...props }: Props & { group: GroupNode }) {
 function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; apply(ops: Op[], label?: string): void; activity: ActivityEntry[]; onSelect(id: string): void }) {
   const [newToken, setNewToken] = useState("");
   const [newModeToken, setNewModeToken] = useState("");
-  const issues = lintDocument(doc).filter((i) => i.severity !== "info");
+  const lint = useDocLint(doc);
   return (
     <div className={ui.section}>
       <h2 className={ui.h2}>Workspace</h2>
@@ -1360,13 +1360,13 @@ function DocumentPanel({ doc, apply, activity, onSelect }: { doc: Document; appl
       <InspectorSection
         id="review"
         title="Revisão"
-        badge={issues.length > 0 ? <span className="rounded-full bg-ui-primary px-1.5 py-0 text-2xs text-ui-primary-foreground">{issues.length}</span> : undefined}
+        badge={lint && lint.count > 0 ? <span className="rounded-full bg-ui-primary px-1.5 py-0 text-2xs text-ui-primary-foreground">{lint.count}</span> : undefined}
       >
-        {issues.length === 0 ? (
+        {lint === null ? null : lint.count === 0 ? (
           <p className={ui.muted}>Sem problemas de contraste, overflow ou tokens.</p>
         ) : (
           <ul className={list}>
-            {issues.slice(0, 30).map((i, k) => (
+            {lint.top.map((i, k) => (
               <li key={k} className={cn("rounded-md border-l-3 bg-ui-muted", SEVERITY[i.severity] ?? "border-l-ui-muted-foreground")}>
                 <button type="button" className="w-full cursor-pointer border-0 bg-transparent px-2 py-1.5 text-left" onClick={() => onSelect(i.nodeId)}>
                   <strong>{i.rule}</strong> {i.message}

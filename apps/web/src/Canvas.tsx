@@ -472,11 +472,17 @@ interface RenderUi {
   dragIds: ReadonlySet<string> | null;
 }
 
+function sameUi(a: RenderUi, b: RenderUi): boolean {
+  return a.preview === b.preview && a.touched === b.touched && a.pen === b.pen && a.wasm === b.wasm && a.wasmIds === b.wasmIds && a.edit === b.edit && a.textEdit === b.textEdit && a.dragIds === b.dragIds;
+}
+
 class UiStore {
   value: RenderUi;
+  private seen: RenderUi;
   private listeners = new Set<() => void>();
   constructor(value: RenderUi) {
     this.value = value;
+    this.seen = value;
   }
   get = () => this.value;
   subscribe = (l: () => void) => {
@@ -484,6 +490,8 @@ class UiStore {
     return () => this.listeners.delete(l);
   };
   notify = () => {
+    if (sameUi(this.seen, this.value)) return;
+    this.seen = this.value;
     for (const l of this.listeners) l();
   };
 }
@@ -1152,6 +1160,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const [fileOver, setFileOver] = useState(false);
   const roots = pageRoots(doc, pageId);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const labelCache = useRef(new Map<string, { node: Node; left: number; top: number }>());
   const [frameLabels, setFrameLabels] = useState<{ id: string; name: string; left: number; top: number }[]>([]);
   const fitted = useRef(false);
   const spaceDown = useRef(false);
@@ -1216,15 +1225,29 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     } else setSelBox(null);
     setSelBoxes(rects.length > 1 ? rects.filter((r) => !quadList.some((q) => q.id === r.id)) : []);
     setSelQuads(quadList);
-    setFrameLabels(
-      roots.flatMap((id) => {
-        const n = doc.nodes[id];
-        const e = vp.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(id)}"]`);
-        if (!n || n.type !== "frame" || !e) return [];
-        const r = e.getBoundingClientRect();
-        return [{ id, name: n.name || id, left: (r.left - vpr.left - view.x) / view.zoom, top: (r.top - vpr.top - view.y) / view.zoom }];
-      }),
-    );
+    const cache = labelCache.current;
+    const seen = new Set<string>();
+    const labels = roots.flatMap((id) => {
+      const n = doc.nodes[id];
+      if (!n || n.type !== "frame") return [];
+      const shownNode = previewDoc.nodes[id];
+      const name = n.name || id;
+      const hit = cache.get(id);
+      if (hit && hit.node === shownNode && !n.rotation) {
+        seen.add(id);
+        return [{ id, name, left: hit.left, top: hit.top }];
+      }
+      const e = vp.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(id)}"]`);
+      if (!e) return [];
+      const r = e.getBoundingClientRect();
+      const left = (r.left - vpr.left - view.x) / view.zoom;
+      const top = (r.top - vpr.top - view.y) / view.zoom;
+      cache.set(id, { node: shownNode!, left, top });
+      seen.add(id);
+      return [{ id, name, left, top }];
+    });
+    for (const id of cache.keys()) if (!seen.has(id)) cache.delete(id);
+    setFrameLabels((prev) => (prev.length === labels.length && prev.every((p, i) => p.id === labels[i]!.id && p.name === labels[i]!.name && p.left === labels[i]!.left && p.top === labels[i]!.top) ? prev : labels));
   }, [doc, selected, viewStore, preview, roots, placed, previewDoc]);
 
   const [pen, setPen] = useState<PenDraft | null>(null);
