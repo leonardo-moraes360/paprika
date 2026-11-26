@@ -1,5 +1,6 @@
 import { overviewEn } from "./frontends/overview";
 import { importDialogEn } from "./frontends/importDialog";
+import { exportDialogEn } from "./frontends/exportDialog";
 
 export const en = {
   home: {
@@ -59,6 +60,7 @@ export const en = {
       deleteCancel: "Cancel",
     },
     importDialog: importDialogEn,
+    exportDialog: exportDialogEn,
     overview: overviewEn,
   },
 } as const;
