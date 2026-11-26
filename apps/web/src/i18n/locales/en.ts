@@ -1,3 +1,4 @@
+import { teamEn } from "./frontends/team";
 import { agentsEn } from "./frontends/agents";
 import { pinsEn } from "./frontends/pins";
 export const en = {
@@ -31,6 +32,7 @@ export const en = {
   frontends: {
     agents: agentsEn,
     pins: pinsEn,
+    team: teamEn,
     editorLayout: {
       left: {
         region: "Layers panel",
