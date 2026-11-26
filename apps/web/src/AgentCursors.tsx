@@ -5,6 +5,7 @@ import { AGENT_IDLE_MS, AGENT_TTL_MS, ROSTER_HIDE_IDLE_MS, agentActive, agentInk
 import { useT } from "./i18n";
 import { Hint } from "./components/ui/tooltip";
 import { cx } from "./ui";
+import { useViewStore, useViewValue, type View } from "./viewStore";
 
 function worldBox(vp: HTMLElement, id: string, view: View): Box | null {
   const el = vp.querySelector<HTMLElement>(`.world [data-paprika-id="${CSS.escape(id)}"]`);
@@ -138,17 +139,10 @@ function RosterSection({
   );
 }
 
-interface View {
-  x: number;
-  y: number;
-  zoom: number;
-}
-
 export type Box = { x: number; y: number; w: number; h: number };
 
 interface Props {
   doc: Document;
-  view: View;
   viewportRef: RefObject<HTMLDivElement | null>;
   layoutKey?: unknown;
   pageId?: string | null;
@@ -156,12 +150,12 @@ interface Props {
   onFocus?(box: Box): void;
 }
 
-export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpenPage, onFocus }: Props) {
+export function AgentCursors({ doc, viewportRef, layoutKey, pageId, onOpenPage, onFocus }: Props) {
   const agents = useLive((s) => s.agents);
   const build = useLive((s) => s.build);
   const m = useT();
-  const viewRef = useRef(view);
-  viewRef.current = view;
+  const viewStore = useViewStore();
+  const view = useViewValue(viewStore);
   const [boxes, setBoxes] = useState<Record<string, Box[]>>({});
   const [frames, setFrames] = useState<Record<string, Box>>({});
   const [now, setNow] = useState(() => Date.now());
@@ -181,7 +175,7 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
     const vp = viewportRef.current;
     if (!vp) return;
     const vpr = vp.getBoundingClientRect();
-    const v = viewRef.current;
+    const v = viewStore.get();
     const next: Record<string, Box[]> = {};
     const nextFrames: Record<string, Box> = {};
     for (const a of agents) {
@@ -199,7 +193,7 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
     setFrames(nextFrames);
     const writer = agents.find((a) => a.actor === build?.actor && toolActivity(a.tool) === "writing") ?? agents.find((a) => a.actor === build?.actor);
     paintBuild(vp, build, writer?.color ?? "#3b82f6");
-  }, [doc, agents, build, viewportRef, layoutKey, pageId]);
+  }, [doc, agents, build, viewportRef, layoutKey, pageId, viewStore]);
 
   const pending = useRef<string | null>(null);
   useEffect(() => {

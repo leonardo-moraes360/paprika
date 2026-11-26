@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent } from "react";
+import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent } from "react";
 import { Bold, Italic, Link2, Maximize, Minus, Plus } from "lucide-react";
 import {
   copyOwner,
@@ -75,6 +75,8 @@ import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
 import { AgentCursors, type Box } from "./AgentCursors";
 import { BuildCode } from "./BuildCode";
 import { PinLayer } from "./Pins";
+import { ViewStore, ViewStoreContext, useViewValue, viewTransform, type View } from "./viewStore";
+import { RenderIndexer } from "./renderIndex";
 import { useT } from "./i18n";
 import { cn } from "./lib/cn";
 import { cx, ui } from "./ui";
@@ -114,15 +116,10 @@ interface PenDraft {
   cursor: { x: number; y: number } | null;
 }
 
-interface View {
-  x: number;
-  y: number;
-  zoom: number;
-}
-
 type Preview = Record<string, { x?: number; y?: number; width?: number; height?: number; rotation?: number; control?: { x: number; y: number }; layout?: Layout; from?: ConnectorEnd; to?: ConnectorEnd }>;
 
 const PENDING_MS = 3000;
+const WHEEL_IDLE_MS = 120;
 
 function snapshot(doc: Document, pv: Preview): Preview {
   const out: Preview = {};
@@ -325,7 +322,8 @@ export function pickTarget(doc: Document, id: string, selected: readonly string[
   return id;
 }
 
-function PenOverlay({ pen, zoom }: { pen: PenDraft; zoom: number }) {
+function PenOverlay({ pen }: { pen: PenDraft }) {
+  const zoom = useViewValue().zoom;
   const segs = anchorsToPath(pen.anchors, false);
   const last = pen.anchors[pen.anchors.length - 1];
   const r = 4 / zoom;
@@ -460,24 +458,83 @@ function DraftGhost({
   );
 }
 
+type EditView = { id: string; subs: Subpath[]; sel: AnchorRef | null };
+type TextEditView = { id: string; onCommit(text: string): void; onCommitRich?(text: string, runs: TextRun[] | null): void; onDone(): void };
+
+interface RenderUi {
+  preview: Preview | null;
+  touched: ReadonlySet<string>;
+  pen: PenDraft | null;
+  wasm: boolean;
+  wasmIds: ReadonlySet<string>;
+  edit: EditView | null;
+  textEdit: TextEditView | null;
+  dragIds: ReadonlySet<string> | null;
+}
+
+class UiStore {
+  value: RenderUi;
+  private listeners = new Set<() => void>();
+  constructor(value: RenderUi) {
+    this.value = value;
+  }
+  get = () => this.value;
+  subscribe = (l: () => void) => {
+    this.listeners.add(l);
+    return () => this.listeners.delete(l);
+  };
+  notify = () => {
+    for (const l of this.listeners) l();
+  };
+}
+
+const UiContext = createContext<UiStore | null>(null);
+
+function useUi<T>(select: (s: RenderUi) => T): T {
+  const store = useContext(UiContext)!;
+  return useSyncExternalStore(store.subscribe, () => select(store.value));
+}
+
+let nodeRenders = 0;
+
 interface RenderProps {
   doc: Document;
   node: Node;
-  preview: Preview | null;
-  touched: Set<string>;
-  pen: PenDraft | null;
-  zoom: number;
-  wasm: boolean;
-  wasmIds: ReadonlySet<string>;
-  edit: { id: string; subs: Subpath[]; sel: AnchorRef | null } | null;
-  textEdit?: { id: string; onCommit(text: string): void; onCommitRich?(text: string, runs: TextRun[] | null): void; onDone(): void } | null;
-  dragging?: boolean;
-  dragIds?: ReadonlySet<string>;
+  ver: number;
+  envVer: number;
+  vers: ReadonlyMap<string, number>;
 }
 
-function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edit, textEdit, dragging, dragIds }: RenderProps) {
+function PenSlot({ id }: { id: string | null }) {
+  const pen = useUi((s) => (s.pen && s.pen.parentId === id ? s.pen : null));
+  return pen ? <PenOverlay pen={pen} /> : null;
+}
+
+function PathEditLayer({ node, edit }: { node: PathNode; edit: EditView }) {
+  const zoom = useViewValue().zoom;
+  return <PathEditOverlay subs={edit.subs} sel={edit.sel} scale={pathScale(node, zoom)} />;
+}
+
+function WithView({ children }: { children: (v: View) => ReactNode }) {
+  return <>{children(useViewValue())}</>;
+}
+
+function ZoomLabel() {
+  const zoom = useViewValue().zoom;
+  return <span className="min-w-11 text-center text-ui-muted-foreground">{Math.round(zoom * 100)}%</span>;
+}
+
+const sameRender = (a: RenderProps, b: RenderProps) => a.node === b.node && a.ver === b.ver && a.envVer === b.envVer;
+
+const RenderNode = memo(function RenderNodeView({ doc, node, vers, envVer }: RenderProps) {
+  nodeRenders++;
+  const wasmPaints = useUi((s) => s.wasm && s.wasmIds.has(node.id));
+  const pv = useUi((s) => s.preview?.[node.id]);
+  const touched = useUi((s) => s.touched.has(node.id));
+  const dragging = useUi((s) => !!s.dragIds?.has(node.id));
+  const edit = useUi((s) => (s.edit?.id === node.id ? s.edit : null));
+  const textEdit = useUi((s) => (s.textEdit?.id === node.id ? s.textEdit : null));
   const css = nodeStyle(doc, node) as CSSProperties;
-  const wasmPaints = wasm && wasmIds.has(node.id);
   if (wasmPaints) {
     if (css.background) css.background = "transparent";
     if (css.border) css.borderColor = "transparent";
@@ -485,7 +542,6 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edi
     delete css.filter;
   }
   if (dragging) css.pointerEvents = "none";
-  const pv = preview?.[node.id];
   if (pv) {
     if (pv.x !== undefined) css.left = pv.x;
     if (pv.y !== undefined) css.top = pv.y;
@@ -496,7 +552,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edi
   const props = {
     "data-paprika-id": node.id,
     "data-paprika-type": node.type,
-    className: touched.has(node.id) ? "agent-flash outline-2! outline-solid! outline-accent! outline-offset-1 animate-flash" : undefined,
+    className: touched ? "agent-flash outline-2! outline-solid! outline-accent! outline-offset-1 animate-flash" : undefined,
     style: css,
   };
   switch (node.type) {
@@ -507,31 +563,14 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edi
           {node.children.map((c) => {
             const child = doc.nodes[c];
             return child ? (
-              <RenderNode
-                key={c}
-                doc={doc}
-                node={child}
-                preview={preview}
-                touched={touched}
-                pen={pen}
-                zoom={zoom}
-                wasm={wasm}
-                wasmIds={wasmIds}
-                edit={edit}
-                textEdit={textEdit}
-                dragging={!!dragIds?.has(c)}
-                dragIds={dragIds}
-              />
+              <RenderNode key={c} doc={doc} node={child} ver={vers.get(c) ?? 0} envVer={envVer} vers={vers} />
             ) : null;
           })}
-          {pen && pen.parentId === node.id && <PenOverlay pen={pen} zoom={zoom} />}
+          <PenSlot id={node.id} />
         </div>
       );
     case "text": {
-      const editing =
-        textEdit?.id === node.id && textEdit.onCommitRich
-          ? { onCommit: textEdit.onCommitRich, onDone: textEdit.onDone }
-          : null;
+      const editing = textEdit?.onCommitRich ? { onCommit: textEdit.onCommitRich, onDone: textEdit.onDone } : null;
       if (editing) props.style = { ...css, overflow: "visible" };
       return (
         <div {...props}>
@@ -548,7 +587,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edi
     case "image":
       return <img {...props} src={resolveAsset(doc, node.src)} alt={node.decorative ? "" : node.alt} aria-hidden={node.decorative || undefined} draggable={false} />;
     case "path": {
-      const editing = edit?.id === node.id ? edit : null;
+      const editing = edit;
       if (wasmPaints && !editing) return <div {...props} />;
       const a = pathAttrs(doc, node);
       if (editing) props.style = { ...css, overflow: "visible" };
@@ -558,13 +597,13 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edi
           {!wasmPaints && (
             <path {...a.path} fillRule={a.path.fillRule as "nonzero" | "evenodd"} strokeLinecap={a.path.strokeLinecap as "round"} strokeLinejoin={a.path.strokeLinejoin as "round"} />
           )}
-          {editing && <PathEditOverlay subs={editing.subs} sel={editing.sel} scale={pathScale(node, zoom)} />}
+          {editing && <PathEditLayer node={node} edit={editing} />}
         </svg>
       );
     }
     case "shape": {
       const a = shapeAttrs(doc, node);
-      const editing = textEdit?.id === node.id ? textEdit : null;
+      const editing = textEdit;
       return (
         <div {...props}>
           <svg xmlns="http://www.w3.org/2000/svg" width={a.svg.width} height={a.svg.height} style={SHAPE_SVG_CSS as CSSProperties}>
@@ -590,7 +629,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edi
     case "connector": {
       const a = connectorAttrs(doc, node);
       const label = connectorLabelAttrs(doc, node);
-      const editing = textEdit?.id === node.id ? textEdit : null;
+      const editing = textEdit;
       return (
         <svg {...props} style={{ ...css, pointerEvents: "none", ...(editing && { overflow: "visible" }) }} xmlns="http://www.w3.org/2000/svg" width={node.width} height={node.height}>
           <path d={a.d} fill="none" stroke="transparent" strokeWidth={Math.max(12, (typeof a.strokeWidth === "number" ? a.strokeWidth : 0) + 8)} style={{ pointerEvents: "stroke" }} data-connector-hit="" />
@@ -616,7 +655,7 @@ function RenderNode({ doc, node, preview, touched, pen, zoom, wasm, wasmIds, edi
     default:
       return <div {...props} />;
   }
-}
+}, sameRender);
 
 function TextRuns({ doc, node }: { doc: Document; node: Extract<Node, { type: "text" }> }) {
   return (
@@ -1002,7 +1041,18 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const m = useT();
   const viewportRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<View>({ x: 40, y: 40, zoom: 1 });
+  const viewStore = useMemo(() => new ViewStore({ x: 40, y: 40, zoom: 1 }), []);
+  useEffect(() => () => viewStore.dispose(), [viewStore]);
+  useLayoutEffect(() => {
+    viewStore.attach(worldRef.current);
+    return () => viewStore.attach(null);
+  }, [viewStore]);
+  useLayoutEffect(() => {
+    const world = worldRef.current as (HTMLElement & { __paprikaNodeRenders?: number }) | null;
+    if (!world) return;
+    Object.defineProperty(world, "__paprikaNodeRenders", { get: () => nodeRenders, configurable: true });
+  }, []);
+  const setView = useCallback((next: View | ((v: View) => View)) => viewStore.set(next, true), [viewStore]);
   const [renderer, setRenderer] = useState<RendererMode>(initialRendererMode);
   const [preview, setPreview] = useState<Preview | null>(null);
   const previewRef = useRef<Preview | null>(null);
@@ -1038,7 +1088,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     if (pending.current && !samePreview(snapshot(doc, pending.current.base), pending.current.base)) settle();
   }, [doc, settle]);
   useEffect(() => () => clearTimeout(pending.current?.timer), []);
-  const wasmLayer = useWasmLayer({ mode: renderer, doc, view, viewportRef, worldRef, layoutKey: preview, pageId });
+  const wasmLayer = useWasmLayer({ mode: renderer, doc, viewStore, viewportRef, worldRef, layoutKey: preview, pageId });
   const capture = useMemo(captureParams, []);
   const [captureBox, setCaptureBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   useLayoutEffect(() => {
@@ -1094,9 +1144,9 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     }
   }, [previewDoc, pageId]);
   const [marquee, setMarquee] = useState<Marquee | null>(null);
-  const [box, setBox] = useState<Rect | null>(null);
-  const [boxes, setBoxes] = useState<(Rect & { id: string })[]>([]);
-  const [quads, setQuads] = useState<{ id: string; width: number; height: number; corners: Pt[] }[]>([]);
+  const [selBox, setSelBox] = useState<Rect | null>(null);
+  const [selBoxes, setSelBoxes] = useState<(Rect & { id: string })[]>([]);
+  const [selQuads, setSelQuads] = useState<{ id: string; width: number; height: number; corners: Pt[] }[]>([]);
   const [dropUi, setDropUi] = useState<{ highlight: Rect | null; marker: Rect | null } | null>(null);
   const [dragIds, setDragIds] = useState<string[] | null>(null);
   const [fileOver, setFileOver] = useState(false);
@@ -1137,14 +1187,14 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const vp = viewportRef.current;
     if (!vp) return;
     const vpr = vp.getBoundingClientRect();
-    const toVp = (p: { x: number; y: number }) => ({ x: view.x + p.x * view.zoom, y: view.y + p.y * view.zoom });
+    const view = viewStore.get();
     const quadList: { id: string; width: number; height: number; corners: Pt[] }[] = [];
     const rects = selected.flatMap((id) => {
       const n = previewDoc.nodes[id];
       const geom = placed[id];
       const rot = n && n.type !== "group" && n.type !== "connector" && n.type !== "page" ? n.rotation : 0;
       if (geom && rot) {
-        const corners = geom.corners.map(toVp);
+        const corners = geom.corners;
         quadList.push({ id, width: geom.width, height: geom.height, corners });
         const left = Math.min(...corners.map((p) => p.x));
         const top = Math.min(...corners.map((p) => p.y));
@@ -1155,27 +1205,27 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       const el = vp.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(id)}"]`);
       if (!el) return [];
       const r = el.getBoundingClientRect();
-      return [{ id, left: r.left - vpr.left, top: r.top - vpr.top, width: r.width, height: r.height }];
+      return [{ id, left: (r.left - vpr.left - view.x) / view.zoom, top: (r.top - vpr.top - view.y) / view.zoom, width: r.width / view.zoom, height: r.height / view.zoom }];
     });
     if (rects.length) {
       const left = Math.min(...rects.map((r) => r.left));
       const top = Math.min(...rects.map((r) => r.top));
       const right = Math.max(...rects.map((r) => r.left + r.width));
       const bottom = Math.max(...rects.map((r) => r.top + r.height));
-      setBox({ left, top, width: right - left, height: bottom - top });
-    } else setBox(null);
-    setBoxes(rects.length > 1 ? rects.filter((r) => !quadList.some((q) => q.id === r.id)) : []);
-    setQuads(quadList);
+      setSelBox({ left, top, width: right - left, height: bottom - top });
+    } else setSelBox(null);
+    setSelBoxes(rects.length > 1 ? rects.filter((r) => !quadList.some((q) => q.id === r.id)) : []);
+    setSelQuads(quadList);
     setFrameLabels(
       roots.flatMap((id) => {
         const n = doc.nodes[id];
         const e = vp.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(id)}"]`);
         if (!n || n.type !== "frame" || !e) return [];
         const r = e.getBoundingClientRect();
-        return [{ id, name: n.name || id, left: r.left - vpr.left, top: r.top - vpr.top }];
+        return [{ id, name: n.name || id, left: (r.left - vpr.left - view.x) / view.zoom, top: (r.top - vpr.top - view.y) / view.zoom }];
       }),
     );
-  }, [doc, selected, view, preview, roots, placed, previewDoc]);
+  }, [doc, selected, viewStore, preview, roots, placed, previewDoc]);
 
   const [pen, setPen] = useState<PenDraft | null>(null);
   const penRef = useRef(pen);
@@ -1188,8 +1238,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     (parentId: string | null, clientX: number, clientY: number) => {
       const vp = viewportRef.current!;
       const vpr = vp.getBoundingClientRect();
-      let left = vpr.left + view.x;
-      let top = vpr.top + view.y;
+      let left = vpr.left + viewStore.get().x;
+      let top = vpr.top + viewStore.get().y;
       if (parentId) {
         const el = vp.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(parentId)}"]`);
         if (el) {
@@ -1198,9 +1248,9 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           top = r.top;
         }
       }
-      return { x: (clientX - left) / view.zoom, y: (clientY - top) / view.zoom };
+      return { x: (clientX - left) / viewStore.get().zoom, y: (clientY - top) / viewStore.get().zoom };
     },
-    [view],
+    [viewStore],
   );
 
   const finishPen = useCallback(
@@ -1360,7 +1410,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const parentId = draft.parentId;
     const p0 = localFor(parentId, e.clientX, e.clientY);
     const first = draft.anchors[0];
-    if (first && draft.anchors.length >= 3 && Math.hypot(first.x - p0.x, first.y - p0.y) * view.zoom < 8) {
+    if (first && draft.anchors.length >= 3 && Math.hypot(first.x - p0.x, first.y - p0.y) * viewStore.get().zoom < 8) {
       penRef.current = draft;
       return finishPen(true);
     }
@@ -1371,7 +1421,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     setPen(next);
     const move = (ev: PointerEvent) => {
       const p = localFor(parentId, ev.clientX, ev.clientY);
-      if (Math.hypot(p.x - anchor.x, p.y - anchor.y) * view.zoom < 3) return;
+      if (Math.hypot(p.x - anchor.x, p.y - anchor.y) * viewStore.get().zoom < 3) return;
       const a: Anchor = { ...anchor, out: { x: p.x, y: p.y }, in: { x: 2 * anchor.x - p.x, y: 2 * anchor.y - p.y } };
       const upd: PenDraft = { ...next, anchors: [...base, a] };
       penRef.current = upd;
@@ -1396,7 +1446,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     if (!p) return;
     const a = p.anchors;
     const [x, y] = [a[a.length - 1], a[a.length - 2]];
-    if (x && y && Math.hypot(x.x - y.x, x.y - y.y) * view.zoom < 4) penRef.current = { ...p, anchors: a.slice(0, -1) };
+    if (x && y && Math.hypot(x.x - y.x, x.y - y.y) * viewStore.get().zoom < 4) penRef.current = { ...p, anchors: a.slice(0, -1) };
     finishPen(false);
   };
 
@@ -1434,26 +1484,41 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   useEffect(() => {
     const vp = viewportRef.current;
     if (!vp) return;
+    let rect = vp.getBoundingClientRect();
+    let lastWheel = 0;
+    const measure = () => {
+      rect = vp.getBoundingClientRect();
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(vp);
+    window.addEventListener("resize", measure);
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const r = vp.getBoundingClientRect();
+      const now = performance.now();
+      if (now - lastWheel > WHEEL_IDLE_MS) measure();
+      lastWheel = now;
       if (e.ctrlKey || e.metaKey) {
-        const px = e.clientX - r.left;
-        const py = e.clientY - r.top;
-        setView((v) => {
-          const zoom = Math.min(8, Math.max(0.1, v.zoom * Math.exp(-e.deltaY * 0.0015)));
+        const px = e.clientX - rect.left;
+        const py = e.clientY - rect.top;
+        const dy = e.deltaY;
+        viewStore.set((v) => {
+          const zoom = Math.min(8, Math.max(0.1, v.zoom * Math.exp(-dy * 0.0015)));
           return { zoom, x: px - ((px - v.x) * zoom) / v.zoom, y: py - ((py - v.y) * zoom) / v.zoom };
         });
       } else {
         const swap = e.shiftKey && e.deltaX === 0;
         const dx = swap ? e.deltaY : e.deltaX;
         const dy = swap ? 0 : e.deltaY;
-        setView((v) => ({ ...v, x: v.x - dx, y: v.y - dy }));
+        viewStore.set((v) => ({ ...v, x: v.x - dx, y: v.y - dy }));
       }
     };
     vp.addEventListener("wheel", onWheel, { passive: false });
-    return () => vp.removeEventListener("wheel", onWheel);
-  }, []);
+    return () => {
+      vp.removeEventListener("wheel", onWheel);
+      window.removeEventListener("resize", measure);
+      ro.disconnect();
+    };
+  }, [viewStore]);
 
   const [pathEdit, setPathEdit] = useState<PathEditState | null>(null);
   const pathEditRef = useRef(pathEdit);
@@ -1617,9 +1682,9 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const toWorld = useCallback(
     (clientX: number, clientY: number) => {
       const r = viewportRef.current!.getBoundingClientRect();
-      return { x: (clientX - r.left - view.x) / view.zoom, y: (clientY - r.top - view.y) / view.zoom };
+      return { x: (clientX - r.left - viewStore.get().x) / viewStore.get().zoom, y: (clientY - r.top - viewStore.get().y) / viewStore.get().zoom };
     },
-    [view],
+    [viewStore],
   );
 
   const vpRect = useCallback((el: Element): Rect => {
@@ -1748,9 +1813,9 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const startPan = (e: RPointerEvent) => {
     const sx = e.clientX;
     const sy = e.clientY;
-    const start = view;
+    const start = viewStore.getTarget();
     setPan("panning");
-    const move = (ev: PointerEvent) => setView({ ...start, x: start.x + ev.clientX - sx, y: start.y + ev.clientY - sy });
+    const move = (ev: PointerEvent) => viewStore.set({ ...start, x: start.x + ev.clientX - sx, y: start.y + ev.clientY - sy });
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
@@ -1786,14 +1851,14 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       const frameEl = (e.target as HTMLElement).closest<HTMLElement>('[data-paprika-type="frame"]');
       const parentId = frameEl?.dataset.paprikaId ?? pageId;
       const vpr = viewportRef.current!.getBoundingClientRect();
-      let originLeft = vpr.left + view.x;
-      let originTop = vpr.top + view.y;
+      let originLeft = vpr.left + viewStore.get().x;
+      let originTop = vpr.top + viewStore.get().y;
       if (frameEl) {
         const fr = frameEl.getBoundingClientRect();
         originLeft = fr.left;
         originTop = fr.top;
       }
-      const local = (cx: number, cy: number) => ({ x: (cx - originLeft) / view.zoom, y: (cy - originTop) / view.zoom });
+      const local = (cx: number, cy: number) => ({ x: (cx - originLeft) / viewStore.get().zoom, y: (cy - originTop) / viewStore.get().zoom });
       const p0 = local(e.clientX, e.clientY);
       const d: Draft = { parentId, x0: p0.x, y0: p0.y, x1: p0.x, y1: p0.y, originLeft: originLeft - vpr.left, originTop: originTop - vpr.top };
       setDraft(d);
@@ -1862,7 +1927,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       const p = toWorld(ev.clientX, ev.clientY);
       const dx = p.x - start.x;
       const dy = p.y - start.y;
-      if (!moved && Math.hypot(dx, dy) * view.zoom < 3) return;
+      if (!moved && Math.hypot(dx, dy) * viewStore.get().zoom < 3) return;
       if (!moved) setDragIds([...dragged]);
       moved = true;
       spot = resolveDrop(ev.clientX, ev.clientY, dragged);
@@ -1874,8 +1939,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         last = Object.fromEntries(
           movable.map((n, i) => {
             const el = viewportRef.current?.querySelector(`[data-paprika-id="${CSS.escape(n.id)}"]`);
-            const w = el ? el.getBoundingClientRect().width / view.zoom : typeof n.width === "number" ? n.width : 40;
-            const h = el ? el.getBoundingClientRect().height / view.zoom : typeof n.height === "number" ? n.height : 40;
+            const w = el ? el.getBoundingClientRect().width / viewStore.get().zoom : typeof n.width === "number" ? n.width : 40;
+            const h = el ? el.getBoundingClientRect().height / viewStore.get().zoom : typeof n.height === "number" ? n.height : 40;
             return [n.id, { x: Math.round(local.x - w / 2 + i * 8), y: Math.round(local.y - h / 2 + i * 8) }];
           }),
         );
@@ -1990,7 +2055,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         const geom = placed[id];
         const rot = n && n.type !== "group" && n.type !== "connector" && n.type !== "page" ? n.rotation : 0;
         if (geom && rot) {
-          const corners = geom.corners.map((p) => ({ x: view.x + p.x * view.zoom, y: view.y + p.y * view.zoom }));
+          const corners = geom.corners.map((p) => ({ x: viewStore.get().x + p.x * viewStore.get().zoom, y: viewStore.get().y + p.y * viewStore.get().zoom }));
           return quadHitsRect(corners, area);
         }
         const el = viewportRef.current!.querySelector<HTMLElement>(`[data-paprika-id="${CSS.escape(id)}"]`);
@@ -2046,7 +2111,6 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
 
   const single = selected.length === 1 ? doc.nodes[selected[0]!] : undefined;
   const resizable = !!single && single.type !== "group" && single.type !== "page" && single.type !== "connector" && !isInstance(single) && !copyOwner(doc, single);
-  const sole = quads.length === 1 && selected.length === 1 ? quads[0] : undefined;
   const curveConn = single?.type === "connector" && single.route === "curve" && !single.locked && !copyOwner(doc, single) ? (shown.nodes[single.id] as ConnectorNode) : null;
   const curveHandle = curveConn ? connectorCurveHandle(shown, curveConn) : null;
   const endConn = single?.type === "connector" && !single.locked && !copyOwner(doc, single) ? (shown.nodes[single.id] as ConnectorNode) : null;
@@ -2094,8 +2158,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     takeOverPreview();
     let last = {
       control: {
-        x: round4((e.clientX - viewportRef.current.getBoundingClientRect().left - view.x) / view.zoom - origin.x),
-        y: round4((e.clientY - viewportRef.current.getBoundingClientRect().top - view.y) / view.zoom - origin.y),
+        x: round4((e.clientX - viewportRef.current.getBoundingClientRect().left - viewStore.get().x) / viewStore.get().zoom - origin.x),
+        y: round4((e.clientY - viewportRef.current.getBoundingClientRect().top - viewStore.get().y) / viewStore.get().zoom - origin.y),
       },
     };
     setPreview({ [id]: last });
@@ -2103,8 +2167,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       const vpr = viewportRef.current!.getBoundingClientRect();
       last = {
         control: {
-          x: round4((ev.clientX - vpr.left - view.x) / view.zoom - origin.x),
-          y: round4((ev.clientY - vpr.top - view.y) / view.zoom - origin.y),
+          x: round4((ev.clientX - vpr.left - viewStore.get().x) / viewStore.get().zoom - origin.x),
+          y: round4((ev.clientY - vpr.top - viewStore.get().y) / viewStore.get().zoom - origin.y),
         },
       };
       setPreview({ [id]: last });
@@ -2174,7 +2238,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   const onResizeDown = (corner: Corner) => (e: RPointerEvent) => {
     e.stopPropagation();
     const node = single;
-    if (!node || !box || !resizable || node.type === "page" || node.type === "group" || node.type === "connector" || node.locked || !isScene(node)) return;
+    if (!node || !selBox || !resizable || node.type === "page" || node.type === "group" || node.type === "connector" || node.locked || !isScene(node)) return;
     const id = node.id;
     const sx = e.clientX;
     const sy = e.clientY;
@@ -2182,8 +2246,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const shownAt = previewRef.current?.[id];
     const x0 = shownAt?.x ?? node.x;
     const y0 = shownAt?.y ?? node.y;
-    const w0 = shownAt?.width ?? (typeof node.width === "number" ? node.width : box.width / view.zoom);
-    const h0 = shownAt?.height ?? (typeof node.height === "number" ? node.height : box.height / view.zoom);
+    const w0 = shownAt?.width ?? (typeof node.width === "number" ? node.width : selBox.width);
+    const h0 = shownAt?.height ?? (typeof node.height === "number" ? node.height : selBox.height);
     const ratio0 = w0 / Math.max(h0, 1e-6);
     const absolute = isAbsolute(doc, node);
     const rot = shownAt?.rotation ?? node.rotation;
@@ -2213,8 +2277,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         setPreview({ [id]: last });
         return;
       }
-      const dx = (clientX - sx) / view.zoom;
-      const dy = (clientY - sy) / view.zoom;
+      const dx = (clientX - sx) / viewStore.get().zoom;
+      const dy = (clientY - sy) / viewStore.get().zoom;
       let left = x0;
       let top = y0;
       let right = x0 + w0;
@@ -2326,8 +2390,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     const held = { alt: e.altKey };
     let lastClient = { x: e.clientX, y: e.clientY };
     const applyAt = (cx: number, cy: number) => {
-      const dx = (cx - sx) / view.zoom;
-      const dy = (cy - sy) / view.zoom;
+      const dx = (cx - sx) / viewStore.get().zoom;
+      const dy = (cy - sy) / viewStore.get().zoom;
       if (Math.hypot(dx, dy) >= 0.5) moved = true;
       const local = worldDeltaToLocal(dx, dy, rot);
       const layout: Layout = { ...baseLayout };
@@ -2389,18 +2453,20 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             }
           : null;
 
+  const indexer = useMemo(() => new RenderIndexer(), []);
+  const index = useMemo(() => indexer.index(shown), [indexer, shown]);
+  const dragSet = useMemo(() => (dragIds ? new Set(dragIds) : null), [dragIds]);
+  const uiValue: RenderUi = { preview, touched: agentTouched, pen, wasm: wasmLayer.active, wasmIds: wasmLayer.painted, edit: editView, textEdit, dragIds: dragSet };
+  const uiStore = useRef<UiStore | null>(null);
+  if (!uiStore.current) uiStore.current = new UiStore(uiValue);
+  else uiStore.current.value = uiValue;
+  useLayoutEffect(() => uiStore.current!.notify());
   const rootNodes = roots.map((id) => doc.nodes[id]).filter((n): n is Node => !!n);
   const marqueeRect = marquee && {
     left: Math.min(marquee.x0, marquee.x1),
     top: Math.min(marquee.y0, marquee.y1),
     width: Math.abs(marquee.x1 - marquee.x0),
     height: Math.abs(marquee.y1 - marquee.y0),
-  };
-  const draftRect = draft && {
-    left: draft.originLeft + Math.min(draft.x0, draft.x1) * view.zoom,
-    top: draft.originTop + Math.min(draft.y0, draft.y1) * view.zoom,
-    width: Math.abs(draft.x1 - draft.x0) * view.zoom,
-    height: Math.abs(draft.y1 - draft.y0) * view.zoom,
   };
 
   const onFileDragOver = (e: RDragEvent) => {
@@ -2459,6 +2525,8 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
   };
 
   return (
+    <ViewStoreContext.Provider value={viewStore}>
+    <UiContext.Provider value={uiStore.current}>
     <div
       ref={viewportRef}
       className={cx(
@@ -2536,26 +2604,11 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
       <div
         ref={worldRef}
         className={cx("world absolute top-0 left-0 origin-top-left [&_[data-paprika-id]]:select-none", dragIds && "is-node-dragging")}
-        style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}
         data-dragging={dragIds?.join(",") || undefined}
         data-wasm-active={wasmLayer.active ? "1" : "0"}
       >
         {rootNodes.map((n) => (
-          <RenderNode
-            key={n.id}
-            doc={shown}
-            node={shown.nodes[n.id] ?? n}
-            preview={preview}
-            touched={agentTouched}
-            pen={pen}
-            zoom={view.zoom}
-            wasm={wasmLayer.active}
-            wasmIds={wasmLayer.painted}
-            edit={editView}
-            textEdit={textEdit}
-            dragging={!!dragIds?.includes(n.id)}
-            dragIds={dragIds ? new Set(dragIds) : undefined}
-          />
+          <RenderNode key={n.id} doc={index.doc} node={index.doc.nodes[n.id] ?? n} ver={index.vers.get(n.id) ?? 0} envVer={index.envVer} vers={index.vers} />
         ))}
         {curveHandle && (
           <div
@@ -2585,16 +2638,19 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             })}
           </>
         )}
-        {pen && pen.parentId === null && <PenOverlay pen={pen} zoom={view.zoom} />}
+        <PenSlot id={null} />
       </div>
-      <AgentCursors doc={doc} view={view} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} onFocus={focusBox} />
+      <AgentCursors doc={doc} viewportRef={viewportRef} layoutKey={preview} pageId={pageId} onOpenPage={onOpenPage} onFocus={focusBox} />
       <BuildCode />
-      <PinLayer doc={doc} view={view} viewportRef={viewportRef} pageId={pageId} active={tool === "pin"} onToolDone={onToolDone} layoutKey={preview} onFocus={focusBox} onOpenPage={onOpenPage} onError={onError} />
+      <PinLayer doc={doc} viewportRef={viewportRef} pageId={pageId} active={tool === "pin"} onToolDone={onToolDone} layoutKey={preview} onFocus={focusBox} onOpenPage={onOpenPage} onError={onError} />
+      <WithView>
+        {(view) => (
+          <>
       {frameLabels.map((l) => (
         <Hint key={l.id} label={renaming === l.id ? undefined : "Duplo clique para renomear"}>
           <div
             className={cx("absolute cursor-default text-xs whitespace-nowrap", selected.includes(l.id) ? "text-select" : "text-label")}
-            style={{ left: l.left, top: l.top - 20 }}
+            style={{ left: view.x + l.left * view.zoom, top: view.y + l.top * view.zoom - 20 }}
             data-frame-label={l.id}
             onPointerDown={(e) => {
               e.stopPropagation();
@@ -2620,6 +2676,19 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           </div>
         </Hint>
       ))}
+          </>
+        )}
+      </WithView>
+      <WithView>
+        {(view) => {
+          const at = (r: Rect) => ({ left: view.x + r.left * view.zoom, top: view.y + r.top * view.zoom, width: r.width * view.zoom, height: r.height * view.zoom });
+          const toVp = (p: Pt) => ({ x: view.x + p.x * view.zoom, y: view.y + p.y * view.zoom });
+          const box = selBox && at(selBox);
+          const boxes = selBoxes.map((r) => ({ id: r.id, ...at(r) }));
+          const quads = selQuads.map((q) => ({ ...q, corners: q.corners.map(toVp) }));
+          const sole = quads.length === 1 && selected.length === 1 ? quads[0] : undefined;
+          return (
+            <>
       {boxes.map((b) => (
         <div key={b.id} className="pointer-events-none absolute border border-select opacity-70" style={{ left: b.left, top: b.top, width: b.width, height: b.height }} />
       ))}
@@ -2718,7 +2787,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             />
           )}
           <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 rounded-[3px] bg-select px-1.25 py-px text-2xs font-semibold whitespace-nowrap text-select-ink">
-            {Math.round(box.width / view.zoom)} × {Math.round(box.height / view.zoom)}
+            {Math.round(selBox.width)} × {Math.round(selBox.height)}
           </div>
           {resizeLock && (
             <div
@@ -2731,6 +2800,13 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           )}
         </div>
       )}
+            </>
+          );
+        }}
+      </WithView>
+      <WithView>
+        {(view) => (
+          <>
       {spacingModel && (
         <div className="pointer-events-none absolute inset-0" data-testid="spacing-handles">
           {spacingModel.handles.map((h) => {
@@ -2766,6 +2842,19 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           })}
         </div>
       )}
+          </>
+        )}
+      </WithView>
+      <WithView>
+        {(view) => {
+          const draftRect = draft && {
+            left: draft.originLeft + Math.min(draft.x0, draft.x1) * view.zoom,
+            top: draft.originTop + Math.min(draft.y0, draft.y1) * view.zoom,
+            width: Math.abs(draft.x1 - draft.x0) * view.zoom,
+            height: Math.abs(draft.y1 - draft.y0) * view.zoom,
+          };
+          return (
+            <>
       {draft && isDraftTool(tool) && (
         <>
           {draftRect && Math.abs(draft.x1 - draft.x0) >= 4 && Math.abs(draft.y1 - draft.y0) >= 4 && (
@@ -2774,6 +2863,10 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
           <DraftGhost tool={tool} draft={draft} zoom={view.zoom} tokens={doc.tokens} modes={doc.modes} />
         </>
       )}
+            </>
+          );
+        }}
+      </WithView>
       {link && (
         <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" data-testid="link-draft">
           <line className="stroke-select stroke-2 [stroke-dasharray:5_4]" x1={link.x0} y1={link.y0} x2={link.x1} y2={link.y1} />
@@ -2793,7 +2886,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             <Minus size={14} aria-hidden />
           </Button>
         </Hint>
-        <span className="min-w-11 text-center text-ui-muted-foreground">{Math.round(view.zoom * 100)}%</span>
+        <ZoomLabel />
         <Hint label={m.zoomIn}>
           <Button variant="ghost" className={zoomButton} onClick={() => setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))} aria-label={m.zoomIn}>
             <Plus size={14} aria-hidden />
@@ -2845,5 +2938,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
         </Hint>
       </div>
     </div>
+    </UiContext.Provider>
+    </ViewStoreContext.Provider>
   );
 }
