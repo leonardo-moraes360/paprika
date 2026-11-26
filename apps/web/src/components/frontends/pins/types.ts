@@ -68,6 +68,8 @@ export type NewPinFormProps = {
   onCancel: () => void;
   onAttachReference?: () => void;
   onRemoveReference?: (id: string) => void;
+  /** Labels of the submit shortcut shown as hints (for example `["Ctrl", "Enter"]` or `["⌘", "Enter"]`); the owner formats them for the platform. Hidden when absent. */
+  submitShortcut?: readonly string[];
   maxLength?: number;
   defaultAttachRegion?: boolean;
   className?: string;

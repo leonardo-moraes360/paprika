@@ -15,7 +15,7 @@ import { targetLabel } from "./pin-target";
 import type { PinAuthor, PinCardProps } from "./types";
 import { usePinHotkeys } from "./use-pin-hotkeys";
 
-export function PinCard({ pin, now: nowProp, clock, onReply, onSetStatus, onDelete, onShow, onClose, maxLength = 2000, className }: PinCardProps) {
+function PinCardBody({ pin, now: nowProp, clock, onReply, onSetStatus, onDelete, onShow, onClose, maxLength = 2000, className }: PinCardProps) {
   const { t } = useTranslation();
   const now = useNow(nowProp, clock);
   const [draft, setDraft] = useState("");
@@ -86,7 +86,8 @@ export function PinCard({ pin, now: nowProp, clock, onReply, onSetStatus, onDele
           placeholder={t("frontends.pins.replyPlaceholder")}
           value={draft}
           maxLength={maxLength}
-          disabled={reply.pending}
+          readOnly={reply.pending}
+          aria-busy={reply.pending || undefined}
           className="h-9 text-sm"
           onChange={(event) => {
             setDraft(event.target.value);
@@ -100,7 +101,7 @@ export function PinCard({ pin, now: nowProp, clock, onReply, onSetStatus, onDele
           }}
         />
         <div className="flex items-center gap-1.5">
-          <Button size="sm" className="h-7.5" disabled={!draft.trim() || (busy && !reply.pending)} pendingAnnouncement={t("common.working")} onClick={sendReply}>
+          <Button size="sm" className="h-7.5" disabled={!draft.trim() || (busy && !reply.pending)} aria-busy={reply.pending || undefined} pendingAnnouncement={t("common.working")} onClick={sendReply}>
             {t("frontends.pins.reply")}
           </Button>
           {onShow ? (
@@ -143,4 +144,8 @@ export function PinCard({ pin, now: nowProp, clock, onReply, onSetStatus, onDele
       </div>
     </PinBubble>
   );
+}
+
+export function PinCard(props: PinCardProps) {
+  return <PinCardBody key={props.pin.id} {...props} />;
 }

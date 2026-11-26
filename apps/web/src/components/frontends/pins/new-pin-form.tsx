@@ -26,6 +26,7 @@ export function NewPinForm({
   onCancel,
   onAttachReference,
   onRemoveReference,
+  submitShortcut,
   maxLength = 500,
   defaultAttachRegion = true,
   className,
@@ -71,7 +72,8 @@ export function NewPinForm({
           value={text}
           maxLength={maxLength}
           counter={`${text.length}/${maxLength}`}
-          disabled={action.pending}
+          readOnly={action.pending}
+          aria-busy={action.pending || undefined}
           onChange={(event) => {
             setText(event.target.value);
             action.clearError();
@@ -108,13 +110,14 @@ export function NewPinForm({
           </div>
         ) : null}
         <div className="flex items-center gap-1.5 border-t border-line pt-3">
-          <Kbd>Ctrl</Kbd>
-          <Kbd>Enter</Kbd>
+          {submitShortcut?.map((key) => (
+            <Kbd key={key}>{key}</Kbd>
+          ))}
           <span className="flex-1" />
           <Button variant="secondary" size="sm" className="h-7.5" onClick={onCancel}>
             {t("frontends.pins.cancel")}
           </Button>
-          <Button size="sm" className="h-7.5" disabled={!text.trim()} pendingAnnouncement={t("common.working")} onClick={submit}>
+          <Button size="sm" className="h-7.5" disabled={!text.trim()} aria-busy={action.pending || undefined} pendingAnnouncement={t("common.working")} onClick={submit}>
             {t("frontends.pins.send")}
           </Button>
         </div>
