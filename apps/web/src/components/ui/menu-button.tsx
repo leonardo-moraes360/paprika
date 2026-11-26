@@ -8,9 +8,10 @@ export type MenuButtonProps = Omit<ComponentProps<typeof ButtonPrimitive>, "chil
   icon?: ReactNode;
 };
 
-export function MenuButton({ className, children, icon, ...props }: MenuButtonProps) {
+export function MenuButton({ className, children, icon, pendingAnnouncement = "", ...props }: MenuButtonProps) {
   return (
     <ButtonPrimitive
+      pendingAnnouncement={pendingAnnouncement}
       className={slot(
         `group/menu-button inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-field bg-panel pr-2 pl-2.5 text-sm font-semibold whitespace-nowrap text-fg transition-colors motion-reduce:transition-none not-data-pending:not-data-disabled:hover:bg-surface data-open:border-[1.5px] data-open:border-select data-open:bg-select-soft data-open:text-select-soft-fg aria-expanded:border-[1.5px] aria-expanded:border-select aria-expanded:bg-select-soft aria-expanded:text-select-soft-fg forced-colors:data-open:border-2 forced-colors:data-open:border-[Highlight] forced-colors:aria-expanded:border-2 forced-colors:aria-expanded:border-[Highlight] data-disabled:cursor-not-allowed data-disabled:opacity-50 data-pending:cursor-wait [&_svg]:pointer-events-none [&_svg]:shrink-0 ${focusRing}`,
         className,

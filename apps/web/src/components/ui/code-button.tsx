@@ -10,9 +10,10 @@ type CodeButtonBaseProps = Omit<ComponentProps<typeof ButtonPrimitive>, "childre
 export type CodeButtonProps = CodeButtonBaseProps &
   ({ open?: undefined; controls?: undefined } | { open: boolean; controls: string });
 
-export function CodeButton({ className, children, open, controls, ...props }: CodeButtonProps) {
+export function CodeButton({ className, children, open, controls, pendingAnnouncement = "", ...props }: CodeButtonProps) {
   return (
     <ButtonPrimitive
+      pendingAnnouncement={pendingAnnouncement}
       aria-expanded={open}
       aria-controls={controls}
       className={slot(

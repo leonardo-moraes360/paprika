@@ -1,11 +1,12 @@
 import { ChevronRight } from "lucide-react";
-import type { ComponentProps } from "react";
+import { cloneElement, type ComponentProps, type MouseEvent, type ReactElement } from "react";
 import { cn, focusRing } from "@/lib/utils";
 
 export type BreadcrumbItem = {
   label: string;
   href?: string;
-  onSelect?: () => void;
+  render?: ReactElement<ComponentProps<"a">>;
+  onSelect?: (event: MouseEvent) => void;
 };
 
 export type BreadcrumbProps = Omit<ComponentProps<"nav">, "children"> & {
@@ -27,6 +28,8 @@ export function Breadcrumb({ className, label, items, ...props }: BreadcrumbProp
                 <span aria-current="page" className="truncate text-sm font-semibold text-fg">
                   {item.label}
                 </span>
+              ) : item.render ? (
+                cloneElement(item.render, { className: cn(link, "truncate"), children: item.label, onClick: item.onSelect })
               ) : item.href ? (
                 <a href={item.href} onClick={item.onSelect} className={cn(link, "truncate")}>
                   {item.label}

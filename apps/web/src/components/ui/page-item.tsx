@@ -5,8 +5,6 @@ import type { ComponentProps, KeyboardEvent, ReactNode } from "react";
 import { cn, focusRing } from "@/lib/utils";
 import { IconButton } from "./icon-button";
 
-const forcedReveal = "[[data-gallery]_.group\\/page[data-force-hover]_&]:flex";
-
 export type PageItemProps = Omit<ComponentProps<"div">, "children" | "onSelect"> & {
   name: string;
   active?: boolean;
@@ -35,7 +33,7 @@ export function PageItem({
   ...props
 }: PageItemProps) {
   const commit = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") onRename?.(event.currentTarget.value);
+    if (event.key === "Enter" && !event.nativeEvent.isComposing) onRename?.(event.currentTarget.value);
     if (event.key === "Escape") onRenameCancel?.();
   };
   return (
@@ -55,6 +53,7 @@ export function PageItem({
             autoFocus
             aria-label={renameLabel}
             defaultValue={name}
+            onFocus={(event) => event.currentTarget.select()}
             onKeyDown={commit}
             onBlur={(event) => onRename?.(event.currentTarget.value)}
             className="h-[22px] min-w-0 flex-1 rounded-sm border-[1.5px] border-select bg-field-bg px-1.5 text-sm text-fg outline-none forced-colors:border-[Highlight]"
@@ -63,6 +62,7 @@ export function PageItem({
       ) : (
         <>
           <ButtonPrimitive
+            pendingAnnouncement=""
             aria-current={active ? "page" : undefined}
             onClick={onSelect}
             className={`flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md text-left text-sm text-fg ${focusRing} data-disabled:cursor-not-allowed`}
@@ -75,10 +75,7 @@ export function PageItem({
             <IconButton
               aria-label={deleteLabel}
               onClick={onDelete}
-              className={cn(
-                "hidden size-5 group-focus-within/page:flex group-hover/page:flex [&_svg]:size-[11.25px]",
-                forcedReveal,
-              )}
+              className="hidden size-5 group-focus-within/page:flex group-hover/page:flex pointer-coarse:flex [&_svg]:size-[11.25px]"
             >
               <X aria-hidden="true" />
             </IconButton>

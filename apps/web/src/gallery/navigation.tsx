@@ -1,5 +1,3 @@
-import { Popover, PopoverContent, PopoverTrigger } from "@ui-sdk/react/popover";
-import { Menu, MenuContent, MenuItem, MenuTrigger } from "@ui-sdk/react/menu";
 import { Component, Frame, Globe, Image, Network, Plus, Square, Star, Type } from "lucide-react";
 import { useState } from "react";
 import { AgentsTrigger } from "@/components/ui/agents-trigger";
@@ -7,9 +5,11 @@ import { AgentStack } from "@/components/ui/agent-stack";
 import { Avatar } from "@/components/ui/avatar";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { IconButton } from "@/components/ui/icon-button";
-import { LayerRow } from "@/components/ui/layer-row";
+import { LayerRow, LayerTree } from "@/components/ui/layer-row";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import { NavItem } from "@/components/ui/nav-item";
 import { PageItem } from "@/components/ui/page-item";
+import { Popover } from "@/components/ui/popover";
 import { Profile } from "@/components/ui/profile";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -18,11 +18,22 @@ import { Cell, Grid, Specimen, type GalleryMeta } from "./_kit";
 export const meta: GalleryMeta = { title: "Navigation", order: 200 };
 
 const noop = () => undefined;
-const layerLabels = { expandLabel: "Expand", hideLabel: "Hide layer", lockLabel: "Lock layer" };
+const layerLabels = { hideLabel: "Hide layer", lockLabel: "Lock layer" };
+type LayerNode = { value: string; name: string; icon: React.ReactNode; children?: LayerNode[] };
+const layerNodes: LayerNode[] = [
+  {
+    value: "navigation",
+    name: "Navigation",
+    icon: <Component />,
+    children: [
+      { value: "logo", name: "Logo", icon: <Image /> },
+      { value: "links", name: "Links", icon: <Type /> },
+    ],
+  },
+  { value: "content", name: "Content", icon: <Frame /> },
+];
+const photo = `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><rect width="56" height="56" fill="#E23B2E"/><circle cx="28" cy="22" r="10" fill="#FBF4E6"/><rect x="10" y="38" width="36" height="18" rx="9" fill="#FBF4E6"/></svg>')}`;
 const pageLabels = { renameLabel: "Page name", deleteLabel: "Delete page" };
-const popoverClass = "rounded-xl border border-line bg-popover p-3 text-sm text-fg shadow-popover";
-const menuClass = "rounded-lg border border-line bg-popover p-1 text-sm text-fg shadow-popover";
-const itemClass = "rounded-md px-2 py-1 data-highlighted:bg-surface";
 
 function PanelMock({ children }: { children: React.ReactNode }) {
   return <div className="w-60 rounded-lg bg-panel py-1">{children}</div>;
@@ -32,16 +43,17 @@ export default function NavigationSection() {
   const [pagesOpen, setPagesOpen] = useState(true);
   const [active, setActive] = useState("cover");
   const [renaming, setRenaming] = useState(false);
-  const [hidden, setHidden] = useState(false);
-  const [locked, setLocked] = useState(false);
-  const [expanded, setExpanded] = useState(true);
+  const [layer, setLayer] = useState<string | null>("navigation");
+  const [openLayers, setOpenLayers] = useState<string[]>(["navigation"]);
+  const [hiddenLayers, setHiddenLayers] = useState<string[]>([]);
+  const [lockedLayers, setLockedLayers] = useState<string[]>([]);
   const [navExpanded, setNavExpanded] = useState(true);
   return (
     <>
       <Grid>
         <Specimen
           label="Section header"
-          note="36 px high, 10 px left and 8 px right padding, 6 px gap. Panel style: 12/700 muted label in capitals, tracking 0.8. Inspector style: 13/600 ink, muted when closed. 14 px chevron; actions arrive by slot (24 px icon buttons). Click or Enter/Space toggles."
+          note="36 px high, 10 px left and 8 px right padding, 6 px gap. Panel style: 12/700 muted label in capitals, tracking 0.8. Inspector style: 13/600 ink, muted when closed. 14 px chevron; actions arrive by slot (24 px icon buttons). Click or Enter/Space toggles. Without content the header is plain text (no toggle); headingLevel wraps the trigger in a heading."
           className="items-start"
         >
           <PanelMock>
@@ -62,10 +74,17 @@ export default function NavigationSection() {
             <SectionHeader title="Position and size" variant="inspector" defaultOpen>
               <div className="px-2.5 pb-1 text-xs text-muted">Inspector content</div>
             </SectionHeader>
-            <SectionHeader title="Effects" variant="inspector" />
+            <SectionHeader title="Effects" variant="inspector" defaultOpen={false}>
+              <div className="px-2.5 pb-1 text-xs text-muted">Effects content</div>
+            </SectionHeader>
           </PanelMock>
           <PanelMock>
-            <SectionHeader title="LAYERS" defaultOpen={false} />
+            <SectionHeader title="LAYERS" defaultOpen={false}>
+              <div className="px-2 pb-1 text-xs text-muted">Layers content</div>
+            </SectionHeader>
+          </PanelMock>
+          <PanelMock>
+            <SectionHeader title="Static title" variant="inspector" headingLevel={3} />
           </PanelMock>
         </Specimen>
         <Specimen
@@ -143,56 +162,103 @@ export default function NavigationSection() {
         </Specimen>
         <Specimen
           label="Layer row"
-          note="28 px high, radius 6, 8 px left and 10 px right padding, 6 px gap, 14 px indent per depth, 14 px chevron and type icon, 13 name. Selected: soft selection fill and 13/600 soft ink; hidden: muted name with the closed eye always shown; locked: red lock always shown. Eye and lock appear on hover or focus."
+          note="A real tree (@ui-sdk/react/tree): one Tab stop for the whole list, arrows move and expand, aria-selected on the selected row, aria-level and posinset from the tree. 28 px high, radius 6, 8 px left and 6 px right padding, 20 px indent per level, 14 px chevron and type icon, 13 name. Selected: soft selection fill and 13/600 soft ink; hidden: muted name with the closed eye always shown; locked: red lock always shown. Eye and lock are 24 px targets outside the Tab order: click them, or press Ctrl/Cmd+Shift+H and Ctrl/Cmd+Shift+L on the focused row."
           className="items-start"
         >
-          <Cell label="normal, depth 0, open">
+          <Cell label="normal, open">
             <div className="w-60 rounded-lg bg-panel p-1">
-              <LayerRow name="Home" icon={<Frame />} expanded onSelect={noop} {...layerLabels} />
+              <LayerTree aria-label="Layers, normal" defaultExpanded={["home"]}>
+                <LayerRow value="home" name="Home" icon={<Frame />} {...layerLabels}>
+                  <LayerRow value="button" name="Button" icon={<Square />} {...layerLabels} />
+                </LayerRow>
+              </LayerTree>
             </div>
           </Cell>
           <Cell label="hover">
             <div className="w-60 rounded-lg bg-panel p-1">
-              <LayerRow name="Button" icon={<Square />} depth={1} data-force-hover="" onSelect={noop} {...layerLabels} />
+              <LayerTree aria-label="Layers, hover">
+                <LayerRow value="button" name="Button" icon={<Square />} data-force-hover="" {...layerLabels} />
+              </LayerTree>
             </div>
           </Cell>
           <Cell label="selected">
             <div className="w-60 rounded-lg bg-panel p-1">
-              <LayerRow name="Home" icon={<Frame />} expanded selected onSelect={noop} {...layerLabels} />
+              <LayerTree aria-label="Layers, selected" defaultValue="home" defaultExpanded={["home"]}>
+                <LayerRow value="home" name="Home" icon={<Frame />} {...layerLabels}>
+                  <LayerRow value="button" name="Button" icon={<Square />} {...layerLabels} />
+                </LayerRow>
+              </LayerTree>
             </div>
           </Cell>
           <Cell label="hidden">
             <div className="w-60 rounded-lg bg-panel p-1">
-              <LayerRow name="Caption" icon={<Type />} depth={1} hidden {...layerLabels} />
+              <LayerTree aria-label="Layers, hidden">
+                <LayerRow value="caption" name="Caption" icon={<Type />} visible={false} {...layerLabels} />
+              </LayerTree>
+            </div>
+          </Cell>
+          <Cell label="hidden and selected">
+            <div className="w-60 rounded-lg bg-panel p-1">
+              <LayerTree aria-label="Layers, hidden and selected" defaultValue="caption">
+                <LayerRow value="caption" name="Caption" icon={<Type />} visible={false} {...layerLabels} />
+              </LayerTree>
             </div>
           </Cell>
           <Cell label="locked">
             <div className="w-60 rounded-lg bg-panel p-1">
-              <LayerRow name="Footer" icon={<Frame />} expanded={false} locked {...layerLabels} />
+              <LayerTree aria-label="Layers, locked">
+                <LayerRow value="footer" name="Footer" icon={<Frame />} locked {...layerLabels}>
+                  <LayerRow value="legal" name="Legal" icon={<Type />} {...layerLabels} />
+                </LayerRow>
+              </LayerTree>
             </div>
           </Cell>
-          <Cell label="depth 2, closed chevron, image">
+          <Cell label="depth 3, image">
             <div className="w-60 rounded-lg bg-panel p-1">
-              <LayerRow name="Illustration" icon={<Image />} depth={2} expanded={false} {...layerLabels} />
+              <LayerTree aria-label="Layers, depth" defaultExpanded={["page", "hero"]}>
+                <LayerRow value="page" name="Page" icon={<Frame />} {...layerLabels}>
+                  <LayerRow value="hero" name="Hero" icon={<Frame />} {...layerLabels}>
+                    <LayerRow value="illustration" name="Illustration" icon={<Image />} {...layerLabels} />
+                  </LayerRow>
+                </LayerRow>
+              </LayerTree>
             </div>
           </Cell>
-          <Cell label="live">
+          <Cell label="live (controlled)">
             <div className="w-60 rounded-lg bg-panel p-1">
-              <LayerRow
-                name="Navigation"
-                icon={<Component />}
-                expanded={expanded}
-                hidden={hidden}
-                locked={locked}
-                onExpandedChange={setExpanded}
-                onHiddenChange={setHidden}
-                onLockedChange={setLocked}
-                {...layerLabels}
-              />
+              <LayerTree aria-label="Layers, live" value={layer} onValueChange={setLayer} expanded={openLayers} onExpandedChange={setOpenLayers}>
+                {layerNodes.map((node) => (
+                  <LayerRow
+                    key={node.value}
+                    value={node.value}
+                    name={node.name}
+                    icon={node.icon}
+                    visible={!hiddenLayers.includes(node.value)}
+                    locked={lockedLayers.includes(node.value)}
+                    onVisibleChange={(next) => setHiddenLayers((list) => (next ? list.filter((v) => v !== node.value) : [...list, node.value]))}
+                    onLockedChange={(next) => setLockedLayers((list) => (next ? [...list, node.value] : list.filter((v) => v !== node.value)))}
+                    {...layerLabels}
+                  >
+                    {node.children?.map((child) => (
+                      <LayerRow
+                        key={child.value}
+                        value={child.value}
+                        name={child.name}
+                        icon={child.icon}
+                        visible={!hiddenLayers.includes(child.value)}
+                        locked={lockedLayers.includes(child.value)}
+                        onVisibleChange={(next) => setHiddenLayers((list) => (next ? list.filter((v) => v !== child.value) : [...list, child.value]))}
+                        onLockedChange={(next) => setLockedLayers((list) => (next ? [...list, child.value] : list.filter((v) => v !== child.value)))}
+                        {...layerLabels}
+                      />
+                    ))}
+                  </LayerRow>
+                ))}
+              </LayerTree>
             </div>
           </Cell>
         </Specimen>
-        <Specimen label="Breadcrumb" note="24 px high, 13 text, 6 px gap, 14 px chevron separators. The last item is the current page in ink and 600; the ones before it are muted 500 links. One to three levels shown; any number works." className="flex-col items-start">
+        <Specimen label="Breadcrumb" note="24 px high, 13 text, 6 px gap, 14 px chevron separators. The last item is the current page in ink and 600; an item takes href, onSelect (receives the click event) or render, an element the app clones as its link (a router Link, so navigation does not reload); the ones before it are muted 500 links. One to three levels shown; any number works." className="flex-col items-start">
           <Cell label="3 levels">
             <Breadcrumb
               label="Location"
@@ -205,6 +271,15 @@ export default function NavigationSection() {
           </Cell>
           <Cell label="2 levels">
             <Breadcrumb label="Location, two levels" items={[{ label: "Projects", onSelect: noop }, { label: "North Studio" }]} />
+          </Cell>
+          <Cell label="render (client-side link)">
+            <Breadcrumb
+              label="Location, router link"
+              items={[
+                { label: "Projects", render: <a href="#navigation" onClick={(event) => event.preventDefault()} /> },
+                { label: "North Studio" },
+              ]}
+            />
           </Cell>
           <Cell label="1 level">
             <Breadcrumb label="Location, one level" items={[{ label: "Projects" }]} />
@@ -247,7 +322,7 @@ export default function NavigationSection() {
             </div>
           </Cell>
         </Specimen>
-        <Specimen label="Avatar" note="28 px circle, initials 12/700 in the agent ink on the agent fill (the profile uses the select pill pair). Large is 56 px with 24 initials. Falls back to the initials when the image is missing; the full name is read by screen readers." className="items-end">
+        <Specimen label="Avatar" note="28 px circle, initials 12/700 in the agent ink on the agent fill (the profile uses the select pill pair). Large is 56 px with 24 initials. Falls back to the initials when the image is missing; the full name is read by screen readers, from the photo alt text or the hidden label. Without a label the avatar is hidden from them." className="items-end">
           <Cell label="select pill">
             <Avatar initials="LM" label="Leonardo M." tone="select-pill" />
           </Cell>
@@ -266,6 +341,12 @@ export default function NavigationSection() {
           <Cell label="large">
             <Avatar initials="LM" label="Leonardo M." tone="select-pill" size="lg" />
           </Cell>
+          <Cell label="with photo">
+            <Avatar initials="AM" label="Ana M." src={photo} tone="agent-3" />
+          </Cell>
+          <Cell label="decorative (no label)">
+            <Avatar initials="LM" tone="select-pill" />
+          </Cell>
         </Specimen>
         <Specimen label="Agent stack" note="50 × 16 box with 14 px dots overlapping every 9 px, a 1.5 px panel ring, each in its agent colour, the first on top. Above five agents it becomes a 50 × 16 pill with the bot icon and the total." className="items-end">
           {[1, 2, 3, 4, 5, 8].map((count) => (
@@ -276,51 +357,46 @@ export default function NavigationSection() {
         </Specimen>
         <Specimen label="Agents trigger" note="28 px pill on the surface, 8 px gap, the stack, a 13/600 label and a 14 px chevron. Open (popover) is the soft selection with a 1.5 px select border. Live: opens the agents popover.">
           <Cell label="closed">
-            <AgentsTrigger stack={<AgentStack count={3} label="3 agents" />} label="3 active" />
+            <AgentsTrigger stack={<AgentStack count={3} />} label="3 active" />
           </Cell>
           <Cell label="open">
-            <AgentsTrigger data-open="" aria-expanded stack={<AgentStack count={3} label="3 agents" />} label="3 active" />
+            <AgentsTrigger data-open="" aria-expanded stack={<AgentStack count={3} />} label="3 active" />
           </Cell>
           <Cell label="hover">
-            <AgentsTrigger data-force-hover="" stack={<AgentStack count={3} label="3 agents" />} label="3 active" />
+            <AgentsTrigger data-force-hover="" stack={<AgentStack count={3} />} label="3 active" />
           </Cell>
           <Cell label="focus">
-            <AgentsTrigger data-force-focus="" stack={<AgentStack count={3} label="3 agents" />} label="3 active" />
+            <AgentsTrigger data-force-focus="" stack={<AgentStack count={3} />} label="3 active" />
           </Cell>
           <Cell label="live">
-            <Popover>
-              <PopoverTrigger render={<AgentsTrigger stack={<AgentStack count={3} label="3 agents" />} label="3 active" />} />
-              <PopoverContent className={popoverClass}>Agents in the workspace</PopoverContent>
+            <Popover trigger={<AgentsTrigger stack={<AgentStack count={3} />} label="3 active" />}>
+              Agents in the workspace
             </Popover>
           </Cell>
         </Specimen>
         <Specimen label="Profile" note="48 px high, radius 8, 8 px left and 10 px right padding, 10 px gap: avatar, name 13/600 over detail 12 muted, 16 px up-down chevron. Open (menu) fills the surface." className="items-start">
           <Cell label="normal">
             <div className="w-60">
-              <Profile name="Leonardo" detail="North Studio" avatar={<Avatar initials="LM" label="" tone="select-pill" aria-hidden="true" />} />
+              <Profile name="Leonardo" detail="North Studio" avatar={<Avatar initials="LM" tone="select-pill" />} />
             </div>
           </Cell>
           <Cell label="open">
             <div className="w-60">
-              <Profile name="Leonardo" detail="North Studio" data-open="" aria-expanded avatar={<Avatar initials="LM" label="" tone="select-pill" aria-hidden="true" />} />
+              <Profile name="Leonardo" detail="North Studio" data-open="" aria-expanded avatar={<Avatar initials="LM" tone="select-pill" />} />
             </div>
           </Cell>
           <Cell label="focus">
             <div className="w-60">
-              <Profile name="Leonardo" detail="North Studio" data-force-focus="" avatar={<Avatar initials="LM" label="" tone="select-pill" aria-hidden="true" />} />
+              <Profile name="Leonardo" detail="North Studio" data-force-focus="" avatar={<Avatar initials="LM" tone="select-pill" />} />
             </div>
           </Cell>
           <Cell label="live">
             <div className="w-60">
-              <Menu>
-                <MenuTrigger render={<Profile name="Leonardo" detail="North Studio" avatar={<Avatar initials="LM" label="" tone="select-pill" aria-hidden="true" />} />} />
-                <MenuContent className={menuClass}>
-                  <MenuItem value="profile" className={itemClass}>
-                    Profile
-                  </MenuItem>
-                  <MenuItem value="settings" className={itemClass}>
-                    Settings
-                  </MenuItem>
+              <Menu pendingAnnouncement="Working">
+                <MenuTrigger render={<Profile name="Leonardo" detail="North Studio" avatar={<Avatar initials="LM" tone="select-pill" />} />} />
+                <MenuContent>
+                  <MenuItem value="profile">Profile</MenuItem>
+                  <MenuItem value="settings">Settings</MenuItem>
                 </MenuContent>
               </Menu>
             </div>

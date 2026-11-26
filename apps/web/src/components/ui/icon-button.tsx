@@ -20,6 +20,6 @@ export type IconButtonProps = Omit<ComponentProps<typeof ButtonPrimitive>, "aria
   bordered?: boolean;
 };
 
-export function IconButton({ className, size = "md", bordered = false, ...props }: IconButtonProps) {
-  return <ButtonPrimitive className={slot(iconButtonClasses(size, bordered), className)} {...props} />;
+export function IconButton({ className, size = "md", bordered = false, pendingAnnouncement = "", ...props }: IconButtonProps) {
+  return <ButtonPrimitive pendingAnnouncement={pendingAnnouncement} className={slot(iconButtonClasses(size, bordered), className)} {...props} />;
 }
