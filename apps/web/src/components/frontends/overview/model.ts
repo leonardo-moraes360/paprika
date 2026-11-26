@@ -1,3 +1,4 @@
+import { relativeParts } from "@/lib/relative-time";
 import type { OverviewView, WorkspaceEntry } from "./types";
 
 export const workspacesView: OverviewView = { kind: "workspaces" };
@@ -17,15 +18,13 @@ export function filterWorkspaces(workspaces: readonly WorkspaceEntry[], view: Ov
   });
 }
 
+const units = { seconds: "second", minutes: "minute", hours: "hour", days: "day" } as const;
+
 export function relativeTime(at: number, locale: string, nowLabel: string, now: number): string {
-  const seconds = Math.round((at - now) / 1000);
-  const abs = Math.abs(seconds);
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  if (abs < 45) return nowLabel;
-  if (abs < 3600) return rtf.format(Math.round(seconds / 60), "minute");
-  if (abs < 86_400) return rtf.format(Math.round(seconds / 3600), "hour");
-  if (abs < 30 * 86_400) return rtf.format(Math.round(seconds / 86_400), "day");
-  return new Date(at).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
+  const { unit, count } = relativeParts(at, now, 45);
+  if (unit === "now") return nowLabel;
+  if (unit === "days" && count >= 30) return new Date(at).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
+  return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-count, units[unit]);
 }
 
 export function errorText(error: unknown): string {

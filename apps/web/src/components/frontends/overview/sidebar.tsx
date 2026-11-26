@@ -1,3 +1,4 @@
+import { useFormatForDisplay } from "@tanstack/react-hotkeys";
 import { Archive, Briefcase, Globe, Layers, Network, Plus, Upload } from "lucide-react";
 import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -42,6 +43,7 @@ export function Sidebar({
   onOpenProfile,
 }: SidebarProps) {
   const { t } = useTranslation();
+  const formatForDisplay = useFormatForDisplay();
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(view.kind === "project" ? [view.id] : []));
   const live = workspaces.filter((workspace) => workspace.archived !== true);
   const archivedCount = workspaces.length - live.length;
@@ -60,7 +62,7 @@ export function Sidebar({
           ref={searchRef}
           aria-label={t("frontends.overview.sidebar.search")}
           placeholder={t("frontends.overview.sidebar.search")}
-          shortcut={t("frontends.overview.sidebar.searchShortcut")}
+          shortcut={formatForDisplay("Mod+K")}
           clearLabel={t("frontends.overview.sidebar.clearSearch")}
           value={query}
           onValueChange={onQueryChange}

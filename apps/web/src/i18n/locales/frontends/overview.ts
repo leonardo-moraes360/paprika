@@ -17,7 +17,6 @@ export const overviewEn = {
   sidebar: {
     label: "Workspace menu",
     search: "Search workspaces",
-    searchShortcut: "Ctrl K",
     clearSearch: "Clear search",
     workspaces: "Workspaces",
     archived: "Archived",
@@ -100,7 +99,6 @@ export const overviewPtBR = {
   sidebar: {
     label: "Menu de workspaces",
     search: "Buscar workspaces",
-    searchShortcut: "Ctrl K",
     clearSearch: "Limpar busca",
     workspaces: "Workspaces",
     archived: "Arquivados",

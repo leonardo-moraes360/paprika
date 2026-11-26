@@ -443,6 +443,53 @@ describe("Overview", () => {
     expect(aside.className).not.toMatch(/border-[rl]\b/);
   });
 
+  it("labels the heading with a unique id per instance and shows the platform search shortcut", () => {
+    render(
+      <>
+        <Overview workspaces={workspaces} now={NOW} {...handlers()} />
+        <Overview workspaces={workspaces} now={NOW} {...handlers()} />
+      </>,
+    );
+    const ids = screen.getAllByRole("heading", { level: 1 }).map((h) => h.id);
+    expect(ids[0]).not.toBe("");
+    expect(new Set(ids).size).toBe(2);
+    const mains = screen.getAllByRole("main");
+    expect(mains.map((m) => m.getAttribute("aria-labelledby"))).toEqual(ids);
+    expect(screen.getAllByText(/^Ctrl\+K$|^⌘K$/).length).toBeGreaterThan(0);
+  });
+
+  it("refreshes the relative time while it stays mounted", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(NOW);
+      const list: WorkspaceEntry[] = [{ id: "a", name: "Live", nodes: 2, updatedAt: NOW }];
+      render(<Overview workspaces={list} {...handlers()} />);
+      expect(screen.getByText("2 nodes · now")).toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(5 * 60_000);
+      });
+      expect(screen.getByText("2 nodes · 5 minutes ago")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not steal focus later when onDelete resolved but the workspace stayed", async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn(() => Promise.resolve());
+    const view = render(<Overview workspaces={workspaces} now={NOW} {...handlers()} confirmDeleteByName={false} onDelete={onDelete} />);
+    openButton("Site and docs").focus();
+    await user.keyboard("{Delete}");
+    await user.click(screen.getByRole("button", { name: "Delete workspace" }));
+    await waitFor(() => expect(onDelete).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    const search = screen.getByRole("searchbox", { name: "Search workspaces" });
+    search.focus();
+    view.rerender(<Overview workspaces={workspaces.filter((w) => w.id !== "w2")} now={NOW} {...handlers()} confirmDeleteByName={false} onDelete={onDelete} />);
+    expect(search).toHaveFocus();
+  });
+
   it("renders on the server", () => {
     expect(renderToString(<Overview workspaces={workspaces} now={NOW} {...handlers()} />)).toContain("Workspaces");
   });
