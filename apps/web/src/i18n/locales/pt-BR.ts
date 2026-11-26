@@ -11,6 +11,10 @@ import { layersPanelPtBR } from "./frontends/layersPanel";
 import { editorHeaderPtBR } from "./frontends/editorHeader";
 import { fontPickerPtBR } from "./frontends/fontPicker";
 import { propertiesPanelPtBR } from "./frontends/propertiesPanel";
+import { overviewPtBR } from "./frontends/overview";
+import { importDialogPtBR } from "./frontends/importDialog";
+import { exportDialogPtBR } from "./frontends/exportDialog";
+import { canvasErrorPtBR } from "./frontends/canvasError";
 
 export const ptBR: Translation = {
   home: {
@@ -81,5 +85,9 @@ export const ptBR: Translation = {
     layersPanel: layersPanelPtBR,
     toolbar: toolbarPtBR,
     zoomBar: zoomBarPtBR,
+    importDialog: importDialogPtBR,
+    exportDialog: exportDialogPtBR,
+    canvasError: canvasErrorPtBR,
+    overview: overviewPtBR,
   },
 };

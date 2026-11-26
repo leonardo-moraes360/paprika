@@ -11,6 +11,11 @@ import { historyPanelEn } from "./frontends/historyPanel";
 import { teamEn } from "./frontends/team";
 import { agentsEn } from "./frontends/agents";
 import { pinsEn } from "./frontends/pins";
+import { overviewEn } from "./frontends/overview";
+import { importDialogEn } from "./frontends/importDialog";
+import { exportDialogEn } from "./frontends/exportDialog";
+import { canvasErrorEn } from "./frontends/canvasError";
+
 export const en = {
   home: {
     title: "Paprika",
@@ -80,5 +85,9 @@ export const en = {
     layersPanel: layersPanelEn,
     toolbar: toolbarEn,
     zoomBar: zoomBarEn,
+    importDialog: importDialogEn,
+    exportDialog: exportDialogEn,
+    canvasError: canvasErrorEn,
+    overview: overviewEn,
   },
 } as const;
