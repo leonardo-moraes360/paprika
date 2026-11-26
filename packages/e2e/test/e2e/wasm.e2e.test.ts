@@ -199,6 +199,54 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     expect(errors).toEqual([]);
   });
 
+  it("forma convertida em frame (rect e elipse redonda) desenha igual antes e depois, no DOM e no WASM", async () => {
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        nodes: [
+          {
+            type: "frame",
+            id: "conv-stage",
+            x: 240,
+            y: 590,
+            width: 440,
+            height: 150,
+            fill: "#ffffff",
+            children: [
+              { type: "rect", id: "conv-rect", x: 20, y: 30, width: 220, height: 90, radius: 14, fill: "#cc3322", stroke: { color: "#1e1b4b", width: 3 }, shadow: { x: 0, y: 3, blur: 6, color: "#00000055" } },
+              { type: "text", id: "conv-text", text: "Começar", x: 50, y: 60, color: "#ffffff", fontSize: 22, fontWeight: 700 },
+              { type: "ellipse", id: "conv-circle", x: 280, y: 15, width: 120, height: 120, fill: "#fbbf24", stroke: { color: "#111111", width: 4 } },
+              { type: "path", id: "conv-icon", d: "M12 2L15 9L22 9L16 14L18 21L12 17L6 21L8 14L2 9L9 9Z", x: 328, y: 63, width: 24, height: 24, fill: "#111111" },
+            ],
+          },
+        ],
+      },
+    });
+    const view = async (renderer: "dom" | "wasm") => {
+      await open(renderer);
+      await page.waitForSelector('[data-paprika-id="conv-circle"]');
+      return shot();
+    };
+    const domBefore = await view("dom");
+    const wasmBefore = await view("wasm");
+    await agent.callTool({
+      name: "apply_ops",
+      arguments: {
+        ops: [
+          { op: "convert_to_frame", id: "conv-rect", adopt: ["conv-text"] },
+          { op: "convert_to_frame", id: "conv-circle", adopt: ["conv-icon"] },
+        ],
+      },
+    });
+    const domAfter = await view("dom");
+    const wasmAfter = await view("wasm");
+    await agent.callTool({ name: "delete_nodes", arguments: { ids: ["conv-stage"] } });
+    expect(await diffRatio(page, domBefore, domAfter, 8)).toBeLessThan(0.0005);
+    expect(await diffRatio(page, wasmBefore, wasmAfter)).toBeLessThan(0.005);
+    expect(await diffRatio(page, domAfter, wasmAfter)).toBeLessThan(0.005);
+    expect(errors).toEqual([]);
+  });
+
   it("render_screenshot renderer wasm captura o que a camada WASM pinta", async () => {
     await open("dom");
     const dom = await page.locator('[data-paprika-id="board"]').screenshot();

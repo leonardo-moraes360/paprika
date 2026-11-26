@@ -2614,8 +2614,12 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
             };
           })()}
           center={(() => {
-            const picked = selected.filter((id) => contentTarget(doc, doc.nodes[id])?.kind === "frame");
-            const targets = picked.length ? picked : layerMenu.ids.filter((id) => contentTarget(doc, doc.nodes[id])?.kind === "frame").slice(0, 1);
+            const centerable = (id: string) => {
+              const kind = contentTarget(doc, doc.nodes[id])?.kind;
+              return kind === "frame" || kind === "shape";
+            };
+            const picked = selected.filter(centerable);
+            const targets = picked.length ? picked : layerMenu.ids.filter(centerable).slice(0, 1);
             if (!targets.length) return undefined;
             const { ops, centered } = centerContentOps(doc, targets);
             return {

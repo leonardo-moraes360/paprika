@@ -32,7 +32,7 @@ function scene(layout?: Partial<Layout>): Document {
     },
     { op: "create", node: { type: "rect", id: "r", width: 100, height: 50 } },
     { op: "create", node: { type: "ellipse", id: "e", width: 60, height: 60 } },
-    { op: "create", node: { type: "frame", id: "empty", width: 50, height: 50 } },
+    { op: "create", node: { type: "frame", id: "empty", x: 300, y: 300, width: 50, height: 50 } },
   ]);
 }
 
