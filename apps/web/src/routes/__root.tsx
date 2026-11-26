@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
 
 export const Route = createRootRoute({
@@ -14,6 +16,10 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+  const { i18n } = useTranslation();
+  useEffect(() => {
+    document.documentElement.lang = i18n.resolvedLanguage ?? "en";
+  }, [i18n.resolvedLanguage]);
   return (
     <RootDocument>
       <Outlet />
