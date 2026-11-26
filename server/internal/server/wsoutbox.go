@@ -10,11 +10,14 @@ var (
 	wsBacklogMessages = 4096
 	wsBacklogBytes    = 16 << 20
 	wsInitialWait     = 150 * time.Millisecond
+	wsDeltaMessages   = 256
+	wsDeltaBytes      = 2 << 20
 )
 
 type outItem struct {
 	s       string
 	doc     bool
+	delta   bool
 	id      string
 	version int64
 }
@@ -27,8 +30,12 @@ type outbox struct {
 	closed     bool
 	pending    int
 	bytes      int
+	dpending   int
+	dbytes     int
 	lastID     string
 	lastVer    int64
+	snapID     string
+	snapVer    int64
 	wake       chan struct{}
 	onOverflow func()
 }
@@ -97,6 +104,8 @@ func (o *outbox) pushDoc(s, id string, version int64) {
 		return
 	}
 	o.lastID, o.lastVer = id, version
+	o.snapID, o.snapVer = id, version
+	o.dropDeltasLocked(id, version)
 	it := outItem{s: s, doc: true, id: id, version: version}
 	if o.docAt >= 0 {
 		o.items[o.docAt] = it
@@ -106,6 +115,59 @@ func (o *outbox) pushDoc(s, id string, version int64) {
 	}
 	o.mu.Unlock()
 	o.signal()
+}
+
+func (o *outbox) hasDoc(id string, version int64) bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.snapID == id && o.snapVer == version
+}
+
+func (o *outbox) dropDeltasLocked(id string, version int64) {
+	if o.dpending == 0 {
+		return
+	}
+	kept := o.items[:0]
+	docAt := -1
+	for i, it := range o.items {
+		if it.delta && (it.id != id || it.version <= version) {
+			o.dpending--
+			o.dbytes -= len(it.s)
+			continue
+		}
+		if i == o.docAt {
+			docAt = len(kept)
+		}
+		kept = append(kept, it)
+	}
+	for i := len(kept); i < len(o.items); i++ {
+		o.items[i] = outItem{}
+	}
+	o.items = kept
+	o.docAt = docAt
+}
+
+func (o *outbox) pushDelta(s, id string, base, version int64) bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if o.closed {
+		return true
+	}
+	if o.lastID == id && version <= o.lastVer {
+		return true
+	}
+	if o.lastID == id && base != o.lastVer {
+		return false
+	}
+	if o.dpending+1 > wsDeltaMessages || o.dbytes+len(s) > wsDeltaBytes {
+		return false
+	}
+	o.lastID, o.lastVer = id, version
+	o.items = append(o.items, outItem{s: s, delta: true, id: id, version: version})
+	o.dpending++
+	o.dbytes += len(s)
+	o.signal()
+	return true
 }
 
 func (o *outbox) next(ctx context.Context) (string, bool) {
@@ -121,6 +183,12 @@ func (o *outbox) next(ctx context.Context) (string, bool) {
 			o.items = o.items[1:]
 			if it.doc {
 				o.docAt = -1
+			} else if it.delta {
+				o.dpending--
+				o.dbytes -= len(it.s)
+				if o.docAt >= 0 {
+					o.docAt--
+				}
 			} else {
 				o.pending--
 				o.bytes -= len(it.s)
@@ -161,13 +229,26 @@ func (h *wsHub) broadcast(msg string) {
 	}
 }
 
-func (h *wsHub) broadcastDoc(match func(view string) bool, build func() (msg, id string, version int64)) {
+func (h *wsHub) broadcastEvent(match func(view string) bool, e ChangeEvent, undoRedo func() (bool, bool), snapshot func() string) {
 	ts := h.targets(match)
 	if len(ts) == 0 {
 		return
 	}
-	msg, id, version := build()
+	var delta, snap string
+	snapshotOnce := func() string {
+		if snap == "" {
+			snap = snapshot()
+		}
+		return snap
+	}
+	if e.Delta != nil {
+		cu, cr := undoRedo()
+		delta = deltaMessage(e, cu, cr)
+	}
 	for _, ob := range ts {
-		ob.pushDoc(msg, id, version)
+		if delta != "" && ob.pushDelta(delta, e.DocID, e.Base, e.Version) {
+			continue
+		}
+		ob.pushDoc(snapshotOnce(), e.DocID, e.Version)
 	}
 }

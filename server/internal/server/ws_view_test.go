@@ -49,7 +49,12 @@ func TestWebSocketViewDoesNotChangeActive(t *testing.T) {
 		t.Fatalf("no %s message", typ)
 		return nil
 	}
-	docID := func(m *jsonv.Object) string { return m.Obj("doc").Str("id") }
+	docID := func(m *jsonv.Object) string {
+		if m.Str("type") == "delta" {
+			return m.Str("id")
+		}
+		return m.Obj("doc").Str("id")
+	}
 	has := func(id, node string) bool {
 		t.Helper()
 		h, err := s.ReadWorkspace(id)
@@ -77,7 +82,7 @@ func TestWebSocketViewDoesNotChangeActive(t *testing.T) {
 	}
 
 	viewer.Write(ctx, websocket.MessageText, []byte(`{"type":"ops","reqId":"r1","label":"criar","ops":[{"op":"create","node":{"type":"rect","id":"so-no-outro"}}]}`))
-	if m := next(viewer, "doc"); docID(m) != other.ID || m.Str("actor") != "user" {
+	if m := next(viewer, "delta"); docID(m) != other.ID || m.Str("actor") != "user" {
 		t.Fatalf("edit echo: %s", jsonv.Stringify(m, ""))
 	}
 	next(viewer, "ack")
@@ -92,12 +97,12 @@ func TestWebSocketViewDoesNotChangeActive(t *testing.T) {
 	if _, err := s.Apply([]any{op}, "agent:x", "agente"); err != nil {
 		t.Fatal(err)
 	}
-	if m := next(follower, "doc"); docID(m) != activeID {
+	if m := next(follower, "delta"); docID(m) != activeID {
 		t.Fatalf("follower got %s", docID(m))
 	}
 
 	viewer.Write(ctx, websocket.MessageText, []byte(`{"type":"undo","reqId":"u1"}`))
-	if m := next(viewer, "doc"); docID(m) != other.ID || m.Str("kind") != "undo" {
+	if m := next(viewer, "delta"); docID(m) != other.ID || m.Str("kind") != "undo" {
 		t.Fatalf("undo echo: %s", jsonv.Stringify(m, ""))
 	}
 	if has(other.ID, "so-no-outro") {

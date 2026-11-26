@@ -561,3 +561,49 @@ func TypeName(v any, present bool) string {
 	}
 	return "object"
 }
+
+func Equal(a, b any) bool {
+	switch x := a.(type) {
+	case *Object:
+		y, ok := b.(*Object)
+		if !ok {
+			return false
+		}
+		if x == y {
+			return true
+		}
+		if x.Len() != y.Len() {
+			return false
+		}
+		for i, k := range x.keys {
+			if y.keys[i] != k || !Equal(x.m[k], y.m[k]) {
+				return false
+			}
+		}
+		return true
+	case []any:
+		y, ok := b.([]any)
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for i := range x {
+			if !Equal(x[i], y[i]) {
+				return false
+			}
+		}
+		return true
+	case string:
+		y, ok := b.(string)
+		return ok && x == y
+	case float64:
+		y, ok := b.(float64)
+		return ok && (x == y || (x != x && y != y))
+	case bool:
+		y, ok := b.(bool)
+		return ok && x == y
+	case nil:
+		return b == nil
+	default:
+		return Stringify(a, "") == Stringify(b, "")
+	}
+}
