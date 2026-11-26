@@ -143,6 +143,17 @@ func init() {
 			z.Field{Name: "op", Schema: z.Literal("convert_to_path")},
 			z.Field{Name: "ids", Schema: z.Array(z.String()).Min(1).Max(500)},
 		)),
+		z.Option("convert_to_frame", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("convert_to_frame")},
+			z.Field{Name: "id", Schema: z.String()},
+			z.Field{Name: "adopt", Schema: z.Optional(z.Array(z.String()).Max(500))},
+		)),
+		z.Option("convert_to_shape", z.Object(
+			z.Field{Name: "op", Schema: z.Literal("convert_to_shape")},
+			z.Field{Name: "id", Schema: z.String()},
+			z.Field{Name: "shape", Schema: z.Enum("rect", "ellipse")},
+			z.Field{Name: "radius", Schema: z.Optional(z.Union(z.Number(), z.String()))},
+		)),
 		z.Option("set_assets", z.Object(
 			z.Field{Name: "op", Schema: z.Literal("set_assets")},
 			z.Field{Name: "assets", Schema: z.Record(AssetNameSchema, z.Nullable(AssetSrcSchema))},
@@ -1078,6 +1089,12 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		prev := doc.Str("name")
 		doc.Set("name", op.Str("name"))
 		return jsonv.NewObject("op", "rename_document", "name", prev), nil
+
+	case "convert_to_frame":
+		return convertToFrame(doc, op, i, created)
+
+	case "convert_to_shape":
+		return convertToShape(doc, op, i)
 
 	case "group", "ungroup", "add_page", "detach", "combine_paths", "align", "distribute", "wrap", "reveal", "convert_to_path":
 		var plan []any

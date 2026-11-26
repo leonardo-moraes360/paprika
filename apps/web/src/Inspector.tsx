@@ -194,8 +194,10 @@ function ContentSection({ doc, node, apply }: { doc: Document; node: Node; apply
   const target = contentTarget(doc, node);
   if (!target) return null;
   const frame = target.kind === "frame" ? target.frame : null;
+  const live = target.kind === "frame" || target.kind === "shape";
   const axes = frame ? contentAxes(frame) : { horizontal: null, vertical: null };
   const centered = frame ? isContentCentered(frame) : false;
+  const nodeId = node.id;
   const horizontal: IconToggleItem<HorizontalAlign>[] = [
     { value: "left", label: m.contentLeft, icon: AlignStartVertical },
     { value: "center", label: m.contentCenterH, icon: AlignCenterVertical },
@@ -207,8 +209,8 @@ function ContentSection({ doc, node, apply }: { doc: Document; node: Node; apply
     { value: "bottom", label: m.contentBottom, icon: AlignEndHorizontal },
   ];
   let summary = "";
-  if (frame) {
-    const s = contentSummary(doc, frame);
+  if (live) {
+    const s = target.kind === "shape" ? contentSummary(doc, target.adopt, target.shape) : contentSummary(doc, target.frame);
     const state = centered ? "centered" : axes.horizontal || axes.vertical ? "aligned" : "manual";
     summary = s.only
       ? m.contentOne(m.contentKind(s.only.kind, 1), s.only.label, m.contentState(state, s.only.x, s.only.y))
@@ -224,7 +226,7 @@ function ContentSection({ doc, node, apply }: { doc: Document; node: Node; apply
   return (
     <InspectorSection id="content" title={m.contentSection} defaultOpen>
       <div className="grid gap-2" data-testid="content-section">
-        {frame && (
+        {live && (
           <p className={cn(ui.muted, "m-0 text-xs")} data-testid="content-summary">
             {summary}
           </p>
@@ -236,9 +238,9 @@ function ContentSection({ doc, node, apply }: { doc: Document; node: Node; apply
               label={m.contentHorizontal}
               items={horizontal}
               value={axes.horizontal}
-              disabled={!frame}
+              disabled={!live}
               testId="content-horizontal"
-              onValueChange={(v) => frame && apply(alignContentOps(doc, frame.id, { horizontal: v }), m.contentAlignLabel)}
+              onValueChange={(v) => live && apply(alignContentOps(doc, nodeId, { horizontal: v }), m.contentAlignLabel)}
             />
           </div>
           <div className="grid gap-1">
@@ -247,13 +249,13 @@ function ContentSection({ doc, node, apply }: { doc: Document; node: Node; apply
               label={m.contentVertical}
               items={vertical}
               value={axes.vertical}
-              disabled={!frame}
+              disabled={!live}
               testId="content-vertical"
-              onValueChange={(v) => frame && apply(alignContentOps(doc, frame.id, { vertical: v }), m.contentAlignLabel)}
+              onValueChange={(v) => live && apply(alignContentOps(doc, nodeId, { vertical: v }), m.contentAlignLabel)}
             />
           </div>
         </div>
-        {frame ? (
+        {live ? (
           <div className="flex items-center justify-between gap-2">
             <Button
               type="button"
@@ -262,7 +264,7 @@ function ContentSection({ doc, node, apply }: { doc: Document; node: Node; apply
               className="focus-visible:outline-solid"
               data-testid="content-center"
               onClick={() => {
-                if (!centered) apply(centerContentOps(doc, [frame.id]).ops, m.contentCenterLabel);
+                if (!centered) apply(centerContentOps(doc, [nodeId]).ops, m.contentCenterLabel);
               }}
             >
               {m.contentCenterButton}

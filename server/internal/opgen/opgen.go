@@ -210,7 +210,7 @@ func Ops(rng *rand.Rand, doc *jsonv.Object, serial *int) []any {
 		func() *jsonv.Object { return jsonv.NewObject("bogus", 1.0) },
 	}
 	one := func() any {
-		switch k := rng.Intn(40); {
+		switch k := rng.Intn(42); {
 		case k < 5:
 			ps := []any{pickParent("frame", "page", "group"), nil}
 			op := jsonv.NewObject("op", "create", "parentId", ps[rng.Intn(2)], "node", newNode())
@@ -267,6 +267,10 @@ func Ops(rng *rand.Rand, doc *jsonv.Object, serial *int) []any {
 			return jsonv.NewObject("op", "convert_to_path", "ids", pickIDs(1, "rect", "ellipse"))
 		case k == 38:
 			return jsonv.NewObject("op", "set_assets", "assets", jsonv.NewObject([]string{"logo", "other"}[rng.Intn(2)], []any{"data:image/png;base64,AAAA", nil}[rng.Intn(2)]))
+		case k == 39:
+			return jsonv.NewObject("op", "convert_to_frame", "id", pickIDs(1, "rect", "ellipse")[0], "adopt", pickIDs(rng.Intn(3), "rect", "text", "path"))
+		case k == 40:
+			return jsonv.NewObject("op", "convert_to_shape", "id", pickIDs(1, "frame")[0], "shape", []any{"rect", "ellipse"}[rng.Intn(2)])
 		default:
 			id, par := fresh(), pickParent("frame", "page")
 			return jsonv.NewObject("op", "restore", "rootId", id, "parentId", par, "index", 0.0,

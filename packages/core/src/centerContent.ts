@@ -1,4 +1,6 @@
 import { copyOwner, isInstance } from "./component.js";
+import { adoptableContent } from "./adopt.js";
+import { round4 } from "./num.js";
 import type { Op } from "./ops.js";
 import type { Document, FrameNode, Layout, Node } from "./schema.js";
 
@@ -20,6 +22,7 @@ export interface ContentSummary {
 
 export type ContentTarget =
   | { kind: "frame"; frame: FrameNode }
+  | { kind: "shape"; shape: Extract<Node, { type: "rect" | "ellipse" }>; adopt: readonly string[] }
   | { kind: "empty" }
   | null;
 
@@ -36,7 +39,11 @@ function pick<K extends string, V>(table: Readonly<Record<K, V>>, key: string): 
 
 export function contentTarget(doc: Document, node: Node | undefined): ContentTarget {
   if (!node || node.type === "page") return null;
-  if (node.type === "rect" || node.type === "ellipse") return copyOwner(doc, node) ? null : { kind: "empty" };
+  if (node.type === "rect" || node.type === "ellipse") {
+    if (copyOwner(doc, node)) return null;
+    const adopt = adoptableContent(doc, node.id);
+    return adopt.length ? { kind: "shape", shape: node, adopt } : { kind: "empty" };
+  }
   if (node.type !== "frame" || isInstance(node) || copyOwner(doc, node)) return null;
   if (node.children.length === 0) return null;
   const mode = node.layout?.mode ?? "none";
@@ -60,6 +67,8 @@ export function isContentCentered(frame: FrameNode): boolean {
   return axes.horizontal === "center" && axes.vertical === "middle";
 }
 
+const NO_OFFSET = { x: 0, y: 0 } as const;
+
 function kindOf(node: Node): ContentKind {
   if (node.type === "text") return "text";
   if (node.type === "path") return "icon";
@@ -67,25 +76,28 @@ function kindOf(node: Node): ContentKind {
   return "other";
 }
 
-export function contentSummary(doc: Document, frame: FrameNode): ContentSummary {
+export function contentSummary(doc: Document, source: FrameNode | readonly string[], origin: { readonly x: number; readonly y: number } = NO_OFFSET): ContentSummary {
+  const ids = Array.isArray(source) ? (source as readonly string[]) : (source as FrameNode).children;
   const kinds: Record<ContentKind, number> = { text: 0, icon: 0, image: 0, other: 0 };
   let only: ContentSummary["only"] = null;
-  if (frame.children.length > SUMMARY_SCAN_LIMIT) {
-    kinds.other = frame.children.length;
-    return { count: frame.children.length, kinds, only: null };
+  if (ids.length > SUMMARY_SCAN_LIMIT) {
+    kinds.other = ids.length;
+    return { count: ids.length, kinds, only: null };
   }
-  for (const id of frame.children) {
+  for (const id of ids) {
     const child = doc.nodes[id];
     if (!child || child.type === "page") continue;
     const kind = kindOf(child);
     kinds[kind] += 1;
-    only = { kind, label: child.type === "text" ? child.text : child.name, x: child.x, y: child.y };
+    only = { kind, label: child.type === "text" ? child.text : child.name, x: round4(child.x - origin.x), y: round4(child.y - origin.y) };
   }
   const count = kinds.text + kinds.icon + kinds.image + kinds.other;
   return { count, kinds, only: count === 1 ? only : null };
 }
 
-function baseLayout(frame: FrameNode): Layout {
+type LayoutHolder = Pick<FrameNode, "layout">;
+
+function baseLayout(frame: LayoutHolder): Layout {
   const current = frame.layout;
   return {
     mode: current && current.mode !== "none" ? current.mode : "row",
@@ -102,7 +114,7 @@ export interface CenterPatch {
   vertical?: VerticalAlign;
 }
 
-export function alignedLayout(frame: FrameNode, patch: CenterPatch): Layout {
+export function alignedLayout(frame: LayoutHolder, patch: CenterPatch): Layout {
   const next = baseLayout(frame);
   const horizontalIsJustify = next.mode === "row";
   if (patch.horizontal) {
@@ -118,28 +130,33 @@ export function alignedLayout(frame: FrameNode, patch: CenterPatch): Layout {
   return next;
 }
 
-export function centeredLayout(frame: FrameNode): Layout {
+export function centeredLayout(frame: LayoutHolder): Layout {
   return { ...alignedLayout(frame, { horizontal: "center", vertical: "middle" }), padding: 0 };
+}
+
+function convertOps(target: Extract<ContentTarget, { kind: "shape" }>): Op[] {
+  return [{ op: "convert_to_frame", id: target.shape.id, adopt: [...target.adopt] }];
 }
 
 export function centerContentOps(doc: Document, ids: readonly string[]): { ops: Op[]; centered: boolean } {
   const frames: FrameNode[] = [];
+  const shapes: Extract<ContentTarget, { kind: "shape" }>[] = [];
   for (const id of ids) {
     const target = contentTarget(doc, doc.nodes[id]);
     if (target?.kind === "frame") frames.push(target.frame);
+    else if (target?.kind === "shape") shapes.push(target);
   }
-  if (!frames.length) return { ops: [], centered: false };
-  const undo = frames.every((f) => isContentCentered(f));
-  const ops: Op[] = frames.map((f) => ({
-    op: "update",
-    id: f.id,
-    props: { layout: undo ? null : centeredLayout(f) },
-  }));
+  if (!frames.length && !shapes.length) return { ops: [], centered: false };
+  const undo = !shapes.length && frames.every((f) => isContentCentered(f));
+  const ops: Op[] = [];
+  for (const t of shapes) ops.push(...convertOps(t), { op: "update", id: t.shape.id, props: { layout: centeredLayout({}) } });
+  for (const f of frames) ops.push({ op: "update", id: f.id, props: { layout: undo ? null : centeredLayout(f) } });
   return { ops, centered: !undo };
 }
 
 export function alignContentOps(doc: Document, id: string, patch: CenterPatch): Op[] {
   const target = contentTarget(doc, doc.nodes[id]);
+  if (target?.kind === "shape") return [...convertOps(target), { op: "update", id, props: { layout: alignedLayout({}, patch) } }];
   if (target?.kind !== "frame") return [];
   return [{ op: "update", id, props: { layout: alignedLayout(target.frame, patch) } }];
 }

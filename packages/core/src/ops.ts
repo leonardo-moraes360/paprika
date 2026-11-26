@@ -34,6 +34,7 @@ import { normalizePath as shiftPathToOrigin, parsePath, pathBounds, serializePat
 import { addPageOps, alignOps, distributeOps, groupOps, localBox, revealOps, ungroupOps, wrapOps } from "./structure.js";
 import { combinePathsOps } from "./boolean.js";
 import { convertToPathOps } from "./convert.js";
+import { adoptPlan, frameFromShape, shapeFromFrame, shapeInverse } from "./shapeFrame.js";
 import { round4 } from "./num.js";
 import { PlaceSpecSchema, resolvePlace } from "./placement.js";
 import { ConnectorError, connectorsAttachedTo, routeConnectors, shapeDefaults } from "./diagram.js";
@@ -209,6 +210,19 @@ export const ConvertToPathOp = z.object({
   ids: z.array(z.string()).min(1).max(500),
 });
 
+export const ConvertToFrameOp = z.object({
+  op: z.literal("convert_to_frame"),
+  id: z.string(),
+  adopt: z.array(z.string()).max(500).optional(),
+});
+
+export const ConvertToShapeOp = z.object({
+  op: z.literal("convert_to_shape"),
+  id: z.string(),
+  shape: z.enum(["rect", "ellipse"]),
+  radius: z.union([z.number(), z.string()]).optional(),
+});
+
 export const SetAssetsOp = z.object({
   op: z.literal("set_assets"),
   assets: z.record(AssetName, AssetSrc.nullable()),
@@ -241,6 +255,8 @@ export const Op = z.discriminatedUnion("op", [
   WrapOp,
   RevealOp,
   ConvertToPathOp,
+  ConvertToFrameOp,
+  ConvertToShapeOp,
   SetAssetsOp,
 ]);
 
@@ -684,6 +700,38 @@ function applyOne(doc: DocumentT, op: ParsedOp, i: number, created: string[]): O
       }
       if (Object.keys(target).length === 0) delete doc.assets;
       return [{ op: "set_assets", assets: prev }];
+    }
+    case "convert_to_frame": {
+      const node = nodeAt(doc, op.id);
+      if (!node) throw new OpError(`node "${op.id}" does not exist`, i);
+      let next: Record<string, unknown>;
+      let plan: Op[];
+      try {
+        next = frameFromShape(doc, node);
+        plan = adoptPlan(doc, node as Extract<NodeT, { type: "rect" | "ellipse" }>, op.adopt ?? []);
+      } catch (e) {
+        throw new OpError((e as Error).message, i);
+      }
+      const parsed = Node.safeParse(next);
+      if (!parsed.success) throw new OpError(`invalid conversion of "${op.id}": ${formatZod(parsed.error)}`, i);
+      const inverse: Op[] = [shapeInverse(node)];
+      doc.nodes[op.id] = parsed.data;
+      for (const sub of plan) inverse.unshift(...applyOne(doc, Op.parse(sub), i, created));
+      return inverse;
+    }
+    case "convert_to_shape": {
+      const node = nodeAt(doc, op.id);
+      if (!node) throw new OpError(`node "${op.id}" does not exist`, i);
+      let next: Record<string, unknown>;
+      try {
+        next = shapeFromFrame(doc, node, op.shape, op.radius);
+      } catch (e) {
+        throw new OpError((e as Error).message, i);
+      }
+      const parsed = Node.safeParse(next);
+      if (!parsed.success) throw new OpError(`invalid conversion of "${op.id}": ${formatZod(parsed.error)}`, i);
+      doc.nodes[op.id] = parsed.data;
+      return [{ op: "convert_to_frame", id: op.id }];
     }
     case "group":
     case "ungroup":

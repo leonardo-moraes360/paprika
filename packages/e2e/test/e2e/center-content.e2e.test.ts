@@ -4,7 +4,7 @@ import type { Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { callTool, closeSeededCanvas, connectAgent, openSeededCanvas, revealLayer, webDist, type CanvasSession } from "./seededCanvas.js";
 
-type Probe = { layout?: { mode: string; justify: string; align: string; padding: unknown; gap: unknown }; type: string; x: number; y: number; fill?: string };
+type Probe = { parentId?: string | null; children?: string[]; radius?: unknown; clip?: boolean; layout?: { mode: string; justify: string; align: string; padding: unknown; gap: unknown }; type: string; x: number; y: number; fill?: string };
 
 describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma (PAP-A-067)", { timeout: 40_000 }, () => {
   let session!: CanvasSession;
@@ -65,6 +65,16 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
           children: [{ type: "path", id: "seal-icon", name: "Estrela", d: "M12 2L15 9L22 9L16 14L18 21L12 17L6 21L8 14L2 9L9 9Z", width: 24, height: 24, fill: "#111111", x: 10, y: 10 }],
         },
         { type: "rect", id: "plain", name: "Fundo do card", x: 720, y: 520, width: 120, height: 80, fill: "#3ea75d" },
+        { type: "rect", id: "rbtn", name: "Botão rect", x: 900, y: 520, width: 200, height: 80, radius: 12, fill: "#7c3aed", stroke: { color: "#1e1b4b", width: 2 } },
+        { type: "text", id: "rbtn-label", text: "Salvar", x: 930, y: 540, color: "#ffffff", fontSize: 20 },
+        { type: "ellipse", id: "selo", name: "Selo círculo", x: 900, y: 640, width: 120, height: 120, fill: "#fbbf24" },
+        { type: "path", id: "selo-icon", name: "Raio", d: "M12 2L15 9L22 9L16 14L18 21L12 17L6 21L8 14L2 9L9 9Z", width: 24, height: 24, fill: "#111111", x: 948, y: 688 },
+        { type: "rect", id: "rkey", name: "Botão atalho", x: 1120, y: 520, width: 200, height: 80, fill: "#0f766e" },
+        { type: "text", id: "rkey-label", text: "Atalho", x: 1140, y: 540, color: "#ffffff", fontSize: 20 },
+        { type: "rect", id: "rmenu", name: "Botão menu", x: 500, y: 790, width: 200, height: 80, fill: "#b45309" },
+        { type: "text", id: "rmenu-label", text: "Menu", x: 520, y: 810, color: "#ffffff", fontSize: 20 },
+        { type: "rect", id: "rraw", name: "Botão cru", x: 1120, y: 760, width: 200, height: 80, fill: "#be123c", stroke: { color: "#000000", width: 4 } },
+        { type: "text", id: "rraw-label", text: "Cru", x: 1140, y: 780, color: "#ffffff", fontSize: 20 },
         {
           type: "frame",
           id: "multi",
@@ -232,6 +242,104 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
     expect((await history()).length).toBe(before + 1);
     await page.keyboard.press("Control+z");
     await expect.poll(async () => (await node("btn")).layout?.justify).toBe("center");
+  });
+
+  it("B1: rect com texto por cima mostra a seção Conteúdo; Centralizar converte, adota e centraliza em um passo, e Ctrl+Z devolve o rect", async () => {
+    const original = await node("rbtn");
+    expect(original.type).toBe("rect");
+    await select("rbtn");
+    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: texto “Salvar”, posição manual (30, 20)");
+    await expect.poll(() => page.getByTestId("content-horizontal").getByRole("radio", { name: "Esquerda" }).isDisabled()).toBe(false);
+    const before = (await history()).length;
+    await page.getByTestId("content-center").click();
+    await expect.poll(async () => (await node("rbtn")).type).toBe("frame");
+    const frame = await node("rbtn");
+    expect(frame).toMatchObject({ fill: "#7c3aed", radius: 12, children: ["rbtn-label"], layout: { mode: "row", justify: "center", align: "center", padding: 0 } });
+    expect((await node("rbtn-label")).parentId).toBe("rbtn");
+    await expect.poll(async () => Math.abs((await centerOffset("rbtn-label", "rbtn")).dx)).toBeLessThan(1.5);
+    expect(Math.abs((await centerOffset("rbtn-label", "rbtn")).dy)).toBeLessThan(1.5);
+    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: texto “Salvar”, centralizado");
+    const after = await history();
+    expect(after.length).toBe(before + 1);
+    expect(after.at(-1)).toMatchObject({ actor: "user", label: "centralizar conteúdo" });
+
+    await page.keyboard.press("Control+z");
+    await expect.poll(async () => (await node("rbtn")).type).toBe("rect");
+    expect(await node("rbtn")).toEqual(original);
+    expect((await node("rbtn-label")).parentId ?? null).toBe(null);
+    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: texto “Salvar”, posição manual (30, 20)");
+    await page.keyboard.press("Control+Shift+z");
+    await expect.poll(async () => (await node("rbtn")).type).toBe("frame");
+    await page.keyboard.press("Control+z");
+    await expect.poll(async () => (await node("rbtn")).type).toBe("rect");
+  });
+
+  it("B2: elipse redonda com ícone: vira frame com radius metade do tamanho, o ícone vai ao centro e Ctrl+Z restaura a elipse", async () => {
+    const original = await node("selo");
+    await select("selo");
+    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: ícone “Raio”, posição manual (48, 48)");
+    await page.getByTestId("content-center").click();
+    await expect.poll(async () => (await node("selo")).type).toBe("frame");
+    expect(await node("selo")).toMatchObject({ radius: 60, fill: "#fbbf24", children: ["selo-icon"], layout: { justify: "center", align: "center" } });
+    await expect.poll(async () => Math.abs((await centerOffset("selo-icon", "selo")).dx)).toBeLessThan(1.5);
+    expect(Math.abs((await centerOffset("selo-icon", "selo")).dy)).toBeLessThan(1.5);
+    await expect
+      .poll(() => page.evaluate(() => getComputedStyle(document.querySelector<HTMLElement>('.world [data-paprika-id="selo"]')!).borderRadius))
+      .toBe("60px");
+    await page.keyboard.press("Control+z");
+    await expect.poll(async () => (await node("selo")).type).toBe("ellipse");
+    expect(await node("selo")).toEqual(original);
+  });
+
+  it("B3: Alt+C numa forma com conteúdo converte e centraliza num passo, e Ctrl+Z restaura", async () => {
+    const original = await node("rkey");
+    await select("rkey");
+    const before = (await history()).length;
+    await page.locator("body").press("Alt+c");
+    await expect.poll(async () => (await node("rkey")).type).toBe("frame");
+    expect((await node("rkey")).layout).toMatchObject({ mode: "row", justify: "center", align: "center" });
+    expect((await history()).length).toBe(before + 1);
+    await expect.poll(async () => Math.abs((await centerOffset("rkey-label", "rkey")).dx)).toBeLessThan(1.5);
+    await page.keyboard.press("Control+z");
+    await expect.poll(async () => (await node("rkey")).type).toBe("rect");
+    expect(await node("rkey")).toEqual(original);
+  });
+
+  it("B4: o menu de contexto oferece Centralizar conteúdo para a forma com conteúdo e converte num passo", async () => {
+    const original = await node("rmenu");
+    await select("rmenu");
+    const box = await page.locator('.world [data-paprika-id="rmenu"]').boundingBox();
+    await page.mouse.click(box!.x + 3, box!.y + 3, { button: "right" });
+    const item = page.getByTestId("center-content");
+    await item.waitFor({ state: "visible" });
+    await expect.poll(() => item.getAttribute("aria-checked")).toBe("false");
+    const before = (await history()).length;
+    await item.click();
+    await expect.poll(async () => (await node("rmenu")).type).toBe("frame");
+    expect((await history()).length).toBe(before + 1);
+    await expect.poll(async () => Math.abs((await centerOffset("rmenu-label", "rmenu")).dx)).toBeLessThan(1.5);
+    await page.keyboard.press("Control+z");
+    await expect.poll(async () => (await node("rmenu")).type).toBe("rect");
+    expect(await node("rmenu")).toEqual(original);
+  });
+
+  it("B5: converter e adotar sozinho não move o conteúdo (traço dentro compensado)", async () => {
+    const rect = async (id: string) => page.evaluate((i) => {
+      const r = document.querySelector<HTMLElement>(`.world [data-paprika-id="${i}"]`)!.getBoundingClientRect();
+      return { x: r.left, y: r.top, w: r.width, h: r.height };
+    }, id);
+    const before = await rect("rraw-label");
+    const frameBefore = await rect("rraw");
+    await callTool(agent, "apply_ops", { ops: [{ op: "convert_to_frame", id: "rraw", adopt: ["rraw-label"] }] });
+    await expect.poll(async () => (await node("rraw")).type).toBe("frame");
+    await page.waitForTimeout(150);
+    const after = await rect("rraw-label");
+    const frameAfter = await rect("rraw");
+    expect(frameAfter).toEqual(frameBefore);
+    expect(Math.abs(after.x - before.x)).toBeLessThan(0.6);
+    expect(Math.abs(after.y - before.y)).toBeLessThan(0.6);
+    await callTool(agent, "undo", {});
+    await expect.poll(async () => (await node("rraw")).type).toBe("rect");
   });
 
   it("A5: o item some quando só há uma forma sem filhos", async () => {
