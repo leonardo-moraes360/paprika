@@ -23,18 +23,20 @@ import type { FontPickerProps, QueryLocalFonts } from "./types";
 
 type SystemState = { status: "idle" } | { status: "loading" } | { status: "loaded"; fonts: string[] } | { status: "unsupported" } | { status: "failed" };
 
+const NO_FONTS: string[] = [];
+
 function browserQuery(): QueryLocalFonts | null {
   if (typeof window === "undefined") return null;
   const query = (window as Window & { queryLocalFonts?: QueryLocalFonts }).queryLocalFonts;
   return typeof query === "function" ? query.bind(window) : null;
 }
 
-export function FontPicker({ value, onValueChange, documentFonts = [], commonFonts = COMMON_FAMILIES, queryLocalFonts, disabled, className }: FontPickerProps) {
+export function FontPicker({ value, onValueChange, documentFonts = NO_FONTS, commonFonts = COMMON_FAMILIES, queryLocalFonts, disabled, className }: FontPickerProps) {
   const { t } = useTranslation();
   const [system, setSystem] = useState<SystemState>({ status: "idle" });
   const [open, setOpen] = useState(false);
   const requestId = useRef(0);
-  const systemFonts = system.status === "loaded" ? system.fonts : [];
+  const systemFonts = system.status === "loaded" ? system.fonts : NO_FONTS;
   const groups = useMemo(() => groupFonts({ value, documentFonts, commonFonts, systemFonts }), [value, documentFonts, commonFonts, systemFonts]);
 
   const loadSystem = async () => {
