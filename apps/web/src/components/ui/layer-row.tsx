@@ -2,7 +2,7 @@ import { Input } from "@ui-sdk/react/input";
 import { Toggle } from "@ui-sdk/react/toggle";
 import { Tree, TreeGroup, TreeItem, TreeItemIndicator, TreeItemLabel, type TreeItemProps, type TreeMode, type TreeProps } from "@ui-sdk/react/tree";
 import { ChevronDown, ChevronRight, Eye, EyeOff, Lock, LockOpen } from "lucide-react";
-import type { ComponentProps, KeyboardEvent, ReactNode } from "react";
+import { useLayoutEffect, useRef, type ComponentProps, type KeyboardEvent, type ReactNode } from "react";
 import { cn, focusRing } from "@/lib/utils";
 
 export type LayerTreeProps<Mode extends TreeMode = "single"> = TreeProps<Mode>;
@@ -33,6 +33,7 @@ export type LayerRowProps = Omit<ComponentProps<"div">, "children" | "onSelect">
   renameLabel?: string;
   trailing?: ReactNode;
   itemProps?: Omit<ComponentProps<typeof TreeItem>, keyof TreeItemProps | "children" | "className" | "onKeyDown"> & Record<`data-${string}`, string | undefined>;
+  /** Called once per rename: by Enter or by leaving the field. Escape calls `onRenameCancel` instead, and the blur that follows is ignored. */
   onRename?: (name: string) => void;
   onRenameCancel?: () => void;
   onVisibleChange?: (visible: boolean) => void;
@@ -62,9 +63,19 @@ export function LayerRow({
   children,
   ...props
 }: LayerRowProps) {
+  const settled = useRef(false);
+  useLayoutEffect(() => {
+    if (renaming) settled.current = false;
+  }, [renaming]);
+  const finish = (value: string | null) => {
+    if (settled.current) return;
+    settled.current = true;
+    if (value === null) onRenameCancel?.();
+    else onRename?.(value);
+  };
   const commit = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter" && !event.nativeEvent.isComposing) onRename?.(event.currentTarget.value);
-    if (event.key === "Escape") onRenameCancel?.();
+    if (event.key === "Enter" && !event.nativeEvent.isComposing) finish(event.currentTarget.value);
+    if (event.key === "Escape") finish(null);
   };
   const isBranch = branch ?? Boolean(children);
   const shortcut = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -103,7 +114,7 @@ export function LayerRow({
               defaultValue={name}
               onFocus={(event) => event.currentTarget.select()}
               onKeyDown={commit}
-              onBlur={(event) => onRename?.(event.currentTarget.value)}
+              onBlur={(event) => finish(event.currentTarget.value)}
               className="h-[22px] min-w-0 flex-1 rounded-sm border-[1.5px] border-select bg-field-bg px-1.5 text-sm text-fg outline-none forced-colors:border-[Highlight]"
             />
           </div>
@@ -159,7 +170,9 @@ export function LayerRow({
             <LockOpen aria-hidden="true" className="group-data-pressed/toggle:hidden" />
             <Lock aria-hidden="true" className="hidden group-data-pressed/toggle:block" />
           </Toggle>
-        ) : null}
+        ) : (
+          <span aria-hidden="true" className="hidden size-6 shrink-0 group-focus-within/layer:block group-hover/layer:block pointer-coarse:block" />
+        )}
       </div>
       {isBranch && children ? <TreeGroup>{children}</TreeGroup> : null}
     </TreeItem>

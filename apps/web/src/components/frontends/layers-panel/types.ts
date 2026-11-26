@@ -49,8 +49,15 @@ export type LayersPanelProps = {
   rows: readonly LayerRowData[];
   onSelect: (ids: string[], mode: LayerSelectMode) => void;
   onRename: (id: string, name: string) => void;
+  /**
+   * Emitted by the pointer drag and by the keyboard with the same shape. Keyboard, with the focus on a layer
+   * (acts on the selection when the layer is in it): Alt+ArrowUp and Alt+ArrowDown swap with the neighbouring sibling,
+   * Alt+ArrowRight goes inside the sibling above and Alt+ArrowLeft lands after the parent (mirrored in right-to-left).
+   */
   onMove: (move: LayerMove) => void;
+  /** Also from Ctrl/Cmd+Shift+H on a focused layer: the whole selection when the layer is in it, else the layer alone. */
   onToggleVisible: (ids: readonly string[], visible: boolean) => void;
+  /** Also from Ctrl/Cmd+Shift+L, with the same scope as `onToggleVisible`. */
   onToggleLocked: (ids: readonly string[], locked: boolean) => void;
   onContextAction?: (action: string, ids: readonly string[]) => void;
   contextActions?: (ids: readonly string[]) => readonly LayerContextItem[];

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
+import { LayerRow, LayerTree } from "@/components/ui/layer-row";
 import { LayersPanel, type LayerRowData, type LayersPanelProps } from "./index";
 
 const base = { visible: true, locked: false, selected: false, hasChildren: false, level: 0 } as const;
@@ -143,6 +144,65 @@ describe("LayersPanel", () => {
     item("Title").focus();
     await user.keyboard("{F2}");
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("moves the focused layer with Alt+arrows and emits the same intent as the drag", async () => {
+    const user = userEvent.setup();
+    const { onMove } = setup({ rows: rows.map((row) => ({ ...row, selected: false })) });
+    item("Title").focus();
+    await user.keyboard("{Alt>}{ArrowUp}{/Alt}");
+    expect(onMove).toHaveBeenLastCalledWith({ ids: ["title"], targetId: "nav", position: "before" });
+    await user.keyboard("{Alt>}{ArrowDown}{/Alt}");
+    expect(onMove).toHaveBeenLastCalledWith({ ids: ["title"], targetId: "caption", position: "after" });
+    await user.keyboard("{Alt>}{ArrowRight}{/Alt}");
+    expect(onMove).toHaveBeenLastCalledWith({ ids: ["title"], targetId: "nav", position: "inside" });
+    await user.keyboard("{Alt>}{ArrowLeft}{/Alt}");
+    expect(onMove).toHaveBeenLastCalledWith({ ids: ["title"], targetId: "home", position: "after" });
+    expect(item("Title")).toHaveFocus();
+  });
+
+  it("does nothing for an Alt+arrow that goes nowhere and keeps the focus on the layer", async () => {
+    const user = userEvent.setup();
+    const { onMove, onSelect } = setup({ rows: rows.map((row) => ({ ...row, selected: false })) });
+    item("Home").focus();
+    await user.keyboard("{Alt>}{ArrowUp}{ArrowLeft}{/Alt}");
+    expect(onMove).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(item("Home")).toHaveFocus();
+  });
+
+  it("moves the whole selection with Alt+arrows", async () => {
+    const user = userEvent.setup();
+    const { onMove } = setup({ rows: rows.map((row) => ({ ...row, selected: row.id === "title" || row.id === "caption" })) });
+    item("Title").focus();
+    await user.keyboard("{Alt>}{ArrowDown}{/Alt}");
+    expect(onMove).toHaveBeenLastCalledWith({ ids: ["title", "caption"], targetId: "footer", position: "after" });
+  });
+
+  it("applies Ctrl+Shift+H and Ctrl+Shift+L to the whole selection", async () => {
+    const user = userEvent.setup();
+    const { onToggleVisible, onToggleLocked } = setup({ rows: rows.map((row) => ({ ...row, selected: row.id === "title" || row.id === "caption" })) });
+    item("Title").focus();
+    await user.keyboard("{Control>}{Shift>}h{/Shift}{/Control}");
+    expect(onToggleVisible).toHaveBeenCalledOnce();
+    expect(onToggleVisible).toHaveBeenCalledWith(["title", "caption"], true);
+    await user.keyboard("{Control>}{Shift>}l{/Shift}{/Control}");
+    expect(onToggleLocked).toHaveBeenCalledOnce();
+    expect(onToggleLocked).toHaveBeenCalledWith(["title", "caption"], true);
+  });
+
+  it("applies the shortcut to the focused layer alone when it is outside the selection", async () => {
+    const user = userEvent.setup();
+    const { onToggleVisible } = setup({ rows: rows.map((row) => ({ ...row, selected: row.id === "title" })) });
+    item("About").focus();
+    await user.keyboard("{Control>}{Shift>}h{/Shift}{/Control}");
+    expect(onToggleVisible).toHaveBeenCalledExactlyOnceWith(["about"], false);
+  });
+
+  it("keeps a lock column on rows without a lock button so the eye lines up", () => {
+    setup({ rows: rows.map((row) => (row.id === "title" ? { ...row, lockable: false } : row)) });
+    const eye = (name: string) => screen.getByRole("button", { name }).parentElement as HTMLElement;
+    expect(eye("Hide Title").children).toHaveLength(eye("Hide Caption").children.length);
   });
 
   it("toggles visibility and lock from the row buttons", async () => {
@@ -340,6 +400,28 @@ describe("LayersPanel", () => {
       expect(onMove).toHaveBeenLastCalledWith({ ids: ["title"], targetId: "footer", position: "inside" });
     });
 
+    it("drops nothing when the owner removed the target during the drag", async () => {
+      const unselected = rows.map((row) => ({ ...row, selected: false }));
+      const { onMove, rerender, onSelect, onRename, onToggleVisible, onToggleLocked } = setup({ rows: unselected });
+      const source = item("Title");
+      screen.getAllByRole("treeitem").forEach((el, index) => frame(el, index));
+      source.setPointerCapture = vi.fn();
+      source.releasePointerCapture = vi.fn();
+      pointAt(item("About"));
+      const y = item("About").getBoundingClientRect().top + 25;
+      fireEvent.pointerDown(within(source).getByText("Title"), { pointerId: 1, isPrimary: true, button: 0, clientX: 40, clientY: 10, pointerType: "mouse" });
+      await act(async () => {
+        fireEvent.pointerMove(source, { pointerId: 1, isPrimary: true, clientX: 60, clientY: y, pointerType: "mouse", buttons: 1 });
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      });
+      rerender(<Owner rows={unselected.filter((row) => row.id !== "about")} {...{ onMove, onSelect, onRename, onToggleVisible, onToggleLocked }} />);
+      fireEvent.pointerUp(source, { pointerId: 1, isPrimary: true, clientX: 60, clientY: y, pointerType: "mouse" });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
     it("moves the whole selection when a selected layer is dragged", async () => {
       const { onMove } = setup({ rows: rows.map((row) => ({ ...row, selected: row.id === "title" || row.id === "caption" })) });
       await drag("Title", "About", 0.9);
@@ -377,5 +459,36 @@ describe("LayersPanel", () => {
       fireEvent.pointerUp(source, { pointerId: 1, isPrimary: true, clientX: 60, clientY: 90 });
       expect(onMove).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("LayerRow rename contract", () => {
+  function row(onRename: (name: string) => void, onRenameCancel: () => void) {
+    return render(
+      <LayerTree aria-label="t" items={[{ value: "a", label: "A" }]}>
+        <LayerRow value="a" name="A" icon={null} renaming hideLabel="hide" lockLabel="lock" renameLabel="name" onRename={onRename} onRenameCancel={onRenameCancel} />
+      </LayerTree>,
+    );
+  }
+
+  it("calls onRename once even when Enter is followed by the blur", () => {
+    const onRename = vi.fn();
+    row(onRename, vi.fn());
+    const input = screen.getByRole("textbox", { name: "name" });
+    fireEvent.change(input, { target: { value: "B" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
+    expect(onRename).toHaveBeenCalledExactlyOnceWith("B");
+  });
+
+  it("does not commit on the blur that follows Escape", () => {
+    const onRename = vi.fn();
+    const onRenameCancel = vi.fn();
+    row(onRename, onRenameCancel);
+    const input = screen.getByRole("textbox", { name: "name" });
+    fireEvent.keyDown(input, { key: "Escape" });
+    fireEvent.blur(input);
+    expect(onRenameCancel).toHaveBeenCalledOnce();
+    expect(onRename).not.toHaveBeenCalled();
   });
 });

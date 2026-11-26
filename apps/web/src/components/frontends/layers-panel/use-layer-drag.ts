@@ -120,7 +120,13 @@ export function useLayerDrag({ rows, wrapper, overlay, onMove }: LayerDragOption
         onEnd: (_event, canceled) => {
           const drop = target;
           end();
-          if (!canceled && drop) latest.current.onMove({ ids: moving, ...drop });
+          if (canceled || !drop) return;
+          // The owner may have changed the rows during the drag: only emit what still holds in the rows as they are now.
+          const now = latest.current.rows;
+          const index = now.findIndex((candidate) => candidate.id === drop.targetId);
+          const stillThere = moving.every((movingId) => now.some((candidate) => candidate.id === movingId));
+          if (!stillThere || index < 0 || !canDrop(now, blockedIndexes(now, moving), index, drop.position)) return;
+          latest.current.onMove({ ids: moving, ...drop });
         },
       });
       stop.current = () => {
