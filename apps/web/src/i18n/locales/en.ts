@@ -1,3 +1,5 @@
+import { overviewEn } from "./frontends/overview";
+
 export const en = {
   home: {
     title: "Paprika",
@@ -55,5 +57,6 @@ export const en = {
       deleteConfirm: "Delete page",
       deleteCancel: "Cancel",
     },
+    overview: overviewEn,
   },
 } as const;
