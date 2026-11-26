@@ -56,8 +56,8 @@ export function WorkspaceCard({
       data-dropping={dropping ? "" : undefined}
       className={cn(
         "group/card relative flex flex-col overflow-hidden rounded-xl border border-line bg-panel transition-colors motion-reduce:transition-none",
-        "hover:border-[1.5px] hover:border-select focus-within:border-[1.5px] focus-within:border-select",
-        "data-active:border-2 data-active:border-green data-dropping:border-[1.5px] data-dropping:border-dashed data-dropping:border-select",
+        "hover:border-select hover:ring-1 hover:ring-select hover:ring-inset focus-within:border-select focus-within:ring-1 focus-within:ring-select focus-within:ring-inset",
+        "data-active:border-green data-active:ring-1 data-active:ring-green data-active:ring-inset data-dropping:border-dashed data-dropping:border-select data-dropping:ring-1 data-dropping:ring-select data-dropping:ring-inset",
         "forced-colors:hover:border-[Highlight] forced-colors:data-active:border-[Highlight]",
         openFocus,
         className,
