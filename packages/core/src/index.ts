@@ -14,6 +14,7 @@ export * from "./layout.js";
 export * from "./textRuns.js";
 export * from "./displayList.js";
 export * from "./structure.js";
+export * from "./centerContent.js";
 export * from "./names.js";
 export * from "./component.js";
 export * from "./markup.js";
