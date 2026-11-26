@@ -18,6 +18,10 @@ export class CanvasError extends Component<CanvasErrorProps, State> {
     this.props.onError?.(known);
   }
 
+  componentDidUpdate(previous: CanvasErrorProps) {
+    if (this.state.error && previous.resetKey !== this.props.resetKey) this.setState({ error: null });
+  }
+
   render(): ReactNode {
     const { error } = this.state;
     if (!error) return this.props.children;

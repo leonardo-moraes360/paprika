@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusIcon } from "@/components/ui/status-icon";
+import { copyText } from "@/lib/copy-text";
 import { buildIssueUrl } from "@/lib/issue-url";
 import { cn } from "@/lib/utils";
 import { describeError } from "./details";
@@ -36,13 +37,7 @@ export function CanvasErrorScreen({ error, onReload, issueUrl, issue, environmen
   })();
 
   const copy = async () => {
-    try {
-      if (!navigator.clipboard) throw new Error("clipboard");
-      await navigator.clipboard.writeText(environment ? `${details}\n${environment}` : details);
-      setCopied("done");
-    } catch {
-      setCopied("failed");
-    }
+    setCopied((await copyText(environment ? `${details}\n${environment}` : details)) ? "done" : "failed");
   };
 
   return (
