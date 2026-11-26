@@ -403,3 +403,19 @@ func TestLateFirstViewDoesNotRepeatTheSnapshotButResyncDoes(t *testing.T) {
 		t.Fatalf("resync view answered with %v %v", m, err)
 	}
 }
+
+func TestFailedFirstViewStillGetsTheInitialSnapshot(t *testing.T) {
+	_, srv := startWS(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	c := dialWS(t, ctx, srv, "")
+	c.Write(ctx, websocket.MessageText, []byte(`{"type":"view","workspaceId":"nope","reqId":"v1"}`))
+	seen := map[string]bool{}
+	for !seen["doc"] || !seen["error"] {
+		m, _, err := readMsg(t, ctx, c)
+		if err != nil {
+			t.Fatalf("got %v: %v", seen, err)
+		}
+		seen[m.Str("type")] = true
+	}
+}

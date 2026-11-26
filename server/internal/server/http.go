@@ -882,10 +882,16 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 			out.push(m)
 		}
 	}
-	initial := time.AfterFunc(wsInitialWait, func() {
+	var viewing atomic.Bool
+	sendInitial := func() {
 		if out.docEmpty() {
 			doc, version, cu, cr := store.Snapshot()
 			out.pushDoc(docMessage(doc, version, "server", "", "reload", cu, cr), doc.Str("id"), version)
+		}
+	}
+	initial := time.AfterFunc(wsInitialWait, func() {
+		if !viewing.Load() {
+			sendInitial()
 		}
 		out.release()
 	})
@@ -947,6 +953,7 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 			reply(hello)
 			continue
 		case "view":
+			viewing.Store(true)
 			id := msg.Str("workspaceId")
 			var head WorkspaceHead
 			if id != "" {
@@ -954,6 +961,8 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 					if errors.Is(err, ErrNoWorkspace) {
 						err = store.WorkspaceChoiceError(id)
 					}
+					viewing.Store(false)
+					sendInitial()
 					fail(err.Error())
 					continue
 				}
@@ -972,6 +981,8 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 			if id == "" {
 				d, head.Version, cu, cr = store.Snapshot()
 			} else if head, err = store.ReadWorkspace(id); err != nil {
+				viewing.Store(false)
+				sendInitial()
 				fail(err.Error())
 				continue
 			} else {

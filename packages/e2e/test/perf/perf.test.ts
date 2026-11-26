@@ -113,6 +113,10 @@ describe("perf: worst-case document", () => {
     const onOpen = frames.docs;
     frames.sizes.length = 0;
     frames.docs = 0;
+    await mcp(heavy.url, "update_nodes", { updates: [{ id: plainTextId, props: { opacity: 0.45 } }] });
+    await settle(frames);
+    notes.wsBytesFirstWrite = frames.sizes.reduce((a, b) => a + b, 0);
+    frames.sizes.length = 0;
     await mcp(heavy.url, "update_nodes", { updates: [{ id: plainTextId, props: { opacity: 0.5 } }] });
     await settle(frames);
     const bytes = frames.sizes.reduce((a, b) => a + b, 0);
