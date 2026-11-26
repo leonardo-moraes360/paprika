@@ -2,9 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Languages } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/button";
-import { SegmentedControl, SegmentedControlItem } from "@/components/segmented-control";
-import { ThemeSwitch } from "@/components/theme-switch";
+import { Button } from "@/components/ui/button";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
+import { ThemeSwitch } from "@/components/ui/theme-switch";
 import { languages } from "@/i18n/resources";
 import { readThemePreference, setThemePreference, type ThemePreference } from "@/lib/theme";
 

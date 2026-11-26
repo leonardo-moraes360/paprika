@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from "react";
-import { ThemeSwitch } from "@/components/theme-switch";
+import { ThemeSwitch } from "@/components/ui/theme-switch";
 import { readThemePreference, setThemePreference, type ThemePreference } from "@/lib/theme";
 import type { GalleryMeta } from "./_kit";
 

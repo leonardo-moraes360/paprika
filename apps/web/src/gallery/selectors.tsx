@@ -1,7 +1,7 @@
 import { AlignCenterVertical, AlignEndVertical, AlignStartVertical } from "lucide-react";
 import { useState } from "react";
-import { SegmentedControl, SegmentedControlItem } from "@/components/segmented-control";
-import { ThemeSwitch, type ThemeSwitchValue } from "@/components/theme-switch";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
+import { ThemeSwitch, type ThemeSwitchValue } from "@/components/ui/theme-switch";
 import { Cell, Grid, Section, Specimen, type GalleryMeta } from "./_kit";
 
 export const meta: GalleryMeta = { title: "Selectors", order: 30 };

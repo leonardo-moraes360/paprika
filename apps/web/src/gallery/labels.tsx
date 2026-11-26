@@ -1,7 +1,7 @@
 import { Bot, MapPin } from "lucide-react";
-import { Kbd } from "@/components/kbd";
-import { Pill, PillDot } from "@/components/pill";
-import { Tag } from "@/components/tag";
+import { Kbd } from "@/components/ui/kbd";
+import { Pill, PillDot } from "@/components/ui/pill";
+import { Tag } from "@/components/ui/tag";
 import { Cell, Grid, Section, Specimen, type GalleryMeta } from "./_kit";
 
 export const meta: GalleryMeta = { title: "Labels", order: 20 };

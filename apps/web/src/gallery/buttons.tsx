@@ -1,9 +1,9 @@
 import { ArrowRight, Cpu, Download, Plus, Settings, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/button";
-import { CodeButton } from "@/components/code-button";
-import { IconButton } from "@/components/icon-button";
-import { MenuButton } from "@/components/menu-button";
+import { Button } from "@/components/ui/button";
+import { CodeButton } from "@/components/ui/code-button";
+import { IconButton } from "@/components/ui/icon-button";
+import { MenuButton } from "@/components/ui/menu-button";
 import { Cell, Grid, Section, Specimen, type GalleryMeta } from "./_kit";
 
 export const meta: GalleryMeta = { title: "Buttons", order: 10 };
