@@ -58,11 +58,11 @@ export function LayoutSection({ node, set }: LayoutSectionProps) {
             )}
           </PropertyRow>
           {uniform ? (
-            <Button type="button" variant="secondary" size="sm" onClick={() => patch({ padding: [layout.padding ?? 0, layout.padding ?? 0, layout.padding ?? 0, layout.padding ?? 0] })}>
+            <Button type="button" variant="secondary" size="sm" className="self-start" onClick={() => patch({ padding: [layout.padding ?? 0, layout.padding ?? 0, layout.padding ?? 0, layout.padding ?? 0] })}>
               {t("frontends.propertiesPanel.layout.paddingSides")}
             </Button>
           ) : Array.isArray(layout.padding) ? (
-            <Button type="button" variant="secondary" size="sm" onClick={() => patch({ padding: (layout.padding as readonly (number | string)[])[0] ?? 0 })}>
+            <Button type="button" variant="secondary" size="sm" className="self-start" onClick={() => patch({ padding: (layout.padding as readonly (number | string)[])[0] ?? 0 })}>
               {t("frontends.propertiesPanel.layout.paddingUniform")}
             </Button>
           ) : null}
