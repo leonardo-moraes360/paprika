@@ -603,10 +603,6 @@ export function layout(doc: Document, opts: LayoutOptions = {}): Record<string, 
     keep = keep ? new Set([...keep].filter((id) => ids.has(id))) : ids;
   }
 
-  const out: Record<string, LayoutBox> = {};
-  for (const p of placed) {
-    if (keep && !keep.has(p.id)) continue;
-    out[p.id] = boxAt(p.x, p.y, p.w, p.h, p.rotation);
-  }
-  return out;
+  const shown = keep ? placed.filter((p) => keep.has(p.id)) : placed;
+  return Object.fromEntries(shown.map((p): [string, LayoutBox] => [p.id, boxAt(p.x, p.y, p.w, p.h, p.rotation)]));
 }
