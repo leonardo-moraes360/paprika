@@ -8,6 +8,12 @@ export function errorText(error: unknown): string {
   return "";
 }
 
+/** The message to show for a failed action: `error` when it has text, otherwise the caller's generic `fallback`. Never empty (given a non-empty fallback); `null` when there is no error. */
+export function errorOrFallback(error: string | null, fallback: string): string | null {
+  if (error === null) return null;
+  return error.trim() ? error : fallback;
+}
+
 export function useAsyncAction() {
   const [state, setState] = useState<AsyncActionState>({ pending: false, error: null });
   const alive = useRef(true);
@@ -34,5 +40,6 @@ export function useAsyncAction() {
     }
   }, []);
   const clearError = useCallback(() => setState((s) => (s.error === null ? s : { ...s, error: null })), []);
-  return { ...state, run, clearError };
+  const errorTextOr = useCallback((fallback: string) => errorOrFallback(state.error, fallback), [state.error]);
+  return { ...state, run, clearError, errorText: errorTextOr };
 }
