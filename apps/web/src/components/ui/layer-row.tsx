@@ -32,7 +32,7 @@ export type LayerRowProps = Omit<ComponentProps<"div">, "children" | "onSelect">
   renaming?: boolean;
   renameLabel?: string;
   trailing?: ReactNode;
-  itemProps?: Omit<ComponentProps<typeof TreeItem>, keyof TreeItemProps | "children" | "className" | "onKeyDown">;
+  itemProps?: Omit<ComponentProps<typeof TreeItem>, keyof TreeItemProps | "children" | "className" | "onKeyDown"> & Record<`data-${string}`, string | undefined>;
   onRename?: (name: string) => void;
   onRenameCancel?: () => void;
   onVisibleChange?: (visible: boolean) => void;
@@ -146,18 +146,20 @@ export function LayerRow({
           <Eye aria-hidden="true" className="group-data-pressed/toggle:hidden" />
           <EyeOff aria-hidden="true" className="hidden group-data-pressed/toggle:block" />
         </Toggle>
-        <Toggle
-          aria-label={lockLabel}
-          aria-keyshortcuts="Control+Shift+L Meta+Shift+L"
-          tabIndex={-1}
-          pressed={locked}
-          onPressedChange={(next) => onLockedChange?.(next)}
-          className={cn(toggleBase, "data-pressed:text-red-ink")}
-          {...stopBubbling}
-        >
-          <LockOpen aria-hidden="true" className="group-data-pressed/toggle:hidden" />
-          <Lock aria-hidden="true" className="hidden group-data-pressed/toggle:block" />
-        </Toggle>
+        {onLockedChange ? (
+          <Toggle
+            aria-label={lockLabel}
+            aria-keyshortcuts="Control+Shift+L Meta+Shift+L"
+            tabIndex={-1}
+            pressed={locked}
+            onPressedChange={(next) => onLockedChange?.(next)}
+            className={cn(toggleBase, "data-pressed:text-red-ink")}
+            {...stopBubbling}
+          >
+            <LockOpen aria-hidden="true" className="group-data-pressed/toggle:hidden" />
+            <Lock aria-hidden="true" className="hidden group-data-pressed/toggle:block" />
+          </Toggle>
+        ) : null}
       </div>
       {isBranch && children ? <TreeGroup>{children}</TreeGroup> : null}
     </TreeItem>
