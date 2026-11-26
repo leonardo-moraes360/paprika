@@ -72,6 +72,12 @@ describe("architecture: scanner", () => {
     expect(found).toEqual(expect.arrayContaining(["a", "b", "c", "d", "e", "f", "<non-literal name>", "h", "i", "j"]));
   });
 
+  it("ignores keywords that only appear inside string literals", () => {
+    expect(specifiers(scan(`t("frontends.x.import");\nconst b = "c";`))).toEqual([]);
+    expect(specifiers(scan(`const a = "import 'x'"; const b = "export y from 'z'"; const c = "require('w')"; const d = "import(v)";`))).toEqual([]);
+    expect(specifiers(scan(`t("frontends.x.import");\nimport a from "real";`)).map((entry) => entry.value)).toEqual(["real"]);
+  });
+
   it("ignores specifiers that only appear in comments", () => {
     expect(specifiers(scan(`// import x from "@tanstack/react-query"\nconst y = 1;`))).toEqual([]);
   });
@@ -233,6 +239,9 @@ describe("architecture: imports of a frontend", () => {
     `import i18n from "@/i18n";`,
     `import { languages } from "@/i18n/resources";`,
     `import { bindDrag } from "@ui-sdk/core";`,
+    `import { Resizable } from "@ui-sdk/core/resizable";`,
+    `import type { AppT } from "@/i18n/resources";`,
+    `t("frontends.x.import");\nconst b = "c";`,
   ])("accepts %s", (source) => {
     expect(check(source)).toEqual([]);
   });
@@ -253,6 +262,10 @@ describe("architecture: imports of a frontend", () => {
     [`import { Other } from "@/components/frontends/other";`, "import between frontends (@/components/frontends/other)"],
     [`import { Other } from "../other/other";`, "import between frontends (../other/other)"],
     [`const m = await import("@tanstack/react-query");`, "package @tanstack/react-query"],
+    [`import { x } from "@ui-sdk/core/internal/x";`, "package @ui-sdk/core/internal/x"],
+    [`import { x } from "@ui-sdk/react/internal/x";`, "package @ui-sdk/react/internal/x"],
+    [`import i18n from "i18next";\ni18n.changeLanguage("en");`, "package i18next"],
+    [`import type { TFunction } from "i18next";`, "package i18next"],
     [`const m = await import(name);`, "dynamic import with a computed specifier"],
     [`const m = await import("./" + name);`, "dynamic import with a computed specifier"],
   ])("rejects %s", (source, reason) => {

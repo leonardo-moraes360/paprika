@@ -86,14 +86,21 @@ export type Specifier = { value: string; dynamic: boolean };
 
 export function specifiers(scanned: Scanned): Specifier[] {
   const found: Specifier[] = [];
-  const { text } = scanned;
-  for (const match of text.matchAll(/\b(?:import|export)\b[^;'"`]*?\bfrom\s*(["'`])([^"'`]*)\1/g)) found.push({ value: match[2] as string, dynamic: false });
-  for (const match of text.matchAll(/\bimport\s*(["'`])([^"'`]*)\1/g)) found.push({ value: match[2] as string, dynamic: false });
+  const { text, code } = scanned;
+  // `code` has the same length as `text` with string contents blanked: a keyword that is only
+  // text inside a string literal (e.g. "frontends.x.import") is not at that index in `code`.
+  const isCode = (match: RegExpMatchArray) => {
+    const word = /^\w+/.exec(match[0])?.[0] ?? "";
+    return code.slice(match.index, (match.index as number) + word.length) === word;
+  };
+  for (const match of text.matchAll(/\b(?:import|export)\b[^;'"`]*?\bfrom\s*(["'`])([^"'`]*)\1/g)) if (isCode(match)) found.push({ value: match[2] as string, dynamic: false });
+  for (const match of text.matchAll(/\bimport\s*(["'`])([^"'`]*)\1/g)) if (isCode(match)) found.push({ value: match[2] as string, dynamic: false });
   for (const match of text.matchAll(/\bimport\s*\(\s*([^)]*?)\s*\)/g)) {
+    if (!isCode(match)) continue;
     const literal = /^(["'`])([^"'`$]*)\1$/.exec(match[1] as string);
     found.push(literal ? { value: literal[2] as string, dynamic: true } : { value: `<non-literal ${match[1]}>`, dynamic: true });
   }
-  for (const match of text.matchAll(/\brequire\s*\(\s*(["'`])([^"'`]*)\1\s*\)/g)) found.push({ value: match[2] as string, dynamic: true });
+  for (const match of text.matchAll(/\brequire\s*\(\s*(["'`])([^"'`]*)\1\s*\)/g)) if (isCode(match)) found.push({ value: match[2] as string, dynamic: true });
   return found;
 }
 
@@ -188,11 +195,11 @@ export function resolveSpecifier(env: Environment, from: string, value: string):
 
 const frontendPackages = [
   /^react$/,
-  /^(?:i18next|react-i18next)$/,
+  /^react-i18next$/,
   /^@tanstack\/(?:react-store|store|react-virtual|virtual-core|react-hotkeys|hotkeys)$/,
   /^uqr$/,
   /^lucide-react$/,
-  /^@ui-sdk\/(?:react|core)\/(?!web\.css$)[\w./-]+$/,
+  /^@ui-sdk\/(?:react|core)\/(?!internal\/|web\.css$)[\w./-]+$/,
   /^@ui-sdk\/core$/,
   /^@paprika\/core$/,
 ];

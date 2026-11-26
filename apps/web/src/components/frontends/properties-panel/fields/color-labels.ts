@@ -1,7 +1,7 @@
-import type { TFunction } from "i18next";
+import type { AppT } from "@/i18n/resources";
 import type { ColorPickerLabels } from "@/components/ui/color-picker";
 
-type T = TFunction;
+type T = AppT;
 
 export function colorPickerLabels(t: T): ColorPickerLabels {
   const k = "frontends.propertiesPanel.colorPicker";
