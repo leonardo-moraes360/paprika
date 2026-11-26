@@ -193,6 +193,7 @@ const frontendPackages = [
   /^uqr$/,
   /^lucide-react$/,
   /^@ui-sdk\/(?:react|core)\/(?!web\.css$)[\w./-]+$/,
+  /^@ui-sdk\/core$/,
   /^@paprika\/core$/,
 ];
 

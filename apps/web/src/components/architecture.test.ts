@@ -232,6 +232,7 @@ describe("architecture: imports of a frontend", () => {
     `import { Row } from "@/components/frontends/demo/row";`,
     `import i18n from "@/i18n";`,
     `import { languages } from "@/i18n/resources";`,
+    `import { bindDrag } from "@ui-sdk/core";`,
   ])("accepts %s", (source) => {
     expect(check(source)).toEqual([]);
   });
