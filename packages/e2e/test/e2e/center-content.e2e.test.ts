@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import type { Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { callTool, closeSeededCanvas, connectAgent, openSeededCanvas, revealLayer, webDist, type CanvasSession } from "./seededCanvas.js";
+import { callTool, closeSeededCanvas, connectAgent, dismissToasts, openSeededCanvas, revealLayer, webDist, type CanvasSession } from "./seededCanvas.js";
 
 type Probe = { parentId?: string | null; children?: string[]; radius?: unknown; clip?: boolean; layout?: { mode: string; justify: string; align: string; padding: unknown; gap: unknown }; type: string; x: number; y: number; fill?: string };
 
@@ -155,6 +155,7 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
   });
 
   it("os grupos andam pelo teclado, têm nomes e foco visível", async () => {
+    await dismissToasts(page);
     const horizontal = page.getByTestId("content-horizontal");
     await horizontal.getByRole("radio", { name: "Centro" }).focus();
     await page.keyboard.press("Shift+Tab");
@@ -308,6 +309,7 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
   it("B4: o menu de contexto oferece Centralizar conteúdo para a forma com conteúdo e converte num passo", async () => {
     const original = await node("rmenu");
     await select("rmenu");
+    await dismissToasts(page);
     const box = await page.locator('.world [data-paprika-id="rmenu"]').boundingBox();
     await page.mouse.click(box!.x + 3, box!.y + 3, { button: "right" });
     const item = page.getByTestId("center-content");
