@@ -1,8 +1,9 @@
 import { Copy, Download } from "lucide-react";
 import type { ComponentProps } from "react";
-import { cn, focusRing } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import { Checkbox } from "./checkbox";
+import { ScrollArea } from "./scroll-area";
 import { Select } from "./select";
 
 export type ExportCodeOption = { value: string; label: string };
@@ -33,17 +34,11 @@ export function ExportCode({ formats, format, onFormatChange, tokens, onTokensCh
     <div className={cn("flex w-70 flex-col gap-2", className)} {...props}>
       <Select label={labels.format} options={[...formats]} value={format} onValueChange={(next) => next && onFormatChange(next)} />
       <Checkbox label={labels.tokens} checked={tokens} onCheckedChange={(next) => onTokensChange(next === true)} />
-      <pre
-        tabIndex={0}
-        role="region"
-        aria-label={labels.code}
-        className={cn(
-          "h-37.5 overflow-auto rounded-md bg-code px-3 py-2.5 font-mono text-xs leading-normal text-code-ink forced-colors:border forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]",
-          focusRing,
-        )}
-      >
-        <code>{code}</code>
-      </pre>
+      <ScrollArea label={labels.code} viewportClassName="rounded-md focus-visible:-outline-offset-2" className="h-37.5 rounded-md bg-code forced-colors:border forced-colors:bg-[Canvas]">
+        <pre className="px-3 py-2.5 font-mono text-xs leading-normal text-code-ink forced-colors:text-[CanvasText]">
+          <code>{code}</code>
+        </pre>
+      </ScrollArea>
       <div className="flex items-center gap-2">
         <Button variant="secondary" pendingAnnouncement={labels.pendingAnnouncement} onClick={onCopy}>
           <Copy aria-hidden="true" />

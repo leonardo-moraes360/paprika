@@ -2,25 +2,6 @@
 
 @import "tailwindcss";
 
-@custom-variant hover {
-  @media (hover: hover) {
-    &:hover {
-      @slot;
-    }
-  }
-}
-
-@custom-variant dark {
-  &:where([data-theme="dark"], [data-theme="dark"] *) {
-    @slot;
-  }
-  @media (prefers-color-scheme: dark) {
-    &:where(:root:not([data-theme]), :root:not([data-theme]) *) {
-      @slot;
-    }
-  }
-}
-
 @theme static {
   --color-bg: light-dark(#FBF4E6, #141827);
   --color-panel: light-dark(#FFFFFF, #1E2336);

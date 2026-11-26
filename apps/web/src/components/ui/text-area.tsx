@@ -16,18 +16,9 @@ export type TextAreaProps = Omit<ComponentProps<typeof Textarea>, "className"> &
 export function TextArea({ label, description, error, invalid, validationMessages, counter, fieldClassName, className, inputClassName, boxProps, disabled, name, ...props }: TextAreaProps) {
   return (
     <FormField label={label} description={description} error={error} invalid={invalid} validationMessages={validationMessages} disabled={disabled} name={name} className={fieldClassName}>
-      <div
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget) {
-            event.preventDefault();
-            event.currentTarget.querySelector("textarea")?.focus();
-          }
-        }}
-        className={cn("flex min-h-24 w-full cursor-text flex-col gap-1.5 px-3 py-2.5 has-[[data-disabled]]:cursor-not-allowed", fieldBoxWrapper, className)}
-        {...boxProps}
-      >
-        <Textarea className={slot(cn(bareInput, "min-h-0 w-full resize-none leading-[1.45]"), inputClassName)} {...props} />
-        {counter ? <FieldDescription className="flex justify-end text-xs text-muted">{counter}</FieldDescription> : null}
+      <div className={cn("relative flex min-h-24 w-full cursor-text flex-col has-[[data-disabled]]:cursor-not-allowed", fieldBoxWrapper, className)} {...boxProps}>
+        <Textarea className={slot(cn(bareInput, "min-h-0 w-full resize-none px-3 pt-2.5 leading-[1.45]", counter ? "pb-8" : "pb-2.5"), inputClassName)} {...props} />
+        {counter ? <FieldDescription className="pointer-events-none absolute inset-x-3 bottom-2.5 flex justify-end text-xs text-muted">{counter}</FieldDescription> : null}
       </div>
     </FormField>
   );
