@@ -2,11 +2,11 @@ import { Button as ButtonPrimitive } from "@ui-sdk/react/button";
 import type { ComponentProps, ReactNode } from "react";
 import { focusRing, slot } from "@/lib/utils";
 
-export type PanelHandleSide = "left" | "right";
+export type PanelHandleSide = "start" | "end";
 
 const shapes: Record<PanelHandleSide, string> = {
-  left: "rounded-l-none rounded-r-[28px]",
-  right: "rounded-l-[28px] rounded-r-none",
+  start: "rounded-s-none rounded-e-[28px]",
+  end: "rounded-s-[28px] rounded-e-none",
 };
 
 export type PanelHandleProps = Omit<ComponentProps<typeof ButtonPrimitive>, "children" | "aria-label" | "aria-expanded" | "aria-controls"> & {
