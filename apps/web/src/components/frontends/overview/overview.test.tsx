@@ -184,6 +184,7 @@ describe("Overview", () => {
       expect(within(dialog).getByText("1 node and the undo history will be erased. This cannot be undone.")).toBeInTheDocument();
       const confirm = within(dialog).getByRole("button", { name: "Delete workspace" });
       expect(confirm).toBeDisabled();
+      expect(within(dialog).getByRole("textbox")).toHaveFocus();
       await user.type(within(dialog).getByRole("textbox", { name: "Type “Site and docs” to confirm" }), "Site and doc");
       expect(confirm).toBeDisabled();
       await user.type(within(dialog).getByRole("textbox"), "s");

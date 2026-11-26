@@ -195,7 +195,7 @@ function OverviewView({
               <h1 id="overview-heading" className="truncate text-[28px] leading-tight font-bold tracking-tight">
                 {heading}
               </h1>
-              <p className="max-w-xl text-sm leading-normal text-muted">{loading ? t("frontends.overview.states.loading") : lead}</p>
+              <p className="max-w-xl text-sm leading-normal text-muted">{loading ? t("frontends.overview.states.loading") : error && count === 0 ? null : lead}</p>
             </div>
             {creating ? (
               <CreateForm

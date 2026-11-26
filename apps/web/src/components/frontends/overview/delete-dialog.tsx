@@ -29,7 +29,7 @@ export function DeleteDialog({ workspace, requireName, finalFocus, onCancel, onC
       confirmDisabled={!matches}
       cancelLabel={t("frontends.overview.delete.cancel")}
       onConfirm={() => onConfirm(workspace.id)}
-      contentProps={finalFocus ? { finalFocus } : undefined}
+      contentProps={{ ...(finalFocus ? { finalFocus } : {}), ...(requireName ? { initialFocus: "input" } : {}) }}
     >
       {requireName ? (
         <TextField
