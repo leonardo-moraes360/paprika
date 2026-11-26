@@ -22,7 +22,8 @@ The numbers live in one file, `packages/e2e/test/perf/budgets.ts`.
 |---|---|---|---|
 | WS bytes per one-prop write | 2 KB | 608 B (enforced; was 7.23 MB) | PAP-A-057 |
 | Doc snapshots on open | 1 | 1 (enforced; was 2) | PAP-A-057 |
-| Server time per one-prop write | 50 ms | 1.08 s | PAP-A-060 |
+| Server time per one-prop write | 50 ms | 3 ms over a small document (enforced; was 1.08 s) on a plain node | PAP-A-060 |
+| Server time per one-prop write on a component master with 1,000 instances | 50 ms | 2.2 s (report-only: the 1,000 copies are rebuilt and persisted) | PAP-A-060 |
 | Script time in the tab on one incoming write | 50 ms | 2.6 s (synthetic worst case) | PAP-A-061 |
 | p95 frame on scroll, zoom and pan | 20 ms | 33–67 ms | PAP-A-062 |
 | Panel resize step | 20 ms | 750 ms | PAP-A-063 |
