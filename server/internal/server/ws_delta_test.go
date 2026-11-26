@@ -185,7 +185,7 @@ func TestDeltasConvergeWithServerDocument(t *testing.T) {
 		}
 		return ids[rng.Intn(len(ids))]
 	}
-	for i := 0; i < 400; i++ {
+	for i := range 400 {
 		var ops string
 		switch rng.Intn(9) {
 		case 0, 1:
@@ -349,7 +349,7 @@ func TestBroadcastCollapsesOverflowIntoSnapshot(t *testing.T) {
 		})
 	})
 	defer off()
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		if _, err := s.Apply(parseOps(t, fmt.Sprintf(`[{"op":"update","id":"r","props":{"x":%d}}]`, i)), "user", "w"); err != nil {
 			t.Fatal(err)
 		}

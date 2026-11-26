@@ -597,7 +597,7 @@ func Equal(a, b any) bool {
 		return ok && x == y
 	case float64:
 		y, ok := b.(float64)
-		return ok && (x == y || (x != x && y != y))
+		return ok && (x == y || (math.IsNaN(x) && math.IsNaN(y)))
 	case bool:
 		y, ok := b.(bool)
 		return ok && x == y
