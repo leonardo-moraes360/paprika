@@ -37,7 +37,10 @@ function assertEverythingOn(p, why) {
   }
   assert.deepEqual(
     JSON.parse(p.unit_matrix),
-    [{ pkg: "@paprika/core", mode: "all" }],
+    [
+      { pkg: "@paprika/core", mode: "all" },
+      { pkg: "@paprika/web", mode: "all" },
+    ],
     `${why}: unit_matrix`,
   );
   assert.deepEqual(
@@ -147,10 +150,12 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
   });
 
-  it("apps/web only triggers the TS build and analysis, with no e2e and no docker", () => {
+  it("apps/web triggers the TS build, its own unit tests and analysis, with no e2e and no docker", () => {
     const p = plan(["apps/web/src/routes/index.tsx"]);
     assert.equal(p.ts, true);
     assert.equal(p.build, true);
+    assert.equal(p.unit, true);
+    assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/web", mode: "all" }]);
     assert.equal(p.docker, false);
     assert.equal(p.suites, false);
     assert.deepEqual(JSON.parse(p.suites_matrix), []);
