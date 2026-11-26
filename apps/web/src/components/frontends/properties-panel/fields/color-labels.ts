@@ -1,7 +1,7 @@
-import type { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { ColorPickerLabels } from "@/components/ui/color-picker";
 
-type T = ReturnType<typeof useTranslation>["t"];
+type T = TFunction;
 
 export function colorPickerLabels(t: T): ColorPickerLabels {
   const k = "frontends.propertiesPanel.colorPicker";

@@ -1,6 +1,7 @@
 import { Bot, KeyRound, Link2, Share2, UserPlus, Users } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { MemberRow } from "@/components/ui/member-row";
@@ -139,7 +140,7 @@ function NoTeam({ onCreateTeam }: Pick<TeamProps, "onCreateTeam">) {
   );
 }
 
-function subtitle(t: ReturnType<typeof useTranslation>["t"], member: TeamMemberEntry) {
+function subtitle(t: TFunction, member: TeamMemberEntry) {
   const rtt = member.rttMs != null ? ` · ${member.rttMs} ms` : "";
   const where =
     member.connection === "local"

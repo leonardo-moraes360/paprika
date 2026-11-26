@@ -188,7 +188,7 @@ export function resolveSpecifier(env: Environment, from: string, value: string):
 
 const frontendPackages = [
   /^react$/,
-  /^react-i18next$/,
+  /^(?:i18next|react-i18next)$/,
   /^@tanstack\/(?:react-store|store|react-virtual|virtual-core|react-hotkeys|hotkeys)$/,
   /^uqr$/,
   /^lucide-react$/,
