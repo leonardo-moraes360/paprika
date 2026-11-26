@@ -2766,8 +2766,10 @@ describe("API: HTTP + WebSocket", () => {
           const p = msg[key];
           if (!p) continue;
           const bag = (model as unknown as Record<string, Record<string, unknown>>)[key]!;
-          Object.assign(bag, p.set ?? {});
-          for (const k of p.del ?? []) delete bag[k];
+          const merged = new Map(Object.entries(bag));
+          for (const [k, v] of Object.entries(p.set ?? {})) merged.set(k, v);
+          for (const k of p.del ?? []) merged.delete(k);
+          (model as unknown as Record<string, unknown>)[key] = Object.fromEntries(merged);
         }
         version = msg.version;
       } else return;
