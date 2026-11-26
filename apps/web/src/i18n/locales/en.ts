@@ -1,3 +1,4 @@
+import { activityEn } from "./frontends/activity";
 import { workspaceNoticeEn } from "./frontends/workspaceNotice";
 import { historyPanelEn } from "./frontends/historyPanel";
 import { teamEn } from "./frontends/team";
@@ -37,6 +38,7 @@ export const en = {
     team: teamEn,
     historyPanel: historyPanelEn,
     workspaceNotice: workspaceNoticeEn,
+    activity: activityEn,
     editorLayout: {
       left: {
         region: "Layers panel",

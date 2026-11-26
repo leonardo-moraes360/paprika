@@ -1,3 +1,4 @@
+import { activityPtBR } from "./frontends/activity";
 import { workspaceNoticePtBR } from "./frontends/workspaceNotice";
 import { historyPanelPtBR } from "./frontends/historyPanel";
 import { teamPtBR } from "./frontends/team";
@@ -39,6 +40,7 @@ export const ptBR: Translation = {
     team: teamPtBR,
     historyPanel: historyPanelPtBR,
     workspaceNotice: workspaceNoticePtBR,
+    activity: activityPtBR,
     editorLayout: {
       left: {
         region: "Painel de camadas",
