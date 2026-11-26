@@ -57,7 +57,7 @@ func (h *History) run(ops []any) (*ApplyResult, error) {
 			return r, nil
 		}
 	}
-	r, err := ApplyOps(h.current, ops)
+	r, err := applyOps(h.current, ops, h.settled)
 	if err != nil {
 		return nil, err
 	}

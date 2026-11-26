@@ -961,10 +961,12 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		index := list.indexOf(id)
 		list.removeAt(index)
 		saved := make([]any, len(nodes))
+		goneIDs := make([]string, len(nodes))
 		for k, n := range nodes {
 			saved[k] = jsonv.Clone(n)
-			Nodes(doc).Delete(n.Str("id"))
+			goneIDs[k] = n.Str("id")
 		}
+		Nodes(doc).DeleteAll(goneIDs)
 		return jsonv.NewObject("op", "restore", "nodes", saved, "rootId", id, "parentId", parentID, "index", float64(index)), nil
 
 	case "restore":
@@ -1119,6 +1121,10 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 }
 
 func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
+	return applyOps(doc, ops, false)
+}
+
+func applyOps(doc *Document, ops []any, settled bool) (*ApplyResult, error) {
 	draft := jsonv.Clone(doc).(*jsonv.Object)
 	var inverse []any
 	created := []string{}
@@ -1151,7 +1157,11 @@ func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
 		}
 		applyConstraints(doc, draft)
 		inverse = append(fitGroups(draft), inverse...)
-		if err := SyncInstances(draft); err != nil {
+		var base *Document
+		if settled {
+			base = doc
+		}
+		if err := syncInstances(base, draft); err != nil {
 			return nil, opErr(len(ops)-1, "%s", err.Error())
 		}
 		inverse = append(fitGroups(draft), inverse...)

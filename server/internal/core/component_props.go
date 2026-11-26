@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	z "github.com/leonardo-moraes360/paprika/server/internal/zod"
@@ -913,7 +914,111 @@ func materialize(doc *Document, inst *Node) (*builtTree, error) {
 	return &builtTree{root: next, nodes: want}, nil
 }
 
-func SyncInstances(doc *Document) error {
+func SyncInstances(doc *Document) error { return syncInstances(nil, doc) }
+
+type instanceDiff struct {
+	prev, cur *Document
+	eq        map[string]bool
+	closures  map[string][]string
+}
+
+func newInstanceDiff(prev, cur *Document) *instanceDiff {
+	return &instanceDiff{prev: prev, cur: cur, eq: map[string]bool{}, closures: map[string][]string{}}
+}
+
+func (d *instanceDiff) same(id string) bool {
+	if v, ok := d.eq[id]; ok {
+		return v
+	}
+	a, b := GetNode(d.prev, id), GetNode(d.cur, id)
+	v := a != nil && b != nil && (a == b || jsonv.Equal(a, b))
+	d.eq[id] = v
+	return v
+}
+
+func subtreeIDs(doc *Document, id string, out *[]string) {
+	n := GetNode(doc, id)
+	if n == nil {
+		return
+	}
+	*out = append(*out, id)
+	for _, c := range n.Strings("children") {
+		subtreeIDs(doc, c, out)
+	}
+}
+
+func (d *instanceDiff) closure(compID string, seen map[string]bool) []string {
+	if cached, ok := d.closures[compID]; ok {
+		return cached
+	}
+	if seen[compID] {
+		return nil
+	}
+	seen[compID] = true
+	ids := []string{compID}
+	for id := range definitionIDs(d.cur, compID) {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids[1:])
+	var out []string
+	for _, id := range ids {
+		out = append(out, id)
+		n := GetNode(d.cur, id)
+		if n == nil {
+			continue
+		}
+		if IsInstance(n) && id != compID {
+			out = append(out, d.closure(n.Str("instanceOf"), seen)...)
+		}
+		out = append(out, slotRefIDs(d.cur, n)...)
+	}
+	delete(seen, compID)
+	d.closures[compID] = out
+	return out
+}
+
+func slotRefIDs(doc *Document, n *Node) []string {
+	slots := n.Obj("slots")
+	if slots == nil {
+		return nil
+	}
+	var out []string
+	for _, name := range slots.Keys() {
+		for _, ref := range slots.Strings(name) {
+			subtreeIDs(doc, ref, &out)
+		}
+	}
+	return out
+}
+
+func (d *instanceDiff) unchanged(inst *Node) bool {
+	id := inst.Str("id")
+	if !d.same(id) {
+		return false
+	}
+	pd, cd := descendants(d.prev, id), descendants(d.cur, id)
+	if !slices.Equal(pd, cd) {
+		return false
+	}
+	for _, c := range cd {
+		if !d.same(c) {
+			return false
+		}
+	}
+	for _, x := range d.closure(inst.Str("instanceOf"), map[string]bool{}) {
+		if !d.same(x) || GetNode(d.cur, x).Str("type") == "connector" {
+			return false
+		}
+	}
+	for _, x := range slotRefIDs(d.cur, inst) {
+		if !d.same(x) || GetNode(d.cur, x).Str("type") == "connector" {
+			return false
+		}
+	}
+	return true
+}
+
+func syncInstances(prev, doc *Document) error {
 	for _, id := range Nodes(doc).Keys() {
 		n := GetNode(doc, id)
 		if n == nil || n.Str("type") == "page" {
@@ -970,11 +1075,22 @@ func SyncInstances(doc *Document) error {
 		return err
 	}
 	keys := Nodes(doc).Keys()
+	var diff *instanceDiff
+	if prev != nil {
+		diff = newInstanceDiff(prev, doc)
+	}
 	for _, id := range keys {
 		n := GetNode(doc, id)
 		if IsInstance(n) && !n.Has("sourceId") {
+			if diff != nil && diff.unchanged(n) {
+				continue
+			}
 			if err := buildInstance(doc, n); err != nil {
 				return err
+			}
+			if diff != nil {
+				diff.eq = map[string]bool{}
+				diff.closures = map[string][]string{}
 			}
 		}
 	}
@@ -1000,9 +1116,7 @@ func buildInstance(doc *Document, inst *Node) error {
 	if same {
 		return nil
 	}
-	for _, id := range old {
-		Nodes(doc).Delete(id)
-	}
+	Nodes(doc).DeleteAll(old)
 	Nodes(doc).Set(instID, tree.root)
 	for _, n := range tree.nodes {
 		Nodes(doc).Set(n.Str("id"), n)

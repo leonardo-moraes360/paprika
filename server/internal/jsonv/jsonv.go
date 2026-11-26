@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"sort"
 	"strconv"
@@ -102,6 +103,29 @@ func (o *Object) Delete(k string) {
 	}
 }
 
+func (o *Object) DeleteAll(ks []string) {
+	if o == nil || len(ks) == 0 {
+		return
+	}
+	drop := make(map[string]struct{}, len(ks))
+	for _, k := range ks {
+		if _, ok := o.m[k]; ok {
+			drop[k] = struct{}{}
+			delete(o.m, k)
+		}
+	}
+	if len(drop) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(o.keys)-len(drop))
+	for _, k := range o.keys {
+		if _, gone := drop[k]; !gone {
+			keys = append(keys, k)
+		}
+	}
+	o.keys = keys
+}
+
 func Clone(v any) any {
 	switch t := v.(type) {
 	case *Object:
@@ -125,10 +149,12 @@ func Clone(v any) any {
 }
 
 func (o *Object) Spread() *Object {
-	c := &Object{keys: append([]string(nil), o.Keys()...), m: make(map[string]any, o.Len())}
-	for _, k := range o.Keys() {
-		c.m[k] = o.m[k]
+	c := &Object{keys: append([]string(nil), o.Keys()...)}
+	if o == nil || o.m == nil {
+		c.m = map[string]any{}
+		return c
 	}
+	c.m = maps.Clone(o.m)
 	return c
 }
 
