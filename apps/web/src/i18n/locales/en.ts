@@ -1,3 +1,4 @@
+import { zoomBarEn } from "./frontends/zoomBar";
 import { toolbarEn } from "./frontends/toolbar";
 import { layersPanelEn } from "./frontends/layersPanel";
 import { editorHeaderEn } from "./frontends/editorHeader";
@@ -62,5 +63,6 @@ export const en = {
     editorHeader: editorHeaderEn,
     layersPanel: layersPanelEn,
     toolbar: toolbarEn,
+    zoomBar: zoomBarEn,
   },
 } as const;
