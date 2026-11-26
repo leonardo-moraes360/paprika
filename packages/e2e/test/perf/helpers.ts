@@ -28,6 +28,16 @@ export async function instrument(page: Page) {
   await page.addInitScript(() => {
     const w = window as any;
     w.__long = [];
+    w.__commits = 0;
+    w.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+      supportsFiber: true,
+      renderers: new Map(),
+      inject: () => 1,
+      onCommitFiberRoot: () => void w.__commits++,
+      onCommitFiberUnmount: () => undefined,
+      onPostCommitFiberRoot: () => undefined,
+      checkDCE: () => undefined,
+    };
     new PerformanceObserver((list) => {
       for (const e of list.getEntries()) w.__long.push(e.duration);
     }).observe({ entryTypes: ["longtask"] });
