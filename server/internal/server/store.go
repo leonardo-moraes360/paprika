@@ -480,6 +480,47 @@ func writeDocument(tx querier, doc, prev *core.Document, version int64, now int6
 	}, `DELETE FROM nodes WHERE doc_id = ? AND id = ?`, dd.map_("nodes"))
 }
 
+func writeTouched(tx querier, doc, prev *core.Document, version int64, now int64, dd *docDelta, touched []string) (bool, error) {
+	nodes, prevNodes := core.Nodes(doc), core.Nodes(prev)
+	if nodes == nil || prevNodes == nil || nodes.Len() != prevNodes.Len() {
+		return false, nil
+	}
+	var changed []string
+	for _, k := range touched {
+		v, ok := nodes.Get(k)
+		pv, pok := prevNodes.Get(k)
+		if !ok || !pok {
+			return false, nil
+		}
+		if pv != v && !jsonv.Equal(pv, v) {
+			changed = append(changed, k)
+		}
+	}
+	dd.begin(doc, prev)
+	if !dd.valid || dd.rootIDs || dd.name {
+		return false, nil
+	}
+	id := doc.Str("id")
+	if _, err := tx.Exec(`UPDATE documents SET version = ?, updated_at = ? WHERE id = ?`, version, now, id); err != nil {
+		return false, err
+	}
+	for _, k := range changed {
+		v, _ := nodes.Get(k)
+		n := v.(*core.Node)
+		pid, _ := n.Get("parentId")
+		res, err := tx.Exec(`UPDATE nodes SET parent_id = ?, type = ?, name = ?, data = ? WHERE doc_id = ? AND id = ?`,
+			pid, n.Str("type"), n.Str("name"), jsonv.Stringify(n, ""), id, k)
+		if err != nil {
+			return false, err
+		}
+		if n, _ := res.RowsAffected(); n != 1 {
+			return false, fmt.Errorf("node %q has no row in the database", k)
+		}
+	}
+	dd.nodes.Set = changed
+	return true, nil
+}
+
 func prevObj(prev *core.Document, f func(*core.Document) *jsonv.Object) *jsonv.Object {
 	if prev == nil {
 		return nil
@@ -1072,15 +1113,25 @@ type WorkspaceHead struct {
 	CanRedo bool
 }
 
-func (s *Store) persistLocked(docID string, doc, prev *core.Document, version int64, undo, redo []core.HistoryEntry, step *HistoryStep) (*docDelta, error) {
+func (s *Store) persistLocked(docID string, doc, prev *core.Document, version int64, undo, redo []core.HistoryEntry, step *HistoryStep, touched []string, scoped bool) (*docDelta, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 	dd := &docDelta{}
-	if err := writeDocument(tx, doc, prev, version, time.Now().UnixMilli(), dd); err != nil {
-		return nil, err
+	done := false
+	if scoped {
+		done, err = writeTouched(tx, doc, prev, version, time.Now().UnixMilli(), dd, touched)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !done {
+		*dd = docDelta{}
+		if err := writeDocument(tx, doc, prev, version, time.Now().UnixMilli(), dd); err != nil {
+			return nil, err
+		}
 	}
 	if err := writeHistory(tx, docID, undo, redo); err != nil {
 		return nil, err
@@ -1134,7 +1185,8 @@ func removedIDs(prev *core.Document, r *core.ApplyResult) {
 func (s *Store) commitLocked(prev *core.Document, actor, label, kind string, step *HistoryStep) ([]func(ChangeEvent), ChangeEvent, error) {
 	version := s.version + 1
 	doc := s.history.Doc()
-	dd, err := s.persistLocked(s.docID, doc, prev, version, s.history.Entries(), s.history.RedoEntries(), step)
+	touched, scoped := s.history.LastTouched()
+	dd, err := s.persistLocked(s.docID, doc, prev, version, s.history.Entries(), s.history.RedoEntries(), step, touched, scoped)
 	if err != nil {
 		return nil, ChangeEvent{}, err
 	}
@@ -1236,7 +1288,8 @@ func (s *Store) ApplyIn(id string, ops []any, actor, label, batch string) (*core
 		return nil, WorkspaceHead{}, err
 	}
 	version := live.version + 1
-	dd, err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), nil)
+	touched, scoped := live.history.LastTouched()
+	dd, err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), nil, touched, scoped)
 	if err != nil {
 		restored := core.Restore(prevDoc, prevUndo, prevRedo)
 		if aside {
@@ -1252,7 +1305,9 @@ func (s *Store) ApplyIn(id string, ops []any, actor, label, batch string) (*core
 		s.history = live.history
 		s.version = version
 	}
-	removedIDs(prevDoc, r)
+	if !r.Scoped() {
+		removedIDs(prevDoc, r)
+	}
 	head := headOf(target, live)
 	var ls []func(ChangeEvent)
 	var als []func(AsideEvent)
@@ -1306,7 +1361,8 @@ func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error)
 	if what == "" {
 		what = e.Actor
 	}
-	dd, err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), &HistoryStep{kind, actor, time.Now().UnixMilli(), e.Label})
+	touched, scoped := live.history.LastTouched()
+	dd, err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), &HistoryStep{kind, actor, time.Now().UnixMilli(), e.Label}, touched, scoped)
 	if err != nil {
 		restored := core.Restore(prevDoc, prevUndo, prevRedo)
 		if aside {
@@ -1421,11 +1477,8 @@ func (s *Store) ApplyBatch(ops []any, actor, label, batch string) (*core.ApplyRe
 		s.mu.Unlock()
 		return nil, fmt.Errorf("falha ao gravar no banco: %w", err)
 	}
-	after := core.Nodes(r.Doc)
-	for _, id := range core.Nodes(prevDoc).Keys() {
-		if !after.Has(id) {
-			r.Removed = append(r.Removed, id)
-		}
+	if !r.Scoped() {
+		removedIDs(prevDoc, r)
 	}
 	s.mu.Unlock()
 	emit(ls, ev)

@@ -17,6 +17,10 @@ type History struct {
 	redo    []HistoryEntry
 	limit   int
 	open    bool
+	settled bool
+	scope   *ScopeIndex
+	touched []string
+	scoped  bool
 	Now     func() int64
 }
 
@@ -36,12 +40,36 @@ func (h *History) CanRedo() bool               { return len(h.redo) > 0 }
 func (h *History) Entries() []HistoryEntry     { return h.undo }
 func (h *History) RedoEntries() []HistoryEntry { return h.redo }
 
+func (h *History) LastTouched() ([]string, bool) { return h.touched, h.scoped }
+
+func (h *History) run(ops []any) (*ApplyResult, error) {
+	h.touched, h.scoped = nil, false
+	if h.settled {
+		if h.scope == nil {
+			h.scope = BuildScopeIndex(h.current)
+		}
+		if r, ok := ApplyScoped(h.current, ops, h.scope); ok {
+			h.touched, h.scoped = r.Touched, true
+			return r, nil
+		}
+	}
+	r, err := ApplyOps(h.current, ops)
+	if err != nil {
+		return nil, err
+	}
+	if len(ops) > 0 {
+		h.settled = true
+	}
+	h.scope = nil
+	return r, nil
+}
+
 func (h *History) Apply(ops []any, actor, label string) (*ApplyResult, error) {
 	return h.ApplyBatch(ops, actor, label, "")
 }
 
 func (h *History) ApplyBatch(ops []any, actor, label, batch string) (*ApplyResult, error) {
-	r, err := ApplyOps(h.current, ops)
+	r, err := h.run(ops)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +96,7 @@ func (h *History) Undo() (HistoryEntry, bool, error) {
 		return HistoryEntry{}, false, nil
 	}
 	e := h.undo[len(h.undo)-1]
-	r, err := ApplyOps(h.current, e.Inverse)
+	r, err := h.run(e.Inverse)
 	if err != nil {
 		return e, false, err
 	}
@@ -86,7 +114,7 @@ func (h *History) Redo() (HistoryEntry, bool, error) {
 		return HistoryEntry{}, false, nil
 	}
 	e := h.redo[len(h.redo)-1]
-	r, err := ApplyOps(h.current, e.Inverse)
+	r, err := h.run(e.Inverse)
 	if err != nil {
 		return e, false, err
 	}
@@ -103,4 +131,5 @@ func (h *History) Reset(doc *Document) {
 	h.current = doc
 	h.undo, h.redo = nil, nil
 	h.open = false
+	h.settled, h.scope, h.touched, h.scoped = false, nil, nil, false
 }

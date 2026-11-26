@@ -349,7 +349,10 @@ type ApplyResult struct {
 	Inverse []any
 	Created []string
 	Removed []string
+	Touched []string
 }
+
+func (r *ApplyResult) Scoped() bool { return r.Touched != nil }
 
 type listRef struct {
 	owner *jsonv.Object
