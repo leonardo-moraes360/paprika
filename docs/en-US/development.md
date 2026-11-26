@@ -44,6 +44,7 @@ The server lives in `server/` and stores documents, tokens and the undo/redo his
 ```bash
 pnpm check        # build + typecheck + fixtures up to date + unit and Go tests + API and E2E suites
 pnpm dev          # server with the demo (dev.db, reset on start); in another terminal: pnpm --filter @paprika/web-legacy dev
+pnpm --filter @paprika/web dev   # new app (TanStack Start, SPA mode), under construction; same proxy to the server
 pnpm test:api     # black-box MCP/HTTP/WS suite against server/bin/paprika
 pnpm test:e2e     # canvas E2E (Playwright) against server/bin/paprika
 pnpm test:render  # Rust renderer (crates/render): native tests with vello_cpu
