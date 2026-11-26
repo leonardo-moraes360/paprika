@@ -5,18 +5,19 @@ import {
   ScrollAreaThumb,
   ScrollAreaViewport,
 } from "@ui-sdk/react/scroll-area";
-import type { ComponentProps } from "react";
+import type { ComponentProps, Ref } from "react";
 import { cn, focusRing } from "@/lib/utils";
 
 export type ScrollAreaProps = ComponentProps<typeof ScrollAreaPrimitive> & {
   label?: string;
   viewportClassName?: string;
+  viewportRef?: Ref<HTMLDivElement>;
 };
 
-export function ScrollArea({ className, viewportClassName, label, children, type = "auto", ...props }: ScrollAreaProps) {
+export function ScrollArea({ className, viewportClassName, viewportRef, label, children, type = "auto", ...props }: ScrollAreaProps) {
   return (
     <ScrollAreaPrimitive type={type} className={cn("relative min-h-0 overflow-hidden", className)} {...props}>
-      <ScrollAreaViewport role={label ? "region" : undefined} aria-label={label} className={cn("size-full rounded-sm", focusRing, viewportClassName)}>
+      <ScrollAreaViewport ref={viewportRef} role={label ? "region" : undefined} aria-label={label} className={cn("size-full rounded-sm", focusRing, viewportClassName)}>
         <ScrollAreaContent>{children}</ScrollAreaContent>
       </ScrollAreaViewport>
       <ScrollAreaScrollbar
