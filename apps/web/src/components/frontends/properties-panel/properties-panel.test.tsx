@@ -1,6 +1,6 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Document, LintIssue } from "@paprika/core";
+import { applyOps, type Document, type LintIssue } from "@paprika/core";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
@@ -124,14 +124,49 @@ describe("Position and size", () => {
     expect(box("X")).toHaveFocus();
   });
 
+  it("shows the owner's value again and lets the same number be sent twice when the owner did not apply it", async () => {
+    const user = userEvent.setup();
+    const { onApply } = setup({ id: "f1" });
+    await user.clear(box("X"));
+    await user.type(box("X"), "200{Enter}");
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(box("X")).toHaveValue("120");
+    await user.clear(box("X"));
+    await user.type(box("X"), "200{Enter}");
+    expect(onApply).toHaveBeenCalledTimes(2);
+    expect(box("X")).toHaveValue("120");
+  });
+
+  it("does not send the same number twice for Enter followed by blur", async () => {
+    const user = userEvent.setup();
+    const { onApply } = setup({ id: "f1" });
+    await user.clear(box("X"));
+    await user.type(box("X"), "200{Enter}");
+    await user.tab();
+    expect(onApply).toHaveBeenCalledTimes(1);
+  });
+
+  it("follows the owner when it applies the value", async () => {
+    const user = userEvent.setup();
+    const doc = buildDocument();
+    const handlers = { onApply: vi.fn(), onSelect: vi.fn(), onError: vi.fn() };
+    const view = render(<PropertiesPanel doc={doc} node={doc.nodes.f1 ?? null} selected={["f1"]} {...handlers} />);
+    await user.clear(box("X"));
+    await user.type(box("X"), "200{Enter}");
+    const next = applyOps(doc, [{ op: "update", id: "f1", props: { x: 200 } }]).doc;
+    view.rerender(<PropertiesPanel doc={next} node={next.nodes.f1 ?? null} selected={["f1"]} {...handlers} />);
+    expect(box("X")).toHaveValue("200");
+  });
+
   it("steps with the arrow keys and ten times as much with Shift", async () => {
     const user = userEvent.setup();
     const { onApply } = setup({ id: "f1" });
     await user.click(box("X"));
     await user.keyboard("{ArrowUp}");
     expect(onApply).toHaveBeenLastCalledWith([{ op: "update", id: "f1", props: { x: 121 } }], "move");
+    // the owner did not apply the first step, so the field is still at its value (120)
     await user.keyboard("{Shift>}{ArrowDown}{/Shift}");
-    expect(onApply).toHaveBeenLastCalledWith([{ op: "update", id: "f1", props: { x: 111 } }], "move");
+    expect(onApply).toHaveBeenLastCalledWith([{ op: "update", id: "f1", props: { x: 110 } }], "move");
   });
 
   it("steps with the stepper buttons", async () => {
@@ -386,6 +421,20 @@ describe("Fill, radius and border", () => {
     await user.clear(await screen.findByRole("textbox", { name: "Value" }));
     await user.type(screen.getByRole("textbox", { name: "Value" }), "$brand{Enter}");
     expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "f1", props: { fill: "$brand" } }], "fill");
+  });
+
+  it("opens the color picker on the current color, whatever its format", async () => {
+    const user = userEvent.setup();
+    setup({ id: "f1" });
+    await user.click(screen.getByRole("button", { name: /^Fill ?rgb/ }));
+    expect(await screen.findByRole("textbox", { name: "Hex value" })).toHaveValue("rgb(26, 31, 49)");
+  });
+
+  it("opens the color picker on the resolved color of a token", async () => {
+    const user = userEvent.setup();
+    setup({ id: "t1" });
+    await user.click(screen.getByRole("button", { name: /^Text color ?rgb/ }));
+    expect(await screen.findByRole("textbox", { name: "Hex value" })).toHaveValue("rgb(232, 85, 61)");
   });
 
   it("shows a token chip for a color bound to a token", () => {

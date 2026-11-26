@@ -38,7 +38,6 @@ export function NumericField({ label, prefix, unit, value, onCommit, onClear, mi
   const [draft, setDraft] = useState(baseline);
   const [seen, setSeen] = useState(baseline);
   const [issue, setIssue] = useState<NumericIssue | null>(null);
-  const lastCommitted = useRef<string | null>(null);
   const keepIssue = useRef<NumericIssue | null>(null);
   const range: NumericRange = { min, max, integer };
 
@@ -47,7 +46,6 @@ export function NumericField({ label, prefix, unit, value, onCommit, onClear, mi
     setDraft(baseline);
     setIssue(keepIssue.current);
     keepIssue.current = null;
-    lastCommitted.current = null;
   }
 
   const finish = (result: NumericCommit) => {
@@ -59,9 +57,12 @@ export function NumericField({ label, prefix, unit, value, onCommit, onClear, mi
     }
     keepIssue.current = result.clamped ? (result.issue ?? null) : null;
     setIssue(keepIssue.current);
-    setDraft(result.text);
-    if (result.text === baseline || result.text === lastCommitted.current) return;
-    lastCommitted.current = result.text;
+    if (result.text === baseline) {
+      setDraft(result.text);
+      return;
+    }
+    // The owner decides what the value is: until it re-renders with a new value, show the one it has.
+    setDraft(baseline);
     onCommit(result.value);
   };
 
@@ -70,16 +71,17 @@ export function NumericField({ label, prefix, unit, value, onCommit, onClear, mi
     if (typed === "" && onClear) {
       keepIssue.current = null;
       setIssue(null);
-      if (baseline !== "") onClear();
+      if (baseline !== "") {
+        setDraft(baseline);
+        onClear();
+      }
       return;
     }
     if (keywords?.includes(typed)) {
       keepIssue.current = null;
       setIssue(null);
-      if (typed !== baseline && typed !== lastCommitted.current) {
-        lastCommitted.current = typed;
-        onCommit(typed);
-      }
+      setDraft(baseline);
+      if (typed !== baseline) onCommit(typed);
       return;
     }
     finish(commitNumeric(draft, range));
