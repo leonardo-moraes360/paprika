@@ -160,8 +160,7 @@ func TestSelectiveUndoDifferential(t *testing.T) {
 			}
 			beforeUndo := canon(t, h1.Doc())
 			out, err := h1.UndoStep(entries[k].Ord, "user")
-			var ce *ConflictError
-			if errors.As(err, &ce) {
+			if _, ok := errors.AsType[*ConflictError](err); ok {
 				conflicts++
 				continue
 			}

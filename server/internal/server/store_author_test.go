@@ -150,15 +150,13 @@ func TestPersistedHistoryWithSelectiveSteps(t *testing.T) {
 		switch k := rng.Intn(10); {
 		case k == 0:
 			if _, _, err := s.StepOwn("", "user", false); err != nil {
-				var ce *core.ConflictError
-				if !errors.As(err, &ce) {
+				if _, ok := errors.AsType[*core.ConflictError](err); !ok {
 					t.Fatal(err)
 				}
 			}
 		case k == 1:
 			if _, _, err := s.StepOwn("", actor, true); err != nil {
-				var ce *core.ConflictError
-				if !errors.As(err, &ce) {
+				if _, ok := errors.AsType[*core.ConflictError](err); !ok {
 					t.Fatal(err)
 				}
 			}

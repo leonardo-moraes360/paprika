@@ -1643,8 +1643,7 @@ func (s *Store) stepWith(id, actor string, redo bool, run func(h *core.History) 
 		kind, prefix, done = "redo", "refazer", "redone"
 	}
 	out, err := run(live.history)
-	var ce *core.ConflictError
-	if errors.As(err, &ce) {
+	if ce, ok := errors.AsType[*core.ConflictError](err); ok {
 		head := headOf(target, live)
 		s.mu.Unlock()
 		return StepResult{Result: "conflict", Ord: ce.Step.Ord, Label: ce.Step.Label, Actor: ce.Step.Actor, WithActor: ce.With.Actor, WithLabel: ce.With.Label}, head, err

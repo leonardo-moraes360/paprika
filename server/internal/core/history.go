@@ -199,8 +199,8 @@ func (h *History) RedoBy(by string) (HistoryEntry, bool, error) {
 
 func (h *History) UndoOwn(actor string) (Outcome, error) {
 	i := -1
-	for j := len(h.undo) - 1; j >= 0; j-- {
-		if h.undo[j].Actor == actor {
+	for j, e := range slices.Backward(h.undo) {
+		if e.Actor == actor {
 			i = j
 			break
 		}
@@ -224,8 +224,8 @@ func (h *History) UndoStep(ord int64, by string) (Outcome, error) {
 }
 
 func (h *History) RedoOwn(actor string) (Outcome, error) {
-	for j := len(h.redo) - 1; j >= 0; j-- {
-		if h.redo[j].By == actor {
+	for j, e := range slices.Backward(h.redo) {
+		if e.By == actor {
 			return h.redoAt(j, actor)
 		}
 	}
