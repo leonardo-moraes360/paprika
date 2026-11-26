@@ -1,5 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readPersisted, readPersistedBoolean, readPersistedNumber, writePersisted, writePersistedBoolean } from "./persist";
+import {
+  booleanCodec,
+  jsonCodec,
+  numberCodec,
+  readPersisted,
+  readPersistedBoolean,
+  readPersistedJson,
+  readPersistedNumber,
+  writePersisted,
+  writePersistedBoolean,
+  writePersistedJson,
+} from "./persist";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -61,5 +72,36 @@ describe("persist", () => {
     vi.stubGlobal("window", undefined);
     expect(readPersisted("x")).toBeNull();
     expect(() => writePersisted("x", "1")).not.toThrow();
+  });
+});
+
+describe("persist json and codecs", () => {
+  const isSize = (value: unknown): value is { w: number } => typeof value === "object" && value !== null && typeof (value as { w?: unknown }).w === "number";
+
+  it("reads json only when it passes the validator", () => {
+    writePersistedJson("j", { w: 3 });
+    expect(readPersistedJson("j", isSize)).toEqual({ w: 3 });
+    writePersisted("j", JSON.stringify({ w: "x" }));
+    expect(readPersistedJson("j", isSize)).toBeNull();
+    writePersisted("j", "{broken");
+    expect(readPersistedJson("j", isSize)).toBeNull();
+    expect(readPersistedJson("missing", isSize)).toBeNull();
+  });
+
+  it("rejects hexadecimal and padded numbers", () => {
+    writePersisted("n", "0x10");
+    expect(readPersistedNumber("n")).toBeNull();
+    writePersisted("n", "1e3");
+    expect(readPersistedNumber("n")).toBeNull();
+    writePersisted("n", " 42 ");
+    expect(readPersistedNumber("n")).toBe(42);
+  });
+
+  it("codecs round-trip and reject garbage", () => {
+    expect(booleanCodec.parse(booleanCodec.serialize(false))).toBe(false);
+    expect(booleanCodec.parse("yes")).toBeNull();
+    expect(numberCodec.parse(numberCodec.serialize(248))).toBe(248);
+    expect(numberCodec.parse("abc")).toBeNull();
+    expect(jsonCodec(isSize).parse(jsonCodec(isSize).serialize({ w: 1 }))).toEqual({ w: 1 });
   });
 });
