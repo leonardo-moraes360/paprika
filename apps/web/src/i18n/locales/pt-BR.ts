@@ -5,7 +5,6 @@ export const ptBR: Translation = {
     title: "Paprika",
     tagline: "Uma ferramenta de design em que seus agentes de IA desenham.",
     start: "Começar",
-    components: "Componentes",
   },
   common: {
     working: "Processando",

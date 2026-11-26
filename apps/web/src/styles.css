@@ -8,18 +8,6 @@
       @slot;
     }
   }
-  &:where([data-gallery] [data-force-hover]) {
-    @slot;
-  }
-}
-
-@custom-variant focus-visible {
-  &:focus-visible {
-    @slot;
-  }
-  &:where([data-gallery] [data-force-focus]) {
-    @slot;
-  }
 }
 
 @custom-variant dark {

@@ -1,11 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRight, Languages } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { ThemeSwitch } from "@/components/ui/theme-switch";
 import { languages } from "@/i18n/resources";
-import { galleryEnabled } from "@/lib/gallery";
 import { useThemePreference } from "@/lib/use-theme-preference";
 
 export const Route = createFileRoute("/")({
@@ -24,11 +23,6 @@ function Home() {
           {t("home.start")}
           <ArrowRight aria-hidden="true" />
         </Button>
-        {galleryEnabled ? (
-          <Button variant="secondary" pendingAnnouncement={t("common.working")} render={<Link to="/components" />}>
-            {t("home.components")}
-          </Button>
-        ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">

@@ -3,7 +3,6 @@ export const en = {
     title: "Paprika",
     tagline: "A design tool your AI agents can draw on.",
     start: "Get started",
-    components: "Components",
   },
   common: {
     working: "Working",
