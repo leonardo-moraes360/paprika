@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
+import i18n from "@/i18n";
 
 declare global {
   var __UI_SDK_STRICT__: boolean | undefined;
@@ -22,4 +23,9 @@ globalThis.ResizeObserver = class {
 };
 document.head.append(Object.assign(document.createElement("style"), { textContent: "[popover] { display: block !important }" }));
 
-afterEach(cleanup);
+await i18n.changeLanguage("en");
+
+afterEach(() => {
+  cleanup();
+  window.localStorage.clear();
+});

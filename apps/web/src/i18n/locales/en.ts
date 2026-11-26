@@ -26,4 +26,12 @@ export const en = {
     en: "English",
     "pt-BR": "Português (Brasil)",
   },
+  frontends: {
+    sidePanel: {
+      region: "{{name}} panel",
+      resize: "Resize {{name}} panel",
+      show: "Show {{name}} panel",
+      hide: "Hide {{name}} panel",
+    },
+  },
 } as const;

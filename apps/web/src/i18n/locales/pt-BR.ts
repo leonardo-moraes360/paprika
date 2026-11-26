@@ -28,4 +28,12 @@ export const ptBR: Translation = {
     en: "English",
     "pt-BR": "Português (Brasil)",
   },
+  frontends: {
+    sidePanel: {
+      region: "Painel de {{name}}",
+      resize: "Redimensionar painel de {{name}}",
+      show: "Mostrar painel de {{name}}",
+      hide: "Esconder painel de {{name}}",
+    },
+  },
 };
