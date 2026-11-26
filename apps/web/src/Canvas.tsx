@@ -27,6 +27,8 @@ import {
   pathBounds,
   connectorAttrs,
   connectorCurveHandle,
+  centerContentOps,
+  contentTarget,
   connectorEndPoints,
   connectorLabelAttrs,
   originOf,
@@ -2609,6 +2611,19 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
               apply([{ op: "convert_to_path", ids: [id] }], "converter em caminho");
               onSelect([id]);
               setLayerMenu(null);
+            };
+          })()}
+          center={(() => {
+            const picked = selected.filter((id) => contentTarget(doc, doc.nodes[id])?.kind === "frame");
+            const targets = picked.length ? picked : layerMenu.ids.filter((id) => contentTarget(doc, doc.nodes[id])?.kind === "frame").slice(0, 1);
+            if (!targets.length) return undefined;
+            const { ops, centered } = centerContentOps(doc, targets);
+            return {
+              checked: !centered,
+              onSelect: () => {
+                apply(ops, m.contentCenterLabel);
+                setLayerMenu(null);
+              },
             };
           })()}
           onClose={() => setLayerMenu(null)}

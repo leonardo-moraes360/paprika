@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { Document } from "@paprika/core";
 import { useT } from "./i18n";
 import { cn } from "./lib/cn";
+import { KeyHint } from "./components/ui/kbd";
 import { layerIcon, layerLabel } from "./Layers";
 
 interface Props {
@@ -12,14 +13,15 @@ interface Props {
   y: number;
   onSelect(id: string): void;
   onConvert?(): void;
+  center?: { checked: boolean; onSelect(): void };
   onClose(): void;
 }
 
-export function LayerMenu({ doc, ids, x, y, onSelect, onConvert, onClose }: Props) {
+export function LayerMenu({ doc, ids, x, y, onSelect, onConvert, center, onClose }: Props) {
   const m = useT();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    ref.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+    ref.current?.querySelector<HTMLButtonElement>('[role^="menuitem"]')?.focus();
   }, [ids]);
   useEffect(() => {
     const onPointer = (e: PointerEvent) => {
@@ -27,7 +29,7 @@ export function LayerMenu({ doc, ids, x, y, onSelect, onConvert, onClose }: Prop
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-      const items = [...(ref.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])];
+      const items = [...(ref.current?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]') ?? [])];
       if (!items.length) return;
       e.preventDefault();
       e.stopPropagation();
@@ -80,6 +82,23 @@ export function LayerMenu({ doc, ids, x, y, onSelect, onConvert, onClose }: Prop
           </button>
         );
       })}
+      {center && (
+        <button
+          type="button"
+          role="menuitemcheckbox"
+          aria-checked={center.checked}
+          aria-keyshortcuts="Alt+C"
+          data-testid="center-content"
+          className={cn(
+            "flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-left text-sm text-ui-popover-foreground outline-none hover:bg-ui-secondary-hover focus-visible:bg-ui-secondary-hover",
+            center.checked && "bg-ui-secondary-hover",
+          )}
+          onClick={center.onSelect}
+        >
+          <span className="min-w-0 flex-1 truncate">{m.contentCenterMenu}</span>
+          <KeyHint keys={["Alt", "C"]} />
+        </button>
+      )}
       {onConvert && (
         <button
           type="button"
