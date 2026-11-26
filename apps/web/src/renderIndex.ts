@@ -29,27 +29,50 @@ export class RenderIndexer {
   private result: RenderIndex | null = null;
   private own = new Map<string, number>();
   private counter = 0;
+  private count = 0;
   private envVer = 0;
 
   index(doc: Document): RenderIndex {
     if (doc === this.input && this.result) return this.result;
     const prev = this.result?.doc ?? null;
-    const own = new Map<string, number>();
-    const nodes: Document["nodes"] = {};
-    let sameNodes = !!prev && Object.keys(prev.nodes).length === Object.keys(doc.nodes).length;
-    for (const [id, n] of Object.entries(doc.nodes)) {
-      const p = prev?.nodes[id];
+    const prevNodes = prev?.nodes ?? null;
+    const own = this.own;
+    const changed: string[] = [];
+    const reused: string[] = [];
+    let count = 0;
+    let added = false;
+    for (const id in doc.nodes) {
+      count++;
+      const n = doc.nodes[id]!;
+      const p = prevNodes?.[id];
+      if (p === n) continue;
       if (p && deepEqual(p, n)) {
-        nodes[id] = p;
-        own.set(id, this.own.get(id) ?? ++this.counter);
-      } else {
-        nodes[id] = n;
-        own.set(id, ++this.counter);
-        sameNodes = false;
+        reused.push(id);
+        continue;
+      }
+      changed.push(id);
+      if (!p) added = true;
+    }
+    const prevCount = prevNodes ? this.count : -1;
+    this.count = count;
+    const sameNodes = !!prev && prevCount === count && changed.length === 0;
+    const removed: string[] = [];
+    if (prevNodes && (added || prevCount !== count)) {
+      for (const id of own.keys()) {
+        if (Object.hasOwn(doc.nodes, id)) continue;
+        own.delete(id);
+        removed.push(id);
       }
     }
-    this.own = own;
-    const next: Record<string, unknown> = { ...doc, nodes: sameNodes && prev ? prev.nodes : nodes };
+    for (const id of changed) own.set(id, ++this.counter);
+    let nodes: Document["nodes"];
+    if (sameNodes && prev) nodes = prev.nodes;
+    else if (reused.length === 0) nodes = doc.nodes;
+    else {
+      nodes = { ...doc.nodes };
+      for (const id of reused) nodes[id] = prevNodes![id]!;
+    }
+    const next: Record<string, unknown> = { ...doc, nodes };
     let envChanged = !prev;
     for (const k of Object.keys(doc)) {
       if (k === "nodes") continue;
@@ -65,8 +88,34 @@ export class RenderIndexer {
       return this.result;
     }
     const stable = next as unknown as Document;
-    this.result = { doc: stable, vers: this.versions(stable), envVer: this.envVer };
+    const vers = this.result ? this.bump(this.result.vers, stable, changed, removed) : this.versions(stable);
+    this.result = { doc: stable, vers, envVer: this.envVer };
     return this.result;
+  }
+
+  private bump(prev: ReadonlyMap<string, number>, doc: Document, changed: readonly string[], removed: readonly string[]): Map<string, number> {
+    const vers = new Map(prev);
+    for (const id of removed) vers.delete(id);
+    for (const id of changed) {
+      const v = this.own.get(id) ?? 0;
+      vers.set(id, v);
+      let a = doc.nodes[id]?.parentId;
+      for (let depth = 0; a && doc.nodes[a] && depth < 2000; depth++) {
+        vers.set(a, v);
+        a = doc.nodes[a]!.parentId;
+      }
+      const stack = [id];
+      while (stack.length) {
+        const cur = doc.nodes[stack.pop()!];
+        if (!cur || !("children" in cur)) continue;
+        for (const c of cur.children) {
+          if (!doc.nodes[c]) continue;
+          vers.set(c, v);
+          stack.push(c);
+        }
+      }
+    }
+    return vers;
   }
 
   private versions(doc: Document): Map<string, number> {

@@ -175,17 +175,17 @@ export function owningComponent(doc: Document, id: string): FrameNode | undefine
 }
 
 function resolvedProps(comp: FrameNode, inst?: FrameNode): Record<string, string | boolean> {
-  const given = inst?.propValues ?? {};
-  const out: Record<string, string | boolean> = {};
-  for (const p of propDecls(comp)) {
-    const v = given[p.name];
-    if (v !== undefined) out[p.name] = v;
-    else if (p.default !== undefined) out[p.name] = p.default;
-    else if (p.type === "boolean") out[p.name] = false;
-    else if (p.type === "text") out[p.name] = "";
-    else out[p.name] = p.options?.[0] ?? "";
-  }
-  return out;
+  const given = new Map(Object.entries(inst?.propValues ?? {}));
+  return Object.fromEntries(
+    propDecls(comp).map((p): [string, string | boolean] => {
+      const v = given.get(p.name);
+      if (v !== undefined) return [p.name, v];
+      if (p.default !== undefined) return [p.name, p.default];
+      if (p.type === "boolean") return [p.name, false];
+      if (p.type === "text") return [p.name, ""];
+      return [p.name, p.options?.[0] ?? ""];
+    }),
+  );
 }
 
 function variantShows(bind: BindSpec | undefined, values: Record<string, string | boolean>): boolean {

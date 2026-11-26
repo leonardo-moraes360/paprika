@@ -75,9 +75,9 @@ export const BUDGETS: Record<string, Budget> = {
     unit: "ms",
     kind: "relative",
     limit: 50,
-    today: "2.6 s",
+    today: "about 0.1 s over the small document (was 2.5 s)",
     enforce: false,
-    ticket: "PAP-A-061",
+    ticket: "PAP-A-068",
   },
   frameP95Ms: {
     id: "frameP95Ms",
@@ -108,9 +108,9 @@ export const BUDGETS: Record<string, Budget> = {
     unit: "ms",
     kind: "exact",
     limit: 1000,
-    today: "25 s (12 s of tab script per write on the heavy page)",
+    today: "0.7-0.97 s (was 25 s)",
     enforce: false,
-    ticket: "PAP-A-061",
+    ticket: "PAP-A-068",
   },
   agentNodeVisibleSmallMs: {
     id: "agentNodeVisibleSmallMs",

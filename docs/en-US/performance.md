@@ -24,11 +24,11 @@ The numbers live in one file, `packages/e2e/test/perf/budgets.ts`.
 | Doc snapshots on open | 1 | 1 (enforced; was 2) | PAP-A-057 |
 | Server time per one-prop write | 50 ms | 3 ms over a small document (enforced; was 1.08 s) on a plain node | PAP-A-060 |
 | Server time per one-prop write on a component master with 1,000 instances | 50 ms | 2.2 s (report-only: the 1,000 copies are rebuilt and persisted) | PAP-A-060 |
-| Script time in the tab on one incoming write | 50 ms | 2.6 s (synthetic worst case) | PAP-A-061 |
+| Script time in the tab on one incoming write | 50 ms | about 0.1 s over the small document (48–173 ms in 10 runs, median about 100 ms; report-only; was 2.5 s: the inspector linted the whole document on the main thread for every version) | PAP-A-068 |
 | p95 frame on scroll, zoom and pan | 20 ms | met (17 ms; was 33–83 ms) | PAP-A-062 |
 | Panel resize step | 20 ms | met (17 ms over the small document; was 750 ms) | PAP-A-063 |
 | Time until an agent-created 200-node frame is visible, small document | 1 s | 180 ms (enforced; was a 200-step replay) | PAP-A-064 |
-| Same, on the heavy page of the worst case | 1 s | 25 s (was 82.6 s; 12 s of tab script per write in React) | PAP-A-061 |
+| Same, on the heavy page of the worst case | 1 s | 0.7–0.97 s in 10 runs (report-only: too close to the limit to enforce; was 25 s) | PAP-A-068 |
 | Slow tab ends on the latest version | always | no (481 of 485) | PAP-A-058 |
 
 Count budgets (bytes, messages, snapshots, versions) are exact. Time budgets are relative: the suite measures the same action on a small document in the same run and the budget applies to the difference, so a slow or busy machine does not fail it. The agent-build times are the exception: they are a product limit, measured as is. Created nodes are never hidden while the agent outline walks them, so what is left on the heavy page is the tab rendering the write, not the walk.
