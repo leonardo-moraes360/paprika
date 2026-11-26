@@ -1,3 +1,5 @@
+import { editorHeaderEn } from "./frontends/editorHeader";
+
 export const en = {
   home: {
     title: "Paprika",
@@ -55,5 +57,6 @@ export const en = {
       deleteConfirm: "Delete page",
       deleteCancel: "Cancel",
     },
+    editorHeader: editorHeaderEn,
   },
 } as const;
