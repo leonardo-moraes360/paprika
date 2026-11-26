@@ -24,7 +24,8 @@ function PinCardBody({ pin, now: nowProp, clock, onReply, onSetStatus, onDelete,
   const remove = useAsyncAction();
   const scope = useRef<HTMLDivElement>(null);
   const busy = reply.pending || status.pending || remove.pending;
-  const error = reply.error ?? status.error ?? remove.error;
+  const failure = reply.error ?? status.error ?? remove.error;
+  const error = failure === null ? null : failure.trim() ? failure : t("frontends.pins.unknownError");
   const ago = (at: number) => {
     const parts = relativeParts(at, now, 30);
     return t(`frontends.pins.ago.${parts.unit}`, { count: parts.count });

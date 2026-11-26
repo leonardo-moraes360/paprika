@@ -10,7 +10,7 @@ import { QrCode } from "@/components/ui/qr-code";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { TextField } from "@/components/ui/text-field";
 import { Tooltip } from "@/components/ui/tooltip";
-import { useAsyncAction, errorText } from "@/lib/use-async-action";
+import { useAsyncAction, errorMessageOr, errorOrFallback } from "@/lib/use-async-action";
 import { useNow } from "@/lib/use-now";
 import { copyText } from "@/lib/copy-text";
 import { countdown } from "./team-model";
@@ -56,10 +56,10 @@ export function InviteDialog({ team, onCreateInvite, onRevokeInvites, onClose, n
         if (ticket.current === mine) setInvite(result);
       },
       (error: unknown) => {
-        if (ticket.current === mine) setCreateError(errorText(error));
+        if (ticket.current === mine) setCreateError(errorMessageOr(error, t("frontends.team.unknownError")));
       },
     );
-  }, [ttl, attempt, onCreateInvite]);
+  }, [ttl, attempt, onCreateInvite, t]);
 
   useEffect(() => {
     if (copied === null) return;
@@ -168,7 +168,7 @@ export function InviteDialog({ team, onCreateInvite, onRevokeInvites, onClose, n
       </div>
       {revoke.error !== null ? (
         <p role="alert" className="m-0 text-sm font-medium text-red-ink">
-          {t("frontends.team.failed", { message: revoke.error })}
+          {t("frontends.team.failed", { message: errorOrFallback(revoke.error, t("frontends.team.unknownError")) })}
         </p>
       ) : null}
     </Dialog>

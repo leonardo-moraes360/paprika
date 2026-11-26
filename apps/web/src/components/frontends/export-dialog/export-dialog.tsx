@@ -6,7 +6,8 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { ExportCode } from "@/components/ui/export-code";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { copyText } from "@/lib/copy-text";
-import { asBlob, asText, downloadBlob, errorText, imageExtension, imageFileName } from "./download";
+import { errorMessageOr } from "@/lib/use-async-action";
+import { asBlob, asText, downloadBlob, imageExtension, imageFileName } from "./download";
 import { currentSize, ImagePanel, type ImageState } from "./image-panel";
 import type { ExportCodeFormat, ExportDialogProps, ExportImageFormat, ExportMode } from "./types";
 
@@ -81,9 +82,9 @@ export function ExportDialog({
       .catch((reason: unknown) => {
         if (ticket !== latest.current) return;
         setCode({ status: "error", text: "" });
-        setFailure({ kind: "code", reason: errorText(reason) });
+        setFailure({ kind: "code", reason: errorMessageOr(reason, t("frontends.exportDialog.unknownError")) });
       });
-  }, [open, mode, codeFormat, tokens, attempt]);
+  }, [open, mode, codeFormat, tokens, attempt, t]);
 
   useEffect(() => {
     if (open) return;
@@ -120,7 +121,7 @@ export function ExportDialog({
       downloadBlob(asBlob(out, image.format === "svg" ? "image/svg+xml" : `image/${imageExtension(image.format)}`), imageFileName(fileName, image.format, image.scale, !vector && !image.custom));
       setFailure(null);
     } catch (reason) {
-      if (openRef.current) setFailure({ kind: "export", reason: errorText(reason) });
+      if (openRef.current) setFailure({ kind: "export", reason: errorMessageOr(reason, t("frontends.exportDialog.unknownError")) });
     }
   };
 

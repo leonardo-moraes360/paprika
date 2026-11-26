@@ -1,4 +1,5 @@
 export const pinsEn = {
+  unknownError: "Unknown error",
   title: "Pins",
   close: "Close",
   filter: "Filter pins",
@@ -44,6 +45,7 @@ export const pinsEn = {
 } as const;
 
 export const pinsPtBR = {
+  unknownError: "Erro desconhecido",
   title: "Apontamentos",
   close: "Fechar",
   filter: "Filtrar apontamentos",

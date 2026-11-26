@@ -1,4 +1,5 @@
 export const propertiesPanelEn = {
+  unknownError: "Unknown error",
   region: "Properties",
   nothingSelected: "Nothing selected.",
   identity: { name: "Name" },
@@ -416,6 +417,7 @@ export const propertiesPanelEn = {
 } as const;
 
 export const propertiesPanelPtBR = {
+  unknownError: "Erro desconhecido",
   region: "Propriedades",
   nothingSelected: "Nada selecionado.",
   identity: { name: "Nome" },

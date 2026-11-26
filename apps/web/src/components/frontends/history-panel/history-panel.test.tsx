@@ -47,6 +47,8 @@ function setup(props: Partial<HistoryPanelProps> = {}) {
 
 const rowOf = (label: RegExp) => screen.getByRole("button", { name: label }).closest("[data-step-id]") as HTMLElement;
 
+const emptyFailures: [string, () => unknown][] = [["an empty message", () => new Error("")], ["no error value", () => undefined]];
+
 describe("HistoryPanel", () => {
   it("groups the steps by author, newest first", () => {
     setup();
@@ -154,6 +156,14 @@ describe("HistoryPanel", () => {
     await user.click(screen.getByRole("button", { name: "Actions for step Move Title" }));
     await user.click(await screen.findByRole("menuitem", { name: "Undo this step" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not complete: conflict");
+  });
+
+  it.each(emptyFailures)("shows the generic text when undoing fails with %s", async (_, make) => {
+    const user = userEvent.setup();
+    setup({ onUndoStep: vi.fn(() => Promise.reject(make())) });
+    await user.click(screen.getByRole("button", { name: "Actions for step Move Title" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Undo this step" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not complete: Unknown error");
   });
 
   it("copies the label of the step", async () => {

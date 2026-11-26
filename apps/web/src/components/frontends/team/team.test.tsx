@@ -41,6 +41,8 @@ function setup(props: Partial<TeamProps> = {}) {
   return { ...handlers, ...props, ...view } as ReturnType<typeof actions> & typeof view;
 }
 
+const emptyFailures: [string, () => unknown][] = [["an empty message", () => new Error("")], ["no error value", () => undefined]];
+
 describe("summarizeTeam", () => {
   it("covers every state", () => {
     expect(summarizeTeam(null).key).toBe("local");
@@ -130,6 +132,14 @@ describe("Team panel", () => {
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Studio");
     await user.click(screen.getByRole("button", { name: "Create team" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not complete: name taken");
+  });
+
+  it.each(emptyFailures)("shows the generic text when creating the team fails with %s", async (_, make) => {
+    const user = userEvent.setup();
+    setup({ status: status({ team: null }), onCreateTeam: vi.fn(() => Promise.reject(make())) });
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Studio");
+    await user.click(screen.getByRole("button", { name: "Create team" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not complete: Unknown error");
   });
 });
 
@@ -237,6 +247,15 @@ describe("join dialog", () => {
     expect(onJoin).toHaveBeenCalledWith("paprika://join/abc");
     expect(await screen.findByText(/You joined the team/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Close" }).length).toBeGreaterThan(0);
+  });
+
+  it.each(emptyFailures)("shows the generic text when the invite cannot be inspected (%s)", async (_, make) => {
+    const user = userEvent.setup();
+    setup({ status: status({ team: null }), onInspectInvite: vi.fn(() => Promise.reject(make())) });
+    await open(user);
+    await user.click(screen.getByRole("textbox", { name: "Invite link" }));
+    await user.paste("paprika://join/abc");
+    expect(await screen.findByText("Unknown error")).toBeInTheDocument();
   });
 
   it("explains an expired invite and keeps Join disabled", async () => {

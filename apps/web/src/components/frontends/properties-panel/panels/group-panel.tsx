@@ -1,5 +1,6 @@
 import { ungroupOps, type GroupNode } from "@paprika/core";
 import { useTranslation } from "react-i18next";
+import { errorMessageOr } from "@/lib/use-async-action";
 import { Button } from "@/components/ui/button";
 import { IdentityHeader } from "../identity-header";
 import { ArrangeSection } from "../sections/arrange-section";
@@ -17,7 +18,7 @@ export function GroupPanel({ doc, node, set, onApply, onSelect, onError }: NodeP
       onApply([{ op: "ungroup", ids: [node.id] }], t("frontends.propertiesPanel.ops.ungroup"));
       onSelect(released);
     } catch (error) {
-      onError?.(error instanceof Error ? error.message : String(error));
+      onError?.(errorMessageOr(error, t("frontends.propertiesPanel.unknownError")));
     }
   };
   return (

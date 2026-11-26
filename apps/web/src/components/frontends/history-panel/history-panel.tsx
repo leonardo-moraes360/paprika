@@ -11,7 +11,7 @@ import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmente
 import { buildHistoryRows, type HistoryStepData } from "@/lib/history-model";
 import { copyText } from "@/lib/copy-text";
 import { relativeParts } from "@/lib/relative-time";
-import { errorText } from "@/lib/use-async-action";
+import { errorMessageOr } from "@/lib/use-async-action";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 import { StepRow } from "./step-row";
@@ -91,7 +91,7 @@ export function HistoryPanel({
     try {
       await action();
     } catch (failure) {
-      setError(errorText(failure));
+      setError(errorMessageOr(failure, t("frontends.historyPanel.unknownError")));
     } finally {
       inFlight.current.delete(id);
       setPendingIds(new Set(inFlight.current));

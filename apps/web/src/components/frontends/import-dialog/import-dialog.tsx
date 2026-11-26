@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { errorMessageOr } from "@/lib/use-async-action";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -129,7 +130,7 @@ export function ImportDialog({
       setFailure(null);
       onOpenChange(false);
     } catch (reason) {
-      setFailure(t("frontends.importDialog.actions.failed", { reason: reason instanceof Error ? reason.message : String(reason) }));
+      setFailure(t("frontends.importDialog.actions.failed", { reason: errorMessageOr(reason, t("frontends.importDialog.unknownError")) }));
     }
   };
 

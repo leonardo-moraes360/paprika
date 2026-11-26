@@ -47,6 +47,8 @@ function stubDownload() {
   return { createObjectURL, revokeObjectURL, click, clicked };
 }
 
+const emptyFailures: [string, () => unknown][] = [["an empty message", () => new Error("")], ["no error value", () => undefined]];
+
 describe("ExportDialog image", () => {
   it("shows the image panel with the file name, dimensions and tabs", () => {
     setup();
@@ -132,6 +134,13 @@ describe("ExportDialog image", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not export: renderer busy");
     expect(clicked).toEqual([]);
     expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it.each(emptyFailures)("shows the generic text when the export fails with %s", async (_, make) => {
+    const user = userEvent.setup();
+    setup({ onRequestExport: vi.fn(() => Promise.reject(make())) });
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not export: Unknown error");
   });
 
   it("builds file names", () => {

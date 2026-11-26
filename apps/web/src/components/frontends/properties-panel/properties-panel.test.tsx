@@ -64,6 +64,8 @@ const choose = async (user: ReturnType<typeof userEvent.setup>, field: string, o
   await user.click(await screen.findByRole("option", { name: option }));
 };
 
+const emptyFailures: [string, () => unknown][] = [["an empty message", () => new Error("")], ["no error value", () => undefined]];
+
 describe("PropertiesPanel states", () => {
   it("says nothing is selected when there is no document", () => {
     setup({ doc: null });
@@ -889,6 +891,14 @@ describe("Multi selection", () => {
     await act(async () => undefined);
     expect(onSelect).not.toHaveBeenCalled();
     expect(onError).toHaveBeenCalledWith("refused");
+  });
+
+  it.each(emptyFailures)("reports the generic text when the owner refuses with %s", async (_, make) => {
+    const user = userEvent.setup();
+    const { onError } = setup({ id: ["r2", "r3"], onApply: vi.fn(() => Promise.reject(make())) });
+    await user.click(screen.getByRole("button", { name: "Wrap in frame" }));
+    await act(async () => undefined);
+    expect(onError).toHaveBeenCalledWith("Unknown error");
   });
 
   it("shows only the shortcut hints the owner passes", () => {

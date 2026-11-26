@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { errorMessageOr } from "@/lib/use-async-action";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { PanelSection } from "../panel-section";
@@ -55,7 +56,7 @@ export function MultiPanel({ doc, ids, shortcuts, onApply, onSelect, onError }: 
     try {
       action();
     } catch (error) {
-      onError?.(error instanceof Error ? error.message : String(error));
+      onError?.(errorMessageOr(error, t("frontends.propertiesPanel.unknownError")));
     }
   };
   const groups = ids.filter((id) => doc.nodes[id]?.type === "group");
@@ -65,7 +66,7 @@ export function MultiPanel({ doc, ids, shortcuts, onApply, onSelect, onError }: 
   const applyThenSelect = (ops: Op[], label: string, next: () => string[]) => {
     const select = () => onSelect(next());
     const result = onApply(ops, label);
-    if (isThenable(result)) result.then(select, (error: unknown) => onError?.(error instanceof Error ? error.message : String(error)));
+    if (isThenable(result)) result.then(select, (error: unknown) => onError?.(errorMessageOr(error, t("frontends.propertiesPanel.unknownError"))));
     else select();
   };
 

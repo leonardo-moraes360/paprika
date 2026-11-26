@@ -1,4 +1,5 @@
 export const overviewEn = {
+  unknownError: "Unknown error",
   region: "Workspaces overview",
   title: "Workspaces",
   archivedTitle: "Archived",
@@ -81,6 +82,7 @@ export const overviewEn = {
 } as const;
 
 export const overviewPtBR = {
+  unknownError: "Erro desconhecido",
   region: "Visão geral dos workspaces",
   title: "Workspaces",
   archivedTitle: "Arquivados",

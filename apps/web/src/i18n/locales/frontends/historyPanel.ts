@@ -1,4 +1,5 @@
 export const historyPanelEn = {
+  unknownError: "Unknown error",
   title: "History",
   close: "Close history",
   filter: "Filter history",
@@ -44,6 +45,7 @@ export const historyPanelEn = {
 } as const;
 
 export const historyPanelPtBR = {
+  unknownError: "Erro desconhecido",
   title: "Histórico",
   close: "Fechar histórico",
   filter: "Filtrar histórico",

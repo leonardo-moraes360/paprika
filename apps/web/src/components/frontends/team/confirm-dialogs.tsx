@@ -5,7 +5,7 @@ import { AlertDialog } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { NoticeCard } from "@/components/ui/notice-card";
-import { errorText, useAsyncAction } from "@/lib/use-async-action";
+import { errorMessageOr, useAsyncAction, errorOrFallback } from "@/lib/use-async-action";
 import type { TeamActions, TeamMemberEntry } from "./types";
 
 export function RemoveMemberDialog({ member, onRemoveMember, onClose }: { member: TeamMemberEntry; onRemoveMember: TeamActions["onRemoveMember"]; onClose: () => void }) {
@@ -27,7 +27,7 @@ export function RemoveMemberDialog({ member, onRemoveMember, onClose }: { member
         try {
           await onRemoveMember(member.id);
         } catch (failure) {
-          setError(errorText(failure));
+          setError(errorMessageOr(failure, t("frontends.team.unknownError")));
           throw failure;
         }
       }}
@@ -61,7 +61,7 @@ export function LeaveTeamDialog({ onLeave, onClose }: { onLeave: TeamActions["on
         try {
           await onLeave();
         } catch (failure) {
-          setError(errorText(failure));
+          setError(errorMessageOr(failure, t("frontends.team.unknownError")));
           throw failure;
         }
       }}
@@ -122,7 +122,7 @@ export function RotateKeyDialog({ fingerprint, onRotateKey, onClose }: { fingerp
       ) : null}
       {action.error !== null ? (
         <NoticeCard variant="band" status="danger" title={t("frontends.team.rotateFailed")} role="alert">
-          {action.error}
+          {errorOrFallback(action.error, t("frontends.team.unknownError"))}
         </NoticeCard>
       ) : null}
     </Dialog>

@@ -1,4 +1,5 @@
 export const teamEn = {
+  unknownError: "Unknown error",
   title: "Team",
   close: "Close",
   retry: "Try again",
@@ -131,6 +132,7 @@ export const teamEn = {
 } as const;
 
 export const teamPtBR = {
+  unknownError: "Erro desconhecido",
   title: "Time",
   close: "Fechar",
   retry: "Tentar de novo",

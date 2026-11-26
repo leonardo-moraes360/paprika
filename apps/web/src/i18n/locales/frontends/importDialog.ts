@@ -1,4 +1,5 @@
 export const importDialogEn = {
+  unknownError: "Unknown error",
   title: "Import to {{name}}",
   close: "Close",
   tabList: "Import source",
@@ -52,6 +53,7 @@ export const importDialogEn = {
 } as const;
 
 export const importDialogPtBR = {
+  unknownError: "Erro desconhecido",
   title: "Importar para {{name}}",
   close: "Fechar",
   tabList: "Origem da importação",

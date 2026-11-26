@@ -32,7 +32,3 @@ export function scaledSize(size: { width: number; height: number }, scale: numbe
   return { width: Math.max(1, Math.round(size.width * scale)), height: Math.max(1, Math.round(size.height * scale)) };
 }
 
-export function errorText(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message;
-  return typeof error === "string" && error ? error : String(error);
-}

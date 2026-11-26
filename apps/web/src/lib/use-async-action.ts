@@ -9,9 +9,16 @@ export function errorText(error: unknown): string {
 }
 
 /** The message to show for a failed action: `error` when it has text, otherwise the caller's generic `fallback`. Never empty (given a non-empty fallback); `null` when there is no error. */
+export function errorOrFallback(error: string, fallback: string): string;
+export function errorOrFallback(error: string | null, fallback: string): string | null;
 export function errorOrFallback(error: string | null, fallback: string): string | null {
   if (error === null) return null;
   return error.trim() ? error : fallback;
+}
+
+/** The text of a caught value, or the caller's generic `fallback` when it carries none (empty message, `undefined`, an object). */
+export function errorMessageOr(error: unknown, fallback: string): string {
+  return errorText(error).trim() ? errorText(error) : fallback;
 }
 
 export function useAsyncAction() {

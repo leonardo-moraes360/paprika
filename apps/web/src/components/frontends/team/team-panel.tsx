@@ -8,7 +8,7 @@ import { MemberRow } from "@/components/ui/member-row";
 import { NoticeCard } from "@/components/ui/notice-card";
 import { Tag } from "@/components/ui/tag";
 import { TextField } from "@/components/ui/text-field";
-import { useAsyncAction } from "@/lib/use-async-action";
+import { useAsyncAction, errorOrFallback } from "@/lib/use-async-action";
 import { cn } from "@/lib/utils";
 import { InviteDialog } from "./invite-dialog";
 import { JoinDialog } from "./join-dialog";
@@ -123,7 +123,7 @@ function NoTeam({ onCreateTeam }: Pick<TeamProps, "onCreateTeam">) {
       />
       {create.error !== null ? (
         <p role="alert" className="m-0 text-sm font-medium text-red-ink">
-          {t("frontends.team.failed", { message: create.error })}
+          {t("frontends.team.failed", { message: errorOrFallback(create.error, t("frontends.team.unknownError")) })}
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
@@ -194,7 +194,7 @@ function Overview({ status, onShareWorkspace }: Pick<TeamProps, "onShareWorkspac
         ) : null}
         {share.error !== null ? (
           <p role="alert" className="m-0 text-xs font-medium text-red-ink">
-            {t("frontends.team.failed", { message: share.error })}
+            {t("frontends.team.failed", { message: errorOrFallback(share.error, t("frontends.team.unknownError")) })}
           </p>
         ) : null}
       </section>

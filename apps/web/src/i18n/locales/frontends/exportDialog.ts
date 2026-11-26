@@ -1,4 +1,5 @@
 export const exportDialogEn = {
+  unknownError: "Unknown error",
   title: "Export",
   close: "Close",
   modeList: "Export type",
@@ -43,6 +44,7 @@ export const exportDialogEn = {
 } as const;
 
 export const exportDialogPtBR = {
+  unknownError: "Erro desconhecido",
   title: "Exportar",
   close: "Fechar",
   modeList: "Tipo de exportação",

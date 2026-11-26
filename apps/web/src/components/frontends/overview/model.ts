@@ -26,8 +26,3 @@ export function relativeTime(at: number, locale: string, nowLabel: string, now: 
   if (unit === "days" && count >= 30) return new Date(at).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
   return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-count, units[unit]);
 }
-
-export function errorText(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message;
-  return typeof error === "string" && error ? error : String(error);
-}

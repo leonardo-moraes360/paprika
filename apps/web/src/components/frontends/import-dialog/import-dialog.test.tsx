@@ -32,6 +32,8 @@ const dropOnZone = (files: File[]) => {
   fireEvent.drop(zone, { dataTransfer: { files, types: ["Files"], items: files.map((file) => ({ kind: "file", type: file.type, getAsFile: () => file })) } });
 };
 
+const emptyFailures: [string, () => unknown][] = [["an empty message", () => new Error("")], ["no error value", () => undefined]];
+
 describe("ImportDialog", () => {
   it("renders the dialog with the four tabs and the files tab selected", () => {
     setup();
@@ -204,6 +206,14 @@ describe("ImportDialog", () => {
     await user.click(await screen.findByRole("button", { name: "Place on canvas" }));
     expect(await screen.findByText("Could not import: disk full")).toBeInTheDocument();
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it.each(emptyFailures)("shows the generic text when the import fails with %s", async (_, make) => {
+    const user = userEvent.setup();
+    setup({ onImport: vi.fn(() => Promise.reject(make())) });
+    pick(new File(["x"], "a.png", { type: "image/png" }));
+    await user.click(await screen.findByRole("button", { name: "Place on canvas" }));
+    expect(await screen.findByText("Could not import: Unknown error")).toBeInTheDocument();
   });
 
   it("cancels with the button and with Escape, and follows a controlled tab", async () => {

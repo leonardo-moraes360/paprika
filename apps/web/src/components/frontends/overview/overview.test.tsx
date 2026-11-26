@@ -44,6 +44,8 @@ const openMenu = async (user: ReturnType<typeof userEvent.setup>, id: string) =>
   await user.click(within(card(id)).getByRole("button", { name: "More actions" }));
 };
 
+const emptyFailures: [string, () => unknown][] = [["an empty message", () => new Error("")], ["no error value", () => undefined]];
+
 describe("Overview", () => {
   it("lists the active workspaces with name, meta and the active badge, and hides archived ones", () => {
     setup();
@@ -171,6 +173,14 @@ describe("Overview", () => {
       await user.keyboard("{F2}{Control>}a{/Control}Other{Enter}");
       expect(onRename).toHaveBeenCalledWith("w3", "Other");
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not rename the workspace: name taken");
+    });
+
+    it.each(emptyFailures)("shows the generic text when the failure has %s", async (_, make) => {
+      const user = userEvent.setup();
+      setup({ onRename: vi.fn(() => Promise.reject(make())) });
+      openButton("Flow drafts").focus();
+      await user.keyboard("{F2}{Control>}a{/Control}Other{Enter}");
+      expect(await screen.findByRole("alert")).toHaveTextContent("Could not rename the workspace: Unknown error");
     });
   });
 
@@ -314,6 +324,11 @@ describe("Overview", () => {
       expect(screen.getByRole("status", { name: "Loading workspaces" })).toBeInTheDocument();
       expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true");
       expect(screen.queryByText("No workspaces yet. Create the first.")).not.toBeInTheDocument();
+    });
+
+    it.each([["an empty string", ""], ["blank text", "  "]])("shows the generic list error when the owner passes %s", (_, error) => {
+      setup({ workspaces: [], error });
+      expect(screen.getByRole("alert")).toHaveTextContent("Could not list the workspaces: Unknown error");
     });
 
     it("shows the list error with try again", async () => {

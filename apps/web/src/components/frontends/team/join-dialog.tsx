@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { NoticeCard } from "@/components/ui/notice-card";
 import { TextField } from "@/components/ui/text-field";
-import { errorText, useAsyncAction } from "@/lib/use-async-action";
+import { errorMessageOr, useAsyncAction, errorOrFallback } from "@/lib/use-async-action";
 import { useNow } from "@/lib/use-now";
 import type { TeamActions, TeamClock, TeamInvitePreview, TeamStatus } from "./types";
 
@@ -36,10 +36,10 @@ export function JoinDialog({ device, onInspectInvite, onJoin, onClose, now: nowP
         if (ticket.current === mine) setInspection({ link: trimmed, preview, error: null });
       },
       (error: unknown) => {
-        if (ticket.current === mine) setInspection({ link: trimmed, preview: null, error: errorText(error) });
+        if (ticket.current === mine) setInspection({ link: trimmed, preview: null, error: errorMessageOr(error, t("frontends.team.unknownError")) });
       },
     );
-  }, [trimmed, onInspectInvite]);
+  }, [trimmed, onInspectInvite, t]);
 
   const current = inspection && inspection.link === trimmed && trimmed ? inspection : null;
   const preview = current?.preview ?? null;
@@ -108,7 +108,7 @@ export function JoinDialog({ device, onInspectInvite, onJoin, onClose, now: nowP
       ) : null}
       {join.error !== null ? (
         <NoticeCard variant="band" status="danger" title={t("frontends.team.joinFailed")} role="alert">
-          {join.error}
+          {errorOrFallback(join.error, t("frontends.team.unknownError"))}
         </NoticeCard>
       ) : null}
       {done ? (

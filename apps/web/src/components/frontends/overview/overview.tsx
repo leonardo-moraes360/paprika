@@ -6,6 +6,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { EmptyIllustration } from "@/components/ui/empty-illustration";
 import { EmptyState } from "@/components/ui/empty-state";
+import { errorMessageOr } from "@/lib/use-async-action";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -13,7 +14,7 @@ import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 import { CreateForm } from "./create-form";
 import { DeleteDialog } from "./delete-dialog";
-import { errorText, filterWorkspaces, sameView, workspacesView } from "./model";
+import { filterWorkspaces, sameView, workspacesView } from "./model";
 import { Sidebar } from "./sidebar";
 import { initialOverviewState, OverviewRegion } from "./store";
 import type { ActionResult, OverviewProps, OverviewView, WorkspaceEntry } from "./types";
@@ -38,7 +39,7 @@ function OverviewView({
   projects = [],
   profile,
   loading = false,
-  error = null,
+  error: listError = null,
   view: controlledView,
   defaultView = workspacesView,
   confirmDeleteByName = true,
@@ -60,6 +61,7 @@ function OverviewView({
   className,
 }: OverviewProps) {
   const { t } = useTranslation();
+  const error = listError === null ? null : listError.trim() || t("frontends.overview.unknownError");
   const actions = OverviewRegion.useRegionActions();
   const creating = OverviewRegion.useRegion((s) => s.creating);
   const deletingId = OverviewRegion.useRegion((s) => s.deletingId);
@@ -94,7 +96,7 @@ function OverviewView({
         setFailure(null);
         return true;
       } catch (reason) {
-        setFailure(t(`frontends.overview.failures.${kind}`, { reason: errorText(reason) }));
+        setFailure(t(`frontends.overview.failures.${kind}`, { reason: errorMessageOr(reason, t("frontends.overview.unknownError")) }));
         return false;
       }
     },
@@ -209,7 +211,7 @@ function OverviewView({
               <h1 id={headingId} className="truncate text-[28px] leading-tight font-bold tracking-tight">
                 {heading}
               </h1>
-              <p className="max-w-xl text-sm leading-normal text-muted">{loading ? t("frontends.overview.states.loading") : error && count === 0 ? null : lead}</p>
+              <p className="max-w-xl text-sm leading-normal text-muted">{loading ? t("frontends.overview.states.loading") : error !== null && count === 0 ? null : lead}</p>
             </div>
             {creating ? (
               <CreateForm
@@ -225,7 +227,7 @@ function OverviewView({
             )}
           </div>
         </div>
-        {error ? (
+        {error !== null ? (
           <ErrorBanner
             action={
               onRetry ? (
@@ -276,7 +278,7 @@ function OverviewView({
             ))}
           </ul>
         ) : null}
-        {!loading && count === 0 && !error ? (
+        {!loading && count === 0 && error === null ? (
           <EmptyState
             illustration={<EmptyIllustration kind={searching ? "no-results" : "first-use"} />}
             title={emptyTitle}

@@ -57,6 +57,8 @@ const deferred = () => {
   return { promise, resolve, reject };
 };
 
+const emptyFailures: [string, () => unknown][] = [["an empty message", () => new Error("")], ["no error value", () => undefined]];
+
 describe("filterPins", () => {
   it("separates open, resolved and all", () => {
     expect(filterPins(pins, "open").map((p) => p.id)).toEqual(["x1", "x2"]);
@@ -249,6 +251,13 @@ describe("PinCard", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not save: denied");
     expect(screen.getByRole("button", { name: "Mark resolved" })).toHaveFocus();
   });
+
+  it.each(emptyFailures)("shows the generic text when the failure has %s", async (_, make) => {
+    const user = userEvent.setup();
+    card({ onSetStatus: vi.fn(() => Promise.reject(make())) });
+    await user.click(screen.getByRole("button", { name: "Mark resolved" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not save: Unknown error");
+  });
 });
 
 describe("NewPinForm", () => {
@@ -282,6 +291,14 @@ describe("NewPinForm", () => {
     form({ submitShortcut: ["⌘", "Enter"] });
     expect(screen.getByText("⌘")).toBeInTheDocument();
     expect(screen.getByText("Enter")).toBeInTheDocument();
+  });
+
+  it.each(emptyFailures)("shows the generic text when sending fails with %s", async (_, make) => {
+    const user = userEvent.setup();
+    form({ onSubmit: vi.fn(() => Promise.reject(make())) });
+    await user.type(screen.getByRole("textbox"), "Text");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not save: Unknown error");
   });
 
   it("ignores Ctrl+Enter without text", async () => {

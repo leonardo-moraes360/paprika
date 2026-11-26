@@ -10,7 +10,7 @@ import { PinBadge, PinBubble } from "@/components/ui/pin-bubble";
 import { Pill } from "@/components/ui/pill";
 import { Select } from "@/components/ui/select";
 import { TextArea } from "@/components/ui/text-area";
-import { useAsyncAction } from "@/lib/use-async-action";
+import { useAsyncAction, errorOrFallback } from "@/lib/use-async-action";
 import { targetLabel } from "./pin-target";
 import type { NewPinFormProps } from "./types";
 import { usePinHotkeys } from "./use-pin-hotkeys";
@@ -123,7 +123,7 @@ export function NewPinForm({
         </div>
         {action.error !== null ? (
           <p role="alert" className="m-0 text-sm font-medium text-red-ink">
-            {t("frontends.pins.failed", { message: action.error })}
+            {t("frontends.pins.failed", { message: errorOrFallback(action.error, t("frontends.pins.unknownError")) })}
           </p>
         ) : null}
       </div>
