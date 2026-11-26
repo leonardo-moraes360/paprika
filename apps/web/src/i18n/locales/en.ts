@@ -3,10 +3,17 @@ export const en = {
     title: "Paprika",
     tagline: "A design tool your AI agents can draw on.",
     start: "Get started",
+    components: "Components",
   },
   notFound: {
     title: "Page not found",
     home: "Back to home",
+  },
+  theme: {
+    label: "Theme",
+    system: "System",
+    light: "Light",
+    dark: "Dark",
   },
   language: {
     label: "Language",

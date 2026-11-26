@@ -1,33 +1,31 @@
 import { Button as ButtonPrimitive } from "@ui-sdk/react/button";
 import type { ComponentProps } from "react";
-import { cn } from "@/lib/utils";
+import { focusRing, slot } from "@/lib/utils";
 
 const variants = {
-  default: "bg-primary text-primary-foreground not-data-pending:hover:bg-primary/90",
-  ghost: "text-foreground not-data-pending:hover:bg-muted",
+  primary: "bg-action text-on-action not-data-pending:hover:bg-action-hover",
+  secondary: "border border-field text-fg not-data-pending:hover:bg-surface",
+  ghost: "text-fg not-data-pending:hover:bg-surface",
+  destructive: "border border-red-ink bg-panel text-red-ink not-data-pending:hover:bg-red-soft",
 };
 
 const sizes = {
-  default: "h-9 px-4",
-  sm: "h-8 px-3",
+  md: "h-9 px-4.5 text-base",
+  sm: "h-7 px-4.5 text-sm",
 };
 
-type ButtonProps = ComponentProps<typeof ButtonPrimitive> & {
+export type ButtonProps = ComponentProps<typeof ButtonPrimitive> & {
   variant?: keyof typeof variants;
   size?: keyof typeof sizes;
 };
 
-export function Button({ className, variant = "default", size = "default", ...props }: ButtonProps) {
+export function Button({ className, variant = "primary", size = "md", ...props }: ButtonProps) {
   return (
     <ButtonPrimitive
-      className={(state) =>
-        cn(
-          "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-disabled:pointer-events-none data-disabled:opacity-50 data-pending:cursor-wait data-pending:opacity-70 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
-          variants[variant],
-          sizes[size],
-          typeof className === "function" ? className(state) : className,
-        )
-      }
+      className={slot(
+        `inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md font-semibold whitespace-nowrap transition-colors motion-reduce:transition-none data-disabled:pointer-events-none data-disabled:opacity-50 data-pending:cursor-wait data-pending:opacity-70 forced-colors:border forced-colors:data-disabled:opacity-100 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 ${focusRing} ${variants[variant]} ${sizes[size]}`,
+        className,
+      )}
       {...props}
     />
   );
