@@ -93,7 +93,16 @@ func scopedEligible(doc *Document, n *Node, idx *ScopeIndex) bool {
 	return true
 }
 
-func ApplyScoped(doc *Document, ops []any, idx *ScopeIndex) (*ApplyResult, bool) {
+func ApplyScoped(doc *Document, ops []any, idx *ScopeIndex) (res *ApplyResult, ok bool) {
+	defer func() {
+		if p := recover(); p != nil {
+			if _, frozen := p.(*jsonv.FrozenError); !frozen || strictOwnership.Load() {
+				panic(p)
+			}
+			ownershipFallbacks.Add(1)
+			res, ok = nil, false
+		}
+	}()
 	nodes := Nodes(doc)
 	if len(ops) == 0 || nodes == nil || idx == nil || idx.lagging {
 		return nil, false
