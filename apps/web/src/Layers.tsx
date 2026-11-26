@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { defaultRangeExtractor, useVirtualizer, type Range } from "@tanstack/react-virtual";
 import { ChevronDown, ChevronRight, Circle, Component, Diamond, Eye, EyeOff, File, Frame, Group, Image, Lock, LockOpen, MoveUpRight, PenTool, RectangleHorizontal, Square, Type, type LucideIcon } from "lucide-react";
 import { copyOwner, isContainer, isInstance, isScene, pageRoots, revealOps, type ConnectorEnd, type Document, type Node, type Op } from "@paprika/core";
 import { Button } from "./components/ui/button";
@@ -38,6 +39,43 @@ function isUnder(doc: Document, id: string, ancestor: string): boolean {
 
 type DropPlace = { parentId: string | null; index: number };
 
+interface FlatRow {
+  id: string;
+  depth: number;
+  pos: number;
+  size: number;
+  kids: number;
+}
+
+const ROW_HEIGHT = 26;
+const OVERSCAN = 12;
+
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const o = getComputedStyle(p).overflowY;
+    if (o === "auto" || o === "scroll") return p;
+  }
+  return null;
+}
+
+function flatten(doc: Document, roots: string[], collapsed: Set<string>): FlatRow[] {
+  const out: FlatRow[] = [];
+  const walk = (ids: string[], depth: number) => {
+    const shown = ids.filter((id) => {
+      const n = doc.nodes[id];
+      return n && n.type !== "page";
+    });
+    shown.forEach((id, i) => {
+      const n = doc.nodes[id]!;
+      const kids = isContainer(n) ? n.children.length : 0;
+      out.push({ id, depth, pos: i + 1, size: shown.length, kids });
+      if (kids > 0 && !collapsed.has(id)) walk((n as { children: string[] }).children, depth + 1);
+    });
+  };
+  walk(roots, 0);
+  return out;
+}
+
 interface Props {
   doc: Document;
   pageId: string | null;
@@ -53,6 +91,73 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
   const [editing, setEditing] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [drop, setDrop] = useState<{ overId: string; where: "before" | "after" | "into" } | null>(null);
+  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
+  const [scrollMargin, setScrollMargin] = useState(0);
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const pinned = useRef<{ editing: string | null; dragging: string | null }>({ editing: null, dragging: null });
+  const rows = useMemo(() => flatten(doc, roots, collapsed), [doc, roots, collapsed]);
+  const indexOf = useMemo(() => new Map(rows.map((r, i) => [r.id, i])), [rows]);
+  pinned.current = { editing, dragging };
+  const idsRef = useRef<{ rows: FlatRow[]; indexOf: Map<string, number> }>({ rows, indexOf });
+  idsRef.current = { rows, indexOf };
+  const rangeExtractor = useCallback((range: Range) => {
+    const base = defaultRangeExtractor(range);
+    const { rows: rs, indexOf: at } = idsRef.current;
+    const active = document.activeElement;
+    const focused = active && listRef.current?.contains(active) ? (active.closest<HTMLElement>("[data-layer-id]")?.dataset.layerId ?? null) : null;
+    const keep = [focused, pinned.current.editing, pinned.current.dragging];
+    const extra = keep.map((id) => (id ? at.get(id) : undefined)).filter((i): i is number => i !== undefined && i < rs.length && !base.includes(i));
+    return extra.length ? [...base, ...extra].sort((a, b) => a - b) : base;
+  }, []);
+  const virtual = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollEl,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: OVERSCAN,
+    scrollMargin,
+    getItemKey: (i) => rows[i]?.id ?? i,
+    rangeExtractor,
+  });
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list || !scrollEl) return;
+    const margin = list.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top + scrollEl.scrollTop;
+    setScrollMargin((m) => (Math.abs(m - margin) < 0.5 ? m : margin));
+  });
+  const tabStops = (el: HTMLElement) => [el, ...el.querySelectorAll<HTMLElement>("button")].filter((b) => b.tabIndex >= 0 && getComputedStyle(b).visibility !== "hidden");
+  const focusRow = (id: string, last: boolean, tries = 8) => {
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-layer-id="${CSS.escape(id)}"]`);
+    if (el) {
+      const stops = tabStops(el);
+      (last ? stops[stops.length - 1]! : el).focus();
+      return;
+    }
+    if (tries > 0) requestAnimationFrame(() => focusRow(id, last, tries - 1));
+  };
+  const onTreeKeyDown = (e: React.KeyboardEvent<HTMLUListElement>) => {
+    if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
+    const rowEl = (e.target as HTMLElement).closest<HTMLElement>("[data-layer-id]");
+    if (!rowEl) return;
+    const index = indexOf.get(rowEl.dataset.layerId!);
+    if (index === undefined) return;
+    const stops = tabStops(rowEl);
+    const step = e.shiftKey ? -1 : 1;
+    if (e.target !== (step === 1 ? stops[stops.length - 1] : rowEl)) return;
+    const next = rows[index + step];
+    if (!next) return;
+    e.preventDefault();
+    virtual.scrollToIndex(index + step, { align: "auto" });
+    focusRow(next.id, step === -1);
+  };
+  const selectedKey = selected.join(",");
+  useEffect(() => {
+    const own = fromList.current === selectedKey;
+    fromList.current = null;
+    if (own || !scrollEl || selected.length === 0) return;
+    const at = indexOf.get(selected[selected.length - 1]!);
+    if (at === undefined) return;
+    virtual.scrollToIndex(at, { align: "auto" });
+  }, [selectedKey, scrollEl]);
   const toggle = (id: string) =>
     setCollapsed((s) => {
       const n = new Set(s);
@@ -61,8 +166,13 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
       return n;
     });
 
+  const fromList = useRef<string | null>(null);
+  const pick = (ids: string[]) => {
+    fromList.current = ids.join(",");
+    onSelect(ids);
+  };
   const selectFrom = (e: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }, id: string) =>
-    onSelect(e.shiftKey || e.metaKey || e.ctrlKey ? (selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]) : [id]);
+    pick(e.shiftKey || e.metaKey || e.ctrlKey ? (selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]) : [id]);
 
   const resolvePlace = (overId: string, where: "before" | "after" | "into"): DropPlace | null => {
     if (!dragging || dragging === overId || isUnder(doc, overId, dragging)) return null;
@@ -99,7 +209,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
     apply([{ op: "move", id: dragging, parentId: place.parentId, index }], fromParent === place.parentId ? "reordenar camada" : "reparentear camada");
   };
 
-  const row = (id: string, depth: number): React.ReactNode => {
+  const row = ({ id, depth, pos, size }: FlatRow, start: number, index: number): React.ReactNode => {
     const n = doc.nodes[id];
     if (!n || n.type === "page") return null;
     const kids = isContainer(n) ? n.children : [];
@@ -108,7 +218,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
     const canDrag = n.sourceId === undefined && !n.locked && !copyOwner(doc, n) && n.type !== "connector";
     const dropHere = drop?.overId === id ? drop.where : null;
     return (
-      <li key={id} role="none">
+      <li key={id} role="none" className="absolute top-0 left-0 w-full" style={{ height: ROW_HEIGHT, transform: `translateY(${start - scrollMargin}px)` }}>
         <div
           className={cn(
             "layer group relative flex h-6.5 cursor-default items-center gap-1 rounded-sm pr-1.5",
@@ -119,6 +229,9 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
           )}
           style={{ paddingLeft: 8 + depth * 14 }}
           role="treeitem"
+          aria-level={depth + 1}
+          aria-posinset={pos}
+          aria-setsize={size}
           aria-selected={selected.includes(id)}
           aria-expanded={kids.length > 0 ? open : undefined}
           tabIndex={editing === id ? -1 : 0}
@@ -142,7 +255,7 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
             e.dataTransfer.setData("text/paprika-layer", id);
             e.dataTransfer.effectAllowed = "move";
             setDragging(id);
-            if (!selected.includes(id)) onSelect([id]);
+            if (!selected.includes(id)) pick([id]);
           }}
           onDragEnd={() => {
             setDragging(null);
@@ -242,7 +355,6 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
             </Button>
           )}
         </div>
-        {kids.length > 0 && open && <ul role="group">{kids.map((c) => row(c, depth + 1))}</ul>}
       </li>
     );
   };
@@ -282,8 +394,11 @@ export function Layers({ doc, pageId, selected, onSelect, apply }: Props) {
       {roots.length === 0 ? (
         <p className="text-ui-muted-foreground">Vazio. Desenhe um frame (F) ou peça a um agente via MCP.</p>
       ) : (
-        <ul className="m-0 list-none p-0 [&_ul]:m-0 [&_ul]:list-none [&_ul]:p-0" role="tree" aria-label={m.layers}>
-          {roots.map((id) => row(id, 0))}
+        <ul ref={(el) => {
+            listRef.current = el;
+            setScrollEl((cur) => (el ? (cur ?? scrollParent(el)) : cur));
+          }} className="relative m-0 list-none p-0" style={{ height: virtual.getTotalSize() }} role="tree" aria-label={m.layers} onKeyDown={onTreeKeyDown}>
+          {virtual.getVirtualItems().map((v) => row(rows[v.index]!, v.start, v.index))}
         </ul>
       )}
     </div>

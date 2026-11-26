@@ -26,7 +26,7 @@ The numbers live in one file, `packages/e2e/test/perf/budgets.ts`.
 | Server time per one-prop write on a component master with 1,000 instances | 50 ms | 2.2 s (report-only: the 1,000 copies are rebuilt and persisted) | PAP-A-060 |
 | Script time in the tab on one incoming write | 50 ms | 2.6 s (synthetic worst case) | PAP-A-061 |
 | p95 frame on scroll, zoom and pan | 20 ms | met (17 ms; was 33–83 ms) | PAP-A-062 |
-| Panel resize step | 20 ms | 750 ms | PAP-A-063 |
+| Panel resize step | 20 ms | met (17 ms over the small document; was 750 ms) | PAP-A-063 |
 | Time until an agent-created node is visible | 1 s | up to 28.6 s | PAP-A-064 |
 | Slow tab ends on the latest version | always | no (481 of 485) | PAP-A-058 |
 

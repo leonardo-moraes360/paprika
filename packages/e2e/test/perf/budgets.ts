@@ -97,8 +97,8 @@ export const BUDGETS: Record<string, Budget> = {
     unit: "ms",
     kind: "relative",
     limit: 20,
-    today: "750 ms",
-    enforce: false,
+    today: "17 ms (was 750 ms)",
+    enforce: true,
     ticket: "PAP-A-063",
   },
   agentNodeVisibleMs: {
