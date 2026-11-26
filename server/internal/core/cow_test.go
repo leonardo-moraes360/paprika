@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
@@ -58,9 +59,17 @@ const cowSeed = `[
 	{"op":"create","parentId":"pg2","node":{"type":"frame","id":"root","x":0,"y":200,"width":400,"height":100,"minWidth":300}}
 ]`
 
-func cowSeedDoc(t *testing.T) *Document {
+func plainSeed() string {
+	out := cowSeed
+	a := strings.Index(out, `	{"op":"create","parentId":"pg","node":{"type":"frame","id":"wcomp"`)
+	b := strings.Index(out, `	{"op":"create","parentId":"pg2","node":{"type":"frame","id":"root"`)
+	out = out[:a] + out[b:]
+	return strings.Replace(out, `,"layoutPositioning":"absolute","x":50,"y":5,"constraints":{"horizontal":"right"}`, `,"layoutPositioning":"absolute","x":50,"y":5`, 1)
+}
+
+func cowSeedDoc(t *testing.T, seed string) *Document {
 	t.Helper()
-	v, err := jsonv.Parse([]byte(cowSeed))
+	v, err := jsonv.Parse([]byte(seed))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,8 +314,8 @@ func checkJournal(t *testing.T, ctx string, prev, cur *Document, j *Journal) {
 	}
 }
 
-func runCOWRounds(t *testing.T, rounds, steps int, mutate func(*History)) {
-	seed := cowSeedDoc(t)
+func runCOWRounds(t *testing.T, seedText string, rounds, steps int, mutate func(*History)) (derived int) {
+	seed := cowSeedDoc(t, seedText)
 	var cowSteps, okSteps int
 	for round := range rounds {
 		rng := rand.New(rand.NewSource(int64(7000 + round)))
@@ -375,6 +384,9 @@ func runCOWRounds(t *testing.T, rounds, steps int, mutate func(*History)) {
 			if j := fast.LastJournal(); j != nil {
 				cowSteps++
 				checkJournal(t, ctx, prev, fast.Doc(), j)
+				if fast.LastDerivedScoped() {
+					derived++
+				}
 			}
 		}
 	}
@@ -384,10 +396,19 @@ func runCOWRounds(t *testing.T, rounds, steps int, mutate func(*History)) {
 	if cowSteps < okSteps/2 {
 		t.Fatalf("only %d copy-on-write steps", cowSteps)
 	}
+	return derived
 }
 
 func TestCopyOnWriteMatchesDeepCloneForEveryOp(t *testing.T) {
-	runCOWRounds(t, 16, 250, nil)
+	runCOWRounds(t, cowSeed, 16, 250, nil)
+}
+
+func TestScopedDerivedPassesMatchFullPassForEveryOp(t *testing.T) {
+	n := runCOWRounds(t, plainSeed(), 24, 250, nil)
+	t.Logf("scoped derived passes: %d", n)
+	if n < 200 {
+		t.Fatalf("scoped derived passes taken only %d times", n)
+	}
 }
 
 func consistencyError(doc *Document) string {

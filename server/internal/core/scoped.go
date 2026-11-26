@@ -16,11 +16,14 @@ var scopedTypes = map[string]bool{
 }
 
 type ScopeIndex struct {
-	slotRefs map[string]bool
+	slotRefs      map[string]bool
+	pinned        map[string]bool
+	hasConnectors bool
+	lagging       bool
 }
 
 func BuildScopeIndex(doc *Document) *ScopeIndex {
-	idx := &ScopeIndex{slotRefs: map[string]bool{}}
+	idx := &ScopeIndex{slotRefs: map[string]bool{}, pinned: map[string]bool{}}
 	nodes := Nodes(doc)
 	if nodes == nil {
 		return idx
@@ -30,6 +33,12 @@ func BuildScopeIndex(doc *Document) *ScopeIndex {
 		if n == nil {
 			continue
 		}
+		if n.Str("type") == "connector" {
+			idx.hasConnectors = true
+		}
+		if n.Str("type") == "frame" && hasPinned(doc, n) {
+			idx.pinned[id] = true
+		}
 		slots := n.Obj("slots")
 		if slots == nil {
 			continue
@@ -38,6 +47,26 @@ func BuildScopeIndex(doc *Document) *ScopeIndex {
 			for _, ref := range slots.Strings(name) {
 				idx.slotRefs[ref] = true
 			}
+		}
+	}
+	for _, id := range nodes.Keys() {
+		n := nodes.Obj(id)
+		if t := n.Str("type"); t != "connector" && t != "group" {
+			continue
+		}
+		for cur, depth := n, 0; cur != nil && depth < 1000; depth++ {
+			if cur.Bool("component") || idx.slotRefs[cur.Str("id")] {
+				idx.lagging = true
+				break
+			}
+			pid, ok := ParentID(cur)
+			if !ok || pid == "" {
+				break
+			}
+			cur = GetNode(doc, pid)
+		}
+		if idx.lagging {
+			break
 		}
 	}
 	return idx
@@ -66,7 +95,7 @@ func scopedEligible(doc *Document, n *Node, idx *ScopeIndex) bool {
 
 func ApplyScoped(doc *Document, ops []any, idx *ScopeIndex) (*ApplyResult, bool) {
 	nodes := Nodes(doc)
-	if len(ops) == 0 || nodes == nil || idx == nil {
+	if len(ops) == 0 || nodes == nil || idx == nil || idx.lagging {
 		return nil, false
 	}
 	parsed := make([]*jsonv.Object, len(ops))

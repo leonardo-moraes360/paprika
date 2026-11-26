@@ -26,6 +26,7 @@ type History struct {
 	touched []string
 	scoped  bool
 	journal *Journal
+	derived bool
 	legacy  bool
 	saved   any
 	Now     func() int64
@@ -54,8 +55,10 @@ func (h *History) LastTouched() ([]string, bool) { return h.touched, h.scoped }
 
 func (h *History) LastJournal() *Journal { return h.journal }
 
+func (h *History) LastDerivedScoped() bool { return h.derived }
+
 func (h *History) run(ops []any) (*ApplyResult, error) {
-	h.touched, h.scoped, h.journal = nil, false, nil
+	h.touched, h.scoped, h.journal, h.derived = nil, false, nil, false
 	if !h.legacy && !isShared(h.current) {
 		jsonv.Freeze(h.current)
 	}
@@ -68,14 +71,15 @@ func (h *History) run(ops []any) (*ApplyResult, error) {
 			return r, nil
 		}
 	}
-	r, err := applyOps(h.current, ops, h.settled)
+	r, err := applyOps(h.current, ops, h.settled, h.scope)
 	if err != nil {
 		return nil, err
 	}
 	if len(ops) > 0 {
 		h.settled = true
 	}
-	h.scope = nil
+	h.scope = r.Scope
+	h.derived = r.Scope != nil
 	h.journal = r.Journal
 	return r, nil
 }

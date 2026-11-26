@@ -351,6 +351,7 @@ type ApplyResult struct {
 	Removed []string
 	Touched []string
 	Journal *Journal
+	Scope   *ScopeIndex
 }
 
 func (r *ApplyResult) Scoped() bool { return r.Touched != nil }
@@ -1125,12 +1126,12 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 }
 
 func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
-	return applyOps(doc, ops, false)
+	return applyOps(doc, ops, false, nil)
 }
 
-func applyOps(doc *Document, ops []any, settled bool) (r *ApplyResult, err error) {
+func applyOps(doc *Document, ops []any, settled bool, idx *ScopeIndex) (r *ApplyResult, err error) {
 	if !isShared(doc) {
-		return applyOpsOn(doc, jsonv.Clone(doc).(*jsonv.Object), ops, settled, false)
+		return applyOpsOn(doc, jsonv.Clone(doc).(*jsonv.Object), ops, settled, false, nil)
 	}
 	defer func() {
 		p := recover()
@@ -1141,16 +1142,17 @@ func applyOps(doc *Document, ops []any, settled bool) (r *ApplyResult, err error
 			panic(p)
 		}
 		ownershipFallbacks.Add(1)
-		r, err = applyOpsOn(doc, jsonv.Clone(doc).(*jsonv.Object), ops, settled, false)
+		r, err = applyOpsOn(doc, jsonv.Clone(doc).(*jsonv.Object), ops, settled, false, nil)
 		if err == nil {
 			jsonv.Freeze(r.Doc)
 		}
 	}()
-	return applyOpsOn(doc, newDraft(doc), ops, settled, true)
+	return applyOpsOn(doc, newDraft(doc), ops, settled, true, idx)
 }
 
-func applyOpsOn(doc, draft *Document, ops []any, settled, cow bool) (*ApplyResult, error) {
+func applyOpsOn(doc, draft *Document, ops []any, settled, cow bool, idx *ScopeIndex) (*ApplyResult, error) {
 	var inverse []any
+	var scope *ScopeIndex
 	created := []string{}
 	deleted := map[string]bool{}
 	for i, raw := range ops {
@@ -1179,30 +1181,45 @@ func applyOpsOn(doc, draft *Document, ops []any, settled, cow bool) (*ApplyResul
 		if err := checkPages(draft, len(ops)-1); err != nil {
 			return nil, err
 		}
-		applyConstraints(doc, draft)
-		inverse = append(fitGroups(draft), inverse...)
-		var base *Document
-		if settled {
-			base = doc
+		var d *derivedScope
+		if cow && settled && idx != nil && !ScopedDerivedOff {
+			if d = planDerived(doc, draft, idx); d != nil && !d.prepare() {
+				d = nil
+			}
 		}
-		if err := syncInstances(base, draft); err != nil {
-			return nil, opErr(len(ops)-1, "%s", err.Error())
-		}
-		inverse = append(fitGroups(draft), inverse...)
-		if msg := LengthTokenError(draft); msg != "" {
-			return nil, opErr(len(ops)-1, "%s", msg)
-		}
-		if msg := webSemanticsError(draft); msg != "" {
-			return nil, opErr(len(ops)-1, "%s", msg)
-		}
-		if err := RouteConnectors(draft); err != nil {
-			return nil, opErr(len(ops)-1, "%s", err.Error())
+		if d != nil {
+			inv, err := d.run(len(ops) - 1)
+			if err != nil {
+				return nil, err
+			}
+			inverse = append(inv, inverse...)
+			scope = d.next
+		} else {
+			applyConstraints(doc, draft)
+			inverse = append(fitGroups(draft), inverse...)
+			var base *Document
+			if settled {
+				base = doc
+			}
+			if err := syncInstances(base, draft); err != nil {
+				return nil, opErr(len(ops)-1, "%s", err.Error())
+			}
+			inverse = append(fitGroups(draft), inverse...)
+			if msg := LengthTokenError(draft); msg != "" {
+				return nil, opErr(len(ops)-1, "%s", msg)
+			}
+			if msg := webSemanticsError(draft); msg != "" {
+				return nil, opErr(len(ops)-1, "%s", msg)
+			}
+			if err := RouteConnectors(draft); err != nil {
+				return nil, opErr(len(ops)-1, "%s", err.Error())
+			}
 		}
 	}
 	if inverse == nil {
 		inverse = []any{}
 	}
-	res := &ApplyResult{Doc: draft, Inverse: inverse, Created: created}
+	res := &ApplyResult{Doc: draft, Inverse: inverse, Created: created, Scope: scope}
 	if cow {
 		res.Journal = sealDraft(draft)
 	}

@@ -270,12 +270,23 @@ func hasPinned(doc *Document, f *Node) bool {
 }
 
 func followLayout(before, draft *Document) {
+	followLayoutFor(before, draft, nil)
+}
+
+func layoutCands(before, draft *Document, only map[string]bool) map[string]bool {
 	nodes := Nodes(draft)
-	if nodes == nil {
-		return
-	}
 	cands := map[string]bool{}
-	for _, id := range nodes.Keys() {
+	if nodes == nil {
+		return cands
+	}
+	ids := nodes.Keys()
+	if only != nil {
+		ids = make([]string, 0, len(only))
+		for id := range only {
+			ids = append(ids, id)
+		}
+	}
+	for _, id := range ids {
 		n := nodes.Obj(id)
 		if n == nil || n.Str("type") != "frame" || n.Str("instanceOf") != "" || n.Str("sourceId") != "" {
 			continue
@@ -290,6 +301,14 @@ func followLayout(before, draft *Document) {
 			cands[id] = true
 		}
 	}
+	return cands
+}
+
+func followLayoutFor(before, draft *Document, only map[string]bool) {
+	if Nodes(draft) == nil {
+		return
+	}
+	cands := layoutCands(before, draft, only)
 	if len(cands) == 0 {
 		return
 	}
