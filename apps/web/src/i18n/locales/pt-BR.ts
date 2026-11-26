@@ -29,11 +29,19 @@ export const ptBR: Translation = {
     "pt-BR": "Português (Brasil)",
   },
   frontends: {
-    sidePanel: {
-      region: "Painel de {{name}}",
-      resize: "Redimensionar painel de {{name}}",
-      show: "Mostrar painel de {{name}}",
-      hide: "Esconder painel de {{name}}",
+    editorLayout: {
+      left: {
+        region: "Painel de camadas",
+        resize: "Redimensionar painel de camadas",
+        show: "Mostrar painel de camadas",
+        hide: "Esconder painel de camadas",
+      },
+      right: {
+        region: "Painel de propriedades",
+        resize: "Redimensionar painel de propriedades",
+        show: "Mostrar painel de propriedades",
+        hide: "Esconder painel de propriedades",
+      },
     },
     pagesPanel: {
       title: "Páginas",

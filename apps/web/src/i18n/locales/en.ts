@@ -27,11 +27,19 @@ export const en = {
     "pt-BR": "Português (Brasil)",
   },
   frontends: {
-    sidePanel: {
-      region: "{{name}} panel",
-      resize: "Resize {{name}} panel",
-      show: "Show {{name}} panel",
-      hide: "Hide {{name}} panel",
+    editorLayout: {
+      left: {
+        region: "Layers panel",
+        resize: "Resize layers panel",
+        show: "Show layers panel",
+        hide: "Hide layers panel",
+      },
+      right: {
+        region: "Properties panel",
+        resize: "Resize properties panel",
+        show: "Show properties panel",
+        hide: "Hide properties panel",
+      },
     },
     pagesPanel: {
       title: "Pages",
