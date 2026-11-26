@@ -92,7 +92,7 @@ Um agente do barramento que precise de um caminho fora do `paths` da tarefa mand
      "title": "Helper de conta-gotas",
      "base": "main",
      "branch": "agent/<nome>/PAP-B-001",
-     "paths": ["apps/web/src/eyedropper.ts", "apps/web/test/eyedropper.test.ts"],
+     "paths": ["web-legacy/src/eyedropper.ts", "web-legacy/test/eyedropper.test.ts"],
      "acceptance": ["pnpm check passa", "docs EN + pt-BR atualizadas"]
    }
    ```

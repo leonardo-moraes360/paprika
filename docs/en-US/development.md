@@ -28,7 +28,8 @@ pnpm --filter @paprika/e2e exec playwright install chromium
 packages/core     model (zod), atomic applyOps, History, nodeStyle, render/export, lint, outline
 server/        the server (Go + SQLite): MCP (stdio and HTTP), WebSocket, HTTP API, screenshot, CLI
 packages/e2e      black-box suites against the server binary: MCP/HTTP/WS API and canvas E2E (Playwright); fixtures/ holds the sample documents (demo generated over MCP by scripts/seed-demo.mjs)
-apps/web          React + Vite canvas (`src/i18n/`: en + pt-BR UI strings, locale detect/switch)
+web-legacy       React + Vite canvas, the app the server serves (`src/i18n/`: en + pt-BR UI strings, locale detect/switch)
+apps/web          new app under construction (TanStack Start); not served or covered by E2E yet
 apps/site         landing page (drawn in Paprika) + docs site, published to paprika.js.org
 ```
 
@@ -42,7 +43,7 @@ The server lives in `server/` and stores documents, tokens and the undo/redo his
 
 ```bash
 pnpm check        # build + typecheck + fixtures up to date + unit and Go tests + API and E2E suites
-pnpm dev          # server with the demo (dev.db, reset on start); in another terminal: pnpm --filter @paprika/web dev
+pnpm dev          # server with the demo (dev.db, reset on start); in another terminal: pnpm --filter @paprika/web-legacy dev
 pnpm test:api     # black-box MCP/HTTP/WS suite against server/bin/paprika
 pnpm test:e2e     # canvas E2E (Playwright) against server/bin/paprika
 pnpm test:render  # Rust renderer (crates/render): native tests with vello_cpu

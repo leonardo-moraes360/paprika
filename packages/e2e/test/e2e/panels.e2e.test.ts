@@ -9,7 +9,7 @@ import { startServer, type ExternalServer } from "../harness.js";
 import { closeSeededCanvas, openSeededCanvas, repoRoot, webDist, type CanvasSession } from "./seededCanvas.js";
 import { pinLocale } from "./locale.js";
 
-const wasmBuilt = existsSync(join(repoRoot, "apps/web/src/wasm/paprika_render.js"));
+const wasmBuilt = existsSync(join(repoRoot, "web-legacy/src/wasm/paprika_render.js"));
 const ROOTS = 3000;
 const BOX_AT = 2000;
 

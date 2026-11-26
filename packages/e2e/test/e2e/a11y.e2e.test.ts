@@ -10,7 +10,7 @@ import { startServer, type ExternalServer } from "../harness.js";
 import { pinLocale } from "./locale.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "apps/web/dist");
+const webRoot = join(root, "web-legacy/dist");
 
 function contrastRatio(fg: string, bg: string) {
   const channel = (v: number) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);

@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const crate = dirname(fileURLToPath(import.meta.url));
-const out = join(crate, "../../apps/web/src/wasm");
+const out = join(crate, "../../web-legacy/src/wasm");
 const want = readFileSync(join(crate, "Cargo.toml"), "utf8").match(/wasm-bindgen = "=([\d.]+)"/)?.[1];
 const require = process.env.PAPRIKA_REQUIRE_WASM === "1";
 

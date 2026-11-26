@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Paprika in one image: the Go server (MCP + HTTP/WS + SQLite), the canvas (apps/web), the
+# Paprika in one image: the Go server (MCP + HTTP/WS + SQLite), the canvas (web-legacy), the
 # Rust/WASM renderer (crates/render) and the team sync sidecar (crates/sync). See docs/en-US/docker.md.
 #
 #   docker build -t paprika .
@@ -54,7 +54,7 @@ RUN --mount=type=cache,id=cargo-registry-sync,target=/usr/local/cargo/registry \
     cargo build --locked --release --target x86_64-unknown-linux-musl \
  && install -D target/x86_64-unknown-linux-musl/release/paprika-sync /out/paprika-sync
 
-# ------------------------------------------------------------------ canvas (apps/web + packages/core)
+# ------------------------------------------------------------------ canvas (web-legacy + packages/core)
 FROM node:26-bookworm-slim AS web
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=1
 WORKDIR /src
@@ -63,16 +63,16 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 # Node 25+ no longer ships corepack, so install the exact pnpm from `packageManager` with npm.
 RUN npm install --global --no-audit --no-fund "$(node -p 'require("./package.json").packageManager')"
 COPY packages/core/package.json packages/core/
-COPY apps/web/package.json apps/web/
+COPY web-legacy/package.json web-legacy/
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter @paprika/web...
+    pnpm install --frozen-lockfile --filter @paprika/web-legacy...
 COPY packages/core/ packages/core/
-COPY apps/web/ apps/web/
-COPY --from=wasm /out/ apps/web/src/wasm/
+COPY web-legacy/ web-legacy/
+COPY --from=wasm /out/ web-legacy/src/wasm/
 # `vite build` directly: the package's `build` script would try to rebuild the WASM with cargo.
 RUN pnpm --filter @paprika/core build \
- && pnpm --filter @paprika/web exec vite build \
- && test -n "$(find apps/web/dist -name '*.wasm' -print -quit)"
+ && pnpm --filter @paprika/web-legacy exec vite build \
+ && test -n "$(find web-legacy/dist -name '*.wasm' -print -quit)"
 
 # ------------------------------------------------------------------ server (Go)
 FROM golang:1.27-trixie AS server
@@ -91,7 +91,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM gcr.io/distroless/static-debian13:nonroot AS slim
 COPY --from=server /out/paprika /app/paprika
 COPY --from=sync /out/paprika-sync /app/paprika-sync
-COPY --from=web /src/apps/web/dist/ /app/web/
+COPY --from=web /src/web-legacy/dist/ /app/web/
 COPY --from=server --chown=65532:65532 /out/data /data
 ENV PAPRIKA_DB=/data/paprika.db PAPRIKA_WEB_ROOT=/app/web
 WORKDIR /data
@@ -132,7 +132,7 @@ RUN apt-get update \
 COPY --from=chrome /opt/chrome/ /opt/chrome/
 COPY --from=server /out/paprika /app/paprika
 COPY --from=sync /out/paprika-sync /app/paprika-sync
-COPY --from=web /src/apps/web/dist/ /app/web/
+COPY --from=web /src/web-legacy/dist/ /app/web/
 ENV PAPRIKA_DB=/data/paprika.db PAPRIKA_WEB_ROOT=/app/web PAPRIKA_CHROMIUM=/opt/chrome/chrome-headless-shell
 USER paprika
 WORKDIR /data

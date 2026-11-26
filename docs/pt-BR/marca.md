@@ -53,4 +53,4 @@ O ciano de seleção e o fundo do escuro são os tokens atuais do app ("Estúdio
 | `wordmark.svg` / `wordmark-light.svg` | Só o letreiro |
 | `lockup.svg` / `lockup-light.svg` | Símbolo + letreiro |
 
-Todos saem de uma geometria só, [`scripts/brand/trio-pixel.mjs`](../../scripts/brand/trio-pixel.mjs). Para regerar: `node scripts/brand/trio-pixel-svg.mjs` (também copia `favicon.svg` para `apps/web/public/icon.svg`). Os boards são desenhados no Paprika por [`scripts/brand/draw-concepts.mjs`](../../scripts/brand/draw-concepts.mjs). `proposta-*.png` são as propostas anteriores.
+Todos saem de uma geometria só, [`scripts/brand/trio-pixel.mjs`](../../scripts/brand/trio-pixel.mjs). Para regerar: `node scripts/brand/trio-pixel-svg.mjs` (também copia `favicon.svg` para `web-legacy/public/icon.svg`). Os boards são desenhados no Paprika por [`scripts/brand/draw-concepts.mjs`](../../scripts/brand/draw-concepts.mjs). `proposta-*.png` são as propostas anteriores.

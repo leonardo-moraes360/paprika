@@ -4,12 +4,12 @@
 
 - **Status:** Aceito como **renderizador híbrido opcional** (atualização abaixo). O DOM continua sendo o padrão.
 - **Data:** 2026-11-21
-- **Código:** [`crates/render`](../../../crates/render), [`packages/core/src/displayList.ts`](../../../packages/core/src/displayList.ts), [`apps/web/src/wasmLayer.ts`](../../../apps/web/src/wasmLayer.ts). Harness de benchmark: [`experiments/canvas-wasm/`](https://github.com/leonardo-moraes360/paprika/tree/040b843/experiments/canvas-wasm/README.pt-BR.md)
+- **Código:** [`crates/render`](../../../crates/render), [`packages/core/src/displayList.ts`](../../../packages/core/src/displayList.ts), [`web-legacy/src/wasmLayer.ts`](../../../web-legacy/src/wasmLayer.ts). Harness de benchmark: [`experiments/canvas-wasm/`](https://github.com/leonardo-moraes360/paprika/tree/040b843/experiments/canvas-wasm/README.pt-BR.md)
 - **Nota (2026-11-25):** o protótipo `experiments/canvas-wasm` saiu da árvore; os links abaixo apontam para o commit `040b843`, o último que o contém.
 
 ## Contexto
 
-O canvas (`apps/web/src/Canvas.tsx`) renderiza um elemento HTML por nó, com estilo vindo de
+O canvas (`web-legacy/src/Canvas.tsx`) renderiza um elemento HTML por nó, com estilo vindo de
 `nodeStyle` (`packages/core/src/style.ts`). Pan e zoom são um transform CSS. O mesmo `nodeStyle` gera
 o HTML usado pelo `render_screenshot` (Playwright) e pelo export React/HTML, então o que o agente
 confere no PNG é o que o humano vê (decisão 4 da arquitetura, invariante "nodeStyle é a única fonte
@@ -145,7 +145,7 @@ O dono do projeto pediu a integração depois de ler a avaliação acima, então
 foi dado sem a medição em GPU real. O que entrou é o desenho híbrido do passo 4, atrás de uma chave,
 com o DOM ainda como padrão:
 
-- `crates/render` (saiu de `experiments/`) é compilado pelo `pnpm build` em `apps/web/src/wasm/`.
+- `crates/render` (saiu de `experiments/`) é compilado pelo `pnpm build` em `web-legacy/src/wasm/`.
   Sem toolchain Rust o build avisa e pula; o canvas então oferece só o DOM.
 - O `@paprika/core` monta a display list (`displayList`, `wasmPaintable`) a partir dos mesmos campos
   que o `nodeStyle` lê. O navegador continua fazendo o layout do DOM; o canvas mede as caixas

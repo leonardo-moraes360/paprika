@@ -10,8 +10,8 @@ import { startServer, type ExternalServer } from "../harness.js";
 import { pinLocale } from "./locale.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "apps/web/dist");
-const wasmBuilt = existsSync(join(root, "apps/web/src/wasm/paprika_render.js")) && existsSync(webRoot);
+const webRoot = join(root, "web-legacy/dist");
+const wasmBuilt = existsSync(join(root, "web-legacy/src/wasm/paprika_render.js")) && existsSync(webRoot);
 const shots = process.env.PAPRIKA_E2E_SHOTS;
 
 async function workspaceCanvasUrl(base: string): Promise<string> {

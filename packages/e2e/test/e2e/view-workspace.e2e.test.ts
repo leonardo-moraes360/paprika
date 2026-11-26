@@ -8,7 +8,7 @@ import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "apps/web/dist");
+const webRoot = join(root, "web-legacy/dist");
 const POLL = { timeout: 10_000 };
 
 describe.skipIf(!existsSync(webRoot))("E2E: abrir /w/<id> não troca o workspace ativo", () => {

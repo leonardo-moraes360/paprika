@@ -98,8 +98,8 @@ jobs:
           if-no-files-found: error
           path: |
             packages/core/dist
-            apps/web/dist
-            apps/web/src/wasm
+            web-legacy/dist
+            web-legacy/src/wasm
             server/bin/paprika
 
   unit:

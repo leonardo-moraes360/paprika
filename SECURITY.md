@@ -23,7 +23,7 @@ Report it privately through GitHub's **Private Vulnerability Reporting**:
 
 A useful report includes:
 
-- the affected component (`server`, `packages/e2e`, `packages/core`, `apps/web`, `crates/…`) and commit;
+- the affected component (`server`, `packages/e2e`, `packages/core`, `web-legacy`, `crates/…`) and commit;
 - how Paprika was started (command, flags such as `--host`, stdio or HTTP MCP);
 - steps to reproduce or a proof of concept;
 - the impact you expect (what an attacker gains, and from where: same machine, LAN, a web page open in the browser, a malicious document, an MCP client).

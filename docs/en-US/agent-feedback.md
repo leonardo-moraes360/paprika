@@ -246,7 +246,7 @@ Task: draw a flat red bell pepper (three lobes, thin white curved gaps, olive st
 
 ## 2026-11-22: shadcn component sheet on the Interfaces page (PAP-B-030, design first)
 
-Task: draw, over MCP, the sheet of every shadcn primitive with its states (hover, focus, disabled, open) in light and dark on the `Interfaces` page of the Paprika workspace, before installing any dependency; then implement the primitives in `apps/web`. Five root frames, ~570 nodes, five `create_nodes` calls.
+Task: draw, over MCP, the sheet of every shadcn primitive with its states (hover, focus, disabled, open) in light and dark on the `Interfaces` page of the Paprika workspace, before installing any dependency; then implement the primitives in `web-legacy`. Five root frames, ~570 nodes, five `create_nodes` calls.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -256,20 +256,20 @@ Task: draw, over MCP, the sheet of every shadcn primitive with its states (hover
 | 83 | Tokens in every style field | `radius: "$radius.md"` was refused ("expected number, received string") while `fill` and `color` take `$token`. Every radius in the sheet ended up a literal, so the sheet's radii cannot follow a token change the way its colors do | Done (2026-11-22, PAP-B-065): a length field accepts a numeric token (`$radius.*`, `$space.*`, `$text.*` or any other); a color token there is refused; changing the token re-lays out every frame that uses it | — |
 | 84 | The same result shape from the read tools | `get_nodes` answers JSON (`{"nodes": […]}`) and `find_nodes` answers text lines (`frame#id "name" …`); a script that walks a tree by name has to handle two shapes, and the first pass failed exactly there | Keep the text rendering (it reads well in a chat) and accept `format: "json"`, or return `structuredContent` from every tool, as the guide already promises for the JSON ones | P3 |
 
-- Theme modes did exactly what this sheet needed: `set_tokens {mode: "light"}` plus `mode: "light"` on the frame gave one drawing in two themes, and the light values are now the values `apps/web/src/styles.css` ships in `.ui-light` — the board and the code were decided once, not twice.
+- Theme modes did exactly what this sheet needed: `set_tokens {mode: "light"}` plus `mode: "light"` on the frame gave one drawing in two themes, and the light values are now the values `web-legacy/src/styles.css` ships in `.ui-light` — the board and the code were decided once, not twice.
 - `lint_design` after the fix reports 0 errors on all five frames; the one `contrast` error it did catch (a 4.24:1 link on a light surface) was a real mistake in the palette, and it is now a different token in the code.
 - Redrawing was cheaper than patching: `delete_nodes` on the five roots plus a fresh `create_nodes`, all in one `batch`, undone by a single `undo`.
 
 ## 2026-11-22: team panel and agent roster, before and after (PAP-B-034, design first)
 
 Task: draw the team panel and the agent roster as they are today and as they become on the primitives, in both
-theme scopes, then migrate `apps/web/src/Team.tsx` and the roster in `apps/web/src/AgentCursors.tsx`. Five root
+theme scopes, then migrate `web-legacy/src/Team.tsx` and the roster in `web-legacy/src/AgentCursors.tsx`. Five root
 frames on the `Interfaces` page, ~560 nodes, then the real app in `--team` mode captured for the record.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 85 | The app's own screenshot inside the design document, as the "before" reference | Image nodes do not size the way the box says: the same 280×856 PNG painted correctly into a 190×581 `fit: "contain"` box in one frame and as a ~60×12 sliver in another where the box equalled the source; a 1440×900 source in a 560×350 box painted nothing at all. `lint_design` stayed clean and no error came back, so I only found it by looking at `render_screenshot`. The captures ended up committed next to the board instead of inside it | Document what `width`/`height` do for an `image` node (scale, crop, or neither), and make a source larger than its box either scale down or report it | P2 |
-| 86 | A board whose token names are the code's token names | The sheet's tokens are `ui.card` and `ui.mutedFg` (dots, abbreviations), while `apps/web/src/styles.css` ships `--color-ui-card` and `--color-ui-muted-foreground`. Nothing links the two, so "compare the board with the code" is a human step and I typed the same values in both places | Let a token carry an alias or `source` (e.g. `ui.card` → `--color-ui-card`), or let `set_tokens` read the names from a CSS file | P3 |
+| 86 | A board whose token names are the code's token names | The sheet's tokens are `ui.card` and `ui.mutedFg` (dots, abbreviations), while `web-legacy/src/styles.css` ships `--color-ui-card` and `--color-ui-muted-foreground`. Nothing links the two, so "compare the board with the code" is a human step and I typed the same values in both places | Let a token carry an alias or `source` (e.g. `ui.card` → `--color-ui-card`), or let `set_tokens` read the names from a CSS file | P3 |
 | 87 | A document token for the red the app actually paints | `--color-accent-strong: #c8401f` is in the CSS, but the brand tokens in the document are `$accent` (#e04a2b) and `$accent.dark`. Every primary button on the sheet is a literal, and `lint_design` returns `raw-color` infos on them | Add `$accent.strong` (and its ink) to the document's brand tokens so board and CSS call the same color by the same name | P3 |
 
 - One builder, two modes: the same panel function drew `antes` and `depois` and then the light frame, so the three sheets are the same geometry and only the token pairs and the control sizes differ. That made the comparison readable.
@@ -278,7 +278,7 @@ frames on the `Interfaces` page, ~560 nodes, then the real app in `--team` mode 
 
 ## 2026-11-22: four-corner resize handles (PAP-B-029, design first)
 
-Task: draw before/after selection handles and an NW-drag demo on the `Interfaces` page, then add NW/NE/SW/SE handles in `apps/web/src/Canvas.tsx`.
+Task: draw before/after selection handles and an NW-drag demo on the `Interfaces` page, then add NW/NE/SW/SE handles in `web-legacy/src/Canvas.tsx`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -301,7 +301,7 @@ Task: draw the Opacidade field states (normal, focused, invalid with message) in
 
 ## 2026-11-22: danger button and confirmation dialog (PAP-B-026, design first)
 
-Task: draw the danger button (states, light and dark) and the confirmation dialogs (workspace delete with the typed name, empty and filled; remove member) on the `Interfaces` page, then add the dialog and the danger tokens in `apps/web`. Eight fixed-height root frames, ~190 nodes, one `create_nodes` call. The active workspace on the maintainer's server was not `Paprika`, so the board was drawn on a throwaway `paprika serve` (renamed `Paprika`) and the PNGs went to the PR.
+Task: draw the danger button (states, light and dark) and the confirmation dialogs (workspace delete with the typed name, empty and filled; remove member) on the `Interfaces` page, then add the dialog and the danger tokens in `web-legacy`. Eight fixed-height root frames, ~190 nodes, one `create_nodes` call. The active workspace on the maintainer's server was not `Paprika`, so the board was drawn on a throwaway `paprika serve` (renamed `Paprika`) and the PNGs went to the PR.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -327,7 +327,7 @@ operations. No design sheet: the change is server-side; the UI half (the canvas 
 ## 2026-11-22: destructive language and the confirmation pattern (PAP-B-026, design first)
 
 Task: draw the danger button (before and after, both theme scopes) and the confirmation pattern before
-changing any code, then apply them in `apps/web`. Five root frames, ~330 nodes, plus the real overview
+changing any code, then apply them in `web-legacy`. Five root frames, ~330 nodes, plus the real overview
 captured before and after.
 
 | # | Needed | What happened | Proposal | Pri. |
@@ -349,7 +349,7 @@ dark, before the inline editor on the canvas. Six root frames, ~40 nodes.
 ## 2026-11-22: renaming the only page (PAP-B-020, design first)
 
 Task: draw the pages panel before, while and after renaming the placeholder "Página 1" of a workspace with no
-pages, then wire the rename in `apps/web`. Six root frames (three states, light and dark), ~60 nodes.
+pages, then wire the rename in `web-legacy`. Six root frames (three states, light and dark), ~60 nodes.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -417,7 +417,7 @@ primitives. Six frames are in `docs/en-US/assets/boards/PAP-B-033/`; the board e
 
 ## 2026-11-22: compact inspector (PAP-B-022, design partial)
 
-Task: redesign the scene inspector into collapsible sections before implementing `apps/web/src/inspector/**`. Two design frames (`PAP-B-022 texto escuro` / `claro`) already live in `docs/en-US/design/boards.paprika.json`; a full MCP redraw on `:4777` was skipped when the shared server was slow, and the app before/after PNGs under `docs/en-US/assets/boards/PAP-B-022/` carry the measurement case instead.
+Task: redesign the scene inspector into collapsible sections before implementing `web-legacy/src/inspector/**`. Two design frames (`PAP-B-022 texto escuro` / `claro`) already live in `docs/en-US/design/boards.paprika.json`; a full MCP redraw on `:4777` was skipped when the shared server was slow, and the app before/after PNGs under `docs/en-US/assets/boards/PAP-B-022/` carry the measurement case instead.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -476,7 +476,7 @@ before replacing the native `input type=color` with a popover. Six fixed-height 
 - `lint_design` on the page still reports one unrelated contrast error from an older sheet; the new frames added no errors.
 ## 2026-11-22: aspect-ratio lock shortcuts while resizing (PAP-B-042, design first)
 
-Task: draw free / keep-ratio / square selection states (light and dark) on the `Interfaces` page of `Paprika - UI`, then wire `Shift` and `Shift+Alt` locks plus a canvas hint in `apps/web/src/Canvas.tsx`. Six fixed-height root frames; screenshots in `docs/en-US/assets/boards/PAP-B-042/`.
+Task: draw free / keep-ratio / square selection states (light and dark) on the `Interfaces` page of `Paprika - UI`, then wire `Shift` and `Shift+Alt` locks plus a canvas hint in `web-legacy/src/Canvas.tsx`. Six fixed-height root frames; screenshots in `docs/en-US/assets/boards/PAP-B-042/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -495,7 +495,7 @@ Task: draw the activity feed (actor color+name, action, relative time, batch gro
 
 ## 2026-11-22: title attributes → accessible tooltips (PAP-B-051, design first)
 
-Task: replace every HTML `title` in `apps/web` with the shadcn Tooltip (`Hint` helper: hover + focus, Esc dismisses) while icon buttons keep `aria-label`. Three frames on `Interfaces` (`Paprika - UI`): before/after dark, before/after light, focus/Esc states. PNGs in `docs/en-US/assets/boards/PAP-B-051/`.
+Task: replace every HTML `title` in `web-legacy` with the shadcn Tooltip (`Hint` helper: hover + focus, Esc dismisses) while icon buttons keep `aria-label`. Three frames on `Interfaces` (`Paprika - UI`): before/after dark, before/after light, focus/Esc states. PNGs in `docs/en-US/assets/boards/PAP-B-051/`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
@@ -514,7 +514,7 @@ Task: web UI + default names follow the chosen language; detect from the browser
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|
 | 115 | Boards export from Docker volume | Same as #113: `:4777` holds the drawn sheets; this agent committed PNGs from `render_screenshot` and left `docs/en-US/design/boards.paprika.json` for a host-mounted export | MCP `export_document` or a host-mounted DB path for agents | P2 |
-| 116 | Wire every remaining Inspector/Team string | Shell, overview, pages, layers, zoom, arrange and multi-select are on the dict; many Inspector field labels and Team copy are still Portuguese literals while keys already exist in `apps/web/src/i18n/messages.ts` | Finish the field-by-field pass (or generate labels from the catalog) in a follow-up | P2 |
+| 116 | Wire every remaining Inspector/Team string | Shell, overview, pages, layers, zoom, arrange and multi-select are on the dict; many Inspector field labels and Team copy are still Portuguese literals while keys already exist in `web-legacy/src/i18n/messages.ts` | Finish the field-by-field pass (or generate labels from the catalog) in a follow-up | P2 |
 | 117 | MCP create_page default name in the pt-BR guide | Core/MCP empty-name fallback is now English (`Page 1`); `guide.pt-BR.md` still describes `"Página 1"` | Align the Portuguese guide with the English default (or say the UI localizes when it passes `name`) | P3 |
 
 - Lightweight dict modules (no i18next): `LocaleProvider` outside the single `TooltipProvider` so language switches do not remount tips.
@@ -585,7 +585,7 @@ Task: draw the closed and open FontPicker states (light and dark) on `Interfaces
 - `cmdk` 1.1.1 pinned for the Command primitive (ADR 0005 dependency list).
 ## 2026-11-22: drag and drop reparent + file drop (PAP-B-049, design first)
 
-Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states (light and dark) on `Interfaces`, then wire canvas DnD + Layers row DnD + OS file import in `apps/web`. Eight fixed-height root frames; PNGs under `docs/en-US/assets/boards/PAP-B-049/`; boards export refreshed via `GET /api/export`.
+Task: draw reparent / auto-layout insertion / Layers reorder / file-drop states (light and dark) on `Interfaces`, then wire canvas DnD + Layers row DnD + OS file import in `web-legacy`. Eight fixed-height root frames; PNGs under `docs/en-US/assets/boards/PAP-B-049/`; boards export refreshed via `GET /api/export`.
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|

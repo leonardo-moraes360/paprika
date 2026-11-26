@@ -92,7 +92,7 @@ A bus agent that needs a path outside its task's `paths` sends a `query` to `age
      "title": "Eyedropper helper",
      "base": "main",
      "branch": "agent/<name>/PAP-B-001",
-     "paths": ["apps/web/src/eyedropper.ts", "apps/web/test/eyedropper.test.ts"],
+     "paths": ["web-legacy/src/eyedropper.ts", "web-legacy/test/eyedropper.test.ts"],
      "acceptance": ["pnpm check passes", "docs EN + pt-BR updated"]
    }
    ```

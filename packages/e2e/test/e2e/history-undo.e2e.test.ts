@@ -11,7 +11,7 @@ import { startServer, type ExternalServer } from "../harness.js";
 import { pinLocale } from "./locale.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "apps/web/dist");
+const webRoot = join(root, "web-legacy/dist");
 const shotsDir = process.env.PAPRIKA_HISTORY_SHOTS;
 
 describe.skipIf(!existsSync(webRoot))("E2E: Ctrl+Z por autor e histórico", () => {

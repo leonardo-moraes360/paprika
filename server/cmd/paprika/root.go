@@ -73,7 +73,7 @@ func addDocFlag(cmd *cobra.Command, doc *string) {
 func addUIFlags(cmd *cobra.Command, port *int, host, web *string) {
 	cmd.Flags().IntVarP(port, "port", "p", 4777, "Porta HTTP (0 = aleatória)")
 	cmd.Flags().StringVar(host, "host", "127.0.0.1", "Interface de bind. Expor fora do loopback não tem autenticação")
-	cmd.Flags().StringVar(web, "web", "", "Build do canvas (apps/web/dist); sem ele, $PAPRIKA_WEB_ROOT ou detectado")
+	cmd.Flags().StringVar(web, "web", "", "Build do canvas (web-legacy/dist); sem ele, $PAPRIKA_WEB_ROOT ou detectado")
 }
 
 func validPort(port int) error {

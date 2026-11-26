@@ -6,7 +6,7 @@
 !pnpm-workspace.yaml
 !tsconfig.base.json
 !packages/core/
-!apps/web/
+!web-legacy/
 !crates/render/
 !crates/sync/
 !server/
@@ -15,7 +15,7 @@
 **/node_modules/
 **/dist/
 **/*.tsbuildinfo
-apps/web/src/wasm/
+web-legacy/src/wasm/
 crates/render/target/
 crates/sync/target/
 crates/sync/tests/

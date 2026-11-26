@@ -5,11 +5,11 @@
 - **Status:** Aceito, emendado pelo ADR 0005
 - **Data:** 2026-11-21 (emendado 2026-11-22)
 - **Emendado por:** [ADR 0005: componentes shadcn sobre o tema fechado do Paprika](0005-shadcn-ui.md) — as restrições abaixo continuam valendo; aquele ADR acrescenta como uma biblioteca de componentes vive dentro delas.
-- **Código:** [`apps/web/src/styles.css`](../../../apps/web/src/styles.css) (tema), [`apps/web/src/ui.ts`](../../../apps/web/src/ui.ts) (listas de classes compartilhadas), [`apps/web/vite.config.ts`](../../../apps/web/vite.config.ts)
+- **Código:** [`web-legacy/src/styles.css`](../../../web-legacy/src/styles.css) (tema), [`web-legacy/src/ui.ts`](../../../web-legacy/src/ui.ts) (listas de classes compartilhadas), [`web-legacy/vite.config.ts`](../../../web-legacy/vite.config.ts)
 
 ## Contexto
 
-A interface do app (`apps/web`: página de workspaces, barra do topo, toolbar, painéis de camadas e páginas,
+A interface do app (`web-legacy`: página de workspaces, barra do topo, toolbar, painéis de camadas e páginas,
 inspector, painéis redimensionáveis, overlays de seleção, cursores de agentes) era estilizada por duas folhas
 escritas à mão, `styles.css` (920 linhas) e `AgentCursors.css`, com nomes de classe globais. O mantenedor pediu
 para trocar isso pelo Tailwind CSS na versão mais recente, mantendo o visual atual.

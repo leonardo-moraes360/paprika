@@ -37,7 +37,7 @@ export function planFor(files, { ciFull = false } = {}) {
   const core = area(/^packages\/core\//);
   const e2e = area(/^packages\/e2e\//);
   const rust = area(/^crates\/render\//);
-  const web = area(/^apps\/web\//) || rust;
+  const web = area(/^(apps\/web|web-legacy)\//) || rust;
   const go = area(/^server\//);
   const sync = area(/^crates\/sync\//) || go;
   const actions = area(/^\.github\//);

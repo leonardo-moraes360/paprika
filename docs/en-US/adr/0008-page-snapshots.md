@@ -4,7 +4,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-26
-- **Code:** `server/internal/server` (`serveWS`, outbox, delta), `apps/web/src/useDocument.ts` and the consumers of `doc.nodes`
+- **Code:** `server/internal/server` (`serveWS`, outbox, delta), `web-legacy/src/useDocument.ts` and the consumers of `doc.nodes`
 - **Backlog:** PAP-A-071 (this ADR), PAP-A-070 (compression, done), PAP-A-072 (cold open on the server)
 
 ## Context

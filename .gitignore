@@ -11,7 +11,7 @@ server/bin/
 *.db
 *.db-wal
 *.db-shm
-apps/web/src/wasm/
+web-legacy/src/wasm/
 crates/*/target/
 # Local working designs (e.g. design/marca.paprika.json served by `paprika serve`)
 design/

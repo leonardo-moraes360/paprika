@@ -14,9 +14,9 @@ func webRoot(flagValue string) string {
 	candidates := []string{flagValue, os.Getenv("PAPRIKA_WEB_ROOT")}
 	if exe, err := os.Executable(); err == nil {
 		dir := filepath.Dir(exe)
-		candidates = append(candidates, filepath.Join(dir, "web"), filepath.Join(dir, "../apps/web/dist"), filepath.Join(dir, "../../apps/web/dist"))
+		candidates = append(candidates, filepath.Join(dir, "web"), filepath.Join(dir, "../web-legacy/dist"), filepath.Join(dir, "../../web-legacy/dist"))
 	}
-	candidates = append(candidates, "apps/web/dist", "../apps/web/dist")
+	candidates = append(candidates, "web-legacy/dist", "../web-legacy/dist")
 	for _, c := range candidates {
 		if c == "" {
 			continue

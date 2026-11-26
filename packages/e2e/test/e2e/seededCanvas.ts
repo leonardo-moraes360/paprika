@@ -9,7 +9,7 @@ import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
 
 export const repoRoot = resolve(import.meta.dirname, "../../../..");
-export const webDist = join(repoRoot, "apps/web/dist");
+export const webDist = join(repoRoot, "web-legacy/dist");
 
 export type CanvasSession = {
   dir: string;
