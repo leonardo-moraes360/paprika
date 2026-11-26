@@ -67,6 +67,8 @@ export function isContentCentered(frame: FrameNode): boolean {
   return axes.horizontal === "center" && axes.vertical === "middle";
 }
 
+const NO_OFFSET = { x: 0, y: 0 } as const;
+
 function kindOf(node: Node): ContentKind {
   if (node.type === "text") return "text";
   if (node.type === "path") return "icon";
@@ -74,7 +76,7 @@ function kindOf(node: Node): ContentKind {
   return "other";
 }
 
-export function contentSummary(doc: Document, source: FrameNode | readonly string[], origin: { x: number; y: number } = { x: 0, y: 0 }): ContentSummary {
+export function contentSummary(doc: Document, source: FrameNode | readonly string[], origin: { readonly x: number; readonly y: number } = NO_OFFSET): ContentSummary {
   const ids = Array.isArray(source) ? (source as readonly string[]) : (source as FrameNode).children;
   const kinds: Record<ContentKind, number> = { text: 0, icon: 0, image: 0, other: 0 };
   let only: ContentSummary["only"] = null;
