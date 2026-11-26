@@ -32,5 +32,5 @@ export function KeyTableRow({ className, ...props }: ComponentProps<"tr">) {
 export type KeyTableCellProps = ComponentProps<"td"> & { mono?: boolean; muted?: boolean; strong?: boolean };
 
 export function KeyTableCell({ className, mono = false, muted = false, strong = false, ...props }: KeyTableCellProps) {
-  return <td className={cn("px-3 align-middle", mono && "font-mono text-xs", muted ? "text-muted" : "text-fg", strong && "font-semibold", className)} {...props} />;
+  return <td className={cn("px-3 align-middle whitespace-nowrap", mono && "font-mono text-xs", muted ? "text-muted" : "text-fg", strong && "font-semibold", className)} {...props} />;
 }
