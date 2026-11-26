@@ -1,7 +1,8 @@
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { bindDrag, dragThreshold } from "@ui-sdk/core";
+import { createMenuController } from "@ui-sdk/react/menu";
 import { Ellipsis, GripVertical, Redo2, Undo2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Menu, MenuContent, MenuGroup, MenuGroupLabel, MenuItem, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
@@ -40,6 +41,7 @@ export function Toolbar({
   const current = dock ?? storedDock;
   const [last, setLast] = useState<Record<string, string>>({});
   const stop = useRef<(() => void) | null>(null);
+  const [positionMenu] = useState(() => createMenuController());
   const vertical = current === "left" || current === "right";
   const side = dockSide[current];
 
@@ -76,20 +78,34 @@ export function Toolbar({
     return list;
   }, [tools, last, select]);
 
-  const target = shortcutTarget ?? root;
+  // Without `shortcutTarget` the keys listen on the element the toolbar is docked in (its stage), not on the toolbar alone.
+  const stage = useMemo<RefObject<HTMLElement | null>>(
+    () => ({
+      get current() {
+        return root.current?.parentElement ?? root.current;
+      },
+    }),
+    [],
+  );
+  const target = shortcutTarget ?? stage;
   const hotkeyOptions = { target, ignoreInputs: true, enabled: shortcuts } as const;
   useHotkeys(
     definitions.map(({ hotkey, callback }) => ({ hotkey: hotkey as never, callback })),
     hotkeyOptions,
   );
+  // Each key is claimed only when the owner gave it a handler, so the browser keeps the ones that would do nothing here.
   useHotkeys(
     [
-      { hotkey: "Mod+Z", callback: () => canUndo && onUndo?.() },
-      { hotkey: "Mod+Y", callback: () => canRedo && onRedo?.() },
-      { hotkey: "Mod+Shift+Z", callback: () => canRedo && onRedo?.() },
-      { hotkey: "Mod+H", callback: () => onHistory?.() },
-      { hotkey: "Mod+O", callback: () => onImport?.() },
-      { hotkey: "Mod+E", callback: () => onExport?.() },
+      ...(onUndo ? [{ hotkey: "Mod+Z" as const, callback: () => canUndo && onUndo() }] : []),
+      ...(onRedo
+        ? [
+            { hotkey: "Mod+Y" as const, callback: () => canRedo && onRedo() },
+            { hotkey: "Mod+Shift+Z" as const, callback: () => canRedo && onRedo() },
+          ]
+        : []),
+      ...(onHistory ? [{ hotkey: "Mod+H" as const, callback: () => onHistory() }] : []),
+      ...(onImport ? [{ hotkey: "Mod+O" as const, callback: () => onImport() }] : []),
+      ...(onExport ? [{ hotkey: "Mod+E" as const, callback: () => onExport() }] : []),
     ],
     { ...hotkeyOptions, preventDefault: true },
   );
@@ -145,6 +161,10 @@ export function Toolbar({
               ref={grip}
               aria-label={t("frontends.toolbar.grip")}
               onPointerDown={onGripPointerDown}
+              onClick={(event) => {
+                // A click from Enter or Space (no pointer): the keyboard way to the position menu. A mouse click does nothing.
+                if (event.detail === 0 && grip.current) void positionMenu.open({ anchor: grip.current });
+              }}
               className={cn("cursor-grab touch-none active:cursor-grabbing", vertical ? "h-4 w-8" : "h-8 w-4")}
             >
               <GripVertical aria-hidden="true" className={cn("size-3.5!", vertical && "rotate-90")} />
@@ -157,6 +177,7 @@ export function Toolbar({
           ))}
           <ToolbarSeparator />
           <Menu
+            controller={positionMenu}
             pendingAnnouncement={t("common.working")}
             onAction={(action) => {
               if (action === "undo") onUndo?.();

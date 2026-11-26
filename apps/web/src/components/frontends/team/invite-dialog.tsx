@@ -36,15 +36,17 @@ export function InviteDialog({ team, onCreateInvite, onRevokeInvites, onClose, n
   const [invite, setInvite] = useState<TeamInvite | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [copied, setCopied] = useState<"yes" | "no" | null>(null);
-  const requested = useRef<number | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const requested = useRef<string | null>(null);
   const ticket = useRef(0);
   const linkField = useRef<HTMLInputElement>(null);
   const revoke = useAsyncAction();
   const now = useNow(nowProp, clock);
 
   useEffect(() => {
-    if (requested.current === ttl) return;
-    requested.current = ttl;
+    const key = `${ttl}:${attempt}`;
+    if (requested.current === key) return;
+    requested.current = key;
     const mine = ++ticket.current;
     setInvite(null);
     setCreateError(null);
@@ -57,7 +59,7 @@ export function InviteDialog({ team, onCreateInvite, onRevokeInvites, onClose, n
         if (ticket.current === mine) setCreateError(errorText(error));
       },
     );
-  }, [ttl, onCreateInvite]);
+  }, [ttl, attempt, onCreateInvite]);
 
   useEffect(() => {
     if (copied === null) return;
@@ -102,7 +104,17 @@ export function InviteDialog({ team, onCreateInvite, onRevokeInvites, onClose, n
       }
     >
       {createError !== null ? (
-        <NoticeCard variant="band" status="danger" title={t("frontends.team.inviteFailed")} role="alert">
+        <NoticeCard
+          variant="band"
+          status="danger"
+          title={t("frontends.team.inviteFailed")}
+          role="alert"
+          actions={
+            <Button variant="secondary" size="sm" pendingAnnouncement="" onClick={() => setAttempt((count) => count + 1)}>
+              {t("frontends.overview.states.retry")}
+            </Button>
+          }
+        >
           {createError}
         </NoticeCard>
       ) : null}

@@ -91,7 +91,7 @@ export function EditorHeader({
         label={connected ? (connectionLabel ?? t("frontends.editorHeader.connected")) : t("frontends.editorHeader.disconnected")}
       />
       <Menu pendingAnnouncement={t("common.working")}>
-        <MenuTrigger aria-label={t("frontends.editorHeader.language")} className={cn(chip, "items-center gap-1.5 bg-panel px-2.5 h-6 text-xs font-semibold text-muted hover:bg-surface")}>
+        <MenuTrigger aria-label={t("frontends.editorHeader.languageCurrent", { code: short })} className={cn(chip, "items-center gap-1.5 bg-panel px-2.5 h-6 text-xs font-semibold text-muted hover:bg-surface")}>
           <Languages aria-hidden="true" className="size-3.5" />
           {short}
         </MenuTrigger>

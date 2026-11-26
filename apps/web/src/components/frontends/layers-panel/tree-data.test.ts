@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockedIndexes, buildItems, canDrop, dropPosition, subtreeEnd, topmostIds } from "./tree-data";
+import { blockedIndexes, buildItems, canDrop, dropPosition, keyboardMove, subtreeEnd, topmostIds } from "./tree-data";
 import type { LayerRowData } from "./types";
 
 const row = (id: string, level: number, extra: Partial<LayerRowData> = {}): LayerRowData => ({
@@ -61,5 +61,40 @@ describe("tree-data", () => {
     expect(dropPosition(0.9, true)).toBe("after");
     expect(dropPosition(0.5, false)).toBe("after");
     expect(dropPosition(0.4, false)).toBe("before");
+  });
+
+  describe("keyboardMove", () => {
+    it("swaps with the neighbouring sibling", () => {
+      expect(keyboardMove(rows, ["d"], "up")).toEqual({ ids: ["d"], targetId: "b", position: "before" });
+      expect(keyboardMove(rows, ["b"], "down")).toEqual({ ids: ["b"], targetId: "d", position: "after" });
+      expect(keyboardMove(rows, ["a"], "down")).toEqual({ ids: ["a"], targetId: "e", position: "after" });
+    });
+
+    it("stops at the edges of the parent", () => {
+      expect(keyboardMove(rows, ["b"], "up")).toBeNull();
+      expect(keyboardMove(rows, ["d"], "down")).toBeNull();
+      expect(keyboardMove(rows, ["a"], "up")).toBeNull();
+    });
+
+    it("indents into the sibling above and outdents after the parent", () => {
+      expect(keyboardMove(rows, ["d"], "indent")).toEqual({ ids: ["d"], targetId: "b", position: "inside" });
+      expect(keyboardMove(rows, ["e"], "indent")).toEqual({ ids: ["e"], targetId: "a", position: "inside" });
+      expect(keyboardMove(rows, ["c"], "outdent")).toEqual({ ids: ["c"], targetId: "b", position: "after" });
+      expect(keyboardMove(rows, ["a"], "outdent")).toBeNull();
+    });
+
+    it("does not indent into a sibling that cannot take children", () => {
+      const flat = [row("a", 0, { kind: "text" }), row("b", 0)];
+      expect(keyboardMove(flat, ["b"], "indent")).toBeNull();
+    });
+
+    it("moves only the topmost rows of a selection and skips locked targets", () => {
+      expect(keyboardMove(rows, ["e", "f"], "up")).toEqual({ ids: ["e"], targetId: "a", position: "before" });
+      expect(keyboardMove(rows, ["d"], "up")).not.toBeNull();
+      const blocked = [row("a", 0), row("b", 0, { dropTarget: false }), row("c", 0)];
+      expect(keyboardMove(blocked, ["c"], "up")).toBeNull();
+      expect(keyboardMove(rows, ["b"], "up")).toBeNull();
+      expect(keyboardMove([row("a", 0, { draggable: false }), row("b", 0)], ["a"], "down")).toBeNull();
+    });
   });
 });

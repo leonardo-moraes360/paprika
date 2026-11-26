@@ -149,6 +149,21 @@ describe("PinCard", () => {
     expect(input).toHaveFocus();
   });
 
+  it("drops the draft and the error when the owner swaps the pin", async () => {
+    const user = userEvent.setup();
+    const onReply = vi.fn(() => Promise.reject(new Error("offline")));
+    const handlers = { onReply, onSetStatus: vi.fn(() => Promise.resolve()), onDelete: vi.fn(() => Promise.resolve()) };
+    const { rerender } = render(<PinCard pin={pins[0] as PinEntry} now={NOW} {...handlers} />);
+    await user.type(screen.getByRole("textbox"), "For the first{Enter}");
+    expect(await screen.findByRole("alert")).toHaveTextContent("offline");
+    rerender(<PinCard pin={pins[1] as PinEntry} now={NOW} {...handlers} />);
+    expect(screen.getByRole("textbox")).toHaveValue("");
+    expect(screen.queryByRole("alert")).toBeNull();
+    onReply.mockClear();
+    await user.type(screen.getByRole("textbox"), "{Enter}");
+    expect(onReply).not.toHaveBeenCalled();
+  });
+
   it("does not send an empty reply", async () => {
     const user = userEvent.setup();
     const { onReply } = card();
@@ -165,7 +180,7 @@ describe("PinCard", () => {
     await user.type(screen.getByRole("textbox"), "Hi");
     await user.click(screen.getByRole("button", { name: "Reply" }));
     expect(onReply).toHaveBeenCalledOnce();
-    expect(screen.getByRole("textbox")).toBeDisabled();
+    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
     expect(screen.getByRole("button", { name: "Reply" })).toHaveAttribute("aria-busy", "true");
     await act(async () => {
       pending.reject(new Error("offline"));
@@ -174,6 +189,25 @@ describe("PinCard", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Could not save: offline");
     expect(screen.getByRole("textbox")).toHaveValue("Hi");
     expect(screen.getByRole("textbox")).toBeEnabled();
+  });
+
+  it("keeps the field enabled while Enter sends, so the focus cannot fall to the body", async () => {
+    const user = userEvent.setup();
+    const pending = deferred();
+    card({ onReply: vi.fn(() => pending.promise) });
+    const input = screen.getByRole("textbox");
+    await user.type(input, "Hi{Enter}");
+    expect(input).toBeEnabled();
+    expect(input).toHaveAttribute("readonly");
+    expect(input).toHaveAttribute("aria-busy", "true");
+    expect(input).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Reply" })).toHaveAttribute("aria-busy", "true");
+    await act(async () => {
+      pending.resolve();
+      await pending.promise;
+    });
+    expect(input).not.toHaveAttribute("readonly");
+    expect(input).toHaveFocus();
   });
 
   it("cancels the draft with Escape first and closes with the next one", async () => {
@@ -239,6 +273,15 @@ describe("NewPinForm", () => {
     expect(onSubmit).toHaveBeenCalledOnce();
     await user.keyboard("{Escape}");
     expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("shows the submit shortcut hint only when the owner passes it", () => {
+    const { unmount } = form();
+    expect(screen.queryByText("Enter")).toBeNull();
+    unmount();
+    form({ submitShortcut: ["⌘", "Enter"] });
+    expect(screen.getByText("⌘")).toBeInTheDocument();
+    expect(screen.getByText("Enter")).toBeInTheDocument();
   });
 
   it("ignores Ctrl+Enter without text", async () => {

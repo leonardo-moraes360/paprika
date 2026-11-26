@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { LAYER_ROW_HEIGHT, LayerItem } from "./layer-item";
 import { initialLayersPanelState, LayersPanelRegion } from "./store";
-import { buildItems } from "./tree-data";
+import { buildItems, keyboardMove, type LayerMoveKey } from "./tree-data";
 import type { LayerContextItem, LayerRowData, LayerSelectMode, LayersPanelProps } from "./types";
 import { useLayerDrag } from "./use-layer-drag";
 
@@ -159,6 +159,53 @@ function LayersPanelView({
     openContext(id, { x: event.clientX, y: event.clientY });
   };
 
+  const toggleVisible = (ids: readonly string[]) => {
+    const targets = ids.map((id) => byId.get(id)).filter((row): row is LayerRowData => row !== undefined);
+    if (targets.length > 0) onToggleVisible(ids, !targets.every((row) => row.visible));
+  };
+
+  const toggleLocked = (ids: readonly string[]) => {
+    const targets = ids.map((id) => byId.get(id)).filter((row): row is LayerRowData => row !== undefined && row.lockable !== false);
+    if (targets.length > 0)
+      onToggleLocked(
+        targets.map((row) => row.id),
+        !targets.every((row) => row.locked),
+      );
+  };
+
+  // Runs in the capture phase so the tree's own arrow handling and the row's single-row shortcut never see these keys.
+  const onKeyDownCapture = (event: KeyboardEvent<HTMLElement>) => {
+    const target = event.target instanceof Element ? event.target.closest<HTMLElement>("[role='treeitem']") : null;
+    const id = target?.dataset.layerId;
+    if (!target || !id || event.target !== target || event.nativeEvent.isComposing) return;
+    const focused = byId.get(id);
+    if (!focused) return;
+    const ids = focused.selected ? selectedIds : [id];
+    if ((event.ctrlKey || event.metaKey) && event.shiftKey && !event.altKey) {
+      const key = event.key.toLowerCase();
+      if (key !== "h" && key !== "l") return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (key === "h") toggleVisible(ids);
+      else toggleLocked(ids);
+      return;
+    }
+    if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const rtl = getComputedStyle(target).direction === "rtl";
+    const keys: Record<string, LayerMoveKey> = {
+      ArrowUp: "up",
+      ArrowDown: "down",
+      [rtl ? "ArrowLeft" : "ArrowRight"]: "indent",
+      [rtl ? "ArrowRight" : "ArrowLeft"]: "outdent",
+    };
+    const step = keys[event.key];
+    if (!step) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const move = keyboardMove(rows, ids, step);
+    if (move) onMove(move);
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
     const id = target.dataset.layerId;
@@ -219,6 +266,7 @@ function LayersPanelView({
                 onHighlight={(_value, { index }) => virtual.scrollToIndex(index, { align: "auto" })}
                 onPointerDown={onPointerDown}
                 onKeyDown={onKeyDown}
+                onKeyDownCapture={onKeyDownCapture}
                 style={{ position: "relative", height: visible.length * LAYER_ROW_HEIGHT }}
               >
                 {indexes.map((index) => {
@@ -261,16 +309,9 @@ function LayersPanelView({
   function handleAction(value: string) {
     const ids = menu.getPayload() ?? [];
     if (value === "rename") rename(ids);
-    else if (value === "toggle-visible") {
-      const targets = ids.map((id) => byId.get(id)).filter((row): row is LayerRowData => row !== undefined);
-      onToggleVisible(ids, !targets.every((row) => row.visible));
-    } else if (value === "toggle-locked") {
-      const targets = ids.map((id) => byId.get(id)).filter((row): row is LayerRowData => row !== undefined && row.lockable !== false);
-      onToggleLocked(
-        targets.map((row) => row.id),
-        !targets.every((row) => row.locked),
-      );
-    } else if (value.startsWith("extra:")) onContextAction?.(value.slice(6), ids);
+    else if (value === "toggle-visible") toggleVisible(ids);
+    else if (value === "toggle-locked") toggleLocked(ids);
+    else if (value.startsWith("extra:")) onContextAction?.(value.slice(6), ids);
   }
 }
 

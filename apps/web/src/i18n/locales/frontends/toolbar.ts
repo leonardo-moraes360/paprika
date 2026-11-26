@@ -1,7 +1,7 @@
 export const toolbarEn = {
   label: "Tools",
   grip: "Move toolbar",
-  gripHint: "Drag to dock the toolbar",
+  gripHint: "Drag to dock the toolbar, or press Enter for its position",
   more: "More actions",
   undo: "Undo",
   redo: "Redo",
@@ -20,7 +20,7 @@ export const toolbarEn = {
 export const toolbarPtBR = {
   label: "Ferramentas",
   grip: "Mover a barra",
-  gripHint: "Arraste para encaixar a barra",
+  gripHint: "Arraste para encaixar a barra, ou tecle Enter para escolher a posição",
   more: "Mais ações",
   undo: "Desfazer",
   redo: "Refazer",

@@ -40,7 +40,9 @@ export function HistoryPanel({
   const [innerMine, setInnerMine] = useState(defaultMineOnly);
   const only = mineOnly ?? innerMine;
   const [confirming, setConfirming] = useState<HistoryStepData | null>(null);
-  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(() => new Set());
+  const inFlight = useRef(new Set<string>());
+  const [copied, setCopied] = useState<"yes" | "no" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const section = useRef<HTMLElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -74,16 +76,30 @@ export function HistoryPanel({
 
   useHotkey("Escape", onClose, { target: section, ignoreInputs: false });
 
+  useEffect(() => {
+    if (copied === null) return;
+    const id = setTimeout(() => setCopied(null), 2500);
+    return () => clearTimeout(id);
+  }, [copied]);
+
+  // Several steps may be in flight at once; each one is tracked by its own id and a step already running ignores a second request.
   const run = async (id: string, action: () => unknown) => {
+    if (inFlight.current.has(id)) return;
+    inFlight.current.add(id);
     setError(null);
-    setPendingId(id);
+    setPendingIds(new Set(inFlight.current));
     try {
       await action();
     } catch (failure) {
       setError(errorText(failure));
     } finally {
-      setPendingId(null);
+      inFlight.current.delete(id);
+      setPendingIds(new Set(inFlight.current));
     }
+  };
+
+  const copyLabel = async (step: HistoryStepData) => {
+    setCopied((await copyText(step.label)) ? "yes" : "no");
   };
 
   const undo = (step: HistoryStepData) => {
@@ -158,11 +174,11 @@ export function HistoryPanel({
                     <StepRow
                       step={row.step}
                       now={now}
-                      pending={pendingId === row.step.id}
+                      pending={pendingIds.has(row.step.id)}
                       onSelect={select}
                       onUndo={undo}
                       onRedo={redo}
-                      onCopy={(step) => void copyText(step.label)}
+                      onCopy={(step) => void copyLabel(step)}
                     />
                   )}
                 </div>
@@ -170,6 +186,9 @@ export function HistoryPanel({
             })}
           </div>
         )}
+      </div>
+      <div role="status" className="empty:hidden">
+        {copied !== null ? <p className="m-0 text-xs text-muted">{copied === "yes" ? t("frontends.historyPanel.copied") : t("frontends.historyPanel.copyFailed")}</p> : null}
       </div>
       {error !== null ? (
         <p role="alert" className="m-0 text-sm font-medium text-red-ink">
