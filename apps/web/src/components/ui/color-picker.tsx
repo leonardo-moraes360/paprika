@@ -65,12 +65,12 @@ const channelBox = cn(fieldBoxWrapper, "flex h-8 items-center px-2.5 text-sm");
 
 const channelInput = cn(bareInput, "text-sm tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none");
 
-const sliderTrack = `relative mx-2 h-3 w-[calc(100%-1rem)] rounded-md bg-size-[100%_100%,12px_12px] ${focusRing}`;
+const sliderTrack = `relative mx-2 h-3 w-[calc(100%-1rem)] rounded-md border border-track-line bg-size-[100%_100%,12px_12px] ${focusRing}`;
 
-const thumb = "top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-field bg-white outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select forced-colors:border-[ButtonText]";
+const thumb = "top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-field bg-thumb outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select forced-colors:border-[ButtonText]";
 
 const swatchItem =
-  "size-6 shrink-0 cursor-pointer rounded-[5px] border border-line outline-none data-selected:rounded-md data-selected:border-2 data-selected:border-fg data-selected:p-0.5 data-selected:bg-clip-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select forced-colors:data-selected:border-[Highlight]";
+  "size-6 shrink-0 cursor-pointer rounded-[5px] border border-swatch-line outline-none data-selected:rounded-md data-selected:border-2 data-selected:border-fg data-selected:p-0.5 data-selected:bg-clip-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select forced-colors:data-selected:border-[Highlight]";
 
 const spaces = { hex: "hsv", rgb: "srgb", rgba: "srgb", hsl: "hsl", oklch: "oklch" } as const;
 
@@ -133,7 +133,7 @@ export function ColorPicker({
           render={(thumbProps, state) => (
             <div {...thumbProps} aria-valuetext={labels.areaValueText(Math.round(state.color.coords[1] ?? 0), Math.round(state.color.coords[2] ?? 0))} />
           )}
-          className="-translate-x-1/2 -translate-y-1/2 size-3.5 rounded-full border-2 border-white shadow-[0_0_0_1px_color-mix(in_srgb,black_50%,transparent)] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select" />
+          className="-translate-x-1/2 -translate-y-1/2 size-3.5 rounded-full border-2 border-thumb shadow-[0_0_0_1px_var(--color-thumb-ring)] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select" />
       </ColorPickerArea>
       <ColorPickerSlider channel="hue" className={cn(sliderTrack, "bg-(image:--color-slider-background)")}>
         <ColorPickerSliderThumb
@@ -144,7 +144,7 @@ export function ColorPicker({
       </ColorPickerSlider>
       <ColorPickerSlider
         channel="alpha"
-        className={cn(sliderTrack, "bg-[image:var(--color-slider-background),repeating-conic-gradient(var(--color-gray-300)_0_25%,white_0_50%)]")}
+        className={cn(sliderTrack, "bg-[image:var(--color-slider-background),repeating-conic-gradient(var(--color-checker)_0_25%,var(--color-checker-bg)_0_50%)]")}
       >
         <ColorPickerSliderThumb aria-label={labels.alpha} className={thumb} />
       </ColorPickerSlider>

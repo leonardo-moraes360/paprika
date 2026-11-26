@@ -98,6 +98,12 @@
   --color-on-green: light-dark(#FFFFFF, #141827);
   --color-pin-ring: light-dark(#FFFFFF, #141827);
   --color-dot-ring: light-dark(#978A7B, #2C3350);
+  --color-swatch-line: light-dark(#978A7B, #686E84);
+  --color-track-line: light-dark(#978A7B, #2C3350);
+  --color-checker: light-dark(#D4D4D4, #D4D4D4);
+  --color-checker-bg: light-dark(#FFFFFF, #FFFFFF);
+  --color-thumb: light-dark(#FFFFFF, #FFFFFF);
+  --color-thumb-ring: light-dark(rgb(0 0 0 / 0.5), rgb(0 0 0 / 0.5));
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
