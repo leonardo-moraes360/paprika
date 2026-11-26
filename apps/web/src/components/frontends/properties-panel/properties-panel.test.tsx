@@ -317,6 +317,9 @@ describe("Position and size", () => {
     await user.click(screen.getByRole("button", { name: "Increase Width" }));
     expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "f1", props: { width: 521 } }], "resize");
     expect(screen.getByRole("button", { name: "Decrease Height" })).toBeInTheDocument();
+    await user.click(box("Height"));
+    await user.keyboard("{ArrowDown}");
+    expect(onApply).toHaveBeenLastCalledWith([{ op: "update", id: "f1", props: { height: 339 } }], "resize");
   });
 
   it("accepts the hug and fill keywords for the size", async () => {
