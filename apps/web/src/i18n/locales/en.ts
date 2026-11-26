@@ -1,3 +1,4 @@
+import { agentsEn } from "./frontends/agents";
 export const en = {
   home: {
     title: "Paprika",
@@ -27,6 +28,7 @@ export const en = {
     "pt-BR": "Português (Brasil)",
   },
   frontends: {
+    agents: agentsEn,
     editorLayout: {
       left: {
         region: "Layers panel",

@@ -1,3 +1,4 @@
+import { agentsPtBR } from "./frontends/agents";
 import type { Translation } from "../resources";
 
 export const ptBR: Translation = {
@@ -29,6 +30,7 @@ export const ptBR: Translation = {
     "pt-BR": "Português (Brasil)",
   },
   frontends: {
+    agents: agentsPtBR,
     editorLayout: {
       left: {
         region: "Painel de camadas",
