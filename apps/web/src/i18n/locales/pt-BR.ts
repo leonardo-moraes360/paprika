@@ -7,6 +7,9 @@ export const ptBR: Translation = {
     start: "Começar",
     components: "Componentes",
   },
+  common: {
+    working: "Processando",
+  },
   notFound: {
     title: "Página não encontrada",
     home: "Voltar ao início",

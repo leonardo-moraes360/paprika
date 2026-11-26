@@ -16,7 +16,7 @@ export function SegmentedControl({ className, children, stretch = false, indicat
     <SegmentedControlPrimitive
       className={slot(
         cn(
-          "group/seg relative isolate inline-flex h-7.5 items-center gap-0.5 rounded-md border border-field bg-bg px-0.5 data-disabled:border-line data-disabled:bg-surface",
+          "relative isolate inline-flex h-7.5 items-center gap-0.5 rounded-md border border-field bg-bg p-px data-disabled:border-line data-disabled:bg-surface",
           stretch && "flex w-full *:data-[slot=segmented-control-item]:flex-1",
         ),
         className,
@@ -27,7 +27,8 @@ export function SegmentedControl({ className, children, stretch = false, indicat
         <>
           <SegmentedControlIndicator
             className={cn(
-              "invisible group-has-[input:checked]/seg:visible absolute top-(--segmented-control-indicator-top) left-(--segmented-control-indicator-left) -z-10 h-(--segmented-control-indicator-height) w-(--segmented-control-indicator-width) rounded-sm border border-field bg-surface transition-[top,left,width,height] duration-200 motion-reduce:transition-none data-[activation-direction=none]:transition-none forced-colors:border-2 forced-colors:border-[Highlight]",
+              state.value == null && "invisible",
+              "absolute top-(--segmented-control-indicator-top) left-(--segmented-control-indicator-left) -z-10 h-(--segmented-control-indicator-height) w-(--segmented-control-indicator-width) rounded-sm border border-field bg-surface transition-[top,left,width,height] duration-200 motion-reduce:transition-none data-[activation-direction=none]:transition-none forced-colors:border-2 forced-colors:border-[Highlight]",
               indicatorClassName,
             )}
           />

@@ -32,9 +32,26 @@ export function writeThemePreference(preference: ThemePreference) {
   }
 }
 
+const themeChangeEvent = "paprika-theme-change";
+
 export function setThemePreference(preference: ThemePreference) {
   writeThemePreference(preference);
   applyThemePreference(preference);
+  window.dispatchEvent(new Event(themeChangeEvent));
+}
+
+export function subscribeThemePreference(onChange: () => void) {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== null && event.key !== themeStorageKey) return;
+    applyThemePreference(readThemePreference());
+    onChange();
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(themeChangeEvent, onChange);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(themeChangeEvent, onChange);
+  };
 }
 
 export const themeInitScript = `try{var t=localStorage.getItem(${JSON.stringify(themeStorageKey)});if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}`;

@@ -6,17 +6,6 @@ export type GalleryMeta = {
   order: number;
 };
 
-export function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
-  return (
-    <section id={id} aria-labelledby={`${id}-title`} className="flex flex-col gap-6">
-      <h2 id={`${id}-title`} className="border-b border-line pb-2 text-xl font-semibold tracking-tight">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
 export function Specimen({ label, note, children, className }: { label: string; note?: string; children: ReactNode; className?: string }) {
   return (
     <div className="flex flex-col gap-2">

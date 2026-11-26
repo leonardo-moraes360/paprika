@@ -1,9 +1,8 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import type { ComponentProps } from "react";
+import type { ThemePreference } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { SegmentedControl, SegmentedControlItem } from "./segmented-control";
-
-export type ThemeSwitchValue = "system" | "light" | "dark";
 
 export type ThemeSwitchLabels = {
   label: string;
@@ -19,8 +18,8 @@ const options = [
 ] as const;
 
 export type ThemeSwitchProps = Omit<ComponentProps<typeof SegmentedControl>, "value" | "onValueChange" | "aria-label" | "children"> & {
-  value: ThemeSwitchValue;
-  onValueChange: (value: ThemeSwitchValue) => void;
+  value: ThemePreference;
+  onValueChange: (value: ThemePreference) => void;
   labels: ThemeSwitchLabels;
   compact?: boolean;
 };

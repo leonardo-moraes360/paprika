@@ -13,11 +13,11 @@ export type TagProps = ComponentProps<"span"> & {
   tone?: keyof typeof tones;
 };
 
-export function Tag({ className, tone = "green", ...props }: TagProps) {
+export function Tag({ className, tone = "neutral", ...props }: TagProps) {
   return (
     <span
       className={cn(
-        "inline-flex h-5.5 items-center rounded-full px-3 text-xs font-semibold whitespace-nowrap forced-colors:border",
+        "inline-flex h-6 items-center rounded-full px-2.5 text-xs font-semibold whitespace-nowrap forced-colors:border",
         tones[tone],
         className,
       )}

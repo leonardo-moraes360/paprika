@@ -2,15 +2,15 @@ import { Bot, MapPin } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import { Pill, PillDot } from "@/components/ui/pill";
 import { Tag } from "@/components/ui/tag";
-import { Cell, Grid, Section, Specimen, type GalleryMeta } from "./_kit";
+import { Cell, Grid, Specimen, type GalleryMeta } from "./_kit";
 
 export const meta: GalleryMeta = { title: "Labels", order: 20 };
 
 export default function LabelsSection() {
   return (
-    <Section id="labels" title="Labels">
+    <>
       <Grid>
-        <Specimen label="Key" note="Shortcut cap: 20 px high, radius 4, field border, 12/600.">
+        <Specimen label="Key" note="Shortcut cap: 20 px high, 6 px side padding, radius 4, field border with a 1 px bottom shadow in the field colour, 12/600.">
           <Cell label="single">
             <Kbd>Y</Kbd>
           </Cell>
@@ -24,9 +24,9 @@ export default function LabelsSection() {
             </span>
           </Cell>
         </Specimen>
-        <Specimen label="Tag" note="Green ink on a green tint is the guide's active tag; other tones are the same recipe.">
+        <Specimen label="Tag" note="24 px high, 10 px side padding, full radius, 12/600. Green ink on a green tint is the guide's active tag; other tones are the same recipe. Neutral is the default.">
           <Cell label="green (active)">
-            <Tag>active</Tag>
+            <Tag tone="green">active</Tag>
           </Cell>
           <Cell label="yellow">
             <Tag tone="yellow">pending</Tag>
@@ -37,12 +37,12 @@ export default function LabelsSection() {
           <Cell label="select">
             <Tag tone="select">selected</Tag>
           </Cell>
-          <Cell label="neutral">
-            <Tag tone="neutral">draft</Tag>
+          <Cell label="neutral (default)">
+            <Tag>draft</Tag>
           </Cell>
         </Specimen>
       </Grid>
-      <Specimen label="Pill" note="24 px high, full radius, 12/600. Icon or dot before the text.">
+      <Specimen label="Pill" note="24 px high, 10 px side padding, 6 px gap, full radius, 12/600. Icon or dot before the text.">
         <Cell label="neutral">
           <Pill>2 open</Pill>
         </Cell>
@@ -69,6 +69,6 @@ export default function LabelsSection() {
           </Cell>
         ))}
       </Specimen>
-    </Section>
+    </>
   );
 }

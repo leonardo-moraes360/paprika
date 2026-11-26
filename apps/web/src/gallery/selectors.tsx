@@ -1,8 +1,9 @@
 import { AlignCenterVertical, AlignEndVertical, AlignStartVertical } from "lucide-react";
 import { useState } from "react";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
-import { ThemeSwitch, type ThemeSwitchValue } from "@/components/ui/theme-switch";
-import { Cell, Grid, Section, Specimen, type GalleryMeta } from "./_kit";
+import { ThemeSwitch } from "@/components/ui/theme-switch";
+import type { ThemePreference } from "@/lib/theme";
+import { Cell, Grid, Specimen, type GalleryMeta } from "./_kit";
 
 export const meta: GalleryMeta = { title: "Selectors", order: 30 };
 
@@ -17,11 +18,11 @@ const icons = [
 export default function SelectorsSection() {
   const [view, setView] = useState<string | null>("properties");
   const [align, setAlign] = useState<string | null>(null);
-  const [theme, setTheme] = useState<ThemeSwitchValue>("system");
+  const [theme, setTheme] = useState<ThemePreference>("system");
   return (
-    <Section id="selectors" title="Selectors">
+    <>
       <Grid>
-        <Specimen label="Segmented control · text" note="Rail 30 px, field border, radius 6; active option on the surface with a field border. Arrow keys move the selection.">
+        <Specimen label="Segmented control · text" note="Rail 30 px, 1 px field border, 2 px inset (first option at x = 2), radius 6; options 24 px high, radius 4, 12/500 muted; the active one is 12/600 ink on the surface with a field border. Arrow keys move the selection.">
           <div className="w-full max-w-xs">
             <SegmentedControl aria-label="Panel" value={view} onValueChange={setView} stretch>
               <SegmentedControlItem value="properties">Properties</SegmentedControlItem>
@@ -48,7 +49,7 @@ export default function SelectorsSection() {
             </SegmentedControl>
           </Cell>
         </Specimen>
-        <Specimen label="Segmented control · icons" note="Same rail with 28 × 24 icon options. No value selected is a valid (mixed) state.">
+        <Specimen label="Segmented control · icons" note="Same rail, 92 × 30, with three 28 × 24 icon options. No value selected is a valid (mixed) state: no indicator.">
           <Cell label="none selected">
             <SegmentedControl aria-label="Alignment" value={align} onValueChange={setAlign}>
               {icons.map(({ value, label, Icon }) => (
@@ -77,7 +78,7 @@ export default function SelectorsSection() {
             </SegmentedControl>
           </Cell>
         </Specimen>
-        <Specimen label="Theme switch" note="System, Light, Dark. Controlled by props; this one is local to the specimen (the header switch drives the page).">
+        <Specimen label="Theme switch" note="System, Light, Dark. Rail radius 8: 32 px high with 28 px options of radius 6 (13 text, 14 icons); compact is 28 px high, 92 wide, with 28 × 24 icon options. Controlled by props; this one is local to the specimen (the header switch drives the page).">
           <Cell label="full">
             <ThemeSwitch value={theme} onValueChange={setTheme} labels={themeLabels} />
           </Cell>
@@ -92,6 +93,6 @@ export default function SelectorsSection() {
           </Cell>
         </Specimen>
       </Grid>
-    </Section>
+    </>
   );
 }

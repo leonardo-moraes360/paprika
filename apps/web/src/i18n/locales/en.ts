@@ -5,6 +5,9 @@ export const en = {
     start: "Get started",
     components: "Components",
   },
+  common: {
+    working: "Working",
+  },
   notFound: {
     title: "Page not found",
     home: "Back to home",

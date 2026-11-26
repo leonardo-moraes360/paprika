@@ -35,5 +35,5 @@ export function Pill({ className, tone = "neutral", icon, children, ...props }: 
 }
 
 export function PillDot({ className, ...props }: ComponentProps<"span">) {
-  return <span className={cn("size-2 rounded-full bg-current", className)} {...props} />;
+  return <span aria-hidden="true" className={cn("size-2 rounded-full bg-current", className)} {...props} />;
 }

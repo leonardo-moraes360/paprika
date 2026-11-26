@@ -1,12 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Languages } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { ThemeSwitch } from "@/components/ui/theme-switch";
 import { languages } from "@/i18n/resources";
-import { readThemePreference, setThemePreference, type ThemePreference } from "@/lib/theme";
+import { useThemePreference } from "@/lib/use-theme-preference";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -14,17 +13,17 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const { t, i18n } = useTranslation();
-  const [theme, setTheme] = useState<ThemePreference>(readThemePreference);
+  const [theme, setTheme] = useThemePreference();
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col items-start justify-center gap-6 px-4">
       <h1 className="text-3xl font-semibold tracking-tight">{t("home.title")}</h1>
       <p className="text-muted">{t("home.tagline")}</p>
       <div className="flex flex-wrap items-center gap-3">
-        <Button>
+        <Button pendingAnnouncement={t("common.working")}>
           {t("home.start")}
           <ArrowRight aria-hidden="true" />
         </Button>
-        <Button variant="secondary" render={<Link to="/components" />}>
+        <Button variant="secondary" pendingAnnouncement={t("common.working")} render={<Link to="/components" />}>
           {t("home.components")}
         </Button>
       </div>
@@ -47,10 +46,7 @@ function Home() {
         </div>
         <ThemeSwitch
           value={theme}
-          onValueChange={(next) => {
-            setTheme(next);
-            setThemePreference(next);
-          }}
+          onValueChange={setTheme}
           labels={{ label: t("theme.label"), system: t("theme.system"), light: t("theme.light"), dark: t("theme.dark") }}
         />
       </div>
