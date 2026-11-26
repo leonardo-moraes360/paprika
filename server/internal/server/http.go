@@ -727,7 +727,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		send(c.Writer, 200, raw, "font/ttf")
 	})
 	engine.GET("/ws", func(c *gin.Context) {
-		conn, err := websocket.Accept(c.Writer, c.Request, &websocket.AcceptOptions{InsecureSkipVerify: true})
+		conn, err := websocket.Accept(c.Writer, c.Request, &websocket.AcceptOptions{InsecureSkipVerify: true, CompressionMode: websocket.CompressionContextTakeover})
 		if err != nil {
 			return
 		}
@@ -871,7 +871,7 @@ func serveStatic(w http.ResponseWriter, r *http.Request, webRoot string) {
 	if ct == "" {
 		ct = "application/octet-stream"
 	}
-	send(w, 200, data, ct)
+	sendStatic(w, r, file, data, ct)
 }
 
 func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub,

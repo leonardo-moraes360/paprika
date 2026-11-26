@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { connect, type NetConnectOpts } from "node:net";
 import WebSocket from "ws";
 import { chromium, type Browser, type Page } from "playwright";
 import { startServer, repoRoot, type ExternalServer } from "../harness.js";
@@ -128,6 +129,39 @@ describe("perf: worst-case document", () => {
     notes.wsFramesPerWrite = frames.sizes.length;
     notes.wsSnapshotsOnOpenRaw = onOpen;
     assertWithinBudgets([record("wsBytesPerWrite", bytes)]);
+  }, 120_000);
+
+  it("ws-open: the snapshot on open travels compressed", async () => {
+    const wire = async (perMessageDeflate: boolean) => {
+      let socket: ReturnType<typeof connect> | undefined;
+      let docBytes = 0;
+      const ws = new WebSocket(`${heavy.url.replace("http", "ws")}/ws`, {
+        maxPayload: 256 * 1024 * 1024,
+        perMessageDeflate,
+        createConnection: (opts: object) => (socket = connect(opts as NetConnectOpts)),
+      });
+      const extension = new Promise<string>((ok) => ws.once("upgrade", (res) => ok(String(res.headers["sec-websocket-extensions"] ?? ""))));
+      const doc = new Promise<void>((ok) =>
+        ws.on("message", (data) => {
+          const s = data.toString();
+          if (!s.startsWith('{"type":"doc"')) return;
+          docBytes = Buffer.byteLength(s);
+          ok();
+        }),
+      );
+      await doc;
+      const read = socket!.bytesRead;
+      ws.close();
+      return { read, docBytes, extension: await extension };
+    };
+    const plain = await wire(false);
+    const deflated = await wire(true);
+    expect(deflated.extension).toContain("permessage-deflate");
+    expect(plain.extension).toBe("");
+    notes.wsOpenDocBytes = deflated.docBytes;
+    notes.wsOpenWireUncompressed = plain.read;
+    notes.wsOpenWireCompressed = deflated.read;
+    assertWithinBudgets([record("wsOpenWireRatio", Math.round((100 * deflated.read) / deflated.docBytes))]);
   }, 120_000);
 
   it("server-write: a one-prop update costs the same as on a small document", async () => {
