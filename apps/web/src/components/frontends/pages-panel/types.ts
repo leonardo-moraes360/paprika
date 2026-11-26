@@ -12,6 +12,10 @@ export type PagesPanelProps = {
   onCreate: () => void;
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  storageKey?: string;
   listMaxHeight?: number;
   className?: string;
 };

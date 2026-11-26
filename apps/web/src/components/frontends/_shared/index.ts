@@ -1,2 +1,2 @@
-export { createRegionContext } from "./region-context";
-export type { RegionContext, RegionInitial, RegionProviderProps, RegionSelectorOptions } from "./region-context";
+export { createRegion, shallow } from "./region";
+export type { Region, RegionInitial, RegionProviderProps } from "./region";
