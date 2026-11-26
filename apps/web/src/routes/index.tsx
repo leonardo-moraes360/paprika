@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { SegmentedControl, SegmentedControlIndicator, SegmentedControlItem } from "@ui-sdk/react/segmented-control";
 import { ArrowRight, Languages } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { languages } from "@/i18n/resources";
 
 export const Route = createFileRoute("/")({
@@ -27,15 +27,9 @@ function Home() {
           onValueChange={(value) => {
             if (value) void i18n.changeLanguage(value);
           }}
-          className="relative isolate inline-flex gap-1 rounded-md border border-border p-1"
         >
-          <SegmentedControlIndicator className="absolute top-(--segmented-control-indicator-top) left-(--segmented-control-indicator-left) -z-10 h-(--segmented-control-indicator-height) w-(--segmented-control-indicator-width) rounded-sm bg-muted transition-[top,left,width,height] duration-200 data-[activation-direction=none]:transition-none" />
           {languages.map((l) => (
-            <SegmentedControlItem
-              key={l}
-              value={l}
-              className="inline-flex h-8 cursor-pointer items-center rounded-sm px-3 text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring data-checked:text-foreground"
-            >
+            <SegmentedControlItem key={l} value={l}>
               {t(`language.${l}`)}
             </SegmentedControlItem>
           ))}
