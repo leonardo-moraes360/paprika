@@ -3,6 +3,8 @@ import { zoomBarPtBR } from "./frontends/zoomBar";
 import { toolbarPtBR } from "./frontends/toolbar";
 import { layersPanelPtBR } from "./frontends/layersPanel";
 import { editorHeaderPtBR } from "./frontends/editorHeader";
+import { fontPickerPtBR } from "./frontends/fontPicker";
+import { propertiesPanelPtBR } from "./frontends/propertiesPanel";
 
 export const ptBR: Translation = {
   home: {
@@ -33,6 +35,8 @@ export const ptBR: Translation = {
     "pt-BR": "Português (Brasil)",
   },
   frontends: {
+    fontPicker: fontPickerPtBR,
+    propertiesPanel: propertiesPanelPtBR,
     editorLayout: {
       left: {
         region: "Painel de camadas",

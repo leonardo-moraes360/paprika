@@ -2,6 +2,8 @@ import { zoomBarEn } from "./frontends/zoomBar";
 import { toolbarEn } from "./frontends/toolbar";
 import { layersPanelEn } from "./frontends/layersPanel";
 import { editorHeaderEn } from "./frontends/editorHeader";
+import { fontPickerEn } from "./frontends/fontPicker";
+import { propertiesPanelEn } from "./frontends/propertiesPanel";
 
 export const en = {
   home: {
@@ -32,6 +34,8 @@ export const en = {
     "pt-BR": "Português (Brasil)",
   },
   frontends: {
+    fontPicker: fontPickerEn,
+    propertiesPanel: propertiesPanelEn,
     editorLayout: {
       left: {
         region: "Layers panel",
