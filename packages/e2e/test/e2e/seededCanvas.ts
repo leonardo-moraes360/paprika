@@ -1,3 +1,4 @@
+import { expect } from "vitest";
 import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -71,4 +72,12 @@ export async function revealLayer(page: Page, id: string) {
     });
     if (!more) break;
   }
+}
+
+export async function dismissToasts(page: Page) {
+  const toasts = page.locator('[data-slot="toast"]');
+  for (let i = 0; i < 10 && (await toasts.count()) > 0; i++) {
+    await toasts.first().getByRole("button").first().click({ timeout: 2000 }).catch(() => undefined);
+  }
+  await expect.poll(() => toasts.count()).toBe(0);
 }

@@ -187,15 +187,20 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
         ],
       },
     });
-    await open("dom");
-    await page.waitForSelector('[data-paprika-id="centered"]');
-    const dom = await shot();
-    await open("wasm");
-    await page.waitForSelector('[data-paprika-id="centered"]');
-    const wasm = await shot();
-    const ratio = await diffRatio(page, dom, wasm);
-    await agent.callTool({ name: "delete_nodes", arguments: { ids: ["centered"] } });
-    expect(ratio).toBeLessThan(0.005);
+    const settled = async () => {
+      await page.waitForSelector('[data-paprika-id="centered"]');
+      await expect.poll(() => page.locator("[data-build]").count(), { interval: 50, timeout: 4000 }).toBe(0);
+    };
+    try {
+      await open("dom");
+      await settled();
+      const dom = await shot();
+      await open("wasm");
+      await settled();
+      await expect.poll(async () => diffRatio(page, dom, await shot()), { interval: 200, timeout: 5000 }).toBeLessThan(0.005);
+    } finally {
+      await agent.callTool({ name: "delete_nodes", arguments: { ids: ["centered"] } });
+    }
     expect(errors).toEqual([]);
   });
 
