@@ -192,3 +192,90 @@ func TestScopedFallsBackOutsidePaintProps(t *testing.T) {
 		}
 	}
 }
+
+func randomWideOps(rng *rand.Rand, doc *Document, serial *int) []any {
+	keys := Nodes(doc).Keys()
+	pick := func() string { return keys[rng.Intn(len(keys))] }
+	one := func() any {
+		switch rng.Intn(12) {
+		case 0:
+			*serial++
+			return jsonv.NewObject("op", "create", "parentId", pick(), "node", jsonv.NewObject("type", "rect", "id", fmt.Sprintf("w%d", *serial), "width", 12.0, "height", 12.0))
+		case 1:
+			return jsonv.NewObject("op", "delete", "id", pick())
+		case 2:
+			return jsonv.NewObject("op", "move", "id", pick(), "parentId", pick())
+		case 3:
+			return jsonv.NewObject("op", "update", "id", pick(), "props", jsonv.NewObject("text", fmt.Sprintf("t%d", rng.Intn(5))))
+		case 4:
+			return jsonv.NewObject("op", "update", "id", pick(), "props", jsonv.NewObject("width", float64(20+rng.Intn(60))))
+		case 5:
+			return jsonv.NewObject("op", "update", "id", pick(), "props", jsonv.NewObject("fill", []string{"#111111", "#222222", "#333333"}[rng.Intn(3)]))
+		case 6:
+			return jsonv.NewObject("op", "update", "id", []string{"i1", "i2", "o1"}[rng.Intn(3)], "props", jsonv.NewObject("propValues", jsonv.NewObject("label", fmt.Sprintf("L%d", rng.Intn(4)))))
+		case 7:
+			return jsonv.NewObject("op", "update", "id", []string{"i1", "i2", "o1"}[rng.Intn(3)], "props", jsonv.NewObject("scale", []float64{1, 1.5, 2}[rng.Intn(3)]))
+		case 8:
+			return jsonv.NewObject("op", "update", "id", []string{"i1", "i2"}[rng.Intn(2)], "props", jsonv.NewObject("slots", jsonv.NewObject("icon", []any{[]string{"gem", "r1", "ga"}[rng.Intn(3)]})))
+		case 9:
+			return jsonv.NewObject("op", "update", "id", pick(), "props", jsonv.NewObject("visible", rng.Intn(2) == 0))
+		case 10:
+			return jsonv.NewObject("op", "detach", "ids", []any{[]string{"i1", "i2", "o1"}[rng.Intn(3)]})
+		default:
+			return jsonv.NewObject("op", "update", "id", pick(), "props", jsonv.NewObject("opacity", float64(rng.Intn(10))/10))
+		}
+	}
+	ops := make([]any, 1+rng.Intn(3))
+	for i := range ops {
+		ops[i] = one()
+	}
+	return ops
+}
+
+func TestIncrementalInstanceSyncMatchesFullRebuild(t *testing.T) {
+	seed := scopedSeedDoc(t)
+	for round := range 12 {
+		rng := rand.New(rand.NewSource(int64(100 + round)))
+		fast, slow := NewHistory(seed), NewHistory(seed)
+		fast.Now = func() int64 { return 1 }
+		slow.Now = func() int64 { return 1 }
+		serial, applied := 0, 0
+		lastOps := ""
+		for step := range 300 {
+			slow.settled = false
+			if Nodes(fast.Doc()).Len() < 12 {
+				fast.Reset(seed)
+				slow.Reset(seed)
+			}
+			var fe, se error
+			switch k := rng.Intn(12); {
+			case k == 0:
+				_, _, fe = fast.Undo()
+				_, _, se = slow.Undo()
+			case k == 1:
+				_, _, fe = fast.Redo()
+				_, _, se = slow.Redo()
+			default:
+				ops := randomWideOps(rng, fast.Doc(), &serial)
+				lastOps = jsonv.Stringify(ops, "")
+				_, fe = fast.Apply(ops, "a", "l")
+				_, se = slow.Apply(ops, "a", "l")
+				if fe == nil {
+					applied++
+				}
+				if (fe == nil) != (se == nil) || (fe != nil && fe.Error() != se.Error()) {
+					t.Fatalf("round %d step %d: error differs: fast %v slow %v ops %s", round, step, fe, se, jsonv.Stringify(ops, ""))
+				}
+			}
+			if (fe == nil) != (se == nil) {
+				t.Fatalf("round %d step %d: undo/redo error differs: %v %v", round, step, fe, se)
+			}
+			if a, b := jsonv.Stringify(fast.Doc(), ""), jsonv.Stringify(slow.Doc(), ""); a != b {
+				t.Fatalf("round %d step %d: documents differ (last ops %s)\nfast keys %v\nslow keys %v", round, step, lastOps, Nodes(fast.Doc()).Keys(), Nodes(slow.Doc()).Keys())
+			}
+		}
+		if applied < 60 {
+			t.Fatalf("round %d: only %d ops applied", round, applied)
+		}
+	}
+}
