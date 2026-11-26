@@ -117,6 +117,7 @@ func scaleGroupContents(doc *Document, g *Node, rw, rh float64) {
 		if !adjustable(child) {
 			continue
 		}
+		child = own(doc, cid)
 		scaleBox(child, rw, rh)
 		if child.Str("type") == "group" {
 			scaleGroupContents(doc, child, rw, rh)
@@ -129,6 +130,7 @@ func adjustChild(doc *Document, parent *Node, cid string, oldW, oldH, newW, newH
 	if !adjustable(child) || inFlow(parent, child) {
 		return
 	}
+	child = own(doc, cid)
 	h, v := constraintModes(child)
 	var w, ht float64
 	wOK, hOK := false, false

@@ -101,8 +101,7 @@ func ApplyScoped(doc *Document, ops []any, idx *ScopeIndex) (*ApplyResult, bool)
 		}
 		parsed[i] = op
 	}
-	draft := doc.Spread()
-	draft.Set("nodes", nodes.Spread())
+	draft := newDraft(doc)
 	var inverse []any
 	created := []string{}
 	for i, op := range parsed {
@@ -118,5 +117,5 @@ func ApplyScoped(doc *Document, ops []any, idx *ScopeIndex) (*ApplyResult, bool)
 	if inverse == nil {
 		inverse = []any{}
 	}
-	return &ApplyResult{Doc: draft, Inverse: inverse, Created: created, Touched: touched}, true
+	return &ApplyResult{Doc: draft, Inverse: inverse, Created: created, Touched: touched, Journal: sealDraft(draft)}, true
 }

@@ -1,6 +1,10 @@
 package core
 
-import "time"
+import (
+	"time"
+
+	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
+)
 
 type HistoryEntry struct {
 	Actor   string
@@ -21,6 +25,8 @@ type History struct {
 	scope   *ScopeIndex
 	touched []string
 	scoped  bool
+	journal *Journal
+	legacy  bool
 	saved   any
 	Now     func() int64
 }
@@ -46,14 +52,19 @@ func (h *History) SetPersisted(v any) { h.saved = v }
 
 func (h *History) LastTouched() ([]string, bool) { return h.touched, h.scoped }
 
+func (h *History) LastJournal() *Journal { return h.journal }
+
 func (h *History) run(ops []any) (*ApplyResult, error) {
-	h.touched, h.scoped = nil, false
+	h.touched, h.scoped, h.journal = nil, false, nil
+	if !h.legacy && !isShared(h.current) {
+		jsonv.Freeze(h.current)
+	}
 	if h.settled {
 		if h.scope == nil {
 			h.scope = BuildScopeIndex(h.current)
 		}
 		if r, ok := ApplyScoped(h.current, ops, h.scope); ok {
-			h.touched, h.scoped = r.Touched, true
+			h.touched, h.scoped, h.journal = r.Touched, true, r.Journal
 			return r, nil
 		}
 	}
@@ -65,6 +76,7 @@ func (h *History) run(ops []any) (*ApplyResult, error) {
 		h.settled = true
 	}
 	h.scope = nil
+	h.journal = r.Journal
 	return r, nil
 }
 
@@ -135,5 +147,5 @@ func (h *History) Reset(doc *Document) {
 	h.current = doc
 	h.undo, h.redo = nil, nil
 	h.open = false
-	h.settled, h.scope, h.touched, h.scoped, h.saved = false, nil, nil, false, nil
+	h.settled, h.scope, h.touched, h.scoped, h.journal, h.saved = false, nil, nil, false, nil, nil
 }

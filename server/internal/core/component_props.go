@@ -991,6 +991,11 @@ func slotRefIDs(doc *Document, n *Node) []string {
 	return out
 }
 
+func lagsOnePass(n *Node) bool {
+	t := n.Str("type")
+	return t == "connector" || t == "group"
+}
+
 func (d *instanceDiff) unchanged(inst *Node) bool {
 	id := inst.Str("id")
 	if !d.same(id) {
@@ -1006,12 +1011,12 @@ func (d *instanceDiff) unchanged(inst *Node) bool {
 		}
 	}
 	for _, x := range d.closure(inst.Str("instanceOf"), map[string]bool{}) {
-		if !d.same(x) || GetNode(d.cur, x).Str("type") == "connector" {
+		if !d.same(x) || lagsOnePass(GetNode(d.cur, x)) {
 			return false
 		}
 	}
 	for _, x := range slotRefIDs(d.cur, inst) {
-		if !d.same(x) || GetNode(d.cur, x).Str("type") == "connector" {
+		if !d.same(x) || lagsOnePass(GetNode(d.cur, x)) {
 			return false
 		}
 	}
