@@ -66,6 +66,20 @@ func PlainSeed() string {
 	return strings.Replace(out, `,"layoutPositioning":"absolute","x":50,"y":5,"constraints":{"horizontal":"right"}`, `,"layoutPositioning":"absolute","x":50,"y":5`, 1)
 }
 
+func LaggingSeed() string {
+	extra := `	{"op":"create","parentId":"pg","node":{"type":"frame","id":"gcomp","component":true,"x":1100,"width":160,"height":60,"children":[
+		{"type":"group","id":"gg","children":[
+			{"type":"rect","id":"gx","x":0,"y":0,"width":20,"height":20},
+			{"type":"rect","id":"gy","x":40,"y":10,"width":20,"height":20}
+		]}
+	]}},
+	{"op":"create","parentId":"pg2","node":{"type":"frame","id":"gi","instanceOf":"gcomp","x":300,"y":0}},
+`
+	b := strings.Index(Seed, `	{"op":"create","parentId":"pg2","node":{"type":"frame","id":"root"`)
+	out := Seed[:b] + extra + Seed[b:]
+	return strings.Replace(out, `{"type":"rect","id":"wa","x":0,"y":0,"width":20,"height":20},`, `{"type":"group","id":"wg","children":[{"type":"rect","id":"wa","x":0,"y":0,"width":20,"height":20},{"type":"rect","id":"wh","x":25,"y":5,"width":10,"height":10}]},`, 1)
+}
+
 func Ops(rng *rand.Rand, doc *jsonv.Object, serial *int) []any {
 	nodes := doc.Obj("nodes")
 	getNode := func(id string) *jsonv.Object { return nodes.Obj(id) }
@@ -171,6 +185,7 @@ func Ops(rng *rand.Rand, doc *jsonv.Object, serial *int) []any {
 			return jsonv.NewObject("layout", jsonv.NewObject("mode", []any{"row", "column", "none"}[rng.Intn(3)], "gap", []any{4.0, "$gap", 12.0}[rng.Intn(3)]))
 		},
 		func() *jsonv.Object { return jsonv.NewObject("visible", rng.Intn(2) == 0) },
+		func() *jsonv.Object { return jsonv.NewObject("mode", []any{"dark", "dark", "light"}[rng.Intn(3)]) },
 		func() *jsonv.Object { return jsonv.NewObject("rotation", float64(rng.Intn(4)*15)) },
 		func() *jsonv.Object { return jsonv.NewObject("name", fmt.Sprintf("n%d", rng.Intn(4))) },
 		func() *jsonv.Object {
@@ -225,7 +240,7 @@ func Ops(rng *rand.Rand, doc *jsonv.Object, serial *int) []any {
 		case k == 24:
 			return jsonv.NewObject("op", "set_tokens", "tokens", jsonv.NewObject([]string{"r", "gap", "brand", "extra"}[rng.Intn(4)], []any{4.0, 10.0, "#123456", nil}[rng.Intn(4)]))
 		case k == 25:
-			return jsonv.NewObject("op", "set_tokens", "mode", "dark", "tokens", jsonv.NewObject("brand", "#000000"))
+			return jsonv.NewObject("op", "set_tokens", "mode", "dark", "tokens", jsonv.NewObject([]string{"brand", "r"}[rng.Intn(2)], []any{"#000000", "#000000", "#111111", 2.0}[rng.Intn(4)]))
 		case k == 26:
 			return jsonv.NewObject("op", "rename_document", "name", fmt.Sprintf("doc%d", rng.Intn(5)))
 		case k == 27:

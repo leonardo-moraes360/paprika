@@ -163,6 +163,10 @@ func TestScopedDerivedPassesMatchFullPassForEveryOp(t *testing.T) {
 	}
 }
 
+func TestLaggingComponentsMatchFullPassForEveryOp(t *testing.T) {
+	runCOWRounds(t, opgen.LaggingSeed(), 24, 250, nil)
+}
+
 func consistencyError(doc *Document) string {
 	nodes := Nodes(doc)
 	for _, id := range nodes.Keys() {
@@ -201,4 +205,118 @@ func firstDifference(a, b *Document) string {
 		}
 	}
 	return "key order of the document"
+}
+
+func TestScopedLengthTokenCheckRejectsWhatTheFullPassRejects(t *testing.T) {
+	const seed = `[
+	{"op":"add_page","id":"pg","name":"P"},
+	{"op":"set_tokens","tokens":{"r":6}},
+	{"op":"set_tokens","mode":"dark","tokens":{"r":"#000000"}},
+	{"op":"create","parentId":"pg","node":{"type":"frame","id":"dark","mode":"dark","x":300,"y":0,"width":200,"height":200,"children":[{"type":"rect","id":"k","width":9,"height":9}]}},
+	{"op":"create","parentId":"pg","node":{"type":"frame","id":"light","x":0,"y":0,"width":200,"height":200,"children":[
+		{"type":"frame","id":"box","width":50,"height":50,"children":[{"type":"rect","id":"deep","width":9,"height":9,"radius":"$r"}]}]}}
+	]`
+	steps := [][]string{
+		{`{"op":"move","id":"box","parentId":"dark"}`},
+		{`{"op":"update","id":"light","props":{"mode":"dark"}}`},
+		{`{"op":"update","id":"box","props":{"mode":"dark"}}`},
+		{`{"op":"update","id":"deep","props":{"radius":"$r"}}`, `{"op":"move","id":"deep","parentId":"dark"}`},
+	}
+	for i, st := range steps {
+		v, err := jsonv.Parse([]byte("[" + st[0] + "]"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ops := v.([]any)
+		if len(st) > 1 {
+			v2, _ := jsonv.Parse([]byte("[" + st[1] + "]"))
+			ops = append(ops, v2.([]any)...)
+		}
+		seedDoc := cowSeedDoc(t, seed)
+		fast, slow := NewHistory(seedDoc), NewHistory(seedDoc)
+		slow.legacy = true
+		warm, _ := jsonv.Parse([]byte(`[{"op":"update","id":"k","props":{"opacity":0.5}}]`))
+		if _, err := fast.Apply(warm.([]any), "a", "l"); err != nil {
+			t.Fatal(err)
+		}
+		slow.settled = false
+		if _, err := slow.Apply(warm.([]any), "a", "l"); err != nil {
+			t.Fatal(err)
+		}
+		_, fe := fast.Apply(ops, "a", "l")
+		slow.settled = false
+		_, se := slow.Apply(ops, "a", "l")
+		if fe == nil || se == nil {
+			t.Fatalf("step %d: expected a length token error, got fast %v slow %v", i, fe, se)
+		}
+		if fe.Error() != se.Error() {
+			t.Fatalf("step %d: error differs: fast %q slow %q", i, fe, se)
+		}
+	}
+}
+
+func TestInstancesOfGroupsConvergeLikeTheFullPass(t *testing.T) {
+	seed := cowSeedDoc(t, opgen.LaggingSeed())
+	script := []string{
+		`[{"op":"update","id":"gx","props":{"x":7,"width":33}}]`,
+		`[{"op":"update","id":"r1","props":{"opacity":0.5}}]`,
+		`[{"op":"update","id":"gy","props":{"y":19}}]`,
+		`[{"op":"update","id":"t1","props":{"text":"again"}}]`,
+		`[{"op":"update","id":"wa","props":{"x":3}}]`,
+		`[{"op":"update","id":"t1","props":{"text":"third"}}]`,
+	}
+	fast, slow := NewHistory(seed), NewHistory(seed)
+	slow.legacy = true
+	for i, s := range script {
+		v, err := jsonv.Parse([]byte(s))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, fe := fast.Apply(v.([]any), "a", "l")
+		slow.settled = false
+		_, se := slow.Apply(v.([]any), "a", "l")
+		if (fe == nil) != (se == nil) {
+			t.Fatalf("step %d: error differs %v %v", i, fe, se)
+		}
+		if a, b := jsonv.Stringify(fast.Doc(), ""), jsonv.Stringify(slow.Doc(), ""); a != b {
+			t.Fatalf("step %d: documents differ: %s", i, firstDifference(fast.Doc(), slow.Doc()))
+		}
+	}
+}
+
+func TestScopedConstraintsFollowResizedFrames(t *testing.T) {
+	seed := cowSeedDoc(t, opgen.PlainSeed())
+	script := []string{
+		`[{"op":"update","id":"free","props":{"width":330,"height":240}}]`,
+		`[{"op":"update","id":"h1","props":{"width":70}}]`,
+		`[{"op":"update","id":"free","props":{"width":210}}]`,
+		`[{"op":"update","id":"free","props":{"width":150}}]`,
+		`[{"op":"update","id":"card","props":{"width":420}}]`,
+		`[{"op":"update","id":"root","props":{"width":900,"height":50}}]`,
+	}
+	fast, slow := NewHistory(seed), NewHistory(seed)
+	slow.legacy = true
+	scoped := 0
+	for i, s := range script {
+		v, err := jsonv.Parse([]byte(s))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, fe := fast.Apply(v.([]any), "a", "l")
+		slow.settled = false
+		_, se := slow.Apply(v.([]any), "a", "l")
+		if fe != nil || se != nil {
+			t.Fatalf("step %d: %v %v", i, fe, se)
+		}
+		if (fe == nil) != (se == nil) {
+			t.Fatalf("step %d: error differs %v %v", i, fe, se)
+		}
+		if a, b := jsonv.Stringify(fast.Doc(), ""), jsonv.Stringify(slow.Doc(), ""); a != b {
+			t.Fatalf("step %d: documents differ: %s", i, firstDifference(fast.Doc(), slow.Doc()))
+		}
+		if ok, _ := fast.LastDerivedScoped(); ok {
+			scoped++
+		}
+	}
+	t.Logf("scoped steps %d pin1 %s", scoped, jsonv.Stringify(Nodes(fast.Doc()).Obj("pin1"), ""))
 }
