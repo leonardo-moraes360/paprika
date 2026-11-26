@@ -7,7 +7,7 @@
     "build": "node ../../crates/render/build.mjs && vite build",
     "build:wasm": "node ../../crates/render/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test test/live-resync.test.mjs test/live-delta.test.mjs test/view-render.test.mjs test/doc-lint.test.mjs test/build-pace.test.mjs",
+    "test": "node --test test/live-resync.test.mjs test/live-delta.test.mjs test/view-render.test.mjs test/doc-lint.test.mjs test/build-pace.test.mjs test/history-model.test.mjs",
     "dev": "vite"
   },
   "dependencies": {

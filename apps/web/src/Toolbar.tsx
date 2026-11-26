@@ -4,10 +4,12 @@ import { Button } from "./components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { Separator } from "./components/ui/separator";
@@ -67,6 +69,7 @@ export function Toolbar({
   canRedo,
   onUndo,
   onRedo,
+  onHistory,
   onExport,
   dock,
   onDock,
@@ -78,6 +81,7 @@ export function Toolbar({
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  onHistory: () => void;
   onExport: () => void;
   dock: ToolbarDock;
   onDock: (dock: ToolbarDock) => void;
@@ -231,6 +235,11 @@ export function Toolbar({
             <TooltipContent side={tipSide}>{m.toolbarPosition}</TooltipContent>
           </Tooltip>
           <DropdownMenuContent side={tipSide} align="center">
+            <DropdownMenuItem onSelect={onHistory}>
+              {m.historyMenu}
+              <DropdownMenuShortcut>Ctrl H</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuLabel>{m.toolbarDockLabel}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuRadioGroup value={dock} onValueChange={(v) => setDock(v as ToolbarDock)}>

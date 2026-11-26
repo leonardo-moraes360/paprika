@@ -416,6 +416,43 @@ export type Messages = {
   buildCode: string;
   buildCodeHide: string;
   buildCodeEmpty: string;
+  historyTitle: string;
+  historyMenu: string;
+  historyClose: string;
+  historyFilter: string;
+  historyAll: string;
+  historyMine: string;
+  historyYou: string;
+  historySteps: (n: number) => string;
+  historyUndone: string;
+  historyEmpty: string;
+  historyEmptyMine: string;
+  historyFooter: string;
+  historyList: string;
+  historyStepActions: (label: string) => string;
+  historySelectStep: (label: string, who: string, when: string) => string;
+  historyUndoStep: string;
+  historyRedoStep: string;
+  historySelectNodes: string;
+  historyCopyLabel: string;
+  historyConfirmTitle: (agent: string) => string;
+  historyConfirmBody: (label: string, agent: string, ago: string) => string;
+  historyConfirmAction: string;
+  historyFewSeconds: string;
+  historyAgo: (t: string) => string;
+  toastUndone: (label: string) => string;
+  toastUndoneOwn: (label: string, newer: number) => string;
+  toastUndoneAgent: (label: string, agent: string) => string;
+  toastRedone: (label: string) => string;
+  toastNothingMine: (agent: string) => string;
+  toastNothingAtAll: string;
+  toastNothingToRedo: string;
+  toastConflictUndo: string;
+  toastConflictRedo: string;
+  toastMissing: string;
+  toastRedo: string;
+  toastViewHistory: string;
+  toastDismiss: string;
 };
 
 const en: Messages = {
@@ -834,6 +871,44 @@ const en: Messages = {
   buildCode: "Code",
   buildCodeHide: "Hide code",
   buildCodeEmpty: "No frame is being written.",
+  historyTitle: "History",
+  historyMenu: "History",
+  historyClose: "Close history",
+  historyFilter: "Show steps from",
+  historyAll: "All",
+  historyMine: "Only mine",
+  historyYou: "you",
+  historySteps: (n) => `${n} ${n === 1 ? "step" : "steps"}`,
+  historyUndone: "undone",
+  historyEmpty: "No steps yet.",
+  historyEmptyMine: "None of the steps are yours.",
+  historyFooter: "Steps grouped by author, newest first. Click one to select its nodes on the canvas.",
+  historyList: "Steps",
+  historyStepActions: (label) => `Actions for step ${label}`,
+  historySelectStep: (label, who, when) => `${label}, ${who}, ${when}`,
+  historyUndoStep: "Undo this step",
+  historyRedoStep: "Redo this step",
+  historySelectNodes: "Select the step's nodes",
+  historyCopyLabel: "Copy label",
+  historyConfirmTitle: (agent) => `Undo a step by ${agent}?`,
+  historyConfirmBody: (label, agent, ago) =>
+    `“${label}” was made by the agent ${agent} ${ago}. Undoing only this step keeps the newer ones; ${agent} sees the undo in the history and can redo the work.`,
+  historyConfirmAction: "Undo step",
+  historyFewSeconds: "a few seconds ago",
+  historyAgo: (t) => `${t} ago`,
+  toastUndone: (label) => `Undone: ${label}`,
+  toastUndoneOwn: (label, newer) => `Undone your step: ${label}. ${newer} newer ${newer === 1 ? "step by an agent was" : "steps by agents were"} kept.`,
+  toastUndoneAgent: (label, agent) => `Undone ${agent}’s step: ${label}`,
+  toastRedone: (label) => `Redone: ${label}`,
+  toastNothingMine: (agent) => `Nothing of yours to undo. The latest steps are by ${agent}.`,
+  toastNothingAtAll: "Nothing to undo.",
+  toastNothingToRedo: "Nothing to redo.",
+  toastConflictUndo: "Can’t undo only this step: newer steps changed the same elements.",
+  toastConflictRedo: "Can’t redo this step: newer steps changed the same elements.",
+  toastMissing: "That step is no longer in the history.",
+  toastRedo: "Redo",
+  toastViewHistory: "View history",
+  toastDismiss: "Dismiss",
 };
 
 const pt: Messages = {
@@ -1234,6 +1309,44 @@ const pt: Messages = {
   buildCode: "Código",
   buildCodeHide: "Ocultar código",
   buildCodeEmpty: "Nenhum frame está sendo escrito.",
+  historyTitle: "Histórico",
+  historyMenu: "Histórico",
+  historyClose: "Fechar histórico",
+  historyFilter: "Mostrar passos de",
+  historyAll: "Todos",
+  historyMine: "Só meus",
+  historyYou: "você",
+  historySteps: (n) => `${n} ${n === 1 ? "passo" : "passos"}`,
+  historyUndone: "desfeito",
+  historyEmpty: "Ainda não há passos.",
+  historyEmptyMine: "Nenhum dos passos é seu.",
+  historyFooter: "Passos agrupados por autor, do mais recente ao mais antigo. Clique leva o canvas aos nós do passo.",
+  historyList: "Passos",
+  historyStepActions: (label) => `Ações do passo ${label}`,
+  historySelectStep: (label, who, when) => `${label}, ${who}, ${when}`,
+  historyUndoStep: "Desfazer este passo",
+  historyRedoStep: "Refazer este passo",
+  historySelectNodes: "Selecionar nós do passo",
+  historyCopyLabel: "Copiar rótulo",
+  historyConfirmTitle: (agent) => `Desfazer um passo do ${agent}?`,
+  historyConfirmBody: (label, agent, ago) =>
+    `“${label}” foi feito pelo agente ${agent} ${ago}. Desfazer só este passo mantém os mais recentes; o ${agent} vê o desfazer no histórico e pode refazer o trabalho.`,
+  historyConfirmAction: "Desfazer passo",
+  historyFewSeconds: "há poucos segundos",
+  historyAgo: (t) => `há ${t}`,
+  toastUndone: (label) => `Desfeito: ${label}`,
+  toastUndoneOwn: (label, newer) => `Desfeito o seu passo: ${label}. ${newer} ${newer === 1 ? "passo de agente mais recente foi mantido" : "passos de agentes mais recentes foram mantidos"}.`,
+  toastUndoneAgent: (label, agent) => `Desfeito o passo do ${agent}: ${label}`,
+  toastRedone: (label) => `Refeito: ${label}`,
+  toastNothingMine: (agent) => `Nada seu para desfazer. Os últimos passos são de ${agent}.`,
+  toastNothingAtAll: "Nada para desfazer.",
+  toastNothingToRedo: "Nada para refazer.",
+  toastConflictUndo: "Não dá para desfazer só este passo: passos mais recentes mexeram nos mesmos elementos.",
+  toastConflictRedo: "Não dá para refazer este passo: passos mais recentes mexeram nos mesmos elementos.",
+  toastMissing: "Esse passo não está mais no histórico.",
+  toastRedo: "Refazer",
+  toastViewHistory: "Ver histórico",
+  toastDismiss: "Dispensar",
 };
 
 export const catalogs: Record<Locale, Messages> = { en, "pt-BR": pt };

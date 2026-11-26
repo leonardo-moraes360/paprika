@@ -25,6 +25,8 @@
   --color-toast: #3a1d19;
   --color-warn: #e0a63b;
   --color-leaf: #4f9a5a;
+  --color-human: #4cc3d6;
+  --color-human-ink: #0d2a30;
   --color-canvas: #e7e9f0;
   --color-select: #4cc7d8;
   --color-select-ink: #0d1220;
@@ -204,6 +206,8 @@
     --color-ui-ring: #0b7183;
     --color-ui-link: #0b7183;
     --color-ui-overlay: rgb(20 24 39 / 0.42);
+    --color-human: #137a8c;
+    --color-human-ink: #fff;
   }
 }
 

@@ -19,6 +19,10 @@ import { Hint } from "./components/ui/tooltip";
 import { cn } from "./lib/cn";
 import { bar } from "./ui";
 import { LanguageSwitcher, useT } from "./i18n";
+import { HistoryPanel } from "./HistoryPanel";
+import { isHistoryOpen, redoOwn, setHistoryOpen, undoOwn, useHistoryOpen } from "./historyActions";
+import { pageOfNodes } from "./historyModel";
+import { ToastHost } from "./components/ui/toast";
 import { WorkspaceNotice } from "./WorkspaceNotice";
 import { PinsChip } from "./Pins";
 import { setPinsPanel } from "./pins";
@@ -157,6 +161,7 @@ function Editor() {
   const activity = useLive((s) => s.activity);
   const agentTouched = useLive((s) => s.agentTouched);
   const team = useLive((s) => s.team);
+  const historyOpen = useHistoryOpen();
   const actions = useLiveActions();
   const live = { ...actions, connected, version, canUndo, canRedo, activity, agentTouched, team };
   const [selected, setSelected] = useState<string[]>([]);
@@ -192,13 +197,18 @@ function Editor() {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
-        if (e.shiftKey) live.redo();
-        else live.undo();
+        if (e.shiftKey) void redoOwn();
+        else void undoOwn();
         return;
       }
       if (mod && e.key.toLowerCase() === "y") {
         e.preventDefault();
-        live.redo();
+        void redoOwn();
+        return;
+      }
+      if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setHistoryOpen((v) => !v);
         return;
       }
       if (!doc) return;
@@ -278,6 +288,10 @@ function Editor() {
         )
           return;
         if (document.querySelector('[data-slot="tooltip-content"]')) return;
+        if (isHistoryOpen()) {
+          setHistoryOpen(false);
+          return;
+        }
         setTool("select");
         const parent = nodes[0]?.parentId;
         setSelected(parent && doc.nodes[parent]?.type !== "page" ? [parent] : []);
@@ -300,7 +314,7 @@ function Editor() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [doc, selected, pageId, live.apply, live.undo, live.redo, live.showError]);
+  }, [doc, selected, pageId, live.apply, live.showError]);
 
   if (!doc) {
     return (
@@ -396,8 +410,9 @@ function Editor() {
           onTool={setTool}
           canUndo={live.canUndo}
           canRedo={live.canRedo}
-          onUndo={live.undo}
-          onRedo={live.redo}
+          onUndo={() => void undoOwn()}
+          onRedo={() => void redoOwn()}
+          onHistory={() => setHistoryOpen((v) => !v)}
           onExport={exportSvg}
           dock={toolbarDock}
           onDock={setToolbarDock}
@@ -414,6 +429,18 @@ function Editor() {
           onOpenPage={openPage}
           onError={live.showError}
         />
+        {historyOpen && (
+          <HistoryPanel
+            docId={doc.id}
+            onSelectNodes={(ids) => {
+              const hit = pageOfNodes(doc.nodes, ids);
+              if (!hit.ids.length) return;
+              if (hit.pageId && hit.pageId !== pageId) setPageChoice(hit.pageId);
+              setSelected(hit.ids);
+            }}
+          />
+        )}
+        <ToastHost />
         <ErrorToast />
         <WorkspaceNotice />
       </main>

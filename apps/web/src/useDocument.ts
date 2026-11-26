@@ -4,6 +4,7 @@ import { appendBuild, applyPresence, BUILD_TICK_MS, createdInOrder, prefersReduc
 import { applyDelta, orderCreated, type DeltaMsg } from "./docDelta";
 import { catalogs } from "./i18n/messages";
 import { t } from "./i18n/store";
+import type { StepResult } from "./historyModel";
 import type { TeamStatus } from "./Team";
 import { queryClient } from "./api";
 import { initialRendererMode, onRendererMode, type RendererMode } from "./wasmLayer";
@@ -46,7 +47,7 @@ export interface DocState {
 type ServerMsg =
   | { type: "doc"; doc: Document; version: number; actor: string; label: string; kind: string; canUndo: boolean; canRedo: boolean }
   | DeltaMsg
-  | { type: "ack"; reqId: string; version: number }
+  | { type: "ack"; reqId: string; version: number; step?: StepResult }
   | { type: "error"; reqId?: string; message: string }
   | { type: "team"; status: TeamStatus }
   | { type: "pins"; rev: number }
@@ -91,7 +92,7 @@ export class LiveStore {
   private seq = 0;
   private noticeSeq = 0;
   private viewId: string | null = null;
-  private viewWaiters = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
+  private viewWaiters = new Map<string, { resolve: (step?: StepResult) => void; reject: (e: Error) => void }>();
 
   getState = (): DocState => this.state;
 
@@ -112,7 +113,7 @@ export class LiveStore {
     return new Promise<void>((resolve, reject) => {
       const ws = this.ws;
       const reqId = String(++this.seq);
-      this.viewWaiters.set(reqId, { resolve, reject });
+      this.viewWaiters.set(reqId, { resolve: () => resolve(), reject });
       if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(this.viewMessage(reqId)));
       else this.pendingView = reqId;
     });
@@ -292,7 +293,7 @@ export class LiveStore {
           this.set((s) => ({ ...s, agents: applyPresence(s.agents, msg) }));
         } else if (msg.type === "ack") {
           checkStale(msg.version);
-          this.viewWaiters.get(msg.reqId)?.resolve();
+          this.viewWaiters.get(msg.reqId)?.resolve(msg.step);
           this.viewWaiters.delete(msg.reqId);
         } else if (msg.type === "error") {
           const waiter = msg.reqId ? this.viewWaiters.get(msg.reqId) : undefined;
@@ -334,10 +335,27 @@ export class LiveStore {
     ws.send(JSON.stringify({ ...payload, reqId: String(++this.seq) }));
   }
 
+  private stepRequest(payload: object): Promise<StepResult | undefined> {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      this.set((s) => ({ ...s, error: t().offline }));
+      return Promise.resolve(undefined);
+    }
+    return new Promise((resolve, reject) => {
+      const reqId = String(++this.seq);
+      this.viewWaiters.set(reqId, { resolve, reject });
+      ws.send(JSON.stringify({ ...payload, reqId }));
+    });
+  }
+
   readonly actions = {
     apply: (ops: Op[], label = "") => this.sendRaw({ type: "ops", ops, label }),
     undo: () => this.sendRaw({ type: "undo" }),
     redo: () => this.sendRaw({ type: "redo" }),
+    undoOwn: () => this.stepRequest({ type: "undo", mode: "own" }),
+    redoOwn: () => this.stepRequest({ type: "redo", mode: "own" }),
+    undoStep: (step: number) => this.stepRequest({ type: "undo", mode: "step", step }),
+    redoStep: (step: number) => this.stepRequest({ type: "redo", mode: "step", step }),
     dismissWorkspaceNotice: () => this.set((s) => (s.workspaceNotice === null ? s : { ...s, workspaceNotice: null })),
     clearError: () => this.set((s) => (s.error === null ? s : { ...s, error: null })),
     showError: (message: string) => this.set((s) => ({ ...s, error: message })),
