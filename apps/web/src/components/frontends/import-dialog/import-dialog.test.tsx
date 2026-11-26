@@ -89,6 +89,39 @@ describe("ImportDialog", () => {
     expect(screen.getByRole("button", { name: "Place on canvas" })).toBeDisabled();
   });
 
+  it("aborts the read when the file is removed and ignores a late result", async () => {
+    const user = userEvent.setup();
+    const abort = vi.spyOn(FileReader.prototype, "abort");
+    vi.spyOn(FileReader.prototype, "readAsText").mockImplementation(() => {});
+    setup();
+    pick(svg("slow.svg"));
+    await screen.findByText("slow.svg");
+    await user.click(screen.getByRole("button", { name: /Remove/ }));
+    expect(abort).toHaveBeenCalled();
+    expect(screen.queryByText("slow.svg")).not.toBeInTheDocument();
+  });
+
+  it("aborts pending reads when the dialog closes", async () => {
+    const abort = vi.spyOn(FileReader.prototype, "abort");
+    vi.spyOn(FileReader.prototype, "readAsText").mockImplementation(() => {});
+    const view = setup();
+    pick(svg("slow.svg"));
+    await screen.findByText("slow.svg");
+    view.rerender(<ImportDialog open={false} onOpenChange={() => {}} destination="Cover" sources={sources} onImport={vi.fn()} />);
+    expect(abort).toHaveBeenCalled();
+  });
+
+  it("delivers only selected ids that still exist in the source", async () => {
+    const user = userEvent.setup();
+    const onImport = vi.fn<ImportDialogProps["onImport"]>();
+    const view = render(<ImportDialog open onOpenChange={() => {}} destination="Cover" sources={sources} onImport={onImport} defaultTab="libraries" />);
+    await user.click(screen.getByRole("checkbox", { name: /Trio Pixel/ }));
+    await user.click(screen.getByRole("checkbox", { name: /App · new interface/ }));
+    view.rerender(<ImportDialog open onOpenChange={() => {}} destination="Cover" sources={{ ...sources, libraries: { items: [sources!.libraries!.items[1]!] } }} onImport={onImport} defaultTab="libraries" />);
+    await user.click(screen.getByRole("button", { name: "Import 1 library" }));
+    expect(onImport).toHaveBeenCalledWith({ source: "libraries", ids: ["l2"] });
+  });
+
   it("marks a file that cannot be read and keeps it out of the delivery", async () => {
     const user = userEvent.setup();
     vi.spyOn(FileReader.prototype, "readAsText").mockImplementation(function (this: FileReader) {

@@ -1,7 +1,7 @@
 import { Button as ButtonPrimitive } from "@ui-sdk/react/button";
 import { Input } from "@ui-sdk/react/input";
 import { Archive, ImagePlus } from "lucide-react";
-import type { ComponentProps, KeyboardEvent, ReactNode, Ref } from "react";
+import { useEffect, useRef, type ComponentProps, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { cn } from "@/lib/utils";
 import { Pill } from "./pill";
 import { Tag } from "./tag";
@@ -46,9 +46,19 @@ export function WorkspaceCard({
   onRenameCancel,
   ...props
 }: WorkspaceCardProps) {
+  const settled = useRef(false);
+  useEffect(() => {
+    if (renaming) settled.current = false;
+  }, [renaming]);
+  const finish = (value: string | null) => {
+    if (settled.current) return;
+    settled.current = true;
+    if (value === null) onRenameCancel?.();
+    else onRename?.(value);
+  };
   const commit = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter" && !event.nativeEvent.isComposing) onRename?.(event.currentTarget.value);
-    if (event.key === "Escape") onRenameCancel?.();
+    if (event.key === "Enter" && !event.nativeEvent.isComposing) finish(event.currentTarget.value);
+    if (event.key === "Escape") finish(null);
   };
   return (
     <div
@@ -88,7 +98,7 @@ export function WorkspaceCard({
               defaultValue={name}
               onFocus={(event) => event.currentTarget.select()}
               onKeyDown={commit}
-              onBlur={(event) => onRename?.(event.currentTarget.value)}
+              onBlur={(event) => finish(event.currentTarget.value)}
               className="-my-0.5 h-7 min-w-0 flex-1 rounded-sm border-[1.5px] border-select bg-field-bg px-1.5 text-sm font-semibold text-fg outline-none forced-colors:border-[Highlight]"
             />
           ) : (

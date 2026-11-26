@@ -1,8 +1,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
+import { StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
+import { downloadBlob } from "./download";
 import { ExportDialog, imageFileName, type ExportDialogProps, type ExportRequest } from "./index";
 
 const imageFormats: ExportDialogProps["imageFormats"] = [
@@ -270,5 +272,51 @@ describe("ExportDialog general", () => {
     const onRequestExport = vi.fn();
     expect(renderToString(<ExportDialog open={false} onOpenChange={vi.fn()} onRequestExport={onRequestExport} fileName="Home" />)).not.toContain("Export");
     expect(onRequestExport).not.toHaveBeenCalled();
+  });
+});
+
+describe("ExportDialog requests and downloads", () => {
+  it("does not repeat the code request when the language changes or under StrictMode", async () => {
+    const onRequestExport = vi.fn((request: ExportRequest) => Promise.resolve(request.kind === "code" ? "// code" : new Blob(["x"])));
+    render(
+      <StrictMode>
+        <ExportDialog open onOpenChange={() => {}} onRequestExport={onRequestExport} fileName="Home" defaultMode="code" />
+      </StrictMode>,
+    );
+    await screen.findByText("// code");
+    await act(async () => {
+      await i18n.changeLanguage("pt-BR");
+    });
+    try {
+      expect(onRequestExport).toHaveBeenCalledTimes(1);
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
+  it("does not download an image that finished after the dialog closed", async () => {
+    const user = userEvent.setup();
+    const { clicked } = stubDownload();
+    let finish: (blob: Blob) => void = () => {};
+    const onRequestExport = vi.fn(() => new Promise<Blob>((resolve) => (finish = resolve)));
+    const view = render(<ExportDialog open onOpenChange={() => {}} onRequestExport={onRequestExport} fileName="Home" imageFormats={imageFormats} />);
+    await user.click(screen.getByRole("button", { name: /^Export/ }));
+    view.rerender(<ExportDialog open={false} onOpenChange={() => {}} onRequestExport={onRequestExport} fileName="Home" imageFormats={imageFormats} />);
+    await act(async () => finish(new Blob(["late"])));
+    expect(clicked).toEqual([]);
+  });
+
+  it("revokes the object url only after a delay", () => {
+    vi.useFakeTimers();
+    try {
+      const { revokeObjectURL } = stubDownload();
+      downloadBlob(new Blob(["x"]), "a.txt");
+      vi.advanceTimersByTime(10);
+      expect(revokeObjectURL).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1000);
+      expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

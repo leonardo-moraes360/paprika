@@ -16,7 +16,7 @@ export type SearchFieldProps = Omit<ComponentProps<typeof Input>, "type" | "clas
 
 export function SearchField({ shortcut, clearLabel, className, inputClassName, boxProps, ...props }: SearchFieldProps) {
   return (
-    <InputGroup className={cn("flex h-8.5 w-full items-center gap-2 pr-1.5 pl-2.5", fieldBoxWrapper, className)} {...boxProps}>
+    <InputGroup className={cn("flex h-8.5 w-full items-center gap-2 pe-1.5 ps-2.5", fieldBoxWrapper, className)} {...boxProps}>
       <Search aria-hidden="true" className="size-4 shrink-0 text-muted" />
       <Input type="search" className={slot(cn(bareInput, "text-sm [&::-webkit-search-cancel-button]:hidden"), inputClassName)} {...props} />
       {clearLabel ? (

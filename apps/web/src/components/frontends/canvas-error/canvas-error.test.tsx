@@ -228,3 +228,33 @@ describe("CanvasError", () => {
     expect(row.lastElementChild?.textContent).toBe("Reload");
   });
 });
+
+describe("CanvasError reset", () => {
+  it("clears the error when resetKey changes and renders the children again", () => {
+    silenceBoundaryLogs();
+    let healthy = false;
+    function Maybe() {
+      if (!healthy) throw new Error("boom");
+      return <p>canvas ok</p>;
+    }
+    const view = render(
+      <CanvasError onReload={vi.fn()} resetKey={1}>
+        <Maybe />
+      </CanvasError>,
+    );
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    healthy = true;
+    view.rerender(
+      <CanvasError onReload={vi.fn()} resetKey={1}>
+        <Maybe />
+      </CanvasError>,
+    );
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    view.rerender(
+      <CanvasError onReload={vi.fn()} resetKey={2}>
+        <Maybe />
+      </CanvasError>,
+    );
+    expect(screen.getByText("canvas ok")).toBeInTheDocument();
+  });
+});

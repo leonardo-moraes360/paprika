@@ -1,6 +1,6 @@
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { Plus } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 import { CreateForm } from "./create-form";
 import { DeleteDialog } from "./delete-dialog";
@@ -29,6 +30,7 @@ export function Overview(props: OverviewProps) {
 type FailureKind = "create" | "rename" | "delete" | "archive" | "restore" | "cover" | "move";
 type PendingFocus = { removedId: string; targetId: string | null };
 
+const staleFocusMs = 1000;
 const gridClasses = "grid list-none grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6";
 
 function OverviewView({
@@ -74,7 +76,11 @@ function OverviewView({
   const pendingFocus = useRef<PendingFocus | null>(null);
   const returnToCreate = useRef(false);
   const confirmed = useRef(false);
-  const now = nowProp ?? Date.now();
+  const staleFocus = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => () => clearTimeout(staleFocus.current), []);
+  const now = useNow(nowProp, Date.now, 30_000);
+  const headingId = useId();
 
   const changeView = (next: OverviewView) => {
     if (controlledView === undefined) setInnerView(next);
@@ -135,7 +141,15 @@ function OverviewView({
 
   const confirmDelete = async (id: string) => {
     const ok = await run("delete", () => onDelete(id));
-    if (!ok) pendingFocus.current = null;
+    if (!ok) {
+      pendingFocus.current = null;
+      return;
+    }
+    const pending = pendingFocus.current;
+    clearTimeout(staleFocus.current);
+    staleFocus.current = setTimeout(() => {
+      if (pendingFocus.current === pending) pendingFocus.current = null;
+    }, staleFocusMs);
   };
 
   const pickCover = (id: string) => {
@@ -182,7 +196,7 @@ function OverviewView({
         onOpenImport={onOpenImport}
         onOpenProfile={onOpenProfile}
       />
-      <main aria-labelledby="overview-heading" aria-busy={loading || undefined} className="flex min-w-0 flex-1 flex-col gap-6 overflow-auto px-10 py-7">
+      <main aria-labelledby={headingId} aria-busy={loading || undefined} className="flex min-w-0 flex-1 flex-col gap-6 overflow-auto px-10 py-7">
         <div className="flex flex-col gap-3">
           {project ? (
             <Breadcrumb
@@ -192,7 +206,7 @@ function OverviewView({
           ) : null}
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div className="flex min-w-0 flex-col gap-2">
-              <h1 id="overview-heading" className="truncate text-[28px] leading-tight font-bold tracking-tight">
+              <h1 id={headingId} className="truncate text-[28px] leading-tight font-bold tracking-tight">
                 {heading}
               </h1>
               <p className="max-w-xl text-sm leading-normal text-muted">{loading ? t("frontends.overview.states.loading") : error && count === 0 ? null : lead}</p>

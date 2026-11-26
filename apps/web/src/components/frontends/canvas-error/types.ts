@@ -29,9 +29,10 @@ export type CanvasErrorProps = {
   issue?: CanvasErrorIssue;
   environment?: string;
   onError?: (error: CanvasErrorInfo) => void;
+  resetKey?: unknown;
   className?: string;
 };
 
-export type CanvasErrorScreenProps = Omit<CanvasErrorProps, "children" | "onError"> & {
+export type CanvasErrorScreenProps = Omit<CanvasErrorProps, "children" | "onError" | "resetKey"> & {
   error: CanvasErrorInfo;
 };
