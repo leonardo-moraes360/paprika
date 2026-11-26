@@ -111,7 +111,7 @@ export function InviteDialog({ team, onCreateInvite, onRevokeInvites, onClose, n
           role="alert"
           actions={
             <Button variant="secondary" size="sm" pendingAnnouncement="" onClick={() => setAttempt((count) => count + 1)}>
-              {t("frontends.overview.states.retry")}
+              {t("frontends.team.retry")}
             </Button>
           }
         >

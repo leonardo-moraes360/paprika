@@ -1,6 +1,7 @@
 export const teamEn = {
   title: "Team",
   close: "Close",
+  retry: "Try again",
   closeButton: "Close",
   cancel: "Cancel",
   connecting: "Connecting to the team service…",
@@ -132,6 +133,7 @@ export const teamEn = {
 export const teamPtBR = {
   title: "Time",
   close: "Fechar",
+  retry: "Tentar de novo",
   closeButton: "Fechar",
   cancel: "Cancelar",
   connecting: "Conectando ao serviço do time…",
