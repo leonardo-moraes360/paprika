@@ -1237,6 +1237,167 @@ func fontWeightProblem(doc *Document, id string, value any, mode string) string 
 	return ""
 }
 
+func lengthOwnProblem(doc *Document, n *Node) string {
+	typ := n.Str("type")
+	switch typ {
+	case "group":
+		return ""
+	case "page":
+		if fill, ok := n.Get("fill"); ok {
+			return colorTokenProblem(doc, n.Str("id"), "fill", fill)
+		}
+		return ""
+	}
+	mode := ModeOf(doc, n)
+	check := func(field string, value any, min, max *float64, expected string) string {
+		return lengthProblem(doc, n.Str("id"), field, value, min, max, mode, expected)
+	}
+	var msg string
+	if typ == "connector" {
+		if st := n.Obj("stroke"); st != nil {
+			w, _ := st.Get("width")
+			msg = check("stroke.width", w, new(float64(0)), new(float64(1000)), "length")
+			c, _ := st.Get("color")
+			if msg == "" {
+				msg = colorTokenProblem(doc, n.Str("id"), "stroke.color", c)
+			}
+		}
+	} else {
+		if v, ok := n.Get("radius"); ok {
+			if arr, isArr := v.([]any); isArr {
+				for i, item := range arr {
+					if msg == "" {
+						msg = check(fmt.Sprintf("radius.%d", i), item, new(float64(0)), nil, "length")
+					}
+				}
+			} else {
+				msg = check("radius", v, new(float64(0)), nil, "length")
+			}
+		}
+		if st := n.Obj("stroke"); st != nil && msg == "" {
+			w, _ := st.Get("width")
+			msg = check("stroke.width", w, new(float64(0)), new(float64(1000)), "length")
+			c, _ := st.Get("color")
+			if msg == "" {
+				msg = colorTokenProblem(doc, n.Str("id"), "stroke.color", c)
+			}
+		}
+		if msg == "" {
+			list := shadowNodes(n)
+			indexed := n.Obj("shadow") == nil && n.Arr("shadow") != nil
+			for i, sh := range list {
+				p := "shadow"
+				if indexed {
+					p = fmt.Sprintf("shadow.%d", i)
+				}
+				x, _ := sh.Get("x")
+				y, _ := sh.Get("y")
+				b, _ := sh.Get("blur")
+				sp, _ := sh.Get("spread")
+				msg = check(p+".x", x, nil, nil, "length")
+				if msg == "" {
+					msg = check(p+".y", y, nil, nil, "length")
+				}
+				if msg == "" {
+					msg = check(p+".blur", b, new(float64(0)), nil, "length")
+				}
+				if msg == "" {
+					msg = check(p+".spread", sp, nil, nil, "length")
+				}
+				c, _ := sh.Get("color")
+				if msg == "" {
+					msg = colorTokenProblem(doc, n.Str("id"), p+".color", c)
+				}
+				if msg != "" {
+					break
+				}
+			}
+		}
+		if o := n.Obj("outline"); o != nil && msg == "" {
+			w, _ := o.Get("width")
+			msg = check("outline.width", w, new(float64(0)), new(float64(1000)), "length")
+			if msg == "" {
+				if off, ok := o.Get("offset"); ok {
+					msg = check("outline.offset", off, new(float64(-1000)), new(float64(1000)), "length")
+				}
+			}
+			if msg == "" {
+				c, _ := o.Get("color")
+				msg = colorTokenProblem(doc, n.Str("id"), "outline.color", c)
+			}
+		}
+		if f := n.Obj("filter"); f != nil && msg == "" {
+			if b, ok := f.Get("blur"); ok {
+				msg = check("filter.blur", b, new(float64(0)), new(float64(1000)), "length")
+			}
+		}
+		if f := n.Obj("backdropFilter"); f != nil && msg == "" {
+			if b, ok := f.Get("blur"); ok {
+				msg = check("backdropFilter.blur", b, new(float64(0)), new(float64(1000)), "length")
+			}
+		}
+		if msg == "" {
+			if fill, ok := n.Get("fill"); ok {
+				msg = colorTokenProblem(doc, n.Str("id"), "fill", fill)
+			}
+		}
+		if typ == "frame" && msg == "" {
+			if l := n.Obj("layout"); l != nil {
+				g, _ := l.Get("gap")
+				msg = check("layout.gap", g, new(float64(0)), nil, "length")
+				if msg == "" {
+					p, _ := l.Get("padding")
+					if arr, ok := p.([]any); ok {
+						for i, v := range arr {
+							if msg = check(fmt.Sprintf("layout.padding.%d", i), v, new(float64(0)), nil, "length"); msg != "" {
+								break
+							}
+						}
+					} else {
+						msg = check("layout.padding", p, new(float64(0)), nil, "length")
+					}
+				}
+			}
+		}
+		if (typ == "text" || typ == "shape") && msg == "" {
+			fs, _ := n.Get("fontSize")
+			msg = check("fontSize", fs, new(float64(1)), new(float64(1000)), "fontSize")
+			if msg == "" {
+				lh, _ := n.Get("lineHeight")
+				msg = check("lineHeight", lh, new(float64(0)), new(float64(10)), "lineHeight")
+			}
+			if msg == "" {
+				color, _ := n.Get("color")
+				msg = colorTokenProblem(doc, n.Str("id"), "color", color)
+			}
+			if msg == "" {
+				fam, _ := n.Get("fontFamily")
+				msg = fontFamilyProblem(doc, n.Str("id"), fam, mode)
+			}
+			if msg == "" {
+				fw, _ := n.Get("fontWeight")
+				msg = fontWeightProblem(doc, n.Str("id"), fw, mode)
+			}
+		}
+		if typ == "text" && msg == "" {
+			ls, _ := n.Get("letterSpacing")
+			msg = check("letterSpacing", ls, nil, nil, "letterSpacing")
+		}
+	}
+	return msg
+}
+
+func LengthTokenErrorFor(doc *Document, ids []string) string {
+	for _, id := range ids {
+		if n := GetNode(doc, id); n != nil {
+			if msg := lengthOwnProblem(doc, n); msg != "" {
+				return msg
+			}
+		}
+	}
+	return ""
+}
+
 func LengthTokenError(doc *Document) string {
 	seen := map[string]bool{}
 	var walk func(id string) string
@@ -1249,168 +1410,10 @@ func LengthTokenError(doc *Document) string {
 		if n == nil {
 			return ""
 		}
-		typ := n.Str("type")
-		if typ == "group" {
-			for _, c := range n.Strings("children") {
-				if m := walk(c); m != "" {
-					return m
-				}
-			}
-			return ""
-		}
-		if typ == "page" {
-			if fill, ok := n.Get("fill"); ok {
-				if msg := colorTokenProblem(doc, n.Str("id"), "fill", fill); msg != "" {
-					return msg
-				}
-			}
-			for _, c := range n.Strings("children") {
-				if m := walk(c); m != "" {
-					return m
-				}
-			}
-			return ""
-		}
-		mode := ModeOf(doc, n)
-		check := func(field string, value any, min, max *float64, expected string) string {
-			return lengthProblem(doc, n.Str("id"), field, value, min, max, mode, expected)
-		}
-		var msg string
-		if typ == "connector" {
-			if st := n.Obj("stroke"); st != nil {
-				w, _ := st.Get("width")
-				msg = check("stroke.width", w, new(float64(0)), new(float64(1000)), "length")
-				c, _ := st.Get("color")
-				if msg == "" {
-					msg = colorTokenProblem(doc, n.Str("id"), "stroke.color", c)
-				}
-			}
-		} else {
-			if v, ok := n.Get("radius"); ok {
-				if arr, isArr := v.([]any); isArr {
-					for i, item := range arr {
-						if msg == "" {
-							msg = check(fmt.Sprintf("radius.%d", i), item, new(float64(0)), nil, "length")
-						}
-					}
-				} else {
-					msg = check("radius", v, new(float64(0)), nil, "length")
-				}
-			}
-			if st := n.Obj("stroke"); st != nil && msg == "" {
-				w, _ := st.Get("width")
-				msg = check("stroke.width", w, new(float64(0)), new(float64(1000)), "length")
-				c, _ := st.Get("color")
-				if msg == "" {
-					msg = colorTokenProblem(doc, n.Str("id"), "stroke.color", c)
-				}
-			}
-			if msg == "" {
-				list := shadowNodes(n)
-				indexed := n.Obj("shadow") == nil && n.Arr("shadow") != nil
-				for i, sh := range list {
-					p := "shadow"
-					if indexed {
-						p = fmt.Sprintf("shadow.%d", i)
-					}
-					x, _ := sh.Get("x")
-					y, _ := sh.Get("y")
-					b, _ := sh.Get("blur")
-					sp, _ := sh.Get("spread")
-					msg = check(p+".x", x, nil, nil, "length")
-					if msg == "" {
-						msg = check(p+".y", y, nil, nil, "length")
-					}
-					if msg == "" {
-						msg = check(p+".blur", b, new(float64(0)), nil, "length")
-					}
-					if msg == "" {
-						msg = check(p+".spread", sp, nil, nil, "length")
-					}
-					c, _ := sh.Get("color")
-					if msg == "" {
-						msg = colorTokenProblem(doc, n.Str("id"), p+".color", c)
-					}
-					if msg != "" {
-						break
-					}
-				}
-			}
-			if o := n.Obj("outline"); o != nil && msg == "" {
-				w, _ := o.Get("width")
-				msg = check("outline.width", w, new(float64(0)), new(float64(1000)), "length")
-				if msg == "" {
-					if off, ok := o.Get("offset"); ok {
-						msg = check("outline.offset", off, new(float64(-1000)), new(float64(1000)), "length")
-					}
-				}
-				if msg == "" {
-					c, _ := o.Get("color")
-					msg = colorTokenProblem(doc, n.Str("id"), "outline.color", c)
-				}
-			}
-			if f := n.Obj("filter"); f != nil && msg == "" {
-				if b, ok := f.Get("blur"); ok {
-					msg = check("filter.blur", b, new(float64(0)), new(float64(1000)), "length")
-				}
-			}
-			if f := n.Obj("backdropFilter"); f != nil && msg == "" {
-				if b, ok := f.Get("blur"); ok {
-					msg = check("backdropFilter.blur", b, new(float64(0)), new(float64(1000)), "length")
-				}
-			}
-			if msg == "" {
-				if fill, ok := n.Get("fill"); ok {
-					msg = colorTokenProblem(doc, n.Str("id"), "fill", fill)
-				}
-			}
-			if typ == "frame" && msg == "" {
-				if l := n.Obj("layout"); l != nil {
-					g, _ := l.Get("gap")
-					msg = check("layout.gap", g, new(float64(0)), nil, "length")
-					if msg == "" {
-						p, _ := l.Get("padding")
-						if arr, ok := p.([]any); ok {
-							for i, v := range arr {
-								if msg = check(fmt.Sprintf("layout.padding.%d", i), v, new(float64(0)), nil, "length"); msg != "" {
-									break
-								}
-							}
-						} else {
-							msg = check("layout.padding", p, new(float64(0)), nil, "length")
-						}
-					}
-				}
-			}
-			if (typ == "text" || typ == "shape") && msg == "" {
-				fs, _ := n.Get("fontSize")
-				msg = check("fontSize", fs, new(float64(1)), new(float64(1000)), "fontSize")
-				if msg == "" {
-					lh, _ := n.Get("lineHeight")
-					msg = check("lineHeight", lh, new(float64(0)), new(float64(10)), "lineHeight")
-				}
-				if msg == "" {
-					color, _ := n.Get("color")
-					msg = colorTokenProblem(doc, n.Str("id"), "color", color)
-				}
-				if msg == "" {
-					fam, _ := n.Get("fontFamily")
-					msg = fontFamilyProblem(doc, n.Str("id"), fam, mode)
-				}
-				if msg == "" {
-					fw, _ := n.Get("fontWeight")
-					msg = fontWeightProblem(doc, n.Str("id"), fw, mode)
-				}
-			}
-			if typ == "text" && msg == "" {
-				ls, _ := n.Get("letterSpacing")
-				msg = check("letterSpacing", ls, nil, nil, "letterSpacing")
-			}
-		}
-		if msg != "" {
+		if msg := lengthOwnProblem(doc, n); msg != "" {
 			return msg
 		}
-		if typ == "frame" {
+		if typ := n.Str("type"); typ == "group" || typ == "page" || typ == "frame" {
 			for _, c := range n.Strings("children") {
 				if m := walk(c); m != "" {
 					return m
