@@ -352,6 +352,7 @@ type ApplyResult struct {
 	Touched []string
 	Journal *Journal
 	Scope   *ScopeIndex
+	Derived bool
 }
 
 func (r *ApplyResult) Scoped() bool { return r.Touched != nil }
@@ -1153,6 +1154,7 @@ func applyOps(doc *Document, ops []any, settled bool, idx *ScopeIndex) (r *Apply
 func applyOpsOn(doc, draft *Document, ops []any, settled, cow bool, idx *ScopeIndex) (*ApplyResult, error) {
 	var inverse []any
 	var scope *ScopeIndex
+	derived := false
 	created := []string{}
 	deleted := map[string]bool{}
 	for i, raw := range ops {
@@ -1188,12 +1190,21 @@ func applyOpsOn(doc, draft *Document, ops []any, settled, cow bool, idx *ScopeIn
 			}
 		}
 		if d != nil {
-			inv, err := d.run(len(ops) - 1)
+			first := d.beforeSync()
+			if !d.plain {
+				if err := syncInstances(doc, draft, !d.structural); err != nil {
+					return nil, opErr(len(ops)-1, "%s", err.Error())
+				}
+			}
+			inv, err := d.afterSync(len(ops)-1, first)
 			if err != nil {
 				return nil, err
 			}
 			inverse = append(inv, inverse...)
-			scope = d.next
+			derived = true
+			if d.plain {
+				scope = d.next
+			}
 		} else {
 			applyConstraints(doc, draft)
 			inverse = append(fitGroups(draft), inverse...)
@@ -1201,7 +1212,7 @@ func applyOpsOn(doc, draft *Document, ops []any, settled, cow bool, idx *ScopeIn
 			if settled {
 				base = doc
 			}
-			if err := syncInstances(base, draft); err != nil {
+			if err := syncInstances(base, draft, false); err != nil {
 				return nil, opErr(len(ops)-1, "%s", err.Error())
 			}
 			inverse = append(fitGroups(draft), inverse...)
@@ -1219,7 +1230,7 @@ func applyOpsOn(doc, draft *Document, ops []any, settled, cow bool, idx *ScopeIn
 	if inverse == nil {
 		inverse = []any{}
 	}
-	res := &ApplyResult{Doc: draft, Inverse: inverse, Created: created, Scope: scope}
+	res := &ApplyResult{Doc: draft, Inverse: inverse, Created: created, Scope: scope, Derived: derived}
 	if cow {
 		res.Journal = sealDraft(draft)
 	}

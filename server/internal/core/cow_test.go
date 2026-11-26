@@ -63,7 +63,7 @@ func checkJournal(t *testing.T, ctx string, prev, cur *Document, j *Journal) {
 	}
 }
 
-func runCOWRounds(t *testing.T, seedText string, rounds, steps int, mutate func(*History)) (derived int) {
+func runCOWRounds(t *testing.T, seedText string, rounds, steps int, mutate func(*History)) (derived, plainSteps int) {
 	seed := cowSeedDoc(t, seedText)
 	var cowSteps, okSteps int
 	for round := range rounds {
@@ -133,8 +133,11 @@ func runCOWRounds(t *testing.T, seedText string, rounds, steps int, mutate func(
 			if j := fast.LastJournal(); j != nil {
 				cowSteps++
 				checkJournal(t, ctx, prev, fast.Doc(), j)
-				if fast.LastDerivedScoped() {
+				if scoped, plain := fast.LastDerivedScoped(); scoped {
 					derived++
+					if plain {
+						plainSteps++
+					}
 				}
 			}
 		}
@@ -145,7 +148,7 @@ func runCOWRounds(t *testing.T, seedText string, rounds, steps int, mutate func(
 	if cowSteps < okSteps/2 {
 		t.Fatalf("only %d copy-on-write steps", cowSteps)
 	}
-	return derived
+	return derived, plainSteps
 }
 
 func TestCopyOnWriteMatchesDeepCloneForEveryOp(t *testing.T) {
@@ -153,10 +156,10 @@ func TestCopyOnWriteMatchesDeepCloneForEveryOp(t *testing.T) {
 }
 
 func TestScopedDerivedPassesMatchFullPassForEveryOp(t *testing.T) {
-	n := runCOWRounds(t, opgen.PlainSeed(), 24, 250, nil)
-	t.Logf("scoped derived passes: %d", n)
-	if n < 200 {
-		t.Fatalf("scoped derived passes taken only %d times", n)
+	n, plain := runCOWRounds(t, opgen.PlainSeed(), 24, 250, nil)
+	t.Logf("scoped derived passes: %d, of them without instance sync: %d", n, plain)
+	if plain < 200 || n-plain < 200 {
+		t.Fatalf("scoped derived passes taken %d times, %d without instance sync", n, plain)
 	}
 }
 

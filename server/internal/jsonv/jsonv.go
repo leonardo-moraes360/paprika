@@ -19,6 +19,7 @@ type Object struct {
 	m       map[string]any
 	frozen  bool
 	journal *[]JournalEntry
+	pending map[string]int
 }
 
 type JournalKind byte
@@ -46,6 +47,7 @@ func Freeze(v any) {
 		if t == nil || t.frozen {
 			return
 		}
+		t.flush()
 		for _, k := range t.keys {
 			Freeze(t.m[k])
 		}
@@ -102,13 +104,30 @@ func (o *Object) Len() int {
 	if o == nil {
 		return 0
 	}
-	return len(o.keys)
+	return len(o.m)
+}
+
+func (o *Object) flush() {
+	if o == nil || len(o.pending) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(o.m))
+	for _, k := range o.keys {
+		if n := o.pending[k]; n > 0 {
+			o.pending[k] = n - 1
+			continue
+		}
+		keys = append(keys, k)
+	}
+	o.keys = keys
+	o.pending = nil
 }
 
 func (o *Object) Keys() []string {
 	if o == nil {
 		return nil
 	}
+	o.flush()
 	return o.keys
 }
 
@@ -140,6 +159,7 @@ func (o *Object) Set(k string, v any) {
 	o.record(k, JournalAdd)
 	o.m[k] = v
 	if n, ok := arrayIndex(k); ok {
+		o.flush()
 		at := sort.Search(len(o.keys), func(i int) bool {
 			m, isIdx := arrayIndex(o.keys[i])
 			return !isIdx || m > n
@@ -164,6 +184,7 @@ func (o *Object) Delete(k string) {
 	}
 	o.record(k, JournalDelete)
 	delete(o.m, k)
+	o.flush()
 	for i, kk := range o.keys {
 		if kk == k {
 			o.keys = append(o.keys[:i:i], o.keys[i+1:]...)
@@ -176,29 +197,19 @@ func (o *Object) DeleteAll(ks []string) {
 	if o == nil || len(ks) == 0 {
 		return
 	}
-	drop := make(map[string]struct{}, len(ks))
 	for _, k := range ks {
 		if _, ok := o.m[k]; ok {
 			if o.frozen {
 				panic(&FrozenError{k})
 			}
-			if _, dup := drop[k]; !dup {
-				o.record(k, JournalDelete)
-			}
-			drop[k] = struct{}{}
+			o.record(k, JournalDelete)
 			delete(o.m, k)
+			if o.pending == nil {
+				o.pending = map[string]int{}
+			}
+			o.pending[k]++
 		}
 	}
-	if len(drop) == 0 {
-		return
-	}
-	keys := make([]string, 0, len(o.keys)-len(drop))
-	for _, k := range o.keys {
-		if _, gone := drop[k]; !gone {
-			keys = append(keys, k)
-		}
-	}
-	o.keys = keys
 }
 
 func Clone(v any) any {
@@ -207,6 +218,7 @@ func Clone(v any) any {
 		if t == nil {
 			return (*Object)(nil)
 		}
+		t.flush()
 		c := &Object{keys: append([]string(nil), t.keys...), m: make(map[string]any, len(t.m))}
 		for k, vv := range t.m {
 			c.m[k] = Clone(vv)
@@ -444,6 +456,7 @@ func writeValue(b *strings.Builder, v any, indent, cur string) {
 			b.WriteString("{}")
 			return
 		}
+		t.flush()
 		next := cur + indent
 		b.WriteByte('{')
 		for i, k := range t.keys {
@@ -676,6 +689,8 @@ func Equal(a, b any) bool {
 		if x.Len() != y.Len() {
 			return false
 		}
+		x.flush()
+		y.flush()
 		for i, k := range x.keys {
 			if y.keys[i] != k || !Equal(x.m[k], y.m[k]) {
 				return false

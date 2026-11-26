@@ -17,6 +17,26 @@ type derivedScope struct {
 	present     []string
 	idx         *ScopeIndex
 	next        *ScopeIndex
+	plain       bool
+	structural  bool
+}
+
+var structuralKeys = []string{"type", "parentId", "children", "component", "componentProps", "instanceOf", "propValues", "slots", "slot", "bind", "sourceId", "overrides", "scale"}
+
+func (d *derivedScope) refresh() {
+	nodes := Nodes(d.draft)
+	seen := make(map[string]bool, len(d.ids))
+	d.ids, d.present = d.ids[:0:0], d.present[:0:0]
+	for _, e := range nodes.Journal() {
+		if seen[e.Key] {
+			continue
+		}
+		seen[e.Key] = true
+		d.ids = append(d.ids, e.Key)
+		if nodes.Has(e.Key) {
+			d.present = append(d.present, e.Key)
+		}
+	}
 }
 
 func plainNode(doc *Document, n *Node, idx *ScopeIndex) bool {
@@ -58,7 +78,7 @@ func planDerived(prev, draft *Document, idx *ScopeIndex) *derivedScope {
 	if nodes == nil || pnodes == nil {
 		return nil
 	}
-	d := &derivedScope{prev: prev, draft: draft, idx: idx}
+	d := &derivedScope{prev: prev, draft: draft, idx: idx, plain: true}
 	seen := map[string]bool{}
 	for _, e := range nodes.Journal() {
 		if seen[e.Key] {
@@ -66,15 +86,18 @@ func planDerived(prev, draft *Document, idx *ScopeIndex) *derivedScope {
 		}
 		seen[e.Key] = true
 		d.ids = append(d.ids, e.Key)
-		cur := nodes.Obj(e.Key)
+		cur, old := nodes.Obj(e.Key), pnodes.Obj(e.Key)
 		if cur != nil {
-			if !plainNode(draft, cur, idx) {
-				return nil
-			}
 			d.present = append(d.present, e.Key)
+			if !plainNode(draft, cur, idx) {
+				d.plain = false
+			}
 		}
-		if old := pnodes.Obj(e.Key); old != nil && !plainNode(prev, old, idx) {
-			return nil
+		if old != nil && !plainNode(prev, old, idx) {
+			d.plain = false
+		}
+		if cur == nil || old == nil || differsOn(cur, old, structuralKeys) {
+			d.structural = true
 		}
 	}
 	d.next = &ScopeIndex{slotRefs: idx.slotRefs, hasConnectors: idx.hasConnectors, lagging: idx.lagging, pinned: maps_clone(idx.pinned)}
@@ -98,6 +121,17 @@ func planDerived(prev, draft *Document, idx *ScopeIndex) *derivedScope {
 		}
 	}
 	return d
+}
+
+func differsOn(a, b *Node, keys []string) bool {
+	for _, k := range keys {
+		x, xok := a.Get(k)
+		y, yok := b.Get(k)
+		if xok != yok || (xok && !jsonv.Equal(x, y)) {
+			return true
+		}
+	}
+	return false
 }
 
 func maps_clone(m map[string]bool) map[string]bool {
@@ -236,7 +270,7 @@ func (d *derivedScope) prepare() bool {
 		}
 		wc := prev.wOK && now.wOK && math.Abs(now.w-prev.w) > constraintEps
 		hc := prev.hOK && now.hOK && math.Abs(now.h-prev.h) > constraintEps
-		if (wc || hc) && !d.subtreePlain(n) {
+		if (wc || hc) && d.plain && !d.subtreePlain(n) {
 			return false
 		}
 	}
@@ -386,9 +420,13 @@ var _ = jsonv.Equal
 
 var ScopedDerivedOff bool
 
-func (d *derivedScope) run(last int) ([]any, error) {
+func (d *derivedScope) beforeSync() []any {
 	d.applyConstraints()
-	first := d.fitGroups()
+	return d.fitGroups()
+}
+
+func (d *derivedScope) afterSync(last int, first []any) ([]any, error) {
+	d.refresh()
 	second := d.fitGroups()
 	inverse := append(second, first...)
 	if msg := d.lengthTokenError(); msg != "" {
@@ -397,7 +435,13 @@ func (d *derivedScope) run(last int) ([]any, error) {
 	if msg := d.webSemanticsError(); msg != "" {
 		return nil, opErr(last, "%s", msg)
 	}
-	if d.idx.hasConnectors {
+	route := d.idx.hasConnectors
+	for _, id := range d.present {
+		if GetNode(d.draft, id).Str("type") == "connector" {
+			route = true
+		}
+	}
+	if route {
 		if err := RouteConnectors(d.draft); err != nil {
 			return nil, opErr(last, "%s", err.Error())
 		}

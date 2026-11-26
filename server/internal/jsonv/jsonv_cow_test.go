@@ -69,3 +69,23 @@ func TestJournalRecordsAddsSetsAndDeletes(t *testing.T) {
 		t.Fatal("copies must not inherit the journal")
 	}
 }
+
+func TestDeleteAllKeepsOrderAcrossReinsertion(t *testing.T) {
+	o := NewObject("a", 1.0, "b", 2.0, "c", 3.0, "d", 4.0)
+	o.DeleteAll([]string{"b", "c", "zz"})
+	o.Set("b", 9.0)
+	o.DeleteAll([]string{"a"})
+	o.Set("a", 7.0)
+	o.Set("e", 5.0)
+	if got := Stringify(o, ""); got != `{"d":4,"b":9,"a":7,"e":5}` {
+		t.Fatalf("got %s", got)
+	}
+	if o.Len() != 4 || len(o.Keys()) != 4 {
+		t.Fatalf("length %d keys %v", o.Len(), o.Keys())
+	}
+	o.DeleteAll([]string{"d"})
+	o.Delete("a")
+	if got := Stringify(o, ""); got != `{"b":9,"e":5}` {
+		t.Fatalf("got %s", got)
+	}
+}
