@@ -1,0 +1,41 @@
+export const agentsEn = {
+  none: "No agents",
+  title: "Agents in the workspace",
+  active: "Active",
+  idleTitle: "Idle",
+  idle: "idle",
+  activeCount_one: "{{count}} active",
+  activeCount_other: "{{count}} active",
+  stackLabel_one: "{{count}} active agent",
+  stackLabel_other: "{{count}} active agents",
+  focus: "Go to {{name}}",
+  openPage: "Open the page of {{name}}",
+  ago: {
+    now: "just now",
+    seconds: "{{count}} s ago",
+    minutes: "{{count}} min ago",
+    hours: "{{count}} h ago",
+    days: "{{count}} d ago",
+  },
+} as const;
+
+export const agentsPtBR = {
+  none: "Nenhum agente",
+  title: "Agentes no workspace",
+  active: "Ativos",
+  idleTitle: "Ociosos",
+  idle: "ocioso",
+  activeCount_one: "{{count}} ativo",
+  activeCount_other: "{{count}} ativos",
+  stackLabel_one: "{{count}} agente ativo",
+  stackLabel_other: "{{count}} agentes ativos",
+  focus: "Ir até {{name}}",
+  openPage: "Abrir a página de {{name}}",
+  ago: {
+    now: "agora",
+    seconds: "há {{count}} s",
+    minutes: "há {{count}} min",
+    hours: "há {{count}} h",
+    days: "há {{count}} d",
+  },
+} as const;

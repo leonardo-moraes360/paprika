@@ -1,3 +1,9 @@
+import { activityPtBR } from "./frontends/activity";
+import { workspaceNoticePtBR } from "./frontends/workspaceNotice";
+import { historyPanelPtBR } from "./frontends/historyPanel";
+import { teamPtBR } from "./frontends/team";
+import { agentsPtBR } from "./frontends/agents";
+import { pinsPtBR } from "./frontends/pins";
 import type { Translation } from "../resources";
 import { zoomBarPtBR } from "./frontends/zoomBar";
 import { toolbarPtBR } from "./frontends/toolbar";
@@ -37,6 +43,12 @@ export const ptBR: Translation = {
   frontends: {
     fontPicker: fontPickerPtBR,
     propertiesPanel: propertiesPanelPtBR,
+    agents: agentsPtBR,
+    pins: pinsPtBR,
+    team: teamPtBR,
+    historyPanel: historyPanelPtBR,
+    workspaceNotice: workspaceNoticePtBR,
+    activity: activityPtBR,
     editorLayout: {
       left: {
         region: "Painel de camadas",

@@ -5,6 +5,12 @@ import { editorHeaderEn } from "./frontends/editorHeader";
 import { fontPickerEn } from "./frontends/fontPicker";
 import { propertiesPanelEn } from "./frontends/propertiesPanel";
 
+import { activityEn } from "./frontends/activity";
+import { workspaceNoticeEn } from "./frontends/workspaceNotice";
+import { historyPanelEn } from "./frontends/historyPanel";
+import { teamEn } from "./frontends/team";
+import { agentsEn } from "./frontends/agents";
+import { pinsEn } from "./frontends/pins";
 export const en = {
   home: {
     title: "Paprika",
@@ -36,6 +42,12 @@ export const en = {
   frontends: {
     fontPicker: fontPickerEn,
     propertiesPanel: propertiesPanelEn,
+    agents: agentsEn,
+    pins: pinsEn,
+    team: teamEn,
+    historyPanel: historyPanelEn,
+    workspaceNotice: workspaceNoticeEn,
+    activity: activityEn,
     editorLayout: {
       left: {
         region: "Layers panel",

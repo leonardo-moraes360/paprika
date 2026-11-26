@@ -199,7 +199,7 @@ const frontendPackages = [
 
 const testPackages = [/^@testing-library\/(?:react|user-event|dom|jest-dom)$/, /^vitest$/, /^react-dom(?:\/server|\/test-utils)?$/, /^react\/jsx-runtime$/];
 
-const allowedLib = new Set(["utils", "persist", "use-persisted-state", "numeric-input", "token-parsing"]);
+const allowedLib = new Set(["utils", "persist", "use-persisted-state", "numeric-input", "token-parsing", "use-now", "use-async-action", "copy-text", "relative-time", "history-model"]);
 const libPackages = [/^react$/, /^clsx$/, /^tailwind-merge$/];
 
 const isTest = (path: string) => /\.test\.tsx?$/.test(path);
