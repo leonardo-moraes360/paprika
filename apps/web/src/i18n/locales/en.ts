@@ -1,4 +1,5 @@
 import { fontPickerEn } from "./frontends/fontPicker";
+import { propertiesPanelEn } from "./frontends/propertiesPanel";
 
 export const en = {
   home: {
@@ -30,6 +31,7 @@ export const en = {
   },
   frontends: {
     fontPicker: fontPickerEn,
+    propertiesPanel: propertiesPanelEn,
     editorLayout: {
       left: {
         region: "Layers panel",

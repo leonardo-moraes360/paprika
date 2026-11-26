@@ -1,5 +1,6 @@
 import type { Translation } from "../resources";
 import { fontPickerPtBR } from "./frontends/fontPicker";
+import { propertiesPanelPtBR } from "./frontends/propertiesPanel";
 
 export const ptBR: Translation = {
   home: {
@@ -31,6 +32,7 @@ export const ptBR: Translation = {
   },
   frontends: {
     fontPicker: fontPickerPtBR,
+    propertiesPanel: propertiesPanelPtBR,
     editorLayout: {
       left: {
         region: "Painel de camadas",
