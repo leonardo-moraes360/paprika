@@ -21,6 +21,7 @@ type History struct {
 	scope   *ScopeIndex
 	touched []string
 	scoped  bool
+	saved   any
 	Now     func() int64
 }
 
@@ -39,6 +40,9 @@ func (h *History) CanUndo() bool               { return len(h.undo) > 0 }
 func (h *History) CanRedo() bool               { return len(h.redo) > 0 }
 func (h *History) Entries() []HistoryEntry     { return h.undo }
 func (h *History) RedoEntries() []HistoryEntry { return h.redo }
+
+func (h *History) Persisted() any     { return h.saved }
+func (h *History) SetPersisted(v any) { h.saved = v }
 
 func (h *History) LastTouched() ([]string, bool) { return h.touched, h.scoped }
 
@@ -131,5 +135,5 @@ func (h *History) Reset(doc *Document) {
 	h.current = doc
 	h.undo, h.redo = nil, nil
 	h.open = false
-	h.settled, h.scope, h.touched, h.scoped = false, nil, nil, false
+	h.settled, h.scope, h.touched, h.scoped, h.saved = false, nil, nil, false, nil
 }

@@ -187,8 +187,16 @@ func openWorst(b testing.TB, wc worstCase) *Store {
 	if _, err := s.Apply([]any{warm}, "agent:bench", "warm"); err != nil {
 		b.Fatal(err)
 	}
+	for i := 0; i < warmHistory; i++ {
+		op := parseOp(b, fmt.Sprintf(`{"op":"update","id":"%s","props":{"opacity":%v}}`, wc.textID, 0.2+float64(i%5)/10))
+		if _, err := s.Apply([]any{op}, "agent:bench", "warm"); err != nil {
+			b.Fatal(err)
+		}
+	}
 	return s
 }
+
+const warmHistory = 520
 
 func parseOp(b testing.TB, s string) any {
 	op, err := jsonv.Parse([]byte(s))

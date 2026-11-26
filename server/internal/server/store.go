@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -615,18 +616,94 @@ func writeHistory(tx querier, docID string, undo, redo []core.HistoryEntry) erro
 	if _, err := tx.Exec(`DELETE FROM history WHERE doc_id = ?`, docID); err != nil {
 		return err
 	}
-	for _, s := range []struct {
+	for _, st := range []struct {
 		name    string
 		entries []core.HistoryEntry
 	}{{"undo", undo}, {"redo", redo}} {
-		for i, e := range s.entries {
-			if _, err := tx.Exec(`INSERT INTO history(doc_id, stack, seq, actor, label, ops, inverse, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-				docID, s.name, i, e.Actor, e.Label, jsonv.Stringify(e.Ops, ""), jsonv.Stringify(e.Inverse, ""), e.At); err != nil {
-				return err
-			}
+		if err := insertHistory(tx, docID, st.name, st.entries, 0); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func insertHistory(tx querier, docID, stack string, entries []core.HistoryEntry, first int) error {
+	for i, e := range entries {
+		if _, err := tx.Exec(`INSERT OR REPLACE INTO history(doc_id, stack, seq, actor, label, ops, inverse, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			docID, stack, first+i, e.Actor, e.Label, jsonv.Stringify(e.Ops, ""), jsonv.Stringify(e.Inverse, ""), e.At); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type historyMirror struct {
+	undo, redo         []core.HistoryEntry
+	undoBase, redoBase int
+}
+
+func sameEntry(a, b core.HistoryEntry) bool {
+	return a.At == b.At && a.Actor == b.Actor && a.Label == b.Label && a.Batch == b.Batch &&
+		len(a.Ops) == len(b.Ops) && len(a.Inverse) == len(b.Inverse) &&
+		(len(a.Ops) == 0 || &a.Ops[0] == &b.Ops[0]) && (len(a.Inverse) == 0 || &a.Inverse[0] == &b.Inverse[0])
+}
+
+func syncHistoryStack(tx querier, docID, stack string, old []core.HistoryEntry, oldBase int, cur []core.HistoryEntry) (int, error) {
+	rewrite := func() (int, error) {
+		if _, err := tx.Exec(`DELETE FROM history WHERE doc_id = ? AND stack = ?`, docID, stack); err != nil {
+			return 0, err
+		}
+		return 0, insertHistory(tx, docID, stack, cur, 0)
+	}
+	if len(cur) == 0 || len(old) == 0 {
+		return rewrite()
+	}
+	shift := -1
+	for j := range old {
+		if sameEntry(cur[0], old[j]) {
+			shift = j
+			break
+		}
+	}
+	if shift < 0 {
+		return rewrite()
+	}
+	keep := 0
+	for keep < len(cur) && shift+keep < len(old) && sameEntry(cur[keep], old[shift+keep]) {
+		keep++
+	}
+	base := oldBase + shift
+	if shift > 0 {
+		if _, err := tx.Exec(`DELETE FROM history WHERE doc_id = ? AND stack = ? AND seq < ?`, docID, stack, base); err != nil {
+			return 0, err
+		}
+	}
+	if shift+keep < len(old) {
+		if _, err := tx.Exec(`DELETE FROM history WHERE doc_id = ? AND stack = ? AND seq >= ?`, docID, stack, base+keep); err != nil {
+			return 0, err
+		}
+	}
+	return base, insertHistory(tx, docID, stack, cur[keep:], base+keep)
+}
+
+func syncHistory(tx querier, docID string, h *core.History) (*historyMirror, error) {
+	undo, redo := h.Entries(), h.RedoEntries()
+	m, _ := h.Persisted().(*historyMirror)
+	if m == nil {
+		if err := writeHistory(tx, docID, undo, redo); err != nil {
+			return nil, err
+		}
+		return &historyMirror{undo: slices.Clone(undo), redo: slices.Clone(redo)}, nil
+	}
+	ub, err := syncHistoryStack(tx, docID, "undo", m.undo, m.undoBase, undo)
+	if err != nil {
+		return nil, err
+	}
+	rb, err := syncHistoryStack(tx, docID, "redo", m.redo, m.redoBase, redo)
+	if err != nil {
+		return nil, err
+	}
+	return &historyMirror{undo: slices.Clone(undo), redo: slices.Clone(redo), undoBase: ub, redoBase: rb}, nil
 }
 
 func ImportDocument(db *sql.DB, raw []byte, replace bool) (*core.Document, error) {
@@ -1113,7 +1190,8 @@ type WorkspaceHead struct {
 	CanRedo bool
 }
 
-func (s *Store) persistLocked(docID string, doc, prev *core.Document, version int64, undo, redo []core.HistoryEntry, step *HistoryStep, touched []string, scoped bool) (*docDelta, error) {
+func (s *Store) persistLocked(docID string, doc, prev *core.Document, version int64, hist *core.History, step *HistoryStep) (*docDelta, error) {
+	touched, scoped := hist.LastTouched()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -1133,7 +1211,8 @@ func (s *Store) persistLocked(docID string, doc, prev *core.Document, version in
 			return nil, err
 		}
 	}
-	if err := writeHistory(tx, docID, undo, redo); err != nil {
+	mirror, err := syncHistory(tx, docID, hist)
+	if err != nil {
 		return nil, err
 	}
 	if step != nil {
@@ -1142,8 +1221,10 @@ func (s *Store) persistLocked(docID string, doc, prev *core.Document, version in
 		}
 	}
 	if err := tx.Commit(); err != nil {
+		hist.SetPersisted(nil)
 		return nil, err
 	}
+	hist.SetPersisted(mirror)
 	s.dataVersion = s.readDataVersion()
 	if !dd.usable() {
 		return nil, nil
@@ -1185,8 +1266,7 @@ func removedIDs(prev *core.Document, r *core.ApplyResult) {
 func (s *Store) commitLocked(prev *core.Document, actor, label, kind string, step *HistoryStep) ([]func(ChangeEvent), ChangeEvent, error) {
 	version := s.version + 1
 	doc := s.history.Doc()
-	touched, scoped := s.history.LastTouched()
-	dd, err := s.persistLocked(s.docID, doc, prev, version, s.history.Entries(), s.history.RedoEntries(), step, touched, scoped)
+	dd, err := s.persistLocked(s.docID, doc, prev, version, s.history, step)
 	if err != nil {
 		return nil, ChangeEvent{}, err
 	}
@@ -1288,8 +1368,7 @@ func (s *Store) ApplyIn(id string, ops []any, actor, label, batch string) (*core
 		return nil, WorkspaceHead{}, err
 	}
 	version := live.version + 1
-	touched, scoped := live.history.LastTouched()
-	dd, err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), nil, touched, scoped)
+	dd, err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history, nil)
 	if err != nil {
 		restored := core.Restore(prevDoc, prevUndo, prevRedo)
 		if aside {
@@ -1361,8 +1440,7 @@ func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error)
 	if what == "" {
 		what = e.Actor
 	}
-	touched, scoped := live.history.LastTouched()
-	dd, err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), &HistoryStep{kind, actor, time.Now().UnixMilli(), e.Label}, touched, scoped)
+	dd, err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history, &HistoryStep{kind, actor, time.Now().UnixMilli(), e.Label})
 	if err != nil {
 		restored := core.Restore(prevDoc, prevUndo, prevRedo)
 		if aside {
