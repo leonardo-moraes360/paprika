@@ -14,7 +14,8 @@ export function BuildCode() {
   const [open, setOpen] = useState(false);
   const frameId = useMemo(() => {
     if (!doc) return undefined;
-    const fromBuild = build?.ids[Math.min(build.index, build.ids.length - 1)];
+    const walk = build[0];
+    const fromBuild = walk?.ids[Math.min(walk.index, walk.ids.length - 1)];
     if (fromBuild) {
       const frame = topFrameId(doc, fromBuild);
       if (frame) return frame;
