@@ -1,0 +1,292 @@
+import { createMenuController } from "@ui-sdk/react/menu";
+import { useVirtualizer, defaultRangeExtractor, type Range } from "@tanstack/react-virtual";
+import { useHotkey } from "@tanstack/react-hotkeys";
+import { visibleTreeRows } from "@ui-sdk/react/tree";
+import { Ellipsis } from "lucide-react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useTranslation } from "react-i18next";
+import { DragOverlay } from "@/components/ui/drag-overlay";
+import { IconButton } from "@/components/ui/icon-button";
+import { LayerTree } from "@/components/ui/layer-row";
+import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { SectionHeader } from "@/components/ui/section-header";
+import { Tooltip } from "@/components/ui/tooltip";
+import { booleanCodec } from "@/lib/persist";
+import { cn } from "@/lib/utils";
+import { usePersistedState } from "@/lib/use-persisted-state";
+import { LAYER_ROW_HEIGHT, LayerItem } from "./layer-item";
+import { initialLayersPanelState, LayersPanelRegion } from "./store";
+import { buildItems } from "./tree-data";
+import type { LayerContextItem, LayerRowData, LayerSelectMode, LayersPanelProps } from "./types";
+import { useLayerDrag } from "./use-layer-drag";
+
+export function LayersPanel(props: LayersPanelProps) {
+  return (
+    <LayersPanelRegion.Provider initial={initialLayersPanelState}>
+      <LayersPanelView {...props} />
+    </LayersPanelRegion.Provider>
+  );
+}
+
+const noItems: readonly LayerContextItem[] = [];
+
+function selectMode(event: Event | undefined): LayerSelectMode {
+  const modifiers = event as Partial<globalThis.MouseEvent> | undefined;
+  if (modifiers?.shiftKey) return "extend";
+  if (event?.type === "click" && (modifiers?.ctrlKey || modifiers?.metaKey)) return "toggle";
+  return "replace";
+}
+
+function enterTarget(event: Event | undefined): string | null {
+  const key = event as Partial<globalThis.KeyboardEvent> | undefined;
+  if (key?.type !== "keydown" || key.key !== "Enter" || key.shiftKey || key.ctrlKey || key.metaKey) return null;
+  const target = key.target instanceof Element ? key.target.closest<HTMLElement>("[data-layer-id]") : null;
+  return target?.dataset.layerId ?? null;
+}
+
+function LayersPanelView({
+  rows,
+  onSelect,
+  onRename,
+  onMove,
+  onToggleVisible,
+  onToggleLocked,
+  onContextAction,
+  contextActions,
+  onRevealAll,
+  collapsedIds,
+  defaultCollapsedIds,
+  onCollapsedChange,
+  open,
+  defaultOpen = true,
+  onOpenChange,
+  storageKey,
+  virtualizeAfter = 120,
+  className,
+}: LayersPanelProps) {
+  const { t } = useTranslation();
+  const store = LayersPanelRegion.useRegionStore();
+  const actions = LayersPanelRegion.useRegionActions();
+  const root = useRef<HTMLDivElement>(null);
+  const wrapper = useRef<HTMLDivElement>(null);
+  const overlay = useRef<HTMLDivElement>(null);
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
+  const [storedOpen, setStoredOpen] = usePersistedState(storageKey, defaultOpen, booleanCodec);
+  const isOpen = open ?? storedOpen;
+  const [ownCollapsed, setOwnCollapsed] = useState<readonly string[]>(defaultCollapsedIds ?? []);
+  const collapsed = collapsedIds ?? ownCollapsed;
+  const [menu] = useState(() => createMenuController<readonly string[]>());
+
+  const changeOpen = (next: boolean) => {
+    if (open === undefined) setStoredOpen(next);
+    onOpenChange?.(next);
+  };
+
+  const byId = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
+  const items = useMemo(() => buildItems(rows), [rows]);
+  const selectedIds = useMemo(() => rows.filter((row) => row.selected).map((row) => row.id), [rows]);
+  const branches = useMemo(() => rows.filter((row) => row.hasChildren).map((row) => row.id), [rows]);
+  const expanded = useMemo(() => {
+    const closed = new Set(collapsed);
+    return branches.filter((id) => !closed.has(id));
+  }, [branches, collapsed]);
+  const visible = useMemo(() => visibleTreeRows(items, expanded), [items, expanded]);
+  const hiddenCount = useMemo(() => rows.filter((row) => !row.visible).length, [rows]);
+  const lockedCount = useMemo(() => rows.filter((row) => row.locked && row.lockable !== false).length, [rows]);
+
+  const latest = useRef({ visible });
+  latest.current = { visible };
+  const rangeExtractor = useCallback((range: Range) => {
+    const base = defaultRangeExtractor(range);
+    const active = document.activeElement?.closest<HTMLElement>("[data-layer-id]")?.dataset.layerId;
+    const { renamingId, dragging } = store.get();
+    const keep = [active, renamingId, ...(dragging ?? [])];
+    const extra = keep
+      .map((id) => (id ? latest.current.visible.findIndex((row) => row.item.value === id) : -1))
+      .filter((index) => index >= 0 && !base.includes(index));
+    return extra.length > 0 ? [...base, ...extra].sort((a, b) => a - b) : base;
+  }, [store]);
+
+  const virtual = useVirtualizer({
+    count: visible.length,
+    getScrollElement: () => viewport,
+    estimateSize: () => LAYER_ROW_HEIGHT,
+    overscan: 8,
+    rangeExtractor,
+    initialRect: { width: 0, height: LAYER_ROW_HEIGHT * 20 },
+  });
+  const virtualized = visible.length > virtualizeAfter;
+  const indexes = virtualized ? virtual.getVirtualItems().map((item) => item.index) : visible.map((_, index) => index);
+
+  useLayoutEffect(() => {
+    const renamingId = store.get().renamingId;
+    if (renamingId !== null && !byId.has(renamingId)) actions.stopRename();
+  }, [byId, store, actions]);
+
+  useHotkey(
+    "F2",
+    () => {
+      const id = document.activeElement?.closest<HTMLElement>("[data-layer-id]")?.dataset.layerId;
+      const row = id ? byId.get(id) : undefined;
+      if (row && row.renamable !== false) actions.startRename(row.id);
+    },
+    { target: root, ignoreInputs: true, preventDefault: true },
+  );
+
+  const onPointerDown = useLayerDrag({ rows, wrapper, overlay, onMove });
+
+  const changeCollapsed = (next: string[]) => {
+    if (collapsedIds === undefined) setOwnCollapsed(next);
+    onCollapsedChange?.(next);
+  };
+
+  const openContext = (id: string, anchor: { x: number; y: number } | HTMLElement) => {
+    const row = byId.get(id);
+    if (!row) return;
+    let ids: readonly string[] = selectedIds;
+    if (!row.selected) {
+      ids = [id];
+      onSelect(ids as string[], "replace");
+    }
+    void menu.open({ payload: ids, anchor });
+  };
+
+  const onContextMenu = (event: MouseEvent<HTMLElement>) => {
+    const id = (event.target as Element).closest<HTMLElement>("[data-layer-id]")?.dataset.layerId;
+    if (!id) return;
+    event.preventDefault();
+    openContext(id, { x: event.clientX, y: event.clientY });
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    const id = target.dataset.layerId;
+    if (!id || !((event.key === "F10" && event.shiftKey) || event.key === "ContextMenu")) return;
+    event.preventDefault();
+    openContext(id, target);
+  };
+
+  const rename = (ids: readonly string[]) => {
+    const id = ids[0];
+    if (id !== undefined) actions.startRename(id);
+  };
+
+  const hasLayers = rows.length > 0;
+
+  return (
+    <div ref={root} className={cn("flex min-h-0 flex-1 flex-col", className)}>
+      <SectionHeader
+        className="flex min-h-0 flex-1 flex-col"
+        panelClassName="flex min-h-0 flex-1 flex-col"
+        title={t("frontends.layersPanel.title")}
+        headingLevel={2}
+        open={isOpen}
+        onOpenChange={changeOpen}
+        actions={
+          <Menu pendingAnnouncement={t("common.working")} onAction={(value) => (value === "show-all" || value === "unlock-all") && onRevealAll?.(value === "show-all" ? "hidden" : "locked")}>
+            <Tooltip content={t("frontends.layersPanel.moreActions")} side="bottom">
+              <MenuTrigger render={<IconButton size="xs" aria-label={t("frontends.layersPanel.moreActions")} />}>
+                <Ellipsis aria-hidden="true" />
+              </MenuTrigger>
+            </Tooltip>
+            <MenuContent align="end">
+              <MenuItem value="show-all" disabled={hiddenCount === 0 || !onRevealAll}>
+                {t("frontends.layersPanel.showAll")}
+              </MenuItem>
+              <MenuItem value="unlock-all" disabled={lockedCount === 0 || !onRevealAll}>
+                {t("frontends.layersPanel.unlockAll")}
+              </MenuItem>
+            </MenuContent>
+          </Menu>
+        }
+      >
+        {hasLayers ? (
+          <ScrollArea className="flex-1" viewportRef={setViewport}>
+            <div ref={wrapper} className="relative pb-2 ps-2 pe-1" onContextMenu={onContextMenu}>
+              <LayerTree
+                aria-label={t("frontends.layersPanel.tree")}
+                mode="multiple"
+                items={items}
+                value={selectedIds}
+                expanded={expanded}
+                onValueChange={(next, details) => {
+                  const pressed = enterTarget(details.event);
+                  if (pressed) onSelect([pressed], "replace");
+                  else onSelect(next, selectMode(details.event));
+                }}
+                onExpandedChange={(next) => changeCollapsed(branches.filter((id) => !next.includes(id)))}
+                onHighlight={(_value, { index }) => virtual.scrollToIndex(index, { align: "auto" })}
+                onPointerDown={onPointerDown}
+                onKeyDown={onKeyDown}
+                style={{ position: "relative", height: visible.length * LAYER_ROW_HEIGHT }}
+              >
+                {indexes.map((index) => {
+                  const row = byId.get(visible[index]?.item.value as string) as LayerRowData;
+                  return <LayerItem key={row.id} row={row} index={index} onToggleVisible={onToggleVisible} onToggleLocked={onToggleLocked} onRename={onRename} />;
+                })}
+              </LayerTree>
+              <DragOverlay ref={overlay} />
+            </div>
+          </ScrollArea>
+        ) : (
+          <p className="px-3 pb-2 text-sm text-muted">{t("frontends.layersPanel.empty")}</p>
+        )}
+      </SectionHeader>
+      <Menu controller={menu} pendingAnnouncement={t("common.working")} onAction={(value) => handleAction(String(value))}>
+        <MenuContent aria-label={t("frontends.layersPanel.menuLabel")}>
+          {(state: { payload?: unknown }) => {
+            const ids = (state.payload as readonly string[] | undefined) ?? [];
+            const targets = ids.map((id) => byId.get(id)).filter((row): row is LayerRowData => row !== undefined);
+            const allVisible = targets.every((row) => row.visible);
+            const lockable = targets.filter((row) => row.lockable !== false);
+            const allLocked = lockable.length > 0 && lockable.every((row) => row.locked);
+            const extras = contextActions?.(ids) ?? noItems;
+            return (
+              <>
+                {targets.length === 1 && targets[0]?.renamable !== false ? <MenuItem value="rename" shortcut="f2">{t("frontends.layersPanel.rename")}</MenuItem> : null}
+                <MenuItem value="toggle-visible" shortcut="mod+shift+h">{allVisible ? t("frontends.layersPanel.hide") : t("frontends.layersPanel.show")}</MenuItem>
+                {lockable.length > 0 ? <MenuItem value="toggle-locked" shortcut="mod+shift+l">{allLocked ? t("frontends.layersPanel.unlock") : t("frontends.layersPanel.lock")}</MenuItem> : null}
+                {extras.map((item) => (
+                  <ExtraItem key={item.id} item={item} onChange={() => onContextAction?.(item.id, ids)} />
+                ))}
+              </>
+            );
+          }}
+        </MenuContent>
+      </Menu>
+    </div>
+  );
+
+  function handleAction(value: string) {
+    const ids = menu.getPayload() ?? [];
+    if (value === "rename") rename(ids);
+    else if (value === "toggle-visible") {
+      const targets = ids.map((id) => byId.get(id)).filter((row): row is LayerRowData => row !== undefined);
+      onToggleVisible(ids, !targets.every((row) => row.visible));
+    } else if (value === "toggle-locked") {
+      const targets = ids.map((id) => byId.get(id)).filter((row): row is LayerRowData => row !== undefined && row.lockable !== false);
+      onToggleLocked(
+        targets.map((row) => row.id),
+        !targets.every((row) => row.locked),
+      );
+    } else if (value.startsWith("extra:")) onContextAction?.(value.slice(6), ids);
+  }
+}
+
+function ExtraItem({ item, onChange }: { item: LayerContextItem; onChange: () => void }) {
+  return (
+    <>
+      {item.separatorBefore ? <MenuSeparator /> : null}
+      {item.checked === undefined ? (
+        <MenuItem value={`extra:${item.id}`} disabled={item.disabled} icon={item.icon} data-destructive={item.destructive ? "" : undefined}>
+          {item.label}
+        </MenuItem>
+      ) : (
+        <MenuCheckboxItem value={`extra:${item.id}`} checked={item.checked} disabled={item.disabled} onCheckedChange={onChange}>
+          {item.label}
+        </MenuCheckboxItem>
+      )}
+    </>
+  );
+}

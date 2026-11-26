@@ -1,3 +1,4 @@
+import { layersPanelEn } from "./frontends/layersPanel";
 import { editorHeaderEn } from "./frontends/editorHeader";
 
 export const en = {
@@ -58,5 +59,6 @@ export const en = {
       deleteCancel: "Cancel",
     },
     editorHeader: editorHeaderEn,
+    layersPanel: layersPanelEn,
   },
 } as const;

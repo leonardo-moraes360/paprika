@@ -1,4 +1,5 @@
 import type { Translation } from "../resources";
+import { layersPanelPtBR } from "./frontends/layersPanel";
 import { editorHeaderPtBR } from "./frontends/editorHeader";
 
 export const ptBR: Translation = {
@@ -59,5 +60,6 @@ export const ptBR: Translation = {
       deleteCancel: "Cancelar",
     },
     editorHeader: editorHeaderPtBR,
+    layersPanel: layersPanelPtBR,
   },
 };
