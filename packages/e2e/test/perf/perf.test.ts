@@ -239,10 +239,19 @@ describe("perf: worst-case document", () => {
     const canvasMetrics = async (page: Page, srv: ExternalServer, textId: string) => {
       const vp = (await page.locator(".viewport").boundingBox())!;
       await page.mouse.move(vp.x + vp.width / 2, vp.y + vp.height / 2);
+      const commits = () => page.evaluate(() => (window as any).__commits as number);
+      const gesture = async (steps: number, dy: number, withCtrl: boolean) => {
+        const c0 = await commits();
+        let cost: Awaited<ReturnType<typeof cdpDelta>> | undefined;
+        const frames = await measureFrames(page, async () => {
+          cost = await cdpDelta(page, () => wheel(page, steps, dy, withCtrl));
+        });
+        return { ...frames, cost: cost!, commits: (await commits()) - c0 };
+      };
       log("pan");
-      const pan = await measureFrames(page, () => wheel(page, 60, 40, false));
+      const pan = await gesture(60, 40, false);
       log("zoom");
-      const zoom = await measureFrames(page, () => wheel(page, 40, 30, true));
+      const zoom = await gesture(40, 30, true);
       log("resize");
       const resize = await resizeSteps(page);
       log("write");
