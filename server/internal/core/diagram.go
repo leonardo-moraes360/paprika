@@ -817,17 +817,30 @@ func newConnectorFrame(bounds []Pt, sw float64) connectorFrame {
 	}
 }
 
-func finishConnector(c *Node, origin Pt, frame connectorFrame, body string, heads [][3]Pt) {
+func finishConnector(doc *Document, c *Node, origin Pt, frame connectorFrame, body string, heads [][3]Pt) {
 	var d strings.Builder
 	d.WriteString(body)
 	for _, h := range heads {
 		d.WriteString(" M" + dpt(frame.local(h[0])) + " L" + dpt(frame.local(h[1])) + " L" + dpt(frame.local(h[2])))
 	}
-	c.Set("x", Round4(frame.ox-origin.X))
-	c.Set("y", Round4(frame.oy-origin.Y))
-	c.Set("width", frame.width)
-	c.Set("height", frame.height)
-	c.Set("d", d.String())
+	next := []struct {
+		key string
+		val any
+	}{{"x", Round4(frame.ox - origin.X)}, {"y", Round4(frame.oy - origin.Y)}, {"width", frame.width}, {"height", frame.height}, {"d", d.String()}}
+	same := true
+	for _, kv := range next {
+		if cur, ok := c.Get(kv.key); !ok || !jsonv.Equal(cur, kv.val) {
+			same = false
+			break
+		}
+	}
+	if same {
+		return
+	}
+	c = ownNode(doc, c)
+	for _, kv := range next {
+		c.Set(kv.key, kv.val)
+	}
 }
 
 func RouteConnector(doc *Document, c *Node) error {
@@ -871,7 +884,7 @@ func RouteConnector(doc *Document, c *Node) error {
 		}
 		frame := newConnectorFrame(bounds, sw)
 		body := "M" + dpt(frame.local(start)) + " C" + dpt(frame.local(c1)) + " " + dpt(frame.local(c2)) + " " + dpt(frame.local(end))
-		finishConnector(c, origin, frame, body, heads)
+		finishConnector(doc, c, origin, frame, body, heads)
 		return nil
 	}
 
@@ -906,7 +919,7 @@ func RouteConnector(doc *Document, c *Node) error {
 			localLine[i] = frame.local(p)
 		}
 		parts, _ := roundedElbowPath(localLine, radius)
-		finishConnector(c, origin, frame, strings.Join(parts, " "), heads)
+		finishConnector(doc, c, origin, frame, strings.Join(parts, " "), heads)
 		return nil
 	}
 
@@ -923,7 +936,7 @@ func RouteConnector(doc *Document, c *Node) error {
 		}
 		parts[k] = cmd + dpt(frame.local(p))
 	}
-	finishConnector(c, origin, frame, strings.Join(parts, " "), heads)
+	finishConnector(doc, c, origin, frame, strings.Join(parts, " "), heads)
 	return nil
 }
 

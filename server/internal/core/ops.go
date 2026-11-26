@@ -350,6 +350,9 @@ type ApplyResult struct {
 	Created []string
 	Removed []string
 	Touched []string
+	Journal *Journal
+	Scope   *ScopeIndex
+	Derived bool
 }
 
 func (r *ApplyResult) Scoped() bool { return r.Touched != nil }
@@ -408,7 +411,7 @@ func container(doc *Document, parentID any, i int) (listRef, error) {
 	if t := parent.Str("type"); !IsContainer(t) {
 		return listRef{}, opErr(i, `parent "%s" is %s; only frame, group and page have children`, pid, t)
 	}
-	return listRef{parent, "children"}, nil
+	return listRef{own(doc, pid), "children"}, nil
 }
 
 func subtree(doc *Document, id string) []*Node {
@@ -862,7 +865,7 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			if len(bad) > 0 {
 				return nil, opErr(i, "%s (got %s)", copyRule(id, inst.Str("id")), strings.Join(bad, ", "))
 			}
-			inv, err := updateOverride(doc, inst, node, key, props, i)
+			inv, err := updateOverride(doc, ownNode(doc, inst), node, key, props, i)
 			if err != nil {
 				return nil, err
 			}
@@ -907,7 +910,7 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 			var inv any
 			var err error
 			if IsInstance(cur) {
-				inv, err = updateOverride(doc, cur, cur, cur.Str("instanceOf"), fp, i)
+				inv, err = updateOverride(doc, ownNode(doc, cur), cur, cur.Str("instanceOf"), fp, i)
 			} else {
 				inv, err = updatePlain(doc, cur, fp, i)
 			}
@@ -1031,15 +1034,18 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 		}
 		from.removeAt(fromIndex)
 		to.insertAt(id, moveIndex(op, fromIndex))
-		node.Set("parentId", target)
+		own(doc, id).Set("parentId", target)
 		return jsonv.NewObject("op", "move", "id", id, "parentId", oldParent, "index", float64(fromIndex)), nil
 
 	case "set_tokens":
+		ownDocMaps(doc)
 		return applySetTokens(doc, op, i)
 	case "detach_tokens":
+		ownDocMaps(doc)
 		return applyDetachTokens(doc, op, i, created)
 
 	case "set_assets":
+		ownDocMaps(doc)
 		prev := jsonv.NewObject()
 		assets := doc.Obj("assets")
 		if assets == nil {
@@ -1121,12 +1127,34 @@ func applyOne(doc *Document, op *jsonv.Object, i int, created *[]string) (any, e
 }
 
 func ApplyOps(doc *Document, ops []any) (*ApplyResult, error) {
-	return applyOps(doc, ops, false)
+	return applyOps(doc, ops, false, nil)
 }
 
-func applyOps(doc *Document, ops []any, settled bool) (*ApplyResult, error) {
-	draft := jsonv.Clone(doc).(*jsonv.Object)
+func applyOps(doc *Document, ops []any, settled bool, idx *ScopeIndex) (r *ApplyResult, err error) {
+	if !isShared(doc) {
+		return applyOpsOn(doc, jsonv.Clone(doc).(*jsonv.Object), ops, settled, false, nil)
+	}
+	defer func() {
+		p := recover()
+		if p == nil {
+			return
+		}
+		if _, ok := p.(*jsonv.FrozenError); !ok || strictOwnership.Load() {
+			panic(p)
+		}
+		ownershipFallbacks.Add(1)
+		r, err = applyOpsOn(doc, jsonv.Clone(doc).(*jsonv.Object), ops, settled, false, nil)
+		if err == nil {
+			jsonv.Freeze(r.Doc)
+		}
+	}()
+	return applyOpsOn(doc, newDraft(doc), ops, settled, true, idx)
+}
+
+func applyOpsOn(doc, draft *Document, ops []any, settled, cow bool, idx *ScopeIndex) (*ApplyResult, error) {
 	var inverse []any
+	var scope *ScopeIndex
+	derived := false
 	created := []string{}
 	deleted := map[string]bool{}
 	for i, raw := range ops {
@@ -1155,30 +1183,58 @@ func applyOps(doc *Document, ops []any, settled bool) (*ApplyResult, error) {
 		if err := checkPages(draft, len(ops)-1); err != nil {
 			return nil, err
 		}
-		applyConstraints(doc, draft)
-		inverse = append(fitGroups(draft), inverse...)
-		var base *Document
-		if settled {
-			base = doc
+		var d *derivedScope
+		if cow && settled && idx != nil && !ScopedDerivedOff {
+			if d = planDerived(doc, draft, idx); d != nil && !d.prepare() {
+				d = nil
+			}
 		}
-		if err := syncInstances(base, draft); err != nil {
-			return nil, opErr(len(ops)-1, "%s", err.Error())
-		}
-		inverse = append(fitGroups(draft), inverse...)
-		if msg := LengthTokenError(draft); msg != "" {
-			return nil, opErr(len(ops)-1, "%s", msg)
-		}
-		if msg := webSemanticsError(draft); msg != "" {
-			return nil, opErr(len(ops)-1, "%s", msg)
-		}
-		if err := RouteConnectors(draft); err != nil {
-			return nil, opErr(len(ops)-1, "%s", err.Error())
+		if d != nil {
+			first := d.beforeSync()
+			if !d.plain {
+				if err := syncInstances(doc, draft, !d.structural); err != nil {
+					return nil, opErr(len(ops)-1, "%s", err.Error())
+				}
+			}
+			inv, err := d.afterSync(len(ops)-1, first)
+			if err != nil {
+				return nil, err
+			}
+			inverse = append(inv, inverse...)
+			derived = true
+			if d.plain {
+				scope = d.next
+			}
+		} else {
+			applyConstraints(doc, draft)
+			inverse = append(fitGroups(draft), inverse...)
+			var base *Document
+			if settled {
+				base = doc
+			}
+			if err := syncInstances(base, draft, false); err != nil {
+				return nil, opErr(len(ops)-1, "%s", err.Error())
+			}
+			inverse = append(fitGroups(draft), inverse...)
+			if msg := LengthTokenError(draft); msg != "" {
+				return nil, opErr(len(ops)-1, "%s", msg)
+			}
+			if msg := webSemanticsError(draft); msg != "" {
+				return nil, opErr(len(ops)-1, "%s", msg)
+			}
+			if err := RouteConnectors(draft); err != nil {
+				return nil, opErr(len(ops)-1, "%s", err.Error())
+			}
 		}
 	}
 	if inverse == nil {
 		inverse = []any{}
 	}
-	return &ApplyResult{Doc: draft, Inverse: inverse, Created: created}, nil
+	res := &ApplyResult{Doc: draft, Inverse: inverse, Created: created, Scope: scope, Derived: derived}
+	if cow {
+		res.Journal = sealDraft(draft)
+	}
+	return res, nil
 }
 
 func CreateDocument(name, id string) *Document {
@@ -1387,8 +1443,11 @@ func fitGroup(doc *Document, g *Node, inverse []any) []any {
 	if !shift && math.Abs(w-g.Num("width")) < fitEps && math.Abs(h-g.Num("height")) < fitEps {
 		return inverse
 	}
+	g = own(doc, g.Str("id"))
 	if shift {
-		for _, k := range kids {
+		for i, k := range kids {
+			k = own(doc, k.Str("id"))
+			kids[i] = k
 			inverse = append(inverse, jsonv.NewObject("op", "update", "id", k.Str("id"), "props", jsonv.NewObject("x", k.Num("x"), "y", k.Num("y"))))
 			k.Set("x", Round4(k.Num("x")-minX))
 			k.Set("y", Round4(k.Num("y")-minY))

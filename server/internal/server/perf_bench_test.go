@@ -232,6 +232,8 @@ func BenchmarkWorstCase(b *testing.B) {
 		s := openWorst(b, wc)
 		defer s.Close()
 		b.ReportAllocs()
+		b.ResetTimer()
+		b.StopTimer()
 		for i := 0; i < b.N; i++ {
 			ops := frameOps(b, wc.pages[2], fmt.Sprintf("cf%d_", i), 200)
 			b.StartTimer()
@@ -249,6 +251,8 @@ func BenchmarkWorstCase(b *testing.B) {
 		s := openWorst(b, wc)
 		defer s.Close()
 		b.ReportAllocs()
+		b.ResetTimer()
+		b.StopTimer()
 		for i := 0; i < b.N; i++ {
 			ops := frameOps(b, wc.pages[2], fmt.Sprintf("df%d_", i), 200)
 			if _, err := s.Apply(ops, "agent:bench", "c"); err != nil {

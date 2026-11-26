@@ -22,8 +22,10 @@ The numbers live in one file, `packages/e2e/test/perf/budgets.ts`.
 |---|---|---|---|
 | WS bytes per one-prop write | 2 KB | 608 B (enforced; was 7.23 MB) | PAP-A-057 |
 | Doc snapshots on open | 1 | 1 (enforced; was 2) | PAP-A-057 |
-| Server time per one-prop write | 50 ms | 3 ms over a small document (enforced; was 1.08 s) on a plain node | PAP-A-060 |
-| Server time per one-prop write on a component master with 1,000 instances | 50 ms | 2.2 s (report-only: the 1,000 copies are rebuilt and persisted) | PAP-A-060 |
+| Server time per one-prop write | 50 ms | 2 to 7 ms over a small document (enforced; was 1.08 s) on a plain node | PAP-A-060 |
+| Server time per one-prop write on a component master with 1,000 instances | 50 ms | 0.4 s (report-only; was 2.2 s). The floor is about 0.35 s: the 1,000 copies are rebuilt and about 4,000 rows are written | PAP-A-060 |
+| Server time to create a frame with 200 children | 50 ms | 31 ms over a small document (report-only; was about 450 ms) | PAP-A-060 |
+| Server time to delete a frame with 200 children | 50 ms | 14 ms over a small document (enforced; was about 430 ms) | PAP-A-060 |
 | Script time in the tab on one incoming write | 50 ms | about 0.1 s over the small document (48–173 ms in 10 runs, median about 100 ms; report-only; was 2.5 s: the inspector linted the whole document on the main thread for every version) | PAP-A-068 |
 | p95 frame on scroll, zoom and pan | 20 ms | met (17 ms; was 33–83 ms) | PAP-A-062 |
 | Panel resize step | 20 ms | met (17 ms over the small document; was 750 ms) | PAP-A-063 |

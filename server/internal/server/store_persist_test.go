@@ -8,6 +8,7 @@ import (
 
 	"github.com/leonardo-moraes360/paprika/server/internal/core"
 	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
+	"github.com/leonardo-moraes360/paprika/server/internal/opgen"
 )
 
 const persistSeed = `[
@@ -45,10 +46,36 @@ func samePersisted(t *testing.T, s *Store, step int) {
 	if dv != version {
 		t.Fatalf("step %d: disk version %d, memory %d", step, dv, version)
 	}
-	if a, b := jsonv.Stringify(mem, ""), jsonv.Stringify(disk, ""); a != b {
-		t.Fatalf("step %d: SQLite differs from memory\nmemory %.400s\ndisk   %.400s", step, a, b)
+	if msg := docDifference(mem, disk); msg != "" {
+		t.Fatalf("step %d: SQLite differs from memory: %s", step, msg)
 	}
 	sameHistory(t, s, step)
+}
+
+func docDifference(mem, disk *core.Document) string {
+	for _, k := range append(append([]string(nil), mem.Keys()...), disk.Keys()...) {
+		a, aok := mem.Get(k)
+		b, bok := disk.Get(k)
+		if aok != bok || jsonv.Stringify(a, "") != jsonv.Stringify(b, "") {
+			if k == "nodes" {
+				return nodesDifference(mem.Obj("nodes"), disk.Obj("nodes"))
+			}
+			return fmt.Sprintf("key %q: memory %.300s disk %.300s", k, jsonv.Stringify(a, ""), jsonv.Stringify(b, ""))
+		}
+	}
+	return ""
+}
+
+func nodesDifference(a, b *jsonv.Object) string {
+	if x, y := fmt.Sprint(a.Keys()), fmt.Sprint(b.Keys()); x != y {
+		return fmt.Sprintf("node order: memory %.300s disk %.300s", x, y)
+	}
+	for _, k := range a.Keys() {
+		if x, y := jsonv.Stringify(a.Obj(k), ""), jsonv.Stringify(b.Obj(k), ""); x != y {
+			return fmt.Sprintf("node %q: memory %.300s disk %.300s", k, x, y)
+		}
+	}
+	return "nodes differ"
 }
 
 func sameHistory(t *testing.T, s *Store, step int) {
@@ -184,4 +211,91 @@ func TestPersistedDocumentMatchesMemoryAfterRandomOps(t *testing.T) {
 	}
 	var _ *core.Document = disk
 	t.Logf("scoped writes: %d", scopedSteps)
+}
+
+func runPersistRounds(t *testing.T, seedText string, rounds, steps int) (journaled int64) {
+	t.Helper()
+	before := journaledWrites.Load()
+	for round := range rounds {
+		path := filepath.Join(t.TempDir(), "p.db")
+		open := func() *Store {
+			s, err := OpenStore(path, OpenOptions{Poll: -1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return s
+		}
+		s := open()
+		model := &deltaModel{}
+		var ctx string
+		defer func() {
+			if t.Failed() {
+				t.Log(ctx)
+			}
+		}()
+		hook := func() {
+			s.OnChange(func(e ChangeEvent) {
+				if e.Delta == nil {
+					model.snapshot(e.Doc, e.Version)
+					return
+				}
+				model.apply(t, deltaMessage(e, true, true))
+				if a, b := jsonv.Stringify(model.doc, ""), jsonv.Stringify(e.Doc, ""); a != b {
+					t.Fatalf("%s: the delta does not rebuild the document\nmodel %.300s\nserver %.300s", ctx, a, b)
+				}
+			})
+		}
+		hook()
+		if _, err := s.Apply(parseOps(t, seedText), "user", "seed"); err != nil {
+			t.Fatal(err)
+		}
+		doc, version, _, _ := s.Snapshot()
+		model.snapshot(doc, version)
+		rng := rand.New(rand.NewSource(int64(900 + round)))
+		serial := 0
+		for step := range steps {
+			ctx = fmt.Sprintf("round %d step %d", round, step)
+			switch k := rng.Intn(16); {
+			case k == 0:
+				_, _ = s.Undo("user")
+			case k == 1:
+				_, _ = s.Redo("user")
+			case k == 2 && step%3 == 0:
+				if err := s.Close(); err != nil {
+					t.Fatal(err)
+				}
+				s = open()
+				hook()
+				doc, version, _, _ := s.Snapshot()
+				model.snapshot(doc, version)
+			default:
+				cur, _, _, _ := s.Snapshot()
+				if core.Nodes(cur).Len() < 14 {
+					continue
+				}
+				ops := opgen.Ops(rng, cur, &serial)
+				ctx += " ops " + jsonv.Stringify(ops, "")
+				if k == 3 {
+					_, _ = s.ApplyBatch(ops, "agent:a", "b", "batch-x")
+				} else {
+					_, _ = s.Apply(ops, "user", "w")
+				}
+			}
+			samePersisted(t, s, step)
+		}
+		if err := s.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return journaledWrites.Load() - before
+}
+
+func TestPersistedDocumentAndDeltaMatchEveryOp(t *testing.T) {
+	for name, seed := range map[string]string{"components": opgen.Seed, "plain": opgen.PlainSeed()} {
+		n := runPersistRounds(t, seed, 8, 200)
+		t.Logf("%s: %d journaled writes", name, n)
+		if n < 300 {
+			t.Fatalf("%s: only %d writes were persisted by journal", name, n)
+		}
+	}
 }
