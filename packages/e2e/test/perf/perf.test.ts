@@ -278,28 +278,39 @@ describe("perf: worst-case document", () => {
       assertWithinBudgets(rs);
     }, 420_000);
 
-    it("agent-build: a 200-node frame created by an agent is fully visible", async () => {
-      const kids = Array.from({ length: 199 }, (_, i) => ({ type: "rect", id: `perfb-${i}`, name: `r${i}`, width: 20, height: 20, fill: "#e11d48" }));
+    const agentBuildVisibleMs = async (page: Page, srv: ExternalServer, parentId: string | undefined, id: string) => {
+      const kids = Array.from({ length: 199 }, (_, i) => ({ type: "rect", id: `${id}-${i}`, name: `r${i}`, width: 20, height: 20, fill: "#e11d48" }));
       const t = Date.now();
-      await mcp(heavy.url, "create_nodes", {
-        parentId: worst.heavyPageId,
-        nodes: [{ type: "frame", id: "perfb", name: "perf", x: 0, y: -900, width: 600, height: 400, fill: "#ffffff", layout: { mode: "row", wrap: true, gap: 4, padding: 8 }, children: kids }],
+      await mcp(srv.url, "create_nodes", {
+        ...(parentId ? { parentId } : {}),
+        nodes: [{ type: "frame", id, name: "perf", x: 0, y: -900, width: 600, height: 400, fill: "#ffffff", layout: { mode: "row", wrap: true, gap: 4, padding: 8 }, children: kids }],
       });
-      await heavyPage.waitForFunction(
-        () => {
-          const all = ["perfb", ...Array.from({ length: 199 }, (_, i) => `perfb-${i}`)];
-          return all.every((id) => {
-            const el = document.querySelector(`.world [data-paprika-id="${id}"]`) as HTMLElement | null;
-            return el !== null && el.getAttribute("data-build") !== "wait" && getComputedStyle(el).opacity !== "0";
-          });
+      await page.waitForFunction(
+        (prefix) => {
+          const els = document.querySelectorAll<HTMLElement>(`.world [data-paprika-id^="${prefix}"]`);
+          if (els.length !== 200) return false;
+          for (const el of els) {
+            const cs = getComputedStyle(el);
+            if (cs.opacity !== "1" || (el.dataset.paprikaId !== prefix && cs.backgroundColor !== "rgb(225, 29, 72)")) return false;
+          }
+          return true;
         },
-        null,
+        id,
         { timeout: 120_000, polling: "raf" },
       );
       const visibleMs = Date.now() - t;
-      await mcp(heavy.url, "delete_nodes", { ids: ["perfb"] });
+      await mcp(srv.url, "delete_nodes", { ids: [id] });
+      return visibleMs;
+    };
+
+    it("agent-build: a 200-node frame created by an agent is fully visible", async () => {
+      const smallPage = await open(small, (await small.doc()).id);
+      const smallMs = await agentBuildVisibleMs(smallPage, small, undefined, "perfs");
+      await smallPage.close();
+      const heavyMs = await agentBuildVisibleMs(heavyPage, heavy, worst.heavyPageId, "perfb");
       await heavyPage.close();
-      assertWithinBudgets([record("agentNodeVisibleMs", visibleMs)]);
+      notes.agentBuildVisible = { smallMs, heavyMs };
+      assertWithinBudgets([record("agentNodeVisibleSmallMs", smallMs), record("agentNodeVisibleMs", heavyMs)]);
     }, 240_000);
   });
 });

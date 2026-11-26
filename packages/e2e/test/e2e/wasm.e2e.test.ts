@@ -413,6 +413,56 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     });
     expect(errors).toEqual([]);
   });
+
+  it("200 nós criados por um agente aparecem pintados no WASM em 1 s, e o passeio termina em cerca de 2 s", async () => {
+    await open("wasm");
+    const fills = ["#e11d48", "#2563eb", "#16a34a", "#d97706"];
+    const kids = Array.from({ length: 199 }, (_, i) => ({ type: "rect", id: `wb-${i}`, width: 12, height: 12, fill: fills[i % 4] }));
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: { nodes: [{ type: "frame", id: "wb", name: "wb", x: 0, y: 400, width: 480, height: 140, fill: "#ffffff", layout: { mode: "row", wrap: true, gap: 2, padding: 6 }, children: kids }] },
+    });
+    const t0 = Date.now();
+    const paintedRects = async () => {
+      const png = await shot();
+      return page.evaluate(
+        async ([b64, rgb]) => {
+          const img = new Image();
+          img.src = `data:image/png;base64,${b64}`;
+          await img.decode();
+          const c = document.createElement("canvas");
+          c.width = img.width;
+          c.height = img.height;
+          const g = c.getContext("2d")!;
+          g.drawImage(img, 0, 0);
+          const vp = document.querySelector<HTMLElement>('[data-testid="viewport"]')!.getBoundingClientRect();
+          const want = rgb as unknown as number[][];
+          let ok = 0;
+          let missing = 0;
+          for (let i = 0; i < 199; i++) {
+            const el = document.querySelector<HTMLElement>(`.world [data-paprika-id="wb-${i}"]`);
+            if (!el) {
+              missing++;
+              continue;
+            }
+            const r = el.getBoundingClientRect();
+            const [pr, pg, pb] = g.getImageData(Math.round(r.left - vp.left + r.width / 2), Math.round(r.top - vp.top + r.height / 2), 1, 1).data;
+            const w = want[i % 4]!;
+            if (Math.abs(pr! - w[0]!) < 6 && Math.abs(pg! - w[1]!) < 6 && Math.abs(pb! - w[2]!) < 6) ok++;
+          }
+          return { ok, missing };
+        },
+        [png.toString("base64"), [[225, 29, 72], [37, 99, 235], [22, 163, 74], [217, 119, 6]]] as const,
+      );
+    };
+    await expect.poll(paintedRects, { interval: 20, timeout: 5000 }).toEqual({ ok: 199, missing: 0 });
+    expect(Date.now() - t0).toBeLessThan(1000);
+    await expect.poll(() => page.locator("[data-build]").count(), { interval: 50, timeout: 4000 }).toBe(0);
+    expect(Date.now() - t0).toBeLessThan(2800);
+    expect(await paintedRects()).toEqual({ ok: 199, missing: 0 });
+    await agent.callTool({ name: "delete_nodes", arguments: { ids: ["wb"] } });
+    expect(errors).toEqual([]);
+  }, 60_000);
 });
 
 function useFixtureServer(example: string, opts: { consoleErrors?: boolean } = {}) {

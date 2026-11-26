@@ -14,52 +14,22 @@ function worldBox(vp: HTMLElement, id: string, view: View): Box | null {
   return { x: (r.left - vpr.left - view.x) / view.zoom, y: (r.top - vpr.top - view.y) / view.zoom, w: r.width / view.zoom, h: r.height / view.zoom };
 }
 
-const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-function restorePaint(el: HTMLElement) {
-  if (!el.hasAttribute("data-build-bg")) return;
-  el.style.backgroundColor = el.getAttribute("data-build-bg") ?? "";
-  el.style.color = el.getAttribute("data-build-color") ?? "";
-  el.style.borderColor = el.getAttribute("data-build-border") ?? "";
-  el.removeAttribute("data-build-bg");
-  el.removeAttribute("data-build-color");
-  el.removeAttribute("data-build-border");
-}
-
-function blankPaint(el: HTMLElement) {
-  if (el.hasAttribute("data-build-bg")) return;
-  el.setAttribute("data-build-bg", el.style.backgroundColor);
-  el.setAttribute("data-build-color", el.style.color);
-  el.setAttribute("data-build-border", el.style.borderColor);
-  el.style.backgroundColor = "transparent";
-  el.style.color = "transparent";
-  el.style.borderColor = "transparent";
-}
-
-function paintBuild(vp: HTMLElement, build: BuildReplay | null, color: string) {
-  const reduce = reduceMotion();
+function paintBuild(vp: HTMLElement, builds: BuildReplay[], colorOf: (actor: string) => string) {
   const next = new Map<HTMLElement, string>();
-  build?.ids.forEach((id, i) => {
+  for (const walk of builds) {
+    const id = walk.ids[walk.index];
+    if (!id) continue;
     const el = vp.querySelector<HTMLElement>(`.world [data-paprika-id="${CSS.escape(id)}"]`);
-    if (!el) return;
-    next.set(el, i < build.index ? "shown" : i === build.index ? "current" : "wait");
-  });
+    if (el) next.set(el, colorOf(walk.actor));
+  }
   for (const el of vp.querySelectorAll<HTMLElement>("[data-build]")) {
     if (next.has(el)) continue;
-    restorePaint(el);
     el.removeAttribute("data-build");
     el.style.removeProperty("--build");
   }
-  for (const [el, phase] of next) {
-    if (el.getAttribute("data-build") !== phase) el.setAttribute("data-build", phase);
-    if (phase === "current") {
-      el.style.setProperty("--build", color);
-      if (reduce) restorePaint(el);
-      else blankPaint(el);
-    } else {
-      el.style.removeProperty("--build");
-      restorePaint(el);
-    }
+  for (const [el, color] of next) {
+    if (el.getAttribute("data-build") !== "current") el.setAttribute("data-build", "current");
+    el.style.setProperty("--build", color);
   }
 }
 
@@ -197,8 +167,12 @@ export function AgentCursors({ doc, view, viewportRef, layoutKey, pageId, onOpen
     }
     setBoxes(next);
     setFrames(nextFrames);
-    const writer = agents.find((a) => a.actor === build?.actor && toolActivity(a.tool) === "writing") ?? agents.find((a) => a.actor === build?.actor);
-    paintBuild(vp, build, writer?.color ?? "#3b82f6");
+  }, [doc, agents, viewportRef, layoutKey, pageId]);
+
+  useLayoutEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    paintBuild(vp, build, (actor) => (agents.find((a) => a.actor === actor && toolActivity(a.tool) === "writing") ?? agents.find((a) => a.actor === actor))?.color ?? "#3b82f6");
   }, [doc, agents, build, viewportRef, layoutKey, pageId]);
 
   const pending = useRef<string | null>(null);

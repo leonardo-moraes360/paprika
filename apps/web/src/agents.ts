@@ -147,11 +147,26 @@ export function clientGroups(list: AgentPresence[]): { actor: string; label: str
 }
 
 export const BUILD_STEP_MS = 120;
+export const BUILD_TICK_MS = 40;
+export const BUILD_WALK_CAP_MS = 2000;
 
 export interface BuildReplay {
   actor: string;
   ids: string[];
   index: number;
+  stepMs: number;
+  stride: number;
+  nextAt: number;
+}
+
+export function buildPace(remaining: number): { stepMs: number; stride: number } {
+  if (remaining * BUILD_STEP_MS <= BUILD_WALK_CAP_MS) return { stepMs: BUILD_STEP_MS, stride: 1 };
+  const slots = Math.floor(BUILD_WALK_CAP_MS / BUILD_TICK_MS);
+  return { stepMs: BUILD_TICK_MS, stride: Math.ceil(remaining / slots) };
+}
+
+export function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 export function createdInOrder(prev: Document | null, next: Document): string[] {
@@ -182,20 +197,33 @@ export function topFrameId(doc: Document, nodeId: string): string | undefined {
   return frame;
 }
 
-export function appendBuild(prev: BuildReplay | null, actor: string, created: readonly string[]): BuildReplay | null {
-  if (!created.length) return prev;
-  const ids = prev ? [...prev.ids] : [];
-  const have = new Set(ids);
-  for (const id of created) if (!have.has(id)) ids.push(id);
-  if (ids.length === (prev?.ids.length ?? 0)) return prev;
-  return { actor, ids, index: prev ? prev.index : 0 };
+export function appendBuild(list: BuildReplay[], actor: string, created: readonly string[], now: number): BuildReplay[] {
+  if (!created.length) return list;
+  const prev = list.find((w) => w.actor === actor);
+  const have = new Set(prev?.ids);
+  const fresh = created.filter((id) => !have.has(id));
+  if (!fresh.length) return list;
+  const ids = prev ? [...prev.ids, ...fresh] : fresh;
+  const index = prev ? prev.index : 0;
+  const pace = buildPace(ids.length - index);
+  const walk: BuildReplay = { actor, ids, index, ...pace, nextAt: prev ? prev.nextAt : now + pace.stepMs };
+  return prev ? list.map((w) => (w === prev ? walk : w)) : [...list, walk];
 }
 
-export function stepBuild(prev: BuildReplay | null): BuildReplay | null {
-  if (!prev) return null;
-  const index = prev.index + 1;
-  if (index > prev.ids.length) return null;
-  return { ...prev, index };
+export function stepBuild(list: BuildReplay[], now: number): BuildReplay[] {
+  if (!list.length) return list;
+  const out: BuildReplay[] = [];
+  for (const walk of list) {
+    if (now < walk.nextAt) {
+      out.push(walk);
+      continue;
+    }
+    const steps = Math.floor((now - walk.nextAt) / walk.stepMs) + 1;
+    const index = walk.index + steps * walk.stride;
+    if (index >= walk.ids.length) continue;
+    out.push({ ...walk, index, nextAt: walk.nextAt + steps * walk.stepMs });
+  }
+  return out;
 }
 
 export function agentPage(doc: Document, nodes: string[]): PageNode | undefined {

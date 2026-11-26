@@ -26,10 +26,11 @@ The numbers live in one file, `packages/e2e/test/perf/budgets.ts`.
 | Script time in the tab on one incoming write | 50 ms | 2.6 s (synthetic worst case) | PAP-A-061 |
 | p95 frame on scroll, zoom and pan | 20 ms | 33–67 ms | PAP-A-062 |
 | Panel resize step | 20 ms | 750 ms | PAP-A-063 |
-| Time until an agent-created node is visible | 1 s | up to 28.6 s | PAP-A-064 |
+| Time until an agent-created 200-node frame is visible, small document | 1 s | 216 ms (enforced; was a 200-step replay) | PAP-A-064 |
+| Same, on the heavy page of the worst case | 1 s | 25 s (was 82.6 s; 12 s of tab script per write in React) | PAP-A-061 |
 | Slow tab ends on the latest version | always | no (481 of 485) | PAP-A-058 |
 
-Count budgets (bytes, messages, snapshots, versions) are exact. Time budgets are relative: the suite measures the same action on a small document in the same run and the budget applies to the difference, so a slow or busy machine does not fail it. The agent-build time is the exception: it is a product limit, measured as is.
+Count budgets (bytes, messages, snapshots, versions) are exact. Time budgets are relative: the suite measures the same action on a small document in the same run and the budget applies to the difference, so a slow or busy machine does not fail it. The agent-build times are the exception: they are a product limit, measured as is. Created nodes are never hidden while the agent outline walks them, so what is left on the heavy page is the tab rendering the write, not the walk.
 
 Each budget starts report-only (`enforce: false`): when exceeded it prints `known-failing` with its ticket and the run still passes. The PR that meets a budget sets `enforce: true`; from then on an excess fails the suite. A feature that adds a hot path adds its scenario and its budget in the same PR.
 

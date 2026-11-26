@@ -26,10 +26,11 @@ Os números ficam num só arquivo, `packages/e2e/test/perf/budgets.ts`.
 | Tempo de script na aba numa escrita recebida | 50 ms | 2,6 s (pior caso sintético) | PAP-A-061 |
 | Quadro p95 em scroll, zoom e pan | 20 ms | 33–67 ms | PAP-A-062 |
 | Passo de redimensionar painel | 20 ms | 750 ms | PAP-A-063 |
-| Tempo até um nó criado pelo agente ficar visível | 1 s | até 28,6 s | PAP-A-064 |
+| Tempo até um frame de 200 nós criado pelo agente ficar visível, documento pequeno | 1 s | 216 ms (aplicado; era um replay de 200 passos) | PAP-A-064 |
+| O mesmo, na página pesada do pior caso | 1 s | 25 s (era 82,6 s; 12 s de script da aba por escrita, no React) | PAP-A-061 |
 | A aba lenta termina sempre na última versão | sempre | não (481 de 485) | PAP-A-058 |
 
-Os orçamentos de contagem (bytes, mensagens, snapshots, versões) são exatos. Os de tempo são relativos: a suíte mede a mesma ação num documento pequeno na mesma execução e o orçamento vale para a diferença, então uma máquina lenta ou ocupada não a reprova. O tempo de montagem do agente é a exceção: é um limite de produto, medido como está.
+Os orçamentos de contagem (bytes, mensagens, snapshots, versões) são exatos. Os de tempo são relativos: a suíte mede a mesma ação num documento pequeno na mesma execução e o orçamento vale para a diferença, então uma máquina lenta ou ocupada não a reprova. Os tempos de montagem do agente são a exceção: são um limite de produto, medido como está. Os nós criados nunca ficam escondidos enquanto o contorno do agente os percorre, então o que sobra na página pesada é a aba renderizando a escrita, não o passeio.
 
 Cada orçamento começa só como relatório (`enforce: false`): ao ser excedido aparece como `known-failing` com o ticket e a execução continua passando. O PR que cumpre um orçamento muda para `enforce: true`; daí em diante um excesso reprova a suíte. Uma feature que adiciona um caminho quente adiciona, no mesmo PR, o cenário e o orçamento dele.
 
