@@ -143,6 +143,35 @@ describe("perf: worst-case document", () => {
     assertWithinBudgets([record("serverWriteMs", heavy_, small_), record("serverWriteMasterMs", master_, small_)]);
   }, 180_000);
 
+  it("server-write: creating and deleting 200 nodes costs time proportional to the change", async () => {
+    const page = worst.doc.rootIds[worst.doc.rootIds.length - 1]!;
+    const smallPage = (await small.doc()).rootIds[0]!;
+    const frame = (id: string) => ({
+      type: "frame",
+      id,
+      x: 0,
+      y: 90_000,
+      width: 400,
+      height: 400,
+      children: Array.from({ length: 200 }, (_, i) => ({ type: "rect", id: `${id}_${i}`, x: (i % 20) * 12, y: Math.floor(i / 20) * 12, width: 10, height: 10 })),
+    });
+    const run = async (srv: ExternalServer, parentId: string) => {
+      const created: number[] = [];
+      const deleted: number[] = [];
+      for (let i = 0; i < 5; i++) {
+        const id = `perfc${i}`;
+        created.push((await mcp(srv.url, "create_nodes", { parentId, nodes: [frame(id)], place: "none" })).ms);
+        deleted.push((await mcp(srv.url, "delete_nodes", { ids: [id] })).ms);
+      }
+      return { create: median(created.slice(1)), remove: median(deleted.slice(1)) };
+    };
+    const base = await run(small, smallPage);
+    const big = await run(heavy, page);
+    notes.serverCreate200 = { small: base.create, heavy: big.create };
+    notes.serverDelete200 = { small: base.remove, heavy: big.remove };
+    assertWithinBudgets([record("serverCreate200Ms", big.create, base.create), record("serverDelete200Ms", big.remove, base.remove)]);
+  }, 180_000);
+
   it("slow-tab: a slow consumer ends on the latest version", async () => {
     const dir = await mkdtemp(join(tmpdir(), "paprika-perf-slow-"));
     const rnd = () => Array.from({ length: 4000 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
