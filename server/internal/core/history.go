@@ -1,6 +1,10 @@
 package core
 
-import "time"
+import (
+	"time"
+
+	"github.com/leonardo-moraes360/paprika/server/internal/jsonv"
+)
 
 type HistoryEntry struct {
 	Actor   string
@@ -21,6 +25,10 @@ type History struct {
 	scope   *ScopeIndex
 	touched []string
 	scoped  bool
+	journal *Journal
+	derived bool
+	plain   bool
+	legacy  bool
 	saved   any
 	Now     func() int64
 }
@@ -46,25 +54,34 @@ func (h *History) SetPersisted(v any) { h.saved = v }
 
 func (h *History) LastTouched() ([]string, bool) { return h.touched, h.scoped }
 
+func (h *History) LastJournal() *Journal { return h.journal }
+
+func (h *History) LastDerivedScoped() (scoped, plain bool) { return h.derived, h.plain }
+
 func (h *History) run(ops []any) (*ApplyResult, error) {
-	h.touched, h.scoped = nil, false
+	h.touched, h.scoped, h.journal, h.derived, h.plain = nil, false, nil, false, false
+	if !h.legacy && !isShared(h.current) {
+		jsonv.Freeze(h.current)
+	}
 	if h.settled {
 		if h.scope == nil {
 			h.scope = BuildScopeIndex(h.current)
 		}
 		if r, ok := ApplyScoped(h.current, ops, h.scope); ok {
-			h.touched, h.scoped = r.Touched, true
+			h.touched, h.scoped, h.journal = r.Touched, true, r.Journal
 			return r, nil
 		}
 	}
-	r, err := applyOps(h.current, ops, h.settled)
+	r, err := applyOps(h.current, ops, h.settled, h.scope)
 	if err != nil {
 		return nil, err
 	}
 	if len(ops) > 0 {
 		h.settled = true
 	}
-	h.scope = nil
+	h.scope = r.Scope
+	h.derived, h.plain = r.Derived, r.Scope != nil
+	h.journal = r.Journal
 	return r, nil
 }
 
@@ -135,5 +152,5 @@ func (h *History) Reset(doc *Document) {
 	h.current = doc
 	h.undo, h.redo = nil, nil
 	h.open = false
-	h.settled, h.scope, h.touched, h.scoped, h.saved = false, nil, nil, false, nil
+	h.settled, h.scope, h.touched, h.scoped, h.journal, h.saved = false, nil, nil, false, nil, nil
 }

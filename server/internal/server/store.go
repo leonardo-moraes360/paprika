@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/leonardo-moraes360/paprika/server/internal/core"
@@ -443,83 +444,176 @@ func writeDocument(tx querier, doc, prev *core.Document, version int64, now int6
 		id, doc.Str("format"), doc.Str("name"), roots, version, now, now); err != nil {
 		return err
 	}
-	if err := syncRows(tx, `tokens`, id, core.Tokens(doc), prevObj(prev, core.Tokens), func(k string, v any, ord int) error {
+	if err := syncDocMaps(tx, id, doc, prev, dd); err != nil {
+		return err
+	}
+	var dbOrd map[string]int
+	if prev != nil {
+		var err error
+		if dbOrd, err = loadNodeOrds(tx, id); err != nil {
+			return err
+		}
+	}
+	return syncRows(tx, `nodes`, id, core.Nodes(doc), prevObj(prev, core.Nodes), dbOrd, upsertNode(tx, id), `DELETE FROM nodes WHERE doc_id = ? AND id = ?`, dd.map_("nodes"))
+}
+
+func upsertNode(tx querier, docID string) func(string, any, int) error {
+	return func(k string, v any, ord int) error {
+		n := v.(*core.Node)
+		pid, _ := n.Get("parentId")
+		_, err := tx.Exec(`INSERT INTO nodes(doc_id, id, ord, parent_id, type, name, data) VALUES (?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(doc_id, id) DO UPDATE SET ord = excluded.ord, parent_id = excluded.parent_id, type = excluded.type,
+			name = excluded.name, data = excluded.data`, docID, k, ord, pid, n.Str("type"), n.Str("name"), jsonv.Stringify(n, ""))
+		return err
+	}
+}
+
+func loadNodeOrds(tx querier, docID string) (map[string]int, error) {
+	rows, err := tx.Query(`SELECT id, ord FROM nodes WHERE doc_id = ?`, docID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var id string
+		var ord int
+		if err := rows.Scan(&id, &ord); err != nil {
+			return nil, err
+		}
+		out[id] = ord
+	}
+	return out, rows.Err()
+}
+
+func syncDocMaps(tx querier, id string, doc, prev *core.Document, dd *docDelta) error {
+	if err := syncRows(tx, `tokens`, id, core.Tokens(doc), prevObj(prev, core.Tokens), nil, func(k string, v any, ord int) error {
 		_, err := tx.Exec(`INSERT INTO tokens(doc_id, name, ord, value) VALUES (?, ?, ?, ?)
 			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, value = excluded.value`, id, k, ord, jsonv.Stringify(v, ""))
 		return err
 	}, `DELETE FROM tokens WHERE doc_id = ? AND name = ?`, dd.map_("tokens")); err != nil {
 		return err
 	}
-	if err := syncRows(tx, `modes`, id, core.Modes(doc), prevObj(prev, core.Modes), func(k string, v any, ord int) error {
+	if err := syncRows(tx, `modes`, id, core.Modes(doc), prevObj(prev, core.Modes), nil, func(k string, v any, ord int) error {
 		_, err := tx.Exec(`INSERT INTO modes(doc_id, name, ord, tokens) VALUES (?, ?, ?, ?)
 			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, tokens = excluded.tokens`, id, k, ord, jsonv.Stringify(v, ""))
 		return err
 	}, `DELETE FROM modes WHERE doc_id = ? AND name = ?`, dd.map_("modes")); err != nil {
 		return err
 	}
-	if err := syncRows(tx, `token_meta`, id, core.TokenMeta(doc), prevObj(prev, core.TokenMeta), func(k string, v any, ord int) error {
+	if err := syncRows(tx, `token_meta`, id, core.TokenMeta(doc), prevObj(prev, core.TokenMeta), nil, func(k string, v any, ord int) error {
 		_, err := tx.Exec(`INSERT INTO token_meta(doc_id, name, ord, meta) VALUES (?, ?, ?, ?)
 			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, meta = excluded.meta`, id, k, ord, jsonv.Stringify(v, ""))
 		return err
 	}, `DELETE FROM token_meta WHERE doc_id = ? AND name = ?`, dd.map_("tokenMeta")); err != nil {
 		return err
 	}
-	if err := syncRows(tx, `assets`, id, core.Assets(doc), prevObj(prev, core.Assets), func(k string, v any, ord int) error {
+	return syncRows(tx, `assets`, id, core.Assets(doc), prevObj(prev, core.Assets), nil, func(k string, v any, ord int) error {
 		_, err := tx.Exec(`INSERT INTO assets(doc_id, name, ord, src) VALUES (?, ?, ?, ?)
 			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, src = excluded.src`, id, k, ord, v)
 		return err
-	}, `DELETE FROM assets WHERE doc_id = ? AND name = ?`, dd.map_("assets")); err != nil {
-		return err
-	}
-	return syncRows(tx, `nodes`, id, core.Nodes(doc), prevObj(prev, core.Nodes), func(k string, v any, ord int) error {
-		n := v.(*core.Node)
-		pid, _ := n.Get("parentId")
-		_, err := tx.Exec(`INSERT INTO nodes(doc_id, id, ord, parent_id, type, name, data) VALUES (?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(doc_id, id) DO UPDATE SET ord = excluded.ord, parent_id = excluded.parent_id, type = excluded.type,
-			name = excluded.name, data = excluded.data`, id, k, ord, pid, n.Str("type"), n.Str("name"), jsonv.Stringify(n, ""))
-		return err
-	}, `DELETE FROM nodes WHERE doc_id = ? AND id = ?`, dd.map_("nodes"))
+	}, `DELETE FROM assets WHERE doc_id = ? AND name = ?`, dd.map_("assets"))
 }
 
-func writeTouched(tx querier, doc, prev *core.Document, version int64, now int64, dd *docDelta, touched []string) (bool, error) {
-	nodes, prevNodes := core.Nodes(doc), core.Nodes(prev)
-	if nodes == nil || prevNodes == nil || nodes.Len() != prevNodes.Len() {
-		return false, nil
+func writeJournaled(tx querier, doc, prev *core.Document, version int64, now int64, dd *docDelta, j *core.Journal, next int) (int, bool, error) {
+	nodes, pnodes := core.Nodes(doc), core.Nodes(prev)
+	if nodes == nil || pnodes == nil || next < 0 {
+		return 0, false, nil
 	}
-	var changed []string
-	for _, k := range touched {
-		v, ok := nodes.Get(k)
-		pv, pok := prevNodes.Get(k)
-		if !ok || !pok {
-			return false, nil
-		}
-		if pv != v && !jsonv.Equal(pv, v) {
-			changed = append(changed, k)
+	moved := map[string]bool{}
+	for _, e := range j.Nodes {
+		if e.Kind == jsonv.JournalDelete {
+			moved[e.Key] = true
 		}
 	}
-	dd.begin(doc, prev)
-	if !dd.valid || dd.rootIDs || dd.name {
-		return false, nil
+	var sets, adds, dels, tail []string
+	seen := map[string]bool{}
+	for _, e := range j.Nodes {
+		if seen[e.Key] {
+			continue
+		}
+		seen[e.Key] = true
+		v, inCur := nodes.Get(e.Key)
+		pv, inPrev := pnodes.Get(e.Key)
+		switch {
+		case inCur && inPrev:
+			if moved[e.Key] {
+				tail = append(tail, e.Key)
+			} else if pv != v && !jsonv.Equal(pv, v) {
+				sets = append(sets, e.Key)
+			}
+		case inCur:
+			adds = append(adds, e.Key)
+			tail = append(tail, e.Key)
+		case inPrev:
+			dels = append(dels, e.Key)
+		}
+	}
+	if nodes.Len() != pnodes.Len()-len(dels)+len(adds) {
+		return 0, false, nil
+	}
+	keys := nodes.Keys()
+	if len(tail) > len(keys) {
+		return 0, false, nil
+	}
+	tailKeys := keys[len(keys)-len(tail):]
+	inTail := make(map[string]bool, len(tail))
+	for _, k := range tail {
+		inTail[k] = true
+	}
+	for _, k := range tailKeys {
+		if !inTail[k] {
+			return 0, false, nil
+		}
 	}
 	id := doc.Str("id")
-	if _, err := tx.Exec(`UPDATE documents SET version = ?, updated_at = ? WHERE id = ?`, version, now, id); err != nil {
-		return false, err
+	res, err := tx.Exec(`UPDATE documents SET name = ?, root_ids = ?, version = ?, updated_at = ? WHERE id = ?`,
+		doc.Str("name"), jsonv.Stringify(doc.Arr("rootIds"), ""), version, now, id)
+	if err != nil {
+		return 0, false, err
 	}
-	for _, k := range changed {
+	if n, _ := res.RowsAffected(); n != 1 {
+		return 0, false, nil
+	}
+	dd.begin(doc, prev)
+	for _, e := range j.Doc {
+		if e.Key == "tokens" || e.Key == "modes" || e.Key == "tokenMeta" || e.Key == "assets" {
+			if err := syncDocMaps(tx, id, doc, prev, dd); err != nil {
+				return 0, false, err
+			}
+			break
+		}
+	}
+	for _, k := range dels {
+		if _, err := tx.Exec(`DELETE FROM nodes WHERE doc_id = ? AND id = ?`, id, k); err != nil {
+			return 0, false, err
+		}
+	}
+	for _, k := range sets {
 		v, _ := nodes.Get(k)
 		n := v.(*core.Node)
 		pid, _ := n.Get("parentId")
-		res, err := tx.Exec(`UPDATE nodes SET parent_id = ?, type = ?, name = ?, data = ? WHERE doc_id = ? AND id = ?`,
+		r, err := tx.Exec(`UPDATE nodes SET parent_id = ?, type = ?, name = ?, data = ? WHERE doc_id = ? AND id = ?`,
 			pid, n.Str("type"), n.Str("name"), jsonv.Stringify(n, ""), id, k)
 		if err != nil {
-			return false, err
+			return 0, false, err
 		}
-		if n, _ := res.RowsAffected(); n != 1 {
-			return false, fmt.Errorf("node %q has no row in the database", k)
+		if c, _ := r.RowsAffected(); c != 1 {
+			return 0, false, fmt.Errorf("node %q has no row in the database", k)
 		}
 	}
-	dd.nodes.Set = changed
-	return true, nil
+	upsert := upsertNode(tx, id)
+	for _, k := range tailKeys {
+		v, _ := nodes.Get(k)
+		if err := upsert(k, v, next); err != nil {
+			return 0, false, err
+		}
+		next++
+	}
+	dd.nodes.Set = append(sets, adds...)
+	dd.nodes.Del = dels
+	dd.nodes.Reordered = len(tail) > len(adds)
+	return next, true, nil
 }
 
 func prevObj(prev *core.Document, f func(*core.Document) *jsonv.Object) *jsonv.Object {
@@ -529,7 +623,7 @@ func prevObj(prev *core.Document, f func(*core.Document) *jsonv.Object) *jsonv.O
 	return f(prev)
 }
 
-func syncRows(tx querier, _ string, docID string, cur, prev *jsonv.Object, upsert func(string, any, int) error, del string, md *mapDelta) error {
+func syncRows(tx querier, _ string, docID string, cur, prev *jsonv.Object, dbOrd map[string]int, upsert func(string, any, int) error, del string, md *mapDelta) error {
 	prevKeys := prev.Keys()
 	prevOrd := make(map[string]int, len(prevKeys))
 	for i, k := range prevKeys {
@@ -555,6 +649,12 @@ func syncRows(tx querier, _ string, docID string, cur, prev *jsonv.Object, upser
 			same = pv == v || jsonv.Equal(pv, v)
 		} else {
 			seenNew = true
+		}
+		if dbOrd != nil {
+			po, inPrev = dbOrd[k]
+			if _, has := dbOrd[k]; !has {
+				same = false
+			}
 		}
 		if inPrev && po == i && same {
 			continue
@@ -640,6 +740,7 @@ func insertHistory(tx querier, docID, stack string, entries []core.HistoryEntry,
 type historyMirror struct {
 	undo, redo         []core.HistoryEntry
 	undoBase, redoBase int
+	nextOrd            int
 }
 
 func sameEntry(a, b core.HistoryEntry) bool {
@@ -1190,31 +1291,42 @@ type WorkspaceHead struct {
 	CanRedo bool
 }
 
+var journaledWrites atomic.Int64
+
 func (s *Store) persistLocked(docID string, doc, prev *core.Document, version int64, hist *core.History, step *HistoryStep) (*docDelta, error) {
-	touched, scoped := hist.LastTouched()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 	dd := &docDelta{}
+	now := time.Now().UnixMilli()
+	next := -1
+	if m, _ := hist.Persisted().(*historyMirror); m != nil && m.nextOrd > 0 {
+		next = m.nextOrd
+	}
 	done := false
-	if scoped {
-		done, err = writeTouched(tx, doc, prev, version, time.Now().UnixMilli(), dd, touched)
+	if j := hist.LastJournal(); j != nil && next >= 0 && prev != nil {
+		next, done, err = writeJournaled(tx, doc, prev, version, now, dd, j, next)
 		if err != nil {
 			return nil, err
+		}
+		if done {
+			journaledWrites.Add(1)
 		}
 	}
 	if !done {
 		*dd = docDelta{}
-		if err := writeDocument(tx, doc, prev, version, time.Now().UnixMilli(), dd); err != nil {
+		if err := writeDocument(tx, doc, prev, version, now, dd); err != nil {
 			return nil, err
 		}
+		next = core.Nodes(doc).Len()
 	}
 	mirror, err := syncHistory(tx, docID, hist)
 	if err != nil {
 		return nil, err
 	}
+	mirror.nextOrd = next
 	if step != nil {
 		if err := writeHistoryStep(tx, docID, *step); err != nil {
 			return nil, err
@@ -1255,9 +1367,29 @@ func headOf(id string, live *wsLive) WorkspaceHead {
 }
 
 func removedIDs(prev *core.Document, r *core.ApplyResult) {
-	after := core.Nodes(r.Doc)
-	for _, id := range core.Nodes(prev).Keys() {
-		if !after.Has(id) {
+	after, before := core.Nodes(r.Doc), core.Nodes(prev)
+	if r.Journal == nil {
+		for _, id := range before.Keys() {
+			if !after.Has(id) {
+				r.Removed = append(r.Removed, id)
+			}
+		}
+		return
+	}
+	gone := map[string]bool{}
+	for _, e := range r.Journal.Nodes {
+		if !after.Has(e.Key) && before.Has(e.Key) {
+			gone[e.Key] = true
+		}
+	}
+	if len(gone) <= 1 {
+		for id := range gone {
+			r.Removed = append(r.Removed, id)
+		}
+		return
+	}
+	for _, id := range before.Keys() {
+		if gone[id] {
 			r.Removed = append(r.Removed, id)
 		}
 	}
@@ -1384,9 +1516,7 @@ func (s *Store) ApplyIn(id string, ops []any, actor, label, batch string) (*core
 		s.history = live.history
 		s.version = version
 	}
-	if !r.Scoped() {
-		removedIDs(prevDoc, r)
-	}
+	removedIDs(prevDoc, r)
 	head := headOf(target, live)
 	var ls []func(ChangeEvent)
 	var als []func(AsideEvent)
@@ -1555,9 +1685,7 @@ func (s *Store) ApplyBatch(ops []any, actor, label, batch string) (*core.ApplyRe
 		s.mu.Unlock()
 		return nil, fmt.Errorf("falha ao gravar no banco: %w", err)
 	}
-	if !r.Scoped() {
-		removedIDs(prevDoc, r)
-	}
+	removedIDs(prevDoc, r)
 	s.mu.Unlock()
 	emit(ls, ev)
 	return r, nil

@@ -15,8 +15,70 @@ import (
 )
 
 type Object struct {
-	keys []string
-	m    map[string]any
+	keys    []string
+	m       map[string]any
+	frozen  bool
+	journal *[]JournalEntry
+	pending map[string]int
+}
+
+type JournalKind byte
+
+const (
+	JournalSet    JournalKind = 'S'
+	JournalAdd    JournalKind = 'A'
+	JournalDelete JournalKind = 'D'
+)
+
+type JournalEntry struct {
+	Key  string
+	Kind JournalKind
+}
+
+type FrozenError struct{ Key string }
+
+func (e *FrozenError) Error() string {
+	return fmt.Sprintf("jsonv: write to %q on a frozen object (a version shared with an earlier document)", e.Key)
+}
+
+func Freeze(v any) {
+	switch t := v.(type) {
+	case *Object:
+		if t == nil || t.frozen {
+			return
+		}
+		t.flush()
+		for _, k := range t.keys {
+			Freeze(t.m[k])
+		}
+		t.frozen = true
+	case []any:
+		for _, x := range t {
+			Freeze(x)
+		}
+	}
+}
+
+func (o *Object) Frozen() bool { return o != nil && o.frozen }
+
+func (o *Object) Seal() { o.frozen = true }
+
+func (o *Object) StartJournal() {
+	j := []JournalEntry{}
+	o.journal = &j
+}
+
+func (o *Object) Journal() []JournalEntry {
+	if o == nil || o.journal == nil {
+		return nil
+	}
+	return *o.journal
+}
+
+func (o *Object) record(k string, kind JournalKind) {
+	if o.journal != nil {
+		*o.journal = append(*o.journal, JournalEntry{k, kind})
+	}
 }
 
 func NewObject(kv ...any) *Object {
@@ -42,13 +104,30 @@ func (o *Object) Len() int {
 	if o == nil {
 		return 0
 	}
-	return len(o.keys)
+	return len(o.m)
+}
+
+func (o *Object) flush() {
+	if o == nil || len(o.pending) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(o.m))
+	for _, k := range o.keys {
+		if n := o.pending[k]; n > 0 {
+			o.pending[k] = n - 1
+			continue
+		}
+		keys = append(keys, k)
+	}
+	o.keys = keys
+	o.pending = nil
 }
 
 func (o *Object) Keys() []string {
 	if o == nil {
 		return nil
 	}
+	o.flush()
 	return o.keys
 }
 
@@ -66,15 +145,21 @@ func (o *Object) Has(k string) bool {
 }
 
 func (o *Object) Set(k string, v any) {
+	if o.frozen {
+		panic(&FrozenError{k})
+	}
 	if o.m == nil {
 		o.m = map[string]any{}
 	}
 	if _, ok := o.m[k]; ok {
 		o.m[k] = v
+		o.record(k, JournalSet)
 		return
 	}
+	o.record(k, JournalAdd)
 	o.m[k] = v
 	if n, ok := arrayIndex(k); ok {
+		o.flush()
 		at := sort.Search(len(o.keys), func(i int) bool {
 			m, isIdx := arrayIndex(o.keys[i])
 			return !isIdx || m > n
@@ -94,7 +179,12 @@ func (o *Object) Delete(k string) {
 	if _, ok := o.m[k]; !ok {
 		return
 	}
+	if o.frozen {
+		panic(&FrozenError{k})
+	}
+	o.record(k, JournalDelete)
 	delete(o.m, k)
+	o.flush()
 	for i, kk := range o.keys {
 		if kk == k {
 			o.keys = append(o.keys[:i:i], o.keys[i+1:]...)
@@ -107,23 +197,19 @@ func (o *Object) DeleteAll(ks []string) {
 	if o == nil || len(ks) == 0 {
 		return
 	}
-	drop := make(map[string]struct{}, len(ks))
 	for _, k := range ks {
 		if _, ok := o.m[k]; ok {
-			drop[k] = struct{}{}
+			if o.frozen {
+				panic(&FrozenError{k})
+			}
+			o.record(k, JournalDelete)
 			delete(o.m, k)
+			if o.pending == nil {
+				o.pending = map[string]int{}
+			}
+			o.pending[k]++
 		}
 	}
-	if len(drop) == 0 {
-		return
-	}
-	keys := make([]string, 0, len(o.keys)-len(drop))
-	for _, k := range o.keys {
-		if _, gone := drop[k]; !gone {
-			keys = append(keys, k)
-		}
-	}
-	o.keys = keys
 }
 
 func Clone(v any) any {
@@ -132,6 +218,7 @@ func Clone(v any) any {
 		if t == nil {
 			return (*Object)(nil)
 		}
+		t.flush()
 		c := &Object{keys: append([]string(nil), t.keys...), m: make(map[string]any, len(t.m))}
 		for k, vv := range t.m {
 			c.m[k] = Clone(vv)
@@ -369,6 +456,7 @@ func writeValue(b *strings.Builder, v any, indent, cur string) {
 			b.WriteString("{}")
 			return
 		}
+		t.flush()
 		next := cur + indent
 		b.WriteByte('{')
 		for i, k := range t.keys {
@@ -601,6 +689,8 @@ func Equal(a, b any) bool {
 		if x.Len() != y.Len() {
 			return false
 		}
+		x.flush()
+		y.flush()
 		for i, k := range x.keys {
 			if y.keys[i] != k || !Equal(x.m[k], y.m[k]) {
 				return false

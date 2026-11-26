@@ -117,6 +117,7 @@ func scaleGroupContents(doc *Document, g *Node, rw, rh float64) {
 		if !adjustable(child) {
 			continue
 		}
+		child = own(doc, cid)
 		scaleBox(child, rw, rh)
 		if child.Str("type") == "group" {
 			scaleGroupContents(doc, child, rw, rh)
@@ -129,6 +130,7 @@ func adjustChild(doc *Document, parent *Node, cid string, oldW, oldH, newW, newH
 	if !adjustable(child) || inFlow(parent, child) {
 		return
 	}
+	child = own(doc, cid)
 	h, v := constraintModes(child)
 	var w, ht float64
 	wOK, hOK := false, false
@@ -268,12 +270,23 @@ func hasPinned(doc *Document, f *Node) bool {
 }
 
 func followLayout(before, draft *Document) {
+	followLayoutFor(before, draft, nil)
+}
+
+func layoutCands(before, draft *Document, only map[string]bool) map[string]bool {
 	nodes := Nodes(draft)
-	if nodes == nil {
-		return
-	}
 	cands := map[string]bool{}
-	for _, id := range nodes.Keys() {
+	if nodes == nil {
+		return cands
+	}
+	ids := nodes.Keys()
+	if only != nil {
+		ids = make([]string, 0, len(only))
+		for id := range only {
+			ids = append(ids, id)
+		}
+	}
+	for _, id := range ids {
 		n := nodes.Obj(id)
 		if n == nil || n.Str("type") != "frame" || n.Str("instanceOf") != "" || n.Str("sourceId") != "" {
 			continue
@@ -288,6 +301,14 @@ func followLayout(before, draft *Document) {
 			cands[id] = true
 		}
 	}
+	return cands
+}
+
+func followLayoutFor(before, draft *Document, only map[string]bool) {
+	if Nodes(draft) == nil {
+		return
+	}
+	cands := layoutCands(before, draft, only)
 	if len(cands) == 0 {
 		return
 	}

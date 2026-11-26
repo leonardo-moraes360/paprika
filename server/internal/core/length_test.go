@@ -30,14 +30,14 @@ func TestLengthTokensResolveAndReflow(t *testing.T) {
 		{"op":"create","node":{"type":"frame","id":"b","x":200,"width":80,"height":80,"layout":{"mode":"column","gap":"$space.md","padding":["$space.md","$space.sm","$space.md","$space.sm"]},"children":[{"type":"rect","id":"b1","width":20,"height":20}]}}]`)
 	css := NodeStyle(doc, GetNode(doc, "a"), false)
 	if css.Str("borderRadius") != "12px" || css.Str("gap") != "8px" || css.Str("padding") != "8px" || css.Str("border") != "4px solid #111" {
-		t.Fatalf("style %s", css)
+		t.Fatalf("style %v", css)
 	}
 	if css.Str("boxShadow") != "4px 8px 8px 0px #000" {
 		t.Fatalf("shadow %s", css.Str("boxShadow"))
 	}
 	text := NodeStyle(doc, GetNode(doc, "t"), false)
 	if text.Str("fontSize") != "18px" || text.Num("lineHeight") != 1.5 || text.Str("letterSpacing") != "4px" {
-		t.Fatalf("text %s", text)
+		t.Fatalf("text %v", text)
 	}
 	boxes, err := Layout(doc, LayoutOptions{})
 	if err != nil {
@@ -71,7 +71,7 @@ func TestLengthTokensResolveAndReflow(t *testing.T) {
 	}
 	vars := NodeStyleVars(doc, GetNode(doc, "t"), false, true)
 	if vars.Str("fontSize") != "var(--text\\.md)" || vars.Str("lineHeight") != "calc(var(--text\\.lh) / 1px)" || vars.Str("letterSpacing") != "var(--space\\.sm)" {
-		t.Fatalf("vars %s", vars)
+		t.Fatalf("vars %v", vars)
 	}
 }
 

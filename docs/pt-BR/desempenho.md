@@ -22,8 +22,10 @@ Os números ficam num só arquivo, `packages/e2e/test/perf/budgets.ts`.
 |---|---|---|---|
 | Bytes no WS por escrita de 1 prop | 2 KB | 608 B (exigido; eram 7,23 MB) | PAP-A-057 |
 | Snapshots do documento ao abrir | 1 | 1 (exigido; eram 2) | PAP-A-057 |
-| Tempo do servidor por escrita de 1 prop | 50 ms | 3 ms acima de um documento pequeno (imposto; era 1,08 s) em um nó comum | PAP-A-060 |
-| Tempo do servidor por escrita de 1 prop em um componente-mestre com 1.000 instâncias | 50 ms | 2,2 s (só relatório: as 1.000 cópias são reconstruídas e gravadas) | PAP-A-060 |
+| Tempo do servidor por escrita de 1 prop | 50 ms | 2 a 7 ms acima de um documento pequeno (imposto; era 1,08 s) em um nó comum | PAP-A-060 |
+| Tempo do servidor por escrita de 1 prop em um componente-mestre com 1.000 instâncias | 50 ms | 0,4 s (só relatório; era 2,2 s). O piso é cerca de 0,35 s: as 1.000 cópias são reconstruídas e cerca de 4.000 linhas são gravadas | PAP-A-060 |
+| Tempo do servidor para criar um frame com 200 filhos | 50 ms | 31 ms acima de um documento pequeno (só relatório; era cerca de 450 ms) | PAP-A-060 |
+| Tempo do servidor para apagar um frame com 200 filhos | 50 ms | 14 ms acima de um documento pequeno (imposto; era cerca de 430 ms) | PAP-A-060 |
 | Tempo de script na aba numa escrita recebida | 50 ms | cerca de 0,1 s acima do documento pequeno (48–173 ms em 10 execuções, mediana perto de 100 ms; só relatório; era 2,5 s: o inspetor rodava o lint do documento inteiro na thread principal a cada versão) | PAP-A-068 |
 | Quadro p95 em scroll, zoom e pan | 20 ms | cumprido (17 ms; antes 33–83 ms) | PAP-A-062 |
 | Passo de redimensionar painel | 20 ms | cumprido (17 ms sobre o documento pequeno; antes 750 ms) | PAP-A-063 |

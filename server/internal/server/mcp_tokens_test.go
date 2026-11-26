@@ -36,14 +36,14 @@ func TestTypedTokensPersistAndDetach(t *testing.T) {
 	}
 	node := core.GetNode(s.Doc(), "tok")
 	if node.Num("fontWeight") != 600 || node.Str("color") != "$ink" {
-		t.Fatalf("partial detach: %s", node)
+		t.Fatalf("partial detach: %v", node)
 	}
 	out, isErr = callText(t, m, "detach_tokens", obj("ids", []any{"tok"}))
 	if isErr {
 		t.Fatal(out)
 	}
 	if core.GetNode(s.Doc(), "tok").Str("color") != "#111111" {
-		t.Fatalf("full detach: %s", core.GetNode(s.Doc(), "tok"))
+		t.Fatalf("full detach: %v", core.GetNode(s.Doc(), "tok"))
 	}
 	reloaded, err := OpenStore(path, OpenOptions{Poll: -1, DocID: s.DocID()})
 	if err != nil {

@@ -63,7 +63,7 @@ func TestUnknownArgumentsAreRejected(t *testing.T) {
 	for _, c := range cases {
 		out, isErr := callText(t, m, c.tool, c.args)
 		if !isErr {
-			t.Fatalf("%s %s: expected an error, got %s", c.tool, c.args, out)
+			t.Fatalf("%v %v: expected an error, got %v", c.tool, c.args, out)
 		}
 		for _, w := range c.want {
 			if !strings.Contains(out, w) {
@@ -79,11 +79,11 @@ func TestGetNodesReturnsWhatExists(t *testing.T) {
 	createRect(t, s, "a")
 	r := m.CallTool(t.Context(), "get_nodes", obj("ids", []any{"a", "gone"}), true)
 	if r.Bool("isError") {
-		t.Fatalf("%s", r)
+		t.Fatalf("%v", r)
 	}
 	sc := r.Obj("structuredContent")
 	if len(sc.Arr("nodes")) != 1 || len(sc.Arr("missing")) != 1 || sc.Arr("missing")[0] != "gone" {
-		t.Fatalf("structured: %s", sc)
+		t.Fatalf("structured: %v", sc)
 	}
 	out, isErr := callText(t, m, "get_nodes", obj("ids", []any{"x", "y"}))
 	if !isErr || !strings.Contains(out, "nodes do not exist: x, y") {
@@ -100,11 +100,11 @@ func TestExportImageSVG(t *testing.T) {
 	createRect(t, s, "a")
 	r := m.CallTool(t.Context(), "export_image", obj("rootId", "a", "format", "svg"), true)
 	if r.Bool("isError") {
-		t.Fatalf("%s", r)
+		t.Fatalf("%v", r)
 	}
 	text := r.Arr("content")[0].(*jsonv.Object).Str("text")
 	sc := r.Obj("structuredContent")
 	if !strings.HasPrefix(text, "<svg") || sc.Str("format") != "svg" || sc.Str("mimeType") != "image/svg+xml" {
-		t.Fatalf("%s %s", text, sc)
+		t.Fatalf("%v %v", text, sc)
 	}
 }
