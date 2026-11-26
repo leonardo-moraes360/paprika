@@ -41,7 +41,8 @@ export function ExportImage({ formats, format, onFormatChange, vector = false, s
         value={format}
         onValueChange={(next) => next && onFormatChange(next)}
         stretch
-        className="h-7 gap-0.5 bg-field-bg p-0.5"
+        size="sm"
+        className="gap-0.5 bg-field-bg p-0.5"
         indicatorClassName="bg-panel"
       >
         {formats.map((option) => (
@@ -60,7 +61,8 @@ export function ExportImage({ formats, format, onFormatChange, vector = false, s
             value={scale}
             onValueChange={(next) => next && onScaleChange(next)}
             stretch
-            className="h-7 gap-1.5 rounded-none border-0 bg-transparent p-0"
+            size="sm"
+            className="gap-1.5 rounded-none border-0 bg-transparent p-0"
             indicatorClassName="rounded-md border-2 border-select bg-field-bg"
           >
             {scales.map((option) => (
