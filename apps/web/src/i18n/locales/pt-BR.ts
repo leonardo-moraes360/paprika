@@ -10,6 +10,10 @@ export const ptBR: Translation = {
   common: {
     working: "Processando",
   },
+  notifications: {
+    label: "Notificações",
+    close: "Fechar notificação",
+  },
   notFound: {
     title: "Página não encontrada",
     home: "Voltar ao início",
