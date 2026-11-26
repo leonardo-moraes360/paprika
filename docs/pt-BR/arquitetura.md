@@ -68,3 +68,4 @@ O `server/` é o único servidor; o servidor TypeScript do qual ele foi portado 
 - [ADR 0003: Tailwind CSS na interface do app do canvas](adr/0003-tailwind-css.md): aceito; Tailwind v4 sem Preflight, para o CSS do app nunca mudar como um documento é renderizado.
 - [ADR 0004: Sincronização P2P de time (Iroh, Loro, sidecar em Rust)](adr/0004-sincronizacao-p2p-de-time.md): aceito; protocolo em [sincronizacao-time.md](sincronizacao-time.md).
 - [ADR 0005: componentes shadcn sobre o tema fechado do Paprika](adr/0005-shadcn-ui.md): aceito; emenda o ADR 0003 — componentes copiados em `apps/web/src/components/ui/`, tokens semânticos `ui-*`, continua sem Preflight.
+- [ADR 0008: Abrir o workspace uma página por vez](adr/0008-snapshot-por-pagina.md): proposto; o snapshot de abertura leva a página aberta e os másters que ela usa, as outras páginas sob demanda, aditivo ao contrato do `/ws`.
