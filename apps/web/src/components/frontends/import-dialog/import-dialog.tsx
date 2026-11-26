@@ -39,6 +39,7 @@ export function ImportDialog({
   });
   const [failure, setFailure] = useState<string | null>(null);
   const reads = useRef(new Map<string, Read>());
+  const controllers = useRef(new Map<string, AbortController>());
   const counter = useRef(0);
   const tab = controlledTab ?? innerTab;
 
@@ -47,8 +48,17 @@ export function ImportDialog({
     setEntries([]);
     setSelection({ libraries: new Set(), workspaces: new Set(), projects: new Set() });
     setFailure(null);
+    for (const controller of controllers.current.values()) controller.abort();
+    controllers.current.clear();
     reads.current.clear();
   }, [open]);
+
+  useEffect(() => {
+    const active = controllers.current;
+    return () => {
+      for (const controller of active.values()) controller.abort();
+    };
+  }, []);
 
   const patch = (key: string, change: Partial<FileEntry>) =>
     setEntries((current) => current.map((entry) => (entry.key === key ? { ...entry, ...change } : entry)));
@@ -58,12 +68,18 @@ export function ImportDialog({
     setEntries((current) => [...current, ...created]);
     for (const entry of created) {
       if (entry.status !== "reading") continue;
-      readText(entry.file, (ratio) => patch(entry.key, { progress: ratio }))
+      const controller = new AbortController();
+      controllers.current.set(entry.key, controller);
+      readText(entry.file, (ratio) => patch(entry.key, { progress: ratio }), controller.signal)
         .then((text) => {
+          if (controller.signal.aborted) return;
+          controllers.current.delete(entry.key);
           reads.current.set(entry.key, { text });
           patch(entry.key, { status: "done", progress: undefined });
         })
         .catch(() => {
+          if (controller.signal.aborted) return;
+          controllers.current.delete(entry.key);
           reads.current.set(entry.key, { failed: true });
           patch(entry.key, { status: "error", progress: undefined, reason: t("frontends.importDialog.files.readFail") });
         });
@@ -86,6 +102,8 @@ export function ImportDialog({
   };
 
   const remove = (key: string) => {
+    controllers.current.get(key)?.abort();
+    controllers.current.delete(key);
     reads.current.delete(key);
     setEntries((current) => current.filter((entry) => entry.key !== key));
   };
@@ -103,7 +121,10 @@ export function ImportDialog({
 
   const submit = async () => {
     try {
-      if (sourceTab) await onImport({ source: sourceTab, ids: [...(picked ?? [])] });
+      if (sourceTab) {
+        const present = new Set((sources[sourceTab]?.items ?? []).map((item) => item.id));
+        await onImport({ source: sourceTab, ids: [...(picked ?? [])].filter((id) => present.has(id)) });
+      }
       else await onImport({ source: "files", files: ready.map((entry) => ({ file: entry.file, text: reads.current.get(entry.key)?.text })) });
       setFailure(null);
       onOpenChange(false);
@@ -112,10 +133,11 @@ export function ImportDialog({
     }
   };
 
-  const canSubmit = sourceTab ? (picked?.size ?? 0) > 0 : ready.length > 0 && !busy;
+  const pickedCount = sourceTab && picked ? [...picked].filter((id) => sources[sourceTab]?.items.some((item) => item.id === id)).length : 0;
+  const canSubmit = sourceTab ? pickedCount > 0 : ready.length > 0 && !busy;
   const submitLabel = sourceTab
-    ? picked && picked.size > 0
-      ? t(`frontends.importDialog.actions.${sourceTab}`, { count: picked.size })
+    ? pickedCount > 0
+      ? t(`frontends.importDialog.actions.${sourceTab}`, { count: pickedCount })
       : t("frontends.importDialog.actions.importAction")
     : t("frontends.importDialog.actions.placeOnCanvas");
 
