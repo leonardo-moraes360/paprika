@@ -101,6 +101,49 @@ describe("Toolbar", () => {
     expect(onValueChange).toHaveBeenCalledWith("ellipse");
   });
 
+  it("listens on the element the toolbar is docked in when the owner passes no target", async () => {
+    const user = userEvent.setup();
+    const { onValueChange } = setup();
+    const stage = screen.getByTestId("stage");
+    stage.tabIndex = 0;
+    stage.focus();
+    await user.keyboard("t");
+    expect(onValueChange).toHaveBeenCalledWith("text");
+  });
+
+  it("leaves the browser shortcuts alone for the actions the owner did not wire", () => {
+    const { onHistory } = setup({ onImport: undefined, onExport: undefined, onUndo: undefined });
+    tool("Select").focus();
+    const press = (key: string) => {
+      const event = new KeyboardEvent("keydown", { key, ctrlKey: true, bubbles: true, cancelable: true });
+      tool("Select").dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(press("o")).toBe(false);
+    expect(press("e")).toBe(false);
+    expect(press("z")).toBe(false);
+    expect(press("h")).toBe(true);
+    expect(onHistory).toHaveBeenCalledOnce();
+  });
+
+  it("opens the position menu from the grip with Enter and moves the dock from the keyboard", async () => {
+    const user = userEvent.setup();
+    const { onDockChange } = setup();
+    tool("Move toolbar").focus();
+    await user.keyboard("{Enter}");
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByText("Toolbar position")).toBeInTheDocument();
+    await user.click(within(menu).getByRole("menuitemradio", { name: "Left" }));
+    expect(onDockChange).toHaveBeenCalledWith("left");
+  });
+
+  it("does not open the position menu when the grip is clicked with the mouse", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(tool("Move toolbar"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
   it("turns the keys off with shortcuts=false", async () => {
     const user = userEvent.setup();
     const { onValueChange } = setup({ shortcuts: false });

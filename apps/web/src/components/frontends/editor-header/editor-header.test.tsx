@@ -93,7 +93,7 @@ describe("EditorHeader", () => {
     const user = userEvent.setup();
     const change = vi.spyOn(i18n, "changeLanguage");
     const { onLanguageChange } = setup();
-    const trigger = screen.getByRole("button", { name: "Language" });
+    const trigger = screen.getByRole("button", { name: "Language: EN" });
     expect(trigger).toHaveTextContent("EN");
     await user.click(trigger);
     await user.click(screen.getByRole("menuitemradio", { name: "Português (Brasil)" }));
@@ -107,7 +107,7 @@ describe("EditorHeader", () => {
   it("marks the current language and shows its short code", async () => {
     const user = userEvent.setup();
     setup({ language: "pt-BR" });
-    const trigger = screen.getByRole("button", { name: "Language" });
+    const trigger = screen.getByRole("button", { name: "Language: PT" });
     expect(trigger).toHaveTextContent("PT");
     await user.click(trigger);
     expect(screen.getByRole("menuitemradio", { name: "Português (Brasil)" })).toBeChecked();
@@ -139,7 +139,7 @@ describe("EditorHeader", () => {
         <EditorHeader path={path} connected language="en" theme="dark" onLanguageChange={vi.fn()} onThemeChange={vi.fn()} />
       </div>,
     );
-    await user.click(screen.getByRole("button", { name: "Language" }));
+    await user.click(screen.getByRole("button", { name: "Language: EN" }));
     expect(screen.getByRole("menuitemradio", { name: "English" })).toBeInTheDocument();
   });
 });

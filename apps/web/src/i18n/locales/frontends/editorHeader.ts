@@ -14,7 +14,7 @@ export const editorHeaderEn = {
   teamShow: "Show team {{name}}",
   connected: "Connected",
   disconnected: "Disconnected",
-  language: "Language",
+  languageCurrent: "Language: {{code}}",
 };
 
 export const editorHeaderPtBR = {
@@ -33,5 +33,5 @@ export const editorHeaderPtBR = {
   teamShow: "Mostrar o time {{name}}",
   connected: "Conectado",
   disconnected: "Desconectado",
-  language: "Idioma",
+  languageCurrent: "Idioma: {{code}}",
 };
