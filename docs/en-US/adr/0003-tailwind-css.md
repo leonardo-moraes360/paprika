@@ -5,11 +5,11 @@
 - **Status:** Accepted, amended by ADR 0005
 - **Date:** 2026-11-21 (amended 2026-11-22)
 - **Amended by:** [ADR 0005: shadcn components on Paprika's closed theme](0005-shadcn-ui.md) — the constraints below stay; that ADR adds how a component library lives under them.
-- **Code:** [`apps/web/src/styles.css`](../../../apps/web/src/styles.css) (theme), [`apps/web/src/ui.ts`](../../../apps/web/src/ui.ts) (shared class lists), [`apps/web/vite.config.ts`](../../../apps/web/vite.config.ts)
+- **Code:** [`web-legacy/src/styles.css`](../../../web-legacy/src/styles.css) (theme), [`web-legacy/src/ui.ts`](../../../web-legacy/src/ui.ts) (shared class lists), [`web-legacy/vite.config.ts`](../../../web-legacy/vite.config.ts)
 
 ## Context
 
-The app UI (`apps/web`: workspace overview, top bar, toolbar, layer and page panels, inspector, resizable
+The app UI (`web-legacy`: workspace overview, top bar, toolbar, layer and page panels, inspector, resizable
 panels, selection overlays, agent cursors) was styled by two hand-written stylesheets, `styles.css` (920 lines)
 and `AgentCursors.css`, with global class names. The maintainer asked to replace that with Tailwind CSS at its
 latest version, keeping the current look.

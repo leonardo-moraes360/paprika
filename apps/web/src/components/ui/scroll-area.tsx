@@ -1,37 +1,30 @@
+import {
+  ScrollArea as ScrollAreaPrimitive,
+  ScrollAreaContent,
+  ScrollAreaScrollbar,
+  ScrollAreaThumb,
+  ScrollAreaViewport,
+} from "@ui-sdk/react/scroll-area";
 import type { ComponentProps } from "react";
-import { ScrollArea as ScrollAreaPrimitive } from "radix-ui";
-import { cn } from "../../lib/cn";
+import { cn, focusRing } from "@/lib/utils";
 
-export function ScrollArea({ className, children, ...props }: ComponentProps<typeof ScrollAreaPrimitive.Root>) {
-  return (
-    <ScrollAreaPrimitive.Root data-slot="scroll-area" className={cn("relative overflow-hidden", className)} {...props}>
-      <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
-        {children}
-      </ScrollAreaPrimitive.Viewport>
-      <ScrollBar />
-      <ScrollAreaPrimitive.Corner />
-    </ScrollAreaPrimitive.Root>
-  );
-}
+export type ScrollAreaProps = ComponentProps<typeof ScrollAreaPrimitive> & {
+  label?: string;
+  viewportClassName?: string;
+};
 
-export function ScrollBar({
-  className,
-  orientation = "vertical",
-  ...props
-}: ComponentProps<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>) {
+export function ScrollArea({ className, viewportClassName, label, children, type = "auto", ...props }: ScrollAreaProps) {
   return (
-    <ScrollAreaPrimitive.ScrollAreaScrollbar
-      data-slot="scroll-area-bar"
-      orientation={orientation}
-      className={cn(
-        "flex touch-none select-none transition-colors",
-        orientation === "vertical" && "h-full w-2.5 border-l border-l-transparent p-px",
-        orientation === "horizontal" && "h-2.5 flex-col border-t border-t-transparent p-px",
-        className,
-      )}
-      {...props}
-    >
-      <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-ui-muted-foreground/60" />
-    </ScrollAreaPrimitive.ScrollAreaScrollbar>
+    <ScrollAreaPrimitive type={type} className={cn("relative min-h-0 overflow-hidden", className)} {...props}>
+      <ScrollAreaViewport role={label ? "region" : undefined} aria-label={label} className={cn("size-full rounded-sm", focusRing, viewportClassName)}>
+        <ScrollAreaContent>{children}</ScrollAreaContent>
+      </ScrollAreaViewport>
+      <ScrollAreaScrollbar
+        orientation="vertical"
+        className="absolute inset-y-0 right-0 w-1.5 rounded-[3px] bg-line transition-opacity motion-reduce:transition-none not-data-visible:opacity-0 forced-colors:border forced-colors:bg-[Canvas]"
+      >
+        <ScrollAreaThumb className="w-full rounded-[3px] bg-field forced-colors:bg-[CanvasText]" />
+      </ScrollAreaScrollbar>
+    </ScrollAreaPrimitive>
   );
 }

@@ -28,7 +28,8 @@ pnpm --filter @paprika/e2e exec playwright install chromium
 packages/core     modelo (zod), applyOps atômico, History, nodeStyle, render/export, lint, outline
 server/        o servidor (Go + SQLite): MCP (stdio e HTTP), WebSocket, API HTTP, screenshot, CLI
 packages/e2e      suítes black-box contra o binário do servidor: API MCP/HTTP/WS e E2E do canvas (Playwright); fixtures/ guarda os documentos de exemplo (demo gerada via MCP por scripts/seed-demo.mjs)
-apps/web          canvas React + Vite (`src/i18n/`: strings en + pt-BR, detecção/troca de idioma)
+web-legacy       canvas React + Vite, o app que o servidor serve (`src/i18n/`: strings en + pt-BR, detecção/troca de idioma)
+apps/web          app novo em construção (TanStack Start); ainda não servido nem coberto por E2E
 apps/site         landing page (desenhada no Paprika) + site de docs, publicados em paprika.js.org
 ```
 
@@ -42,7 +43,8 @@ O servidor fica em `server/` e guarda documentos, tokens e o histórico de undo/
 
 ```bash
 pnpm check        # build + typecheck + fixtures em dia + testes unitários e Go + suítes da API e E2E
-pnpm dev          # servidor com o demo (dev.db, recriado ao iniciar); em outro terminal: pnpm --filter @paprika/web dev
+pnpm dev          # servidor com o demo (dev.db, recriado ao iniciar); em outro terminal: pnpm --filter @paprika/web-legacy dev
+pnpm --filter @paprika/web dev   # app novo (TanStack Start, modo SPA), em construção; mesmo proxy para o servidor
 pnpm test:api     # suíte black-box MCP/HTTP/WS contra server/bin/paprika
 pnpm test:e2e     # E2E do canvas (Playwright) contra server/bin/paprika
 pnpm test:render  # renderizador Rust (crates/render): testes nativos com vello_cpu

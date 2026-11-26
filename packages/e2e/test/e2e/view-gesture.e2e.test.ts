@@ -5,7 +5,7 @@ import type { Page } from "playwright";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { callTool, closeSeededCanvas, connectAgent, openSeededCanvas, repoRoot, webDist, type CanvasSession } from "./seededCanvas.js";
 
-const wasmBuilt = existsSync(join(repoRoot, "apps/web/src/wasm/paprika_render.js"));
+const wasmBuilt = existsSync(join(repoRoot, "web-legacy/src/wasm/paprika_render.js"));
 
 type Probe = { renders: number; nodes: number };
 

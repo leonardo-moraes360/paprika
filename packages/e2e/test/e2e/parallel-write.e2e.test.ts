@@ -10,7 +10,7 @@ import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "apps/web/dist");
+const webRoot = join(root, "web-legacy/dist");
 const sessions = 6;
 const writesEach = 8;
 

@@ -76,7 +76,7 @@ After a CLI join, an MCP client can reuse the session without a new invite: `tb 
 The first backlog slice ([backlog.md](backlog.md)) is fully merged, so no path is reserved for a cloud thread right now. The split is per task instead:
 
 - **Lane A** (cloud Claude threads) is whatever paths an open cloud pull request touches. Before assigning, the supervisor checks the open PRs (`gh pr list`) and keeps their files out of bus tasks.
-- **Lane B** (bus agents) takes any task whose `paths` don't overlap lane A or another open claim, anywhere in the repository (`apps/**`, `packages/**`, `server/**`, `crates/**`, `.github/**`, docs).
+- **Lane B** (bus agents) takes any task whose `paths` don't overlap lane A or another open claim, anywhere in the repository (`apps/**`, `web-legacy/**`, `packages/**`, `server/**`, `crates/**`, `.github/**`, docs).
 
 When a new cloud slice starts, the maintainer lists its paths here as lane A until it merges.
 
@@ -92,7 +92,7 @@ A bus agent that needs a path outside its task's `paths` sends a `query` to `age
      "title": "Eyedropper helper",
      "base": "main",
      "branch": "agent/<name>/PAP-B-001",
-     "paths": ["apps/web/src/eyedropper.ts", "apps/web/test/eyedropper.test.ts"],
+     "paths": ["web-legacy/src/eyedropper.ts", "web-legacy/test/eyedropper.test.ts"],
      "acceptance": ["pnpm check passes", "docs EN + pt-BR updated"]
    }
    ```

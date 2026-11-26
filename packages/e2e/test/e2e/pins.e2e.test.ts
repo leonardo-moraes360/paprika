@@ -5,7 +5,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { repoRoot, startServer, waitFor, type ExternalServer } from "../harness.js";
 import { pinLocale } from "./locale.js";
 
-const webRoot = join(repoRoot, "apps/web/dist");
+const webRoot = join(repoRoot, "web-legacy/dist");
 const NODE = '[data-paprika-id="plano"]';
 
 type Pin = { id: string; n: number; nodeId?: string; region: { x: number; y: number; width: number; height: number }; text: string; status: string; reply?: string };

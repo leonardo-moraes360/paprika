@@ -1,106 +1,173 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { Info, Undo2, X } from "lucide-react";
-import { useT } from "../../i18n";
-import { cn } from "../../lib/cn";
-import { dismissToast, TOAST_MS, useToast, type ToastItem } from "../../lib/toast";
+import { Toast, ToastAction, ToastClose, ToastDescription, ToastRegion, ToastTitle, type Toaster } from "@ui-sdk/react/toast";
+import { Undo2, X } from "lucide-react";
+import { useEffect, useState, type ComponentProps, type CSSProperties, type ReactNode } from "react";
+import { cn } from "@/lib/utils";
 import { Button } from "./button";
+import { IconButton } from "./icon-button";
+import { StatusIcon, type Status } from "./status-icon";
 
-export function KeyHint({ children }: { children: ReactNode }) {
+export type ToastStatus = Status;
+
+export type StatusToastData = { kind: "status"; status: ToastStatus; timeBar: boolean };
+export type UndoToastData = { kind: "undo"; icon?: ReactNode; shortcut?: ReactNode };
+export type PaprikaToastData = StatusToastData | UndoToastData;
+
+const barTones: Record<ToastStatus, string> = {
+  danger: "bg-red-ink",
+  warning: "bg-warn",
+  info: "bg-select",
+  success: "bg-green-ink",
+};
+
+const statusOfType: Record<string, ToastStatus> = { error: "danger", warning: "warning", success: "success", info: "info" };
+
+const surfaceClasses =
+  "relative flex w-full flex-col overflow-hidden rounded-popup border border-line bg-popover text-fg shadow-popover forced-colors:border-2";
+
+const shellKinds = {
+  status: { body: "gap-3 py-3 pr-2 pl-3", text: "pt-1", title: "font-semibold" },
+  undo: { body: "gap-2.5 py-3 pr-2 pl-3.5", text: "", title: "font-normal" },
+};
+
+export type ToastShellProps = Omit<ComponentProps<"div">, "title"> & {
+  kind?: keyof typeof shellKinds;
+  leading: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+  close?: ReactNode;
+  timeBar?: ReactNode;
+};
+
+export function ToastShell({ kind = "status", leading, title, description, actions, close, timeBar, className, ...props }: ToastShellProps) {
+  const shape = shellKinds[kind];
   return (
-    <kbd className="rounded-sm border border-ui-border px-1.5 py-px font-sans text-2xs font-semibold text-ui-muted-foreground">{children}</kbd>
+    <div className={cn(surfaceClasses, className)} {...props}>
+      <div className={cn("flex items-start", shape.body)}>
+        {leading}
+        <div className={cn("flex min-w-0 flex-1 flex-col gap-0.5", shape.text)}>
+          <div className={cn("text-sm leading-[1.45] text-fg", shape.title)}>{title}</div>
+          {description ? <div className="text-xs leading-[1.45] text-muted empty:hidden">{description}</div> : null}
+          {actions ? <div className="flex items-center gap-2 pt-2">{actions}</div> : null}
+        </div>
+        {close}
+      </div>
+      {timeBar}
+    </div>
   );
 }
 
-export interface ToastViewProps {
-  message: string;
-  tone?: "undo" | "info";
-  action?: { label: string; onAction: () => void };
-  hint?: string[];
-  closeLabel: string;
-  onClose: () => void;
-  className?: string;
+export type ToastTimeBarProps = {
+  status: ToastStatus;
+  duration?: number;
+  progress?: number;
+  paused?: boolean;
+};
+
+export function ToastTimeBar({ status, duration, progress = 1, paused = false }: ToastTimeBarProps) {
+  const style: CSSProperties =
+    duration === undefined
+      ? { transform: `scaleX(${progress})` }
+      : { animation: `paprika-toast-time ${duration}ms linear forwards`, animationPlayState: paused ? "paused" : undefined };
+  return (
+    <div aria-hidden="true" className="h-[3px] w-full bg-surface motion-reduce:hidden">
+      <style href="paprika-toast-time" precedence="default">{"@keyframes paprika-toast-time{from{transform:scaleX(1)}to{transform:scaleX(0)}}"}</style>
+      <div className={cn("h-full origin-left group-data-expanded/toast:[animation-play-state:paused]", barTones[status])} style={style} />
+    </div>
+  );
 }
 
-export function ToastView({ message, tone = "info", action, hint, closeLabel, onClose, className }: ToastViewProps) {
-  const Icon = tone === "undo" ? Undo2 : Info;
+function useWindowInactive() {
+  const [inactive, setInactive] = useState(false);
+  useEffect(() => {
+    const sync = () => setInactive(document.visibilityState === "hidden" || !document.hasFocus());
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    window.addEventListener("blur", sync);
+    window.addEventListener("focus", sync);
+    return () => {
+      document.removeEventListener("visibilitychange", sync);
+      window.removeEventListener("blur", sync);
+      window.removeEventListener("focus", sync);
+    };
+  }, []);
+  return inactive;
+}
+
+export type StatusToastRegionProps = {
+  toaster: Toaster<ReactNode>;
+  closeLabel: string;
+  pendingAnnouncement: string;
+  "aria-label": string;
+  maxVisible?: number;
+  side?: "top" | "bottom";
+  align?: "start" | "center" | "end";
+  shortcut?: string | null;
+  className?: string;
+};
+
+const itemClasses =
+  "group/toast absolute inset-x-0 bottom-0 z-[calc(100-var(--toast-index))] h-(--toast-height) [--y:calc(var(--toast-index)*-8px)] [scale:calc(1-var(--toast-index)*0.04)] [translate:var(--toast-swipe-x,0px)_calc(var(--y)+var(--toast-swipe-y,0px))] transition-[translate,scale,opacity,height] duration-300 motion-reduce:transition-[opacity] data-swiping:transition-none data-expanded:[--y:calc(-1*(var(--toast-offset)+var(--toast-index)*8px))] data-expanded:[scale:1] not-data-front:not-data-expanded:h-(--toast-front-height) not-data-front:not-data-expanded:overflow-hidden data-starting-style:transition-none data-starting-style:data-front:[--y:100%] data-starting-style:not-data-front:opacity-0 data-ending-style:opacity-0 list-none";
+
+export function StatusToastRegion({ toaster, closeLabel, pendingAnnouncement, maxVisible = 3, side = "bottom", align = "center", className, shortcut, ...props }: StatusToastRegionProps) {
+  const inactive = useWindowInactive();
   return (
-    <div
-      data-slot="toast"
+    <ToastRegion
+      toaster={toaster}
+      maxVisible={maxVisible}
+      side={side}
+      align={align}
+      shortcut={shortcut}
+      pendingAnnouncement={pendingAnnouncement}
       className={cn(
-        "pointer-events-auto grid grid-cols-[auto_1fr_auto] items-start gap-x-3 gap-y-2 rounded-lg border border-ui-border bg-ui-popover p-3 text-ui-popover-foreground shadow-float",
-        "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2",
+        "w-90 max-w-[calc(100vw-2rem)] h-(--toast-front-height) data-expanded:h-[calc(var(--toast-stack-height)+(var(--toast-count)-1)*8px)]",
         className,
       )}
+      {...props}
     >
-      <Icon className="mt-0.5 size-5 shrink-0" strokeWidth={1.75} aria-hidden />
-      <p className="toast-message m-0 text-md leading-snug">{message}</p>
-      <Button className="-mt-1 -mr-1 size-6 border-0" variant="ghost" size="icon" aria-label={closeLabel} onClick={onClose}>
-        <X aria-hidden />
-      </Button>
-      {action && (
-        <div className="col-start-2 col-end-4 flex items-center gap-2">
-          <Button className="toast-action" variant="outline" size="sm" onClick={action.onAction}>
-            {action.label}
-          </Button>
-          {hint?.map((k) => <KeyHint key={k}>{k}</KeyHint>)}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Timed({ item }: { item: ToastItem }) {
-  const m = useT();
-  const paused = useRef(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const arm = () => {
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => dismissToast(item.id), TOAST_MS);
-  };
-  useEffect(() => {
-    paused.current = false;
-    arm();
-    return () => clearTimeout(timer.current);
-  }, [item.id]);
-  const pause = () => {
-    paused.current = true;
-    clearTimeout(timer.current);
-  };
-  const resume = (e: { currentTarget: Element; relatedTarget: EventTarget | null }) => {
-    if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return;
-    paused.current = false;
-    arm();
-  };
-  return (
-    <div data-testid="toast" onMouseEnter={pause} onMouseLeave={resume} onFocus={pause} onBlur={resume}>
-      <ToastView
-        message={item.message}
-        tone={item.tone}
-        hint={item.hint}
-        closeLabel={m.toastDismiss}
-        action={
-          item.action
-            ? {
-                label: item.action.label,
-                onAction: () => {
-                  const run = item.action!.run;
-                  dismissToast(item.id);
-                  run();
-                },
+      {(item) => {
+        const data = item.data as PaprikaToastData | undefined;
+        const undo = data?.kind === "undo";
+        const status: ToastStatus = data?.kind === "status" ? data.status : (statusOfType[item.type] ?? "info");
+        return (
+          <Toast className={itemClasses}>
+            <ToastShell
+              kind={undo ? "undo" : "status"}
+              className="h-full"
+              role={undefined}
+              leading={
+                undo ? (
+                  <span aria-hidden="true" className="mt-0.5 inline-flex h-5 w-[18px] shrink-0 items-center justify-center text-fg [&_svg]:size-[18px]">
+                    {data.icon ?? <Undo2 />}
+                  </span>
+                ) : (
+                  <StatusIcon status={status} />
+                )
               }
-            : undefined
-        }
-        onClose={() => dismissToast(item.id)}
-      />
-    </div>
-  );
-}
-
-export function ToastHost({ className }: { className?: string }) {
-  const item = useToast();
-  return (
-    <div role="status" aria-live="polite" className={cn("pointer-events-none absolute bottom-4 left-1/2 z-40 w-[min(440px,calc(100%-2rem))] -translate-x-1/2", className)}>
-      {item && <Timed key={item.id} item={item} />}
-    </div>
+              title={<ToastTitle />}
+              description={<ToastDescription />}
+              actions={
+                item.action ? (
+                  <>
+                    <ToastAction render={<Button variant="secondary" size="sm" pendingAnnouncement={pendingAnnouncement} />} />
+                    {undo ? data.shortcut : null}
+                  </>
+                ) : null
+              }
+              close={
+                <ToastClose render={<IconButton aria-label={closeLabel} size="xs" />}>
+                  <X aria-hidden="true" />
+                </ToastClose>
+              }
+              timeBar={
+                data?.kind === "status" && data.timeBar && item.duration !== Infinity ? (
+                  <ToastTimeBar status={status} duration={item.duration} paused={inactive} />
+                ) : null
+              }
+            />
+          </Toast>
+        );
+      }}
+    </ToastRegion>
   );
 }

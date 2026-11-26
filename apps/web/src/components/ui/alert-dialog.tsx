@@ -1,82 +1,77 @@
-import type { ComponentProps } from "react";
-import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
-import { cn } from "../../lib/cn";
-import { buttonVariants } from "./button";
+import {
+  AlertDialog as AlertDialogPrimitive,
+  AlertDialogBackdrop,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@ui-sdk/react/alert-dialog";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { Button } from "./button";
+import { dialogBackdropClasses, dialogSurfaceClasses } from "./overlay-surface";
+import { StatusIcon, type Status } from "./status-icon";
 
-export const AlertDialog = AlertDialogPrimitive.Root;
-export const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
-export const AlertDialogPortal = AlertDialogPrimitive.Portal;
+type AlertDialogBaseProps = Omit<ComponentProps<typeof AlertDialogPrimitive>, "children" | "pendingAnnouncement"> & {
+  pendingAnnouncement: string;
+  title: ReactNode;
+  description?: ReactNode;
+  children?: ReactNode;
+  trigger?: ReactElement;
+  confirmLabel: ReactNode;
+  extra?: ReactNode;
+  onConfirm?: (event: Event | undefined, details: { source: string }) => unknown;
+  contentProps?: Omit<ComponentProps<typeof AlertDialogContent>, "children" | "className">;
+  className?: string;
+};
 
-export function AlertDialogOverlay({ className, ...props }: ComponentProps<typeof AlertDialogPrimitive.Overlay>) {
+export type AlertDialogProps = AlertDialogBaseProps &
+  ({ status?: "danger"; cancelLabel: ReactNode } | { status: Exclude<Status, "danger">; cancelLabel?: ReactNode });
+
+export function AlertDialog({
+  status = "danger",
+  title,
+  description,
+  children,
+  trigger,
+  confirmLabel,
+  cancelLabel,
+  extra,
+  onConfirm,
+  pendingAnnouncement,
+  contentProps,
+  className,
+  ...props
+}: AlertDialogProps) {
   return (
-    <AlertDialogPrimitive.Overlay
-      data-slot="alert-dialog-overlay"
-      className={cn(
-        "fixed inset-0 z-50 bg-ui-overlay data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-export function AlertDialogContent({ className, ...props }: ComponentProps<typeof AlertDialogPrimitive.Content>) {
-  return (
-    <AlertDialogPortal>
-      <AlertDialogOverlay />
-      <AlertDialogPrimitive.Content
-        data-slot="alert-dialog-content"
-        className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-full max-w-[420px] -translate-x-1/2 -translate-y-1/2 gap-3 rounded-lg border border-ui-border bg-ui-popover p-4 text-ui-popover-foreground shadow-float duration-200",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
-          className,
-        )}
-        {...props}
-      />
-    </AlertDialogPortal>
-  );
-}
-
-export function AlertDialogHeader({ className, ...props }: ComponentProps<"div">) {
-  return <div data-slot="alert-dialog-header" className={cn("flex flex-col gap-1.5 text-left", className)} {...props} />;
-}
-
-export function AlertDialogFooter({ className, ...props }: ComponentProps<"div">) {
-  return (
-    <div data-slot="alert-dialog-footer" className={cn("flex flex-row items-center justify-end gap-2", className)} {...props} />
-  );
-}
-
-export function AlertDialogTitle({ className, ...props }: ComponentProps<typeof AlertDialogPrimitive.Title>) {
-  return (
-    <AlertDialogPrimitive.Title
-      data-slot="alert-dialog-title"
-      className={cn("m-0 text-md font-bold leading-none tracking-tight", className)}
-      {...props}
-    />
-  );
-}
-
-export function AlertDialogDescription({ className, ...props }: ComponentProps<typeof AlertDialogPrimitive.Description>) {
-  return (
-    <AlertDialogPrimitive.Description
-      data-slot="alert-dialog-description"
-      className={cn("m-0 text-xs text-ui-muted-foreground", className)}
-      {...props}
-    />
-  );
-}
-
-export function AlertDialogAction({ className, ...props }: ComponentProps<typeof AlertDialogPrimitive.Action>) {
-  return <AlertDialogPrimitive.Action data-slot="alert-dialog-action" className={cn(buttonVariants({ size: "sm" }), className)} {...props} />;
-}
-
-export function AlertDialogCancel({ className, ...props }: ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
-  return (
-    <AlertDialogPrimitive.Cancel
-      data-slot="alert-dialog-cancel"
-      className={cn(buttonVariants({ variant: "outline", size: "sm" }), className)}
-      {...props}
-    />
+    <AlertDialogPrimitive pendingAnnouncement={pendingAnnouncement} {...props}>
+      {trigger ? <AlertDialogTrigger render={trigger} /> : null}
+      <AlertDialogBackdrop className={dialogBackdropClasses} />
+      <AlertDialogContent className={cn(dialogSurfaceClasses, "flex flex-col gap-4", className)} {...contentProps}>
+        <div className="flex items-center gap-3">
+          <StatusIcon status={status} size="lg" />
+          <AlertDialogTitle className="min-w-0 flex-1 text-[17px] leading-[1.3] font-bold text-fg">{title}</AlertDialogTitle>
+        </div>
+        {description ? (
+          <AlertDialogDescription className="text-base leading-normal text-muted">{description}</AlertDialogDescription>
+        ) : null}
+        {children ? <div className="flex flex-col gap-2">{children}</div> : null}
+        <div className="flex items-center gap-2">
+          {extra}
+          <span className="flex-1" />
+          {cancelLabel ? (
+            <AlertDialogClose render={<Button variant="secondary" pendingAnnouncement={pendingAnnouncement} />}>{cancelLabel}</AlertDialogClose>
+          ) : null}
+          <AlertDialogClose
+            value="confirm"
+            action={onConfirm}
+            render={<Button variant={status === "danger" ? "destructive" : "primary"} pendingAnnouncement={pendingAnnouncement} />}
+          >
+            {confirmLabel}
+          </AlertDialogClose>
+        </div>
+      </AlertDialogContent>
+    </AlertDialogPrimitive>
   );
 }

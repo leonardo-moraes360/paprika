@@ -22,7 +22,7 @@ The owner asked for the Paprika server to be reimplemented in Go, keeping the sa
 
 ## Consequences
 
-- The canvas (`apps/web`) is unchanged and still uses the TypeScript `nodeStyle`; the Go server serves its build.
+- The canvas (`web-legacy`) is unchanged and still uses the TypeScript `nodeStyle`; the Go server serves its build.
 - Any change to `packages/core` or to the MCP tools must be followed by `pnpm go:golden` and a passing `pnpm go:test`; `pnpm check:go` fails if the fixtures are stale.
 - The same black-box suites run against both servers: `packages/server/test/external/parity.test.ts` and the canvas E2E (`PAPRIKA_SERVER_BIN=…`).
 - Differences from the TypeScript server: storage (SQLite instead of the file), `/api/health` reports the database path in `file` plus `storage` and `docId`, the extra `GET /api/export`, `GET /mcp` answers 405 (stateless server, no standalone SSE stream), and the history keeps the entry when an undo fails instead of dropping it.

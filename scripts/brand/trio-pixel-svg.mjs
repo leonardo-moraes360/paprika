@@ -1,4 +1,4 @@
-import { copyFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { LOCKUP_GAP, THEMES, symbolLayers, wordmark } from "./trio-pixel.mjs";
 
@@ -55,5 +55,6 @@ out("wordmark-light.svg", wordmarkSvg(THEMES.light));
 out("lockup.svg", lockupSvg(THEMES.dark));
 out("lockup-light.svg", lockupSvg(THEMES.light));
 out("favicon.svg", icon(THEMES.dark, { selection: false }));
-copyFileSync(`${root}docs/en-US/brand/favicon.svg`, `${root}apps/web/public/icon.svg`);
-console.log("docs/en-US/brand: icon, icon-light, wordmark, wordmark-light, lockup, lockup-light, favicon; apps/web/public/icon.svg");
+const iconTargets = ["web-legacy/public", "apps/web/public"].filter((d) => d === "web-legacy/public" || existsSync(`${root}${d}`));
+for (const d of iconTargets) copyFileSync(`${root}docs/en-US/brand/favicon.svg`, `${root}${d}/icon.svg`);
+console.log(`docs/en-US/brand: icon, icon-light, wordmark, wordmark-light, lockup, lockup-light, favicon; ${iconTargets.map((d) => `${d}/icon.svg`).join(", ")}`);

@@ -23,7 +23,7 @@ Reporte de forma privada pelo **Private Vulnerability Reporting** do GitHub:
 
 Um bom relato traz:
 
-- o componente afetado (`server`, `packages/e2e`, `packages/core`, `apps/web`, `crates/…`) e o commit;
+- o componente afetado (`server`, `packages/e2e`, `packages/core`, `web-legacy`, `crates/…`) e o commit;
 - como o Paprika foi iniciado (comando, flags como `--host`, MCP por stdio ou HTTP);
 - passos para reproduzir ou uma prova de conceito;
 - o impacto esperado (o que o atacante ganha e de onde: mesma máquina, rede local, uma página aberta no navegador, um documento malicioso, um cliente MCP).

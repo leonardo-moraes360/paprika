@@ -1,44 +1,42 @@
+import { Button as ButtonPrimitive } from "@ui-sdk/react/button";
+import { LoaderCircle } from "lucide-react";
 import type { ComponentProps } from "react";
-import { Slot as SlotPrimitive } from "radix-ui";
-import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "../../lib/cn";
+import { focusRing, slot } from "@/lib/utils";
 
-export const buttonVariants = cva(
-  "inline-flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-sm font-semibold transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ring disabled:cursor-default disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-  {
-    variants: {
-      variant: {
-        default: "bg-ui-primary text-ui-primary-foreground hover:bg-ui-primary-hover",
-        secondary: "bg-ui-secondary text-ui-secondary-foreground hover:bg-ui-secondary-hover",
-        outline: "border border-ui-input bg-transparent text-ui-foreground hover:bg-ui-accent hover:text-ui-accent-foreground",
-        ghost: "bg-transparent text-ui-foreground hover:bg-ui-accent hover:text-ui-accent-foreground",
-        destructive: "bg-ui-destructive text-ui-destructive-foreground hover:bg-ui-destructive-hover",
-        link: "bg-transparent text-ui-link underline-offset-4 hover:underline",
-      },
-      size: {
-        xs: "h-6 gap-1 rounded-sm px-2 text-2xs",
-        sm: "h-7 px-2.5 text-xs",
-        default: "h-8 px-3",
-        lg: "h-9 px-4 text-md",
-        icon: "h-8 w-8 p-0",
-      },
-    },
-    defaultVariants: { variant: "default", size: "default" },
-  },
-);
+const variants = {
+  primary: "bg-action text-on-action not-data-pending:not-data-disabled:hover:bg-action-hover",
+  secondary: "border border-field bg-bg text-fg not-data-pending:not-data-disabled:hover:bg-surface",
+  ghost: "text-fg not-data-pending:not-data-disabled:hover:bg-surface",
+  destructive:
+    "border-[1.5px] border-red-ink bg-panel text-red-ink not-data-pending:not-data-disabled:hover:bg-red-soft not-data-pending:not-data-disabled:hover:text-red-soft-ink",
+};
 
-export type ButtonProps = ComponentProps<"button"> & VariantProps<typeof buttonVariants> & { asChild?: boolean };
+const sizes = {
+  md: "h-9 px-4.5 text-base",
+  sm: "h-7 px-4.5 text-base",
+};
 
-export function Button({ className, variant, size, asChild = false, ...props }: ButtonProps) {
-  const classes = cn(buttonVariants({ variant, size, className }));
-  if (asChild) {
-    return (
-      <SlotPrimitive.Root data-slot="button" className={classes} {...(props as ComponentProps<typeof SlotPrimitive.Root>)} />
-    );
-  }
+export type ButtonProps = ComponentProps<typeof ButtonPrimitive> & {
+  variant?: keyof typeof variants;
+  size?: keyof typeof sizes;
+};
+
+export function Button({ className, children, variant = "primary", size = "md", pendingAnnouncement = "", ...props }: ButtonProps) {
   return (
-    <button type="button" data-slot="button" className={classes} {...props}>
-      {props.children}
-    </button>
+    <ButtonPrimitive
+      pendingAnnouncement={pendingAnnouncement}
+      className={slot(
+        `group/button inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg font-semibold whitespace-nowrap transition-colors motion-reduce:transition-none data-disabled:cursor-not-allowed data-disabled:opacity-50 data-pending:cursor-wait forced-colors:border forced-colors:data-disabled:opacity-100 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 ${focusRing} ${variants[variant]} ${sizes[size]}`,
+        className,
+      )}
+      {...props}
+    >
+      {(state) => (
+        <>
+          <LoaderCircle aria-hidden="true" className="hidden size-4 animate-spin group-data-pending/button:block motion-reduce:animate-none" />
+          {typeof children === "function" ? children(state) : children}
+        </>
+      )}
+    </ButtonPrimitive>
   );
 }

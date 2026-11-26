@@ -37,7 +37,8 @@ export function planFor(files, { ciFull = false } = {}) {
   const core = area(/^packages\/core\//);
   const e2e = area(/^packages\/e2e\//);
   const rust = area(/^crates\/render\//);
-  const web = area(/^apps\/web\//) || rust;
+  const web = area(/^web-legacy\//) || rust;
+  const app = area(/^apps\/web\//);
   const go = area(/^server\//);
   const sync = area(/^crates\/sync\//) || go;
   const actions = area(/^\.github\//);
@@ -50,7 +51,7 @@ export function planFor(files, { ciFull = false } = {}) {
   if (core || e2e || web || go) suites.push({ suite: "e2e" });
   if (core || e2e || go) suites.push({ suite: "api" });
 
-  const ts = core || e2e || web;
+  const ts = core || e2e || web || app;
   const golden = core || go;
   const build = ts || go || unit.length > 0 || suites.length > 0;
 

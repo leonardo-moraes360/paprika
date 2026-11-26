@@ -13,7 +13,7 @@ import { evaluate, table, writeReport, type Result } from "./report.js";
 import { buildWorstCase, type WorstCase } from "./synthetic.js";
 import { instrument, longTasks, cdpDelta, mcp, measureFrames, median } from "./helpers.js";
 
-const webDist = join(repoRoot, "apps/web/dist");
+const webDist = join(repoRoot, "web-legacy/dist");
 const hasWeb = existsSync(webDist);
 const log = (m: string) => {
   if (process.env.PAPRIKA_PERF_VERBOSE) console.error(`[perf ${new Date().toISOString().slice(11, 23)}] ${m}`);

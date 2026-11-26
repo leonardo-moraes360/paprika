@@ -4,7 +4,7 @@
 
 - **Status:** Proposto
 - **Data:** 2026-11-26
-- **Código:** `server/internal/server` (`serveWS`, outbox, delta), `apps/web/src/useDocument.ts` e quem lê `doc.nodes`
+- **Código:** `server/internal/server` (`serveWS`, outbox, delta), `web-legacy/src/useDocument.ts` e quem lê `doc.nodes`
 - **Backlog:** PAP-A-071 (este ADR), PAP-A-070 (compressão, feito), PAP-A-072 (abertura fria no servidor)
 
 ## Contexto

@@ -1,22 +1,16 @@
 import type { ComponentProps } from "react";
-import { cn } from "../../lib/cn";
+import { cn } from "@/lib/utils";
 
-export function Kbd({ className, ...props }: ComponentProps<"kbd">) {
+export type KbdProps = ComponentProps<"kbd">;
+
+export function Kbd({ className, ...props }: KbdProps) {
   return (
     <kbd
-      data-slot="kbd"
-      className={cn("rounded-sm border border-ui-input bg-ui-field px-1 text-2xs font-semibold text-ui-foreground", className)}
+      className={cn(
+        "inline-flex h-5 min-w-5 items-center justify-center rounded-sm border border-field bg-bg px-1.5 font-sans shadow-[0_1px_0_var(--color-field)] text-xs leading-none font-semibold text-fg",
+        className,
+      )}
       {...props}
     />
-  );
-}
-
-export function KeyHint({ keys, className }: { keys: readonly string[]; className?: string }) {
-  return (
-    <span className={cn("inline-flex shrink-0 items-center gap-0.5", className)} data-testid="key-hint">
-      {keys.map((k) => (
-        <Kbd key={k}>{k}</Kbd>
-      ))}
-    </span>
   );
 }

@@ -8,7 +8,7 @@ import { startServer, type ExternalServer } from "../harness.js";
 import { pinLocale } from "./locale.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "apps/web/dist");
+const webRoot = join(root, "web-legacy/dist");
 
 describe.skipIf(!existsSync(webRoot))("E2E: i18n en + pt-BR", () => {
   let dir: string;

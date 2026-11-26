@@ -246,7 +246,7 @@ Tarefa: desenhar um pimentão vermelho plano (três lóbulos, vãos brancos fino
 
 ## 2026-11-22: folha de componentes shadcn na página Interfaces (PAP-B-030, design first)
 
-Tarefa: desenhar, por MCP, a folha com cada primitivo shadcn e seus estados (hover, foco, desabilitado, aberto), em claro e escuro, na página `Interfaces` do workspace Paprika, antes de instalar qualquer dependência; depois implementar os primitivos em `apps/web`. Cinco frames raiz, ~570 nós, cinco chamadas `create_nodes`.
+Tarefa: desenhar, por MCP, a folha com cada primitivo shadcn e seus estados (hover, foco, desabilitado, aberto), em claro e escuro, na página `Interfaces` do workspace Paprika, antes de instalar qualquer dependência; depois implementar os primitivos em `web-legacy`. Cinco frames raiz, ~570 nós, cinco chamadas `create_nodes`.
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
@@ -256,20 +256,20 @@ Tarefa: desenhar, por MCP, a folha com cada primitivo shadcn e seus estados (hov
 | 83 | Tokens em todos os campos de estilo | `radius: "$radius.md"` foi recusado ("expected number, received string") enquanto `fill` e `color` aceitam `$token`. Todo raio da folha ficou como número literal, então os raios da folha não acompanham uma troca de token como as cores acompanham | Feito (2026-11-22, PAP-B-065): um campo de comprimento aceita um token numérico (`$radius.*`, `$space.*`, `$text.*` ou qualquer outro); um token de cor nesse campo é recusado; mudar o token relayouta todo frame que o usa | — |
 | 84 | O mesmo formato de resultado nas ferramentas de leitura | `get_nodes` responde JSON (`{"nodes": […]}`) e `find_nodes` responde linhas de texto (`frame#id "nome" …`); um script que percorre a árvore por nome precisa tratar dois formatos, e foi exatamente aí que a primeira tentativa falhou | Manter o texto (boa leitura no chat) e aceitar `format: "json"`, ou devolver `structuredContent` em toda ferramenta, como o guia já promete para as de JSON | P3 |
 
-- Os modos de tema fizeram exatamente o que esta folha pedia: `set_tokens {mode: "light"}` mais `mode: "light"` no frame deram um único desenho em dois temas, e os valores claros são agora os valores que `apps/web/src/styles.css` publica em `.ui-light` — board e código decididos uma vez, não duas.
+- Os modos de tema fizeram exatamente o que esta folha pedia: `set_tokens {mode: "light"}` mais `mode: "light"` no frame deram um único desenho em dois temas, e os valores claros são agora os valores que `web-legacy/src/styles.css` publica em `.ui-light` — board e código decididos uma vez, não duas.
 - Depois da correção, o `lint_design` fica com 0 erros nos cinco frames; o único erro de `contrast` que ele pegou (um link em 4,24:1 sobre superfície clara) era um erro real na paleta, e hoje é outro token no código.
 - Redesenhar saiu mais barato que remendar: `delete_nodes` nas cinco raízes e um `create_nodes` novo, tudo num `batch`, desfeito por um único `undo`.
 
 ## 2026-11-22: painel de time e roster de agentes, antes e depois (PAP-B-034, design first)
 
 Tarefa: desenhar o painel de time e o roster de agentes como estão hoje e como ficam sobre os primitivos, nos dois
-escopos de tema, e migrar `apps/web/src/Team.tsx` e o roster em `apps/web/src/AgentCursors.tsx`. Cinco frames raiz na
+escopos de tema, e migrar `web-legacy/src/Team.tsx` e o roster em `web-legacy/src/AgentCursors.tsx`. Cinco frames raiz na
 página `Interfaces`, ~560 nós, e depois o app real em modo `--team` capturado para o registro.
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
 | 85 | A captura do próprio app dentro do documento de design, como referência do "antes" | Os nós de imagem não se dimensionam como o quadro diz: o mesmo PNG 280×856 pintou certo num quadro 190×581 com `fit: "contain"` num frame e virou uma tira de ~60×12 noutro em que o quadro era do tamanho da fonte; uma fonte 1440×900 num quadro 560×350 não pintou nada. O `lint_design` ficou limpo e nenhum erro voltou — só descobri olhando o `render_screenshot`. As capturas acabaram commitadas ao lado do board, não dentro dele | Documentar o que `width`/`height` fazem num nó `image` (escalam, recortam, ou nada), e fazer uma fonte maior que o quadro escalar ou reportar | P2 |
-| 86 | Um board cujos nomes de token são os nomes do código | Os tokens da folha são `ui.card` e `ui.mutedFg` (pontos, abreviações), enquanto `apps/web/src/styles.css` publica `--color-ui-card` e `--color-ui-muted-foreground`. Nada liga um ao outro, então "comparar board com código" é passo humano, e digitei os mesmos valores nos dois lados | Aceitar um alias ou `source` no token (ex.: `ui.card` → `--color-ui-card`), ou deixar o `set_tokens` ler os nomes de um arquivo CSS | P3 |
+| 86 | Um board cujos nomes de token são os nomes do código | Os tokens da folha são `ui.card` e `ui.mutedFg` (pontos, abreviações), enquanto `web-legacy/src/styles.css` publica `--color-ui-card` e `--color-ui-muted-foreground`. Nada liga um ao outro, então "comparar board com código" é passo humano, e digitei os mesmos valores nos dois lados | Aceitar um alias ou `source` no token (ex.: `ui.card` → `--color-ui-card`), ou deixar o `set_tokens` ler os nomes de um arquivo CSS | P3 |
 | 87 | Um token do documento para o vermelho que o app pinta | `--color-accent-strong: #c8401f` está no CSS, mas os tokens de marca do documento são `$accent` (#e04a2b) e `$accent.dark`. Todo botão primário da folha ficou literal, e o `lint_design` devolve infos `raw-color` neles | Adicionar `$accent.strong` (e o ink) aos tokens de marca do documento, para board e CSS chamarem a mesma cor pelo mesmo nome | P3 |
 
 - Um construtor, dois modos: a mesma função do painel desenhou `antes` e `depois` e depois a folha clara, então as três folhas são a mesma geometria e só mudam os pares de tokens e o tamanho dos controles. Isso deixou a comparação legível.
@@ -279,7 +279,7 @@ página `Interfaces`, ~560 nós, e depois o app real em modo `--team` capturado 
 ## 2026-11-22: alças de redimensionar nos quatro cantos (PAP-B-029, design first)
 
 Tarefa: desenhar antes/depois das alças de seleção e um demo de arraste no NW na página `Interfaces`, depois
-adicionar as alças NW/NE/SW/SE em `apps/web/src/Canvas.tsx`.
+adicionar as alças NW/NE/SW/SE em `web-legacy/src/Canvas.tsx`.
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
@@ -302,7 +302,7 @@ Tarefa: desenhar os estados do campo Opacidade (normal, focado, inválido com me
 
 ## 2026-11-22: botão de perigo e diálogo de confirmação (PAP-B-026, design first)
 
-Tarefa: desenhar o botão de perigo (estados, claro e escuro) e os diálogos de confirmação (excluir workspace com o nome digitado, vazio e preenchido; remover membro) na página `Interfaces`, depois criar o diálogo e os tokens de perigo em `apps/web`. Oito frames raiz de altura fixa, ~190 nós, uma chamada `create_nodes`. O workspace ativo no servidor do mantenedor não era o `Paprika`, então o board foi desenhado num `paprika serve` descartável (renomeado `Paprika`) e os PNGs foram para o PR.
+Tarefa: desenhar o botão de perigo (estados, claro e escuro) e os diálogos de confirmação (excluir workspace com o nome digitado, vazio e preenchido; remover membro) na página `Interfaces`, depois criar o diálogo e os tokens de perigo em `web-legacy`. Oito frames raiz de altura fixa, ~190 nós, uma chamada `create_nodes`. O workspace ativo no servidor do mantenedor não era o `Paprika`, então o board foi desenhado num `paprika serve` descartável (renomeado `Paprika`) e os PNGs foram para o PR.
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
@@ -328,7 +328,7 @@ de workspace. Sem folha de design: a mudança é no servidor; a metade de UI (o 
 ## 2026-11-22: linguagem de perigo e o padrão de confirmação (PAP-B-026, design first)
 
 Tarefa: desenhar o botão de perigo (antes e depois, nos dois escopos de tema) e o padrão de confirmação antes
-de mexer em qualquer código, e aplicar depois em `apps/web`. Cinco frames raiz, ~330 nós, mais o overview real
+de mexer em qualquer código, e aplicar depois em `web-legacy`. Cinco frames raiz, ~330 nós, mais o overview real
 capturado antes e depois.
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
@@ -350,7 +350,7 @@ escuro, antes do editor no lugar no canvas. Seis frames raiz, ~40 nós.
 ## 2026-11-22: renomear a única página (PAP-B-020, design first)
 
 Tarefa: desenhar o painel de páginas antes, durante e depois de renomear o placeholder "Página 1" de um workspace
-sem páginas, e ligar o renomear em `apps/web`. Seis frames raiz (três estados, claro e escuro), ~60 nós.
+sem páginas, e ligar o renomear em `web-legacy`. Seis frames raiz (três estados, claro e escuro), ~60 nós.
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
@@ -418,7 +418,7 @@ para os primitivos. Seis frames em `docs/en-US/assets/boards/PAP-B-033/`; o expo
 
 ## 2026-11-22: inspector compacto (PAP-B-022, design parcial)
 
-Tarefa: redesenhar o inspector de cena em seções recolhíveis antes de implementar `apps/web/src/inspector/**`. Dois frames de design (`PAP-B-022 texto escuro` / `claro`) já estão em `docs/en-US/design/boards.paprika.json`; o redraw completo no MCP em `:4777` foi pulado com o servidor compartilhado lento, e os PNGs antes/depois em `docs/en-US/assets/boards/PAP-B-022/` carregam o caso de medição.
+Tarefa: redesenhar o inspector de cena em seções recolhíveis antes de implementar `web-legacy/src/inspector/**`. Dois frames de design (`PAP-B-022 texto escuro` / `claro`) já estão em `docs/en-US/design/boards.paprika.json`; o redraw completo no MCP em `:4777` foi pulado com o servidor compartilhado lento, e os PNGs antes/depois em `docs/en-US/assets/boards/PAP-B-022/` carregam o caso de medição.
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|-----------------|----------|------|
@@ -479,7 +479,7 @@ PNGs em `docs/en-US/assets/boards/PAP-B-023/`; export dos boards via `GET /api/e
 - O `lint_design` da página ainda aponta um erro de contraste antigo sem relação; os frames novos não acrescentaram erros.
 ## 2026-11-22: atalhos de proporção ao redimensionar (PAP-B-042, design first)
 
-Tarefa: desenhar os estados livre / manter proporção / quadrado (claro e escuro) na página `Interfaces` do `Paprika - UI`, depois ligar as travas `Shift` e `Shift+Alt` e a dica no canvas em `apps/web/src/Canvas.tsx`. Seis frames raiz de altura fixa; capturas em `docs/en-US/assets/boards/PAP-B-042/`.
+Tarefa: desenhar os estados livre / manter proporção / quadrado (claro e escuro) na página `Interfaces` do `Paprika - UI`, depois ligar as travas `Shift` e `Shift+Alt` e a dica no canvas em `web-legacy/src/Canvas.tsx`. Seis frames raiz de altura fixa; capturas em `docs/en-US/assets/boards/PAP-B-042/`.
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|----------------|----------|------|
@@ -503,7 +503,7 @@ Tarefa: UI web + nomes padrão seguem o idioma escolhido; detectar do navegador,
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|----------------|----------|------|
 | 115 | Export das boards no volume Docker | Igual ao #113: o `:4777` guarda as pranchas; este agente commitou os PNGs do `render_screenshot` e deixou `docs/en-US/design/boards.paprika.json` para um export com DB montado no host | MCP `export_document` ou caminho de DB montado no host para agentes | P2 |
-| 116 | Ligar o resto das strings do Inspector/Time | Shell, overview, páginas, camadas, zoom, ordem e multi-seleção estão no dicionário; muitos rótulos de campo do Inspector e textos do Time ainda são literais em português, embora as chaves já existam em `apps/web/src/i18n/messages.ts` | Terminar o passe campo a campo (ou gerar rótulos do catálogo) num follow-up | P2 |
+| 116 | Ligar o resto das strings do Inspector/Time | Shell, overview, páginas, camadas, zoom, ordem e multi-seleção estão no dicionário; muitos rótulos de campo do Inspector e textos do Time ainda são literais em português, embora as chaves já existam em `web-legacy/src/i18n/messages.ts` | Terminar o passe campo a campo (ou gerar rótulos do catálogo) num follow-up | P2 |
 | 117 | Nome padrão do `create_page` no guia pt-BR | O fallback sem nome no core/MCP agora é inglês (`Page 1`); `guide.pt-BR.md` ainda descreve `"Página 1"` | Alinhar o guia em português ao padrão inglês (ou dizer que a UI localiza quando passa `name`) | P3 |
 
 - Dicionários leves (sem i18next): `LocaleProvider` fora do único `TooltipProvider` para a troca de idioma não remountar as dicas.
@@ -512,7 +512,7 @@ Tarefa: UI web + nomes padrão seguem o idioma escolhido; detectar do navegador,
 
 ## 2026-11-22: atributos `title` → tooltips acessíveis (PAP-B-051, design first)
 
-Tarefa: trocar todo `title` HTML em `apps/web` pelo Tooltip shadcn (`Hint`: hover + foco, Esc fecha), mantendo `aria-label` nos botões de ícone. Três frames em `Interfaces` (`Paprika - UI`): antes/depois escuro, antes/depois claro, estados foco/Esc. PNGs em `docs/en-US/assets/boards/PAP-B-051/`.
+Tarefa: trocar todo `title` HTML em `web-legacy` pelo Tooltip shadcn (`Hint`: hover + foco, Esc fecha), mantendo `aria-label` nos botões de ícone. Três frames em `Interfaces` (`Paprika - UI`): antes/depois escuro, antes/depois claro, estados foco/Esc. PNGs em `docs/en-US/assets/boards/PAP-B-051/`.
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|----------------|----------|------|
@@ -588,7 +588,7 @@ Tarefa: desenhar os estados fechado e aberto do FontPicker (claro e escuro) em `
 - `cmdk` 1.1.1 fixado para o primitivo Command (lista de dependências do ADR 0005).
 ## 2026-11-22: drag and drop reparent + soltar arquivo (PAP-B-049, design first)
 
-Tarefa: desenhar estados de reparent / inserção em auto-layout / reordenação em Camadas / soltar arquivo (claro e escuro) em `Interfaces`, depois ligar o DnD do canvas + linhas de Camadas + importação de arquivo do SO em `apps/web`. Oito frames raiz de altura fixa; PNGs em `docs/en-US/assets/boards/PAP-B-049/`; export dos boards atualizado via `GET /api/export`.
+Tarefa: desenhar estados de reparent / inserção em auto-layout / reordenação em Camadas / soltar arquivo (claro e escuro) em `Interfaces`, depois ligar o DnD do canvas + linhas de Camadas + importação de arquivo do SO em `web-legacy`. Oito frames raiz de altura fixa; PNGs em `docs/en-US/assets/boards/PAP-B-049/`; export dos boards atualizado via `GET /api/export`.
 
 | # | Necessidade | O que aconteceu | Proposta | Pri. |
 |---|-------------|----------------|----------|------|

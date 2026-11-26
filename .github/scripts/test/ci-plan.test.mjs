@@ -71,7 +71,7 @@ describe("infra files run everything", () => {
   });
 
   it("only the workspace-root files are infra", () => {
-    for (const file of ["apps/web/package.json", "packages/core/package.json", "my-pnpm-lock.yaml", ".github/dependabot.yml", ".github/CODEOWNERS"]) {
+    for (const file of ["web-legacy/package.json", "packages/core/package.json", "my-pnpm-lock.yaml", ".github/dependabot.yml", ".github/CODEOWNERS"]) {
       assert.equal(isFullRun([file]), false, file);
     }
   });
@@ -136,14 +136,24 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(plan(["packages/server/src/mcp.ts"]), NOTHING);
   });
 
-  it("apps/web runs the e2e suite but no unit test and no API suite", () => {
-    const p = plan(["apps/web/src/Canvas.tsx"]);
+  it("web-legacy runs the e2e suite but no unit test and no API suite", () => {
+    const p = plan(["web-legacy/src/Canvas.tsx"]);
     assert.equal(p.unit, false);
     assert.equal(p.unit_matrix, "[]");
     assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }]);
     assert.equal(p.golden, false);
     assert.equal(p.ts, true);
     assert.equal(p.build, true);
+    assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
+  });
+
+  it("apps/web only triggers the TS build and analysis, with no e2e and no docker", () => {
+    const p = plan(["apps/web/src/routes/index.tsx"]);
+    assert.equal(p.ts, true);
+    assert.equal(p.build, true);
+    assert.equal(p.docker, false);
+    assert.equal(p.suites, false);
+    assert.deepEqual(JSON.parse(p.suites_matrix), []);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
   });
 
@@ -168,7 +178,7 @@ describe("each area selects its jobs", () => {
       "crates/render/src/scene.rs",
       "packages/core/src/displayList.ts",
       "packages/core/src/style.ts",
-      "apps/web/src/wasmLayer.ts",
+      "web-legacy/src/wasmLayer.ts",
       "packages/e2e/test/e2e/wasm.e2e.test.ts",
       "packages/e2e/fixtures/wasm-path-stroke.paprika.json",
     ]) {
@@ -224,7 +234,7 @@ describe("each area selects its jobs", () => {
   });
 
   it("everything the image packages also builds the image", () => {
-    for (const file of ["packages/core/src/ops.ts", "apps/web/src/Canvas.tsx", "crates/render/src/lib.rs", "server/internal/core/ops.go"]) {
+    for (const file of ["packages/core/src/ops.ts", "web-legacy/src/Canvas.tsx", "crates/render/src/lib.rs", "server/internal/core/ops.go"]) {
       assert.equal(plan([file]).docker, true, file);
     }
   });
@@ -242,7 +252,7 @@ describe("each area selects its jobs", () => {
   });
 
   it("what the site does not read skips the site build", () => {
-    for (const file of ["apps/web/src/Canvas.tsx", "server/internal/server/mcp.go", "crates/render/src/lib.rs", "packages/e2e/test/api.test.ts", "docs/en-US/mcp.md"]) {
+    for (const file of ["web-legacy/src/Canvas.tsx", "server/internal/server/mcp.go", "crates/render/src/lib.rs", "packages/e2e/test/api.test.ts", "docs/en-US/mcp.md"]) {
       assert.equal(plan([file]).site, false, file);
     }
   });
@@ -265,7 +275,7 @@ describe("a mixed change unions every touched area", () => {
   });
 
   it("web + server selects both stacks without being a full run", () => {
-    const p = plan(["apps/web/src/useDocument.ts", "server/go.mod"]);
+    const p = plan(["web-legacy/src/useDocument.ts", "server/go.mod"]);
     assert.equal(p.full, false);
     assert.equal(p.ts, true);
     assert.equal(p.go, true);
@@ -275,7 +285,7 @@ describe("a mixed change unions every touched area", () => {
   });
 
   it("deleted and renamed files still select their area", () => {
-    const p = plan(["packages/core/src/old-query.ts", "apps/web/src/Canvas.tsx"]);
+    const p = plan(["packages/core/src/old-query.ts", "web-legacy/src/Canvas.tsx"]);
     assert.equal(p.unit, true);
     assert.equal(p.ts, true);
     assert.equal(p.go, false);

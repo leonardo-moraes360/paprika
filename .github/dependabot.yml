@@ -3,7 +3,7 @@
 version: 2
 
 updates:
-  # pnpm workspace (root + packages/* + apps/*): Dependabot reads pnpm-lock.yaml.
+  # pnpm workspace (root + packages/* + apps/* + web-legacy): Dependabot reads pnpm-lock.yaml.
   - package-ecosystem: npm
     directory: /
     schedule:

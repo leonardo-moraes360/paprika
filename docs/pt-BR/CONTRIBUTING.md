@@ -18,7 +18,7 @@ O Paprika é um projeto **original**. Não envie código, assets, ícones, fonte
 
 | Ferramenta | Versão | Para quê |
 |---|---|---|
-| Node.js | 22+ | `packages/core`, o canvas (`apps/web`), as suítes E2E (`packages/e2e`) |
+| Node.js | 22+ | `packages/core`, o canvas (`web-legacy`), as suítes E2E (`packages/e2e`) |
 | pnpm | 10+ | workspace e scripts |
 | Go | 1.26+ | o servidor (`server/`) |
 | Rust + `wasm32-unknown-unknown` | stable | o renderizador WASM do canvas (`crates/render`) e o sidecar de sincronização do time (`crates/sync`) |
@@ -33,7 +33,7 @@ No dia a dia:
 
 ```bash
 pnpm dev                              # servidor Go com o documento demo
-pnpm --filter @paprika/web dev        # canvas com hot reload (outro terminal)
+pnpm --filter @paprika/web-legacy dev        # canvas com hot reload (outro terminal)
 pnpm go:test && pnpm test:api         # testes Go + suíte black-box da API contra o binário
 ```
 
@@ -44,7 +44,7 @@ O mapa e as regras obrigatórias estão no [AGENTS.md](../../AGENTS.md); valem p
 - `packages/core` não faz I/O. Toda mutação do documento passa por `applyOps`.
 - Estilo visual novo entra no `nodeStyle`, para que canvas, screenshot e código exportado continuem idênticos.
 - O servidor é o `server/`; o `server/internal/core` é um port do `packages/core`, que o canvas roda. Mudar o `packages/core` exige a mesma mudança em Go, fixtures regeneradas (`pnpm go:golden`) e `pnpm go:test` passando.
-- Mudanças de interface (`apps/web`, `apps/site`, telas novas, ajustes visuais) são desenhadas primeiro num Paprika local via MCP; o PR leva screenshots dos frames, e os atritos com o MCP vão para `docs/pt-BR/feedback-agentes.md` (e `docs/en-US/agent-feedback.md`).
+- Mudanças de interface (`apps/web`, `web-legacy`, `apps/site`, telas novas, ajustes visuais) são desenhadas primeiro num Paprika local via MCP; o PR leva screenshots dos frames, e os atritos com o MCP vão para `docs/pt-BR/feedback-agentes.md` (e `docs/en-US/agent-feedback.md`).
 - Ferramenta MCP nova exige a definição em `server/contract/mcp.json`, o handler e um teste Go, um cenário em `packages/e2e/test/api.test.ts` e uma linha nas duas tabelas de ferramentas MCP (`docs/en-US/mcp.md` e `docs/pt-BR/mcp.md`).
 
 ## Documentação

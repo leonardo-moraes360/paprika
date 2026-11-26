@@ -1,0 +1,29 @@
+export const en = {
+  home: {
+    title: "Paprika",
+    tagline: "A design tool your AI agents can draw on.",
+    start: "Get started",
+  },
+  common: {
+    working: "Working",
+  },
+  notifications: {
+    label: "Notifications",
+    close: "Close notification",
+  },
+  notFound: {
+    title: "Page not found",
+    home: "Back to home",
+  },
+  theme: {
+    label: "Theme",
+    system: "System",
+    light: "Light",
+    dark: "Dark",
+  },
+  language: {
+    label: "Language",
+    en: "English",
+    "pt-BR": "Português (Brasil)",
+  },
+} as const;

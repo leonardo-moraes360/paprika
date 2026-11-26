@@ -1,31 +1,44 @@
-import type { ComponentProps } from "react";
-import { Popover as PopoverPrimitive } from "radix-ui";
-import { cn } from "../../lib/cn";
+import { Popover as PopoverPrimitive, PopoverClose, PopoverContent, PopoverDescription, PopoverTitle, PopoverTrigger } from "@ui-sdk/react/popover";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
+import { popupBase } from "./overlay-surface";
+import { slot } from "@/lib/utils";
 
-export const Popover = PopoverPrimitive.Root;
-export const PopoverTrigger = PopoverPrimitive.Trigger;
-export const PopoverAnchor = PopoverPrimitive.Anchor;
-export const PopoverClose = PopoverPrimitive.Close;
+export const popoverSurfaceClasses =
+  `w-80 max-w-[calc(100vw-2rem)] ${popupBase} p-4 transition-[opacity,scale] duration-150 motion-reduce:transition-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 forced-colors:border-2`;
 
-export function PopoverContent({
-  className,
-  align = "center",
-  sideOffset = 4,
-  ...props
-}: ComponentProps<typeof PopoverPrimitive.Content>) {
+export type PopoverProps = Omit<ComponentProps<typeof PopoverPrimitive>, "children"> & {
+  trigger: ReactElement;
+  children?: ReactNode;
+  title?: ReactNode;
+  description?: ReactNode;
+  side?: ComponentProps<typeof PopoverContent>["side"];
+  align?: ComponentProps<typeof PopoverContent>["align"];
+  sideOffset?: number;
+  contentProps?: Omit<ComponentProps<typeof PopoverContent>, "children" | "side" | "align" | "sideOffset">;
+};
+
+export function Popover({ trigger, title, description, children, side = "bottom", align = "start", sideOffset = 8, contentProps, ...props }: PopoverProps) {
+  const { className, ...rest } = contentProps ?? {};
   return (
-    <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Content
-        data-slot="popover-content"
+    <PopoverPrimitive {...props}>
+      <PopoverTrigger render={trigger} />
+      <PopoverContent
+        side={side}
         align={align}
         sideOffset={sideOffset}
-        className={cn(
-          "z-50 w-72 rounded-md border border-ui-border bg-ui-popover p-2 text-ui-popover-foreground shadow-float outline-none",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-(--radix-popover-content-transform-origin)",
-          className,
-        )}
-        {...props}
-      />
-    </PopoverPrimitive.Portal>
+        className={slot(`${popoverSurfaceClasses} flex flex-col gap-3`, className)}
+        {...rest}
+      >
+        {title || description ? (
+          <div className="flex flex-col gap-1">
+            {title ? <PopoverTitle className="text-base font-bold text-fg">{title}</PopoverTitle> : null}
+            {description ? <PopoverDescription className="text-sm leading-normal text-muted">{description}</PopoverDescription> : null}
+          </div>
+        ) : null}
+        {children}
+      </PopoverContent>
+    </PopoverPrimitive>
   );
 }
+
+export { PopoverClose };

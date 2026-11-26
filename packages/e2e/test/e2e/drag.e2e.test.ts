@@ -5,8 +5,8 @@ import { chromium, type Browser, type Page } from "playwright";
 import { repoRoot, startServer, type ExternalServer } from "../harness.js";
 import { pinLocale } from "./locale.js";
 
-const webRoot = join(repoRoot, "apps/web/dist");
-const wasmBuilt = existsSync(join(repoRoot, "apps/web/src/wasm/paprika_render.js"));
+const webRoot = join(repoRoot, "web-legacy/dist");
+const wasmBuilt = existsSync(join(repoRoot, "web-legacy/src/wasm/paprika_render.js"));
 const NODE = '[data-paprika-id="plano"]';
 
 type Gesture = { from: { x: number; y: number }; by: { x: number; y: number } };

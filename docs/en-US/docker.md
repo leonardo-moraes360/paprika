@@ -1,6 +1,6 @@
 # Docker
 
-The `Dockerfile` at the root builds everything Paprika needs into one image: the Go server (MCP over HTTP and stdio, HTTP/WS API, SQLite), the canvas (`apps/web`, with Tailwind) and the Rust/WASM renderer (`crates/render`). Nothing else has to be installed on the host.
+The `Dockerfile` at the root builds everything Paprika needs into one image: the Go server (MCP over HTTP and stdio, HTTP/WS API, SQLite), the canvas (`web-legacy`, with Tailwind) and the Rust/WASM renderer (`crates/render`). Nothing else has to be installed on the host.
 
 Português: [docs/pt-BR/docker.md](../pt-BR/docker.md).
 
@@ -83,7 +83,7 @@ Both run as uid/gid 65532, so a volume can move between them.
 Multi-stage, with BuildKit cache mounts for cargo, pnpm and Go:
 
 1. **wasm** (`rust:1.100-slim-trixie`): `cargo build --release --target wasm32-unknown-unknown` + `wasm-bindgen` (the release binary, checksum-pinned, same version and checksum as `.github/actions/setup-rust-wasm`). The stage fails if `WASM_BINDGEN_VERSION` differs from the `=` pin in `crates/render/Cargo.toml`.
-2. **web** (`node:22-bookworm-slim`, pnpm from `packageManager`): installs only `@paprika/web` and its workspace dependencies, builds `packages/core` and runs `vite build` with the WASM from stage 1 (the build checks that a `.wasm` landed in `dist/`).
+2. **web** (`node:22-bookworm-slim`, pnpm from `packageManager`): installs only `@paprika/web-legacy` and its workspace dependencies, builds `packages/core` and runs `vite build` with the WASM from stage 1 (the build checks that a `.wasm` landed in `dist/`).
 3. **server** (`golang:1.26-trixie`): static binary (`CGO_ENABLED=0 -tags nodynamic`; `modernc.org/sqlite` is pure Go; webp/avif stay on WASM so purego does not pull libc).
    **sync** (`rust:1.100-slim-trixie` + `musl-tools`): the team sync sidecar `paprika-sync` (`crates/sync`), a static musl binary so it also runs on distroless ([team-sync.md](team-sync.md)).
 4. **chrome**: Chrome for Testing's headless shell, the same build (159.0.8154.6) Playwright 1.65.1 uses in `packages/e2e`, checksum-pinned.
@@ -99,7 +99,7 @@ When bumping versions, keep these in step:
 
 ## CI
 
-The `docker` job of `.github/workflows/ci.yml` builds the default target and runs `.github/scripts/docker-smoke.sh` against it: canvas and WASM asset served, foreign `Host` refused, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` over `/mcp`, and the database surviving a container restart on the same volume. It runs when the PR touches the `Dockerfile`, `.dockerignore`, `compose.yaml`, or anything that goes into the image (`server/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), plus on full runs. See [ci.md](ci.md).
+The `docker` job of `.github/workflows/ci.yml` builds the default target and runs `.github/scripts/docker-smoke.sh` against it: canvas and WASM asset served, foreign `Host` refused, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` over `/mcp`, and the database surviving a container restart on the same volume. It runs when the PR touches the `Dockerfile`, `.dockerignore`, `compose.yaml`, or anything that goes into the image (`server/`, `web-legacy/`, `crates/render/`, `crates/sync/`, `packages/core/`), plus on full runs. See [ci.md](ci.md).
 
 Run the same check locally:
 

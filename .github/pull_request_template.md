@@ -6,7 +6,7 @@
 
 ## Performance
 
-- [ ] Touches `apps/web`, `packages/core`, `server` or `crates/render`: profiling before/after on the worst case is below, and `pnpm test:perf` stays within budget ([performance](../docs/en-US/performance.md))
+- [ ] Touches `apps/web`, `web-legacy`, `packages/core`, `server` or `crates/render`: profiling before/after on the worst case is below, and `pnpm test:perf` stays within budget ([performance](../docs/en-US/performance.md))
 
 ## Design (UI changes)
 
