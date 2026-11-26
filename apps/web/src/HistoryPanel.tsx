@@ -103,11 +103,7 @@ export function HistoryPanel({ docId, onSelectNodes }: { docId: string; onSelect
   };
 
   const copy = (label: string) => {
-    try {
-      void navigator.clipboard?.writeText(label).catch(() => {});
-    } catch {
-      return;
-    }
+    navigator.clipboard?.writeText(label).catch(() => {});
   };
 
   const requestUndo = (step: PanelStep) => {
