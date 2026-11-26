@@ -14,6 +14,17 @@ export type ActivityEntry = {
   batch?: boolean;
 };
 
+/** Key labels the owner has bound, e.g. `["Ctrl", "G"]`. Without one, the panel shows no hint for that action. */
+export type PropertiesPanelShortcuts = {
+  group?: readonly string[];
+  ungroup?: readonly string[];
+  wrap?: readonly string[];
+  center?: readonly string[];
+};
+
+/** `onApply` may return a promise: the panel waits for it before it selects what the operation created. */
+export type ApplyResult = void | PromiseLike<unknown>;
+
 export type PropertiesPanelProps = {
   doc: Document | null;
   node: Node | null;
@@ -23,12 +34,21 @@ export type PropertiesPanelProps = {
   activityMarker?: number;
   header?: ReactNode;
   renderFontPicker?: FontPickerSlot;
-  onApply: (ops: Op[], label: string) => void;
+  onApply: (ops: Op[], label: string) => ApplyResult;
   onSelect: (ids: string[]) => void;
   onError?: (message: string) => void;
   storageKey?: string;
+  shortcuts?: PropertiesPanelShortcuts;
   store?: PropertiesPanelStore;
   className?: string;
 };
 
-export type SetProps = (props: Record<string, unknown>, label?: string) => void;
+type AllKeys<T> = T extends unknown ? keyof T : never;
+
+/**
+ * Names of the properties a node can have, for an `update` (a value of `null` clears one). Values stay `unknown`
+ * because the fields hand over picked strings and the owner validates them in `applyOps`; a misspelled name no longer compiles.
+ */
+export type NodeProps = { [K in AllKeys<Node>]?: unknown };
+
+export type SetProps = (props: NodeProps, label?: string) => void;

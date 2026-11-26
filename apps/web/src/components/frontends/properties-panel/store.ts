@@ -7,10 +7,12 @@ export type PropertiesPanelState = {
 
 export type PropertiesPanelActions = {
   setSectionOpen: (id: string, open: boolean) => void;
+  hydrate: (open: Record<string, boolean>) => void;
 };
 
 export const PropertiesPanelRegion = createRegion<PropertiesPanelState, PropertiesPanelActions>("PropertiesPanel", ({ setState }) => ({
   setSectionOpen: (id, open) => setState((s) => (s.open[id] === open ? s : { ...s, open: { ...s.open, [id]: open } })),
+  hydrate: (open) => setState((s) => ({ ...s, open: { ...open, ...s.open } })),
 }));
 
 export type PropertiesPanelStore = Store<PropertiesPanelState, PropertiesPanelActions>;

@@ -1,11 +1,43 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { applyOps, type Document, type LintIssue } from "@paprika/core";
+import { applyOps, createDocument, type Document, type LintIssue, type Node, type Op } from "@paprika/core";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
-import { buildDocument, withGroup } from "./fixtures";
+import type { SetProps } from "./types";
 import { PropertiesPanel, useCreatePropertiesPanelStore, PropertiesPanelProvider, type ActivityEntry, type PropertiesPanelProps } from "./index";
+
+function buildDocument(): Document {
+  const base = createDocument("Studio", "doc1");
+  const ops: Op[] = [
+    { op: "set_tokens", tokens: { brand: "rgb(232, 85, 61)" }, type: "color" },
+    { op: "set_tokens", tokens: { gap: 8 } },
+    { op: "set_tokens", mode: "dark", tokens: { brand: "rgb(255, 122, 92)" } },
+    { op: "create", node: { type: "page", id: "p1", name: "Cover" } },
+    {
+      op: "create",
+      parentId: "p1",
+      node: { type: "frame", id: "f1", name: "Home", x: 120, y: 140, width: 520, height: 340, fill: "rgb(26, 31, 49)", radius: 4, layout: { mode: "column", gap: 24, padding: 48 } },
+    },
+    { op: "create", parentId: "f1", node: { type: "text", id: "t1", name: "Title", text: "Hello", fontFamily: "Inter, sans-serif", fontSize: 30, fontWeight: 700, color: "$brand" } },
+    { op: "create", parentId: "f1", node: { type: "rect", id: "r1", name: "Button", x: 10, y: 10, width: 100, height: 50, fill: "rgb(200, 64, 31)", radius: 6 } },
+    { op: "create", parentId: "f1", node: { type: "ellipse", id: "e1", name: "Dot", x: 200, y: 10, width: 40, height: 40, fill: "rgb(255, 192, 42)" } },
+    { op: "create", parentId: "p1", node: { type: "frame", id: "f2", name: "Free", x: 700, y: 140, width: 200, height: 120 } },
+    { op: "create", parentId: "f2", node: { type: "rect", id: "r2", name: "Absolute", x: 10, y: 10, width: 40, height: 40 } },
+    { op: "create", parentId: "f2", node: { type: "rect", id: "r3", name: "Second", x: 60, y: 10, width: 40, height: 40 } },
+    { op: "create", parentId: "p1", node: { type: "frame", id: "c1", name: "Card", x: 0, y: 600, width: 200, height: 100, component: true, componentProps: [{ name: "label", type: "text", default: "Hi" }] } },
+    { op: "create", parentId: "p1", node: { type: "frame", id: "i1", name: "Card copy", instanceOf: "c1", x: 240, y: 600 } },
+    { op: "create", parentId: "p1", node: { type: "connector", id: "k1", name: "Link", from: { nodeId: "r1" }, to: { nodeId: "e1" } } },
+  ];
+  return applyOps(base, ops).doc;
+}
+
+const nodeOf = (doc: Document, id: string): Node => doc.nodes[id] as Node;
+
+function withGroup(doc: Document): Document {
+  const next = applyOps(doc, [{ op: "group", ids: ["r2", "r3"], id: "g1" }]).doc;
+  return next;
+}
 
 type Setup = Partial<PropertiesPanelProps> & { id?: string | string[] | null; open?: string[] };
 
@@ -110,6 +142,38 @@ describe("PropertiesPanel states", () => {
       </div>,
     );
     expect(box("Top left radius").closest("[dir=ltr]")).not.toBeNull();
+  });
+});
+
+describe("Switching the selection", () => {
+  const twins = () => applyOps(buildDocument(), [{ op: "update", id: "r1", props: { x: 120 } }]).doc;
+
+  it("drops an unfinished number when another node with the same value is selected", async () => {
+    const user = userEvent.setup();
+    const doc = twins();
+    const handlers = { onApply: vi.fn(), onSelect: vi.fn(), onError: vi.fn() };
+    const view = render(<PropertiesPanel doc={doc} node={doc.nodes.f1 ?? null} selected={["f1"]} {...handlers} />);
+    await user.clear(box("X"));
+    await user.type(box("X"), "55");
+    view.rerender(<PropertiesPanel doc={doc} node={doc.nodes.r1 ?? null} selected={["r1"]} {...handlers} />);
+    expect(box("X")).toHaveValue("120");
+    expect(handlers.onApply).not.toHaveBeenCalled();
+  });
+
+  it("unlocks the proportion when another node is selected", async () => {
+    const user = userEvent.setup();
+    const doc = buildDocument();
+    const handlers = { onApply: vi.fn(), onSelect: vi.fn(), onError: vi.fn() };
+    const view = render(<PropertiesPanel doc={doc} node={doc.nodes.f1 ?? null} selected={["f1"]} {...handlers} />);
+    await user.click(screen.getByRole("button", { name: "Lock proportion" }));
+    view.rerender(<PropertiesPanel doc={doc} node={doc.nodes.r1 ?? null} selected={["r1"]} {...handlers} />);
+    expect(screen.getByRole("button", { name: "Lock proportion" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("uses the panel surface token", () => {
+    setup({ id: "f1" });
+    expect(screen.getByRole("complementary").className).toContain("bg-panel");
+    expect(screen.getByRole("complementary").className).not.toContain("bg-tile");
   });
 });
 
@@ -291,6 +355,18 @@ describe("Section state", () => {
     expect(screen.queryByRole("textbox", { name: "X" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Position and size" }));
     expect(box("X")).toBeInTheDocument();
+  });
+
+  it("renders the same first markup whatever is stored, and applies the stored state after mounting", async () => {
+    const doc = buildDocument();
+    const node = doc.nodes.f1 ?? null;
+    const tree = <PropertiesPanel doc={doc} node={node} selected={["f1"]} onApply={vi.fn()} onSelect={vi.fn()} storageKey="test.hydrate" />;
+    const clean = renderToString(tree);
+    window.localStorage.setItem("paprika.test.hydrate", JSON.stringify({ position: false }));
+    expect(renderToString(tree)).toBe(clean);
+    render(tree);
+    await screen.findByRole("button", { name: "Position and size" });
+    expect(screen.getByRole("button", { name: "Position and size" })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("does not write anything without a storage key", async () => {
@@ -739,6 +815,37 @@ describe("Multi selection", () => {
     expect(onSelect).toHaveBeenCalledWith([ops[0]?.id]);
   });
 
+  it("waits for an asynchronous owner before selecting the new group", async () => {
+    const user = userEvent.setup();
+    let accept: () => void = () => undefined;
+    const onApply = vi.fn(() => new Promise<void>((resolve) => (accept = resolve)));
+    const { onSelect } = setup({ id: ["r2", "r3"], onApply });
+    await user.click(screen.getByRole("button", { name: "Group" }));
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(onSelect).not.toHaveBeenCalled();
+    await act(async () => accept());
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not select anything and reports the error when the owner refuses", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn(() => Promise.reject(new Error("refused")));
+    const { onSelect, onError } = setup({ id: ["r2", "r3"], onApply });
+    await user.click(screen.getByRole("button", { name: "Wrap in frame" }));
+    await act(async () => undefined);
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith("refused");
+  });
+
+  it("shows only the shortcut hints the owner passes", () => {
+    const first = setup({ id: ["r2", "r3"] });
+    for (const name of ["Group", "Wrap in frame"]) expect(screen.getByRole("button", { name })).not.toHaveAttribute("title");
+    first.unmount();
+    setup({ id: ["r2", "r3"], shortcuts: { group: ["Mod", "G"] } });
+    expect(screen.getByRole("button", { name: "Group" })).toHaveAttribute("title", "Mod+G");
+    expect(screen.getByRole("button", { name: "Wrap in frame" })).not.toHaveAttribute("title");
+  });
+
   it("groups free elements and selects the group", async () => {
     const user = userEvent.setup();
     const { onApply, onSelect } = setup({ id: ["r2", "r3"] });
@@ -924,6 +1031,14 @@ describe("Content and web sections", () => {
     expect(onApply.mock.calls.at(-1)?.[1]).toBe("center content");
   });
 
+  it("shows the center shortcut only when the owner passes it", () => {
+    const first = setup({ id: "f2" });
+    expect(screen.queryByText("Alt")).not.toBeInTheDocument();
+    first.unmount();
+    setup({ id: "f2", shortcuts: { center: ["Alt", "C"] } });
+    expect(screen.getByText("Alt")).toBeInTheDocument();
+  });
+
   it("edits the link of a frame", async () => {
     const user = userEvent.setup();
     const { onApply } = setup({ id: "f1" });
@@ -966,4 +1081,13 @@ it("re-renders with a new node without keeping a stale draft", async () => {
   rerender(<PropertiesPanel doc={doc} node={doc.nodes.f2 ?? null} selected={["f2"]} onApply={() => {}} onSelect={() => {}} />);
   expect(box("X")).toHaveValue("700");
   await act(async () => {});
+});
+
+describe("Typed property names", () => {
+  it("refuses a property that no node has", () => {
+    const set: SetProps = () => undefined;
+    set({ x: 1, layout: null });
+    // @ts-expect-error a misspelled property name does not compile
+    set({ widht: 1 });
+  });
 });

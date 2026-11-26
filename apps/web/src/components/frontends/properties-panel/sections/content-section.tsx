@@ -22,11 +22,11 @@ import { PanelSection } from "../panel-section";
 export type ContentSectionProps = {
   doc: Document;
   node: Node;
-  onApply: (ops: Op[], label: string) => void;
-  centerShortcut?: readonly string[];
+  onApply: (ops: Op[], label: string) => unknown;
+  shortcut?: readonly string[];
 };
 
-export function ContentSection({ doc, node, onApply, centerShortcut = ["Alt", "C"] }: ContentSectionProps) {
+export function ContentSection({ doc, node, onApply, shortcut }: ContentSectionProps) {
   const { t } = useTranslation();
   const target = contentTarget(doc, node);
   if (!target) return null;
@@ -87,11 +87,13 @@ export function ContentSection({ doc, node, onApply, centerShortcut = ["Alt", "C
           >
             {t("frontends.propertiesPanel.content.center")}
           </Button>
-          <span className="flex items-center gap-1">
-            {centerShortcut.map((key) => (
-              <Kbd key={key}>{key}</Kbd>
-            ))}
-          </span>
+          {shortcut?.length ? (
+            <span className="flex items-center gap-1">
+              {shortcut.map((key) => (
+                <Kbd key={key}>{key}</Kbd>
+              ))}
+            </span>
+          ) : null}
         </div>
       ) : (
         <InlineNotice>{t("frontends.propertiesPanel.content.empty")}</InlineNotice>
