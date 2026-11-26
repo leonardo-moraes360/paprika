@@ -15,8 +15,68 @@ import (
 )
 
 type Object struct {
-	keys []string
-	m    map[string]any
+	keys    []string
+	m       map[string]any
+	frozen  bool
+	journal *[]JournalEntry
+}
+
+type JournalKind byte
+
+const (
+	JournalSet    JournalKind = 'S'
+	JournalAdd    JournalKind = 'A'
+	JournalDelete JournalKind = 'D'
+)
+
+type JournalEntry struct {
+	Key  string
+	Kind JournalKind
+}
+
+type FrozenError struct{ Key string }
+
+func (e *FrozenError) Error() string {
+	return fmt.Sprintf("jsonv: write to %q on a frozen object (a version shared with an earlier document)", e.Key)
+}
+
+func Freeze(v any) {
+	switch t := v.(type) {
+	case *Object:
+		if t == nil || t.frozen {
+			return
+		}
+		for _, k := range t.keys {
+			Freeze(t.m[k])
+		}
+		t.frozen = true
+	case []any:
+		for _, x := range t {
+			Freeze(x)
+		}
+	}
+}
+
+func (o *Object) Frozen() bool { return o != nil && o.frozen }
+
+func (o *Object) Seal() { o.frozen = true }
+
+func (o *Object) StartJournal() {
+	j := []JournalEntry{}
+	o.journal = &j
+}
+
+func (o *Object) Journal() []JournalEntry {
+	if o == nil || o.journal == nil {
+		return nil
+	}
+	return *o.journal
+}
+
+func (o *Object) record(k string, kind JournalKind) {
+	if o.journal != nil {
+		*o.journal = append(*o.journal, JournalEntry{k, kind})
+	}
 }
 
 func NewObject(kv ...any) *Object {
@@ -66,13 +126,18 @@ func (o *Object) Has(k string) bool {
 }
 
 func (o *Object) Set(k string, v any) {
+	if o.frozen {
+		panic(&FrozenError{k})
+	}
 	if o.m == nil {
 		o.m = map[string]any{}
 	}
 	if _, ok := o.m[k]; ok {
 		o.m[k] = v
+		o.record(k, JournalSet)
 		return
 	}
+	o.record(k, JournalAdd)
 	o.m[k] = v
 	if n, ok := arrayIndex(k); ok {
 		at := sort.Search(len(o.keys), func(i int) bool {
@@ -94,6 +159,10 @@ func (o *Object) Delete(k string) {
 	if _, ok := o.m[k]; !ok {
 		return
 	}
+	if o.frozen {
+		panic(&FrozenError{k})
+	}
+	o.record(k, JournalDelete)
 	delete(o.m, k)
 	for i, kk := range o.keys {
 		if kk == k {
@@ -110,6 +179,12 @@ func (o *Object) DeleteAll(ks []string) {
 	drop := make(map[string]struct{}, len(ks))
 	for _, k := range ks {
 		if _, ok := o.m[k]; ok {
+			if o.frozen {
+				panic(&FrozenError{k})
+			}
+			if _, dup := drop[k]; !dup {
+				o.record(k, JournalDelete)
+			}
 			drop[k] = struct{}{}
 			delete(o.m, k)
 		}
