@@ -48,6 +48,55 @@ func samePersisted(t *testing.T, s *Store, step int) {
 	if a, b := jsonv.Stringify(mem, ""), jsonv.Stringify(disk, ""); a != b {
 		t.Fatalf("step %d: SQLite differs from memory\nmemory %.400s\ndisk   %.400s", step, a, b)
 	}
+	sameHistory(t, s, step)
+}
+
+func sameHistory(t *testing.T, s *Store, step int) {
+	t.Helper()
+	undo, redo, err := loadHistory(s.db, s.DocID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		name      string
+		disk, mem []core.HistoryEntry
+	}{{"undo", undo, s.history.Entries()}, {"redo", redo, s.history.RedoEntries()}} {
+		if len(c.disk) != len(c.mem) {
+			t.Fatalf("step %d: %s has %d rows on disk, %d in memory", step, c.name, len(c.disk), len(c.mem))
+		}
+		for i := range c.mem {
+			d, m := c.disk[i], c.mem[i]
+			if d.Actor != m.Actor || d.Label != m.Label || d.At != m.At || jsonv.Stringify(d.Ops, "") != jsonv.Stringify(m.Ops, "") || jsonv.Stringify(d.Inverse, "") != jsonv.Stringify(m.Inverse, "") {
+				t.Fatalf("step %d: %s entry %d differs on disk", step, c.name, i)
+			}
+		}
+	}
+}
+
+func TestPersistedHistoryFollowsTrimUndoRedoAndBatches(t *testing.T) {
+	s, _ := openTemp(t)
+	if _, err := s.Apply(parseOps(t, persistSeed), "user", "seed"); err != nil {
+		t.Fatal(err)
+	}
+	rng := rand.New(rand.NewSource(5))
+	for i := range 700 {
+		switch k := rng.Intn(20); {
+		case k < 2:
+			s.Undo("user")
+		case k < 3:
+			s.Redo("user")
+		case k < 6:
+			s.ApplyBatch(parseOps(t, fmt.Sprintf(`[{"op":"update","id":"r1","props":{"opacity":0.%d}}]`, rng.Intn(9))), "agent:a", "b", "batch-x")
+		default:
+			s.Apply(parseOps(t, fmt.Sprintf(`[{"op":"update","id":"r1","props":{"opacity":0.%d}}]`, rng.Intn(9))), "user", fmt.Sprintf("w%d", i))
+		}
+		if i%7 == 0 || i > 660 {
+			sameHistory(t, s, i)
+		}
+	}
+	if n := len(s.history.Entries()); n != 500 {
+		t.Fatalf("history not at its limit: %d", n)
+	}
 }
 
 func TestPersistedDocumentMatchesMemoryAfterRandomOps(t *testing.T) {
