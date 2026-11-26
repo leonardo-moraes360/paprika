@@ -1,11 +1,43 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Document, LintIssue } from "@paprika/core";
+import { applyOps, createDocument, type Document, type LintIssue, type Node, type Op } from "@paprika/core";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
-import { buildDocument, withGroup } from "./fixtures";
+import type { SetProps } from "./types";
 import { PropertiesPanel, useCreatePropertiesPanelStore, PropertiesPanelProvider, type ActivityEntry, type PropertiesPanelProps } from "./index";
+
+function buildDocument(): Document {
+  const base = createDocument("Studio", "doc1");
+  const ops: Op[] = [
+    { op: "set_tokens", tokens: { brand: "rgb(232, 85, 61)" }, type: "color" },
+    { op: "set_tokens", tokens: { gap: 8 } },
+    { op: "set_tokens", mode: "dark", tokens: { brand: "rgb(255, 122, 92)" } },
+    { op: "create", node: { type: "page", id: "p1", name: "Cover" } },
+    {
+      op: "create",
+      parentId: "p1",
+      node: { type: "frame", id: "f1", name: "Home", x: 120, y: 140, width: 520, height: 340, fill: "rgb(26, 31, 49)", radius: 4, layout: { mode: "column", gap: 24, padding: 48 } },
+    },
+    { op: "create", parentId: "f1", node: { type: "text", id: "t1", name: "Title", text: "Hello", fontFamily: "Inter, sans-serif", fontSize: 30, fontWeight: 700, color: "$brand" } },
+    { op: "create", parentId: "f1", node: { type: "rect", id: "r1", name: "Button", x: 10, y: 10, width: 100, height: 50, fill: "rgb(200, 64, 31)", radius: 6 } },
+    { op: "create", parentId: "f1", node: { type: "ellipse", id: "e1", name: "Dot", x: 200, y: 10, width: 40, height: 40, fill: "rgb(255, 192, 42)" } },
+    { op: "create", parentId: "p1", node: { type: "frame", id: "f2", name: "Free", x: 700, y: 140, width: 200, height: 120 } },
+    { op: "create", parentId: "f2", node: { type: "rect", id: "r2", name: "Absolute", x: 10, y: 10, width: 40, height: 40 } },
+    { op: "create", parentId: "f2", node: { type: "rect", id: "r3", name: "Second", x: 60, y: 10, width: 40, height: 40 } },
+    { op: "create", parentId: "p1", node: { type: "frame", id: "c1", name: "Card", x: 0, y: 600, width: 200, height: 100, component: true, componentProps: [{ name: "label", type: "text", default: "Hi" }] } },
+    { op: "create", parentId: "p1", node: { type: "frame", id: "i1", name: "Card copy", instanceOf: "c1", x: 240, y: 600 } },
+    { op: "create", parentId: "p1", node: { type: "connector", id: "k1", name: "Link", from: { nodeId: "r1" }, to: { nodeId: "e1" } } },
+  ];
+  return applyOps(base, ops).doc;
+}
+
+const nodeOf = (doc: Document, id: string): Node => doc.nodes[id] as Node;
+
+function withGroup(doc: Document): Document {
+  const next = applyOps(doc, [{ op: "group", ids: ["r2", "r3"], id: "g1" }]).doc;
+  return next;
+}
 
 type Setup = Partial<PropertiesPanelProps> & { id?: string | string[] | null; open?: string[] };
 
@@ -113,6 +145,38 @@ describe("PropertiesPanel states", () => {
   });
 });
 
+describe("Switching the selection", () => {
+  const twins = () => applyOps(buildDocument(), [{ op: "update", id: "r1", props: { x: 120 } }]).doc;
+
+  it("drops an unfinished number when another node with the same value is selected", async () => {
+    const user = userEvent.setup();
+    const doc = twins();
+    const handlers = { onApply: vi.fn(), onSelect: vi.fn(), onError: vi.fn() };
+    const view = render(<PropertiesPanel doc={doc} node={doc.nodes.f1 ?? null} selected={["f1"]} {...handlers} />);
+    await user.clear(box("X"));
+    await user.type(box("X"), "55");
+    view.rerender(<PropertiesPanel doc={doc} node={doc.nodes.r1 ?? null} selected={["r1"]} {...handlers} />);
+    expect(box("X")).toHaveValue("120");
+    expect(handlers.onApply).not.toHaveBeenCalled();
+  });
+
+  it("unlocks the proportion when another node is selected", async () => {
+    const user = userEvent.setup();
+    const doc = buildDocument();
+    const handlers = { onApply: vi.fn(), onSelect: vi.fn(), onError: vi.fn() };
+    const view = render(<PropertiesPanel doc={doc} node={doc.nodes.f1 ?? null} selected={["f1"]} {...handlers} />);
+    await user.click(screen.getByRole("button", { name: "Lock proportion" }));
+    view.rerender(<PropertiesPanel doc={doc} node={doc.nodes.r1 ?? null} selected={["r1"]} {...handlers} />);
+    expect(screen.getByRole("button", { name: "Lock proportion" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("uses the panel surface token", () => {
+    setup({ id: "f1" });
+    expect(screen.getByRole("complementary").className).toContain("bg-panel");
+    expect(screen.getByRole("complementary").className).not.toContain("bg-tile");
+  });
+});
+
 describe("Position and size", () => {
   it("commits X with Enter and labels the operation", async () => {
     const user = userEvent.setup();
@@ -124,14 +188,49 @@ describe("Position and size", () => {
     expect(box("X")).toHaveFocus();
   });
 
+  it("shows the owner's value again and lets the same number be sent twice when the owner did not apply it", async () => {
+    const user = userEvent.setup();
+    const { onApply } = setup({ id: "f1" });
+    await user.clear(box("X"));
+    await user.type(box("X"), "200{Enter}");
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(box("X")).toHaveValue("120");
+    await user.clear(box("X"));
+    await user.type(box("X"), "200{Enter}");
+    expect(onApply).toHaveBeenCalledTimes(2);
+    expect(box("X")).toHaveValue("120");
+  });
+
+  it("does not send the same number twice for Enter followed by blur", async () => {
+    const user = userEvent.setup();
+    const { onApply } = setup({ id: "f1" });
+    await user.clear(box("X"));
+    await user.type(box("X"), "200{Enter}");
+    await user.tab();
+    expect(onApply).toHaveBeenCalledTimes(1);
+  });
+
+  it("follows the owner when it applies the value", async () => {
+    const user = userEvent.setup();
+    const doc = buildDocument();
+    const handlers = { onApply: vi.fn(), onSelect: vi.fn(), onError: vi.fn() };
+    const view = render(<PropertiesPanel doc={doc} node={doc.nodes.f1 ?? null} selected={["f1"]} {...handlers} />);
+    await user.clear(box("X"));
+    await user.type(box("X"), "200{Enter}");
+    const next = applyOps(doc, [{ op: "update", id: "f1", props: { x: 200 } }]).doc;
+    view.rerender(<PropertiesPanel doc={next} node={next.nodes.f1 ?? null} selected={["f1"]} {...handlers} />);
+    expect(box("X")).toHaveValue("200");
+  });
+
   it("steps with the arrow keys and ten times as much with Shift", async () => {
     const user = userEvent.setup();
     const { onApply } = setup({ id: "f1" });
     await user.click(box("X"));
     await user.keyboard("{ArrowUp}");
     expect(onApply).toHaveBeenLastCalledWith([{ op: "update", id: "f1", props: { x: 121 } }], "move");
+    // the owner did not apply the first step, so the field is still at its value (120)
     await user.keyboard("{Shift>}{ArrowDown}{/Shift}");
-    expect(onApply).toHaveBeenLastCalledWith([{ op: "update", id: "f1", props: { x: 111 } }], "move");
+    expect(onApply).toHaveBeenLastCalledWith([{ op: "update", id: "f1", props: { x: 110 } }], "move");
   });
 
   it("steps with the stepper buttons", async () => {
@@ -170,21 +269,36 @@ describe("Position and size", () => {
     expect(box("X")).toHaveValue("12");
   });
 
-  it("accepts a comma as the decimal separator for opacity", async () => {
-    const user = userEvent.setup();
-    const { onApply } = setup({ id: "f1" });
-    await user.clear(box("Opacity"));
-    await user.type(box("Opacity"), "0,3{Enter}");
-    expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "f1", props: { opacity: 0.3 } }], "change opacity");
+  it("shows opacity as a percentage", () => {
+    setup({ id: "f1" });
+    expect(box("Opacity")).toHaveValue("100");
+    expect(screen.getByText("%")).toBeInTheDocument();
   });
 
-  it("clamps opacity into 0..1 and explains it", async () => {
+  it("accepts a comma as the decimal separator for opacity and sends a number from 0 to 1", async () => {
     const user = userEvent.setup();
     const { onApply } = setup({ id: "f1" });
     await user.clear(box("Opacity"));
-    await user.type(box("Opacity"), "1,4{Enter}");
-    expect(screen.getByRole("alert")).toHaveTextContent("Use a number between 0 and 1.");
-    expect(box("Opacity")).toHaveValue("1");
+    await user.type(box("Opacity"), "33,5{Enter}");
+    expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "f1", props: { opacity: 0.335 } }], "change opacity");
+  });
+
+  it("shows a stored opacity of 0.4 as 40 and steps it by one percent", async () => {
+    const user = userEvent.setup();
+    const doc = applyOps(buildDocument(), [{ op: "update", id: "f1", props: { opacity: 0.4 } }]).doc;
+    const { onApply } = setup({ id: "f1", doc });
+    expect(box("Opacity")).toHaveValue("40");
+    await user.click(screen.getByRole("button", { name: "Increase Opacity" }));
+    expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "f1", props: { opacity: 0.41 } }], "change opacity");
+  });
+
+  it("clamps opacity into 0..100 and explains it", async () => {
+    const user = userEvent.setup();
+    const { onApply } = setup({ id: "f1" });
+    await user.clear(box("Opacity"));
+    await user.type(box("Opacity"), "140{Enter}");
+    expect(screen.getByRole("alert")).toHaveTextContent("Use a number between 0 and 100.");
+    expect(box("Opacity")).toHaveValue("100");
     expect(onApply).not.toHaveBeenCalled();
   });
 
@@ -192,9 +306,20 @@ describe("Position and size", () => {
     const user = userEvent.setup();
     const { onApply } = setup({ id: "f1" });
     await user.clear(box("Opacity"));
-    await user.type(box("Opacity"), "7{Enter}");
-    expect(screen.getByRole("alert")).toHaveTextContent("Use a number between 0 and 1.");
+    await user.type(box("Opacity"), "700{Enter}");
+    expect(screen.getByRole("alert")).toHaveTextContent("Use a number between 0 and 100.");
     expect(onApply).not.toHaveBeenCalled();
+  });
+
+  it("keeps the steppers on width and height, which also take hug and fill", async () => {
+    const user = userEvent.setup();
+    const { onApply } = setup({ id: "f1" });
+    await user.click(screen.getByRole("button", { name: "Increase Width" }));
+    expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "f1", props: { width: 521 } }], "resize");
+    expect(screen.getByRole("button", { name: "Decrease Height" })).toBeInTheDocument();
+    await user.click(box("Height"));
+    await user.keyboard("{ArrowDown}");
+    expect(onApply).toHaveBeenLastCalledWith([{ op: "update", id: "f1", props: { height: 339 } }], "resize");
   });
 
   it("accepts the hug and fill keywords for the size", async () => {
@@ -258,6 +383,18 @@ describe("Section state", () => {
     expect(box("X")).toBeInTheDocument();
   });
 
+  it("renders the same first markup whatever is stored, and applies the stored state after mounting", async () => {
+    const doc = buildDocument();
+    const node = doc.nodes.f1 ?? null;
+    const tree = <PropertiesPanel doc={doc} node={node} selected={["f1"]} onApply={vi.fn()} onSelect={vi.fn()} storageKey="test.hydrate" />;
+    const clean = renderToString(tree);
+    window.localStorage.setItem("paprika.test.hydrate", JSON.stringify({ position: false }));
+    expect(renderToString(tree)).toBe(clean);
+    render(tree);
+    await screen.findByRole("button", { name: "Position and size" });
+    expect(screen.getByRole("button", { name: "Position and size" })).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("does not write anything without a storage key", async () => {
     const user = userEvent.setup();
     setup({ id: "f1" });
@@ -312,13 +449,41 @@ describe("Auto layout", () => {
     expect(call[1]).toBe("layout");
   });
 
-  it("accepts one or four padding values and rejects the rest", async () => {
+  it("edits a uniform padding as a number with steppers", async () => {
     const user = userEvent.setup();
     const { onApply } = setup({ id: "f1" });
+    expect(box("Padding")).toHaveValue("48");
+    await user.click(screen.getByRole("button", { name: "Increase Padding" }));
+    const call = onApply.mock.calls[0] as [{ props: { layout: Record<string, unknown> } }[], string];
+    expect(call[0][0]?.props.layout).toMatchObject({ padding: 49, gap: 24 });
+  });
+
+  it("switches to four sides and back to one", async () => {
+    const user = userEvent.setup();
+    const { onApply } = setup({ id: "f1" });
+    await user.click(screen.getByRole("button", { name: "Padding per side" }));
+    const first = onApply.mock.calls[0] as [{ props: { layout: { padding: unknown } } }[], string];
+    expect(first[0][0]?.props.layout.padding).toEqual([48, 48, 48, 48]);
+  });
+
+  it("offers one value for a four-sided padding", async () => {
+    const user = userEvent.setup();
+    const doc = applyOps(buildDocument(), [{ op: "update", id: "f1", props: { layout: { mode: "column", gap: 24, padding: [1, 2, 3, 4] } } }]).doc;
+    const { onApply } = setup({ id: "f1", doc });
+    expect(box("Padding")).toHaveValue("1 2 3 4");
+    await user.click(screen.getByRole("button", { name: "Same padding on all sides" }));
+    const call = onApply.mock.calls[0] as [{ props: { layout: { padding: unknown } } }[], string];
+    expect(call[0][0]?.props.layout.padding).toBe(1);
+  });
+
+  it("accepts one or four padding values and rejects the rest", async () => {
+    const user = userEvent.setup();
+    const doc = applyOps(buildDocument(), [{ op: "update", id: "f1", props: { layout: { mode: "column", gap: 24, padding: [48, 48, 48, 48] } } }]).doc;
+    const { onApply } = setup({ id: "f1", doc });
     await user.clear(box("Padding"));
     await user.type(box("Padding"), "1 2{Enter}");
     expect(screen.getByText("Use 1 value or 4 values, not negative.")).toBeInTheDocument();
-    expect(box("Padding")).toHaveValue("48");
+    expect(box("Padding")).toHaveValue("48 48 48 48");
     expect(onApply).not.toHaveBeenCalled();
     await user.clear(box("Padding"));
     await user.type(box("Padding"), "1 2 3 4{Enter}");
@@ -388,6 +553,20 @@ describe("Fill, radius and border", () => {
     expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "f1", props: { fill: "$brand" } }], "fill");
   });
 
+  it("opens the color picker on the current color, whatever its format", async () => {
+    const user = userEvent.setup();
+    setup({ id: "f1" });
+    await user.click(screen.getByRole("button", { name: /^Fill ?rgb/ }));
+    expect(await screen.findByRole("textbox", { name: "Hex value" })).toHaveValue("rgb(26, 31, 49)");
+  });
+
+  it("opens the color picker on the resolved color of a token", async () => {
+    const user = userEvent.setup();
+    setup({ id: "t1" });
+    await user.click(screen.getByRole("button", { name: /^Text color ?rgb/ }));
+    expect(await screen.findByRole("textbox", { name: "Hex value" })).toHaveValue("rgb(232, 85, 61)");
+  });
+
   it("shows a token chip for a color bound to a token", () => {
     setup({ id: "t1" });
     expect(screen.getAllByText("$brand").length).toBeGreaterThan(0);
@@ -422,7 +601,7 @@ describe("Fill, radius and border", () => {
 
   it("has no per-side border controls", () => {
     setup({ id: "f1" });
-    expect(screen.queryByText(/top border|per side/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/top border|border per side/i)).not.toBeInTheDocument();
   });
 
   it("edits a single radius and unlinks into four corners", async () => {
@@ -690,6 +869,37 @@ describe("Multi selection", () => {
     expect(onSelect).toHaveBeenCalledWith([ops[0]?.id]);
   });
 
+  it("waits for an asynchronous owner before selecting the new group", async () => {
+    const user = userEvent.setup();
+    let accept: () => void = () => undefined;
+    const onApply = vi.fn(() => new Promise<void>((resolve) => (accept = resolve)));
+    const { onSelect } = setup({ id: ["r2", "r3"], onApply });
+    await user.click(screen.getByRole("button", { name: "Group" }));
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(onSelect).not.toHaveBeenCalled();
+    await act(async () => accept());
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not select anything and reports the error when the owner refuses", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn(() => Promise.reject(new Error("refused")));
+    const { onSelect, onError } = setup({ id: ["r2", "r3"], onApply });
+    await user.click(screen.getByRole("button", { name: "Wrap in frame" }));
+    await act(async () => undefined);
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith("refused");
+  });
+
+  it("shows only the shortcut hints the owner passes", () => {
+    const first = setup({ id: ["r2", "r3"] });
+    for (const name of ["Group", "Wrap in frame"]) expect(screen.getByRole("button", { name })).not.toHaveAttribute("title");
+    first.unmount();
+    setup({ id: ["r2", "r3"], shortcuts: { group: ["Mod", "G"] } });
+    expect(screen.getByRole("button", { name: "Group" })).toHaveAttribute("title", "Mod+G");
+    expect(screen.getByRole("button", { name: "Wrap in frame" })).not.toHaveAttribute("title");
+  });
+
   it("groups free elements and selects the group", async () => {
     const user = userEvent.setup();
     const { onApply, onSelect } = setup({ id: ["r2", "r3"] });
@@ -856,6 +1066,35 @@ describe("Group, connector, component and instance", () => {
     expect(onSelect).toHaveBeenCalledWith(["i1"]);
   });
 
+  it("edits what a copy may override, in percent for opacity, and restores it from the component", async () => {
+    const user = userEvent.setup();
+    const base = applyOps(buildDocument(), [{ op: "create", parentId: "c1", node: { type: "text", id: "ct", name: "Label", text: "Hi" } }]).doc;
+    const copyId = Object.keys(base.nodes).find((id) => base.nodes[id]?.parentId === "i1") as string;
+    const first = setup({ id: copyId, doc: base });
+    await user.clear(box("Content"));
+    await user.type(box("Content"), "Bye");
+    await user.tab();
+    expect(first.onApply).toHaveBeenLastCalledWith([{ op: "update", id: copyId, props: { text: "Bye" } }], "override");
+    await user.clear(box("Opacity"));
+    await user.type(box("Opacity"), "50{Enter}");
+    expect(first.onApply).toHaveBeenLastCalledWith([{ op: "update", id: copyId, props: { opacity: 0.5 } }], "override");
+    await choose(user, "Visible", "no");
+    expect(first.onApply).toHaveBeenLastCalledWith([{ op: "update", id: copyId, props: { visible: false } }], "override");
+    expect(screen.queryByRole("button", { name: "Restore from component" })).not.toBeInTheDocument();
+    first.unmount();
+    const overridden = applyOps(base, [{ op: "update", id: copyId, props: { text: "Bye", opacity: 0.5 } }]).doc;
+    const second = setup({ id: copyId, doc: overridden });
+    await user.click(screen.getByRole("button", { name: "Restore from component" }));
+    const call = second.onApply.mock.calls[0] as [{ props: Record<string, unknown> }[], string];
+    expect(Object.values(call[0][0]?.props ?? {}).every((value) => value === null)).toBe(true);
+    expect(Object.keys(call[0][0]?.props ?? {}).sort()).toEqual(["opacity", "text"]);
+  });
+
+  it("shows the connector opacity in percent", () => {
+    setup({ id: "k1" });
+    expect(box("Opacity")).toHaveValue("100");
+  });
+
   it("edits notes", async () => {
     const user = userEvent.setup();
     const { onApply } = setup({ id: "f1" });
@@ -873,6 +1112,14 @@ describe("Content and web sections", () => {
     expect(onApply.mock.calls[0]?.[1]).toBe("align content");
     await user.click(screen.getByRole("button", { name: "Center" }));
     expect(onApply.mock.calls.at(-1)?.[1]).toBe("center content");
+  });
+
+  it("shows the center shortcut only when the owner passes it", () => {
+    const first = setup({ id: "f2" });
+    expect(screen.queryByText("Alt")).not.toBeInTheDocument();
+    first.unmount();
+    setup({ id: "f2", shortcuts: { center: ["Alt", "C"] } });
+    expect(screen.getByText("Alt")).toBeInTheDocument();
   });
 
   it("edits the link of a frame", async () => {
@@ -917,4 +1164,33 @@ it("re-renders with a new node without keeping a stale draft", async () => {
   rerender(<PropertiesPanel doc={doc} node={doc.nodes.f2 ?? null} selected={["f2"]} onApply={() => {}} onSelect={() => {}} />);
   expect(box("X")).toHaveValue("700");
   await act(async () => {});
+});
+
+describe("Layout of the node panel", () => {
+  const titles = () => screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent?.trim());
+
+  it("orders the sections as the design does: position, fill, auto layout, effects, component, web", () => {
+    setup({ id: "f1" });
+    const order = titles();
+    const at = (title: string) => order.findIndex((text) => text?.startsWith(title));
+    const wanted = ["Position and size", "Fill and border", "Auto layout", "Effects", "Component", "Web"].map(at);
+    expect(wanted.every((index) => index >= 0)).toBe(true);
+    expect([...wanted].sort((a, b) => a - b)).toEqual(wanted);
+  });
+
+  it("labels the fill and the border above their color fields", () => {
+    const doc = applyOps(buildDocument(), [{ op: "update", id: "f1", props: { stroke: { color: "rgb(0, 0, 0)", width: 1 } } }]).doc;
+    setup({ id: "f1", doc });
+    expect(screen.getByText("Fill", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByText("Border", { selector: "p" })).toBeInTheDocument();
+  });
+});
+
+describe("Typed property names", () => {
+  it("refuses a property that no node has", () => {
+    const set: SetProps = () => undefined;
+    set({ x: 1, layout: null });
+    // @ts-expect-error a misspelled property name does not compile
+    set({ widht: 1 });
+  });
 });

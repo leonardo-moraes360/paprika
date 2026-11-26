@@ -7,6 +7,7 @@ import { PropertyRow } from "@/components/ui/property-row";
 import { Switch } from "@/components/ui/switch";
 import { lockedSize } from "@/lib/numeric-input";
 import { NumericField } from "../fields/numeric-field";
+import { OpacityField } from "../fields/opacity-field";
 import { isFlowChild } from "../node-helpers";
 import { PanelSection } from "../panel-section";
 import type { SetProps } from "../types";
@@ -70,7 +71,7 @@ export function PositionSection({ doc, node, set, resizable = true, extra }: Pos
         ) : (
           <span />
         )}
-        <NumericField label={t("frontends.propertiesPanel.position.opacity")} prefix="O" value={node.opacity} min={0} max={1} onCommit={(v) => set({ opacity: v }, t("frontends.propertiesPanel.ops.opacity"))} />
+        <OpacityField label={t("frontends.propertiesPanel.position.opacity")} value={node.opacity} onCommit={(v) => set({ opacity: v }, t("frontends.propertiesPanel.ops.opacity"))} />
       </PropertyRow>
       {extra}
       {flow ? (

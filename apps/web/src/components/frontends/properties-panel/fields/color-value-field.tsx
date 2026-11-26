@@ -15,12 +15,13 @@ export type ColorValueFieldProps = {
   label: string;
   value: string | undefined;
   clearable?: boolean;
+  /** Show the label above the field, as the design does for fill and border. */
+  showLabel?: boolean;
   onCommit: (value: string | null) => void;
   className?: string;
 };
 
 const FALLBACK = "rgb(0, 0, 0)";
-const HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 
 function resolvedColor(doc: Document, value: string | undefined, mode?: string): string | null {
   if (!value) return null;
@@ -28,15 +29,26 @@ function resolvedColor(doc: Document, value: string | undefined, mode?: string):
   return typeof resolved === "string" && !resolved.startsWith("$") ? resolved : null;
 }
 
-export function ColorValueField({ doc, mode, label, value, clearable = true, onCommit, className }: ColorValueFieldProps) {
+const normalize = (color: string) => color.trim().toLowerCase().replace(/\s+/g, "");
+
+export function sameColor(next: string, current: string | null): boolean {
+  return current !== null && normalize(next) === normalize(current);
+}
+
+export function ColorValueField({ doc, mode, label, value, clearable = true, showLabel = false, onCommit, className }: ColorValueFieldProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const preview = resolvedColor(doc, value, mode);
   const isToken = typeof value === "string" && value.startsWith("$");
-  const pickerValue = preview && HEX.test(preview) ? preview : FALLBACK
+  const pickerValue = preview ?? FALLBACK;
 
   return (
     <div className={className}>
+      {showLabel ? (
+        <p aria-hidden="true" className="mb-1.5 text-xs font-semibold text-label">
+          {label}
+        </p>
+      ) : null}
       <ColorField
         value={preview ?? value ?? null}
         label={label}
@@ -50,7 +62,7 @@ export function ColorValueField({ doc, mode, label, value, clearable = true, onC
             labels={colorPickerLabels(t)}
             defaultValue={pickerValue}
             onValueCommit={(next) => {
-              if (next !== preview) onCommit(next);
+              if (!sameColor(next, preview)) onCommit(next);
             }}
           />
           <CommitTextField

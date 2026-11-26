@@ -19,7 +19,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
   return (
     <PropertiesPanelRegion.Provider
       store={props.store}
-      initial={() => initialPropertiesPanelState(props.storageKey === undefined ? {} : (readPersistedJson(props.storageKey, isOpenMap) ?? {}))}
+      initial={() => initialPropertiesPanelState()}
     >
       <PropertiesPanelView {...props} />
     </PropertiesPanelRegion.Provider>
@@ -39,10 +39,19 @@ function PropertiesPanelView({
   onSelect,
   onError,
   storageKey,
+  store: ownerStore,
+  shortcuts,
   className,
 }: PropertiesPanelProps) {
   const { t } = useTranslation();
   const store = PropertiesPanelRegion.useRegionStore();
+
+  // Stored state is read after mounting, so the server and the first client render agree; an owner store is left alone.
+  useEffect(() => {
+    if (storageKey === undefined || ownerStore !== undefined) return;
+    const stored = readPersistedJson(storageKey, isOpenMap);
+    if (stored) store.actions.hydrate(stored);
+  }, [store, storageKey, ownerStore]);
 
   useEffect(() => {
     if (storageKey === undefined) return;
@@ -50,7 +59,7 @@ function PropertiesPanelView({
     return () => subscription.unsubscribe();
   }, [store, storageKey]);
 
-  const base = { onApply, onSelect, onError, renderFontPicker };
+  const base = { onApply, onSelect, onError, renderFontPicker, shortcuts };
   const setFor =
     (target: Node): SetProps =>
     (props, label) =>
@@ -60,7 +69,7 @@ function PropertiesPanelView({
   if (!doc) {
     body = <p className="px-3.5 py-3.5 text-sm text-muted">{t("frontends.propertiesPanel.nothingSelected")}</p>;
   } else if (selected.length > 1) {
-    body = <MultiPanel doc={doc} ids={selected} onApply={onApply} onSelect={onSelect} onError={onError} />;
+    body = <MultiPanel doc={doc} ids={selected} shortcuts={shortcuts} onApply={onApply} onSelect={onSelect} onError={onError} />;
   } else if (!node) {
     body = <DocumentPanel doc={doc} lint={lint} activity={activity} activityMarker={activityMarker} onApply={onApply} onSelect={onSelect} />;
   } else if (node.type === "page") {
@@ -78,7 +87,7 @@ function PropertiesPanelView({
   }
 
   return (
-    <aside aria-label={t("frontends.propertiesPanel.region")} data-properties-panel="" tabIndex={-1} className={cn("flex h-full outline-none min-h-0 w-full flex-col bg-tile text-fg", className)}>
+    <aside aria-label={t("frontends.propertiesPanel.region")} data-properties-panel="" tabIndex={-1} className={cn("flex h-full outline-none min-h-0 w-full flex-col bg-panel text-fg", className)}>
       {header ? <div className="shrink-0">{header}</div> : null}
       <ScrollArea className="min-h-0 flex-1" viewportClassName="pb-2">
         {body}

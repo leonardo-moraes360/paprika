@@ -24,7 +24,7 @@ export function AppearanceSection({ doc, node, set }: AppearanceSectionProps) {
       {gradient ? (
         <GradientEditor doc={doc} node={node} mode={mode} set={set} />
       ) : (
-        <ColorValueField doc={doc} mode={mode} label={t("frontends.propertiesPanel.fill.color")} value={fill} onCommit={(value) => set({ fill: value }, t("frontends.propertiesPanel.ops.fill"))} />
+        <ColorValueField doc={doc} mode={mode} showLabel label={t("frontends.propertiesPanel.fill.color")} value={fill} onCommit={(value) => set({ fill: value }, t("frontends.propertiesPanel.ops.fill"))} />
       )}
       {hasCornerRadius(node) || hasPlainRadius(node) ? <RadiusFields node={node} set={set} /> : null}
       <BorderFields doc={doc} node={node} mode={mode} set={set} />

@@ -6,6 +6,18 @@ import { describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import { FontPicker, groupFonts, type FontPickerProps } from "./index";
 
+const grouping = vi.hoisted(() => ({ calls: 0 }));
+vi.mock("./groups", async (original) => {
+  const real = await original<typeof import("./groups")>();
+  return {
+    ...real,
+    groupFonts: (...args: Parameters<typeof real.groupFonts>) => {
+      grouping.calls += 1;
+      return real.groupFonts(...args);
+    },
+  };
+});
+
 function setup(props: Partial<FontPickerProps> = {}) {
   const onValueChange = vi.fn();
   const view = render(<FontPicker value="Inter, system-ui, sans-serif" onValueChange={onValueChange} documentFonts={["Instrument Sans"]} queryLocalFonts={null} {...props} />);
@@ -29,6 +41,17 @@ describe("groupFonts", () => {
 });
 
 describe("FontPicker", () => {
+  it("groups the fonts again only when its inputs change", () => {
+    grouping.calls = 0;
+    const onValueChange = vi.fn();
+    const view = render(<FontPicker value="Inter" onValueChange={onValueChange} queryLocalFonts={null} />);
+    const first = grouping.calls;
+    view.rerender(<FontPicker value="Inter" onValueChange={onValueChange} queryLocalFonts={null} className="x" />);
+    expect(grouping.calls).toBe(first);
+    view.rerender(<FontPicker value="Georgia" onValueChange={onValueChange} queryLocalFonts={null} className="x" />);
+    expect(grouping.calls).toBeGreaterThan(first);
+  });
+
   it("shows the current family and lists document and common groups", async () => {
     const user = userEvent.setup();
     setup();
